@@ -10,7 +10,15 @@ export type Section = {
   body: string;
 };
 
-export type DocFigure = { n: string; anchor: string; file: string; caption: string; description: string };
+export type DocFigure = {
+  n: string;
+  anchor: string;
+  file: string;
+  caption: string;
+  description: string;
+  labels?: string[];
+  kind?: FigureEntry["kind"];
+};
 
 export type DescribeChunks = (
   doc: DocJson,
@@ -108,6 +116,8 @@ export function docFigures(md: string, entries: FigureEntry[]): DocFigure[] {
       file: e.file || known?.file || "",
       caption: e.caption || known?.caption || "",
       description: e.description,
+      ...(e.labels?.length ? { labels: e.labels } : {}),
+      ...(e.kind ? { kind: e.kind } : {}),
     });
   }
   return [...out.values()];
@@ -165,6 +175,17 @@ export function chunkDoc(doc: DocJson, md: string, entries: FigureEntry[], opts:
     while (a > 0 && MARKER_LINE.test(ls[a - 1])) a--;
     for (let i = a; i < t.end; i++) ls[i] = "";
   }
+  // ponytail: a marker the converter put in front of a heading (the id is first named in that heading) belongs to
+  // the section the heading opens, not to the one above it
+  const carried = new Map<number, string[]>();
+  for (let i = 0; i < ls.length; i++) {
+    if (!MARKER_LINE.test(ls[i])) continue;
+    let n = i + 1;
+    while (n < ls.length && (!ls[n].trim() || MARKER_LINE.test(ls[n]))) n++;
+    if (n >= ls.length || !HEADING.test(ls[n]) || !SECTION_ANCHOR.test(ls[n])) continue;
+    carried.set(n, [...(carried.get(n) ?? []), ...ids(ls[i], REQ)]);
+    ls[i] = "";
+  }
   const sections = parseSections(md);
   const bodies = new Map(parseSections(ls.join("\n")).map((s) => [`${s.anchor} ${s.line}`, s.body]));
   const chunks: Chunk[] = [];
@@ -176,7 +197,7 @@ export function chunkDoc(doc: DocJson, md: string, entries: FigureEntry[], opts:
         docId: doc.id,
         anchor: s.anchor,
         path: s.path,
-        reqIds: ids(raw, REQ),
+        reqIds: [...new Set([...(i === 0 ? (carried.get(s.line) ?? []) : []), ...ids(raw, REQ)])],
         figureIds: ids(raw, FIG),
         header: defaultHeader(doc, s),
         text: stripComments(raw),
@@ -214,11 +235,22 @@ export function chunkDoc(doc: DocJson, md: string, entries: FigureEntry[], opts:
       reqIds: [],
       figureIds: [f.n],
       header: s ? defaultHeader(doc, s) : `${doc.code} ${doc.title}`,
-      text: [f.caption, f.description].filter(Boolean).join("\n"),
+      text: figureText(f),
       kind: "figure",
     });
   }
   return chunks;
+}
+
+// ponytail: the words visible in the picture (descriptions v2) go into the figure chunk so BM25 finds a button or a
+// symbol by its label; like the description they are Claude's reading, never quotable (the check reads doc.md only)
+export const LABELS_PREFIX = "Visible text:";
+
+export function figureText(f: Pick<DocFigure, "caption" | "description" | "labels">): string {
+  const labels = (f.labels ?? []).map((l) => l.trim()).filter(Boolean);
+  return [f.caption, f.description, labels.length ? `${LABELS_PREFIX} ${labels.join(" · ")}` : ""]
+    .filter(Boolean)
+    .join("\n");
 }
 
 export function markerLine(md: string, kind: "req" | "fig", id: string): number {

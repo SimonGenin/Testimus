@@ -10,8 +10,10 @@ import { PassageDialog } from "../components/sources/PassageDialog.tsx";
 import { Toasts } from "../components/ui/index.ts";
 import { AppContext, type AppState, type ClaudeRun, type Focus, type ProjectInfo, type Screen } from "../lib/app.ts";
 import { DEFAULT_XRAY } from "../lib/fields.ts";
+import { mirrorPrefs, restorePrefs } from "../lib/prefsMirror.ts";
 import { readSession, readString, setThemeEverywhere, writeSession } from "../lib/theme.ts";
 import { errorToast, toast } from "../lib/toast.ts";
+import { setTraces } from "../lib/traces.ts";
 import { DoctorScreen } from "../screens/doctor/DoctorScreen.tsx";
 import { DocumentsScreen } from "../screens/documents/DocumentsScreen.tsx";
 import { GenerateScreen } from "../screens/generate/GenerateScreen.tsx";
@@ -54,6 +56,7 @@ export function App() {
   const refreshInfo = useCallback(() => {
     call<ProjectInfo>("project.info", {})
       .then(async (r) => {
+        setTraces(r?.traces ?? null);
         setInfo(r);
         if (r?.xray?.fields?.length) setXray(r.xray);
         else {
@@ -75,9 +78,15 @@ export function App() {
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: once, at start (navigate is stable)
   useEffect(() => {
-    const stored = readString("testimus.project");
+    let stopMirror = () => {};
     commands()
       .then(async (r) => {
+        if (await restorePrefs()) {
+          window.location.reload();
+          return;
+        }
+        stopMirror = mirrorPrefs();
+        const stored = readString("testimus.project");
         setCmds(r.commands ?? []);
         const dir = stored || r.project;
         setProject(dir);
@@ -93,6 +102,7 @@ export function App() {
         }
       })
       .catch((e) => errorToast(e, "Testimus is not answering"));
+    return () => stopMirror();
   }, [refreshInfo]);
 
   useEffect(() => {
@@ -126,10 +136,39 @@ export function App() {
     });
   }, []);
 
+  // ponytail: a project's step columns are read again from Xray each time it is opened (Xray Editor does) — quietly:
+  // offline, or without access yet, the copy in xray.json stays
+  const fieldsFor = useRef("");
+  const jiraKey = info?.project.jiraProject;
+  useEffect(() => {
+    const dir = info?.dir;
+    if (!dir || !jiraKey || fieldsFor.current === dir) return;
+    fieldsFor.current = dir;
+    call<XrayJson>("xray.fields", {})
+      .then((x) => {
+        if (fieldsFor.current !== dir || !x?.fields?.length) return;
+        setXray((cur) => (JSON.stringify(cur.fields) === JSON.stringify(x.fields) ? cur : x));
+      })
+      .catch(() => {});
+  }, [info?.dir, jiraKey]);
+
   useEffect(() => {
     const onHash = () => setRoute(parseRoute(window.location.hash));
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+
+  // ponytail: a file dropped beside a drop target would make the browser open it in place of the app
+  useEffect(() => {
+    const guard = (e: DragEvent) => {
+      if (e.dataTransfer?.types.includes("Files")) e.preventDefault();
+    };
+    document.addEventListener("dragover", guard);
+    document.addEventListener("drop", guard);
+    return () => {
+      document.removeEventListener("dragover", guard);
+      document.removeEventListener("drop", guard);
+    };
   }, []);
 
   useEffect(() => {

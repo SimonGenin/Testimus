@@ -1,18 +1,9 @@
 import { randomBytes } from "node:crypto";
-import {
-  cpSync,
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  renameSync,
-  rmSync,
-  statSync,
-  writeFileSync,
-} from "node:fs";
-import { dirname, join } from "node:path";
+import { existsSync, readdirSync, readFileSync, renameSync, rmSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { UserError } from "../command.ts";
 import type { CheckFile, FindingCounts, LocalTestRef, StepImage, SyncState, Test } from "../types.ts";
+import { copyDirAtomic, writeAtomic } from "./atomic.ts";
 import { readXray } from "./project.ts";
 import { outsideTest, parseTest, sameTestMd, serializeTest, testMdHash } from "./testfile.ts";
 
@@ -24,12 +15,7 @@ const read = (path: string) => {
   }
 };
 
-const writeAtomic = (path: string, data: string | Uint8Array) => {
-  mkdirSync(dirname(path), { recursive: true });
-  const tmp = `${path}.tmp`;
-  writeFileSync(tmp, data);
-  renameSync(tmp, path);
-};
+export { writeAtomic };
 
 export const hex8 = () => randomBytes(4).toString("hex");
 export const newLocalId = () => `local-${hex8()}`;
@@ -178,8 +164,7 @@ export function cloneLocalTest(project: string, fromId: string, fieldOrder: read
     },
     fieldOrder,
   );
-  if (existsSync(join(from, "images")))
-    cpSync(join(from, "images"), join(testDir(project, id), "images"), { recursive: true });
+  if (existsSync(join(from, "images"))) copyDirAtomic(join(from, "images"), join(testDir(project, id), "images"));
   return id;
 }
 

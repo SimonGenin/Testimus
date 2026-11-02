@@ -177,24 +177,23 @@ export function RunHead({
 }
 
 export function Coverage({
-  requirements,
+  asked,
   result,
   checked,
 }: {
-  requirements: string[];
+  asked: { label: string; ids: string[] }[];
   result: GenOutput;
   checked: string;
 }) {
-  const missed = result.uncovered.filter((u) => requirements.some((r) => u.item.includes(r)));
-  const covered = requirements.length - missed.length;
+  const covered = (ids: string[]) => ids.filter((r) => !result.uncovered.some((u) => u.item.includes(r))).length;
   return (
     <>
       <p>
-        {requirements.length > 0 && (
-          <strong>
-            {covered} of {plural(requirements.length, "requirement")} covered.{" "}
+        {asked.map((a) => (
+          <strong key={a.label}>
+            {covered(a.ids)} of {plural(a.ids.length, `${a.label.toLowerCase()} id`)} covered.{" "}
           </strong>
-        )}
+        ))}
         {checked}
       </p>
       {!result.reportFound && result.ok && (

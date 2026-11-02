@@ -4,10 +4,11 @@ import { BrowserWindow, Menu, type Session, shell, type WebContents } from "elec
 import { dataDir, log } from "./log.ts";
 
 export type Rect = { x: number; y: number; width: number; height: number };
-export type WindowState = Rect & { maximized: boolean; zoom: number };
+export type WindowState = Rect & { maximized: boolean; zoom: number; port?: number };
 
 export const DEFAULT_SIZE = { width: 1440, height: 960 };
-export const MIN_SIZE = { width: 960, height: 640 };
+// ponytail: narrow enough to sit beside Jira or the simulator (Xray Editor's 520 × 600); the test list becomes a drawer
+export const MIN_SIZE = { width: 520, height: 600 };
 const MIN_VISIBLE = { width: 160, height: 80 };
 const ZOOMS = [0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2];
 
@@ -17,7 +18,7 @@ export function readState(file = stateFile()): Partial<WindowState> {
   try {
     const v = JSON.parse(readFileSync(file, "utf8")) as Record<string, unknown>;
     const out: Partial<WindowState> = {};
-    for (const k of ["x", "y", "width", "height", "zoom"] as const)
+    for (const k of ["x", "y", "width", "height", "zoom", "port"] as const)
       if (typeof v[k] === "number" && Number.isFinite(v[k])) out[k] = v[k] as number;
     if (typeof v.maximized === "boolean") out.maximized = v.maximized;
     return out;

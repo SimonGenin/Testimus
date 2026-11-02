@@ -20,6 +20,8 @@ export type Command<I extends z.ZodType = z.ZodType, O extends z.ZodType = z.Zod
   mutates: boolean;
   job?: string;
   global?: boolean;
+  // ponytail: false keeps a command off the MCP server (secrets): the page and the CLI have it, no Claude session does
+  mcp?: false;
   positional?: string[];
   subject?(input: z.output<I>): string;
   run(ctx: Ctx, input: z.output<I>): Promise<z.input<O>>;

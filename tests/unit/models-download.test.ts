@@ -270,7 +270,7 @@ describe("models.pull", () => {
   it("stops before any download when the models folder is not chosen (P6)", async () => {
     withEntries(ggufEntry("tiny", BODY));
     serve({ "tiny.gguf": BODY });
-    await expect(pull(quietCtx(null), { model: "tiny", via: "auto" })).rejects.toThrow(NO_DIR);
+    await expect(pull(quietCtx(null), { model: "tiny" })).rejects.toThrow(NO_DIR);
     expect(requests).toEqual([]);
     await expect(invoke("models.pull", { model: "tiny" }, { project: null, wait: true })).rejects.toThrow(
       /Choose where models are stored: `testimus models setDir <folder>`/,
@@ -306,7 +306,7 @@ describe("models.pull", () => {
   it("refuses when downloads are off", async () => {
     withEntries(ggufEntry("tiny", BODY));
     writeRegistry({ ...readRegistry(), dir, allowRemote: false });
-    await expect(pull(quietCtx(null), { model: "tiny", via: "download" })).rejects.toThrow(/downloads are off/);
+    await expect(pull(quietCtx(null), { model: "tiny" })).rejects.toThrow(/downloads are off/);
   });
 
   it("a failed checksum fails the job and registers nothing", async () => {

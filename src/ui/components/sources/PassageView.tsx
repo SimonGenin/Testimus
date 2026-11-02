@@ -130,8 +130,8 @@ export function PassageText({ passage, quote }: { passage: Passage; quote: strin
         ))}
       </div>
       {passage.figures.map((f) => (
-        <figure key={f.file} className="passage-fig">
-          <img src={fileUrl(`docs/${passage.docId}/${f.file}`)} alt={f.caption || f.file} />
+        <figure key={f.anchor} className="passage-fig">
+          {f.file && <img src={fileUrl(`docs/${passage.docId}/${f.file}`)} alt={f.caption || f.file} />}
           <figcaption className="muted">{f.caption}</figcaption>
         </figure>
       ))}

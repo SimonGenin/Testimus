@@ -3,6 +3,9 @@ import type { Job, JobEvent } from "../core/types.ts";
 export class ApiError extends Error {
   readonly fix?: string;
   readonly status: number;
+  // ponytail: a cancelled job can still have done work (a Claude run edits files as it goes) — its result rides here
+  cancelled?: boolean;
+  result?: unknown;
   constructor(message: string, fix?: string, status = 0) {
     super(message);
     this.fix = fix;
@@ -122,7 +125,14 @@ export function waitJob<T = unknown>(jobId: string, onEvent?: (e: JobEvent) => v
       settled = true;
       off();
       if (job.status === "done") resolve(job.result as T);
-      else reject(new ApiError(job.error || (job.status === "cancelled" ? "Cancelled." : "The job failed.")));
+      else {
+        const e = new ApiError(job.error || (job.status === "cancelled" ? "Cancelled." : "The job failed."));
+        if (job.status === "cancelled") {
+          e.cancelled = true;
+          e.result = job.result;
+        }
+        reject(e);
+      }
     };
     const unsubscribe = events((e) => {
       if (e.jobId !== jobId) return;

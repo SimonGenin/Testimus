@@ -3,7 +3,6 @@ import { tmpdir } from "node:os";
 import { dirname, parse } from "node:path";
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
-import type { OllamaStatus } from "../rag/runtimes/ollama.ts";
 import { LOOPBACK, loopbackProxyGap, shellOf } from "../shell.ts";
 import type { CatalogEntry, DoctorCheck, MachineProfile, ResolvedModel } from "../types.ts";
 import { jiraCreds, xrayCreds } from "./creds.ts";
@@ -216,7 +215,6 @@ export async function xrayCheck(timeoutMs: number): Promise<DoctorCheck> {
 
 export type ModelDeps = {
   machine(): Promise<MachineProfile>;
-  ollama(): Promise<OllamaStatus | null>;
   active(
     project: string | null,
   ): Promise<{ embedding: ResolvedModel | null; reranker: ResolvedModel | null; wanted: string[] }>;
@@ -243,13 +241,6 @@ async function activeOf(project: string | null) {
 
 export const modelDeps: ModelDeps = {
   machine: () => machineProfile(),
-  ollama: async () => {
-    try {
-      return await (await import("../rag/runtimes/ollama.ts")).ollamaStatus();
-    } catch {
-      return null;
-    }
-  },
   active: activeOf,
   space: async (project) => {
     const { invoke } = await import("../commands/index.ts");
@@ -275,7 +266,7 @@ function installRow(kind: "embedding" | "reranker", m: ResolvedModel | null, wan
         : "Copy it from the team share, then testimus models add <folder>.",
     );
   }
-  const where = m.install.path ?? (m.install.ollama ? `Ollama ${m.install.ollama}` : m.runtime);
+  const where = m.install.path ?? m.runtime;
   const detail = `${m.entry.label} — ${m.runtime}, ${m.device}, ${where}`;
   if (m.install.status === "verified" || m.runtime === "mock") return row(id, label, "ok", `${detail} (verified)`);
   return row(id, label, "warn", `${detail} (not verified yet)`, `testimus models verify ${m.entry.id}`);
@@ -340,14 +331,9 @@ export async function modelRows(project: string | null, deps: ModelDeps = modelD
     );
   }
   const ours = entries.map((e) => e.id);
-  const partly = [
-    ...(machine?.loaded ?? [])
-      .filter((l) => l.vramMB < l.sizeMB && entries.some((e) => e.source.ollama === l.name || e.id === l.name))
-      .map((l) => `${l.name} (${Math.round(l.vramMB)} of ${Math.round(l.sizeMB)} MB on the GPU)`),
-    ...perfStats({ last: 50 })
-      .filter((s) => s.partialOffload && ours.includes(s.model))
-      .map((s) => `${s.model} (${s.op})`),
-  ];
+  const partly = perfStats({ last: 50 })
+    .filter((s) => s.partialOffload && ours.includes(s.model))
+    .map((s) => `${s.model} (${s.op})`);
   rows.push(
     partly.length
       ? row(
@@ -372,21 +358,6 @@ export async function modelRows(project: string | null, deps: ModelDeps = modelD
         : row("index.space", "Vectors of the active model", "ok", "complete"),
     );
   } else rows.push(row("index.space", "Vectors of the active model", "skip", "no project open"));
-  const ollama = await deps.ollama();
-  const oMsg = ollama?.message ?? "Ollama state unknown.";
-  const usesOllama = [active.embedding, active.reranker].some((m) => m?.runtime === "ollama");
-  if (!usesOllama) rows.push(row("ollama", "Ollama", "ok", oMsg));
-  else if (ollama?.state === "running") rows.push(row("ollama", "Ollama", "ok", oMsg));
-  else
-    rows.push(
-      row(
-        "ollama",
-        "Ollama",
-        "fail",
-        `${oMsg} A model in use is served by Ollama.`,
-        "Start Ollama, or choose a pack: every pack runs without it (testimus models packs).",
-      ),
-    );
   const usesLlama = [active.embedding, active.reranker].some((m) => m?.runtime === "llamacpp");
   const build = reg.llamacpp;
   if (build && existsSync(build.exe))

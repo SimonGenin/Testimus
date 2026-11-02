@@ -42,6 +42,8 @@ test("the team's CSV is mapped, previewed with its warning, and imported as loca
   expect(draft?.review).toBe("draft");
   expect(draft?.stepCount).toBe(5);
   expect(draft?.summary).toContain("sectionneur-traction-l92");
+  // ponytail: the import answer opens Review on the first draft — waited for, or it lands after the boot below
+  await expect(page).toHaveURL(new RegExp(`#/review/${draft?.id}$`));
 
   await boot(page, `#/tests/${draft?.id}`);
   const main = page.getByRole("main");

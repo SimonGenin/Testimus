@@ -5,6 +5,7 @@ import { describeFigures } from "../claude/figures.ts";
 import { generateTests } from "../claude/generate.ts";
 import { claudeHeaders } from "../claude/headers.ts";
 import { type Command, command, projectOf } from "../command.ts";
+import { traceGuidance } from "../lib/traces.ts";
 import { hooks } from "../rag/chunk.ts";
 import { EFFORT, MODEL } from "./claude.ts";
 
@@ -30,6 +31,15 @@ export const commands: Command[] = [
           "What to test, in words: a feature, a screen, an operator procedure (may be empty with requirements or sections)",
         ),
       requirements: z.array(z.string()).optional().describe("Requirement ids each to be verified by at least one step"),
+      tracked: z
+        .array(
+          z.object({
+            trace: z.string().describe("Key of a tracked kind (traces.list), other than requirement"),
+            ids: z.array(z.string()).describe("Its ids, each to be verified by at least one step"),
+          }),
+        )
+        .optional()
+        .describe("Other tracked ids to cover (alarm codes, use cases…), by kind"),
       sections: z
         .array(z.string())
         .optional()
@@ -80,11 +90,19 @@ export const commands: Command[] = [
     mutates: true,
     job: "generate",
     subject: (i) => {
-      const s = i.request.trim() || [...(i.requirements ?? []), ...(i.sections ?? [])].join(", ");
+      const s =
+        i.request.trim() ||
+        [...(i.requirements ?? []), ...(i.tracked ?? []).flatMap((t) => t.ids), ...(i.sections ?? [])].join(", ");
       return s.length > 80 ? `${s.slice(0, 77)}...` : s;
     },
     async run(ctx, input) {
-      return await generateTests(projectOf(ctx), input, ctx);
+      const project = projectOf(ctx);
+      const { tracked, ...rest } = input;
+      const picked = (tracked ?? []).filter((t) => t.ids.length);
+      const asked = rest.request.trim() || rest.requirements?.length || rest.sections?.length || picked.length;
+      const extra = asked ? traceGuidance(project, picked) : [];
+      const request = extra.length ? [rest.request.trim() || "(none in words)", ...extra].join("\n") : rest.request;
+      return await generateTests(project, { ...rest, request }, ctx);
     },
   }),
   command({

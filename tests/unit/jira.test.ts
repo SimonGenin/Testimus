@@ -230,7 +230,7 @@ describe("read paths", () => {
     expect(calls[0].url).toBe(`${JIRA}/rest/api/3/myself`);
   });
 
-  it("getStepFields maps the built-in three to their test.md names and keeps custom ids", async () => {
+  it("getStepFields maps the built-in three to their test.md names, keeps custom ids and the required / off flags", async () => {
     graph = () => ({
       getProjectSettings: {
         testStepSettings: {
@@ -238,7 +238,7 @@ describe("read paths", () => {
             { id: "693943bde99dd800f1887075", name: "action", type: "text" },
             { id: "693943bde99dd800f1887076", name: "data", type: "text" },
             { id: "693943bde99dd800f1887077", name: "result", type: "text" },
-            { id: "69d5fcb02f2b49abf7fb76e6", name: "Exigence", type: "text-single" },
+            { id: "69d5fcb02f2b49abf7fb76e6", name: "Exigence", type: "text-single", required: true },
             { id: "old", name: "Retired", type: "text", disabled: true },
           ],
         },
@@ -248,7 +248,8 @@ describe("read paths", () => {
       { id: "693943bde99dd800f1887075", name: "Action", type: "text", builtin: true },
       { id: "693943bde99dd800f1887076", name: "Data", type: "text", builtin: true },
       { id: "693943bde99dd800f1887077", name: "Expected Result", type: "text", builtin: true },
-      { id: "69d5fcb02f2b49abf7fb76e6", name: "Exigence", type: "text-single", builtin: false },
+      { id: "69d5fcb02f2b49abf7fb76e6", name: "Exigence", type: "text-single", builtin: false, required: true },
+      { id: "old", name: "Retired", type: "text", builtin: false, disabled: true },
     ]);
     expect(gql().body.variables).toEqual({ projectIdOrKey: "12445" });
     expect(gql().body.query).toContain("testStepSettings");
@@ -695,12 +696,53 @@ describe("planPush — custom step fields", () => {
     graph = () => ({ createTest: { test: { issueId: "9", jira: { key: "BHPTCC-9" } } } });
     const s = step({ action: "do" });
     s.fields.Priority = "high";
+    s.fields.Severity = "  ";
     const plan = await planPush(localTest({ steps: [s] }), "local-1", null, deps);
     expect(plan.warnings).toEqual([
       '"Priority" is not a step field of BHPTCC — not pushed (refresh the fields with xray.fields if it was just added).',
     ]);
     await runAll(plan.ops);
     expect(JSON.stringify(gql(0).body)).not.toContain("high");
+  });
+
+  it("sends a non-text column back parsed, so a toggle or a multi-select stays what Xray holds", async () => {
+    graph = () => ({ createTest: { test: { issueId: "9", jira: { key: "BHPTCC-9" } } } });
+    const s = step({ action: "do" });
+    s.fields.Done = "true";
+    s.fields.Tags = '["a","b"]';
+    s.fields.Exigence = "EXI_1";
+    const plan = await planPush(localTest({ steps: [s] }), "local-1", null, {
+      ...deps,
+      fields: [
+        ...deps.fields,
+        { id: "cf-done", name: "Done", type: "toggle", builtin: false },
+        { id: "cf-tags", name: "Tags", type: "multiselect", builtin: false },
+      ],
+    });
+    await runAll(plan.ops);
+    const custom = JSON.stringify(gql(0).body);
+    expect(custom).toContain('{"id":"cf-done","value":true}');
+    expect(custom).toContain('{"id":"cf-tags","value":["a","b"]}');
+    expect(custom).toContain('{"id":"cf-exigence","value":"EXI_1"}');
+  });
+
+  it("warns when a field Xray requires is empty on a step, but not for a field switched off", async () => {
+    graph = () => ({ createTest: { test: { issueId: "9", jira: { key: "BHPTCC-9" } } } });
+    const filled = step({ action: "do" });
+    filled.fields.Exigence = "EXI_1";
+    const plan = await planPush(
+      localTest({ steps: [filled, step({ action: "again" }), step({ action: "end" })] }),
+      "local-1",
+      null,
+      {
+        ...deps,
+        fields: [
+          ...deps.fields.map((f) => (f.name === "Exigence" ? { ...f, required: true } : f)),
+          { id: "cf-old", name: "Retired", type: "text", builtin: false, required: true, disabled: true },
+        ],
+      },
+    );
+    expect(plan.warnings).toEqual(["Exigence is required in Xray and empty in step 2, 3."]);
   });
 
   it("a source change alone plans nothing — sources are local", async () => {

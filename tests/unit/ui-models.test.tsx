@@ -120,7 +120,7 @@ const catalogRows = (): CatalogRow[] => [
     kind: "embedding",
     label: "Qwen3 Embedding 8B (8-bit)",
     tier: "quality",
-    runtimes: ["llamacpp", "ollama"],
+    runtimes: ["llamacpp"],
     quantization: "Q8_0",
     dims: 4096,
     sizeMB: 7700,
@@ -169,15 +169,6 @@ const ragStatus = {
   docs: [],
 };
 
-const ollamaAbsent = {
-  state: "absent",
-  host: "http://127.0.0.1:11434",
-  storage: { dir: "C:\\Users\\me\\.ollama\\models", freeMB: 24000, fromEnv: false },
-  models: [],
-  loaded: [],
-  message: "Ollama is not installed. It is optional: every model also runs without it.",
-};
-
 const hardware = {
   at: "2026-11-02T10:00:00Z",
   ramTotalMB: 32000,
@@ -221,7 +212,6 @@ function base(dir: string | null = "D:\\models") {
   routes["models.packs"] = () => packs();
   routes["models.advice"] = () => [];
   routes["rag.status"] = () => ragStatus;
-  routes["models.ollama"] = () => ollamaAbsent;
   routes["models.hardware"] = () => hardware;
   routes["jobs.list"] = () => [];
   routes["models.usePack"] = (i) => ({
@@ -439,7 +429,7 @@ describe("Settings › Models — packs", () => {
   });
 });
 
-describe("Settings › Models — table, advice, Ollama", () => {
+describe("Settings › Models — table, advice", () => {
   it("keeps the models table folded until asked; rows have state, fit and actions", async () => {
     base();
     routes["models.fit"] = () =>
@@ -490,9 +480,7 @@ describe("Settings › Models — table, advice, Ollama", () => {
     const dlg = await screen.findByRole("dialog", { name: "Remove Qwen3 Embedding 8B (8-bit)?" });
     expect(within(dlg).getByText(/7.5 GB\) are deleted from D:\\models\\Qwen3-8B/)).toBeInTheDocument();
     fireEvent.click(within(dlg).getByRole("button", { name: "Delete it" }));
-    await waitFor(() =>
-      expect(named("models.remove")[0]?.input).toEqual({ model: "qwen3-embedding-8b-q8", confirm: false }),
-    );
+    await waitFor(() => expect(named("models.remove")[0]?.input).toEqual({ model: "qwen3-embedding-8b-q8" }));
   });
 
   it("shows the advice banner with Apply and Dismiss", async () => {
@@ -518,44 +506,6 @@ describe("Settings › Models — table, advice, Ollama", () => {
     fireEvent.click(within(banner).getByRole("button", { name: "Dismiss" }));
     await waitFor(() => expect(screen.queryByRole("region", { name: "Advice" })).toBeNull());
     expect(named("models.dismiss")[0].input).toEqual({ id: "adv-1" });
-  });
-
-  it("Ollama: absent without error, stopped, running", async () => {
-    base();
-    show();
-    const panel = await screen.findByRole("region", { name: "Ollama" });
-    expect(await within(panel).findByText("Not installed")).toBeInTheDocument();
-    expect(within(panel).getByRole("link", { name: "ollama.com" })).toHaveAttribute("href", "https://ollama.com");
-    routes["models.ollama"] = () => ({
-      ...ollamaAbsent,
-      state: "stopped",
-      message: "Ollama is installed but not running.",
-    });
-    fireEvent.click(within(panel).getByRole("button", { name: "Refresh" }));
-    expect(await within(panel).findByText("Start Ollama, then Refresh.")).toBeInTheDocument();
-    routes["models.ollama"] = () => ({
-      ...ollamaAbsent,
-      state: "running",
-      version: "0.12.3",
-      storage: { dir: "E:\\ollama", freeMB: 50000, fromEnv: true },
-      models: [
-        {
-          name: "qwen3-embedding:4b",
-          digest: "x",
-          sizeMB: 2500,
-          quantization: "Q4_K_M",
-          embedding: true,
-          catalog: "qwen3-embedding-4b-q4",
-        },
-      ],
-      loaded: [{ name: "qwen3-embedding:4b", sizeMB: 4300, vramMB: 2900 }],
-      message: "Ollama 0.12.3 is running.",
-    });
-    fireEvent.click(within(panel).getByRole("button", { name: "Refresh" }));
-    expect((await within(panel).findAllByText("qwen3-embedding:4b")).length).toBe(2);
-    expect(within(panel).getByText("E:\\ollama")).toBeInTheDocument();
-    expect(within(panel).getByText(/Running/)).toBeInTheDocument();
-    expect(within(panel).getByText("partly on the processor (2.8 GB on the GPU)")).toBeInTheDocument();
   });
 
   it("without a project: no packs, the shared models only", async () => {

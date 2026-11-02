@@ -1,6 +1,8 @@
+import { existsSync, readdirSync, rmSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { z } from "zod";
 import { type Command, command, projectOf, UserError } from "../command.ts";
-import { fieldOrder, readProject, readXray } from "../lib/project.ts";
+import { fieldOrder, readJson, readProject, readXray, writeJson } from "../lib/project.ts";
 import {
   cloneLocalTest,
   createLocalTest,
@@ -9,13 +11,15 @@ import {
   localTestRef,
   readCheck,
   readTest,
+  removeImageFile,
   removeTest,
   syncState,
+  testDir,
   testExists,
   writeTest,
 } from "../lib/store.ts";
 import { fieldName, fieldWarnings, isReserved, newTest, parseSource, parseTest } from "../lib/testfile.ts";
-import { REVIEWS, type Review, type Source, type Test } from "../types.ts";
+import { type ColumnModes, REVIEWS, type Review, type Source, type Test } from "../types.ts";
 
 const review = z.enum(REVIEWS as [Review, ...Review[]]);
 const id = z.string().describe("Test id: the folder under tests/ — a Jira key (LFRPS12-1420) or local-<8hex>");
@@ -117,6 +121,30 @@ function mustExist(dir: string, testId: string): void {
 
 const order = (dir: string) => fieldOrder(readXray(dir));
 
+const MODE = z.enum(["open", "filled", "collapsed"]);
+const columnsFile = (dir: string, testId: string) => join(testDir(dir, testId), "columns.json");
+
+function readColumns(dir: string, testId: string): ColumnModes | null {
+  if (!existsSync(columnsFile(dir, testId))) return null;
+  const raw = readJson<Record<string, unknown>>(columnsFile(dir, testId), {});
+  const out: ColumnModes = {};
+  for (const [k, v] of Object.entries(raw)) if (MODE.safeParse(v).success) out[k] = v as ColumnModes[string];
+  return out;
+}
+
+function projectColumns(dir: string): ColumnModes {
+  const p = readXray(dir).prefs;
+  const out: ColumnModes = {};
+  for (const n of p.filled ?? []) out[n] = "filled";
+  for (const n of p.collapsed) out[n] = "collapsed";
+  return out;
+}
+
+function imageFiles(dir: string, testId: string): string[] {
+  const at = join(testDir(dir, testId), "images");
+  return existsSync(at) ? readdirSync(at).map((f) => `images/${f}`) : [];
+}
+
 function refOf(dir: string, testId: string) {
   const r = localTestRef(dir, testId);
   if (!r) throw new UserError(`No test ${testId} in this project.`);
@@ -215,6 +243,8 @@ export const commands: Command[] = [
       sync: z.enum(["local", "modified", "synced", "remote-changed"]),
       findings: counts.nullable(),
       check: z.unknown(),
+      files: z.array(z.string()).describe("Picture files present in the test folder (images/…)"),
+      mtime: z.number().describe("test.md modification time (ms), to notice an edit made outside the app"),
     }),
     mutates: false,
     positional: ["id"],
@@ -234,6 +264,8 @@ export const commands: Command[] = [
         sync: syncState(dir, input.id, md, remoteMd ?? null),
         findings: findingCounts(check, md) ?? null,
         check,
+        files: imageFiles(dir, input.id),
+        mtime: statSync(join(testDir(dir, input.id), "test.md")).mtimeMs,
       };
     },
   }),
@@ -270,6 +302,10 @@ export const commands: Command[] = [
       labels: z.array(z.string()).optional().describe("New label list (replaces it)"),
       description: z.string().optional().describe("New description"),
       covers: z.array(z.string()).optional().describe("New list of covered issue keys (replaces it)"),
+      preconditions: z
+        .array(z.string())
+        .optional()
+        .describe("New list of attached Xray Precondition keys (replaces it; xray.preconditions lists them)"),
       steps: z
         .array(stepOp)
         .optional()
@@ -290,6 +326,10 @@ export const commands: Command[] = [
       if (input.labels) test.labels = input.labels;
       if (input.description !== undefined) test.description = input.description;
       if (input.covers) test.covers = input.covers;
+      if (input.preconditions)
+        test.preconditions = [
+          ...new Set(input.preconditions.map((k) => k.trim().toUpperCase()).filter(Boolean)),
+        ].sort();
       applyOps(
         test,
         input.steps ?? [],
@@ -312,6 +352,90 @@ export const commands: Command[] = [
       mustExist(dir, input.id);
       writeTest(dir, input.id, keepReview(readTest(dir, input.id).test, input.test), order(dir));
       return refOf(dir, input.id);
+    },
+  }),
+  command({
+    name: "tests.restore",
+    summary:
+      "Undo every local change of a test: test.md is rewritten from .remote.md, the version Jira had at the last sync (no network, nothing pushed) — the review state included, as the label Jira carried.",
+    input: z.object({ id }),
+    output: ref,
+    mutates: true,
+    positional: ["id"],
+    async run(ctx, input) {
+      const dir = projectOf(ctx);
+      mustExist(dir, input.id);
+      const { remoteMd } = readTest(dir, input.id);
+      if (remoteMd === undefined)
+        throw new UserError(
+          `${input.id} was never synced with Jira — there is no version to go back to.`,
+          "Only a test pulled from or pushed to Jira keeps a .remote.md.",
+        );
+      writeTest(dir, input.id, parseTest(remoteMd).test, order(dir));
+      return refOf(dir, input.id);
+    },
+  }),
+  command({
+    name: "tests.columns",
+    summary:
+      "How the step fields of one test fold: its own modes (tests/<id>/columns.json, never part of test.md) over the project's (xray.json prefs).",
+    input: z.object({ id }),
+    output: z.object({
+      own: z
+        .record(z.string(), MODE)
+        .nullable()
+        .describe("The test's own modes by field name, null when it follows the project"),
+      project: z.record(z.string(), MODE).describe("The project's modes (fields not listed are open)"),
+    }),
+    mutates: false,
+    positional: ["id"],
+    async run(ctx, input) {
+      const dir = projectOf(ctx);
+      mustExist(dir, input.id);
+      return { own: readColumns(dir, input.id), project: projectColumns(dir) };
+    },
+  }),
+  command({
+    name: "tests.setColumns",
+    summary:
+      "Set how the step fields of one test fold (open · filled: only on a step that holds something · collapsed); null or {} follows the project again. Folding never makes a test modified.",
+    input: z.object({
+      id,
+      modes: z
+        .record(z.string(), MODE)
+        .nullable()
+        .describe("Modes by field name for this test only, or null to follow the project"),
+    }),
+    output: z.object({ own: z.record(z.string(), MODE).nullable(), project: z.record(z.string(), MODE) }),
+    mutates: true,
+    positional: ["id"],
+    async run(ctx, input) {
+      const dir = projectOf(ctx);
+      mustExist(dir, input.id);
+      if (!input.modes || !Object.keys(input.modes).length) rmSync(columnsFile(dir, input.id), { force: true });
+      else writeJson(columnsFile(dir, input.id), input.modes);
+      return { own: readColumns(dir, input.id), project: projectColumns(dir) };
+    },
+  }),
+  command({
+    name: "tests.removeImage",
+    summary:
+      "Delete a picture file of a test (tests/<id>/images/…) that no step of test.md lists any more — the editor's ✕ once its Undo has expired.",
+    input: z.object({
+      id,
+      file: z.string().describe("The picture, relative to the test folder: images/img-<8hex>.png"),
+    }),
+    output: z.object({ removed: z.boolean(), reason: z.string().optional() }),
+    mutates: true,
+    positional: ["id", "file"],
+    async run(ctx, input) {
+      const dir = projectOf(ctx);
+      mustExist(dir, input.id);
+      const { test } = readTest(dir, input.id);
+      if (test.steps.some((s) => s.images.some((im) => im.file === input.file)))
+        return { removed: false, reason: "a step still lists it under ### Attachments" };
+      removeImageFile(dir, input.id, input.file);
+      return { removed: true };
     },
   }),
   command({

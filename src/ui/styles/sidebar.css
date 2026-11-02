@@ -1,0 +1,570 @@
+/* the Tests sidebar: tabs with counts, Jira tree and its endless folder list, recent list, drawer */
+
+.tests-screen {
+  position: relative;
+}
+
+.tside {
+  flex: 0 0 var(--tside-w, clamp(240px, 25vw, 366px));
+  width: var(--tside-w, clamp(240px, 25vw, 366px));
+}
+
+.tside-head {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  padding: 8px 8px 0 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.tside-head .tside-tabs {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border-bottom: 0;
+}
+
+.tside-head .tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.tab-count {
+  font: 400 11px / 1 var(--font-mono);
+  color: var(--ink-3);
+}
+
+.tside-close {
+  display: none;
+  align-self: center;
+}
+
+.tside-recent[aria-pressed="true"] {
+  color: var(--ink);
+  background: var(--surface-2);
+}
+
+.tside-actions {
+  align-items: center;
+}
+
+.tside-jira {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: calc(100% - 16px);
+  margin: 2px 8px 6px;
+  padding: 7px 10px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tside-jira:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.tside-jira span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tside-jira svg {
+  flex: none;
+  color: var(--ink-3);
+}
+
+/* the ✕ of a local row: shown under the pointer or on keyboard focus, never stealing the row's click */
+.trow-wrap {
+  position: relative;
+}
+
+.trow-wrap .trow-del {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  opacity: 0;
+  color: var(--ink-3);
+}
+
+.trow-wrap:hover .trow-del,
+.trow-wrap .trow-del:focus-visible,
+.trow-wrap:focus-within .trow-del {
+  opacity: 1;
+}
+
+.trow-wrap .trow-del:hover {
+  color: var(--err);
+  background: var(--err-bg);
+}
+
+.trow-wrap:hover .trow,
+.trow-wrap:focus-within .trow {
+  padding-right: 36px;
+}
+
+/* Jira tree */
+.jtree {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 6px;
+}
+
+.jfolder {
+  gap: 5px;
+  padding-top: 5px;
+  padding-bottom: 5px;
+  border-radius: var(--radius-s);
+}
+
+.jfolder:hover {
+  background: var(--surface-2);
+}
+
+.jfolder-on {
+  background: var(--surface-2);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.jfolder-twisty {
+  display: inline-flex;
+  width: 14px;
+  flex: none;
+}
+
+.jfolder .tree-name {
+  font-weight: 500;
+}
+
+.jfolder-on .tree-name {
+  font-weight: 600;
+}
+
+.jfolder-count {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--ink-3);
+  flex: none;
+}
+
+.sk-tree {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+}
+
+/* the open folder's list: its head sticks while the rows scroll under it */
+.jlist {
+  border-top: 1px solid var(--line);
+}
+
+.jlist-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px 6px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
+.jlist-path {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+
+.jlist-root {
+  font-weight: 600;
+}
+
+.jlist-range {
+  font-size: 11.5px;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+.jrow {
+  padding-left: 14px;
+}
+
+.jrow .trow-meta {
+  flex-wrap: nowrap;
+  width: 100%;
+  min-width: 0;
+}
+
+.jrow-status {
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.jrow-steps {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--ink-3);
+  white-space: nowrap;
+  flex: none;
+}
+
+.sk-trow {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 10px 12px 10px 14px;
+}
+
+.sk-trow-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sk-fade > :nth-child(4) {
+  opacity: 0.7;
+}
+
+.sk-fade > :nth-child(5) {
+  opacity: 0.45;
+}
+
+.sk-fade > :nth-child(6) {
+  opacity: 0.2;
+}
+
+.jlist-end {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 12px 4px;
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+
+.jlist-end span {
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.jempty {
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.jempty-title {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* recent tests */
+.recent {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px 10px;
+  border-top: 1px solid var(--line);
+}
+
+.recent-label {
+  margin-bottom: 4px;
+  font: 600 11px / 1.2 var(--font-body);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.recent-item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 -6px;
+  padding: 3px 6px;
+  border: 0;
+  border-radius: var(--radius-s);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.recent-item:hover {
+  background: var(--surface-2);
+}
+
+.recent-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.recent-time {
+  margin-left: auto;
+  font-size: 11.5px;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+/* activity: the slot is always there, so nothing shifts when a job starts */
+.activity {
+  position: relative;
+  align-self: center;
+  display: flex;
+  justify-content: flex-end;
+  width: 44px;
+  height: 26px;
+  flex: none;
+}
+
+.activity-notice {
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-right: 6px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--warn-bg);
+  color: var(--warn);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.activity-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.activity-btn:hover,
+.activity-btn[aria-expanded="true"] {
+  background: var(--surface-2);
+  border-color: var(--line);
+}
+
+.activity-count {
+  font: 500 11px / 1 var(--font-mono);
+  color: var(--ink-2);
+}
+
+.activity-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: min(320px, 84vw);
+  padding: 5px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-l);
+  box-shadow: var(--shadow);
+}
+
+.act {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  border-radius: var(--radius-s);
+  min-width: 0;
+}
+
+.act:hover {
+  background: var(--surface-2);
+}
+
+.act-glyph {
+  width: 14px;
+  flex: none;
+  text-align: center;
+  color: var(--accent);
+}
+
+.act-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+
+.act-label {
+  font-size: 13px;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.act-detail {
+  font-size: 12px;
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.act-time {
+  font-size: 11px;
+  color: var(--ink-3);
+  flex: none;
+}
+
+.spin {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border: 2px solid var(--surface-3);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.spin-sm {
+  width: 12px;
+  height: 12px;
+  border-width: 1.5px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root .spin {
+    animation-duration: 2.4s;
+  }
+}
+
+/* the pulling pane */
+.pullpane-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pullpane-head .h,
+.pullpane .h {
+  color: var(--ink);
+}
+
+.pullpane-progress {
+  min-height: 1.4em;
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+
+.pullpane-error {
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+
+.pullpane-row {
+  display: flex;
+  gap: 8px;
+}
+
+.pullpane-hint {
+  font-size: 12.5px;
+}
+
+.toast-left {
+  font-weight: 400;
+  color: var(--ink-3);
+}
+
+/* resizing and the narrow drawer */
+.tside-edge {
+  align-self: stretch;
+}
+
+.tests-bar,
+.tside-toggle {
+  display: none;
+}
+
+@media (max-width: 899px) {
+  .tside {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 30;
+    width: min(300px, 86%);
+    flex: none;
+    border-right: 1px solid var(--line-strong);
+    box-shadow: var(--shadow);
+    transform: translateX(-101%);
+    visibility: hidden;
+    transition:
+      transform 0.2s ease-out,
+      visibility 0s linear 0.2s;
+  }
+
+  .tside.is-open {
+    transform: translateX(0);
+    visibility: visible;
+    transition: transform 0.2s ease-out;
+  }
+
+  .tside-close {
+    display: inline-flex;
+  }
+
+  .tside-edge {
+    display: none;
+  }
+
+  .tests-bar {
+    display: flex;
+    align-items: center;
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface);
+  }
+
+  .tside-toggle {
+    display: inline-flex;
+    font-size: 15px;
+  }
+
+  .tside-scrim {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    background: var(--scrim);
+  }
+}

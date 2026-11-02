@@ -25,7 +25,7 @@ async function sandbox(url: string): Promise<string> {
   return dirname((await api<{ dir: string }>(url, "project.info")).dir);
 }
 
-test.describe("default PC: a 16 GB GPU, no Ollama, a models folder", () => {
+test.describe("default PC: a 16 GB GPU, a models folder", () => {
   const { url } = mockServer(4360);
 
   test("the packs say what runs here, and the advice can be applied or dismissed", async ({ page }) => {
@@ -34,8 +34,9 @@ test.describe("default PC: a 16 GB GPU, no Ollama, a models folder", () => {
     await expect(light).toContainText("In use");
     await expect(light).toContainText("Nothing left");
     const quality = models.getByRole("article", { name: "Quality pack" });
-    await expect(quality).toContainText("second choice");
-    await expect(quality.getByRole("list", { name: "Skipped variants" })).toContainText("tight");
+    await expect(quality).toContainText("Qwen3 Embedding 8B (4-bit) + Qwen3 Reranker 4B (8-bit, GGUF)");
+    await expect(quality).toContainText("Fits");
+    await expect(quality.getByRole("list", { name: "Skipped variants" })).toHaveCount(0);
     await expect(models.getByRole("article", { name: "Custom pack" })).toBeVisible();
     const advice = models.getByRole("region", { name: "Advice" });
     await expect(advice).toContainText("Performance pack");
@@ -88,13 +89,6 @@ test.describe("default PC: a 16 GB GPU, no Ollama, a models folder", () => {
       timeout: 30_000,
     });
   });
-
-  test("Ollama is optional and says it is not installed", async ({ page }) => {
-    const models = await openModels(page);
-    const ollama = models.getByRole("region", { name: "Ollama" });
-    await expect(ollama).toContainText("Not installed");
-    await expect(ollama).toContainText("It is optional");
-  });
 });
 
 test.describe("a 4 GB GPU", () => {
@@ -104,27 +98,34 @@ test.describe("a 4 GB GPU", () => {
     const models = await openModels(page);
     const quality = models.getByRole("article", { name: "Quality pack" });
     await expect(quality).toContainText("Partly on the CPU");
+    await expect(quality.getByRole("list", { name: "Skipped variants" })).toContainText("gpu-too-small");
+    const balancedCard = models.getByRole("article", { name: "Balanced pack" });
+    await expect(balancedCard).toContainText("its second choice");
+    await expect(balancedCard.getByRole("list", { name: "Skipped variants" })).toContainText("4.0 GB on the GPU");
     await quality.getByRole("button", { name: "Use the Quality pack" }).click();
     const ask = page.getByRole("dialog", { name: "Will The Quality pack fit?" });
     await expect(ask).toContainText("may not fit this PC");
     await expect(ask).toContainText("Your GPU has 4.0 GB");
     await shoot(page, "models-fit-gpu-e2e");
     await ask.getByRole("button", { name: "Choose a lighter one" }).click();
-    const balanced = page.getByRole("dialog", { name: "Will The Balanced pack fit?" });
-    await expect(balanced).toContainText("Tight");
-    await balanced.getByRole("button", { name: "Use anyway" }).click();
-    await expect(page.getByRole("dialog", { name: "Use the Balanced pack" })).toBeVisible();
+    const balanced = page.getByRole("dialog", { name: "Use the Balanced pack" });
+    await expect(balanced).toContainText("Qwen3 Embedding 0.6B (8-bit, GGUF)");
+    await balanced.getByRole("button", { name: "Cancel" }).click();
+    await expect(balanced).toBeHidden();
+    await quality.getByRole("button", { name: "Use the Quality pack" }).click();
+    await ask.getByRole("button", { name: "Use anyway" }).click();
+    await expect(page.getByRole("dialog", { name: "Use the Quality pack" })).toBeVisible();
   });
 });
 
 test.describe("no GPU and 6 GB of memory", () => {
   mockServer(4362, { TESTIMUS_MOCK_MACHINE: "cpu-only" });
 
-  test("a pack too big for the memory is not offered, and a model too big is refused", async ({ page }) => {
+  test("variants too big for the memory are skipped, and a model too big is refused", async ({ page }) => {
     const models = await openModels(page);
     const quality = models.getByRole("article", { name: "Quality pack" });
-    await expect(quality).toContainText("Not available on this PC");
-    await expect(quality.getByRole("button", { name: "Use the Quality pack" })).toBeDisabled();
+    await expect(quality).toContainText("its third choice");
+    await expect(quality).toContainText("Tight");
     await expect(quality.getByRole("list", { name: "Skipped variants" })).toContainText("ram-too-small");
     await models.getByRole("button", { name: "Model catalog" }).click();
     const table = models.getByRole("table", { name: "Model catalog" });
@@ -176,30 +177,5 @@ test.describe("first download, no models folder chosen", () => {
     await expect
       .poll(async () => (await api<{ where: string }[]>(url, "models.list")).some((m) => m.where.startsWith(moved)))
       .toBe(true);
-  });
-});
-
-test.describe("Ollama installed", () => {
-  test.describe("but stopped", () => {
-    mockServer(4365, { TESTIMUS_MOCK_OLLAMA: "stopped" });
-    test("the panel says to start it", async ({ page }) => {
-      const ollama = (await openModels(page)).getByRole("region", { name: "Ollama" });
-      await expect(ollama).toContainText("Installed, not running");
-      await expect(ollama).toContainText("Start Ollama, then Refresh");
-    });
-  });
-
-  test.describe("and running", () => {
-    mockServer(4364, { TESTIMUS_MOCK_OLLAMA: "running" });
-    test("the panel lists its embedding models and the one partly on the processor", async ({ page }) => {
-      const ollama = (await openModels(page)).getByRole("region", { name: "Ollama" });
-      await expect(ollama).toContainText("Running 0.12.6");
-      await expect(ollama).toContainText("qwen3-embedding:0.6b");
-      await expect(ollama).toContainText("qwen3-embedding:4b");
-      await expect(ollama).not.toContainText("llama3.2");
-      await expect(ollama).toContainText("partly on the processor (2.8 GB on the GPU)");
-      await top(ollama);
-      await shoot(page, "models-ollama-e2e");
-    });
   });
 });

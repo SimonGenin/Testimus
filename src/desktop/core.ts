@@ -93,8 +93,15 @@ export function coreLaunch(o: {
   repo: string;
   node: string | null;
   mock: boolean;
+  port?: number;
+  project?: string | null;
 }): Launch {
-  const flags = [...SERVE_FLAGS, ...(o.mock ? ["--mock"] : [])];
+  const flags = [
+    ...(o.port ? SERVE_FLAGS.map((f, i) => (i === 2 ? String(o.port) : f)) : SERVE_FLAGS),
+    ...(o.port ? ["--port-fallback"] : []),
+    ...(o.mock ? ["--mock"] : []),
+    ...(o.project && !o.mock ? ["--project", o.project] : []),
+  ];
   if (o.packaged)
     return {
       command: join(o.exeDir, "node", "node.exe"),

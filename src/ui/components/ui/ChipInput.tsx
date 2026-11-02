@@ -11,6 +11,9 @@ export function ChipInput({
   onChange,
   className,
   autoFocus,
+  slot,
+  action,
+  removeLabel,
 }: {
   label: string;
   placeholder?: string;
@@ -20,6 +23,9 @@ export function ChipInput({
   onChange?: (values: string[]) => void;
   className?: string;
   autoFocus?: boolean;
+  slot?: ReactNode;
+  action?: ReactNode;
+  removeLabel?: (value: string) => string;
 }) {
   const [text, setText] = useState("");
   const commit = (raw: string) => {
@@ -37,12 +43,13 @@ export function ChipInput({
           key={v}
           className={mono ? "req" : undefined}
           onRemove={onChange && (() => onChange(values.filter((x) => x !== v)))}
-          removeLabel={`Remove ${v}`}
+          removeLabel={removeLabel ? removeLabel(v) : `Remove ${v}`}
         >
           {render ? render(v) : v}
         </Chip>
       ))}
-      {onChange && (
+      {slot}
+      {onChange && slot === undefined && (
         <input
           className="chipinput-field"
           aria-label={label}
@@ -61,6 +68,7 @@ export function ChipInput({
           }}
         />
       )}
+      {action}
     </div>
   );
 }

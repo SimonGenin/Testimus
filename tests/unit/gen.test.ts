@@ -334,3 +334,85 @@ describe("gen.tests", () => {
     expect(existsSync(join(dir, "tests", menu, withFigure.images[0].file))).toBe(true);
   }, 20000);
 });
+
+describe("the evidence ledger is written before the first check (review #3)", () => {
+  const id = "local-0badc0de";
+  const TCO_MD = `---
+summary: TCO deux rangs
+folder: /
+labels: []
+review: draft
+---
+
+## Description
+
+x
+
+## Step 1
+
+### Action
+
+Regarder le TCO.
+
+### Expected Result
+
+Le rang haut affiche la schématique du trafic.
+
+### Exigence
+
+EXI_MOP_SPF_510_A_20
+
+### Sources
+
+- SOSIE_211_D401-1_3#§5 "Le TCO à deux rangs affiche la schématique du trafic sur le rang haut"
+`;
+  const reply = `Écrit ${id}.\n\`\`\`gen-report\n{"tests": ["${id}"], "covered": [], "uncovered": []}\n\`\`\``;
+  let calls = 0;
+  beforeEach(() => {
+    calls = 0;
+    fake(
+      () =>
+        ++calls === 1
+          ? [
+              tool("mcp__testimus__rag_passage", { ref: "SOSIE_211_D401-1_3#§5.6.6" }),
+              tool("Write", { file_path: join(dir, "tests", id, "test.md"), content: "…" }),
+              text(reply),
+              result(reply),
+            ]
+          : [result("Aucune anomalie.")],
+      (s) => {
+        if (calls > 0) return;
+        mkdirSync(join(s.cwd, "tests", id), { recursive: true });
+        writeFileSync(join(s.cwd, "tests", id, "test.md"), TCO_MD);
+      },
+    );
+  });
+  const unread = () =>
+    readJson<{ findings: { kind: string; message: string }[] }>(join(dir, "tests", id, "check.json"), {
+      findings: [],
+    }).findings.filter((f) => f.kind === "related-unread");
+
+  it("gen.tests without the semantic check: check.json already has related-unread for the section never opened", async () => {
+    const r = (await invoke("gen.tests", { request: "TCO deux rangs", check: false }, { project: dir })) as {
+      tests: string[];
+      consulted: number;
+    };
+    expect(r.tests).toEqual([id]);
+    expect(r.consulted).toBe(1);
+    expect(unread()).toHaveLength(1);
+    expect(unread()[0].message).toMatch(/SOSIE_211_D401-1_3#§5\b/);
+    const by = readTest(dir, id).test.generatedBy as string;
+    const ledger = readJson<{ consulted: string[]; tests: string[]; covered?: unknown }>(
+      join(dir, ".testimus", "gen", `${by}.json`),
+      { consulted: [], tests: [] },
+    );
+    expect(ledger).toMatchObject({ consulted: ["SOSIE_211_D401-1_3#§5.6.6"], tests: [id], covered: [] });
+  });
+
+  it("gen.tests with the semantic check: the recorded check carries it too", async () => {
+    const r = (await invoke("gen.tests", { request: "TCO deux rangs" }, { project: dir })) as { tests: string[] };
+    expect(r.tests).toEqual([id]);
+    expect(calls).toBeGreaterThan(1);
+    expect(unread()).toHaveLength(1);
+  });
+});

@@ -42,6 +42,7 @@ export type CorpusDoc = {
   superseded: boolean;
   chunks: Chunk[];
   titles: Map<string, string>;
+  sections: { anchor: string; title: string; path: string }[];
   position: (anchor: string) => number;
 };
 
@@ -91,12 +92,14 @@ export function corpusDocs(project: string): CorpusDoc[] {
     const out = docs.map((d): CorpusDoc => {
       const fresh = db && indexed.get(d.doc.id) === d.content;
       const chunks = fresh ? chunksOf(db, d.doc.id) : chunkDoc(d.doc, d.md, d.figures, opts);
+      const sections = parseSections(d.md).map((s) => ({ anchor: s.anchor, title: s.title, path: s.path }));
       return {
         doc: d.doc,
         md: d.md,
         superseded: isSuperseded(d.doc),
         chunks,
-        titles: new Map(parseSections(d.md).map((s) => [s.anchor, s.title])),
+        titles: new Map(sections.map((s) => [s.anchor, s.title])),
+        sections,
         position: positions(d.md),
       };
     });
@@ -272,6 +275,26 @@ export function mentions(project: string, input: MentionsInput): Mentions {
       g.count += spans.length;
       for (const s of spans)
         if (g.hits.length < MAX_HITS) g.hits.push({ form: text.slice(s.start, s.end), context: contextOf(text, s) });
+    }
+    // ponytail: a section with no text of its own (only sub-sections, or only its matrix) has no chunk — its title
+    // is searched all the same
+    const chunked = new Set(d.chunks.filter((c) => c.kind === "section").map((c) => baseAnchor(c.anchor)));
+    for (const s of d.sections) {
+      const ref = `${d.doc.id}#${s.anchor}`;
+      if (chunked.has(s.anchor) || byRef.has(ref)) continue;
+      const text = s.title.replace(/\*+/g, "");
+      const spans = spansIn(text, matchers);
+      if (!spans.length) continue;
+      byRef.set(ref, {
+        docId: d.doc.id,
+        ref,
+        path: s.path,
+        title: s.title,
+        kind: "section",
+        count: spans.length,
+        hits: spans.slice(0, MAX_HITS).map((x) => ({ form: text.slice(x.start, x.end), context: contextOf(text, x) })),
+        pos: d.position(s.anchor),
+      });
     }
     const list = [...byRef.values()].sort((a, b) => a.pos - b.pos || a.ref.localeCompare(b.ref));
     if (!list.length) continue;

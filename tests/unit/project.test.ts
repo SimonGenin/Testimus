@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { invoke } from "../../src/core/commands/index.ts";
+import { STARTER_ASKS } from "../../src/core/commands/project.ts";
 import { readProject, readSettings, readXray } from "../../src/core/lib/project.ts";
 
 const FIXTURE = fileURLToPath(new URL("../fixtures/project/", import.meta.url));
@@ -40,6 +41,16 @@ describe("project.init", () => {
     expect(mcp.mcpServers.testimus.args.at(-1)).toBe("mcp");
     expect(readSettings().lastProject).toBe(dir);
     expect(readSettings().projects[0]).toBe(dir);
+  });
+
+  it("starts an empty folder with Data shown when filled and the starter quick ask", async () => {
+    const dir = tmp("testimus-init-empty-");
+    await invoke("project.init", { dir }, { project: null });
+    const xray = JSON.parse(readFileSync(join(dir, "xray.json"), "utf8"));
+    expect(xray.prefs.filled).toEqual(["Data"]);
+    const project = JSON.parse(readFileSync(join(dir, "project.json"), "utf8"));
+    expect(project.claude.presets).toEqual(STARTER_ASKS);
+    expect(project.claude.presets.map((p: { label: string }) => p.label)).toEqual(["Rephrase in house style"]);
   });
 
   it("never overwrites the team's CLAUDE.md nor an existing project.json", async () => {

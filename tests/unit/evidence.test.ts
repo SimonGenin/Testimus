@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { invoke } from "../../src/core/commands/index.ts";
+import { scopeOf } from "../../src/core/lib/check.ts";
 import { chunkDoc } from "../../src/core/rag/chunk.ts";
 import { convertDocx } from "../../src/core/rag/convert-docx.ts";
 import {
@@ -242,5 +243,145 @@ describe("docs.show reports a traced section that is not the defining one", () =
     );
     const again = (await invoke("docs.show", { id: A }, { project })) as { info: { message: string }[] };
     expect(again.info[0].message).toMatch(/traces it to §9\.9, which this document does not have/);
+  });
+});
+
+describe("never the id alone (review #5, J5 shapes)", () => {
+  const md = (...l: string[]) => l.join("\n");
+
+  it("an id listed without its text takes the later id list that carries it (PA « non reproduits » annex)", () => {
+    const s = statementsOf(
+      "PA",
+      md(
+        "## Commentaires Mineurs <!-- § commentaires-mineurs -->",
+        "",
+        "<!-- req EXI_MOP_SPF_519_A_700 -->",
+        "EXI_MOP_SPF_519_A_700",
+        "",
+        "<!-- req EXI_MOP_SPF_519_A_710 -->",
+        "EXI_MOP_SPF_519_A_710",
+        "",
+        "Dans toutes les listes, les itinéraires sont représentés dans leur état contrôlé.",
+        "",
+        "**Structure d'un onglet**",
+        "",
+        "**EXI_MOP_SPF_519_A_690, EXI_MOP_SPF_519_A_700**",
+        "",
+        "Chaque onglet est divisé en trois parties.",
+        "",
+        "**EXI_MOP_SPF_519_A_720**",
+        "",
+        "Autre règle.",
+      ),
+    );
+    expect(s.get("EXI_MOP_SPF_519_A_700")).toMatchObject({
+      source: "body",
+      section: "§commentaires-mineurs",
+      text: "**EXI_MOP_SPF_519_A_690, EXI_MOP_SPF_519_A_700**\n\nChaque onglet est divisé en trois parties.",
+      start: 3,
+    });
+    expect(s.get("EXI_MOP_SPF_519_A_710")?.text).toMatch(/^EXI_MOP_SPF_519_A_710\n\nDans toutes les listes/);
+  });
+
+  it("an id list followed by a sub-title says nothing: the id stays alone only when the document says no more", () => {
+    const s = statementsOf(
+      "PA",
+      md(
+        "<!-- req EXI_A_1240 -->",
+        "EXI_A_1240",
+        "",
+        "<!-- req EXI_A_1250 -->",
+        "EXI_A_1250",
+        "",
+        "**EXI_A_1240, EXI_A_1250**",
+        "",
+        "**Commandes d'allumage**",
+        "",
+        "**EXI_A_1260**",
+        "",
+        "La règle de la 1260.",
+      ),
+    );
+    expect(s.get("EXI_A_1240")?.text).toBe("EXI_A_1240");
+    expect(s.get("EXI_A_1260")).toBeUndefined();
+  });
+
+  it("several ids in one block share the text after it", () => {
+    const s = statementsOf(
+      "D",
+      md(
+        "## 2.1 Outils <!-- § 2.1 -->",
+        "<!-- req EXI_MOP_CDC_365_2410 -->",
+        "<!-- req EXI_MOP_CDC_365_2420 -->",
+        "**EXI_MOP_CDC_365_2410** et **EXI_MOP_CDC_365_2420**",
+        "",
+        "Les outils de communication sont divisés en deux catégories.",
+      ),
+    );
+    for (const id of ["EXI_MOP_CDC_365_2410", "EXI_MOP_CDC_365_2420"])
+      expect(s.get(id)?.text).toBe(
+        "**EXI_MOP_CDC_365_2410** et **EXI_MOP_CDC_365_2420**\n\nLes outils de communication sont divisés en deux catégories.",
+      );
+  });
+
+  it("an id with nothing at its marker takes its row in a table that is not a matrix, else the list it ends with a comma", () => {
+    const doc = md(
+      "## 1 Exigences <!-- § 1 -->",
+      "",
+      "| Code | Libellé | Chapitre |",
+      "| --- | --- | --- |",
+      "| EXI STB F-360 | Autre id. | 4.5 |",
+      "| EXI STB F-361 | Autre id. | 4.5 |",
+      "| EXI_MOP_CDC_365_290 | La source bureautique peut être affichée sur le TCO. | 4.5 |",
+      "",
+      "## 4.5 Vidéo <!-- § 4.5 -->",
+      "",
+      "<!-- req EXI_MOP_CDC_365_290 -->",
+      "**EXI_MOP_CDC_365_290**",
+      "",
+      "<!-- req EXI_MOP_CDC_365_150 -->",
+      "**EXI_MOP_CDC_365_150,**",
+      "",
+      "<!-- req EXI_MOP_CDC_365_430 -->",
+      "**EXI_MOP_CDC_365_430**",
+      "",
+      "Le formateur dispose de plusieurs configurations.",
+    );
+    const s = statementsOf("SOSIE_6", doc);
+    expect(s.get("EXI_MOP_CDC_365_290")).toMatchObject({
+      source: "body",
+      section: "§4.5",
+      text: "EXI_MOP_CDC_365_290 | La source bureautique peut être affichée sur le TCO. | 4.5",
+    });
+    expect(s.get("EXI_MOP_CDC_365_150")?.text).toBe("Le formateur dispose de plusieurs configurations.");
+    expect(scopeOf(doc, "req:EXI_MOP_CDC_365_290")).toContain("La source bureautique peut être affichée sur le TCO.");
+  });
+
+  it("a marker in front of the heading that names the id: that heading's section, its text, its chunk and its check scope", () => {
+    const doc = md(
+      "### Annexe 3 <!-- § annexe-3 -->",
+      "",
+      "<!-- req EXI_MOP_SPF_511_A_900 -->",
+      "#### Ajout en dessous de l’exigence « EXI_MOP_SPF_511_A_900 » <!-- § ajout -->",
+      "",
+      "Le bouton poussoir de DG du PTS est raccordé à une entrée TOR.",
+      "",
+      "<!-- req EXI_MOP_SPF_511_A_910 -->",
+      "#### Ajout en dessous de l’exigence « EXI_MOP_SPF_511_A_910 » <!-- § ajout-2 -->",
+      "",
+      "Le pupitre porte un voyant par sous-section.",
+    );
+    const s = statementsOf("PA3", doc);
+    expect(s.get("EXI_MOP_SPF_511_A_900")).toMatchObject({
+      section: "§ajout",
+      text: "Ajout en dessous de l’exigence « EXI_MOP_SPF_511_A_900 »\n\nLe bouton poussoir de DG du PTS est raccordé à une entrée TOR.",
+    });
+    expect(s.get("EXI_MOP_SPF_511_A_910")).toMatchObject({ section: "§ajout-2" });
+    expect(s.get("EXI_MOP_SPF_511_A_910")?.text).toContain("Le pupitre porte un voyant");
+    const chunks = chunkDoc({ id: "PA3", code: "PA3", title: "PA3" } as DocJson, doc, []);
+    expect(chunks.find((c) => c.anchor === "§ajout")?.reqIds).toEqual(["EXI_MOP_SPF_511_A_900"]);
+    expect(chunks.find((c) => c.anchor === "§ajout-2")?.reqIds).toEqual(["EXI_MOP_SPF_511_A_910"]);
+    expect(scopeOf(doc, "req:EXI_MOP_SPF_511_A_910")).toContain("Le pupitre porte un voyant");
+    expect(scopeOf(doc, "req:EXI_MOP_SPF_511_A_910")).not.toContain("Le bouton poussoir");
   });
 });

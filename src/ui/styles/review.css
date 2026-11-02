@@ -504,6 +504,7 @@
   }
 
   .review-foot {
+    flex-wrap: wrap;
     padding: 10px 14px;
     gap: 8px;
   }

@@ -287,6 +287,7 @@ export async function serve(argv: string[]): Promise<void> {
       "no-open": { type: "boolean" },
       "ready-json": { type: "boolean" },
       "exit-with-stdin": { type: "boolean" },
+      "port-fallback": { type: "boolean" },
     },
     strict: false,
   });
@@ -300,13 +301,24 @@ export async function serve(argv: string[]): Promise<void> {
   }
   const state: ServeState = { project, mock, port, token: sessionToken() };
   const server = createServer(handler(state));
-  await new Promise<void>((ok, fail) => {
-    server.once("error", fail);
-    server.listen(port, "127.0.0.1", () => {
-      server.off("error", fail);
-      ok();
+  const listen = (p: number) =>
+    new Promise<void>((ok, fail) => {
+      server.once("error", fail);
+      server.listen(p, "127.0.0.1", () => {
+        server.off("error", fail);
+        ok();
+      });
     });
-  });
+  // ponytail: the desktop shell asks for the port of its last run (same origin, so the page's localStorage —
+  // theme, widths, recent tests — survives a restart) and takes any free one when that port is taken
+  try {
+    await listen(port);
+  } catch (e) {
+    // ponytail: taken (EADDRINUSE) or, on Windows, inside a range Hyper-V/WinNAT reserved since the last run (EACCES)
+    const code = (e as NodeJS.ErrnoException).code ?? "";
+    if (values["port-fallback"] !== true || port === 0 || !["EADDRINUSE", "EACCES"].includes(code)) throw e;
+    await listen(0);
+  }
   state.port = (server.address() as AddressInfo).port;
   const stop = (why: string) => {
     if (state.stopping) {

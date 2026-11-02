@@ -32,7 +32,7 @@ const choice = z.union([
   z.object({ embedding: z.string(), reranker: z.string().nullable() }),
 ]);
 const plan = z.object({
-  download: z.array(z.object({ model: z.string(), via: z.enum(["download", "ollama"]), sizeMB: z.number() })),
+  download: z.array(z.object({ model: z.string(), sizeMB: z.number() })).describe("Catalog models to download first"),
   dir: z.string().nullable().describe("Where downloads go (null = the storage folder is not chosen yet)"),
   reindex: z.boolean().describe("A new vector space will be built"),
   expected: z.string().describe("Expected speed on this PC when the journal knows it"),
@@ -141,13 +141,13 @@ export const commands: Command[] = [
   }),
   command({
     name: "models.list",
-    summary: "Installed models: where, how (path · download · ollama), size, state, used by which projects.",
+    summary: "Installed models: where, how (path · download), size, state, used by which projects.",
     input: z.object({}),
     output: z.array(
       z.object({
         model: z.string(),
         label: z.string(),
-        via: z.enum(["path", "download", "ollama"]),
+        via: z.enum(["path", "download"]),
         runtime: z.string(),
         where: z.string(),
         sizeMB: z.number(),
@@ -177,14 +177,9 @@ export const commands: Command[] = [
   }),
   command({
     name: "models.pull",
-    summary:
-      "Download a catalog model (SHA-256 checked) or pull it through Ollama; a job. Stops if the models folder is not chosen.",
+    summary: "Download a catalog model (SHA-256 checked); a job. Stops if the models folder is not chosen.",
     input: z.object({
       model: z.string().describe("Catalog id"),
-      via: z
-        .enum(["auto", "download", "ollama"])
-        .default("auto")
-        .describe("auto = Ollama if it holds it, else download"),
       dir: z.string().optional().describe("Models folder for this download (sets it when not chosen yet)"),
       dtype: z.string().optional().describe("transformers models: the dtype to fetch (default from the catalog)"),
     }),
@@ -214,16 +209,13 @@ export const commands: Command[] = [
   }),
   command({
     name: "models.remove",
-    summary: "Remove a model: a download deletes its files; a path is only unregistered; Ollama deletes after confirm.",
-    input: z.object({
-      model: z.string().describe("Catalog id"),
-      confirm: z.boolean().default(false).describe("Required for an Ollama model (Ollama deletes its own files)"),
-    }),
-    output: z.object({ model: z.string(), removed: z.enum(["files", "registration", "ollama"]), freedMB: z.number() }),
+    summary: "Remove a model: a download deletes its files; a path is only unregistered.",
+    input: z.object({ model: z.string().describe("Catalog id") }),
+    output: z.object({ model: z.string(), removed: z.enum(["files", "registration"]), freedMB: z.number() }),
     mutates: true,
     global: true,
     positional: ["model"],
-    run: async (_ctx, input) => remove(input.model, input.confirm),
+    run: async (_ctx, input) => remove(input.model),
   }),
   command({
     name: "models.verify",
@@ -421,7 +413,7 @@ export const commands: Command[] = [
         return { ...out, jobIds: id ? [id] : [], dryRun: false };
       }
       const { job } = startJob("models-usePack", input.pack, project, async (jctx) => {
-        for (const d of p.download) await pull(jctx, { model: d.model, via: "auto" });
+        for (const d of p.download) await pull(jctx, { model: d.model });
         if (llama) await pullLlama(jctx, "auto");
         const index = await activate();
         return { pack: input.pack, variant: r.variantIndex, indexJob: index };
@@ -454,7 +446,7 @@ export const commands: Command[] = [
           name: z.string(),
           sizeMB: z.number(),
           vramMB: z.number(),
-          runtime: z.enum(["ollama", "llamacpp"]),
+          runtime: z.literal("llamacpp"),
         }),
       ),
     }),
@@ -534,48 +526,6 @@ export const commands: Command[] = [
       const s = readSettings();
       writeSettings({ ...s, rag: { ...s.rag, dismissed: { ...s.rag?.dismissed, [hit.id]: String(hit.metric) } } });
       return { dismissed: hit.id };
-    },
-  }),
-  command({
-    name: "models.ollama",
-    summary: "Ollama on this PC: not installed · installed, not running · running <version>, host, models, storage.",
-    input: z.object({}),
-    output: z.object({
-      state: z.enum(["absent", "stopped", "running", "disabled", "refused"]),
-      version: z.string().optional(),
-      host: z.string(),
-      exe: z.string().optional(),
-      storage: z.object({ dir: z.string(), freeMB: z.number().nullable(), fromEnv: z.boolean() }),
-      models: z.array(
-        z.object({
-          name: z.string(),
-          digest: z.string(),
-          sizeMB: z.number(),
-          quantization: z.string(),
-          embedding: z.boolean(),
-          catalog: z.string().optional().describe("The catalog id it matches"),
-        }),
-      ),
-      loaded: z.array(z.object({ name: z.string(), sizeMB: z.number(), vramMB: z.number() })),
-      message: z.string(),
-    }),
-    mutates: false,
-    global: true,
-    async run() {
-      const { ollamaStatus } = await import("../rag/runtimes/ollama.ts");
-      const s = await ollamaStatus();
-      return {
-        ...s,
-        models: s.models.map((m) => ({
-          name: m.name,
-          digest: m.digest,
-          sizeMB: m.sizeMB,
-          quantization: m.quantization,
-          embedding: m.embedding,
-          ...(m.catalogId ? { catalog: m.catalogId } : {}),
-        })),
-        loaded: s.loaded.map((l) => ({ name: l.name, sizeMB: l.sizeMB, vramMB: l.vramMB })),
-      };
     },
   }),
 ];

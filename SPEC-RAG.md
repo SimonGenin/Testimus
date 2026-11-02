@@ -7,6 +7,10 @@ contract and wins where they differ. It extended SPEC.md §4, §5, §8, §11, §
 file; SPEC.md stays the contract. The models and runtimes below are installed on the dev PC (LINKS.md,
 « Local models and runtimes ») and were tried there on 2026-11-02 (§16).
 
+**Removed by decision of 2026-11-02 (D-12): Testimus does not use Ollama.** GGUF models run on llama.cpp only, which
+Testimus downloads itself (same files as Ollama's `qwen3-embedding` tags); the Ollama parts below (§1.3, §7, §8.3,
+§16.2, §16.4) are kept as history.
+
 Marks used below: ✅ verified in the code, on real data or on the dev PC on 2026-11-02 · ⚠️ hypothesis,
 secondary source or to be checked when built.
 
@@ -700,6 +704,8 @@ Implementations: `transformers` (exists), `ollama` (new), `llamacpp` (later, exp
 
 ### 8.3 Ollama ✅ API (docs/api.md of the Ollama repository)
 
+**Removed by decision of 2026-11-02 (D-12): Testimus does not use Ollama.**
+
 - Host: `OLLAMA_HOST` or `models.json.ollama.host`, default `http://127.0.0.1:11434`. A host that is
   not loopback is refused (P5).
 - Detection: `GET /api/version`; if it fails, look for `%LOCALAPPDATA%\Programs\Ollama\ollama.exe`
@@ -882,14 +888,14 @@ Each ends on SPEC §15 and moves its behavior into SPEC.md.
 | R4 | French lexical search: stemmed column, glossary, stop words. **Built — SPEC §5.** |
 | R5 | Vector spaces by fingerprint, migration, per-machine activation, BM25 fallback. **Built — SPEC §5.** |
 | R6 | Model manager: catalog, `models.*`, storage folder question, path and download (SHA-256 checked), Settings › Models, doctor rows. **Built — SPEC §5, §13, §14.** |
-| R7 | Ollama runtime: detection, listing, embedding, pull and delete, UI panel. **Built — SPEC §5, §13 (fake server only: Ollama is not installed on the dev PC).** |
+| R7 | Ollama runtime: detection, listing, embedding, pull and delete, UI panel. **Removed (D-12)**: built, then removed by decision of 2026-11-02; GGUF runs on llama.cpp only. |
 | R8 | Hardware fit (§7.8), timings journal (§7.9), upgrade / downgrade advice (§7.10), packs (§7.12). **Built — SPEC §5, §13.** |
 | R9 | llama.cpp runtime for rerankers: managed server, backend choice (§8.4). **Built — SPEC §5, §14.** |
 | R10 | Run the experiments of §10.8; set reranker thresholds per model; adopt by evidence; record in SPEC §5. |
 | R11 (optional) | Qwen3-Reranker through transformers.js (`yes-no-lm`), figure descriptions v2, multimodal reconsidered. |
 
 R6–R9 do not depend on R2–R4 and can run beside them. The journal (R8) should land before R10 so the
-benchmark's resource figures come from it. R10 needs R1, R5, R7 and R9.
+benchmark's resource figures come from it. R10 needs R1, R5 and R9 (R7 removed, D-12).
 
 ## 14. Open questions
 
@@ -1007,3 +1013,12 @@ bit-identical vectors (the gap is larger in Q4): the runtime stays part of a vec
 Ollama still held `qwen3-embedding:8b-q8_0` (9.1 GB, kept 5 minutes after its last call by default)
 while llama.cpp loaded its own ≈ 9 GB, so part of the model went to the CPU. After unloading Ollama's
 copy (`/api/embed` with `keep_alive: 0`), 35 ms.
+
+### 16.5 Benchmark R10 (L1, provisional)
+
+Run on 2026-11-02 over the 22 current J5 documents with a bootstrap set of 40 behaviors (181 evidence items, Claude
+read the documents; **not yet validated by the testers**). The figures, the thresholds chosen and the decisions are in
+SPEC.md §5 « Benchmark results »; the full tables are in `.build/v2/r10-results.md`. In short: the graph tools make
+every configuration near-complete (0.96–1.00 must recall @10); under search alone no embedding beats bge-m3 q8;
+8B Q4 + Qwen3-Reranker in threshold mode is the only adopted configuration, at k = 10 and 20; the reference stays
+Light; Quality and Balanced now prefer Q4_K_M.

@@ -4,10 +4,11 @@ import { UserError } from "../../command.ts";
 import { readJson } from "../../lib/project.ts";
 import type { DocJson, FigureEntry, Passage, PassageOutlineItem, ProjectJson } from "../../types.ts";
 import { docFigures, lines, markerLine, parseSections, type Section, sectionAt, stripComments } from "../chunk.ts";
+import { statementOf } from "../related.ts";
 import { evidenceOptions, matrixRows, statementsOf, tablesOf } from "../statements.ts";
 
 export type FigureView = FigureEntry & { docId: string; n: string; path: string; absPath: string; exists: boolean };
-export type PassageView = Passage;
+export type PassageView = Passage & { quoteFound?: boolean };
 
 export const PASSAGE_MAX_CHARS = 12_000;
 
@@ -94,7 +95,29 @@ export function capLines(
   return { text: stripComments([...head, ...ls.slice(a, b)].join("\n")), truncated: true, a, b };
 }
 
-export function passage(project: string, ref: string): PassageView {
+const squeeze = (s: string) => stripComments(s).replace(/\*/g, "").replace(/\s+/g, " ").trim().toLowerCase();
+
+// ponytail: the line where a quote starts inside [from, to), found whitespace- and case-folded the way the check and
+// the Review highlight read it (a quote may run over several lines)
+export function quoteLine(ls: string[], from: number, to: number, quote: string): number | null {
+  const q = squeeze(quote);
+  if (!q) return null;
+  let joined = "";
+  const starts: number[] = [];
+  for (let i = from; i < to; i++) {
+    const t = squeeze(ls[i]);
+    if (!t) continue;
+    starts.push(joined.length, i);
+    joined += `${t} `;
+  }
+  const at = joined.indexOf(q);
+  if (at < 0) return null;
+  let line = from;
+  for (let k = 0; k < starts.length; k += 2) if (starts[k] <= at) line = starts[k + 1];
+  return line;
+}
+
+export function passage(project: string, ref: string, around?: string): PassageView {
   const m = ref.match(/^([^#]+)#(.+)$/);
   if (!m) throw new UserError(`"${ref}" is not a source reference.`, "Write it docId#anchor, e.g. DOC#§5.6.6.");
   const docId = m[1];
@@ -164,9 +187,18 @@ export function passage(project: string, ref: string): PassageView {
     focusLine = st?.start ?? at;
     s = sectionAt(sections, focusLine);
     focus = st?.text;
+    // ponytail: a document that only lists the id (a PA's « paragraphes identiques, non reproduits ») points at the
+    // document that states it — never the id alone
+    if (!st || stripComments(st.text).replace(/[*`]/g, "").trim() === id) {
+      const elsewhere = statementOf(project, id);
+      if (elsewhere && elsewhere.docId !== docId)
+        focus = `Stated in ${elsewhere.docId}#req:${id} (cite it there): ${elsewhere.text}`;
+    }
   }
   if (!s) throw notFound();
   const end = sectionEnd(ls, sections, s);
+  const quoted = around?.trim() ? quoteLine(ls, s.line + 1, end, around) : undefined;
+  if (typeof quoted === "number") focusLine = quoted;
   const cut = capLines(ls, s.line + 1, end, max, focusLine);
   const inSection = new Set([...s.body.matchAll(/<!--\s*fig\s+(\S+?)\s*-->/g)].map((x) => x[1]));
   return {
@@ -178,6 +210,7 @@ export function passage(project: string, ref: string): PassageView {
     figures: all.filter((f) => inSection.has(f.n)).map(entry),
     doc: docInfo,
     ...(focus ? { focus } : {}),
+    ...(quoted !== undefined ? { quoteFound: quoted !== null } : {}),
     ...(cut.truncated
       ? {
           truncated: true,

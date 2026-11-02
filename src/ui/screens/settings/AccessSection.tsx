@@ -1,23 +1,25 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { CredsStatus } from "../../../core/types.ts";
-import { call } from "../../api.ts";
-import { Button, Severity, Skeleton } from "../../components/ui/index.ts";
-import { useApp } from "../../lib/app.ts";
+import { Severity } from "../../components/ui/index.ts";
 import { useDoctor } from "../../lib/doctor.ts";
+import { cx } from "../../lib/format.ts";
+import { ConnectAtlassian } from "./ConnectAtlassian.tsx";
+
+type FileState = CredsStatus["xray"];
+
+export function fileState(f: FileState): "found" | "missing" | "invalid" {
+  if (!f.exists) return "missing";
+  return f.invalid || !f.complete ? "invalid" : "found";
+}
+
+const MARK = { found: "✓", missing: "✕", invalid: "!" } as const;
 
 export function AccessSection() {
-  const app = useApp();
   const [st, setSt] = useState<CredsStatus | null>(null);
   const doctor = useDoctor();
-  useEffect(() => {
-    call<{ status: CredsStatus }>("system.setup", {})
-      .then((r) => setSt(r.status))
-      .catch(() => {});
-  }, []);
-  const state = (id: string, complete: boolean) => {
+  const link = (id: string, f: FileState) => {
     const c = doctor.checks.find((x) => x.id === id);
-    if (!complete) return <Severity tone="warning">Missing</Severity>;
-    if (!c || c.state === "skip") return <Severity tone="info">Saved</Severity>;
+    if (fileState(f) !== "found" || !c || c.state === "skip") return null;
     return c.state === "ok" ? (
       <Severity tone="ok">Connected</Severity>
     ) : (
@@ -26,40 +28,40 @@ export function AccessSection() {
       </span>
     );
   };
-  const edit = () => app.navigate("setup");
+  const row = (id: "jira" | "xray", name: string, f: FileState) => {
+    const s = fileState(f);
+    return (
+      <div key={id} className="credrow">
+        <span className={cx("credmark", `cred-${s}`)} aria-hidden="true">
+          {MARK[s]}
+        </span>
+        <span className="accrow-name">{name}</span>
+        <span className="mono credpath" title={f.file}>
+          {f.file}
+        </span>
+        <span className={cx("credstate", `cred-${s}`)} title={f.problem}>
+          {s === "found"
+            ? "found · valid"
+            : s === "missing"
+              ? "missing"
+              : `invalid${f.problem ? ` — ${f.problem}` : ""}`}
+        </span>
+        {link(id, f)}
+      </div>
+    );
+  };
   return (
     <section className="card sect" id="settings-access" aria-labelledby="s-access">
       <h2 id="s-access" className="h sect-title">
         Access
       </h2>
-      {!st ? (
-        <Skeleton h={40} />
-      ) : (
-        <>
-          <div className="accrow">
-            <span className="accrow-name">Jira</span>
-            <span className="muted">
-              {st.jira.baseUrl ? st.jira.baseUrl.replace(/^https?:\/\//, "").replace(/\/wiki\/?$/, "") : "No site"}
-              {st.jira.email ? ` · ${st.jira.email}` : ""}
-            </span>
-            {state("jira", st.jira.complete)}
-            <Button size="sm" onClick={edit}>
-              Edit
-            </Button>
-          </div>
-          <div className="accrow">
-            <span className="accrow-name">Xray</span>
-            <span className="muted">
-              {st.xray.complete ? "Client ID and secret saved" : "Client ID or secret missing"}
-            </span>
-            {state("xray", st.xray.complete)}
-            <Button size="sm" onClick={edit}>
-              Edit
-            </Button>
-          </div>
-          <span className="muted mono accfile">{st.jira.file}</span>
-        </>
+      {st && (
+        <div className="credrows">
+          {row("jira", "Jira", st.jira)}
+          {row("xray", "Xray", st.xray)}
+        </div>
       )}
+      <ConnectAtlassian onStatus={setSt} />
     </section>
   );
 }

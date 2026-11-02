@@ -16,8 +16,7 @@ export function readRegistry(): ModelsRegistry {
     warnedDropped = true;
     const n = all.length - installs.length;
     process.stderr.write(
-      `warn: models.json lists ${n} installation${n === 1 ? "" : "s"} through Ollama; ignored (Testimus does not use Ollama).
-`,
+      `warn: models.json lists ${n} installation${n === 1 ? "" : "s"} through Ollama; ignored (Testimus does not use Ollama).\n`,
     );
   }
   return { ...raw, allowRemote: raw.allowRemote ?? readSettings().models.allowRemote, installs };

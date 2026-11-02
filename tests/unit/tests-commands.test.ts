@@ -36,15 +36,19 @@ test("every input field is described and the id is positional", () => {
   for (const c of commands) {
     const shape = (c.input as unknown as { shape: Record<string, { description?: string }> }).shape;
     for (const [k, v] of Object.entries(shape)) expect(v.description, `${c.name} ${k}`).toBeTruthy();
-    if ("id" in shape) expect(c.positional).toEqual(["id"]);
+    if ("id" in shape) expect(c.positional?.[0]).toBe("id");
   }
   expect(commands.map((c) => c.name).sort()).toEqual([
     "tests.clone",
+    "tests.columns",
     "tests.create",
     "tests.edit",
     "tests.list",
     "tests.remove",
+    "tests.removeImage",
+    "tests.restore",
     "tests.save",
+    "tests.setColumns",
     "tests.show",
   ]);
 });

@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,13 +10,25 @@ import "./claude-check.ts";
 import "./claude-gen.ts";
 import { mockHttp } from "./jira.ts";
 import { mockModelsOptions, setupModelsMock } from "./models.ts";
-import { isOllamaUrl, ollamaHttp } from "./ollama.ts";
 
 export function fixturesDir(): string {
   return fileURLToPath(new URL("../../../tests/fixtures/", import.meta.url));
 }
 
+// ponytail: a mock sandbox outlives its server (a test reads its job logs after the quit); the ones older than a day
+// are removed at the next start, so they never pile up in %TEMP%
+function dropOldSandboxes(): void {
+  const day = Date.now() - 24 * 3600 * 1000;
+  for (const name of readdirSync(tmpdir()))
+    if (name.startsWith("testimus-mock-"))
+      try {
+        const dir = join(tmpdir(), name);
+        if (statSync(dir).mtimeMs < day) rmSync(dir, { recursive: true, force: true });
+      } catch {}
+}
+
 export async function setupMock(): Promise<string> {
+  dropOldSandboxes();
   const root = mkdtempSync(join(tmpdir(), "testimus-mock-"));
   const home = join(root, "home");
   const data = join(root, "appdata");
@@ -40,7 +52,7 @@ export async function setupMock(): Promise<string> {
   env.homeDir = () => home;
   env.dataDir = () => data;
   env.localDir = () => local;
-  env.http = (req) => (isOllamaUrl(req.url) ? ollamaHttp(req) : mockHttp(req));
+  env.http = mockHttp;
   env.spawnClaude = mockSpawnClaude;
   writeJson(join(data, "settings.json"), { projects: [project], lastProject: project, models: { allowRemote: false } });
   const models = mockModelsOptions();

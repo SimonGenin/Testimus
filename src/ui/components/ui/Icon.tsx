@@ -62,6 +62,12 @@ const PATHS = {
       <path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" />
     </>
   ),
+  pin: (
+    <>
+      <path d="M6 2h4M7 2v4.2L4.5 9h7L9 6.2V2" />
+      <path d="M8 9v5" />
+    </>
+  ),
   claude: <path d="M8 1.5v13M1.5 8h13M3.4 3.4l9.2 9.2M12.6 3.4l-9.2 9.2" />,
   revert: (
     <>

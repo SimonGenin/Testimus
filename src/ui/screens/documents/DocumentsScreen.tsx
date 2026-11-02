@@ -4,6 +4,7 @@ import { call, events } from "../../api.ts";
 import { ProblemPanel, problemOf } from "../../components/shell/ProblemPanel.tsx";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
 import { BINDING, DOC_STATUS } from "../../components/sources/PassageView.tsx";
+import { TracesBar } from "../../components/traces/TracesBar.tsx";
 import { Badge, Button, Icon, IconButton, Modal, Severity, Skeleton } from "../../components/ui/index.ts";
 import { useApp } from "../../lib/app.ts";
 import { desktop, pickFiles } from "../../lib/desktop.ts";
@@ -218,6 +219,9 @@ export function DocumentsScreen() {
             Choose a search pack
           </Button>
         </div>
+      )}
+      {!!docs?.length && (
+        <TracesBar hint="none — tell Testimus which ids the documents write (requirements, alarm codes…) to give them a step column." />
       )}
       <input
         ref={picker}

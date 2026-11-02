@@ -59,6 +59,34 @@ export function openExternal(url: string): boolean {
   return true;
 }
 
+export const ON_TOP_KEY = "testimus.alwaysOnTop";
+
+export function readAlwaysOnTop(): boolean {
+  try {
+    return localStorage.getItem(ON_TOP_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+export async function setAlwaysOnTop(on: boolean): Promise<boolean> {
+  writePref(ON_TOP_KEY, on ? "true" : "false");
+  window.dispatchEvent(new CustomEvent("testimus:on-top", { detail: on }));
+  const d = desktop();
+  if (!d?.setAlwaysOnTop) return false;
+  try {
+    return await d.setAlwaysOnTop(on);
+  } catch (e) {
+    errorToast(e, "Could not change always on top");
+    return false;
+  }
+}
+
+// ponytail: the window forgets it between runs — the page that remembers it puts it back at start
+export function restoreAlwaysOnTop(): void {
+  if (desktop() && readAlwaysOnTop()) void setAlwaysOnTop(true);
+}
+
 export async function openProject(app: Pick<AppState, "refreshInfo" | "testsChanged">, dir: string): Promise<string> {
   const r = await call<{ dir: string }>("project.open", { dir });
   setProject(r.dir);

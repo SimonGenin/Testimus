@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button, RequirementChip } from "../../components/ui/index.ts";
 import { joinIds, splitIds } from "../../lib/fields.ts";
+import { exampleOf, traceOfField } from "../../lib/traces.ts";
 
 export function RequirementField({
   label,
@@ -16,6 +17,7 @@ export function RequirementField({
   onChange: (value: string) => void;
 }) {
   const ids = splitIds(value);
+  const trace = traceOfField(label);
   const [adding, setAdding] = useState(false);
   const [text, setText] = useState("");
   const commit = () => {
@@ -30,6 +32,7 @@ export function RequirementField({
         <RequirementChip
           key={id}
           id={id}
+          kind={trace ? trace.label.toLowerCase() : undefined}
           onRemove={readOnly ? undefined : () => onChange(joinIds(ids.filter((x) => x !== id)))}
         />
       ))}
@@ -38,7 +41,7 @@ export function RequirementField({
           <input
             className="field reqfield-input mono"
             aria-label={`Add ${label} to step ${stepNumber}`}
-            placeholder="EXI_…"
+            placeholder={trace ? exampleOf(trace) : "EXI_…"}
             autoFocus
             value={text}
             onChange={(e) => setText(e.target.value)}

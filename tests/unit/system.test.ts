@@ -48,6 +48,14 @@ describe("siteUrl", () => {
     expect(siteUrl("https://acme.atlassian.net/")).toBe("https://acme.atlassian.net/wiki");
     expect(siteUrl("https://jira.corp.local")).toBe("https://jira.corp.local");
   });
+  it("reduces a pasted Atlassian page URL to its site", () => {
+    expect(siteUrl("https://acme.atlassian.net/browse/LFRPS12-1?focus=1")).toBe("https://acme.atlassian.net/wiki");
+    expect(siteUrl("acme.atlassian.net/jira/software/projects/X/boards/1")).toBe("https://acme.atlassian.net/wiki");
+    expect(siteUrl("https://acme.atlassian.net/wiki/spaces/DOC/pages/1")).toBe("https://acme.atlassian.net/wiki");
+    expect(siteUrl("https://jira.corp.local/jira")).toBe("https://jira.corp.local");
+    expect(siteUrl("http://jira.corp.local/browse/X-1")).toBe("https://jira.corp.local");
+    expect(siteUrl("https://jira.corp.local/wiki/spaces/X")).toBe("https://jira.corp.local/wiki");
+  });
   it("keeps the previous spelling of the same site", () => {
     expect(siteUrl("https://acme.atlassian.net", "https://acme.atlassian.net/wiki")).toBe(
       "https://acme.atlassian.net/wiki",
@@ -150,6 +158,16 @@ describe("system.setup", () => {
 });
 
 describe("system settings", () => {
+  it("keeps the page's testimus.* preferences (desktop app), nothing else", async () => {
+    const s = (await invoke(
+      "system.saveSettings",
+      { ui: { "testimus.theme": "dark", "testimus.sidebarWidth": "300", other: "x" } },
+      { project: null },
+    )) as { ui?: Record<string, string> };
+    expect(s.ui).toEqual({ "testimus.theme": "dark", "testimus.sidebarWidth": "300" });
+    expect(((await invoke("system.settings", {}, { project: null })) as { ui?: unknown }).ui).toEqual(s.ui);
+  });
+
   it("reads defaults and saves only the fields given", async () => {
     const s0 = (await invoke("system.settings", {}, { project: null })) as any;
     expect(s0).toMatchObject({ theme: "system", stepLayout: "stacked", models: { allowRemote: true } });

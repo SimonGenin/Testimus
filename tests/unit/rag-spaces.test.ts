@@ -128,6 +128,18 @@ describe("vector spaces", () => {
     expect(calls).toEqual([`query:transformers:${BGE}`]);
   });
 
+  it("--force re-embeds the active space only; another space keeps its vectors and stays complete", async () => {
+    await indexProject(dir, quietCtx(dir));
+    use(QWEN);
+    const qwen = await indexProject(dir, quietCtx(dir));
+    use(null);
+    const forced = await indexProject(dir, quietCtx(dir), { force: true });
+    expect(forced).toMatchObject({ embedding: BGE, embedded: 7, vectorsRebuilt: true });
+    expect(forced.docs.every((d) => d.status === "indexed")).toBe(true);
+    const listed = await spaces();
+    expect(listed.find((s) => s.id === qwen.space)).toMatchObject({ model: QWEN, complete: true, chunks: 7 });
+  });
+
   it("a changed chunk leaves inactive spaces incomplete until they are activated again", async () => {
     await indexProject(dir, quietCtx(dir));
     use(QWEN);
@@ -271,11 +283,6 @@ describe("fingerprint", () => {
     expect(modelIdentity(fp16).split("+")).toHaveLength(2);
     const gguf = resolved(GGUF);
     expect(modelIdentity(gguf)).toBe(`sha256:${catalogEntry(GGUF)?.source.file?.sha256}`);
-    const ollama = resolved(GGUF, {
-      runtime: "ollama",
-      install: { model: GGUF, via: "ollama", runtime: "ollama", digest: "sha256:abc", status: "installed" },
-    });
-    expect(modelIdentity(ollama)).toBe("sha256:abc");
     const moved = resolved(BGE, { install: { ...bge.install, path: "E:/elsewhere/Xenova/bge-m3" } });
     expect(id(fingerprintOf(moved))).toBe(id(fingerprintOf(bge)));
   });
@@ -307,20 +314,11 @@ describe("fingerprint", () => {
     expect(ids.size).toBe(variants.length + 1);
   });
 
-  it("a GGUF file served by Ollama or by llama.cpp is the same model in two spaces", () => {
+  it("a GGUF file registered from a folder or downloaded is the same model in the same space", () => {
     const gguf = resolved(GGUF);
-    const viaOllama = resolved(GGUF, {
-      runtime: "ollama",
-      install: {
-        model: GGUF,
-        via: "ollama",
-        runtime: "ollama",
-        digest: `sha256:${catalogEntry(GGUF)?.source.file?.sha256}`,
-        status: "installed",
-      },
-    });
-    expect(fingerprintOf(viaOllama).model).toBe(fingerprintOf(gguf).model);
-    expect(id(fingerprintOf(viaOllama))).not.toBe(id(fingerprintOf(gguf)));
+    const downloaded = resolved(GGUF, { install: { ...gguf.install, via: "download", path: "E:/models/x.gguf" } });
+    expect(fingerprintOf(downloaded).model).toBe(fingerprintOf(gguf).model);
+    expect(id(fingerprintOf(downloaded))).toBe(id(fingerprintOf(gguf)));
   });
 });
 

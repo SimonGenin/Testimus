@@ -101,3 +101,64 @@ describe("passage cap (SPEC-RAG §3.4)", () => {
     expect(c.text).toBe(`${"b".repeat(10)}\n${"c".repeat(10)}\n${"d".repeat(10)}`);
   });
 });
+
+describe("a quote past the cap of a long section (review #16)", () => {
+  const long = () => {
+    const file = join(project, "docs", "LONG", "doc.md");
+    mkdirSync(join(project, "docs", "LONG"), { recursive: true });
+    const filler = Array.from({ length: 400 }, (_, i) => `Paragraphe ${i + 1} : la vue présente les équipements.`);
+    writeFileSync(
+      file,
+      [
+        "# LONG — Longue",
+        "",
+        "## 4 Vue système <!-- § 4 -->",
+        "",
+        ...filler.flatMap((l) => [l, ""]),
+        "Le poste PR2I affiche l'état du disjoncteur",
+        "de la sous-station en rouge clignotant.",
+        "",
+        "## 5 Suite <!-- § 5 -->",
+        "",
+        "Rien.",
+      ].join("\n"),
+    );
+    writeFileSync(
+      join(project, "docs", "LONG", "doc.json"),
+      JSON.stringify({ id: "LONG", code: "LONG", title: "Longue", status: "validated", binding: "mandatory" }),
+    );
+  };
+  const quote = "l'état du disjoncteur de la sous-station en rouge";
+
+  it("around centres the capped window on the quote (even over two lines) and says it found it", () => {
+    long();
+    const plain = passage(project, "LONG#§4");
+    expect(plain.truncated).toBe(true);
+    expect(plain.text).not.toContain("en rouge clignotant");
+    expect(plain.quoteFound).toBeUndefined();
+    const p = passage(project, "LONG#§4", quote);
+    expect(p.truncated).toBe(true);
+    expect(p.text.length).toBeLessThanOrEqual(PASSAGE_MAX_CHARS);
+    expect(p.text).toContain("Le poste PR2I affiche l'état du disjoncteur\nde la sous-station en rouge clignotant.");
+    expect(p.quoteFound).toBe(true);
+    expect(p.readMore).toMatch(/this passage shows lines \d+–\d+/);
+  });
+
+  it("a quote the section does not hold: the usual window and quoteFound false", () => {
+    long();
+    const p = passage(project, "LONG#§4", "une phrase absente");
+    expect(p.quoteFound).toBe(false);
+    expect(p.text).toBe(passage(project, "LONG#§4").text);
+  });
+
+  it("is the rag.passage around input", async () => {
+    long();
+    const { invoke } = await import("../../src/core/commands/index.ts");
+    const p = (await invoke("rag.passage", { ref: "LONG#§4", around: quote }, { project })) as {
+      text: string;
+      quoteFound: boolean;
+    };
+    expect(p.quoteFound).toBe(true);
+    expect(p.text).toContain("en rouge clignotant");
+  });
+});

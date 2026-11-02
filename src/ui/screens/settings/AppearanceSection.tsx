@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import type { Settings } from "../../../core/types.ts";
 import { call } from "../../api.ts";
-import { Button, Segmented } from "../../components/ui/index.ts";
-import { desktop, pickFiles } from "../../lib/desktop.ts";
+import { Segmented } from "../../components/ui/index.ts";
+import { desktop, readAlwaysOnTop, setAlwaysOnTop } from "../../lib/desktop.ts";
 import { readPref, readTheme, setThemeEverywhere, type Theme, writePref } from "../../lib/theme.ts";
 import { errorToast } from "../../lib/toast.ts";
 
@@ -18,17 +18,19 @@ export function AppearanceSection() {
   const [theme, setTheme] = useState<Theme>(readTheme);
   const [layout, setLayout] = useState<Layout>(() => readPref("testimus.stepLayout", ["stacked", "split"], "stacked"));
   const [s, setS] = useState<Settings | null>(null);
-  const [exe, setExe] = useState("");
+  const [onTop, setOnTop] = useState(readAlwaysOnTop);
   useEffect(() => {
     call<Settings>("system.settings", {})
-      .then((r) => {
-        setS(r);
-        setExe(r.claude?.exe ?? "");
-      })
+      .then(setS)
       .catch(() => {});
     const onTheme = (e: Event) => setTheme((e as CustomEvent<Theme>).detail);
+    const onPin = (e: Event) => setOnTop((e as CustomEvent<boolean>).detail === true);
     window.addEventListener("testimus:theme", onTheme);
-    return () => window.removeEventListener("testimus:theme", onTheme);
+    window.addEventListener("testimus:on-top", onPin);
+    return () => {
+      window.removeEventListener("testimus:theme", onTheme);
+      window.removeEventListener("testimus:on-top", onPin);
+    };
   }, []);
   return (
     <section className="card sect" id="settings-appearance" aria-labelledby="s-look">
@@ -71,38 +73,29 @@ export function AppearanceSection() {
         </div>
       </div>
       <div className="formgrid">
-        <div className="formfield">
-          <label className="label" htmlFor="set-exe">
-            Claude program
-          </label>
-          <div className="pickrow">
-            <input
-              id="set-exe"
-              className="field mono"
-              placeholder="Found on PATH"
-              value={exe}
-              onChange={(e) => setExe(e.target.value)}
-              onBlur={() => s && exe !== s.claude.exe && void save({ claudeExe: exe }).then((r) => r && setS(r))}
-            />
-            {desktop() && (
-              <Button
-                aria-label="Browse for the Claude program"
-                disabled={!s}
-                onClick={() =>
-                  void pickFiles("Choose the Claude program", [{ name: "Programs", extensions: ["exe", "cmd"] }], false)
-                    .then(([picked]) => {
-                      if (!picked) return null;
-                      setExe(picked);
-                      return save({ claudeExe: picked });
-                    })
-                    .then((r) => r && setS(r))
-                }
-              >
-                Browse…
-              </Button>
-            )}
+        {desktop() && (
+          <div className="formfield">
+            <span className="label" id="set-ontop-label">
+              Window
+            </span>
+            <button
+              type="button"
+              className="switch"
+              role="switch"
+              aria-checked={onTop}
+              aria-labelledby="set-ontop-label set-ontop-text"
+              onClick={() => void setAlwaysOnTop(!onTop)}
+            >
+              <span className="switch-track">
+                <span className="switch-knob" />
+              </span>
+              <span className="switch-text" id="set-ontop-text">
+                <span>Always on top</span>
+                <span className="muted">Keeps the window above Jira and the simulator.</span>
+              </span>
+            </button>
           </div>
-        </div>
+        )}
         <label className="formfield setcheck">
           <span className="label">Model downloads</span>
           <span>

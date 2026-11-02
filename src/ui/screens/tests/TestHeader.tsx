@@ -1,44 +1,104 @@
 import { useState } from "react";
-import type { SyncState, Test } from "../../../core/types.ts";
+import type { Precondition, SyncState, Test } from "../../../core/types.ts";
 import {
   Button,
   Chip,
   ChipInput,
   GrowArea,
   Icon,
+  IconButton,
+  Menu,
+  type MenuItem,
   ReviewBadge,
-  Segmented,
   SyncBadge,
 } from "../../components/ui/index.ts";
-import type { StepLayout } from "./StepCard.tsx";
+
+export type RemoteCheck = "checking" | "unchanged" | "remote-changed" | "unverified" | null;
+export type ContextRef = { id: string; name: string };
+export type TestContexts = { effective: string[]; own: string[] | null };
 
 export function TestHeader({
   test,
   sync,
+  dirty,
+  remote,
   saving,
-  layout,
+  activity,
   folders,
   readOnly,
-  onLayout,
+  details,
+  preconditions,
+  contexts,
+  testContexts,
+  canPush,
+  pushing,
+  menu,
+  onDetails,
   onPush,
+  onAsk,
+  onRemote,
+  onFolders,
+  onContexts,
+  onManageContexts,
   update,
 }: {
   test: Test;
   sync: SyncState;
+  dirty: boolean;
+  remote: RemoteCheck;
   saving: "idle" | "saving" | "saved";
-  layout: StepLayout;
+  activity?: string;
   folders: string[];
   readOnly?: boolean;
-  onLayout: (l: StepLayout) => void;
+  details: boolean;
+  preconditions: Precondition[] | null;
+  contexts: ContextRef[];
+  testContexts: TestContexts | null;
+  canPush: boolean;
+  pushing?: boolean;
+  menu: MenuItem[];
+  onDetails: (open: boolean) => void;
   onPush: () => void;
+  onAsk: () => void;
+  onRemote: () => void;
+  onFolders?: () => void;
+  onContexts: (ids: string[] | null) => void;
+  onManageContexts: () => void;
   update: (fn: (t: Test) => Test) => void;
 }) {
   const [editFolder, setEditFolder] = useState(false);
-  const [details, setDetails] = useState(false);
+  const pre = preconditions ?? [];
+  const attachable = pre.filter((p) => !test.preconditions.includes(p.key));
+  const eff = testContexts?.effective ?? [];
+  const ctxName = (id: string) => contexts.find((c) => c.id === id)?.name ?? id;
+  const ctxFree = contexts.filter((c) => !eff.includes(c.id));
+
+  const remoteBadge =
+    remote === "checking" ? (
+      <span className="rcheck is-checking" role="status" title={`Checking ${test.key} against Jira`}>
+        <span className="spin" aria-hidden="true" />
+        checking…
+      </span>
+    ) : remote === "remote-changed" ? (
+      <button
+        type="button"
+        className={dirty ? "rcheck is-conflict" : "rcheck is-changed"}
+        title={
+          dirty
+            ? "Changed in Jira and here — download Jira's version (your local changes would be lost) or push over it"
+            : "Changed in Jira since your last sync — click to download it"
+        }
+        onClick={onRemote}
+      >
+        <Icon name={dirty ? "warning" : "pull"} />
+        {dirty ? "conflict" : "changed in Jira"}
+      </button>
+    ) : null;
+
   return (
     <header className="testhead">
       <div className="testhead-top">
-        <span className="mono testhead-key">{test.key ?? "No key yet"}</span>
+        <span className="mono testhead-key">{test.key ?? "local"}</span>
         {editFolder ? (
           <>
             <input
@@ -67,30 +127,63 @@ export function TestHeader({
           <button
             type="button"
             className="testhead-folder"
-            title="Change the folder"
+            title="Change the folder — pick one of the Xray folders or type a new path"
             disabled={readOnly}
-            onClick={() => setEditFolder(true)}
+            onClick={() => {
+              onFolders?.();
+              setEditFolder(true);
+            }}
           >
             <Icon name="folder" />
             {test.folder || "/"}
           </button>
         )}
         <span className="muted testhead-save" aria-live="polite">
-          {saving === "saving" ? "Saving…" : saving === "saved" ? "Saved" : ""}
+          {readOnly
+            ? "Claude is editing…"
+            : activity
+              ? activity
+              : saving === "saving"
+                ? "Saving…"
+                : saving === "saved"
+                  ? "Saved"
+                  : ""}
         </span>
         <div className="spacer" />
-        <Segmented
-          label="Step layout"
-          value={layout}
-          onChange={onLayout}
-          options={[
-            { value: "stacked", label: "Stacked" },
-            { value: "split", label: "Side by side" },
-          ]}
-        />
-        <Button tone="primary" icon="push" disabled={readOnly} onClick={onPush}>
+        <Button tone="quiet" icon="claude" onClick={onAsk}>
+          Ask Claude
+        </Button>
+        <Button
+          tone="primary"
+          icon="push"
+          disabled={readOnly || pushing || !canPush}
+          title={
+            readOnly
+              ? "Claude is working — wait for it to finish"
+              : pushing
+                ? "The push plan is open"
+                : canPush
+                  ? undefined
+                  : "No local change since the last sync — nothing to push"
+          }
+          onClick={onPush}
+        >
           Push to Jira
         </Button>
+        <Menu
+          label="More actions for this test"
+          align="right"
+          items={menu}
+          trigger={({ open, toggle, id }) => (
+            <IconButton
+              icon="more"
+              label="More actions for this test"
+              aria-expanded={open}
+              aria-controls={open ? id : undefined}
+              onClick={toggle}
+            />
+          )}
+        />
       </div>
       <label htmlFor="test-summary" className="sr">
         Summary
@@ -107,34 +200,42 @@ export function TestHeader({
       />
       <div className="testhead-chips">
         <ReviewBadge review={test.review} />
-        <SyncBadge sync={sync} />
+        <span title={remote === "unverified" ? "Not verified against Jira" : undefined}>
+          <SyncBadge sync={sync === "remote-changed" ? (dirty ? "modified" : "synced") : sync} />
+        </span>
+        {remoteBadge}
+        {test.status && (
+          <Chip small className="status-chip" title="Jira status (informational, never pushed)">
+            {test.status}
+          </Chip>
+        )}
         <span className="vsep" />
-        {test.labels.map((l) => (
-          <Chip key={l} small>
-            {l}
-          </Chip>
-        ))}
-        {test.covers.map((k) => (
-          <Chip key={k} small>
-            covers <span className="mono ink">{k}</span>
-          </Chip>
-        ))}
+        {!details &&
+          test.labels.map((l) => (
+            <Chip key={l} small>
+              {l}
+            </Chip>
+          ))}
+        {!details &&
+          test.covers.map((k) => (
+            <Chip key={k} small>
+              covers <span className="mono ink">{k}</span>
+            </Chip>
+          ))}
         {test.clonedFrom && (
           <Chip small>
             cloned from <span className="mono ink">{test.clonedFrom}</span>
           </Chip>
         )}
-        {!readOnly && (
-          <Button
-            tone="quiet"
-            size="sm"
-            icon={details ? "up" : "plus"}
-            aria-expanded={details}
-            onClick={() => setDetails(!details)}
-          >
-            {details ? "Done" : "Add"}
-          </Button>
-        )}
+        <Button
+          tone="quiet"
+          size="sm"
+          icon={details ? "up" : "down"}
+          aria-expanded={details}
+          onClick={() => onDetails(!details)}
+        >
+          {details ? "Hide details" : "Details"}
+        </Button>
       </div>
       {details && (
         <div className="testhead-details">
@@ -144,7 +245,7 @@ export function TestHeader({
               label="Labels"
               placeholder="Add a label…"
               values={test.labels}
-              onChange={(labels) => update((t) => ({ ...t, labels }))}
+              onChange={readOnly ? undefined : (labels) => update((t) => ({ ...t, labels }))}
             />
           </div>
           <div className="formfield">
@@ -154,7 +255,96 @@ export function TestHeader({
               mono
               placeholder="Add an issue key…"
               values={test.covers}
-              onChange={(covers) => update((t) => ({ ...t, covers }))}
+              onChange={
+                readOnly ? undefined : (covers) => update((t) => ({ ...t, covers: covers.map((k) => k.toUpperCase()) }))
+              }
+            />
+          </div>
+          <div className="formfield">
+            <span className="label">Preconditions</span>
+            {/* ponytail: a native select over the project's own preconditions — no free text, so a key Xray
+                cannot attach never reaches test.md in the first place */}
+            <ChipInput
+              label="Preconditions"
+              mono
+              values={test.preconditions}
+              removeLabel={(k) => `Detach ${k}`}
+              onChange={readOnly ? undefined : (preconditions) => update((t) => ({ ...t, preconditions }))}
+              slot={
+                readOnly ? null : preconditions === null ? (
+                  <span className="chipinput-hint">loading…</span>
+                ) : attachable.length ? (
+                  <select
+                    className="chipinput-select"
+                    aria-label="Attach precondition"
+                    value=""
+                    onChange={(e) => {
+                      const k = e.target.value;
+                      if (k) update((t) => ({ ...t, preconditions: [...t.preconditions, k].sort() }));
+                    }}
+                  >
+                    <option value="">{test.preconditions.length ? "attach…" : "attach a precondition…"}</option>
+                    {attachable.map((p) => (
+                      <option key={p.key} value={p.key}>
+                        {p.key} — {p.summary}
+                      </option>
+                    ))}
+                  </select>
+                ) : !pre.length ? (
+                  <span className="chipinput-hint">none in this project</span>
+                ) : null
+              }
+            />
+          </div>
+          <div className="formfield">
+            <span className="label">Claude contexts</span>
+            <ChipInput
+              label="Claude contexts"
+              values={eff}
+              render={ctxName}
+              removeLabel={(id) => `Detach ${ctxName(id)}`}
+              onChange={readOnly || !testContexts ? undefined : (ids) => onContexts(ids)}
+              action={
+                testContexts?.own != null && !readOnly ? (
+                  <button type="button" className="linkbtn" onClick={() => onContexts(null)}>
+                    reset to project defaults
+                  </button>
+                ) : undefined
+              }
+              slot={
+                readOnly || !testContexts ? null : ctxFree.length ? (
+                  <select
+                    className="chipinput-select"
+                    aria-label="Attach context"
+                    value=""
+                    onChange={(e) => e.target.value && onContexts([...eff, e.target.value])}
+                  >
+                    <option value="">{eff.length ? "attach…" : "attach a context…"}</option>
+                    {ctxFree.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : !contexts.length ? (
+                  <button type="button" className="linkbtn chipinput-hint" onClick={onManageContexts}>
+                    Manage contexts…
+                  </button>
+                ) : null
+              }
+            />
+          </div>
+          <div className="formfield testhead-desc">
+            <label className="label" htmlFor="test-desc">
+              Description
+            </label>
+            <GrowArea
+              id="test-desc"
+              className="edit desc-edit"
+              placeholder="What this test verifies, and the technique used"
+              value={test.description}
+              readOnly={readOnly}
+              onChange={(e) => update((t) => ({ ...t, description: e.target.value }))}
             />
           </div>
         </div>

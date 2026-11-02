@@ -440,6 +440,15 @@ button.chip:hover {
   flex: none;
 }
 
+.menu-item.is-danger,
+.menu-item.is-danger svg {
+  color: var(--err);
+}
+
+.menu-item.is-danger:hover:not(:disabled) {
+  background: var(--err-bg);
+}
+
 .menu-gap {
   width: 16px;
   flex: none;

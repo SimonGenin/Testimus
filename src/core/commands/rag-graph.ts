@@ -74,6 +74,8 @@ export const commands: Command[] = [
         }),
       ),
       warnings: z.array(z.string()).describe("E.g. a traced section that differs from the defining one"),
+      truncated: z.literal(true).optional().describe("Set when depth 2 went past 200 neighbours: the list stops there"),
+      total: z.number().int().optional().describe("How many neighbours there were before the cut"),
     }),
     mutates: false,
     positional: ["ref"],

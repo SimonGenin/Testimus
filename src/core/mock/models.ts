@@ -5,7 +5,7 @@ import { env } from "../env.ts";
 import { SHIPPED } from "../lib/models-catalog.ts";
 import { downloadDeps, filesFor, hfUrl, installPath } from "../lib/models-download.ts";
 import { recordPerf } from "../lib/models-perf.ts";
-import { DEFAULT_OLLAMA_HOST, writeRegistry } from "../lib/models-registry.ts";
+import { writeRegistry } from "../lib/models-registry.ts";
 import { readSettings, writeJson, writeSettings } from "../lib/project.ts";
 import { activeChoice, setActiveChoice } from "../rag/activation.ts";
 import { chooseBackend, LLAMA_ASSETS, LLAMA_BUILD, llamaIo } from "../rag/runtimes/llamacpp.ts";
@@ -19,14 +19,12 @@ import type {
   PerfLine,
 } from "../types.ts";
 import { type MockMachine, mockMachine, mockMachineKind } from "./machine.ts";
-import { MOCK_OLLAMA_LOADED, type MockOllamaState, mockOllamaState, setupOllamaMock } from "./ollama.ts";
 
 export const MOCK_ADVICE = ["upgrade", "downgrade", "offload", "none"] as const;
 export type MockAdvice = (typeof MOCK_ADVICE)[number];
 
 export type MockModelsOptions = {
   machine: MockMachine;
-  ollama: MockOllamaState;
   llamacpp: "found" | "absent";
   modelsDir: "set" | "unset";
   advice: MockAdvice;
@@ -44,7 +42,6 @@ const pick = <T extends string>(raw: string | undefined, all: readonly T[], fall
 export function mockModelsOptions(e: NodeJS.ProcessEnv = process.env): MockModelsOptions {
   return {
     machine: mockMachineKind(e.TESTIMUS_MOCK_MACHINE),
-    ollama: mockOllamaState(e.TESTIMUS_MOCK_OLLAMA),
     llamacpp: pick(e.TESTIMUS_MOCK_LLAMACPP, ["found", "absent"], "found"),
     modelsDir: pick(e.TESTIMUS_MOCK_MODELS_DIR, ["set", "unset"], "set"),
     advice: pick(e.TESTIMUS_MOCK_ADVICE, MOCK_ADVICE, "upgrade"),
@@ -182,11 +179,11 @@ function perfSeed(advice: MockAdvice, now: number): Seed[] {
       out.push({ ...base, at: now - 5 * day + i * 3_600_000, op: "embed.query", ms: jitter(i, 32, 140), items: 1 });
     return out;
   }
-  const emb = { model: "qwen3-embedding-4b-q8", device: "gpu", runtime: "llamacpp" as const };
+  const emb = { model: "qwen3-embedding-4b-q4", device: "gpu", runtime: "llamacpp" as const };
   const rr = { model: "qwen3-reranker-0.6b-q8", device: "gpu", runtime: "llamacpp" as const };
   const slow = advice === "downgrade";
   const off = advice === "offload" ? { partialOffload: true } : {};
-  out.push({ ...emb, at: now - 4 * day, op: "model.load", ms: 9400, items: 1, vramMB: 4700, ...off });
+  out.push({ ...emb, at: now - 4 * day, op: "model.load", ms: 9400, items: 1, vramMB: 3500, ...off });
   out.push({ ...rr, at: now - 4 * day, op: "model.load", ms: 3100, items: 1, vramMB: 1350 });
   for (let i = 0; i < 12; i++)
     out.push({
@@ -217,7 +214,7 @@ function seedChoice(project: string, advice: MockAdvice): void {
   else
     setActiveChoice(project, {
       pack: "balanced",
-      variant: { embedding: "qwen3-embedding-4b-q8", reranker: "qwen3-reranker-0.6b-q8" },
+      variant: { embedding: "qwen3-embedding-4b-q4", reranker: "qwen3-reranker-0.6b-q8" },
     });
 }
 
@@ -229,12 +226,9 @@ export async function setupModelsMock(
   o: MockModelsOptions = mockModelsOptions(),
 ): Promise<MockModels> {
   process.env.LOCALAPPDATA = join(root, "localappdata");
-  delete process.env.OLLAMA_HOST;
   delete process.env.TESTIMUS_MODELS;
   mockDownloads.ms = o.downloadMs;
-  setupOllamaMock(o.ollama);
-
-  const machine = mockMachine(o.machine, o.ollama === "running" ? [MOCK_OLLAMA_LOADED] : []);
+  const machine = mockMachine(o.machine);
   if (!process.env.TESTIMUS_MACHINE) {
     const file = join(root, "machine.json");
     writeJson(file, machine);
@@ -297,7 +291,6 @@ export async function setupModelsMock(
     ...(dir ? { dir } : {}),
     allowRemote: true,
     installs,
-    ollama: { enabled: true, host: DEFAULT_OLLAMA_HOST },
     ...(llamacpp ? { llamacpp } : {}),
     catalog: entries,
   });

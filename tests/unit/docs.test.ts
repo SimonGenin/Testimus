@@ -89,12 +89,18 @@ describe("docs commands", () => {
     });
     const figs = JSON.parse(readFileSync(join(dir, "figures.json"), "utf8")) as FigureEntry[];
     figs[0].description = "Un carré blanc sur la caténaire.";
+    figs[0].labels = ["DSO", "Valider"];
+    figs[0].kind = "screen";
     writeFileSync(join(dir, "figures.json"), JSON.stringify(figs));
     const doc = await run<DocJson>(project, "docs.convert", { id: "SOSIE_211_D401-1_3" });
     expect(doc).toMatchObject({ status: "validated", binding: "mandatory", title: "Traction", version: "01.01" });
     expect(readFileSync(join(dir, "doc.md"), "utf8")).toBe(md1);
     const after = JSON.parse(readFileSync(join(dir, "figures.json"), "utf8")) as FigureEntry[];
-    expect(after[0].description).toBe("Un carré blanc sur la caténaire.");
+    expect(after[0]).toMatchObject({
+      description: "Un carré blanc sur la caténaire.",
+      labels: ["DSO", "Valider"],
+      kind: "screen",
+    });
   });
 
   it("lists documents with their index freshness", async () => {

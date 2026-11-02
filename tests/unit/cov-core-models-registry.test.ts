@@ -1,0 +1,151 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { catalog, registryFile } from "../../src/core/lib/models-catalog.ts";
+import { downloadDeps } from "../../src/core/lib/models-download.ts";
+import {
+  dropInstall,
+  installsOf,
+  putInstall,
+  readRegistry,
+  runtimesDir,
+  writeRegistry,
+} from "../../src/core/lib/models-registry.ts";
+import { findModel, isComplete, pullModel } from "../../src/core/lib/models-store.ts";
+import type { CatalogEntry, Installation } from "../../src/core/types.ts";
+
+const saved = { ...downloadDeps };
+const REV = "0123456789abcdef0123456789abcdef01234567";
+let dir = "";
+
+const inst = (model: string, via: Installation["via"]): Installation => ({
+  model,
+  via,
+  runtime: "transformers",
+  path: join(dir, model),
+  status: "installed",
+});
+
+beforeEach(() => {
+  rmSync(registryFile(), { force: true });
+  mkdirSync(join(registryFile(), ".."), { recursive: true });
+  dir = mkdtempSync(join(tmpdir(), "testimus-cov-reg-"));
+});
+afterEach(() => {
+  Object.assign(downloadDeps, saved);
+  vi.unstubAllEnvs();
+  vi.restoreAllMocks();
+  rmSync(dir, { recursive: true, force: true });
+});
+
+describe("readRegistry drops the Ollama installations, saying so once", () => {
+  it("one installation is said in the singular, and a later read says nothing", () => {
+    const err = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    writeFileSync(
+      registryFile(),
+      JSON.stringify({ installs: [{ model: "a", via: "ollama" }, inst("b", "path")], ollama: { url: "x" } }),
+    );
+    expect(readRegistry().installs.map((i) => i.model)).toEqual(["b"]);
+    expect(String(err.mock.calls[0][0])).toContain("lists 1 installation through Ollama");
+    writeFileSync(
+      registryFile(),
+      JSON.stringify({
+        installs: [
+          { model: "a", via: "ollama" },
+          { model: "c", via: "ollama" },
+        ],
+      }),
+    );
+    readRegistry();
+    expect(err).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("registry helpers", () => {
+  it("installsOf, dropInstall with and without a via, runtimesDir", () => {
+    putInstall(inst("m", "path"));
+    putInstall(inst("m", "download"));
+    putInstall(inst("n", "path"));
+    expect(installsOf("m").map((i) => i.via)).toEqual(["path", "download"]);
+    dropInstall("m", "download");
+    expect(installsOf("m").map((i) => i.via)).toEqual(["path"]);
+    dropInstall("m");
+    expect(installsOf("m")).toEqual([]);
+    expect(installsOf("n")).toHaveLength(1);
+    expect(runtimesDir({ allowRemote: true, installs: [] })).toBeUndefined();
+    expect(runtimesDir({ allowRemote: true, installs: [], dir: "D:\\m" })).toBe(join("D:\\m", "runtimes"));
+    expect(runtimesDir({ allowRemote: true, installs: [], dir: "D:\\m", runtimesDir: "E:\\r" })).toBe("E:\\r");
+  });
+});
+
+describe("models-store", () => {
+  const model = (root: string, files: string[]) => {
+    for (const f of files) {
+      mkdirSync(join(root, f, ".."), { recursive: true });
+      writeFileSync(join(root, f), "x");
+    }
+    return root;
+  };
+
+  it("isComplete needs config, tokenizer and an onnx folder with the wanted file", () => {
+    const m = model(join(dir, "m"), ["config.json", "tokenizer.json"]);
+    expect(isComplete(m)).toBe(false);
+    model(m, ["onnx/model_fp16.onnx"]);
+    expect(isComplete(m)).toBe(true);
+    expect(isComplete(m, "q8")).toBe(false);
+    expect(isComplete(m, "odd")).toBe(true);
+  });
+
+  it("finds a model under TESTIMUS_MODELS and pullModel returns it without downloading", async () => {
+    model(join(dir, "acme", "found"), ["config.json", "tokenizer.json", "onnx/model.onnx"]);
+    vi.stubEnv("TESTIMUS_MODELS", dir);
+    expect(findModel("acme/found")?.root.kind).toBe("env");
+    expect((await pullModel("acme/found", undefined, { allowRemote: false })).dir).toBe(join(dir, "acme", "found"));
+  });
+
+  it("refuses when downloads are off, and a repo the catalog does not have", async () => {
+    vi.stubEnv("TESTIMUS_MODELS", dir);
+    await expect(pullModel("acme/absent", "q8", { allowRemote: false })).rejects.toThrow(/downloads are off/);
+    await expect(pullModel("acme/absent", undefined, { allowRemote: true })).rejects.toThrow(
+      /acme\/absent \(any dtype\) is not in the model catalog/,
+    );
+  });
+
+  it("downloads an entry without a CPU dtype, with progress, and registers it without dtype", async () => {
+    vi.stubEnv("TESTIMUS_MODELS", join(dir, "nothing"));
+    const body = Buffer.from("{}");
+    const { createHash } = await import("node:crypto");
+    const sha = createHash("sha256").update(body).digest("hex");
+    const e = {
+      id: "plain-onnx",
+      kind: "embedding",
+      label: "Plain",
+      runtimes: ["transformers"],
+      source: {
+        hf: {
+          repo: "acme/plain",
+          revision: REV,
+          files: [
+            { path: "config.json", sha256: sha, size: body.length },
+            { path: "tokenizer.json", sha256: sha, size: body.length },
+          ],
+        },
+      },
+      dims: 8,
+      size: { downloadMB: 1, ramMB: 1, vramMB: 1 },
+    } as unknown as CatalogEntry;
+    writeRegistry({ ...readRegistry(), dir, catalog: [e] });
+    expect(catalog().entries.map((x) => x.id)).toContain("plain-onnx");
+    downloadDeps.freeMB = () => 1e9;
+    downloadDeps.fetch = async () => new Response(body, { status: 200 });
+    const seen: string[] = [];
+    const hit = await pullModel("acme/plain", undefined, { allowRemote: true, onProgress: (p) => seen.push(p.file) });
+    expect(hit.dir).toBe(join(dir, "acme", "plain"));
+    expect(seen).toContain("config.json");
+    const reg = readRegistry().installs.find((i) => i.model === "plain-onnx");
+    expect(reg).toMatchObject({ via: "download", device: "cpu" });
+    expect(reg?.dtype).toBeUndefined();
+    expect(catalog().entries.map((x) => x.id)).toContain("plain-onnx");
+  });
+});

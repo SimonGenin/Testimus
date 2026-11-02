@@ -136,4 +136,32 @@ describe("serve start-up errors", () => {
       busy.close();
     }
   }, 70000);
+
+  it("takes another free port when the asked one is in use and --port-fallback is given", async () => {
+    const busy = createServer();
+    await new Promise<void>((r) => busy.listen(0, "127.0.0.1", r));
+    const port = (busy.address() as AddressInfo).port;
+    const core = startCore([
+      "--mock",
+      "--port",
+      String(port),
+      "--port-fallback",
+      "--ready-json",
+      "--exit-with-stdin",
+      "--no-open",
+    ]);
+    try {
+      await until(() => core.stdout().includes("\n"), 60000, "no ready line", core);
+      const line = JSON.parse(core.stdout().split("\n")[0]) as { ready: boolean; url: string };
+      const got = Number(new URL(line.url).port);
+      expect(line.ready).toBe(true);
+      expect(got).toBeGreaterThan(0);
+      expect(got).not.toBe(port);
+    } finally {
+      core.child.stdin.end();
+      await Promise.race([core.exit, new Promise((r) => setTimeout(r, 10000))]);
+      if (core.child.exitCode === null) core.child.kill();
+      busy.close();
+    }
+  }, 70000);
 });

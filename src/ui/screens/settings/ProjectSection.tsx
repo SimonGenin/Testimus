@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ProjectJson } from "../../../core/types.ts";
-import { call } from "../../api.ts";
+import { call, project } from "../../api.ts";
 import { useApp } from "../../lib/app.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 
@@ -14,6 +14,57 @@ export async function saveProject(patch: Record<string, unknown>, refresh: () =>
   }
 }
 
+// ponytail: CLAUDE.md is written 400 ms after the last key, on blur and when the screen goes; a pending text
+// belongs to the project it was typed in and is dropped rather than written into the next one
+function ProjectNotes({ dir }: { dir: string }) {
+  const [text, setText] = useState<string | null>(null);
+  const [file, setFile] = useState("CLAUDE.md");
+  const unsaved = useRef<{ dir: string; text: string } | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const flush = useCallback(() => {
+    clearTimeout(timer.current);
+    const u = unsaved.current;
+    unsaved.current = null;
+    const now = project();
+    if (!u || (now && now !== u.dir)) return;
+    call("project.setNotes", { text: u.text }).catch((e) => errorToast(e, "Could not save the project notes"));
+  }, []);
+  useEffect(() => {
+    call<{ file: string; text: string }>("project.notes", {})
+      .then((r) => {
+        setText(r?.text ?? "");
+        if (r?.file) setFile(r.file);
+      })
+      .catch(() => setText(""));
+    return flush;
+  }, [flush]);
+  return (
+    <div className="formfield">
+      <label className="label" htmlFor="set-notes">
+        Project notes
+      </label>
+      <textarea
+        id="set-notes"
+        className="field mono notes-area"
+        rows={10}
+        disabled={text === null}
+        placeholder="Conventions, vocabulary, what Claude should know about this project…"
+        value={text ?? ""}
+        onChange={(e) => {
+          setText(e.target.value);
+          unsaved.current = { dir, text: e.target.value };
+          clearTimeout(timer.current);
+          timer.current = setTimeout(flush, 400);
+        }}
+        onBlur={flush}
+      />
+      <span className="muted">
+        Markdown, saved to <span className="mono">{file}</span> and read by Claude in every run.
+      </span>
+    </div>
+  );
+}
+
 export function ProjectSection() {
   const app = useApp();
   const p = app.info?.project;
@@ -23,7 +74,7 @@ export function ProjectSection() {
     setKey(p?.jiraProject ?? "");
     setPrefix(p?.labelPrefix ?? "testimus-");
   }, [p?.jiraProject, p?.labelPrefix]);
-  if (!p) return null;
+  if (!p || !app.info) return null;
   return (
     <section className="card sect" id="settings-project" aria-labelledby="s-proj">
       <h2 id="s-proj" className="h sect-title">
@@ -82,6 +133,7 @@ export function ProjectSection() {
         Pushed tests carry their review state as a label: <span className="mono">{prefix}validated</span>,{" "}
         <span className="mono">{prefix}to-fix</span>…
       </p>
+      <ProjectNotes key={app.info.dir} dir={app.info.dir} />
     </section>
   );
 }

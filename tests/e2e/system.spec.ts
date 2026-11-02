@@ -5,12 +5,14 @@ const { url } = mockServer(4352);
 test("first launch finds the existing access, tests it, then moves to the project step", async ({ page }) => {
   await page.goto("/#/setup");
   await expect(page.getByRole("heading", { level: 1, name: "Connect to Jira and Xray" })).toBeVisible();
-  await expect(page.getByRole("textbox", { name: "Site address" })).toHaveValue("https://mock.atlassian.net");
+  await expect(page.getByRole("textbox", { name: "Jira site" })).toHaveValue(/^https:\/\/mock\.atlassian\.net/);
   await expect(page.getByRole("textbox", { name: "Email" })).toHaveValue("tester@example.com");
+  await expect(page.getByRole("button", { name: "Open API tokens" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Open Jira apps" })).toBeVisible();
   await shoot(page, "first-run");
-  await page.getByRole("button", { name: "Test connection" }).click();
-  await expect(page.getByRole("status").filter({ hasText: "Jira reachable and authenticated" })).toBeVisible();
-  await expect(page.getByRole("status").filter({ hasText: "Xray reachable and authenticated" })).toBeVisible();
+  await page.getByRole("button", { name: "Save and test the connection" }).click();
+  await expect(page.getByRole("status").filter({ hasText: /Connected as/ })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Key accepted" })).toBeVisible();
   await page.getByRole("button", { name: "Continue" }).click();
   await expect(page).toHaveURL(/#\/setup\/project$/);
   await shoot(page, "first-run-project");
@@ -36,10 +38,11 @@ test("settings save the step field preferences and the editor honours them", asy
   await expect(page.getByRole("heading", { level: 1, name: "Settings" })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Jira project" })).toHaveValue("LFRPS12");
   const fields = page.getByRole("region", { name: "Step fields" });
-  await expect(fields.getByRole("checkbox", { name: "Data folded by default" })).toBeChecked();
+  const dataFold = fields.getByRole("combobox", { name: "Data folding" });
+  await expect(dataFold).toHaveValue("filled");
   await shoot(page, "settings");
 
-  await fields.getByRole("checkbox", { name: "Data folded by default" }).click();
+  await dataFold.selectOption("open");
   await fields.getByRole("button", { name: "Move Exigence up" }).click();
   await expect
     .poll(async () => {
@@ -47,17 +50,14 @@ test("settings save the step field preferences and the editor honours them", asy
         .xray;
       return JSON.stringify(xray.prefs);
     })
-    .toMatch(/"order":\["Action","Data","Exigence","Expected Result"\].*|"collapsed":\[\]/);
+    .toMatch(/"order":\["Action","Data","Exigence","Expected Result"\]/);
   await expect
-    .poll(
-      async () =>
-        (await api<{ xray: { prefs?: { collapsed?: string[] } } }>(url, "project.info")).xray.prefs?.collapsed,
-    )
+    .poll(async () => (await api<{ xray: { prefs?: { filled?: string[] } } }>(url, "project.info")).xray.prefs?.filled)
     .not.toContain("Data");
 
   await openTest(page, "LFRPS12-1420");
   const step1 = page.getByRole("main").getByRole("article", { name: "Step 1", exact: true });
-  await expect(step1.getByRole("button", { name: "Show Data of step 1" })).toHaveCount(0);
+  await expect(step1.getByRole("button", { name: "Data column of step 1" })).toHaveAttribute("aria-pressed", "true");
   const labels = (await step1.locator(".fl-k").allInnerTexts()).map((l) => l.trim());
   expect(labels.indexOf("Exigence")).toBeLessThan(labels.indexOf("Expected Result"));
 });

@@ -1,4 +1,4 @@
-import { type ChildProcess, spawn } from "node:child_process";
+import { type ChildProcess, spawn, spawnSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { test as base, expect, type Page } from "@playwright/test";
@@ -30,18 +30,36 @@ export const test = base.extend<{ consoleGuard: Guard }>({
   ],
 });
 
-export function mockServer(port: number, extraEnv: Record<string, string> = {}): { url: string } {
+// ponytail: other sessions run this suite on the same PC at the same time — a spec's port may already be held by
+// their server, and the spec would quietly test (and lose) someone else's sandbox; the first free port from the
+// preferred one on is taken instead, and the readiness check asks our own child
+function freePort(preferred: number): number {
+  const probe = `const net=require("node:net");const t=(p)=>{const s=net.createServer();s.once("error",()=>t(p+1));s.listen(p,"127.0.0.1",()=>{s.close(()=>process.stdout.write(String(p)))})};t(${preferred});`;
+  const out = spawnSync(process.execPath, ["-e", probe], { encoding: "utf8" }).stdout.trim();
+  return Number(out) || preferred;
+}
+
+export function mockServer(preferred: number, extraEnv: Record<string, string> = {}): { url: string } {
+  const port = freePort(preferred);
   const url = `http://localhost:${port}`;
   let child: ChildProcess | null = null;
   test.use({ baseURL: url });
   test.beforeAll(async () => {
+    // ponytail: a port moved off its preferred value can be one an earlier spec used — its session cookie is stale
+    sessions.delete(url);
     child = spawn(
       process.execPath,
       [join(ROOT, "src", "faces", "cli.ts"), "serve", "--mock", "--port", String(port), "--no-open"],
       { cwd: ROOT, env: { ...process.env, ...extraEnv }, stdio: "ignore" },
     );
+    let exited: number | null = null;
+    child.once("exit", (code) => {
+      exited = code ?? -1;
+    });
     const until = Date.now() + 30_000;
     while (Date.now() < until) {
+      if (exited !== null)
+        throw new Error(`testimus serve --mock on ${url} exited (${exited}) — port taken meanwhile?`);
       try {
         const r = await fetch(`${url}/api/system/version`);
         if (r.ok) return;

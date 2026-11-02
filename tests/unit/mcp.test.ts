@@ -74,7 +74,13 @@ describe("MCP face over stdio", () => {
 
     const list = await c.request("tools/list", {});
     const tools = (list.result?.tools ?? []) as { name: string; description: string; inputSchema: unknown }[];
-    expect(tools.map((t) => t.name).sort()).toEqual(registry.map((r) => toolName(r.name)).sort());
+    expect(tools.map((t) => t.name).sort()).toEqual(
+      registry
+        .filter((r) => r.mcp !== false)
+        .map((r) => toolName(r.name))
+        .sort(),
+    );
+    expect(tools.map((t) => t.name)).not.toContain("system_secrets");
     const info = tools.find((t) => t.name === "project_info");
     expect(info?.inputSchema).toBeTruthy();
 

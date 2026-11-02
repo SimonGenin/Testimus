@@ -119,12 +119,11 @@ describe("memory failures in the journal (N-perf)", () => {
     ).not.toHaveProperty("oom");
   });
 
-  it("recognises memory errors from transformers.js, DirectML, llama.cpp and Ollama", () => {
+  it("recognises memory errors from transformers.js, DirectML and llama.cpp", () => {
     for (const m of [
       "Failed to allocate memory for requested buffer of size 2147483648",
       "D3D12 E_OUTOFMEMORY",
       "cudaMalloc failed: out of memory",
-      "model requires more system memory (12.0 GiB) than is available (8.1 GiB)",
       "std::bad_alloc",
     ])
       expect(isMemoryError(new Error(m))).toBe(true);

@@ -36,7 +36,7 @@ export type CatalogRow = {
 export type Installed = {
   model: string;
   label: string;
-  via: "path" | "download" | "ollama";
+  via: "path" | "download";
   runtime: string;
   where: string;
   sizeMB: number;
@@ -46,7 +46,7 @@ export type Installed = {
 };
 
 export type UsePlan = {
-  download: { model: string; via: "download" | "ollama"; sizeMB: number }[];
+  download: { model: string; sizeMB: number }[];
   dir: string | null;
   reindex: boolean;
   expected: string;
@@ -69,24 +69,6 @@ export type AdviceRow = {
   to: RagChoice;
   reason: string;
   quality: string;
-};
-
-export type OllamaState = {
-  state: "absent" | "stopped" | "running" | "disabled" | "refused";
-  version?: string;
-  host: string;
-  exe?: string;
-  storage: { dir: string; freeMB: number | null; fromEnv: boolean };
-  models: {
-    name: string;
-    digest: string;
-    sizeMB: number;
-    quantization: string;
-    embedding: boolean;
-    catalog?: string;
-  }[];
-  loaded: { name: string; sizeMB: number; vramMB: number }[];
-  message: string;
 };
 
 export type SetDirOut = {

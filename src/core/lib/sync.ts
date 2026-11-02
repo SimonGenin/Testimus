@@ -2,7 +2,7 @@ import { existsSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import { UserError } from "../command.ts";
 import { gate } from "../env.ts";
-import type { ProjectInfo, PushPlanView, Step, Test } from "../types.ts";
+import type { ProjectInfo, PushPlanView, Step, Test, XrayJson } from "../types.ts";
 import { sha256 } from "./hash.ts";
 import {
   byId,
@@ -14,7 +14,7 @@ import {
   pullTest,
   reviewOfLabels,
 } from "./jira.ts";
-import { fieldOrder, readJson, readProject, readXray, writeJson } from "./project.ts";
+import { fieldOrder, readJson, readProject, readXray, writeJson, writeXray } from "./project.ts";
 import {
   addImage,
   markRemoteChanged,
@@ -44,9 +44,18 @@ export async function projectInfo(project: string): Promise<ProjectInfo> {
   return info;
 }
 
-export async function stepSchema(project: string) {
-  const info = await projectInfo(project);
-  return getStepFields(info.id);
+// ponytail: the step columns are read again from Xray before each push (Xray Editor reads them on every project
+// open and push) and kept in xray.json with the local preferences; offline, the copy already there is used
+export async function freshXray(project: string): Promise<XrayJson> {
+  const x = readXray(project);
+  try {
+    const fields = await getStepFields((await projectInfo(project)).id);
+    const next = { ...x, fields, fetchedAt: new Date().toISOString() };
+    writeXray(project, next);
+    return next;
+  } catch {
+    return x;
+  }
 }
 
 export const extOf = (filename: string) => (/\.([A-Za-z0-9]+)$/.exec(filename)?.[1] ?? "png").toLowerCase();
@@ -223,7 +232,7 @@ export async function pushTest(project: string, id: string): Promise<Push> {
       "Remove that attachment from the step, or add the screenshot to the test again (it is copied into its images/ folder).",
     );
   const settings = readProject(project);
-  const xray = readXray(project);
+  const xray = await freshXray(project);
   const [info, me, remote] = await Promise.all([
     projectInfo(project),
     getMyself(),

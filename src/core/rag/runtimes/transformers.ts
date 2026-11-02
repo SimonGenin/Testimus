@@ -18,12 +18,13 @@ type Tensor = {
 type Inputs = { input_ids: Tensor; attention_mask: Tensor };
 type Tokenizer = {
   (texts: string[], opts: object): Inputs;
-  encode(text: string): number[];
+  encode(text: string, opts?: object): number[];
   padding_side: string;
   model_max_length: number;
 };
 type Model = (inputs: Inputs) => Promise<{ last_hidden_state?: Tensor; logits?: Tensor }>;
 type Loaded = { tokenizer: Tokenizer; model: Model; meanPooling(h: Tensor, mask: Tensor): Tensor };
+type Kind = "embedding" | "cross-encoder" | "yes-no-lm";
 
 const loading = gate(1);
 const loaded = new Map<string, Promise<Loaded>>();
@@ -49,7 +50,7 @@ function modelPath(m: ResolvedModel): string {
   return hit.dir;
 }
 
-function load(m: ResolvedModel, kind: "embedding" | "cross-encoder"): Promise<Loaded> {
+function load(m: ResolvedModel, kind: Kind): Promise<Loaded> {
   const path = resolve(modelPath(m));
   const device = deviceOf(m);
   const dtype = dtypeOf(m);
@@ -77,7 +78,7 @@ export const transformersIo = {
 
 async function loadModel(
   path: string,
-  kind: "embedding" | "cross-encoder",
+  kind: Kind,
   dtype: Dtype | undefined,
   device: Exclude<Device, "gpu">,
 ): Promise<Loaded> {
@@ -90,9 +91,14 @@ async function loadModel(
   t.env.cacheDir = dirname(dirname(path));
   const options = { dtype, device } as { dtype: "fp32"; device: "cpu" };
   const tokenizer = (await t.AutoTokenizer.from_pretrained(id)) as unknown as Tokenizer;
+  // ponytail: the yes/no export of Qwen3-Reranker (onnx/model_yesno_*.onnx) returns the last position's [no, yes]
+  // logits only, [batch, 2], instead of the whole vocabulary
   const model = (kind === "cross-encoder"
     ? await t.AutoModelForSequenceClassification.from_pretrained(id, options)
-    : await t.AutoModel.from_pretrained(id, options)) as unknown as Model;
+    : await t.AutoModel.from_pretrained(
+        id,
+        kind === "yes-no-lm" ? { ...options, model_file_name: "model_yesno" } : options,
+      )) as unknown as Model;
   return { tokenizer, model, meanPooling: t.mean_pooling as unknown as Loaded["meanPooling"] };
 }
 
@@ -161,10 +167,52 @@ async function embed(m: ResolvedModel, texts: string[], mode: EmbedMode): Promis
   return out;
 }
 
+export const YES_NO_SYSTEM =
+  'Judge whether the Document meets the requirements based on the Query and the Instruct provided. Note that the answer can only be "yes" or "no".';
+
+export function yesNoPrompt(task: string, query: string, doc: string): string {
+  return [
+    `<|im_start|>system\n${YES_NO_SYSTEM}<|im_end|>\n`,
+    `<|im_start|>user\n<Instruct>: ${task}\n<Query>: ${query}\n<Document>: ${doc}<|im_end|>\n`,
+    "<|im_start|>assistant\n<think>\n\n</think>\n\n",
+  ].join("");
+}
+
+export function yesProbability(no: number, yes: number): number {
+  return 1 / (1 + Math.exp(no - yes));
+}
+
+// ponytail: the answer is read at the last position, so the document is cut, never the template's end; the yes/no
+// export takes no position ids (left padding would shift them) and is q8 (activations quantized per call), so
+// each pair runs alone
+async function rerankYesNo(m: ResolvedModel, query: string, texts: string[]): Promise<number[]> {
+  const { tokenizer, model } = await load(m, "yes-no-lm");
+  const max = maxTokens(m, tokenizer);
+  const count = (t: string) => tokenizer.encode(t, { add_special_tokens: false }).length;
+  const scores: number[] = [];
+  for (const text of texts) {
+    let doc = text;
+    let prompt = yesNoPrompt(m.queryTask, query, doc);
+    let n = count(prompt);
+    while (n > max && doc) {
+      const fixed = count(yesNoPrompt(m.queryTask, query, ""));
+      doc = doc.slice(0, Math.max(0, Math.floor((doc.length * (max - fixed)) / Math.max(1, n - fixed)) - 1));
+      prompt = yesNoPrompt(m.queryTask, query, doc);
+      n = count(prompt);
+    }
+    addTokens(n);
+    const { logits } = await model(tokenizer([prompt], { padding: false, add_special_tokens: false }));
+    const [no, yes] = Array.from(f32(logits as Tensor).data);
+    scores.push(yesProbability(no, yes));
+  }
+  return scores;
+}
+
 async function rerank(m: ResolvedModel, query: string, texts: string[]): Promise<number[]> {
+  if (m.entry.rerankerKind === "yes-no-lm") return rerankYesNo(m, query, texts);
   if (m.entry.rerankerKind && m.entry.rerankerKind !== "cross-encoder")
     throw new UserError(
-      `${m.entry.label} is a ${m.entry.rerankerKind} reranker; transformers.js runs cross-encoders only.`,
+      `${m.entry.label} is a ${m.entry.rerankerKind} reranker; transformers.js runs cross-encoders and yes/no rerankers only.`,
       "Choose another reranker in Settings › Models.",
     );
   const { tokenizer, model } = await load(m, "cross-encoder");
@@ -186,6 +234,12 @@ async function rerank(m: ResolvedModel, query: string, texts: string[]): Promise
 }
 
 async function probe(m: ResolvedModel): Promise<{ dims: number; maxTokens: number }> {
+  if (m.entry.kind === "reranker" && m.entry.rerankerKind === "yes-no-lm") {
+    const [s] = await rerankYesNo(m, "probe", ["Testimus probe sentence."]);
+    if (!Number.isFinite(s)) throw new UserError(`${m.entry.label} gave no yes/no score.`);
+    const { tokenizer } = await load(m, "yes-no-lm");
+    return { dims: 1, maxTokens: maxTokens(m, tokenizer) };
+  }
   if (m.entry.kind === "reranker") {
     const { tokenizer } = await load(m, "cross-encoder");
     return { dims: 1, maxTokens: maxTokens(m, tokenizer) };

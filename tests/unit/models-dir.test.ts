@@ -47,7 +47,6 @@ function seed(root: string): ModelsRegistry {
   const r: ModelsRegistry = {
     dir: root,
     allowRemote: true,
-    ollama: { enabled: true, host: "http://127.0.0.1:11434" },
     installs: [
       { model: "bge-m3-q8", via: "download", runtime: "transformers", path: onnx, status: "installed" },
       { model: "qwen3-embedding-0.6b-q8", via: "download", runtime: "llamacpp", path: gguf, status: "verified" },
@@ -256,7 +255,6 @@ describe("two variants of one Hugging Face repo share a folder (#4)", () => {
     writeRegistry({
       dir: root,
       allowRemote: true,
-      ollama: { enabled: true, host: "http://127.0.0.1:11434" },
       installs: [
         { model: "bge-m3-q8", via: "download", runtime: "transformers", path: repo, dtype: "q8", status: "verified" },
         {
@@ -275,7 +273,6 @@ describe("two variants of one Hugging Face repo share a folder (#4)", () => {
   beforeEach(() => {
     rmSync(registryFile(), { force: true });
     seedShared(old);
-    installDeps.ollama = async () => null;
   });
   afterEach(() => {
     Object.assign(installDeps, saved);

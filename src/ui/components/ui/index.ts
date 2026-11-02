@@ -3,6 +3,8 @@ export { Button } from "./Button.tsx";
 export { Chip } from "./Chip.tsx";
 export { ChipInput } from "./ChipInput.tsx";
 export { ClaudeBadge } from "./ClaudeBadge.tsx";
+export { Confirm } from "./Confirm.tsx";
+export { DragEdge } from "./DragEdge.tsx";
 export { Field } from "./Field.tsx";
 export { FindingCard, kindLabel } from "./FindingCard.tsx";
 export { GrowArea } from "./GrowArea.tsx";

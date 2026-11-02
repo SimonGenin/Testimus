@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import type { CheckFile, Source, SyncState, Test, XrayJson } from "../../../core/types.ts";
 import { RevertConflict } from "../../components/claude/RevertConflict.tsx";
 import {
@@ -10,7 +11,7 @@ import {
   Severity,
   SyncBadge,
 } from "../../components/ui/index.ts";
-import { isRequirementField, splitIds } from "../../lib/fields.ts";
+import { idsByKind, isRequirementField, splitIds } from "../../lib/fields.ts";
 import { plural } from "../../lib/format.ts";
 import { FindingSources, ReviewStep } from "./ReviewStep.tsx";
 
@@ -82,7 +83,7 @@ export function ReviewTest({
 }) {
   const findings = check?.findings ?? [];
   const whole = findings.filter((f) => !f.step || f.step > test.steps.length);
-  const reqs = requirementsOf(test);
+  const kinds = idsByKind(test.steps);
   const allFolded = test.steps.every((_, i) => folded.has(i));
   return (
     <div className="rtest">
@@ -105,11 +106,15 @@ export function ReviewTest({
         </div>
         <h2 className="h rtest-title">{test.summary || "Untitled test"}</h2>
         <div className="rtest-reqs">
-          {reqs.length > 0 && <span className="label">Requirements</span>}
-          {reqs.map((r) => (
-            <span key={r} title={r}>
-              <RequirementChip id={shortId(reqs[0], r)} />
-            </span>
+          {kinds.map((g) => (
+            <Fragment key={g.label}>
+              <span className="label">{g.label} ids</span>
+              {g.ids.map((r) => (
+                <span key={r} title={r}>
+                  <RequirementChip id={shortId(g.ids[0], r)} />
+                </span>
+              ))}
+            </Fragment>
           ))}
           <span className="muted">{plural(test.steps.length, "step")}</span>
           {!check && <Badge tone="neutral">Not checked yet</Badge>}

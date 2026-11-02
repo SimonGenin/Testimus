@@ -321,13 +321,26 @@ export async function ensureServer(o: ServerStart): Promise<LlamaServer> {
 export async function serverPost<T>(s: LlamaServer, path: string, body: unknown, timeoutMs = 300000): Promise<T> {
   s.busy++;
   try {
-    const res = await env.http({
+    const req = {
       method: "POST",
       url: s.url + path,
       headers: { "content-type": "application/json", authorization: `Bearer ${s.apiKey}` },
       body: JSON.stringify(body),
       timeoutMs,
-    });
+    };
+    // ponytail: embeddings and reranks are idempotent; a local connection reset (seen on the dev PC under load) is
+    // retried twice before it counts as a failure
+    let res: Awaited<ReturnType<typeof env.http>> | undefined;
+    for (let attempt = 0; !res; attempt++) {
+      try {
+        res = await env.http(req);
+      } catch (e) {
+        const reset = /fetch failed|ECONNRESET|socket hang up|other side closed/i.test(
+          `${e instanceof Error ? e.message : String(e)} ${String((e as { cause?: unknown }).cause ?? "")}`,
+        );
+        if (!reset || attempt >= 2) throw e;
+      }
+    }
     if (res.status !== 200) {
       let msg = (res.text ?? "").slice(0, 300);
       try {

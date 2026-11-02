@@ -12,6 +12,7 @@ export type MenuItem =
       hint?: string;
       title?: string;
       on?: boolean;
+      danger?: boolean;
       disabled?: boolean;
       onSelect: () => void;
     };
@@ -66,7 +67,7 @@ export function Menu({
                 type="button"
                 role="menuitem"
                 aria-current={i.on || undefined}
-                className={cx("menu-item", i.on && "is-on")}
+                className={cx("menu-item", i.on && "is-on", i.danger && "is-danger")}
                 title={i.title}
                 disabled={i.disabled}
                 onClick={() => {

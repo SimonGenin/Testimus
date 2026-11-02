@@ -12,6 +12,7 @@ import {
 import { readProject } from "../lib/project.ts";
 import { readCheck } from "../lib/store.ts";
 import type { CheckFile, Diagnosis, Finding, Review } from "../types.ts";
+import { effectiveContexts } from "./prompt.ts";
 import { runClaude } from "./run.ts";
 import { revert } from "./snapshot.ts";
 import { calledFor } from "./stream.ts";
@@ -61,7 +62,7 @@ async function semanticPass(
     model: p.claude.model,
     effort: p.claude.effort,
     scope: { kind: "test", testId: id },
-    contexts: p.claude.contexts,
+    contexts: effectiveContexts(project, id),
     kind: "check",
     signal: ctx.signal,
     onEvent: (e) => ctx.claude(e),

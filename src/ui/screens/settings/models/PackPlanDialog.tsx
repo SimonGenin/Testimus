@@ -58,7 +58,6 @@ export function PackPlanDialog({
                 <Icon name="pull" size={14} />
                 <span>{label(d.model)}</span>
                 <span className="muted">{size(d.sizeMB)}</span>
-                {d.via === "ollama" && <span className="muted">through Ollama</span>}
               </li>
             ))}
           </ul>

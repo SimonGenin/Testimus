@@ -18,12 +18,13 @@ export { forShell };
 export const EDIT_TOOLS = ["Read", "Edit", "Write", "Glob", "Grep", "Skill"];
 export const READ_TOOLS = ["Read", "Glob", "Grep", "Skill"];
 
-export type RunKind = "chat" | "figures" | "headers" | "check" | "generate" | "fix" | "run";
+export type RunKind = "chat" | "figures" | "headers" | "traces" | "check" | "generate" | "fix" | "run";
 
 const TOOLS: Record<RunKind, string[]> = {
   chat: READ_TOOLS,
   figures: ["Read"],
   headers: ["Read"],
+  traces: ["Read", "Glob", "Grep"],
   check: READ_TOOLS,
   generate: EDIT_TOOLS,
   fix: EDIT_TOOLS,
@@ -36,6 +37,7 @@ const EXTRA: Record<RunKind, string[]> = {
   chat: [],
   figures: [],
   headers: [],
+  traces: [],
   check: ["check.record"],
   generate: ["tests.create", ...TEST_WRITES, "check.run"],
   fix: TEST_WRITES,

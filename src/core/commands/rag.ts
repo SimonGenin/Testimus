@@ -48,13 +48,19 @@ export const commands: Command[] = [
     ),
     mutates: false,
     positional: ["query"],
-    run: (ctx, input) => search(projectOf(ctx), input.query, input),
+    run: (ctx, input) => search(projectOf(ctx), input.query, { ...input, log: (level, m) => ctx.log(level, m) }),
   }),
   command({
     name: "rag.passage",
     summary: "Read one passage of a document by its source reference docId#anchor (§5.6.6, req:ID, fig:N).",
     input: z.object({
       ref: z.string().min(3).describe("Source reference docId#anchor, e.g. SOSIE_211_D401-1_3#§5.6.6 or DOC#req:EXI_…"),
+      around: z
+        .string()
+        .optional()
+        .describe(
+          "A quote to centre the capped text on (the Review panel passes the cited quote): a long section then shows the part that holds it",
+        ),
     }),
     output: z.object({
       docId: z.string(),
@@ -64,6 +70,10 @@ export const commands: Command[] = [
       text: z.string().describe("The section's text, capped at project.json rag.passageMaxChars (default 12000)"),
       focus: z.string().optional().describe("For req: anchors, the requirement's statement (never the id alone)"),
       truncated: z.boolean().optional().describe("True when text was cut at the cap; read the rest with readMore"),
+      quoteFound: z
+        .boolean()
+        .optional()
+        .describe("With around: whether the quote is in this passage's section (text is centred on it when it is)"),
       outline: z
         .array(
           z.object({
@@ -91,7 +101,7 @@ export const commands: Command[] = [
     }),
     mutates: false,
     positional: ["ref"],
-    run: async (ctx, input) => passage(projectOf(ctx), input.ref),
+    run: async (ctx, input) => passage(projectOf(ctx), input.ref, input.around),
   }),
   command({
     name: "rag.figure",

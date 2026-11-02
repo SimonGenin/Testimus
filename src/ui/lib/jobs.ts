@@ -8,6 +8,7 @@ export const KIND: Record<string, string> = {
   check: "Check tests",
   claude: "Claude request",
   chat: "Ask the documents",
+  traces: "Find ids to track",
   pull: "Pull from Jira",
   push: "Push to Jira",
   "docs.add": "Add document",

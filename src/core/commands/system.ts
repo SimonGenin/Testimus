@@ -3,7 +3,7 @@ import { isAbsolute } from "node:path";
 import { z } from "zod";
 import { type Command, command, UserError } from "../command.ts";
 import { env } from "../env.ts";
-import { credsStatus, saveCreds } from "../lib/creds.ts";
+import { credsStatus, saveCreds, savedSecrets } from "../lib/creds.ts";
 import { jiraCheck, runDoctor, xrayCheck } from "../lib/doctor.ts";
 import { catalogEntry } from "../lib/models-catalog.ts";
 import { pull } from "../lib/models-install.ts";
@@ -26,10 +26,18 @@ const status = z.object({
     file: z.string(),
     exists: z.boolean(),
     complete: z.boolean(),
+    invalid: z.boolean().optional().describe("The file is there but broken JSON or missing a field"),
+    problem: z.string().optional().describe("What is wrong with it, e.g. missing token"),
     baseUrl: z.string().optional(),
     email: z.string().optional(),
   }),
-  xray: z.object({ file: z.string(), exists: z.boolean(), complete: z.boolean() }),
+  xray: z.object({
+    file: z.string(),
+    exists: z.boolean(),
+    complete: z.boolean(),
+    invalid: z.boolean().optional().describe("The file is there but broken JSON or missing a field"),
+    problem: z.string().optional().describe("What is wrong with it, e.g. missing clientSecret"),
+  }),
 });
 
 const settingsOut = z.object({
@@ -39,11 +47,24 @@ const settingsOut = z.object({
   stepLayout: z.enum(["stacked", "split"]),
   claude: z.object({ exe: z.string() }),
   models: z.object({ allowRemote: z.boolean() }),
+  ui: z
+    .record(z.string(), z.string())
+    .optional()
+    .describe("The page's own preferences (widths, layout, recent tests…), kept here so a new page origin finds them"),
 });
 
+// ponytail: whatever people paste — "transurb", a host, any page URL, http or https — becomes the site root over https
+// (Xray Editor's siteUrl): a typed /wiki is kept, an *.atlassian.net site always gets it (§2), an unchanged site keeps
+// the exact spelling already in the file
 export function siteUrl(site: string, previous?: string): string {
-  const s = site.trim().replace(/\/+$/, "");
-  const url = /^https?:\/\//i.test(s) ? s : /\./.test(s) ? `https://${s}` : `https://${s}.atlassian.net`;
+  let s = site.trim().replace(/\s+/g, "");
+  if (!/^https?:\/\//i.test(s)) s = `https://${s}`;
+  let url = s;
+  try {
+    const u = new URL(s);
+    const host = u.hostname.includes(".") ? u.hostname : `${u.hostname}.atlassian.net`;
+    url = `https://${host}${/^\/wiki(\/|$)/.test(u.pathname) ? "/wiki" : ""}`;
+  } catch {}
   const base = url.replace(/\/wiki$/, "");
   const prevBase = previous
     ?.trim()
@@ -85,6 +106,23 @@ export const commands: Command[] = [
     },
   }),
 
+  command({
+    name: "system.secrets",
+    summary:
+      "The saved Jira API token and Xray Client ID / secret, for the connection form to show back (never offered to Claude runs).",
+    input: z.object({}),
+    output: z.object({
+      token: z.string().describe("Jira API token in ~/.atlassian/credentials.json (empty when missing)"),
+      clientId: z.string().describe("Xray Client ID in ~/.atlassian/xray_credentials.json"),
+      clientSecret: z.string().describe("Xray Client secret in ~/.atlassian/xray_credentials.json"),
+    }),
+    mutates: false,
+    global: true,
+    mcp: false,
+    async run() {
+      return savedSecrets();
+    },
+  }),
   command({
     name: "system.setup",
     summary:
@@ -191,7 +229,7 @@ export const commands: Command[] = [
       const e = catalogEntry(input.profile);
       if (!e?.source.hf)
         throw new UserError(`Unknown model profile ${input.profile}.`, "testimus models catalog lists the models.");
-      const r = await pull(ctx, { model: e.id, via: "download" });
+      const r = await pull(ctx, { model: e.id });
       return { profile: input.profile, hfId: e.source.hf.repo, dir: r.where, where: r.via };
     },
   }),
@@ -219,6 +257,10 @@ export const commands: Command[] = [
         .boolean()
         .optional()
         .describe("Allow model downloads from Hugging Face (false behind a blocking proxy)."),
+      ui: z
+        .record(z.string(), z.string())
+        .optional()
+        .describe("The page's testimus.* preferences, replaced whole (the UI mirrors its localStorage here)."),
     }),
     output: settingsOut,
     mutates: true,
@@ -229,6 +271,7 @@ export const commands: Command[] = [
       if (input.stepLayout) s.stepLayout = input.stepLayout;
       if (input.claudeExe !== undefined) s.claude = { ...s.claude, exe: checkedExe(input.claudeExe) };
       if (input.allowRemote !== undefined) s.models = { ...s.models, allowRemote: input.allowRemote };
+      if (input.ui) s.ui = Object.fromEntries(Object.entries(input.ui).filter(([k]) => k.startsWith("testimus.")));
       writeSettings(s);
       return s;
     },

@@ -11,7 +11,11 @@ import { runClaude } from "./run.ts";
 export const FIGURES_MARKER = "Testimus describe-figures run";
 export const FIGURES_TAG = "figures";
 export const FIGURES_BATCH = 20;
+export const MAX_LABELS = 100;
+export const FIGURE_KINDS: FigureKind[] = ["screen", "diagram", "symbol", "table-image", "photo"];
 
+type FigureKind = NonNullable<FigureEntry["kind"]>;
+export type Described = Pick<FigureEntry, "description" | "labels" | "kind">;
 export type FigureTodo = { anchor: string; file: string; caption: string; section: string };
 export type DescribeResult = {
   docId: string;
@@ -36,9 +40,14 @@ export function figuresPrompt(
   return [
     `${FIGURES_MARKER} for the document ${doc.code || doc.id} ${doc.title}.`.replace(/\s+\./, "."),
     "",
-    "Open each picture below with Read and describe it for a tester who will compare it with the screen of the",
-    `simulator: one or two sentences in ${languageName(language)}, saying what is drawn — symbols, colours, labels,`,
-    "texts, layout, states. Describe only what the picture and its caption show; no interpretation, no requirement.",
+    "Open each picture below with Read, look at it, and give for a tester who will compare it with the screen of",
+    "the simulator:",
+    `- description: one or two sentences in ${languageName(language)}, saying what is drawn — symbols, colours,`,
+    "  layout, states. Only what the picture and its caption show; no interpretation, no requirement.",
+    "- labels: every text visible in the picture, copied verbatim (same spelling, accents, case, abbreviations;",
+    `  never translated or corrected), one entry per title, button, menu item, field, legend or symbol name; at most ${MAX_LABELS}; [] when the picture has no text.`,
+    `- kind: one of ${FIGURE_KINDS.join(", ")} (screen = a software window or screenshot, diagram = a drawing, plan or`,
+    "  flow, symbol = one pictogram or a legend of symbols, table-image = a table pasted as a picture, photo).",
     "Do not edit any file.",
     "",
     ...todo.map(
@@ -50,7 +59,7 @@ export function figuresPrompt(
     "```" + FIGURES_TAG,
     `{${todo
       .slice(0, 2)
-      .map((f) => `"${f.anchor}": "…"`)
+      .map((f) => `"${f.anchor}": {"description": "…", "labels": ["…"], "kind": "screen"}`)
       .join(", ")}}`,
     "```",
     "",
@@ -59,7 +68,24 @@ export function figuresPrompt(
 
 const figKey = (k: string) => `fig:${k.trim().replace(/^fig[:\s]*/i, "")}`;
 
-export function parseFigureDescriptions(text: string): Record<string, string> {
+function described(v: unknown): Described | null {
+  if (typeof v === "string") return v.trim() ? { description: v.trim() } : null;
+  if (!v || typeof v !== "object") return null;
+  const o = v as Record<string, unknown>;
+  if (typeof o.description !== "string" || !o.description.trim()) return null;
+  const out: Described = { description: o.description.trim() };
+  if (Array.isArray(o.labels))
+    out.labels = [
+      ...new Set(o.labels.filter((l): l is string => typeof l === "string").map((l) => l.replace(/\s+/g, " ").trim())),
+    ]
+      .filter(Boolean)
+      .slice(0, MAX_LABELS);
+  if (typeof o.kind === "string" && (FIGURE_KINDS as string[]).includes(o.kind)) out.kind = o.kind as FigureKind;
+  return out;
+}
+
+// ponytail: v1 replies map an anchor to a description string, v2 replies to { description, labels, kind }; both read
+export function parseFigures(text: string): Record<string, Described> {
   const blocks = [...text.matchAll(/```[ \t]*([\w-]*)[^\n]*\n([\s\S]*?)```/g)];
   const ordered = [...blocks.filter((b) => b[1] === FIGURES_TAG), ...blocks.filter((b) => b[1] !== FIGURES_TAG)].map(
     (b) => b[2],
@@ -69,18 +95,25 @@ export function parseFigureDescriptions(text: string): Record<string, string> {
   for (const body of ordered) {
     try {
       const o = JSON.parse(body) as unknown;
-      const out: Record<string, string> = {};
+      const out: Record<string, Described> = {};
       if (Array.isArray(o)) {
-        for (const e of o as Record<string, unknown>[])
-          if (e && typeof e.anchor === "string" && typeof e.description === "string" && e.description.trim())
-            out[figKey(e.anchor)] = e.description.trim();
+        for (const e of o as Record<string, unknown>[]) {
+          const d = e && typeof e.anchor === "string" ? described(e) : null;
+          if (d) out[figKey(e.anchor as string)] = d;
+        }
       } else if (o && typeof o === "object")
-        for (const [k, v] of Object.entries(o as Record<string, unknown>))
-          if (typeof v === "string" && v.trim()) out[figKey(k)] = v.trim();
+        for (const [k, v] of Object.entries(o as Record<string, unknown>)) {
+          const d = described(v);
+          if (d) out[figKey(k)] = d;
+        }
       if (Object.keys(out).length) return out;
     } catch {}
   }
   return {};
+}
+
+export function parseFigureDescriptions(text: string): Record<string, string> {
+  return Object.fromEntries(Object.entries(parseFigures(text)).map(([k, d]) => [k, d.description]));
 }
 
 export async function describeFigures(
@@ -109,7 +142,27 @@ export async function describeFigures(
   const res: DescribeResult = { docId, figures: all.length, described: 0, missing: [], runIds: [], costUsd: 0 };
   if (!todo.length) return res;
   const p = readProject(project);
-  const got: Record<string, string> = {};
+  const got: Record<string, Described> = {};
+  const byAnchor = new Map(entries.map((e) => [e.anchor, e]));
+  // ponytail: written after every batch, so a long document cut short keeps what Claude already described
+  const save = () => {
+    const next: FigureEntry[] = all.map((f) => {
+      const e = byAnchor.get(f.anchor);
+      const d = got[f.anchor];
+      const labels = d ? (d.labels ?? e?.labels) : e?.labels;
+      const kind = d ? (d.kind ?? e?.kind) : e?.kind;
+      return {
+        file: e?.file || f.file,
+        anchor: f.anchor,
+        caption: e?.caption || f.caption,
+        description: d?.description ?? e?.description ?? f.description,
+        ...(labels ? { labels } : {}),
+        ...(kind ? { kind } : {}),
+      };
+    });
+    for (const e of entries) if (!next.some((n) => n.anchor === e.anchor)) next.push(e);
+    writeJson(file, next);
+  };
   for (let i = 0; i < todo.length; i += FIGURES_BATCH) {
     if (ctx.signal.aborted) break;
     const batch = todo.slice(i, i + FIGURES_BATCH);
@@ -129,25 +182,17 @@ export async function describeFigures(
       ctx.log("warn", `Figure descriptions of ${docId}: ${run.summary}`);
       continue;
     }
-    const parsed = parseFigureDescriptions(run.summary);
-    for (const f of batch) if (parsed[f.anchor]) got[f.anchor] = parsed[f.anchor];
+    const parsed = parseFigures(run.summary);
+    let any = false;
+    for (const f of batch)
+      if (parsed[f.anchor]) {
+        got[f.anchor] = parsed[f.anchor];
+        any = true;
+      }
+    if (any) save();
   }
   res.missing = todo.filter((f) => !got[f.anchor]).map((f) => f.anchor);
   res.described = todo.length - res.missing.length;
-  if (res.described) {
-    const byAnchor = new Map(entries.map((e) => [e.anchor, e]));
-    const next: FigureEntry[] = all.map((f) => {
-      const e = byAnchor.get(f.anchor);
-      return {
-        file: e?.file || f.file,
-        anchor: f.anchor,
-        caption: e?.caption || f.caption,
-        description: got[f.anchor] ?? e?.description ?? f.description,
-      };
-    });
-    for (const e of entries) if (!next.some((n) => n.anchor === e.anchor)) next.push(e);
-    writeJson(file, next);
-  }
   if (res.missing.length) ctx.log("warn", `${docId}: no description for ${res.missing.join(", ")}.`);
   ctx.progress({ message: `${res.described} figure(s) of ${docId} described`, done: todo.length, total: todo.length });
   return res;

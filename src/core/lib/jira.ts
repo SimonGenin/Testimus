@@ -1,4 +1,5 @@
 import { env, gate, type HttpReq, type HttpRes } from "../env.ts";
+import { jobNotice, notice } from "../jobs.ts";
 import type {
   Folder,
   PlanOp,
@@ -80,7 +81,15 @@ const b64 = (bytes: Uint8Array) => Buffer.from(bytes).toString("base64");
 const MAX_WAIT = 120;
 const httpSlot = gate(6);
 
-export const rateLimit = { onWait: (_secs: number) => {} };
+export const rateLimit: { onWait: (secs: number) => (() => void) | unknown } = {
+  onWait: (secs) => {
+    const message = `Rate limited — waiting ${secs}s`;
+    const inJob = jobNotice(message);
+    if (inJob) return inJob;
+    notice(message);
+    return () => notice("");
+  },
+};
 
 const headerOf = (h: Record<string, string>, name: string) =>
   h[name] ?? h[Object.keys(h).find((k) => k.toLowerCase() === name) ?? ""] ?? "";
@@ -101,8 +110,9 @@ async function send(req: HttpReq): Promise<HttpRes> {
       if (res.status !== 429 || attempt === 3) return res;
       const secs = retryAfter(res.headers, attempt);
       // ponytail: the wait holds its slot on purpose — being rate limited must slow everything down
-      rateLimit.onWait(secs);
+      const resume = rateLimit.onWait(secs);
       await new Promise((r) => setTimeout(r, secs * 1000));
+      if (typeof resume === "function") resume();
     }
   });
 }
@@ -269,22 +279,27 @@ export async function getProjectInfo(key: string): Promise<ProjectInfo> {
   };
 }
 
-type RawField = { id: string; name: string; type?: string; disabled?: boolean };
+type RawField = { id: string; name: string; type?: string; required?: boolean; disabled?: boolean };
 
 // SPEC §10 (verified read-only on LFRPS12, 2026-11-02): the built-in three answer lowercase, a custom
-// field answers under its own name; a disabled field is not offered in Xray, so it is not offered here
+// field answers under its own name; a field switched off in Xray is kept, marked disabled (Xray Editor
+// shows it « off in Xray », folded unless a step holds something)
 export async function getStepFields(projectId: string): Promise<XrayField[]> {
   const d = await gql<{ getProjectSettings: { testStepSettings?: { fields?: RawField[] } } | null }>(GET_STEP_FIELDS, {
     projectIdOrKey: projectId,
   });
-  const raw = (d.getProjectSettings?.testStepSettings?.fields ?? []).filter((f) => !f.disabled);
+  const raw = d.getProjectSettings?.testStepSettings?.fields ?? [];
+  const flags = (f?: RawField) => ({
+    ...(f?.required ? { required: true } : {}),
+    ...(f?.disabled ? { disabled: true } : {}),
+  });
   const builtins = BUILTIN.map((b) => {
     const f = raw.find((x) => x.name.toLowerCase() === b.key);
-    return { id: f?.id ?? b.key, name: b.name, type: f?.type ?? "text", builtin: true };
+    return { id: f?.id ?? b.key, name: b.name, type: f?.type ?? "text", builtin: true, ...flags(f) };
   });
   const custom = raw
     .filter((f) => !BUILTIN.some((b) => b.key === f.name.toLowerCase()))
-    .map((f) => ({ id: String(f.id), name: f.name, type: f.type ?? "text", builtin: false }));
+    .map((f) => ({ id: String(f.id), name: f.name, type: f.type ?? "text", builtin: false, ...flags(f) }));
   return [...builtins, ...custom];
 }
 
@@ -458,14 +473,18 @@ async function downloadAttachment(link: string, filename: string): Promise<Uint8
 // in CreateStepInput / UpdateStepInput. This pair of functions is the only place that knows the shape.
 type RawCustom = { id: string; name?: string; value?: unknown };
 
-const customText = (v: unknown): string =>
-  v == null
-    ? ""
-    : Array.isArray(v)
-      ? v.map(customText).join(", ")
-      : typeof v === "object"
-        ? JSON.stringify(v)
-        : String(v);
+// ponytail: a value Xray holds as something other than text (a toggle, a number, a multi-select) is kept as its JSON
+// spelling and goes back parsed (customValue), so a rebuild of the step cannot turn it into a string (Xray Editor)
+const customText = (v: unknown): string => (v == null ? "" : typeof v === "string" ? v : JSON.stringify(v));
+
+const customValue = (f: XrayField, text: string): unknown => {
+  if (f.type === "text" || f.type === "text-single" || !text) return text;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+};
 
 function readCustom(list: RawCustom[] | undefined): Record<string, string> {
   const out: Record<string, string> = {};
@@ -480,10 +499,10 @@ function customInput(
   s: Step,
   schema: XrayField[],
   only?: (name: string) => boolean,
-): Array<{ id: string; value: string }> {
+): Array<{ id: string; value: unknown }> {
   return schema
     .filter((f) => !f.builtin && (only ? only(f.name) : !!fieldOf(s, f.name)))
-    .map((f) => ({ id: f.id, value: fieldOf(s, f.name) }));
+    .map((f) => ({ id: f.id, value: customValue(f, fieldOf(s, f.name)) }));
 }
 
 type RawStep = {
@@ -733,11 +752,19 @@ export async function planPush(
       `This test is not validated (review: ${local.review}) — it goes to Jira labelled ${prefix}${local.review}.`,
     );
   const known = new Set(schema.map((f) => f.name));
-  const unknown = [...new Set(local.steps.flatMap((s) => Object.keys(s.fields).filter((n) => !known.has(n))))];
+  // ponytail: only a column that holds something would be sent, so only that one is worth a warning (Xray Editor)
+  const unknown = [
+    ...new Set(local.steps.flatMap((s) => Object.keys(s.fields).filter((n) => !known.has(n) && s.fields[n]?.trim()))),
+  ];
   if (unknown.length)
     warnings.push(
       `${unknown.map((n) => `"${n}"`).join(", ")} ${unknown.length > 1 ? "are not step fields" : "is not a step field"} of ${deps.project.key} — not pushed (refresh the fields with xray.fields if it was just added).`,
     );
+  for (const f of schema) {
+    if (!f.required || f.disabled || f.builtin) continue;
+    const empty = local.steps.flatMap((s, i) => (s.fields[f.name]?.trim() ? [] : [i + 1]));
+    if (empty.length) warnings.push(`${f.name} is required in Xray and empty in step ${empty.join(", ")}.`);
+  }
 
   const labels = reviewLabels(local.labels, local.review, deps.labelPrefix);
   const unreadable = local.steps.flatMap((s, i) => (hasRawEmbed(s) ? [i + 1] : []));

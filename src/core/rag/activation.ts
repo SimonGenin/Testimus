@@ -83,11 +83,6 @@ async function resolveAny(choice: RagChoice, queryTask: string): Promise<Resolve
   return { embedding: null, reranker: null, variant: null };
 }
 
-// ponytail: the yes-no-lm reranker of transformers.js is R11; until then such a model is left out, never an error
-function usableReranker(m: ResolvedModel): boolean {
-  return env.mock || m.runtime !== "transformers" || m.entry.rerankerKind !== "yes-no-lm";
-}
-
 export async function activeModels(project: string): Promise<ActiveModels> {
   const rag = readProject(project).rag;
   const queryTask = queryTaskOf(project);
@@ -106,7 +101,7 @@ export async function activeModels(project: string): Promise<ActiveModels> {
       continue;
     }
     const wanted = r.variant?.reranker ?? null;
-    const reranker = r.reranker && usableReranker(r.reranker) ? r.reranker : null;
+    const reranker = r.reranker;
     if (wanted && !reranker) missing.push(wanted);
     const pack = "pack" in choice ? packOf(choice.pack) : undefined;
     return {

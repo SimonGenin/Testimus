@@ -156,6 +156,26 @@ textarea {
   filter: brightness(1.06);
 }
 
+.btn-danger {
+  background: var(--err);
+  border-color: var(--err);
+  color: #fff;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: var(--err);
+  filter: brightness(1.08);
+}
+
+.loss {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--warn-bg);
+  color: var(--warn);
+  font-size: 13.5px;
+}
+
 .btn-quiet {
   background: transparent;
   border-color: transparent;

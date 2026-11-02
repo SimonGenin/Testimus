@@ -1,8 +1,9 @@
 import { useState } from "react";
-import type { XrayJson } from "../../../core/types.ts";
+import type { ColumnMode, XrayJson } from "../../../core/types.ts";
 import { call } from "../../api.ts";
 import { Button, Icon, IconButton } from "../../components/ui/index.ts";
 import { useApp } from "../../lib/app.ts";
+import { MODES } from "../../lib/columns.ts";
 import { isRequirementField } from "../../lib/fields.ts";
 import { cx } from "../../lib/format.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
@@ -36,6 +37,17 @@ export function FieldsSection() {
     void save({ order: rest });
   };
 
+  const off = (name: string) => !!x.fields.find((f) => f.name === name)?.disabled;
+
+  const setMode = (name: string, mode: ColumnMode) =>
+    void save({
+      collapsed: [...x.prefs.collapsed.filter((n) => n !== name), ...(mode === "collapsed" ? [name] : [])],
+      filled: [...(x.prefs.filled ?? []).filter((n) => n !== name), ...(mode === "filled" ? [name] : [])],
+      ...(off(name) || x.prefs.open?.length
+        ? { open: [...(x.prefs.open ?? []).filter((n) => n !== name), ...(mode === "open" && off(name) ? [name] : [])] }
+        : {}),
+    });
+
   const flip = (list: "collapsed" | "hidden", name: string, on: boolean) =>
     void save({
       [list]: on ? [...x.prefs[list].filter((n) => n !== name), name] : x.prefs[list].filter((n) => n !== name),
@@ -66,21 +78,28 @@ export function FieldsSection() {
         </Button>
       </div>
       <p className="muted">
-        The fields come from Jira. Choose their order, which ones start folded, and which ones to hide in this project.
+        The fields come from Jira. Choose their order, when each one shows on a step (always, only when the step holds
+        something, or folded) and which ones to hide in this project. A test can choose its own from the editor's
+        Columns menu.
       </p>
       <div className="frows">
         <div className="frow frow-head" aria-hidden="true">
           <span />
           <span className="muted">Field</span>
           <span className="muted">Kind</span>
-          <span className="muted">Folded by default</span>
+          <span className="muted">Shown on a step</span>
           <span className="muted">Hidden</span>
           <span />
         </div>
         <ul className="frows-list" aria-label="Step fields">
           {order.map((name, i) => {
             const f = x.fields.find((ff) => ff.name === name);
-            const folded = x.prefs.collapsed.includes(name);
+            const mode = x.prefs.collapsed.includes(name)
+              ? "collapsed"
+              : (x.prefs.filled ?? []).includes(name) || (off(name) && !(x.prefs.open ?? []).includes(name))
+                ? "filled"
+                : "open";
+            const foldable = name !== "Action" && name !== "Expected Result";
             const hidden = x.prefs.hidden.includes(name);
             return (
               <li
@@ -106,16 +125,23 @@ export function FieldsSection() {
                 <span className="frow-name">{name}</span>
                 <span className="muted">
                   {f?.builtin ? "Standard" : `Custom · ${isRequirementField(name) ? "ids" : (f?.type ?? "text")}`}
+                  {f?.disabled ? " · off in Xray" : ""}
+                  {f?.required ? " · required" : ""}
                 </span>
-                <label className="frow-check">
-                  <input
-                    type="checkbox"
-                    checked={folded}
-                    aria-label={`${name} folded by default`}
-                    onChange={(e) => flip("collapsed", name, e.target.checked)}
-                  />
-                  {folded ? "Yes" : "No"}
-                </label>
+                <select
+                  className="field frow-mode"
+                  aria-label={`${name} folding`}
+                  value={mode}
+                  disabled={!foldable}
+                  title={foldable ? undefined : `${name} is always open`}
+                  onChange={(e) => setMode(name, e.target.value as ColumnMode)}
+                >
+                  {MODES.map((m) => (
+                    <option key={m.value} value={m.value} title={m.title}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
                 <label className="frow-check">
                   <input
                     type="checkbox"

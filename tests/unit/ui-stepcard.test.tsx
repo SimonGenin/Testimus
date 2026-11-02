@@ -34,7 +34,7 @@ const card = (x: XrayJson, onChange = vi.fn()) =>
 
 describe("StepCard", () => {
   it("draws the fields in xray.json order", () => {
-    const { container } = card(xray);
+    const { container } = card({ ...xray, prefs: { ...xray.prefs, collapsed: [] } });
     const labels = Array.from(container.querySelectorAll(".fl-k")).map((e) => e.textContent);
     expect(labels).toEqual(["Action", "Data", "Expected Result", "Exigence"]);
   });
@@ -52,12 +52,22 @@ describe("StepCard", () => {
     expect(labels).toEqual(["Expected Result", "Action", "Exigence"]);
   });
 
-  it("folds Data by default and opens it on demand", () => {
+  it("folds a collapsed column, shows a dot when it holds something, and folds both ways", () => {
     card(xray);
     expect(screen.queryByLabelText("Data of step 2")).toBeNull();
-    const fold = screen.getByRole("button", { name: "Show Data of step 2" });
-    expect(fold).toHaveTextContent("Folded");
+    const fold = screen.getByRole("button", { name: "Data column of step 2" });
+    expect(fold).toHaveAttribute("aria-pressed", "false");
+    expect(fold).toHaveTextContent("Data ●");
     fireEvent.click(fold);
+    expect(screen.getByLabelText("Data of step 2")).toHaveValue("Sectionneur S 12, position fermée.");
+    expect(fold).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(fold);
+    expect(screen.queryByLabelText("Data of step 2")).toBeNull();
+  });
+
+  it("opens a « when filled » column only on a step that holds something", () => {
+    const filled = { ...xray, prefs: { ...xray.prefs, collapsed: [], filled: ["Data"] } };
+    card(filled);
     expect(screen.getByLabelText("Data of step 2")).toHaveValue("Sectionneur S 12, position fermée.");
   });
 

@@ -7,6 +7,7 @@ import {
   desktop,
   openProject,
   PROGRESS_KINDS,
+  restoreAlwaysOnTop,
   type Tracked,
   taskbarFraction,
   tracked,
@@ -48,6 +49,7 @@ export function DesktopBridge({ booted }: { booted: boolean }) {
   useEffect(() => {
     const d = desktop();
     if (!d) return;
+    restoreAlwaysOnTop();
     const jobs = new Map<string, Tracked>();
     const told = new Set<string>();
     let shown: number | null | undefined;

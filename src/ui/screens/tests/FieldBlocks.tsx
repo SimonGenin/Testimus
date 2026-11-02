@@ -61,8 +61,9 @@ export function FieldBlocks({
   const focusDraft = useRef(false);
 
   const items: Item[] = blocksOf(text, images);
-  if (!readOnly && ((draft && draft.text === text) || (!items.length && !nested))) {
-    const at = draft && draft.text === text ? draft.at : 0;
+  // ponytail: an empty field is its insert strip alone — no empty text block is ever created
+  if (!readOnly && draft && draft.text === text) {
+    const at = draft.at;
     const i = items.findIndex((b) => b.at >= at);
     items.splice(i < 0 ? items.length : i, 0, { kind: "text", text: "", at, end: at, draft: true });
   }

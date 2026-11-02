@@ -24,7 +24,7 @@ export type PackRow = {
 };
 
 export type UsePlan = {
-  download: { model: string; via: "download" | "ollama"; sizeMB: number }[];
+  download: { model: string; sizeMB: number }[];
   dir: string | null;
   reindex: boolean;
   expected: string;
@@ -78,11 +78,7 @@ export function planOf(r: Resolution, current: ActiveChoice | null): UsePlan {
     r.variant?.reranker === current.reranker;
   const speed = r.variant ? variantSpeed(r.variant.embedding, r.variant.reranker, perfStats({ last: 50 })) : undefined;
   return {
-    download: r.missing.map((id) => ({
-      model: id,
-      via: "download" as const,
-      sizeMB: catalogEntry(id)?.size.downloadMB ?? 0,
-    })),
+    download: r.missing.map((id) => ({ model: id, sizeMB: catalogEntry(id)?.size.downloadMB ?? 0 })),
     dir: readRegistry().dir ?? null,
     reindex: !(same || sameCustom),
     expected: speed ?? "not measured on this PC yet",

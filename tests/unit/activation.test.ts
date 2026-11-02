@@ -125,21 +125,29 @@ describe("per-machine activation", () => {
     expect(none.missing).toEqual(["qwen3-embedding-4b-q8", "qwen3-embedding-0.6b", "pack light"]);
   });
 
-  it("carries the pack's retrieval settings and leaves out a reranker the runtime cannot run yet", async () => {
-    installed.add("qwen3-embedding-8b-q8");
+  it("carries the pack's retrieval settings; a reranker not on this PC is left out and named missing", async () => {
+    installed.add("qwen3-embedding-8b-q4");
     installed.add("qwen3-reranker-4b-q8");
     setActiveChoice(dir, { pack: "quality" });
     const q = await activeModels(dir);
-    expect(q).toMatchObject({ source: "machine", retrieval: { candidates: 80, rerank: { top: 40, mode: "topk" } } });
+    expect(q).toMatchObject({
+      source: "machine",
+      choice: { pack: "quality", variant: { embedding: "qwen3-embedding-8b-q4", reranker: "qwen3-reranker-4b-q8" } },
+      retrieval: { candidates: 80, rerank: { top: 40, mode: "topk" } },
+    });
     expect(q.reranker?.entry.id).toBe("qwen3-reranker-4b-q8");
 
     installed.add("bge-m3-q8");
-    installed.add("qwen3-reranker-0.6b-onnx-q8");
     setActiveChoice(dir, { embedding: "bge-m3-q8", reranker: "qwen3-reranker-0.6b-onnx-q8" });
+    const absent = await activeModels(dir);
+    expect(absent.embedding?.entry.id).toBe("bge-m3-q8");
+    expect(absent.reranker).toBeNull();
+    expect(absent.missing).toEqual(["qwen3-reranker-0.6b-onnx-q8"]);
+
+    installed.add("qwen3-reranker-0.6b-onnx-q8");
     const yesNo = await activeModels(dir);
-    expect(yesNo.embedding?.entry.id).toBe("bge-m3-q8");
-    expect(yesNo.reranker).toBeNull();
-    expect(yesNo.missing).toEqual(["qwen3-reranker-0.6b-onnx-q8"]);
+    expect(yesNo.reranker?.entry.id).toBe("qwen3-reranker-0.6b-onnx-q8");
+    expect(yesNo.missing).toEqual([]);
   });
 
   it("fills {task} from project.json rag.queryTask, in English by default", async () => {

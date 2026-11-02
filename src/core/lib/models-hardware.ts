@@ -48,18 +48,11 @@ function drives(): string[] {
 }
 
 async function loadedModels(): Promise<LoadedModel[]> {
-  const out: LoadedModel[] = [];
   try {
-    out.push(...(await import("../rag/runtimes/llama-server.ts")).loadedServers());
-  } catch {}
-  const { ollamaMode } = await import("./models-registry.ts");
-  if (ollamaMode() === "never") return out;
-  try {
-    const { ollamaStatus } = await import("../rag/runtimes/ollama.ts");
-    const s = await ollamaStatus();
-    if (s.state === "running") out.push(...s.loaded);
-  } catch {}
-  return out;
+    return (await import("../rag/runtimes/llama-server.ts")).loadedServers();
+  } catch {
+    return [];
+  }
 }
 
 export const hardwareDeps: HardwareDeps = {

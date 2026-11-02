@@ -92,8 +92,17 @@ export type PushOpResult = { label: string; status: "done" | "failed" | "not-sta
 
 // Xray step field schema (SPEC §10)
 
-export type XrayField = { id: string; name: string; type: string; builtin: boolean };
-export type FieldPrefs = { order: string[]; collapsed: string[]; hidden: string[] };
+export type XrayField = {
+  id: string;
+  name: string;
+  type: string;
+  builtin: boolean;
+  required?: boolean;
+  disabled?: boolean;
+};
+export type FieldPrefs = { order: string[]; collapsed: string[]; hidden: string[]; filled?: string[]; open?: string[] };
+export type ColumnMode = "open" | "filled" | "collapsed";
+export type ColumnModes = Record<string, ColumnMode>;
 export type XrayJson = { fields: XrayField[]; prefs: FieldPrefs; fetchedAt?: string };
 
 export const BUILTIN_FIELDS: readonly string[] = ["Action", "Data", "Expected Result"];
@@ -112,6 +121,7 @@ export type FindingKind =
   | "contradicted"
   | "wrong-requirement"
   | "requirement-unknown"
+  | "id-unknown"
   | "requirement-not-covered"
   | "wrong-object"
   | "negative-missing"
@@ -155,7 +165,14 @@ export type DocJson = {
   warnings: string[];
   stats?: { sections: number; figures: number; requirements: number; chars: number };
 };
-export type FigureEntry = { file: string; anchor: string; caption: string; description: string };
+export type FigureEntry = {
+  file: string;
+  anchor: string;
+  caption: string;
+  description: string;
+  labels?: string[];
+  kind?: "screen" | "diagram" | "symbol" | "table-image" | "photo";
+};
 export type DocRef = DocJson & { indexed: "fresh" | "stale" | "missing" };
 
 // Index (SPEC §5)
@@ -460,7 +477,36 @@ export type ProjectJson = {
   csvMapping?: Record<string, string>;
   requirementPatterns?: string[];
   requirementMatrix?: RequirementMatrixSpec;
+  requirementField?: string;
+  traces?: Trace[];
   glossary?: Record<string, string>;
+};
+
+// Tracked ids (SPEC §4 « Tracked ids »): what the team picks out of the documents and writes in a step column
+export type Trace = { id: string; label: string; patterns: string[]; field: string; ask?: string };
+export type TraceView = Trace & {
+  origin: "declared" | "detected";
+  column: "in-xray" | "local";
+  found: number;
+  docs: number;
+};
+export type TraceItem = { id: string; doc: string; anchor: string; context: string };
+export type TraceScan = {
+  total: number;
+  distinct: number;
+  docs: { doc: string; count: number; distinct: number }[];
+  items: TraceItem[];
+};
+export type TraceUse = { test: string; key?: string; summary: string; steps: number[] };
+export type TraceCoverage = {
+  trace: string;
+  label: string;
+  field: string;
+  total: number;
+  covered: number;
+  tests: number;
+  items: (TraceItem & { uses: TraceUse[] })[];
+  unknown: { id: string; uses: TraceUse[] }[];
 };
 export type Context = { id: string; name: string; text: string; paths: string[]; files: string[] };
 
@@ -471,6 +517,7 @@ export type Settings = {
   stepLayout: "stacked" | "split";
   claude: { exe: string };
   models: { allowRemote: boolean };
+  ui?: Record<string, string>;
   rag?: { byProject?: Record<string, ActiveChoice>; budgets?: Partial<Budgets>; dismissed?: Record<string, string> };
 };
 
@@ -524,13 +571,22 @@ export type JobEvent =
   | { jobId: string; at: string; type: "status"; job: Job }
   | { jobId: string; at: string; type: "progress"; message: string; done?: number; total?: number }
   | { jobId: string; at: string; type: "log"; level: "info" | "warn" | "error"; message: string }
-  | { jobId: string; at: string; type: "claude"; event: ClaudeEvent };
+  | { jobId: string; at: string; type: "claude"; event: ClaudeEvent }
+  | { jobId: ""; at: string; type: "notice"; message: string };
 
 // System (SPEC §14)
 
 export type CheckState = "ok" | "warn" | "fail" | "skip";
 export type DoctorCheck = { id: string; label: string; state: CheckState; detail: string; fix?: string };
 export type CredsStatus = {
-  jira: { file: string; exists: boolean; complete: boolean; baseUrl?: string; email?: string };
-  xray: { file: string; exists: boolean; complete: boolean };
+  jira: {
+    file: string;
+    exists: boolean;
+    complete: boolean;
+    invalid?: boolean;
+    problem?: string;
+    baseUrl?: string;
+    email?: string;
+  };
+  xray: { file: string; exists: boolean; complete: boolean; invalid?: boolean; problem?: string };
 };

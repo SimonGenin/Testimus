@@ -1,9 +1,10 @@
 import { randomBytes } from "node:crypto";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync } from "node:fs";
 import { basename, join } from "node:path";
 import { z } from "zod";
 import { describeFigures, shouldDescribeFigures } from "../claude/figures.ts";
 import { type Command, type Ctx, command, projectOf, UserError } from "../command.ts";
+import { writeAtomic } from "../lib/atomic.ts";
 import {
   addDoc,
   docDir,
@@ -82,7 +83,20 @@ const docJson = z.object({
     .optional(),
 });
 
-const figure = z.object({ file: z.string(), anchor: z.string(), caption: z.string(), description: z.string() });
+const figure = z.object({
+  file: z.string().describe("Picture file, relative to the document folder"),
+  anchor: z.string().describe("Figure anchor, fig:N"),
+  caption: z.string().describe("Caption from the document — the only quotable text of a figure"),
+  description: z.string().describe("What Claude saw in the picture (never quotable)"),
+  labels: z
+    .array(z.string())
+    .optional()
+    .describe("Text visible in the picture, verbatim, as Claude read it — indexed for search, never quotable"),
+  kind: z
+    .enum(["screen", "diagram", "symbol", "table-image", "photo"])
+    .optional()
+    .describe("What the picture is, as Claude judged it"),
+});
 const id = z.string().describe("Document id (the folder name under docs/, e.g. SOSIE_211_D401-1_3)");
 
 export const commands: Command[] = [
@@ -116,7 +130,7 @@ export const commands: Command[] = [
       const save = (name: string | undefined, b64: string) => {
         mkdirSync(up, { recursive: true });
         const path = join(up, basename(name || "document.docx"));
-        writeFileSync(path, Buffer.from(b64, "base64"));
+        writeAtomic(path, Buffer.from(b64, "base64"));
         return path;
       };
       const file = input.dataBase64 ? save(input.name, input.dataBase64) : input.file;

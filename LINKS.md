@@ -43,7 +43,7 @@ Where each piece lives and what to take from it. Read the original; never edit i
 |---|---|
 | `D:\transformers-models\` | ONNX models in the transformers.js layout `<org>/<name>/`: `Xenova/bge-m3`, `onnx-community/Qwen3-Embedding-0.6B-ONNX`, `onnx-community/bge-reranker-v2-m3-ONNX` (each q8 + fp16), `n24q02m/Qwen3-Reranker-0.6B-ONNX` (q8 + yes/no head); GGUF rerankers for llama.cpp: `ggml-org/Qwen3-Reranker-0.6B-Q8_0-GGUF`, `Voodisss/Qwen3-Reranker-4B-GGUF-llama_cpp`, `Voodisss/Qwen3-Reranker-8B-GGUF-llama_cpp` (Q8_0). SHA-256 checked against Hugging Face on 2026-11-02 |
 | `D:\transformers-models\Qwen\` | official Qwen GGUF embeddings for llama.cpp (Apache-2.0): `Qwen3-Embedding-0.6B-GGUF` (Q8_0), `Qwen3-Embedding-4B-GGUF` (Q4_K_M, Q8_0), `Qwen3-Embedding-8B-GGUF` (Q4_K_M, Q8_0) — byte-identical to Ollama's `qwen3-embedding` tags, SHA-256 checked |
-| (Ollama) | **uninstalled on 2026-11-02** after the tests of SPEC-RAG §16: not on this PC, not to be installed or used for Testimus here. Its models are duplicates of the Qwen GGUF files above. |
+| (Ollama) | **uninstalled on 2026-11-02** after the tests of SPEC-RAG §16, and no longer a runtime of Testimus (D-12): GGUF models run on llama.cpp only. Its models were duplicates of the Qwen GGUF files above. |
 | `D:\llama.cpp\b12032-cuda13\` | official ggml-org build b12032, CUDA 13.4 + cudart (works on the RTX 5080 with driver 591.44 / CUDA 13.1); `llama-server.exe --reranking --pooling rank`. `b12032-vulkan\` is the fallback build |
 
 ## Execution side (later phases)

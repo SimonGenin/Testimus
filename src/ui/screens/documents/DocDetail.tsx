@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import type { DocJson, DocRef, FigureEntry } from "../../../core/types.ts";
+import type { DocJson, DocRef, FigureEntry, TraceItem, TraceScan, TraceView } from "../../../core/types.ts";
 import { call, project } from "../../api.ts";
 import { Button, Chip, Icon, Menu, Severity, Skeleton } from "../../components/ui/index.ts";
 import { desktop, pathJoin, reveal } from "../../lib/desktop.ts";
 import { message, plural } from "../../lib/format.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
+import { REQUIREMENT, tracesNow } from "../../lib/traces.ts";
 import { DocText, FigureChip } from "./DocText.tsx";
 
 type TocEntry = { anchor: string; title: string; level: number };
@@ -20,6 +21,16 @@ type Shown = {
 const STATUSES = ["draft", "submitted", "validated", "superseded"] as const;
 const BINDINGS = ["mandatory", "applicable", "informative"] as const;
 const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
+const LEGACY: TraceView = {
+  id: REQUIREMENT,
+  label: "Requirement",
+  patterns: [],
+  field: "",
+  origin: "detected",
+  column: "local",
+  found: 0,
+  docs: 1,
+};
 
 export function DocDetail({
   id,
@@ -40,6 +51,36 @@ export function DocDetail({
   const [part, setPart] = useState<{ anchor: string; md: string; focus?: string } | null>(null);
   const [context, setContext] = useState("");
   const [error, setError] = useState("");
+  const [scanned, setScanned] = useState<{ trace: TraceView; items: TraceItem[] }[]>([]);
+  // ponytail: until the project says what it tracks (tracesNow() null), a document shows its requirement anchors
+  const known = tracesNow();
+  const traces = known ?? [];
+  const tracesKey = traces.map((t) => `${t.id}=${t.patterns.join("|")}`).join(",");
+  const tracksReqs = !known || traces.some((t) => t.id === REQUIREMENT);
+  const found =
+    known || !shown
+      ? scanned
+      : [
+          {
+            trace: { ...LEGACY, found: shown.requirements.length },
+            items: shown.requirements.map((r) => ({ id: r, doc: id, anchor: `req:${r}`, context: "" })),
+          },
+        ];
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the tracked kinds are compared by their key
+  useEffect(() => {
+    let dead = false;
+    Promise.all(
+      traces.map((trace) =>
+        call<TraceScan>("traces.find", { trace: trace.id, doc: id, limit: 2000 })
+          .then((r) => ({ trace, items: r.items }))
+          .catch(() => ({ trace, items: [] as TraceItem[] })),
+      ),
+    ).then((r) => !dead && setScanned(r));
+    return () => {
+      dead = true;
+    };
+  }, [id, tracesKey]);
 
   useEffect(() => {
     let dead = false;
@@ -127,7 +168,8 @@ export function DocDetail({
         <h2 className="h docdetail-title">{d.title}</h2>
         <span className="muted">
           Converted from {from} · {plural(shown.toc.length, "section")} ·{" "}
-          {plural(shown.requirements.length, "requirement id")} · {plural(shown.figures.length, "figure")}
+          {found.map((f) => `${plural(f.items.length, `${f.trace.label.toLowerCase()} id`)} · `).join("")}
+          {plural(shown.figures.length, "figure")}
         </span>
         {desktop() && project() && (
           <span>
@@ -297,7 +339,7 @@ export function DocDetail({
                 docId={id}
                 md={part.md}
                 focus={part.focus}
-                onRequirement={(rid) => onAnchor(`req:${rid}`)}
+                onRequirement={tracksReqs ? (rid) => onAnchor(`req:${rid}`) : undefined}
                 onFigure={onAnchor}
               />
             )}
@@ -305,23 +347,32 @@ export function DocDetail({
         </div>
       </div>
 
-      {shown.requirements.length > 0 && (
-        <div className="formfield">
-          <span className="label">Requirement ids ({shown.requirements.length})</span>
-          <div className="chips docreqs">
-            {shown.requirements.map((r) => (
-              <button
-                key={r}
-                type="button"
-                className={`chip req chip-btn${target === `req:${r}` ? " chip-on" : ""}`}
-                onClick={() => onAnchor(`req:${r}`)}
-              >
-                {r}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      {found
+        .filter((f) => f.items.length > 0)
+        .map((f) => {
+          const to = (it: TraceItem) =>
+            f.trace.id === REQUIREMENT && shown.requirements.includes(it.id) ? `req:${it.id}` : it.anchor;
+          return (
+            <div key={f.trace.id} className="formfield">
+              <span className="label">
+                {f.trace.label} ids ({f.items.length})
+              </span>
+              <div className="chips docreqs">
+                {f.items.map((it) => (
+                  <button
+                    key={it.id}
+                    type="button"
+                    title={it.context}
+                    className={`chip req chip-btn${target === to(it) ? " chip-on" : ""}`}
+                    onClick={() => to(it) && onAnchor(to(it))}
+                  >
+                    {it.id}
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })}
 
       {shown.figures.length > 0 && (
         <div className="formfield">

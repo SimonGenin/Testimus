@@ -167,6 +167,10 @@ export const commands: Command[] = [
       runId: z.string(),
       summary: z.string(),
       changedSteps: z.array(z.number()),
+      changedTests: z
+        .array(z.string())
+        .optional()
+        .describe("Tests whose file changed (also when only the header did, so the editor reloads)"),
       review,
       check: checkFile.nullable(),
       message: z.string().optional().describe("Why the test did not go back to checked (re-check failed or skipped)"),

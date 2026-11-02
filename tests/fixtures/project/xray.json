@@ -5,6 +5,6 @@
     { "id": "result", "name": "Expected Result", "type": "text", "builtin": true },
     { "id": "cf-exigence", "name": "Exigence", "type": "text", "builtin": false }
   ],
-  "prefs": { "order": ["Action", "Data", "Expected Result", "Exigence"], "collapsed": ["Data"], "hidden": [] },
+  "prefs": { "order": ["Action", "Data", "Expected Result", "Exigence"], "collapsed": [], "hidden": [], "filled": ["Data"] },
   "fetchedAt": "2026-10-30T09:12:00.000Z"
 }

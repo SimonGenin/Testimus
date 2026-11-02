@@ -1,10 +1,44 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { readJson } from "../lib/project.ts";
+import { env } from "../env.ts";
+import { readJson, readProject, writeJson } from "../lib/project.ts";
+import { testDir } from "../lib/store.ts";
 import type { ClaudeScope, Context } from "../types.ts";
 
+export const sharedContexts = (): string => join(env.dataDir(), "contexts");
+
+// ponytail: a project's own context wins; any other id is looked up in the shared library every project sees
+// (Xray Editor keeps its contexts in the workspace, for all projects)
 export function contextDir(project: string, id: string): string {
-  return join(project, "contexts", id);
+  const own = join(project, "contexts", id);
+  if (existsSync(own)) return own;
+  const shared = join(sharedContexts(), id);
+  return existsSync(shared) ? shared : own;
+}
+
+export const isShared = (project: string, id: string): boolean =>
+  !existsSync(join(project, "contexts", id)) && existsSync(join(sharedContexts(), id));
+
+const testClaudeFile = (project: string, testId: string) => join(testDir(project, testId), "claude.json");
+
+export function readTestContexts(project: string, testId: string): string[] | null {
+  const f = testClaudeFile(project, testId);
+  if (!existsSync(f)) return null;
+  const c = readJson<{ contexts?: unknown }>(f, {}).contexts;
+  return Array.isArray(c) ? c.filter((x): x is string => typeof x === "string" && /^[\w-]+$/.test(x)) : null;
+}
+
+export function writeTestContexts(project: string, testId: string, ids: string[] | null): void {
+  const f = testClaudeFile(project, testId);
+  if (ids === null) rmSync(f, { force: true });
+  else writeJson(f, { contexts: [...new Set(ids)] });
+}
+
+// ponytail: the test's own list wins whole (Xray Editor §7), else the project's; ids whose folder is gone drop out
+export function effectiveContexts(project: string, testId?: string): string[] {
+  const own = testId ? readTestContexts(project, testId) : null;
+  const ids = own ?? readProject(project).claude.contexts;
+  return ids.filter((id) => /^[\w-]+$/.test(id) && existsSync(contextDir(project, id)));
 }
 
 export function readContexts(project: string, ids: string[]): Context[] {

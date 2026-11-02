@@ -58,7 +58,7 @@ export function ModelsTable({
                     </span>
                     {inst && (
                       <span className="muted mono mname-where" title={inst.where}>
-                        {inst.via === "ollama" ? "Ollama" : inst.where}
+                        {inst.where}
                       </span>
                     )}
                     {inst?.perf && <span className="muted mperf">{inst.perf}</span>}

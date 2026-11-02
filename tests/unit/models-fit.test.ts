@@ -88,18 +88,18 @@ describe("fit verdicts", () => {
   it("tight when it fits only once other loaded models are unloaded, naming them", () => {
     const busy = devPc({
       gpus: [{ ...devPc().gpus[0], vramUsedMB: 2490 + 9100 }],
-      loaded: [{ name: "qwen3-embedding:8b-q8_0", sizeMB: 9300, vramMB: 9100, runtime: "ollama" }],
+      loaded: [{ name: "qwen3-embedding-8b-q8", sizeMB: 9300, vramMB: 9100, runtime: "llamacpp" }],
     });
     const f = fitOf([e("qwen3-embedding-4b-q8")], busy, H);
     expect(f.verdict).toBe("tight");
-    expect(f.unload).toEqual(["qwen3-embedding:8b-q8_0"]);
-    expect(f.message).toMatch(/Tight — Ollama holds qwen3-embedding:8b-q8_0, 8\.9 GB/);
+    expect(f.unload).toEqual(["qwen3-embedding-8b-q8"]);
+    expect(f.message).toMatch(/Tight — llama\.cpp holds Qwen3 Embedding 8B \(8-bit\), 8\.9 GB/);
   });
 
-  it("a model already loaded by Ollama counts as there", () => {
+  it("a model already loaded by llama.cpp counts as there", () => {
     const busy = devPc({
       gpus: [{ ...devPc().gpus[0], vramUsedMB: 2490 + 9100 }],
-      loaded: [{ name: "qwen3-embedding:8b-q8_0", sizeMB: 9300, vramMB: 9100, runtime: "ollama" }],
+      loaded: [{ name: "qwen3-embedding-8b-q8", sizeMB: 9300, vramMB: 9100, runtime: "llamacpp" }],
     });
     expect(fitOf([e("qwen3-embedding-8b-q8")], busy, H).verdict).toBe("fits");
   });
@@ -192,7 +192,7 @@ describe("machine profile", () => {
       },
       statfs: (root) => (root === "D:\\" ? { freeMB: 1000, totalMB: 2000 } : null),
       drives: () => ["C:\\", "D:\\"],
-      loaded: async () => [{ name: "m", sizeMB: 10, vramMB: 5, runtime: "ollama" }],
+      loaded: async () => [{ name: "m", sizeMB: 10, vramMB: 5, runtime: "llamacpp" }],
       mem: () => ({ totalMB: 32000, freeMB: 16000 }),
       cpu: () => ({ model: "cpu", threads: 8 }),
     };
@@ -279,10 +279,18 @@ describe("Testimus' own llama.cpp servers are not « other loaded models » for 
   });
 
   it("models.packs keeps the variant in use; models.advice sees it fit", async () => {
-    const m = await serving4b();
-    const rows = await packRows(null, "task", { machine: async () => m, ollama: async () => null, lines: [] });
+    await ensureServer({
+      exe: "llama-server.exe",
+      model: "D:/models/Qwen/Qwen3-Embedding-4B-GGUF/Qwen3-Embedding-4B-Q4_K_M.gguf",
+      kind: "embedding",
+      catalogId: "qwen3-embedding-4b-q4",
+      sizeMB: 3430,
+    });
+    const GPU10 = { ...GPU12, name: "RTX 3080", vramTotalMB: 10240, vramUsedMB: 2490 + 3430 };
+    const m = devPc({ gpus: [GPU10], loaded: loadedServers() });
+    const rows = await packRows(null, "task", { machine: async () => m, lines: [] });
     const balanced = rows.find((r) => r.id === "balanced");
-    expect(balanced).toMatchObject({ variant: 0, embedding: "qwen3-embedding-4b-q8" });
+    expect(balanced).toMatchObject({ variant: 0, embedding: "qwen3-embedding-4b-q4" });
     expect(balanced?.fit?.verdict).toBe("fits");
     const pack = catalog().packs.find((p) => p.id === "balanced") as Pack;
     const input: AdviceInput = {
@@ -300,7 +308,6 @@ describe("Testimus' own llama.cpp servers are not « other loaded models » for 
     const m = await serving4b();
     const deps = (wanted: string[]): ModelDeps => ({
       machine: async () => m,
-      ollama: async () => null,
       active: async () => ({ embedding: null, reranker: null, wanted }),
       space: async () => null,
     });

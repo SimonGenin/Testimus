@@ -186,8 +186,7 @@ export async function resolveChoice(
   }[] = [];
   for (const [i, v] of variants.entries()) {
     const one: Record<string, One> = {};
-    for (const id of [v.embedding, v.reranker].filter((m): m is string => !!m))
-      one[id] = resolveOne(id, queryTask);
+    for (const id of [v.embedding, v.reranker].filter((m): m is string => !!m)) one[id] = resolveOne(id, queryTask);
     const fit = machine ? fitOf(entriesOf(v), machine, { headroom, lines: deps.lines }) : null;
     const blocked = Object.values(one).find((o) => o.source === "unavailable");
     const labels = entriesOf(v)

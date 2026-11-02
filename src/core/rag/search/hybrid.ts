@@ -62,7 +62,12 @@ async function vectorOf(db: DatabaseSync, project: string, query: string, o: Sea
   if (!m) return vector(db, project, query, o);
   const space = spaceOf(db, m);
   if (!space?.complete) return { ids: [], degraded: `No complete vectors for ${m.entry.id}: run its index first.` };
-  const [q] = await embedWith(m, [query], "query");
+  let q: Float32Array;
+  try {
+    [q] = await embedWith(m, [query], "query");
+  } catch (e) {
+    return { ids: [], degraded: `${m.entry.id} failed on the query (${messageOf(e)}): lexical search only.` };
+  }
   const ids = nearest(db, space.id, q, Math.min(chunkCount(db), 4096)).map((r) => r.rowid);
   const byId = chunksByRowid(db, ids);
   return {
@@ -76,6 +81,8 @@ async function rerankOf(project: string, o: SearchOpts, query: string, texts: st
   if (!o.rerankModel) return null;
   return { model: o.rerankModel.entry.id, scores: await rerankWith(o.rerankModel, query, texts) };
 }
+
+const messageOf = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 export function rerankThreshold(r: RetrievalSettings, model: string): number | undefined {
   return r.rerank.thresholds?.[model] ?? r.rerank.threshold;
@@ -95,19 +102,26 @@ function figureFile(project: string, c: ChunkRow): string | undefined {
   return f?.file ? `docs/${c.docId}/${f.file}` : undefined;
 }
 
-export type Ranked = { chunk: ChunkRow; score: number; degraded?: string };
+// ponytail: `degraded` is every fallback this search took (vectors, reranker) — rag.eval lists it in its warnings;
+// `lexical` marks the BM25-only fallback that rag.search flags on each hit
+export type Ranked = { chunk: ChunkRow; score: number; degraded?: string; lexical?: true };
 
 export type Expand = RetrievalSettings["expand"];
-export type SearchInput = SearchOpts & { expand?: Expand };
+export type SearchLog = (level: "warn", message: string) => void;
+export type SearchInput = SearchOpts & { expand?: Expand; log?: SearchLog };
 
-export async function searchChunks(project: string, query: string, opts: SearchOpts = {}): Promise<Ranked[]> {
+export async function searchChunks(
+  project: string,
+  query: string,
+  opts: SearchOpts & { log?: SearchLog } = {},
+): Promise<Ranked[]> {
   return (await ranked(project, query, opts)).hits;
 }
 
 async function ranked(
   project: string,
   query: string,
-  opts: SearchOpts,
+  opts: SearchOpts & { log?: SearchLog },
 ): Promise<{ hits: Ranked[]; settings: RetrievalSettings }> {
   const t0 = performance.now();
   const l0 = loadMsSoFar();
@@ -148,8 +162,13 @@ async function ranked(
       ranked.map(([id]) => id),
     );
     const pool = settings.rerank.mode === "threshold" ? ranked : ranked.slice(0, Math.max(k, settings.rerank.top));
-    const reranked = ranked.length
-      ? await rerankOf(
+    let rerankFailed: string | null = null;
+    let reranked: Awaited<ReturnType<typeof rerankOf>> = null;
+    // ponytail: a reranker that cannot answer (server down, out of memory) leaves the fused ranking as it is — the
+    // search never fails for it, and the warning says why (SPEC §5)
+    if (ranked.length)
+      try {
+        reranked = await rerankOf(
           project,
           o,
           query,
@@ -157,8 +176,13 @@ async function ranked(
             const c = byId.get(id) as ChunkRow;
             return `${c.header}\n${c.text}`;
           }),
-        )
-      : null;
+        );
+      } catch (e) {
+        rerankFailed = `The reranker failed (${messageOf(e)}): fused ranking without reranking.`;
+      }
+    const reasons = [degraded, rerankFailed].filter((r): r is string => !!r);
+    for (const r of reasons) opts.log?.("warn", r);
+    const why = reasons.join(" ");
     let cut = k;
     if (reranked) {
       ranked = pool.map(([id], i): [number, number] => [id, reranked.scores[i]]).sort((a, b) => b[1] - a[1]);
@@ -168,9 +192,14 @@ async function ranked(
         cut = ranked.length;
       }
     }
-    const hits = ranked
-      .slice(0, cut)
-      .map(([id, score]) => ({ chunk: byId.get(id) as ChunkRow, score, ...(degraded ? { degraded } : {}) }));
+    const hits = ranked.slice(0, cut).map(
+      ([id, score]): Ranked => ({
+        chunk: byId.get(id) as ChunkRow,
+        score,
+        ...(why ? { degraded: why } : {}),
+        ...(degraded ? { lexical: true as const } : {}),
+      }),
+    );
     recordPerf({
       at: "",
       op: "search.total",
@@ -258,7 +287,7 @@ export function expandHits(project: string, hits: Ranked[], expand: Expand, opts
 
 export async function search(project: string, query: string, opts: SearchInput = {}): Promise<SearchHit[]> {
   const { hits, settings } = await ranked(project, query, opts);
-  const top = hits.map(({ chunk: c, score, degraded }) => hitOf(project, c, score, degraded ? { degraded: true } : {}));
+  const top = hits.map(({ chunk: c, score, lexical }) => hitOf(project, c, score, lexical ? { degraded: true } : {}));
   const expand = opts.expand ?? settings.expand;
   return [...top, ...expandHits(project, hits, expand, { ...opts, project })];
 }

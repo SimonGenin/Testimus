@@ -20,12 +20,19 @@ export function Toasts() {
             <button
               type="button"
               className="btn btn-sm"
+              aria-label={t.action.label}
               onClick={() => {
                 t.action?.run();
                 closeToast(t.id, true);
               }}
             >
               {t.action.label}
+              {Number.isFinite(t.left) && (
+                <span className="toast-left" aria-hidden="true">
+                  {" "}
+                  · {t.left} s
+                </span>
+              )}
             </button>
           )}
           <button

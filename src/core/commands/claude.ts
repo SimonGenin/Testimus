@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { diagnose } from "../claude/diagnose.ts";
-import { buildPrompt, readContexts } from "../claude/prompt.ts";
+import { buildPrompt, effectiveContexts, readContexts } from "../claude/prompt.ts";
 import { runClaude } from "../claude/run.ts";
 import { revert } from "../claude/snapshot.ts";
 import { CONNECT, checkSignedIn, claudeExe, claudeVersion } from "../claude/status.ts";
@@ -85,7 +85,8 @@ export const commands: Command[] = [
     async run(ctx, input) {
       const project = projectOf(ctx);
       const p = readProject(project);
-      const ids = input.contexts ?? p.claude.contexts;
+      const ids =
+        input.contexts ?? effectiveContexts(project, "testId" in input.scope ? input.scope.testId : undefined);
       ctx.progress({ message: `Claude on ${scopeLabel(input.scope)}` });
       const { calls: _calls, ...r } = await runClaude({
         kind: "run",

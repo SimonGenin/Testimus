@@ -36,11 +36,13 @@ export function ConnectClaude({
   checking,
   onCheck,
   onDoctor,
+  onSetPath,
 }: {
   status: ClaudeStatus;
   checking: boolean;
   onCheck: () => void;
-  onDoctor: () => void;
+  onDoctor?: () => void;
+  onSetPath?: () => void;
 }) {
   const installed = status.installed;
   const steps = status.connect?.length ? status.connect : installed ? LOGIN : INSTALL;
@@ -49,6 +51,7 @@ export function ConnectClaude({
       <h3 className="h connect-title">
         {installed ? "Claude isn't signed in on this PC yet" : "Claude isn't installed on this PC yet"}
       </h3>
+      <p className="connect-optional">Claude is optional — everything else works without it</p>
       <p>Writing, checking and asking the documents need it. Everything else — editing, review, push — works now.</p>
       <ol className="connect-steps">
         {steps.map((s) => (
@@ -69,9 +72,16 @@ export function ConnectClaude({
         <Button disabled={checking} onClick={onCheck}>
           {checking ? "Checking…" : "Check again"}
         </Button>
-        <Button tone="quiet" onClick={onDoctor}>
-          Open system check
-        </Button>
+        {onSetPath && (
+          <Button tone="quiet" onClick={onSetPath}>
+            Set the path myself…
+          </Button>
+        )}
+        {onDoctor && (
+          <Button tone="quiet" onClick={onDoctor}>
+            Open system check
+          </Button>
+        )}
       </div>
     </div>
   );

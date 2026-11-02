@@ -11,7 +11,9 @@ and what the team knows about both. Testimus (the app) and you work on the same 
 - `tests/<id>/test.md` — one Xray test (format below); `images/` its screenshots.
 - `requirements/requirements.csv` — the requirement list, when the project has one.
 - `contexts/` — reference notes attached to runs.
-- `project.json` — Jira project, language, defaults. `xray.json` — the Xray step fields.
+- `project.json` — Jira project, language, defaults, and `traces`: the kinds of ids the project tracks
+  (requirements, alarm codes…), each with its patterns and its step column. `xray.json` — the Xray
+  step fields.
 
 Never edit: `index/`, `.testimus/`, `tests/*/.remote.md`, `tests/*/check.json`, `doc.json.source`.
 When Testimus runs you (generate, fix, check, ask), you may only write under `tests/`: `docs/`, `index/`,
@@ -72,8 +74,8 @@ EXI_MOP_SPF_511_A_1670
   Leave a field out when it is empty.
 - `### Sources`: one line per claim, `<docId>#<anchor> "<short quote copied exactly from doc.md>"`.
   A quote that is not verbatim in `doc.md` is an error.
-- No reference inside Action or Expected Result text: references go in the requirement field and
-  in `### Sources`.
+- No reference inside Action or Expected Result text: references go in the requirement field, the
+  tracked columns (`project.json.traces`) and `### Sources`.
 - Keep `<!-- id -->` on step headings and `### Attachments` lists as they are; renumber `## Step N`
   in order. A line of text starting with `#` or equal to `---` is escaped with `\`.
 - Write the tests in the language of `project.json` (`language`).

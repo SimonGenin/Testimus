@@ -231,8 +231,11 @@ describe("Review screen", () => {
     const app = appState();
     wrap(app, <ReviewScreen />);
     await screen.findByRole("article", { name: "Step 2" });
-    fireEvent.keyDown(window, { key: "f" });
-    const dialog = await screen.findByRole("dialog", { name: "Mark as To fix" });
+    // ponytail: the shortcut listens once the loaded test is rendered — under a loaded worker that can lag a frame
+    const dialog = await waitFor(() => {
+      if (!screen.queryByRole("dialog", { name: "Mark as To fix" })) fireEvent.keyDown(window, { key: "f" });
+      return screen.getByRole("dialog", { name: "Mark as To fix" });
+    });
     expect(screen.getByRole("button", { name: /Validate/ })).toBeDisabled();
     fireEvent.click(within(dialog).getByRole("button", { name: /Mark To fix/ }));
     expect(await within(dialog).findByRole("alert")).toHaveTextContent("note is required");
@@ -462,9 +465,10 @@ describe("Settings", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: "Exigence hidden" }));
     await waitFor(() => expect(named("xray.prefs")).toHaveLength(1));
     expect(named("xray.prefs")[0].input).toEqual({ hidden: ["Exigence"] });
-    fireEvent.click(screen.getByRole("checkbox", { name: "Data folded by default" }));
+    fireEvent.change(screen.getByRole("combobox", { name: "Data folding" }), { target: { value: "filled" } });
     await waitFor(() => expect(named("xray.prefs")).toHaveLength(2));
-    expect(named("xray.prefs")[1].input).toEqual({ collapsed: [] });
+    expect(named("xray.prefs")[1].input).toEqual({ collapsed: [], filled: ["Data"] });
+    expect(screen.getByRole("combobox", { name: "Action folding" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Move Exigence up" }));
     await waitFor(() => expect(named("xray.prefs")).toHaveLength(3));
     expect(named("xray.prefs")[2].input).toEqual({ order: ["Action", "Data", "Exigence", "Expected Result"] });

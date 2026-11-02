@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Job, LocalTestRef, Test } from "../../../core/types.ts";
+import type { Job, LocalTestRef, Test, TraceScan } from "../../../core/types.ts";
 import { call } from "../../api.ts";
 import { type ClaudeStatus, ConnectClaude } from "../../components/claude/ConnectClaude.tsx";
 import { JobLog, useJob } from "../../components/shell/JobLog.tsx";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
+import { TracesBar } from "../../components/traces/TracesBar.tsx";
 import { Button, Icon } from "../../components/ui/index.ts";
 import { useApp } from "../../lib/app.ts";
 import { plural } from "../../lib/format.ts";
-import { loadRequirements, type Requirement } from "../../lib/requirements.ts";
+import type { Requirement } from "../../lib/requirements.ts";
 import { errorToast } from "../../lib/toast.ts";
+import { REQUIREMENT, takeHandoff } from "../../lib/traces.ts";
 import {
   Coverage,
   checkLine,
@@ -28,12 +30,12 @@ export function GenerateScreen() {
   const app = useApp();
   const cfg = app.info?.project;
   const [request, setRequest] = useState("");
-  const [reqs, setReqs] = useState<string[]>([]);
+  const [picked, setPicked] = useState<Record<string, string[]>>(takeHandoff);
   const [sections, setSections] = useState<string[]>([]);
   const [folder, setFolder] = useState("");
-  const [known, setKnown] = useState<Requirement[]>([]);
+  const [known, setKnown] = useState<Record<string, Requirement[]>>({});
   const [jobId, setJobId] = useState<string | null>(null);
-  const [asked, setAsked] = useState<string[]>([]);
+  const [asked, setAsked] = useState<{ label: string; ids: string[] }[]>([]);
   const [starting, setStarting] = useState(false);
   const [status, setStatus] = useState<ClaudeStatus | null>(null);
   const [checkingClaude, setCheckingClaude] = useState(false);
@@ -48,6 +50,10 @@ export function GenerateScreen() {
   const ids = landedIds(gen.events, result);
   const read = passagesRead(gen.events);
   const running = job?.status === "running";
+  const traces = app.info?.traces ?? [];
+  const tracesKey = traces.map((t) => `${t.id}=${t.patterns.join("|")}`).join(",");
+  const reqs = picked[REQUIREMENT] ?? [];
+  const anyPicked = traces.some((t) => (picked[t.id] ?? []).length > 0);
 
   const claudeCheck = useCallback((refresh = false) => {
     setCheckingClaude(refresh);
@@ -59,7 +65,6 @@ export function GenerateScreen() {
 
   useEffect(() => {
     void claudeCheck();
-    loadRequirements().then(setKnown);
     call<Job[]>("jobs.list", {})
       .then((jobs) => {
         const last = (jobs ?? []).find((j) => j.kind === "generate");
@@ -70,6 +75,16 @@ export function GenerateScreen() {
       })
       .catch(() => {});
   }, [claudeCheck]);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the tracked kinds are compared by their key
+  useEffect(() => {
+    for (const t of traces)
+      call<TraceScan>("traces.find", { trace: t.id, limit: 5000 })
+        .then((r) =>
+          setKnown((cur) => ({ ...cur, [t.id]: r.items.map((i) => ({ id: i.id, text: i.context, doc: i.doc })) })),
+        )
+        .catch(() => {});
+  }, [tracesKey]);
 
   useEffect(() => {
     if (!running) return;
@@ -115,19 +130,23 @@ export function GenerateScreen() {
   }, [job?.status, job?.id]);
 
   const generate = async () => {
-    if (!request.trim() && !reqs.length && !sections.length) return;
+    if (!request.trim() && !anyPicked && !sections.length) return;
+    const tracked = traces
+      .filter((t) => t.id !== REQUIREMENT && (picked[t.id] ?? []).length)
+      .map((t) => ({ trace: t.id, ids: picked[t.id] }));
     setStarting(true);
     try {
       const r = await call<{ jobId?: string }>("gen.tests", {
         request: request.trim(),
         ...(reqs.length ? { requirements: reqs } : {}),
+        ...(tracked.length ? { tracked } : {}),
         ...(sections.length ? { sections } : {}),
         ...(folder.trim() ? { folder: folder.trim() } : {}),
       });
       if (r?.jobId) {
         chained.current = null;
         setLanded({});
-        setAsked(reqs);
+        setAsked(traces.map((t) => ({ label: t.label, ids: picked[t.id] ?? [] })).filter((a) => a.ids.length));
         setJobId(r.jobId);
       }
     } catch (e) {
@@ -139,7 +158,7 @@ export function GenerateScreen() {
 
   const cancel = () => jobId && call("jobs.cancel", { id: jobId }).catch((e) => errorToast(e, "Could not cancel"));
   const offline = !!status && (!status.installed || status.signedIn === false);
-  const empty = !request.trim() && !reqs.length && !sections.length;
+  const empty = !request.trim() && !anyPicked && !sections.length;
   const checkText = result ? checkLine(result.tests, result.checks) : "";
   const checkOf = (id: string) => result?.checks?.find((c) => c.id === id);
 
@@ -165,10 +184,21 @@ export function GenerateScreen() {
             <span className="h gen-label">
               Scope <span className="muted">— optional</span>
             </span>
-            <label htmlFor="gen-reqs" className="label">
-              Requirements
-            </label>
-            <RequirementPicker known={known} values={reqs} onChange={setReqs} />
+            {traces.map((t) => (
+              <div key={t.id} className="gen-trace">
+                <label htmlFor={`gen-trace-${t.id}`} className="label">
+                  {t.label} ids
+                </label>
+                <RequirementPicker
+                  inputId={`gen-trace-${t.id}`}
+                  kind={t.label.toLowerCase()}
+                  known={known[t.id] ?? []}
+                  values={picked[t.id] ?? []}
+                  onChange={(v) => setPicked((cur) => ({ ...cur, [t.id]: v }))}
+                />
+              </div>
+            ))}
+            <TracesBar hint="none — ids written in the documents (requirements, alarm codes…) can be picked here once tracked." />
             <span className="label">Document sections</span>
             <SectionPicker values={sections} onChange={setSections} />
             <label htmlFor="gen-folder" className="label">
@@ -219,8 +249,8 @@ export function GenerateScreen() {
               <Icon name="generate" size={40} />
               <h2 className="h">Tests appear here as Claude writes them</h2>
               <p>
-                Say what to test, or pick requirements and sections. Every expected result gets a source; what cannot be
-                sourced is reported instead of invented.
+                Say what to test, or pick {traces.length ? "ids and " : ""}sections. Every expected result gets a
+                source; what cannot be sourced is reported instead of invented.
               </p>
             </div>
           ) : (
@@ -235,7 +265,7 @@ export function GenerateScreen() {
                   onCancel={() => void cancel()}
                   onReview={() => app.navigate("review", ids[0])}
                 />
-                {result && <Coverage requirements={asked} result={result} checked={checkText} />}
+                {result && <Coverage asked={asked} result={result} checked={checkText} />}
                 {job?.status === "failed" && <p>{job.error}</p>}
                 {result?.diagnosis && <p className="muted">{result.diagnosis.detail}</p>}
               </div>

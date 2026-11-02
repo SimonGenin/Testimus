@@ -9,7 +9,7 @@ import { ProjectButton } from "../../src/ui/components/shell/ProjectButton.tsx";
 import { Toasts } from "../../src/ui/components/ui/index.ts";
 import { AppContext, type AppState } from "../../src/ui/lib/app.ts";
 import { ImportScreen } from "../../src/ui/screens/import/ImportScreen.tsx";
-import { AppearanceSection } from "../../src/ui/screens/settings/AppearanceSection.tsx";
+import { ClaudeSection } from "../../src/ui/screens/settings/ClaudeSection.tsx";
 import { AccessStep } from "../../src/ui/screens/setup/AccessStep.tsx";
 import { ProjectStep } from "../../src/ui/screens/setup/ProjectStep.tsx";
 import { TestList } from "../../src/ui/screens/tests/TestList.tsx";
@@ -132,18 +132,16 @@ describe("First launch › Access", () => {
   it("the token page opens in the default browser through the bridge", async () => {
     const d = fakeDesktop();
     within(<AccessStep onContinue={() => {}} onSkip={() => {}} />);
-    const link = await screen.findByRole("link", { name: "How to create one" });
-    expect(fireEvent.click(link)).toBe(false);
+    fireEvent.click(await screen.findByRole("button", { name: "Open API tokens" }));
     expect(d.openExternal).toHaveBeenCalledWith(TOKENS);
   });
 
-  it("without the bridge the link is a plain new-tab link", async () => {
+  it("without the bridge the token page opens in a new tab", async () => {
+    const open = vi.fn();
+    vi.stubGlobal("open", open);
     within(<AccessStep onContinue={() => {}} onSkip={() => {}} />);
-    const link = await screen.findByRole("link", { name: "How to create one" });
-    expect(link).toHaveAttribute("href", TOKENS);
-    expect(link).toHaveAttribute("target", "_blank");
-    link.addEventListener("click", (e) => e.preventDefault());
-    expect(fireEvent.click(link)).toBe(false);
+    fireEvent.click(await screen.findByRole("button", { name: "Open API tokens" }));
+    expect(open).toHaveBeenCalledWith(TOKENS, "_blank", "noopener,noreferrer");
   });
 });
 
@@ -206,19 +204,21 @@ describe("Import CSV", () => {
   });
 });
 
-describe("Settings › Appearance", () => {
+describe("Settings › Claude program", () => {
   beforeEach(() => {
     api.routes["system.settings"] = () => ({ claude: { exe: "" }, models: { allowRemote: true } });
     api.routes["system.saveSettings"] = (i) => ({ claude: { exe: i.claudeExe ?? "" }, models: { allowRemote: true } });
+    api.routes["claude.status"] = () => ({ installed: true, version: "2.1.0", signedIn: null, exe: "claude" });
   });
 
   it("Browse… picks claude.exe and saves it", async () => {
     const d = fakeDesktop({ files: ["C:\\Users\\me\\.local\\bin\\claude.exe"] });
-    render(<AppearanceSection />);
+    within(<ClaudeSection />, { info: null });
     const browse = screen.getByRole("button", { name: "Browse for the Claude program" });
     await waitFor(() => expect(browse).toBeEnabled());
     fireEvent.click(browse);
     await waitFor(() => expect(named("system.saveSettings")).toHaveLength(1));
+    await waitFor(() => expect(named("claude.status").at(-1)?.input).toEqual({ refresh: true }));
     expect(d.pickFiles).toHaveBeenCalledWith({
       title: "Choose the Claude program",
       filters: [{ name: "Programs", extensions: ["exe", "cmd"] }],
@@ -229,8 +229,9 @@ describe("Settings › Appearance", () => {
   });
 
   it("without the bridge: the text field only", () => {
-    render(<AppearanceSection />);
+    within(<ClaudeSection />, { info: null });
     expect(screen.getByLabelText("Claude program")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Check" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Browse/ })).toBeNull();
   });
 });

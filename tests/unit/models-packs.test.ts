@@ -87,21 +87,29 @@ afterEach(() => {
 
 describe("pack cards (models.packs)", () => {
   it("each pack with the variant it resolves to here, why the ones above were skipped, what is left to download", async () => {
-    const rows = await packRows(null, "task", { ollama: async () => null, machine: async () => devPc });
+    const rows = await packRows(null, "task", { machine: async () => devPc });
     expect(rows.map((r) => [r.id, r.variant, r.available])).toEqual([
       ["light", 0, true],
       ["performance", 0, true],
       ["balanced", 0, true],
-      ["quality", 1, true],
+      ["quality", 0, true],
     ]);
     const q = rows[3];
-    expect(q.skipped[0]).toMatch(/13\.6 GB needed, 11\.5 GB usable/);
+    expect(q.skipped).toEqual([]);
     expect(q.downloadMB).toBe(
       (catalogEntry("qwen3-embedding-8b-q4") as CatalogEntry).size.downloadMB +
         (catalogEntry("qwen3-reranker-4b-q8") as CatalogEntry).size.downloadMB,
     );
     expect(q.quality).toBe("quality not measured yet");
-    const marked = await packRows({ pack: "light" }, "task", { ollama: async () => null, machine: async () => devPc });
+    const busy: MachineProfile = { ...devPc, gpus: [{ ...devPc.gpus[0], vramUsedMB: 6000 }] };
+    const qb = (await packRows(null, "task", { machine: async () => busy }))[3];
+    expect([qb.variant, qb.available]).toEqual([1, true]);
+    expect(qb.skipped[0]).toMatch(/10\.3 GB needed, 8\.6 GB usable/);
+    expect(qb.downloadMB).toBe(
+      (catalogEntry("qwen3-embedding-8b-q4") as CatalogEntry).size.downloadMB +
+        (catalogEntry("qwen3-reranker-0.6b-q8") as CatalogEntry).size.downloadMB,
+    );
+    const marked = await packRows({ pack: "light" }, "task", { machine: async () => devPc });
     expect(marked.filter((r) => r.active).map((r) => r.id)).toEqual(["light"]);
   });
 
@@ -128,7 +136,7 @@ describe("models.usePack", () => {
       plan: { download: { model: string; sizeMB: number }[]; dir: string | null; reindex: boolean; expected: string };
       jobIds: string[];
     };
-    expect(r.variant).toBe(1);
+    expect(r.variant).toBe(0);
     expect(r.plan.download.map((d) => d.model).sort()).toEqual(["qwen3-embedding-8b-q4", "qwen3-reranker-4b-q8"]);
     expect(r.plan.dir).toBeNull();
     expect(r.plan.reindex).toBe(true);
@@ -145,12 +153,19 @@ describe("models.usePack", () => {
   });
 
   it("downloads in a job, and activates only once the downloads succeed", async () => {
-    writeRegistry({ ...readRegistry(), dir: mkdtempSync(join(tmpdir(), "testimus-packs-dir-")) });
-    const r = (await invoke("models.usePack", { pack: "quality" }, { project })) as { jobIds: string[] };
-    expect(r.jobIds[0]).toMatch(/^models-usePack-/);
-    const { waitJob } = await import("../../src/core/jobs.ts");
-    await expect(waitJob(r.jobIds[0])).rejects.toThrow(/HTTP 404/);
-    expect(set).toEqual([]);
+    const { downloadDeps } = await import("../../src/core/lib/models-download.ts");
+    const realFree = downloadDeps.freeMB;
+    downloadDeps.freeMB = () => 1e9;
+    try {
+      writeRegistry({ ...readRegistry(), dir: mkdtempSync(join(tmpdir(), "testimus-packs-dir-")) });
+      const r = (await invoke("models.usePack", { pack: "quality" }, { project })) as { jobIds: string[] };
+      expect(r.jobIds[0]).toMatch(/^models-usePack-/);
+      const { waitJob } = await import("../../src/core/jobs.ts");
+      await expect(waitJob(r.jobIds[0])).rejects.toThrow(/HTTP 404/);
+      expect(set).toEqual([]);
+    } finally {
+      downloadDeps.freeMB = realFree;
+    }
   });
 
   it("nothing to download: activates the variant for this PC, sets the reference if asked, starts the index", async () => {
@@ -278,7 +293,7 @@ function writeReport(
 
 describe("pack cards: speed from the journal, quality from the benchmark (N-perf)", () => {
   const at = new Date().toISOString();
-  const deps = (lines: PerfLine[] = []) => ({ ollama: async () => null, machine: async () => devPc, lines });
+  const deps = (lines: PerfLine[] = []) => ({ machine: async () => devPc, lines });
 
   it("speed: query, rerank and index throughput measured on this PC for the variant's models", async () => {
     const lines: PerfLine[] = [
@@ -291,7 +306,7 @@ describe("pack cards: speed from the journal, quality from the benchmark (N-perf
         ms: 40,
       })),
       { at, op: "embed.index", model: "bge-m3-q8", device: "cpu", items: 120, ms: 1000 },
-      { at, op: "embed.query", model: "qwen3-embedding-4b-q8", device: "gpu", items: 1, ms: 30 },
+      { at, op: "embed.query", model: "qwen3-embedding-4b-q4", device: "gpu", items: 1, ms: 30 },
       { at, op: "rerank", model: "qwen3-reranker-0.6b-q8", device: "gpu", items: 30, ms: 25 },
     ];
     const rows = await packRows(null, "task", deps(lines));
@@ -303,7 +318,7 @@ describe("pack cards: speed from the journal, quality from the benchmark (N-perf
 
   it("quality: evidence recall measured on this project for the variant, provisional when the set is", async () => {
     writeReport(project, "light.json", "bge-m3-q8", null, 0.625, true);
-    writeReport(project, "balanced.json", "qwen3-embedding-4b-q8", "qwen3-reranker-0.6b-q8", 0.8, false);
+    writeReport(project, "balanced.json", "qwen3-embedding-4b-q4", "qwen3-reranker-0.6b-q8", 0.8, false);
     const rows = await packRows(null, "task", deps(), project);
     const by = (id: string) => rows.find((r) => r.id === id);
     expect(by("light")?.quality).toBe("evidence recall 62.5 % on this project (recall@10, 4 behaviors, provisional)");

@@ -47,7 +47,9 @@ export function SectionPicker({ values, onChange }: { values: string[]; onChange
             <button type="button" className="sec sec-doc" aria-expanded={!!toc} onClick={() => toggleDoc(d.id)}>
               <Icon name={toc ? "down" : "right"} />
               <span className="mono">{d.code}</span>
-              <span className="sec-title">{d.title}</span>
+              <span className="sec-title" title={d.title}>
+                {d.title}
+              </span>
               {picked > 0 && <span className="muted">{picked} picked</span>}
             </button>
             {toc === "loading" && (

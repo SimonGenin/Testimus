@@ -2,6 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { invoke } from "../../src/core/commands/index.ts";
 import { env } from "../../src/core/env.ts";
 import { resolveModel } from "../../src/core/rag/activation.ts";
 import { indexFile, insertChunk, openDb } from "../../src/core/rag/db.ts";
@@ -22,6 +23,9 @@ const seen = vi.hoisted(() => ({
   rerankTexts: [] as string[][],
   lists: { bm25: [] as number[], vector: [] as number[] },
   rerank: null as null | { model: string; score: (text: string) => number },
+  rerankFails: null as string | null,
+  embedFails: null as string | null,
+  space: null as null | { id: string; complete: boolean },
   degraded: null as string | null,
   pack: undefined as Partial<RetrievalSettings> | undefined,
 }));
@@ -55,10 +59,18 @@ vi.mock("../../src/core/rag/embed.ts", async (orig) => ({
   ...(await orig<typeof import("../../src/core/rag/embed.ts")>()),
   rerankFor: async (_p: string, _o: SearchOpts, _q: string, texts: string[]) => {
     seen.rerankTexts.push(texts);
+    if (seen.rerankFails) throw new Error(seen.rerankFails);
     const r = seen.rerank;
     return r ? { model: r.model, scores: texts.map(r.score) } : null;
   },
+  embedWith: async () => {
+    throw new Error(seen.embedFails ?? "no embedding in this test");
+  },
 }));
+vi.mock("../../src/core/rag/fingerprint.ts", async (orig) => {
+  const real = await orig<typeof import("../../src/core/rag/fingerprint.ts")>();
+  return { ...real, spaceOf: (...a: Parameters<typeof real.spaceOf>) => seen.space ?? real.spaceOf(...a) };
+});
 
 let dir: string;
 let ids: number[];
@@ -106,6 +118,9 @@ beforeEach(() => {
   seen.rerankTexts = [];
   seen.lists = { bm25: ids, vector: [...ids].reverse() };
   seen.rerank = null;
+  seen.rerankFails = null;
+  seen.embedFails = null;
+  seen.space = null;
   seen.degraded = null;
   seen.pack = undefined;
 });
@@ -230,5 +245,58 @@ describe("degraded vector search", () => {
     expect(hits.every((h) => h.degraded === true)).toBe(true);
     seen.degraded = null;
     expect((await search(dir, "q", { k: 2 })).some((h) => "degraded" in h)).toBe(false);
+  });
+});
+
+describe("a model that fails never fails the search (review #7, #13)", () => {
+  const order = (hits: { chunk: { anchor: string } }[]) => hits.map((h) => h.chunk.anchor);
+
+  it("a reranker that throws: the fused ranking, a logged warning, no BM25 flag", async () => {
+    const fused = order(await searchChunks(dir, "q", { k: 3 }));
+    seen.rerankFails = "llama-server did not start: out of memory";
+    const logs: string[] = [];
+    const hits = await searchChunks(dir, "q", { k: 3, log: (_l, m) => logs.push(m) });
+    expect(order(hits)).toEqual(fused);
+    expect(hits[0].degraded).toBe(
+      "The reranker failed (llama-server did not start: out of memory): fused ranking without reranking.",
+    );
+    expect(logs).toEqual([hits[0].degraded]);
+    const out = await search(dir, "q", { k: 3 });
+    expect(out).toHaveLength(3);
+    expect(out.some((h) => "degraded" in h)).toBe(false);
+  });
+
+  it("a reranker that answers: the same result with or without a log, nothing logged", async () => {
+    seen.rerank = { model: "m", score: scoreOf };
+    const logs: string[] = [];
+    const a = await searchChunks(dir, "q", { k: 3 });
+    const b = await searchChunks(dir, "q", { k: 3, log: (_l, m) => logs.push(m) });
+    expect(b).toEqual(a);
+    expect(order(a)).toEqual(["§5", "§4", "§3"]);
+    expect(a.some((h) => "degraded" in h)).toBe(false);
+    expect(logs).toEqual([]);
+  });
+
+  it("a forced embedding model that throws on the query (rag.eval --embedding): lexical only, reason kept", async () => {
+    env.mock = true;
+    const model = resolveModel("qwen3-embedding-0.6b-onnx-q8") as ResolvedModel;
+    env.mock = false;
+    seen.space = { id: "s1", complete: true };
+    seen.embedFails = "CUDA out of memory";
+    const hits = await searchChunks(dir, "q", { k: 2, model, rerankModel: null });
+    expect(hits).toHaveLength(2);
+    expect(hits[0]).toMatchObject({
+      degraded: "qwen3-embedding-0.6b-onnx-q8 failed on the query (CUDA out of memory): lexical search only.",
+      lexical: true,
+    });
+  });
+
+  it("rag.search logs why it fell back to BM25, even when nothing is found", async () => {
+    seen.degraded = "No vectors for bge-m3-q8 yet: lexical search until rag index ends.";
+    seen.lists = { bm25: [], vector: [] };
+    const logs: [string, string][] = [];
+    const hits = await invoke("rag.search", { query: "q" }, { project: dir, onLog: (l, m) => logs.push([l, m]) });
+    expect(hits).toEqual([]);
+    expect(logs).toEqual([["warn", seen.degraded]]);
   });
 });

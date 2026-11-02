@@ -50,6 +50,23 @@ The testers can use it as soon as this lands, with the CSVs they already make.
 - [x] Review screen: editor + findings + highlighted source passage; Validate / To fix
 - [x] `fix-test` skill from a To fix note; review state mirrored to Jira labels
 
+## Parity with Xray Editor (2026-11-02, behavior in SPEC §3, §10, §11, §12, §13)
+
+The capability-by-capability verdict (114 rows, all OK) is PARITY.md.
+
+Audit of everything Xray Editor lets a user see, do or edit, then the gaps closed:
+
+- [x] Core: `contexts.*` (per project, per-test override), `tests.restore` / `columns` / `setColumns` /
+      `removeImage`, preconditions in `tests.edit`, `xray.preconditions`, `xray.browse`, `filled` column mode
+- [x] Tests editor: `⋯` menu (Clone, Download from Jira, Undo local changes, Open in Jira, Delete local copy), remote
+      re-check on open, step diff marks + Jira version + restore + deleted placeholders, preconditions editor and
+      panel, contexts chip box, Columns popover, Details persisted, resizable column, reload on focus
+- [x] Step card: header fold toggles (open · when filled · collapsed), Ask Claude per step, project column kinds,
+      split tracks, Undo by field with image clean-up, orphan detach, empty field = insert strip
+- [x] Sidebar: tab counts, direct/total folders, infinite scroll + sticky head, pull queue + pulling pane, hover ✕,
+      recent list, resizable width, narrow drawer, activity popover, toast countdown
+- [x] Claude dock and Settings: see SPEC §13 « Claude dock » and « Settings »
+
 ## RAG v2 — SPEC-RAG.md (built 2026-11; behavior in SPEC §4, §5, §8, §12, §14)
 
 - [x] R1 Benchmark v2: `behaviors.jsonl`, L1 metrics, `rag.compare` (bootstrap), reports with fingerprints, `gen.bench`
@@ -59,12 +76,13 @@ The testers can use it as soon as this lands, with the CSVs they already make.
 - [x] R5 Vector spaces by fingerprint, migration, per-machine activation, BM25 fallback, transformers.js devices
 - [x] R6 Model manager: catalog, `models.*`, storage folder (move · keep · copy), path and download (SHA-256),
       Settings › Models, doctor rows
-- [x] R7 Ollama runtime and panel — proven against a fake server only (Ollama is not installed on the dev PC; the real
-      state « not installed » is checked)
+- [x] R7 Ollama runtime and panel — Removed by decision (D-12): GGUF runs on llama.cpp only
 - [x] R8 Hardware fit, timings journal (fed by every runtime), advice with the benchmark's quality side, packs, first-launch pack
 - [x] R9 llama.cpp runtime: managed server, build download, backend choice
-- [ ] R10 Experiments of SPEC-RAG §10.8 on the RATP corpus; thresholds; reference
-- [ ] R11 (optional) Qwen3-Reranker through transformers.js (`yes-no-lm`), figure descriptions v2
+- [x] R10 Experiments of SPEC-RAG §10.8 on the RATP corpus (L1, 25 variants; L2 bounded), thresholds per reranker,
+      reference kept on Light, pack variants reordered — provisional until the testers validate the bootstrap set
+- [x] R11 Qwen3-Reranker through transformers.js (`yes-no-lm`), figure descriptions v2 (labels, kind) on the bench
+      documents (figure recall 0.69 → 1.00, provisional); multimodal embeddings stay deferred
 
 ## Desktop app — SPEC-ELECTRON.md (behavior in SPEC §1, §2, §13 « Desktop shell », §14, §15)
 
@@ -75,6 +93,13 @@ The testers can use it as soon as this lands, with the CSVs they already make.
 - [x] E4 Release: pinned Electron + SHA-256, rename, icon, fuses, asar (integrity), locales, shortcuts, `Unblock-File` —
       proven in a fresh folder (no Windows Sandbox on the build PC; a clean account remains with E0)
 - E5 (optional, out of scope this round): updates from a team folder, proxy from Windows settings
+
+## Tracked ids (SPEC §4 « Tracked ids », §13) — first draft 2026-11-02
+
+- [x] T1 `traces.*` commands, `project.json.traces`, detection for older projects, Claude proposal, generation told each column
+- [x] T2 UI: « Track ids » dialog (proposal, live preview, what changes, Xray column state), Documents bar, Generate pickers per kind, Settings › Tracked ids
+- [x] T3 Check generic over every kind (`id-unknown`, the requirement field follows `traces`), Review screens group ids by kind, runtime skills read `traces`; statements, `req:` anchors and the graph stay requirement-only by design
+- [x] T4 Coverage per kind: `traces.coverage`, Coverage dialog (not covered / covered / not in the documents), « Generate tests for the missing ids »
 
 ## Later
 

@@ -8,17 +8,32 @@ import type {
   JobEvent,
   Source,
 } from "../../../core/types.ts";
-import { call, run } from "../../api.ts";
+import { ApiError, call, run } from "../../api.ts";
 import { useApp } from "../../lib/app.ts";
 import { flushEditor } from "../../lib/editorBus.ts";
 import { cx, message, plural } from "../../lib/format.ts";
 import { editedAfterRun, revertRun } from "../../lib/revert.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
-import { Button, Chip, Icon, Kbd, SourceChip, Tabs } from "../ui/index.ts";
+import { Badge, Button, Chip, Icon, Kbd, SourceChip, Tabs } from "../ui/index.ts";
 import { AnswerText } from "./AnswerText.tsx";
 import { type ClaudeStatus, ConnectClaude } from "./ConnectClaude.tsx";
+import { CONTEXTS_EVENT, type ContextSummary } from "./ContextsDialog.tsx";
+import { EFFORTS, ModelPicker } from "./ModelPicker.tsx";
+import { OnTopToggle } from "./OnTopToggle.tsx";
 
 type Mode = "docs" | "test";
+type Kind = "step" | "test" | "project";
+
+type Meta = { durationMs: number; costUsd?: number; sessionId?: string; model: string; effort: Effort };
+type Again = {
+  mode: Mode;
+  text: string;
+  scope?: ClaudeScope;
+  contexts?: string[];
+  label?: string;
+  model: string;
+  effort: Effort;
+};
 
 type Turn = {
   id: number;
@@ -26,10 +41,15 @@ type Turn = {
   text: string;
   tools: { label: string; done: boolean }[];
   running?: boolean;
+  label?: string;
   sources?: Source[];
   trouble?: Diagnosis | { title: string; detail: string };
   run?: { runId: string; testId: string; steps: number; tests: number; reverted?: boolean; review?: string };
   note?: string;
+  meta?: Meta;
+  raw?: string;
+  showRaw?: boolean;
+  again?: Again;
 };
 
 // ponytail: review.fix re-checks in the same job — it says whether the test went back to checked, and why not
@@ -37,6 +57,20 @@ export function fixOutcome(r: { review?: string; message?: string }): { word: st
   if (!r.review) return { word: "check queued" };
   if (r.review === "checked") return { word: "checked again" };
   return { word: "still To fix", note: r.message || "The test did not go back to Checked." };
+}
+
+// ponytail: a run with no test (the whole project) still marks Claude as running, so every editor locks
+export const PROJECT_RUN = "*project*";
+
+export function metaLine(m: Meta): string {
+  return [
+    `${(m.durationMs / 1000).toFixed(1)} s`,
+    m.costUsd === undefined ? "no cost reported" : `$${m.costUsd.toFixed(3)}`,
+    `${m.model || "default"} / ${m.effort}`,
+    m.sessionId ? `session ${m.sessionId.slice(0, 8)}…` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 type RunResult = ClaudeResult & {
@@ -51,10 +85,9 @@ type ChatResult = {
   answer: string;
   sources?: Source[];
   diagnosis?: Diagnosis;
+  costUsd?: number;
+  sessionId?: string;
 };
-
-const MODELS = ["opus", "sonnet", "haiku"];
-const EFFORTS: Effort[] = ["low", "medium", "high", "xhigh", "max"];
 
 export function toolLabel(name: string, input: string): string {
   let args: Record<string, unknown> = {};
@@ -78,7 +111,13 @@ export function toolLabel(name: string, input: string): string {
 let seq = 0;
 
 export type DockJob = { name: string; input: unknown; label: string; testId: string };
-export type DockRequest = { mode: Mode; scope?: "test" | "step"; prompt?: string; job?: DockJob; nonce: number };
+export type DockRequest = {
+  mode: Mode;
+  scope?: "test" | "step" | "project";
+  prompt?: string;
+  job?: DockJob;
+  nonce: number;
+};
 
 export function ClaudeDock({
   folded,
@@ -92,17 +131,26 @@ export function ClaudeDock({
   const app = useApp();
   const focus = app.focus;
   const cfg = app.info?.project.claude;
+  const projectDir = app.info?.dir;
   const [mode, setMode] = useState<Mode>("docs");
-  const [scope, setScope] = useState<"test" | "step">("test");
+  const [scope, setScope] = useState<Kind>("test");
   const [turns, setTurns] = useState<Record<Mode, Turn[]>>({ docs: [], test: [] });
   const [prompt, setPrompt] = useState("");
+  const [preset, setPreset] = useState(-1);
   const [model, setModel] = useState(cfg?.model ?? "sonnet");
   const [effort, setEffort] = useState<Effort>(cfg?.effort ?? "medium");
   const [jobId, setJobId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [started, setStarted] = useState<number | null>(null);
+  const [, tick] = useState(0);
+  const [last, setLast] = useState<{ seconds: number; summary: string; ok: boolean } | null>(null);
   const [chatId, setChatId] = useState<string | undefined>(undefined);
   const [status, setStatus] = useState<ClaudeStatus | null>(null);
   const [checking, setChecking] = useState(false);
+  const [ctxAll, setCtxAll] = useState<ContextSummary[]>([]);
+  const [ctxOn, setCtxOn] = useState<string[] | null>(null);
+  // ponytail: a per-run opt-out, never persisted — the test's own list is edited from its header
+  const [ctxOff, setCtxOff] = useState<Set<string>>(new Set());
   const scroller = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
 
@@ -122,11 +170,44 @@ export function ClaudeDock({
     void check();
   }, [check]);
 
+  const testId = focus?.testId;
+  const defaults = cfg?.contexts;
+  const loadContexts = useCallback(() => {
+    if (!projectDir) {
+      setCtxAll([]);
+      setCtxOn(null);
+      return;
+    }
+    call<ContextSummary[]>("contexts.list", {})
+      .then((l) => setCtxAll(l ?? []))
+      .catch(() => setCtxAll([]));
+    if (testId)
+      call<{ effective: string[] }>("contexts.ofTest", { testId })
+        .then((r) => setCtxOn(r?.effective ?? null))
+        .catch(() => setCtxOn(null));
+    else setCtxOn(defaults ?? null);
+  }, [projectDir, testId, defaults]);
+  useEffect(() => {
+    loadContexts();
+    window.addEventListener(CONTEXTS_EVENT, loadContexts);
+    return () => window.removeEventListener(CONTEXTS_EVENT, loadContexts);
+  }, [loadContexts]);
+
+  useEffect(() => {
+    setScope(testId ? "test" : "project");
+    setCtxOff(new Set());
+  }, [testId]);
+
   useEffect(() => {
     if (focus && mode === "docs" && !turns.docs.length) setMode("test");
-    if (!focus && mode === "test") setMode("docs");
     if (focus?.step == null && scope === "step") setScope("test");
   }, [focus, mode, scope, turns.docs.length]);
+
+  useEffect(() => {
+    if (started === null) return;
+    const t = setInterval(() => tick((n) => n + 1), 100);
+    return () => clearInterval(t);
+  }, [started]);
 
   const turnCount = turns[mode].length;
   const lastText = turns[mode][turnCount - 1]?.text;
@@ -150,16 +231,30 @@ export function ClaudeDock({
 
   const offline = !!status && (!status.installed || status.signedIn === false);
   const running = busy;
+  const kind: Kind = !focus ? "project" : scope;
 
-  const runOnTest = async (m: Mode, answerId: number, testId: string, name: string, args: unknown) => {
-    app.setClaudeRunning(testId);
+  const runOnTest = async (
+    m: Mode,
+    answerId: number,
+    testId: string,
+    name: string,
+    args: unknown,
+    t0: number,
+    used: { model: string; effort: Effort },
+    again?: Again,
+  ) => {
+    app.setClaudeRunning(testId || PROJECT_RUN);
     try {
-      const r = await run<RunResult & { changedSteps?: Record<string, number[]> | number[] }>(
-        name,
-        args,
-        onEvent(m, answerId),
-        setJobId,
-      );
+      type Ran = RunResult & { changedSteps?: Record<string, number[]> | number[] };
+      let r: Ran;
+      try {
+        r = await run<Ran>(name, args, onEvent(m, answerId), setJobId);
+      } catch (e) {
+        // ponytail: a cancelled run keeps what Claude already wrote — it is shown, reloaded and revertable like any run
+        const left = e instanceof ApiError && e.cancelled ? (e.result as Ran | undefined) : undefined;
+        if (!left?.runId) throw e;
+        r = { ...left, ok: false, summary: left.summary || "Cancelled" };
+      }
       const changedSteps: Record<string, number[]> = Array.isArray(r.changedSteps)
         ? r.changedSteps.length
           ? { [testId]: r.changedSteps }
@@ -168,16 +263,32 @@ export function ClaudeDock({
       const changedTests = r.changedTests ?? Object.keys(changedSteps);
       const steps = Object.values(changedSteps).reduce((n, s) => n + s.length, 0);
       const outcome = fixOutcome(r);
+      const ok = r.ok !== false;
+      const reported = typeof r.durationMs === "number";
+      const durationMs = reported ? r.durationMs : Date.now() - t0;
       patch(m, answerId, (t) => ({
         ...t,
         text: t.text || r.summary,
-        trouble: r.ok ? undefined : (r.diagnosis ?? { title: "The run did not finish", detail: r.summary }),
-        note: r.ok ? outcome.note : undefined,
+        trouble: ok ? undefined : (r.diagnosis ?? { title: "The run did not finish", detail: r.summary }),
+        note: ok ? outcome.note : undefined,
+        meta:
+          again || reported
+            ? { durationMs, costUsd: r.costUsd, sessionId: r.sessionId, model: used.model, effort: used.effort }
+            : t.meta,
+        raw: typeof r.raw === "string" ? r.raw : t.raw,
+        again: ok ? undefined : again,
         run:
           r.runId && (changedTests.length || steps)
-            ? { runId: r.runId, testId, steps, tests: changedTests.length, review: r.review }
+            ? {
+                runId: r.runId,
+                testId: testId || changedTests[0] || "",
+                steps,
+                tests: changedTests.length,
+                review: r.review,
+              }
             : undefined,
       }));
+      setLast({ seconds: durationMs / 1000, summary: (r.summary ?? "").split("\n")[0], ok });
       app.setLastRun({
         runId: r.runId ?? "",
         changedTests,
@@ -194,18 +305,25 @@ export function ClaudeDock({
     }
   };
 
-  const start = (m: Mode, text: string) => {
-    const user: Turn = { id: ++seq, role: "user", text, tools: [] };
+  const start = (m: Mode, text: string, label?: string) => {
+    const user: Turn = { id: ++seq, role: "user", text, tools: [], label };
     const answer: Turn = { id: ++seq, role: "assistant", text: "", tools: [], running: true };
     setTurns((all) => ({ ...all, [m]: [...all[m], user, answer] }));
     setBusy(true);
+    setStarted(Date.now());
     return answer.id;
   };
 
   const settle = (m: Mode, answerId: number) => {
     patch(m, answerId, (t) => ({ ...t, running: false, tools: t.tools.map((x) => ({ ...x, done: true })) }));
     setBusy(false);
+    setStarted(null);
     setJobId(null);
+  };
+
+  const stopped = (m: Mode, answerId: number, e: unknown, again?: Again) => {
+    patch(m, answerId, (t) => ({ ...t, trouble: { title: "Claude stopped", detail: message(e) }, again }));
+    setLast({ seconds: 0, summary: message(e), ok: false });
   };
 
   const runJob = async (job: DockJob) => {
@@ -216,9 +334,12 @@ export function ClaudeDock({
     const answerId = start("test", job.label);
     try {
       await flushEditor();
-      await runOnTest("test", answerId, job.testId, job.name, job.input);
+      await runOnTest("test", answerId, job.testId, job.name, job.input, Date.now(), {
+        model: cfg?.model ?? "",
+        effort: cfg?.effort ?? "medium",
+      });
     } catch (e) {
-      patch("test", answerId, (t) => ({ ...t, trouble: { title: "Claude stopped", detail: message(e) } }));
+      stopped("test", answerId, e);
     } finally {
       settle("test", answerId);
     }
@@ -234,48 +355,99 @@ export function ClaudeDock({
       void runJob(request.job);
       return;
     }
-    if (request.prompt !== undefined) setPrompt(request.prompt);
+    if (request.prompt !== undefined) {
+      setPrompt(request.prompt);
+      setPreset(-1);
+    }
     setTimeout(() => input.current?.focus(), 0);
   });
 
-  const send = async (text: string) => {
-    const q = text.trim();
-    if (!q || running) return;
-    if (mode === "test" && !focus) return;
-    const m = mode;
-    const answerId = start(m, q);
-    const answer = { id: answerId };
-    setPrompt("");
+  const execute = async (a: Again) => {
+    if (running) return;
+    const m = a.mode;
+    const t0 = Date.now();
+    const answerId = start(m, a.text, a.label);
     try {
       if (m === "docs") {
         const r = await run<ChatResult>(
           "chat.ask",
-          { question: q, chatId, model, effort },
-          onEvent(m, answer.id),
+          { question: a.text, chatId, model: a.model || undefined, effort: a.effort },
+          onEvent(m, answerId),
           setJobId,
         );
         setChatId(r.chatId ?? chatId);
-        patch(m, answer.id, (t) => ({
+        const ok = r.ok !== false;
+        const durationMs = Date.now() - t0;
+        patch(m, answerId, (t) => ({
           ...t,
           text: r.answer || t.text,
           sources: r.sources ?? [],
-          trouble: r.ok === false ? (r.diagnosis ?? { title: "Claude could not answer", detail: "" }) : undefined,
+          trouble: ok ? undefined : (r.diagnosis ?? { title: "Claude could not answer", detail: "" }),
+          meta: { durationMs, costUsd: r.costUsd, sessionId: r.sessionId, model: a.model, effort: a.effort },
+          again: ok ? undefined : a,
         }));
+        setLast({ seconds: durationMs / 1000, summary: (r.answer ?? "").split("\n")[0], ok });
         if (r.diagnosis && ["connect", "login"].includes(r.diagnosis.kind)) void check();
-      } else if (focus) {
+      } else if (a.scope) {
         await flushEditor();
-        const testId = focus.testId;
-        const sc: ClaudeScope =
-          scope === "step" && focus.step != null
-            ? { kind: "step", testId, step: focus.step }
-            : { kind: "test", testId };
-        await runOnTest(m, answer.id, testId, "claude.run", { scope: sc, prompt: q, model, effort });
+        const sc = a.scope;
+        const tid = "testId" in sc ? sc.testId : (focus?.testId ?? "");
+        await runOnTest(
+          m,
+          answerId,
+          tid,
+          "claude.run",
+          {
+            scope: sc,
+            prompt: a.text,
+            model: a.model || undefined,
+            effort: a.effort,
+            ...(a.contexts ? { contexts: a.contexts } : {}),
+          },
+          t0,
+          a,
+          a,
+        );
       }
     } catch (e) {
-      patch(m, answer.id, (t) => ({ ...t, trouble: { title: "Claude stopped", detail: message(e) } }));
+      stopped(m, answerId, e, a);
     } finally {
-      settle(m, answer.id);
+      settle(m, answerId);
     }
+  };
+
+  const scopeOf = (): ClaudeScope =>
+    kind === "step" && focus && focus.step != null
+      ? { kind: "step", testId: focus.testId, step: focus.step }
+      : kind === "test" && focus
+        ? { kind: "test", testId: focus.testId }
+        : { kind: "project" };
+  const scopeWord =
+    kind === "step" && focus?.step != null
+      ? `Step ${focus.step}`
+      : kind === "test" && focus
+        ? (focus.key ?? "This test")
+        : "Whole project";
+  const presets = cfg?.presets ?? [];
+
+  const send = (text: string) => {
+    const q = text.trim();
+    if (!q || running) return;
+    const a: Again =
+      mode === "docs"
+        ? { mode, text: q, model, effort }
+        : {
+            mode,
+            text: q,
+            scope: scopeOf(),
+            contexts: ctxOn ? ctxOn.filter((id) => !ctxOff.has(id)) : undefined,
+            label: `${scopeWord}${preset >= 0 && presets[preset] ? ` · ${presets[preset].label}` : ""}`,
+            model,
+            effort,
+          };
+    setPrompt("");
+    setPreset(-1);
+    void execute(a);
   };
 
   const cancel = () => {
@@ -307,6 +479,9 @@ export function ClaudeDock({
     }
   };
 
+  const elapsed = started === null ? 0 : (Date.now() - started) / 1000;
+  const notInstalled = !!status && !status.installed;
+
   if (folded)
     return (
       <aside className="dock dock-folded" aria-label="Claude">
@@ -316,28 +491,50 @@ export function ClaudeDock({
           {running && (
             <span className="dock-busy" title="Claude is running">
               <span className="dot run-dot" />
-              Running
+              Running {elapsed.toFixed(0)} s
             </span>
           )}
         </button>
+        {notInstalled && (
+          <Badge tone="warn" small title="Claude is optional — everything else works without it">
+            not connected
+          </Badge>
+        )}
+        {!running && last && (
+          <span className={cx("dock-last", !last.ok && "dock-last-bad")} title={last.summary}>
+            Last run: {last.seconds.toFixed(1)} s
+          </span>
+        )}
         <Kbd>Ctrl J</Kbd>
+        <OnTopToggle />
       </aside>
     );
 
   const list = turns[mode];
-  const scopeChip = focus && (
-    <div className="dock-scope">
+  const ctxIds = ctxOn ?? [];
+  const nameOf = (id: string) => ctxAll.find((c) => c.id === id)?.name ?? id;
+  const scopeLink = (k: Kind, label: string) => (
+    <button key={k} type="button" className="linkbtn" disabled={running} onClick={() => setScope(k)}>
+      {label}
+    </button>
+  );
+  const scopeRow = (
+    <fieldset className="dock-scope plainset" aria-label="Claude scope">
       <span className="label">Scope</span>
       <Chip small>
-        <span className="mono dock-key">{focus.key ?? "local test"}</span>
-        {scope === "step" && focus.step != null ? ` · step ${focus.step}` : " · whole test"}
+        {kind === "project" || !focus ? (
+          "Whole project"
+        ) : (
+          <>
+            <span className="mono dock-key">{focus.key ?? "local test"}</span>
+            {kind === "step" && focus.step != null ? ` · step ${focus.step}` : " · whole test"}
+          </>
+        )}
       </Chip>
-      {focus.step != null && (
-        <button type="button" className="linkbtn" onClick={() => setScope(scope === "step" ? "test" : "step")}>
-          {scope === "step" ? "Whole test" : `Only step ${focus.step}`}
-        </button>
-      )}
-    </div>
+      {focus && focus.step != null && kind !== "step" && scopeLink("step", `Only step ${focus.step}`)}
+      {focus && kind !== "test" && scopeLink("test", "Whole test")}
+      {kind !== "project" && scopeLink("project", "Whole project")}
+    </fieldset>
   );
 
   return (
@@ -354,7 +551,13 @@ export function ClaudeDock({
       <div className="dock-head">
         <Icon name="claude" />
         <h2 className="h dock-title">Claude</h2>
+        {notInstalled && (
+          <Badge tone="warn" small>
+            not connected
+          </Badge>
+        )}
         <div className="spacer" />
+        <OnTopToggle />
         <Button tone="quiet" size="sm" kbd="Ctrl J" onClick={onFold}>
           Hide
         </Button>
@@ -366,7 +569,7 @@ export function ClaudeDock({
         onChange={setMode}
         options={[
           { value: "docs", label: "Ask the documents" },
-          { value: "test", label: "On this test", disabled: !focus, title: focus ? undefined : "Open a test first" },
+          { value: "test", label: focus ? "On this test" : "On the project" },
         ]}
       />
       {offline && status ? (
@@ -375,22 +578,26 @@ export function ClaudeDock({
           checking={checking}
           onCheck={() => void check(true)}
           onDoctor={() => app.navigate("doctor")}
+          onSetPath={() => app.navigate("settings", "claude-exe")}
         />
       ) : (
         <>
-          {mode === "test" && scopeChip}
+          {mode === "test" && scopeRow}
           <div className="dock-log" ref={scroller} aria-live="polite">
             {!list.length && (
               <p className="muted dock-empty">
                 {mode === "docs"
                   ? "Ask anything about the documents. Answers come with the passages they rely on."
-                  : "Ask Claude to change or explain this test. Every change can be reverted."}
+                  : focus
+                    ? "Ask Claude to change or explain this test. Every change can be reverted."
+                    : "Ask Claude to work on every test of the project. Every change can be reverted."}
               </p>
             )}
             {list.map((t) =>
               t.role === "user" ? (
-                <div key={t.id} className="bubble">
-                  {t.text}
+                <div key={t.id} className="bubble-wrap">
+                  {t.label && <span className="muted bubble-label">{t.label}</span>}
+                  <div className="bubble">{t.text}</div>
                 </div>
               ) : (
                 <div key={t.id} className="turn">
@@ -446,59 +653,123 @@ export function ClaudeDock({
                       )}
                     </div>
                   )}
+                  {t.meta && !t.running && <span className="muted mono run-meta">{metaLine(t.meta)}</span>}
+                  {!t.running && (t.again || t.trouble || t.raw !== undefined) && (
+                    <div className={cx("runcard-actions", (t.again || t.trouble) && "run-fail")}>
+                      {t.again && (
+                        <Button
+                          size="sm"
+                          icon="revert"
+                          disabled={running}
+                          onClick={() => t.again && void execute(t.again)}
+                        >
+                          Retry
+                        </Button>
+                      )}
+                      {t.raw !== undefined && (
+                        <Button
+                          size="sm"
+                          tone="quiet"
+                          onClick={() => patch(mode, t.id, (x) => ({ ...x, showRaw: !x.showRaw }))}
+                        >
+                          {t.showRaw ? "Hide raw output" : "Show raw output"}
+                        </Button>
+                      )}
+                      {(t.again || t.trouble) && (
+                        <Button size="sm" tone="quiet" onClick={() => app.navigate("settings", "claude")}>
+                          Open Settings
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                  {t.showRaw && t.raw !== undefined && <pre className="run-raw">{t.raw || "(no output)"}</pre>}
                 </div>
               ),
             )}
           </div>
           <div className="dock-foot">
-            {mode === "test" && !!cfg?.presets.length && (
-              <div className="presets">
-                {cfg.presets.map((p) => (
+            {mode === "test" && !!presets.length && (
+              <fieldset className="presets plainset" aria-label="Quick asks">
+                {presets.map((p, i) => (
                   <button
-                    key={p.label}
+                    key={`${i}-${p.label}`}
                     type="button"
-                    className="chip chip-btn"
-                    disabled={running || !focus}
+                    className={cx("chip chip-btn", preset === i && "chip-on")}
+                    aria-pressed={preset === i}
+                    disabled={running}
                     title={p.prompt}
-                    onClick={() => void send(p.prompt)}
+                    onClick={() => {
+                      setPreset(i);
+                      setPrompt(p.prompt);
+                      input.current?.focus();
+                    }}
                   >
                     {p.label}
                   </button>
                 ))}
-              </div>
+              </fieldset>
+            )}
+            {mode === "test" && ctxIds.length > 0 && (
+              <fieldset className="presets dock-ctx plainset" aria-label="Contexts for this run">
+                <span className="muted dock-ctx-label">Context:</span>
+                {ctxIds.map((id) => {
+                  const on = !ctxOff.has(id);
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      className={cx("chip chip-btn chip-sm", on ? "chip-on" : "chip-off")}
+                      aria-pressed={on}
+                      title={on ? "Included in this run — click to skip" : "Skipped for this run — click to include"}
+                      onClick={() =>
+                        setCtxOff((s) => {
+                          const n = new Set(s);
+                          if (n.has(id)) n.delete(id);
+                          else n.add(id);
+                          return n;
+                        })
+                      }
+                    >
+                      {nameOf(id)}
+                    </button>
+                  );
+                })}
+              </fieldset>
             )}
             <label htmlFor="dock-ask" className="sr">
-              {mode === "docs" ? "Ask the documents" : "Ask Claude about this test"}
+              {mode === "docs"
+                ? "Ask the documents"
+                : focus
+                  ? "Ask Claude about this test"
+                  : "Ask Claude about the project"}
             </label>
             <textarea
               id="dock-ask"
               ref={input}
               className="field dock-input"
               rows={2}
-              placeholder={mode === "docs" ? "Ask the documents…" : "Ask Claude to change or explain this test…"}
+              placeholder={
+                mode === "docs"
+                  ? "Ask the documents…"
+                  : focus
+                    ? "Ask Claude to change or explain this test…"
+                    : "Tell Claude what to do with every test…"
+              }
               value={prompt}
-              disabled={mode === "test" && !focus}
-              onChange={(e) => setPrompt(e.target.value)}
+              onChange={(e) => {
+                setPrompt(e.target.value);
+                setPreset(-1);
+              }}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && (e.ctrlKey || !e.shiftKey)) {
+                // ponytail: Enter is a new line, Ctrl+Enter sends (Xray Editor)
+                if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
                   e.preventDefault();
-                  void send(prompt);
+                  send(prompt);
                 }
               }}
             />
             <div className="dock-controls">
-              <select
-                className="btn btn-sm select"
-                aria-label="Model"
-                value={model}
-                onChange={(e) => setModel(e.target.value)}
-              >
-                {(MODELS.includes(model) ? MODELS : [model, ...MODELS]).map((m) => (
-                  <option key={m} value={m}>
-                    {m[0].toUpperCase() + m.slice(1)}
-                  </option>
-                ))}
-              </select>
+              <ModelPicker value={model} className="btn btn-sm select" onChange={setModel} />
               <select
                 className="btn btn-sm select"
                 aria-label="Effort"
@@ -513,16 +784,22 @@ export function ClaudeDock({
               </select>
               <div className="spacer" />
               {running ? (
-                <Button size="sm" icon="stop" kbd="Esc" disabled={!jobId} onClick={cancel}>
-                  Cancel
-                </Button>
+                <>
+                  <span className="muted mono dock-elapsed" title="Seconds running">
+                    {elapsed.toFixed(1)} s
+                  </span>
+                  <Button size="sm" icon="stop" kbd="Esc" disabled={!jobId} onClick={cancel}>
+                    Cancel
+                  </Button>
+                </>
               ) : (
                 <Button
                   size="sm"
                   icon="send"
                   className={cx(!prompt.trim() && "is-idle")}
-                  disabled={!prompt.trim() || (mode === "test" && !focus)}
-                  onClick={() => void send(prompt)}
+                  disabled={!prompt.trim()}
+                  title="Ctrl+Enter"
+                  onClick={() => send(prompt)}
                 >
                   Send
                 </Button>

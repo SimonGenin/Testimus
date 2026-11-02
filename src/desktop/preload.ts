@@ -31,6 +31,7 @@ if (role === "bridge") {
     openExternal: call("openExternal") as TestimusDesktop["openExternal"],
     setProgress: call("setProgress") as TestimusDesktop["setProgress"],
     notify: call("notify") as TestimusDesktop["notify"],
+    setAlwaysOnTop: call("setAlwaysOnTop") as TestimusDesktop["setAlwaysOnTop"],
     onOpenProject(cb) {
       if (typeof cb !== "function") return () => {};
       listeners.add(cb);

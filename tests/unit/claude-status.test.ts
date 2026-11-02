@@ -55,6 +55,35 @@ describe("diagnose (ported from Xray Editor)", () => {
     expect(diagnose("Invalid API key · Please run /login")).toMatchObject({ kind: "login", title: expect.any(String) });
     expect(diagnose("all good")).toBeUndefined();
   });
+
+  it("gives each kind its exact plain-word title and detail (PARITY #81)", () => {
+    expect(diagnose("spawn claude ENOENT")).toEqual({
+      kind: "connect",
+      title: "Claude Code is not installed or not found.",
+      detail: "Install the Claude Code CLI, sign in once in a terminal, or set its path in Settings.",
+    });
+    expect(diagnose("Not logged in · Please run /login")).toEqual({
+      kind: "login",
+      title: "Claude Code is not signed in.",
+      detail: "Run `claude` once in a terminal and sign in with your Claude account, then retry.",
+    });
+    expect(diagnose("Credit balance is too low")).toEqual({
+      kind: "credit",
+      title: "Your Claude account has no credit left.",
+      detail: "Check the plan or the billing of the account Claude Code is signed in with.",
+    });
+    expect(diagnose("Claude usage limit reached. Your limit resets at 3pm.")).toEqual({
+      kind: "limit",
+      title: "Claude usage limit reached.",
+      detail: "Wait until the limit resets (the message below says when), then retry.",
+    });
+    expect(diagnose("fetch failed: getaddrinfo ENOTFOUND api.anthropic.com")).toEqual({
+      kind: "network",
+      title: "Claude could not be reached.",
+      detail: "Check the network or the proxy (HTTPS_PROXY), then retry. Overloaded servers clear up in minutes.",
+    });
+    expect(diagnose("Claude wrote something odd")).toBeUndefined();
+  });
 });
 
 describe("version probe", () => {

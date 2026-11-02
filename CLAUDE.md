@@ -30,11 +30,11 @@ powershell -ExecutionPolicy Bypass -File dist\testimus-<v>-win-x64\install.ps1 [
 ```
 
 Dev models: `TESTIMUS_MODELS=D:/Projects/Testimus/.models` (bge-m3, Qwen3-Embedding-0.6B, reranker,
-q8). The model catalog is `models/catalog.json`; runtimes are transformers.js, Ollama and llama.cpp
-(Ollama is not installed on the dev PC: proven against a fake). `serve --mock` copies
+q8). The model catalog is `models/catalog.json`; runtimes are transformers.js and llama.cpp
+(Testimus does not use Ollama, D-12). `serve --mock` copies
 `tests/fixtures/project/` to a temp folder and fakes Jira and Claude (`TESTIMUS_MOCK_CLAUDE=absent|logged-out`,
 `TESTIMUS_MOCK_MAX_ATTACHMENT=<bytes>`); the other `TESTIMUS_MOCK_*` fake the hardware, runtimes and
-downloads (`src/core/mock/machine.ts`, `models.ts`, `ollama.ts`). The HTTP face only
+downloads (`src/core/mock/machine.ts`, `models.ts`). The HTTP face only
 answers the page it served (SameSite session cookie, local Host/Origin, JSON POST): call the API from a
 script by loading `/` first for the cookie (see `tests/e2e/helpers.ts`).
 
@@ -60,12 +60,12 @@ src/core/lib/        testfile, table, adf, store, jira, sync, csv (ported from X
                      download, install, registry, resolve, perf, advice, quality, store, dir)
 src/core/rag/        convert* (docx/pdf/html/png → doc.md + figures), chunk, embed, models (profiles),
                      db, indexer, search/ (lexical, vector, hybrid, passage), runtimes/ (transformers,
-                     ollama, llamacpp, llama-server), statements, graph, related, mentions, glossary,
+                     llamacpp, llama-server), statements, graph, related, mentions, glossary,
                      stem-fr, fingerprint, activation (vector spaces), eval, bench, compare
 src/core/claude/     run (claude -p, per-kind tool access), stream, snapshot/revert, diagnose, status,
                      chat, generate, check, fix, figures, headers, prompt, ledger (evidence ledger)
-src/core/mock/       --mock: fixture Jira (jira.ts), scripted Claude (claude*.ts), fake machine, models
-                     and Ollama, sandbox setup
+src/core/mock/       --mock: fixture Jira (jira.ts), scripted Claude (claude*.ts), fake machine and
+                     models, sandbox setup
 src/faces/           cli.ts, mcp.ts, http.ts — thin adapters over the registry, no domain logic
 src/desktop/         Electron shell: main, preload, bridge (+ bridge-types), core spawn, window, log,
                      pages/ (splash, error); bundled by scripts/desktop.ts
@@ -99,7 +99,7 @@ tests/unit/          vitest (desktop/ for the shell); tests/e2e/ playwright (des
   from the project's `.mcp.json` passed explicitly. Never the Agent SDK (API key, not the
   subscription).
 - **Documents never leave the machine** except inside Claude runs: embeddings and reranking are
-  local (transformers.js, or a local Ollama / llama.cpp server). Do not add a hosted embedding or
+  local (transformers.js, or a local llama.cpp server). Do not add a hosted embedding or
   vector service without a SPEC change.
 - Port, don't share: code taken from Xray Editor is copied here and adapted (generic step fields,
   `api.ts` seam becomes the HTTP client). Do not edit `D:\Projects\XrayEditor` from this project.

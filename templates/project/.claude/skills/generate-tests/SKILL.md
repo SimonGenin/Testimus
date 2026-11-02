@@ -55,6 +55,11 @@ document, and the app checks them mechanically first.
 - **Every requirement in scope is verified by at least one step.** A step's requirement field lists
   only the requirements that step actually verifies — its gesture exercises the requirement and its
   expected result observes it. A requirement the step merely touches is not listed.
+- **Tracked ids.** `project.json.traces` lists the kinds of ids the project tracks (requirements,
+  alarm codes, use cases…), each with its `patterns` and its step column (`field`). Fill every such
+  column like the requirement field: only ids written in the documents that the step verifies,
+  comma-separated. When `traces` exists without a `requirement` kind, the project tracks no
+  requirements: skip what this skill says about the requirement field.
 - One test per coherent scenario; 3–15 steps is the norm. Split rather than overload. Do not
   duplicate an existing test: `tests_list` / `tests_show` first, and say in your report when an
   existing test already covers something.
@@ -68,7 +73,8 @@ document, and the app checks them mechanically first.
   whole file with `Write`, in exactly the format of the project `CLAUDE.md`:
   frontmatter (`project`, `summary`, `folder`, `labels: []`, `review: draft`), `## Description`,
   then `## Step 1`, `## Step 2`… each with `### Action`, `### Expected Result`, the requirement
-  field (`### Exigence` or the name `xray.json` gives it), and `### Sources`.
+  field (`### Exigence` or the name `xray.json` gives it), one `### <field>` per tracked kind the
+  step verifies (`project.json.traces`), and `### Sources`.
 - Field headings are the names in `xray.json`; leave a field out when it is empty (no empty
   `### Data`). Use the folder given in the request; never invent one outside `project.json` folders
   unless the request names it.

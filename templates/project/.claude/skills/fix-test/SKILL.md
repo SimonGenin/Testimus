@@ -24,7 +24,8 @@ description: Correct one Xray test from a reviewer's "To fix" note and the test'
   `Read` the image.
 - A `related-unread` finding names a section linked to a covered requirement that the generation never
   opened: read it, and change the step only if it says something the test contradicts or misses.
-- A step's requirement field (`Exigence`) lists only requirements the step actually verifies.
+- A step's requirement field (`Exigence`) lists only requirements the step actually verifies; so does
+  every tracked column of `project.json.traces` for its own ids.
 - Write "not simulated" only when a source says so.
 - A finding you think is wrong: leave the step, explain why in the reply, citing the passage.
 - Do not touch `review`, `review_note`, `reviewed_by`, `reviewed_at` or `generated_by` in the

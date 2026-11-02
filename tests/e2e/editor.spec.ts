@@ -23,20 +23,22 @@ test("LFRPS12-1420 opens with fields in xray.json order, Data folded, requiremen
   await expect(main(page).getByRole("article")).toHaveCount(5);
 
   const one = step(page, 1);
-  const labels = await one.locator(".fl-k, .label").allInnerTexts();
+  const labels = await step(page, 3).locator(".fl-k, .label").allInnerTexts();
   const order = ["Action", "Data", "Expected Result", "Exigence"].map((f) => labels.findIndex((l) => l.trim() === f));
   expect(order.every((i) => i >= 0)).toBe(true);
   expect([...order].sort((a, b) => a - b)).toEqual(order);
 
-  await expect(one.getByRole("button", { name: "Show Data of step 1" })).toContainText("Folded");
+  const data1 = one.getByRole("button", { name: "Data column of step 1" });
+  await expect(data1).toHaveAttribute("aria-pressed", "false");
   await expect(one.getByRole("textbox", { name: "Data of step 1" })).toHaveCount(0);
-  await expect(step(page, 3).getByRole("button", { name: "Show Data of step 3" })).toContainText(
-    "Sectionneur S 12, position fermée.",
-  );
-  await step(page, 3).getByRole("button", { name: "Show Data of step 3" }).click();
   await expect(step(page, 3).getByRole("textbox", { name: "Data of step 3" })).toHaveValue(
     "Sectionneur S 12, position fermée.",
   );
+  await step(page, 3).getByRole("button", { name: "Data column of step 3" }).click();
+  await expect(step(page, 3).getByRole("textbox", { name: "Data of step 3" })).toHaveCount(0);
+  await expect(step(page, 3).getByRole("button", { name: "Data column of step 3" })).toHaveText("Data ●");
+  await data1.click();
+  await expect(one.getByRole("button", { name: "+ text" }).first()).toBeVisible();
 
   await expect(one.getByRole("button", { name: "Remove requirement EXI_MOP_SPF_511_A_1650" })).toBeVisible();
   await expect(step(page, 2).getByRole("button", { name: /^Remove requirement / })).toHaveCount(2);
@@ -79,6 +81,26 @@ test("editing the summary and an action saves test.md", async ({ page }) => {
   );
 });
 
+test("the step being edited stands out from the others, and keeps its ring while focus is elsewhere", async ({
+  page,
+}) => {
+  await openTest(page, "LFRPS12-1420");
+  const look = (n: number) =>
+    step(page, n).evaluate((el) => {
+      const s = getComputedStyle(el);
+      return `${s.borderColor} | ${s.outlineStyle} ${s.outlineColor} | ${s.boxShadow}`;
+    });
+  const before = await look(2);
+  await step(page, 2).getByRole("textbox", { name: "Action of step 2" }).focus();
+  await expect.poll(() => look(2)).not.toBe(before);
+  const ring = await look(2);
+  expect(ring).not.toBe(await look(1));
+  await main(page).getByRole("textbox", { name: "Summary" }).focus();
+  expect(await look(2)).toBe(ring);
+  await step(page, 1).getByRole("textbox", { name: "Action of step 1" }).focus();
+  await expect.poll(() => look(2)).toBe(before);
+});
+
 test("a step is moved, added and removed", async ({ page }) => {
   await openTest(page, "LFRPS12-1420");
   const before = (await show("LFRPS12-1420")).test.steps.map((s) => s.fields.Action);
@@ -91,6 +113,7 @@ test("a step is moved, added and removed", async ({ page }) => {
 
   await main(page).getByRole("button", { name: "Add step" }).click();
   await expect(main(page).getByRole("article")).toHaveCount(6);
+  await step(page, 6).locator('[data-field="Action"]').getByRole("button", { name: "+ text" }).click();
   await step(page, 6).getByRole("textbox", { name: "Action of step 6" }).fill("Fermer la fenêtre Propriétés.");
   await expect.poll(async () => (await show("LFRPS12-1420")).test.steps.length).toBe(6);
   await expect
@@ -120,12 +143,9 @@ test("the push plan shows its warning, then the push runs and lands", async ({ p
   await expect(main(page).getByText("Up to date", { exact: true })).toBeVisible();
 });
 
-test("a push with nothing to do says so", async ({ page }) => {
+test("a test in sync with Jira has nothing to push", async ({ page }) => {
   await openTest(page, "LFRPS12-1398");
-  await main(page).getByRole("button", { name: "Push to Jira" }).click();
-  const plan = page.getByRole("dialog", { name: "Push plan" });
-  await expect(plan.getByText("Nothing to push: Jira already has this version.")).toBeVisible();
-  await expect(plan.getByRole("button", { name: "Confirm push" })).toBeDisabled();
-  await plan.getByRole("button", { name: "Cancel" }).click();
-  await expect(plan).toBeHidden();
+  const push = main(page).getByRole("button", { name: "Push to Jira" });
+  await expect(push).toBeDisabled();
+  await expect(push).toHaveAttribute("title", "No local change since the last sync — nothing to push");
 });

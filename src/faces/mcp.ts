@@ -51,6 +51,7 @@ export async function callTool(c: Command, project: string | null, input: unknow
 export function buildServer(project: string | null, version = "0.1.0"): McpServer {
   const server = new McpServer({ name: "testimus", version }, { capabilities: { tools: {} } });
   for (const c of registry) {
+    if (c.mcp === false) continue;
     server.registerTool(
       toolName(c.name),
       {

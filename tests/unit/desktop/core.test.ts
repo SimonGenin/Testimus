@@ -69,6 +69,26 @@ describe("core launch", () => {
     expect(SERVE_FLAGS).toEqual(["serve", "--port", "0", "--no-open", "--ready-json", "--exit-with-stdin"]);
   });
 
+  it("opens the folder given on the command line from the core's start (no race with the UI), never under --mock", () => {
+    const real = coreLaunch({ packaged: true, exeDir: "C:/T", repo: "", node: null, mock: false, project: "D:\\proj" });
+    expect(real.args.slice(-2)).toEqual(["--project", "D:\\proj"]);
+    const mock = coreLaunch({ packaged: true, exeDir: "C:/T", repo: "", node: null, mock: true, project: "D:\\proj" });
+    expect(mock.args).not.toContain("--project");
+  });
+
+  it("asks for the port of the last run, with a fallback when it is taken", () => {
+    const l = coreLaunch({ packaged: true, exeDir: "C:/T", repo: "", node: null, mock: false, port: 51234 });
+    expect(l.args.slice(1)).toEqual([
+      "serve",
+      "--port",
+      "51234",
+      "--no-open",
+      "--ready-json",
+      "--exit-with-stdin",
+      "--port-fallback",
+    ]);
+  });
+
   it("says what to do when Node is missing in development", () => {
     expect(() => coreLaunch({ packaged: false, exeDir: "", repo: "", node: null, mock: false })).toThrow(
       /TESTIMUS_NODE/,

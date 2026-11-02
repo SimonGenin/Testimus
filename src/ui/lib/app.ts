@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react";
-import type { ProjectJson, Review, Source, XrayJson } from "../../core/types.ts";
+import type { ProjectJson, Review, Source, TraceView, XrayJson } from "../../core/types.ts";
 
 export type Screen =
   | "documents"
@@ -17,6 +17,7 @@ export type ProjectInfo = {
   project: ProjectJson;
   xray: XrayJson;
   fieldOrder?: string[];
+  traces?: TraceView[];
   counts?: { docs: number; tests: number; review: Partial<Record<Review, number>>; jobsRunning: number };
 };
 

@@ -1,8 +1,9 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
 import type { CredsStatus } from "../types.ts";
+import { writeAtomic } from "./atomic.ts";
 
 export type JiraCreds = { base: string; baseUrl: string; email: string; token: string };
 export type XrayCreds = { apiBase: string; clientId: string; clientSecret: string };
@@ -30,6 +31,20 @@ function readRaw(name: string): Record<string, unknown> | null {
 
 const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
 
+// ponytail: the saved secrets, for the connection form to show back (Xray Editor prefills them); a broken file reads empty
+export function savedSecrets(): { token: string; clientId: string; clientSecret: string } {
+  const safe = (name: string) => {
+    try {
+      return readRaw(name) ?? {};
+    } catch {
+      return {};
+    }
+  };
+  const j = safe(JIRA_FILE);
+  const x = safe(XRAY_FILE);
+  return { token: str(j.token), clientId: str(x.clientId), clientSecret: str(x.clientSecret) };
+}
+
 export function jiraCreds(): JiraCreds {
   const c = readRaw(JIRA_FILE);
   if (!c) throw new UserError(`Missing ${shown(JIRA_FILE)}.`, "Run testimus system setup to add your Jira access.");
@@ -51,33 +66,38 @@ export function xrayCreds(): XrayCreds {
   return { apiBase: (str(c.apiBase) || "https://xray.cloud.getxray.app").replace(/\/+$/, ""), clientId, clientSecret };
 }
 
+function probe(name: string, keys: string[]): { raw: Record<string, unknown> | null; problem?: string } {
+  let raw: Record<string, unknown> | null;
+  try {
+    raw = readRaw(name);
+  } catch {
+    return { raw: {}, problem: "not valid JSON" };
+  }
+  if (raw === null) return { raw };
+  if (typeof raw !== "object" || Array.isArray(raw)) return { raw: {}, problem: "not a JSON object" };
+  const missing = keys.filter((k) => !str(raw[k]));
+  return { raw, problem: missing.length ? `missing ${missing.join(", ")}` : undefined };
+}
+
 export function credsStatus(): CredsStatus {
-  const j = (() => {
-    try {
-      return readRaw(JIRA_FILE);
-    } catch {
-      return {};
-    }
-  })();
-  const x = (() => {
-    try {
-      return readRaw(XRAY_FILE);
-    } catch {
-      return {};
-    }
-  })();
+  const j = probe(JIRA_FILE, ["baseUrl", "email", "token"]);
+  const x = probe(XRAY_FILE, ["clientId", "clientSecret"]);
   return {
     jira: {
       file: join(credsDir(), JIRA_FILE),
-      exists: j !== null,
-      complete: !!(j && str(j.baseUrl) && str(j.email) && str(j.token)),
-      baseUrl: j ? str(j.baseUrl) || undefined : undefined,
-      email: j ? str(j.email) || undefined : undefined,
+      exists: j.raw !== null,
+      complete: j.raw !== null && !j.problem,
+      invalid: !!j.problem,
+      ...(j.problem ? { problem: j.problem } : {}),
+      baseUrl: j.raw ? str(j.raw.baseUrl) || undefined : undefined,
+      email: j.raw ? str(j.raw.email) || undefined : undefined,
     },
     xray: {
       file: join(credsDir(), XRAY_FILE),
-      exists: x !== null,
-      complete: !!(x && str(x.clientId) && str(x.clientSecret)),
+      exists: x.raw !== null,
+      complete: x.raw !== null && !x.problem,
+      invalid: !!x.problem,
+      ...(x.problem ? { problem: x.problem } : {}),
     },
   };
 }
@@ -96,6 +116,6 @@ export function saveCreds(jira: Record<string, string>, xray: Record<string, str
     try {
       prev = readRaw(name) ?? {};
     } catch {}
-    writeFileSync(join(credsDir(), name), `${JSON.stringify({ ...prev, ...clean }, null, 2)}\n`, "utf8");
+    writeAtomic(join(credsDir(), name), `${JSON.stringify({ ...prev, ...clean }, null, 2)}\n`);
   }
 }

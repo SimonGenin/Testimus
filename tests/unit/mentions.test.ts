@@ -146,3 +146,35 @@ describe("rag.mentions (SPEC-RAG §4.1)", () => {
     expect(r).toMatchObject({ page: 1, pages: 1, sections: 1, total: 1 });
   });
 });
+
+describe("a section title is searched even when the section has no text of its own (review #8)", () => {
+  it("finds « DSO » in « 3.15 DSO, départs… » whose text is all in sub-sections, with and without the index", async () => {
+    addDoc(
+      "SOSIE_4111",
+      [
+        "# SOSIE_4111 — PR2I",
+        "",
+        "### 3.15 DSO, départs, vue système et impression <!-- § 3.15 -->",
+        "",
+        "#### 3.15.1 Vue système <!-- § 3.15.1 -->",
+        "",
+        "La vue système présente les équipements.",
+      ].join("\n"),
+    );
+    const without = mentions(dir, { term: "DSO", docIds: ["SOSIE_4111"] });
+    expect(refs(without)).toEqual(["SOSIE_4111#§3.15"]);
+    expect(without.docs[0].sections[0]).toMatchObject({
+      path: "3 > 3.15",
+      title: "DSO, départs, vue système et impression",
+      kind: "section",
+      count: 1,
+      hits: [{ form: "DSO", context: "DSO, départs, vue système et impression" }],
+    });
+    expect(refs(mentions(dir, { term: "vue système", docIds: ["SOSIE_4111"] }))).toEqual([
+      "SOSIE_4111#§3.15",
+      "SOSIE_4111#§3.15.1",
+    ]);
+    await indexProject(dir, quietCtx(dir), { model: null });
+    expect(mentions(dir, { term: "DSO", docIds: ["SOSIE_4111"] })).toEqual(without);
+  });
+});

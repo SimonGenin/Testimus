@@ -135,3 +135,26 @@ describe("Review › sources read / related", () => {
     expect(notAtAnchor([f], "D1#§5.2", null)).toBe(f);
   });
 });
+
+describe("Review › a quote past the cap of a long section (review #16)", () => {
+  it("asks rag.passage around the quote, then highlights it", async () => {
+    const asked: Record<string, unknown>[] = [];
+    routes["rag.passage"] = (input) => {
+      asked.push(input);
+      return { ...passage, truncated: true, quoteFound: true };
+    };
+    routes["review.evidence"] = () => evidence;
+    const { container } = panel();
+    await screen.findByText("ouvert par l'opérateur");
+    expect(asked[0]).toEqual({ ref: "D1#§5.2", around: "ouvert par l'opérateur" });
+    expect(container.querySelector("mark")).not.toBeNull();
+  });
+
+  it("says so, without a highlight, when the section does not hold the quote", async () => {
+    routes["rag.passage"] = () => ({ ...passage, quoteFound: false });
+    routes["review.evidence"] = () => evidence;
+    const { container } = panel({ source: { docId: "D1", anchor: "§5.2", quote: "une phrase ailleurs" } });
+    expect(await screen.findByText(/Not highlighted: the quote is not in this section’s own text/)).toBeInTheDocument();
+    expect(container.querySelector("mark")).toBeNull();
+  });
+});

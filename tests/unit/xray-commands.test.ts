@@ -66,10 +66,14 @@ describe("xray commands", () => {
     const out = await run("xray.prefs", { order: ["Exigence", "Action"], hidden: ["Data"] });
     expect(out.prefs).toEqual({
       order: ["Exigence", "Action", "Data", "Expected Result"],
-      collapsed: ["Data"],
+      collapsed: [],
       hidden: ["Data"],
+      filled: ["Data"],
     });
     expect(readXray(project).prefs.hidden).toEqual(["Data"]);
+    expect((await run("xray.prefs", { open: ["Exigence"] })).prefs.open).toEqual(["Exigence"]);
+    expect((await run("xray.prefs", { hidden: [] })).prefs.open).toEqual(["Exigence"]);
+    expect((await run("xray.prefs", { open: [] })).prefs.open).toBeUndefined();
     await expect(run("xray.prefs", { collapsed: ["Priorité"] })).rejects.toThrow(
       "Not a step field of this project: Priorité.",
     );

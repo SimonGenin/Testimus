@@ -46,8 +46,10 @@ test.describe("no GPU, 6 GB, no models folder yet", () => {
     await page.goto("/#/setup/pack");
     const packs = page.getByRole("group", { name: "Search packs" });
     await expect(packs.getByRole("radio", { name: "Performance pack" })).toBeChecked();
-    await expect(packs.getByRole("radio", { name: "Quality pack" })).toBeDisabled();
-    await expect(packs).toContainText("Not available on this PC");
+    await expect(packs.getByRole("radio", { name: "Quality pack" })).toBeEnabled();
+    await expect(
+      packs.locator("label").filter({ has: page.getByRole("radio", { name: "Quality pack" }) }),
+    ).not.toContainText("Suggested for this PC");
     await page.getByRole("button", { name: "Use Performance" }).click();
     const where = page.getByRole("dialog", { name: "Models folder" });
     await expect(where).toContainText("Where should models be stored?");

@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { userInfo } from "node:os";
 import { join } from "node:path";
 import { covers, readLedger, type Searched } from "../claude/ledger.ts";
@@ -6,12 +6,14 @@ import { UserError } from "../command.ts";
 import { env } from "../env.ts";
 import { parseSections } from "../rag/chunk.ts";
 import { normalizeRef, refInfo, related } from "../rag/related.ts";
-import { type EvidenceOpts, matrixRows } from "../rag/statements.ts";
+import { type EvidenceOpts, matrixRows, type Statement, statementsOf } from "../rag/statements.ts";
 import type { CheckFile, DocJson, Finding, Review, Step, Test } from "../types.ts";
+import { writeAtomic } from "./atomic.ts";
 import { parseCsv } from "./csv.ts";
 import { readJson, readProject, readXray, writeJson } from "./project.ts";
 import { readCheck, readTest, testDir } from "./store.ts";
 import { frontmatterOf, hasRawEmbed, testMdHash } from "./testfile.ts";
+import { compile, idsInCell, projectTraces, REQUIREMENT, scanTrace } from "./traces.ts";
 
 export type DocText = {
   id: string;
@@ -23,7 +25,13 @@ export type DocText = {
   opts?: EvidenceOpts;
   pieces?: [string, string][];
 };
-export type Corpus = { docs: Map<string, DocText>; requirements: Set<string>; requirementField: string | null };
+export type Traced = { label: string; field: string; re: RegExp; ids: Set<string> };
+export type Corpus = {
+  docs: Map<string, DocText>;
+  requirements: Set<string>;
+  requirementField: string | null;
+  traced?: Traced[];
+};
 
 const ACTION = "Action";
 const EXPECTED = "Expected Result";
@@ -46,10 +54,16 @@ export function anchorsOf(md: string): Set<string> {
   return new Set([...md.matchAll(ANCHORS)].map((m) => (m[1] === "§" ? `§${m[2]}` : `${m[1]}:${m[2]}`)));
 }
 
-// ponytail: the requirement field is whatever the project's Xray schema calls « Exigence » or « Requirement »,
-// unless project.json names it — a team with another word sets requirementField once
+// ponytail: the requirement field is the column of the tracked requirement kind (project.json.traces; none
+// when the team stopped tracking requirements); before traces, whatever the project's Xray schema calls
+// « Exigence » or « Requirement », unless project.json names it
 export function requirementFieldOf(project: string): string | null {
-  const named = readJson<{ requirementField?: unknown }>(join(project, "project.json"), {}).requirementField;
+  const pj = readJson<{ requirementField?: unknown; traces?: unknown }>(join(project, "project.json"), {});
+  if (Array.isArray(pj.traces)) {
+    const field = (pj.traces.find((t) => (t as { id?: unknown })?.id === REQUIREMENT) as { field?: unknown })?.field;
+    return typeof field === "string" && field.trim() ? field.trim() : null;
+  }
+  const named = pj.requirementField;
   if (typeof named === "string" && named.trim()) return named.trim();
   const fields = readXray(project).fields;
   const f =
@@ -98,13 +112,28 @@ export function loadCorpus(project: string): Corpus {
     docs.set(e.name, d);
     if (doc.code && !docs.has(doc.code)) docs.set(doc.code, d);
   }
-  return { docs, requirements, requirementField: requirementFieldOf(project) };
+  return { docs, requirements, requirementField: requirementFieldOf(project), traced: tracedKinds(project) };
+}
+
+// ponytail: every other tracked kind is checked on its own column: its ids must be written in a document
+function tracedKinds(project: string): Traced[] {
+  return projectTraces(project)
+    .traces.filter((t) => t.id !== REQUIREMENT)
+    .flatMap((t) => {
+      try {
+        const ids = new Set(scanTrace(project, t.patterns).items.map((i) => i.id));
+        return [{ label: t.label, field: t.field, re: compile(t.patterns), ids }];
+      } catch {
+        return [];
+      }
+    });
 }
 
 const keysIn = (line: string) =>
   [...line.matchAll(ANCHORS)].map((m) => (m[1] === "§" ? `§${m[2]}` : `${m[1]}:${m[2]}`));
 const SECTION_MARK = /[<]!--\s*§/;
 const PAGE_MARK = /[<]!--\s*page\b/;
+const MARKER_ONLY = /^\s*<!--\s*req\s+\S+?\s*-->\s*$/;
 const headingLevel = (line: string) => (SECTION_MARK.test(line) ? (/^(#{1,6})\s/.exec(line)?.[1].length ?? 0) : 0);
 
 // ponytail: what a citation may quote — a § anchor is its section with the subsections; a requirement
@@ -131,6 +160,11 @@ export function scopeOf(md: string, anchor: string, opts: EvidenceOpts = {}): st
     while (b < lines.length && !PAGE_MARK.test(lines[b])) b++;
   } else {
     let h = at;
+    if (anchor.startsWith("req:")) {
+      let n = at + 1;
+      while (n < lines.length && (!lines[n].trim() || MARKER_ONLY.test(lines[n]))) n++;
+      if (n < lines.length && headingLevel(lines[n])) h = n;
+    }
     while (h >= 0 && !headingLevel(lines[h])) h--;
     if (h >= 0) [a, b] = sectionFrom(h);
     else {
@@ -146,7 +180,20 @@ export function scopeOf(md: string, anchor: string, opts: EvidenceOpts = {}): st
       [a, b] = [p0, p1];
     }
   }
-  return plainText(lines.slice(a, b).join("\n"));
+  const scope = plainText(lines.slice(a, b).join("\n"));
+  if (!anchor.startsWith("req:")) return scope;
+  const st = statementsIn(md, opts).get(anchor.slice(4));
+  const own = st?.source === "body" ? plainText(st.text) : "";
+  return own && !scope.includes(own) ? `${scope} ${own}` : scope;
+}
+
+let lastStatements: { md: string; opts: EvidenceOpts; map: Map<string, Statement> } | null = null;
+// ponytail: a requirement's statement may be read away from its marker (a table row, a later id list) — what
+// rag.passage shows as its focus is quotable under req:ID too
+function statementsIn(md: string, opts: EvidenceOpts): Map<string, Statement> {
+  if (lastStatements?.md !== md || lastStatements.opts !== opts)
+    lastStatements = { md, opts, map: statementsOf("", md, opts) };
+  return lastStatements.map;
 }
 
 const scoped = (d: DocText, anchor: string) => {
@@ -362,6 +409,18 @@ export function mechanicalFindings(test: Test, corpus: Corpus): Finding[] {
             message: `Step ${step}: requirement ${id} is neither in requirements/requirements.csv nor in a document: fix the id or add the requirement.`,
             sources: [],
           });
+    for (const t of corpus.traced ?? []) {
+      const value = Object.entries(s.fields).find(([k]) => k.trim().toLowerCase() === t.field.toLowerCase())?.[1];
+      const cell = idsInCell(value, t.re);
+      for (const id of [...cell.ids.filter((x) => !t.ids.has(x)), ...cell.other])
+        add({
+          step,
+          kind: "id-unknown",
+          severity: "error",
+          message: `Step ${step}: ${t.label} ${id} (column ${t.field}) is written in no document: fix the id, or the patterns of the tracked ids.`,
+          sources: [],
+        });
+    }
   });
   return out;
 }
@@ -551,8 +610,6 @@ export function patchReview(md: string, p: ReviewPatch): string {
 export function setReview(project: string, id: string, p: ReviewPatch): Test {
   const file = join(testDir(project, id), "test.md");
   if (!existsSync(file)) throw new UserError(`No test ${id} in this project.`, "testimus tests list shows the tests.");
-  const tmp = `${file}.tmp`;
-  writeFileSync(tmp, patchReview(readFileSync(file, "utf8"), p), "utf8");
-  renameSync(tmp, file);
+  writeAtomic(file, patchReview(readFileSync(file, "utf8"), p));
   return readTest(project, id).test;
 }

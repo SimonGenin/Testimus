@@ -31,21 +31,22 @@ export function SourcePanel({
   onOpenDoc: (docId: string, anchor: string) => void;
   onPick: (ref: string) => void;
 }) {
-  const [p, setP] = useState<Passage | null>(null);
+  const [p, setP] = useState<(Passage & { quoteFound?: boolean }) | null>(null);
   const [error, setError] = useState("");
   const ref = source ? `${source.docId}#${source.anchor}` : "";
+  const quote = source?.quote ?? "";
   useEffect(() => {
     setP(null);
     setError("");
     if (!ref) return;
     let dead = false;
-    call<Passage>("rag.passage", { ref })
+    call<Passage & { quoteFound?: boolean }>("rag.passage", quote.trim() ? { ref, around: quote } : { ref })
       .then((r) => !dead && setP(r))
       .catch((e) => !dead && setError(message(e)));
     return () => {
       dead = true;
     };
-  }, [ref]);
+  }, [ref, quote]);
 
   const evidence = testId ? <EvidenceBlock testId={testId} selected={ref} onPick={onPick} /> : null;
 
@@ -100,6 +101,16 @@ export function SourcePanel({
           </>
         ) : misplaced ? (
           <PassageText passage={{ ...p, focus: undefined }} quote="" />
+        ) : quote.trim() && p.quoteFound === false ? (
+          <>
+            <div className="srcpanel-miss" role="status">
+              <p className="muted">
+                Not highlighted: the quote is not in this section’s own text (it may sit in a sub-section) — use Open in
+                document to find it.
+              </p>
+            </div>
+            <PassageText passage={p} quote="" />
+          </>
         ) : (
           <PassageText passage={p} quote={source.quote} />
         )}

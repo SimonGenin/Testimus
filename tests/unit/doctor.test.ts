@@ -15,6 +15,7 @@ import {
 } from "../../src/core/lib/doctor.ts";
 import { catalogEntry, registryFile } from "../../src/core/lib/models-catalog.ts";
 import { pinMachineProfile } from "../../src/core/lib/models-hardware.ts";
+import { journalFile, recordPerf } from "../../src/core/lib/models-perf.ts";
 import { readRegistry, writeRegistry } from "../../src/core/lib/models-registry.ts";
 import { isComplete, modelDir, modelRoots, onnxFile } from "../../src/core/lib/models-store.ts";
 import { DEFAULT_PROJECT, writeProject } from "../../src/core/lib/project.ts";
@@ -34,19 +35,9 @@ const devPc: MachineProfile = {
   loaded: [],
 };
 
-const absent = {
-  state: "absent" as const,
-  host: "http://127.0.0.1:11434",
-  storage: { dir: "x", freeMB: null, fromEnv: false },
-  models: [],
-  loaded: [],
-  message: "Ollama is not installed. It is optional: every model also runs without it (llama.cpp or transformers.js).",
-};
-
 function fakeModels(over: Partial<ModelDeps> = {}): ModelDeps {
   return {
     machine: async () => devPc,
-    ollama: async () => absent,
     active: async () => ({ embedding: null, reranker: null, wanted: ["bge-m3-q8"] }),
     space: async () => null,
     ...over,
@@ -136,7 +127,6 @@ describe("doctor", () => {
       "model.fit",
       "model.offload",
       "index.space",
-      "ollama",
       "llamacpp",
       "disk.index",
       "proxy",
@@ -155,7 +145,6 @@ describe("doctor", () => {
     expect(by["model.embedding"].state).toBe("warn");
     expect(by["model.embedding"].fix).toMatch(/models pull bge-m3-q8/);
     expect(by["model.reranker"].state).toBe("skip");
-    expect(by.ollama).toMatchObject({ state: "ok", detail: absent.message });
     expect(by["disk.index"].state).not.toBe("skip");
     for (const r of rows) if (r.state === "fail" || r.state === "warn") expect(r.fix, r.id).toBeTruthy();
     for (const r of rows) if (r.state === "ok") expect(r.fix, r.id).toBeUndefined();
@@ -189,10 +178,9 @@ describe("doctor", () => {
     expect(claude.fix).toMatch(/install\.ps1/);
   });
 
-  it("runs as system.doctor without a project; Ollama not installed is no error", async () => {
+  it("runs as system.doctor without a project", async () => {
     const r = (await invoke("system.doctor", {}, { project: null })) as { ok: boolean; checks: DoctorCheck[] };
     expect(r.checks.map((c) => c.id)).toContain("models.dir");
-    expect(r.checks.find((c) => c.id === "ollama")).toMatchObject({ state: "ok" });
     expect(r.checks.find((c) => c.id === "face")).toMatchObject({ state: "ok" });
     expect(r.ok).toBe(false);
   });
@@ -218,8 +206,10 @@ describe("doctor — models (§7.11)", () => {
     expect(r["models.dir"]).toMatchObject({ state: "warn", fix: expect.stringMatching(/models setDir/) });
     writeRegistry({ ...readRegistry(), dir: tmpdir() });
     r = by(await modelRows(null, fakeModels()));
-    expect(r["models.dir"].state).toBe("ok");
+    expect(r["models.dir"].fix ?? "").not.toMatch(/models setDir/);
     expect(r["models.dir"].detail).toMatch(/GB free/);
+    const free = Number(r["models.dir"].detail.match(/([\d.]+) GB free/)?.[1]);
+    expect(r["models.dir"].state).toBe(free >= 3 ? "ok" : free >= 1 ? "warn" : "fail");
   });
 
   it("a model on the system drive gets its own row (warning under 10 GB free)", async () => {
@@ -275,32 +265,30 @@ describe("doctor — models (§7.11)", () => {
     expect(r["model.fit"].state).toBe("fail");
   });
 
-  it("a model Ollama holds partly on the processor is a warning", async () => {
+  it("a model the timings journal reports partly on the processor is a warning; one on the CPU by choice is not", async () => {
+    const wanted = ["qwen3-embedding-8b-q8"];
     const machine = async () => ({
       ...devPc,
-      loaded: [{ name: "qwen3-embedding:8b-q8_0", sizeMB: 9300, vramMB: 6000, runtime: "ollama" as const }],
+      loaded: [{ name: "qwen3-embedding-8b-q8", sizeMB: 9300, vramMB: 0, runtime: "llamacpp" as const }],
     });
-    const r = by(
-      await modelRows(
-        null,
-        fakeModels({
-          machine,
-          active: async () => ({ embedding: null, reranker: null, wanted: ["qwen3-embedding-8b-q8"] }),
-        }),
-      ),
-    );
-    expect(r["model.offload"].state).toBe("warn");
-    expect(r["model.offload"].detail).toMatch(/partly on the processor: qwen3-embedding:8b-q8_0/);
-  });
-
-  it("Ollama: absent is fine unless a model in use is served by it", async () => {
-    const viaOllama = resolvedAs("qwen3-embedding-4b-q4", "ollama", "verified");
-    const r = by(
-      await modelRows(null, fakeModels({ active: async () => ({ embedding: viaOllama, reranker: null, wanted: [] }) })),
-    );
-    expect(r.ollama.state).toBe("fail");
-    expect(r.ollama.fix).toMatch(/every pack runs without it/);
-    expect(by(await modelRows(null, fakeModels())).ollama).toMatchObject({ state: "ok", detail: absent.message });
+    const deps = fakeModels({ machine, active: async () => ({ embedding: null, reranker: null, wanted }) });
+    try {
+      expect(by(await modelRows(null, deps))["model.offload"].state).toBe("ok");
+      recordPerf({
+        at: "2026-11-02T10:00:00.000Z",
+        op: "model.load",
+        model: "qwen3-embedding-8b-q8",
+        device: "gpu",
+        items: 1,
+        ms: 1500,
+        partialOffload: true,
+      });
+      const r = by(await modelRows(null, deps));
+      expect(r["model.offload"].state).toBe("warn");
+      expect(r["model.offload"].detail).toMatch(/partly on the processor: qwen3-embedding-8b-q8 \(model\.load\)/);
+    } finally {
+      rmSync(journalFile(), { force: true });
+    }
   });
 
   it("space of the active model: complete, or what to do", async () => {

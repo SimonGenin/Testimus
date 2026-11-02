@@ -1,7 +1,8 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
+import { writeAtomic } from "../lib/atomic.ts";
 import { sha256 } from "../lib/hash.ts";
 import { readJson, writeJson } from "../lib/project.ts";
 import { testDir } from "../lib/store.ts";
@@ -143,7 +144,7 @@ export function revert(project: string, runId: string, o: RevertOpts = {}): stri
     if (md === null) rmSync(testDir(project, id), { recursive: true, force: true });
     else {
       mkdirSync(testDir(project, id), { recursive: true });
-      writeFileSync(testMd(project, id), md, "utf8");
+      writeAtomic(testMd(project, id), md);
     }
   }
   rec.reverted = env.now().toISOString();

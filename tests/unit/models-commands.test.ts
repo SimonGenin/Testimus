@@ -59,11 +59,10 @@ function entries(): CatalogEntry[] {
       ...base,
       id: "tiny-gguf",
       label: "Tiny GGUF",
-      runtimes: ["llamacpp", "ollama"],
+      runtimes: ["llamacpp"],
       source: {
         hf: { repo: "acme/Tiny-GGUF", revision: REV, path: "tiny.gguf" },
         file: { sha256: sha(GGUF), size: GGUF.length },
-        ollama: "tiny:q8",
       },
     },
     {
@@ -103,7 +102,6 @@ beforeEach(() => {
     probed.push(m);
     return { dims: 8, maxTokens: 512 };
   };
-  installDeps.ollama = async () => null;
 });
 afterEach(() => {
   Object.assign(installDeps, saved);
@@ -221,21 +219,16 @@ describe("models.verify, models.remove, models.list", () => {
     expect(none).toMatchObject({ ok: false, message: "Tiny ONNX is not installed on this PC." });
   });
 
-  it("remove: a download deletes its files, a path only unregisters, Ollama needs a confirmation", async () => {
+  it("remove: a download deletes its files, a path only unregisters", async () => {
     const dl = join(dir, "dl");
     mkdirSync(dl);
     writeFileSync(join(dl, "tiny.gguf"), GGUF);
     const own = ggufAt();
-    const deleted: string[] = [];
-    installDeps.ollamaDelete = async (t) => {
-      deleted.push(t);
-    };
     writeRegistry({
       ...readRegistry(),
       installs: [
         { model: "tiny-gguf", via: "download", runtime: "llamacpp", path: join(dl, "tiny.gguf"), status: "installed" },
         { model: "tiny-onnx", via: "path", runtime: "transformers", path: own, status: "installed" },
-        { model: "tiny-gguf", via: "ollama", runtime: "ollama", ollama: "tiny:q8", status: "installed" },
       ],
     });
     expect(await invoke("models.remove", { model: "tiny-gguf" }, { project: null })).toMatchObject({
@@ -246,15 +239,8 @@ describe("models.verify, models.remove, models.list", () => {
       removed: "registration",
     });
     expect(existsSync(own)).toBe(true);
-    await expect(invoke("models.remove", { model: "tiny-gguf" }, { project: null })).rejects.toThrow(
-      /Ollama will delete/,
-    );
-    expect(deleted).toEqual([]);
-    expect(await invoke("models.remove", { model: "tiny-gguf", confirm: true }, { project: null })).toMatchObject({
-      removed: "ollama",
-    });
-    expect(deleted).toEqual(["tiny:q8"]);
     expect(readRegistry().installs).toEqual([]);
+    await expect(invoke("models.remove", { model: "tiny-gguf" }, { project: null })).rejects.toThrow(/not registered/);
   });
 
   it("list: where, how, state, used by which projects; a missing file is broken", async () => {
@@ -279,7 +265,7 @@ describe("models.verify, models.remove, models.list", () => {
   });
 });
 
-describe("catalog, hardware, fit, ollama, pullRuntime", () => {
+describe("catalog, hardware, fit, pullRuntime", () => {
   it("catalog: every entry with its state and its fit here", async () => {
     const rows = (await invoke("models.catalog", { kind: "embedding" }, { project: null })) as {
       id: string;
@@ -302,12 +288,6 @@ describe("catalog, hardware, fit, ollama, pullRuntime", () => {
     };
     expect(f.verdict).toBe("tight");
     await expect(invoke("models.fit", {}, { project: null })).rejects.toThrow(/Name a model/);
-  });
-
-  it("ollama on a PC without it: not installed, no error", async () => {
-    const r = (await invoke("models.ollama", {}, { project: null })) as { state: string; message: string };
-    expect(["absent", "stopped"]).toContain(r.state);
-    expect(r.message).toMatch(/Ollama is/);
   });
 
   it("pullRuntime: needs the folder, then registers the build it downloaded", async () => {

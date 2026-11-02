@@ -23,7 +23,10 @@ test, not `check.json`. You report what is wrong, precisely enough that a review
 3. For each requirement in the step's requirement field (`Exigence` for LFRPS12): `rag_related <ID>`
    (statement, defining and traced sections — read both when they differ —, amending documents),
    then read it (`rag_passage <docId#req:ID>`); does this step verify it — the gesture exercises it
-   and the expected result observes it?
+   and the expected result observes it? Every other kind in `project.json.traces` is checked the
+   same way on its own column (`field`): each id is written in the documents (`Grep` its pattern)
+   and the step verifies it — else `wrong-requirement`, naming the column. When `traces` has no
+   `requirement` kind, the project tracks no requirements: skip them.
 4. For the test as a whole: requirements in its scope that no step verifies; behaviors the documents
    describe for this object that are missing (other types, other states, the negative path).
 5. Look for contradicting passages with `rag_mentions` on each object, screen and gesture of the step

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { quietCtx } from "../../src/core/command.ts";
 import { invoke } from "../../src/core/commands/index.ts";
 import { indexProject } from "../../src/core/rag/indexer.ts";
-import { type Related, related, statementOf } from "../../src/core/rag/related.ts";
+import { RELATED_MAX, type Related, related, statementOf } from "../../src/core/rag/related.ts";
 
 const FIXTURE = join(import.meta.dirname, "..", "fixtures", "evidence", "project");
 let dir: string;
@@ -84,7 +84,7 @@ describe("rag.related (SPEC-RAG §3.3, §4.1)", () => {
   it("a section: parent, children, siblings, cross-references both ways, figures, requirements, amendments", () => {
     const r = related(dir, { ref: "SPEC_A#§2.1" });
     expect(of(r, "parent", "out")).toEqual(["SPEC_A#§2"]);
-    expect(of(r, "sibling")).toEqual(["SPEC_A#§2.2", "SPEC_A#§2.2"]);
+    expect(r.neighbours.filter((n) => n.kind === "sibling")).toMatchObject([{ ref: "SPEC_A#§2.2", direction: "out" }]);
     expect(of(r, "refers", "in")).toEqual(["SPEC_A#§1", "SPEC_A#§2.2"]);
     expect(of(r, "shows", "out")).toEqual(["SPEC_A#fig:1"]);
     expect(of(r, "defines", "in")).toEqual(["SPEC_A#req:EXI_MOP_SPF_100_A_10", "SPEC_A#req:EXI_MOP_SPF_100_A_20"]);
@@ -170,5 +170,103 @@ describe("recall tools reach Claude (SPEC-RAG §4.6, SPEC §11)", () => {
     expect(skill("generate-tests")).toMatch(/"consulted": \[/);
     expect(skill("check-test")).toMatch(/`Read` the image/);
     expect(skill("ask-docs")).toMatch(/only after `rag_mentions` and `rag_related` found nothing/);
+  });
+});
+
+describe("the specification states a requirement, the amendment comments on it (review #5)", () => {
+  beforeEach(() => {
+    addDoc(
+      "SPEC_Z",
+      [
+        "# SPEC_Z — Z",
+        "",
+        "## 3.6 Itinéraires <!-- § 3.6 -->",
+        "",
+        "<!-- req EXI_MOP_SPF_519_A_700 -->",
+        "**EXI_MOP_SPF_519_A_700**",
+        "",
+        "Chaque onglet est divisé en trois parties.",
+        "",
+        "<!-- req EXI_MOP_SPF_519_A_710 -->",
+        "**EXI_MOP_SPF_519_A_710**",
+        "",
+        "Les itinéraires sont représentés dans leur état contrôlé.",
+      ].join("\n"),
+    );
+    addDoc(
+      "PA1_SPEC_Z",
+      [
+        "# PA1_SPEC_Z — PA",
+        "",
+        "## Commentaires Mineurs <!-- § commentaires-mineurs -->",
+        "",
+        "<!-- req EXI_MOP_SPF_519_A_700 -->",
+        "EXI_MOP_SPF_519_A_700",
+        "",
+        "<!-- req EXI_MOP_SPF_519_A_710 -->",
+        "EXI_MOP_SPF_519_A_710",
+        "",
+        "Texte ajouté : les itinéraires commandés sont soulignés.",
+      ].join("\n"),
+      { amends: ["SPEC_Z"] },
+    );
+  });
+
+  it("statementOf, rag.related and rag.passage take the base specification's statement, never the id alone", async () => {
+    expect(statementOf(dir, "EXI_MOP_SPF_519_A_700")).toMatchObject({ docId: "SPEC_Z", section: "§3.6" });
+    expect(statementOf(dir, "EXI_MOP_SPF_519_A_710")).toMatchObject({
+      docId: "SPEC_Z",
+      text: "**EXI_MOP_SPF_519_A_710**\n\nLes itinéraires sont représentés dans leur état contrôlé.",
+    });
+    expect(related(dir, { ref: "EXI_MOP_SPF_519_A_710" }).statement?.section).toBe("SPEC_Z#§3.6");
+    const base = related(dir, { ref: "SPEC_Z#req:EXI_MOP_SPF_519_A_700" });
+    expect(of(base, "amends", "in")).toEqual(["PA1_SPEC_Z", "PA1_SPEC_Z#req:EXI_MOP_SPF_519_A_700"]);
+    const p = (await invoke("rag.passage", { ref: "PA1_SPEC_Z#req:EXI_MOP_SPF_519_A_700" }, quietCtx(dir))) as {
+      focus?: string;
+    };
+    expect(p.focus).toBe(
+      "Stated in SPEC_Z#req:EXI_MOP_SPF_519_A_700 (cite it there): **EXI_MOP_SPF_519_A_700**\n\nChaque onglet est divisé en trois parties.",
+    );
+  });
+});
+
+describe("depth 2 is bounded (review #17)", () => {
+  it("stops at RELATED_MAX neighbours, keeps every depth-1 one, says truncated and the total; a sibling once", () => {
+    const n = 260;
+    const id = (i: number) => `EXI_MOP_SPF_700_A_${(i + 1) * 10}`;
+    addDoc(
+      "BIG",
+      [
+        "# BIG — Matrice",
+        "",
+        "## 1 Exigences couvertes <!-- § 1 -->",
+        "",
+        Array.from({ length: n }, (_, i) => id(i)).join(", "),
+        "",
+        "## 2 Règles <!-- § 2 -->",
+        "",
+        ...Array.from({ length: n }, (_, i) => [
+          `### 2.${i + 1} Règle ${i + 1} <!-- § 2.${i + 1} -->`,
+          "",
+          `<!-- req ${id(i)} -->`,
+          `**${id(i)}**`,
+          "",
+          `La règle numéro ${i + 1} s'applique.`,
+          "",
+        ]).flat(),
+      ].join("\n"),
+    );
+    const one = related(dir, { ref: id(0) });
+    expect(one.truncated).toBeUndefined();
+    const two = related(dir, { ref: id(0), depth: 2 });
+    expect(two.neighbours).toHaveLength(RELATED_MAX);
+    expect(two.truncated).toBe(true);
+    expect(two.total).toBeGreaterThan(n);
+    for (const x of one.neighbours) expect(two.neighbours.some((y) => y.ref === x.ref && y.kind === x.kind)).toBe(true);
+    const sec = related(dir, { ref: "BIG#§2.1" });
+    const siblings = sec.neighbours.filter((x) => x.kind === "sibling");
+    expect(siblings).toHaveLength(n - 1);
+    expect(new Set(siblings.map((x) => x.ref)).size).toBe(n - 1);
+    expect(sec.truncated).toBeUndefined();
   });
 });

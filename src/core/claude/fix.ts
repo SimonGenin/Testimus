@@ -4,7 +4,7 @@ import { readProject } from "../lib/project.ts";
 import { readCheck, readTest } from "../lib/store.ts";
 import type { CheckFile, Diagnosis, Finding, Review } from "../types.ts";
 import { checkOne, findingLine } from "./check.ts";
-import { buildPrompt, readContexts } from "./prompt.ts";
+import { buildPrompt, effectiveContexts, readContexts } from "./prompt.ts";
 import { runClaude } from "./run.ts";
 import { markLeft } from "./snapshot.ts";
 
@@ -47,13 +47,13 @@ export async function fixTest(
     prompt: buildPrompt(
       scope,
       fixRequest(id, note, findings, p.language),
-      readContexts(project, p.claude.contexts),
+      readContexts(project, effectiveContexts(project, id)),
       project,
     ),
     model: p.claude.model,
     effort: p.claude.effort,
     scope,
-    contexts: p.claude.contexts,
+    contexts: effectiveContexts(project, id),
     kind: "fix",
     signal: ctx.signal,
     onEvent: (e) => ctx.claude(e),
@@ -62,6 +62,7 @@ export async function fixTest(
     runId: r.runId,
     summary: r.summary,
     changedSteps: r.changedSteps[id] ?? [],
+    changedTests: r.changedTests,
     ...(r.diagnosis ? { diagnosis: r.diagnosis } : {}),
   };
   if (!r.ok || ctx.signal.aborted)

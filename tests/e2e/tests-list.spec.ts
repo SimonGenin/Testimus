@@ -8,10 +8,11 @@ test("the local list groups tests by folder and filters by text", async ({ page 
   await expect(side.getByRole("tab", { name: "Local" })).toHaveAttribute("aria-selected", "true");
   await expect(side.getByRole("button", { name: /LFRPS12-1398 Validated Up to date$/ })).toBeVisible();
   await expect(side.getByRole("button", { name: /no key To fix Local only$/ })).toBeVisible();
-  await side.getByRole("textbox", { name: "Search tests" }).fill("1398");
-  await expect(side.getByRole("button", { name: /LFRPS12-1398/ })).toBeVisible();
+  await side.getByRole("textbox", { name: "Filter tests" }).fill("Disjoncteur");
+  await expect(side.getByRole("button", { name: /LFRPS12-1398/ }).first()).toBeVisible();
   await expect(side.getByRole("button", { name: /LFRPS12-1420/ })).toHaveCount(0);
-  await side.getByRole("textbox", { name: "Search tests" }).fill("");
+  await expect(side.getByRole("button", { name: /Search Jira for/ })).toBeVisible();
+  await side.getByRole("textbox", { name: "Filter tests" }).fill("");
   await side.getByRole("button", { name: /LFRPS12-1420 Checked Modified$/ }).click();
   await expect(page).toHaveURL(/#\/tests\/LFRPS12-1420$/);
   await expect(page.getByRole("main").getByRole("textbox", { name: "Summary" })).toHaveValue(
@@ -23,16 +24,35 @@ test("the Jira tab shows the folder tree and pulls a remote test", async ({ page
   await boot(page, "#/tests");
   const side = page.getByRole("complementary", { name: "Tests" });
   await side.getByRole("tab", { name: "Jira" }).click();
-  await side.getByRole("button", { name: /^Traction \d+$/ }).click();
-  await side.getByRole("button", { name: /^Disjoncteurs \d+$/ }).click();
-  const remote = side.getByRole("button", { name: /LFRPS12-1401 .*Not pulled$/ });
+  await expect(side.getByRole("button", { name: /^Test Repository/ })).toBeVisible();
+  await side.getByRole("button", { name: /^Traction [\d/]+$/ }).click();
+  await side.getByRole("button", { name: /^Disjoncteurs [\d/]+$/ }).click();
+  const remote = side.getByRole("button", { name: /LFRPS12-1401 .*steps?$/ });
+  await expect(remote).toHaveAttribute("title", /Not pulled yet/);
   await expect(remote).toBeVisible();
-  await expect(side.getByRole("button", { name: /LFRPS12-1398 .*Up to date$/ })).toBeVisible();
+  await expect(side.getByRole("button", { name: /LFRPS12-1398 .*Up to date \d+ steps?$/ })).toBeVisible();
   await shoot(page, "tests-jira");
   const before = (await api<unknown[]>(url, "tests.list")).length;
   await remote.click();
   await expect.poll(async () => (await api<unknown[]>(url, "tests.list")).length).toBe(before + 1);
   await expect(page).toHaveURL(/#\/tests\/LFRPS12-1401$/);
+  await expect(page.getByRole("main").getByRole("article", { name: "Step 1" })).toBeVisible();
+});
+
+test("a typed issue number searches Jira, and a local row's ✕ deletes a pushed, unchanged copy at once", async ({
+  page,
+}) => {
+  await boot(page, "#/tests");
+  const side = page.getByRole("complementary", { name: "Tests" });
+  await side.getByRole("searchbox", { name: "Search Jira" }).fill("1401");
+  await expect(side.getByRole("tab", { name: /Jira/ })).toHaveAttribute("aria-selected", "true");
+  await expect(side.getByText(/found/)).toBeVisible();
+  await side.getByRole("searchbox", { name: "Search Jira" }).fill("");
+  await side.getByRole("tab", { name: /Local/ }).click();
+  await side.getByRole("button", { name: /^Delete the local copy of LFRPS12-1398/ }).click({ force: true });
+  await expect
+    .poll(async () => (await api<{ id: string }[]>(url, "tests.list")).map((t) => t.id))
+    .not.toContain("LFRPS12-1398");
 });
 
 test("a new test starts as a local draft with one step", async ({ page }) => {

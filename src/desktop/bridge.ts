@@ -89,6 +89,8 @@ export function checkArgs(name: string, args: unknown[]): Checked {
     case "notify":
       if (!isObj(a) || !text(a.title, 200) || !text(a.body ?? "", 1000, 0)) return bad("notify needs { title, body }.");
       return good({ title: a.title, body: a.body ?? "" });
+    case "setAlwaysOnTop":
+      return typeof a === "boolean" ? good(a) : bad("setAlwaysOnTop takes true or false.");
     default:
       return bad(`Unknown desktop call ${name}.`);
   }
@@ -210,6 +212,10 @@ export function registerBridge(deps: BridgeDeps): void {
       });
       n.show();
       return true;
+    },
+    setAlwaysOnTop(v, win) {
+      win.setAlwaysOnTop(v as boolean);
+      return win.isAlwaysOnTop();
     },
   };
   for (const name of BRIDGE_CALLS) handle(name, "bridge", calls[name]);

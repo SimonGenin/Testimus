@@ -11,7 +11,11 @@ describe("models/catalog.json", () => {
       expect(e.commercialUse, e.id).toBe(true);
       if (e.lighter) expect(byId.get(e.lighter)?.kind, `${e.id}.lighter`).toBe(e.kind);
       if (e.heavier) expect(byId.get(e.heavier)?.kind, `${e.id}.heavier`).toBe(e.kind);
-      if (e.source.ollama) expect(e.source.ollama, e.id).toMatch(/:[\w.-]+$/);
+      expect(Object.keys(e.source).sort(), e.id).toEqual(e.source.file ? ["file", "hf"] : ["hf"]);
+      expect(
+        e.runtimes.every((r) => r === "transformers" || r === "llamacpp"),
+        e.id,
+      ).toBe(true);
     }
   });
 
@@ -32,7 +36,7 @@ describe("models/catalog.json", () => {
     expect(catalogEntry("bge-reranker-v2-m3")?.id).toBe("bge-reranker-v2-m3-q8");
   });
 
-  it("P8 — every pack resolves without Ollama; Light and Performance need transformers.js alone", () => {
+  it("P8 — every pack resolves with transformers.js and llama.cpp; Light and Performance with transformers.js alone", () => {
     expect(SHIPPED.packs.map((p) => p.id)).toEqual(["light", "performance", "balanced", "quality"]);
     for (const p of SHIPPED.packs) {
       expect(p.variants.length, p.id).toBeGreaterThan(0);
@@ -46,7 +50,7 @@ describe("models/catalog.json", () => {
           expect(e.source.hf, `${p.id}: ${id} has a Hugging Face source`).toBeDefined();
           expect(
             e.runtimes.some((r) => r === "transformers" || r === "llamacpp"),
-            `${p.id}: ${id} runs without Ollama`,
+            `${p.id}: ${id} runs in transformers.js or llama.cpp`,
           ).toBe(true);
           if (p.id === "light" || p.id === "performance")
             expect(e.runtimes, `${p.id}: ${id} runs in transformers.js`).toContain("transformers");

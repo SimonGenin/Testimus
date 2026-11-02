@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { randomBytes } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -10,6 +11,27 @@ type Live = { job: Job; ctrl: AbortController; events: JobEvent[]; project: stri
 
 const live = new Map<string, Live>();
 const listeners = new Set<(e: JobEvent) => void>();
+const current = new AsyncLocalStorage<{ ctx: Ctx; job: Job }>();
+
+// ponytail: code deep under a job (the Jira/Xray client waiting out a 429) says so in the job's progress line
+// without being handed the job's context; the returned function puts the previous line back if still ours
+export function jobNotice(message: string): (() => void) | undefined {
+  const c = current.getStore();
+  if (!c) return undefined;
+  const before = c.job.message ?? "";
+  const bar = () => (c.job.progress ? { done: c.job.progress.done, total: c.job.progress.total } : {});
+  c.ctx.progress({ message, ...bar() });
+  return () => {
+    if (c.job.status === "running" && c.job.message === message) c.ctx.progress({ message: before, ...bar() });
+  };
+}
+
+// ponytail: the same line for work outside any job (a plain request waiting out a 429) — sent to every open page,
+// and an empty message takes it down
+export function notice(message: string): void {
+  const e: JobEvent = { jobId: "", at: env.now().toISOString(), type: "notice", message };
+  for (const fn of listeners) fn(e);
+}
 
 export function subscribe(fn: (e: JobEvent) => void): () => void {
   listeners.add(fn);
@@ -68,7 +90,11 @@ export function startJob(
   emit(l, { jobId: id, at: at(), type: "status", job: { ...job } });
   l.done = (async () => {
     try {
-      const result = await withPerfScope({ jobId: id, project: project ?? undefined }, () => work(ctx), ctrl.signal);
+      const result = await withPerfScope(
+        { jobId: id, project: project ?? undefined },
+        () => current.run({ ctx, job }, () => work(ctx)),
+        ctrl.signal,
+      );
       const said = (result as { cancelled?: unknown } | null)?.cancelled;
       job.status = (typeof said === "boolean" ? said : ctrl.signal.aborted) ? "cancelled" : "done";
       job.result = result;

@@ -1,5 +1,6 @@
 import type { ChildProcess } from "node:child_process";
 import { mkdirSync, statSync } from "node:fs";
+import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { app, BrowserWindow, dialog, nativeTheme, screen, session, shell } from "electron";
@@ -31,6 +32,7 @@ import {
   LOCKED_PREFERENCES,
   lockContents,
   lockSession,
+  MIN_SIZE,
   readState,
   writeState,
 } from "./window.ts";
@@ -55,6 +57,7 @@ let win: BrowserWindow | null = null;
 let core: Core | null = null;
 let ready: Ready | null = null;
 let origin: string | null = null;
+let lastPort: number | undefined;
 let uiDev: ChildProcess | null = null;
 let errorMessage = "";
 let pendingFolder: string | null = args.folder;
@@ -104,9 +107,18 @@ async function launchCore(): Promise<void> {
   ready = null;
   origin = null;
   await win.loadFile(join(PAGES, "splash.html")).catch(() => {});
+  lastPort ??= readState().port;
   let c: Core;
   try {
-    const launch = coreLaunch({ packaged, exeDir, repo, node: findNode(process.env), mock: args.mock });
+    const launch = coreLaunch({
+      packaged,
+      exeDir,
+      repo,
+      node: findNode(process.env),
+      mock: args.mock,
+      port: args.mock ? undefined : lastPort,
+      project: pendingFolder,
+    });
     c = startCore(launch, coreEnv(process.env, { shellVersion: SHELL_VERSION, packaged, exeDir }));
   } catch (e) {
     showError(e instanceof Error ? e.message : String(e));
@@ -125,6 +137,7 @@ async function launchCore(): Promise<void> {
     if (c === core && !closing) showError(`The core stopped (exit code ${code ?? "none"}).`);
   });
   ready = r;
+  lastPort = Number(new URL(r.origin).port) || lastPort;
   let url = r.url;
   if (args.uiDev) {
     const node = findNode(process.env);
@@ -164,7 +177,7 @@ async function restart(): Promise<void> {
 function saveState(): void {
   if (!win || win.isDestroyed()) return;
   if (origin && win.webContents.getURL().startsWith(origin)) zoom = win.webContents.getZoomFactor();
-  writeState({ ...win.getNormalBounds(), maximized: win.isMaximized(), zoom });
+  writeState({ ...win.getNormalBounds(), maximized: win.isMaximized(), zoom, ...(lastPort ? { port: lastPort } : {}) });
 }
 
 function shutdown(): Promise<void> {
@@ -228,8 +241,8 @@ function createWindow(): BrowserWindow {
     y: state.y,
     width: state.width,
     height: state.height,
-    minWidth: 960,
-    minHeight: 640,
+    minWidth: MIN_SIZE.width,
+    minHeight: MIN_SIZE.height,
     show: false,
     title: "Testimus",
     icon: join(PAGES, "logo.png"),
@@ -258,7 +271,7 @@ function createWindow(): BrowserWindow {
 }
 
 function knownRoots(): Promise<string[]> {
-  const roots = [dataDir(), localDir()];
+  const roots = [dataDir(), localDir(), join(homedir(), ".atlassian")];
   if (!ready) return Promise.resolve(roots);
   const from = ready.origin;
   return windowCookie()

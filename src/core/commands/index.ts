@@ -5,6 +5,7 @@ import type { ClaudeEvent } from "../types.ts";
 import { commands as chat } from "./chat.ts";
 import { commands as check } from "./check.ts";
 import { commands as claude } from "./claude.ts";
+import { commands as contexts } from "./contexts.ts";
 import { commands as docs } from "./docs.ts";
 import { commands as gen } from "./gen.ts";
 import { commands as images } from "./images.ts";
@@ -18,11 +19,13 @@ import { commands as ragIndex } from "./rag-index.ts";
 import { commands as review } from "./review.ts";
 import { commands as system } from "./system.ts";
 import { commands as tests } from "./tests.ts";
+import { commands as traces } from "./traces.ts";
 import { commands as xray } from "./xray.ts";
 
 export const registry: Command[] = [
   ...project,
   ...docs,
+  ...traces,
   ...rag,
   ...ragIndex,
   ...ragEval,
@@ -30,6 +33,7 @@ export const registry: Command[] = [
   ...models,
   ...chat,
   ...claude,
+  ...contexts,
   ...tests,
   ...images,
   ...gen,

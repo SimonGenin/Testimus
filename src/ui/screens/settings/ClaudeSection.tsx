@@ -1,168 +1,328 @@
-import { useState } from "react";
-import type { Effort, Preset } from "../../../core/types.ts";
-import { Button, Chip } from "../../components/ui/index.ts";
+import { useCallback, useEffect, useState } from "react";
+import type { Effort, Preset, Settings } from "../../../core/types.ts";
+import { call } from "../../api.ts";
+import { type ClaudeStatus, ConnectClaude } from "../../components/claude/ConnectClaude.tsx";
+import { CONTEXTS_EVENT, type ContextSummary, ContextsDialog } from "../../components/claude/ContextsDialog.tsx";
+import { cap, EFFORTS, ModelPicker } from "../../components/claude/ModelPicker.tsx";
+import { Button, IconButton } from "../../components/ui/index.ts";
 import { useApp } from "../../lib/app.ts";
+import { desktop, pickFiles } from "../../lib/desktop.ts";
+import { cx, message } from "../../lib/format.ts";
+import { errorToast } from "../../lib/toast.ts";
 import { saveProject } from "./ProjectSection.tsx";
 
-const MODELS = [
-  { value: "opus", label: "Opus" },
-  { value: "sonnet", label: "Sonnet" },
-  { value: "haiku", label: "Haiku" },
-];
-const EFFORTS: Effort[] = ["low", "medium", "high", "xhigh", "max"];
-const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
+const saveSettings = (patch: Record<string, unknown>) =>
+  call<Settings>("system.saveSettings", patch).catch((e) => {
+    errorToast(e, "Could not save the settings");
+    return null;
+  });
+
+const same = (a: Preset[], b: Preset[]) => JSON.stringify(a) === JSON.stringify(b);
+
+export function exeLine(s: ClaudeStatus): string {
+  return s.installed
+    ? `✓ ${s.version ?? "Claude Code"} · found`
+    : `✕ ${(s.detail || "claude did not answer").split("\n")[0].slice(0, 160)} · not found · Claude is optional`;
+}
+
+function ClaudeProgram() {
+  const app = useApp();
+  const [s, setS] = useState<Settings | null>(null);
+  const [exe, setExe] = useState("");
+  const [st, setSt] = useState<ClaudeStatus | "checking" | null>(null);
+  useEffect(() => {
+    call<Settings>("system.settings", {})
+      .then((r) => {
+        setS(r);
+        setExe(r.claude?.exe ?? "");
+      })
+      .catch(() => {});
+    call<ClaudeStatus>("claude.status", {})
+      .then((r) => setSt((cur) => cur ?? r))
+      .catch(() => {});
+  }, []);
+
+  const commit = async (value: string) => {
+    if (!s || value === s.claude.exe) return true;
+    const r = await saveSettings({ claudeExe: value });
+    if (r) setS(r);
+    return !!r;
+  };
+  const check = async (value = exe) => {
+    setSt("checking");
+    if (!(await commit(value))) {
+      setSt(null);
+      return;
+    }
+    const r = await call<ClaudeStatus>("claude.status", { refresh: true }).catch(
+      (e): ClaudeStatus => ({ installed: false, signedIn: false, detail: message(e) }),
+    );
+    setSt(r);
+  };
+
+  return (
+    <div className="formfield">
+      <label className="label" htmlFor="settings-claude-exe">
+        Claude program
+      </label>
+      <div className="pickrow">
+        <input
+          id="settings-claude-exe"
+          className="field mono"
+          placeholder="Found on PATH — or C:\Users\me\AppData\Roaming\npm\claude.cmd"
+          spellCheck={false}
+          value={exe}
+          onChange={(e) => setExe(e.target.value)}
+          onBlur={() => void commit(exe)}
+          onKeyDown={(e) => e.key === "Enter" && void check()}
+        />
+        {desktop() && (
+          <Button
+            aria-label="Browse for the Claude program"
+            disabled={!s}
+            onClick={() =>
+              void pickFiles(
+                "Choose the Claude program",
+                [{ name: "Programs", extensions: ["exe", "cmd"] }],
+                false,
+              ).then(([picked]) => {
+                if (!picked) return;
+                setExe(picked);
+                void check(picked);
+              })
+            }
+          >
+            Browse…
+          </Button>
+        )}
+        <Button disabled={st === "checking"} onClick={() => void check()}>
+          {st === "checking" ? "Checking…" : "Check"}
+        </Button>
+      </div>
+      {st && (
+        <span
+          className={cx("exe-status", st !== "checking" && (st.installed ? "exe-ok" : "exe-bad"))}
+          role="status"
+          title={st === "checking" ? undefined : st.detail}
+        >
+          {st === "checking" ? "Running claude --version…" : exeLine(st)}
+        </span>
+      )}
+      {st && st !== "checking" && !st.installed && (
+        <div className="card exe-connect">
+          <ConnectClaude
+            status={st}
+            checking={false}
+            onCheck={() => void check()}
+            onDoctor={() => app.navigate("doctor")}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function QuickAsks({ presets, save }: { presets: Preset[]; save: (p: Preset[]) => void }) {
+  const [drafts, setDrafts] = useState(presets);
+  const [adding, setAdding] = useState(false);
+  const [label, setLabel] = useState("");
+  const [prompt, setPrompt] = useState("");
+  useEffect(() => setDrafts(presets), [presets]);
+  const edit = (i: number, p: Partial<Preset>) => setDrafts((d) => d.map((x, k) => (k === i ? { ...x, ...p } : x)));
+  const commit = () => {
+    const next = drafts.map((p) => ({ label: p.label.trim(), prompt: p.prompt.trim() }));
+    if (!same(next, presets) && next.every((p) => p.label && p.prompt)) save(next);
+  };
+  return (
+    <div className="formfield">
+      <span className="label">Quick asks</span>
+      <div className="quickasks">
+        {drafts.map((p, i) => (
+          <div key={i} className="quickask">
+            <div className="quickask-head">
+              <input
+                className="field"
+                aria-label={`Quick ask ${i + 1} label`}
+                placeholder="Label shown as a chip"
+                value={p.label}
+                onChange={(e) => edit(i, { label: e.target.value })}
+                onBlur={commit}
+              />
+              <IconButton
+                icon="close"
+                label={`Remove quick ask ${i + 1}`}
+                onClick={() => save(presets.filter((_, k) => k !== i))}
+              />
+            </div>
+            <textarea
+              className="field"
+              rows={2}
+              aria-label={`Quick ask ${i + 1} prompt`}
+              placeholder="What Claude is asked to do"
+              value={p.prompt}
+              onChange={(e) => edit(i, { prompt: e.target.value })}
+              onBlur={commit}
+            />
+          </div>
+        ))}
+        {!drafts.length && <span className="muted">No quick ask yet.</span>}
+      </div>
+      {adding ? (
+        <div className="preset-form">
+          <input
+            className="field"
+            aria-label="Quick request name"
+            placeholder="Name, e.g. Check this step"
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+          />
+          <textarea
+            className="field"
+            rows={2}
+            aria-label="What Claude is asked"
+            placeholder="What Claude is asked"
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+          />
+          <div className="setup-actions">
+            <span className="spacer" />
+            <Button tone="quiet" size="sm" onClick={() => setAdding(false)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              tone="primary"
+              disabled={!label.trim() || !prompt.trim()}
+              onClick={() => {
+                save([...presets, { label: label.trim(), prompt: prompt.trim() }]);
+                setLabel("");
+                setPrompt("");
+                setAdding(false);
+              }}
+            >
+              Add the quick request
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div>
+          <Button tone="quiet" size="sm" icon="plus" onClick={() => setAdding(true)}>
+            Add
+          </Button>
+        </div>
+      )}
+      <span className="muted">
+        Chips in the Claude dock: a click fills the request, which you can edit before sending.
+      </span>
+    </div>
+  );
+}
 
 export function ClaudeSection() {
   const app = useApp();
   const c = app.info?.project.claude;
-  const [adding, setAdding] = useState(false);
-  const [label, setLabel] = useState("");
-  const [prompt, setPrompt] = useState("");
-  const [ctx, setCtx] = useState("");
-  if (!c) return null;
+  const [contexts, setContexts] = useState<ContextSummary[] | null>(null);
+  const [managing, setManaging] = useState(false);
+  const hasProject = !!c;
+  const loadContexts = useCallback(() => {
+    if (!hasProject) return;
+    call<ContextSummary[]>("contexts.list", {})
+      .then((l) => setContexts(l ?? []))
+      .catch(() => setContexts([]));
+  }, [hasProject]);
+  useEffect(() => {
+    loadContexts();
+    window.addEventListener(CONTEXTS_EVENT, loadContexts);
+    return () => window.removeEventListener(CONTEXTS_EVENT, loadContexts);
+  }, [loadContexts]);
+
   const save = (claude: Record<string, unknown>, what: string) => void saveProject({ claude }, app.refreshInfo, what);
-  const presets: Preset[] = c.presets ?? [];
   return (
     <section className="card sect" id="settings-claude" aria-labelledby="s-claude">
       <h2 id="s-claude" className="h sect-title">
         Claude
       </h2>
-      <div className="formgrid">
-        <div className="formfield">
-          <label className="label" htmlFor="set-model">
-            Default model
-          </label>
-          <select
-            id="set-model"
-            className="field"
-            value={c.model}
-            onChange={(e) => save({ model: e.target.value }, "Model")}
-          >
-            {(MODELS.some((m) => m.value === c.model) ? MODELS : [{ value: c.model, label: c.model }, ...MODELS]).map(
-              (m) => (
-                <option key={m.value} value={m.value}>
-                  {m.label}
-                </option>
-              ),
-            )}
-          </select>
-        </div>
-        <div className="formfield">
-          <label className="label" htmlFor="set-effort">
-            Default effort
-          </label>
-          <select
-            id="set-effort"
-            className="field"
-            value={c.effort}
-            onChange={(e) => save({ effort: e.target.value }, "Effort")}
-          >
-            {EFFORTS.map((e) => (
-              <option key={e} value={e}>
-                {cap(e)}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-      <div className="formfield">
-        <span className="label">Quick requests</span>
-        <div className="chips">
-          {presets.map((p) => (
-            <span key={p.label} title={p.prompt}>
-              <Chip
-                onRemove={() => save({ presets: presets.filter((x) => x.label !== p.label) }, "Quick requests")}
-                removeLabel={`Remove quick request ${p.label}`}
+      <ClaudeProgram />
+      {c && (
+        <>
+          <div className="formgrid">
+            <div className="formfield">
+              <label className="label" htmlFor="set-model">
+                Default model
+              </label>
+              <div className="model-pick">
+                <ModelPicker
+                  id="set-model"
+                  className="field"
+                  value={c.model}
+                  onChange={(model) => save({ model }, "Model")}
+                />
+              </div>
+            </div>
+            <div className="formfield">
+              <label className="label" htmlFor="set-effort">
+                Default effort
+              </label>
+              <select
+                id="set-effort"
+                className="field"
+                value={c.effort}
+                onChange={(e) => save({ effort: e.target.value as Effort }, "Effort")}
               >
-                {p.label}
-              </Chip>
-            </span>
-          ))}
-          {!adding && (
-            <Button tone="quiet" size="sm" icon="plus" onClick={() => setAdding(true)}>
-              Add
-            </Button>
-          )}
-        </div>
-        {adding && (
-          <div className="preset-form">
-            <input
-              className="field"
-              aria-label="Quick request name"
-              placeholder="Name, e.g. Check this step"
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-            />
-            <textarea
-              className="field"
-              rows={2}
-              aria-label="What Claude is asked"
-              placeholder="What Claude is asked"
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-            />
-            <div className="setup-actions">
-              <span className="spacer" />
-              <Button tone="quiet" size="sm" onClick={() => setAdding(false)}>
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                tone="primary"
-                disabled={!label.trim() || !prompt.trim()}
-                onClick={() => {
-                  save({ presets: [...presets, { label: label.trim(), prompt: prompt.trim() }] }, "Quick requests");
-                  setLabel("");
-                  setPrompt("");
-                  setAdding(false);
-                }}
-              >
-                Add the quick request
-              </Button>
+                {EFFORTS.map((e) => (
+                  <option key={e} value={e}>
+                    {cap(e)}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
-        )}
-      </div>
-      <div className="formfield">
-        <span className="label">Contexts — reference notes attached to every request</span>
-        <div className="ctxlist">
-          {c.contexts.map((id) => (
-            <div key={id} className="ctxrow">
-              <span className="mono">{id}</span>
-              <span className="muted">contexts/{id}/</span>
-              <span className="spacer" />
-              <Button
-                tone="quiet"
-                size="sm"
-                onClick={() => save({ contexts: c.contexts.filter((x) => x !== id) }, "Contexts")}
-              >
-                Detach
+          <span className="muted">Pre-selected in the Claude dock; each run can still change them.</span>
+          <QuickAsks presets={c.presets ?? []} save={(presets) => save({ presets }, "Quick asks")} />
+          <div className="formfield">
+            <span className="label">Default contexts — attached to every test that has no list of its own</span>
+            <fieldset className="presets plainset" aria-label="Default contexts">
+              {contexts?.map((x) => {
+                const on = c.contexts.includes(x.id);
+                return (
+                  <button
+                    key={x.id}
+                    type="button"
+                    className={cx("chip chip-btn", on && "chip-on")}
+                    aria-pressed={on}
+                    onClick={() =>
+                      save(
+                        { contexts: on ? c.contexts.filter((id) => id !== x.id) : [...c.contexts, x.id] },
+                        "Default contexts",
+                      )
+                    }
+                  >
+                    {x.name || x.id}
+                  </button>
+                );
+              })}
+              {contexts && !contexts.length && <span className="muted">No context yet.</span>}
+            </fieldset>
+            <div>
+              <Button size="sm" onClick={() => setManaging(true)}>
+                Manage contexts…
               </Button>
             </div>
-          ))}
-          {!c.contexts.length && <span className="muted">No context attached yet.</span>}
-        </div>
-        <div className="ctxadd">
-          <input
-            className="field mono"
-            aria-label="Context to attach (folder name under contexts/)"
-            placeholder="house-style"
-            value={ctx}
-            onChange={(e) => setCtx(e.target.value)}
-          />
-          <Button
-            size="sm"
-            disabled={!ctx.trim() || c.contexts.includes(ctx.trim())}
-            onClick={() => {
-              save({ contexts: [...c.contexts, ctx.trim()] }, "Contexts");
-              setCtx("");
-            }}
-          >
-            Attach
-          </Button>
-        </div>
-        <span className="muted">A context is a folder under contexts/ in the project: notes.md and its files.</span>
-      </div>
+            <span className="muted">
+              A context is notes, copied files and outside paths Claude reads before it works (contexts/ in the
+              project).
+            </span>
+          </div>
+        </>
+      )}
+      {managing && (
+        <ContextsDialog
+          onClose={() => {
+            setManaging(false);
+            loadContexts();
+          }}
+        />
+      )}
     </section>
   );
 }

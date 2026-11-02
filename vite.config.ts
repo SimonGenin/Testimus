@@ -21,7 +21,15 @@ export default defineConfig({
     root: ".",
     include: ["tests/unit/**/*.test.{ts,tsx}"],
     environment: "node",
+    globalSetup: ["./tests/unit/global-setup.ts"],
     setupFiles: ["./tests/unit/setup.ts"],
     testTimeout: 20000,
+    coverage: {
+      provider: "v8",
+      include: ["src/**/*.{ts,tsx}"],
+      reporter: ["text-summary", "json-summary", "json", "html"],
+      reportsDirectory: "coverage",
+      reportOnFailure: true,
+    },
   },
 });

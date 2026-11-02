@@ -6,10 +6,12 @@ import { env } from "../env.ts";
 import { loadCorpus, runMechanical } from "../lib/check.ts";
 import { type CsvTest, csvTests, guessMapping, parseCsv } from "../lib/csv.ts";
 import {
+  browseUrl,
   bulkImportStatus,
   bulkTestJson,
   getFolderTree,
   getStepFields,
+  listPreconditions,
   listTests,
   reviewLabels,
   searchTests,
@@ -22,10 +24,23 @@ import { REVIEWS, type Review, type Test } from "../types.ts";
 
 const id = z.string().describe("Test id: the folder under tests/ — a Jira key (LFRPS12-1420) or local-<8hex>");
 const review = z.enum(REVIEWS as [Review, ...Review[]]);
-const field = z.object({ id: z.string(), name: z.string(), type: z.string(), builtin: z.boolean() });
+const field = z.object({
+  id: z.string(),
+  name: z.string(),
+  type: z.string(),
+  builtin: z.boolean(),
+  required: z.boolean().optional().describe("Xray requires a value on every step"),
+  disabled: z.boolean().optional().describe("Switched off in Xray's project settings (kept, shown « off in Xray »)"),
+});
 const xrayJson = z.object({
   fields: z.array(field),
-  prefs: z.object({ order: z.array(z.string()), collapsed: z.array(z.string()), hidden: z.array(z.string()) }),
+  prefs: z.object({
+    order: z.array(z.string()),
+    collapsed: z.array(z.string()),
+    hidden: z.array(z.string()),
+    filled: z.array(z.string()).optional(),
+    open: z.array(z.string()).optional(),
+  }),
   fetchedAt: z.string().optional(),
 });
 const remoteRef = z.object({
@@ -239,7 +254,17 @@ export const commands: Command[] = [
     input: z.object({
       order: z.array(z.string()).optional().describe("Field names in display order (replaces the order)"),
       collapsed: z.array(z.string()).optional().describe("Field names shown folded (replaces the list)"),
+      filled: z
+        .array(z.string())
+        .optional()
+        .describe("Field names shown only on a step that holds something in them (replaces the list)"),
       hidden: z.array(z.string()).optional().describe("Field names not shown (replaces the list)"),
+      open: z
+        .array(z.string())
+        .optional()
+        .describe(
+          "Fields switched off in Xray shown open anyway (they fold unless filled by default; replaces the list)",
+        ),
     }),
     output: xrayJson,
     mutates: true,
@@ -247,9 +272,13 @@ export const commands: Command[] = [
       const project = projectOf(ctx);
       const x = readXray(project);
       const names = x.fields.map((f) => f.name);
-      const unknown = [...(input.order ?? []), ...(input.collapsed ?? []), ...(input.hidden ?? [])].filter(
-        (n) => !names.includes(n),
-      );
+      const unknown = [
+        ...(input.order ?? []),
+        ...(input.collapsed ?? []),
+        ...(input.hidden ?? []),
+        ...(input.filled ?? []),
+        ...(input.open ?? []),
+      ].filter((n) => !names.includes(n));
       if (unknown.length)
         throw new UserError(
           `Not a step field of this project: ${[...new Set(unknown)].join(", ")}.`,
@@ -261,6 +290,8 @@ export const commands: Command[] = [
           order: input.order ?? x.prefs.order,
           collapsed: input.collapsed ?? x.prefs.collapsed,
           hidden: input.hidden ?? x.prefs.hidden,
+          filled: input.filled ?? x.prefs.filled ?? [],
+          ...((input.open ?? x.prefs.open)?.length ? { open: input.open ?? x.prefs.open } : {}),
         },
       };
       next.prefs.order = fieldOrder(next);
@@ -301,6 +332,33 @@ export const commands: Command[] = [
         return { tests, total: tests.length };
       }
       return listTests(info.id, { folder: input.folder || "/", descendants: input.descendants }, input.page);
+    },
+  }),
+
+  command({
+    name: "xray.preconditions",
+    summary:
+      "The project's Xray Preconditions (key, summary, definition), sorted by key — what a test can attach (test.md frontmatter preconditions).",
+    input: z.object({}),
+    output: z.array(z.object({ key: z.string(), issueId: z.string(), summary: z.string(), definition: z.string() })),
+    mutates: false,
+    async run(ctx) {
+      const info = await projectInfo(projectOf(ctx));
+      return listPreconditions(info.id);
+    },
+  }),
+
+  command({
+    name: "xray.browse",
+    summary: "The Jira page of an issue (<site>/browse/<KEY>), to open it in the browser. No network.",
+    input: z.object({ key: z.string().describe("Issue key, e.g. LFRPS12-1420") }),
+    output: z.object({ url: z.string() }),
+    mutates: false,
+    positional: ["key"],
+    async run(_ctx, input) {
+      if (!/^[A-Za-z][A-Za-z0-9]*-[0-9]+$/.test(input.key.trim()))
+        throw new UserError(`"${input.key}" is not an issue key.`, "Write it like LFRPS12-1420.");
+      return { url: browseUrl(input.key.trim().toUpperCase()) };
     },
   }),
 

@@ -241,6 +241,18 @@ export async function generateTests(project: string, input: GenInput, ctx: Ctx):
       [undefined, "", by].includes(readTest(project, id).test.generatedBy),
   );
   const changed = run.changedTests.filter((id) => before[id] !== null && run.written.includes(id));
+  // ponytail: the evidence ledger is on disk before the new tests are checked, so their first check already
+  // sees what the generation never opened (related-unread); the full report replaces it below
+  const ledger = ledgerOf(project, run.calls);
+  const ledgerFile = join(project, ".testimus", "gen", `${by}.json`);
+  writeJson(ledgerFile, {
+    at: env.now().toISOString(),
+    input,
+    runId: run.runId,
+    tests,
+    consulted: ledger.consulted,
+    searched: ledger.searched,
+  });
   for (const id of tests) stampTest(project, id, by, input.folder?.trim() || undefined);
   const checks: GenCheck[] = [];
   if (tests.length && input.check !== false && !ctx.signal.aborted) {
@@ -266,7 +278,6 @@ export async function generateTests(project: string, input: GenInput, ctx: Ctx):
   const final = report.found ? report : parseGenReport(texts.join(""));
   if (!final.found && run.ok) ctx.log("warn", "The generation reply has no gen-report block: uncovered items unknown.");
   if (!run.ok) ctx.log("error", run.summary);
-  const ledger = ledgerOf(project, run.calls);
   const result: GenResult = {
     runId: run.runId,
     ok: run.ok,
@@ -281,7 +292,7 @@ export async function generateTests(project: string, input: GenInput, ctx: Ctx):
     durationMs: run.durationMs,
     ...(run.diagnosis ? { diagnosis: run.diagnosis } : {}),
   };
-  writeJson(join(project, ".testimus", "gen", `${by}.json`), {
+  writeJson(ledgerFile, {
     at: env.now().toISOString(),
     input,
     ...result,

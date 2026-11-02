@@ -1,4 +1,4 @@
-import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { extname, join, resolve, sep } from "node:path";
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
@@ -6,6 +6,7 @@ import { anchorsOf, type Converted, type ConvertOpts, guessFromName } from "../r
 import { convertDocx } from "../rag/convert-docx.ts";
 import { convertPdf, pdfFigures } from "../rag/convert-pdf.ts";
 import type { DocJson, DocKind, DocRef, FigureEntry } from "../types.ts";
+import { writeAtomic } from "./atomic.ts";
 import { sha256 } from "./hash.ts";
 import { readJson, writeJson } from "./project.ts";
 
@@ -57,7 +58,7 @@ export function readContext(project: string, id: string): string {
 }
 
 export function writeContext(project: string, id: string, text: string): void {
-  writeFileSync(join(docDir(project, id), "context.md"), text.endsWith("\n") || !text ? text : `${text}\n`, "utf8");
+  writeAtomic(join(docDir(project, id), "context.md"), text.endsWith("\n") || !text ? text : `${text}\n`);
 }
 
 export function readDocMd(project: string, id: string): string {
@@ -122,18 +123,25 @@ export async function convertSource(file: string, opts: ConvertOpts & { pdf?: st
 
 export function writeConverted(dir: string, c: Converted): { figures: FigureEntry[]; stats: Stats } {
   const figDir = join(dir, "figures");
-  const previous = new Map<string, string>();
-  for (const f of readJson<FigureEntry[]>(join(dir, "figures.json"), []))
-    if (f.description) previous.set(f.anchor, f.description);
+  const previous = new Map<string, FigureEntry>();
+  for (const f of readJson<FigureEntry[]>(join(dir, "figures.json"), [])) if (f.description) previous.set(f.anchor, f);
   if (existsSync(figDir)) for (const f of readdirSync(figDir)) if (f.startsWith("fig-")) rmSync(join(figDir, f));
   if (c.figures.length) mkdirSync(figDir, { recursive: true });
   const figures: FigureEntry[] = c.figures.map((f) => {
     const file = `figures/fig-${f.key}.${f.ext}`;
-    writeFileSync(join(dir, file), f.data);
+    writeAtomic(join(dir, file), f.data);
     const anchor = `fig:${f.key}`;
-    return { file, anchor, caption: f.caption, description: previous.get(anchor) ?? "" };
+    const p = previous.get(anchor);
+    return {
+      file,
+      anchor,
+      caption: f.caption,
+      description: p?.description ?? "",
+      ...(p?.labels ? { labels: p.labels } : {}),
+      ...(p?.kind ? { kind: p.kind } : {}),
+    };
   });
-  writeFileSync(join(dir, "doc.md"), c.md, "utf8");
+  writeAtomic(join(dir, "doc.md"), c.md);
   writeJson(join(dir, "figures.json"), figures);
   const a = anchorsOf(c.md);
   return {
@@ -182,8 +190,8 @@ export async function addDoc(
   mkdirSync(dir, { recursive: true });
   try {
     progress("Copying the original");
-    copyFileSync(file, target);
-    if (input.pdf && ext === ".docx") copyFileSync(resolve(input.pdf), pdfTarget);
+    writeAtomic(target, readFileSync(file));
+    if (input.pdf && ext === ".docx") writeAtomic(pdfTarget, readFileSync(resolve(input.pdf)));
     const bytes = readFileSync(target);
     progress(`Converting ${ext.slice(1)}`);
     const c = await convertSource(target, {

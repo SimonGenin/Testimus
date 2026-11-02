@@ -19,7 +19,7 @@ export function needOf(entry: CatalogEntry, lines?: PerfLine[]): { vram: number;
 
 export function deviceFor(entry: CatalogEntry, machine: MachineProfile): "gpu" | "cpu" {
   if (!entry.devices.includes("gpu") || !mainGpu(machine)) return "cpu";
-  const gguf = entry.runtimes.includes("llamacpp") || entry.runtimes.includes("ollama");
+  const gguf = entry.runtimes.includes("llamacpp");
   if (!gguf && !entry.dtypeByDevice?.dml) return "cpu";
   return "gpu";
 }
@@ -27,15 +27,12 @@ export function deviceFor(entry: CatalogEntry, machine: MachineProfile): "gpu" |
 // ponytail: a model already loaded for the pair being judged is not « other »: it would not unload itself
 function isOurs(l: LoadedModel, entries: CatalogEntry[]): boolean {
   const name = l.name.toLowerCase();
-  return entries.some((e) =>
-    l.runtime === "ollama"
-      ? !!e.source.ollama && name === e.source.ollama.toLowerCase()
-      : name === e.id || (!!e.source.hf?.path && name === basename(e.source.hf.path).toLowerCase()),
+  return entries.some(
+    (e) => name === e.id || (!!e.source.hf?.path && name === basename(e.source.hf.path).toLowerCase()),
   );
 }
 
-const heldBy = (l: LoadedModel) =>
-  `${l.runtime === "ollama" ? "Ollama" : "llama.cpp"} holds ${catalogEntry(l.name)?.label ?? l.name}, ${gb(l.vramMB)}`;
+const heldBy = (l: LoadedModel) => `llama.cpp holds ${catalogEntry(l.name)?.label ?? l.name}, ${gb(l.vramMB)}`;
 
 export function worst(a: FitVerdict, b: FitVerdict): FitVerdict {
   return ORDER.indexOf(a) >= ORDER.indexOf(b) ? a : b;

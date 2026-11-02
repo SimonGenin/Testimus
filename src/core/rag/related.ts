@@ -20,12 +20,19 @@ export type Related = {
   statement?: { id: string; source: "body" | "matrix"; section: string; text: string };
   neighbours: Neighbour[];
   warnings: string[];
+  truncated?: true;
+  total?: number;
 };
+
+// ponytail: depth 2 through a matrix section reaches every requirement it covers (~1 000 on J5) — the list stops
+// at RELATED_MAX (every depth-1 neighbour is always kept), `truncated` and `total` say what was left out
+export const RELATED_MAX = 200;
 
 type DocInfo = {
   id: string;
   title: string;
   superseded: boolean;
+  amends: string[];
   md: string;
   sections: Map<string, { title: string; path: string }>;
   figures?: Map<string, { title: string; path: string }>;
@@ -77,6 +84,7 @@ function graphOf(project: string): Graph {
         id: d.doc.id,
         title: d.doc.title ?? "",
         superseded: isSuperseded(d.doc),
+        amends: d.doc.amends ?? [],
         md: d.md,
         sections: new Map(parseSections(d.md).map((s) => [s.anchor, { title: s.title, path: s.path }])),
       });
@@ -246,6 +254,21 @@ export type StatementHit = {
   header: string;
 };
 
+const idAlone = (s: Statement) =>
+  s.text
+    .replace(/[*`]/g, "")
+    .replace(/[\s:.,–—-]+$/, "")
+    .trim() === s.id;
+
+// ponytail: the specification states a requirement, a document that amends it (doc.json.amends, a PA) comments on
+// it — so text before the id alone, a document that amends nothing before one that does, a body statement before a
+// matrix row, then document order
+function bestStatement(g: Graph, sts: Statement[]): Statement | undefined {
+  const rank = (s: Statement) =>
+    (idAlone(s) ? 4 : 0) + (g.docs.get(s.docId)?.amends.length ? 2 : 0) + (s.source === "body" ? 0 : 1);
+  return [...sts].sort((a, b) => rank(a) - rank(b))[0];
+}
+
 export function statementOf(project: string, id: string): StatementHit | null {
   const g = graphOf(project);
   const found: Statement[] = [];
@@ -254,7 +277,7 @@ export function statementOf(project: string, id: string): StatementHit | null {
     const st = d && !d.superseded ? statements(g, d).get(id) : undefined;
     if (st) found.push(st);
   }
-  const st = found.find((s) => s.source === "body") ?? found[0];
+  const st = bestStatement(g, found);
   if (!st) return null;
   const d = g.docs.get(st.docId) as DocInfo;
   const s = d.sections.get(st.section);
@@ -280,7 +303,7 @@ export function related(project: string, input: { ref: string; depth?: number })
   const neighbours: Neighbour[] = [];
   const visible = (ref: string) => !g.docs.get(docOf(ref))?.superseded;
   const add = (n: { ref: string; kind: EdgeKind; direction: "out" | "in" }, d: number) => {
-    const key = `${n.ref} ${n.kind} ${n.direction}`;
+    const key = n.kind === "sibling" ? `${n.ref} sibling` : `${n.ref} ${n.kind} ${n.direction}`;
     if (from.includes(n.ref) || keys.has(key) || !visible(n.ref)) return false;
     if (d === 2 && seen.has(n.ref)) return false;
     keys.add(key);
@@ -312,13 +335,15 @@ export function related(project: string, input: { ref: string; depth?: number })
       return d ? statements(g, d).get(r.split("#req:")[1]) : undefined;
     })
     .filter((s): s is Statement => !!s);
-  const best = sts.find((s) => s.source === "body") ?? sts[0];
+  const best = bestStatement(g, sts);
   if (best) statement = { id: best.id, source: best.source, section: `${best.docId}#${best.section}`, text: best.text };
   const shown = from.length === 1 ? from[0] : input.ref.trim();
+  const keep = Math.max(RELATED_MAX, neighbours.filter((n) => n.depth === 1).length);
   return {
     ref: shown,
     ...(statement ? { statement } : {}),
-    neighbours,
+    neighbours: neighbours.slice(0, keep),
     warnings: from.flatMap((r) => warningsFor(g, r)),
+    ...(neighbours.length > keep ? { truncated: true as const, total: neighbours.length } : {}),
   };
 }

@@ -214,4 +214,32 @@ button.gcard:hover {
 
 .sec-title {
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sec-doc .mono {
+  flex: none;
+}
+
+/* narrow window: the request goes above the result instead of beside it */
+@media (max-width: 760px) {
+  .gen {
+    flex-direction: column;
+    overflow: auto;
+  }
+
+  .gen-form {
+    flex: none;
+    overflow: visible;
+    padding: 16px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .gen-result {
+    flex: none;
+  }
 }

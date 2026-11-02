@@ -30,7 +30,7 @@ export function DocText({
   docId: string;
   md: string;
   focus?: string;
-  onRequirement: (id: string) => void;
+  onRequirement?: (id: string) => void;
   onFigure: (anchor: string) => void;
 }) {
   const blocks = md.split(/\n{2,}/).filter((b) => clean(b));
@@ -74,7 +74,7 @@ export function DocText({
         return (
           <div key={i} className={hot ? "doctext-p is-focus" : "doctext-p"}>
             <p>{inline(b)}</p>
-            {ids.length > 0 && (
+            {ids.length > 0 && onRequirement && (
               <div className="chips">
                 {ids.map((id) => (
                   <RequirementChip key={id} id={id} onClick={() => onRequirement(id)} />

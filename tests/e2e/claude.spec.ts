@@ -73,6 +73,7 @@ test("Revert all from the editor banner undoes a run", async ({ page }) => {
   await openTest(page, "LFRPS12-1420");
   const dock = page.getByRole("complementary", { name: "Claude" });
   await dock.getByRole("button", { name: "Rephrase in house style" }).click();
+  await dock.getByRole("button", { name: "Send" }).click();
   const main = page.getByRole("main");
   await expect(main.getByText(/Claude changed 1 step/)).toBeVisible({ timeout: 20_000 });
   await main.getByRole("button", { name: "Revert all" }).click();

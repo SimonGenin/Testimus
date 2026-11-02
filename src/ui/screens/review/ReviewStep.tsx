@@ -34,7 +34,7 @@ const firstLine = (s: string) =>
 const flagged = (fs: Finding[], id: string) =>
   fs.some(
     (f) =>
-      (f.kind === "wrong-requirement" || f.kind === "requirement-unknown") &&
+      (f.kind === "wrong-requirement" || f.kind === "requirement-unknown" || f.kind === "id-unknown") &&
       (f.message.includes(id) || f.sources.some((s) => s.endsWith(id))),
   );
 

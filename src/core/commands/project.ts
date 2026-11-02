@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
@@ -20,6 +20,8 @@ import {
   writeProject,
   writeXray,
 } from "../lib/project.ts";
+import { writeAtomic } from "../lib/store.ts";
+import { traceViews } from "../lib/traces.ts";
 import { type ProjectJson, REVIEWS, type Review } from "../types.ts";
 import { EFFORT, MODEL } from "./claude.ts";
 
@@ -36,6 +38,15 @@ function files(dir: string, base = dir): string[] {
     e.isDirectory() ? files(join(dir, e.name), base) : [relative(base, join(dir, e.name)).replace(/\\/g, "/")],
   );
 }
+
+// ponytail: a new project starts with Xray Editor's one quick ask, edited or removed in Settings › Claude
+export const STARTER_ASKS = [
+  {
+    label: "Rephrase in house style",
+    prompt:
+      "Rephrase the text in the house style: short imperative sentences, the actor prefix line kept as it is, one ◼ bullet per action. Keep the meaning, the ids and the images.",
+  },
+];
 
 export function initProject(
   dir: string,
@@ -60,7 +71,7 @@ export function initProject(
     const wantHash = sha256(want);
     if (!existsSync(to)) {
       mkdirSync(dirname(to), { recursive: true });
-      writeFileSync(to, want);
+      writeAtomic(to, want);
       created.push(f);
       ship(f, wantHash);
       continue;
@@ -74,12 +85,12 @@ export function initProject(
     const have = sha256(readFileSync(to));
     if (have !== wantHash && !(shipped[f] ?? []).includes(have)) {
       const next = f.replace(/(\.[^./]+)?$/, ".new$1");
-      writeFileSync(join(root, next), want);
+      writeAtomic(join(root, next), want);
       kept.push(f);
       beside.push(next);
       continue;
     }
-    if (have !== wantHash) writeFileSync(to, want);
+    if (have !== wantHash) writeAtomic(to, want);
     ship(f, wantHash);
   }
   writeJson(shippedFile, shipped);
@@ -95,8 +106,10 @@ export function initProject(
     });
     kept.push("project.json");
   } else {
+    const base = structuredClone(DEFAULT_PROJECT);
     writeProject(root, {
-      ...structuredClone(DEFAULT_PROJECT),
+      ...base,
+      claude: { ...base.claude, presets: [...STARTER_ASKS] },
       name: p.name ?? p.jiraProject ?? "",
       jiraProject: p.jiraProject ?? "",
       language: p.language ?? DEFAULT_PROJECT.language,
@@ -141,6 +154,7 @@ export function projectInfo(dir: string) {
     project: readProject(dir),
     xray,
     fieldOrder: fieldOrder(xray),
+    traces: traceViews(dir),
     counts: {
       docs: subdirs(join(dir, "docs")).filter((d) => existsSync(join(dir, "docs", d, "doc.json"))).length,
       tests,
@@ -186,6 +200,7 @@ export const commands: Command[] = [
       project: z.unknown(),
       xray: z.unknown(),
       fieldOrder: z.array(z.string()),
+      traces: z.array(z.unknown()).describe("The tracked ids (traces.list)"),
       counts: z.object({
         docs: z.number(),
         tests: z.number(),
@@ -235,6 +250,33 @@ export const commands: Command[] = [
       rememberProject(dir);
       const p = readProject(dir);
       return { dir, name: p.name, jiraProject: p.jiraProject };
+    },
+  }),
+  command({
+    name: "project.notes",
+    summary: "The project notes: the text of the project's CLAUDE.md, which Claude reads in every run.",
+    input: z.object({}),
+    output: z.object({
+      file: z.string().describe("Absolute path of CLAUDE.md"),
+      text: z.string().describe("Its markdown, empty when the file is missing"),
+    }),
+    mutates: false,
+    async run(ctx) {
+      const file = join(projectOf(ctx), "CLAUDE.md");
+      return { file, text: existsSync(file) ? readFileSync(file, "utf8") : "" };
+    },
+  }),
+  command({
+    name: "project.setNotes",
+    summary: "Replace the project notes: writes the project's CLAUDE.md (the team's file, read by Claude).",
+    input: z.object({ text: z.string().describe("The whole new markdown of CLAUDE.md") }),
+    output: z.object({ file: z.string().describe("Absolute path of CLAUDE.md"), bytes: z.number() }),
+    mutates: true,
+    positional: ["text"],
+    async run(ctx, input) {
+      const file = join(projectOf(ctx), "CLAUDE.md");
+      writeAtomic(file, input.text);
+      return { file, bytes: Buffer.byteLength(input.text, "utf8") };
     },
   }),
   command({

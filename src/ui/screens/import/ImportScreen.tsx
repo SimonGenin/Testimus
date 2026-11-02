@@ -78,6 +78,14 @@ function Steps({ at }: { at: number }) {
 
 export function ImportScreen() {
   const app = useApp();
+  // ponytail: an import answer that lands after the user left this screen does not pull them back to its tests
+  const here = useRef(true);
+  useEffect(() => {
+    here.current = true;
+    return () => {
+      here.current = false;
+    };
+  }, []);
   const [file, setFile] = useState<CsvFile | null>(null);
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [preview, setPreview] = useState<Preview | null>(null);
@@ -175,7 +183,7 @@ export function ImportScreen() {
       app.refreshInfo();
       if (r.written.length) {
         void call("check.run", { ids: r.written, semantic: false }).catch(() => {});
-        app.navigate("review", r.written[0]);
+        if (here.current) app.navigate("review", r.written[0]);
       }
     } catch (e) {
       setFailure(e);
@@ -216,7 +224,7 @@ export function ImportScreen() {
       });
       app.testsChanged();
       app.refreshInfo();
-      if (r.written[0]) app.navigate("tests", r.written[0]);
+      if (r.written[0] && here.current) app.navigate("tests", r.written[0]);
     } catch (e) {
       setFailure(e);
     } finally {

@@ -24,7 +24,6 @@ type Pack = {
 let project = "";
 const DEFAULTS: MockModelsOptions = {
   machine: "gpu16",
-  ollama: "absent",
   llamacpp: "found",
   modelsDir: "set",
   advice: "upgrade",
@@ -56,11 +55,9 @@ beforeAll(async () => {
 }, 60_000);
 
 describe("serve --mock models", () => {
-  it("defaults: a 16 GB GPU, no Ollama, llama.cpp found, a models folder, an upgrade advice", async () => {
+  it("defaults: a 16 GB GPU, llama.cpp found, a models folder, an upgrade advice", async () => {
     const hw = (await invoke("models.hardware", {}, { project: null })) as { gpus: { name: string }[] };
     expect(hw.gpus[0].name).toMatch(/RTX 4080/);
-    const o = (await invoke("models.ollama", {}, { project: null })) as { state: string };
-    expect(o.state).toBe("absent");
     const r = readRegistry();
     expect(r.dir).toBeTruthy();
     expect(r.llamacpp?.backend).toBe("cuda");
@@ -72,8 +69,8 @@ describe("serve --mock models", () => {
     const p = await packs();
     expect(p.find((x) => x.id === "light")).toMatchObject({ active: true, downloadMB: 0 });
     const q = p.find((x) => x.id === "quality");
-    expect(q).toMatchObject({ variant: 1, embedding: "qwen3-embedding-8b-q4" });
-    expect(q?.skipped[0]).toMatch(/tight/);
+    expect(q).toMatchObject({ variant: 0, embedding: "qwen3-embedding-8b-q4", reranker: "qwen3-reranker-4b-q8" });
+    expect(q?.skipped).toEqual([]);
     const advice = (await invoke("models.advice", {}, { project })) as { direction: string; to: unknown }[];
     expect(advice).toEqual([expect.objectContaining({ direction: "upgrade", to: { pack: "performance" } })]);
     const perf = (await invoke("models.perf", {}, { project: null })) as { op: string; count: number }[];
@@ -101,7 +98,7 @@ describe("serve --mock models", () => {
 
   it("a half-downloaded GGUF resumes with a Range request", async () => {
     mockDownloads.fetched.length = 0;
-    const r = (await invoke("models.pull", { model: "qwen3-embedding-4b-q8", via: "download" }, { project: null })) as {
+    const r = (await invoke("models.pull", { model: "qwen3-embedding-4b-q8" }, { project: null })) as {
       via: string;
       where: string;
     };
@@ -111,44 +108,24 @@ describe("serve --mock models", () => {
     expect(mockDownloads.fetched).toHaveLength(1);
   });
 
-  it("Ollama stopped, then running with a model partly on the processor and a pull", async () => {
-    await replay({ ollama: "stopped" });
-    expect(((await invoke("models.ollama", {}, { project: null })) as { state: string }).state).toBe("stopped");
-    await replay({ ollama: "running" });
-    const o = (await invoke("models.ollama", {}, { project: null })) as {
-      state: string;
-      models: { name: string; embedding: boolean; catalog?: string }[];
-      loaded: { name: string; sizeMB: number; vramMB: number }[];
-    };
-    expect(o.state).toBe("running");
-    expect(o.models.filter((m) => m.embedding).map((m) => m.catalog)).toEqual([
-      "qwen3-embedding-0.6b-q8",
-      "qwen3-embedding-4b-q4",
-    ]);
-    expect(o.loaded[0].vramMB).toBeLessThan(o.loaded[0].sizeMB);
-    const hw = (await invoke("models.hardware", {}, { project: null })) as { loaded: unknown[] };
-    expect(hw.loaded).toHaveLength(1);
-    const pulled = (await invoke(
-      "models.pull",
-      { model: "qwen3-embedding-8b-q4", via: "ollama" },
-      { project: null },
-    )) as {
-      via: string;
-    };
-    expect(pulled.via).toBe("ollama");
-    const after = (await invoke("models.ollama", {}, { project: null })) as { models: { name: string }[] };
-    expect(after.models.map((m) => m.name)).toContain("qwen3-embedding:8b");
-  });
-
   it("machine profiles play GPU too small, RAM too small and unknown", async () => {
     await replay({ machine: "gpu-small" });
     let p = await packs();
     expect(p.find((x) => x.id === "quality")?.fit?.verdict).toBe("gpu-too-small");
-    expect(p.find((x) => x.id === "balanced")?.fit?.verdict).toBe("tight");
+    const balanced = p.find((x) => x.id === "balanced");
+    expect(balanced).toMatchObject({ variant: 1, embedding: "qwen3-embedding-0.6b-q8", fit: { verdict: "fits" } });
+    expect(balanced?.skipped[0]).toMatch(
+      /Qwen3 Embedding 4B \(4-bit\) .*: 4\.6 GB needed, 4\.0 GB on the GPU \(gpu-too-small\)/,
+    );
     await replay({ machine: "cpu-only" });
     p = await packs();
-    expect(p.find((x) => x.id === "quality")?.available).toBe(false);
-    await expect(invoke("models.usePack", { pack: "quality" }, { project })).rejects.toThrow(/not available/);
+    const quality = p.find((x) => x.id === "quality");
+    expect(quality).toMatchObject({ available: true, variant: 2, fit: { verdict: "tight" } });
+    expect(quality?.skipped[0]).toMatch(/of memory \(ram-too-small\)$/);
+    const plan = (await invoke("models.usePack", { pack: "quality", dryRun: true }, { project })) as {
+      variant: number;
+    };
+    expect(plan.variant).toBe(2);
     expect(readRegistry().llamacpp?.backend).toBe("cpu");
     await replay({ machine: "unknown" });
     p = await packs();
@@ -173,7 +150,7 @@ describe("serve --mock models", () => {
   it("slow queries or a model partly on the processor give a downgrade advice", async () => {
     setActiveChoice(project, null);
     await replay({ advice: "downgrade" });
-    const to = { embedding: "qwen3-embedding-4b-q4", reranker: "bge-reranker-v2-m3-q8" };
+    const to = { embedding: "qwen3-embedding-0.6b-q8", reranker: "qwen3-reranker-0.6b-q8" };
     let advice = (await invoke("models.advice", {}, { project })) as {
       direction: string;
       to: unknown;

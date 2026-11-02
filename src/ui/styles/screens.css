@@ -270,3 +270,22 @@
   margin: 0;
   padding: 0;
 }
+
+/* narrow window: the detail pane goes under the list instead of squeezing it */
+@media (max-width: 760px) {
+  .split {
+    flex-direction: column;
+    overflow: auto;
+  }
+
+  .split-main {
+    flex: none;
+  }
+
+  .split-side {
+    flex: none;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+    overflow: visible;
+  }
+}

@@ -226,9 +226,6 @@ export function FolderDialog({
           )}
         </div>
       ) : null}
-      <p className="muted">
-        Ollama keeps its own models in its own folder; Testimus never moves them (see the Ollama panel).
-      </p>
     </Modal>
   );
 }

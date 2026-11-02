@@ -31,7 +31,6 @@ const FIXTURE = join(import.meta.dirname, "..", "fixtures", "project");
 const SECRET = "Que se passe-t-il quand le DSO ouvre EXI_MOP_SPF_511_A_20";
 const saved = { runtimes: { ...runtimes }, io: { ...serverIo }, tio: { ...transformersIo }, http: env.http };
 const savedClaude = env.spawnClaude;
-const savedHost = process.env.OLLAMA_HOST;
 let tmp: string;
 
 function model(id: string, patch: Partial<ResolvedModel> = {}, install: Partial<ResolvedModel["install"]> = {}) {
@@ -65,8 +64,6 @@ afterEach(async () => {
   env.http = saved.http;
   env.spawnClaude = savedClaude;
   llamacppConfig.build = null;
-  if (savedHost === undefined) delete process.env.OLLAMA_HOST;
-  else process.env.OLLAMA_HOST = savedHost;
 });
 
 describe("every model operation writes its line, without any text (§7.9)", () => {
@@ -106,7 +103,7 @@ describe("every model operation writes its line, without any text (§7.9)", () =
     runtimes.transformers = {
       ...mockRuntime,
       embed: async (mm, texts, mode) => {
-        await timeLoad(perfFields(mm), () => new Promise((res) => setTimeout(res, 60)));
+        await timeLoad(perfFields(mm), () => new Promise((res) => setTimeout(res, 300)));
         return mockRuntime.embed(mm, texts, mode);
       },
     };
@@ -119,10 +116,11 @@ describe("every model operation writes its line, without any text (§7.9)", () =
       project: "D:\\p",
       jobId: "rag-index-1",
     });
-    expect(load.loadMs).toBeGreaterThanOrEqual(50);
+    // ponytail: a long load against a loose bound, so a busy test worker cannot make the operation look slower than it
+    expect(load.loadMs).toBeGreaterThanOrEqual(290);
     expect(q).toMatchObject({ op: "embed.query", jobId: "rag-index-1" });
-    expect(q.loadMs).toBeGreaterThanOrEqual(50);
-    expect(q.ms).toBeLessThan(50);
+    expect(q.loadMs).toBeGreaterThanOrEqual(290);
+    expect(q.ms).toBeLessThan(200);
   });
 
   it("rag.index: one embed.index line per batch, with the space, the project and the job", async () => {
@@ -272,54 +270,6 @@ describe("llama.cpp: load time and the NVIDIA memory it took", () => {
       /stopped before it was ready/,
     );
     expect(lines()).toEqual([expect.objectContaining({ op: "model.load", model: "qwen3-embedding-8b-q8", oom: true })]);
-  });
-});
-
-describe("Ollama: load_duration, and /api/ps says when a model is partly on the processor", () => {
-  function fakeOllama(embed: (body: { input: string[] }) => HttpRes) {
-    process.env.OLLAMA_HOST = "127.0.0.1:11434";
-    writeSettings({ ...DEFAULT_SETTINGS });
-    env.http = async (req) => {
-      if (req.url.endsWith("/api/ps"))
-        return ok({ models: [{ name: "qwen3-embedding:8b", size: 9100 * 1048576, size_vram: 6000 * 1048576 }] });
-      if (req.url.endsWith("/api/embed")) return embed(JSON.parse(req.body as string));
-      return { status: 404, headers: {}, text: "{}" };
-    };
-  }
-  const ollamaModel = (tag: string) =>
-    model(
-      "qwen3-embedding-0.6b-q8",
-      { runtime: "ollama", device: "gpu" },
-      { via: "ollama", runtime: "ollama", ollama: tag },
-    );
-
-  it("first call → model.load (loadMs, vramMB, partialOffload); every later operation carries partialOffload", async () => {
-    fakeOllama((b) =>
-      ok({
-        embeddings: b.input.map(() => [1, 0]),
-        prompt_eval_count: 9 * b.input.length,
-        load_duration: 1_500_000_000,
-      }),
-    );
-    const m = ollamaModel("qwen3-embedding:8b");
-    await embedWith(m, [SECRET], "query");
-    await embedWith(m, ["b", "c"], "doc");
-    const all = lines();
-    expect(all.map((l) => l.op)).toEqual(["model.load", "embed.query", "embed.index"]);
-    expect(all[0]).toMatchObject({ runtime: "ollama", loadMs: 1500, vramMB: 6000, partialOffload: true });
-    expect(all[1]).toMatchObject({ partialOffload: true, tokens: 9, loadMs: 1500 });
-    expect(all[2]).toMatchObject({ partialOffload: true, tokens: 18 });
-    expect(all[2].loadMs).toBeUndefined();
-  });
-
-  it("Ollama refusing a model for memory → a model.load line flagged oom", async () => {
-    fakeOllama(() => ({
-      status: 500,
-      headers: {},
-      text: JSON.stringify({ error: "model requires more system memory (12.0 GiB) than is available (8.1 GiB)" }),
-    }));
-    await expect(embedWith(ollamaModel("qwen3-embedding:8b-q8_0"), ["x"], "query")).rejects.toThrow(/memory/);
-    expect(lines()).toEqual([expect.objectContaining({ op: "model.load", runtime: "ollama", oom: true, items: 0 })]);
   });
 });
 

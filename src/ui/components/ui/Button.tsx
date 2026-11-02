@@ -4,7 +4,7 @@ import { Icon, type IconName } from "./Icon.tsx";
 import { Kbd } from "./Kbd.tsx";
 
 type ButtonProps = Omit<ComponentProps<"button">, "type"> & {
-  tone?: "primary" | "secondary" | "quiet";
+  tone?: "primary" | "secondary" | "quiet" | "danger";
   size?: "sm" | "md";
   icon?: IconName;
   kbd?: string;
@@ -18,6 +18,7 @@ export function Button({ tone = "secondary", size = "md", icon, kbd, className, 
         "btn",
         tone === "primary" && "btn-primary",
         tone === "quiet" && "btn-quiet",
+        tone === "danger" && "btn-danger",
         size === "sm" && "btn-sm",
         className,
       )}

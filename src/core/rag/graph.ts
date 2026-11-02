@@ -6,7 +6,7 @@ import type { DocJson, Edge, EdgeKind, FigureEntry } from "../types.ts";
 import { parseSections, type Section, stripComments } from "./chunk.ts";
 import { type EvidenceOpts, evidenceOptions, idsIn, statementsOf } from "./statements.ts";
 
-type OtherDoc = { id: string; names: string[]; sections: Set<string> };
+type OtherDoc = { id: string; names: string[]; sections: Set<string>; reqs: Set<string> };
 
 const NUM = String.raw`(\d+(?:\.\d+)*)`;
 const KEYWORD = "(?:chapitres?|paragraphes?|sections?)";
@@ -32,6 +32,7 @@ function otherDocs(project: string, self: string): OtherDoc[] {
       id: doc.id ?? e.name,
       names: [...new Set([e.name, doc.id, doc.code].filter(Boolean) as string[])],
       sections,
+      reqs: new Set([...md.matchAll(/<!--\s*req\s+(\S+?)\s*-->/g)].map((m) => m[1])),
     });
   }
   return out;
@@ -74,16 +75,17 @@ export function docEdges(project: string, doc: DocJson, md: string, _figures: Fi
     out.push({ from, to, kind, docId: doc.id });
   };
 
-  for (const st of statementsOf(doc.id, md, opts).values()) {
-    if (st.section) add(ref(`req:${st.id}`), ref(st.section), "defines");
-    for (const t of st.traced) if (has(t.slice(1))) add(ref(`req:${st.id}`), ref(t), "traces");
-  }
-  for (const t of csvTraces(project, doc)) if (has(t.chapter)) add(ref(`req:${t.id}`), ref(`§${t.chapter}`), "traces");
-
   const others = otherDocs(project, doc.id);
   const amended = others.filter(
     (o) => (doc.amends ?? []).includes(o.id) || o.names.some((n) => doc.amends?.includes(n)),
   );
+  for (const st of statementsOf(doc.id, md, opts).values()) {
+    if (st.section) add(ref(`req:${st.id}`), ref(st.section), "defines");
+    for (const t of st.traced) if (has(t.slice(1))) add(ref(`req:${st.id}`), ref(t), "traces");
+    for (const a of amended) if (a.reqs.has(st.id)) add(ref(`req:${st.id}`), `${a.id}#req:${st.id}`, "amends");
+  }
+  for (const t of csvTraces(project, doc)) if (has(t.chapter)) add(ref(`req:${t.id}`), ref(`§${t.chapter}`), "traces");
+
   for (const a of amended) add(doc.id, a.id, "amends");
 
   for (const s of sections) {

@@ -1,7 +1,8 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { env } from "../env.ts";
 import type { ProjectJson, Settings, XrayJson } from "../types.ts";
+import { writeAtomic } from "./atomic.ts";
 
 export const DEFAULT_PROJECT: ProjectJson = {
   name: "",
@@ -19,7 +20,7 @@ export const DEFAULT_XRAY: XrayJson = {
     { id: "data", name: "Data", type: "text", builtin: true },
     { id: "result", name: "Expected Result", type: "text", builtin: true },
   ],
-  prefs: { order: ["Action", "Data", "Expected Result"], collapsed: ["Data"], hidden: [] },
+  prefs: { order: ["Action", "Data", "Expected Result"], collapsed: [], hidden: [], filled: ["Data"] },
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -41,10 +42,7 @@ export function readJson<T>(file: string, fallback: T): T {
 }
 
 export function writeJson(file: string, value: unknown): void {
-  mkdirSync(dirname(file), { recursive: true });
-  const tmp = `${file}.tmp`;
-  writeFileSync(tmp, `${JSON.stringify(value, null, 2)}\n`, "utf8");
-  renameSync(tmp, file);
+  writeAtomic(file, `${JSON.stringify(value, null, 2)}\n`);
 }
 
 export function readProject(dir: string): ProjectJson {

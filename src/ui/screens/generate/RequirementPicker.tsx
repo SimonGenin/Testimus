@@ -4,10 +4,14 @@ import { cx } from "../../lib/format.ts";
 import type { Requirement } from "../../lib/requirements.ts";
 
 export function RequirementPicker({
+  inputId,
+  kind,
   known,
   values,
   onChange,
 }: {
+  inputId: string;
+  kind: string;
   known: Requirement[];
   values: string[];
   onChange: (values: string[]) => void;
@@ -41,6 +45,7 @@ export function RequirementPicker({
             <RequirementChip
               key={v}
               id={v}
+              kind={kind}
               error={known.length > 0 && !known.some((r) => r.id === v)}
               onRemove={() => onChange(values.filter((x) => x !== v))}
             />
@@ -48,7 +53,7 @@ export function RequirementPicker({
         </div>
       )}
       <input
-        id="gen-reqs"
+        id={inputId}
         className="field"
         placeholder="Add by id or by word"
         role="combobox"
@@ -75,7 +80,7 @@ export function RequirementPicker({
         }}
       />
       {hits.length > 0 && (
-        <div id={list} className="reqpick-list" role="listbox" aria-label="Matching requirements">
+        <div id={list} className="reqpick-list" role="listbox" aria-label={`Matching ${kind} ids`}>
           {hits.map((r, i) => (
             <button
               key={r.id}

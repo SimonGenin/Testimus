@@ -292,3 +292,70 @@
   flex: 1;
   min-width: 0;
 }
+
+/* ponytail: the handle is a real 12px box straddling the edge (negative margins keep it out of the
+   layout), so the rail and the pill can both be pseudo-elements and the cursor has something to hit */
+.drag-edge {
+  position: relative;
+  width: 12px;
+  margin: 0 -6px;
+  flex: 0 0 auto;
+  z-index: 16;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.drag-edge::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 5px;
+  width: 2px;
+  border-radius: 2px;
+  background: transparent;
+  transition: background 0.15s ease;
+}
+
+.drag-edge::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  width: 6px;
+  height: 38px;
+  margin-top: -19px;
+  border-radius: 999px;
+  background: transparent;
+  transition: background 0.15s ease;
+}
+
+.drag-edge:hover::after,
+.drag-edge.is-dragging::after,
+.drag-edge:hover::before,
+.drag-edge.is-dragging::before {
+  background: var(--accent);
+}
+
+/* narrow window (520 px beside Jira): the header wraps and the palette button keeps only its icon */
+@media (max-width: 760px) {
+  .screenhead {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 12px 16px;
+  }
+
+  .screenhead-actions {
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+
+  .palette-btn {
+    width: auto;
+  }
+
+  .palette-btn-text,
+  .palette-btn .kbd {
+    display: none;
+  }
+}

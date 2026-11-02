@@ -230,29 +230,100 @@ function blockEnd(ls: string[], from: number): number {
   return k;
 }
 
-const idOnly = (block: string, id: string) =>
-  stripComments(block)
-    .replace(/[*`]/g, "")
-    .replace(/[\s:.–—-]+$/, "")
-    .trim() === id;
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const wordOf = (id: string) => new RegExp(`(?<![A-Za-z0-9_])${escapeRe(id)}(?![A-Za-z0-9_])`);
 
-// ponytail: RATP writes the id alone in bold and the rule in the next paragraphs — the statement runs from
-// the id to the next requirement marker, heading or figure
-function bodyStatement(ls: string[], start: number, id: string): number {
-  let end = blockEnd(ls, start);
-  if (!idOnly(ls.slice(start, end).join("\n"), id)) return end;
+// ponytail: a block that names requirements and says nothing else (RATP `**EXI_A**`, `**EXI_A** et **EXI_B**`,
+// `**EXI_A,**`) — it is a label, never a statement
+export function onlyIdsBlock(block: string, re: RegExp): boolean {
+  const t = stripComments(block).replace(/[*`]/g, "");
+  if (t.search(re) < 0) return false;
+  return !t.replace(re, " ").replace(/\b(?:et|and)\b|[\s,;/&+:.–—-]/gi, "");
+}
+
+const nextFilled = (ls: string[], from: number) => {
+  let k = from;
+  while (k < ls.length && !ls[k].trim()) k++;
+  return k;
+};
+
+// ponytail: a bold line without final punctuation is a RATP sub-title (`**Structure d'un onglet**`), not a rule
+const subTitle = (line: string) =>
+  /^\s*\*\*[^*]+\*\*\s*$/.test(line) && !/[.:;!?]\s*\*\*\s*$/.test(line) && line.trim().length <= 150;
+
+function following(ls: string[], from: number, re: RegExp): number {
+  let end = from;
   for (;;) {
-    let k = end;
-    while (k < ls.length && !ls[k].trim()) k++;
+    const k = nextFilled(ls, end);
     if (k >= ls.length || MARKER_ONLY.test(ls[k]) || HEADING.test(ls[k]) || FIGURE_START.test(ls[k])) return end;
     const next = blockEnd(ls, k);
+    if (onlyIdsBlock(ls.slice(k, next).join("\n"), re)) return end;
     end = next;
     if (ls.slice(k, next).some((l) => FIG_MARK.test(l))) return end;
   }
 }
 
+// ponytail: RATP writes the id alone in bold and the rule in the next paragraphs — the statement runs from
+// the id to the next requirement marker, id label, heading or figure (a sub-title right after the id is not its rule)
+function bodyStatement(ls: string[], start: number, re: RegExp): number {
+  const end = blockEnd(ls, start);
+  if (!onlyIdsBlock(ls.slice(start, end).join("\n"), re)) return end;
+  const k = nextFilled(ls, end);
+  return k < ls.length && subTitle(ls[k]) ? end : following(ls, end, re);
+}
+
+function headingStatement(ls: string[], k: number, re: RegExp): { text: string; end: number } {
+  const title = stripComments(ls[k])
+    .replace(/^#+\s*/, "")
+    .trim();
+  const end = following(ls, k + 1, re);
+  return { text: [title, stripComments(ls.slice(k + 1, end).join("\n"))].filter(Boolean).join("\n\n"), end };
+}
+
+// ponytail: an id with no text of its own at its marker is read where the document first says something about
+// it — a table row, an id list followed by text (RATP repeats `**EXI_A, EXI_B**` above the rule), a heading,
+// or the paragraph that names it
+function mentionedElsewhere(ls: string[], tables: MdTable[], id: string, re: RegExp, skip: [number, number]) {
+  const word = wordOf(id);
+  for (let k = 0; k < ls.length; k++) {
+    if ((k >= skip[0] && k < skip[1]) || MARKER_ONLY.test(ls[k]) || !word.test(stripComments(ls[k]))) continue;
+    const table = tables.find((t) => k >= t.start && k < t.end);
+    let text: string;
+    if (table) {
+      const cells = k === table.start ? table.header : (table.rows.find((r) => r.line === k)?.cells ?? []);
+      text = cells.map(cellText).filter(Boolean).join(" | ");
+    } else if (HEADING.test(ls[k])) text = headingStatement(ls, k, re).text;
+    else {
+      let b = k;
+      while (b > 0 && ls[b - 1].trim() && !MARKER_ONLY.test(ls[b - 1]) && !HEADING.test(ls[b - 1])) b--;
+      text = stripComments(ls.slice(b, bodyStatement(ls, b, re)).join("\n"));
+    }
+    if (text && !onlyIdsBlock(text, re)) return text;
+  }
+  return null;
+}
+
+// ponytail: a list of ids, one per paragraph (`**EXI_A,**` `**EXI_B,**` `**EXI_C**`), shares the text after it —
+// only when the id's own label says the list goes on (a trailing comma, « et »)
+function afterIdList(ls: string[], label: string, from: number, re: RegExp): string | null {
+  const t = stripComments(label).replace(/[*`]/g, "").trim();
+  if (!/(?:[,;&+]|\bet|\band)$/i.test(t)) return null;
+  let k = from;
+  for (;;) {
+    while (k < ls.length && (!ls[k].trim() || MARKER_ONLY.test(ls[k]))) k++;
+    if (k >= ls.length || HEADING.test(ls[k]) || FIGURE_START.test(ls[k])) return null;
+    const e = blockEnd(ls, k);
+    if (onlyIdsBlock(ls.slice(k, e).join("\n"), re)) {
+      k = e;
+      continue;
+    }
+    return subTitle(ls[k]) ? null : stripComments(ls.slice(k, following(ls, k, re)).join("\n"));
+  }
+}
+
 export function statementsOf(docId: string, md: string, opts: EvidenceOpts = {}): Map<string, Statement> {
   const ls = lines(md);
+  const re = idRegex(opts);
   const sections = parseSections(md);
   const rows = matrixRows(md, opts);
   const firstRow = new Map<string, MatrixRow>();
@@ -284,8 +355,24 @@ export function statementsOf(docId: string, md: string, opts: EvidenceOpts = {})
       return;
     }
     const base = { id, docId, source: "body" as const, traced: traced(id), anchor: `req:${id}` };
-    if (j >= ls.length || HEADING.test(ls[j])) {
-      out.set(id, { ...base, section: sectionOf(i), text: id, start: i, end: i + 1 });
+    // ponytail: never the id alone — its matrix row, else what the document says of it elsewhere, else the text
+    // an id list shares; the id itself only when the document says nothing more
+    const lacking = (from: number, to: number) => {
+      if (row) {
+        out.set(id, { ...base, source: "matrix", section: sectionOf(from), text: row.statement, start: from, end: to });
+        return;
+      }
+      const label = ls.slice(from, to).join("\n");
+      const text = mentionedElsewhere(ls, tables, id, re, [i, to]) ?? afterIdList(ls, label, to, re) ?? id;
+      out.set(id, { ...base, section: sectionOf(from), text, start: from, end: to });
+    };
+    if (j >= ls.length || (HEADING.test(ls[j]) && !wordOf(id).test(stripComments(ls[j])))) {
+      lacking(i, i + 1);
+      return;
+    }
+    if (HEADING.test(ls[j])) {
+      const h = headingStatement(ls, j, re);
+      out.set(id, { ...base, section: sectionOf(j), text: h.text, start: j, end: h.end });
       return;
     }
     const table = tables.find((t) => t.start === j);
@@ -302,10 +389,9 @@ export function statementsOf(docId: string, md: string, opts: EvidenceOpts = {})
       });
       return;
     }
-    const end = bodyStatement(ls, j, id);
+    const end = bodyStatement(ls, j, re);
     const text = stripComments(ls.slice(j, end).join("\n"));
-    if (row && idOnly(text, id))
-      out.set(id, { ...base, source: "matrix", section: sectionOf(j), text: row.statement, start: j, end });
+    if (onlyIdsBlock(text, re)) lacking(j, end);
     else out.set(id, { ...base, section: sectionOf(j), text, start: j, end });
   });
   for (const r of firstRow.values()) if (!out.has(r.id)) out.set(r.id, fromRow(r));

@@ -21,6 +21,7 @@ import {
   missingVectors,
   openDb,
   putVector,
+  rebuildFts,
   replaceEdges,
   setMeta,
   setSpace,
@@ -105,7 +106,13 @@ async function headersFor(doc: DocJson, chunks: Chunk[], ctx: Ctx): Promise<stri
   }
 }
 
-async function indexDoc(db: DatabaseSync, d: ProjectDoc, ctx: Ctx, project: string): Promise<DocIndexStatus> {
+async function indexDoc(
+  db: DatabaseSync,
+  d: ProjectDoc,
+  ctx: Ctx,
+  project: string,
+  force = false,
+): Promise<DocIndexStatus> {
   const superseded = isSuperseded(d.doc);
   const row = db.prepare("select content from docs where doc_id = ?").get(d.doc.id) as { content: string } | undefined;
   if (row?.content === d.content) {
@@ -122,9 +129,17 @@ async function indexDoc(db: DatabaseSync, d: ProjectDoc, ctx: Ctx, project: stri
   }
   const chunks = chunkDoc(d.doc, d.md, d.figures, evidenceOptions(project));
   const old = new Map(chunksOf(db, d.doc.id).map((c) => [`${c.id} ${c.hash}`, c]));
-  const fresh = chunks.filter((c) => !old.has(`${c.id} ${chunkHash(c)}`));
-  const keep = new Set(chunks.map((c) => `${c.id} ${chunkHash(c)}`));
-  const headers = await headersFor(d.doc, fresh, ctx);
+  let fresh = chunks.filter((c) => !old.has(`${c.id} ${chunkHash(c)}`));
+  let keep = new Set(chunks.map((c) => `${c.id} ${chunkHash(c)}`));
+  let headers = await headersFor(d.doc, fresh, ctx);
+  // ponytail: forced, every chunk asks for its header again; one that comes out the same keeps its row and vectors
+  if (force) {
+    const all = await headersFor(d.doc, chunks, ctx);
+    const same = (c: Chunk, i: number) => old.get(`${c.id} ${chunkHash(c)}`)?.header === all[i];
+    keep = new Set(chunks.filter(same).map((c) => `${c.id} ${chunkHash(c)}`));
+    fresh = chunks.filter((c, i) => !same(c, i));
+    headers = all.filter((_, i) => !same(chunks[i], i));
+  }
   transaction(db, () => {
     for (const [key, c] of old) if (!keep.has(key)) deleteChunk(db, c.rowid);
     fresh.forEach((c, i) => {
@@ -183,22 +198,18 @@ export async function indexProject(
   const live = !opts.dbFile;
   const db = openDb(opts.dbFile ?? indexFile(project));
   try {
-    if (opts.force)
-      transaction(db, () => {
-        db.exec("delete from chunks; delete from chunks_fts; delete from docs; delete from meta;");
-        for (const s of listSpaces(db)) {
-          db.exec(`delete from ${vecTable(s.id)}`);
-          setSpace(db, s.id, { complete: false });
-        }
-      });
+    // ponytail: --force chunks every document again and re-embeds the active space only; an unchanged chunk keeps its
+    // row, so the other spaces keep their vectors (activating a model never destroys another space, SPEC-RAG P3)
+    if (opts.force) db.exec("delete from docs");
     const docs = projectDocs(project);
     const report: IndexReport["docs"] = [];
     for (const [i, d] of docs.entries()) {
       if (ctx.signal.aborted) throw new Error("Indexing cancelled.");
       ctx.progress({ message: `Chunking ${d.doc.id}`, done: i, total: docs.length });
-      const status = await indexDoc(db, d, ctx, project);
+      const status = await indexDoc(db, d, ctx, project, opts.force);
       report.push({ docId: d.doc.id, status, chunks: chunksOf(db, d.doc.id).length });
     }
+    if (opts.force) rebuildFts(db);
     const onDisk = new Set(docs.map((d) => d.doc.id));
     const gone = (db.prepare("select doc_id from docs").all() as { doc_id: string }[])
       .map((r) => r.doc_id)
@@ -218,6 +229,7 @@ export async function indexProject(
     let vectorsRebuilt = false;
     if (model) {
       space = adopt(db, model);
+      if (opts.force) db.exec(`delete from ${vecTable(space.id)}`);
       vectorsRebuilt = vectorCount(db, space.id) === 0;
       setMeta(db, "embedding", model.entry.id);
       setMeta(db, "dims", String(space.dims));

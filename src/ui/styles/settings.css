@@ -276,7 +276,6 @@
 }
 
 .pack-facts,
-.ollama-facts,
 .search-facts {
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);
@@ -286,14 +285,12 @@
 }
 
 .pack-facts dt,
-.ollama-facts dt,
 .search-facts dt {
   color: var(--ink-3);
   font-weight: 600;
 }
 
 .pack-facts dd,
-.ollama-facts dd,
 .search-facts dd {
   margin: 0;
   min-width: 0;
@@ -514,26 +511,6 @@
 .dirpick .field {
   flex: 1;
   min-width: 0;
-}
-
-.ollama {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding-top: 14px;
-  border-top: 1px solid var(--line);
-}
-
-.ollama-title {
-  font-size: 15px;
-}
-
-.ollama-model {
-  display: block;
-}
-
-.ollama a {
-  color: var(--ink);
 }
 
 .fit-msg {
@@ -780,4 +757,42 @@
 
 .mtable .mname-id {
   overflow-wrap: anywhere;
+}
+
+.frow-mode {
+  height: 30px;
+  padding: 2px 8px;
+  font-size: 13px;
+}
+
+/* narrow window: the section list becomes a scrolling row above the section */
+@media (max-width: 760px) {
+  .settings {
+    flex-direction: column;
+  }
+
+  .settings-nav {
+    flex: none;
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 8px 12px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .sub {
+    flex: none;
+  }
+
+  .settings-body {
+    padding: 16px 16px 32px;
+  }
+
+  .frows {
+    overflow-x: auto;
+  }
+
+  .frow {
+    min-width: 560px;
+  }
 }

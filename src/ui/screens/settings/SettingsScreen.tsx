@@ -9,10 +9,12 @@ import { FieldsSection } from "./FieldsSection.tsx";
 import { ModelsSection } from "./ModelsSection.tsx";
 import { ProjectSection } from "./ProjectSection.tsx";
 import { SearchSection } from "./SearchSection.tsx";
+import { TracesSection } from "./TracesSection.tsx";
 
 const SECTIONS = [
   { id: "project", label: "Project" },
   { id: "fields", label: "Step fields" },
+  { id: "traces", label: "Tracked ids" },
   { id: "claude", label: "Claude" },
   { id: "search", label: "Search" },
   { id: "models", label: "Models" },
@@ -22,15 +24,21 @@ const SECTIONS = [
 
 export function SettingsScreen() {
   const app = useApp();
-  const at = app.route.screen === "settings" ? (app.route.arg ?? "project") : "project";
+  const at = app.route.screen === "settings" ? (app.route.arg ?? "project").split("-")[0] : "project";
   const body = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!app.route.arg) return;
-    body.current?.querySelector(`#settings-${app.route.arg}`)?.scrollIntoView?.({ block: "start" });
+    const el = body.current?.querySelector(`#settings-${app.route.arg}`);
+    el?.scrollIntoView?.({ block: el instanceof HTMLInputElement ? "center" : "start" });
+    if (el instanceof HTMLInputElement) el.focus();
   }, [app.route.arg]);
   return (
     <div className="screen">
-      <ScreenHeader title="Settings" meta="Changes are saved as you make them" />
+      <ScreenHeader
+        title="Settings"
+        badge={<span className="version-pill">v{__VERSION__}</span>}
+        meta="Changes are saved as you make them"
+      />
       <div className="settings">
         <nav className="settings-nav" aria-label="Settings sections">
           {SECTIONS.map((s) => (
@@ -51,6 +59,7 @@ export function SettingsScreen() {
           )}
           <ProjectSection />
           <FieldsSection />
+          <TracesSection />
           <ClaudeSection />
           <SearchSection />
           <ModelsSection />

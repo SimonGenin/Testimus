@@ -3,7 +3,6 @@ import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 import type { Ctx } from "../command.ts";
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
-import type { OllamaStatus } from "../rag/runtimes/ollama.ts";
 import type {
   CatalogEntry,
   Dtype,
@@ -28,7 +27,7 @@ import {
 import { fitOf } from "./models-fit.ts";
 import { machineProfile } from "./models-hardware.ts";
 import { opSignal, perfStats, speedLine } from "./models-perf.ts";
-import { ollamaMode, putInstall, readRegistry, updateRegistry } from "./models-registry.ts";
+import { putInstall, readRegistry, updateRegistry } from "./models-registry.ts";
 import { deviceOf, isGguf, resolveInstalled } from "./models-resolve.ts";
 import { isComplete } from "./models-store.ts";
 import { readSettings } from "./project.ts";
@@ -45,20 +44,6 @@ export const installDeps = {
       for (const s of servers.liveServers()) if (!before.has(s)) await servers.stopServer(s).catch(() => {});
     }
   },
-  ollama: async (): Promise<OllamaStatus | null> => {
-    if (ollamaMode() === "never" || !readRegistry().ollama.enabled) return null;
-    try {
-      return await (await import("../rag/runtimes/ollama.ts")).ollamaStatus();
-    } catch {
-      return null;
-    }
-  },
-  ollamaPull: async (
-    tag: string,
-    onProgress: (p: { status: string; completed?: number; total?: number }) => void,
-    signal: AbortSignal,
-  ) => (await import("../rag/runtimes/ollama.ts")).ollamaPull(tag, onProgress, signal),
-  ollamaDelete: async (tag: string) => (await import("../rag/runtimes/ollama.ts")).ollamaDelete(tag),
   findLlamaBuild: async (dir: string): Promise<LlamaRuntime | null> =>
     (await import("../rag/runtimes/llamacpp.ts")).findLlamaBuild(dir),
 };
@@ -224,47 +209,17 @@ async function copyInto(from: string, to: string, ctx?: Ctx): Promise<void> {
   });
 }
 
-// --- Path B and C
+// --- Path B
 
-export type PullInput = { model: string; via: "auto" | "download" | "ollama"; dir?: string; dtype?: string };
+export type PullInput = { model: string; dir?: string; dtype?: string };
 export type PullResult = { model: string; via: string; where: string; sizeMB: number; state: InstallState };
 
 export const NO_DIR = "Choose where models are stored: `testimus models setDir <folder>`";
 
 export async function pull(ctx: Ctx, input: PullInput): Promise<PullResult> {
   const entry = needEntry(input.model);
-  const tag = entry.source.ollama;
-  if (input.via !== "download" && tag && entry.runtimes.includes("ollama") && ollamaMode() !== "never") {
-    const s = await installDeps.ollama();
-    const held = s?.state === "running" ? s.models.find((m) => m.name === tag || m.catalogId === entry.id) : undefined;
-    if (held || (input.via === "ollama" && s?.state === "running")) {
-      const digest = held
-        ? held.digest
-        : (
-            await installDeps.ollamaPull(
-              tag,
-              (p) => ctx.progress({ message: `Ollama ${tag}: ${p.status}`, done: p.completed, total: p.total }),
-              ctx.signal,
-            )
-          ).digest;
-      putInstall({ model: entry.id, via: "ollama", runtime: "ollama", ollama: tag, digest, status: "installed" });
-      return {
-        model: entry.id,
-        via: "ollama",
-        where: `Ollama ${tag}`,
-        sizeMB: held?.sizeMB ?? entry.size.downloadMB,
-        state: "installed",
-      };
-    }
-    if (input.via === "ollama")
-      throw new UserError(
-        `Ollama is not running on this PC (${s?.state ?? "absent"}).`,
-        s?.message ?? "Use --via download.",
-      );
-  }
-  if (input.via === "ollama") throw new UserError(`${entry.label} is not served by Ollama.`, "Use --via download.");
   const have = resolveInstalled(entry.id);
-  if (have && have.install.via !== "ollama" && have.install.path)
+  if (have?.install.path)
     return {
       model: entry.id,
       via: have.install.via,
@@ -374,7 +329,7 @@ function deleteDownload(entry: CatalogEntry, inst: Installation, r: ModelsRegist
   const path = inst.path;
   if (!path || !existsSync(path)) return 0;
   const root = r.dir && inside(path, r.dir) ? r.dir : dirname(path);
-  const others = r.installs.filter((i) => i !== inst && i.via !== "ollama" && i.path && norm(i.path) === norm(path));
+  const others = r.installs.filter((i) => i !== inst && i.path && norm(i.path) === norm(path));
   const drop = (p: string): number => {
     let n = 0;
     for (const x of [p, `${p}.part`])
@@ -410,12 +365,11 @@ function bytesOf(entry: CatalogEntry, i: Installation): number {
 
 export async function remove(
   model: string,
-  confirm: boolean,
-): Promise<{ model: string; removed: "files" | "registration" | "ollama"; freedMB: number }> {
+): Promise<{ model: string; removed: "files" | "registration"; freedMB: number }> {
   const entry = needEntry(model);
   const r = readRegistry();
   const mine = r.installs.filter((i) => i.model === entry.id);
-  const order = ["download", "path", "ollama"] as const;
+  const order = ["download", "path"] as const;
   const inst = order.map((v) => mine.find((i) => i.via === v)).find(Boolean);
   if (!inst) throw new UserError(`${entry.label} is not registered on this PC.`, "testimus models list shows what is.");
   if (inst.via === "download") {
@@ -425,22 +379,10 @@ export async function remove(
     });
     return { model: entry.id, removed: "files", freedMB: Math.round(freed / MB) };
   }
-  if (inst.via === "path") {
-    updateRegistry((reg) => {
-      reg.installs = reg.installs.filter((i) => !(i.model === entry.id && i.via === "path"));
-    });
-    return { model: entry.id, removed: "registration", freedMB: 0 };
-  }
-  if (!confirm)
-    throw new UserError(
-      `${entry.label} is Ollama's (${inst.ollama}): Ollama will delete its files.`,
-      "Confirm with --confirm.",
-    );
-  if (inst.ollama) await installDeps.ollamaDelete(inst.ollama);
   updateRegistry((reg) => {
-    reg.installs = reg.installs.filter((i) => !(i.model === entry.id && i.via === "ollama"));
+    reg.installs = reg.installs.filter((i) => !(i.model === entry.id && i.via === "path"));
   });
-  return { model: entry.id, removed: "ollama", freedMB: entry.size.downloadMB };
+  return { model: entry.id, removed: "registration", freedMB: 0 };
 }
 
 export function usedBy(model: string): string[] {
@@ -456,7 +398,7 @@ export function usedBy(model: string): string[] {
 export type ListRow = {
   model: string;
   label: string;
-  via: "path" | "download" | "ollama";
+  via: "path" | "download";
   runtime: string;
   where: string;
   sizeMB: number;
@@ -465,7 +407,7 @@ export type ListRow = {
   perf?: string;
 };
 
-export async function list(ollama?: OllamaStatus | null): Promise<ListRow[]> {
+export function list(): ListRow[] {
   const stats = perfStats({ last: 50 });
   const rows: ListRow[] = [];
   const seen = new Set<string>();
@@ -480,7 +422,7 @@ export async function list(ollama?: OllamaStatus | null): Promise<ListRow[]> {
       label: entry.label,
       via: install.via,
       runtime: install.runtime,
-      where: install.path ?? (install.ollama ? `Ollama ${install.ollama}` : ""),
+      where: install.path ?? "",
       sizeMB,
       state: install.status === "broken" ? "broken" : users.length ? "active" : install.status,
       usedBy: users,
@@ -490,7 +432,7 @@ export async function list(ollama?: OllamaStatus | null): Promise<ListRow[]> {
   for (const i of readRegistry().installs) {
     const entry = catalogEntry(i.model);
     if (!entry) continue;
-    const gone = i.via !== "ollama" && (!i.path || !existsSync(i.path));
+    const gone = !i.path || !existsSync(i.path);
     add(
       entry,
       gone ? { ...i, status: "broken" } : i,
@@ -501,23 +443,12 @@ export async function list(ollama?: OllamaStatus | null): Promise<ListRow[]> {
     const m = resolveInstalled(entry.id);
     if (m?.install.path && m.install.via === "path") add(entry, m.install, Math.round(bytesOf(entry, m.install) / MB));
   }
-  const s = ollama === undefined ? await installDeps.ollama() : ollama;
-  if (s?.state === "running")
-    for (const m of s.models) {
-      const entry = catalog().entries.find((e) => e.source.ollama === m.name);
-      if (entry)
-        add(
-          entry,
-          { model: entry.id, via: "ollama", runtime: "ollama", ollama: m.name, digest: m.digest, status: "installed" },
-          m.sizeMB,
-        );
-    }
   return rows;
 }
 
 export async function catalogView(kind?: "embedding" | "reranker", machine?: MachineProfile) {
   const m = machine ?? (await machineProfile());
-  const installed = await list(null);
+  const installed = list();
   const { budgets } = await import("./models-registry.ts");
   const headroom = budgets().headroom;
   return catalog()

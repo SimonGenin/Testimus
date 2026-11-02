@@ -301,3 +301,23 @@ test("an attachment filename without an extension falls back to png", () => {
   expect(extOf("screenshot")).toBe("png");
   expect(extOf("a.b.jpeg")).toBe("jpeg");
 });
+
+test("pulling five tests at once keeps at most three pulls in flight", async () => {
+  const keys = ["LFRPS12-1420", "LFRPS12-1398", "LFRPS12-1401", "LFRPS12-1405", "LFRPS12-1410"];
+  const started = new Set<string>();
+  let hold = true;
+  const held: (() => void)[] = [];
+  env.http = async (req) => {
+    const seen = `${req.url} ${req.body ?? ""}`;
+    for (const k of keys) if (new RegExp(`${k}(?![0-9])`).test(seen)) started.add(k);
+    if (hold) await new Promise<void>((r) => held.push(r));
+    return mockHttp(req);
+  };
+  const all = Promise.all(keys.map((k) => pullToLocal(project, k)));
+  for (let i = 0; i < 20; i++) await new Promise((r) => setImmediate(r));
+  expect([...started]).toEqual(keys.slice(0, 3));
+  hold = false;
+  for (const r of held) r();
+  expect(await all).toEqual(keys);
+  expect(started.size).toBe(5);
+});

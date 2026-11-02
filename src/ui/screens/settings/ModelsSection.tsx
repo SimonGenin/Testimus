@@ -14,7 +14,6 @@ import { isInstalled, lighterPack, size } from "./models/data.ts";
 import { FitConfirm } from "./models/FitConfirm.tsx";
 import { FolderDialog } from "./models/FolderDialog.tsx";
 import { ModelsTable } from "./models/ModelsTable.tsx";
-import { OllamaPanel } from "./models/OllamaPanel.tsx";
 import { OpLine } from "./models/OpLine.tsx";
 import { PackCard } from "./models/PackCard.tsx";
 import { PackPlanDialog } from "./models/PackPlanDialog.tsx";
@@ -257,13 +256,10 @@ export function ModelsSection() {
 
   const remove = async () => {
     if (!removing) return;
-    const { row, inst } = removing;
+    const { row } = removing;
     setRemoving(null);
     try {
-      const r = await call<{ removed: string; freedMB: number }>("models.remove", {
-        model: row.id,
-        confirm: inst.via === "ollama",
-      });
+      const r = await call<{ removed: string; freedMB: number }>("models.remove", { model: row.id });
       toast({
         kind: "ok",
         title: `${row.label} removed`,
@@ -442,7 +438,6 @@ export function ModelsSection() {
           </div>
         )}
       </div>
-      <OllamaPanel />
       {fitAsk && (
         <FitConfirm
           title={fitAsk.title}
@@ -492,9 +487,7 @@ export function ModelsSection() {
           <p>
             {removing.inst.via === "download"
               ? `Its files (${size(removing.inst.sizeMB)}) are deleted from ${removing.inst.where}.`
-              : removing.inst.via === "ollama"
-                ? `Ollama deletes its own copy (${size(removing.inst.sizeMB)}).`
-                : `Testimus forgets it; the folder ${removing.inst.where} stays on disk.`}
+              : `Testimus forgets it; the folder ${removing.inst.where} stays on disk.`}
           </p>
           <p className="muted">
             Vector spaces built with it stay in the index until you drop them (Settings › Search).
