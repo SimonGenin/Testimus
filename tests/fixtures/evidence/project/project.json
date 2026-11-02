@@ -1,0 +1,6 @@
+{
+  "name": "Evidence",
+  "jiraProject": "EVID",
+  "language": "fr",
+  "rag": { "embedding": "bge-m3", "reranker": null }
+}

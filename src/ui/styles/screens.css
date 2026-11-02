@@ -1,0 +1,272 @@
+.chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+  min-width: 0;
+}
+
+.run-dot {
+  background: currentColor;
+  animation: sk-pulse 1s ease-in-out infinite;
+}
+
+.s-run {
+  color: var(--info);
+}
+
+.s-stop {
+  color: var(--ink-3);
+}
+
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.tbl th {
+  text-align: left;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-3);
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  z-index: 1;
+}
+
+.tbl td {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+
+.tbl tbody tr {
+  cursor: pointer;
+}
+
+.tbl tbody tr:hover {
+  background: var(--surface-2);
+}
+
+.tbl .row-on,
+.tbl .row-on:hover {
+  background: var(--surface-2);
+  box-shadow: inset 3px 0 0 var(--ink);
+}
+
+.tbl-sub {
+  font-size: 12.5px;
+}
+
+.tbl .badge,
+.tbl .sev,
+.tbl-state {
+  white-space: nowrap;
+}
+
+.tbl-doc {
+  width: 100%;
+  max-width: 0;
+}
+
+.tbl-doc > div {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.docs-screen .tbl td:not(.tbl-doc):not([colspan]) {
+  white-space: nowrap;
+}
+
+.problem {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  border-radius: var(--radius-l);
+  border: 1px solid var(--err);
+  background: var(--surface);
+}
+
+.problem-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px 32px;
+  text-align: center;
+  color: var(--ink-3);
+}
+
+.empty .h {
+  font-size: 18px;
+  color: var(--ink);
+}
+
+.empty p {
+  max-width: 460px;
+}
+
+.steps {
+  display: flex;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex-wrap: wrap;
+}
+
+.steps .step-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 12px 0 6px;
+  border-radius: 999px;
+  color: var(--ink-3);
+  font-weight: 600;
+  font-size: 13.5px;
+}
+
+.step-pill .step-n {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-3);
+  color: var(--ink-2);
+  font-size: 12px;
+}
+
+.step-pill.is-on {
+  color: var(--ink);
+}
+
+.step-pill.is-on .step-n {
+  background: var(--ink);
+  color: var(--surface);
+}
+
+.step-pill.is-done .step-n {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+
+.log {
+  font: 12px / 1.65 var(--font-mono);
+  color: var(--ink-2);
+  background: var(--surface-2);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.log-at {
+  color: var(--ink-3);
+  margin-right: 10px;
+}
+
+.log-warn {
+  color: var(--warn);
+}
+
+.log-error {
+  color: var(--err);
+}
+
+.formgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px 16px;
+}
+
+.sect {
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.sect-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sect-title {
+  font-size: 17px;
+}
+
+.split {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.split-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: var(--surface);
+}
+
+.split-side {
+  flex: 0 0 min(520px, 42%);
+  border-left: 1px solid var(--line);
+  background: var(--surface);
+  overflow: auto;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.prog-busy {
+  animation: prog-slide 1.4s ease-in-out infinite;
+}
+
+@keyframes prog-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(300%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prog-busy,
+  .run-dot {
+    animation: none;
+  }
+}
+
+.chks,
+.frows-list,
+.setup-projects {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}

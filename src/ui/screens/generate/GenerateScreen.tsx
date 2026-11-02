@@ -1,0 +1,272 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { Job, LocalTestRef, Test } from "../../../core/types.ts";
+import { call } from "../../api.ts";
+import { type ClaudeStatus, ConnectClaude } from "../../components/claude/ConnectClaude.tsx";
+import { JobLog, useJob } from "../../components/shell/JobLog.tsx";
+import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
+import { Button, Icon } from "../../components/ui/index.ts";
+import { useApp } from "../../lib/app.ts";
+import { plural } from "../../lib/format.ts";
+import { loadRequirements, type Requirement } from "../../lib/requirements.ts";
+import { errorToast } from "../../lib/toast.ts";
+import {
+  Coverage,
+  checkLine,
+  GenCard,
+  type GenOutput,
+  type Landed,
+  landedIds,
+  passagesRead,
+  RunHead,
+} from "./GenResult.tsx";
+import { RequirementPicker } from "./RequirementPicker.tsx";
+import { SectionPicker } from "./SectionPicker.tsx";
+
+const LABEL: Record<string, string> = { opus: "Opus", sonnet: "Sonnet", haiku: "Haiku" };
+
+export function GenerateScreen() {
+  const app = useApp();
+  const cfg = app.info?.project;
+  const [request, setRequest] = useState("");
+  const [reqs, setReqs] = useState<string[]>([]);
+  const [sections, setSections] = useState<string[]>([]);
+  const [folder, setFolder] = useState("");
+  const [known, setKnown] = useState<Requirement[]>([]);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [asked, setAsked] = useState<string[]>([]);
+  const [starting, setStarting] = useState(false);
+  const [status, setStatus] = useState<ClaudeStatus | null>(null);
+  const [checkingClaude, setCheckingClaude] = useState(false);
+  const [landed, setLanded] = useState<Record<string, Landed>>({});
+  const [showLog, setShowLog] = useState(false);
+  const [now, setNow] = useState(Date.now());
+  const chained = useRef<string | null>(null);
+
+  const gen = useJob(jobId);
+  const job: Job | null = gen.job;
+  const result = job?.status === "done" ? ((job.result ?? null) as GenOutput | null) : null;
+  const ids = landedIds(gen.events, result);
+  const read = passagesRead(gen.events);
+  const running = job?.status === "running";
+
+  const claudeCheck = useCallback((refresh = false) => {
+    setCheckingClaude(refresh);
+    return call<ClaudeStatus>("claude.status", refresh ? { refresh: true, signIn: true } : {})
+      .then(setStatus)
+      .catch(() => {})
+      .finally(() => setCheckingClaude(false));
+  }, []);
+
+  useEffect(() => {
+    void claudeCheck();
+    loadRequirements().then(setKnown);
+    call<Job[]>("jobs.list", {})
+      .then((jobs) => {
+        const last = (jobs ?? []).find((j) => j.kind === "generate");
+        if (last) {
+          chained.current = last.id;
+          setJobId(last.id);
+        }
+      })
+      .catch(() => {});
+  }, [claudeCheck]);
+
+  useEffect(() => {
+    if (!running) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [running]);
+
+  const refresh = useCallback(async (want: string[], all: boolean) => {
+    if (!want.length) return;
+    const refs = await call<LocalTestRef[]>("tests.list", {}).catch(() => [] as LocalTestRef[]);
+    // ponytail: a test Claude is still writing is not on disk yet — only the ones tests.list sees are opened
+    const there = want.filter((id) => refs.some((r) => r.id === id));
+    const shows = await Promise.all(
+      there.map((id) =>
+        call<{ test: Test }>("tests.show", { id })
+          .then((r) => [id, r.test] as const)
+          .catch(() => [id, undefined] as const),
+      ),
+    );
+    setLanded((cur) => {
+      const next = { ...cur };
+      for (const [id, test] of shows)
+        if (test || all) next[id] = { id, test: test ?? cur[id]?.test, ref: refs.find((r) => r.id === id) };
+      return next;
+    });
+  }, []);
+
+  const idsKey = ids.join(",");
+  // biome-ignore lint/correctness/useExhaustiveDependencies: ids are compared by their joined key
+  useEffect(() => {
+    const done = running ? ids.slice(0, -1) : ids;
+    const want = done.filter((id) => !landed[id]?.test);
+    void refresh(want, !running);
+  }, [idsKey, running]);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: run once when this screen's generation ends
+  useEffect(() => {
+    if (job?.status !== "done" || !result?.tests.length || chained.current === job.id) return;
+    chained.current = job.id;
+    void refresh(result.tests, true);
+    app.testsChanged();
+    app.refreshInfo();
+  }, [job?.status, job?.id]);
+
+  const generate = async () => {
+    if (!request.trim() && !reqs.length && !sections.length) return;
+    setStarting(true);
+    try {
+      const r = await call<{ jobId?: string }>("gen.tests", {
+        request: request.trim(),
+        ...(reqs.length ? { requirements: reqs } : {}),
+        ...(sections.length ? { sections } : {}),
+        ...(folder.trim() ? { folder: folder.trim() } : {}),
+      });
+      if (r?.jobId) {
+        chained.current = null;
+        setLanded({});
+        setAsked(reqs);
+        setJobId(r.jobId);
+      }
+    } catch (e) {
+      errorToast(e, "Could not start the generation");
+    } finally {
+      setStarting(false);
+    }
+  };
+
+  const cancel = () => jobId && call("jobs.cancel", { id: jobId }).catch((e) => errorToast(e, "Could not cancel"));
+  const offline = !!status && (!status.installed || status.signedIn === false);
+  const empty = !request.trim() && !reqs.length && !sections.length;
+  const checkText = result ? checkLine(result.tests, result.checks) : "";
+  const checkOf = (id: string) => result?.checks?.find((c) => c.id === id);
+
+  return (
+    <div className="screen">
+      <ScreenHeader title="Generate" meta="Claude writes tests from the documents, with a source for every claim" />
+      <div className="gen">
+        <section className="gen-form" aria-label="Request">
+          <div className="gen-block">
+            <label htmlFor="gen-request" className="h gen-label">
+              What should be tested?
+            </label>
+            <textarea
+              id="gen-request"
+              className="field"
+              rows={3}
+              placeholder="A feature, a screen, an operator procedure… in your own words"
+              value={request}
+              onChange={(e) => setRequest(e.target.value)}
+            />
+          </div>
+          <div className="gen-block">
+            <span className="h gen-label">
+              Scope <span className="muted">— optional</span>
+            </span>
+            <label htmlFor="gen-reqs" className="label">
+              Requirements
+            </label>
+            <RequirementPicker known={known} values={reqs} onChange={setReqs} />
+            <span className="label">Document sections</span>
+            <SectionPicker values={sections} onChange={setSections} />
+            <label htmlFor="gen-folder" className="label">
+              Xray folder for the new tests
+            </label>
+            <input
+              id="gen-folder"
+              className="field mono"
+              list="gen-folders"
+              placeholder="Claude picks one of the project's folders"
+              value={folder}
+              onChange={(e) => setFolder(e.target.value)}
+            />
+            <datalist id="gen-folders">
+              {(cfg?.folders ?? []).map((f) => (
+                <option key={f} value={f} />
+              ))}
+            </datalist>
+          </div>
+          <div className="gen-go">
+            <Button
+              tone={job ? "secondary" : "primary"}
+              icon="generate"
+              disabled={empty || running || starting || offline}
+              onClick={() => void generate()}
+            >
+              {job ? "Generate again" : "Generate"}
+            </Button>
+            <span className="muted">
+              {LABEL[cfg?.claude.model ?? ""] ?? cfg?.claude.model ?? "Claude"} · effort{" "}
+              {cfg?.claude.effort ?? "medium"}
+            </span>
+          </div>
+        </section>
+
+        <section className="gen-result" aria-label="Result">
+          {offline && status ? (
+            <div className="card gen-offline">
+              <ConnectClaude
+                status={status}
+                checking={checkingClaude}
+                onCheck={() => void claudeCheck(true)}
+                onDoctor={() => app.navigate("doctor")}
+              />
+            </div>
+          ) : !jobId ? (
+            <div className="empty">
+              <Icon name="generate" size={40} />
+              <h2 className="h">Tests appear here as Claude writes them</h2>
+              <p>
+                Say what to test, or pick requirements and sections. Every expected result gets a source; what cannot be
+                sourced is reported instead of invented.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="card gen-summary">
+                <RunHead
+                  job={job}
+                  now={now}
+                  result={result}
+                  read={read}
+                  count={ids.length}
+                  onCancel={() => void cancel()}
+                  onReview={() => app.navigate("review", ids[0])}
+                />
+                {result && <Coverage requirements={asked} result={result} checked={checkText} />}
+                {job?.status === "failed" && <p>{job.error}</p>}
+                {result?.diagnosis && <p className="muted">{result.diagnosis.detail}</p>}
+              </div>
+              {ids.length > 0 && (
+                <section className="card gen-cards" aria-label="Tests written" aria-live="polite">
+                  {ids.map((id, i) => (
+                    <GenCard
+                      key={id}
+                      item={landed[id] ?? { id }}
+                      check={checkOf(id)}
+                      writing={running && i === ids.length - 1}
+                      checking={running && i < ids.length - 1}
+                      onOpen={() => app.navigate("review", id)}
+                    />
+                  ))}
+                </section>
+              )}
+              <Button
+                tone="quiet"
+                icon={showLog ? "down" : "right"}
+                aria-expanded={showLog}
+                onClick={() => setShowLog((s) => !s)}
+              >
+                {showLog ? "Hide" : "Show"} what Claude read and wrote (
+                {plural(gen.events.length, "entry").replace("entrys", "entries")})
+              </Button>
+              {showLog && <JobLog events={gen.events} label="What Claude read and wrote" />}
+            </>
+          )}
+        </section>
+      </div>
+    </div>
+  );
+}

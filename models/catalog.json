@@ -1,0 +1,923 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "bge-m3-q8",
+      "kind": "embedding",
+      "label": "BGE-M3 (8-bit, CPU)",
+      "family": "bge-m3",
+      "licence": "MIT",
+      "commercialUse": true,
+      "runtimes": [
+        "transformers"
+      ],
+      "source": {
+        "hf": {
+          "repo": "Xenova/bge-m3",
+          "revision": "4de13258303883538bd53b696b452bf8099f0858",
+          "files": [
+            {
+              "path": "config.json",
+              "sha256": "git:04ba1697b973f10fa9b18169eabdeab59fec6fc5",
+              "size": 770
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "6710678b12670bc442b99edc952c4d996ae309a7020c1fa0096dd245c2faf790",
+              "size": 17082821
+            },
+            {
+              "path": "tokenizer_config.json",
+              "sha256": "git:328a00a9a560aadcf2a3064f917517359eb3cc26",
+              "size": 1173
+            },
+            {
+              "path": "special_tokens_map.json",
+              "sha256": "git:b1879d702821e753ffe4245048eee415d54a9385",
+              "size": 964
+            },
+            {
+              "path": "onnx/model_quantized.onnx",
+              "sha256": "0826f8c1ab9edf1801db86c61919d4d108e8bfc0b809ec823ad366882ff0b77d",
+              "size": 569694530
+            }
+          ]
+        }
+      },
+      "quantization": "q8",
+      "dtypeByDevice": {
+        "cpu": "q8"
+      },
+      "dims": 1024,
+      "maxInputTokens": 8192,
+      "pooling": "cls",
+      "normalize": true,
+      "queryInstruction": "",
+      "docInstruction": "",
+      "size": {
+        "downloadMB": 560,
+        "ramMB": 1169,
+        "vramMB": 0
+      },
+      "devices": [
+        "cpu"
+      ],
+      "tier": "light",
+      "heavier": "bge-m3-fp16",
+      "legacyProfile": "bge-m3"
+    },
+    {
+      "id": "bge-m3-fp16",
+      "kind": "embedding",
+      "label": "BGE-M3 (16-bit, DirectML)",
+      "family": "bge-m3",
+      "licence": "MIT",
+      "commercialUse": true,
+      "runtimes": [
+        "transformers"
+      ],
+      "source": {
+        "hf": {
+          "repo": "Xenova/bge-m3",
+          "revision": "4de13258303883538bd53b696b452bf8099f0858",
+          "files": [
+            {
+              "path": "config.json",
+              "sha256": "git:04ba1697b973f10fa9b18169eabdeab59fec6fc5",
+              "size": 770
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "6710678b12670bc442b99edc952c4d996ae309a7020c1fa0096dd245c2faf790",
+              "size": 17082821
+            },
+            {
+              "path": "tokenizer_config.json",
+              "sha256": "git:328a00a9a560aadcf2a3064f917517359eb3cc26",
+              "size": 1173
+            },
+            {
+              "path": "special_tokens_map.json",
+              "sha256": "git:b1879d702821e753ffe4245048eee415d54a9385",
+              "size": 964
+            },
+            {
+              "path": "onnx/model_fp16.onnx",
+              "sha256": "4f1a646a3d4f39985589e9991a717044ede8278617fe55e3d246838bc05055e9",
+              "size": 1133992936
+            }
+          ]
+        }
+      },
+      "quantization": "fp16",
+      "dtypeByDevice": {
+        "dml": "fp16",
+        "cpu": "fp16"
+      },
+      "dims": 1024,
+      "maxInputTokens": 8192,
+      "pooling": "cls",
+      "normalize": true,
+      "queryInstruction": "",
+      "docInstruction": "",
+      "size": {
+        "downloadMB": 1098,
+        "ramMB": 2030,
+        "vramMB": 1405
+      },
+      "devices": [
+        "gpu",
+        "cpu"
+      ],
+      "tier": "standard",
+      "lighter": "bge-m3-q8"
+    },
+    {
+      "id": "qwen3-embedding-0.6b-onnx-q8",
+      "kind": "embedding",
+      "label": "Qwen3 Embedding 0.6B (8-bit, CPU)",
+      "family": "qwen3-embedding",
+      "licence": "Apache-2.0",
+      "commercialUse": true,
+      "runtimes": [
+        "transformers"
+      ],
+      "source": {
+        "hf": {
+          "repo": "onnx-community/Qwen3-Embedding-0.6B-ONNX",
+          "revision": "c25a394dd583836952667c12f008335071b3f43d",
+          "files": [
+            {
+              "path": "config.json",
+              "sha256": "git:fe42030fa2c22872fcec1e333aebfbc38f2a2572",
+              "size": 1576
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "def76fb086971c7867b829c23a26261e38d9d74e02139253b38aeb9df8b4b50a",
+              "size": 11423705
+            },
+            {
+              "path": "tokenizer_config.json",
+              "sha256": "git:19d096ecc22dde6d41d64fc64b78cebe12697fbe",
+              "size": 9731
+            },
+            {
+              "path": "special_tokens_map.json",
+              "sha256": "git:ac23c0aaa2434523c494330aeb79c58395378103",
+              "size": 613
+            },
+            {
+              "path": "added_tokens.json",
+              "sha256": "git:b54f9135e44c1e81047e8d05cb027af8bc039eed",
+              "size": 707
+            },
+            {
+              "path": "vocab.json",
+              "sha256": "git:4783fe10ac3adce15ac8f358ef5462739852c569",
+              "size": 2776833
+            },
+            {
+              "path": "merges.txt",
+              "sha256": "git:31349551d90c7606f325fe0f11bbb8bd5fa0d7c7",
+              "size": 1671853
+            },
+            {
+              "path": "onnx/model_quantized.onnx",
+              "sha256": "87cd124e0ef1fd1f223ebc283efccbaeac386d0b08344701c46975d0657b591f",
+              "size": 613527631
+            }
+          ]
+        }
+      },
+      "quantization": "q8",
+      "dtypeByDevice": {
+        "cpu": "q8"
+      },
+      "dims": 1024,
+      "maxInputTokens": 8192,
+      "pooling": "last",
+      "normalize": true,
+      "queryInstruction": "Instruct: {task}\nQuery: ",
+      "docInstruction": "",
+      "size": {
+        "downloadMB": 600,
+        "ramMB": 1236,
+        "vramMB": 0
+      },
+      "devices": [
+        "cpu"
+      ],
+      "tier": "light",
+      "heavier": "qwen3-embedding-0.6b-onnx-fp16",
+      "legacyProfile": "qwen3-embedding-0.6b"
+    },
+    {
+      "id": "qwen3-embedding-0.6b-onnx-fp16",
+      "kind": "embedding",
+      "label": "Qwen3 Embedding 0.6B (16-bit, DirectML)",
+      "family": "qwen3-embedding",
+      "licence": "Apache-2.0",
+      "commercialUse": true,
+      "runtimes": [
+        "transformers"
+      ],
+      "source": {
+        "hf": {
+          "repo": "onnx-community/Qwen3-Embedding-0.6B-ONNX",
+          "revision": "c25a394dd583836952667c12f008335071b3f43d",
+          "files": [
+            {
+              "path": "config.json",
+              "sha256": "git:fe42030fa2c22872fcec1e333aebfbc38f2a2572",
+              "size": 1576
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "def76fb086971c7867b829c23a26261e38d9d74e02139253b38aeb9df8b4b50a",
+              "size": 11423705
+            },
+            {
+              "path": "tokenizer_config.json",
+              "sha256": "git:19d096ecc22dde6d41d64fc64b78cebe12697fbe",
+              "size": 9731
+            },
+            {
+              "path": "special_tokens_map.json",
+              "sha256": "git:ac23c0aaa2434523c494330aeb79c58395378103",
+              "size": 613
+            },
+            {
+              "path": "added_tokens.json",
+              "sha256": "git:b54f9135e44c1e81047e8d05cb027af8bc039eed",
+              "size": 707
+            },
+            {
+              "path": "vocab.json",
+              "sha256": "git:4783fe10ac3adce15ac8f358ef5462739852c569",
+              "size": 2776833
+            },
+            {
+              "path": "merges.txt",
+              "sha256": "git:31349551d90c7606f325fe0f11bbb8bd5fa0d7c7",
+              "size": 1671853
+            },
+            {
+              "path": "onnx/model_fp16.onnx",
+              "sha256": "f376cf065d912675dd559270e19361367ebc28c938b9811dd61d5834c78d0834",
+              "size": 583522
+            },
+            {
+              "path": "onnx/model_fp16.onnx_data",
+              "sha256": "06fbfded30166e3a33fe5252d7002ed1c370a4ec1bf45aba778cdf6cf7d31439",
+              "size": 1199927296
+            }
+          ]
+        }
+      },
+      "quantization": "fp16",
+      "dtypeByDevice": {
+        "dml": "fp16",
+        "cpu": "fp16"
+      },
+      "dims": 1024,
+      "maxInputTokens": 8192,
+      "pooling": "last",
+      "normalize": true,
+      "queryInstruction": "Instruct: {task}\nQuery: ",
+      "docInstruction": "",
+      "size": {
+        "downloadMB": 1160,
+        "ramMB": 2132,
+        "vramMB": 1489
+      },
+      "devices": [
+        "gpu",
+        "cpu"
+      ],
+      "tier": "standard",
+      "lighter": "qwen3-embedding-0.6b-onnx-q8",
+      "heavier": "qwen3-embedding-4b-q4"
+    },
+    {
+      "id": "qwen3-embedding-0.6b-q8",
+      "kind": "embedding",
+      "label": "Qwen3 Embedding 0.6B (8-bit, GGUF)",
+      "family": "qwen3-embedding",
+      "licence": "Apache-2.0",
+      "commercialUse": true,
+      "runtimes": [
+        "llamacpp"
+      ],
+      "source": {
+        "file": {
+          "sha256": "06507c7b42688469c4e7298b0a1e16deff06caf291cf0a5b278c308249c3e439",
+          "size": 639150592
+        },
+        "hf": {
+          "repo": "Qwen/Qwen3-Embedding-0.6B-GGUF",
+          "revision": "370f27d7550e0def9b39c1f16d3fbaa13aa67728",
+          "path": "Qwen3-Embedding-0.6B-Q8_0.gguf"
+        }
+      },
+      "quantization": "Q8_0",
+      "dims": 1024,
+      "dimsOptions": [
+        256,
+        512,
+        1024
+      ],
+      "maxInputTokens": 32768,
+      "pooling": "last",
+      "normalize": true,
+      "queryInstruction": "Instruct: {task}\nQuery: ",
+      "docInstruction": "",
+      "size": {
+        "downloadMB": 610,
+        "ramMB": 1730,
+        "vramMB": 1230
+      },
+      "devices": [
+        "gpu",
+        "cpu"
+      ],
+      "tier": "light",
+      "heavier": "qwen3-embedding-4b-q4"
+    },
+    {
+      "id": "qwen3-embedding-4b-q4",
+      "kind": "embedding",
+      "label": "Qwen3 Embedding 4B (4-bit)",
+      "family": "qwen3-embedding",
+      "licence": "Apache-2.0",
+      "commercialUse": true,
+      "runtimes": [
+        "llamacpp"
+      ],
+      "source": {
+        "file": {
+          "sha256": "2b0cf8f17b4c723c27303015383c27ec4bf2d8314bb677d05e920dd70bb0f16b",
+          "size": 2496703776
+        },
+        "hf": {
+          "repo": "Qwen/Qwen3-Embedding-4B-GGUF",
+          "revision": "f4602530db1d980e16da9d7d3a70294cf5c190be",
+          "path": "Qwen3-Embedding-4B-Q4_K_M.gguf"
+        }
+      },
+      "quantization": "Q4_K_M",
+      "dims": 2560,
+      "dimsOptions": [
+        256,
+        512,
+        1024,
+        2560
+      ],
+      "maxInputTokens": 40960,
+      "pooling": "last",
+      "normalize": true,
+      "queryInstruction": "Instruct: {task}\nQuery: ",
+      "docInstruction": "",
+      "size": {
+        "downloadMB": 2381,
+        "ramMB": 3930,
+        "vramMB": 3430
+      },
+      "devices": [
+        "gpu",
+        "cpu"
+      ],
+      "tier": "standard",
+      "lighter": "qwen3-embedding-0.6b-q8",
+      "heavier": "qwen3-embedding-4b-q8"
+    },
+    {
+      "id": "qwen3-embedding-4b-q8",
+      "kind": "embedding",
+      "label": "Qwen3 Embedding 4B (8-bit)",
+      "family": "qwen3-embedding",
+      "licence": "Apache-2.0",
+      "commercialUse": true,
+      "runtimes": [
+        "llamacpp"
+      ],
+      "source": {
+        "file": {
+          "sha256": "b60ae5ce2dd6a0b77f82cadf21def1f310a3e10cde380ad0081b07a9d416949d",
+          "size": 4279660224
+        },
+        "hf": {
+          "repo": "Qwen/Qwen3-Embedding-4B-GGUF",
+          "revision": "f4602530db1d980e16da9d7d3a70294cf5c190be",
+          "path": "Qwen3-Embedding-4B-Q8_0.gguf"
+        }
+      },
+      "quantization": "Q8_0",
+      "dims": 2560,
+      "dimsOptions": [
+        256,
+        512,
+        1024,
+        2560
+      ],
+      "maxInputTokens": 40960,
+      "pooling": "last",
+      "normalize": true,
+      "queryInstruction": "Instruct: {task}\nQuery: ",
+      "docInstruction": "",
+      "size": {
+        "downloadMB": 4081,
+        "ramMB": 5100,
+        "vramMB": 4600
+      },
+      "devices": [
+        "gpu",
+        "cpu"
+      ],
+      "tier": "quality",
+      "lighter": "qwen3-embedding-4b-q4",
+      "heavier": "qwen3-embedding-8b-q4"
+    },
+    {
+      "id": "qwen3-embedding-8b-q4",
+      "kind": "embedding",
+      "label": "Qwen3 Embedding 8B (4-bit)",
+      "family": "qwen3-embedding",
+      "licence": "Apache-2.0",
+      "commercialUse": true,
+      "runtimes": [
+        "llamacpp"
+      ],
+      "source": {
+        "file": {
+          "sha256": "3fcd3febec8b3fd64435204db75bf0dd73b91e8d0661e0331acfe7e7c3120b85",
+          "size": 4676804928
+        },
+        "hf": {
+          "repo": "Qwen/Qwen3-Embedding-8B-GGUF",
+          "revision": "69d0e58a13e463cd99a9b83e3f5fee7c10265fab",
+          "path": "Qwen3-Embedding-8B-Q4_K_M.gguf"
+        }
+      },
+      "quantization": "Q4_K_M",
+      "dims": 4096,
+      "dimsOptions": [
+        256,
+        512,
+        1024,
+        2048,
+        4096
+      ],
+      "maxInputTokens": 40960,
+      "pooling": "last",
+      "normalize": true,
+      "queryInstruction": "Instruct: {task}\nQuery: ",
+      "docInstruction": "",
+      "size": {
+        "downloadMB": 4460,
+        "ramMB": 6230,
+        "vramMB": 5730
+      },
+      "devices": [
+        "gpu",
+        "cpu"
+      ],
+      "tier": "quality",
+      "lighter": "qwen3-embedding-4b-q8",
+      "heavier": "qwen3-embedding-8b-q8"
+    },
+    {
+      "id": "qwen3-embedding-8b-q8",
+      "kind": "embedding",
+      "label": "Qwen3 Embedding 8B (8-bit)",
+      "family": "qwen3-embedding",
+      "licence": "Apache-2.0",
+      "commercialUse": true,
+      "runtimes": [
+        "llamacpp"
+      ],
+      "source": {
+        "file": {
+          "sha256": "d20ddc71e8a5c4344f2343481e242233a997dc5eaff442427a945836c97b4deb",
+          "size": 8047105824
+        },
+        "hf": {
+          "repo": "Qwen/Qwen3-Embedding-8B-GGUF",
+          "revision": "69d0e58a13e463cd99a9b83e3f5fee7c10265fab",
+          "path": "Qwen3-Embedding-8B-Q8_0.gguf"
+        }
+      },
+      "quantization": "Q8_0",
+      "dims": 4096,
+      "dimsOptions": [
+        256,
+        512,
+        1024,
+        2048,
+        4096
+      ],
+      "maxInputTokens": 40960,
+      "pooling": "last",
+      "normalize": true,
+      "queryInstruction": "Instruct: {task}\nQuery: ",
+      "docInstruction": "",
+      "size": {
+        "downloadMB": 7674,
+        "ramMB": 9600,
+        "vramMB": 9100
+      },
+      "devices": [
+        "gpu",
+        "cpu"
+      ],
+      "tier": "quality",
+      "lighter": "qwen3-embedding-8b-q4"
+    },
+    {
+      "id": "bge-reranker-v2-m3-q8",
+      "kind": "reranker",
+      "label": "BGE Reranker v2 M3 (8-bit, CPU)",
+      "family": "bge-reranker",
+      "licence": "Apache-2.0",
+      "commercialUse": true,
+      "runtimes": [
+        "transformers"
+      ],
+      "source": {
+        "hf": {
+          "repo": "onnx-community/bge-reranker-v2-m3-ONNX",
+          "revision": "6f5ff65298512715a1e669753bc754d2bc8f367b",
+          "files": [
+            {
+              "path": "config.json",
+              "sha256": "git:3eae9b124f6d5bc1aa368cc9ce7c4d5dfc151f5f",
+              "size": 848
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "8bf8afbfd11306bd872018c53bfdf2e160a56f8edbcf49933324404791c148d3",
+              "size": 17082900
+            },
+            {
+              "path": "tokenizer_config.json",
+              "sha256": "git:95bd7c849ee6a47d5c92805af18d187239c1ba4a",
+              "size": 1203
+            },
+            {
+              "path": "special_tokens_map.json",
+              "sha256": "git:b1879d702821e753ffe4245048eee415d54a9385",
+              "size": 964
+            },
+            {
+              "path": "onnx/model_quantized.onnx",
+              "sha256": "912fc1215c2dbff6499700534bd8d31253af01573861abbfc43afd1fab6cce5d",
+              "size": 570727094
+            }
+          ]
+        }
+      },
+      "quantization": "q8",
+      "dtypeByDevice": {
+        "cpu": "q8"
+      },
+      "dims": 1,
+      "maxInputTokens": 1024,
+      "pooling": "cls",
+      "normalize": false,
+      "queryInstruction": "",
+      "docInstruction": "",
+      "rerankerKind": "cross-encoder",
+      "size": {
+        "downloadMB": 561,
+        "ramMB": 1170,
+        "vramMB": 0
+      },
+      "devices": [
+        "cpu"
+      ],
+      "tier": "light",
+      "heavier": "bge-reranker-v2-m3-fp16",
+      "legacyProfile": "bge-reranker-v2-m3"
+    },
+    {
+      "id": "bge-reranker-v2-m3-fp16",
+      "kind": "reranker",
+      "label": "BGE Reranker v2 M3 (16-bit, DirectML)",
+      "family": "bge-reranker",
+      "licence": "Apache-2.0",
+      "commercialUse": true,
+      "runtimes": [
+        "transformers"
+      ],
+      "source": {
+        "hf": {
+          "repo": "onnx-community/bge-reranker-v2-m3-ONNX",
+          "revision": "6f5ff65298512715a1e669753bc754d2bc8f367b",
+          "files": [
+            {
+              "path": "config.json",
+              "sha256": "git:3eae9b124f6d5bc1aa368cc9ce7c4d5dfc151f5f",
+              "size": 848
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "8bf8afbfd11306bd872018c53bfdf2e160a56f8edbcf49933324404791c148d3",
+              "size": 17082900
+            },
+            {
+              "path": "tokenizer_config.json",
+              "sha256": "git:95bd7c849ee6a47d5c92805af18d187239c1ba4a",
+              "size": 1203
+            },
+            {
+              "path": "special_tokens_map.json",
+              "sha256": "git:b1879d702821e753ffe4245048eee415d54a9385",
+              "size": 964
+            },
+            {
+              "path": "onnx/model_fp16.onnx",
+              "sha256": "9b26f9185d2d26051f724c9fc3565e5d9614a9dd459b784c806c246232a70fe3",
+              "size": 1136209678
+            }
+          ]
+        }
+      },
+      "quantization": "fp16",
+      "dtypeByDevice": {
+        "dml": "fp16",
+        "cpu": "fp16"
+      },
+      "dims": 1,
+      "maxInputTokens": 1024,
+      "pooling": "cls",
+      "normalize": false,
+      "queryInstruction": "",
+      "docInstruction": "",
+      "rerankerKind": "cross-encoder",
+      "size": {
+        "downloadMB": 1100,
+        "ramMB": 2034,
+        "vramMB": 1409
+      },
+      "devices": [
+        "gpu",
+        "cpu"
+      ],
+      "tier": "standard",
+      "lighter": "bge-reranker-v2-m3-q8"
+    },
+    {
+      "id": "qwen3-reranker-0.6b-onnx-q8",
+      "kind": "reranker",
+      "label": "Qwen3 Reranker 0.6B (8-bit, CPU)",
+      "family": "qwen3-reranker",
+      "licence": "Apache-2.0",
+      "commercialUse": true,
+      "runtimes": [
+        "transformers"
+      ],
+      "source": {
+        "hf": {
+          "repo": "n24q02m/Qwen3-Reranker-0.6B-ONNX",
+          "revision": "342a8a54de23bba03eb8cce5f5bef503edf18315",
+          "files": [
+            {
+              "path": "config.json",
+              "sha256": "git:7765c1b3adb13de7225cb19844c141152f5a211e",
+              "size": 1416
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "8579e1ca7cc5d82a9e0202eed555529996f4ffe7f563c2979a0290cf3db452d3",
+              "size": 11422818
+            },
+            {
+              "path": "tokenizer_config.json",
+              "sha256": "git:e3be6945f7499ecf647bfe96d2e9eea0df519ee1",
+              "size": 349
+            },
+            {
+              "path": "chat_template.jinja",
+              "sha256": "git:63b97f268a9ddb9c6b34e6d7d8ef531d1fee9cf4",
+              "size": 741
+            },
+            {
+              "path": "onnx/model_yesno_quantized.onnx",
+              "sha256": "2bc0a77812a15ff6ead003370f36149139ae2c1bb1faf779b00c00886cd919ef",
+              "size": 600120496
+            }
+          ]
+        }
+      },
+      "quantization": "q8",
+      "dtypeByDevice": {
+        "cpu": "q8"
+      },
+      "dims": 1,
+      "maxInputTokens": 8192,
+      "pooling": "last",
+      "normalize": false,
+      "queryInstruction": "",
+      "docInstruction": "",
+      "rerankerKind": "yes-no-lm",
+      "size": {
+        "downloadMB": 583,
+        "ramMB": 1215,
+        "vramMB": 0
+      },
+      "devices": [
+        "cpu"
+      ],
+      "tier": "light",
+      "heavier": "qwen3-reranker-0.6b-q8"
+    },
+    {
+      "id": "qwen3-reranker-0.6b-q8",
+      "kind": "reranker",
+      "label": "Qwen3 Reranker 0.6B (8-bit, GGUF)",
+      "family": "qwen3-reranker",
+      "licence": "Apache-2.0",
+      "commercialUse": true,
+      "runtimes": [
+        "llamacpp"
+      ],
+      "source": {
+        "file": {
+          "sha256": "22c9979ce4fbcdc5acdc310c6641c32797eff1aa980b8f7a2db8a8ea23429a48",
+          "size": 639153184
+        },
+        "hf": {
+          "repo": "ggml-org/Qwen3-Reranker-0.6B-Q8_0-GGUF",
+          "revision": "a02f48bb4f057028298c21fa033da2b30d7742d5",
+          "path": "qwen3-reranker-0.6b-q8_0.gguf"
+        }
+      },
+      "quantization": "Q8_0",
+      "dims": 1,
+      "maxInputTokens": 8192,
+      "queryInstruction": "",
+      "docInstruction": "",
+      "rerankerKind": "http",
+      "size": {
+        "downloadMB": 610,
+        "ramMB": 1800,
+        "vramMB": 1300
+      },
+      "devices": [
+        "gpu",
+        "cpu"
+      ],
+      "tier": "standard",
+      "lighter": "qwen3-reranker-0.6b-onnx-q8",
+      "heavier": "qwen3-reranker-4b-q8"
+    },
+    {
+      "id": "qwen3-reranker-4b-q8",
+      "kind": "reranker",
+      "label": "Qwen3 Reranker 4B (8-bit, GGUF)",
+      "family": "qwen3-reranker",
+      "licence": "Apache-2.0",
+      "commercialUse": true,
+      "runtimes": [
+        "llamacpp"
+      ],
+      "source": {
+        "file": {
+          "sha256": "102ac400d68f02877c2fdfecf0732872652298448352b6faf28ec7f8dca8c913",
+          "size": 4279678912
+        },
+        "hf": {
+          "repo": "Voodisss/Qwen3-Reranker-4B-GGUF-llama_cpp",
+          "revision": "1b452c803342e73ac3644551b727dfd51a09fd5b",
+          "path": "Qwen3-Reranker-4B.Q8_0.gguf"
+        }
+      },
+      "quantization": "Q8_0",
+      "dims": 1,
+      "maxInputTokens": 8192,
+      "queryInstruction": "",
+      "docInstruction": "",
+      "rerankerKind": "http",
+      "size": {
+        "downloadMB": 4081,
+        "ramMB": 5300,
+        "vramMB": 4800
+      },
+      "devices": [
+        "gpu",
+        "cpu"
+      ],
+      "tier": "quality",
+      "lighter": "qwen3-reranker-0.6b-q8",
+      "heavier": "qwen3-reranker-8b-q8"
+    },
+    {
+      "id": "qwen3-reranker-8b-q8",
+      "kind": "reranker",
+      "label": "Qwen3 Reranker 8B (8-bit, GGUF)",
+      "family": "qwen3-reranker",
+      "licence": "Apache-2.0",
+      "commercialUse": true,
+      "runtimes": [
+        "llamacpp"
+      ],
+      "source": {
+        "file": {
+          "sha256": "13815d68c755c6293161a9aebc986976af90b35a7c9ffd2e074e58d28ddfe4ae",
+          "size": 8047134304
+        },
+        "hf": {
+          "repo": "Voodisss/Qwen3-Reranker-8B-GGUF-llama_cpp",
+          "revision": "646e3a1fc04936cab940ad02e18ee6b14af46263",
+          "path": "Qwen3-Reranker-8B.Q8_0.gguf"
+        }
+      },
+      "quantization": "Q8_0",
+      "dims": 1,
+      "maxInputTokens": 8192,
+      "queryInstruction": "",
+      "docInstruction": "",
+      "rerankerKind": "http",
+      "size": {
+        "downloadMB": 7674,
+        "ramMB": 9100,
+        "vramMB": 8600
+      },
+      "devices": [
+        "gpu",
+        "cpu"
+      ],
+      "tier": "quality",
+      "lighter": "qwen3-reranker-4b-q8"
+    }
+  ],
+  "packs": [
+    {
+      "id": "light",
+      "label": "Light",
+      "intent": "Works on any PC, no GPU needed, smallest download. Today's default.",
+      "variants": [
+        {
+          "embedding": "bge-m3-q8",
+          "reranker": null
+        }
+      ]
+    },
+    {
+      "id": "performance",
+      "label": "Performance",
+      "intent": "The fastest search with good quality; a GPU helps but is not required.",
+      "variants": [
+        {
+          "embedding": "qwen3-embedding-0.6b-onnx-fp16",
+          "reranker": null
+        },
+        {
+          "embedding": "qwen3-embedding-0.6b-onnx-q8",
+          "reranker": null
+        }
+      ]
+    },
+    {
+      "id": "balanced",
+      "label": "Balanced",
+      "intent": "Better recall with a reranker, for a GPU with 8 GB or more.",
+      "variants": [
+        {
+          "embedding": "qwen3-embedding-4b-q8",
+          "reranker": "qwen3-reranker-0.6b-q8"
+        },
+        {
+          "embedding": "qwen3-embedding-4b-q4",
+          "reranker": "bge-reranker-v2-m3-q8"
+        }
+      ]
+    },
+    {
+      "id": "quality",
+      "label": "Quality",
+      "intent": "The most complete and precise search this PC can run; slower to index.",
+      "variants": [
+        {
+          "embedding": "qwen3-embedding-8b-q8",
+          "reranker": "qwen3-reranker-4b-q8"
+        },
+        {
+          "embedding": "qwen3-embedding-8b-q4",
+          "reranker": "qwen3-reranker-4b-q8"
+        },
+        {
+          "embedding": "qwen3-embedding-4b-q8",
+          "reranker": "qwen3-reranker-0.6b-q8"
+        }
+      ],
+      "retrieval": {
+        "candidates": 80,
+        "rerank": {
+          "top": 40,
+          "mode": "topk"
+        }
+      }
+    }
+  ]
+}

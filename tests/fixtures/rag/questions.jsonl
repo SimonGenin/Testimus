@@ -1,0 +1,16 @@
+{"question":"Quelles commandes propose le menu contextuel d'un sectionneur sans TK ?","expected":["SOSIE_211_D401-1_3#req:EXI_MOP_SPF_511_A_1670"],"kind":"lookup"}
+{"question":"Que montre la fenêtre Propriétés du sectionneur ?","expected":["SOSIE_211_D401-1_3#req:EXI_MOP_SPF_511_A_1680"],"kind":"lookup"}
+{"question":"Comment est représenté un sectionneur sur la schématique ?","expected":["SOSIE_211_D401-1_3#fig:40","SOSIE_211_D401-1_3#req:EXI_MOP_SPF_511_A_1650"],"kind":"figure"}
+{"question":"Menu du disjoncteur","expected":["SOSIE_211_D401-1_3#§5.6.7"],"kind":"lookup"}
+{"question":"signal d'arrêt fermé","expected":["SOSIE_211_D401-1_4#§4.2"],"kind":"lookup"}
+{"question":"EXI_MOP_SPF_511_A_1660","expected":["SOSIE_211_D401-1_3#req:EXI_MOP_SPF_511_A_1660"],"kind":"code"}
+{"question":"EXI_MOP_SPF_510_A_20","expected":["SOSIE_211_D401-1_3#req:EXI_MOP_SPF_510_A_20"],"kind":"code"}
+{"question":"Que fait le TCO à deux rangs ?","expected":["SOSIE_211_D401-1_3#req:EXI_MOP_SPF_510_A_20"],"kind":"lookup"}
+{"question":"Peut-on voir si le sectionneur est ouvert sans ouvrir de fenêtre ?","expected":["SOSIE_211_D401-1_3#req:EXI_MOP_SPF_511_A_1660"],"kind":"paraphrase"}
+{"question":"Quel symbole graphique désigne l'appareil qui isole un tronçon de caténaire ?","expected":["SOSIE_211_D401-1_3#fig:40","SOSIE_211_D401-1_3#req:EXI_MOP_SPF_511_A_1650"],"kind":"figure"}
+{"question":"Où voit-on les points kilométriques des voies pour un appareil de coupure ?","expected":["SOSIE_211_D401-1_3#req:EXI_MOP_SPF_511_A_1680"],"kind":"paraphrase"}
+{"question":"Quel appareil est télécommandé depuis le poste de commande centralisé ?","expected":["SOSIE_211_D401-1_3#§5.6.7"],"kind":"paraphrase"}
+{"question":"Est-il permis de passer un feu rouge ?","expected":["SOSIE_211_D401-1_4#§4.2"],"kind":"paraphrase"}
+{"question":"Comment la couleur d'un objet de traction reflète-t-elle son état ?","expected":["SOSIE_211_D401-1_3#§5.6"],"kind":"paraphrase"}
+{"question":"Où sont dessinés les signaux de la ligne ?","expected":["SOSIE_211_D401-1_4#§4"],"kind":"lookup"}
+{"question":"Which commands can the operator send to a disconnector that has no remote control?","expected":["SOSIE_211_D401-1_3#req:EXI_MOP_SPF_511_A_1670"],"kind":"paraphrase"}

@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "testimus": {
+      "command": "testimus",
+      "args": ["mcp"],
+      "env": { "TESTIMUS_IN_CLAUDE": "1" }
+    }
+  }
+}

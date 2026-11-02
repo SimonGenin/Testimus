@@ -1,0 +1,82 @@
+# ROADMAP.md
+
+Each phase is usable on its own and ends on SPEC §15. Tick a line when it is built and verified;
+the behavior itself is described in SPEC.md, not here.
+
+## Phase 1 — Base: what Xray Editor does, behind the three faces
+
+The testers can use it as soon as this lands, with the CSVs they already make.
+
+- [x] Scaffold (SPEC §1): Node 26, TS 7 (erasable only), Vite 8, vitest 5, playwright, Biome;
+      `src/faces/cli.ts` with the registry, `help`, `--json`
+- [x] Registry → MCP (`testimus mcp`) and HTTP (`testimus serve`, SSE progress) adapters
+- [x] `project.init` + `templates/project/` (CLAUDE.md, `.mcp.json`, skills)
+- [x] Port `testfile` / `table` / `adf` with generic step fields and `### Sources`, round-trip tests
+- [x] Port `jira` / `sync`: pull, folders, push plan, push; `xray.fields` (custom step fields)
+- [x] `xray.json.prefs`: field order, folded by default, hidden
+- [x] `xray.importCsv` local mode (column mapping saved), then direct mode
+- [x] UI: port shell, editor, ui vocabulary, styles; generic fields; Claude dock (`claude -p`)
+- [x] `serve --mock` with the fixture Jira; e2e green
+- [x] `system.setup` / `system.doctor` (CLI, MCP, first-run screen)
+- [x] `npm run release` + `install.ps1` (portable Node, prebuilt natives, no admin); proven on a
+      clean Windows Sandbox account — v1: installed for real in `%LOCALAPPDATA%\Testimus` (doctor green,
+      project init, docx indexed, serve) and into a fresh folder with fresh user dirs; Windows Sandbox is
+      not enabled on the build PC (needs admin), and PATH / Start-menu entries await the user's go-ahead
+
+## Phase 2 — Documents and index
+
+- [x] `docs.add` / `docs.convert`: docx → `doc.md` with stable anchors + figures; PDF fallback
+- [x] Figure descriptions by Claude at conversion
+- [x] `rag.index`: section chunks, context headers, FTS5 + `sqlite-vec`, bge-m3 local; models as
+      profiles (`rag/models.ts`, `project.json.rag`)
+- [x] Default model profiles shipped in the release `models/`; `system.pullModel`; doctor checks
+      the project's profiles
+- [x] `rag.search`, `rag.passage`, `rag.figure` over MCP
+- [x] `rag.eval` + the testers' question set; settings fixed by measurement; bge-m3 vs
+      Qwen3-Embedding-0.6B — v1: measured on the fixture set (bge-m3 kept); the testers' set over the
+      real D401 documents is still to write
+- [x] `chat.ask` with `--resume` sessions and source chips; Documents screen
+
+## Phase 3 — Generation with sources
+
+- [x] `generate-tests` skill (from the testers' prompt, with source and requirement rules)
+- [x] `gen.tests` job; Generate screen with live output
+- [x] Figures from documents embedded in generated steps
+
+## Phase 4 — Check and review
+
+- [x] Mechanical check (sources resolve, quotes found, requirement ids exist)
+- [x] `check-test` skill, parallel over a batch; `check.json`
+- [x] Review screen: editor + findings + highlighted source passage; Validate / To fix
+- [x] `fix-test` skill from a To fix note; review state mirrored to Jira labels
+
+## RAG v2 — SPEC-RAG.md (built 2026-11; behavior in SPEC §4, §5, §8, §12, §14)
+
+- [x] R1 Benchmark v2: `behaviors.jsonl`, L1 metrics, `rag.compare` (bootstrap), reports with fingerprints, `gen.bench`
+- [x] R2 Evidence model: statements, matrix rows, graph, passage cap, `quote-not-at-anchor`, `quote-weak`
+- [x] R3 `rag.mentions`, `rag.related`, `expand`; skills updated; evidence ledger, `related-unread`, `review.evidence`
+- [x] R4 French lexical search: Snowball stemmer, glossary, stop words
+- [x] R5 Vector spaces by fingerprint, migration, per-machine activation, BM25 fallback, transformers.js devices
+- [x] R6 Model manager: catalog, `models.*`, storage folder (move · keep · copy), path and download (SHA-256),
+      Settings › Models, doctor rows
+- [x] R7 Ollama runtime and panel — proven against a fake server only (Ollama is not installed on the dev PC; the real
+      state « not installed » is checked)
+- [x] R8 Hardware fit, timings journal (fed by every runtime), advice with the benchmark's quality side, packs, first-launch pack
+- [x] R9 llama.cpp runtime: managed server, build download, backend choice
+- [ ] R10 Experiments of SPEC-RAG §10.8 on the RATP corpus; thresholds; reference
+- [ ] R11 (optional) Qwen3-Reranker through transformers.js (`yes-no-lm`), figure descriptions v2
+
+## Desktop app — SPEC-ELECTRON.md (behavior in SPEC §1, §2, §13 « Desktop shell », §14, §15)
+
+- [ ] E0 Signing and execution policy on a tester's PC — cannot be done on the build PC; open
+- [x] E1 `serve --port 0 --ready-json --exit-with-stdin`, clean stop, `TESTIMUS_SHELL`
+- [x] E2 Shell: core spawn, splash and error page, window state, lock-down, single instance, quit with jobs
+- [x] E3 Bridge in the UI: Browse, `pathOf` → `docs.add { file }`, pickers, taskbar progress, notifications, reveal, CSP
+- [x] E4 Release: pinned Electron + SHA-256, rename, icon, fuses, asar (integrity), locales, shortcuts, `Unblock-File` —
+      proven in a fresh folder (no Windows Sandbox on the build PC; a clean account remains with E0)
+- E5 (optional, out of scope this round): updates from a team folder, proxy from Windows settings
+
+## Later
+
+- Execution support: test sheets for testers, screenshots from R4 runs, NOK → bug draft
+- Requirement coverage report (outside the app, from the `Exigence` field)

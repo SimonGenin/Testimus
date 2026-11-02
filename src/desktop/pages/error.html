@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self'; style-src 'self'; script-src 'self'" />
+    <title>Testimus — could not start</title>
+    <link rel="stylesheet" href="pages.css" />
+    <script src="error.js" defer></script>
+  </head>
+  <body>
+    <main class="card" aria-labelledby="title">
+      <header>
+        <img class="logo" src="logo.png" alt="" />
+        <h1 id="title">Testimus could not start</h1>
+      </header>
+      <span class="state">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="currentColor" /><path d="M8 4v5M8 11.2v.6" stroke="#fff" stroke-width="1.8" stroke-linecap="round" /></svg>
+        Failed
+      </span>
+      <p class="message" id="message">The core of Testimus stopped.</p>
+      <h2 class="log-title" id="log-title">Last lines of the log</h2>
+      <pre role="log" aria-labelledby="log-title" id="lines"></pre>
+      <p class="where">Log folder: <code id="where"></code></p>
+      <div class="actions">
+        <button type="button" id="logs">Open the log folder</button>
+        <button type="button" class="primary" id="restart">Restart</button>
+      </div>
+    </main>
+  </body>
+</html>

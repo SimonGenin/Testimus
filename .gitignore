@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+
+# Build and release output (npm run build / desktop:build / release)
+dist/
+.build/
+*.tsbuildinfo
+
+# Test output (vitest, playwright)
+test-results/
+playwright-report/
+blob-report/
+coverage/
+tests/screens/
+.sandbox/
+
+# Local models (TESTIMUS_MODELS) and weights, wherever they land
+.models/
+*.onnx
+*.onnx_data
+*.gguf
+*.safetensors
+
+# Derived project state (SPEC §3): rebuilt from the files, never committed.
+# The fixture projects keep their .remote.md and check.json on purpose.
+.testimus/
+tests/fixtures/**/index/
+
+# Caches and logs
+.cache/
+*.log
+
+# Secrets and personal settings (Jira/Xray credentials live in ~/.atlassian, never here)
+.env
+.env.*
+.claude/settings.local.json
+.claude/worktrees/
+
+# OS and editors
+Thumbs.db
+Desktop.ini
+.DS_Store
+.vscode/
+.idea/

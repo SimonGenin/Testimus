@@ -1,0 +1,217 @@
+.gen {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.gen-form {
+  flex: 0 0 min(460px, 40%);
+  overflow: auto;
+  padding: 24px;
+  border-right: 1px solid var(--line);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.gen-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.gen-label {
+  font-size: 16px;
+}
+
+.gen-go {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.gen-result {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  padding: 24px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: stretch;
+}
+
+.gen-result > .btn {
+  align-self: flex-start;
+}
+
+.gen-summary {
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.gen-offline {
+  padding: 8px;
+}
+
+.genhead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.genhead-title {
+  font-size: 20px;
+}
+
+.uncovered {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--warn-bg);
+}
+
+.gen-cards {
+  display: flex;
+  flex-direction: column;
+}
+
+.gcard {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  gap: 6px 16px;
+  align-items: center;
+  width: 100%;
+  padding: 14px 18px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+button.gcard:hover {
+  background: var(--surface-2);
+}
+
+.gcard:last-child {
+  border-bottom: 0;
+}
+
+.gcard-title {
+  font-weight: 600;
+}
+
+.gcard-meta {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.gcard > .badge {
+  justify-self: end;
+}
+
+.reqpick {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: relative;
+}
+
+.reqpick-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  margin-top: 4px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 4px;
+  max-height: 280px;
+  overflow: auto;
+}
+
+.reqpick-opt {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: var(--radius-s);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.reqpick-opt.is-on,
+.reqpick-opt:hover {
+  background: var(--surface-2);
+}
+
+.reqpick-text {
+  font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.secpick {
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  max-height: 300px;
+  overflow: auto;
+}
+
+.sec {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: var(--radius-s);
+  font-size: 13.5px;
+  cursor: pointer;
+}
+
+.sec:hover {
+  background: var(--surface-2);
+}
+
+.sec-doc {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13.5px;
+  text-align: left;
+}
+
+.sec-doc svg {
+  width: 14px;
+  height: 14px;
+  color: var(--ink-3);
+}
+
+.sec-title {
+  flex: 1;
+}

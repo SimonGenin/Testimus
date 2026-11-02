@@ -1,0 +1,32 @@
+.jobprog {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 140px;
+}
+
+.jobdetail-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.jobdetail-title {
+  font-size: 18px;
+}
+
+.jobdetail .log {
+  flex: 1;
+  min-height: 160px;
+}
+
+.jobdetail-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.jobdetail-cli {
+  font-size: 12.5px;
+}

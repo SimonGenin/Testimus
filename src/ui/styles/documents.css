@@ -1,0 +1,187 @@
+.docs-screen {
+  position: relative;
+}
+
+.dropveil {
+  position: absolute;
+  inset: 8px;
+  border: 2px dashed var(--ink-2);
+  border-radius: var(--radius-l);
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.up-prog {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.up-prog .prog {
+  flex: 0 0 160px;
+}
+
+.up-fail {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.up-fail .problem {
+  flex: 1;
+}
+
+.up-fail-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.docs-screen .split-side {
+  flex-basis: clamp(340px, 33vw, 480px);
+}
+
+.docdetail-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.docdetail-title {
+  font-size: 20px;
+}
+
+.docdetail-warn {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.docdetail-warn .sev {
+  font-weight: 400;
+  color: var(--ink-2);
+}
+
+.docdetail-warn .sev svg {
+  color: var(--warn);
+}
+
+.docdetail-text {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.docdetail-code > span {
+  white-space: nowrap;
+}
+
+.doctoc-wrap {
+  display: grid;
+  grid-template-columns: minmax(110px, 36%) minmax(0, 1fr);
+  min-height: 220px;
+  max-height: 460px;
+}
+
+.doctoc {
+  border-right: 1px solid var(--line);
+  overflow: auto;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+}
+
+.toc {
+  border: 0;
+  background: transparent;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  padding: 5px 8px;
+  border-radius: var(--radius-s);
+  cursor: pointer;
+}
+
+.toc:hover {
+  background: var(--surface-2);
+}
+
+.toc-on {
+  background: var(--surface-2);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.docpart {
+  overflow: auto;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.doctext {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.doctext-h {
+  font-size: 15px;
+}
+
+.doctext-h[data-level="1"] {
+  font-size: 17px;
+}
+
+.doctext-p {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.doctext p {
+  overflow-wrap: anywhere;
+}
+
+.doctext-p.is-focus p {
+  background: var(--hl);
+  border-radius: 4px;
+  padding: 2px 4px;
+}
+
+.doctext-table {
+  font: 12px / 1.5 var(--font-mono);
+  overflow: auto;
+  background: var(--surface-2);
+  padding: 8px;
+  border-radius: var(--radius-s);
+  margin: 0;
+}
+
+.docreqs {
+  max-height: 160px;
+  overflow: auto;
+}
+
+.docs-words-only {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--warn-bg);
+  color: var(--ink-2);
+}

@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "additionalDirectories": [
+      "D:\\Projects\\XrayEditor",
+      "D:\\Projects\\Transkell",
+      "C:\\Users\\s.genin\\.claude\\skills\\xray-find",
+      "C:\\Users\\s.genin\\.claude\\skills\\xray-link",
+      "D:\\SVN\\B040L00192_Australia_BHP_TCC_Sources\\.xray",
+      "D:\\SVN\\B040L00320_Ratp_Sosie_Sources\\.claude\\scripts",
+      "D:\\SVN\\B040L00320_Ratp_Sosie_Sources\\.claude\\documentation",
+      "D:\\SVN\\B040L00320_Ratp_Sosie_Sources\\.claude\\skills\\testing",
+      "D:\\SVN\\B040L00320_Ratp_Sosie_Sources\\.claude\\skills\\testr4",
+      "C:\\Users\\s.genin\\Transurb\\2_SIM - Documents\\02_Projects\\L.00320 - France - RATP - SOSIE\\01 - Manage\\01 - Client\\14 - Livraisons documentaires\\J5\\D401-1 Specifications Fonctionnelles - J5"
+    ]
+  }
+}

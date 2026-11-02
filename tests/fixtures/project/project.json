@@ -1,0 +1,17 @@
+{
+  "name": "RATP Sosie",
+  "jiraProject": "LFRPS12",
+  "language": "fr",
+  "labelPrefix": "testimus-",
+  "folders": ["/Traction/Sectionneurs", "/Traction/Disjoncteurs", "/Signalisation"],
+  "rag": { "embedding": "bge-m3", "reranker": null },
+  "claude": {
+    "model": "sonnet",
+    "effort": "medium",
+    "presets": [
+      { "label": "Rephrase in house style", "prompt": "Rephrase the selected step in the house style: one action per step, observable expected result." },
+      { "label": "Add the negative path", "prompt": "Add the steps that check the negative path of this test, with their sources." }
+    ],
+    "contexts": []
+  }
+}

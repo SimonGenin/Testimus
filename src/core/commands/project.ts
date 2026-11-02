@@ -1,0 +1,365 @@
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { z } from "zod";
+import { ensureMcpJson } from "../claude/run.ts";
+import { type Command, command, projectOf, UserError } from "../command.ts";
+import { listJobs } from "../jobs.ts";
+import { sha256 } from "../lib/hash.ts";
+import {
+  DEFAULT_PROJECT,
+  DEFAULT_XRAY,
+  fieldOrder,
+  isProject,
+  readJson,
+  readProject,
+  readSettings,
+  readXray,
+  rememberProject,
+  writeJson,
+  writeProject,
+  writeXray,
+} from "../lib/project.ts";
+import { type ProjectJson, REVIEWS, type Review } from "../types.ts";
+import { EFFORT, MODEL } from "./claude.ts";
+
+const FOLDERS = ["docs", "tests", "contexts", "requirements"];
+
+export function templateDir(): string {
+  const dev = fileURLToPath(new URL("../../../templates/project/", import.meta.url));
+  if (existsSync(dev)) return dev;
+  return join(dirname(process.argv[1] ?? "."), "templates", "project");
+}
+
+function files(dir: string, base = dir): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+    e.isDirectory() ? files(join(dir, e.name), base) : [relative(base, join(dir, e.name)).replace(/\\/g, "/")],
+  );
+}
+
+export function initProject(
+  dir: string,
+  p: { name?: string; jiraProject?: string; language?: string },
+): { dir: string; created: string[]; kept: string[]; beside: string[] } {
+  const root = resolve(dir);
+  const tpl = templateDir();
+  if (!existsSync(tpl)) throw new UserError(`Project template not found at ${tpl}.`, "Reinstall Testimus.");
+  mkdirSync(root, { recursive: true });
+  const created: string[] = [];
+  const kept: string[] = [];
+  const beside: string[] = [];
+  const shippedFile = join(root, ".testimus", "shipped.json");
+  const shipped = readJson<Record<string, string[]>>(shippedFile, {});
+  const ship = (f: string, hash: string) => {
+    shipped[f] = [...new Set([...(shipped[f] ?? []), hash])];
+  };
+  for (const f of files(tpl)) {
+    const to = join(root, f);
+    if (f === ".mcp.json") continue;
+    const want = readFileSync(join(tpl, f));
+    const wantHash = sha256(want);
+    if (!existsSync(to)) {
+      mkdirSync(dirname(to), { recursive: true });
+      writeFileSync(to, want);
+      created.push(f);
+      ship(f, wantHash);
+      continue;
+    }
+    // ponytail: CLAUDE.md is the team's once it exists; a shipped skill follows the app unless the team edited
+    // it (it matches no version shipped here) — then theirs stays and the new one is written beside it
+    if (f === "CLAUDE.md") {
+      kept.push(f);
+      continue;
+    }
+    const have = sha256(readFileSync(to));
+    if (have !== wantHash && !(shipped[f] ?? []).includes(have)) {
+      const next = f.replace(/(\.[^./]+)?$/, ".new$1");
+      writeFileSync(join(root, next), want);
+      kept.push(f);
+      beside.push(next);
+      continue;
+    }
+    if (have !== wantHash) writeFileSync(to, want);
+    ship(f, wantHash);
+  }
+  writeJson(shippedFile, shipped);
+  if (!existsSync(join(root, ".mcp.json"))) created.push(".mcp.json");
+  ensureMcpJson(root);
+  if (isProject(root)) {
+    const cur = readProject(root);
+    writeProject(root, {
+      ...cur,
+      name: p.name ?? cur.name,
+      jiraProject: p.jiraProject ?? cur.jiraProject,
+      language: p.language ?? cur.language,
+    });
+    kept.push("project.json");
+  } else {
+    writeProject(root, {
+      ...structuredClone(DEFAULT_PROJECT),
+      name: p.name ?? p.jiraProject ?? "",
+      jiraProject: p.jiraProject ?? "",
+      language: p.language ?? DEFAULT_PROJECT.language,
+    });
+    created.push("project.json");
+  }
+  if (existsSync(join(root, "xray.json"))) kept.push("xray.json");
+  else {
+    writeXray(root, structuredClone(DEFAULT_XRAY));
+    created.push("xray.json");
+  }
+  for (const d of FOLDERS)
+    if (!existsSync(join(root, d))) {
+      mkdirSync(join(root, d), { recursive: true });
+      created.push(`${d}/`);
+    }
+  rememberProject(root);
+  return { dir: root, created, kept, beside };
+}
+
+function subdirs(dir: string): string[] {
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir, { withFileTypes: true })
+    .filter((e) => e.isDirectory())
+    .map((e) => e.name);
+}
+
+export function projectInfo(dir: string) {
+  const xray = readXray(dir);
+  const review = Object.fromEntries(REVIEWS.map((r) => [r, 0])) as Record<Review, number>;
+  let tests = 0;
+  for (const id of subdirs(join(dir, "tests"))) {
+    const f = join(dir, "tests", id, "test.md");
+    if (!existsSync(f)) continue;
+    tests++;
+    const front = readFileSync(f, "utf8").match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1] ?? "";
+    const r = front.match(/^review:\s*"?([\w-]+)"?\s*$/m)?.[1] as Review | undefined;
+    review[r && REVIEWS.includes(r) ? r : "draft"]++;
+  }
+  return {
+    dir,
+    project: readProject(dir),
+    xray,
+    fieldOrder: fieldOrder(xray),
+    counts: {
+      docs: subdirs(join(dir, "docs")).filter((d) => existsSync(join(dir, "docs", d, "doc.json"))).length,
+      tests,
+      review,
+      jobsRunning: listJobs(dir).filter((j) => j.status === "running").length,
+    },
+  };
+}
+
+const PRESET = z.object({ label: z.string(), prompt: z.string() });
+
+export const commands: Command[] = [
+  command({
+    name: "project.init",
+    summary: "Make a folder a Testimus project: template (CLAUDE.md, .mcp.json, skills), project.json, xray.json.",
+    input: z.object({
+      dir: z.string().describe("Folder to create or complete; an existing CLAUDE.md is kept."),
+      jiraProject: z.string().optional().describe("Jira project key, e.g. LFRPS12."),
+      name: z.string().optional().describe("Display name (default: the Jira key)."),
+      language: z.string().optional().describe("Language of the generated tests (default fr)."),
+    }),
+    output: z.object({
+      dir: z.string(),
+      created: z.array(z.string()),
+      kept: z.array(z.string()),
+      beside: z
+        .array(z.string())
+        .describe("New shipped versions written beside a skill the team edited (SKILL.new.md), to merge by hand"),
+    }),
+    mutates: true,
+    global: true,
+    positional: ["dir"],
+    async run(_ctx, input) {
+      return initProject(input.dir, input);
+    },
+  }),
+  command({
+    name: "project.info",
+    summary: "The open project: project.json, xray.json, field order and counts (docs, tests per review state, jobs).",
+    input: z.object({}),
+    output: z.object({
+      dir: z.string(),
+      project: z.unknown(),
+      xray: z.unknown(),
+      fieldOrder: z.array(z.string()),
+      counts: z.object({
+        docs: z.number(),
+        tests: z.number(),
+        review: z.record(z.string(), z.number()),
+        jobsRunning: z.number(),
+      }),
+    }),
+    mutates: false,
+    async run(ctx) {
+      return projectInfo(projectOf(ctx));
+    },
+  }),
+  command({
+    name: "project.list",
+    summary: "Known project folders (most recent first) and the last one opened.",
+    input: z.object({}),
+    output: z.object({
+      last: z.string(),
+      projects: z.array(z.object({ dir: z.string(), name: z.string(), jiraProject: z.string(), exists: z.boolean() })),
+    }),
+    mutates: false,
+    global: true,
+    async run() {
+      const s = readSettings();
+      return {
+        last: s.lastProject,
+        projects: s.projects.map((dir) => {
+          const exists = isProject(dir);
+          const p = exists ? readProject(dir) : DEFAULT_PROJECT;
+          return { dir, name: p.name, jiraProject: p.jiraProject, exists };
+        }),
+      };
+    },
+  }),
+  command({
+    name: "project.open",
+    summary: "Make a project folder the current one (remembered in the settings).",
+    input: z.object({ dir: z.string().describe("A folder that holds a project.json.") }),
+    output: z.object({ dir: z.string(), name: z.string(), jiraProject: z.string() }),
+    mutates: true,
+    global: true,
+    positional: ["dir"],
+    async run(_ctx, input) {
+      const dir = resolve(input.dir);
+      if (!isProject(dir))
+        throw new UserError(`${dir} is not a Testimus project.`, `testimus project init "${dir}" makes it one.`);
+      rememberProject(dir);
+      const p = readProject(dir);
+      return { dir, name: p.name, jiraProject: p.jiraProject };
+    },
+  }),
+  command({
+    name: "project.set",
+    summary:
+      "Change project.json settings: name, Jira project, language, label prefix, folders, RAG and Claude defaults.",
+    input: z.object({
+      name: z.string().optional().describe("Display name."),
+      jiraProject: z.string().optional().describe("Jira project key."),
+      language: z.string().optional().describe("Language of the generated tests, e.g. fr or en."),
+      labelPrefix: z.string().optional().describe("Prefix of the review labels pushed to Jira (default testimus-)."),
+      folders: z.array(z.string()).optional().describe("Xray repository folders offered when generating."),
+      rag: z
+        .object({
+          embedding: z.string().optional().describe("v1 embedding name, used when no pack or reference is chosen"),
+          reranker: z.string().nullable().optional().describe("v1 reranker name, or null for none"),
+          claudeHeaders: z
+            .boolean()
+            .optional()
+            .describe("Claude writes a context header per chunk (costly; off by default)"),
+          describeFigures: z
+            .boolean()
+            .optional()
+            .describe("Claude describes the figures at conversion (on by default)"),
+          reference: z
+            .union([
+              z.object({ pack: z.string().describe("Pack id: light, performance, balanced, quality") }),
+              z.object({
+                embedding: z.string().describe("Catalog id of the embedding"),
+                reranker: z.string().nullable().describe("Catalog id of the reranker, or null"),
+              }),
+            ])
+            .nullable()
+            .optional()
+            .describe("The team's reference configuration, measured by the benchmark (null removes it)"),
+          queryTask: z
+            .string()
+            .optional()
+            .describe("The task sentence of the query instruction ({task}); empty = default"),
+          passageMaxChars: z.number().int().min(1000).optional().describe("Cap of a passage returned to Claude"),
+          retrieval: z
+            .record(z.string(), z.unknown())
+            .optional()
+            .describe(
+              "Retrieval settings: candidates, rrfK, bm25Weights, rerank { top, mode, threshold, thresholds }, expand",
+            ),
+        })
+        .optional()
+        .describe("Retrieval settings of the project (only the keys given change)."),
+      requirementPatterns: z
+        .array(z.string())
+        .optional()
+        .describe("Extra regexes of requirement ids, besides EXI_… (replaces the list)"),
+      requirementMatrix: z
+        .object({
+          idColumn: z.string().describe("Header of the column holding the ids"),
+          sectionColumn: z.string().describe("Header of the column holding the traced section"),
+          textColumn: z.string().optional().describe("Header of the column holding the requirement's text"),
+        })
+        .nullable()
+        .optional()
+        .describe("How the requirement matrix is laid out, when its headers are not recognised (null removes it)"),
+      glossary: z
+        .record(z.string(), z.string())
+        .optional()
+        .describe("Acronyms and their long forms, added to the documents' own glossaries (replaces the list)"),
+      claude: z
+        .object({
+          model: MODEL.optional().describe("Model alias or name"),
+          effort: EFFORT.optional().describe("Effort level"),
+          presets: z.array(PRESET).optional().describe("Request presets offered in the dock"),
+          contexts: z
+            .array(z.string().regex(/^[\w-]+$/, "A context id: letters, digits, _ and -"))
+            .optional()
+            .describe("Context ids attached to every run"),
+        })
+        .optional()
+        .describe("Claude defaults: { model, effort, presets: [{label, prompt}], contexts: [ids] }."),
+    }),
+    output: z.unknown(),
+    mutates: true,
+    async run(ctx, input) {
+      const dir = projectOf(ctx);
+      const cur = readProject(dir);
+      if (input.labelPrefix !== undefined && (!input.labelPrefix.trim() || /\s/.test(input.labelPrefix)))
+        throw new UserError(
+          `Not a label prefix: ${JSON.stringify(input.labelPrefix)}.`,
+          "Use a non-empty prefix without spaces, e.g. testimus- — an empty one would take the team labels draft, checked, to-fix, validated.",
+        );
+      const next: ProjectJson = {
+        ...cur,
+        name: input.name ?? cur.name,
+        jiraProject: input.jiraProject ?? cur.jiraProject,
+        language: input.language ?? cur.language,
+        labelPrefix: input.labelPrefix ?? cur.labelPrefix,
+        folders: input.folders ?? cur.folders,
+        ...(input.requirementPatterns ? { requirementPatterns: input.requirementPatterns } : {}),
+        ...(input.glossary ? { glossary: input.glossary } : {}),
+        rag: {
+          ...cur.rag,
+          ...(input.rag?.queryTask !== undefined ? { queryTask: input.rag.queryTask } : {}),
+          ...(input.rag?.passageMaxChars !== undefined ? { passageMaxChars: input.rag.passageMaxChars } : {}),
+          ...(input.rag?.retrieval ? { retrieval: { ...cur.rag.retrieval, ...input.rag.retrieval } } : {}),
+          embedding: input.rag?.embedding ?? cur.rag.embedding,
+          reranker: input.rag?.reranker !== undefined ? input.rag.reranker : cur.rag.reranker,
+          ...((input.rag?.claudeHeaders ?? cur.rag.claudeHeaders) !== undefined && {
+            claudeHeaders: input.rag?.claudeHeaders ?? cur.rag.claudeHeaders,
+          }),
+          ...((input.rag?.describeFigures ?? cur.rag.describeFigures) !== undefined && {
+            describeFigures: input.rag?.describeFigures ?? cur.rag.describeFigures,
+          }),
+        },
+        claude: {
+          model: input.claude?.model ?? cur.claude.model,
+          effort: input.claude?.effort ?? cur.claude.effort,
+          presets: input.claude?.presets ?? cur.claude.presets,
+          contexts: input.claude?.contexts ?? cur.claude.contexts,
+        },
+      };
+      if (input.rag?.reference === null) delete next.rag.reference;
+      else if (input.rag?.reference) next.rag.reference = input.rag.reference;
+      if (input.requirementMatrix === null) delete next.requirementMatrix;
+      else if (input.requirementMatrix) next.requirementMatrix = input.requirementMatrix;
+      writeProject(dir, next);
+      return next;
+    },
+  }),
+];

@@ -1,0 +1,37 @@
+{
+  "at": "2026-10-30T10:02:00.000Z",
+  "testHash": "872ca440786899bb",
+  "findings": [
+    {
+      "kind": "negative-missing",
+      "severity": "warning",
+      "message": "Aucun step ne vérifie que le sectionneur avec TK manœuvré régulièrement ne propose que Propriétés.",
+      "sources": ["SOSIE_211_D401-1_3#§5.6.6"],
+      "pass": "semantic"
+    },
+    {
+      "step": 2,
+      "kind": "wrong-requirement",
+      "severity": "error",
+      "message": "EXI_MOP_SPF_510_A_20 porte sur le TCO à deux rangs, pas sur la vue testée par ce step.",
+      "sources": ["SOSIE_211_D401-1_3#req:EXI_MOP_SPF_510_A_20"],
+      "pass": "semantic"
+    },
+    {
+      "step": 5,
+      "kind": "not-simulated-unsourced",
+      "severity": "error",
+      "message": "Le step 5 affirme que la traction n'est pas simulée ; aucun passage ne le dit.",
+      "sources": [],
+      "pass": "semantic"
+    },
+    {
+      "step": 5,
+      "kind": "source-missing",
+      "severity": "warning",
+      "message": "Step 5 has no source for its expected result.",
+      "sources": [],
+      "pass": "mechanical"
+    }
+  ]
+}

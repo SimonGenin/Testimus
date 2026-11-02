@@ -1,0 +1,192 @@
+.doctor {
+  max-width: 900px;
+  padding: 24px 32px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.chks {
+  display: flex;
+  flex-direction: column;
+}
+
+.chk {
+  display: grid;
+  grid-template-columns: 112px 240px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.chk:last-child {
+  border-bottom: 0;
+}
+
+.chk .badge {
+  justify-self: start;
+}
+
+.chk-label {
+  font-weight: 600;
+}
+
+.chk-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.chk-detail {
+  overflow-wrap: anywhere;
+}
+
+.doctor-login {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.setup {
+  overflow: auto;
+  background: var(--bg);
+}
+
+.setup-col {
+  width: min(720px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 36px 0 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.setup-top {
+  display: flex;
+  align-items: center;
+}
+
+.setup-brand {
+  font-size: 20px;
+}
+
+.step-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+
+.setup-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-l);
+  padding: 28px 32px;
+}
+
+.setup-form form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.setup-title {
+  font-size: 24px;
+}
+
+.setup-found {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--info-bg);
+  color: var(--info);
+}
+
+.setup-found svg {
+  width: 16px;
+  height: 16px;
+  margin-top: 3px;
+  flex: none;
+}
+
+.setup-set {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.setup-set legend {
+  font-size: 16px;
+  margin-bottom: 10px;
+  padding: 0;
+}
+
+.setup-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.setup-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.setup-projects {
+  display: flex;
+  flex-direction: column;
+}
+
+.setup-proj {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.setup-proj:last-child {
+  border-bottom: 0;
+}
+
+.setup-proj.is-on {
+  background: var(--surface-2);
+}
+
+.setup-proj-name {
+  font-weight: 600;
+}
+
+.setup-proj-dir {
+  font-size: 11.5px;
+  overflow-wrap: anywhere;
+}
+
+.setup-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-logo {
+  width: 36px;
+  height: 36px;
+  padding: 3px;
+  border-radius: 8px;
+  background: var(--logo-tile);
+}
