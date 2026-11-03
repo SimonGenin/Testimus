@@ -3,7 +3,9 @@ import { join } from "node:path";
 import { env } from "../env.ts";
 import { readJson, readProject, writeJson } from "../lib/project.ts";
 import { testDir } from "../lib/store.ts";
-import type { ClaudeScope, Context } from "../types.ts";
+import type { ClaudeRun, ClaudeScope, Context } from "../types.ts";
+
+export type JobRun = ClaudeRun & { note?: string; contexts?: string[] };
 
 export const sharedContexts = (): string => join(env.dataDir(), "contexts");
 
@@ -153,6 +155,17 @@ export function contextLines(project: string, contexts: Context[], note = "", co
       conversation.trim(),
     );
   return lines;
+}
+
+// ponytail: a document's own Claude runs (figures, headers, triage) hear what the team knows about it, then what
+// the user added for this conversion
+export function docRunLines(project: string, docId: string, run: JobRun = {}): string[] {
+  const file = join(project, "docs", docId, "context.md");
+  const team = existsSync(file) ? readFileSync(file, "utf8").trim() : "";
+  return [
+    ...(team ? ["", "What the team knows about this document:", team] : []),
+    ...contextLines(project, readContexts(project, run.contexts ?? []), run.note),
+  ];
 }
 
 export function chatPrompt(question: string, language: string, context: string[] = []): string {

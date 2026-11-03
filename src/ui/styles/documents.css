@@ -49,6 +49,25 @@
   font-size: 20px;
 }
 
+.docconvert {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+}
+
+.docconvert-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.docconvert-acts {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .docdetail-warn {
   display: flex;
   flex-direction: column;

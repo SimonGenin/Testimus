@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs";
-import { extname, join, resolve, sep } from "node:path";
+import { basename, extname, join, resolve, sep } from "node:path";
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
 import { anchorsOf, type Converted, type ConvertOpts, guessFromName } from "../rag/convert.ts";
@@ -61,6 +61,13 @@ export function listDocs(project: string): DocRef[] {
   }
   return out;
 }
+
+export const isConverted = (doc: Pick<DocJson, "convertedAt">) => !!doc.convertedAt;
+
+const stemOf = (doc: Pick<DocJson, "source">) => {
+  const name = doc.source.path.replace(/^upload: /, "");
+  return basename(name, extname(name));
+};
 
 export function readFigures(project: string, id: string): FigureEntry[] {
   return readJson<FigureEntry[]>(join(docDir(project, id), "figures.json"), []);
@@ -180,7 +187,7 @@ type Progress = (message: string) => void;
 
 export async function addDoc(
   project: string,
-  input: { file: string; id?: string; pdf?: string; kind?: DocKind },
+  input: { file: string; id?: string; pdf?: string; kind?: DocKind; convert?: boolean },
   signal?: AbortSignal,
   progress: Progress = () => {},
 ): Promise<DocJson> {
@@ -214,6 +221,24 @@ export async function addDoc(
     writeAtomic(target, readFileSync(file));
     if (input.pdf && ext === ".docx") writeAtomic(pdfTarget, readFileSync(resolve(input.pdf)));
     const bytes = readFileSync(target);
+    const source = { path: file, sha256: sha256(bytes), file: `source${ext}` };
+    if (input.convert === false) {
+      const doc: DocJson = {
+        id,
+        code: guess.code,
+        title: basename(file, extname(file)),
+        version: guess.version,
+        date: "",
+        kind: input.kind ?? "spec",
+        status: "draft",
+        source,
+        convertedWith: "",
+        convertedAt: "",
+        warnings: [],
+      };
+      writeDoc(project, doc);
+      return doc;
+    }
     progress(`Converting ${ext.slice(1)}`);
     const c = await convertSource(target, {
       code: guess.code,
@@ -232,7 +257,7 @@ export async function addDoc(
       date: c.meta.date,
       kind: input.kind ?? "spec",
       status: "draft",
-      source: { path: file, sha256: sha256(bytes), file: `source${ext}` },
+      source,
       convertedWith: c.convertedWith,
       convertedAt: env.now().toISOString(),
       warnings: c.warnings,
@@ -279,8 +304,13 @@ export async function reconvertDoc(
   if (signal?.aborted) throw new Error("Cancelled.");
   progress("Writing doc.md and figures");
   const { stats } = writeConverted(dir, c);
+  // ponytail: a document added without conversion carries its file name as title until its first conversion
+  // reads the real one; a title the team typed is kept
+  const named = !isConverted(doc) && doc.title === stemOf(doc);
   const next: DocJson = {
     ...doc,
+    ...(named && c.meta.title ? { title: c.meta.title } : {}),
+    date: doc.date || c.meta.date,
     source: { ...doc.source, sha256: sha256(readFileSync(source)) },
     convertedWith: c.convertedWith,
     convertedAt: env.now().toISOString(),

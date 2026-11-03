@@ -178,7 +178,11 @@ describe("Documents › adding", () => {
     fakeDesktop({ paths: { "SOSIE_3.docx": "C:\\specs\\SOSIE_3.docx", "SOSIE_3.pdf": "C:\\specs\\SOSIE_3.pdf" } });
     await addDocFiles([docx(), pdf()], () => {});
     expect(named("docs.add")).toHaveLength(1);
-    expect(named("docs.add")[0].input).toEqual({ file: "C:\\specs\\SOSIE_3.docx", pdf: "C:\\specs\\SOSIE_3.pdf" });
+    expect(named("docs.add")[0].input).toEqual({
+      file: "C:\\specs\\SOSIE_3.docx",
+      pdf: "C:\\specs\\SOSIE_3.pdf",
+      convert: false,
+    });
   });
 
   it("falls back to base64 when the bridge has no path for the file, or there is no bridge", async () => {
@@ -230,7 +234,7 @@ describe("Documents › adding", () => {
       filters: [{ name: "Word or PDF", extensions: ["docx", "pdf"] }],
       multiple: true,
     });
-    expect(named("docs.add")[0].input).toEqual({ file: "C:\\specs\\SOSIE_3.docx" });
+    expect(named("docs.add")[0].input).toEqual({ file: "C:\\specs\\SOSIE_3.docx", convert: false });
     fireEvent.click(await screen.findByRole("button", { name: "Show in Explorer" }));
     await waitFor(() => expect(d.reveal).toHaveBeenCalledWith("C:\\p\\docs\\SOSIE_3"));
   });
@@ -251,6 +255,6 @@ describe("Documents › adding", () => {
     const zone = view.container.querySelector(".docs-screen") as HTMLElement;
     fireEvent.drop(zone, { dataTransfer: { files: [docx()], types: ["Files"] } });
     await waitFor(() => expect(named("docs.add")).toHaveLength(1));
-    expect(named("docs.add")[0].input).toEqual({ file: "C:\\specs\\SOSIE_3.docx" });
+    expect(named("docs.add")[0].input).toEqual({ file: "C:\\specs\\SOSIE_3.docx", convert: false });
   });
 });

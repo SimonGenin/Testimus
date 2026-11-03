@@ -5,10 +5,11 @@ import { ActionButton } from "../../components/claude/ActionButton.tsx";
 import { ActionCount } from "../../components/claude/ActionCount.tsx";
 import { Button, Icon, IconButton, Menu, Severity, Skeleton } from "../../components/ui/index.ts";
 import { forProblem, useActions } from "../../lib/actions.ts";
-import { desktop, pathJoin, reveal } from "../../lib/desktop.ts";
+import { baseName, desktop, pathJoin, reveal } from "../../lib/desktop.ts";
 import { message, plural } from "../../lib/format.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 import { idPattern, REQUIREMENT, tracesNow } from "../../lib/traces.ts";
+import { ConvertDoc } from "./ConvertDoc.tsx";
 import { DocText, FigureChip } from "./DocText.tsx";
 import { RemoveDoc } from "./RemoveDoc.tsx";
 
@@ -52,6 +53,7 @@ export function DocDetail({
 }) {
   const [shown, setShown] = useState<Shown | null>(null);
   const [ask, setAsk] = useState(false);
+  const [again, setAgain] = useState(false);
   const [part, setPart] = useState<{ anchor: string; md: string; section?: string } | null>(null);
   const textBox = useRef<HTMLDivElement>(null);
   const [context, setContext] = useState("");
@@ -174,6 +176,7 @@ export function DocDetail({
 
   const d = shown.doc;
   const from = d.source.file?.endsWith(".pdf") ? "PDF" : "Word";
+  const converted = !!d.convertedAt;
   return (
     <aside className="split-side docdetail" aria-label={`${d.code} details`}>
       <div className="docdetail-head">
@@ -191,7 +194,10 @@ export function DocDetail({
           <Menu
             label="More actions for this document"
             align="right"
-            items={[{ key: "delete", label: "Delete", icon: "trash", danger: true, onSelect: () => setAsk(true) }]}
+            items={[
+              ...(converted ? [{ key: "convert", label: "Convert again…", onSelect: () => setAgain(true) }] : []),
+              { key: "delete", label: "Delete", icon: "trash", danger: true, onSelect: () => setAsk(true) },
+            ]}
             trigger={({ open, toggle, id: mid }) => (
               <IconButton
                 icon="more"
@@ -204,11 +210,17 @@ export function DocDetail({
           />
         </div>
         <h2 className="h docdetail-title">{d.title}</h2>
-        <span className="muted">
-          Converted from {from} · {plural(shown.toc.length, "section")} ·{" "}
-          {scanned.map((f) => `${plural(f.items.length, `${f.trace.label.toLowerCase()} id`)} · `).join("")}
-          {plural(shown.figures.length, "figure")}
-        </span>
+        {converted ? (
+          <span className="muted">
+            Converted from {from} · {plural(shown.toc.length, "section")} ·{" "}
+            {scanned.map((f) => `${plural(f.items.length, `${f.trace.label.toLowerCase()} id`)} · `).join("")}
+            {plural(shown.figures.length, "figure")}
+          </span>
+        ) : (
+          <span className="muted">
+            {from} file, not converted · {baseName(d.source.path.replace(/^upload: /, ""))}
+          </span>
+        )}
         {desktop() && project() && (
           <span>
             <Button
@@ -257,6 +269,9 @@ export function DocDetail({
         />
       </div>
 
+      {!converted && <ConvertDoc doc={d} onChanged={onChanged} />}
+      {converted && again && <ConvertDoc doc={d} again onClose={() => setAgain(false)} onChanged={onChanged} />}
+
       {d.warnings.length > 0 && (
         <div className="docdetail-warn">
           <span className="label">Conversion warnings</span>
@@ -275,46 +290,48 @@ export function DocDetail({
         </div>
       )}
 
-      <div className="docdetail-text">
-        <div className="sect-head">
-          <span className="label">Converted text</span>
-        </div>
-        <div ref={textBox} className="card doctoc-wrap">
-          <nav className="doctoc" aria-label="Sections">
-            {shown.toc.map((t) => (
-              <button
-                key={t.anchor}
-                type="button"
-                className={t.anchor === current ? "toc toc-on" : "toc"}
-                aria-current={t.anchor === current ? "true" : undefined}
-                style={{ paddingLeft: 8 + (t.level - 1) * 10 }}
-                onClick={() => onAnchor(t.anchor)}
-              >
-                {/^§\d+(\.\d+)*$/.test(t.anchor) ? `${t.anchor.slice(1)} ` : ""}
-                {t.title}
-              </button>
-            ))}
-          </nav>
-          <div className="docpart">
-            {!part ? (
-              <>
-                <Skeleton w="60%" h={16} />
-                <Skeleton w="95%" h={13} />
-                <Skeleton w="85%" h={13} />
-              </>
-            ) : (
-              <DocText
-                docId={id}
-                md={part.md}
-                focus={focus}
-                requirements={requirements}
-                onRequirement={(rid) => onAnchor(`req:${rid}`)}
-                onFigure={onAnchor}
-              />
-            )}
+      {converted && (
+        <div className="docdetail-text">
+          <div className="sect-head">
+            <span className="label">Converted text</span>
+          </div>
+          <div ref={textBox} className="card doctoc-wrap">
+            <nav className="doctoc" aria-label="Sections">
+              {shown.toc.map((t) => (
+                <button
+                  key={t.anchor}
+                  type="button"
+                  className={t.anchor === current ? "toc toc-on" : "toc"}
+                  aria-current={t.anchor === current ? "true" : undefined}
+                  style={{ paddingLeft: 8 + (t.level - 1) * 10 }}
+                  onClick={() => onAnchor(t.anchor)}
+                >
+                  {/^§\d+(\.\d+)*$/.test(t.anchor) ? `${t.anchor.slice(1)} ` : ""}
+                  {t.title}
+                </button>
+              ))}
+            </nav>
+            <div className="docpart">
+              {!part && target ? (
+                <>
+                  <Skeleton w="60%" h={16} />
+                  <Skeleton w="95%" h={13} />
+                  <Skeleton w="85%" h={13} />
+                </>
+              ) : (
+                <DocText
+                  docId={id}
+                  md={part?.md ?? shown.md}
+                  focus={focus}
+                  requirements={requirements}
+                  onRequirement={(rid) => onAnchor(`req:${rid}`)}
+                  onFigure={onAnchor}
+                />
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {scanned
         .filter((f) => f.items.length > 0)

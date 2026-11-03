@@ -1,8 +1,9 @@
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { readJson, readProject, readSettings } from "../lib/project.ts";
-import type { Chunk, ClaudeRun, DocJson } from "../types.ts";
+import type { Chunk, DocJson } from "../types.ts";
 import { languageName } from "./generate.ts";
+import { docRunLines, type JobRun } from "./prompt.ts";
 import { runClaude } from "./run.ts";
 
 export const HEADERS_MARKER = "Testimus context-headers run";
@@ -30,7 +31,12 @@ export function projectOfDoc(doc: DocJson): string | null {
   return null;
 }
 
-export function headersPrompt(doc: Pick<DocJson, "id" | "code" | "title">, chunks: Chunk[], language: string): string {
+export function headersPrompt(
+  doc: Pick<DocJson, "id" | "code" | "title">,
+  chunks: Chunk[],
+  language: string,
+  extra: string[] = [],
+): string {
   return [
     `${HEADERS_MARKER} for the document ${doc.code || doc.id} ${doc.title}.`.replace(/\s+\./, "."),
     "",
@@ -38,6 +44,7 @@ export function headersPrompt(doc: Pick<DocJson, "id" | "code" | "title">, chunk
     `sentence in ${languageName(language)} that situates it in the document so the passage can be found on its own:`,
     "which document, which object or screen, what the passage specifies. Name the objects as the document does.",
     "Use only the text given here; read nothing else and do not edit any file.",
+    ...extra,
     "",
     ...chunks.flatMap((c) => [
       `=== ${c.id} (${c.path || c.anchor})`,
@@ -74,7 +81,7 @@ export async function claudeHeaders(
   chunks: Chunk[],
   signal: AbortSignal,
   project?: string,
-  claude: ClaudeRun = {},
+  claude: JobRun = {},
 ): Promise<string[]> {
   const dir = project ?? projectOfDoc(doc);
   if (!dir || !claudeHeadersOn(dir) || !chunks.length) return [];
@@ -85,7 +92,7 @@ export async function claudeHeaders(
     const batch = chunks.slice(i, i + HEADERS_BATCH);
     const run = await runClaude({
       project: dir,
-      prompt: headersPrompt(doc, batch, p.language),
+      prompt: headersPrompt(doc, batch, p.language, docRunLines(dir, doc.id, { note: claude.note })),
       model: claude.model || "haiku",
       effort: claude.effort || "low",
       kind: "headers",

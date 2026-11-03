@@ -253,13 +253,16 @@ test("documents go to the core by path, the taskbar follows the jobs, their end 
       filters: [{ name: "Word or PDF", extensions: ["docx", "pdf"] }],
       properties: expect.arrayContaining(["multiSelections"]),
     });
-    expect(bodies).toEqual([{ file: picked }]);
+    expect(bodies).toEqual([{ file: picked, convert: false }]);
 
     const dropped = join(dir, "SOSIE_212_D402-1_2.docx");
     writeFileSync(dropped, sampleDocx({ extraParagraph: "Dropped from Explorer." }));
     await page.locator('input[type="file"]').setInputFiles(dropped);
     await expect(rows).toHaveCount(4, { timeout: 60_000 });
-    expect(bodies).toEqual([{ file: picked }, { file: dropped }]);
+    expect(bodies).toEqual([
+      { file: picked, convert: false },
+      { file: dropped, convert: false },
+    ]);
 
     await expect
       .poll(async () => (await main(app)).progress.filter((v) => v >= 0 && v <= 1).length, { timeout: 30_000 })

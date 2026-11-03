@@ -4,8 +4,9 @@ import type { Ctx } from "../command.ts";
 import { UserError } from "../command.ts";
 import { readJson, readProject, writeJson } from "../lib/project.ts";
 import { docFigures, markerLine, parseSections, sectionAt } from "../rag/chunk.ts";
-import type { ClaudeRun, DocJson, FigureEntry } from "../types.ts";
+import type { DocJson, FigureEntry } from "../types.ts";
 import { languageName } from "./generate.ts";
+import { docRunLines, type JobRun } from "./prompt.ts";
 import { runClaude } from "./run.ts";
 
 export const FIGURES_MARKER = "Testimus describe-figures run";
@@ -36,6 +37,7 @@ export function figuresPrompt(
   doc: Pick<DocJson, "id" | "code" | "title">,
   todo: FigureTodo[],
   language: string,
+  extra: string[] = [],
 ): string {
   return [
     `${FIGURES_MARKER} for the document ${doc.code || doc.id} ${doc.title}.`.replace(/\s+\./, "."),
@@ -49,6 +51,7 @@ export function figuresPrompt(
     `- kind: one of ${FIGURE_KINDS.join(", ")} (screen = a software window or screenshot, diagram = a drawing, plan or`,
     "  flow, symbol = one pictogram or a legend of symbols, table-image = a table pasted as a picture, photo).",
     "Do not edit any file.",
+    ...extra,
     "",
     ...todo.map(
       (f) =>
@@ -120,7 +123,7 @@ export async function describeFigures(
   project: string,
   docId: string,
   ctx: Ctx,
-  opts: { force?: boolean } & ClaudeRun = {},
+  opts: { force?: boolean } & JobRun = {},
 ): Promise<DescribeResult> {
   const dir = join(project, "docs", docId);
   if (!/^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(docId) || !existsSync(join(dir, "doc.md")))
@@ -169,7 +172,7 @@ export async function describeFigures(
     ctx.progress({ message: `Describing the figures of ${docId}`, done: i, total: todo.length });
     const run = await runClaude({
       project,
-      prompt: figuresPrompt(doc, batch, p.language),
+      prompt: figuresPrompt(doc, batch, p.language, docRunLines(project, docId, opts)),
       model: opts.model || p.claude.model,
       effort: opts.effort || "low",
       kind: "figures",

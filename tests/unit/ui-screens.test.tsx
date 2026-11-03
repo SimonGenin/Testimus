@@ -363,7 +363,7 @@ describe("Documents screen", () => {
       status: "validated",
       source: { path: "", sha256: "", file: "source.docx" },
       convertedWith: "",
-      convertedAt: "",
+      convertedAt: "2026-11-02T10:00:00.000Z",
       warnings: indexed === "stale" ? ["2 Word comments were dropped"] : [],
       indexed,
     });
@@ -386,7 +386,7 @@ describe("Documents screen", () => {
     expect(within(list).getByText("Up to date").querySelector("svg")).not.toBeNull();
   });
 
-  it("says indexing failed (not adding) when the document was added, and forgets it on leaving", async () => {
+  it("an added document waits, not converted and not indexed, until the team converts it", async () => {
     const doc = {
       id: "SOSIE_211_D401-1_5",
       code: "SOSIE_211_D401-1_5",
@@ -416,18 +416,21 @@ describe("Documents screen", () => {
       target: { value: "C:/docs/SOSIE_211_D401-1_5.docx" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add" }));
-    const list = await screen.findByRole("region", { name: "Document list" });
-    await waitFor(() => expect(within(list).getByText("Indexing failed")).toBeInTheDocument());
-    expect(within(list).queryByRole("button", { name: "Reindex" })).toBeNull();
+    await waitFor(() =>
+      expect(within(screen.getByRole("region", { name: "Document list" })).getByText("Not converted")).toBeVisible(),
+    );
+    const list = screen.getByRole("region", { name: "Document list" });
+    expect(app.navigate).toHaveBeenCalledWith("documents", doc.id);
     expect(within(list).queryByText(/stopped/)).not.toBeInTheDocument();
     expect(within(list).queryByText("New document")).not.toBeInTheDocument();
     expect(within(list).getAllByText("Itinéraires")).toHaveLength(1);
+    expect(named("rag.index")).toHaveLength(0);
     again.unmount();
 
     wrap(app, <DocumentsScreen />);
     const fresh = await screen.findByRole("region", { name: "Document list" });
     await waitFor(() => expect(within(fresh).getByText("Itinéraires")).toBeInTheDocument());
-    expect(within(fresh).queryByText("Indexing failed")).not.toBeInTheDocument();
+    expect(within(fresh).getByText("Not converted")).toBeInTheDocument();
   });
 });
 

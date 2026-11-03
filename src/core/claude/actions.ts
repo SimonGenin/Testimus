@@ -25,7 +25,13 @@ export function proposeLines(runId: string, examples: string): string[] {
   ];
 }
 
-export function triagePrompt(runId: string, problems: Problem[], where: string, language: string): string {
+export function triagePrompt(
+  runId: string,
+  problems: Problem[],
+  where: string,
+  language: string,
+  extra: string[] = [],
+): string {
   return [
     `${TRIAGE_MARKER} of ${where}: Testimus found the problems below.`,
     "For each one, decide whether you could fix it yourself in a later run, with the app's own commands",
@@ -34,6 +40,7 @@ export function triagePrompt(runId: string, problems: Problem[], where: string, 
     "",
     "Problems:",
     ...problems.map((p) => `- [${p.where}] ${p.text}`),
+    ...extra,
     "",
     "For a problem you can really fix, call actions_propose once:",
     `{ runId: "${runId}", where: "<the [place] of the problem>", problem: "<the problem text, verbatim>",`,
@@ -128,6 +135,7 @@ export async function triage(
   where: string,
   run: ClaudeRun,
   label: string,
+  extra: string[] = [],
 ): Promise<{ ok: boolean; summary: string; proposed: Listed[] }> {
   if (!problems.length) return { ok: true, summary: "No problem to look at.", proposed: [] };
   const p = readProject(project);
@@ -136,7 +144,7 @@ export async function triage(
   const r = await runClaude({
     kind: "triage",
     project,
-    prompt: triagePrompt(runId, problems, where, p.language),
+    prompt: triagePrompt(runId, problems, where, p.language, extra),
     model: run.model || p.claude.model,
     effort: run.effort || "low",
     runId,

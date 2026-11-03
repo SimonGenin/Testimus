@@ -2,6 +2,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
+import { docRunLines } from "../../src/core/claude/prompt.ts";
 import { quietCtx } from "../../src/core/command.ts";
 import { commands } from "../../src/core/commands/docs.ts";
 import { isStale, recheckMechanical, recordSemantic, testsCiting } from "../../src/core/lib/check.ts";
@@ -71,6 +72,50 @@ describe("docs commands", () => {
     await expect(run(project, "docs.add", { file: join(dir, "source.docx"), id: "other" })).rejects.toThrow(
       /already a copy inside/,
     );
+  });
+
+  it("adds a docx without converting it, lets the team fill it in, then converts it on demand", async () => {
+    const doc = await run<DocJson & { citedBy: unknown[] }>(project, "docs.add", { file: original, convert: false });
+    const dir = join(project, "docs", "SOSIE_211_D401-1_3");
+    expect(doc).toMatchObject({
+      id: "SOSIE_211_D401-1_3",
+      title: "SOSIE_211_D401-1_3_01.01",
+      version: "01.01",
+      date: "",
+      status: "draft",
+      convertedAt: "",
+      convertedWith: "",
+      warnings: [],
+      citedBy: [],
+    });
+    expect(doc.stats).toBeUndefined();
+    expect(existsSync(join(dir, "source.docx"))).toBe(true);
+    expect(existsSync(join(dir, "doc.md"))).toBe(false);
+    expect((await run<DocRef[]>(project, "docs.list", {}))[0].indexed).toBe("missing");
+    expect(await run(project, "docs.show", { id: doc.id })).toMatchObject({ toc: [], requirements: [], md: "" });
+    await run(project, "docs.set", { id: doc.id, status: "submitted", context: "Edition for the 2024 tender" });
+    expect(docRunLines(project, doc.id, { note: "Only chapter 5 matters" })).toEqual([
+      "",
+      "What the team knows about this document:",
+      "Edition for the 2024 tender",
+      "",
+      "Additional context from the user for this run:",
+      "Only chapter 5 matters",
+    ]);
+    const converted = await run<DocJson>(project, "docs.convert", { id: doc.id, note: "Only chapter 5 matters" });
+    expect(converted).toMatchObject({
+      title: "Spécification fonctionnelle – Traction",
+      date: "2026-06-12",
+      status: "submitted",
+      stats: { sections: 20, figures: 1, requirements: 3 },
+    });
+    expect(converted.convertedAt).not.toBe("");
+    expect(readFileSync(join(dir, "context.md"), "utf8")).toBe("Edition for the 2024 tender\n");
+
+    await run(project, "docs.remove", { id: doc.id });
+    await run(project, "docs.add", { file: original, convert: false });
+    await run(project, "docs.set", { id: doc.id, title: "Traction (team title)" });
+    expect(await run(project, "docs.convert", { id: doc.id })).toMatchObject({ title: "Traction (team title)" });
   });
 
   it("refuses what it cannot convert and leaves no folder behind", async () => {

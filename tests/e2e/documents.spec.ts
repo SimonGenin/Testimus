@@ -56,7 +56,7 @@ test("a document's status change is saved", async ({ page }) => {
     .toContain('"status":"validated"');
 });
 
-test("a .docx added from a path is converted and listed", async ({ page }) => {
+test("a .docx added from a path is listed unconverted, then converted and indexed on demand", async ({ page }) => {
   const dir = mkdtempSync(join(tmpdir(), "testimus-e2e-"));
   const file = join(dir, "SOSIE_211_D401-1_9.docx");
   writeFileSync(file, sampleDocx());
@@ -73,7 +73,17 @@ test("a .docx added from a path is converted and listed", async ({ page }) => {
     .map((m) => m[1])
     .find((id) => !id.startsWith("SOSIE_211_D401-1_3") && !id.startsWith("SOSIE_211_D401-1_4"));
   expect(added).toBeTruthy();
-  await expect(
-    page.getByRole("region", { name: "Document list" }).getByRole("row", { name: new RegExp(`^${added} · `) }),
-  ).toHaveCount(1);
+  const row = page
+    .getByRole("region", { name: "Document list" })
+    .getByRole("row", { name: new RegExp(`^${added} · `) });
+  await expect(row).toHaveCount(1);
+  await expect(row.getByText("Not converted")).toBeVisible();
+  expect(JSON.stringify(await api(url, "docs.show", { id: added }))).toContain('"convertedAt":""');
+  const side = page.getByRole("complementary", { name: `${added} details` });
+  await expect(side.getByText("Not converted yet")).toBeVisible();
+  await side.getByRole("button", { name: "Convert and index" }).click();
+  await expect
+    .poll(async () => JSON.stringify(await api(url, "docs.show", { id: added })), { timeout: 60_000 })
+    .not.toContain('"convertedAt":""');
+  await expect(side.getByText("Converted text")).toBeVisible({ timeout: 30_000 });
 });

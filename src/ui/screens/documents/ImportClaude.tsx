@@ -16,7 +16,7 @@ export function ImportClaude() {
   return (
     <div
       className="docs-claude"
-      title="Claude model and effort used when documents are added or indexed: figure descriptions, and context headers when they are on"
+      title="Claude model and effort used when documents are converted and indexed: figure descriptions, and context headers when they are on"
     >
       <span className="label">Claude</span>
       <ModelPicker value={model} className="btn btn-sm select" onChange={(m) => pick({ model: m, effort })} />

@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 import { type Problem, runAction, triage } from "../claude/actions.ts";
+import { docRunLines } from "../claude/prompt.ts";
 import { readRunMeta } from "../claude/run.ts";
 import { type Command, command, projectOf, UserError } from "../command.ts";
 import { env } from "../env.ts";
@@ -201,6 +202,8 @@ export const commands: Command[] = [
       jobId: z.string().optional().describe("A failed job: its error and warnings are looked at"),
       model: MODEL.optional().describe("Model (default: project.json claude.model)"),
       effort: EFFORT.optional().describe("Effort (default: low)"),
+      note: NOTE,
+      contexts: CONTEXT_IDS.optional().describe("Saved contexts to read for this run (with docId)"),
     }),
     output: z.object({
       ok: z.boolean().describe("Whether the Claude run finished"),
@@ -222,6 +225,7 @@ export const commands: Command[] = [
         where,
         { model: input.model, effort: input.effort },
         input.docId ? "import" : "job",
+        input.docId ? docRunLines(project, input.docId, input) : [],
       );
     },
   }),

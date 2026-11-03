@@ -4,6 +4,7 @@ import { basename, join } from "node:path";
 import { z } from "zod";
 import { triage } from "../claude/actions.ts";
 import { describeFigures, shouldDescribeFigures } from "../claude/figures.ts";
+import { docRunLines, type JobRun } from "../claude/prompt.ts";
 import { type Command, type Ctx, command, projectOf, UserError } from "../command.ts";
 import { writeAtomic } from "../lib/atomic.ts";
 import { recheckMechanical, testsCiting } from "../lib/check.ts";
@@ -28,8 +29,8 @@ import { parseSections } from "../rag/chunk.ts";
 import { anchorsOf } from "../rag/convert.ts";
 import { unindexDoc } from "../rag/indexer.ts";
 import { type EvidenceOpts, evidenceOptions, statementsOf } from "../rag/statements.ts";
-import type { ClaudeRun, DocJson } from "../types.ts";
-import { EFFORT, MODEL } from "./claude.ts";
+import type { DocJson } from "../types.ts";
+import { CONTEXT_IDS, EFFORT, MODEL, NOTE } from "./claude.ts";
 
 // ponytail: a traced section is fine when it is the defining section or one of its ancestors (the matrix
 // often names the chapter); anything else is reported, never corrected
@@ -53,7 +54,7 @@ export function tracedElsewhere(docId: string, md: string, opts: EvidenceOpts) {
   return out;
 }
 
-async function withFigures(ctx: Ctx, doc: DocJson, claude: ClaudeRun): Promise<DocJson> {
+async function withFigures(ctx: Ctx, doc: DocJson, claude: JobRun): Promise<DocJson> {
   const project = projectOf(ctx);
   if (!shouldDescribeFigures(project) || !doc.stats?.figures) return doc;
   try {
@@ -67,11 +68,20 @@ async function withFigures(ctx: Ctx, doc: DocJson, claude: ClaudeRun): Promise<D
 
 // ponytail: the conversion warnings are shown to Claude with the import's own model and effort — it leaves a
 // Claude action for those it can fix; a failed look never fails the import
-async function withTriage(ctx: Ctx, doc: DocJson, claude: ClaudeRun, on: boolean | undefined): Promise<void> {
+async function withTriage(ctx: Ctx, doc: DocJson, claude: JobRun, on: boolean | undefined): Promise<void> {
   if (!on || !doc.warnings.length) return;
   try {
     const problems = doc.warnings.map((text) => ({ where: `doc:${doc.id}`, text }));
-    await triage(ctx, projectOf(ctx), problems, `the document ${doc.id}`, claude, "import");
+    const project = projectOf(ctx);
+    await triage(
+      ctx,
+      project,
+      problems,
+      `the document ${doc.id}`,
+      claude,
+      "import",
+      docRunLines(project, doc.id, claude),
+    );
   } catch (e) {
     ctx.log("warn", `Claude did not look at the warnings: ${e instanceof Error ? e.message : String(e)}`);
   }
@@ -121,6 +131,13 @@ const triageOn = z
   .boolean()
   .optional()
   .describe("Then have Claude look at the conversion warnings and propose a Claude action for those it can fix");
+const contexts = CONTEXT_IDS.optional().describe("Saved contexts Claude reads for this conversion only");
+const runOf = (i: { model?: string; effort?: JobRun["effort"]; note?: string; contexts?: string[] }): JobRun => ({
+  model: i.model,
+  effort: i.effort,
+  note: i.note,
+  contexts: i.contexts,
+});
 const citedBy = z
   .array(
     z.object({
@@ -152,7 +169,8 @@ function recheckCiting(ctx: Ctx, doc: DocJson): z.input<typeof citedBy> {
 export const commands: Command[] = [
   command({
     name: "docs.add",
-    summary: "Copy a .docx (preferred) or .pdf into the project and convert it to doc.md with anchors and figures.",
+    summary:
+      "Copy a .docx (preferred) or .pdf into the project and convert it to doc.md with anchors and figures; with convert false, only copy it (docs.convert converts it later).",
     input: z.object({
       file: z
         .string()
@@ -168,8 +186,16 @@ export const commands: Command[] = [
         .optional()
         .describe("A .pdf rendering of the same .docx, used only to recover figures the .docx has no picture for"),
       kind: kind.optional().describe("What the document is (default spec)"),
+      convert: z
+        .boolean()
+        .default(true)
+        .describe(
+          "Convert it now; false only copies it, so the team can set its status, amends and context before docs.convert",
+        ),
       model,
       effort,
+      note: NOTE,
+      contexts,
       triage: triageOn,
     }),
     output: docJson.extend({ citedBy }),
@@ -190,16 +216,20 @@ export const commands: Command[] = [
       if (!file) throw new UserError("No document given.", "Give --file <path>, or name + dataBase64.");
       const pdf = input.pdfBase64 ? save(input.pdfName ?? "rendering.pdf", input.pdfBase64) : input.pdf;
       try {
-        const added = await addDoc(project, { file, pdf, id: input.id, kind: input.kind }, ctx.signal, (message) =>
-          ctx.progress({ message }),
+        const added = await addDoc(
+          project,
+          { file, pdf, id: input.id, kind: input.kind, convert: input.convert },
+          ctx.signal,
+          (message) => ctx.progress({ message }),
         );
         const doc = input.dataBase64
           ? { ...added, source: { ...added.source, path: `upload: ${basename(input.name || "document.docx")}` } }
           : added;
         if (doc !== added) writeDoc(project, doc);
-        await withFigures(ctx, doc, { model: input.model, effort: input.effort });
+        if (!input.convert) return { ...doc, citedBy: [] };
+        await withFigures(ctx, doc, runOf(input));
         const citing = recheckCiting(ctx, doc);
-        await withTriage(ctx, doc, { model: input.model, effort: input.effort }, input.triage);
+        await withTriage(ctx, doc, runOf(input), input.triage);
         return { ...doc, citedBy: citing };
       } finally {
         rmSync(up, { recursive: true, force: true });
@@ -208,7 +238,8 @@ export const commands: Command[] = [
   }),
   command({
     name: "docs.convert",
-    summary: "Reconvert a document from its copied source; team fields and figure descriptions are kept.",
+    summary:
+      "Convert a document from its copied source (the first time for one added without conversion); team fields and figure descriptions are kept.",
     input: z.object({
       id,
       pdf: z
@@ -219,6 +250,8 @@ export const commands: Command[] = [
         ),
       model,
       effort,
+      note: NOTE,
+      contexts,
       triage: triageOn,
     }),
     output: docJson.extend({ citedBy }),
@@ -232,10 +265,10 @@ export const commands: Command[] = [
       const doc = await withFigures(
         ctx,
         await reconvertDoc(project, input.id, ctx.signal, (message) => ctx.progress({ message })),
-        { model: input.model, effort: input.effort },
+        runOf(input),
       );
       const citing = recheckCiting(ctx, doc);
-      await withTriage(ctx, doc, { model: input.model, effort: input.effort }, input.triage);
+      await withTriage(ctx, doc, runOf(input), input.triage);
       return { ...doc, citedBy: citing };
     },
   }),

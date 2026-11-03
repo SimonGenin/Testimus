@@ -7,7 +7,7 @@ import { chunkCount, dropSpace, getMeta, indexFile, listSpaces, openDb, vectorCo
 import { dimsOf, spaceOf } from "../rag/fingerprint.ts";
 import { indexProject, projectDocs, readState } from "../rag/indexer.ts";
 import type { VectorSpace } from "../types.ts";
-import { EFFORT, MODEL } from "./claude.ts";
+import { EFFORT, MODEL, NOTE } from "./claude.ts";
 
 const space = z.object({
   id: z.string().describe("12 hex characters: sha256 of the space's fingerprint"),
@@ -51,6 +51,7 @@ export const commands: Command[] = [
         "Claude model for the context headers, when project.json rag.claudeHeaders is on (default: haiku)",
       ),
       effort: EFFORT.optional().describe("Claude effort for the context headers (default: low)"),
+      note: NOTE,
     }),
     output: z.object({
       embedding: z.string().describe("Catalog id of the embedding model used, or none"),
@@ -74,7 +75,10 @@ export const commands: Command[] = [
     mutates: true,
     job: "rag-index",
     subject: () => "index",
-    run: (ctx, { force, model, effort }) => indexProject(projectOf(ctx), ctx, { force, claude: { model, effort } }),
+    run: (ctx, { force, model, effort, note }) => {
+      const claude = { model, effort, note };
+      return indexProject(projectOf(ctx), ctx, { force, claude });
+    },
   }),
   command({
     name: "rag.status",

@@ -9,7 +9,8 @@ import { toast } from "./toast.ts";
 export type Upload = {
   key: number;
   name: string;
-  phase: "reading" | "converting" | "indexing" | "done" | "failed" | "index-failed";
+  job: "add" | "convert" | "index";
+  phase: "reading" | "adding" | "converting" | "indexing" | "done" | "failed" | "index-failed";
   pct: number | null;
   message: string;
   at: number;
@@ -46,14 +47,12 @@ export function dismissUpload(key: number): void {
 
 export const settled = (u: Upload) => u.phase === "done" || u.phase === "failed" || u.phase === "index-failed";
 
-// ponytail: docs.add writes doc.json before it returns (figures are described after), so the list can show
-// the document while its upload still has no id — the file name and a conversion after the drop tie them
+// ponytail: the list can show a document whose add has not returned its id yet — the file name ties them
 export const owns = (u: Upload, d: DocRef) =>
   !settled(u) &&
   (u.docId
     ? u.docId === d.id
-    : baseName(d.source.path.replace(/^upload: /, "")).toLowerCase() === u.name.toLowerCase() &&
-      Date.parse(d.convertedAt) >= u.at);
+    : u.job === "add" && baseName(d.source.path.replace(/^upload: /, "")).toLowerCase() === u.name.toLowerCase());
 
 // ponytail: a finished or failed row is shown once — leaving the screen forgets it; the job stays in Jobs
 export function forgetSettled(): void {
@@ -88,25 +87,45 @@ export const setImportClaude = (next: ClaudeRun) => {
 
 let indexing: Promise<unknown> | null = null;
 
-async function reindex(key: number): Promise<void> {
+async function reindex(key: number, note?: string): Promise<void> {
   patch(key, { phase: "indexing", pct: null, message: "Indexing" });
-  // ponytail: several drops in a row share one index run instead of queuing one per document
-  indexing ??= run("rag.index", { ...claude }, progressOf(key, "indexing")).finally(() => {
+  // ponytail: several conversions in a row share one index run instead of queuing one per document
+  indexing ??= run("rag.index", { ...claude, ...(note ? { note } : {}) }, progressOf(key, "indexing")).finally(() => {
     indexing = null;
   });
   await indexing;
 }
 
-async function addOne(key: number, input: Record<string, unknown>, onDone: () => void) {
+// ponytail: adding only copies the file — the team sets status, amends and context, then converts it on purpose
+async function addOne(key: number, input: Record<string, unknown>, onDone: (docId?: string) => void) {
   try {
-    patch(key, { phase: "converting", message: "Converting", pct: null });
+    patch(key, { phase: "adding", message: "Adding", pct: null });
+    const doc = await run<{ id: string }>("docs.add", { ...input, convert: false }, progressOf(key, "adding"));
+    dismissUpload(key);
+    onDone(doc?.id);
+  } catch (e) {
+    patch(key, { phase: "failed", message: message(e), error: e });
+    onDone();
+  }
+}
+
+export type JobContext = { note?: string; contexts?: string[] };
+
+export async function convertDoc(id: string, name: string, job: JobContext, onDone: () => void): Promise<void> {
+  const key = ++seq;
+  items = [
+    ...items,
+    { key, name, job: "convert", docId: id, at: Date.now(), phase: "converting", pct: null, message: "Converting" },
+  ];
+  emit();
+  const extra = { ...(job.note?.trim() ? { note: job.note.trim() } : {}), contexts: job.contexts ?? [] };
+  try {
     const doc = await run<{ id: string; warnings?: string[] }>(
-      "docs.add",
-      { ...input, ...claude },
+      "docs.convert",
+      { id, ...claude, ...extra },
       progressOf(key, "converting"),
     );
-    patch(key, { docId: doc?.id });
-    if (doc?.id && doc.warnings?.length) triageWhenClaude({ docId: doc.id, ...claude });
+    if (doc?.warnings?.length) triageWhenClaude({ docId: id, ...claude, ...extra });
   } catch (e) {
     patch(key, { phase: "failed", message: message(e), error: e });
     onDone();
@@ -114,8 +133,8 @@ async function addOne(key: number, input: Record<string, unknown>, onDone: () =>
   }
   onDone();
   try {
-    await reindex(key);
-    patch(key, { phase: "done", message: "Indexed", pct: 100 });
+    await reindex(key, extra.note);
+    patch(key, { phase: "done", message: "Converted and indexed", pct: 100 });
     setTimeout(() => dismissUpload(key), 4000);
   } catch (e) {
     patch(key, { phase: "index-failed", message: message(e), error: e });
@@ -125,13 +144,13 @@ async function addOne(key: number, input: Record<string, unknown>, onDone: () =>
 
 type Picked = { name: string; path: string; file?: File };
 
-export const addDocFiles = (files: File[], onDone: () => void) =>
+export const addDocFiles = (files: File[], onDone: (docId?: string) => void) =>
   addDocs(
     files.map((f) => ({ name: f.name, path: pathOf(f), file: f })),
     onDone,
   );
 
-export const addDocPaths = (paths: string[], onDone: () => void) =>
+export const addDocPaths = (paths: string[], onDone: (docId?: string) => void) =>
   addDocs(
     paths.map((p) => ({ name: baseName(p), path: p })),
     onDone,
@@ -143,7 +162,7 @@ async function sourceOf(p: Picked, path: string, name: string, data: string): Pr
   return { [name]: p.name, [data]: await readBase64(p.file) };
 }
 
-async function addDocs(picked: Picked[], onDone: () => void): Promise<void> {
+async function addDocs(picked: Picked[], onDone: (docId?: string) => void): Promise<void> {
   const docs = picked.filter((f) => /\.(docx|pdf)$/i.test(f.name));
   const rejected = picked.filter((f) => !docs.includes(f));
   if (rejected.length)
@@ -162,8 +181,8 @@ async function addDocs(picked: Picked[], onDone: () => void): Promise<void> {
     items = [
       ...items,
       f.path
-        ? { key, name: f.name, at: Date.now(), phase: "converting", pct: null, message: "Converting" }
-        : { key, name: f.name, at: Date.now(), phase: "reading", pct: null, message: "Reading the file" },
+        ? { key, name: f.name, job: "add", at: Date.now(), phase: "adding", pct: null, message: "Adding" }
+        : { key, name: f.name, job: "add", at: Date.now(), phase: "reading", pct: null, message: "Reading the file" },
     ];
     emit();
     const pdf = /\.docx$/i.test(f.name) ? pdfs.find((p) => stem(p.name) === stem(f.name)) : undefined;
@@ -183,17 +202,20 @@ async function addDocs(picked: Picked[], onDone: () => void): Promise<void> {
   await Promise.all(jobs);
 }
 
-export async function addDocPath(path: string, onDone: () => void): Promise<void> {
+export async function addDocPath(path: string, onDone: (docId?: string) => void): Promise<void> {
   const key = ++seq;
   const name = path.split(/[\\/]/).pop() || path;
-  items = [...items, { key, name, at: Date.now(), phase: "converting", pct: null, message: "Converting" }];
+  items = [...items, { key, name, job: "add", at: Date.now(), phase: "adding", pct: null, message: "Adding" }];
   emit();
   await addOne(key, { file: path }, onDone);
 }
 
 export async function reindexAll(onDone: () => void): Promise<void> {
   const key = ++seq;
-  items = [...items, { key, name: "All documents", at: Date.now(), phase: "indexing", pct: null, message: "Indexing" }];
+  items = [
+    ...items,
+    { key, name: "All documents", job: "index", at: Date.now(), phase: "indexing", pct: null, message: "Indexing" },
+  ];
   emit();
   try {
     await reindex(key);

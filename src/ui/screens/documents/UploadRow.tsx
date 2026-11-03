@@ -6,13 +6,16 @@ import { dismissUpload, type Upload } from "../../lib/uploads.ts";
 type Step = { label: string; state: "done" | "now" | "todo" | "failed" };
 
 function stepsOf(u: Upload): Step[] {
-  const whole = !u.docId && (u.phase === "indexing" || u.phase === "done");
-  const at = u.phase === "done" ? 2 : u.phase === "indexing" ? 1 : 0;
-  const steps: Step[] = [
-    { label: "Converting", state: u.phase === "failed" ? "failed" : at > 0 ? "done" : "now" },
-    { label: "Indexing", state: at > 1 ? "done" : at === 1 ? "now" : "todo" },
-  ];
-  return whole ? steps.slice(1) : steps;
+  const first = (label: string): Step => ({
+    label,
+    state: u.phase === "failed" ? "failed" : u.phase === "done" || u.phase === "indexing" ? "done" : "now",
+  });
+  if (u.job === "add") return [first("Adding")];
+  const indexing: Step = {
+    label: "Indexing",
+    state: u.phase === "done" ? "done" : u.phase === "indexing" ? "now" : "todo",
+  };
+  return u.job === "index" ? [indexing] : [first("Converting"), indexing];
 }
 
 const MARK = { done: "check", failed: "error" } as const;
@@ -39,7 +42,7 @@ export function UploadRow({ u, on, onOpen }: { u: Upload; on?: boolean; onOpen?:
               </span>
               <div className="up-name-text">
                 <div className="mono muted tbl-sub">
-                  {u.docId ?? (steps.length === 1 ? "Search index" : "New document")}
+                  {u.docId ?? (u.job === "index" ? "Search index" : "New document")}
                 </div>
                 <div className="tbl-title">{u.name}</div>
               </div>
@@ -62,10 +65,10 @@ export function UploadRow({ u, on, onOpen }: { u: Upload; on?: boolean; onOpen?:
                 </ol>
                 {u.phase === "done" ? (
                   <span className="up-msg">
-                    <Severity tone="ok">{u.message === "Indexed" ? "Added and indexed" : u.message}</Severity>
+                    <Severity tone="ok">{u.message}</Severity>
                   </span>
                 ) : u.phase === "failed" ? (
-                  <span className="up-msg s-err">Not added</span>
+                  <span className="up-msg s-err">{u.job === "convert" ? "Not converted" : "Not added"}</span>
                 ) : (
                   <span className="up-msg muted" title={msg}>
                     {msg}
@@ -101,7 +104,7 @@ export function UploadRow({ u, on, onOpen }: { u: Upload; on?: boolean; onOpen?:
           {u.phase === "failed" && (
             <ProblemPanel
               error={u.error ?? new Error(u.message)}
-              doing={`Adding ${u.name}`}
+              doing={u.job === "convert" ? `Converting ${u.name}` : `Adding ${u.name}`}
               untouched="Nothing else changed in the project."
             />
           )}

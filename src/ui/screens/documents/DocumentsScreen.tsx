@@ -34,25 +34,31 @@ export const INDEX_LOOK = {
   stale: { tone: "warning" as const, word: "Reindex needed" },
   missing: { tone: "warning" as const, word: "Not indexed" },
 };
+const NOT_CONVERTED = { tone: "info" as const, word: "Not converted" };
 
 function IndexFailed({ u, colSpan }: { u: Upload; colSpan: number }) {
   const app = useApp();
   const p = problemOf(u.error ?? new Error(u.message));
+  const what = u.phase === "failed" ? "conversion" : "indexing";
   return (
     <tr className="up-row">
       <td colSpan={colSpan}>
         <div className="problem" role="alert">
           <div className="up-fail-head">
-            <Severity tone="error">Indexing failed</Severity>
+            <Severity tone="error">{u.phase === "failed" ? "Conversion failed" : "Indexing failed"}</Severity>
             <span className="spacer" />
             <IconButton
               icon="close"
-              label={`Dismiss the indexing failure of ${u.name}`}
+              label={`Dismiss the ${what} failure of ${u.name}`}
               onClick={() => dismissUpload(u.key)}
             />
           </div>
           <p>
-            {u.docId ? `${u.name} was added, but search cannot find it yet: ` : ""}
+            {u.phase === "failed"
+              ? `${u.name} stays as it was: `
+              : u.docId
+                ? `${u.name} was converted, but search cannot find it yet: `
+                : ""}
             {p.detail}
           </p>
           {p.fix && (
@@ -123,14 +129,18 @@ export function DocumentsScreen() {
 
   useEffect(() => forgetSettled, []);
 
-  const add = (files: File[]) => void addDocFiles(files, changed);
+  const added = (id?: string) => {
+    changed();
+    if (id) app.navigate("documents", id);
+  };
+  const add = (files: File[]) => void addDocFiles(files, added);
   const choose = () => {
     if (!desktop()) {
       picker.current?.click();
       return;
     }
     void pickFiles("Add documents", [{ name: "Word or PDF", extensions: ["docx", "pdf"] }], true).then((paths) =>
-      addDocPaths(paths, changed),
+      addDocPaths(paths, added),
     );
   };
 
@@ -158,7 +168,7 @@ export function DocumentsScreen() {
     >
       <ScreenHeader
         title="Documents"
-        meta={`${pages} document${pages === 1 ? "" : "s"}${busy.length ? ` · ${busy.length} being added` : ""} · drop Word or PDF files anywhere here to add them`}
+        meta={`${pages} document${pages === 1 ? "" : "s"}${busy.length ? ` · ${busy.length} in progress` : ""} · drop Word or PDF files anywhere here to add them`}
       >
         <ActionCount actions={acts.filter((a) => a.where.startsWith("doc:"))} />
         <ImportClaude />
@@ -241,8 +251,10 @@ export function DocumentsScreen() {
                     ))
                   : docs.map((d) => {
                       const st = DOC_STATUS[d.status] ?? { label: d.status, tone: "neutral" as const };
-                      const ix = INDEX_LOOK[d.indexed] ?? INDEX_LOOK.missing;
-                      const failed = uploads.filter((u) => u.docId === d.id && u.phase === "index-failed");
+                      const ix = !d.convertedAt ? NOT_CONVERTED : (INDEX_LOOK[d.indexed] ?? INDEX_LOOK.missing);
+                      const failed = uploads.filter(
+                        (u) => u.docId === d.id && (u.phase === "index-failed" || u.phase === "failed"),
+                      );
                       const open = () => app.navigate("documents", d.id);
                       const inFlight = uploads.find((u) => owns(u, d));
                       if (inFlight) return <UploadRow key={d.id} u={inFlight} on={d.id === activeId} onOpen={open} />;
@@ -342,7 +354,7 @@ export function DocumentsScreen() {
                 tone="primary"
                 disabled={!path.trim()}
                 onClick={() => {
-                  void addDocPath(path.trim().replace(/^"|"$/g, ""), changed);
+                  void addDocPath(path.trim().replace(/^"|"$/g, ""), added);
                   setPath("");
                   setAskPath(false);
                 }}
