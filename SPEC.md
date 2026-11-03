@@ -495,7 +495,11 @@ used: GGUF models run on llama.cpp, which Testimus downloads itself (same files 
   download. `models fit` judges the embedding and the reranker **together**: fits (need ≤ free × (1 − headroom));
   tight (within the margin, or only once other loaded models are unloaded — they are named); gpu-too-small (need
   > total VRAM: runs partly on the CPU); ram-too-small (refused); unknown (no VRAM figure: « Testimus measures it on
-  first use »). Messages carry the numbers. On the dev PC (RTX 5080 16 GB): 8B Q8 + reranker 4B = tight (13.6 GB for
+  first use »); unsupported (refused, judged before the memory: the profile's `system` — Node's platform and arch —
+  is not Windows and a model runs on llama.cpp, shipped as Windows x64 builds only, or is a 16-bit DirectML variant,
+  whose 8-bit processor twin is the one to run; a pack skips such a variant like an unavailable one, so on a Mac
+  Quality is not available and Performance and Balanced resolve to their CPU variant; a profile without `system`
+  is a Windows one). Messages carry the numbers. On the dev PC (RTX 5080 16 GB): 8B Q8 + reranker 4B = tight (13.6 GB for
   11.6 GB usable), 8B Q4 + 4B = fits, so Quality resolves to its second variant.
 - **Timings journal** `%LOCALAPPDATA%\Testimus\perf\journal.jsonl`: one line per model operation — `model.load`,
   `embed.query`, `embed.index` (one line per index batch of 16), `rerank`, `search.bm25`, `search.vector`,
@@ -1072,9 +1076,12 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
     in its row and keeps the words saying what to do beside it; the rail's status dot shows the last result.
   - **First launch (#/setup)** — shown once per session when the credential files are incomplete or no project is
     open: Access (system.setup prefilled, secrets never sent back, Test connection = setup with check), Project
-    (project.list / project.open / project.init), then **Search pack** (`#/setup/pack`): the four packs with fit and
-    download, the suggestion preselected (the heaviest pack that fits without a GGUF on the processor; Light when the
-    hardware is unknown), « Use <pack> » (dry run; the models-folder dialog when a download needs a folder; then
+    (project.list / project.open / project.init), then **Search pack** (`#/setup/pack`): the four packs with their models and
+    download; above them « Analyse my machine » (`models.hardware {refresh}`, then `models.packs` again) lists the
+    system and arch, CPU, memory and the GPU Testimus can use. Until it ran, no pack shows a fit and none is
+    preselected; after it, each pack has its fit (« Not supported here » included) and the suggestion is preselected
+    (the heaviest pack that fits without a GGUF on the processor; Light when the hardware is unknown); « Analyse
+    again » measures anew, « Use <pack> » (dry run; the models-folder dialog when a download needs a folder; then
     `models.usePack`), « Skip for now ».
   - **Settings** — Project, Step fields, Tracked ids, Claude, Search, Models, Access, Appearance. Every change saves at once.
     - **Tracked ids**: each kind with its patterns, ids found, column and « In Xray / Not in Xray yet », Coverage,
@@ -1112,7 +1119,7 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
 - Mock: `serve --mock` also fakes the models side, without network and without touching the PC's models: a machine profile
   (`TESTIMUS_MOCK_MACHINE` = `gpu16` default — 16 GB GPU, 32 GB RAM; `gpu-small` — 4 GB GPU, 16 GB: Quality « GPU too
   small », Balanced « tight »; `cpu-only` — no GPU, 6 GB: Quality not available; `unknown` — a GPU without a VRAM
-  figure; `dev` — the development PC), written to `<sandbox>/machine.json` as `TESTIMUS_MACHINE` unless that is set;
+  figure; `dev` — the development PC; `mac` — macOS arm64, 32 GB, no GPU: Quality « not supported here »), written to `<sandbox>/machine.json` as `TESTIMUS_MACHINE` unless that is set;
   a llama.cpp build
   (`TESTIMUS_MOCK_LLAMACPP` = `found` default · `absent`: fetched by a simulated job); the models folder
   (`TESTIMUS_MOCK_MODELS_DIR` = `set` default · `unset`: the first download asks for it). Two models are registered by

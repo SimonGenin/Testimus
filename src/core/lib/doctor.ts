@@ -355,7 +355,8 @@ export async function modelRows(project: string | null, deps: ModelDeps = modelD
     );
   else {
     const f = fitOf(entries, machine, { headroom: budgets().headroom, lines: readPerf() });
-    const state = f.verdict === "fits" ? "ok" : f.verdict === "ram-too-small" ? "fail" : "warn";
+    const state =
+      f.verdict === "fits" ? "ok" : f.verdict === "ram-too-small" || f.verdict === "unsupported" ? "fail" : "warn";
     rows.push(
       row(
         "model.fit",

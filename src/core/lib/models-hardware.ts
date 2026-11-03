@@ -17,6 +17,7 @@ export type HardwareDeps = {
   loaded(): Promise<LoadedModel[]>;
   mem(): { totalMB: number; freeMB: number };
   cpu(): { model: string; threads: number };
+  system?(): { platform: string; arch: string };
 };
 
 function run(cmd: string, args: string[], timeoutMs: number): Promise<ExecOut> {
@@ -62,6 +63,7 @@ export const hardwareDeps: HardwareDeps = {
   loaded: loadedModels,
   mem: () => ({ totalMB: Math.floor(os.totalmem() / MB), freeMB: Math.floor(os.freemem() / MB) }),
   cpu: () => ({ model: os.cpus()[0]?.model.trim() ?? "unknown", threads: os.cpus().length }),
+  system: () => ({ platform: process.platform, arch: process.arch }),
 };
 
 export function vendorOf(name: string): GpuInfo["vendor"] {
@@ -179,6 +181,7 @@ export async function measureMachine(deps: HardwareDeps = hardwareDeps): Promise
   const mem = deps.mem();
   return {
     at: env.now().toISOString(),
+    ...(deps.system ? { system: deps.system() } : {}),
     ramTotalMB: mem.totalMB,
     ramFreeMB: mem.freeMB,
     cpu: deps.cpu(),
@@ -212,6 +215,15 @@ export function pinMachineProfile(p: MachineProfile | null): void {
 export function driveOf(machine: MachineProfile, path: string): DriveInfo | undefined {
   const root = parse(path).root.toLowerCase();
   return machine.drives.find((d) => d.root.toLowerCase() === root);
+}
+
+// ponytail: a profile without a system (an imposed profile written before it existed) is the Windows PC it was taken on
+export function platformOf(machine: MachineProfile): string {
+  return machine.system?.platform ?? "win32";
+}
+
+export function systemName(platform: string): string {
+  return platform === "win32" ? "Windows" : platform === "darwin" ? "macOS" : platform === "linux" ? "Linux" : platform;
 }
 
 export function mainGpu(machine: MachineProfile): GpuInfo | null {

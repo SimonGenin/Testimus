@@ -189,7 +189,10 @@ export async function resolveChoice(
     const one: Record<string, One> = {};
     for (const id of [v.embedding, v.reranker].filter((m): m is string => !!m)) one[id] = resolveOne(id, queryTask);
     const fit = machine ? fitOf(entriesOf(v), machine, { headroom, lines: deps.lines }) : null;
-    const blocked = Object.values(one).find((o) => o.source === "unavailable");
+    const blocked =
+      fit?.verdict === "unsupported"
+        ? { reason: fit.message }
+        : Object.values(one).find((o) => o.source === "unavailable");
     const labels = entriesOf(v)
       .map((e) => e.label)
       .join(" + ");

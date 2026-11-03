@@ -661,6 +661,31 @@
   margin: 0;
 }
 
+.machinecheck {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+}
+
+.machinecheck > :first-child {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+
+.machinecheck-facts {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
 .packpick {
   border: 0;
   margin: 0;

@@ -8,6 +8,7 @@ const WHY: Record<Fit["verdict"], string> = {
   "gpu-too-small": "It will run partly on the processor: indexing and search get several times slower.",
   "ram-too-small": "This PC does not have the memory to load it.",
   unknown: "Testimus does not know this GPU's memory yet: it measures it on first use.",
+  unsupported: "Testimus has no runtime for it on this system.",
 };
 
 export function FitConfirm({
@@ -25,7 +26,7 @@ export function FitConfirm({
   onLighter: () => void;
   onClose: () => void;
 }) {
-  const refused = fit.verdict === "ram-too-small";
+  const refused = fit.verdict === "ram-too-small" || fit.verdict === "unsupported";
   return (
     <Modal
       label={`Will ${title} fit?`}

@@ -1,10 +1,10 @@
 import { basename } from "node:path";
 import type { CatalogEntry, Fit, FitVerdict, LoadedModel, MachineProfile, PerfLine } from "../types.ts";
 import { catalogEntry } from "./models-catalog.ts";
-import { mainGpu } from "./models-hardware.ts";
+import { mainGpu, platformOf, systemName } from "./models-hardware.ts";
 import { measuredMB } from "./models-perf.ts";
 
-const ORDER: FitVerdict[] = ["fits", "unknown", "tight", "gpu-too-small", "ram-too-small"];
+const ORDER: FitVerdict[] = ["fits", "unknown", "tight", "gpu-too-small", "ram-too-small", "unsupported"];
 
 export const gb = (mb: number): string => `${(mb / 1024).toFixed(1)} GB`;
 
@@ -15,6 +15,15 @@ export function needOf(entry: CatalogEntry, lines?: PerfLine[]): { vram: number;
     vram: measured.vram ?? (entry.size.vramMB || estimate),
     ram: measured.ram ?? (entry.size.ramMB || estimate),
   };
+}
+
+// ponytail: llama.cpp is downloaded as its Windows x64 builds only (LLAMA_ASSETS) and DirectML is Windows' own; the
+// 16-bit DirectML variants exist for the GPU, so elsewhere their 8-bit processor twin is the one to run
+export function unsupportedOn(entry: CatalogEntry, machine: MachineProfile): string | null {
+  if (platformOf(machine) === "win32") return null;
+  if (!entry.runtimes.includes("transformers")) return "runs on llama.cpp, which Testimus ships for Windows only";
+  if (entry.dtypeByDevice?.dml) return "is made for DirectML, which exists only on Windows";
+  return null;
 }
 
 export function deviceFor(entry: CatalogEntry, machine: MachineProfile): "gpu" | "cpu" {
@@ -69,6 +78,13 @@ export function fitOf(
     unload,
     message,
   });
+
+  const unsupported = entries.flatMap((e) => {
+    const why = unsupportedOn(e, machine);
+    return why ? [`${e.label} ${why}`] : [];
+  });
+  if (unsupported.length)
+    return done("unsupported", `Not supported on ${systemName(platformOf(machine))}: ${unsupported.join("; ")}.`);
 
   if (ramNeed > machine.ramTotalMB)
     return done(

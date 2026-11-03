@@ -111,12 +111,34 @@ export function size(mb: number): string {
   return `${Math.max(0, Math.round(mb))} MB`;
 }
 
+const SYSTEM: Record<string, string> = { win32: "Windows", darwin: "macOS", linux: "Linux" };
+
+// ponytail: the same reading as the core's mainGpu and platformOf, kept here so the UI never imports node code
+export function machineSummary(hw: Hardware): string[] {
+  const platform = hw.system?.platform ?? "win32";
+  const gpu = [...hw.gpus].sort((a, b) => (b.vramTotalMB ?? -1) - (a.vramTotalMB ?? -1))[0];
+  const vram = gpu?.vramTotalMB
+    ? `, ${size(gpu.vramTotalMB)}${gpu.vramUsedMB !== null ? ` (${size(gpu.vramTotalMB - gpu.vramUsedMB)} free)` : ""}`
+    : "";
+  return [
+    `${SYSTEM[platform] ?? platform}${hw.system ? ` · ${hw.system.arch}` : ""}`,
+    `${hw.cpu.model}, ${hw.cpu.threads} threads`,
+    `${size(hw.ramTotalMB)} of memory, ${size(hw.ramFreeMB)} free`,
+    gpu
+      ? `${gpu.name}${vram}`
+      : platform === "win32"
+        ? "No GPU found: search runs on the processor"
+        : "No GPU Testimus can use here: search runs on the processor",
+  ];
+}
+
 export const FIT: Record<FitVerdict, { tone: BadgeTone; icon: IconName; word: string }> = {
   fits: { tone: "ok", icon: "check", word: "Fits" },
   tight: { tone: "warn", icon: "warning", word: "Tight" },
   "gpu-too-small": { tone: "warn", icon: "warning", word: "Partly on the CPU" },
   "ram-too-small": { tone: "err", icon: "error", word: "RAM too small" },
   unknown: { tone: "info", icon: "info", word: "Not measured" },
+  unsupported: { tone: "err", icon: "error", word: "Not supported here" },
 };
 
 export const STATE: Record<ModelState, { tone: BadgeTone; icon: IconName; word: string }> = {

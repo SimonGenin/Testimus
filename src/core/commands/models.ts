@@ -16,7 +16,7 @@ import type { ActiveChoice, CatalogEntry, PackVariant, RagChoice } from "../type
 
 const MB = 1024 * 1024;
 
-const fitVerdict = z.enum(["fits", "tight", "gpu-too-small", "ram-too-small", "unknown"]);
+const fitVerdict = z.enum(["fits", "tight", "gpu-too-small", "ram-too-small", "unknown", "unsupported"]);
 const fit = z.object({
   verdict: fitVerdict,
   device: z.enum(["gpu", "cpu"]),
@@ -326,6 +326,7 @@ export const commands: Command[] = [
       if (reranker && entries[1]?.kind !== "reranker") throw new UserError(`${reranker} is not a reranker.`);
       const f = fitOf(entries, await machineProfile(), { headroom: budgets().headroom, lines: readPerf() });
       if (f.verdict === "ram-too-small") throw new UserError(f.message, "Choose a lighter model.");
+      if (f.verdict === "unsupported") throw new UserError(f.message, "Choose a model this system runs.");
       const r = await resolveChoice({ embedding, reranker }, await modelsDeps.queryTask(project));
       if (r.missing.length)
         throw new UserError(
@@ -452,10 +453,14 @@ export const commands: Command[] = [
   }),
   command({
     name: "models.hardware",
-    summary: "This PC's profile: RAM, CPU, GPUs with total and free VRAM, free disk per drive, loaded models.",
+    summary: "This PC's profile: system, RAM, CPU, GPUs with total and free VRAM, free disk per drive, loaded models.",
     input: z.object({ refresh: z.boolean().default(false).describe("Measure again instead of the cached profile") }),
     output: z.object({
       at: z.string(),
+      system: z
+        .object({ platform: z.string(), arch: z.string() })
+        .optional()
+        .describe("Node's platform and architecture (win32, darwin, linux · x64, arm64); absent means Windows"),
       ramTotalMB: z.number(),
       ramFreeMB: z.number(),
       cpu: z.object({ model: z.string(), threads: z.number() }),
@@ -486,7 +491,7 @@ export const commands: Command[] = [
   command({
     name: "models.fit",
     summary:
-      "Will it fit? For one model or an embedding + reranker pair: fits · tight · GPU too small · RAM too small.",
+      "Will it fit? For one model or an embedding + reranker pair: fits · tight · GPU too small · RAM too small · not supported on this system.",
     input: z.object({
       embedding: z.string().optional().describe("Catalog id"),
       reranker: z.string().optional().describe("Catalog id"),

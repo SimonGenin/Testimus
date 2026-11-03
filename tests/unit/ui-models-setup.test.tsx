@@ -98,14 +98,34 @@ const show = (state = app()) =>
   );
 
 describe("First launch › Search pack", () => {
-  it("is the third step and preselects the heaviest pack that fits without a GGUF on the CPU", async () => {
-    base({ ramTotalMB: 32000, drives: [], gpus: [] });
+  it("is the third step: no verdict until the machine is analysed, then the heaviest pack that fits without a GGUF on the CPU", async () => {
+    base({
+      system: { platform: "darwin", arch: "arm64" },
+      ramTotalMB: 32768,
+      ramFreeMB: 14336,
+      cpu: { model: "Apple M2 Pro", threads: 12 },
+      drives: [],
+      gpus: [],
+    });
     const state = app();
     show(state);
     expect(screen.getByRole("button", { name: /Search pack/ })).toBeInTheDocument();
     const perf = await screen.findByRole("radio", { name: "Performance pack" });
-    expect(perf).toBeChecked();
+    expect(perf).not.toBeChecked();
+    expect(screen.queryByText("Fits")).toBeNull();
+    expect(screen.queryByText("Suggested for this PC")).toBeNull();
+    expect(screen.getByText(/Not analysed yet/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Analyse my machine" }));
+    await waitFor(() => expect(perf).toBeChecked());
+    expect(named("models.hardware").map((c) => c.input)).toEqual([{ refresh: true }]);
     expect(screen.getByText("Suggested for this PC")).toBeInTheDocument();
+    expect(screen.getAllByText("Fits")).toHaveLength(3);
+    const facts = screen.getByRole("list", { name: "This machine" });
+    expect(facts).toHaveTextContent("macOS · arm64");
+    expect(facts).toHaveTextContent("Apple M2 Pro, 12 threads");
+    expect(facts).toHaveTextContent("32 GB of memory, 14 GB free");
+    expect(facts).toHaveTextContent("No GPU Testimus can use here: search runs on the processor");
+    expect(screen.getByRole("button", { name: "Analyse again" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Use Performance" }));
     await waitFor(() =>
       expect(named("models.usePack").map((c) => c.input)).toEqual([
@@ -116,14 +136,18 @@ describe("First launch › Search pack", () => {
     await waitFor(() => expect(state.navigate).toHaveBeenCalledWith("documents"));
   });
 
-  it("suggests Light when the hardware is unknown, and can be skipped", async () => {
+  it("an analysis that fails preselects nothing, and the step can be skipped", async () => {
     base(null);
     routes["models.hardware"] = () => {
       throw new Error("unknown");
     };
     const state = app();
     show(state);
-    expect(await screen.findByRole("radio", { name: "Light pack" })).toBeChecked();
+    const light = await screen.findByRole("radio", { name: "Light pack" });
+    fireEvent.click(screen.getByRole("button", { name: "Analyse my machine" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Analyse my machine" })).toBeEnabled());
+    expect(light).not.toBeChecked();
+    expect(screen.getByRole("button", { name: "Use this pack" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Skip for now" }));
     expect(state.navigate).toHaveBeenCalledWith("documents");
     expect(named("models.usePack")).toHaveLength(0);

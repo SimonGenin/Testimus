@@ -430,6 +430,7 @@ export type DriveInfo = { root: string; freeMB: number; totalMB: number };
 export type LoadedModel = { name: string; sizeMB: number; vramMB: number; runtime: "llamacpp" };
 export type MachineProfile = {
   at: string;
+  system?: { platform: string; arch: string };
   ramTotalMB: number;
   ramFreeMB: number;
   cpu: { model: string; threads: number };
@@ -437,7 +438,7 @@ export type MachineProfile = {
   drives: DriveInfo[];
   loaded: LoadedModel[];
 };
-export type FitVerdict = "fits" | "tight" | "gpu-too-small" | "ram-too-small" | "unknown";
+export type FitVerdict = "fits" | "tight" | "gpu-too-small" | "ram-too-small" | "unknown" | "unsupported";
 export type Fit = {
   verdict: FitVerdict;
   device: "gpu" | "cpu";

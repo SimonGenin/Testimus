@@ -280,9 +280,18 @@ describe("First launch › Search pack", () => {
       pack({ id: "light", active: true }),
     ];
     api.routes["models.catalog"] = () => [{ id: "e1", label: "Embed One", runtimes: ["transformers"] }];
-    api.routes["models.hardware"] = () => ({ ramTotalMB: 1 });
+    api.routes["models.hardware"] = () => ({
+      ramTotalMB: 16384,
+      ramFreeMB: 8192,
+      cpu: { model: "Core", threads: 8 },
+      gpus: [{ name: "RTX", vramTotalMB: 8192, vramUsedMB: 1024 }],
+      drives: [],
+    });
     mount(<PackStep onBack={vi.fn()} />);
-    expect(await screen.findByRole("radio", { name: "Performance pack" })).toBeChecked();
+    fireEvent.click(await screen.findByRole("button", { name: "Analyse my machine" }));
+    expect(await screen.findByText("RTX, 8.0 GB (7.0 GB free)")).toBeInTheDocument();
+    expect(screen.getByText("Windows")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Performance pack" })).toBeChecked();
     expect(screen.getByText("Not available on this PC: needs a GPU")).toBeInTheDocument();
     expect(screen.getByText("Not available on this PC")).toBeInTheDocument();
     expect(screen.getByText("Embed One + r1 · 2.0 GB to download")).toBeInTheDocument();
@@ -317,7 +326,8 @@ describe("First launch › Search pack", () => {
     api.routes["models.hardware"] = () => null;
     api.routes["models.usePack"] = (i) => packPlan([{ sizeMB: 100 }, { sizeMB: 200 }], dir)(i);
     const { app: a } = mount(<PackStep onBack={vi.fn()} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Use Light" }));
+    fireEvent.click(await screen.findByRole("radio", { name: "Light pack" }));
+    fireEvent.click(screen.getByRole("button", { name: "Use Light" }));
     expect(await screen.findByText("need 300")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Close folder" }));
     expect(screen.queryByRole("dialog", { name: "Folder" })).toBeNull();
@@ -336,7 +346,8 @@ describe("First launch › Search pack", () => {
     api.routes["models.hardware"] = () => null;
     api.routes["models.usePack"] = packPlan([], null);
     const { app: a } = mount(<PackStep onBack={vi.fn()} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Use Light" }));
+    fireEvent.click(await screen.findByRole("radio", { name: "Light pack" }));
+    fireEvent.click(screen.getByRole("button", { name: "Use Light" }));
     expect(await screen.findByText("Indexing follows")).toBeInTheDocument();
     expect(a.navigate).toHaveBeenCalledWith("documents");
     delete api.routes["models.usePack"];

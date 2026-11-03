@@ -3,7 +3,7 @@ import { parse } from "node:path";
 import { env } from "../env.ts";
 import type { GpuInfo, LoadedModel, MachineProfile } from "../types.ts";
 
-export const MOCK_MACHINES = ["gpu16", "gpu-small", "cpu-only", "unknown", "dev"] as const;
+export const MOCK_MACHINES = ["gpu16", "gpu-small", "cpu-only", "unknown", "dev", "mac"] as const;
 export type MockMachine = (typeof MOCK_MACHINES)[number];
 
 const GB = 1024;
@@ -31,7 +31,7 @@ function drives(): MachineProfile["drives"] {
 
 export function mockMachine(kind: MockMachine, loaded: LoadedModel[] = []): MachineProfile {
   const held = loaded.reduce((a, l) => a + l.vramMB, 0);
-  const base = { at: env.now().toISOString(), drives: drives(), loaded };
+  const base = { at: env.now().toISOString(), system: { platform: "win32", arch: "x64" }, drives: drives(), loaded };
   switch (kind) {
     case "gpu-small":
       return {
@@ -57,6 +57,17 @@ export function mockMachine(kind: MockMachine, loaded: LoadedModel[] = []): Mach
         ramFreeMB: 20 * GB,
         cpu: { model: "AMD Ryzen 7 7700X 8-Core Processor", threads: 16 },
         gpus: [gpu("AMD Radeon RX 7600", null, null, "wmi")],
+      };
+    case "mac":
+      return {
+        ...base,
+        system: { platform: "darwin", arch: "arm64" },
+        drives: [{ root: "/", freeMB: 210 * GB, totalMB: 926 * GB }],
+        loaded: [],
+        ramTotalMB: 32 * GB,
+        ramFreeMB: 14 * GB,
+        cpu: { model: "Apple M2 Pro", threads: 12 },
+        gpus: [],
       };
     case "dev":
       return {

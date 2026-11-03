@@ -6,7 +6,7 @@ import { useDraft } from "../../lib/drafts.ts";
 import { cx, message } from "../../lib/format.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 import type { CatalogRow, Hardware, PackRow, UsePackOut } from "../settings/models/data.ts";
-import { size, suggestPack } from "../settings/models/data.ts";
+import { machineSummary, size, suggestPack } from "../settings/models/data.ts";
 import { FitChip } from "../settings/models/FitChip.tsx";
 import { FolderDialog } from "../settings/models/FolderDialog.tsx";
 
@@ -14,10 +14,12 @@ export function PackStep({ onBack }: { onBack: () => void }) {
   const app = useApp();
   const [packs, setPacks] = useState<PackRow[] | null>(null);
   const [catalog, setCatalog] = useState<CatalogRow[]>([]);
-  const [suggested, setSuggested] = useState("light");
+  const [suggested, setSuggested] = useState<string | null>(null);
   const [chosen, setChosen, suggest] = useDraft("setup.pack", "");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [machine, setMachine] = useState<Hardware | null>(null);
+  const [analysing, setAnalysing] = useState(false);
   const [folderNeed, setFolderNeed] = useState<number | null>(null);
   const hasProject = !!app.info;
 
@@ -26,17 +28,30 @@ export function PackStep({ onBack }: { onBack: () => void }) {
     Promise.all([
       call<PackRow[]>("models.packs", {}),
       call<CatalogRow[]>("models.catalog", {}).catch(() => [] as CatalogRow[]),
-      call<Hardware>("models.hardware", {}).catch(() => null),
     ])
-      .then(([p, c, hw]) => {
-        const s = p?.find((x) => x.suggested)?.id ?? suggestPack(p ?? [], hw, c ?? []);
+      .then(([p, c]) => {
         setPacks(p ?? []);
         setCatalog(c ?? []);
-        setSuggested(s);
-        suggest(s);
       })
       .catch((e) => setError(message(e)));
   }, [hasProject]);
+
+  const analyse = async () => {
+    setAnalysing(true);
+    try {
+      const hw = await call<Hardware>("models.hardware", { refresh: true });
+      const p = await call<PackRow[]>("models.packs", {});
+      const s = p.find((x) => x.suggested)?.id ?? suggestPack(p, hw, catalog);
+      setPacks(p);
+      setMachine(hw);
+      setSuggested(s);
+      suggest(s);
+    } catch (e) {
+      errorToast(e, "Could not analyse this machine");
+    } finally {
+      setAnalysing(false);
+    }
+  };
 
   const label = (id: string) => catalog.find((c) => c.id === id)?.label ?? id;
   const pack = packs?.find((p) => p.id === chosen);
@@ -84,9 +99,23 @@ export function PackStep({ onBack }: { onBack: () => void }) {
         Choose how documents are searched
       </h1>
       <p className="muted">
-        Search runs on this PC and documents never leave it. The suggestion is the most this PC runs comfortably; you
-        can change it any time in Settings › Models.
+        Search runs on this PC and documents never leave it. Analyse the machine to see which packs it runs and the most
+        it runs comfortably; you can change it any time in Settings › Models.
       </p>
+      <div className="machinecheck" aria-live="polite">
+        {machine ? (
+          <ul className="machinecheck-facts" aria-label="This machine">
+            {machineSummary(machine).map((f) => (
+              <li key={f}>{f}</li>
+            ))}
+          </ul>
+        ) : (
+          <p className="muted">Not analysed yet: until then, no pack is said to fit.</p>
+        )}
+        <Button icon="system" disabled={analysing || !packs} onClick={() => void analyse()}>
+          {analysing ? "Analysing…" : machine ? "Analyse again" : "Analyse my machine"}
+        </Button>
+      </div>
       {error ? (
         <div className="problem" role="alert">
           <span className="sev s-err">
@@ -127,7 +156,7 @@ export function PackStep({ onBack }: { onBack: () => void }) {
                     </Badge>
                   )}
                   <span className="spacer" />
-                  <FitChip fit={p.fit} />
+                  {machine && <FitChip fit={p.fit} />}
                 </span>
                 <span className="muted">{p.intent}</span>
                 <span className="packopt-models">
@@ -135,7 +164,9 @@ export function PackStep({ onBack }: { onBack: () => void }) {
                     ? `${label(p.embedding)}${p.reranker ? ` + ${label(p.reranker)}` : ""} · ${
                         p.downloadMB ? `${size(p.downloadMB)} to download` : "nothing to download"
                       }`
-                    : `Not available on this PC${p.skipped[0] ? `: ${p.skipped[0]}` : ""}`}
+                    : p.fit?.verdict === "unsupported"
+                      ? p.fit.message
+                      : `Not available on this PC${p.skipped[0] ? `: ${p.skipped[0]}` : ""}`}
                 </span>
               </span>
             </label>
