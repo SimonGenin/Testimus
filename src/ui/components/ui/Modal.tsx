@@ -1,5 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   border,
   color,
@@ -395,7 +396,7 @@ export function Modal({
     </div>
   );
 
-  return (
+  const tree = (
     <div
       onMouseDown={(e) => {
         if (!inline && e.target === e.currentTarget) shut();
@@ -451,4 +452,6 @@ export function Modal({
       </div>
     </div>
   );
+  // ponytail: rendered at the end of the page, so a pane that contains its layout (a container query) never clips it
+  return inline ? tree : createPortal(tree, document.body);
 }

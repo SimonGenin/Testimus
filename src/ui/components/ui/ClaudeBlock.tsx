@@ -67,6 +67,7 @@ const styles = stylex.create({
   },
   footRunning: { backgroundColor: color.claudeSubtle },
   grow: { flex: 1 },
+  keep: { flex: "none", display: "inline-flex" },
   scope: {
     display: "inline-flex",
     alignItems: "center",
@@ -271,26 +272,30 @@ export function ClaudeBlock(props: ClaudeBlockProps) {
             </span>
           )}
           {model && (
-            <Select
-              label="Model"
-              appearance="quiet"
-              size="sm"
-              value={model.value}
-              options={model.options}
-              onChange={model.onChange}
-              disabled={busy}
-            />
+            <span {...stylex.props(styles.keep)}>
+              <Select
+                label="Model"
+                appearance="quiet"
+                size="sm"
+                value={model.value}
+                options={model.options}
+                onChange={model.onChange}
+                disabled={busy}
+              />
+            </span>
           )}
           {effort && (
-            <Select
-              label="Effort"
-              appearance="quiet"
-              size="sm"
-              value={effort.value}
-              options={effort.options}
-              onChange={effort.onChange}
-              disabled={busy}
-            />
+            <span {...stylex.props(styles.keep)}>
+              <Select
+                label="Effort"
+                appearance="quiet"
+                size="sm"
+                value={effort.value}
+                options={effort.options}
+                onChange={effort.onChange}
+                disabled={busy}
+              />
+            </span>
           )}
           <span {...stylex.props(styles.grow)} />
           {busy ? (
