@@ -9,7 +9,7 @@ import {
   statfsSync,
   statSync,
 } from "node:fs";
-import { dirname, join, parse } from "node:path";
+import { dirname, join, parse, win32 } from "node:path";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { UserError } from "../command.ts";
@@ -22,10 +22,13 @@ export type DownloadDeps = {
   freeMB(dir: string): number | null;
 };
 
+// ponytail: a drive-letter path climbs as a Windows path on any system, so a drive that is not there gives null
+// instead of the free space of the current folder (a Windows path read on a Mac is relative to it)
 export function freeMB(dir: string): number | null {
+  const climb = /^[a-z]:[\\/]/i.test(dir) ? win32.dirname : dirname;
   let d = dir;
   while (!existsSync(d)) {
-    const up = dirname(d);
+    const up = climb(d);
     if (up === d) return null;
     d = up;
   }
