@@ -25,11 +25,15 @@ const writingOf = (m: string) => m.match(/Writing (local-[0-9a-f]{8})/i)?.[1]?.t
 
 export function landedIds(events: JobEvent[], result?: GenOutput | null): string[] {
   const ids: string[] = [];
-  for (const e of events)
-    if (e.type === "progress") {
-      const id = writingOf(e.message);
-      if (id && !ids.includes(id)) ids.push(id);
-    }
+  for (const e of events) {
+    const id =
+      e.type === "progress"
+        ? writingOf(e.message)
+        : e.type === "claude" && e.event.type === "tool" && /(^|_)tests_(save|edit)$/.test(e.event.name)
+          ? e.event.input.match(/"id"\s*:\s*"(local-[0-9a-f]{8})"/i)?.[1]?.toLowerCase()
+          : undefined;
+    if (id && !ids.includes(id)) ids.push(id);
+  }
   for (const id of result?.tests ?? []) if (!ids.includes(id)) ids.push(id);
   return ids;
 }
@@ -114,6 +118,7 @@ export function RunHead({
   result,
   read,
   count,
+  doing,
   onCancel,
   onReview,
 }: {
@@ -122,6 +127,7 @@ export function RunHead({
   result: GenOutput | null;
   read: number;
   count: number;
+  doing: string;
   onCancel: () => void;
   onReview: () => void;
 }) {
@@ -133,7 +139,7 @@ export function RunHead({
           <span className="dot run-dot" />
           Claude is writing
         </span>
-        <h2 className="h genhead-title">{count ? `${plural(count, "test")} so far` : "Reading the documents"}</h2>
+        <h2 className="h genhead-title">{count ? `${plural(count, "test")} so far` : doing}</h2>
         <span className="muted">
           {duration(job, now)} · {plural(read, "passage")} read
         </span>

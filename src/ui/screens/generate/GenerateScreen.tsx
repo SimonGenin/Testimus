@@ -4,9 +4,10 @@ import { call } from "../../api.ts";
 import { AdditionalContext } from "../../components/claude/AdditionalContext.tsx";
 import { type ClaudeStatus, ConnectClaude } from "../../components/claude/ConnectClaude.tsx";
 import { cap, EFFORTS, ModelPicker } from "../../components/claude/ModelPicker.tsx";
-import { JobLog, useJob } from "../../components/shell/JobLog.tsx";
+import { useJob } from "../../components/shell/JobLog.tsx";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
 import { Button, DragEdge, Icon } from "../../components/ui/index.ts";
+import { activityOf, DOING } from "../../lib/activity.ts";
 import { useApp } from "../../lib/app.ts";
 import { plural } from "../../lib/format.ts";
 import { type DocScope, scopeOf } from "../../lib/scope.ts";
@@ -15,6 +16,7 @@ import { errorToast } from "../../lib/toast.ts";
 import { REQUIREMENT, takeHandoff } from "../../lib/traces.ts";
 import { ColumnsView } from "./ColumnsView.tsx";
 import { DocScopePicker } from "./DocScopePicker.tsx";
+import { GenActivity } from "./GenActivity.tsx";
 import {
   Coverage,
   checkLine,
@@ -50,7 +52,6 @@ export function GenerateScreen() {
   const [status, setStatus] = useState<ClaudeStatus | null>(null);
   const [checkingClaude, setCheckingClaude] = useState(false);
   const [landed, setLanded] = useState<Record<string, Landed>>({});
-  const [showLog, setShowLog] = useState(false);
   const [now, setNow] = useState(Date.now());
   const chained = useRef<string | null>(null);
 
@@ -60,6 +61,7 @@ export function GenerateScreen() {
   const ids = landedIds(gen.events, result);
   const read = passagesRead(gen.events);
   const running = job?.status === "running";
+  const doing = DOING[activityOf(gen.events).at(-1)?.kind ?? "prepare"];
   const runModel = model || cfg?.claude.model || "opus";
   const runEffort: Effort = effort || cfg?.claude.effort || "high";
   const ctxIds = contexts ?? cfg?.claude.contexts ?? [];
@@ -330,6 +332,7 @@ export function GenerateScreen() {
                   result={result}
                   read={read}
                   count={ids.length}
+                  doing={doing}
                   onCancel={() => void cancel()}
                   onReview={() => app.navigate("review", ids[0])}
                 />
@@ -351,16 +354,7 @@ export function GenerateScreen() {
                   ))}
                 </section>
               )}
-              <Button
-                tone="quiet"
-                icon={showLog ? "down" : "right"}
-                aria-expanded={showLog}
-                onClick={() => setShowLog((s) => !s)}
-              >
-                {showLog ? "Hide" : "Show"} what Claude read and wrote (
-                {plural(gen.events.length, "entry").replace("entrys", "entries")})
-              </Button>
-              {showLog && <JobLog events={gen.events} label="What Claude read and wrote" />}
+              <GenActivity events={gen.events} running={running} now={now} />
             </>
           )}
         </section>

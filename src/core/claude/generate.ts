@@ -179,6 +179,10 @@ export function toolStep(e: ClaudeEvent): ToolStep {
     const id = e.input.match(TEST_PATH)?.[1];
     return id ? { kind: "write", testId: id.toLowerCase() } : null;
   }
+  if (/(^|_)tests_(save|edit)$/.test(e.name)) {
+    const id = e.input.match(/"id"\s*:\s*"(local-[0-9a-f]{8})"/i)?.[1];
+    return id ? { kind: "write", testId: id.toLowerCase() } : null;
+  }
   if ((e.name === "Read" || e.name === "Grep") && /docs[\\/]+[^\\/]+[\\/]+doc\.md/.test(e.input))
     return { kind: "read" };
   return null;

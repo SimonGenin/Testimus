@@ -173,6 +173,7 @@ describe("Generate › result helpers", () => {
           result={result}
           read={1}
           count={count}
+          doing="Reading the documents"
           onCancel={onCancel}
           onReview={onReview}
         />,
@@ -440,10 +441,11 @@ describe("Generate screen", () => {
     expect(a.navigate).toHaveBeenCalledWith("review", "local-aaaaaaaa");
     fireEvent.click(screen.getByRole("button", { name: "Review these tests" }));
     expect(a.navigate).toHaveBeenCalledTimes(2);
-    const log = screen.getByRole("button", { name: /Show what Claude read and wrote \(1 entry\)/ });
+    expect(screen.getByRole("region", { name: "What Claude did" })).toBeInTheDocument();
+    const log = screen.getByRole("button", { name: "Show the raw log (1 event)" });
     fireEvent.click(log);
-    expect(screen.getByRole("log", { name: "What Claude read and wrote" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Hide what Claude read and wrote/ }));
+    expect(screen.getByRole("log", { name: "Raw log" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Hide the raw log (1 event)" }));
     expect(screen.queryByRole("log")).toBeNull();
   });
 
@@ -460,7 +462,7 @@ describe("Generate screen", () => {
     mount(<GenerateScreen />, { info: info({ model: "opus", effort: "high" }, ["/A"]) });
     expect(await screen.findByText("Claude crashed")).toBeInTheDocument();
     expect(screen.getByText("Project default: Opus / high")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /\(0 entries\)/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show the raw log (0 events)" })).toBeInTheDocument();
     cleanup();
     api.routes["jobs.list"] = () => [job({ id: "g2", status: "done" })];
     api.routes["jobs.show"] = () => ({ job: job({ id: "g2", status: "done", endedAt: at }), events: [] });
@@ -581,7 +583,8 @@ describe("Generate screen", () => {
     const { app: a } = mount(<GenerateScreen />);
     fireEvent.change(screen.getByLabelText("What should be tested?"), { target: { value: " Les sectionneurs " } });
     fireEvent.click(screen.getByRole("button", { name: "Generate" }));
-    expect(await screen.findByText("Reading the documents")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Getting ready" })).toBeInTheDocument();
+    expect(screen.getByText("Claude is starting.")).toBeInTheDocument();
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
     await new Promise((r) => setTimeout(r, 1100));
     refs = [ref("local-aaaaaaaa"), ref("local-bbbbbbbb")];

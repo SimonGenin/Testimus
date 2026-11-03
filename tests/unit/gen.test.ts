@@ -173,6 +173,11 @@ describe("gen-report parsing", () => {
       }),
     ).toEqual({ kind: "write", testId: "local-1a2b3c4d" });
     expect(toolStep({ type: "tool", name: "Edit", input: '{"file_path":"tests/LFRPS12-1420/test.md"}' })).toBeNull();
+    expect(
+      toolStep({ type: "tool", name: "mcp__testimus__tests_save", input: '{"id":"local-1A2B3C4D","test":{"summ...' }),
+    ).toEqual({ kind: "write", testId: "local-1a2b3c4d" });
+    expect(toolStep({ type: "tool", name: "mcp__testimus__tests_edit", input: '{"id":"LFRPS12-1420"}' })).toBeNull();
+    expect(toolStep({ type: "tool", name: "mcp__testimus__tests_create", input: '{"summary":"A"}' })).toBeNull();
     expect(toolStep({ type: "tool", name: "Read", input: '{"file_path":"docs/DOC/doc.md"}' })).toEqual({
       kind: "read",
     });

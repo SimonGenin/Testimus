@@ -502,3 +502,201 @@ button.stree-tw:hover {
   gap: 2px;
   font-size: 13.5px;
 }
+
+.act {
+  padding: 16px 20px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.act-heading {
+  font: 600 15px / 1.3 var(--font-head);
+  margin: 0;
+}
+
+.act-phases {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.act-phase {
+  position: relative;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 12px;
+  padding-bottom: 16px;
+}
+
+.act-phase:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 24px;
+  bottom: 2px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--line);
+}
+
+.act-phase:last-child {
+  padding-bottom: 4px;
+}
+
+.act-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+
+.act-mark svg {
+  width: 13px;
+  height: 13px;
+}
+
+.act-phase.is-live .act-mark {
+  background: var(--info-bg);
+  color: var(--info);
+}
+
+.act-phase.is-live .act-mark .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.act-phase.is-failed .act-mark {
+  background: var(--err-bg);
+  color: var(--err);
+}
+
+.act-phase.is-end:not(.is-failed) .act-mark {
+  background: var(--surface-3);
+  color: var(--ink-2);
+}
+
+.act-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.act-head {
+  display: flex;
+  align-items: baseline;
+  gap: 4px 12px;
+  flex-wrap: wrap;
+  min-height: 22px;
+}
+
+.act-title {
+  margin: 0;
+  font: 600 15px / 22px var(--font-body);
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.act-phase.is-live .act-title {
+  color: var(--info);
+}
+
+.act-time {
+  font-size: 13px;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.act-toggle {
+  align-self: flex-start;
+  margin-left: -8px;
+  color: var(--ink-3);
+}
+
+.act-line {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink-2);
+  max-width: 78ch;
+}
+
+.act-warn {
+  color: var(--warn);
+}
+
+.act-error {
+  color: var(--err);
+}
+
+.readbar-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 640px;
+}
+
+.readbar {
+  position: relative;
+  height: 14px;
+  border-radius: 4px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+
+.readbar-page {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: color-mix(in srgb, var(--accent) 62%, transparent);
+  box-shadow: inset -2px 0 0 var(--surface);
+}
+
+.readbar-page.is-latest {
+  background: var(--accent);
+  animation: sk-pulse 1.4s ease-in-out infinite;
+}
+
+.act-steps {
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink-2);
+  max-height: 320px;
+  overflow: auto;
+}
+
+.act-steps li {
+  overflow-wrap: anywhere;
+}
+
+.act-at {
+  display: inline-block;
+  min-width: 64px;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.act-raw {
+  align-self: flex-start;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .readbar-page.is-latest {
+    animation: none;
+  }
+}
