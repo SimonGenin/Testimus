@@ -2,6 +2,7 @@ import { z } from "zod";
 import { proposeTrace } from "../claude/traces.ts";
 import { type Command, command, projectOf, UserError } from "../command.ts";
 import {
+  locateIds,
   projectTraces,
   REQUIREMENT,
   removeTrace,
@@ -84,6 +85,25 @@ export const commands: Command[] = [
       if (input.trace && !t) throw new UserError(`No tracked ids called ${input.trace}.`, "traces.list shows them.");
       const patterns = input.patterns?.length ? input.patterns : (t?.patterns ?? []);
       return scanTrace(project, patterns, { doc: input.doc, limit: input.limit, csv: t?.id === REQUIREMENT });
+    },
+  }),
+  command({
+    name: "traces.locate",
+    summary:
+      "Where ids of a step column are written in the documents, as source references — what opens when one is clicked.",
+    input: z.object({
+      ids: z.array(z.string()).min(1).max(500).describe("Ids as a step column lists them, e.g. EXI_MOP_SPF_511_A_1670"),
+    }),
+    output: z.array(
+      z.object({
+        id: z.string().describe("The id asked for"),
+        doc: z.string().describe("Document that writes it"),
+        anchor: z.string().describe("req:<id> where the document defines it, else the section of its first occurrence"),
+      }),
+    ),
+    mutates: false,
+    async run(ctx, input) {
+      return locateIds(projectOf(ctx), input.ids);
     },
   }),
   command({

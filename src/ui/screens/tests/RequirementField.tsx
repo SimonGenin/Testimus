@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button, RequirementChip } from "../../components/ui/index.ts";
 import { joinIds, splitIds } from "../../lib/fields.ts";
-import { exampleOf, traceOfField } from "../../lib/traces.ts";
+import { exampleOf, traceOfField, useOpenId } from "../../lib/traces.ts";
 
 export function RequirementField({
   label,
@@ -18,6 +18,7 @@ export function RequirementField({
 }) {
   const ids = splitIds(value);
   const trace = traceOfField(label);
+  const openId = useOpenId();
   const [adding, setAdding] = useState(false);
   const [text, setText] = useState("");
   const commit = () => {
@@ -33,6 +34,7 @@ export function RequirementField({
           key={id}
           id={id}
           kind={trace ? trace.label.toLowerCase() : undefined}
+          onClick={openId && (() => openId(id))}
           onRemove={readOnly ? undefined : () => onChange(joinIds(ids.filter((x) => x !== id)))}
         />
       ))}

@@ -9,6 +9,7 @@ import {
 } from "../../components/ui/index.ts";
 import { fieldViews, parseSourceRef, splitIds } from "../../lib/fields.ts";
 import { cx, plural } from "../../lib/format.ts";
+import { sourceOfId } from "../../lib/traces.ts";
 import { FieldBlocks } from "../tests/FieldBlocks.tsx";
 
 const noop = () => {};
@@ -130,7 +131,12 @@ export function ReviewStep({
             ) : v.requirements ? (
               <div className="chips">
                 {splitIds(value).map((id) => (
-                  <RequirementChip key={id} id={id} error={flagged(findings, id)} />
+                  <RequirementChip
+                    key={id}
+                    id={id}
+                    error={flagged(findings, id)}
+                    onClick={() => void sourceOfId(id).then((s) => s && pick(s))}
+                  />
                 ))}
               </div>
             ) : (

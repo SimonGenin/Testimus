@@ -108,6 +108,35 @@ export function scanTrace(
   return { total, distinct: items.length, docs, items: items.slice(0, opts.limit ?? items.length) };
 }
 
+const literal = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+// ponytail: where a step column's ids are written, so the screens can open them as sources — an id's
+// requirement anchor wins, else the section of its first occurrence; an id no document writes is left out
+export function locateIds(project: string, ids: string[]): { id: string; doc: string; anchor: string }[] {
+  const wanted = [...new Set(ids.map((i) => i.trim()).filter(Boolean))];
+  const res = new Map(
+    wanted.map((id) => [id, new RegExp(`(?<![\\p{L}\\p{N}_])${literal(id)}(?![\\p{L}\\p{N}_])`, "u")]),
+  );
+  const defined = new Map<string, { doc: string; anchor: string }>();
+  const first = new Map<string, { doc: string; anchor: string }>();
+  for (const doc of docIds(project)) {
+    let anchor = "";
+    for (const line of readFileSync(join(project, "docs", doc, "doc.md"), "utf8").split(/\r?\n/)) {
+      const req = line.match(/<!--\s*req\s+(\S+)\s*-->/);
+      if (req && res.has(req[1]) && !defined.has(req[1])) defined.set(req[1], { doc, anchor: `req:${req[1]}` });
+      const sec = line.match(/<!--\s*§\s*(\S+)\s*-->/);
+      if (sec) anchor = `§${sec[1]}`;
+      const text = plain(line);
+      if (!anchor || !text) continue;
+      for (const [id, re] of res) if (!first.has(id) && re.test(text)) first.set(id, { doc, anchor });
+    }
+  }
+  return wanted.flatMap((id) => {
+    const at = defined.get(id) ?? first.get(id);
+    return at ? [{ id, ...at }] : [];
+  });
+}
+
 // ponytail: RATP's requirement ids, which every project tracked without saying so before it declared its own
 export const LEGACY_PATTERN = String.raw`\bEXI_[A-Z0-9_]*[A-Z0-9]`;
 

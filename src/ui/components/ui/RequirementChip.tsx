@@ -18,6 +18,7 @@ export function RequirementChip({
       className="req"
       error={error}
       icon={error ? "error" : undefined}
+      title={onClick ? "Open where the documents write it" : undefined}
       onClick={onClick}
       onRemove={onRemove}
       removeLabel={`Remove ${kind} ${id}`}

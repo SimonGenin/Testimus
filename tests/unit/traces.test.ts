@@ -215,6 +215,17 @@ describe("tracked ids", () => {
     expect(mechanicalCheck(dir, "local-3f9a12c0").some((f) => f.kind === "requirement-unknown")).toBe(false);
   });
 
+  it("locates a column's ids as sources: the requirement anchor first, else the section that first writes it", async () => {
+    const dir = copyFixture();
+    const at = await run(dir, "traces.locate", {
+      ids: ["EXI_MOP_SPF_511_A_1650", "Figure 40", "EXI_MOP_SPF_511_A_165", "EXI_NOWHERE"],
+    });
+    expect(at).toEqual([
+      { id: "EXI_MOP_SPF_511_A_1650", doc: "SOSIE_211_D401-1_3", anchor: "req:EXI_MOP_SPF_511_A_1650" },
+      { id: "Figure 40", doc: "SOSIE_211_D401-1_3", anchor: "§5.6.6" },
+    ]);
+  });
+
   it("reads the proposal block, and nothing from a reply without one", () => {
     expect(
       parseProposal('```trace\n{"label":"Alarme","patterns":["\\\\bALM-\\\\d+"],"field":"Alarme","why":"…"}\n```'),

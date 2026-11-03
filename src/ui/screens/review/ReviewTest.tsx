@@ -13,6 +13,7 @@ import {
 } from "../../components/ui/index.ts";
 import { idsByKind, isRequirementField, splitIds } from "../../lib/fields.ts";
 import { plural } from "../../lib/format.ts";
+import { sourceOfId } from "../../lib/traces.ts";
 import { FindingSources, ReviewStep } from "./ReviewStep.tsx";
 
 export type Marks = { runId: string; steps: Set<number>; added: Set<number> };
@@ -111,7 +112,10 @@ export function ReviewTest({
               <span className="label">{g.label} ids</span>
               {g.ids.map((r) => (
                 <span key={r} title={r}>
-                  <RequirementChip id={shortId(g.ids[0], r)} />
+                  <RequirementChip
+                    id={shortId(g.ids[0], r)}
+                    onClick={() => void sourceOfId(r).then((s) => s && onSelect(s, null))}
+                  />
                 </span>
               ))}
             </Fragment>
