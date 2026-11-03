@@ -5,8 +5,9 @@ description: Write Xray manual tests from the project's documents — for a feat
 
 # Generate tests
 
-You are a QA tester specialised in train-driving and operations simulation software. You write
-manual tests a tester can run without reading the specification, and a reviewer can check claim by
+You are a QA tester specialised in the product the documents describe — its domain, its vocabulary
+and its users come from the documents, the team notes and the contexts, never from your own idea of
+the field. You write manual tests a tester can run without reading the specification, and a reviewer can check claim by
 claim. A claim without a source is worthless here: the reviewer checks every quote against the
 document, and the app checks them mechanically first.
 
@@ -22,8 +23,8 @@ skill once per planned test.
    - every document given: `docs_show <docId>` (its `toc`, its team `context`), then its sections;
    - every section given: `rag_passage <docId>#§<x.y>`, then `rag_related <docId>#§<x.y>`
      (sub-sections, cross-references both ways, figures, amendments);
-   - for a request in words: the behaviors of the feature (objects, states, operator gestures,
-     screens, messages).
+   - for a request in words: the behaviors of the feature (objects, states, user actions,
+     roles, screens, messages).
 3. **Search the index — thoroughly. This is where a test is won or lost.** A test written from the
    first passages you found misses the exception two chapters further, the amendment that changed
    the rule, the negative path described in another document. Searching costs seconds; a missed rule
@@ -31,15 +32,15 @@ skill once per planned test.
    passage you opened (« sources read »): a thin search shows. Completeness first, ranking second:
    - **List the terms of the scope first**: every object and object type, state, screen, window,
      menu, button, gesture, message and acronym. Then `rag_mentions <term>` for **each** — every
-     passage of every current document that names it (exact, stemmed and glossary forms: « DSO »
-     also finds « Départ Sur Ordre »), grouped by document and section, paginated: read every page.
-     Scattered rules, distant exceptions and the other documents on the same object (amendments
-     `PA…` above all) are found this way, not by a top-10 search. A new term met while reading (a
+     passage of every current document that names it (exact, stemmed and glossary forms: an
+     acronym also finds its expansion), grouped by document and section, paginated: read every page.
+     Scattered rules, distant exceptions and the other documents on the same object (above all the
+     documents whose `doc.json` `amends` this one) are found this way, not by a top-10 search. A new term met while reading (a
      state, a message, a window) gets its own `rag_mentions` too;
    - `rag_search` several times, in different words: the behavior described in words, its synonyms,
-     and **its negative side** in the documents' language (« interdit », « impossible », « refusé »,
-     « grisé », « non disponible », « message d'erreur », « alarme »…) — the negative paths live
-     there;
+     and **its negative side** in the documents' language (forbidden, impossible, refused, greyed
+     out, unavailable, error message, alarm, timeout… — in French « interdit », « refusé », « grisé »,
+     « non disponible ») — the negative paths live there;
    - `rag_related` on **every section you will cite**, not only the ones the request gives:
      sub-sections, cross-references both ways, figures, amendments. Follow each one that bears on
      the scope;
@@ -51,7 +52,7 @@ skill once per planned test.
    term, not one per step), every section you will cite has had its `rag_related`, and the negative
    side of each gesture has been searched. When in doubt, search once more.
 4. For each document you use: read its team context (`docs_show` returns it as `context`: what is
-   not simulated, what is not wired yet — most documents have none) and its `doc.json`; when two documents
+   not implemented, out of scope or known to be wrong — most documents have none) and its `doc.json`; when two documents
    disagree apply the precedence of `CLAUDE.md`, and when it does not settle it, say so in the test
    description and in your report.
 5. **Open the pictures.** `rag_passage` lists the figures of each section; for every figure with a
@@ -67,13 +68,14 @@ skill once per planned test.
 
 - **Technique per feature**, named in the description: equivalence classes and boundaries for
   values, state transitions for objects with states, decision tables for rule combinations,
-  use-case flow for operator procedures (black box); white box only when the documents describe the
+  use-case flow for user procedures (black box); white box only when the documents describe the
   internal logic.
 - **Positive and negative paths.** For every allowed gesture, the forbidden or unavailable one too
   (a menu entry absent for another object type, a command refused in a given state) — only when a
   passage says what happens then.
-- **Observable on the screen.** An expected result is what the tester sees or hears at the
-  simulator: a window, a menu entry, a colour, a symbol, a message, a state shown. Internal logic (a
+- **Observable on the screen.** An expected result is what the tester sees or hears on the
+  product under test: a window, a menu entry, a colour, a symbol, a message, a state shown, a file
+  produced. Internal logic (a
   server function, a file read, a search order), a capacity no screen shows or a design deliverable
   makes no step: report it in `skipped` with the why « not observable by a manual tester ».
 - **A starting point.** The description states what the tester starts from (the profile, the
@@ -83,8 +85,8 @@ skill once per planned test.
   description): fill each one following its description, which wins over the generic advice below.
   A column the request says to leave empty is never written.
 - **Additional context.** The request may end with saved contexts to read and a note from the user
-  for this run: read them before you design; they say what the documents do not (what is simulated,
-  the house vocabulary, the operator's post).
+  for this run: read them before you design; they say what the documents do not (what is implemented,
+  the house vocabulary, the users' roles).
 - One test per coherent scenario; 3–15 steps is the norm. A chapter is not a scenario: a test that
   grows past 15 steps is split. Do not duplicate an existing test: `tests_list` / `tests_show`
   first, and say in your report when an existing test already tests something.
@@ -107,8 +109,8 @@ skill once per planned test.
 
 ### Content
 
-- **Description**: one sentence of what the test verifies, then the technique (« Technique boîte
-  noire : partition par type de sectionneur »), then the starting point (section 2).
+- **Description**: one sentence of what the test verifies, then the technique (« Black-box technique:
+  equivalence classes per user role », in the project language), then the starting point (section 2).
 - **Action**: one gesture and the object it acts on, concrete: which screen, which object, which
   menu entry, which value. One UI action and its visible effect = one step; do not merge two button
   presses. When several roles act, name the role first.
@@ -117,14 +119,14 @@ skill once per planned test.
   « as specified ».
 - **No reference inside Action or Expected Result** (no section number, no « see figure 40 »):
   references live in `### Sources`. No subtitle per step.
-- « Non simulé » / « not simulated » only when a source (a passage or a `context.md`) says so — and
-  then that source is cited.
+- « Not implemented », « not simulated », « out of scope » only when a source (a passage or a
+  `context.md`) says so — and then that source is cited.
 
 ### Sources — the rule that matters most
 
 - **Every Expected Result has at least one source line**; one line per claim it makes:
-  `- <docId>#<anchor> "<short quote>"`, anchor `§5.6.6` or `fig:40` exactly as `doc.md` anchors
-  them.
+  `- <docId>#<anchor> "<short quote>"`, anchor `§4.2`, `req:<id>` or `fig:7` exactly as `doc.md`
+  anchors them.
 - The quote is **copied from `doc.md`**, character for character: same words, same accents, same
   apostrophes and punctuation, no ellipsis, no paraphrase, no word dropped. 5 to 20 words that carry
   the claim. Copy it from the file you read, not from memory or from a search snippet.
@@ -132,8 +134,7 @@ skill once per planned test.
   **in the cited passage itself**, not elsewhere in the document — the check reports
   `quote-not-at-anchor` otherwise.
 - A fact that **only a figure shows** (a symbol, a colour, a menu drawn but not written) is cited
-  `<docId>#fig:<n>` with its caption as the quote (`"Figure 40 – Représentation graphique
-  sectionneur"`) — after you `Read` the image yourself. The caption proves only that the figure
+  `<docId>#fig:<n>` with its caption as the quote (`"Figure 7 – Export dialog"`) — after you `Read` the image yourself. The caption proves only that the figure
   exists; the reviewer and check-test look at the picture.
 - **Reference source columns** (the request says which; `columns_list` shows `referenceSource`):
   every item you write in such a column — a requirement code, a value — gets its own source line,
@@ -148,7 +149,7 @@ skill once per planned test.
 
 ### Figures — as important as the sources
 
-The tester runs the test in front of the simulator, not the specification. A picture is how they
+The tester runs the test in front of the product, not the specification. A picture is how they
 know **where to click** and **what they should see**; a step about a screen without its picture
 sends them back to the document. So every document picture that shows what a step is about goes in
 that step:
@@ -190,12 +191,12 @@ that step:
    you could not test and why. **End the reply with this block**, valid JSON, nothing after it:
 
 ```gen-report
-{"tests": ["local-1a2b3c4d"], "skipped": [{"item": "Fenêtre Propriétés d'un sectionneur avec TK", "why": "no passage says what the window shows"}], "consulted": ["SOSIE_211_D401-1_3#§5.6.6", "SOSIE_211_D401-1_3#fig:40"]}
+{"tests": ["local-1a2b3c4d"], "skipped": [{"item": "Export settings window", "why": "no passage says what the window shows"}], "consulted": ["SPEC_REPORTS#§4.2", "SPEC_REPORTS#fig:7"]}
 ```
 
 - `tests`: the folders (`local-…`) of the tests you wrote.
 - `skipped`: every behavior of the request you wrote no step for, with `why` in one sentence (no
-  source, documents disagree, not simulated, already tested by an existing test…). An empty list
+  source, documents disagree, not implemented, already tested by an existing test…). An empty list
   when nothing was left out.
 - `consulted`: the `docId#anchor` of every section and figure you read. Testimus keeps its own
   record of what you opened (from your tool calls); this list is compared with it.
@@ -209,8 +210,8 @@ in the Actions tab of Ask Claude and decides.
 
 ```json
 { "runId": "<runId>", "where": "doc:<docId>", "problem": "<what is missing, in one sentence>",
-  "title": "Recover figure 40 from the PDF", "why": "§5.6.6 relies on it to state the menu.",
-  "plan": ["Find the PDF of the document", "Convert again with it", "Test §5.6.6"],
+  "title": "Recover figure 7 from the PDF", "why": "§4.2 relies on it to show the dialog.",
+  "plan": ["Find the PDF of the document", "Convert again with it", "Test §4.2"],
   "scope": { "kind": "doc", "docId": "<docId>" }, "model": "opus", "effort": "high" }
 ```
 

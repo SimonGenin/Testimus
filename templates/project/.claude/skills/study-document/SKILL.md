@@ -37,7 +37,7 @@ what Testimus would not do well by itself:
   tagged as headings).
 - **numbers** (PDF only) — when the inspection says headings carry no number in the text and neither
   bookmarks nor a numbered table of contents give them back, but the pages print them (Word draws list
-  numbers without writing them, e.g. SOSIE_441 without its .docx). Read every such heading on the pages,
+  numbers without writing them, e.g. a PDF printed from Word without its .docx). Read every such heading on the pages,
   in reading order — the table of contents pages are the quickest — and give `{ number, title }` with
   the number as printed (`2.3.1`, `A.3.1`) and the title without its number, as printed. Give a number
   only where you read it; never count one up. Skip it when there are hundreds and no table of contents

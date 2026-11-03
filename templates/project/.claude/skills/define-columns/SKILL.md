@@ -46,15 +46,15 @@ settings, not by you.
    first: the team wrote those. Note what goes in which column, the tone (imperative, nominal), the
    length, the lists, what is left empty. A habit seen in several tests beats your preference.
 2. **The documents.** `docs_show` for each document that matters (its team `context` says what is
-   not simulated), then `rag_search` and `rag_passage` for what a tester has to name or check: the
-   screens and windows, the operator positions, the objects, the values entered, the messages.
+   not implemented), then `rag_search` and `rag_passage` for what a tester has to name or check: the
+   screens and windows, the user roles, the objects, the values entered, the messages.
    Read `docs/<id>/doc.md` to see how the documents name them.
 3. **The contexts.** Read the notes and files the prompt points at: a team rule there wins.
 
 ## 3. Write each description
 
 - An instruction, one or two sentences: what goes in the column, in which form, and when to leave it
-  empty. « The values entered or the object aimed at (code, position, track), only when the action
+  empty. « The values entered or the object aimed at (a code, a record, a file), only when the action
   needs them. »
 - In the vocabulary of the documents and the glossary; in the language the current descriptions use.
 - About every step of every test — never the content of one test.
@@ -69,7 +69,7 @@ request you cannot ground in the documents or the tests gets no proposal: say so
 Reply in 2 to 4 lines in English, then end with this block, valid JSON, nothing after it:
 
 ```columns
-{"columns": [{"name": "Expected Result", "description": "Everything the operator observes after the gesture, one observation per line, in the words of the document.", "why": "LFRPS12-1420 and LFRPS12-1398 list one observation per line."}]}
+{"columns": [{"name": "Expected Result", "description": "Everything the user observes after the action, one observation per line, in the words of the document.", "why": "PROJ-142 and PROJ-139 list one observation per line."}]}
 ```
 
 - `name`: the column exactly as listed, or the name of the new local column (one line, at most 60

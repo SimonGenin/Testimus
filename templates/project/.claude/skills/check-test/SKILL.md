@@ -1,6 +1,6 @@
 ---
 name: check-test
-description: Check one Xray test against the project's documents, step by step, and report anomalies — expected results the cited passage does not support, smart columns not filled as their description says, wrong object tested, missing negative path, claims of "not simulated" without a source, contradictions between documents. Use when asked to check, verify or review a test, or when Testimus runs its semantic check.
+description: Check one Xray test against the project's documents, step by step, and report anomalies — expected results the cited passage does not support, smart columns not filled as their description says, wrong object tested, missing negative path, claims of "not implemented" without a source, contradictions between documents. Use when asked to check, verify or review a test, or when Testimus runs its semantic check.
 ---
 
 # Check a test
@@ -49,7 +49,7 @@ Use exactly these `kind` values:
 | `wrong-object` | the step tests another object or screen than its sources describe |
 | `negative-missing` | the negative path (refusal, other type, error) is not tested |
 | `case-missing` | a type or state the documents describe is not tested |
-| `not-simulated-unsourced` | "not simulated" (or equivalent) written without a source saying so |
+| `not-simulated-unsourced` | "not implemented", "not simulated" (or equivalent) written without a source saying so |
 | `vague-result` | an expected result a tester cannot observe or decide |
 | `documents-conflict` | two documents disagree and precedence does not settle it |
 | `figure-not-embedded` | a step acts on or looks at a screen, menu, symbol or colour that a document picture shows, and that picture is not embedded in the test (`sources`: the `fig:` anchor) |
@@ -65,15 +65,15 @@ Call `check_record` **exactly once**, with every finding:
 ```json
 { "id": "<test id>", "findings": [
   { "step": 2, "kind": "unsupported", "severity": "error",
-    "message": "Le §5.6.6 liste sept commandes pour un sectionneur sans TK ; le step n'attend qu'une entrée « changer d'état ».",
-    "sources": ["SOSIE_211_D401-1_3#§5.6.6"] }
+    "message": "Le §4.2 liste trois formats d'export ; le step n'attend que le PDF.",
+    "sources": ["SPEC_REPORTS#§4.2"] }
 ] }
 ```
 
 - `step`: the step number (1-based); leave it out for a finding about the whole test.
 - `message`: one sentence, in the project language, naming the exact discrepancy ("the passage lists
-  seven menu actions for a sectionneur sans TK; the step expects a single 'change state' entry").
-- `sources`: the `docId#anchor` references that prove it (`§5.6.6`, `fig:40`).
+  three export formats; the step expects PDF only").
+- `sources`: the `docId#anchor` references that prove it (`§4.2`, `req:<id>`, `fig:7`).
 
 No finding is a valid result: call `check_record` with `"findings": []`. Then reply in one line with the
 count by severity.
@@ -86,8 +86,8 @@ gives you. The user sees it as a card in the Actions tab of Ask Claude and decid
 
 ```json
 { "runId": "<runId>", "problem": "<the finding's message, verbatim>",
-  "title": "Cite the source of step 4", "why": "§5.6.6 states the expected menu.",
-  "plan": ["Read §5.6.6", "Rewrite the expected result", "Add the source line"],
+  "title": "Cite the source of step 4", "why": "§4.2 states the expected result.",
+  "plan": ["Read §4.2", "Rewrite the expected result", "Add the source line"],
   "scope": { "kind": "step", "testId": "<test id>", "step": 4 }, "model": "sonnet", "effort": "medium" }
 ```
 

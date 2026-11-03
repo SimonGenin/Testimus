@@ -128,7 +128,7 @@ describe("the Reference source option of a column", () => {
   it("a built-in saved with the option only keeps its default description", () => {
     saveColumn(dir, { name: "Expected Result", referenceSource: true });
     const c = stepColumns(dir).find((x) => x.name === "Expected Result");
-    expect(c?.description).toMatch(/Everything the operator observes/);
+    expect(c?.description).toMatch(/Everything the user observes/);
     expect(c?.referenceSource).toBe(true);
   });
 

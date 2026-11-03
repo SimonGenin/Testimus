@@ -10,20 +10,20 @@ planned test, and each run reads only that test's sections, right before writing
 what makes those tests short, observable and complete.
 
 1. **Inventory.** For each document in scope: `docs_show <docId>` — its `toc`, its team `context`
-   (what is not simulated). Add the sections the request gives. Read the sections in
-   `docs/<docId>/doc.md`, enough to know what each behavior makes the operator do and see.
+   (what is not implemented or out of scope). Add the sections the request gives. Read the sections in
+   `docs/<docId>/doc.md`, enough to know what each behavior makes the user do and see.
    Then search the index for what lies **outside** the scope's sections but changes its behaviors:
    `rag_mentions` for each main object and screen, `rag_related` on each section that holds a
-   behavior. An exception, an amendment (`PA…`) or a negative path found elsewhere goes in the
+   behavior. An exception, an amendment (a document whose `doc.json` `amends` this one) or a negative path found elsewhere goes in the
    `sections` of the test it belongs to — each test's run starts from those sections.
 2. **Classify every behavior**, once each:
-   - **observable**: a tester at the simulator sees or hears its effect (a window, a menu entry, a
-     colour, a symbol, a message, a state shown);
+   - **observable**: a tester using the product sees or hears its effect (a window, a menu entry, a
+     colour, a symbol, a message, a state shown, a file produced);
    - **not observable**: internal logic (a server function, a file read, a search order), a capacity
      no screen shows, a design or delivery obligation;
-   - **not simulated**: a passage or a context says so (cite it in the why).
+   - **not implemented** (or not simulated, out of scope): a passage or a context says so (cite it in the why).
 3. **Group** the observable behaviors into scenarios: one object or screen, one technique (state
-   transitions, decision table, boundaries, operator procedure), 3 to 15 steps — a chapter is not a
+   transitions, decision table, boundaries, user procedure), 3 to 15 steps — a chapter is not a
    scenario. Each behavior lands in exactly one test. A behavior with a negative path the documents
    describe (an entry absent for another type, a command refused in a state) stays in the test of its
    positive path.
@@ -35,7 +35,7 @@ Reply in a few lines, in the project language: how many tests, and what is left 
 the reply with this block, valid JSON, nothing after it:
 
 ```test-plan
-{"tests": [{"summary": "Sectionneur sans TK — menu contextuel et ouverture", "technique": "transitions d'état", "sections": ["SOSIE_211_D401-1_3#§5.6.6"]}], "skipped": [{"item": "Recherche du sectionneur par le serveur", "why": "not observable by a manual tester: the server function has no effect on the screen"}]}
+{"tests": [{"summary": "Report export — PDF of the selected period", "technique": "equivalence classes", "sections": ["SPEC_REPORTS#§4.2"]}], "skipped": [{"item": "Report cache refreshed by the server", "why": "not observable by a manual tester: the server function has no effect on the screen"}]}
 ```
 
 - `summary`: the test's summary, in the project language, as it will appear in Xray.
