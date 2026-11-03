@@ -3,19 +3,8 @@ import { join } from "node:path";
 import { z } from "zod";
 import { describeFigures } from "../claude/figures.ts";
 import { generateTests } from "../claude/generate.ts";
-import { claudeHeaders } from "../claude/headers.ts";
+import { CONTEXT_IDS, DIAGNOSIS, EFFORT, MODEL, NOTE, TOKENS } from "../claude/schemas.ts";
 import { command, projectOf } from "../command.ts";
-import { hooks } from "../rag/chunk.ts";
-import { CONTEXT_IDS, EFFORT, MODEL, NOTE } from "./claude.ts";
-
-// ponytail: installed once for every face; it does nothing unless the project turned rag.claudeHeaders on
-hooks.describeChunks = claudeHeaders;
-
-const DIAGNOSIS = z.object({
-  kind: z.enum(["connect", "login", "credit", "limit", "network", "other"]),
-  title: z.string(),
-  detail: z.string(),
-});
 
 export const commands = [
   command({
@@ -109,10 +98,7 @@ export const commands = [
         .number()
         .describe("Planned tests not written (cancelled, or a failed run), also listed in skipped: resume writes them"),
       costUsd: z.number().optional(),
-      tokens: z
-        .object({ input: z.number(), output: z.number() })
-        .optional()
-        .describe("Tokens the run used (input incl. cache)"),
+      tokens: TOKENS.optional(),
       durationMs: z.number(),
       diagnosis: DIAGNOSIS.optional(),
     }),

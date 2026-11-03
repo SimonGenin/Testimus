@@ -129,6 +129,8 @@ export function readContexts(project: string, ids: string[]): Context[] {
 
 const slash = (p: string) => p.replace(/\\/g, "/");
 
+export const EDIT_MARKER = "Use the edit-test skill for the request below.";
+
 export function scopeLines(scope: ClaudeScope): string[] {
   if (scope.kind === "project")
     return [

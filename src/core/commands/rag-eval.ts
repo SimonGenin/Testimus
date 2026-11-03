@@ -1,9 +1,9 @@
 import { z } from "zod";
+import { EFFORT } from "../claude/schemas.ts";
 import { command, projectOf } from "../command.ts";
 import { runBench } from "../rag/bench.ts";
 import { compareFiles } from "../rag/compare.ts";
 import { runEval } from "../rag/eval.ts";
-import { EFFORT } from "./claude.ts";
 import { mode } from "./rag.ts";
 
 const scores = z.object({ n: z.number(), recall5: z.number(), recall10: z.number(), mrr: z.number() });

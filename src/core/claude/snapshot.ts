@@ -9,7 +9,7 @@ import { sha256 } from "../lib/hash.ts";
 import { readJson, writeJson } from "../lib/project.ts";
 import { testDir } from "../lib/store.ts";
 import type { ClaudeScope, Effort } from "../types.ts";
-import type { RunKind } from "./run.ts";
+import type { RunKind } from "./access.ts";
 
 // ponytail: .testimus/runs/<runId>/run.json is the whole run — who ran (kind, model, effort, job), and, for a run
 // that may edit tests, the snapshot it can be reverted from (scope, before…)

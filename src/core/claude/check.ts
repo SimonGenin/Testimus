@@ -1,4 +1,4 @@
-import type { Ctx } from "../command.ts";
+import { type Ctx, UserError } from "../command.ts";
 import { agentPool, loadLine } from "../lib/agents.ts";
 import {
   type Corpus,
@@ -10,7 +10,7 @@ import {
   setReview,
 } from "../lib/check.ts";
 import { readProject } from "../lib/project.ts";
-import { readCheck } from "../lib/store.ts";
+import { listLocalTests, readCheck, testExists } from "../lib/store.ts";
 import type { CheckFile, Diagnosis, Finding, Review } from "../types.ts";
 import { proposeLines } from "./actions.ts";
 import { effectiveContexts } from "./prompt.ts";
@@ -28,6 +28,32 @@ export type TestCheck = {
   runId?: string;
   diagnosis?: Diagnosis;
 };
+
+export const inFolder = (folder: string, f: string) => {
+  const root = f.replace(/\/+$/, "");
+  return folder === root || folder.startsWith(`${root}/`) || root === "";
+};
+
+export function selectTests(project: string, input: { ids?: string[]; folder?: string; all?: boolean }): string[] {
+  const tests = listLocalTests(project);
+  if (input.all) return tests.map((t) => t.id);
+  if (!input.ids?.length && input.folder === undefined)
+    throw new UserError("Say which tests to check.", "Pass ids, a folder (--folder /Traction) or --all.");
+  const out = new Set<string>();
+  for (const t of input.ids ?? []) {
+    if (!testExists(project, t))
+      throw new UserError(`No test ${t} in this project.`, "testimus tests list shows the tests.");
+    out.add(t);
+  }
+  if (input.folder !== undefined) {
+    const f = input.folder;
+    const hit = tests.filter((t) => inFolder(t.folder, f));
+    if (!hit.length && !out.size)
+      throw new UserError(`No test in the folder ${f}.`, "testimus tests list shows the tests and their folders.");
+    for (const t of hit) out.add(t.id);
+  }
+  return [...out];
+}
 
 export const findingLine = (f: Finding) =>
   `- ${f.step ? `step ${f.step}` : "test"} — ${f.kind} (${f.severity}): ${f.message}${f.sources.length ? ` [${f.sources.join(", ")}]` : ""}`;

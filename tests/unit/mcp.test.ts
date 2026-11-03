@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it } from "vitest";
-import { mcpAccess, mcpName, readOnlyCommands } from "../../src/core/claude/run.ts";
+import { mcpAccess, mcpName, readOnlyCommands } from "../../src/core/claude/access.ts";
 import { registry } from "../../src/core/commands/index.ts";
 import { toolName } from "../../src/faces/mcp.ts";
 

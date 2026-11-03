@@ -9,6 +9,7 @@ import { DEFAULT_SETTINGS, readProject, writeProject, writeSettings } from "../.
 import { readTest } from "../../src/core/lib/store.ts";
 import { writeContextMd } from "./context-helpers.ts";
 import { markIndexedInDb as markIndexed } from "./index-state-helpers.ts";
+import "../../src/core/commands/index.ts";
 
 const FIXTURE = join(import.meta.dirname, "..", "fixtures", "project");
 const real = env.spawnClaude;

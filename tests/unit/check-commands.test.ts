@@ -9,6 +9,7 @@ import { type ClaudeOut, type ClaudeSpawn, env } from "../../src/core/env.ts";
 import { recordSemantic } from "../../src/core/lib/check.ts";
 import { DEFAULT_SETTINGS, writeSettings } from "../../src/core/lib/project.ts";
 import { readCheck, readTest } from "../../src/core/lib/store.ts";
+import "../../src/core/commands/index.ts";
 
 const FIXTURE = new URL("../fixtures/project/", import.meta.url);
 const DOC = "SOSIE_211_D401-1_3";

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { ask, listChats, showChat } from "../claude/chat.ts";
+import { CONTEXT_IDS, CONVERSATION, DIAGNOSIS, EFFORT, MODEL, NOTE, TOKENS } from "../claude/schemas.ts";
 import { command, projectOf } from "../command.ts";
-import { CONTEXT_IDS, CONVERSATION, EFFORT, MODEL, NOTE } from "./claude.ts";
 
 const SOURCE = z.object({ docId: z.string(), anchor: z.string(), quote: z.string() });
 
@@ -25,11 +25,8 @@ export const commands = [
       answer: z.string(),
       sources: z.array(SOURCE),
       costUsd: z.number().optional(),
-      tokens: z
-        .object({ input: z.number(), output: z.number() })
-        .optional()
-        .describe("Tokens the run used (input incl. cache)"),
-      diagnosis: z.object({ kind: z.string(), title: z.string(), detail: z.string() }).optional(),
+      tokens: TOKENS.optional(),
+      diagnosis: DIAGNOSIS.optional(),
     }),
     mutates: false,
     job: "chat",

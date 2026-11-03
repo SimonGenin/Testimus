@@ -2,7 +2,8 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { mcpAccess, mcpServer, readOnlyCommands, runClaude } from "../../src/core/claude/run.ts";
+import { mcpAccess, readOnlyCommands } from "../../src/core/claude/access.ts";
+import { mcpServer, runClaude } from "../../src/core/claude/run.ts";
 import { revert, takeSnapshot } from "../../src/core/claude/snapshot.ts";
 import { claudeVersion, forShell, resetProbe } from "../../src/core/claude/status.ts";
 import { invoke, registry } from "../../src/core/commands/index.ts";

@@ -5,6 +5,7 @@ import { z } from "zod";
 import { triage } from "../claude/actions.ts";
 import { describeFigures, shouldDescribeFigures } from "../claude/figures.ts";
 import { docContexts, docRunLines, type JobRun, writeDocContexts } from "../claude/prompt.ts";
+import { CONTEXT_IDS, EFFORT, MODEL, NOTE } from "../claude/schemas.ts";
 import { checkConversion, sameConversion, studyDoc } from "../claude/study.ts";
 import { type Ctx, command, projectOf, UserError } from "../command.ts";
 import { writeAtomic } from "../lib/atomic.ts";
@@ -33,7 +34,6 @@ import { unindexDoc } from "../rag/indexer.ts";
 import { hintsOf, inspectDocx, inspectPdf } from "../rag/inspect.ts";
 import { renderPage } from "../rag/pdf.ts";
 import type { DocConversion, DocJson } from "../types.ts";
-import { CONTEXT_IDS, EFFORT, MODEL, NOTE } from "./claude.ts";
 
 const AFTER_CONVERT = [
   { id: "figures", label: "Describe the figures" },

@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import { type Problem, runAction, triage } from "../claude/actions.ts";
 import { docRunLines } from "../claude/prompt.ts";
+import { CONTEXT_IDS, CONVERSATION, EFFORT, MODEL, NOTE, RESULT, SCOPE, scopeLabel } from "../claude/schemas.ts";
 import { readRunMeta } from "../claude/snapshot.ts";
 import { command, projectOf, UserError } from "../command.ts";
 import { env } from "../env.ts";
@@ -20,7 +21,6 @@ import {
 import { readDoc } from "../lib/docs.ts";
 import { testDir } from "../lib/store.ts";
 import { ACTION_EFFORTS, ACTION_MODELS, type ClaudeScope } from "../types.ts";
-import { CONTEXT_IDS, CONVERSATION, EFFORT, MODEL, NOTE, RESULT, SCOPE, scopeLabel } from "./claude.ts";
 
 const id = z
   .string()

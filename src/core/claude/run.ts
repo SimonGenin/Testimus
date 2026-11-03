@@ -9,123 +9,16 @@ import { withProcess } from "../jobs.ts";
 import { perfScope, recordPerf } from "../lib/models-perf.ts";
 import { readJson, writeJson } from "../lib/project.ts";
 import type { ClaudeEvent, ClaudeResult, ClaudeScope, Effort } from "../types.ts";
+import { mcpAccess, protectedRules, type RunKind, TOOLS } from "./access.ts";
 import { diagnose } from "./diagnose.ts";
 import { contextDir, readContexts } from "./prompt.ts";
+import { EFFORTS, MODEL_RE } from "./schemas.ts";
 import { finishSnapshot, takeSnapshot, writeRunMeta } from "./snapshot.ts";
 import { claudeAnswered, claudeExe, forShell } from "./status.ts";
 import { sessionOf, streamParser, type ToolCall, toolCalls, writtenTests } from "./stream.ts";
 
-export { forShell };
-
-export const EDIT_TOOLS = ["Read", "Edit", "Write", "Glob", "Grep", "Skill"];
-export const READ_TOOLS = ["Read", "Glob", "Grep", "Skill"];
-
-export type RunKind =
-  | "chat"
-  | "figures"
-  | "headers"
-  | "check"
-  | "generate"
-  | "fix"
-  | "run"
-  | "triage"
-  | "action"
-  | "columns"
-  | "study";
-
-const TOOLS: Record<RunKind, string[]> = {
-  chat: READ_TOOLS,
-  figures: ["Read"],
-  headers: ["Read"],
-  check: READ_TOOLS,
-  generate: EDIT_TOOLS,
-  fix: EDIT_TOOLS,
-  run: EDIT_TOOLS,
-  triage: READ_TOOLS,
-  action: EDIT_TOOLS,
-  columns: READ_TOOLS,
-  study: READ_TOOLS,
-};
-
-const TEST_WRITES = ["tests.edit", "tests.save", "tests.addImage"];
-
-const EXTRA: Record<RunKind, string[]> = {
-  chat: [],
-  figures: [],
-  headers: [],
-  check: ["check.record", "actions.propose"],
-  generate: ["tests.create", ...TEST_WRITES, "check.run", "actions.propose"],
-  fix: TEST_WRITES,
-  run: [...TEST_WRITES, "check.run"],
-  triage: ["actions.propose"],
-  action: [],
-  columns: [],
-  study: ["actions.propose"],
-};
-
-// ponytail: read-only = mutates:false, minus whatever starts Claude, a job, or touches the app or the machine
-const NOT_READ_ONLY = /^(system|project|jobs|claude)\.|^chat\.ask$|^rag\.eval$/;
-
-export const mcpName = (command: string) => `mcp__testimus__${command.replace(".", "_")}`;
-
-async function commandList(): Promise<{ name: string; mutates: boolean; job?: string }[]> {
-  const { registry } = await import("../commands/index.ts");
-  return registry;
-}
-
-export async function readOnlyCommands(): Promise<string[]> {
-  return (await commandList())
-    .filter((c) => !c.mutates && !c.job && !NOT_READ_ONLY.test(c.name))
-    .map((c) => c.name)
-    .sort();
-}
-
-// ponytail: an action runs with the app's whole command set (what the CLI and the buttons do), minus another
-// Claude run, Jira writes (the user pushes), and what changes the machine or which project is open
-const NOT_IN_ACTION =
-  /^(claude\.run|actions\.(run|triage)|gen\.(tests|bench)|chat\.ask|review\.fix|rag\.eval|jobs\.cancel)$|^xray\.(push|connect|disconnect)$|^system\.(setup|saveSettings|secrets)$|^project\.(init|open|openKey)$|^models\.(add|pull|pullRuntime|remove|setDir|use|usePack)$/;
-
-export async function mcpAccess(kind: RunKind): Promise<{ allow: string[]; deny: string[] }> {
-  const all = (await commandList()).map((c) => c.name).sort();
-  const allowed = new Set(
-    kind === "action" ? all.filter((n) => !NOT_IN_ACTION.test(n)) : [...(await readOnlyCommands()), ...EXTRA[kind]],
-  );
-  return {
-    allow: all.filter((n) => allowed.has(n)).map(mcpName),
-    deny: all.filter((n) => !allowed.has(n)).map(mcpName),
-  };
-}
-
-export const PROTECTED = [
-  "docs/**",
-  "index/**",
-  ".testimus/**",
-  "contexts/**",
-  ".claude/**",
-  "project.json",
-  "xray.json",
-  "columns.json",
-  ".mcp.json",
-  "CLAUDE.md",
-];
-
-// ponytail: Claude Code matches Windows paths in POSIX form — C:\a\b is //c/a/b in a rule
-export function absRule(dir: string): string {
-  const p = resolve(dir).replace(/\\/g, "/");
-  const m = p.match(/^([A-Za-z]):(.*)$/);
-  return `/${m ? `/${m[1].toLowerCase()}${m[2]}` : p}`.replace(/\/+$/, "");
-}
-
-export function protectedRules(addDirs: string[] = []): string[] {
-  const paths = [...PROTECTED, ...addDirs.map((d) => `${absRule(d)}/**`)];
-  return paths.flatMap((p) => [`Edit(${p})`, `Write(${p})`]);
-}
-
-const MODEL = /^[A-Za-z0-9.\-[\]:]+$/;
-const EFFORTS: Effort[] = ["low", "medium", "high", "xhigh", "max"];
-
 export function checkModel(model: string): string {
-  if (!MODEL.test(model))
+  if (!MODEL_RE.test(model))
     throw new UserError(
       `Not a model name: ${JSON.stringify(model.slice(0, 60))}.`,
       "Use an alias (opus, sonnet, haiku) or a model id — letters, digits and . - [ ] : only.",
@@ -134,7 +27,7 @@ export function checkModel(model: string): string {
 }
 
 export function checkEffort(effort: string): Effort {
-  if (!EFFORTS.includes(effort as Effort))
+  if (!(EFFORTS as readonly string[]).includes(effort))
     throw new UserError(`Not an effort level: ${JSON.stringify(effort.slice(0, 30))}.`, `Use ${EFFORTS.join(", ")}.`);
   return effort as Effort;
 }
@@ -275,7 +168,7 @@ export async function runClaude(o: RunOpts): Promise<RunResult> {
   const addDirs = contextDirs(project, o.contexts ?? []);
   const inside = (d: string) => `${d.toLowerCase()}${sep}`.startsWith(`${project.toLowerCase()}${sep}`);
   const external = addDirs.filter((d) => !inside(d));
-  const mcp = await mcpAccess(o.kind);
+  const mcp = mcpAccess(o.kind);
   const args = claudeArgs({
     model,
     effort,

@@ -2,7 +2,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, write
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { mcpAccess } from "../../src/core/claude/run.ts";
+import { mcpAccess } from "../../src/core/claude/access.ts";
 import { conversionOf, parseConversion, sameConversion } from "../../src/core/claude/study.ts";
 import { invoke } from "../../src/core/commands/index.ts";
 import { type ClaudeOut, type ClaudeSpawn, env } from "../../src/core/env.ts";

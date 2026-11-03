@@ -1,13 +1,13 @@
 import { existsSync } from "node:fs";
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
+import { EFFORT, MODEL, NOTE } from "../claude/schemas.ts";
 import { command, projectOf, UserError } from "../command.ts";
 import { activeModels } from "../rag/activation.ts";
 import { chunkCount, dropSpace, getMeta, indexFile, listSpaces, openDb, vectorCount } from "../rag/db.ts";
 import { dimsOf, spaceOf } from "../rag/fingerprint.ts";
 import { indexProject, projectDocs, readState } from "../rag/indexer.ts";
 import type { VectorSpace } from "../types.ts";
-import { EFFORT, MODEL, NOTE } from "./claude.ts";
 
 const space = z.object({
   id: z.string().describe("12 hex characters: sha256 of the space's fingerprint"),

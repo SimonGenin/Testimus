@@ -30,6 +30,7 @@ import {
 } from "../../src/core/lib/project.ts";
 import type { Chunk, FigureEntry } from "../../src/core/types.ts";
 import { writeContextMd } from "./context-helpers.ts";
+import "../../src/core/commands/index.ts";
 
 const FIXTURE = join(import.meta.dirname, "..", "fixtures", "project");
 const D3 = "SOSIE_211_D401-1_3";
