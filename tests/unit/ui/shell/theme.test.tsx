@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ThemeToggle } from "../../../../src/ui/components/shell/ThemeToggle.tsx";
 import { writePref } from "../../../../src/ui/lib/prefs.ts";
-import { followTheme } from "../../../../src/ui/lib/theme.ts";
+import { followTheme, themeClass } from "../../../../src/ui/lib/theme.ts";
 
 afterEach(cleanup);
 beforeEach(() => {
@@ -32,6 +32,16 @@ describe("theme toggle", () => {
     localStorage.setItem("testimus.theme", "dark");
     render(<ThemeToggle />);
     expect(screen.getByRole("button")).toHaveTextContent("Dark");
+  });
+
+  it("gives <html> the dark class when someone else sets data-theme", async () => {
+    const stop = followTheme();
+    const system = document.documentElement.className;
+    document.documentElement.dataset.theme = "dark";
+    await new Promise((r) => setTimeout(r, 0));
+    expect(document.documentElement.className).toBe(themeClass("dark"));
+    expect(document.documentElement.className).not.toBe(system);
+    stop();
   });
 
   it("keeps <html> on the theme preference, wherever it is written", () => {

@@ -43,17 +43,26 @@ export function applyTheme(t: Theme): void {
   writeNamed("theme", t);
 }
 
-// ponytail: <html> follows the theme preference wherever it is written — this page, another window of the profile,
-// or a script that writes the storage and says so with a storage event
+// ponytail: <html> follows the theme wherever it is set — its data-theme (this page, public/theme.js before React, a
+// script or a test) gives the class of the page's base and theme; the preference written here or in another window
+// of the profile gives the data-theme
 export function followTheme(): () => void {
+  const root = document.documentElement;
+  const classFor = () => {
+    const t = root.dataset.theme;
+    root.className = themeClass(t === "light" || t === "dark" ? t : "system");
+  };
   const sync = () => show(readTheme());
-  sync();
+  const watch = new MutationObserver(classFor);
+  watch.observe(root, { attributes: true, attributeFilter: ["data-theme"] });
+  classFor();
   const off = onPrefsChange(sync);
   const onStorage = (e: StorageEvent) => {
     if (e.key === null || e.key === "testimus.theme") sync();
   };
   window.addEventListener("storage", onStorage);
   return () => {
+    watch.disconnect();
     off();
     window.removeEventListener("storage", onStorage);
   };
