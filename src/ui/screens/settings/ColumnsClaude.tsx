@@ -3,7 +3,7 @@ import type { StepColumn } from "../../../core/types.ts";
 import { call, run } from "../../api.ts";
 import { AdditionalContext } from "../../components/claude/AdditionalContext.tsx";
 import { toolLabel } from "../../components/claude/ClaudeDock.tsx";
-import { Button, Icon } from "../../components/ui/index.ts";
+import { Button, Icon } from "../../components/legacy/index.ts";
 import { useApp } from "../../lib/app.ts";
 import { useDraft } from "../../lib/drafts.ts";
 import { cx, plural } from "../../lib/format.ts";

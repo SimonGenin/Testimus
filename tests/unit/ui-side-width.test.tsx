@@ -2,7 +2,7 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { DragEdge } from "../../src/ui/components/ui/index.ts";
+import { DragEdge } from "../../src/ui/components/legacy/index.ts";
 import { useSideWidth } from "../../src/ui/lib/sideWidth.ts";
 
 function Bars() {

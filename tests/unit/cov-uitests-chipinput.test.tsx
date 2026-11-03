@@ -2,8 +2,8 @@
 import "@testing-library/jest-dom/vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ChipInput } from "../../src/ui/components/ui/ChipInput.tsx";
-import { GrowArea } from "../../src/ui/components/ui/GrowArea.tsx";
+import { ChipInput } from "../../src/ui/components/legacy/ChipInput.tsx";
+import { GrowArea } from "../../src/ui/components/legacy/GrowArea.tsx";
 
 afterEach(() => {
   cleanup();

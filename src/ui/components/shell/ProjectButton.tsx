@@ -5,7 +5,7 @@ import { baseName, desktop, openProject, pickFolder, reveal } from "../../lib/de
 import { initials } from "../../lib/format.ts";
 import { writePref } from "../../lib/theme.ts";
 import { errorToast } from "../../lib/toast.ts";
-import { Icon, Menu, type MenuItem } from "../ui/index.ts";
+import { Icon, Menu, type MenuItem } from "../legacy/index.ts";
 import { OpenByKey } from "./OpenByKey.tsx";
 
 type Known = { dir: string; name?: string; jiraProject?: string };

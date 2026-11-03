@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ApiError, call } from "../../api.ts";
-import { Button, Icon } from "../../components/ui/index.ts";
+import { Button, Icon } from "../../components/legacy/index.ts";
 import { useApp } from "../../lib/app.ts";
 import { errorToast } from "../../lib/toast.ts";
 

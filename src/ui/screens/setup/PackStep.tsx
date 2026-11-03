@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { call } from "../../api.ts";
-import { Badge, Button, Icon, Skeleton } from "../../components/ui/index.ts";
+import { Badge, Button, Icon, Skeleton } from "../../components/legacy/index.ts";
 import { useApp } from "../../lib/app.ts";
 import { useDraft } from "../../lib/drafts.ts";
 import { cx, message } from "../../lib/format.ts";

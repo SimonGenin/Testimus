@@ -1,7 +1,7 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import type { CredsStatus, DoctorCheck } from "../../../core/types.ts";
 import { call } from "../../api.ts";
-import { Button, Icon, Skeleton } from "../../components/ui/index.ts";
+import { Button, Icon, Skeleton } from "../../components/legacy/index.ts";
 import { desktop, openExternal, reveal } from "../../lib/desktop.ts";
 import { runDoctor } from "../../lib/doctor.ts";
 import { dropDraft, useDraft } from "../../lib/drafts.ts";

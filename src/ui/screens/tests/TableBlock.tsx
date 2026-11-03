@@ -1,5 +1,5 @@
 import type { Block, StepImage, Table } from "../../../core/types.ts";
-import { Icon } from "../../components/ui/index.ts";
+import { Icon } from "../../components/legacy/index.ts";
 import { addCol, addRow, dropCol, dropRow, width } from "../../lib/table.ts";
 import { FieldBlocks, type Moved } from "./FieldBlocks.tsx";
 

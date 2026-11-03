@@ -1,8 +1,8 @@
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
 import { awaitsReview, type CredsStatus, type LocalTestRef } from "../../../core/types.ts";
 import { project as apiProject, call } from "../../api.ts";
+import { DragEdge, Icon } from "../../components/legacy/index.ts";
 import { Activity } from "../../components/shell/Activity.tsx";
-import { DragEdge, Icon } from "../../components/ui/index.ts";
 import { useApp } from "../../lib/app.ts";
 import { cx } from "../../lib/format.ts";
 import { useSideWidth } from "../../lib/sideWidth.ts";

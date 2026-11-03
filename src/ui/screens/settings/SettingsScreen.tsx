@@ -1,6 +1,6 @@
 import { type CSSProperties, useEffect, useRef } from "react";
+import { DragEdge } from "../../components/legacy/index.ts";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
-import { DragEdge } from "../../components/ui/index.ts";
 import { useApp } from "../../lib/app.ts";
 import { cx } from "../../lib/format.ts";
 import { useSideWidth } from "../../lib/sideWidth.ts";

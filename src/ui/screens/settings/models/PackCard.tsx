@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Badge, Button, Icon } from "../../../components/ui/index.ts";
+import { Badge, Button, Icon } from "../../../components/legacy/index.ts";
 import { cx } from "../../../lib/format.ts";
 import type { Bench } from "./BenchDialog.tsx";
 import type { Op, PackRow } from "./data.ts";

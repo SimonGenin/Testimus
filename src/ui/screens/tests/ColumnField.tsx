@@ -1,4 +1,4 @@
-import { GrowArea } from "../../components/ui/index.ts";
+import { GrowArea } from "../../components/legacy/index.ts";
 import type { Column } from "../../lib/columns.ts";
 
 // ponytail: a project column is plain text in Xray — it holds no screenshot, so it is no field of blocks

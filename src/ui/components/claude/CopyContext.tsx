@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { project as apiProject, call } from "../../api.ts";
 import { errorToast } from "../../lib/toast.ts";
-import { Button } from "../ui/index.ts";
+import { Button } from "../legacy/index.ts";
 
 type Listed = { id: string; name: string };
 type Projects = { projects: { dir: string; name: string; exists: boolean }[] };

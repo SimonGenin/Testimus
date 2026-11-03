@@ -2,7 +2,7 @@ import { type ReactNode, useEffect, useState } from "react";
 import type { ClaudeAction, ClaudeScope, Effort } from "../../../core/types.ts";
 import { call } from "../../api.ts";
 import { originLine, scopeWords } from "../../lib/actions.ts";
-import { Button, Chip, Icon } from "../ui/index.ts";
+import { Button, Chip, Icon } from "../legacy/index.ts";
 import { cap, EFFORTS, ModelPicker } from "./ModelPicker.tsx";
 
 // ponytail: the contexts the run attaches when none is picked — the test's own list, else the project's defaults

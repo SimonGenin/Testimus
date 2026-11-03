@@ -1,5 +1,5 @@
 import type { Job, JobStep, StepStatus } from "../../../core/types.ts";
-import { Icon, type IconName } from "../../components/ui/index.ts";
+import { Icon, type IconName } from "../../components/legacy/index.ts";
 import { cx } from "../../lib/format.ts";
 import { duration, resultLine } from "../../lib/jobs.ts";
 

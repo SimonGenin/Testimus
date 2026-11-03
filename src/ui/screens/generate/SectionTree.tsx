@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { call } from "../../api.ts";
-import { Icon, Skeleton } from "../../components/ui/index.ts";
+import { Icon, Skeleton } from "../../components/legacy/index.ts";
 import { cx } from "../../lib/format.ts";
 import { flip, ownText, parents, type TocEntry, tick } from "../../lib/scope.ts";
 

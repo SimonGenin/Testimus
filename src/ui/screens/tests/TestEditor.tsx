@@ -12,7 +12,7 @@ import type {
 import { call, fileUrl, project, run } from "../../api.ts";
 import { CONTEXTS_EVENT, ContextsDialog } from "../../components/claude/ContextsDialog.tsx";
 import { RevertConflict } from "../../components/claude/RevertConflict.tsx";
-import { Button, Confirm, DragEdge, Icon, type MenuItem, Segmented, Skeleton } from "../../components/ui/index.ts";
+import { Button, Confirm, DragEdge, Icon, type MenuItem, Segmented, Skeleton } from "../../components/legacy/index.ts";
 import { useApp } from "../../lib/app.ts";
 import { blankStep } from "../../lib/blocks.ts";
 import { useChanged } from "../../lib/changed.ts";

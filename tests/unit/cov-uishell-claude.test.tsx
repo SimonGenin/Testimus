@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { AnswerText } from "../../src/ui/components/claude/AnswerText.tsx";
 import { ConnectClaude } from "../../src/ui/components/claude/ConnectClaude.tsx";
 import { RevertConflict } from "../../src/ui/components/claude/RevertConflict.tsx";
-import { Toasts } from "../../src/ui/components/ui/index.ts";
+import { Toasts } from "../../src/ui/components/legacy/index.ts";
 import { closeToast, useToasts } from "../../src/ui/lib/toast.ts";
 
 let ids: number[] = [];

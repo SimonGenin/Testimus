@@ -7,7 +7,6 @@ import {
   type SearchMatch,
 } from "../../../core/types.ts";
 import { call, project, run } from "../../api.ts";
-import { Activity } from "../../components/shell/Activity.tsx";
 import {
   Button,
   GeneratedBadge,
@@ -17,7 +16,8 @@ import {
   ReviewBadge,
   Skeleton,
   SyncBadge,
-} from "../../components/ui/index.ts";
+} from "../../components/legacy/index.ts";
+import { Activity } from "../../components/shell/Activity.tsx";
 import { useApp } from "../../lib/app.ts";
 import { desktop, pathJoin, reveal } from "../../lib/desktop.ts";
 import { draftOf, keepDraft, useDraft } from "../../lib/drafts.ts";

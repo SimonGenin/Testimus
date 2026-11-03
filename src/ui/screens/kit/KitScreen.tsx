@@ -1,21 +1,21 @@
 import * as stylex from "@stylexjs/stylex";
-import { colors, radius, space } from "../../styles/tokens.stylex.ts";
+import { border, color, radius, space } from "../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
   screen: {
-    padding: space.s3,
-    backgroundColor: colors.surface,
-    color: colors.text,
+    padding: space.s4,
+    backgroundColor: color.surface,
+    color: color.text,
   },
   probe: {
-    paddingBlock: space.s1,
-    paddingInline: space.s3,
-    border: "none",
+    paddingBlock: space.s2,
+    paddingInline: space.s4,
+    borderWidth: 0,
     borderRadius: radius.r2,
-    backgroundColor: colors.accent,
-    color: colors.accentText,
+    backgroundColor: color.accent,
+    color: color.onAccent,
     cursor: "pointer",
-    outline: { default: "none", ":focus-visible": `2px solid ${colors.focus}` },
+    outline: { default: "none", ":focus-visible": `${border.widthStrong} solid ${color.focusRing}` },
   },
 });
 

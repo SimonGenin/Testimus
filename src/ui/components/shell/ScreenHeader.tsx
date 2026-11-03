@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useApp } from "../../lib/app.ts";
-import { Icon, Kbd } from "../ui/index.ts";
+import { Icon, Kbd } from "../legacy/index.ts";
 import { Activity } from "./Activity.tsx";
 
 export function ScreenHeader({

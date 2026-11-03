@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Button, Modal } from "../../../components/ui/index.ts";
+import { Button, Modal } from "../../../components/legacy/index.ts";
 
 export function ConfirmDialog({
   title,

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Job, JobEvent } from "../../../core/types.ts";
-import { Button, Icon } from "../../components/ui/index.ts";
+import { Button, Icon } from "../../components/legacy/index.ts";
 import { useApp } from "../../lib/app.ts";
 import { cx } from "../../lib/format.ts";
 import { failedStep, problemText } from "../../lib/jobs.ts";

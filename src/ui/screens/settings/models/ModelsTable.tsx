@@ -1,4 +1,4 @@
-import { Button } from "../../../components/ui/index.ts";
+import { Button } from "../../../components/legacy/index.ts";
 import type { CatalogRow, Installed, Op } from "./data.ts";
 import { isInstalled, size } from "./data.ts";
 import { FitChip } from "./FitChip.tsx";

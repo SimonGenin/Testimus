@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { type Screen, useApp } from "../../lib/app.ts";
 import { draftOf, keepDraft } from "../../lib/drafts.ts";
-import type { IconName } from "../ui/index.ts";
+import type { IconName } from "../legacy/index.ts";
 import { ProjectButton } from "./ProjectButton.tsx";
 import { RailItem } from "./RailItem.tsx";
 import { SystemStatus } from "./SystemStatus.tsx";

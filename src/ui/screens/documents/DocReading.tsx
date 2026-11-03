@@ -1,7 +1,7 @@
 import { type CSSProperties, useEffect, useState } from "react";
 import type { FigureEntry } from "../../../core/types.ts";
 import { call, fileUrl } from "../../api.ts";
-import { Icon } from "../../components/ui/index.ts";
+import { Icon } from "../../components/legacy/index.ts";
 import { cx } from "../../lib/format.ts";
 import type { Upload } from "../../lib/uploads.ts";
 

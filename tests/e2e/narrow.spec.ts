@@ -63,3 +63,32 @@ test("the open Claude dock floats over a 520 px window and stays usable", async 
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
   await shoot(page, "narrow-dock", ["light"]);
 });
+
+test("the split layout stacks Expected Result under Action below 760 px of card, side by side on a wide window", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await openTest(page, "LFRPS12-1420");
+  const main = page.getByRole("main");
+  await main.getByRole("button", { name: "Action | Expected" }).click();
+  const action = main.getByRole("textbox", { name: "Action of step 1" });
+  const expected = main.getByRole("textbox", { name: "Expected Result of step 1" });
+  const boxes = async () => {
+    const [a, e] = [await action.boundingBox(), await expected.boundingBox()];
+    if (!a || !e) throw new Error("the two fields of step 1 have no box");
+    return { a, e };
+  };
+  const sideBySide = async () => {
+    const { a, e } = await boxes();
+    return e.x >= a.x + a.width && Math.abs(e.y - a.y) <= 2;
+  };
+  const stacked = async () => {
+    const { a, e } = await boxes();
+    return e.y >= a.y + a.height && Math.abs(e.x - a.x) <= 2;
+  };
+  await expect.poll(sideBySide).toBe(true);
+  await page.setViewportSize({ width: 520, height: 600 });
+  await expect.poll(stacked).toBe(true);
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await expect.poll(sideBySide).toBe(true);
+});

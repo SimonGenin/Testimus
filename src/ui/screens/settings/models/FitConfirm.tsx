@@ -1,5 +1,5 @@
 import type { Fit } from "../../../../core/types.ts";
-import { Button, Modal } from "../../../components/ui/index.ts";
+import { Button, Modal } from "../../../components/legacy/index.ts";
 import { FitChip } from "./FitChip.tsx";
 
 const WHY: Record<Fit["verdict"], string> = {

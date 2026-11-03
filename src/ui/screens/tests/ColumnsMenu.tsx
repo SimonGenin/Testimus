@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { ColumnMode, ColumnModes } from "../../../core/types.ts";
-import { Button, Segmented } from "../../components/ui/index.ts";
+import { Button, Segmented } from "../../components/legacy/index.ts";
 import { type Column, collapsible, defaultMode, MODES, modeOf } from "../../lib/columns.ts";
 
 // Which step columns fold, for this test or for every test of the project. The step card's own toggle

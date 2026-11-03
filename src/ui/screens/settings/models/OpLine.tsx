@@ -1,4 +1,4 @@
-import { IconButton } from "../../../components/ui/index.ts";
+import { IconButton } from "../../../components/legacy/index.ts";
 import type { Op } from "./data.ts";
 
 export function OpLine({ op, onCancel }: { op: Op; onCancel?: (jobId: string) => void }) {

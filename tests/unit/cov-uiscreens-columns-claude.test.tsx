@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { StepColumn } from "../../src/core/types.ts";
 import { setProject } from "../../src/ui/api.ts";
-import { Toasts } from "../../src/ui/components/ui/index.ts";
+import { Toasts } from "../../src/ui/components/legacy/index.ts";
 import { closeToast, useToasts } from "../../src/ui/lib/toast.ts";
 import { ColumnsClaude } from "../../src/ui/screens/settings/ColumnsClaude.tsx";
 import { callsOf, Fail, FakeES, fakeEvents, fakeNet, job, net, status, withApp } from "./cov-uishell-helpers.tsx";

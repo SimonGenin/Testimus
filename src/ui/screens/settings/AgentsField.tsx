@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { AgentsMeasure, Settings } from "../../../core/types.ts";
 import { call, run } from "../../api.ts";
-import { Button } from "../../components/ui/index.ts";
+import { Button } from "../../components/legacy/index.ts";
 import { useApp } from "../../lib/app.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 

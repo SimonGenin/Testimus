@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { CredsStatus } from "../../../core/types.ts";
-import { Severity } from "../../components/ui/index.ts";
+import { Severity } from "../../components/legacy/index.ts";
 import { useDoctor } from "../../lib/doctor.ts";
 import { cx } from "../../lib/format.ts";
 import { ConnectAtlassian } from "./ConnectAtlassian.tsx";

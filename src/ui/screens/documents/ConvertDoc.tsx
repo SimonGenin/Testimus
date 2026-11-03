@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { DocConversion, DocJson } from "../../../core/types.ts";
-import { Button } from "../../components/ui/index.ts";
+import { Button } from "../../components/legacy/index.ts";
 import { useApp } from "../../lib/app.ts";
 import { baseName } from "../../lib/desktop.ts";
 import { convertDoc } from "../../lib/uploads.ts";

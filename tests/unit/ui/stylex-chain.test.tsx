@@ -15,15 +15,16 @@ describe("StyleX chain", () => {
     expect(screen.getByRole("region", { name: "Component kit" }).className).not.toBe("");
   });
 
-  it("gives each explicit theme its own class on the root, and none to the system theme", () => {
-    expect(themeClass("system")).toBe("");
-    expect(themeClass("dark")).not.toBe("");
+  it("gives the root the page's base, and each explicit theme its own class on top", () => {
+    const base = themeClass("system").split(" ");
+    expect(base.length).toBeGreaterThan(3);
     expect(themeClass("dark")).not.toBe(themeClass("light"));
+    for (const t of ["dark", "light"] as const) expect(themeClass(t).split(" ")).toEqual(expect.arrayContaining(base));
     applyTheme("dark");
     expect(document.documentElement.dataset.theme).toBe("dark");
     expect(document.documentElement.className).toBe(themeClass("dark"));
     applyTheme("system");
     expect(document.documentElement.dataset.theme).toBeUndefined();
-    expect(document.documentElement.className).toBe("");
+    expect(document.documentElement.className).toBe(themeClass("system"));
   });
 });

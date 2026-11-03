@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { CredsStatus } from "../../../core/types.ts";
-import { Button, Icon } from "../../components/ui/index.ts";
+import { Button, Icon } from "../../components/legacy/index.ts";
 import { ConnectAtlassian } from "../settings/ConnectAtlassian.tsx";
 
 export function AccessStep({ onContinue, onSkip }: { onContinue: () => void; onSkip: () => void }) {

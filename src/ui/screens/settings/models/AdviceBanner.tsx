@@ -1,4 +1,4 @@
-import { Button, Icon } from "../../../components/ui/index.ts";
+import { Button, Icon } from "../../../components/legacy/index.ts";
 import type { AdviceRow } from "./data.ts";
 import { choiceLabel } from "./data.ts";
 

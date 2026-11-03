@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { ColumnMode, StepColumn } from "../../../core/types.ts";
-import { Icon, IconButton } from "../../components/ui/index.ts";
+import { Icon, IconButton } from "../../components/legacy/index.ts";
 import { MODES } from "../../lib/columns.ts";
 import { cx } from "../../lib/format.ts";
 import { columnTag } from "../generate/ColumnsView.tsx";

@@ -1,4 +1,4 @@
-import { Button, Severity } from "../ui/index.ts";
+import { Button, Severity } from "../legacy/index.ts";
 
 export function RevertConflict({
   detail,

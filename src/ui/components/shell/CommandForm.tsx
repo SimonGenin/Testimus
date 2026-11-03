@@ -3,7 +3,7 @@ import { type CommandInfo, call, type JsonSchema } from "../../api.ts";
 import { message } from "../../lib/format.ts";
 import { toast } from "../../lib/toast.ts";
 import { PushDialog } from "../../screens/tests/PushDialog.tsx";
-import { Button, Field, Modal } from "../ui/index.ts";
+import { Button, Field, Modal } from "../legacy/index.ts";
 
 // ponytail: Jira writes from the palette never go blind — a push opens the plan dialog
 export const plannedFirst = (name: string, input: Record<string, unknown>): "push" | null =>

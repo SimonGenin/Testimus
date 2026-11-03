@@ -3,7 +3,7 @@ import { call } from "../../api.ts";
 import { useApp } from "../../lib/app.ts";
 import { openProject } from "../../lib/desktop.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
-import { Button, Modal } from "../ui/index.ts";
+import { Button, Modal } from "../legacy/index.ts";
 
 // ponytail: Xray Editor opens a project from its Jira code (its top bar's « Go ») — a known project with that key,
 // else a new project folder named after it beside the current one

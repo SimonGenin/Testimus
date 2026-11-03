@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Step, StepImage, XrayJson } from "../../../core/types.ts";
-import { Button } from "../../components/ui/index.ts";
+import { Button } from "../../components/legacy/index.ts";
 import { collapsible, columnsOf, splitTracks } from "../../lib/columns.ts";
 import { cx } from "../../lib/format.ts";
 import { ColumnField } from "./ColumnField.tsx";

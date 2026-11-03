@@ -1,6 +1,6 @@
 import { Fragment, useContext, useLayoutEffect, useRef, useState } from "react";
 import type { Block, Source, StepImage } from "../../../core/types.ts";
-import { GrowArea, Icon, SourceChip } from "../../components/ui/index.ts";
+import { GrowArea, Icon, SourceChip } from "../../components/legacy/index.ts";
 import { AppContext } from "../../lib/app.ts";
 import { blocksOf } from "../../lib/blocks.ts";
 import { cx } from "../../lib/format.ts";

@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setProject } from "../../src/ui/api.ts";
 import { CONTEXTS_EVENT, ContextsDialog, contextLine } from "../../src/ui/components/claude/ContextsDialog.tsx";
-import { Toasts } from "../../src/ui/components/ui/index.ts";
+import { Toasts } from "../../src/ui/components/legacy/index.ts";
 import { closeToast, useToasts } from "../../src/ui/lib/toast.ts";
 import { callsOf, Fail, fakeNet, net } from "./cov-uishell-helpers.tsx";
 import { fakeDesktop, noDesktop } from "./ui-desktop-helpers.tsx";

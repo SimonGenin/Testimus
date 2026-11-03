@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ApiError, call } from "../../../api.ts";
-import { Button, Icon, Modal, Segmented, Skeleton } from "../../../components/ui/index.ts";
+import { Button, Icon, Modal, Segmented, Skeleton } from "../../../components/legacy/index.ts";
 import { absolutePath, examplePath } from "../../../lib/desktop.ts";
 import { cx, message } from "../../../lib/format.ts";
 import type { Hardware, SetDirOut } from "./data.ts";

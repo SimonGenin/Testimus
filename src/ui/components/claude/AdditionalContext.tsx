@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { call } from "../../api.ts";
 import { cx } from "../../lib/format.ts";
-import { Button, Chip } from "../ui/index.ts";
+import { Button, Chip } from "../legacy/index.ts";
 import { CONTEXTS_EVENT, type ContextSummary, ContextsDialog } from "./ContextsDialog.tsx";
 import { ImportContexts } from "./ImportContexts.tsx";
 import { SaveContext } from "./SaveContext.tsx";

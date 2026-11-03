@@ -4,7 +4,7 @@ import { desktop, examplePath, pickFolder } from "../../lib/desktop.ts";
 import { toBase64 } from "../../lib/files.ts";
 import { cx, plural } from "../../lib/format.ts";
 import { errorToast } from "../../lib/toast.ts";
-import { Button, Icon, IconButton, Modal, Skeleton } from "../ui/index.ts";
+import { Button, Icon, IconButton, Modal, Skeleton } from "../legacy/index.ts";
 import { CopyContext } from "./CopyContext.tsx";
 
 export type ContextSummary = {

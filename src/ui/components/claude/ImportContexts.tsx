@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { cx } from "../../lib/format.ts";
-import { Button, Modal } from "../ui/index.ts";
+import { Button, Modal } from "../legacy/index.ts";
 import { type ContextSummary, contextLine } from "./ContextsDialog.tsx";
 
 export function ImportContexts({

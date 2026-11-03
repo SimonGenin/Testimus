@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Button } from "../../components/ui/index.ts";
+import { Button } from "../../components/legacy/index.ts";
 import { dropDraft, useDraft } from "../../lib/drafts.ts";
 
 export function FixNote({

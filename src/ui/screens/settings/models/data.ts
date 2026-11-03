@@ -1,5 +1,5 @@
 import type { Fit, FitVerdict, MachineProfile, RagChoice } from "../../../../core/types.ts";
-import type { BadgeTone, IconName } from "../../../components/ui/index.ts";
+import type { BadgeTone, IconName } from "../../../components/legacy/index.ts";
 
 export type ModelState = "available" | "downloading" | "installed" | "verified" | "active" | "broken" | "outdated";
 

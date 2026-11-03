@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import type { Passage } from "../../../core/types.ts";
 import { fileUrl } from "../../api.ts";
-import { Badge, type BadgeTone } from "../ui/index.ts";
+import { Badge, type BadgeTone } from "../legacy/index.ts";
 
 const norm = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
 

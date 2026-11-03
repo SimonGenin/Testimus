@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Folder, LocalTestRef, RemoteTestRef } from "../../../core/types.ts";
 import { call, project } from "../../api.ts";
-import { Badge, type BadgeTone, Button, Icon, IconButton, Skeleton, SyncBadge } from "../../components/ui/index.ts";
+import { Badge, type BadgeTone, Button, Icon, IconButton, Skeleton, SyncBadge } from "../../components/legacy/index.ts";
 import { cx, plural } from "../../lib/format.ts";
 import { track } from "../../lib/localActivity.ts";
 import { errorToast } from "../../lib/toast.ts";

@@ -1,5 +1,5 @@
 import type { SearchKind, SearchMatch } from "../../../core/types.ts";
-import { type IconName, Marked, ReviewBadge } from "../ui/index.ts";
+import { type IconName, Marked, ReviewBadge } from "../legacy/index.ts";
 
 export const KIND: Record<SearchKind, { label: string; one: string; icon: IconName }> = {
   test: { label: "Tests", one: "test", icon: "tests" },

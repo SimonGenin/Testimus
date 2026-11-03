@@ -9,7 +9,7 @@ import {
   Segmented,
   Severity,
   Skeleton,
-} from "../../components/ui/index.ts";
+} from "../../components/legacy/index.ts";
 import { cx, plural } from "../../lib/format.ts";
 
 export type QueueItem = {

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { desktop, readAlwaysOnTop, setAlwaysOnTop } from "../../lib/desktop.ts";
 import { cx } from "../../lib/format.ts";
-import { Icon } from "../ui/index.ts";
+import { Icon } from "../legacy/index.ts";
 
 export function OnTopToggle({ className }: { className?: string }) {
   const [on, setOn] = useState(readAlwaysOnTop);

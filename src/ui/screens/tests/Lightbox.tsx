@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Icon } from "../../components/ui/index.ts";
+import { Icon } from "../../components/legacy/index.ts";
 
 type View = { z: number; x: number; y: number };
 const FIT: View = { z: 1, x: 0, y: 0 };

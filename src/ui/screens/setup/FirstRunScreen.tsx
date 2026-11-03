@@ -1,4 +1,4 @@
-import { Button } from "../../components/ui/index.ts";
+import { Button } from "../../components/legacy/index.ts";
 import { useApp } from "../../lib/app.ts";
 import { cx } from "../../lib/format.ts";
 import { AccessStep } from "./AccessStep.tsx";

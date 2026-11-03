@@ -3,10 +3,10 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Review, SyncState } from "../../src/core/types.ts";
-import { ClaudeBadge } from "../../src/ui/components/ui/ClaudeBadge.tsx";
-import { ReviewBadge } from "../../src/ui/components/ui/ReviewBadge.tsx";
-import { Severity } from "../../src/ui/components/ui/Severity.tsx";
-import { SyncBadge } from "../../src/ui/components/ui/SyncBadge.tsx";
+import { ClaudeBadge } from "../../src/ui/components/legacy/ClaudeBadge.tsx";
+import { ReviewBadge } from "../../src/ui/components/legacy/ReviewBadge.tsx";
+import { Severity } from "../../src/ui/components/legacy/Severity.tsx";
+import { SyncBadge } from "../../src/ui/components/legacy/SyncBadge.tsx";
 
 afterEach(cleanup);
 

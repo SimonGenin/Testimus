@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { Source } from "../../../core/types.ts";
-import { SourceChip } from "../ui/index.ts";
+import { SourceChip } from "../legacy/index.ts";
 
 const REF = /\[?([A-Za-z0-9][A-Za-z0-9_.-]*)#((?:§|fig:)[^\s"),;\]]*[^\s"),;.\]])\]?(?:\s+"([^"\n]*)"\]?)?/g;
 
