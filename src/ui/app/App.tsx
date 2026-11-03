@@ -7,6 +7,7 @@ import { DesktopBridge } from "../components/shell/DesktopBridge.tsx";
 import { Palette, type PaletteAction } from "../components/shell/Palette.tsx";
 import { NAV, Rail } from "../components/shell/Rail.tsx";
 import { PassageDialog } from "../components/sources/PassageDialog.tsx";
+import { docLink } from "../components/sources/PassageView.tsx";
 import { DragEdge, Toasts } from "../components/ui/index.ts";
 import { AppContext, type AppState, type ClaudeRun, type Focus, type ProjectInfo, type Screen } from "../lib/app.ts";
 import { DEFAULT_XRAY } from "../lib/fields.ts";
@@ -357,9 +358,9 @@ export function App() {
         <PassageDialog
           source={source}
           onClose={() => setSource(null)}
-          onOpenDoc={(docId, anchor) => {
+          onOpenDoc={(docId, anchor, quote) => {
             setSource(null);
-            navigate("documents", `${docId}#${anchor}`);
+            navigate("documents", docLink(docId, anchor, quote));
           }}
         />
       )}

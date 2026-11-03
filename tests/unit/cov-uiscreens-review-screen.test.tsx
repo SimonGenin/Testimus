@@ -339,7 +339,7 @@ describe("Review screen", () => {
     fireEvent.click(screen.getByRole("img", { name: /a/ }).closest("button") as HTMLElement);
     expect(open).toHaveBeenCalledWith("/files/tests/K-1/a.png", "_blank");
     fireEvent.click(screen.getByRole("button", { name: "Open in document" }));
-    expect(a.navigate).toHaveBeenCalledWith("documents", "D#§2");
+    expect(a.navigate).toHaveBeenCalledWith("documents", 'D#§2 "q2"');
   });
 
   it("evidence picks: a step source keeps its step, a related one is labelled", async () => {

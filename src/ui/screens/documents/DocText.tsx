@@ -3,6 +3,7 @@ import { fileUrl } from "../../api.ts";
 import { Chip, RequirementChip } from "../../components/ui/index.ts";
 
 const clean = (s: string) => s.replace(/<!--[\s\S]*?-->/g, "").trim();
+const squeeze = (s: string) => s.replace(/\*/g, "").replace(/\s+/g, " ").trim().toLowerCase();
 
 function inline(text: string): ReactNode[] {
   const out: ReactNode[] = [];
@@ -70,7 +71,7 @@ export function DocText({
             </pre>
           );
         const ids = requirements ? [...new Set(b.match(requirements) ?? [])] : [];
-        const hot = !!focus && b.replace(/\s+/g, " ").includes(focus.replace(/\s+/g, " ").slice(0, 60));
+        const hot = !!focus && squeeze(b).includes(squeeze(focus).slice(0, 60));
         return (
           <div key={i} className={hot ? "doctext-p is-focus" : "doctext-p"}>
             <p>{inline(b)}</p>

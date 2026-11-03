@@ -2,6 +2,7 @@ import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState }
 import type { CheckFile, Source, SyncState, Test } from "../../../core/types.ts";
 import { call, fileUrl, run } from "../../api.ts";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
+import { docLink } from "../../components/sources/PassageView.tsx";
 import { Button, DragEdge, Icon, IconButton, Kbd, Severity, Skeleton } from "../../components/ui/index.ts";
 import { useApp } from "../../lib/app.ts";
 import { flushEditor } from "../../lib/editorBus.ts";
@@ -552,7 +553,7 @@ export function ReviewScreen() {
             total={stepSources.length}
             testId={data?.id ?? ""}
             misplaced={sel ? notAtAnchor(findings, selKey, sel.step) : undefined}
-            onOpenDoc={(docId, anchor) => app.navigate("documents", `${docId}#${anchor}`)}
+            onOpenDoc={(docId, anchor, quote) => app.navigate("documents", docLink(docId, anchor, quote))}
             onPick={(ref) => {
               const at = ref.indexOf("#");
               const own = stepSources.find((s) => refKey(s.source) === ref);

@@ -354,7 +354,7 @@ describe("Passage dialog", () => {
     expect(screen.getByText("SOSIE_211 · v3 · §1")).toBeInTheDocument();
     expect(callsOf("rag.passage")[0].input).toEqual({ ref: "D#§1" });
     fireEvent.click(screen.getByRole("button", { name: /Open in document/ }));
-    expect(open).toHaveBeenCalledWith("D", "§1");
+    expect(open).toHaveBeenCalledWith("D", "§1", "Propriétés");
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(close).toHaveBeenCalled();
   });

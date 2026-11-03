@@ -327,7 +327,7 @@ describe("App routing and layout", () => {
     expect(screen.queryByRole("dialog", { name: "Source D §1" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "source from Tests screen" }));
     fireEvent.click(await screen.findByRole("button", { name: /Open in document/ }));
-    await hashIs(`#/documents/${encodeURIComponent("D#§1")}`);
+    await hashIs(`#/documents/${encodeURIComponent('D#§1 "q"')}`);
     expect(await screen.findByRole("region", { name: "Documents screen" })).toBeInTheDocument();
   });
 });

@@ -94,7 +94,10 @@ export function DocumentsScreen() {
   const arg = app.route.screen === "documents" ? (app.route.arg ?? "") : "";
   const hash = arg.indexOf("#");
   const routeId = hash < 0 ? arg : arg.slice(0, hash);
-  const anchor = hash < 0 ? "" : arg.slice(hash + 1);
+  const target = hash < 0 ? "" : arg.slice(hash + 1);
+  const cut = target.indexOf(' "');
+  const anchor = cut < 0 ? target : target.slice(0, cut);
+  const quote = cut < 0 ? "" : target.slice(cut + 2).replace(/"$/, "");
   const activeId = routeId || docs?.[0]?.id || "";
 
   const load = useCallback(() => {
@@ -303,6 +306,7 @@ export function DocumentsScreen() {
                 key={activeId}
                 id={activeId}
                 anchor={anchor}
+                quote={quote}
                 docs={docs ?? []}
                 onAnchor={(a) => app.navigate("documents", `${activeId}#${a}`)}
                 onChanged={changed}

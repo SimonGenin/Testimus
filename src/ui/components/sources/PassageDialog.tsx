@@ -16,7 +16,7 @@ export function PassageDialog({
 }: {
   source: Source;
   onClose: () => void;
-  onOpenDoc?: (docId: string, anchor: string) => void;
+  onOpenDoc?: (docId: string, anchor: string, quote: string) => void;
 }) {
   const [p, setP] = useState<Passage | null>(null);
   const [error, setError] = useState("");
@@ -49,7 +49,7 @@ export function PassageDialog({
       foot={
         <>
           {onOpenDoc && !gone && (
-            <Button size="sm" icon="external" onClick={() => onOpenDoc(source.docId, source.anchor)}>
+            <Button size="sm" icon="external" onClick={() => onOpenDoc(source.docId, source.anchor, source.quote)}>
               Open in document
             </Button>
           )}

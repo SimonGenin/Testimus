@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { DocJson, DocRef, FigureEntry, TraceItem, TraceScan, TraceView } from "../../../core/types.ts";
 import { call, project } from "../../api.ts";
 import { Button, Chip, Icon, IconButton, Menu, Severity, Skeleton } from "../../components/ui/index.ts";
@@ -22,9 +22,20 @@ type Shown = {
 const STATUSES: DocJson["status"][] = ["draft", "submitted", "validated"];
 const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
 
+const ACTS = ["wheel", "pointerdown", "keydown", "touchstart"] as const;
+
+function into(box: HTMLElement, el: HTMLElement, center = false) {
+  const b = box.getBoundingClientRect();
+  const r = el.getBoundingClientRect();
+  if (center) return r.top - b.top - Math.max(0, (b.height - r.height) / 2);
+  if (r.top < b.top) return r.top - b.top;
+  return r.bottom > b.bottom ? r.bottom - b.bottom : 0;
+}
+
 export function DocDetail({
   id,
   anchor,
+  quote = "",
   docs,
   onAnchor,
   onChanged,
@@ -33,6 +44,7 @@ export function DocDetail({
 }: {
   id: string;
   anchor: string;
+  quote?: string;
   docs: DocRef[];
   onAnchor: (anchor: string) => void;
   onChanged: () => void;
@@ -41,7 +53,8 @@ export function DocDetail({
 }) {
   const [shown, setShown] = useState<Shown | null>(null);
   const [ask, setAsk] = useState(false);
-  const [part, setPart] = useState<{ anchor: string; md: string; focus?: string } | null>(null);
+  const [part, setPart] = useState<{ anchor: string; md: string } | null>(null);
+  const textBox = useRef<HTMLDivElement>(null);
   const [context, setContext] = useState("");
   const [error, setError] = useState("");
   const [scanned, setScanned] = useState<{ trace: TraceView; items: TraceItem[] }[]>([]);
@@ -87,14 +100,41 @@ export function DocDetail({
       return;
     }
     let dead = false;
-    const focusOf = target.startsWith("req:") ? target.slice(4) : undefined;
     call<{ md: string }>("docs.show", { id, anchor: target })
-      .then((r) => !dead && setPart({ anchor: target, md: r.md, focus: focusOf }))
+      .then((r) => !dead && setPart({ anchor: target, md: r.md }))
       .catch((e) => !dead && setPart({ anchor: target, md: `${message(e)}` }));
     return () => {
       dead = true;
     };
   }, [id, shown, target]);
+
+  const focus = quote || (target.startsWith("req:") ? target.slice(4) : undefined);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new focus moves the highlighted paragraph in the DOM
+  useLayoutEffect(() => {
+    const box = textBox.current;
+    if (!part || !box) return;
+    const nav = box.querySelector<HTMLElement>(".doctoc");
+    const on = box.querySelector<HTMLElement>(".toc-on");
+    if (nav && on) nav.scrollTop += into(nav, on);
+    const text = box.querySelector<HTMLElement>(".docpart");
+    const hot = box.querySelector<HTMLElement>(".is-focus");
+    const go = () => {
+      if (text) text.scrollTop = hot ? text.scrollTop + into(text, hot, true) : 0;
+      if (anchor) box.scrollIntoView?.({ block: "nearest", behavior: "instant" });
+    };
+    go();
+    const shown = box.querySelector(".doctext");
+    if (!hot || !shown || typeof ResizeObserver === "undefined") return;
+    // ponytail: figures and fonts that arrive after the first paint move the line; follow them until the reader acts
+    const watch = new ResizeObserver(go);
+    watch.observe(shown);
+    const stop = () => {
+      watch.disconnect();
+      for (const k of ACTS) window.removeEventListener(k, stop, true);
+    };
+    for (const k of ACTS) window.addEventListener(k, stop, true);
+    return stop;
+  }, [part, focus, anchor]);
 
   const set = useCallback(
     async (patch: Partial<DocJson> & { context?: string }, done?: string) => {
@@ -274,7 +314,7 @@ export function DocDetail({
             Reindex
           </Button>
         </div>
-        <div className="card doctoc-wrap">
+        <div ref={textBox} className="card doctoc-wrap">
           <nav className="doctoc" aria-label="Sections">
             {shown.toc.map((t) => (
               <button
@@ -301,7 +341,7 @@ export function DocDetail({
               <DocText
                 docId={id}
                 md={part.md}
-                focus={part.focus}
+                focus={focus}
                 requirements={requirements}
                 onRequirement={(rid) => onAnchor(`req:${rid}`)}
                 onFigure={onAnchor}

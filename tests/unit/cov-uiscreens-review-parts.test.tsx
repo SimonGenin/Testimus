@@ -418,7 +418,7 @@ describe("SourcePanel and EvidenceBlock", () => {
     expect(screen.getByText("1 of 1 source")).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Sources read and related" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Open in document" }));
-    expect(onOpenDoc).toHaveBeenCalledWith("D", "§1");
+    expect(onOpenDoc).toHaveBeenCalledWith("D", "§1", "citation");
   });
 
   it("an unreadable passage shows the quote; no count without sources", async () => {

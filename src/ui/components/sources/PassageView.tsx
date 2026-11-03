@@ -93,6 +93,9 @@ export const paragraphs = (text: string) =>
     .map((p) => p.trim())
     .filter(Boolean);
 
+export const docLink = (docId: string, anchor: string, quote = "") =>
+  `${docId}#${anchor}${quote.trim() ? ` "${quote.trim()}"` : ""}`;
+
 export const sectionNumber = (anchor: string) => (anchor.startsWith("§") ? anchor.slice(1) : "");
 
 export function DocBadges({ status }: { status: string }) {

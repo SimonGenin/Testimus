@@ -29,7 +29,7 @@ export function SourcePanel({
   total: number;
   testId: string;
   misplaced?: Finding;
-  onOpenDoc: (docId: string, anchor: string) => void;
+  onOpenDoc: (docId: string, anchor: string, quote: string) => void;
   onPick: (ref: string) => void;
 }) {
   const [p, setP] = useState<(Passage & { quoteFound?: boolean }) | null>(null);
@@ -132,7 +132,7 @@ export function SourcePanel({
       {evidence}
       <div className="srcpanel-foot">
         {!gone && (
-          <Button size="sm" icon="external" onClick={() => onOpenDoc(source.docId, source.anchor)}>
+          <Button size="sm" icon="external" onClick={() => onOpenDoc(source.docId, source.anchor, source.quote)}>
             Open in document
           </Button>
         )}

@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DocRef, JobEvent } from "../../src/core/types.ts";
 import { setProject } from "../../src/ui/api.ts";
+import { docLink } from "../../src/ui/components/sources/PassageView.tsx";
 import { setTraces } from "../../src/ui/lib/traces.ts";
 import { importClaude, setImportClaude } from "../../src/ui/lib/uploads.ts";
 import { DocDetail } from "../../src/ui/screens/documents/DocDetail.tsx";
@@ -606,6 +607,58 @@ describe("Documents screen", () => {
     expect(a.navigate).toHaveBeenCalledWith("documents", "D1#§1");
     expect(screen.getByText(/^1 document ·/)).toBeInTheDocument();
     expect(screen.queryByRole("status", { name: /words only/ })).toBeNull();
+  });
+
+  it("a link to a quoted line opens its section, marks the line and scrolls to it at once", async () => {
+    api.routes["docs.list"] = () => [doc("D1")];
+    api.routes["rag.status"] = status();
+    api.routes["docs.show"] = (i) =>
+      i.anchor
+        ? { md: "Première ligne.\n\nLa **deuxième** ligne,\ncitée.\n\nTroisième." }
+        : {
+            doc: doc("D1"),
+            context: "",
+            toc: [{ anchor: "§1", title: "One", level: 1 }],
+            requirements: [],
+            figures: [],
+            md: "",
+          };
+    const into = vi.fn();
+    Element.prototype.scrollIntoView = into;
+    const watch = { cb: () => {}, observe: vi.fn(), disconnect: vi.fn() };
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(cb: () => void) {
+          watch.cb = cb;
+        }
+        observe = watch.observe;
+        disconnect = watch.disconnect;
+      },
+    );
+    try {
+      mount(<DocumentsScreen />, {
+        route: { screen: "documents", arg: docLink("D1", "§1", " la deuxième ligne, citée ") },
+      });
+      expect(await screen.findByText("Troisième.")).toBeInTheDocument();
+      expect(named("docs.show").find((c) => c.input.anchor)?.input).toEqual({ id: "D1", anchor: "§1" });
+      expect(document.querySelectorAll(".is-focus")).toHaveLength(1);
+      expect(document.querySelector(".is-focus")).toHaveTextContent("La deuxième ligne, citée.");
+      expect(into).toHaveBeenCalledWith({ block: "nearest", behavior: "instant" });
+      expect(watch.observe).toHaveBeenCalledWith(document.querySelector(".doctext"));
+      const before = into.mock.calls.length;
+      watch.cb();
+      expect(into.mock.calls.length).toBe(before + 1);
+      fireEvent.wheel(window);
+      expect(watch.disconnect).toHaveBeenCalled();
+    } finally {
+      delete (Element.prototype as Partial<Element>).scrollIntoView;
+    }
+  });
+
+  it("a link without a quote names only the anchor", () => {
+    expect(docLink("D1", "§1")).toBe("D1#§1");
+    expect(docLink("D1", "§1", "  ")).toBe("D1#§1");
   });
 
   it("a deleted document leaves the route and the list is read again", async () => {
