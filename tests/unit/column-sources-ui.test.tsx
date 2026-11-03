@@ -2,13 +2,14 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Source, Step, StepColumn, XrayJson } from "../../src/core/types.ts";
+import type { ColumnLayout, Source, Step, StepColumn } from "../../src/core/types.ts";
 import { setProject } from "../../src/ui/api.ts";
 import { resetDoctor } from "../../src/ui/lib/doctor.ts";
 import { ReviewStep } from "../../src/ui/screens/review/ReviewStep.tsx";
 import { ColumnsSection } from "../../src/ui/screens/settings/ColumnsSection.tsx";
 import { StepCard } from "../../src/ui/screens/tests/StepCard.tsx";
 import { clearToasts, mount } from "./cov-uiscreens-helpers.tsx";
+import { layoutOf } from "./layout-helpers.ts";
 import { api, app, fakeFetch, named, noDesktop } from "./ui-desktop-helpers.tsx";
 
 beforeEach(() => {
@@ -31,11 +32,8 @@ const fields = [
   { id: "result", name: "Expected Result", type: "text", builtin: true },
   { id: "cf1", name: "Exigence", type: "text", builtin: false },
 ];
-const xray = (referenceSource: boolean): XrayJson => ({
-  fields,
-  prefs: { order: [], collapsed: [], hidden: [] },
-  columns: [{ name: "Exigence", id: "cf1", description: "Le code", referenceSource }],
-});
+const xray = (referenceSource: boolean): ColumnLayout =>
+  layoutOf(fields, {}, [{ name: "Exigence", id: "cf1", description: "Le code", referenceSource }]);
 const a: Source = {
   docId: "SPF",
   anchor: "§4.2",
@@ -58,7 +56,7 @@ const step: Step = {
   images: [],
 };
 
-const card = (x: XrayJson, onOpenSource = vi.fn()) => {
+const card = (x: ColumnLayout, onOpenSource = vi.fn()) => {
   render(
     <StepCard
       index={0}
@@ -128,6 +126,7 @@ describe("the Reference source option in Settings", () => {
     builtin: name !== "Exigence",
     status: "ok",
     description: "",
+    mode: "open",
     ...over,
   });
   const info = (cols: StepColumn[]) => ({ ...app().info, columns: cols }) as ReturnType<typeof app>["info"];

@@ -8,13 +8,18 @@ import { invoke } from "../../src/core/commands/index.ts";
 import {
   columnGuidance,
   DEFAULT_DESCRIPTIONS,
+  fieldOrder,
   followXray,
+  readColumns,
   removeColumn,
   saveColumn,
+  setModes,
+  setOrder,
   stepColumns,
+  writeColumns,
 } from "../../src/core/lib/columns.ts";
-import { fieldOrder, readXray, writeXray } from "../../src/core/lib/project.ts";
-import type { XrayField } from "../../src/core/types.ts";
+import { readXray, writeXray } from "../../src/core/lib/project.ts";
+import type { ColumnEntry, XrayField } from "../../src/core/types.ts";
 
 let dir = "";
 const write = (rel: string, text: string) => {
@@ -29,12 +34,14 @@ const BUILTIN: XrayField[] = [
   { id: "data", name: "Data", type: "text", builtin: true },
   { id: "result", name: "Expected Result", type: "text", builtin: true },
 ];
-const xray = (custom: XrayField[] = [], more: Record<string, unknown> = {}) =>
-  writeXray(dir, {
-    fields: [...BUILTIN, ...custom],
-    prefs: { order: [], collapsed: [], hidden: [] },
-    ...more,
-  });
+type Entry = Omit<ColumnEntry, "mode"> & { mode?: ColumnEntry["mode"] };
+const xray = (custom: XrayField[] = [], columns: Entry[] = []) => {
+  writeXray(dir, { fields: [...BUILTIN, ...custom] });
+  writeColumns(
+    dir,
+    columns.map((c) => ({ ...c, mode: c.mode ?? "open" })),
+  );
+};
 const exigence: XrayField = { id: "cf1", name: "Exigence", type: "text", builtin: false };
 const run = (name: string, input: unknown = {}) => invoke(name, input, { project: dir, wait: true });
 
@@ -48,9 +55,15 @@ afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 describe("smart columns", () => {
   it("the built-ins carry a default description; a custom field never described is new", () => {
-    xray([exigence, { id: "cf2", name: "Version", type: "text", builtin: false }], {
-      columns: [{ name: "Exigence", id: "cf1", description: "Le numéro du paragraphe" }],
-    });
+    xray(
+      [exigence, { id: "cf2", name: "Version", type: "text", builtin: false }],
+      [
+        { name: "Action", id: "action" },
+        { name: "Data", id: "data", mode: "filled" },
+        { name: "Expected Result", id: "result" },
+        { name: "Exigence", id: "cf1", description: "Le numéro du paragraphe" },
+      ],
+    );
     const cols = stepColumns(dir);
     expect(cols.map((c) => [c.name, c.origin, c.status])).toEqual([
       ["Action", "xray", "ok"],
@@ -62,6 +75,7 @@ describe("smart columns", () => {
     expect(cols[0].description).toBe(DEFAULT_DESCRIPTIONS.Action);
     expect(cols[3].description).toBe("Le numéro du paragraphe");
     expect(cols[4].description).toBe("");
+    expect(cols.map((c) => c.mode)).toEqual(["open", "filled", "open", "open", "open"]);
   });
 
   it("saves a description, keeps an empty one empty, and adds a local column after the fields", async () => {
@@ -80,8 +94,8 @@ describe("smart columns", () => {
       description: "Libre",
     });
     saveColumn(dir, { name: "remarque", description: "Autre" });
-    expect(readXray(dir).columns?.filter((c) => c.name === "Remarque")).toHaveLength(1);
-    expect(fieldOrder(readXray(dir))).toContain("Remarque");
+    expect(readColumns(dir).filter((c) => c.name === "Remarque")).toHaveLength(1);
+    expect(fieldOrder(dir)).toContain("Remarque");
     expect(await run("columns.list")).toHaveLength(5);
   });
 
@@ -91,59 +105,75 @@ describe("smart columns", () => {
     expect(() => saveColumn(dir, { name: "#x" })).toThrow(/cannot be a column name/);
     expect(() => saveColumn(dir, { name: "Sources" })).toThrow(/section of test.md/);
     saveColumn(dir, { name: "Note" });
-    xray([], { columns: [{ name: "Note" }, { name: "Note2" }] });
+    expect(() => saveColumn(dir, { name: "note", description: "x" })).not.toThrow();
+    xray([], [{ name: "Note" }, { name: "Note2" }]);
     expect(() => saveColumn(dir, { name: "Autre", description: "" })).not.toThrow();
   });
 
   it("removes a local column with its folding, never an Xray field", async () => {
-    xray([exigence], {
-      columns: [{ name: "Note", description: "x" }],
-      prefs: { order: ["Note"], collapsed: ["Note"], hidden: ["Note"], filled: ["Note"], open: ["Note"] },
-    });
+    xray([exigence], [{ name: "Note", description: "x", mode: "collapsed" }]);
     expect(() => removeColumn(dir, "Exigence")).toThrow(/can be hidden, not removed/);
     expect(() => removeColumn(dir, "Nope")).toThrow(/No column called/);
     await run("columns.remove", { name: "note" });
-    const x = readXray(dir);
-    expect(x.columns).toBeUndefined();
-    expect(x.prefs).toMatchObject({ order: [], collapsed: [], hidden: [], filled: [], open: [] });
+    expect(readColumns(dir).map((c) => c.name)).toEqual(["Action", "Data", "Expected Result", "Exigence"]);
+    expect(stepColumns(dir).some((c) => c.name === "Note")).toBe(false);
+  });
+
+  it("sets modes and the order in columns.json, refusing a name no column has", async () => {
+    xray([exigence]);
+    setModes(dir, { Exigence: "collapsed", Data: "hidden" });
+    expect(stepColumns(dir).map((c) => [c.name, c.mode])).toEqual([
+      ["Action", "open"],
+      ["Data", "hidden"],
+      ["Expected Result", "open"],
+      ["Exigence", "collapsed"],
+    ]);
+    setOrder(dir, ["Exigence", "Action"]);
+    expect(fieldOrder(dir)).toEqual(["Exigence", "Action", "Data", "Expected Result"]);
+    expect(readColumns(dir).map((c) => c.name)).toEqual(["Exigence", "Action", "Data", "Expected Result"]);
+    expect(() => setModes(dir, { Nope: "open" })).toThrow(/Not a step column of this project: Nope/);
+    await expect(run("columns.order", { names: ["Nope"] })).rejects.toThrow(/Not a step column/);
+    const cols = (await run("columns.setModes", { modes: { Exigence: "filled" } })) as { name: string; mode: string }[];
+    expect(cols.find((c) => c.name === "Exigence")?.mode).toBe("filled");
   });
 
   it("follows Xray: a rename keeps the description and folding; a dropped field stays local", () => {
     const gone: XrayField = { id: "cf3", name: "Ancien", type: "text", builtin: false };
-    xray([exigence, gone], {
-      columns: [
-        { name: "Exigence", id: "cf1", description: "Les exigences" },
+    xray(
+      [exigence, gone],
+      [
+        { name: "Exigence", id: "cf1", description: "Les exigences", mode: "collapsed" },
         { name: "Version", description: "La version" },
       ],
-      prefs: { order: ["Exigence"], collapsed: ["Exigence"], hidden: [], filled: ["Exigence"], open: ["Exigence"] },
-    });
+    );
     const now: XrayField[] = [
       ...BUILTIN,
       { ...exigence, name: "Exigences" },
       { id: "cf9", name: "version", type: "text", builtin: false },
     ];
-    const next = followXray(readXray(dir), now);
-    writeXray(dir, next);
-    expect(next.prefs).toMatchObject({ order: ["Exigences"], collapsed: ["Exigences"], open: ["Exigences"] });
-    expect(next.columns).toEqual([
-      { name: "Exigences", id: "cf1", description: "Les exigences" },
-      { name: "version", id: "cf9", description: "La version" },
-      { name: "Ancien", id: "cf3" },
+    const next = followXray(readXray(dir), readColumns(dir), now);
+    writeXray(dir, { fields: now });
+    writeColumns(dir, next);
+    expect(next).toEqual([
+      { name: "Exigences", id: "cf1", description: "Les exigences", mode: "collapsed" },
+      { name: "version", id: "cf9", description: "La version", mode: "open" },
+      { name: "Ancien", id: "cf3", mode: "open" },
     ]);
     const cols = stepColumns(dir);
+    expect(fieldOrder(dir)[0]).toBe("Exigences");
     expect(cols.find((c) => c.name === "Ancien")).toMatchObject({ origin: "local", status: "gone" });
     expect(cols.find((c) => c.name === "version")).toMatchObject({ origin: "xray", description: "La version" });
-    const plain = followXray({ ...readXray(dir), columns: undefined }, now);
-    expect(plain.columns).toBeUndefined();
+    expect(followXray(readXray(dir), [], now)).toEqual([]);
   });
 
   it("guides the generation: each described smart column with its description, empty ones left out", () => {
-    xray([exigence], {
-      columns: [
+    xray(
+      [exigence],
+      [
         { name: "Data", id: "data", description: "" },
         { name: "Exigence", id: "cf1", description: "Le paragraphe vérifié" },
       ],
-    });
+    );
     const lines = columnGuidance(dir);
     expect(lines[1]).toBe("Smart columns — write each as ### <column> in every step, following its description:");
     expect(lines).toContain(`- ### Action: ${DEFAULT_DESCRIPTIONS.Action}`);

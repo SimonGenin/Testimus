@@ -114,8 +114,8 @@ export function ColumnsMenu({
           ))}
           <p className="colmenu-hint muted">
             {scope === "test"
-              ? "Saved for this test only, beside its test.md (columns.json) — never part of the test."
-              : "Saved in xray.json — every test of the project that does not choose its own."}{" "}
+              ? "Saved for this test only, beside its test.md (local.json) — never part of the test."
+              : "Saved in columns.json — every test of the project that does not choose its own."}{" "}
             Action and Expected Result are always open; each step's own toggle folds one step for this session.
           </p>
           {scope === "project" && overridden.length > 0 && (

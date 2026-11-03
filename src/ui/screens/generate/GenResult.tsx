@@ -1,5 +1,14 @@
 import { useState } from "react";
-import type { CheckFile, Job, JobEvent, LocalTestRef, Review, Source, Test, XrayJson } from "../../../core/types.ts";
+import type {
+  CheckFile,
+  ColumnLayout,
+  Job,
+  JobEvent,
+  LocalTestRef,
+  Review,
+  Source,
+  Test,
+} from "../../../core/types.ts";
 import { fileUrl } from "../../api.ts";
 import { Button, FindingCard, Icon, ReviewBadge, Severity, Skeleton } from "../../components/legacy/index.ts";
 import { plural } from "../../lib/format.ts";
@@ -87,7 +96,7 @@ export function GenCard({
   check?: GenCheck;
   writing: boolean;
   checking: boolean;
-  xray: XrayJson;
+  xray: ColumnLayout;
   open: boolean;
   onToggle: () => void;
   onOpen: () => void;

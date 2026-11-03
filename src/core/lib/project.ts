@@ -20,7 +20,6 @@ export const DEFAULT_XRAY: XrayJson = {
     { id: "data", name: "Data", type: "text", builtin: true },
     { id: "result", name: "Expected Result", type: "text", builtin: true },
   ],
-  prefs: { order: ["Action", "Data", "Expected Result"], collapsed: [], hidden: [], filled: ["Data"] },
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -66,23 +65,13 @@ export function writeProject(dir: string, p: ProjectJson): void {
 export function readXray(dir: string): XrayJson {
   const x = readJson<Partial<XrayJson>>(join(dir, "xray.json"), {});
   return {
+    ...(x.fetchedAt ? { fetchedAt: x.fetchedAt } : {}),
     fields: x.fields?.length ? x.fields : DEFAULT_XRAY.fields,
-    prefs: { ...DEFAULT_XRAY.prefs, ...x.prefs },
-    fetchedAt: x.fetchedAt,
-    ...(x.columns?.length ? { columns: x.columns } : {}),
   };
 }
 
-export function localColumns(x: XrayJson): string[] {
-  const ids = new Set(x.fields.map((f) => f.id));
-  const names = new Set(x.fields.map((f) => f.name.toLowerCase()));
-  return (x.columns ?? [])
-    .filter((c) => !(c.id && ids.has(c.id)) && !names.has(c.name.toLowerCase()))
-    .map((c) => c.name);
-}
-
 export function writeXray(dir: string, x: XrayJson): void {
-  writeJson(join(dir, "xray.json"), x);
+  writeJson(join(dir, "xray.json"), { ...(x.fetchedAt ? { fetchedAt: x.fetchedAt } : {}), fields: x.fields });
 }
 
 export function isProject(dir: string): boolean {
@@ -131,10 +120,4 @@ export function resolveProjectDir(explicit?: string): string | null {
   if (isProject(process.cwd())) return process.cwd();
   const last = readSettings().lastProject;
   return last && isProject(last) ? last : null;
-}
-
-export function fieldOrder(x: XrayJson): string[] {
-  const names = [...x.fields.map((f) => f.name), ...localColumns(x)];
-  const ordered = x.prefs.order.filter((n) => names.includes(n));
-  return [...ordered, ...names.filter((n) => !ordered.includes(n))];
 }

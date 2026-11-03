@@ -2,7 +2,7 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Finding, Step, Test, XrayJson } from "../../src/core/types.ts";
+import type { Finding, Step, Test } from "../../src/core/types.ts";
 import { EvidenceBlock } from "../../src/ui/screens/review/EvidenceBlock.tsx";
 import { FixNote } from "../../src/ui/screens/review/FixNote.tsx";
 import { type QueueItem, ReviewQueue } from "../../src/ui/screens/review/ReviewQueue.tsx";
@@ -10,6 +10,7 @@ import { FindingSources, findingSummary, ReviewStep } from "../../src/ui/screens
 import { ReviewTest } from "../../src/ui/screens/review/ReviewTest.tsx";
 import { SourcePanel } from "../../src/ui/screens/review/SourcePanel.tsx";
 import { mount } from "./cov-uiscreens-helpers.tsx";
+import { layoutOf } from "./layout-helpers.ts";
 import { api, fakeFetch } from "./ui-desktop-helpers.tsx";
 
 beforeEach(() => {
@@ -22,15 +23,15 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const xray: XrayJson = {
-  fields: [
+const xray = layoutOf(
+  [
     { id: "action", name: "Action", type: "text", builtin: true },
     { id: "data", name: "Data", type: "text", builtin: true },
     { id: "result", name: "Expected Result", type: "text", builtin: true },
     { id: "cf", name: "Exigence", type: "text", builtin: false },
   ],
-  prefs: { order: ["Action", "Data", "Expected Result", "Exigence"], collapsed: ["Data"], hidden: [] },
-};
+  { order: ["Action", "Data", "Expected Result", "Exigence"], collapsed: ["Data"], hidden: [] },
+);
 
 const finding = (over: Partial<Finding> = {}): Finding => ({
   kind: "source-missing",

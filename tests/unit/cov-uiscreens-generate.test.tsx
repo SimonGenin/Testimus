@@ -481,11 +481,18 @@ describe("Generate › smart columns", () => {
     render(
       <ColumnsView
         columns={[
-          { name: "Action", origin: "xray", builtin: true, status: "ok", description: "One gesture" },
-          { name: "Exigence", origin: "xray", builtin: false, status: "ok", description: "What the step checks" },
-          { name: "Version", origin: "xray", builtin: false, status: "new", description: "" },
-          { name: "Note", origin: "local", builtin: false, status: "ok", description: "" },
-          { name: "Old", origin: "local", builtin: false, status: "gone", description: "x" },
+          { name: "Action", origin: "xray", builtin: true, status: "ok", description: "One gesture", mode: "open" },
+          {
+            name: "Exigence",
+            origin: "xray",
+            builtin: false,
+            status: "ok",
+            description: "What the step checks",
+            mode: "open",
+          },
+          { name: "Version", origin: "xray", builtin: false, status: "new", description: "", mode: "open" },
+          { name: "Note", origin: "local", builtin: false, status: "ok", description: "", mode: "open" },
+          { name: "Old", origin: "local", builtin: false, status: "gone", description: "x", mode: "open" },
         ]}
         onEdit={onEdit}
       />,
@@ -503,8 +510,8 @@ describe("Generate › smart columns", () => {
     render(
       <ColumnsView
         columns={[
-          { name: "A", origin: "xray", builtin: false, status: "new", description: "" },
-          { name: "B", origin: "xray", builtin: false, status: "new", description: "" },
+          { name: "A", origin: "xray", builtin: false, status: "new", description: "", mode: "open" },
+          { name: "B", origin: "xray", builtin: false, status: "new", description: "", mode: "open" },
         ]}
         onEdit={onEdit}
       />,

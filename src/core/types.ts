@@ -108,23 +108,40 @@ export type XrayField = {
   required?: boolean;
   disabled?: boolean;
 };
-export type FieldPrefs = { order: string[]; collapsed: string[]; hidden: string[]; filled?: string[]; open?: string[] };
-export type ColumnMode = "open" | "filled" | "collapsed";
-export type ColumnModes = Record<string, ColumnMode>;
-export type XrayJson = { fields: XrayField[]; prefs: FieldPrefs; fetchedAt?: string; columns?: ColumnDef[] };
+// xray.json: what Xray says, read again on demand — never the team's choices
+export type XrayJson = { fetchedAt?: string; fields: XrayField[] };
 
-// Step columns: what Claude writes in each field (description), and the columns that live only in test.md.
-// A column of Xray is followed by its field id (a rename in Xray keeps its description); one without id, or
-// whose id Xray no longer has, is local — kept in test.md, never pushed
-export type ColumnDef = { name: string; id?: string; description?: string; referenceSource?: boolean };
+// How a column folds in the step card; a project column may also be hidden (left out unless a step holds text in it)
+export type ColumnMode = "open" | "filled" | "collapsed";
+export type ColumnShow = ColumnMode | "hidden";
+export type ColumnModes = Record<string, ColumnMode>;
+
+// columns.json: the team's step columns in display order. An entry with the id of an Xray step field follows that
+// field (a rename in Xray keeps its description); one without id, or whose id Xray no longer has, is local — kept
+// in test.md, never pushed. An Xray field without entry comes after them, with its defaults. `description` absent =
+// never described (an empty one says Claude leaves the column empty)
+export type ColumnEntry = {
+  name: string;
+  id?: string;
+  description?: string;
+  mode: ColumnShow;
+  referenceSource?: boolean;
+};
 export type StepColumn = {
   name: string;
+  id?: string;
   origin: "xray" | "local";
   builtin: boolean;
   status: "ok" | "new" | "gone";
   description: string;
+  mode: ColumnShow;
   referenceSource?: boolean;
 };
+// What the step card draws: Xray's fields (types, switched off) and every column with its mode
+export type ColumnLayout = { fetchedAt?: string; fields: XrayField[]; columns: StepColumn[] };
+
+// tests/<id>/local.json: a test's own settings, outside test.md, never making the test modified
+export type TestLocal = { contexts?: string[]; columns?: ColumnModes };
 
 export const BUILTIN_FIELDS: readonly string[] = ["Action", "Data", "Expected Result"];
 

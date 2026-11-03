@@ -85,7 +85,7 @@ const rootFiles = (project: string, roots: string[]) => roots.flatMap((r) => wal
 // ponytail: an action may change more than tests — the files that hold the truth (SPEC §3) are copied too, the
 // whole folder of a document in scope minus its original copy, which no command ever rewrites
 export function truthFiles(project: string, scope: ClaudeScope): { roots: string[]; files: string[] } {
-  const files = ["project.json", "xray.json"];
+  const files = ["project.json", "xray.json", "columns.json"];
   const roots = scope.kind === "doc" ? [`docs/${scope.docId}`] : [];
   if (scope.kind !== "doc")
     for (const id of docIds(project))

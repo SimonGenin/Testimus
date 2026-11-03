@@ -2,20 +2,21 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { Step, XrayJson } from "../../src/core/types.ts";
+import type { ColumnLayout, Step } from "../../src/core/types.ts";
 import { StepCard } from "../../src/ui/screens/tests/StepCard.tsx";
+import { layoutOf, prefsOf } from "./layout-helpers.ts";
 
 afterEach(cleanup);
 
-const xray: XrayJson = {
-  fields: [
+const xray = layoutOf(
+  [
     { id: "action", name: "Action", type: "text", builtin: true },
     { id: "data", name: "Data", type: "text", builtin: true },
     { id: "result", name: "Expected Result", type: "text", builtin: true },
     { id: "cf-exigence", name: "Exigence", type: "text", builtin: false },
   ],
-  prefs: { order: ["Action", "Data", "Expected Result", "Exigence"], collapsed: ["Data"], hidden: [] },
-};
+  { order: ["Action", "Data", "Expected Result", "Exigence"], collapsed: ["Data"], hidden: [] },
+);
 
 const step: Step = {
   id: "102",
@@ -29,21 +30,22 @@ const step: Step = {
   images: [],
 };
 
-const card = (x: XrayJson, onChange = vi.fn()) =>
+const card = (x: ColumnLayout, onChange = vi.fn()) =>
   render(<StepCard index={1} count={3} step={step} xray={x} layout="stacked" url={(f) => f} onChange={onChange} />);
 
 describe("StepCard", () => {
   it("draws the fields in xray.json order", () => {
-    const { container } = card({ ...xray, prefs: { ...xray.prefs, collapsed: [] } });
+    const { container } = card(layoutOf(xray.fields, { ...prefsOf(xray), collapsed: [] }));
     const labels = Array.from(container.querySelectorAll(".fl-k")).map((e) => e.textContent);
     expect(labels).toEqual(["Action", "Data", "Expected Result", "Exigence"]);
   });
 
   it("follows a different order and hides hidden fields unless they hold text", () => {
-    const x: XrayJson = {
-      ...xray,
-      prefs: { order: ["Expected Result", "Action", "Exigence", "Data"], collapsed: [], hidden: ["Exigence", "Data"] },
-    };
+    const x = layoutOf(xray.fields, {
+      order: ["Expected Result", "Action", "Exigence", "Data"],
+      collapsed: [],
+      hidden: ["Exigence", "Data"],
+    });
     const empty = { ...step, fields: { ...step.fields, Data: "" } };
     const { container } = render(
       <StepCard index={1} count={3} step={empty} xray={x} layout="stacked" url={(f) => f} onChange={vi.fn()} />,
@@ -66,7 +68,7 @@ describe("StepCard", () => {
   });
 
   it("opens a « when filled » column only on a step that holds something", () => {
-    const filled = { ...xray, prefs: { ...xray.prefs, collapsed: [], filled: ["Data"] } };
+    const filled = layoutOf(xray.fields, { ...prefsOf(xray), collapsed: [], filled: ["Data"] });
     card(filled);
     expect(screen.getByLabelText("Data of step 2")).toHaveValue("Sectionneur S 12, position fermée.");
   });

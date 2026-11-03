@@ -10,6 +10,7 @@ import { discardEditor, flushEditor } from "../../src/ui/lib/editorBus.ts";
 import { TestEditor } from "../../src/ui/screens/tests/TestEditor.tsx";
 import { FakeES } from "./cov-uishell-helpers.tsx";
 import { callsTo, deferred, Fail, server, stubServer } from "./cov-uitests-helpers.ts";
+import { layoutOf } from "./layout-helpers.ts";
 import { app } from "./ui-desktop-helpers.tsx";
 
 vi.mock("../../src/ui/components/claude/ContextsDialog.tsx", () => ({
@@ -57,14 +58,14 @@ const makeTest = (o: Partial<Test> = {}): Test => ({
   ...o,
 });
 
-const fullXray = {
-  fields: [
+const fullXray = layoutOf(
+  [
     { id: "action", name: "Action", type: "text", builtin: true },
     { id: "data", name: "Data", type: "text", builtin: true },
     { id: "result", name: "Expected Result", type: "text", builtin: true },
   ],
-  prefs: { order: ["Action", "Data", "Expected Result"], collapsed: [], hidden: [] },
-} as AppState["xray"];
+  { order: ["Action", "Data", "Expected Result"], collapsed: [], hidden: [] },
+) as AppState["xray"];
 
 let shown: Test;
 let show: Record<string, unknown>;
@@ -1138,7 +1139,7 @@ describe("TestEditor › menu and settings", () => {
   });
 
   it("saves column modes for the project and for this test", async () => {
-    server.routes["xray.prefs"] = () => ({});
+    server.routes["columns.setModes"] = () => [];
     server.routes["tests.setColumns"] = (input) => ({ own: input.modes });
     const { state } = editor({ xray: fullXray });
     await ready();
@@ -1147,7 +1148,9 @@ describe("TestEditor › menu and settings", () => {
       within(screen.getByRole("group", { name: "Data column" })).getByRole("button", { name: "collapsed" }),
     );
     await waitFor(() => expect(state.refreshInfo).toHaveBeenCalled());
-    expect(callsTo("xray.prefs")[0].input).toEqual({ collapsed: ["Data"], filled: [] });
+    expect(callsTo("columns.setModes")[0].input).toEqual({
+      modes: { Action: "open", Data: "collapsed", "Expected Result": "open" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "this test" }));
     fireEvent.click(
       within(screen.getByRole("group", { name: "Data column" })).getByRole("button", { name: "when filled" }),
@@ -1157,7 +1160,7 @@ describe("TestEditor › menu and settings", () => {
   });
 
   it("reports failed column saves", async () => {
-    server.routes["xray.prefs"] = () => {
+    server.routes["columns.setModes"] = () => {
       throw new Fail("x");
     };
     server.routes["tests.setColumns"] = () => {
@@ -1703,14 +1706,14 @@ describe("TestEditor › header and columns (PARITY #5, #47, #87)", () => {
   });
 
   it("a column switched off in Xray shows on a step that holds a value, folds on one that does not, and can be set open", async () => {
-    const offXray = {
-      fields: [...fullXray.fields, { id: "customfield_9", name: "Retired", type: "text", disabled: true }],
-      prefs: { order: ["Action", "Data", "Expected Result", "Retired"], collapsed: [], hidden: [] },
-    } as AppState["xray"];
+    const offXray = layoutOf(
+      [...fullXray.fields, { id: "customfield_9", name: "Retired", type: "text", builtin: false, disabled: true }],
+      { order: ["Action", "Data", "Expected Result", "Retired"], collapsed: [], hidden: [] },
+    ) as AppState["xray"];
     shown = makeTest({
       steps: [step("One", { fields: { Action: "One", "Expected Result": "ok", Retired: "old value" } }), step("Two")],
     });
-    server.routes["xray.prefs"] = () => ({});
+    server.routes["columns.setModes"] = () => [];
     const { state } = editor({ xray: offXray });
     await ready();
     expect(screen.getByLabelText("Retired of step 1")).toHaveValue("old value");
@@ -1723,7 +1726,9 @@ describe("TestEditor › header and columns (PARITY #5, #47, #87)", () => {
     expect(within(row).getByRole("button", { name: "when filled" })).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(within(row).getByRole("button", { name: "open" }));
     await waitFor(() => expect(state.refreshInfo).toHaveBeenCalled());
-    expect(callsTo("xray.prefs")[0].input).toEqual({ collapsed: [], filled: [], open: ["Retired"] });
+    expect(callsTo("columns.setModes")[0].input).toEqual({
+      modes: { Action: "open", Data: "open", "Expected Result": "open", Retired: "open" },
+    });
   });
 
   it("detaches one context of the test and resets the test to the project's contexts", async () => {

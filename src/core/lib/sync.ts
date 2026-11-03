@@ -3,7 +3,7 @@ import { isAbsolute, join, relative, resolve } from "node:path";
 import { semaphore } from "../../shared/run/work.ts";
 import { UserError } from "../command.ts";
 import type { ProjectInfo, PullStage, PushPlanView, Step, Test, XrayJson } from "../types.ts";
-import { followXray } from "./columns.ts";
+import { fieldOrder, storeXray } from "./columns.ts";
 import { sha256 } from "./hash.ts";
 import {
   byId,
@@ -15,7 +15,7 @@ import {
   pullTest,
   reviewOfLabels,
 } from "./jira.ts";
-import { fieldOrder, readJson, readProject, readXray, writeJson, writeProject, writeXray } from "./project.ts";
+import { readJson, readProject, readXray, writeJson, writeProject } from "./project.ts";
 import {
   addImage,
   markRemoteChanged,
@@ -77,14 +77,12 @@ export function disconnectJira(project: string): void {
 }
 
 // ponytail: the step columns are read again from Xray before each push (Xray Editor reads them on every project
-// open and push) and kept in xray.json with the local preferences; offline, the copy already there is used
+// open and push) and kept in xray.json, the team's columns following them; offline, the copy already there is used
 export async function freshXray(project: string): Promise<XrayJson> {
   const x = readXray(project);
   try {
     const fields = await getStepFields((await projectInfo(project)).id);
-    const next = { ...followXray(x, fields), fetchedAt: new Date().toISOString() };
-    writeXray(project, next);
-    return next;
+    return storeXray(project, fields, new Date().toISOString());
   } catch {
     return x;
   }
@@ -234,7 +232,7 @@ async function doPull(project: string, key: string, { prev, signal, report }: Pu
   keepLocal(pulled.test, before, !!prev, readProject(project).labelPrefix);
   if (abandoned()) throw cancelled(key);
   report?.("writing test.md", { phase: "write" });
-  const md = writeTest(project, key, pulled.test, fieldOrder(readXray(project)));
+  const md = writeTest(project, key, pulled.test, fieldOrder(project));
   writeRemote(project, key, md);
   return key;
 }
@@ -340,7 +338,7 @@ export async function executePlan(
   from = 0,
   signal?: AbortSignal,
 ): Promise<PushOutcome> {
-  const order = fieldOrder(readXray(project));
+  const order = fieldOrder(project);
   const total = push.plan.ops.length;
   let id = push.id;
   let stored = !!push.local.key;

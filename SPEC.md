@@ -817,18 +817,23 @@ links, dirty detection against `.remote.md`, push plan, 429 back-off, sequential
 stops at the first failure), plus:
 
 - **Step field schema**: `xray.fields` reads every step field of the project, custom ones included,
-  into `xray.json.fields` `[{ id, name, type, builtin }]`. Source (checked read-only on LFRPS12,
+  into `xray.json` `{ fetchedAt, fields: [{ id, name, type, builtin, required?, disabled? }] }` — what Xray says
+  and nothing else, read again on demand. Source (checked read-only on LFRPS12,
   2026-11-02): GraphQL `getProjectSettings(projectIdOrKey) { testStepSettings { fields { id name type
   required disabled values } } }` — the built-ins come back as `action`/`data`/`result`, LFRPS12 adds
   `Exigence` (`text-single`, id `69d5fcb02f2b49abf7fb76e6`). Steps read `customFields { id name value }`
   (Exigence value: `"EXI_MOP_SPF_511_A_1650, EXI_MOP_SPF_511_A_1660"`) and write
-  `customFields: [{ id, value }]` in `CreateStepInput` / `UpdateStepInput`. `xray.json.prefs` is local:
-  `{ order: [name], collapsed: [name], filled: [name], hidden: [name] }` — the project layer of Xray Editor's
-  column folding (its §8): a field is `open` (every step), `filled` (only on a step that holds something —
-  the default for Data) or `collapsed` (folded on every step, its toggle shows `Name ●` when it holds
-  something). A test's `columns.json` (§3) overrides it field by field (`tests.columns`, `tests.setColumns`),
-  the step card's own toggle overrides both for the session, and Action and Expected Result never fold.
-  `hidden` (a Testimus extra) leaves a field out unless a step holds text in it.
+  `customFields: [{ id, value }]` in `CreateStepInput` / `UpdateStepInput`. How each column shows is the team's,
+  in `columns.json` (§3): one `mode` per column — the project layer of Xray Editor's column folding (its §8):
+  `open` (every step), `filled` (only on a step that holds something — the default for Data and for a field
+  switched off in Xray) or `collapsed` (folded on every step, its toggle shows `Name ●` when it holds
+  something), plus `hidden` (a Testimus extra: left out unless a step holds text in it). `columns.setModes` and
+  `columns.order` change them. A test's `local.json` `columns` (§3) overrides the folding column by column
+  (`tests.columns`, `tests.setColumns`), the step card's own toggle overrides both for the session, and Action
+  and Expected Result never fold. Reading Xray again (`xray.fields`, before every push) rewrites `xray.json`;
+  `columns.json` follows a field renamed in Xray (same id: its description and mode go to the new name), keeps a
+  field Xray dropped as a local column (its text stays in the tests) and turns a local column the team then
+  created in Xray into that field.
 - Fixed while building (2026-11): the review label is `<labelPrefix><review>` and replaces any other
   label of that prefix; a pull reads the review state back from that label and keeps the local
   `### Sources`, `review_note` and `generated_by`. A field value Xray returns as a list is
@@ -867,7 +872,7 @@ stops at the first failure), plus:
   `tests_create`, `tests_edit`, `tests_save`, `tests_addImage`, `check_run`; a fix or `claude.run` adds
   `tests_edit`, `tests_save`, `tests_addImage`. Every other Testimus tool goes into `--disallowedTools`,
   with `Edit`/`Write` on `docs/**`, `index/**`, `.testimus/**`, `contexts/**`, `requirements/**`,
-  `.claude/**`, `project.json`, `xray.json`, `.mcp.json`, `CLAUDE.md`. Model names and effort are
+  `.claude/**`, `project.json`, `xray.json`, `columns.json`, `.mcp.json`, `CLAUDE.md`. Model names and effort are
   validated before a run; context ids are `[\w-]+`; `--add-dir` only gets existing folders. `.mcp.json`
   sets `TESTIMUS_IN_CLAUDE=1`, under which `check_run` is mechanical only; installed, it runs
   `cmd /c <abs>\testimus.cmd mcp` (the shim sets `TESTIMUS_HOME_BIN`).
@@ -895,7 +900,7 @@ stops at the first failure), plus:
   panel are ported from Xray Editor as they are.
 - Claude acts on the app only through the MCP tools and by editing files in the project folder;
   it never calls the HTTP API.
-- **Contexts** (Xray Editor §7): a run on a test attaches the test's own list (`tests/<id>/claude.json`) when
+- **Contexts** (Xray Editor §7): a run on a test attaches the test's own list (`tests/<id>/local.json` `contexts`) when
   it has one, else the project's `claude.contexts`; ids whose folder is gone drop out (`effectiveContexts`).
   `claude.run`, the fix and the semantic check use that list unless the caller names its own; the dock's
   per-run chips can switch any of them off for one run. Managed by `contexts.*` (§12).
@@ -904,18 +909,19 @@ stops at the first failure), plus:
 
 Group | Verbs (all with `--json`; mutating ones marked *)
 ---|---
-`project` | `init`*, `openKey`* (open or create by Jira key), `info` (project.json + xray.json + field order + counts for the rail), `list`, `notes` (the project's CLAUDE.md), `setNotes`*, `set`* (patch project.json: names, language, label prefix, folders, rag keys incl. reference, queryTask, passageMaxChars, retrieval; requirementPatterns, requirementMatrix, glossary; Claude defaults), `open`* (last project)
+`project` | `init`*, `openKey`* (open or create by Jira key), `info` (project.json + xray.json + the step columns in order with their modes + counts for the rail), `list`, `notes` (the project's CLAUDE.md), `setNotes`*, `set`* (patch project.json: names, language, label prefix, folders, rag keys incl. reference, queryTask, passageMaxChars, retrieval; requirementPatterns, requirementMatrix, glossary; Claude defaults), `open`* (last project)
 `docs` | `add`* (copy + convert; a path, or an upload as base64 from the UI), `convert`*, `list`, `show`, `set`* (status, amends, context…), `describeFigures`* (job, Claude), `remove`*
 `rag` | `index`* (job), `search` (mode hybrid · bm25 · vector; `expand`), `passage` (docId#anchor → text + figures + focus, capped), `figure`, `mentions` (every passage holding a term, no model), `related` (graph neighbours, no model), `eval` (job, L1), `compare` (reports → intervals), `status` (active model, space, freshness per document), `spaces`, `dropSpace`*
 `chat` | `ask` (job, streamed), `list`, `show`
 `claude` | `run`* (job: a scoped request « On this test » — step, test, tests or project), `revert`* (runId), `status` (installed, version, signed in, how to connect)
 `contexts` | `list` (the project's own and the shared library's, each with `shared`; `--from <project>` lists another project's own), `show`, `create`* (`--shared` puts it in the library), `share`* (move into the library or back into this project), `set`* (name, notes, outside paths), `addFile`* (a path or an upload), `removeFile`*, `remove`*, `copy`* (from another project: notes, paths and files; a taken id gets a new one), `ofTest` (effective · own · project), `setTest`* (a test's full list, or null to follow the project)
-`tests` | `list`, `show` (+ the picture files present and test.md's mtime), `create`*, `edit`* (field-level patch incl. preconditions, and step ops set · add · remove · move · sources, steps numbered from 1), `save`* (the whole test, the editor's save), `restore`* (Undo local changes: test.md ← .remote.md), `clone`*, `addImage`* (a file or a document figure → `images/`), `removeImage`* (a picture no step lists any more), `columns`, `setColumns`* (per-test folding), `remove`*
+`columns` | `list` (the step columns in order: origin, status, description, mode), `save`* (a description, Reference source, or a new local column), `setModes`* (open · filled · collapsed · hidden, by column), `order`*, `remove`* (a local column), `suggest` (job, Claude, read-only: proposals for columns.save)
+`tests` | `list`, `show` (+ the picture files present and test.md's mtime), `create`*, `edit`* (field-level patch incl. preconditions, and step ops set · add · remove · move · sources, steps numbered from 1), `save`* (the whole test, the editor's save), `restore`* (Undo local changes: test.md ← .remote.md), `clone`*, `addImage`* (a file or a document figure → `images/`), `removeImage`* (a picture no step lists any more), `columns`, `setColumns`* (per-test folding, in `local.json`), `remove`*
 `gen` | `tests`* (job), `bench`* (job, L2 benchmark with Claude; costly)
 `traces` | `list`, `find`, `coverage`, `propose` (job, Claude, read-only), `save`*, `remove`* — tracked ids (§4)
 `check` | `run`* (job: mechanical pass, then the `check-test` skill; writes `check.json`), `record`* (the skill's semantic findings for one test), `show`
 `review` | `set`* (validate / to-fix + note), `fix`* (Claude, job), `queue` (what awaits review), `evidence` (sources read / related)
-`xray` | `fields`* (also read again before every push and when a project opens; a field switched off in Xray is kept with `disabled`, `required` kept), `prefs`* (order, folded, when filled, hidden, `open` for an off-in-Xray field shown anyway), `folders`, `search`, `preconditions` (the project's, with definitions), `browse` (an issue's Jira page), `pull`* (job), `status`, `plan`, `push`* (job; `from` resumes after a failed operation)
+`xray` | `fields`* (also read again before every push and when a project opens; a field switched off in Xray is kept with `disabled`, `required` kept), `folders`, `search`, `preconditions` (the project's, with definitions), `browse` (an issue's Jira page), `pull`* (job), `status`, `plan`, `push`* (job; `from` resumes after a failed operation)
 `models` | `catalog` (with the fit on this PC), `list`, `add`* (path A), `pull`* (job, checked download), `pullRuntime`* (job, llama.cpp build), `remove`*, `verify`, `setDir`* (move · keep · copy, dry-run), `use`* (Custom), `packs`, `usePack`* (job), `hardware`, `fit`, `perf`, `advice`, `dismiss`*
 `jobs` | `list`, `show`, `cancel`*
 `system` | `setup`* (credentials), `secrets` (the saved token, Client ID and secret, to show back in the form; denied to Claude runs like every `system.*`), `doctor`, `version` (with `shell`: browser or desktop <version>), `pullModel`* (alias of `models.pull`), `settings`, `saveSettings`* (theme, step layout, claude.exe, model downloads)

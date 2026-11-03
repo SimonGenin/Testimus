@@ -38,6 +38,7 @@ const col = (o: Partial<StepColumn>): StepColumn => ({
   builtin: true,
   status: "ok",
   description: "",
+  mode: "open",
   ...o,
 });
 

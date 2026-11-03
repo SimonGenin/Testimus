@@ -23,22 +23,25 @@ const xray = {
     { id: "cf1", name: "Exigence", type: "text-single", builtin: false, required: true },
     { id: "cf2", name: "Ancienne", type: "text-single", builtin: false, disabled: true },
   ],
-  prefs: { order: ["Action", "Expected Result", "Exigence", "Ancienne"], collapsed: [], hidden: [] },
+  columns: [],
   fetchedAt: "2026-11-01T10:00:00Z",
 } as unknown as ReturnType<typeof app>["xray"];
 
-const col = (name: string) => ({
+const col = (name: string, mode = name === "Ancienne" ? "filled" : "open") => ({
   name,
   origin: "xray",
   builtin: name === "Action" || name === "Expected Result",
   status: "ok",
   description: `${name} text`,
+  mode,
 });
 
-const info = () =>
+const info = (opened = false) =>
   ({
     ...app().info,
-    columns: ["Action", "Expected Result", "Exigence", "Ancienne"].map(col),
+    columns: ["Action", "Expected Result", "Exigence", "Ancienne"].map((n) =>
+      col(n, opened || n !== "Ancienne" ? "open" : "filled"),
+    ),
   }) as ReturnType<typeof app>["info"];
 
 const row = (name: string) =>
@@ -55,19 +58,16 @@ describe("Settings › Smart columns: a field Xray requires or has switched off 
   });
 
   it("folds a field switched off in Xray as « when filled » until it is set open", async () => {
-    api.routes["xray.prefs"] = () => ({});
+    api.routes["columns.setModes"] = () => [];
     mount(<ColumnsSection />, { xray, info: info() });
     expect(screen.getByLabelText("Ancienne folding")).toHaveValue("filled");
     expect(screen.getByLabelText("Exigence folding")).toHaveValue("open");
     fireEvent.change(screen.getByLabelText("Ancienne folding"), { target: { value: "open" } });
-    await waitFor(() =>
-      expect(named("xray.prefs")[0]?.input).toEqual({ collapsed: [], filled: [], open: ["Ancienne"] }),
-    );
+    await waitFor(() => expect(named("columns.setModes")[0]?.input).toEqual({ modes: { Ancienne: "open" } }));
   });
 
   it("shows an off field set open as open", () => {
-    const opened = { ...xray, prefs: { ...xray.prefs, open: ["Ancienne"] } } as typeof xray;
-    mount(<ColumnsSection />, { xray: opened, info: info() });
+    mount(<ColumnsSection />, { xray, info: info(true) });
     expect(screen.getByLabelText("Ancienne folding")).toHaveValue("open");
   });
 });

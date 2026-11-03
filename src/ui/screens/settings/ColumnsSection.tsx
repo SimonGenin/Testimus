@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { ColumnMode, StepColumn, XrayJson } from "../../../core/types.ts";
+import type { ColumnMode, ColumnShow, StepColumn, XrayJson } from "../../../core/types.ts";
 import { call } from "../../api.ts";
 import { Button } from "../../components/legacy/index.ts";
 import { useApp } from "../../lib/app.ts";
@@ -19,9 +19,9 @@ export function ColumnsSection() {
   const [desc, setDesc] = useDraft("settings.column.desc", "");
   const order = columns.map((c) => c.name);
 
-  const savePrefs = async (prefs: Partial<XrayJson["prefs"]>) => {
+  const saveLayout = async (name: "columns.order" | "columns.setModes", input: Record<string, unknown>) => {
     try {
-      await call<XrayJson>("xray.prefs", prefs);
+      await call<StepColumn[]>(name, input);
       app.refreshInfo();
     } catch (e) {
       errorToast(e, "Could not save the smart columns");
@@ -77,28 +77,14 @@ export function ColumnsSection() {
   const move = (column: string, to: number) => {
     const rest = order.filter((n) => n !== column);
     rest.splice(Math.max(0, Math.min(rest.length, to)), 0, column);
-    void savePrefs({ order: rest });
+    void saveLayout("columns.order", { names: rest });
   };
 
   const off = (n: string) => !!x.fields.find((f) => f.name === n)?.disabled;
-  const modeOf = (n: string): ColumnMode =>
-    x.prefs.collapsed.includes(n)
-      ? "collapsed"
-      : (x.prefs.filled ?? []).includes(n) || (off(n) && !(x.prefs.open ?? []).includes(n))
-        ? "filled"
-        : "open";
-  const setMode = (n: string, mode: ColumnMode) =>
-    void savePrefs({
-      collapsed: [...x.prefs.collapsed.filter((m) => m !== n), ...(mode === "collapsed" ? [n] : [])],
-      filled: [...(x.prefs.filled ?? []).filter((m) => m !== n), ...(mode === "filled" ? [n] : [])],
-      ...(off(n) || x.prefs.open?.length
-        ? { open: [...(x.prefs.open ?? []).filter((m) => m !== n), ...(mode === "open" && off(n) ? [n] : [])] }
-        : {}),
-    });
-  const setHidden = (n: string, on: boolean) =>
-    void savePrefs({
-      hidden: on ? [...x.prefs.hidden.filter((m) => m !== n), n] : x.prefs.hidden.filter((m) => m !== n),
-    });
+  const shown = (c: StepColumn): ColumnMode =>
+    c.mode !== "hidden" ? c.mode : c.name === "Data" || off(c.name) ? "filled" : "open";
+  const setMode = (n: string, mode: ColumnShow) => void saveLayout("columns.setModes", { modes: { [n]: mode } });
+  const setHidden = (c: StepColumn, on: boolean) => setMode(c.name, on ? "hidden" : shown(c));
 
   const refresh = async () => {
     setRefreshing(true);
@@ -144,15 +130,15 @@ export function ColumnsSection() {
           <ColumnRow
             key={c.name}
             column={c}
-            mode={modeOf(c.name)}
-            hidden={x.prefs.hidden.includes(c.name)}
+            mode={shown(c)}
+            hidden={c.mode === "hidden"}
             disabled={false}
             first={i === 0}
             last={i === columns.length - 1}
             dragging={drag === c.name}
             onDescribe={(t) => void saveDescription(c.name, t)}
             onMode={(m) => setMode(c.name, m)}
-            onHidden={(h) => setHidden(c.name, h)}
+            onHidden={(h) => setHidden(c, h)}
             onReferenceSource={(on) => void saveReference(c.name, on)}
             onMove={(by) => move(c.name, i + by)}
             onRemove={c.origin === "local" ? () => void remove(c.name) : undefined}

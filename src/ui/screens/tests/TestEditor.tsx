@@ -20,7 +20,7 @@ import { columnsOf, projectModes } from "../../lib/columns.ts";
 import { openExternal } from "../../lib/desktop.ts";
 import { differs, diffLocal, type Gone, lossOf, restoreStep } from "../../lib/diff.ts";
 import { setDiscarder, setFlusher } from "../../lib/editorBus.ts";
-import { DEFAULT_XRAY } from "../../lib/fields.ts";
+import { DEFAULT_LAYOUT } from "../../lib/fields.ts";
 import { uploadImage } from "../../lib/files.ts";
 import { cx, message, plural } from "../../lib/format.ts";
 import { addedSteps } from "../../lib/marks.ts";
@@ -99,7 +99,7 @@ export function TestEditor({
 }) {
   const app = useApp();
   const jiraKey = app.info?.project.jiraOffline ? "" : (app.info?.project.jiraProject ?? "");
-  const xray = app.xray ?? DEFAULT_XRAY;
+  const xray = app.xray ?? DEFAULT_LAYOUT;
   const [test, setTest] = useState<Test | null>(null);
   const [remote, setRemote] = useState<Test | null>(null);
   const [files, setFiles] = useState<Set<string>>(new Set());
@@ -587,17 +587,8 @@ export function TestEditor({
   };
 
   const setProjectModes = async (modes: ColumnModes) => {
-    const names = (m: string) =>
-      Object.entries(modes)
-        .filter(([, v]) => v === m)
-        .map(([k]) => k);
     try {
-      const open = names("open");
-      await call("xray.prefs", {
-        collapsed: names("collapsed"),
-        filled: names("filled"),
-        ...(open.length || xray.prefs.open?.length ? { open } : {}),
-      });
+      await call("columns.setModes", { modes });
       app.refreshInfo();
     } catch (e) {
       errorToast(e, "Could not save the column settings");

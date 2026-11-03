@@ -1,4 +1,4 @@
-import type { Finding, Source, Step, XrayJson } from "../../../core/types.ts";
+import type { ColumnLayout, Finding, Source, Step } from "../../../core/types.ts";
 import {
   ClaudeBadge,
   FindingCard,
@@ -69,7 +69,7 @@ export function ReviewStep({
 }: {
   n: number;
   step: Step;
-  xray: XrayJson;
+  xray: ColumnLayout;
   findings: Finding[];
   stale: boolean;
   folded: boolean;

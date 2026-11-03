@@ -4,7 +4,7 @@ import { ACTION_MARKER, TRIAGE_MARKER } from "../claude/actions.ts";
 import { quietCtx } from "../command.ts";
 import { commands } from "../commands/actions.ts";
 import { writeAtomic } from "../lib/atomic.ts";
-import { fieldOrder, readXray } from "../lib/project.ts";
+import { fieldOrder } from "../lib/columns.ts";
 import { readTest, testExists, writeTest } from "../lib/store.ts";
 import { mockStream, registerMockScript } from "./claude.ts";
 
@@ -66,7 +66,7 @@ function fixStep(project: string, id: string, n: number): string | null {
   if (!step) return null;
   step.fields["Expected Result"] = TK_RESULT;
   step.sources = [{ docId: DOC, anchor: "§5.6.6", quote: TK_QUOTE }];
-  writeTest(project, id, test, fieldOrder(readXray(project)));
+  writeTest(project, id, test, fieldOrder(project));
   return `Step ${n} of ${id} now says what the menu shows, with its source (§5.6.6).`;
 }
 

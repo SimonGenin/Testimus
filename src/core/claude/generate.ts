@@ -5,9 +5,9 @@ import { UserError } from "../command.ts";
 import { env } from "../env.ts";
 import { agentPool, agentsSetting, loadLine } from "../lib/agents.ts";
 import { loadCorpus, runMechanical } from "../lib/check.ts";
-import { columnGuidance } from "../lib/columns.ts";
+import { columnGuidance, fieldOrder } from "../lib/columns.ts";
 import { isConverted, listDocs, readDocMd } from "../lib/docs.ts";
-import { fieldOrder, readJson, readProject, readXray, writeJson } from "../lib/project.ts";
+import { readJson, readProject, writeJson } from "../lib/project.ts";
 import { listLocalTests, markGenerated, readTest, removeTest, testExists, writeTest } from "../lib/store.ts";
 import { anchorsOf } from "../rag/convert.ts";
 import { readState } from "../rag/indexer.ts";
@@ -305,7 +305,7 @@ export function stampTest(project: string, id: string, generatedBy: string, fold
     want.folder === test.folder
   )
     return;
-  writeTest(project, id, want, fieldOrder(readXray(project)));
+  writeTest(project, id, want, fieldOrder(project));
 }
 
 // ponytail: what a new generation replaces — Claude's tests still waiting in review, never the ones pushed to Jira

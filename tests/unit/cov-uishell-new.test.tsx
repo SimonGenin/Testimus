@@ -2,7 +2,7 @@
 import "@testing-library/jest-dom/vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Step, Test, XrayJson } from "../../src/core/types.ts";
+import type { Step, Test } from "../../src/core/types.ts";
 import { setProject } from "../../src/ui/api.ts";
 import { ConnectClaude } from "../../src/ui/components/claude/ConnectClaude.tsx";
 import { cap, ModelPicker } from "../../src/ui/components/claude/ModelPicker.tsx";
@@ -22,6 +22,7 @@ import { differs, diffLocal, lossOf, restoreStep, sameStep } from "../../src/ui/
 import { discardEditor, setDiscarder } from "../../src/ui/lib/editorBus.ts";
 import { closeToast, useToasts } from "../../src/ui/lib/toast.ts";
 import { fakeNet } from "./cov-uishell-helpers.tsx";
+import { layoutOf } from "./layout-helpers.ts";
 import { fakeDesktop, noDesktop } from "./ui-desktop-helpers.tsx";
 
 let ids: number[] = [];
@@ -80,8 +81,8 @@ describe("editor bus discard", () => {
 });
 
 describe("columns", () => {
-  const x: XrayJson = {
-    fields: [
+  const x = layoutOf(
+    [
       { id: "a", name: "Action", type: "text", builtin: true },
       { id: "r", name: "Expected Result", type: "text", builtin: true },
       { id: "e", name: "Exigence", type: "text-single", builtin: false },
@@ -89,8 +90,8 @@ describe("columns", () => {
       { id: "s", name: "Select", type: "option", builtin: false },
       { id: "l", name: "Ref", type: "text-single", builtin: false },
     ],
-    prefs: { order: [], collapsed: ["Note"], hidden: [], filled: ["Select"] },
-  };
+    { order: [], collapsed: ["Note"], hidden: [], filled: ["Select"] },
+  );
 
   it("gives each column its kind, unknown step-only names being text", () => {
     expect(columnsOf(x, step({ Extra: "x" }))).toEqual([
@@ -105,8 +106,15 @@ describe("columns", () => {
   });
 
   it("layers the folding modes and opens a filled column only when it holds something", () => {
-    expect(projectModes(x)).toEqual({ Select: "filled", Note: "collapsed" });
-    expect(projectModes({ ...x, prefs: { order: [], collapsed: [], hidden: [] } })).toEqual({});
+    expect(projectModes(x)).toEqual({
+      Action: "open",
+      "Expected Result": "open",
+      Exigence: "open",
+      Select: "filled",
+      Note: "collapsed",
+      Ref: "open",
+    });
+    expect(projectModes(layoutOf(x.fields, { hidden: ["Note"] }))).not.toHaveProperty("Note");
     expect(collapsible({ name: "Action" })).toBe(false);
     expect(modeOf({ name: "Action" }, { Action: "collapsed" }, null)).toBe("open");
     expect(modeOf({ name: "Note" }, { Note: "collapsed" }, { Note: "filled" })).toBe("filled");

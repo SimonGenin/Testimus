@@ -84,7 +84,7 @@ function columnLines(columns: StepColumn[], x: XrayJson, uses: Map<string, Use>)
       tagOf(c),
       field?.type && field.type !== "text" ? `type ${field.type}` : "",
       field?.required ? "required in Xray" : "",
-      x.prefs.hidden.includes(c.name) ? "hidden in the editor" : "",
+      c.mode === "hidden" ? "hidden in the editor" : "",
       c.status === "new" ? "new in Xray, never described" : "",
     ].filter(Boolean);
     lines.push(`- ${c.name} (${shape.join(", ")})`);

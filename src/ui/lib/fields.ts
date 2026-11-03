@@ -1,33 +1,31 @@
-import type { Source, Step, XrayJson } from "../../core/types.ts";
+import type { ColumnLayout, Source, Step } from "../../core/types.ts";
 
 export type FieldView = { name: string; collapsed: boolean };
 
-export const DEFAULT_XRAY: XrayJson = {
+const builtin = (name: string, id: string) =>
+  ({ name, id, origin: "xray", builtin: true, status: "ok", description: "" }) as const;
+
+export const DEFAULT_LAYOUT: ColumnLayout = {
   fields: [
     { id: "action", name: "Action", type: "text", builtin: true },
     { id: "data", name: "Data", type: "text", builtin: true },
     { id: "result", name: "Expected Result", type: "text", builtin: true },
   ],
-  prefs: { order: ["Action", "Data", "Expected Result"], collapsed: [], hidden: [], filled: ["Data"] },
+  columns: [
+    { ...builtin("Action", "action"), mode: "open" },
+    { ...builtin("Data", "data"), mode: "filled" },
+    { ...builtin("Expected Result", "result"), mode: "open" },
+  ],
 };
 
-// ponytail: a local column is one the project keeps in test.md only — no Xray field has its id or its name
-export function localColumns(x: XrayJson): string[] {
-  const ids = new Set(x.fields.map((f) => f.id));
-  const names = new Set(x.fields.map((f) => f.name.toLowerCase()));
-  return (x.columns ?? [])
-    .filter((c) => !(c.id && ids.has(c.id)) && !names.has(c.name.toLowerCase()))
-    .map((c) => c.name);
-}
-
-export function fieldViews(x: XrayJson, step?: Step): FieldView[] {
-  const names = [...x.fields.map((f) => f.name), ...localColumns(x)];
-  const ordered = x.prefs.order.filter((n) => names.includes(n));
-  const all = [...ordered, ...names.filter((n) => !ordered.includes(n))];
+// ponytail: the project's columns in their order (columns.list), then any heading a step holds that no column names
+export function fieldViews(x: ColumnLayout, step?: Step): FieldView[] {
+  const all = x.columns.map((c) => c.name);
   for (const k of Object.keys(step?.fields ?? {})) if (!all.includes(k)) all.push(k);
+  const mode = (n: string) => x.columns.find((c) => c.name === n)?.mode;
   return all
-    .filter((n) => !x.prefs.hidden.includes(n) || !!step?.fields[n]?.trim())
-    .map((name) => ({ name, collapsed: x.prefs.collapsed.includes(name) }));
+    .filter((n) => mode(n) !== "hidden" || !!step?.fields[n]?.trim())
+    .map((name) => ({ name, collapsed: mode(name) === "collapsed" }));
 }
 
 export const sourcePlace = (anchor: string) => {
@@ -42,12 +40,12 @@ export type ItemLink = { item: string; sources: Source[] };
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
 const flat = (s: string) => s.replace(/\s+/g, " ").trim();
 
-export const referencesSources = (x: XrayJson, column: string) =>
-  !!x.columns?.some((c) => c.referenceSource && same(c.name, column));
+export const referencesSources = (x: ColumnLayout, column: string) =>
+  x.columns.some((c) => c.referenceSource && same(c.name, column));
 
 // ponytail: an item is a link only while its column links its items and the cell still holds it — any other
 // source stays with the step's sources, so none is ever out of sight
-export function itemLinks(x: XrayJson, step: Step, column: string): ItemLink[] {
+export function itemLinks(x: ColumnLayout, step: Step, column: string): ItemLink[] {
   const cell = flat(step.fields[column] ?? "");
   if (!cell || !referencesSources(x, column)) return [];
   const out: ItemLink[] = [];
@@ -61,7 +59,7 @@ export function itemLinks(x: XrayJson, step: Step, column: string): ItemLink[] {
   return out;
 }
 
-export function stepSources(x: XrayJson, step: Step, columns: string[]): Source[] {
+export function stepSources(x: ColumnLayout, step: Step, columns: string[]): Source[] {
   const linked = new Set(columns.flatMap((c) => itemLinks(x, step, c).flatMap((l) => l.sources)));
   return step.sources.filter((s) => !linked.has(s));
 }

@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { invoke } from "../../src/core/commands/index.ts";
 import { STARTER_ASKS } from "../../src/core/commands/project.ts";
 import { env } from "../../src/core/env.ts";
+import { stepColumns } from "../../src/core/lib/columns.ts";
 import { projectsRoot, readProject, readSettings, readXray, writeJson } from "../../src/core/lib/project.ts";
 
 const FIXTURE = fileURLToPath(new URL("../fixtures/project/", import.meta.url));
@@ -47,7 +48,12 @@ describe("project.init", () => {
     const dir = tmp("testimus-init-empty-");
     await invoke("project.init", { dir }, { project: null });
     const xray = JSON.parse(readFileSync(join(dir, "xray.json"), "utf8"));
-    expect(xray.prefs.filled).toEqual(["Data"]);
+    expect(xray.fields.map((f: { name: string }) => f.name)).toEqual(["Action", "Data", "Expected Result"]);
+    expect(
+      stepColumns(dir)
+        .filter((c) => c.mode === "filled")
+        .map((c) => c.name),
+    ).toEqual(["Data"]);
     const project = JSON.parse(readFileSync(join(dir, "project.json"), "utf8"));
     expect(project.claude.presets).toEqual(STARTER_ASKS);
     expect(project.claude.presets.map((p: { label: string }) => p.label)).toEqual(["Rephrase in house style"]);

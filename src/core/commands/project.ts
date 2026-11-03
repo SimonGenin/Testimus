@@ -10,7 +10,6 @@ import { sha256 } from "../lib/hash.ts";
 import {
   DEFAULT_PROJECT,
   DEFAULT_XRAY,
-  fieldOrder,
   forgetProject,
   isProject,
   projectsRoot,
@@ -141,6 +140,7 @@ function subdirs(dir: string): string[] {
 
 export function projectInfo(dir: string) {
   const xray = readXray(dir);
+  const columns = stepColumns(dir, xray);
   const review = Object.fromEntries(REVIEWS.map((r) => [r, 0])) as Record<Review, number>;
   let tests = 0;
   let awaiting = 0;
@@ -158,8 +158,8 @@ export function projectInfo(dir: string) {
     dir,
     project: readProject(dir),
     xray,
-    fieldOrder: fieldOrder(xray),
-    columns: stepColumns(dir, xray),
+    fieldOrder: columns.map((c) => c.name),
+    columns,
     counts: {
       docs: subdirs(join(dir, "docs")).filter((d) => existsSync(join(dir, "docs", d, "doc.json"))).length,
       tests,

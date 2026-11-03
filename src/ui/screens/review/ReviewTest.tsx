@@ -1,4 +1,4 @@
-import type { CheckFile, Source, SyncState, Test, XrayJson } from "../../../core/types.ts";
+import type { CheckFile, ColumnLayout, Source, SyncState, Test } from "../../../core/types.ts";
 import { RevertConflict } from "../../components/claude/RevertConflict.tsx";
 import {
   Badge,
@@ -47,7 +47,7 @@ export function ReviewTest({
   edited?: boolean;
   check: CheckFile | null;
   stale: boolean;
-  xray: XrayJson;
+  xray: ColumnLayout;
   folded: Set<number>;
   activeStep: number;
   selected: string;

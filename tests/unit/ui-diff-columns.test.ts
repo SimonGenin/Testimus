@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import type { Step, Test, XrayJson } from "../../src/core/types.ts";
+import type { Step, Test } from "../../src/core/types.ts";
 import { columnsOf, modeOf, openByDefault, projectModes, splitTracks } from "../../src/ui/lib/columns.ts";
 import { differs, diffLocal, lossOf, restoreStep } from "../../src/ui/lib/diff.ts";
+import { layoutOf, prefsOf } from "./layout-helpers.ts";
 
 const s = (id: string | undefined, action: string): Step => ({
   ...(id ? { id } : {}),
@@ -53,8 +54,8 @@ describe("diffLocal", () => {
   });
 });
 
-const xray: XrayJson = {
-  fields: [
+const xray = layoutOf(
+  [
     { id: "action", name: "Action", type: "text", builtin: true },
     { id: "data", name: "Data", type: "text", builtin: true },
     { id: "result", name: "Expected Result", type: "text", builtin: true },
@@ -62,8 +63,8 @@ const xray: XrayJson = {
     { id: "cf2", name: "Note", type: "text", builtin: false },
     { id: "cf3", name: "Flag", type: "toggle", builtin: false },
   ],
-  prefs: { order: [], collapsed: ["Note"], hidden: [], filled: ["Data"] },
-};
+  { order: [], collapsed: ["Note"], hidden: [], filled: ["Data"] },
+);
 
 describe("columns", () => {
   it("kinds: blocks for the built-ins, line, text, read-only; unknown names marked", () => {
@@ -81,7 +82,14 @@ describe("columns", () => {
 
   it("modes: test over project over open; Action and Expected never fold", () => {
     const p = projectModes(xray);
-    expect(p).toEqual({ Data: "filled", Note: "collapsed" });
+    expect(p).toEqual({
+      Action: "open",
+      Data: "filled",
+      "Expected Result": "open",
+      Exigence: "open",
+      Note: "collapsed",
+      Flag: "open",
+    });
     expect(modeOf({ name: "Data" }, p, null)).toBe("filled");
     expect(modeOf({ name: "Data" }, p, { Data: "collapsed" })).toBe("collapsed");
     expect(modeOf({ name: "Action" }, p, { Action: "collapsed" })).toBe("open");
@@ -91,10 +99,10 @@ describe("columns", () => {
   });
 
   it("a column switched off in Xray is marked, folds unless filled, and can be set open for the project", () => {
-    const x: XrayJson = {
-      ...xray,
-      fields: [...xray.fields, { id: "cf4", name: "Retired", type: "text", builtin: false, disabled: true }],
-    };
+    const x = layoutOf([...xray.fields, { id: "cf4", name: "Retired", type: "text", builtin: false, disabled: true }], {
+      ...prefsOf(xray),
+      filled: [...prefsOf(xray).filled, "Retired"],
+    });
     const col = columnsOf(x).find((c) => c.name === "Retired");
     expect(col).toMatchObject({ known: true, off: true, kind: "text" });
     expect(columnsOf(x).find((c) => c.name === "Note")?.off).toBeUndefined();
@@ -102,7 +110,11 @@ describe("columns", () => {
     expect(modeOf(col, projectModes(x), null)).toBe("filled");
     expect(openByDefault(modeOf(col, projectModes(x), null), "")).toBe(false);
     expect(openByDefault(modeOf(col, projectModes(x), null), "kept")).toBe(true);
-    const opened = { ...x, prefs: { ...x.prefs, open: ["Retired"] } };
+    const opened = layoutOf(x.fields, {
+      ...prefsOf(x),
+      filled: prefsOf(x).filled.filter((n) => n !== "Retired"),
+      open: [...prefsOf(x).open, "Retired"],
+    });
     expect(modeOf(col, projectModes(opened), null)).toBe("open");
     expect(modeOf(col, projectModes(opened), { Retired: "collapsed" })).toBe("collapsed");
   });

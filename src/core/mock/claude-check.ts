@@ -1,6 +1,6 @@
 import { quietCtx } from "../command.ts";
 import { commands } from "../commands/check.ts";
-import { fieldOrder, readXray } from "../lib/project.ts";
+import { fieldOrder } from "../lib/columns.ts";
 import { readCheck, readTest, testExists, writeTest } from "../lib/store.ts";
 import type { Finding, Test } from "../types.ts";
 import { mockStream, registerMockScript } from "./claude.ts";
@@ -82,7 +82,7 @@ export function mockFix(project: string, id: string): string[] {
     });
     changes.push(`step ${test.steps.length} ajouté : le cas du sectionneur avec TK`);
   }
-  if (changes.length) writeTest(project, id, test, fieldOrder(readXray(project)));
+  if (changes.length) writeTest(project, id, test, fieldOrder(project));
   return changes;
 }
 

@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { quietCtx } from "../../src/core/command.ts";
 import { commands } from "../../src/core/commands/tests.ts";
+import { setModes } from "../../src/core/lib/columns.ts";
 import { copyFixture, tempRoot } from "./cov-faces-helpers.ts";
 
 const LOCAL = "local-3f9a12c0";
@@ -42,10 +43,7 @@ describe("tests.save", () => {
 
 describe("tests.columns", () => {
   it("lists the project's collapsed and filled fields", async () => {
-    const file = join(project, "xray.json");
-    const x = JSON.parse(readFileSync(file, "utf8"));
-    x.prefs.collapsed = ["Exigence"];
-    writeFileSync(file, JSON.stringify(x));
+    setModes(project, { Exigence: "collapsed" });
     const r = await run("tests.columns", { id: LOCAL });
     expect(r).toEqual({ own: null, project: { Data: "filled", Exigence: "collapsed" } });
   });
@@ -53,8 +51,8 @@ describe("tests.columns", () => {
   it("keeps only the valid modes of a test's own columns and follows the project again on {}", async () => {
     await run("tests.setColumns", { id: LOCAL, modes: { Action: "collapsed" } });
     writeFileSync(
-      join(project, "tests", LOCAL, "columns.json"),
-      JSON.stringify({ Action: "collapsed", Data: "weird", "Expected Result": "open" }),
+      join(project, "tests", LOCAL, "local.json"),
+      JSON.stringify({ columns: { Action: "collapsed", Data: "weird", "Expected Result": "open" } }),
     );
     expect((await run("tests.columns", { id: LOCAL })).own).toEqual({ Action: "collapsed", "Expected Result": "open" });
     expect((await run("tests.setColumns", { id: LOCAL, modes: {} })).own).toBeNull();

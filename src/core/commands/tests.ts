@@ -1,8 +1,9 @@
-import { existsSync, readdirSync, rmSync, statSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 import { command, projectOf, UserError } from "../command.ts";
-import { fieldOrder, readJson, readProject, readXray, writeJson } from "../lib/project.ts";
+import { fieldOrder, stepColumns } from "../lib/columns.ts";
+import { readProject, readXray } from "../lib/project.ts";
 import {
   cloneLocalTest,
   createLocalTest,
@@ -10,12 +11,14 @@ import {
   listLocalTests,
   localTestRef,
   readCheck,
+  readLocal,
   readTest,
   removeImageFile,
   removeTest,
   syncState,
   testDir,
   testExists,
+  writeLocal,
   writeTest,
 } from "../lib/store.ts";
 import { fieldName, fieldWarnings, isReserved, newTest, parseSource, parseTest } from "../lib/testfile.ts";
@@ -140,24 +143,15 @@ function mustExist(dir: string, testId: string): void {
     throw new UserError(`No test ${testId} in this project.`, "testimus tests list shows the tests.");
 }
 
-const order = (dir: string) => fieldOrder(readXray(dir));
+const order = (dir: string) => fieldOrder(dir);
 
 const MODE = z.enum(["open", "filled", "collapsed"]);
-const columnsFile = (dir: string, testId: string) => join(testDir(dir, testId), "columns.json");
+const ownColumns = (dir: string, testId: string): ColumnModes | null => readLocal(dir, testId).columns ?? null;
 
-function readColumns(dir: string, testId: string): ColumnModes | null {
-  if (!existsSync(columnsFile(dir, testId))) return null;
-  const raw = readJson<Record<string, unknown>>(columnsFile(dir, testId), {});
-  const out: ColumnModes = {};
-  for (const [k, v] of Object.entries(raw)) if (MODE.safeParse(v).success) out[k] = v as ColumnModes[string];
-  return out;
-}
-
+// ponytail: the project's modes a test folds by — filled and collapsed; open is the default and hidden is not folding
 function projectColumns(dir: string): ColumnModes {
-  const p = readXray(dir).prefs;
   const out: ColumnModes = {};
-  for (const n of p.filled ?? []) out[n] = "filled";
-  for (const n of p.collapsed) out[n] = "collapsed";
+  for (const c of stepColumns(dir)) if (c.mode === "filled" || c.mode === "collapsed") out[c.name] = c.mode;
   return out;
 }
 
@@ -401,7 +395,7 @@ export const commands = [
   command({
     name: "tests.columns",
     summary:
-      "How the step fields of one test fold: its own modes (tests/<id>/columns.json, never part of test.md) over the project's (xray.json prefs).",
+      "How the step fields of one test fold: its own modes (tests/<id>/local.json, never part of test.md) over the project's (columns.json).",
     input: z.object({ id }),
     output: z.object({
       own: z
@@ -415,7 +409,7 @@ export const commands = [
     async run(ctx, input) {
       const dir = projectOf(ctx);
       mustExist(dir, input.id);
-      return { own: readColumns(dir, input.id), project: projectColumns(dir) };
+      return { own: ownColumns(dir, input.id), project: projectColumns(dir) };
     },
   }),
   command({
@@ -435,9 +429,8 @@ export const commands = [
     async run(ctx, input) {
       const dir = projectOf(ctx);
       mustExist(dir, input.id);
-      if (!input.modes || !Object.keys(input.modes).length) rmSync(columnsFile(dir, input.id), { force: true });
-      else writeJson(columnsFile(dir, input.id), input.modes);
-      return { own: readColumns(dir, input.id), project: projectColumns(dir) };
+      writeLocal(dir, input.id, { ...readLocal(dir, input.id), columns: input.modes ?? undefined });
+      return { own: ownColumns(dir, input.id), project: projectColumns(dir) };
     },
   }),
   command({

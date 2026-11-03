@@ -1,6 +1,6 @@
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { CredsStatus, Job, SearchMatch, Source, XrayJson } from "../../core/types.ts";
-import { ApiError, type CommandInfo, call, commands, events, fileUrl, project, setProject } from "../api.ts";
+import type { ColumnLayout, CredsStatus, Job, SearchMatch, Source, XrayJson } from "../../core/types.ts";
+import { ApiError, type CommandInfo, call, commands, events, project, setProject } from "../api.ts";
 import { ClaudeDock, type DockJob, type DockRequest } from "../components/claude/ClaudeDock.tsx";
 import { CONTEXTS_EVENT } from "../components/claude/ContextsDialog.tsx";
 import { DragEdge, Toasts } from "../components/legacy/index.ts";
@@ -13,7 +13,7 @@ import { docLink } from "../components/sources/PassageView.tsx";
 import { actionsChanged, triageWhenClaude } from "../lib/actions.ts";
 import { AppContext, type AppState, type ClaudeRun, type Focus, type ProjectInfo, type Screen } from "../lib/app.ts";
 import { touches, useChanged } from "../lib/changed.ts";
-import { DEFAULT_XRAY } from "../lib/fields.ts";
+import { DEFAULT_LAYOUT } from "../lib/fields.ts";
 import { mirrorPrefs, restorePrefs } from "../lib/prefsMirror.ts";
 import { jumpTo, rememberHit } from "../lib/search.ts";
 import { useSideWidth } from "../lib/sideWidth.ts";
@@ -51,7 +51,7 @@ function triageFailed(job: Job): void {
 
 export function App() {
   const [info, setInfo] = useState<ProjectInfo | null>(null);
-  const [xray, setXray] = useState<XrayJson>(DEFAULT_XRAY);
+  const [xray, setXray] = useState<ColumnLayout>(DEFAULT_LAYOUT);
   const [cmds, setCmds] = useState<CommandInfo[]>([]);
   const [route, setRoute] = useState(() => parseRoute(window.location.hash));
   const [focus, setFocus] = useState<Focus | null>(null);
@@ -70,24 +70,15 @@ export function App() {
 
   const refreshInfo = useCallback(() => {
     call<ProjectInfo>("project.info", {})
-      .then(async (r) => {
+      .then((r) => {
         setInfo(r);
-        if (r?.xray?.fields?.length) setXray(r.xray);
-        else {
-          const res = await fetch(fileUrl("xray.json"));
-          if (res.ok) setXray({ ...DEFAULT_XRAY, ...((await res.json()) as XrayJson) });
-        }
+        setXray({
+          ...(r?.xray?.fetchedAt ? { fetchedAt: r.xray.fetchedAt } : {}),
+          fields: r?.xray?.fields?.length ? r.xray.fields : DEFAULT_LAYOUT.fields,
+          columns: r?.columns?.length ? r.columns : DEFAULT_LAYOUT.columns,
+        });
       })
-      .catch(async (e) => {
-        try {
-          const res = await fetch(fileUrl("xray.json"));
-          if (res.ok) {
-            setXray({ ...DEFAULT_XRAY, ...((await res.json()) as XrayJson) });
-            return;
-          }
-        } catch {}
-        errorToast(e, "Could not read the project");
-      });
+      .catch((e) => errorToast(e, "Could not read the project"));
   }, []);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: once, at start (navigate is stable)
@@ -171,11 +162,10 @@ export function App() {
     fieldsFor.current = dir;
     call<XrayJson>("xray.fields", {})
       .then((x) => {
-        if (fieldsFor.current !== dir || !x?.fields?.length) return;
-        setXray((cur) => (JSON.stringify(cur.fields) === JSON.stringify(x.fields) ? cur : x));
+        if (fieldsFor.current === dir && x?.fields?.length) refreshInfo();
       })
       .catch(() => {});
-  }, [info?.dir, jiraKey]);
+  }, [info?.dir, jiraKey, refreshInfo]);
 
   useEffect(() => {
     const onHash = () => setRoute(parseRoute(window.location.hash));
@@ -251,7 +241,7 @@ export function App() {
     setProject(null);
     writePref("testimus.project", "");
     setInfo(null);
-    setXray(DEFAULT_XRAY);
+    setXray(DEFAULT_LAYOUT);
     testsChanged();
   }, [testsChanged]);
 
@@ -259,7 +249,10 @@ export function App() {
     refreshInfo();
     if (touches(paths, ["tests/"]).length) testsChanged();
     if (touches(paths, [".testimus/actions/"]).length) actionsChanged();
-    if (touches(paths, ["contexts/", "project.json"]).length || paths.some((p) => p.endsWith("/claude.json")))
+    if (
+      touches(paths, ["contexts/", "project.json"]).length ||
+      paths.some((p) => p.endsWith("/local.json") || p.endsWith("/claude.json"))
+    )
       window.dispatchEvent(new Event(CONTEXTS_EVENT));
   });
   const openPalette = useCallback(() => setPalette(true), []);

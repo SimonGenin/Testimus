@@ -161,8 +161,8 @@ describe("per-test contexts", () => {
     expect(projectContexts(dir)).toEqual(["full"]);
   });
 
-  it("a claude.json without a list, or with junk in it, reads as no list or as its valid ids", () => {
-    const f = join(dir, "tests", "LFRPS12-1420", "claude.json");
+  it("a local.json without a list, or with junk in it, reads as no list or as its valid ids", () => {
+    const f = join(dir, "tests", "LFRPS12-1420", "local.json");
     writeJson(f, { contexts: "full" });
     expect(readTestContexts(dir, "LFRPS12-1420")).toBeNull();
     writeJson(f, { contexts: ["full", 3, "bad id"] });

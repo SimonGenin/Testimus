@@ -104,6 +104,7 @@ export const PROTECTED = [
   ".claude/**",
   "project.json",
   "xray.json",
+  "columns.json",
   ".mcp.json",
   "CLAUDE.md",
 ];

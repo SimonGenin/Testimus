@@ -2,18 +2,20 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import type { Step, XrayJson } from "../../src/core/types.ts";
+import type { Step } from "../../src/core/types.ts";
 import { emphasisRuns, highlight } from "../../src/ui/components/sources/PassageView.tsx";
 import { worst } from "../../src/ui/lib/doctor.ts";
 import { addedSteps } from "../../src/ui/lib/marks.ts";
 import { StepCard } from "../../src/ui/screens/tests/StepCard.tsx";
+import { layoutOf } from "./layout-helpers.ts";
 
 afterEach(cleanup);
 
-const xray: XrayJson = {
-  fields: [{ id: "action", name: "Action", type: "text", builtin: true }],
-  prefs: { order: ["Action"], collapsed: [], hidden: [] },
-};
+const xray = layoutOf([{ id: "action", name: "Action", type: "text", builtin: true }], {
+  order: ["Action"],
+  collapsed: [],
+  hidden: [],
+});
 
 const localStep: Step = { fields: { Action: "Ouvrir la vue de traction." }, sources: [], images: [] };
 

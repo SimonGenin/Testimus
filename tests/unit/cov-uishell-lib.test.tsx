@@ -17,7 +17,7 @@ import {
 } from "../../src/ui/lib/desktop.ts";
 import { resetDoctor, runDoctor, useDoctor, worst } from "../../src/ui/lib/doctor.ts";
 import { flushEditor, setFlusher } from "../../src/ui/lib/editorBus.ts";
-import { DEFAULT_XRAY, fieldViews, parseSourceRef, sourceLabel } from "../../src/ui/lib/fields.ts";
+import { DEFAULT_LAYOUT, fieldViews, parseSourceRef, sourceLabel } from "../../src/ui/lib/fields.ts";
 import { cx, initials, message, plural, relTime } from "../../src/ui/lib/format.ts";
 import { clock, duration, KIND, kindLabel, logLines, percent, resultLine } from "../../src/ui/lib/jobs.ts";
 import { addedSteps } from "../../src/ui/lib/marks.ts";
@@ -35,6 +35,7 @@ import {
 } from "../../src/ui/lib/theme.ts";
 import { closeToast, errorToast, type Toast, toast, useToasts } from "../../src/ui/lib/toast.ts";
 import { callsOf, Fail, fakeNet, job, net } from "./cov-uishell-helpers.tsx";
+import { layoutOf } from "./layout-helpers.ts";
 import { fakeDesktop, noDesktop } from "./ui-desktop-helpers.tsx";
 
 beforeEach(() => fakeNet());
@@ -354,13 +355,15 @@ describe("doctor store", () => {
 
 describe("fields, marks, revert, editor bus, app context", () => {
   it("orders the step fields, adding the step's own and showing hidden ones that hold text", () => {
-    const x = { ...DEFAULT_XRAY, prefs: { order: ["Expected Result", "Gone"], collapsed: ["Data"], hidden: ["Data"] } };
+    const x = layoutOf(DEFAULT_LAYOUT.fields, { order: ["Expected Result", "Gone"], hidden: ["Data"] });
+    const folded = layoutOf(DEFAULT_LAYOUT.fields, { collapsed: ["Data"] });
+    expect(fieldViews(folded).find((v) => v.name === "Data")).toEqual({ name: "Data", collapsed: true });
     expect(fieldViews(x).map((v) => v.name)).toEqual(["Expected Result", "Action"]);
     const step = { fields: { Data: "  x ", Exigence: "REQ-1" }, sources: [], images: [] };
     expect(fieldViews(x, step)).toEqual([
       { name: "Expected Result", collapsed: false },
       { name: "Action", collapsed: false },
-      { name: "Data", collapsed: true },
+      { name: "Data", collapsed: false },
       { name: "Exigence", collapsed: false },
     ]);
   });

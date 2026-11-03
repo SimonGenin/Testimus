@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react";
-import type { ProjectJson, Review, Source, StepColumn, XrayJson } from "../../core/types.ts";
+import type { ColumnLayout, ProjectJson, Review, Source, StepColumn, XrayJson } from "../../core/types.ts";
 
 export type Screen = "documents" | "generate" | "tests" | "review" | "jobs" | "settings" | "doctor" | "setup" | "kit";
 
@@ -32,7 +32,7 @@ export type ClaudeRun = {
 
 export type AppState = {
   info: ProjectInfo | null;
-  xray: XrayJson;
+  xray: ColumnLayout;
   route: { screen: Screen; arg?: string };
   focus: Focus | null;
   claudeRunning: string | null;

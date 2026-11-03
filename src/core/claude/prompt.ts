@@ -1,9 +1,9 @@
-import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { env } from "../env.ts";
 import { readContext } from "../lib/docs.ts";
 import { readJson, readProject, writeJson } from "../lib/project.ts";
-import { testDir } from "../lib/store.ts";
+import { readLocal, testDir, writeLocal } from "../lib/store.ts";
 import type { ClaudeRun, ClaudeScope, Context } from "../types.ts";
 
 export type JobRun = ClaudeRun & { note?: string; contexts?: string[] };
@@ -22,19 +22,13 @@ export function contextDir(project: string, id: string): string {
 export const isShared = (project: string, id: string): boolean =>
   !existsSync(join(project, "contexts", id)) && existsSync(join(sharedContexts(), id));
 
-const testClaudeFile = (project: string, testId: string) => join(testDir(project, testId), "claude.json");
-
 export function readTestContexts(project: string, testId: string): string[] | null {
-  const f = testClaudeFile(project, testId);
-  if (!existsSync(f)) return null;
-  const c = readJson<{ contexts?: unknown }>(f, {}).contexts;
-  return Array.isArray(c) ? c.filter((x): x is string => typeof x === "string" && /^[\w-]+$/.test(x)) : null;
+  testDir(project, testId);
+  return readLocal(project, testId).contexts ?? null;
 }
 
 export function writeTestContexts(project: string, testId: string, ids: string[] | null): void {
-  const f = testClaudeFile(project, testId);
-  if (ids === null) rmSync(f, { force: true });
-  else writeJson(f, { contexts: [...new Set(ids)] });
+  writeLocal(project, testId, { ...readLocal(project, testId), contexts: ids ?? undefined });
 }
 
 // ponytail: the test's own list wins whole (Xray Editor §7), else the project's; ids whose folder is gone drop out

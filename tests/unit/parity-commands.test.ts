@@ -7,6 +7,7 @@ import { commands as contexts } from "../../src/core/commands/contexts.ts";
 import { commands as tests } from "../../src/core/commands/tests.ts";
 import { commands as xray } from "../../src/core/commands/xray.ts";
 import { env } from "../../src/core/env.ts";
+import { setModes } from "../../src/core/lib/columns.ts";
 import { resetAuth } from "../../src/core/lib/jira.ts";
 import { readTest, writeTest } from "../../src/core/lib/store.ts";
 import { mockHttp, resetMockJira } from "../../src/core/mock/jira.ts";
@@ -75,16 +76,18 @@ describe("tests.columns / tests.setColumns", () => {
     expect(await run("tests.columns", { id: "LFRPS12-1420" })).toEqual({ own: null, project: { Data: "filled" } });
     const set = await run("tests.setColumns", { id: "LFRPS12-1420", modes: { Data: "open", Exigence: "collapsed" } });
     expect(set.own).toEqual({ Data: "open", Exigence: "collapsed" });
-    expect(existsSync(join(P, "tests/LFRPS12-1420/columns.json"))).toBe(true);
+    expect(JSON.parse(readFileSync(join(P, "tests/LFRPS12-1420/local.json"), "utf8"))).toEqual({
+      columns: { Data: "open", Exigence: "collapsed" },
+    });
     expect(readFileSync(join(P, "tests/LFRPS12-1420/test.md"), "utf8")).toBe(md);
     expect((await run("tests.show", { id: "LFRPS12-1420" })).md).toBe(md);
     expect((await run("tests.setColumns", { id: "LFRPS12-1420", modes: null })).own).toBeNull();
-    expect(existsSync(join(P, "tests/LFRPS12-1420/columns.json"))).toBe(false);
+    expect(existsSync(join(P, "tests/LFRPS12-1420/local.json"))).toBe(false);
   });
 
-  it("xray.prefs saves the project's « when filled » columns", async () => {
-    const r = await run("xray.prefs", { filled: ["Data", "Exigence"], collapsed: [] });
-    expect(r.prefs.filled).toEqual(["Data", "Exigence"]);
+  it("columns.setModes saves the project's « when filled » columns", async () => {
+    const r = setModes(P, { Data: "filled", Exigence: "filled" });
+    expect(r.filter((c) => c.mode === "filled").map((c) => c.name)).toEqual(["Data", "Exigence"]);
     expect((await run("tests.columns", { id: "LFRPS12-1420" })).project).toEqual({
       Data: "filled",
       Exigence: "filled",

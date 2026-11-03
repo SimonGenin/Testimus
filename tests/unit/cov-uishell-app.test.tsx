@@ -127,12 +127,18 @@ describe("App boot", () => {
     expect(window.location.hash).toBe("");
   });
 
-  it("reads the step columns again from Xray once per opened project, quietly", async () => {
+  it("reads the step columns again from Xray once per opened project, quietly, then the project again", async () => {
     const x = appState().xray;
-    net.routes["xray.fields"] = () => ({
-      ...x,
+    const more = {
       fields: [...x.fields, { id: "cf9", name: "Retired", type: "text", builtin: false, disabled: true }],
-    });
+    };
+    let read = false;
+    net.routes["xray.fields"] = () => {
+      read = true;
+      return more;
+    };
+    const plain = net.routes["project.info"];
+    net.routes["project.info"] = (i) => (read ? info({ xray: more }) : plain(i));
     mount();
     expect(await screen.findByRole("region", { name: "Tests screen" })).toBeInTheDocument();
     await waitFor(() => expect(callsOf("xray.fields")).toHaveLength(1));
@@ -141,13 +147,13 @@ describe("App boot", () => {
     );
   });
 
-  it("prefers the remembered project and reads xray.json when the info has no fields", async () => {
+  it("prefers the remembered project, and keeps the default fields when its info has none", async () => {
     localStorage.setItem("testimus.project", "D:\\remembered");
     net.routes["project.info"] = () => info({ xray: { fields: [] } });
-    net.files["xray.json"] = { fields: [{ id: "a", name: "A", type: "text", builtin: true }] };
     mount();
-    await waitFor(() => expect(screen.getByText(/fields 1/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/fields 3/)).toBeInTheDocument());
     expect(project()).toBe("D:\\remembered");
+    expect(callsOf("file:xray.json")).toHaveLength(0);
   });
 
   it("drops a remembered project the server no longer knows and sends a first run to Setup", async () => {
@@ -175,29 +181,23 @@ describe("App boot", () => {
     expect(project()).toBe("D:\\remembered");
   });
 
-  it("keeps the default fields when xray.json is missing too", async () => {
+  it("keeps the default fields when the project gives no info, without reading xray.json", async () => {
     net.routes["project.info"] = () => null;
     mount();
-    await waitFor(() => expect(callsOf("file:xray.json")).toHaveLength(1));
+    await waitFor(() => expect(callsOf("project.info").length).toBeGreaterThan(0));
     expect(screen.getByText(/fields 3/)).toBeInTheDocument();
+    expect(callsOf("file:xray.json")).toHaveLength(0);
   });
 
-  it("falls back to xray.json when the project cannot be read, and says so when that fails too", async () => {
+  it("says so when the project cannot be read, keeping the default fields (xray.json is never read by the page)", async () => {
     net.routes["project.info"] = () => {
       throw new Fail("not a project");
     };
     net.files["xray.json"] = { fields: xray.fields };
-    const first = mount();
-    await waitFor(() => expect(screen.getByText(/fields 2/)).toBeInTheDocument());
-    expect(screen.queryByText("Could not read the project")).toBeNull();
-    first.unmount();
-    delete net.files["xray.json"];
     mount();
     expect(await screen.findByText("Could not read the project")).toBeInTheDocument();
-    cleanup();
-    net.files["xray.json"] = new Error("network");
-    mount();
-    expect(await screen.findByText("Could not read the project")).toBeInTheDocument();
+    expect(screen.getByText(/fields 3/)).toBeInTheDocument();
+    expect(callsOf("file:xray.json")).toHaveLength(0);
   });
 
   it("says when the core does not answer", async () => {

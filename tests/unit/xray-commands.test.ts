@@ -5,7 +5,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { quietCtx } from "../../src/core/command.ts";
 import { commands } from "../../src/core/commands/xray.ts";
 import { env } from "../../src/core/env.ts";
-import { saveColumn } from "../../src/core/lib/columns.ts";
+import { readColumns, saveColumn, setModes, setOrder } from "../../src/core/lib/columns.ts";
 import { resetAuth } from "../../src/core/lib/jira.ts";
 import { readXray } from "../../src/core/lib/project.ts";
 import { listLocalTests, localTestRef, readTest, writeTest } from "../../src/core/lib/store.ts";
@@ -49,8 +49,9 @@ describe("xray commands", () => {
     }
   });
 
-  it("xray.fields fetches the step schema and keeps the local prefs", async () => {
-    const before = readXray(project).prefs;
+  it("xray.fields fetches the step schema and keeps the team's columns", async () => {
+    setModes(project, { Exigence: "collapsed" });
+    const before = readColumns(project);
     const out = await run("xray.fields");
     expect(out.fields).toEqual([
       { id: "action", name: "Action", type: "text", builtin: true },
@@ -58,32 +59,32 @@ describe("xray commands", () => {
       { id: "result", name: "Expected Result", type: "text", builtin: true },
       { id: "cf-exigence", name: "Exigence", type: "text-single", builtin: false },
     ]);
-    expect(readXray(project)).toEqual({ ...out, prefs: before });
+    expect(readXray(project)).toEqual(out);
+    expect(readColumns(project)).toEqual(before);
     expect(existsSync(join(project, ".testimus/jira-project.json"))).toBe(true);
   });
 
-  it("xray.prefs sets order, folded and hidden fields, and refuses a name that is not a field", async () => {
-    const out = await run("xray.prefs", { order: ["Exigence", "Action"], hidden: ["Data"] });
-    expect(out.prefs).toEqual({
-      order: ["Exigence", "Action", "Data", "Expected Result"],
-      collapsed: [],
-      hidden: ["Data"],
-      filled: ["Data"],
-    });
-    expect(readXray(project).prefs.hidden).toEqual(["Data"]);
-    expect((await run("xray.prefs", { open: ["Exigence"] })).prefs.open).toEqual(["Exigence"]);
-    expect((await run("xray.prefs", { hidden: [] })).prefs.open).toEqual(["Exigence"]);
-    expect((await run("xray.prefs", { open: [] })).prefs.open).toBeUndefined();
-    await expect(run("xray.prefs", { collapsed: ["Priorité"] })).rejects.toThrow(
-      "Not a step field of this project: Priorité.",
-    );
+  it("columns.order and columns.setModes set order, folded and hidden columns, and refuse a name that is not a column", () => {
+    const out = setOrder(project, ["Exigence", "Action"]);
+    expect(out.map((c) => c.name)).toEqual(["Exigence", "Action", "Data", "Expected Result"]);
+    const hidden = setModes(project, { Data: "hidden" });
+    expect(hidden.map((c) => [c.name, c.mode])).toEqual([
+      ["Exigence", "open"],
+      ["Action", "open"],
+      ["Data", "hidden"],
+      ["Expected Result", "open"],
+    ]);
+    expect(readColumns(project).find((c) => c.name === "Data")?.mode).toBe("hidden");
+    expect(setModes(project, { Data: "filled" }).find((c) => c.name === "Data")?.mode).toBe("filled");
+    expect(() => setModes(project, { Priorité: "collapsed" })).toThrow("Not a step column of this project: Priorité.");
   });
 
-  it("xray.prefs accepts a local smart column, kept in xray.json and not in Xray", async () => {
+  it("columns.setModes accepts a local smart column, kept in columns.json and not in Xray", () => {
     saveColumn(project, { name: "Alarme", description: "Le code d'alarme affiché" });
-    const out = await run("xray.prefs", { filled: ["Data", "Alarme"] });
-    expect(out.prefs.filled).toEqual(["Data", "Alarme"]);
-    expect(readXray(project).prefs.filled).toEqual(["Data", "Alarme"]);
+    const out = setModes(project, { Data: "filled", Alarme: "filled" });
+    expect(out.filter((c) => c.mode === "filled").map((c) => c.name)).toEqual(["Data", "Alarme"]);
+    expect(readColumns(project).find((c) => c.name === "Alarme")).toMatchObject({ mode: "filled" });
+    expect(readXray(project).fields.some((f) => f.name === "Alarme")).toBe(false);
   });
 
   it("xray.folders and xray.search read the remote tree and tests", async () => {

@@ -2,21 +2,23 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { Test, XrayJson } from "../../src/core/types.ts";
+import type { Test } from "../../src/core/types.ts";
 import { ApiError } from "../../src/ui/api.ts";
 import { fixOutcome } from "../../src/ui/components/claude/ClaudeDock.tsx";
 import { editedAfterRun, revertRun } from "../../src/ui/lib/revert.ts";
 import { ReviewTest } from "../../src/ui/screens/review/ReviewTest.tsx";
+import { layoutOf } from "./layout-helpers.ts";
 
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
 });
 
-const xray: XrayJson = {
-  fields: [{ id: "action", name: "Action", type: "text", builtin: true }],
-  prefs: { order: ["Action"], collapsed: [], hidden: [] },
-};
+const xray = layoutOf([{ id: "action", name: "Action", type: "text", builtin: true }], {
+  order: ["Action"],
+  collapsed: [],
+  hidden: [],
+});
 
 const test: Test = {
   key: "LFRPS12-1420",

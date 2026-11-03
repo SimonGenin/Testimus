@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Block, ColumnModes, Source, Step, StepImage, XrayJson } from "../../../core/types.ts";
+import type { Block, ColumnLayout, ColumnModes, Source, Step, StepImage } from "../../../core/types.ts";
 import { Button, ClaudeBadge, Icon, IconButton, ItemLinks, SourceChip } from "../../components/legacy/index.ts";
 import { hasRawEmbed, imageRef, leafBlocks } from "../../lib/blocks.ts";
 import {
@@ -90,7 +90,7 @@ export function StepCard({
   index: number;
   count: number;
   step: Step;
-  xray: XrayJson;
+  xray: ColumnLayout;
   linked?: boolean;
   layout: StepLayout;
   projectModes?: ColumnModes;

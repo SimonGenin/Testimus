@@ -2,10 +2,20 @@ import { randomBytes } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, renameSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { UserError } from "../command.ts";
-import type { CheckFile, FindingCounts, LocalTestRef, StepImage, SyncState, Test } from "../types.ts";
+import type {
+  CheckFile,
+  ColumnMode,
+  ColumnModes,
+  FindingCounts,
+  LocalTestRef,
+  StepImage,
+  SyncState,
+  Test,
+  TestLocal,
+} from "../types.ts";
 import { copyDirAtomic, writeAtomic } from "./atomic.ts";
 import { sha256 } from "./hash.ts";
-import { readXray } from "./project.ts";
+import { readJson, readXray, writeJson } from "./project.ts";
 import { mapRefs, outsideTest, parseTest, sameTestMd, serializeTest, testMdHash } from "./testfile.ts";
 
 const read = (path: string) => {
@@ -49,6 +59,34 @@ export function findingCounts(check: CheckFile | null, md: string): FindingCount
 }
 
 export const readRemote = (project: string, id: string) => read(join(testDir(project, id), ".remote.md"));
+
+const MODES = new Set(["open", "filled", "collapsed"]);
+const localFile = (project: string, id: string) => join(testDir(project, id), "local.json");
+
+// ponytail: a test's own settings beside test.md — its contexts (the whole list, [] = none) and how its columns
+// fold; absent keys follow the project, and a file left with nothing is removed
+export function readLocal(project: string, id: string): TestLocal {
+  const raw = readJson<Record<string, unknown>>(localFile(project, id), {});
+  const out: TestLocal = {};
+  if (Array.isArray(raw.contexts))
+    out.contexts = raw.contexts.filter((x): x is string => typeof x === "string" && /^[\w-]+$/.test(x));
+  if (raw.columns && typeof raw.columns === "object") {
+    const columns: ColumnModes = {};
+    for (const [k, v] of Object.entries(raw.columns as Record<string, unknown>))
+      if (typeof v === "string" && MODES.has(v)) columns[k] = v as ColumnMode;
+    if (Object.keys(columns).length) out.columns = columns;
+  }
+  return out;
+}
+
+export function writeLocal(project: string, id: string, local: TestLocal): void {
+  const next: TestLocal = {
+    ...(local.contexts ? { contexts: [...new Set(local.contexts)] } : {}),
+    ...(local.columns && Object.keys(local.columns).length ? { columns: local.columns } : {}),
+  };
+  if (Object.keys(next).length) writeJson(localFile(project, id), next);
+  else rmSync(localFile(project, id), { force: true });
+}
 
 const markerOf = (project: string, id: string) => join(testDir(project, id), ".remote-changed");
 

@@ -14,6 +14,7 @@ import { closeToast, toast } from "../../src/ui/lib/toast.ts";
 import { abandonPulls } from "../../src/ui/screens/tests/pulls.ts";
 import { TestList } from "../../src/ui/screens/tests/TestList.tsx";
 import { TestsScreen } from "../../src/ui/screens/tests/TestsScreen.tsx";
+import { layoutOf } from "./layout-helpers.ts";
 
 type Handler = (input: Record<string, unknown>) => unknown;
 type Call = { name: string; input: Record<string, unknown>; project: string | null };
@@ -463,9 +464,9 @@ function appState(route: AppState["route"], navigate: AppState["navigate"], dir:
     info: {
       dir,
       project: { jiraProject: "LFRPS12" } as never,
-      xray: { fields: [], prefs: { order: [], collapsed: [], hidden: [] } },
+      xray: layoutOf([], { order: [], collapsed: [], hidden: [] }),
     },
-    xray: { fields: [], prefs: { order: [], collapsed: [], hidden: [] } },
+    xray: layoutOf([], { order: [], collapsed: [], hidden: [] }),
     route,
     focus: null,
     claudeRunning: null,
