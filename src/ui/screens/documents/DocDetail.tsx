@@ -39,7 +39,6 @@ export function DocDetail({
   docs,
   onAnchor,
   onChanged,
-  onReindex,
   onRemoved,
 }: {
   id: string;
@@ -48,7 +47,6 @@ export function DocDetail({
   docs: DocRef[];
   onAnchor: (anchor: string) => void;
   onChanged: () => void;
-  onReindex: () => void;
   onRemoved: () => void;
 }) {
   const [shown, setShown] = useState<Shown | null>(null);
@@ -310,10 +308,6 @@ export function DocDetail({
       <div className="docdetail-text">
         <div className="sect-head">
           <span className="label">Converted text</span>
-          <span className="spacer" />
-          <Button size="sm" onClick={onReindex}>
-            Reindex
-          </Button>
         </div>
         <div ref={textBox} className="card doctoc-wrap">
           <nav className="doctoc" aria-label="Sections">

@@ -18,7 +18,6 @@ import {
   dismissUpload,
   forgetSettled,
   owns,
-  reindexAll,
   settled,
   type Upload,
   useUploads,
@@ -33,7 +32,7 @@ export const INDEX_LOOK = {
   missing: { tone: "warning" as const, word: "Not indexed" },
 };
 
-function IndexFailed({ u, colSpan, onReindex }: { u: Upload; colSpan: number; onReindex: () => void }) {
+function IndexFailed({ u, colSpan }: { u: Upload; colSpan: number }) {
   const app = useApp();
   const p = problemOf(u.error ?? new Error(u.message));
   return (
@@ -59,16 +58,6 @@ function IndexFailed({ u, colSpan, onReindex }: { u: Upload; colSpan: number; on
             </p>
           )}
           <div className="problem-actions">
-            <Button
-              size="sm"
-              icon="revert"
-              onClick={() => {
-                dismissUpload(u.key);
-                onReindex();
-              }}
-            >
-              Reindex
-            </Button>
             <Button size="sm" tone="quiet" onClick={() => app.navigate("jobs")}>
               Open Jobs
             </Button>
@@ -143,7 +132,6 @@ export function DocumentsScreen() {
 
   const busy = uploads.filter((u) => !settled(u));
   const listed = (u: Upload) => !!docs?.some((d) => (u.docId ? d.id === u.docId : owns(u, d)));
-  const reindex = () => void reindexAll(changed);
   const pages = docs?.length ?? 0;
 
   return (
@@ -284,14 +272,14 @@ export function DocumentsScreen() {
                             )}
                           </td>
                         </tr>,
-                        ...failed.map((u) => <IndexFailed key={u.key} u={u} colSpan={4} onReindex={reindex} />),
+                        ...failed.map((u) => <IndexFailed key={u.key} u={u} colSpan={4} />),
                       ];
                     })}
                 {uploads
                   .filter((u) => !listed(u))
                   .map((u) =>
                     u.phase === "index-failed" ? (
-                      <IndexFailed key={u.key} u={u} colSpan={4} onReindex={reindex} />
+                      <IndexFailed key={u.key} u={u} colSpan={4} />
                     ) : (
                       <UploadRow key={u.key} u={u} />
                     ),
@@ -310,7 +298,6 @@ export function DocumentsScreen() {
                 docs={docs ?? []}
                 onAnchor={(a) => app.navigate("documents", `${activeId}#${a}`)}
                 onChanged={changed}
-                onReindex={reindex}
                 onRemoved={() => {
                   app.navigate("documents");
                   changed();
