@@ -228,7 +228,14 @@ export function StepList({
       ) : (
         !readOnly && (
           <div {...stylex.props(styles.add)}>
-            <Button variant="quiet" size="lg" icon="plus" label="Add step" block onClick={() => onInsert(test.steps.length)} />
+            <Button
+              variant="quiet"
+              size="lg"
+              icon="plus"
+              label="Add step"
+              block
+              onClick={() => onInsert(test.steps.length)}
+            />
           </div>
         )
       )}

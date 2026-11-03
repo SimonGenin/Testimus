@@ -132,7 +132,8 @@ const actions = () => (screen.getAllByLabelText(/^Action of step \d+$/) as HTMLT
 const savedTest = () => callsTo("tests.save").at(-1)?.input.test as Test;
 const blurWindow = () => act(() => void window.dispatchEvent(new Event("blur")));
 const focusWindow = () => act(() => void window.dispatchEvent(new Event("focus")));
-const preButton = (k: string) => within(screen.getByRole("region", { name: "Preconditions" })).getByRole("button", { name: k });
+const preButton = (k: string) =>
+  within(screen.getByRole("region", { name: "Preconditions" })).getByRole("button", { name: k });
 const folderButton = () => screen.getByTestId("folder");
 const menuItem = async (name: string) => {
   fireEvent.click(screen.getByRole("button", { name: "More actions for this test" }));
@@ -494,9 +495,7 @@ describe("TestEditor › saving", () => {
     editor();
     await ready();
     fireEvent.click(folderButton());
-    await waitFor(() =>
-      expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual(["/", "/Lot"]),
-    );
+    await waitFor(() => expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual(["/", "/Lot"]));
   });
 
   it("uploads a screenshot into the step, and deletes a dropped one once its undo expires", async () => {
@@ -526,6 +525,37 @@ describe("TestEditor › saving", () => {
     act(() => toasts.at(-1)?.onExpire?.());
     await waitFor(() => expect(callsTo("tests.removeImage")).toHaveLength(1));
     expect(errors).toEqual([]);
+  });
+});
+
+describe("TestEditor › a save over a changed file (tests.save ifMtime)", () => {
+  it("sends the version it was made over; a conflict keeps the edit, and Keep mine sends it without one", async () => {
+    show = { mtime: 5 };
+    let refuse = true;
+    const served = globalThis.fetch;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: { body?: string }) => {
+        if (String(url).startsWith("/api/tests/save") && refuse) {
+          server.calls.push({ name: "tests.save", input: JSON.parse(init?.body ?? "{}") });
+          refuse = false;
+          return new Response(JSON.stringify({ error: "test.md changed on disk", code: "conflict" }), { status: 409 });
+        }
+        return served(url, init as RequestInit);
+      }),
+    );
+    server.routes["tests.save"] = (input) => ({ id: input.id, sync: "modified", mtime: 8 });
+    editor();
+    fireEvent.change(await screen.findByLabelText("Description"), { target: { value: "mine" } });
+    blurWindow();
+    expect(await screen.findByText("test.md changed on disk")).toBeInTheDocument();
+    expect(callsTo("tests.save")[0].input).toMatchObject({ id: "t1", ifMtime: 5 });
+    expect(screen.getByLabelText("Description")).toHaveValue("mine");
+    fireEvent.click(screen.getByRole("button", { name: "Keep mine" }));
+    await waitFor(() => expect(callsTo("tests.save")).toHaveLength(2));
+    expect(callsTo("tests.save")[1].input).not.toHaveProperty("ifMtime");
+    expect(savedTest().description).toBe("mine");
+    await waitFor(() => expect(screen.queryByText("test.md changed on disk")).toBeNull());
   });
 });
 
@@ -589,7 +619,9 @@ describe("TestEditor › steps", () => {
     expect(screen.getByRole("article", { name: "Step 2" })).toHaveAttribute("data-folded");
     fireEvent.click(screen.getByRole("button", { name: "Expand step 2" }));
     expect(screen.getByRole("article", { name: "Step 2" })).not.toHaveAttribute("data-folded");
-    fireEvent.click(within(screen.getByRole("article", { name: "Step 2" })).getByRole("button", { name: "Ask Claude" }));
+    fireEvent.click(
+      within(screen.getByRole("article", { name: "Step 2" })).getByRole("button", { name: "Ask Claude" }),
+    );
     expect(state.askClaude).toHaveBeenCalledWith("step");
     expect(state.setFocus).toHaveBeenLastCalledWith(expect.objectContaining({ step: 2 }));
     fireEvent.click(screen.getAllByRole("button", { name: "Ask Claude" })[0]);
@@ -853,7 +885,10 @@ describe("TestEditor › Jira", () => {
     await ready();
     await waitFor(() => expect(screen.getByRole("button", { name: "Push to Jira" })).toBeDisabled());
     fireEvent.click(screen.getByRole("button", { name: "More actions for this test" }));
-    expect(await screen.findByRole("menuitem", { name: /^Undo local changes/ })).toHaveAttribute("aria-disabled", "true");
+    expect(await screen.findByRole("menuitem", { name: /^Undo local changes/ })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
   });
 
   it("changed in Jira but not here: nothing local to push, as in Xray Editor", async () => {
@@ -901,7 +936,9 @@ describe("TestEditor › Jira", () => {
     fireEvent.click(within(dlg).getByRole("button", { name: "Cancel" }));
     await menuItem("Download from Jira");
     fireEvent.click(await screen.findByRole("button", { name: "Overwrite local" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Overwrite local" })).toHaveAttribute("aria-busy", "true"));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Overwrite local" })).toHaveAttribute("aria-busy", "true"),
+    );
     expect(screen.getByText("Refreshing from Jira…")).toBeInTheDocument();
     gate.resolve({ pulled: ["LFRPS12-7"] });
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
@@ -1205,7 +1242,9 @@ describe("TestEditor › menu and settings", () => {
     editor({ xray: fullXray });
     await ready();
     await waitFor(() => expect(screen.queryByLabelText("Data of step 1")).toBeNull());
-    expect(within(screen.getByRole("article", { name: "Step 1" })).getByRole("button", { name: "Data" })).toHaveAttribute("aria-pressed", "false");
+    expect(
+      within(screen.getByRole("article", { name: "Step 1" })).getByRole("button", { name: "Data" }),
+    ).toHaveAttribute("aria-pressed", "false");
   });
 });
 
@@ -1748,7 +1787,8 @@ describe("TestEditor › header and columns (PARITY #5, #47, #87)", () => {
     const { state } = editor({ xray: offXray });
     await ready();
     expect(screen.getByLabelText("Retired of step 1")).toHaveValue("old value");
-    const fold = (n: number) => within(screen.getByRole("article", { name: `Step ${n}` })).getByRole("button", { name: "Retired" });
+    const fold = (n: number) =>
+      within(screen.getByRole("article", { name: `Step ${n}` })).getByRole("button", { name: "Retired" });
     expect(fold(1)).toHaveAttribute("aria-pressed", "true");
     expect(screen.queryByLabelText("Retired of step 2")).toBeNull();
     expect(fold(2)).toHaveAttribute("aria-pressed", "false");

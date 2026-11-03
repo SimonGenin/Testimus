@@ -54,7 +54,12 @@ export function useEditorActions({
   const [revertConflict, setRevertConflict] = useState<string | null>(null);
   const docKey = key("tests.show", { id: testId });
 
-  const steps = ({ setFocusStep }: { setFocusStep: (fn: number | ((f: number) => number)) => void; focus: number }) => ({
+  const steps = ({
+    setFocusStep,
+  }: {
+    setFocusStep: (fn: number | ((f: number) => number)) => void;
+    focus: number;
+  }) => ({
     move: (i: number, dir: -1 | 1) => {
       const j = i + dir;
       const all = test?.steps ?? [];
@@ -155,9 +160,14 @@ export function useEditorActions({
     if (refuseWhileClaude()) return setDialog(null);
     try {
       discardAutosave(docKey);
-      await execute(client, "tests.restore", { id: testId }, {
-        invalidates: [["tests.list"], ["review.queue"], ["project.info"]],
-      });
+      await execute(
+        client,
+        "tests.restore",
+        { id: testId },
+        {
+          invalidates: [["tests.list"], ["review.queue"], ["project.info"]],
+        },
+      );
       await doc.reload("undo");
       app.testsChanged();
       toast({ kind: "ok", title: "Restored the Jira version", detail: "From the last sync — nothing was downloaded." });
@@ -180,7 +190,12 @@ export function useEditorActions({
   const clone = async () => {
     await doc.doc.flush();
     try {
-      const r = (await execute(client, "tests.clone", { id: testId }, { invalidates: [["tests.list"], ["project.info"]] })) as {
+      const r = (await execute(
+        client,
+        "tests.clone",
+        { id: testId },
+        { invalidates: [["tests.list"], ["project.info"]] },
+      )) as {
         id: string;
       };
       app.testsChanged();
@@ -272,8 +287,8 @@ export function useEditorActions({
 
   const setTestModes = async (modes: ColumnModes | null) => {
     try {
-      const r = await execute(client, "tests.setColumns", { id: testId, modes }, { invalidates: "none" });
-      client.setQueryData(key("tests.columns", { id: testId }), r);
+      const r = await execute(client, "tests.setFolds", { id: testId, modes }, { invalidates: "none" });
+      client.setQueryData(key("tests.folds", { id: testId }), r);
     } catch (e) {
       errorToast(e, "Could not save the column settings of this test");
     }
@@ -282,7 +297,9 @@ export function useEditorActions({
   const imageGone = (file: string) => {
     void doc.doc
       .flush()
-      .then(() => execute(client, "tests.removeImage", { id: testId, file }, { invalidates: [["tests.show", { id: testId }]] }))
+      .then(() =>
+        execute(client, "tests.removeImage", { id: testId, file }, { invalidates: [["tests.show", { id: testId }]] }),
+      )
       .catch(() => {});
   };
 

@@ -3,15 +3,7 @@ import type { Precondition, Test } from "../../../../core/types.ts";
 import { Button } from "../../../components/ui/Button.tsx";
 import { ChipField } from "../../../components/ui/ChipField.tsx";
 import { type SaveState, Text } from "../../../components/ui/Text.tsx";
-import {
-  border,
-  breakpoint,
-  color,
-  fontSize,
-  fontWeight,
-  lineHeight,
-  space,
-} from "../../../styles/tokens.stylex.ts";
+import { border, breakpoint, color, fontSize, fontWeight, lineHeight, space } from "../../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
   grid: {
@@ -26,7 +18,12 @@ const styles = stylex.create({
   },
   wide: { gridColumn: "1 / -1" },
   field: { display: "flex", flexDirection: "column", gap: space.s2, minWidth: 0 },
-  label: { fontSize: fontSize.small, lineHeight: lineHeight.small, fontWeight: fontWeight.medium, color: color.textMuted },
+  label: {
+    fontSize: fontSize.small,
+    lineHeight: lineHeight.small,
+    fontWeight: fontWeight.medium,
+    color: color.textMuted,
+  },
   row: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: space.s2 },
   note: { fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textMuted },
 });

@@ -69,13 +69,12 @@ export function useTestDocument(
     value: data?.test,
     base: data?.mtime === undefined ? undefined : String(data.mtime),
     readOnly,
-    save: async (test) => {
-      const ref = (await execute(
-        client,
-        "tests.save",
-        { id, test },
-        { invalidates: [["tests.list"], ["review.queue"], ["xray.plan", { id }], ["search.all"], ["project.info"]] },
-      )) as (Partial<LocalTestRef> & { id: string; mtime?: number }) | null;
+    // ponytail: the save carries the version it was made over; the core refuses it (conflict) when test.md moved since —
+    // « Keep mine » sends it again without one
+    save: async (test, base) => {
+      const ref = (await execute(client, "tests.save", base ? { id, test, ifMtime: Number(base) } : { id, test }, {
+        invalidates: [["tests.list"], ["review.queue"], ["xray.plan", { id }], ["search.all"], ["project.info"]],
+      })) as (Partial<LocalTestRef> & { id: string; mtime?: number }) | null;
       own.current.add(test);
       if (ref?.mtime) ownMtimes.current.add(ref.mtime);
       client.setQueryData(k, (old: TestShow | undefined) =>
@@ -108,7 +107,7 @@ export function useTestDocument(
     expected.current = undefined;
     setGen((g) => g + 1);
     landed.current?.(data, { first, expected: why });
-  }, [data]);
+  }, [data, id]);
 
   const reload = useCallback(
     async (why?: unknown) => {

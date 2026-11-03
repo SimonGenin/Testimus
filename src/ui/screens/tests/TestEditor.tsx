@@ -6,19 +6,19 @@ import { ContextsDialog } from "../../components/claude/ContextsDialog.tsx";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
-import { fileUrl } from "../../lib/data/client.ts";
-import { discardAutosave, flushAutosaves, pendingAutosaves } from "../../lib/data/autosave.ts";
-import { setDiscarder, setFlusher } from "../../lib/editorBus.ts";
-import { invalidate, key, useRead } from "../../lib/data/query.ts";
 import { useApp } from "../../lib/app.ts";
 import { columnsOf, projectModes } from "../../lib/columns.ts";
+import { discardAutosave, flushAutosaves, pendingAutosaves } from "../../lib/data/autosave.ts";
+import { fileUrl } from "../../lib/data/client.ts";
+import { invalidate, key, useRead } from "../../lib/data/query.ts";
 import { differs, diffLocal, type Gone, lossOf, restoreStep } from "../../lib/diff.ts";
+import { setDiscarder, setFlusher } from "../../lib/editorBus.ts";
 import { DEFAULT_LAYOUT } from "../../lib/fields.ts";
 import { uploadImage } from "../../lib/files.ts";
+import { message } from "../../lib/format.ts";
 import { addedSteps } from "../../lib/marks.ts";
 import { usePref } from "../../lib/prefs.ts";
 import { takeJump } from "../../lib/search.ts";
-import { message } from "../../lib/format.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 import { DeleteTest } from "./DeleteTest.tsx";
@@ -29,7 +29,7 @@ import { EditorColumn } from "./editor/EditorColumn.tsx";
 import { PreconditionList } from "./editor/PreconditionList.tsx";
 import { StepList } from "./editor/StepList.tsx";
 import { type RemoteCheck, SummaryCard } from "./editor/SummaryCard.tsx";
-import { type ContextRef, TestDetails, type TestContexts } from "./editor/TestDetails.tsx";
+import { type ContextRef, type TestContexts, TestDetails } from "./editor/TestDetails.tsx";
 import { pushReason, testMenu } from "./editor/testMenu.ts";
 import { useEditorActions } from "./editor/useEditorActions.ts";
 import { useStepUids } from "./editor/useStepUids.ts";
@@ -40,9 +40,15 @@ import type { StepLayout } from "./StepCard.tsx";
 
 export type { TestShow };
 
-
 const styles = stylex.create({
-  editor: { flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column", backgroundColor: color.canvas },
+  editor: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 0,
+    display: "flex",
+    flexDirection: "column",
+    backgroundColor: color.canvas,
+  },
   empty: { padding: space.s7, display: "flex", flexDirection: "column", gap: space.s4 },
 });
 
@@ -109,7 +115,11 @@ export function TestEditor({
       setMarks(null);
       if (expected === undefined && !pendingAutosaves().some((k) => JSON.stringify(k) === docKey)) {
         app.testsChanged();
-        toast({ kind: "info", title: "Reloaded from disk", detail: "test.md changed on disk — the editor shows it now." });
+        toast({
+          kind: "info",
+          title: "Reloaded from disk",
+          detail: "test.md changed on disk — the editor shows it now.",
+        });
       }
     },
   });
@@ -147,12 +157,13 @@ export function TestEditor({
   }, [testId]);
 
   const preQ = useRead("xray.preconditions", {}, { enabled: !!jiraKey });
-  const preconditions = !jiraKey || preQ.isError ? [] : preQ.isSuccess ? ((preQ.data as Precondition[] | null) ?? []) : null;
+  const preconditions =
+    !jiraKey || preQ.isError ? [] : preQ.isSuccess ? ((preQ.data as Precondition[] | null) ?? []) : null;
   const contextsQ = useRead("contexts.list", {});
   const contexts = ((contextsQ.data as ContextRef[] | null | undefined) ?? []) as ContextRef[];
   const ofTestQ = useRead("contexts.ofTest", { testId });
   const testCtx = (ofTestQ.data as TestContexts | undefined) ?? null;
-  const colsQ = useRead("tests.columns", { id: testId });
+  const colsQ = useRead("tests.folds", { id: testId });
   const testCols = ((colsQ.data as { own: ColumnModes | null } | undefined)?.own ?? null) as ColumnModes | null;
   const foldersQ = useRead("xray.folders", {}, { enabled: foldersAsked && !!jiraKey });
   const statusQ = useRead("xray.status", { id: testId }, { enabled: !!test?.key && !!remote && !checkOverride });
@@ -168,7 +179,13 @@ export function TestEditor({
     ?.tests?.[0];
   const check: RemoteCheck =
     checkOverride ??
-    (!test?.key || !remote ? null : statusQ.isFetching ? "checking" : statusQ.error ? "unverified" : (status?.remote ?? "unverified"));
+    (!test?.key || !remote
+      ? null
+      : statusQ.isFetching
+        ? "checking"
+        : statusQ.error
+          ? "unverified"
+          : (status?.remote ?? "unverified"));
   const sync = status?.sync ?? data?.sync ?? (test?.key ? "synced" : "local");
   useEffect(() => {
     if (status) onSaved({ id: testId, sync: status.sync });
@@ -209,7 +226,9 @@ export function TestEditor({
     // ponytail: a run on this test reloads it even when it reports no change (Xray Editor always reads the file back)
     if (!lastRun || !(lastRun.changedTests.includes(testId) || lastRun.testId === testId)) return;
     const before = test?.steps.length;
-    doc.reload({ run: lastRun, before } satisfies Run).catch((e) => errorToast(e, "Could not reload the test after Claude"));
+    doc
+      .reload({ run: lastRun, before } satisfies Run)
+      .catch((e) => errorToast(e, "Could not reload the test after Claude"));
   }, [lastRun?.nonce]);
 
   const alive = () => {
@@ -283,9 +302,7 @@ export function TestEditor({
   const canPush = !(!!remote && !!test.key && !dirty);
   const pushDisabled = pushReason({ busy, jiraOff: !jiraKey, pushing, canPush });
   const markOf = (s: Step) => marks?.byUid.get(uids.uidOf(s));
-  const marked = marks
-    ? test.steps.flatMap((s, i) => (markOf(s) ? [{ i, added: markOf(s) === "added" }] : []))
-    : null;
+  const marked = marks ? test.steps.flatMap((s, i) => (markOf(s) ? [{ i, added: markOf(s) === "added" }] : [])) : null;
   const update = (fn: (t: Test) => Test) => {
     setLastEdited("head");
     doc.update(fn);
@@ -305,7 +322,10 @@ export function TestEditor({
   };
   const steps = actions.steps({ setFocusStep, focus });
   const folders = [
-    ...new Set([...flatten((foldersQ.data as Folder | undefined) ?? { path: "/", folders: [] } as unknown as Folder), ...(app.info?.project.folders ?? [])]),
+    ...new Set([
+      ...flatten((foldersQ.data as Folder | undefined) ?? ({ path: "/", folders: [] } as unknown as Folder)),
+      ...(app.info?.project.folders ?? []),
+    ]),
   ].sort();
   // ponytail: the bar says how the test is saved; a field says it only when its edit could not be saved (Retry there)
   const fieldSave = doc.doc.status === "error" ? doc.doc : undefined;
@@ -333,106 +353,117 @@ export function TestEditor({
         onPush={() => void actions.askPush()}
       />
       <EditorColumn width={width} onWidth={setWidth} inert={busy}>
-          <EditorBanners
-            busy={busy}
-            busyHere={busyHere}
-            marked={marked}
-            conflict={doc.doc.status === "conflict"}
-            revertConflict={actions.revertConflict}
-            onShowChanges={() => {
-              const first = test.steps.findIndex((s) => markOf(s));
-              if (first >= 0) showStep(first);
-            }}
-            onRevert={() => void actions.revertClaude()}
-            onForceRevert={() => void actions.revertClaude(true)}
-            onKeepRevert={() => actions.setRevertConflict(null)}
-            onReloadDisk={() => doc.doc.takeDisk()}
-            onKeepMine={() => void doc.doc.keepMine()}
-          />
-          <SummaryCard
+        <EditorBanners
+          busy={busy}
+          busyHere={busyHere}
+          marked={marked}
+          conflict={doc.doc.status === "conflict"}
+          revertConflict={actions.revertConflict}
+          onShowChanges={() => {
+            const first = test.steps.findIndex((s) => markOf(s));
+            if (first >= 0) showStep(first);
+          }}
+          onRevert={() => void actions.revertClaude()}
+          onForceRevert={() => void actions.revertClaude(true)}
+          onKeepRevert={() => actions.setRevertConflict(null)}
+          onReloadDisk={() => doc.doc.takeDisk()}
+          onKeepMine={() => void doc.doc.keepMine()}
+        />
+        <SummaryCard
+          test={test}
+          sync={sync}
+          edited={data.edited}
+          dirty={dirty}
+          remote={check}
+          readOnly={busy}
+          saveState={lastEdited === "head" ? fieldSave : undefined}
+          details={details}
+          onDetails={setDetails}
+          onRemote={() => void actions.askDownload()}
+          update={update}
+        >
+          <TestDetails
             test={test}
-            sync={sync}
-            edited={data.edited}
-            dirty={dirty}
-            remote={check}
             readOnly={busy}
             saveState={lastEdited === "head" ? fieldSave : undefined}
-            details={details}
-            onDetails={setDetails}
-            onRemote={() => void actions.askDownload()}
+            preconditions={preconditions}
+            contexts={contexts}
+            testContexts={testCtx}
             update={update}
-          >
-            <TestDetails
-              test={test}
-              readOnly={busy}
-              saveState={lastEdited === "head" ? fieldSave : undefined}
-              preconditions={preconditions}
-              contexts={contexts}
-              testContexts={testCtx}
-              update={update}
-              onContexts={(ids) => void actions.setTestContexts(ids)}
-              onManageContexts={() => setDialog({ kind: "contexts" })}
-            />
-          </SummaryCard>
-          {test.preconditions.length > 0 && (
-            <PreconditionList keys={test.preconditions} known={preconditions} onOpen={(k) => void actions.openInJira(k)} />
-          )}
-          <StepList
-            test={test}
-            testId={testId}
-            xray={xray}
-            linked={linked}
-            layout={layout as StepLayout}
-            projectModes={pModes}
-            testModes={testCols}
-            columns={cols}
-            gone={diff?.gone ?? []}
-            readOnly={busy}
-            focus={focus}
-            folded={folded}
-            saveState={fieldSave}
-            savedUid={typeof lastEdited === "number" ? lastEdited : -1}
-            uidOf={uids.uidOf}
-            markOf={(s, i) => {
-              const dm = diff?.marks[i];
-              return {
-                claude: markOf(s),
-                diff: dm,
-                before: dm === "modified" ? remote?.steps.find((b) => b.id === s.id) : undefined,
-              };
-            }}
-            url={url}
-            addImage={(f) => uploadImage(testId, f)}
-            alive={alive}
-            onLayout={setLayout}
-            onProjectModes={(m) => void actions.setProjectModes(m)}
-            onTestModes={(m) => void actions.setTestModes(m)}
-            onPatch={patchByUid}
-            onFold={(uid, v) =>
-              setFolded((cur) => {
-                const next = new Set(cur);
-                if (v) next.add(uid);
-                else next.delete(uid);
-                return next;
-              })
-            }
-            onFocus={setFocusStep}
-            onMove={steps.move}
-            onInsert={steps.insert}
-            onDelete={(i) => steps.remove(i, alive())}
-            onReorder={steps.reorder}
-            onAsk={(i) => {
-              setFocusStep(i);
-              setFocus({ testId, key: test.key, summary: test.summary, step: i + 1 });
-              app.askClaude("step");
-            }}
-            onRestore={(base, gone, n) => !refuseWhileClaude() && setDialog({ kind: "restore", base, gone, n })}
-            onOpenImage={(file, images, step) =>
-              setLb({ images, step, index: Math.max(0, images.findIndex((im) => im.file === file)) })
-            }
-            onOpenSource={app.openSource}
-            onImageGone={actions.imageGone}
+            onContexts={(ids) => void actions.setTestContexts(ids)}
+            onManageContexts={() => setDialog({ kind: "contexts" })}
           />
+        </SummaryCard>
+        {test.preconditions.length > 0 && (
+          <PreconditionList
+            keys={test.preconditions}
+            known={preconditions}
+            onOpen={(k) => void actions.openInJira(k)}
+          />
+        )}
+        <StepList
+          test={test}
+          testId={testId}
+          xray={xray}
+          linked={linked}
+          layout={layout as StepLayout}
+          projectModes={pModes}
+          testModes={testCols}
+          columns={cols}
+          gone={diff?.gone ?? []}
+          readOnly={busy}
+          focus={focus}
+          folded={folded}
+          saveState={fieldSave}
+          savedUid={typeof lastEdited === "number" ? lastEdited : -1}
+          uidOf={uids.uidOf}
+          markOf={(s, i) => {
+            const dm = diff?.marks[i];
+            return {
+              claude: markOf(s),
+              diff: dm,
+              before: dm === "modified" ? remote?.steps.find((b) => b.id === s.id) : undefined,
+            };
+          }}
+          url={url}
+          addImage={(f) => uploadImage(testId, f)}
+          alive={alive}
+          onLayout={setLayout}
+          onProjectModes={(m) => void actions.setProjectModes(m)}
+          onTestModes={(m) => void actions.setTestModes(m)}
+          onPatch={patchByUid}
+          onFold={(uid, v) =>
+            setFolded((cur) => {
+              const next = new Set(cur);
+              if (v) next.add(uid);
+              else next.delete(uid);
+              return next;
+            })
+          }
+          onFocus={setFocusStep}
+          onMove={steps.move}
+          onInsert={steps.insert}
+          onDelete={(i) => steps.remove(i, alive())}
+          onReorder={steps.reorder}
+          onAsk={(i) => {
+            setFocusStep(i);
+            setFocus({ testId, key: test.key, summary: test.summary, step: i + 1 });
+            app.askClaude("step");
+          }}
+          onRestore={(base, gone, n) => !refuseWhileClaude() && setDialog({ kind: "restore", base, gone, n })}
+          onOpenImage={(file, images, step) =>
+            setLb({
+              images,
+              step,
+              index: Math.max(
+                0,
+                images.findIndex((im) => im.file === file),
+              ),
+            })
+          }
+          onOpenSource={app.openSource}
+          onImageGone={actions.imageGone}
+        />
       </EditorColumn>
       {pushing && (
         <PushDialog

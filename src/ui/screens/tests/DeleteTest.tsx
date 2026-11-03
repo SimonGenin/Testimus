@@ -20,9 +20,14 @@ export type DeleteTarget = Pick<LocalTestRef, "id" | "key" | "summary" | "synced
 export async function deleteTest(client: QueryClient, t: DeleteTarget): Promise<boolean> {
   try {
     discardAutosave(key("tests.show", { id: t.id }));
-    await execute(client, "tests.remove", { id: t.id }, {
-      invalidates: [["tests.list"], ["review.queue"], ["project.info"], ["search.all"]],
-    });
+    await execute(
+      client,
+      "tests.remove",
+      { id: t.id },
+      {
+        invalidates: [["tests.list"], ["review.queue"], ["project.info"], ["search.all"]],
+      },
+    );
     client.removeQueries({ queryKey: key("tests.show", { id: t.id }) as unknown as readonly unknown[] });
     toast({
       kind: "info",
