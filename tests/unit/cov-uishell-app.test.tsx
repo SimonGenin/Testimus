@@ -246,15 +246,16 @@ describe("App routing and layout", () => {
     expect(window.location.hash).toBe("#/tests");
   });
 
-  it("folds the dock on a narrow window unless the user chose, and around Review", async () => {
-    Object.defineProperty(window, "innerWidth", { value: 1000, configurable: true, writable: true });
+  it("folds the dock by default and around Review, and keeps the user's choice", async () => {
     mount();
     await screen.findByRole("region", { name: "Tests screen" });
-    await waitFor(() => expect(folded()).toBe("true"));
+    expect(folded()).toBe("true");
     act(() => {
       window.innerWidth = 1600;
       window.dispatchEvent(new Event("resize"));
     });
+    expect(folded()).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "fold dock" }));
     expect(folded()).toBe("false");
     act(() => {
       window.location.hash = "#/review";
@@ -295,13 +296,12 @@ describe("App routing and layout", () => {
     expect(screen.getByRole("dialog", { name: "Command palette" })).toBeInTheDocument();
     fireEvent.keyDown(window, { key: "k", ctrlKey: true });
     expect(screen.queryByRole("dialog", { name: "Command palette" })).toBeNull();
-    expect(folded()).toBe("false");
-    fireEvent.keyDown(window, { key: "j", ctrlKey: true });
     expect(folded()).toBe("true");
+    fireEvent.keyDown(window, { key: "j", ctrlKey: true });
+    expect(folded()).toBe("false");
   });
 
   it("hands Claude requests and jobs from the screens to the dock", async () => {
-    Object.defineProperty(window, "innerWidth", { value: 1000, configurable: true, writable: true });
     mount();
     await screen.findByRole("region", { name: "Tests screen" });
     expect(folded()).toBe("true");
@@ -362,6 +362,8 @@ describe("App palette", () => {
     expect(document.documentElement.dataset.theme).toBe("light");
     await pick("follow the system");
     expect(document.documentElement.dataset.theme).toBeUndefined();
+    await pick("show or hide claude");
+    expect(folded()).toBe("false");
     await pick("show or hide claude");
     expect(folded()).toBe("true");
     await pick("une question libre");

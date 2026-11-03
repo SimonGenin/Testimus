@@ -33,8 +33,6 @@ export function parseRoute(hash: string): { screen: Screen; arg?: string } {
   return { screen: s, arg };
 }
 
-const NARROW = 1280;
-
 export function App() {
   const [info, setInfo] = useState<ProjectInfo | null>(null);
   const [xray, setXray] = useState<XrayJson>(DEFAULT_XRAY);
@@ -47,7 +45,7 @@ export function App() {
   const [source, setSource] = useState<Source | null>(null);
   const [palette, setPalette] = useState(false);
   const [form, setForm] = useState<CommandInfo | null>(null);
-  const [folded, setFolded] = useState(() => window.innerWidth <= NARROW);
+  const [folded, setFolded] = useState(true);
   const [dockReq, setDockReq] = useState<DockRequest | null>(null);
   const [running, setRunning] = useState<Set<string>>(new Set());
   const [booted, setBooted] = useState(false);
@@ -171,15 +169,6 @@ export function App() {
     };
   }, []);
 
-  useEffect(() => {
-    const onResize = () => {
-      if (userFold.current !== null) return;
-      setFolded(window.innerWidth <= NARROW);
-    };
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
-
   const toggleDock = useCallback(() => {
     setFolded((f) => {
       userFold.current = !f;
@@ -226,7 +215,7 @@ export function App() {
     const was = lastScreen.current;
     lastScreen.current = route.screen;
     if (route.screen === "review" && was !== "review") setFolded(true);
-    else if (was === "review" && route.screen !== "review") setFolded(userFold.current ?? window.innerWidth <= NARROW);
+    else if (was === "review" && route.screen !== "review") setFolded(userFold.current ?? true);
   }, [route.screen]);
 
   const testsChanged = useCallback(() => setTestsNonce((n) => n + 1), []);

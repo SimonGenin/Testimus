@@ -1,11 +1,11 @@
-import { boot, expect, mockServer, openTest, shoot, test } from "./helpers.ts";
+import { boot, expect, mockServer, openDock, openTest, shoot, test } from "./helpers.ts";
 
 test.describe("Claude not installed", () => {
   mockServer(4344, { TESTIMUS_MOCK_CLAUDE: "absent" });
 
   test("the dock shows a calm install panel and the editor still works", async ({ page }) => {
     await openTest(page, "LFRPS12-1420");
-    const dock = page.getByRole("complementary", { name: "Claude" });
+    const dock = await openDock(page);
     await expect(dock.getByRole("heading", { name: "Claude isn't installed on this PC yet" })).toBeVisible();
     await expect(dock.getByText(/Everything else — editing, review, push — works now/)).toBeVisible();
     await expect(dock.getByRole("button", { name: /^Copy: / }).first()).toBeVisible();
@@ -23,7 +23,7 @@ test.describe("Claude signed out", () => {
 
   test("a question to the documents says Claude is not signed in and how to fix it", async ({ page }) => {
     await boot(page, "#/documents");
-    const dock = page.getByRole("complementary", { name: "Claude" });
+    const dock = await openDock(page);
     await dock.getByRole("tab", { name: "Ask the documents" }).click();
     await dock.getByRole("textbox", { name: "Ask the documents" }).fill("Que propose le menu ?");
     await dock.getByRole("button", { name: "Send" }).click();

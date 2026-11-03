@@ -114,6 +114,13 @@ export async function boot(page: Page, hash = "#/tests"): Promise<void> {
   await expect(page.getByRole("button", { name: /^Project LFRPS12/ })).toBeVisible();
 }
 
+export async function openDock(page: Page) {
+  const dock = page.getByRole("complementary", { name: "Claude" });
+  await dock.getByRole("button", { name: "Open Claude" }).click();
+  await expect(dock.getByRole("heading", { name: "Claude" })).toBeVisible();
+  return dock;
+}
+
 export async function openTest(page: Page, key: string): Promise<void> {
   await boot(page, `#/tests/${key}`);
   await expect(page.getByRole("main").getByRole("article", { name: "Step 1" })).toBeVisible();

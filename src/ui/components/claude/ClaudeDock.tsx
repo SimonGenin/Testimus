@@ -618,17 +618,21 @@ export function ClaudeDock({
               ) : (
                 <div key={t.id} className="turn">
                   {t.tools.length > 0 && (
-                    <div className="acts">
+                    <div className="tool-steps">
                       {t.tools.map((x, i) => (
-                        <span key={i} className="act">
-                          {x.done ? <Icon name="check" className="act-ok" /> : <span className="dot act-dot" />}
-                          {x.label}
-                          {!x.done && "…"}
+                        <span key={i} className={cx("tool-step", !x.done && "is-running")}>
+                          <span className="tool-glyph" aria-hidden="true">
+                            {x.done ? <Icon name="check" className="tool-ok" /> : <span className="spin spin-sm" />}
+                          </span>
+                          <span className="tool-label">
+                            {x.label}
+                            {!x.done && "…"}
+                          </span>
                         </span>
                       ))}
                     </div>
                   )}
-                  {(t.text || t.running) && (
+                  {(t.text || (t.running && !t.tools.some((x) => !x.done))) && (
                     <AnswerText text={t.text} running={t.running} onOpenSource={app.openSource} />
                   )}
                   {!!t.sources?.length && (

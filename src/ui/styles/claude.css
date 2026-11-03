@@ -81,35 +81,46 @@
   gap: 10px;
 }
 
-.acts {
+.tool-steps {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
-.act {
+.tool-step {
   display: flex;
   align-items: flex-start;
   gap: 8px;
   font-size: 13px;
+  line-height: 20px;
+  color: var(--ink-3);
+}
+
+.tool-step.is-running {
   color: var(--ink-2);
 }
 
-.act svg {
+.tool-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 14px;
-  height: 14px;
+  height: 20px;
   flex: none;
-  margin-top: 3px;
 }
 
-.act-ok {
+.tool-glyph svg {
+  width: 14px;
+  height: 14px;
+}
+
+.tool-ok {
   color: var(--ok);
 }
 
-.act-dot {
-  margin: 6px 3px 0;
-  color: var(--ink-2);
-  animation: sk-pulse 1s ease-in-out infinite;
+.tool-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .answer {

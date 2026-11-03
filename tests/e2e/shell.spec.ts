@@ -49,22 +49,22 @@ test("the palette navigates and closes with Escape", async ({ page }) => {
   await expect(palette).toBeHidden();
 });
 
-test("Ctrl J folds and opens the Claude dock", async ({ page }) => {
+test("Ctrl J opens and folds the Claude dock", async ({ page }) => {
   await boot(page);
   const dock = page.getByRole("complementary", { name: "Claude" });
+  await expect(dock.getByRole("button", { name: "Open Claude" })).toBeVisible();
+  await page.keyboard.press("Control+j");
   await expect(dock.getByRole("heading", { name: "Claude" })).toBeVisible();
   await page.keyboard.press("Control+j");
   await expect(dock.getByRole("button", { name: "Open Claude" })).toBeVisible();
   await expect(dock.getByRole("heading", { name: "Claude" })).toHaveCount(0);
-  await page.keyboard.press("Control+j");
-  await expect(dock.getByRole("heading", { name: "Claude" })).toBeVisible();
-  await dock.getByRole("button", { name: /^Hide/ }).click();
   await dock.getByRole("button", { name: "Open Claude" }).click();
-  await expect(dock.getByRole("heading", { name: "Claude" })).toBeVisible();
+  await dock.getByRole("button", { name: /^Hide/ }).click();
+  await expect(dock.getByRole("button", { name: "Open Claude" })).toBeVisible();
 });
 
-test("the dock is folded at 1280 px", async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 960 });
+test("the dock is folded at start, even on a wide window", async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
   await boot(page);
   await expect(
     page.getByRole("complementary", { name: "Claude" }).getByRole("button", { name: "Open Claude" }),
