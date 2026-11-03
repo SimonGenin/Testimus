@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 import type { PullInfo, PullStage } from "../../../core/types.ts";
-import { call, project, run } from "../../api.ts";
+import { call, project, run } from "../../lib/data/client.ts";
 import { message } from "../../lib/format.ts";
 import { errorToast } from "../../lib/toast.ts";
 

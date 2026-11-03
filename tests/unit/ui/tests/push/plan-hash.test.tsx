@@ -2,7 +2,8 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { PushDialog } from "../../src/ui/screens/tests/PushDialog.tsx";
+import { PushDialog } from "../../../../../src/ui/screens/tests/PushDialog.tsx";
+import { testClient, WithData } from "../data-helpers.tsx";
 
 type Call = { name: string; input: Record<string, unknown> };
 let calls: Call[] = [];
@@ -41,14 +42,16 @@ afterEach(() => {
 
 const dialog = () =>
   render(
-    <PushDialog
-      testId="LFRPS12-1420"
-      testKey="LFRPS12-1420"
-      summary="Sectionneur sans TK"
-      review="validated"
-      onDone={() => {}}
-      onClose={() => {}}
-    />,
+    <WithData client={testClient()}>
+      <PushDialog
+        testId="LFRPS12-1420"
+        testKey="LFRPS12-1420"
+        summary="Sectionneur sans TK"
+        review="validated"
+        onDone={() => {}}
+        onClose={() => {}}
+      />
+    </WithData>,
   );
 
 describe("PushDialog", () => {

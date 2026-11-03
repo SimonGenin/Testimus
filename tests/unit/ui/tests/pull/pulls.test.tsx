@@ -2,12 +2,19 @@
 import "@testing-library/jest-dom/vitest";
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { JobEvent } from "../../src/core/types.ts";
-import { setProject } from "../../src/ui/api.ts";
-import { setDiscarder } from "../../src/ui/lib/editorBus.ts";
-import { DeleteTest, deleteTest, needsAsking } from "../../src/ui/screens/tests/DeleteTest.tsx";
-import { PullPane } from "../../src/ui/screens/tests/PullPane.tsx";
-import { deferred } from "./cov-uitests-helpers.ts";
+import type { JobEvent } from "../../../../../src/core/types.ts";
+import { discardAutosave } from "../../../../../src/ui/lib/data/autosave.ts";
+import { setProject } from "../../../../../src/ui/lib/data/client.ts";
+import { key } from "../../../../../src/ui/lib/data/query.ts";
+import { DeleteTest, deleteTest, needsAsking } from "../../../../../src/ui/screens/tests/DeleteTest.tsx";
+import { PullPane } from "../../../../../src/ui/screens/tests/PullPane.tsx";
+import { deferred } from "../../../cov-uitests-helpers.ts";
+import { testClient, WithData } from "../data-helpers.tsx";
+
+vi.mock("../../../../../src/ui/lib/data/autosave.ts", async (importOriginal) => {
+  const real = await importOriginal<typeof import("../../../../../src/ui/lib/data/autosave.ts")>();
+  return { ...real, discardAutosave: vi.fn() };
+});
 
 type Job = {
   key: string;
@@ -19,8 +26,8 @@ const jobs: Job[] = [];
 let calls: { name: string; input: Record<string, unknown> }[] = [];
 let callResult: () => unknown = () => ({});
 
-vi.mock("../../src/ui/api.ts", async (importOriginal) => {
-  const real = await importOriginal<typeof import("../../src/ui/api.ts")>();
+vi.mock("../../../../../src/ui/lib/data/client.ts", async (importOriginal) => {
+  const real = await importOriginal<typeof import("../../../../../src/ui/lib/data/client.ts")>();
   return {
     ...real,
     call: vi.fn(async (name: string, input: Record<string, unknown>, opts?: { project?: string | null }) => {
@@ -44,8 +51,8 @@ vi.mock("../../src/ui/api.ts", async (importOriginal) => {
 
 const toasts: { title: string; detail?: string }[] = [];
 const errors: { e: unknown; title?: string }[] = [];
-vi.mock("../../src/ui/lib/toast.ts", async (importOriginal) => {
-  const real = await importOriginal<typeof import("../../src/ui/lib/toast.ts")>();
+vi.mock("../../../../../src/ui/lib/toast.ts", async (importOriginal) => {
+  const real = await importOriginal<typeof import("../../../../../src/ui/lib/toast.ts")>();
   return {
     ...real,
     toast: vi.fn((t: (typeof toasts)[number]) => toasts.push(t)),
@@ -54,7 +61,7 @@ vi.mock("../../src/ui/lib/toast.ts", async (importOriginal) => {
 });
 
 const { abandonPulls, cancelPull, isPulling, onPullLanded, startPull, usePulls, watchPull } = await import(
-  "../../src/ui/screens/tests/pulls.ts"
+  "../../../../../src/ui/screens/tests/pulls.ts"
 );
 
 const cancels: { id: string; project?: string }[] = [];
@@ -225,17 +232,17 @@ describe("PullPane", () => {
 
   it("shows a pull reaching Jira, then waiting behind others, then its own message", () => {
     const h = pane({ key: "K-1", summary: "One" });
-    expect(screen.getByRole("status")).toHaveTextContent("contacting Jira…");
+    expect(screen.getByRole("status", { name: "Pull progress" })).toHaveTextContent("contacting Jira…");
     expect(screen.getByText("One")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(h.onCancel).toHaveBeenCalled();
     cleanup();
     pane({ key: "K-1", summary: "" }, [{ key: "K-2", summary: "", message: "steps" }]);
-    expect(screen.getByRole("status")).toHaveTextContent("waiting for a free slot…");
+    expect(screen.getByRole("status", { name: "Pull progress" })).toHaveTextContent("waiting for a free slot…");
     expect(screen.getByText("1 more pulling in the background")).toBeInTheDocument();
     cleanup();
     pane({ key: "K-1", summary: "", message: "attachments 2/3" }, [{ key: "K-2", summary: "" }]);
-    expect(screen.getByRole("status")).toHaveTextContent("attachments 2/3");
+    expect(screen.getByRole("status", { name: "Pull progress" })).toHaveTextContent("attachments 2/3");
   });
 
   const read = {
@@ -250,12 +257,22 @@ describe("PullPane", () => {
     covers: 1,
     labels: 0,
   };
+  const WORD: Record<string, string> = { Done: "done", Running: "active", Waiting: "pending", Skipped: "skip" };
   const phases = () =>
-    [...document.querySelectorAll(".pullpane-phase")].map((li) => `${li.className.split("is-")[1]} ${li.textContent}`);
+    [...(screen.getByRole("list", { name: "Pull phases" }).children as HTMLCollectionOf<HTMLElement>)].map((li) => {
+      const mark = li.querySelector("[aria-label]")?.getAttribute("aria-label") ?? "";
+      const words = [...li.querySelectorAll("span")]
+        .filter((s) => s.children.length === 0 && s.textContent)
+        .map((s) => s.textContent)
+        .join("");
+      return `${WORD[mark]} ${words}`;
+    });
 
   it("draws a skeleton until the test is read, then its facts and the four phases", () => {
     pane({ key: "K-1", summary: "", startedAt: Date.now() - 65_000 });
-    expect(document.querySelector(".pullpane-card .sk")).not.toBeNull();
+    expect(
+      screen.getByTestId("pull-card").querySelector('[aria-hidden="true"], [role="status"], div div'),
+    ).not.toBeNull();
     expect(screen.getByText("1:05")).toBeInTheDocument();
     expect(phases()).toEqual([
       "active Reach Jira",
@@ -269,7 +286,7 @@ describe("PullPane", () => {
     expect(screen.getByText("From Jira", { selector: "p" })).toBeInTheDocument();
     expect(screen.getByText("/Freinage")).toBeInTheDocument();
     expect(screen.getByText("To Do")).toBeInTheDocument();
-    expect([...document.querySelectorAll(".pullpane-fact")].map((f) => f.textContent)).toEqual([
+    expect(screen.getAllByTestId("pull-fact").map((f) => f.textContent)).toEqual([
       "1 step",
       "4 images",
       "2 preconditions",
@@ -284,7 +301,7 @@ describe("PullPane", () => {
     ]);
     cleanup();
     pane({ key: "K-1", summary: "One", phase: "images", read, images: { done: 3, total: 4 } });
-    expect((document.querySelector(".pullpane-bar span") as HTMLElement).style.width).toBe("75%");
+    expect(screen.getByRole("progressbar", { name: "Images downloaded" })).toHaveAttribute("aria-valuenow", "75");
     cleanup();
     pane({ key: "K-1", summary: "One", phase: "images", read, images: { done: 4, total: 4 } });
     expect(phases().at(-1)).toBe("active Write test.md");
@@ -325,26 +342,24 @@ describe("DeleteTest", () => {
   });
 
   it("discards the editor and removes the test", async () => {
-    const discard = vi.fn();
-    setDiscarder(discard);
-    expect(await deleteTest(target)).toBe(true);
-    expect(discard).toHaveBeenCalledWith("t1");
+    const client = testClient();
+    expect(await deleteTest(client, target)).toBe(true);
+    expect(discardAutosave).toHaveBeenCalledWith(key("tests.show", { id: "t1" }));
     expect(calls).toEqual([{ name: "tests.remove", input: { id: "t1" } }]);
     expect(toasts[0]).toEqual({
       kind: "info",
       title: "Local copy of K-1 deleted",
       detail: "The Jira test is untouched.",
     });
-    expect(await deleteTest({ ...target, key: undefined })).toBe(true);
+    expect(await deleteTest(client, { ...target, key: undefined })).toBe(true);
     expect(toasts[1]).toEqual({ kind: "info", title: "Local copy of t1 deleted", detail: undefined });
-    setDiscarder(null);
   });
 
   it("reports a failed delete", async () => {
     callResult = () => {
       throw new Error("locked");
     };
-    expect(await deleteTest(target)).toBe(false);
+    expect(await deleteTest(testClient(), target)).toBe(false);
     expect(errors[0].title).toBe("Could not delete the local copy");
   });
 
@@ -352,11 +367,17 @@ describe("DeleteTest", () => {
     const onClose = vi.fn();
     const onDeleted = vi.fn();
     const { unmount } = render(
-      <DeleteTest target={{ ...target, dirty: true }} onClose={onClose} onDeleted={onDeleted} />,
+      <WithData client={testClient()}>
+        <DeleteTest target={{ ...target, dirty: true }} onClose={onClose} onDeleted={onDeleted} />
+      </WithData>,
     );
     expect(screen.getByText(/the local changes you have not pushed yet/)).toBeInTheDocument();
     unmount();
-    render(<DeleteTest target={target} onClose={onClose} onDeleted={onDeleted} />);
+    render(
+      <WithData client={testClient()}>
+        <DeleteTest target={target} onClose={onClose} onDeleted={onDeleted} />
+      </WithData>,
+    );
     expect(screen.getByText(/nothing — the Jira test is left untouched and can be pulled again/)).toBeInTheDocument();
     expect(screen.getByText("K-1")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Delete local copy" }));
@@ -366,11 +387,13 @@ describe("DeleteTest", () => {
       throw new Error("locked");
     };
     render(
-      <DeleteTest
-        target={{ ...target, key: undefined, summary: "", synced: false }}
-        onClose={onClose}
-        onDeleted={onDeleted}
-      />,
+      <WithData client={testClient()}>
+        <DeleteTest
+          target={{ ...target, key: undefined, summary: "", synced: false }}
+          onClose={onClose}
+          onDeleted={onDeleted}
+        />
+      </WithData>,
     );
     expect(screen.getByText(/this test was never pushed/)).toBeInTheDocument();
     expect(screen.getByText(/Untitled/)).toBeInTheDocument();

@@ -3,17 +3,18 @@ import "@testing-library/jest-dom/vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { JobEvent, PushPlanView } from "../../src/core/types.ts";
-import { ApiError } from "../../src/ui/api.ts";
-import { PushDialog } from "../../src/ui/screens/tests/PushDialog.tsx";
-import { deferred } from "./cov-uitests-helpers.ts";
+import type { JobEvent, PushPlanView } from "../../../../../src/core/types.ts";
+import { ApiError } from "../../../../../src/ui/api.ts";
+import { PushDialog } from "../../../../../src/ui/screens/tests/PushDialog.tsx";
+import { deferred } from "../../../cov-uitests-helpers.ts";
+import { testClient, WithData } from "../data-helpers.tsx";
 
 type Handler = (input: Record<string, unknown>, onEvent?: (e: JobEvent) => void) => unknown;
 const h: { plan: Handler; push: Handler } = { plan: () => ({}), push: () => ({}) };
 const pushes: Record<string, unknown>[] = [];
 
-vi.mock("../../src/ui/api.ts", async (importOriginal) => {
-  const real = await importOriginal<typeof import("../../src/ui/api.ts")>();
+vi.mock("../../../../../src/ui/lib/data/client.ts", async (importOriginal) => {
+  const real = await importOriginal<typeof import("../../../../../src/ui/lib/data/client.ts")>();
   return {
     ...real,
     call: vi.fn(async (_name: string, input: Record<string, unknown>) => await h.plan(input)),
@@ -25,8 +26,8 @@ vi.mock("../../src/ui/api.ts", async (importOriginal) => {
 });
 
 const toasts: { title: string; detail?: string }[] = [];
-vi.mock("../../src/ui/lib/toast.ts", async (importOriginal) => {
-  const real = await importOriginal<typeof import("../../src/ui/lib/toast.ts")>();
+vi.mock("../../../../../src/ui/lib/toast.ts", async (importOriginal) => {
+  const real = await importOriginal<typeof import("../../../../../src/ui/lib/toast.ts")>();
   return { ...real, toast: vi.fn((t: (typeof toasts)[number]) => toasts.push(t)) };
 });
 
@@ -60,7 +61,9 @@ const dialog = (o: Partial<ComponentProps<typeof PushDialog>> = {}) => {
   const onDone = vi.fn();
   const onClose = vi.fn();
   const r = render(
-    <PushDialog testId="t1" testKey="LFRPS12-7" summary="Sectionneur" onDone={onDone} onClose={onClose} {...o} />,
+    <WithData client={testClient()}>
+      <PushDialog testId="t1" testKey="LFRPS12-7" summary="Sectionneur" onDone={onDone} onClose={onClose} {...o} />
+    </WithData>,
   );
   return { ...r, onDone, onClose };
 };
@@ -168,11 +171,11 @@ describe("PushDialog › running", () => {
     };
     const { onDone, onClose } = dialog();
     await confirm();
-    expect(screen.getByRole("dialog", { name: "Pushing to Jira" })).toBeInTheDocument();
-    fireEvent.keyDown(window, { key: "Escape" });
-    fireEvent.mouseDown(document.querySelector(".overlay") as HTMLElement);
+    const box = screen.getByRole("dialog", { name: "Pushing LFRPS12-7 to Jira" });
+    fireEvent.keyDown(box, { key: "Escape" });
+    fireEvent.mouseDown(box.parentElement as HTMLElement);
     expect(onClose).not.toHaveBeenCalled();
-    expect(screen.getByText("Pushing LFRPS12-7 to Jira")).toBeInTheDocument();
+    expect(screen.getByText("Do not close Testimus until this is done")).toBeInTheDocument();
     expect(screen.getByText("Running")).toBeInTheDocument();
     act(() => emit(progress(1)));
     act(() => emit(progress()));
@@ -264,7 +267,7 @@ describe("PushDialog › running", () => {
     fireEvent.click(screen.getByRole("button", { name: "Resume from operation 1" }));
     expect(pushes.at(-1)).toEqual({ id: "t1", planHash: "h2" });
     expect(await screen.findByText("Jira refused an operation.")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Close" }).at(-1) as HTMLElement);
     expect(onClose).toHaveBeenCalled();
   });
 
@@ -292,7 +295,7 @@ describe("PushDialog › running", () => {
     dialog();
     await confirm();
     const bar = await screen.findByRole("progressbar", { name: "0 of 0 operations done" });
-    expect(bar.querySelector("span")).toHaveStyle({ width: "0%" });
+    expect(bar).toHaveAttribute("aria-valuenow", "0");
   });
 
   it("confirming a plan that shows a Jira change is the overwrite decision, as in Xray Editor", async () => {
