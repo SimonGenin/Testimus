@@ -221,13 +221,13 @@ export function App() {
       ) : (
         <div {...stylex.props(styles.app)}>
           <Rail counts={counts} kit={p.mock} />
-          <main key={p.dir ?? ""} {...stylex.props(styles.frame, !dock.folded && styles.frameOpen)}>
+          <div key={p.dir ?? ""} {...stylex.props(styles.frame, !dock.folded && styles.frameOpen)}>
             <TopBarContext.Provider value={bar.value}>
               <TopBar title={TITLES[route.screen]} onPalette={openPalette} slots={bar} />
               <ServerLost />
               <div {...stylex.props(styles.screen)}>{p.booted && <Screens screen={route.screen} />}</div>
             </TopBarContext.Provider>
-          </main>
+          </div>
           {!dock.folded && (
             <span {...stylex.props(styles.edge)}>
               <ResizeHandle
