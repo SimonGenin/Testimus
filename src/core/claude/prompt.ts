@@ -70,6 +70,11 @@ export function scopeLines(scope: ClaudeScope): string[] {
       `Scope: the tests ${scope.testIds.join(", ")}.`,
       `Files: ${scope.testIds.map((id) => `tests/${id}/test.md`).join(", ")}`,
     ];
+  if (scope.kind === "doc")
+    return [
+      `Scope: the document ${scope.docId} and the tests that cite it.`,
+      `Files: docs/${scope.docId}/ (through the docs_* tools only) and the tests/*/test.md whose sources cite it`,
+    ];
   if (scope.kind === "test") return [`Scope: the whole test ${scope.testId}.`, `Files: tests/${scope.testId}/test.md`];
   return [`Scope: step ${scope.step} of test ${scope.testId}.`, `Files: tests/${scope.testId}/test.md`];
 }

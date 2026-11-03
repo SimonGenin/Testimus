@@ -18,7 +18,17 @@ export { forShell };
 export const EDIT_TOOLS = ["Read", "Edit", "Write", "Glob", "Grep", "Skill"];
 export const READ_TOOLS = ["Read", "Glob", "Grep", "Skill"];
 
-export type RunKind = "chat" | "figures" | "headers" | "traces" | "check" | "generate" | "fix" | "run";
+export type RunKind =
+  | "chat"
+  | "figures"
+  | "headers"
+  | "traces"
+  | "check"
+  | "generate"
+  | "fix"
+  | "run"
+  | "triage"
+  | "action";
 
 const TOOLS: Record<RunKind, string[]> = {
   chat: READ_TOOLS,
@@ -29,6 +39,8 @@ const TOOLS: Record<RunKind, string[]> = {
   generate: EDIT_TOOLS,
   fix: EDIT_TOOLS,
   run: EDIT_TOOLS,
+  triage: READ_TOOLS,
+  action: EDIT_TOOLS,
 };
 
 const TEST_WRITES = ["tests.edit", "tests.save", "tests.addImage"];
@@ -38,10 +50,12 @@ const EXTRA: Record<RunKind, string[]> = {
   figures: [],
   headers: [],
   traces: [],
-  check: ["check.record"],
-  generate: ["tests.create", ...TEST_WRITES, "check.run"],
+  check: ["check.record", "actions.propose"],
+  generate: ["tests.create", ...TEST_WRITES, "check.run", "actions.propose"],
   fix: TEST_WRITES,
   run: TEST_WRITES,
+  triage: ["actions.propose"],
+  action: [],
 };
 
 // ponytail: read-only = mutates:false, minus whatever starts Claude, a job, or touches the app or the machine
@@ -61,9 +75,16 @@ export async function readOnlyCommands(): Promise<string[]> {
     .sort();
 }
 
+// ponytail: an action runs with the app's whole command set (what the CLI and the buttons do), minus another
+// Claude run, Jira writes (the user pushes), and what changes the machine or which project is open
+const NOT_IN_ACTION =
+  /^(claude\.run|actions\.(run|triage)|gen\.(tests|bench)|chat\.ask|review\.fix|rag\.eval|jobs\.cancel)$|^xray\.(push|importCsv|connect|disconnect)$|^system\.(setup|saveSettings|secrets|pullModel)$|^project\.(init|open|openKey)$|^models\.(add|pull|pullRuntime|remove|setDir|use|usePack)$/;
+
 export async function mcpAccess(kind: RunKind): Promise<{ allow: string[]; deny: string[] }> {
-  const allowed = new Set([...(await readOnlyCommands()), ...EXTRA[kind]]);
   const all = (await commandList()).map((c) => c.name).sort();
+  const allowed = new Set(
+    kind === "action" ? all.filter((n) => !NOT_IN_ACTION.test(n)) : [...(await readOnlyCommands()), ...EXTRA[kind]],
+  );
   return {
     allow: all.filter((n) => allowed.has(n)).map(mcpName),
     deny: all.filter((n) => !allowed.has(n)).map(mcpName),
@@ -223,6 +244,9 @@ export type RunOpts = {
   resume?: string;
   signal?: AbortSignal;
   jobId?: string;
+  runId?: string;
+  files?: boolean;
+  label?: string;
   onEvent?(e: ClaudeEvent): void;
 };
 
@@ -232,6 +256,16 @@ export type RunResult = ClaudeResult & {
   written: string[];
   calls: ToolCall[];
 };
+
+export type RunMeta = { kind: RunKind; model: string; effort: Effort; at: string; jobId?: string; label?: string };
+
+export const runMeta = (project: string, runId: string) => join(project, ".testimus", "runs", runId, "claude.json");
+
+export function readRunMeta(project: string, runId: string): RunMeta | null {
+  if (!/^[\w-]+$/.test(runId)) return null;
+  const m = readJson<Partial<RunMeta>>(runMeta(project, runId), {});
+  return m.kind && m.model && m.effort ? (m as RunMeta) : null;
+}
 
 export function newRunId(): string {
   return `run-${env.now().toISOString().replace(/\D/g, "").slice(0, 14)}-${randomBytes(3).toString("hex")}`;
@@ -256,8 +290,16 @@ export async function runClaude(o: RunOpts): Promise<RunResult> {
     resume: o.resume,
   });
   const shell = forShell(resolveExe(claudeExe()), args);
-  const runId = newRunId();
-  if (o.scope) takeSnapshot(project, runId, o.scope);
+  const runId = o.runId ?? newRunId();
+  if (o.scope) takeSnapshot(project, runId, o.scope, o.files === true);
+  writeJson(runMeta(project, runId), {
+    kind: o.kind,
+    model,
+    effort,
+    at: env.now().toISOString(),
+    ...(o.jobId ? { jobId: o.jobId } : {}),
+    ...(o.label ? { label: o.label } : {}),
+  });
   let result: Extract<ClaudeEvent, { type: "result" }> | undefined;
   const live = streamParser((e) => o.onEvent?.(e));
   const started = Date.now();

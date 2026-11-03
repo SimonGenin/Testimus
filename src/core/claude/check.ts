@@ -12,8 +12,9 @@ import {
 import { readProject } from "../lib/project.ts";
 import { readCheck } from "../lib/store.ts";
 import type { CheckFile, Diagnosis, Finding, Review } from "../types.ts";
+import { proposeLines } from "./actions.ts";
 import { effectiveContexts } from "./prompt.ts";
-import { runClaude } from "./run.ts";
+import { newRunId, runClaude } from "./run.ts";
 import { revert } from "./snapshot.ts";
 import { calledFor } from "./stream.ts";
 
@@ -33,7 +34,7 @@ export type TestCheck = {
 export const findingLine = (f: Finding) =>
   `- ${f.step ? `step ${f.step}` : "test"} — ${f.kind} (${f.severity}): ${f.message}${f.sources.length ? ` [${f.sources.join(", ")}]` : ""}`;
 
-export function checkPrompt(id: string, mechanical: Finding[], language: string): string {
+export function checkPrompt(id: string, mechanical: Finding[], language: string, runId?: string): string {
   return [
     `Use the check-test skill on the test ${id}.`,
     `File: tests/${id}/test.md — read it (tests_show), never modify it or any other file.`,
@@ -44,6 +45,12 @@ export function checkPrompt(id: string, mechanical: Finding[], language: string)
     "",
     `Record your findings with check_record exactly once: { id: "${id}", findings: [...] } — findings: [] when there is none.`,
     `Write each message in the project language (${language}).`,
+    ...(runId
+      ? proposeLines(
+          runId,
+          `a finding you can correct from the documents — { kind: "step", testId: "${id}", step } or { kind: "test", testId: "${id}" }, problem: the finding's message`,
+        )
+      : []),
     "Then reply in one line with the count of findings by severity.",
     "",
   ].join("\n");
@@ -56,9 +63,12 @@ async function semanticPass(
   mechanical: Finding[],
 ): Promise<{ ok: boolean; recorded: boolean; summary: string; runId: string; diagnosis?: Diagnosis }> {
   const p = readProject(project);
+  const runId = newRunId();
   const r = await runClaude({
     project,
-    prompt: checkPrompt(id, mechanical, p.language),
+    runId,
+    label: "check",
+    prompt: checkPrompt(id, mechanical, p.language, runId),
     model: p.claude.model,
     effort: p.claude.effort,
     scope: { kind: "test", testId: id },

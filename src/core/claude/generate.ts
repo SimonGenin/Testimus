@@ -8,10 +8,11 @@ import { columnGuidance } from "../lib/columns.ts";
 import { fieldOrder, readProject, readXray, writeJson } from "../lib/project.ts";
 import { readTest, testExists, writeTest } from "../lib/store.ts";
 import type { ClaudeEvent, Diagnosis, Effort, Tokens } from "../types.ts";
+import { proposeLines } from "./actions.ts";
 import { checkTests, promoteChecked } from "./check.ts";
 import { ledgerOf } from "./ledger.ts";
 import { contextLines, readContexts } from "./prompt.ts";
-import { runClaude } from "./run.ts";
+import { newRunId, runClaude } from "./run.ts";
 import { markLeft, readRun } from "./snapshot.ts";
 
 export const GEN_MARKER = "Use the generate-tests skill";
@@ -88,7 +89,7 @@ export function checkGenInput(i: GenInput, project?: string): void {
     );
 }
 
-export function genPrompt(project: string, i: GenInput, contextIds: string[] = []): string {
+export function genPrompt(project: string, i: GenInput, contextIds: string[] = [], runId?: string): string {
   const p = readProject(project);
   const reqs = clean(i.requirements);
   const sections = clean(i.sections);
@@ -117,6 +118,13 @@ export function genPrompt(project: string, i: GenInput, contextIds: string[] = [
     "Never modify, rename or delete an existing test. Never call a tool that writes to Jira.",
   );
   lines.push(...contextLines(project, readContexts(project, contextIds), i.note));
+  if (runId)
+    lines.push(
+      ...proposeLines(
+        runId,
+        'a document section you could not cover because its text is a picture or a table the conversion lost — { kind: "doc", docId }, where: "doc:<docId>"',
+      ),
+    );
   lines.push(
     "",
     `When you finish, end your reply with the report block of the skill (section 4), exactly this shape:`,
@@ -216,9 +224,12 @@ export async function generateTests(project: string, input: GenInput, ctx: Ctx):
   let reads = 0;
   const written: string[] = [];
   const texts: string[] = [];
+  const runId = newRunId();
   const run = await runClaude({
     project,
-    prompt: genPrompt(project, input, contexts),
+    runId,
+    label: "generate",
+    prompt: genPrompt(project, input, contexts, runId),
     model: input.model || p.claude.model,
     effort: input.effort || p.claude.effort,
     kind: "generate",

@@ -234,6 +234,17 @@ export async function addDoc(
   }
 }
 
+// ponytail: a PDF rendering added after the .docx is copied beside it, where the next conversion takes its figures from
+export function attachPdf(project: string, id: string, pdf: string): void {
+  const doc = readDoc(project, id);
+  const file = resolve(pdf);
+  if (extname(doc.source.file || "").toLowerCase() !== ".docx")
+    throw new UserError(`${id} was added from a .pdf: it has no .docx to complete.`);
+  if (extname(file).toLowerCase() !== ".pdf" || !existsSync(file))
+    throw new UserError(`Not a .pdf file: ${file}`, "Give the PDF rendering of the same document.");
+  writeAtomic(join(docDir(project, id), "source.pdf"), readFileSync(file));
+}
+
 export async function reconvertDoc(
   project: string,
   id: string,

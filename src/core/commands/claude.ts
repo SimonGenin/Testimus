@@ -2,7 +2,7 @@ import { z } from "zod";
 import { diagnose } from "../claude/diagnose.ts";
 import { buildPrompt, effectiveContexts, readContexts } from "../claude/prompt.ts";
 import { runClaude } from "../claude/run.ts";
-import { revert } from "../claude/snapshot.ts";
+import { readRun, revert } from "../claude/snapshot.ts";
 import { CONNECT, checkSignedIn, claudeExe, claudeVersion } from "../claude/status.ts";
 import { type Command, command, projectOf } from "../command.ts";
 import { readProject } from "../lib/project.ts";
@@ -41,16 +41,20 @@ export const SCOPE = z.discriminatedUnion("kind", [
     kind: z.literal("tests").describe("Several tests."),
     testIds: z.array(TEST_ID).min(1).describe("Test folder ids."),
   }),
+  z.object({
+    kind: z.literal("doc").describe("One document and the tests that cite it."),
+    docId: TEST_ID.describe("Document id (its folder under docs/)."),
+  }),
   z.object({ kind: z.literal("project").describe("Every test of the project.") }),
 ]);
 
-const DIAGNOSIS = z.object({
+export const DIAGNOSIS = z.object({
   kind: z.enum(["connect", "login", "credit", "limit", "network", "other"]),
   title: z.string(),
   detail: z.string(),
 });
 
-const RESULT = z.object({
+export const RESULT = z.object({
   runId: z.string(),
   ok: z.boolean(),
   summary: z.string(),
@@ -68,7 +72,8 @@ const RESULT = z.object({
   raw: z.string(),
 });
 
-function scopeLabel(s: ClaudeScope): string {
+export function scopeLabel(s: ClaudeScope): string {
+  if (s.kind === "doc") return s.docId;
   if (s.kind === "step") return `${s.testId} step ${s.step}`;
   if (s.kind === "test") return s.testId;
   if (s.kind === "tests") return `${s.testIds.length} tests`;
@@ -120,11 +125,18 @@ export const commands: Command[] = [
       runId: z.string().describe("The runId returned by claude.run (or gen/review runs)."),
       force: z.boolean().optional().describe("Also discard the edits made to those tests after the run."),
     }),
-    output: z.object({ reverted: z.array(z.string()) }),
+    output: z.object({
+      reverted: z.array(z.string()).describe("Tests put back"),
+      files: z
+        .array(z.string())
+        .describe("Other files put back (project.json, a document's files), relative to the project folder"),
+    }),
     mutates: true,
     positional: ["runId"],
     async run(ctx, input) {
-      return { reverted: revert(projectOf(ctx), input.runId, { force: input.force === true }) };
+      const project = projectOf(ctx);
+      const reverted = revert(project, input.runId, { force: input.force === true });
+      return { reverted, files: readRun(project, input.runId).revertedFiles ?? [] };
     },
   }),
   command({

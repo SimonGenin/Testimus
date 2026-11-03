@@ -1,12 +1,13 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { join, posix } from "node:path";
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
 import { writeAtomic } from "../lib/atomic.ts";
+import { testsCiting } from "../lib/check.ts";
 import { sha256 } from "../lib/hash.ts";
 import { readJson, writeJson } from "../lib/project.ts";
 import { testDir } from "../lib/store.ts";
-import type { ClaudeScope } from "../types.ts";
+import type { ClaudeScope, DocJson } from "../types.ts";
 
 export type RunRecord = {
   runId: string;
@@ -18,10 +19,17 @@ export type RunRecord = {
   written?: string[];
   after?: Record<string, string | null>;
   reverted?: string;
+  roots?: string[];
+  files?: Record<string, string | null>;
+  filesAfter?: Record<string, string | null>;
+  changedFiles?: string[];
+  revertedFiles?: string[];
 };
 
 const testMd = (project: string, id: string) => join(testDir(project, id), "test.md");
 const runFile = (project: string, runId: string) => join(project, ".testimus", "runs", runId, "run.json");
+const beforeFile = (project: string, runId: string, rel: string) =>
+  join(project, ".testimus", "runs", runId, "before", ...rel.split("/"));
 const hashOf = (md: string | null) => (md === null ? null : sha256(md));
 
 function readMd(project: string, id: string): string | null {
@@ -44,15 +52,73 @@ export function scopeIds(project: string, scope: ClaudeScope): string[] {
       ? allTests(project)
       : scope.kind === "tests"
         ? [...new Set(scope.testIds)]
-        : [scope.testId];
+        : scope.kind === "doc"
+          ? testsCiting(project, docOf(project, scope.docId)).map((t) => t.id)
+          : [scope.testId];
   for (const id of ids) testDir(project, id);
   return ids;
 }
 
-export function takeSnapshot(project: string, runId: string, scope: ClaudeScope): RunRecord {
+const docOf = (project: string, id: string): { id: string; code?: string } => ({
+  id,
+  code: readJson<Partial<DocJson>>(join(project, "docs", id, "doc.json"), {}).code,
+});
+
+function docIds(project: string): string[] {
+  const dir = join(project, "docs");
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir, { withFileTypes: true })
+    .filter((e) => e.isDirectory() && existsSync(join(dir, e.name, "doc.json")))
+    .map((e) => e.name)
+    .sort();
+}
+
+function walk(project: string, rel: string, skip: string): string[] {
+  const abs = join(project, ...rel.split("/"));
+  if (!existsSync(abs)) return [];
+  return readdirSync(abs, { withFileTypes: true }).flatMap((e) => {
+    const r = posix.join(rel, e.name);
+    if (r === skip) return [];
+    return e.isDirectory() ? walk(project, r, skip) : [r];
+  });
+}
+
+const originalOf = (project: string, rel: string) => {
+  const file = readJson<Partial<DocJson>>(join(project, ...rel.split("/"), "doc.json"), {}).source?.file;
+  return file ? posix.join(rel, file) : "";
+};
+
+const rootFiles = (project: string, roots: string[]) => roots.flatMap((r) => walk(project, r, originalOf(project, r)));
+
+// ponytail: an action may change more than tests — the files that hold the truth (SPEC §3) are copied too, the
+// whole folder of a document in scope minus its original copy, which no command ever rewrites
+export function truthFiles(project: string, scope: ClaudeScope): { roots: string[]; files: string[] } {
+  const files = ["project.json", "xray.json"];
+  const roots = scope.kind === "doc" ? [`docs/${scope.docId}`] : [];
+  if (scope.kind !== "doc")
+    for (const id of docIds(project)) files.push(`docs/${id}/doc.json`, `docs/${id}/context.md`);
+  return { roots, files: [...files, ...rootFiles(project, roots)] };
+}
+
+const readBytes = (project: string, rel: string) => {
+  const abs = join(project, ...rel.split("/"));
+  return existsSync(abs) ? readFileSync(abs) : null;
+};
+
+export function takeSnapshot(project: string, runId: string, scope: ClaudeScope, withFiles = false): RunRecord {
   const before: Record<string, string | null> = {};
   for (const id of scopeIds(project, scope)) before[id] = readMd(project, id);
   const rec: RunRecord = { runId, at: env.now().toISOString(), scope, before, changedTests: [], changedSteps: {} };
+  if (withFiles) {
+    const t = truthFiles(project, scope);
+    rec.roots = t.roots;
+    rec.files = {};
+    for (const rel of t.files) {
+      const buf = readBytes(project, rel);
+      rec.files[rel] = buf ? sha256(buf) : null;
+      if (buf) writeAtomic(beforeFile(project, runId, rel), buf);
+    }
+  }
   writeJson(runFile(project, runId), rec);
   return rec;
 }
@@ -104,6 +170,18 @@ export function finishSnapshot(project: string, runId: string, written: string[]
     rec.changedSteps[id] = changedStepNumbers(rec.before[id], now);
     rec.after[id] = hashOf(now);
   }
+  if (rec.files) {
+    rec.changedFiles = [];
+    rec.filesAfter = {};
+    for (const rel of rootFiles(project, rec.roots ?? [])) if (!(rel in rec.files)) rec.files[rel] = null;
+    for (const rel of Object.keys(rec.files).sort()) {
+      const buf = readBytes(project, rel);
+      const now = buf ? sha256(buf) : null;
+      if (now === rec.files[rel]) continue;
+      rec.changedFiles.push(rel);
+      rec.filesAfter[rel] = now;
+    }
+  }
   writeJson(runFile(project, runId), rec);
   return rec;
 }
@@ -134,11 +212,26 @@ export function revert(project: string, runId: string, o: RevertOpts = {}): stri
     if (!o.force && (!rec.after || hashOf(now) !== rec.after[id])) conflicts.push(id);
     else todo.push(id);
   }
+  const files: string[] = [];
+  if (!o.ids && rec.files && rec.filesAfter)
+    for (const rel of rec.changedFiles ?? []) {
+      const buf = readBytes(project, rel);
+      const now = buf ? sha256(buf) : null;
+      if (now === rec.files[rel]) continue;
+      if (!o.force && now !== rec.filesAfter[rel]) conflicts.push(rel);
+      else files.push(rel);
+    }
   if (conflicts.length)
     throw new UserError(
       `${conflicts.join(", ")} changed after the Claude run ${runId}: reverting would lose those edits.`,
       "Look at the test first; revert with force to discard the later edits too.",
     );
+  for (const rel of files) {
+    const abs = join(project, ...rel.split("/"));
+    if (rec.files?.[rel] === null) rmSync(abs, { force: true });
+    else writeAtomic(abs, readFileSync(beforeFile(project, runId, rel)));
+  }
+  rec.revertedFiles = files;
   for (const id of todo) {
     const md = rec.before[id];
     if (md === null) rmSync(testDir(project, id), { recursive: true, force: true });

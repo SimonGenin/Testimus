@@ -2,12 +2,14 @@ import { randomBytes } from "node:crypto";
 import { mkdirSync, rmSync } from "node:fs";
 import { basename, join } from "node:path";
 import { z } from "zod";
+import { triage } from "../claude/actions.ts";
 import { describeFigures, shouldDescribeFigures } from "../claude/figures.ts";
 import { type Command, type Ctx, command, projectOf, UserError } from "../command.ts";
 import { writeAtomic } from "../lib/atomic.ts";
 import { recheckMechanical, testsCiting } from "../lib/check.ts";
 import {
   addDoc,
+  attachPdf,
   docDir,
   listDocs,
   readContext,
@@ -62,6 +64,18 @@ async function withFigures(ctx: Ctx, doc: DocJson, claude: ClaudeRun): Promise<D
   return doc;
 }
 
+// ponytail: the conversion warnings are shown to Claude with the import's own model and effort — it leaves a
+// Claude action for those it can fix; a failed look never fails the import
+async function withTriage(ctx: Ctx, doc: DocJson, claude: ClaudeRun, on: boolean | undefined): Promise<void> {
+  if (!on || !doc.warnings.length) return;
+  try {
+    const problems = doc.warnings.map((text) => ({ where: `doc:${doc.id}`, text }));
+    await triage(ctx, projectOf(ctx), problems, `the document ${doc.id}`, claude, "import");
+  } catch (e) {
+    ctx.log("warn", `Claude did not look at the warnings: ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
+
 const kind = z.enum(["spec", "requirements", "minutes", "other"]);
 const status = z.enum(["draft", "submitted", "validated"]);
 
@@ -102,6 +116,10 @@ const model = MODEL.optional().describe(
   "Claude model for the figure descriptions (default: project.json claude.model)",
 );
 const effort = EFFORT.optional().describe("Claude effort for the figure descriptions (default: low)");
+const triageOn = z
+  .boolean()
+  .optional()
+  .describe("Then have Claude look at the conversion warnings and propose a Claude action for those it can fix");
 const citedBy = z
   .array(
     z.object({
@@ -151,6 +169,7 @@ export const commands: Command[] = [
       kind: kind.optional().describe("What the document is (default spec)"),
       model,
       effort,
+      triage: triageOn,
     }),
     output: docJson.extend({ citedBy }),
     mutates: true,
@@ -178,7 +197,9 @@ export const commands: Command[] = [
           : added;
         if (doc !== added) writeDoc(project, doc);
         await withFigures(ctx, doc, { model: input.model, effort: input.effort });
-        return { ...doc, citedBy: recheckCiting(ctx, doc) };
+        const citing = recheckCiting(ctx, doc);
+        await withTriage(ctx, doc, { model: input.model, effort: input.effort }, input.triage);
+        return { ...doc, citedBy: citing };
       } finally {
         rmSync(up, { recursive: true, force: true });
       }
@@ -187,19 +208,34 @@ export const commands: Command[] = [
   command({
     name: "docs.convert",
     summary: "Reconvert a document from its copied source; team fields and figure descriptions are kept.",
-    input: z.object({ id, model, effort }),
+    input: z.object({
+      id,
+      pdf: z
+        .string()
+        .optional()
+        .describe(
+          "Path of a .pdf rendering of the same .docx, copied beside it first: the figures the .docx has no picture for are taken from it",
+        ),
+      model,
+      effort,
+      triage: triageOn,
+    }),
     output: docJson.extend({ citedBy }),
     mutates: true,
     job: "docs.convert",
     positional: ["id"],
     subject: (i) => i.id,
     async run(ctx, input) {
+      const project = projectOf(ctx);
+      if (input.pdf) attachPdf(project, input.id, input.pdf);
       const doc = await withFigures(
         ctx,
-        await reconvertDoc(projectOf(ctx), input.id, ctx.signal, (message) => ctx.progress({ message })),
+        await reconvertDoc(project, input.id, ctx.signal, (message) => ctx.progress({ message })),
         { model: input.model, effort: input.effort },
       );
-      return { ...doc, citedBy: recheckCiting(ctx, doc) };
+      const citing = recheckCiting(ctx, doc);
+      await withTriage(ctx, doc, { model: input.model, effort: input.effort }, input.triage);
+      return { ...doc, citedBy: citing };
     },
   }),
   command({

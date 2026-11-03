@@ -102,7 +102,7 @@ describe("M1 — each run kind gets its own MCP allow-list", () => {
     expect(ro).toEqual(expect.arrayContaining(["rag.search", "rag.passage", "rag.figure", "tests.show", "tests.list"]));
   });
 
-  it("the lists: chat/figures/headers read-only, check + check_record, generate/fix/run + test writes", async () => {
+  it("the lists: chat/figures/headers read-only, check + check_record, generate/fix/run + test writes, triage proposes", async () => {
     const ro = (await readOnlyCommands()).map((n) => `mcp__testimus__${n.replace(".", "_")}`);
     const extra = async (k: Parameters<typeof mcpAccess>[0]) =>
       (await mcpAccess(k)).allow.filter((t) => !ro.includes(t)).sort();
@@ -110,10 +110,11 @@ describe("M1 — each run kind gets its own MCP allow-list", () => {
     expect(await extra("chat")).toEqual([]);
     expect(await extra("figures")).toEqual([]);
     expect(await extra("headers")).toEqual([]);
-    expect(await extra("check")).toEqual(m(["check_record"]));
+    expect(await extra("check")).toEqual(m(["check_record", "actions_propose"]));
     expect(await extra("generate")).toEqual(
-      m(["tests_create", "tests_edit", "tests_save", "tests_addImage", "check_run"]),
+      m(["tests_create", "tests_edit", "tests_save", "tests_addImage", "check_run", "actions_propose"]),
     );
+    expect(await extra("triage")).toEqual(m(["actions_propose"]));
     expect(await extra("fix")).toEqual(m(["tests_edit", "tests_save", "tests_addImage"]));
     expect(await extra("run")).toEqual(m(["tests_edit", "tests_save", "tests_addImage"]));
     for (const k of ["chat", "figures", "headers", "check", "generate", "fix", "run"] as const) {
@@ -374,6 +375,7 @@ describe("M4 / minor 5 — a run never destroys a user edit", () => {
     expect(readFileSync(f, "utf8")).toBe(later);
     expect(await invoke("claude.revert", { runId: r.runId, force: true }, { project: dir })).toEqual({
       reverted: ["LFRPS12-1420"],
+      files: [],
     });
     expect(readFileSync(f, "utf8")).toBe(before);
   });

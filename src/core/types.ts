@@ -539,7 +539,23 @@ export type ClaudeScope =
   | { kind: "step"; testId: string; step: number }
   | { kind: "test"; testId: string }
   | { kind: "tests"; testIds: string[] }
+  | { kind: "doc"; docId: string }
   | { kind: "project" };
+export type ActionState = "open" | "running" | "done" | "dismissed";
+export type ClaudeAction = {
+  id: string;
+  title: string;
+  scope: ClaudeScope;
+  where: string;
+  problem: string;
+  why: string;
+  plan: string[];
+  stamp: string;
+  proposedBy: { run: string; model: string; effort: Effort | ""; at: string; runId?: string };
+  state: ActionState;
+  at: string;
+  last?: { runId: string; ok: boolean; summary: string; at: string; model: string; effort: Effort };
+};
 export type ClaudeEvent =
   | { type: "text"; text: string }
   | { type: "tool"; name: string; input: string }

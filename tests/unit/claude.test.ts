@@ -228,6 +228,7 @@ describe("runClaude", () => {
     expect(existsSync(join(dir, ".testimus", "runs", res.runId, "run.json"))).toBe(true);
     expect(await invoke("claude.revert", { runId: res.runId }, { project: dir })).toEqual({
       reverted: ["LFRPS12-1420"],
+      files: [],
     });
     expect(readFileSync(file, "utf8")).toBe(before);
     await expect(invoke("claude.revert", { runId: "nope" }, { project: dir })).rejects.toThrow(/No Claude run/);

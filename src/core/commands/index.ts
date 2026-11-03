@@ -2,6 +2,7 @@ import { z } from "zod";
 import { type Command, type Ctx, type Progress, UserError } from "../command.ts";
 import { startJob } from "../jobs.ts";
 import type { ClaudeEvent } from "../types.ts";
+import { commands as actions } from "./actions.ts";
 import { commands as chat } from "./chat.ts";
 import { commands as check } from "./check.ts";
 import { commands as claude } from "./claude.ts";
@@ -35,6 +36,7 @@ export const registry: Command[] = [
   ...models,
   ...chat,
   ...claude,
+  ...actions,
   ...contexts,
   ...tests,
   ...images,
