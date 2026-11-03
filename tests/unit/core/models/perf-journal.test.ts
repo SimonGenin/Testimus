@@ -10,7 +10,6 @@ import { catalogEntry } from "../../../../src/core/lib/models-catalog.ts";
 import {
   addTokens,
   journalFile,
-  type PerfRecord,
   perfFields,
   readPerf,
   timeLoad,
@@ -25,7 +24,7 @@ import { ensureServer, serverIo, stopAllServers } from "../../../../src/core/rag
 import { llamacppConfig } from "../../../../src/core/rag/runtimes/llamacpp.ts";
 import { mockRuntime } from "../../../../src/core/rag/runtimes/mock.ts";
 import { transformersIo } from "../../../../src/core/rag/runtimes/transformers.ts";
-import type { ResolvedModel, RuntimeId } from "../../../../src/core/types.ts";
+import type { PerfLine, ResolvedModel, RuntimeId } from "../../../../src/core/types.ts";
 
 const FIXTURE = join(import.meta.dirname, "..", "..", "..", "fixtures", "project");
 const SECRET = "Que se passe-t-il quand le DSO ouvre EXI_MOP_SPF_511_A_20";
@@ -310,7 +309,7 @@ describe("models perf reads what the operations wrote", () => {
       ["embed.index", 1],
       ["embed.query", 3],
     ]);
-    const rec: PerfRecord[] = lines();
+    const rec: PerfLine[] = lines();
     expect(rec.every((l) => Object.keys(l).every((k) => !/text|query|prompt/.test(k)))).toBe(true);
   });
 });

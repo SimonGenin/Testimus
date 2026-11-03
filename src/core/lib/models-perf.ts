@@ -20,8 +20,6 @@ const STRINGS = ["model", "fingerprint", "runtime", "device", "quantization", "p
 const NUMBERS = ["tokens", "loadMs", "peakRssMB", "vramMB"] as const;
 const FLAGS = ["partialOffload", "oom"] as const;
 
-// ponytail: `oom` (the operation failed for lack of memory) waits for its place in types.ts PerfLine
-export type PerfRecord = PerfLine & { oom?: boolean };
 export type PerfFields = { model: string; runtime: RuntimeId; device: Device; quantization?: string };
 export type PerfScope = { fingerprint?: string; project?: string; jobId?: string };
 
@@ -43,7 +41,7 @@ export function journalFile(): string {
 }
 
 // ponytail: only known keys with the right type are written, so no document or query text can slip in
-export function cleanLine(line: PerfRecord): PerfRecord | null {
+export function cleanLine(line: PerfLine): PerfLine | null {
   if (!OPS.includes(line.op) || !Number.isFinite(line.ms) || !Number.isFinite(line.items)) return null;
   const out: Record<string, unknown> = {
     at: typeof line.at === "string" && !Number.isNaN(Date.parse(line.at)) ? line.at : env.now().toISOString(),
@@ -57,12 +55,12 @@ export function cleanLine(line: PerfRecord): PerfRecord | null {
   }
   for (const k of NUMBERS) if (Number.isFinite(line[k])) out[k] = line[k];
   for (const k of FLAGS) if (typeof line[k] === "boolean") out[k] = line[k];
-  return out as PerfRecord;
+  return out as PerfLine;
 }
 
 let appended = 0;
 
-export function recordPerf(line: PerfRecord): void {
+export function recordPerf(line: PerfLine): void {
   const clean = cleanLine(line);
   if (!clean) return;
   try {
@@ -73,14 +71,14 @@ export function recordPerf(line: PerfRecord): void {
   } catch {}
 }
 
-export function readPerf(): PerfRecord[] {
+export function readPerf(): PerfLine[] {
   const file = journalFile();
   if (!existsSync(file)) return [];
-  const out: PerfRecord[] = [];
+  const out: PerfLine[] = [];
   for (const l of readFileSync(file, "utf8").split("\n")) {
     if (!l.trim()) continue;
     try {
-      out.push(JSON.parse(l) as PerfRecord);
+      out.push(JSON.parse(l) as PerfLine);
     } catch {}
   }
   return out;
@@ -142,11 +140,6 @@ export function addTokens(n: number): void {
   if (s && Number.isFinite(n)) s.tokens += n;
 }
 
-export function notePartial(partial: boolean): void {
-  const s = ops.getStore();
-  if (s) s.partialOffload = (s.partialOffload ?? false) || partial;
-}
-
 const MEMORY =
   /out of memory|outofmemory|e_outofmemory|0x8007000e|bad_alloc|failed to allocate|unable to allocate|cannot allocate|could not allocate|alloc(ation)? failed|enomem|not enough memory|insufficient memory|requires more (system )?memory|cudamalloc|memory allocation/i;
 
@@ -159,7 +152,7 @@ export function peakRssMB(): number {
   return Math.round(process.resourceUsage().maxRSS / 1024);
 }
 
-function line(op: PerfOp, f: PerfFields, items: number, ms: number, extra: Partial<PerfRecord> = {}): PerfRecord {
+function line(op: PerfOp, f: PerfFields, items: number, ms: number, extra: Partial<PerfLine> = {}): PerfLine {
   return { at: env.now().toISOString(), op, ...f, ...perfScope(), items, ms: Math.max(0, Math.round(ms)), ...extra };
 }
 
@@ -203,7 +196,7 @@ export function loadMsSoFar(): number {
 export async function timeLoad<T>(
   f: PerfFields,
   fn: () => Promise<T>,
-  measure: (result: T) => Partial<PerfRecord> | Promise<Partial<PerfRecord>> = () => ({}),
+  measure: (result: T) => Partial<PerfLine> | Promise<Partial<PerfLine>> = () => ({}),
   target: OpState | undefined = ops.getStore(),
 ): Promise<T> {
   const t0 = performance.now();
@@ -212,7 +205,7 @@ export async function timeLoad<T>(
     const ms = performance.now() - t0;
     loadTotal += ms;
     if (target) target.loadMs += ms;
-    let extra: Partial<PerfRecord> = {};
+    let extra: Partial<PerfLine> = {};
     try {
       extra = await measure(out);
     } catch {}
@@ -234,8 +227,8 @@ function pct(sorted: number[], p: number): number {
   return sorted[i];
 }
 
-export function perfStats(opts: { model?: string; last?: number; lines?: PerfRecord[] } = {}): PerfStat[] {
-  const groups = new Map<string, PerfRecord[]>();
+export function perfStats(opts: { model?: string; last?: number; lines?: PerfLine[] } = {}): PerfStat[] {
+  const groups = new Map<string, PerfLine[]>();
   for (const l of opts.lines ?? readPerf()) {
     if (opts.model && l.model !== opts.model) continue;
     const key = `${l.op}\u0000${l.model ?? ""}\u0000${l.device ?? ""}`;
@@ -268,7 +261,7 @@ export function perfStats(opts: { model?: string; last?: number; lines?: PerfRec
   return out.sort((a, b) => a.op.localeCompare(b.op) || a.model.localeCompare(b.model));
 }
 
-export function measuredMB(model: string, lines?: PerfRecord[]): { vram: number | null; ram: number | null } {
+export function measuredMB(model: string, lines?: PerfLine[]): { vram: number | null; ram: number | null } {
   let vram: number | null = null;
   let ram: number | null = null;
   for (const l of lines ?? readPerf()) {
@@ -279,7 +272,7 @@ export function measuredMB(model: string, lines?: PerfRecord[]): { vram: number 
   return { vram, ram };
 }
 
-export function memoryFailures(model: string, lines: PerfRecord[], last = 50): number {
+export function memoryFailures(model: string, lines: PerfLine[], last = 50): number {
   return lines
     .filter((l) => l.model === model)
     .slice(-last)

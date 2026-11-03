@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Fit, Job } from "../../../core/types.ts";
-import { call, waitJob } from "../../api.ts";
+import { ApiError, call, run, waitJob } from "../../api.ts";
 import { Button, Icon, Skeleton } from "../../components/legacy/index.ts";
 import { useApp } from "../../lib/app.ts";
 import { message } from "../../lib/format.ts";
@@ -11,7 +11,7 @@ import { type Bench, BenchDialog } from "./models/BenchDialog.tsx";
 import { ConfirmDialog } from "./models/ConfirmDialog.tsx";
 import { CustomCard } from "./models/CustomCard.tsx";
 import type { AdviceRow, CatalogRow, Installed, Op, PackRow, RagStatus, SetDirOut, UsePackOut } from "./models/data.ts";
-import { isInstalled, lighterPack, size } from "./models/data.ts";
+import { isInstalled, size } from "./models/data.ts";
 import { FitConfirm } from "./models/FitConfirm.tsx";
 import { FolderDialog } from "./models/FolderDialog.tsx";
 import { ModelsTable } from "./models/ModelsTable.tsx";
@@ -22,6 +22,7 @@ import { PackPlanDialog } from "./models/PackPlanDialog.tsx";
 type FitAsk = { title: string; fit: Fit; lighter: string | null; go: () => void; lighterGo: () => void };
 type FolderAsk = { needMB: number; next?: () => void };
 type Plan = { row: PackRow; out: UsePackOut };
+type UseOut = { fit: Fit; reindex: boolean; indexJob: string | null; lighter: string | null };
 
 const GLOBAL_OPS = ["index", "dir", "llama.cpp"];
 
@@ -57,14 +58,14 @@ export function ModelsSection() {
       hasProject ? call<PackRow[]>("models.packs", {}) : Promise.resolve([]),
       hasProject ? call<AdviceRow[]>("models.advice", {}) : Promise.resolve([]),
       hasProject ? call<RagStatus>("rag.status", {}) : Promise.resolve(null),
-      hasProject ? call<UsePackOut>("models.usePack", { pack: "light", dryRun: true }) : Promise.resolve(null),
+      call<{ dir: string | null }>("models.dirs", {}),
     ]);
     if (c.status === "fulfilled") setCatalog(c.value ?? []);
     if (l.status === "fulfilled") setInstalled(l.value ?? []);
     if (p.status === "fulfilled") setPacks(p.value ?? []);
     if (a.status === "fulfilled") setAdvice(a.value ?? []);
     if (s.status === "fulfilled") setStatus(s.value);
-    if (d.status === "fulfilled") setDir(d.value?.plan.dir ?? (hasProject ? null : undefined));
+    if (d.status === "fulfilled") setDir(d.value?.dir ?? null);
     const failed = [c, p].find((x) => x.status === "rejected") as PromiseRejectedResult | undefined;
     setError(failed ? message(failed.reason) : "");
   }, [hasProject]);
@@ -116,12 +117,6 @@ export function ModelsSection() {
     [load],
   );
 
-  const trackIndex = useCallback(async () => {
-    const running = await call<Job[]>("jobs.list", { running: true }).catch(() => [] as Job[]);
-    const ix = (running ?? []).find((j) => j.kind === "rag-index");
-    if (ix) track(ix.id, "index", "Indexing the documents");
-  }, [track]);
-
   const afterPack = useCallback(
     (r: unknown) => {
       const ix = (r as { indexJob?: string | null } | null)?.indexJob;
@@ -139,8 +134,16 @@ export function ModelsSection() {
         for (const j of jobs ?? []) {
           if (j.kind === "models-usePack") track(j.id, j.subject, `Installing ${packLabel(j.subject)}`, afterPack);
           else if (j.kind === "models-pull") track(j.id, j.subject, `Downloading ${j.subject}`);
-          else if (j.kind === "models-move" || j.kind === "models-copy")
-            track(j.id, "dir", j.kind === "models-move" ? "Moving the models" : "Copying the models");
+          else if (j.kind === "models-dir")
+            track(
+              j.id,
+              "dir",
+              j.subject.startsWith("copy ")
+                ? "Copying the models"
+                : j.subject.startsWith("move ")
+                  ? "Moving the models"
+                  : "Changing the models folder",
+            );
           else if (j.kind === "rag-index") track(j.id, "index", "Indexing the documents");
           else if (j.kind === "models-measure") followBench(j.subject, j.id, `${packLabel(j.subject)} pack`);
         }
@@ -174,7 +177,7 @@ export function ModelsSection() {
   const planPack = async (row: PackRow) => {
     setPlanning(true);
     try {
-      const out = await call<UsePackOut>("models.usePack", { pack: row.id, dryRun: true });
+      const out = await call<UsePackOut>("models.planPack", { pack: row.id });
       if (out.plan.download.length && !out.plan.dir) {
         setFolder({ needMB: out.plan.download.reduce((a, d) => a + d.sizeMB, 0), next: () => void planPack(row) });
         return;
@@ -189,7 +192,7 @@ export function ModelsSection() {
 
   const choosePack = (row: PackRow) => {
     if (row.fit && row.fit.verdict !== "fits") {
-      const lighter = packs ? lighterPack(packs, row.id) : null;
+      const lighter = packs?.find((p) => p.id === row.lighter) ?? null;
       setFitAsk({
         title: `The ${row.label} pack`,
         fit: row.fit,
@@ -206,24 +209,19 @@ export function ModelsSection() {
     const downloadOnly = plan.out.plan.download.length > 0;
     setPlanning(true);
     try {
-      const r = await call<UsePackOut>("models.usePack", { pack: row.id, downloadOnly });
+      const { jobId } = await call<{ jobId: string }>("models.usePack", { pack: row.id, downloadOnly });
       setPlan(null);
       if (downloadOnly) {
-        for (const id of r.jobIds)
-          track(id, row.id, `Downloading ${row.label}`, () =>
-            toast({ kind: "ok", title: `${row.label} pack downloaded`, detail: "Use this pack to switch to it." }),
-          );
+        track(jobId, row.id, `Downloading ${row.label}`, () =>
+          toast({ kind: "ok", title: `${row.label} pack downloaded`, detail: "Use this pack to switch to it." }),
+        );
         return;
       }
       toast({ kind: "ok", title: `${row.label} pack chosen for this project` });
-      for (const id of r.jobIds) {
-        if (id.startsWith("rag-index")) track(id, "index", "Indexing the documents");
-        else track(id, row.id, `Installing ${row.label}`, afterPack);
-      }
+      track(jobId, row.id, `Installing ${row.label}`, afterPack);
       void load();
     } catch (e) {
-      const m = message(e);
-      if (/choose where models are stored/i.test(m)) {
+      if (e instanceof ApiError && e.code === "models-dir-unset") {
         setPlan(null);
         setFolder({ needMB: plan.out.plan.download.reduce((a, d) => a + d.sizeMB, 0), next: () => void planPack(row) });
       } else errorToast(e, `Could not ${downloadOnly ? "download" : "use"} the ${row.label} pack`);
@@ -241,22 +239,15 @@ export function ModelsSection() {
       const out = await call<{ jobId?: string }>("models.pull", { model: r.id });
       if (out?.jobId) track(out.jobId, r.id, `Downloading ${r.label}`);
     } catch (e) {
-      if (/choose where models are stored/i.test(message(e)))
+      if (e instanceof ApiError && e.code === "models-dir-unset")
         setFolder({ needMB: r.sizeMB, next: () => void install(r, true) });
       else errorToast(e, `Could not install ${r.label}`);
     }
   };
 
-  const lighterModel = (r: CatalogRow) =>
-    (catalog ?? [])
-      .filter((c) => c.kind === r.kind && c.id !== r.id && c.sizeMB < r.sizeMB && c.fit.verdict === "fits")
-      .sort((a, b) => b.sizeMB - a.sizeMB)[0] ?? null;
-
   const chooseModel = async (r: CatalogRow) => {
     const current = status && status.embedding !== "none" ? status.embedding : undefined;
-    const embedding = r.kind === "embedding" ? r.id : current;
-    const reranker = r.kind === "reranker" ? r.id : (status?.reranker ?? null);
-    if (!embedding) {
+    if (r.kind === "reranker" && !current) {
       toast({
         kind: "error",
         title: "Choose an embedding model first",
@@ -264,23 +255,24 @@ export function ModelsSection() {
       });
       return;
     }
+    const pick = r.kind === "embedding" ? { embedding: r.id } : { reranker: r.id };
     const go = async () => {
       try {
-        const out = await call<{ reindex: boolean }>("models.use", { embedding, reranker });
+        const out = await call<UseOut>("models.use", pick);
         toast({ kind: "ok", title: `${r.label} in use for this project`, detail: out.reindex ? "Indexing again" : "" });
         await load();
-        if (out.reindex) await trackIndex();
+        if (out.indexJob) track(out.indexJob, "index", "Indexing the documents");
       } catch (e) {
         errorToast(e, `Could not use ${r.label}`);
       }
     };
     try {
-      const fit = await call<Fit>("models.fit", { embedding, ...(reranker ? { reranker } : {}) });
-      if (fit.verdict === "fits") return void go();
-      const lighter = lighterModel(r);
+      const dry = await call<UseOut>("models.use", { ...pick, dryRun: true });
+      if (dry.fit.verdict === "fits") return void go();
+      const lighter = catalog?.find((c) => c.id === dry.lighter) ?? null;
       setFitAsk({
         title: r.label,
-        fit,
+        fit: dry.fit,
         lighter: lighter?.label ?? null,
         go: () => void go(),
         lighterGo: () => lighter && (isInstalled(lighter.state) ? void chooseModel(lighter) : void install(lighter)),
@@ -293,7 +285,7 @@ export function ModelsSection() {
   const verify = async (r: CatalogRow) => {
     setOps((o) => [...o, { key: r.id, jobId: "", label: "Verifying", message: "Loading the model", pct: null }]);
     try {
-      const v = await call<{ ok: boolean; dims: number; ms: number; message: string }>("models.verify", {
+      const v = await run<{ ok: boolean; dims: number; ms: number; message: string }>("models.verify", {
         model: r.id,
       });
       toast({
@@ -332,10 +324,10 @@ export function ModelsSection() {
       if (row) return void planPack(row);
     } else
       try {
-        const out = await call<{ reindex: boolean }>("models.use", a.to);
+        const out = await call<UseOut>("models.use", a.to);
         toast({ kind: "ok", title: "Advice applied", detail: out.reindex ? "Indexing again" : "" });
         await load();
-        if (out.reindex) await trackIndex();
+        if (out.indexJob) track(out.indexJob, "index", "Indexing the documents");
       } catch (e) {
         errorToast(e, "Could not apply the advice");
       }
@@ -343,7 +335,7 @@ export function ModelsSection() {
 
   const dismiss = async (a: AdviceRow) => {
     try {
-      await call("models.dismiss", { id: a.id });
+      await call("models.dismissAdvice", { id: a.id });
       setAdvice((x) => x.filter((y) => y.id !== a.id));
     } catch (e) {
       errorToast(e, "Could not dismiss the advice");

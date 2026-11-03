@@ -12,7 +12,6 @@ import {
   choiceLabel,
   defaultFolder,
   folderPicker,
-  lighterPack,
   type PackRow,
   size,
   suggestPack,
@@ -109,12 +108,6 @@ describe("models data helpers", () => {
     ).toBe("light");
     expect(suggestPack([pack("balanced", { embedding: "g" })], hw, cat)).toBe("balanced");
     expect(suggestPack([], hw, cat)).toBe("light");
-  });
-
-  it("lighterPack finds the next available pack, or none", () => {
-    const rows = [pack("balanced"), pack("performance", { available: false }), pack("light")];
-    expect(lighterPack(rows, "balanced")?.id).toBe("light");
-    expect(lighterPack(rows, "light")).toBeNull();
   });
 
   it("folderPicker uses the bridge when there is one", async () => {
@@ -395,13 +388,23 @@ describe("FolderDialog", () => {
       { root: "D:\\", freeMB: 9000, totalMB: 10000 },
       { root: "E:\\", freeMB: 10, totalMB: 100 },
     ]);
-    models.routes["models.setDir"] = (i) => ({
+    models.routes["models.planDir"] = (i) => ({
       dir: i.dir,
       drive: { root: String(i.dir).slice(0, 3), freeMB: 9000 },
       installedMB: 0,
       action: "set",
       files: 0,
-      dryRun: !!i.dryRun,
+    });
+    models.routes["models.setDir"] = () => ({ jobId: "models-dir-1" });
+    models.routes["jobs.show"] = (i) => ({
+      job: {
+        id: i.id,
+        kind: "models-dir",
+        subject: "D:\\Picked",
+        startedAt: "",
+        status: "done",
+        result: { dir: "D:\\Picked", action: "set", cancelled: false },
+      },
     });
     const d = fakeDesktop({ folder: "D:\\Picked" });
     const onApplied = vi.fn();
@@ -443,18 +446,17 @@ describe("FolderDialog", () => {
   it("changing: move, copy or keep what is downloaded; refusals and a failed apply", async () => {
     models.routes["models.hardware"] = () => ({ ramTotalMB: 1, gpus: [] });
     let refuse = false;
-    models.routes["models.setDir"] = (i) => {
-      if (refuse) return failing("Folder is read-only", i.dryRun ? "Pick another" : undefined);
+    models.routes["models.planDir"] = (i) => {
+      if (refuse) return failing("Folder is read-only", "Pick another");
       return {
         dir: i.dir,
         drive: { root: "F:\\", freeMB: 4000 },
         installedMB: 3000,
-        action: i.copy ? "copy" : "move",
+        action: i.copy ? "copy" : i.keep ? "keep" : "move",
         files: 1,
-        jobId: i.dryRun ? undefined : "mv-1",
-        dryRun: !!i.dryRun,
       };
     };
+    models.routes["models.setDir"] = () => (refuse ? failing("Folder is read-only") : { jobId: "mv-1" });
     const onApplied = vi.fn();
     const onClose = vi.fn();
     mount(<FolderDialog current={"C:\\old"} needMB={0} onApplied={onApplied} onClose={onClose} />);
@@ -468,7 +470,7 @@ describe("FolderDialog", () => {
     const seg = screen.getByRole("group", { name: "The models already downloaded" });
     fireEvent.click(within(seg).getByRole("button", { name: "Copy" }));
     expect(await screen.findByText(/Copied in a job/)).toBeInTheDocument();
-    expect(named("models.setDir").at(-1)?.input).toEqual({ dir: "\\\\srv\\models", dryRun: true, copy: true });
+    expect(named("models.planDir").at(-1)?.input).toEqual({ dir: "\\\\srv\\models", copy: true });
     fireEvent.click(screen.getByRole("button", { name: "Copy 2.9 GB" }));
     await waitFor(() => expect(onApplied).toHaveBeenCalledWith("\\\\srv\\models", "mv-1", "copy"));
     fireEvent.click(within(seg).getByRole("button", { name: "Keep where they are" }));
@@ -487,13 +489,12 @@ describe("FolderDialog", () => {
     let installedMB = 0;
     let files = 2;
     models.routes["models.hardware"] = hw([]);
-    models.routes["models.setDir"] = (i) => ({
+    models.routes["models.planDir"] = (i) => ({
       dir: i.dir,
       drive: { root: "F:\\", freeMB: 4000 },
       installedMB,
       action: "move",
       files,
-      dryRun: true,
     });
     mount(<FolderDialog current={"C:\\old"} needMB={0} onApplied={vi.fn()} onClose={vi.fn()} />);
     fireEvent.change(screen.getByLabelText("Folder"), { target: { value: "F:\\a" } });

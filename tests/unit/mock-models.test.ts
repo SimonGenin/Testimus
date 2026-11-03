@@ -78,12 +78,14 @@ describe("serve --mock models", () => {
   });
 
   it("usePack downloads through the real checked download, then activates and reindexes", async () => {
-    const plan = (await invoke("models.usePack", { pack: "performance", dryRun: true }, { project })) as {
+    const plan = (await invoke("models.planPack", { pack: "performance" }, { project })) as {
       plan: { download: { model: string }[] };
     };
     expect(plan.plan.download.map((d) => d.model)).toEqual(["qwen3-embedding-0.6b-onnx-fp16"]);
-    const out = (await invoke("models.usePack", { pack: "performance" }, { project })) as { jobIds: string[] };
-    const job = await waitJob(out.jobIds[0]);
+    const out = (await invoke("models.usePack", { pack: "performance" }, { project, wait: false })) as {
+      jobId: string;
+    };
+    const job = await waitJob(out.jobId);
     expect(job.status).toBe("done");
     const inst = readRegistry().installs.find((i) => i.model === "qwen3-embedding-0.6b-onnx-fp16");
     expect(inst).toMatchObject({ via: "download", status: "verified" });
@@ -97,18 +99,18 @@ describe("serve --mock models", () => {
   });
 
   it("usePack --downloadOnly keeps the current pack; a model pulled twice at once is fetched once", async () => {
-    const dry = (await invoke("models.usePack", { pack: "quality", dryRun: true }, { project })) as {
+    const dry = (await invoke("models.planPack", { pack: "quality" }, { project })) as {
       plan: { download: { model: string }[] };
     };
     const first = dry.plan.download[0].model;
     mockDownloads.fetched.length = 0;
-    const out = (await invoke("models.usePack", { pack: "quality", downloadOnly: true }, { project })) as {
-      jobIds: string[];
+    const out = (await invoke("models.usePack", { pack: "quality", downloadOnly: true }, { project, wait: false })) as {
+      jobId: string;
     };
     expect(await invoke("models.pull", { model: first }, { project: null })).toMatchObject({ model: first });
-    expect((await waitJob(out.jobIds[0])).status).toBe("done");
+    expect((await waitJob(out.jobId)).status).toBe("done");
     expect(new Set(mockDownloads.fetched).size).toBe(mockDownloads.fetched.length);
-    const bars = (showJob(project, out.jobIds[0])?.events ?? []).flatMap((e) =>
+    const bars = (showJob(project, out.jobId)?.events ?? []).flatMap((e) =>
       e.type === "progress" && e.total ? [{ done: e.done ?? 0, total: e.total }] : [],
     );
     expect(new Set(bars.map((b) => b.total)).size).toBe(1);
@@ -145,7 +147,7 @@ describe("serve --mock models", () => {
     const quality = p.find((x) => x.id === "quality");
     expect(quality).toMatchObject({ available: true, variant: 3, fit: { verdict: "tight" } });
     expect(quality?.skipped[0]).toMatch(/of memory \(ram-too-small\)$/);
-    const plan = (await invoke("models.usePack", { pack: "quality", dryRun: true }, { project })) as {
+    const plan = (await invoke("models.planPack", { pack: "quality" }, { project })) as {
       variant: number;
     };
     expect(plan.variant).toBe(3);
@@ -164,8 +166,10 @@ describe("serve --mock models", () => {
     const before = (await packs()).find((x) => x.active)?.id;
     const p = (await packs()).find((x) => x.id === "performance");
     expect(p).toMatchObject({ variant: 1, processorOnly: true, downloadMB: 600, fit: { verdict: "fits" } });
-    const out = (await invoke("models.usePack", { pack: "performance" }, { project })) as { jobIds: string[] };
-    const job = await waitJob(out.jobIds[0]);
+    const out = (await invoke("models.usePack", { pack: "performance" }, { project, wait: false })) as {
+      jobId: string;
+    };
+    const job = await waitJob(out.jobId);
     expect(job.status).toBe("failed");
     expect(job.error).toMatch(/is downloaded but does not run on this PC: mock: the runtime cannot load/);
     expect((await packs()).find((x) => x.active)?.id).toBe(before);
@@ -177,8 +181,8 @@ describe("serve --mock models", () => {
     await expect(invoke("models.usePack", { pack: "balanced" }, { project })).rejects.toThrow(/Choose where models/);
     const dir = join(m.shared, "..", "chosen-models");
     await invoke("models.setDir", { dir }, { project: null });
-    const out = (await invoke("models.usePack", { pack: "balanced" }, { project })) as { jobIds: string[] };
-    expect((await waitJob(out.jobIds[0])).status).toBe("done");
+    const out = (await invoke("models.usePack", { pack: "balanced" }, { project, wait: false })) as { jobId: string };
+    expect((await waitJob(out.jobId)).status).toBe("done");
     expect(readRegistry().llamacpp?.via).toBe("download");
     expect(existsSync(readRegistry().llamacpp?.exe ?? "")).toBe(true);
   });

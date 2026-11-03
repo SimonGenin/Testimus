@@ -1,8 +1,18 @@
 import { createHash } from "node:crypto";
-import type { Advice, Budgets, CatalogEntry, Fit, MachineProfile, Pack, PackVariant, RagChoice } from "../types.ts";
+import type {
+  Advice,
+  Budgets,
+  CatalogEntry,
+  Fit,
+  MachineProfile,
+  Pack,
+  PackVariant,
+  PerfLine,
+  RagChoice,
+} from "../types.ts";
 import { catalog, catalogEntry } from "./models-catalog.ts";
 import { fitOf } from "./models-fit.ts";
-import { memoryFailures, type PerfRecord, type PerfStat, perfStats } from "./models-perf.ts";
+import { memoryFailures, type PerfStat, perfStats } from "./models-perf.ts";
 import { adviceQuality, evalReports, type Measured } from "./models-quality.ts";
 
 export const PACK_ORDER = ["quality", "balanced", "performance", "light"];
@@ -14,7 +24,7 @@ export type AdviceInput = {
   choice: RagChoice;
   variant: PackVariant;
   machine: MachineProfile;
-  lines: PerfRecord[];
+  lines: PerfLine[];
   budgets: Budgets;
   dismissed?: Record<string, string>;
   packs?: Pack[];
