@@ -1071,3 +1071,11 @@
 .dock-scope-line {
   font-size: 12.5px;
 }
+
+.acard-btns {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  align-self: stretch;
+}

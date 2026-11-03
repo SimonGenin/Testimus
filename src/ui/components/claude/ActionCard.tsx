@@ -79,10 +79,12 @@ export function ActionCard({
                   </option>
                 ))}
               </select>
-              <span className="spacer" />
+            </div>
+            <div className="acard-btns">
               <Button size="sm" tone="quiet" onClick={onDismiss} title="The button goes and does not come back">
                 Dismiss
               </Button>
+              <span className="spacer" />
               <Button size="sm" onClick={onLater}>
                 Not now
               </Button>

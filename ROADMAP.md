@@ -101,6 +101,20 @@ Audit of everything Xray Editor lets a user see, do or edit, then the gaps close
 - [x] T3 Check generic over every kind (`id-unknown`, the requirement field follows `traces`), Review screens group ids by kind, runtime skills read `traces`; statements, `req:` anchors and the graph stay requirement-only by design
 - [x] T4 Coverage per kind: `traces.coverage`, Coverage dialog (not covered / covered / not in the documents), « Generate tests for the missing ids »
 
+## Claude actions — built 2026-11-03
+
+- [x] A1 `actions.*` commands (list, show, propose, dismiss, run, triage), action files in `.testimus/actions/`, stale when the
+      problem place changes, one open action per problem, a dismissed problem stays dismissed
+- [x] A2 Run kinds `action` (the whole command set minus another Claude run, Jira writes and the machine) and `triage`;
+      `claude.run` scope `doc`; snapshots copy project.json, xray.json and the document folder, so Revert puts them back
+- [x] A3 One right panel « Ask Claude » with a scope (step, test, document, project), action cards with their own model and
+      effort, the open actions of the scope listed under the thread
+- [x] A4 Claude action buttons beside the problem: document warnings, documents list, Review rows and findings, test header,
+      Generate, failed jobs; counters in the screen headers
+- [x] A5 Proposals from the check and the generation (`actions_propose` in their prompts and skills), a triage of a new
+      document's warnings with the import's model and effort, and of a failed job when Claude is there
+- A6 (later) Jira writes from an action: the push plan shown in the card, pushed on the user's yes
+
 ## Later
 
 - Execution support: test sheets for testers, screenshots from R4 runs, NOK → bug draft
