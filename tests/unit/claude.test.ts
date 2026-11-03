@@ -16,6 +16,7 @@ import {
 } from "../../src/core/claude/run.ts";
 import { changedStepNumbers, revert, stepBlocks } from "../../src/core/claude/snapshot.ts";
 import { eventsOf, streamParser } from "../../src/core/claude/stream.ts";
+import { EDIT_MARKER } from "../../src/core/commands/claude.ts";
 import { invoke } from "../../src/core/commands/index.ts";
 import { type ClaudeOut, type ClaudeSpawn, env } from "../../src/core/env.ts";
 import { DEFAULT_SETTINGS, readJson, writeSettings } from "../../src/core/lib/project.ts";
@@ -333,13 +334,24 @@ describe("claude.run", () => {
     )) as { ok: boolean; runId: string };
     expect(r.ok).toBe(true);
     expect(r.runId).toMatch(/^run-/);
-    expect(seen[0].stdin.split("\n").slice(0, 4)).toEqual([
+    expect(seen[0].stdin.split("\n").slice(0, 5)).toEqual([
+      "Use the edit-test skill for the request below.",
       "Scope: step 2 of test LFRPS12-1420.",
       "Files: tests/LFRPS12-1420/test.md",
       "Only modify what the scope allows.",
       'Only edit "## Step 2" of that file (its fields and its ### Sources); do not touch other steps.',
     ]);
     expect(seen[0].args.slice(4, 8)).toEqual(["--model", "sonnet", "--effort", "medium"]);
+  });
+
+  it("names the edit-test skill on a test, not on the project, and lets it run the mechanical check", async () => {
+    const dir = copyFixture();
+    fake([result("ok"), result("ok")]);
+    await invoke("claude.run", { scope: { kind: "test", testId: "LFRPS12-1420" }, prompt: "Relis." }, { project: dir });
+    await invoke("claude.run", { scope: { kind: "project" }, prompt: "Combien de tests ?" }, { project: dir });
+    expect(seen[0].stdin.startsWith(`${EDIT_MARKER}\nScope: the whole test LFRPS12-1420.`)).toBe(true);
+    expect(seen[1].stdin.startsWith("Scope: the whole project")).toBe(true);
+    expect((await mcpAccess("run")).allow).toContain("mcp__testimus__check_run");
   });
 
   it("states the scope, contexts and reply format in the prompt", () => {

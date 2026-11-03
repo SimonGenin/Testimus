@@ -5,18 +5,26 @@ import { UserError } from "../command.ts";
 import { env } from "../env.ts";
 import { loadCorpus, runMechanical } from "../lib/check.ts";
 import { columnGuidance } from "../lib/columns.ts";
+import { readDocMd } from "../lib/docs.ts";
 import { fieldOrder, readProject, readXray, writeJson } from "../lib/project.ts";
 import { listLocalTests, markGenerated, readTest, removeTest, testExists, writeTest } from "../lib/store.ts";
+import { anchorsOf } from "../rag/convert.ts";
 import { awaitsReview, type ClaudeEvent, type Diagnosis, type Effort, type Tokens } from "../types.ts";
 import { proposeLines } from "./actions.ts";
 import { checkTests, promoteChecked } from "./check.ts";
 import { ledgerOf } from "./ledger.ts";
 import { contextLines, readContexts } from "./prompt.ts";
-import { newRunId, runClaude } from "./run.ts";
-import { markLeft, readRun } from "./snapshot.ts";
+import { newRunId, type RunResult, runClaude } from "./run.ts";
+import { absorbRun, markLeft, readRun } from "./snapshot.ts";
 
 export const GEN_MARKER = "Use the generate-tests skill";
 export const REPORT_TAG = "gen-report";
+export const PLAN_TAG = "test-plan";
+export const PLAN_MARKER = "use the plan-tests skill";
+// ponytail: past this many requirements in scope, one run reads the whole scope once and writes every test from
+// memory (2026-11-03: 20 tests, one of 40 steps, 172 findings); a plan, then one run per test, re-reads each part
+export const PLAN_ABOVE = 15;
+export const PLAN_MAX = 30;
 
 const LANGUAGES: Record<string, string> = {
   fr: "French",
@@ -53,6 +61,9 @@ export type GenReport = {
   consulted: string[];
 };
 
+export type PlannedTest = { summary: string; technique: string; requirements: string[]; sections: string[] };
+export type TestPlan = { found: boolean; tests: PlannedTest[]; uncovered: Uncovered[] };
+
 export type GenCheck = { id: string; ok: boolean; review: string; errors: number; warnings: number };
 
 export type GenResult = {
@@ -66,6 +77,7 @@ export type GenResult = {
   uncovered: Uncovered[];
   reportFound: boolean;
   consulted: number;
+  planned: number;
   costUsd?: number;
   tokens?: Tokens;
   durationMs: number;
@@ -73,6 +85,16 @@ export type GenResult = {
 };
 
 const clean = (xs: string[] | undefined) => [...new Set((xs ?? []).map((x) => x.trim()).filter(Boolean))];
+const isSection = (s: string) => /^[^#\s]+#\S.*$/.test(s);
+
+export function scopeRequirements(project: string, i: GenInput): string[] {
+  const docs = clean(i.docs).filter((d) => existsSync(join(project, "docs", d, "doc.md")));
+  return [
+    ...new Set([...clean(i.requirements), ...docs.flatMap((d) => anchorsOf(readDocMd(project, d)).requirements)]),
+  ];
+}
+
+export type PlanPart = { n: number; of: number; request: string };
 
 export function checkGenInput(i: GenInput, project?: string): void {
   if (!i.request.trim() && !clean(i.requirements).length && !clean(i.sections).length && !clean(i.docs).length)
@@ -83,7 +105,7 @@ export function checkGenInput(i: GenInput, project?: string): void {
   const missing = project ? clean(i.docs).filter((d) => !existsSync(join(project, "docs", d, "doc.md"))) : [];
   if (missing.length)
     throw new UserError(`No document ${missing.join(", ")} in this project.`, "testimus docs list shows them.");
-  const bad = clean(i.sections).filter((s) => !/^[^#\s]+#\S.*$/.test(s));
+  const bad = clean(i.sections).filter((s) => !isSection(s));
   if (bad.length)
     throw new UserError(
       `Not a document section: ${bad.join(", ")}.`,
@@ -91,16 +113,31 @@ export function checkGenInput(i: GenInput, project?: string): void {
     );
 }
 
-export function genPrompt(project: string, i: GenInput, contextIds: string[] = [], runId?: string): string {
+export function genPrompt(
+  project: string,
+  i: GenInput,
+  contextIds: string[] = [],
+  runId?: string,
+  part?: PlanPart,
+): string {
   const p = readProject(project);
   const reqs = clean(i.requirements);
   const sections = clean(i.sections);
   const docs = clean(i.docs);
+  const size = part ? 0 : scopeRequirements(project, i).length;
   const lines = [
     `${GEN_MARKER} to write Xray manual tests for the request below, in this project folder.`,
     "",
     `Request: ${i.request.trim() || "(none in words — cover the documents, requirements and sections below)"}`,
   ];
+  if (part)
+    lines.push(
+      `This is test ${part.n} of ${part.of} of a plan${part.request ? ` for: ${part.request}` : ""}. Write exactly this one test; the other tests of the plan are written by other runs.`,
+    );
+  if (size > PLAN_ABOVE)
+    lines.push(
+      `The scope holds ${size} requirements. When covering it takes more than 3 tests, ${PLAN_MARKER} instead: write no test, and end your reply with its ${PLAN_TAG} block instead of the report block below.`,
+    );
   if (reqs.length)
     lines.push(`Requirements to cover, each by at least one step (read each one first): ${reqs.join(", ")}`);
   if (docs.length)
@@ -179,6 +216,43 @@ export function parseGenReport(text: string): GenReport {
   return { found: false, tests: [], covered: [], uncovered: [], consulted: [] };
 }
 
+// ponytail: the plan is the last fenced block tagged test-plan; a planned test needs a summary, and keeps only the
+// sections written docId#anchor
+export function parsePlan(text: string): TestPlan {
+  const blocks = [...text.matchAll(/```[ \t]*([\w-]*)[^\n]*\n([\s\S]*?)```/g)].filter((b) => b[1] === PLAN_TAG);
+  for (const b of blocks.reverse()) {
+    try {
+      const o = JSON.parse(b[2]) as Record<string, unknown>;
+      if (!o || typeof o !== "object" || !Array.isArray(o.tests)) continue;
+      const tests: PlannedTest[] = [];
+      for (const t of o.tests as unknown[]) {
+        if (!t || typeof t !== "object") continue;
+        const x = t as Record<string, unknown>;
+        const summary = typeof x.summary === "string" ? x.summary.trim() : "";
+        if (!summary) continue;
+        tests.push({
+          summary,
+          technique: typeof x.technique === "string" ? x.technique.trim() : "",
+          requirements: asStrings(x.requirements),
+          sections: asStrings(x.sections).filter(isSection),
+        });
+      }
+      if (tests.length) return { found: true, tests, uncovered: asUncovered(o.uncovered) };
+    } catch {}
+  }
+  return { found: false, tests: [], uncovered: [] };
+}
+
+export function plannedInput(i: GenInput, t: PlannedTest): GenInput {
+  return {
+    ...i,
+    request: t.technique ? `${t.summary} (${t.technique})` : t.summary,
+    requirements: t.requirements,
+    sections: t.sections,
+    docs: t.sections.length ? [] : i.docs,
+  };
+}
+
 export type ToolStep = { kind: "read" } | { kind: "write"; testId: string } | null;
 
 const TEST_PATH = /tests[\\/]+(local-[0-9a-f]{8})[\\/]+test\.md/i;
@@ -225,29 +299,28 @@ export const discardable = (project: string) =>
     .filter((t) => awaitsReview(t) && !t.key)
     .map((t) => t.id);
 
-export async function generateTests(project: string, input: GenInput, ctx: Ctx): Promise<GenResult> {
-  checkGenInput(input, project);
+type GenRun = { run: RunResult; tests: string[]; changed: string[]; report: GenReport };
+
+async function genRun(
+  ctx: Ctx,
+  project: string,
+  input: GenInput,
+  o: { runId: string; by: string; contexts: string[]; prompt: string; label: string },
+): Promise<GenRun> {
   const p = readProject(project);
-  const discarded = input.discard ? discardable(project) : [];
-  for (const id of discarded) removeTest(project, id);
-  if (discarded.length)
-    ctx.log("info", `Deleted ${discarded.length} test(s) not validated yet: ${discarded.join(", ")}.`);
-  const contexts = input.contexts ?? p.claude.contexts;
-  ctx.progress({ message: "Reading passages" });
   let reads = 0;
   const written: string[] = [];
   const texts: string[] = [];
-  const runId = newRunId();
   const run = await runClaude({
     project,
-    runId,
-    label: "generate",
-    prompt: genPrompt(project, input, contexts, runId),
+    runId: o.runId,
+    label: o.label,
+    prompt: o.prompt,
     model: input.model || p.claude.model,
     effort: input.effort || p.claude.effort,
     kind: "generate",
     scope: { kind: "project" },
-    contexts,
+    contexts: o.contexts,
     signal: ctx.signal,
     onEvent: (e) => {
       ctx.claude(e);
@@ -261,7 +334,6 @@ export async function generateTests(project: string, input: GenInput, ctx: Ctx):
     },
   });
   const before = readRun(project, run.runId).before;
-  const by = ctx.jobId ?? run.runId;
   // ponytail: a test is this generation's only when it did not exist before the run, a call of this run
   // wrote it, and no other generation stamped it — a test made by hand meanwhile is never claimed
   const tests = run.changedTests.filter(
@@ -269,17 +341,69 @@ export async function generateTests(project: string, input: GenInput, ctx: Ctx):
       before[id] === null &&
       run.written.includes(id) &&
       testExists(project, id) &&
-      [undefined, "", by].includes(readTest(project, id).test.generatedBy),
+      [undefined, "", o.by].includes(readTest(project, id).test.generatedBy),
   );
   const changed = run.changedTests.filter((id) => before[id] !== null && run.written.includes(id));
+  const report = parseGenReport(run.summary);
+  return { run, tests, changed, report: report.found ? report : parseGenReport(texts.join("")) };
+}
+
+const union = (xs: string[][]) => [...new Set(xs.flat())];
+
+export async function generateTests(project: string, input: GenInput, ctx: Ctx): Promise<GenResult> {
+  checkGenInput(input, project);
+  const p = readProject(project);
+  const discarded = input.discard ? discardable(project) : [];
+  for (const id of discarded) removeTest(project, id);
+  if (discarded.length)
+    ctx.log("info", `Deleted ${discarded.length} test(s) not validated yet: ${discarded.join(", ")}.`);
+  const contexts = input.contexts ?? p.claude.contexts;
+  ctx.progress({ message: "Reading passages" });
+  const runId = newRunId();
+  const by = ctx.jobId ?? runId;
+  const first = await genRun(ctx, project, input, {
+    runId,
+    by,
+    contexts,
+    prompt: genPrompt(project, input, contexts, runId),
+    label: "generate",
+  });
+  const runs = [first];
+  const plan = first.tests.length || !first.run.ok ? null : parsePlan(first.run.summary);
+  const todo = plan?.found ? plan.tests.slice(0, PLAN_MAX) : [];
+  if (plan && plan.tests.length > todo.length)
+    ctx.log("warn", `The plan has ${plan.tests.length} tests; only the first ${PLAN_MAX} are written.`);
+  if (todo.length) ctx.log("info", `Plan: ${todo.length} test(s), written one run each.`);
+  for (const [k, t] of todo.entries()) {
+    if (ctx.signal.aborted) break;
+    ctx.progress({ message: `Test ${k + 1} of ${todo.length}: ${t.summary}`, done: k, total: todo.length });
+    const id = newRunId();
+    const part = plannedInput(input, t);
+    const r = await genRun(ctx, project, part, {
+      runId: id,
+      by,
+      contexts,
+      prompt: genPrompt(project, part, contexts, id, { n: k + 1, of: todo.length, request: input.request.trim() }),
+      label: `generate ${k + 1}/${todo.length}`,
+    });
+    absorbRun(project, runId, id);
+    runs.push(r);
+    if (!r.run.ok) break;
+  }
+  const planned = runs.slice(1);
+  const tests = union(runs.map((r) => r.tests));
+  const changed = union(runs.map((r) => r.changed));
   // ponytail: the evidence ledger is on disk before the new tests are checked, so their first check already
   // sees what the generation never opened (related-unread); the full report replaces it below
-  const ledger = ledgerOf(project, run.calls);
+  const ledger = ledgerOf(
+    project,
+    runs.flatMap((r) => r.run.calls),
+  );
   const ledgerFile = join(project, ".testimus", "gen", `${by}.json`);
   writeJson(ledgerFile, {
     at: env.now().toISOString(),
     input,
-    runId: run.runId,
+    runId,
     tests,
     consulted: ledger.consulted,
     searched: ledger.searched,
@@ -302,38 +426,48 @@ export async function generateTests(project: string, input: GenInput, ctx: Ctx):
     const corpus = loadCorpus(project);
     for (const id of tests) runMechanical(project, id, corpus);
   }
-  markLeft(project, run.runId, tests);
+  markLeft(project, runId, tests);
   for (const id of tests) markGenerated(project, id);
-  for (const id of changed)
-    ctx.log("warn", `The generation changed the existing test ${id} — revert with ${run.runId}.`);
-  const report = parseGenReport(run.summary);
-  const final = report.found ? report : parseGenReport(texts.join(""));
-  if (!final.found && run.ok) ctx.log("warn", "The generation reply has no gen-report block: uncovered items unknown.");
-  if (!run.ok) ctx.log("error", run.summary);
+  for (const id of changed) ctx.log("warn", `The generation changed the existing test ${id} — revert with ${runId}.`);
+  const reports = planned.length ? planned.map((r) => r.report) : [first.report];
+  const reportFound = reports.every((r) => r.found);
+  const failed = runs.find((r) => !r.run.ok)?.run;
+  if (!reportFound && !failed)
+    ctx.log("warn", "The generation reply has no gen-report block: uncovered items unknown.");
+  if (failed) ctx.log("error", failed.summary);
+  const sum = (f: (r: RunResult) => number | undefined) =>
+    runs.some((r) => f(r.run) !== undefined) ? runs.reduce((a, r) => a + (f(r.run) ?? 0), 0) : undefined;
+  const tokensIn = sum((r) => r.tokens?.input);
+  const output = sum((r) => r.tokens?.output);
+  const costUsd = sum((r) => r.costUsd);
+  const diagnosis = failed?.diagnosis;
   const result: GenResult = {
-    runId: run.runId,
-    ok: run.ok,
-    summary: run.summary,
+    runId,
+    ok: !failed,
+    summary: planned.length
+      ? [`Plan: ${todo.length} test(s).`, ...planned.map((r) => r.run.summary)].join("\n\n")
+      : first.run.summary,
     tests,
     checks,
     changed,
     discarded,
-    uncovered: final.uncovered,
-    reportFound: final.found,
+    uncovered: [...(plan?.uncovered ?? []), ...reports.flatMap((r) => r.uncovered)],
+    reportFound,
     consulted: ledger.consulted.length,
-    costUsd: run.costUsd,
-    tokens: run.tokens,
-    durationMs: run.durationMs,
-    ...(run.diagnosis ? { diagnosis: run.diagnosis } : {}),
+    planned: planned.length,
+    ...(costUsd !== undefined ? { costUsd } : {}),
+    ...(tokensIn !== undefined && output !== undefined ? { tokens: { input: tokensIn, output } } : {}),
+    durationMs: runs.reduce((a, r) => a + r.run.durationMs, 0),
+    ...(diagnosis ? { diagnosis } : {}),
   };
   writeJson(ledgerFile, {
     at: env.now().toISOString(),
     input,
     ...result,
-    covered: final.covered,
+    covered: union(reports.map((r) => r.covered)),
     consulted: ledger.consulted,
     searched: ledger.searched,
-    reportedConsulted: final.consulted,
+    reportedConsulted: union(reports.map((r) => r.consulted)),
   });
   ctx.progress({ message: `${tests.length} test(s) written`, done: tests.length, total: tests.length });
   return result;

@@ -2,7 +2,17 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { checkGenInput, genPrompt, parseGenReport, REPORT_TAG, toolStep } from "../../src/core/claude/generate.ts";
+import {
+  checkGenInput,
+  genPrompt,
+  PLAN_MARKER,
+  PLAN_TAG,
+  parseGenReport,
+  parsePlan,
+  plannedInput,
+  REPORT_TAG,
+  toolStep,
+} from "../../src/core/claude/generate.ts";
 import { invoke } from "../../src/core/commands/index.ts";
 import { type ClaudeOut, type ClaudeSpawn, env } from "../../src/core/env.ts";
 import { subscribe } from "../../src/core/jobs.ts";
@@ -182,6 +192,155 @@ describe("gen-report parsing", () => {
       kind: "read",
     });
     expect(toolStep({ type: "text", text: "rag_search" })).toBeNull();
+  });
+});
+
+describe("planned generation", () => {
+  const bigDoc = () => {
+    mkdirSync(join(dir, "docs", "BIG_DOC"), { recursive: true });
+    const reqs = Array.from({ length: 16 }, (_, k) => `EXI_BIG_${String(k).padStart(2, "0")}`);
+    writeFileSync(
+      join(dir, "docs", "BIG_DOC", "doc.md"),
+      ["# Big", "", ...reqs.map((r, k) => `<!-- req ${r} -->\n${r} : le bouton ${k} s'allume.\n`)].join("\n"),
+    );
+  };
+
+  it("asks for a plan past 15 requirements in scope, never inside a planned test", () => {
+    bigDoc();
+    expect(genPrompt(dir, { request: "Tout le document", docs: ["BIG_DOC"] })).toContain(
+      `The scope holds 16 requirements. When covering it takes more than 3 tests, ${PLAN_MARKER} instead: write no test, and end your reply with its ${PLAN_TAG} block`,
+    );
+    expect(genPrompt(dir, { request: "x", requirements: ["EXI_MOP_SPF_511_A_1650"] })).not.toContain(PLAN_MARKER);
+    const t = {
+      summary: "Boutons 0 à 7",
+      technique: "partition",
+      requirements: ["EXI_BIG_00"],
+      sections: ["BIG_DOC#§1"],
+    };
+    const part = genPrompt(dir, plannedInput({ request: "Tout le document", docs: ["BIG_DOC"] }, t), [], undefined, {
+      n: 1,
+      of: 2,
+      request: "Tout le document",
+    });
+    expect(part).toContain("Request: Boutons 0 à 7 (partition)");
+    expect(part).toContain("This is test 1 of 2 of a plan for: Tout le document. Write exactly this one test;");
+    expect(part).toContain("BIG_DOC#§1");
+    expect(part).not.toContain(PLAN_MARKER);
+    expect(part).not.toContain("Documents in scope");
+    expect(plannedInput({ request: "", docs: ["BIG_DOC"] }, { ...t, sections: [] }).docs).toEqual(["BIG_DOC"]);
+  });
+
+  it("reads the last test-plan block; a planned test needs a summary, its sections are docId#anchor", () => {
+    const block = (o: unknown) => `\`\`\`${PLAN_TAG}\n${JSON.stringify(o)}\n\`\`\``;
+    const t = [
+      block({ tests: [{ summary: "Old" }] }),
+      block({
+        tests: [
+          { summary: " A ", technique: "états", requirements: ["EXI_1"], sections: ["DOC#§2", "§3"] },
+          { summary: "" },
+          "B",
+        ],
+        uncovered: [{ item: "EXI_9", why: "not observable by a manual tester" }],
+      }),
+    ].join("\n");
+    expect(parsePlan(t)).toEqual({
+      found: true,
+      tests: [{ summary: "A", technique: "états", requirements: ["EXI_1"], sections: ["DOC#§2"] }],
+      uncovered: [{ item: "EXI_9", why: "not observable by a manual tester" }],
+    });
+    expect(parsePlan(block({ tests: [] })).found).toBe(false);
+    expect(parsePlan("```test-plan\nnot json\n```").found).toBe(false);
+  });
+
+  it("writes each planned test in its own run, adds them up, and one revert removes them all", async () => {
+    bigDoc();
+    const plan = {
+      tests: [
+        { summary: "Boutons 0 à 7", requirements: ["EXI_BIG_00"], sections: ["BIG_DOC#req:EXI_BIG_00"] },
+        { summary: "Boutons 8 à 14", requirements: ["EXI_BIG_08"], sections: [] },
+      ],
+      uncovered: [{ item: "EXI_BIG_15", why: "not observable by a manual tester" }],
+    };
+    const planReply = `Deux tests.\n\`\`\`${PLAN_TAG}\n${JSON.stringify(plan)}\n\`\`\``;
+    const ids = ["local-0000a001", "local-0000b002"];
+    const nth = (s: ClaudeSpawn) => Number(s.stdin.match(/This is test (\d) of 2/)?.[1] ?? 0);
+    fake(
+      (s) => {
+        if (s.stdin.includes(PLAN_MARKER))
+          return [tool("mcp__testimus__docs_show", { id: "BIG_DOC" }), result(planReply)];
+        const id = ids[nth(s) - 1];
+        const uncovered = nth(s) === 2 ? [{ item: "EXI_BIG_09", why: "no passage" }] : [];
+        const reply = `Écrit ${id}.\n\`\`\`gen-report\n${JSON.stringify({ tests: [id], uncovered })}\n\`\`\``;
+        return [tool("Write", { file_path: join(dir, "tests", id, "test.md"), content: "…" }), result(reply)];
+      },
+      (s) => {
+        if (!nth(s)) return;
+        const id = ids[nth(s) - 1];
+        mkdirSync(join(s.cwd, "tests", id), { recursive: true });
+        writeFileSync(join(s.cwd, "tests", id, "test.md"), NEW_MD);
+      },
+    );
+    const r = (await invoke(
+      "gen.tests",
+      { request: "Tout le document", docs: ["BIG_DOC"], check: false },
+      { project: dir },
+    )) as {
+      runId: string;
+      ok: boolean;
+      tests: string[];
+      planned: number;
+      uncovered: unknown[];
+      reportFound: boolean;
+      costUsd: number;
+      summary: string;
+    };
+    expect(seen).toHaveLength(3);
+    expect(seen[1].stdin).toContain("Request: Boutons 0 à 7");
+    expect(seen[2].stdin).toContain("This is test 2 of 2 of a plan for: Tout le document.");
+    expect(r.ok).toBe(true);
+    expect(r.planned).toBe(2);
+    expect([...r.tests].sort()).toEqual(ids);
+    expect(r.uncovered).toEqual([
+      { item: "EXI_BIG_15", why: "not observable by a manual tester" },
+      { item: "EXI_BIG_09", why: "no passage" },
+    ]);
+    expect(r.reportFound).toBe(true);
+    expect(r.costUsd).toBe(0.75);
+    expect(r.summary.startsWith("Plan: 2 test(s).")).toBe(true);
+    for (const id of ids) expect(readTest(dir, id).test.review).toBe("draft");
+
+    const rev = (await invoke("claude.revert", { runId: r.runId }, { project: dir })) as { reverted: string[] };
+    expect([...rev.reverted].sort()).toEqual(ids);
+    for (const id of ids) expect(existsSync(join(dir, "tests", id))).toBe(false);
+  });
+
+  it("against the --mock Claude: a plan of two tests, then two runs that write two tests each", async () => {
+    bigDoc();
+    env.spawnClaude = mockSpawnClaude;
+    const r = (await invoke(
+      "gen.tests",
+      { request: "Tout le document", docs: ["BIG_DOC"], check: false },
+      { project: dir },
+    )) as { ok: boolean; planned: number; tests: string[]; uncovered: unknown[] };
+    expect(r.ok).toBe(true);
+    expect(r.planned).toBe(2);
+    expect(r.tests).toHaveLength(4);
+    expect(r.uncovered.length).toBeGreaterThan(0);
+  });
+
+  it("a plan without tests runs nothing more", async () => {
+    bigDoc();
+    const reply = 'Rien à planifier.\n```test-plan\n{"tests": []}\n```';
+    fake(() => [result(reply)]);
+    const r = (await invoke(
+      "gen.tests",
+      { request: "Tout le document", docs: ["BIG_DOC"], check: false },
+      { project: dir },
+    )) as { planned: number; tests: string[]; reportFound: boolean };
+    expect(seen).toHaveLength(1);
+    expect(r.planned).toBe(0);
+    expect(r.tests).toEqual([]);
+    expect(r.reportFound).toBe(false);
   });
 });
 

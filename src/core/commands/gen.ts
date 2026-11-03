@@ -22,7 +22,7 @@ export const commands: Command[] = [
   command({
     name: "gen.tests",
     summary:
-      "Generate draft tests from the documents with Claude (generate-tests skill): every expected result sourced, gaps reported.",
+      "Generate draft tests from the documents with Claude (generate-tests skill): every expected result sourced, gaps reported. A scope too large for one run is planned first (plan-tests skill), then written one run per test.",
     input: z.object({
       request: z
         .string()
@@ -99,6 +99,11 @@ export const commands: Command[] = [
         .number()
         .describe(
           "How many passages (docId#anchor) the run actually opened, read from its tool calls; the list is in .testimus/gen/<job>.json",
+        ),
+      planned: z
+        .number()
+        .describe(
+          "Tests written from a plan (plan-tests skill), one Claude run each, when the scope was too large for one run; 0 otherwise",
         ),
       costUsd: z.number().optional(),
       tokens: z

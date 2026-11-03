@@ -12,8 +12,8 @@ You answer **only** from the project's documents. You never edit a file while an
    `rag_related` on each requirement id (`EXI_…`, bare) and on the sections you rely on (traced
    sections, cross-references, amending documents); `rag_search` for the rest (synonyms, a behavior
    in words). Then `rag_passage` on the passages that matter (`docId#anchor`). Read the passage in
-   `docs/<docId>/doc.md` with its surroundings, and the document's `context.md` (what the team says
-   about it) before relying on it.
+   `docs/<docId>/doc.md` with its surroundings, and the document's team context (`docs_show`
+   returns it as `context`; most documents have none) before relying on it.
 2. **Answer plainly**, in the language of the question; the first sentence is the answer.
 3. **Every factual sentence ends with its source**, in the Testimus form:
    `[SOSIE_211_D401-1_3#§5.6.6 "Selon le type de sectionneur, le menu contextuel diffère"]`.

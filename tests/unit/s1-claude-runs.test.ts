@@ -116,7 +116,7 @@ describe("M1 — each run kind gets its own MCP allow-list", () => {
     );
     expect(await extra("triage")).toEqual(m(["actions_propose"]));
     expect(await extra("fix")).toEqual(m(["tests_edit", "tests_save", "tests_addImage"]));
-    expect(await extra("run")).toEqual(m(["tests_edit", "tests_save", "tests_addImage"]));
+    expect(await extra("run")).toEqual(m(["tests_edit", "tests_save", "tests_addImage", "check_run"]));
     for (const k of ["chat", "figures", "headers", "check", "generate", "fix", "run"] as const) {
       const a = await mcpAccess(k);
       for (const n of NEVER) {

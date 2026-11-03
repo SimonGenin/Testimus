@@ -7,7 +7,8 @@ and what the team knows about both. Testimus (the app) and you work on the same 
 
 - `docs/<docId>/` — one document: `doc.md` (converted text, anchors as `<!-- § 5.6.6 -->`,
   `<!-- req EXI_… -->`, `<!-- fig 40 -->`), `figures/`, `doc.json` (version, `status`,
-  `amends`), `context.md` (what the team says about it — read it before using the document).
+  `amends`), `context.md` when the team wrote one (what it says about the document; `docs_show`
+  returns it as `context` — read it before using the document).
 - `tests/<id>/test.md` — one Xray test (format below); `images/` its screenshots.
 - `requirements/requirements.csv` — the requirement list, when the project has one.
 - `contexts/` — reference notes attached to runs.

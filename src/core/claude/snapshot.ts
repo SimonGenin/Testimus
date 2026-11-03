@@ -186,6 +186,22 @@ export function finishSnapshot(project: string, runId: string, written: string[]
   return rec;
 }
 
+// ponytail: a planned generation is several runs; the first one's record takes the tests the later ones created,
+// so reverting the generation's runId removes them all
+export function absorbRun(project: string, into: string, from: string): void {
+  const rec = readRun(project, into);
+  const other = readRun(project, from);
+  for (const id of other.changedTests) {
+    if (other.before[id] !== null || id in rec.before) continue;
+    rec.before[id] = null;
+    rec.changedTests.push(id);
+    rec.changedSteps[id] = other.changedSteps[id] ?? [];
+    rec.after = { ...rec.after, [id]: other.after?.[id] ?? null };
+    if (other.written?.includes(id)) rec.written = [...(rec.written ?? []), id];
+  }
+  writeJson(runFile(project, into), rec);
+}
+
 // ponytail: what Testimus itself writes right after a run (generation stamp, review state) is part of what the run left
 export function markLeft(project: string, runId: string, ids: string[]): void {
   const rec = readRun(project, runId);

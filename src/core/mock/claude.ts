@@ -160,7 +160,7 @@ function editTest(cwd: string, prompt: string): string | null {
 }
 
 registerMockScript(
-  (prompt) => prompt.startsWith("Scope:"),
+  (prompt) => prompt.startsWith("Scope:") || prompt.startsWith("Use the edit-test skill"),
   (spawn) => {
     let edited: string | null = null;
     return mockStream(spawn, {

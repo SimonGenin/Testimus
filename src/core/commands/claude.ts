@@ -10,6 +10,8 @@ import type { ClaudeScope } from "../types.ts";
 
 export const EFFORT = z.enum(["low", "medium", "high", "xhigh", "max"]);
 
+export const EDIT_MARKER = "Use the edit-test skill for the request below.";
+
 export const MODEL = z
   .string()
   .regex(/^[A-Za-z0-9.\-[\]:]+$/, "A model alias or id: letters, digits and . - [ ] : only");
@@ -117,17 +119,18 @@ export const commands: Command[] = [
           ? projectContexts(project)
           : effectiveContexts(project, "testId" in input.scope ? input.scope.testId : undefined));
       ctx.progress({ message: `Claude on ${scopeLabel(input.scope)}` });
+      const prompt = buildPrompt(
+        input.scope,
+        input.prompt,
+        readContexts(project, ids),
+        project,
+        input.note,
+        input.conversation,
+      );
       const { calls: _calls, ...r } = await runClaude({
         kind: "run",
         project,
-        prompt: buildPrompt(
-          input.scope,
-          input.prompt,
-          readContexts(project, ids),
-          project,
-          input.note,
-          input.conversation,
-        ),
+        prompt: input.scope.kind === "project" ? prompt : `${EDIT_MARKER}\n${prompt}`,
         model: input.model || p.claude.model,
         effort: input.effort || p.claude.effort,
         scope: input.scope,

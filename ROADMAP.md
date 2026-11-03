@@ -115,6 +115,21 @@ Audit of everything Xray Editor lets a user see, do or edit, then the gaps close
       document's warnings with the import's model and effort, and of a failed job when Claude is there
 - A6 (later) Jira writes from an action: the push plan shown in the card, pushed on the user's yes
 
+## Runtime skills from the claude -p traces — built 2026-11-03
+
+What 85 real runs showed (one « whole document » generation: 103 turns, 20 tests written from one read, one of 40
+steps, 172 findings, `vague-result` first; `rag_related` never called):
+
+- [x] K1 `plan-tests` skill: past 15 requirements in scope the generation may answer with a `test-plan` block instead of
+      tests; `gen.tests` then runs generate-tests once per planned test (at most 30), the plan's `uncovered` in the
+      report, one revert for all (`planned` in the result)
+- [x] K2 `edit-test` skill for the Claude panel on a test or a step (`claude.run` names it), with `check_run` allowed
+- [x] K3 generate-tests: an expected result is observable on the screen (else uncovered), the test states its starting
+      point, a chapter is not a scenario, every `check_run` finding fixed (`quote-weak` too), re-read with `tests_show`
+- [x] K4 check-test: `rag_related` once per requirement id, `rag_mentions` once per object, a missing case is checked
+      against the other tests first; figures read at the path `rag_figure` gives
+- [x] K5 the team context is `docs_show`'s `context` (most documents have no `context.md`)
+
 ## Later
 
 - Execution support: test sheets for testers, screenshots from R4 runs, NOK → bug draft

@@ -10,6 +10,10 @@ manual tests a tester can run without reading the specification, and a reviewer 
 claim. A claim without a source is worthless here: the reviewer checks every quote against the
 document, and the app checks them mechanically first.
 
+A request that says the scope is large and to use the plan-tests skill: when covering it takes more
+than 3 tests, follow plan-tests instead of this skill and write no test — Testimus then runs this
+skill once per planned test.
+
 ## 1. Understand the scope
 
 1. Read the project `CLAUDE.md` (format, precedence, **team notes** — the house style there wins over
@@ -35,8 +39,12 @@ document, and the app checks them mechanically first.
      records what you actually opened: a section `rag_related` links to a covered requirement that
      you never opened is reported to the reviewer;
    - the requirement ids that sit in those sections are in scope too: list them.
-4. For each document you use: read its `context.md` (what the team knows: what is not simulated,
-   what is not wired yet) and its `doc.json`; when two documents
+
+   This step is done when every requirement id of the scope has had its own `rag_related` call and
+   every object and screen of the scope its own `rag_mentions` call — one call per term, not one
+   per step.
+4. For each document you use: read its team context (`docs_show` returns it as `context`: what is
+   not simulated, what is not wired yet — most documents have none) and its `doc.json`; when two documents
    disagree apply the precedence of `CLAUDE.md`, and when it does not settle it, say so in the test
    description and in your report.
 5. **Open the pictures.** `rag_passage` lists the figures of each section; for every figure with a
@@ -60,6 +68,14 @@ document, and the app checks them mechanically first.
 - **Every requirement in scope is verified by at least one step.** A step's requirement field lists
   only the requirements that step actually verifies — its gesture exercises the requirement and its
   expected result observes it. A requirement the step merely touches is not listed.
+- **Observable on the screen.** An expected result is what the tester sees or hears at the
+  simulator: a window, a menu entry, a colour, a symbol, a message, a state shown. A requirement
+  about internal logic (a server function, a file read, a search order), a capacity no screen shows
+  or a design deliverable makes no step: report it in `uncovered` with the why « not observable by a
+  manual tester ».
+- **A starting point.** The description states what the tester starts from (the profile, the
+  object and its type, its state). A step that checks a behavior in a state first brings the object
+  into that state, in its own Action or an earlier step.
 - **Step columns.** The request lists the step columns and what the team wants in each (its
   description): follow each description, it wins over the generic advice below. A column the request
   says to leave empty is never written. An id column (requirements, alarm codes, use cases… —
@@ -71,7 +87,8 @@ document, and the app checks them mechanically first.
 - **Additional context.** The request may end with saved contexts to read and a note from the user
   for this run: read them before you design; they say what the documents do not (what is simulated,
   the house vocabulary, the operator's post).
-- One test per coherent scenario; 3–15 steps is the norm. Split rather than overload. Do not
+- One test per coherent scenario; 3–15 steps is the norm. A chapter is not a scenario: a test that
+  grows past 15 steps is split. Do not
   duplicate an existing test: `tests_list` / `tests_show` first, and say in your report when an
   existing test already covers something.
 
@@ -94,7 +111,7 @@ document, and the app checks them mechanically first.
 ### Content
 
 - **Description**: one sentence of what the test verifies, then the technique (« Technique boîte
-  noire : partition par type de sectionneur »). Preconditions the tester needs go here or in step 1.
+  noire : partition par type de sectionneur »), then the starting point (section 2).
 - **Action**: one gesture and the object it acts on, concrete: which screen, which object, which
   menu entry, which value. One UI action and its visible effect = one step; do not merge two button
   presses. When several roles act, name the role first.
@@ -151,14 +168,17 @@ that step:
 
 ## 4. Before you finish
 
-1. Run `check_run` with `semantic: false` on the tests you wrote (when the tool exists) and fix what it
-   reports — above all `quote-not-found`: open `doc.md` and copy the quote again; for
-   `figure-not-embedded`, embed the figure it names. Testimus runs the full check (check-test) on the
-   new tests itself once you are done.
-2. Re-read each test once as the tester: could you run it without the specification? Is every
-   expected result observable? **Pictures:** for each step that acts on or looks at a screen, a
+1. Run `check_run` with `semantic: false` on the tests you wrote (when the tool exists) and fix every
+   finding it reports, warnings included: `quote-not-found` — open `doc.md` and copy the quote again;
+   `quote-weak` — quote more words, until the quote points at one place; `figure-not-embedded` —
+   embed the figure it names. Run it again until it reports nothing you can fix. Testimus runs the
+   full check (check-test) on the new tests itself once you are done.
+2. Re-read each test with `tests_show` after your last write, as the tester: could you run it
+   without the specification? Every expected result observable on the screen, every state a step
+   checks prepared before it? **Pictures:** for each step that acts on or looks at a screen, a
    menu, a symbol or a colour, is the document's picture of it embedded — when the document has
-   one? Embed the missing ones now; a large run is no reason to skip them.
+   one? Fix what fails, embed the missing pictures, or move it to `uncovered`; a large run is no
+   reason to skip them.
 3. Reply in a few lines, in the project language: the tests written (id, summary, steps), the
    requirements covered, what you could not cover and why. **End the reply with this block**, valid
    JSON, nothing after it:

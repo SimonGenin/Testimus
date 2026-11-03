@@ -53,7 +53,7 @@ const EXTRA: Record<RunKind, string[]> = {
   check: ["check.record", "actions.propose"],
   generate: ["tests.create", ...TEST_WRITES, "check.run", "actions.propose"],
   fix: TEST_WRITES,
-  run: TEST_WRITES,
+  run: [...TEST_WRITES, "check.run"],
   triage: ["actions.propose"],
   action: [],
 };

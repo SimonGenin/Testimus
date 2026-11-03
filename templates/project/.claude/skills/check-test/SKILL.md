@@ -17,12 +17,13 @@ test, not `check.json`. You report what is wrong, precisely enough that a review
    - open the cited passage (`rag_passage <docId#anchor>`) and read it in `docs/<docId>/doc.md` with its
      surroundings;
    - does it **say** what the step claims? Not "is compatible with" — says;
-   - a `fig:<n>` source: `rag_figure <docId> <n>`, then **`Read` the image** before accepting the
-     claim — the caption alone proves only that the figure exists. Never accept a `fig:` claim you
-     have not looked at.
-3. For each requirement in the step's requirement field (`Exigence` for LFRPS12): `rag_related <ID>`
-   (statement, defining and traced sections — read both when they differ —, amending documents),
-   then read it (`rag_passage <docId#req:ID>`); does this step verify it — the gesture exercises it
+   - a `fig:<n>` source: `rag_figure <docId> <n>`, then **`Read` the image** at the path it gives
+     (file names under `figures/` are not `fig-<n>.png`) before accepting the claim — the caption
+     alone proves only that the figure exists. Never accept a `fig:` claim you have not looked at.
+3. For each requirement id of the test (the requirement field of its steps, `Exigence` for LFRPS12),
+   once per id even when several steps list it: `rag_related <ID>` (statement, defining and traced
+   sections — read both when they differ —, amending documents), then read it
+   (`rag_passage <docId#req:ID>`). For each step that lists it: does the step verify it — the gesture exercises it
    and the expected result observes it? Every other kind in `project.json.traces` is checked the
    same way on its own column (`field`): each id is written in the documents (`Grep` its pattern)
    and the step verifies it — else `wrong-requirement`, naming the column. When `traces` has no
@@ -31,9 +32,11 @@ test, not `check.json`. You report what is wrong, precisely enough that a review
    describe for this object that are missing (other types, other states, the negative path); and
    the pictures — a step about a screen, a menu, a symbol or a colour whose document section has a
    figure with a picture (`rag_passage` lists them) that the test does not embed
-   (`figure-not-embedded`). No picture in the document is not a finding.
-5. Look for contradicting passages with `rag_mentions` on each object, screen and gesture of the step
-   (every page), in the **other** documents and in the documents that **amend** the cited one
+   (`figure-not-embedded`). No picture in the document is not a finding. A test is often one of a
+   series: before you report a missing requirement, case or negative path, `Grep` its requirement
+   id or its object in `tests/*/test.md` — what another test covers is not missing.
+5. Look for contradicting passages with `rag_mentions` on each object and screen of the test, once
+   per term (every page), in the **other** documents and in the documents that **amend** the cited one
    (`rag_related <docId#anchor>` lists them, kind `amends`) — not with one top-10 search. Read each
    hit's section before concluding. When a passage disagrees, apply the precedence of the project
    `CLAUDE.md` and of `doc.json` (`status`; an amendment wins over what it amends): say

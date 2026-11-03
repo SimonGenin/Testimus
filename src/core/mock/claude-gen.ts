@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { FIGURES_MARKER, FIGURES_TAG } from "../claude/figures.ts";
-import { GEN_MARKER, REPORT_TAG } from "../claude/generate.ts";
+import { GEN_MARKER, PLAN_MARKER, PLAN_TAG, REPORT_TAG } from "../claude/generate.ts";
 import { HEADERS_MARKER, HEADERS_TAG } from "../claude/headers.ts";
 import { attachImage } from "../commands/images.ts";
 import type { ClaudeSpawn } from "../env.ts";
@@ -220,6 +220,41 @@ registerMockScript(
       ],
       result: reply,
       costUsd: 0.4211,
+    });
+  },
+);
+
+// ponytail: a scope past PLAN_ABOVE requirements gets a two-test plan; each planned run is the script above
+registerMockScript(
+  (prompt) => prompt.includes(GEN_MARKER) && prompt.includes(PLAN_MARKER),
+  (spawn) => {
+    const plan = {
+      tests: [
+        {
+          summary: "Sectionneur sans TK — menu contextuel et ouverture",
+          technique: "cas d'utilisation",
+          requirements: ["EXI_MOP_SPF_511_A_1650", "EXI_MOP_SPF_511_A_1670"],
+          sections: [`${DOC}#§5.6.6`],
+        },
+        {
+          summary: "Sectionneur avec TK — refus de la manœuvre locale",
+          technique: "chemin négatif",
+          requirements: ["EXI_MOP_SPF_511_A_1660", "EXI_MOP_SPF_511_A_1680"],
+          sections: [`${DOC}#§5.6.6`],
+        },
+      ],
+      uncovered: UNCOVERED,
+    };
+    const reply = `Plan : 2 tests.\n\n\`\`\`${PLAN_TAG}\n${JSON.stringify(plan)}\n\`\`\``;
+    return mockStream(spawn, {
+      tools: [
+        { name: "Skill", input: { skill: "plan-tests" } },
+        { name: "mcp__testimus__docs_show", input: { id: DOC } },
+        { name: "Read", input: { file_path: `docs/${DOC}/doc.md` } },
+      ],
+      texts: [reply],
+      result: reply,
+      costUsd: 0.1204,
     });
   },
 );
