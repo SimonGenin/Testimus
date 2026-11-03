@@ -23,7 +23,12 @@ vi.mock("../../src/ui/api.ts", async (importOriginal) => {
   const real = await importOriginal<typeof import("../../src/ui/api.ts")>();
   return {
     ...real,
-    call: vi.fn(async (name: string, input: Record<string, unknown>) => {
+    call: vi.fn(async (name: string, input: Record<string, unknown>, opts?: { project?: string | null }) => {
+      if (name === "jobs.cancel") {
+        cancels.push({ id: String(input.id), project: opts?.project ? encodeURIComponent(opts.project) : undefined });
+        if (input.id === "boom") throw new Error("net");
+        return {};
+      }
       calls.push({ name, input });
       return callResult();
     }),
@@ -62,14 +67,6 @@ beforeEach(() => {
   errors.length = 0;
   cancels.length = 0;
   localStorage.clear();
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (_url: string, init: { headers: Record<string, string>; body: string }) => {
-      cancels.push({ id: JSON.parse(init.body).id, project: init.headers["X-Testimus-Project"] });
-      if (JSON.parse(init.body).id === "boom") throw new Error("net");
-      return new Response("{}");
-    }),
-  );
   watchPull("");
 });
 

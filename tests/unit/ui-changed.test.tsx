@@ -28,7 +28,9 @@ beforeEach(() => {
   window.location.hash = "";
   net.api = () => ({ project: "C:\\p", mock: true, commands: [] });
   net.routes["project.info"] = () => appState().info;
-  net.routes["system.setup"] = () => ({ status: { jira: { complete: true }, xray: { complete: true } } });
+  net.routes["system.credentials"] = net.routes["system.setCredentials"] = () => ({
+    status: { jira: { complete: true }, xray: { complete: true } },
+  });
   net.routes["jobs.list"] = () => [];
   net.routes["system.doctor"] = () => [];
   net.routes["project.list"] = () => [];

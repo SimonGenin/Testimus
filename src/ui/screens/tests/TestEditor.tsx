@@ -228,7 +228,7 @@ export function TestEditor({
     call<TestContexts>("contexts.ofTest", { testId })
       .then((c) => !dead && setTestCtx(c))
       .catch(() => {});
-    call<{ own: ColumnModes | null }>("tests.columns", { id: testId })
+    call<{ own: ColumnModes | null }>("tests.folds", { id: testId })
       .then((c) => !dead && setTestCols(c.own))
       .catch(() => {});
     return () => {
@@ -597,7 +597,7 @@ export function TestEditor({
 
   const setTestModes = async (modes: ColumnModes | null) => {
     try {
-      const r = await call<{ own: ColumnModes | null }>("tests.setColumns", { id: testId, modes });
+      const r = await call<{ own: ColumnModes | null }>("tests.setFolds", { id: testId, modes });
       setTestCols(r.own);
     } catch (e) {
       errorToast(e, "Could not save the column settings of this test");

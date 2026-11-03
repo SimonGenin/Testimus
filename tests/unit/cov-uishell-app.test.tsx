@@ -75,7 +75,9 @@ beforeEach(() => {
   });
   net.routes["project.info"] = () =>
     info({ counts: { docs: 1, tests: 2, review: { checked: 2, "to-fix": 1 }, awaiting: 3, jobsRunning: 0 } });
-  net.routes["system.setup"] = () => ({ status: { jira: { complete: true }, xray: { complete: true } } });
+  net.routes["system.credentials"] = net.routes["system.setCredentials"] = () => ({
+    status: { jira: { complete: true }, xray: { complete: true } },
+  });
   net.routes["jobs.list"] = () => [];
   net.routes["system.doctor"] = () => [];
   net.routes["project.list"] = () => [];
@@ -123,7 +125,7 @@ describe("App boot", () => {
     await waitFor(() => expect(project()).toBe("C:\\p"));
     await waitFor(() => expect(screen.getByText(/fields 2/)).toBeInTheDocument());
     expect(screen.getByRole("button", { name: /^Review/ })).toHaveTextContent("3");
-    expect(callsOf("system.setup")).toHaveLength(1);
+    expect(callsOf("system.credentials")).toHaveLength(1);
     expect(window.location.hash).toBe("");
   });
 
@@ -216,7 +218,9 @@ describe("App boot", () => {
     sessionStorage.clear();
     window.location.hash = "";
     net.api = () => ({ project: "C:\\p", commands: [] });
-    net.routes["system.setup"] = () => ({ status: { jira: { complete: true }, xray: { complete: false } } });
+    net.routes["system.credentials"] = net.routes["system.setCredentials"] = () => ({
+      status: { jira: { complete: true }, xray: { complete: false } },
+    });
     mount();
     await hashIs("#/setup");
   });
@@ -226,22 +230,22 @@ describe("App boot", () => {
     net.api = () => ({ project: null, commands: [] });
     const a = mount();
     await waitFor(() => expect(callsOf("api")).toHaveLength(1));
-    expect(callsOf("system.setup")).toHaveLength(0);
+    expect(callsOf("system.credentials")).toHaveLength(0);
     a.unmount();
     sessionStorage.clear();
     window.location.hash = "#/setup";
     const b = mount();
     expect(await screen.findByRole("region", { name: "Setup screen" })).toBeInTheDocument();
     await waitFor(() => expect(callsOf("api")).toHaveLength(2));
-    expect(callsOf("system.setup")).toHaveLength(0);
+    expect(callsOf("system.credentials")).toHaveLength(0);
     b.unmount();
     window.location.hash = "";
     net.api = () => ({ project: "C:\\p", commands: [] });
-    net.routes["system.setup"] = () => {
+    net.routes["system.credentials"] = net.routes["system.setCredentials"] = () => {
       throw new Fail("x");
     };
     mount();
-    await waitFor(() => expect(callsOf("system.setup")).toHaveLength(1));
+    await waitFor(() => expect(callsOf("system.credentials")).toHaveLength(1));
     expect(window.location.hash).toBe("");
   });
 });

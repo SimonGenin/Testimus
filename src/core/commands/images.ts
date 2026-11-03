@@ -5,7 +5,8 @@ import { command, projectOf, UserError } from "../command.ts";
 import { fieldOrder } from "../lib/columns.ts";
 import { readXray } from "../lib/project.ts";
 import { addImage, readTest, testExists, writeTest } from "../lib/store.ts";
-import { fieldName, imageRef } from "../lib/testfile.ts";
+import { imageRef } from "../lib/test-blocks.ts";
+import { fieldName } from "../lib/testfile.ts";
 import { figure as docFigure } from "../rag/search/passage.ts";
 import { BUILTIN_FIELDS, type StepImage } from "../types.ts";
 

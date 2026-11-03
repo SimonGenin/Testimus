@@ -4,15 +4,9 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { invoke } from "../../../../src/core/commands/index.ts";
 import { type ClaudeSpawn, env, type HttpReq } from "../../../../src/core/env.ts";
-import {
-  diskCheck,
-  hideAuth,
-  type ModelDeps,
-  modelRows,
-  nodeCheck,
-  proxyCheck,
-  runDoctor,
-} from "../../../../src/core/lib/doctor.ts";
+import { hideAuth, nodeCheck, proxyCheck, runDoctor } from "../../../../src/core/lib/doctor.ts";
+import { type ModelDeps, modelRows } from "../../../../src/core/lib/doctor-models.ts";
+import { diskCheck } from "../../../../src/core/lib/doctor-row.ts";
 import { catalogEntry, registryFile } from "../../../../src/core/lib/models-catalog.ts";
 import { pinMachineProfile } from "../../../../src/core/lib/models-hardware.ts";
 import { journalFile, recordPerf } from "../../../../src/core/lib/models-perf.ts";
@@ -141,7 +135,10 @@ describe("doctor", () => {
     expect(by.sqlite.detail).toMatch(/sqlite-vec/);
     expect(by.onnx.state).toBe("ok");
     expect(by.face).toMatchObject({ state: "ok", detail: "browser" });
-    expect(by.claude).toMatchObject({ state: "ok", detail: "claude 2.1.300" });
+    expect(by.claude).toMatchObject({
+      state: "ok",
+      detail: expect.stringMatching(/(^|[\\/])claude(\.exe|\.cmd)? 2\.1\.300$/),
+    });
     expect(by.claudeLogin.state).toBe("fail");
     expect(by.claudeLogin.detail).toMatch(/login/);
     expect(by.jira).toMatchObject({ state: "ok", detail: "Tess on acme.atlassian.net" });
@@ -160,7 +157,7 @@ describe("doctor", () => {
       input: { model: "bge-m3-q8" },
     });
     expect(by.claudeLogin.action).toMatchObject({ command: "system.doctor", input: { claude: true } });
-    expect(by.xray.action).toMatchObject({ command: "system.setup" });
+    expect(by.xray.action).toMatchObject({ command: "system.setCredentials" });
     expect(http.map((h) => `${h.method} ${h.url}`).sort()).toEqual([
       "GET https://acme.atlassian.net/rest/api/3/myself",
       "POST https://xray.cloud.getxray.app/api/v2/authenticate",
@@ -175,7 +172,7 @@ describe("doctor", () => {
     expect(by.claudeLogin.state).toBe("skip");
     expect(spawns.map((s) => s.args[0])).toEqual(["--version"]);
     expect(by.jira.state).toBe("fail");
-    expect(by.jira.fix).toMatch(/system setup/);
+    expect(by.jira.fix).toMatch(/system setCredentials/);
     expect(by.xray.state).toBe("fail");
     expect(by["disk.index"].state).toBe("skip");
     expect(by["index.space"].state).toBe("skip");

@@ -1,6 +1,7 @@
 import type { Ctx } from "../command.ts";
-import { loadCorpus, mechanicalCheck, semanticOf, setReview } from "../lib/check.ts";
+import { loadCorpus, mechanicalCheck, semanticOf } from "../lib/check.ts";
 import { readProject } from "../lib/project.ts";
+import { setReview } from "../lib/review.ts";
 import { readCheck, readTest } from "../lib/store.ts";
 import type { CheckFile, Diagnosis, Finding, Review } from "../types.ts";
 import { checkOne, findingLine } from "./check.ts";

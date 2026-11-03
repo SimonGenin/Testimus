@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { call } from "../../api.ts";
 import { useApp } from "../../lib/app.ts";
-import { openProject } from "../../lib/desktop.ts";
+import { showProject } from "../../lib/desktop.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 import { Button, Modal } from "../legacy/index.ts";
 
@@ -17,7 +17,7 @@ export function OpenByKey({ onClose }: { onClose: () => void }) {
     setBusy(true);
     try {
       const r = await call<{ dir: string; created: boolean }>("project.openKey", { key: k });
-      await openProject(app, r.dir);
+      showProject(app, r.dir);
       if (r.created) toast({ kind: "ok", title: `Project ${k.toUpperCase()} created`, detail: r.dir });
       onClose();
     } catch (e) {

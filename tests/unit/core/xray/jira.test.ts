@@ -16,7 +16,7 @@ import {
   pullTest,
   searchTests,
 } from "../../../../src/core/lib/jira/read.ts";
-import { hasRawEmbed } from "../../../../src/core/lib/testfile.ts";
+import { hasRawEmbed } from "../../../../src/core/lib/test-blocks.ts";
 import type { Precondition, Review, Step, StepImage, Test, XrayField } from "../../../../src/core/types.ts";
 
 type Call = { method: string; url: string; headers: Record<string, string>; body: any };
