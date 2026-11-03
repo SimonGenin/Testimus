@@ -31,6 +31,7 @@ export function stepColumns(project: string, x: XrayJson = readXray(project)): S
       builtin,
       status: field ? (!def && fallback === undefined ? "new" : "ok") : def?.id ? "gone" : "ok",
       description: def?.description ?? fallback ?? "",
+      referenceSource: !!def?.referenceSource,
     };
   });
 }
@@ -45,20 +46,27 @@ function checkName(x: XrayJson, name: string): void {
     throw new UserError(`The column « ${name} » already exists.`, "columns.list shows them.");
 }
 
-export function saveColumn(project: string, input: { name: string; description?: string }): StepColumn[] {
+// ponytail: what the input leaves out is kept — a description saved alone keeps the column's Reference source
+export function saveColumn(
+  project: string,
+  input: { name: string; description?: string; referenceSource?: boolean },
+): StepColumn[] {
   const x = readXray(project);
   const name = input.name.trim();
-  const description = input.description?.trim() ?? "";
+  const change = {
+    ...(input.description !== undefined && { description: input.description.trim() }),
+    ...(input.referenceSource !== undefined && { referenceSource: input.referenceSource }),
+  };
   const defs = [...(x.columns ?? [])];
   const field = x.fields.find((f) => same(f.name, name));
   const def = defOf(x, name, field);
   if (def) {
     const at = defs.indexOf(def);
-    defs[at] = { ...def, ...(field ? { name: field.name, id: field.id } : {}), description };
-  } else if (field) defs.push({ name: field.name, id: field.id, description });
+    defs[at] = { ...def, ...(field ? { name: field.name, id: field.id } : {}), ...change };
+  } else if (field) defs.push({ name: field.name, id: field.id, ...change });
   else {
     checkName(x, name);
-    defs.push({ name, description });
+    defs.push({ name, description: "", ...change });
   }
   const next = { ...x, columns: defs };
   writeXray(project, next);
@@ -139,5 +147,10 @@ export function columnGuidance(project: string): string[] {
     else empty.push(c.name);
   }
   if (empty.length) lines.push(`Leave these columns empty — never write them: ${empty.join(", ")}.`);
+  const linked = stepColumns(project).filter((c) => c.description && c.referenceSource);
+  if (linked.length)
+    lines.push(
+      `Reference source: every item you write in ${linked.map((c) => c.name).join(", ")} (a requirement code, a value…) has its own ### Sources line, the passage it comes from followed by @<column> "<the item, exactly as written in the cell>" — e.g. - DOC#§4.2 "exact quote" @${linked[0].name} "<item>". The tester clicks the item to open that passage.`,
+    );
   return lines;
 }

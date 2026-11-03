@@ -54,7 +54,14 @@ const xrayJson = z.object({
   }),
   fetchedAt: z.string().optional(),
   columns: z
-    .array(z.object({ name: z.string(), id: z.string().optional(), description: z.string().optional() }))
+    .array(
+      z.object({
+        name: z.string(),
+        id: z.string().optional(),
+        description: z.string().optional(),
+        referenceSource: z.boolean().optional(),
+      }),
+    )
     .optional(),
 });
 const remoteRef = z.object({

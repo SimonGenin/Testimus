@@ -80,6 +80,10 @@ What the tester observes.
   goes in it; a column with an empty description stays empty. Leave a field out when it is empty.
 - `### Sources`: one line per claim, `<docId>#<anchor> "<short quote copied exactly from doc.md>"`.
   A quote that is not verbatim in `doc.md` is an error.
+  A line that backs one item of a smart column ends with that column and the item as the cell has
+  it: `- SPF_511#§4.2 "<quote>" @Exigence "EXI_MOP_SPF_511_A_1650"`. A column whose `xray.json`
+  entry has `"referenceSource": true` needs one for every item it holds; the editor links the item
+  to its passage.
 - No reference inside Action or Expected Result text: references go in `### Sources`.
 - Pictures: a document figure goes into a step with `tests_addImage` (`figure: "<docId>#fig:<n>"`) —
   in the Action when it shows where to act, in the Expected Result when it shows what to see. It

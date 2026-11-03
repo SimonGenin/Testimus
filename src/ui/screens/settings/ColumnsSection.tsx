@@ -38,6 +38,19 @@ export function ColumnsSection() {
     }
   };
 
+  const saveReference = async (column: string, referenceSource: boolean) => {
+    try {
+      await call("columns.save", { name: column, referenceSource });
+      app.refreshInfo();
+      toast({
+        kind: "ok",
+        title: referenceSource ? `${column} links its items to their sources` : `${column} is plain text again`,
+      });
+    } catch (e) {
+      errorToast(e, "Could not save the column");
+    }
+  };
+
   const add = async () => {
     try {
       await call("columns.save", { name: name.trim(), description: desc });
@@ -140,6 +153,7 @@ export function ColumnsSection() {
             onDescribe={(t) => void saveDescription(c.name, t)}
             onMode={(m) => setMode(c.name, m)}
             onHidden={(h) => setHidden(c.name, h)}
+            onReferenceSource={(on) => void saveReference(c.name, on)}
             onMove={(by) => move(c.name, i + by)}
             onRemove={c.origin === "local" ? () => void remove(c.name) : undefined}
             drag={{

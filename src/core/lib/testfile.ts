@@ -157,15 +157,22 @@ const splitComment = (s: string): { name: string; comment?: string } => {
 };
 
 const SOURCE = /^([^\s#"]+)#(\S+?)(?:\s+"(.*)")?$/;
+const TARGET = /\s+@([^\s"@][^"@]*?)(?:\s+"([^"]*)")?$/;
 
 export function parseSource(line: string): Source | null {
-  const s = SOURCE.exec(line.trim().replace(/^[-*+]\s+/, ""));
-  return s ? { docId: s[1], anchor: s[2], quote: s[3] ?? "" } : null;
+  const l = line.trim().replace(/^[-*+]\s+/, "");
+  const t = TARGET.exec(l);
+  const s = SOURCE.exec(t ? l.slice(0, t.index) : l);
+  if (!s) return null;
+  const item = t?.[2]?.trim();
+  return { docId: s[1], anchor: s[2], quote: s[3] ?? "", ...(t && { column: t[1].trim() }), ...(item && { item }) };
 }
+
+const targetOf = (s: Source) => (s.column ? ` @${s.column}${s.item ? ` "${s.item}"` : ""}` : "");
 
 // ponytail: a line that is not docId#anchor "quote" is kept whole in docId, so a human edit is never lost
 export const formatSource = (s: Source) =>
-  s.anchor === "" && s.quote === "" ? s.docId : `${s.docId}#${s.anchor}${s.quote ? ` "${s.quote}"` : ""}`;
+  s.anchor === "" && s.quote === "" ? s.docId : `${s.docId}#${s.anchor}${s.quote ? ` "${s.quote}"` : ""}${targetOf(s)}`;
 
 function parseSources(lines: string[], n: number, warnings: string[]): Source[] {
   const out: Source[] = [];

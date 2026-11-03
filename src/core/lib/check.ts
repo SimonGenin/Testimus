@@ -8,6 +8,7 @@ import { FIGURE_IMAGE, parseSections } from "../rag/chunk.ts";
 import { normalizeRef, refInfo } from "../rag/related.ts";
 import type { CheckFile, CitingTest, DocJson, Finding, Review, Step, Test } from "../types.ts";
 import { writeAtomic } from "./atomic.ts";
+import { stepColumns } from "./columns.ts";
 import { readJson, writeJson } from "./project.ts";
 import { readCheck, readTest, testDir, testExists, testsDir } from "./store.ts";
 import { frontmatterOf, hasRawEmbed, testMdHash } from "./testfile.ts";
@@ -150,7 +151,11 @@ const stepKey = (s: Step) =>
       .sort(([a], [b]) => a.localeCompare(b)),
   );
 
-export function mechanicalFindings(test: Test, corpus: Corpus): Finding[] {
+const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+const cellOf = (s: Step, column: string) => Object.entries(s.fields).find(([k]) => sameName(k, column))?.[1] ?? "";
+
+// ponytail: linked are the columns whose Reference source is on — their cells need a source of their own
+export function mechanicalFindings(test: Test, corpus: Corpus, linked: readonly string[] = []): Finding[] {
   const out: Finding[] = [];
   const add = (f: Omit<Finding, "pass">) => out.push({ ...f, pass: "mechanical" });
   if (!test.steps.length)
@@ -291,6 +296,24 @@ export function mechanicalFindings(test: Test, corpus: Corpus): Finding[] {
           sources: [ref],
         });
     }
+    for (const name of linked)
+      if (cellOf(s, name).trim() && !s.sources.some((x) => x.column && sameName(x.column, name)))
+        add({
+          step,
+          kind: "column-unsourced",
+          severity: "warning",
+          message: `Step ${step}: ${name} links its items to their sources, and none has one: add a ### Sources line docId#anchor "exact quote" @${name} "<item>" for each.`,
+          sources: [],
+        });
+    for (const src of s.sources)
+      if (src.column && src.item && !flat(cellOf(s, src.column)).includes(flat(src.item)))
+        add({
+          step,
+          kind: "item-not-found",
+          severity: "warning",
+          message: `Step ${step}: a source backs « ${short(src.item)} » in ${src.column}, and the step's ${src.column} does not hold it: write the item as the cell has it, or remove the @${src.column} part.`,
+          sources: src.anchor ? [`${src.docId}#${anchorKey(src.anchor)}`] : [],
+        });
     // ponytail: a step with a picture of unknown origin (pasted, or attached before images knew their figure) may
     // already show it — only a step without one is told
     if (!s.images.some((im) => !im.figure))
@@ -314,7 +337,10 @@ export function mechanicalFindings(test: Test, corpus: Corpus): Finding[] {
 
 export function mechanicalCheck(project: string, id: string, corpus: Corpus = loadCorpus(project)): Finding[] {
   const test = readTest(project, id).test;
-  return mechanicalFindings(test, corpus);
+  const linked = stepColumns(project)
+    .filter((c) => c.referenceSource)
+    .map((c) => c.name);
+  return mechanicalFindings(test, corpus, linked);
 }
 
 export type TestEvidence = {

@@ -12,6 +12,12 @@ const column = z.object({
     .enum(["ok", "new", "gone"])
     .describe("new: added in Xray and never described here; gone: was in Xray, no longer — now local"),
   description: z.string().describe("What Claude writes in it (a smart column); empty = Claude leaves it empty"),
+  referenceSource: z
+    .boolean()
+    .optional()
+    .describe(
+      'Reference source: each item of the column (a requirement code…) has a source written @<column> "<item>", and the editor makes the item a link to that passage',
+    ),
 });
 
 export const commands: Command[] = [
@@ -27,13 +33,19 @@ export const commands: Command[] = [
   command({
     name: "columns.save",
     summary:
-      "Describe a smart column (what Claude writes in it), or add a local smart column (kept in test.md, never pushed).",
+      "Describe a smart column (what Claude writes in it) and whether its items link to their sources, or add a local smart column (kept in test.md, never pushed).",
     input: z.object({
       name: z.string().min(1).describe("Column name: an Xray step field, a local column, or a new local column"),
       description: z
         .string()
-        .default("")
-        .describe("What Claude writes in it, in plain words; empty = Claude never fills the column"),
+        .optional()
+        .describe("What Claude writes in it, in plain words; empty = Claude never fills the column; omitted = kept"),
+      referenceSource: z
+        .boolean()
+        .optional()
+        .describe(
+          'Reference source: Claude cites the passage of each item it writes in the column (@<column> "<item>"), the check asks for it and the editor links the item to it; omitted = kept',
+        ),
     }),
     output: z.array(column),
     mutates: true,

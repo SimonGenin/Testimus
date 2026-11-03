@@ -11,6 +11,7 @@ export { GeneratedBadge } from "./GeneratedBadge.tsx";
 export { GrowArea } from "./GrowArea.tsx";
 export { Icon, type IconName } from "./Icon.tsx";
 export { IconButton } from "./IconButton.tsx";
+export { ItemLinks } from "./ItemLinks.tsx";
 export { Kbd } from "./Kbd.tsx";
 export { Marked } from "./Marked.tsx";
 export { Menu, type MenuItem } from "./Menu.tsx";

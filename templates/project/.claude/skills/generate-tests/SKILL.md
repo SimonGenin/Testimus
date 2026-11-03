@@ -135,6 +135,12 @@ skill once per planned test.
   `<docId>#fig:<n>` with its caption as the quote (`"Figure 40 – Représentation graphique
   sectionneur"`) — after you `Read` the image yourself. The caption proves only that the figure
   exists; the reviewer and check-test look at the picture.
+- **Reference source columns** (the request says which; `columns_list` shows `referenceSource`):
+  every item you write in such a column — a requirement code, a value — gets its own source line,
+  the passage that made it appear, followed by the column and the item exactly as the cell has it:
+  `- <docId>#<anchor> "<short quote>" @<column> "<item>"`. The tester clicks the item to open that
+  passage; the check reports `column-unsourced` for a filled column with no such line and
+  `item-not-found` for an item the cell does not hold.
 - **No source → search, then decide.** A step that needs a passage you have not opened yet:
   `rag_mentions` its object, `rag_search` the behavior, open what they find. Still nothing → do not
   write the step and report the gap (section 4). Never fill a gap from general knowledge of the

@@ -20,6 +20,8 @@ export const KINDS: [FindingKind, ...FindingKind[]] = [
   "raw-embed",
   "duplicate-step",
   "figure-not-embedded",
+  "column-unsourced",
+  "item-not-found",
   "other",
 ];
 

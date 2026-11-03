@@ -16,6 +16,7 @@ export function ColumnRow({
   onDescribe,
   onMode,
   onHidden,
+  onReferenceSource,
   onMove,
   onRemove,
   drag,
@@ -30,6 +31,7 @@ export function ColumnRow({
   onDescribe: (text: string) => void;
   onMode: (m: ColumnMode) => void;
   onHidden: (h: boolean) => void;
+  onReferenceSource: (on: boolean) => void;
   onMove: (by: number) => void;
   onRemove?: () => void;
   drag: Pick<React.HTMLAttributes<HTMLLIElement>, "draggable" | "onDragStart" | "onDragOver" | "onDrop" | "onDragEnd">;
@@ -83,6 +85,19 @@ export function ColumnRow({
             onChange={(e) => onHidden(e.target.checked)}
           />
           Hidden
+        </label>
+        <label
+          className="frow-check"
+          title="Each item Claude writes in this column (a requirement code…) is linked to the passage it comes from — a click opens it"
+        >
+          <input
+            type="checkbox"
+            checked={!!c.referenceSource}
+            disabled={disabled}
+            aria-label={`${c.name} reference source`}
+            onChange={(e) => onReferenceSource(e.target.checked)}
+          />
+          Reference source
         </label>
         <span className="frow-move">
           <IconButton icon="up" label={`Move ${c.name} up`} disabled={first} onClick={() => onMove(-1)} />

@@ -1,0 +1,157 @@
+// @vitest-environment jsdom
+import "@testing-library/jest-dom/vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { Source, Step, StepColumn, XrayJson } from "../../src/core/types.ts";
+import { setProject } from "../../src/ui/api.ts";
+import { resetDoctor } from "../../src/ui/lib/doctor.ts";
+import { ReviewStep } from "../../src/ui/screens/review/ReviewStep.tsx";
+import { ColumnsSection } from "../../src/ui/screens/settings/ColumnsSection.tsx";
+import { StepCard } from "../../src/ui/screens/tests/StepCard.tsx";
+import { clearToasts, mount } from "./cov-uiscreens-helpers.tsx";
+import { api, app, fakeFetch, named, noDesktop } from "./ui-desktop-helpers.tsx";
+
+beforeEach(() => {
+  fakeFetch();
+  resetDoctor();
+});
+
+afterEach(() => {
+  cleanup();
+  clearToasts();
+  noDesktop();
+  setProject(null);
+  localStorage.clear();
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
+
+const fields = [
+  { id: "action", name: "Action", type: "text", builtin: true },
+  { id: "result", name: "Expected Result", type: "text", builtin: true },
+  { id: "cf1", name: "Exigence", type: "text", builtin: false },
+];
+const xray = (referenceSource: boolean): XrayJson => ({
+  fields,
+  prefs: { order: [], collapsed: [], hidden: [] },
+  columns: [{ name: "Exigence", id: "cf1", description: "Le code", referenceSource }],
+});
+const a: Source = {
+  docId: "SPF",
+  anchor: "§4.2",
+  quote: "le sectionneur est représenté",
+  column: "Exigence",
+  item: "EXI_1650",
+};
+const b: Source = {
+  docId: "SPF",
+  anchor: "§4.3",
+  quote: "un autre passage qui le dit",
+  column: "Exigence",
+  item: "EXI_1670",
+};
+const b2: Source = { ...b, anchor: "fig:40", quote: "Figure 40" };
+const plain: Source = { docId: "SPF", anchor: "§5.1", quote: "le menu contextuel s'ouvre" };
+const step: Step = {
+  fields: { Action: "Ouvrir la vue", "Expected Result": "Le sectionneur est affiché", Exigence: "EXI_1650, EXI_1670" },
+  sources: [a, b, b2, plain],
+  images: [],
+};
+
+const card = (x: XrayJson, onOpenSource = vi.fn()) => {
+  render(
+    <StepCard
+      index={0}
+      count={1}
+      step={step}
+      xray={x}
+      layout="stacked"
+      url={(f) => `/u/${f}`}
+      onChange={vi.fn()}
+      onOpenSource={onOpenSource}
+    />,
+  );
+  return onOpenSource;
+};
+
+describe("a Reference source column in a step", () => {
+  it("makes each item a link to its passage, and lists an item's several sources", () => {
+    const open = card(xray(true));
+    const links = document.querySelector('.item-links[data-column="Exigence"]')!;
+    expect(links).toHaveTextContent("EXI_1650");
+    fireEvent.click(screen.getByRole("button", { name: /EXI_1650/ }));
+    expect(open).toHaveBeenCalledWith(a);
+    expect(screen.getByTitle(`SPF#§4.2 "${a.quote}"`)).toBeInTheDocument();
+    expect(links.querySelector(".item-group")).toHaveTextContent("EXI_1670");
+    fireEvent.click(screen.getByRole("button", { name: /Figure 40/ }));
+    expect(open).toHaveBeenLastCalledWith(b2);
+    const rest = document.querySelector(".sources")!;
+    expect(rest.querySelectorAll(".chip")).toHaveLength(1);
+    expect(rest).toHaveTextContent("§5.1");
+  });
+
+  it("keeps every source with the step when the option is off", () => {
+    card(xray(false));
+    expect(document.querySelector(".item-links")).toBeNull();
+    expect(document.querySelector(".sources")!.querySelectorAll(".chip")).toHaveLength(4);
+  });
+
+  it("links the items on the review screen too", () => {
+    const onSelect = vi.fn();
+    render(
+      <ReviewStep
+        n={2}
+        step={step}
+        xray={xray(true)}
+        findings={[]}
+        stale={false}
+        folded={false}
+        active={false}
+        selected="SPF#§4.2"
+        url={(f) => f}
+        onFold={vi.fn()}
+        onSelect={onSelect}
+        onOpenImage={vi.fn()}
+      />,
+    );
+    const link = screen.getByRole("button", { name: /EXI_1650/ });
+    expect(link).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(link);
+    expect(onSelect).toHaveBeenCalledWith(a, 2);
+  });
+});
+
+describe("the Reference source option in Settings", () => {
+  const col = (name: string, over: Partial<StepColumn> = {}): StepColumn => ({
+    name,
+    origin: "xray",
+    builtin: name !== "Exigence",
+    status: "ok",
+    description: "",
+    ...over,
+  });
+  const info = (cols: StepColumn[]) => ({ ...app().info, columns: cols }) as ReturnType<typeof app>["info"];
+
+  it("saves the option alone and says what it does", async () => {
+    api.routes["columns.save"] = () => [];
+    mount(<ColumnsSection />, {
+      xray: xray(false),
+      info: info([col("Action"), col("Exigence", { referenceSource: false })]),
+    });
+    const box = screen.getByLabelText("Exigence reference source");
+    expect(box).not.toBeChecked();
+    fireEvent.click(box);
+    expect(await screen.findByText("Exigence links its items to their sources")).toBeInTheDocument();
+    expect(named("columns.save").at(-1)?.input).toEqual({ name: "Exigence", referenceSource: true });
+  });
+
+  it("turns it off, and reports a failure", async () => {
+    api.routes["columns.save"] = () => [];
+    mount(<ColumnsSection />, { xray: xray(true), info: info([col("Exigence", { referenceSource: true })]) });
+    fireEvent.click(screen.getByLabelText("Exigence reference source"));
+    expect(await screen.findByText("Exigence is plain text again")).toBeInTheDocument();
+    delete api.routes["columns.save"];
+    fireEvent.click(screen.getByLabelText("Exigence reference source"));
+    expect(await screen.findByText("Could not save the column")).toBeInTheDocument();
+  });
+});

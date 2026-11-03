@@ -47,6 +47,11 @@ const source = z.object({
   docId: z.string().describe("Document code (docs/<docId>/)"),
   anchor: z.string().describe("Anchor in the document: §5.6.6, fig:<n> or page:<n>"),
   quote: z.string().describe("Short quote copied verbatim from doc.md"),
+  column: z.string().optional().describe("The smart column this source backs (written @<column>); none = the step"),
+  item: z
+    .string()
+    .optional()
+    .describe('The words of that column\'s cell it backs, e.g. a requirement code (written @<column> "<item>")'),
 });
 const step = z.object({
   id: z.string().optional().describe("Xray step id, when the step came from Jira"),
@@ -94,7 +99,9 @@ const testSchema = z.object({
 
 const sourceLines = z
   .array(z.string())
-  .describe('Source lines, each `<docId>#<anchor> "<exact quote>"` — replaces the step\'s sources');
+  .describe(
+    'Source lines, each `<docId>#<anchor> "<exact quote>"`, followed by `@<column> "<item>"` when it backs an item of a smart column — replaces the step\'s sources',
+  );
 
 const stepOp = z.discriminatedUnion("op", [
   z.object({

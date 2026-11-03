@@ -23,7 +23,8 @@ test, not `check.json`. You report what is wrong, precisely enough that a review
 3. The smart columns (`columns_list`: each column and its description): each column of each step
    holds what its description asks for, and nothing a column's description leaves empty is written.
    A column read like any other text: a claim it makes needs the same support as the Expected
-   Result.
+   Result. A source line ending `@<column> "<item>"` backs that item of the column: its passage must
+   state the item (the requirement, the value) — one that does not is `unsupported`.
 4. For the test as a whole: behaviors the documents describe for this object that are missing
    (other types, other states, the negative path); and the pictures — a step about a screen, a menu,
    a symbol or a colour whose document section has a figure with a picture (`rag_passage` lists

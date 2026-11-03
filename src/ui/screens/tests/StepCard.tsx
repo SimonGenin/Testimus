@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Block, ColumnModes, Source, Step, StepImage, XrayJson } from "../../../core/types.ts";
-import { Button, ClaudeBadge, Icon, IconButton, SourceChip } from "../../components/ui/index.ts";
+import { Button, ClaudeBadge, Icon, IconButton, ItemLinks, SourceChip } from "../../components/ui/index.ts";
 import { hasRawEmbed, imageRef, leafBlocks } from "../../lib/blocks.ts";
 import {
   type Column,
@@ -12,6 +12,7 @@ import {
   splitTracks,
 } from "../../lib/columns.ts";
 import type { StepMark } from "../../lib/diff.ts";
+import { itemLinks, stepSources } from "../../lib/fields.ts";
 import { cx } from "../../lib/format.ts";
 import { tablesIn } from "../../lib/table.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
@@ -132,6 +133,11 @@ export function StepCard({
   const pModes = projectModes ?? modesOf(xray);
   const isOpen = (c: Column) => folds[c.name] ?? openByDefault(modeOf(c, pModes, testModes), val(c.name));
   const shown = cols.filter(isOpen);
+  const loose = stepSources(
+    xray,
+    step,
+    shown.map((c) => c.name),
+  );
   const token = () => alive?.() ?? (() => true);
 
   const embedded = new Set(
@@ -297,6 +303,17 @@ export function StepCard({
     );
   };
 
+  const withLinks = (c: Column) => {
+    const links = itemLinks(xray, step, c.name);
+    if (!links.length) return fieldOf(c);
+    return (
+      <div className="fl-v">
+        {fieldOf(c)}
+        <ItemLinks column={c.name} links={links} onOpen={onOpenSource} />
+      </div>
+    );
+  };
+
   const row = (c: Column) => (
     <div
       key={c.name}
@@ -318,7 +335,7 @@ export function StepCard({
           </span>
         )}
       </span>
-      {fieldOf(c)}
+      {withLinks(c)}
     </div>
   );
 
@@ -553,10 +570,10 @@ export function StepCard({
           ))}
         </div>
       )}
-      {step.sources.length > 0 && (
+      {loose.length > 0 && (
         <div className="sources">
           <span className="label">Sources</span>
-          {step.sources.map((s, i) => (
+          {loose.map((s, i) => (
             <SourceChip key={i} source={s} onOpen={onOpenSource} />
           ))}
         </div>

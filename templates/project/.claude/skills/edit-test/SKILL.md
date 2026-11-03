@@ -19,7 +19,9 @@ a test scope that test, a tests scope those tests. Everything outside it stays b
    `rag_related` (the sections it cites) and `rag_search`, then read it in `doc.md`. A request that asks for
    a behavior no passage states: write nothing for it and say so.
 4. **Smart columns** (`columns_list`): a column you write follows its description; a column whose
-   description is empty stays empty.
+   description is empty stays empty. In a column with `referenceSource`, every item has its own
+   source line ending `@<column> "<item>"` (generate-tests); an item you add, change or remove
+   takes its line with it.
 5. Leave the frontmatter's `review`, `review_note`, `reviewed_by`, `reviewed_at` and `generated_by`
    as they are, and never edit `check.json`: the edit makes the last check stale and Testimus shows it.
 6. **Done** when, after your last write, `check_run` with `semantic: false` on each changed test

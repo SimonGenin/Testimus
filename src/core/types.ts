@@ -2,7 +2,9 @@
 
 export type StepImage = { file: string; remoteId?: string; figure?: string };
 
-export type Source = { docId: string; anchor: string; quote: string };
+// ponytail: column names the smart column a source backs and item the words of its cell it backs (a requirement
+// code), written `@<column> "<item>"` after the quote; without them the source backs the step
+export type Source = { docId: string; anchor: string; quote: string; column?: string; item?: string };
 
 export type Step = {
   id?: string;
@@ -114,13 +116,14 @@ export type XrayJson = { fields: XrayField[]; prefs: FieldPrefs; fetchedAt?: str
 // Step columns: what Claude writes in each field (description), and the columns that live only in test.md.
 // A column of Xray is followed by its field id (a rename in Xray keeps its description); one without id, or
 // whose id Xray no longer has, is local — kept in test.md, never pushed
-export type ColumnDef = { name: string; id?: string; description?: string };
+export type ColumnDef = { name: string; id?: string; description?: string; referenceSource?: boolean };
 export type StepColumn = {
   name: string;
   origin: "xray" | "local";
   builtin: boolean;
   status: "ok" | "new" | "gone";
   description: string;
+  referenceSource?: boolean;
 };
 
 export const BUILTIN_FIELDS: readonly string[] = ["Action", "Data", "Expected Result"];
@@ -145,6 +148,8 @@ export type FindingKind =
   | "raw-embed"
   | "duplicate-step"
   | "figure-not-embedded"
+  | "column-unsourced"
+  | "item-not-found"
   | "other";
 export type Finding = {
   step?: number;

@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import type { Finding, Source, Step, XrayJson } from "../../../core/types.ts";
-import { ClaudeBadge, FindingCard, IconButton, Severity, SourceChip } from "../../components/ui/index.ts";
-import { fieldViews, parseSourceRef } from "../../lib/fields.ts";
+import { ClaudeBadge, FindingCard, IconButton, ItemLinks, Severity, SourceChip } from "../../components/ui/index.ts";
+import { fieldViews, itemLinks, parseSourceRef, stepSources } from "../../lib/fields.ts";
 import { cx, plural } from "../../lib/format.ts";
 import { FieldBlocks } from "../tests/FieldBlocks.tsx";
 
@@ -81,6 +81,11 @@ export function ReviewStep({
   const sum = findingSummary(findings);
   const tone = stale && sum.tone !== "ok" ? "stale" : sum.tone;
   const views = fieldViews(xray, step);
+  const loose = stepSources(
+    xray,
+    step,
+    views.map((v) => v.name),
+  );
   const pick = (s: Source) => onSelect(s, n);
 
   if (folded)
@@ -111,37 +116,41 @@ export function ReviewStep({
       {views.map((v) => {
         const value = step.fields[v.name] ?? "";
         if (!value.trim() && !v.collapsed) return null;
+        const links = itemLinks(xray, step, v.name);
         return (
           <div key={v.name} className="fl" data-field={v.name}>
             <span className="fl-k">{v.name}</span>
             {!value.trim() ? (
               <span className="muted fl-empty">Folded · empty</span>
             ) : (
-              <FieldBlocks
-                idBase={`r${n}-${v.name.replace(/\W+/g, "")}`}
-                name={v.name}
-                label={v.name}
-                text={value}
-                images={step.images}
-                url={url}
-                stepNumber={n}
-                readOnly
-                onText={noop}
-                onAddFiles={noop}
-                onFieldText={noop}
-                onDropBlock={noop}
-                onRemove={noop}
-                onOpen={onOpenImage}
-              />
+              <div className="fl-v">
+                <FieldBlocks
+                  idBase={`r${n}-${v.name.replace(/\W+/g, "")}`}
+                  name={v.name}
+                  label={v.name}
+                  text={value}
+                  images={step.images}
+                  url={url}
+                  stepNumber={n}
+                  readOnly
+                  onText={noop}
+                  onAddFiles={noop}
+                  onFieldText={noop}
+                  onDropBlock={noop}
+                  onRemove={noop}
+                  onOpen={onOpenImage}
+                />
+                {links.length > 0 && <ItemLinks column={v.name} links={links} selected={selected} onOpen={pick} />}
+              </div>
             )}
           </div>
         );
       })}
-      {step.sources.length > 0 && (
+      {loose.length > 0 && (
         <div className="fl">
           <span className="fl-k">Sources</span>
           <div className="chips">
-            {step.sources.map((s, i) => (
+            {loose.map((s, i) => (
               <SourceChip key={i} source={s} on={selected === refKey(s)} onOpen={pick} />
             ))}
           </div>
