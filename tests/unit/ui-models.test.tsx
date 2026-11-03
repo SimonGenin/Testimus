@@ -4,10 +4,13 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Fit } from "../../src/core/types.ts";
 import { AppContext, type AppState } from "../../src/ui/lib/app.ts";
+import { absolutePath } from "../../src/ui/lib/desktop.ts";
 import { ModelsSection } from "../../src/ui/screens/settings/ModelsSection.tsx";
 import {
   bestDrive,
   type CatalogRow,
+  defaultFolder,
+  onDrive,
   type PackRow,
   size,
   suggestPack,
@@ -286,6 +289,16 @@ describe("models helpers", () => {
     expect(bestDrive(hardware.drives, 1000)).toBe("D:\\");
     expect(bestDrive([{ root: "C:\\", freeMB: 5000, totalMB: 9000 }], 1000)).toBe("C:\\");
     expect(bestDrive([{ root: "C:\\", freeMB: 500, totalMB: 9000 }], 1000)).toBeNull();
+  });
+
+  it("suggests and accepts a folder on Windows and on macOS or Linux", () => {
+    expect(defaultFolder("D:\\")).toBe("D:\\Testimus\\models");
+    expect(defaultFolder("/Users/ana")).toBe("/Users/ana/Testimus/models");
+    expect(["D:\\x", "d:/x", "\\\\server\\x", "/Users/ana/x"].every(absolutePath)).toBe(true);
+    expect(["x", "Testimus\\models", "~/x"].some(absolutePath)).toBe(false);
+    expect(onDrive("/Users/ana/Testimus/models", "/Users/ana")).toBe(true);
+    expect(onDrive("/Users/anabel/x", "/Users/ana")).toBe(false);
+    expect(onDrive("d:/x", "D:\\")).toBe(true);
   });
 });
 

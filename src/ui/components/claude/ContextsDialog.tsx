@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { call } from "../../api.ts";
-import { desktop, pickFolder } from "../../lib/desktop.ts";
+import { desktop, examplePath, pickFolder } from "../../lib/desktop.ts";
 import { toBase64 } from "../../lib/files.ts";
 import { cx, plural } from "../../lib/format.ts";
 import { errorToast } from "../../lib/toast.ts";
@@ -274,7 +274,7 @@ export function ContextsDialog({ onClose, initialId }: { onClose: () => void; in
                 <input
                   className="field mono"
                   aria-label="Path to add"
-                  placeholder="D:\Specs\J5"
+                  placeholder={examplePath("D:\\Specs\\J5", "/Users/you/Specs/J5")}
                   value={path}
                   onChange={(e) => setPath(e.target.value)}
                   onKeyDown={(e) => {

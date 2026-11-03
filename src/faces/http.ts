@@ -350,6 +350,13 @@ export async function serve(argv: string[]): Promise<void> {
     const { version } = (await invoke("system.version", {}, { project: null })) as { version: string };
     ready(JSON.stringify({ ready: true, url: `http://127.0.0.1:${state.port}/`, pid: process.pid, version }));
   }
-  if (!values["no-open"] && !mock && !ready && process.platform === "win32")
-    spawn("cmd", ["/c", "start", "", url], { detached: true, stdio: "ignore" }).unref();
+  if (!values["no-open"] && !mock && !ready) {
+    const [cmd, args] =
+      process.platform === "win32"
+        ? ["cmd", ["/c", "start", "", url]]
+        : [process.platform === "darwin" ? "open" : "xdg-open", [url]];
+    spawn(cmd, args, { detached: true, stdio: "ignore" })
+      .on("error", () => {})
+      .unref();
+  }
 }

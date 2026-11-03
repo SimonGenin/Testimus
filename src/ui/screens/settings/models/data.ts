@@ -203,7 +203,16 @@ export function folderPicker(): Picker["pickFolder"] | null {
 }
 
 export function defaultFolder(root: string): string {
+  if (root.startsWith("/")) return `${root.replace(/\/+$/, "")}/Testimus/models`;
   return `${root.replace(/[\\/]+$/, "")}\\Testimus\\models`;
+}
+
+export function onDrive(dir: string, root: string): boolean {
+  if (root.startsWith("/")) {
+    const base = root.replace(/\/+$/, "");
+    return dir === base || dir.startsWith(`${base}/`);
+  }
+  return /^[a-zA-Z]:[\\/]/.exec(dir)?.[0].replace("/", "\\").toUpperCase() === root.toUpperCase();
 }
 
 // ponytail: mapped network shares of one server report the same free and total figures — a drive whose figures

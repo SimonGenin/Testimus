@@ -10,6 +10,12 @@ export const desktop = (): TestimusDesktop | null =>
 
 export const baseName = (path: string) => path.split(/[\\/]/).filter(Boolean).pop() ?? path;
 
+export const onWindows = () => typeof navigator === "undefined" || /Windows|win32/i.test(navigator.userAgent);
+
+export const examplePath = (windows: string, other: string) => (onWindows() ? windows : other);
+
+export const absolutePath = (path: string) => /^[a-zA-Z]:[\\/]|^\\\\|^\//.test(path);
+
 export function pathJoin(dir: string, ...parts: string[]): string {
   const sep = dir.includes("/") && !dir.includes("\\") ? "/" : "\\";
   return [dir.replace(/[\\/]+$/, ""), ...parts].join(sep);

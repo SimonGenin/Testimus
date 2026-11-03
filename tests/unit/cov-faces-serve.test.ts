@@ -35,7 +35,8 @@ async function load() {
     ...(await importOriginal<object>()),
     spawn: (...a: unknown[]) => {
       spawned.push(a);
-      return { unref() {} };
+      const child = { on: () => child, unref() {} };
+      return child;
     },
   }));
   return await import("../../src/faces/http.ts");
@@ -144,14 +145,14 @@ describe("serve", () => {
     expect(spawned).toEqual([]);
   });
 
-  it("opens the browser on Windows when nothing says not to, and logs unhandled rejections", async () => {
+  it("opens the browser when nothing says not to, and logs unhandled rejections", async () => {
     process.env.TESTIMUS_PORT = "0";
     const { serve } = await load();
     await serve([]);
-    if (process.platform === "win32") {
-      expect(spawned).toHaveLength(1);
-      expect(spawned[0][0]).toBe("cmd");
-    }
+    expect(spawned).toHaveLength(1);
+    expect(spawned[0][0]).toBe(
+      process.platform === "win32" ? "cmd" : process.platform === "darwin" ? "open" : "xdg-open",
+    );
     const added = process.listeners("unhandledRejection").filter((l) => !rejections.includes(l as never));
     expect(added).toHaveLength(1);
     const noStack = new Error("flat");

@@ -280,7 +280,7 @@ export const commands: Command[] = [
   command({
     name: "system.settings",
     summary:
-      "Global settings (%APPDATA%\\Testimus\\settings.json): theme, step layout, claude.exe, model downloads, agents at the same time.",
+      "Global settings (%APPDATA%\\Testimus\\settings.json, ~/.config/Testimus/settings.json elsewhere): theme, step layout, claude.exe, model downloads, agents at the same time.",
     input: z.object({}),
     output: settingsOut,
     mutates: false,

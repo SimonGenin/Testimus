@@ -1,3 +1,4 @@
+import { homedir } from "node:os";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const exec = vi.hoisted(() => ({
@@ -71,10 +72,10 @@ describe("the real hardware seams", () => {
     expect(hardwareDeps.statfs("Q:\\definitely\\not\\here\\nope")).toBeNull();
   });
 
-  it("drives lists the Windows roots that exist, and / elsewhere", () => {
+  it("drives lists the Windows roots that exist, and the home folder elsewhere", () => {
     if (platform === "win32") expect(hardwareDeps.drives()).toContain("C:\\");
     setPlatform("linux");
-    expect(hardwareDeps.drives()).toEqual(["/"]);
+    expect(hardwareDeps.drives()).toEqual([homedir()]);
   });
 
   it("memory, cpu and loaded servers", async () => {
@@ -207,5 +208,11 @@ describe("driveOf", () => {
     const m = { drives: [{ root: "D:\\", freeMB: 1, totalMB: 2 }] } as MachineProfile;
     expect(driveOf(m, "d:\\models\\x")?.root).toBe("D:\\");
     expect(driveOf(m, "E:\\x")).toBeUndefined();
+  });
+
+  it("outside Windows, the drive is the folder that holds the path", () => {
+    const m = { drives: [{ root: "/Users/ana", freeMB: 1, totalMB: 2 }] } as MachineProfile;
+    expect(driveOf(m, "/Users/ana/Testimus/models")?.root).toBe("/Users/ana");
+    expect(driveOf(m, "/Users/anabel/x")).toBeUndefined();
   });
 });

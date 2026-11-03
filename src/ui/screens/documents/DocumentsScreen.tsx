@@ -7,7 +7,7 @@ import { DOC_STATUS } from "../../components/sources/PassageView.tsx";
 import { Badge, Button, DragEdge, Icon, IconButton, Modal, Severity, Skeleton } from "../../components/ui/index.ts";
 import { useApp } from "../../lib/app.ts";
 import { useChanged } from "../../lib/changed.ts";
-import { desktop, pickFiles } from "../../lib/desktop.ts";
+import { desktop, examplePath, pickFiles } from "../../lib/desktop.ts";
 import { cx } from "../../lib/format.ts";
 import { type SideEdge, useSideWidth } from "../../lib/sideWidth.ts";
 import { errorToast } from "../../lib/toast.ts";
@@ -416,7 +416,10 @@ export function DocumentsScreen() {
           <input
             id="doc-path"
             className="field mono"
-            placeholder="C:\…\SOSIE_211_D401-1_3_01.01.docx"
+            placeholder={examplePath(
+              "C:\\…\\SOSIE_211_D401-1_3_01.01.docx",
+              "/Users/you/…/SOSIE_211_D401-1_3_01.01.docx",
+            )}
             value={path}
             onChange={(e) => setPath(e.target.value)}
           />

@@ -161,7 +161,7 @@ describe("Settings › Claude program", () => {
     await waitFor(() => expect(named("claude.status").at(-1)?.input).toEqual({ refresh: true }));
     expect(d.pickFiles).toHaveBeenCalledWith({
       title: "Choose the Claude program",
-      filters: [{ name: "Programs", extensions: ["exe", "cmd"] }],
+      filters: process.platform === "win32" ? [{ name: "Programs", extensions: ["exe", "cmd"] }] : [],
       multiple: false,
     });
     expect(named("system.saveSettings")[0].input).toEqual({ claudeExe: "C:\\Users\\me\\.local\\bin\\claude.exe" });
