@@ -24,27 +24,7 @@ export function docDir(project: string, id: string): string {
 export function readDoc(project: string, id: string): DocJson {
   const file = join(docDir(project, id), "doc.json");
   if (!existsSync(file)) throw new UserError(`No document ${id}.`, "testimus docs list shows the project's documents.");
-  // ponytail: binding, superseded, the « requirements » kind and its count were dropped; an older doc.json reads
-  // without them (a superseded one as a draft, a requirements one as a spec) and loses them at its next write
-  const {
-    binding: _b,
-    supersededBy: _s,
-    ...doc
-  } = JSON.parse(readFileSync(file, "utf8").replace(/^﻿/, "")) as Omit<DocJson, "status" | "kind" | "stats"> & {
-    status: string;
-    kind: string;
-    stats?: DocJson["stats"] & { requirements?: number };
-    binding?: string;
-    supersededBy?: string;
-  };
-  const { requirements: _r, ...stats } = doc.stats ?? {};
-  return {
-    ...doc,
-    id,
-    kind: doc.kind === "requirements" ? "spec" : (doc.kind as DocKind),
-    status: doc.status === "superseded" ? "draft" : (doc.status as DocJson["status"]),
-    ...(doc.stats ? { stats: stats as Stats } : {}),
-  };
+  return { ...(JSON.parse(readFileSync(file, "utf8").replace(/^\uFEFF/, "")) as DocJson), id };
 }
 
 export function writeDoc(project: string, doc: DocJson): void {

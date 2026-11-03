@@ -239,10 +239,11 @@ registerMockScript(
   (prompt) => prompt.includes(FIGURES_MARKER),
   (spawn) => {
     const anchors = [...spawn.stdin.matchAll(/^- (fig:\S+) — (\S+)/gm)];
-    const out: Record<string, string> = {};
+    const out: Record<string, { description: string }> = {};
     for (const [, anchor, file] of anchors)
-      out[anchor] =
-        `Description simulée de ${file.split("/").pop()} : un symbole et ses libellés, tel que l'écran les montre.`;
+      out[anchor] = {
+        description: `Description simulée de ${file.split("/").pop()} : un symbole et ses libellés, tel que l'écran les montre.`,
+      };
     const reply = ["```" + FIGURES_TAG, JSON.stringify(out, null, 2), "```"].join("\n");
     return mockStream(spawn, {
       tools: anchors.map(([, , file]) => ({ name: "Read", input: { file_path: file } })),

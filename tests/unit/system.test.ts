@@ -183,14 +183,15 @@ describe("system settings", () => {
 
   it("reads defaults and saves only the fields given", async () => {
     const s0 = (await invoke("system.settings", {}, { project: null })) as any;
-    expect(s0).toMatchObject({ theme: "system", stepLayout: "stacked", models: { allowRemote: true } });
-    await invoke("system.saveSettings", { theme: "dark", allowRemote: false }, { project: null });
+    expect(s0).toMatchObject({ models: { allowRemote: true } });
+    expect(s0).not.toHaveProperty("theme");
+    await invoke("system.saveSettings", { allowRemote: false }, { project: null });
     const exe = join(mkdtempSync(join(tmpdir(), "testimus-exe-")), "claude.exe");
     writeFileSync(exe, "");
     const s1 = (await invoke("system.saveSettings", { claudeExe: ` ${exe} ` }, { project: null })) as any;
-    expect(s1).toMatchObject({ theme: "dark", stepLayout: "stacked", claude: { exe } });
+    expect(s1).toMatchObject({ claude: { exe } });
     expect(s1.models.allowRemote).toBe(false);
-    expect(read(join(env.dataDir(), "settings.json")).theme).toBe("dark");
+    expect(read(join(env.dataDir(), "settings.json")).models.allowRemote).toBe(false);
   });
 
   it("keeps a claude.exe path as typed even when it does not run (Xray Editor), but refuses command characters", async () => {

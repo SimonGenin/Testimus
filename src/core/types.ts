@@ -522,8 +522,6 @@ export type AgentsMeasure = { limit: number; at: string; reason: string; levels:
 export type Settings = {
   projects: string[];
   lastProject: string;
-  theme: "system" | "light" | "dark";
-  stepLayout: "stacked" | "split";
   claude: { exe: string };
   models: { allowRemote: boolean };
   agents?: { max?: number; adaptive?: boolean; measured?: AgentsMeasure };

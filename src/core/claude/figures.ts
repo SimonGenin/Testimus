@@ -73,7 +73,6 @@ export function figuresPrompt(
 const figKey = (k: string) => `fig:${k.trim().replace(/^fig[:\s]*/i, "")}`;
 
 function described(v: unknown): Described | null {
-  if (typeof v === "string") return v.trim() ? { description: v.trim() } : null;
   if (!v || typeof v !== "object") return null;
   const o = v as Record<string, unknown>;
   if (typeof o.description !== "string" || !o.description.trim()) return null;
@@ -88,7 +87,7 @@ function described(v: unknown): Described | null {
   return out;
 }
 
-// ponytail: v1 replies map an anchor to a description string, v2 replies to { description, labels, kind }; both read
+// ponytail: a reply maps each anchor to { description, labels, kind }, as an object or a list of entries with their anchor
 export function parseFigures(text: string): Record<string, Described> {
   const blocks = [...text.matchAll(/```[ \t]*([\w-]*)[^\n]*\n([\s\S]*?)```/g)];
   const ordered = [...blocks.filter((b) => b[1] === FIGURES_TAG), ...blocks.filter((b) => b[1] !== FIGURES_TAG)].map(
@@ -114,10 +113,6 @@ export function parseFigures(text: string): Record<string, Described> {
     } catch {}
   }
   return {};
-}
-
-export function parseFigureDescriptions(text: string): Record<string, string> {
-  return Object.fromEntries(Object.entries(parseFigures(text)).map(([k, d]) => [k, d.description]));
 }
 
 export async function describeFigures(

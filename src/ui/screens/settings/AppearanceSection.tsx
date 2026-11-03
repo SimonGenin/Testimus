@@ -46,7 +46,6 @@ export function AppearanceSection() {
             onChange={(t) => {
               setThemeEverywhere(t);
               setTheme(t);
-              void save({ theme: t });
             }}
             options={[
               { value: "system", label: "System" },
@@ -63,7 +62,6 @@ export function AppearanceSection() {
             onChange={(l) => {
               setLayout(l);
               writePref("testimus.stepLayout", l);
-              void save({ stepLayout: l });
             }}
             options={[
               { value: "stacked", label: "Stacked" },

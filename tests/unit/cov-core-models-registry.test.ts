@@ -39,29 +39,6 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-describe("readRegistry drops the Ollama installations, saying so once", () => {
-  it("one installation is said in the singular, and a later read says nothing", () => {
-    const err = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
-    writeFileSync(
-      registryFile(),
-      JSON.stringify({ installs: [{ model: "a", via: "ollama" }, inst("b", "path")], ollama: { url: "x" } }),
-    );
-    expect(readRegistry().installs.map((i) => i.model)).toEqual(["b"]);
-    expect(String(err.mock.calls[0][0])).toContain("lists 1 installation through Ollama");
-    writeFileSync(
-      registryFile(),
-      JSON.stringify({
-        installs: [
-          { model: "a", via: "ollama" },
-          { model: "c", via: "ollama" },
-        ],
-      }),
-    );
-    readRegistry();
-    expect(err).toHaveBeenCalledTimes(1);
-  });
-});
-
 describe("registry helpers", () => {
   it("installsOf, dropInstall with and without a via, runtimesDir", () => {
     putInstall(inst("m", "path"));

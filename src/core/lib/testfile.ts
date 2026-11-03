@@ -37,10 +37,6 @@ const ALIAS: Record<string, string> = {
   result: "Expected Result",
 };
 
-// ponytail: the two section lists of format v2 (and the single list of v1) name attachments that no
-// field embeds — which is exactly what the Attachments list is, so they open as one
-const IMAGES = new Set(["attachments", "action images", "expected images", "images"]);
-
 // ponytail: an alias yields to a real step field of that exact name (xray.json), so a custom field
 // called « Result » or « Expected » round-trips instead of melting into Expected Result
 export const fieldName = (heading: string, known: readonly string[] = []) =>
@@ -305,7 +301,7 @@ export function parseTest(md: string, fieldNames: readonly string[] = []): { tes
         inSection = false;
         handled = true;
       } else if (level === 3 && step && name !== "") {
-        const kind = IMAGES.has(lower) ? "images" : lower === "sources" ? "sources" : fieldName(name, fieldNames);
+        const kind = lower === "attachments" ? "images" : lower === "sources" ? "sources" : fieldName(name, fieldNames);
         if (step.seen.has(kind)) warnings.push(`Duplicate "### ${name}" in step ${raws.length}`);
         step.seen.add(kind);
         imgs = kind === "images" ? step.images : null;

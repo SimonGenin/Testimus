@@ -197,17 +197,6 @@ describe("push", () => {
     );
   });
 
-  it("refuses a test pulled by an older version that did not keep Jira's embeds", async () => {
-    const file = join(project, "tests/LFRPS12-1420/.remote.md");
-    const old = readFileSync(file, "utf8")
-      .replace(/!\[\]\([^)]*\)/g, "")
-      .replace("### Attachments", "### Images");
-    writeFileSync(file, old);
-    await expect(pushTest(project, "LFRPS12-1420")).rejects.toThrow(
-      "LFRPS12-1420 was pulled by an older version of the app",
-    );
-  });
-
   it("a create op fails when the local test is gone from tests/", async () => {
     const push = await pushTest(project, "local-3f9a12c0");
     rmSync(join(project, "tests/local-3f9a12c0"), { recursive: true });

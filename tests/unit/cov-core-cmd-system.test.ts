@@ -89,7 +89,7 @@ describe("models.pull and system.saveSettings", () => {
 
   it("an empty claude.exe means PATH, and downloads can be turned back on", async () => {
     expect(checkedExe("   ")).toBe("");
-    await invoke("system.saveSettings", { claudeExe: "", allowRemote: true, stepLayout: "split" }, { project: null });
-    expect(readSettings()).toMatchObject({ claude: { exe: "" }, models: { allowRemote: true }, stepLayout: "split" });
+    await invoke("system.saveSettings", { claudeExe: "", allowRemote: true }, { project: null });
+    expect(readSettings()).toMatchObject({ claude: { exe: "" }, models: { allowRemote: true } });
   });
 });

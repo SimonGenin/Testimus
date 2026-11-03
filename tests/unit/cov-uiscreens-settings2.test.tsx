@@ -314,7 +314,7 @@ describe("Settings › Appearance", () => {
       within(screen.getByRole("group", { name: "Step layout" })).getByRole("button", { name: "Side by side" }),
     );
     expect(localStorage.getItem("testimus.stepLayout")).toBe("split");
-    await waitFor(() => expect(named("system.saveSettings")).toHaveLength(3));
+    await waitFor(() => expect(named("system.saveSettings")).toHaveLength(1));
     act(() => {
       window.dispatchEvent(new CustomEvent("testimus:theme", { detail: "light" }));
     });

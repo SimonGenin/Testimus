@@ -306,25 +306,6 @@ describe("docs commands", () => {
       ["SOSIE_211_D401-1_3", "validated", "missing"],
       ["SOSIE_211_D401-1_4", "submitted", "missing"],
     ]);
-    const legacy = join(copy, "docs", "SOSIE_211_D401-1_4", "doc.json");
-    writeFileSync(
-      legacy,
-      JSON.stringify({
-        ...JSON.parse(readFileSync(legacy, "utf8")),
-        binding: "mandatory",
-        status: "superseded",
-        supersededBy: "SOSIE_211_D401-1_3",
-      }),
-    );
-    const read = (await run<DocRef[]>(copy, "docs.list", {}))[1];
-    expect(read.status).toBe("draft");
-    expect(read).not.toHaveProperty("binding");
-    expect(read).not.toHaveProperty("supersededBy");
-    await run(copy, "docs.set", { id: "SOSIE_211_D401-1_4", context: "x" });
-    const written = JSON.parse(readFileSync(legacy, "utf8"));
-    expect(written.status).toBe("draft");
-    expect(written).not.toHaveProperty("binding");
-    expect(written).not.toHaveProperty("supersededBy");
     const s = await run<{ md: string; context: string }>(copy, "docs.show", {
       id: "SOSIE_211_D401-1_3",
       anchor: "§5.6.6",

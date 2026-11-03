@@ -291,16 +291,6 @@ export async function pushTest(project: string, id: string): Promise<Push> {
     getMyself(),
     local.key ? pullTest(local.key) : null,
   ]);
-  if (
-    remote &&
-    remoteMd &&
-    /^### (Action |Expected )?Images$/m.test(remoteMd) &&
-    !/!\[\]\(/.test(remoteMd) &&
-    remote.test.steps.some((s) => /!\[\]\(/.test(Object.values(s.fields).join("\n")))
-  )
-    throw new Error(
-      `${local.key} was pulled by an older version of the app and Jira embeds screenshots it does not know — pull it from Jira before pushing (copy your local edits first, the pull overwrites them).`,
-    );
   const remoteChanged = !!(remote && remoteMd && forCompare(remote.test) !== forCompare(parseTest(remoteMd).test));
   if (remote && remoteMd) markRemoteChanged(project, id, remoteChanged);
   const plan = await planPush(local, id, remote, {

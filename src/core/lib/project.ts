@@ -26,8 +26,6 @@ export const DEFAULT_XRAY: XrayJson = {
 export const DEFAULT_SETTINGS: Settings = {
   projects: [],
   lastProject: "",
-  theme: "system",
-  stepLayout: "stacked",
   claude: { exe: "" },
   models: { allowRemote: true },
 };
