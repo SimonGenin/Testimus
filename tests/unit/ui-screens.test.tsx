@@ -418,7 +418,7 @@ describe("Documents screen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add" }));
     const list = await screen.findByRole("region", { name: "Document list" });
     await waitFor(() => expect(within(list).getByText("Indexing failed")).toBeInTheDocument());
-    expect(within(list).getByRole("button", { name: "Reindex" })).toBeInTheDocument();
+    expect(within(list).queryByRole("button", { name: "Reindex" })).toBeNull();
     expect(within(list).queryByText(/stopped/)).not.toBeInTheDocument();
     expect(within(list).queryByText("New document")).not.toBeInTheDocument();
     expect(within(list).getAllByText("Itinéraires")).toHaveLength(1);

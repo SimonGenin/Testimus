@@ -118,7 +118,7 @@ describe("Generate › result helpers", () => {
     expect(screen.getByRole("status", { name: "Loading a test" })).toHaveTextContent("Loading…");
   });
 
-  it("GenCard: findings from the check, then from the test list, and the requirements", () => {
+  it("GenCard: findings from the check, then from the test list, and no id chips", () => {
     const onOpen = vi.fn();
     const t = test("", [{ Exigence: "EXI_A_1, EXI_A_2" }, { Exigence: "OTHER_9" }]);
     const show = (props: Partial<Parameters<typeof GenCard>[0]>) => {
@@ -128,9 +128,7 @@ describe("Generate › result helpers", () => {
     show({ check: { id: "x", ok: false, review: "to-fix", errors: 2, warnings: 0 } });
     expect(screen.getByText("Untitled test")).toBeInTheDocument();
     expect(screen.getByText("2 errors")).toBeInTheDocument();
-    expect(screen.getByText("…_1")).toBeInTheDocument();
-    expect(screen.getByText("…_2")).toBeInTheDocument();
-    expect(screen.getByText("OTHER_9")).toBeInTheDocument();
+    expect(screen.queryByText("OTHER_9")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button"));
     expect(onOpen).toHaveBeenCalled();
     show({ check: { id: "x", ok: false, review: "draft", errors: 0, warnings: 1 } });

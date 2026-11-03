@@ -221,15 +221,11 @@
   overflow-wrap: anywhere;
 }
 
-.rtest-reqs {
+.rtest-sub {
   display: flex;
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
-}
-
-.rtest-reqs .label {
-  margin-right: 4px;
 }
 
 .rstatus {

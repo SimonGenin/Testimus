@@ -1,8 +1,7 @@
 import type { Job, JobEvent, LocalTestRef, Review, Test } from "../../../core/types.ts";
-import { Button, RequirementChip, ReviewBadge, Severity, Skeleton } from "../../components/ui/index.ts";
+import { Button, ReviewBadge, Severity, Skeleton } from "../../components/ui/index.ts";
 import { plural } from "../../lib/format.ts";
 import { duration } from "../../lib/jobs.ts";
-import { requirementsOf, shortId } from "../review/ReviewTest.tsx";
 
 export type GenCheck = { id: string; ok: boolean; review: string; errors: number; warnings: number };
 
@@ -96,16 +95,12 @@ export function GenCard({
         <Skeleton w={70} h={20} r={10} />
       </div>
     );
-  const reqs = requirementsOf(item.test);
   return (
     <button type="button" className="gcard" onClick={onOpen}>
       <span className="gcard-title">{item.test.summary || "Untitled test"}</span>
       <Findings refItem={item.ref} check={check} checking={checking} />
       <span className="gcard-meta">
         <span className="muted">{plural(item.test.steps.length, "step")}</span>
-        {reqs.slice(0, 4).map((r) => (
-          <RequirementChip key={r} id={r === reqs[0] && reqs.length > 1 ? shortId(reqs[1], r) : shortId(reqs[0], r)} />
-        ))}
       </span>
       <ReviewBadge review={(check?.review ?? item.ref?.review ?? item.test.review) as Review} small />
     </button>

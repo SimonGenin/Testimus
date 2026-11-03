@@ -6,7 +6,7 @@ import type { DocRef, JobEvent } from "../../src/core/types.ts";
 import { setProject } from "../../src/ui/api.ts";
 import { docLink } from "../../src/ui/components/sources/PassageView.tsx";
 import { setTraces } from "../../src/ui/lib/traces.ts";
-import { importClaude, setImportClaude } from "../../src/ui/lib/uploads.ts";
+import { importClaude, reindexAll, setImportClaude } from "../../src/ui/lib/uploads.ts";
 import { DocDetail } from "../../src/ui/screens/documents/DocDetail.tsx";
 import { DocText, FigureChip } from "../../src/ui/screens/documents/DocText.tsx";
 import { DocumentsScreen } from "../../src/ui/screens/documents/DocumentsScreen.tsx";
@@ -164,7 +164,6 @@ describe("DocDetail", () => {
   const show = (anchor = "", over: Record<string, unknown> = {}) => {
     const onAnchor = vi.fn();
     const onChanged = vi.fn();
-    const onReindex = vi.fn();
     const onRemoved = vi.fn();
     setTraces([
       {
@@ -181,21 +180,13 @@ describe("DocDetail", () => {
     api.routes["traces.find"] = () => ({ items: [{ id: "EXI_1", doc: "D1", anchor: "§5", context: "" }] });
     api.routes["docs.show"] = (i) => (i.anchor ? { md: `Part ${i.anchor} EXI_1` } : shown(over));
     mount(
-      <DocDetail
-        id="D1"
-        anchor={anchor}
-        docs={docs}
-        onAnchor={onAnchor}
-        onChanged={onChanged}
-        onReindex={onReindex}
-        onRemoved={onRemoved}
-      />,
+      <DocDetail id="D1" anchor={anchor} docs={docs} onAnchor={onAnchor} onChanged={onChanged} onRemoved={onRemoved} />,
     );
-    return { onAnchor, onChanged, onReindex, onRemoved };
+    return { onAnchor, onChanged, onRemoved };
   };
 
   it("shows the document, its facts and the first sub-section by default", async () => {
-    const { onAnchor, onReindex } = show();
+    const { onAnchor } = show();
     expect(await screen.findByRole("heading", { name: "Title D1" })).toBeInTheDocument();
     expect(screen.getByText("2026-01-02")).toBeInTheDocument();
     expect(screen.getByText(/Converted from PDF · 3 sections · 1 requirement id · 2 figures/)).toBeInTheDocument();
@@ -213,8 +204,7 @@ describe("DocDetail", () => {
     expect(onAnchor).toHaveBeenCalledWith("fig:fig-1");
     fireEvent.click(screen.getByRole("button", { name: "fig:fig-2" }));
     expect(onAnchor).toHaveBeenCalledWith("fig:fig-2");
-    fireEvent.click(screen.getByRole("button", { name: "Reindex" }));
-    expect(onReindex).toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Reindex" })).toBeNull();
     const inText = screen.getAllByRole("button", { name: "EXI_1" }).find((b) => b.closest(".doctext"));
     fireEvent.click(inText as HTMLElement);
     expect(onAnchor).toHaveBeenLastCalledWith("req:EXI_1");
@@ -249,31 +239,11 @@ describe("DocDetail", () => {
       if (i.anchor) throw new Error("no such anchor");
       return shown();
     };
-    mount(
-      <DocDetail
-        id="D1"
-        anchor="§9"
-        docs={docs}
-        onAnchor={vi.fn()}
-        onChanged={vi.fn()}
-        onReindex={vi.fn()}
-        onRemoved={vi.fn()}
-      />,
-    );
+    mount(<DocDetail id="D1" anchor="§9" docs={docs} onAnchor={vi.fn()} onChanged={vi.fn()} onRemoved={vi.fn()} />);
     expect(await screen.findByText("no such anchor")).toBeInTheDocument();
     cleanup();
     delete api.routes["docs.show"];
-    mount(
-      <DocDetail
-        id="DX"
-        anchor=""
-        docs={docs}
-        onAnchor={vi.fn()}
-        onChanged={vi.fn()}
-        onReindex={vi.fn()}
-        onRemoved={vi.fn()}
-      />,
-    );
+    mount(<DocDetail id="DX" anchor="" docs={docs} onAnchor={vi.fn()} onChanged={vi.fn()} onRemoved={vi.fn()} />);
     expect(screen.getByRole("complementary", { name: "DX details" })).toHaveAttribute("aria-busy", "true");
     expect(await screen.findByText("This document could not be opened")).toBeInTheDocument();
     expect(screen.getByText("Unknown command docs.show")).toBeInTheDocument();
@@ -448,15 +418,7 @@ describe("DocDetail", () => {
       }),
     );
     const { unmount } = render(
-      <DocDetail
-        id="D1"
-        anchor=""
-        docs={docs}
-        onAnchor={vi.fn()}
-        onChanged={vi.fn()}
-        onReindex={vi.fn()}
-        onRemoved={vi.fn()}
-      />,
+      <DocDetail id="D1" anchor="" docs={docs} onAnchor={vi.fn()} onChanged={vi.fn()} onRemoved={vi.fn()} />,
     );
     unmount();
     release();
@@ -494,15 +456,7 @@ describe("DocDetail with tracked ids", () => {
     };
     const onAnchor = vi.fn();
     mount(
-      <DocDetail
-        id="D1"
-        anchor="§9"
-        docs={[doc("D1")]}
-        onAnchor={onAnchor}
-        onChanged={vi.fn()}
-        onReindex={vi.fn()}
-        onRemoved={vi.fn()}
-      />,
+      <DocDetail id="D1" anchor="§9" docs={[doc("D1")]} onAnchor={onAnchor} onChanged={vi.fn()} onRemoved={vi.fn()} />,
     );
     expect(await screen.findByText("Requirement ids (2)")).toBeInTheDocument();
     expect(screen.getByText("Alarm ids (1)")).toBeInTheDocument();
@@ -523,15 +477,7 @@ describe("DocDetail with tracked ids", () => {
     setTraces([]);
     api.routes["docs.show"] = (i) => (i.anchor ? { md: "Texte EXI_1" } : shown());
     mount(
-      <DocDetail
-        id="D1"
-        anchor=""
-        docs={[doc("D1")]}
-        onAnchor={vi.fn()}
-        onChanged={vi.fn()}
-        onReindex={vi.fn()}
-        onRemoved={vi.fn()}
-      />,
+      <DocDetail id="D1" anchor="" docs={[doc("D1")]} onAnchor={vi.fn()} onChanged={vi.fn()} onRemoved={vi.fn()} />,
     );
     expect(await screen.findByText("Texte EXI_1")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "EXI_1" })).toBeNull();
@@ -555,15 +501,7 @@ describe("DocDetail with tracked ids", () => {
       }),
     );
     const { unmount } = render(
-      <DocDetail
-        id="D1"
-        anchor=""
-        docs={[]}
-        onAnchor={vi.fn()}
-        onChanged={vi.fn()}
-        onReindex={vi.fn()}
-        onRemoved={vi.fn()}
-      />,
+      <DocDetail id="D1" anchor="" docs={[]} onAnchor={vi.fn()} onChanged={vi.fn()} onRemoved={vi.fn()} />,
     );
     unmount();
     release();
@@ -975,13 +913,8 @@ describe("Documents screen", () => {
     ).toBeInTheDocument();
     fireEvent.click(within(list).getByRole("button", { name: "Open Jobs" }));
     expect(a.navigate).toHaveBeenCalledWith("jobs");
-    api.routes["rag.index"] = () => {
-      throw new Error("still broken");
-    };
-    fireEvent.click(within(list).getByRole("button", { name: "Reindex" }));
-    expect(await within(list).findByText(/still broken/)).toBeInTheDocument();
-    expect(within(list).queryByText(/was added/)).toBeNull();
-    fireEvent.click(within(list).getByRole("button", { name: "Dismiss the indexing failure of All documents" }));
+    expect(within(list).queryByRole("button", { name: "Reindex" })).toBeNull();
+    fireEvent.click(within(list).getByRole("button", { name: "Dismiss the indexing failure of fresh.docx" }));
     expect(within(list).queryByText("Indexing failed")).toBeNull();
   });
 
@@ -997,11 +930,9 @@ describe("Documents screen", () => {
         return f(url, init);
       }),
     );
-    const { container } = mount(<DocumentsScreen />);
+    mount(<DocumentsScreen />);
     await screen.findByText("Title D1");
-    fireEvent.click(
-      await within(container.querySelector(".docdetail") as HTMLElement).findByRole("button", { name: "Reindex" }),
-    );
+    await act(() => reindexAll(() => {}));
     expect(await screen.findByText("Install a pack")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Dismiss the indexing failure of All documents" }));
   });
