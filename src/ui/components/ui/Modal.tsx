@@ -190,7 +190,13 @@ export type ModalProps = {
   size?: "sm" | "md" | "lg";
   /** a confirmation: question title, consequences, Cancel and the verb; danger (red verb, focus on Cancel) only when
    * something is lost — the one place a danger button lives */
-  confirm?: { verb: string; danger?: boolean; onConfirm: () => void | Promise<void> };
+  confirm?: {
+    verb: string;
+    danger?: boolean;
+    onConfirm: () => void | Promise<void>;
+    /** the verb waits (true, or the reason) — a plan still being read; Cancel stays */
+    disabled?: boolean | string;
+  };
   /** what will happen, with numbers: [[2, "modified steps are lost"], [1, "added step is lost"]] */
   consequences?: [number | string, string][];
   /** words on the left of the foot (« Saved in ~/.atlassian », « Same as testimus xray push 12 ») */
@@ -378,6 +384,7 @@ export function Modal({
               variant={confirm.danger ? "danger" : "primary"}
               label={confirm.verb}
               loading={working}
+              disabled={confirm.disabled}
               onClick={run}
             />
           </>
