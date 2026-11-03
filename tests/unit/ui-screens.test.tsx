@@ -7,7 +7,6 @@ import type { JobEvent, Test } from "../../src/core/types.ts";
 import { AppContext, type AppState } from "../../src/ui/lib/app.ts";
 import { resetDoctor } from "../../src/ui/lib/doctor.ts";
 import { DoctorScreen } from "../../src/ui/screens/doctor/DoctorScreen.tsx";
-import { DocumentsScreen } from "../../src/ui/screens/documents/DocumentsScreen.tsx";
 import { GenerateScreen } from "../../src/ui/screens/generate/GenerateScreen.tsx";
 import { ReviewScreen } from "../../src/ui/screens/review/ReviewScreen.tsx";
 import { ColumnsSection } from "../../src/ui/screens/settings/ColumnsSection.tsx";
@@ -348,88 +347,6 @@ describe("Generate screen", () => {
     expect(within(head("Second test")).getByText("2 errors")).toBeInTheDocument();
     expect(within(head("Premier test")).getByText("No findings")).toBeInTheDocument();
     expect(named("check.run")).toHaveLength(0);
-  });
-});
-
-describe("Documents screen", () => {
-  it("lists the documents with their index state", async () => {
-    const doc = (id: string, title: string, indexed: string) => ({
-      id,
-      code: id,
-      title,
-      version: "01.01",
-      date: "",
-      kind: "spec",
-      status: "validated",
-      source: { name: "", sha256: "", file: "source.docx" },
-      converted: {
-        with: "",
-        at: "2026-11-02T10:00:00.000Z",
-        warnings: indexed === "stale" ? ["2 Word comments were dropped"] : [],
-      },
-      indexed,
-    });
-    routes["docs.list"] = () => [
-      doc("SOSIE_211_D401-1_3", "Traction", "fresh"),
-      doc("SOSIE_211_D401-1_4", "Signalisation", "stale"),
-    ];
-    routes["docs.show"] = (i) => ({
-      doc: doc(String(i.id), "Traction", "fresh"),
-      context: "",
-      toc: [{ anchor: "§5", title: "Traction", level: 1 }],
-      figures: [],
-      md: "## 5 Traction",
-    });
-    wrap(appState({ route: { screen: "documents" } }), <DocumentsScreen />);
-    const list = await screen.findByRole("region", { name: "Document list" });
-    await waitFor(() => expect(within(list).getByText("Up to date")).toBeInTheDocument());
-    expect(within(list).getByText("Reindex needed")).toBeInTheDocument();
-    expect(within(list).getByText("Up to date").querySelector("svg")).not.toBeNull();
-  });
-
-  it("an added document waits, not converted and not indexed, until the team converts it", async () => {
-    const doc = {
-      id: "SOSIE_211_D401-1_5",
-      code: "SOSIE_211_D401-1_5",
-      title: "Itinéraires",
-      version: "01.02",
-      date: "",
-      kind: "spec",
-      status: "draft",
-      source: { name: "", sha256: "", file: "source.docx" },
-      converted: { with: "", at: "", warnings: [] },
-      indexed: "missing",
-    };
-    let added = false;
-    routes["docs.list"] = () => (added ? [doc] : []);
-    routes["docs.show"] = () => ({ doc, context: "", toc: [], figures: [], md: "" });
-    routes["docs.addFiles"] = () => {
-      added = true;
-      return { added: [{ id: doc.id }], rejected: [] };
-    };
-    const app = appState({ route: { screen: "documents" } });
-    const again = wrap(app, <DocumentsScreen />);
-    await screen.findByRole("heading", { name: "Start with the specifications" });
-    fireEvent.click(screen.getByRole("button", { name: "Add from a path" }));
-    fireEvent.change(screen.getByLabelText("Path of the file"), {
-      target: { value: "C:/docs/SOSIE_211_D401-1_5.docx" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Add" }));
-    await waitFor(() =>
-      expect(within(screen.getByRole("region", { name: "Document list" })).getByText("Not converted")).toBeVisible(),
-    );
-    const list = screen.getByRole("region", { name: "Document list" });
-    expect(app.navigate).toHaveBeenCalledWith("documents", doc.id);
-    expect(within(list).queryByText(/stopped/)).not.toBeInTheDocument();
-    expect(within(list).queryByText("New document")).not.toBeInTheDocument();
-    expect(within(list).getAllByText("Itinéraires")).toHaveLength(1);
-    expect(named("rag.index")).toHaveLength(0);
-    again.unmount();
-
-    wrap(app, <DocumentsScreen />);
-    const fresh = await screen.findByRole("region", { name: "Document list" });
-    await waitFor(() => expect(within(fresh).getByText("Itinéraires")).toBeInTheDocument());
-    expect(within(fresh).getByText("Not converted")).toBeInTheDocument();
   });
 });
 

@@ -2,12 +2,14 @@
 import "@testing-library/jest-dom/vitest";
 import { act, cleanup, fireEvent, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { DocRef } from "../../src/core/types.ts";
-import type { Action } from "../../src/ui/lib/actions.ts";
-import { DocDetail } from "../../src/ui/screens/documents/DocDetail.tsx";
-import { DocumentsScreen, foldOf } from "../../src/ui/screens/documents/DocumentsScreen.tsx";
-import { clearToasts, mount } from "./cov-uiscreens-helpers.tsx";
-import { api, FakeEventSource, fakeFetch } from "./ui-desktop-helpers.tsx";
+import type { DocRef } from "../../../../src/core/types.ts";
+import type { Action } from "../../../../src/ui/lib/actions.ts";
+import { DocDetail } from "../../../../src/ui/screens/documents/DocDetail.tsx";
+import { DocumentsScreen } from "../../../../src/ui/screens/documents/DocumentsScreen.tsx";
+import { foldOf } from "../../../../src/ui/screens/documents/layout.ts";
+import { clearToasts } from "../../cov-uiscreens-helpers.tsx";
+import { api, FakeEventSource, fakeFetch } from "../../ui-desktop-helpers.tsx";
+import { at, doc, mountDocs } from "./helpers.tsx";
 
 beforeEach(() => {
   fakeFetch();
@@ -18,24 +20,9 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   clearToasts();
+  localStorage.clear();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
-});
-
-const at = "2026-11-02T10:00:00.000Z";
-
-const doc = (id: string, over: Partial<DocRef> = {}): DocRef => ({
-  id,
-  code: `C-${id}`,
-  title: `Title ${id}`,
-  version: "01.01",
-  date: "",
-  kind: "spec",
-  status: "validated",
-  source: { name: "", sha256: "", file: "source.docx" },
-  converted: { with: "", at: at, warnings: [] },
-  indexed: "fresh",
-  ...over,
 });
 
 type Entry = { contentRect: { width: number } };
@@ -50,7 +37,7 @@ function sized(width: number) {
         this.cb = cb;
       }
       observe(el: Element) {
-        if (!el.classList.contains("docs-body")) return;
+        if (el.getAttribute("data-testid") !== "docs-body") return;
         body.resize = (w) => act(() => this.cb([{ contentRect: { width: w } }]));
         this.cb([{ contentRect: { width } }]);
       }
@@ -76,13 +63,16 @@ const listed = (over: Partial<DocRef> = {}) => {
             { anchor: "§1", title: "One", level: 1 },
             { anchor: "§1.1", title: "Sub", level: 2 },
           ],
-          requirements: [],
           figures: [],
           md: "",
         };
 };
 
-const bodyOf = (c: HTMLElement) => c.querySelector(".docs-body") as HTMLElement;
+const fold = (c: HTMLElement) => c.querySelector('[data-testid="docs-body"]')?.getAttribute("data-fold");
+const edge = (name: string) => screen.getByRole("separator", { name });
+const drawer = (name: string) => screen.queryByRole("dialog", { name });
+const scrim = (name: string) => fireEvent.mouseDown(screen.getByRole("dialog", { name }).parentElement as HTMLElement);
+const pressEscape = (name: string) => fireEvent.keyDown(screen.getByRole("dialog", { name }), { key: "Escape" });
 
 describe("foldOf", () => {
   it("folds the outer columns first as the screen narrows", () => {
@@ -97,9 +87,7 @@ describe("foldOf", () => {
       "tiny",
     ]);
   });
-});
 
-describe("foldOf with dragged widths", () => {
   it("wider columns fold sooner, narrower ones later", () => {
     expect(foldOf(1300, { list: 300, toc: 256, side: 300 })).toBe("medium");
     expect(foldOf(1160, { list: 200, toc: 200, side: 260 })).toBe("wide");
@@ -108,47 +96,43 @@ describe("foldOf with dragged widths", () => {
 });
 
 describe("Documents screen resizing", () => {
-  it("wide: the sections and the settings have their own edges, at the widths last chosen", async () => {
+  it("wide: the list, the contents and the settings have their own edges, at the widths last chosen", async () => {
     listed();
+    localStorage.setItem("testimus.docsListWidth", "300");
     localStorage.setItem("testimus.docsTocWidth", "200");
     localStorage.setItem("testimus.docsSideWidth", "360");
-    const { container } = mount(<DocumentsScreen />, { route: { screen: "documents", arg: "D1" } });
-    localStorage.removeItem("testimus.docsTocWidth");
-    localStorage.removeItem("testimus.docsSideWidth");
+    mountDocs(<DocumentsScreen />, { route: { screen: "documents", arg: "D1" } });
     await screen.findByText("Part §1.1");
-    expect(bodyOf(container).style.getPropertyValue("--docs-toc-w")).toBe("200px");
-    expect(bodyOf(container).style.getPropertyValue("--docs-side-w")).toBe("360px");
-    expect(screen.getByRole("separator", { name: "Resize the sections" })).toBeInTheDocument();
-    expect(screen.getByRole("separator", { name: "Resize the settings" })).toBeInTheDocument();
+    expect(edge("Resize the document list")).toHaveAttribute("aria-valuenow", "300");
+    expect(edge("Resize the sections")).toHaveAttribute("aria-valuenow", "200");
+    expect(edge("Resize the settings")).toHaveAttribute("aria-valuenow", "360");
   });
 
-  it("a drag grows a column only into the room the text can spare", async () => {
+  it("a drag grows a column only into the room the text can spare, and is kept", async () => {
     listed();
     sized(1400);
-    const { container } = mount(<DocumentsScreen />, { route: { screen: "documents", arg: "D1" } });
+    const { container } = mountDocs(<DocumentsScreen />, { route: { screen: "documents", arg: "D1" } });
     await screen.findByText("Part §1.1");
-    const edge = screen.getByRole("separator", { name: "Resize the settings" });
-    const side = screen.getByRole("complementary", { name: "Document settings" });
-    side.getBoundingClientRect = () => ({ width: 300 }) as DOMRect;
-    fireEvent.pointerDown(edge, { clientX: 1000, pointerId: 1 });
-    fireEvent.pointerMove(edge, { clientX: 700, pointerId: 1 });
-    expect(bodyOf(container).style.getPropertyValue("--docs-side-w")).toBe("400px");
-    fireEvent.pointerUp(edge, { pointerId: 1 });
-    expect(bodyOf(container)).toHaveClass("is-wide");
-    localStorage.removeItem("testimus.docsSideWidth");
+    const side = edge("Resize the settings");
+    fireEvent.pointerDown(side, { clientX: 1000, pointerId: 1 });
+    fireEvent.pointerMove(side, { clientX: 700, pointerId: 1 });
+    expect(side).toHaveAttribute("aria-valuenow", "400");
+    fireEvent.pointerUp(side, { pointerId: 1 });
+    expect(fold(container)).toBe("wide");
+    expect(localStorage.getItem("testimus.docsSideWidth")).toBe("400");
+    fireEvent.doubleClick(side);
+    expect(side).toHaveAttribute("aria-valuenow", "300");
+    expect(localStorage.getItem("testimus.docsSideWidth")).toBeNull();
   });
 });
 
 describe("Documents screen folding", () => {
-  it("wide: the list stays beside the text, at the width last chosen by its edge; no drawer buttons", async () => {
+  it("wide: the list stays beside the text; no drawer buttons", async () => {
     listed();
-    localStorage.setItem("testimus.docsListWidth", "300");
-    const { container } = mount(<DocumentsScreen />, { route: { screen: "documents", arg: "D1" } });
-    localStorage.removeItem("testimus.docsListWidth");
+    const { container } = mountDocs(<DocumentsScreen />, { route: { screen: "documents", arg: "D1" } });
     await screen.findByText("Part §1.1");
-    expect(bodyOf(container)).toHaveClass("is-wide");
-    expect(bodyOf(container).style.getPropertyValue("--docs-list-w")).toBe("300px");
-    expect(screen.getByRole("separator", { name: "Resize the document list" })).toBeInTheDocument();
+    expect(fold(container)).toBe("wide");
+    expect(screen.getByRole("region", { name: "Document list" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Show the document list" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Details" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Sections" })).toBeNull();
@@ -157,11 +141,10 @@ describe("Documents screen folding", () => {
   it("medium: the list is a drawer opened from the detail; a pick, Escape, the scrim or the button closes it", async () => {
     listed();
     const body = sized(1100);
-    const { container, app: a } = mount(<DocumentsScreen />, { route: { screen: "documents", arg: "D1" } });
+    const { container, app: a } = mountDocs(<DocumentsScreen />, { route: { screen: "documents", arg: "D1" } });
     await screen.findByText("Part §1.1");
-    const box = bodyOf(container);
-    expect(box).toHaveClass("is-medium");
-    expect(box).not.toHaveClass("is-list-open");
+    expect(fold(container)).toBe("medium");
+    expect(screen.queryByRole("region", { name: "Document list" })).toBeNull();
     expect(screen.queryByRole("separator", { name: "Resize the document list" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Details" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Sections" })).toBeNull();
@@ -169,32 +152,29 @@ describe("Documents screen folding", () => {
     expect(show).toHaveAttribute("aria-expanded", "false");
 
     fireEvent.click(show);
-    expect(box).toHaveClass("is-list-open");
+    expect(drawer("Documents")).not.toBeNull();
     expect(show).toHaveAttribute("aria-expanded", "true");
-    fireEvent.click(container.querySelector(".docs-scrim") as HTMLElement);
-    expect(box).not.toHaveClass("is-list-open");
-    expect(container.querySelector(".docs-scrim")).toBeNull();
+    scrim("Documents");
+    expect(drawer("Documents")).toBeNull();
 
     fireEvent.click(show);
-    fireEvent.keyDown(window, { key: "x" });
-    expect(box).toHaveClass("is-list-open");
-    fireEvent.keyDown(window, { key: "Escape" });
-    expect(box).not.toHaveClass("is-list-open");
+    pressEscape("Documents");
+    expect(drawer("Documents")).toBeNull();
 
     fireEvent.click(show);
     fireEvent.click(show);
-    expect(box).not.toHaveClass("is-list-open");
+    expect(drawer("Documents")).toBeNull();
 
     fireEvent.click(show);
-    const rows = within(screen.getByRole("region", { name: "Document list" })).getAllByRole("row");
-    fireEvent.click(rows[2]);
+    const rows = within(screen.getByRole("region", { name: "Document list" })).getAllByRole("option");
+    fireEvent.click(rows[1]);
     expect(a.navigate).toHaveBeenCalledWith("documents", "D2");
-    expect(box).not.toHaveClass("is-list-open");
+    expect(drawer("Documents")).toBeNull();
 
     fireEvent.click(show);
     body.resize(1400);
-    expect(box).toHaveClass("is-wide");
-    expect(box).not.toHaveClass("is-list-open");
+    expect(fold(container)).toBe("wide");
+    expect(drawer("Documents")).toBeNull();
     expect(screen.queryByRole("button", { name: "Show the document list" })).toBeNull();
     cleanup();
     expect(body.disconnect).toHaveBeenCalled();
@@ -203,84 +183,88 @@ describe("Documents screen folding", () => {
   it("a folded screen without a document to show offers to open the list", async () => {
     listed();
     sized(900);
-    const { container } = mount(<DocumentsScreen />, { route: { screen: "documents", arg: "NOPE" } });
-    await screen.findByText("Title D1");
+    mountDocs(<DocumentsScreen />, { route: { screen: "documents", arg: "NOPE" } });
+    fireEvent.click(await screen.findByRole("button", { name: "Show the document list" }));
+    expect(drawer("Documents")).not.toBeNull();
+    expect(await screen.findByText("Title D1")).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: / details$/ })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Show the document list" }));
-    expect(bodyOf(container)).toHaveClass("is-list-open");
   });
 
   it("small: Details opens the settings as a drawer; the button, Escape, the scrim or a wider screen closes it", async () => {
     listed({ converted: { with: "", at, warnings: ["2 comments dropped"] } });
     const body = sized(900);
-    const { container } = mount(<DocumentsScreen />, { route: { screen: "documents", arg: "D1" } });
+    const { container } = mountDocs(<DocumentsScreen />, { route: { screen: "documents", arg: "D1" } });
     await screen.findByText("Part §1.1");
-    expect(bodyOf(container)).toHaveClass("is-small");
+    expect(fold(container)).toBe("small");
     expect(screen.queryByRole("button", { name: "Sections" })).toBeNull();
+    expect(screen.queryByRole("complementary", { name: "Document settings" })).toBeNull();
     const region = screen.getByRole("region", { name: "C-D1 details" });
     const details = within(region).getByRole("button", { name: "Details" });
     expect(details).toHaveAttribute("aria-expanded", "false");
-    expect(details.querySelector(".docdoc-dot")).toHaveAttribute("title", "Conversion warnings");
+    expect(within(region).getByTestId("details-warned")).toHaveAttribute("title", "Conversion warnings");
 
     fireEvent.click(details);
-    expect(region).toHaveClass("is-details-open");
+    expect(drawer("About this document")).not.toBeNull();
+    expect(screen.getByRole("complementary", { name: "Document settings" })).toBeInTheDocument();
     expect(details).toHaveAttribute("aria-expanded", "true");
-    fireEvent.click(region.querySelector(".docs-scrim") as HTMLElement);
-    expect(region).not.toHaveClass("is-details-open");
+    scrim("About this document");
+    expect(drawer("About this document")).toBeNull();
 
     fireEvent.click(details);
     fireEvent.click(details);
-    expect(region).not.toHaveClass("is-details-open");
+    expect(drawer("About this document")).toBeNull();
 
     fireEvent.click(details);
-    fireEvent.keyDown(window, { key: "Enter" });
-    expect(region).toHaveClass("is-details-open");
-    fireEvent.keyDown(window, { key: "Escape" });
-    expect(region).not.toHaveClass("is-details-open");
+    fireEvent.keyDown(screen.getByRole("dialog", { name: "About this document" }), { key: "Enter" });
+    expect(drawer("About this document")).not.toBeNull();
+    pressEscape("About this document");
+    expect(drawer("About this document")).toBeNull();
 
     fireEvent.click(details);
     body.resize(1100);
-    expect(region).not.toHaveClass("is-details-open");
+    expect(drawer("About this document")).toBeNull();
     expect(within(region).queryByRole("button", { name: "Details" })).toBeNull();
+    expect(screen.getByRole("complementary", { name: "Document settings" })).toBeInTheDocument();
   });
 
-  it("tiny: Sections opens the structure as a drawer; a picked section, the scrim, Escape or a wider screen closes it", async () => {
+  it("tiny: Sections opens the contents as a drawer; a picked section, the scrim, Escape or a wider screen closes it", async () => {
     listed();
     const body = sized(600);
-    const { container, app: a } = mount(<DocumentsScreen />, { route: { screen: "documents", arg: "D1" } });
+    const { container, app: a } = mountDocs(<DocumentsScreen />, { route: { screen: "documents", arg: "D1" } });
     await screen.findByText("Part §1.1");
-    expect(bodyOf(container)).toHaveClass("is-tiny");
+    expect(fold(container)).toBe("tiny");
     const region = screen.getByRole("region", { name: "C-D1 details" });
     const sections = within(region).getByRole("button", { name: "Sections" });
     const details = within(region).getByRole("button", { name: "Details" });
-    expect(details.querySelector(".docdoc-dot")).toBeNull();
+    expect(within(region).queryByTestId("details-warned")).toBeNull();
     expect(sections).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("navigation", { name: "Sections" })).toBeNull();
 
     fireEvent.click(sections);
-    expect(region).toHaveClass("is-sections-open");
+    expect(drawer("Contents")).not.toBeNull();
     expect(sections).toHaveAttribute("aria-expanded", "true");
-    fireEvent.click(region.querySelector(".docs-scrim") as HTMLElement);
-    expect(region).not.toHaveClass("is-sections-open");
+    scrim("Contents");
+    expect(drawer("Contents")).toBeNull();
 
     fireEvent.click(sections);
     fireEvent.click(details);
-    expect(region).not.toHaveClass("is-sections-open");
-    expect(region).toHaveClass("is-details-open");
+    expect(drawer("Contents")).toBeNull();
+    expect(drawer("About this document")).not.toBeNull();
     fireEvent.click(sections);
-    expect(region).toHaveClass("is-sections-open");
+    expect(drawer("Contents")).not.toBeNull();
 
-    const toc = within(region).getByRole("navigation", { name: "Sections" });
-    fireEvent.click(within(toc).getByRole("button", { name: "1 One" }));
+    const toc = screen.getByRole("navigation", { name: "Sections" });
+    fireEvent.click(within(toc).getByRole("option", { name: "1 One" }));
     expect(a.navigate).toHaveBeenCalledWith("documents", "D1#§1");
-    expect(region).not.toHaveClass("is-sections-open");
+    expect(drawer("Contents")).toBeNull();
 
     fireEvent.click(sections);
-    fireEvent.keyDown(window, { key: "Escape" });
-    expect(region).not.toHaveClass("is-sections-open");
+    pressEscape("Contents");
+    expect(drawer("Contents")).toBeNull();
 
     fireEvent.click(sections);
     body.resize(900);
-    expect(region).not.toHaveClass("is-sections-open");
+    expect(drawer("Contents")).toBeNull();
     expect(within(region).queryByRole("button", { name: "Sections" })).toBeNull();
     expect(within(region).getByRole("button", { name: "Details" })).toBeInTheDocument();
   });
@@ -306,7 +290,7 @@ describe("Claude actions on documents", () => {
   it("stay in Ask Claude: neither the list nor the settings show them", async () => {
     listed({ converted: { with: "", at, warnings: ["2 comments dropped", "1 table split"] } });
     api.routes["actions.list"] = () => [action()];
-    mount(<DocumentsScreen />, { route: { screen: "documents", arg: "D1" } });
+    mountDocs(<DocumentsScreen />, { route: { screen: "documents", arg: "D1" } });
     const list = await screen.findByRole("region", { name: "Document list" });
     const settings = await screen.findByRole("complementary", { name: "Document settings" });
     expect(await within(settings).findByText("2 comments dropped")).toBeInTheDocument();
@@ -319,7 +303,7 @@ describe("Claude actions on documents", () => {
 describe("DocDetail folded", () => {
   it("a document that cannot be opened still offers the list", async () => {
     const onShowList = vi.fn();
-    mount(
+    mountDocs(
       <DocDetail
         id="DX"
         anchor=""
@@ -327,7 +311,6 @@ describe("DocDetail folded", () => {
         listOpen
         onShowList={onShowList}
         onAnchor={vi.fn()}
-        onChanged={vi.fn()}
         onRemoved={vi.fn()}
       />,
     );
@@ -343,11 +326,10 @@ describe("DocDetail folded", () => {
       doc: doc("D3", { converted: undefined }),
       context: "",
       toc: [],
-      requirements: [],
       figures: [],
       md: "",
     });
-    mount(<DocDetail id="D3" anchor="" fold="tiny" onAnchor={vi.fn()} onChanged={vi.fn()} onRemoved={vi.fn()} />);
+    mountDocs(<DocDetail id="D3" anchor="" fold="tiny" onAnchor={vi.fn()} onRemoved={vi.fn()} />);
     expect(await screen.findByText("Not converted yet")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Details" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Sections" })).toBeNull();
