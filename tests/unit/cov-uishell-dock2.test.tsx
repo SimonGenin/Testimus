@@ -93,7 +93,7 @@ describe("dock run details", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Show raw output" }));
     expect(screen.getByText("(no output)")).toBeInTheDocument();
     update({ folded: true });
-    expect(screen.getByText(/Last run:/)).toHaveClass("dock-last-bad");
+    expect(screen.getByText("Last run").parentElement).toHaveClass("dock-last-bad");
   });
 
   it("runs on the whole project and shows the changes on the first changed test", async () => {

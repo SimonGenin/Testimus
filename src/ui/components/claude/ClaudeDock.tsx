@@ -697,8 +697,9 @@ export function ClaudeDock({
           </Badge>
         )}
         {!running && last && (
-          <span className={cx("dock-last", !last.ok && "dock-last-bad")} title={last.summary}>
-            Last run: {last.seconds.toFixed(1)} s{last.summary ? ` — ${last.summary}` : ""}
+          <span className={cx("dock-last", !last.ok && "dock-last-bad")} title={last.summary.replace(/[*_`]/g, "")}>
+            <span>Last run</span>
+            <span>{last.seconds.toFixed(1)} s</span>
           </span>
         )}
         <Kbd>Ctrl J</Kbd>

@@ -330,7 +330,7 @@ describe("dock: run details and failures", () => {
     );
     expect(await screen.findByText(/^4\.5 s · no tokens reported/)).toBeInTheDocument();
     r.rerender(wrap(state, <ClaudeDock folded onFold={() => {}} />));
-    expect(screen.getByText("Last run: 4.5 s — Rewrote step 3")).toHaveAttribute("title", "Rewrote step 3");
+    expect(screen.getByText("4.5 s").parentElement).toHaveAttribute("title", "Rewrote step 3");
   });
 
   it("a failed run offers Retry, the raw output and the settings", async () => {
