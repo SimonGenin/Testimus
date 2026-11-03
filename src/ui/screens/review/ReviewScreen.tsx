@@ -221,7 +221,7 @@ export function ReviewScreen() {
     setBusy(true);
     try {
       await flushEditor();
-      await call("review.set", { id: data.id, decision: "to-fix", note });
+      if (!askClaude) await call("review.set", { id: data.id, decision: "to-fix", note });
       setFixOpen(false);
       if (askClaude) {
         app.runInDock({ name: "review.fix", input: { id: data.id, note }, label: note, testId: data.id });
@@ -258,7 +258,7 @@ export function ReviewScreen() {
     if (!ids.length || checking.length) return;
     setChecking(ids);
     try {
-      await run("check.run", { ids, semantic: claudeReady });
+      await run("check.run", { ids });
       app.refreshInfo();
       app.testsChanged();
     } catch (e) {

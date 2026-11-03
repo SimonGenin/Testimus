@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { FIGURES_MARKER, FIGURES_TAG } from "../claude/figures.ts";
-import { GEN_MARKER, PLAN_MARKER, PLAN_TAG, REPORT_TAG } from "../claude/generate.ts";
+import { GEN_MARKER, PLAN_MARKER, PLAN_TAG, REPORT_TAG } from "../claude/gen-prompt.ts";
 import { HEADERS_MARKER, HEADERS_TAG } from "../claude/headers.ts";
 import { attachImage } from "../commands/images.ts";
 import type { ClaudeSpawn } from "../env.ts";
@@ -201,7 +201,7 @@ registerMockScript(
 
 // ponytail: a scope past 15 sections gets a two-test plan, each planned run being the script above; a smaller one is
 // written in one run, as a Claude that read it whole would — the fixture's requests keep their one-run story
-export const MOCK_PLAN_ABOVE = 15;
+const MOCK_PLAN_ABOVE = 15;
 const scopeSize = (prompt: string) => Number(prompt.match(/The scope holds (\d+) sections?/)?.[1] ?? 0);
 registerMockScript(
   (prompt) => prompt.includes(GEN_MARKER) && prompt.includes(PLAN_MARKER) && scopeSize(prompt) > MOCK_PLAN_ABOVE,

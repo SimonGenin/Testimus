@@ -73,7 +73,7 @@ Call `check_record` **exactly once**, with every finding:
 - `step`: the step number (1-based); leave it out for a finding about the whole test.
 - `message`: one sentence, in the project language, naming the exact discrepancy ("the passage lists
   three export formats; the step expects PDF only").
-- `sources`: the `docId#anchor` references that prove it (`§4.2`, `req:<id>`, `fig:7`).
+- `sources`: the `docId#anchor` references that prove it (`§4.2`, `fig:7`, `page:3`).
 
 No finding is a valid result: call `check_record` with `"findings": []`. Then reply in one line with the
 count by severity.

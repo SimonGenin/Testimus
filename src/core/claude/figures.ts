@@ -6,15 +6,15 @@ import { findDoc, readDocMd, readFigures, writeFigures } from "../lib/docs.ts";
 import { readProject } from "../lib/project.ts";
 import { docFigures, markerLine, parseSections, sectionAt } from "../rag/chunk.ts";
 import type { DocJson, FigureEntry } from "../types.ts";
-import { languageName } from "./generate.ts";
+import { languageName } from "./gen-prompt.ts";
 import { docContexts, docRunLines, type JobRun } from "./prompt.ts";
 import { runClaude } from "./run.ts";
 
 export const FIGURES_MARKER = "Testimus describe-figures run";
 export const FIGURES_TAG = "figures";
 export const FIGURES_BATCH = 20;
-export const MAX_LABELS = 100;
-export const FIGURE_KINDS: FigureKind[] = ["screen", "diagram", "symbol", "table-image", "photo"];
+const MAX_LABELS = 100;
+const FIGURE_KINDS: FigureKind[] = ["screen", "diagram", "symbol", "table-image", "photo"];
 
 type FigureKind = NonNullable<FigureEntry["kind"]>;
 export type Described = Pick<FigureEntry, "description" | "labels" | "kind">;

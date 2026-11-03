@@ -1,21 +1,8 @@
-import { existsSync, readdirSync } from "node:fs";
-import { join } from "node:path";
 import { z } from "zod";
-import { describeFigures } from "../claude/figures.ts";
-import { generateTests } from "../claude/generate.ts";
-import { claudeHeaders } from "../claude/headers.ts";
+import { scopeIndex } from "../claude/gen-prompt.ts";
+import { discardable, generateTests } from "../claude/generate.ts";
+import { CONTEXT_IDS, DIAGNOSIS, EFFORT, MODEL, NOTE, TOKENS } from "../claude/schemas.ts";
 import { command, projectOf } from "../command.ts";
-import { hooks } from "../rag/chunk.ts";
-import { CONTEXT_IDS, EFFORT, MODEL, NOTE } from "./claude.ts";
-
-// ponytail: installed once for every face; it does nothing unless the project turned rag.claudeHeaders on
-hooks.describeChunks = claudeHeaders;
-
-const DIAGNOSIS = z.object({
-  kind: z.enum(["connect", "login", "credit", "limit", "network", "other"]),
-  title: z.string(),
-  detail: z.string(),
-});
 
 export const commands = [
   command({
@@ -70,24 +57,24 @@ export const commands = [
     }),
     output: z.object({
       runId: z.string().describe("Claude run id — claude.revert removes the tests it wrote"),
-      ok: z.boolean(),
+      ok: z.boolean().describe("Whether the generation finished"),
       summary: z.string().describe("Claude's final reply"),
       tests: z.array(z.string()).describe("Ids of the new tests (review: draft, generated_by: this job)"),
       checks: z
         .array(
           z.object({
-            id: z.string(),
-            ok: z.boolean(),
-            review: z.string(),
-            errors: z.number(),
-            warnings: z.number(),
+            id: z.string().describe("Test id"),
+            ok: z.boolean().describe("False when its semantic check did not finish"),
+            review: z.string().describe("Its review state after the check"),
+            errors: z.number().describe("Errors found"),
+            warnings: z.number().describe("Warnings found"),
           }),
         )
         .describe("The check of each new test (empty with check: false)"),
       changed: z.array(z.string()).describe("Existing tests the run changed although it should not have"),
       discarded: z.array(z.string()).describe("Tests deleted before the run (discard: true)"),
       skipped: z
-        .array(z.object({ item: z.string(), why: z.string() }))
+        .array(z.object({ item: z.string().describe("What was asked"), why: z.string().describe("Why no test") }))
         .describe("What the request asked for that no test could be written for, and why"),
       reportFound: z.boolean().describe("Whether Claude's reply carried the gen-report block"),
       consulted: z
@@ -108,12 +95,9 @@ export const commands = [
       remaining: z
         .number()
         .describe("Planned tests not written (cancelled, or a failed run), also listed in skipped: resume writes them"),
-      costUsd: z.number().optional(),
-      tokens: z
-        .object({ input: z.number(), output: z.number() })
-        .optional()
-        .describe("Tokens the run used (input incl. cache)"),
-      durationMs: z.number(),
+      costUsd: z.number().optional().describe("What the runs cost"),
+      tokens: TOKENS.optional(),
+      durationMs: z.number().describe("How long the generation took"),
       diagnosis: DIAGNOSIS.optional(),
     }),
     mutates: true,
@@ -127,46 +111,27 @@ export const commands = [
     },
   }),
   command({
-    name: "docs.describeFigures",
+    name: "gen.preview",
     summary:
-      "Have Claude describe the figures of a document (or of every document) in figures.json, for search and review.",
+      "What gen.tests would do with this scope, before it runs: the tests it would replace with discard (Claude's tests still awaiting review, never one pushed to Jira), and the documents in scope that are not indexed (gen.tests refuses them) or changed since their last index (it warns).",
     input: z.object({
-      docId: z.string().optional().describe("Document id (folder under docs/); default: every document"),
-      force: z.boolean().default(false).describe("Describe again the figures that already have a description"),
-      model: MODEL.optional().describe("Model alias or name (default: project.json claude.model)"),
-      effort: EFFORT.optional().describe("Effort level (default: low)"),
+      docs: z.array(z.string()).optional().describe("Documents in scope as a whole, by id (as for gen.tests)"),
+      sections: z.array(z.string()).optional().describe("Document sections in scope, docId#§x.y (as for gen.tests)"),
     }),
     output: z.object({
-      docs: z.array(
-        z.object({
-          docId: z.string(),
-          figures: z.number(),
-          described: z.number(),
-          missing: z.array(z.string()).describe("Figure anchors Claude gave no description for"),
-          runIds: z.array(z.string()),
-          costUsd: z.number(),
-        }),
-      ),
+      replaces: z
+        .array(z.string())
+        .describe("The tests discard: true would delete first — generated, not validated, not in Jira"),
+      searched: z.array(z.string()).describe("The converted documents the generation would search"),
+      unindexed: z
+        .array(z.string())
+        .describe("Documents in scope search cannot find: gen.tests refuses until reindexed"),
+      stale: z.array(z.string()).describe("Documents in scope changed since their last index: gen.tests warns"),
     }),
-    mutates: true,
-    job: "describe-figures",
-    subject: (i) => i.docId ?? "all documents",
+    mutates: false,
     async run(ctx, input) {
       const project = projectOf(ctx);
-      const root = join(project, "docs");
-      const ids = input.docId
-        ? [input.docId]
-        : existsSync(root)
-          ? readdirSync(root).filter((d) => existsSync(join(root, d, "doc.md")))
-          : [];
-      const docs = [];
-      for (const id of ids) {
-        if (ctx.signal.aborted) break;
-        docs.push(
-          await describeFigures(project, id, ctx, { force: input.force, model: input.model, effort: input.effort }),
-        );
-      }
-      return { docs };
+      return { replaces: discardable(project), ...scopeIndex(project, input) };
     },
   }),
 ];

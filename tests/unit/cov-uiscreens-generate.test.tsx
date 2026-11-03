@@ -700,12 +700,7 @@ describe("Generate screen", () => {
       job: job({ id: "j2", status: "done", endedAt: at, result: output({ discarded: ["local-aaaaaaaa"] }) }),
       events: [],
     });
-    api.routes["tests.list"] = () => [
-      ref("local-aaaaaaaa", { generated: true, review: "checked" }),
-      ref("local-bbbbbbbb", { generated: true, review: "validated" }),
-      ref("LFRPS12-1", { generated: true, review: "draft", key: "LFRPS12-1" }),
-      ref("local-cccccccc"),
-    ];
+    api.routes["gen.preview"] = () => ({ replaces: ["local-aaaaaaaa"], searched: ["D1"], unindexed: [], stale: [] });
     const { app: a } = mount(<GenerateScreen />);
     await screen.findByText("Traction");
     const go = screen.getByRole("button", { name: "Generate" });
@@ -716,6 +711,7 @@ describe("Generate screen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(named("gen.tests")).toHaveLength(0);
+    expect(named("gen.preview")[0].input).toEqual({ docs: ["D1"], sections: [] });
     fireEvent.click(go);
     fireEvent.click(await screen.findByRole("button", { name: "Review" }));
     expect(a.navigate).toHaveBeenCalledWith("review", "local-aaaaaaaa");

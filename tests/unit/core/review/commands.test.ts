@@ -2,17 +2,18 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { revert } from "../../src/core/claude/snapshot.ts";
-import { quietCtx } from "../../src/core/command.ts";
-import { commands as reviewCommands } from "../../src/core/commands/review.ts";
-import { type ClaudeSpawn, env } from "../../src/core/env.ts";
-import { mechanicalCheck, osUser, recordSemantic } from "../../src/core/lib/check.ts";
-import { DEFAULT_SETTINGS, writeSettings } from "../../src/core/lib/project.ts";
-import { readCheck, readTest } from "../../src/core/lib/store.ts";
-import { mockSpawnClaude } from "../../src/core/mock/claude.ts";
-import "../../src/core/mock/claude-check.ts";
+import { revert } from "../../../../src/core/claude/snapshot.ts";
+import { quietCtx } from "../../../../src/core/command.ts";
+import { commands as reviewCommands } from "../../../../src/core/commands/review.ts";
+import { type ClaudeSpawn, env } from "../../../../src/core/env.ts";
+import { mechanicalCheck, osUser, recordSemantic } from "../../../../src/core/lib/check.ts";
+import { DEFAULT_SETTINGS, writeSettings } from "../../../../src/core/lib/project.ts";
+import { readCheck, readTest } from "../../../../src/core/lib/store.ts";
+import { mockSpawnClaude } from "../../../../src/core/mock/claude.ts";
+import "../../../../src/core/mock/claude-check.ts";
+import "../../../../src/core/commands/index.ts";
 
-const FIXTURE = new URL("../fixtures/project/", import.meta.url);
+const FIXTURE = new URL("../../../fixtures/project/", import.meta.url);
 const DOC = "SOSIE_211_D401-1_3";
 const real = env.spawnClaude;
 const realNow = env.now;
@@ -243,12 +244,36 @@ describe("review.fix", () => {
     expect(out.diagnosis?.kind).toBe("credit");
     expect(readCheck(project, "LFRPS12-1420")).toEqual(before);
   });
+
+  it("with a note, marks the test To fix with it before the run (one gesture: To fix + Ask Claude)", async () => {
+    let during: { review: string; note?: string; by?: string } | null = null;
+    env.spawnClaude = async (s) => {
+      const t = readTest(s.cwd, "LFRPS12-1420").test;
+      during ??= { review: t.review, note: t.reviewNote, by: t.reviewedBy };
+      return { code: 1, stdout: "", stderr: "Credit balance is too low" };
+    };
+    expect(readTest(project, "LFRPS12-1420").test.review).toBe("checked");
+    const out = await run("review.fix", { id: "LFRPS12-1420", note: "  Nommer les commandes au step 2 " });
+    expect(during).toEqual({ review: "to-fix", note: "Nommer les commandes au step 2", by: osUser() });
+    expect(out).toMatchObject({ ok: false, review: "to-fix" });
+    expect(readTest(project, "LFRPS12-1420").test).toMatchObject({
+      review: "to-fix",
+      reviewNote: "Nommer les commandes au step 2",
+      reviewedAt: "2026-11-02T10:00:00.000Z",
+    });
+  });
+
+  it("without a note, leaves the review state as it is", async () => {
+    env.spawnClaude = async () => ({ code: 1, stdout: "", stderr: "Credit balance is too low" });
+    const out = await run("review.fix", { id: "LFRPS12-1420" });
+    expect(out.review).toBe("checked");
+  });
 });
 
 describe("--mock review loop (scripted check-test and fix-test)", () => {
   it("check records realistic findings, fix applies the note, the re-check is clean", async () => {
     env.spawnClaude = mockSpawnClaude;
-    const { commands: checkCommands } = await import("../../src/core/commands/check.ts");
+    const { commands: checkCommands } = await import("../../../../src/core/commands/check.ts");
     const check = checkCommands.find((c) => c.name === "check.run")!;
     const out: any = await check.run(
       quietCtx(project),

@@ -15,6 +15,7 @@ import { commands as contexts } from "../../src/core/commands/contexts.ts";
 import { commands as project } from "../../src/core/commands/project.ts";
 import { credsDir, credsStatus, savedSecrets } from "../../src/core/lib/creds.ts";
 import { writeContextMd } from "./context-helpers.ts";
+import "../../src/core/commands/index.ts";
 
 const FIXTURE = resolve(import.meta.dirname, "../fixtures/project");
 const all = [...contexts, ...project];
@@ -259,7 +260,7 @@ describe("credential files", () => {
     const { commands: system } = await import("../../src/core/commands/system.ts");
     const c = system.find((x) => x.name === "system.secrets");
     expect(await c?.run(quietCtx(P), {} as never)).toEqual({ token: "tok", clientId: "id", clientSecret: "sec" });
-    const { mcpAccess } = await import("../../src/core/claude/run.ts");
+    const { mcpAccess } = await import("../../src/core/claude/access.ts");
     expect((await mcpAccess("run")).deny).toContain("mcp__testimus__system_secrets");
   });
 });

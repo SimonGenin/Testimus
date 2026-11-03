@@ -2,9 +2,9 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { checkGenInput, genPrompt } from "../../src/core/claude/generate.ts";
-import { contextLines, readContexts } from "../../src/core/claude/prompt.ts";
-import { invoke } from "../../src/core/commands/index.ts";
+import { checkGenInput, genPrompt } from "../../../../src/core/claude/gen-prompt.ts";
+import { contextLines, readContexts } from "../../../../src/core/claude/prompt.ts";
+import { invoke } from "../../../../src/core/commands/index.ts";
 import {
   columnGuidance,
   DEFAULT_DESCRIPTIONS,
@@ -17,9 +17,9 @@ import {
   setOrder,
   stepColumns,
   writeColumns,
-} from "../../src/core/lib/columns.ts";
-import { readXray, writeXray } from "../../src/core/lib/project.ts";
-import type { ColumnEntry, XrayField } from "../../src/core/types.ts";
+} from "../../../../src/core/lib/columns.ts";
+import { readXray, writeXray } from "../../../../src/core/lib/project.ts";
+import type { ColumnEntry, XrayField } from "../../../../src/core/types.ts";
 
 let dir = "";
 const write = (rel: string, text: string) => {

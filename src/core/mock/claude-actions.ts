@@ -1,6 +1,5 @@
 import { ACTION_MARKER, TRIAGE_MARKER } from "../claude/actions.ts";
-import { quietCtx } from "../command.ts";
-import { commands } from "../commands/actions.ts";
+import { invoke } from "../commands/index.ts";
 import { fieldOrder } from "../lib/columns.ts";
 import { readContext, writeContext } from "../lib/docs.ts";
 import { readTest, testExists, writeTest } from "../lib/store.ts";
@@ -12,12 +11,10 @@ const TK_RESULT = "Le menu contextuel ne propose que Propriétés.";
 
 export const runIdIn = (prompt: string) => /runId: "([\w-]+)"/.exec(prompt)?.[1];
 
-// ponytail: the scripted Claude calls actions_propose the way the real one does through MCP — the same command,
+// ponytail: the scripted Claude calls actions_propose the way the real one does through MCP — through the registry,
 // so the action carries the run, model and effort of the prompt's runId
 export function mockPropose(project: string, input: Record<string, unknown>): void {
-  const c = commands.find((x) => x.name === "actions.propose");
-  const parsed = c?.input.safeParse(input);
-  if (c && parsed?.success) c.run(quietCtx(project), parsed.data as never).catch(() => {});
+  invoke("actions.propose", input, { project }).catch(() => {});
 }
 
 function triaged(prompt: string): { where: string; text: string }[] {

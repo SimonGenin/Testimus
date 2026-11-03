@@ -1,14 +1,14 @@
 import { mkdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
-import { type Command, quietCtx } from "../../src/core/command.ts";
-import { commands as checkCommands } from "../../src/core/commands/check.ts";
-import { commands as docsCommands } from "../../src/core/commands/docs.ts";
-import { commands as imageCommands, storeImage } from "../../src/core/commands/images.ts";
-import { commands as ragCommands } from "../../src/core/commands/rag.ts";
-import { commands as reviewCommands } from "../../src/core/commands/review.ts";
-import type { DocJson } from "../../src/core/types.ts";
-import { copyFixture, tempRoot } from "./cov-faces-helpers.ts";
+import { type Command, quietCtx } from "../../../../src/core/command.ts";
+import { commands as checkCommands } from "../../../../src/core/commands/check.ts";
+import { commands as docsCommands } from "../../../../src/core/commands/docs.ts";
+import { commands as imageCommands, storeImage } from "../../../../src/core/commands/images.ts";
+import { commands as ragCommands } from "../../../../src/core/commands/rag.ts";
+import { commands as reviewCommands } from "../../../../src/core/commands/review.ts";
+import type { DocJson } from "../../../../src/core/types.ts";
+import { copyFixture, tempRoot } from "../../cov-faces-helpers.ts";
 
 const DOC = "SOSIE_211_D401-1_3";
 const LOCAL = "local-3f9a12c0";
@@ -106,7 +106,9 @@ describe("rag.figure", () => {
 
 describe("tests.addImage", () => {
   const png = Buffer.from(
-    readFileSync(join(import.meta.dirname, "..", "fixtures", "project", "docs", DOC, "figures", "fig-40.png")),
+    readFileSync(
+      join(import.meta.dirname, "..", "..", "..", "fixtures", "project", "docs", DOC, "figures", "fig-40.png"),
+    ),
   );
 
   it("names its subject with or without a step", () => {

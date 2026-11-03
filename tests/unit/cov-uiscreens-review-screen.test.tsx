@@ -441,6 +441,7 @@ describe("Review screen", () => {
     delete api.routes["review.set"];
     await openFix();
     fireEvent.change(screen.getByLabelText(/Note for the author/), { target: { value: "bad" } });
+    fireEvent.click(screen.getByRole("checkbox"));
     fireEvent.click(screen.getByRole("button", { name: /Mark To fix/ }));
     expect(await screen.findByText("Could not mark the test To fix")).toBeInTheDocument();
   });
@@ -645,11 +646,11 @@ describe("Review screen", () => {
     expect(await screen.findByText("2 tests not checked yet")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Check the 2 tests not checked yet" }));
     await waitFor(() => expect(a.testsChanged).toHaveBeenCalled());
-    expect(named("check.run")[0].input).toEqual({ ids: ["K-1", "K-2"], semantic: true });
+    expect(named("check.run")[0].input).toEqual({ ids: ["K-1", "K-2"] });
     expect(a.refreshInfo).toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Check" }));
     await waitFor(() => expect(named("check.run")).toHaveLength(2));
-    expect(named("check.run")[1].input).toEqual({ ids: ["K-1"], semantic: true });
+    expect(named("check.run")[1].input).toEqual({ ids: ["K-1"] });
     cleanup();
     routes({ queue: [item("K-1")], stale: true });
     delete api.routes["check.run"];
@@ -659,7 +660,7 @@ describe("Review screen", () => {
     expect(screen.queryByText(/not checked yet/)).toBeNull();
     fireEvent.click(await screen.findByRole("button", { name: "Check again" }));
     expect(await screen.findByText("Could not check the test")).toBeInTheDocument();
-    expect(named("check.run").at(-1)?.input).toEqual({ ids: ["K-1"], semantic: false });
+    expect(named("check.run").at(-1)?.input).toEqual({ ids: ["K-1"] });
   });
 
   it("a fresh, checked test has no Check button", async () => {
