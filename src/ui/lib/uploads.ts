@@ -85,15 +85,46 @@ export const setImportClaude = (next: ClaudeRun) => {
   claude = next;
 };
 
+const conversions = new Set<Promise<unknown>>();
 let indexing: Promise<unknown> | null = null;
+let waiting: { keys: number[]; done: Promise<unknown> } | null = null;
 
-async function reindex(key: number, note?: string): Promise<void> {
-  patch(key, { phase: "indexing", pct: null, message: "Indexing" });
-  // ponytail: several conversions in a row share one index run instead of queuing one per document
-  indexing ??= run("rag.index", { ...claude, ...(note ? { note } : {}) }, progressOf(key, "indexing")).finally(() => {
+function startIndex(keys: number[], note?: string): Promise<unknown> {
+  const onEvent = (e: JobEvent) => {
+    for (const k of keys) progressOf(k, "indexing")(e);
+  };
+  indexing = run("rag.index", { ...claude, ...(note ? { note } : {}) }, onEvent).finally(() => {
     indexing = null;
   });
-  await indexing;
+  return indexing;
+}
+
+// ponytail: an index run reads every document when it starts, so it never starts while a conversion is still
+// writing one, nor joins a run that read it too early: it waits for both, and the requests made meanwhile share it
+async function reindex(key: number, note?: string): Promise<void> {
+  const ready = !indexing && !conversions.size;
+  patch(key, {
+    phase: "indexing",
+    pct: null,
+    message: ready ? "Indexing" : conversions.size ? "Waiting for the other conversions" : "Waiting for the index run",
+  });
+  if (waiting) {
+    waiting.keys.push(key);
+    await waiting.done;
+    return;
+  }
+  if (ready) {
+    await startIndex([key], note);
+    return;
+  }
+  const keys = [key];
+  const done = (async () => {
+    while (indexing || conversions.size) await Promise.allSettled([indexing, ...conversions]);
+    waiting = null;
+    return startIndex(keys, note);
+  })();
+  waiting = { keys, done };
+  await done;
 }
 
 // ponytail: adding only copies the file — the team sets status, amends and context, then converts it on purpose
@@ -125,11 +156,13 @@ export async function convertDoc(
   emit();
   const extra = { ...(job.note?.trim() ? { note: job.note.trim() } : {}), contexts: job.contexts ?? [] };
   try {
-    const doc = await run<{ id: string; warnings?: string[] }>(
+    const converting: Promise<{ id: string; warnings?: string[] }> = run<{ id: string; warnings?: string[] }>(
       "docs.convert",
       { id, ...claude, ...extra, ...(job.describeFigures !== undefined && { describeFigures: job.describeFigures }) },
       progressOf(key, "converting"),
-    );
+    ).finally(() => conversions.delete(converting));
+    conversions.add(converting);
+    const doc = await converting;
     if (doc?.warnings?.length) triageWhenClaude({ docId: id, ...claude, ...extra });
   } catch (e) {
     patch(key, { phase: "failed", message: message(e), error: e });

@@ -211,16 +211,52 @@ describe("uploads", () => {
     });
   });
 
-  it("shares one index run between conversions made together", async () => {
-    let release: () => void = () => {};
-    handlers["rag.index"] = () => new Promise<void>((r) => (release = r));
+  it("indexes once every conversion in flight has ended, for all of them", async () => {
+    const ends: Record<string, () => void> = {};
+    handlers["docs.convert"] = (input) => new Promise((r) => (ends[String(input.id)] = () => r({ id: input.id })));
+    const h = current();
     const both = Promise.all([convertDoc("E", "E.docx", {}, () => {}), convertDoc("F", "F.docx", {}, () => {})]);
-    await vi.waitFor(() => expect(runs.filter((r) => r.name === "rag.index")).toHaveLength(1));
+    await vi.waitFor(() => expect(Object.keys(ends)).toEqual(["E", "F"]));
+    await act(async () => ends.E());
+    await vi.waitFor(() =>
+      expect(h.result.current.find((u) => u.docId === "E")?.message).toBe("Waiting for the other conversions"),
+    );
+    expect(runs.filter((r) => r.name === "rag.index")).toHaveLength(0);
     await act(async () => {
-      release();
+      ends.F();
       await both;
     });
     expect(runs.filter((r) => r.name === "rag.index")).toHaveLength(1);
+    expect(h.result.current.filter((u) => u.phase === "done").map((u) => u.docId)).toEqual(["E", "F"]);
+  });
+
+  it("does not join an index run that started before a conversion ended: one more run follows it", async () => {
+    const releases: (() => void)[] = [];
+    handlers["rag.index"] = (_input, on) =>
+      new Promise((r) => {
+        releases.push(() => r({ chunks: 1 }));
+        on?.(progress("Embedding", 1, 2));
+      });
+    const h = current();
+    const all = reindexAll(() => {});
+    await vi.waitFor(() => expect(releases).toHaveLength(1));
+    const later = Promise.all([convertDoc("G", "G.docx", {}, () => {}), reindexAll(() => {})]);
+    await vi.waitFor(() =>
+      expect(h.result.current.find((u) => u.docId === "G")?.message).toBe("Waiting for the index run"),
+    );
+    expect(releases).toHaveLength(1);
+    await act(async () => {
+      releases[0]();
+      await all;
+    });
+    await vi.waitFor(() => expect(releases).toHaveLength(2));
+    await vi.waitFor(() => expect(h.result.current.find((u) => u.docId === "G")?.pct).toBe(50));
+    await act(async () => {
+      releases[1]();
+      await later;
+    });
+    expect(runs.filter((r) => r.name === "rag.index")).toHaveLength(2);
+    expect(h.result.current.find((u) => u.docId === "G")).toMatchObject({ phase: "done" });
   });
 
   it("reindexes everything and forgets the row after a while", async () => {
