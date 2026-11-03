@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { ThemeToggle } from "../../src/ui/components/shell/ThemeToggle.tsx";
+import { ThemeToggle } from "../../../../src/ui/components/shell/ThemeToggle.tsx";
+import { writePref } from "../../../../src/ui/lib/prefs.ts";
+import { followTheme } from "../../../../src/ui/lib/theme.ts";
 
 afterEach(cleanup);
 beforeEach(() => {
@@ -30,5 +32,20 @@ describe("theme toggle", () => {
     localStorage.setItem("testimus.theme", "dark");
     render(<ThemeToggle />);
     expect(screen.getByRole("button")).toHaveTextContent("Dark");
+  });
+
+  it("keeps <html> on the theme preference, wherever it is written", () => {
+    const stop = followTheme();
+    expect(document.documentElement.dataset.theme).toBeUndefined();
+    act(() => writePref("theme", "dark"));
+    expect(document.documentElement.dataset.theme).toBe("dark");
+    const dark = document.documentElement.className;
+    localStorage.setItem("testimus.theme", "light");
+    act(() => window.dispatchEvent(new StorageEvent("storage", { key: "testimus.theme" })));
+    expect(document.documentElement.dataset.theme).toBe("light");
+    expect(document.documentElement.className).not.toBe(dark);
+    stop();
+    act(() => writePref("theme", "dark"));
+    expect(document.documentElement.dataset.theme).toBe("light");
   });
 });

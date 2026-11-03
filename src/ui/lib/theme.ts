@@ -1,6 +1,13 @@
 import * as stylex from "@stylexjs/stylex";
 import { color, darkTheme, fontFamily, fontSize, lightTheme, lineHeight } from "../styles/tokens.stylex.ts";
-import { PREFS, type PrefName, readPref as readNamed, usePref, writePref as writeNamed } from "./prefs.ts";
+import {
+  onPrefsChange,
+  PREFS,
+  type PrefName,
+  readPref as readNamed,
+  usePref,
+  writePref as writeNamed,
+} from "./prefs.ts";
 
 export type Theme = "system" | "light" | "dark";
 
@@ -25,11 +32,31 @@ export function themeClass(t: Theme): string {
   return stylex.props(page.root, ...theme).className ?? "";
 }
 
-export function applyTheme(t: Theme): void {
+function show(t: Theme): void {
   if (t === "system") delete document.documentElement.dataset.theme;
   else document.documentElement.dataset.theme = t;
   document.documentElement.className = themeClass(t);
+}
+
+export function applyTheme(t: Theme): void {
+  show(t);
   writeNamed("theme", t);
+}
+
+// ponytail: <html> follows the theme preference wherever it is written — this page, another window of the profile,
+// or a script that writes the storage and says so with a storage event
+export function followTheme(): () => void {
+  const sync = () => show(readTheme());
+  sync();
+  const off = onPrefsChange(sync);
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === null || e.key === "testimus.theme") sync();
+  };
+  window.addEventListener("storage", onStorage);
+  return () => {
+    off();
+    window.removeEventListener("storage", onStorage);
+  };
 }
 
 export function nextTheme(t: Theme): Theme {
