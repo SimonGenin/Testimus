@@ -1,0 +1,29 @@
+{
+  "code": "TAG_LAY",
+  "title": "Entete du projet",
+  "version": "",
+  "date": "",
+  "kind": "spec",
+  "status": "draft",
+  "source": {
+    "name": "<client>",
+    "file": "source.pdf",
+    "sha256": "3aec0ff30ca76a93edd9eeb68185478f723c63c9eb40e22412d01db3fc1ea8f1"
+  },
+  "conversion": {
+    "reader": "layout"
+  },
+  "converted": {
+    "with": "pdfjs-dist 6.5.438",
+    "at": "<at>",
+    "warnings": [
+      "Figure 3-2, 9: caption with nothing drawn above it in the PDF",
+      "Converted from PDF: headings are guessed from their numbering, tables are flattened to text"
+    ],
+    "stats": {
+      "sections": 1,
+      "figures": 1,
+      "chars": 514
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "code": "LAY_01",
+  "title": "1 Introduction",
+  "version": "",
+  "date": "",
+  "kind": "spec",
+  "status": "draft",
+  "source": {
+    "name": "<client>",
+    "file": "source.pdf",
+    "sha256": "ec7d017966ea1df4fb583b88d489169e499870fbf933f62421a1cc8a81839d83"
+  },
+  "converted": {
+    "with": "pdfjs-dist 6.5.438",
+    "at": "<at>",
+    "warnings": [
+      "1 of 2 pages carry no text (a scan, or text drawn as pictures): kept as page pictures that Claude reads when it describes the figures, but nothing on them can be quoted — ask for the source document"
+    ],
+    "stats": {
+      "sections": 2,
+      "figures": 1,
+      "chars": 434
+    }
+  }
+}
