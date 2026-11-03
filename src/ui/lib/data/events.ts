@@ -33,7 +33,7 @@ const PATHS: Rule[] = [
     /^tests\/([^/]+)\/local\.json$/,
     (m) => [
       ["contexts.ofTest", { testId: m[1] }],
-      ["tests.columns", { id: m[1] }],
+      ["tests.folds", { id: m[1] }],
     ],
   ],
   [/^tests\/([^/]+)\/\.state\.json$/, (m) => [["tests.show", { id: m[1] }], ["tests.list"]]],

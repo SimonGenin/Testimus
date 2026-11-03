@@ -134,7 +134,7 @@ update it when a decision changes, in the same change as the code.
   sending requests): `/api` and `/files` require a `SameSite=Strict` session cookie the server sets when
   it serves the UI, a local `Host` (no DNS rebinding), a local `Origin` when there is one, and a `POST`
   whose body, when it has one (`Content-Length` > 0 or `Transfer-Encoding`), is `application/json` (else
-  415); only `GET /api/system/version` is public (start-up probes), and it ignores any project the request
+  415); `/api` (the command list) and `/api/events` (the event stream) answer `GET` only (405 otherwise); only `GET /api/system/version` is public (start-up probes), and it ignores any project the request
   names. The guard runs before anything else: a request it refuses touches no file. The project a request
   names (`?project=`, or the `X-Testimus-Project` header, URI-encoded — a malformed one is a 400) is then
   matched as a string (resolved, case-insensitive on Windows) against the known projects (the open one or
@@ -149,14 +149,14 @@ update it when a decision changes, in the same change as the code.
   applied before the first paint by `/theme.js`), no `eval`, images from the project or `https:` (step images that
   live in Jira), nothing fetched from another origin. Claude is
   spawned without a shell when it resolves to an `.exe`; through a `.cmd` shim no argument may carry a cmd
-  metacharacter. `system.saveSettings` accepts only an existing absolute `claude.exe`/`.cmd`;
-  `system.setup` accepts only `https://<tenant>.atlassian.net` and `*.getxray.app` unless `otherHost`.
+  metacharacter. `system.set` keeps a `claude.exe`/`.cmd` path as typed (the status then says it does not run) but refuses one holding a cmd metacharacter;
+  `system.setCredentials` accepts only `https://<tenant>.atlassian.net` and `*.getxray.app` unless `otherHost`.
 - `serve` flags for a parent process (the desktop shell, §13), none of them a command: `--port 0` lets
   the OS pick a free port, and the guard checks the port actually bound; `--port-fallback` takes a free port when
   the one asked for is taken or reserved (EADDRINUSE, EACCES); `--ready-json` prints, once
   listening, one line `{"ready":true,"url":"http://127.0.0.1:<port>/","pid":…,"version":…}` and nothing
   else ever goes to stdout (errors before it go to stderr with a non-zero exit); `--exit-with-stdin`
-  stops the core when its stdin closes. `TESTIMUS_SHELL=<face>/<version>` (set by the shell) names the
+  stops the core when its stdin closes. `testimus mcp` always ends when its stdin closes (Claude, its parent, is gone) or on a stop signal, killing every program it started and stopping its model servers first. `TESTIMUS_SHELL=<face>/<version>` (set by the shell) names the
   face in `system.version` (`shell`) and in the doctor (« desktop 0.2.0 », else « browser »).
 - The core is the only writer of the project folder's managed files (`.remote.md`, `index/`,
   `.testimus/`). Claude edits `test.md` files directly (§11) and the core re-reads them.
@@ -237,7 +237,7 @@ place, never copied into a project or into Testimus' settings.
   (`apiBase` defaults to `https://xray.cloud.getxray.app`). Auth = `POST {apiBase}/api/v2/authenticate`
   → a JWT, kept in memory, renewed on 401.
 - Read tolerantly: a UTF-8 BOM is stripped, unknown keys are ignored.
-- Written only by `system.setup`, by **merging** into what is there: unknown keys (`accountId`,
+- Written only by `system.setCredentials`, by **merging** into what is there: unknown keys (`accountId`,
   `apiBase`) and the `/wiki` suffix survive, because other tools need them (Xray Editor's
   `saveCreds`).
 - An error names the file to fix (`Jira 401 — check ~/.atlassian/credentials.json`); a secret is
@@ -850,7 +850,7 @@ stops at the first failure), plus:
   switched off in Xray) or `collapsed` (folded on every step, its toggle shows `Name ●` when it holds
   something), plus `hidden` (a Testimus extra: left out unless a step holds text in it). `columns.setModes` and
   `columns.order` change them. A test's `local.json` `columns` (§3) overrides the folding column by column
-  (`tests.columns`, `tests.setColumns`), the step card's own toggle overrides both for the session, and Action
+  (`tests.folds`, `tests.setFolds`), the step card's own toggle overrides both for the session, and Action
   and Expected Result never fold. Reading Xray again (`xray.refreshFields`, also before every push) rewrites `xray.json`;
   `columns.json` follows a field renamed in Xray (same id: its description and mode go to the new name), keeps a
   field Xray dropped as a local column (its text stays in the tests) and turns a local column the team then
@@ -947,23 +947,23 @@ stops at the first failure), plus:
 
 Group | Verbs (all with `--json`; mutating ones marked *)
 ---|---
-`project` | `init`*, `openKey`* (open or create by Jira key), `info` (project.json + xray.json + the step columns in order with their modes + counts for the rail), `list`, `notes` (the project's CLAUDE.md), `setNotes`*, `set`* (patch project.json: names, language, label prefix, folders, rag keys incl. reference, queryTask, passageMaxChars, retrieval; glossary; Claude defaults), `open`* (last project)
+`project` | `init`* (makes the folder a project and the current one; gives its name and Jira key), `openKey`* (open or create by Jira key; the current one), `info` (project.json + xray.json + the step columns in order with their modes + counts for the rail, all typed), `list`, `notes` (the project's CLAUDE.md, with its `mtime`), `setNotes`* (`ifMtime`: refused with code `conflict` when CLAUDE.md moved on disk), `set`* (patch project.json: names, language, label prefix, folders, rag keys incl. reference, queryTask, passageMaxChars, retrieval merged key by key; glossary; Claude defaults; gives project.json back), `open`* (last project), `forget`*, `delete`*
 `docs` | `add`* (job: copy + convert one document; a path, or an upload as base64), `addFiles`* (job: the files dropped or picked together, a .docx paired with its .pdf, copied only), `convert`* (job: convert, figures, re-check of the citing tests, triage, and with `index` the search index), `inspect` (profile of the originals), `page` (a page of the PDF copy as a PNG under .testimus/pages), `list` (with index freshness), `show` (+ `contextMtime`), `set`* (status, amends, context with `ifMtime`…), `describeFigures`* (job, Claude), `remove`* (`--dry-run`)
 `rag` | `index`* (job; one run at a time per index), `search` (mode hybrid · bm25 · vector; `expand`), `passage` (docId#anchor → text + figures, centred on `around`, capped; code `doc-gone` for a missing document), `figure`, `mentions` (every passage holding a term, no model), `related` (graph neighbours, no model), `eval`* (job, L1; updates the index, writes its report), `compare` (reports → intervals), `status` (active model, space, freshness per document), `spaces`, `dropSpace`*
 `search` | `all` (Ctrl K: tests, documents, passages, by words and by meaning), `index`* (job: embeds the tests for search by meaning)
 `chat` | `ask`* (job, streamed; writes the conversation under `.testimus/chats/`), `list`, `show`
 `claude` | `run`* (job: a scoped request « On this test » — step, test, tests or project), `revert`* (runId; refuses with code `edited-after-run`), `status` (installed, version, signed in, how to connect)
 `actions` | `list`, `show`, `propose`* (from a Claude run), `dismiss`*, `run`* (job, Claude, snapshotted), `triage`* (job, Claude: a document's warnings or a failed job), `triageFailed`* (the core decides whether Claude looks at a failed job, and starts the triage)
-`contexts` | `list` (the project's own and the shared library's, each with `shared`; `--from <project>` lists another project's own), `show`, `create`* (`--shared` puts it in the library), `share`* (move into the library or back into this project), `set`* (name, notes, outside paths), `addFile`* (a path or an upload), `removeFile`*, `remove`*, `copy`* (from another project: notes, paths and files; a taken id gets a new one), `ofTest` (effective · own · project), `setTest`* (a test's full list, or null to follow the project)
+`contexts` | `list` (the project's own and the shared library's, each with `shared`; `--from <project>` lists another project's own), `show` (with context.md's `mtime`), `create`* (`--shared` puts it in the library; `notes` and `paths` at once: « Save as context » is one call), `share`* (move into the library or back into this project), `set`* (name, notes, outside paths; `ifMtime` refused with code `conflict` when context.md moved on disk), `addFile`* (a path or an upload), `removeFile`*, `remove`*, `copy`* (from another project: notes, paths and files; a taken id gets a new one), `ofTest` (effective · own · project), `ofProject`, `setTest`* (a test's full list, or null to follow the project)
 `columns` | `list` (the step columns in order: origin, status, description, mode), `save`* (a description, Reference source, or a new local column), `setModes`* (open · filled · collapsed · hidden, by column), `order`*, `remove`* (a local column), `suggest` (job, Claude, read-only: proposals for columns.save)
-`tests` | `list`, `show` (+ the picture files present and test.md's mtime), `create`*, `edit`* (field-level patch incl. preconditions, and step ops set · add · remove · move · sources, steps numbered from 1), `save`* (the whole test, the editor's save), `restore`* (Undo local changes: test.md ← .remote.md), `clone`*, `addImage`* (a file or a document figure → `images/`, embedded in a step), `storeImage`* (a pasted picture → `images/`, test.md untouched), `removeImage`* (a picture no step lists any more), `columns`, `setColumns`* (per-test folding, in `local.json`), `remove`*
+`tests` | `list` (with `awaiting`: generated, not validated yet), `show` (typed: the test, the remote copy, the last check, the picture files present and test.md's `mtime`), `create`*, `edit`* (field-level patch incl. preconditions, and step ops set · add · remove · move · sources, steps numbered from 1), `save`* (the whole test, the editor's save; `ifMtime` refused with code `conflict` when test.md moved on disk — sent again without it, it writes over), `restore`* (Undo local changes: test.md ← .remote.md), `clone`*, `addImage`* (a file or a document figure → `images/`, embedded in a step), `storeImage`* (a pasted picture → `images/`, test.md untouched), `removeImage`* (a picture no step lists any more), `folds`, `setFolds`* (per-test folding, in `local.json`), `remove`*
 `gen` | `tests`* (job), `preview` (what `tests` would replace, documents not indexed or stale), `bench`* (job, L2 benchmark with Claude; costly)
 `check` | `run`* (job: mechanical pass, then the `check-test` skill when Claude is there; writes `check.json`; says `semantic: done · skipped`), `record`* (the skill's semantic findings for one test), `show`
 `review` | `set`* (validate / to-fix + note), `fix`* (Claude, job; with a note, marks the test to-fix first), `queue` (what awaits review), `evidence` (sources read)
 `xray` | `fields` (the step fields in `xray.json`, no network), `refreshFields`* (read them again from Xray — also before every push and when a project opens; a field switched off in Xray is kept with `disabled`, `required` kept), `connect`*, `disconnect`*, `folders` (the tree with counts), `search`, `preconditions` (the project's, with definitions), `browse` (an issue's Jira page), `pull`* (job), `status` (one test), `statusAll` (job, every test), `plan` (what a push would do, and its `planHash`; = `push --dry-run`, readable by Claude runs), `push`* (job; `from` resumes after a failed operation)
 `models` | `catalog` (with the fit on this PC), `list`, `dirs` (the models and runtimes folders), `add`* (path A), `pull`* (job, checked download), `pullRuntime`* (job, llama.cpp build), `remove`*, `verify`* (job), `planDir` (what changing the folder would do), `setDir`* (job: move · keep · copy), `use`* (Custom; dry-run: fit and a lighter model), `packs` (with the next lighter pack), `planPack` (a pack's plan), `usePack`* (job with steps), `measure` (job), `hardware`, `fit`, `perf`, `advice`, `dismissAdvice`*
-`jobs` | `list`, `show`, `cancel`*
-`system` | `setup`* (credentials), `secrets` (the saved token, Client ID and secret, to show back in the form; denied to Claude runs like every `system.*`), `doctor`, `version` (with `shell`: browser or desktop <version>), `settings`, `saveSettings`* (claude.exe, model downloads, agents at the same time, the page's preferences)
+`jobs` | `list`, `show` (the job — with the `fix` and the stable `code` of the error it failed on — and its typed log), `cancel`*, `clear`* (forget finished jobs and their logs)
+`system` | `credentials` (which credential files exist and are complete; `check` also checks them read-only), `setCredentials`* (merge into ~/.atlassian, then check both connections read-only), `secrets` (the saved token, Client ID and secret, to show back in the form; denied to Claude runs like every `system.*`), `doctor`, `version` (with `shell`: browser or desktop <version>), `settings`, `set`* (claude.exe, model downloads, agents at the same time, the page's preferences), `testAgents`* (job: how many Claude runs this PC carries)
 
 Every command is documented by its zod schema; `testimus help <group.verb>` prints it.
 
@@ -1016,7 +1016,7 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
     credential files with their paths as found · valid / missing / invalid — <problem> (`credsStatus.invalid`,
     `problem`). The guided connection (first launch and Access): (1) site and email — a tenant name or any page URL is
     reduced to its https site root, a typed `/wiki` kept and nothing added (Xray Editor's rule; an unchanged site keeps
-    the spelling already in the file; a host outside atlassian.net is sent with `otherHost`; `system.setup --site`
+    the spelling already in the file; a host outside atlassian.net is sent with `otherHost`; `system.setCredentials --site`
     cleans up the same way), « Will be saved as <value> »; (2) « Open API tokens » with the
     instructions (the plain token, not *with scopes*; longest expiry; shown only once); (3) the Xray key path « ⚙
     Settings → Apps → Xray → API Keys → Create API Key, for your own user », « Open Jira apps »
@@ -1068,7 +1068,7 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
     « New context » in the Contexts dialog creates a shared context (seen by every project, as in Xray Editor;
     « Shared with every project » unticked keeps it in the project); `contexts.create` without `--shared` stays in the
     project. In the desktop app the page's `testimus.*` preferences are mirrored into settings.json (`ui`, via
-    `system.saveSettings`) every few seconds and when the window hides, and put back when the page starts on a new origin
+    `system.set`) every few seconds and when the window hides, and put back when the page starts on a new origin
     with none (the core had to take another port). Push to Jira is disabled when the test has no local change since its last sync,
     even if Jira changed since (download instead); any Claude run — on this test, another one or the whole project
     (`claudeRunning` = `*project*`) — locks the editor; « Delete local copy » in the ⋯ menu always asks (the sidebar's ✕
@@ -1079,7 +1079,7 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
     refreshed and points to Download from Jira; Download and Restore step re-check a Claude run on confirm; Revert saves
     the pending edit first; Jira folder loads and searches show in the activity indicator (no Cancel: they are not
     jobs); a Claude run on a test or the project may start with an empty box (the scope and the house rules are the
-    request); a saved email, token, Client ID or secret emptied in the connection form is erased (`system.setup
+    request); a saved email, token, Client ID or secret emptied in the connection form is erased (`system.setCredentials
     --clear`); the Jira key is upper-cased as typed in Settings › Project; values typed in Settings › Claude and
     Settings › Project are saved when Settings closes, not only on blur. « Show in Explorer » on a folder opens the folder (a file is shown
     selected); a context path may be relative (read from the project folder, Claude's working directory); the Claude
@@ -1181,11 +1181,11 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
   - **System check** — system.doctor rows as icon + word (OK / To do / Failed / Not checked / Info). A row with an
     `action` shows it as a button in place of the CLI fix text: the command runs (a job is followed to its end,
     then the check runs again), or — when the user has a value to give — `models.setDir` opens the models folder
-    dialog, `models.add` the folder picker (Settings → Models in a browser), `system.setup` / `system.saveSettings`
+    dialog, `models.add` the folder picker (Settings → Models in a browser), `system.setCredentials` / `system.set`
     / `models.usePack` open Settings → Access / Claude / Models. « Check Claude sign-in » (doctor {claude:true}) sits
     in its row and keeps the words saying what to do beside it; the rail's status dot shows the last result.
   - **First launch (#/setup)** — shown once per session when the credential files are incomplete or no project is
-    open: Access (system.setup prefilled, secrets never sent back, Test connection = setup with check), Project
+    open: Access (system.credentials prefilled, secrets never sent back, Save and test = system.setCredentials), Project
     (project.list / project.open / project.init; each known project's « … » menu has « Don't show »
     (`project.forget`) and « Delete » (`project.delete`): a folder still there is deleted after a confirmation, the
     open project included — the window closes it; a folder already gone is only forgotten, without asking; a job
@@ -1347,10 +1347,10 @@ step, and is told exactly what is missing when something is.
      runs `testimus serve`.
   2. If `claude` is not found, installs the Claude Code CLI with Anthropic's native installer, then
      asks the user to sign in once. The subscription is theirs; Testimus never handles it.
-  3. Runs `testimus system setup`, then `testimus system doctor`.
+  3. Runs `testimus system credentials`, asks for what is missing, `testimus system setCredentials`, then `testimus system doctor`.
   - Settings, credentials, downloaded models and projects live outside the versioned folder, so an
     update or a rollback touches none of them.
-- **`system.setup`**: shows which of the two credential files of §3 exist and are complete (a
+- **`system.credentials` / `system.setCredentials`**: shows which of the two credential files of §3 exist and are complete (a
   colleague who already uses Xray Editor or the Atlassian skills has nothing to type), asks only for
   what is missing (Jira site, email, API token, Xray client id/secret), merges it into the files as
   §3 says, and checks it read-only (Jira `myself`, Xray authenticate). It is a command like any
@@ -1402,7 +1402,7 @@ step, and is told exactly what is missing when something is.
   block `Testimus.exe`; the browser mode stays the fallback (README.txt says so). The install root holds
   `<version>/`, `current.txt`, `testimus.ico` and `bin/testimus.cmd` (which follows `current.txt`). `install.ps1`
   switches: `-Root`, `-InstallClaude`, `-NoPath`, `-NoShortcut`, `-NoDesktop`, `-ShortcutDir <dir>` (shortcuts in
-  another folder than the Start menu, for trials), `-NoSetup`, `-NoPrompt`. `system.setup` reads the token and the
+  another folder than the Start menu, for trials), `-NoSetup`, `-NoPrompt`. `system.setCredentials` reads the token and the
   secret from `TESTIMUS_JIRA_TOKEN` / `TESTIMUS_XRAY_SECRET` too, so they never appear on a command line.
   Model lookup order: the registered installations and the chosen models folder, then `TESTIMUS_MODELS`,
   `%LOCALAPPDATA%\Testimus\models\` (v1 downloads) and the release `models/`, read-only (transformers.js layout

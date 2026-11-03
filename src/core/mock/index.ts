@@ -3,8 +3,10 @@ import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { quietCtx } from "../command.ts";
+import { agentProbe } from "../commands/system.ts";
 import { env } from "../env.ts";
 import { DEFAULT_PROJECT, writeJson, writeProject } from "../lib/project.ts";
+import { mockProbeDeps } from "./agents.ts";
 import { mockSpawnClaude } from "./claude.ts";
 import "./claude-actions.ts";
 import "./claude-check.ts";
@@ -83,6 +85,7 @@ export async function setupMock(): Promise<string | null> {
   env.localDir = () => local;
   env.http = mockHttp;
   env.spawnClaude = mockSpawnClaude;
+  agentProbe.deps = () => mockProbeDeps();
   writeJson(join(data, "settings.json"), { projects, lastProject: project, models: { allowRemote: false } });
   const models = mockModelsOptions();
   await setupModelsMock(root, project, models);

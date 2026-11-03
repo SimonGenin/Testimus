@@ -10,9 +10,10 @@ const ok = (name: string, ...args: unknown[]) => {
   return r.value;
 };
 const refused = (name: string, ...args: unknown[]) => !checkArgs(name, args).ok;
+const WIN = process.platform === "win32";
 
 describe("bridge argument checks", () => {
-  it("pickFolder takes a title and an optional absolute default path", () => {
+  it.runIf(WIN)("pickFolder takes a title and an optional absolute default path (Windows paths)", () => {
     expect(ok("pickFolder", { title: "Open a project" })).toEqual({ title: "Open a project", defaultPath: undefined });
     expect(ok("pickFolder", { title: "Open", defaultPath: "D:\\Projects", extra: 1 })).toEqual({
       title: "Open",
@@ -24,6 +25,19 @@ describe("bridge argument checks", () => {
     expect(refused("pickFolder", { title: "a\u0007b" })).toBe(true);
     expect(refused("pickFolder", { title: "Open", defaultPath: "relative\\dir" })).toBe(true);
     expect(refused("pickFolder", { title: "Open", defaultPath: "\\\\?\\C:\\x" })).toBe(true);
+  });
+
+  it.runIf(!WIN)("pickFolder takes a title and an optional absolute default path (POSIX paths)", () => {
+    expect(ok("pickFolder", { title: "Open a project" })).toEqual({ title: "Open a project", defaultPath: undefined });
+    expect(ok("pickFolder", { title: "Open", defaultPath: "/Users/u/Projects", extra: 1 })).toEqual({
+      title: "Open",
+      defaultPath: "/Users/u/Projects",
+    });
+    expect(refused("pickFolder")).toBe(true);
+    expect(refused("pickFolder", { title: "" })).toBe(true);
+    expect(refused("pickFolder", { title: "x".repeat(201) })).toBe(true);
+    expect(refused("pickFolder", { title: "a\u0007b" })).toBe(true);
+    expect(refused("pickFolder", { title: "Open", defaultPath: "relative/dir" })).toBe(true);
   });
 
   it("pickFiles takes filters by extension and multiple", () => {
@@ -49,11 +63,18 @@ describe("bridge argument checks", () => {
     expect(refused("pickFiles", { title: "x", filters: [], multiple: "yes" })).toBe(true);
   });
 
-  it("reveal takes an absolute path", () => {
+  it.runIf(WIN)("reveal takes an absolute path (Windows paths)", () => {
     expect(ok("reveal", "D:\\proj\\tests\\a\\test.md")).toBe("D:\\proj\\tests\\a\\test.md");
     expect(refused("reveal", "tests\\a")).toBe(true);
     expect(refused("reveal", 42)).toBe(true);
     expect(refused("reveal", "D:\\a\0b")).toBe(true);
+  });
+
+  it.runIf(!WIN)("reveal takes an absolute path (POSIX paths)", () => {
+    expect(ok("reveal", "/proj/tests/a/test.md")).toBe("/proj/tests/a/test.md");
+    expect(refused("reveal", "tests/a")).toBe(true);
+    expect(refused("reveal", 42)).toBe(true);
+    expect(refused("reveal", "/a\0b")).toBe(true);
   });
 
   it("openExternal opens https only", () => {
@@ -96,7 +117,7 @@ describe("bridge argument checks", () => {
   });
 });
 
-describe("reveal is limited to known folders", () => {
+describe.runIf(WIN)("reveal is limited to known folders (Windows paths)", () => {
   const roots = ["D:\\Projects\\LFRPS12", "C:\\Users\\u\\AppData\\Roaming\\Testimus"];
   it("allows a path inside a known project or a data folder, any case", () => {
     expect(insideAny("D:\\Projects\\LFRPS12\\tests\\a\\test.md", roots)).toBe(true);
@@ -109,6 +130,23 @@ describe("reveal is limited to known folders", () => {
     expect(insideAny("D:\\Projects\\LFRPS12\\..\\Secret\\x", roots)).toBe(false);
     expect(insideAny("C:\\Windows\\System32", roots)).toBe(false);
     expect(insideAny("D:\\x", ["", "D:\\y"])).toBe(false);
+  });
+});
+
+describe.runIf(!WIN)("reveal is limited to known folders (POSIX paths)", () => {
+  const roots = ["/Projects/LFRPS12", "/Users/u/.config/Testimus"];
+  it("allows a path inside a known project or a data folder, case as written", () => {
+    expect(insideAny("/Projects/LFRPS12/tests/a/test.md", roots)).toBe(true);
+    expect(insideAny("/Projects/LFRPS12", roots)).toBe(true);
+    expect(insideAny("/Users/u/.config/Testimus/settings.json", roots)).toBe(true);
+    expect(insideAny("/projects/lfrps12", roots)).toBe(false);
+  });
+  it("refuses a sibling, a parent or a .. escape", () => {
+    expect(insideAny("/Projects/LFRPS12-other/x", roots)).toBe(false);
+    expect(insideAny("/Projects", roots)).toBe(false);
+    expect(insideAny("/Projects/LFRPS12/../Secret/x", roots)).toBe(false);
+    expect(insideAny("/usr/bin", roots)).toBe(false);
+    expect(insideAny("/x", ["", "/y"])).toBe(false);
   });
 });
 

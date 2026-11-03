@@ -9,7 +9,7 @@ import { errorToast } from "../../lib/toast.ts";
 type Layout = "stacked" | "split";
 
 const save = (patch: Record<string, unknown>) =>
-  call<Settings>("system.saveSettings", patch).catch((e) => {
+  call<Settings>("system.set", patch).catch((e) => {
     errorToast(e, "Could not save the settings");
     return null;
   });

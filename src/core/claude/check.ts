@@ -1,15 +1,8 @@
 import { type Ctx, UserError } from "../command.ts";
 import { agentPool, loadLine } from "../lib/agents.ts";
-import {
-  type Corpus,
-  loadCorpus,
-  readTestReview,
-  recordSemantic,
-  runMechanical,
-  semanticOf,
-  setReview,
-} from "../lib/check.ts";
+import { type Corpus, loadCorpus, recordSemantic, runMechanical, semanticOf } from "../lib/check.ts";
 import { readProject } from "../lib/project.ts";
+import { readTestReview, setReview } from "../lib/review.ts";
 import { listLocalTests, readCheck, testExists } from "../lib/store.ts";
 import type { CheckFile, Diagnosis, Finding, Review } from "../types.ts";
 import { proposeLines } from "./actions.ts";

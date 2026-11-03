@@ -95,6 +95,12 @@ describe("MCP face over stdio", () => {
     expect(bad.result?.isError).toBe(true);
     expect((bad.result?.content as { text: string }[] | undefined)?.[0]?.text).toMatch(/No chat chat-nope/);
   }, 30000);
+
+  it("ends when Claude, its parent, closes its stdin (N7)", async () => {
+    const gone = new Promise<number | null>((r) => child.once("exit", (code) => r(code)));
+    child.stdin.end();
+    expect(await gone).toBe(0);
+  }, 15000);
 });
 
 describe("read-only Claude runs and the models commands", () => {

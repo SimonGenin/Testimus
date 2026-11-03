@@ -19,8 +19,8 @@ export const CHECK_LOOK: Record<CheckState, { word: string; tone: BadgeTone; ico
 const INFO_IDS = new Set(["proxy"]);
 
 const SETTINGS_OF: Record<string, string> = {
-  "system.setup": "access",
-  "system.saveSettings": "claude",
+  "system.setCredentials": "access",
+  "system.set": "claude",
   "models.usePack": "models",
 };
 

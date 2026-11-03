@@ -57,7 +57,7 @@ export function useProject(navigate: (screen: Screen, arg?: string) => void) {
       setDir(here);
       setBooted(true);
       if (readPref("setupShown") || parseRoute(window.location.hash).screen === "setup") return;
-      const st = (await read(client, "system.setup", {}).catch(() => null)) as { status: CredsStatus } | null;
+      const st = (await read(client, "system.credentials", {}).catch(() => null)) as { status: CredsStatus } | null;
       const creds = !st?.status || (st.status.jira.complete && st.status.xray.complete);
       if (!here || !creds) {
         writePref("setupShown", true);

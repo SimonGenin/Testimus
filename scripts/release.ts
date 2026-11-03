@@ -142,6 +142,12 @@ export function keepElectronFile(rel: string): boolean {
   return true;
 }
 
+// ponytail: cmd.exe and PowerShell 5 read their scripts with CRLF line ends; the repository keeps LF, so the release
+// writes them CRLF whatever checkout it is built from
+export function windowsText(file: string): string {
+  return readFileSync(file, "utf8").replace(/\r?\n/g, "\r\n");
+}
+
 export function layoutProblems(out: string): string[] {
   const problems = LAYOUT.filter((f) => !existsSync(join(out, f))).map((f) => `missing ${f}`);
   for (const f of NOT_IN_LAYOUT) if (existsSync(join(out, f))) problems.push(`unexpected ${f}`);
@@ -522,7 +528,8 @@ export async function release(opts: { reuseUi: boolean; skipNode: boolean }): Pr
     models = `${light} = ${hfId}`;
   } else process.stderr.write(`note: .models/ has no ${light}: the release ships without models.\n`);
 
-  for (const f of ["testimus.cmd", "install.ps1", "testimus.ico"]) cpSync(join(ROOT, "scripts", f), join(out, f));
+  for (const f of ["testimus.cmd", "install.ps1"]) writeFileSync(join(out, f), windowsText(join(ROOT, "scripts", f)));
+  cpSync(join(ROOT, "scripts", "testimus.ico"), join(out, "testimus.ico"));
   writeFileSync(join(out, "README.txt"), readme(pkg.version, nodeVersion, electron, models));
 
   const problems = layoutProblems(out).filter((p) => !(opts.skipNode && p === "missing node/node.exe"));

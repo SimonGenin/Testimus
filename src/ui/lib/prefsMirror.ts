@@ -24,7 +24,7 @@ export function mirrorPrefs(client: QueryClient, everyMs = 5000): () => void {
     const json = JSON.stringify(now);
     if (json === sent) return;
     sent = json;
-    void execute(client, "system.saveSettings", { ui: now }, { invalidates: [["system.settings"]] }).catch(() => {});
+    void execute(client, "system.set", { ui: now }, { invalidates: [["system.settings"]] }).catch(() => {});
   };
   const timer = setInterval(push, everyMs);
   const onHide = () => document.visibilityState === "hidden" && push();

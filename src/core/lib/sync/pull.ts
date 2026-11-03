@@ -8,7 +8,8 @@ import { pullTest } from "../jira/read.ts";
 import { byId } from "../jira/steps.ts";
 import { readProject } from "../project.ts";
 import { addImage, markRemoteChanged, readTest, removeImageFile, testDir, writeRemote, writeTest } from "../store.ts";
-import { imageRef, mapRefs, parseTest, serializeTest } from "../testfile.ts";
+import { imageRef, mapRefs } from "../test-blocks.ts";
+import { parseTest, serializeTest } from "../testfile.ts";
 import { jiraKey } from "./connect.ts";
 
 export type PullOpts = { prev?: Test; signal?: AbortSignal; report?: (message: string, stage: PullStage) => void };

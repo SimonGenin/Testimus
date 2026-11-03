@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useApp } from "../../lib/app.ts";
 import { useCommand } from "../../lib/data/query.ts";
-import { openProject } from "../../lib/desktop.ts";
+import { showProject } from "../../lib/desktop.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 import { Button } from "../ui/Button.tsx";
 import { Modal } from "../ui/Modal.tsx";
@@ -20,7 +20,7 @@ export function OpenByKey({ onClose }: { onClose: () => void }) {
     setBusy(true);
     try {
       const r = await openKey.mutateAsync({ key: k });
-      await openProject(app, r.dir);
+      showProject(app, r.dir);
       if (r.created) toast({ kind: "ok", title: `Project ${k} created`, detail: r.dir });
       onClose();
     } catch (e) {

@@ -65,7 +65,7 @@ describe("First launch › Project", () => {
 describe("First launch › Access", () => {
   const TOKENS = "https://id.atlassian.com/manage-profile/security/api-tokens";
   beforeEach(() => {
-    api.routes["system.setup"] = () => ({
+    api.routes["system.credentials"] = api.routes["system.setCredentials"] = () => ({
       status: {
         jira: { file: "", exists: false, complete: false },
         xray: { file: "", exists: false, complete: false },
@@ -95,7 +95,7 @@ describe("First launch › Access", () => {
 describe("Settings › Claude program", () => {
   beforeEach(() => {
     api.routes["system.settings"] = () => ({ claude: { exe: "" }, models: { allowRemote: true } });
-    api.routes["system.saveSettings"] = (i) => ({ claude: { exe: i.claudeExe ?? "" }, models: { allowRemote: true } });
+    api.routes["system.set"] = (i) => ({ claude: { exe: i.claudeExe ?? "" }, models: { allowRemote: true } });
     api.routes["claude.status"] = () => ({ installed: true, version: "2.1.0", signedIn: null, exe: "claude" });
   });
 
@@ -105,14 +105,14 @@ describe("Settings › Claude program", () => {
     const browse = screen.getByRole("button", { name: "Browse for the Claude program" });
     await waitFor(() => expect(browse).toBeEnabled());
     fireEvent.click(browse);
-    await waitFor(() => expect(named("system.saveSettings")).toHaveLength(1));
+    await waitFor(() => expect(named("system.set")).toHaveLength(1));
     await waitFor(() => expect(named("claude.status").at(-1)?.input).toEqual({ refresh: true }));
     expect(d.pickFiles).toHaveBeenCalledWith({
       title: "Choose the Claude program",
       filters: process.platform === "win32" ? [{ name: "Programs", extensions: ["exe", "cmd"] }] : [],
       multiple: false,
     });
-    expect(named("system.saveSettings")[0].input).toEqual({ claudeExe: "C:\\Users\\me\\.local\\bin\\claude.exe" });
+    expect(named("system.set")[0].input).toEqual({ claudeExe: "C:\\Users\\me\\.local\\bin\\claude.exe" });
     expect(screen.getByLabelText("Claude program")).toHaveValue("C:\\Users\\me\\.local\\bin\\claude.exe");
   });
 

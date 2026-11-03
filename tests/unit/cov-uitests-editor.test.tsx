@@ -83,7 +83,7 @@ beforeEach(() => {
   server.routes["tests.save"] = (input) => ({ id: input.id, summary: "saved", sync: "modified" });
   server.routes["contexts.ofTest"] = () => ({ effective: [], own: null });
   server.routes["contexts.list"] = () => [{ id: "c1", name: "Glossary" }];
-  server.routes["tests.columns"] = () => ({ own: null });
+  server.routes["tests.folds"] = () => ({ own: null });
   server.routes["xray.preconditions"] = () => [
     { key: "LFRPS12-50", issueId: "1", summary: "Powered", definition: "Power is on" },
   ];
@@ -1140,7 +1140,7 @@ describe("TestEditor › menu and settings", () => {
 
   it("saves column modes for the project and for this test", async () => {
     server.routes["columns.setModes"] = () => [];
-    server.routes["tests.setColumns"] = (input) => ({ own: input.modes });
+    server.routes["tests.setFolds"] = (input) => ({ own: input.modes });
     const { state } = editor({ xray: fullXray });
     await ready();
     fireEvent.click(screen.getByRole("button", { name: "Columns" }));
@@ -1156,14 +1156,14 @@ describe("TestEditor › menu and settings", () => {
       within(screen.getByRole("group", { name: "Data column" })).getByRole("button", { name: "when filled" }),
     );
     await waitFor(() => expect(screen.getByRole("button", { name: "use project's" })).toBeInTheDocument());
-    expect(callsTo("tests.setColumns")[0].input).toEqual({ id: "t1", modes: { Data: "filled" } });
+    expect(callsTo("tests.setFolds")[0].input).toEqual({ id: "t1", modes: { Data: "filled" } });
   });
 
   it("reports failed column saves", async () => {
     server.routes["columns.setModes"] = () => {
       throw new Fail("x");
     };
-    server.routes["tests.setColumns"] = () => {
+    server.routes["tests.setFolds"] = () => {
       throw new Fail("x");
     };
     editor({ xray: fullXray });
@@ -1181,7 +1181,7 @@ describe("TestEditor › menu and settings", () => {
   });
 
   it("starts from the test's own column modes", async () => {
-    server.routes["tests.columns"] = () => ({ own: { Data: "collapsed" } });
+    server.routes["tests.folds"] = () => ({ own: { Data: "collapsed" } });
     editor({ xray: fullXray });
     await ready();
     await waitFor(() => expect(screen.queryByLabelText("Data of step 1")).toBeNull());
