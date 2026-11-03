@@ -763,7 +763,7 @@ describe("Activity and toasts", () => {
     expect(within(pop).getByText("LFRPS12-9")).toBeInTheDocument();
     expect(within(pop).getByText("1 test to pull")).toBeInTheDocument();
     expect(within(pop).getByText(/^[5-6] s$/)).toBeInTheDocument();
-    expect(within(pop).getByText("↓")).toBeInTheDocument();
+    expect(within(pop).getByTitle("pull")).toHaveClass("busy-tile");
     FakeEventSource.emit({ jobId: "j1", at: "", type: "progress", message: "LFRPS12-9: steps fetched" });
     expect(within(pop).getByText("LFRPS12-9: steps fetched")).toBeInTheDocument();
     fireEvent.click(within(pop).getByRole("button", { name: "Cancel LFRPS12-9" }));

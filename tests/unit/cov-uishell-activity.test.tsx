@@ -62,7 +62,7 @@ describe("Activity", () => {
     const btn = await screen.findByRole("button", { name: "2 jobs running" });
     act(() => {
       FakeES.emit(status(job({ id: "c", kind: "generate", subject: "Gen", message: "Starting" })));
-      FakeES.emit({ jobId: "a", at: "", type: "progress", message: "Writing 2" });
+      FakeES.emit({ jobId: "a", at: "", type: "progress", message: "Writing 2", done: 2, total: 8 });
       FakeES.emit({ jobId: "nope", at: "", type: "progress", message: "ignored" });
       FakeES.emit({ jobId: "a", at: "", type: "log", level: "info", message: "ignored" });
       FakeES.emit(status(job({ id: "c", kind: "generate", subject: "Gen" })));
@@ -70,13 +70,16 @@ describe("Activity", () => {
     expect(screen.getByRole("button", { name: "3 jobs running" })).toBe(btn);
     fireEvent.click(btn);
     const pop = screen.getByRole("dialog", { name: "Running jobs" });
-    const rows = pop.querySelectorAll(".act");
-    expect([...rows].map((r) => r.querySelector(".act-label")?.textContent)).toEqual(["odd", "LFRPS12", "Gen"]);
-    expect(rows[0].querySelector(".act-glyph")?.textContent).toBe("·");
-    expect(rows[1].querySelector(".act-glyph")?.textContent).toBe("↓");
+    expect(pop.querySelector(".busy-head")).toHaveTextContent("Running3");
+    const rows = pop.querySelectorAll(".busy");
+    expect([...rows].map((r) => r.querySelector(".busy-label")?.textContent)).toEqual(["odd", "LFRPS12", "Gen"]);
+    expect([...rows].map((r) => r.className)).toEqual(["busy busy-plain", "busy busy-plain", "busy busy-claude"]);
     expect(rows[1]).toHaveTextContent("Writing 2");
+    expect(rows[1].querySelector(".busy-steps")).toHaveTextContent("2/8");
+    expect(rows[1].querySelector<HTMLElement>(".busy-fill")?.style.width).toBe("25%");
     expect(rows[2]).toHaveTextContent("Starting");
-    expect(rows[0].querySelector(".act-detail")).toBeNull();
+    expect(rows[2].querySelector(".busy-bar")).toHaveClass("is-open");
+    expect(rows[0].querySelector(".busy-detail")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Cancel LFRPS12" }));
     await waitFor(() => expect(callsOf("jobs.cancel")[0].input).toEqual({ id: "a" }));
     fireEvent.click(screen.getByRole("button", { name: "Cancel odd" }));
@@ -105,6 +108,10 @@ describe("Activity", () => {
     fireEvent.mouseDown(screen.getByText("outside"));
     expect(screen.queryByRole("dialog")).toBeNull();
     fireEvent.click(btn);
+    expect(screen.getByRole("dialog")).toHaveStyle({ top: "8px", left: "8px" });
+    fireEvent(window, new Event("resize"));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    fireEvent.click(btn);
     act(() => FakeES.emit(status(job({ id: "a", status: "done" }))));
     expect(screen.queryByRole("button", { name: /running/ })).toBeNull();
     expect(screen.queryByRole("dialog")).toBeNull();
@@ -122,10 +129,23 @@ describe("Activity", () => {
     await act(async () => gate.resolve(null));
     const btn = await screen.findByRole("button", { name: "1 job running" });
     fireEvent.click(btn);
-    const time = () => screen.getByRole("dialog").querySelector(".act-time")?.textContent;
+    const time = () => screen.getByRole("dialog").querySelector(".busy-time")?.textContent;
     const first = time();
     await act(() => vi.advanceTimersByTimeAsync(2000));
     expect(time()).not.toBe(first);
+  });
+
+  it("tones each row by its kind and starts a bar from the job's own progress", async () => {
+    net.routes["jobs.list"] = () => [
+      job({ id: "a", kind: "docs.convert", subject: "RS", progress: { done: 1, total: 4 } }),
+      job({ id: "b", kind: "models-pull", subject: "bge" }),
+    ];
+    render(<Activity />);
+    fireEvent.click(await screen.findByRole("button", { name: "2 jobs running" }));
+    const rows = screen.getByRole("dialog").querySelectorAll(".busy");
+    expect([...rows].map((r) => r.className)).toEqual(["busy busy-doc", "busy busy-plain"]);
+    expect(rows[0].querySelector(".busy-steps")).toHaveTextContent("1/4");
+    expect(rows[1].querySelector(".busy-steps")).toBeNull();
   });
 
   it("survives a failed list read", async () => {
