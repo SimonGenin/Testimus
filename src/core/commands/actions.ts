@@ -1,13 +1,12 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { type Problem, runAction, triage } from "../claude/actions.ts";
-import { docRunLines } from "../claude/prompt.ts";
+import { runAction, triageRefusal, triageRun } from "../claude/actions.ts";
 import { CONTEXT_IDS, CONVERSATION, EFFORT, MODEL, NOTE, RESULT, SCOPE, scopeLabel } from "../claude/schemas.ts";
 import { readRunMeta } from "../claude/snapshot.ts";
 import { command, projectOf, UserError } from "../command.ts";
 import { env } from "../env.ts";
-import { showJob } from "../jobs.ts";
+import { startJob } from "../jobs.ts";
 import {
   listActions,
   listed,
@@ -74,24 +73,10 @@ function checkScope(project: string, s: ClaudeScope): void {
   if (s.kind === "doc") readDoc(project, s.docId);
   if (s.kind === "step" || s.kind === "test") {
     if (!existsSync(join(testDir(project, s.testId), "test.md")))
-      throw new UserError(`No test ${s.testId} in this project.`);
+      throw new UserError(`No test ${s.testId} in this project.`, "testimus tests list shows the tests.");
   }
   if (s.kind === "tests") for (const t of s.testIds) testDir(project, t);
 }
-
-function jobProblems(project: string, jobId: string): Problem[] {
-  const shown = showJob(project, jobId);
-  if (!shown) throw new UserError(`No job ${jobId} in this project.`);
-  const where = `job:${jobId}`;
-  const out: Problem[] = [];
-  if (shown.job.error) out.push({ where, text: `${shown.job.kind} ${shown.job.subject} failed: ${shown.job.error}` });
-  for (const e of shown.events)
-    if (e.type === "log" && e.level !== "info" && out.length < 8) out.push({ where, text: e.message });
-  return out;
-}
-
-const docProblems = (project: string, docId: string): Problem[] =>
-  (readDoc(project, docId).converted?.warnings ?? []).map((text) => ({ where: `doc:${docId}`, text }));
 
 export const commands = [
   command({
@@ -216,7 +201,10 @@ export const commands = [
       const project = projectOf(ctx);
       const a = readAction(project, input.id);
       if (a.state === "running" && runningNow(project, a.id, ctx.jobId))
-        throw new UserError("This action is already running.");
+        throw new UserError(
+          "This action is already running.",
+          "Wait for its run to end, or cancel it (testimus jobs cancel).",
+        );
       ctx.progress({ message: `Claude action on ${scopeLabel(a.scope)}: ${a.title}` });
       return await runAction(ctx, project, input.id, input);
     },
@@ -235,27 +223,49 @@ export const commands = [
     }),
     output: z.object({
       ok: z.boolean().describe("Whether the Claude run finished"),
-      summary: z.string().describe("Claude's one-line answer"),
+      summary: z.string().describe("Claude's one-line answer, or why Claude did not look"),
       proposed: z.array(LISTED).describe("The actions this triage proposed"),
+      skipped: z
+        .boolean()
+        .optional()
+        .describe("True when nothing was looked at: Claude Code is not connected, or there was no problem"),
     }),
     mutates: true,
     job: "actions.triage",
     subject: (i) => i.docId ?? i.jobId ?? "",
     cause: (i) => (i.jobId ? { jobId: i.jobId, why: "after-failure" } : undefined),
     async run(ctx, input) {
+      return await triageRun(ctx, projectOf(ctx), input);
+    },
+  }),
+  command({
+    name: "actions.triageFailed",
+    summary:
+      "A job failed: decide whether Claude should look at it, and start that look (an actions.triage job) when it should — only for a failed job of the documents, the index, the figures, a generation or a check (never a Claude run or a Jira call), once per job, and only when Claude Code is connected. The page calls it once for each job that fails.",
+    input: z.object({ jobId: z.string().describe("The job that failed") }),
+    output: z.object({
+      triage: z.string().nullable().describe("The actions.triage job started, or null when Claude does not look"),
+      why: z.string().describe("Why Claude looks at the job, or why not"),
+    }),
+    mutates: true,
+    positional: ["jobId"],
+    async run(ctx, input) {
       const project = projectOf(ctx);
-      if (!input.docId === !input.jobId) throw new UserError("Give either docId or jobId.");
-      const problems = input.docId ? docProblems(project, input.docId) : jobProblems(project, input.jobId ?? "");
-      const where = input.docId ? `the document ${input.docId}` : `the job ${input.jobId}`;
-      return await triage(
-        ctx,
+      const why = await triageRefusal(project, input.jobId);
+      if (why) return { triage: null, why };
+      const job = { jobId: input.jobId };
+      const { job: started } = startJob(
+        "actions.triage",
+        input.jobId,
         project,
-        problems,
-        where,
-        { model: input.model, effort: input.effort },
-        input.docId ? "import" : "job",
-        input.docId ? docRunLines(project, input.docId, input) : [],
+        (c) => triageRun(c, project, job),
+        undefined,
+        {
+          cause: { jobId: input.jobId, why: "after-failure" },
+          rerun: { name: "actions.triage", input: job },
+        },
       );
+      return { triage: started.id, why: `Claude looks at the failed ${started.subject} job, cheaply (low effort).` };
     },
   }),
 ];

@@ -1,10 +1,9 @@
 import { z } from "zod";
 import { fixTest } from "../claude/fix.ts";
-import { needTest, reviewQueue } from "../claude/review.ts";
+import { decide, needTest, reviewQueue } from "../claude/review.ts";
 import { CHECK_FILE, DIAGNOSIS, REVIEW, TEST_REF } from "../claude/schemas.ts";
-import { command, projectOf, UserError } from "../command.ts";
-import { env } from "../env.ts";
-import { osUser, setReview, testEvidence } from "../lib/check.ts";
+import { command, projectOf } from "../command.ts";
+import { testEvidence } from "../lib/check.ts";
 
 const queueItem = z.object({
   id: z.string().describe("Test id"),
@@ -46,15 +45,7 @@ export const commands = [
     async run(ctx, input) {
       const project = projectOf(ctx);
       needTest(project, input.id);
-      const note = input.note?.trim() || null;
-      if (input.decision === "to-fix" && !note)
-        throw new UserError("A To fix decision needs a note.", 'Say what is wrong, e.g. --note "Step 2 must check …".');
-      const t = setReview(project, input.id, {
-        review: input.decision === "validate" ? "validated" : "to-fix",
-        note,
-        by: osUser(),
-        at: env.now().toISOString(),
-      });
+      const t = decide(project, input.id, input.decision, input.note);
       return {
         id: input.id,
         review: t.review,
@@ -99,10 +90,15 @@ export const commands = [
   command({
     name: "review.fix",
     summary:
-      "Ask Claude to fix a test (fix-test skill) from its To fix note and its findings, then re-check it; it goes back to checked, never straight to validated. Returns the runId for Revert.",
+      "Ask Claude to fix a test (fix-test skill) from its To fix note and its findings, then re-check it; it goes back to checked, never straight to validated. With a note, the test is first marked To fix with that note (what review.set to-fix does). Returns the runId for Revert.",
     input: z.object({
       id: TEST_REF,
-      note: z.string().optional().describe("The request (default: the test's review_note)"),
+      note: z
+        .string()
+        .optional()
+        .describe(
+          "What to fix, in the reviewer's words: the test is marked To fix with it first (default: the test's review_note)",
+        ),
       semantic: z.boolean().default(true).describe("Re-check with the check-test skill too (default true)"),
     }),
     output: z.object({
@@ -126,6 +122,7 @@ export const commands = [
     async run(ctx, input) {
       const project = projectOf(ctx);
       needTest(project, input.id);
+      if (input.note?.trim()) decide(project, input.id, "to-fix", input.note);
       return await fixTest(ctx, project, input.id, { note: input.note, semantic: input.semantic });
     },
   }),

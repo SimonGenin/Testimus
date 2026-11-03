@@ -374,6 +374,9 @@ describe("M4 / minor 5 — a run never destroys a user edit", () => {
     await expect(invoke("claude.revert", { runId: r.runId }, { project: dir })).rejects.toThrow(
       /LFRPS12-1420 changed after the Claude run/,
     );
+    await expect(invoke("claude.revert", { runId: r.runId }, { project: dir })).rejects.toMatchObject({
+      code: "edited-after-run",
+    });
     expect(readFileSync(f, "utf8")).toBe(later);
     expect(await invoke("claude.revert", { runId: r.runId, force: true }, { project: dir })).toEqual({
       reverted: ["LFRPS12-1420"],

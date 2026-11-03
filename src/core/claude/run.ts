@@ -35,6 +35,8 @@ export function checkEffort(effort: string): Effort {
 const CLI = fileURLToPath(new URL("../../faces/cli.ts", import.meta.url));
 export const IN_CLAUDE = { TESTIMUS_IN_CLAUDE: "1" };
 
+export const insideClaude = (): boolean => !!process.env.TESTIMUS_IN_CLAUDE;
+
 type McpServer = { command: string; args: string[]; env: Record<string, string> };
 
 // ponytail: the Claude run must call back into the same Testimus — the source checkout in development,

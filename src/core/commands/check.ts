@@ -1,11 +1,15 @@
 import { z } from "zod";
-import { checkTests, promoteChecked, selectTests } from "../claude/check.ts";
-import { CHECK_FILE, FINDING_KINDS, SEVERITY, TEST_REF } from "../claude/schemas.ts";
+import { checkTests, promoteChecked, selectTests, semanticPlan } from "../claude/check.ts";
+import { CHECK_FILE, FINDING_KINDS, REVIEW, SEVERITY, TEST_REF } from "../claude/schemas.ts";
 import { command, projectOf, UserError } from "../command.ts";
 import { isStale, recordSemantic } from "../lib/check.ts";
 import { readCheck, testExists } from "../lib/store.ts";
 
-const counts = z.object({ errors: z.number(), warnings: z.number(), infos: z.number() });
+const counts = z.object({
+  errors: z.number().describe("Errors"),
+  warnings: z.number().describe("Warnings"),
+  infos: z.number().describe("Infos"),
+});
 
 const tally = (fs: { severity: string }[]) => ({
   errors: fs.filter((f) => f.severity === "error").length,
@@ -27,24 +31,32 @@ export const commands = [
       all: z.boolean().optional().describe("Check every test of the project"),
       semantic: z
         .boolean()
-        .default(true)
-        .describe("Also run the check-test skill through Claude (default true); false = mechanical pass only"),
+        .optional()
+        .describe(
+          "Also run the check-test skill through Claude (default: when Claude Code is connected); false = mechanical pass only",
+        ),
     }),
     output: z.object({
-      tests: z.array(
-        z.object({
-          id: z.string(),
-          ok: z.boolean(),
-          review: z.string(),
-          errors: z.number(),
-          warnings: z.number(),
-          infos: z.number(),
-          summary: z.string().optional(),
-          runId: z.string().optional(),
-        }),
-      ),
-      totals: counts,
-      failed: z.array(z.string()),
+      tests: z
+        .array(
+          z.object({
+            id: z.string().describe("Test id"),
+            ok: z.boolean().describe("False when its semantic check did not finish"),
+            review: REVIEW,
+            errors: z.number().describe("Errors found"),
+            warnings: z.number().describe("Warnings found"),
+            infos: z.number().describe("Infos found"),
+            summary: z.string().optional().describe("Claude's one-line answer for this test"),
+            runId: z.string().optional().describe("The check-test run of this test"),
+          }),
+        )
+        .describe("Each test checked"),
+      totals: counts.describe("The findings of every test checked"),
+      failed: z.array(z.string()).describe("Tests whose semantic check did not finish"),
+      semantic: z
+        .enum(["done", "skipped"])
+        .describe("Whether the check-test skill ran (done) or only the mechanical pass did (skipped)"),
+      why: z.string().optional().describe("Why the semantic pass was skipped"),
     }),
     mutates: true,
     job: "check",
@@ -52,10 +64,9 @@ export const commands = [
     async run(ctx, input) {
       const project = projectOf(ctx);
       const ids = selectTests(project, input);
-      // ponytail: called from inside a Claude run (the .mcp.json env says so), Claude is the semantic checker
-      const nested = !!process.env.TESTIMUS_IN_CLAUDE && input.semantic;
-      if (nested) ctx.log("info", "Called from a Claude run: mechanical pass only.");
-      const results = await checkTests(ctx, project, ids, input.semantic && !nested);
+      const plan = await semanticPlan(input.semantic, ctx.signal);
+      if (plan.why) ctx.log("info", plan.why);
+      const results = await checkTests(ctx, project, ids, plan.semantic);
       const tests = results.map((r) => {
         const review = promoteChecked(ctx, project, r);
         return {
@@ -71,6 +82,8 @@ export const commands = [
         tests,
         totals: tally(results.flatMap((r) => r.check.findings)),
         failed: results.filter((r) => !r.ok).map((r) => r.id),
+        semantic: plan.semantic ? ("done" as const) : ("skipped" as const),
+        ...(plan.why ? { why: plan.why } : {}),
       };
     },
   }),

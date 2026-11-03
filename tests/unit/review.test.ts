@@ -244,6 +244,30 @@ describe("review.fix", () => {
     expect(out.diagnosis?.kind).toBe("credit");
     expect(readCheck(project, "LFRPS12-1420")).toEqual(before);
   });
+
+  it("with a note, marks the test To fix with it before the run (one gesture: To fix + Ask Claude)", async () => {
+    let during: { review: string; note?: string; by?: string } | null = null;
+    env.spawnClaude = async (s) => {
+      const t = readTest(s.cwd, "LFRPS12-1420").test;
+      during ??= { review: t.review, note: t.reviewNote, by: t.reviewedBy };
+      return { code: 1, stdout: "", stderr: "Credit balance is too low" };
+    };
+    expect(readTest(project, "LFRPS12-1420").test.review).toBe("checked");
+    const out = await run("review.fix", { id: "LFRPS12-1420", note: "  Nommer les commandes au step 2 " });
+    expect(during).toEqual({ review: "to-fix", note: "Nommer les commandes au step 2", by: osUser() });
+    expect(out).toMatchObject({ ok: false, review: "to-fix" });
+    expect(readTest(project, "LFRPS12-1420").test).toMatchObject({
+      review: "to-fix",
+      reviewNote: "Nommer les commandes au step 2",
+      reviewedAt: "2026-11-02T10:00:00.000Z",
+    });
+  });
+
+  it("without a note, leaves the review state as it is", async () => {
+    env.spawnClaude = async () => ({ code: 1, stdout: "", stderr: "Credit balance is too low" });
+    const out = await run("review.fix", { id: "LFRPS12-1420" });
+    expect(out.review).toBe("checked");
+  });
 });
 
 describe("--mock review loop (scripted check-test and fix-test)", () => {

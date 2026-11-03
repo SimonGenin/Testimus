@@ -38,6 +38,7 @@ function fakeSkill(
   o: { record?: boolean; tools?: (id: string) => string[] } = {},
 ) {
   env.spawnClaude = async (s) => {
+    if (s.args.includes("--version")) return { code: 0, stdout: "2.1.0 (Claude Code)\n", stderr: "" };
     seen.push(s);
     const id = testIdOf(s);
     await during(s, id);

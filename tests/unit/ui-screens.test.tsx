@@ -250,12 +250,6 @@ describe("Review screen", () => {
     });
     expect(within(dialog).getByRole("checkbox")).toBeChecked();
     fireEvent.click(within(dialog).getByRole("button", { name: /Mark To fix/ }));
-    await waitFor(() => expect(named("review.set")).toHaveLength(1));
-    expect(named("review.set")[0].input).toEqual({
-      id: "LFRPS12-1420",
-      decision: "to-fix",
-      note: "Retirer EXI_MOP_SPF_510_A_20 du step 2.",
-    });
     await waitFor(() =>
       expect(app.runInDock).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -265,6 +259,7 @@ describe("Review screen", () => {
         }),
       ),
     );
+    expect(named("review.set")).toHaveLength(0);
   });
 });
 

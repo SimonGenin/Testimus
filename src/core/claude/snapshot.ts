@@ -267,6 +267,7 @@ export function revert(project: string, runId: string, o: RevertOpts = {}): stri
     throw new UserError(
       `${conflicts.join(", ")} changed after the Claude run ${runId}: reverting would lose those edits.`,
       "Look at the test first; revert with force to discard the later edits too.",
+      "edited-after-run",
     );
   for (const rel of files) {
     const abs = join(project, ...rel.split("/"));

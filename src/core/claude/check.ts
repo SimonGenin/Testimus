@@ -14,8 +14,9 @@ import { listLocalTests, readCheck, testExists } from "../lib/store.ts";
 import type { CheckFile, Diagnosis, Finding, Review } from "../types.ts";
 import { proposeLines } from "./actions.ts";
 import { effectiveContexts } from "./prompt.ts";
-import { newRunId, runClaude } from "./run.ts";
+import { insideClaude, newRunId, runClaude } from "./run.ts";
 import { revert } from "./snapshot.ts";
+import { claudeVersion } from "./status.ts";
 import { calledFor } from "./stream.ts";
 
 export type TestCheck = {
@@ -53,6 +54,19 @@ export function selectTests(project: string, input: { ids?: string[]; folder?: s
     for (const t of hit) out.add(t.id);
   }
   return [...out];
+}
+
+// ponytail: asked for, the semantic pass runs (a Claude that fails says so on each test); not said, it runs when Claude
+// Code is connected; called from inside a Claude run (the .mcp.json env says so), Claude itself is the semantic checker
+export async function semanticPlan(
+  asked: boolean | undefined,
+  signal?: AbortSignal,
+): Promise<{ semantic: boolean; why?: string }> {
+  if (asked === false) return { semantic: false, why: "Mechanical pass only, as asked." };
+  if (insideClaude()) return { semantic: false, why: "Called from a Claude run: mechanical pass only." };
+  if (asked === undefined && !(await claudeVersion(false, signal)).ok)
+    return { semantic: false, why: "Claude Code is not connected: mechanical pass only." };
+  return { semantic: true };
 }
 
 export const findingLine = (f: Finding) =>

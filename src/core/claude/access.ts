@@ -78,7 +78,7 @@ export function readOnlyCommands(): string[] {
 // ponytail: an action runs with the app's whole command set (what the CLI and the buttons do), minus another
 // Claude run, Jira writes (the user pushes), and what changes the machine or which project is open
 const NOT_IN_ACTION =
-  /^(claude\.run|actions\.(run|triage)|gen\.(tests|bench)|chat\.ask|review\.fix|rag\.eval|jobs\.cancel)$|^xray\.(push|connect|disconnect)$|^system\.(setup|saveSettings|secrets)$|^project\.(init|open|openKey)$|^models\.(add|pull|pullRuntime|remove|setDir|use|usePack)$/;
+  /^(claude\.run|actions\.(run|triage|triageFailed)|gen\.(tests|bench)|chat\.ask|review\.fix|rag\.eval|jobs\.cancel)$|^xray\.(push|connect|disconnect)$|^system\.(setup|saveSettings|secrets)$|^project\.(init|open|openKey)$|^models\.(add|pull|pullRuntime|remove|setDir|use|usePack)$/;
 
 export function mcpAccess(kind: RunKind): { allow: string[]; deny: string[] } {
   const ro = readOnlyCommands();

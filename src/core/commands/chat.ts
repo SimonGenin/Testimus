@@ -28,7 +28,7 @@ export const commands = [
       tokens: TOKENS.optional(),
       diagnosis: DIAGNOSIS.optional(),
     }),
-    mutates: false,
+    mutates: true,
     job: "chat",
     positional: ["question"],
     subject: (i) => i.question.slice(0, 60),

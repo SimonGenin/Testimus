@@ -1,6 +1,8 @@
 import { UserError } from "../command.ts";
+import { env } from "../env.ts";
+import { osUser, setReview } from "../lib/check.ts";
 import { listLocalTests, readTest, testExists } from "../lib/store.ts";
-import type { LocalTestRef, Review } from "../types.ts";
+import type { LocalTestRef, Review, Test } from "../types.ts";
 import { inFolder } from "./check.ts";
 
 export type QueueItem = {
@@ -29,6 +31,19 @@ const STATE_RANK: Record<Review, number> = { checked: 0, "to-fix": 1, draft: 2, 
 export function needTest(project: string, t: string): void {
   if (!testExists(project, t))
     throw new UserError(`No test ${t} in this project.`, "testimus tests list shows the tests.");
+}
+
+// ponytail: the reviewer's decision — validate, or to-fix with what is wrong; who and when are stamped
+export function decide(project: string, id: string, decision: "validate" | "to-fix", rawNote?: string): Test {
+  const note = rawNote?.trim() || null;
+  if (decision === "to-fix" && !note)
+    throw new UserError("A To fix decision needs a note.", 'Say what is wrong, e.g. --note "Step 2 must check …".');
+  return setReview(project, id, {
+    review: decision === "validate" ? "validated" : "to-fix",
+    note,
+    by: osUser(),
+    at: env.now().toISOString(),
+  });
 }
 
 function itemOf(project: string, t: LocalTestRef): QueueItem {
