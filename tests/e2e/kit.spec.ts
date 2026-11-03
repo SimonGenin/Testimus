@@ -1,22 +1,61 @@
-import type { Page } from "@playwright/test";
-import { boot, expect, mockServer, setTheme, test } from "./helpers.ts";
+import { mkdirSync } from "node:fs";
+import { join } from "node:path";
+import { boot, expect, mockServer, SCREENS_DIR, setTheme, test } from "./helpers.ts";
 
 mockServer(4398);
 
-const probe = (page: Page) => page.getByRole("button", { name: "StyleX probe" });
-const background = (page: Page) => probe(page).evaluate((el) => getComputedStyle(el).backgroundColor);
+test("the kit lists every component by family, and filters by name", async ({ page }) => {
+  await boot(page, "#/kit");
+  const nav = page.getByRole("navigation", { name: "Components" });
+  await expect(nav.getByRole("button", { name: "Button" })).toBeVisible();
+  await expect(nav.getByRole("region", { name: "Claude" }).getByRole("button", { name: "ClaudeBlock" })).toBeVisible();
+  await page.getByRole("textbox", { name: "Filter components" }).fill("cla");
+  await expect(nav.getByRole("button", { name: "ClaudeBlock" })).toBeVisible();
+  await expect(nav.getByRole("button", { name: "Button" })).toHaveCount(0);
+  await expect(nav).toContainText(/1 of \d+ components match/);
+  await page.getByRole("textbox", { name: "Filter components" }).fill("zzz");
+  await expect(nav).toContainText("No component named « zzz »");
+});
 
-test("the kit screen is styled by StyleX tokens, in the light and the dark theme", async ({ page }) => {
+test("each component page shows its props and every state, light and dark, styled by the tokens", async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 3600 });
   await page.emulateMedia({ colorScheme: "light" });
   await boot(page, "#/kit");
   await setTheme(page, "light");
-  await expect(probe(page)).toBeVisible();
-  expect(await background(page)).toBe("rgb(43, 85, 199)");
+  mkdirSync(join(SCREENS_DIR, "kit"), { recursive: true });
+  const names = await page.getByRole("navigation", { name: "Components" }).getByRole("button").allInnerTexts();
+  expect(names.length).toBeGreaterThanOrEqual(7);
+  for (const name of names) {
+    await page.getByRole("navigation", { name: "Components" }).getByRole("button", { name, exact: true }).click();
+    await expect(page.getByRole("heading", { level: 1, name, exact: true })).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`#/kit/${name}$`));
+    const props = page.getByRole("region", { name: "Props" });
+    await expect(props.locator("span").first()).toBeVisible();
+    const light = page.getByRole("region", { name: `${name}, Light` });
+    const dark = page.getByRole("region", { name: `${name}, Dark` });
+    await expect(light).toBeVisible();
+    await expect(dark).toBeVisible();
+    const bg = (r: typeof light) => r.evaluate((el) => getComputedStyle(el).backgroundColor);
+    expect(await bg(light)).toBe("rgb(244, 243, 239)");
+    expect(await bg(dark)).toBe("rgb(18, 18, 17)");
+    await page.evaluate(() => document.fonts.ready);
+    await page.screenshot({ path: join(SCREENS_DIR, "kit", `${name}.png`), animations: "disabled" });
+  }
+});
+
+test("the page follows the explicit theme and the system one", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "light" });
+  await boot(page, "#/kit/Button");
+  const primary = page.getByRole("region", { name: "Props" });
+  await expect(primary).toBeVisible();
+  const canvas = () => page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor);
+  await setTheme(page, "light");
+  expect(await canvas()).toBe("rgb(244, 243, 239)");
   await setTheme(page, "dark");
-  await expect.poll(() => background(page)).toBe("rgb(138, 166, 245)");
+  await expect.poll(canvas).toBe("rgb(18, 18, 17)");
   await setTheme(page, "system");
   await page.emulateMedia({ colorScheme: "dark" });
-  await expect.poll(() => background(page)).toBe("rgb(138, 166, 245)");
+  await expect.poll(canvas).toBe("rgb(18, 18, 17)");
   await page.emulateMedia({ colorScheme: "light" });
-  await expect.poll(() => background(page)).toBe("rgb(43, 85, 199)");
+  await expect.poll(canvas).toBe("rgb(244, 243, 239)");
 });

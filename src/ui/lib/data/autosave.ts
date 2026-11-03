@@ -191,14 +191,13 @@ export function useAutosave<T>(o: AutosaveOptions<T>): Autosave<T> {
       if (ro.current) return;
       const prev = (e.dirty ? e.value : o.value) as T | undefined;
       e.value = typeof next === "function" ? (next as (p: T | undefined) => T)(prev) : next;
-      if (!e.dirty && o.base !== undefined) e.base = o.base;
       e.dirty = true;
       e.edit++;
       if (e.status !== "conflict" && e.status !== "saving") e.status = "pending";
       schedule(e);
       notify(e);
     },
-    [e, o.value, o.base],
+    [e, o.value],
   );
 
   return {

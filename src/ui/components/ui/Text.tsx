@@ -88,6 +88,16 @@ const styles = stylex.create({
     backgroundColor: { default: "transparent", ":hover": color.surface, ":focus-within": color.surface },
   },
   inlineMulti: { minHeight: size.controlMd },
+  bare: {
+    borderWidth: 0,
+    borderColor: "transparent",
+    boxShadow: "none",
+    backgroundColor: "transparent",
+    paddingBlock: space.s3,
+    paddingInline: space.s4,
+  },
+  bareMulti: { minHeight: `calc(${lineHeight.body} * 2 + ${space.s5})` },
+  bareStill: { backgroundColor: "transparent", borderWidth: 0 },
   title: { fontSize: fontSize.title, lineHeight: lineHeight.title, fontWeight: fontWeight.semibold },
   invalid: {
     borderColor: color.danger,
@@ -177,8 +187,9 @@ export type TextProps = {
   /** a plain field keeps its unsent value under this key when the screen changes */
   draftKey?: Key;
   multiline?: boolean;
-  /** boxed (forms, dialogs, settings) · inline (the step editor: no edge until hovered or focused) */
-  appearance?: "boxed" | "inline";
+  /** boxed (forms, dialogs, settings) · inline (the step editor: no edge until hovered or focused) · bare (inside a
+   * frame that draws the edge: the Claude block) */
+  appearance?: "boxed" | "inline" | "bare";
   size?: "sm" | "md";
   /** the test summary: 16 px semibold, single line */
   title?: boolean;
@@ -384,6 +395,8 @@ function TextField(p: TextProps) {
           p.size === "sm" && styles.sm,
           inline && styles.inline,
           inline && multiline && styles.inlineMulti,
+          p.appearance === "bare" && styles.bare,
+          p.appearance === "bare" && multiline && styles.bareMulti,
           p.title && styles.title,
           p.debugState === "hover" && (inline ? styles.forceHoverInline : styles.forceHover),
           p.debugState === "focus" && styles.forceFocus,
@@ -391,6 +404,7 @@ function TextField(p: TextProps) {
           p.readOnly && styles.readOnly,
           claude && styles.claude,
           p.disabled && styles.disabled,
+          p.appearance === "bare" && (locked || p.disabled) && styles.bareStill,
         )}
       >
         {p.icon && (
