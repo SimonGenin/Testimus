@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type AdfDoc, adfToText, textToAdf } from "../../src/core/lib/adf.ts";
+import { type AdfDoc, adfToText, textToAdf } from "../../../../src/core/lib/adf.ts";
 
 const doc = (...content: unknown[]): AdfDoc => ({ type: "doc", version: 1, content: content as AdfDoc["content"] });
 

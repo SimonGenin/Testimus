@@ -2,11 +2,11 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeEach, describe, expect, it, test, vi } from "vitest";
-import { env, type HttpReq, type HttpRes } from "../../src/core/env.ts";
-import { cancelJob, startJob } from "../../src/core/jobs.ts";
-import { browseUrl, getMyself, resetAuth, retryAfter } from "../../src/core/lib/jira/http.ts";
-import { reviewLabels } from "../../src/core/lib/jira/labels.ts";
-import { decideStepSync, planPush } from "../../src/core/lib/jira/push.ts";
+import { env, type HttpReq, type HttpRes } from "../../../../src/core/env.ts";
+import { cancelJob, startJob } from "../../../../src/core/jobs.ts";
+import { browseUrl, getMyself, resetAuth, retryAfter } from "../../../../src/core/lib/jira/http.ts";
+import { reviewLabels } from "../../../../src/core/lib/jira/labels.ts";
+import { decideStepSync, planPush } from "../../../../src/core/lib/jira/push.ts";
 import {
   getFolderTree,
   getProjectInfo,
@@ -15,9 +15,9 @@ import {
   type PulledTest,
   pullTest,
   searchTests,
-} from "../../src/core/lib/jira/read.ts";
-import { hasRawEmbed } from "../../src/core/lib/testfile.ts";
-import type { Precondition, Review, Step, StepImage, Test, XrayField } from "../../src/core/types.ts";
+} from "../../../../src/core/lib/jira/read.ts";
+import { hasRawEmbed } from "../../../../src/core/lib/testfile.ts";
+import type { Precondition, Review, Step, StepImage, Test, XrayField } from "../../../../src/core/types.ts";
 
 type Call = { method: string; url: string; headers: Record<string, string>; body: any };
 

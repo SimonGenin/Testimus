@@ -2,15 +2,15 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } fro
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { invoke } from "../../src/core/commands/index.ts";
-import { env, type HttpReq } from "../../src/core/env.ts";
-import { resetAuth } from "../../src/core/lib/jira/http.ts";
-import { readProject, writeProject } from "../../src/core/lib/project.ts";
-import { projectInfo } from "../../src/core/lib/sync/connect.ts";
-import { checkRemote, pullToLocal } from "../../src/core/lib/sync/pull.ts";
-import { mockHttp, resetMockJira } from "../../src/core/mock/jira.ts";
+import { invoke } from "../../../../src/core/commands/index.ts";
+import { env, type HttpReq } from "../../../../src/core/env.ts";
+import { resetAuth } from "../../../../src/core/lib/jira/http.ts";
+import { readProject, writeProject } from "../../../../src/core/lib/project.ts";
+import { projectInfo } from "../../../../src/core/lib/sync/connect.ts";
+import { checkRemote, pullToLocal } from "../../../../src/core/lib/sync/pull.ts";
+import { mockHttp, resetMockJira } from "../../../../src/core/mock/jira.ts";
 
-const FIXTURE = new URL("../fixtures/project/", import.meta.url);
+const FIXTURE = new URL("../../../fixtures/project/", import.meta.url);
 const http = env.http;
 let project = "";
 let asked: string[] = [];

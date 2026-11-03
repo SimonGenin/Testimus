@@ -2,18 +2,18 @@ import { cpSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { quietCtx } from "../../src/core/command.ts";
-import { commands } from "../../src/core/commands/xray.ts";
-import { env, type HttpReq } from "../../src/core/env.ts";
-import { resetAuth } from "../../src/core/lib/jira/http.ts";
-import { labelPrefixOf, reviewLabels, reviewOfLabels } from "../../src/core/lib/jira/labels.ts";
-import { readProject, writeProject } from "../../src/core/lib/project.ts";
-import { listLocalTests, readTest, writeTest } from "../../src/core/lib/store.ts";
-import { executePlan, pushTest, testFilePath } from "../../src/core/lib/sync/push.ts";
-import { serializeTest } from "../../src/core/lib/testfile.ts";
-import { mockHttp, mockJiraTest, resetMockJira } from "../../src/core/mock/jira.ts";
+import { quietCtx } from "../../../../src/core/command.ts";
+import { commands } from "../../../../src/core/commands/xray.ts";
+import { env, type HttpReq } from "../../../../src/core/env.ts";
+import { resetAuth } from "../../../../src/core/lib/jira/http.ts";
+import { labelPrefixOf, reviewLabels, reviewOfLabels } from "../../../../src/core/lib/jira/labels.ts";
+import { readProject, writeProject } from "../../../../src/core/lib/project.ts";
+import { listLocalTests, readTest, writeTest } from "../../../../src/core/lib/store.ts";
+import { executePlan, pushTest, testFilePath } from "../../../../src/core/lib/sync/push.ts";
+import { serializeTest } from "../../../../src/core/lib/testfile.ts";
+import { mockHttp, mockJiraTest, resetMockJira } from "../../../../src/core/mock/jira.ts";
 
-const FIXTURE = new URL("../fixtures/project/", import.meta.url);
+const FIXTURE = new URL("../../../fixtures/project/", import.meta.url);
 const http = env.http;
 let project = "";
 let sent: HttpReq[] = [];
@@ -49,7 +49,7 @@ beforeEach(() => {
   };
 });
 
-describe("M6 — a cancel stops the push between operations", () => {
+describe("a cancel stops the push between operations", () => {
   it("lets the op in flight finish, never starts the next, and says something ran after the cancel", async () => {
     const { planHash } = await run("xray.plan", { id: "LFRPS12-1420" });
     const ctrl = new AbortController();
@@ -85,7 +85,7 @@ describe("M6 — a cancel stops the push between operations", () => {
   });
 });
 
-describe("M7 — one push of a test at a time", () => {
+describe("one push of a test at a time", () => {
   it("refuses a second concurrent push of the same test, so Jira gets one test", async () => {
     const { planHash } = await run("xray.plan", { id: "local-3f9a12c0" });
     const [a, b] = await Promise.allSettled([
@@ -118,7 +118,7 @@ describe("M7 — one push of a test at a time", () => {
   });
 });
 
-describe("M8 — a push uploads only files of the test folder", () => {
+describe("a push uploads only files of the test folder", () => {
   it("testFilePath accepts the test's own files and refuses anything that leaves the folder", () => {
     const dir = join(project, "tests", "LFRPS12-1420");
     expect(testFilePath(dir, "images/fig-40.png")).toBe(join(dir, "images", "fig-40.png"));
@@ -142,7 +142,7 @@ describe("M8 — a push uploads only files of the test folder", () => {
   });
 });
 
-describe("M14 — the push runs the plan the user saw", () => {
+describe("the push runs the plan the user saw", () => {
   it("returns a planHash with the plan and the dry run, and refuses a push without one", async () => {
     const plan = await run("xray.plan", { id: "LFRPS12-1420" });
     expect(plan.planHash).toMatch(/^[0-9a-f]{16}$/);
@@ -176,7 +176,7 @@ describe("M14 — the push runs the plan the user saw", () => {
   });
 });
 
-describe("minor 4 — a test changed in Jira is pushed only on the explicit choice", () => {
+describe("a test changed in Jira is pushed only on the explicit choice", () => {
   it("refuses without overwriteRemote and pushes with it", async () => {
     mockJiraTest("LFRPS12-1398")!.summary = "Changed by someone else";
     const plan = await run("xray.plan", { id: "LFRPS12-1398" });
@@ -191,7 +191,7 @@ describe("minor 4 — a test changed in Jira is pushed only on the explicit choi
   });
 });
 
-describe("minor 10 — an unusable label prefix falls back to testimus-", () => {
+describe("an unusable label prefix falls back to testimus-", () => {
   it("never treats the team's own labels as review labels", () => {
     expect(labelPrefixOf("")).toBe("testimus-");
     expect(labelPrefixOf("qa team-")).toBe("testimus-");
