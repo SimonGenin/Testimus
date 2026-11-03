@@ -149,6 +149,16 @@ button.chip:hover {
   white-space: nowrap;
 }
 
+.chip .src-doc {
+  flex: 0 1000000 auto;
+  min-width: 6ch;
+}
+
+.chip .src-at {
+  flex: none;
+  max-width: 100%;
+}
+
 .chip .q {
   flex: 0 1000 auto;
   min-width: 0;
@@ -541,4 +551,27 @@ button.chip:hover {
   font-size: 13px;
   color: var(--ink-2);
   overflow-wrap: anywhere;
+}
+
+.tagpill {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 10px;
+  background: var(--surface-3);
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.tagpill-info {
+  background: var(--info-bg);
+  color: var(--info);
+}
+
+.tagpill-warn {
+  background: var(--warn-bg);
+  color: var(--warn);
 }

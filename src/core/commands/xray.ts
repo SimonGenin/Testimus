@@ -4,6 +4,7 @@ import { z } from "zod";
 import { type Command, type Ctx, command, projectOf, UserError } from "../command.ts";
 import { env } from "../env.ts";
 import { loadCorpus, runMechanical } from "../lib/check.ts";
+import { followXray } from "../lib/columns.ts";
 import { type CsvTest, csvTests, guessMapping, parseCsv } from "../lib/csv.ts";
 import {
   browseUrl,
@@ -17,7 +18,7 @@ import {
   searchTests,
   startBulkImport,
 } from "../lib/jira.ts";
-import { fieldOrder, readProject, readXray, writeProject, writeXray } from "../lib/project.ts";
+import { fieldOrder, localColumns, readProject, readXray, writeProject, writeXray } from "../lib/project.ts";
 import { createLocalTest, listLocalTests, localTestRef } from "../lib/store.ts";
 import {
   checkRemote,
@@ -52,6 +53,9 @@ const xrayJson = z.object({
     open: z.array(z.string()).optional(),
   }),
   fetchedAt: z.string().optional(),
+  columns: z
+    .array(z.object({ name: z.string(), id: z.string().optional(), description: z.string().optional() }))
+    .optional(),
 });
 const remoteRef = z.object({
   key: z.string(),
@@ -251,8 +255,7 @@ export const commands: Command[] = [
       const project = projectOf(ctx);
       const info = await projectInfo(project);
       const fields = await getStepFields(info.id);
-      const x = readXray(project);
-      const next = { fields, prefs: x.prefs, fetchedAt: env.now().toISOString() };
+      const next = { ...followXray(project, readXray(project), fields), fetchedAt: env.now().toISOString() };
       writeXray(project, next);
       return next;
     },
@@ -281,7 +284,7 @@ export const commands: Command[] = [
     async run(ctx, input) {
       const project = projectOf(ctx);
       const x = readXray(project);
-      const names = x.fields.map((f) => f.name);
+      const names = [...x.fields.map((f) => f.name), ...localColumns(x)];
       const unknown = [
         ...(input.order ?? []),
         ...(input.collapsed ?? []),

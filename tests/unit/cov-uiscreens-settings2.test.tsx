@@ -5,9 +5,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DoctorCheck, TraceView } from "../../src/core/types.ts";
 import { setProject } from "../../src/ui/api.ts";
 import { resetDoctor, runDoctor } from "../../src/ui/lib/doctor.ts";
+import { setTraces } from "../../src/ui/lib/traces.ts";
 import { AccessSection, fileState } from "../../src/ui/screens/settings/AccessSection.tsx";
 import { AppearanceSection } from "../../src/ui/screens/settings/AppearanceSection.tsx";
 import { ClaudeSection, exeLine } from "../../src/ui/screens/settings/ClaudeSection.tsx";
+import { ColumnsSection } from "../../src/ui/screens/settings/ColumnsSection.tsx";
 import {
   ConnectAtlassian,
   jiraWords,
@@ -17,7 +19,6 @@ import {
 } from "../../src/ui/screens/settings/ConnectAtlassian.tsx";
 import { ProjectSection } from "../../src/ui/screens/settings/ProjectSection.tsx";
 import { SettingsScreen } from "../../src/ui/screens/settings/SettingsScreen.tsx";
-import { TracesSection } from "../../src/ui/screens/settings/TracesSection.tsx";
 import { AccessStep } from "../../src/ui/screens/setup/AccessStep.tsx";
 import { clearToasts, failing, models, modelsFetch, mount, modelsNamed as named } from "./cov-uiscreens-helpers.tsx";
 import { app, fakeDesktop, noDesktop } from "./ui-desktop-helpers.tsx";
@@ -292,7 +293,7 @@ describe("Settings › Access and First launch › Access", () => {
   });
 });
 
-describe("Settings › Tracked ids", () => {
+describe("Settings › Step columns › id lists", () => {
   const trace = (over: Partial<TraceView>): TraceView =>
     ({
       id: "requirement",
@@ -305,57 +306,51 @@ describe("Settings › Tracked ids", () => {
       docs: 2,
       ...over,
     }) as TraceView;
+  const col = (name: string, builtin = false) => ({ name, origin: "xray", builtin, status: "ok", description: "" });
 
-  it("says when nothing is tracked, and is absent without a project", () => {
-    mount(<TracesSection />, { info: info() });
-    expect(screen.getByText("Nothing tracked in this project.")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Track ids…" }));
+  it("a free-text column becomes an id list through the track dialog; an id list shows its pattern", async () => {
+    const traces = [trace({})];
+    setTraces(traces);
+    mount(<ColumnsSection />, {
+      info: info({}, { traces, columns: [col("Action", true), col("Exigence"), col("Note")] }),
+    });
+    expect(screen.queryByRole("group", { name: "Action: kind of content" })).toBeNull();
+    const rows = within(screen.getByRole("list", { name: "Step columns" })).getAllByRole("listitem");
+    expect(rows[1]).toHaveTextContent("EXI_[A-Z]+ | REQ-\\d+");
+    expect(rows[1]).toHaveTextContent("12 ids in 2 documents");
+    fireEvent.click(within(rows[2]).getByRole("button", { name: "Free text" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    fireEvent.click(within(rows[2]).getByRole("button", { name: "Id list" }));
     expect(screen.getByText("track new")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Close track" }));
-    expect(screen.queryByRole("dialog", { name: "Track stub" })).toBeNull();
-    cleanup();
-    const { container } = mount(<TracesSection />, { info: null });
-    expect(container.querySelector("#settings-traces")).toBeNull();
+    fireEvent.click(within(rows[1]).getByRole("button", { name: "Id list" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    fireEvent.click(within(rows[1]).getByRole("button", { name: "Change the pattern…" }));
+    expect(screen.getByText("track Requirement")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Close track" }));
+    fireEvent.click(within(rows[1]).getByRole("button", { name: "Coverage" }));
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    setTraces(null);
   });
 
-  it("lists the kinds, changes one, and stops tracking another", async () => {
-    const traces = [
-      trace({}),
-      trace({ id: "alarm", label: "Alarm", origin: "detected", column: "local", found: 1, docs: 1 }),
-    ];
-    const { app: a } = mount(<TracesSection />, { info: info({}, { traces }) });
-    const list = screen.getByRole("list", { name: "Tracked ids" });
-    const rows = within(list).getAllByRole("listitem");
-    expect(rows[0]).toHaveTextContent("EXI_[A-Z]+ | REQ-\\d+");
-    expect(rows[0]).toHaveTextContent("12 ids in 2 documents");
-    expect(within(rows[0]).getByText("In Xray")).toBeInTheDocument();
-    expect(within(rows[1]).getByText("Not in Xray yet")).toBeInTheDocument();
-    expect(within(rows[1]).getByText(/saving it confirms it/)).toBeInTheDocument();
-    fireEvent.click(within(rows[1]).getByRole("button", { name: "Change" }));
-    expect(screen.getByText("track Alarm")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Close track" }));
-    fireEvent.click(within(rows[1]).getByRole("button", { name: "Stop tracking" }));
-    let dlg = screen.getByRole("dialog", { name: "Stop tracking Alarm ids" });
-    fireEvent.click(within(dlg).getByRole("button", { name: "Keep them" }));
-    expect(screen.queryByRole("dialog", { name: "Stop tracking Alarm ids" })).toBeNull();
-    fireEvent.click(within(rows[1]).getByRole("button", { name: "Stop tracking" }));
-    await waitFor(() => expect(screen.getByRole("dialog", { name: "Stop tracking Alarm ids" })).toHaveFocus());
-    fireEvent.keyDown(window, { key: "Escape" });
-    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Stop tracking Alarm ids" })).toBeNull());
-    fireEvent.click(within(rows[1]).getByRole("button", { name: "Stop tracking" }));
-    dlg = screen.getByRole("dialog", { name: "Stop tracking Alarm ids" });
-    fireEvent.click(within(dlg).getByRole("button", { name: "Stop tracking" }));
-    expect(await screen.findByText("Could not stop tracking them")).toBeInTheDocument();
+  it("an id list becomes free text after a confirmation", async () => {
+    const traces = [trace({})];
+    setTraces(traces);
+    const { app: a } = mount(<ColumnsSection />, { info: info({}, { traces, columns: [col("Exigence")] }) });
+    const free = screen.getByRole("button", { name: "Free text" });
+    fireEvent.click(free);
+    fireEvent.click(screen.getByRole("button", { name: "Keep the id list" }));
+    expect(screen.queryByRole("dialog", { name: "Exigence as free text" })).toBeNull();
+    fireEvent.click(free);
+    fireEvent.click(screen.getByRole("button", { name: "Make it free text" }));
+    expect(await screen.findByText("Could not change the column")).toBeInTheDocument();
     models.routes["traces.remove"] = () => ({});
-    fireEvent.click(within(rows[0]).getByRole("button", { name: "Stop tracking" }));
-    fireEvent.click(
-      within(screen.getByRole("dialog", { name: "Stop tracking Requirement ids" })).getByRole("button", {
-        name: "Stop tracking",
-      }),
-    );
-    expect(await screen.findByText("Requirement ids no longer tracked")).toBeInTheDocument();
+    fireEvent.click(free);
+    fireEvent.click(screen.getByRole("button", { name: "Make it free text" }));
+    expect(await screen.findByText("Exigence is free text again")).toBeInTheDocument();
     expect(named("traces.remove").at(-1)?.input).toEqual({ id: "requirement" });
     expect(a.refreshInfo).toHaveBeenCalled();
+    setTraces(null);
   });
 });
 

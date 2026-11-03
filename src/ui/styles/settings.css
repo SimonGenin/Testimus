@@ -808,3 +808,93 @@
 .bench-state {
   margin: 12px 0 4px;
 }
+
+.colrows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.colrow {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.colrow.is-dragging {
+  opacity: 0.5;
+}
+
+.colrow.is-attention {
+  border-color: var(--warn);
+}
+
+.colrow-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.colrow-head .grip {
+  cursor: grab;
+  color: var(--ink-3);
+  display: inline-flex;
+}
+
+.colrow-name {
+  font-weight: 600;
+}
+
+.colrow-head .frow-mode {
+  flex: none;
+  width: auto;
+}
+
+.colrow-desc {
+  resize: vertical;
+}
+
+.colrow-ids {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 13.5px;
+}
+
+.colrow-pat {
+  font-size: 12.5px;
+  overflow-wrap: anywhere;
+}
+
+.colrow-note,
+.colrow-banner {
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: var(--radius-s);
+  background: var(--warn-bg);
+  color: var(--warn);
+  font-size: 13px;
+}
+
+.colrow-add {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 560px;
+}
+
+.colrow-add-acts {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}

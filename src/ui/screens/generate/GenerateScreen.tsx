@@ -1,17 +1,20 @@
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
-import type { Job, LocalTestRef, Test, TraceScan } from "../../../core/types.ts";
+import type { DocRef, Effort, Job, LocalTestRef, StepColumn, Test } from "../../../core/types.ts";
 import { call } from "../../api.ts";
+import { AdditionalContext } from "../../components/claude/AdditionalContext.tsx";
 import { type ClaudeStatus, ConnectClaude } from "../../components/claude/ConnectClaude.tsx";
+import { cap, EFFORTS, ModelPicker } from "../../components/claude/ModelPicker.tsx";
 import { JobLog, useJob } from "../../components/shell/JobLog.tsx";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
-import { TracesBar } from "../../components/traces/TracesBar.tsx";
 import { Button, DragEdge, Icon } from "../../components/ui/index.ts";
 import { useApp } from "../../lib/app.ts";
 import { plural } from "../../lib/format.ts";
-import type { Requirement } from "../../lib/requirements.ts";
+import { type DocScope, scopeOf } from "../../lib/scope.ts";
 import { useSideWidth } from "../../lib/sideWidth.ts";
 import { errorToast } from "../../lib/toast.ts";
 import { REQUIREMENT, takeHandoff } from "../../lib/traces.ts";
+import { ColumnsView } from "./ColumnsView.tsx";
+import { DocScopePicker } from "./DocScopePicker.tsx";
 import {
   Coverage,
   checkLine,
@@ -22,20 +25,25 @@ import {
   passagesRead,
   RunHead,
 } from "./GenResult.tsx";
-import { RequirementPicker } from "./RequirementPicker.tsx";
-import { SectionPicker } from "./SectionPicker.tsx";
 
-const LABEL: Record<string, string> = { opus: "Opus", sonnet: "Sonnet", haiku: "Haiku" };
+// ponytail: the model and effort chosen here stay for the next generation until the app is closed; the project
+// defaults change only from Settings
+let chosen: { model: string; effort: Effort } | null = null;
 
 export function GenerateScreen() {
   const app = useApp();
   const [formW, formEdge] = useSideWidth("testimus.genFormWidth", 320, 720, "before");
   const cfg = app.info?.project;
+  const columns = (app.info?.columns ?? []) as StepColumn[];
+  const traces = app.info?.traces ?? [];
   const [request, setRequest] = useState("");
-  const [picked, setPicked] = useState<Record<string, string[]>>(takeHandoff);
-  const [sections, setSections] = useState<string[]>([]);
-  const [folder, setFolder] = useState("");
-  const [known, setKnown] = useState<Record<string, Requirement[]>>({});
+  const [handed, setHanded] = useState<Record<string, string[]>>(takeHandoff);
+  const [docs, setDocs] = useState<DocRef[] | null>(null);
+  const [scopes, setScopes] = useState<Record<string, DocScope>>({});
+  const [contexts, setContexts] = useState<string[] | null>(null);
+  const [note, setNote] = useState("");
+  const [model, setModel] = useState(chosen?.model ?? "");
+  const [effort, setEffort] = useState<Effort | "">(chosen?.effort ?? "");
   const [jobId, setJobId] = useState<string | null>(null);
   const [asked, setAsked] = useState<{ label: string; ids: string[] }[]>([]);
   const [starting, setStarting] = useState(false);
@@ -52,10 +60,10 @@ export function GenerateScreen() {
   const ids = landedIds(gen.events, result);
   const read = passagesRead(gen.events);
   const running = job?.status === "running";
-  const traces = app.info?.traces ?? [];
-  const tracesKey = traces.map((t) => `${t.id}=${t.patterns.join("|")}`).join(",");
-  const reqs = picked[REQUIREMENT] ?? [];
-  const anyPicked = traces.some((t) => (picked[t.id] ?? []).length > 0);
+  const runModel = model || cfg?.claude.model || "opus";
+  const runEffort: Effort = effort || cfg?.claude.effort || "high";
+  const ctxIds = contexts ?? cfg?.claude.contexts ?? [];
+  const handedIds = Object.entries(handed).filter(([, v]) => v.length);
 
   const claudeCheck = useCallback((refresh = false) => {
     setCheckingClaude(refresh);
@@ -67,6 +75,9 @@ export function GenerateScreen() {
 
   useEffect(() => {
     void claudeCheck();
+    call<DocRef[]>("docs.list", {})
+      .then((r) => setDocs(r ?? []))
+      .catch(() => setDocs([]));
     call<Job[]>("jobs.list", {})
       .then((jobs) => {
         const last = (jobs ?? []).find((j) => j.kind === "generate");
@@ -77,16 +88,6 @@ export function GenerateScreen() {
       })
       .catch(() => {});
   }, [claudeCheck]);
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: the tracked kinds are compared by their key
-  useEffect(() => {
-    for (const t of traces)
-      call<TraceScan>("traces.find", { trace: t.id, limit: 5000 })
-        .then((r) =>
-          setKnown((cur) => ({ ...cur, [t.id]: r.items.map((i) => ({ id: i.id, text: i.context, doc: i.doc })) })),
-        )
-        .catch(() => {});
-  }, [tracesKey]);
 
   useEffect(() => {
     if (!running) return;
@@ -131,24 +132,47 @@ export function GenerateScreen() {
     app.refreshInfo();
   }, [job?.status, job?.id]);
 
+  const scope = scopeOf(
+    scopes,
+    (docs ?? []).map((d) => d.id),
+  );
+  const empty = !request.trim() && !scope.docs.length && !scope.sections.length && !handedIds.length;
+
+  const pickModel = (m: string) => {
+    setModel(m);
+    chosen = { model: m, effort: runEffort };
+  };
+  const pickEffort = (e: Effort) => {
+    setEffort(e);
+    chosen = { model: runModel, effort: e };
+  };
+  const resetRun = () => {
+    chosen = null;
+    setModel("");
+    setEffort("");
+  };
+
   const generate = async () => {
-    if (!request.trim() && !anyPicked && !sections.length) return;
-    const tracked = traces
-      .filter((t) => t.id !== REQUIREMENT && (picked[t.id] ?? []).length)
-      .map((t) => ({ trace: t.id, ids: picked[t.id] }));
+    if (empty) return;
+    const reqs = handed[REQUIREMENT] ?? [];
+    const tracked = handedIds.filter(([k]) => k !== REQUIREMENT).map(([trace, v]) => ({ trace, ids: v }));
     setStarting(true);
     try {
       const r = await call<{ jobId?: string }>("gen.tests", {
         request: request.trim(),
+        ...(scope.docs.length ? { docs: scope.docs } : {}),
+        ...(scope.sections.length ? { sections: scope.sections } : {}),
         ...(reqs.length ? { requirements: reqs } : {}),
         ...(tracked.length ? { tracked } : {}),
-        ...(sections.length ? { sections } : {}),
-        ...(folder.trim() ? { folder: folder.trim() } : {}),
+        contexts: ctxIds,
+        ...(note.trim() ? { note: note.trim() } : {}),
+        model: runModel,
+        effort: runEffort,
       });
       if (r?.jobId) {
         chained.current = null;
         setLanded({});
-        setAsked(traces.map((t) => ({ label: t.label, ids: picked[t.id] ?? [] })).filter((a) => a.ids.length));
+        setAsked(handedIds.map(([k, v]) => ({ label: traces.find((t) => t.id === k)?.label ?? k, ids: v })));
         setJobId(r.jobId);
       }
     } catch (e) {
@@ -160,9 +184,11 @@ export function GenerateScreen() {
 
   const cancel = () => jobId && call("jobs.cancel", { id: jobId }).catch((e) => errorToast(e, "Could not cancel"));
   const offline = !!status && (!status.installed || status.signedIn === false);
-  const empty = !request.trim() && !anyPicked && !sections.length;
   const checkText = result ? checkLine(result.tests, result.checks) : "";
   const checkOf = (id: string) => result?.checks?.find((c) => c.id === id);
+  const narrowed = Object.values(scopes).filter(Array.isArray).length;
+  const inScope = scope.docs.length + new Set(scope.sections.map((s) => s.split("#")[0])).size;
+  const isDefault = !model && !effort;
 
   return (
     <div className="screen">
@@ -181,57 +207,96 @@ export function GenerateScreen() {
               value={request}
               onChange={(e) => setRequest(e.target.value)}
             />
-          </div>
-          <div className="gen-block">
-            <span className="h gen-label">
-              Scope <span className="muted">— optional</span>
-            </span>
-            {traces.map((t) => (
-              <div key={t.id} className="gen-trace">
-                <label htmlFor={`gen-trace-${t.id}`} className="label">
-                  {t.label} ids
-                </label>
-                <RequirementPicker
-                  inputId={`gen-trace-${t.id}`}
-                  kind={t.label.toLowerCase()}
-                  known={known[t.id] ?? []}
-                  values={picked[t.id] ?? []}
-                  onChange={(v) => setPicked((cur) => ({ ...cur, [t.id]: v }))}
-                />
+            <span className="muted gen-hint">Optional: empty means cover what the documents below specify.</span>
+            {handedIds.map(([k, v]) => (
+              <div key={k} className="gen-handed">
+                <span>
+                  From Coverage: {plural(v.length, `${(traces.find((t) => t.id === k)?.label ?? k).toLowerCase()} id`)}{" "}
+                  to cover
+                </span>
+                <button type="button" className="linkbtn" onClick={() => setHanded({ ...handed, [k]: [] })}>
+                  Clear
+                </button>
               </div>
             ))}
-            <TracesBar hint="none — ids written in the documents (requirements, alarm codes…) can be picked here once tracked." />
-            <span className="label">Document sections</span>
-            <SectionPicker values={sections} onChange={setSections} />
-            <label htmlFor="gen-folder" className="label">
-              Xray folder for the new tests
-            </label>
-            <input
-              id="gen-folder"
-              className="field mono"
-              list="gen-folders"
-              placeholder="Claude picks one of the project's folders"
-              value={folder}
-              onChange={(e) => setFolder(e.target.value)}
-            />
-            <datalist id="gen-folders">
-              {(cfg?.folders ?? []).map((f) => (
-                <option key={f} value={f} />
-              ))}
-            </datalist>
           </div>
-          <div className="gen-go">
-            <Button
-              tone={job ? "secondary" : "primary"}
-              icon="generate"
-              disabled={empty || running || starting || offline}
-              onClick={() => void generate()}
-            >
-              {job ? "Generate again" : "Generate"}
-            </Button>
-            <span className="muted">
-              {LABEL[cfg?.claude.model ?? ""] ?? cfg?.claude.model ?? "Claude"} · effort{" "}
-              {cfg?.claude.effort ?? "medium"}
+
+          <div className="gen-block">
+            <span className="h gen-label">Documents</span>
+            <DocScopePicker docs={docs} scopes={scopes} onChange={setScopes} />
+          </div>
+
+          <div className="gen-block">
+            <span className="h gen-label">
+              Additional context <span className="muted">— optional</span>
+            </span>
+            <AdditionalContext id="gen-note" ids={ctxIds} note={note} onIds={setContexts} onNote={setNote} />
+          </div>
+
+          <ColumnsView columns={columns} onEdit={() => app.navigate("settings", "columns")} />
+
+          <div className="gen-block gen-run">
+            <span className="h gen-label">Run</span>
+            <div className="gen-run-pick">
+              <label className="gen-run-field">
+                <span className="label">Model</span>
+                <ModelPicker value={runModel} className="field select" onChange={pickModel} />
+              </label>
+              <label className="gen-run-field">
+                <span className="label">Effort</span>
+                <select
+                  className="field select"
+                  value={runEffort}
+                  onChange={(e) => pickEffort(e.target.value as Effort)}
+                >
+                  {EFFORTS.map((x) => (
+                    <option key={x} value={x}>
+                      {cap(x)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <span className="muted gen-hint">
+              Project default: {cap(cfg?.claude.model ?? "opus")} / {cfg?.claude.effort ?? "high"}
+              {!isDefault && (
+                <>
+                  {" · "}
+                  <button type="button" className="linkbtn" onClick={resetRun}>
+                    Reset
+                  </button>
+                </>
+              )}
+            </span>
+            <ul className="gen-recap muted">
+              <li>
+                {plural(inScope, "document")} in scope
+                {narrowed ? ` · ${narrowed} narrowed to sections` : ""}
+              </li>
+              <li>
+                {plural(columns.length, "column")} · {columns.filter((c) => c.description).length} filled by Claude
+              </li>
+              {(ctxIds.length > 0 || note.trim()) && (
+                <li>
+                  {ctxIds.length ? plural(ctxIds.length, "saved context") : ""}
+                  {ctxIds.length && note.trim() ? " + " : ""}
+                  {note.trim() ? "a note" : ""}
+                </li>
+              )}
+            </ul>
+            <div className="gen-go">
+              <Button
+                tone={job ? "secondary" : "primary"}
+                icon="generate"
+                disabled={empty || running || starting || offline}
+                onClick={() => void generate()}
+              >
+                {job ? "Generate again" : "Generate"}
+              </Button>
+            </div>
+            <span className="muted gen-hint">
+              Tests are created on this PC as drafts. Claude suggests an Xray folder; change it in the test before you
+              push.
             </span>
           </div>
         </section>
@@ -252,8 +317,8 @@ export function GenerateScreen() {
               <Icon name="generate" size={40} />
               <h2 className="h">Tests appear here as Claude writes them</h2>
               <p>
-                Say what to test, or pick {traces.length ? "ids and " : ""}sections. Every expected result gets a
-                source; what cannot be sourced is reported instead of invented.
+                Pick the documents (all of them by default), say what to test if you want, and generate. Every expected
+                result gets a source; what cannot be sourced is reported instead of invented.
               </p>
             </div>
           ) : (

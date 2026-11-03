@@ -1,10 +1,14 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Job, JobEvent, LocalTestRef, Test } from "../../src/core/types.ts";
+import type { DocRef, Job, JobEvent, LocalTestRef, Test } from "../../src/core/types.ts";
 import type { AppState } from "../../src/ui/lib/app.ts";
+import { type DocScope, flip, ownText, parents, scopeOf, tick } from "../../src/ui/lib/scope.ts";
+import { handOff, setTraces } from "../../src/ui/lib/traces.ts";
+import { ColumnsView } from "../../src/ui/screens/generate/ColumnsView.tsx";
+import { DocScopePicker } from "../../src/ui/screens/generate/DocScopePicker.tsx";
 import { GenerateScreen } from "../../src/ui/screens/generate/GenerateScreen.tsx";
 import {
   Coverage,
@@ -15,8 +19,6 @@ import {
   passagesRead,
   RunHead,
 } from "../../src/ui/screens/generate/GenResult.tsx";
-import { RequirementPicker } from "../../src/ui/screens/generate/RequirementPicker.tsx";
-import { SectionPicker } from "../../src/ui/screens/generate/SectionPicker.tsx";
 import { clearToasts, mount } from "./cov-uiscreens-helpers.tsx";
 import { api, app, FakeEventSource, fakeFetch, named } from "./ui-desktop-helpers.tsx";
 
@@ -230,153 +232,167 @@ describe("Generate › result helpers", () => {
   });
 });
 
-const known = [
-  { id: "EXI_1", text: "Alarme sonore", doc: "D" },
-  { id: "EXI_2", text: "", doc: "D" },
-  { id: "EXI_3", text: "Alarme visuelle", doc: "D" },
+const toc = [
+  { anchor: "§5", title: "Traction", level: 2 },
+  { anchor: "§5.6", title: "Objets", level: 3 },
+  { anchor: "§5.6.6", title: "Sectionneur", level: 4 },
+  { anchor: "§5.6.7", title: "Disjoncteur", level: 4 },
+  { anchor: "§6", title: "Signaux", level: 2 },
 ];
 
-function Host({ initial = [] as string[], list = known }) {
-  const [v, setV] = useState(initial);
-  return (
-    <>
-      <RequirementPicker inputId="p" kind="requirement" known={list} values={v} onChange={setV} />
-      <output data-testid="v">{v.join("|")}</output>
-    </>
-  );
-}
+describe("Generate › scope helpers", () => {
+  const up = parents(toc);
 
-function SectionHost() {
-  const [v, setV] = useState<string[]>([]);
-  return (
-    <>
-      <SectionPicker values={v} onChange={setV} />
-      <output data-testid="v">{v.join("|")}</output>
-    </>
-  );
-}
-
-describe("Generate › requirement picker", () => {
-  const value = () => screen.getByTestId("v").textContent;
-  const box = () => screen.getByRole("combobox");
-
-  it("suggests by id or by word, moves with the arrows and adds with Enter", () => {
-    render(<Host />);
-    fireEvent.keyDown(box(), { key: "ArrowDown" });
-    fireEvent.keyDown(box(), { key: "ArrowUp" });
-    fireEvent.change(box(), { target: { value: "alarme" } });
-    const opts = within(screen.getByRole("listbox", { name: "Matching requirement ids" })).getAllByRole("option");
-    expect(opts).toHaveLength(2);
-    expect(opts[0]).toHaveAttribute("aria-selected", "true");
-    expect(box()).toHaveAttribute("aria-expanded", "true");
-    fireEvent.keyDown(box(), { key: "ArrowDown" });
-    fireEvent.keyDown(box(), { key: "ArrowDown" });
-    expect(screen.getAllByRole("option")[1]).toHaveAttribute("aria-selected", "true");
-    fireEvent.keyDown(box(), { key: "ArrowUp" });
-    fireEvent.keyDown(box(), { key: "ArrowUp" });
-    expect(screen.getAllByRole("option")[0]).toHaveClass("is-on");
-    fireEvent.keyDown(box(), { key: "ArrowDown" });
-    fireEvent.keyDown(box(), { key: "Enter" });
-    expect(value()).toBe("EXI_3");
-    expect(box()).toHaveValue("");
-    fireEvent.change(box(), { target: { value: "exi_" } });
-    expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual(["EXI_1Alarme sonore", "EXI_2"]);
-    fireEvent.mouseDown(screen.getAllByRole("option")[1]);
-    fireEvent.click(screen.getAllByRole("option")[1]);
-    expect(value()).toBe("EXI_3|EXI_2");
+  it("parents, ticks and flips: a section takes its sub-sections, unticking one keeps its siblings", () => {
+    expect(up).toEqual([-1, 0, 1, 1, -1]);
+    expect(tick(toc, up, [], 0)).toBe("off");
+    let picked = flip(toc, up, [], 2);
+    expect(picked).toEqual(["§5.6.6"]);
+    expect(tick(toc, up, picked, 0)).toBe("mixed");
+    picked = flip(toc, up, picked, 0);
+    expect(picked).toEqual(["§5"]);
+    expect(tick(toc, up, picked, 3)).toBe("on");
+    picked = flip(toc, up, picked, 3);
+    expect(picked).toEqual(["§5.6.6"]);
+    expect(flip(toc, up, ["§6"], 4)).toEqual([]);
   });
 
-  it("adds a typed list, skips duplicates, flags unknown ids, removes with Backspace or the chip", () => {
-    render(<Host initial={["EXI_1"]} />);
-    fireEvent.change(box(), { target: { value: "EXI_1, NEW_9; NEW_9 EXI_2" } });
-    fireEvent.keyDown(box(), { key: "Enter" });
-    expect(value()).toBe("EXI_1|NEW_9|EXI_2");
-    expect(screen.getByRole("button", { name: "Remove requirement NEW_9" }).previousSibling).toHaveClass("chip-err");
-    fireEvent.change(box(), { target: { value: "EXI_1" } });
-    fireEvent.keyDown(box(), { key: "Enter" });
-    expect(value()).toBe("EXI_1|NEW_9|EXI_2");
-    fireEvent.change(box(), { target: { value: "x" } });
-    fireEvent.keyDown(box(), { key: "Backspace" });
-    expect(value()).toBe("EXI_1|NEW_9|EXI_2");
-    fireEvent.change(box(), { target: { value: "" } });
-    fireEvent.keyDown(box(), { key: "Backspace" });
-    expect(value()).toBe("EXI_1|NEW_9");
-    fireEvent.click(screen.getByRole("button", { name: "Remove requirement EXI_1" }));
-    expect(value()).toBe("NEW_9");
-    fireEvent.keyDown(box(), { key: "a" });
+  it("ownText keeps the heading's own paragraphs, figures as captions, markers out", () => {
+    const md =
+      "#### 5.6.6 S <!-- § 5.6.6 -->\n\n<!-- req X -->\nX : le **sectionneur**.\n\n![Figure 40](f.png) <!-- fig 40 -->\n\n##### 5.6.6.1 Sub\n\nlater";
+    expect(ownText(md)).toEqual(["X : le sectionneur.", "[Figure 40]"]);
+    expect(ownText("")).toEqual([]);
   });
 
-  it("without known requirements nothing is flagged; Backspace on empty values does nothing", () => {
-    render(<Host initial={["X"]} list={[]} />);
-    expect(screen.getByRole("button", { name: "Remove requirement X" }).previousSibling).not.toHaveClass("chip-err");
-    fireEvent.keyDown(box(), { key: "Backspace" });
-    fireEvent.keyDown(box(), { key: "Backspace" });
-    expect(value()).toBe("");
-    expect(box()).toHaveAttribute("aria-expanded", "false");
+  it("scopeOf: whole documents, picked sections, documents left out", () => {
+    expect(scopeOf({ B: ["§1", "§2"], C: "none" }, ["A", "B", "C"])).toEqual({
+      docs: ["A"],
+      sections: ["B#§1", "B#§2"],
+    });
   });
 });
 
-describe("Generate › section picker", () => {
-  it("lists the documents, opens a table of contents and picks sections", async () => {
-    api.routes["docs.list"] = () => [
-      { id: "D1", code: "C1", title: "Traction", status: "validated" },
-      { id: "D2", code: "C2", title: "Empty", status: "draft" },
-      { id: "D3", code: "C3", title: "Broken", status: "draft" },
-    ];
-    let releaseToc = () => {};
-    const tocReady = new Promise<void>((r) => {
-      releaseToc = r;
-    });
+function ScopeHost({ initial = {} as Record<string, DocScope>, docs = [] as DocRef[] | null }) {
+  const [v, setV] = useState(initial);
+  return (
+    <>
+      <DocScopePicker docs={docs} scopes={v} onChange={setV} />
+      <output data-testid="v">{JSON.stringify(v)}</output>
+    </>
+  );
+}
+
+const docRef = (id: string, title: string, sections?: number) =>
+  ({
+    id,
+    code: `C-${id}`,
+    title,
+    status: "validated",
+    stats: sections ? { sections } : undefined,
+  }) as unknown as DocRef;
+
+describe("Generate › documents", () => {
+  const value = () => JSON.parse(screen.getByTestId("v").textContent ?? "{}");
+
+  it("every document whole by default; left out, back, narrowed to sections with their text", async () => {
     api.routes["docs.show"] = (i) => {
-      if (i.id === "D1")
-        return {
-          toc: [
-            { anchor: "§5.6", title: "Sectionneur", level: 1 },
-            { anchor: "fig-2", title: "Figure", level: 2 },
-          ],
-        };
-      if (i.id === "D2") return null;
-      throw new Error("gone");
+      if (i.anchor === "§5.6.6") return { md: "#### 5.6.6 S\n\nLe sectionneur est représenté." };
+      if (i.anchor === "§5.6.7") throw new Error("gone");
+      if (i.anchor) return { md: "## 5 T\n\n### 5.6 O" };
+      return { toc };
     };
-    const f = globalThis.fetch;
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (url: string, init?: RequestInit) => {
-        if (String(url).includes("docs/show") && String(init?.body).includes("D1")) await tocReady;
-        return f(url, init);
-      }),
-    );
-    const { container } = render(<SectionHost />);
-    expect(container.querySelector("[aria-busy='true']")).not.toBeNull();
-    const d1 = await screen.findByRole("button", { name: /C1/ });
-    fireEvent.click(d1);
-    expect(d1).toHaveAttribute("aria-expanded", "true");
-    releaseToc();
-    const sec = await screen.findByRole("checkbox", { name: "5.6 Sectionneur" });
-    fireEvent.click(sec);
-    fireEvent.click(screen.getByRole("checkbox", { name: "Figure" }));
-    expect(screen.getByTestId("v")).toHaveTextContent("D1#§5.6|D1#fig-2");
-    expect(screen.getByText("2 picked")).toBeInTheDocument();
-    fireEvent.click(sec);
-    expect(screen.getByTestId("v")).toHaveTextContent("D1#fig-2");
-    fireEvent.click(d1);
-    expect(d1).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByRole("checkbox")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: /C2/ }));
-    fireEvent.click(screen.getByRole("button", { name: /C3/ }));
-    await waitFor(() => expect(screen.getByRole("button", { name: /C3/ })).toHaveAttribute("aria-expanded", "true"));
-    await waitFor(() => expect(container.querySelectorAll(".sec .skel, .sec [class*='skel']")).toHaveLength(0));
-    expect(screen.queryByRole("checkbox")).toBeNull();
+    render(<ScopeHost docs={[docRef("D1", "Traction", 62), docRef("D2", "Signaux")]} />);
+    expect(screen.getByText("2 of 2 documents")).toBeInTheDocument();
+    expect(screen.getByText(/whole document · 62 sections/)).toBeInTheDocument();
+    const d2 = screen.getByRole("checkbox", { name: /Signaux/ });
+    expect(d2).toBeChecked();
+    fireEvent.click(d2);
+    expect(value()).toEqual({ D2: "none" });
+    expect(screen.getByText(/left out/)).toBeInTheDocument();
+    fireEvent.click(d2);
+    expect(value()).toEqual({ D2: "all" });
+    fireEvent.click(screen.getAllByRole("button", { name: "Only some sections…" })[0]);
+    expect(screen.getByText("no section picked yet")).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "Unfold Traction" }));
+    fireEvent.click(screen.getByRole("button", { name: "Unfold Objets" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /Sectionneur/ }));
+    expect(value().D1).toEqual(["§5.6.6"]);
+    expect(screen.getByText("1 section picked")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /Objets/ })).toHaveProperty("indeterminate", true);
+    const texts = screen.getAllByRole("button", { name: "Text" });
+    fireEvent.click(texts[2]);
+    expect(await screen.findByText("Le sectionneur est représenté.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Hide text" }));
+    expect(screen.queryByText("Le sectionneur est représenté.")).toBeNull();
+    fireEvent.click(screen.getAllByRole("button", { name: "Text" })[1]);
+    expect(await screen.findByText("No text under this heading — only sub-sections.")).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole("button", { name: "Text" })[2]);
+    expect(await screen.findByText("Could not read this section — try again.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Fold Objets" }));
+    expect(screen.queryByRole("checkbox", { name: /Sectionneur/ })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Back to the whole document" }));
+    expect(value().D1).toBe("all");
+    fireEvent.click(screen.getByRole("button", { name: "Select none" }));
+    expect(value()).toEqual({ D1: "none", D2: "none" });
+    expect(screen.getByText("0 of 2 documents")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Select all" }));
+    expect(value()).toEqual({ D1: "all", D2: "all" });
   });
 
-  it("says when there is no document, whether the list is empty or unreadable", async () => {
-    api.routes["docs.list"] = () => null;
-    render(<SectionHost />);
-    expect(await screen.findByText("No document yet — add one in Documents.")).toBeInTheDocument();
+  it("loading, no document, a document without headings", async () => {
+    const { container } = render(<ScopeHost docs={null} />);
+    expect(container.querySelector("[aria-busy='true']")).not.toBeNull();
     cleanup();
-    delete api.routes["docs.list"];
-    render(<SectionHost />);
-    expect(await screen.findByText("No document yet — add one in Documents.")).toBeInTheDocument();
+    render(<ScopeHost docs={[]} />);
+    expect(screen.getByText("No document yet — add one in Documents.")).toBeInTheDocument();
+    cleanup();
+    api.routes["docs.show"] = () => null;
+    render(<ScopeHost docs={[docRef("D1", "")]} initial={{ D1: [] }} />);
+    expect(await screen.findByText("This document has no headings to pick from.")).toBeInTheDocument();
+    expect(screen.getByText("C-D1")).toBeInTheDocument();
+  });
+});
+
+describe("Generate › step columns", () => {
+  it("lists each column with its origin, its id list and what Claude writes; new ones ask to define", () => {
+    const onEdit = vi.fn();
+    setTraces([{ id: "r", label: "Requirement", patterns: ["X"], field: "Exigence" } as never]);
+    render(
+      <ColumnsView
+        columns={[
+          { name: "Action", origin: "xray", builtin: true, status: "ok", description: "One gesture" },
+          { name: "Exigence", origin: "xray", builtin: false, status: "ok", description: "Ids" },
+          { name: "Version", origin: "xray", builtin: false, status: "new", description: "" },
+          { name: "Note", origin: "local", builtin: false, status: "ok", description: "" },
+          { name: "Old", origin: "local", builtin: false, status: "gone", description: "x" },
+        ]}
+        onEdit={onEdit}
+      />,
+    );
+    expect(screen.getByText("Xray · standard")).toBeInTheDocument();
+    expect(screen.getByText("New in Xray")).toBeInTheDocument();
+    expect(screen.getByText("Local only")).toBeInTheDocument();
+    expect(screen.getByText("No longer in Xray")).toBeInTheDocument();
+    expect(screen.getByText("Every Requirement id of the picked scope is to be covered.")).toBeInTheDocument();
+    expect(screen.getAllByText("No description — Claude leaves it empty.")).toHaveLength(2);
+    expect(screen.getByText(/A column came from Xray without a description/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Define the columns" }));
+    expect(onEdit).toHaveBeenCalled();
+    setTraces(null);
+    cleanup();
+    render(
+      <ColumnsView
+        columns={[
+          { name: "A", origin: "xray", builtin: false, status: "new", description: "" },
+          { name: "B", origin: "xray", builtin: false, status: "new", description: "" },
+        ]}
+        onEdit={onEdit}
+      />,
+    );
+    expect(screen.getByText(/2 columns came from Xray without a description — Claude leaves them/)).toBeInTheDocument();
+    cleanup();
+    render(<ColumnsView columns={[]} onEdit={onEdit} />);
+    expect(screen.getByRole("button", { name: "Edit in Settings" })).toBeInTheDocument();
   });
 });
 
@@ -384,8 +400,9 @@ describe("Generate screen", () => {
   const base = () => {
     api.routes["claude.status"] = () => ({ installed: true, signedIn: true });
     api.routes["jobs.list"] = () => [];
+    api.routes["contexts.list"] = () => [];
     api.routes["docs.list"] = () => [{ id: "D1", code: "C1", title: "Traction", status: "validated" }];
-    api.routes["docs.show"] = () => ({ toc: [{ anchor: "§1", title: "Intro", level: 1 }], requirements: ["EXI_1"] });
+    api.routes["docs.show"] = () => ({ toc: [{ anchor: "§1", title: "Intro", level: 1 }] });
   };
   const info = (claude: Record<string, unknown> | null, folders?: string[]) => {
     const a = app();
@@ -416,7 +433,7 @@ describe("Generate screen", () => {
     const { app: a } = mount(<GenerateScreen />, { info: info({ model: "claude-x" }) });
     expect(await screen.findByText("Premier")).toBeInTheDocument();
     expect(screen.getByText("It hit the limit")).toBeInTheDocument();
-    expect(screen.getByText(/claude-x · effort medium/)).toBeInTheDocument();
+    expect(screen.getByText("Project default: Claude-x / medium")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Generate again" })).toBeInTheDocument();
     expect(a.testsChanged).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: /Premier/ }));
@@ -434,7 +451,7 @@ describe("Generate screen", () => {
     base();
     api.routes["jobs.list"] = () => null;
     mount(<GenerateScreen />, { info: null });
-    expect(screen.getByText(/Claude · effort medium/)).toBeInTheDocument();
+    expect(screen.getByText("Project default: Opus / high")).toBeInTheDocument();
     await waitFor(() => expect(named("jobs.list").filter((c) => !c.input?.running)).toHaveLength(1));
     expect(screen.getByText("Tests appear here as Claude writes them")).toBeInTheDocument();
     cleanup();
@@ -442,8 +459,7 @@ describe("Generate screen", () => {
     api.routes["jobs.show"] = () => ({ job: job({ id: "g1", status: "failed", error: "Claude crashed" }), events: [] });
     mount(<GenerateScreen />, { info: info({ model: "opus", effort: "high" }, ["/A"]) });
     expect(await screen.findByText("Claude crashed")).toBeInTheDocument();
-    expect(screen.getByText(/Opus · effort high/)).toBeInTheDocument();
-    expect(document.querySelectorAll("#gen-folders option")).toHaveLength(1);
+    expect(screen.getByText("Project default: Opus / high")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /\(0 entries\)/ })).toBeInTheDocument();
     cleanup();
     api.routes["jobs.list"] = () => [job({ id: "g2", status: "done" })];
@@ -476,22 +492,12 @@ describe("Generate screen", () => {
     expect(screen.getByRole("button", { name: "Generate" })).toBeEnabled();
   });
 
-  it("offers each tracked kind, sends the other kinds as tracked ids and reports their coverage", async () => {
+  it("takes ids handed from Coverage, sends them as tracked ids and reports their coverage", async () => {
     base();
     const traces = [
       { id: "requirement", label: "Requirement", patterns: ["EXI_\\d+"], field: "Exigence" },
       { id: "alarm", label: "Alarm", patterns: ["ALM-\\d+"], field: "Alarme" },
-      { id: "usecase", label: "Use case", patterns: ["UC\\d+"], field: "UC" },
     ];
-    api.routes["traces.find"] = (i) => {
-      if (i.trace === "usecase") throw new Error("scan failed");
-      return {
-        total: 1,
-        distinct: 1,
-        docs: [],
-        items: [{ id: i.trace === "alarm" ? "ALM-12" : "EXI_1", doc: "D1", anchor: "§1", context: "Alarme feu" }],
-      };
-    };
     api.routes["gen.tests"] = () => ({ jobId: "g9" });
     api.routes["jobs.show"] = () => ({
       job: job({
@@ -502,44 +508,64 @@ describe("Generate screen", () => {
       }),
       events: [],
     });
+    handOff("alarm", ["ALM-12"]);
     mount(<GenerateScreen />, { info: { ...app().info, traces } as AppState["info"] });
-    await waitFor(() => expect(named("traces.find")).toHaveLength(3));
-    expect(named("traces.find")[1].input).toEqual({ trace: "alarm", limit: 5000 });
-    const alarm = screen.getByLabelText("Alarm ids");
-    fireEvent.change(alarm, { target: { value: "feu" } });
-    fireEvent.click(await screen.findByRole("option", { name: /ALM-12/ }));
-    const go = screen.getByRole("button", { name: "Generate" });
-    expect(go).toBeEnabled();
-    fireEvent.click(go);
+    expect(screen.getByText(/From Coverage: 1 alarm id/)).toBeInTheDocument();
+    await screen.findByText("Traction");
+    fireEvent.click(screen.getByRole("button", { name: "Generate" }));
     expect(await screen.findByText("0 of 1 alarm id covered.")).toBeInTheDocument();
-    expect(named("gen.tests")[0].input).toEqual({ request: "", tracked: [{ trace: "alarm", ids: ["ALM-12"] }] });
+    expect(named("gen.tests")[0].input).toMatchObject({
+      request: "",
+      docs: ["D1"],
+      tracked: [{ trace: "alarm", ids: ["ALM-12"] }],
+      contexts: [],
+    });
+    cleanup();
+    handOff("requirement", ["EXI_7"]);
+    mount(<GenerateScreen />, { info: { ...app().info, traces } as AppState["info"] });
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+    expect(screen.queryByText(/From Coverage/)).toBeNull();
   });
 
-  it("sends the scope, reports a refused start, and ignores an answer without a job", async () => {
+  it("sends the scope, the context, the model; reports a refused start and ignores an answer without a job", async () => {
     base();
-    const req = { id: "requirement", label: "Requirement", patterns: ["EXI_d+"], field: "Exigence" };
-    mount(<GenerateScreen />, { info: { ...app().info, traces: [req] } as AppState["info"] });
+    api.routes["contexts.list"] = () => [{ id: "g", name: "Glossaire", paths: [], files: [], hasNotes: true }];
+    mount(<GenerateScreen />, { info: info({ model: "sonnet", effort: "medium", contexts: ["g"] }) });
     const go = screen.getByRole("button", { name: "Generate" });
-    expect(go).toBeDisabled();
-    const reqs = screen.getByPlaceholderText("Add by id or by word");
-    fireEvent.change(reqs, { target: { value: "EXI_7" } });
-    fireEvent.keyDown(reqs, { key: "Enter" });
+    await screen.findByText("Traction");
     expect(go).toBeEnabled();
-    fireEvent.click(await screen.findByRole("button", { name: /C1/ }));
-    fireEvent.click(await screen.findByRole("checkbox", { name: "1 Intro" }));
-    fireEvent.change(screen.getByLabelText("Xray folder for the new tests"), { target: { value: " /T " } });
+    fireEvent.click(screen.getByRole("button", { name: "Select none" }));
+    expect(go).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Only some sections…" }));
+    fireEvent.click(await screen.findByRole("checkbox", { name: /Intro/ }));
+    expect(go).toBeEnabled();
+    fireEvent.change(screen.getByRole("textbox", { name: "Note for this run" }), { target: { value: " PCC " } });
+    expect(await screen.findByRole("button", { name: "Leave Glossaire out of this run" })).toBeInTheDocument();
+    expect(screen.getByText("1 saved context + a note")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Model"), { target: { value: "opus" } });
+    fireEvent.change(screen.getByLabelText("Effort"), { target: { value: "max" } });
     fireEvent.click(go);
     expect(await screen.findByText("Could not start the generation")).toBeInTheDocument();
     expect(named("gen.tests")[0].input).toEqual({
       request: "",
-      requirements: ["EXI_7"],
       sections: ["D1#§1"],
-      folder: "/T",
+      contexts: ["g"],
+      note: "PCC",
+      model: "opus",
+      effort: "max",
     });
     api.routes["gen.tests"] = () => ({});
     fireEvent.click(go);
     await waitFor(() => expect(named("gen.tests")).toHaveLength(2));
     expect(screen.getByText("Tests appear here as Claude writes them")).toBeInTheDocument();
+    cleanup();
+    mount(<GenerateScreen />, { info: info({ model: "sonnet", effort: "medium" }) });
+    expect(screen.getByLabelText("Model")).toHaveValue("opus");
+    expect(screen.getByLabelText("Effort")).toHaveValue("max");
+    fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+    expect(screen.getByLabelText("Model")).toHaveValue("sonnet");
+    expect(screen.getByLabelText("Effort")).toHaveValue("medium");
+    expect(screen.queryByRole("button", { name: "Reset" })).toBeNull();
   });
 
   it("follows a run: ticks the clock, opens what landed, cancels, then ends", async () => {

@@ -10,7 +10,7 @@ import { DoctorScreen } from "../../src/ui/screens/doctor/DoctorScreen.tsx";
 import { DocumentsScreen } from "../../src/ui/screens/documents/DocumentsScreen.tsx";
 import { GenerateScreen } from "../../src/ui/screens/generate/GenerateScreen.tsx";
 import { ReviewScreen } from "../../src/ui/screens/review/ReviewScreen.tsx";
-import { FieldsSection } from "../../src/ui/screens/settings/FieldsSection.tsx";
+import { ColumnsSection } from "../../src/ui/screens/settings/ColumnsSection.tsx";
 
 type Handler = (input: Record<string, unknown>) => unknown;
 type Call = { name: string; input: Record<string, unknown> };
@@ -296,7 +296,11 @@ describe("Generate screen", () => {
     fireEvent.change(screen.getByLabelText("What should be tested?"), { target: { value: "Les sectionneurs" } });
     fireEvent.click(screen.getByRole("button", { name: "Generate" }));
     await waitFor(() => expect(named("gen.tests")).toHaveLength(1));
-    expect(named("gen.tests")[0].input).toEqual({ request: "Les sectionneurs" });
+    expect(named("gen.tests")[0].input).toMatchObject({
+      request: "Les sectionneurs",
+      model: "sonnet",
+      effort: "medium",
+    });
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
     await screen.findByText("Reading the documents");
 
@@ -457,10 +461,18 @@ describe("System check", () => {
 });
 
 describe("Settings", () => {
-  it("saves the step field preferences through xray.prefs", async () => {
+  it("saves the step column preferences through xray.prefs", async () => {
     routes["xray.prefs"] = (i) => ({ ...xray, prefs: { ...xray.prefs, ...i } });
-    const app = appState({ route: { screen: "settings" } });
-    wrap(app, <FieldsSection />);
+    const base = appState({ route: { screen: "settings" } });
+    const columns = ["Action", "Data", "Expected Result", "Exigence"].map((name) => ({
+      name,
+      origin: "xray",
+      builtin: name !== "Exigence",
+      status: "ok",
+      description: "",
+    }));
+    const app = { ...base, info: { ...base.info, columns } } as AppState;
+    wrap(app, <ColumnsSection />);
     fireEvent.click(screen.getByRole("checkbox", { name: "Exigence hidden" }));
     await waitFor(() => expect(named("xray.prefs")).toHaveLength(1));
     expect(named("xray.prefs")[0].input).toEqual({ hidden: ["Exigence"] });

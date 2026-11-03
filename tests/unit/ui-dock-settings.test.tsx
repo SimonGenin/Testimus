@@ -105,8 +105,7 @@ describe("dock: scope, presets, contexts, models", () => {
     fireEvent.click(tab);
     const scope = screen.getByRole("group", { name: "Claude scope" });
     expect(within(scope).getByText("Whole project")).toBeInTheDocument();
-    const ctx = await screen.findByRole("button", { name: "Glossary" });
-    expect(ctx).toHaveAttribute("aria-pressed", "true");
+    expect(await screen.findByRole("button", { name: "Leave Glossary out of this run" })).toBeInTheDocument();
     send("Uniformise les verbes");
     await waitFor(() => expect(callsOf("claude.run")).toHaveLength(1));
     expect(callsOf("claude.run")[0].input).toEqual({
@@ -155,9 +154,8 @@ describe("dock: scope, presets, contexts, models", () => {
     fireEvent.change(box(), { target: { value: "Rephrase in house style" } });
     fireEvent.click(first);
     expect(callsOf("claude.run")).toHaveLength(0);
-    const skip = await screen.findByRole("button", { name: "Glossary" });
-    fireEvent.click(skip);
-    expect(skip).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(await screen.findByRole("button", { name: "Leave Glossary out of this run" }));
+    expect(screen.queryByRole("button", { name: "Leave Glossary out of this run" })).toBeNull();
     send();
     await waitFor(() => expect(callsOf("claude.run")).toHaveLength(1));
     expect(callsOf("claude.run")[0].input).toMatchObject({
@@ -267,11 +265,11 @@ describe("dock: scope, presets, contexts, models", () => {
     });
     const state = app({ focus: focus() });
     const r = render(wrap(state, <ClaudeDock folded={false} onFold={() => {}} />));
-    fireEvent.click(await screen.findByRole("button", { name: "Glossary" }));
-    expect(screen.getByRole("button", { name: "Glossary" })).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(await screen.findByRole("button", { name: "Leave Glossary out of this run" }));
+    expect(screen.queryByRole("button", { name: "Leave Glossary out of this run" })).toBeNull();
     r.rerender(wrap({ ...state, focus: focus({ testId: "t2" }) }, <ClaudeDock folded={false} onFold={() => {}} />));
-    await waitFor(() => expect(screen.queryByRole("button", { name: "House style" })).toBeNull());
-    expect(screen.getByRole("button", { name: "Glossary" })).toHaveAttribute("aria-pressed", "true");
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Leave House style out of this run" })).toBeNull());
+    expect(screen.getByRole("button", { name: "Leave Glossary out of this run" })).toBeInTheDocument();
   });
 
   it("switches between step, test and project", async () => {

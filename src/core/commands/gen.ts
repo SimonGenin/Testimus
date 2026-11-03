@@ -5,9 +5,9 @@ import { describeFigures } from "../claude/figures.ts";
 import { generateTests } from "../claude/generate.ts";
 import { claudeHeaders } from "../claude/headers.ts";
 import { type Command, command, projectOf } from "../command.ts";
-import { traceGuidance } from "../lib/traces.ts";
+import { projectTraces } from "../lib/traces.ts";
 import { hooks } from "../rag/chunk.ts";
-import { EFFORT, MODEL } from "./claude.ts";
+import { CONTEXT_IDS, EFFORT, MODEL, NOTE } from "./claude.ts";
 
 // ponytail: installed once for every face; it does nothing unless the project turned rag.claudeHeaders on
 hooks.describeChunks = claudeHeaders;
@@ -44,6 +44,16 @@ export const commands: Command[] = [
         .array(z.string())
         .optional()
         .describe("Document sections in scope, docId#§x.y (e.g. SOSIE_211_D401-1_3#§5.6.6)"),
+      docs: z
+        .array(z.string())
+        .optional()
+        .describe(
+          "Documents in scope as a whole, by id (docs.list); with sections, the documents not narrowed to sections",
+        ),
+      contexts: CONTEXT_IDS.optional().describe(
+        "Saved context ids Claude reads first (default: project.json claude.contexts)",
+      ),
+      note: NOTE,
       folder: z
         .string()
         .optional()
@@ -96,15 +106,24 @@ export const commands: Command[] = [
     subject: (i) => {
       const s =
         i.request.trim() ||
-        [...(i.requirements ?? []), ...(i.tracked ?? []).flatMap((t) => t.ids), ...(i.sections ?? [])].join(", ");
+        [
+          ...(i.requirements ?? []),
+          ...(i.tracked ?? []).flatMap((t) => t.ids),
+          ...(i.docs ?? []),
+          ...(i.sections ?? []),
+        ].join(", ");
       return s.length > 80 ? `${s.slice(0, 77)}...` : s;
     },
     async run(ctx, input) {
       const project = projectOf(ctx);
       const { tracked, ...rest } = input;
-      const picked = (tracked ?? []).filter((t) => t.ids.length);
-      const asked = rest.request.trim() || rest.requirements?.length || rest.sections?.length || picked.length;
-      const extra = asked ? traceGuidance(project, picked) : [];
+      const traces = projectTraces(project).traces;
+      const extra = (tracked ?? [])
+        .filter((t) => t.ids.length)
+        .map(
+          (t) =>
+            `${traces.find((x) => x.id === t.trace)?.label ?? t.trace} ids to cover, each by at least one step: ${t.ids.join(", ")}`,
+        );
       const request = extra.length ? [rest.request.trim() || "(none in words)", ...extra].join("\n") : rest.request;
       return await generateTests(project, { ...rest, request }, ctx);
     },

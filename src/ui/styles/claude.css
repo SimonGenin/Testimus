@@ -314,17 +314,77 @@
   overflow-wrap: anywhere;
 }
 
-.dock-ctx {
+.addctx {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.addctx-chips {
+  gap: 6px;
+}
+
+.addctx-note {
+  resize: vertical;
+}
+
+.addctx-compact .addctx-note {
+  font-size: 13.5px;
+}
+
+.addctx-acts {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  gap: 8px;
 }
 
-.dock-ctx-label {
-  font-size: 12.5px;
+.ctximport-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  max-height: 340px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
 }
 
-.chip-off {
-  color: var(--ink-3);
-  text-decoration: line-through;
+.ctximport-list li + li {
+  border-top: 1px solid var(--line);
+}
+
+.ctximport-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.ctximport-row:hover,
+.ctximport-row.is-on {
+  background: var(--surface-2);
+}
+
+.ctximport-row input {
+  margin-top: 3px;
+}
+
+.ctximport-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-size: 13.5px;
+}
+
+.ctximport-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 14.5px;
 }
 
 .model-custom {

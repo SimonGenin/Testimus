@@ -6,6 +6,7 @@ import { ensureMcpJson } from "../claude/run.ts";
 import { type Command, command, projectOf, UserError } from "../command.ts";
 import { env } from "../env.ts";
 import { listJobs } from "../jobs.ts";
+import { stepColumns } from "../lib/columns.ts";
 import { sha256 } from "../lib/hash.ts";
 import {
   DEFAULT_PROJECT,
@@ -156,6 +157,7 @@ export function projectInfo(dir: string) {
     xray,
     fieldOrder: fieldOrder(xray),
     traces: traceViews(dir),
+    columns: stepColumns(dir, xray),
     counts: {
       docs: subdirs(join(dir, "docs")).filter((d) => existsSync(join(dir, "docs", d, "doc.json"))).length,
       tests,
@@ -202,6 +204,7 @@ export const commands: Command[] = [
       xray: z.unknown(),
       fieldOrder: z.array(z.string()),
       traces: z.array(z.unknown()).describe("The tracked ids (traces.list)"),
+      columns: z.array(z.unknown()).describe("The step columns (columns.list)"),
       counts: z.object({
         docs: z.number(),
         tests: z.number(),

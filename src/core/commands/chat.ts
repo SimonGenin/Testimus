@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { ask, listChats, showChat } from "../claude/chat.ts";
 import { type Command, command, projectOf } from "../command.ts";
-import { EFFORT, MODEL } from "./claude.ts";
+import { CONTEXT_IDS, EFFORT, MODEL, NOTE } from "./claude.ts";
 
 const SOURCE = z.object({ docId: z.string(), anchor: z.string(), quote: z.string() });
 
@@ -14,6 +14,8 @@ export const commands: Command[] = [
       chatId: z.string().optional().describe("Continue this conversation (from chat.list); omit to start one."),
       model: MODEL.optional().describe("Model alias or name (default: project.json claude.model)."),
       effort: EFFORT.optional().describe("Effort level (default: project.json claude.effort)."),
+      contexts: CONTEXT_IDS.optional().describe("Saved context ids Claude reads first (default: none)."),
+      note: NOTE,
     }),
     output: z.object({
       chatId: z.string(),
@@ -39,6 +41,8 @@ export const commands: Command[] = [
         chatId: input.chatId,
         model: input.model,
         effort: input.effort,
+        contexts: input.contexts,
+        note: input.note,
         signal: ctx.signal,
         onEvent: (e) => ctx.claude(e),
       });

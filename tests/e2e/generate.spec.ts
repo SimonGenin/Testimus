@@ -8,9 +8,23 @@ test("a request runs live, the tests land, and « Review these tests » opens th
   await expect(page.getByRole("heading", { level: 1, name: "Generate" })).toBeVisible();
   const request = page.getByRole("region", { name: "Request" });
   const result = page.getByRole("region", { name: "Result" });
+  const docs = request.getByRole("list", { name: "Documents in scope" });
+  await expect(docs.getByRole("checkbox")).toHaveCount(2);
+  for (const box of await docs.getByRole("checkbox").all()) await expect(box).toBeChecked();
+  await expect(request.getByRole("button", { name: "Generate" })).toBeEnabled();
+  await request.getByRole("button", { name: "Select none" }).click();
   await expect(request.getByRole("button", { name: "Generate" })).toBeDisabled();
+  await request.getByRole("button", { name: "Select all" }).click();
+  await expect(request.getByRole("list", { name: "Step columns" }).getByText("Exigence")).toBeVisible();
   await expect(result.getByRole("heading", { name: "Tests appear here as Claude writes them" })).toBeVisible();
   await shoot(page, "generate");
+
+  await request.getByRole("button", { name: "Only some sections…" }).first().click();
+  await request.getByRole("button", { name: /^Unfold/ }).first().click();
+  await expect(request.getByRole("list", { name: "Sections" }).getByRole("checkbox").first()).toBeVisible();
+  await request.getByRole("button", { name: "Text", exact: true }).first().click();
+  await shoot(page, "generate-sections");
+  await request.getByRole("button", { name: "Back to the whole document" }).click();
 
   await request
     .getByRole("textbox", { name: "What should be tested?" })

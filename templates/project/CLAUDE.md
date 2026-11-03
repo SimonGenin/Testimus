@@ -70,8 +70,10 @@ EXI_MOP_SPF_511_A_1670
 - SOSIE_211_D401-1_3#§5.6.6 "Selon le type de sectionneur, le menu contextuel diffère"
 ```
 
-- Field headings are the names in `xray.json` (`Action`, `Data`, `Expected Result`, custom fields).
-  Leave a field out when it is empty.
+- Field headings are the step columns: the names in `xray.json` `fields` (`Action`, `Data`,
+  `Expected Result`, custom fields) and the project's local columns (`xray.json` `columns` entries
+  Xray does not have — kept in test.md, never pushed). Each column's `description` there says what
+  goes in it; a column with an empty description stays empty. Leave a field out when it is empty.
 - `### Sources`: one line per claim, `<docId>#<anchor> "<short quote copied exactly from doc.md>"`.
   A quote that is not verbatim in `doc.md` is an error.
 - No reference inside Action or Expected Result text: references go in the requirement field, the

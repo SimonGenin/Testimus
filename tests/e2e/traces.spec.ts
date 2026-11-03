@@ -38,15 +38,16 @@ test("a sentence becomes tracked ids: Claude proposes, the card previews, Genera
 
   await page.goto(`${url}/#/generate`);
   const request = page.getByRole("region", { name: "Request" });
-  await expect(request.getByText("Requirement ids", { exact: true })).toBeVisible();
-  await expect(request.getByText("Figure ids", { exact: true })).toBeVisible();
-  await request.getByLabel("Figure ids").fill("Figure");
-  await expect(page.getByRole("listbox", { name: "Matching figure ids" }).getByRole("option")).toHaveCount(1);
+  const columns = request.getByRole("list", { name: "Step columns" });
+  const figure = columns.getByRole("listitem").filter({ hasText: "Figure" });
+  await expect(figure.getByText("Id list")).toBeVisible();
+  await expect(figure.getByText("Local only")).toBeVisible();
+  await expect(figure.getByText("Every Figure id of the picked scope is to be covered.")).toBeVisible();
   await shoot(page, "traces-generate");
 
-  await page.goto(`${url}/#/settings/traces`);
-  const section = page.locator("#settings-traces");
-  await expect(section.getByText("Not in Xray yet")).toBeVisible();
+  await page.goto(`${url}/#/settings/columns`);
+  const section = page.locator("#settings-columns");
+  await expect(section.getByRole("listitem").filter({ hasText: "Figure" }).getByText("Local only")).toBeVisible();
   await shoot(page, "traces-settings");
 
   await section.getByRole("listitem").filter({ hasText: "Figure" }).getByRole("button", { name: "Coverage" }).click();
@@ -63,5 +64,5 @@ test("a sentence becomes tracked ids: Claude proposes, the card previews, Genera
   await cov.getByRole("button", { name: /^Figure/ }).click();
   await cov.getByRole("button", { name: "Generate tests for the 1 missing id" }).click();
   await expect(page).toHaveURL(/#\/generate$/);
-  await expect(page.getByRole("button", { name: "Remove figure Figure 40" })).toBeVisible();
+  await expect(page.getByText(/From Coverage: 1 figure id/)).toBeVisible();
 });

@@ -4,7 +4,7 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setProject } from "../../src/ui/api.ts";
 import { resetDoctor } from "../../src/ui/lib/doctor.ts";
-import { FieldsSection, orderedFields } from "../../src/ui/screens/settings/FieldsSection.tsx";
+import { ColumnsSection } from "../../src/ui/screens/settings/ColumnsSection.tsx";
 import { ProjectSection, saveProject } from "../../src/ui/screens/settings/ProjectSection.tsx";
 import { SearchSection } from "../../src/ui/screens/settings/SearchSection.tsx";
 import { SettingsScreen } from "../../src/ui/screens/settings/SettingsScreen.tsx";
@@ -115,7 +115,7 @@ describe("Settings › Project", () => {
   });
 });
 
-describe("Settings › Step fields", () => {
+describe("Settings › Step columns", () => {
   const xray = {
     fields: [
       { id: "action", name: "Action", type: "text", builtin: true },
@@ -126,55 +126,70 @@ describe("Settings › Step fields", () => {
     prefs: { order: ["Expected Result", "Gone"], collapsed: ["Note"], hidden: ["Action"] },
     fetchedAt: "2026-11-01T10:00:00Z",
   } as unknown as ReturnType<typeof app>["xray"];
-
-  it("orders the known fields first, then the rest", () => {
-    expect(orderedFields(xray)).toEqual(["Expected Result", "Action", "Exigence", "Note"]);
+  const col = (name: string, over: Record<string, unknown> = {}) => ({
+    name,
+    origin: "xray",
+    builtin: name === "Action" || name === "Expected Result",
+    status: "ok",
+    description: `${name} text`,
+    ...over,
   });
+  const columns = [
+    col("Expected Result"),
+    col("Action"),
+    col("Exigence", { status: "new", description: "" }),
+    col("Note"),
+    col("Remarque", { origin: "local", status: "gone", description: "" }),
+  ];
+  const withColumns = (cols: unknown[] = columns) =>
+    ({ ...app().info, columns: cols }) as ReturnType<typeof app>["info"];
 
-  it("shows kinds, folding modes, hides and moves fields", async () => {
+  it("shows each column with its origin, folding, hidden flag, and moves them", async () => {
     api.routes["xray.prefs"] = () => ({});
     const withFilled = { ...xray, prefs: { ...xray.prefs, filled: ["Exigence"] } } as typeof xray;
-    const { app: a } = mount(<FieldsSection />, { xray: withFilled });
-    const list = screen.getByRole("list", { name: "Step fields" });
-    const rows = within(list).getAllByRole("listitem");
-    expect(rows[0]).toHaveTextContent("Standard");
-    expect(rows[2]).toHaveTextContent(/Custom · (ids|text-single)/);
-    expect(rows[3]).toHaveTextContent("Custom · text");
-    expect(screen.getByText(/Read from Jira/)).toBeInTheDocument();
+    const { app: a } = mount(<ColumnsSection />, { xray: withFilled, info: withColumns() });
+    const rows = within(screen.getByRole("list", { name: "Step columns" })).getAllByRole("listitem");
+    expect(rows[0]).toHaveTextContent("Xray · standard");
+    expect(rows[2]).toHaveTextContent("New in Xray");
+    expect(rows[4]).toHaveTextContent("No longer in Xray");
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "New in Xray, not described yet: Exigence. No longer in Xray, kept as local columns: Remarque.",
+    );
+    expect(screen.getByText(/Read from Xray/)).toBeInTheDocument();
     const action = screen.getByLabelText("Action folding");
     expect(action).toBeDisabled();
-    expect(action).toHaveValue("open");
     expect(action).toHaveAttribute("title", "Action is always open");
-    expect(screen.getByLabelText("Expected Result folding")).toBeDisabled();
     expect(screen.getByLabelText("Exigence folding")).toHaveValue("filled");
     const note = screen.getByLabelText("Note folding");
-    expect(note).toBeEnabled();
     expect(note).toHaveValue("collapsed");
-    expect(note).not.toHaveAttribute("title");
     fireEvent.change(note, { target: { value: "open" } });
     await waitFor(() => expect(named("xray.prefs")[0]?.input).toEqual({ collapsed: [], filled: ["Exigence"] }));
     fireEvent.change(screen.getByLabelText("Exigence folding"), { target: { value: "collapsed" } });
     await waitFor(() => expect(named("xray.prefs")[1]?.input).toEqual({ collapsed: ["Note", "Exigence"], filled: [] }));
     fireEvent.click(screen.getByLabelText("Action hidden"));
     await waitFor(() => expect(named("xray.prefs")[2]?.input).toEqual({ hidden: [] }));
+    fireEvent.click(screen.getByLabelText("Note hidden"));
+    await waitFor(() => expect(named("xray.prefs")[3]?.input).toEqual({ hidden: ["Action", "Note"] }));
     expect(screen.getByRole("button", { name: "Move Expected Result up" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Move Note down" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Move Action up" }));
     await waitFor(() =>
-      expect(named("xray.prefs")[3]?.input).toEqual({ order: ["Action", "Expected Result", "Exigence", "Note"] }),
+      expect(named("xray.prefs")[4]?.input).toEqual({
+        order: ["Action", "Expected Result", "Exigence", "Note", "Remarque"],
+      }),
     );
     fireEvent.click(screen.getByRole("button", { name: "Move Action down" }));
     await waitFor(() =>
-      expect(named("xray.prefs")[4]?.input).toEqual({ order: ["Expected Result", "Exigence", "Action", "Note"] }),
+      expect(named("xray.prefs")[5]?.input).toEqual({
+        order: ["Expected Result", "Exigence", "Action", "Note", "Remarque"],
+      }),
     );
     expect(a.refreshInfo).toHaveBeenCalled();
-    expect((await screen.findAllByText("Step fields saved")).length).toBeGreaterThan(0);
   });
 
-  it("drags a field onto another, ignores a drop on itself", async () => {
+  it("drags a column onto another, ignores a drop on itself", async () => {
     api.routes["xray.prefs"] = () => ({});
-    mount(<FieldsSection />, { xray });
-    const rows = within(screen.getByRole("list", { name: "Step fields" })).getAllByRole("listitem");
+    mount(<ColumnsSection />, { xray, info: withColumns() });
+    const rows = within(screen.getByRole("list", { name: "Step columns" })).getAllByRole("listitem");
     const dataTransfer = { effectAllowed: "", setData: vi.fn() };
     fireEvent.dragOver(rows[1]);
     fireEvent.dragStart(rows[3], { dataTransfer });
@@ -186,27 +201,64 @@ describe("Settings › Step fields", () => {
     fireEvent.dragStart(rows[3], { dataTransfer });
     fireEvent.drop(rows[0]);
     await waitFor(() =>
-      expect(named("xray.prefs")[0]?.input).toEqual({ order: ["Note", "Expected Result", "Action", "Exigence"] }),
+      expect(named("xray.prefs")[0]?.input).toEqual({
+        order: ["Note", "Expected Result", "Action", "Exigence", "Remarque"],
+      }),
     );
     fireEvent.dragStart(rows[1], { dataTransfer });
     fireEvent.dragEnd(rows[1]);
     expect(rows[1]).not.toHaveClass("is-dragging");
     fireEvent.drop(rows[2]);
     expect(named("xray.prefs")).toHaveLength(1);
-    fireEvent.click(screen.getByLabelText("Note hidden"));
-    await waitFor(() => expect(named("xray.prefs")[1]?.input).toEqual({ hidden: ["Action", "Note"] }));
   });
 
-  it("refreshes from Jira and reports failures", async () => {
-    mount(<FieldsSection />, { xray: { ...xray, fetchedAt: undefined } as typeof xray });
-    expect(screen.queryByText(/Read from Jira/)).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Refresh from Jira" }));
+  it("saves a description on blur, adds and removes a local column, and reports failures", async () => {
+    const { app: a } = mount(<ColumnsSection />, { xray, info: withColumns() });
+    const box = screen.getByLabelText("What Claude writes in Action");
+    expect(box).toHaveValue("Action text");
+    fireEvent.blur(box);
+    expect(named("columns.save")).toHaveLength(0);
+    fireEvent.change(box, { target: { value: " Un geste " } });
+    fireEvent.blur(box);
+    expect(await screen.findByText("Could not save the column")).toBeInTheDocument();
+    api.routes["columns.save"] = () => [];
+    fireEvent.change(box, { target: { value: "Un geste" } });
+    fireEvent.blur(box);
+    expect(await screen.findByText("Action saved")).toBeInTheDocument();
+    expect(named("columns.save").at(-1)?.input).toEqual({ name: "Action", description: "Un geste" });
+    fireEvent.click(screen.getByRole("button", { name: "Add a local column" }));
+    expect(screen.getByRole("button", { name: "Add the column" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add a local column" }));
+    fireEvent.change(screen.getByLabelText("Name of the local column"), { target: { value: " Remarque testeur " } });
+    fireEvent.change(screen.getByLabelText("What Claude writes in it"), { target: { value: "Rien" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add the column" }));
+    expect(await screen.findByText("Column Remarque testeur added")).toBeInTheDocument();
+    expect(named("columns.save").at(-1)?.input).toEqual({ name: "Remarque testeur", description: "Rien" });
+    expect(screen.queryByLabelText("Name of the local column")).toBeNull();
+    delete api.routes["columns.save"];
+    fireEvent.click(screen.getByRole("button", { name: "Add a local column" }));
+    fireEvent.change(screen.getByLabelText("Name of the local column"), { target: { value: "X" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add the column" }));
+    expect(await screen.findByText("Could not add the column")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Remove the column Action" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Remove the column Remarque" }));
+    expect(await screen.findByText("Could not remove the column")).toBeInTheDocument();
+    api.routes["columns.remove"] = () => [];
+    fireEvent.click(screen.getByRole("button", { name: "Remove the column Remarque" }));
+    expect(await screen.findByText("Column Remarque removed")).toBeInTheDocument();
+    expect(named("columns.remove").at(-1)?.input).toEqual({ name: "Remarque" });
+    expect(a.refreshInfo).toHaveBeenCalled();
+  });
+
+  it("reads Xray again and reports failures; nothing without a project", async () => {
+    mount(<ColumnsSection />, { xray: { ...xray, fetchedAt: undefined } as typeof xray, info: withColumns([]) });
+    expect(screen.queryByText(/Read from Xray/)).toBeNull();
+    expect(screen.queryByRole("status")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Read again from Xray" }));
     expect(await screen.findByText("Could not read the step fields from Jira")).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Note folding"), { target: { value: "filled" } });
-    await waitFor(() => expect(named("xray.prefs")[0]?.input).toEqual({ collapsed: [], filled: ["Note"] }));
-    expect(await screen.findByText("Could not save the step fields")).toBeInTheDocument();
     let release = () => {};
-    api.routes["xray.fields"] = () => ({ fields: [1, 2] });
+    api.routes["xray.fields"] = () => ({ fields: [] });
     const slow = new Promise<void>((r) => {
       release = r;
     });
@@ -218,10 +270,13 @@ describe("Settings › Step fields", () => {
         return f(...args);
       }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "Refresh from Jira" }));
-    expect(await screen.findByRole("button", { name: "Refreshing…" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Read again from Xray" }));
+    expect(await screen.findByRole("button", { name: "Reading…" })).toBeDisabled();
     release();
-    expect(await screen.findByText("2 fields")).toBeInTheDocument();
+    expect(await screen.findByText("Step columns read again from Xray")).toBeInTheDocument();
+    cleanup();
+    const { container } = mount(<ColumnsSection />, { info: null });
+    expect(container.querySelector("#settings-columns")).toBeNull();
   });
 });
 

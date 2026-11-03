@@ -273,22 +273,29 @@ export function traceCoverage(project: string, only?: string): TraceCoverage[] {
   });
 }
 
-// ponytail: what the generation must know to fill the dynamic columns — said in the request, so the
-// generate-tests skill needs no change to write a column it has never heard of
-export function traceGuidance(project: string, picked: { trace: string; ids: string[] }[] = []): string[] {
-  const traces = projectTraces(project).traces.filter((t) => t.id !== REQUIREMENT);
-  if (!traces.length) return [];
-  const lines = ["", "Tracked ids — besides the requirement field, each step has these columns (### <column>):"];
-  for (const t of traces) {
-    let examples: string[] = [];
-    try {
-      examples = scanTrace(project, t.patterns, { limit: 3 }).items.map((i) => i.id);
-    } catch {}
-    lines.push(
-      `- ### ${t.field}: the ${t.label} ids the step actually verifies, comma-separated (pattern ${t.patterns.join(" | ")}${examples.length ? `, e.g. ${examples.join(", ")}` : ""}); only ids written in the documents; leave it out when the step verifies none.`,
-    );
-    const ids = picked.find((x) => x.trace === t.id)?.ids ?? [];
-    if (ids.length) lines.push(`  ${t.label} ids to cover, each by at least one step: ${ids.join(", ")}`);
+export type Scope = { docs: string[]; sections: string[] };
+
+// ponytail: the ids a generation must cover are the ones written in its scope — whole documents, or a
+// section with its sub-sections (a §5.6 ref takes §5.6.6); comment markers are skipped as in scanTrace
+export function scopeIds(project: string, patterns: string[], scope: Scope): string[] {
+  const re = compile(patterns);
+  const bySection = new Map<string, string[]>();
+  for (const s of scope.sections) {
+    const [doc, anchor] = [s.slice(0, s.indexOf("#")), s.slice(s.indexOf("#") + 1)];
+    bySection.set(doc, [...(bySection.get(doc) ?? []), anchor]);
   }
-  return lines;
+  const found = new Set<string>();
+  for (const doc of docIds(project)) {
+    const whole = scope.docs.includes(doc);
+    const anchors = bySection.get(doc) ?? [];
+    if (!whole && !anchors.length) continue;
+    let anchor = "";
+    for (const line of readFileSync(join(project, "docs", doc, "doc.md"), "utf8").split(/\r?\n/)) {
+      const sec = line.match(/<!--\s*§\s*(\S+)\s*-->/);
+      if (sec) anchor = `§${sec[1]}`;
+      if (!whole && !anchors.some((a) => anchor === a || anchor.startsWith(`${a}.`))) continue;
+      for (const m of plain(line).matchAll(re)) found.add(m[0]);
+    }
+  }
+  return [...found].sort((a, b) => a.localeCompare(b, "en", { numeric: true }));
 }

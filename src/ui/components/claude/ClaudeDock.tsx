@@ -16,9 +16,10 @@ import { cx, message, plural } from "../../lib/format.ts";
 import { editedAfterRun, revertRun } from "../../lib/revert.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 import { Badge, Button, Chip, Icon, Kbd, SourceChip, Tabs } from "../ui/index.ts";
+import { AdditionalContext } from "./AdditionalContext.tsx";
 import { AnswerText } from "./AnswerText.tsx";
 import { type ClaudeStatus, ConnectClaude } from "./ConnectClaude.tsx";
-import { CONTEXTS_EVENT, type ContextSummary } from "./ContextsDialog.tsx";
+import { CONTEXTS_EVENT } from "./ContextsDialog.tsx";
 import { EFFORTS, ModelPicker } from "./ModelPicker.tsx";
 import { OnTopToggle } from "./OnTopToggle.tsx";
 
@@ -31,6 +32,7 @@ type Again = {
   text: string;
   scope?: ClaudeScope;
   contexts?: string[];
+  note?: string;
   label?: string;
   model: string;
   effort: Effort;
@@ -150,10 +152,11 @@ export function ClaudeDock({
   const [chatId, setChatId] = useState<string | undefined>(undefined);
   const [status, setStatus] = useState<ClaudeStatus | null>(null);
   const [checking, setChecking] = useState(false);
-  const [ctxAll, setCtxAll] = useState<ContextSummary[]>([]);
   const [ctxOn, setCtxOn] = useState<string[] | null>(null);
-  // ponytail: a per-run opt-out, never persisted — the test's own list is edited from its header
-  const [ctxOff, setCtxOff] = useState<Set<string>>(new Set());
+  // ponytail: what this run reads besides the test — the effective contexts until changed here, never persisted
+  // (the test's own list is edited from its header), and a note said in full
+  const [ctxPick, setCtxPick] = useState<string[] | null>(null);
+  const [note, setNote] = useState("");
   const scroller = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
 
@@ -177,13 +180,9 @@ export function ClaudeDock({
   const defaults = cfg?.contexts;
   const loadContexts = useCallback(() => {
     if (!projectDir) {
-      setCtxAll([]);
       setCtxOn(null);
       return;
     }
-    call<ContextSummary[]>("contexts.list", {})
-      .then((l) => setCtxAll(l ?? []))
-      .catch(() => setCtxAll([]));
     if (testId)
       call<{ effective: string[] }>("contexts.ofTest", { testId })
         .then((r) => setCtxOn(r?.effective ?? null))
@@ -198,7 +197,7 @@ export function ClaudeDock({
 
   useEffect(() => {
     setScope(testId ? "test" : "project");
-    setCtxOff(new Set());
+    setCtxPick(null);
     // ponytail: another test opened — the result card of the previous one goes (Xray Editor)
     setTurns((all) => (all.test.some((t) => t.running) ? all : { ...all, test: [] }));
   }, [testId]);
@@ -377,7 +376,14 @@ export function ClaudeDock({
       if (m === "docs") {
         const r = await run<ChatResult>(
           "chat.ask",
-          { question: a.text, chatId, model: a.model || undefined, effort: a.effort },
+          {
+            question: a.text,
+            chatId,
+            model: a.model || undefined,
+            effort: a.effort,
+            ...(a.contexts?.length ? { contexts: a.contexts } : {}),
+            ...(a.note ? { note: a.note } : {}),
+          },
           onEvent(m, answerId),
           setJobId,
         );
@@ -409,6 +415,7 @@ export function ClaudeDock({
             model: a.model || undefined,
             effort: a.effort,
             ...(a.contexts ? { contexts: a.contexts } : {}),
+            ...(a.note ? { note: a.note } : {}),
           },
           t0,
           a,
@@ -443,12 +450,13 @@ export function ClaudeDock({
     if ((!q && mode === "docs") || running) return;
     const a: Again =
       mode === "docs"
-        ? { mode, text: q, model, effort }
+        ? { mode, text: q, model, effort, contexts: ctxPick ?? [], note: note.trim() || undefined }
         : {
             mode,
             text: q,
             scope: scopeOf(),
-            contexts: ctxOn ? ctxOn.filter((id) => !ctxOff.has(id)) : undefined,
+            contexts: ctxPick ?? ctxOn ?? undefined,
+            note: note.trim() || undefined,
             label: `${scopeWord}${preset >= 0 && presets[preset] ? ` · ${presets[preset].label}` : ""}`,
             model,
             effort,
@@ -523,8 +531,7 @@ export function ClaudeDock({
     );
 
   const list = turns[mode];
-  const ctxIds = ctxOn ?? [];
-  const nameOf = (id: string) => ctxAll.find((c) => c.id === id)?.name ?? id;
+  const ctxIds = ctxPick ?? (mode === "test" ? (ctxOn ?? []) : []);
   const scopeLink = (k: Kind, label: string) => (
     <button key={k} type="button" className="linkbtn" disabled={running} onClick={() => setScope(k)}>
       {label}
@@ -729,33 +736,15 @@ export function ClaudeDock({
                 ))}
               </fieldset>
             )}
-            {mode === "test" && ctxIds.length > 0 && (
-              <fieldset className="presets dock-ctx plainset" aria-label="Contexts for this run">
-                <span className="muted dock-ctx-label">Context:</span>
-                {ctxIds.map((id) => {
-                  const on = !ctxOff.has(id);
-                  return (
-                    <button
-                      key={id}
-                      type="button"
-                      className={cx("chip chip-btn chip-sm", on ? "chip-on" : "chip-off")}
-                      aria-pressed={on}
-                      title={on ? "Included in this run — click to skip" : "Skipped for this run — click to include"}
-                      onClick={() =>
-                        setCtxOff((s) => {
-                          const n = new Set(s);
-                          if (n.has(id)) n.delete(id);
-                          else n.add(id);
-                          return n;
-                        })
-                      }
-                    >
-                      {nameOf(id)}
-                    </button>
-                  );
-                })}
-              </fieldset>
-            )}
+            <AdditionalContext
+              id="dock-note"
+              compact
+              disabled={running}
+              ids={ctxIds}
+              note={note}
+              onIds={setCtxPick}
+              onNote={setNote}
+            />
             <label htmlFor="dock-ask" className="sr">
               {mode === "docs"
                 ? "Ask the documents"

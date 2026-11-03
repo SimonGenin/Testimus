@@ -62,6 +62,8 @@ export type LocalTestRef = {
   findings?: FindingCounts;
 };
 
+export type CitingTest = { id: string; key?: string; summary: string; review: Review; steps: number };
+
 export type RemoteTestRef = {
   key: string;
   issueId: string;
@@ -103,7 +105,19 @@ export type XrayField = {
 export type FieldPrefs = { order: string[]; collapsed: string[]; hidden: string[]; filled?: string[]; open?: string[] };
 export type ColumnMode = "open" | "filled" | "collapsed";
 export type ColumnModes = Record<string, ColumnMode>;
-export type XrayJson = { fields: XrayField[]; prefs: FieldPrefs; fetchedAt?: string };
+export type XrayJson = { fields: XrayField[]; prefs: FieldPrefs; fetchedAt?: string; columns?: ColumnDef[] };
+
+// Step columns: what Claude writes in each field (description), and the columns that live only in test.md.
+// A column of Xray is followed by its field id (a rename in Xray keeps its description); one without id, or
+// whose id Xray no longer has, is local — kept in test.md, never pushed
+export type ColumnDef = { name: string; id?: string; description?: string };
+export type StepColumn = {
+  name: string;
+  origin: "xray" | "local";
+  builtin: boolean;
+  status: "ok" | "new" | "gone";
+  description: string;
+};
 
 export const BUILTIN_FIELDS: readonly string[] = ["Action", "Data", "Expected Result"];
 

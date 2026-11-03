@@ -65,7 +65,16 @@ export function readXray(dir: string): XrayJson {
     fields: x.fields?.length ? x.fields : DEFAULT_XRAY.fields,
     prefs: { ...DEFAULT_XRAY.prefs, ...x.prefs },
     fetchedAt: x.fetchedAt,
+    ...(x.columns?.length ? { columns: x.columns } : {}),
   };
+}
+
+export function localColumns(x: XrayJson): string[] {
+  const ids = new Set(x.fields.map((f) => f.id));
+  const names = new Set(x.fields.map((f) => f.name.toLowerCase()));
+  return (x.columns ?? [])
+    .filter((c) => !(c.id && ids.has(c.id)) && !names.has(c.name.toLowerCase()))
+    .map((c) => c.name);
 }
 
 export function writeXray(dir: string, x: XrayJson): void {
@@ -111,7 +120,7 @@ export function resolveProjectDir(explicit?: string): string | null {
 }
 
 export function fieldOrder(x: XrayJson): string[] {
-  const names = x.fields.map((f) => f.name);
+  const names = [...x.fields.map((f) => f.name), ...localColumns(x)];
   const ordered = x.prefs.order.filter((n) => names.includes(n));
   return [...ordered, ...names.filter((n) => !ordered.includes(n))];
 }

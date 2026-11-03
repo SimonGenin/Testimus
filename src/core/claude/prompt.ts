@@ -74,7 +74,13 @@ export function scopeLines(scope: ClaudeScope): string[] {
   return [`Scope: step ${scope.step} of test ${scope.testId}.`, `Files: tests/${scope.testId}/test.md`];
 }
 
-export function buildPrompt(scope: ClaudeScope, request: string, contexts: Context[], project: string): string {
+export function buildPrompt(
+  scope: ClaudeScope,
+  request: string,
+  contexts: Context[],
+  project: string,
+  note = "",
+): string {
   const lines = [...scopeLines(scope), "Only modify what the scope allows."];
   if (scope.kind === "step")
     lines.push(
@@ -85,6 +91,16 @@ export function buildPrompt(scope: ClaudeScope, request: string, contexts: Conte
       '`<docId>#<anchor> "<exact quote from doc.md>"` — use rag_search and rag_passage to find them.',
     "The screenshots listed under ### Attachments are files in tests/<id>/images/ — open them with Read when what the screen shows matters.",
   );
+  lines.push(...contextLines(project, contexts, note));
+  const req = request.trim();
+  if (req) lines.push("", req);
+  lines.push("", "When finished, reply in 2-4 lines: what you changed (which steps) and anything you could not do.");
+  return `${lines.join("\n")}\n`;
+}
+
+// ponytail: the saved contexts are pointed at (Claude reads their files), the note of this run is said in full
+export function contextLines(project: string, contexts: Context[], note = ""): string[] {
+  const lines: string[] = [];
   if (contexts.length) {
     lines.push("", "Context to read before you start (reference material, do not edit it):");
     for (const c of contexts) {
@@ -96,19 +112,18 @@ export function buildPrompt(scope: ClaudeScope, request: string, contexts: Conte
       lines.push(`- ${c.name}${parts.length ? ` — ${parts.join("; ")}` : ""}`);
     }
   }
-  const req = request.trim();
-  if (req) lines.push("", req);
-  lines.push("", "When finished, reply in 2-4 lines: what you changed (which steps) and anything you could not do.");
-  return `${lines.join("\n")}\n`;
+  if (note.trim()) lines.push("", "Additional context from the user for this run:", note.trim());
+  return lines;
 }
 
-export function chatPrompt(question: string, language: string): string {
+export function chatPrompt(question: string, language: string, context: string[] = []): string {
   return [
     "Use the ask-docs skill to answer this question about the project's documents.",
     "Answer only from the documents (rag_search, rag_passage, docs/*/doc.md), never from general knowledge.",
     'Put the source of every factual sentence at its end: [<docId>#<anchor> "<exact quote from doc.md>"].',
     "Say plainly when the documents do not answer. Do not edit any file.",
     `Answer in the language of the question (project language: ${language}).`,
+    ...context,
     "",
     `Question: ${question.trim()}`,
     "",

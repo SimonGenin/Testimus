@@ -28,16 +28,24 @@ function badPattern(patterns: string[]): string | null {
   return null;
 }
 
-export function TrackDialog({ initial, onClose }: { initial?: TraceView; onClose: () => void }) {
+export function TrackDialog({
+  initial,
+  column,
+  onClose,
+}: {
+  initial?: TraceView;
+  column?: string;
+  onClose: () => void;
+}) {
   const app = useApp();
   const [ask, setAsk] = useState(initial?.ask ?? "");
   const [asking, setAsking] = useState(false);
   const [reading, setReading] = useState("");
   const [why, setWhy] = useState("");
   const [shown, setShown] = useState(!!initial);
-  const [label, setLabel] = useState(initial?.label ?? "");
+  const [label, setLabel] = useState(initial?.label ?? column ?? "");
   const [patterns, setPatterns] = useState(initial?.patterns.join("\n") ?? "");
-  const [field, setField] = useState(initial?.field ?? "");
+  const [field, setField] = useState(initial?.field ?? column ?? "");
   const [scan, setScan] = useState<TraceScan | null>(null);
   const [scanning, setScanning] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -86,7 +94,7 @@ export function TrackDialog({ initial, onClose }: { initial?: TraceView; onClose
       if (!r.proposal.patterns.length) return;
       setLabel(r.proposal.label);
       setPatterns(r.proposal.patterns.join("\n"));
-      setField(r.proposal.field || r.proposal.label);
+      if (!column) setField(r.proposal.field || r.proposal.label);
     } catch (e) {
       errorToast(e, "Claude could not look at the documents");
     } finally {
@@ -136,7 +144,7 @@ export function TrackDialog({ initial, onClose }: { initial?: TraceView; onClose
   return (
     <Modal
       label={initial ? `Change the tracked ${initial.label} ids` : "Track ids from the documents"}
-      title={initial ? `${initial.label} ids` : "Track ids from the documents"}
+      title={initial ? `${initial.label} ids` : column ? `${column}: an id list` : "Track ids from the documents"}
       subtitle="Ids written in the specifications — requirements, alarm codes, use cases… — become a column of every test step, that the generation fills and Xray receives."
       width={760}
       className="track"
@@ -231,6 +239,7 @@ export function TrackDialog({ initial, onClose }: { initial?: TraceView; onClose
               className="field"
               list="track-columns"
               placeholder="The custom step field that will hold them"
+              readOnly={!!column}
               value={field}
               onChange={(e) => setField(e.target.value)}
             />

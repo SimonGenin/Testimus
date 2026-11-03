@@ -7,8 +7,9 @@ import { parseProposal } from "../../src/core/claude/traces.ts";
 import { invoke } from "../../src/core/commands/index.ts";
 import { type ClaudeSpawn, env } from "../../src/core/env.ts";
 import { mechanicalCheck, requirementFieldOf } from "../../src/core/lib/check.ts";
+import { columnGuidance } from "../../src/core/lib/columns.ts";
 import { DEFAULT_SETTINGS, readProject, writeSettings, writeXray } from "../../src/core/lib/project.ts";
-import { projectTraces, scanTrace, traceGuidance } from "../../src/core/lib/traces.ts";
+import { projectTraces, scanTrace } from "../../src/core/lib/traces.ts";
 import { mockSpawnClaude } from "../../src/core/mock/claude.ts";
 import type { TraceCoverage } from "../../src/core/types.ts";
 
@@ -75,7 +76,7 @@ describe("tracked ids", () => {
   it("tracks nothing in a project whose documents and Xray have no requirement", async () => {
     const dir = plainProject();
     expect(await run(dir, "traces.list")).toEqual([]);
-    expect(traceGuidance(dir)).toEqual([]);
+    expect(columnGuidance(dir).join("\n")).not.toContain("Ids only");
   });
 
   it("finds ids with their document, section and line, and refuses a pattern that matches nothing in particular", () => {
@@ -136,11 +137,11 @@ describe("tracked ids", () => {
   it("tells the generation about each column it must fill, and the ids to cover", async () => {
     const dir = copyFixture();
     await run(dir, "traces.save", { label: "Figure", patterns: [String.raw`\bFigure \d+`], field: "Figure" });
-    const lines = traceGuidance(dir, [{ trace: "figure", ids: ["Figure 40"] }]).join("\n");
-    expect(lines).toContain("### Figure: the Figure ids the step actually verifies");
+    const lines = columnGuidance(dir, { docs: ["SOSIE_211_D401-1_3"], sections: [] }).join("\n");
+    expect(lines).toContain("### Figure: The Figure ids this step actually verifies");
     expect(lines).toContain("e.g. Figure 40");
-    expect(lines).toContain("Figure ids to cover, each by at least one step: Figure 40");
-    expect(lines).not.toContain("### Exigence");
+    expect(lines).toMatch(/Figure ids written in the scope, .*: Figure 40$/m);
+    expect(lines).toContain("### Exigence");
   });
 
   it("asks Claude read-only for a proposal and previews what its patterns find", async () => {

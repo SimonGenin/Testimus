@@ -5,7 +5,7 @@ import { quietCtx } from "../../src/core/command.ts";
 import { commands } from "../../src/core/commands/gen.ts";
 import { copyFixture, tempRoot } from "./cov-faces-helpers.ts";
 
-const seen = vi.hoisted(() => ({ requests: [] as string[], picked: [] as unknown[], guidance: [] as string[] }));
+const seen = vi.hoisted(() => ({ requests: [] as string[] }));
 
 vi.mock("../../src/core/claude/generate.ts", async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -25,14 +25,6 @@ vi.mock("../../src/core/claude/figures.ts", async (importOriginal) => ({
     runIds: [],
     costUsd: 0,
   }),
-}));
-
-vi.mock("../../src/core/lib/traces.ts", async (importOriginal) => ({
-  ...(await importOriginal<object>()),
-  traceGuidance: (_project: string, picked: unknown) => {
-    seen.picked.push(picked);
-    return seen.guidance;
-  },
 }));
 
 const cmd = (name: string) => {
@@ -82,30 +74,32 @@ describe("gen.tests request", () => {
     return seen.requests.at(-1);
   };
 
-  it("adds the tracked-id guidance when something is asked, keeping only the kinds with ids", async () => {
+  it("says the tracked ids to cover by their label, keeping only the kinds with ids", async () => {
     const project = copyFixture(tempRoot("gen"));
-    seen.guidance = ["", "Tracked ids — guidance"];
-    expect(await runGen(project, { request: " Menus " })).toBe(["Menus", "", "Tracked ids — guidance"].join("\n"));
-    expect(await runGen(project, { requirements: ["R1"] })).toBe(
-      ["(none in words)", "", "Tracked ids — guidance"].join("\n"),
+    expect(
+      await runGen(project, {
+        request: " Menus ",
+        tracked: [
+          { trace: "requirement", ids: ["R1", "R2"] },
+          { trace: "uc", ids: [] },
+          { trace: "other", ids: ["X"] },
+        ],
+      }),
+    ).toBe(
+      [
+        "Menus",
+        "Requirement ids to cover, each by at least one step: R1, R2",
+        "other ids to cover, each by at least one step: X",
+      ].join("\n"),
     );
-    await runGen(project, { sections: ["D#§1"] });
-    await runGen(project, {
-      tracked: [
-        { trace: "alarm", ids: ["A1"] },
-        { trace: "uc", ids: [] },
-      ],
-    });
-    expect(seen.picked.at(-1)).toEqual([{ trace: "alarm", ids: ["A1"] }]);
+    expect(await runGen(project, { tracked: [{ trace: "requirement", ids: ["R1"] }] })).toBe(
+      ["(none in words)", "Requirement ids to cover, each by at least one step: R1"].join("\n"),
+    );
   });
 
-  it("passes the request as it is when nothing is asked or no guidance applies", async () => {
+  it("passes the request as it is when no id is handed", async () => {
     const project = copyFixture(tempRoot("gen"));
-    const calls = seen.picked.length;
-    seen.guidance = ["x"];
     expect(await runGen(project, { tracked: [{ trace: "uc", ids: [] }] })).toBe("");
-    expect(seen.picked.length).toBe(calls);
-    seen.guidance = [];
-    expect(await runGen(project, { request: "Menus" })).toBe("Menus");
+    expect(await runGen(project, { request: "Menus", docs: ["SOSIE_211_D401-1_3"] })).toBe("Menus");
   });
 });

@@ -5,6 +5,7 @@ import type { ClaudeEvent } from "../types.ts";
 import { commands as chat } from "./chat.ts";
 import { commands as check } from "./check.ts";
 import { commands as claude } from "./claude.ts";
+import { commands as columns } from "./columns.ts";
 import { commands as contexts } from "./contexts.ts";
 import { commands as docs } from "./docs.ts";
 import { commands as gen } from "./gen.ts";
@@ -26,6 +27,7 @@ export const registry: Command[] = [
   ...project,
   ...docs,
   ...traces,
+  ...columns,
   ...rag,
   ...ragIndex,
   ...ragEval,

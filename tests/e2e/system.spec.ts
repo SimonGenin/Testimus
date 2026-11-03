@@ -33,11 +33,11 @@ test("the system check lists every check with its state", async ({ page }) => {
   await expect(checks.filter({ hasText: "Claude signed in" })).toContainText("OK", { timeout: 15_000 });
 });
 
-test("settings save the step field preferences and the editor honours them", async ({ page }) => {
+test("settings save the step column preferences and the editor honours them", async ({ page }) => {
   await boot(page, "#/settings");
   await expect(page.getByRole("heading", { level: 1, name: "Settings" })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Jira project" })).toHaveValue("LFRPS12");
-  const fields = page.getByRole("region", { name: "Step fields" });
+  const fields = page.getByRole("region", { name: "Step columns" });
   const dataFold = fields.getByRole("combobox", { name: "Data folding" });
   await expect(dataFold).toHaveValue("filled");
   await shoot(page, "settings");

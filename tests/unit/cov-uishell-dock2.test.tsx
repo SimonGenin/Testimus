@@ -131,21 +131,22 @@ describe("dock run details", () => {
 });
 
 describe("dock contexts", () => {
-  it("lets a run skip a context and take it back", async () => {
+  it("lets a run leave a context out, import it back and add a note", async () => {
     net.routes["contexts.list"] = () => [{ id: "g", name: "Glossaire", paths: [], files: [], hasNotes: true }];
     net.routes["contexts.ofTest"] = () => ({ effective: ["g", "orphan"] });
     net.routes["claude.run"] = () => ({ ok: true, summary: "ok" });
     mount({}, { focus: focus() });
-    const chip = await screen.findByRole("button", { name: "Glossaire" });
-    expect(screen.getByRole("button", { name: "orphan" })).toBeInTheDocument();
-    fireEvent.click(chip);
-    expect(chip).toHaveAttribute("aria-pressed", "false");
-    fireEvent.click(chip);
-    expect(chip).toHaveAttribute("aria-pressed", "true");
-    fireEvent.click(screen.getByRole("button", { name: "orphan" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Leave Glossaire out of this run" }));
+    expect(screen.queryByRole("button", { name: "Leave Glossaire out of this run" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Import saved" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /Glossaire/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Use 1" }));
+    expect(screen.getByRole("button", { name: "Leave Glossaire out of this run" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Add a note" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Note for this run" }), { target: { value: " PCC " } });
     ask("Go");
     await waitFor(() => expect(callsOf("claude.run")).toHaveLength(1));
-    expect(callsOf("claude.run")[0].input.contexts).toEqual(["g"]);
+    expect(callsOf("claude.run")[0].input).toMatchObject({ contexts: ["g"], note: "PCC" });
   });
 
   it("reads empty answers as no contexts", async () => {

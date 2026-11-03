@@ -36,8 +36,17 @@ export function idsByKind(steps: Step[]): { label: string; ids: string[] }[] {
   return out.filter((g) => g.ids.length);
 }
 
+// ponytail: a local column is one the project keeps in test.md only — no Xray field has its id or its name
+export function localColumns(x: XrayJson): string[] {
+  const ids = new Set(x.fields.map((f) => f.id));
+  const names = new Set(x.fields.map((f) => f.name.toLowerCase()));
+  return (x.columns ?? [])
+    .filter((c) => !(c.id && ids.has(c.id)) && !names.has(c.name.toLowerCase()))
+    .map((c) => c.name);
+}
+
 export function fieldViews(x: XrayJson, step?: Step): FieldView[] {
-  const names = x.fields.map((f) => f.name);
+  const names = [...x.fields.map((f) => f.name), ...localColumns(x)];
   const ordered = x.prefs.order.filter((n) => names.includes(n));
   const all = [...ordered, ...names.filter((n) => !ordered.includes(n))];
   for (const k of Object.keys(step?.fields ?? {})) if (!all.includes(k)) all.push(k);
@@ -71,11 +80,13 @@ export const splitIds = (value: string) =>
 
 export const joinIds = (ids: string[]) => ids.join(", ");
 
-export const sourceLabel = (s: Pick<Source, "docId" | "anchor">) => {
-  if (s.anchor.startsWith("req:")) return `${s.docId} ${s.anchor.slice(4)}`;
-  if (s.anchor.startsWith("fig:")) return `${s.docId} Figure ${s.anchor.slice(4)}`;
-  return `${s.docId} ${s.anchor}`;
+export const sourcePlace = (anchor: string) => {
+  if (anchor.startsWith("req:")) return anchor.slice(4);
+  if (anchor.startsWith("fig:")) return `Figure ${anchor.slice(4)}`;
+  return anchor;
 };
+
+export const sourceLabel = (s: Pick<Source, "docId" | "anchor">) => `${s.docId} ${sourcePlace(s.anchor)}`;
 
 export function parseSourceRef(ref: string): Source | null {
   const m = /^\s*([^#\s]+)#(\S+)(?:\s+"([^"]*)")?\s*$/.exec(ref);

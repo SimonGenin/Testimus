@@ -14,6 +14,14 @@ export const MODEL = z
   .string()
   .regex(/^[A-Za-z0-9.\-[\]:]+$/, "A model alias or id: letters, digits and . - [ ] : only");
 
+export const CONTEXT_IDS = z.array(z.string().regex(/^[\w-]+$/, "A context id: letters, digits, _ and -"));
+
+export const NOTE = z
+  .string()
+  .max(20000)
+  .optional()
+  .describe("Additional context for this run only, in plain words (said to Claude in full)");
+
 const TEST_ID = z
   .string()
   .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/, "A test id: a Jira key or local-<8hex>")
@@ -77,10 +85,8 @@ export const commands: Command[] = [
       prompt: z.string().describe("The request, e.g. « Rephrase in house style »."),
       model: MODEL.optional().describe("Model alias or name (default: project.json claude.model)."),
       effort: EFFORT.optional().describe("Effort level (default: project.json claude.effort)."),
-      contexts: z
-        .array(z.string().regex(/^[\w-]+$/, "A context id: letters, digits, _ and -"))
-        .optional()
-        .describe("Context ids to attach (default: project.json claude.contexts)."),
+      contexts: CONTEXT_IDS.optional().describe("Context ids to attach (default: project.json claude.contexts)."),
+      note: NOTE,
     }),
     output: RESULT,
     mutates: true,
@@ -95,7 +101,7 @@ export const commands: Command[] = [
       const { calls: _calls, ...r } = await runClaude({
         kind: "run",
         project,
-        prompt: buildPrompt(input.scope, input.prompt, readContexts(project, ids), project),
+        prompt: buildPrompt(input.scope, input.prompt, readContexts(project, ids), project, input.note),
         model: input.model || p.claude.model,
         effort: input.effort || p.claude.effort,
         scope: input.scope,

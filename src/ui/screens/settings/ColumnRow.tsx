@@ -1,0 +1,138 @@
+import { useEffect, useState } from "react";
+import type { ColumnMode, StepColumn, TraceView } from "../../../core/types.ts";
+import { Icon, IconButton, Segmented } from "../../components/ui/index.ts";
+import { MODES } from "../../lib/columns.ts";
+import { cx, plural } from "../../lib/format.ts";
+import { columnTag } from "../generate/ColumnsView.tsx";
+
+export function ColumnRow({
+  column,
+  trace,
+  mode,
+  hidden,
+  disabled,
+  first,
+  last,
+  dragging,
+  onDescribe,
+  onKind,
+  onPattern,
+  onCoverage,
+  onMode,
+  onHidden,
+  onMove,
+  onRemove,
+  drag,
+}: {
+  column: StepColumn;
+  trace?: TraceView;
+  mode: ColumnMode;
+  hidden: boolean;
+  disabled: boolean;
+  first: boolean;
+  last: boolean;
+  dragging: boolean;
+  onDescribe: (text: string) => void;
+  onKind: (kind: "text" | "ids") => void;
+  onPattern: () => void;
+  onCoverage: () => void;
+  onMode: (m: ColumnMode) => void;
+  onHidden: (h: boolean) => void;
+  onMove: (by: number) => void;
+  onRemove?: () => void;
+  drag: Pick<React.HTMLAttributes<HTMLLIElement>, "draggable" | "onDragStart" | "onDragOver" | "onDrop" | "onDragEnd">;
+}) {
+  const c = column;
+  const [text, setText] = useState(c.description);
+  useEffect(() => setText(c.description), [c.description]);
+  const tag = columnTag(c);
+  const foldable = c.name !== "Action" && c.name !== "Expected Result";
+  const id = `col-${c.name.replace(/\W+/g, "-")}`;
+  return (
+    <li className={cx("colrow", dragging && "is-dragging", c.status !== "ok" && "is-attention")} {...drag}>
+      <div className="colrow-head">
+        <span className="grip" aria-hidden="true">
+          <Icon name="grip" />
+        </span>
+        <span className="colrow-name">{c.name}</span>
+        <span className={cx("tagpill", `tagpill-${tag.tone}`)}>{tag.label}</span>
+        <span className="spacer" />
+        {!c.builtin && (
+          <Segmented
+            label={`${c.name}: kind of content`}
+            value={trace ? "ids" : "text"}
+            options={[
+              { value: "text", label: "Free text" },
+              { value: "ids", label: "Id list" },
+            ]}
+            onChange={onKind}
+          />
+        )}
+        <select
+          className="field frow-mode"
+          aria-label={`${c.name} folding`}
+          value={mode}
+          disabled={!foldable || disabled}
+          title={foldable ? "How it shows on a step" : `${c.name} is always open`}
+          onChange={(e) => onMode(e.target.value as ColumnMode)}
+        >
+          {MODES.map((m) => (
+            <option key={m.value} value={m.value} title={m.title}>
+              {m.label}
+            </option>
+          ))}
+        </select>
+        <label className="frow-check" title="Hidden in this project unless a step holds text in it">
+          <input
+            type="checkbox"
+            checked={hidden}
+            disabled={disabled}
+            aria-label={`${c.name} hidden`}
+            onChange={(e) => onHidden(e.target.checked)}
+          />
+          Hidden
+        </label>
+        <span className="frow-move">
+          <IconButton icon="up" label={`Move ${c.name} up`} disabled={first} onClick={() => onMove(-1)} />
+          <IconButton icon="down" label={`Move ${c.name} down`} disabled={last} onClick={() => onMove(1)} />
+          {onRemove && <IconButton icon="trash" label={`Remove the column ${c.name}`} onClick={onRemove} />}
+        </span>
+      </div>
+      <label htmlFor={id} className="sr">
+        What Claude writes in {c.name}
+      </label>
+      <textarea
+        id={id}
+        className="field colrow-desc"
+        rows={2}
+        placeholder="Empty: Claude leaves this column empty"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={() => text.trim() !== c.description && onDescribe(text)}
+      />
+      {trace && (
+        <div className="colrow-ids">
+          <span className="mono muted colrow-pat">{trace.patterns.join("  |  ")}</span>
+          <span>
+            {plural(trace.found, "id")} in {plural(trace.docs, "document")}
+          </span>
+          <button type="button" className="linkbtn" onClick={onPattern}>
+            Change the pattern…
+          </button>
+          <button type="button" className="linkbtn" onClick={onCoverage}>
+            Coverage
+          </button>
+        </div>
+      )}
+      {c.status === "new" && (
+        <p className="colrow-note">New in Xray: describe it, or leave it empty and Claude never fills it.</p>
+      )}
+      {c.status === "gone" && (
+        <p className="colrow-note">
+          No longer in Xray: what the tests hold in it stays in test.md, as a local column. Remove it once you no longer
+          need it.
+        </p>
+      )}
+    </li>
+  );
+}

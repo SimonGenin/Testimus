@@ -1,14 +1,16 @@
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { Ctx } from "../command.ts";
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
 import { loadCorpus, runMechanical } from "../lib/check.ts";
+import { columnGuidance } from "../lib/columns.ts";
 import { fieldOrder, readProject, readXray, writeJson } from "../lib/project.ts";
 import { readTest, testExists, writeTest } from "../lib/store.ts";
 import type { ClaudeEvent, Diagnosis, Effort, Tokens } from "../types.ts";
 import { checkTests, promoteChecked } from "./check.ts";
 import { ledgerOf } from "./ledger.ts";
-import { contextDir, readContexts } from "./prompt.ts";
+import { contextLines, readContexts } from "./prompt.ts";
 import { runClaude } from "./run.ts";
 import { markLeft, readRun } from "./snapshot.ts";
 
@@ -31,10 +33,13 @@ export type GenInput = {
   request: string;
   requirements?: string[];
   sections?: string[];
+  docs?: string[];
   folder?: string;
   model?: string;
   effort?: Effort;
   check?: boolean;
+  contexts?: string[];
+  note?: string;
 };
 
 export type Uncovered = { item: string; why: string };
@@ -64,15 +69,17 @@ export type GenResult = {
   diagnosis?: Diagnosis;
 };
 
-const slash = (p: string) => p.replace(/\\/g, "/");
 const clean = (xs: string[] | undefined) => [...new Set((xs ?? []).map((x) => x.trim()).filter(Boolean))];
 
-export function checkGenInput(i: GenInput): void {
-  if (!i.request.trim() && !clean(i.requirements).length && !clean(i.sections).length)
+export function checkGenInput(i: GenInput, project?: string): void {
+  if (!i.request.trim() && !clean(i.requirements).length && !clean(i.sections).length && !clean(i.docs).length)
     throw new UserError(
-      "Nothing to generate: the request, the requirements and the sections are all empty.",
-      "Describe the feature in words, or give requirement ids or document sections (DOC#§5.6.6).",
+      "Nothing to generate: the request, the requirements, the documents and the sections are all empty.",
+      "Describe the feature in words, or give documents, requirement ids or document sections (DOC#§5.6.6).",
     );
+  const missing = project ? clean(i.docs).filter((d) => !existsSync(join(project, "docs", d, "doc.md"))) : [];
+  if (missing.length)
+    throw new UserError(`No document ${missing.join(", ")} in this project.`, "testimus docs list shows them.");
   const bad = clean(i.sections).filter((s) => !/^[^#\s]+#\S.*$/.test(s));
   if (bad.length)
     throw new UserError(
@@ -85,15 +92,21 @@ export function genPrompt(project: string, i: GenInput, contextIds: string[] = [
   const p = readProject(project);
   const reqs = clean(i.requirements);
   const sections = clean(i.sections);
+  const docs = clean(i.docs);
   const lines = [
     `${GEN_MARKER} to write Xray manual tests for the request below, in this project folder.`,
     "",
-    `Request: ${i.request.trim() || "(none in words — cover the requirements and sections below)"}`,
+    `Request: ${i.request.trim() || "(none in words — cover the documents, requirements and sections below)"}`,
   ];
   if (reqs.length)
     lines.push(`Requirements to cover, each by at least one step (read each one first): ${reqs.join(", ")}`);
+  if (docs.length)
+    lines.push(
+      `Documents in scope, each in full (${i.request.trim() ? "find in them what the request is about" : "cover the behaviors they specify"}): ${docs.join(", ")}`,
+    );
   if (sections.length)
     lines.push(`Document sections in scope (read each with rag_passage and in doc.md): ${sections.join(", ")}`);
+  lines.push(...columnGuidance(project, docs.length || sections.length ? { docs, sections } : undefined), "");
   lines.push(
     i.folder?.trim()
       ? `Target Xray folder: ${i.folder.trim()}`
@@ -103,18 +116,7 @@ export function genPrompt(project: string, i: GenInput, contextIds: string[] = [
     "Write only new tests: one folder tests/local-<8 hex>/test.md per test (tests_create allocates it), with review: draft.",
     "Never modify, rename or delete an existing test. Never call a tool that writes to Jira.",
   );
-  const contexts = readContexts(project, contextIds);
-  if (contexts.length) {
-    lines.push("", "Context to read before you start (reference material, do not edit it):");
-    for (const c of contexts) {
-      const dir = slash(contextDir(project, c.id));
-      const parts: string[] = [];
-      if (c.text.trim()) parts.push(`notes: ${dir}/notes.md`);
-      if (c.files.length) parts.push(`files: ${c.files.map((f) => `${dir}/files/${f}`).join(", ")}`);
-      if (c.paths.length) parts.push(`also look at: ${c.paths.join(", ")}`);
-      lines.push(`- ${c.name}${parts.length ? ` — ${parts.join("; ")}` : ""}`);
-    }
-  }
+  lines.push(...contextLines(project, readContexts(project, contextIds), i.note));
   lines.push(
     "",
     `When you finish, end your reply with the report block of the skill (section 4), exactly this shape:`,
@@ -203,9 +205,9 @@ export function stampTest(project: string, id: string, generatedBy: string, fold
 }
 
 export async function generateTests(project: string, input: GenInput, ctx: Ctx): Promise<GenResult> {
-  checkGenInput(input);
+  checkGenInput(input, project);
   const p = readProject(project);
-  const contexts = p.claude.contexts;
+  const contexts = input.contexts ?? p.claude.contexts;
   ctx.progress({ message: "Reading passages" });
   let reads = 0;
   const written: string[] = [];

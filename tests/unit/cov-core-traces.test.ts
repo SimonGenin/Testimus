@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parseProposal, proposeTrace, tracePrompt } from "../../src/core/claude/traces.ts";
 import { invoke } from "../../src/core/commands/index.ts";
 import { type ClaudeOut, env } from "../../src/core/env.ts";
+import { columnGuidance } from "../../src/core/lib/columns.ts";
 import { DEFAULT_SETTINGS, readProject, writeSettings, writeXray } from "../../src/core/lib/project.ts";
 import {
   checkTrace,
@@ -15,7 +16,6 @@ import {
   removeTrace,
   saveTrace,
   scanTrace,
-  traceGuidance,
   traceViews,
 } from "../../src/core/lib/traces.ts";
 import { REQ_PATTERN } from "../../src/core/rag/convert.ts";
@@ -211,9 +211,9 @@ describe("saveTrace and removeTrace", () => {
   });
 });
 
-describe("traceGuidance", () => {
-  it("nothing without other traces; a broken pattern gives no examples; picked ids are listed", () => {
-    expect(traceGuidance(dir)).toEqual([]);
+describe("columnGuidance", () => {
+  it("no id lines without traces; a broken pattern gives no examples and no ids; the scope lists its ids", () => {
+    expect(columnGuidance(dir).join("\n")).not.toContain("Ids only");
     project({
       traces: [
         { id: REQUIREMENT, label: "Exigence", patterns: [REQ_PATTERN], field: "Exigence" },
@@ -221,12 +221,13 @@ describe("traceGuidance", () => {
         { id: "uc", label: "Cas", patterns: ["UC-\\d+"], field: "Cas" },
       ],
     });
-    const lines = traceGuidance(dir, [
-      { trace: "alm", ids: ["ALM-1"] },
-      { trace: "other", ids: ["X"] },
-    ]);
-    expect(lines[2]).toMatch(/^- ### Alarme: the Alarme ids .*\(pattern \(\); only ids/);
-    expect(lines[3]).toBe("  Alarme ids to cover, each by at least one step: ALM-1");
+    write("docs/D/doc.md", "# D\n\n## 1 Un <!-- § 1 -->\n\nUC-1 et UC-2.\n\n## 2 Deux <!-- § 2 -->\n\nUC-3.\n");
+    const lines = columnGuidance(dir, { docs: [], sections: ["D#§1"] });
+    const alarme = lines.findIndex((l) => l.startsWith("- ### Alarme:"));
+    expect(lines[alarme + 1]).toMatch(/^ {2}Ids only as the documents write them \(pattern \(\); leave/);
+    expect(lines[alarme + 2] ?? "").not.toMatch(/Alarme ids written/);
+    expect(lines.join("\n")).toContain("Cas ids written in the scope, each to be verified");
+    expect(lines.join("\n")).toMatch(/cannot cover\): UC-1, UC-2$/m);
   });
 });
 

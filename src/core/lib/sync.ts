@@ -3,6 +3,7 @@ import { isAbsolute, join, relative, resolve } from "node:path";
 import { UserError } from "../command.ts";
 import { gate } from "../env.ts";
 import type { ProjectInfo, PushPlanView, Step, Test, XrayJson } from "../types.ts";
+import { followXray } from "./columns.ts";
 import { sha256 } from "./hash.ts";
 import {
   byId,
@@ -81,7 +82,7 @@ export async function freshXray(project: string): Promise<XrayJson> {
   const x = readXray(project);
   try {
     const fields = await getStepFields((await projectInfo(project)).id);
-    const next = { ...x, fields, fetchedAt: new Date().toISOString() };
+    const next = { ...followXray(project, x, fields), fetchedAt: new Date().toISOString() };
     writeXray(project, next);
     return next;
   } catch {

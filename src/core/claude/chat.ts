@@ -5,7 +5,7 @@ import { UserError } from "../command.ts";
 import { env } from "../env.ts";
 import { readJson, readProject, writeJson } from "../lib/project.ts";
 import type { ChatSession, ClaudeEvent, Diagnosis, Effort, Source, Tokens } from "../types.ts";
-import { chatPrompt } from "./prompt.ts";
+import { chatPrompt, contextLines, readContexts } from "./prompt.ts";
 import { runClaude } from "./run.ts";
 
 const chatsDir = (project: string) => join(project, ".testimus", "chats");
@@ -50,6 +50,8 @@ export type AskOpts = {
   chatId?: string;
   model?: string;
   effort?: Effort;
+  contexts?: string[];
+  note?: string;
   signal?: AbortSignal;
   onEvent?(e: ClaudeEvent): void;
 };
@@ -77,13 +79,15 @@ export async function ask(o: AskOpts): Promise<AskResult> {
         updatedAt: now(),
       };
   chat.turns.push({ role: "user", text: o.question.trim(), at: now() });
+  const context = contextLines(o.project, readContexts(o.project, o.contexts ?? []), o.note);
   const run = (resume?: string) =>
     runClaude({
       project: o.project,
-      prompt: chatPrompt(o.question, p.language),
+      prompt: chatPrompt(o.question, p.language, context),
       model: o.model || p.claude.model,
       effort: o.effort || p.claude.effort,
       kind: "chat",
+      contexts: o.contexts,
       resume,
       signal: o.signal,
       onEvent: o.onEvent,

@@ -7,16 +7,14 @@ import { useSideWidth } from "../../lib/sideWidth.ts";
 import { AccessSection } from "./AccessSection.tsx";
 import { AppearanceSection } from "./AppearanceSection.tsx";
 import { ClaudeSection } from "./ClaudeSection.tsx";
-import { FieldsSection } from "./FieldsSection.tsx";
+import { ColumnsSection } from "./ColumnsSection.tsx";
 import { ModelsSection } from "./ModelsSection.tsx";
 import { ProjectSection } from "./ProjectSection.tsx";
 import { SearchSection } from "./SearchSection.tsx";
-import { TracesSection } from "./TracesSection.tsx";
 
 const SECTIONS = [
   { id: "project", label: "Project" },
-  { id: "fields", label: "Step fields" },
-  { id: "traces", label: "Tracked ids" },
+  { id: "columns", label: "Step columns" },
   { id: "claude", label: "Claude" },
   { id: "search", label: "Search" },
   { id: "models", label: "Models" },
@@ -62,8 +60,7 @@ export function SettingsScreen() {
             <p className="muted">Open a project to change its settings: Access and Appearance work without one.</p>
           )}
           <ProjectSection />
-          <FieldsSection />
-          <TracesSection />
+          <ColumnsSection />
           <ClaudeSection />
           <SearchSection />
           <ModelsSection />
