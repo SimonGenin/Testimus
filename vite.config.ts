@@ -1,13 +1,25 @@
 import { readFileSync } from "node:fs";
+import stylex from "@stylexjs/unplugin";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
 const { version } = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8")) as { version: string };
 const API = process.env.TESTIMUS_API_TARGET ?? "http://localhost:4317";
 
-export default defineConfig({
+// ponytail: vitest has no page to refresh, and the plugin's dev server polls its CSS store on an interval that keeps
+// vitest from exiting — under vitest it only compiles
+function styles(dev: boolean) {
+  const plugin = stylex.vite({
+    dev,
+    devMode: process.env.VITEST ? "css-only" : "full",
+    unstable_moduleResolution: { type: "commonJS", rootDir: import.meta.dirname },
+  });
+  return process.env.VITEST ? { ...plugin, configureServer: undefined, transformIndexHtml: undefined } : plugin;
+}
+
+export default defineConfig(({ command }) => ({
   root: "src/ui",
-  plugins: [react()],
+  plugins: [styles(command === "serve"), react()],
   define: { __VERSION__: JSON.stringify(version) },
   build: { outDir: "../../dist/ui", emptyOutDir: true },
   server: {
@@ -32,4 +44,4 @@ export default defineConfig({
       reportOnFailure: true,
     },
   },
-});
+}));

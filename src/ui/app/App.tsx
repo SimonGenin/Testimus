@@ -23,12 +23,13 @@ import { DoctorScreen } from "../screens/doctor/DoctorScreen.tsx";
 import { DocumentsScreen } from "../screens/documents/DocumentsScreen.tsx";
 import { GenerateScreen } from "../screens/generate/GenerateScreen.tsx";
 import { JobsScreen } from "../screens/jobs/JobsScreen.tsx";
+import { KitScreen } from "../screens/kit/KitScreen.tsx";
 import { ReviewScreen } from "../screens/review/ReviewScreen.tsx";
 import { SettingsScreen } from "../screens/settings/SettingsScreen.tsx";
 import { FirstRunScreen } from "../screens/setup/FirstRunScreen.tsx";
 import { TestsScreen } from "../screens/tests/TestsScreen.tsx";
 
-const SCREENS: Screen[] = ["documents", "generate", "tests", "review", "jobs", "settings", "doctor", "setup"];
+const SCREENS: Screen[] = ["documents", "generate", "tests", "review", "jobs", "settings", "doctor", "setup", "kit"];
 
 export function parseRoute(hash: string): { screen: Screen; arg?: string } {
   const [screen, ...rest] = hash.replace(/^#\/?/, "").split("/");
@@ -381,6 +382,8 @@ export function App() {
               <JobsScreen />
             ) : route.screen === "doctor" ? (
               <DoctorScreen />
+            ) : route.screen === "kit" ? (
+              <KitScreen />
             ) : (
               <SettingsScreen />
             )}

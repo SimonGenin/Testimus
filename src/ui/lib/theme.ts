@@ -1,3 +1,6 @@
+import * as stylex from "@stylexjs/stylex";
+import { darkTheme, lightTheme } from "../styles/tokens.stylex.ts";
+
 export type Theme = "system" | "light" | "dark";
 
 export const THEMES: Theme[] = ["system", "light", "dark"];
@@ -10,9 +13,15 @@ export function readTheme(): Theme {
   return "system";
 }
 
+export function themeClass(t: Theme): string {
+  if (t === "system") return "";
+  return stylex.props(t === "dark" ? darkTheme : lightTheme).className ?? "";
+}
+
 export function applyTheme(t: Theme): void {
   if (t === "system") delete document.documentElement.dataset.theme;
   else document.documentElement.dataset.theme = t;
+  document.documentElement.className = themeClass(t);
   try {
     localStorage.setItem("testimus.theme", t);
   } catch {}
