@@ -1,180 +1,43 @@
-import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
-import { basename, extname, join, relative } from "node:path";
+import { join } from "node:path";
 import { z } from "zod";
-import { triage } from "../claude/actions.ts";
-import { describeFigures, shouldDescribeFigures } from "../claude/figures.ts";
-import { docContexts, docRunLines, type JobRun, writeDocContexts } from "../claude/prompt.ts";
-import { checkConversion, sameConversion, studyDoc } from "../claude/study.ts";
-import { type Ctx, command, projectOf, UserError } from "../command.ts";
+import { docContexts, writeDocContexts } from "../claude/prompt.ts";
+import { command, projectOf, UserError } from "../command.ts";
 import { writeAtomic } from "../lib/atomic.ts";
 import { recheckMechanical, testsCiting } from "../lib/check.ts";
 import {
-  addDoc,
-  attachDocx,
-  attachPdf,
-  convertedCopy,
+  amendedBy,
+  contextMtime,
   docDir,
   headingAt,
-  listDocs,
   readContext,
   readDoc,
   readDocMd,
   readFigures,
-  reconvertDoc,
   removeDoc,
   sectionOf,
   tocOf,
-  twinOf,
   writeContext,
   writeDoc,
 } from "../lib/docs.ts";
+import { attachDocx, attachPdf } from "../lib/docs-convert.ts";
+import { docsFreshness } from "../lib/docs-index.ts";
+import {
+  addInputOf,
+  afterConversion,
+  convertSteps,
+  convertWith,
+  copyIn,
+  inspect,
+  nameOf,
+  pairFiles,
+  runOf,
+  withUploads,
+} from "../lib/docs-pipeline.ts";
 import { unindexDoc } from "../rag/indexer.ts";
-import { hintsOf, inspectDocx, inspectPdf } from "../rag/inspect.ts";
 import { renderPage } from "../rag/pdf.ts";
-import type { DocConversion, DocJson } from "../types.ts";
+import type { DocJson } from "../types.ts";
 import { CONTEXT_IDS, EFFORT, MODEL, NOTE } from "./claude.ts";
-
-const AFTER_CONVERT = [
-  { id: "figures", label: "Describe the figures" },
-  { id: "cited", label: "Re-check the tests citing it" },
-  { id: "triage", label: "Look at the conversion problems" },
-];
-
-async function withFigures(ctx: Ctx, doc: DocJson, claude: JobRun, on: boolean | undefined): Promise<DocJson> {
-  const project = projectOf(ctx);
-  if (!(on ?? shouldDescribeFigures(project)) || !doc.converted?.stats?.figures) return doc;
-  ctx.step?.("figures");
-  try {
-    ctx.progress({ message: "Claude describes the figures" });
-    await describeFigures(project, doc.id, ctx, claude);
-  } catch (e) {
-    ctx.log("warn", `Figure descriptions skipped: ${e instanceof Error ? e.message : String(e)}`);
-  }
-  return doc;
-}
-
-// ponytail: the conversion warnings are shown to Claude with the import's own model and effort — it leaves a
-// Claude action for those it can fix; a failed look never fails the import
-async function withTriage(ctx: Ctx, doc: DocJson, claude: JobRun, on: boolean | undefined): Promise<void> {
-  if (!on || !(doc.converted?.warnings ?? []).length) return;
-  ctx.step?.("triage");
-  try {
-    const problems = (doc.converted?.warnings ?? []).map((text) => ({ where: `doc:${doc.id}`, text }));
-    const project = projectOf(ctx);
-    await triage(
-      ctx,
-      project,
-      problems,
-      `the document ${doc.id}`,
-      claude,
-      "import",
-      docRunLines(project, doc.id, claude),
-    );
-  } catch (e) {
-    ctx.log("warn", `Claude did not look at the warnings: ${e instanceof Error ? e.message : String(e)}`);
-  }
-}
-
-// ponytail: the profile Claude studies — of the copies in the document's folder, or of a file not added yet and
-// the other copy saved beside it
-function inspectFiles(files: { docx?: string; pdf?: string }, signal: AbortSignal) {
-  return Promise.all([
-    files.docx ? inspectDocx(readFileSync(files.docx)) : undefined,
-    files.pdf ? inspectPdf(readFileSync(files.pdf), signal) : undefined,
-  ]);
-}
-
-async function inspect(ctx: Ctx, input: { id?: string; file?: string }) {
-  if (!input.id === !input.file) throw new UserError("Give either id or file.");
-  if (input.file) {
-    const ext = extname(input.file).toLowerCase();
-    if (!existsSync(input.file) || (ext !== ".docx" && ext !== ".pdf"))
-      throw new UserError(`Not a .docx or .pdf file: ${input.file}`);
-    const twin = twinOf({ name: input.file, file: "", sha256: "" });
-    const files =
-      ext === ".docx" ? { docx: input.file, pdf: twin ?? undefined } : { pdf: input.file, docx: twin ?? undefined };
-    const [docx, pdf] = await inspectFiles(files, ctx.signal);
-    const converts = files.docx ? "docx" : "pdf";
-    return {
-      files,
-      converts,
-      twin,
-      ...(docx && { docx }),
-      ...(pdf && { pdf }),
-      hints: hintsOf({ docx, pdf, converts }),
-    } as const;
-  }
-  const project = projectOf(ctx);
-  const doc = readDoc(project, input.id!);
-  const dir = docDir(project, doc.id);
-  const at = (f: string) => (existsSync(join(dir, f)) ? join(dir, f) : undefined);
-  const files = { docx: at("source.docx"), pdf: at("source.pdf") };
-  const [docx, pdf] = await inspectFiles(files, ctx.signal);
-  const converts = extname(convertedCopy(project, doc)).toLowerCase() === ".pdf" ? "pdf" : "docx";
-  const other = twinOf(doc.source);
-  const twin = other && !at(`source${extname(other).toLowerCase()}`) ? other : null;
-  return {
-    id: doc.id,
-    files: Object.fromEntries(
-      Object.entries(files)
-        .filter(([, v]) => v)
-        .map(([k, v]) => [k, relative(project, v!).replace(/\\/g, "/")]),
-    ),
-    converts,
-    twin,
-    ...(doc.conversion && { conversion: doc.conversion }),
-    ...(docx && { docx }),
-    ...(pdf && { pdf }),
-    hints: hintsOf({ docx, pdf, twin, converts }),
-  } as const;
-}
-
-function setConversion(project: string, id: string, conversion: DocConversion): DocJson {
-  const { conversion: _, ...doc } = readDoc(project, id);
-  const next: DocJson = Object.keys(conversion).length ? { ...doc, conversion } : doc;
-  writeDoc(project, next);
-  return next;
-}
-
-// ponytail: with study, Claude looks at the original before converting (its choice is kept in doc.json, so every
-// reconversion gives the same result) and compares the result with the pages after; it may ask for one more
-// conversion with other options. A Claude run that fails never fails the conversion.
-async function convertWith(
-  ctx: Ctx,
-  id: string,
-  o: { study?: boolean; conversion?: DocConversion },
-  claude: JobRun,
-): Promise<DocJson> {
-  const project = projectOf(ctx);
-  const progress = (message: string) => ctx.progress({ message });
-  const hasPdf = () => existsSync(join(docDir(project, id), "source.pdf"));
-  if (o.conversion) setConversion(project, id, o.conversion);
-  else if (o.study && hasPdf())
-    try {
-      const doc = readDoc(project, id);
-      const r = await studyDoc(ctx, project, doc, await inspect(ctx, { id }), claude);
-      if (r.conversion) setConversion(project, id, r.conversion);
-      else ctx.log("warn", `Claude's study of ${id} gave no options: ${r.summary.slice(0, 300)}`);
-    } catch (e) {
-      ctx.log("warn", `Claude did not study ${id}: ${e instanceof Error ? e.message : String(e)}`);
-    }
-  else if (o.study) ctx.log("info", `${id} has no PDF to look at: Claude's study and check are skipped.`);
-  let doc = await reconvertDoc(project, id, ctx.signal, progress);
-  if (!o.study || !hasPdf()) return doc;
-  try {
-    const r = await checkConversion(ctx, project, doc, claude);
-    if (r.conversion && !sameConversion(r.conversion, doc.conversion)) {
-      setConversion(project, id, r.conversion);
-      progress("Converting again with the options Claude chose");
-      doc = await reconvertDoc(project, id, ctx.signal, progress);
-    } else if (r.conversion?.notes && r.conversion.notes !== doc.conversion?.notes)
-      doc = setConversion(project, id, { ...doc.conversion, notes: r.conversion.notes });
-  } catch (e) {
-    ctx.log("warn", `Claude did not check ${id}: ${e instanceof Error ? e.message : String(e)}`);
-  }
-  return doc;
-}
 
 const kind = z.enum(["spec", "minutes", "other"]);
 const status = z.enum(["draft", "submitted", "validated"]);
@@ -272,37 +135,44 @@ const docxProfile = z
   })
   .describe("Profile of the .docx copy");
 
+const copy = z.object({
+  file: z.string().describe("The copy in the document folder: source.docx or source.pdf"),
+  sha256: z.string().describe("sha256 of the copy, to tell a changed original"),
+});
+
 const docJson = z.object({
-  id: z.string(),
-  code: z.string(),
-  title: z.string(),
-  version: z.string(),
-  date: z.string(),
-  kind,
-  status,
-  amends: z.array(z.string()).optional(),
+  id: z.string().describe("Document id: its folder under docs/"),
+  code: z.string().describe("The document's code, read from the file name (e.g. SOSIE_211_D401-1_3)"),
+  title: z.string().describe("Title: read by the first conversion, or typed by the team"),
+  version: z.string().describe("Version, e.g. 01.01"),
+  date: z.string().describe("Date of the document, YYYY-MM-DD, or empty"),
+  kind: kind.describe("What the document is: spec, minutes or other"),
+  status: status.describe("Where the team is with it: draft, submitted or validated"),
+  amends: z.array(z.string()).optional().describe("Ids of the documents this one amends"),
   contexts: z
     .array(z.string())
     .optional()
     .describe("Saved contexts Claude reads with this document (absent: the project's defaults)"),
-  source: z
-    .object({
+  source: copy
+    .extend({
       name: z.string().describe("Where the original came from: its path on this PC, or the uploaded file's name"),
-      file: z.string().describe("The copy in the document folder: source.docx or source.pdf"),
-      sha256: z.string(),
       uploaded: z.boolean().optional().describe("Sent from the page rather than read from a path"),
     })
     .describe("The original that is converted"),
-  twin: z
-    .object({ file: z.string(), sha256: z.string() })
-    .optional()
-    .describe("The other original kept beside it (the .pdf of a .docx, or the reverse)"),
+  twin: copy.optional().describe("The other original kept beside it (the .pdf of a .docx, or the reverse)"),
   converted: z
     .object({
       with: z.string().describe("The converter and its version"),
-      at: z.string().describe("When"),
+      at: z.string().describe("When, ISO time"),
       warnings: z.array(z.string()).describe("What the conversion could not keep"),
-      stats: z.object({ sections: z.number(), figures: z.number(), chars: z.number() }).optional(),
+      stats: z
+        .object({
+          sections: z.number().describe("Sections anchored in doc.md"),
+          figures: z.number().describe("Figures with a picture"),
+          chars: z.number().describe("Length of doc.md"),
+        })
+        .optional()
+        .describe("What doc.md holds"),
     })
     .optional()
     .describe("What the last conversion found; absent until the first one"),
@@ -328,31 +198,35 @@ const model = MODEL.optional().describe(
   "Claude model for the figure descriptions (default: project.json claude.model)",
 );
 const effort = EFFORT.optional().describe("Claude effort for the figure descriptions (default: low)");
-const triageOn = z
-  .boolean()
-  .optional()
-  .describe("Then have Claude look at the conversion warnings and propose a Claude action for those it can fix");
-const figuresOn = z
-  .boolean()
-  .optional()
-  .describe(
-    "Have Claude describe the figures not described yet, after the conversion (default: project.json rag.describeFigures, on)",
-  );
-const studyOn = z
-  .boolean()
-  .optional()
-  .describe(
-    "Claude studies the original first (docs.inspect, page images) and chooses how it is converted, then compares doc.md with the pages and may convert once more or propose Claude actions; needs a PDF copy. Replaces triage",
-  );
 const contexts = CONTEXT_IDS.optional().describe(
   "Saved contexts Claude reads for this conversion only, on top of the document's own (docs.set contexts)",
 );
-const runOf = (i: { model?: string; effort?: JobRun["effort"]; note?: string; contexts?: string[] }): JobRun => ({
-  model: i.model,
-  effort: i.effort,
-  note: i.note,
-  contexts: i.contexts,
-});
+const after = {
+  describeFigures: z
+    .boolean()
+    .optional()
+    .describe(
+      "Have Claude describe the figures not described yet, after the conversion (default: project.json rag.describeFigures, on)",
+    ),
+  triage: z
+    .boolean()
+    .optional()
+    .describe(
+      "Then have Claude look at the conversion warnings and propose a Claude action for those it can fix; skipped when Claude is not installed on this PC",
+    ),
+  study: z
+    .boolean()
+    .optional()
+    .describe(
+      "Claude studies the original first (docs.inspect, page images) and chooses how it is converted, then compares doc.md with the pages and may convert once more or propose Claude actions; needs a PDF copy. Replaces triage",
+    ),
+  index: z
+    .boolean()
+    .optional()
+    .describe(
+      "Then update the search index in the same job, once the other conversions running in this project are done (a failed index run keeps the conversion)",
+    ),
+};
 const citedBy = z
   .array(
     z.object({
@@ -364,22 +238,21 @@ const citedBy = z
     }),
   )
   .describe("Tests whose sources cite this document; their mechanical check is redone against the new text");
-
-// ponytail: a test whose document changed did not change itself, so its check.json would stay « fresh » —
-// the tests that cite the document are re-checked whenever its text appears, changes or goes
-function recheckCiting(ctx: Ctx, doc: DocJson): z.input<typeof citedBy> {
-  const project = projectOf(ctx);
-  const cited = testsCiting(project, doc);
-  if (!cited.length) return cited;
-  ctx.progress({
-    message: `Re-checking the ${cited.length === 1 ? "test" : `${cited.length} tests`} citing ${doc.code}`,
-  });
-  recheckMechanical(
-    project,
-    cited.map((t) => t.id),
-  );
-  return cited;
-}
+const converted = docJson.extend({
+  citedBy,
+  index: z
+    .object({
+      chunks: z.number().optional().describe("Passages in the index after the run"),
+      degraded: z.string().optional().describe("Why no vectors were built (no embedding model on this PC)"),
+      error: z.string().optional().describe("Why the index run failed; the conversion is kept"),
+    })
+    .optional()
+    .describe("With index: what the index run that followed the conversion did"),
+});
+const mtime = z
+  .number()
+  .nullable()
+  .describe("Modification time of context.md in ms (null: no context.md yet), to notice a change made on disk");
 
 export const commands = [
   command({
@@ -411,73 +284,106 @@ export const commands = [
       effort,
       note: NOTE,
       contexts,
-      describeFigures: figuresOn,
-      triage: triageOn,
-      study: studyOn,
+      ...after,
       conversion: conversion.optional(),
     }),
-    output: docJson.extend({ citedBy }),
+    output: converted,
     mutates: true,
     job: "docs.add",
     positional: ["file"],
     subject: (i) => i.file ?? i.name ?? "upload",
-    async run(ctx, input) {
-      const project = projectOf(ctx);
-      const up = join(project, ".testimus", "uploads", randomBytes(4).toString("hex"));
-      const save = (name: string | undefined, b64: string) => {
-        mkdirSync(up, { recursive: true });
-        const path = join(up, basename(name || "document.docx"));
-        writeAtomic(path, Buffer.from(b64, "base64"));
-        return path;
-      };
-      const file = input.dataBase64 ? save(input.name, input.dataBase64) : input.file;
-      if (!file) throw new UserError("No document given.", "Give --file <path>, or name + dataBase64.");
-      const pdf = input.pdfBase64 ? save(input.pdfName ?? "rendering.pdf", input.pdfBase64) : input.pdf;
-      try {
+    run: (ctx, input) =>
+      withUploads(projectOf(ctx), async (save) => {
+        const project = projectOf(ctx);
         const studied = input.convert && (input.study || !!input.conversion);
         ctx.steps?.(
           input.convert
-            ? [
-                ...(studied ? [{ id: "copy", label: "Copy the original" }] : []),
-                { id: "convert", label: studied ? "Study and convert" : "Copy and convert" },
-                ...AFTER_CONVERT,
-              ]
+            ? convertSteps(
+                [
+                  ...(studied ? [{ id: "copy", label: "Copy the original" }] : []),
+                  { id: "convert", label: studied ? "Study and convert" : "Copy and convert" },
+                ],
+                input,
+              )
             : [{ id: "copy", label: "Copy the original" }],
         );
         ctx.step?.(studied || !input.convert ? "copy" : "convert");
-        const added = await addDoc(
-          project,
-          { file, pdf, id: input.id, kind: input.kind, convert: input.convert && !studied },
-          ctx.signal,
-          (message) => ctx.progress({ message }),
-        );
-        let doc = input.dataBase64
-          ? { ...added, source: { ...added.source, name: basename(input.name || "document.docx"), uploaded: true } }
-          : added;
-        if (doc !== added) writeDoc(project, doc);
+        let doc = await copyIn(ctx, project, save, input, input.convert && !studied);
         if (!input.convert) return { ...doc, citedBy: [] };
         if (studied)
           try {
             ctx.step?.("convert");
-            doc = await convertWith(ctx, doc.id, input, runOf(input));
+            doc = await convertWith(ctx, project, doc.id, input, runOf(input));
           } catch (e) {
             rmSync(docDir(project, doc.id), { recursive: true, force: true });
             throw e;
           }
-        await withFigures(ctx, doc, runOf(input), input.describeFigures);
-        ctx.step?.("cited");
-        const citing = recheckCiting(ctx, doc);
-        if (!input.study) await withTriage(ctx, doc, runOf(input), input.triage);
-        return { ...doc, citedBy: citing };
-      } finally {
-        rmSync(up, { recursive: true, force: true });
-      }
-    },
+        return { ...doc, ...(await afterConversion(ctx, project, doc, runOf(input), input)) };
+      }),
+  }),
+  command({
+    name: "docs.addFiles",
+    summary:
+      "Add the documents among files dropped or picked together: a .docx and the .pdf of the same name become one document (the .pdf lends its pictures), a .pdf alone is one; each is only copied (docs.convert converts it), other files are refused.",
+    input: z.object({
+      files: z
+        .array(
+          z.object({
+            path: z.string().optional().describe("Path of the file on this PC (the desktop app, the CLI)"),
+            name: z.string().optional().describe("File name, with dataBase64 (a file sent from the page)"),
+            dataBase64: z.string().optional().describe("Content of a file sent from the page, base64"),
+          }),
+        )
+        .min(1)
+        .describe("The files, each by path or by name and content"),
+      kind: kind.optional().describe("What the documents are (default spec)"),
+    }),
+    output: z.object({
+      added: z.array(docJson).describe("The documents added, in the order of the files"),
+      rejected: z
+        .array(
+          z.object({
+            name: z.string().describe("The file's name"),
+            why: z.string().describe("Why it was not added"),
+            code: z
+              .enum(["not-a-document", "failed"])
+              .describe("not-a-document: neither a .docx nor a .pdf; failed: the copy was refused (see why)"),
+          }),
+        )
+        .describe("The files not added: not a .docx or .pdf, unreadable, or already in the project"),
+    }),
+    mutates: true,
+    job: "docs.add",
+    subject: (i) => (i.files.length === 1 ? nameOf(i.files[0]) || "upload" : `${i.files.length} files`),
+    run: (ctx, input) =>
+      withUploads(projectOf(ctx), async (save) => {
+        const project = projectOf(ctx);
+        const { docs, rejected } = pairFiles(input.files);
+        const out = {
+          added: [] as DocJson[],
+          rejected: rejected.map((f) => ({
+            name: nameOf(f),
+            why: "Only Word (.docx) and PDF files can be added.",
+            code: "not-a-document" as "not-a-document" | "failed",
+          })),
+        };
+        for (const [i, d] of docs.entries()) {
+          ctx.progress({ message: `Adding ${nameOf(d.main)}`, done: i, total: docs.length });
+          try {
+            out.added.push(await copyIn(ctx, project, save, { ...addInputOf(d), kind: input.kind }, false));
+          } catch (e) {
+            if (ctx.signal.aborted) throw e;
+            const why = e instanceof Error ? e.message : String(e);
+            out.rejected.push({ name: nameOf(d.main), why, code: "failed" });
+          }
+        }
+        return out;
+      }),
   }),
   command({
     name: "docs.convert",
     summary:
-      "Convert a document from its copied source (the first time for one added without conversion); team fields and figure descriptions are kept.",
+      "Convert a document from its copied source (the first time for one added without conversion); team fields and figure descriptions are kept; with index, the search index follows in the same job.",
     input: z.object({
       id,
       pdf: z
@@ -496,14 +402,12 @@ export const commands = [
         .describe(
           "Path of the .docx of a document added from its .pdf, copied beside it first: it becomes the source, the .pdf lends its pictures",
         ),
-      describeFigures: figuresOn,
-      triage: triageOn,
-      study: studyOn,
+      ...after,
       conversion: conversion
         .optional()
         .describe("Convert with these options, kept in doc.json for every later reconversion; {} clears them"),
     }),
-    output: docJson.extend({ citedBy }),
+    output: converted,
     mutates: true,
     job: "docs.convert",
     positional: ["id"],
@@ -512,18 +416,12 @@ export const commands = [
       const project = projectOf(ctx);
       if (input.pdf) attachPdf(project, input.id, input.pdf);
       if (input.docx) attachDocx(project, input.id, input.docx);
-      ctx.steps?.([{ id: "convert", label: input.study ? "Study and convert" : "Convert to text" }, ...AFTER_CONVERT]);
-      ctx.step?.("convert");
-      const doc = await withFigures(
-        ctx,
-        await convertWith(ctx, input.id, input, runOf(input)),
-        runOf(input),
-        input.describeFigures,
+      ctx.steps?.(
+        convertSteps([{ id: "convert", label: input.study ? "Study and convert" : "Convert to text" }], input),
       );
-      ctx.step?.("cited");
-      const citing = recheckCiting(ctx, doc);
-      if (!input.study) await withTriage(ctx, doc, runOf(input), input.triage);
-      return { ...doc, citedBy: citing };
+      ctx.step?.("convert");
+      const doc = await convertWith(ctx, project, input.id, input, runOf(input));
+      return { ...doc, ...(await afterConversion(ctx, project, doc, runOf(input), input)) };
     },
   }),
   command({
@@ -555,9 +453,11 @@ export const commands = [
       pdf: pdfProfile.optional(),
       hints: z.array(z.string()).describe("What the profile means for the conversion, one fact per line"),
     }),
+    // ponytail: not a job although it reads a whole PDF — a study run (read-only tools) calls it, and read-only
+    // excludes jobs (claude/run.ts)
     mutates: false,
     positional: ["id"],
-    run: (ctx, input) => inspect(ctx, input),
+    run: (ctx, input) => inspect(ctx.project, input, ctx.signal),
   }),
   command({
     name: "docs.page",
@@ -579,6 +479,8 @@ export const commands = [
       width: z.number().describe("Width in pixels"),
       height: z.number().describe("Height in pixels"),
     }),
+    // ponytail: .testimus/pages/ is a cache, like the index — drawing a page changes nothing the project says, and a
+    // study run (read-only tools) must be able to look at the pages
     mutates: false,
     positional: ["id", "page"],
     async run(ctx, input) {
@@ -600,7 +502,7 @@ export const commands = [
       try {
         out = await renderPage(readFileSync(pdf), input.page, r as [number, number, number, number] | undefined);
       } catch (e) {
-        if (e instanceof RangeError) throw new UserError(e.message);
+        if (e instanceof RangeError) throw new UserError(e.message, "Give a page number the PDF has.");
         throw e;
       }
       const name = r ? `p${input.page}-${r.map((v) => Math.round(v * 100)).join("-")}.png` : `p${input.page}.png`;
@@ -614,10 +516,18 @@ export const commands = [
     name: "docs.list",
     summary: "List the project's documents with their status and index freshness.",
     input: z.object({ status: status.optional().describe("Only the documents with this status") }),
-    output: z.array(docJson.extend({ indexed: z.enum(["fresh", "stale", "missing"]) })),
+    output: z.array(
+      docJson.extend({
+        indexed: z
+          .enum(["fresh", "stale", "missing"])
+          .describe(
+            "Index state: missing until an index run read it; stale when its text changed since, or the active model's vectors are incomplete; fresh otherwise (the rule of rag.status)",
+          ),
+      }),
+    ),
     mutates: false,
     async run(ctx, input) {
-      const all = listDocs(projectOf(ctx));
+      const all = await docsFreshness(projectOf(ctx));
       return input.status ? all.filter((d) => d.status === input.status) : all;
     },
   }),
@@ -640,12 +550,21 @@ export const commands = [
     output: z.object({
       doc: docJson,
       context: z.string().describe("What the team says about this document (context.md)"),
+      contextMtime: mtime,
       contexts: z
         .array(z.string())
         .describe("Saved contexts Claude reads with this document: its own list, else the project's defaults"),
-      toc: z.array(z.object({ anchor: z.string(), title: z.string(), level: z.number() })),
-      figures: z.array(figure),
-      md: z.string(),
+      toc: z
+        .array(
+          z.object({
+            anchor: z.string().describe("Section anchor, §N"),
+            title: z.string().describe("Heading title, without its number"),
+            level: z.number().describe("Depth, 1 for a chapter"),
+          }),
+        )
+        .describe("The sections of doc.md, in order"),
+      figures: z.array(figure).describe("The figures with a picture (figures.json)"),
+      md: z.string().describe("doc.md, or the asked part of it; empty with brief"),
       section: z
         .string()
         .optional()
@@ -672,6 +591,7 @@ export const commands = [
       return {
         doc,
         context: readContext(project, input.id),
+        contextMtime: contextMtime(project, input.id),
         contexts: docContexts(project, input.id),
         toc: tocOf(full),
         figures: readFigures(project, input.id),
@@ -692,11 +612,18 @@ export const commands = [
       date: z.string().optional().describe("Document date, YYYY-MM-DD"),
       kind: kind.optional().describe("spec, minutes or other"),
       context: z.string().optional().describe("What the team says about this document; replaces context.md"),
+      ifMtime: z
+        .number()
+        .nullable()
+        .optional()
+        .describe(
+          "With context: the contextMtime docs.show gave; the save is refused (code conflict) when context.md changed on disk since",
+        ),
       contexts: CONTEXT_IDS.optional().describe(
         "Saved contexts Claude reads with this document, every time (doc.json contexts); replaces the list, [] = none",
       ),
     }),
-    output: docJson,
+    output: docJson.extend({ contextMtime: mtime }),
     mutates: true,
     positional: ["id"],
     async run(ctx, input) {
@@ -704,9 +631,20 @@ export const commands = [
       const doc: DocJson = readDoc(project, input.id);
       for (const other of input.amends ?? [])
         if (other) {
-          if (other === input.id) throw new UserError("A document cannot refer to itself.");
+          if (other === input.id)
+            throw new UserError("A document cannot refer to itself.", "Give the ids of the documents it amends.");
           readDoc(project, other);
         }
+      if (
+        input.context !== undefined &&
+        input.ifMtime !== undefined &&
+        contextMtime(project, input.id) !== input.ifMtime
+      )
+        throw new UserError(
+          `The context of ${input.id} changed on disk since it was read.`,
+          "Read it again (docs.show), then save.",
+          "conflict",
+        );
       if (input.status) doc.status = input.status;
       if (input.title !== undefined) doc.title = input.title;
       if (input.version !== undefined) doc.version = input.version;
@@ -719,7 +657,7 @@ export const commands = [
       writeDoc(project, doc);
       if (input.context !== undefined) writeContext(project, input.id, input.context);
       if (input.contexts) writeDocContexts(project, input.id, input.contexts);
-      return doc;
+      return { ...readDoc(project, input.id), contextMtime: contextMtime(project, input.id) };
     },
   }),
   command({
@@ -747,12 +685,8 @@ export const commands = [
       const doc = readDoc(project, input.id);
       const folder = docDir(project, input.id);
       const cited = testsCiting(project, doc);
-      if (input.dryRun) {
-        const unlinked = listDocs(project)
-          .filter((d) => d.amends?.includes(input.id))
-          .map((d) => d.id);
-        return { removed: input.id, folder, unlinked, citedBy: cited, dryRun: true };
-      }
+      if (input.dryRun)
+        return { removed: input.id, folder, unlinked: amendedBy(project, input.id), citedBy: cited, dryRun: true };
       const unlinked = removeDoc(project, input.id);
       unindexDoc(project, input.id);
       if (cited.length)

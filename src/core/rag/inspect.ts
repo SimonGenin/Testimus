@@ -3,8 +3,8 @@ import { readZip } from "../lib/zip.ts";
 import { CAPTION_RE } from "./convert.ts";
 import { chain, docxStyles } from "./convert-docx.ts";
 import { cleanSpaces } from "./convert-html.ts";
-import { NUMBER_RE, outlineEntries, readRuns, TOC_RE } from "./convert-pdf-tags.ts";
-import { openPdf } from "./pdf.ts";
+import { withPdf } from "./pdf.ts";
+import { NUMBER_RE, outlineEntries, readRuns, TOC_RE } from "./pdf-tags-read.ts";
 
 export type CaptionStyle = { style: string; count: number; sample: string; figure: boolean };
 
@@ -76,9 +76,7 @@ async function pictureCount(page: PDFPageProxy): Promise<number> {
 }
 
 export async function inspectPdf(buf: Uint8Array, signal?: AbortSignal): Promise<PdfProfile> {
-  const loading = openPdf(buf);
-  const doc = await loading.promise;
-  try {
+  return withPdf(buf, async (doc) => {
     const info = (await doc.getMetadata()).info as { Producer?: string; Creator?: string; Title?: string };
     const outline = outlineEntries((await doc.getOutline()) as { title: string; items: unknown[] }[] | null);
     const p: PdfProfile = {
@@ -171,9 +169,7 @@ export async function inspectPdf(buf: Uint8Array, signal?: AbortSignal): Promise
     }
     p.captions = captionStyles(lines);
     return p;
-  } finally {
-    await loading.destroy();
-  }
+  });
 }
 
 const count = (xml: string, re: RegExp) => xml.match(re)?.length ?? 0;

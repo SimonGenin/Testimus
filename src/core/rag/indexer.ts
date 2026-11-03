@@ -36,7 +36,7 @@ import { fingerprintOf, spaceOf } from "./fingerprint.ts";
 import { docEdges } from "./graph.ts";
 
 type DocIndexStatus = "indexed" | "unchanged" | "removed";
-type IndexReport = {
+export type IndexReport = {
   embedding: string;
   dims: number;
   vectorsRebuilt: boolean;

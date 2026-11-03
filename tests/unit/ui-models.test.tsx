@@ -62,6 +62,7 @@ const fitOf = (verdict: Fit["verdict"], msg: string, device: Fit["device"] = "gp
 const packs = (): PackRow[] => [
   {
     id: "light",
+    lighter: null,
     label: "Light",
     intent: "Works on any PC.",
     active: true,
@@ -78,6 +79,7 @@ const packs = (): PackRow[] => [
   },
   {
     id: "balanced",
+    lighter: "light",
     label: "Balanced",
     intent: "Better recall with a reranker.",
     active: false,
@@ -93,6 +95,7 @@ const packs = (): PackRow[] => [
   },
   {
     id: "quality",
+    lighter: "balanced",
     label: "Quality",
     intent: "The most complete search.",
     active: false,
@@ -220,7 +223,8 @@ function base(dir: string | null = "D:\\models") {
   routes["rag.status"] = () => ragStatus;
   routes["models.hardware"] = () => hardware;
   routes["jobs.list"] = () => [];
-  routes["models.usePack"] = (i) => ({
+  routes["models.dirs"] = () => ({ dir, runtimesDir: dir && `${dir}\\runtimes` });
+  routes["models.planPack"] = (i) => ({
     pack: i.pack,
     variant: 1,
     embedding: "qwen3-embedding-4b-q4",
@@ -231,9 +235,9 @@ function base(dir: string | null = "D:\\models") {
       reindex: true,
       expected: "not measured on this PC yet",
     },
-    jobIds: i.dryRun ? [] : ["models-usePack-1a2b"],
-    dryRun: !!i.dryRun,
   });
+  routes["models.usePack"] = () => ({ jobId: "models-usePack-1a2b" });
+  routes["models.planDir"] = (i) => routes["models.setDir"]?.(i);
   routes["jobs.show"] = (i) => ({
     job: { id: i.id, kind: "models-usePack", subject: "balanced", status: "done", startedAt: "", result: {} },
     events: [],
@@ -340,10 +344,11 @@ describe("Settings › Models — packs", () => {
     expect(within(plan).getByText("D:\\models")).toBeInTheDocument();
     expect(within(plan).getByText("2.3 GB")).toBeInTheDocument();
     expect(
-      named("models.usePack")
+      named("models.planPack")
         .filter((c) => c.input.pack === "balanced")
         .map((c) => c.input),
-    ).toEqual([{ pack: "balanced", dryRun: true }]);
+    ).toEqual([{ pack: "balanced" }]);
+    expect(named("models.usePack").filter((c) => c.input.pack === "balanced")).toHaveLength(0);
     fireEvent.click(within(plan).getByRole("button", { name: "Download 2.3 GB" }));
     await waitFor(() =>
       expect(
@@ -370,13 +375,23 @@ describe("Settings › Models — packs", () => {
 
   it("opens the models-folder dialog on the first download, preselects D:, and never sends wait", async () => {
     base(null);
-    routes["models.setDir"] = (i) => ({
+    routes["models.setDir"] = () => ({ jobId: "models-dir-1" });
+    routes["models.planDir"] = (i) => ({
       dir: i.dir,
       drive: { root: "D:\\", freeMB: 800000 },
       installedMB: 0,
       action: "set",
       files: 0,
-      dryRun: !!i.dryRun,
+    });
+    routes["jobs.show"] = (i) => ({
+      job: {
+        id: i.id,
+        kind: "models-dir",
+        status: "done",
+        startedAt: "",
+        result: { dir: "D:\\Testimus\\models", action: "set" },
+      },
+      events: [],
     });
     show();
     await screen.findByText("not chosen yet");
@@ -392,14 +407,15 @@ describe("Settings › Models — packs", () => {
     const store = within(dlg).getByRole("button", { name: "Store models here" });
     await waitFor(() => expect(store).toBeEnabled());
     fireEvent.click(store);
-    await waitFor(() => expect(named("models.setDir").filter((c) => !c.input.dryRun)).toHaveLength(1));
-    for (const c of named("models.setDir")) expect(c.input).not.toHaveProperty("wait");
+    await waitFor(() => expect(named("models.setDir")).toHaveLength(1));
+    for (const c of [...named("models.setDir"), ...named("models.planDir")]) expect(c.input).not.toHaveProperty("wait");
+    expect(named("models.planDir").length).toBeGreaterThan(0);
     expect(named("models.setDir").at(-1)?.input).toEqual({ dir: "D:\\Testimus\\models" });
   });
 
   it("changing the folder offers Move / Keep / Copy and shows a refusal with its reason", async () => {
     base();
-    routes["models.setDir"] = (i) => {
+    routes["models.planDir"] = (i) => {
       if (String(i.dir).startsWith("C:")) throw { message: "Not enough room on C:\\: 19 GB free, 1.3 GB needed." };
       return {
         dir: i.dir,
@@ -407,12 +423,11 @@ describe("Settings › Models — packs", () => {
         installedMB: 1200,
         action: i.copy ? "copy" : i.keep ? "keep" : "move",
         files: 9,
-        dryRun: !!i.dryRun,
-        ...(i.dryRun ? {} : { jobId: "models-move-9" }),
       };
     };
+    routes["models.setDir"] = () => ({ jobId: "models-dir-9" });
     routes["jobs.show"] = (i) => ({
-      job: { id: i.id, kind: "models-move", status: "running", startedAt: "" },
+      job: { id: i.id, kind: "models-dir", status: "running", startedAt: "" },
       events: [],
     });
     show();
@@ -426,35 +441,44 @@ describe("Settings › Models — packs", () => {
     fireEvent.click(within(dlg).getByRole("button", { name: "Copy" }));
     const go = await within(dlg).findByRole("button", { name: "Copy 1.2 GB" });
     fireEvent.click(go);
-    await waitFor(() =>
-      expect(
-        named("models.setDir")
-          .filter((c) => !c.input.dryRun)
-          .at(-1)?.input,
-      ).toEqual({ dir: "E:\\models", copy: true }),
-    );
+    await waitFor(() => expect(named("models.setDir").at(-1)?.input).toEqual({ dir: "E:\\models", copy: true }));
     expect(await screen.findByRole("status", { name: "Copying the models" })).toBeInTheDocument();
   });
 
   it("refuses a model whose RAM is too small: no « Use anyway »", async () => {
     base();
-    routes["models.fit"] = () => fitOf("ram-too-small", "RAM too small: 40 GB needed, 32 GB on this PC.");
+    routes["models.use"] = (i) => ({
+      choice: i,
+      fit: fitOf("ram-too-small", "RAM too small: 40 GB needed, 32 GB on this PC."),
+      reindex: true,
+      indexJob: null,
+      lighter: null,
+      dryRun: !!i.dryRun,
+    });
     show();
     fireEvent.click(await screen.findByRole("button", { name: "Model catalog" }));
     fireEvent.click(await screen.findByRole("button", { name: "Use Qwen3 Embedding 8B (8-bit) for this project" }));
     const ask = await screen.findByRole("dialog", { name: /fit/ });
     expect(within(ask).getByText("RAM too small: 40 GB needed, 32 GB on this PC.")).toBeInTheDocument();
     expect(within(ask).queryByRole("button", { name: "Use anyway" })).toBeNull();
-    expect(named("models.use")).toHaveLength(0);
+    expect(named("models.use").filter((c) => !c.input.dryRun)).toHaveLength(0);
   });
 });
 
 describe("Settings › Models — table, advice", () => {
   it("keeps the models table folded until asked; rows have state, fit and actions", async () => {
     base();
-    routes["models.fit"] = () =>
-      fitOf("gpu-too-small", "Your GPU has 8 GB. Qwen3 Embedding 8B needs about 9.1 GB: it runs partly on the CPU.");
-    routes["models.use"] = (i) => ({ choice: i, fit: fitOf("gpu-too-small", ""), reindex: true });
+    routes["models.use"] = (i) => ({
+      choice: i,
+      fit: fitOf(
+        "gpu-too-small",
+        "Your GPU has 8 GB. Qwen3 Embedding 8B needs about 9.1 GB: it runs partly on the CPU.",
+      ),
+      reindex: true,
+      indexJob: null,
+      lighter: null,
+      dryRun: !!i.dryRun,
+    });
     show();
     const fold = await screen.findByRole("button", { name: "Model catalog" });
     expect(fold).toHaveAttribute("aria-expanded", "false");
@@ -473,8 +497,11 @@ describe("Settings › Models — table, advice", () => {
     const ask = await screen.findByRole("dialog", { name: /fit/ });
     expect(within(ask).getByText(/runs partly on the CPU/)).toBeInTheDocument();
     fireEvent.click(within(ask).getByRole("button", { name: "Use anyway" }));
-    await waitFor(() => expect(named("models.use")).toHaveLength(1));
-    expect(named("models.use")[0].input).toEqual({ embedding: "qwen3-embedding-8b-q8", reranker: null });
+    await waitFor(() => expect(named("models.use").filter((c) => !c.input.dryRun)).toHaveLength(1));
+    expect(named("models.use").map((c) => c.input)).toEqual([
+      { embedding: "qwen3-embedding-8b-q8", dryRun: true },
+      { embedding: "qwen3-embedding-8b-q8" },
+    ]);
   });
 
   it("installs with models.pull and follows the job", async () => {
@@ -515,7 +542,7 @@ describe("Settings › Models — table, advice", () => {
         quality: "quality difference not measured",
       },
     ];
-    routes["models.dismiss"] = () => ({ dismissed: "adv-1" });
+    routes["models.dismissAdvice"] = () => ({ dismissed: "adv-1" });
     show();
     const banner = await screen.findByRole("region", { name: "Advice" });
     expect(within(banner).getByText(/switch to Balanced pack/)).toBeInTheDocument();
@@ -525,7 +552,7 @@ describe("Settings › Models — table, advice", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     fireEvent.click(within(banner).getByRole("button", { name: "Dismiss" }));
     await waitFor(() => expect(screen.queryByRole("region", { name: "Advice" })).toBeNull());
-    expect(named("models.dismiss")[0].input).toEqual({ id: "adv-1" });
+    expect(named("models.dismissAdvice")[0].input).toEqual({ id: "adv-1" });
   });
 
   it("without a project: no packs, the shared models only", async () => {

@@ -1,0 +1,25 @@
+{
+  "code": "TAG_OUT",
+  "title": "Generalites",
+  "version": "",
+  "date": "",
+  "kind": "spec",
+  "status": "draft",
+  "source": {
+    "name": "<client>",
+    "file": "source.pdf",
+    "sha256": "3aec0ff30ca76a93edd9eeb68185478f723c63c9eb40e22412d01db3fc1ea8f1"
+  },
+  "converted": {
+    "with": "pdfjs-dist 6.5.438 (tagged PDF)",
+    "at": "<at>",
+    "warnings": [
+      "Figure 9: captioned or named in the text, but nothing is drawn there in the PDF — the original lost these pictures (a drawing pasted as text, or never inserted)"
+    ],
+    "stats": {
+      "sections": 3,
+      "figures": 1,
+      "chars": 524
+    }
+  }
+}

@@ -63,12 +63,12 @@ export function PackStep({ onBack }: { onBack: () => void }) {
     if (!pack) return;
     setBusy(true);
     try {
-      const plan = await call<UsePackOut>("models.usePack", { pack: pack.id, dryRun: true });
+      const plan = await call<UsePackOut>("models.planPack", { pack: pack.id });
       if (plan.plan.download.length && !plan.plan.dir) {
         setFolderNeed(plan.plan.download.reduce((a, d) => a + d.sizeMB, 0));
         return;
       }
-      await call<UsePackOut>("models.usePack", { pack: pack.id });
+      await call<{ jobId: string }>("models.usePack", { pack: pack.id });
       toast({
         kind: "ok",
         title: `${pack.label} pack chosen`,

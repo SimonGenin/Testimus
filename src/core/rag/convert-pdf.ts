@@ -14,18 +14,16 @@ import {
 import type { Block } from "./convert-html.ts";
 import { cleanSpaces } from "./convert-html.ts";
 import { convertTaggedPdf } from "./convert-pdf-tags.ts";
-import { imageOf, type Matrix, mul, openPdf, PDFJS, shoot, toPng } from "./pdf.ts";
+import { imageOf, type Matrix, mul, PDFJS, shoot, toPng, withPdf } from "./pdf.ts";
 
 type Line = { y: number; x: number; end: number; size: number; bold: boolean; text: string };
 type Pic = { x: number; y: number; w: number; h: number; png: Uint8Array };
 type Page = { n: number; height: number; lines: Line[]; pics: Pic[] };
 
 async function readPages(buf: Uint8Array, signal?: AbortSignal): Promise<{ pages: Page[]; skipped: number }> {
-  const loading = openPdf(buf);
-  const doc = await loading.promise;
   const pages: Page[] = [];
   let skipped = 0;
-  try {
+  await withPdf(buf, async (doc) => {
     for (let n = 1; n <= doc.numPages; n++) {
       if (signal?.aborted) throw new Error("Cancelled.");
       const page = await doc.getPage(n);
@@ -93,9 +91,7 @@ async function readPages(buf: Uint8Array, signal?: AbortSignal): Promise<{ pages
       pages.push({ n, height, lines, pics });
       page.cleanup();
     }
-  } finally {
-    await loading.destroy();
-  }
+  });
   return { pages, skipped };
 }
 
@@ -185,9 +181,7 @@ async function analyse(buf: Uint8Array, signal?: AbortSignal) {
 async function drawn(buf: Uint8Array, pages: Page[], caps: Cap[], byCap: Map<Cap, Pic>): Promise<void> {
   const orphans = caps.filter((c) => !byCap.has(c));
   if (!orphans.length) return;
-  const loading = openPdf(buf);
-  try {
-    const doc = await loading.promise;
+  await withPdf(buf, async (doc) => {
     for (const c of orphans) {
       const lines = pages.find((p) => p === c.page)?.lines ?? [];
       const above = lines.filter((l) => l.y > c.line.y + c.line.size).sort((x, y) => x.y - y.y)[0];
@@ -203,9 +197,7 @@ async function drawn(buf: Uint8Array, pages: Page[], caps: Cap[], byCap: Map<Cap
       const png = await shoot(doc, await doc.getPage(c.page.n), box);
       if (png) byCap.set(c, { x: box[0], y: box[1], w: box[2] - box[0], h: box[3] - box[1], png });
     }
-  } finally {
-    await loading.destroy();
-  }
+  });
 }
 
 // ponytail: a page without text is a scan: the whole page is kept as a picture, which Claude reads when it
@@ -214,17 +206,13 @@ async function scannedPages(buf: Uint8Array, pages: Page[]): Promise<Map<number,
   const out = new Map<number, Uint8Array>();
   const scans = pages.filter((p) => p.lines.length < 3 && !p.pics.length);
   if (!scans.length) return out;
-  const loading = openPdf(buf);
-  try {
-    const doc = await loading.promise;
+  await withPdf(buf, async (doc) => {
     for (const p of scans.slice(0, 200)) {
       const page = await doc.getPage(p.n);
       const png = await shoot(doc, page, [page.view[0], page.view[1], page.view[2], page.view[3]]);
       if (png) out.set(p.n, png);
     }
-  } finally {
-    await loading.destroy();
-  }
+  });
   return out;
 }
 

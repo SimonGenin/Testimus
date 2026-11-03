@@ -89,7 +89,7 @@ export function ColumnsSection() {
   const refresh = async () => {
     setRefreshing(true);
     try {
-      await call<XrayJson>("xray.fields", {});
+      await call<XrayJson>("xray.refreshFields", {});
       app.refreshInfo();
       toast({ kind: "ok", title: "Smart columns read again from Xray" });
     } catch (e) {

@@ -277,6 +277,19 @@ docs/<docId>/
   `figures.json` is written after every batch of 20, so a run cut short keeps what is done. The caption is the only
   quotable text of a figure: a `fig:N` citation is checked against the caption paragraph in `doc.md`, never against
   `figures.json` (description and labels are Claude's reading).
+- Adding and converting: `docs.add` adds one document (a path or an upload, with its `.pdf` rendering, and the
+  conversion options); `docs.addFiles` adds the files dropped or picked together — a `.docx` and the `.pdf` of the
+  same name become one document, a `.pdf` alone is one, anything else is refused (`code: not-a-document`), each is
+  only copied. `docs.convert` (and `docs.add` when it converts) is one job: the copy is converted (with `study`,
+  Claude studies it first and checks it after), Claude describes the figures, the tests citing it are re-checked,
+  Claude looks at the conversion warnings (`triage`, skipped when Claude is not installed on this PC) and, with
+  `index`, the search index is updated in a child job once the other conversions of the project are done (one
+  index run at a time; a run asked for meanwhile waits and the requests made while it waits share it). A failed
+  index run keeps the conversion and says why (`index.error`).
+- `docs.list.indexed` follows the rule of `rag.status`: `missing` until an index run read the document, `stale`
+  when its text changed since or the active model's vectors are incomplete, `fresh` otherwise.
+- `context.md` is saved with the version it was read at: `docs.show` gives `contextMtime`, `docs.set { context,
+  ifMtime }` refuses with `code: conflict` when the file changed on disk since.
 - `docs.remove <id>` deletes every trace of a document: its folder (copies, doc.md, figures, context), its rows in
   `index/rag.db` (chunks, full-text rows, vectors in every space — a complete space stays complete — graph
   edges and its entry in the index state), and the other documents' `amends` naming it. Tests citing it are left as
@@ -437,11 +450,17 @@ used: GGUF models run on llama.cpp, which Testimus downloads itself (same files 
     reference document (below): how often search ranks the answering article first and in the top 5, measured on
     this PC when it was, else the catalog's figure measured by Testimus, else « quality not measured yet »; and, when
     the project's own behavior set has a report for that pair, its quality on this project (the `must` evidence
-    recall at 10, search+graph when available, provisional when the report is). `models usePack
-    <pack> [--dry-run]` shows the plan (downloads, folder, reindex, expected speed), then in a job installs what is
-    missing (and the llama.cpp build if a GGUF needs it), tries each downloaded model (`models verify`: load, one
-    sentence, its dimension) — one that does not run here fails the job and the project keeps its pack —, activates
-    the variant for the project on this PC and starts the index job. `models use` is the Custom pack (installed models only). First launch proposes the
+    recall at 10, search+graph when available, provisional when the report is). `models planPack
+    <pack>` shows the plan (downloads, folder, reindex, expected speed) and changes nothing; `models usePack <pack>` is
+    one job with its steps: download what is missing (and the llama.cpp build if a GGUF needs it; the bar runs over
+    all of it), try each downloaded model (`models verify`: load, one sentence, its dimension) — one that does not run
+    here fails the job and the project keeps its pack —, activate the variant for the project on this PC and start the
+    index job (a child job; its id is in the result, `indexJob`); `--download-only` stops after the tries. `models
+    use` is the Custom pack (installed models only): it keeps the other half of the pair unless told, says whether it
+    fits and names a lighter model of the same kind that fits (`--dry-run` stops there and changes nothing), then
+    activates and gives the index job it started. `models packs` gives each pack the next lighter pack available here
+    (`lighter`), which the fit confirmation offers. `models dirs` says where this PC keeps the models and the llama.cpp
+    runtimes (null while not chosen). First launch proposes the
     heaviest pack that fits without running a GGUF or a reranker on the CPU and without falling to the processor when
     it is made for a GPU (`processorOnly`: some variant up to the one resolved has a GPU model and this one runs on
     the processor — Qwen3-0.6B q8 indexes 2.1 passages/s there against bge-m3 q8's 6.6/s, so Light is faster),
@@ -464,22 +483,25 @@ used: GGUF models run on llama.cpp, which Testimus downloads itself (same files 
     (never `curl.exe`, never without certificate checks): each file goes to `<name>.part`, resumes with a Range
     request, is checked against its SHA-256 (or git blob id) and is renamed only then; a mismatch deletes it and
     fails the job; a cancel keeps the `.part`. **No model is written before the user chose the folder**: without
-    one it stops with « Choose where models are stored: `testimus models setDir <folder>` » (or `--dir`); the UI
-    asks with a dialog listing the drives. It refuses when the drive has less than 1.2 × what is left to
+    one it stops with « Choose where models are stored: `testimus models setDir <folder>` » (or `--dir`), error code
+    `models-dir-unset`; the UI asks with a dialog listing the drives. It refuses when the drive has less than 1.2 × what is left to
     download. Whether downloads are allowed is `settings.json` `models.allowRemote`, and only there.
-  - `models setDir <folder> --move | --keep | --copy [--dry-run] [--runtimes]`: without a choice it stops and asks;
+  - `models planDir <folder> --move | --keep | --copy [--runtimes]` says what changing the folder would do (drive, free
+    space, size and files to move) and changes nothing; `models setDir` with the same flags does it, as a job
+    (`models-dir`, its subject `move to <folder>`, `copy to <folder>` or the folder) that a cancel stops with nothing
+    changed (`cancelled: true` in its result). Without a choice it stops and asks;
     downloads are grouped by folder, so a folder two variants of one repository share (bge-m3 q8 / fp16) moves once and
     every installation that points to it follows. Move on the same drive renames, on another drive copies, checks every
     file's SHA-256 and deletes the old copy; copy keeps the old one; keep re-registers the downloads by their path. A
     file already at the target is reused when its SHA-256 is the same; one of another size (refused at the plan, so
-    `--dry-run` says it) or another SHA-256 (refused before anything moves) stops it with the file named. A cancel or a
+    `planDir` says it) or another SHA-256 (refused before anything moves) stops it with the file named. A cancel or a
     failure leaves the old copy and the registry untouched. Refused, with the reason: not enough space (for what is left
-    to write), not writable, a running index or model job, a folder inside a project.
+    to write), not writable, a running index or model job (not the folder change itself), a folder inside a project.
   - `models remove` deletes a download's own files — those of its dtype, never a file another registered installation
     in the same folder uses (tokenizer, config…), so the other variant stays installed and verifiable —, only
     unregisters a path. `models list` gives each installation the size of its
-    own files. `models verify` records `verified` or `broken` in the registry (a mutating command, so read-only Claude
-    runs do not get it).
+    own files. `models verify` (a job, `models-verify`: a load takes seconds to minutes and can be cancelled) records
+    `verified` or `broken` in the registry (a mutating command, so read-only Claude runs do not get it).
 - **Runtimes** behind one seam (`probe`, `embed`, `rerank`), chosen by the installation:
   - **transformers.js** (in the app): device per installation (`cpu`, `dml` DirectML, `webgpu` experimental), dtype
     per device from the catalog; inputs truncated by tokens at `maxInputTokens`; last-token pooling pads on the
@@ -563,7 +585,7 @@ used: GGUF models run on llama.cpp, which Testimus downloads itself (same files 
   known, else by catalog ids, same reranker; the latest) it quotes `rag.compare`'s paired difference in `must` recall
   at 10 with its bootstrap interval (« −3 points of evidence recall, interval −5…−1 (recall@10, 40 behaviors) », plus
   « provisional » when either set is); else « quality difference not measured — run rag.eval --embedding <id> on the
-  candidate before switching ». `models dismiss` hides an advice until its figure moves by more than 25 %. Testimus
+  candidate before switching ». `models dismissAdvice` hides an advice until its figure moves by more than 25 %. Testimus
   never switches by itself.
 - **Reference document.** Testimus ships `templates/reference/syntec/`: a project holding the Syntec collective
   agreement (IDCC 1486, 90 articles, one `<!-- § article-n -->` anchor each) and `eval/behaviors.jsonl`, the 100
@@ -738,8 +760,8 @@ The parser stays tolerant (never throws on a human or Claude edit; returns warni
   ledger and scores agentic recall from `consulted`; a resume reads its plan there. The ledger is written before
   the new tests are stamped and checked; the full result then replaces it in the same file.
 - Figures: `tests.addImage` copies a file or a document figure (`docId#fig:N`) into `images/` and embeds
-  it at the end of a built-in field; the editor's paste mode (`{ name, ext, dataBase64 }`) only stores
-  the file. Figure descriptions run in batches of 20 figures per Claude run (read-only, effort low).
+  it at the end of a built-in field; `tests.storeImage` (the editor's paste, `{ name, ext, dataBase64 }`) only
+  stores the file, the editor putting the reference at the caret. Figure descriptions run in batches of 20 figures per Claude run (read-only, effort low).
 
 ## 8. Check (anomalies)
 
@@ -809,9 +831,9 @@ Everything Xray Editor does (its `SPEC.md` §5–§6: pull with images, folders,
 links, dirty detection against `.remote.md`, push plan, 429 back-off, sequential execution that
 stops at the first failure), plus:
 
-- **Step field schema**: `xray.fields` reads every step field of the project, custom ones included,
+- **Step field schema**: `xray.refreshFields` reads every step field of the project, custom ones included,
   into `xray.json` `{ fetchedAt, fields: [{ id, name, type, builtin, required?, disabled? }] }` — what Xray says
-  and nothing else, read again on demand. Source (checked read-only on LFRPS12,
+  and nothing else, read again on demand (`xray.fields` answers the copy in `xray.json` without asking Xray). Source (checked read-only on LFRPS12,
   2026-11-02): GraphQL `getProjectSettings(projectIdOrKey) { testStepSettings { fields { id name type
   required disabled values } } }` — the built-ins come back as `action`/`data`/`result`, LFRPS12 adds
   `Exigence` (`text-single`, id `69d5fcb02f2b49abf7fb76e6`). Steps read `customFields { id name value }`
@@ -823,7 +845,7 @@ stops at the first failure), plus:
   something), plus `hidden` (a Testimus extra: left out unless a step holds text in it). `columns.setModes` and
   `columns.order` change them. A test's `local.json` `columns` (§3) overrides the folding column by column
   (`tests.columns`, `tests.setColumns`), the step card's own toggle overrides both for the session, and Action
-  and Expected Result never fold. Reading Xray again (`xray.fields`, before every push) rewrites `xray.json`;
+  and Expected Result never fold. Reading Xray again (`xray.refreshFields`, also before every push) rewrites `xray.json`;
   `columns.json` follows a field renamed in Xray (same id: its description and mode go to the new name), keeps a
   field Xray dropped as a local column (its text stays in the tests) and turns a local column the team then
   created in Xray into that field.
@@ -834,14 +856,20 @@ stops at the first failure), plus:
   joined with `", "`. Screenshots embed only in the three built-in fields. The project id and test
   issue type are cached in `.testimus/jira-project.json`. Not yet proven live: whether a custom field
   is cleared with `""` or `null`.
-- Push safety (after the adversarial review, 2026-11): `xray.plan` returns a `planHash` (the ordered
-  operations and `test.md`); `xray.push` requires it and refuses when it no longer matches, so the plan
+- Push safety (after the adversarial review, 2026-11): `xray.plan` (= `xray.push --dry-run`, one
+  code path: a read a Claude run may call, since tool access cannot tell a dry run from a push) returns a `planHash`
+  (the ordered operations and `test.md`); `xray.push` requires it and refuses when it no longer matches, so the plan
   executed is the plan shown (a resume uses the kept plan's hash). One push per test at a time; the
   create re-reads the local test first. A test changed in Jira is pushed only with `overwriteRemote`; the push dialog sends it when the user confirms a
   plan that shows « Changed in Jira since your pull » (no extra tick, as in Xray Editor).
   A cancel is honoured between operations (the one in flight finishes; the job is « cancelled » only when
   nothing ran after it). Attachments must be files inside `tests/<id>/`. An empty or space-containing
   `labelPrefix` falls back to `testimus-` with a warning.
+- Code: `lib/jira/` is the client — `http.ts` (auth, the six-request semaphore, the cancellable 429 wait),
+  `read.ts` (project, fields, folders, tests, preconditions, pull), `steps.ts` (a step both ways: custom fields,
+  embedded attachments), `labels.ts` (review labels), `push.ts` (the plan and its operations); `lib/sync/` puts it
+  on the project folder — `connect.ts` (the key, `jira-project.json`, `xray.json`), `pull.ts` (images, undo on any
+  stop, the remote check), `push.ts` (the plan of a test, its hash, op-by-op execution, one push per test).
 - **Never write to a production Jira project during development.** Write paths are proven by unit
   tests over a fake `http` asserting exact payloads (Xray Editor's rule). Live checks are read-only.
 
@@ -905,19 +933,19 @@ stops at the first failure), plus:
 Group | Verbs (all with `--json`; mutating ones marked *)
 ---|---
 `project` | `init`*, `openKey`* (open or create by Jira key), `info` (project.json + xray.json + the step columns in order with their modes + counts for the rail), `list`, `notes` (the project's CLAUDE.md), `setNotes`*, `set`* (patch project.json: names, language, label prefix, folders, rag keys incl. reference, queryTask, passageMaxChars, retrieval; glossary; Claude defaults), `open`* (last project)
-`docs` | `add`* (copy + convert; a path, or an upload as base64 from the UI), `convert`*, `list`, `show`, `set`* (status, amends, context…), `describeFigures`* (job, Claude), `remove`*
+`docs` | `add`* (job: copy + convert one document; a path, or an upload as base64), `addFiles`* (job: the files dropped or picked together, a .docx paired with its .pdf, copied only), `convert`* (job: convert, figures, re-check of the citing tests, triage, and with `index` the search index), `inspect` (profile of the originals), `page` (a page of the PDF copy as a PNG under .testimus/pages), `list` (with index freshness), `show` (+ `contextMtime`), `set`* (status, amends, context with `ifMtime`…), `describeFigures`* (job, Claude), `remove`* (`--dry-run`)
 `rag` | `index`* (job; one run at a time per index), `search` (mode hybrid · bm25 · vector; `expand`), `passage` (docId#anchor → text + figures, centred on `around`, capped; code `doc-gone` for a missing document), `figure`, `mentions` (every passage holding a term, no model), `related` (graph neighbours, no model), `eval`* (job, L1; updates the index, writes its report), `compare` (reports → intervals), `status` (active model, space, freshness per document), `spaces`, `dropSpace`*
 `search` | `all` (Ctrl K: tests, documents, passages, by words and by meaning), `index`* (job: embeds the tests for search by meaning)
 `chat` | `ask` (job, streamed), `list`, `show`
 `claude` | `run`* (job: a scoped request « On this test » — step, test, tests or project), `revert`* (runId), `status` (installed, version, signed in, how to connect)
 `contexts` | `list` (the project's own and the shared library's, each with `shared`; `--from <project>` lists another project's own), `show`, `create`* (`--shared` puts it in the library), `share`* (move into the library or back into this project), `set`* (name, notes, outside paths), `addFile`* (a path or an upload), `removeFile`*, `remove`*, `copy`* (from another project: notes, paths and files; a taken id gets a new one), `ofTest` (effective · own · project), `setTest`* (a test's full list, or null to follow the project)
 `columns` | `list` (the step columns in order: origin, status, description, mode), `save`* (a description, Reference source, or a new local column), `setModes`* (open · filled · collapsed · hidden, by column), `order`*, `remove`* (a local column), `suggest` (job, Claude, read-only: proposals for columns.save)
-`tests` | `list`, `show` (+ the picture files present and test.md's mtime), `create`*, `edit`* (field-level patch incl. preconditions, and step ops set · add · remove · move · sources, steps numbered from 1), `save`* (the whole test, the editor's save), `restore`* (Undo local changes: test.md ← .remote.md), `clone`*, `addImage`* (a file or a document figure → `images/`), `removeImage`* (a picture no step lists any more), `columns`, `setColumns`* (per-test folding, in `local.json`), `remove`*
+`tests` | `list`, `show` (+ the picture files present and test.md's mtime), `create`*, `edit`* (field-level patch incl. preconditions, and step ops set · add · remove · move · sources, steps numbered from 1), `save`* (the whole test, the editor's save), `restore`* (Undo local changes: test.md ← .remote.md), `clone`*, `addImage`* (a file or a document figure → `images/`, embedded in a step), `storeImage`* (a pasted picture → `images/`, test.md untouched), `removeImage`* (a picture no step lists any more), `columns`, `setColumns`* (per-test folding, in `local.json`), `remove`*
 `gen` | `tests`* (job), `bench`* (job, L2 benchmark with Claude; costly)
 `check` | `run`* (job: mechanical pass, then the `check-test` skill; writes `check.json`), `record`* (the skill's semantic findings for one test), `show`
 `review` | `set`* (validate / to-fix + note), `fix`* (Claude, job), `queue` (what awaits review), `evidence` (sources read / related)
-`xray` | `fields`* (also read again before every push and when a project opens; a field switched off in Xray is kept with `disabled`, `required` kept), `folders`, `search`, `preconditions` (the project's, with definitions), `browse` (an issue's Jira page), `pull`* (job), `status`, `plan`, `push`* (job; `from` resumes after a failed operation)
-`models` | `catalog` (with the fit on this PC), `list`, `add`* (path A), `pull`* (job, checked download), `pullRuntime`* (job, llama.cpp build), `remove`*, `verify`, `setDir`* (move · keep · copy, dry-run), `use`* (Custom), `packs`, `usePack`* (job), `hardware`, `fit`, `perf`, `advice`, `dismiss`*
+`xray` | `fields` (the step fields in `xray.json`, no network), `refreshFields`* (read them again from Xray — also before every push and when a project opens; a field switched off in Xray is kept with `disabled`, `required` kept), `connect`*, `disconnect`*, `folders` (the tree with counts), `search`, `preconditions` (the project's, with definitions), `browse` (an issue's Jira page), `pull`* (job), `status` (one test), `statusAll` (job, every test), `plan` (what a push would do, and its `planHash`; = `push --dry-run`, readable by Claude runs), `push`* (job; `from` resumes after a failed operation)
+`models` | `catalog` (with the fit on this PC), `list`, `dirs` (the models and runtimes folders), `add`* (path A), `pull`* (job, checked download), `pullRuntime`* (job, llama.cpp build), `remove`*, `verify`* (job), `planDir` (what changing the folder would do), `setDir`* (job: move · keep · copy), `use`* (Custom; dry-run: fit and a lighter model), `packs` (with the next lighter pack), `planPack` (a pack's plan), `usePack`* (job with steps), `measure` (job), `hardware`, `fit`, `perf`, `advice`, `dismissAdvice`*
 `jobs` | `list`, `show`, `cancel`*
 `system` | `setup`* (credentials), `secrets` (the saved token, Client ID and secret, to show back in the form; denied to Claude runs like every `system.*`), `doctor`, `version` (with `shell`: browser or desktop <version>), `settings`, `saveSettings`* (claude.exe, model downloads, agents at the same time, the page's preferences)
 
@@ -1164,13 +1192,13 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
       last used) each with Drop (`rag.dropSpace` after a confirmation; the active one with `force` and a warning). No
       model list is written in the UI.
     - **Models**: the models folder (« Change… »); the advice banner (`models.advice`, first item: reason, quality,
-      Apply = the pack's plan or `models.use`, Dismiss = `models.dismiss`); the pack cards Light · Performance ·
+      Apply = the pack's plan or `models.use`, Dismiss = `models.dismissAdvice`); the pack cards Light · Performance ·
       Balanced · Quality from `models.packs` plus Custom, the active one marked « In use », each with its variant here
       (« its second choice »), fit chip and message, skipped variants with their numbers, download left, speed, quality
       (on the reference document), « On this project » when the project's own set measured it, « Use this pack ». A pack or a model whose fit is not « fits » opens a confirmation with the verdict's numbers,
       **Use anyway** and **Choose a lighter one** (the next lighter pack, or the largest smaller model that fits); « RAM
-      too small » offers no Use anyway. Use this pack shows `models.usePack --dry-run` (models, downloads, folder,
-      reindex, expected speed), then runs it and follows its jobs on the card (progress, Cancel); running model and
+      too small » offers no Use anyway. Use this pack shows `models.planPack` (models, downloads, folder,
+      reindex, expected speed), then runs `models.usePack` and follows its job, then the index job it names, on the card (progress, Cancel); running model and
       index jobs are picked up again when the screen opens. Each pack card has « Measure » (« Measure again » once its
       quality is measured on this PC; disabled, with the reason, until the pack's models are on this PC): a dialog says
       what is measured (the reference document, the same on every PC; the project's documents are not used), starts
@@ -1180,11 +1208,11 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
       opens. When it ends the cards are read again: quality from the new report, speed from the measure's
       `embed.query` / `rerank` timings in the perf journal. Below, « Model catalog » (folded): `models.catalog` +
       `models.list` rows with state chip, size, fit chip, kind · tier · runtimes, where it is and the speed measured
-      here; Install (`models.pull`), Use (`models.fit` on the pair, then `models.use`), Verify, Remove (after a
+      here; Install (`models.pull`), Use (`models.use --dry-run` for the fit and the lighter model, then `models.use`), Verify, Remove (after a
       confirmation saying what is deleted); « Add from a folder… » (`models.add`, Browse… in the desktop shell). The
       models-folder dialog opens on the first download and from « Change… »: the drives with free space (from
       `models.hardware`), the roomiest local drive with 1.2 × the need preselected (`<drive>\Testimus\models`), a typed
-      folder checked live by `models.setDir --dry-run` (refusals shown with their reason), Move / Keep where they are /
+      folder checked live by `models.planDir` (refusals shown with their reason), Move / Keep where they are /
       Copy when downloads exist; never `wait`: a move or copy is followed as a job.
 - Mock seeds: `TESTIMUS_MOCK_SEED` picks the sandbox's projects, comma-separated, the first one open — `fixture`
   (default, the LFRPS12 sample), `empty` (no document, no test, no Jira key), `none` (no project: the first run) or a

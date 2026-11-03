@@ -1,0 +1,25 @@
+{
+  "code": "SCAN_01",
+  "title": "SCAN_01",
+  "version": "",
+  "date": "",
+  "kind": "spec",
+  "status": "draft",
+  "source": {
+    "name": "<client>",
+    "file": "source.pdf",
+    "sha256": "7468485458bcd5e2a61cb4ec78ef504eda1c7180b5810872f0aeeb660fcbab96"
+  },
+  "converted": {
+    "with": "pdfjs-dist 6.5.438",
+    "at": "<at>",
+    "warnings": [
+      "1 of 1 pages carry no text (a scan, or text drawn as pictures): kept as page pictures that Claude reads when it describes the figures, but nothing on them can be quoted — ask for the source document"
+    ],
+    "stats": {
+      "sections": 0,
+      "figures": 1,
+      "chars": 78
+    }
+  }
+}

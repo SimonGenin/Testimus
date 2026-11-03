@@ -1,7 +1,7 @@
-import { execFile } from "node:child_process";
 import { existsSync, readFileSync, statfsSync } from "node:fs";
 import os from "node:os";
-import { win32 } from "node:path";
+
+import { run } from "../../shared/run/process.ts";
 import { env } from "../env.ts";
 import { onnxVersion } from "../rag/runtimes/ort.ts";
 import type { DriveInfo, GpuInfo, LoadedModel, MachineProfile } from "../types.ts";
@@ -22,13 +22,9 @@ export type HardwareDeps = {
   onnx?(): Promise<string | null>;
 };
 
-function run(cmd: string, args: string[], timeoutMs: number): Promise<ExecOut> {
-  return new Promise((resolve) => {
-    execFile(cmd, args, { timeout: timeoutMs, windowsHide: true, encoding: "utf8" }, (err, stdout) => {
-      const code = err ? (typeof err.code === "number" ? err.code : 1) : 0;
-      resolve({ code, stdout: stdout ?? "" });
-    });
-  });
+async function exec(cmd: string, args: string[], timeoutMs: number): Promise<ExecOut> {
+  const r = await run({ exe: cmd, args, timeoutMs });
+  return { code: r.error ? 1 : r.code, stdout: r.stdout };
 }
 
 function statfs(root: string): { freeMB: number; totalMB: number } | null {
@@ -58,8 +54,10 @@ async function loadedModels(): Promise<LoadedModel[]> {
   }
 }
 
+// ponytail: a seam env does not have — the probes of the machine (nvidia-smi, WMI, the registry, statfs, memory),
+// which the tests answer to play a PC Testimus does not run on
 export const hardwareDeps: HardwareDeps = {
-  exec: run,
+  exec,
   statfs,
   drives,
   loaded: loadedModels,
@@ -215,15 +213,6 @@ export function knownMachine(): MachineProfile | null {
 
 export function pinMachineProfile(p: MachineProfile | null): void {
   pinned = p;
-}
-
-export function driveOf(machine: MachineProfile, path: string): DriveInfo | undefined {
-  const root = win32.parse(path).root.toLowerCase();
-  const under = (r: string) => {
-    const base = r.replace(/\/+$/, "");
-    return path === base || path.startsWith(`${base}/`);
-  };
-  return machine.drives.find((d) => (d.root.startsWith("/") ? under(d.root) : d.root.toLowerCase() === root));
 }
 
 // ponytail: a profile without a system (an imposed profile written before it existed) is the Windows PC it was taken on

@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import type { MouseEvent, Ref } from "react";
+import { type MouseEvent, type Ref, useRef } from "react";
 import {
   border,
   color,
@@ -113,6 +113,7 @@ const styles = stylex.create({
   claudeQuietHover: { backgroundColor: color.claudeSubtle },
   focusRing: { outline: `${border.widthStrong} solid ${color.focusRing}` },
   kbd: { marginInlineStart: space.s2, marginInlineEnd: `calc(-1 * ${space.s2})` },
+  hiddenInput: { display: "none" },
 });
 
 export type ButtonVariant = "primary" | "secondary" | "quiet" | "danger" | "claude" | "claude-quiet";
@@ -145,6 +146,8 @@ export type ButtonProps = {
   /** a menu or popover trigger: what it opens and whether it is open */
   popup?: { kind: "menu" | "dialog" | "listbox"; open: boolean; controls?: string };
   type?: "button" | "submit";
+  /** the button opens the system's file picker (an image for a step, documents to add, files for a context) */
+  pick?: { accept?: string; multiple?: boolean; onFiles: (files: File[]) => void };
   onClick?: (e: MouseEvent<HTMLButtonElement>) => void;
   ref?: Ref<HTMLButtonElement>;
   "data-testid"?: string;
@@ -201,6 +204,7 @@ export function Button({
   pressed,
   expanded,
   popup,
+  pick,
   type = "button",
   onClick,
   ref,
@@ -209,6 +213,7 @@ export function Button({
 }: ButtonProps) {
   const off = disabled !== false;
   const quietish = variant === "quiet" || variant === "claude-quiet";
+  const fileInput = useRef<HTMLInputElement | null>(null);
   const button = (
     <button
       ref={ref}
@@ -222,7 +227,9 @@ export function Button({
       aria-controls={popup?.controls}
       data-testid={testId}
       onClick={(e) => {
-        if (!loading) onClick?.(e);
+        if (loading) return;
+        onClick?.(e);
+        if (pick) fileInput.current?.click();
       }}
       {...stylex.props(
         styles.base,
@@ -252,11 +259,31 @@ export function Button({
     </button>
   );
   const tip = typeof disabled === "string" ? disabled : iconOnly ? label : null;
-  return tip ? (
+  const shown = tip ? (
     <Tooltip label={tip} shortcut={iconOnly ? shortcut : undefined}>
       {button}
     </Tooltip>
   ) : (
     button
+  );
+  if (!pick) return shown;
+  return (
+    <>
+      {shown}
+      <input
+        ref={fileInput}
+        type="file"
+        tabIndex={-1}
+        aria-hidden="true"
+        accept={pick.accept}
+        multiple={pick.multiple}
+        onChange={(e) => {
+          const files = [...(e.target.files ?? [])];
+          e.target.value = "";
+          if (files.length) pick.onFiles(files);
+        }}
+        {...stylex.props(styles.hiddenInput)}
+      />
+    </>
   );
 }

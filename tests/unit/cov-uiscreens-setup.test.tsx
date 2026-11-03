@@ -297,8 +297,6 @@ describe("First launch › Search pack", () => {
     embedding: "e1",
     reranker: null,
     plan: { download, dir, reindex: true, expected: "" },
-    jobIds: [],
-    dryRun: !!i.dryRun,
   });
 
   it("describes each pack: suggested, in use, models, download, unavailable", async () => {
@@ -353,7 +351,8 @@ describe("First launch › Search pack", () => {
     api.routes["models.packs"] = () => [pack({ downloadMB: 300 })];
     api.routes["models.catalog"] = () => [];
     api.routes["models.hardware"] = () => null;
-    api.routes["models.usePack"] = (i) => packPlan([{ sizeMB: 100 }, { sizeMB: 200 }], dir)(i);
+    api.routes["models.planPack"] = (i) => packPlan([{ sizeMB: 100 }, { sizeMB: 200 }], dir)(i);
+    api.routes["models.usePack"] = () => ({ jobId: "models-usePack-1" });
     const { app: a } = mount(<PackStep onBack={vi.fn()} />);
     fireEvent.click(await screen.findByRole("radio", { name: "Light pack" }));
     fireEvent.click(screen.getByRole("button", { name: "Use Light" }));
@@ -373,7 +372,8 @@ describe("First launch › Search pack", () => {
     api.routes["models.packs"] = () => [pack({})];
     api.routes["models.catalog"] = () => [];
     api.routes["models.hardware"] = () => null;
-    api.routes["models.usePack"] = packPlan([], null);
+    api.routes["models.planPack"] = packPlan([], null);
+    api.routes["models.usePack"] = () => ({ jobId: "models-usePack-2" });
     const { app: a } = mount(<PackStep onBack={vi.fn()} />);
     fireEvent.click(await screen.findByRole("radio", { name: "Light pack" }));
     fireEvent.click(screen.getByRole("button", { name: "Use Light" }));
