@@ -32,10 +32,8 @@ const doc = (id: string, over: Partial<DocRef> = {}): DocRef => ({
   date: "",
   kind: "spec",
   status: "validated",
-  source: { path: "", sha256: "", file: "source.docx" },
-  convertedWith: "",
-  convertedAt: at,
-  warnings: [],
+  source: { name: "", sha256: "", file: "source.docx" },
+  converted: { with: "", at: at, warnings: [] },
   indexed: "fresh",
   ...over,
 });
@@ -213,7 +211,7 @@ describe("Documents screen folding", () => {
   });
 
   it("small: Details opens the settings as a drawer; the button, Escape, the scrim or a wider screen closes it", async () => {
-    listed({ warnings: ["2 comments dropped"] });
+    listed({ converted: { with: "", at, warnings: ["2 comments dropped"] } });
     const body = sized(900);
     const { container } = mount(<DocumentsScreen />, { route: { screen: "documents", arg: "D1" } });
     await screen.findByText("Part §1.1");
@@ -306,7 +304,7 @@ describe("Claude actions on documents", () => {
   });
 
   it("stay in Ask Claude: neither the list nor the settings show them", async () => {
-    listed({ warnings: ["2 comments dropped", "1 table split"] });
+    listed({ converted: { with: "", at, warnings: ["2 comments dropped", "1 table split"] } });
     api.routes["actions.list"] = () => [action()];
     mount(<DocumentsScreen />, { route: { screen: "documents", arg: "D1" } });
     const list = await screen.findByRole("region", { name: "Document list" });
@@ -342,7 +340,7 @@ describe("DocDetail folded", () => {
 
   it("a document not converted yet has Details but no Sections when tiny", async () => {
     api.routes["docs.show"] = () => ({
-      doc: doc("D3", { convertedAt: "" }),
+      doc: doc("D3", { converted: undefined }),
       context: "",
       toc: [],
       requirements: [],

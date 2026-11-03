@@ -294,7 +294,7 @@ export function DocumentsScreen() {
                     ))
                   : docs.map((d) => {
                       const st = DOC_STATUS[d.status] ?? { label: d.status, tone: "neutral" as const };
-                      const ix = !d.convertedAt ? NOT_CONVERTED : (INDEX_LOOK[d.indexed] ?? INDEX_LOOK.missing);
+                      const ix = !d.converted?.at ? NOT_CONVERTED : (INDEX_LOOK[d.indexed] ?? INDEX_LOOK.missing);
                       const failed = uploads.filter(
                         (u) => u.docId === d.id && (u.phase === "index-failed" || u.phase === "failed"),
                       );
@@ -321,9 +321,9 @@ export function DocumentsScreen() {
                             <div className="docs-facts">
                               <Badge tone={st.tone}>{st.label}</Badge>
                               <Severity tone={ix.tone}>{ix.word}</Severity>
-                              {d.warnings.length > 0 && (
-                                <span title={d.warnings.join("\n")}>
-                                  <Severity tone="warning">{String(d.warnings.length)}</Severity>
+                              {(d.converted?.warnings ?? []).length > 0 && (
+                                <span title={(d.converted?.warnings ?? []).join("\n")}>
+                                  <Severity tone="warning">{String((d.converted?.warnings ?? []).length)}</Severity>
                                 </span>
                               )}
                             </div>
@@ -350,7 +350,7 @@ export function DocumentsScreen() {
           {folded && listOpen && <div className="docs-scrim" aria-hidden="true" onClick={() => setListOpen(false)} />}
           {active ? (
             <DocDetail
-              key={`${activeId} ${active.convertedAt ?? ""}`}
+              key={`${activeId} ${active.converted?.at ?? ""}`}
               id={activeId}
               anchor={anchor}
               quote={quote}

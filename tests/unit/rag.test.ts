@@ -25,7 +25,7 @@ let calls: string[];
 function docOf(id: string): { doc: DocJson; md: string; figures: FigureEntry[] } {
   const d = join(FIXTURE, "docs", id);
   return {
-    doc: readJson<DocJson>(join(d, "doc.json"), {} as DocJson),
+    doc: { ...readJson<DocJson>(join(d, "doc.json"), {} as DocJson), id },
     md: readFileSync(join(d, "doc.md"), "utf8"),
     figures: readJson<FigureEntry[]>(join(d, "figures.json"), []),
   };

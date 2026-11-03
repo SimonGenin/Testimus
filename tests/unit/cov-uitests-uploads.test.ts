@@ -64,7 +64,7 @@ beforeEach(() => {
     },
     "docs.convert": (input, on) => {
       on?.(progress("Converting page 1", 1, 4));
-      return { id: input.id, warnings: [] };
+      return { id: input.id, converted: { with: "", at: "", warnings: [] } };
     },
     "rag.index": (_input, on) => {
       on?.(progress("Embedding", undefined, 2));
@@ -309,10 +309,10 @@ describe("uploads", () => {
       pct: null,
       message: "",
     };
-    const d = (path: string, id = "SPEC_3_") =>
-      ({ id, source: { path, sha256: "", file: "source.docx" }, convertedAt: "" }) as DocRef;
+    const d = (name: string, id = "SPEC_3_", uploaded = false) =>
+      ({ id, source: { name, sha256: "", file: "source.docx", ...(uploaded ? { uploaded } : {}) } }) as DocRef;
     expect(owns(u, d("C:\\in\\spec (3).DOCX"))).toBe(true);
-    expect(owns(u, d("upload: Spec (3).docx"))).toBe(true);
+    expect(owns(u, d("Spec (3).docx", "SPEC_3_", true))).toBe(true);
     expect(owns(u, d("C:\\in\\Other.docx"))).toBe(false);
     expect(owns({ ...u, job: "convert" }, d("C:\\in\\Spec (3).docx"))).toBe(false);
     expect(owns({ ...u, docId: "SPEC_3_" }, d("C:\\elsewhere.docx"))).toBe(true);

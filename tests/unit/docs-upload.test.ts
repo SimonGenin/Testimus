@@ -18,9 +18,10 @@ describe("docs.add upload", () => {
     expect(doc.id).toBe("SOSIE_211_D401-1_3");
     expect(existsSync(join(project, "docs", doc.id, "doc.md"))).toBe(true);
     expect(existsSync(join(project, "docs", doc.id, "source.docx"))).toBe(true);
-    expect(JSON.parse(readFileSync(join(project, "docs", doc.id, "doc.json"), "utf8")).source.path).toBe(
-      "upload: SOSIE_211_D401-1_3_01.01.docx",
-    );
+    expect(JSON.parse(readFileSync(join(project, "docs", doc.id, "doc.json"), "utf8")).source).toMatchObject({
+      name: "SOSIE_211_D401-1_3_01.01.docx",
+      uploaded: true,
+    });
     const uploads = join(project, ".testimus", "uploads");
     expect(existsSync(uploads) ? readdirSync(uploads) : []).toEqual([]);
   });

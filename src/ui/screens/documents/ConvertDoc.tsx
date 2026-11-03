@@ -30,8 +30,8 @@ export function ConvertDoc({
   const [figures, setFigures] = useState(app.info?.project?.rag.describeFigures !== false);
   const [study, setStudy] = useState(false);
   const options = doc.conversion ? optionsOf(doc.conversion) : "";
-  const name = baseName(doc.source.path.replace(/^upload: /, ""));
-  const noFigures = again && doc.stats?.figures === 0;
+  const name = baseName(doc.source.name);
+  const noFigures = again && doc.converted?.stats?.figures === 0;
   const go = () => {
     void convertDoc(doc.id, name, { describeFigures: figures, study }, onChanged);
     onClose?.();

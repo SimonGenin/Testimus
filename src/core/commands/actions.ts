@@ -91,7 +91,7 @@ function jobProblems(project: string, jobId: string): Problem[] {
 }
 
 const docProblems = (project: string, docId: string): Problem[] =>
-  readDoc(project, docId).warnings.map((text) => ({ where: `doc:${docId}`, text }));
+  (readDoc(project, docId).converted?.warnings ?? []).map((text) => ({ where: `doc:${docId}`, text }));
 
 export const commands = [
   command({

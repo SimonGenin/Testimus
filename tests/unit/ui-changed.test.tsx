@@ -113,7 +113,7 @@ describe("App, when a job changed project files", () => {
       expect(acts).toHaveBeenCalledTimes(1);
       changed(["contexts/glossary/notes.md"]);
       changed(["project.json"]);
-      changed(["tests/local-1/claude.json"]);
+      changed(["tests/local-1/local.json"]);
       expect(ctxs).toHaveBeenCalledTimes(3);
     } finally {
       window.removeEventListener(ACTIONS_EVENT, acts);

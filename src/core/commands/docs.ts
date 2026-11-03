@@ -43,7 +43,7 @@ const AFTER_CONVERT = [
 
 async function withFigures(ctx: Ctx, doc: DocJson, claude: JobRun, on: boolean | undefined): Promise<DocJson> {
   const project = projectOf(ctx);
-  if (!(on ?? shouldDescribeFigures(project)) || !doc.stats?.figures) return doc;
+  if (!(on ?? shouldDescribeFigures(project)) || !doc.converted?.stats?.figures) return doc;
   ctx.step?.("figures");
   try {
     ctx.progress({ message: "Claude describes the figures" });
@@ -57,10 +57,10 @@ async function withFigures(ctx: Ctx, doc: DocJson, claude: JobRun, on: boolean |
 // ponytail: the conversion warnings are shown to Claude with the import's own model and effort — it leaves a
 // Claude action for those it can fix; a failed look never fails the import
 async function withTriage(ctx: Ctx, doc: DocJson, claude: JobRun, on: boolean | undefined): Promise<void> {
-  if (!on || !doc.warnings.length) return;
+  if (!on || !(doc.converted?.warnings ?? []).length) return;
   ctx.step?.("triage");
   try {
-    const problems = doc.warnings.map((text) => ({ where: `doc:${doc.id}`, text }));
+    const problems = (doc.converted?.warnings ?? []).map((text) => ({ where: `doc:${doc.id}`, text }));
     const project = projectOf(ctx);
     await triage(
       ctx,
@@ -91,7 +91,7 @@ async function inspect(ctx: Ctx, input: { id?: string; file?: string }) {
     const ext = extname(input.file).toLowerCase();
     if (!existsSync(input.file) || (ext !== ".docx" && ext !== ".pdf"))
       throw new UserError(`Not a .docx or .pdf file: ${input.file}`);
-    const twin = twinOf(input.file);
+    const twin = twinOf({ name: input.file, file: "", sha256: "" });
     const files =
       ext === ".docx" ? { docx: input.file, pdf: twin ?? undefined } : { pdf: input.file, docx: twin ?? undefined };
     const [docx, pdf] = await inspectFiles(files, ctx.signal);
@@ -112,7 +112,7 @@ async function inspect(ctx: Ctx, input: { id?: string; file?: string }) {
   const files = { docx: at("source.docx"), pdf: at("source.pdf") };
   const [docx, pdf] = await inspectFiles(files, ctx.signal);
   const converts = extname(convertedCopy(project, doc)).toLowerCase() === ".pdf" ? "pdf" : "docx";
-  const other = twinOf(doc.source.path);
+  const other = twinOf(doc.source);
   const twin = other && !at(`source${extname(other).toLowerCase()}`) ? other : null;
   return {
     id: doc.id,
@@ -281,11 +281,31 @@ const docJson = z.object({
   kind,
   status,
   amends: z.array(z.string()).optional(),
-  source: z.object({ path: z.string(), sha256: z.string(), file: z.string() }),
-  convertedWith: z.string(),
-  convertedAt: z.string(),
-  warnings: z.array(z.string()),
-  stats: z.object({ sections: z.number(), figures: z.number(), chars: z.number() }).optional(),
+  contexts: z
+    .array(z.string())
+    .optional()
+    .describe("Saved contexts Claude reads with this document (absent: the project's defaults)"),
+  source: z
+    .object({
+      name: z.string().describe("Where the original came from: its path on this PC, or the uploaded file's name"),
+      file: z.string().describe("The copy in the document folder: source.docx or source.pdf"),
+      sha256: z.string(),
+      uploaded: z.boolean().optional().describe("Sent from the page rather than read from a path"),
+    })
+    .describe("The original that is converted"),
+  twin: z
+    .object({ file: z.string(), sha256: z.string() })
+    .optional()
+    .describe("The other original kept beside it (the .pdf of a .docx, or the reverse)"),
+  converted: z
+    .object({
+      with: z.string().describe("The converter and its version"),
+      at: z.string().describe("When"),
+      warnings: z.array(z.string()).describe("What the conversion could not keep"),
+      stats: z.object({ sections: z.number(), figures: z.number(), chars: z.number() }).optional(),
+    })
+    .optional()
+    .describe("What the last conversion found; absent until the first one"),
   conversion: conversion.optional(),
 });
 
@@ -432,7 +452,7 @@ export const commands = [
           (message) => ctx.progress({ message }),
         );
         let doc = input.dataBase64
-          ? { ...added, source: { ...added.source, path: `upload: ${basename(input.name || "document.docx")}` } }
+          ? { ...added, source: { ...added.source, name: basename(input.name || "document.docx"), uploaded: true } }
           : added;
         if (doc !== added) writeDoc(project, doc);
         if (!input.convert) return { ...doc, citedBy: [] };
@@ -673,7 +693,7 @@ export const commands = [
       kind: kind.optional().describe("spec, minutes or other"),
       context: z.string().optional().describe("What the team says about this document; replaces context.md"),
       contexts: CONTEXT_IDS.optional().describe(
-        "Saved contexts Claude reads with this document, every time (docs/<id>/claude.json); replaces the list, [] = none",
+        "Saved contexts Claude reads with this document, every time (doc.json contexts); replaces the list, [] = none",
       ),
     }),
     output: docJson,

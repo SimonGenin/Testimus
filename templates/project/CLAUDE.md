@@ -21,7 +21,8 @@ project is in **Team notes** at the end.
 
 - `docs/<docId>/` — one document: `doc.md` (the converted text), `figures/` (its pictures, in reading
   order) and `figures.json` (what each one shows and the text visible in it), `doc.json` (title,
-  version, `kind`, `status` draft · submitted · validated, `amends`: the documents it amends),
+  version, `kind`, `status` draft · submitted · validated, `amends`: the documents it amends, the
+  `contexts` read with it; `converted`: what the last conversion found, its `warnings` included),
   `context.md` when the team wrote one — what it says about the document; read it before using the
   document (`docs_show` returns it as `context`).
 - `tests/<id>/test.md` — one test (format below); `images/` its pictures; `check.json` its last

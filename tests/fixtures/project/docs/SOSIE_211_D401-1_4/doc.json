@@ -1,14 +1,23 @@
 {
-  "id": "SOSIE_211_D401-1_4",
   "code": "SOSIE_211_D401-1_4",
   "title": "Signalisation",
   "version": "01.01",
   "date": "2026-06-12",
   "kind": "spec",
   "status": "submitted",
-  "source": { "path": "SOSIE_211_D401-1_4_01_01_TC.docx", "sha256": "fixture", "file": "source.docx" },
-  "convertedWith": "fixture",
-  "convertedAt": "2026-10-30T09:00:00.000Z",
-  "warnings": [],
-  "stats": { "sections": 2, "figures": 0, "chars": 400 }
+  "source": {
+    "name": "SOSIE_211_D401-1_4_01_01_TC.docx",
+    "file": "source.docx",
+    "sha256": "fixture"
+  },
+  "converted": {
+    "with": "fixture",
+    "at": "2026-10-30T09:00:00.000Z",
+    "warnings": [],
+    "stats": {
+      "sections": 2,
+      "figures": 0,
+      "chars": 400
+    }
+  }
 }

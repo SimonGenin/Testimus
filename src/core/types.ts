@@ -182,6 +182,9 @@ export type CheckFile = { at: string; testHash: string; findings: Finding[] };
 
 export type DocKind = "spec" | "minutes" | "other";
 export type DocStatus = "draft" | "submitted" | "validated";
+// docs/<id>/doc.json — the folder is the id (read in, never written). What the team decides (title… contexts,
+// conversion) sits apart from what the conversion found (`converted`, absent until the first conversion)
+export type DocStats = { sections: number; figures: number; chars: number };
 export type DocJson = {
   id: string;
   code: string;
@@ -191,11 +194,12 @@ export type DocJson = {
   kind: DocKind;
   status: DocStatus;
   amends?: string[];
-  source: { path: string; sha256: string; file: string };
-  convertedWith: string;
-  convertedAt: string;
-  warnings: string[];
-  stats?: { sections: number; figures: number; chars: number };
+  contexts?: string[];
+  // `name`: where the original came from — its path on this PC, or the file name of an upload
+  source: { name: string; file: string; sha256: string; uploaded?: boolean };
+  // the other original beside it (source.pdf beside source.docx, or the reverse)
+  twin?: { file: string; sha256: string };
+  converted?: { with: string; at: string; warnings: string[]; stats?: DocStats };
   conversion?: DocConversion;
 };
 // ponytail: how a document is converted, chosen when Claude studied it (or by the team) and kept so that every

@@ -172,7 +172,7 @@ export function GenerateScreen() {
   const empty = !request.trim() && !scope.docs.length && !scope.sections.length;
   // ponytail: the same scope gen.tests checks — the documents and sections picked, or every document for words alone
   const picked = new Set([...scope.docs, ...scope.sections.map((s) => s.split("#")[0])]);
-  const searched = (docs ?? []).filter((d) => d.convertedAt && (!picked.size || picked.has(d.id)));
+  const searched = (docs ?? []).filter((d) => d.converted?.at && (!picked.size || picked.has(d.id)));
   const unindexed = searched.filter((d) => d.indexed === "missing");
   const outdated = searched.filter((d) => d.indexed === "stale");
   const indexing = uploads.some((u) => !settled(u) && (u.job === "index" || u.phase === "indexing"));

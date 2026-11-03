@@ -45,13 +45,14 @@ describe("docs commands", () => {
       date: "2026-06-12",
       kind: "spec",
       status: "draft",
-      source: { path: original, sha256: sha256(before), file: "source.docx" },
-      stats: { sections: 21, figures: 1 },
+      source: { name: original, sha256: sha256(before), file: "source.docx" },
+      converted: { stats: { sections: 21, figures: 1 } },
     });
-    expect(doc.warnings).toHaveLength(3);
+    expect(doc.converted?.warnings).toHaveLength(3);
+    expect(JSON.parse(readFileSync(join(dir, "doc.json"), "utf8"))).not.toHaveProperty("id");
     expect(readFileSync(original)).toEqual(before);
     expect(readFileSync(join(dir, "source.docx"))).toEqual(before);
-    const { citedBy, ...json } = doc as DocJson & { citedBy: unknown[] };
+    const { citedBy, id: _id, ...json } = doc as DocJson & { citedBy: unknown[] };
     expect(citedBy).toEqual([]);
     expect(JSON.parse(readFileSync(join(dir, "doc.json"), "utf8"))).toEqual(json);
     expect(readFileSync(join(dir, "doc.md"), "utf8")).toContain("<!-- § 5.6.6 -->");
@@ -80,12 +81,9 @@ describe("docs commands", () => {
       version: "01.01",
       date: "",
       status: "draft",
-      convertedAt: "",
-      convertedWith: "",
-      warnings: [],
       citedBy: [],
     });
-    expect(doc.stats).toBeUndefined();
+    expect(doc.converted).toBeUndefined();
     expect(existsSync(join(dir, "source.docx"))).toBe(true);
     expect(existsSync(join(dir, "doc.md"))).toBe(false);
     expect((await run<DocRef[]>(project, "docs.list", {}))[0].indexed).toBe("missing");
@@ -104,7 +102,7 @@ describe("docs commands", () => {
     writeFileSync(join(project, "contexts", "glossary", "context.json"), JSON.stringify({ name: "Glossary" }));
     writeFileSync(join(project, "contexts", "glossary", "notes.md"), "TK = traction");
     await run(project, "docs.set", { id: doc.id, contexts: ["glossary", "glossary", "gone"] });
-    expect(JSON.parse(readFileSync(join(dir, "claude.json"), "utf8"))).toEqual({ contexts: ["glossary", "gone"] });
+    expect(JSON.parse(readFileSync(join(dir, "doc.json"), "utf8")).contexts).toEqual(["glossary", "gone"]);
     expect((await run<{ contexts: string[] }>(project, "docs.show", { id: doc.id })).contexts).toEqual(["glossary"]);
     expect(docRunLines(project, doc.id, { contexts: ["glossary"] }).join("\n")).toMatch(
       /What the team knows about this document:\nEdition for the 2024 tender\n\nContext to read before you start[^\n]*\n- Glossary — notes: .*\/contexts\/glossary\/notes\.md$/,
@@ -116,9 +114,9 @@ describe("docs commands", () => {
       title: "Spécification fonctionnelle – Traction",
       date: "2026-06-12",
       status: "submitted",
-      stats: { sections: 21, figures: 1 },
+      converted: { stats: { sections: 21, figures: 1 } },
     });
-    expect(converted.convertedAt).not.toBe("");
+    expect(converted.converted?.at).not.toBe("");
     expect(readFileSync(join(dir, "context.md"), "utf8")).toBe("Edition for the 2024 tender\n");
     const brief = await run<{ md: string; toc: unknown[] }>(project, "docs.show", {
       id: doc.id,

@@ -32,7 +32,7 @@ export function stampOf(project: string, where: string): string {
   if (kind === "doc") {
     const d = findDoc(project, id);
     if (!d) return "gone";
-    return sha256(`${d.convertedAt}|${d.source?.sha256}|${(d.warnings ?? []).join("\n")}`).slice(0, 16);
+    return sha256(`${d.converted?.at}|${d.source?.sha256}|${(d.converted?.warnings ?? []).join("\n")}`).slice(0, 16);
   }
   if (kind === "test") {
     const f = join(testDir(project, id), "test.md");

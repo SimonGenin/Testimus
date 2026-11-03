@@ -366,10 +366,12 @@ describe("Documents screen", () => {
       date: "",
       kind: "spec",
       status: "validated",
-      source: { path: "", sha256: "", file: "source.docx" },
-      convertedWith: "",
-      convertedAt: "2026-11-02T10:00:00.000Z",
-      warnings: indexed === "stale" ? ["2 Word comments were dropped"] : [],
+      source: { name: "", sha256: "", file: "source.docx" },
+      converted: {
+        with: "",
+        at: "2026-11-02T10:00:00.000Z",
+        warnings: indexed === "stale" ? ["2 Word comments were dropped"] : [],
+      },
       indexed,
     });
     routes["docs.list"] = () => [
@@ -399,10 +401,8 @@ describe("Documents screen", () => {
       date: "",
       kind: "spec",
       status: "draft",
-      source: { path: "", sha256: "", file: "source.docx" },
-      convertedWith: "",
-      convertedAt: "",
-      warnings: [],
+      source: { name: "", sha256: "", file: "source.docx" },
+      converted: { with: "", at: "", warnings: [] },
       indexed: "missing",
     };
     let added = false;

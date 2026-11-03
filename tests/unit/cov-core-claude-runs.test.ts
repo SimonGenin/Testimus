@@ -19,6 +19,7 @@ import {
 import { checkSignedIn, claudeExe, claudeVersion, resetProbe } from "../../src/core/claude/status.ts";
 import type { Ctx } from "../../src/core/command.ts";
 import { type ClaudeOut, type ClaudeSpawn, env } from "../../src/core/env.ts";
+import { readDoc } from "../../src/core/lib/docs.ts";
 import {
   DEFAULT_SETTINGS,
   readJson,
@@ -27,7 +28,7 @@ import {
   writeProject,
   writeSettings,
 } from "../../src/core/lib/project.ts";
-import type { Chunk, DocJson, FigureEntry } from "../../src/core/types.ts";
+import type { Chunk, FigureEntry } from "../../src/core/types.ts";
 
 const FIXTURE = join(import.meta.dirname, "..", "fixtures", "project");
 const D3 = "SOSIE_211_D401-1_3";
@@ -301,8 +302,8 @@ describe("headers edges", () => {
   });
 
   it("finds no project for a document nobody knows; a cancelled run throws; nothing to do without chunks", async () => {
-    const doc = readJson<DocJson>(join(dir, "docs", D3, "doc.json"), {} as DocJson);
-    expect(projectOfDoc({ ...doc, convertedAt: "other" })).toBeNull();
+    const doc = readDoc(dir, D3);
+    expect(projectOfDoc({ ...doc, converted: { with: "", at: "other", warnings: [] } })).toBeNull();
     const p = readProject(dir);
     writeProject(dir, { ...p, rag: { ...p.rag, claudeHeaders: true } as typeof p.rag });
     expect(await claudeHeaders(doc, [], new AbortController().signal, dir)).toEqual([]);

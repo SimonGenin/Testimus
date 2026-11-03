@@ -16,7 +16,7 @@ export function claudeHeadersOn(project: string): boolean {
 }
 
 // ponytail: the indexer's hook is given the document, not the project — the project is the known
-// folder whose docs/<id>/doc.json is this very conversion (same convertedAt and source hash)
+// folder whose docs/<id>/doc.json is this very conversion (same conversion time and source hash)
 export function projectOfDoc(doc: DocJson): string | null {
   const s = readSettings();
   const candidates = [process.env.TESTIMUS_PROJECT, process.cwd(), s.lastProject, ...s.projects].filter(
@@ -25,7 +25,7 @@ export function projectOfDoc(doc: DocJson): string | null {
   for (const dir of [...new Set(candidates.map((p) => resolve(p)))]) {
     const d = findDoc(dir, doc.id);
     if (!d) continue;
-    if (d.convertedAt === doc.convertedAt && d.source?.sha256 === doc.source?.sha256) return dir;
+    if (d.converted?.at === doc.converted?.at && d.source?.sha256 === doc.source?.sha256) return dir;
   }
   return null;
 }

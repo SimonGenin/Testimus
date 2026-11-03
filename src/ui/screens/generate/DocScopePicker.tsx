@@ -52,7 +52,7 @@ export function DocScopePicker({
         {docs.map((d) => {
           const s = of(d.id);
           const some = Array.isArray(s);
-          const total = d.stats?.sections;
+          const total = d.converted?.stats?.sections;
           return (
             <li key={d.id} className={cx("dscope-doc", some && "is-narrowed")}>
               <div className="dscope-row">

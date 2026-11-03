@@ -13,7 +13,9 @@ vi.mock("../../src/ui/api.ts", async (importOriginal) => {
     ...real,
     run: vi.fn(async (name: string, input: Record<string, unknown>) => {
       runs.push({ name, input });
-      return name === "docs.convert" ? { id: input.id, warnings: ["2 heading numbers are drawn"] } : {};
+      return name === "docs.convert"
+        ? { id: input.id, converted: { with: "", at: "", warnings: ["2 heading numbers are drawn"] } }
+        : {};
     }),
     call: vi.fn(async (name: string, input: Record<string, unknown>) => {
       runs.push({ name, input });
@@ -32,10 +34,8 @@ const DOC: DocJson = {
   date: "",
   kind: "spec",
   status: "draft",
-  source: { path: "C:/client/SOSIE_441_01.00.pdf", sha256: "", file: "source.pdf" },
-  convertedWith: "pdfjs-dist (tagged PDF)",
-  convertedAt: "2026-11-03T00:00:00.000Z",
-  warnings: [],
+  source: { name: "C:/client/SOSIE_441_01.00.pdf", sha256: "", file: "source.pdf" },
+  converted: { with: "pdfjs-dist (tagged PDF)", at: "2026-11-03T00:00:00.000Z", warnings: [] },
   conversion: {
     reader: "tagged",
     numbers: [

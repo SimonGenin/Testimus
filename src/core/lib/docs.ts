@@ -6,13 +6,13 @@ import { anchorsOf, type Converted, type ConvertOpts, guessFromName } from "../r
 import { convertDocx } from "../rag/convert-docx.ts";
 import { convertPdf, pdfFigures } from "../rag/convert-pdf.ts";
 import { docContent, readState } from "../rag/indexer.ts";
-import type { DocJson, DocKind, DocRef, FigureEntry } from "../types.ts";
+import type { DocJson, DocKind, DocRef, DocStats, FigureEntry } from "../types.ts";
 import { writeAtomic } from "./atomic.ts";
 import { sha256 } from "./hash.ts";
 import { readJson, writeJson } from "./project.ts";
 
 export type TocEntry = { anchor: string; title: string; level: number };
-export type Stats = NonNullable<DocJson["stats"]>;
+export type Stats = DocStats;
 
 const ID_RE = /^[A-Za-z0-9][A-Za-z0-9_.-]*$/;
 
@@ -28,7 +28,8 @@ export function readDoc(project: string, id: string): DocJson {
 }
 
 export function writeDoc(project: string, doc: DocJson): void {
-  writeJson(join(docDir(project, doc.id), "doc.json"), doc);
+  const { id, ...file } = doc;
+  writeJson(join(docDir(project, id), "doc.json"), file);
 }
 
 // ponytail: a folder of docs/ that is not a document (no doc.json, or a name no id can have) is no document
@@ -61,12 +62,13 @@ export function listDocs(project: string): DocRef[] {
   return out;
 }
 
-export const isConverted = (doc: Pick<DocJson, "convertedAt">) => !!doc.convertedAt;
+export const isConverted = (doc: Pick<DocJson, "converted">) => !!doc.converted?.at;
 
-const stemOf = (doc: Pick<DocJson, "source">) => {
-  const name = doc.source.path.replace(/^upload: /, "");
-  return basename(name, extname(name));
-};
+export const warningsOf = (doc: Pick<DocJson, "converted">) => doc.converted?.warnings ?? [];
+
+const stemOf = (doc: Pick<DocJson, "source">) => basename(doc.source.name, extname(doc.source.name));
+
+const copyOf = (dir: string, file: string) => ({ file, sha256: sha256(readFileSync(join(dir, file))) });
 
 export function readFigures(project: string, id: string): FigureEntry[] {
   return readJson<FigureEntry[]>(join(docDir(project, id), "figures.json"), []);
@@ -223,8 +225,8 @@ export async function addDoc(
     progress("Copying the original");
     writeAtomic(target, readFileSync(file));
     if (input.pdf && ext === ".docx") writeAtomic(pdfTarget, readFileSync(resolve(input.pdf)));
-    const bytes = readFileSync(target);
-    const source = { path: file, sha256: sha256(bytes), file: `source${ext}` };
+    const source = { name: file, ...copyOf(dir, `source${ext}`) };
+    const twin = input.pdf && ext === ".docx" ? { twin: copyOf(dir, "source.pdf") } : {};
     if (input.convert === false) {
       const doc: DocJson = {
         id,
@@ -235,9 +237,7 @@ export async function addDoc(
         kind: input.kind ?? "spec",
         status: "draft",
         source,
-        convertedWith: "",
-        convertedAt: "",
-        warnings: [],
+        ...twin,
       };
       writeDoc(project, doc);
       return doc;
@@ -260,10 +260,8 @@ export async function addDoc(
       kind: input.kind ?? "spec",
       status: "draft",
       source,
-      convertedWith: c.convertedWith,
-      convertedAt: env.now().toISOString(),
-      warnings: c.warnings,
-      stats,
+      ...twin,
+      converted: { with: c.convertedWith, at: env.now().toISOString(), warnings: c.warnings, stats },
     };
     writeDoc(project, doc);
     return doc;
@@ -282,6 +280,7 @@ export function attachPdf(project: string, id: string, pdf: string): void {
   if (extname(file).toLowerCase() !== ".pdf" || !existsSync(file))
     throw new UserError(`Not a .pdf file: ${file}`, "Give the PDF rendering of the same document.");
   writeAtomic(join(docDir(project, id), "source.pdf"), readFileSync(file));
+  writeDoc(project, { ...doc, twin: copyOf(docDir(project, id), "source.pdf") });
 }
 
 // ponytail: the .docx of a document added from its .pdf becomes its source — the .pdf stays beside it and lends
@@ -293,16 +292,22 @@ export function attachDocx(project: string, id: string, docx: string): DocJson {
     throw new UserError(`${id} was added from a .docx already.`, "Give its PDF rendering with --pdf instead.");
   if (extname(file).toLowerCase() !== ".docx" || !existsSync(file))
     throw new UserError(`Not a .docx file: ${file}`, "Give the Word file of the same document.");
-  const bytes = readFileSync(file);
-  writeAtomic(join(docDir(project, id), "source.docx"), bytes);
-  const next: DocJson = { ...doc, source: { path: file, sha256: sha256(bytes), file: "source.docx" } };
+  writeAtomic(join(docDir(project, id), "source.docx"), readFileSync(file));
+  const dir = docDir(project, id);
+  const next: DocJson = {
+    ...doc,
+    source: { name: file, ...copyOf(dir, "source.docx") },
+    twin: copyOf(dir, doc.source.file),
+  };
   writeDoc(project, next);
   return next;
 }
 
-// ponytail: the original's other copy — the .docx saved beside a .pdf under the same name, or the reverse
-export function twinOf(path: string): string | null {
-  if (path.startsWith("upload: ")) return null;
+// ponytail: the original's other copy — the .docx saved beside a .pdf under the same name, or the reverse; an
+// upload has no folder to look in
+export function twinOf(source: DocJson["source"]): string | null {
+  if (source.uploaded) return null;
+  const path = source.name;
   const ext = extname(path).toLowerCase();
   const other = join(dirname(path), `${basename(path, extname(path))}${ext === ".pdf" ? ".docx" : ".pdf"}`);
   return existsSync(other) ? other : null;
@@ -350,10 +355,8 @@ export async function reconvertDoc(
     ...(named && c.meta.title ? { title: c.meta.title } : {}),
     date: doc.date || c.meta.date,
     source: { ...doc.source, sha256: sha256(readFileSync(source)) },
-    convertedWith: c.convertedWith,
-    convertedAt: env.now().toISOString(),
-    warnings: c.warnings,
-    stats,
+    ...(doc.twin && existsSync(join(dir, doc.twin.file)) ? { twin: copyOf(dir, doc.twin.file) } : {}),
+    converted: { with: c.convertedWith, at: env.now().toISOString(), warnings: c.warnings, stats },
   };
   writeDoc(project, next);
   return next;

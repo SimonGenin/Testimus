@@ -204,10 +204,8 @@ describe("Documents › adding", () => {
     date: "",
     kind: "spec",
     status: "validated",
-    source: { path: "C:\\specs\\SOSIE_3.docx", sha256: "x", file: "source.docx" },
-    convertedWith: "t",
-    convertedAt: "",
-    warnings: [],
+    source: { name: "C:\\specs\\SOSIE_3.docx", sha256: "x", file: "source.docx" },
+    converted: { with: "t", at: "", warnings: [] },
     indexed: "fresh",
   };
 

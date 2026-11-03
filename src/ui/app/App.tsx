@@ -251,7 +251,7 @@ export function App() {
     if (touches(paths, [".testimus/actions/"]).length) actionsChanged();
     if (
       touches(paths, ["contexts/", "project.json"]).length ||
-      paths.some((p) => p.endsWith("/local.json") || p.endsWith("/claude.json"))
+      paths.some((p) => p.endsWith("/local.json") || p.endsWith("/doc.json"))
     )
       window.dispatchEvent(new Event(CONTEXTS_EVENT));
   });

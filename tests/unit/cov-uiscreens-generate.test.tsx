@@ -410,7 +410,7 @@ const docRef = (id: string, title: string, sections?: number) =>
     code: `C-${id}`,
     title,
     status: "validated",
-    stats: sections ? { sections } : undefined,
+    converted: sections ? { with: "", at: "", warnings: [], stats: { sections } } : undefined,
   }) as unknown as DocRef;
 
 describe("Generate › documents", () => {
@@ -614,7 +614,13 @@ describe("Generate screen", () => {
   it("refuses a scope that is not indexed, warns when it is out of date, and reindexes from here", async () => {
     base();
     let built = false;
-    const doc = (id: string, title: string, indexed: string) => ({ id, code: id, title, convertedAt: at, indexed });
+    const doc = (id: string, title: string, indexed: string) => ({
+      id,
+      code: id,
+      title,
+      converted: { with: "", at, warnings: [] },
+      indexed,
+    });
     api.routes["docs.list"] = () => [
       doc("D1", "Traction", built ? "fresh" : "missing"),
       doc("D2", "Signaux", "stale"),

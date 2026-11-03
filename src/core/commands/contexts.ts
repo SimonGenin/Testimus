@@ -282,7 +282,7 @@ export const commands = [
   command({
     name: "contexts.ofTest",
     summary:
-      "The contexts attached to a test: its own list (tests/<id>/claude.json) when it has one, else the project's defaults.",
+      "The contexts attached to a test: its own list (tests/<id>/local.json contexts) when it has one, else the project's defaults.",
     input: z.object({ testId }),
     output: z.object({
       effective: z.array(z.string()).describe("Context ids a run on this test attaches (existing ones only)"),
@@ -317,7 +317,7 @@ export const commands = [
   command({
     name: "contexts.setTest",
     summary:
-      "Set the full list of contexts of one test (tests/<id>/claude.json; [] = none); null goes back to the project's defaults.",
+      "Set the full list of contexts of one test (tests/<id>/local.json; [] = none); null goes back to the project's defaults.",
     input: z.object({
       testId,
       contexts: z.array(ID).nullable().describe("Context ids for this test, or null to follow the project"),

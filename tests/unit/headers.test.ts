@@ -29,7 +29,7 @@ let seen: ClaudeSpawn[];
 
 function doc3(): { doc: DocJson; chunks: Chunk[] } {
   const d = join(dir, "docs", D3);
-  const doc = readJson<DocJson>(join(d, "doc.json"), {} as DocJson);
+  const doc = { ...readJson<DocJson>(join(d, "doc.json"), {} as DocJson), id: D3 };
   const chunks = chunkDoc(
     doc,
     readFileSync(join(d, "doc.md"), "utf8"),
@@ -95,7 +95,7 @@ describe("Claude context headers (hooks.describeChunks)", () => {
   it("finds the project of a document from the known projects", () => {
     const { doc } = doc3();
     expect(projectOfDoc(doc)).toBe(dir);
-    expect(projectOfDoc({ ...doc, convertedAt: "other" })).toBeNull();
+    expect(projectOfDoc({ ...doc, converted: { with: "", at: "other", warnings: [] } })).toBeNull();
   });
 
   it("when enabled: one cheap run per batch, each header = default + Claude's sentence", async () => {

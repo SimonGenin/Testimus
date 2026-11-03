@@ -1,8 +1,8 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { env } from "../env.ts";
-import { readContext } from "../lib/docs.ts";
-import { readJson, readProject, writeJson } from "../lib/project.ts";
+import { findDoc, readContext, readDoc, writeDoc } from "../lib/docs.ts";
+import { readJson, readProject } from "../lib/project.ts";
 import { readLocal, testDir, writeLocal } from "../lib/store.ts";
 import type { ClaudeRun, ClaudeScope, Context } from "../types.ts";
 
@@ -38,17 +38,13 @@ export function effectiveContexts(project: string, testId?: string): string[] {
   return ids.filter((id) => /^[\w-]+$/.test(id) && existsSync(contextDir(project, id)));
 }
 
-const docClaudeFile = (project: string, docId: string) => join(project, "docs", docId, "claude.json");
-
 export function readDocContexts(project: string, docId: string): string[] | null {
-  const f = docClaudeFile(project, docId);
-  if (!existsSync(f)) return null;
-  const c = readJson<{ contexts?: unknown }>(f, {}).contexts;
+  const c = findDoc(project, docId)?.contexts;
   return Array.isArray(c) ? c.filter((x): x is string => typeof x === "string" && /^[\w-]+$/.test(x)) : null;
 }
 
 export function writeDocContexts(project: string, docId: string, ids: string[]): void {
-  writeJson(docClaudeFile(project, docId), { contexts: [...new Set(ids)] });
+  writeDoc(project, { ...readDoc(project, docId), contexts: [...new Set(ids)] });
 }
 
 // ponytail: like a test, a document's own list wins whole, else the project's; a run may add its own on top
