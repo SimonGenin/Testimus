@@ -144,7 +144,7 @@ type Prior = {
   done: number[];
 };
 
-export function readPrior(project: string, generation: string): Prior {
+function readPrior(project: string, generation: string): Prior {
   const l = readLedger(project, generation);
   if (!l?.input || !l.runId || !l.plan?.tests?.length)
     throw new UserError(

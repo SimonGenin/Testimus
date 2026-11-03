@@ -13,8 +13,8 @@ import { runClaude } from "./run.ts";
 export const FIGURES_MARKER = "Testimus describe-figures run";
 export const FIGURES_TAG = "figures";
 export const FIGURES_BATCH = 20;
-export const MAX_LABELS = 100;
-export const FIGURE_KINDS: FigureKind[] = ["screen", "diagram", "symbol", "table-image", "photo"];
+const MAX_LABELS = 100;
+const FIGURE_KINDS: FigureKind[] = ["screen", "diagram", "symbol", "table-image", "photo"];
 
 type FigureKind = NonNullable<FigureEntry["kind"]>;
 export type Described = Pick<FigureEntry, "description" | "labels" | "kind">;

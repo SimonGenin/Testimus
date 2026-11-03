@@ -38,7 +38,7 @@ export function forShell(exe: string, args: string[]): { exe: string; args: stri
   return { exe: q(exe), args: args.map(q) };
 }
 
-export function claudeCommand(args: string[]): { exe: string; args: string[] } {
+function claudeCommand(args: string[]): { exe: string; args: string[] } {
   return forShell(resolveExe(claudeExe()), args);
 }
 

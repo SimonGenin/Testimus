@@ -39,7 +39,7 @@ export function effectiveContexts(project: string, testId?: string): string[] {
   return ids.filter((id) => /^[\w-]+$/.test(id) && existsSync(contextDir(project, id)));
 }
 
-export function readDocContexts(project: string, docId: string): string[] | null {
+function readDocContexts(project: string, docId: string): string[] | null {
   const c = findDoc(project, docId)?.contexts;
   return Array.isArray(c) ? c.filter((x): x is string => typeof x === "string" && /^[\w-]+$/.test(x)) : null;
 }

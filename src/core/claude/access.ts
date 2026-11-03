@@ -4,8 +4,8 @@ import { resolve } from "node:path";
 // run, and the files no run edits by hand; the command list comes from the registry, never imported from here
 // (the registry imports every command, and a command starts Claude: GOAL-V3 N4, no cycle)
 
-export const EDIT_TOOLS = ["Read", "Edit", "Write", "Glob", "Grep", "Skill"];
-export const READ_TOOLS = ["Read", "Glob", "Grep", "Skill"];
+const EDIT_TOOLS = ["Read", "Edit", "Write", "Glob", "Grep", "Skill"];
+const READ_TOOLS = ["Read", "Glob", "Grep", "Skill"];
 
 export type RunKind =
   | "chat"
@@ -92,7 +92,7 @@ export function mcpAccess(kind: RunKind): { allow: string[]; deny: string[] } {
   };
 }
 
-export const PROTECTED = [
+const PROTECTED = [
   "docs/**",
   "index/**",
   ".testimus/**",

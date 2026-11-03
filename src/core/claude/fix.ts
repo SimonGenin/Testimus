@@ -19,7 +19,7 @@ export type FixResult = {
   diagnosis?: Diagnosis;
 };
 
-export function fixRequest(id: string, note: string, findings: Finding[], language: string): string {
+function fixRequest(id: string, note: string, findings: Finding[], language: string): string {
   return [
     `Use the fix-test skill on the test ${id}.`,
     note ? `Reviewer's note (To fix): ${JSON.stringify(note)}` : "No reviewer's note: fix what the findings ask.",

@@ -50,7 +50,7 @@ export type GenInput = {
 const clean = (xs: string[] | undefined) => [...new Set((xs ?? []).map((x) => x.trim()).filter(Boolean))];
 export const isSection = (s: string) => /^[^#\s]+#\S.*$/.test(s);
 
-export function scopeSections(project: string, i: GenInput): number {
+function scopeSections(project: string, i: GenInput): number {
   const docs = clean(i.docs).filter((d) => existsSync(join(project, "docs", d, "doc.md")));
   return clean(i.sections).length + docs.reduce((n, d) => n + anchorsOf(readDocMd(project, d)).sections.length, 0);
 }

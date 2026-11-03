@@ -28,7 +28,7 @@ export const CONVERSATION = z
     "The earlier exchanges of the Claude panel the user has not cleared, as a transcript (said to Claude in full as background)",
   );
 
-export const TEST_ID = z
+const TEST_ID = z
   .string()
   .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/, "A test id: a Jira key or local-<8hex>")
   .refine((s) => !s.includes(".."), "A test id never contains ..");
@@ -118,7 +118,7 @@ export const SEVERITY = z
   .enum(["error", "warning", "info"])
   .describe("error = a tester would pass a wrong behavior or fail a right one; warning = gap or vague; info otherwise");
 
-export const FINDING = z.object({
+const FINDING = z.object({
   step: z.number().int().min(1).optional().describe("Step number (1-based); absent for the whole test"),
   kind: z.enum(FINDING_KINDS).describe("Finding kind (SPEC §8)"),
   severity: SEVERITY,

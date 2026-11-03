@@ -17,7 +17,7 @@ export type Problem = { where: string; text: string };
 
 // ponytail: what a run that sees problems is told — it may leave a button behind, for a problem it can really fix
 // ponytail: the proposing run knows the fix best — it says which model and effort the fix needs, Opus and xhigh at most
-export const SUGGEST_RULE = [
+const SUGGEST_RULE = [
   "model and effort: what the fix needs — model haiku (a mechanical change), sonnet (ordinary test edits) or opus",
   "(reading documents, judging); effort low (one obvious change), medium, high (a real search) or xhigh (long, delicate).",
 ];
@@ -208,7 +208,7 @@ export async function triageRun(ctx: Ctx, project: string, input: TriageInput) {
 
 // ponytail: a failed job of the documents, the index, the figures, a generation or a check is shown to Claude once,
 // cheaply (project model, low effort), when Claude is there; a Claude run or a Jira call is never triaged
-export const TRIAGED = /^(docs\.|rag-|rag\.|describe-figures|generate|check)/;
+const TRIAGED = /^(docs\.|rag-|rag\.|describe-figures|generate|check)/;
 
 export async function triageRefusal(project: string, jobId: string): Promise<string | null> {
   const shown = showJob(project, jobId);

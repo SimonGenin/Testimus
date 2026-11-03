@@ -24,8 +24,7 @@ export type GenLedger = Ledger & {
   reportedConsulted?: string[];
 };
 
-export const genLedgerFile = (project: string, generation: string) =>
-  join(project, ".testimus", "gen", `${generation}.json`);
+const genLedgerFile = (project: string, generation: string) => join(project, ".testimus", "gen", `${generation}.json`);
 
 export function writeLedger(project: string, generation: string, ledger: GenLedger & Record<string, unknown>): void {
   writeJson(genLedgerFile(project, generation), ledger);

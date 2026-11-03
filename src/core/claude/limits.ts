@@ -7,8 +7,8 @@ import type { AgentsLevel, AgentsMeasure } from "../types.ts";
 import { mcpServer } from "./run.ts";
 
 // ponytail: claude.exe itself is not started by the test (it would spend the subscription): its memory is counted
-export const CLAUDE_MB = 350;
-export const PACE_MS = 1500;
+const CLAUDE_MB = 350;
+const PACE_MS = 1500;
 
 const QUERIES = [
   "conditions de déclenchement de l'alarme",

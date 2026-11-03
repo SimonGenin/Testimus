@@ -17,7 +17,7 @@ import { finishSnapshot, takeSnapshot, writeRunMeta } from "./snapshot.ts";
 import { claudeAnswered, claudeExe, forShell } from "./status.ts";
 import { sessionOf, streamParser, type ToolCall, toolCalls, writtenTests } from "./stream.ts";
 
-export function checkModel(model: string): string {
+function checkModel(model: string): string {
   if (!MODEL_RE.test(model))
     throw new UserError(
       `Not a model name: ${JSON.stringify(model.slice(0, 60))}.`,
@@ -26,14 +26,14 @@ export function checkModel(model: string): string {
   return model;
 }
 
-export function checkEffort(effort: string): Effort {
+function checkEffort(effort: string): Effort {
   if (!(EFFORTS as readonly string[]).includes(effort))
     throw new UserError(`Not an effort level: ${JSON.stringify(effort.slice(0, 30))}.`, `Use ${EFFORTS.join(", ")}.`);
   return effort as Effort;
 }
 
 const CLI = fileURLToPath(new URL("../../faces/cli.ts", import.meta.url));
-export const IN_CLAUDE = { TESTIMUS_IN_CLAUDE: "1" };
+const IN_CLAUDE = { TESTIMUS_IN_CLAUDE: "1" };
 
 export const insideClaude = (): boolean => !!process.env.TESTIMUS_IN_CLAUDE;
 
