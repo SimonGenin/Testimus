@@ -22,7 +22,7 @@ import {
   scoreBehavior,
   totals,
 } from "../../src/core/rag/eval.ts";
-import { indexProject } from "../../src/core/rag/indexer.ts";
+import { indexProject, readState } from "../../src/core/rag/indexer.ts";
 import type { Behavior } from "../../src/core/types.ts";
 
 const FIXTURE = join(import.meta.dirname, "..", "fixtures", "project");
@@ -306,12 +306,12 @@ describe("rag.eval v2 on the fixture project", () => {
     expect(r.setting).toMatch(/^bge-m3-q8-bm25-r[0-9a-f]{6}$/);
   });
 
-  it("measures a candidate model in the live rag.db through its own space; the active space and state.json stay", async () => {
+  it("measures a candidate model in the live rag.db through its own space; the active space and the index state stay", async () => {
     graph.related = () => {
       throw new Error("rag.related is not built yet.");
     };
     await indexProject(dir, quietCtx(dir));
-    const state = readFileSync(join(dir, "index", "state.json"), "utf8");
+    const state = JSON.stringify(readState(dir));
     const spaces = () => {
       const db = openDb(indexFile(dir));
       try {
@@ -334,7 +334,7 @@ describe("rag.eval v2 on the fixture project", () => {
     expect(after).toHaveLength(2);
     expect(after).toContainEqual(before[0]);
     expect(after.find((s) => s.id === r.config.space?.id)?.model).toBe(emb);
-    expect(readFileSync(join(dir, "index", "state.json"), "utf8")).toBe(state);
+    expect(JSON.stringify(readState(dir))).toBe(state);
     expect(existsSync(join(dir, ".testimus", "eval", emb))).toBe(false);
     expect(r.policies[0].totals?.atK[10].recall).toBeGreaterThan(0);
   });

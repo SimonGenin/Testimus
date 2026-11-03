@@ -12,6 +12,7 @@ import { readCheck } from "../../src/core/lib/store.ts";
 import { docContent } from "../../src/core/rag/indexer.ts";
 import type { DocJson, DocRef, FigureEntry } from "../../src/core/types.ts";
 import { sampleDocx } from "../fixtures/docx/sample.ts";
+import { markIndexedInDb } from "./index-state-helpers.ts";
 
 async function run<T = unknown>(project: string, name: string, raw: unknown): Promise<T> {
   const c = commands.find((x) => x.name === name);
@@ -170,9 +171,8 @@ describe("docs commands", () => {
   it("lists documents with their index freshness", async () => {
     const doc = await run<DocJson>(project, "docs.add", { file: original });
     expect((await run<DocRef[]>(project, "docs.list", {}))[0].indexed).toBe("missing");
-    mkdirSync(join(project, "index"));
     const dir = join(project, "docs", doc.id);
-    writeFileSync(join(project, "index", "state.json"), JSON.stringify({ docs: { [doc.id]: docContent(dir, doc) } }));
+    markIndexedInDb(project, [doc.id], { [doc.id]: docContent(dir, doc) });
     expect((await run<DocRef[]>(project, "docs.list", {}))[0].indexed).toBe("fresh");
     writeFileSync(join(dir, "doc.md"), `${readFileSync(join(dir, "doc.md"), "utf8")}\nReconverti.\n`);
     expect((await run<DocRef[]>(project, "docs.list", {}))[0].indexed).toBe("stale");

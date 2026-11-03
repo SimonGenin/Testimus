@@ -6,7 +6,6 @@ import { env } from "../env.ts";
 import { docDir, docIds, readDoc, readDocMd, readFigures } from "../lib/docs.ts";
 import { sha256 } from "../lib/hash.ts";
 import { withPerfScope } from "../lib/models-perf.ts";
-import { readJson, writeJson } from "../lib/project.ts";
 import type { Chunk, ClaudeRun, DocJson, FigureEntry, ResolvedModel, VectorSpace } from "../types.ts";
 import { activeModels } from "./activation.ts";
 import { chunkDoc, hooks } from "./chunk.ts";
@@ -15,6 +14,7 @@ import {
   chunksOf,
   createSpace,
   deleteChunk,
+  getMeta,
   indexFile,
   insertChunk,
   listSpaces,
@@ -57,12 +57,27 @@ export type ProjectDoc = { doc: DocJson; dir: string; md: string; figures: Figur
 
 const BATCH = 16;
 
-export function stateFile(project: string): string {
-  return join(project, "index", "state.json");
+// ponytail: what the last complete index run of the project saw lives in rag.db itself (meta « index_state »), so the
+// index is one derived file and its state can never disagree with it
+const STATE = "index_state";
+
+function stateIn(db: DatabaseSync): IndexState | null {
+  try {
+    const raw = getMeta(db, STATE);
+    return raw ? (JSON.parse(raw) as IndexState) : null;
+  } catch {
+    return null;
+  }
 }
 
 export function readState(project: string): IndexState | null {
-  return readJson<IndexState | null>(stateFile(project), null);
+  if (!existsSync(indexFile(project))) return null;
+  const db = openDb(indexFile(project));
+  try {
+    return stateIn(db);
+  } finally {
+    db.close();
+  }
 }
 
 export function projectDocs(project: string): ProjectDoc[] {
@@ -177,14 +192,14 @@ export function unindexDoc(project: string, id: string): void {
     const db = openDb(indexFile(project));
     try {
       forgetDoc(db, id);
+      const state = stateIn(db);
+      if (state?.docs[id] !== undefined) {
+        delete state.docs[id];
+        setMeta(db, STATE, JSON.stringify(state));
+      }
     } finally {
       db.close();
     }
-  }
-  const state = readState(project);
-  if (state?.docs[id] !== undefined) {
-    delete state.docs[id];
-    writeJson(stateFile(project), state);
   }
 }
 
@@ -278,7 +293,7 @@ export async function indexProject(
         docs: Object.fromEntries(docs.map((d) => [d.doc.id, d.content])),
         space: space?.id ?? null,
       };
-      writeJson(stateFile(project), state);
+      setMeta(db, STATE, JSON.stringify(state));
     }
     return {
       embedding,

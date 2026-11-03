@@ -23,7 +23,7 @@ import { readTest } from "../../src/core/lib/store.ts";
 import { mockSpawnClaude } from "../../src/core/mock/claude.ts";
 import "../../src/core/mock/claude-gen.ts";
 import type { JobEvent } from "../../src/core/types.ts";
-import { markIndexed } from "./index-helpers.ts";
+import { markIndexedInDb as markIndexed } from "./index-state-helpers.ts";
 
 const FIXTURE = join(import.meta.dirname, "..", "fixtures", "project");
 const DOC_MD = readFileSync(join(FIXTURE, "docs", "SOSIE_211_D401-1_3", "doc.md"), "utf8");

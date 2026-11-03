@@ -7,7 +7,7 @@ import type { Ctx } from "../../src/core/command.ts";
 import { type ClaudeOut, env } from "../../src/core/env.ts";
 import { DEFAULT_SETTINGS, readProject, writeJson, writeProject, writeSettings } from "../../src/core/lib/project.ts";
 import { readTest } from "../../src/core/lib/store.ts";
-import { markIndexed } from "./index-helpers.ts";
+import { markIndexedInDb as markIndexed } from "./index-state-helpers.ts";
 
 const FIXTURE = join(import.meta.dirname, "..", "fixtures", "project");
 const real = env.spawnClaude;
