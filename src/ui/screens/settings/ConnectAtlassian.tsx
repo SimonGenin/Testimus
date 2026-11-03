@@ -146,14 +146,18 @@ export function ConnectAtlassian({
       if (token.trim() && token.trim() !== was.token) input.token = token.trim();
       if (clientId.trim() && clientId.trim() !== was.clientId) input.clientId = clientId.trim();
       if (secret.trim() && secret.trim() !== was.clientSecret) input.clientSecret = secret.trim();
+      // ponytail: a saved value the user emptied is erased, not kept (Xray Editor saves the form as it is)
+      const clear = [
+        !email.trim() && status.jira.email ? "email" : "",
+        !token.trim() && was.token ? "token" : "",
+        !clientId.trim() && was.clientId ? "clientId" : "",
+        !secret.trim() && was.clientSecret ? "clientSecret" : "",
+      ].filter(Boolean);
+      if (clear.length) input.clear = clear;
       const r = await call<SetupResult>("system.setup", input);
       setStatus(r.status);
       onStatus?.(r.status);
-      kept.current = {
-        token: token.trim() || was.token,
-        clientId: clientId.trim() || was.clientId,
-        clientSecret: secret.trim() || was.clientSecret,
-      };
+      kept.current = { token: token.trim(), clientId: clientId.trim(), clientSecret: secret.trim() };
       setWords({
         jira: jiraWords(r.checks.find((c) => c.id === "jira")),
         xray: xrayWords(r.checks.find((c) => c.id === "xray")),

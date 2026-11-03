@@ -202,6 +202,23 @@ describe("PushDialog › running", () => {
     expect(toasts.at(-1)).toMatchObject({ title: "Pushed LFRPS12-99", detail: "1 operation" });
   });
 
+  it("says when Jira took the push but the local copy could not be refreshed", async () => {
+    h.push = () => ({
+      ok: true,
+      id: "LFRPS12-99",
+      ops: [{ label: "a", status: "done" }],
+      error: "Pushed; refreshing from Jira failed — network down",
+    });
+    const { onDone } = dialog({ testKey: undefined });
+    await confirm();
+    await waitFor(() => expect(onDone).toHaveBeenCalledWith("LFRPS12-99"));
+    expect(toasts.at(-1)).toMatchObject({
+      kind: "error",
+      title: "Pushed LFRPS12-99, but the local copy was not refreshed",
+      detail: expect.stringContaining("Download from Jira"),
+    });
+  });
+
   it("falls back to a generic title and no operations", async () => {
     h.plan = () => plan({ ops: [{ kind: "create", label: "Create" }] });
     h.push = () => ({ ok: true, id: "", ops: [] });

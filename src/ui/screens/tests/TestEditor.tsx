@@ -435,6 +435,8 @@ export function TestEditor({
   const revertClaude = async (force = false) => {
     if (!marks) return;
     try {
+      // ponytail: a pending edit is saved before the revert reads the file (Xray Editor)
+      await flush();
       const r = await revertRun(marks.runId, force);
       setConflict(null);
       app.setLastRun({
@@ -484,7 +486,8 @@ export function TestEditor({
 
   const download = async () => {
     const key = test?.key;
-    if (!key) return;
+    // ponytail: a run may have started while the dialog was open — checked again on confirm (Xray Editor)
+    if (!key || refuseWhileClaude()) return setDialog(null);
     setBusyDl(true);
     const id = testId;
     try {
@@ -1045,6 +1048,7 @@ export function TestEditor({
           onConfirm={() => {
             const d = dialog;
             setDialog(null);
+            if (refuseWhileClaude()) return;
             update((t) => restoreStep(t, d.base, d.gone));
             toast({
               kind: "ok",

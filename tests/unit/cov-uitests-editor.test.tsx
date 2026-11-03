@@ -1303,6 +1303,29 @@ describe("TestEditor › parity", () => {
     expect(screen.queryByRole("dialog", { name: "Undo every local change?" })).toBeNull();
   });
 
+  it("refuses a download or a step restore confirmed after Claude started", async () => {
+    shown = makeTest({ steps: [step("One changed", { id: "1" })] });
+    show = { remote: makeTest({ steps: [step("One", { id: "1" })] }) };
+    server.routes["xray.pull"] = () => ({ pulled: ["LFRPS12-7"] });
+    const { again } = editor();
+    await ready();
+    await menuItem("Download from Jira");
+    const dl = await screen.findByRole("dialog", { name: "Download from Jira?" });
+    again({ claudeRunning: "*project*" });
+    fireEvent.click(within(dl).getByRole("button", { name: "Overwrite local" }));
+    expect(toasts.at(-1)?.title).toBe("Wait for Claude to finish");
+    await new Promise((r) => setTimeout(r, 20));
+    expect(callsTo("xray.pull")).toHaveLength(0);
+    again({ claudeRunning: null });
+    fireEvent.click(await screen.findByRole("button", { name: "Jira version" }));
+    fireEvent.click(screen.getByRole("button", { name: "Restore this step" }));
+    const rs = await screen.findByRole("dialog", { name: /Restore step 1 from Jira/ });
+    again({ claudeRunning: "*project*" });
+    fireEvent.click(within(rs).getByRole("button", { name: "Restore this step" }));
+    expect(toasts.filter((t) => t.title === "Wait for Claude to finish")).toHaveLength(2);
+    expect(screen.getByDisplayValue("One changed")).toBeInTheDocument();
+  });
+
   it("drops Claude's marks when the local changes are undone", async () => {
     shown = makeTest({ steps: [step("One changed", { id: "1" }), step("Two", { id: "2" })] });
     show = { remote: makeTest({ steps: [step("One", { id: "1" }), step("Two", { id: "2" })] }) };

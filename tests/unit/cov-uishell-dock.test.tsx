@@ -368,9 +368,18 @@ describe("Claude dock: on a test", () => {
     ask("Do it");
     expect(await screen.findByText("The run did not finish")).toBeInTheDocument();
     expect(screen.getByText(/^2 steps changed/)).toBeInTheDocument();
+    const order: string[] = [];
+    setFlusher(async () => {
+      order.push("flush");
+    });
+    net.routes["claude.revert"] = () => {
+      order.push("revert");
+      return { reverted: ["local-1"] };
+    };
     fireEvent.click(screen.getByRole("button", { name: /^Revert$/ }));
     expect(await screen.findByText("Reverted")).toBeInTheDocument();
     expect(callsOf("claude.revert").map((c) => c.input)).toEqual([{ runId: "run-half" }]);
+    expect(order).toEqual(["flush", "revert"]);
   });
 
   it("asks before reverting a test edited after the run, and reports other revert errors", async () => {

@@ -123,6 +123,20 @@ describe("system.setup", () => {
     expect(JSON.stringify(r)).not.toMatch(/new-token|new-secret/);
   });
 
+  it("erases the fields named in clear, keeping the rest of the files", async () => {
+    mkdirSync(atl(), { recursive: true });
+    writeFileSync(
+      jiraFile(),
+      JSON.stringify({ baseUrl: "https://acme.atlassian.net/wiki", email: "me@b.c", token: "tok", accountId: "42" }),
+    );
+    writeFileSync(xrayFile(), JSON.stringify({ clientId: "id", clientSecret: "sec" }));
+    const r = (await invoke("system.setup", { clear: ["token", "clientSecret"] }, { project: null })) as any;
+    expect(read(jiraFile())).toEqual({ baseUrl: "https://acme.atlassian.net/wiki", email: "me@b.c", accountId: "42" });
+    expect(read(xrayFile())).toEqual({ clientId: "id" });
+    expect(r.saved).toEqual(["token", "clientSecret"]);
+    expect(r.status.jira.complete).toBe(false);
+  });
+
   it("creates the files from scratch and takes secrets from the environment", async () => {
     process.env.TESTIMUS_JIRA_TOKEN = "env-token";
     process.env.TESTIMUS_XRAY_SECRET = "env-secret";

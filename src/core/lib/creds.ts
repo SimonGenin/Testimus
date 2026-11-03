@@ -111,11 +111,17 @@ export function saveCreds(jira: Record<string, string>, xray: Record<string, str
     [XRAY_FILE, xray],
   ] as const) {
     const clean = Object.fromEntries(Object.entries(patch).filter(([, v]) => typeof v === "string" && v.trim()));
-    if (!Object.keys(clean).length) continue;
+    // ponytail: an empty value is a field the user cleared on purpose (Xray Editor writes the form as it is)
+    const cleared = Object.entries(patch)
+      .filter(([, v]) => v === "")
+      .map(([k]) => k);
+    if (!Object.keys(clean).length && !cleared.length) continue;
     let prev: Record<string, unknown> = {};
     try {
       prev = readRaw(name) ?? {};
     } catch {}
-    writeAtomic(join(credsDir(), name), `${JSON.stringify({ ...prev, ...clean }, null, 2)}\n`);
+    const next: Record<string, unknown> = { ...prev, ...clean };
+    for (const k of cleared) delete next[k];
+    writeAtomic(join(credsDir(), name), `${JSON.stringify(next, null, 2)}\n`);
   }
 }

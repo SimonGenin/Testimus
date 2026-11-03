@@ -100,11 +100,16 @@ export function PushDialog({
         setPhase("failed");
         return;
       }
-      toast({
-        kind: "ok",
-        title: `Pushed ${r.id || testKey || "the test"}`,
-        detail: plural(r.ops.filter((o) => o.status === "done").length || (plan?.ops.length ?? 0), "operation"),
-      });
+      const done = plural(r.ops.filter((o) => o.status === "done").length || (plan?.ops.length ?? 0), "operation");
+      // ponytail: Jira took the push but the copy could not be read back — the local file is behind, and the user
+      // is told so with the way out (Xray Editor's « Pushed, but the pull afterwards failed »)
+      if (r.error)
+        toast({
+          kind: "error",
+          title: `Pushed ${r.id || testKey || "the test"}, but the local copy was not refreshed`,
+          detail: `${r.error} — use « Download from Jira » to bring it up to date.`,
+        });
+      else toast({ kind: "ok", title: `Pushed ${r.id || testKey || "the test"}`, detail: done });
       onDone(r.id || testId);
     } catch (e) {
       setFailure({ message: message(e), fix: e instanceof ApiError ? e.fix : undefined });

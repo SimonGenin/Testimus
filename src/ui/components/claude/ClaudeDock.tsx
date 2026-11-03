@@ -458,6 +458,7 @@ export function ClaudeDock({
   const revert = async (t: Turn, force = false) => {
     if (!t.run) return;
     try {
+      await flushEditor();
       const r = await revertRun(t.run.runId, force);
       patch("test", t.id, (x) => ({ ...x, run: x.run && { ...x.run, reverted: true } }));
       app.setLastRun({ runId: "", changedTests: r.reverted ?? [], changedSteps: {}, nonce: Date.now() });

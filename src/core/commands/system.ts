@@ -151,6 +151,10 @@ export const commands: Command[] = [
         .boolean()
         .optional()
         .describe("Accept a Jira site outside *.atlassian.net or an Xray API outside *.getxray.app (https only)."),
+      clear: z
+        .array(z.enum(["email", "token", "clientId", "clientSecret"]))
+        .optional()
+        .describe("Fields to erase from the credential files (the form sends a field the user emptied)."),
     }),
     output: z.object({
       status,
@@ -181,6 +185,10 @@ export const commands: Command[] = [
           `${xray.apiBase} is not an Xray Cloud address.`,
           "Leave it empty for https://xray.cloud.getxray.app, or confirm another https address with otherHost.",
         );
+      for (const k of input.clear ?? []) {
+        if (k === "email" || k === "token") jira[k] = "";
+        else xray[k] = "";
+      }
       const saved = [...Object.keys(jira), ...Object.keys(xray)];
       if (saved.length) saveCreds(jira, xray);
       const st = credsStatus();
