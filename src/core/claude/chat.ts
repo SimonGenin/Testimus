@@ -52,6 +52,7 @@ export type AskOpts = {
   effort?: Effort;
   contexts?: string[];
   note?: string;
+  conversation?: string;
   signal?: AbortSignal;
   onEvent?(e: ClaudeEvent): void;
 };
@@ -79,7 +80,7 @@ export async function ask(o: AskOpts): Promise<AskResult> {
         updatedAt: now(),
       };
   chat.turns.push({ role: "user", text: o.question.trim(), at: now() });
-  const context = contextLines(o.project, readContexts(o.project, o.contexts ?? []), o.note);
+  const context = contextLines(o.project, readContexts(o.project, o.contexts ?? []), o.note, o.conversation);
   const run = (resume?: string) =>
     runClaude({
       project: o.project,

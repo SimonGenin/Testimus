@@ -10,7 +10,7 @@ import { listActions, listed, proposeAction, readAction, WHERE, writeAction } fr
 import { readDoc } from "../lib/docs.ts";
 import { testDir } from "../lib/store.ts";
 import type { ClaudeScope } from "../types.ts";
-import { CONTEXT_IDS, EFFORT, MODEL, NOTE, RESULT, SCOPE, scopeLabel } from "./claude.ts";
+import { CONTEXT_IDS, CONVERSATION, EFFORT, MODEL, NOTE, RESULT, SCOPE, scopeLabel } from "./claude.ts";
 
 const id = z
   .string()
@@ -174,6 +174,7 @@ export const commands: Command[] = [
       effort: EFFORT.optional().describe("Effort level (default: project.json claude.effort)"),
       contexts: CONTEXT_IDS.optional().describe("Context ids to attach (default: the effective ones)"),
       note: NOTE,
+      conversation: CONVERSATION,
     }),
     output: RESULT.extend({
       action: ACTION,

@@ -94,8 +94,12 @@ test("Undo local changes counts what is lost and rewinds to the last sync", asyn
   const d = page.getByRole("dialog", { name: "Undo every local change?" });
   await expect(d.getByText(/modified · \d+ added · \d+ deleted step\(s\)/)).toBeVisible();
   await d.getByRole("button", { name: "Undo local changes" }).click();
-  await expect(main(page).getByRole("textbox", { name: "Summary" })).not.toHaveValue("Changed locally");
   await expect.poll(async () => (await show("LFRPS12-1420")).sync).toBe("synced");
+  // ponytail: Jira's version of a generated test was never validated here — it goes back to Generate's review
+  await expect(page).toHaveURL(/#\/review\/LFRPS12-1420$/);
+  await expect(
+    page.getByRole("heading", { name: "Sectionneur sans TK — menu contextuel et propriétés" }),
+  ).toBeVisible();
 });
 
 test("Open in Jira opens the issue page", async ({ page }) => {

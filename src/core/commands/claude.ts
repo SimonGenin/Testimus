@@ -22,6 +22,14 @@ export const NOTE = z
   .optional()
   .describe("Additional context for this run only, in plain words (said to Claude in full)");
 
+export const CONVERSATION = z
+  .string()
+  .max(60000)
+  .optional()
+  .describe(
+    "The earlier exchanges of the Claude panel the user has not cleared, as a transcript (said to Claude in full as background)",
+  );
+
 const TEST_ID = z
   .string()
   .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/, "A test id: a Jira key or local-<8hex>")
@@ -94,6 +102,7 @@ export const commands: Command[] = [
         "Context ids to attach (default: the test's own list, else project.json claude.contexts; on the project, every context the project or a test attaches, once each).",
       ),
       note: NOTE,
+      conversation: CONVERSATION,
     }),
     output: RESULT,
     mutates: true,
@@ -111,7 +120,14 @@ export const commands: Command[] = [
       const { calls: _calls, ...r } = await runClaude({
         kind: "run",
         project,
-        prompt: buildPrompt(input.scope, input.prompt, readContexts(project, ids), project, input.note),
+        prompt: buildPrompt(
+          input.scope,
+          input.prompt,
+          readContexts(project, ids),
+          project,
+          input.note,
+          input.conversation,
+        ),
         model: input.model || p.claude.model,
         effort: input.effort || p.claude.effort,
         scope: input.scope,

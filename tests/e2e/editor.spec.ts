@@ -18,7 +18,6 @@ test("LFRPS12-1420 opens with fields in xray.json order, Data folded, requiremen
   await expect(main(page).getByRole("textbox", { name: "Summary" })).toHaveValue(
     "Sectionneur sans TK — menu contextuel et propriétés",
   );
-  await expect(main(page).getByText("Checked", { exact: true })).toBeVisible();
   await expect(main(page).getByText("Modified", { exact: true })).toBeVisible();
   await expect(main(page).getByRole("article")).toHaveCount(5);
 
@@ -133,9 +132,9 @@ test("the push plan shows its warning, then the push runs and lands", async ({ p
   await main(page).getByRole("button", { name: "Push to Jira" }).click();
   const plan = page.getByRole("dialog", { name: "Push plan" });
   await expect(plan).toBeVisible();
-  await expect(plan.getByRole("note").filter({ hasText: "This test is Checked, not Validated" })).toBeVisible();
   await expect(plan.getByText(/What will happen · \d+ operations?/)).toBeVisible();
-  await expect(plan.getByText(/review label testimus-checked/)).toBeVisible();
+  await expect(plan.getByRole("note").filter({ hasText: "not Validated" })).toHaveCount(0);
+  await expect(plan.getByText(/review label testimus-validated/)).toBeVisible();
   await shoot(page, "push-plan");
   await plan.getByRole("button", { name: "Confirm push" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Pushed LFRPS12-1420" })).toBeVisible();

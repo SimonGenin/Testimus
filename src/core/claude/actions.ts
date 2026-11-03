@@ -46,7 +46,13 @@ export function triagePrompt(runId: string, problems: Problem[], where: string, 
   ].join("\n");
 }
 
-export function actionPrompt(project: string, a: ClaudeAction, contexts: string[], note = ""): string {
+export function actionPrompt(
+  project: string,
+  a: ClaudeAction,
+  contexts: string[],
+  note = "",
+  conversation = "",
+): string {
   const lines = [
     `${ACTION_MARKER} ${a.id}: ${a.title}`,
     ...scopeLines(a.scope),
@@ -65,7 +71,7 @@ export function actionPrompt(project: string, a: ClaudeAction, contexts: string[
     '`<docId>#<anchor> "<exact quote from doc.md>"`, found with rag_search and rag_passage.',
     "Never write to Jira: if the fix needs a push, prepare it with xray_plan and say what to push; the user pushes.",
     "Everything you change is snapshotted and can be reverted by the user.",
-    ...contextLines(project, readContexts(project, contexts), note),
+    ...contextLines(project, readContexts(project, contexts), note, conversation),
     "",
     "When finished, reply in 2-5 lines: what you did, what is left, and whether the problem is gone.",
     "",
@@ -79,7 +85,7 @@ export async function runAction(
   ctx: Ctx,
   project: string,
   id: string,
-  o: { model?: string; effort?: Effort; note?: string; contexts?: string[] },
+  o: { model?: string; effort?: Effort; note?: string; contexts?: string[]; conversation?: string },
 ): Promise<ActionRun> {
   const a = readAction(project, id);
   const p = readProject(project);
@@ -93,7 +99,7 @@ export async function runAction(
     const { calls: _calls, ...r } = await runClaude({
       kind: "action",
       project,
-      prompt: actionPrompt(project, a, ids, o.note),
+      prompt: actionPrompt(project, a, ids, o.note, o.conversation),
       model,
       effort,
       scope: a.scope,

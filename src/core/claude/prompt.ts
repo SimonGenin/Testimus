@@ -102,6 +102,7 @@ export function buildPrompt(
   contexts: Context[],
   project: string,
   note = "",
+  conversation = "",
 ): string {
   const lines = [...scopeLines(scope), "Only modify what the scope allows."];
   if (scope.kind === "step")
@@ -118,7 +119,7 @@ export function buildPrompt(
       '`<docId>#<anchor> "<exact quote from doc.md>"` — use rag_search and rag_passage to find them.',
     "The screenshots listed under ### Attachments are files in tests/<id>/images/ — open them with Read when what the screen shows matters.",
   );
-  lines.push(...contextLines(project, contexts, note));
+  lines.push(...contextLines(project, contexts, note, conversation));
   const req = request.trim();
   if (req) lines.push("", req);
   lines.push(
@@ -131,7 +132,7 @@ export function buildPrompt(
 }
 
 // ponytail: the saved contexts are pointed at (Claude reads their files), the note of this run is said in full
-export function contextLines(project: string, contexts: Context[], note = ""): string[] {
+export function contextLines(project: string, contexts: Context[], note = "", conversation = ""): string[] {
   const lines: string[] = [];
   if (contexts.length) {
     lines.push("", "Context to read before you start (reference material, do not edit it):");
@@ -145,6 +146,12 @@ export function contextLines(project: string, contexts: Context[], note = ""): s
     }
   }
   if (note.trim()) lines.push("", "Additional context from the user for this run:", note.trim());
+  if (conversation.trim())
+    lines.push(
+      "",
+      "Earlier in this conversation (background: what was asked and answered before; the request below is what to do now):",
+      conversation.trim(),
+    );
   return lines;
 }
 

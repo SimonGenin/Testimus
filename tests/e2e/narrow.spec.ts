@@ -28,7 +28,7 @@ for (const hash of ["#/documents", "#/generate", "#/jobs", "#/settings", "#/impo
 
 test("#/review fits a 520 px window", async ({ page }) => {
   await boot(page, "#/review");
-  await expect(page.getByRole("button", { name: /^Validate/ })).toBeInViewport();
+  await expect(page.getByRole("button", { name: /^Validate(?!d)/ })).toBeInViewport();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
 });
 

@@ -327,7 +327,7 @@ export function App() {
   );
 
   const counts: Partial<Record<Screen, number>> = {
-    tests: info?.counts?.awaiting,
+    generate: info?.counts?.awaiting,
     jobs: running.size,
   };
 

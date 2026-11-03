@@ -188,6 +188,7 @@ export function cloneLocalTest(project: string, fromId: string, fieldOrder: read
       clonedFrom: test.key ?? test.clonedFrom,
       summary: `${test.summary} (copy)`,
       review: "draft",
+      generatedBy: undefined,
       reviewNote: undefined,
       reviewedBy: undefined,
       reviewedAt: undefined,

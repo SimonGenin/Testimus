@@ -139,6 +139,29 @@ export function kindOf(s: ClaudeScope): Kind {
   return "project";
 }
 
+// ponytail: what the panel shows until Clear goes with every request, as a transcript Claude reads as background;
+// the chat turns are left out when the documents conversation resumes, its session has them already
+export function transcript(turns: Turn[], skipChat = false): string {
+  const said = (t: Turn): string => {
+    if (t.role === "user")
+      return `User${t.label ? ` (${t.label})` : ""}: ${t.text.trim() || "(no words: work from the scope and the house rules)"}`;
+    const head = t.action ? `Claude (action « ${t.action.title} »)` : "Claude";
+    const done = t.run
+      ? t.run.reverted
+        ? "(the user reverted these changes)"
+        : `(${plural(t.run.steps, "step")} changed${t.run.tests > 1 ? ` in ${t.run.tests} tests` : ""}${t.run.files ? `, ${plural(t.run.files, "file")}` : ""})`
+      : "";
+    const text = [t.text.trim() || t.trouble?.title || "", done].filter(Boolean).join(" ");
+    return text ? `${head}: ${text}` : "";
+  };
+  return turns
+    .filter((t) => !t.running && !t.ready && !(skipChat && t.kind === "chat"))
+    .map(said)
+    .filter(Boolean)
+    .join("\n\n")
+    .slice(-60000);
+}
+
 export const docOfRoute = (r: { screen: string; arg?: string }): string | null =>
   r.screen === "documents" && r.arg ? r.arg.split("#")[0] || null : null;
 
@@ -228,8 +251,6 @@ export function ClaudeDock({
 
   useEffect(() => {
     setScope(testId ? "test" : docId ? "doc" : "project");
-    // ponytail: another test opened — the run card of the previous one goes (Xray Editor); answers and actions stay
-    setTurns((all) => (all.some((t) => t.running) ? all : all.filter((t) => t.kind !== "run")));
   }, [testId, docId]);
 
   useEffect(() => {
@@ -352,9 +373,8 @@ export function ClaudeDock({
   const start = (kind: "run" | "chat", text: string, label?: string, testId?: string) => {
     const user: Turn = { id: ++seq, role: "user", kind, text, tools: [], label, testId };
     const answer: Turn = { id: ++seq, role: "assistant", kind, text: "", tools: [], running: true, testId };
-    // ponytail: a run shows its last result card only (Xray Editor's), the questions are a conversation, and the
-    // action cards stay until run, put aside or dismissed
-    setTurns((all) => [...(kind === "run" ? all.filter((t) => t.kind !== "run") : all), user, answer]);
+    // ponytail: everything stays until Clear — runs, answers and action cards alike
+    setTurns((all) => [...all, user, answer]);
     setBusy(true);
     setStarted(Date.now());
     return answer.id;
@@ -425,6 +445,7 @@ export function ClaudeDock({
       return;
     }
     const used = t.pick;
+    const conversation = transcript(turns.filter((x) => x.id !== t.id));
     patch(t.id, (x) => ({ ...x, ready: false, running: true, text: "", tools: [], trouble: undefined }));
     setBusy(true);
     setStarted(Date.now());
@@ -435,7 +456,12 @@ export function ClaudeDock({
         t.id,
         tid,
         "actions.run",
-        { id: a.id, model: used.model || undefined, effort: used.effort },
+        {
+          id: a.id,
+          model: used.model || undefined,
+          effort: used.effort,
+          ...(conversation ? { conversation } : {}),
+        },
         Date.now(),
         used,
       );
@@ -485,6 +511,7 @@ export function ClaudeDock({
     const m = a.mode;
     const t0 = Date.now();
     const tid = a.scope && "testId" in a.scope ? a.scope.testId : undefined;
+    const conversation = transcript(turns, m === "docs" && !!chatId);
     const answerId = start(m === "test" ? "run" : "chat", a.text, a.label, m === "test" ? tid : undefined);
     try {
       if (m === "docs") {
@@ -497,6 +524,7 @@ export function ClaudeDock({
             effort: a.effort,
             ...(a.contexts?.length ? { contexts: a.contexts } : {}),
             ...(a.note ? { note: a.note } : {}),
+            ...(conversation ? { conversation } : {}),
           },
           onEvent(answerId),
           setJobId,
@@ -528,6 +556,7 @@ export function ClaudeDock({
             effort: a.effort,
             ...(a.contexts ? { contexts: a.contexts } : {}),
             ...(a.note ? { note: a.note } : {}),
+            ...(conversation ? { conversation } : {}),
           },
           t0,
           a,
@@ -605,6 +634,12 @@ export function ClaudeDock({
       setPreset(-1);
     }
     void execute(a);
+  };
+
+  const clear = () => {
+    setTurns([]);
+    setChatId(undefined);
+    setLast(null);
   };
 
   const cancel = () => {
@@ -988,6 +1023,16 @@ export function ClaudeDock({
               }}
             />
             <div className="dock-controls">
+              <Button
+                size="sm"
+                tone="quiet"
+                icon="trash"
+                disabled={running || !turns.length}
+                title="Start over: Claude no longer sees what was said here"
+                onClick={clear}
+              >
+                Clear
+              </Button>
               <ModelPicker value={model} className="btn btn-sm select" onChange={setModel} />
               <select
                 className="btn btn-sm select"

@@ -125,7 +125,7 @@ describe("App boot", () => {
     expect(await screen.findByRole("region", { name: "Tests screen" })).toBeInTheDocument();
     await waitFor(() => expect(project()).toBe("C:\\p"));
     await waitFor(() => expect(screen.getByText(/fields 2/)).toBeInTheDocument());
-    expect(screen.getByRole("button", { name: /^Tests/ })).toHaveTextContent("3");
+    expect(screen.getByRole("button", { name: /^Generate/ })).toHaveTextContent("3");
     expect(callsOf("system.setup")).toHaveLength(1);
     expect(window.location.hash).toBe("");
   });

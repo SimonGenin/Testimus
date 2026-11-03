@@ -29,8 +29,8 @@ export type QueueItem = {
   stale: boolean;
   mtime: number;
 };
-export type QueueCounts = { checked: number; toFix: number; draft: number; unchecked: number };
-export type QueueFilter = "all" | "checked" | "to-fix";
+export type QueueCounts = { checked: number; toFix: number; draft: number; unchecked: number; validated?: number };
+export type QueueFilter = "all" | "checked" | "to-fix" | "validated";
 export type QueueSort = "anomalies" | "state" | "folder" | "recent";
 
 const SORTS: Record<QueueSort, string> = {
@@ -98,6 +98,7 @@ export function ReviewQueue({
             { value: "all", label: "All", count: all },
             { value: "checked", label: "Checked", count: counts?.checked },
             { value: "to-fix", label: "To fix", count: counts?.toFix },
+            { value: "validated", label: "Validated", count: counts?.validated },
           ]}
         />
         <div className="queue-menus">
@@ -157,11 +158,15 @@ export function ReviewQueue({
         ) : !items.length ? (
           <div className="queue-empty">
             <Icon name="validated" size={28} />
-            <p className="h">Nothing waiting for review</p>
+            <p className="h">
+              {filter === "validated" ? "No generated test validated yet" : "Nothing waiting for review"}
+            </p>
             <p className="muted">
               {filter === "all" && !folder && !withFindings
                 ? "Generated tests land here once written, until you validate them."
-                : "No test matches these filters."}
+                : filter === "validated" && !folder && !withFindings
+                  ? "A generated test stays readable here once validated, and also appears in Tests."
+                  : "No test matches these filters."}
             </p>
           </div>
         ) : (

@@ -192,4 +192,13 @@ describe("generation input", () => {
     expect(lines.slice(-2)).toEqual(["Additional context from the user for this run:", "Note"]);
     expect(contextLines(dir, [], " ")).toEqual([]);
   });
+
+  it("context lines: the uncleared conversation of the panel comes last, as background", () => {
+    const lines = contextLines(dir, [], "Note", " User: Raccourcis\n\nClaude: Fait ");
+    expect(lines.slice(-2)).toEqual([
+      "Earlier in this conversation (background: what was asked and answered before; the request below is what to do now):",
+      "User: Raccourcis\n\nClaude: Fait",
+    ]);
+    expect(contextLines(dir, [], "", " ")).toEqual([]);
+  });
 });

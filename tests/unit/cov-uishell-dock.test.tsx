@@ -365,7 +365,7 @@ describe("Claude dock: on a test", () => {
     net.routes["claude.run"] = () => ({ ok: true, summary: "Nothing to do", runId: "r3" });
     ask("Third");
     expect(await screen.findByText("Nothing to do")).toBeInTheDocument();
-    expect(screen.queryByText("Claude cannot connect")).toBeNull();
+    expect(screen.getByText("Claude cannot connect")).toBeInTheDocument();
     expect(screen.getByText(/^0 steps changed/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Revert$/ })).toBeInTheDocument();
   });
@@ -470,7 +470,7 @@ describe("Claude dock: on a test", () => {
     expect(callsOf("chat.ask")).toHaveLength(0);
     update({}, { focus: focus() });
     expect(screen.getByRole("textbox", { name: "Ask Claude about this test" })).toBeInTheDocument();
-    expect(screen.queryByText("Tout relire", { selector: ".bubble" })).toBeNull();
+    expect(screen.getByText("Tout relire", { selector: ".bubble" })).toBeInTheDocument();
   });
 });
 

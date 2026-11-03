@@ -15,7 +15,6 @@ import { useSideWidth } from "../../lib/sideWidth.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 import { PushDialog } from "../tests/PushDialog.tsx";
 import { TestEditor } from "../tests/TestEditor.tsx";
-import { TestsTabs } from "../tests/TestsTabs.tsx";
 import { FixNote } from "./FixNote.tsx";
 import { type QueueCounts, type QueueFilter, type QueueItem, type QueueSort, ReviewQueue } from "./ReviewQueue.tsx";
 import { refKey } from "./ReviewStep.tsx";
@@ -32,6 +31,7 @@ const FILTER_STATES: Record<QueueFilter, string[] | undefined> = {
   all: undefined,
   checked: ["checked"],
   "to-fix": ["to-fix"],
+  validated: ["validated"],
 };
 
 export function ReviewScreen() {
@@ -356,15 +356,7 @@ export function ReviewScreen() {
           onOpen={open}
           head={
             <div className="tside-head">
-              <TestsTabs
-                value="review"
-                local={
-                  app.info?.counts && counts
-                    ? Math.max(0, app.info.counts.tests - counts.checked - counts.toFix - counts.draft)
-                    : undefined
-                }
-                review={counts ? counts.checked + counts.toFix + counts.draft : undefined}
-              />
+              <span className="h queue-title">Generated tests</span>
               <span className="spacer" />
               <ActionCount actions={allActs.filter((a) => a.where.startsWith("test:"))} />
               <Activity />
@@ -421,7 +413,8 @@ export function ReviewScreen() {
                     <Icon name="review" size={40} />
                     <h2 className="h">Nothing to review</h2>
                     <p className="muted">
-                      Generated tests come here once written and checked, and go to the Local tab once validated.
+                      Generated tests come here once written and checked. Once validated they stay readable here and
+                      appear in Tests.
                     </p>
                     <div className="review-empty-actions">
                       <Button tone="primary" onClick={() => app.navigate("generate")}>

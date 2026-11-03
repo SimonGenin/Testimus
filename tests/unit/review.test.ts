@@ -126,7 +126,14 @@ describe("review.queue", () => {
       unchecked: true,
       note: "Le step 2 doit vérifier que seul Propriétés est proposé.",
     });
-    expect(out.counts).toEqual({ checked: 1, toFix: 1, draft: 0, unchecked: 1 });
+    expect(out.counts).toEqual({ checked: 1, toFix: 1, draft: 0, unchecked: 1, validated: 0 });
+  });
+
+  it("lists the generated tests already validated when asked, never a hand-made one", async () => {
+    await run("review.set", { id: "LFRPS12-1420", decision: "validate" });
+    const out = await run("review.queue", { state: ["validated"] });
+    expect(out.tests.map((t: any) => `${t.id}:${t.review}`)).toEqual(["LFRPS12-1420:validated"]);
+    expect(out.counts).toMatchObject({ checked: 0, toFix: 1, validated: 1 });
   });
 
   it("sorts by anomalies and filters by state, folder and findings", async () => {

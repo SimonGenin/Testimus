@@ -204,7 +204,7 @@ describe("dock: scope, presets, contexts, models", () => {
     expect(screen.getByRole("button", { name: /Send/ })).toBeEnabled();
   });
 
-  it("on a test: one result card per run, the request kept in the box, the card gone when the test changes", async () => {
+  it("on a test: every run stays until Clear and the next one carries it, the request kept in the box", async () => {
     routes["contexts.list"] = () => ctxList;
     routes["contexts.ofTest"] = () => ({ effective: [], own: null, project: [] });
     let n = 0;
@@ -214,14 +214,24 @@ describe("dock: scope, presets, contexts, models", () => {
     send("Raccourcis");
     expect(await screen.findByText("Answer 1")).toBeInTheDocument();
     expect(box()).toHaveValue("Raccourcis");
+    expect(callsOf("claude.run")[0].input.conversation).toBeUndefined();
     send();
     expect(await screen.findByText("Answer 2")).toBeInTheDocument();
-    expect(screen.queryByText("Answer 1")).toBeNull();
-    expect(screen.getAllByText("Raccourcis", { selector: ".bubble" })).toHaveLength(1);
+    expect(screen.getByText("Answer 1")).toBeInTheDocument();
+    expect(screen.getAllByText("Raccourcis", { selector: ".bubble" })).toHaveLength(2);
+    expect(callsOf("claude.run")[1].input.conversation).toBe(
+      "User (This test): Raccourcis\n\nClaude: Answer 1 (0 steps changed)",
+    );
     r.rerender(
       wrap({ ...state, focus: focus({ testId: "local-2" }) }, <ClaudeDock folded={false} onFold={() => {}} />),
     );
-    await waitFor(() => expect(screen.queryByText("Answer 2")).toBeNull());
+    expect(screen.getByText("Answer 2")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+    expect(screen.queryByText("Answer 2")).toBeNull();
+    expect(screen.getByRole("button", { name: "Clear" })).toBeDisabled();
+    send("Encore");
+    await waitFor(() => expect(callsOf("claude.run")).toHaveLength(3));
+    expect(callsOf("claude.run")[2].input.conversation).toBeUndefined();
   });
 
   it("a cancelled run still shows what Claude changed, tells the editor and offers Revert", async () => {
@@ -344,7 +354,10 @@ describe("dock: run details and failures", () => {
     expect(state.navigate).toHaveBeenCalledWith("settings", "claude");
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     await waitFor(() => expect(callsOf("claude.run")).toHaveLength(2));
-    expect(callsOf("claude.run")[1].input).toEqual(callsOf("claude.run")[0].input);
+    expect(callsOf("claude.run")[1].input).toEqual({
+      ...callsOf("claude.run")[0].input,
+      conversation: expect.stringContaining("Claude: Usage limit reached"),
+    });
   });
 
   it("not installed: the panel says it is optional, sends to the program field, the folded dock says so", async () => {

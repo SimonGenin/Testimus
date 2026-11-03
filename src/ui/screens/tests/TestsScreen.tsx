@@ -1,5 +1,5 @@
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
-import type { CredsStatus, LocalTestRef } from "../../../core/types.ts";
+import { awaitsReview, type CredsStatus, type LocalTestRef } from "../../../core/types.ts";
 import { project as apiProject, call } from "../../api.ts";
 import { Activity } from "../../components/shell/Activity.tsx";
 import { DragEdge, Icon } from "../../components/ui/index.ts";
@@ -89,6 +89,12 @@ export function TestsScreen() {
       }),
     [reload, navigate],
   );
+
+  // ponytail: only validated tests live in Tests — a generated test still in review opens in Generate's review
+  useEffect(() => {
+    const ref = refs.find((r) => r.id === activeId);
+    if (ref && awaitsReview(ref)) navigate("review", activeId);
+  }, [refs, activeId, navigate]);
 
   const recorded = useRef("");
   useEffect(() => {

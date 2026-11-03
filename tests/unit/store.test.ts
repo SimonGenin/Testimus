@@ -127,6 +127,7 @@ test("createLocalTest, cloneLocalTest and removeTest", () => {
     clonedFrom: "LFRPS12-1420",
     summary: "Sectionneur sans TK — menu contextuel et propriétés (copy)",
     review: "draft",
+    generatedBy: undefined,
   });
   expect(t.steps).toHaveLength(5);
   expect(t.steps.every((s) => s.id === undefined)).toBe(true);

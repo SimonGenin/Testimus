@@ -237,7 +237,7 @@ describe("Review screen", () => {
       if (!screen.queryByRole("dialog", { name: "Mark as To fix" })) fireEvent.keyDown(window, { key: "f" });
       return screen.getByRole("dialog", { name: "Mark as To fix" });
     });
-    expect(screen.getByRole("button", { name: /Validate/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^Validate(?!d)/ })).toBeDisabled();
     fireEvent.click(within(dialog).getByRole("button", { name: /Mark To fix/ }));
     expect(await within(dialog).findByRole("alert")).toHaveTextContent("note is required");
     expect(named("review.set")).toHaveLength(0);

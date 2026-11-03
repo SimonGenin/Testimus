@@ -121,8 +121,18 @@ export async function openDock(page: Page) {
   return dock;
 }
 
+// ponytail: only validated tests open in Tests — a generated one still in review is validated first
 export async function openTest(page: Page, key: string): Promise<void> {
-  await boot(page, `#/tests/${key}`);
+  await boot(page, "#/generate");
+  await page.evaluate(async (id) => {
+    const r = await fetch("/api/review/set", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id, decision: "validate" }),
+    });
+    if (!r.ok) throw new Error(`review.set ${id} → ${r.status}`);
+  }, key);
+  await page.goto(`/#/tests/${key}`);
   await expect(page.getByRole("main").getByRole("article", { name: "Step 1" })).toBeVisible();
 }
 

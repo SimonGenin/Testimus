@@ -446,7 +446,7 @@ export const commands: Command[] = [
   }),
   command({
     name: "tests.clone",
-    summary: "Copy a test into a new local test (images included; key, step ids and review dropped).",
+    summary: "Copy a test into a new local test (images included; key, step ids, review and the generated mark dropped: the copy is the team's own).",
     input: z.object({ id }),
     output: z.object({ id: z.string() }),
     mutates: true,

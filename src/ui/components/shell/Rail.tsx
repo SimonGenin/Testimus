@@ -25,7 +25,7 @@ export function Rail({ counts }: { counts: Partial<Record<Screen, number>> }) {
           key={n.id}
           label={n.label}
           icon={n.icon}
-          current={at === n.id || (n.id === "tests" && at === "review")}
+          current={at === n.id || (n.id === "generate" && at === "review")}
           count={counts[n.id]}
           onClick={() => app.navigate(n.id)}
         />

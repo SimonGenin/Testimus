@@ -3,7 +3,7 @@ import { boot, expect, test } from "./helpers.ts";
 test("the rail shows the project and moves between screens", async ({ page }) => {
   await boot(page);
   const rail = page.getByRole("navigation", { name: "Main" });
-  await expect(rail.getByRole("button", { name: /^Tests/ })).toContainText("2");
+  await expect(rail.getByRole("button", { name: /^Generate/ })).toContainText("2");
   await expect(rail.getByRole("button", { name: /^Review/ })).toHaveCount(0);
   for (const [name, hash] of [
     ["Documents", "#/documents"],
@@ -17,11 +17,8 @@ test("the rail shows the project and moves between screens", async ({ page }) =>
   }
   const list = page.getByRole("complementary", { name: "Tests" });
   await expect(list).toBeVisible();
-  await list.getByRole("tab", { name: /^Review/ }).click();
-  await expect(page).toHaveURL(/#\/review$/);
-  await expect(rail.getByRole("button", { name: /^Tests/ })).toHaveAttribute("aria-current", "page");
-  await page.getByRole("complementary", { name: "Review queue" }).getByRole("tab", { name: /^Jira/ }).click();
-  await expect(page).toHaveURL(/#\/tests$/);
+  await expect(list.getByRole("tab", { name: /^Review/ })).toHaveCount(0);
+  await list.getByRole("tab", { name: /^Jira/ }).click();
   await expect(list.getByRole("tab", { name: /^Jira/ })).toHaveAttribute("aria-selected", "true");
 });
 

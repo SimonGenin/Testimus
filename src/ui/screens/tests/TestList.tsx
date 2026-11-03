@@ -21,7 +21,7 @@ import { type DeleteTarget, DeleteTest, deleteTest, needsAsking } from "./Delete
 import { JiraConnect } from "./JiraConnect.tsx";
 import { JiraTab } from "./JiraTab.tsx";
 import { RecentList } from "./RecentList.tsx";
-import { askedTab, clearAskedTab, type ListTab, TestsTabs } from "./TestsTabs.tsx";
+import { type ListTab, TestsTabs } from "./TestsTabs.tsx";
 
 type Node = { name: string; path: string; tests: LocalTestRef[]; folders: Node[]; total: number };
 
@@ -114,7 +114,7 @@ export function TestList({
   const jiraOn = !!p?.jiraProject && !p.jiraOffline;
   // ponytail: what the Jira side was loaded for — a new key, a reconnect or a disconnect starts it again
   const jira = jiraOn ? `${app.info?.dir}|${p.jiraProject}` : "";
-  const [tab, setTab] = useState<ListTab>(askedTab);
+  const [tab, setTab] = useState<ListTab>("local");
   const [q, setQ] = useState("");
   const [search, setSearch] = useState("");
   const [shut, setShut] = useState<Set<string>>(new Set());
@@ -134,8 +134,6 @@ export function TestList({
   const listed = useMemo(() => refs.filter((r) => !awaitsReview(r)), [refs]);
   const waiting = refs.length - listed.length;
   const shown = useMemo(() => localTree(listed.filter((r) => matches(r, q))), [listed, q]);
-
-  useEffect(clearAskedTab, []);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: runs when the connection changes
   useEffect(() => {
@@ -332,7 +330,6 @@ export function TestList({
           value={tab}
           onPick={setTab}
           local={listed.length}
-          review={waiting}
           jira={
             !jiraOn ? (
               p?.jiraOffline && <span className="tab-count">off</span>
@@ -447,7 +444,7 @@ export function TestList({
                       Jira.
                     </p>
                     <Button size="sm" icon="review" onClick={() => app.navigate("review")}>
-                      Open Review
+                      Review them
                     </Button>
                   </>
                 ) : (

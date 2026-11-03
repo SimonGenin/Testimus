@@ -106,6 +106,16 @@ describe("TestsScreen", () => {
     expect(recentIds()).toEqual(["t1"]);
   });
 
+  it("sends a generated test still in review to Generate's review, never a validated one", async () => {
+    refs = [ref("g1", { generated: true, review: "checked" }), ref("g2", { generated: true, review: "validated" })];
+    const { state, again } = screenOf({ route: { screen: "tests", arg: "g1" } });
+    await waitFor(() => expect(state.navigate).toHaveBeenCalledWith("review", "g1"));
+    vi.mocked(state.navigate).mockClear();
+    again({ route: { screen: "tests", arg: "g2" } });
+    await waitFor(() => expect(callsTo("tests.list")).toHaveLength(1));
+    expect(state.navigate).not.toHaveBeenCalledWith("review", "g2");
+  });
+
   it("treats a non-list answer as empty, a failure as a toast, and ignores another screen's arg", async () => {
     server.routes["tests.list"] = () => ({ nope: true });
     screenOf({ route: { screen: "documents", arg: "t1" } as AppState["route"] });

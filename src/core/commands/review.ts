@@ -4,7 +4,7 @@ import { type Command, command, projectOf, UserError } from "../command.ts";
 import { env } from "../env.ts";
 import { osUser, setReview, testEvidence } from "../lib/check.ts";
 import { listLocalTests, readTest, testExists } from "../lib/store.ts";
-import { awaitsReview, type LocalTestRef, REVIEWS, type Review } from "../types.ts";
+import { type LocalTestRef, REVIEWS, type Review } from "../types.ts";
 import { checkFile } from "./check.ts";
 
 const id = z.string().describe("Test id: the folder under tests/ — a Jira key (LFRPS12-1420) or local-<8hex>");
@@ -114,7 +114,7 @@ export const commands: Command[] = [
   command({
     name: "review.queue",
     summary:
-      "The generated tests awaiting review — checked, to-fix, and draft (flagged unchecked when no check ran) — with their findings counts; filter by state, folder, anomalies; sort. A test written by hand, pulled or imported never waits here.",
+      "The generated tests awaiting review — checked, to-fix, and draft (flagged unchecked when no check ran) — with their findings counts; filter by state (validated lists the generated tests already reviewed), folder, anomalies; sort. A test written by hand, pulled or imported never appears here.",
     input: z.object({
       state: z.array(review).optional().describe("Only these review states (default: checked, to-fix, draft)"),
       folder: z.string().optional().describe("Only this Xray folder and its subfolders"),
@@ -128,16 +128,23 @@ export const commands: Command[] = [
     }),
     output: z.object({
       tests: z.array(queueItem),
-      counts: z.object({ checked: z.number(), toFix: z.number(), draft: z.number(), unchecked: z.number() }),
+      counts: z.object({
+        checked: z.number(),
+        toFix: z.number(),
+        draft: z.number(),
+        unchecked: z.number(),
+        validated: z.number().describe("Generated tests already validated (not in the default list)"),
+      }),
     }),
     mutates: false,
     async run(ctx, input) {
       const project = projectOf(ctx);
       const states = input.state?.length ? input.state : AWAITING;
-      const awaiting = listLocalTests(project)
-        .filter(awaitsReview)
+      const generated = listLocalTests(project)
+        .filter((t) => t.generated)
         .map((t) => itemOf(project, t));
-      const tests = awaiting
+      const awaiting = generated.filter((t) => t.review !== "validated");
+      const tests = generated
         .filter((t) => states.includes(t.review))
         .filter((t) => input.folder === undefined || inFolder(t.folder, input.folder))
         .filter((t) => !input.withFindings || t.errors + t.warnings > 0)
@@ -150,6 +157,7 @@ export const commands: Command[] = [
           toFix: n("to-fix"),
           draft: n("draft"),
           unchecked: awaiting.filter((t) => t.unchecked).length,
+          validated: generated.length - awaiting.length,
         },
       };
     },

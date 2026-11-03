@@ -6,7 +6,6 @@ import type { Finding, Test, XrayJson } from "../../src/core/types.ts";
 import type { AppState, ClaudeRun } from "../../src/ui/lib/app.ts";
 import type { QueueItem } from "../../src/ui/screens/review/ReviewQueue.tsx";
 import { ReviewScreen } from "../../src/ui/screens/review/ReviewScreen.tsx";
-import { askedTab, clearAskedTab } from "../../src/ui/screens/tests/TestsTabs.tsx";
 import { clearToasts, mount } from "./cov-uiscreens-helpers.tsx";
 import { api, fakeFetch, named } from "./ui-desktop-helpers.tsx";
 
@@ -155,7 +154,8 @@ describe("Review screen", () => {
     routes();
     const { app: a } = show({ route: { screen: "documents" } });
     expect(await screen.findByRole("heading", { name: "Summary K-1" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Review 3" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByText("Generated tests")).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: /^Review/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("complementary", { name: "Source passage" })).toBeNull();
     expect(named("rag.passage")).toHaveLength(0);
     expect(screen.getByText("1/3")).toBeInTheDocument();
@@ -232,7 +232,7 @@ describe("Review screen", () => {
     expect(await screen.findByText("This test could not be opened")).toBeInTheDocument();
   });
 
-  it("an empty queue offers to generate; its tabs lead back to the list; a failed queue is reported", async () => {
+  it("an empty queue offers to generate; a failed queue is reported", async () => {
     routes({ queue: [] });
     api.routes["review.queue"] = () => null;
     const { app: a } = show({ route: { screen: "review" } });
@@ -240,14 +240,6 @@ describe("Review screen", () => {
     expect(screen.getByText("0", { selector: ".queue-strip-pos" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Generate tests" }));
     expect(a.navigate).toHaveBeenCalledWith("generate");
-    fireEvent.click(screen.getByRole("tab", { name: /^Review/ }));
-    expect(a.navigate).toHaveBeenLastCalledWith("review");
-    fireEvent.click(screen.getByRole("tab", { name: /^Jira/ }));
-    expect(a.navigate).toHaveBeenLastCalledWith("tests");
-    expect(askedTab()).toBe("jira");
-    clearAskedTab();
-    fireEvent.click(screen.getByRole("tab", { name: /^Local/ }));
-    expect(askedTab()).toBe("local");
     key("j");
     key("v");
     expect(named("review.set")).toHaveLength(0);
@@ -267,6 +259,12 @@ describe("Review screen", () => {
       within(screen.getByRole("group", { name: "Filter by review state" })).getByRole("button", { name: /To fix/ }),
     );
     await waitFor(() => expect(named("review.queue").at(-1)?.input).toEqual({ state: ["to-fix"], sort: "anomalies" }));
+    fireEvent.click(
+      within(screen.getByRole("group", { name: "Filter by review state" })).getByRole("button", { name: /Validated/ }),
+    );
+    await waitFor(() =>
+      expect(named("review.queue").at(-1)?.input).toEqual({ state: ["validated"], sort: "anomalies" }),
+    );
     fireEvent.click(screen.getByRole("button", { name: /All folders/ }));
     fireEvent.click(screen.getByRole("menuitem", { name: "/F" }));
     await waitFor(() => expect(named("review.queue").at(-1)?.input).toMatchObject({ folder: "/F" }));
@@ -385,7 +383,7 @@ describe("Review screen", () => {
     await screen.findByRole("heading", { name: "Summary L-3" });
     await waitFor(() => expect(screen.getByText("3/3")).toBeInTheDocument());
     r.setQueue([item("K-1"), item("K-2")]);
-    fireEvent.click(screen.getByRole("button", { name: /Validate/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Validate(?!d)/ }));
     await waitFor(() => expect(a.navigate).toHaveBeenCalledWith("review", "K-2"));
     expect(await screen.findByText("Summary L-3", { selector: ".toast-detail" })).toBeInTheDocument();
     expect(a.refreshInfo).toHaveBeenCalled();
@@ -506,7 +504,7 @@ describe("Review screen", () => {
     const { rerender } = show({ claudeRunning: "K-1" });
     await screen.findByRole("heading", { name: "Summary K-1" });
     expect(screen.getByText(/Claude is fixing this test/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Validate/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^Validate(?!d)/ })).toBeDisabled();
     const done = { runId: "r", changedTests: [], changedSteps: {}, nonce: 1, testId: "K-1", review: "to-fix" };
     rerender(<ReviewScreen />, { claudeRunning: null, lastRun: { ...done, message: "Two errors left" } });
     expect(await screen.findByRole("status", { name: "Claude's fix" })).toHaveTextContent("Two errors left");
@@ -598,7 +596,6 @@ describe("Review screen", () => {
     api.routes["claude.status"] = () => ({ installed: false, signedIn: null });
     const { app: a } = show({ route: { screen: "review", arg: "L-1" } });
     await screen.findByRole("heading", { name: "Summary L-1" });
-    expect(screen.getByRole("tab", { name: "Review 2" })).toBeInTheDocument();
     const chip = screen.getAllByRole("button", { name: /W §0/ })[0];
     fireEvent.click(chip);
     expect(await screen.findByText("Source of the whole-test finding")).toBeInTheDocument();
