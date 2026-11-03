@@ -32,7 +32,7 @@ test.describe("default PC: a 16 GB GPU, a models folder", () => {
     const models = await openModels(page);
     const light = models.getByRole("article", { name: "Light pack" });
     await expect(light).toContainText("In use");
-    await expect(light).toContainText("Nothing left");
+    await expect(light).toContainText("Installed");
     const quality = models.getByRole("article", { name: "Quality pack" });
     await expect(quality).toContainText("Qwen3 Embedding 8B (4-bit) + Qwen3 Reranker 4B (8-bit, GGUF)");
     await expect(quality).toContainText("Fits");
@@ -69,7 +69,7 @@ test.describe("default PC: a 16 GB GPU, a models folder", () => {
     await expect(card.getByRole("status", { name: "Downloading Performance" })).toBeVisible();
     await expect(models.getByRole("button", { name: "Use the Balanced pack" })).toBeEnabled();
     await shoot(page, "models-download-e2e");
-    await expect(card).toContainText("Nothing left", { timeout: 30_000 });
+    await expect(card).toContainText("Installed", { timeout: 30_000 });
     await expect(card).not.toContainText("In use");
     await card.getByRole("button", { name: "Use the Performance pack" }).click();
     await page
@@ -164,7 +164,7 @@ test.describe("first download, no models folder chosen", () => {
     await expect(plan).toContainText(join(root, "first-models"));
     await plan.getByRole("button", { name: /^Download \S+ [MG]B$/ }).click();
     const card = models.getByRole("article", { name: "Performance pack" });
-    await expect(card).toContainText("Nothing left", { timeout: 30_000 });
+    await expect(card).toContainText("Installed", { timeout: 30_000 });
     await card.getByRole("button", { name: "Use the Performance pack" }).click();
     await page
       .getByRole("dialog", { name: "Use the Performance pack" })

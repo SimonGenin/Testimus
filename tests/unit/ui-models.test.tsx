@@ -297,7 +297,7 @@ describe("Settings › Models — packs", () => {
     expect(within(light).getByText("In use")).toBeInTheDocument();
     expect(within(light).getByRole("button", { name: "Using the Light pack" })).toBeDisabled();
     expect(within(light).queryByRole("button", { name: "Use the Light pack" })).toBeNull();
-    expect(within(light).getByText("Nothing left")).toBeInTheDocument();
+    expect(within(light).getByText("Installed")).toBeInTheDocument();
     expect(within(light).getByText("query 40 ms, index 6 passages/s")).toBeInTheDocument();
     const balanced = screen.getByRole("article", { name: "Balanced pack" });
     expect(within(balanced).getByText(/its second choice/)).toBeInTheDocument();

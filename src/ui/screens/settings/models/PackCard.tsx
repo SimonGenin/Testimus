@@ -83,7 +83,7 @@ export function PackCard({
       )}
       <dl className="pack-facts">
         <dt>Download</dt>
-        <dd>{pack.available ? (pack.downloadMB > 0 ? size(pack.downloadMB) : "Nothing left") : "—"}</dd>
+        <dd>{pack.available ? (pack.downloadMB > 0 ? size(pack.downloadMB) : "Installed") : "—"}</dd>
         <dt>Speed</dt>
         <dd>{pack.speed ?? "Not measured on this PC yet"}</dd>
         <dt>Quality</dt>

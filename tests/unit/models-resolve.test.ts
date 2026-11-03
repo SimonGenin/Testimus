@@ -150,6 +150,32 @@ describe("packs (§7.12)", () => {
     expect(r.fit?.verdict).toBe("fits");
   });
 
+  it("a variant already on this PC that fits the free memory without the margin is kept over one to download", async () => {
+    const busy = devPc({ gpus: [{ ...devPc().gpus[0], vramUsedMB: 4800 }] } as Partial<MachineProfile>);
+    writeRegistry({ ...readRegistry(), dir });
+    placeGguf(dir, "qwen3-embedding-8b-q4");
+    const half = await resolveChoice({ pack: "quality" }, "task", { machine: async () => busy });
+    expect(half.variantIndex).toBe(1);
+    expect(half.missing).toEqual(["qwen3-reranker-0.6b-q8"]);
+
+    placeGguf(dir, "qwen3-reranker-4b-q8");
+    const kept = await resolveChoice({ pack: "quality" }, "task", { machine: async () => busy });
+    expect(kept.variantIndex).toBe(0);
+    expect(kept.variant).toEqual({ embedding: "qwen3-embedding-8b-q4", reranker: "qwen3-reranker-4b-q8" });
+    expect(kept.fit?.verdict).toBe("tight");
+    expect(kept.missing).toEqual([]);
+    expect(kept.skipped).toEqual([]);
+
+    const full = devPc({ gpus: [{ ...devPc().gpus[0], vramUsedMB: 6000 }] } as Partial<MachineProfile>);
+    const over = await resolveChoice({ pack: "quality" }, "task", { machine: async () => full });
+    expect(over.variantIndex).toBe(1);
+
+    placeGguf(dir, "qwen3-reranker-0.6b-q8");
+    const both = await resolveChoice({ pack: "quality" }, "task", { machine: async () => busy });
+    expect(both.variantIndex).toBe(1);
+    expect(both.fit?.verdict).toBe("fits");
+  });
+
   it("a pack whose every variant is tight resolves to its lightest, flagged", async () => {
     const small: MachineProfile = { ...cpuLaptop, ramFreeMB: 6000 };
     const r = await resolveChoice({ pack: "quality" }, "task", { machine: async () => small });

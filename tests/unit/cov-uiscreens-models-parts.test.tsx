@@ -232,7 +232,7 @@ describe("small model widgets", () => {
     );
     expect(screen.getByText("On this PC (its third choice)")).toBeInTheDocument();
     expect(screen.getByText("fast")).toBeInTheDocument();
-    expect(screen.getByText("Nothing left")).toBeInTheDocument();
+    expect(screen.getByText("Installed")).toBeInTheDocument();
     expect(screen.getByText("Skipped: x")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Use the Balanced pack" }));
     expect(onUse).toHaveBeenCalled();

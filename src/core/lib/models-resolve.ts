@@ -202,7 +202,14 @@ export async function resolveChoice(
   }
   const fitting = tried.find((t) => t.ok && (!t.fit || t.fit.verdict === "fits"));
   const fallback = [...tried].reverse().find((t) => t.ok && t.fit?.verdict !== "ram-too-small");
-  const pick = fitting ?? (isPack ? fallback : tried[0]);
+  // ponytail: a variant already on this PC that fits the free memory without the margin beats a later one to
+  // download, so the pack does not change with what other programs hold at the moment it is chosen
+  const onPc = (t: (typeof tried)[number]) => Object.values(t.one).every((o) => o.source !== "download");
+  const kept =
+    isPack && fitting && !onPc(fitting)
+      ? tried.find((t) => t.i < fitting.i && t.ok && t.fit && withoutMargin(t.fit) && onPc(t))
+      : undefined;
+  const pick = kept ?? fitting ?? (isPack ? fallback : tried[0]);
   if (!pick)
     return {
       choice,
@@ -236,6 +243,11 @@ export async function resolveChoice(
         .map(([k, o]) => [k, o.reason]),
     ),
   };
+}
+
+function withoutMargin(fit: Fit): boolean {
+  if (fit.verdict !== "tight" || fit.needMB.ram > fit.freeMB.ram) return false;
+  return fit.device === "cpu" || (fit.freeMB.vram !== null && fit.needMB.vram <= fit.freeMB.vram);
 }
 
 function usableOf(fit: Fit, headroom: number): string {
