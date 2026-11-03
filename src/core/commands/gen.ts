@@ -1,7 +1,4 @@
-import { existsSync, readdirSync } from "node:fs";
-import { join } from "node:path";
 import { z } from "zod";
-import { describeFigures } from "../claude/figures.ts";
 import { scopeIndex } from "../claude/gen-prompt.ts";
 import { discardable, generateTests } from "../claude/generate.ts";
 import { CONTEXT_IDS, DIAGNOSIS, EFFORT, MODEL, NOTE, TOKENS } from "../claude/schemas.ts";
@@ -135,51 +132,6 @@ export const commands = [
     async run(ctx, input) {
       const project = projectOf(ctx);
       return { replaces: discardable(project), ...scopeIndex(project, input) };
-    },
-  }),
-  command({
-    name: "docs.describeFigures",
-    summary:
-      "Have Claude describe the figures of a document (or of every document) in figures.json, for search and review.",
-    input: z.object({
-      docId: z.string().optional().describe("Document id (folder under docs/); default: every document"),
-      force: z.boolean().default(false).describe("Describe again the figures that already have a description"),
-      model: MODEL.optional().describe("Model alias or name (default: project.json claude.model)"),
-      effort: EFFORT.optional().describe("Effort level (default: low)"),
-    }),
-    output: z.object({
-      docs: z
-        .array(
-          z.object({
-            docId: z.string().describe("The document"),
-            figures: z.number().describe("Its figures"),
-            described: z.number().describe("Figures with a description now"),
-            missing: z.array(z.string()).describe("Figure anchors Claude gave no description for"),
-            runIds: z.array(z.string()).describe("The Claude runs"),
-            costUsd: z.number().describe("What they cost"),
-          }),
-        )
-        .describe("Each document looked at"),
-    }),
-    mutates: true,
-    job: "describe-figures",
-    subject: (i) => i.docId ?? "all documents",
-    async run(ctx, input) {
-      const project = projectOf(ctx);
-      const root = join(project, "docs");
-      const ids = input.docId
-        ? [input.docId]
-        : existsSync(root)
-          ? readdirSync(root).filter((d) => existsSync(join(root, d, "doc.md")))
-          : [];
-      const docs = [];
-      for (const id of ids) {
-        if (ctx.signal.aborted) break;
-        docs.push(
-          await describeFigures(project, id, ctx, { force: input.force, model: input.model, effort: input.effort }),
-        );
-      }
-      return { docs };
     },
   }),
 ];

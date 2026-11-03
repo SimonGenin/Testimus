@@ -1,16 +1,16 @@
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { quietCtx } from "../../src/core/command.ts";
-import { commands } from "../../src/core/commands/docs.ts";
-import { DEFAULT_PROJECT, writeProject } from "../../src/core/lib/project.ts";
-import { sampleDocx } from "../fixtures/docx/sample.ts";
-import { tempRoot } from "./cov-faces-helpers.ts";
+import { quietCtx } from "../../../../src/core/command.ts";
+import { commands } from "../../../../src/core/commands/docs.ts";
+import { DEFAULT_PROJECT, writeProject } from "../../../../src/core/lib/project.ts";
+import { sampleDocx } from "../../../fixtures/docx/sample.ts";
+import { tempRoot } from "../../cov-faces-helpers.ts";
 
 const failures: unknown[] = [];
 const picked: unknown[] = [];
 
-vi.mock("../../src/core/claude/figures.ts", async (importOriginal) => ({
+vi.mock("../../../../src/core/claude/figures.ts", async (importOriginal) => ({
   ...(await importOriginal<object>()),
   describeFigures: async (_p: string, _id: string, _ctx: unknown, opts: unknown) => {
     picked.push(opts);

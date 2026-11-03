@@ -1,7 +1,6 @@
 import { useSyncExternalStore } from "react";
 import type { ClaudeRun, DocRef, JobEvent } from "../../core/types.ts";
 import { run } from "../api.ts";
-import { triageWhenClaude } from "./actions.ts";
 import { baseName, pathOf } from "./desktop.ts";
 import { message } from "./format.ts";
 import { toast } from "./toast.ts";
@@ -67,8 +66,6 @@ export const readBase64 = (file: Blob) =>
     r.readAsDataURL(file);
   });
 
-const stem = (n: string) => n.replace(/\.[^.]+$/, "").toLowerCase();
-
 const progressOf = (key: number, phase: Upload["phase"]) => (e: JobEvent) => {
   if (e.type !== "progress") return;
   const pct = e.total ? Math.round(((e.done ?? 0) / e.total) * 100) : null;
@@ -126,21 +123,10 @@ async function reindex(key: number, note?: string, after?: string): Promise<void
   await done;
 }
 
-// ponytail: adding only copies the file — the team sets status, amends and context, then converts it on purpose
-async function addOne(key: number, input: Record<string, unknown>, onDone: (docId?: string) => void) {
-  try {
-    patch(key, { phase: "adding", message: "Adding", pct: null });
-    const doc = await run<{ id: string }>("docs.add", { ...input, convert: false }, progressOf(key, "adding"));
-    dismissUpload(key);
-    onDone(doc?.id);
-  } catch (e) {
-    patch(key, { phase: "failed", message: message(e), error: e });
-    onDone();
-  }
-}
-
 export type JobContext = { note?: string; contexts?: string[] };
 
+// ponytail: one job converts, has Claude look at the warnings (when Claude is there) and updates the index once the
+// other conversions are done; the row follows its steps
 export async function convertDoc(
   id: string,
   name: string,
@@ -154,40 +140,33 @@ export async function convertDoc(
   ];
   emit();
   const extra = { ...(job.note?.trim() ? { note: job.note.trim() } : {}), contexts: job.contexts ?? [] };
-  let jobId = "";
+  const onEvent = (e: JobEvent) =>
+    progressOf(key, e.type === "progress" && e.step === "index" ? "indexing" : "converting")(e);
+  let doc: { id: string; index?: { error?: string } };
   try {
-    const converting: Promise<{ id: string; converted?: { warnings: string[] } }> = run<{
-      id: string;
-      converted?: { warnings: string[] };
-    }>(
+    const converting = run<{ id: string; index?: { error?: string } }>(
       "docs.convert",
       {
         id,
         ...claude,
         ...extra,
         ...(job.describeFigures !== undefined && { describeFigures: job.describeFigures }),
-        ...(job.study && { study: true }),
+        ...(job.study ? { study: true } : { triage: true }),
+        index: true,
       },
-      progressOf(key, "converting"),
-      (started) => {
-        jobId = started;
-      },
+      onEvent,
     ).finally(() => conversions.delete(converting));
     conversions.add(converting);
-    const doc = await converting;
-    if (doc?.converted?.warnings.length && !job.study) triageWhenClaude({ docId: id, ...claude, ...extra }, jobId);
+    doc = await converting;
   } catch (e) {
     patch(key, { phase: "failed", message: message(e), error: e });
     onDone();
     return;
   }
-  onDone();
-  try {
-    await reindex(key, extra.note, jobId);
+  if (doc?.index?.error) patch(key, { phase: "index-failed", message: doc.index.error });
+  else {
     patch(key, { phase: "done", message: "Converted and indexed", pct: 100 });
     setTimeout(() => dismissUpload(key), 4000);
-  } catch (e) {
-    patch(key, { phase: "index-failed", message: message(e), error: e });
   }
   onDone();
 }
@@ -206,59 +185,63 @@ export const addDocPaths = (paths: string[], onDone: (docId?: string) => void) =
     onDone,
   );
 
-async function sourceOf(p: Picked, path: string, name: string, data: string): Promise<Record<string, string>> {
-  if (p.path) return { [path]: p.path };
+async function sourceOf(p: Picked): Promise<{ path: string } | { name: string; dataBase64: string }> {
+  if (p.path) return { path: p.path };
   if (!p.file) throw new Error(`${p.name} could not be read.`);
-  return { [name]: p.name, [data]: await readBase64(p.file) };
+  return { name: p.name, dataBase64: await readBase64(p.file) };
 }
 
+type Added = { added: { id: string }[]; rejected: { name: string; why: string; code: string }[] };
+
+// ponytail: adding only copies the files — the core pairs a .docx with its .pdf and refuses what is not a document;
+// the team sets status, amends and context, then converts each on purpose
 async function addDocs(picked: Picked[], onDone: (docId?: string) => void): Promise<void> {
-  const docs = picked.filter((f) => /\.(docx|pdf)$/i.test(f.name));
-  const rejected = picked.filter((f) => !docs.includes(f));
-  if (rejected.length)
-    toast({
-      kind: "error",
-      title: "Only Word (.docx) and PDF files can be added",
-      detail: rejected.map((f) => f.name).join(", "),
-    });
-  const words = docs.filter((f) => /\.docx$/i.test(f.name));
-  const pdfs = docs.filter((f) => /\.pdf$/i.test(f.name));
-  const paired = new Set<Picked>();
-  const jobs: Promise<void>[] = [];
-  for (const f of [...words, ...pdfs]) {
-    if (paired.has(f)) continue;
+  const rows = picked.map((f) => {
     const key = ++seq;
-    items = [
-      ...items,
-      f.path
-        ? { key, name: f.name, job: "add", at: Date.now(), phase: "adding", pct: null, message: "Adding" }
-        : { key, name: f.name, job: "add", at: Date.now(), phase: "reading", pct: null, message: "Reading the file" },
-    ];
-    emit();
-    const pdf = /\.docx$/i.test(f.name) ? pdfs.find((p) => stem(p.name) === stem(f.name)) : undefined;
-    if (pdf) paired.add(pdf);
-    jobs.push(
-      (async () => {
-        try {
-          const input: Record<string, unknown> = await sourceOf(f, "file", "name", "dataBase64");
-          if (pdf) Object.assign(input, await sourceOf(pdf, "pdf", "pdfName", "pdfBase64"));
-          await addOne(key, input, onDone);
-        } catch (e) {
-          patch(key, { phase: "failed", message: message(e), error: e });
-        }
-      })(),
-    );
+    const row: Upload = f.path
+      ? { key, name: f.name, job: "add", at: Date.now(), phase: "adding", pct: null, message: "Adding" }
+      : { key, name: f.name, job: "add", at: Date.now(), phase: "reading", pct: null, message: "Reading the file" };
+    return row;
+  });
+  items = [...items, ...rows];
+  emit();
+  const files: Awaited<ReturnType<typeof sourceOf>>[] = [];
+  const sent: Upload[] = [];
+  for (const [i, f] of picked.entries())
+    try {
+      files.push(await sourceOf(f));
+      sent.push(rows[i]);
+    } catch (e) {
+      patch(rows[i].key, { phase: "failed", message: message(e), error: e });
+    }
+  if (!files.length) return;
+  for (const r of sent) patch(r.key, { phase: "adding", message: "Adding", pct: null });
+  try {
+    const r = await run<Added>("docs.addFiles", { files }, (e) => {
+      for (const u of sent) progressOf(u.key, "adding")(e);
+    });
+    const refused = r.rejected.filter((x) => x.code === "not-a-document");
+    if (refused.length)
+      toast({
+        kind: "error",
+        title: "Only Word (.docx) and PDF files can be added",
+        detail: refused.map((x) => x.name).join(", "),
+      });
+    for (const u of sent) {
+      const failed = r.rejected.find((x) => x.name === u.name && x.code !== "not-a-document");
+      if (failed) patch(u.key, { phase: "failed", message: failed.why });
+      else dismissUpload(u.key);
+    }
+    for (const d of r.added) onDone(d.id);
+    if (!r.added.length) onDone();
+  } catch (e) {
+    for (const u of sent) patch(u.key, { phase: "failed", message: message(e), error: e });
+    onDone();
   }
-  await Promise.all(jobs);
 }
 
-export async function addDocPath(path: string, onDone: (docId?: string) => void): Promise<void> {
-  const key = ++seq;
-  const name = path.split(/[\\/]/).pop() || path;
-  items = [...items, { key, name, job: "add", at: Date.now(), phase: "adding", pct: null, message: "Adding" }];
-  emit();
-  await addOne(key, { file: path }, onDone);
-}
+export const addDocPath = (path: string, onDone: (docId?: string) => void): Promise<void> =>
+  addDocs([{ name: path.split(/[\\/]/).pop() || path, path }], onDone);
 
 export async function reindexAll(onDone: () => void): Promise<void> {
   const key = ++seq;

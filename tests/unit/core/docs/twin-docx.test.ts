@@ -2,8 +2,8 @@ import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { addDoc } from "../../src/core/lib/docs.ts";
-import { sampleDocx } from "../fixtures/docx/sample.ts";
+import { addDoc } from "../../../../src/core/lib/docs-convert.ts";
+import { sampleDocx } from "../../../fixtures/docx/sample.ts";
 
 function onePagePdf(): Uint8Array {
   const page = "BT /F1 11 Tf 72 760 Td (Specification fonctionnelle) Tj ET";

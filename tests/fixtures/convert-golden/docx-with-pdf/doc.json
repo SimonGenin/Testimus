@@ -1,0 +1,31 @@
+{
+  "code": "SPEC_PAIR",
+  "title": "Spécification fonctionnelle – Traction",
+  "version": "02.00",
+  "date": "2026-06-12",
+  "kind": "spec",
+  "status": "draft",
+  "source": {
+    "name": "<client>",
+    "file": "source.docx",
+    "sha256": "3cbaaed9a7754ecf3440b49064681898d76a1ed67afac47e2cab32884477e347"
+  },
+  "twin": {
+    "file": "source.pdf",
+    "sha256": "ec7d017966ea1df4fb583b88d489169e499870fbf933f62421a1cc8a81839d83"
+  },
+  "converted": {
+    "with": "mammoth 1.13.0",
+    "at": "<at>",
+    "warnings": [
+      "1 Word comment was dropped",
+      "1 shape drawn in Word: the drawing is lost, only text labels can survive",
+      "Figure 41: caption without a picture in the .docx (drawn shape, table or pasted text) and not found in the .pdf"
+    ],
+    "stats": {
+      "sections": 21,
+      "figures": 1,
+      "chars": 1542
+    }
+  }
+}

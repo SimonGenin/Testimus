@@ -652,6 +652,8 @@ export type Job = {
   result?: unknown;
   error?: string;
   fix?: string;
+  // a stable name for the failure (UserError.code), so a page reacts to it without reading the message
+  code?: string;
   pid?: number;
   parentId?: string;
   cause?: JobCause;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { convertPdf, pdfFigures } from "../../src/core/rag/convert-pdf.ts";
-import { taggedPdf } from "../fixtures/pdf/tagged.ts";
+import { convertPdf, pdfFigures } from "../../../../src/core/rag/convert-pdf.ts";
+import { taggedPdf } from "../../../fixtures/pdf/tagged.ts";
 
 describe("convertPdf over a tagged PDF (Word's « Save as PDF »)", () => {
   it("reads headings, lists, tables and figures from the tags, numbered from the bookmarks", async () => {

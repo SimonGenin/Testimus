@@ -16,8 +16,10 @@ export type Key = readonly [project: string | null, name: string, input?: unknow
 const MACHINE = new Set<string>([
   "claude.status",
   "models.catalog",
+  "models.dirs",
   "models.hardware",
   "models.list",
+  "models.planDir",
   "project.list",
   "system.secrets",
   "system.settings",

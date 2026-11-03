@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type Block, type HNode, parseHtml, renderBlocks } from "../../src/core/rag/convert-html.ts";
+import { type Block, type HNode, parseHtml, renderBlocks } from "../../../../src/core/rag/convert-html.ts";
 
 function md(html: string): string {
   const blocks: Block[] = renderBlocks(parseHtml(html).children, {

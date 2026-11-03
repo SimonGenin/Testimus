@@ -151,7 +151,12 @@ export function waitJob<T = unknown>(jobId: string, onEvent?: (e: JobEvent) => v
       off();
       if (job.status === "done") resolve(job.result as T);
       else {
-        const e = new ApiError(job.error || (job.status === "cancelled" ? "Cancelled." : "The job failed."));
+        const e = new ApiError(
+          job.error || (job.status === "cancelled" ? "Cancelled." : "The job failed."),
+          job.fix,
+          0,
+          job.code,
+        );
         if (job.status === "cancelled") {
           e.cancelled = true;
           e.result = job.result;

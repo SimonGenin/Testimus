@@ -403,9 +403,9 @@ describe("Documents screen", () => {
     let added = false;
     routes["docs.list"] = () => (added ? [doc] : []);
     routes["docs.show"] = () => ({ doc, context: "", toc: [], figures: [], md: "" });
-    routes["docs.add"] = () => {
+    routes["docs.addFiles"] = () => {
       added = true;
-      return { id: doc.id };
+      return { added: [{ id: doc.id }], rejected: [] };
     };
     const app = appState({ route: { screen: "documents" } });
     const again = wrap(app, <DocumentsScreen />);

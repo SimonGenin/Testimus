@@ -113,7 +113,7 @@ describe("tests.addImage", () => {
 
   it("names its subject with or without a step", () => {
     expect(subject("tests.addImage", { id: LOCAL, step: 2 })).toBe(`${LOCAL} step 2`);
-    expect(subject("tests.addImage", { id: LOCAL })).toBe(LOCAL);
+    expect(subject("tests.storeImage", { id: LOCAL, dataBase64: "" })).toBe(LOCAL);
   });
 
   it("refuses a file outside the project, not a picture, or missing", async () => {
@@ -148,18 +148,17 @@ describe("tests.addImage", () => {
     expect(readFileSync(join(project, "tests", LOCAL, "test.md"), "utf8")).toContain(`### Data\n\n![](${r.file})`);
   });
 
-  it("stores a paste, refusing a paste given with a file, and defaults the extension to png", async () => {
+  it("stores a paste in its own command, never with a file or a figure, and defaults the extension to png", async () => {
     const b64 = png.toString("base64");
-    await expect(run("tests.addImage", { id: LOCAL, dataBase64: b64, file: "x.png" })).rejects.toThrow(
-      "Give a pasted picture or a file or a figure, not several.",
+    await expect(run("tests.addImage", { id: LOCAL, step: 1, dataBase64: b64 })).rejects.toThrow(
+      "Give either a file or a figure.",
     );
-    await expect(run("tests.addImage", { id: LOCAL, dataBase64: b64, figure: "x" })).rejects.toThrow("not several");
-    const stored = await run("tests.addImage", { id: LOCAL, dataBase64: b64 });
+    const stored = await run("tests.storeImage", { id: LOCAL, dataBase64: b64 });
     expect(stored.file).toMatch(/\.png$/);
-    const named = await run("tests.addImage", { id: LOCAL, dataBase64: b64, name: "photo.jpeg" });
+    const named = await run("tests.storeImage", { id: LOCAL, dataBase64: b64, name: "photo.jpeg" });
     expect(named.file).toMatch(/\.jpg$/);
     expect(storeImage(project, LOCAL, b64, ".").file).toMatch(/\.png$/);
-    await expect(run("tests.addImage", { id: LOCAL, dataBase64: "data:image/png;base64," })).rejects.toThrow(
+    await expect(run("tests.storeImage", { id: LOCAL, dataBase64: "data:image/png;base64," })).rejects.toThrow(
       "The picture is empty.",
     );
   });

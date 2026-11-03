@@ -56,11 +56,23 @@ beforeEach(() => {
   runs.length = 0;
   toasts.length = 0;
   handlers = {
-    "docs.add": (input, on) => {
+    "docs.addFiles": (input, on) => {
       on?.({ jobId: "j", at: "", type: "log", level: "info", message: "ignored" });
       on?.(progress("Converting page 1", 1, 4));
       on?.(progress("Converting", undefined, 0));
-      return { id: String(input.name ?? input.file) };
+      const files = input.files as { name?: string; path?: string }[];
+      const name = (f: { name?: string; path?: string }) => f.name ?? String(f.path).split(/[\\/]/).pop() ?? "";
+      const doc = (f: { name?: string; path?: string }) => /\.(docx|pdf)$/i.test(name(f));
+      return {
+        added: files.filter(doc).map((f) => ({ id: name(f) })),
+        rejected: files
+          .filter((f) => !doc(f))
+          .map((f) => ({
+            name: name(f),
+            why: "Only Word (.docx) and PDF files can be added.",
+            code: "not-a-document",
+          })),
+      };
     },
     "docs.convert": (input, on) => {
       on?.(progress("Converting page 1", 1, 4));
@@ -85,13 +97,18 @@ describe("uploads", () => {
     const onDone = vi.fn();
     await act(() => addDocFiles([new File(["x"], "notes.txt"), new File(["PK"], "A.docx")], onDone));
     expect(toasts[0]).toMatchObject({ kind: "error", detail: "notes.txt" });
-    expect(runs.map((r) => r.name)).toEqual(["docs.add"]);
-    expect(runs[0].input).toEqual({ name: "A.docx", dataBase64: "UEs=", convert: false });
+    expect(runs.map((r) => r.name)).toEqual(["docs.addFiles"]);
+    expect(runs[0].input).toEqual({
+      files: [
+        { name: "notes.txt", dataBase64: "eA==" },
+        { name: "A.docx", dataBase64: "UEs=" },
+      ],
+    });
     expect(onDone).toHaveBeenCalledExactlyOnceWith("A.docx");
-    expect(h.result.current.some((u) => u.name === "A.docx")).toBe(false);
+    expect(h.result.current.some((u) => u.name === "A.docx" || u.name === "notes.txt")).toBe(false);
   });
 
-  it("converts then indexes a document with the context of this job, and forgets the row after a while", async () => {
+  it("converts, triages and indexes a document in one job with the context of this job, and forgets the row after a while", async () => {
     vi.useFakeTimers();
     setImportClaude({ model: "sonnet", effort: "medium" });
     try {
@@ -101,11 +118,18 @@ describe("uploads", () => {
       expect(runs).toEqual([
         {
           name: "docs.convert",
-          input: { id: "A", model: "sonnet", effort: "medium", note: "the 2024 edition", contexts: ["glossary"] },
+          input: {
+            id: "A",
+            model: "sonnet",
+            effort: "medium",
+            note: "the 2024 edition",
+            contexts: ["glossary"],
+            triage: true,
+            index: true,
+          },
         },
-        { name: "rag.index", input: { model: "sonnet", effort: "medium", note: "the 2024 edition" } },
       ]);
-      expect(onDone).toHaveBeenCalledTimes(2);
+      expect(onDone).toHaveBeenCalledTimes(1);
       const row = h.result.current.find((u) => u.docId === "A");
       expect(row).toMatchObject({ job: "convert", phase: "done", message: "Converted and indexed", pct: 100 });
       expect(settled(row as never)).toBe(true);
@@ -131,11 +155,11 @@ describe("uploads", () => {
     expect(onDone).toHaveBeenCalledTimes(1);
   });
 
-  it("pairs a Word file with the PDF of the same name, both by path", async () => {
+  it("sends a Word file and its PDF together, both by path, for the core to pair", async () => {
     window.testimusDesktop = { pathOf: (f: File) => `C:\\d\\${f.name}` } as never;
     await act(() => addDocFiles([new File(["%"], "spec.PDF"), new File(["PK"], "Spec.docx")], () => {}));
-    expect(runs.filter((r) => r.name === "docs.add").map((r) => r.input)).toEqual([
-      { file: "C:\\d\\Spec.docx", pdf: "C:\\d\\spec.PDF", convert: false },
+    expect(runs.filter((r) => r.name === "docs.addFiles").map((r) => r.input)).toEqual([
+      { files: [{ path: "C:\\d\\spec.PDF" }, { path: "C:\\d\\Spec.docx" }] },
     ]);
   });
 
@@ -144,19 +168,41 @@ describe("uploads", () => {
     try {
       expect(importClaude()).toEqual({ model: "sonnet", effort: "medium" });
       await act(() => addDocPaths(["C:\\d\\Only.pdf"], () => {}));
-      expect(runs).toEqual([{ name: "docs.add", input: { file: "C:\\d\\Only.pdf", convert: false } }]);
+      expect(runs).toEqual([{ name: "docs.addFiles", input: { files: [{ path: "C:\\d\\Only.pdf" }] } }]);
     } finally {
       setImportClaude({});
     }
   });
 
-  it("sends a PDF picked alone, by path", async () => {
+  it("sends the files picked by path, and toasts what the core refused as not a document", async () => {
+    const h = current();
     await act(() => addDocPaths(["C:\\d\\Only.pdf", "C:\\d\\other.png"], () => {}));
-    expect(runs[0]).toEqual({ name: "docs.add", input: { file: "C:\\d\\Only.pdf", convert: false } });
+    expect(runs[0]).toEqual({
+      name: "docs.addFiles",
+      input: { files: [{ path: "C:\\d\\Only.pdf" }, { path: "C:\\d\\other.png" }] },
+    });
+    expect(toasts[0]).toMatchObject({ kind: "error", detail: "other.png" });
+    expect(h.result.current.some((u) => u.name === "other.png")).toBe(false);
+  });
+
+  it("marks the row of a document the core could not copy failed, with its reason", async () => {
+    handlers["docs.addFiles"] = () => ({
+      added: [],
+      rejected: [{ name: "Twice.docx", why: "Document TWICE already exists.", code: "failed" }],
+    });
+    const h = current();
+    const onDone = vi.fn();
+    await act(() => addDocPath("C:\\d\\Twice.docx", onDone));
+    expect(h.result.current.find((u) => u.name === "Twice.docx")).toMatchObject({
+      phase: "failed",
+      message: "Document TWICE already exists.",
+    });
+    expect(toasts).toEqual([]);
+    expect(onDone).toHaveBeenCalledExactlyOnceWith();
   });
 
   it("marks a row failed when the copy fails", async () => {
-    handlers["docs.add"] = () => {
+    handlers["docs.addFiles"] = () => {
       throw new Error("not a docx");
     };
     const h = current();
@@ -167,11 +213,11 @@ describe("uploads", () => {
       message: "not a docx",
     });
     expect(onDone).toHaveBeenCalledTimes(1);
-    expect(runs.map((r) => r.name)).toEqual(["docs.add"]);
+    expect(runs.map((r) => r.name)).toEqual(["docs.addFiles"]);
   });
 
   it("names a path without separators by itself", async () => {
-    handlers["docs.add"] = () => {
+    handlers["docs.addFiles"] = () => {
       throw new Error("not found");
     };
     const h = current();
@@ -179,10 +225,8 @@ describe("uploads", () => {
     expect(h.result.current.some((u) => u.name === "Plain.docx")).toBe(true);
   });
 
-  it("marks a row index-failed when indexing fails", async () => {
-    handlers["rag.index"] = () => {
-      throw new Error("model missing");
-    };
+  it("marks a row index-failed when the index run that followed the conversion failed", async () => {
+    handlers["docs.convert"] = (input) => ({ id: input.id, index: { error: "model missing" } });
     const h = current();
     await act(() => convertDoc("B", "B.docx", {}, () => {}));
     expect(h.result.current.find((u) => u.name === "B.docx")).toMatchObject({
@@ -211,52 +255,69 @@ describe("uploads", () => {
     });
   });
 
-  it("indexes once every conversion in flight has ended, for all of them", async () => {
-    const ends: Record<string, () => void> = {};
-    handlers["docs.convert"] = (input) => new Promise((r) => (ends[String(input.id)] = () => r({ id: input.id })));
+  it("shows the index step of a conversion as indexing", async () => {
+    let release: () => void = () => {};
+    handlers["docs.convert"] = (input, on) =>
+      new Promise((r) => {
+        on?.({ ...progress("Waiting for the other conversions"), step: "index" } as JobEvent);
+        release = () => r({ id: input.id, index: { chunks: 3 } });
+      });
     const h = current();
-    const both = Promise.all([convertDoc("E", "E.docx", {}, () => {}), convertDoc("F", "F.docx", {}, () => {})]);
-    await vi.waitFor(() => expect(Object.keys(ends)).toEqual(["E", "F"]));
-    await act(async () => ends.E());
+    const pending = convertDoc("I", "I.docx", {}, () => {});
     await vi.waitFor(() =>
-      expect(h.result.current.find((u) => u.docId === "E")?.message).toBe("Waiting for the other conversions"),
+      expect(h.result.current.find((u) => u.docId === "I")).toMatchObject({
+        phase: "indexing",
+        message: "Waiting for the other conversions",
+      }),
+    );
+    await act(async () => {
+      release();
+      await pending;
+    });
+    expect(h.result.current.find((u) => u.docId === "I")).toMatchObject({ phase: "done" });
+  });
+
+  it("reindexes everything only once the conversions in flight have ended", async () => {
+    let end: () => void = () => {};
+    handlers["docs.convert"] = (input) => new Promise((r) => (end = () => r({ id: input.id })));
+    const h = current();
+    const converting = convertDoc("E", "E.docx", {}, () => {});
+    await vi.waitFor(() => expect(runs.map((r) => r.name)).toEqual(["docs.convert"]));
+    const all = reindexAll(() => {});
+    await vi.waitFor(() =>
+      expect(h.result.current.find((u) => u.name === "All documents")?.message).toBe(
+        "Waiting for the other conversions",
+      ),
     );
     expect(runs.filter((r) => r.name === "rag.index")).toHaveLength(0);
     await act(async () => {
-      ends.F();
-      await both;
+      end();
+      await Promise.all([converting, all]);
     });
     expect(runs.filter((r) => r.name === "rag.index")).toHaveLength(1);
-    expect(h.result.current.filter((u) => u.phase === "done").map((u) => u.docId)).toEqual(["E", "F"]);
+    expect(h.result.current.find((u) => u.name === "All documents")).toMatchObject({ phase: "done" });
   });
 
-  it("does not join an index run that started before a conversion ended: one more run follows it", async () => {
+  it("does not join an index run already started: one more run follows it", async () => {
     const releases: (() => void)[] = [];
     handlers["rag.index"] = (_input, on) =>
       new Promise((r) => {
         releases.push(() => r({ chunks: 1 }));
         on?.(progress("Embedding", 1, 2));
       });
-    const h = current();
     const all = reindexAll(() => {});
     await vi.waitFor(() => expect(releases).toHaveLength(1));
-    const later = Promise.all([convertDoc("G", "G.docx", {}, () => {}), reindexAll(() => {})]);
-    await vi.waitFor(() =>
-      expect(h.result.current.find((u) => u.docId === "G")?.message).toBe("Waiting for the index run"),
-    );
-    expect(releases).toHaveLength(1);
+    const again = reindexAll(() => {});
     await act(async () => {
       releases[0]();
       await all;
     });
     await vi.waitFor(() => expect(releases).toHaveLength(2));
-    await vi.waitFor(() => expect(h.result.current.find((u) => u.docId === "G")?.pct).toBe(50));
     await act(async () => {
       releases[1]();
-      await later;
+      await again;
     });
     expect(runs.filter((r) => r.name === "rag.index")).toHaveLength(2);
-    expect(h.result.current.find((u) => u.docId === "G")).toMatchObject({ phase: "done" });
   });
 
   it("reindexes everything and forgets the row after a while", async () => {
@@ -283,7 +344,7 @@ describe("uploads", () => {
 
   it("dismisses one row and forgets settled rows only when there are some", async () => {
     let release: () => void = () => {};
-    handlers["docs.add"] = () => new Promise((r) => (release = () => r({ id: "G" })));
+    handlers["docs.addFiles"] = () => new Promise((r) => (release = () => r({ added: [{ id: "G" }], rejected: [] })));
     const h = current();
     const pending = addDocPath("C:\\d\\G.docx", () => {});
     await vi.waitFor(() => expect(h.result.current.some((u) => u.name === "G.docx")).toBe(true));

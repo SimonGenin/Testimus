@@ -1,0 +1,25 @@
+{
+  "code": "ROI_01",
+  "title": "S.1 – LES CERCLES SPORTIFS",
+  "version": "",
+  "date": "",
+  "kind": "spec",
+  "status": "draft",
+  "source": {
+    "name": "<client>",
+    "file": "source.pdf",
+    "sha256": "91108621ed0d58dbc1de70caff56fb97a8d05ec046bfa8e4d9ac8a18c08046fb"
+  },
+  "converted": {
+    "with": "pdfjs-dist 6.5.438",
+    "at": "<at>",
+    "warnings": [
+      "1 of 2 pages carry no text (a scan, or text drawn as pictures): kept as page pictures that Claude reads when it describes the figures, but nothing on them can be quoted — ask for the source document"
+    ],
+    "stats": {
+      "sections": 2,
+      "figures": 0,
+      "chars": 450
+    }
+  }
+}
