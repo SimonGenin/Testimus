@@ -12,6 +12,8 @@ import { env } from "../core/env.ts";
 import { subscribe } from "../core/jobs.ts";
 import { isProject, readSettings, resolveProjectDir } from "../core/lib/project.ts";
 import { loopbackProxyGap, onParentGone, onStopSignals, stopCore } from "../core/shell.ts";
+import { watchProject } from "../core/watch.ts";
+import { every } from "../shared/run/work.ts";
 
 const TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -191,6 +193,7 @@ export function handler(state: ServeState) {
         send(res, 403, { error: "Not a known Testimus project.", fix: "Open it from the project menu first." });
         return;
       }
+      if (project) watchProject(project);
       if (url.pathname === "/api" || url.pathname === "/api/") {
         send(res, 200, { project: open, mock: state.mock, commands: registry.map(describeCommand) });
         return;
@@ -203,9 +206,9 @@ export function handler(state: ServeState) {
         });
         res.write(": hello\n\n");
         const unsub = subscribe((e) => res.write(`data: ${JSON.stringify(e)}\n\n`));
-        const ping = setInterval(() => res.write(": ping\n\n"), 15000);
+        const stopPing = every(15000, () => res.write(": ping\n\n"));
         req.on("close", () => {
-          clearInterval(ping);
+          stopPing();
           unsub();
         });
         return;
@@ -261,7 +264,12 @@ export function handler(state: ServeState) {
       if (existsSync(index)) sendFile(res, index, false, session);
       else send(res, 404, { error: "UI not built — run npm run build" });
     } catch (e) {
-      if (e instanceof UserError) send(res, 400, { error: e.message, fix: e.fix });
+      if (e instanceof UserError)
+        send(res, e.code === "conflict" ? 409 : 400, {
+          error: e.message,
+          fix: e.fix,
+          ...(e.code ? { code: e.code } : {}),
+        });
       else send(res, 500, { error: e instanceof Error ? e.message : String(e) });
     }
   }

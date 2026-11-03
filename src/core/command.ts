@@ -36,11 +36,15 @@ export function command<I extends z.ZodType, O extends z.ZodType>(c: Command<I, 
   return c;
 }
 
+// ponytail: `code` is a stable name a page or a script can branch on (`conflict`: the file moved on disk since it was
+// read) instead of matching the message
 export class UserError extends Error {
   readonly fix?: string;
-  constructor(message: string, fix?: string) {
+  readonly code?: string;
+  constructor(message: string, fix?: string, code?: string) {
     super(message);
     this.fix = fix;
+    this.code = code;
   }
 }
 
