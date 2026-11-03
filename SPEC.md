@@ -1060,7 +1060,7 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
     sections (docs.show toc), folder; the index gate of §7 shown before the run (« Index not ready » with Reindex and
     Generate disabled for a document of the scope not indexed, « Index not up to date » with Reindex for a stale one,
     Generate disabled while an index runs); gen.tests job shown live (passages read, tests landing as cards from « Writing
-    local-… » progress); at the end check.run on the new tests, then the summary (written, requirements covered, not
+    local-… » progress) and « What Claude did » (below); at the end check.run on the new tests, then the summary (written, requirements covered, not
     covered + why) and « Review these tests ».
   - **Documents** — list (code · version, title, status, search state from docs.list.indexed, warnings);
     drop or pick .docx/.pdf → docs.add job (by `file` path in the desktop app, `{ name, dataBase64 }` in the browser) — when the index has no vectors on this PC, a line « Search on words only » gives the reason and « Choose a search pack » then rag.index job; detail edits status
@@ -1079,6 +1079,13 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
     the step column, the Generate picker, and whether Xray has the column (if not: how to add it, « Check Xray again »
     = xray.fields). « Track these ids » = traces.save.
   - **Jobs** — list (kind, subject, progress, duration, result) and detail (live log from jobs.show + events, Cancel).
+  - **What Claude did** (one component, every Claude job) — the run's events folded into phases (got ready, read,
+    plan, write, check, end; a write after a check is « Edited … after the check »), each with its time and what it
+    did: the skills followed; per document read, a bar of its lines with the pages read, its chapters, and a dot per
+    section opened from the index (on its line in doc.md); the searches; the tests planned; the last test written;
+    the check verdict of each test (from the « id: n error(s), m warning(s) » progress); the last thing Claude said,
+    as one line. « Show the n actions » lists them grouped (read, searched for, opened, followed links from, every
+    mention of) or in order; the raw log stays one click away.
   - **System check** — system.doctor rows as icon + word (OK / To do / Failed / Not checked / Info). A row with an
     `action` shows it as a button in place of the CLI fix text: the command runs (a job is followed to its end,
     then the check runs again), or — when the user has a value to give — `models.setDir` opens the models folder

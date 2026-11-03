@@ -4,6 +4,8 @@ import { resultLine } from "./jobs.ts";
 export type PhaseKind = "prepare" | "read" | "plan" | "write" | "check" | "end";
 export type Act = { at: string; text: string; level: "info" | "warn" | "error" };
 export type Span = { from: number; to: number | null };
+export type Lookup = { kind: "search" | "open" | "follow" | "mention"; text: string; doc: string; anchor: string };
+export type Verdict = { id: string; errors: number; warnings: number; failed: boolean };
 export type Phase = {
   kind: PhaseKind;
   from: string;
@@ -13,6 +15,10 @@ export type Phase = {
   searches: number;
   planned: string[];
   written: { id: string; summary: string; saves: number }[];
+  skills: string[];
+  lookups: Lookup[];
+  said: string[];
+  verdicts: Verdict[];
   failed: boolean;
 };
 
@@ -24,6 +30,9 @@ type Step = {
   search?: boolean;
   plan?: string;
   write?: { id: string; summary: string };
+  skill?: string;
+  lookup?: Lookup;
+  verdict?: Verdict;
 };
 
 function argsOf(input: string): Record<string, unknown> {
@@ -49,11 +58,24 @@ const quoted = (s: string) => `“${s.length > 60 ? `${s.slice(0, 57)}…` : s}�
 
 export const lines = (n: number) => n.toLocaleString("en-GB");
 
+// ponytail: the same reading of a reference as the index (rag/related.ts normalizeRef) — the UI cannot import it
+function refOf(raw: string): { doc: string; anchor: string } {
+  const m = raw.trim().match(/^([^#]+)#(.+)$/);
+  if (!m) return { doc: raw.trim(), anchor: "" };
+  let a = m[2].trim().replace(/~\d+$/, "");
+  const f = a.match(/^fig\s*[:\s]\s*(.+)$/i);
+  a = f ? `fig:${f[1].trim()}` : `§${a.replace(/^§\s*/, "")}`;
+  return { doc: m[1].trim(), anchor: a };
+}
+
+const lookup = (kind: Lookup["kind"], text: string, doc = "", anchor = ""): Lookup => ({ kind, text, doc, anchor });
+
 function stepOf(e: Extract<ClaudeEvent, { type: "tool" }>): Step {
   const a = argsOf(e.input);
   const name = e.name.replace(/^mcp__testimus__/, "");
   const path = str(a.file_path) || str(a.path);
-  if (name === "Skill") return { kind: "prepare", text: `Opened the ${str(a.skill) || "skill"} instructions` };
+  if (name === "Skill")
+    return { kind: "prepare", skill: str(a.skill), text: `Opened the ${str(a.skill) || "skill"} instructions` };
   if (name === "Read" && /doc\.md$/.test(path)) {
     const doc = docOf(path);
     const off = num(a.offset);
@@ -73,7 +95,13 @@ function stepOf(e: Extract<ClaudeEvent, { type: "tool" }>): Step {
   if (name === "Read" && testOf(path)) return { kind: "aside", text: `Opened ${testOf(path)}` };
   if (name === "Read") return { kind: "prepare", text: `Read ${tail(path)}` };
   if (name === "Grep" && /doc\.md|docs/.test(`${path} ${str(a.glob)}`))
-    return { kind: "read", search: true, doc: docOf(path), text: `Searched for ${quoted(str(a.pattern))}` };
+    return {
+      kind: "read",
+      search: true,
+      doc: docOf(path),
+      lookup: lookup("search", str(a.pattern), docOf(path)),
+      text: `Searched for ${quoted(str(a.pattern))}`,
+    };
   if (name === "Grep") return { kind: "aside", text: `Searched the files for ${quoted(str(a.pattern))}` };
   if (name === "Glob") return { kind: "aside", text: `Listed ${str(a.pattern)}` };
   if (/^(Write|Edit|MultiEdit)$/.test(name) && testOf(path)) {
@@ -81,18 +109,41 @@ function stepOf(e: Extract<ClaudeEvent, { type: "tool" }>): Step {
     return { kind: "write", write: { id, summary: "" }, text: `Wrote ${id}` };
   }
   if (/^(Write|Edit|MultiEdit)$/.test(name)) return { kind: "aside", text: `Edited ${tail(path)}` };
-  const where = `${str(a.docId)} ${str(a.anchor)}`.trim();
   if (name === "rag_search")
-    return { kind: "read", search: true, text: `Searched the documents for ${quoted(str(a.query))}` };
-  if (name === "rag_passage" || name === "rag_figure")
-    return { kind: "read", search: true, doc: str(a.docId), text: `Read ${where}` };
-  if (name === "rag_related") return { kind: "read", search: true, text: `Looked for what relates to ${where}` };
-  if (name === "rag_mentions")
     return {
       kind: "read",
       search: true,
-      text: `Looked for every mention of ${quoted(str(a.term) || str(a.query) || str(a.id))}`,
+      lookup: lookup("search", str(a.query)),
+      text: `Searched the documents for ${quoted(str(a.query))}`,
     };
+  if (name === "rag_passage" || name === "rag_figure" || name === "rag_related") {
+    const n = str(a.n).replace(/^fig:?/i, "");
+    const r = refOf(name === "rag_figure" ? `${str(a.docId)}#fig:${n}` : str(a.ref));
+    const where = `${r.doc} ${r.anchor}`.trim();
+    if (name === "rag_related")
+      return {
+        kind: "read",
+        search: true,
+        lookup: lookup("follow", where, r.doc, r.anchor),
+        text: `Looked for what relates to ${where}`,
+      };
+    return {
+      kind: "read",
+      search: true,
+      doc: r.doc,
+      lookup: lookup("open", where, r.doc, r.anchor),
+      text: `Read ${where}`,
+    };
+  }
+  if (name === "rag_mentions") {
+    const term = str(a.term) || str(a.query) || str(a.id);
+    return {
+      kind: "read",
+      search: true,
+      lookup: lookup("mention", term),
+      text: `Looked for every mention of ${quoted(term)}`,
+    };
+  }
   if (name === "docs_show") return { kind: "prepare", text: `Looked up ${str(a.id) || "a document"}` };
   if (name === "docs_list") return { kind: "prepare", text: "Listed the documents" };
   if (name === "tests_list") return { kind: "prepare", text: "Listed the existing tests" };
@@ -116,9 +167,12 @@ function stepOf(e: Extract<ClaudeEvent, { type: "tool" }>): Step {
   return { kind: "aside", text: `Used ${name.replace(/_/g, ".")}` };
 }
 
-function stepOfEvent(e: JobEvent): Step | (Act & { kind: "act" }) | null {
+const VERDICT = /^(\S+): (\d+) error\(s\), (\d+) warning\(s\)( — semantic check failed)?$/;
+
+function stepOfEvent(e: JobEvent): Step | (Act & { kind: "act" }) | { kind: "say"; text: string } | null {
   if (e.type === "claude") {
     if (e.event.type === "tool") return stepOf(e.event);
+    if (e.event.type === "text") return { kind: "say", text: e.event.text };
     if (e.event.type === "result" && !e.event.ok)
       return { kind: "act", at: e.at, level: "error", text: `Claude stopped: ${e.event.text.slice(0, 160)}` };
     return null;
@@ -126,6 +180,13 @@ function stepOfEvent(e: JobEvent): Step | (Act & { kind: "act" }) | null {
   if (e.type === "progress") {
     if (/^(Reading passages|Writing local-)/.test(e.message)) return null;
     if (/^Checking /.test(e.message)) return { kind: "check", text: e.message };
+    const v = e.message.match(VERDICT);
+    if (v)
+      return {
+        kind: "check",
+        text: e.message,
+        verdict: { id: v[1], errors: Number(v[2]), warnings: Number(v[3]), failed: !!v[4] },
+      };
     return { kind: "act", at: e.at, level: "info", text: e.message };
   }
   if (e.type === "log") return { kind: "act", at: e.at, level: e.level, text: e.message };
@@ -142,6 +203,10 @@ const open = (kind: PhaseKind, at: string): Phase => ({
   searches: 0,
   planned: [],
   written: [],
+  skills: [],
+  lookups: [],
+  said: [],
+  verdicts: [],
   failed: false,
 });
 
@@ -154,12 +219,17 @@ export function activityOf(events: JobEvent[]): Phase[] {
     const s = stepOfEvent(e);
     if (!s) continue;
     let cur = out[out.length - 1];
-    const minor = s.kind === "act" || s.kind === "aside" || (s.kind === "prepare" && !!cur);
+    const minor = s.kind === "act" || s.kind === "aside" || s.kind === "say" || (s.kind === "prepare" && !!cur);
     if (!cur || (!minor && s.kind !== cur.kind)) {
       cur = open(minor ? "prepare" : (s.kind as PhaseKind), e.at);
       out.push(cur);
     }
     cur.to = e.at;
+    if (s.kind === "say") {
+      const g = gist(s.text);
+      if (g) cur.said.push(g);
+      continue;
+    }
     if (s.kind !== "act" && s.write) {
       const { id, summary } = s.write;
       if (summary) names.set(id, summary);
@@ -173,6 +243,12 @@ export function activityOf(events: JobEvent[]): Phase[] {
     if (level === "error") cur.failed = true;
     if (s.kind === "act" || s.kind === "end") continue;
     if (s.search) cur.searches++;
+    if (s.skill && !cur.skills.includes(s.skill)) cur.skills.push(s.skill);
+    if (s.lookup) cur.lookups.push(s.lookup);
+    if (s.verdict) {
+      const v = s.verdict;
+      cur.verdicts = [...cur.verdicts.filter((x) => x.id !== v.id), v];
+    }
     if (s.span && s.doc) {
       const r = cur.reads.find((x) => x.doc === s.doc);
       if (r) r.spans.push(s.span);
@@ -188,6 +264,49 @@ export function activityOf(events: JobEvent[]): Phase[] {
     }
   }
   return out;
+}
+
+// ponytail: what Claude says between two actions, as one plain line — its final report (a table, a gen-report block)
+// keeps only its first paragraph
+export function gist(text: string): string {
+  const para = text
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .find((p) => p && !/^(```|\||<)/.test(p));
+  const flat = (para ?? "")
+    .replace(/[*_`#>]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return flat.length > 220 ? `${flat.slice(0, 217)}…` : flat;
+}
+
+export type Outline = { total: number; chapters: number[]; anchors: Map<string, { line: number; title: string }> };
+
+const SECTION_MARK = /<!--\s*§\s*(.*?)\s*-->/;
+const FIGURE_MARK = /<!--\s*fig\s+(\S+?)\s*-->/g;
+
+// ponytail: the lines of doc.md's anchors (headings marked <!-- §x -->, figures <!-- fig N -->), and its chapters: the
+// first heading level that occurs more than once
+export function outlineOf(md: string): Outline {
+  const all = md.split(/\r?\n/);
+  const anchors: Outline["anchors"] = new Map();
+  const heads: { line: number; level: number }[] = [];
+  all.forEach((l, i) => {
+    const h = l.match(/^(#{1,6})\s+(.*)$/);
+    const s = h?.[2].match(SECTION_MARK);
+    if (h && s) {
+      const key = s[1].trim();
+      let title = h[2].replace(/\s*<!--[\s\S]*?-->/g, "").trim();
+      if (title.startsWith(`${key} `)) title = title.slice(key.length + 1).trim();
+      anchors.set(`§${key}`, { line: i + 1, title });
+      heads.push({ line: i + 1, level: h[1].length });
+    }
+    for (const f of l.matchAll(FIGURE_MARK))
+      if (!anchors.has(`fig:${f[1]}`))
+        anchors.set(`fig:${f[1]}`, { line: i + 1, title: l.match(/!\[([^\]]*)\]/)?.[1] ?? "" });
+  });
+  const level = [1, 2, 3, 4, 5, 6].find((n) => heads.filter((h) => h.level === n).length > 1);
+  return { total: all.length, chapters: heads.filter((h) => h.level === level).map((h) => h.line), anchors };
 }
 
 export function linesRead(spans: Span[]): {

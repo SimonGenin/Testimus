@@ -11,6 +11,7 @@ import {
 } from "../../../core/types.ts";
 import { call } from "../../api.ts";
 import { AdditionalContext } from "../../components/claude/AdditionalContext.tsx";
+import { ClaudeActivity } from "../../components/claude/ClaudeActivity.tsx";
 import { type ClaudeStatus, ConnectClaude } from "../../components/claude/ConnectClaude.tsx";
 import { cap, EFFORTS, ModelPicker } from "../../components/claude/ModelPicker.tsx";
 import { useJob } from "../../components/shell/JobLog.tsx";
@@ -27,7 +28,6 @@ import { errorToast } from "../../lib/toast.ts";
 import { reindexAll, settled, useUploads } from "../../lib/uploads.ts";
 import { ColumnsView } from "./ColumnsView.tsx";
 import { DocScopePicker } from "./DocScopePicker.tsx";
-import { GenActivity } from "./GenActivity.tsx";
 import {
   checkLine,
   GenCard,
@@ -410,7 +410,7 @@ export function GenerateScreen() {
                   ))}
                 </section>
               )}
-              <GenActivity events={gen.events} running={running} now={now} />
+              <ClaudeActivity events={gen.events} running={running} now={now} />
             </>
           )}
         </section>

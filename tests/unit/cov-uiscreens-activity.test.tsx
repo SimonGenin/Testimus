@@ -3,8 +3,8 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Job, JobEvent } from "../../src/core/types.ts";
-import { activityOf, lasted, linesRead } from "../../src/ui/lib/activity.ts";
-import { GenActivity } from "../../src/ui/screens/generate/GenActivity.tsx";
+import { ClaudeActivity as GenActivity } from "../../src/ui/components/claude/ClaudeActivity.tsx";
+import { activityOf, gist, lasted, linesRead, outlineOf } from "../../src/ui/lib/activity.ts";
 import { landedIds } from "../../src/ui/screens/generate/GenResult.tsx";
 import { api, fakeFetch, named } from "./ui-desktop-helpers.tsx";
 
@@ -126,9 +126,9 @@ describe("activityOf", () => {
     const p = activityOf([
       { jobId: "g", at: at(), type: "log", level: "info", message: "Starting" },
       tool("mcp__testimus__rag_search", { query: "x".repeat(70) }),
-      tool("mcp__testimus__rag_passage", { docId: "D", anchor: "§1" }),
-      tool("mcp__testimus__rag_figure", { docId: "D", anchor: "fig:2" }),
-      tool("mcp__testimus__rag_related", { docId: "D", anchor: "§1" }),
+      tool("mcp__testimus__rag_passage", { ref: "D#1" }),
+      tool("mcp__testimus__rag_figure", { docId: "D", n: "fig:2" }),
+      tool("mcp__testimus__rag_related", { ref: "D#§1~2" }),
       tool("mcp__testimus__rag_mentions", { term: "DSO" }),
       tool("mcp__testimus__rag_mentions", {}),
       tool("Grep", { pattern: "DSO", path: DOC }),
@@ -213,9 +213,10 @@ describe("GenActivity", () => {
     const events = run();
     render(<GenActivity events={events} running={false} now={Date.now()} />);
     expect(screen.getByRole("heading", { name: "Got ready" })).toBeInTheDocument();
+    expect(screen.getByText("generate-tests")).toHaveClass("act-skill");
     expect(
       screen.getByText(
-        "Opened the generate-tests instructions, looked up SOSIE_4113_D401-1, listed the existing tests, read the team notes on SOSIE_4113_D401-1, read the project instructions.",
+        "Looked up SOSIE_4113_D401-1, listed the existing tests, read the team notes on SOSIE_4113_D401-1, read the project instructions.",
       ),
     ).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Read SOSIE_4113_D401-1" })).toBeInTheDocument();
@@ -277,12 +278,12 @@ describe("GenActivity", () => {
       />,
     );
     expect(screen.getByText("Read in one go; nothing read twice.")).toBeInTheDocument();
-    expect(screen.getByText("Also 1 lookup in the index (searches, passages, related sections).")).toBeInTheDocument();
+    expect(screen.getByText("“q”")).toHaveClass("act-query");
     rerender(
       <GenActivity events={[tool("mcp__testimus__rag_search", { query: "q" })]} running={true} now={Date.now()} />,
     );
     expect(screen.getByRole("heading", { name: "Searching the documents" })).toBeInTheDocument();
-    expect(screen.getByText("1 lookup in the index (searches, passages, related sections).")).toBeInTheDocument();
+    expect(screen.getByText(/Searched for/)).toHaveClass("act-search");
   });
 
   it("before anything happens, and for a run with nothing recorded", () => {
@@ -303,5 +304,107 @@ describe("GenActivity", () => {
     expect(screen.getByRole("heading", { name: "Planning 1 test" })).toBeInTheDocument();
     rerender(<GenActivity events={[tool("Skill", { skill: "s" })]} running={true} now={Date.now()} />);
     expect(screen.getByRole("heading", { name: "Getting ready" })).toBeInTheDocument();
+  });
+});
+
+const MD = [
+  "# 1 Queues <!-- §1 -->",
+  "text",
+  "## 1.1 Jobs <!-- §1.1 -->",
+  "![Job lifecycle](figures/f12.png) <!-- fig 12 -->",
+  "# 2 Retries <!-- §2 -->",
+  "## 2.1 Retrying failed jobs <!-- §2.1 -->",
+  "text",
+  "# Annex",
+  "end",
+  "",
+].join("\n");
+
+describe("what the index and the check add", () => {
+  it("reads the outline of doc.md and the gist of what Claude says", () => {
+    const o = outlineOf(MD);
+    expect(o.total).toBe(10);
+    expect(o.chapters).toEqual([1, 5]);
+    expect(o.anchors.get("§2.1")).toEqual({ line: 6, title: "Retrying failed jobs" });
+    expect(o.anchors.get("fig:12")).toEqual({ line: 4, title: "Job lifecycle" });
+    expect(outlineOf("# Only <!-- §1 -->\n## a <!-- §1.1 -->\n## b <!-- §1.2 -->").chapters).toEqual([2, 3]);
+    expect(gist("```gen-report\n{}\n```\n\nI wrote **2 tests**:\n- one")).toBe("I wrote 2 tests: - one");
+    expect(gist("x".repeat(300))).toHaveLength(218);
+    expect(gist("| a | b |")).toBe("");
+  });
+
+  it("keeps the skills, the lookups, Claude's words and the check verdicts of each phase", () => {
+    sec = 0;
+    const p = activityOf([
+      tool("Skill", { skill: "generate-tests" }),
+      tool("mcp__testimus__rag_search", { query: "retry" }),
+      tool("mcp__testimus__rag_passage", { ref: "Q#2.1" }),
+      tool("mcp__testimus__rag_mentions", { term: "ShouldBeUnique" }),
+      { jobId: "g", at: at(), type: "claude", event: { type: "text", text: "Retries are in chapter 2." } },
+      { jobId: "g", at: at(), type: "claude", event: { type: "text", text: "```json\n{}\n```" } },
+      { jobId: "g", at: at(), type: "progress", message: "Checking 1 new test(s)" },
+      tool("Skill", { skill: "check-test" }),
+      { jobId: "g", at: at(), type: "progress", message: "local-aaaaaaaa: 0 error(s), 1 warning(s)" },
+      {
+        jobId: "g",
+        at: at(),
+        type: "progress",
+        message: "local-aaaaaaaa: 1 error(s), 0 warning(s) — semantic check failed",
+      },
+    ]);
+    expect(p.map((x) => x.kind)).toEqual(["prepare", "read", "check"]);
+    expect(p[0].skills).toEqual(["generate-tests"]);
+    expect(p[1].lookups).toEqual([
+      { kind: "search", text: "retry", doc: "", anchor: "" },
+      { kind: "open", text: "Q §2.1", doc: "Q", anchor: "§2.1" },
+      { kind: "mention", text: "ShouldBeUnique", doc: "", anchor: "" },
+    ]);
+    expect(p[1].said).toEqual(["Retries are in chapter 2."]);
+    expect(p[2].skills).toEqual(["check-test"]);
+    expect(p[2].verdicts).toEqual([{ id: "local-aaaaaaaa", errors: 1, warnings: 0, failed: true }]);
+  });
+
+  it("draws the sections opened from the index on the document, groups the lookups, and shows the verdicts", async () => {
+    api.routes["docs.show"] = () => ({ md: MD });
+    sec = 0;
+    const events: JobEvent[] = [
+      tool("Skill", { skill: "generate-tests" }),
+      ...["retry", "backoff", "delay", "timeout", "retry"].map((query) => tool("mcp__testimus__rag_search", { query })),
+      tool("mcp__testimus__rag_passage", { ref: "Q#§2.1" }),
+      tool("mcp__testimus__rag_figure", { docId: "Q", n: "12" }),
+      tool("mcp__testimus__rag_passage", { ref: "Q#§9" }),
+      tool("mcp__testimus__rag_related", { ref: "Q#2.1" }),
+      tool("mcp__testimus__rag_mentions", { term: "ShouldBeUnique" }),
+      { jobId: "g", at: at(), type: "claude", event: { type: "text", text: "Retries are in **chapter 2**." } },
+      tool("mcp__testimus__tests_save", { id: "local-aaaaaaaa", test: { summary: "Retry a job" } }),
+      { jobId: "g", at: at(), type: "progress", message: "Checking 1 new test(s)" },
+      { jobId: "g", at: at(), type: "progress", message: "local-aaaaaaaa: 0 error(s), 0 warning(s)" },
+      { jobId: "g", at: at(), type: "progress", message: "local-bbbbbbbb: 2 error(s), 1 warning(s)" },
+      tool("mcp__testimus__tests_save", { id: "local-bbbbbbbb", test: { summary: "Other" } }),
+    ];
+    const { container } = render(<GenActivity events={events} running={false} now={Date.now()} label="Check run" />);
+    expect(screen.getByRole("region", { name: "Check run" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Read Q" })).toBeInTheDocument();
+    expect(await screen.findByText("3 sections opened from the index")).toBeInTheDocument();
+    const pins = [...container.querySelectorAll(".docmap-pin")].map((p) => p.getAttribute("title"));
+    expect(pins).toEqual(["§2.1 Retrying failed jobs · line 6", "fig:12 Job lifecycle · line 4"]);
+    expect(container.querySelectorAll(".readbar-chapter")).toHaveLength(1);
+    expect(screen.getByText("and 1 more")).toBeInTheDocument();
+    expect(screen.getByText("Retries are in chapter 2.")).toHaveClass("act-said");
+    expect(screen.getByRole("heading", { name: "Checked the new tests" })).toBeInTheDocument();
+    expect(screen.getByText("No anomaly")).toHaveClass("act-verdict", "is-ok");
+    expect(screen.getByText("Retry a job")).toHaveClass("act-name");
+    expect(screen.getByText("2 errors, 1 warning")).toHaveClass("is-err");
+    expect(screen.getByRole("heading", { name: "Edited the steps of 1 test after the check" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Show the 10 actions" }));
+    expect(screen.getByText("Opened").nextElementSibling?.textContent).toBe(
+      "§2.1Retrying failed jobsline 6fig:12Job lifecycleline 4§9",
+    );
+    expect(screen.getByText("Followed links from").nextElementSibling?.textContent).toBe("Q §2.1");
+    expect(screen.getByText("Every mention of").nextElementSibling?.textContent).toBe("“ShouldBeUnique”");
+    fireEvent.click(screen.getByRole("button", { name: "In order, one per line" }));
+    expect(screen.getByText("Read Q fig:12")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Grouped" }));
+    expect(screen.queryByText("Read Q fig:12")).toBeNull();
   });
 });
