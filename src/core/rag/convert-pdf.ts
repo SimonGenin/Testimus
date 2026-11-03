@@ -8,6 +8,7 @@ import {
   guessDate,
   guessTitle,
   slug,
+  titleKey,
   uniqueKey,
 } from "./convert.ts";
 import type { Block } from "./convert-html.ts";
@@ -256,8 +257,9 @@ function follows(next: string, last: string): boolean {
 }
 
 export async function convertPdf(buf: Uint8Array, opts: ConvertOpts): Promise<Converted> {
-  const tagged = await convertTaggedPdf(buf, opts);
+  const tagged = opts.reader === "layout" ? null : await convertTaggedPdf(buf, opts);
   if (tagged) return tagged;
+  const given = new Map((opts.numbers ?? []).map((e) => [titleKey(e.title), e.number]));
   const a = await analyse(buf, opts.signal);
   const sizes = a.pages.flatMap((p) => p.lines.map((l) => Math.round(l.size)));
   const freq = new Map<number, number>();
@@ -330,8 +332,8 @@ export async function convertPdf(buf: Uint8Array, opts: ConvertOpts): Promise<Co
       const big = !numbered && headSizes.includes(Math.round(line.size)) && line.text.length <= 120;
       if (numbered || (big && !/[.;,:]$/.test(line.text))) {
         flush();
-        const number = numbered ? h![1] : "";
         const title = numbered ? h![2] : line.text;
+        const number = numbered ? h![1] : (given.get(titleKey(title)) ?? "");
         if (number) last = number;
         const level = number ? partsOf(number).length : headSizes.indexOf(Math.round(line.size)) + 1;
         const anchor = uniqueKey(sections, number || slug(title));

@@ -145,7 +145,7 @@ export type JobContext = { note?: string; contexts?: string[] };
 export async function convertDoc(
   id: string,
   name: string,
-  job: JobContext & { describeFigures?: boolean },
+  job: JobContext & { describeFigures?: boolean; study?: boolean },
   onDone: () => void,
 ): Promise<void> {
   const key = ++seq;
@@ -158,12 +158,18 @@ export async function convertDoc(
   try {
     const converting: Promise<{ id: string; warnings?: string[] }> = run<{ id: string; warnings?: string[] }>(
       "docs.convert",
-      { id, ...claude, ...extra, ...(job.describeFigures !== undefined && { describeFigures: job.describeFigures }) },
+      {
+        id,
+        ...claude,
+        ...extra,
+        ...(job.describeFigures !== undefined && { describeFigures: job.describeFigures }),
+        ...(job.study && { study: true }),
+      },
       progressOf(key, "converting"),
     ).finally(() => conversions.delete(converting));
     conversions.add(converting);
     const doc = await converting;
-    if (doc?.warnings?.length) triageWhenClaude({ docId: id, ...claude, ...extra });
+    if (doc?.warnings?.length && !job.study) triageWhenClaude({ docId: id, ...claude, ...extra });
   } catch (e) {
     patch(key, { phase: "failed", message: message(e), error: e });
     onDone();

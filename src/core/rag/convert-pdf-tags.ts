@@ -24,8 +24,8 @@ type Shot = { img: HNode; box?: Box; mcs: string[]; png?: Uint8Array | null };
 type Item = { str: string; transform: number[]; width: number; height: number; hasEOL: boolean };
 type Mark = { type: string; id?: string; tag?: string };
 
-const NUMBER_RE = /^((?:[A-Z]{1,3}\.)?\d{1,3}(?:\.\d{1,3}){0,8})\.?\s+(\S.*)$/;
-const TOC_RE = /^(?:((?:[A-Z]{1,3}\.)?\d{1,3}(?:\.\d{1,3}){0,8})\.?\s+)?(.+?)\s*(?:\.{3,}\s*)?\d{1,4}$/;
+export const NUMBER_RE = /^((?:[A-Z]{1,3}\.)?\d{1,3}(?:\.\d{1,3}){0,8})\.?\s+(\S.*)$/;
+export const TOC_RE = /^(?:((?:[A-Z]{1,3}\.)?\d{1,3}(?:\.\d{1,3}){0,8})\.?\s+)?(.+?)\s*(?:\.{3,}\s*)?\d{1,4}$/;
 const PARA = /^(P|Caption|Note|BlockQuote|Quote|Span|Link|Reference|Code|Lbl|LBody|Title|BibEntry|Annot|Form)$/;
 const INLINE = /^(Span|Link|Reference|Quote|Code|Lbl|Annot|Form|BibEntry|Ruby|Warichu|Em|Strong|Sub)?$/;
 const block = (c: SNode) => !c.type && !INLINE.test(c.role ?? "");
@@ -77,7 +77,7 @@ function joinRuns(runs: Run[]): string {
   return cleanSpaces(out);
 }
 
-async function readRuns(page: PDFPageProxy) {
+export async function readRuns(page: PDFPageProxy) {
   const tc = await page.getTextContent({ includeMarkedContent: true });
   const runs = new Map<string, Run>();
   const stack: (string | null)[] = [];
@@ -167,7 +167,11 @@ async function readPics(page: PDFPageProxy, prefix: string): Promise<Pic[]> {
   return pics;
 }
 
-function outlineEntries(items: { title: string; items: unknown[] }[] | null, depth = 0, out: Entry[] = []): Entry[] {
+export function outlineEntries(
+  items: { title: string; items: unknown[] }[] | null,
+  depth = 0,
+  out: Entry[] = [],
+): Entry[] {
   for (const o of items ?? []) {
     const t = cleanSpaces(o.title).trim();
     const m = t.match(NUMBER_RE);
@@ -500,43 +504,51 @@ function joinPages(pages: { n: number; nodes: HNode[] }[]): HNode[] {
 type Numbered = { number: string; title: string; level: number };
 
 // ponytail: Word often draws a heading's number without putting it in the text; it is taken from the heading,
-// else the bookmarks, else the table of contents, else the « x.1 » under it; a number only drawn (the heading
-// is indented like a numbered one) is never guessed: the heading keeps its title as anchor
+// else the numbers read on the page (docs.convert numbers), else the bookmarks, else the table of contents,
+// else the « x.1 » under it; a number only drawn (the heading is indented like a numbered one) is never guessed:
+// the heading keeps its title as anchor
 function numberHeadings(
   nodes: HNode[],
   entries: Entry[],
   trusted: boolean,
   margin: number,
+  given: Entry[] = [],
 ): { by: Map<HNode, Numbered>; drawn: number } {
   const by = new Map<HNode, Numbered>();
   const hs = nodes.filter((n) => /^h[1-6]$/.test(n.tag) && cleanSpaces(textOf(n)).trim());
   const hidden = new Set<HNode>();
-  let cursor = 0;
   let lastLevel = 0;
   let lastRole = 0;
-  const find = (title: string): Entry | undefined => {
-    const t = norm(title);
-    for (let i = cursor; t && i < Math.min(entries.length, cursor + 40); i++) {
-      const e = entries[i].norm;
-      if (e === t || (Math.min(e.length, t.length) >= 12 && (e.startsWith(t) || t.startsWith(e)))) {
-        cursor = i + 1;
-        return entries[i];
+  const finder = (list: Entry[]) => {
+    let cursor = 0;
+    return (title: string): Entry | undefined => {
+      const t = norm(title);
+      for (let i = cursor; t && i < Math.min(list.length, cursor + 40); i++) {
+        const e = list[i].norm;
+        if (e === t || (Math.min(e.length, t.length) >= 12 && (e.startsWith(t) || t.startsWith(e)))) {
+          cursor = i + 1;
+          return list[i];
+        }
       }
-    }
-    return undefined;
+      return undefined;
+    };
   };
+  const read = finder(given);
+  const listed = finder(entries);
   for (const n of hs) {
     const raw = cleanSpaces(textOf(n)).trim();
     const role = Number(n.tag.slice(1));
     const written = raw.match(NUMBER_RE);
-    const entry = written ? undefined : find(raw);
+    const seen = written ? undefined : read(raw);
+    const fromList = written ? undefined : listed(raw);
+    const entry = seen ?? fromList;
     const number = written?.[1] ?? entry?.number ?? "";
     const level = number
       ? partsOf(number)
       : entry && entry.depth >= 0
         ? entry.depth + 1
         : Math.max(1, Math.min(6, lastLevel ? lastLevel + (role > lastRole ? 1 : 0) : role));
-    if (!number && !(entry && trusted) && Number(n.attrs.x) - margin > 12) hidden.add(n);
+    if (!number && !(entry && (trusted || seen)) && Number(n.attrs.x) - margin > 12) hidden.add(n);
     by.set(n, { number, title: written?.[2] ?? raw, level });
     lastLevel = level;
     lastRole = role;
@@ -591,10 +603,19 @@ export async function convertTaggedPdf(buf: Uint8Array, opts: ConvertOpts): Prom
     }
     // ponytail: tags are trusted only when they hold all the text and the headings; else the layout reader
     // guesses better than half-tagged structure
-    if (loose > 0.02 * (tagged + loose) || !pages.some((p) => p.nodes.some((n) => /^h[1-6]$/.test(n.tag)))) return null;
+    if (
+      opts.reader !== "tagged" &&
+      (loose > 0.02 * (tagged + loose) || !pages.some((p) => p.nodes.some((n) => /^h[1-6]$/.test(n.tag))))
+    )
+      return null;
 
     const xs = [...new Set(toc.map((e) => Math.round((e.x ?? 0) / 6)))].sort((a, b) => a - b);
     for (const e of toc) e.depth = e.number ? partsOf(e.number) - 1 : xs.indexOf(Math.round((e.x ?? 0) / 6));
+    const given: Entry[] = (opts.numbers ?? []).map((e) => ({
+      number: e.number,
+      norm: norm(e.title),
+      depth: partsOf(e.number) - 1,
+    }));
     const entries = bookmarks.length ? bookmarks : toc;
     const root: HNode = { tag: "#root", attrs: {}, children: joinPages(pages) };
     const plan = planFigures(collectItems(root));
@@ -603,6 +624,7 @@ export async function convertTaggedPdf(buf: Uint8Array, opts: ConvertOpts): Prom
       entries,
       bookmarks.length > 0,
       [...lefts].sort((a, b) => b[1] - a[1])[0]?.[0] ?? 0,
+      given,
     );
     const figures: Figure[] = [];
     const missing: string[] = [];
@@ -666,7 +688,7 @@ export async function convertTaggedPdf(buf: Uint8Array, opts: ConvertOpts): Prom
     if (empty) warnings.push(`${empty} figure${empty > 1 ? "s" : ""} tagged in the PDF with nothing to draw`);
     if (drawn)
       warnings.push(
-        `${drawn} heading number${drawn > 1 ? "s are" : " is"} drawn on the page but missing from the PDF text: those headings are anchored by their titles — add the .docx of the same document to get the numbers`,
+        `${drawn} heading number${drawn > 1 ? "s are" : " is"} drawn on the page but missing from the PDF text: those headings are anchored by their titles — add the .docx of the same document, or read the numbers on the pages and give them to docs.convert (conversion numbers)`,
       );
     const md = assemble(`# ${opts.code} — ${title || opts.code}`, blocks);
     return { md, figures, warnings, meta: { title, date }, convertedWith: `${PDFJS} (tagged PDF)` };

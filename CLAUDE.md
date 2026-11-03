@@ -61,11 +61,13 @@ src/core/lib/        testfile, table, adf, store, jira, sync, csv (ported from X
 src/core/rag/        convert* (docx/pdf/html/png → doc.md + figures), chunk, embed, models (profiles),
                      db, indexer, search/ (lexical, vector, hybrid, passage), runtimes/ (transformers,
                      llamacpp, llama-server), statements, graph, related, mentions, glossary,
-                     stem-fr, fingerprint, activation (vector spaces), eval, bench, compare
+                     stem-fr, fingerprint, activation (vector spaces), eval, bench, compare;
+                     inspect (docs.inspect: the profile of an original), pdf (pages drawn: figures, docs.page)
 src/core/search/     search.all (Ctrl K, the tests list): query (filters), match (accents, French
                      stems, prefixes, typos, codes), tests corpus, vectors (index/tests-vectors.json), all
 src/core/claude/     run (claude -p, per-kind tool access), stream, snapshot/revert, diagnose, status,
-                     chat, generate, check, fix, figures, headers, prompt, ledger (evidence ledger)
+                     chat, generate, check, fix, figures, headers, prompt, ledger (evidence ledger),
+                     study (a document studied before its conversion, checked against its pages after)
 src/core/mock/       --mock: fixture Jira (jira.ts), scripted Claude (claude*.ts), fake machine and
                      models, sandbox setup
 src/faces/           cli.ts, mcp.ts, http.ts — thin adapters over the registry, no domain logic
@@ -142,4 +144,4 @@ Answer in French. Plain words first; code on request.
 - `rag-eval` — building the question set and comparing retrieval settings.
 
 The runtime skills the app ships to every project live in `templates/project/.claude/skills/`
-(`generate-tests`, `check-test`, `fix-test`, `ask-docs`, `define-columns`…). Edit them there; they are product code.
+(`generate-tests`, `check-test`, `fix-test`, `ask-docs`, `define-columns`, `study-document`…). Edit them there; they are product code.

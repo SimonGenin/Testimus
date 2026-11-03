@@ -75,6 +75,26 @@ lost.
 flattened to text *in the client's own PDF and .docx* (page 56: « État contrôlé Aspect … Figure 30 – … »
 with nothing drawn). The warning says so; a reconversion cannot help.
 
+## Claude studies it first (`study`)
+
+`docs.add` / `docs.convert` with `study` (the « Claude studies the original first » box under Convert):
+Claude reads `docs.inspect` (the deterministic profile: tags and their share of the text, bookmarks,
+tagged TOC, headings with or without a number in their text, pages without text, captions, tables;
+for a .docx heading styles, shapes, charts, EMF/WMF, comments; `hints` say what each fact means) and
+a few pages drawn by `docs.page` (`.testimus/pages/<id>/p<n>.png`, `pdf.ts` `renderPage`). It
+answers a `conversion` block — `from` (docx/pdf), `reader` (tagged/layout), `numbers` (heading
+numbers read on the pages), `notes` — kept in `doc.json.conversion` and honoured by every
+reconversion (`convertedCopy`, `ConvertOpts.reader`/`numbers`). After the conversion a second run
+compares `doc.md` with the pages (runtime skill `study-document`); a different `conversion` block
+converts once more, anything else becomes a Claude action. Both runs are kind `study`: read-only plus
+`actions.propose`. No PDF copy → both runs are skipped. The team sets the same options with
+`docs.convert --conversion '{…}'` (`{}` clears them), and `docs.convert --docx` attaches the .docx of a
+document added from its .pdf.
+
+Measured 2026-11-03: SOSIE_441 without its .docx — 17 headings drawn without their numbers; Claude
+(sonnet, low, ~40 s for both runs) read the 17 numbers on the pages and the anchors equal the .docx
+conversion's, 17/17.
+
 ## Check a conversion
 
 1. Count headings and figures in the original (docx XML or PDF text) vs `doc.md`; any difference is a

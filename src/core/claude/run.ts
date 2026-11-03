@@ -28,7 +28,8 @@ export type RunKind =
   | "run"
   | "triage"
   | "action"
-  | "columns";
+  | "columns"
+  | "study";
 
 const TOOLS: Record<RunKind, string[]> = {
   chat: READ_TOOLS,
@@ -41,6 +42,7 @@ const TOOLS: Record<RunKind, string[]> = {
   triage: READ_TOOLS,
   action: EDIT_TOOLS,
   columns: READ_TOOLS,
+  study: READ_TOOLS,
 };
 
 const TEST_WRITES = ["tests.edit", "tests.save", "tests.addImage"];
@@ -56,6 +58,7 @@ const EXTRA: Record<RunKind, string[]> = {
   triage: ["actions.propose"],
   action: [],
   columns: [],
+  study: ["actions.propose"],
 };
 
 // ponytail: read-only = mutates:false, minus whatever starts Claude, a job, or touches the app or the machine

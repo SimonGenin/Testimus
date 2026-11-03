@@ -1,4 +1,5 @@
 import { basename, extname } from "node:path";
+import type { DocConversion } from "../types.ts";
 import type { Block } from "./convert-html.ts";
 
 export const CAPTION_RE =
@@ -18,6 +19,8 @@ export type Converted = {
 
 export type ConvertOpts = {
   code: string;
+  reader?: DocConversion["reader"];
+  numbers?: DocConversion["numbers"];
   pdfFigures?: Figure[];
   signal?: AbortSignal;
 };
@@ -34,6 +37,15 @@ export function slug(text: string): string {
       .replace(/-+$/, "") || "section"
   );
 }
+
+// ponytail: a heading title as compared with a list of numbered titles (bookmarks, a table of contents, numbers
+// read on the page): accents, case, spaces and punctuation do not count
+export const titleKey = (s: string) =>
+  s
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
 
 export function uniqueKey(used: Set<string>, base: string): string {
   let key = base;

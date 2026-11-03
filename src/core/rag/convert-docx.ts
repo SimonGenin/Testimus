@@ -66,7 +66,7 @@ function linkedLevels(xml: string): Map<string, number> {
   return linked;
 }
 
-function chain<T>(styles: Map<string, Style>, id: string, pick: (s: Style) => T | undefined): T | undefined {
+export function chain<T>(styles: Map<string, Style>, id: string, pick: (s: Style) => T | undefined): T | undefined {
   const seen = new Set<string>();
   for (let s = styles.get(id); s && !seen.has(id); s = s.basedOn ? styles.get(s.basedOn) : undefined) {
     seen.add(id);
@@ -83,6 +83,25 @@ function textOfElement(e: MElement): string {
   if (e.type === "tab") return " ";
   if (e.type === "break") return " ";
   return (e.children ?? []).map(textOfElement).join("");
+}
+
+export function docxStyles(stylesXml: string, numberingXml: string) {
+  const styles = readStyles(stylesXml);
+  const linked = linkedLevels(numberingXml);
+  const levelOf = (styleId: string | null): number => {
+    if (!styleId) return 0;
+    const name = styles.get(styleId)?.name ?? styleId;
+    if (/^(toc|table of figures|caption|title|subtitle)/i.test(name)) return 0;
+    const named = name.match(/^heading\s*(\d)$/i);
+    const outline = chain(styles, styleId, (s) => s.outline);
+    if (outline === undefined && !named) return 0;
+    if (linked.has(styleId)) return linked.get(styleId)! + 1;
+    const numId = chain(styles, styleId, (s) => s.numId);
+    const ilvl = chain(styles, styleId, (s) => s.ilvl);
+    if (numId && numId !== "0" && ilvl !== undefined) return ilvl + 1;
+    return outline !== undefined ? outline + 1 : Number(named![1]);
+  };
+  return { styles, linked, levelOf };
 }
 
 function count(xml: string, re: RegExp): number {
@@ -227,22 +246,7 @@ export async function convertDocx(buf: Uint8Array, opts: ConvertOpts): Promise<C
   };
   const documentXml = part("word/document.xml");
   if (!documentXml) throw new Error("Not a Word document (word/document.xml is missing).");
-  const styles = readStyles(part("word/styles.xml"));
-  const linked = linkedLevels(part("word/numbering.xml"));
-
-  const levelOf = (styleId: string | null): number => {
-    if (!styleId) return 0;
-    const name = styles.get(styleId)?.name ?? styleId;
-    if (/^(toc|table of figures|caption|title|subtitle)/i.test(name)) return 0;
-    const named = name.match(/^heading\s*(\d)$/i);
-    const outline = chain(styles, styleId, (s) => s.outline);
-    if (outline === undefined && !named) return 0;
-    if (linked.has(styleId)) return linked.get(styleId)! + 1;
-    const numId = chain(styles, styleId, (s) => s.numId);
-    const ilvl = chain(styles, styleId, (s) => s.ilvl);
-    if (numId && numId !== "0" && ilvl !== undefined) return ilvl + 1;
-    return outline !== undefined ? outline + 1 : Number(named![1]);
-  };
+  const { styles, linked, levelOf } = docxStyles(part("word/styles.xml"), part("word/numbering.xml"));
   const body = [...documentXml.matchAll(/<w:pStyle w:val="([^"]+)"/g)].find((m) => levelOf(m[1]) > 0)?.index ?? 0;
   const warnings = shapeWarnings(documentXml, part("word/comments.xml"), body);
 

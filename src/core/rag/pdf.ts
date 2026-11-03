@@ -111,6 +111,34 @@ export async function shoot(doc: PDFDocumentProxy, page: PDFPageProxy, box: Box)
   }).then((png) => png ?? null);
 }
 
+// ponytail: a page, or a region of it given as fractions of the page from its top left, drawn whole for Claude
+// to look at — blank or not; the width is kept near 1600 pixels so small print stays readable
+export async function renderPage(
+  buf: Uint8Array,
+  n: number,
+  region: [number, number, number, number] = [0, 0, 1, 1],
+): Promise<{ png: Uint8Array; width: number; height: number; pages: number }> {
+  const loading = openPdf(buf);
+  const doc = await loading.promise;
+  try {
+    if (n < 1 || n > doc.numPages) throw new RangeError(`Page ${n} is outside 1–${doc.numPages}.`);
+    const page = await doc.getPage(n);
+    const [vx0, vy0, vx1, vy1] = page.view;
+    const [l, t, r, b] = region.map((v) => Math.min(1, Math.max(0, v)));
+    const box: Box = [vx0 + l * (vx1 - vx0), vy1 - b * (vy1 - vy0), vx0 + r * (vx1 - vx0), vy1 - t * (vy1 - vy0)];
+    const scale = Math.min(6, 1600 / Math.max(1, box[2] - box[0]), 2400 / Math.max(1, box[3] - box[1]));
+    const out = await paint(doc, page, box, scale, (c, _ink, w, h) => ({
+      png: new Uint8Array(c.canvas.toBuffer("image/png")),
+      width: w,
+      height: h,
+    }));
+    if (!out) throw new Error(`Page ${n} could not be drawn.`);
+    return { ...out, pages: doc.numPages };
+  } finally {
+    await loading.destroy();
+  }
+}
+
 // ponytail: the block of ink resting on the bottom of the band, up to the first blank gap of 12 points
 export async function inkAbove(doc: PDFDocumentProxy, page: PDFPageProxy, band: Box): Promise<Box | null> {
   const found = await paint(doc, page, band, 1, (_c, ink, w, h) => {

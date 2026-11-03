@@ -288,6 +288,39 @@ export function attachPdf(project: string, id: string, pdf: string): void {
   writeAtomic(join(docDir(project, id), "source.pdf"), readFileSync(file));
 }
 
+// ponytail: the .docx of a document added from its .pdf becomes its source — the .pdf stays beside it and lends
+// its pictures, as when both were added together
+export function attachDocx(project: string, id: string, docx: string): DocJson {
+  const doc = readDoc(project, id);
+  const file = resolve(docx);
+  if (extname(doc.source.file || "").toLowerCase() !== ".pdf")
+    throw new UserError(`${id} was added from a .docx already.`, "Give its PDF rendering with --pdf instead.");
+  if (extname(file).toLowerCase() !== ".docx" || !existsSync(file))
+    throw new UserError(`Not a .docx file: ${file}`, "Give the Word file of the same document.");
+  const bytes = readFileSync(file);
+  writeAtomic(join(docDir(project, id), "source.docx"), bytes);
+  const next: DocJson = { ...doc, source: { path: file, sha256: sha256(bytes), file: "source.docx" } };
+  writeDoc(project, next);
+  return next;
+}
+
+// ponytail: the original's other copy — the .docx saved beside a .pdf under the same name, or the reverse
+export function twinOf(path: string): string | null {
+  if (path.startsWith("upload: ")) return null;
+  const ext = extname(path).toLowerCase();
+  const other = join(dirname(path), `${basename(path, extname(path))}${ext === ".pdf" ? ".docx" : ".pdf"}`);
+  return existsSync(other) ? other : null;
+}
+
+// ponytail: when both copies are there, the one the study (or the team) chose is converted; else the source,
+// a .docx lending the .pdf beside it its pictures
+export function convertedCopy(project: string, doc: DocJson): string {
+  const dir = docDir(project, doc.id);
+  const from = doc.conversion?.from;
+  const pick = from && join(dir, `source.${from}`);
+  return pick && existsSync(pick) ? pick : join(dir, doc.source.file || "");
+}
+
 export async function reconvertDoc(
   project: string,
   id: string,
@@ -299,11 +332,15 @@ export async function reconvertDoc(
   const source = join(dir, doc.source.file || "");
   if (!doc.source.file || !existsSync(source))
     throw new UserError(`The copy of the original is missing: ${source}`, "Remove the document and add it again.");
-  progress(`Converting ${doc.source.file}`);
   const pdf = join(dir, "source.pdf");
-  const c = await convertSource(source, {
+  const o = doc.conversion ?? {};
+  const file = convertedCopy(project, doc);
+  progress(`Converting ${basename(file)}`);
+  const c = await convertSource(file, {
     code: doc.code,
-    pdf: extname(source).toLowerCase() === ".docx" && existsSync(pdf) ? pdf : undefined,
+    pdf: extname(file).toLowerCase() === ".docx" && existsSync(pdf) ? pdf : undefined,
+    reader: o.reader,
+    numbers: o.numbers,
     signal,
   });
   if (signal?.aborted) throw new Error("Cancelled.");

@@ -174,6 +174,15 @@ export type DocJson = {
   convertedAt: string;
   warnings: string[];
   stats?: { sections: number; figures: number; chars: number };
+  conversion?: DocConversion;
+};
+// ponytail: how a document is converted, chosen when Claude studied it (or by the team) and kept so that every
+// reconversion gives the same result
+export type DocConversion = {
+  from?: "docx" | "pdf";
+  reader?: "tagged" | "layout";
+  numbers?: { number: string; title: string }[];
+  notes?: string;
 };
 export type FigureEntry = {
   file: string;
