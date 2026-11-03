@@ -2,7 +2,7 @@ import { EventEmitter } from "node:events";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { createServer, request, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
-import { join } from "node:path";
+import { join, parse } from "node:path";
 import { Readable } from "node:stream";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { copyFixture, freshEnv, rawRequest, type Seen, tempRoot, withFakes } from "./cov-faces-helpers.ts";
@@ -297,11 +297,19 @@ describe("HTTP face handler, driven directly", () => {
   });
 
   it("keeps project files inside a project at a drive root", async () => {
-    const driveRoot = join(root, "/").slice(0, 3);
+    const driveRoot = parse(root).root;
     const h = http.handler({ ...state, project: driveRoot });
     const res = fakeRes(false, false);
     await h(fakeReq("/files/testimus-cov-no-such-file.md") as never, res as never);
     expect(res.status).toBe(404);
+  });
+
+  it("has no open project once its folder is gone", async () => {
+    const h = http.handler({ ...state, project: join(root, "deleted-project") });
+    const res = fakeRes(false, false);
+    await h(fakeReq("/files/x.md") as never, res as never);
+    expect(res.status).toBe(400);
+    expect((res.written as string[]).join("")).toContain("No project is open.");
   });
 
   it("refuses /files/ when no project is open", async () => {

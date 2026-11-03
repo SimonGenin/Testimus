@@ -1,9 +1,9 @@
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { quietCtx } from "../../src/core/command.ts";
-import { commands, importPoll } from "../../src/core/commands/xray.ts";
+import { commands } from "../../src/core/commands/xray.ts";
 import { env, type HttpReq } from "../../src/core/env.ts";
 import { labelPrefixOf, resetAuth, reviewLabels, reviewOfLabels } from "../../src/core/lib/jira.ts";
 import { readProject, writeProject } from "../../src/core/lib/project.ts";
@@ -13,9 +13,7 @@ import { serializeTest } from "../../src/core/lib/testfile.ts";
 import { mockHttp, mockJiraTest, resetMockJira } from "../../src/core/mock/jira.ts";
 
 const FIXTURE = new URL("../fixtures/project/", import.meta.url);
-const CSV = new URL("../fixtures/csv/sectionneur-traction-l92.csv", import.meta.url);
 const http = env.http;
-const poll = { ...importPoll };
 let project = "";
 let sent: HttpReq[] = [];
 
@@ -29,10 +27,6 @@ const writes = () => sent.filter((r) => r.method === "PUT" || (r.body ?? "").inc
 
 afterAll(() => {
   env.http = http;
-});
-
-afterEach(() => {
-  Object.assign(importPoll, poll);
 });
 
 beforeEach(() => {
@@ -218,33 +212,5 @@ describe("minor 10 — an unusable label prefix falls back to testimus-", () => 
       'The label prefix "" in project.json is empty or has a space — the review label uses testimus- instead (set a prefix without spaces in the project settings).',
     );
     expect(plan.ops[0].label).toBe("Update labels (review label testimus-checked)");
-  });
-});
-
-describe("minor 11 — a direct import that outlasts the polling can be resumed", () => {
-  it("returns the Xray job id, keeps the mapping, and a second call with jobId pulls without importing again", async () => {
-    importPoll.tries = 2;
-    importPoll.everyMs = 1;
-    let pending = true;
-    env.http = async (req) => {
-      sent.push(req);
-      if (pending && /\/import\/test\/bulk\/[^/]+\/status$/.test(req.url))
-        return { status: 200, headers: {}, text: JSON.stringify({ status: "working", result: {} }) };
-      return mockHttp(req);
-    };
-    const text = readFileSync(CSV, "utf8");
-    const first = await run("xray.importCsv", { mode: "direct", text, name: "L92", folder: "/Traction" });
-    expect(first.jobId).toMatch(/^mock-import-/);
-    expect(first.written).toEqual([]);
-    expect(first.warnings.at(-1)).toContain(`run the import again with jobId ${first.jobId}`);
-    expect(readProject(project).csvMapping).toEqual(first.mapping);
-
-    pending = false;
-    sent = [];
-    const second = await run("xray.importCsv", { mode: "direct", jobId: first.jobId });
-    expect(second.jobId).toBeUndefined();
-    expect(second.written).toHaveLength(1);
-    expect(mockJiraTest(second.written[0])!.summary).toBe("L92");
-    expect(sent.filter((r) => r.method === "POST" && r.url.endsWith("/import/test/bulk"))).toEqual([]);
   });
 });

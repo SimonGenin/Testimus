@@ -3,8 +3,6 @@ import { join } from "node:path";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { env, type HttpReq, type HttpRes } from "../../src/core/env.ts";
 import {
-  bulkImportStatus,
-  bulkTestJson,
   getFolderTree,
   getMyself,
   getProjectInfo,
@@ -19,7 +17,6 @@ import {
   resetAuth,
   reviewOfLabels,
   searchTests,
-  startBulkImport,
 } from "../../src/core/lib/jira.ts";
 import type { Precondition, Step, StepImage, Test, XrayField } from "../../src/core/types.ts";
 
@@ -207,50 +204,6 @@ describe("graphql errors", () => {
   it("an empty body reads as no data", async () => {
     route = (req) => (req.url.endsWith("/graphql") ? status(200) : undefined);
     await expect(getFolderTree("1")).rejects.toThrow(TypeError);
-  });
-});
-
-describe("xray REST (bulk import)", () => {
-  it("re-authenticates once on a 401, then fails on a second one", async () => {
-    let n = 0;
-    route = (req) => (req.url.includes("/import/") ? (n++ === 0 ? status(401) : ok({ jobId: 7 })) : undefined);
-    await expect(startBulkImport([])).resolves.toBe("7");
-    route = (req) => (req.url.includes("/import/") ? status(401) : undefined);
-    await expect(startBulkImport([])).rejects.toThrow("Xray 401");
-  });
-
-  it("429, other errors and an answer without job id", async () => {
-    route = (req) => (req.url.includes("/import/") ? status(429) : undefined);
-    await expect(startBulkImport([])).rejects.toThrow(/rate limit/);
-    route = (req) => (req.url.includes("/import/") ? status(500) : undefined);
-    await expect(startBulkImport([])).rejects.toThrow(/^Xray 500 on \/api\/v2\/import\/test\/bulk — $/);
-    route = (req) => (req.url.includes("/import/") ? status(400, "no") : undefined);
-    await expect(startBulkImport([])).rejects.toThrow("— no");
-    route = (req) => (req.url.includes("/import/") ? status(200, "") : undefined);
-    await expect(startBulkImport([])).rejects.toThrow("without a job id");
-  });
-
-  it("the status reads strings and objects as messages, and a bare answer as unknown", async () => {
-    route = (req) =>
-      req.url.includes("/status")
-        ? ok({
-            status: "partial",
-            result: {
-              issues: [{ key: "P-1", id: 11 }],
-              errors: ["plain", { errors: { summary: "required" } }, { other: 1 }],
-              warnings: [{ errors: "w" }],
-            },
-          })
-        : undefined;
-    expect(await bulkImportStatus("j 1")).toEqual({
-      status: "partial",
-      issues: [{ key: "P-1", id: "11" }],
-      errors: ["plain", '{"summary":"required"}', '{"other":1}'],
-      warnings: ['"w"'],
-    });
-    expect(calls.at(-1)?.url).toContain("/bulk/j%201/status");
-    route = (req) => (req.url.includes("/status") ? status(200, "") : undefined);
-    expect(await bulkImportStatus("j")).toEqual({ status: "unknown", issues: [], errors: [], warnings: [] });
   });
 });
 
@@ -486,27 +439,7 @@ describe("attachment downloads", () => {
   });
 });
 
-describe("bulk payload and small helpers", () => {
-  it("leaves labels, description and folder out when empty and blanks an empty action", () => {
-    const project = { id: "1", key: "P", name: "P", testIssueTypeId: "2", testIssueTypeName: "Test" };
-    const j = bulkTestJson(
-      {
-        summary: "S",
-        folder: "",
-        description: "  ",
-        labels: [],
-        steps: [{ fields: { Action: " " }, sources: [], images: [] }],
-      },
-      project,
-      [],
-    );
-    expect(j).toEqual({
-      testtype: "Manual",
-      fields: { summary: "S", project: { key: "P" } },
-      steps: [{ action: "​", data: "", result: "" }],
-    });
-  });
-
+describe("small helpers", () => {
   it("mimeOf knows the image types and falls back to octet-stream", () => {
     expect(mimeOf("a.JPG")).toBe("image/jpeg");
     expect(mimeOf("a.svg")).toBe("image/svg+xml");
@@ -808,20 +741,6 @@ describe("planPush, existing test", () => {
 });
 
 describe("planPush, remaining corners", () => {
-  it("bulk payload keeps a description", () => {
-    const j = bulkTestJson(
-      { summary: "S", folder: "/F", description: "d", labels: ["l"], steps: [] },
-      deps.project,
-      [],
-    );
-    expect(j).toEqual({
-      testtype: "Manual",
-      fields: { summary: "S", project: { key: "P" }, labels: ["l"], description: "d" },
-      xray_test_repository_folder: "/F",
-      steps: [],
-    });
-  });
-
   it("an embed run twice fetches the steps once, and keeps the params of a known attachment", async () => {
     graph = (q) =>
       q.includes("getTests")

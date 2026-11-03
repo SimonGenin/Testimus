@@ -1,16 +1,7 @@
 import { createContext, useContext } from "react";
 import type { ProjectJson, Review, Source, StepColumn, XrayJson } from "../../core/types.ts";
 
-export type Screen =
-  | "documents"
-  | "generate"
-  | "tests"
-  | "review"
-  | "jobs"
-  | "settings"
-  | "doctor"
-  | "import"
-  | "setup";
+export type Screen = "documents" | "generate" | "tests" | "review" | "jobs" | "settings" | "doctor" | "setup";
 
 export type ProjectInfo = {
   dir: string;
@@ -53,6 +44,7 @@ export type AppState = {
   setLastRun: (r: ClaudeRun | null) => void;
   testsChanged: () => void;
   refreshInfo: () => void;
+  closeProject: () => void;
   openSource: (s: Source) => void;
   askClaude: (scope: "test" | "step", prompt?: string) => void;
   runInDock: (job: { name: string; input: unknown; label: string; testId: string }) => void;

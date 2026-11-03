@@ -100,6 +100,7 @@ const app = (reference?: unknown): AppState =>
     route: { screen: "settings", arg: "search" },
     navigate: vi.fn(),
     refreshInfo: vi.fn(),
+    closeProject: vi.fn(),
   }) as unknown as AppState;
 
 const show = (state = app()) =>

@@ -210,9 +210,6 @@ test("Browse opens a project, the window takes its name, Show in Explorer reveal
     await expect(browse).toBeEnabled();
     await shoot(page, "desktop-settings-appearance");
 
-    await go(page, "#/import");
-    await expect(page.getByRole("button", { name: "Choose a file" })).toBeVisible();
-
     const other = projectCopy("Second launch", "SEC");
     const second = spawn(ELECTRON, [MAIN, "--mock", other], { cwd: ROOT, env: shell.env, stdio: "ignore" });
     expect(await new Promise<number | null>((r) => second.once("exit", r))).toBe(0);

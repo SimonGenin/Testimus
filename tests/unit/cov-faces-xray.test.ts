@@ -2,26 +2,15 @@ import { cpSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { type Ctx, quietCtx } from "../../src/core/command.ts";
-import { commands, importPoll } from "../../src/core/commands/xray.ts";
+import { commands } from "../../src/core/commands/xray.ts";
 import { env, type HttpReq } from "../../src/core/env.ts";
 import { resetAuth } from "../../src/core/lib/jira.ts";
 import { mockHttp, resetMockJira } from "../../src/core/mock/jira.ts";
 import { copyFixture, FIXTURE, tempRoot } from "./cov-faces-helpers.ts";
 
 const http = env.http;
-const poll = { ...importPoll };
 let project = "";
 let logs: string[] = [];
-
-const statuses: Record<string, unknown> = {
-  "job-pending": { status: "working" },
-  "job-failed": { status: "failed", result: { errors: ["bad row"], issues: [] } },
-  "job-empty": { status: "successful", result: {} },
-  "job-ghost": {
-    status: "partially_successful",
-    result: { issues: [{ key: "LFRPS12-99999", id: "1" }], errors: [{ errors: { m: "x" } }], warnings: ["careful"] },
-  },
-};
 
 const trap = { armed: false, wrote: false };
 
@@ -31,8 +20,6 @@ async function fakeJira(req: HttpReq) {
     if (trap.wrote && read && !req.url.includes("/authenticate")) throw "Jira went away";
     if (!read && !req.url.includes("/authenticate")) trap.wrote = true;
   }
-  const m = /\/import\/test\/bulk\/([^/]+)\/status$/.exec(new URL(req.url).pathname);
-  if (m && m[1] in statuses) return { status: 200, headers: {}, text: JSON.stringify(statuses[m[1]]) };
   return mockHttp(req);
 }
 
@@ -53,7 +40,6 @@ const subject = (name: string, raw: unknown) => cmd(name).subject?.(cmd(name).in
 
 afterAll(() => {
   env.http = http;
-  Object.assign(importPoll, poll);
 });
 
 beforeEach(() => {
@@ -71,19 +57,15 @@ beforeEach(() => {
   logs = [];
   trap.armed = false;
   trap.wrote = false;
-  Object.assign(importPoll, { tries: 2, everyMs: 1 });
 });
 
 describe("xray job subjects", () => {
-  it("names pull, push and import jobs", () => {
+  it("names pull and push jobs", () => {
     expect(subject("xray.pull", { key: "LFRPS12-1" })).toBe("LFRPS12-1");
     expect(subject("xray.pull", { keys: ["A-1", "A-2"] })).toBe("A-1, A-2");
     expect(subject("xray.pull", { keys: [], folder: "/F" })).toBe("/F");
     expect(subject("xray.pull", {})).toBe("");
     expect(subject("xray.push", { id: "local-1" })).toBe("local-1");
-    expect(subject("xray.importCsv", { file: "a.csv" })).toBe("a.csv");
-    expect(subject("xray.importCsv", { name: "N" })).toBe("N");
-    expect(subject("xray.importCsv", {})).toBe("csv");
   });
 });
 
@@ -142,49 +124,6 @@ describe("xray.push without a stopped push in memory", () => {
   });
 });
 
-describe("xray.importCsv edge cases", () => {
-  it("needs a file or a text, a readable file and a header row", async () => {
-    await expect(run("xray.importCsv", { mode: "preview" })).rejects.toThrow("Nothing to import.");
-    await expect(run("xray.importCsv", { mode: "preview", file: join(project, "missing.csv") })).rejects.toThrow(
-      /^Cannot read /,
-    );
-    await expect(run("xray.importCsv", { mode: "preview", text: "" })).rejects.toThrow("The CSV is empty.");
-  });
-
-  it("hands the job id back while Xray is still importing", async () => {
-    const r = await run("xray.importCsv", { mode: "direct", jobId: "job-pending" });
-    expect(r.jobId).toBe("job-pending");
-    expect(r.warnings[0]).toContain("Xray is still importing (job job-pending, working)");
-  });
-
-  it("stops polling when cancelled", async () => {
-    const ctrl = new AbortController();
-    ctrl.abort();
-    await expect(run("xray.importCsv", { mode: "direct", jobId: "job-pending" }, ctxOf(ctrl.signal))).rejects.toThrow(
-      "Import cancelled while Xray was still importing (job job-pending).",
-    );
-  });
-
-  it("reports a failed or empty import", async () => {
-    await expect(run("xray.importCsv", { mode: "direct", jobId: "job-failed" })).rejects.toThrow(
-      "Xray bulk import failed: bad row.",
-    );
-    await expect(run("xray.importCsv", { mode: "direct", jobId: "job-empty" })).rejects.toThrow(
-      "Xray bulk import successful: no test created.",
-    );
-  });
-
-  it("keeps going when a created test cannot be pulled", async () => {
-    const r = await run("xray.importCsv", { mode: "direct", jobId: "job-ghost" });
-    expect(r.written).toEqual([]);
-    expect(r.warnings).toEqual([
-      'Xray import error: {"m":"x"}',
-      "careful",
-      expect.stringContaining("LFRPS12-99999 was created but could not be pulled"),
-    ]);
-  });
-});
-
 describe("xray.push whose refresh fails", () => {
   it("is pushed, with a warning and the refresh error", async () => {
     const { planHash } = await run("xray.plan", { id: "LFRPS12-1420" });
@@ -193,14 +132,6 @@ describe("xray.push whose refresh fails", () => {
     expect(r.ok).toBe(true);
     expect(r.error).toBe("Pushed; refreshing from Jira failed — Jira went away");
     expect(logs).toContain("Pushed, but the refresh from Jira failed: Jira went away");
-  });
-});
-
-describe("xray.importCsv direct plan", () => {
-  it("names the import of several tests in the plural", async () => {
-    const text = ["Summary,Step,Action,Expected Result", "First,1,a1,r1", "Second,1,b1,r2", ""].join("\n");
-    const r = await run("xray.importCsv", { mode: "direct", text, dryRun: true });
-    expect(r.plan[0].label).toBe("Import 2 tests into LFRPS12 (Xray bulk import)");
   });
 });
 

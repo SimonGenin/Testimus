@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { quietCtx } from "../../src/core/command.ts";
 import { commands, initProject, projectInfo, templateDir } from "../../src/core/commands/project.ts";
+import { startJob } from "../../src/core/jobs.ts";
 import { readProject, readSettings, writeSettings } from "../../src/core/lib/project.ts";
 import { copyFixture, tempRoot } from "./cov-faces-helpers.ts";
 
@@ -126,12 +127,39 @@ describe("project commands", () => {
     expect(readSettings()).toMatchObject({ projects: [project], lastProject: project });
   });
 
-  it("refuses to delete the open project, an unknown folder or a folder that is not a project", async () => {
+  it("deletes the open project", async () => {
+    writeSettings({ ...readSettings(), projects: [project], lastProject: project });
+    expect(await run("project.delete", { dir: project })).toMatchObject({ deleted: true });
+    expect(existsSync(project)).toBe(false);
+    expect(readSettings()).toMatchObject({ projects: [], lastProject: "" });
+  });
+
+  it("waits for a job running in the project, not for a model download", async () => {
+    writeSettings({ ...readSettings(), projects: [project] });
+    let endIndex = () => {};
+    let endPull = () => {};
+    const index = startJob("rag-index", "all", project, () => new Promise<void>((r) => (endIndex = r)));
+    const pull = startJob("models-pull", "bge", null, () => new Promise<void>((r) => (endPull = r)));
+    await expect(run("project.delete", { dir: project })).rejects.toThrow("A job is running");
+    endIndex();
+    await index.done;
+    expect(await run("project.delete", { dir: project })).toMatchObject({ deleted: true });
+    endPull();
+    await pull.done;
+  });
+
+  it("forgets a known project whose folder is gone", async () => {
+    const gone = join(tempRoot("project-gone"), "gone");
+    writeSettings({ ...readSettings(), projects: [gone, project], lastProject: gone });
+    expect(await run("project.delete", { dir: gone })).toMatchObject({ deleted: false });
+    expect(readSettings()).toMatchObject({ projects: [project], lastProject: "" });
+  });
+
+  it("refuses to delete an unknown folder or a folder that is not a project", async () => {
     const plain = join(tempRoot("project-plain"), "plain");
     mkdirSync(plain, { recursive: true });
     const stranger = copyFixture(tempRoot("project-stranger"));
     writeSettings({ ...readSettings(), projects: [project, plain] });
-    await expect(run("project.delete", { dir: project })).rejects.toThrow("is the open project");
     await expect(run("project.delete", { dir: stranger })).rejects.toThrow("is not a known project");
     await expect(run("project.delete", { dir: plain })).rejects.toThrow("is not a Testimus project");
     expect(existsSync(plain)).toBe(true);

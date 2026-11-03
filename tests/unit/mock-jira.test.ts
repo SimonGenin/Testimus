@@ -130,24 +130,4 @@ describe("mock Jira + Xray for LFRPS12", () => {
       "Clic droit sur le disjoncteur D 4 de la vue de traction.",
     );
   });
-
-  it("runs a bulk import and reports its job status", async () => {
-    const start = await mockHttp({
-      method: "POST",
-      url: `${XRAY}/api/v2/import/test/bulk`,
-      body: JSON.stringify([
-        { testtype: "Manual", fields: { summary: "B1", project: { key: "LFRPS12" } }, steps: [{ action: "a" }] },
-        { testtype: "Manual", fields: { project: { key: "LFRPS12" } }, steps: [] },
-      ]),
-    });
-    const { jobId } = JSON.parse(start.text!);
-    const status = JSON.parse(
-      (await mockHttp({ method: "GET", url: `${XRAY}/api/v2/import/test/bulk/${jobId}/status` })).text!,
-    );
-    expect(status.status).toBe("successful");
-    expect(status.result.issues).toHaveLength(1);
-    expect(status.result.errors).toEqual([
-      { elementNumber: 1, errors: { message: "summary: You must specify a summary of the issue." } },
-    ]);
-  });
 });

@@ -89,6 +89,7 @@ export const app = (over: Partial<AppState> = {}): AppState => ({
   setLastRun: vi.fn(),
   testsChanged: vi.fn(),
   refreshInfo: vi.fn(),
+  closeProject: vi.fn(),
   openSource: vi.fn(),
   askClaude: vi.fn(),
   runInDock: vi.fn(),

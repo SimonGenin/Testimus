@@ -4,7 +4,6 @@ import { afterAll, beforeEach, describe, expect, it, test } from "vitest";
 import { env, type HttpReq, type HttpRes } from "../../src/core/env.ts";
 import {
   browseUrl,
-  bulkTestJson,
   decideStepSync,
   getFolderTree,
   getMyself,
@@ -1050,31 +1049,6 @@ describe("planPush — existing test", () => {
     await expect(plan.ops[1].run()).rejects.toThrow("Xray GraphQL 500");
     await expect(plan.ops[1].run()).resolves.toBeUndefined();
     expect(gql(3).body.variables.step.action).toBe("one !xray-attachment://new-1!");
-  });
-});
-
-describe("bulk import payload", () => {
-  it("names the folder, the fields and every step field — VERIFY against a sandbox before relying on customFields", () => {
-    const out = bulkTestJson(
-      {
-        summary: "S",
-        folder: "/Traction",
-        description: "",
-        labels: ["testimus-draft"],
-        steps: [step({ action: "a", result: "r", exigence: "EXI_1" }), step({ result: "only" })],
-      },
-      deps.project,
-      FIELDS,
-    );
-    expect(out).toEqual({
-      testtype: "Manual",
-      fields: { summary: "S", project: { key: "BHPTCC" }, labels: ["testimus-draft"] },
-      xray_test_repository_folder: "/Traction",
-      steps: [
-        { action: "a", data: "", result: "r", customFields: [{ id: "cf-exigence", value: "EXI_1" }] },
-        { action: ZWSP, data: "", result: "only" },
-      ],
-    });
   });
 });
 

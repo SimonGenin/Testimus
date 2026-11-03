@@ -1,21 +1,13 @@
 import { useState } from "react";
-import type { PlanOp } from "../../../core/types.ts";
 import { type CommandInfo, call, type JsonSchema } from "../../api.ts";
 import { message } from "../../lib/format.ts";
 import { toast } from "../../lib/toast.ts";
 import { PushDialog } from "../../screens/tests/PushDialog.tsx";
 import { Button, Field, Modal } from "../ui/index.ts";
 
-// ponytail: Jira writes from the palette never go blind — a push opens the plan dialog, a direct CSV import
-// is planned with dryRun first and only sent from its Confirm
-export const plannedFirst = (name: string, input: Record<string, unknown>): "push" | "import" | null =>
-  input.dryRun === true
-    ? null
-    : name === "xray.push"
-      ? "push"
-      : name === "xray.importCsv" && input.mode === "direct" && !input.jobId
-        ? "import"
-        : null;
+// ponytail: Jira writes from the palette never go blind — a push opens the plan dialog
+export const plannedFirst = (name: string, input: Record<string, unknown>): "push" | null =>
+  input.dryRun !== true && name === "xray.push" ? "push" : null;
 
 const kindOf = (s: JsonSchema): string => {
   if (s.enum) return "enum";
@@ -63,7 +55,6 @@ export function CommandForm({
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pushId, setPushId] = useState<string | null>(null);
-  const [importPlan, setImportPlan] = useState<{ input: Record<string, unknown>; plan: PlanOp[] } | null>(null);
   const send = async (input: Record<string, unknown>) => {
     setBusy(true);
     setError(null);
@@ -100,19 +91,6 @@ export function CommandForm({
       setPushId(input.id);
       return;
     }
-    if (planned === "import") {
-      setBusy(true);
-      setError(null);
-      try {
-        const r = await call<{ plan?: PlanOp[] }>(command.name, { ...input, dryRun: true });
-        setImportPlan({ input, plan: r?.plan ?? [] });
-      } catch (e) {
-        setError(message(e));
-      } finally {
-        setBusy(false);
-      }
-      return;
-    }
     await send(input);
   };
   if (pushId)
@@ -126,40 +104,6 @@ export function CommandForm({
         }}
         onClose={() => setPushId(null)}
       />
-    );
-  if (importPlan)
-    return (
-      <Modal
-        label="Import plan"
-        title="Import into Xray"
-        subtitle="Nothing has been sent yet."
-        width={560}
-        onClose={() => setImportPlan(null)}
-        foot={
-          <>
-            <span className="spacer" />
-            <Button tone="quiet" onClick={() => setImportPlan(null)}>
-              Cancel
-            </Button>
-            <Button
-              tone="primary"
-              onClick={() => {
-                const input = importPlan.input;
-                setImportPlan(null);
-                void send(input);
-              }}
-            >
-              Import into Xray
-            </Button>
-          </>
-        }
-      >
-        <ol className="imp-plan">
-          {importPlan.plan.map((p, i) => (
-            <li key={i}>{p.label}</li>
-          ))}
-        </ol>
-      </Modal>
     );
   return (
     <Modal

@@ -7,10 +7,12 @@ export type ProjectTarget = { dir: string; name: string; jiraProject: string };
 
 export function DeleteProject({
   target,
+  open,
   onClose,
   onDeleted,
 }: {
   target: ProjectTarget;
+  open?: boolean;
   onClose: () => void;
   onDeleted: () => void;
 }) {
@@ -48,6 +50,7 @@ export function DeleteProject({
         <br />
         <span className="mono muted setup-proj-dir">{target.dir}</span>
       </p>
+      {open && <p>It is the open project: Testimus closes it first.</p>}
     </Confirm>
   );
 }

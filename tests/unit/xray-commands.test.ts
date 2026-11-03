@@ -7,12 +7,11 @@ import { commands } from "../../src/core/commands/xray.ts";
 import { env } from "../../src/core/env.ts";
 import { saveColumn } from "../../src/core/lib/columns.ts";
 import { resetAuth } from "../../src/core/lib/jira.ts";
-import { readProject, readXray } from "../../src/core/lib/project.ts";
+import { readXray } from "../../src/core/lib/project.ts";
 import { listLocalTests, localTestRef, readTest, writeTest } from "../../src/core/lib/store.ts";
 import { mockHttp, mockJira, mockJiraTest, resetMockJira } from "../../src/core/mock/jira.ts";
 
 const FIXTURE = new URL("../fixtures/project/", import.meta.url);
-const CSV = new URL("../fixtures/csv/sectionneur-traction-l92.csv", import.meta.url);
 const http = env.http;
 let project = "";
 
@@ -176,62 +175,5 @@ describe("xray commands", () => {
     expect(out.id).toMatch(/^LFRPS12-\d+$/);
     expect(out.plan.warnings[0]).toContain("not validated (review: to-fix)");
     expect(listLocalTests(project).map((r) => r.id)).toContain(out.id);
-  });
-});
-
-describe("xray.importCsv", () => {
-  it("previews the team's CSV without writing anything", async () => {
-    const out = await run("xray.importCsv", { mode: "preview", file: CSV.pathname.replace(/^\/([A-Za-z]:)/, "$1") });
-    expect(out.headers).toEqual(["Step", "Action", "Expected Result", "Exigence", "Source Reference"]);
-    expect(out.tests).toHaveLength(1);
-    expect(out.tests[0].steps).toHaveLength(5);
-    expect(out.warnings[0]).toContain('"Source Reference" dropped');
-    expect(out.written).toEqual([]);
-    expect(listLocalTests(project)).toHaveLength(3);
-  });
-
-  it("local mode writes draft local tests and remembers the mapping", async () => {
-    const text = readFileSync(CSV, "utf8");
-    const out = await run("xray.importCsv", {
-      text,
-      name: "Sectionneur — vue de traction L92",
-      folder: "/Traction/Sectionneurs",
-    });
-    expect(out.written).toHaveLength(1);
-    const { test: t } = readTest(project, out.written[0]);
-    expect(t).toMatchObject({
-      project: "LFRPS12",
-      summary: "Sectionneur — vue de traction L92",
-      folder: "/Traction/Sectionneurs",
-      review: "draft",
-    });
-    expect(t.steps).toHaveLength(5);
-    expect(t.steps[1].fields.Exigence).toBe("EXI_MOP_SPF_511_A_1650, EXI_MOP_SPF_511_A_1660");
-    expect(localTestRef(project, out.written[0])?.sync).toBe("local");
-    expect(readProject(project).csvMapping).toEqual(out.mapping);
-
-    const custom = await run("xray.importCsv", {
-      mode: "preview",
-      text: "N°;Quoi;Attendu\n1;a;r\n",
-      mapping: { "N°": "#step", Quoi: "Action", Attendu: "Expected Result" },
-    });
-    expect(custom.tests[0].steps[0].fields).toEqual({ Action: "a", "Expected Result": "r" });
-  });
-
-  it("direct mode shows the plan on a dry run, then bulk-imports and pulls the created tests", async () => {
-    const text = readFileSync(CSV, "utf8");
-    const dry = await run("xray.importCsv", { mode: "direct", text, name: "L92", folder: "/Traction", dryRun: true });
-    expect(dry.plan.map((o: any) => o.label)).toEqual([
-      "Import 1 test into LFRPS12 (Xray bulk import)",
-      "Pull the created tests",
-    ]);
-    expect(dry.written).toEqual([]);
-
-    const out = await run("xray.importCsv", { mode: "direct", text, name: "L92", folder: "/Traction" });
-    expect(out.written).toHaveLength(1);
-    const jira = mockJiraTest(out.written[0])!;
-    expect(jira).toMatchObject({ summary: "L92", folder: "/Traction", labels: ["testimus-draft"] });
-    expect(jira.steps[4].custom["cf-exigence"]).toBe("EXI_MOP_SPF_511_A_1650");
-    expect(localTestRef(project, out.written[0])).toMatchObject({ sync: "synced", review: "draft" });
   });
 });

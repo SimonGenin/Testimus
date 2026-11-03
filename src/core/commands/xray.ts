@@ -1,25 +1,11 @@
-import { readFileSync } from "node:fs";
-import { basename, extname, resolve } from "node:path";
+import { resolve } from "node:path";
 import { z } from "zod";
 import { type Command, type Ctx, command, projectOf, UserError } from "../command.ts";
 import { env } from "../env.ts";
-import { loadCorpus, runMechanical } from "../lib/check.ts";
 import { followXray, stepColumns } from "../lib/columns.ts";
-import { type CsvTest, csvTests, guessMapping, parseCsv } from "../lib/csv.ts";
-import {
-  browseUrl,
-  bulkImportStatus,
-  bulkTestJson,
-  getFolderTree,
-  getStepFields,
-  listPreconditions,
-  listTests,
-  reviewLabels,
-  searchTests,
-  startBulkImport,
-} from "../lib/jira.ts";
-import { fieldOrder, readProject, readXray, writeProject, writeXray } from "../lib/project.ts";
-import { createLocalTest, listLocalTests, localTestRef } from "../lib/store.ts";
+import { browseUrl, getFolderTree, getStepFields, listPreconditions, listTests, searchTests } from "../lib/jira.ts";
+import { fieldOrder, readProject, readXray, writeXray } from "../lib/project.ts";
+import { listLocalTests, localTestRef } from "../lib/store.ts";
 import {
   checkRemote,
   connectJira,
@@ -31,7 +17,7 @@ import {
   pullToLocal,
   pushTest,
 } from "../lib/sync.ts";
-import { REVIEWS, type Review, type Test } from "../types.ts";
+import { REVIEWS, type Review } from "../types.ts";
 
 const id = z.string().describe("Test id: the folder under tests/ — a Jira key (LFRPS12-1420) or local-<8hex>");
 const review = z.enum(REVIEWS as [Review, ...Review[]]);
@@ -172,83 +158,6 @@ async function allInFolder(projectId: string, folder: string, descendants: boole
     keys.push(...tests.map((t) => t.key));
     if (!tests.length || keys.length >= total) return keys;
   }
-}
-
-function csvInput(input: { file?: string; text?: string; name?: string }): { text: string; name: string } {
-  if (input.text !== undefined) return { text: input.text, name: input.name || "Imported test" };
-  if (!input.file) throw new UserError("Nothing to import.", "Give a CSV file path (--file) or its text (--text).");
-  const path = resolve(input.file);
-  let text: string;
-  try {
-    text = readFileSync(path, "utf8");
-  } catch {
-    throw new UserError(`Cannot read ${path}.`, "Check the path of the CSV file.");
-  }
-  return { text, name: input.name || basename(path, extname(path)) };
-}
-
-function testOfCsv(project: string, t: CsvTest): Test {
-  return {
-    project,
-    summary: t.summary,
-    folder: t.folder,
-    labels: t.labels,
-    description: t.description,
-    covers: [],
-    preconditions: [],
-    review: "draft",
-    steps: t.steps.map((s) => ({ fields: s.fields, sources: [], images: [] })),
-    extra: {},
-  };
-}
-
-// ponytail: Xray's bulk import is asynchronous; two minutes of polling, then the job id goes back to the
-// caller, who resumes with it — importing the CSV a second time would create every test twice
-export const importPoll = { tries: 120, everyMs: 1000 };
-
-type ImportOut = {
-  headers: string[];
-  mapping: Record<string, string>;
-  tests: unknown[];
-  warnings: string[];
-  written: string[];
-};
-type PlanOp = z.infer<typeof planOp>;
-
-const importPlan = (n: number, key: string): PlanOp[] => [
-  { label: `Import ${n} test${n > 1 ? "s" : ""} into ${key} (Xray bulk import)`, kind: "create" },
-  { label: "Pull the created tests", kind: "other" },
-];
-
-async function finishImport(ctx: Ctx, project: string, jobId: string, out: ImportOut, plan: PlanOp[]) {
-  const finished = (s: string) => /^(successful|failed|partially_successful)$/.test(s);
-  let status = await bulkImportStatus(jobId);
-  for (let i = 0; i < importPoll.tries && !finished(status.status); i++) {
-    if (ctx.signal.aborted)
-      throw new UserError(
-        `Import cancelled while Xray was still importing (job ${jobId}).`,
-        `Run the import again with jobId ${jobId} to pick up the tests it creates — not with the CSV, that would import them twice.`,
-      );
-    await new Promise((r) => setTimeout(r, importPoll.everyMs));
-    status = await bulkImportStatus(jobId);
-  }
-  if (!finished(status.status)) {
-    const note = `Xray is still importing (job ${jobId}, ${status.status}) — run the import again with jobId ${jobId} to pull the created tests; do not import the CSV again.`;
-    ctx.log("warn", note);
-    return { ...out, warnings: [...out.warnings, note], plan, jobId };
-  }
-  out.warnings.push(...status.errors.map((e) => `Xray import error: ${e}`), ...status.warnings);
-  if (status.status === "failed" || !status.issues.length)
-    throw new UserError(`Xray bulk import ${status.status}: ${status.errors.join("; ") || "no test created"}.`);
-  ctx.progress({ message: "Pull the created tests", done: 1, total: 2 });
-  for (const issue of status.issues) {
-    try {
-      out.written.push(await pullToLocal(project, issue.key, { signal: ctx.signal }));
-    } catch (e) {
-      out.warnings.push(`${issue.key} was created but could not be pulled: ${message(e)}`);
-    }
-  }
-  return { ...out, plan };
 }
 
 export const commands: Command[] = [
@@ -600,106 +509,6 @@ export const commands: Command[] = [
       } finally {
         if (!input.dryRun) pushing.delete(slot);
       }
-    },
-  }),
-
-  command({
-    name: "xray.importCsv",
-    summary:
-      "Import a CSV of test steps: preview (parse only), local (write local-* draft tests, the default) or direct (Xray bulk import, then pull). The column mapping is saved in project.json.",
-    input: z.object({
-      mode: z
-        .enum(["preview", "local", "direct"])
-        .default("local")
-        .describe(
-          "preview = parse and return the tests; local = write local draft tests; direct = create them in Jira",
-        ),
-      file: z.string().optional().describe("Path of the CSV file"),
-      text: z.string().optional().describe("The CSV text itself (instead of file)"),
-      name: z
-        .string()
-        .optional()
-        .describe("Summary of the tests when the CSV has no summary column (default: file name)"),
-      mapping: z
-        .record(z.string(), z.string())
-        .optional()
-        .describe(
-          "Column → target: a step field name (Action, Expected Result, a smart column…) or #step, #summary, #description, #folder, #labels, #ignore. Unmapped columns are guessed.",
-        ),
-      folder: z.string().optional().describe("Xray folder of the imported tests when the CSV has no folder column"),
-      dryRun: z
-        .boolean()
-        .default(false)
-        .describe("Return what would be written (and, for direct, the plan) without writing"),
-      jobId: z
-        .string()
-        .optional()
-        .describe(
-          "Direct mode: the Xray import job id a previous call returned when Xray was still importing — waits for it and pulls its tests instead of importing again",
-        ),
-    }),
-    output: z.object({
-      headers: z.array(z.string()),
-      mapping: z.record(z.string(), z.string()),
-      tests: z.array(z.unknown()),
-      warnings: z.array(z.string()),
-      written: z.array(z.string()),
-      plan: z.array(planOp).optional(),
-      jobId: z
-        .string()
-        .optional()
-        .describe("Direct mode: the Xray import job still running — call again with it to pick up its tests"),
-    }),
-    mutates: true,
-    subject: (i) => i.file ?? i.name ?? "csv",
-    async run(ctx, input) {
-      const project = projectOf(ctx);
-      const settings = readProject(project);
-      const x = readXray(project);
-      const names = x.fields.map((f) => f.name);
-      if (input.jobId) {
-        const resumed = { headers: [], mapping: settings.csvMapping ?? {}, tests: [], warnings: [], written: [] };
-        return finishImport(ctx, project, input.jobId, resumed, importPlan(0, settings.jiraProject).slice(1));
-      }
-      const { text, name } = csvInput(input);
-      const table = parseCsv(text);
-      if (!table.headers.length) throw new UserError("The CSV is empty.", "Check the file: it needs a header row.");
-      const guessed = guessMapping(table.headers, names);
-      const saved = Object.fromEntries(
-        Object.entries(settings.csvMapping ?? {}).filter(([h]) => table.headers.includes(h)),
-      );
-      const mapping = { ...guessed, ...saved, ...(input.mapping ?? {}) };
-      const parsed = csvTests(table, mapping, { name, folder: input.folder ?? "", fieldNames: names });
-      const tests = parsed.tests.map((t) => ({ ...t, steps: t.steps.map((s) => ({ fields: s.fields })) }));
-      const out = { headers: table.headers, mapping, tests, warnings: parsed.warnings, written: [] as string[] };
-      if (input.mode === "preview") return out;
-
-      const ok = parsed.tests.filter((t) => t.steps.length);
-      if (input.mode === "local") {
-        if (input.dryRun) return out;
-        const order = fieldOrder(x);
-        for (const t of ok) out.written.push(createLocalTest(project, testOfCsv(settings.jiraProject, t), order));
-        const corpus = loadCorpus(project);
-        for (const w of out.written) runMechanical(project, w, corpus);
-        writeProject(project, { ...settings, csvMapping: mapping });
-        return out;
-      }
-
-      const info = await projectInfo(project);
-      const plan = importPlan(ok.length, info.key);
-      if (input.dryRun) return { ...out, plan };
-      const bulk = ok.map((t) => {
-        const test = testOfCsv(settings.jiraProject, t);
-        return bulkTestJson(
-          { ...test, labels: reviewLabels(test.labels, "draft", settings.labelPrefix) },
-          info,
-          x.fields,
-        );
-      });
-      ctx.progress({ message: plan[0].label, done: 0, total: 2 });
-      const jobId = await startBulkImport(bulk);
-      writeProject(project, { ...settings, csvMapping: mapping });
-      return finishImport(ctx, project, jobId, out, plan);
     },
   }),
 ];

@@ -17,7 +17,7 @@ update it when a decision changes, in the same change as the code.
 | Today | Pain | Testimus |
 |---|---|---|
 | Specs pasted into NotebookLM or SurfSense, one prompt → a CSV of tests | NotebookLM cannot run Claude; SurfSense runs Claude but loses the images and takes no skills or context; citations come out as dead numbers (`1`, `2, 3`) | Own index, queried by the team's own Claude Code with its skills, effort and contexts; figures and sources kept end to end |
-| A skill + Python script imports the CSV into Xray | Review happens in Jira, after import | Import is local first, reviewed, then pushed (or direct, optional) |
+| A skill + Python script imports the CSV into Xray | Review happens in Jira, after import | Tests are written locally, reviewed, then pushed |
 | Testers reread, fix, add screenshots in Jira | Slow, no trace of what was checked against what | Check skills flag anomalies per test; the review view shows test, anomalies and source passage side by side |
 | Xray Editor (BHP) for local editing | Three fixed step fields | Every Xray step field, custom ones included, with per-project folding |
 
@@ -110,7 +110,7 @@ update it when a decision changes, in the same change as the code.
   names (`?project=`, or the `X-Testimus-Project` header, URI-encoded — a malformed one is a 400) is then
   matched as a string (resolved, case-insensitive on Windows) against the known projects (the open one or
   `settings.projects`) before anything touches the disk, and only the matching known entry is opened; an
-  unknown one is a 403. A UNC or device path (`\\host\…`, `//host/…`, `\\?\…`, `\\.\…`) is refused wherever
+  unknown one is a 403. A request that names none gets the open one, or none once its folder is gone. A UNC or device path (`\\host\…`, `//host/…`, `\\?\…`, `\\.\…`) is refused wherever
   the HTTP face reads a path itself (the project selector, `/files/<path>`): opening one would make Windows
   sign in to that host with the user's NTLM hash. Paths inside a command's JSON input are the command's
   business (e.g. `models add` from the team share). `/files` serves only inside a known project, with a
@@ -475,6 +475,11 @@ used: GGUF models run on llama.cpp, which Testimus downloads itself (same files 
     Q8_0 on the GPU. Its scores are not on the GGUF's scale: a `threshold` is set per model id, and none is measured for
     it yet. Measured on the dev PC: bge-m3 q8
     CPU 6.6 passages/s, fp16 DirectML 92/s; Qwen3-0.6B q8 CPU 2.1/s, fp16 DirectML 27/s.
+    onnxruntime-node is the one transformers.js asks for (1.30), except on an Intel Mac (macOS x64): no release
+    after 1.23 ships that binary, so a resolve hook (`rag/runtimes/ort.ts`) loads the optional dependency
+    `onnxruntime-node-darwin-x64` (`npm:onnxruntime-node@1.23.2`) and its `onnxruntime-common` in its place, for
+    transformers.js and the doctor alike; Windows and Apple silicon keep 1.30, and the release does not carry the
+    alias. Checked on a macOS x64 PC: bge-m3 q8 verified (1024 dimensions).
   - **llama.cpp** (GGUF): Testimus starts one `llama-server.exe` per loaded model, bound to 127.0.0.1 on a free
     port with a random `--api-key` per start (a request without it gets 401): `-m <gguf> (--embedding --pooling last
     -ub 8192 | --reranking --pooling rank) -ngl 99 -c 8192`. It waits for `GET /health` = `{"status":"ok"}` (3 min
@@ -776,22 +781,12 @@ stops at the first failure), plus:
   something). A test's `columns.json` (§3) overrides it field by field (`tests.columns`, `tests.setColumns`),
   the step card's own toggle overrides both for the session, and Action and Expected Result never fold.
   `hidden` (a Testimus extra) leaves a field out unless a step holds text in it.
-- **CSV import**, two modes, both from `xray.importCsv`:
-  - `local` (default): map CSV columns to fields (the mapping is saved in `project.json` for the
-    next file), group rows into tests, write `local-*` tests with `review: draft`, run the
-    mechanical check. They are then reviewed and pushed like any other.
-  - `direct`: same parsing, then Xray's bulk import (`POST /api/v2/import/test/bulk`, poll the job),
-    then pull the created tests. Shows the plan first like every write.
-  - The CSV shape the team produces today (`Step, Action, Expected Result, Exigence,
-    Source Reference`) is the first fixture; `Source Reference` numbers are dropped with a warning
-    (they mean nothing outside the tool that made them).
 - Fixed while building (2026-11): the review label is `<labelPrefix><review>` and replaces any other
   label of that prefix; a pull reads the review state back from that label and keeps the local
-  `### Sources`, `review_note` and `generated_by`. CSV mapping targets are a field name or `#step`,
-  `#summary`, `#description`, `#folder`, `#labels`, `#ignore`. A field value Xray returns as a list is
+  `### Sources`, `review_note` and `generated_by`. A field value Xray returns as a list is
   joined with `", "`. Screenshots embed only in the three built-in fields. The project id and test
-  issue type are cached in `.testimus/jira-project.json`. Not yet proven live: custom step fields inside
-  the bulk-import payload, and whether a custom field is cleared with `""` or `null`.
+  issue type are cached in `.testimus/jira-project.json`. Not yet proven live: whether a custom field
+  is cleared with `""` or `null`.
 - Push safety (after the adversarial review, 2026-11): `xray.plan` returns a `planHash` (the ordered
   operations and `test.md`); `xray.push` requires it and refuses when it no longer matches, so the plan
   executed is the plan shown (a resume uses the kept plan's hash). One push per test at a time; the
@@ -799,8 +794,7 @@ stops at the first failure), plus:
   plan that shows « Changed in Jira since your pull » (no extra tick, as in Xray Editor).
   A cancel is honoured between operations (the one in flight finishes; the job is « cancelled » only when
   nothing ran after it). Attachments must be files inside `tests/<id>/`. An empty or space-containing
-  `labelPrefix` falls back to `testimus-` with a warning. Direct CSV import saves the mapping once Xray
-  accepts the job and returns its `jobId` when polling times out; `{ mode: "direct", jobId }` resumes.
+  `labelPrefix` falls back to `testimus-` with a warning.
 - **Never write to a production Jira project during development.** Write paths are proven by unit
   tests over a fake `http` asserting exact payloads (Xray Editor's rule). Live checks are read-only.
 
@@ -873,7 +867,7 @@ Group | Verbs (all with `--json`; mutating ones marked *)
 `traces` | `list`, `find`, `coverage`, `propose` (job, Claude, read-only), `save`*, `remove`* — tracked ids (§4)
 `check` | `run`* (job: mechanical pass, then the `check-test` skill; writes `check.json`), `record`* (the skill's semantic findings for one test), `show`
 `review` | `set`* (validate / to-fix + note), `fix`* (Claude, job), `queue` (what awaits review), `evidence` (sources read / related)
-`xray` | `fields`* (also read again before every push and when a project opens; a field switched off in Xray is kept with `disabled`, `required` kept), `prefs`* (order, folded, when filled, hidden, `open` for an off-in-Xray field shown anyway), `folders`, `search`, `preconditions` (the project's, with definitions), `browse` (an issue's Jira page), `pull`* (job), `status`, `plan`, `push`* (job; `from` resumes after a failed operation), `importCsv`* (local · direct, with a preview)
+`xray` | `fields`* (also read again before every push and when a project opens; a field switched off in Xray is kept with `disabled`, `required` kept), `prefs`* (order, folded, when filled, hidden, `open` for an off-in-Xray field shown anyway), `folders`, `search`, `preconditions` (the project's, with definitions), `browse` (an issue's Jira page), `pull`* (job), `status`, `plan`, `push`* (job; `from` resumes after a failed operation)
 `models` | `catalog` (with the fit on this PC), `list`, `add`* (path A), `pull`* (job, checked download), `pullRuntime`* (job, llama.cpp build), `remove`*, `verify`, `setDir`* (move · keep · copy, dry-run), `use`* (Custom), `packs`, `usePack`* (job), `hardware`, `fit`, `perf`, `advice`, `dismiss`*
 `jobs` | `list`, `show`, `cancel`*
 `system` | `setup`* (credentials), `secrets` (the saved token, Client ID and secret, to show back in the form; denied to Claude runs like every `system.*`), `doctor`, `version` (with `shell`: browser or desktop <version>), `pullModel`* (alias of `models.pull`), `settings`, `saveSettings`* (theme, step layout, claude.exe, model downloads)
@@ -1078,10 +1072,6 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
     what the patterns find (ids, per document, first 12 with section and line), Claude's « why », and « What changes »:
     the step column, the Generate picker, and whether Xray has the column (if not: how to add it, « Check Xray again »
     = xray.fields). « Track these ids » = traces.save.
-  - **Import CSV** — file → columns (mapping from project.json.csvMapping, guessed otherwise) → preview (tests,
-    steps, warnings) → Import locally (default, then a mechanical check; opens Review on the first draft) or directly
-    into Xray (dryRun plan shown first; opens the first test). An answer that lands after the user left the screen
-    navigates nowhere.
   - **Jobs** — list (kind, subject, progress, duration, result) and detail (live log from jobs.show + events, Cancel).
   - **System check** — system.doctor rows as icon + word (OK / To do / Failed / Not checked / Info). A row with an
     `action` shows it as a button in place of the CLI fix text: the command runs (a job is followed to its end,
@@ -1091,7 +1081,10 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
     in its row and keeps the words saying what to do beside it; the rail's status dot shows the last result.
   - **First launch (#/setup)** — shown once per session when the credential files are incomplete or no project is
     open: Access (system.setup prefilled, secrets never sent back, Test connection = setup with check), Project
-    (project.list / project.open / project.init), then **Search pack** (`#/setup/pack`): the four packs with their models and
+    (project.list / project.open / project.init; each known project's « … » menu has « Don't show »
+    (`project.forget`) and « Delete » (`project.delete`): a folder still there is deleted after a confirmation, the
+    open project included — the window closes it; a folder already gone is only forgotten, without asking; a job
+    running in that project refuses it, a model download does not), then **Search pack** (`#/setup/pack`): the four packs with their models and
     download; above them « Analyse my machine » (`models.hardware {refresh}`, then `models.packs` again) lists the
     system and arch, CPU, memory and the GPU Testimus can use. Until it ran, no pack shows a fit and none is
     preselected; after it, each pack has its fit (« Not supported here » included) and the suggestion is preselected
@@ -1149,9 +1142,7 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
   document added but not indexed shows « Indexing failed » with Reindex under its row; finished add rows
   are shown once (the job stays in Jobs). « Added by Claude » marks only steps beyond the step count
   before the run; any other change is « Changed by Claude ».
-- A Jira write from the palette (`xray.push`, direct `xray.importCsv`) always shows its plan first, like
-  the buttons do. A direct CSV import still running in Xray shows « Xray is still importing » with
-  « Check again » (resume by `jobId`, never a second import).
+- A Jira write from the palette (`xray.push`) always shows its plan first, like the buttons do.
 - Shell: Ctrl+K command palette (every registry command by name; a command with input gets a form from its schema), Ctrl+J folds the Claude dock (folded at start and in Review; the user's choice holds until the next start), theme system / light / dark from the rail, step layout and last project remembered per browser; Revert undoes a whole Claude run. The page title is « Testimus — <project name> » (« Testimus » with no project); the desktop window takes it.
 - The app logo (`src/ui/public/logo.png`, `favicon.png`; `scripts/testimus.ico` for the Start-menu shortcut)
   sits on a light tile at the top of the rail and on the first-launch screen.
@@ -1197,8 +1188,7 @@ imports `src/core/`, and anything that reads or changes a project goes through `
   (browser mode). With it: First launch › Project **Browse…** (`pickFolder`); project menu **Open a folder…** and
   **Show in Explorer**; Documents **Add documents** opens the native picker and a dropped or chosen file goes by its
   path (`docs.add { file, pdf? }`, no base64 — base64 only when no path is known), **Show in Explorer** on a document
-  (`docs/<id>/`) and on the open test (its `test.md`); Import CSV **Choose a file** (`xray.importCsv { file }`);
-  Settings › Appearance **Browse…** for the Claude program; external links open in the default browser; taskbar
+  (`docs/<id>/`) and on the open test (its `test.md`); Settings › Appearance **Browse…** for the Claude program; external links open in the default browser; taskbar
   progress follows the running Generate, Index, Check, Pull and model-download jobs (mean of done/total, cleared when
   none runs); a notification (window not focused) says when a job finishes or fails — a failed Claude run included —
   never for a cancel; a folder handed by a second launch is opened with `project.open`.
@@ -1251,7 +1241,8 @@ step, and is told exactly what is missing when something is.
 - **`system.doctor`**: one line per check, each with what to do when it fails (`fix`, CLI words) and, when one
   command repairs it, that command as `action` (`label`, `command`, `input` without the value the user picks,
   `value` = the one in place now):
-  - native modules load;
+  - native modules load (onnxruntime's detail is the version loaded; its fix names what the system needs: the
+    Visual C++ Redistributable on Windows, `npm install` for the 1.23.2 alias on an Intel Mac);
   - `claude` found, its version, signed in (a minimal `claude -p` run);
   - Jira and Xray reachable and authenticated (read-only);
   - the face (`face`: browser, or desktop <version>);

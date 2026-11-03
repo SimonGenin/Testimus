@@ -191,31 +191,11 @@ describe("mock graphql queries", () => {
 });
 
 describe("mock REST", () => {
-  it("refuses authentication without a secret, graphql without a header, and a bulk import that is not a list", async () => {
+  it("refuses authentication without a secret and graphql without a header", async () => {
     const auth = await mockHttp({ method: "POST", url: `${XRAY}/api/v2/authenticate` });
     expect(auth.status).toBe(401);
     const g = await mockHttp({ method: "POST", url: `${XRAY}/api/v2/graphql`, body: "{}" });
     expect(g.status).toBe(401);
-    const bulk = await mockHttp({ method: "POST", url: `${XRAY}/api/v2/import/test/bulk`, body: "{}" });
-    expect(bulk.status).toBe(400);
-    const status = await mockHttp({ method: "GET", url: `${XRAY}/api/v2/import/test/bulk/none/status` });
-    expect(status.status).toBe(404);
-  });
-
-  it("a bulk import with an empty element reports its error, the others are created", async () => {
-    const res = await mockHttp({
-      method: "POST",
-      url: `${XRAY}/api/v2/import/test/bulk`,
-      body: JSON.stringify([{}, { fields: { project: { key: "LFRPS12" }, summary: "B" } }]),
-    });
-    const { jobId } = JSON.parse(res.text!);
-    const st = JSON.parse(
-      (await mockHttp({ method: "GET", url: `${XRAY}/api/v2/import/test/bulk/${jobId}/status` })).text!,
-    );
-    expect(st.result.errors).toEqual([
-      { elementNumber: 0, errors: { message: "project: project undefined does not exist" } },
-    ]);
-    expect(st.result.issues).toHaveLength(1);
   });
 
   it("refuses an unknown project, attachment and issue, and answers an attachment as text when not binary", async () => {

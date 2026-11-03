@@ -22,14 +22,13 @@ import { errorToast, toast } from "../lib/toast.ts";
 import { DoctorScreen } from "../screens/doctor/DoctorScreen.tsx";
 import { DocumentsScreen } from "../screens/documents/DocumentsScreen.tsx";
 import { GenerateScreen } from "../screens/generate/GenerateScreen.tsx";
-import { ImportScreen } from "../screens/import/ImportScreen.tsx";
 import { JobsScreen } from "../screens/jobs/JobsScreen.tsx";
 import { ReviewScreen } from "../screens/review/ReviewScreen.tsx";
 import { SettingsScreen } from "../screens/settings/SettingsScreen.tsx";
 import { FirstRunScreen } from "../screens/setup/FirstRunScreen.tsx";
 import { TestsScreen } from "../screens/tests/TestsScreen.tsx";
 
-const SCREENS: Screen[] = ["documents", "generate", "tests", "review", "jobs", "settings", "doctor", "import", "setup"];
+const SCREENS: Screen[] = ["documents", "generate", "tests", "review", "jobs", "settings", "doctor", "setup"];
 
 export function parseRoute(hash: string): { screen: Screen; arg?: string } {
   const [screen, ...rest] = hash.replace(/^#\/?/, "").split("/");
@@ -247,6 +246,14 @@ export function App() {
 
   const testsChanged = useCallback(() => setTestsNonce((n) => n + 1), []);
 
+  const closeProject = useCallback(() => {
+    setProject(null);
+    writePref("testimus.project", "");
+    setInfo(null);
+    setXray(DEFAULT_XRAY);
+    testsChanged();
+  }, [testsChanged]);
+
   useChanged([""], (paths) => {
     refreshInfo();
     if (touches(paths, ["tests/"]).length) testsChanged();
@@ -271,6 +278,7 @@ export function App() {
       setLastRun,
       testsChanged,
       refreshInfo,
+      closeProject,
       openSource: setSource,
       askClaude,
       runInDock,
@@ -287,6 +295,7 @@ export function App() {
       navigate,
       testsChanged,
       refreshInfo,
+      closeProject,
       askClaude,
       runInDock,
       openPalette,
@@ -322,7 +331,6 @@ export function App() {
       ...NAV.map((n) => ({ id: `go-${n.id}`, label: `Go to ${n.label}`, icon: n.icon, run: () => navigate(n.id) })),
       { id: "go-settings", label: "Go to Settings", icon: "settings" as const, run: () => navigate("settings") },
       { id: "go-doctor", label: "Open the system check", icon: "info" as const, run: () => navigate("doctor") },
-      { id: "go-import", label: "Import a CSV of tests", icon: "pull" as const, run: () => navigate("import") },
       { id: "dock", label: "Show or hide Claude", icon: "claude" as const, hint: "Ctrl J", run: toggleDock },
       {
         id: "theme-system",
@@ -373,8 +381,6 @@ export function App() {
               <JobsScreen />
             ) : route.screen === "doctor" ? (
               <DoctorScreen />
-            ) : route.screen === "import" ? (
-              <ImportScreen />
             ) : (
               <SettingsScreen />
             )}

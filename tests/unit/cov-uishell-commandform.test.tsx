@@ -201,49 +201,4 @@ describe("CommandForm", () => {
     expect(close).toHaveBeenCalled();
     expect(callsOf("xray.push")).toHaveLength(0);
   });
-
-  it("plans a direct CSV import first and only imports from its confirm", async () => {
-    net.routes["xray.importCsv"] = (i) =>
-      i.dryRun ? { plan: [{ label: "Create 2 tests", kind: "create" }] } : { jobId: "imp" };
-    const onJob = vi.fn();
-    render(
-      <CommandForm
-        command={cmd(
-          "xray.importCsv",
-          { mode: { enum: ["direct", "local"] }, file: { type: "string" } },
-          { job: true },
-        )}
-        onClose={() => {}}
-        onJob={onJob}
-      />,
-    );
-    fireEvent.change(screen.getByLabelText("mode (optional)"), { target: { value: "direct" } });
-    fireEvent.change(screen.getByLabelText("file (optional)"), { target: { value: "a.csv" } });
-    fireEvent.click(screen.getByRole("button", { name: "Run" }));
-    expect(await screen.findByText("Create 2 tests")).toBeInTheDocument();
-    expect(callsOf("xray.importCsv")[0].input).toEqual({ mode: "direct", file: "a.csv", dryRun: true });
-    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-    expect(screen.getByLabelText("file (optional)")).toHaveValue("a.csv");
-    fireEvent.click(screen.getByRole("button", { name: "Run" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Import into Xray" }));
-    await waitFor(() => expect(onJob).toHaveBeenCalledWith("imp"));
-    expect(callsOf("xray.importCsv")[2].input).toEqual({ mode: "direct", file: "a.csv" });
-  });
-
-  it("shows an empty plan, and the planning error", async () => {
-    let fail = false;
-    net.routes["xray.importCsv"] = () => {
-      if (fail) throw new Fail("CSV unreadable");
-      return null;
-    };
-    render(<CommandForm command={cmd("xray.importCsv", { mode: { enum: ["direct"] } })} onClose={() => {}} />);
-    fireEvent.change(screen.getByLabelText("mode (optional)"), { target: { value: "direct" } });
-    fireEvent.click(screen.getByRole("button", { name: "Run" }));
-    expect(await screen.findByRole("dialog", { name: "Import plan" })).toBeInTheDocument();
-    expect(document.querySelectorAll(".imp-plan li")).toHaveLength(0);
-    fireEvent.keyDown(window, { key: "Escape" });
-    fail = true;
-    fireEvent.click(await screen.findByRole("button", { name: "Run" }));
-    expect(await screen.findByText("CSV unreadable")).toBeInTheDocument();
-  });
 });

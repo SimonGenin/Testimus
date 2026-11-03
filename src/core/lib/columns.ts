@@ -3,10 +3,10 @@ import type { ColumnDef, StepColumn, XrayField, XrayJson } from "../types.ts";
 import { fieldOrder, localColumns, readXray, writeXray } from "./project.ts";
 
 export const DEFAULT_DESCRIPTIONS: Record<string, string> = {
-  Action: "One operator gesture per step, in the imperative, on an object named as the screen names it.",
-  Data: "The values entered or the object aimed at (code, position, track), only when the action needs them.",
+  Action: "One user action per step, in the imperative, on an object named as the product names it.",
+  Data: "The values entered or the object aimed at (a code, a record, a file), only when the action needs them.",
   "Expected Result":
-    "Everything the operator observes after the gesture, checkable on screen, in the words of the document.",
+    "Everything the user observes after the action, checkable on the product, in the words of the document.",
 };
 
 const RESERVED = /^(sources|description|attachments|expected|result|step)$/i;

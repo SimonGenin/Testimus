@@ -524,7 +524,6 @@ export type ProjectJson = {
     retrieval?: Partial<RetrievalSettings>;
   };
   claude: ClaudeConfig;
-  csvMapping?: Record<string, string>;
   glossary?: Record<string, string>;
 };
 

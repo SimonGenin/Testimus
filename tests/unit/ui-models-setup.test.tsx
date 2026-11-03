@@ -87,6 +87,7 @@ const app = (withProject = true): AppState =>
     route: { screen: "setup", arg: "pack" },
     navigate: vi.fn(),
     refreshInfo: vi.fn(),
+    closeProject: vi.fn(),
     testsChanged: vi.fn(),
   }) as unknown as AppState;
 

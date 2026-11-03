@@ -68,7 +68,6 @@ afterEach(() => {
 
 const NEVER = [
   "xray_push",
-  "xray_importCsv",
   "xray_pull",
   "review_set",
   "review_fix",

@@ -669,10 +669,9 @@ describe("Documents screen", () => {
     expect(screen.queryByRole("button", { name: "Show the document list" })).toBeNull();
     cleanup();
     api.routes["docs.list"] = () => ({ not: "a list" });
-    const { app: a } = mount(<DocumentsScreen />);
+    mount(<DocumentsScreen />);
     expect(await screen.findByRole("heading", { name: "Start with the specifications" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Or import a CSV of existing tests" }));
-    expect(a.navigate).toHaveBeenCalledWith("import");
+    expect(screen.queryByRole("button", { name: /import a CSV/ })).toBeNull();
     cleanup();
     delete api.routes["docs.list"];
     mount(<DocumentsScreen />);

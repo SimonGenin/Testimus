@@ -29,7 +29,7 @@ description: Correct one Xray test from a reviewer's "To fix" note and the test'
 - A smart column (`columns_list`) holds what its description asks for; one whose description is
   empty stays empty. In a column with `referenceSource`, every item has its own source line ending
   `@<column> "<item>"` (generate-tests); an item you add, change or remove takes its line with it.
-- Write "not simulated" only when a source says so.
+- Write "not implemented" (or "not simulated", "out of scope") only when a source says so.
 - A finding you think is wrong: leave the step, explain why in the reply, citing the passage.
 - Do not touch `review`, `review_note`, `reviewed_by`, `reviewed_at` or `generated_by` in the
   frontmatter, and do not edit `check.json`: Testimus re-checks the test after your run and sets it
