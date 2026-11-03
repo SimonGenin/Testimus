@@ -4,7 +4,8 @@ import { join } from "node:path";
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
 import { listJobs } from "../jobs.ts";
-import type { ClaudeAction, ClaudeScope, DocJson } from "../types.ts";
+import type { ClaudeAction, ClaudeScope } from "../types.ts";
+import { findDoc } from "./docs.ts";
 import { sha256 } from "./hash.ts";
 import { readJson, writeJson } from "./project.ts";
 import { contentPrint, testDir } from "./store.ts";
@@ -29,9 +30,8 @@ export function whereOf(scope: ClaudeScope): string {
 export function stampOf(project: string, where: string): string {
   const [kind, id] = where.split(":");
   if (kind === "doc") {
-    const f = join(project, "docs", id, "doc.json");
-    if (!existsSync(f)) return "gone";
-    const d = readJson<Partial<DocJson>>(f, {});
+    const d = findDoc(project, id);
+    if (!d) return "gone";
     return sha256(`${d.convertedAt}|${d.source?.sha256}|${(d.warnings ?? []).join("\n")}`).slice(0, 16);
   }
   if (kind === "test") {

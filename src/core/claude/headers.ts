@@ -1,6 +1,6 @@
-import { existsSync } from "node:fs";
-import { join, resolve } from "node:path";
-import { readJson, readProject, readSettings } from "../lib/project.ts";
+import { resolve } from "node:path";
+import { findDoc } from "../lib/docs.ts";
+import { readProject, readSettings } from "../lib/project.ts";
 import type { Chunk, DocJson } from "../types.ts";
 import { languageName } from "./generate.ts";
 import { docContexts, docRunLines, type JobRun } from "./prompt.ts";
@@ -23,9 +23,8 @@ export function projectOfDoc(doc: DocJson): string | null {
     (p): p is string => !!p,
   );
   for (const dir of [...new Set(candidates.map((p) => resolve(p)))]) {
-    const file = join(dir, "docs", doc.id, "doc.json");
-    if (!existsSync(file)) continue;
-    const d = readJson<Partial<DocJson>>(file, {});
+    const d = findDoc(dir, doc.id);
+    if (!d) continue;
     if (d.convertedAt === doc.convertedAt && d.source?.sha256 === doc.source?.sha256) return dir;
   }
   return null;

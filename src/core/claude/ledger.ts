@@ -1,9 +1,9 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { readFigures } from "../lib/docs.ts";
 import { readJson } from "../lib/project.ts";
 import { docFigures, parseSections, type Section } from "../rag/chunk.ts";
 import { normalizeRef } from "../rag/related.ts";
-import type { FigureEntry } from "../types.ts";
 import type { ToolCall } from "./stream.ts";
 
 export type Searched = { tool: string; query: string };
@@ -83,7 +83,7 @@ export function ledgerOf(project: string, calls: ToolCall[]): Ledger {
       if (fig) {
         const d = docOf(fig[1]);
         if (!d) continue;
-        const entries = readJson<FigureEntry[]>(join(project, "docs", fig[1], "figures.json"), []);
+        const entries = readFigures(project, fig[1]);
         const f = docFigures(d.md, entries).find(
           (x) => x.file.split("/").pop()?.toLowerCase() === fig[2].toLowerCase(),
         );

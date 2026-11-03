@@ -5,7 +5,7 @@ import { env } from "../env.ts";
 import { anchorsOf, type Converted, type ConvertOpts, guessFromName } from "../rag/convert.ts";
 import { convertDocx } from "../rag/convert-docx.ts";
 import { convertPdf, pdfFigures } from "../rag/convert-pdf.ts";
-import { docContent } from "../rag/indexer.ts";
+import { docContent, readState } from "../rag/indexer.ts";
 import type { DocJson, DocKind, DocRef, FigureEntry } from "../types.ts";
 import { writeAtomic } from "./atomic.ts";
 import { sha256 } from "./hash.ts";
@@ -40,6 +40,7 @@ export function readDoc(project: string, id: string): DocJson {
   const { requirements: _r, ...stats } = doc.stats ?? {};
   return {
     ...doc,
+    id,
     kind: doc.kind === "requirements" ? "spec" : (doc.kind as DocKind),
     status: doc.status === "superseded" ? "draft" : (doc.status as DocJson["status"]),
     ...(doc.stats ? { stats: stats as Stats } : {}),
@@ -50,17 +51,28 @@ export function writeDoc(project: string, doc: DocJson): void {
   writeJson(join(docDir(project, doc.id), "doc.json"), doc);
 }
 
+// ponytail: a folder of docs/ that is not a document (no doc.json, or a name no id can have) is no document
+export function findDoc(project: string, id: string): DocJson | null {
+  return ID_RE.test(id) && existsSync(join(project, "docs", id, "doc.json")) ? readDoc(project, id) : null;
+}
+
+export function docIds(project: string): string[] {
+  const root = join(project, "docs");
+  if (!existsSync(root)) return [];
+  return readdirSync(root)
+    .filter((id) => ID_RE.test(id) && existsSync(join(root, id, "doc.json")))
+    .sort();
+}
+
 export function indexState(project: string): Record<string, string> {
-  return readJson<{ docs?: Record<string, string> }>(join(project, "index", "state.json"), {}).docs ?? {};
+  return readState(project)?.docs ?? {};
 }
 
 export function listDocs(project: string): DocRef[] {
   const root = join(project, "docs");
-  if (!existsSync(root)) return [];
   const state = indexState(project);
   const out: DocRef[] = [];
-  for (const id of readdirSync(root).sort()) {
-    if (!ID_RE.test(id) || !existsSync(join(root, id, "doc.json"))) continue;
+  for (const id of docIds(project)) {
     const doc = readDoc(project, id);
     const at = state[id];
     const content = docContent(join(root, id), doc);
@@ -78,6 +90,10 @@ const stemOf = (doc: Pick<DocJson, "source">) => {
 
 export function readFigures(project: string, id: string): FigureEntry[] {
   return readJson<FigureEntry[]>(join(docDir(project, id), "figures.json"), []);
+}
+
+export function writeFigures(project: string, id: string, figures: FigureEntry[]): void {
+  writeJson(join(docDir(project, id), "figures.json"), figures);
 }
 
 export function readContext(project: string, id: string): string {

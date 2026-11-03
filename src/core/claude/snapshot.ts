@@ -4,10 +4,11 @@ import { UserError } from "../command.ts";
 import { env } from "../env.ts";
 import { writeAtomic } from "../lib/atomic.ts";
 import { testsCiting } from "../lib/check.ts";
+import { docIds, findDoc } from "../lib/docs.ts";
 import { sha256 } from "../lib/hash.ts";
 import { readJson, writeJson } from "../lib/project.ts";
 import { testDir } from "../lib/store.ts";
-import type { ClaudeScope, DocJson } from "../types.ts";
+import type { ClaudeScope } from "../types.ts";
 
 export type RunRecord = {
   runId: string;
@@ -61,17 +62,8 @@ export function scopeIds(project: string, scope: ClaudeScope): string[] {
 
 const docOf = (project: string, id: string): { id: string; code?: string } => ({
   id,
-  code: readJson<Partial<DocJson>>(join(project, "docs", id, "doc.json"), {}).code,
+  code: findDoc(project, id)?.code,
 });
-
-function docIds(project: string): string[] {
-  const dir = join(project, "docs");
-  if (!existsSync(dir)) return [];
-  return readdirSync(dir, { withFileTypes: true })
-    .filter((e) => e.isDirectory() && existsSync(join(dir, e.name, "doc.json")))
-    .map((e) => e.name)
-    .sort();
-}
 
 function walk(project: string, rel: string, skip: string): string[] {
   const abs = join(project, ...rel.split("/"));
@@ -84,7 +76,7 @@ function walk(project: string, rel: string, skip: string): string[] {
 }
 
 const originalOf = (project: string, rel: string) => {
-  const file = readJson<Partial<DocJson>>(join(project, ...rel.split("/"), "doc.json"), {}).source?.file;
+  const file = findDoc(project, posix.basename(rel))?.source.file;
   return file ? posix.join(rel, file) : "";
 };
 

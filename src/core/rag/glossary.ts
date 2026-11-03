@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { sha256 } from "../lib/hash.ts";
-import { readJson } from "../lib/project.ts";
+import { readProject } from "../lib/project.ts";
 import { fold, frenchTokens, STOP_WORDS, stemWord } from "./stem-fr.ts";
 
 export type GlossaryEntry = { abbr: string; long: string; source: string };
@@ -87,7 +87,7 @@ function docGlossary(file: string, docId: string): GlossaryEntry[] {
 
 export function glossaryOf(project: string): GlossaryEntry[] {
   const all: GlossaryEntry[] = [];
-  const own = readJson<{ glossary?: Record<string, string> }>(join(project, "project.json"), {}).glossary ?? {};
+  const own = readProject(project).glossary ?? {};
   for (const [abbr, long] of Object.entries(own)) all.push(...entriesOf(abbr, long, "project.json"));
   const root = join(project, "docs");
   if (existsSync(root))

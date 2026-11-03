@@ -1,8 +1,9 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { Ctx } from "../command.ts";
 import { UserError } from "../command.ts";
-import { readJson, readProject, writeJson } from "../lib/project.ts";
+import { findDoc, readDocMd, readFigures, writeFigures } from "../lib/docs.ts";
+import { readProject } from "../lib/project.ts";
 import { docFigures, markerLine, parseSections, sectionAt } from "../rag/chunk.ts";
 import type { DocJson, FigureEntry } from "../types.ts";
 import { languageName } from "./generate.ts";
@@ -128,10 +129,9 @@ export async function describeFigures(
   const dir = join(project, "docs", docId);
   if (!/^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(docId) || !existsSync(join(dir, "doc.md")))
     throw new UserError(`No document ${docId} in this project.`, "testimus docs list shows the documents.");
-  const doc = readJson<DocJson>(join(dir, "doc.json"), { id: docId, code: docId, title: "" } as DocJson);
-  const md = readFileSync(join(dir, "doc.md"), "utf8");
-  const file = join(dir, "figures.json");
-  const entries = readJson<FigureEntry[]>(file, []);
+  const doc = findDoc(project, docId) ?? ({ id: docId, code: docId, title: "" } as DocJson);
+  const md = readDocMd(project, docId);
+  const entries = readFigures(project, docId);
   const sections = parseSections(md);
   const all = docFigures(md, entries);
   const todo: FigureTodo[] = all
@@ -164,7 +164,7 @@ export async function describeFigures(
       };
     });
     for (const e of entries) if (!next.some((n) => n.anchor === e.anchor)) next.push(e);
-    writeJson(file, next);
+    writeFigures(project, docId, next);
   };
   for (let i = 0; i < todo.length; i += FIGURES_BATCH) {
     if (ctx.signal.aborted) break;

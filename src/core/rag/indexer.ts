@@ -1,8 +1,9 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync } from "node:fs";
+import { basename, dirname, join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import type { Ctx } from "../command.ts";
 import { env } from "../env.ts";
+import { docDir, docIds, readDoc, readDocMd, readFigures } from "../lib/docs.ts";
 import { sha256 } from "../lib/hash.ts";
 import { withPerfScope } from "../lib/models-perf.ts";
 import { readJson, writeJson } from "../lib/project.ts";
@@ -67,26 +68,24 @@ export function readState(project: string): IndexState | null {
 }
 
 export function projectDocs(project: string): ProjectDoc[] {
-  const root = join(project, "docs");
-  if (!existsSync(root)) return [];
   const out: ProjectDoc[] = [];
-  for (const e of readdirSync(root, { withFileTypes: true })) {
-    if (!e.isDirectory()) continue;
-    const dir = join(root, e.name);
-    if (!existsSync(join(dir, "doc.json")) || !existsSync(join(dir, "doc.md"))) continue;
-    const doc = readJson<DocJson>(join(dir, "doc.json"), {} as DocJson);
-    if (!doc.id) doc.id = e.name;
-    const md = readFileSync(join(dir, "doc.md"), "utf8");
-    const figures = readJson<FigureEntry[]>(join(dir, "figures.json"), []);
+  for (const id of docIds(project)) {
+    const dir = docDir(project, id);
+    if (!existsSync(join(dir, "doc.md"))) continue;
+    const doc = readDoc(project, id);
+    const md = readDocMd(project, id);
+    const figures = readFigures(project, id);
     out.push({ doc, dir, md, figures, content: docContent(dir, doc, md) });
   }
   return out.sort((a, b) => a.doc.id.localeCompare(b.doc.id));
 }
 
+// ponytail: the dir is a document folder of docs/ — its name is the document id
 export function docContent(dir: string, doc: Pick<DocJson, "code" | "title">, md?: string): string {
-  const text = md ?? (existsSync(join(dir, "doc.md")) ? readFileSync(join(dir, "doc.md"), "utf8") : "");
-  const figRaw = existsSync(join(dir, "figures.json")) ? readFileSync(join(dir, "figures.json"), "utf8") : "[]";
-  return sha256(JSON.stringify([text, figRaw, doc.code, doc.title]));
+  const project = dirname(dirname(dir));
+  const id = basename(dir);
+  const text = md ?? readDocMd(project, id);
+  return sha256(JSON.stringify([text, readFigures(project, id), doc.code, doc.title]));
 }
 
 function chunkHash(c: Chunk): string {

@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { env } from "../env.ts";
+import { readContext } from "../lib/docs.ts";
 import { readJson, readProject, writeJson } from "../lib/project.ts";
 import { testDir } from "../lib/store.ts";
 import type { ClaudeRun, ClaudeScope, Context } from "../types.ts";
@@ -179,8 +180,7 @@ export function contextLines(project: string, contexts: Context[], note = "", co
 // ponytail: a document's own Claude runs (figures, headers, triage) hear what the team knows about it — its note and
 // its contexts — then what the user added for this run
 export function docRunLines(project: string, docId: string, run: JobRun = {}): string[] {
-  const file = join(project, "docs", docId, "context.md");
-  const team = existsSync(file) ? readFileSync(file, "utf8").trim() : "";
+  const team = readContext(project, docId).trim();
   return [
     ...(team ? ["", "What the team knows about this document:", team] : []),
     ...contextLines(project, readContexts(project, docContexts(project, docId, run)), run.note),

@@ -10,6 +10,7 @@ import { isConverted, listDocs, readDocMd } from "../lib/docs.ts";
 import { fieldOrder, readJson, readProject, readXray, writeJson } from "../lib/project.ts";
 import { listLocalTests, markGenerated, readTest, removeTest, testExists, writeTest } from "../lib/store.ts";
 import { anchorsOf } from "../rag/convert.ts";
+import { readState } from "../rag/indexer.ts";
 import { awaitsReview, type ClaudeEvent, type Diagnosis, type Effort, type Tokens } from "../types.ts";
 import { proposeLines } from "./actions.ts";
 import { checkTests, promoteChecked } from "./check.ts";
@@ -124,7 +125,7 @@ export function indexGate(project: string, i: GenInput): string[] {
   const missing = docs.filter((d) => d.indexed === "missing").map((d) => d.id);
   if (missing.length)
     throw new UserError(
-      existsSync(join(project, "index", "state.json"))
+      readState(project)
         ? `Not indexed: ${missing.join(", ")}. Search cannot find ${missing.length === 1 ? "it" : "them"}, so the tests would have no sources.`
         : "The index does not exist yet: search cannot find any document, so the tests would have no sources.",
       "Reindex (Documents, Settings › Search, or testimus rag index), or leave these documents out of the scope.",

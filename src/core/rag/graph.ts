@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { readJson } from "../lib/project.ts";
+import { findDoc } from "../lib/docs.ts";
 import type { DocJson, Edge, EdgeKind, FigureEntry } from "../types.ts";
 import { parseSections, type Section, stripComments } from "./chunk.ts";
 
@@ -23,7 +23,7 @@ function otherDocs(project: string, self: string): OtherDoc[] {
   const out: OtherDoc[] = [];
   for (const e of readdirSync(root, { withFileTypes: true })) {
     if (!e.isDirectory() || e.name === self || !existsSync(join(root, e.name, "doc.md"))) continue;
-    const doc = readJson<Partial<DocJson>>(join(root, e.name, "doc.json"), {});
+    const doc: Partial<DocJson> = findDoc(project, e.name) ?? {};
     const md = readFileSync(join(root, e.name, "doc.md"), "utf8");
     const sections = new Set([...md.matchAll(/<!--\s*§\s*(\S+?)\s*-->/g)].map((m) => m[1]));
     out.push({
