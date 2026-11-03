@@ -13,8 +13,8 @@ export default defineConfig({
   server: {
     port: 4318,
     proxy: {
-      "/api": { target: API, changeOrigin: true, headers: { origin: API } },
-      "/files": { target: API, changeOrigin: true, headers: { origin: API } },
+      "^/api(/|$)": { target: API, changeOrigin: true, headers: { origin: API } },
+      "^/files/": { target: API, changeOrigin: true, headers: { origin: API } },
     },
   },
   test: {

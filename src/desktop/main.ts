@@ -256,12 +256,13 @@ function createWindow(): BrowserWindow {
   w.setMenuBarVisibility(false);
   // ponytail: Windows takes the taskbar button, pin and toast identity from these, not from the window icon; unpackaged
   // they would be electron.exe's
-  w.setAppDetails({
-    appId: APP_ID,
-    appIconPath: packaged ? process.execPath : join(PAGES, "testimus.ico"),
-    relaunchCommand: packaged ? `"${process.execPath}"` : `"${process.execPath}" "${join(HERE, "main.mjs")}"`,
-    relaunchDisplayName: "Testimus",
-  });
+  if (process.platform === "win32")
+    w.setAppDetails({
+      appId: APP_ID,
+      appIconPath: packaged ? process.execPath : join(PAGES, "testimus.ico"),
+      relaunchCommand: packaged ? `"${process.execPath}"` : `"${process.execPath}" "${join(HERE, "main.mjs")}"`,
+      relaunchDisplayName: "Testimus",
+    });
   if (state.maximized) w.maximize();
   w.once("ready-to-show", () => w.show());
   w.on("close", (event) => {

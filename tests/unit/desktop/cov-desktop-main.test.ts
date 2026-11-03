@@ -393,12 +393,14 @@ describe("start", () => {
     expect(w.setMenuBarVisibility).toHaveBeenCalledWith(false);
     expect(e.app.setAppUserModelId).toHaveBeenCalledWith("Testimus");
     expect(w.opts.icon).toBe(join(DESKTOP, "pages", "logo.png"));
-    expect(w.setAppDetails).toHaveBeenCalledWith({
-      appId: "Testimus",
-      appIconPath: join(DESKTOP, "pages", "testimus.ico"),
-      relaunchCommand: `"${process.execPath}" "${join(DESKTOP, "main.mjs")}"`,
-      relaunchDisplayName: "Testimus",
-    });
+    if (process.platform === "win32")
+      expect(w.setAppDetails).toHaveBeenCalledWith({
+        appId: "Testimus",
+        appIconPath: join(DESKTOP, "pages", "testimus.ico"),
+        relaunchCommand: `"${process.execPath}" "${join(DESKTOP, "main.mjs")}"`,
+        relaunchDisplayName: "Testimus",
+      });
+    else expect(w.setAppDetails).not.toHaveBeenCalled();
     expect(w.maximize).toHaveBeenCalled();
     const [launch, env] = h.core.startCore.mock.calls[0] as [{ command: string; args: string[] }, NodeJS.ProcessEnv];
     expect(launch.command).toBe("C:\\node\\node.exe");
@@ -436,12 +438,14 @@ describe("start", () => {
     expect(launch.args).not.toContain("--mock");
     expect(env.NODE_USE_ENV_PROXY).toBe("1");
     expect(win().opts.backgroundColor).toBe("#0b0f0f");
-    expect(win().setAppDetails).toHaveBeenCalledWith({
-      appId: "Testimus",
-      appIconPath: process.execPath,
-      relaunchCommand: `"${process.execPath}"`,
-      relaunchDisplayName: "Testimus",
-    });
+    if (process.platform === "win32")
+      expect(win().setAppDetails).toHaveBeenCalledWith({
+        appId: "Testimus",
+        appIconPath: process.execPath,
+        relaunchCommand: `"${process.execPath}"`,
+        relaunchDisplayName: "Testimus",
+      });
+    else expect(win().setAppDetails).not.toHaveBeenCalled();
     const menu = e.Menu.setApplicationMenu.mock.calls[0][0] as { template: { submenu: { role?: string }[] }[] };
     expect(menu.template[1].submenu.some((i) => i.role === "toggleDevTools")).toBe(false);
     cores[0].ready({ url: `${ORIGIN}/`, origin: ORIGIN });
