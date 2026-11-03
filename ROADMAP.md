@@ -119,7 +119,9 @@ What 85 real runs showed (one « whole document » generation: 103 turns, 20 tes
 steps, 172 findings, `vague-result` first; `rag_related` never called):
 
 - [x] K1 `plan-tests` skill: on a large scope the generation may answer with a `test-plan` block instead of tests;
-      `gen.tests` then runs generate-tests once per planned test (at most 30), one revert for all (`planned` in the result)
+      `gen.tests` then runs generate-tests once per planned test (every one, three at a time), one revert for all
+      (`planned` in the result); a failed run stops the plan, what is left is in `skipped` and `remaining`, and
+      `gen.tests --resume <generation>` (the UI's Resume) writes it under the same generation and revert
 - [x] K2 `edit-test` skill for the Claude panel on a test or a step (`claude.run` names it), with `check_run` allowed
 - [x] K3 generate-tests: an expected result is observable on the screen (else left out), the test states its starting
       point, a chapter is not a scenario, every `check_run` finding fixed (`quote-weak` too), re-read with `tests_show`

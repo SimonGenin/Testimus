@@ -69,6 +69,7 @@ export function GenerateScreen() {
   const gen = useJob(jobId);
   const job: Job | null = gen.job;
   const result = job?.status === "done" ? ((job.result ?? null) as GenOutput | null) : null;
+  const stopped = job && job.status !== "running" ? ((job.result ?? null) as GenOutput | null) : null;
   const ids = landedIds(gen.events, result);
   const read = passagesRead(gen.events);
   const running = job?.status === "running";
@@ -193,6 +194,22 @@ export function GenerateScreen() {
       }
     } catch (e) {
       errorToast(e, "Could not start the generation");
+    } finally {
+      setStarting(false);
+    }
+  };
+
+  const resume = async (generation: string) => {
+    setStarting(true);
+    try {
+      const r = await call<{ jobId?: string }>("gen.tests", { resume: generation, model: runModel, effort: runEffort });
+      if (r?.jobId) {
+        chained.current = null;
+        setLanded({});
+        setJobId(r.jobId);
+      }
+    } catch (e) {
+      errorToast(e, "Could not resume the generation");
     } finally {
       setStarting(false);
     }
@@ -335,8 +352,10 @@ export function GenerateScreen() {
                   read={read}
                   count={ids.length}
                   doing={doing}
+                  left={starting || offline ? 0 : (stopped?.remaining ?? 0)}
                   onCancel={() => void cancel()}
                   onReview={() => app.navigate("review", ids[0])}
+                  onResume={() => stopped?.generation && void resume(stopped.generation)}
                 />
                 {result && <GenSummary result={result} checked={checkText} />}
                 {job?.status === "failed" && <p>{job.error}</p>}

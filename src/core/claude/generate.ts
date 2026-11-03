@@ -2,17 +2,17 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { Ctx } from "../command.ts";
 import { UserError } from "../command.ts";
-import { env } from "../env.ts";
+import { env, gate } from "../env.ts";
 import { loadCorpus, runMechanical } from "../lib/check.ts";
 import { columnGuidance } from "../lib/columns.ts";
 import { readDocMd } from "../lib/docs.ts";
-import { fieldOrder, readProject, readXray, writeJson } from "../lib/project.ts";
+import { fieldOrder, readJson, readProject, readXray, writeJson } from "../lib/project.ts";
 import { listLocalTests, markGenerated, readTest, removeTest, testExists, writeTest } from "../lib/store.ts";
 import { anchorsOf } from "../rag/convert.ts";
 import { awaitsReview, type ClaudeEvent, type Diagnosis, type Effort, type Tokens } from "../types.ts";
 import { proposeLines } from "./actions.ts";
 import { checkTests, promoteChecked } from "./check.ts";
-import { ledgerOf } from "./ledger.ts";
+import { ledgerOf, type Searched } from "./ledger.ts";
 import { contextLines, readContexts } from "./prompt.ts";
 import { newRunId, type RunResult, runClaude } from "./run.ts";
 import { absorbRun, markLeft, readRun } from "./snapshot.ts";
@@ -24,7 +24,8 @@ export const PLAN_MARKER = "use the plan-tests skill";
 // ponytail: past this many sections in scope, one run reads the whole scope once and writes every test from
 // memory (2026-11-03: 20 tests, one of 40 steps, 172 findings); a plan, then one run per test, re-reads each part
 export const PLAN_ABOVE = 15;
-export const PLAN_MAX = 30;
+// ponytail: the planned tests are written this many at a time, like the check — the same total, a third of the wait
+export const PLAN_PARALLEL = 3;
 
 const LANGUAGES: Record<string, string> = {
   fr: "French",
@@ -49,6 +50,7 @@ export type GenInput = {
   contexts?: string[];
   note?: string;
   discard?: boolean;
+  resume?: string;
 };
 
 export type Skipped = { item: string; why: string };
@@ -76,6 +78,8 @@ export type GenResult = {
   reportFound: boolean;
   consulted: number;
   planned: number;
+  generation: string;
+  remaining: number;
   costUsd?: number;
   tokens?: Tokens;
   durationMs: number;
@@ -341,47 +345,98 @@ async function genRun(
 
 const union = (xs: string[][]) => [...new Set(xs.flat())];
 
-export async function generateTests(project: string, input: GenInput, ctx: Ctx): Promise<GenResult> {
-  checkGenInput(input, project);
+type Prior = {
+  input: GenInput;
+  runId: string;
+  tests: string[];
+  consulted: string[];
+  searched: Searched[];
+  plan: TestPlan;
+  done: number[];
+};
+
+const ledgerPath = (project: string, by: string) => join(project, ".testimus", "gen", `${by}.json`);
+
+export function readPrior(project: string, generation: string): Prior {
+  const l = /^[\w.-]+$/.test(generation)
+    ? readJson<Partial<Prior> | null>(ledgerPath(project, generation), null)
+    : null;
+  if (!l?.input || !l.runId || !l.plan?.tests?.length)
+    throw new UserError(
+      `No plan to resume under ${generation}.`,
+      "Only a generation written from a plan can be resumed: its result names it (generation).",
+    );
+  return {
+    input: l.input,
+    runId: l.runId,
+    tests: l.tests ?? [],
+    consulted: l.consulted ?? [],
+    searched: l.searched ?? [],
+    plan: l.plan,
+    done: l.done ?? [],
+  };
+}
+
+export async function generateTests(project: string, asked: GenInput, ctx: Ctx): Promise<GenResult> {
+  const prior = asked.resume?.trim() ? readPrior(project, asked.resume.trim()) : null;
+  const input = prior
+    ? { ...prior.input, model: asked.model || prior.input.model, effort: asked.effort || prior.input.effort }
+    : asked;
+  if (!prior) checkGenInput(input, project);
   const p = readProject(project);
-  const discarded = input.discard ? discardable(project) : [];
+  const discarded = input.discard && !prior ? discardable(project) : [];
   for (const id of discarded) removeTest(project, id);
   if (discarded.length)
     ctx.log("info", `Deleted ${discarded.length} test(s) not validated yet: ${discarded.join(", ")}.`);
   const contexts = input.contexts ?? p.claude.contexts;
   ctx.progress({ message: "Reading passages" });
-  const runId = newRunId();
-  const by = ctx.jobId ?? runId;
-  const first = await genRun(ctx, project, input, {
-    runId,
-    by,
-    contexts,
-    prompt: genPrompt(project, input, contexts, runId),
-    label: "generate",
-  });
-  const runs = [first];
-  const plan = first.tests.length || !first.run.ok ? null : parsePlan(first.run.summary);
-  const todo = plan?.found ? plan.tests.slice(0, PLAN_MAX) : [];
-  if (plan && plan.tests.length > todo.length)
-    ctx.log("warn", `The plan has ${plan.tests.length} tests; only the first ${PLAN_MAX} are written.`);
-  if (todo.length) ctx.log("info", `Plan: ${todo.length} test(s), written one run each.`);
-  for (const [k, t] of todo.entries()) {
-    if (ctx.signal.aborted) break;
-    ctx.progress({ message: `Test ${k + 1} of ${todo.length}: ${t.summary}`, done: k, total: todo.length });
-    const id = newRunId();
-    const part = plannedInput(input, t);
-    const r = await genRun(ctx, project, part, {
-      runId: id,
-      by,
-      contexts,
-      prompt: genPrompt(project, part, contexts, id, { n: k + 1, of: todo.length, request: input.request.trim() }),
-      label: `generate ${k + 1}/${todo.length}`,
-    });
-    absorbRun(project, runId, id);
-    runs.push(r);
-    if (!r.run.ok) break;
-  }
-  const planned = runs.slice(1);
+  const runId = prior?.runId ?? newRunId();
+  const by = asked.resume?.trim() || ctx.jobId || runId;
+  const first = prior
+    ? null
+    : await genRun(ctx, project, input, {
+        runId,
+        by,
+        contexts,
+        prompt: genPrompt(project, input, contexts, runId),
+        label: "generate",
+      });
+  const plan = prior?.plan ?? (first && !first.tests.length && first.run.ok ? parsePlan(first.run.summary) : null);
+  const of = plan?.found ? plan.tests.length : 0;
+  const done = new Set(prior?.done ?? []);
+  const todo = plan?.found ? plan.tests.map((t, k) => ({ t, k })).filter(({ k }) => !done.has(k)) : [];
+  if (prior) ctx.log("info", `Resuming the plan: ${todo.length} of ${of} test(s) left.`);
+  else if (todo.length) ctx.log("info", `Plan: ${of} test(s), one run each, ${PLAN_PARALLEL} at a time.`);
+  const slot = gate(PLAN_PARALLEL);
+  let finished = 0;
+  let stop = false;
+  // ponytail: a failed run stops the runs not started yet (a credit or login failure would fail them all); a planned
+  // test counts as written once its run wrote a test, so a resume never writes it twice
+  const parts = await Promise.all(
+    todo.map(({ t, k }) =>
+      slot(async () => {
+        if (stop || ctx.signal.aborted) return null;
+        ctx.progress({ message: `Test ${k + 1} of ${of}: ${t.summary}`, done: finished, total: todo.length });
+        const id = newRunId();
+        const part = plannedInput(input, t);
+        const r = await genRun(ctx, project, part, {
+          runId: id,
+          by,
+          contexts,
+          prompt: genPrompt(project, part, contexts, id, { n: k + 1, of, request: input.request.trim() }),
+          label: `generate ${k + 1}/${of}`,
+        });
+        absorbRun(project, runId, id);
+        finished++;
+        if (r.run.ok || r.tests.length) done.add(k);
+        if (!r.run.ok) stop = true;
+        return r;
+      }),
+    ),
+  );
+  const planned = parts.filter((r): r is GenRun => !!r);
+  const runs = first ? [first, ...planned] : planned;
+  const left = plan?.found ? plan.tests.filter((_, k) => !done.has(k)) : [];
   const tests = union(runs.map((r) => r.tests));
   const changed = union(runs.map((r) => r.changed));
   // ponytail: the evidence ledger is on disk before the new tests are checked, so their first check already
@@ -390,15 +445,16 @@ export async function generateTests(project: string, input: GenInput, ctx: Ctx):
     project,
     runs.flatMap((r) => r.run.calls),
   );
-  const ledgerFile = join(project, ".testimus", "gen", `${by}.json`);
-  writeJson(ledgerFile, {
-    at: env.now().toISOString(),
-    input,
-    runId,
-    tests,
-    consulted: ledger.consulted,
-    searched: ledger.searched,
-  });
+  const consulted = union([prior?.consulted ?? [], ledger.consulted]);
+  const searched = [...(prior?.searched ?? []), ...ledger.searched];
+  const kept = {
+    tests: union([prior?.tests ?? [], tests]),
+    consulted,
+    searched,
+    ...(plan?.found ? { plan, done: [...done].sort((a, b) => a - b) } : {}),
+  };
+  const ledgerFile = ledgerPath(project, by);
+  writeJson(ledgerFile, { at: env.now().toISOString(), input, runId, ...kept });
   for (const id of tests) stampTest(project, id, by, input.folder?.trim() || undefined);
   const checks: GenCheck[] = [];
   if (tests.length && input.check !== false && !ctx.signal.aborted) {
@@ -420,11 +476,14 @@ export async function generateTests(project: string, input: GenInput, ctx: Ctx):
   markLeft(project, runId, tests);
   for (const id of tests) markGenerated(project, id);
   for (const id of changed) ctx.log("warn", `The generation changed the existing test ${id} — revert with ${runId}.`);
-  const reports = planned.length ? planned.map((r) => r.report) : [first.report];
+  const reports = planned.length || !first ? planned.map((r) => r.report) : [first.report];
   const reportFound = reports.every((r) => r.found);
   const failed = runs.find((r) => !r.run.ok)?.run;
   if (!reportFound && !failed) ctx.log("warn", "The generation reply has no gen-report block: skipped items unknown.");
   if (failed) ctx.log("error", failed.summary);
+  if (left.length)
+    ctx.log("warn", `${left.length} planned test(s) not written — resume with gen.tests --resume ${by}.`);
+  const why = `not written: the generation ${ctx.signal.aborted ? "was cancelled" : "stopped on a failed run"} — resume it`;
   const sum = (f: (r: RunResult) => number | undefined) =>
     runs.some((r) => f(r.run) !== undefined) ? runs.reduce((a, r) => a + (f(r.run) ?? 0), 0) : undefined;
   const tokensIn = sum((r) => r.tokens?.input);
@@ -434,17 +493,24 @@ export async function generateTests(project: string, input: GenInput, ctx: Ctx):
   const result: GenResult = {
     runId,
     ok: !failed,
-    summary: planned.length
-      ? [`Plan: ${todo.length} test(s).`, ...planned.map((r) => r.run.summary)].join("\n\n")
-      : first.run.summary,
+    summary:
+      planned.length || !first
+        ? [`Plan: ${of} test(s).`, ...planned.map((r) => r.run.summary)].join("\n\n")
+        : first.run.summary,
     tests,
     checks,
     changed,
     discarded,
-    skipped: [...(plan?.skipped ?? []), ...reports.flatMap((r) => r.skipped)],
+    skipped: [
+      ...(first ? (plan?.skipped ?? []) : []),
+      ...reports.flatMap((r) => r.skipped),
+      ...left.map((t) => ({ item: t.summary, why })),
+    ],
     reportFound,
-    consulted: ledger.consulted.length,
+    consulted: consulted.length,
     planned: planned.length,
+    generation: by,
+    remaining: left.length,
     ...(costUsd !== undefined ? { costUsd } : {}),
     ...(tokensIn !== undefined && output !== undefined ? { tokens: { input: tokensIn, output } } : {}),
     durationMs: runs.reduce((a, r) => a + r.run.durationMs, 0),
@@ -454,8 +520,7 @@ export async function generateTests(project: string, input: GenInput, ctx: Ctx):
     at: env.now().toISOString(),
     input,
     ...result,
-    consulted: ledger.consulted,
-    searched: ledger.searched,
+    ...kept,
     reportedConsulted: union(reports.map((r) => r.consulted)),
   });
   ctx.progress({ message: `${tests.length} test(s) written`, done: tests.length, total: tests.length });

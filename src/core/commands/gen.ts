@@ -61,6 +61,12 @@ export const commands: Command[] = [
         .describe(
           "Delete first the generated tests not validated yet (the review queue, except tests already in Jira): the new generation replaces them; this cannot be reverted",
         ),
+      resume: z
+        .string()
+        .optional()
+        .describe(
+          "Resume a planned generation that stopped (cancelled, or a failed run): its generation id; the planned tests not written yet are written with its request and scope, the other inputs but model and effort are ignored",
+        ),
     }),
     output: z.object({
       runId: z.string().describe("Claude run id — claude.revert removes the tests it wrote"),
@@ -92,8 +98,16 @@ export const commands: Command[] = [
       planned: z
         .number()
         .describe(
-          "Tests written from a plan (plan-tests skill), one Claude run each, when the scope was too large for one run; 0 otherwise",
+          "Tests written from a plan (plan-tests skill), one Claude run each, three at a time, when the scope was too large for one run; 0 otherwise",
         ),
+      generation: z
+        .string()
+        .describe(
+          "The generation id: generated_by of its tests, its ledger .testimus/gen/<id>.json, what resume takes",
+        ),
+      remaining: z
+        .number()
+        .describe("Planned tests not written (cancelled, or a failed run), also listed in skipped: resume writes them"),
       costUsd: z.number().optional(),
       tokens: z
         .object({ input: z.number(), output: z.number() })

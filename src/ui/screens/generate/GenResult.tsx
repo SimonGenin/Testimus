@@ -20,6 +20,8 @@ export type GenOutput = {
   reportFound: boolean;
   durationMs: number;
   diagnosis?: { kind: string; title: string; detail: string };
+  generation?: string;
+  remaining?: number;
 };
 
 export type Landed = { id: string; test?: Test; ref?: LocalTestRef; check?: CheckFile | null };
@@ -171,8 +173,10 @@ export function RunHead({
   read,
   count,
   doing,
+  left = 0,
   onCancel,
   onReview,
+  onResume,
 }: {
   job: Job | null;
   now: number;
@@ -180,8 +184,10 @@ export function RunHead({
   read: number;
   count: number;
   doing: string;
+  left?: number;
   onCancel: () => void;
   onReview: () => void;
+  onResume?: () => void;
 }) {
   if (!job) return null;
   if (job.status === "running")
@@ -225,6 +231,11 @@ export function RunHead({
         <Severity tone="error">{result?.diagnosis?.title ?? "The generation stopped"}</Severity>
       )}
       <span className="spacer" />
+      {left > 0 && onResume && (
+        <Button tone="primary" icon="generate" onClick={onResume}>
+          Resume · {plural(left, "test")} left
+        </Button>
+      )}
       {count > 0 && (
         <Button icon="right" onClick={onReview}>
           Review these tests

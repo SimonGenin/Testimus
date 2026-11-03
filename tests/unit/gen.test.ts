@@ -11,6 +11,7 @@ import {
   parsePlan,
   plannedInput,
   REPORT_TAG,
+  type Skipped,
   toolStep,
 } from "../../src/core/claude/generate.ts";
 import { invoke } from "../../src/core/commands/index.ts";
@@ -334,6 +335,105 @@ describe("planned generation", () => {
     expect(r.planned).toBe(0);
     expect(r.tests).toEqual([]);
     expect(r.reportFound).toBe(false);
+  });
+
+  const planOf = (n: number) => ({
+    tests: Array.from({ length: n }, (_, k) => ({ summary: `Bouton ${k + 1}`, sections: ["BIG_DOC#§1"] })),
+  });
+  const idOf = (n: number) => `local-${String(n).padStart(8, "0")}`;
+  const nthOf = (s: ClaudeSpawn) => Number(s.stdin.match(/This is test (\d+) of/)?.[1] ?? 0);
+
+  function planned(n: number, fails: (k: number) => boolean = () => false) {
+    let active = 0;
+    const most = { n: 0 };
+    env.spawnClaude = async (s): Promise<ClaudeOut> => {
+      seen.push(s);
+      const k = nthOf(s);
+      if (!k) {
+        const l = result(`Plan.\n\`\`\`${PLAN_TAG}\n${JSON.stringify(planOf(n))}\n\`\`\``);
+        s.onLine?.(l);
+        return { code: 0, stdout: `${l}\n`, stderr: "" };
+      }
+      if (fails(k)) {
+        const l = line({ type: "result", subtype: "success", is_error: true, result: "Claude AI usage limit reached" });
+        s.onLine?.(l);
+        return { code: 1, stdout: `${l}\n`, stderr: "" };
+      }
+      active++;
+      most.n = Math.max(most.n, active);
+      await new Promise((r) => setTimeout(r, 20));
+      active--;
+      const id = idOf(k);
+      mkdirSync(join(s.cwd, "tests", id), { recursive: true });
+      writeFileSync(join(s.cwd, "tests", id, "test.md"), NEW_MD);
+      const ls = [
+        tool("Write", { file_path: join(s.cwd, "tests", id, "test.md"), content: "…" }),
+        result(`\`\`\`gen-report\n${JSON.stringify({ tests: [id], skipped: [] })}\n\`\`\``),
+      ];
+      for (const l of ls) s.onLine?.(l);
+      return { code: 0, stdout: `${ls.join("\n")}\n`, stderr: "" };
+    };
+    return most;
+  }
+
+  it("writes every planned test, however many, three runs at a time", async () => {
+    bigDoc();
+    const most = planned(35);
+    const r = (await invoke(
+      "gen.tests",
+      { request: "Tout le document", docs: ["BIG_DOC"], check: false },
+      { project: dir },
+    )) as { ok: boolean; planned: number; tests: string[]; remaining: number; summary: string };
+    expect(r.ok).toBe(true);
+    expect(r.planned).toBe(35);
+    expect(r.tests).toHaveLength(35);
+    expect(r.remaining).toBe(0);
+    expect(most.n).toBe(3);
+    expect(seen.some((s) => s.stdin.includes("This is test 35 of 35"))).toBe(true);
+    expect(r.summary.startsWith("Plan: 35 test(s).")).toBe(true);
+  });
+
+  it("a failed run stops the plan; what is left is skipped, and a resume writes it under the same generation", async () => {
+    bigDoc();
+    planned(5, (k) => k === 2);
+    const r = (await invoke(
+      "gen.tests",
+      { request: "Tout le document", docs: ["BIG_DOC"], check: false },
+      { project: dir },
+    )) as { ok: boolean; runId: string; generation: string; tests: string[]; remaining: number; skipped: Skipped[] };
+    expect(r.ok).toBe(false);
+    expect([...r.tests].sort()).toEqual([idOf(1), idOf(3)]);
+    expect(r.remaining).toBe(3);
+    expect(r.skipped.map((s) => s.item)).toEqual(["Bouton 2", "Bouton 4", "Bouton 5"]);
+    expect(r.skipped[0].why).toContain("stopped on a failed run");
+    const ledger = readJson<{ done: number[]; plan: { tests: unknown[] } }>(
+      join(dir, ".testimus", "gen", `${r.generation}.json`),
+      { done: [], plan: { tests: [] } },
+    );
+    expect(ledger.done).toEqual([0, 2]);
+    expect(ledger.plan.tests).toHaveLength(5);
+
+    seen = [];
+    planned(5);
+    const again = (await invoke("gen.tests", { resume: r.generation, check: false }, { project: dir })) as {
+      ok: boolean;
+      generation: string;
+      tests: string[];
+      remaining: number;
+      planned: number;
+    };
+    expect(seen.map(nthOf)).toEqual([2, 4, 5]);
+    expect(seen[0].stdin).toContain("This is test 2 of 5 of a plan for: Tout le document.");
+    expect(again).toMatchObject({ ok: true, generation: r.generation, remaining: 0, planned: 3 });
+    expect([...again.tests].sort()).toEqual([idOf(2), idOf(4), idOf(5)]);
+    for (const k of [1, 2, 3, 4, 5]) expect(readTest(dir, idOf(k)).test.generatedBy).toBe(r.generation);
+    expect(
+      readJson<{ tests: string[] }>(join(dir, ".testimus", "gen", `${r.generation}.json`), { tests: [] }).tests.sort(),
+    ).toEqual([1, 2, 3, 4, 5].map(idOf));
+
+    const rev = (await invoke("claude.revert", { runId: r.runId }, { project: dir })) as { reverted: string[] };
+    expect([...rev.reverted].sort()).toEqual([1, 2, 3, 4, 5].map(idOf));
+    await expect(invoke("gen.tests", { resume: "nope" }, { project: dir })).rejects.toThrow(/No plan to resume/);
   });
 });
 
