@@ -43,7 +43,7 @@ export function PassageDialog({
           {p ? `${p.doc.code} · v${p.doc.version}` : source.docId} · {source.anchor}
         </span>
       }
-      width={640}
+      width={900}
       className="passage"
       onClose={onClose}
       foot={
