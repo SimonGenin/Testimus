@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import type { Block, ColumnModes, Source, Step, StepImage, XrayJson } from "../../../core/types.ts";
 import { Button, ClaudeBadge, Icon, IconButton, SourceChip } from "../../components/ui/index.ts";
 import { hasRawEmbed, imageRef, leafBlocks } from "../../lib/blocks.ts";
@@ -124,12 +124,10 @@ export function StepCard({
   const [armed, setArmed] = useState(false);
   const [folds, setFolds] = useState<Record<string, boolean>>({});
   const [wasOpen, setWasOpen] = useState(false);
-  const picker = useRef<HTMLInputElement>(null);
   const n = index + 1;
   const cols = columnsOf(xray, step);
   const val = (name: string) => step.fields[name] ?? "";
   const unreadable = hasRawEmbed(step);
-  const target = cols.find((c) => c.name === "Expected Result")?.name ?? cols[0]?.name ?? "Action";
   const pModes = projectModes ?? modesOf(xray);
   const isOpen = (c: Column) => folds[c.name] ?? openByDefault(modeOf(c, pModes, testModes), val(c.name));
   const shown = cols.filter(isOpen);
@@ -477,17 +475,6 @@ export function StepCard({
               <Button
                 tone="quiet"
                 size="sm"
-                icon="image"
-                className="step-shot"
-                title="Add screenshot"
-                aria-label={`Add a screenshot to step ${n}`}
-                onClick={() => picker.current?.click()}
-              >
-                <span className="step-tool-word">Add screenshot</span>
-              </Button>
-              <Button
-                tone="quiet"
-                size="sm"
                 icon="plus"
                 className="step-insert"
                 title="Insert below (Ctrl+Enter)"
@@ -522,18 +509,6 @@ export function StepCard({
           )}
           <IconButton icon="up" className="step-fold" label={`Fold step ${n}`} onClick={() => onFold?.(true)} />
         </div>
-        <input
-          ref={picker}
-          type="file"
-          accept="image/*"
-          multiple
-          hidden
-          aria-label={`Add screenshots to step ${n}`}
-          onChange={(e) => {
-            void addFiles(target, val(target).length, Array.from(e.target.files ?? []));
-            e.target.value = "";
-          }}
-        />
       </div>
       {wasOpen && before && (
         <WasView

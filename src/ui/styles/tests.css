@@ -397,12 +397,6 @@
   display: none;
 }
 
-@container (max-width: 640px) {
-  .step-shot .step-tool-word {
-    display: none;
-  }
-}
-
 @container (max-width: 520px) {
   .step-tool-word {
     display: none;
