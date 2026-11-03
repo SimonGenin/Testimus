@@ -159,7 +159,6 @@ describe("DocDetail", () => {
     md: "",
     ...over,
   });
-  const docs = [doc("D1"), doc("D2"), doc("D3")];
   afterEach(() => setTraces(null));
   const show = (anchor = "", over: Record<string, unknown> = {}) => {
     const onAnchor = vi.fn();
@@ -179,9 +178,7 @@ describe("DocDetail", () => {
     ]);
     api.routes["traces.find"] = () => ({ items: [{ id: "EXI_1", doc: "D1", anchor: "§5", context: "" }] });
     api.routes["docs.show"] = (i) => (i.anchor ? { md: `Part ${i.anchor} EXI_1` } : shown(over));
-    mount(
-      <DocDetail id="D1" anchor={anchor} docs={docs} onAnchor={onAnchor} onChanged={onChanged} onRemoved={onRemoved} />,
-    );
+    mount(<DocDetail id="D1" anchor={anchor} onAnchor={onAnchor} onChanged={onChanged} onRemoved={onRemoved} />);
     return { onAnchor, onChanged, onRemoved };
   };
 
@@ -239,18 +236,18 @@ describe("DocDetail", () => {
       if (i.anchor) throw new Error("no such anchor");
       return shown();
     };
-    mount(<DocDetail id="D1" anchor="§9" docs={docs} onAnchor={vi.fn()} onChanged={vi.fn()} onRemoved={vi.fn()} />);
+    mount(<DocDetail id="D1" anchor="§9" onAnchor={vi.fn()} onChanged={vi.fn()} onRemoved={vi.fn()} />);
     expect(await screen.findByText("no such anchor")).toBeInTheDocument();
     cleanup();
     delete api.routes["docs.show"];
-    mount(<DocDetail id="DX" anchor="" docs={docs} onAnchor={vi.fn()} onChanged={vi.fn()} onRemoved={vi.fn()} />);
+    mount(<DocDetail id="DX" anchor="" onAnchor={vi.fn()} onChanged={vi.fn()} onRemoved={vi.fn()} />);
     expect(screen.getByRole("complementary", { name: "DX details" })).toHaveAttribute("aria-busy", "true");
     expect(await screen.findByText("This document could not be opened")).toBeInTheDocument();
     expect(screen.getByText("Unknown command docs.show")).toBeInTheDocument();
   });
 
-  it("saves status, amends and the context", async () => {
-    let saved = doc("D1", { amends: ["D2"] });
+  it("saves the status and the context", async () => {
+    let saved = doc("D1");
     api.routes["docs.set"] = (i) => {
       saved = { ...saved, ...(i as Partial<DocRef>) };
       return saved;
@@ -267,26 +264,17 @@ describe("DocDetail", () => {
     expect(screen.queryByLabelText("Superseded by")).toBeNull();
     fireEvent.change(st, { target: { value: "draft" } });
     await waitFor(() => expect(named("docs.set")[0]?.input).toEqual({ id: "D1", status: "draft" }));
-    fireEvent.click(screen.getByRole("button", { name: "Add a document" }));
-    fireEvent.click(
-      within(screen.getByRole("menu", { name: "Documents this one amends" })).getByRole("menuitem", {
-        name: "C-D3 Title D3",
-      }),
-    );
-    await waitFor(() => expect(named("docs.set")[1]?.input).toEqual({ id: "D1", amends: ["D2", "D3"] }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Add a document" })).toBeDisabled());
-    fireEvent.click(screen.getByRole("button", { name: "Remove D2" }));
-    await waitFor(() => expect(named("docs.set")[2]?.input).toEqual({ id: "D1", amends: ["D3"] }));
+    expect(screen.queryByText("Amends")).toBeNull();
     const ctx = screen.getByLabelText(/Context — what the team knows/);
     fireEvent.blur(ctx);
-    expect(named("docs.set")).toHaveLength(3);
+    expect(named("docs.set")).toHaveLength(1);
     fireEvent.change(ctx, { target: { value: "new note" } });
     fireEvent.blur(ctx);
     expect(await screen.findByText("Context saved")).toBeInTheDocument();
-    expect(named("docs.set")[3]?.input).toEqual({ id: "D1", context: "new note" });
+    expect(named("docs.set")[1]?.input).toEqual({ id: "D1", context: "new note" });
     fireEvent.blur(ctx);
-    expect(named("docs.set")).toHaveLength(4);
-    expect(onChanged).toHaveBeenCalledTimes(4);
+    expect(named("docs.set")).toHaveLength(2);
+    expect(onChanged).toHaveBeenCalledTimes(2);
   });
 
   it("⋯ › Delete asks, then removes the document; Cancel and a failure leave it", async () => {
@@ -418,7 +406,7 @@ describe("DocDetail", () => {
       }),
     );
     const { unmount } = render(
-      <DocDetail id="D1" anchor="" docs={docs} onAnchor={vi.fn()} onChanged={vi.fn()} onRemoved={vi.fn()} />,
+      <DocDetail id="D1" anchor="" onAnchor={vi.fn()} onChanged={vi.fn()} onRemoved={vi.fn()} />,
     );
     unmount();
     release();
@@ -455,9 +443,7 @@ describe("DocDetail with tracked ids", () => {
       };
     };
     const onAnchor = vi.fn();
-    mount(
-      <DocDetail id="D1" anchor="§9" docs={[doc("D1")]} onAnchor={onAnchor} onChanged={vi.fn()} onRemoved={vi.fn()} />,
-    );
+    mount(<DocDetail id="D1" anchor="§9" onAnchor={onAnchor} onChanged={vi.fn()} onRemoved={vi.fn()} />);
     expect(await screen.findByText("Requirement ids (2)")).toBeInTheDocument();
     expect(screen.getByText("Alarm ids (1)")).toBeInTheDocument();
     expect(screen.queryByText(/Use case ids/)).toBeNull();
@@ -476,9 +462,7 @@ describe("DocDetail with tracked ids", () => {
   it("a project that tracks no requirement shows no requirement chips in the text", async () => {
     setTraces([]);
     api.routes["docs.show"] = (i) => (i.anchor ? { md: "Texte EXI_1" } : shown());
-    mount(
-      <DocDetail id="D1" anchor="" docs={[doc("D1")]} onAnchor={vi.fn()} onChanged={vi.fn()} onRemoved={vi.fn()} />,
-    );
+    mount(<DocDetail id="D1" anchor="" onAnchor={vi.fn()} onChanged={vi.fn()} onRemoved={vi.fn()} />);
     expect(await screen.findByText("Texte EXI_1")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "EXI_1" })).toBeNull();
     expect(screen.queryByText(/ids \(/)).toBeNull();
@@ -501,7 +485,7 @@ describe("DocDetail with tracked ids", () => {
       }),
     );
     const { unmount } = render(
-      <DocDetail id="D1" anchor="" docs={[]} onAnchor={vi.fn()} onChanged={vi.fn()} onRemoved={vi.fn()} />,
+      <DocDetail id="D1" anchor="" onAnchor={vi.fn()} onChanged={vi.fn()} onRemoved={vi.fn()} />,
     );
     unmount();
     release();

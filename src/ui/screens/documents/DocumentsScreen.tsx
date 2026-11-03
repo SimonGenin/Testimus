@@ -308,7 +308,6 @@ export function DocumentsScreen() {
                 id={activeId}
                 anchor={anchor}
                 quote={quote}
-                docs={docs ?? []}
                 onAnchor={(a) => app.navigate("documents", `${activeId}#${a}`)}
                 onChanged={changed}
                 onRemoved={() => {

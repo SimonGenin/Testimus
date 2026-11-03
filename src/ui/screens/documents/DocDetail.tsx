@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { DocJson, DocRef, FigureEntry, TraceItem, TraceScan, TraceView } from "../../../core/types.ts";
+import type { DocJson, FigureEntry, TraceItem, TraceScan, TraceView } from "../../../core/types.ts";
 import { call, project } from "../../api.ts";
 import { ActionButton } from "../../components/claude/ActionButton.tsx";
 import { ActionCount } from "../../components/claude/ActionCount.tsx";
-import { Button, Chip, Icon, IconButton, Menu, Severity, Skeleton } from "../../components/ui/index.ts";
+import { Button, Icon, IconButton, Menu, Severity, Skeleton } from "../../components/ui/index.ts";
 import { forProblem, useActions } from "../../lib/actions.ts";
 import { desktop, pathJoin, reveal } from "../../lib/desktop.ts";
 import { message, plural } from "../../lib/format.ts";
@@ -39,7 +39,6 @@ export function DocDetail({
   id,
   anchor,
   quote = "",
-  docs,
   onAnchor,
   onChanged,
   onRemoved,
@@ -47,7 +46,6 @@ export function DocDetail({
   id: string;
   anchor: string;
   quote?: string;
-  docs: DocRef[];
   onAnchor: (anchor: string) => void;
   onChanged: () => void;
   onRemoved: () => void;
@@ -175,8 +173,6 @@ export function DocDetail({
     );
 
   const d = shown.doc;
-  const others = docs.filter((x) => x.id !== id);
-  const amends = d.amends ?? [];
   const from = d.source.file?.endsWith(".pdf") ? "PDF" : "Word";
   return (
     <aside className="split-side docdetail" aria-label={`${d.code} details`}>
@@ -244,43 +240,6 @@ export function DocDetail({
               </option>
             ))}
           </select>
-        </div>
-        <div className="formfield">
-          <span className="label">Amends</span>
-          <div className="chips">
-            {amends.map((a) => (
-              <Chip
-                key={a}
-                onRemove={() => void set({ amends: amends.filter((x) => x !== a) })}
-                removeLabel={`Remove ${a}`}
-              >
-                <span className="mono">{a}</span>
-              </Chip>
-            ))}
-            <Menu
-              label="Documents this one amends"
-              trigger={({ open, toggle, id: mid }) => (
-                <Button
-                  tone="quiet"
-                  size="sm"
-                  icon="plus"
-                  aria-expanded={open}
-                  aria-controls={mid}
-                  disabled={!others.some((o) => !amends.includes(o.id))}
-                  onClick={toggle}
-                >
-                  Add a document
-                </Button>
-              )}
-              items={others
-                .filter((o) => !amends.includes(o.id))
-                .map((o) => ({
-                  key: o.id,
-                  label: `${o.code} ${o.title}`,
-                  onSelect: () => void set({ amends: [...amends, o.id] }),
-                }))}
-            />
-          </div>
         </div>
       </div>
 
