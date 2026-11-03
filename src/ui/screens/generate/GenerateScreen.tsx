@@ -1,14 +1,5 @@
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
-import {
-  awaitsReview,
-  type CheckFile,
-  type DocRef,
-  type Effort,
-  type Job,
-  type LocalTestRef,
-  type StepColumn,
-  type Test,
-} from "../../../core/types.ts";
+import type { CheckFile, DocRef, Effort, Job, LocalTestRef, StepColumn, Test } from "../../../core/types.ts";
 import { call } from "../../api.ts";
 import { AdditionalContext } from "../../components/claude/AdditionalContext.tsx";
 import { ClaudeActivity } from "../../components/claude/ClaudeActivity.tsx";
@@ -240,11 +231,12 @@ export function GenerateScreen() {
     }
   };
 
-  // ponytail: a new generation replaces Claude's tests still waiting in review — the same rule as gen.tests discard
+  // ponytail: a new generation replaces Claude's tests still waiting in review — gen.preview says which
   const askThenGenerate = async () => {
     if (empty) return;
-    const refs = await call<LocalTestRef[]>("tests.list", {}).catch(() => [] as LocalTestRef[]);
-    const ids = refs.filter((t) => awaitsReview(t) && !t.key).map((t) => t.id);
+    const ids = await call<{ replaces: string[] }>("gen.preview", { docs: scope.docs, sections: scope.sections })
+      .then((r) => r?.replaces ?? [])
+      .catch(() => [] as string[]);
     if (ids.length) setReplacing(ids);
     else void generate();
   };

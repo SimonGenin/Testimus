@@ -33,7 +33,14 @@ const mine = registry.filter((c) => (GROUPS.has(c.name.split(".")[0]) || ALSO.ha
 describe("the commands that start Claude describe every field (GOAL-V3 N1)", () => {
   it("covers the zone's commands", () => {
     expect(mine.map((c) => c.name)).toEqual(
-      expect.arrayContaining(["claude.run", "chat.ask", "check.run", "gen.tests", "review.fix", "actions.triageFailed"]),
+      expect.arrayContaining([
+        "claude.run",
+        "chat.ask",
+        "check.run",
+        "gen.tests",
+        "review.fix",
+        "actions.triageFailed",
+      ]),
     );
   });
 

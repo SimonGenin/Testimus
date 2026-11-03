@@ -2,7 +2,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 import { describeFigures } from "../claude/figures.ts";
-import { generateTests } from "../claude/generate.ts";
+import { discardable, generateTests, scopeIndex } from "../claude/generate.ts";
 import { CONTEXT_IDS, DIAGNOSIS, EFFORT, MODEL, NOTE, TOKENS } from "../claude/schemas.ts";
 import { command, projectOf } from "../command.ts";
 
@@ -110,6 +110,30 @@ export const commands = [
     },
     async run(ctx, input) {
       return await generateTests(projectOf(ctx), input, ctx);
+    },
+  }),
+  command({
+    name: "gen.preview",
+    summary:
+      "What gen.tests would do with this scope, before it runs: the tests it would replace with discard (Claude's tests still awaiting review, never one pushed to Jira), and the documents in scope that are not indexed (gen.tests refuses them) or changed since their last index (it warns).",
+    input: z.object({
+      docs: z.array(z.string()).optional().describe("Documents in scope as a whole, by id (as for gen.tests)"),
+      sections: z.array(z.string()).optional().describe("Document sections in scope, docId#§x.y (as for gen.tests)"),
+    }),
+    output: z.object({
+      replaces: z
+        .array(z.string())
+        .describe("The tests discard: true would delete first — generated, not validated, not in Jira"),
+      searched: z.array(z.string()).describe("The converted documents the generation would search"),
+      unindexed: z
+        .array(z.string())
+        .describe("Documents in scope search cannot find: gen.tests refuses until reindexed"),
+      stale: z.array(z.string()).describe("Documents in scope changed since their last index: gen.tests warns"),
+    }),
+    mutates: false,
+    async run(ctx, input) {
+      const project = projectOf(ctx);
+      return { replaces: discardable(project), ...scopeIndex(project, input) };
     },
   }),
   command({

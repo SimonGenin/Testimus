@@ -114,15 +114,26 @@ export function checkGenInput(i: GenInput, project?: string): void {
 
 // ponytail: a document search cannot find gives tests without sources, so the run is refused; one changed since the
 // last index is still found (its old passages), so the run goes on with a warning
-export function indexGate(project: string, i: GenInput): string[] {
+export function scopeIndex(
+  project: string,
+  i: Pick<GenInput, "docs" | "sections">,
+): { searched: string[]; unindexed: string[]; stale: string[] } {
   const asked = new Set([...clean(i.docs), ...clean(i.sections).map((s) => s.split("#")[0])]);
   const docs = listDocs(project).filter((d) => isConverted(d) && (!asked.size || asked.has(d.id)));
-  if (!docs.length)
+  return {
+    searched: docs.map((d) => d.id),
+    unindexed: docs.filter((d) => d.indexed === "missing").map((d) => d.id),
+    stale: docs.filter((d) => d.indexed === "stale").map((d) => d.id),
+  };
+}
+
+export function indexGate(project: string, i: GenInput): string[] {
+  const { searched, unindexed: missing, stale } = scopeIndex(project, i);
+  if (!searched.length)
     throw new UserError(
       "No converted document to generate from.",
       "Add a document in Documents (testimus docs add), then convert it.",
     );
-  const missing = docs.filter((d) => d.indexed === "missing").map((d) => d.id);
   if (missing.length)
     throw new UserError(
       readState(project)
@@ -130,7 +141,7 @@ export function indexGate(project: string, i: GenInput): string[] {
         : "The index does not exist yet: search cannot find any document, so the tests would have no sources.",
       "Reindex (Documents, Settings › Search, or testimus rag index), or leave these documents out of the scope.",
     );
-  return docs.filter((d) => d.indexed === "stale").map((d) => d.id);
+  return stale;
 }
 
 export function genPrompt(
