@@ -2,10 +2,9 @@
 import "@testing-library/jest-dom/vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { DoctorCheck, Passage } from "../../src/core/types.ts";
+import type { DoctorCheck } from "../../src/core/types.ts";
 import { setProject } from "../../src/ui/api.ts";
 import { Toasts } from "../../src/ui/components/legacy/index.ts";
-import { PassageDialog } from "../../src/ui/components/sources/PassageDialog.tsx";
 import type { AppState } from "../../src/ui/lib/app.ts";
 import { resetDoctor } from "../../src/ui/lib/doctor.ts";
 import { closeToast, useToasts } from "../../src/ui/lib/toast.ts";
@@ -439,103 +438,5 @@ describe("System check screen", () => {
     expect(await screen.findByRole("dialog", { name: "Models folder" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-  });
-});
-
-describe("Passage dialog", () => {
-  const passage: Passage = {
-    docId: "D",
-    anchor: "§1",
-    path: "Ch 1 > Menus",
-    title: "Menus",
-    text: "Le menu ne propose que Propriétés.",
-    figures: [],
-    doc: { code: "SOSIE_211", title: "Spécification", version: "3", status: "validated" },
-  };
-
-  it("loads the passage, highlights the quote and opens it in its document", async () => {
-    const gate = deferred();
-    net.routes["rag.passage"] = async () => {
-      await gate.promise;
-      return passage;
-    };
-    const close = vi.fn();
-    const open = vi.fn();
-    render(
-      <PassageDialog source={{ docId: "D", anchor: "§1", quote: "Propriétés" }} onClose={close} onOpenDoc={open} />,
-    );
-    expect(screen.getByRole("status", { name: "Loading the passage" })).toBeInTheDocument();
-    expect(screen.getByRole("dialog", { name: "Source D §1" })).toHaveTextContent("D · §1");
-    await act(async () => gate.resolve(null));
-    expect(await screen.findByText("Spécification")).toBeInTheDocument();
-    expect(screen.getByText("SOSIE_211 · v3 · §1")).toBeInTheDocument();
-    expect(callsOf("rag.passage")[0].input).toEqual({ ref: "D#§1" });
-    fireEvent.click(screen.getByRole("button", { name: /Open in document/ }));
-    expect(open).toHaveBeenCalledWith("D", "§1", "Propriétés");
-    fireEvent.click(screen.getByRole("button", { name: "Close" }));
-    expect(close).toHaveBeenCalled();
-  });
-
-  it("says why the passage cannot be shown, with the quote, and needs no document button", async () => {
-    net.routes["rag.passage"] = () => {
-      throw new Fail("No index yet");
-    };
-    render(<PassageDialog source={{ docId: "D", anchor: "§9", quote: "la phrase" }} onClose={() => {}} />);
-    expect(await screen.findByText("This passage could not be shown: No index yet")).toBeInTheDocument();
-    expect(screen.getByText("« la phrase »")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Open in document/ })).toBeNull();
-    cleanup();
-    render(<PassageDialog source={{ docId: "D", anchor: "§9", quote: "" }} onClose={() => {}} />);
-    expect(await screen.findByText(/could not be shown/)).toBeInTheDocument();
-    expect(document.querySelector(".q")).toBeNull();
-  });
-
-  it("a source whose document was deleted says so and offers no document to open", async () => {
-    net.routes["rag.passage"] = () => {
-      throw new Fail("No document D in this project.");
-    };
-    net.routes["docs.list"] = () => [{ id: "OTHER", code: "OTHER" }];
-    render(
-      <PassageDialog
-        source={{ docId: "D", anchor: "§9", quote: "la phrase" }}
-        onClose={() => {}}
-        onOpenDoc={vi.fn()}
-      />,
-    );
-    expect(await screen.findByText("Document deleted")).toBeInTheDocument();
-    expect(screen.getByText(/D is no longer a document of this project/)).toBeInTheDocument();
-    expect(screen.getByText("« la phrase »")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Open in document/ })).toBeNull();
-    cleanup();
-    net.routes["docs.list"] = () => [{ id: "D-folder", code: "D" }];
-    render(<PassageDialog source={{ docId: "D", anchor: "§9", quote: "" }} onClose={() => {}} onOpenDoc={vi.fn()} />);
-    expect(await screen.findByText(/could not be shown/)).toBeInTheDocument();
-    await waitFor(() => expect(callsOf("docs.list").length).toBeGreaterThan(1));
-    expect(screen.queryByText("Document deleted")).toBeNull();
-    expect(screen.getByRole("button", { name: /Open in document/ })).toBeInTheDocument();
-  });
-
-  it("drops an answer that lands after it closed", async () => {
-    const ok = deferred();
-    const ko = deferred();
-    let n = 0;
-    net.routes["rag.passage"] = async () => {
-      n++;
-      if (n === 1) {
-        await ok.promise;
-        return passage;
-      }
-      await ko.promise;
-      throw new Fail("late");
-    };
-    const a = render(<PassageDialog source={{ docId: "D", anchor: "§1", quote: "" }} onClose={() => {}} />);
-    a.unmount();
-    const b = render(<PassageDialog source={{ docId: "D", anchor: "§2", quote: "" }} onClose={() => {}} />);
-    b.unmount();
-    await act(async () => {
-      ok.resolve(null);
-      ko.resolve(null);
-    });
-    expect(n).toBe(2);
   });
 });

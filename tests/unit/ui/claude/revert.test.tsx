@@ -2,12 +2,12 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { Test } from "../../src/core/types.ts";
-import { ApiError } from "../../src/ui/api.ts";
-import { fixOutcome } from "../../src/ui/components/claude/ClaudeDock.tsx";
-import { editedAfterRun, revertRun } from "../../src/ui/lib/revert.ts";
-import { ReviewTest } from "../../src/ui/screens/review/ReviewTest.tsx";
-import { layoutOf } from "./layout-helpers.ts";
+import type { Test } from "../../../../src/core/types.ts";
+import { ApiError } from "../../../../src/ui/api.ts";
+import { fixOutcome } from "../../../../src/ui/components/claude/ClaudeDock.tsx";
+import { editedAfterRun, revertRun } from "../../../../src/ui/lib/revert.ts";
+import { ReviewTest } from "../../../../src/ui/screens/review/ReviewTest.tsx";
+import { layoutOf } from "../../layout-helpers.ts";
 
 afterEach(() => {
   cleanup();

@@ -2,9 +2,9 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { setProject } from "../../src/ui/api.ts";
-import { PassageText, paragraphs } from "../../src/ui/components/sources/PassageView.tsx";
-import { DocText } from "../../src/ui/screens/documents/DocText.tsx";
+import { setProject } from "../../../../src/ui/api.ts";
+import { PassageText, paragraphs } from "../../../../src/ui/components/sources/PassageView.tsx";
+import { DocText } from "../../../../src/ui/screens/documents/DocText.tsx";
 
 afterEach(cleanup);
 

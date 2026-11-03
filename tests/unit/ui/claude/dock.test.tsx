@@ -2,14 +2,19 @@
 import "@testing-library/jest-dom/vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setProject } from "../../src/ui/api.ts";
-import { ClaudeDock, type DockRequest, fixOutcome, toolLabel } from "../../src/ui/components/claude/ClaudeDock.tsx";
-import { Toasts } from "../../src/ui/components/legacy/index.ts";
-import { AppContext, type AppState, type Focus } from "../../src/ui/lib/app.ts";
-import { setFlusher } from "../../src/ui/lib/editorBus.ts";
-import { closeToast, useToasts } from "../../src/ui/lib/toast.ts";
-import { callsOf, Fail, FakeES, fakeEvents, fakeNet, job, net, status } from "./cov-uishell-helpers.tsx";
-import { app } from "./ui-desktop-helpers.tsx";
+import { setProject } from "../../../../src/ui/api.ts";
+import {
+  ClaudeDock,
+  type DockRequest,
+  fixOutcome,
+  toolLabel,
+} from "../../../../src/ui/components/claude/ClaudeDock.tsx";
+import { Toasts } from "../../../../src/ui/components/legacy/index.ts";
+import { AppContext, type AppState, type Focus } from "../../../../src/ui/lib/app.ts";
+import { setFlusher } from "../../../../src/ui/lib/editorBus.ts";
+import { closeToast, useToasts } from "../../../../src/ui/lib/toast.ts";
+import { callsOf, Fail, FakeES, fakeEvents, fakeNet, job, net, status } from "../../cov-uishell-helpers.tsx";
+import { app } from "../../ui-desktop-helpers.tsx";
 
 let toastIds: number[] = [];
 function ToastProbe() {

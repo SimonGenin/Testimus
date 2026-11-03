@@ -2,11 +2,11 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Job, JobEvent } from "../../src/core/types.ts";
-import { ClaudeActivity as GenActivity } from "../../src/ui/components/claude/ClaudeActivity.tsx";
-import { activityOf, gist, lasted, linesRead, outlineOf } from "../../src/ui/lib/activity.ts";
-import { landedIds } from "../../src/ui/screens/generate/GenResult.tsx";
-import { api, fakeFetch, named } from "./ui-desktop-helpers.tsx";
+import type { Job, JobEvent } from "../../../../src/core/types.ts";
+import { ClaudeActivity as GenActivity } from "../../../../src/ui/components/claude/ClaudeActivity.tsx";
+import { activityOf, gist, lasted, linesRead, outlineOf } from "../../../../src/ui/lib/activity.ts";
+import { landedIds } from "../../../../src/ui/screens/generate/GenResult.tsx";
+import { api, fakeFetch, named } from "../../ui-desktop-helpers.tsx";
 
 beforeEach(() => fakeFetch());
 afterEach(() => {
