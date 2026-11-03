@@ -111,12 +111,11 @@ describe("Generate › result helpers", () => {
   });
 
   it("GenCard: placeholders while writing or loading", () => {
-    render(<GenCard item={{ id: "x" }} writing checking={false} xray={xray} onOpen={vi.fn()} onSource={vi.fn()} />);
+    const cb = { open: true, onToggle: vi.fn(), onOpen: vi.fn(), onSource: vi.fn() };
+    render(<GenCard item={{ id: "x" }} writing checking={false} xray={xray} {...cb} />);
     expect(screen.getByRole("status", { name: "Claude is writing a test" })).toHaveTextContent("Writing…");
     cleanup();
-    render(
-      <GenCard item={{ id: "x" }} writing={false} checking={false} xray={xray} onOpen={vi.fn()} onSource={vi.fn()} />,
-    );
+    render(<GenCard item={{ id: "x" }} writing={false} checking={false} xray={xray} {...cb} />);
     expect(screen.getByRole("status", { name: "Loading a test" })).toHaveTextContent("Loading…");
   });
 
@@ -133,16 +132,20 @@ describe("Generate › result helpers", () => {
         { kind: "source-missing", severity: "warning", message: "Nothing on the goal", sources: [] },
       ],
     };
-    render(
+    const onToggle = vi.fn();
+    const card1 = (open: boolean) => (
       <GenCard
         item={{ id: "x", test: t, check }}
         writing={false}
         checking={false}
         xray={xray}
+        open={open}
+        onToggle={onToggle}
         onOpen={onOpen}
         onSource={onSource}
-      />,
+      />
     );
+    const { rerender } = render(card1(true));
     const card = screen.getByRole("region", { name: "Tournois" });
     expect(card).toHaveTextContent("Lancer le tournoi");
     expect(card).toHaveTextContent("Le tableau s'affiche");
@@ -157,6 +160,8 @@ describe("Generate › result helpers", () => {
     const toggle = screen.getByRole("button", { name: "Tournois" });
     expect(toggle).toHaveAttribute("aria-expanded", "true");
     fireEvent.click(toggle);
+    expect(onToggle).toHaveBeenCalledTimes(1);
+    rerender(card1(false));
     expect(toggle).toHaveAttribute("aria-expanded", "false");
     expect(card).not.toHaveTextContent("Lancer le tournoi");
     fireEvent.click(screen.getByRole("button", { name: "Open in Review" }));
@@ -168,6 +173,8 @@ describe("Generate › result helpers", () => {
         writing={false}
         checking={false}
         xray={xray}
+        open
+        onToggle={onToggle}
         onOpen={onOpen}
         onSource={onSource}
       />,
@@ -186,6 +193,8 @@ describe("Generate › result helpers", () => {
           writing={false}
           checking={false}
           xray={xray}
+          open
+          onToggle={vi.fn()}
           onOpen={onOpen}
           onSource={vi.fn()}
           {...props}
@@ -290,6 +299,37 @@ describe("Generate › result helpers", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Resume · 3 tests left" }));
     expect(onResume).toHaveBeenCalledTimes(1);
+  });
+
+  it("RunHead: fold all and unfold all once a test is there", () => {
+    const onFoldAll = vi.fn();
+    const head = (count: number, allFolded: boolean, j = job()) => {
+      cleanup();
+      render(
+        <RunHead
+          job={j}
+          now={Date.parse(at)}
+          result={null}
+          read={0}
+          count={count}
+          doing=""
+          allFolded={allFolded}
+          onCancel={() => {}}
+          onReview={() => {}}
+          onFoldAll={onFoldAll}
+        />,
+      );
+    };
+    head(0, false);
+    expect(screen.queryByRole("button", { name: "Fold all" })).toBeNull();
+    head(2, false);
+    fireEvent.click(screen.getByRole("button", { name: "Fold all" }));
+    expect(onFoldAll).toHaveBeenLastCalledWith(true);
+    head(2, true, job({ status: "done", endedAt: at }));
+    fireEvent.click(screen.getByRole("button", { name: "Unfold all" }));
+    expect(onFoldAll).toHaveBeenLastCalledWith(false);
+    head(2, false, job({ status: "cancelled", endedAt: at }));
+    expect(screen.getByRole("button", { name: "Fold all" })).toBeInTheDocument();
   });
 
   it("GenSummary: missing report, skipped items, changed tests", () => {
