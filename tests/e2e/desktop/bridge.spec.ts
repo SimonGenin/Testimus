@@ -243,7 +243,7 @@ test("documents go to the core by path, the taskbar follows the jobs, their end 
 
     const bodies: unknown[] = [];
     page.on("request", (r) => {
-      if (r.url().endsWith("/api/docs/add")) bodies.push(JSON.parse(r.postData() ?? "null"));
+      if (r.url().endsWith("/api/docs/addFiles")) bodies.push(JSON.parse(r.postData() ?? "null"));
     });
     const dir = mkdtempSync(join(tmpdir(), "testimus-bridge-docs-"));
     const picked = join(dir, "SOSIE_211_D401-1_9.docx");
@@ -256,16 +256,13 @@ test("documents go to the core by path, the taskbar follows the jobs, their end 
       filters: [{ name: "Word or PDF", extensions: ["docx", "pdf"] }],
       properties: expect.arrayContaining(["multiSelections"]),
     });
-    expect(bodies).toEqual([{ file: picked, convert: false }]);
+    expect(bodies).toEqual([{ files: [{ path: picked }] }]);
 
     const dropped = join(dir, "SOSIE_212_D402-1_2.docx");
     writeFileSync(dropped, sampleDocx({ extraParagraph: "Dropped from Explorer." }));
     await page.locator('input[type="file"]').setInputFiles(dropped);
     await expect(rows).toHaveCount(4, { timeout: 60_000 });
-    expect(bodies).toEqual([
-      { file: picked, convert: false },
-      { file: dropped, convert: false },
-    ]);
+    expect(bodies).toEqual([{ files: [{ path: picked }] }, { files: [{ path: dropped }] }]);
 
     await expect.poll(async () => (await main(app)).progress.at(-1), { timeout: 30_000 }).toBe(-1);
 

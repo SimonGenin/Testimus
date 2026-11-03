@@ -16,7 +16,7 @@ const extOf = (f: File) => {
 };
 
 export async function uploadImage(testId: string, file: File): Promise<StepImage> {
-  const r = await call<StepImage | { image: StepImage }>("tests.addImage", {
+  const r = await call<StepImage | { image: StepImage }>("tests.storeImage", {
     id: testId,
     name: file.name || `paste.${extOf(file)}`,
     ext: extOf(file),

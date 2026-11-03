@@ -277,6 +277,19 @@ docs/<docId>/
   `figures.json` is written after every batch of 20, so a run cut short keeps what is done. The caption is the only
   quotable text of a figure: a `fig:N` citation is checked against the caption paragraph in `doc.md`, never against
   `figures.json` (description and labels are Claude's reading).
+- Adding and converting: `docs.add` adds one document (a path or an upload, with its `.pdf` rendering, and the
+  conversion options); `docs.addFiles` adds the files dropped or picked together — a `.docx` and the `.pdf` of the
+  same name become one document, a `.pdf` alone is one, anything else is refused (`code: not-a-document`), each is
+  only copied. `docs.convert` (and `docs.add` when it converts) is one job: the copy is converted (with `study`,
+  Claude studies it first and checks it after), Claude describes the figures, the tests citing it are re-checked,
+  Claude looks at the conversion warnings (`triage`, skipped when Claude is not installed on this PC) and, with
+  `index`, the search index is updated in a child job once the other conversions of the project are done (one
+  index run at a time; a run asked for meanwhile waits and the requests made while it waits share it). A failed
+  index run keeps the conversion and says why (`index.error`).
+- `docs.list.indexed` follows the rule of `rag.status`: `missing` until an index run read the document, `stale`
+  when its text changed since or the active model's vectors are incomplete, `fresh` otherwise.
+- `context.md` is saved with the version it was read at: `docs.show` gives `contextMtime`, `docs.set { context,
+  ifMtime }` refuses with `code: conflict` when the file changed on disk since.
 - `docs.remove <id>` deletes every trace of a document: its folder (copies, doc.md, figures, context), its rows in
   `index/rag.db` (chunks, full-text rows, vectors in every space — a complete space stays complete — graph
   edges and its entry in the index state), and the other documents' `amends` naming it. Tests citing it are left as
@@ -750,8 +763,8 @@ The parser stays tolerant (never throws on a human or Claude edit; returns warni
   ledger and scores agentic recall from `consulted`; a resume reads its plan there. The ledger is written before
   the new tests are stamped and checked; the full result then replaces it in the same file.
 - Figures: `tests.addImage` copies a file or a document figure (`docId#fig:N`) into `images/` and embeds
-  it at the end of a built-in field; the editor's paste mode (`{ name, ext, dataBase64 }`) only stores
-  the file. Figure descriptions run in batches of 20 figures per Claude run (read-only, effort low).
+  it at the end of a built-in field; `tests.storeImage` (the editor's paste, `{ name, ext, dataBase64 }`) only
+  stores the file, the editor putting the reference at the caret. Figure descriptions run in batches of 20 figures per Claude run (read-only, effort low).
 
 ## 8. Check (anomalies)
 
@@ -917,13 +930,13 @@ stops at the first failure), plus:
 Group | Verbs (all with `--json`; mutating ones marked *)
 ---|---
 `project` | `init`*, `openKey`* (open or create by Jira key), `info` (project.json + xray.json + the step columns in order with their modes + counts for the rail), `list`, `notes` (the project's CLAUDE.md), `setNotes`*, `set`* (patch project.json: names, language, label prefix, folders, rag keys incl. reference, queryTask, passageMaxChars, retrieval; glossary; Claude defaults), `open`* (last project)
-`docs` | `add`* (copy + convert; a path, or an upload as base64 from the UI), `convert`*, `list`, `show`, `set`* (status, amends, context…), `describeFigures`* (job, Claude), `remove`*
+`docs` | `add`* (job: copy + convert one document; a path, or an upload as base64), `addFiles`* (job: the files dropped or picked together, a .docx paired with its .pdf, copied only), `convert`* (job: convert, figures, re-check of the citing tests, triage, and with `index` the search index), `inspect` (profile of the originals), `page` (a page of the PDF copy as a PNG under .testimus/pages), `list` (with index freshness), `show` (+ `contextMtime`), `set`* (status, amends, context with `ifMtime`…), `describeFigures`* (job, Claude), `remove`* (`--dry-run`)
 `rag` | `index`* (job), `search` (mode hybrid · bm25 · vector; `expand`), `passage` (docId#anchor → text + figures + focus, capped), `figure`, `mentions` (every passage holding a term, no model), `related` (graph neighbours, no model), `eval` (job, L1), `compare` (reports → intervals), `status` (active model, space, freshness per document), `spaces`, `dropSpace`*
 `chat` | `ask` (job, streamed), `list`, `show`
 `claude` | `run`* (job: a scoped request « On this test » — step, test, tests or project), `revert`* (runId), `status` (installed, version, signed in, how to connect)
 `contexts` | `list` (the project's own and the shared library's, each with `shared`; `--from <project>` lists another project's own), `show`, `create`* (`--shared` puts it in the library), `share`* (move into the library or back into this project), `set`* (name, notes, outside paths), `addFile`* (a path or an upload), `removeFile`*, `remove`*, `copy`* (from another project: notes, paths and files; a taken id gets a new one), `ofTest` (effective · own · project), `setTest`* (a test's full list, or null to follow the project)
 `columns` | `list` (the step columns in order: origin, status, description, mode), `save`* (a description, Reference source, or a new local column), `setModes`* (open · filled · collapsed · hidden, by column), `order`*, `remove`* (a local column), `suggest` (job, Claude, read-only: proposals for columns.save)
-`tests` | `list`, `show` (+ the picture files present and test.md's mtime), `create`*, `edit`* (field-level patch incl. preconditions, and step ops set · add · remove · move · sources, steps numbered from 1), `save`* (the whole test, the editor's save), `restore`* (Undo local changes: test.md ← .remote.md), `clone`*, `addImage`* (a file or a document figure → `images/`), `removeImage`* (a picture no step lists any more), `columns`, `setColumns`* (per-test folding, in `local.json`), `remove`*
+`tests` | `list`, `show` (+ the picture files present and test.md's mtime), `create`*, `edit`* (field-level patch incl. preconditions, and step ops set · add · remove · move · sources, steps numbered from 1), `save`* (the whole test, the editor's save), `restore`* (Undo local changes: test.md ← .remote.md), `clone`*, `addImage`* (a file or a document figure → `images/`, embedded in a step), `storeImage`* (a pasted picture → `images/`, test.md untouched), `removeImage`* (a picture no step lists any more), `columns`, `setColumns`* (per-test folding, in `local.json`), `remove`*
 `gen` | `tests`* (job), `bench`* (job, L2 benchmark with Claude; costly)
 `check` | `run`* (job: mechanical pass, then the `check-test` skill; writes `check.json`), `record`* (the skill's semantic findings for one test), `show`
 `review` | `set`* (validate / to-fix + note), `fix`* (Claude, job), `queue` (what awaits review), `evidence` (sources read / related)

@@ -150,7 +150,7 @@ describe("docs.inspect and docs.page through the registry", () => {
   });
 });
 
-describe("tests.addImage through the registry", () => {
+describe("tests.addImage and tests.storeImage through the registry", () => {
   it("embeds a picture file in a step, and stores a pasted one", async () => {
     const P = fixtureCopy("img-reg");
     writeFileSync(join(P, "shot.png"), SAMPLE_PNG);
@@ -163,7 +163,7 @@ describe("tests.addImage through the registry", () => {
     expect(added).toMatchObject({ step: 1, field: "Expected Result" });
     expect(readFileSync(join(P, "tests", id, "test.md"), "utf8")).toContain(added.file);
     const pasted = await call<{ file: string }>(
-      "tests.addImage",
+      "tests.storeImage",
       { id, dataBase64: Buffer.from(SAMPLE_PNG).toString("base64"), ext: "png" },
       P,
     );
