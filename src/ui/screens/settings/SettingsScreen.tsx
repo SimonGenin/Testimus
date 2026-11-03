@@ -13,19 +13,22 @@ import { ProjectSection } from "./ProjectSection.tsx";
 import { SearchSection } from "./SearchSection.tsx";
 
 const SECTIONS = [
-  { id: "project", label: "Project" },
-  { id: "columns", label: "Step columns" },
-  { id: "claude", label: "Claude" },
-  { id: "search", label: "Search" },
-  { id: "models", label: "Models" },
-  { id: "access", label: "Access" },
-  { id: "appearance", label: "Appearance" },
+  { id: "project", label: "Project", page: ProjectSection, needsProject: true },
+  { id: "columns", label: "Step columns", page: ColumnsSection, needsProject: true },
+  { id: "claude", label: "Claude", page: ClaudeSection, needsProject: false },
+  { id: "search", label: "Search", page: SearchSection, needsProject: true },
+  { id: "models", label: "Models", page: ModelsSection, needsProject: false },
+  { id: "access", label: "Access", page: AccessSection, needsProject: false },
+  { id: "appearance", label: "Appearance", page: AppearanceSection, needsProject: false },
 ];
 
 export function SettingsScreen() {
   const app = useApp();
   const [navW, navEdge] = useSideWidth("testimus.settingsNavWidth", 160, 360, "before");
-  const at = app.route.screen === "settings" ? (app.route.arg ?? "project").split("-")[0] : "project";
+  const arg = app.route.screen === "settings" ? (app.route.arg ?? "project").split("-")[0] : "project";
+  const section = SECTIONS.find((s) => s.id === arg) ?? SECTIONS[0];
+  const at = section.id;
+  const Page = section.page;
   const body = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!app.route.arg) return;
@@ -55,17 +58,11 @@ export function SettingsScreen() {
           ))}
         </nav>
         <DragEdge className="side-edge" label="Resize the section list" {...navEdge} />
-        <div className="settings-body scroll" ref={body}>
-          {!app.info && (
+        <div className="settings-body scroll" ref={body} key={at}>
+          {!app.info && section.needsProject && (
             <p className="muted">Open a project to change its settings: Access and Appearance work without one.</p>
           )}
-          <ProjectSection />
-          <ColumnsSection />
-          <ClaudeSection />
-          <SearchSection />
-          <ModelsSection />
-          <AccessSection />
-          <AppearanceSection />
+          <Page />
         </div>
       </div>
     </div>

@@ -46,7 +46,15 @@ describe("Settings screen", () => {
     expect(scroll).toHaveBeenCalledWith({ block: "start" });
     fireEvent.click(within(nav).getByRole("button", { name: "Access" }));
     expect(a.navigate).toHaveBeenCalledWith("settings", "access");
+    expect(screen.getByRole("region", { name: "Claude" })).toBeInTheDocument();
+    expect(screen.queryByText("Models stub")).not.toBeInTheDocument();
+    expect(document.querySelector("#settings-access")).toBeNull();
+  });
+
+  it("shows one section per page", () => {
+    mount(<SettingsScreen />, { route: { screen: "settings", arg: "models" } });
     expect(screen.getByText("Models stub")).toBeInTheDocument();
+    expect(document.querySelectorAll(".settings-body > section")).toHaveLength(1);
   });
 
   it("defaults to Project, and says to open a project without one", () => {
@@ -55,8 +63,19 @@ describe("Settings screen", () => {
     expect(screen.getByText(/Open a project to change its settings/)).toBeInTheDocument();
   });
 
+  it("without a project, a page that works without one says nothing about it", () => {
+    mount(<SettingsScreen />, { info: null, route: { screen: "settings", arg: "appearance" } });
+    expect(screen.getByRole("region", { name: "Appearance and this PC" })).toBeInTheDocument();
+    expect(screen.queryByText(/Open a project to change its settings/)).not.toBeInTheDocument();
+  });
+
   it("without an argument on the settings route: Project, no scroll", () => {
     mount(<SettingsScreen />, { route: { screen: "settings" } });
+    expect(screen.getByRole("button", { name: "Project" })).toHaveAttribute("aria-current", "true");
+  });
+
+  it("an unknown section falls back to Project", () => {
+    mount(<SettingsScreen />, { route: { screen: "settings", arg: "nowhere" } });
     expect(screen.getByRole("button", { name: "Project" })).toHaveAttribute("aria-current", "true");
   });
 });

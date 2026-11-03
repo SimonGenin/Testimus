@@ -201,7 +201,7 @@ test("Browse opens a project, the window takes its name, Show in Explorer reveal
     await expect(page.getByRole("textbox", { name: "Folder" })).toHaveValue("D:\\Tests\\Nouveau projet");
     await shoot(page, "desktop-setup-project");
 
-    await go(page, "#/settings");
+    await go(page, "#/settings/claude");
     const browse = page.getByRole("button", { name: "Browse for the Claude program" });
     await browse.scrollIntoViewIfNeeded();
     await expect(browse).toBeEnabled();

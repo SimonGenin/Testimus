@@ -37,6 +37,12 @@ test("settings save the step column preferences and the editor honours them", as
   await boot(page, "#/settings");
   await expect(page.getByRole("heading", { level: 1, name: "Settings" })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Jira project" })).toHaveValue("LFRPS12");
+  await expect(page.getByRole("region", { name: "Step columns" })).toHaveCount(0);
+  await page
+    .getByRole("navigation", { name: "Settings sections" })
+    .getByRole("button", { name: "Step columns" })
+    .click();
+  await expect(page.getByRole("textbox", { name: "Jira project" })).toHaveCount(0);
   const fields = page.getByRole("region", { name: "Step columns" });
   const dataFold = fields.getByRole("combobox", { name: "Data folding" });
   await expect(dataFold).toHaveValue("filled");
