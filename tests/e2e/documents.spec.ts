@@ -13,17 +13,16 @@ test("the list shows each document with status and index state; the detail shows
   await boot(page, "#/documents");
   await expect(page.getByRole("heading", { level: 1, name: "Documents" })).toBeVisible();
   const list = page.getByRole("region", { name: "Document list" });
-  const rows = list.getByRole("row", { name: /^SOSIE_/ });
+  const rows = list.getByRole("option", { name: /SOSIE_/ });
   await expect(rows).toHaveCount(2);
   await expect(rows.first()).toContainText("Validated");
-  await expect(list.getByRole("columnheader", { name: "Binding" })).toHaveCount(0);
-  await expect(rows.first()).toContainText(/up to date/i);
+  await expect(rows.first()).toContainText("Indexed");
   await expect(rows.nth(1)).toContainText("Submitted");
 
   const detail = page.getByRole("region", { name: "SOSIE_211_D401-1_3 details" });
   await expect(detail.getByRole("heading", { level: 2, name: "Traction", exact: true })).toBeVisible();
   await expect(
-    detail.getByRole("group", { name: "Status" }).getByRole("button", { name: "Validated", pressed: true }),
+    detail.getByRole("radiogroup", { name: "Status" }).getByRole("radio", { name: "Validated", checked: true }),
   ).toBeVisible();
   await expect(detail.getByRole("heading", { name: "5.6.6 Sectionneur (S)" })).toBeVisible();
   await expect(detail.getByRole("img", { name: /Figure 40/ })).toBeVisible();
@@ -54,12 +53,12 @@ test("a document's status change is saved", async ({ page }) => {
   await boot(page, "#/documents");
   await page
     .getByRole("region", { name: "Document list" })
-    .getByRole("row", { name: /^SOSIE_211_D401-1_4/ })
+    .getByRole("option", { name: /SOSIE_211_D401-1_4/ })
     .click();
   const detail = page.getByRole("region", { name: "SOSIE_211_D401-1_4 details" });
-  const status = detail.getByRole("group", { name: "Status" });
-  await status.getByRole("button", { name: "Validated" }).click();
-  await expect(status.getByRole("button", { name: "Validated", pressed: true })).toBeVisible();
+  const status = detail.getByRole("radiogroup", { name: "Status" });
+  await status.getByRole("radio", { name: "Validated" }).click();
+  await expect(status.getByRole("radio", { name: "Validated", checked: true })).toBeVisible();
   await expect
     .poll(async () => JSON.stringify(await api(url, "docs.show", { id: "SOSIE_211_D401-1_4" })))
     .toContain('"status":"validated"');
@@ -75,7 +74,7 @@ test("a .docx added from a path is listed unconverted, then converted and indexe
   await dialog.getByRole("textbox", { name: "Path of the file" }).fill(file);
   await dialog.getByRole("button", { name: "Add" }).click();
   await expect(dialog).toBeHidden();
-  const rows = page.getByRole("region", { name: "Document list" }).getByRole("row", { name: /^SOSIE_/ });
+  const rows = page.getByRole("region", { name: "Document list" }).getByRole("option", { name: /SOSIE_/ });
   await expect(rows).toHaveCount(3, { timeout: 30_000 });
   const listed = JSON.stringify(await api(url, "docs.list"));
   const added = [...listed.matchAll(/"id":"([^"]+)"/g)]
@@ -84,7 +83,7 @@ test("a .docx added from a path is listed unconverted, then converted and indexe
   expect(added).toBeTruthy();
   const row = page
     .getByRole("region", { name: "Document list" })
-    .getByRole("row", { name: new RegExp(`^${added} · `) });
+    .getByRole("option", { name: new RegExp(`${added} · `) });
   await expect(row).toHaveCount(1);
   await expect(row.getByText("Not converted")).toBeVisible();
   expect(JSON.stringify(await api(url, "docs.show", { id: added }))).not.toContain('"converted":');
