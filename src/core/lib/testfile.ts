@@ -1,6 +1,6 @@
+import { tablesIn } from "../../shared/table.ts";
 import { type Block, REVIEWS, type Review, type Source, type Step, type StepImage, type Test } from "../types.ts";
 import { testHash } from "./hash.ts";
-import { tablesIn } from "../../shared/table.ts";
 
 type Raw = {
   id?: string;
