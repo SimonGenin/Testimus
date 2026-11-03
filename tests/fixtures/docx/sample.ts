@@ -20,7 +20,7 @@ const cell = (t: string) => `<w:tc><w:p>${run(t)}</w:p></w:tc>`;
 
 export const SAMPLE_PNG = encodePng(2, 2, 3, new Uint8Array([255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255]));
 
-export function sampleDocx(variant: { extraParagraph?: string } = {}): Uint8Array {
+export function sampleDocx(variant: { extraParagraph?: string; skippedLevel?: boolean } = {}): Uint8Array {
   const body = [
     p("Projet SOSIE_NG Système"),
     p("Spécification fonctionnelle – Traction"),
@@ -30,6 +30,7 @@ export function sampleDocx(variant: { extraParagraph?: string } = {}): Uint8Arra
     h(2, "Objet"),
     p("Ce document décrit la traction."),
     h(1, "Description"),
+    ...(variant.skippedLevel ? [h(3, "Fonctionnement"), h(2, "Prise d'avance"), h(2, "Décalage")] : []),
     h(1, "Simulation"),
     h(1, "Archivage"),
     h(1, "Présentation des vues"),

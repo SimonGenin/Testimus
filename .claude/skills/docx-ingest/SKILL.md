@@ -104,7 +104,8 @@ conversion's, 17/17.
 4. Reconvert: anchors must not move.
 5. Compare with the .docx when there is one: the heading anchors of the tagged PDF and of the .docx
    must be the same set (measured 2026-11-03 on J5: Traction 286/286, PCC NG 221/221, CAD 28/28,
-   TOC 17/17, Machine Départ 76/77).
+   TOC 17/17, Machine Départ 77/77). A heading that skips a level counts like Word: under « 8 », a
+   level-3 heading is « 8.1.1 » and the next level-2 one is « 8.2 » (the skipped 8.1 is used up).
 
 Real PDFs to try a change on (read-only copies, never commit them): the J5 deliveries
 (`…\14 - Livraisons documentaires\J5\D401-1 Specifications Fonctionnelles - J5`, .pdf and .docx side

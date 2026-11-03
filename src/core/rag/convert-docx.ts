@@ -279,9 +279,11 @@ export async function convertDocx(buf: Uint8Array, opts: ConvertOpts): Promise<C
       counters.push(...parts);
     } else if (numbered) {
       counters.length = Math.min(counters.length, level);
-      while (counters.length < level) counters.push(0);
+      // ponytail: like Word, a skipped level shows 1 and keeps it: « 8 », « 8.1.1 », then « 8.2 »
+      while (counters.length < level - 1) counters.push(1);
+      if (counters.length < level) counters.push(0);
       counters[level - 1]++;
-      number = counters.map((c) => c || 1).join(".");
+      number = counters.join(".");
     }
     const anchor = uniqueKey(slugs, number || slug(title));
     headings.push({ level: lvl, number, title, anchor });

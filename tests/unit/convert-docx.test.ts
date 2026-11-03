@@ -104,6 +104,11 @@ describe("convertDocx", () => {
     expect(anchorsOf(c.md)).toEqual(anchorsOf(a.md));
   });
 
+  it("numbers a heading that skips a level like Word: the skipped level is 1 and the next one is 2", async () => {
+    const c = await convertDocx(sampleDocx({ skippedLevel: true }), { code: "X" });
+    expect(anchorsOf(c.md).sections.slice(2, 7)).toEqual(["2", "2.1.1", "2.2", "2.3", "3"]);
+  });
+
   it("takes a missing picture from the PDF figures when the caption matches", async () => {
     const pdfFigure = {
       key: "41",
