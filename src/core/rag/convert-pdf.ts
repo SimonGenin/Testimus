@@ -1,5 +1,4 @@
-import { createRequire } from "node:module";
-import { getDocument, OPS } from "pdfjs-dist/legacy/build/pdf.mjs";
+import { OPS } from "pdfjs-dist/legacy/build/pdf.mjs";
 import {
   assemble,
   CAPTION_RE,
@@ -13,44 +12,15 @@ import {
 } from "./convert.ts";
 import type { Block } from "./convert-html.ts";
 import { cleanSpaces } from "./convert-html.ts";
-import { encodePng, unpackGray1 } from "./convert-png.ts";
-
-const PDFJS = `pdfjs-dist ${(createRequire(import.meta.url)("pdfjs-dist/package.json") as { version: string }).version}`;
+import { convertTaggedPdf } from "./convert-pdf-tags.ts";
+import { imageOf, type Matrix, mul, openPdf, PDFJS, shoot, toPng } from "./pdf.ts";
 
 type Line = { y: number; x: number; end: number; size: number; bold: boolean; text: string };
 type Pic = { x: number; y: number; w: number; h: number; png: Uint8Array };
 type Page = { n: number; height: number; lines: Line[]; pics: Pic[] };
 
-type Matrix = [number, number, number, number, number, number];
-const mul = (m: Matrix, n: number[]): Matrix => [
-  m[0] * n[0] + m[2] * n[1],
-  m[1] * n[0] + m[3] * n[1],
-  m[0] * n[2] + m[2] * n[3],
-  m[1] * n[2] + m[3] * n[3],
-  m[0] * n[4] + m[2] * n[5] + m[4],
-  m[1] * n[4] + m[3] * n[5] + m[5],
-];
-
-type ImgData = { width: number; height: number; kind?: number; data?: Uint8Array | Uint8ClampedArray };
-
-function toPng(img: ImgData): Uint8Array | null {
-  if (!img?.data || !img.width || !img.height) return null;
-  const data = new Uint8Array(img.data.buffer, img.data.byteOffset, img.data.byteLength);
-  if (img.kind === 1) return encodePng(img.width, img.height, 1, unpackGray1(img.width, img.height, data));
-  if (img.kind === 2) return encodePng(img.width, img.height, 3, data);
-  if (img.kind === 3) return encodePng(img.width, img.height, 4, data);
-  return null;
-}
-
 async function readPages(buf: Uint8Array, signal?: AbortSignal): Promise<{ pages: Page[]; skipped: number }> {
-  const loading = getDocument({
-    data: new Uint8Array(buf),
-    isEvalSupported: false,
-    isOffscreenCanvasSupported: false,
-    isImageDecoderSupported: false,
-    disableFontFace: true,
-    verbosity: 0,
-  } as Parameters<typeof getDocument>[0]);
+  const loading = openPdf(buf);
   const doc = await loading.promise;
   const pages: Page[] = [];
   let skipped = 0;
@@ -105,22 +75,13 @@ async function readPages(buf: Uint8Array, signal?: AbortSignal): Promise<{ pages
           if (Array.isArray(args[0])) ctm = mul(ctm, args[0] as number[]);
         } else if (fn === OPS.paintFormXObjectEnd) ctm = stack.pop() ?? ctm;
         else if (fn === OPS.paintImageXObject || fn === OPS.paintInlineImageXObject) {
-          let img: ImgData | null = null;
-          if (fn === OPS.paintInlineImageXObject) img = args[0] as ImgData;
-          else {
-            const id = String(args[0]);
-            const store = id.startsWith("g_") ? page.commonObjs : page.objs;
-            img = await new Promise<ImgData | null>((resolve) => {
-              try {
-                store.get(id, (v: ImgData) => resolve(v));
-              } catch {
-                resolve(null);
-              }
-            });
-          }
+          const img =
+            fn === OPS.paintInlineImageXObject
+              ? (args[0] as Parameters<typeof toPng>[0])
+              : await imageOf(page, String(args[0]));
           const w = Math.hypot(ctm[0], ctm[1]);
           const h = Math.hypot(ctm[2], ctm[3]);
-          const png = img ? toPng(img) : null;
+          const png = toPng(img);
           if (!png) {
             skipped++;
             continue;
@@ -214,10 +175,61 @@ async function analyse(buf: Uint8Array, signal?: AbortSignal) {
   }
   const caps = captionsOf(pages);
   const assigned = assignPictures(pages, caps);
+  await drawn(buf, pages, caps, assigned.byCap);
   return { pages, skipped, first, caps, ...assigned, small: assigned.small + tiny };
 }
 
+// ponytail: a caption with no picture above it sits under a vector drawing — the page region between it and the
+// text above is rendered, as the reader sees it
+async function drawn(buf: Uint8Array, pages: Page[], caps: Cap[], byCap: Map<Cap, Pic>): Promise<void> {
+  const orphans = caps.filter((c) => !byCap.has(c));
+  if (!orphans.length) return;
+  const loading = openPdf(buf);
+  try {
+    const doc = await loading.promise;
+    for (const c of orphans) {
+      const lines = pages.find((p) => p === c.page)?.lines ?? [];
+      const above = lines.filter((l) => l.y > c.line.y + c.line.size).sort((x, y) => x.y - y.y)[0];
+      const left = Math.min(...lines.map((l) => l.x));
+      const right = Math.max(...lines.map((l) => l.end));
+      const box: [number, number, number, number] = [
+        left,
+        c.line.y + c.line.size + 1,
+        right,
+        (above ? above.y - 2 : c.page.height - 50) - 1,
+      ];
+      if (box[3] - box[1] < 30 || !(right > left)) continue;
+      const png = await shoot(doc, await doc.getPage(c.page.n), box);
+      if (png) byCap.set(c, { x: box[0], y: box[1], w: box[2] - box[0], h: box[3] - box[1], png });
+    }
+  } finally {
+    await loading.destroy();
+  }
+}
+
+// ponytail: a page without text is a scan: the whole page is kept as a picture, which Claude reads when it
+// describes the figures (its labels are then searchable)
+async function scannedPages(buf: Uint8Array, pages: Page[]): Promise<Map<number, Uint8Array>> {
+  const out = new Map<number, Uint8Array>();
+  const scans = pages.filter((p) => p.lines.length < 3 && !p.pics.length);
+  if (!scans.length) return out;
+  const loading = openPdf(buf);
+  try {
+    const doc = await loading.promise;
+    for (const p of scans.slice(0, 200)) {
+      const page = await doc.getPage(p.n);
+      const png = await shoot(doc, page, [page.view[0], page.view[1], page.view[2], page.view[3]]);
+      if (png) out.set(p.n, png);
+    }
+  } finally {
+    await loading.destroy();
+  }
+  return out;
+}
+
 export async function pdfFigures(buf: Uint8Array, signal?: AbortSignal): Promise<Figure[]> {
+  const tagged = await convertTaggedPdf(buf, { code: "", signal });
+  if (tagged) return tagged.figures.filter((f) => CAPTION_RE.test(f.caption));
   const a = await analyse(buf, signal);
   return a.caps.flatMap((c) => {
     const pic = a.byCap.get(c);
@@ -244,6 +256,8 @@ function follows(next: string, last: string): boolean {
 }
 
 export async function convertPdf(buf: Uint8Array, opts: ConvertOpts): Promise<Converted> {
+  const tagged = await convertTaggedPdf(buf, opts);
+  if (tagged) return tagged;
   const a = await analyse(buf, opts.signal);
   const sizes = a.pages.flatMap((p) => p.lines.map((l) => Math.round(l.size)));
   const freq = new Map<number, number>();
@@ -275,9 +289,12 @@ export async function convertPdf(buf: Uint8Array, opts: ConvertOpts): Promise<Co
   };
   const used = new Set(a.caps.map((c) => c.key));
 
+  const scans = await scannedPages(buf, a.pages);
   for (const page of a.pages) {
     flush();
     blocks.push({ kind: "para", md: `<!-- page ${page.n} -->`, text: "" });
+    const scan = scans.get(page.n);
+    if (scan) picture(uniqueKey(used, `p${page.n}`), "", { x: 0, y: 0, w: 0, h: 0, png: scan });
     type El = { y: number; line?: Line; pic?: Pic };
     const els: El[] = [
       ...page.lines.map((line) => ({ y: line.y, line })),
@@ -351,8 +368,13 @@ export async function convertPdf(buf: Uint8Array, opts: ConvertOpts): Promise<Co
     );
   const orphanCaps = a.caps.filter((c) => !a.byCap.has(c)).map((c) => c.key);
   if (orphanCaps.length)
-    warnings.push(`Figure ${orphanCaps.join(", ")}: caption without an extractable picture (vector drawing)`);
-  warnings.push("Converted from PDF: headings are guessed from their numbering, tables are flattened to text");
+    warnings.push(`Figure ${orphanCaps.join(", ")}: caption with nothing drawn above it in the PDF`);
+  const scanned = a.pages.filter((p) => p.lines.length < 3).length;
+  if (scanned && scanned >= a.pages.length / 2)
+    warnings.push(
+      `${scanned} of ${a.pages.length} pages carry no text (a scan, or text drawn as pictures): kept as page pictures that Claude reads when it describes the figures, but nothing on them can be quoted — ask for the source document`,
+    );
+  else warnings.push("Converted from PDF: headings are guessed from their numbering, tables are flattened to text");
   const title = guessTitle(a.first);
   const md = assemble(`# ${opts.code} — ${title || opts.code}`, blocks);
   return { md, figures, warnings, meta: { title, date: guessDate(a.first.join("\n")) }, convertedWith: PDFJS };

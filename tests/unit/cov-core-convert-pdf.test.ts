@@ -37,6 +37,7 @@ vi.mock("pdfjs-dist/legacy/build/pdf.mjs", async (importOriginal) => {
                 fnArray: (p.ops ?? []).map(([fn]) => ops[fn]),
                 argsArray: (p.ops ?? []).map(([, args]) => args),
               }),
+              getStructTree: async () => null,
               objs: store(p.objs),
               commonObjs: store(p.objs),
               cleanup() {},
@@ -208,7 +209,7 @@ describe("convertPdf over a scripted pdf.js", () => {
       "4 pictures in the PDF could not be extracted",
       "2 small pictures dropped (icons, or text drawn as a picture)",
       "2 extra pictures above a caption dropped (only the largest is kept)",
-      "Figure 7: caption without an extractable picture (vector drawing)",
+      "Figure 7: caption with nothing drawn above it in the PDF",
       "Converted from PDF: headings are guessed from their numbering, tables are flattened to text",
     ]);
     expect(c.convertedWith).toMatch(/^pdfjs-dist \d/);
@@ -258,6 +259,6 @@ describe("convertPdf over a scripted pdf.js", () => {
     await expect(convertPdf(new Uint8Array(), { code: "X", signal: AbortSignal.abort() })).rejects.toThrow(
       "Cancelled.",
     );
-    expect(state.destroyed).toBe(before + 1);
+    expect(state.destroyed).toBe(before + 2);
   });
 });

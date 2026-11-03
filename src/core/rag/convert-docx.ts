@@ -89,13 +89,15 @@ function count(xml: string, re: RegExp): number {
   return xml.match(re)?.length ?? 0;
 }
 
-function shapeWarnings(xml: string, comments: string): string[] {
+// ponytail: shapes on the cover page (frames) and plain rules are decoration; the body's drawings are what is lost
+function shapeWarnings(xml: string, comments: string, body: number): string[] {
   const w: string[] = [];
   const nComments = count(comments, /<w:comment\b/g) || count(xml, /<w:commentReference\b/g);
   if (nComments) w.push(`${nComments} Word comment${nComments > 1 ? "s were" : " was"} dropped`);
-  const main = xml.replace(/<mc:Fallback>[\s\S]*?<\/mc:Fallback>/g, "");
+  const main = xml.slice(body).replace(/<mc:Fallback>[\s\S]*?<\/mc:Fallback>/g, "");
   const shapes =
-    count(main, /<wps:wsp\b/g) +
+    count(main, /<wps:wsp\b/g) -
+    count(main, /<wps:wsp\b(?:(?!<\/wps:wsp>)[\s\S])*?prstGeom prst="line"/g) +
     Math.max(0, count(main, /<v:(?:shape|rect|oval|roundrect|line|polyline)\b/g) - count(main, /<v:imagedata\b/g));
   if (shapes)
     w.push(`${shapes} shape${shapes > 1 ? "s" : ""} drawn in Word: the drawing is lost, only text labels can survive`);
@@ -106,9 +108,15 @@ function shapeWarnings(xml: string, comments: string): string[] {
   return w;
 }
 
-type Item = { node: HNode; img: boolean; text: string; caption?: { num: string; text: string; whole: boolean } };
+type Item = {
+  node: HNode;
+  img: boolean;
+  text: string;
+  cell?: boolean;
+  caption?: { num: string; text: string; whole: boolean };
+};
 
-function collectItems(root: HNode): Item[] {
+export function collectItems(root: HNode): Item[] {
   const items: Item[] = [];
   const imgs = (n: HNode) => {
     for (const c of n.children) {
@@ -116,24 +124,26 @@ function collectItems(root: HNode): Item[] {
       else if (c.tag !== "ul" && c.tag !== "ol") imgs(c);
     }
   };
-  const walk = (n: HNode) => {
+  const walk = (n: HNode, cell: boolean) => {
     for (const c of n.children) {
       if (c.tag === "img") items.push({ node: c, img: true, text: "" });
       else if (/^(p|li|h[1-6])$/.test(c.tag)) {
-        imgs(c);
         const own = c.children.filter((x) => x.tag !== "ul" && x.tag !== "ol");
         const text = cleanSpaces(own.map(textOf).join("")).trim().replace(MARK_RE, "");
-        if (text) items.push({ node: c, img: false, text });
-        for (const x of c.children) if (x.tag === "ul" || x.tag === "ol") walk(x);
-      } else walk(c);
+        const first = own.find((x) => x.tag === "img" || textOf(x).trim());
+        if (first?.tag === "img" || !text) imgs(c);
+        if (text) items.push({ node: c, img: false, text, cell });
+        if (first?.tag !== "img" && text) imgs(c);
+        for (const x of c.children) if (x.tag === "ul" || x.tag === "ol") walk(x, cell);
+      } else walk(c, cell || c.tag === "table");
     }
   };
-  walk(root);
+  walk(root, false);
   for (const it of items) {
     if (it.img || it.text.includes("....")) continue;
     const whole = it.text.length <= 300 ? it.text.match(CAPTION_RE) : null;
     if (whole) it.caption = { num: whole[1], text: it.text, whole: true };
-    else {
+    else if (!it.cell) {
       const tail = it.text.match(TRAILING_CAPTION_RE);
       if (tail) it.caption = { num: tail[2], text: tail[1].trim(), whole: false };
     }
@@ -147,10 +157,14 @@ type Plan = {
   orphans: Map<HNode, { key: string; caption: string }>;
 };
 
-function planFigures(items: Item[]): Plan {
+export function planFigures(items: Item[]): Plan {
   const used = new Set<string>();
   const keys = new Map<Item, string>();
-  for (const it of items) if (it.caption) keys.set(it, uniqueKey(used, it.caption.num));
+  for (const whole of [true, false])
+    for (const it of items) if (it.caption?.whole === whole) keys.set(it, uniqueKey(used, it.caption.num));
+  // ponytail: « … Figure 18 – Boîte de dialogue » at the end of a sentence, when Figure 18 is captioned elsewhere,
+  // is a reference to it, not a figure of its own
+  const captioned = new Set(items.flatMap((it) => (it.caption?.whole ? [it.caption.num] : [])));
   const claimed = new Set<Item>();
   const plan: Plan = { byImg: new Map(), dropped: new Set(), orphans: new Map() };
   let order = 0;
@@ -176,12 +190,32 @@ function planFigures(items: Item[]): Plan {
     } else plan.byImg.set(it.node, { key: uniqueKey(used, `f${order}`), caption: it.node.attrs.alt ?? "" });
   });
   for (const it of items)
-    if (it.caption && !claimed.has(it) && (it.node.tag === "p" || it.node.tag === "li"))
+    if (
+      it.caption &&
+      !claimed.has(it) &&
+      (it.caption.whole || !captioned.has(it.caption.num)) &&
+      (it.node.tag === "p" || it.node.tag === "li")
+    )
       plan.orphans.set(it.node, { key: keys.get(it)!, caption: it.caption.text });
   return plan;
 }
 
-function imageLine(caption: string, file: string, key: string): string {
+// ponytail: « Figure 12 – … » right above or under a table captions the table itself, which is already in the text
+export function besideTables(root: HNode): Set<HNode> {
+  const out = new Set<HNode>();
+  const walk = (n: HNode) => {
+    const kids = n.children.filter((c) => (c.tag !== "#text" || c.text?.trim()) && c.attrs.role !== "page");
+    kids.forEach((c, i) => {
+      const table = kids[i - 1]?.tag === "table" || kids[i + 1]?.tag === "table";
+      if (table && CAPTION_RE.test(cleanSpaces(textOf(c)).trim())) out.add(c);
+      walk(c);
+    });
+  };
+  walk(root);
+  return out;
+}
+
+export function imageLine(caption: string, file: string, key: string): string {
   return `![${caption.replace(/[[\]]/g, (c) => `\\${c}`)}](${file}) <!-- fig ${key} -->`;
 }
 
@@ -195,7 +229,6 @@ export async function convertDocx(buf: Uint8Array, opts: ConvertOpts): Promise<C
   if (!documentXml) throw new Error("Not a Word document (word/document.xml is missing).");
   const styles = readStyles(part("word/styles.xml"));
   const linked = linkedLevels(part("word/numbering.xml"));
-  const warnings = shapeWarnings(documentXml, part("word/comments.xml"));
 
   const levelOf = (styleId: string | null): number => {
     if (!styleId) return 0;
@@ -210,6 +243,8 @@ export async function convertDocx(buf: Uint8Array, opts: ConvertOpts): Promise<C
     if (numId && numId !== "0" && ilvl !== undefined) return ilvl + 1;
     return outline !== undefined ? outline + 1 : Number(named![1]);
   };
+  const body = [...documentXml.matchAll(/<w:pStyle w:val="([^"]+)"/g)].find((m) => levelOf(m[1]) > 0)?.index ?? 0;
+  const warnings = shapeWarnings(documentXml, part("word/comments.xml"), body);
 
   const headings: Heading[] = [];
   const counters: number[] = [];
@@ -269,9 +304,11 @@ export async function convertDocx(buf: Uint8Array, opts: ConvertOpts): Promise<C
   const root = parseHtml(result.value);
   const plan = planFigures(collectItems(root));
   const pdfPool = opts.pdfFigures ? [...opts.pdfFigures] : null;
-  const fromPdf = (key: string, caption: string): Figure | undefined => {
-    const num = key.split("-")[0];
-    const i = pdfPool?.findIndex((f) => f.key.split("-")[0] === num && sameCaption(f.caption, caption)) ?? -1;
+  const numOf = (caption: string) =>
+    caption.match(CAPTION_RE)?.[1] ?? caption.match(TRAILING_CAPTION_RE)?.[2] ?? caption;
+  const fromPdf = (caption: string): Figure | undefined => {
+    const num = numOf(caption);
+    const i = pdfPool?.findIndex((f) => numOf(f.caption) === num && sameCaption(f.caption, caption)) ?? -1;
     return i >= 0 ? pdfPool!.splice(i, 1)[0] : undefined;
   };
   const figures: Figure[] = [];
@@ -322,16 +359,17 @@ export async function convertDocx(buf: Uint8Array, opts: ConvertOpts): Promise<C
     return undefined;
   };
 
+  const tables = besideTables(root);
   const decorate = (n: HNode, md: string): string => {
     const orphan = plan.orphans.get(n);
     if (!orphan) return md;
-    const pdf = fromPdf(orphan.key, orphan.caption);
+    const pdf = fromPdf(orphan.caption);
     if (pdf) {
       recovered.push(orphan.key);
       figures.push({ ...pdf, key: orphan.key, caption: orphan.caption });
       return `${md}\n\n${imageLine(orphan.caption, `figures/fig-${orphan.key}.${pdf.ext}`, orphan.key)}`;
     }
-    missing.push(orphan.key);
+    if (!tables.has(n)) missing.push(orphan.key);
     return `${md} <!-- fig ${orphan.key} -->`;
   };
 

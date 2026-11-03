@@ -1,8 +1,10 @@
 import { basename, extname } from "node:path";
 import type { Block } from "./convert-html.ts";
 
-export const CAPTION_RE = /^(?:Figure|Fig\.)\s*(\d+)\s*(?:[-‐‑–—:.]\s*|\s+(?=\S))(.{0,300})$/i;
-export const TRAILING_CAPTION_RE = /(?:^|\s)((?:Figure|Fig\.)\s*(\d+)\s*[-‐‑–—:]\s*[^.!?]{3,160})$/i;
+export const CAPTION_RE =
+  /^(?:Figure|FIGURE|Fig\.|FIG\.)\s*(\d+(?:[.-]\d+)*)(?![.-]?\d)\s*(?:[-‐‑–—:.]\s*|\s+(?=\S)(?!\p{Ll}))(.{1,300})$/u;
+export const TRAILING_CAPTION_RE =
+  /(?:^|\s)((?:Figure|FIGURE|Fig\.|FIG\.)\s*(\d+(?:[.-]\d+)*)(?![.-]?\d)\s*[-‐‑–—:]\s*[^.!?]{3,160})$/u;
 
 export type Figure = { key: string; caption: string; ext: string; data: Uint8Array };
 

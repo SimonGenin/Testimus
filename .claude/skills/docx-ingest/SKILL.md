@@ -37,12 +37,43 @@ to `docs/<docId>/source.<ext>`; `doc.json.source` keeps the original path and it
   never anchors. An older `doc.md` may still hold `<!-- req … -->` comments; they are ignored like any
   other comment.
 
-## PDF fallback
+## PDF
 
-`pdfjs-dist` for text; figures by rendering the page region of each `Figure N` caption. BHP's
-`D:\SVN\B040L00192_Australia_BHP_TCC_Sources\.xray\scripts\pdf_catalog.py` does exactly that in
-Python (caption detection, regions, red-frame detection) — read it before writing ours. A numbered
-article under the current heading (`S.1.1.2 …`) starts its own paragraph.
+A .pdf added beside a .docx of the same name is converted from the .docx; the .pdf is kept as
+`source.pdf` and lends the pictures the .docx lacks (`addDoc`).
+
+**Tagged PDF first** (`convert-pdf-tags.ts`). Word's « Save as PDF » and Chrome's print write a
+structure tree: H1…H6, P, L/LI/Lbl/LBody, Table/TR/TH/TD, Figure (with a BBox), Caption; headers and
+footers are marked Artifact. The tagged reader follows it in reading order: real tables, real lists,
+no page chrome to guess. It is used only when the tags hold ≥ 98 % of the text and at least one
+heading; otherwise the layout reader below runs (Desiro ISR: 13 % of its text outside the tags;
+ROI-AFTT: tags without headings).
+
+- Heading numbers. Word draws the list number of a heading but often leaves it out of the text. The
+  number is taken from the heading text, else the bookmarks (outline), else the tagged table of
+  contents (its indentation gives the depth), else « x » when the next heading is « x.1 ». A number
+  that is only drawn is **never counted up**: counting gave « 1.1.5.1 » for bullets of RS-CPN whose page
+  shows « Art. A.3.1. ». Such headings keep a title anchor and a warning says to add the .docx.
+- Figures: a Figure tag is cut from the page with its BBox — the raster when one picture fills the box,
+  else a render of the region (`pdf.ts` `shoot`, @napi-rs/canvas, already shipped by pdfjs-dist). A
+  picture tagged as plain content, or not tagged at all (Chrome), is kept where it sits. A complete
+  caption paragraph whose previous paragraph holds drawn shapes (Word's drawing canvas, labels typed
+  inside) gets the ink resting on it (`inkAbove`). Path bounds from the operator list are not
+  reliable under scaled form XObjects — use them only to know *that* something is drawn.
+- A table or paragraph cut by a page break is joined again; a caption beside a table captions it.
+
+**Layout reader** (`convert-pdf.ts`, untagged PDFs): lines by position and font size; headings
+from numbering; a caption without a picture above gets the drawn region between it and the text
+above; a page with no text (a scan) is kept whole as a picture that Claude's figure descriptions read.
+
+**Captions**: `Figure 5-21: …` is figure « 5-21 » (chapter numbering). « Figure 6-11 presents … »
+and a line « Figure 5-21. » ending a sentence are not captions. « … Figure 18 – Boîte de dialogue » at
+the end of a sentence is a reference when Figure 18 is captioned elsewhere, else a figure the original
+lost.
+
+**Warnings that are true, and nobody but the client can fix**: Traction 01.01 figures 28–42 are
+flattened to text *in the client's own PDF and .docx* (page 56: « État contrôlé Aspect … Figure 30 – … »
+with nothing drawn). The warning says so; a reconversion cannot help.
 
 ## Check a conversion
 
@@ -51,6 +82,15 @@ article under the current heading (`S.1.1.2 …`) starts its own paragraph.
 2. Open three random figures and their surrounding text: right image, right place.
 3. Pick five sections of the table of contents; `testimus rag passage <doc>#§<n>` must show their text.
 4. Reconvert: anchors must not move.
+5. Compare with the .docx when there is one: the heading anchors of the tagged PDF and of the .docx
+   must be the same set (measured 2026-11-03 on J5: Traction 286/286, PCC NG 221/221, CAD 28/28,
+   TOC 17/17, Machine Départ 76/77).
+
+Real PDFs to try a change on (read-only copies, never commit them): the J5 deliveries
+(`…\14 - Livraisons documentaires\J5\D401-1 Specifications Fonctionnelles - J5`, .pdf and .docx side
+by side) and the technical manuals in `C:\Users\s.genin\Downloads` (ATS, MWS, Desiro, SSR exports, the
+NT_05_530 scan).
+Run old and new side by side on all of them before calling a converter change done.
 
 The RATP documents already converted for the Sosie code
 (`D:\SVN\B040L00320_Ratp_Sosie_Sources\.claude\documentation\`, e.g.

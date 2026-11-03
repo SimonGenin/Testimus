@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs";
-import { basename, extname, join, resolve, sep } from "node:path";
+import { basename, dirname, extname, join, resolve, sep } from "node:path";
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
 import { anchorsOf, type Converted, type ConvertOpts, guessFromName } from "../rag/convert.ts";
@@ -200,6 +200,11 @@ export async function addDoc(
     throw new UserError(`Cannot add ${ext || "a file without extension"}.`, "Give a .docx (preferred) or a .pdf.");
   if (input.pdf && extname(input.pdf).toLowerCase() !== ".pdf")
     throw new UserError(`--pdf must be a .pdf file: ${input.pdf}`, "Give the PDF rendering of the same document.");
+  // ponytail: the .docx saved beside a .pdf under the same name is the same document with its structure intact
+  // (numbering, styles); it is converted, and the .pdf kept beside it lends its pictures
+  const twin = join(dirname(file), `${basename(file, extname(file))}.docx`);
+  if (ext === ".pdf" && !input.pdf && existsSync(twin))
+    return addDoc(project, { ...input, file: twin, pdf: file }, signal, progress);
   const guess = guessFromName(file);
   const id = input.id || guess.code;
   const dir = docDir(project, id);
