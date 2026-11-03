@@ -92,6 +92,10 @@ export function PackCard({
       <div className="pack-foot">
         {op ? (
           <OpLine op={op} onCancel={onCancel} />
+        ) : pack.active && ready ? (
+          <Button size="sm" icon="check" disabled aria-label={`Using the ${pack.label} pack`}>
+            Using this pack
+          </Button>
         ) : (
           <Button
             size="sm"

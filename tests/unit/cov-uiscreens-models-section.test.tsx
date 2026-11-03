@@ -294,7 +294,7 @@ describe("Settings › Models section", () => {
   });
 
   it("a pack with downloads is only downloaded; another pack stays choosable meanwhile", async () => {
-    base({ packs: [pack("balanced", { downloadMB: 300 }), pack("light", { active: true })] });
+    base({ packs: [pack("balanced", { downloadMB: 300 }), pack("light")] });
     models.routes["models.usePack"] = (i) => ({
       pack: i.pack,
       variant: 0,
