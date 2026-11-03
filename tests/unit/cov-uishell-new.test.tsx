@@ -442,6 +442,7 @@ describe("TracesBar", () => {
         trace({ found: 2 }),
         trace({ id: "alm", label: "Alarme", field: "Alarme", column: "local", found: 1 }),
       ]),
+      xray: { ...app().xray, fetchedAt: "2026-11-01T10:00:00Z" },
     });
     expect(screen.queryByText("Nothing tracked yet")).toBeNull();
     const local = screen.getByRole("button", { name: /Alarme · 1 id/ });
@@ -457,6 +458,24 @@ describe("TracesBar", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /Track ids…/ }));
     expect(screen.getByRole("dialog", { name: "Track ids from the documents" })).toBeInTheDocument();
+  });
+
+  it("says nothing of Xray while Jira is not connected or its step fields are unread", () => {
+    const traces = withTraces([trace({ id: "alm", label: "Alarme", field: "Alarme", column: "local", found: 1 })]);
+    const base = traces.info as NonNullable<AppState["info"]>;
+    const read = { ...app().xray, fetchedAt: "2026-11-01T10:00:00Z" };
+    for (const over of [
+      { ...traces, xray: { ...read, fetchedAt: undefined } },
+      { info: { ...base, project: { ...base.project, jiraOffline: true } }, xray: read },
+      { info: { ...base, project: { ...base.project, jiraProject: "" } }, xray: read },
+    ]) {
+      withApp(<TracesBar hint="" />, over);
+      expect(screen.getByRole("button", { name: /Alarme · 1 id/ })).not.toHaveAttribute(
+        "title",
+        expect.stringContaining("not in Xray"),
+      );
+      cleanup();
+    }
   });
 
   it("shows the hint when nothing is tracked or no project is read", () => {

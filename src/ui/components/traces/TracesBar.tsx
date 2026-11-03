@@ -9,6 +9,8 @@ import { TrackDialog } from "./TrackDialog.tsx";
 export function TracesBar({ hint }: { hint: string }) {
   const app = useApp();
   const traces = app.info?.traces ?? [];
+  const linked = !!app.info?.project.jiraProject && !app.info.project.jiraOffline && !!app.xray.fetchedAt;
+  const local = (t: TraceView) => linked && t.column === "local";
   const [open, setOpen] = useState<TraceView | "new" | null>(null);
   const [coverage, setCoverage] = useState(false);
   return (
@@ -19,8 +21,8 @@ export function TracesBar({ hint }: { hint: string }) {
         <Chip
           key={t.id}
           small
-          icon={t.column === "local" ? "warning" : "tag"}
-          title={`${t.patterns.join("  |  ")}\nStep column « ${t.field} »${t.column === "local" ? " — not in Xray yet" : ""}`}
+          icon={local(t) ? "warning" : "tag"}
+          title={`${t.patterns.join("  |  ")}\nStep column « ${t.field} »${local(t) ? " — not in Xray yet" : ""}`}
           onClick={() => setOpen(t)}
         >
           {t.label} · {plural(t.found, "id")}

@@ -183,6 +183,12 @@ describe("StepCard editing", () => {
     expect(apply().fields.Note).toBe("noted");
     expect(container.querySelector('[data-field="Note"] .fl-note')).toHaveTextContent("not in Xray");
   });
+
+  it("notes no column as not in Xray while Xray is not linked", () => {
+    const { container } = card({ ...base, fields: { ...base.fields, Note: "n" } }, { linked: false });
+    expect(container.querySelector('[data-field="Note"]')).toBeInTheDocument();
+    expect(container.querySelector(".fl-note")).toBeNull();
+  });
 });
 
 describe("StepCard columns", () => {

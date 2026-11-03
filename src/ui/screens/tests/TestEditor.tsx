@@ -633,11 +633,12 @@ export function TestEditor({
   const dirty = remote ? differs(test, remote) : !test.key;
   const diff = remote && dirty ? diffLocal(test.steps, remote.steps) : null;
   const pModes = projectModes(xray);
-  const cols = columnsOf(xray, {
-    fields: Object.fromEntries(test.steps.flatMap((s) => Object.entries(s.fields))),
-    sources: [],
-    images: [],
-  });
+  const linked = !!jiraKey && !!xray.fetchedAt;
+  const cols = columnsOf(
+    xray,
+    { fields: Object.fromEntries(test.steps.flatMap((s) => Object.entries(s.fields))), sources: [], images: [] },
+    linked,
+  );
   // ponytail: nothing local to send — the test matches its last sync, even if Jira changed since (Xray Editor)
   const canPush = !(!!remote && !!test.key && !dirty);
   const openImage = (file: string, images: StepImage[], step: number) =>
@@ -886,6 +887,7 @@ export function TestEditor({
                   count={test.steps.length}
                   step={s}
                   xray={xray}
+                  linked={linked}
                   layout={layout}
                   projectModes={pModes}
                   testModes={testCols}

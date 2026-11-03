@@ -16,11 +16,12 @@ export type Column = {
 const kindOf = (type: string): Column["kind"] =>
   type === "text-single" ? "line" : type === "text" || type === "" ? "text" : "readonly";
 
-export function columnsOf(x: XrayJson, step?: Step): Column[] {
+// ponytail: with Jira not connected, or its step fields never read, no column can be said « not in Xray »
+export function columnsOf(x: XrayJson, step?: Step, linked = true): Column[] {
   const types = new Map(x.fields.map((f) => [f.name, f.type]));
   const off = new Set(x.fields.filter((f) => f.disabled).map((f) => f.name));
   return fieldViews(x, step).map((v): Column => {
-    const known = types.has(v.name);
+    const known = !linked || types.has(v.name);
     const flag = off.has(v.name) ? { off: true } : {};
     if (BUILTIN_FIELDS.includes(v.name)) return { name: v.name, kind: "blocks", known: true, ...flag };
     if (isRequirementField(v.name)) return { name: v.name, kind: "requirements", known, ...flag };

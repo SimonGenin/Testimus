@@ -56,6 +56,7 @@ export function StepCard({
   count,
   step,
   xray,
+  linked = true,
   layout,
   projectModes,
   testModes = null,
@@ -90,6 +91,7 @@ export function StepCard({
   count: number;
   step: Step;
   xray: XrayJson;
+  linked?: boolean;
   layout: StepLayout;
   projectModes?: ColumnModes;
   testModes?: ColumnModes | null;
@@ -125,7 +127,7 @@ export function StepCard({
   const [folds, setFolds] = useState<Record<string, boolean>>({});
   const [wasOpen, setWasOpen] = useState(false);
   const n = index + 1;
-  const cols = columnsOf(xray, step);
+  const cols = columnsOf(xray, step, linked);
   const val = (name: string) => step.fields[name] ?? "";
   const unreadable = hasRawEmbed(step);
   const pModes = projectModes ?? modesOf(xray);
