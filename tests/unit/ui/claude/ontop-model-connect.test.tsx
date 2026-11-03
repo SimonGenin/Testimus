@@ -107,7 +107,7 @@ describe("ModelPicker", () => {
     const change = vi.fn();
     const { rerender } = render(<ModelPicker value="sonnet" className="c" onChange={change} />);
     const select = screen.getByRole("combobox", { name: "Model" });
-    expect(screen.getByRole("option", { name: "Fable" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "fable" })).toBeInTheDocument();
     fireEvent.change(select, { target: { value: "opus" } });
     expect(change).toHaveBeenLastCalledWith("opus");
     fireEvent.change(select, { target: { value: "custom" } });

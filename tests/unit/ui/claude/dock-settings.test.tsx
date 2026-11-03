@@ -310,7 +310,7 @@ describe("dock: scope, presets, contexts, models", () => {
       within(model)
         .getAllByRole("option")
         .map((o) => o.textContent),
-    ).toEqual(["Fable", "Opus", "Sonnet", "Haiku", "custom…"]);
+    ).toEqual(["fable", "opus", "sonnet", "haiku", "custom…"]);
     fireEvent.change(model, { target: { value: "custom" } });
     const custom = screen.getByRole("textbox", { name: "Custom model" });
     fireEvent.change(custom, { target: { value: "claude-opus-4-1" } });

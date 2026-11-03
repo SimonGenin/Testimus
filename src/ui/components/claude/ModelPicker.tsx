@@ -16,7 +16,7 @@ const styles = stylex.create({
   custom: { width: size.menuMin },
 });
 
-export const effortOptions: SelectOption<Effort>[] = EFFORTS.map((e) => ({ value: e, label: `Effort: ${e}` }));
+export const effortOptions: SelectOption<Effort>[] = EFFORTS.map((e) => ({ value: e, label: e }));
 
 // ponytail: the model list plus « custom… »; a model the list does not know (a full id, a new alias) is typed in and
 // handed over on blur or Enter only, so a half-typed name is never saved nor sent
@@ -28,7 +28,7 @@ export function useModelChoice(value: string, onChange: (model: string) => void)
     if (!MODELS.includes(value)) setText(value);
   }, [value]);
   const options: SelectOption<string>[] = [
-    ...MODELS.map((m) => ({ value: m, label: cap(m) })),
+    ...MODELS.map((m) => ({ value: m, label: m })),
     { value: CUSTOM, label: "custom…" },
   ];
   const pick = (v: string) => {

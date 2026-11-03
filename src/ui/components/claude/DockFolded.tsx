@@ -3,7 +3,6 @@ import { plural } from "../../lib/format.ts";
 import { color, fontSize, fontWeight, lineHeight, size, space } from "../../styles/tokens.stylex.ts";
 import { Badge } from "../ui/Badge.tsx";
 import { Button } from "../ui/Button.tsx";
-import { Kbd } from "../ui/Kbd.tsx";
 import { Spinner } from "../ui/Spinner.tsx";
 import { OnTopToggle } from "./OnTopToggle.tsx";
 import type { Last } from "./useDockRuns.ts";
@@ -77,7 +76,6 @@ export function DockFolded({
         {line}
       </span>
       <span {...stylex.props(styles.grow)} />
-      <Kbd>Ctrl J</Kbd>
       <OnTopToggle />
     </aside>
   );

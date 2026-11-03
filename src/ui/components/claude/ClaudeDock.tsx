@@ -357,7 +357,7 @@ export function ClaudeDock({
             mode={docsMode ? "docs" : "test"}
             label={labelOf(sub, docId)}
             placeholder={offline ? "Claude is optional — everything else works without it" : placeholderOf(sub, docId)}
-            scope={scopeWord}
+            scope={sub === "test" && focus ? "Whole test" : scopeWord}
             quickAsks={cfg?.presets ?? []}
             contexts={{ effective, pick, setPick }}
             all={saved ?? []}
