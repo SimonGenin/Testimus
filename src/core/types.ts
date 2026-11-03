@@ -143,6 +143,10 @@ export type ColumnLayout = { fetchedAt?: string; fields: XrayField[]; columns: S
 // tests/<id>/local.json: a test's own settings, outside test.md, never making the test modified
 export type TestLocal = { contexts?: string[]; columns?: ColumnModes };
 
+// tests/<id>/.state.json: what the app derived about a test (Jira seen changed since .remote.md; the print of what a
+// generation wrote) — never edited
+export type TestState = { remoteChangedAt?: string; generatedPrint?: string };
+
 export const BUILTIN_FIELDS: readonly string[] = ["Action", "Data", "Expected Result"];
 
 // Check (SPEC §8)

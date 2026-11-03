@@ -705,8 +705,10 @@ are left out, and text before a step's first `###` is read as Action.
 
 `check.json` beside it is the last check's output (§8), derived, never edited. Its `testHash` is the
 sha256 of `test.md` after the frontmatter, so a review decision does not make findings stale.
-`tests/<id>/.remote-changed` is a derived marker (Jira changed since `.remote.md`): set by the sync's
-re-check, cleared by a pull or a push, never edited.
+`tests/<id>/.state.json` `{ remoteChangedAt?, generatedPrint? }` is what the app derived about the test, never
+edited: `remoteChangedAt` (Jira changed since `.remote.md`) is set by the sync's re-check and cleared by a pull or
+a push; `generatedPrint` is the print of the content a generation wrote, so a generated test the team then edited
+shows as edited. A state left empty leaves no file.
 The parser stays tolerant (never throws on a human or Claude edit; returns warnings).
 
 ## 7. Generation
