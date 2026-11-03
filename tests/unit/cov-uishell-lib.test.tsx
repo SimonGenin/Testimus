@@ -216,16 +216,21 @@ describe("theme and preferences", () => {
   });
 
   it("reads and writes preferences and session values", () => {
-    expect(readPref("k", ["a", "b"] as const, "a")).toBe("a");
-    writePref("k", "b");
-    expect(readPref("k", ["a", "b"] as const, "a")).toBe("b");
-    writePref("k", "z");
-    expect(readPref("k", ["a", "b"] as const, "a")).toBe("a");
-    expect(readString("missing")).toBe("");
-    expect(readString("k")).toBe("z");
-    expect(readSession("s")).toBe("");
-    writeSession("s", "1");
-    expect(readSession("s")).toBe("1");
+    const LAYOUTS = ["stacked", "split"] as const;
+    expect(readPref("testimus.stepLayout", LAYOUTS, "stacked")).toBe("stacked");
+    writePref("testimus.stepLayout", "split");
+    expect(readPref("testimus.stepLayout", LAYOUTS, "stacked")).toBe("split");
+    writePref("testimus.stepLayout", "z");
+    expect(readPref("testimus.stepLayout", LAYOUTS, "stacked")).toBe("stacked");
+    expect(readString("testimus.missing")).toBe("");
+    writePref("testimus.missing", "x");
+    expect(readString("testimus.missing")).toBe("");
+    writePref("testimus.editorWidth", "900");
+    expect(readString("testimus.editorWidth")).toBe("900");
+    expect(readSession("testimus.setupShown")).toBe("0");
+    writeSession("testimus.setupShown", "1");
+    expect(readSession("testimus.setupShown")).toBe("1");
+    expect(localStorage.getItem("testimus.setupShown")).toBeNull();
   });
 
   it("survives a storage that throws", () => {
@@ -239,11 +244,11 @@ describe("theme and preferences", () => {
     applyTheme("light");
     expect(document.documentElement.dataset.theme).toBe("light");
     applyTheme("system");
-    expect(readPref("k", ["a"] as const, "a")).toBe("a");
-    writePref("k", "a");
-    expect(readString("k")).toBe("");
-    expect(readSession("k")).toBe("");
-    writeSession("k", "v");
+    expect(readPref("testimus.stepLayout", ["stacked"] as const, "stacked")).toBe("stacked");
+    writePref("testimus.stepLayout", "split");
+    expect(readString("testimus.editorWidth")).toBe("");
+    expect(readSession("testimus.setupShown")).toBe("0");
+    writeSession("testimus.setupShown", "1");
   });
 });
 

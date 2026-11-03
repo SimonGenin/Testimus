@@ -2,7 +2,7 @@ import type { Job } from "../../core/types.ts";
 import type { FileFilter, TestimusDesktop } from "../../desktop/bridge-types.ts";
 import { call, setProject } from "../api.ts";
 import type { AppState } from "./app.ts";
-import { writePref } from "./theme.ts";
+import { readPref, writePref } from "./prefs.ts";
 import { errorToast, toast } from "./toast.ts";
 
 export const desktop = (): TestimusDesktop | null =>
@@ -65,18 +65,10 @@ export function openExternal(url: string): boolean {
   return true;
 }
 
-export const ON_TOP_KEY = "testimus.alwaysOnTop";
-
-export function readAlwaysOnTop(): boolean {
-  try {
-    return localStorage.getItem(ON_TOP_KEY) === "true";
-  } catch {
-    return false;
-  }
-}
+export const readAlwaysOnTop = (): boolean => readPref("alwaysOnTop");
 
 export async function setAlwaysOnTop(on: boolean): Promise<boolean> {
-  writePref(ON_TOP_KEY, on ? "true" : "false");
+  writePref("alwaysOnTop", on);
   window.dispatchEvent(new CustomEvent("testimus:on-top", { detail: on }));
   const d = desktop();
   if (!d?.setAlwaysOnTop) return false;
@@ -96,7 +88,7 @@ export function restoreAlwaysOnTop(): void {
 export async function openProject(app: Pick<AppState, "refreshInfo" | "testsChanged">, dir: string): Promise<string> {
   const r = await call<{ dir: string }>("project.open", { dir });
   setProject(r.dir);
-  writePref("testimus.project", r.dir);
+  writePref("project", r.dir);
   app.refreshInfo();
   app.testsChanged();
   return r.dir;

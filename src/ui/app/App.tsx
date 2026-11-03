@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ColumnLayout, CredsStatus, Job, SearchMatch, Source, XrayJson } from "../../core/types.ts";
 import { ApiError, type CommandInfo, call, commands, events, project, setProject } from "../api.ts";
@@ -50,6 +51,7 @@ function triageFailed(job: Job): void {
 }
 
 export function App() {
+  const client = useQueryClient();
   const [info, setInfo] = useState<ProjectInfo | null>(null);
   const [xray, setXray] = useState<ColumnLayout>(DEFAULT_LAYOUT);
   const [cmds, setCmds] = useState<CommandInfo[]>([]);
@@ -86,11 +88,11 @@ export function App() {
     let stopMirror = () => {};
     commands()
       .then(async (r) => {
-        if (await restorePrefs()) {
+        if (await restorePrefs(client)) {
           window.location.reload();
           return;
         }
-        stopMirror = mirrorPrefs();
+        stopMirror = mirrorPrefs(client);
         const stored = readString("testimus.project");
         setCmds(r.commands ?? []);
         setProject(stored || r.project);
@@ -104,7 +106,7 @@ export function App() {
         const dir = project();
         if (dir) refreshInfo();
         setBooted(true);
-        const shown = readSession("testimus.setupShown");
+        const shown = readSession("testimus.setupShown") === "1";
         if (shown || parseRoute(window.location.hash).screen === "setup") return;
         const st = await call<{ status: CredsStatus }>("system.setup", {}).catch(() => null);
         const creds = !st || (st.status.jira.complete && st.status.xray.complete);

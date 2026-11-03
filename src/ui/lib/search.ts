@@ -1,54 +1,53 @@
 import { useEffect, useState } from "react";
 import type { SearchKind, SearchMatch, SearchResult } from "../../core/types.ts";
-import { call, project } from "../api.ts";
+import { project } from "./data/client.ts";
+import { useRead } from "./data/query.ts";
+import { readRecent, writeRecent } from "./prefs.ts";
 
 export type SearchState = { result: SearchResult | null; loading: boolean; deep: boolean; error: string };
 
 const WORDS_MS = 60;
 const MEANING_MS = 280;
 
-// ponytail: two passes — the words answer while typing, the meaning (embedding model, hybrid passages) comes after
-// a pause and replaces them; a newer query aborts both
+function useSettled<T>(value: T, ms: number): T {
+  const [settled, setSettled] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setSettled(value), ms);
+    return () => clearTimeout(t);
+  }, [value, ms]);
+  return settled;
+}
+
+// ponytail: two reads of search.all — the words answer while typing, the meaning (embedding model, hybrid passages)
+// comes after a pause and replaces them; an answer to an older query is never shown
 export function useSearch(
   query: string,
   opts: { in?: SearchKind[]; k?: number; enabled?: boolean; meaning?: boolean } = {},
 ): SearchState {
-  const [state, setState] = useState<SearchState>({ result: null, loading: false, deep: false, error: "" });
-  const scope = opts.in?.join(",") ?? "";
-  const enabled = opts.enabled ?? true;
+  const q = query.trim();
+  const on = (opts.enabled ?? true) && !!q;
   const meaning = opts.meaning ?? true;
-  const k = opts.k;
-  // biome-ignore lint/correctness/useExhaustiveDependencies: scope is opts.in as a string
-  useEffect(() => {
-    const q = query.trim();
-    if (!enabled || !q) {
-      setState({ result: null, loading: false, deep: false, error: "" });
-      return;
-    }
-    const ctrl = new AbortController();
-    const input = { query: q, ...(opts.in?.length ? { in: opts.in } : {}), ...(k ? { k } : {}) };
-    setState((s) => ({ ...s, loading: true }));
-    let landed = false;
-    const ask = (deep: boolean) =>
-      call<SearchResult>("search.all", { ...input, meaning: deep }, ctrl.signal)
-        .then((result) => {
-          if (ctrl.signal.aborted || !result?.hits || landed) return;
-          landed = deep;
-          setState({ result, loading: !deep && meaning, deep, error: "" });
-        })
-        .catch((e) => {
-          if (ctrl.signal.aborted) return;
-          setState((s) => ({ ...s, loading: false, error: e instanceof Error ? e.message : String(e) }));
-        });
-    const words = setTimeout(() => void ask(false), WORDS_MS);
-    const deep = meaning ? setTimeout(() => void ask(true), MEANING_MS) : undefined;
-    return () => {
-      ctrl.abort();
-      clearTimeout(words);
-      clearTimeout(deep);
-    };
-  }, [query, scope, enabled, meaning, k]);
-  return state;
+  const input = { query: q, ...(opts.in?.length ? { in: opts.in } : {}), ...(opts.k ? { k: opts.k } : {}) };
+  const key = JSON.stringify(input);
+  const wordsKey = useSettled(key, WORDS_MS);
+  const deepKey = useSettled(key, MEANING_MS);
+  const words = useRead(
+    "search.all",
+    { ...JSON.parse(wordsKey), meaning: false },
+    { enabled: on && wordsKey === key },
+  );
+  const deep = useRead(
+    "search.all",
+    { ...JSON.parse(deepKey), meaning: true },
+    { enabled: on && meaning && deepKey === key },
+  );
+  if (!on) return { result: null, loading: false, deep: false, error: "" };
+  const deepHere = meaning && deepKey === key && !!deep.data?.hits;
+  const wordsHere = wordsKey === key && !!words.data?.hits;
+  const result = (deepHere ? deep.data : wordsHere ? words.data : null) as SearchResult | null;
+  const error = (deepHere ? null : (words.error ?? deep.error))?.message ?? "";
+  const loading = !error && (!result || (meaning && !deepHere));
+  return { result, loading, deep: deepHere, error };
 }
 
 // ponytail: the step a search result points at, picked up by the editor once the test is on screen
@@ -66,21 +65,17 @@ export function takeJump(testId: string): number | null {
 }
 
 const RECENT_MAX = 6;
-const recentKey = () => `testimus.search.recent:${project() ?? ""}`;
 
 export function recentHits(): SearchMatch[] {
-  try {
-    const v = JSON.parse(localStorage.getItem(recentKey()) ?? "[]") as SearchMatch[];
-    return Array.isArray(v) ? v : [];
-  } catch {
-    return [];
-  }
+  return readRecent(project() ?? "").filter(
+    (h): h is SearchMatch => !!h && typeof h === "object" && "kind" in h && "id" in h,
+  );
 }
 
 export function rememberHit(h: SearchMatch): void {
   const slim: SearchMatch = { ...h, titleMarks: [], marks: [], snippet: undefined, score: 0 };
-  const list = [slim, ...recentHits().filter((x) => !(x.kind === h.kind && x.id === h.id))].slice(0, RECENT_MAX);
-  try {
-    localStorage.setItem(recentKey(), JSON.stringify(list));
-  } catch {}
+  writeRecent(
+    project() ?? "",
+    [slim, ...recentHits().filter((x) => !(x.kind === h.kind && x.id === h.id))].slice(0, RECENT_MAX),
+  );
 }

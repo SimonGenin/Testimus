@@ -23,7 +23,7 @@ describe("theme toggle", () => {
     expect(button).toHaveTextContent("Dark");
     fireEvent.click(button);
     expect(document.documentElement.dataset.theme).toBeUndefined();
-    expect(localStorage.getItem("testimus.theme")).toBe("system");
+    expect(localStorage.getItem("testimus.theme")).toBeNull();
   });
 
   it("starts from the stored theme", () => {

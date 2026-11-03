@@ -1,6 +1,9 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createQueryClient } from "../../src/ui/lib/data/query.ts";
 import { mirrorPrefs, restorePrefs } from "../../src/ui/lib/prefsMirror.ts";
+
+const client = createQueryClient();
 
 let calls: { name: string; input: Record<string, unknown> }[] = [];
 let saved: Record<string, string> | undefined;
@@ -40,17 +43,17 @@ describe("page preferences kept in settings.json (desktop app)", () => {
   it("a new origin (the core changed port) gets the saved preferences back, once", async () => {
     asDesktop();
     saved = { "testimus.theme": "dark", "testimus.sidebarWidth": "300", other: "x" };
-    expect(await restorePrefs()).toBe(true);
+    expect(await restorePrefs(client)).toBe(true);
     expect(localStorage.getItem("testimus.theme")).toBe("dark");
     expect(localStorage.getItem("testimus.sidebarWidth")).toBe("300");
     expect(localStorage.getItem("other")).toBeNull();
-    expect(await restorePrefs()).toBe(false);
+    expect(await restorePrefs(client)).toBe(false);
   });
 
   it("copies every change there a few seconds later, and when the window hides", async () => {
     asDesktop();
     vi.useFakeTimers();
-    const stop = mirrorPrefs(1000);
+    const stop = mirrorPrefs(client, 1000);
     localStorage.setItem("testimus.editorWidth", "900");
     localStorage.setItem("unrelated", "1");
     await vi.advanceTimersByTimeAsync(1000);
@@ -66,8 +69,8 @@ describe("page preferences kept in settings.json (desktop app)", () => {
 
   it("does nothing in the browser, where the origin does not move", async () => {
     saved = { "testimus.theme": "dark" };
-    expect(await restorePrefs()).toBe(false);
-    const stop = mirrorPrefs(10);
+    expect(await restorePrefs(client)).toBe(false);
+    const stop = mirrorPrefs(client, 10);
     stop();
     expect(calls).toEqual([]);
   });
