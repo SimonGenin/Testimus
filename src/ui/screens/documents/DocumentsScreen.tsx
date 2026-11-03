@@ -79,9 +79,18 @@ function IndexFailed({ u, colSpan }: { u: Upload; colSpan: number }) {
 
 const REFRESH = new Set(["docs.add", "docs.convert", "rag-index", "describe-figures", "claude"]);
 
+export type Fold = "wide" | "medium" | "small" | "tiny";
+
+// ponytail: the outer columns fold first so the text keeps ~480px — list 248, sections 256, settings 300
+export const foldOf = (width: number): Fold =>
+  width >= 1300 ? "wide" : width >= 1040 ? "medium" : width >= 760 ? "small" : "tiny";
+
 export function DocumentsScreen() {
   const app = useApp();
-  const [sideW, sideEdge] = useSideWidth("testimus.docsSideWidth", 320, 800, "after");
+  const [listW, listEdge] = useSideWidth("testimus.docsListWidth", 200, 420, "before");
+  const body = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(Number.POSITIVE_INFINITY);
+  const [listOpen, setListOpen] = useState(false);
   const [docs, setDocs] = useState<DocRef[] | null>(null);
   const [wordsOnly, setWordsOnly] = useState<string | null>(null);
   const [drag, setDrag] = useState(false);
@@ -147,6 +156,30 @@ export function DocumentsScreen() {
   const busy = uploads.filter((u) => !settled(u));
   const listed = (u: Upload) => !!docs?.some((d) => (u.docId ? d.id === u.docId : owns(u, d)));
   const pages = docs?.length ?? 0;
+  const hasBody = !(docs && !docs.length && !uploads.length);
+  const fold = foldOf(width);
+  const folded = fold !== "wide";
+
+  useEffect(() => {
+    const el = body.current;
+    if (!hasBody || !el || typeof ResizeObserver === "undefined") return;
+    const watch = new ResizeObserver(([e]) => setWidth(e.contentRect.width));
+    watch.observe(el);
+    return () => watch.disconnect();
+  }, [hasBody]);
+
+  useEffect(() => {
+    if (!folded) setListOpen(false);
+  }, [folded]);
+
+  useEffect(() => {
+    if (!listOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setListOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [listOpen]);
+
+  const active = activeId && docs?.find((d) => d.id === activeId);
 
   return (
     <div
@@ -203,7 +236,7 @@ export function DocumentsScreen() {
           e.target.value = "";
         }}
       />
-      {docs && !docs.length && !uploads.length ? (
+      {!hasBody ? (
         <div className="empty">
           <Icon name="documents" size={40} />
           <h2 className="h">Start with the specifications</h2>
@@ -219,15 +252,16 @@ export function DocumentsScreen() {
           </Button>
         </div>
       ) : (
-        <div className="split" style={sideW ? ({ "--side-size": `${sideW}px` } as CSSProperties) : undefined}>
-          <section className="split-main scroll" aria-label="Document list">
-            <table className="tbl">
-              <thead>
+        <div
+          ref={body}
+          className={cx("docs-body", `is-${fold}`, listOpen && "is-list-open")}
+          style={listW ? ({ "--docs-list-w": `${listW}px` } as CSSProperties) : undefined}
+        >
+          <section className="docs-list scroll" aria-label="Document list">
+            <table className="tbl docs-tbl">
+              <thead className="sr">
                 <tr>
                   <th scope="col">Document</th>
-                  <th scope="col">Status</th>
-                  <th scope="col">Search</th>
-                  <th scope="col">Warnings</th>
                 </tr>
               </thead>
               <tbody>
@@ -235,17 +269,9 @@ export function DocumentsScreen() {
                   ? [0, 1, 2, 3].map((i) => (
                       <tr key={i} aria-busy="true">
                         <td>
-                          <Skeleton w={170} h={10} />
+                          <Skeleton w={150} h={10} />
                           <Skeleton w={110} h={14} />
-                        </td>
-                        <td>
-                          <Skeleton w={80} h={22} r={11} />
-                        </td>
-                        <td>
-                          <Skeleton w={90} h={14} />
-                        </td>
-                        <td>
-                          <Skeleton w={20} h={12} />
+                          <Skeleton w={160} h={18} r={9} />
                         </td>
                       </tr>
                     ))
@@ -255,7 +281,10 @@ export function DocumentsScreen() {
                       const failed = uploads.filter(
                         (u) => u.docId === d.id && (u.phase === "index-failed" || u.phase === "failed"),
                       );
-                      const open = () => app.navigate("documents", d.id);
+                      const open = () => {
+                        setListOpen(false);
+                        app.navigate("documents", d.id);
+                      };
                       const inFlight = uploads.find((u) => owns(u, d));
                       if (inFlight) return <UploadRow key={d.id} u={inFlight} on={d.id === activeId} onOpen={open} />;
                       return [
@@ -272,21 +301,13 @@ export function DocumentsScreen() {
                               {d.code} · {d.version}
                             </div>
                             <div className="tbl-title">{d.title}</div>
-                          </td>
-                          <td>
-                            <Badge tone={st.tone}>{st.label}</Badge>
-                          </td>
-                          <td className="tbl-state">
-                            <Severity tone={ix.tone}>{ix.word}</Severity>
-                          </td>
-                          <td>
-                            <span className="tbl-warn">
-                              {d.warnings.length ? (
+                            <div className="docs-facts">
+                              <Badge tone={st.tone}>{st.label}</Badge>
+                              <Severity tone={ix.tone}>{ix.word}</Severity>
+                              {d.warnings.length > 0 && (
                                 <span title={d.warnings.join("\n")}>
                                   <Severity tone="warning">{String(d.warnings.length)}</Severity>
                                 </span>
-                              ) : (
-                                <span className="muted">—</span>
                               )}
                               {acts
                                 .filter((a) => a.where === `doc:${d.id}`)
@@ -294,17 +315,17 @@ export function DocumentsScreen() {
                                 .map((a) => (
                                   <ActionButton key={a.id} action={a} compact />
                                 ))}
-                            </span>
+                            </div>
                           </td>
                         </tr>,
-                        ...failed.map((u) => <IndexFailed key={u.key} u={u} colSpan={4} />),
+                        ...failed.map((u) => <IndexFailed key={u.key} u={u} colSpan={1} />),
                       ];
                     })}
                 {uploads
                   .filter((u) => !listed(u))
                   .map((u) =>
                     u.phase === "index-failed" ? (
-                      <IndexFailed key={u.key} u={u} colSpan={4} />
+                      <IndexFailed key={u.key} u={u} colSpan={1} />
                     ) : (
                       <UploadRow key={u.key} u={u} />
                     ),
@@ -312,22 +333,32 @@ export function DocumentsScreen() {
               </tbody>
             </table>
           </section>
-          {activeId && docs?.some((d) => d.id === activeId) && (
-            <>
-              <DragEdge className="side-edge" label="Resize the document details" {...sideEdge} />
-              <DocDetail
-                key={`${activeId} ${docs?.find((x) => x.id === activeId)?.convertedAt ?? ""}`}
-                id={activeId}
-                anchor={anchor}
-                quote={quote}
-                onAnchor={(a) => app.navigate("documents", `${activeId}#${a}`)}
-                onChanged={changed}
-                onRemoved={() => {
-                  app.navigate("documents");
-                  changed();
-                }}
-              />
-            </>
+          {!folded && <DragEdge className="docs-list-edge" label="Resize the document list" {...listEdge} />}
+          {folded && listOpen && <div className="docs-scrim" aria-hidden="true" onClick={() => setListOpen(false)} />}
+          {active ? (
+            <DocDetail
+              key={`${activeId} ${active.convertedAt ?? ""}`}
+              id={activeId}
+              anchor={anchor}
+              quote={quote}
+              fold={fold}
+              listOpen={listOpen}
+              onShowList={folded ? () => setListOpen((o) => !o) : undefined}
+              onAnchor={(a) => app.navigate("documents", `${activeId}#${a}`)}
+              onChanged={changed}
+              onRemoved={() => {
+                app.navigate("documents");
+                changed();
+              }}
+            />
+          ) : (
+            <div className="docs-none">
+              {folded && (
+                <Button tone="quiet" icon="documents" onClick={() => setListOpen(true)}>
+                  Show the document list
+                </Button>
+              )}
+            </div>
           )}
         </div>
       )}

@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { DocJson, FigureEntry, TraceItem, TraceScan, TraceView } from "../../../core/types.ts";
+import type { DocJson, FigureEntry } from "../../../core/types.ts";
 import { call, project } from "../../api.ts";
 import { ActionButton } from "../../components/claude/ActionButton.tsx";
 import { ActionCount } from "../../components/claude/ActionCount.tsx";
 import { AdditionalContext } from "../../components/claude/AdditionalContext.tsx";
-import { Button, Icon, IconButton, Menu, Severity, Skeleton } from "../../components/ui/index.ts";
+import { Button, Icon, IconButton, Menu, Segmented, Severity, Skeleton } from "../../components/ui/index.ts";
 import { forProblem, useActions } from "../../lib/actions.ts";
 import { baseName, desktop, pathJoin, reveal } from "../../lib/desktop.ts";
 import { cx, message, plural } from "../../lib/format.ts";
@@ -12,8 +12,10 @@ import { errorToast, toast } from "../../lib/toast.ts";
 import { idPattern, REQUIREMENT, tracesNow } from "../../lib/traces.ts";
 import { settled, useUploads } from "../../lib/uploads.ts";
 import { ConvertDoc } from "./ConvertDoc.tsx";
+import { DocFigures } from "./DocFigures.tsx";
 import { DocReading } from "./DocReading.tsx";
-import { DocText, FigureChip } from "./DocText.tsx";
+import { DocText } from "./DocText.tsx";
+import type { Fold } from "./DocumentsScreen.tsx";
 import { RemoveDoc } from "./RemoveDoc.tsx";
 
 type TocEntry = { anchor: string; title: string; level: number };
@@ -44,6 +46,9 @@ export function DocDetail({
   id,
   anchor,
   quote = "",
+  fold = "wide",
+  listOpen = false,
+  onShowList,
   onAnchor,
   onChanged,
   onRemoved,
@@ -51,6 +56,9 @@ export function DocDetail({
   id: string;
   anchor: string;
   quote?: string;
+  fold?: Fold;
+  listOpen?: boolean;
+  onShowList?: () => void;
   onAnchor: (anchor: string) => void;
   onChanged: () => void;
   onRemoved: () => void;
@@ -58,19 +66,21 @@ export function DocDetail({
   const [shown, setShown] = useState<Shown | null>(null);
   const [ask, setAsk] = useState(false);
   const [again, setAgain] = useState(false);
+  const [view, setView] = useState<"text" | "figures">("text");
+  const [drawer, setDrawer] = useState<"sections" | "details" | null>(null);
   const [part, setPart] = useState<{ anchor: string; md: string; section?: string } | null>(null);
   const textBox = useRef<HTMLDivElement>(null);
   const [context, setContext] = useState("");
   const [ctxIds, setCtxIds] = useState<string[] | null>(null);
   const [error, setError] = useState("");
-  const [scanned, setScanned] = useState<{ trace: TraceView; items: TraceItem[] }[]>([]);
-  const traces = tracesNow() ?? [];
-  const tracesKey = traces.map((t) => `${t.id}=${t.patterns.join("|")}`).join(",");
-  const requirements = idPattern(traces.find((t) => t.id === REQUIREMENT));
+  const requirements = idPattern((tracesNow() ?? []).find((t) => t.id === REQUIREMENT));
   const acts = useActions({ docId: id });
   const running = useUploads().find((u) => u.docId === id && u.job === "convert" && !settled(u));
   const [opened, setOpened] = useState(false);
   const wasRunning = useRef(false);
+  const sideFolded = fold === "small" || fold === "tiny";
+  const tocFolded = fold === "tiny";
+
   useEffect(() => {
     if (running) wasRunning.current = true;
     else if (wasRunning.current) {
@@ -79,20 +89,16 @@ export function DocDetail({
     }
   }, [running]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: the tracked kinds are compared by their key
   useEffect(() => {
-    let dead = false;
-    Promise.all(
-      traces.map((trace) =>
-        call<TraceScan>("traces.find", { trace: trace.id, doc: id, limit: 2000 })
-          .then((r) => ({ trace, items: r.items }))
-          .catch(() => ({ trace, items: [] as TraceItem[] })),
-      ),
-    ).then((r) => !dead && setScanned(r));
-    return () => {
-      dead = true;
-    };
-  }, [id, tracesKey]);
+    if ((drawer === "details" && !sideFolded) || (drawer === "sections" && !tocFolded)) setDrawer(null);
+  }, [drawer, sideFolded, tocFolded]);
+
+  useEffect(() => {
+    if (!drawer) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setDrawer(null);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [drawer]);
 
   useEffect(() => {
     let dead = false;
@@ -140,7 +146,6 @@ export function DocDetail({
     const hot = box.querySelector<HTMLElement>(".is-focus");
     const go = () => {
       if (text) text.scrollTop = hot ? text.scrollTop + into(text, hot, true) : 0;
-      if (anchor) box.scrollIntoView?.({ block: "nearest", behavior: "instant" });
     };
     go();
     const shown = box.querySelector(".doctext");
@@ -154,7 +159,7 @@ export function DocDetail({
     };
     for (const k of ACTS) window.addEventListener(k, stop, true);
     return stop;
-  }, [part, focus, anchor]);
+  }, [part, focus, anchor, view]);
 
   const set = useCallback(
     async (patch: Partial<DocJson> & { context?: string; contexts?: string[] }, done?: string) => {
@@ -197,44 +202,118 @@ export function DocDetail({
   onLeave.current = saveNote;
   useEffect(() => () => onLeave.current(), []);
 
+  const switcher = onShowList && (
+    <IconButton
+      icon="documents"
+      className="docdoc-switch"
+      label="Show the document list"
+      aria-expanded={listOpen}
+      onClick={onShowList}
+    />
+  );
+
   if (error)
     return (
-      <aside className="split-side docdetail" aria-label={`${id} details`}>
+      <section className="docdoc docdoc-alone" aria-label={`${id} details`}>
+        {switcher}
         <Severity tone="error">This document could not be opened</Severity>
         <p>{error}</p>
-      </aside>
+      </section>
     );
   if (!shown)
     return (
-      <aside className="split-side docdetail" aria-label={`${id} details`} aria-busy="true">
-        <Skeleton w={240} h={11} />
-        <Skeleton w={180} h={24} />
+      <section className="docdoc docdoc-alone" aria-label={`${id} details`} aria-busy="true">
+        <Skeleton w={240} h={22} />
         <Skeleton w={300} h={12} />
-        <div className="formgrid">
-          <Skeleton h={58} />
-          <Skeleton h={58} />
-        </div>
         <Skeleton h={80} />
-      </aside>
+      </section>
     );
 
   const d = shown.doc;
   const from = d.source.file?.endsWith(".pdf") ? "PDF" : "Word";
   const converted = !!d.convertedAt;
+  const reading = !running && converted;
+  const sections = shown.toc;
+  const at = sections.findIndex((t) => t.anchor === current);
+  const prev = at > 0 ? sections[at - 1] : undefined;
+  const next = at >= 0 && at < sections.length - 1 ? sections[at + 1] : undefined;
+  const chapter = at >= 0 && sections[at].level > 1 ? sections.slice(0, at).findLast((t) => t.level === 1) : undefined;
+  const go = (a: string) => {
+    setView("text");
+    setDrawer(null);
+    onAnchor(a);
+  };
+  const toggle = (which: "sections" | "details") => setDrawer((w) => (w === which ? null : which));
+
   return (
-    <aside className={cx("split-side docdetail", opened && "docdetail-open")} aria-label={`${d.code} details`}>
-      <div className="docdetail-head">
-        <div className="docdetail-top">
-          <span className="mono muted docdetail-code">
-            <span>{d.code}</span> · <span>version {d.version}</span>
-            {d.date && (
-              <>
-                {" · "}
-                <span>{d.date}</span>
-              </>
-            )}
-          </span>
+    <section
+      className={cx("docdoc", opened && "docdetail-open", drawer && `is-${drawer}-open`)}
+      aria-label={`${d.code} details`}
+    >
+      <header className="docdoc-head">
+        {switcher}
+        <div className="docdoc-titles">
+          <div className="docdoc-titleline">
+            <h2 className="h docdoc-title">{d.title}</h2>
+            <span className="mono muted docdetail-code">
+              <span>{d.code}</span> · <span>version {d.version}</span>
+              {d.date && (
+                <>
+                  {" · "}
+                  <span>{d.date}</span>
+                </>
+              )}
+            </span>
+          </div>
+          {running ? (
+            <span className="muted docdoc-facts">
+              Converting from {from} · {baseName(d.source.path.replace(/^upload: /, ""))}
+            </span>
+          ) : converted ? (
+            <span className="muted docdoc-facts">
+              Converted from {from} · {plural(sections.length, "section")} · {plural(shown.figures.length, "figure")}
+            </span>
+          ) : (
+            <span className="muted docdoc-facts">
+              {from} file, not converted · {baseName(d.source.path.replace(/^upload: /, ""))}
+            </span>
+          )}
+        </div>
+        <div className="docdoc-acts">
+          {reading && shown.figures.length > 0 && (
+            <Segmented
+              label="Document views"
+              value={view}
+              onChange={setView}
+              options={[
+                { value: "text", label: "Text" },
+                { value: "figures", label: "Figures", count: shown.figures.length },
+              ]}
+            />
+          )}
+          {reading && tocFolded && view === "text" && (
+            <Button
+              size="sm"
+              tone="quiet"
+              icon="text"
+              aria-expanded={drawer === "sections"}
+              onClick={() => toggle("sections")}
+            >
+              Sections
+            </Button>
+          )}
           <ActionCount actions={acts} />
+          {sideFolded && (
+            <Button
+              size="sm"
+              tone={drawer === "details" ? "primary" : "quiet"}
+              aria-expanded={drawer === "details"}
+              onClick={() => toggle("details")}
+            >
+              Details
+              {!running && d.warnings.length > 0 && <span className="docdoc-dot" title="Conversion warnings" />}
+            </Button>
+          )}
           {!running && (
             <Menu
               label="More actions for this document"
@@ -255,181 +334,143 @@ export function DocDetail({
             />
           )}
         </div>
-        <h2 className="h docdetail-title">{d.title}</h2>
-        {running ? (
-          <span className="muted">
-            Converting from {from} · {baseName(d.source.path.replace(/^upload: /, ""))}
-          </span>
-        ) : converted ? (
-          <span className="muted">
-            Converted from {from} · {plural(shown.toc.length, "section")} ·{" "}
-            {scanned.map((f) => `${plural(f.items.length, `${f.trace.label.toLowerCase()} id`)} · `).join("")}
-            {plural(shown.figures.length, "figure")}
-          </span>
-        ) : (
-          <span className="muted">
-            {from} file, not converted · {baseName(d.source.path.replace(/^upload: /, ""))}
-          </span>
-        )}
-        {desktop() && project() && (
-          <span>
-            <Button
-              size="sm"
-              tone="quiet"
-              icon="external"
-              onClick={() => void reveal(pathJoin(project() ?? "", "docs", id))}
-            >
-              Show in Explorer
-            </Button>
-          </span>
-        )}
-      </div>
+      </header>
 
-      <div className="formgrid">
-        <div className="formfield">
-          <label className="label" htmlFor="doc-status">
-            Status
-          </label>
-          <select
-            id="doc-status"
-            className="field"
-            value={d.status}
-            disabled={!!running}
-            onChange={(e) => void set({ status: e.target.value as DocJson["status"] })}
-          >
-            {STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {cap(s)}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      <div className="formfield">
-        <span className="label">
-          Claude context{" "}
-          <span className="muted">— what the team knows about this document. Claude reads it every time.</span>
-        </span>
-        <AdditionalContext
-          id="doc-context"
-          of="this document"
-          ids={ctxIds ?? shown.contexts ?? []}
-          note={context}
-          disabled={!!running}
-          onIds={setCtxIds}
-          onNote={setContext}
-          onNoteBlur={() => saveNote("Context saved")}
-        />
-      </div>
-
-      {running && <DocReading docId={id} upload={running} />}
-      {!running && !converted && <ConvertDoc doc={d} onChanged={onChanged} />}
-      {!running && converted && again && (
-        <ConvertDoc doc={d} again onClose={() => setAgain(false)} onChanged={onChanged} />
-      )}
-
-      {!running && d.warnings.length > 0 && (
-        <div className="docdetail-warn">
-          <span className="label">Conversion warnings</span>
-          {d.warnings.map((w) => {
-            const a = forProblem(acts, w);
-            return (
-              <div key={w} className="with-cab">
-                <p className="sev s-warn">
-                  <Icon name="warning" />
-                  {w}
-                </p>
-                {a && <ActionButton action={a} />}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {!running && converted && (
-        <div className="docdetail-text">
-          <div className="sect-head">
-            <span className="label">Converted text</span>
-          </div>
-          <div ref={textBox} className="card doctoc-wrap">
-            <nav className="doctoc" aria-label="Sections">
-              {shown.toc.map((t) => (
-                <button
-                  key={t.anchor}
-                  type="button"
-                  className={t.anchor === current ? "toc toc-on" : "toc"}
-                  aria-current={t.anchor === current ? "true" : undefined}
-                  style={{ paddingLeft: 8 + (t.level - 1) * 10 }}
-                  onClick={() => onAnchor(t.anchor)}
-                >
-                  {/^§\d+(\.\d+)*$/.test(t.anchor) ? `${t.anchor.slice(1)} ` : ""}
-                  {t.title}
-                </button>
-              ))}
-            </nav>
-            <div className="docpart">
-              {!part && target ? (
-                <>
-                  <Skeleton w="60%" h={16} />
-                  <Skeleton w="95%" h={13} />
-                  <Skeleton w="85%" h={13} />
-                </>
-              ) : (
-                <DocText
-                  docId={id}
-                  md={part?.md ?? shown.md}
-                  focus={focus}
-                  requirements={requirements}
-                  onRequirement={(rid) => onAnchor(`req:${rid}`)}
-                  onFigure={onAnchor}
-                />
-              )}
+      <div ref={textBox} className={cx("docdoc-body", !reading && "is-bare")}>
+        {reading && (
+          <nav className="doctoc" aria-label="Sections">
+            <div className="docdoc-label">
+              Structure <span className="muted">{plural(sections.length, "section")}</span>
             </div>
-          </div>
-        </div>
-      )}
-
-      {!running &&
-        scanned
-          .filter((f) => f.items.length > 0)
-          .map((f) => {
-            const to = (it: TraceItem) =>
-              f.trace.id === REQUIREMENT && shown.requirements.includes(it.id) ? `req:${it.id}` : it.anchor;
-            return (
-              <div key={f.trace.id} className="formfield">
-                <span className="label">
-                  {f.trace.label} ids ({f.items.length})
-                </span>
-                <div className="chips docreqs">
-                  {f.items.map((it) => (
-                    <button
-                      key={it.id}
-                      type="button"
-                      title={it.context}
-                      className={`chip req chip-btn${target === to(it) ? " chip-on" : ""}`}
-                      onClick={() => to(it) && onAnchor(to(it))}
-                    >
-                      {it.id}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-
-      {!running && shown.figures.length > 0 && (
-        <div className="formfield">
-          <span className="label">Figures ({shown.figures.length})</span>
-          <div className="chips">
-            {shown.figures.map((f) => (
-              <FigureChip key={f.anchor} caption={f.caption || f.anchor} onClick={() => onAnchor(f.anchor)} />
+            {sections.map((t) => (
+              <button
+                key={t.anchor}
+                type="button"
+                className={cx("toc", t.level === 1 && "toc-chapter", t.anchor === current && "toc-on")}
+                aria-current={t.anchor === current ? "true" : undefined}
+                style={{ paddingLeft: 8 + Math.max(0, t.level - 2) * 12 }}
+                onClick={() => go(t.anchor)}
+              >
+                {/^§\d+(\.\d+)*$/.test(t.anchor) ? `${t.anchor.slice(1)} ` : ""}
+                {t.title}
+              </button>
             ))}
-          </div>
+          </nav>
+        )}
+        {drawer === "sections" && <div className="docs-scrim" aria-hidden="true" onClick={() => setDrawer(null)} />}
+
+        <div className="docdoc-view">
+          {running && <DocReading docId={id} upload={running} />}
+          {!running && !converted && <ConvertDoc doc={d} onChanged={onChanged} />}
+          {reading && again && <ConvertDoc doc={d} again onClose={() => setAgain(false)} onChanged={onChanged} />}
+          {reading && view === "figures" && <DocFigures docId={id} figures={shown.figures} onOpen={go} />}
+          {reading && view === "text" && (
+            <div className="docpart">
+              <div className="docpart-in">
+                <div className="docpart-nav">
+                  <span className="muted">
+                    {chapter ? `${chapter.title} · ` : ""}
+                    {at >= 0 ? `section ${at + 1} of ${sections.length}` : ""}
+                  </span>
+                  <span className="spacer" />
+                  <IconButton
+                    icon="left"
+                    label="Previous section"
+                    disabled={!prev}
+                    onClick={() => prev && go(prev.anchor)}
+                  />
+                  <IconButton
+                    icon="right"
+                    label="Next section"
+                    disabled={!next}
+                    onClick={() => next && go(next.anchor)}
+                  />
+                </div>
+                {!part && target ? (
+                  <>
+                    <Skeleton w="60%" h={18} />
+                    <Skeleton w="95%" h={13} />
+                    <Skeleton w="85%" h={13} />
+                  </>
+                ) : (
+                  <DocText
+                    docId={id}
+                    md={part?.md ?? shown.md}
+                    focus={focus}
+                    requirements={requirements}
+                    onRequirement={(rid) => onAnchor(`req:${rid}`)}
+                    onFigure={go}
+                  />
+                )}
+              </div>
+            </div>
+          )}
         </div>
-      )}
+
+        {drawer === "details" && <div className="docs-scrim" aria-hidden="true" onClick={() => setDrawer(null)} />}
+        <aside className="docdoc-side" aria-label="Document settings">
+          <div className="formfield">
+            <span className="docdoc-label">Status</span>
+            <Segmented
+              label="Status"
+              className="docdoc-status"
+              value={d.status}
+              options={STATUSES.map((s) => ({ value: s, label: cap(s), disabled: !!running }))}
+              onChange={(s) => s !== d.status && void set({ status: s })}
+            />
+          </div>
+
+          <div className="formfield">
+            <span className="docdoc-label">Claude context</span>
+            <span className="muted docdoc-hint">
+              What the team knows about this document. Claude reads it every time.
+            </span>
+            <AdditionalContext
+              id="doc-context"
+              of="this document"
+              ids={ctxIds ?? shown.contexts ?? []}
+              note={context}
+              disabled={!!running}
+              onIds={setCtxIds}
+              onNote={setContext}
+              onNoteBlur={() => saveNote("Context saved")}
+            />
+          </div>
+
+          {!running && d.warnings.length > 0 && (
+            <div className="docdetail-warn">
+              <span className="docdoc-label">Conversion</span>
+              {d.warnings.map((w) => {
+                const a = forProblem(acts, w);
+                return (
+                  <div key={w} className="with-cab docdoc-warn">
+                    <p className="sev s-warn">
+                      <Icon name="warning" />
+                      {w}
+                    </p>
+                    {a && <ActionButton action={a} />}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {desktop() && project() && (
+            <span>
+              <Button
+                size="sm"
+                tone="quiet"
+                icon="external"
+                onClick={() => void reveal(pathJoin(project() ?? "", "docs", id))}
+              >
+                Show in Explorer
+              </Button>
+            </span>
+          )}
+        </aside>
+      </div>
 
       {ask && <RemoveDoc doc={d} onClose={() => setAsk(false)} onRemoved={onRemoved} />}
-    </aside>
+    </section>
   );
 }

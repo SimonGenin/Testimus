@@ -85,10 +85,6 @@
   white-space: nowrap;
 }
 
-.docs-screen .tbl td:not(.tbl-doc):not([colspan]) {
-  white-space: nowrap;
-}
-
 .problem {
   display: flex;
   flex-direction: column;

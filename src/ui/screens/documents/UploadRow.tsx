@@ -33,7 +33,7 @@ export function UploadRow({ u, on, onOpen }: { u: Upload; on?: boolean; onOpen?:
       onClick={onOpen}
       onKeyDown={(e) => e.key === "Enter" && onOpen?.()}
     >
-      <td colSpan={4}>
+      <td>
         <div className="up">
           <div className={cx("up-line", u.phase === "failed" && "has-act")}>
             <div className="up-name" title={u.name}>

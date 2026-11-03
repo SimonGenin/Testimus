@@ -2,6 +2,9 @@ import { api, boot, expect, mockServer, shoot, test } from "./helpers.ts";
 
 const { url } = mockServer(4351);
 
+// ponytail: below ~1300px beside the Claude dock the document list and the settings fold into drawers
+test.use({ viewport: { width: 1920, height: 1080 } });
+
 const DOC = "SOSIE_211_D401-1_3";
 type Listed = { id: string; title: string; state: string }[];
 const open = async () => (await api<Listed>(url, "actions.list", { docId: DOC })).filter((a) => a.state === "open");
@@ -13,7 +16,7 @@ test("a warning Claude can fix gets its button; the action runs from its card in
   await expect.poll(async () => (await open()).length, { timeout: 15_000 }).toBe(1);
 
   await boot(page, `#/documents/${DOC}`);
-  const side = page.getByRole("complementary", { name: /details$/ });
+  const side = page.getByRole("region", { name: / details$/ });
   const warn = side.locator(".with-cab").filter({ hasText: "Figure 41" });
   const button = warn.getByRole("button", { name: "Recover the figure from the PDF" });
   await expect(button).toBeVisible();

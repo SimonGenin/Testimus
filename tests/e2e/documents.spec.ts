@@ -6,6 +6,9 @@ import { api, boot, expect, mockServer, shoot, test } from "./helpers.ts";
 
 const { url } = mockServer(4350);
 
+// ponytail: below ~1300px beside the Claude dock the document list and the settings fold into drawers
+test.use({ viewport: { width: 1920, height: 1080 } });
+
 test("the list shows each document with status and index state; the detail shows its text", async ({ page }) => {
   await boot(page, "#/documents");
   await expect(page.getByRole("heading", { level: 1, name: "Documents" })).toBeVisible();
@@ -17,21 +20,23 @@ test("the list shows each document with status and index state; the detail shows
   await expect(rows.first()).toContainText(/up to date/i);
   await expect(rows.nth(1)).toContainText("Submitted");
 
-  const detail = page.getByRole("complementary", { name: "SOSIE_211_D401-1_3 details" });
+  const detail = page.getByRole("region", { name: "SOSIE_211_D401-1_3 details" });
   await expect(detail.getByRole("heading", { level: 2, name: "Traction", exact: true })).toBeVisible();
-  await expect(detail.getByRole("combobox", { name: "Status" })).toHaveValue(/validated/i);
+  await expect(
+    detail.getByRole("group", { name: "Status" }).getByRole("button", { name: "Validated", pressed: true }),
+  ).toBeVisible();
   await expect(detail.getByRole("heading", { name: "5.6.6 Sectionneur (S)" })).toBeVisible();
   await expect(detail.getByRole("img", { name: /Figure 40/ })).toBeVisible();
   await shoot(page, "documents");
 
   await rows.nth(1).click();
-  await expect(page.getByRole("complementary", { name: "SOSIE_211_D401-1_4 details" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "SOSIE_211_D401-1_4 details" })).toBeVisible();
 });
 
 test("the context note is edited and saved for Claude", async ({ page }) => {
   await boot(page, "#/documents");
-  const detail = page.getByRole("complementary", { name: "SOSIE_211_D401-1_3 details" });
-  const context = detail.getByRole("textbox", { name: /^Context/ });
+  const detail = page.getByRole("region", { name: "SOSIE_211_D401-1_3 details" });
+  const context = detail.getByRole("textbox", { name: "Note for this document" });
   await context.fill("Référence traction ligne 92. Les sectionneurs avec TK sont câblés depuis la v01.02.");
   await context.blur();
   await expect
@@ -39,7 +44,9 @@ test("the context note is edited and saved for Claude", async ({ page }) => {
     .toContain("câblés depuis la v01.02");
   await page.reload();
   await expect(
-    page.getByRole("complementary", { name: "SOSIE_211_D401-1_3 details" }).getByRole("textbox", { name: /^Context/ }),
+    page
+      .getByRole("region", { name: "SOSIE_211_D401-1_3 details" })
+      .getByRole("textbox", { name: "Note for this document" }),
   ).toHaveValue(/câblés depuis la v01\.02/);
 });
 
@@ -49,8 +56,10 @@ test("a document's status change is saved", async ({ page }) => {
     .getByRole("region", { name: "Document list" })
     .getByRole("row", { name: /^SOSIE_211_D401-1_4/ })
     .click();
-  const detail = page.getByRole("complementary", { name: "SOSIE_211_D401-1_4 details" });
-  await detail.getByRole("combobox", { name: "Status" }).selectOption({ label: "Validated" });
+  const detail = page.getByRole("region", { name: "SOSIE_211_D401-1_4 details" });
+  const status = detail.getByRole("group", { name: "Status" });
+  await status.getByRole("button", { name: "Validated" }).click();
+  await expect(status.getByRole("button", { name: "Validated", pressed: true })).toBeVisible();
   await expect
     .poll(async () => JSON.stringify(await api(url, "docs.show", { id: "SOSIE_211_D401-1_4" })))
     .toContain('"status":"validated"');
@@ -79,11 +88,11 @@ test("a .docx added from a path is listed unconverted, then converted and indexe
   await expect(row).toHaveCount(1);
   await expect(row.getByText("Not converted")).toBeVisible();
   expect(JSON.stringify(await api(url, "docs.show", { id: added }))).toContain('"convertedAt":""');
-  const side = page.getByRole("complementary", { name: `${added} details` });
+  const side = page.getByRole("region", { name: `${added} details` });
   await expect(side.getByText("Not converted yet")).toBeVisible();
   await side.getByRole("button", { name: "Convert and index" }).click();
   await expect
     .poll(async () => JSON.stringify(await api(url, "docs.show", { id: added })), { timeout: 60_000 })
     .not.toContain('"convertedAt":""');
-  await expect(side.getByText("Converted text")).toBeVisible({ timeout: 30_000 });
+  await expect(side.getByRole("navigation", { name: "Sections" })).toBeVisible({ timeout: 30_000 });
 });

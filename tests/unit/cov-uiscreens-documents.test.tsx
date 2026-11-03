@@ -48,6 +48,21 @@ const doc = (id: string, over: Partial<DocRef> = {}): DocRef => ({
   ...over,
 });
 
+const boxes = (rects: Record<string, Partial<DOMRect>>) => {
+  vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
+    const k = Object.keys(rects).find((c) => this.classList.contains(c));
+    return { top: 0, bottom: 0, height: 0, ...(k ? rects[k] : {}) } as DOMRect;
+  });
+  const tops = new Map<Element, number>();
+  vi.spyOn(Element.prototype, "scrollTop", "get").mockImplementation(function (this: Element) {
+    return tops.get(this) ?? 0;
+  });
+  vi.spyOn(Element.prototype, "scrollTop", "set").mockImplementation(function (this: Element, v: number) {
+    tops.set(this, v);
+  });
+  return { tops };
+};
+
 describe("DocText", () => {
   it("renders headings, figures, tables, inline marks, requirement chips and the focus", () => {
     setProject("C:/p");
@@ -176,7 +191,6 @@ describe("DocDetail", () => {
         docs: 1,
       },
     ]);
-    api.routes["traces.find"] = () => ({ items: [{ id: "EXI_1", doc: "D1", anchor: "§5", context: "" }] });
     api.routes["docs.show"] = (i) => (i.anchor ? { md: `Part ${i.anchor} EXI_1` } : shown(over));
     mount(<DocDetail id="D1" anchor={anchor} onAnchor={onAnchor} onChanged={onChanged} onRemoved={onRemoved} />);
     return { onAnchor, onChanged, onRemoved };
@@ -185,33 +199,121 @@ describe("DocDetail", () => {
   it("shows the document, its facts and the first sub-section by default", async () => {
     const { onAnchor } = show();
     expect(await screen.findByRole("heading", { name: "Title D1" })).toBeInTheDocument();
+    const region = screen.getByRole("region", { name: "C-D1 details" });
+    expect(within(region).getByRole("complementary", { name: "Document settings" })).toBeInTheDocument();
     expect(screen.getByText("2026-01-02")).toBeInTheDocument();
-    expect(screen.getByText(/Converted from PDF · 3 sections · 1 requirement id · 2 figures/)).toBeInTheDocument();
+    expect(screen.getByText(/Converted from PDF · 3 sections · 2 figures/)).toBeInTheDocument();
+    expect(screen.queryByText(/requirement id/)).toBeNull();
     expect(screen.getByText("2 comments dropped")).toBeInTheDocument();
     expect(await screen.findByText("Part §5.6 EXI_1")).toBeInTheDocument();
     const toc = screen.getByRole("navigation", { name: "Sections" });
     expect(within(toc).getByRole("button", { name: "5.6 Sectionneur" })).toHaveAttribute("aria-current", "true");
+    expect(within(toc).getByRole("button", { name: "5.6 Sectionneur" })).toHaveClass("toc-on");
+    expect(within(toc).getByRole("button", { name: "5.6 Sectionneur" })).not.toHaveClass("toc-chapter");
+    expect(within(toc).getByRole("button", { name: "5 Traction" })).toHaveClass("toc-chapter");
     fireEvent.click(within(toc).getByRole("button", { name: "5 Traction" }));
     expect(onAnchor).toHaveBeenCalledWith("§5");
     fireEvent.click(within(toc).getByRole("button", { name: "Partie Sportive" }));
     expect(onAnchor).toHaveBeenCalledWith("§partie-sportive");
-    fireEvent.click(document.querySelector(".docreqs button") as HTMLElement);
-    expect(onAnchor).toHaveBeenCalledWith("req:EXI_1");
-    fireEvent.click(screen.getByRole("button", { name: "Vue" }));
-    expect(onAnchor).toHaveBeenCalledWith("fig:fig-1");
-    fireEvent.click(screen.getByRole("button", { name: "fig:fig-2" }));
-    expect(onAnchor).toHaveBeenCalledWith("fig:fig-2");
+    expect(document.querySelector(".docreqs")).toBeNull();
+    expect(named("traces.find")).toEqual([]);
     expect(screen.queryByRole("button", { name: "Reindex" })).toBeNull();
-    const inText = screen.getAllByRole("button", { name: "EXI_1" }).find((b) => b.closest(".doctext"));
-    fireEvent.click(inText as HTMLElement);
+    expect(screen.queryByRole("button", { name: "Show the document list" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Details" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Sections" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "EXI_1" }));
     expect(onAnchor).toHaveBeenLastCalledWith("req:EXI_1");
   });
 
-  it("focuses a requirement anchor and marks its chip", async () => {
+  it("focuses a requirement anchor that is no section: no section is marked and there is nothing to step to", async () => {
     show("req:EXI_1");
     expect(await screen.findByText("Part req:EXI_1 EXI_1")).toBeInTheDocument();
     expect(document.querySelector(".is-focus")).not.toBeNull();
-    expect(document.querySelector(".docreqs .chip-on")).toHaveTextContent("EXI_1");
+    expect(document.querySelector(".toc-on")).toBeNull();
+    expect(screen.queryByText(/section \d+ of/)).toBeNull();
+    expect(screen.getByRole("button", { name: "Previous section" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Next section" })).toBeDisabled();
+  });
+
+  it("steps to the previous and next section, with the chapter it belongs to", async () => {
+    const { onAnchor } = show();
+    expect(await screen.findByText("Traction · section 2 of 3")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Previous section" }));
+    expect(onAnchor).toHaveBeenLastCalledWith("§5");
+    fireEvent.click(screen.getByRole("button", { name: "Next section" }));
+    expect(onAnchor).toHaveBeenLastCalledWith("§partie-sportive");
+    cleanup();
+    show("§5");
+    expect(await screen.findByText("section 1 of 3")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Previous section" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Next section" })).toBeEnabled();
+    cleanup();
+    show("§partie-sportive");
+    expect(await screen.findByText(/section 3 of 3$/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Previous section" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Next section" })).toBeDisabled();
+  });
+
+  it("the Figures view lists the figures, filters them, and opens one in the text", async () => {
+    const { onAnchor } = show("", {
+      figures: [
+        { file: "figures/f.png", anchor: "fig:fig-1", caption: "Vue", description: "Une vue de traction" },
+        { file: "", anchor: "fig:fig-2", caption: "", description: " " },
+      ],
+    });
+    await screen.findByText("Part §5.6 EXI_1");
+    const views = screen.getByRole("group", { name: "Document views" });
+    expect(within(views).getByRole("button", { name: "Text" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(within(views).getByRole("button", { name: /^Figures/ }));
+    expect(within(views).getByRole("button", { name: /^Figures/ })).toHaveTextContent("Figures2");
+    expect(screen.queryByText("Part §5.6 EXI_1")).toBeNull();
+    const grid = document.querySelector(".docfigs-grid") as HTMLElement;
+    const figs = () => within(grid).queryAllByRole("button");
+    expect(figs()).toHaveLength(2);
+    expect(figs()[0]).toHaveAttribute("title", "Une vue de traction");
+    expect(figs()[0]).toHaveTextContent("Vuefig:fig-1");
+    expect(figs()[0].querySelector("img")).toHaveAttribute("src", "/files/docs/D1/figures/f.png");
+    expect(figs()[1]).toHaveAttribute("title", " ");
+    expect(figs()[1]).toHaveTextContent(/^fig:fig-2$/);
+    expect(figs()[1].querySelector("img")).toBeNull();
+    const which = screen.getByRole("group", { name: "Which figures" });
+    expect(within(which).getByRole("button", { name: /^All/ })).toHaveTextContent("All2");
+    fireEvent.click(within(which).getByRole("button", { name: /^Described/ }));
+    expect(figs().map((b) => b.textContent)).toEqual(["Vuefig:fig-1"]);
+    fireEvent.click(within(which).getByRole("button", { name: /^Not described/ }));
+    expect(figs().map((b) => b.textContent)).toEqual(["fig:fig-2"]);
+    expect(screen.queryByText("No figure here.")).toBeNull();
+    fireEvent.click(figs()[0]);
+    expect(onAnchor).toHaveBeenLastCalledWith("fig:fig-2");
+    expect(within(views).getByRole("button", { name: "Text" })).toHaveAttribute("aria-pressed", "true");
+    expect(await screen.findByText("Part §5.6 EXI_1")).toBeInTheDocument();
+  });
+
+  it("the Figures view says when a filter leaves no figure; titles fall back on the caption, then the anchor", async () => {
+    show("", {
+      figures: [
+        { file: "", anchor: "fig:a", caption: "Plan", description: "" },
+        { file: "", anchor: "fig:b", caption: "", description: "" },
+      ],
+    });
+    await screen.findByText("Part §5.6 EXI_1");
+    fireEvent.click(screen.getByRole("button", { name: /^Figures/ }));
+    const grid = document.querySelector(".docfigs-grid") as HTMLElement;
+    expect(
+      within(grid)
+        .getAllByRole("button")
+        .map((b) => b.getAttribute("title")),
+    ).toEqual(["Plan", "fig:b"]);
+    fireEvent.click(screen.getByRole("button", { name: /^Described/ }));
+    expect(within(grid).queryAllByRole("button")).toEqual([]);
+    expect(screen.getByText("No figure here.")).toBeInTheDocument();
+  });
+
+  it("a document without figures has no Figures view", async () => {
+    show("", { figures: [] });
+    await screen.findByText("Part §5.6 EXI_1");
+    expect(screen.queryByRole("group", { name: "Document views" })).toBeNull();
+    expect(screen.getByText(/· 0 figures/)).toBeInTheDocument();
   });
 
   it("falls back on the first section, and on nothing", async () => {
@@ -241,7 +343,7 @@ describe("DocDetail", () => {
     cleanup();
     delete api.routes["docs.show"];
     mount(<DocDetail id="DX" anchor="" onAnchor={vi.fn()} onChanged={vi.fn()} onRemoved={vi.fn()} />);
-    expect(screen.getByRole("complementary", { name: "DX details" })).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("region", { name: "DX details" })).toHaveAttribute("aria-busy", "true");
     expect(await screen.findByText("This document could not be opened")).toBeInTheDocument();
     expect(screen.getByText("Unknown command docs.show")).toBeInTheDocument();
   });
@@ -255,18 +357,21 @@ describe("DocDetail", () => {
     api.routes["contexts.list"] = () => [{ id: "glossary", name: "Glossary", shared: false }];
     const { onChanged } = show("", { contexts: ["glossary"] });
     await screen.findByRole("heading", { name: "Title D1" });
-    const st = screen.getByLabelText("Status");
+    const st = screen.getByRole("group", { name: "Status" });
     expect(
       within(st)
-        .getAllByRole("option")
+        .getAllByRole("button")
         .map((o) => o.textContent),
     ).toEqual(["Draft", "Submitted", "Validated"]);
+    expect(within(st).getByRole("button", { name: "Validated", pressed: true })).toBeInTheDocument();
     expect(screen.queryByLabelText("Binding")).toBeNull();
     expect(screen.queryByLabelText("Superseded by")).toBeNull();
-    fireEvent.change(st, { target: { value: "draft" } });
+    fireEvent.click(within(st).getByRole("button", { name: "Validated" }));
+    fireEvent.click(within(st).getByRole("button", { name: "Draft" }));
     await waitFor(() => expect(named("docs.set")[0]?.input).toEqual({ id: "D1", status: "draft" }));
+    await waitFor(() => expect(within(st).getByRole("button", { name: "Draft", pressed: true })).toBeInTheDocument());
     expect(screen.queryByText("Amends")).toBeNull();
-    expect(screen.getByText(/what the team knows about this document/)).toBeInTheDocument();
+    expect(screen.getByText(/what the team knows about this document/i)).toBeInTheDocument();
     const ctx = screen.getByLabelText("Note for this document");
     fireEvent.blur(ctx);
     expect(named("docs.set")).toHaveLength(1);
@@ -283,6 +388,14 @@ describe("DocDetail", () => {
       expect(named("docs.set")[2]?.input).toEqual({ id: "D1", contexts: [], context: "unsaved note" }),
     );
     expect(screen.queryByText("Glossary")).toBeNull();
+  });
+
+  it("leaving a saved context out with the note untouched saves the list alone", async () => {
+    api.routes["docs.set"] = (i) => ({ ...doc("D1"), ...(i as Partial<DocRef>) });
+    api.routes["contexts.list"] = () => [{ id: "glossary", name: "Glossary", shared: false }];
+    show("", { contexts: ["glossary"] });
+    fireEvent.click(await screen.findByRole("button", { name: "Leave Glossary out of this document" }));
+    await waitFor(() => expect(named("docs.set")[0]?.input).toEqual({ id: "D1", contexts: [] }));
   });
 
   it("⋯ › Delete asks, then removes the document; Cancel and a failure leave it", async () => {
@@ -387,7 +500,7 @@ describe("DocDetail", () => {
     await screen.findByRole("heading", { name: "Title D1" });
     expect(screen.getByText(/Converted from Word/)).toBeInTheDocument();
     expect(screen.queryByText("Conversion warnings")).toBeNull();
-    fireEvent.change(screen.getByLabelText("Status"), { target: { value: "draft" } });
+    fireEvent.click(within(screen.getByRole("group", { name: "Status" })).getByRole("button", { name: "Draft" }));
     expect(await screen.findByText("Could not save the document")).toBeInTheDocument();
   });
 
@@ -424,8 +537,8 @@ describe("DocDetail", () => {
 
 describe("DocDetail with tracked ids", () => {
   afterEach(() => setTraces(null));
-  const trace = (id: string, label: string) =>
-    ({ id, label, patterns: [], field: label, origin: "declared", column: "in-xray", found: 0, docs: 0 }) as never;
+  const trace = (id: string, label: string, patterns: string[] = []) =>
+    ({ id, label, patterns, field: label, origin: "declared", column: "in-xray", found: 0, docs: 0 }) as never;
   const shown = () => ({
     doc: doc("D1"),
     context: "",
@@ -435,36 +548,16 @@ describe("DocDetail with tracked ids", () => {
     md: "",
   });
 
-  it("lists each tracked kind found in the document and goes to its anchor", async () => {
-    setTraces([trace("requirement", "Requirement"), trace("alarm", "Alarm"), trace("uc", "Use case")]);
+  it("tracked ids are chips in the text only: the panel lists none and scans nothing", async () => {
+    setTraces([trace("requirement", "Requirement", [String.raw`\bEXI_\d+`]), trace("alarm", "Alarm")]);
     api.routes["docs.show"] = (i) => (i.anchor ? { md: "Texte EXI_1" } : shown());
-    api.routes["traces.find"] = (i) => {
-      if (i.trace === "uc") throw new Error("scan failed");
-      return {
-        items:
-          i.trace === "requirement"
-            ? [
-                { id: "EXI_1", doc: "D1", anchor: "§1", context: "c1" },
-                { id: "EXI_9", doc: "D1", anchor: "§9", context: "c9" },
-              ]
-            : [{ id: "ALM-1", doc: "D1", anchor: "", context: "" }],
-      };
-    };
     const onAnchor = vi.fn();
-    mount(<DocDetail id="D1" anchor="§9" onAnchor={onAnchor} onChanged={vi.fn()} onRemoved={vi.fn()} />);
-    expect(await screen.findByText("Requirement ids (2)")).toBeInTheDocument();
-    expect(screen.getByText("Alarm ids (1)")).toBeInTheDocument();
-    expect(screen.queryByText(/Use case ids/)).toBeNull();
-    expect(screen.getByText(/2 requirement ids · 1 alarm id · 0 use case ids · 0 figures/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "EXI_9" })).toHaveClass("chip-on");
-    const reqBox = screen.getByText("Requirement ids (2)").closest(".formfield") as HTMLElement;
-    fireEvent.click(within(reqBox).getByRole("button", { name: "EXI_1" }));
+    mount(<DocDetail id="D1" anchor="" onAnchor={onAnchor} onChanged={vi.fn()} onRemoved={vi.fn()} />);
+    expect(await screen.findByText("Converted from Word · 1 section · 0 figures")).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "EXI_1" }));
     expect(onAnchor).toHaveBeenCalledWith("req:EXI_1");
-    fireEvent.click(screen.getByRole("button", { name: "EXI_9" }));
-    expect(onAnchor).toHaveBeenCalledWith("§9");
-    fireEvent.click(screen.getByRole("button", { name: "ALM-1" }));
-    expect(onAnchor).toHaveBeenCalledTimes(2);
-    expect(named("traces.find")[0].input).toEqual({ trace: "requirement", doc: "D1", limit: 2000 });
+    expect(screen.queryByText(/ids \(/)).toBeNull();
+    expect(named("traces.find")).toEqual([]);
   });
 
   it("a project that tracks no requirement shows no requirement chips in the text", async () => {
@@ -474,30 +567,6 @@ describe("DocDetail with tracked ids", () => {
     expect(await screen.findByText("Texte EXI_1")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "EXI_1" })).toBeNull();
     expect(screen.queryByText(/ids \(/)).toBeNull();
-  });
-
-  it("ignores a scan that ends after leaving", async () => {
-    setTraces([trace("alarm", "Alarm")]);
-    let release = () => {};
-    const gate = new Promise<void>((r) => {
-      release = r;
-    });
-    api.routes["docs.show"] = () => shown();
-    api.routes["traces.find"] = () => ({ items: [] });
-    const f = globalThis.fetch;
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (url: string, init?: RequestInit) => {
-        if (String(url).includes("traces/find")) await gate;
-        return f(url, init);
-      }),
-    );
-    const { unmount } = render(
-      <DocDetail id="D1" anchor="" onAnchor={vi.fn()} onChanged={vi.fn()} onRemoved={vi.fn()} />,
-    );
-    unmount();
-    release();
-    await waitFor(() => expect(named("traces.find")).toHaveLength(1));
   });
 });
 
@@ -577,8 +646,12 @@ describe("Documents screen", () => {
             figures: [],
             md: "",
           };
-    const into = vi.fn();
-    Element.prototype.scrollIntoView = into;
+    const { tops } = boxes({
+      docpart: { top: 100, bottom: 300, height: 200 },
+      "is-focus": { top: 500, bottom: 520, height: 20 },
+      doctoc: { top: 0, bottom: 100, height: 100 },
+      "toc-on": { top: 150, bottom: 170, height: 20 },
+    });
     const watch = { cb: () => {}, observe: vi.fn(), disconnect: vi.fn() };
     vi.stubGlobal(
       "ResizeObserver",
@@ -590,24 +663,22 @@ describe("Documents screen", () => {
         disconnect = watch.disconnect;
       },
     );
-    try {
-      mount(<DocumentsScreen />, {
-        route: { screen: "documents", arg: docLink("D1", "§1", " la deuxième ligne, citée ") },
-      });
-      expect(await screen.findByText("Troisième.")).toBeInTheDocument();
-      expect(named("docs.show").find((c) => c.input.anchor)?.input).toEqual({ id: "D1", anchor: "§1" });
-      expect(document.querySelectorAll(".is-focus")).toHaveLength(1);
-      expect(document.querySelector(".is-focus")).toHaveTextContent("La deuxième ligne, citée.");
-      expect(into).toHaveBeenCalledWith({ block: "nearest", behavior: "instant" });
-      expect(watch.observe).toHaveBeenCalledWith(document.querySelector(".doctext"));
-      const before = into.mock.calls.length;
-      watch.cb();
-      expect(into.mock.calls.length).toBe(before + 1);
-      fireEvent.wheel(window);
-      expect(watch.disconnect).toHaveBeenCalled();
-    } finally {
-      delete (Element.prototype as Partial<Element>).scrollIntoView;
-    }
+    mount(<DocumentsScreen />, {
+      route: { screen: "documents", arg: docLink("D1", "§1", " la deuxième ligne, citée ") },
+    });
+    expect(await screen.findByText("Troisième.")).toBeInTheDocument();
+    expect(named("docs.show").find((c) => c.input.anchor)?.input).toEqual({ id: "D1", anchor: "§1" });
+    expect(document.querySelectorAll(".is-focus")).toHaveLength(1);
+    expect(document.querySelector(".is-focus")).toHaveTextContent("La deuxième ligne, citée.");
+    const part = document.querySelector(".docpart") as HTMLElement;
+    expect(tops.get(part)).toBe(310);
+    expect(tops.get(document.querySelector(".doctoc") as HTMLElement)).toBe(70);
+    expect(watch.observe).toHaveBeenCalledWith(document.querySelector(".docs-body"));
+    expect(watch.observe).toHaveBeenCalledWith(document.querySelector(".doctext"));
+    watch.cb();
+    expect(tops.get(part)).toBe(620);
+    fireEvent.wheel(window);
+    expect(watch.disconnect).toHaveBeenCalled();
   });
 
   it("a link to a requirement marks the section that holds it in the section list", async () => {
@@ -627,8 +698,10 @@ describe("Documents screen", () => {
             figures: [],
             md: "",
           };
+    const { tops } = boxes({ doctoc: { top: 100, bottom: 200, height: 100 }, "toc-on": { top: 60, bottom: 80 } });
     mount(<DocumentsScreen />, { route: { screen: "documents", arg: "D1#req:EXI_A_1" } });
     expect(await screen.findByText("La règle EXI_A_1 s'applique.")).toBeInTheDocument();
+    expect(tops.get(document.querySelector(".doctoc") as HTMLElement)).toBe(-40);
     expect(screen.getByRole("button", { name: "2 Two" })).toHaveAttribute("aria-current", "true");
     expect(screen.getByRole("button", { name: "1 One" })).not.toHaveAttribute("aria-current");
   });
@@ -656,7 +729,8 @@ describe("Documents screen", () => {
     api.routes["docs.list"] = () => [doc("D1")];
     mount(<DocumentsScreen />, { route: { screen: "documents", arg: "NOPE" } });
     await screen.findByText("Title D1");
-    expect(screen.queryByRole("complementary")).toBeNull();
+    expect(screen.queryByRole("region", { name: / details$/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Show the document list" })).toBeNull();
     cleanup();
     api.routes["docs.list"] = () => ({ not: "a list" });
     const { app: a } = mount(<DocumentsScreen />);
@@ -777,7 +851,7 @@ describe("Documents screen", () => {
     expect(await screen.findByRole("progressbar", { name: "Adding" })).toBeInTheDocument();
     expect(screen.getByText(/1 in progress/)).toBeInTheDocument();
     const row = screen.getByText("new.pdf").closest("tr") as HTMLElement;
-    expect(within(row).getByRole("cell")).toHaveAttribute("colspan", "4");
+    expect(within(row).getByRole("cell")).not.toHaveAttribute("colspan");
     expect(within(row).getByText("Adding", { selector: "li" })).toHaveAttribute("aria-current", "step");
     expect(within(row).queryByText("Indexing", { selector: "li" })).toBeNull();
     expect(within(row).getByText("New document")).toBeInTheDocument();
@@ -858,11 +932,11 @@ describe("Documents screen", () => {
     const { app: a } = mount(<DocumentsScreen />, { route: { screen: "documents", arg: "NEW2" } });
     const list = await screen.findByRole("region", { name: "Document list" });
     expect(await within(list).findByText("Not converted")).toBeInTheDocument();
-    const side = await screen.findByRole("complementary", { name: "C-NEW2 details" });
+    const side = await screen.findByRole("region", { name: "C-NEW2 details" });
     expect(within(side).getByText(/Word file, not converted · fresh.docx/)).toBeInTheDocument();
     expect(within(side).getByLabelText("Note for this document")).toBeInTheDocument();
     expect(within(side).getByText("Not converted yet")).toBeInTheDocument();
-    expect(within(side).queryByText("Converted text")).toBeNull();
+    expect(within(side).queryByRole("navigation", { name: "Sections" })).toBeNull();
     expect(within(side).queryByText("Context for this conversion only")).toBeNull();
 
     fireEvent.click(within(side).getByRole("button", { name: "Convert and index" }));
@@ -949,13 +1023,14 @@ describe("Documents screen", () => {
       job: { id: i.id, kind: "x", subject: "", status: "running", startedAt: at, message: "Converting source.docx" },
     });
     mount(<DocumentsScreen />, { route: { screen: "documents", arg: "NEW3" } });
-    let side = await screen.findByRole("complementary", { name: "C-NEW3 details" });
+    let side = await screen.findByRole("region", { name: "C-NEW3 details" });
     fireEvent.click(within(side).getByRole("button", { name: "Convert and index" }));
     const reading = await within(side).findByRole("region", { name: "Reading the document" });
     expect(await within(reading).findByText("Converting source.docx")).toBeInTheDocument();
     expect(within(reading).getByRole("listitem", { current: "step" })).toHaveTextContent("Reading the file");
     expect(reading.querySelectorAll(".docread-line")).toHaveLength(6);
-    expect(within(side).getByLabelText("Status")).toBeDisabled();
+    for (const b of within(within(side).getByRole("group", { name: "Status" })).getAllByRole("button"))
+      expect(b).toBeDisabled();
     expect(within(side).getByLabelText("Note for this document")).toBeDisabled();
     expect(within(side).queryByRole("button", { name: "More actions for this document" })).toBeNull();
     expect(within(side).getByText(/Converting from Word · fresh.docx/)).toBeInTheDocument();
@@ -974,7 +1049,7 @@ describe("Documents screen", () => {
     expect(within(figs).getByText("Figure b: not described yet")).toBeInTheDocument();
     expect(figs.querySelectorAll(".is-looking")).toHaveLength(2);
     expect(within(side).queryByRole("button", { name: "Figure a" })).toBeNull();
-    expect(within(side).queryByText("Converted text")).toBeNull();
+    expect(within(side).queryByRole("navigation", { name: "Sections" })).toBeNull();
 
     described = 3;
     converted = true;
@@ -985,7 +1060,7 @@ describe("Documents screen", () => {
       job: { id: "conv-5", kind: "docs.convert", subject: "", status: "done", startedAt: at, result: { id: "NEW3" } },
     });
     await waitFor(() => expect(named("rag.index")).toHaveLength(1));
-    side = await screen.findByRole("complementary", { name: "C-NEW3 details" });
+    side = await screen.findByRole("region", { name: "C-NEW3 details" });
     const again = await within(side).findByRole("region", { name: "Reading the document" });
     await waitFor(() => expect(within(again).getByRole("listitem", { current: "step" })).toHaveTextContent("Indexing"));
     emit({ jobId: "ix-5", at, type: "progress", message: "Embedding NEW3", done: 2, total: 3 });
@@ -1000,10 +1075,11 @@ describe("Documents screen", () => {
       type: "status",
       job: { id: "ix-5", kind: "rag.index", subject: "", status: "done", startedAt: at },
     });
-    expect(await within(side).findByText("Converted text")).toBeInTheDocument();
+    expect(await within(side).findByRole("navigation", { name: "Sections" })).toBeInTheDocument();
     expect(within(side).queryByRole("region", { name: "Reading the document" })).toBeNull();
     expect(side).toHaveClass("docdetail-open");
-    expect(within(side).getByLabelText("Status")).toBeEnabled();
+    for (const b of within(within(side).getByRole("group", { name: "Status" })).getAllByRole("button"))
+      expect(b).toBeEnabled();
   });
 
   it("a converted document is converted again from its menu, and the panel closes", async () => {
@@ -1013,7 +1089,7 @@ describe("Documents screen", () => {
     api.routes["docs.convert"] = () => ({ jobId: "conv-4" });
     api.routes["jobs.show"] = (i) => ({ job: { id: i.id, kind: "x", subject: "", status: "running", startedAt: at } });
     mount(<DocumentsScreen />);
-    const side = await screen.findByRole("complementary", { name: "C-D1 details" });
+    const side = await screen.findByRole("region", { name: "C-D1 details" });
     expect(within(side).queryByRole("region", { name: "Convert again" })).toBeNull();
     fireEvent.click(within(side).getByRole("button", { name: "More actions for this document" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Convert again…" }));
