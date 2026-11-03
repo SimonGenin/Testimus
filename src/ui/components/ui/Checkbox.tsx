@@ -54,7 +54,6 @@ const styles = stylex.create({
     pointerEvents: "none",
   },
   markDisabled: { color: color.textDisabled },
-  small: { display: "inline-flex", transform: "scale(0.86)" },
   text: { display: "flex", flexDirection: "column", minWidth: 0 },
   hint: { fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textSubtle },
 });
@@ -126,9 +125,7 @@ export function Checkbox({
         />
         {mark && (
           <span {...stylex.props(styles.mark, off && styles.markDisabled)}>
-            <span {...stylex.props(styles.small)}>
-              <Icon name={mark} size="sm" />
-            </span>
+            <Icon name={mark} size="xs" bold />
           </span>
         )}
       </span>
