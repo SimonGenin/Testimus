@@ -5,7 +5,7 @@ import { Button, Chip, Icon, IconButton, Menu, Severity, Skeleton } from "../../
 import { desktop, pathJoin, reveal } from "../../lib/desktop.ts";
 import { message, plural } from "../../lib/format.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
-import { REQUIREMENT, tracesNow } from "../../lib/traces.ts";
+import { idPattern, REQUIREMENT, tracesNow } from "../../lib/traces.ts";
 import { DocText, FigureChip } from "./DocText.tsx";
 import { RemoveDoc } from "./RemoveDoc.tsx";
 
@@ -21,16 +21,6 @@ type Shown = {
 
 const STATUSES: DocJson["status"][] = ["draft", "submitted", "validated"];
 const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
-const LEGACY: TraceView = {
-  id: REQUIREMENT,
-  label: "Requirement",
-  patterns: [],
-  field: "",
-  origin: "detected",
-  column: "local",
-  found: 0,
-  docs: 1,
-};
 
 export function DocDetail({
   id,
@@ -55,20 +45,9 @@ export function DocDetail({
   const [context, setContext] = useState("");
   const [error, setError] = useState("");
   const [scanned, setScanned] = useState<{ trace: TraceView; items: TraceItem[] }[]>([]);
-  // ponytail: until the project says what it tracks (tracesNow() null), a document shows its requirement anchors
-  const known = tracesNow();
-  const traces = known ?? [];
+  const traces = tracesNow() ?? [];
   const tracesKey = traces.map((t) => `${t.id}=${t.patterns.join("|")}`).join(",");
-  const tracksReqs = !known || traces.some((t) => t.id === REQUIREMENT);
-  const found =
-    known || !shown
-      ? scanned
-      : [
-          {
-            trace: { ...LEGACY, found: shown.requirements.length },
-            items: shown.requirements.map((r) => ({ id: r, doc: id, anchor: `req:${r}`, context: "" })),
-          },
-        ];
+  const requirements = idPattern(traces.find((t) => t.id === REQUIREMENT));
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: the tracked kinds are compared by their key
   useEffect(() => {
@@ -187,7 +166,7 @@ export function DocDetail({
         <h2 className="h docdetail-title">{d.title}</h2>
         <span className="muted">
           Converted from {from} · {plural(shown.toc.length, "section")} ·{" "}
-          {found.map((f) => `${plural(f.items.length, `${f.trace.label.toLowerCase()} id`)} · `).join("")}
+          {scanned.map((f) => `${plural(f.items.length, `${f.trace.label.toLowerCase()} id`)} · `).join("")}
           {plural(shown.figures.length, "figure")}
         </span>
         {desktop() && project() && (
@@ -323,7 +302,8 @@ export function DocDetail({
                 docId={id}
                 md={part.md}
                 focus={part.focus}
-                onRequirement={tracksReqs ? (rid) => onAnchor(`req:${rid}`) : undefined}
+                requirements={requirements}
+                onRequirement={(rid) => onAnchor(`req:${rid}`)}
                 onFigure={onAnchor}
               />
             )}
@@ -331,7 +311,7 @@ export function DocDetail({
         </div>
       </div>
 
-      {found
+      {scanned
         .filter((f) => f.items.length > 0)
         .map((f) => {
           const to = (it: TraceItem) =>

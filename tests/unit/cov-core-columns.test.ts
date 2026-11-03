@@ -49,6 +49,7 @@ afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 describe("step columns", () => {
   it("the built-ins carry a default description; a custom field never described is new", () => {
+    project({ traces: [{ id: "requirement", label: "Requirement", patterns: ["EXI_\\w+"], field: "Exigence" }] });
     xray([exigence, { id: "cf2", name: "Version", type: "text", builtin: false }]);
     const cols = stepColumns(dir);
     expect(cols.map((c) => [c.name, c.origin, c.status])).toEqual([

@@ -370,10 +370,6 @@ export const commands: Command[] = [
         })
         .optional()
         .describe("Retrieval settings of the project (only the keys given change)."),
-      requirementPatterns: z
-        .array(z.string())
-        .optional()
-        .describe("Extra regexes of requirement ids, besides EXI_… (replaces the list)"),
       requirementMatrix: z
         .object({
           idColumn: z.string().describe("Header of the column holding the ids"),
@@ -417,7 +413,6 @@ export const commands: Command[] = [
         language: input.language ?? cur.language,
         labelPrefix: input.labelPrefix ?? cur.labelPrefix,
         folders: input.folders ?? cur.folders,
-        ...(input.requirementPatterns ? { requirementPatterns: input.requirementPatterns } : {}),
         ...(input.glossary ? { glossary: input.glossary } : {}),
         rag: {
           ...cur.rag,

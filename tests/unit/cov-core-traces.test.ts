@@ -11,14 +11,15 @@ import {
   checkTrace,
   compile,
   detectedTraces,
+  LEGACY_PATTERN,
   projectTraces,
   REQUIREMENT,
   removeTrace,
+  requirementPatterns,
   saveTrace,
   scanTrace,
   traceViews,
 } from "../../src/core/lib/traces.ts";
-import { REQ_PATTERN } from "../../src/core/rag/convert.ts";
 
 const real = env.spawnClaude;
 let dir = "";
@@ -145,14 +146,15 @@ describe("detected and declared traces", () => {
     expect(traceViews(dir)).toEqual([]);
   });
 
-  it("the requirement field and patterns of project.json, else an Exigence column, else Exigence", () => {
+  it("only a project from before tracked ids gets RATP's requirements: its old keys or its requirement anchors", () => {
     project({ requirementField: " Req ", requirementPatterns: ["REQ-\\d+"] });
-    expect(detectedTraces(dir)[0]).toMatchObject({ field: "Req", patterns: [REQ_PATTERN, "REQ-\\d+"] });
+    expect(detectedTraces(dir)[0]).toMatchObject({ field: "Req", patterns: [LEGACY_PATTERN, "REQ-\\d+"] });
     project();
     xray(["Requirement id"]);
-    expect(detectedTraces(dir)[0].field).toBe("Requirement id");
-    xray();
+    expect(detectedTraces(dir)).toEqual([]);
     write("docs/A/doc.md", "<!-- req EXI_A_1 -->\n");
+    expect(detectedTraces(dir)[0]).toMatchObject({ field: "Requirement id", patterns: [LEGACY_PATTERN] });
+    xray();
     expect(detectedTraces(dir)[0].field).toBe("Exigence");
   });
 
@@ -196,12 +198,23 @@ describe("saveTrace and removeTrace", () => {
     expect(() => saveTrace(dir, { ...alarm, label: "Autre", field: " alarme " })).toThrow(/already holds/);
   });
 
-  it("the requirement trace writes requirementField and only the extra patterns", () => {
-    saveTrace(dir, { id: REQUIREMENT, label: "Exigence", patterns: [REQ_PATTERN, "REQ-\\d+"], field: "Exigence" });
-    expect(readProject(dir)).toMatchObject({ requirementField: "Exigence", requirementPatterns: ["REQ-\\d+"] });
-    saveTrace(dir, { id: REQUIREMENT, label: "Exigence", patterns: [REQ_PATTERN], field: "Exigence" });
+  it("a save declares the list and drops the old requirement keys", () => {
+    project({ requirementField: "Exigence", requirementPatterns: ["REQ-\\d+"] });
+    saveTrace(dir, { id: REQUIREMENT, label: "Exigence", patterns: ["REQ-\\d+"], field: "Exigence" });
+    expect(readProject(dir).requirementField).toBeUndefined();
     expect(readProject(dir).requirementPatterns).toBeUndefined();
-    expect(projectTraces(dir)).toMatchObject({ declared: true });
+    expect(projectTraces(dir)).toMatchObject({ declared: true, traces: [{ id: REQUIREMENT, patterns: ["REQ-\\d+"] }] });
+    expect(requirementPatterns(dir)).toEqual(["REQ-\\d+"]);
+    removeTrace(dir, REQUIREMENT);
+    expect(requirementPatterns(dir)).toEqual([]);
+  });
+
+  it("a new kind named like requirements is the requirement trace while the project has none", () => {
+    expect(saveTrace(dir, { label: "Exigence", patterns: ["REQ-\\d+"], field: "Exigence" })[0].id).toBe(REQUIREMENT);
+    expect(saveTrace(dir, { label: "Exigence client", patterns: ["C-\\d+"], field: "Client" })[1].id).toBe(
+      "exigence-client",
+    );
+    expect(saveTrace(dir, { label: "Code", patterns: ["K-\\d+"], field: "Requirement 2" })[2].id).toBe("code");
   });
 
   it("removes by key and refuses an unknown one", () => {
@@ -216,7 +229,7 @@ describe("columnGuidance", () => {
     expect(columnGuidance(dir).join("\n")).not.toContain("Ids only");
     project({
       traces: [
-        { id: REQUIREMENT, label: "Exigence", patterns: [REQ_PATTERN], field: "Exigence" },
+        { id: REQUIREMENT, label: "Exigence", patterns: [LEGACY_PATTERN], field: "Exigence" },
         { id: "alm", label: "Alarme", patterns: ["("], field: "Alarme" },
         { id: "uc", label: "Cas", patterns: ["UC-\\d+"], field: "Cas" },
       ],

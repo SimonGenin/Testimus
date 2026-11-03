@@ -41,7 +41,7 @@ export function RequirementField({
           <input
             className="field reqfield-input mono"
             aria-label={`Add ${label} to step ${stepNumber}`}
-            placeholder={trace ? exampleOf(trace) : "EXI_…"}
+            placeholder={trace ? exampleOf(trace) : undefined}
             autoFocus
             value={text}
             onChange={(e) => setText(e.target.value)}

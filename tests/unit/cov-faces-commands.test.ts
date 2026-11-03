@@ -9,6 +9,7 @@ import { commands as ragCommands } from "../../src/core/commands/rag.ts";
 import { commands as reviewCommands } from "../../src/core/commands/review.ts";
 import type { DocJson } from "../../src/core/types.ts";
 import { copyFixture, tempRoot } from "./cov-faces-helpers.ts";
+import { RATP } from "./ratp.ts";
 
 const DOC = "SOSIE_211_D401-1_3";
 const LOCAL = "local-3f9a12c0";
@@ -104,11 +105,11 @@ describe("tracedElsewhere", () => {
   );
 
   it("reports a requirement the matrix traces to another section, or to one the document lacks", () => {
-    expect(tracedElsewhere("SPEC_A", md, {}).map((x) => x.message)).toEqual([
+    expect(tracedElsewhere("SPEC_A", md, RATP).map((x) => x.message)).toEqual([
       "EXI_MOP_SPF_100_A_40 is defined in §2.2 but the matrix traces it to §3.2.",
     ]);
     const lacking = md.replace("double clic. | 3.2 |", "double clic. | 9.9 |");
-    expect(tracedElsewhere("SPEC_A", lacking, {})).toEqual([
+    expect(tracedElsewhere("SPEC_A", lacking, RATP)).toEqual([
       {
         req: "EXI_MOP_SPF_100_A_40",
         defined: "§2.2",

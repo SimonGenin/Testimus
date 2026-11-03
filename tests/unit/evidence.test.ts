@@ -3,19 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { invoke } from "../../src/core/commands/index.ts";
-import { scopeOf } from "../../src/core/lib/check.ts";
-import { chunkDoc } from "../../src/core/rag/chunk.ts";
-import { convertDocx } from "../../src/core/rag/convert-docx.ts";
-import {
-  matricesOf,
-  matrixColumns,
-  matrixRows,
-  statementsOf,
-  tablesOf,
-  tracedOf,
-} from "../../src/core/rag/statements.ts";
+import { tablesOf, tracedOf } from "../../src/core/rag/statements.ts";
 import type { DocJson } from "../../src/core/types.ts";
 import { matrixDocx } from "../fixtures/evidence/matrix-docx.ts";
+import { chunkDoc, convertDocx, matricesOf, matrixColumns, matrixRows, scopeOf, statementsOf } from "./ratp.ts";
 
 const FIXTURE = new URL("../fixtures/evidence/project/", import.meta.url);
 const A = "SPEC_A";

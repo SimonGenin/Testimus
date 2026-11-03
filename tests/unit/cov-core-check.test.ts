@@ -275,12 +275,15 @@ describe("loadCorpus", () => {
     expect([...loadCorpus(dir).requirements]).toContain("EXI_FIRST_1");
   });
 
-  it("names the requirement field from project.json first, then a custom xray field, then a builtin one", () => {
+  it("names the requirement field from the requirement trace; an Xray column alone tracks nothing", () => {
     write("project.json", JSON.stringify({ name: "T", requirementField: "  Req  " }));
     expect(loadCorpus(dir).requirementField).toBe("Req");
     write("project.json", JSON.stringify({ name: "T", requirementField: "  " }));
-    write("xray.json", JSON.stringify({ fields: [{ id: "r", name: "Requirement", type: "text", builtin: true }] }));
-    expect(loadCorpus(dir).requirementField).toBe("Requirement");
+    write("xray.json", JSON.stringify({ fields: [{ id: "r", name: "Requirement", type: "text", builtin: false }] }));
+    expect(loadCorpus(dir).requirementField).toBeNull();
+    const trace = { id: "requirement", label: "Req", patterns: [String.raw`\bREQ-\d+`], field: " Req id " };
+    write("project.json", JSON.stringify({ name: "T", traces: [trace] }));
+    expect(loadCorpus(dir).requirementField).toBe("Req id");
   });
 });
 
@@ -344,7 +347,7 @@ describe("requirement links: related-unread and test evidence", () => {
   });
 
   it("without a requirement field no link is drawn", () => {
-    write("xray.json", JSON.stringify({ fields: [{ id: "action", name: "Action", type: "text", builtin: true }] }));
+    write("project.json", JSON.stringify({ name: "T", traces: [] }));
     expect(mechanicalCheck(dir, "T-1").filter((f) => f.kind === "related-unread")).toEqual([]);
     const e = testEvidence(dir, "T-1");
     expect(e.related).toEqual([]);

@@ -2,8 +2,6 @@ import type { ReactNode } from "react";
 import { fileUrl } from "../../api.ts";
 import { Chip, RequirementChip } from "../../components/ui/index.ts";
 
-const REQ = /\bEXI_[A-Z0-9_]*[A-Z0-9]/g;
-
 const clean = (s: string) => s.replace(/<!--[\s\S]*?-->/g, "").trim();
 
 function inline(text: string): ReactNode[] {
@@ -24,12 +22,14 @@ export function DocText({
   docId,
   md,
   focus,
+  requirements,
   onRequirement,
   onFigure,
 }: {
   docId: string;
   md: string;
   focus?: string;
+  requirements?: RegExp | null;
   onRequirement?: (id: string) => void;
   onFigure: (anchor: string) => void;
 }) {
@@ -69,7 +69,7 @@ export function DocText({
               {b}
             </pre>
           );
-        const ids = [...new Set(b.match(REQ) ?? [])];
+        const ids = requirements ? [...new Set(b.match(requirements) ?? [])] : [];
         const hot = !!focus && b.replace(/\s+/g, " ").includes(focus.replace(/\s+/g, " ").slice(0, 60));
         return (
           <div key={i} className={hot ? "doctext-p is-focus" : "doctext-p"}>

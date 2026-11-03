@@ -62,8 +62,15 @@ describe("DocText", () => {
       "Selon le type de sectionneur, le menu diffère",
       "<!-- only a comment -->",
     ].join("\n\n");
-    const { container } = render(
-      <DocText docId="D1" md={md} focus="Selon le  type" onRequirement={onRequirement} onFigure={onFigure} />,
+    const { container, rerender } = render(
+      <DocText
+        docId="D1"
+        md={md}
+        focus="Selon le  type"
+        requirements={/\bEXI_[A-Z0-9_]*[A-Z0-9]/g}
+        onRequirement={onRequirement}
+        onFigure={onFigure}
+      />,
     );
     expect(screen.getByRole("heading", { name: "5.6 Sectionneur" })).toHaveAttribute("data-level", "2");
     expect(screen.getByText(/with a second line/)).toBeInTheDocument();
@@ -83,6 +90,8 @@ describe("DocText", () => {
     expect(onRequirement).toHaveBeenCalledWith("EXI_MOP_2");
     expect(container.querySelectorAll(".is-focus")).toHaveLength(1);
     expect(container.querySelector(".is-focus")).toHaveTextContent("Selon le type de sectionneur");
+    rerender(<DocText docId="D1" md={md} onRequirement={onRequirement} onFigure={onFigure} />);
+    expect(screen.queryAllByRole("button", { name: /EXI_MOP_/ })).toEqual([]);
   });
 
   it("says when the part is empty; no focus without one", () => {
@@ -126,11 +135,25 @@ describe("DocDetail", () => {
     ...over,
   });
   const docs = [doc("D1"), doc("D2"), doc("D3")];
+  afterEach(() => setTraces(null));
   const show = (anchor = "", over: Record<string, unknown> = {}) => {
     const onAnchor = vi.fn();
     const onChanged = vi.fn();
     const onReindex = vi.fn();
     const onRemoved = vi.fn();
+    setTraces([
+      {
+        id: "requirement",
+        label: "Requirement",
+        patterns: [String.raw`\bEXI_\d+`],
+        field: "Exigence",
+        origin: "declared",
+        column: "in-xray",
+        found: 1,
+        docs: 1,
+      },
+    ]);
+    api.routes["traces.find"] = () => ({ items: [{ id: "EXI_1", doc: "D1", anchor: "§5", context: "" }] });
     api.routes["docs.show"] = (i) => (i.anchor ? { md: `Part ${i.anchor} EXI_1` } : shown(over));
     mount(
       <DocDetail

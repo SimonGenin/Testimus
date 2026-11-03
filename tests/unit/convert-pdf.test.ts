@@ -1,8 +1,9 @@
 import { inflateSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import { anchorsOf } from "../../src/core/rag/convert.ts";
-import { convertPdf, pdfFigures } from "../../src/core/rag/convert-pdf.ts";
+import { pdfFigures } from "../../src/core/rag/convert-pdf.ts";
 import { encodePng } from "../../src/core/rag/convert-png.ts";
+import { convertPdf } from "./ratp.ts";
 
 const text = (size: number, y: number, s: string) => `BT /F1 ${size} Tf 72 ${y} Td (${s}) Tj ET`;
 

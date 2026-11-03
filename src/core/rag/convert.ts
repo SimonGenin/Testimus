@@ -1,9 +1,6 @@
 import { basename, extname } from "node:path";
 import type { Block } from "./convert-html.ts";
 
-// ponytail: the RATP requirement ids (EXI_MOP_SPF_511_A_1670); other patterns are passed by the caller
-export const REQ_PATTERN = "\\bEXI_[A-Z0-9_]*[A-Z0-9]";
-
 export const CAPTION_RE = /^(?:Figure|Fig\.)\s*(\d+)\s*(?:[-‐‑–—:.]\s*|\s+(?=\S))(.{0,300})$/i;
 export const TRAILING_CAPTION_RE = /(?:^|\s)((?:Figure|Fig\.)\s*(\d+)\s*[-‐‑–—:]\s*[^.!?]{3,160})$/i;
 
@@ -24,8 +21,9 @@ export type ConvertOpts = {
   signal?: AbortSignal;
 };
 
+// ponytail: the requirement ids are the project's (its requirement trace); with none, nothing is a requirement
 export function reqRegex(patterns: string[] = []): RegExp {
-  return new RegExp([REQ_PATTERN, ...patterns].map((p) => `(?:${p})`).join("|"), "g");
+  return patterns.length ? new RegExp(patterns.map((p) => `(?:${p})`).join("|"), "g") : /(?!)/g;
 }
 
 export function slug(text: string): string {

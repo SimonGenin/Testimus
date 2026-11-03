@@ -1,7 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { UserError } from "../command.ts";
-import { REQ_PATTERN } from "../rag/convert.ts";
 import type { ProjectJson, Trace, TraceCoverage, TraceItem, TraceScan, TraceUse, TraceView } from "../types.ts";
 import { parseCsv } from "./csv.ts";
 import { readProject, readXray, writeProject } from "./project.ts";
@@ -10,6 +9,7 @@ import { listLocalTests, readTest } from "./store.ts";
 export const REQUIREMENT = "requirement";
 
 const BUILTINS = /^(action|data|expected result|expected|result)$/i;
+const REQUIREMENT_NAME = /exigence|requirement/i;
 
 export function compile(patterns: string[]): RegExp {
   const clean = [...new Set(patterns.map((p) => p.trim()).filter(Boolean))];
@@ -108,24 +108,22 @@ export function scanTrace(
   return { total, distinct: items.length, docs, items: items.slice(0, opts.limit ?? items.length) };
 }
 
-// ponytail: a project from before tracked ids keeps its requirements: the evidence is the settings it already
-// has, an Exigence-like Xray column, a requirements.csv, or requirement anchors in its documents
+// ponytail: RATP's requirement ids, which every project tracked without saying so before it declared its own
+export const LEGACY_PATTERN = String.raw`\bEXI_[A-Z0-9_]*[A-Z0-9]`;
+
+// ponytail: a project from before tracked ids keeps the requirements it was given: the evidence is a setting only
+// those projects have, or the requirement anchors its documents got at conversion — a new project tracks nothing
+// until it says what
 export function detectedTraces(project: string, p: ProjectJson = readProject(project)): Trace[] {
-  const column = readXray(project).fields.find((f) => !f.builtin && /exigence|requirement/i.test(f.name))?.name;
   const anchors = () =>
     docIds(project).some((d) => readFileSync(join(project, "docs", d, "doc.md"), "utf8").includes("<!-- req "));
-  const evidence =
-    !!p.requirementField?.trim() ||
-    !!p.requirementPatterns?.length ||
-    !!column ||
-    existsSync(join(project, "requirements", "requirements.csv")) ||
-    anchors();
-  if (!evidence) return [];
+  if (!p.requirementField?.trim() && !p.requirementPatterns?.length && !anchors()) return [];
+  const column = readXray(project).fields.find((f) => !f.builtin && /exigence|requirement/i.test(f.name))?.name;
   return [
     {
       id: REQUIREMENT,
       label: "Requirement",
-      patterns: [REQ_PATTERN, ...(p.requirementPatterns ?? [])],
+      patterns: [LEGACY_PATTERN, ...(p.requirementPatterns ?? [])],
       field: p.requirementField?.trim() || column || "Exigence",
     },
   ];
@@ -135,6 +133,10 @@ export function projectTraces(project: string): { traces: Trace[]; declared: boo
   const p = readProject(project);
   if (Array.isArray(p.traces)) return { traces: p.traces, declared: true };
   return { traces: detectedTraces(project, p), declared: false };
+}
+
+export function requirementPatterns(project: string): string[] {
+  return projectTraces(project).traces.find((t) => t.id === REQUIREMENT)?.patterns ?? [];
 }
 
 export function traceViews(project: string): TraceView[] {
@@ -176,7 +178,8 @@ export function checkTrace(t: Omit<Trace, "id"> & { id?: string }): void {
 }
 
 // ponytail: the first save writes what was only detected, so the team's list is from then on exactly
-// project.json.traces; the requirement trace also writes the keys the index and the check read
+// project.json.traces; a new kind named like requirements becomes the requirement trace (the one conversion
+// anchors and the check knows) while the project has none
 export function saveTrace(project: string, input: Omit<Trace, "id"> & { id?: string }): Trace[] {
   checkTrace(input);
   const p = readProject(project);
@@ -185,7 +188,9 @@ export function saveTrace(project: string, input: Omit<Trace, "id"> & { id?: str
     throw new UserError(`No tracked ids called ${input.id}.`, "traces.list shows them.");
   if (list.some((t) => t.id !== input.id && t.field.trim().toLowerCase() === input.field.trim().toLowerCase()))
     throw new UserError(`The column ${input.field} already holds other tracked ids.`, "Choose another step field.");
-  let id = input.id ?? slug(input.label);
+  const requirement =
+    !input.id && !list.some((t) => t.id === REQUIREMENT) && REQUIREMENT_NAME.test(`${input.label} ${input.field}`);
+  let id = input.id ?? (requirement ? REQUIREMENT : slug(input.label));
   if (!input.id) while (list.some((t) => t.id === id)) id = `${id}-2`;
   const trace: Trace = {
     id,
@@ -196,14 +201,7 @@ export function saveTrace(project: string, input: Omit<Trace, "id"> & { id?: str
   };
   const at = list.findIndex((t) => t.id === id);
   const next = at < 0 ? [...list, trace] : list.map((t) => (t.id === id ? trace : t));
-  const out: ProjectJson = { ...p, traces: next };
-  if (id === REQUIREMENT) {
-    out.requirementField = trace.field;
-    const extra = trace.patterns.filter((x) => x !== REQ_PATTERN);
-    if (extra.length) out.requirementPatterns = extra;
-    else delete out.requirementPatterns;
-  }
-  writeProject(project, out);
+  writeTraces(project, p, next);
   return next;
 }
 
@@ -212,8 +210,13 @@ export function removeTrace(project: string, id: string): Trace[] {
   const list = projectTraces(project).traces;
   if (!list.some((t) => t.id === id)) throw new UserError(`No tracked ids called ${id}.`, "traces.list shows them.");
   const next = list.filter((t) => t.id !== id);
-  writeProject(project, { ...p, traces: next });
+  writeTraces(project, p, next);
   return next;
+}
+
+function writeTraces(project: string, p: ProjectJson, traces: Trace[]): void {
+  const { requirementField: _field, requirementPatterns: _patterns, ...rest } = p;
+  writeProject(project, { ...rest, traces });
 }
 
 // ponytail: a step cites an id when its column holds text the patterns match; what is left once the matches

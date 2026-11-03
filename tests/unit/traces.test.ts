@@ -9,7 +9,7 @@ import { type ClaudeSpawn, env } from "../../src/core/env.ts";
 import { mechanicalCheck, requirementFieldOf } from "../../src/core/lib/check.ts";
 import { columnGuidance } from "../../src/core/lib/columns.ts";
 import { DEFAULT_SETTINGS, readProject, writeSettings, writeXray } from "../../src/core/lib/project.ts";
-import { projectTraces, scanTrace } from "../../src/core/lib/traces.ts";
+import { projectTraces, requirementPatterns, scanTrace } from "../../src/core/lib/traces.ts";
 import { mockSpawnClaude } from "../../src/core/mock/claude.ts";
 import type { TraceCoverage } from "../../src/core/types.ts";
 
@@ -97,7 +97,7 @@ describe("tracked ids", () => {
     expect(scan.items.find((i) => i.id === "EXI_MOP_SPF_511_A_1670")?.context).toMatch(/^Le menu contextuel/);
   });
 
-  it("saves a new kind, writes what was detected first, and keeps the requirement keys in step", async () => {
+  it("saves a new kind, writes what was detected first, and the list is then all there is", async () => {
     const dir = copyFixture();
     await run(dir, "traces.save", { label: "Figure", patterns: [String.raw`\bFigure \d+`], field: "Figure" });
     const p = readProject(dir);
@@ -113,10 +113,8 @@ describe("tracked ids", () => {
       patterns: [String.raw`\bEXI_[A-Z0-9_]*[A-Z0-9]`, String.raw`\bEXI STB F-\d+`],
       field: "Exigence",
     });
-    expect(readProject(dir)).toMatchObject({
-      requirementField: "Exigence",
-      requirementPatterns: [String.raw`\bEXI STB F-\d+`],
-    });
+    expect(requirementPatterns(dir)).toEqual([String.raw`\bEXI_[A-Z0-9_]*[A-Z0-9]`, String.raw`\bEXI STB F-\d+`]);
+    expect(readProject(dir).requirementPatterns).toBeUndefined();
     await run(dir, "traces.remove", { id: "figure" });
     expect(projectTraces(dir)).toMatchObject({ declared: true, traces: [{ id: "requirement", label: "Exigence" }] });
     await run(dir, "traces.remove", { id: "requirement" });

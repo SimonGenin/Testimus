@@ -8,9 +8,12 @@ import { isStale, recheckMechanical, recordSemantic, testsCiting } from "../../s
 import { normalizeAnchor, sectionOf } from "../../src/core/lib/docs.ts";
 import { sha256 } from "../../src/core/lib/hash.ts";
 import { readCheck } from "../../src/core/lib/store.ts";
+import { LEGACY_PATTERN } from "../../src/core/lib/traces.ts";
 import { docContent } from "../../src/core/rag/indexer.ts";
 import type { DocJson, DocRef, FigureEntry } from "../../src/core/types.ts";
 import { sampleDocx } from "../fixtures/docx/sample.ts";
+
+const EXIGENCE = { id: "requirement", label: "Exigence", patterns: [LEGACY_PATTERN], field: "Exigence" };
 
 async function run<T = unknown>(project: string, name: string, raw: unknown): Promise<T> {
   const c = commands.find((x) => x.name === name);
@@ -25,7 +28,7 @@ beforeEach(() => {
   const root = mkdtempSync(join(tmpdir(), "testimus-docs-"));
   project = join(root, "project");
   mkdirSync(project);
-  writeFileSync(join(project, "project.json"), JSON.stringify({ name: "t", jiraProject: "T" }));
+  writeFileSync(join(project, "project.json"), JSON.stringify({ name: "t", jiraProject: "T", traces: [EXIGENCE] }));
   mkdirSync(join(root, "client"));
   original = join(root, "client", "SOSIE_211_D401-1_3_01.01.docx");
   writeFileSync(original, sampleDocx());
@@ -153,6 +156,15 @@ describe("docs commands", () => {
     expect(fig.md).toBe("![Figure 40 – Représentation graphique sectionneur](figures/fig-40.png) <!-- fig 40 -->");
     await expect(run(project, "docs.show", { id: "SOSIE_211_D401-1_3", anchor: "§9.9" })).rejects.toThrow(/No anchor/);
     await expect(run(project, "docs.show", { id: "nope" })).rejects.toThrow(/No document nope/);
+  });
+
+  it("a project that tracks no requirements gets no requirement anchors, whatever its documents hold", async () => {
+    writeFileSync(join(project, "project.json"), JSON.stringify({ name: "t", jiraProject: "T" }));
+    await run(project, "docs.add", { file: original });
+    const all = await run<{ requirements: string[]; md: string }>(project, "docs.show", { id: "SOSIE_211_D401-1_3" });
+    expect(all.requirements).toEqual([]);
+    expect(all.md).toContain("EXI_MOP_SPF_511_A_1670");
+    expect(all.md).not.toContain("<!-- req ");
   });
 
   it("sets team fields and context, then removes", async () => {

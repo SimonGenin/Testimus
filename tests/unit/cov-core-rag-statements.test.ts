@@ -1,20 +1,19 @@
 import { describe, expect, it } from "vitest";
 import { parseSections } from "../../src/core/rag/chunk.ts";
-import {
-  idRegex,
-  matrixColumns,
-  matrixRows,
-  sectionByNumber,
-  statementsOf,
-  tablesOf,
-} from "../../src/core/rag/statements.ts";
+import { idRegex, sectionByNumber, tablesOf } from "../../src/core/rag/statements.ts";
+import { matrixColumns, matrixRows, statementsOf } from "./ratp.ts";
 
 const table = (rows: string[]) => tablesOf(rows.join("\n"))[0];
 
 describe("idRegex", () => {
   it("drops a project pattern that is not a regular expression", () => {
     const re = idRegex({ patterns: ["(", String.raw`REQ-\d+`] });
-    expect("EXI_A_1 REQ-7".match(re)).toEqual(["EXI_A_1", "REQ-7"]);
+    expect("EXI_A_1 REQ-7".match(re)).toEqual(["REQ-7"]);
+  });
+
+  it("matches nothing when the project tracks no requirement ids", () => {
+    expect("EXI_A_1 REQ-7".match(idRegex())).toBeNull();
+    expect("EXI_A_1".match(idRegex({ patterns: ["("] }))).toBeNull();
   });
 });
 

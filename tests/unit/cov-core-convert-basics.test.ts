@@ -1,14 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import { describe, expect, it } from "vitest";
-import {
-  approxTokens,
-  chunkDoc,
-  docFigures,
-  MAX_TOKENS,
-  markerLine,
-  sectionAt,
-  sectionPath,
-} from "../../src/core/rag/chunk.ts";
+import { approxTokens, docFigures, MAX_TOKENS, markerLine, sectionAt, sectionPath } from "../../src/core/rag/chunk.ts";
 import { anchorsOf, extOf, guessDate, guessTitle, slug, uniqueKey } from "../../src/core/rag/convert.ts";
 import {
   cleanSpaces,
@@ -23,6 +15,7 @@ import {
 import { encodePng, unpackGray1 } from "../../src/core/rag/convert-png.ts";
 import { fingerprintOf, legacySpace, modelIdentity, spaceOf } from "../../src/core/rag/fingerprint.ts";
 import type { CatalogEntry, DocJson, ResolvedModel } from "../../src/core/types.ts";
+import { chunkDoc } from "./ratp.ts";
 
 describe("convert helpers", () => {
   it("numbers a key that is already taken", () => {

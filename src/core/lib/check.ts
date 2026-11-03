@@ -10,10 +10,10 @@ import { type EvidenceOpts, matrixRows, type Statement, statementsOf } from "../
 import type { CheckFile, CitingTest, DocJson, Finding, Review, Step, Test } from "../types.ts";
 import { writeAtomic } from "./atomic.ts";
 import { parseCsv } from "./csv.ts";
-import { readJson, readProject, readXray, writeJson } from "./project.ts";
+import { readJson, readProject, writeJson } from "./project.ts";
 import { readCheck, readTest, testDir, testExists, testsDir } from "./store.ts";
 import { frontmatterOf, hasRawEmbed, testMdHash } from "./testfile.ts";
-import { compile, idsInCell, projectTraces, REQUIREMENT, scanTrace } from "./traces.ts";
+import { compile, idsInCell, projectTraces, REQUIREMENT, requirementPatterns, scanTrace } from "./traces.ts";
 
 export type DocText = {
   id: string;
@@ -41,7 +41,6 @@ const ANCHORS = /<!--\s*(§|req|fig|page)\s*(\S+?)\s*-->/g;
 export const flat = (s: string) => s.replace(/\s+/g, " ").trim();
 // ponytail: doc.md keeps Word's bold and italic as * and **, which a quote never carries
 export const plainText = (s: string) => flat(s.replace(COMMENTS, " ").replace(/\*/g, ""));
-const REQ_PATTERN = String.raw`\bEXI_[A-Z0-9_]*[A-Z0-9]`;
 
 export function anchorKey(anchor: string): string {
   const a = anchor.trim();
@@ -54,22 +53,11 @@ export function anchorsOf(md: string): Set<string> {
   return new Set([...md.matchAll(ANCHORS)].map((m) => (m[1] === "§" ? `§${m[2]}` : `${m[1]}:${m[2]}`)));
 }
 
-// ponytail: the requirement field is the column of the tracked requirement kind (project.json.traces; none
-// when the team stopped tracking requirements); before traces, whatever the project's Xray schema calls
-// « Exigence » or « Requirement », unless project.json names it
+// ponytail: the requirement field is the column of the tracked requirement kind; none while the project
+// tracks no requirements
 export function requirementFieldOf(project: string): string | null {
-  const pj = readJson<{ requirementField?: unknown; traces?: unknown }>(join(project, "project.json"), {});
-  if (Array.isArray(pj.traces)) {
-    const field = (pj.traces.find((t) => (t as { id?: unknown })?.id === REQUIREMENT) as { field?: unknown })?.field;
-    return typeof field === "string" && field.trim() ? field.trim() : null;
-  }
-  const named = pj.requirementField;
-  if (typeof named === "string" && named.trim()) return named.trim();
-  const fields = readXray(project).fields;
-  const f =
-    fields.find((x) => !x.builtin && /exigence|requirement/i.test(x.name)) ??
-    fields.find((x) => /exigence|requirement/i.test(x.name));
-  return f?.name ?? null;
+  const field = projectTraces(project).traces.find((t) => t.id === REQUIREMENT)?.field;
+  return typeof field === "string" && field.trim() ? field.trim() : null;
 }
 
 function csvRequirements(project: string): string[] {
@@ -87,8 +75,8 @@ export function loadCorpus(project: string): Corpus {
   const docs = new Map<string, DocText>();
   const requirements = new Set(csvRequirements(project));
   const pj = readProject(project);
-  const opts: EvidenceOpts = { patterns: pj.requirementPatterns ?? [], matrix: pj.requirementMatrix };
-  const patterns = [REQ_PATTERN, ...(pj.requirementPatterns ?? [])].flatMap((p) => {
+  const opts: EvidenceOpts = { patterns: requirementPatterns(project), matrix: pj.requirementMatrix };
+  const patterns = (opts.patterns ?? []).flatMap((p) => {
     try {
       return [new RegExp(p, "g")];
     } catch {

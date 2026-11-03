@@ -51,7 +51,8 @@ vi.mock("pdfjs-dist/legacy/build/pdf.mjs", async (importOriginal) => {
   };
 });
 
-const { convertPdf, pdfFigures } = await import("../../src/core/rag/convert-pdf.ts");
+const { pdfFigures } = await import("../../src/core/rag/convert-pdf.ts");
+const { convertPdf } = await import("./ratp.ts");
 
 type T = { size?: number; d?: number; height?: number; width?: number | null; font?: string; eol?: boolean };
 const t = (str: string, x: number, y: number, o: T = {}) => {

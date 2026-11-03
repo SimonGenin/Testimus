@@ -121,9 +121,8 @@ describe("project commands", () => {
     await expect(run("project.set", { labelPrefix: "a b" })).rejects.toThrow("Not a label prefix");
   });
 
-  it("sets patterns, glossary, retrieval, reference and matrix, and removes them", async () => {
+  it("sets glossary, retrieval, reference and matrix, and removes them", async () => {
     const set = await run("project.set", {
-      requirementPatterns: ["REQ-\\d+"],
       glossary: { TK: "télécommande" },
       rag: {
         queryTask: "Find",
@@ -138,7 +137,6 @@ describe("project commands", () => {
       claude: { model: "opus", contexts: ["c1"] },
     });
     expect(set).toMatchObject({
-      requirementPatterns: ["REQ-\\d+"],
       glossary: { TK: "télécommande" },
       rag: { queryTask: "Find", passageMaxChars: 2000, reranker: null, claudeHeaders: true, describeFigures: false },
       requirementMatrix: { idColumn: "Code", sectionColumn: "Section" },

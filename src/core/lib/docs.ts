@@ -10,6 +10,7 @@ import type { DocJson, DocKind, DocRef, FigureEntry } from "../types.ts";
 import { writeAtomic } from "./atomic.ts";
 import { sha256 } from "./hash.ts";
 import { readJson, writeJson } from "./project.ts";
+import { requirementPatterns } from "./traces.ts";
 
 export type TocEntry = { anchor: string; title: string; level: number };
 export type Stats = NonNullable<DocJson["stats"]>;
@@ -119,11 +120,6 @@ export function sectionOf(md: string, anchor: string): string | null {
   return lines.slice(start, end).join("\n").trim();
 }
 
-function reqPatterns(project: string): string[] {
-  const p = readJson<{ requirementPatterns?: unknown }>(join(project, "project.json"), {});
-  return Array.isArray(p.requirementPatterns) ? p.requirementPatterns.filter((x) => typeof x === "string") : [];
-}
-
 export async function convertSource(file: string, opts: ConvertOpts & { pdf?: string }): Promise<Converted> {
   const ext = extname(file).toLowerCase();
   if (ext === ".docx") {
@@ -209,7 +205,7 @@ export async function addDoc(
     progress(`Converting ${ext.slice(1)}`);
     const c = await convertSource(target, {
       code: guess.code,
-      reqPatterns: reqPatterns(project),
+      reqPatterns: requirementPatterns(project),
       pdf: existsSync(pdfTarget) && ext === ".docx" ? pdfTarget : undefined,
       signal,
     });
@@ -253,7 +249,7 @@ export async function reconvertDoc(
   const pdf = join(dir, "source.pdf");
   const c = await convertSource(source, {
     code: doc.code,
-    reqPatterns: reqPatterns(project),
+    reqPatterns: requirementPatterns(project),
     pdf: extname(source).toLowerCase() === ".docx" && existsSync(pdf) ? pdf : undefined,
     signal,
   });

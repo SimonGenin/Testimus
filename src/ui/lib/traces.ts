@@ -15,6 +15,17 @@ export const traceOfField = (name: string): TraceView | undefined =>
 
 export const REQUIREMENT = "requirement";
 
+export function idPattern(t: Pick<TraceView, "patterns"> | undefined): RegExp | null {
+  const ok = (t?.patterns ?? []).filter((p) => {
+    try {
+      return !new RegExp(p).test("");
+    } catch {
+      return false;
+    }
+  });
+  return ok.length ? new RegExp(ok.map((p) => `(?:${p})`).join("|"), "g") : null;
+}
+
 // ponytail: « Generate tests for the missing ids » hands its ids to the Generate screen it opens
 let handed: { trace: string; ids: string[] } | null = null;
 

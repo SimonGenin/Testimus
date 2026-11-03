@@ -1,8 +1,8 @@
 import { join } from "node:path";
 import { readJson } from "../lib/project.ts";
+import { requirementPatterns } from "../lib/traces.ts";
 import type { ProjectJson, ReqStatement, RequirementMatrixSpec } from "../types.ts";
 import { lines, parseSections, type Section, sectionAt, stripComments } from "./chunk.ts";
-import { REQ_PATTERN } from "./convert.ts";
 
 export type EvidenceOpts = { patterns?: string[]; matrix?: RequirementMatrixSpec };
 export type MdTable = { start: number; end: number; header: string[]; rows: { line: number; cells: string[] }[] };
@@ -40,11 +40,11 @@ const NUMBER = /\d+(?:\.\d+)*/g;
 
 export function evidenceOptions(project: string): EvidenceOpts {
   const p = readJson<Partial<ProjectJson>>(join(project, "project.json"), {});
-  return { patterns: p.requirementPatterns ?? [], matrix: p.requirementMatrix };
+  return { patterns: requirementPatterns(project), matrix: p.requirementMatrix };
 }
 
 export function idRegex(opts: EvidenceOpts = {}): RegExp {
-  const ok = [REQ_PATTERN, ...(opts.patterns ?? [])].filter((p) => {
+  const ok = (opts.patterns ?? []).filter((p) => {
     try {
       new RegExp(p);
       return true;
@@ -52,7 +52,7 @@ export function idRegex(opts: EvidenceOpts = {}): RegExp {
       return false;
     }
   });
-  return new RegExp(ok.map((p) => `(?:${p})`).join("|"), "g");
+  return ok.length ? new RegExp(ok.map((p) => `(?:${p})`).join("|"), "g") : /(?!)/g;
 }
 
 export function idsIn(text: string, opts: EvidenceOpts = {}): string[] {
