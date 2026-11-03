@@ -1,7 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import type { ClaudeScope, Effort } from "../../../core/types.ts";
+import type { Effort } from "../../../core/types.ts";
 import type { Action } from "../../lib/actions.ts";
 import { useApp } from "../../lib/app.ts";
 import { useDraft } from "../../lib/data/autosave.ts";
@@ -24,16 +24,17 @@ import { Button } from "../ui/Button.tsx";
 import { Icon } from "../ui/Icon.tsx";
 import { Modal } from "../ui/Modal.tsx";
 import type { ClaudeStatus } from "./ConnectClaude.tsx";
-import { useContexts } from "./contexts.ts";
 import { DockActions, useActionChoices } from "./DockActions.tsx";
 import { DockComposer, runIds } from "./DockComposer.tsx";
 import { DockFolded } from "./DockFolded.tsx";
 import { DockLog } from "./DockLog.tsx";
-import { DockScope, type Sub, type Tab } from "./DockScope.tsx";
+import { DockScope } from "./DockScope.tsx";
 import { OnTopToggle } from "./OnTopToggle.tsx";
 import { type Again, docOfRoute } from "./turns.ts";
 import { type DockJob, useDockRuns } from "./useDockRuns.ts";
+import { useDockScope } from "./useDockScope.ts";
 import { useNow } from "./useNow.ts";
+import { useRunContexts } from "./useRunContexts.ts";
 
 export { docOfRoute, fixOutcome, metaLine, PROJECT_RUN, toolLabel, transcript } from "./turns.ts";
 export type { DockJob } from "./useDockRuns.ts";
@@ -98,24 +99,6 @@ const styles = stylex.create({
   },
 });
 
-const placeholderOf = (sub: Sub, docId: string | null) =>
-  sub === "doc"
-    ? `Ask anything about ${docId}…`
-    : sub === "all"
-      ? "Ask the documents — answers cite their passages"
-      : sub === "project"
-        ? "Ask about the project, or tell Claude what to do with its tests…"
-        : "Ask Claude to change or explain this test…";
-
-const labelOf = (sub: Sub, docId: string | null) =>
-  sub === "doc"
-    ? `Ask about ${docId}`
-    : sub === "all"
-      ? "Ask the documents"
-      : sub === "project"
-        ? "Ask Claude about the project"
-        : "Ask Claude about this test";
-
 // ponytail: Claude beside every screen — asks the documents, changes a test, a step or the whole project, runs the
 // actions Claude proposed; folded to a strip (Ctrl J)
 export function ClaudeDock({
@@ -134,11 +117,10 @@ export function ClaudeDock({
   const cfg = app.info?.project.claude;
   const projectDir = app.info?.dir;
   const runs = useDockRuns(app);
-  const [tab, setTab] = useState<Tab>("test");
-  const [sub, setSub] = useState<Sub>("project");
+  const where = useDockScope(focus, docId);
+  const { tab, sub } = where;
   const [model, setModel] = useState(cfg?.model ?? "opus");
   const [effort, setEffort] = useState<Effort>(cfg?.effort ?? "high");
-  const [pick, setPick] = useState<Record<string, boolean>>({});
   const [checking, setChecking] = useState(false);
   const choices = useActionChoices({ model: cfg?.model ?? "opus", effort: cfg?.effort ?? "high" });
   const now = useNow(runs.started !== null);
@@ -150,21 +132,7 @@ export function ClaudeDock({
   const offline = !!status && (!status.installed || status.signedIn === false);
   const notInstalled = !!status && !status.installed;
 
-  const testId = focus?.testId;
-  const onProject = tab === "test" && sub === "project";
-  const ofProject = useRead("contexts.ofProject", {}, { enabled: !!projectDir && onProject });
-  const ofTest = useRead(
-    "contexts.ofTest",
-    { testId: testId ?? "" },
-    { enabled: !!projectDir && !onProject && !!testId },
-  );
-  const effectiveOf = (r: typeof ofProject | typeof ofTest) =>
-    (r.data as { effective?: string[] } | undefined)?.effective;
-  const saved = useContexts(!!projectDir);
-  const effective = (
-    tab !== "test" ? [] : ((onProject ? effectiveOf(ofProject) : testId ? effectiveOf(ofTest) : cfg?.contexts) ?? [])
-  ).filter((id) => !saved?.length || saved.some((c) => c.id === id));
-  const known = tab !== "test" || (onProject ? !!ofProject.data : testId ? !!ofTest.data : !!cfg?.contexts);
+  const ctx = useRunContexts({ tab, sub, focus, docId, projectDir, defaults: cfg?.contexts });
 
   const actionsRead = useRead("actions.list", {}, { enabled: !!projectDir });
   const inRun = new Set(runs.turns.filter((t) => t.action && t.running).map((t) => t.action?.id));
@@ -177,31 +145,11 @@ export function ClaudeDock({
     if (cfg?.effort) setEffort(cfg.effort);
   }, [cfg?.model, cfg?.effort]);
 
-  useEffect(() => {
-    setTab((t) => (t === "actions" ? t : testId ? "test" : docId ? "docs" : "test"));
-    setSub(testId ? "test" : docId ? "doc" : "project");
-  }, [testId, docId]);
-
-  useEffect(() => {
-    if (focus?.step == null && sub === "step") setSub("test");
-    if (!focus && (sub === "step" || sub === "test")) setSub("project");
-    if (!docId && sub === "doc") setSub("all");
-  }, [focus, docId, sub]);
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: a new scope or another test starts from its own contexts
-  useEffect(() => setPick({}), [tab, sub, testId, docId]);
-
   const seen = useRef(0);
   useEffect(() => {
     if (!request || request.nonce === seen.current) return;
     seen.current = request.nonce;
-    if (request.mode === "docs") {
-      setTab(docId ? "docs" : "test");
-      setSub(docId ? "doc" : "project");
-    } else if (request.scope) {
-      setTab("test");
-      setSub(request.scope);
-    }
+    where.ask(request.mode, request.scope);
     if (request.job) {
       void runs.runJob(request.job);
       return;
@@ -221,22 +169,6 @@ export function ClaudeDock({
     }
   };
 
-  const scopeOf = (): ClaudeScope =>
-    sub === "step" && focus && focus.step != null
-      ? { kind: "step", testId: focus.testId, step: focus.step }
-      : sub === "test" && focus
-        ? { kind: "test", testId: focus.testId }
-        : { kind: "project" };
-  const scopeWord =
-    sub === "step" && focus?.step != null
-      ? `Step ${focus.step}`
-      : sub === "test" && focus
-        ? (focus.key ?? "This test")
-        : sub === "doc" && docId
-          ? docId
-          : sub === "all"
-            ? "All documents"
-            : "Whole project";
   const docsMode = tab === "docs";
 
   const send = (text: string, note: string, quickAsk?: string) => {
@@ -251,7 +183,7 @@ export function ClaudeDock({
           text: q,
           model,
           effort,
-          contexts: runIds({ effective, pick, setPick }),
+          contexts: runIds(ctx),
           note:
             [
               sub === "doc" && docId
@@ -266,10 +198,10 @@ export function ClaudeDock({
       : {
           mode: "test",
           text: q,
-          scope: scopeOf(),
-          contexts: known || Object.keys(pick).length ? runIds({ effective, pick, setPick }) : undefined,
+          scope: where.scope,
+          contexts: ctx.known || Object.keys(ctx.pick).length ? runIds(ctx) : undefined,
           note: n || undefined,
-          label: `${scopeWord}${quickAsk ? ` · ${quickAsk}` : ""}`,
+          label: `${where.word}${quickAsk ? ` · ${quickAsk}` : ""}`,
           model,
           effort,
         };
@@ -325,12 +257,8 @@ export function ClaudeDock({
         focus={focus}
         actions={actions.length}
         running={runs.busy}
-        onTab={(t) => {
-          setTab(t);
-          if (t === "docs") setSub(docId ? "doc" : "all");
-          if (t === "test") setSub(focus ? (focus.step != null && sub === "step" ? "step" : "test") : "project");
-        }}
-        onSub={setSub}
+        onTab={where.pickTab}
+        onSub={where.setSub}
       />
       <DockLog
         runs={runs}
@@ -355,12 +283,12 @@ export function ClaudeDock({
         <div {...stylex.props(styles.foot)}>
           <DockComposer
             mode={docsMode ? "docs" : "test"}
-            label={labelOf(sub, docId)}
-            placeholder={offline ? "Claude is optional — everything else works without it" : placeholderOf(sub, docId)}
-            scope={sub === "test" && focus ? "Whole test" : scopeWord}
+            label={where.label}
+            placeholder={offline ? "Claude is optional — everything else works without it" : where.placeholder}
+            scope={sub === "test" && focus ? "Whole test" : where.word}
             quickAsks={cfg?.presets ?? []}
-            contexts={{ effective, pick, setPick }}
-            all={saved ?? []}
+            contexts={ctx}
+            all={ctx.saved ?? []}
             model={model}
             effort={effort}
             running={runs.busy ? elapsed : null}
