@@ -456,6 +456,7 @@ export type ClaudeConfig = { model: string; effort: Effort; presets: Preset[]; c
 export type ProjectJson = {
   name: string;
   jiraProject: string;
+  jiraOffline?: boolean;
   language: string;
   labelPrefix: string;
   folders: string[];

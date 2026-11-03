@@ -73,7 +73,6 @@ const tab = (over: Partial<Props> = {}) => {
   const h = { onPickFolder: vi.fn(), onOpenRemote: vi.fn(), onPullFolder: vi.fn(), onNew: vi.fn() };
   const props: Props = {
     tree,
-    treeError: "",
     query: "",
     folder: "/",
     expanded: new Set(["/"]),
@@ -114,11 +113,8 @@ describe("JiraTab helpers", () => {
 });
 
 describe("JiraTab tree", () => {
-  it("says when Jira cannot be reached, and shows a skeleton while the tree loads", () => {
-    const { again } = tab({ tree: null, treeError: "401 Unauthorized" });
-    expect(screen.getByText("Jira could not be reached.")).toBeInTheDocument();
-    expect(screen.getByText("401 Unauthorized")).toBeInTheDocument();
-    again({ tree: null, treeError: "" });
+  it("shows a skeleton while the tree loads", () => {
+    tab({ tree: null });
     expect(screen.getByRole("status", { name: "Loading folders" })).toBeInTheDocument();
     expect(callsTo("xray.search")).toHaveLength(0);
   });

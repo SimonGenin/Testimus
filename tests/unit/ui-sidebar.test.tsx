@@ -170,7 +170,9 @@ const local1398 = ref({
 function list(props: Partial<Parameters<typeof TestList>[0]> = {}) {
   const refs = props.refs ?? [local1398];
   return render(
-    <TestList refs={refs} loading={false} activeId="" onOpen={() => {}} onReload={async () => refs} {...props} />,
+    <AppContext.Provider value={appState({ screen: "tests" }, () => {}, "D:/P")}>
+      <TestList refs={refs} loading={false} activeId="" onOpen={() => {}} onReload={async () => refs} {...props} />
+    </AppContext.Provider>,
   );
 }
 
@@ -496,7 +498,11 @@ describe("Tests sidebar › recent", () => {
 
 function appState(route: AppState["route"], navigate: AppState["navigate"], dir: string): AppState {
   return {
-    info: { dir, project: {} as never, xray: { fields: [], prefs: { order: [], collapsed: [], hidden: [] } } },
+    info: {
+      dir,
+      project: { jiraProject: "LFRPS12" } as never,
+      xray: { fields: [], prefs: { order: [], collapsed: [], hidden: [] } },
+    },
     xray: { fields: [], prefs: { order: [], collapsed: [], hidden: [] } },
     route,
     focus: null,

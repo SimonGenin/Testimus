@@ -256,18 +256,18 @@ describe("Tests › Show in Explorer", () => {
 
   it("reveals the open test's test.md", async () => {
     const d = fakeDesktop();
-    render(list("local-3f9a12c0"));
+    within(list("local-3f9a12c0"));
     fireEvent.click(screen.getByRole("button", { name: "Show the test in Explorer" }));
     await waitFor(() => expect(d.reveal).toHaveBeenCalledWith("C:\\p\\tests\\local-3f9a12c0\\test.md"));
   });
 
   it("is disabled with no test open, and absent without the bridge", () => {
     fakeDesktop();
-    render(list(""));
+    within(list(""));
     expect(screen.getByRole("button", { name: "Show the test in Explorer" })).toBeDisabled();
     cleanup();
     noDesktop();
-    render(list("local-3f9a12c0"));
+    within(list("local-3f9a12c0"));
     expect(screen.queryByRole("button", { name: "Show the test in Explorer" })).toBeNull();
   });
 });

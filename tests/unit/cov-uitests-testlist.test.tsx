@@ -5,9 +5,11 @@ import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Folder, LocalTestRef, RemoteTestRef } from "../../src/core/types.ts";
 import { setProject } from "../../src/ui/api.ts";
+import { AppContext, type AppState } from "../../src/ui/lib/app.ts";
 import { addRecent } from "../../src/ui/lib/recent.ts";
 import { isKeyQuery, localTree, TestList } from "../../src/ui/screens/tests/TestList.tsx";
 import { callsTo, deferred, Fail, server, stubServer } from "./cov-uitests-helpers.ts";
+import { app } from "./ui-desktop-helpers.tsx";
 
 const toasts: { kind: string; title: string; detail?: string }[] = [];
 const errors: { e: unknown; title?: string }[] = [];
@@ -67,11 +69,24 @@ const tree: Folder = {
 
 type Props = ComponentProps<typeof TestList>;
 
-const list = (o: Partial<Props> & { reload?: LocalTestRef[] } = {}) => {
+type Jira = { jiraProject?: string; jiraOffline?: boolean };
+
+const stateOf = (jira: Jira = {}) => {
+  const s = app();
+  return { ...s, info: { ...s.info, project: { ...s.info?.project, ...jira } } as AppState["info"] };
+};
+
+const list = (o: Partial<Props> & { reload?: LocalTestRef[]; jira?: Jira } = {}) => {
   const onOpen = vi.fn();
   const onReload = vi.fn(async () => o.reload ?? o.refs ?? refs);
-  const r = render(<TestList refs={refs} loading={false} activeId="" onOpen={onOpen} onReload={onReload} {...o} />);
-  return { ...r, onOpen, onReload };
+  const state = stateOf(o.jira);
+  const tree = (s: AppState) => (
+    <AppContext.Provider value={s}>
+      <TestList refs={refs} loading={false} activeId="" onOpen={onOpen} onReload={onReload} {...o} />
+    </AppContext.Provider>
+  );
+  const r = render(tree(state));
+  return { ...r, onOpen, onReload, state, again: (jira: Jira) => r.rerender(tree(stateOf(jira))) };
 };
 
 const toJira = () => fireEvent.click(screen.getByRole("tab", { name: /Jira/ }));
@@ -416,5 +431,96 @@ describe("TestList › Jira", () => {
     };
     fireEvent.click(screen.getByRole("button", { name: "Pull every test of /Lot" }));
     await waitFor(() => expect(errors.at(-1)?.title).toBe("Could not pull /Lot"));
+  });
+});
+
+describe("TestList › Jira connection", () => {
+  it("asks for a key when none is set, and asks Jira nothing", async () => {
+    list({ jira: { jiraProject: "" } });
+    expect(screen.queryByLabelText("Search Jira")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Pull" })).toBeNull();
+    search("Alpha");
+    expect(screen.queryByText(/Search Jira for/)).toBeNull();
+    toJira();
+    expect(screen.getByRole("heading", { name: "Connect to Jira" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Filter tests")).toBeNull();
+    expect(screen.getByRole("button", { name: "Connect" })).toBeDisabled();
+    await new Promise((r) => setTimeout(r, 10));
+    expect(callsTo("xray.folders")).toHaveLength(0);
+  });
+
+  it("connects a key once Jira accepts it, and says why it refused one", async () => {
+    let answer: unknown = new Fail("Jira 404 — project NOPE not found");
+    server.routes["xray.connect"] = () => {
+      if (answer instanceof Error) throw answer;
+      return answer;
+    };
+    const { state, again } = list({ jira: { jiraProject: "" } });
+    toJira();
+    const box = screen.getByLabelText("Jira project key");
+    fireEvent.change(box, { target: { value: "nope" } });
+    expect(box).toHaveValue("NOPE");
+    fireEvent.keyDown(box, { key: "Enter" });
+    expect(await screen.findByRole("alert")).toHaveTextContent("Jira 404 — project NOPE not found");
+    expect(state.refreshInfo).not.toHaveBeenCalled();
+    answer = { jiraProject: "LFRPS12", name: "RATP" };
+    fireEvent.change(box, { target: { value: "lfrps12" } });
+    fireEvent.click(screen.getByRole("button", { name: "Connect" }));
+    await waitFor(() => expect(state.refreshInfo).toHaveBeenCalled());
+    expect(callsTo("xray.connect").at(-1)?.input).toEqual({ key: "LFRPS12" });
+    again({ jiraProject: "LFRPS12" });
+    expect(await screen.findByText("Connected to")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /^Lot/ })).toBeInTheDocument();
+  });
+
+  it("offers the Jira access setup when the credentials are missing", async () => {
+    server.routes["xray.connect"] = () => {
+      throw new Fail("Missing ~/.atlassian/credentials.json.");
+    };
+    const { state } = list({ jira: { jiraProject: "" } });
+    toJira();
+    fireEvent.change(screen.getByLabelText("Jira project key"), { target: { value: "LFRPS12" } });
+    fireEvent.click(screen.getByRole("button", { name: "Connect" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Set up Jira access" }));
+    expect(state.navigate).toHaveBeenCalledWith("setup");
+  });
+
+  it("disconnects, then shows the project as worked on locally until a reconnect", async () => {
+    server.routes["xray.disconnect"] = () => ({ jiraProject: "LFRPS12" });
+    const { state, again } = list();
+    toJira();
+    fireEvent.click(await screen.findByRole("button", { name: "Disconnect" }));
+    await waitFor(() => expect(state.refreshInfo).toHaveBeenCalled());
+    expect(toasts.at(-1)?.title).toBe("Working locally");
+    const folders = callsTo("xray.folders").length;
+    again({ jiraProject: "LFRPS12", jiraOffline: true });
+    expect(screen.getByRole("heading", { name: "Working locally" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /Jira off/ })).toBeInTheDocument();
+    expect(screen.getByLabelText("Jira project key")).toHaveValue("LFRPS12");
+    expect(screen.getByRole("button", { name: "Reconnect" })).toBeEnabled();
+    expect(callsTo("xray.folders")).toHaveLength(folders);
+  });
+
+  it("reports a failed disconnect", async () => {
+    server.routes["xray.disconnect"] = () => {
+      throw new Fail("disk full");
+    };
+    list();
+    toJira();
+    fireEvent.click(await screen.findByRole("button", { name: "Disconnect" }));
+    await waitFor(() => expect(errors.at(-1)?.title).toBe("Could not disconnect Jira"));
+  });
+
+  it("lets a project Jira cannot reach go local", async () => {
+    server.routes["xray.folders"] = () => {
+      throw new Fail("Jira 401 — check ~/.atlassian/credentials.json");
+    };
+    server.routes["xray.disconnect"] = () => ({ jiraProject: "LFRPS12" });
+    const { state } = list();
+    toJira();
+    expect(await screen.findByRole("heading", { name: "Jira could not be reached" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Work locally for now" }));
+    await waitFor(() => expect(state.refreshInfo).toHaveBeenCalled());
+    expect(callsTo("xray.disconnect")).toHaveLength(1);
   });
 });

@@ -14,7 +14,7 @@ import {
   pullTest,
   reviewOfLabels,
 } from "./jira.ts";
-import { fieldOrder, readJson, readProject, readXray, writeJson, writeXray } from "./project.ts";
+import { fieldOrder, readJson, readProject, readXray, writeJson, writeProject, writeXray } from "./project.ts";
 import {
   addImage,
   markRemoteChanged,
@@ -33,15 +33,46 @@ export type PullOpts = { prev?: Test; signal?: AbortSignal; report?: (message: s
 export type RemoteState = "unchanged" | "remote-changed" | "unverified";
 export type PushOutcome = { ok: boolean; id: string; failedAt?: number; error?: unknown; cancelled?: boolean };
 
+// ponytail: the one gate before Jira — a project with no key, or disconnected by the user, never reaches it
+export function jiraKey(project: string): string {
+  const p = readProject(project);
+  if (p.jiraOffline)
+    throw new UserError(
+      `Jira is disconnected for this project — ${p.jiraProject} is neither read nor written.`,
+      "Reconnect it from the Jira tab, or: testimus xray connect",
+    );
+  if (!p.jiraProject)
+    throw new UserError(
+      "This project is not connected to a Jira project.",
+      "Connect one from the Jira tab, or: testimus xray connect LFRPS12",
+    );
+  return p.jiraProject;
+}
+
+const infoFile = (project: string) => join(project, ".testimus", "jira-project.json");
+
 // ponytail: Jira's own project id and test issue type, asked once per project and kept as a derived file
 export async function projectInfo(project: string): Promise<ProjectInfo> {
-  const key = readProject(project).jiraProject;
-  const file = join(project, ".testimus", "jira-project.json");
-  const cached = readJson<ProjectInfo | null>(file, null);
+  const key = jiraKey(project);
+  const cached = readJson<ProjectInfo | null>(infoFile(project), null);
   if (cached?.key === key && cached.id) return cached;
   const info = await getProjectInfo(key);
-  writeJson(file, info);
+  writeJson(infoFile(project), info);
   return info;
+}
+
+// ponytail: the key is checked in Jira before it is saved — a typo or a project without Xray never becomes
+// the project's key
+export async function connectJira(project: string, key: string): Promise<ProjectInfo> {
+  const info = await getProjectInfo(key);
+  writeJson(infoFile(project), info);
+  const { jiraOffline: _, ...cur } = readProject(project);
+  writeProject(project, { ...cur, jiraProject: info.key, name: cur.name || info.key });
+  return info;
+}
+
+export function disconnectJira(project: string): void {
+  writeProject(project, { ...readProject(project), jiraOffline: true });
 }
 
 // ponytail: the step columns are read again from Xray before each push (Xray Editor reads them on every project
@@ -110,6 +141,7 @@ function keepLocal(pulled: Test, before: Test | null, byPosition: boolean, prefi
 const cancelled = (key: string) => Object.assign(new Error(`Pull of ${key} cancelled`), { name: "AbortError" });
 
 async function doPull(project: string, key: string, { prev, signal, report }: PullOpts): Promise<string> {
+  jiraKey(project);
   const dir = testDir(project, key);
   const existed = existsSync(dir);
   const written: string[] = [];
@@ -200,7 +232,7 @@ export function pullToLocal(project: string, key: string, opts: PullOpts = {}): 
 export async function checkRemote(project: string, id: string): Promise<RemoteState> {
   const { test, remoteMd } = readTest(project, id);
   const key = test.key;
-  if (!key || !remoteMd) return "unverified";
+  if (!key || !remoteMd || readProject(project).jiraOffline) return "unverified";
   const remote = await pullTest(key).catch(() => null);
   if (!remote) return "unverified";
   const changed = forCompare(remote.test) !== forCompare(parseTest(remoteMd).test);
@@ -221,6 +253,7 @@ export function insideTest(dir: string, file: string): string | null {
 }
 
 export async function pushTest(project: string, id: string): Promise<Push> {
+  jiraKey(project);
   const { test: local, remoteMd, md } = readTest(project, id);
   const dir = testDir(project, id);
   const outside = local.steps.flatMap((s, i) =>

@@ -19,7 +19,17 @@ import {
 } from "../lib/jira.ts";
 import { fieldOrder, readProject, readXray, writeProject, writeXray } from "../lib/project.ts";
 import { createLocalTest, listLocalTests, localTestRef } from "../lib/store.ts";
-import { checkRemote, executePlan, type Push, planView, projectInfo, pullToLocal, pushTest } from "../lib/sync.ts";
+import {
+  checkRemote,
+  connectJira,
+  disconnectJira,
+  executePlan,
+  type Push,
+  planView,
+  projectInfo,
+  pullToLocal,
+  pushTest,
+} from "../lib/sync.ts";
 import { REVIEWS, type Review, type Test } from "../types.ts";
 
 const id = z.string().describe("Test id: the folder under tests/ — a Jira key (LFRPS12-1420) or local-<8hex>");
@@ -297,6 +307,41 @@ export const commands: Command[] = [
       next.prefs.order = fieldOrder(next);
       writeXray(project, next);
       return next;
+    },
+  }),
+
+  command({
+    name: "xray.connect",
+    summary:
+      "Connect the project to a Jira project: checks the key in Jira (it needs an Xray Test issue type), saves it in project.json and ends a disconnection. Without a key, reconnects the key already set.",
+    input: z.object({
+      key: z.string().optional().describe("Jira project key, e.g. LFRPS12 (default: the key already in project.json)"),
+    }),
+    output: z.object({ jiraProject: z.string(), name: z.string().describe("The Jira project's name") }),
+    mutates: true,
+    positional: ["key"],
+    async run(ctx, input) {
+      const project = projectOf(ctx);
+      const key = (input.key ?? readProject(project).jiraProject).trim().toUpperCase();
+      if (!key) throw new UserError("Which Jira project?", "Give its key, e.g. testimus xray connect LFRPS12.");
+      if (!/^[A-Z][A-Z0-9_]*$/.test(key))
+        throw new UserError(`"${key}" is not a Jira project key.`, "A key is letters and digits, e.g. LFRPS12.");
+      const info = await connectJira(project, key);
+      return { jiraProject: info.key, name: info.name };
+    },
+  }),
+
+  command({
+    name: "xray.disconnect",
+    summary:
+      "Work locally only: nothing reads or writes Jira for this project until xray.connect (the key is kept, local tests stay as they are).",
+    input: z.object({}),
+    output: z.object({ jiraProject: z.string() }),
+    mutates: true,
+    async run(ctx) {
+      const project = projectOf(ctx);
+      disconnectJira(project);
+      return { jiraProject: readProject(project).jiraProject };
     },
   }),
 

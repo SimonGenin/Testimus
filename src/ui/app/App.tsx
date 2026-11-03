@@ -137,7 +137,7 @@ export function App() {
   // ponytail: a project's step columns are read again from Xray each time it is opened (Xray Editor does) — quietly:
   // offline, or without access yet, the copy in xray.json stays
   const fieldsFor = useRef("");
-  const jiraKey = info?.project.jiraProject;
+  const jiraKey = info?.project.jiraOffline ? "" : info?.project.jiraProject;
   useEffect(() => {
     const dir = info?.dir;
     if (!dir || !jiraKey || fieldsFor.current === dir) return;

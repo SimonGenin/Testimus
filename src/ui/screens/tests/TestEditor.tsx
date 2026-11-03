@@ -89,7 +89,7 @@ export function TestEditor({
   onOpen: (id: string) => void;
 }) {
   const app = useApp();
-  const jiraKey = app.info?.project.jiraProject ?? "";
+  const jiraKey = app.info?.project.jiraOffline ? "" : (app.info?.project.jiraProject ?? "");
   const xray = app.xray ?? DEFAULT_XRAY;
   const [test, setTest] = useState<Test | null>(null);
   const [remote, setRemote] = useState<Test | null>(null);
@@ -728,6 +728,7 @@ export function TestEditor({
         contexts={contexts}
         testContexts={testCtx}
         canPush={canPush}
+        jiraOff={!jiraKey}
         pushing={pushing}
         menu={menu}
         onDetails={(v) => {

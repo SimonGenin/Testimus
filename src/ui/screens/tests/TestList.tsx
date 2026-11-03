@@ -3,12 +3,14 @@ import type { Folder, LocalTestRef, RemoteTestRef } from "../../../core/types.ts
 import { call, project, run } from "../../api.ts";
 import { Activity } from "../../components/shell/Activity.tsx";
 import { Button, Icon, IconButton, ReviewBadge, Skeleton, SyncBadge, Tabs } from "../../components/ui/index.ts";
+import { useApp } from "../../lib/app.ts";
 import { desktop, pathJoin, reveal } from "../../lib/desktop.ts";
 import { cx, plural } from "../../lib/format.ts";
 import { track } from "../../lib/localActivity.ts";
 import { readPref, writePref } from "../../lib/theme.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 import { type DeleteTarget, DeleteTest, deleteTest, needsAsking } from "./DeleteTest.tsx";
+import { JiraConnect } from "./JiraConnect.tsx";
 import { JiraTab } from "./JiraTab.tsx";
 import { RecentList } from "./RecentList.tsx";
 
@@ -98,6 +100,11 @@ export function TestList({
   open?: boolean;
   onCloseDrawer?: () => void;
 }) {
+  const app = useApp();
+  const p = app.info?.project;
+  const jiraOn = !!p?.jiraProject && !p.jiraOffline;
+  // ponytail: what the Jira side was loaded for — a new key, a reconnect or a disconnect starts it again
+  const jira = jiraOn ? `${app.info?.dir}|${p.jiraProject}` : "";
   const [tab, setTab] = useState<"local" | "jira">("local");
   const [q, setQ] = useState("");
   const [search, setSearch] = useState("");
@@ -117,8 +124,16 @@ export function TestList({
 
   const shown = useMemo(() => localTree(refs.filter((r) => matches(r, q))), [refs, q]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs when the connection changes
   useEffect(() => {
-    if (tree || treeError) return;
+    setTree(null);
+    setTreeError("");
+    setFolder("/");
+    setSearch("");
+  }, [jira]);
+
+  useEffect(() => {
+    if (!jira || tree || treeError) return;
     let dead = false;
     track("jira", "Loading the Jira folders", call<Folder>("xray.folders", {}))
       .then((t) => !dead && setTree(t))
@@ -126,7 +141,7 @@ export function TestList({
     return () => {
       dead = true;
     };
-  }, [tree, treeError]);
+  }, [jira, tree, treeError]);
 
   useEffect(() => {
     if (query) setTab("jira");
@@ -217,6 +232,20 @@ export function TestList({
     else void deleteTest(r).then((ok) => ok && deleted(r.id));
   };
 
+  const disconnect = async () => {
+    try {
+      await call("xray.disconnect", {});
+      app.refreshInfo();
+      toast({
+        kind: "info",
+        title: "Working locally",
+        detail: `Nothing reads or writes ${p?.jiraProject} until you reconnect.`,
+      });
+    } catch (e) {
+      errorToast(e, "Could not disconnect Jira");
+    }
+  };
+
   const toggleRecent = () => {
     const next = !showRecent;
     setShowRecent(next);
@@ -304,7 +333,9 @@ export function TestList({
               label: (
                 <>
                   Jira{" "}
-                  {tree ? (
+                  {!jiraOn ? (
+                    p?.jiraOffline && <span className="tab-count">off</span>
+                  ) : tree ? (
                     <span className="tab-count">{tree.totalCount}</span>
                   ) : treeError ? null : (
                     <Skeleton className="tab-count" w={18} h={8} />
@@ -318,76 +349,84 @@ export function TestList({
         <Activity />
         <IconButton icon="close" className="tside-close" label="Close list" onClick={onCloseDrawer} />
       </div>
-      <div className="tside-tools">
-        <label htmlFor="tjira" className="sr">
-          Search Jira
-        </label>
-        <input
-          id="tjira"
-          type="search"
-          className="field tside-search"
-          placeholder="Search Jira tests, or an issue key…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <label htmlFor="tsearch" className="sr">
-          Filter tests
-        </label>
-        <input
-          id="tsearch"
-          className="field tside-search"
-          placeholder={tab === "local" ? "Filter by text or key" : "Filter folders and listed tests"}
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          onKeyDown={(e) => {
-            // ponytail: Enter sends the filter to Jira as a search (a shortcut to the box above)
-            if (e.key === "Enter" && needle) {
-              e.preventDefault();
-              setSearch(needle);
-            }
-          }}
-        />
-        <div className="tside-actions">
-          <IconButton
-            icon="clock"
-            className="tside-recent"
-            label="Recent tests"
-            title={showRecent ? "Hide recent tests" : "Show recent tests"}
-            aria-pressed={showRecent}
-            onClick={toggleRecent}
-          />
-          <Button size="sm" icon="plus" title={`New local test in ${newFolder}`} onClick={() => void create()}>
-            New test
-          </Button>
-          <Button size="sm" tone="quiet" icon="clone" disabled={!activeId} onClick={() => void clone()}>
-            Clone
-          </Button>
-          <Button
-            size="sm"
-            tone="quiet"
-            icon="pull"
-            disabled={!!active?.key && busy.includes(active.key)}
-            onClick={pullActive}
-          >
-            Pull
-          </Button>
-          {desktop() && (
-            <IconButton
-              icon="external"
-              label="Show the test in Explorer"
-              disabled={!activeId || !project()}
-              onClick={() => {
-                const dir = project();
-                if (dir && activeId) void reveal(pathJoin(dir, "tests", activeId, "test.md"));
-              }}
-            />
+      {(tab === "local" || jiraOn) && (
+        <div className="tside-tools">
+          {jiraOn && (
+            <>
+              <label htmlFor="tjira" className="sr">
+                Search Jira
+              </label>
+              <input
+                id="tjira"
+                type="search"
+                className="field tside-search"
+                placeholder="Search Jira tests, or an issue key…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </>
           )}
+          <label htmlFor="tsearch" className="sr">
+            Filter tests
+          </label>
+          <input
+            id="tsearch"
+            className="field tside-search"
+            placeholder={tab === "local" ? "Filter by text or key" : "Filter folders and listed tests"}
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => {
+              // ponytail: Enter sends the filter to Jira as a search (a shortcut to the box above)
+              if (e.key === "Enter" && needle && jiraOn) {
+                e.preventDefault();
+                setSearch(needle);
+              }
+            }}
+          />
+          <div className="tside-actions">
+            <IconButton
+              icon="clock"
+              className="tside-recent"
+              label="Recent tests"
+              title={showRecent ? "Hide recent tests" : "Show recent tests"}
+              aria-pressed={showRecent}
+              onClick={toggleRecent}
+            />
+            <Button size="sm" icon="plus" title={`New local test in ${newFolder}`} onClick={() => void create()}>
+              New test
+            </Button>
+            <Button size="sm" tone="quiet" icon="clone" disabled={!activeId} onClick={() => void clone()}>
+              Clone
+            </Button>
+            {jiraOn && (
+              <Button
+                size="sm"
+                tone="quiet"
+                icon="pull"
+                disabled={!!active?.key && busy.includes(active.key)}
+                onClick={pullActive}
+              >
+                Pull
+              </Button>
+            )}
+            {desktop() && (
+              <IconButton
+                icon="external"
+                label="Show the test in Explorer"
+                disabled={!activeId || !project()}
+                onClick={() => {
+                  const dir = project();
+                  if (dir && activeId) void reveal(pathJoin(dir, "tests", activeId, "test.md"));
+                }}
+              />
+            )}
+          </div>
         </div>
-      </div>
+      )}
       <div className="tside-list">
         {tab === "local" ? (
           <>
-            {needle && (
+            {needle && jiraOn && (
               <button type="button" className="tside-jira" onClick={() => setSearch(needle)}>
                 <Icon name="search" />
                 <span>Search Jira for “{needle}”</span>
@@ -407,23 +446,47 @@ export function TestList({
               </div>
             )}
           </>
-        ) : (
-          <JiraTab
-            tree={tree}
-            treeError={treeError}
-            query={query}
-            filter={needle}
-            folder={folder}
-            expanded={expanded}
-            refs={refs}
-            activeId={activeId}
-            pulling={[...pulling, ...busy]}
-            busyFolders={busy}
-            onPickFolder={pickFolder}
-            onOpenRemote={openRemote}
-            onPullFolder={(path) => void pull({ folder: path }, path)}
-            onNew={() => void create()}
+        ) : !jiraOn || treeError ? (
+          <JiraConnect
+            key={jira}
+            error={treeError}
+            onConnected={() => {
+              setTree(null);
+              setTreeError("");
+            }}
           />
+        ) : (
+          <>
+            <div className="jconn">
+              <Icon name="synced" />
+              <span>
+                Connected to <span className="mono">{p?.jiraProject}</span>
+              </span>
+              <Button
+                size="sm"
+                tone="quiet"
+                title="Work locally only: nothing reads or writes Jira until you reconnect"
+                onClick={() => void disconnect()}
+              >
+                Disconnect
+              </Button>
+            </div>
+            <JiraTab
+              tree={tree}
+              query={query}
+              filter={needle}
+              folder={folder}
+              expanded={expanded}
+              refs={refs}
+              activeId={activeId}
+              pulling={[...pulling, ...busy]}
+              busyFolders={busy}
+              onPickFolder={pickFolder}
+              onOpenRemote={openRemote}
+              onPullFolder={(path) => void pull({ folder: path }, path)}
+              onNew={() => void create()}
+            />
+          </>
         )}
       </div>
       {showRecent && <RecentList refs={refs} onOpen={onOpen} />}

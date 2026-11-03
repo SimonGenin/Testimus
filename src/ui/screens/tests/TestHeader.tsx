@@ -31,6 +31,7 @@ export function TestHeader({
   contexts,
   testContexts,
   canPush,
+  jiraOff,
   pushing,
   menu,
   onDetails,
@@ -55,6 +56,7 @@ export function TestHeader({
   contexts: ContextRef[];
   testContexts: TestContexts | null;
   canPush: boolean;
+  jiraOff?: boolean;
   pushing?: boolean;
   menu: MenuItem[];
   onDetails: (open: boolean) => void;
@@ -156,15 +158,17 @@ export function TestHeader({
         <Button
           tone="primary"
           icon="push"
-          disabled={readOnly || pushing || !canPush}
+          disabled={readOnly || pushing || !canPush || jiraOff}
           title={
             readOnly
               ? "Claude is working — wait for it to finish"
-              : pushing
-                ? "The push plan is open"
-                : canPush
-                  ? undefined
-                  : "No local change since the last sync — nothing to push"
+              : jiraOff
+                ? "Jira is not connected — connect it from the Jira tab of the test list"
+                : pushing
+                  ? "The push plan is open"
+                  : canPush
+                    ? undefined
+                    : "No local change since the last sync — nothing to push"
           }
           onClick={onPush}
         >

@@ -66,7 +66,6 @@ type List = { tests: RemoteTestRef[]; total: number };
 
 export function JiraTab({
   tree,
-  treeError,
   query,
   filter = "",
   folder,
@@ -81,7 +80,6 @@ export function JiraTab({
   onNew,
 }: {
   tree: Folder | null;
-  treeError: string;
   query: string;
   filter?: string;
   folder: string;
@@ -218,12 +216,7 @@ export function JiraTab({
 
   return (
     <>
-      {treeError ? (
-        <div className="tside-empty">
-          <p>Jira could not be reached.</p>
-          <p className="muted">{treeError}</p>
-        </div>
-      ) : !tree ? (
+      {!tree ? (
         !query && treeSkeleton
       ) : (
         <div className="jtree">
