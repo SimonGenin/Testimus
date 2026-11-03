@@ -609,9 +609,32 @@ export type Job = {
   error?: string;
   pid?: number;
 };
+export type PullStage =
+  | {
+      phase: "read";
+      summary: string;
+      folder: string;
+      status?: string;
+      steps: number;
+      images: number;
+      preconditions: number;
+      covers: number;
+      labels: number;
+    }
+  | { phase: "images"; done: number; total: number }
+  | { phase: "write" };
+export type PullInfo = { key: string } & PullStage;
 export type JobEvent =
   | { jobId: string; at: string; type: "status"; job: Job }
-  | { jobId: string; at: string; type: "progress"; message: string; done?: number; total?: number }
+  | {
+      jobId: string;
+      at: string;
+      type: "progress";
+      message: string;
+      done?: number;
+      total?: number;
+      pull?: PullInfo;
+    }
   | { jobId: string; at: string; type: "log"; level: "info" | "warn" | "error"; message: string }
   | { jobId: string; at: string; type: "claude"; event: ClaudeEvent }
   | { jobId: ""; at: string; type: "notice"; message: string };

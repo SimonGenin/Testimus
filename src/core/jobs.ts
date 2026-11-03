@@ -78,7 +78,15 @@ export function startJob(
     progress(p) {
       if (p.total !== undefined) job.progress = { done: p.done ?? 0, total: p.total };
       job.message = p.message;
-      emit(l, { jobId: id, at: at(), type: "progress", message: p.message, done: p.done, total: p.total });
+      emit(l, {
+        jobId: id,
+        at: at(),
+        type: "progress",
+        message: p.message,
+        done: p.done,
+        total: p.total,
+        ...(p.pull ? { pull: p.pull } : {}),
+      });
     },
     log(level, message) {
       emit(l, { jobId: id, at: at(), type: "log", level, message });

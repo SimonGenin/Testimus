@@ -38,11 +38,21 @@ beforeEach(() => {
 
 test("a pull of the fixture's remote test writes exactly its .remote.md, keeping the local Sources and file names", async () => {
   const reports: string[] = [];
-  expect(await pullToLocal(project, "LFRPS12-1420", { report: (m) => reports.push(m) })).toBe("LFRPS12-1420");
+  const stages: unknown[] = [];
+  const report = (m: string, stage: unknown) => {
+    reports.push(m);
+    stages.push(stage);
+  };
+  expect(await pullToLocal(project, "LFRPS12-1420", { report })).toBe("LFRPS12-1420");
   expect(md("LFRPS12-1420")).toBe(fixtureMd("LFRPS12-1420", ".remote.md"));
   expect(md("LFRPS12-1420", ".remote.md")).toBe(md("LFRPS12-1420"));
   expect(readdirSync(join(project, "tests/LFRPS12-1420/images"))).toEqual(["fig-40.png"]);
-  expect(reports).toEqual(["5 steps fetched", "image 1 of 1 downloaded"]);
+  expect(reports).toEqual(["5 steps fetched", "image 1 of 1 downloaded", "writing test.md"]);
+  expect(stages).toEqual([
+    expect.objectContaining({ phase: "read", steps: 5, images: 1, summary: expect.any(String) }),
+    { phase: "images", done: 1, total: 1 },
+    { phase: "write" },
+  ]);
   expect(localTestRef(project, "LFRPS12-1420")).toMatchObject({ sync: "synced", review: "draft" });
 });
 

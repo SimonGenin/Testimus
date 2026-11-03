@@ -1,7 +1,7 @@
 import type { z } from "zod";
-import type { ClaudeEvent } from "./types.ts";
+import type { ClaudeEvent, PullInfo } from "./types.ts";
 
-export type Progress = { message: string; done?: number; total?: number };
+export type Progress = { message: string; done?: number; total?: number; pull?: PullInfo };
 
 export type Ctx = {
   project: string | null;

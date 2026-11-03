@@ -2,7 +2,7 @@ import { existsSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import { UserError } from "../command.ts";
 import { gate } from "../env.ts";
-import type { ProjectInfo, PushPlanView, Step, Test, XrayJson } from "../types.ts";
+import type { ProjectInfo, PullStage, PushPlanView, Step, Test, XrayJson } from "../types.ts";
 import { followXray } from "./columns.ts";
 import { sha256 } from "./hash.ts";
 import {
@@ -30,7 +30,7 @@ import { imageRef, mapRefs, parseTest, serializeTest } from "./testfile.ts";
 
 export type Push = { plan: PushPlan; local: Test; id: string; hash: string };
 export type OpState = "running" | "done" | "failed";
-export type PullOpts = { prev?: Test; signal?: AbortSignal; report?: (message: string) => void };
+export type PullOpts = { prev?: Test; signal?: AbortSignal; report?: (message: string, stage: PullStage) => void };
 export type RemoteState = "unchanged" | "remote-changed" | "unverified";
 export type PushOutcome = { ok: boolean; id: string; failedAt?: number; error?: unknown; cancelled?: boolean };
 
@@ -162,7 +162,18 @@ async function doPull(project: string, key: string, { prev, signal, report }: Pu
 
   const pulled = await pullTest(key);
   if (abandoned()) throw cancelled(key);
-  report?.(`${pulled.test.steps.length} steps fetched`);
+  const t = pulled.test;
+  report?.(`${t.steps.length} steps fetched`, {
+    phase: "read",
+    summary: t.summary,
+    folder: t.folder,
+    ...(t.status ? { status: t.status } : {}),
+    steps: t.steps.length,
+    images: pulled.images.length,
+    preconditions: t.preconditions.length,
+    covers: t.covers.length,
+    labels: t.labels.length,
+  });
 
   let before: Test | null = prev ?? null;
   if (!before)
@@ -188,7 +199,7 @@ async function doPull(project: string, key: string, { prev, signal, report }: Pu
     const take = (file: string) => {
       renamed.push([im.stepIndex, slot.file, file]);
       slot.file = file;
-      report?.(`image ${++n} of ${total} downloaded`);
+      report?.(`image ${++n} of ${total} downloaded`, { phase: "images", done: n, total });
     };
     if (reuse && existsSync(join(dir, reuse))) return take(reuse);
     const bytes = await im.download();
@@ -215,6 +226,7 @@ async function doPull(project: string, key: string, { prev, signal, report }: Pu
 
   keepLocal(pulled.test, before, !!prev, readProject(project).labelPrefix);
   if (abandoned()) throw cancelled(key);
+  report?.("writing test.md", { phase: "write" });
   const md = writeTest(project, key, pulled.test, fieldOrder(readXray(project)));
   writeRemote(project, key, md);
   return key;

@@ -40,9 +40,11 @@ export const MOCK_ME = { accountId: "mock-account-1", displayName: "Mock Tester"
 export const EXIGENCE_ID = "cf-exigence";
 
 // ponytail: the one switch that makes a push fail on purpose — Jira refuses attachments over 10 MB, and
-// TESTIMUS_MOCK_MAX_ATTACHMENT=<bytes> lowers the bar so the UI's "push stopped" path is reachable
+// TESTIMUS_MOCK_MAX_ATTACHMENT=<bytes> lowers the bar so the UI's "push stopped" path is reachable;
+// TESTIMUS_MOCK_JIRA_MS=<ms> slows every request (an image five times more) so a pull can be watched
 export const mockJira = {
   maxAttachmentBytes: Number(process.env.TESTIMUS_MOCK_MAX_ATTACHMENT) || 10 * 1024 * 1024,
+  latencyMs: Number(process.env.TESTIMUS_MOCK_JIRA_MS) || 40,
 };
 
 const STEP_FIELDS = [
@@ -533,7 +535,8 @@ function issueJson(t: MTest) {
 }
 
 export async function mockHttp(req: HttpReq): Promise<HttpRes> {
-  if (env.mock) await new Promise((r) => setTimeout(r, req.url.includes("/attachment/content/") ? 200 : 40));
+  const ms = mockJira.latencyMs;
+  if (env.mock) await new Promise((r) => setTimeout(r, req.url.includes("/attachment/content/") ? ms * 5 : ms));
   const url = new URL(req.url);
   const path = decodeURIComponent(url.pathname);
   const body = () => JSON.parse(req.body || "{}");

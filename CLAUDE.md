@@ -33,7 +33,7 @@ Dev models: `TESTIMUS_MODELS=D:/Projects/Testimus/.models` (bge-m3, Qwen3-Embedd
 q8). The model catalog is `models/catalog.json`; runtimes are transformers.js and llama.cpp
 (Testimus does not use Ollama, D-12). `serve --mock` copies
 `tests/fixtures/project/` to a temp folder and fakes Jira and Claude (`TESTIMUS_MOCK_CLAUDE=absent|logged-out`,
-`TESTIMUS_MOCK_MAX_ATTACHMENT=<bytes>`); the other `TESTIMUS_MOCK_*` fake the hardware, runtimes and
+`TESTIMUS_MOCK_MAX_ATTACHMENT=<bytes>`, `TESTIMUS_MOCK_JIRA_MS=<ms>`); the other `TESTIMUS_MOCK_*` fake the hardware, runtimes and
 downloads (`src/core/mock/machine.ts`, `models.ts`). The HTTP face only
 answers the page it served (SameSite session cookie, local Host/Origin, JSON POST): call the API from a
 script by loading `/` first for the cookie (see `tests/e2e/helpers.ts`).

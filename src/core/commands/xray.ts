@@ -465,7 +465,8 @@ export const commands: Command[] = [
             try {
               await pullToLocal(project, key, {
                 signal: ctx.signal,
-                report: (m) => ctx.progress({ message: `${key}: ${m}`, done, total: unique.length }),
+                report: (m, stage) =>
+                  ctx.progress({ message: `${key}: ${m}`, done, total: unique.length, pull: { key, ...stage } }),
               });
               pulled.push(key);
             } catch (e) {

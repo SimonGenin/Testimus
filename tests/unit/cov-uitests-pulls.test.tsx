@@ -83,7 +83,12 @@ afterEach(() => {
 });
 
 const jobOf = (key: string) => jobs.filter((j) => j.key === key).at(-1) as Job;
-const progress = (message: string): JobEvent => ({ jobId: "j", at: "", type: "progress", message });
+const progress = (message: string): Extract<JobEvent, { type: "progress" }> => ({
+  jobId: "j",
+  at: "",
+  type: "progress",
+  message,
+});
 
 describe("pulls", () => {
   it("queues a pull once, shows its progress without the key prefix, and lands it", async () => {
@@ -95,7 +100,7 @@ describe("pulls", () => {
     act(() => startPull("K-1", "One"));
     expect(jobs).toHaveLength(1);
     expect(isPulling("K-1")).toBe(true);
-    expect(h.result.current).toEqual([{ key: "K-1", summary: "One" }]);
+    expect(h.result.current).toEqual([{ key: "K-1", summary: "One", startedAt: expect.any(Number) }]);
     act(() => jobOf("K-1").onEvent?.(progress("K-1: reading steps")));
     act(() => jobOf("K-1").onEvent?.(progress("plain line")));
     act(() => jobOf("K-1").onEvent?.({ jobId: "j", at: "", type: "log", level: "info", message: "x" }));
@@ -118,11 +123,13 @@ describe("pulls", () => {
     act(() => startPull("K-4", "Four"));
     await act(async () => jobOf("K-3").done.resolve({ failed: [{ key: "K-3", error: "403 Forbidden" }] }));
     await act(async () => jobOf("K-4").done.resolve({ failed: [{ key: "other", error: "first failure" }] }));
-    expect(h.result.current).toEqual([{ key: "K-3", summary: "Three", error: "403 Forbidden" }]);
+    expect(h.result.current).toEqual([
+      { key: "K-3", summary: "Three", startedAt: expect.any(Number), error: "403 Forbidden" },
+    ]);
     expect(isPulling("K-3")).toBe(false);
     expect(errors).toEqual([{ e: new Error("first failure"), title: "Could not pull K-4" }]);
     act(() => startPull("K-3", "Three again"));
-    expect(h.result.current).toEqual([{ key: "K-3", summary: "Three again" }]);
+    expect(h.result.current).toEqual([{ key: "K-3", summary: "Three again", startedAt: expect.any(Number) }]);
     await act(async () => jobOf("K-3").done.reject(new Error("offline")));
     act(() => cancelPull("K-3"));
     expect(h.result.current).toEqual([]);
@@ -185,6 +192,32 @@ describe("pulls", () => {
   });
 });
 
+describe("pull stages", () => {
+  it("keeps what the core says of the test, the images and the write", () => {
+    const h = renderHook(() => usePulls());
+    act(() => startPull("K-5", "Five"));
+    const read = {
+      key: "K-5",
+      phase: "read" as const,
+      summary: "Five from Jira",
+      folder: "/A",
+      steps: 4,
+      images: 2,
+      preconditions: 1,
+      covers: 0,
+      labels: 3,
+    };
+    const staged = (pull: Extract<JobEvent, { type: "progress" }>["pull"]) =>
+      act(() => jobOf("K-5").onEvent?.({ ...progress("K-5: x"), pull }));
+    staged(read);
+    expect(h.result.current[0]).toMatchObject({ phase: "read", read });
+    staged({ key: "K-5", phase: "images", done: 1, total: 2 });
+    expect(h.result.current[0]).toMatchObject({ phase: "images", images: { done: 1, total: 2 }, read });
+    staged({ key: "K-5", phase: "write" });
+    expect(h.result.current[0]).toMatchObject({ phase: "write", images: { done: 1, total: 2 } });
+  });
+});
+
 describe("PullPane", () => {
   const pane = (
     pull: Parameters<typeof PullPane>[0]["pull"],
@@ -208,6 +241,72 @@ describe("PullPane", () => {
     cleanup();
     pane({ key: "K-1", summary: "", message: "attachments 2/3" }, [{ key: "K-2", summary: "" }]);
     expect(screen.getByRole("status")).toHaveTextContent("attachments 2/3");
+  });
+
+  const read = {
+    key: "K-1",
+    phase: "read" as const,
+    summary: "From Jira",
+    folder: "/Freinage",
+    status: "To Do",
+    steps: 1,
+    images: 4,
+    preconditions: 2,
+    covers: 1,
+    labels: 0,
+  };
+  const phases = () =>
+    [...document.querySelectorAll(".pullpane-phase")].map((li) => `${li.className.split("is-")[1]} ${li.textContent}`);
+
+  it("draws a skeleton until the test is read, then its facts and the four phases", () => {
+    pane({ key: "K-1", summary: "", startedAt: Date.now() - 65_000 });
+    expect(document.querySelector(".pullpane-card .sk")).not.toBeNull();
+    expect(screen.getByText("1:05")).toBeInTheDocument();
+    expect(phases()).toEqual([
+      "active Reach Jira",
+      "pending Read the test",
+      "pending Download the images",
+      "pending Write test.md",
+    ]);
+    cleanup();
+    pane({ key: "K-1", summary: "One", phase: "read", read, startedAt: Date.now() - 3_000 });
+    expect(screen.getByText("3 s")).toBeInTheDocument();
+    expect(screen.getByText("From Jira", { selector: "p" })).toBeInTheDocument();
+    expect(screen.getByText("/Freinage")).toBeInTheDocument();
+    expect(screen.getByText("To Do")).toBeInTheDocument();
+    expect([...document.querySelectorAll(".pullpane-fact")].map((f) => f.textContent)).toEqual([
+      "1 step",
+      "4 images",
+      "2 preconditions",
+      "1 requirement",
+      "0 labels",
+    ]);
+    expect(phases()).toEqual([
+      "done Jira reached",
+      "done Test read1 step",
+      "active Download the images0 / 4",
+      "pending Write test.md",
+    ]);
+    cleanup();
+    pane({ key: "K-1", summary: "One", phase: "images", read, images: { done: 3, total: 4 } });
+    expect((document.querySelector(".pullpane-bar span") as HTMLElement).style.width).toBe("75%");
+    cleanup();
+    pane({ key: "K-1", summary: "One", phase: "images", read, images: { done: 4, total: 4 } });
+    expect(phases().at(-1)).toBe("active Write test.md");
+    cleanup();
+    pane({ key: "K-1", summary: "One", phase: "write", read: { ...read, images: 0, summary: "", folder: "" } });
+    expect(screen.getByText("One", { selector: "p" })).toBeInTheDocument();
+    expect(screen.getByText("/")).toBeInTheDocument();
+    expect(phases()).toEqual(["done Jira reached", "done Test read1 step", "skip No images", "active Write test.md"]);
+    cleanup();
+    pane({ key: "K-1", summary: "", phase: "read", read: { ...read, images: 0 } });
+    expect(phases().at(-1)).toBe("active Write test.md");
+  });
+
+  it("says a queued pull is queued, with every phase still to come", () => {
+    pane({ key: "K-1", summary: "" }, [{ key: "K-2", summary: "", message: "steps" }]);
+    expect(screen.getByText("Queued")).toBeInTheDocument();
+    expect(phases().every((p) => p.startsWith("pending"))).toBe(true);
   });
 
   it("explains a failed pull and offers retry and back", () => {

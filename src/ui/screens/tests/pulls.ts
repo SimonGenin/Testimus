@@ -1,9 +1,20 @@
 import { useSyncExternalStore } from "react";
+import type { PullInfo, PullStage } from "../../../core/types.ts";
 import { project, run } from "../../api.ts";
 import { message } from "../../lib/format.ts";
 import { errorToast } from "../../lib/toast.ts";
 
-export type Pull = { key: string; summary: string; message?: string; error?: string };
+export type PullRead = Extract<PullStage, { phase: "read" }>;
+export type Pull = {
+  key: string;
+  summary: string;
+  message?: string;
+  error?: string;
+  startedAt?: number;
+  phase?: PullStage["phase"];
+  read?: PullRead;
+  images?: { done: number; total: number };
+};
 
 type PullResult = { pulled?: string[]; failed?: { key: string; error: string }[] };
 type Entry = { seq: number; dir: string | null; jobId?: string; dead: boolean; failed: boolean };
@@ -30,6 +41,13 @@ const set = (next: Pull[]) => {
 const patch = (key: string, n: number, p: Partial<Pull>) => {
   if (live.get(key)?.seq !== n) return;
   set(items.map((x) => (x.key === key ? { ...x, ...p } : x)));
+};
+
+const staged = (p: PullInfo | undefined): Partial<Pull> => {
+  if (!p) return {};
+  if (p.phase === "read") return { phase: p.phase, read: p };
+  if (p.phase === "images") return { phase: p.phase, images: { done: p.done, total: p.total } };
+  return { phase: p.phase };
 };
 
 const forget = (key: string, n: number) => {
@@ -67,13 +85,13 @@ export function startPull(key: string, summary: string): void {
   const n = ++seq;
   const entry: Entry = { seq: n, dir: project(), dead: false, failed: false };
   live.set(key, entry);
-  set([...items.filter((x) => x.key !== key), { key, summary }]);
+  set([...items.filter((x) => x.key !== key), { key, summary, startedAt: Date.now() }]);
   const strip = (m: string) => (m.startsWith(`${key}: `) ? m.slice(key.length + 2) : m);
   run<PullResult>(
     "xray.pull",
     { key },
     (e) => {
-      if (e.type === "progress" && !entry.dead) patch(key, n, { message: strip(e.message) });
+      if (e.type === "progress" && !entry.dead) patch(key, n, { message: strip(e.message), ...staged(e.pull) });
     },
     (jobId) => {
       entry.jobId = jobId;
