@@ -140,6 +140,8 @@ export type ButtonProps = {
   block?: boolean;
   /** a toggle's state (aria-pressed) */
   pressed?: boolean;
+  /** a fold's trigger (« Show details »): aria-expanded, with a chevron after the label */
+  expanded?: boolean;
   /** a menu or popover trigger: what it opens and whether it is open */
   popup?: { kind: "menu" | "dialog" | "listbox"; open: boolean; controls?: string };
   type?: "button" | "submit";
@@ -197,6 +199,7 @@ export function Button({
   disabled = false,
   block = false,
   pressed,
+  expanded,
   popup,
   type = "button",
   onClick,
@@ -215,7 +218,7 @@ export function Button({
       aria-busy={loading || undefined}
       aria-pressed={pressed}
       aria-haspopup={popup?.kind}
-      aria-expanded={popup?.open}
+      aria-expanded={popup?.open ?? expanded}
       aria-controls={popup?.controls}
       data-testid={testId}
       onClick={(e) => {
@@ -238,7 +241,9 @@ export function Button({
       {loading ? <Spinner size={s === "xs" || s === "sm" ? "sm" : "md"} /> : icon && <Icon name={icon} />}
       {!iconOnly && label}
       {!iconOnly && count !== undefined && <span {...stylex.props(styles.count)}>{count}</span>}
-      {!iconOnly && iconAfter && <Icon name={iconAfter} />}
+      {!iconOnly && (iconAfter || expanded !== undefined) && (
+        <Icon name={iconAfter ?? (expanded ? "chevron-up" : "chevron-down")} />
+      )}
       {!iconOnly && shortcut && (
         <span {...stylex.props(styles.kbd)}>
           <Kbd onFill={variant !== "secondary" && !quietish}>{shortcut}</Kbd>

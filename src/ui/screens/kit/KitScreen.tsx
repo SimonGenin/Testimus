@@ -1,7 +1,8 @@
 import * as stylex from "@stylexjs/stylex";
 import { useContext, useState } from "react";
 import { Banner } from "../../components/ui/Banner.tsx";
-import { Button } from "../../components/ui/Button.tsx";
+import { EmptyState } from "../../components/ui/EmptyState.tsx";
+import { List } from "../../components/ui/List.tsx";
 import { Text } from "../../components/ui/Text.tsx";
 import { AppContext } from "../../lib/app.ts";
 import {
@@ -191,30 +192,20 @@ export function KitScreen() {
             ? `${shown.length} of ${SECTIONS.length} components match`
             : `${SECTIONS.length} components · one per control, options before copies`}
         </span>
-        {FAMILIES.map((family) => {
-          const items = shown.filter((s) => s.family === family);
-          if (!items.length) return null;
-          return (
-            <section key={family} aria-label={family} {...stylex.props(styles.group)}>
-              <span {...stylex.props(styles.groupHead)}>
-                {family}
-                <span>{items.length}</span>
-              </span>
-              {items.map((s) => (
-                <Button
-                  key={s.name}
-                  variant="quiet"
-                  size="sm"
-                  block
-                  label={s.name}
-                  pressed={s.name === current}
-                  onClick={() => go(s.name)}
-                />
-              ))}
-            </section>
-          );
-        })}
-        {!shown.length && <span {...stylex.props(styles.count)}>No component named « {filter} »</span>}
+        <List
+          label="Components"
+          items={shown}
+          getKey={(x) => x.name}
+          selected={current ?? null}
+          onSelect={go}
+          groups={FAMILIES.map((family) => ({
+            label: family,
+            meta: String(shown.filter((x) => x.family === family).length),
+            keys: shown.filter((x) => x.family === family).map((x) => x.name),
+          })).filter((g) => g.keys.length > 0)}
+          renderItem={(x) => ({ title: x.name })}
+          empty={<EmptyState compact icon="search" title={`No component named « ${filter} »`} />}
+        />
       </nav>
       <main aria-label="Component" {...stylex.props(styles.main)}>
         {section ? <Page section={section} /> : <p>Choose a component.</p>}

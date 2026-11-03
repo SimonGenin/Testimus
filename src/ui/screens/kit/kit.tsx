@@ -93,11 +93,29 @@ export function propsOf(source: string, name: string): PropRow[] {
   const body = source.slice(open + 1, end);
   const rows: PropRow[] = [];
   let doc = "";
-  for (const m of body.matchAll(/\/\*\*([\s\S]*?)\*\/|^ {2}("?[\w-]+"?)(\??): ([^;]+);/gm)) {
-    if (m[1] !== undefined) doc = m[1].replace(/\s*\n\s*\*\s?/g, " ").trim();
-    else {
-      rows.push({ name: m[2].replaceAll('"', ""), required: m[3] !== "?", type: m[4].trim(), doc });
+  let depth2 = 0;
+  let from = 0;
+  for (let i = 0; i < body.length; i++) {
+    const ch = body[i];
+    if (depth2 === 0 && body.startsWith("/**", i)) {
+      const close = body.indexOf("*/", i);
+      doc = body
+        .slice(i + 3, close)
+        .replace(/\s*\n\s*\*\s?/g, " ")
+        .trim();
+      i = close + 1;
+      from = i + 1;
+    } else if ("{([".includes(ch)) depth2++;
+    else if ("})]".includes(ch)) depth2--;
+    else if (ch === ";" && depth2 === 0) {
+      const m = body
+        .slice(from, i)
+        .trim()
+        .match(/^("?[\w-]+"?)(\??):\s*([\s\S]+)$/);
+      if (m)
+        rows.push({ name: m[1].replaceAll('"', ""), required: m[2] !== "?", type: m[3].replace(/\s+/g, " "), doc });
       doc = "";
+      from = i + 1;
     }
   }
   return rows;

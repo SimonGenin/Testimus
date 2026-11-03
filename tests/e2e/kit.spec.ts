@@ -7,11 +7,11 @@ mockServer(4398);
 test("the kit lists every component by family, and filters by name", async ({ page }) => {
   await boot(page, "#/kit");
   const nav = page.getByRole("navigation", { name: "Components" });
-  await expect(nav.getByRole("button", { name: "Button" })).toBeVisible();
-  await expect(nav.getByRole("region", { name: "Claude" }).getByRole("button", { name: "ClaudeBlock" })).toBeVisible();
+  await expect(nav.getByRole("option", { name: "Button" })).toBeVisible();
+  await expect(nav.getByRole("group", { name: "Claude" }).getByRole("option", { name: "ClaudeBlock" })).toBeVisible();
   await page.getByRole("textbox", { name: "Filter components" }).fill("cla");
-  await expect(nav.getByRole("button", { name: "ClaudeBlock" })).toBeVisible();
-  await expect(nav.getByRole("button", { name: "Button" })).toHaveCount(0);
+  await expect(nav.getByRole("option", { name: "ClaudeBlock" })).toBeVisible();
+  await expect(nav.getByRole("option", { name: "Button" })).toHaveCount(0);
   await expect(nav).toContainText(/1 of \d+ components match/);
   await page.getByRole("textbox", { name: "Filter components" }).fill("zzz");
   await expect(nav).toContainText("No component named « zzz »");
@@ -23,10 +23,10 @@ test("each component page shows its props and every state, light and dark, style
   await boot(page, "#/kit");
   await setTheme(page, "light");
   mkdirSync(join(SCREENS_DIR, "kit"), { recursive: true });
-  const names = await page.getByRole("navigation", { name: "Components" }).getByRole("button").allInnerTexts();
+  const names = await page.getByRole("navigation", { name: "Components" }).getByRole("option").allInnerTexts();
   expect(names.length).toBeGreaterThanOrEqual(7);
   for (const name of names) {
-    await page.getByRole("navigation", { name: "Components" }).getByRole("button", { name, exact: true }).click();
+    await page.getByRole("navigation", { name: "Components" }).getByRole("option", { name, exact: true }).click();
     await expect(page.getByRole("heading", { level: 1, name, exact: true })).toBeVisible();
     await expect(page).toHaveURL(new RegExp(`#/kit/${name}$`));
     const props = page.getByRole("region", { name: "Props" });
