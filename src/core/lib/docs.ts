@@ -120,6 +120,18 @@ export function sectionOf(md: string, anchor: string): string | null {
   return lines.slice(start, end).join("\n").trim();
 }
 
+export function headingAt(md: string, anchor: string): string | null {
+  const { kind, id } = normalizeAnchor(anchor);
+  if (kind === "§") return `§${id}`;
+  const lines = md.split("\n");
+  const marker = `<!-- ${kind} ${id} -->`;
+  for (let i = lines.findIndex((l) => l.includes(marker)); i >= 0; i--) {
+    const m = lines[i].match(/^#{1,6} .*<!-- § ([^ ]+) -->$/);
+    if (m) return `§${m[1]}`;
+  }
+  return null;
+}
+
 export async function convertSource(file: string, opts: ConvertOpts & { pdf?: string }): Promise<Converted> {
   const ext = extname(file).toLowerCase();
   if (ext === ".docx") {

@@ -9,6 +9,7 @@ import { recheckMechanical, testsCiting } from "../lib/check.ts";
 import {
   addDoc,
   docDir,
+  headingAt,
   listDocs,
   readContext,
   readDoc,
@@ -232,6 +233,10 @@ export const commands: Command[] = [
       requirements: z.array(z.string()),
       figures: z.array(figure),
       md: z.string(),
+      section: z
+        .string()
+        .optional()
+        .describe("With an anchor: the section (§…) whose heading holds it, the toc entry to show as current"),
       info: z
         .array(
           z.object({
@@ -252,6 +257,7 @@ export const commands: Command[] = [
       const doc = readDoc(project, input.id);
       const full = readDocMd(project, input.id);
       let md = full;
+      let section: string | undefined;
       if (input.anchor) {
         const part = sectionOf(full, input.anchor);
         if (part === null)
@@ -260,6 +266,7 @@ export const commands: Command[] = [
             `testimus docs show ${input.id} lists its toc.`,
           );
         md = part;
+        section = headingAt(full, input.anchor) ?? undefined;
       }
       return {
         doc,
@@ -268,6 +275,7 @@ export const commands: Command[] = [
         requirements: [...new Set(anchorsOf(full).requirements)],
         figures: readFigures(project, input.id),
         md,
+        ...(section ? { section } : {}),
         info: tracedElsewhere(input.id, full, evidenceOptions(project)),
       };
     },

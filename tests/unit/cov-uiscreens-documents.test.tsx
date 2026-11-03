@@ -95,6 +95,30 @@ describe("DocText", () => {
     expect(screen.queryAllByRole("button", { name: /EXI_MOP_/ })).toEqual([]);
   });
 
+  it("finds the quote in a table row, across paragraphs, in a heading or a figure, and only once", () => {
+    const md = [
+      "## 8.1 Boutons",
+      "| Bouton | Action |\n| - | - |\n| Valider | Appel de la fonction serveur. |",
+      "Une phrase coupée\nici et",
+      "continuée là.",
+      "![Figure 2 – Vue](figures/f.png) <!-- fig 2 -->",
+      "Appel de la fonction serveur.",
+    ].join("\n\n");
+    const hot = (focus: string) => {
+      const { container, unmount } = render(<DocText docId="D" md={md} focus={focus} onFigure={vi.fn()} />);
+      const on = [...container.querySelectorAll(".is-focus")].map((e) => `${e.className}|${e.textContent}`);
+      unmount();
+      return on;
+    };
+    expect(hot("Appel de la fonction serveur.")).toEqual([
+      "doctext-row is-focus|| Valider | Appel de la fonction serveur. |",
+    ]);
+    expect(hot("coupée ici et continuée là")).toEqual(["doctext-p is-focus|Une phrase coupée\nici et"]);
+    expect(hot("Boutons")).toEqual(["h doctext-h is-focus|8.1 Boutons"]);
+    expect(hot("Figure 2 – Vue")[0]).toMatch(/^passage-fig is-focus\|/);
+    expect(hot(`${"x".repeat(60)} absent`)).toEqual([]);
+  });
+
   it("says when the part is empty; no focus without one", () => {
     const { rerender, container } = render(
       <DocText docId="D" md={"<!-- x -->\n\n\n"} onRequirement={vi.fn()} onFigure={vi.fn()} />,
@@ -654,6 +678,29 @@ describe("Documents screen", () => {
     } finally {
       delete (Element.prototype as Partial<Element>).scrollIntoView;
     }
+  });
+
+  it("a link to a requirement marks the section that holds it in the section list", async () => {
+    api.routes["docs.list"] = () => [doc("D1")];
+    api.routes["rag.status"] = status();
+    api.routes["docs.show"] = (i) =>
+      i.anchor
+        ? { md: "La règle EXI_A_1 s'applique.", section: "§2" }
+        : {
+            doc: doc("D1"),
+            context: "",
+            toc: [
+              { anchor: "§1", title: "One", level: 1 },
+              { anchor: "§2", title: "Two", level: 1 },
+            ],
+            requirements: ["EXI_A_1"],
+            figures: [],
+            md: "",
+          };
+    mount(<DocumentsScreen />, { route: { screen: "documents", arg: "D1#req:EXI_A_1" } });
+    expect(await screen.findByText("La règle EXI_A_1 s'applique.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "2 Two" })).toHaveAttribute("aria-current", "true");
+    expect(screen.getByRole("button", { name: "1 One" })).not.toHaveAttribute("aria-current");
   });
 
   it("a link without a quote names only the anchor", () => {
