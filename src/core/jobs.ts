@@ -245,6 +245,7 @@ export function startJob(
       job.status = ctrl.signal.aborted ? "cancelled" : "failed";
       job.error = e instanceof Error ? e.message : String(e);
       if (e instanceof UserError && e.fix) job.fix = e.fix;
+      if (e instanceof UserError && e.code) job.code = e.code;
       throw e;
     } finally {
       job.endedAt = at();

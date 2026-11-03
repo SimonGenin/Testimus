@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { UserError } from "../../../../src/core/command.ts";
 import { startJob, waitJob } from "../../../../src/core/jobs.ts";
 import { call } from "../registry.ts";
 
@@ -78,6 +79,20 @@ describe("jobs.show and jobs.cancel through the registry, each output against it
     await expect(call("jobs.show", { id: "nope" }, p)).rejects.toMatchObject({
       fix: expect.stringMatching(/jobs list/),
     });
+  });
+
+  it("a job that fails on a UserError keeps its fix and its stable code", async () => {
+    const p = project();
+    const r = startJob("k", "coded", p, async () => {
+      throw new UserError("Choose where models are stored.", "Settings › Models.", "models-dir-unset");
+    });
+    await r.done.catch(() => {});
+    const shown = await call<{ job: { status: string; fix?: string; code?: string } }>(
+      "jobs.show",
+      { id: r.job.id },
+      p,
+    );
+    expect(shown.job).toMatchObject({ status: "failed", fix: "Settings › Models.", code: "models-dir-unset" });
   });
 
   it("jobs.cancel stops a running job, and says false for one that is not running", async () => {

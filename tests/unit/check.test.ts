@@ -3,7 +3,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
-  anchorKey,
   isStale,
   mechanicalCheck,
   patchReview,
@@ -13,6 +12,7 @@ import {
 } from "../../src/core/lib/check.ts";
 import { testHash } from "../../src/core/lib/hash.ts";
 import { readCheck, readTest } from "../../src/core/lib/store.ts";
+import { normalizeAnchor } from "../../src/core/rag/anchors.ts";
 import type { Finding } from "../../src/core/types.ts";
 
 const FIXTURE = new URL("../fixtures/project/", import.meta.url);
@@ -86,10 +86,10 @@ describe("mechanical check — sources", () => {
   });
 
   it("anchors are read in every spelling", () => {
-    expect(anchorKey("§ 5.6.6")).toBe("§5.6.6");
-    expect(anchorKey("5.6.6")).toBe("§5.6.6");
-    expect(anchorKey("fig 40")).toBe("fig:40");
-    expect(anchorKey("page:12")).toBe("page:12");
+    expect(normalizeAnchor("§ 5.6.6")).toBe("§5.6.6");
+    expect(normalizeAnchor("5.6.6")).toBe("§5.6.6");
+    expect(normalizeAnchor("fig 40")).toBe("fig:40");
+    expect(normalizeAnchor("page:12")).toBe("page:12");
     edit(testFile("LFRPS12-1398"), "#§5.6.7", "#5.6.7");
     expect(check1398()).toEqual([]);
   });

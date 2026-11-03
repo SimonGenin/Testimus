@@ -4,8 +4,9 @@ import { join } from "node:path";
 import { covers, readLedger, type Searched } from "../claude/ledger.ts";
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
+import { normalizeAnchor, normalizeRef } from "../rag/anchors.ts";
 import { FIGURE_IMAGE, parseSections } from "../rag/chunk.ts";
-import { normalizeRef, refInfo } from "../rag/related.ts";
+import { refInfo } from "../rag/related.ts";
 import type { CheckFile, CitingTest, DocJson, Finding, Review, Step, Test } from "../types.ts";
 import { writeAtomic } from "./atomic.ts";
 import { stepColumns } from "./columns.ts";
@@ -34,13 +35,6 @@ const ANCHORS = /<!--\s*(§|fig|page)\s*(\S+?)\s*-->/g;
 export const flat = (s: string) => s.replace(/\s+/g, " ").trim();
 // ponytail: doc.md keeps Word's bold and italic as * and **, which a quote never carries
 export const plainText = (s: string) => flat(s.replace(COMMENTS, " ").replace(/\*/g, ""));
-
-export function anchorKey(anchor: string): string {
-  const a = anchor.trim();
-  const m = /^(fig|page)\s*[:\s]\s*(.+)$/i.exec(a);
-  if (m) return `${m[1].toLowerCase()}:${m[2].trim()}`;
-  return `§${a.replace(/^§\s*/, "")}`;
-}
 
 export function anchorsOf(md: string): Set<string> {
   return new Set([...md.matchAll(ANCHORS)].map((m) => (m[1] === "§" ? `§${m[2]}` : `${m[1]}:${m[2]}`)));
@@ -232,7 +226,7 @@ export function mechanicalFindings(test: Test, corpus: Corpus, linked: readonly 
         });
         continue;
       }
-      const anchor = anchorKey(src.anchor);
+      const anchor = normalizeAnchor(src.anchor);
       const ref = `${src.docId}#${anchor}`;
       const d = corpus.docs.get(src.docId);
       if (!d) {
@@ -313,13 +307,13 @@ export function mechanicalFindings(test: Test, corpus: Corpus, linked: readonly 
           kind: "item-not-found",
           severity: "warning",
           message: `Step ${step}: a source backs « ${short(src.item)} » in ${src.column}, and the step's ${src.column} does not hold it: write the item as the cell has it, or remove the @${src.column} part.`,
-          sources: src.anchor ? [`${src.docId}#${anchorKey(src.anchor)}`] : [],
+          sources: src.anchor ? [`${src.docId}#${normalizeAnchor(src.anchor)}`] : [],
         });
     // ponytail: a step with a picture of unknown origin (pasted, or attached before images knew their figure) may
     // already show it — only a step without one is told
     if (!s.images.some((im) => !im.figure))
       for (const src of s.sources) {
-        const anchor = anchorKey(src.anchor);
+        const anchor = normalizeAnchor(src.anchor);
         const d = corpus.docs.get(src.docId);
         if (!d || !picturesOf(d).has(anchor) || embedded.has(`${d.id}#${anchor}`)) continue;
         embedded.add(`${d.id}#${anchor}`);

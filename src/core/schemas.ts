@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { retrievalOverride } from "./rag/schemas.ts";
 import { REVIEWS, type Review } from "./types.ts";
 
 // ponytail: the zod shapes several command groups share (a test, its id, its review state) — declared once, so the
@@ -151,23 +152,6 @@ export const RAG_CHOICE = z.union([
   }),
 ]);
 
-export const RETRIEVAL = z
-  .object({
-    candidates: z.number().describe("Candidates each search keeps before fusion"),
-    rrfK: z.number().describe("The k of reciprocal rank fusion"),
-    bm25Weights: z.array(z.number()).describe("BM25 weights of the indexed fields"),
-    rerank: z
-      .object({
-        top: z.number().describe("Passages kept after reranking (topk)"),
-        mode: z.enum(["topk", "threshold"]).describe("Keep the top N, or every passage above a score"),
-        threshold: z.number().optional().describe("The score a passage needs (threshold mode)"),
-        thresholds: z.record(z.string(), z.number()).optional().describe("A threshold per reranker model"),
-      })
-      .describe("Reranking"),
-    expand: z.enum(["none", "section", "graph"]).describe("What a hit brings with it: nothing, its section, its links"),
-  })
-  .partial();
-
 export const PRESET = z.object({
   label: z.string().describe("Button text of the quick ask"),
   prompt: z.string().describe("The request it sends to Claude"),
@@ -187,7 +171,7 @@ export const PROJECT_JSON = z.object({
       reference: RAG_CHOICE.optional().describe("The team's reference configuration"),
       queryTask: z.string().optional().describe("The task sentence of the query instruction"),
       passageMaxChars: z.number().optional().describe("Cap of a passage returned to Claude"),
-      retrieval: RETRIEVAL.optional().describe("Retrieval settings"),
+      retrieval: retrievalOverride.optional().describe("Retrieval settings (SPEC-RAG §4.3)"),
     })
     .describe("Retrieval settings of the project"),
   claude: z

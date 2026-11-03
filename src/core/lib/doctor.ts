@@ -8,6 +8,7 @@ import { LEGACY_ORT, legacyOrt, onnxVersion } from "../rag/runtimes/ort.ts";
 import { loopbackProxyGap, shellOf } from "../shell.ts";
 import type { CatalogEntry, DoctorAction, DoctorCheck, MachineProfile, ResolvedModel } from "../types.ts";
 import { jiraCreds, xrayCreds } from "./creds.ts";
+import { getMyself, resetAuth, xrayJwt } from "./jira/http.ts";
 import { catalogEntry, pack } from "./models-catalog.ts";
 import { fitOf } from "./models-fit.ts";
 import { machineProfile } from "./models-hardware.ts";
@@ -95,7 +96,7 @@ export async function claudeVersionCheck(timeoutMs: number): Promise<DoctorCheck
   const label = "Claude Code CLI";
   const exe = claudeExe();
   const fix =
-    "Install it: irm https://claude.ai/install.ps1 | iex — or set its path with testimus system saveSettings --claude-exe <path>.";
+    "Install it: irm https://claude.ai/install.ps1 | iex — or set its path with testimus system set --claude-exe <path>.";
   const exePath: DoctorAction = { label: "Set the claude.exe path", command: "system.set" };
   try {
     const out = await env.spawnClaude({
@@ -138,7 +139,9 @@ export async function claudeLoginCheck(timeoutMs: number): Promise<DoctorCheck> 
   }
 }
 
-export async function jiraCheck(timeoutMs: number): Promise<DoctorCheck> {
+// ponytail: the doctor asks Jira and Xray through the one client (lib/jira/http.ts: its six slots, its 429 wait), with
+// the cached sign-in dropped first so a token just saved is the one checked; the client's errors say the status
+export async function jiraCheck(): Promise<DoctorCheck> {
   const label = "Jira reachable and authenticated";
   let c: ReturnType<typeof jiraCreds>;
   try {
@@ -148,37 +151,29 @@ export async function jiraCheck(timeoutMs: number): Promise<DoctorCheck> {
   }
   const host = new URL(c.base).host;
   try {
-    const res = await env.http({
-      method: "GET",
-      url: `${c.base}/rest/api/3/myself`,
-      headers: {
-        Authorization: `Basic ${Buffer.from(`${c.email}:${c.token}`).toString("base64")}`,
-        Accept: "application/json",
-      },
-      timeoutMs,
-    });
-    if (res.status === 200) {
-      const me = JSON.parse(res.text ?? "{}") as { displayName?: string };
-      return row("jira", label, "ok", `${me.displayName ?? c.email} on ${host}`);
-    }
-    if (res.status === 401 || res.status === 403)
+    resetAuth();
+    const me = await getMyself();
+    return row("jira", label, "ok", `${me.displayName ?? c.email} on ${host}`);
+  } catch (e) {
+    const status = /^Jira (\d{3})\b/.exec(message(e))?.[1];
+    if (status === "401" || status === "403")
       return row(
         "jira",
         label,
         "fail",
-        `Jira ${res.status} — check ~/.atlassian/credentials.json`,
-        "Create an API token at https://id.atlassian.com/manage-profile/security/api-tokens, then testimus system setup --token <token>.",
+        `Jira ${status} — check ~/.atlassian/credentials.json`,
+        "Create an API token at https://id.atlassian.com/manage-profile/security/api-tokens, then testimus system setCredentials --token <token>.",
         SETUP,
       );
-    return row(
-      "jira",
-      label,
-      "fail",
-      `Jira ${res.status} on ${host}`,
-      "Check the site in ~/.atlassian/credentials.json.",
-      SETUP,
-    );
-  } catch (e) {
+    if (status)
+      return row(
+        "jira",
+        label,
+        "fail",
+        `Jira ${status} on ${host}`,
+        "Check the site in ~/.atlassian/credentials.json.",
+        SETUP,
+      );
     return row(
       "jira",
       label,
@@ -189,7 +184,7 @@ export async function jiraCheck(timeoutMs: number): Promise<DoctorCheck> {
   }
 }
 
-export async function xrayCheck(timeoutMs: number): Promise<DoctorCheck> {
+export async function xrayCheck(): Promise<DoctorCheck> {
   const label = "Xray reachable and authenticated";
   let c: ReturnType<typeof xrayCreds>;
   try {
@@ -199,33 +194,25 @@ export async function xrayCheck(timeoutMs: number): Promise<DoctorCheck> {
   }
   const host = new URL(c.apiBase).host;
   try {
-    const res = await env.http({
-      method: "POST",
-      url: `${c.apiBase}/api/v2/authenticate`,
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ client_id: c.clientId, client_secret: c.clientSecret }),
-      timeoutMs,
-    });
-    const jwt = (res.text ?? "").trim().replace(/^"|"$/g, "");
-    if (res.status === 200 && jwt) return row("xray", label, "ok", `authenticated on ${host}`);
-    if (res.status === 401 || res.status === 403)
+    resetAuth();
+    await xrayJwt(true);
+    return row("xray", label, "ok", `authenticated on ${host}`);
+  } catch (e) {
+    const m = message(e);
+    const status = /^Xray 401\b/.test(m)
+      ? "401"
+      : (/^Xray authentication failed \((\d{3})\)/.exec(m)?.[1] ?? (/empty token/.test(m) ? "200" : undefined));
+    if (status === "401" || status === "403")
       return row(
         "xray",
         label,
         "fail",
         "Xray 401 — check ~/.atlassian/xray_credentials.json (client id / secret)",
-        "Ask your Jira admin for an Xray API key (client id + secret), then testimus system setup.",
+        "Ask your Jira admin for an Xray API key (client id + secret), then testimus system setCredentials.",
         SETUP,
       );
-    return row("xray", label, "fail", `Xray authentication failed (${res.status}) on ${host}`, "Retry later.");
-  } catch (e) {
-    return row(
-      "xray",
-      label,
-      "fail",
-      `${host} unreachable: ${message(e)}`,
-      "Check the network or the proxy (HTTPS_PROXY).",
-    );
+    if (status) return row("xray", label, "fail", `Xray authentication failed (${status}) on ${host}`, "Retry later.");
+    return row("xray", label, "fail", `${host} unreachable: ${m}`, "Check the network or the proxy (HTTPS_PROXY).");
   }
 }
 
@@ -487,8 +474,8 @@ export async function runDoctor(opts: DoctorOpts): Promise<DoctorCheck[]> {
     row("face", "Face", "ok", shellOf().label),
     claudeVersionCheck(Math.max(t, 15000)),
     login,
-    jiraCheck(t),
-    xrayCheck(t),
+    jiraCheck(),
+    xrayCheck(),
     modelRows(opts.project, opts.models ?? modelDeps),
     opts.project
       ? diskCheck("disk.index", "Disk space for the index", opts.project, 1)

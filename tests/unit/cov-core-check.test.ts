@@ -10,7 +10,6 @@ vi.mock("node:os", async (importOriginal) => {
 });
 
 import {
-  anchorKey,
   type Corpus,
   type DocText,
   loadCorpus,
@@ -26,6 +25,7 @@ import {
   testEvidence,
   whereIs,
 } from "../../src/core/lib/check.ts";
+import { normalizeAnchor } from "../../src/core/rag/anchors.ts";
 import type { Finding, Step, Test } from "../../src/core/types.ts";
 
 let dir = "";
@@ -84,13 +84,13 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-describe("anchorKey and occurrences", () => {
+describe("anchors (normalizeAnchor) and occurrences", () => {
   it("normalises fig/page and § anchors; anything else is a section", () => {
-    expect(anchorKey(" fig 4 ")).toBe("fig:4");
-    expect(anchorKey("PAGE:3")).toBe("page:3");
-    expect(anchorKey("req:EXI_A")).toBe("§req:EXI_A");
-    expect(anchorKey("§ 5.6")).toBe("§5.6");
-    expect(anchorKey("5.6")).toBe("§5.6");
+    expect(normalizeAnchor(" fig 4 ")).toBe("fig:4");
+    expect(normalizeAnchor("PAGE:3")).toBe("page:3");
+    expect(normalizeAnchor("req:EXI_A")).toBe("§req:EXI_A");
+    expect(normalizeAnchor("§ 5.6")).toBe("§5.6");
+    expect(normalizeAnchor("5.6")).toBe("§5.6");
   });
 
   it("counts nothing for an empty quote and every non-overlapping hit otherwise", () => {

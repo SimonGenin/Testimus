@@ -168,33 +168,33 @@ describe("jira and xray checks", () => {
   it("jira: unreadable credentials, no display name, 403, 500, unreachable", async () => {
     mkdirSync(atl(), { recursive: true });
     writeFileSync(join(atl(), "credentials.json"), "{nope");
-    expect(await jiraCheck(10)).toMatchObject({ state: "fail", fix: expect.stringMatching(/system setup/) });
+    expect(await jiraCheck()).toMatchObject({ state: "fail", fix: expect.stringMatching(/system setCredentials/) });
     writeJira();
-    env.http = async () => ({ status: 200, headers: {} });
-    expect(await jiraCheck(10)).toMatchObject({ state: "ok", detail: "a@b.c on acme.atlassian.net" });
+    env.http = async () => ({ status: 200, headers: {}, text: "{}" });
+    expect(await jiraCheck()).toMatchObject({ state: "ok", detail: "a@b.c on acme.atlassian.net" });
     env.http = async () => ({ status: 403, headers: {}, text: "" });
-    expect((await jiraCheck(10)).detail).toMatch(/Jira 403/);
+    expect((await jiraCheck()).detail).toMatch(/Jira 403/);
     env.http = async () => ({ status: 500, headers: {}, text: "" });
-    expect(await jiraCheck(10)).toMatchObject({ detail: "Jira 500 on acme.atlassian.net" });
+    expect(await jiraCheck()).toMatchObject({ detail: "Jira 500 on acme.atlassian.net" });
     env.http = async () => {
       throw new Error("ECONNRESET");
     };
-    expect((await jiraCheck(10)).detail).toBe("acme.atlassian.net unreachable: ECONNRESET");
+    expect((await jiraCheck()).detail).toBe("acme.atlassian.net unreachable: ECONNRESET");
   });
 
   it("xray: missing credentials, an empty token, 403, unreachable", async () => {
-    expect((await xrayCheck(10)).state).toBe("fail");
+    expect((await xrayCheck()).state).toBe("fail");
     writeXray();
     env.http = async () => ({ status: 200, headers: {} });
-    expect((await xrayCheck(10)).detail).toBe("Xray authentication failed (200) on xray.cloud.getxray.app");
+    expect((await xrayCheck()).detail).toBe("Xray authentication failed (200) on xray.cloud.getxray.app");
     env.http = async () => ({ status: 200, headers: {}, text: '"jwt"' });
-    expect((await xrayCheck(10)).state).toBe("ok");
+    expect((await xrayCheck()).state).toBe("ok");
     env.http = async () => ({ status: 403, headers: {}, text: "" });
-    expect((await xrayCheck(10)).detail).toMatch(/Xray 401/);
+    expect((await xrayCheck()).detail).toMatch(/Xray 401/);
     env.http = async () => {
       throw new Error("ETIMEDOUT");
     };
-    expect((await xrayCheck(10)).detail).toBe("xray.cloud.getxray.app unreachable: ETIMEDOUT");
+    expect((await xrayCheck()).detail).toBe("xray.cloud.getxray.app unreachable: ETIMEDOUT");
   });
 });
 

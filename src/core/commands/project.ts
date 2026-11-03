@@ -16,7 +16,9 @@ import {
 } from "../lib/project.ts";
 import { projectOverview } from "../lib/project-info.ts";
 import { initProject } from "../lib/project-init.ts";
-import { IF_MTIME, PRESET, PROJECT_JSON, RAG_CHOICE, RETRIEVAL, STEP_COLUMN, XRAY_JSON } from "../schemas.ts";
+import { retrievalOverride } from "../rag/schemas.ts";
+import type { RetrievalOverride } from "../rag/search/filter.ts";
+import { IF_MTIME, PRESET, PROJECT_JSON, RAG_CHOICE, STEP_COLUMN, XRAY_JSON } from "../schemas.ts";
 import type { ProjectJson } from "../types.ts";
 import { EFFORT, MODEL } from "./claude.ts";
 
@@ -25,6 +27,12 @@ const opened = z.object({
   name: z.string().describe("Its display name"),
   jiraProject: z.string().describe("Its Jira project key"),
 });
+
+// ponytail: project.json keeps retrieval as an override (SPEC-RAG §4.3) — the keys given change, a rerank key too
+function withRetrieval(cur: ProjectJson["rag"]["retrieval"], over: RetrievalOverride): ProjectJson["rag"]["retrieval"] {
+  const rerank = over.rerank ? { rerank: { ...cur?.rerank, ...over.rerank } } : {};
+  return { ...cur, ...over, ...rerank } as ProjectJson["rag"]["retrieval"];
+}
 
 const notesFile = (ctxProject: string) => join(ctxProject, "CLAUDE.md");
 
@@ -275,9 +283,11 @@ export const commands = [
             .optional()
             .describe("The task sentence of the query instruction ({task}); empty = default"),
           passageMaxChars: z.number().int().min(1000).optional().describe("Cap of a passage returned to Claude"),
-          retrieval: RETRIEVAL.optional().describe(
-            "Retrieval settings: candidates, rrfK, bm25Weights, rerank { top, mode, threshold, thresholds }, expand (only the keys given change)",
-          ),
+          retrieval: retrievalOverride
+            .optional()
+            .describe(
+              "Retrieval settings: candidates, rrfK, bm25Weights, rerank { top, mode, threshold, thresholds }, expand (only the keys given change)",
+            ),
         })
         .optional()
         .describe("Retrieval settings of the project (only the keys given change)."),
@@ -320,7 +330,7 @@ export const commands = [
           ...cur.rag,
           ...(input.rag?.queryTask !== undefined ? { queryTask: input.rag.queryTask } : {}),
           ...(input.rag?.passageMaxChars !== undefined ? { passageMaxChars: input.rag.passageMaxChars } : {}),
-          ...(input.rag?.retrieval ? { retrieval: { ...cur.rag.retrieval, ...input.rag.retrieval } } : {}),
+          ...(input.rag?.retrieval ? { retrieval: withRetrieval(cur.rag.retrieval, input.rag.retrieval) } : {}),
           ...((input.rag?.claudeHeaders ?? cur.rag.claudeHeaders) !== undefined && {
             claudeHeaders: input.rag?.claudeHeaders ?? cur.rag.claudeHeaders,
           }),

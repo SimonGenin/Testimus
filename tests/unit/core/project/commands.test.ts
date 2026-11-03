@@ -81,5 +81,12 @@ describe("project.* through the registry, each output against its schema", () =>
       p,
     );
     expect(r).toMatchObject({ name: "Renamed", claude: { presets: [{ label: "A", prompt: "B" }] } });
+    await call("project.set", { rag: { retrieval: { candidates: 40, rerank: { top: 12, mode: "topk" } } } }, p);
+    const merged = await call<{ rag: { retrieval: unknown } }>(
+      "project.set",
+      { rag: { retrieval: { rerank: { top: 8 } } } },
+      p,
+    );
+    expect(merged.rag.retrieval).toEqual({ candidates: 40, rerank: { top: 8, mode: "topk" } });
   });
 });

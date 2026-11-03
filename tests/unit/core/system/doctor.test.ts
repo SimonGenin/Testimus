@@ -175,7 +175,7 @@ describe("doctor", () => {
     expect(by.claudeLogin.state).toBe("skip");
     expect(spawns.map((s) => s.args[0])).toEqual(["--version"]);
     expect(by.jira.state).toBe("fail");
-    expect(by.jira.fix).toMatch(/system setup/);
+    expect(by.jira.fix).toMatch(/system setCredentials/);
     expect(by.xray.state).toBe("fail");
     expect(by["disk.index"].state).toBe("skip");
     expect(by["index.space"].state).toBe("skip");

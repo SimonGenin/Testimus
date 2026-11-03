@@ -134,7 +134,7 @@ const ATLASSIAN = /^https:\/\/[a-z0-9-]+\.atlassian\.net(\/wiki)?\/?$/i;
 const XRAY = /^https:\/\/([a-z0-9-]+\.)*getxray\.app\/?$/i;
 
 async function checksFor(jira: boolean, xray: boolean): Promise<DoctorCheck[]> {
-  const r = await Promise.all([jira ? jiraCheck(10000) : null, xray ? xrayCheck(10000) : null]);
+  const r = await Promise.all([jira ? jiraCheck() : null, xray ? xrayCheck() : null]);
   return r.filter((c) => c !== null);
 }
 

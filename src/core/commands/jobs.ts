@@ -42,6 +42,7 @@ const job = z.object({
   result: z.unknown().optional().describe("The command's output, as that command's own schema says"),
   error: z.string().optional().describe("Why it failed"),
   fix: z.string().optional().describe("What to do about the error, when the command said"),
+  code: z.string().optional().describe("The error's stable name, when the command gave one (e.g. conflict)"),
   pid: z.number().optional().describe("The Testimus process that runs it"),
   parentId: z.string().optional().describe("The job this one runs inside (its parent waits for it)"),
   cause: z
