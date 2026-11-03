@@ -189,6 +189,20 @@ describe("JiraTab list", () => {
     expect(screen.getByText("1 of 1")).toBeInTheDocument();
   });
 
+  it("shows a test changed in Jira as one row carrying its Changed in Jira badge", async () => {
+    server.routes["xray.search"] = () => ({ tests: [remote("K-1"), remote("K-2")], total: 2 });
+    tab({ refs: [{ ...local, sync: "remote-changed", dirty: false }] });
+    const row = await screen.findByRole("button", { name: /Summary K-1/ });
+    expect(row).toHaveTextContent("Summary K-1");
+    expect(row).toHaveTextContent("K-1");
+    const badge = screen.getByText("Changed in Jira");
+    expect(row).toContainElement(badge);
+    expect(badge).toHaveClass("b-warn");
+    expect(badge).toHaveAttribute("title", "Changed in Jira since your pull");
+    expect(screen.getAllByText("Changed in Jira")).toHaveLength(1);
+    expect(screen.getByRole("button", { name: /Summary K-2/ })).not.toHaveTextContent("Changed in Jira");
+  });
+
   it("never asks for an empty folder and offers a new local test", () => {
     const { onNew } = tab({ folder: "/Empty" });
     expect(screen.getByText("No tests in this folder")).toBeInTheDocument();

@@ -3,6 +3,7 @@ import type { Folder, LocalTestRef, RemoteTestRef } from "../../../core/types.ts
 import { call, project } from "../../api.ts";
 import { Badge, type BadgeTone, Button, Icon, IconButton, Skeleton, SyncBadge } from "../../components/ui/index.ts";
 import { cx, plural } from "../../lib/format.ts";
+import { track } from "../../lib/localActivity.ts";
 import { errorToast } from "../../lib/toast.ts";
 
 export const PAGE = 100;
@@ -113,7 +114,11 @@ export function JiraTab({
     const mine = () => at.current.key === key && at.current.page === page;
     setLoading(true);
     const input = query ? { text: query } : { folder, page };
-    call<List>("xray.search", input)
+    track(
+      "jira",
+      query ? `Searching Jira for “${query}”` : `Loading ${folderName(folder)}`,
+      call<List>("xray.search", input),
+    )
       .then((r) => {
         if (!mine()) return;
         const tests = r?.tests ?? [];

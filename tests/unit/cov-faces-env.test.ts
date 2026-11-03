@@ -1,5 +1,7 @@
 import { spawn } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { notBuilt, projectOf, quietCtx, UserError } from "../../src/core/command.ts";
@@ -41,6 +43,41 @@ describe("env.http over fetch", () => {
     expect(bin.bytes).toEqual(new TextEncoder().encode("hello"));
     expect(bin.text).toBeUndefined();
     expect(calls[1][1].body).toBe(bytes);
+  });
+
+  it("follows a redirect and aborts a request that outlives its timeout, against a real local server", async () => {
+    const hits: string[] = [];
+    const server = createServer((req, res) => {
+      hits.push(req.url ?? "");
+      if (req.url === "/old") {
+        res.writeHead(302, { Location: "/new" }).end();
+        return;
+      }
+      if (req.url === "/new") {
+        res.writeHead(200, { "Content-Type": "text/plain", "X-Final": "yes" }).end("landed");
+        return;
+      }
+      setTimeout(() => res.writeHead(200).end("too late"), 3000).unref();
+    });
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+    const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    try {
+      vi.resetModules();
+      const { env } = await import("../../src/core/env.ts");
+      const moved = await env.http({ method: "GET", url: `${base}/old` });
+      expect(moved.status).toBe(200);
+      expect(moved.text).toBe("landed");
+      expect(moved.headers["x-final"]).toBe("yes");
+      expect(hits).toEqual(["/old", "/new"]);
+      const started = Date.now();
+      await expect(env.http({ method: "GET", url: `${base}/slow`, timeoutMs: 200 })).rejects.toThrow(
+        /timeout|aborted/i,
+      );
+      expect(Date.now() - started).toBeLessThan(2500);
+    } finally {
+      server.closeAllConnections();
+      await new Promise((r) => server.close(r));
+    }
   });
 
   it("finds its folders from the environment or the home folder", async () => {

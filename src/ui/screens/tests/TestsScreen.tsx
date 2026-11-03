@@ -1,5 +1,5 @@
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
-import type { LocalTestRef } from "../../../core/types.ts";
+import type { CredsStatus, LocalTestRef } from "../../../core/types.ts";
 import { project as apiProject, call } from "../../api.ts";
 import { Activity } from "../../components/shell/Activity.tsx";
 import { DragEdge, Icon } from "../../components/ui/index.ts";
@@ -7,6 +7,7 @@ import { useApp } from "../../lib/app.ts";
 import { cx } from "../../lib/format.ts";
 import { addRecent } from "../../lib/recent.ts";
 import { errorToast } from "../../lib/toast.ts";
+import { ConnectAtlassian } from "../settings/ConnectAtlassian.tsx";
 import { PullPane } from "./PullPane.tsx";
 import { abandonPulls, cancelPull, onPullLanded, startPull, usePulls, watchPull } from "./pulls.ts";
 import { TestEditor } from "./TestEditor.tsx";
@@ -44,6 +45,16 @@ export function TestsScreen() {
   const [drawer, setDrawer] = useState(false);
   const pulls = usePulls();
   const dir = app.info?.dir;
+  // ponytail: while Jira or Xray access is incomplete the empty pane is the connection form (Xray Editor shows its
+  // « Connect to Jira and Xray » screen in place of the editor until both files are complete)
+  const [access, setAccess] = useState<boolean | null>(null);
+  const accessOf = (s: CredsStatus) => setAccess(s.jira.complete && s.xray.complete);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: asked again when the project changes
+  useEffect(() => {
+    call<{ status: CredsStatus }>("system.setup", {})
+      .then((r) => r?.status && accessOf(r.status))
+      .catch(() => setAccess(null));
+  }, [dir]);
   const navigate = app.navigate;
 
   const reload = useCallback(async () => {
@@ -221,6 +232,14 @@ export function TestsScreen() {
             onOpen={open}
             onSaved={(ref) => setRefs((list) => list.map((r) => (r.id === ref.id ? { ...r, ...ref } : r)))}
           />
+        ) : access === false ? (
+          <div className="editor-empty editor-connect">
+            <h2 className="h">Connect to Jira and Xray</h2>
+            <ConnectAtlassian
+              lead="Testimus pulls and pushes your tests with your own Jira and Xray access — the same files Xray Editor uses."
+              onStatus={accessOf}
+            />
+          </div>
         ) : (
           <div className="editor-empty">
             <Icon name="tests" size={40} />

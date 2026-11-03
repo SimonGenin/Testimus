@@ -34,7 +34,6 @@ export function ContextsDialog({ onClose, initialId }: { onClose: () => void; in
   const [list, setList] = useState<ContextSummary[] | null>(null);
   const [draft, setDraft] = useState<Detail | null>(null);
   const [path, setPath] = useState("");
-  const [confirming, setConfirming] = useState(false);
   const dirty = useRef<Text | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const files = useRef<HTMLInputElement>(null);
@@ -56,7 +55,6 @@ export function ContextsDialog({ onClose, initialId }: { onClose: () => void; in
 
   const open = useCallback((id: string | undefined) => {
     setPath("");
-    setConfirming(false);
     if (!id) {
       setDraft(null);
       return Promise.resolve();
@@ -119,7 +117,6 @@ export function ContextsDialog({ onClose, initialId }: { onClose: () => void; in
       changed();
       setDraft(c);
       setPath("");
-      setConfirming(false);
     } catch (e) {
       errorToast(e, "Could not create the context");
     }
@@ -335,24 +332,15 @@ export function ContextsDialog({ onClose, initialId }: { onClose: () => void; in
                 {draft.shared ? `shared library · ${draft.id}/` : `contexts/${draft.id}/`}
               </span>
               <span className="spacer" />
-              {confirming ? (
-                <span className="ctxdlg-confirm" role="alert">
-                  <span>
-                    Delete “{draft.name || draft.id}”, its notes and copied files
-                    {draft.shared ? " — for every project" : ""}?
-                  </span>
-                  <Button size="sm" tone="quiet" onClick={() => setConfirming(false)}>
-                    Keep it
-                  </Button>
-                  <Button size="sm" tone="danger" onClick={() => void remove()}>
-                    Delete
-                  </Button>
-                </span>
-              ) : (
-                <Button size="sm" tone="danger" icon="trash" onClick={() => setConfirming(true)}>
-                  Delete context
-                </Button>
-              )}
+              <Button
+                size="sm"
+                tone="danger"
+                icon="trash"
+                title={draft.shared ? "Deleted for every project" : undefined}
+                onClick={() => void remove()}
+              >
+                Delete context
+              </Button>
             </div>
           </div>
         ) : (

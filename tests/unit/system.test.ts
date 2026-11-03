@@ -42,15 +42,15 @@ afterEach(() => {
 });
 
 describe("siteUrl", () => {
-  it("turns a tenant, host or URL into the /wiki base URL", () => {
-    expect(siteUrl("acme")).toBe("https://acme.atlassian.net/wiki");
-    expect(siteUrl("acme.atlassian.net")).toBe("https://acme.atlassian.net/wiki");
-    expect(siteUrl("https://acme.atlassian.net/")).toBe("https://acme.atlassian.net/wiki");
+  it("turns a tenant, host or URL into the site root, as Xray Editor does", () => {
+    expect(siteUrl("acme")).toBe("https://acme.atlassian.net");
+    expect(siteUrl("acme.atlassian.net")).toBe("https://acme.atlassian.net");
+    expect(siteUrl("https://acme.atlassian.net/")).toBe("https://acme.atlassian.net");
     expect(siteUrl("https://jira.corp.local")).toBe("https://jira.corp.local");
   });
   it("reduces a pasted Atlassian page URL to its site", () => {
-    expect(siteUrl("https://acme.atlassian.net/browse/LFRPS12-1?focus=1")).toBe("https://acme.atlassian.net/wiki");
-    expect(siteUrl("acme.atlassian.net/jira/software/projects/X/boards/1")).toBe("https://acme.atlassian.net/wiki");
+    expect(siteUrl("https://acme.atlassian.net/browse/LFRPS12-1?focus=1")).toBe("https://acme.atlassian.net");
+    expect(siteUrl("acme.atlassian.net/jira/software/projects/X/boards/1")).toBe("https://acme.atlassian.net");
     expect(siteUrl("https://acme.atlassian.net/wiki/spaces/DOC/pages/1")).toBe("https://acme.atlassian.net/wiki");
     expect(siteUrl("https://jira.corp.local/jira")).toBe("https://jira.corp.local");
     expect(siteUrl("http://jira.corp.local/browse/X-1")).toBe("https://jira.corp.local");
@@ -61,7 +61,7 @@ describe("siteUrl", () => {
       "https://acme.atlassian.net/wiki",
     );
     expect(siteUrl("acme", "https://acme.atlassian.net")).toBe("https://acme.atlassian.net");
-    expect(siteUrl("other", "https://acme.atlassian.net/wiki")).toBe("https://other.atlassian.net/wiki");
+    expect(siteUrl("other", "https://acme.atlassian.net/wiki")).toBe("https://other.atlassian.net");
   });
 });
 
@@ -146,7 +146,7 @@ describe("system.setup", () => {
       { project: null },
     )) as any;
     expect(read(jiraFile())).toEqual({
-      baseUrl: "https://acme.atlassian.net/wiki",
+      baseUrl: "https://acme.atlassian.net",
       email: "me@acme.com",
       token: "env-token",
     });
@@ -194,9 +194,16 @@ describe("system settings", () => {
     expect(read(join(env.dataDir(), "settings.json")).theme).toBe("dark");
   });
 
-  it("refuses a claude.exe that is not an existing executable path", async () => {
-    for (const claudeExe of ["echo INJECTED & rem", "C:\\nowhere\\claude.exe", "claude"])
-      await expect(invoke("system.saveSettings", { claudeExe }, { project: null })).rejects.toThrow(/full path/);
+  it("keeps a claude.exe path as typed even when it does not run (Xray Editor), but refuses command characters", async () => {
+    for (const claudeExe of ["echo INJECTED & rem", 'C:\\a"b\\claude.exe', "x | y"])
+      await expect(invoke("system.saveSettings", { claudeExe }, { project: null })).rejects.toThrow(
+        /command line would run/,
+      );
+    const s = (await invoke("system.saveSettings", { claudeExe: " C:\\nowhere\\claude.exe " }, { project: null })) as {
+      claude: { exe: string };
+    };
+    expect(s.claude.exe).toBe("C:\\nowhere\\claude.exe");
+    await invoke("system.saveSettings", { claudeExe: "" }, { project: null });
   });
 
   it("refuses a Jira site or an Xray API outside Atlassian unless confirmed", async () => {

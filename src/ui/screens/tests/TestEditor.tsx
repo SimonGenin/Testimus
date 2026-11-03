@@ -863,7 +863,7 @@ export function TestEditor({
             />
           </div>
           {goneAt(-1).map(goneCard)}
-          {test.steps.map((s, i) => {
+          {test.steps.flatMap((s, i) => {
             const uid = uidOf(s);
             const m = markOf(s);
             const dm = diff?.marks[i];

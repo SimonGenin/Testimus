@@ -167,3 +167,37 @@ Xray Editor and tested. A fourth, targeted pass confirmed those rows and led to 
 aligned and tested. The last alignments: #53 now has Xray Editor's two boxes, and folder copies are atomic (#113). On 2026-11-02, after the last
 change, `npm test` and `npx playwright test` (browser and desktop, the Electron shell rebuilt) pass in full (also with six of the specs'
 preferred ports held by other processes); SPEC.md §12–§13 describe each row.
+
+## Independent inventory (2026-11-03)
+
+A fresh audit built its own list from Xray Editor's code without this file — 425 capabilities — and found 380
+proven, 22 weak (implemented, test incomplete), 22 different and 1 missing. Done since:
+
+- **Missing → done:** after a push Jira took but the local copy could not be refreshed, the user is told (« Pushed …,
+  but the local copy was not refreshed — use Download from Jira »).
+- **Different → aligned:** Download and Restore step re-check a Claude run on confirm; Revert saves the pending edit
+  first; Jira folder loads and searches show in the activity indicator; a run on a test or the project can start with
+  an empty box; a saved token / Client ID / secret / email emptied in the form is erased (`system.setup --clear`);
+  the Jira key is upper-cased in Settings › Project.
+
+Then the last differences were aligned too (2026-11-03): the dock shows one result card per run on a test (the
+request kept in the box, the card gone when another test opens, « 0 steps changed » with Revert, the summary on the
+folded strip); new projects default to opus / high; a context is deleted on one click and may hold relative paths;
+`/wiki` is kept only when typed (SPEC §2 changed to Xray Editor's rule); confirming a plan that shows a Jira change is
+the overwrite decision (no extra tick); an invalid Claude program path is kept and shown ✕ with the guide; « Show in
+Explorer » opens a folder; a custom value without a column name is dropped; « Open by Jira key… » opens or creates a
+project by its Jira code; the empty Tests pane is the connection form while access is incomplete.
+
+One structural difference stays, by the SPEC (§3): Testimus keeps each Jira project in its own project folder (a Claude
+Code project) instead of one workspace folder — every workspace action exists (open by Jira key, the recent projects,
+browse, show in Explorer, shared contexts in the library).
+
+The 22 « weak » rows (behaviours that existed but whose test asserted only part of the outcome) now each have a test
+that drives them and asserts the outcome — three of those tests found real gaps, fixed: a moved step lost its own
+column fold (TestEditor renders the cards in one flat list, as Xray Editor does), and a value typed in Settings ›
+Claude or Settings › Project was lost when leaving Settings without leaving the field (now saved when Settings closes,
+as Xray Editor's SettingsModal does).
+
+Result: of the 425 capabilities of the independent inventory, every one is reproduced and asserted by a test; the
+rows in the table above are the same capability reached another way, by choice. On 2026-11-03 `npm test` passes
+2596 / 2596 (twice in a row) and `npx playwright test` 84 / 84 (browser and desktop).

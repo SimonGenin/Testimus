@@ -4,6 +4,7 @@ import { act, cleanup, createEvent, fireEvent, render, screen, waitFor, within }
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Step, Test } from "../../src/core/types.ts";
 import { setProject } from "../../src/ui/api.ts";
+import { ClaudeDock } from "../../src/ui/components/claude/ClaudeDock.tsx";
 import { AppContext, type AppState, type ClaudeRun } from "../../src/ui/lib/app.ts";
 import { discardEditor, flushEditor } from "../../src/ui/lib/editorBus.ts";
 import { recentIds } from "../../src/ui/lib/recent.ts";
@@ -1237,6 +1238,218 @@ describe("TestEditor › push", () => {
     };
     fireEvent.click(b);
     await waitFor(() => expect(errors.at(-1)?.title).toBe("Could not reload the test"));
+  });
+
+  it("after a stopped push, the header shows the Jira key the push wrote to disk", async () => {
+    shown = makeTest({ key: undefined });
+    server.routes["xray.plan"] = () => ({
+      testId: "t1",
+      ops: [
+        { kind: "create", label: "Create test in Jira" },
+        { kind: "upload", label: "Upload a.png" },
+      ],
+      warnings: [],
+      remoteChanged: false,
+      review: "draft",
+      planHash: "h",
+    });
+    server.routes["xray.push"] = () => {
+      shown = makeTest({ key: "LFRPS12-99" });
+      return {
+        ok: false,
+        id: "t1",
+        failedAt: 1,
+        error: "Attachment too big",
+        ops: [
+          { label: "Create test in Jira", status: "done" },
+          { label: "Upload a.png", status: "failed", error: "Attachment too big" },
+        ],
+      };
+    };
+    const { container, onOpen } = editor();
+    await ready();
+    expect(container.querySelector(".testhead-key")).toHaveTextContent("local");
+    fireEvent.click(screen.getByRole("button", { name: "Push to Jira" }));
+    await confirm();
+    const progress = await screen.findByRole("dialog", { name: "Pushing to Jira" });
+    expect(within(progress).getByText("Push stopped at operation 2 of 2")).toBeInTheDocument();
+    fireEvent.click(within(progress).getAllByRole("button", { name: "Close" })[0]);
+    await waitFor(() => expect(container.querySelector(".testhead-key")).toHaveTextContent("LFRPS12-99"));
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+});
+
+describe("TestEditor › Xray Editor edge cases", () => {
+  it("saves a pending edit with its own flusher before a dock run starts", async () => {
+    server.routes["claude.status"] = () => ({ installed: true, signedIn: true });
+    server.routes["claude.run"] = () => ({ ok: true, summary: "Done" });
+    const state = app({
+      route: { screen: "tests", arg: "t1" },
+      focus: { testId: "t1", key: "LFRPS12-7", summary: "Sectionneur", step: null },
+    });
+    render(
+      <AppContext.Provider value={state}>
+        <TestEditor testId="t1" onSaved={vi.fn()} onOpen={vi.fn()} />
+        <ClaudeDock folded={false} request={null} onFold={vi.fn()} />
+      </AppContext.Provider>,
+    );
+    const desc = await screen.findByLabelText("Description");
+    const box = screen.getByRole("textbox", { name: /^Ask/ });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      fireEvent.change(desc, { target: { value: "typed before the run" } });
+      fireEvent.change(box, { target: { value: "Ajoute une source" } });
+      fireEvent.keyDown(box, { key: "Enter", ctrlKey: true });
+      await act(() => vi.advanceTimersByTimeAsync(100));
+      expect(callsTo("claude.run")).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+    const names = server.calls.map((c) => c.name);
+    expect(names.filter((n) => n === "tests.save")).toHaveLength(1);
+    expect(names.indexOf("tests.save")).toBeLessThan(names.indexOf("claude.run"));
+    expect(savedTest().description).toBe("typed before the run");
+  });
+
+  it("does not take its own save for an outside change when the window gets focus", async () => {
+    show = { mtime: 1 };
+    server.routes["tests.save"] = (input) => {
+      show = { mtime: 2 };
+      return { id: input.id, sync: "modified", mtime: 2 };
+    };
+    editor();
+    fireEvent.change(await screen.findByLabelText("Description"), { target: { value: "mine" } });
+    blurWindow();
+    await waitFor(() => expect(screen.getByText("Saved")).toBeInTheDocument());
+    focusWindow();
+    await waitFor(() => expect(callsTo("tests.show")).toHaveLength(2));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(toasts.map((t) => t.title)).not.toContain("Reloaded from disk");
+    expect(screen.getByLabelText("Description")).toHaveValue("mine");
+  });
+
+  it("says a reload on window focus that failed", async () => {
+    show = { mtime: 1 };
+    editor();
+    await ready();
+    server.routes["tests.show"] = () => {
+      throw new Fail("locked");
+    };
+    focusWindow();
+    await waitFor(() => expect(errors.at(-1)?.title).toBe("Could not reload the test"));
+    expect(actions()).toEqual(["One", "Two", "Three"]);
+  });
+
+  it("drops Claude's marks on a reload from disk and on switching to another test", async () => {
+    show = { mtime: 1 };
+    const { again } = editor({ lastRun: run({ changedSteps: { t1: [1] } }) });
+    expect(await screen.findByText("Changed by Claude")).toBeInTheDocument();
+    show = { mtime: 2 };
+    focusWindow();
+    await waitFor(() => expect(toasts.at(-1)?.title).toBe("Reloaded from disk"));
+    expect(screen.queryByText("Changed by Claude")).toBeNull();
+    expect(screen.queryByText(/Claude changed/)).toBeNull();
+    const second = run({ changedSteps: { t1: [2] }, nonce: 2 });
+    again({ lastRun: second });
+    expect(await screen.findByText("Changed by Claude")).toBeInTheDocument();
+    shown = makeTest({ steps: [step("Other")] });
+    again({ lastRun: second }, "t2");
+    await waitFor(() => expect(actions()).toEqual(["Other"]));
+    expect(screen.queryByText("Changed by Claude")).toBeNull();
+    expect(screen.queryByText(/Claude changed/)).toBeNull();
+  });
+
+  it("asks Jira for the preconditions once per project, and for the folders once after a success", async () => {
+    editor();
+    await ready();
+    cleanup();
+    editor({}, "t2");
+    await ready();
+    expect(callsTo("xray.preconditions")).toHaveLength(1);
+    fireEvent.click(screen.getByTitle(/Change the folder/));
+    await waitFor(() => expect(document.querySelector('#testimus-folders option[value="/Lot"]')).not.toBeNull());
+    fireEvent.keyDown(screen.getByLabelText("Folder"), { key: "Escape" });
+    fireEvent.click(await screen.findByTitle(/Change the folder/));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(callsTo("xray.folders")).toHaveLength(1);
+    expect(document.querySelector('#testimus-folders option[value="/Lot"]')).not.toBeNull();
+  });
+
+  it("inserts a blank step right below the step asked, the others keeping their order", async () => {
+    editor();
+    await ready();
+    fireEvent.click(screen.getByRole("button", { name: "Insert a step below step 2" }));
+    const cards = screen.getAllByRole("article");
+    expect(cards).toHaveLength(4);
+    const text = cards.map(
+      (a, i) => (within(a).queryByLabelText(`Action of step ${i + 1}`) as HTMLTextAreaElement | null)?.value ?? "",
+    );
+    expect(text).toEqual(["One", "Two", "", "Three"]);
+    blurWindow();
+    await waitFor(() => expect(callsTo("tests.save")).toHaveLength(1));
+    expect(savedTest().steps.map((s) => s.fields.Action ?? "")).toEqual(["One", "Two", "", "Three"]);
+    expect(savedTest().steps[2].fields).toEqual({});
+  });
+
+  it("saves the pending edit before cloning", async () => {
+    server.routes["tests.clone"] = () => ({ id: "t-copy" });
+    const { onOpen } = editor();
+    fireEvent.change(await screen.findByLabelText("Description"), { target: { value: "edited then cloned" } });
+    await menuItem("Clone");
+    await waitFor(() => expect(onOpen).toHaveBeenCalledWith("t-copy"));
+    const names = server.calls.map((c) => c.name);
+    expect(names.filter((n) => n === "tests.save")).toHaveLength(1);
+    expect(names.indexOf("tests.save")).toBeLessThan(names.indexOf("tests.clone"));
+    expect(savedTest().description).toBe("edited then cloned");
+  });
+
+  it("a download that ends after switching to another test leaves that test shown", async () => {
+    const t1 = makeTest({ steps: [step("One", { id: "1" })] });
+    const t2 = makeTest({ key: "LFRPS12-8", summary: "Other test", steps: [step("Other", { id: "9" })] });
+    server.routes["tests.show"] = (input) =>
+      input.id === "t2" ? { id: "t2", test: t2, remote: t2 } : { id: "t1", test: t1, remote: t1 };
+    const gate = deferred<unknown>();
+    server.routes["xray.pull"] = () => gate.promise;
+    const { again } = editor();
+    await ready();
+    await menuItem("Download from Jira");
+    await waitFor(() => expect(callsTo("xray.pull")).toHaveLength(1));
+    again({}, "t2");
+    await waitFor(() => expect(actions()).toEqual(["Other"]));
+    const shows = callsTo("tests.show").length;
+    gate.resolve({ pulled: ["LFRPS12-7"], failed: [] });
+    await waitFor(() => expect(toasts.at(-1)?.title).toBe("LFRPS12-7 refreshed from Jira"));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(actions()).toEqual(["Other"]);
+    expect(screen.getByDisplayValue("Other test")).toBeInTheDocument();
+    expect(callsTo("tests.show").slice(shows)).toEqual([]);
+  });
+
+  it("a step's own column fold moves with the step, by Alt+↓ or the move button", async () => {
+    vi.stubGlobal(
+      "requestAnimationFrame",
+      vi.fn((cb: FrameRequestCallback) => {
+        cb(0);
+        return 0;
+      }),
+    );
+    editor({ xray: fullXray });
+    await ready();
+    const data = (n: number) =>
+      screen.getByRole("button", { name: `Data column of step ${n}` }).getAttribute("aria-pressed");
+    const was = data(1);
+    fireEvent.click(screen.getByRole("button", { name: "Data column of step 1" }));
+    const now = data(1);
+    expect(now).not.toBe(was);
+    expect(data(2)).toBe(was);
+    fireEvent.keyDown(screen.getByRole("article", { name: "Step 1" }), { key: "ArrowDown", altKey: true });
+    expect(actions()).toEqual(["Two", "One", "Three"]);
+    expect(data(1)).toBe(was);
+    expect(data(2)).toBe(now);
+    fireEvent.click(screen.getByRole("button", { name: "Move step 2 down (Alt+↓)" }));
+    expect(actions()).toEqual(["Two", "Three", "One"]);
+    expect(data(2)).toBe(was);
+    expect(data(3)).toBe(now);
   });
 });
 

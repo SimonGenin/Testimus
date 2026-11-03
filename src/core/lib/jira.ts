@@ -489,8 +489,10 @@ const customValue = (f: XrayField, text: string): unknown => {
 function readCustom(list: RawCustom[] | undefined): Record<string, string> {
   const out: Record<string, string> = {};
   for (const c of list ?? []) {
+    // ponytail: a value Xray gives without its column's name is left out, as Xray Editor does (customOf)
+    if (!c.name) continue;
     const v = customText(c.value).replace(/\r\n?/g, "\n");
-    if (v) out[c.name || c.id] = v;
+    if (v) out[c.name] = v;
   }
   return out;
 }

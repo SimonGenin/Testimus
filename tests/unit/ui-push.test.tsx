@@ -63,13 +63,11 @@ describe("PushDialog", () => {
     expect(push?.input).toEqual({ id: "LFRPS12-1420", planHash: "h-42" });
   });
 
-  it("pushes over a change made in Jira only after the explicit replace choice", async () => {
+  it("shows a change made in Jira in the plan, and confirming pushes over it (Xray Editor)", async () => {
     remoteChanged = true;
     dialog();
     const confirm = await screen.findByRole("button", { name: "Confirm push" });
     await screen.findByText("Changed in Jira since your pull");
-    expect(confirm).toBeDisabled();
-    fireEvent.click(screen.getByRole("checkbox", { name: "Push anyway, replace their change" }));
     expect(confirm).toBeEnabled();
     fireEvent.click(confirm);
     await waitFor(() => expect(calls.some((c) => c.name === "xray.push")).toBe(true));

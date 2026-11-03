@@ -5,6 +5,7 @@ import { Activity } from "../../components/shell/Activity.tsx";
 import { Button, Icon, IconButton, ReviewBadge, Skeleton, SyncBadge, Tabs } from "../../components/ui/index.ts";
 import { desktop, pathJoin, reveal } from "../../lib/desktop.ts";
 import { cx, plural } from "../../lib/format.ts";
+import { track } from "../../lib/localActivity.ts";
 import { readPref, writePref } from "../../lib/theme.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 import { type DeleteTarget, DeleteTest, deleteTest, needsAsking } from "./DeleteTest.tsx";
@@ -119,7 +120,7 @@ export function TestList({
   useEffect(() => {
     if (tree || treeError) return;
     let dead = false;
-    call<Folder>("xray.folders", {})
+    track("jira", "Loading the Jira folders", call<Folder>("xray.folders", {}))
       .then((t) => !dead && setTree(t))
       .catch((e) => !dead && setTreeError(e instanceof Error ? e.message : String(e)));
     return () => {

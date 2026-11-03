@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { ensureMcpJson } from "../claude/run.ts";
 import { type Command, command, projectOf, UserError } from "../command.ts";
+import { env } from "../env.ts";
 import { listJobs } from "../jobs.ts";
 import { sha256 } from "../lib/hash.ts";
 import {
@@ -250,6 +251,46 @@ export const commands: Command[] = [
       rememberProject(dir);
       const p = readProject(dir);
       return { dir, name: p.name, jiraProject: p.jiraProject };
+    },
+  }),
+  command({
+    name: "project.openKey",
+    summary:
+      "Open a project by its Jira key (Xray Editor's « Go »): a known project with that key, else a new project folder named after it beside the current one.",
+    input: z.object({
+      key: z.string().describe("Jira project key, e.g. LFRPS12 (case does not matter)"),
+      root: z
+        .string()
+        .optional()
+        .describe("Folder where a new project folder is made (default: beside the last project, else ~/Testimus)"),
+    }),
+    output: z.object({ dir: z.string(), name: z.string(), jiraProject: z.string(), created: z.boolean() }),
+    mutates: true,
+    global: true,
+    positional: ["key"],
+    async run(_ctx, input) {
+      const key = input.key.trim().toUpperCase();
+      if (!/^[A-Z][A-Z0-9_]*$/.test(key))
+        throw new UserError(`${input.key} is not a Jira project key.`, "A key is letters and digits, such as LFRPS12.");
+      const s = readSettings();
+      const known = s.projects.filter(isProject).find((d) => readProject(d).jiraProject.toUpperCase() === key);
+      let dir = known;
+      let created = false;
+      if (!dir) {
+        const root = input.root
+          ? resolve(input.root)
+          : s.lastProject
+            ? dirname(resolve(s.lastProject))
+            : join(env.homeDir(), "Testimus");
+        dir = join(root, key);
+        if (!isProject(dir)) {
+          initProject(dir, { jiraProject: key, name: key });
+          created = true;
+        }
+      }
+      rememberProject(dir);
+      const p = readProject(dir);
+      return { dir, name: p.name, jiraProject: p.jiraProject, created };
     },
   }),
   command({

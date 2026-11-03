@@ -1257,3 +1257,14 @@ button.rcheck {
     flex-wrap: wrap;
   }
 }
+
+/* the connection form in the empty pane while Jira or Xray access is incomplete */
+.editor-connect {
+  justify-content: flex-start;
+  text-align: left;
+  overflow: auto;
+}
+
+.editor-connect > .atl {
+  width: min(640px, 100%);
+}

@@ -70,7 +70,8 @@ describe("Settings › Project", () => {
     fireEvent.change(key, { target: { value: "   " } });
     fireEvent.blur(key);
     expect(named("project.set")).toHaveLength(0);
-    fireEvent.change(key, { target: { value: " BHPTCC " } });
+    fireEvent.change(key, { target: { value: " bhptcc " } });
+    expect(key).toHaveValue(" BHPTCC ");
     fireEvent.blur(key);
     await waitFor(() => expect(named("project.set")[0]?.input).toEqual({ jiraProject: "BHPTCC" }));
     expect(await screen.findByText("Jira project saved")).toBeInTheDocument();

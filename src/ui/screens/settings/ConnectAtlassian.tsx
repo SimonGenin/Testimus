@@ -34,12 +34,12 @@ const baseOf = (url?: string) =>
     .replace(/\/+$/, "")
     .replace(/\/wiki$/, "");
 
-// ponytail: what system.setup writes for that root — the shared file keeps the /wiki form other Atlassian tools
-// need (SPEC §2), and an unchanged site keeps the exact value already there
+// ponytail: what system.setup writes for that root — the root as typed (a typed /wiki kept, as in Xray Editor), and
+// an unchanged site keeps the exact value already there
 export function savedAs(root: string, previous?: string): string {
   if (!root) return "";
   if (previous && baseOf(previous) === baseOf(root)) return previous.trim();
-  return /\.atlassian\.net$/i.test(baseOf(root)) ? `${baseOf(root)}/wiki` : root;
+  return root;
 }
 
 export function jiraWords(c: DoctorCheck | undefined): Word {

@@ -53,6 +53,10 @@ async function stubMain(app: ElectronApplication): Promise<void> {
     shell.showItemInFolder = (p: string) => {
       g.k.revealed.push(p);
     };
+    shell.openPath = async (p: string) => {
+      g.k.revealed.push(p);
+      return "";
+    };
     shell.openExternal = async (url: string) => {
       g.k.opened.push(url);
     };

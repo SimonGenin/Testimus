@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { cleanup, createEvent, fireEvent, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { StepImage } from "../../src/core/types.ts";
 import { NEW_TABLE } from "../../src/ui/lib/table.ts";
@@ -144,6 +145,38 @@ describe("FieldBlocks", () => {
     expect(onRemove).toHaveBeenLastCalledWith(expect.objectContaining({ kind: "extern" }));
     expect(screen.getByText("Xray markup this editor cannot read")).toBeInTheDocument();
     expect(screen.getByText("!xray-attachment://9!")).toBeInTheDocument();
+  });
+
+  it("captions an image block with its file name, not its path", () => {
+    const { container } = fb("![](images/a.png)");
+    const figure = container.querySelector("figure.imgblock") as HTMLElement;
+    expect(within(figure).getByText("a.png")).toHaveClass("imgblock-name");
+    expect(figure.querySelector("figcaption")).toHaveTextContent("a.png");
+    expect(figure).not.toHaveTextContent("images/a.png");
+  });
+
+  it("opens an image with Enter but not with Ctrl+Enter, editable or read-only", async () => {
+    for (const readOnly of [false, true]) {
+      const user = userEvent.setup();
+      const { onOpen } = fb("![](images/a.png)", { readOnly });
+      const open = screen.getByRole("button", { name: "a.png" });
+      open.focus();
+      await user.keyboard("{Control>}{Enter}{/Control}");
+      expect(onOpen).not.toHaveBeenCalled();
+      await user.keyboard("{Enter}");
+      expect(onOpen).toHaveBeenCalledWith("images/a.png");
+      cleanup();
+    }
+  });
+
+  it("still names an image whose file is missing", () => {
+    const { container } = fb("![](images/a.png)", {});
+    const img = screen.getByRole("img", { name: "a.png" });
+    fireEvent.error(img);
+    const figure = container.querySelector("figure.imgblock") as HTMLElement;
+    expect(within(figure).getByText("a.png")).toBeVisible();
+    expect(img).toHaveAttribute("alt", "a.png");
+    expect(img).toHaveAttribute("src", "/u/images/a.png");
   });
 
   it("shows blocks read-only without tools", () => {

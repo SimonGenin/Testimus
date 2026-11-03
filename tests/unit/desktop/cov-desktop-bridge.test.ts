@@ -29,6 +29,7 @@ const h = vi.hoisted(() => {
     handle: {} as Record<string, (event: unknown, ...args: unknown[]) => unknown>,
     showOpenDialog: vi.fn(),
     showItemInFolder: vi.fn(),
+    openPath: vi.fn(async () => ""),
     openExternal: vi.fn(async () => {}),
     notifications,
     FakeNotification,
@@ -46,7 +47,7 @@ vi.mock("electron", () => ({
     },
   },
   Notification: h.FakeNotification,
-  shell: { showItemInFolder: h.showItemInFolder, openExternal: h.openExternal },
+  shell: { showItemInFolder: h.showItemInFolder, openPath: h.openPath, openExternal: h.openExternal },
 }));
 
 const { httpsUrl, insideAny, registerBridge } = await import("../../../src/desktop/bridge.ts");
@@ -186,6 +187,12 @@ describe("bridge calls", () => {
     deps.knownRoots.mockResolvedValueOnce([project]);
     expect(await page("reveal", file)).toBe(false);
     expect(h.showItemInFolder).toHaveBeenCalledTimes(1);
+  });
+
+  it("reveal opens a folder itself in Explorer, as Xray Editor's « Open in Explorer »", async () => {
+    expect(await page("reveal", root)).toBe(true);
+    expect(h.openPath).toHaveBeenCalledWith(root);
+    expect(h.showItemInFolder).not.toHaveBeenCalledWith(root);
   });
 
   it("openExternal hands the https link to the browser", async () => {

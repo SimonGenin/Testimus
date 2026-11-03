@@ -64,6 +64,30 @@ describe("project.init", () => {
   });
 });
 
+describe("project.openKey (Xray Editor's « Go » by Jira code)", () => {
+  it("opens a known project by its key, else makes a new project folder named after it", async () => {
+    const root = tmp("testimus-bykey-");
+    const known = join(root, "Mine");
+    cpSync(FIXTURE, known, { recursive: true });
+    await invoke("project.open", { dir: known }, { project: null });
+    const a = (await invoke("project.openKey", { key: "lfrps12" }, { project: null })) as {
+      dir: string;
+      created: boolean;
+    };
+    expect(a).toMatchObject({ dir: known, created: false });
+    const b = (await invoke("project.openKey", { key: "bhptcc" }, { project: null })) as {
+      dir: string;
+      created: boolean;
+      jiraProject: string;
+    };
+    expect(b).toMatchObject({ dir: join(root, "BHPTCC"), created: true, jiraProject: "BHPTCC" });
+    expect(existsSync(join(root, "BHPTCC", "project.json"))).toBe(true);
+    await expect(invoke("project.openKey", { key: "no such" }, { project: null })).rejects.toThrow(
+      /not a Jira project key/,
+    );
+  });
+});
+
 describe("project.info / set / open / list", () => {
   it("counts docs, tests per review state and running jobs", async () => {
     const dir = join(tmp("testimus-info-"), "LFRPS12");
@@ -92,7 +116,7 @@ describe("project.info / set / open / list", () => {
     );
     const p = readProject(dir);
     expect(p).toMatchObject({ jiraProject: "DEMO", language: "en", rag: { embedding: "bge-m3", reranker: null } });
-    expect(p.claude).toEqual({ model: "opus", effort: "medium", presets: [{ label: "L", prompt: "P" }], contexts: [] });
+    expect(p.claude).toEqual({ model: "opus", effort: "high", presets: [{ label: "L", prompt: "P" }], contexts: [] });
   });
 
   it("opens a project folder and lists the known ones", async () => {

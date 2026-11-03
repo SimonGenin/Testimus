@@ -358,7 +358,9 @@ describe("Claude dock: on a test", () => {
     net.routes["claude.run"] = () => ({ ok: true, summary: "Nothing to do", runId: "r3" });
     ask("Third");
     expect(await screen.findByText("Nothing to do")).toBeInTheDocument();
-    expect(screen.queryByText("Show changes")).toBeNull();
+    expect(screen.queryByText("Claude cannot connect")).toBeNull();
+    expect(screen.getByText(/^0 steps changed/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Revert$/ })).toBeInTheDocument();
   });
 
   it("offers Revert for a run that did not finish but changed steps", async () => {
@@ -466,7 +468,7 @@ describe("Claude dock: on a test", () => {
     expect(screen.getByRole("tab", { name: "Ask the documents" })).toHaveAttribute("aria-selected", "true");
     fireEvent.click(screen.getByRole("tab", { name: "On this test" }));
     expect(screen.getByRole("textbox", { name: "Ask Claude about this test" })).toBeInTheDocument();
-    expect(screen.getByText("Tout relire")).toHaveClass("bubble");
+    expect(screen.queryByText("Tout relire", { selector: ".bubble" })).toBeNull();
   });
 });
 

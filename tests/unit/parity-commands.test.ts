@@ -136,7 +136,11 @@ describe("contexts", () => {
     expect(c.id).toMatch(/^ctx-[0-9a-f]{8}$/);
     const set = await run("contexts.set", { id: c.id, notes: "PCC = poste de commande", paths: [P] });
     expect(set).toMatchObject({ name: "Glossaire RATP", notes: "PCC = poste de commande", paths: [P], hasNotes: true });
-    await expect(run("contexts.set", { id: c.id, paths: ["relative/dir"] })).rejects.toThrow("absolute");
+    expect(((await run("contexts.set", { id: c.id, paths: [P, "docs"] })) as { paths: string[] }).paths).toEqual([
+      P,
+      "docs",
+    ]);
+    await run("contexts.set", { id: c.id, paths: [P] });
     const up = await run("contexts.addFile", {
       id: c.id,
       name: "lexique.txt",

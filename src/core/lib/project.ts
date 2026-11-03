@@ -11,7 +11,7 @@ export const DEFAULT_PROJECT: ProjectJson = {
   labelPrefix: "testimus-",
   folders: [],
   rag: { embedding: "bge-m3", reranker: null },
-  claude: { model: "sonnet", effort: "medium", presets: [], contexts: [] },
+  claude: { model: "opus", effort: "high", presets: [], contexts: [] },
 };
 
 export const DEFAULT_XRAY: XrayJson = {

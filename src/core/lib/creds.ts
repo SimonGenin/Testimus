@@ -120,6 +120,7 @@ export function saveCreds(jira: Record<string, string>, xray: Record<string, str
     try {
       prev = readRaw(name) ?? {};
     } catch {}
+    if (!Object.keys(clean).length && !cleared.some((k) => k in prev)) continue;
     const next: Record<string, unknown> = { ...prev, ...clean };
     for (const k of cleared) delete next[k];
     writeAtomic(join(credsDir(), name), `${JSON.stringify(next, null, 2)}\n`);

@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { isAbsolute, relative, resolve } from "node:path";
 import {
   type BrowserWindow,
@@ -190,7 +190,9 @@ export function registerBridge(deps: BridgeDeps): void {
         log("shell", `reveal refused: ${path}`);
         return false;
       }
-      shell.showItemInFolder(path);
+      // ponytail: a folder opens in Explorer (Xray Editor's « Open in Explorer »), a file is shown selected in its folder
+      if (statSync(path).isDirectory()) await shell.openPath(path);
+      else shell.showItemInFolder(path);
       return true;
     },
     async openExternal(v) {

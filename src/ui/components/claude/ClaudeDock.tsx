@@ -140,8 +140,8 @@ export function ClaudeDock({
   const [turns, setTurns] = useState<Record<Mode, Turn[]>>({ docs: [], test: [] });
   const [prompt, setPrompt] = useState("");
   const [preset, setPreset] = useState(-1);
-  const [model, setModel] = useState(cfg?.model ?? "sonnet");
-  const [effort, setEffort] = useState<Effort>(cfg?.effort ?? "medium");
+  const [model, setModel] = useState(cfg?.model ?? "opus");
+  const [effort, setEffort] = useState<Effort>(cfg?.effort ?? "high");
   const [jobId, setJobId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [started, setStarted] = useState<number | null>(null);
@@ -199,6 +199,8 @@ export function ClaudeDock({
   useEffect(() => {
     setScope(testId ? "test" : "project");
     setCtxOff(new Set());
+    // ponytail: another test opened — the result card of the previous one goes (Xray Editor)
+    setTurns((all) => (all.test.some((t) => t.running) ? all : { ...all, test: [] }));
   }, [testId]);
 
   useEffect(() => {
@@ -280,16 +282,16 @@ export function ClaudeDock({
             : t.meta,
         raw: typeof r.raw === "string" ? r.raw : t.raw,
         again: ok ? undefined : again,
-        run:
-          r.runId && (changedTests.length || steps)
-            ? {
-                runId: r.runId,
-                testId: testId || changedTests[0] || "",
-                steps,
-                tests: changedTests.length,
-                review: r.review,
-              }
-            : undefined,
+        // ponytail: every run with a snapshot gets its card, « 0 steps changed » too, with Revert (Xray Editor)
+        run: r.runId
+          ? {
+              runId: r.runId,
+              testId: testId || changedTests[0] || "",
+              steps,
+              tests: changedTests.length,
+              review: r.review,
+            }
+          : undefined,
       }));
       setLast({ seconds: durationMs / 1000, summary: (r.summary ?? "").split("\n")[0], ok });
       app.setLastRun({
@@ -311,7 +313,8 @@ export function ClaudeDock({
   const start = (m: Mode, text: string, label?: string) => {
     const user: Turn = { id: ++seq, role: "user", text, tools: [], label };
     const answer: Turn = { id: ++seq, role: "assistant", text: "", tools: [], running: true };
-    setTurns((all) => ({ ...all, [m]: [...all[m], user, answer] }));
+    // ponytail: on a test the dock shows the last run only (Xray Editor's result card); the documents tab is a chat
+    setTurns((all) => ({ ...all, [m]: m === "test" ? [user, answer] : [...all[m], user, answer] }));
     setBusy(true);
     setStarted(Date.now());
     return answer.id;
@@ -339,7 +342,7 @@ export function ClaudeDock({
       await flushEditor();
       await runOnTest("test", answerId, job.testId, job.name, job.input, Date.now(), {
         model: cfg?.model ?? "",
-        effort: cfg?.effort ?? "medium",
+        effort: cfg?.effort ?? "high",
       });
     } catch (e) {
       stopped("test", answerId, e);
@@ -435,7 +438,9 @@ export function ClaudeDock({
 
   const send = (text: string) => {
     const q = text.trim();
-    if (!q || running) return;
+    // ponytail: on a test or the project an empty box still runs — the scope and the house rules are the request
+    // (Xray Editor); a question to the documents needs words
+    if ((!q && mode === "docs") || running) return;
     const a: Again =
       mode === "docs"
         ? { mode, text: q, model, effort }
@@ -448,8 +453,11 @@ export function ClaudeDock({
             model,
             effort,
           };
-    setPrompt("");
-    setPreset(-1);
+    // ponytail: the request stays in the box after a run on a test, ready to adjust and run again (Xray Editor)
+    if (mode === "docs") {
+      setPrompt("");
+      setPreset(-1);
+    }
     void execute(a);
   };
 
@@ -506,7 +514,7 @@ export function ClaudeDock({
         )}
         {!running && last && (
           <span className={cx("dock-last", !last.ok && "dock-last-bad")} title={last.summary}>
-            Last run: {last.seconds.toFixed(1)} s
+            Last run: {last.seconds.toFixed(1)} s{last.summary ? ` — ${last.summary}` : ""}
           </span>
         )}
         <Kbd>Ctrl J</Kbd>
@@ -601,7 +609,11 @@ export function ClaudeDock({
               t.role === "user" ? (
                 <div key={t.id} className="bubble-wrap">
                   {t.label && <span className="muted bubble-label">{t.label}</span>}
-                  <div className="bubble">{t.text}</div>
+                  <div className="bubble">
+                    {t.text || (
+                      <span className="muted">No request — Claude works from the scope and the house rules</span>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div key={t.id} className="turn">
@@ -801,7 +813,7 @@ export function ClaudeDock({
                   size="sm"
                   icon="send"
                   className={cx(!prompt.trim() && "is-idle")}
-                  disabled={!prompt.trim()}
+                  disabled={mode === "docs" && !prompt.trim()}
                   title="Ctrl+Enter"
                   onClick={() => send(prompt)}
                 >

@@ -9,6 +9,7 @@ import { Activity } from "../../src/ui/components/shell/Activity.tsx";
 import { ScreenHeader } from "../../src/ui/components/shell/ScreenHeader.tsx";
 import { Toasts } from "../../src/ui/components/ui/index.ts";
 import { AppContext, type AppState } from "../../src/ui/lib/app.ts";
+import { resetLocalWork } from "../../src/ui/lib/localActivity.ts";
 import { addRecent } from "../../src/ui/lib/recent.ts";
 import { closeToast, toast } from "../../src/ui/lib/toast.ts";
 import { abandonPulls } from "../../src/ui/screens/tests/pulls.ts";
@@ -90,6 +91,7 @@ beforeEach(() => {
 
 afterEach(() => {
   abandonPulls();
+  resetLocalWork();
   const last = toast({ kind: "info", title: "" });
   for (let i = 1; i <= last; i++) closeToast(i, true);
   cleanup();
@@ -718,7 +720,43 @@ describe("Tests screen › layout", () => {
     expect(screen.queryByRole("button", { name: "Show test list" })).toBeNull();
   });
 
+  it("the empty pane is the Jira/Xray connection form while access is incomplete (Xray Editor's connect screen)", async () => {
+    const creds = (complete: boolean) => ({
+      status: {
+        jira: { file: "j", exists: true, complete, invalid: false },
+        xray: { file: "x", exists: complete, complete, invalid: false },
+      },
+      saved: [],
+      checks: [],
+      ok: complete,
+    });
+    routes["system.setup"] = () => creds(false);
+    const first = render(<Harness />);
+    expect(await screen.findByRole("heading", { name: "Connect to Jira and Xray" })).toBeInTheDocument();
+    first.unmount();
+    routes["system.setup"] = () => creds(true);
+    render(<Harness />);
+    expect(await screen.findByRole("heading", { name: "No test open" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Connect to Jira and Xray" })).toBeNull();
+  });
+
+  it("a slow Jira load or search shows in the activity indicator until it answers, as in Xray Editor", async () => {
+    const d = deferred<unknown>();
+    routes["xray.folders"] = () => tree;
+    routes["xray.search"] = (i) => (i.text ? d.promise : { tests: [], total: 0 });
+    routes["jobs.list"] = () => [];
+    list();
+    jira("frein");
+    await waitFor(() => expect(named("xray.search").some((c) => c.input.text === "frein")).toBe(true));
+    const head = side().querySelector(".tside-head") as HTMLElement;
+    fireEvent.click(await within(head).findByRole("button", { name: /1 job running/ }));
+    expect(await screen.findByRole("dialog", { name: "Running jobs" })).toHaveTextContent("Searching Jira for “frein”");
+    d.resolve({ tests: [], total: 0 });
+    await waitFor(() => expect(within(head).queryByRole("button", { name: /job running/ })).toBeNull());
+  });
+
   it("shows the running jobs in the sidebar head, and in the bar when narrow with the drawer closed", async () => {
+    routes["xray.folders"] = () => tree;
     routes["jobs.list"] = () => [
       { id: "j1", kind: "pull", subject: "LFRPS12-9", status: "running", startedAt: new Date().toISOString() },
     ];

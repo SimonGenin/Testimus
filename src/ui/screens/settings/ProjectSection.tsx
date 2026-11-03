@@ -74,6 +74,23 @@ export function ProjectSection() {
     setKey(p?.jiraProject ?? "");
     setPrefix(p?.labelPrefix ?? "testimus-");
   }, [p?.jiraProject, p?.labelPrefix]);
+  const saveKey = () =>
+    p &&
+    key.trim() &&
+    key.trim().toUpperCase() !== p.jiraProject &&
+    void saveProject({ jiraProject: key.trim().toUpperCase() }, app.refreshInfo, "Jira project");
+  const savePrefix = () =>
+    p &&
+    prefix.trim() &&
+    prefix !== p.labelPrefix &&
+    void saveProject({ labelPrefix: prefix.trim() }, app.refreshInfo, "Label prefix");
+  // ponytail: leaving Settings unmounts it without a blur — what was typed is saved from the cleanup (Xray Editor)
+  const onUnmount = useRef(() => {});
+  onUnmount.current = () => {
+    saveKey();
+    savePrefix();
+  };
+  useEffect(() => () => onUnmount.current(), []);
   if (!p || !app.info) return null;
   return (
     <section className="card sect" id="settings-project" aria-labelledby="s-proj">
@@ -89,12 +106,8 @@ export function ProjectSection() {
             id="set-jira"
             className="field mono"
             value={key}
-            onChange={(e) => setKey(e.target.value)}
-            onBlur={() =>
-              key.trim() &&
-              key.trim() !== p.jiraProject &&
-              void saveProject({ jiraProject: key.trim() }, app.refreshInfo, "Jira project")
-            }
+            onChange={(e) => setKey(e.target.value.toUpperCase())}
+            onBlur={saveKey}
           />
         </div>
         <div className="formfield">
@@ -121,11 +134,7 @@ export function ProjectSection() {
             className="field mono"
             value={prefix}
             onChange={(e) => setPrefix(e.target.value)}
-            onBlur={() =>
-              prefix.trim() &&
-              prefix !== p.labelPrefix &&
-              void saveProject({ labelPrefix: prefix.trim() }, app.refreshInfo, "Label prefix")
-            }
+            onBlur={savePrefix}
           />
         </div>
       </div>

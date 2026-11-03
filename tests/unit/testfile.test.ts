@@ -643,3 +643,19 @@ test("review state: default draft, unknown value reported, the note survives quo
   expect(md).toContain("review: to-fix\nreview_note: ");
   expect(parseTest(md).test.reviewNote).toBe(note);
 });
+
+test("a field written twice in a step is reported once per repeat, and nothing of either copy is lost", () => {
+  const md = [
+    "---\nproject: P\nfolder: /\n---\n",
+    "## Step 1\n\n### Action\n\nalone\n",
+    "## Step 2\n\n### Action\n\nfirst\n\n### Expected Result\n\nseen\n\n### action\n\nsecond\n",
+    '### Sources\n\n- D#a "q"\n\n### Sources\n\n- D#b "r"\n',
+  ].join("\n");
+  const { test: t, warnings } = parseTest(md);
+  expect(warnings).toEqual(['Duplicate "### action" in step 2', 'Duplicate "### Sources" in step 2']);
+  expect(t.steps[0].fields.Action).toBe("alone");
+  expect(t.steps[1].fields.Action).toContain("first");
+  expect(t.steps[1].fields.Action).toContain("second");
+  expect(t.steps[1].fields["Expected Result"]).toBe("seen");
+  expect(t.steps[1].sources.map((s) => s.anchor)).toEqual(["a", "b"]);
+});

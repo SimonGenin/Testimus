@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Job } from "../../../core/types.ts";
 import { call, events } from "../../api.ts";
 import { plural } from "../../lib/format.ts";
+import { type LocalWork, onLocalWork } from "../../lib/localActivity.ts";
 import { errorToast } from "../../lib/toast.ts";
 import { Button } from "../ui/index.ts";
 
@@ -26,6 +27,8 @@ export function Activity() {
   const [jobs, setJobs] = useState<Record<string, Live>>({});
   const [open, setOpen] = useState(false);
   const [notice, setNotice] = useState("");
+  const [local, setLocal] = useState<LocalWork[]>([]);
+  useEffect(() => onLocalWork(setLocal), []);
   const [now, setNow] = useState(() => Date.now());
   const box = useRef<HTMLDivElement>(null);
   // ponytail: a list answer can land after the event that ended one of its jobs — that job stays ended
@@ -66,7 +69,7 @@ export function Activity() {
   }, []);
 
   const list = Object.values(jobs).sort((a, b) => a.job.startedAt.localeCompare(b.job.startedAt));
-  const count = list.length;
+  const count = list.length + local.length;
 
   useEffect(() => {
     if (!count) setOpen(false);
@@ -116,6 +119,17 @@ export function Activity() {
       )}
       {open && count > 0 && (
         <div className="activity-pop" role="dialog" aria-label="Running jobs">
+          {local.map((w) => (
+            <div key={`l${w.id}`} className="act">
+              <span className="act-glyph" aria-hidden="true" title={w.kind}>
+                ↓
+              </span>
+              <span className="act-body">
+                <span className="act-label">{w.label}</span>
+              </span>
+              <span className="act-time mono">{elapsed(w.startedAt, now)}</span>
+            </div>
+          ))}
           {list.map(({ job, message }) => (
             <div key={job.id} className="act">
               <span className="act-glyph" aria-hidden="true" title={job.kind}>

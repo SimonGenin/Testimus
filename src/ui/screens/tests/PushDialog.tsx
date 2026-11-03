@@ -48,7 +48,6 @@ export function PushDialog({
 }) {
   const [phase, setPhase] = useState<Phase>("loading");
   const [plan, setPlan] = useState<Plan | null>(null);
-  const [replace, setReplace] = useState(false);
   const [done, setDone] = useState(0);
   const [result, setResult] = useState<PushResult | null>(null);
   const [failure, setFailure] = useState<{ message: string; fix?: string } | null>(null);
@@ -87,7 +86,8 @@ export function PushDialog({
           id: testId,
           from: start || undefined,
           planHash: plan?.planHash,
-          overwriteRemote: plan?.remoteChanged && replace ? true : undefined,
+          // ponytail: the plan shows the Jira change and confirming it is the decision, as in Xray Editor — no extra tick
+          overwriteRemote: plan?.remoteChanged ? true : undefined,
         },
         onEvent,
       );
@@ -238,12 +238,7 @@ export function PushDialog({
           <Button tone="quiet" onClick={onClose}>
             Cancel
           </Button>
-          <Button
-            tone="primary"
-            icon="push"
-            disabled={phase !== "plan" || !ops.length || (!!plan?.remoteChanged && !replace)}
-            onClick={() => void push(0)}
-          >
+          <Button tone="primary" icon="push" disabled={phase !== "plan" || !ops.length} onClick={() => void push(0)}>
             Confirm push
           </Button>
         </>
@@ -294,7 +289,8 @@ export function PushDialog({
                 Changed in Jira since your pull
               </span>
               <p>
-                Someone changed this test in Jira after your pull. Compare first, or replace their change on purpose.
+                Someone changed this test in Jira after your pull — pushing replaces their change. Compare first if in
+                doubt.
               </p>
               {onCompare && (
                 <div>
@@ -303,10 +299,6 @@ export function PushDialog({
                   </Button>
                 </div>
               )}
-              <label className="push-replace">
-                <input type="checkbox" checked={replace} onChange={(e) => setReplace(e.target.checked)} />
-                Push anyway, replace their change
-              </label>
             </div>
           )}
           {warnings.map((w) => (

@@ -200,7 +200,9 @@ export const commands: Command[] = [
       paths: z
         .array(z.string())
         .optional()
-        .describe("Absolute folders or files outside the project Claude may read (replaces the list)"),
+        .describe(
+          "Folders or files Claude may read in place, absolute or relative to the project folder (replaces the list)",
+        ),
     }),
     output: detail,
     mutates: true,
@@ -210,12 +212,8 @@ export const commands: Command[] = [
       const dir = mustExist(project, input.id);
       const meta = readJson<Meta>(metaFile(project, input.id), {});
       if (input.name !== undefined) meta.name = input.name.trim() || meta.name || input.id;
-      if (input.paths) {
-        const bad = input.paths.filter((p) => !isAbsolute(p.trim()));
-        if (bad.length)
-          throw new UserError(`Not an absolute path: ${bad.join(", ")}.`, "Give a full path such as D:\\Specs\\J5.");
-        meta.paths = [...new Set(input.paths.map((p) => p.trim()).filter(Boolean))];
-      }
+      // ponytail: a path is kept as typed (Xray Editor); a relative one is read from the project folder, Claude's cwd
+      if (input.paths) meta.paths = [...new Set(input.paths.map((p) => p.trim()).filter(Boolean))];
       if (input.name !== undefined || input.paths) writeJson(metaFile(project, input.id), meta);
       if (input.notes !== undefined) writeAtomic(join(dir, "notes.md"), input.notes);
       return show(project, input.id);

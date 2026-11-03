@@ -89,10 +89,10 @@ describe("ConnectAtlassian helpers", () => {
     expect(siteRoot("http://[bad")).toBe("http://[bad");
   });
 
-  it("savedAs keeps the saved form or adds /wiki on Atlassian Cloud", () => {
+  it("savedAs keeps the saved form, else the root as typed (as Xray Editor)", () => {
     expect(savedAs("")).toBe("");
     expect(savedAs("https://x.atlassian.net", " https://x.atlassian.net/wiki/ ")).toBe("https://x.atlassian.net/wiki/");
-    expect(savedAs("https://x.atlassian.net", "https://y.atlassian.net/wiki")).toBe("https://x.atlassian.net/wiki");
+    expect(savedAs("https://x.atlassian.net", "https://y.atlassian.net/wiki")).toBe("https://x.atlassian.net");
     expect(savedAs("https://jira.acme.com")).toBe("https://jira.acme.com");
   });
 
@@ -134,7 +134,7 @@ describe("ConnectAtlassian", () => {
     expect(onStatus).toHaveBeenCalled();
     expect(screen.getByText(/The address in your browser/)).toBeInTheDocument();
     fireEvent.change(site, { target: { value: "beta" } });
-    expect(screen.getByText("https://beta.atlassian.net/wiki")).toBeInTheDocument();
+    expect(screen.getByText("https://beta.atlassian.net")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: " me@beta " } });
     fireEvent.change(screen.getByLabelText("API token"), { target: { value: " tok " } });
     fireEvent.change(screen.getByLabelText("Client ID"), { target: { value: " cid " } });

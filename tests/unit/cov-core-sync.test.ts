@@ -12,6 +12,7 @@ import {
   freshXray,
   insideTest,
   type Push,
+  projectInfo,
   pullToLocal,
   pushTest,
 } from "../../src/core/lib/sync.ts";
@@ -64,6 +65,26 @@ describe("freshXray and projectInfo", () => {
       throw new Error("offline");
     };
     expect((await freshXray(project)).fetchedAt).toBe(readXray(project).fetchedAt);
+  });
+
+  it("fetches the project info again when its cache is corrupt, or names another project, and rewrites it", async () => {
+    const cache = join(project, ".testimus", "jira-project.json");
+    let projectCalls = 0;
+    env.http = async (req) => {
+      if (req.url.includes("/rest/api/3/project/")) projectCalls++;
+      return mockHttp(req);
+    };
+    mkdirSync(join(project, ".testimus"), { recursive: true });
+    for (const bad of ["{ not json", JSON.stringify({ key: "OTHER", id: "1" }), JSON.stringify({ key: "LFRPS12" })]) {
+      writeFileSync(cache, bad);
+      const info = await projectInfo(project);
+      expect(info.key).toBe("LFRPS12");
+      expect(info.id).toBeTruthy();
+      expect(JSON.parse(readFileSync(cache, "utf8"))).toEqual(info);
+    }
+    expect(projectCalls).toBe(3);
+    await projectInfo(project);
+    expect(projectCalls).toBe(3);
   });
 
   it("reads the step columns again before a push plan, so a column made required since warns", async () => {

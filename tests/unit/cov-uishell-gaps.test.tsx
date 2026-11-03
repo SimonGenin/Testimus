@@ -67,15 +67,15 @@ describe("small remaining paths", () => {
 });
 
 describe("dock remaining paths", () => {
-  it("uses Sonnet and medium effort without a project, sends with the button and ignores Escape before the job starts", async () => {
+  it("uses Opus and high effort without a project (Xray Editor's defaults), sends with the button and ignores Escape before the job starts", async () => {
     const gate = deferred();
     net.routes["chat.ask"] = async () => {
       await gate.promise;
       return { chatId: "c", answer: "réponse" };
     };
     withApp(<ClaudeDock folded={false} onFold={() => {}} />, { info: null });
-    expect(screen.getByRole("combobox", { name: "Model" })).toHaveValue("sonnet");
-    expect(screen.getByRole("combobox", { name: "Effort" })).toHaveValue("medium");
+    expect(screen.getByRole("combobox", { name: "Model" })).toHaveValue("opus");
+    expect(screen.getByRole("combobox", { name: "Effort" })).toHaveValue("high");
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "Q" } });
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
     await waitFor(() => expect(callsOf("chat.ask")).toHaveLength(1));

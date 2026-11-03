@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { JobEvent } from "../../src/core/types.ts";
 import { ApiError, project, setProject } from "../../src/ui/api.ts";
@@ -317,6 +317,29 @@ describe("ProjectButton", () => {
     openMenu();
     fireEvent.click(await screen.findByRole("menuitem", { name: /New or other project/ }));
     expect(state.navigate).toHaveBeenCalledWith("setup", "project");
+  });
+
+  it("opens a project by its Jira key from the menu", async () => {
+    net.routes["project.list"] = () => [];
+    net.routes["project.openKey"] = (i) => ({
+      dir: "D:WorkBHPTCC",
+      name: "BHPTCC",
+      jiraProject: "BHPTCC",
+      created: true,
+      key: i.key,
+    });
+    net.routes["project.open"] = (i) => ({ dir: i.dir, name: "BHPTCC", jiraProject: "BHPTCC" });
+    const { state } = withApp(<ProjectButton />);
+    openMenu();
+    fireEvent.click(await screen.findByRole("menuitem", { name: /Open by Jira key/ }));
+    const dlg = screen.getByRole("dialog", { name: "Open a project by its Jira key" });
+    fireEvent.change(within(dlg).getByLabelText("Jira project key"), { target: { value: "bhptcc" } });
+    expect(within(dlg).getByLabelText("Jira project key")).toHaveValue("BHPTCC");
+    fireEvent.click(within(dlg).getByRole("button", { name: "Go" }));
+    await waitFor(() => expect(callsOf("project.openKey")[0]?.input).toEqual({ key: "BHPTCC" }));
+    await waitFor(() => expect(project()).toBe("D:WorkBHPTCC"));
+    expect(state.refreshInfo).toHaveBeenCalled();
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Open a project by its Jira key" })).toBeNull());
   });
 
   it("says when no other project is known, and when the list fails", async () => {

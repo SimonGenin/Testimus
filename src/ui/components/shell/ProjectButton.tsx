@@ -6,6 +6,7 @@ import { initials } from "../../lib/format.ts";
 import { writePref } from "../../lib/theme.ts";
 import { errorToast } from "../../lib/toast.ts";
 import { Menu, type MenuItem } from "../ui/index.ts";
+import { OpenByKey } from "./OpenByKey.tsx";
 
 type Known = { dir: string; name?: string; jiraProject?: string };
 
@@ -17,6 +18,7 @@ const asKnown = (v: unknown): Known[] =>
 export function ProjectButton() {
   const app = useApp();
   const [known, setKnown] = useState<Known[]>([]);
+  const [byKey, setByKey] = useState(false);
   const p = app.info?.project;
   const name = p?.name || (app.info ? baseName(app.info.dir) : "No project");
   const key = p?.jiraProject || "—";
@@ -61,6 +63,7 @@ export function ProjectButton() {
         onSelect: () => void reveal(here),
       });
   }
+  items.push({ key: "bykey", label: "Open by Jira key…", icon: "search", onSelect: () => setByKey(true) });
   items.push({
     key: "new",
     label: "New or other project…",
@@ -68,26 +71,29 @@ export function ProjectButton() {
     onSelect: () => app.navigate("setup", "project"),
   });
   return (
-    <Menu
-      label="Projects"
-      className="rail-project"
-      items={items}
-      trigger={({ open, toggle, id }) => (
-        <button
-          type="button"
-          className="rail-item"
-          aria-label={`Project ${key} ${name}, change project`}
-          aria-expanded={open}
-          aria-controls={open ? id : undefined}
-          onClick={() => {
-            if (!open) void load();
-            toggle();
-          }}
-        >
-          <span className="proj-mark">{initials(name)}</span>
-          <span className="mono proj-key">{key}</span>
-        </button>
-      )}
-    />
+    <>
+      {byKey && <OpenByKey onClose={() => setByKey(false)} />}
+      <Menu
+        label="Projects"
+        className="rail-project"
+        items={items}
+        trigger={({ open, toggle, id }) => (
+          <button
+            type="button"
+            className="rail-item"
+            aria-label={`Project ${key} ${name}, change project`}
+            aria-expanded={open}
+            aria-controls={open ? id : undefined}
+            onClick={() => {
+              if (!open) void load();
+              toggle();
+            }}
+          >
+            <span className="proj-mark">{initials(name)}</span>
+            <span className="mono proj-key">{key}</span>
+          </button>
+        )}
+      />
+    </>
   );
 }

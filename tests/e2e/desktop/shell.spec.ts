@@ -215,6 +215,10 @@ test("pickFolder (stubbed in the main process) opens a project; a second launch 
       s.showItemInFolder = (p: string) => {
         g.revealed.push(p);
       };
+      s.openPath = async (p: string) => {
+        g.revealed.push(p);
+        return "";
+      };
     }, dir);
 
     const picked = await page.evaluate(() => window.testimusDesktop?.pickFolder({ title: "Open a project" }));

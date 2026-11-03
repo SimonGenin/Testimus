@@ -1,5 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
-import { isAbsolute } from "node:path";
+import { readFileSync } from "node:fs";
 import { z } from "zod";
 import { type Command, command, UserError } from "../command.ts";
 import { env } from "../env.ts";
@@ -63,8 +62,7 @@ const settingsOut = z.object({
 });
 
 // ponytail: whatever people paste — "transurb", a host, any page URL, http or https — becomes the site root over https
-// (Xray Editor's siteUrl): a typed /wiki is kept, an *.atlassian.net site always gets it (§2), an unchanged site keeps
-// the exact spelling already in the file
+// (Xray Editor's siteUrl): a typed /wiki is kept, an unchanged site keeps the exact spelling already in the file
 export function siteUrl(site: string, previous?: string): string {
   let s = site.trim().replace(/\s+/g, "");
   if (!/^https?:\/\//i.test(s)) s = `https://${s}`;
@@ -80,16 +78,18 @@ export function siteUrl(site: string, previous?: string): string {
     .replace(/\/+$/, "")
     .replace(/\/wiki$/, "");
   if (previous && prevBase === base) return previous.trim();
-  return /\.atlassian\.net$/i.test(base) ? `${base}/wiki` : url;
+  return url;
 }
 
 export function checkedExe(raw: string): string {
   const exe = raw.trim();
   if (!exe) return "";
-  if (!/\.(exe|cmd|bat)$/i.test(exe) || !isAbsolute(exe) || !existsSync(exe) || /[&|<>^%!"\r\n]/.test(exe))
+  // ponytail: the path is kept as typed, even one that does not run — the Claude status then says ✕ not found and shows
+  // how to install (Xray Editor); only characters cmd.exe would read as commands are refused, the path reaches a shell
+  if (/[&|<>^%!"\r\n]/.test(exe))
     throw new UserError(
-      "claude.exe must be the full path of an existing claude.exe or claude.cmd.",
-      "Leave it empty to use claude from PATH.",
+      'That Claude program path holds characters a command line would run (& | < > ^ % ! ").',
+      "Give the plain path of claude.exe or claude.cmd, or leave it empty to use claude from PATH.",
     );
   return exe;
 }
@@ -140,7 +140,7 @@ export const commands: Command[] = [
       site: z
         .string()
         .optional()
-        .describe("Jira site: tenant name, host or URL (https://<tenant>.atlassian.net; /wiki is added and kept)."),
+        .describe("Jira site: tenant name, host or URL (https://<tenant>.atlassian.net; a typed /wiki is kept)."),
       email: z.string().optional().describe("Atlassian account email."),
       token: z
         .string()

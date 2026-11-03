@@ -118,10 +118,9 @@ describe("PushDialog › plan", () => {
     dialog({ onCompare });
     fireEvent.click(await screen.findByRole("button", { name: "Compare with Jira" }));
     expect(onCompare).toHaveBeenCalled();
-    const box = screen.getByRole("checkbox", { name: "Push anyway, replace their change" });
-    fireEvent.click(box);
-    fireEvent.click(box);
-    expect(screen.getByRole("button", { name: "Confirm push" })).toBeDisabled();
+    expect(screen.getByText(/pushing replaces their change/)).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox")).toBeNull();
+    expect(screen.getByRole("button", { name: "Confirm push" })).toBeEnabled();
   });
 
   it("explains a plan that could not be built, with the fix when there is one", async () => {
@@ -296,10 +295,10 @@ describe("PushDialog › running", () => {
     expect(bar.querySelector("span")).toHaveStyle({ width: "0%" });
   });
 
-  it("reports the overwrite choice to the push", async () => {
+  it("confirming a plan that shows a Jira change is the overwrite decision, as in Xray Editor", async () => {
     h.plan = () => plan({ remoteChanged: true });
     dialog();
-    fireEvent.click(await screen.findByRole("checkbox", { name: "Push anyway, replace their change" }));
+    await screen.findByText("Changed in Jira since your pull");
     await confirm();
     await waitFor(() => expect(pushes).toHaveLength(1));
     expect(pushes[0]).toEqual({ id: "t1", planHash: "h1", overwriteRemote: true });

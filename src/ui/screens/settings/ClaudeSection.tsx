@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Effort, Preset, Settings } from "../../../core/types.ts";
 import { call } from "../../api.ts";
 import { type ClaudeStatus, ConnectClaude } from "../../components/claude/ConnectClaude.tsx";
@@ -48,6 +48,10 @@ function ClaudeProgram() {
     if (r) setS(r);
     return !!r;
   };
+  // ponytail: leaving Settings unmounts it without a blur — a typed path is saved from the cleanup (Xray Editor)
+  const onUnmount = useRef(() => {});
+  onUnmount.current = () => void commit(exe);
+  useEffect(() => () => onUnmount.current(), []);
   const check = async (value = exe) => {
     setSt("checking");
     if (!(await commit(value))) {

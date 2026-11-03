@@ -153,6 +153,32 @@ describe("xray authentication", () => {
   });
 });
 
+describe("xray token", () => {
+  it("is fetched once and reused across calls, and fetched again only after a 401", async () => {
+    const tree = { getFolder: { name: "/", path: "/", testsCount: 0, folders: [] } };
+    graph = () => tree;
+    const auths = () => calls.filter((c) => c.url.includes("/api/v2/authenticate")).length;
+    const bearers = () => gqlCalls().map((c) => c.headers.Authorization);
+    await getFolderTree("1");
+    await getFolderTree("1");
+    await getFolderTree("1");
+    expect(auths()).toBe(1);
+    expect(bearers()).toEqual(["Bearer jwt-1", "Bearer jwt-1", "Bearer jwt-1"]);
+    let refused = false;
+    authText = '"jwt-2"';
+    route = (req) => {
+      if (!req.url.endsWith("/graphql") || refused) return undefined;
+      refused = true;
+      return status(401);
+    };
+    await getFolderTree("1");
+    expect(auths()).toBe(2);
+    await getFolderTree("1");
+    expect(auths()).toBe(2);
+    expect(bearers().slice(3)).toEqual(["Bearer jwt-1", "Bearer jwt-2", "Bearer jwt-2"]);
+  });
+});
+
 describe("graphql errors", () => {
   it("two 401 in a row fail", async () => {
     route = (req) => (req.url.endsWith("/graphql") ? status(401) : undefined);
@@ -391,7 +417,6 @@ describe("pullTest, sparse and odd answers", () => {
       Data: "",
       "Expected Result": "",
       List: JSON.stringify(["a", 1, null]),
-      c2: '{"k":1}',
       Lines: "a\nb\nc",
     });
     expect(s1.images).toEqual([{ file: "images/att 1-att_1", remoteId: "att 1" }]);

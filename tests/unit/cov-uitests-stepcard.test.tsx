@@ -570,4 +570,12 @@ describe("StepCard chrome", () => {
     card({ ...base, fields: { Action: "Only action" } }, { folded: true, xray: none });
     expect(screen.getByText("Only action")).toBeInTheDocument();
   });
+
+  it("shows the step number as visible text, open or folded", () => {
+    const { container } = card(base, { index: 4, count: 6 });
+    expect(container.querySelector(".step-head .num")?.textContent).toBe("5");
+    cleanup();
+    const folded = card(base, { index: 4, count: 6, folded: true });
+    expect(folded.container.querySelector("article .num")?.textContent).toBe("5");
+  });
 });

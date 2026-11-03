@@ -171,7 +171,7 @@ describe("dock: scope, presets, contexts, models", () => {
     expect(
       await screen.findByText("12.3 s · 24k tokens in · 1.2k out · opus / high · session abcdef12…"),
     ).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Rephrase", pressed: false })).toHaveLength(2);
+    expect(box()).toHaveValue("Rephrase in house style");
   });
 
   it("Ctrl+Enter sends and Enter is a new line; raw output is offered after a run that went well too", async () => {
@@ -188,6 +188,42 @@ describe("dock: scope, presets, contexts, models", () => {
     expect(screen.getByText("RAW-OUT")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Open Settings" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+  });
+
+  it("runs on the test with an empty box, as Xray Editor does; the documents need a question", async () => {
+    routes["contexts.list"] = () => ctxList;
+    routes["contexts.ofTest"] = () => ({ effective: [], own: null, project: [] });
+    routes["claude.run"] = () => ({ ok: true, summary: "Done", changedTests: [], raw: "" });
+    render(wrap(withClaude({}, { focus: focus() }), <ClaudeDock folded={false} onFold={() => {}} />));
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+    await waitFor(() => expect(callsOf("claude.run")).toHaveLength(1));
+    expect(callsOf("claude.run")[0].input).toMatchObject({ prompt: "", scope: { kind: "test", testId: "local-1" } });
+    expect(screen.getByText(/No request — Claude works from the scope/)).toBeInTheDocument();
+    expect(await screen.findByText("Done")).toBeInTheDocument();
+    cleanup();
+    render(wrap(withClaude({}), <ClaudeDock folded={false} onFold={() => {}} />));
+    expect(screen.getByRole("tab", { name: "Ask the documents" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("button", { name: /Send/ })).toBeDisabled();
+  });
+
+  it("on a test: one result card per run, the request kept in the box, the card gone when the test changes", async () => {
+    routes["contexts.list"] = () => ctxList;
+    routes["contexts.ofTest"] = () => ({ effective: [], own: null, project: [] });
+    let n = 0;
+    routes["claude.run"] = () => ({ ok: true, summary: `Answer ${++n}`, runId: `run-${n}`, changedTests: [], raw: "" });
+    const state = withClaude({}, { focus: focus() });
+    const r = render(wrap(state, <ClaudeDock folded={false} onFold={() => {}} />));
+    send("Raccourcis");
+    expect(await screen.findByText("Answer 1")).toBeInTheDocument();
+    expect(box()).toHaveValue("Raccourcis");
+    send();
+    expect(await screen.findByText("Answer 2")).toBeInTheDocument();
+    expect(screen.queryByText("Answer 1")).toBeNull();
+    expect(screen.getAllByText("Raccourcis", { selector: ".bubble" })).toHaveLength(1);
+    r.rerender(
+      wrap({ ...state, focus: focus({ testId: "local-2" }) }, <ClaudeDock folded={false} onFold={() => {}} />),
+    );
+    await waitFor(() => expect(screen.queryByText("Answer 2")).toBeNull());
   });
 
   it("a cancelled run still shows what Claude changed, tells the editor and offers Revert", async () => {
@@ -286,7 +322,7 @@ describe("dock: run details and failures", () => {
     );
     expect(await screen.findByText(/^4\.5 s · no tokens reported/)).toBeInTheDocument();
     r.rerender(wrap(state, <ClaudeDock folded onFold={() => {}} />));
-    expect(screen.getByText("Last run: 4.5 s")).toHaveAttribute("title", "Rewrote step 3");
+    expect(screen.getByText("Last run: 4.5 s — Rewrote step 3")).toHaveAttribute("title", "Rewrote step 3");
   });
 
   it("a failed run offers Retry, the raw output and the settings", async () => {
@@ -328,6 +364,33 @@ describe("dock: run details and failures", () => {
     expect(state.navigate).toHaveBeenCalledWith("settings", "claude-exe");
     r.rerender(wrap(state, <ClaudeDock folded onFold={() => {}} />));
     expect(screen.getByText("not connected")).toBeInTheDocument();
+  });
+
+  it("the connect panel shows what the Claude CLI probe answered, in the dock and in Settings", async () => {
+    const probe = "Invalid API key · Please run /login";
+    routes["claude.status"] = () => ({
+      installed: true,
+      version: "2.1.0",
+      signedIn: false,
+      exe: "claude",
+      detail: probe,
+    });
+    const r = render(wrap(app(), <ClaudeDock folded={false} onFold={() => {}} />));
+    const title = await screen.findByText("Claude isn't signed in on this PC yet");
+    const panel = title.closest(".connect") as HTMLElement;
+    expect(within(panel).getByText(probe)).toHaveClass("connect-hint");
+    expect(within(panel).getByText("/login")).toBeInTheDocument();
+    r.unmount();
+    routes["system.settings"] = () => ({ claude: { exe: "" }, models: { allowRemote: true } });
+    routes["claude.status"] = () => ({
+      installed: false,
+      signedIn: false,
+      exe: "claude",
+      detail: "spawn claude ENOENT",
+    });
+    render(wrap(app({ info: null }), <ClaudeSection />));
+    const heading = await screen.findByText("Claude isn't installed on this PC yet");
+    expect(within(heading.closest(".connect") as HTMLElement).getByText("spawn claude ENOENT")).toBeInTheDocument();
   });
 
   it("meta line words", () => {
@@ -409,10 +472,6 @@ describe("contexts dialog", () => {
     expect(await screen.findByRole("option", { name: /New context/ })).toHaveAttribute("aria-selected", "true");
     expect(callsOf("contexts.create")[0].input).toEqual({ shared: true });
     fireEvent.click(screen.getByRole("button", { name: "Delete context" }));
-    expect(callsOf("contexts.remove")).toHaveLength(0);
-    fireEvent.click(screen.getByRole("button", { name: "Keep it" }));
-    fireEvent.click(screen.getByRole("button", { name: "Delete context" }));
-    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(callsOf("contexts.remove")).toHaveLength(1));
     expect(await screen.findByRole("option", { name: /Style/ })).toHaveAttribute("aria-selected", "true");
     expect(changed).toHaveBeenCalled();
@@ -491,8 +550,10 @@ describe("contexts dialog", () => {
     expect(callsOf("contexts.share")[0].input).toEqual({ id: "ctx-a", shared: true });
     expect(screen.getByRole("option", { name: /shared · empty/ })).toBeVisible();
     expect(screen.getByText("shared library · ctx-a/")).toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: "Delete context" }));
-    expect(screen.getByRole("alert")).toHaveTextContent("for every project");
+    expect(screen.getByRole("button", { name: "Delete context" })).toHaveAttribute(
+      "title",
+      "Deleted for every project",
+    );
   });
 
   it("says what a context holds", () => {
@@ -562,6 +623,24 @@ describe("settings › Claude", () => {
     expect(screen.getByText("Claude isn't installed on this PC yet")).toBeInTheDocument();
     expect(exeLine({ installed: true, signedIn: null })).toBe("✓ Claude Code · found");
   });
+
+  it("a Claude program path typed but not blurred is saved when Settings goes, once, as in Xray Editor", async () => {
+    routes["system.settings"] = () => ({ claude: { exe: "" }, models: { allowRemote: true } });
+    routes["system.saveSettings"] = (i) => ({ claude: { exe: i.claudeExe }, models: { allowRemote: true } });
+    const r = render(wrap(app({ info: null }), <ClaudeSection />));
+    await waitFor(() => expect(callsOf("system.settings")).toHaveLength(1));
+    await screen.findByText("✓ 2.1.0 · found");
+    fireEvent.change(screen.getByLabelText("Claude program"), { target: { value: "D:\\tools\\claude.cmd" } });
+    expect(callsOf("system.saveSettings")).toHaveLength(0);
+    r.unmount();
+    await waitFor(() => expect(callsOf("system.saveSettings")).toHaveLength(1));
+    expect(callsOf("system.saveSettings")[0].input).toEqual({ claudeExe: "D:\\tools\\claude.cmd" });
+    const again = render(wrap(app({ info: null }), <ClaudeSection />));
+    await waitFor(() => expect(callsOf("system.settings")).toHaveLength(2));
+    again.unmount();
+    await new Promise((res) => setTimeout(res, 20));
+    expect(callsOf("system.saveSettings")).toHaveLength(1);
+  });
 });
 
 describe("settings screen, notes, appearance", () => {
@@ -588,6 +667,24 @@ describe("settings screen, notes, appearance", () => {
     fireEvent.blur(area);
     await waitFor(() => expect(callsOf("project.setNotes")).toHaveLength(2));
     expect(callsOf("project.setNotes")[1].input).toEqual({ text: "# Notes\nPCC\nSAE" });
+  });
+
+  it("a Jira project key and a label prefix typed but not blurred are saved when Settings goes", async () => {
+    routes["project.notes"] = () => ({ file: "C:\\p\\CLAUDE.md", text: "" });
+    routes["project.set"] = (i) => i;
+    const state = app();
+    const r = render(wrap(state, <ProjectSection />));
+    fireEvent.change(screen.getByLabelText("Jira project"), { target: { value: "bhptcc" } });
+    fireEvent.change(screen.getByLabelText("Review label prefix"), { target: { value: "tm-" } });
+    expect(callsOf("project.set")).toHaveLength(0);
+    r.unmount();
+    await waitFor(() => expect(callsOf("project.set")).toHaveLength(2));
+    expect(callsOf("project.set").map((c) => c.input)).toEqual([{ jiraProject: "BHPTCC" }, { labelPrefix: "tm-" }]);
+    const again = render(wrap(state, <ProjectSection />));
+    fireEvent.blur(screen.getByLabelText("Jira project"));
+    again.unmount();
+    await new Promise((res) => setTimeout(res, 20));
+    expect(callsOf("project.set")).toHaveLength(2);
   });
 
   it("always on top: hidden in the browser, a switch and a pin in the desktop app, remembered", async () => {
@@ -643,7 +740,7 @@ describe("access: files and the guided connection", () => {
     expect(siteRoot("https://transurb.atlassian.net/browse/X-1?focus=1")).toBe("https://transurb.atlassian.net");
     expect(siteRoot("https://transurb.atlassian.net/wiki/spaces/A")).toBe("https://transurb.atlassian.net/wiki");
     expect(siteRoot("")).toBe("");
-    expect(savedAs("https://transurb.atlassian.net")).toBe("https://transurb.atlassian.net/wiki");
+    expect(savedAs("https://transurb.atlassian.net")).toBe("https://transurb.atlassian.net");
     expect(savedAs("https://transurb.atlassian.net", "https://transurb.atlassian.net/wiki")).toBe(
       "https://transurb.atlassian.net/wiki",
     );
@@ -708,7 +805,7 @@ describe("access: files and the guided connection", () => {
     const site = screen.getByLabelText("Jira site");
     expect(site).toHaveValue("https://acme.atlassian.net/wiki");
     fireEvent.change(site, { target: { value: "https://transurb.atlassian.net/browse/LFRPS12-1" } });
-    expect(screen.getByText("https://transurb.atlassian.net/wiki")).toBeInTheDocument();
+    expect(screen.getByText("https://transurb.atlassian.net")).toBeInTheDocument();
     expect(screen.getByText(/Will be saved as/)).toBeInTheDocument();
     const secret = screen.getByLabelText("Client secret");
     expect(secret).toHaveAttribute("type", "password");
@@ -734,6 +831,23 @@ describe("access: files and the guided connection", () => {
     expect(screen.getAllByText("found · valid")).toHaveLength(2);
     fireEvent.click(screen.getByRole("button", { name: /Saved in/ }));
     expect(d.reveal).toHaveBeenCalledWith("C:\\Users\\me\\.atlassian");
+  });
+
+  it("erases a saved secret the user empties", async () => {
+    routes["system.setup"] = () => ({
+      status: creds({ baseUrl: "https://acme.atlassian.net/wiki", email: "me@acme.fr" }),
+      saved: [],
+      checks: [],
+      ok: true,
+    });
+    routes["system.secrets"] = () => ({ token: "tok-1", clientId: "cid-1", clientSecret: "sec-1" });
+    routes["system.doctor"] = () => ({ checks: [] });
+    render(wrap(app(), <AccessSection />));
+    await waitFor(() => expect(screen.getByLabelText("Client ID")).toHaveValue("cid-1"));
+    fireEvent.change(screen.getByLabelText("Client ID"), { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save and test the connection" }));
+    await waitFor(() => expect(callsOf("system.setup")).toHaveLength(2));
+    expect(callsOf("system.setup")[1].input).toEqual({ check: true, clear: ["clientId"] });
   });
 
   it("saves a site outside atlassian.net as given, as Xray Editor does", async () => {

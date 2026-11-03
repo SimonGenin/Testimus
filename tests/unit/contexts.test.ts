@@ -58,7 +58,9 @@ describe("contexts commands", () => {
     const list = await run<Detail[]>("contexts.list");
     expect(list.map((x) => x.name)).toEqual(["New context", "Style maison"]);
     expect(await run<Detail>("contexts.show", { id: c.id })).toMatchObject({ notes: "Une action par pas." });
-    await expect(run("contexts.set", { id: c.id, paths: ["relative\\dir"] })).rejects.toThrow(/Not an absolute path/);
+    expect((await run<Detail>("contexts.set", { id: c.id, paths: ["relative\\dir"] })).paths).toEqual([
+      "relative\\dir",
+    ]);
     await expect(run("contexts.show", { id: "ctx-missing" })).rejects.toThrow(/No context ctx-missing/);
     await expect(run("contexts.set", { id: "ctx-missing", name: "x" })).rejects.toThrow(/No context/);
     expect(() => all.find((x) => x.name === "contexts.show")?.input.parse({ id: "../x" })).toThrow();

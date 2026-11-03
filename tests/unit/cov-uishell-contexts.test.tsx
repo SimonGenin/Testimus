@@ -249,26 +249,19 @@ describe("ContextsDialog", () => {
     expect(await screen.findByText("Could not remove b.pdf")).toBeInTheDocument();
   });
 
-  it("deletes after a confirmation, then shows the next context or none", async () => {
+  it("deletes on one click, as Xray Editor does, then shows the next context or none", async () => {
     backend([glossary, empty]);
     mount();
     await waitFor(() => expect(nameBox()).toHaveValue("Glossaire"));
     fireEvent.change(nameBox(), { target: { value: "unsaved" } });
     fireEvent.click(screen.getByRole("button", { name: /Delete context/ }));
-    expect(screen.getByRole("alert")).toHaveTextContent("Delete “unsaved”, its notes and copied files?");
-    fireEvent.click(screen.getByRole("button", { name: "Keep it" }));
-    expect(screen.queryByRole("alert")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: /Delete context/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(option(/bare/)).toHaveAttribute("aria-selected", "true"));
     expect(callsOf("contexts.set")).toHaveLength(0);
-    fireEvent.click(screen.getByRole("button", { name: /Delete context/ }));
-    expect(screen.getByRole("alert")).toHaveTextContent("Delete “bare”");
     fail.add("contexts.remove");
-    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    fireEvent.click(screen.getByRole("button", { name: /Delete context/ }));
     expect(await screen.findByText("Could not delete the context")).toBeInTheDocument();
     fail.delete("contexts.remove");
-    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    fireEvent.click(screen.getByRole("button", { name: /Delete context/ }));
     expect(await screen.findByText("No context yet")).toBeInTheDocument();
   });
 
