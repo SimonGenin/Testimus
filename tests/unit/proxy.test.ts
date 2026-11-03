@@ -5,8 +5,9 @@ import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { loopbackProxyGap, withLoopbackNoProxy } from "../../src/core/shell.ts";
+import { loopbackProxyGap } from "../../src/core/shell.ts";
 import { coreEnv } from "../../src/desktop/core.ts";
+import { withLoopback } from "../../src/shared/loopback.ts";
 
 let proxy: Server;
 let target: Server;
@@ -77,7 +78,7 @@ describe("loopback calls under NODE_USE_ENV_PROXY=1 (real Node fetch)", () => {
   it("with the loopback names appended to the user's NO_PROXY, nothing reaches the proxy", async () => {
     proxyHits = [];
     const vars = cleanEnv({ NODE_USE_ENV_PROXY: "1", HTTP_PROXY: proxyUrl, HTTPS_PROXY: proxyUrl });
-    vars.NO_PROXY = withLoopbackNoProxy("corp.example");
+    vars.NO_PROXY = withLoopback("corp.example");
     expect(loopbackProxyGap(vars)).toBeNull();
     expect(await fetchThrough(vars)).toBe("127.0.0.1=local localhost=local [::1]=local");
     expect(proxyHits).toEqual([]);
@@ -116,11 +117,11 @@ describe("loopback calls under NODE_USE_ENV_PROXY=1 (real Node fetch)", () => {
 
 describe("NO_PROXY helpers", () => {
   it("appends the loopback names, never replaces the user's value", () => {
-    expect(withLoopbackNoProxy(undefined)).toBe("localhost,127.0.0.1,::1");
-    expect(withLoopbackNoProxy("")).toBe("localhost,127.0.0.1,::1");
-    expect(withLoopbackNoProxy("corp.example")).toBe("corp.example,localhost,127.0.0.1,::1");
-    expect(withLoopbackNoProxy("LOCALHOST,127.0.0.1")).toBe("LOCALHOST,127.0.0.1,::1");
-    expect(withLoopbackNoProxy("localhost,127.0.0.1,::1")).toBe("localhost,127.0.0.1,::1");
+    expect(withLoopback(undefined)).toBe("localhost,127.0.0.1,::1");
+    expect(withLoopback("")).toBe("localhost,127.0.0.1,::1");
+    expect(withLoopback("corp.example")).toBe("corp.example,localhost,127.0.0.1,::1");
+    expect(withLoopback("LOCALHOST,127.0.0.1")).toBe("LOCALHOST,127.0.0.1,::1");
+    expect(withLoopback("localhost,127.0.0.1,::1")).toBe("localhost,127.0.0.1,::1");
   });
 
   it("sees the gap only when fetch uses an HTTP proxy and NO_PROXY misses a loopback name", () => {

@@ -5,8 +5,9 @@ import { quietCtx } from "../../src/core/command.ts";
 import { commands } from "../../src/core/commands/jobs.ts";
 import { env } from "../../src/core/env.ts";
 import { cancelJob, jobNotice, listJobs, showJob, startJob, subscribe, waitJob } from "../../src/core/jobs.ts";
-import { loopbackProxyGap, stopCore, withLoopbackNoProxy } from "../../src/core/shell.ts";
+import { loopbackProxyGap, stopCore } from "../../src/core/shell.ts";
 import type { Job } from "../../src/core/types.ts";
+import { withLoopback } from "../../src/shared/loopback.ts";
 import { tempRoot } from "./cov-faces-helpers.ts";
 
 const root = tempRoot("jobs");
@@ -199,10 +200,10 @@ describe("jobs commands", () => {
 
 describe("shell helpers", () => {
   it("adds the loopback to NO_PROXY", () => {
-    expect(withLoopbackNoProxy(undefined)).toBe("localhost,127.0.0.1,::1");
-    expect(withLoopbackNoProxy("  ")).toBe("localhost,127.0.0.1,::1");
-    expect(withLoopbackNoProxy("corp")).toBe("corp,localhost,127.0.0.1,::1");
-    expect(withLoopbackNoProxy("localhost,127.0.0.1,::1")).toBe("localhost,127.0.0.1,::1");
+    expect(withLoopback(undefined)).toBe("localhost,127.0.0.1,::1");
+    expect(withLoopback("  ")).toBe("localhost,127.0.0.1,::1");
+    expect(withLoopback("corp")).toBe("corp,localhost,127.0.0.1,::1");
+    expect(withLoopback("localhost,127.0.0.1,::1")).toBe("localhost,127.0.0.1,::1");
   });
 
   it("finds a proxy gap when NO_PROXY is unset or partial", () => {

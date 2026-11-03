@@ -1,10 +1,11 @@
 import { existsSync, statfsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, parse } from "node:path";
+import { LOOPBACK } from "../../shared/loopback.ts";
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
 import { LEGACY_ORT, legacyOrt, onnxVersion } from "../rag/runtimes/ort.ts";
-import { LOOPBACK, loopbackProxyGap, shellOf } from "../shell.ts";
+import { loopbackProxyGap, shellOf } from "../shell.ts";
 import type { CatalogEntry, DoctorAction, DoctorCheck, MachineProfile, ResolvedModel } from "../types.ts";
 import { jiraCreds, xrayCreds } from "./creds.ts";
 import { catalogEntry, pack } from "./models-catalog.ts";

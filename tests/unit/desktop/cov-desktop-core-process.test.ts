@@ -47,7 +47,6 @@ describe("startCore", () => {
       `console.log("Testimus starting"); console.error("a warning"); ${READY} process.stdin.resume(); process.stdin.on("end", () => process.exit(0));`,
     );
     const r = await c.ready;
-    expect(() => c.child.stdin?.emit("error", new Error("EPIPE"))).not.toThrow();
     expect(r).toEqual({
       url: "http://127.0.0.1:5555/",
       origin: "http://127.0.0.1:5555",
@@ -56,6 +55,7 @@ describe("startCore", () => {
     });
     await stopCore(c);
     expect(await c.exited).toBe(0);
+    expect(() => c.child.end()).not.toThrow();
     await stopCore(c);
     const text = logged();
     expect(text).toContain("starting the core:");
@@ -98,7 +98,7 @@ describe("stopCore", () => {
 
   it("does nothing for a core already killed by a signal", async () => {
     const end = vi.fn();
-    const fake = { child: { exitCode: null, signalCode: "SIGKILL", pid: 1, stdin: { end } } } as unknown as Core;
+    const fake = { child: { exitCode: null, signalCode: "SIGKILL", pid: 1, end } } as unknown as Core;
     await stopCore(fake);
     expect(end).not.toHaveBeenCalled();
   });
@@ -113,7 +113,7 @@ describe("startUiDev", () => {
       'console.log("vite " + process.argv.slice(2).join(" ")); console.error("api " + process.env.TESTIMUS_API_TARGET);',
     );
     const child = startUiDev(process.execPath, repo, "http://127.0.0.1:5555");
-    await new Promise((r) => child.once("exit", r));
+    await child.exited;
     await new Promise((r) => setTimeout(r, 50));
     const text = logged();
     expect(text).toContain(`[ui-dev] vite --port ${UI_DEV_PORT} --strictPort`);

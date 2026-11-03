@@ -1,9 +1,12 @@
-import { type ChildProcess, spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { request } from "node:http";
 import { delimiter, join, resolve } from "node:path";
-import { createInterface } from "node:readline";
+import { withLoopback } from "../shared/loopback.ts";
+import { killTree, type Proc, start } from "../shared/run/process.ts";
+import { sleep } from "../shared/run/work.ts";
 import { log } from "./log.ts";
+
+export { killTree };
 
 export const READY_TIMEOUT_MS = 30_000;
 export const STOP_TIMEOUT_MS = 10_000;
@@ -11,7 +14,8 @@ export const UI_DEV_PORT = 4318;
 
 export type Ready = { url: string; origin: string; pid?: number; version?: string };
 export type Launch = { command: string; args: string[]; cwd: string };
-export type Core = { child: ChildProcess; ready: Promise<Ready>; exited: Promise<number | null> };
+export type CoreProcess = { pid?: number; exitCode: number | null; signalCode: string | null; end(): void };
+export type Core = { child: CoreProcess; ready: Promise<Ready>; exited: Promise<number | null> };
 
 export type RunningJob = {
   id: string;
@@ -131,96 +135,78 @@ export function coreEnv(
   return env;
 }
 
-// ponytail: Node 26 sends even 127.0.0.1 through HTTP_PROXY under NODE_USE_ENV_PROXY=1 unless NO_PROXY names it; the
-// user's own NO_PROXY is kept and the loopback names appended
-export function withLoopback(value: string | undefined): string {
-  const loopback = ["localhost", "127.0.0.1", "::1"];
-  const have = (value ?? "").split(",").map((s) => s.trim().toLowerCase());
-  const missing = loopback.filter((h) => !have.includes(h));
-  if (!missing.length) return value ?? "";
-  return value?.trim() ? `${value},${missing.join(",")}` : missing.join(",");
-}
-
+// ponytail: the core is started by the one process layer (src/shared/run): its stdin stays open — closing it is how
+// the shell asks the core to stop (--exit-with-stdin) — and a kill takes its whole tree (Claude runs, model servers)
 export function startCore(launch: Launch, env: NodeJS.ProcessEnv, timeoutMs = READY_TIMEOUT_MS): Core {
   log("shell", `starting the core: ${launch.command} ${launch.args.join(" ")}`);
-  const child = spawn(launch.command, launch.args, {
+  let found: (r: Ready) => void = () => {};
+  const proc = start({
+    exe: launch.command,
+    args: launch.args,
     cwd: launch.cwd,
     env,
-    stdio: ["pipe", "pipe", "pipe"],
-    windowsHide: true,
+    keepStdin: true,
+    onLine: (line, stream) => {
+      log("core", line);
+      const r = stream === "stdout" ? parseReady(line) : null;
+      if (r) found(r);
+    },
   });
-  const exited = new Promise<number | null>((resolve) => {
-    child.once("exit", (code) => {
-      log("shell", `the core exited (code ${code})`);
-      resolve(code);
-    });
-    child.once("error", (e) => {
-      log("shell", `the core could not start: ${e.message}`);
-      resolve(null);
-    });
+  const child: CoreProcess = { pid: proc.pid, exitCode: null, signalCode: null, end: () => proc.end() };
+  const exited = proc.exited.then((exit) => {
+    if (proc.pid === undefined) {
+      log("shell", `the core could not start: ${exit.error ?? exit.stderr}`);
+      child.exitCode = -1;
+      return null;
+    }
+    log("shell", `the core exited (code ${exit.code})`);
+    child.exitCode = exit.code;
+    return exit.code;
   });
+  const settled = new AbortController();
   const ready = new Promise<Ready>((resolve, reject) => {
-    let done = false;
     const finish = (r: Ready | Error) => {
-      if (done) return;
-      done = true;
-      clearTimeout(timer);
+      if (settled.signal.aborted) return;
+      settled.abort();
       if (r instanceof Error) reject(r);
       else resolve(r);
     };
-    const timer = setTimeout(() => {
-      finish(new Error(`The core did not answer within ${Math.round(timeoutMs / 1000)} s.`));
-      if (child.pid) killTree(child.pid);
-    }, timeoutMs);
-    if (child.stdout)
-      createInterface({ input: child.stdout }).on("line", (line) => {
-        log("core", line);
-        const r = parseReady(line);
-        if (r) finish(r);
-      });
-    if (child.stderr) createInterface({ input: child.stderr }).on("line", (line) => log("core", line));
-    child.stdin?.on("error", () => {});
+    found = finish;
+    sleep(timeoutMs, settled.signal).then(
+      () => {
+        finish(new Error(`The core did not answer within ${Math.round(timeoutMs / 1000)} s.`));
+        void proc.kill();
+      },
+      () => {},
+    );
     exited.then((code) => finish(new Error(`The core stopped (exit code ${code ?? "none"}) before it was ready.`)));
   });
   ready.catch(() => {});
   return { child, ready, exited };
 }
 
-export function killTree(pid: number): void {
-  if (process.platform === "win32") spawnSync("taskkill", ["/T", "/F", "/PID", String(pid)], { windowsHide: true });
-  else
-    try {
-      process.kill(pid, "SIGKILL");
-    } catch {}
-}
-
 export async function stopCore(core: Core, timeoutMs = STOP_TIMEOUT_MS): Promise<void> {
   if (core.child.exitCode !== null || core.child.signalCode !== null || !core.child.pid) return;
-  core.child.stdin?.end();
-  const timedOut = await Promise.race([
-    core.exited.then(() => false),
-    new Promise<boolean>((r) => setTimeout(() => r(true), timeoutMs)),
-  ]);
-  if (!timedOut) return;
+  core.child.end();
+  const done = new AbortController();
+  const stopped = await Promise.race([core.exited.then(() => true), sleep(timeoutMs, done.signal).then(() => false)]);
+  done.abort();
+  if (stopped) return;
   log("shell", `the core did not stop within ${timeoutMs / 1000} s: killing its process tree`);
-  killTree(core.child.pid);
-  await Promise.race([core.exited, new Promise((r) => setTimeout(r, 3000))]);
+  await killTree(core.child.pid);
+  const last = new AbortController();
+  await Promise.race([core.exited, sleep(3000, last.signal)]);
+  last.abort();
 }
 
-export function startUiDev(node: string, repo: string, target: string): ChildProcess {
-  const child = spawn(
-    node,
-    [join(repo, "node_modules", "vite", "bin", "vite.js"), "--port", String(UI_DEV_PORT), "--strictPort"],
-    {
-      cwd: repo,
-      env: { ...process.env, TESTIMUS_API_TARGET: target },
-      stdio: ["ignore", "pipe", "pipe"],
-      windowsHide: true,
-    },
-  );
-  for (const s of [child.stdout, child.stderr])
-    if (s) createInterface({ input: s }).on("line", (l) => log("ui-dev", l));
-  return child;
+export function startUiDev(node: string, repo: string, target: string): Proc {
+  return start({
+    exe: node,
+    args: [join(repo, "node_modules", "vite", "bin", "vite.js"), "--port", String(UI_DEV_PORT), "--strictPort"],
+    cwd: repo,
+    env: { ...process.env, TESTIMUS_API_TARGET: target },
+    onLine: (l) => log("ui-dev", l),
+  });
 }
 
 export async function waitHttp(url: string, timeoutMs: number): Promise<boolean> {
@@ -236,7 +222,7 @@ export async function waitHttp(url: string, timeoutMs: number): Promise<boolean>
       req.end();
     });
     if (ok) return true;
-    await new Promise((r) => setTimeout(r, 200));
+    await sleep(200);
   }
   return false;
 }
@@ -321,7 +307,6 @@ const KIND: Record<string, string> = {
   "rag-index": "Index documents",
   "rag-eval": "Measure search",
   "models-measure": "Measure a search pack",
-  pullModel: "Download model",
 };
 
 export function jobLine(j: RunningJob): string {

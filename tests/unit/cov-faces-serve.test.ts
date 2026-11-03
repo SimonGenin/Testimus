@@ -27,6 +27,9 @@ async function load() {
       stops.push(stop);
       return () => {};
     },
+  }));
+  vi.doMock("../../src/shared/run/process.ts", async (importOriginal) => ({
+    ...(await importOriginal<object>()),
     onParentGone: (_stdin: unknown, stop: () => void) => {
       parentGone.push(stop);
     },

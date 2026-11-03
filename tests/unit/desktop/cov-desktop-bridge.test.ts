@@ -153,19 +153,39 @@ describe("bridge calls", () => {
     expect(await page("version")).toEqual(deps.version);
   });
 
-  it("pickFolder opens a folder dialog and gives the folder or null", async () => {
-    h.showOpenDialog.mockResolvedValueOnce({ canceled: false, filePaths: ["D:\\p"] });
-    expect(await page("pickFolder", { title: "Open", defaultPath: "D:\\Projects" })).toBe("D:\\p");
-    expect(h.showOpenDialog).toHaveBeenCalledWith(win, {
-      title: "Open",
-      defaultPath: "D:\\Projects",
-      properties: ["openDirectory", "createDirectory"],
-    });
-    h.showOpenDialog.mockResolvedValueOnce({ canceled: true, filePaths: [] });
-    expect(await page("pickFolder", { title: "Open" })).toBeNull();
-    h.showOpenDialog.mockResolvedValueOnce({ canceled: false, filePaths: [] });
-    expect(await page("pickFolder", { title: "Open" })).toBeNull();
-  });
+  it.runIf(process.platform === "win32")(
+    "pickFolder opens a folder dialog and gives the folder or null (Windows)",
+    async () => {
+      h.showOpenDialog.mockResolvedValueOnce({ canceled: false, filePaths: ["D:\\p"] });
+      expect(await page("pickFolder", { title: "Open", defaultPath: "D:\\Projects" })).toBe("D:\\p");
+      expect(h.showOpenDialog).toHaveBeenCalledWith(win, {
+        title: "Open",
+        defaultPath: "D:\\Projects",
+        properties: ["openDirectory", "createDirectory"],
+      });
+      h.showOpenDialog.mockResolvedValueOnce({ canceled: true, filePaths: [] });
+      expect(await page("pickFolder", { title: "Open" })).toBeNull();
+      h.showOpenDialog.mockResolvedValueOnce({ canceled: false, filePaths: [] });
+      expect(await page("pickFolder", { title: "Open" })).toBeNull();
+    },
+  );
+
+  it.runIf(process.platform !== "win32")(
+    "pickFolder opens a folder dialog and gives the folder or null (POSIX)",
+    async () => {
+      h.showOpenDialog.mockResolvedValueOnce({ canceled: false, filePaths: ["/p"] });
+      expect(await page("pickFolder", { title: "Open", defaultPath: "/Projects" })).toBe("/p");
+      expect(h.showOpenDialog).toHaveBeenCalledWith(win, {
+        title: "Open",
+        defaultPath: "/Projects",
+        properties: ["openDirectory", "createDirectory"],
+      });
+      h.showOpenDialog.mockResolvedValueOnce({ canceled: true, filePaths: [] });
+      expect(await page("pickFolder", { title: "Open" })).toBeNull();
+      h.showOpenDialog.mockResolvedValueOnce({ canceled: false, filePaths: [] });
+      expect(await page("pickFolder", { title: "Open" })).toBeNull();
+    },
+  );
 
   it("pickFiles opens a file dialog, one or several", async () => {
     const filters = [{ name: "Documents", extensions: ["docx"] }];

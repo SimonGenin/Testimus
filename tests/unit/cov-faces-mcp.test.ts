@@ -9,6 +9,7 @@ const seen: Seen = { aborted: false, started: false };
 const handlers = new Map<string, Handler>();
 let factory: (() => unknown) | null = null;
 let mcpFace: typeof import("../../src/faces/mcp.ts");
+const leaving: { killed: number; parentGone?: () => void; signal?: () => void } = { killed: 0 };
 
 beforeAll(async () => {
   vi.resetModules();
@@ -18,6 +19,24 @@ beforeAll(async () => {
   vi.doMock("@modelcontextprotocol/server/stdio", () => ({
     serveStdio: (f: () => unknown) => {
       factory = f;
+    },
+  }));
+  vi.doMock("../../src/shared/run/process.ts", async (importOriginal) => ({
+    ...(await importOriginal<object>()),
+    killChildrenOnExit: () => {},
+    killChildren: () => {
+      leaving.killed++;
+      return [];
+    },
+    onParentGone: (_stdin: unknown, gone: () => void) => {
+      leaving.parentGone = gone;
+    },
+  }));
+  vi.doMock("../../src/core/shell.ts", async (importOriginal) => ({
+    ...(await importOriginal<object>()),
+    onStopSignals: (stop: () => void) => {
+      leaving.signal = stop;
+      return () => {};
     },
   }));
   const sdk = await import("@modelcontextprotocol/server");
@@ -54,6 +73,18 @@ describe("MCP face in process", () => {
     expect(server).toBeTruthy();
     expect(handlers.has("fake_job")).toBe(true);
     await mcpFace.mcp([]);
+  });
+
+  it("leaves once, killing what it started, when its parent goes or a stop signal comes", async () => {
+    const exits: number[] = [];
+    const exit = vi.spyOn(process, "exit").mockImplementation(((code: number) => {
+      exits.push(code);
+    }) as never);
+    leaving.parentGone?.();
+    leaving.signal?.();
+    await vi.waitFor(() => expect(exits).toEqual([0]));
+    expect(leaving.killed).toBe(1);
+    exit.mockRestore();
   });
 
   it("returns a tool result as JSON text, null for nothing", async () => {

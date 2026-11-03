@@ -20,6 +20,7 @@ import {
   ROOT,
   rewriteUrls,
   shellPackageJson,
+  windowsText,
 } from "../../scripts/release.ts";
 
 const src = (...p: string[]) => join(ROOT, "src", ...p);
@@ -77,10 +78,12 @@ describe("release: node runtime", () => {
   });
 
   it("writes a shim that turns the env proxy on and runs the bundle with the bundled node", () => {
-    const cmd = readFileSync(join(ROOT, "scripts", "testimus.cmd"), "utf8");
+    const cmd = windowsText(join(ROOT, "scripts", "testimus.cmd"));
     expect(cmd).toContain('set "NODE_USE_ENV_PROXY=1"');
     expect(cmd).toContain('"%~dp0node\\node.exe" "%~dp0app\\testimus.mjs" %*');
     expect(cmd).toMatch(/\r\n/);
+    expect(cmd).not.toMatch(/[^\r]\n/);
+    expect(windowsText(join(ROOT, "scripts", "install.ps1"))).not.toMatch(/[^\r]\n/);
   });
 });
 
@@ -106,8 +109,9 @@ describe("release: externals", () => {
 
   it("collects the externals and their installed dependencies, without install-time ones", () => {
     const all = dependencyClosure(join(ROOT, "node_modules"), EXTERNALS);
-    for (const e of ["sqlite-vec", "sqlite-vec-windows-x64", "onnxruntime-node", "onnxruntime-common", "sharp"])
-      expect(all).toContain(e);
+    for (const e of ["sqlite-vec", "onnxruntime-node", "onnxruntime-common", "sharp"]) expect(all).toContain(e);
+    const os = process.platform === "win32" ? "windows" : process.platform;
+    expect(all).toContain(`sqlite-vec-${os}-${process.arch}`);
     expect(all).not.toContain("onnxruntime-web");
     expect(all).not.toContain("global-agent");
   });

@@ -5,7 +5,10 @@ import { type Command, UserError } from "../core/command.ts";
 import { invoke, registry } from "../core/commands/index.ts";
 import { subscribe, waitJob } from "../core/jobs.ts";
 import { resolveProjectDir } from "../core/lib/project.ts";
+import { onStopSignals } from "../core/shell.ts";
 import type { JobEvent } from "../core/types.ts";
+import { killChildren, killChildrenOnExit, onParentGone } from "../shared/run/process.ts";
+import { timeout } from "../shared/run/work.ts";
 
 export function toolName(command: string): string {
   return command.replace(".", "_");
@@ -77,4 +80,18 @@ export async function mcp(argv: string[]): Promise<void> {
   const { values } = parseArgs({ args: argv, options: { project: { type: "string" } }, strict: false });
   const project = resolveProjectDir(typeof values.project === "string" ? values.project : undefined);
   serveStdio(() => buildServer(project));
+  // ponytail: Claude runs this server as its child, talking over stdin; when Claude goes, so does the server and every
+  // program it started (a model server, a worker) — whatever ended the session
+  killChildrenOnExit();
+  let leaving = false;
+  const leave = async () => {
+    if (leaving) return;
+    leaving = true;
+    killChildren();
+    const { stopAllServers } = await import("../core/rag/runtimes/llamacpp.ts");
+    await timeout(5000, () => stopAllServers()).catch(() => {});
+    process.exit(0);
+  };
+  onParentGone(process.stdin, () => void leave());
+  onStopSignals(() => void leave());
 }

@@ -22,6 +22,8 @@ const h = vi.hoisted(() => ({
   requests: [] as unknown[],
   spawned: [] as unknown[],
   spawnSync: vi.fn(),
+  killTree: vi.fn(async () => {}),
+  pid: undefined as number | undefined,
   child: null as unknown,
 }));
 
@@ -71,7 +73,7 @@ vi.mock("node:child_process", async () => {
         stdout: null,
         stderr: null,
         stdin: null,
-        pid: undefined,
+        pid: h.pid,
         exitCode: null,
         signalCode: null,
       });
@@ -83,6 +85,13 @@ vi.mock("node:child_process", async () => {
   };
 });
 
+vi.mock("../../../src/shared/run/process.ts", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../../src/shared/run/process.ts")>()),
+  killTree: h.killTree,
+}));
+
+// ponytail: the setup file already loaded src/shared/run/process.ts (through env.ts), before the child_process mock
+vi.resetModules();
 const core = await import("../../../src/desktop/core.ts");
 
 const reqs = () => h.requests as FakeReq[];
@@ -94,6 +103,8 @@ beforeEach(() => {
   h.requests.length = 0;
   h.spawned.length = 0;
   h.spawnSync.mockReset();
+  h.killTree.mockClear();
+  h.pid = undefined;
 });
 
 afterEach(() => {
@@ -200,7 +211,7 @@ describe("runningJobs", () => {
 });
 
 describe("processes without pipes", () => {
-  it("startCore copes with a child that has no stdio and no pid, and times out quietly", async () => {
+  it("startCore treats a child without a pid as one that could not start, and times out quietly", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const c = core.startCore({ command: "x", args: ["a"], cwd: "C:\\" }, { A: "1" }, 1000);
     expect(h.spawned[0]).toMatchObject({
@@ -211,53 +222,45 @@ describe("processes without pipes", () => {
     const ready = expect(c.ready).rejects.toThrow("within 1 s");
     await vi.advanceTimersByTimeAsync(1000);
     await ready;
-    expect(h.spawnSync).not.toHaveBeenCalled();
-    (h.child as EventEmitter).emit("exit", 1);
-    expect(await c.exited).toBe(1);
+    expect(h.killTree).not.toHaveBeenCalled();
+    (h.child as EventEmitter).emit("close", 1);
+    expect(await c.exited).toBeNull();
+    expect(c.child.exitCode).not.toBeNull();
   });
 
   it("stopCore kills the tree after the timeout and waits at most 3 s more", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    h.pid = 99;
     const c = core.startCore({ command: "x", args: [], cwd: "C:\\" }, {});
-    const child = h.child as { pid?: number };
-    child.pid = 99;
     const stopped = core.stopCore(c, 100);
     await vi.advanceTimersByTimeAsync(100);
-    expect(h.spawnSync).toHaveBeenCalledWith("taskkill", ["/T", "/F", "/PID", "99"], { windowsHide: true });
+    expect(h.killTree).toHaveBeenCalledWith(99);
     await vi.advanceTimersByTimeAsync(3000);
     await stopped;
-    (h.child as EventEmitter).emit("exit", null);
+    (h.child as EventEmitter).emit("close", null);
+    expect(await c.exited).toBe(1);
   });
 
   it("startUiDev copes with a child without pipes", () => {
     const child = core.startUiDev("node", "D:\\repo", "http://127.0.0.1:1");
-    expect(child).toBe(h.child);
+    expect(child.pid).toBeUndefined();
     const opts = (h.spawned[0] as { opts: { env: Record<string, string>; stdio: string[] } }).opts;
     expect(opts.env.TESTIMUS_API_TARGET).toBe("http://127.0.0.1:1");
-    expect(opts.stdio).toEqual(["ignore", "pipe", "pipe"]);
+    expect(opts.stdio).toEqual(["pipe", "pipe", "pipe"]);
+    (h.child as EventEmitter).emit("close", 0);
   });
 });
 
-describe("off Windows", () => {
-  it("killTree sends SIGKILL and ignores a process that is gone", () => {
-    const kill = vi.spyOn(process, "kill").mockImplementationOnce(() => true);
-    onPlatform("linux", () => core.killTree(1234));
-    expect(kill).toHaveBeenCalledWith(1234, "SIGKILL");
-    kill.mockImplementationOnce(() => {
-      throw new Error("ESRCH");
-    });
-    onPlatform("linux", () => expect(() => core.killTree(1)).not.toThrow());
-    expect(h.spawnSync).not.toHaveBeenCalled();
-    kill.mockRestore();
-  });
-
-  it("findNode looks for node without .exe", () => {
+describe("findNode", () => {
+  it("looks for node without .exe off Windows, and reads Path as well as PATH", () => {
     let found: string | null = null;
     onPlatform("linux", () => {
       found = core.findNode({ PATH: "/usr/bin" }, (p) => p.endsWith("node"));
     });
     expect(found).toBe(join("/usr/bin", "node"));
-    expect(core.findNode({ Path: "C:\\n" }, (p) => p === join("C:\\n", "node.exe"))).toBe(join("C:\\n", "node.exe"));
+    if (process.platform === "win32")
+      expect(core.findNode({ Path: "C:\\n" }, (p) => p === join("C:\\n", "node.exe"))).toBe(join("C:\\n", "node.exe"));
+    else expect(core.findNode({ Path: "/n" }, (p) => p === join("/n", "node"))).toBe(join("/n", "node"));
     expect(core.findNode({}, () => true)).toBeNull();
   });
 });
