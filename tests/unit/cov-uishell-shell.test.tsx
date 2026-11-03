@@ -351,7 +351,9 @@ describe("ProjectButton", () => {
       </>,
       { info: null },
     );
-    expect(screen.getByRole("button", { name: "Project — No project, change project" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Project not connected to Jira No project, change project" }),
+    ).toBeInTheDocument();
     openMenu();
     expect(screen.getByRole("menuitem", { name: "No other project known yet" })).toBeDisabled();
     openMenu();
@@ -367,7 +369,9 @@ describe("ProjectButton", () => {
     withApp(<ProjectButton />, {
       info: { ...base, dir: "D:\\Projets\\Sosie", project: { ...base.project, name: "", jiraProject: "" } },
     });
-    expect(screen.getByRole("button", { name: "Project — Sosie, change project" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Project not connected to Jira Sosie, change project" }),
+    ).toBeInTheDocument();
   });
 
   it("in the desktop shell: opens a folder and shows the project in Explorer", async () => {

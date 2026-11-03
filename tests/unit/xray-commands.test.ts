@@ -79,6 +79,17 @@ describe("xray commands", () => {
     );
   });
 
+  it("xray.prefs accepts a tracked id column that is in neither Xray nor xray.json", async () => {
+    const p = readProject(project);
+    writeFileSync(
+      join(project, "project.json"),
+      JSON.stringify({ ...p, traces: [{ id: "alarm", label: "Alarm", patterns: ["ALM_\\d+"], field: "Alarme" }] }),
+    );
+    const out = await run("xray.prefs", { filled: ["Data", "Alarme"] });
+    expect(out.prefs.filled).toEqual(["Data", "Alarme"]);
+    expect(readXray(project).prefs.filled).toEqual(["Data", "Alarme"]);
+  });
+
   it("xray.folders and xray.search read the remote tree and tests", async () => {
     const root = await run("xray.folders");
     expect(root.folders.map((f: any) => [f.path, f.totalCount])).toEqual([

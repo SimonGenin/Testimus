@@ -469,8 +469,10 @@ describe("TestEditor › saving", () => {
     server.routes["tests.addImage"] = () => ({ file: "images/s.png" });
     server.routes["tests.removeImage"] = () => ({});
     editor();
-    const picker = await screen.findByLabelText("Add screenshots to step 1");
-    fireEvent.change(picker, { target: { files: [new File(["x"], "s.png", { type: "image/png" })] } });
+    await screen.findByLabelText("Expected Result of step 1");
+    fireEvent.paste(document.querySelector('[data-field="Expected Result"]') as HTMLElement, {
+      clipboardData: { files: [new File(["x"], "s.png", { type: "image/png" })] },
+    });
     const img = await screen.findByRole("img", { name: "s.png" });
     expect(img.getAttribute("src")).toContain("/files/tests/t1/images/s.png");
     fireEvent.click(screen.getByRole("button", { name: "Remove s.png from Expected Result of step 1" }));

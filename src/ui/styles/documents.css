@@ -195,6 +195,19 @@
   margin: 0;
 }
 
+.doctext-row {
+  display: block;
+  width: max-content;
+  min-width: 100%;
+}
+
+.doctext-row.is-focus,
+.doctext-h.is-focus,
+.passage-fig.is-focus figcaption {
+  background: var(--hl);
+  border-radius: 4px;
+}
+
 .docreqs {
   max-height: 160px;
   overflow: auto;

@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { quietCtx } from "../../src/core/command.ts";
 import { commands } from "../../src/core/commands/docs.ts";
 import { isStale, recheckMechanical, recordSemantic, testsCiting } from "../../src/core/lib/check.ts";
-import { normalizeAnchor, sectionOf } from "../../src/core/lib/docs.ts";
+import { headingAt, normalizeAnchor, sectionOf } from "../../src/core/lib/docs.ts";
 import { sha256 } from "../../src/core/lib/hash.ts";
 import { readCheck } from "../../src/core/lib/store.ts";
 import { LEGACY_PATTERN } from "../../src/core/lib/traces.ts";
@@ -284,6 +284,11 @@ describe("docs commands", () => {
     expect(s.md).toContain("EXI_MOP_SPF_511_A_1680");
     expect(s.md).not.toContain("5.6.7");
     expect(s.context).toMatch(/ligne 92/);
+    const r = await run<{ section?: string }>(copy, "docs.show", {
+      id: "SOSIE_211_D401-1_3",
+      anchor: "req:EXI_MOP_SPF_511_A_1680",
+    });
+    expect(r.section).toBe("§5.6.6");
   });
 });
 
@@ -300,5 +305,20 @@ describe("anchors", () => {
   it("cuts a page out of a PDF conversion", () => {
     const md = "# T\n\n<!-- page 1 -->\n\nun\n\n<!-- page 2 -->\n\ndeux\n";
     expect(sectionOf(md, "page:1")).toBe("<!-- page 1 -->\n\nun");
+  });
+
+  it("names the section whose heading holds an anchor", () => {
+    const md = [
+      "# 1 Un <!-- § 1 -->",
+      "<!-- req EXI_A_1 -->",
+      "texte",
+      "## 1.2 Deux <!-- § 1.2 -->",
+      "![F](f.png) <!-- fig 3 -->",
+    ].join("\n");
+    expect(headingAt(md, "req:EXI_A_1")).toBe("§1");
+    expect(headingAt(md, "fig:3")).toBe("§1.2");
+    expect(headingAt(md, "§1.2")).toBe("§1.2");
+    expect(headingAt(md, "req:EXI_NONE")).toBeNull();
+    expect(headingAt("<!-- req EXI_A_1 -->\ntexte", "req:EXI_A_1")).toBeNull();
   });
 });

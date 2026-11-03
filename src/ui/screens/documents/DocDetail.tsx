@@ -56,7 +56,7 @@ export function DocDetail({
 }) {
   const [shown, setShown] = useState<Shown | null>(null);
   const [ask, setAsk] = useState(false);
-  const [part, setPart] = useState<{ anchor: string; md: string } | null>(null);
+  const [part, setPart] = useState<{ anchor: string; md: string; section?: string } | null>(null);
   const textBox = useRef<HTMLDivElement>(null);
   const [context, setContext] = useState("");
   const [error, setError] = useState("");
@@ -104,14 +104,15 @@ export function DocDetail({
       return;
     }
     let dead = false;
-    call<{ md: string }>("docs.show", { id, anchor: target })
-      .then((r) => !dead && setPart({ anchor: target, md: r.md }))
+    call<{ md: string; section?: string }>("docs.show", { id, anchor: target })
+      .then((r) => !dead && setPart({ anchor: target, md: r.md, section: r.section }))
       .catch((e) => !dead && setPart({ anchor: target, md: `${message(e)}` }));
     return () => {
       dead = true;
     };
   }, [id, shown, target]);
 
+  const current = (part?.anchor === target && part.section) || target;
   const focus = quote || (target.startsWith("req:") ? target.slice(4) : undefined);
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new focus moves the highlighted paragraph in the DOM
   useLayoutEffect(() => {
@@ -331,8 +332,8 @@ export function DocDetail({
               <button
                 key={t.anchor}
                 type="button"
-                className={t.anchor === target ? "toc toc-on" : "toc"}
-                aria-current={t.anchor === target ? "true" : undefined}
+                className={t.anchor === current ? "toc toc-on" : "toc"}
+                aria-current={t.anchor === current ? "true" : undefined}
                 style={{ paddingLeft: 8 + (t.level - 1) * 10 }}
                 onClick={() => onAnchor(t.anchor)}
               >

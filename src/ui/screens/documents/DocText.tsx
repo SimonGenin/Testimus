@@ -5,6 +5,30 @@ import { Chip, RequirementChip } from "../../components/ui/index.ts";
 const clean = (s: string) => s.replace(/<!--[\s\S]*?-->/g, "").trim();
 const squeeze = (s: string) => s.replace(/\*/g, "").replace(/\s+/g, " ").trim().toLowerCase();
 
+const isTable = (b: string) => /^\|/.test(b);
+
+// ponytail: the block (or table row, "i:j") where the quote starts, found on the squeezed text of the whole part the way
+// the core finds it — a quote may run over several paragraphs or sit in a table cell
+function hotOf(blocks: string[], focus?: string): string | null {
+  const q = focus ? squeeze(focus) : "";
+  if (!q) return null;
+  const units = blocks.flatMap((b, i) => (isTable(b) ? b.split("\n").map((l, j) => [`${i}:${j}`, l]) : [[`${i}`, b]]));
+  let joined = "";
+  const starts: [number, string][] = [];
+  for (const [key, text] of units) {
+    const s = squeeze(text);
+    if (!s) continue;
+    starts.push([joined.length, key]);
+    joined += `${s} `;
+  }
+  let at = joined.indexOf(q);
+  if (at < 0) at = joined.indexOf(q.slice(0, 60));
+  if (at < 0) return null;
+  let hot: string | null = null;
+  for (const [s, key] of starts) if (s <= at) hot = key;
+  return hot;
+}
+
 function inline(text: string): ReactNode[] {
   const out: ReactNode[] = [];
   const re = /\*\*([^*]+)\*\*|\*([^*]+)\*/g;
@@ -34,15 +58,17 @@ export function DocText({
   onRequirement?: (id: string) => void;
   onFigure: (anchor: string) => void;
 }) {
-  const blocks = md.split(/\n{2,}/).filter((b) => clean(b));
+  const raws = md.split(/\n{2,}/).filter((b) => clean(b));
+  const hotKey = hotOf(raws.map(clean), focus);
   return (
     <div className="doctext">
-      {blocks.map((raw, i) => {
+      {raws.map((raw, i) => {
         const b = clean(raw);
+        const hot = hotKey === `${i}`;
         const head = b.match(/^(#{1,6})\s+(.*)$/);
         if (head && !b.includes("\n"))
           return (
-            <h4 key={i} className="h doctext-h" data-level={head[1].length}>
+            <h4 key={i} className={hot ? "h doctext-h is-focus" : "h doctext-h"} data-level={head[1].length}>
               {head[2]}
             </h4>
           );
@@ -50,7 +76,7 @@ export function DocText({
         if (img) {
           const fig = raw.match(/<!--\s*fig\s+([\w-]+)\s*-->/)?.[1];
           return (
-            <figure key={i} className="passage-fig">
+            <figure key={i} className={hot ? "passage-fig is-focus" : "passage-fig"}>
               <img src={fileUrl(`docs/${docId}/${img[2]}`)} alt={img[1]} />
               <figcaption className="muted">
                 {fig ? (
@@ -64,14 +90,17 @@ export function DocText({
             </figure>
           );
         }
-        if (/^\|/.test(b))
+        if (isTable(b))
           return (
             <pre key={i} className="doctext-table">
-              {b}
+              {b.split("\n").map((row, j) => (
+                <span key={j} className={hotKey === `${i}:${j}` ? "doctext-row is-focus" : "doctext-row"}>
+                  {row}
+                </span>
+              ))}
             </pre>
           );
         const ids = requirements ? [...new Set(b.match(requirements) ?? [])] : [];
-        const hot = !!focus && squeeze(b).includes(squeeze(focus).slice(0, 60));
         return (
           <div key={i} className={hot ? "doctext-p is-focus" : "doctext-p"}>
             <p>{inline(b)}</p>
@@ -85,7 +114,7 @@ export function DocText({
           </div>
         );
       })}
-      {!blocks.length && <p className="muted">This part of the document is empty.</p>}
+      {!raws.length && <p className="muted">This part of the document is empty.</p>}
     </div>
   );
 }

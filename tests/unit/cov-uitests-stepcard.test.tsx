@@ -230,14 +230,13 @@ describe("StepCard columns", () => {
 describe("StepCard screenshots", () => {
   const shot = () => new File(["x"], "s.png", { type: "image/png" });
 
-  it("uploads picked images into Expected Result and embeds them", async () => {
+  it("uploads dropped images at the end of the field and embeds them", async () => {
     const addImage = vi.fn(async (f: File) => ({ file: `images/${f.name}` }));
-    const { apply, onChange } = card(base, { addImage });
-    const picker = screen.getByLabelText("Add screenshots to step 2") as HTMLInputElement;
-    const click = vi.spyOn(picker, "click");
-    fireEvent.click(screen.getByRole("button", { name: "Add a screenshot to step 2" }));
-    expect(click).toHaveBeenCalled();
-    fireEvent.change(picker, { target: { files: [shot(), new File(["t"], "n.txt", { type: "text/plain" })] } });
+    const { container, apply, onChange } = card(base, { addImage });
+    fireEvent.drop(
+      blocksOf(container, "Expected Result"),
+      dt({ types: ["Files"], files: [shot(), new File(["t"], "n.txt", { type: "text/plain" })] }),
+    );
     await waitFor(() => expect(onChange).toHaveBeenCalled());
     const next = apply();
     expect(next.images).toEqual([{ file: "images/s.png" }]);
@@ -281,37 +280,23 @@ describe("StepCard screenshots", () => {
 
   it("ignores non-images, does nothing without an uploader and reports an upload failure", async () => {
     const plain = card(base);
-    const picker = screen.getByLabelText("Add screenshots to step 2");
-    fireEvent.change(picker, { target: { files: [shot()] } });
-    fireEvent.change(picker, { target: { files: null } });
+    const row = (c: HTMLElement) => c.querySelector('[data-field="Expected Result"]') as HTMLElement;
+    fireEvent.paste(row(plain.container), { clipboardData: { files: [shot()] } });
     expect(plain.onChange).not.toHaveBeenCalled();
     cleanup();
     const addImage = vi.fn(async () => {
       throw new Error("disk full");
     });
     const failing = card(base, { addImage });
-    fireEvent.change(screen.getByLabelText("Add screenshots to step 2"), { target: { files: [shot()] } });
+    fireEvent.drop(
+      blocksOf(failing.container, "Expected Result"),
+      dt({ types: ["Files"], files: [new File(["t"], "n.txt", { type: "text/plain" })] }),
+    );
+    expect(addImage).not.toHaveBeenCalled();
+    fireEvent.paste(row(failing.container), { clipboardData: { files: [shot()] } });
     await waitFor(() => expect(errors).toHaveLength(1));
     expect(errors[0][1]).toBe("Could not save the screenshot");
     expect(failing.onChange).not.toHaveBeenCalled();
-  });
-
-  it("falls back to the first column, then Action, as the screenshot target", async () => {
-    const addImage = vi.fn(async () => ({ file: "images/q.png" }));
-    const x: XrayJson = {
-      fields: [{ id: "d", name: "Data", type: "text", builtin: true }],
-      prefs: { order: ["Data"], collapsed: [], hidden: [] },
-    };
-    const first = card({ ...base, fields: {} }, { xray: x, addImage });
-    fireEvent.change(screen.getByLabelText("Add screenshots to step 2"), { target: { files: [shot()] } });
-    await waitFor(() => expect(first.onChange).toHaveBeenCalled());
-    expect(first.apply().fields.Data).toBe("![](images/q.png)");
-    cleanup();
-    const none: XrayJson = { fields: [], prefs: { order: [], collapsed: [], hidden: [] } };
-    const action = card({ ...base, fields: {} }, { xray: none, addImage });
-    fireEvent.change(screen.getByLabelText("Add screenshots to step 2"), { target: { files: [shot()] } });
-    await waitFor(() => expect(action.onChange).toHaveBeenCalled());
-    expect(action.apply().fields.Action).toBe("![](images/q.png)");
   });
 });
 

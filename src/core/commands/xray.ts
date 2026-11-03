@@ -4,7 +4,7 @@ import { z } from "zod";
 import { type Command, type Ctx, command, projectOf, UserError } from "../command.ts";
 import { env } from "../env.ts";
 import { loadCorpus, runMechanical } from "../lib/check.ts";
-import { followXray } from "../lib/columns.ts";
+import { followXray, stepColumns } from "../lib/columns.ts";
 import { type CsvTest, csvTests, guessMapping, parseCsv } from "../lib/csv.ts";
 import {
   browseUrl,
@@ -18,7 +18,7 @@ import {
   searchTests,
   startBulkImport,
 } from "../lib/jira.ts";
-import { fieldOrder, localColumns, readProject, readXray, writeProject, writeXray } from "../lib/project.ts";
+import { fieldOrder, readProject, readXray, writeProject, writeXray } from "../lib/project.ts";
 import { createLocalTest, listLocalTests, localTestRef } from "../lib/store.ts";
 import {
   checkRemote,
@@ -284,7 +284,7 @@ export const commands: Command[] = [
     async run(ctx, input) {
       const project = projectOf(ctx);
       const x = readXray(project);
-      const names = [...x.fields.map((f) => f.name), ...localColumns(x)];
+      const names = stepColumns(project, x).map((c) => c.name);
       const unknown = [
         ...(input.order ?? []),
         ...(input.collapsed ?? []),
