@@ -4,6 +4,7 @@ import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync } from
 import { join } from "node:path";
 import type { Ctx } from "./command.ts";
 import { env } from "./env.ts";
+import { changedPaths, stampProject } from "./lib/changed.ts";
 import { withPerfScope } from "./lib/models-perf.ts";
 import type { Job, JobEvent } from "./types.ts";
 
@@ -96,6 +97,7 @@ export function startJob(
     },
   };
   emit(l, { jobId: id, at: at(), type: "status", job: { ...job } });
+  const before = project ? stampProject(project) : null;
   l.done = (async () => {
     try {
       const result = await withPerfScope(
@@ -113,6 +115,10 @@ export function startJob(
       throw e;
     } finally {
       job.endedAt = at();
+      // ponytail: a job says which project files it left changed (a Claude run, a pull, a conversion) before it
+      // ends, so every view showing one of them reads it again — whoever started the job
+      const paths = project && before ? changedPaths(before, stampProject(project)) : [];
+      if (paths.length) emit(l, { jobId: id, at: at(), type: "changed", paths });
       emit(l, { jobId: id, at: at(), type: "status", job: { ...job } });
     }
   })();

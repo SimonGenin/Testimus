@@ -6,6 +6,7 @@ import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
 import { DOC_STATUS } from "../../components/sources/PassageView.tsx";
 import { Badge, Button, DragEdge, Icon, IconButton, Modal, Severity, Skeleton } from "../../components/ui/index.ts";
 import { useApp } from "../../lib/app.ts";
+import { useChanged } from "../../lib/changed.ts";
 import { desktop, pickFiles } from "../../lib/desktop.ts";
 import { cx } from "../../lib/format.ts";
 import { type SideEdge, useSideWidth } from "../../lib/sideWidth.ts";
@@ -149,6 +150,8 @@ export function DocumentsScreen() {
       }),
     [load],
   );
+
+  useChanged(["docs/"], load);
 
   useEffect(() => forgetSettled, []);
 

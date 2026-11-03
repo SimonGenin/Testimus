@@ -3,6 +3,7 @@ import type { DocJson, FigureEntry } from "../../../core/types.ts";
 import { call, project } from "../../api.ts";
 import { AdditionalContext } from "../../components/claude/AdditionalContext.tsx";
 import { Button, DragEdge, Icon, IconButton, Menu, Segmented, Severity, Skeleton } from "../../components/ui/index.ts";
+import { useChanged } from "../../lib/changed.ts";
 import { baseName, desktop, pathJoin, reveal } from "../../lib/desktop.ts";
 import { cx, message, plural } from "../../lib/format.ts";
 import type { SideEdge } from "../../lib/sideWidth.ts";
@@ -78,6 +79,9 @@ export function DocDetail({
   const wasRunning = useRef(false);
   const sideFolded = fold === "small" || fold === "tiny";
   const tocFolded = fold === "tiny";
+  const [version, setVersion] = useState(0);
+  const shownFor = useRef("");
+  useChanged([`docs/${id}/`], () => setVersion((v) => v + 1));
 
   useEffect(() => {
     if (running) wasRunning.current = true;
@@ -98,9 +102,12 @@ export function DocDetail({
     return () => window.removeEventListener("keydown", onKey);
   }, [drawer]);
 
+  // ponytail: the same document read again after a job changed it stays on screen until the new text is there
+  // biome-ignore lint/correctness/useExhaustiveDependencies: version reads the same document again
   useEffect(() => {
     let dead = false;
-    setShown(null);
+    if (shownFor.current !== id) setShown(null);
+    shownFor.current = id;
     setError("");
     call<Shown>("docs.show", { id })
       .then((r) => {
@@ -114,7 +121,7 @@ export function DocDetail({
     return () => {
       dead = true;
     };
-  }, [id]);
+  }, [id, version]);
 
   const target = anchor || shown?.toc.find((t) => t.level > 1)?.anchor || shown?.toc[0]?.anchor || "";
   useEffect(() => {

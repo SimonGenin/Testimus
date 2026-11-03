@@ -647,6 +647,7 @@ export type JobEvent =
     }
   | { jobId: string; at: string; type: "log"; level: "info" | "warn" | "error"; message: string }
   | { jobId: string; at: string; type: "claude"; event: ClaudeEvent }
+  | { jobId: string; at: string; type: "changed"; paths: string[] }
   | { jobId: ""; at: string; type: "notice"; message: string };
 
 // System (SPEC §14)

@@ -187,6 +187,20 @@ describe("DocDetail", () => {
     expect(screen.queryByRole("button", { name: "Sections" })).toBeNull();
   });
 
+  it("reads the document again when a job changed its files, keeping it shown meanwhile", async () => {
+    show();
+    expect(await screen.findByText("Part §5.6")).toBeInTheDocument();
+    await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
+    const whole = () => named("docs.show").filter((c) => !c.input.anchor).length;
+    emit({ jobId: "j", at, type: "changed", paths: ["docs/D2/doc.md", "docs/D10/doc.md"] });
+    expect(whole()).toBe(1);
+    api.routes["docs.show"] = (i) => (i.anchor ? { md: `New ${i.anchor}` } : shown());
+    emit({ jobId: "j", at, type: "changed", paths: ["docs/D1/doc.md"] });
+    expect(screen.getByRole("heading", { name: "Title D1" })).toBeInTheDocument();
+    expect(await screen.findByText("New §5.6")).toBeInTheDocument();
+    expect(whole()).toBe(2);
+  });
+
   it("opens an anchor that is no section: no section is marked and there is nothing to step to", async () => {
     show("page:3");
     expect(await screen.findByText("Part page:3")).toBeInTheDocument();
@@ -683,6 +697,19 @@ describe("Documents screen", () => {
     emit({ jobId: "j", at, type: "progress", message: "x" });
     expect(named("docs.list")).toHaveLength(before);
     emit(status("docs.add", "done"));
+    await waitFor(() => expect(named("docs.list")).toHaveLength(before + 1));
+  });
+
+  it("reloads when a job changed a document's files, whatever the job", async () => {
+    api.routes["docs.list"] = () => [doc("D1")];
+    detail();
+    mount(<DocumentsScreen />);
+    await screen.findByText("Title D1");
+    await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
+    const before = named("docs.list").length;
+    emit({ jobId: "j", at, type: "changed", paths: ["tests/local-1/test.md"] });
+    expect(named("docs.list")).toHaveLength(before);
+    emit({ jobId: "j", at, type: "changed", paths: ["docs/D1/doc.md"] });
     await waitFor(() => expect(named("docs.list")).toHaveLength(before + 1));
   });
 

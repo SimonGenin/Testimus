@@ -2,6 +2,7 @@ import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState }
 import type { CredsStatus, Job, SearchMatch, Source, XrayJson } from "../../core/types.ts";
 import { type CommandInfo, call, commands, events, fileUrl, setProject } from "../api.ts";
 import { ClaudeDock, type DockJob, type DockRequest } from "../components/claude/ClaudeDock.tsx";
+import { CONTEXTS_EVENT } from "../components/claude/ContextsDialog.tsx";
 import { CommandForm, hasInput } from "../components/shell/CommandForm.tsx";
 import { DesktopBridge } from "../components/shell/DesktopBridge.tsx";
 import { Palette, type PaletteAction } from "../components/shell/Palette.tsx";
@@ -9,8 +10,9 @@ import { NAV, Rail } from "../components/shell/Rail.tsx";
 import { PassageDialog } from "../components/sources/PassageDialog.tsx";
 import { docLink } from "../components/sources/PassageView.tsx";
 import { DragEdge, Toasts } from "../components/ui/index.ts";
-import { triageWhenClaude } from "../lib/actions.ts";
+import { actionsChanged, triageWhenClaude } from "../lib/actions.ts";
 import { AppContext, type AppState, type ClaudeRun, type Focus, type ProjectInfo, type Screen } from "../lib/app.ts";
+import { touches, useChanged } from "../lib/changed.ts";
 import { DEFAULT_XRAY } from "../lib/fields.ts";
 import { mirrorPrefs, restorePrefs } from "../lib/prefsMirror.ts";
 import { jumpTo, rememberHit } from "../lib/search.ts";
@@ -237,6 +239,14 @@ export function App() {
   }, [route.screen]);
 
   const testsChanged = useCallback(() => setTestsNonce((n) => n + 1), []);
+
+  useChanged([""], (paths) => {
+    refreshInfo();
+    if (touches(paths, ["tests/"]).length) testsChanged();
+    if (touches(paths, [".testimus/actions/"]).length) actionsChanged();
+    if (touches(paths, ["contexts/", "project.json"]).length || paths.some((p) => p.endsWith("/claude.json")))
+      window.dispatchEvent(new Event(CONTEXTS_EVENT));
+  });
   const openPalette = useCallback(() => setPalette(true), []);
 
   const app: AppState = useMemo(

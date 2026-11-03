@@ -8,6 +8,7 @@ import { ClaudeDock } from "../../src/ui/components/claude/ClaudeDock.tsx";
 import { AppContext, type AppState, type ClaudeRun } from "../../src/ui/lib/app.ts";
 import { discardEditor, flushEditor } from "../../src/ui/lib/editorBus.ts";
 import { TestEditor } from "../../src/ui/screens/tests/TestEditor.tsx";
+import { FakeES } from "./cov-uishell-helpers.tsx";
 import { callsTo, deferred, Fail, server, stubServer } from "./cov-uitests-helpers.ts";
 import { app } from "./ui-desktop-helpers.tsx";
 
@@ -429,6 +430,22 @@ describe("TestEditor › saving", () => {
     };
     focusWindow();
     await waitFor(() => expect(callsTo("tests.show")).toHaveLength(5));
+  });
+
+  it("reloads its test.md when a job ends having changed it, and only that file", async () => {
+    vi.stubGlobal("EventSource", FakeES);
+    show = { mtime: 1 };
+    editor();
+    await ready();
+    const changed = (paths: string[]) => act(() => FakeES.emit({ jobId: "j", at: "", type: "changed", paths }));
+    changed(["tests/t2/test.md", "tests/t1/check.json"]);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(callsTo("tests.show")).toHaveLength(1);
+    show = { mtime: 2 };
+    shown = makeTest({ steps: [step("By the job")] });
+    changed(["tests/t1/test.md"]);
+    await waitFor(() => expect(actions()).toEqual(["By the job"]));
+    expect(toasts.at(-1)).toMatchObject({ title: "Reloaded from disk", detail: "A job changed test.md." });
   });
 
   it("does not reload on focus while Claude works", async () => {
