@@ -1,18 +1,17 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { userInfo } from "node:os";
 import { join } from "node:path";
 import { covers, readLedger, type Searched } from "../claude/ledger.ts";
-import { UserError } from "../command.ts";
 import { env } from "../env.ts";
+import { normalizeAnchor, normalizeRef } from "../rag/anchors.ts";
 import { FIGURE_IMAGE, parseSections } from "../rag/chunk.ts";
-import { normalizeRef, refInfo } from "../rag/related.ts";
-import type { CheckFile, CitingTest, DocJson, Finding, Review, Step, Test } from "../types.ts";
-import { writeAtomic } from "./atomic.ts";
+import { refInfo } from "../rag/related.ts";
+import type { CheckFile, CitingTest, DocJson, Finding, Step, Test } from "../types.ts";
 import { stepColumns } from "./columns.ts";
 import { findDoc } from "./docs.ts";
 import { writeJson } from "./project.ts";
 import { readCheck, readTest, testDir, testExists, testsDir } from "./store.ts";
-import { frontmatterOf, hasRawEmbed, testMdHash } from "./testfile.ts";
+import { hasRawEmbed } from "./test-blocks.ts";
+import { testMdHash } from "./testfile.ts";
 
 export type DocText = {
   id: string;
@@ -34,13 +33,6 @@ const ANCHORS = /<!--\s*(§|fig|page)\s*(\S+?)\s*-->/g;
 export const flat = (s: string) => s.replace(/\s+/g, " ").trim();
 // ponytail: doc.md keeps Word's bold and italic as * and **, which a quote never carries
 export const plainText = (s: string) => flat(s.replace(COMMENTS, " ").replace(/\*/g, ""));
-
-export function anchorKey(anchor: string): string {
-  const a = anchor.trim();
-  const m = /^(fig|page)\s*[:\s]\s*(.+)$/i.exec(a);
-  if (m) return `${m[1].toLowerCase()}:${m[2].trim()}`;
-  return `§${a.replace(/^§\s*/, "")}`;
-}
 
 export function anchorsOf(md: string): Set<string> {
   return new Set([...md.matchAll(ANCHORS)].map((m) => (m[1] === "§" ? `§${m[2]}` : `${m[1]}:${m[2]}`)));
@@ -232,7 +224,7 @@ export function mechanicalFindings(test: Test, corpus: Corpus, linked: readonly 
         });
         continue;
       }
-      const anchor = anchorKey(src.anchor);
+      const anchor = normalizeAnchor(src.anchor);
       const ref = `${src.docId}#${anchor}`;
       const d = corpus.docs.get(src.docId);
       if (!d) {
@@ -313,13 +305,13 @@ export function mechanicalFindings(test: Test, corpus: Corpus, linked: readonly 
           kind: "item-not-found",
           severity: "warning",
           message: `Step ${step}: a source backs « ${short(src.item)} » in ${src.column}, and the step's ${src.column} does not hold it: write the item as the cell has it, or remove the @${src.column} part.`,
-          sources: src.anchor ? [`${src.docId}#${anchorKey(src.anchor)}`] : [],
+          sources: src.anchor ? [`${src.docId}#${normalizeAnchor(src.anchor)}`] : [],
         });
     // ponytail: a step with a picture of unknown origin (pasted, or attached before images knew their figure) may
     // already show it — only a step without one is told
     if (!s.images.some((im) => !im.figure))
       for (const src of s.sources) {
-        const anchor = anchorKey(src.anchor);
+        const anchor = normalizeAnchor(src.anchor);
         const d = corpus.docs.get(src.docId);
         if (!d || !picturesOf(d).has(anchor) || embedded.has(`${d.id}#${anchor}`)) continue;
         embedded.add(`${d.id}#${anchor}`);
@@ -427,65 +419,6 @@ export function recordSemantic(project: string, id: string, findings: Omit<Findi
   return writeCheck(project, id, [...mechanicalCheck(project, id), ...semantic]);
 }
 
-export const readTestReview = (project: string, id: string): Review => readTest(project, id).test.review;
-
 export function isStale(project: string, id: string, check: CheckFile | null = readCheck(project, id)): boolean {
   return !!check && testMdHash(readTest(project, id).md) !== check.testHash;
-}
-
-export function osUser(): string {
-  try {
-    return userInfo().username || process.env.USERNAME || "unknown";
-  } catch {
-    return process.env.USERNAME || process.env.USER || "unknown";
-  }
-}
-
-export type ReviewPatch = { review: Review; note?: string | null; by?: string | null; at?: string | null };
-
-const plain = (v: string) =>
-  v !== v.trim() || v.startsWith("[") || v.startsWith('"') || v.includes(" #") ? JSON.stringify(v) : v;
-
-// ponytail: only the frontmatter lines change — the body keeps its bytes, so testHash and the
-// findings it stamps stay fresh after a review decision
-export function patchReview(md: string, p: ReviewPatch): string {
-  const want: [string, string | null | undefined][] = [
-    ["review", p.review],
-    ["review_note", p.note === undefined || p.note === null ? p.note : JSON.stringify(p.note)],
-    ["reviewed_by", p.by === undefined || p.by === null ? p.by : plain(p.by)],
-    ["reviewed_at", p.at === undefined || p.at === null ? p.at : plain(p.at)],
-  ];
-  const touched = want.filter(([, v]) => v !== undefined);
-  const keys = new Set(touched.map(([k]) => k));
-  const fm = frontmatterOf(md);
-  if (!fm)
-    throw new UserError(
-      "This test.md has no readable frontmatter (the --- lines around key, project, summary): the review decision was not written.",
-      "Fix the --- lines at the top of test.md (or open the test in the editor), then decide again.",
-    );
-  const fresh = touched.filter(([, v]) => v !== null).map(([k, v]) => `${k}: ${v}`);
-  const kept: string[] = [];
-  let placed = false;
-  let dropping = false;
-  for (const line of fm.head) {
-    if (dropping && /^\s/.test(line)) continue;
-    dropping = false;
-    const key = /^\s*([^:#]+?)\s*:/.exec(line)?.[1];
-    if (key && keys.has(key)) {
-      if (!placed) kept.push(...fresh);
-      placed = true;
-      dropping = true;
-      continue;
-    }
-    kept.push(line);
-  }
-  if (!placed) kept.push(...fresh);
-  return `${fm.bom}---${fm.nl}${kept.join(fm.nl)}${fm.nl}---${fm.rest}`;
-}
-
-export function setReview(project: string, id: string, p: ReviewPatch): Test {
-  const file = join(testDir(project, id), "test.md");
-  if (!existsSync(file)) throw new UserError(`No test ${id} in this project.`, "testimus tests list shows the tests.");
-  writeAtomic(file, patchReview(readFileSync(file, "utf8"), p));
-  return readTest(project, id).test;
 }

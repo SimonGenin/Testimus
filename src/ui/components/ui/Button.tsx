@@ -131,6 +131,8 @@ export type ButtonProps = {
   /** square, the icon alone; the label is read out and shown as a tooltip */
   iconOnly?: boolean;
   count?: number | string;
+  /** a timed action's seconds left, shown after the label (« Undo · 5 s ») but kept out of its name */
+  countdown?: number;
   /** shown as keys, on a screen's primary action only (Validate · V) */
   shortcut?: string;
   /** a spinner replaces the icon, the label stays, aria-busy; clicks are ignored */
@@ -197,6 +199,7 @@ export function Button({
   iconAfter,
   iconOnly = false,
   count,
+  countdown,
   shortcut,
   loading = false,
   disabled = false,
@@ -248,6 +251,7 @@ export function Button({
       {loading ? <Spinner size={s === "xs" || s === "sm" ? "sm" : "md"} /> : icon && <Icon name={icon} />}
       {!iconOnly && label}
       {!iconOnly && count !== undefined && <span {...stylex.props(styles.count)}>{count}</span>}
+      {!iconOnly && countdown !== undefined && <span aria-hidden="true">· {countdown} s</span>}
       {!iconOnly && (iconAfter || expanded !== undefined) && (
         <Icon name={iconAfter ?? (expanded ? "chevron-up" : "chevron-down")} />
       )}

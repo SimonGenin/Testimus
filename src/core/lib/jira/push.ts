@@ -1,6 +1,6 @@
 import type { PlanOp, ProjectInfo, Test, XrayField } from "../../types.ts";
 import { textToAdf } from "../adf.ts";
-import { hasRawEmbed } from "../testfile.ts";
+import { hasRawEmbed } from "../test-blocks.ts";
 import { gql, jiraFetch } from "./http.ts";
 import { labelPrefixOf, reviewLabels, reviewOfLabels } from "./labels.ts";
 import { ISSUE_KEY, type PulledTest, preconditions, remoteSteps } from "./read.ts";

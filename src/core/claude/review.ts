@@ -1,6 +1,6 @@
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
-import { osUser, setReview } from "../lib/check.ts";
+import { osUser, setReview } from "../lib/review.ts";
 import { listLocalTests, readTest, testExists } from "../lib/store.ts";
 import type { LocalTestRef, Review, Test } from "../types.ts";
 import { inFolder } from "./check.ts";

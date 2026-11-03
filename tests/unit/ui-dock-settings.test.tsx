@@ -578,7 +578,7 @@ describe("settings › Claude", () => {
     const base = { claude: { exe: "" }, models: { allowRemote: true } };
     let agents: Record<string, unknown> = {};
     routes["system.settings"] = () => ({ ...base, agents });
-    routes["system.saveSettings"] = (i) => {
+    routes["system.set"] = (i) => {
       agents = {
         ...agents,
         ...(i.agentsMax !== undefined ? { max: i.agentsMax } : {}),
@@ -603,12 +603,12 @@ describe("settings › Claude", () => {
     fireEvent.change(max, { target: { value: "40" } });
     fireEvent.blur(max);
     expect(max.value).toBe("5");
-    expect(callsOf("system.saveSettings")).toHaveLength(0);
+    expect(callsOf("system.set")).toHaveLength(0);
     fireEvent.change(max, { target: { value: "8" } });
     fireEvent.keyDown(max, { key: "Enter" });
-    await waitFor(() => expect(callsOf("system.saveSettings")[0]?.input).toEqual({ agentsMax: 8 }));
+    await waitFor(() => expect(callsOf("system.set")[0]?.input).toEqual({ agentsMax: 8 }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Adapt to the PC's load" }));
-    await waitFor(() => expect(callsOf("system.saveSettings")[1]?.input).toEqual({ agentsAdaptive: false }));
+    await waitFor(() => expect(callsOf("system.set")[1]?.input).toEqual({ agentsAdaptive: false }));
     expect(screen.getByRole("checkbox", { name: "Adapt to the PC's load" })).not.toBeChecked();
 
     fireEvent.click(screen.getByRole("button", { name: "Test this PC's limits" }));
@@ -663,7 +663,7 @@ describe("settings › Claude", () => {
 
   it("checks the Claude program and shows how to connect it when not found", async () => {
     routes["system.settings"] = () => ({ claude: { exe: "" }, models: { allowRemote: true } });
-    routes["system.saveSettings"] = (i) => ({ claude: { exe: i.claudeExe }, models: { allowRemote: true } });
+    routes["system.set"] = (i) => ({ claude: { exe: i.claudeExe }, models: { allowRemote: true } });
     render(wrap(app({ info: null }), <ClaudeSection />));
     expect(await screen.findByText("✓ 2.1.0 · found")).toBeInTheDocument();
     routes["claude.status"] = (i) => {
@@ -675,27 +675,27 @@ describe("settings › Claude", () => {
     fireEvent.change(field, { target: { value: "C:\\x\\claude.cmd" } });
     fireEvent.click(screen.getByRole("button", { name: "Check" }));
     expect(await screen.findByText("✕ spawn ENOENT · not found · Claude is optional")).toBeInTheDocument();
-    expect(callsOf("system.saveSettings")[0].input).toEqual({ claudeExe: "C:\\x\\claude.cmd" });
+    expect(callsOf("system.set")[0].input).toEqual({ claudeExe: "C:\\x\\claude.cmd" });
     expect(screen.getByText("Claude isn't installed on this PC yet")).toBeInTheDocument();
     expect(exeLine({ installed: true, signedIn: null })).toBe("✓ Claude Code · found");
   });
 
   it("a Claude program path typed but not blurred is saved when Settings goes, once, as in Xray Editor", async () => {
     routes["system.settings"] = () => ({ claude: { exe: "" }, models: { allowRemote: true } });
-    routes["system.saveSettings"] = (i) => ({ claude: { exe: i.claudeExe }, models: { allowRemote: true } });
+    routes["system.set"] = (i) => ({ claude: { exe: i.claudeExe }, models: { allowRemote: true } });
     const r = render(wrap(app({ info: null }), <ClaudeSection />));
     await waitFor(() => expect(callsOf("system.settings")).toHaveLength(1));
     await screen.findByText("✓ 2.1.0 · found");
     fireEvent.change(screen.getByLabelText("Claude program"), { target: { value: "D:\\tools\\claude.cmd" } });
-    expect(callsOf("system.saveSettings")).toHaveLength(0);
+    expect(callsOf("system.set")).toHaveLength(0);
     r.unmount();
-    await waitFor(() => expect(callsOf("system.saveSettings")).toHaveLength(1));
-    expect(callsOf("system.saveSettings")[0].input).toEqual({ claudeExe: "D:\\tools\\claude.cmd" });
+    await waitFor(() => expect(callsOf("system.set")).toHaveLength(1));
+    expect(callsOf("system.set")[0].input).toEqual({ claudeExe: "D:\\tools\\claude.cmd" });
     const again = render(wrap(app({ info: null }), <ClaudeSection />));
     await waitFor(() => expect(callsOf("system.settings")).toHaveLength(2));
     again.unmount();
     await new Promise((res) => setTimeout(res, 20));
-    expect(callsOf("system.saveSettings")).toHaveLength(1);
+    expect(callsOf("system.set")).toHaveLength(1);
   });
 });
 
@@ -840,7 +840,7 @@ describe("access: files and the guided connection", () => {
       { baseUrl: "https://acme.atlassian.net/wiki", email: "me@acme.fr" },
       { complete: false, invalid: true, problem: "missing clientSecret" },
     );
-    routes["system.setup"] = (i) => {
+    routes["system.credentials"] = routes["system.setCredentials"] = (i) => {
       if (Object.keys(i).length === 0) return { status: st, saved: [], checks: [], ok: false };
       st = creds({ baseUrl: "https://transurb.atlassian.net/wiki", email: "me@acme.fr" });
       return {
@@ -878,8 +878,7 @@ describe("access: files and the guided connection", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save and test the connection" }));
     expect(await screen.findByText(/Jira refused this email and token/)).toBeInTheDocument();
     expect(screen.getByText("Key accepted")).toBeInTheDocument();
-    expect(callsOf("system.setup")[1].input).toEqual({
-      check: true,
+    expect(callsOf("system.setCredentials")[0].input).toEqual({
       site: "https://transurb.atlassian.net",
       clientSecret: "s3cret",
     });
@@ -890,7 +889,7 @@ describe("access: files and the guided connection", () => {
   });
 
   it("erases a saved secret the user empties", async () => {
-    routes["system.setup"] = () => ({
+    routes["system.credentials"] = routes["system.setCredentials"] = () => ({
       status: creds({ baseUrl: "https://acme.atlassian.net/wiki", email: "me@acme.fr" }),
       saved: [],
       checks: [],
@@ -902,12 +901,12 @@ describe("access: files and the guided connection", () => {
     await waitFor(() => expect(screen.getByLabelText("Client ID")).toHaveValue("cid-1"));
     fireEvent.change(screen.getByLabelText("Client ID"), { target: { value: "" } });
     fireEvent.click(screen.getByRole("button", { name: "Save and test the connection" }));
-    await waitFor(() => expect(callsOf("system.setup")).toHaveLength(2));
-    expect(callsOf("system.setup")[1].input).toEqual({ check: true, clear: ["clientId"] });
+    await waitFor(() => expect(callsOf("system.setCredentials")).toHaveLength(1));
+    expect(callsOf("system.setCredentials")[0].input).toEqual({ clear: ["clientId"] });
   });
 
   it("saves a site outside atlassian.net as given, as Xray Editor does", async () => {
-    routes["system.setup"] = (i) =>
+    routes["system.credentials"] = routes["system.setCredentials"] = (i) =>
       Object.keys(i).length === 0
         ? {
             status: creds({ baseUrl: "https://acme.atlassian.net/wiki", email: "me@acme.fr" }),
@@ -926,14 +925,14 @@ describe("access: files and the guided connection", () => {
     const site = await screen.findByLabelText("Jira site");
     fireEvent.change(site, { target: { value: "https://jira.acme.com" } });
     fireEvent.click(screen.getByRole("button", { name: "Save and test the connection" }));
-    await waitFor(() => expect(callsOf("system.setup")).toHaveLength(2));
-    expect(callsOf("system.setup")[1].input).toMatchObject({ site: "https://jira.acme.com", otherHost: true });
+    await waitFor(() => expect(callsOf("system.setCredentials")).toHaveLength(1));
+    expect(callsOf("system.setCredentials")[0].input).toMatchObject({ site: "https://jira.acme.com", otherHost: true });
   });
 
   it("without the desktop app the links open a new tab and the folder is plain text", async () => {
     const open = vi.fn();
     vi.stubGlobal("open", open);
-    routes["system.setup"] = () => ({
+    routes["system.credentials"] = routes["system.setCredentials"] = () => ({
       status: creds({}, { exists: false, complete: false }),
       saved: [],
       checks: [],

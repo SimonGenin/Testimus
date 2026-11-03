@@ -46,7 +46,7 @@ const status = (jira: Record<string, unknown> = {}, xray: Record<string, unknown
 
 describe("First launch screen", () => {
   it("walks the steps and goes back to the app", () => {
-    api.routes["system.setup"] = () => ({ status: status() });
+    api.routes["system.credentials"] = api.routes["system.setCredentials"] = () => ({ status: status() });
     const { app: a } = mount(<FirstRunScreen />, { route: { screen: "setup" } });
     const steps = screen.getByRole("list", { name: "Setup steps" });
     const pills = within(steps).getAllByRole("listitem");
@@ -74,7 +74,7 @@ describe("First launch screen", () => {
   });
 
   it("on the access step, Continue and Skip go to the project", async () => {
-    api.routes["system.setup"] = () => ({ status: status() });
+    api.routes["system.credentials"] = api.routes["system.setCredentials"] = () => ({ status: status() });
     const { app: a } = mount(<FirstRunScreen />, { route: { screen: "setup" } });
     fireEvent.click(await screen.findByRole("button", { name: "Continue" }));
     fireEvent.click(screen.getByRole("button", { name: "Skip for now" }));
@@ -210,8 +210,7 @@ describe("First launch › Project", () => {
 
   it("creates a project in its own folder under the projects folder, then opens it", async () => {
     api.routes["project.list"] = () => ({ projects: [], root: "D:\\Testimus\\Projects" });
-    api.routes["project.init"] = () => ({});
-    api.routes["project.open"] = (i) => ({ dir: i.dir });
+    api.routes["project.init"] = (i) => ({ dir: i.dir });
     const onOpened = vi.fn();
     mount(<ProjectStep onBack={vi.fn()} onOpened={onOpened} />);
     await waitFor(() => expect(screen.getByLabelText("Projects folder")).toHaveValue("D:\\Testimus\\Projects"));
@@ -230,7 +229,7 @@ describe("First launch › Project", () => {
       name: "RATP: Sosie.",
       language: "en",
     });
-    expect(named("project.open")[0].input).toEqual({ dir: "D:\\Testimus\\Projects\\RATP Sosie" });
+    expect(named("project.open")).toEqual([]);
   });
 
   it("names the project folder with the separator of the projects folder", () => {

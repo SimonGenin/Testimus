@@ -103,7 +103,7 @@ describe("ConnectAtlassian helpers", () => {
 describe("ConnectAtlassian", () => {
   it("fills the found access, shows how it is saved, and saves only what changed", async () => {
     let n = 0;
-    models.routes["system.setup"] = () =>
+    models.routes["system.credentials"] = models.routes["system.setCredentials"] = () =>
       n++ === 0
         ? { status: creds({ baseUrl: "https://acme.atlassian.net/wiki", email: "me@acme" }) }
         : {
@@ -135,8 +135,7 @@ describe("ConnectAtlassian", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save and test the connection" }));
     expect(await screen.findByText("Connected as me@beta")).toBeInTheDocument();
     expect(screen.getByText(/Xray refused this Client ID/)).toBeInTheDocument();
-    expect(named("system.setup")[1].input).toEqual({
-      check: true,
+    expect(named("system.setCredentials")[0].input).toEqual({
       site: "https://beta.atlassian.net",
       email: "me@beta",
       token: "tok",
@@ -152,7 +151,7 @@ describe("ConnectAtlassian", () => {
 
   it("an unchanged form sends the check only; Enter submits; nothing saved, no doctor", async () => {
     let n = 0;
-    models.routes["system.setup"] = () =>
+    models.routes["system.credentials"] = models.routes["system.setCredentials"] = () =>
       n++ === 0
         ? { status: creds({ complete: false }, { exists: false, complete: false }) }
         : { status: creds(), saved: [], ok: false, checks: [] };
@@ -163,12 +162,14 @@ describe("ConnectAtlassian", () => {
     expect(screen.queryByRole("button", { name: "Open Jira apps" })).toBeNull();
     fireEvent.submit(container.querySelector("form") as HTMLFormElement);
     expect(await screen.findByText(/Fill in the site, the email/)).toBeInTheDocument();
-    expect(named("system.setup")[1].input).toEqual({ check: true });
+    expect(named("system.setCredentials")[0].input).toEqual({});
     expect(named("system.doctor")).toHaveLength(0);
   });
 
   it("opens the token and app pages in a browser tab, or through the desktop", async () => {
-    models.routes["system.setup"] = () => ({ status: creds({ baseUrl: "https://acme.atlassian.net/wiki" }) });
+    models.routes["system.credentials"] = models.routes["system.setCredentials"] = () => ({
+      status: creds({ baseUrl: "https://acme.atlassian.net/wiki" }),
+    });
     const open = vi.spyOn(window, "open").mockImplementation(() => null);
     mount(<ConnectAtlassian />);
     fireEvent.click(await screen.findByRole("button", { name: "Open API tokens" }));
@@ -195,19 +196,25 @@ describe("ConnectAtlassian", () => {
 
   it("shows why the access cannot be read and why a save failed", async () => {
     mount(<ConnectAtlassian />);
-    expect(await screen.findByText("Unknown command system.setup")).toBeInTheDocument();
+    expect(await screen.findByText("Unknown command system.credentials")).toBeInTheDocument();
     expect(screen.getByText("~/.atlassian")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save and test the connection" })).toBeDisabled();
     cleanup();
     let n = 0;
-    models.routes["system.setup"] = () => (n++ === 0 ? { status: creds() } : failing("disk locked"));
+    models.routes["system.credentials"] = models.routes["system.setCredentials"] = () =>
+      n++ === 0 ? { status: creds() } : failing("disk locked");
     mount(<ConnectAtlassian />);
     fireEvent.click(await screen.findByRole("button", { name: "Save and test the connection" }));
     expect(await screen.findByText("disk locked")).toBeInTheDocument();
   });
 
   it("shows Testing… while it runs", async () => {
-    models.routes["system.setup"] = () => ({ status: creds(), saved: [], ok: true, checks: [] });
+    models.routes["system.credentials"] = models.routes["system.setCredentials"] = () => ({
+      status: creds(),
+      saved: [],
+      ok: true,
+      checks: [],
+    });
     mount(<ConnectAtlassian />);
     const save = await screen.findByRole("button", { name: "Save and test the connection" });
     let release = () => {};
@@ -234,7 +241,7 @@ describe("Settings › Access and First launch › Access", () => {
       checks: [check("jira", "fail", "Jira 401 Unauthorized — token rejected", "New token"), check("xray", "ok")],
     });
     await runDoctor();
-    models.routes["system.setup"] = () => ({ status: creds() });
+    models.routes["system.credentials"] = models.routes["system.setCredentials"] = () => ({ status: creds() });
     mount(<AccessSection />);
     expect(await screen.findAllByText("found · valid")).toHaveLength(2);
     expect(screen.getByText("Connected")).toBeInTheDocument();
@@ -242,14 +249,16 @@ describe("Settings › Access and First launch › Access", () => {
     cleanup();
     models.routes["system.doctor"] = () => ({ checks: [check("jira", "skip")] });
     await runDoctor();
-    models.routes["system.setup"] = () => ({
+    models.routes["system.credentials"] = models.routes["system.setCredentials"] = () => ({
       status: creds({ exists: false }, { invalid: true, problem: "not valid JSON" }),
     });
     mount(<AccessSection />);
     expect(await screen.findByText("missing")).toBeInTheDocument();
     expect(screen.getByText("invalid — not valid JSON")).toBeInTheDocument();
     cleanup();
-    models.routes["system.setup"] = () => ({ status: creds({}, { complete: false }) });
+    models.routes["system.credentials"] = models.routes["system.setCredentials"] = () => ({
+      status: creds({}, { complete: false }),
+    });
     mount(<AccessSection />);
     expect(await screen.findByText("invalid")).toBeInTheDocument();
     expect(screen.queryByText("Connected")).toBeNull();
@@ -257,7 +266,7 @@ describe("Settings › Access and First launch › Access", () => {
 
   it("first launch: the found banner, Continue and Skip, and the banner gone once all is ok", async () => {
     let n = 0;
-    models.routes["system.setup"] = () =>
+    models.routes["system.credentials"] = models.routes["system.setCredentials"] = () =>
       n++ === 0 ? { status: creds() } : { status: creds(), saved: [], ok: true, checks: [] };
     const onContinue = vi.fn();
     const onSkip = vi.fn();
@@ -273,7 +282,9 @@ describe("Settings › Access and First launch › Access", () => {
   });
 
   it("first launch without access: no banner, a secondary Continue", async () => {
-    models.routes["system.setup"] = () => ({ status: creds({ complete: false }) });
+    models.routes["system.credentials"] = models.routes["system.setCredentials"] = () => ({
+      status: creds({ complete: false }),
+    });
     mount(<AccessStep onContinue={vi.fn()} onSkip={vi.fn()} />);
     await screen.findByLabelText("Jira site");
     expect(screen.queryByText(/We found the access/)).toBeNull();
@@ -297,7 +308,7 @@ describe("Settings › Smart columns › plain text", () => {
 describe("Settings › Appearance", () => {
   it("theme, layout and downloads are saved; a failed save is reported", async () => {
     models.routes["system.settings"] = () => ({ claude: { exe: "" }, models: { allowRemote: false } });
-    models.routes["system.saveSettings"] = (i) => ({
+    models.routes["system.set"] = (i) => ({
       claude: { exe: "" },
       models: { allowRemote: i.allowRemote ?? false },
     });
@@ -314,7 +325,7 @@ describe("Settings › Appearance", () => {
       within(screen.getByRole("group", { name: "Step layout" })).getByRole("button", { name: "Side by side" }),
     );
     expect(localStorage.getItem("testimus.stepLayout")).toBe("split");
-    await waitFor(() => expect(named("system.saveSettings")).toHaveLength(1));
+    await waitFor(() => expect(named("system.set")).toHaveLength(1));
     act(() => {
       window.dispatchEvent(new CustomEvent("testimus:theme", { detail: "light" }));
     });
@@ -322,7 +333,7 @@ describe("Settings › Appearance", () => {
       "aria-pressed",
       "true",
     );
-    delete models.routes["system.saveSettings"];
+    delete models.routes["system.set"];
     fireEvent.click(box);
     expect(await screen.findByText("Could not save the settings")).toBeInTheDocument();
     expect(box).toBeChecked();
@@ -358,7 +369,7 @@ describe("Settings › Claude", () => {
 
   it("without a project: the Claude program only, checked on Enter; a failed check shows how to connect", async () => {
     models.routes["system.settings"] = () => ({ claude: { exe: "C:/c.exe" }, models: { allowRemote: true } });
-    models.routes["system.saveSettings"] = (i) => ({ claude: { exe: i.claudeExe }, models: { allowRemote: true } });
+    models.routes["system.set"] = (i) => ({ claude: { exe: i.claudeExe }, models: { allowRemote: true } });
     models.routes["claude.status"] = (i) =>
       i.refresh ? failing("spawn failed") : { installed: true, version: "2.0", signedIn: true };
     const { app: a } = mount(<ClaudeSection />, { info: null });
@@ -367,12 +378,12 @@ describe("Settings › Claude", () => {
     const exe = screen.getByLabelText("Claude program");
     await waitFor(() => expect(exe).toHaveValue("C:/c.exe"));
     fireEvent.blur(exe);
-    expect(named("system.saveSettings")).toHaveLength(0);
+    expect(named("system.set")).toHaveLength(0);
     fireEvent.change(exe, { target: { value: "D:/claude.cmd" } });
     fireEvent.keyDown(exe, { key: "a" });
     fireEvent.keyDown(exe, { key: "Enter" });
     expect(await screen.findByText(/spawn failed · not found/)).toBeInTheDocument();
-    expect(named("system.saveSettings")[0].input).toEqual({ claudeExe: "D:/claude.cmd" });
+    expect(named("system.set")[0].input).toEqual({ claudeExe: "D:/claude.cmd" });
     fireEvent.click(screen.getByRole("button", { name: "Open system check" }));
     expect(a.navigate).toHaveBeenCalledWith("doctor");
     models.routes["claude.status"] = () => ({ installed: true, signedIn: true });
@@ -394,7 +405,7 @@ describe("Settings › Claude", () => {
     models.gate = new Promise<void>((r) => {
       release = r;
     });
-    models.routes["system.saveSettings"] = () => ({ claude: { exe: "" }, models: { allowRemote: true } });
+    models.routes["system.set"] = () => ({ claude: { exe: "" }, models: { allowRemote: true } });
     models.routes["claude.status"] = () => ({ installed: true, signedIn: true });
     fireEvent.click(screen.getByRole("button", { name: "Check" }));
     expect(await screen.findByRole("button", { name: "Checking…" })).toBeDisabled();
@@ -413,12 +424,12 @@ describe("Settings › Claude", () => {
     expect(screen.getByLabelText("Claude program")).toHaveValue("");
     fireEvent.click(browse);
     await waitFor(() => expect(d.pickFiles).toHaveBeenCalledTimes(1));
-    expect(named("system.saveSettings")).toHaveLength(0);
+    expect(named("system.set")).toHaveLength(0);
     d.pickFiles.mockResolvedValue(["E:/claude.exe"]);
-    models.routes["system.saveSettings"] = () => ({ claude: { exe: "E:/claude.exe" }, models: { allowRemote: true } });
+    models.routes["system.set"] = () => ({ claude: { exe: "E:/claude.exe" }, models: { allowRemote: true } });
     models.routes["claude.status"] = () => ({ installed: true, signedIn: true });
     fireEvent.click(browse);
-    await waitFor(() => expect(named("system.saveSettings")[0]?.input).toEqual({ claudeExe: "E:/claude.exe" }));
+    await waitFor(() => expect(named("system.set")[0]?.input).toEqual({ claudeExe: "E:/claude.exe" }));
     expect(screen.getByLabelText("Claude program")).toHaveValue("E:/claude.exe");
   });
 

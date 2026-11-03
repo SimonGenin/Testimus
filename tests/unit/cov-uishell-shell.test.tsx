@@ -328,7 +328,6 @@ describe("ProjectButton", () => {
       created: true,
       key: i.key,
     });
-    net.routes["project.open"] = (i) => ({ dir: i.dir, name: "BHPTCC", jiraProject: "BHPTCC" });
     const { state } = withApp(<ProjectButton />);
     openMenu();
     fireEvent.click(await screen.findByRole("menuitem", { name: /Open by Jira key/ }));
@@ -338,6 +337,7 @@ describe("ProjectButton", () => {
     fireEvent.click(within(dlg).getByRole("button", { name: "Go" }));
     await waitFor(() => expect(callsOf("project.openKey")[0]?.input).toEqual({ key: "BHPTCC" }));
     await waitFor(() => expect(project()).toBe("D:WorkBHPTCC"));
+    expect(callsOf("project.open")).toEqual([]);
     expect(state.refreshInfo).toHaveBeenCalled();
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Open a project by its Jira key" })).toBeNull());
   });

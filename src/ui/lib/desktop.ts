@@ -95,11 +95,16 @@ export function restoreAlwaysOnTop(): void {
 
 export async function openProject(app: Pick<AppState, "refreshInfo" | "testsChanged">, dir: string): Promise<string> {
   const r = await call<{ dir: string }>("project.open", { dir });
-  setProject(r.dir);
-  writePref("testimus.project", r.dir);
+  return showProject(app, r.dir);
+}
+
+// ponytail: project.init and project.openKey already made the project the current one — the page only follows
+export function showProject(app: Pick<AppState, "refreshInfo" | "testsChanged">, dir: string): string {
+  setProject(dir);
+  writePref("testimus.project", dir);
   app.refreshInfo();
   app.testsChanged();
-  return r.dir;
+  return dir;
 }
 
 export const PROGRESS_KINDS = new Set(["generate", "rag-index", "check", "pull", "pullModel", "models-pull"]);

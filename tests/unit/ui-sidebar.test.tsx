@@ -700,11 +700,11 @@ describe("Tests screen › layout", () => {
       checks: [],
       ok: complete,
     });
-    routes["system.setup"] = () => creds(false);
+    routes["system.credentials"] = routes["system.setCredentials"] = () => creds(false);
     const first = render(<Harness />);
     expect(await screen.findByRole("heading", { name: "Connect to Jira and Xray" })).toBeInTheDocument();
     first.unmount();
-    routes["system.setup"] = () => creds(true);
+    routes["system.credentials"] = routes["system.setCredentials"] = () => creds(true);
     render(<Harness />);
     expect(await screen.findByRole("heading", { name: "No test open" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Connect to Jira and Xray" })).toBeNull();

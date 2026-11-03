@@ -24,7 +24,7 @@ export function AgentsField({ s, setS }: { s: Settings | null; setS: (s: Setting
   }, [saved]);
 
   const save = async (patch: Record<string, unknown>) => {
-    const r = await call<Settings>("system.saveSettings", patch).catch((e) => {
+    const r = await call<Settings>("system.set", patch).catch((e) => {
       errorToast(e, "Could not save the settings");
       return null;
     });

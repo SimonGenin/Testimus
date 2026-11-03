@@ -100,7 +100,7 @@ export function App() {
         setBooted(true);
         const shown = readSession("testimus.setupShown");
         if (shown || parseRoute(window.location.hash).screen === "setup") return;
-        const st = await call<{ status: CredsStatus }>("system.setup", {}).catch(() => null);
+        const st = await call<{ status: CredsStatus }>("system.credentials", {}).catch(() => null);
         const creds = !st || (st.status.jira.complete && st.status.xray.complete);
         if (!dir || !creds) {
           writeSession("testimus.setupShown", "1");

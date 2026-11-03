@@ -70,6 +70,8 @@ const styles = stylex.create({
 export type SelectOption<V extends string> = { value: V; label: string; disabled?: boolean };
 
 export type SelectProps<V extends string> = {
+  /** the field's id, when a label outside names it (htmlFor) */
+  id?: string;
   value: V | null;
   options: SelectOption<V>[];
   onChange: (value: V) => void;
@@ -94,6 +96,7 @@ export type SelectProps<V extends string> = {
 // ponytail: one value from a short known list; the list is the platform's own (accessible, keyboard) — more than about
 // twelve values or free text is a Text with suggestions, two values a Segmented choice or a Switch (SYSTEM.md)
 export function Select<V extends string>({
+  id: givenId,
   value,
   options,
   onChange,
@@ -108,7 +111,8 @@ export function Select<V extends string>({
   block = false,
   debugState,
 }: SelectProps<V>) {
-  const id = useId();
+  const auto = useId();
+  const id = givenId ?? auto;
   const off = disabled !== false;
   const field = (
     <span {...stylex.props(styles.wrap, block && styles.block)}>

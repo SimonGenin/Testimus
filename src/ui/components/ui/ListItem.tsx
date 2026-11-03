@@ -88,6 +88,8 @@ export type ListItemProps = {
   trail?: ReactNode;
   /** icon buttons (xs) shown on hover and focus, in place of the trail so nothing moves */
   actions?: ReactNode;
+  /** the row's id, for a field that points at its active option (a combobox's aria-activedescendant) */
+  id?: string;
   /** tree level, from 0 (indented 16 px per level) */
   depth?: number;
   /** a tree node: true open, false closed (a twisty); null a leaf beside nodes (the twisty's room) */
@@ -117,6 +119,7 @@ export type ListRowProps = ListItemProps & {
 // ponytail: one row of a List — the List gives it its role, its selection and the keyboard; it draws the row and shows
 // its actions while the pointer or the focus is on it
 export function ListItem({
+  id,
   title,
   badges,
   meta,
@@ -157,6 +160,7 @@ export function ListItem({
   const titleText = <span {...stylex.props(styles.title, selected && styles.titleOn)}>{title}</span>;
   return (
     <li
+      id={id}
       ref={ref}
       role={role}
       {...aria}
