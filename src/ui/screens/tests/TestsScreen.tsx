@@ -6,6 +6,7 @@ import { DragEdge, Icon } from "../../components/ui/index.ts";
 import { useApp } from "../../lib/app.ts";
 import { cx } from "../../lib/format.ts";
 import { addRecent } from "../../lib/recent.ts";
+import { useSideWidth } from "../../lib/sideWidth.ts";
 import { errorToast } from "../../lib/toast.ts";
 import { ConnectAtlassian } from "../settings/ConnectAtlassian.tsx";
 import { PullPane } from "./PullPane.tsx";
@@ -16,31 +17,13 @@ import { TestList } from "./TestList.tsx";
 export const NARROW = 900;
 export const SIDEBAR_MIN = 240;
 export const SIDEBAR_MAX = 480;
-const WIDTH_KEY = "testimus.sidebarWidth";
-
-const readWidth = (): number | null => {
-  try {
-    const v = Number(localStorage.getItem(WIDTH_KEY));
-    return Number.isFinite(v) && v >= SIDEBAR_MIN && v <= SIDEBAR_MAX ? v : null;
-  } catch {
-    return null;
-  }
-};
-
-const writeWidth = (w: number | null) => {
-  try {
-    if (w === null) localStorage.removeItem(WIDTH_KEY);
-    else localStorage.setItem(WIDTH_KEY, String(w));
-  } catch {}
-};
 
 export function TestsScreen() {
   const app = useApp();
   const activeId = app.route.screen === "tests" ? (app.route.arg ?? "") : "";
   const [refs, setRefs] = useState<LocalTestRef[]>([]);
   const [loading, setLoading] = useState(true);
-  const [width, setWidth] = useState(readWidth);
-  const [dragW, setDragW] = useState<number | null>(null);
+  const [shownWidth, edge] = useSideWidth("testimus.sidebarWidth", SIDEBAR_MIN, SIDEBAR_MAX, "before");
   const [narrow, setNarrow] = useState(() => window.innerWidth < NARROW);
   const [drawer, setDrawer] = useState(false);
   const pulls = usePulls();
@@ -150,7 +133,6 @@ export function TestsScreen() {
 
   const pull = pulls.find((p) => p.key === activeId);
   const others = pulls.filter((p) => !p.error && p.key !== activeId);
-  const shownWidth = dragW ?? width;
 
   return (
     <div
@@ -170,26 +152,7 @@ export function TestsScreen() {
         open={narrow && drawer}
         onCloseDrawer={() => setDrawer(false)}
       />
-      {!narrow && (
-        <DragEdge
-          className="tside-edge"
-          label="Resize the test list"
-          target={(edge) => edge.previousElementSibling as HTMLElement}
-          width={(dx, w) => Math.min(Math.max(w + dx, SIDEBAR_MIN), SIDEBAR_MAX)}
-          onWidth={setDragW}
-          onCommit={() => {
-            if (dragW === null) return;
-            setWidth(dragW);
-            writeWidth(dragW);
-            setDragW(null);
-          }}
-          onReset={() => {
-            setDragW(null);
-            setWidth(null);
-            writeWidth(null);
-          }}
-        />
-      )}
+      {!narrow && <DragEdge className="tside-edge" label="Resize the test list" {...edge} />}
       {narrow && drawer && <div className="tside-scrim" aria-hidden="true" onClick={() => setDrawer(false)} />}
       <main className="tests-main">
         {narrow && (

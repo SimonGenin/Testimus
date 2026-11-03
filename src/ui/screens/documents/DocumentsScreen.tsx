@@ -1,14 +1,15 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
 import type { DocRef } from "../../../core/types.ts";
 import { call, events } from "../../api.ts";
 import { problemOf } from "../../components/shell/ProblemPanel.tsx";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
 import { DOC_STATUS } from "../../components/sources/PassageView.tsx";
 import { TracesBar } from "../../components/traces/TracesBar.tsx";
-import { Badge, Button, Icon, IconButton, Modal, Severity, Skeleton } from "../../components/ui/index.ts";
+import { Badge, Button, DragEdge, Icon, IconButton, Modal, Severity, Skeleton } from "../../components/ui/index.ts";
 import { useApp } from "../../lib/app.ts";
 import { desktop, pickFiles } from "../../lib/desktop.ts";
 import { cx } from "../../lib/format.ts";
+import { useSideWidth } from "../../lib/sideWidth.ts";
 import { errorToast } from "../../lib/toast.ts";
 import {
   addDocFiles,
@@ -81,6 +82,7 @@ const REFRESH = new Set(["docs.add", "docs.convert", "rag-index", "describe-figu
 
 export function DocumentsScreen() {
   const app = useApp();
+  const [sideW, sideEdge] = useSideWidth("testimus.docsSideWidth", 320, 800, "after");
   const [docs, setDocs] = useState<DocRef[] | null>(null);
   const [wordsOnly, setWordsOnly] = useState<string | null>(null);
   const [drag, setDrag] = useState(false);
@@ -209,7 +211,7 @@ export function DocumentsScreen() {
           </Button>
         </div>
       ) : (
-        <div className="split">
+        <div className="split" style={sideW ? ({ "--side-size": `${sideW}px` } as CSSProperties) : undefined}>
           <section className="split-main scroll" aria-label="Document list">
             <table className="tbl">
               <thead>
@@ -293,19 +295,22 @@ export function DocumentsScreen() {
             </table>
           </section>
           {activeId && docs?.some((d) => d.id === activeId) && (
-            <DocDetail
-              key={activeId}
-              id={activeId}
-              anchor={anchor}
-              docs={docs ?? []}
-              onAnchor={(a) => app.navigate("documents", `${activeId}#${a}`)}
-              onChanged={changed}
-              onReindex={reindex}
-              onRemoved={() => {
-                app.navigate("documents");
-                changed();
-              }}
-            />
+            <>
+              <DragEdge className="side-edge" label="Resize the document details" {...sideEdge} />
+              <DocDetail
+                key={activeId}
+                id={activeId}
+                anchor={anchor}
+                docs={docs ?? []}
+                onAnchor={(a) => app.navigate("documents", `${activeId}#${a}`)}
+                onChanged={changed}
+                onReindex={reindex}
+                onRemoved={() => {
+                  app.navigate("documents");
+                  changed();
+                }}
+              />
+            </>
           )}
         </div>
       )}

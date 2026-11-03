@@ -1,13 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CheckFile, Source, SyncState, Test } from "../../../core/types.ts";
 import { call, fileUrl, run } from "../../api.ts";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
-import { Button, Icon, IconButton, Kbd, Severity, Skeleton } from "../../components/ui/index.ts";
+import { Button, DragEdge, Icon, IconButton, Kbd, Severity, Skeleton } from "../../components/ui/index.ts";
 import { useApp } from "../../lib/app.ts";
 import { flushEditor } from "../../lib/editorBus.ts";
 import { message, plural } from "../../lib/format.ts";
 import { addedSteps } from "../../lib/marks.ts";
 import { editedAfterRun, revertRun } from "../../lib/revert.ts";
+import { useSideWidth } from "../../lib/sideWidth.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 import { PushDialog } from "../tests/PushDialog.tsx";
 import { TestEditor } from "../tests/TestEditor.tsx";
@@ -31,6 +32,8 @@ const FILTER_STATES: Record<QueueFilter, string[] | undefined> = {
 
 export function ReviewScreen() {
   const app = useApp();
+  const [queueW, queueEdge] = useSideWidth("testimus.queueWidth", 240, 480, "before");
+  const [sourceW, sourceEdge] = useSideWidth("testimus.sourceWidth", 300, 720, "after");
   const routeId = app.route.screen === "review" ? (app.route.arg ?? "") : "";
   const [items, setItems] = useState<QueueItem[] | null>(null);
   const [counts, setCounts] = useState<QueueCounts | null>(null);
@@ -337,7 +340,15 @@ export function ReviewScreen() {
             : undefined
         }
       />
-      <div className="review">
+      <div
+        className="review"
+        style={
+          {
+            ...(queueW && { "--queue-size": `${queueW}px` }),
+            ...(sourceW && { "--source-size": `${sourceW}px` }),
+          } as CSSProperties
+        }
+      >
         <ReviewQueue
           items={items}
           counts={counts}
@@ -353,6 +364,7 @@ export function ReviewScreen() {
           onWithFindings={setWithFindings}
           onOpen={open}
         />
+        <DragEdge className="queue-edge" label="Resize the review queue" {...queueEdge} />
         <nav className="queue-strip" aria-label="Review queue, folded">
           <IconButton icon="up" label="Previous test (K)" disabled={!items?.length} onClick={() => move(-1)} />
           <span className="muted queue-strip-pos">
@@ -527,6 +539,7 @@ export function ReviewScreen() {
             </Button>
           </div>
         </section>
+        {!editing && <DragEdge className="srcpanel-edge" label="Resize the source panel" {...sourceEdge} />}
         {!editing && (
           <SourcePanel
             source={sel?.source ?? null}

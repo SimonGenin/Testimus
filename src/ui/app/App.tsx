@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CredsStatus, Job, Source, XrayJson } from "../../core/types.ts";
 import { type CommandInfo, call, commands, events, fileUrl, setProject } from "../api.ts";
 import { ClaudeDock, type DockJob, type DockRequest } from "../components/claude/ClaudeDock.tsx";
@@ -7,10 +7,11 @@ import { DesktopBridge } from "../components/shell/DesktopBridge.tsx";
 import { Palette, type PaletteAction } from "../components/shell/Palette.tsx";
 import { NAV, Rail } from "../components/shell/Rail.tsx";
 import { PassageDialog } from "../components/sources/PassageDialog.tsx";
-import { Toasts } from "../components/ui/index.ts";
+import { DragEdge, Toasts } from "../components/ui/index.ts";
 import { AppContext, type AppState, type ClaudeRun, type Focus, type ProjectInfo, type Screen } from "../lib/app.ts";
 import { DEFAULT_XRAY } from "../lib/fields.ts";
 import { mirrorPrefs, restorePrefs } from "../lib/prefsMirror.ts";
+import { useSideWidth } from "../lib/sideWidth.ts";
 import { readSession, readString, setThemeEverywhere, writeSession } from "../lib/theme.ts";
 import { errorToast, toast } from "../lib/toast.ts";
 import { setTraces } from "../lib/traces.ts";
@@ -46,6 +47,7 @@ export function App() {
   const [palette, setPalette] = useState(false);
   const [form, setForm] = useState<CommandInfo | null>(null);
   const [folded, setFolded] = useState(true);
+  const [dockW, dockEdge] = useSideWidth("testimus.dockWidth", 300, 720, "after");
   const [dockReq, setDockReq] = useState<DockRequest | null>(null);
   const [running, setRunning] = useState<Set<string>>(new Set());
   const [booted, setBooted] = useState(false);
@@ -312,7 +314,7 @@ export function App() {
       {route.screen === "setup" ? (
         <FirstRunScreen />
       ) : (
-        <div className="shell">
+        <div className="shell" style={dockW ? ({ "--dock-size": `${dockW}px` } as CSSProperties) : undefined}>
           <Rail counts={counts} />
           <div className="main">
             {route.screen === "tests" ? (
@@ -333,6 +335,7 @@ export function App() {
               <SettingsScreen />
             )}
           </div>
+          {!folded && <DragEdge className="side-edge dock-edge" label="Resize the Claude panel" {...dockEdge} />}
           <ClaudeDock folded={folded} request={dockReq} onFold={toggleDock} />
         </div>
       )}

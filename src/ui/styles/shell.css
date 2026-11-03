@@ -337,6 +337,13 @@
   background: var(--accent);
 }
 
+/* narrow window: the side bars stack or float, so they have no edge to drag */
+@media (max-width: 760px) {
+  .side-edge {
+    display: none;
+  }
+}
+
 /* narrow window (520 px beside Jira): the header wraps and the palette button keeps only its icon */
 @media (max-width: 760px) {
   .screenhead {

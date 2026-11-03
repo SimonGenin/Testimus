@@ -5,7 +5,7 @@
 }
 
 .gen-form {
-  flex: 0 0 min(460px, 40%);
+  flex: 0 0 var(--genform-size, min(460px, 40%));
   overflow: auto;
   padding: 24px;
   border-right: 1px solid var(--line);

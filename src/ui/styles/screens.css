@@ -233,7 +233,7 @@
 }
 
 .split-side {
-  flex: 0 0 min(520px, 42%);
+  flex: 0 0 var(--side-size, min(520px, 42%));
   border-left: 1px solid var(--line);
   background: var(--surface);
   overflow: auto;

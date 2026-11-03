@@ -24,7 +24,7 @@
 }
 
 .docs-screen .split-side {
-  flex-basis: clamp(340px, 33vw, 480px);
+  flex-basis: var(--side-size, clamp(340px, 33vw, 480px));
 }
 
 .docdetail-head {

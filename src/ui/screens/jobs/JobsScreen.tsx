@@ -1,13 +1,14 @@
-import { useCallback, useEffect, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useState } from "react";
 import type { Job } from "../../../core/types.ts";
 import { ApiError, call, events } from "../../api.ts";
 import { JobLog, useJob } from "../../components/shell/JobLog.tsx";
 import { ProblemPanel } from "../../components/shell/ProblemPanel.tsx";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
-import { Button, Icon, Severity, Skeleton } from "../../components/ui/index.ts";
+import { Button, DragEdge, Icon, Severity, Skeleton } from "../../components/ui/index.ts";
 import { useApp } from "../../lib/app.ts";
 import { cx, plural } from "../../lib/format.ts";
 import { duration, kindLabel, percent, resultLine } from "../../lib/jobs.ts";
+import { useSideWidth } from "../../lib/sideWidth.ts";
 import { errorToast } from "../../lib/toast.ts";
 
 const CLI: Record<string, string> = {
@@ -71,6 +72,7 @@ function Progress({ job, label }: { job: Job; label: string }) {
 
 export function JobsScreen() {
   const app = useApp();
+  const [sideW, sideEdge] = useSideWidth("testimus.jobsSideWidth", 320, 800, "after");
   const [jobs, setJobs] = useState<Job[] | null>(null);
   const [now, setNow] = useState(Date.now());
   const routeId = app.route.screen === "jobs" ? (app.route.arg ?? "") : "";
@@ -127,7 +129,7 @@ export function JobsScreen() {
         title="Jobs"
         meta={`${running ? `${running} running · ` : ""}long work runs here, you can keep working meanwhile`}
       />
-      <div className="split">
+      <div className="split" style={sideW ? ({ "--side-size": `${sideW}px` } as CSSProperties) : undefined}>
         <section className="split-main scroll" aria-label="Job list">
           {!jobs ? (
             <table className="tbl" aria-busy="true">
@@ -194,6 +196,7 @@ export function JobsScreen() {
             </table>
           )}
         </section>
+        {active && <DragEdge className="side-edge" label="Resize the job details" {...sideEdge} />}
         {active && <JobDetail job={active} now={now} />}
       </div>
     </div>

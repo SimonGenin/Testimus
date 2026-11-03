@@ -1,5 +1,5 @@
 .dock {
-  flex: 0 0 var(--dock-w);
+  flex: 0 0 var(--dock-size, var(--dock-w));
   min-width: 0;
   border-left: 1px solid var(--line);
   background: var(--surface);
@@ -760,7 +760,7 @@
     right: 0;
     bottom: 0;
     z-index: 30;
-    width: min(var(--dock-w), calc(100vw - var(--rail-w)));
+    width: min(var(--dock-size, var(--dock-w)), calc(100vw - var(--rail-w)));
     box-shadow: var(--shadow);
   }
 }

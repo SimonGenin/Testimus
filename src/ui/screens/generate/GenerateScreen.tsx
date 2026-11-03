@@ -1,14 +1,15 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
 import type { Job, LocalTestRef, Test, TraceScan } from "../../../core/types.ts";
 import { call } from "../../api.ts";
 import { type ClaudeStatus, ConnectClaude } from "../../components/claude/ConnectClaude.tsx";
 import { JobLog, useJob } from "../../components/shell/JobLog.tsx";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
 import { TracesBar } from "../../components/traces/TracesBar.tsx";
-import { Button, Icon } from "../../components/ui/index.ts";
+import { Button, DragEdge, Icon } from "../../components/ui/index.ts";
 import { useApp } from "../../lib/app.ts";
 import { plural } from "../../lib/format.ts";
 import type { Requirement } from "../../lib/requirements.ts";
+import { useSideWidth } from "../../lib/sideWidth.ts";
 import { errorToast } from "../../lib/toast.ts";
 import { REQUIREMENT, takeHandoff } from "../../lib/traces.ts";
 import {
@@ -28,6 +29,7 @@ const LABEL: Record<string, string> = { opus: "Opus", sonnet: "Sonnet", haiku: "
 
 export function GenerateScreen() {
   const app = useApp();
+  const [formW, formEdge] = useSideWidth("testimus.genFormWidth", 320, 720, "before");
   const cfg = app.info?.project;
   const [request, setRequest] = useState("");
   const [picked, setPicked] = useState<Record<string, string[]>>(takeHandoff);
@@ -165,7 +167,7 @@ export function GenerateScreen() {
   return (
     <div className="screen">
       <ScreenHeader title="Generate" meta="Claude writes tests from the documents, with a source for every claim" />
-      <div className="gen">
+      <div className="gen" style={formW ? ({ "--genform-size": `${formW}px` } as CSSProperties) : undefined}>
         <section className="gen-form" aria-label="Request">
           <div className="gen-block">
             <label htmlFor="gen-request" className="h gen-label">
@@ -234,6 +236,7 @@ export function GenerateScreen() {
           </div>
         </section>
 
+        <DragEdge className="side-edge" label="Resize the request panel" {...formEdge} />
         <section className="gen-result" aria-label="Result">
           {offline && status ? (
             <div className="card gen-offline">

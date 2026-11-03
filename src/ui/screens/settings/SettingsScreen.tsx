@@ -1,7 +1,9 @@
-import { useEffect, useRef } from "react";
+import { type CSSProperties, useEffect, useRef } from "react";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
+import { DragEdge } from "../../components/ui/index.ts";
 import { useApp } from "../../lib/app.ts";
 import { cx } from "../../lib/format.ts";
+import { useSideWidth } from "../../lib/sideWidth.ts";
 import { AccessSection } from "./AccessSection.tsx";
 import { AppearanceSection } from "./AppearanceSection.tsx";
 import { ClaudeSection } from "./ClaudeSection.tsx";
@@ -24,6 +26,7 @@ const SECTIONS = [
 
 export function SettingsScreen() {
   const app = useApp();
+  const [navW, navEdge] = useSideWidth("testimus.settingsNavWidth", 160, 360, "before");
   const at = app.route.screen === "settings" ? (app.route.arg ?? "project").split("-")[0] : "project";
   const body = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -39,7 +42,7 @@ export function SettingsScreen() {
         badge={<span className="version-pill">v{__VERSION__}</span>}
         meta="Changes are saved as you make them"
       />
-      <div className="settings">
+      <div className="settings" style={navW ? ({ "--snav-size": `${navW}px` } as CSSProperties) : undefined}>
         <nav className="settings-nav" aria-label="Settings sections">
           {SECTIONS.map((s) => (
             <button
@@ -53,6 +56,7 @@ export function SettingsScreen() {
             </button>
           ))}
         </nav>
+        <DragEdge className="side-edge" label="Resize the section list" {...navEdge} />
         <div className="settings-body scroll" ref={body}>
           {!app.info && (
             <p className="muted">Open a project to change its settings: Access and Appearance work without one.</p>
