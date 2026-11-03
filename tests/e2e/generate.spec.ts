@@ -66,8 +66,9 @@ test("a landed test opens for review with its findings", async ({ page }) => {
   await page.getByRole("dialog").getByRole("button", { name: "Delete and generate" }).click();
   await expect(result.getByRole("heading", { name: "2 tests written", exact: true })).toBeVisible({ timeout: 20_000 });
   await result
-    .getByRole("button", { name: /^Sectionneur avec TK/ })
+    .getByRole("region", { name: /^Sectionneur avec TK/ })
     .first()
+    .getByRole("button", { name: "Open in Review" })
     .click();
   await expect(page).toHaveURL(/#\/(tests|review)\/local-[0-9a-f]{8}$/);
   const under = page.getByRole("region", { name: "Test under review" });

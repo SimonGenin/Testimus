@@ -69,6 +69,21 @@ describe("useDraft", () => {
     render(<Box name="a" initial="fresh" />);
     expect(box().value).toBe("fresh");
   });
+
+  it("keeps the Atlassian access read while a project opens, and for every project", () => {
+    setProject(null);
+    const r = render(<Box name="atlassian.site" />);
+    act(() => base("https://mock.atlassian.net"));
+    setProject("D:/p1");
+    r.rerender(<Box name="atlassian.site" />);
+    expect(box().value).toBe("https://mock.atlassian.net");
+    fireEvent.change(box(), { target: { value: "https://other.atlassian.net" } });
+    r.unmount();
+    setProject("D:/p2");
+    render(<Box name="atlassian.site" />);
+    expect(box().value).toBe("https://other.atlassian.net");
+    dropDraft("atlassian.site");
+  });
 });
 
 describe("FixNote draft", () => {

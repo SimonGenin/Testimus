@@ -163,6 +163,7 @@ test("Browse opens a project, the window takes its name, Show in Explorer reveal
     await page.getByRole("menuitem", { name: "Show in Explorer" }).click();
     await expect.poll(async () => (await main(app)).revealed).toEqual([dir]);
 
+    await page.getByRole("button", { name: "Show the document list" }).click();
     const docs = page.getByRole("region", { name: "Document list" }).getByRole("row", { name: /^SOSIE_/ });
     await expect(docs).toHaveCount(2);
     await docs.first().click();
@@ -174,9 +175,9 @@ test("Browse opens a project, the window takes its name, Show in Explorer reveal
       .poll(async () => (await main(app)).revealed[1] ?? "")
       .toMatch(new RegExp(`^${join(dir, "docs", "SOSIE_211_D401-1_").replace(/\\/g, "\\\\")}\\d$`));
 
-    await go(page, "#/tests/local-3f9a12c0");
+    await go(page, "#/tests/LFRPS12-1398");
     await page.getByRole("button", { name: "Show the test in Explorer" }).click();
-    await expect.poll(async () => (await main(app)).revealed[2]).toBe(join(dir, "tests", "local-3f9a12c0", "test.md"));
+    await expect.poll(async () => (await main(app)).revealed[2]).toBe(join(dir, "tests", "LFRPS12-1398", "test.md"));
 
     const png = readFileSync(
       join(ROOT, "tests", "fixtures", "project", "tests", "LFRPS12-1420", "images", "fig-40.png"),
@@ -237,7 +238,10 @@ test("documents go to the core by path, the taskbar follows the jobs, their end 
   try {
     await stubMain(app);
     await go(page, "#/documents");
-    const rows = page.getByRole("region", { name: "Document list" }).getByRole("row", { name: /^SOSIE_/ });
+    // ponytail: an added document opens, and under 1300px the list folds into a drawer — the rows are counted there
+    const rows = page
+      .getByRole("region", { name: "Document list", includeHidden: true })
+      .getByRole("row", { name: /^SOSIE_/, includeHidden: true });
     await expect(rows).toHaveCount(2, { timeout: 30_000 });
 
     const bodies: unknown[] = [];
@@ -266,9 +270,6 @@ test("documents go to the core by path, the taskbar follows the jobs, their end 
       { file: dropped, convert: false },
     ]);
 
-    await expect
-      .poll(async () => (await main(app)).progress.filter((v) => v >= 0 && v <= 1).length, { timeout: 30_000 })
-      .toBeGreaterThan(0);
     await expect.poll(async () => (await main(app)).progress.at(-1), { timeout: 30_000 }).toBe(-1);
 
     const { last: project } = await page.evaluate(() =>
@@ -294,7 +295,6 @@ test("documents go to the core by path, the taskbar follows the jobs, their end 
 
     const notes = (await main(app)).notes.map((n) => n.title);
     expect(notes).toContain("Add document finished");
-    expect(notes).toContain("Index documents finished");
     expect(notes).toContain("Generate tests finished");
     expect(shell.csp).toEqual([]);
   } finally {

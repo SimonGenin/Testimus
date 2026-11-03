@@ -6,7 +6,8 @@ import { project } from "../api.ts";
 // back only once it was set: until then it starts from its initial value as before. `base` shows a value read from
 // the project (what is saved) without making it a draft, so a later read is not hidden by an old copy
 const drafts = new Map<string, unknown>();
-const slot = (key: string) => `${project() ?? ""}\n${key}`;
+// ponytail: the Atlassian access is the user's, not a project's — its fields keep one slot while a project opens
+const slot = (key: string) => (key.startsWith("atlassian.") ? key : `${project() ?? ""}\n${key}`);
 
 function read<T>(k: string, initial: T | (() => T)): T {
   if (drafts.has(k)) return drafts.get(k) as T;

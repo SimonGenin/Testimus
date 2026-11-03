@@ -119,7 +119,7 @@ describe("scripted runs", () => {
       }),
     );
     expect(out.code).toBe(0);
-    expect(out.stdout).toContain('"offset":14');
+    expect(out.stdout).toContain('"offset":13,"limit":14');
     const made = readdirSync(join(dir, "tests")).filter((d) => !before.includes(d));
     expect(made).toHaveLength(2);
     for (const id of made) expect(readTest(dir, id).test.folder).toBe("/Traction/Sectionneurs");

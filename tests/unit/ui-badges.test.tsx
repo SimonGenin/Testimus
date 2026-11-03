@@ -13,9 +13,7 @@ afterEach(cleanup);
 describe("state badges pair an icon with a word", () => {
   const reviews: [Review, string, string][] = [
     ["draft", "Draft", "b-neutral"],
-    ["checked", "Checked", "b-info"],
     ["to-fix", "To fix", "b-warn"],
-    ["validated", "Validated", "b-ok"],
   ];
   it.each(reviews)("review %s", (review, word, tone) => {
     const { container } = render(<ReviewBadge review={review} />);
@@ -23,6 +21,11 @@ describe("state badges pair an icon with a word", () => {
     expect(badge).toHaveTextContent(word);
     expect(badge).toHaveClass(tone);
     expect(badge?.querySelector("svg")).not.toBeNull();
+  });
+
+  it.each(["checked", "validated"] as Review[])("review %s says nothing", (review) => {
+    const { container } = render(<ReviewBadge review={review} />);
+    expect(container.querySelector(".badge")).toBeNull();
   });
 
   const syncs: [SyncState, string][] = [

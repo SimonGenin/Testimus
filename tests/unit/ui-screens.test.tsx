@@ -216,6 +216,8 @@ describe("Review screen", () => {
     const step2 = await screen.findByRole("article", { name: "Step 2" });
     expect(within(step2).getByText(/Error · Contradicted/)).toBeInTheDocument();
     expect(screen.getByText("Whole test")).toBeInTheDocument();
+    expect(named("rag.passage")).toHaveLength(0);
+    fireEvent.click(within(step2).getAllByRole("button", { name: /§5\.6\.6/ })[0]);
     await waitFor(() => expect(named("rag.passage").length).toBeGreaterThan(0));
     expect(named("rag.passage")[0].input.ref).toMatch(/^SOSIE_211_D401-1_3#/);
     expect(screen.getByTitle("1 error still open")).toBeInTheDocument();
@@ -302,7 +304,7 @@ describe("Generate screen", () => {
       effort: "medium",
     });
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
-    await screen.findByText("Reading the documents");
+    await screen.findByText("Getting ready");
 
     const at = new Date().toISOString();
     FakeEventSource.emit({ jobId: "job-gen", at, type: "progress", message: "Writing local-aaaaaaaa (1)" });
@@ -344,8 +346,10 @@ describe("Generate screen", () => {
     expect(screen.getByText("2 tests written")).toBeInTheDocument();
     expect(screen.getByText(/no passage describes the alarm/)).toBeInTheDocument();
     expect(screen.getByText(/All 2 tests went through the check: 1 has findings/)).toBeInTheDocument();
-    expect(screen.getByText("2 errors")).toBeInTheDocument();
-    expect(screen.getByText("No findings")).toBeInTheDocument();
+    const head = (title: string) =>
+      screen.getByRole("region", { name: title }).querySelector(".gcard-head") as HTMLElement;
+    expect(within(head("Second test")).getByText("2 errors")).toBeInTheDocument();
+    expect(within(head("Premier test")).getByText("No findings")).toBeInTheDocument();
     expect(named("check.run")).toHaveLength(0);
   });
 });

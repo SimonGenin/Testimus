@@ -178,7 +178,7 @@ registerMockScript(
         { name: "mcp__testimus__rag_figure", input: { docId: DOC, n: "40" } },
         {
           name: "Read",
-          input: { file_path: `docs/${DOC}/doc.md`, ...(partialRead(spawn.stdin) ? { offset: 14, limit: 18 } : {}) },
+          input: { file_path: `docs/${DOC}/doc.md`, ...(partialRead(spawn.stdin) ? { offset: 13, limit: 14 } : {}) },
         },
         { name: "mcp__testimus__tests_create", input: { summary: "Sectionneur sans TK" } },
         { name: "Write", input: { file_path: file(ids[0]), content: "…" } },

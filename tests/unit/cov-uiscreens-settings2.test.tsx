@@ -381,10 +381,10 @@ describe("Settings › Claude", () => {
   });
 
   it("a check whose save fails clears the status; Check shows Checking… meanwhile", async () => {
-    models.routes["system.settings"] = () => ({ claude: { exe: "" }, models: { allowRemote: true } });
+    models.routes["system.settings"] = () => ({ claude: { exe: "X:/old.exe" }, models: { allowRemote: true } });
     mount(<ClaudeSection />, { info: null });
     const exe = screen.getByLabelText("Claude program");
-    await waitFor(() => expect(named("system.settings")).toHaveLength(1));
+    await waitFor(() => expect(exe).toHaveValue("X:/old.exe"));
     fireEvent.change(exe, { target: { value: "X:/c.exe" } });
     fireEvent.click(screen.getByRole("button", { name: "Check" }));
     expect(await screen.findByText("Could not save the settings")).toBeInTheDocument();
@@ -394,6 +394,7 @@ describe("Settings › Claude", () => {
     models.gate = new Promise<void>((r) => {
       release = r;
     });
+    models.routes["system.saveSettings"] = () => ({ claude: { exe: "" }, models: { allowRemote: true } });
     models.routes["claude.status"] = () => ({ installed: true, signedIn: true });
     fireEvent.click(screen.getByRole("button", { name: "Check" }));
     expect(await screen.findByRole("button", { name: "Checking…" })).toBeDisabled();

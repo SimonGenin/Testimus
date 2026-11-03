@@ -8,10 +8,12 @@ test("a generated test shows the sources it read; a misplaced quote is not highl
   const result = page.getByRole("region", { name: "Result" });
   await request.getByRole("textbox", { name: "What should be tested?" }).fill("Le sectionneur avec TK");
   await request.getByRole("button", { name: /^Generate/ }).click();
-  await expect(result.getByRole("heading", { name: "2 tests written" })).toBeVisible({ timeout: 20_000 });
+  await page.getByRole("dialog").getByRole("button", { name: "Delete and generate" }).click();
+  await expect(result.getByRole("heading", { name: "2 tests written", exact: true })).toBeVisible({ timeout: 20_000 });
   await result
-    .getByRole("button", { name: /^Sectionneur avec TK/ })
+    .getByRole("region", { name: /^Sectionneur avec TK/ })
     .first()
+    .getByRole("button", { name: "Open in Review" })
     .click();
   await expect(page).toHaveURL(/#\/(tests|review)\/local-[0-9a-f]{8}$/);
   const under = page.getByRole("region", { name: "Test under review" });

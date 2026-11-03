@@ -507,6 +507,7 @@
   .screenhead-actions {
     flex-wrap: wrap;
     min-width: 0;
+    max-width: 100%;
   }
 
   .palette-btn {

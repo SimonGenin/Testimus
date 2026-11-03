@@ -134,13 +134,15 @@ describe("small ui pieces", () => {
     render(
       <>
         <ReviewBadge review={"weird" as Review} suffix=" ·" />
+        <ReviewBadge review="to-fix" small />
         <ReviewBadge review="validated" small />
         <SyncBadge sync={"weird" as SyncState} />
         <SyncBadge sync="remote-changed" small />
       </>,
     );
     expect(screen.getByText(/Draft/)).toBeInTheDocument();
-    expect(screen.getByText("Validated")).toBeInTheDocument();
+    expect(screen.getByText("To fix")).toBeInTheDocument();
+    expect(screen.queryByText("Validated")).toBeNull();
     expect(screen.getByText("Local only")).toBeInTheDocument();
     expect(screen.getByText("Changed in Jira")).toBeInTheDocument();
   });
