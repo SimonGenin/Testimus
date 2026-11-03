@@ -111,6 +111,16 @@ export function rememberProject(dir: string): void {
   writeSettings(s);
 }
 
+export function forgetProject(dir: string): boolean {
+  const s = readSettings();
+  const abs = resolve(dir);
+  const known = s.projects.some((p) => resolve(p) === abs);
+  s.projects = s.projects.filter((p) => resolve(p) !== abs);
+  if (s.lastProject && resolve(s.lastProject) === abs) s.lastProject = "";
+  writeSettings(s);
+  return known;
+}
+
 export function resolveProjectDir(explicit?: string): string | null {
   if (explicit) return resolve(explicit);
   if (process.env.TESTIMUS_PROJECT) return resolve(process.env.TESTIMUS_PROJECT);

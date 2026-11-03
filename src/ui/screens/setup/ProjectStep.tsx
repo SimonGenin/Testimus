@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { call } from "../../api.ts";
-import { Button, Skeleton } from "../../components/ui/index.ts";
+import { Button, IconButton, Menu, Skeleton } from "../../components/ui/index.ts";
 import { useApp } from "../../lib/app.ts";
 import { desktop, openProject, pickFolder } from "../../lib/desktop.ts";
 import { cx, message } from "../../lib/format.ts";
 import { errorToast } from "../../lib/toast.ts";
+import { DeleteProject } from "./DeleteProject.tsx";
 
 type Known = { dir: string; name: string; jiraProject: string; exists: boolean };
 
@@ -17,6 +18,18 @@ export function ProjectStep({ onBack, onOpened }: { onBack: () => void; onOpened
   const [language, setLanguage] = useState("fr");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [del, setDel] = useState<Known | null>(null);
+
+  const drop = (d: string) => setKnown((ks) => ks?.filter((k) => k.dir !== d) ?? ks);
+
+  const hide = async (d: string) => {
+    try {
+      await call("project.forget", { dir: d });
+      drop(d);
+    } catch (e) {
+      errorToast(e, "Could not hide the project");
+    }
+  };
 
   useEffect(() => {
     call<{ projects: Known[] }>("project.list", {})
@@ -90,10 +103,50 @@ export function ProjectStep({ onBack, onOpened }: { onBack: () => void; onOpened
                 ) : (
                   <span className="muted">Folder not found</span>
                 )}
+                <Menu
+                  label={`More actions for ${k.name || k.dir}`}
+                  align="right"
+                  items={[
+                    { key: "hide", label: "Don't show", onSelect: () => void hide(k.dir) },
+                    {
+                      key: "delete",
+                      label: "Delete",
+                      icon: "trash",
+                      danger: true,
+                      disabled: busy || !k.exists || k.dir === current,
+                      title:
+                        k.dir === current
+                          ? "Open another project first"
+                          : k.exists
+                            ? "Delete the project folder from this PC"
+                            : undefined,
+                      onSelect: () => setDel(k),
+                    },
+                  ]}
+                  trigger={({ open, toggle, id }) => (
+                    <IconButton
+                      icon="more"
+                      label={`More actions for ${k.name || k.dir}`}
+                      aria-expanded={open}
+                      aria-controls={open ? id : undefined}
+                      onClick={toggle}
+                    />
+                  )}
+                />
               </li>
             ))}
           </ul>
         )
+      )}
+      {del && (
+        <DeleteProject
+          target={del}
+          onClose={() => setDel(null)}
+          onDeleted={() => {
+            drop(del.dir);
+            setDel(null);
+          }}
+        />
       )}
       <fieldset className="setup-set">
         <legend className="h">New project</legend>

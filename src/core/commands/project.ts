@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
@@ -12,6 +12,7 @@ import {
   DEFAULT_PROJECT,
   DEFAULT_XRAY,
   fieldOrder,
+  forgetProject,
   isProject,
   readJson,
   readProject,
@@ -259,6 +260,41 @@ export const commands: Command[] = [
       rememberProject(dir);
       const p = readProject(dir);
       return { dir, name: p.name, jiraProject: p.jiraProject };
+    },
+  }),
+  command({
+    name: "project.forget",
+    summary: "Stop showing a project in the known projects (the folder is kept, nothing changes in Jira).",
+    input: z.object({ dir: z.string().describe("The project folder, as project.list shows it.") }),
+    output: z.object({ dir: z.string(), forgotten: z.boolean().describe("False when the folder was not listed") }),
+    mutates: true,
+    global: true,
+    positional: ["dir"],
+    async run(_ctx, input) {
+      const dir = resolve(input.dir);
+      return { dir, forgotten: forgetProject(dir) };
+    },
+  }),
+  command({
+    name: "project.delete",
+    summary:
+      "Delete a project folder from this PC (documents, tests, index) and forget it. Nothing is deleted in Jira.",
+    input: z.object({ dir: z.string().describe("A known project folder (project.list), not the open one.") }),
+    output: z.object({ dir: z.string(), deleted: z.boolean() }),
+    mutates: true,
+    global: true,
+    positional: ["dir"],
+    async run(ctx, input) {
+      const dir = resolve(input.dir);
+      if (ctx.project && resolve(ctx.project) === dir)
+        throw new UserError(`${dir} is the open project.`, "Open another project first, then delete this one.");
+      if (!readSettings().projects.some((p) => resolve(p) === dir))
+        throw new UserError(`${dir} is not a known project.`, "Only a project listed by project.list is deleted.");
+      if (!isProject(dir))
+        throw new UserError(`${dir} is not a Testimus project.`, "Only a folder that holds a project.json is deleted.");
+      rmSync(dir, { recursive: true, force: true, maxRetries: 3 });
+      forgetProject(dir);
+      return { dir, deleted: true };
     },
   }),
   command({

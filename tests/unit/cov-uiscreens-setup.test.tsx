@@ -112,6 +112,58 @@ describe("First launch › Project", () => {
     expect(a.testsChanged).toHaveBeenCalled();
   });
 
+  it("hides a project with Don't show, and reports a hide that fails", async () => {
+    api.routes["project.list"] = () => ({ projects: known });
+    api.routes["project.forget"] = (i) => ({ dir: i.dir, forgotten: true });
+    mount(<ProjectStep onBack={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "More actions for C:/other" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Don't show" }));
+    await waitFor(() => expect(screen.queryByText("C:/other", { selector: ".setup-proj-dir" })).toBeNull());
+    expect(named("project.forget")[0].input).toEqual({ dir: "C:/other" });
+    delete api.routes["project.forget"];
+    fireEvent.click(screen.getByRole("button", { name: "More actions for Gone" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Don't show" }));
+    expect(await screen.findByText("Could not hide the project")).toBeInTheDocument();
+    expect(screen.getByText("Gone")).toBeInTheDocument();
+  });
+
+  it("deletes a project folder after a confirmation, never the open one or a missing one", async () => {
+    api.routes["project.list"] = () => ({ projects: known });
+    api.routes["project.delete"] = (i) => ({ dir: i.dir, deleted: true });
+    mount(<ProjectStep onBack={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "More actions for Current" }));
+    expect(screen.getByRole("menuitem", { name: "Delete" })).toBeDisabled();
+    expect(screen.getByRole("menuitem", { name: "Delete" })).toHaveAttribute("title", "Open another project first");
+    fireEvent.keyDown(window, { key: "Escape" });
+    fireEvent.click(screen.getByRole("button", { name: "More actions for Gone" }));
+    expect(screen.getByRole("menuitem", { name: "Delete" })).toBeDisabled();
+    fireEvent.keyDown(window, { key: "Escape" });
+    fireEvent.click(screen.getByRole("button", { name: "More actions for C:/other" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
+    const dialog = screen.getByRole("dialog", { name: "Delete the project folder?" });
+    expect(within(dialog).getByText(/Nothing is deleted in Jira/)).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(named("project.delete")).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: "More actions for C:/other" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete the folder" }));
+    expect(await screen.findByText("Project C:/other deleted")).toBeInTheDocument();
+    expect(named("project.delete")[0].input).toEqual({ dir: "C:/other" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("button", { name: "More actions for C:/other" })).toBeNull();
+  });
+
+  it("reports a delete that fails and keeps the project", async () => {
+    api.routes["project.list"] = () => ({ projects: known });
+    mount(<ProjectStep onBack={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "More actions for C:/other" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete the folder" }));
+    expect(await screen.findByText("Could not delete the project")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByRole("button", { name: "More actions for C:/other" })).toBeInTheDocument();
+  });
+
   it("reports a project that cannot be opened", async () => {
     api.routes["project.list"] = () => ({ projects: known });
     mount(<ProjectStep onBack={vi.fn()} />);

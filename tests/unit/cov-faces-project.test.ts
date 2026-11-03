@@ -109,6 +109,35 @@ describe("project commands", () => {
     expect(r.projects[1]).toMatchObject({ dir: project, exists: true });
   });
 
+  it("forgets a known project and keeps its folder", async () => {
+    const other = copyFixture(tempRoot("project-other"));
+    writeSettings({ ...readSettings(), projects: [other, project], lastProject: other });
+    expect(await run("project.forget", { dir: other })).toMatchObject({ forgotten: true });
+    expect(readSettings()).toMatchObject({ projects: [project], lastProject: "" });
+    expect(existsSync(join(other, "project.json"))).toBe(true);
+    expect((await run("project.forget", { dir: other })).forgotten).toBe(false);
+  });
+
+  it("deletes a known project folder and forgets it", async () => {
+    const other = copyFixture(tempRoot("project-del"));
+    writeSettings({ ...readSettings(), projects: [other, project], lastProject: project });
+    expect(await run("project.delete", { dir: other })).toMatchObject({ deleted: true });
+    expect(existsSync(other)).toBe(false);
+    expect(readSettings()).toMatchObject({ projects: [project], lastProject: project });
+  });
+
+  it("refuses to delete the open project, an unknown folder or a folder that is not a project", async () => {
+    const plain = join(tempRoot("project-plain"), "plain");
+    mkdirSync(plain, { recursive: true });
+    const stranger = copyFixture(tempRoot("project-stranger"));
+    writeSettings({ ...readSettings(), projects: [project, plain] });
+    await expect(run("project.delete", { dir: project })).rejects.toThrow("is the open project");
+    await expect(run("project.delete", { dir: stranger })).rejects.toThrow("is not a known project");
+    await expect(run("project.delete", { dir: plain })).rejects.toThrow("is not a Testimus project");
+    expect(existsSync(plain)).toBe(true);
+    expect(existsSync(join(stranger, "project.json"))).toBe(true);
+  });
+
   it("reads and writes the project notes", async () => {
     expect((await run("project.notes")).text).toBe("");
     const w = await run("project.setNotes", { text: "Règle é" });
