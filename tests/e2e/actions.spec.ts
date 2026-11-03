@@ -9,7 +9,7 @@ const DOC = "SOSIE_211_D401-1_3";
 type Listed = { id: string; title: string; state: string }[];
 const open = async () => (await api<Listed>(url, "actions.list", { docId: DOC })).filter((a) => a.state === "open");
 
-test("a warning Claude can fix gets its button; the action runs from its card in Ask Claude and reverts", async ({
+test("a problem Claude can fix becomes a card in the Actions tab only; it runs with the suggested model and reverts", async ({
   page,
 }) => {
   await api(url, "actions.triage", { docId: DOC, model: "haiku", effort: "low" });
@@ -17,55 +17,72 @@ test("a warning Claude can fix gets its button; the action runs from its card in
 
   await boot(page, `#/documents/${DOC}`);
   const side = page.getByRole("region", { name: / details$/ });
-  const warn = side.locator(".with-cab").filter({ hasText: "Figure 41" });
-  const button = warn.getByRole("button", { name: "Recover the figure from the PDF" });
-  await expect(button).toBeVisible();
-  await expect(side.locator(".with-cab").filter({ hasText: "Word comments" }).getByRole("button")).toHaveCount(0);
-  await button.focus();
-  await expect(page.getByRole("tooltip")).toContainText("Proposed by Haiku · low · during the import");
-  await shoot(page, "action-button");
+  await expect(side.getByText(/Figure 41/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Recover the figure from the PDF" })).toHaveCount(0);
 
-  await button.click();
   const dock = page.getByRole("complementary", { name: "Claude" });
+  const rail = dock.getByRole("button", { name: "Open Claude" });
+  if (await rail.isVisible()) {
+    await expect(rail).toContainText("1");
+    await rail.click();
+  }
+  await expect(dock.getByRole("region", { name: /Claude action/ })).toHaveCount(0);
+  const tab = dock.getByRole("button", { name: /^Actions/ });
+  await expect(tab).toContainText("1");
+  await tab.click();
   const card = dock.getByRole("region", { name: "Claude action: Recover the figure from the PDF" });
   await expect(card).toBeVisible();
   await expect(card).toContainText(`${DOC} · whole document`);
   await expect(card).toContainText("Find the PDF next to the .docx");
-  await expect(dock.getByRole("button", { name: "Document" })).toHaveAttribute("aria-pressed", "true");
+  await expect(card).toContainText("Every Testimus command");
+  await expect(card).toContainText("Proposed by Haiku · low · during the import");
+  await expect(card.getByRole("combobox", { name: "Model" })).toHaveValue("opus");
+  await expect(card.getByRole("combobox", { name: "Effort" })).toHaveValue("high");
   await shoot(page, "action-card");
 
-  await card.getByRole("combobox", { name: "Effort" }).selectOption("high");
   await card.getByRole("button", { name: "Run action" }).click();
-  await expect(card.getByText("1 file changed")).toBeVisible({ timeout: 20_000 });
-  await expect(card.getByText("I read the passage the problem is about.")).toBeVisible();
-  await expect(card.getByText(/ · high$/)).toBeVisible();
+  const ran = dock.getByRole("region", { name: "Claude action: Recover the figure from the PDF" });
+  await expect(ran.getByText("1 file changed")).toBeVisible({ timeout: 20_000 });
+  await expect(ran.getByText("I read the passage the problem is about.")).toBeVisible();
+  await expect(ran.getByText("opus · high")).toBeVisible();
   await shoot(page, "action-done");
   expect((await api<{ context: string }>(url, "docs.show", { id: DOC })).context).toContain("Figures lost");
   await expect.poll(async () => (await open()).length).toBe(0);
 
-  await card.getByRole("button", { name: /^Revert$/ }).click();
-  await expect(card.getByText("Reverted")).toBeVisible();
+  await ran.getByRole("button", { name: /^Revert$/ }).click();
+  await expect(ran.getByText("Reverted")).toBeVisible();
   expect((await api<{ context: string }>(url, "docs.show", { id: DOC })).context).not.toContain("Figures lost");
+
+  await dock.getByRole("button", { name: "Document" }).click();
+  await expect(dock.getByRole("region", { name: /Claude action/ })).toHaveCount(0);
 });
 
-test("a step's action shows on its Review row, in the header count, and is dismissed for good", async ({ page }) => {
+test("a step's action is a card in the Actions tab, not on its Review row, and is dismissed for good", async ({
+  page,
+}) => {
   await api(url, "actions.propose", {
     problem: "Le résultat attendu ne dit pas ce que montre le menu.",
     title: "Make step 2 say what the menu shows",
     why: "§5.6.6 lists what the menu proposes.",
     plan: ["Read §5.6.6", "Rewrite the expected result"],
     scope: { kind: "step", testId: "LFRPS12-1420", step: 2 },
+    model: "sonnet",
+    effort: "medium",
   });
   await boot(page, "#/review");
-  const row = page.locator(".qrow-wrap").filter({ hasText: "LFRPS12-1420" });
-  await expect(row.getByRole("button", { name: "Make step 2 say what the menu shows" })).toBeVisible();
-  await expect(page.getByRole("banner").getByRole("button", { name: /Claude actions/ })).toContainText("1");
-  await shoot(page, "action-review");
+  await expect(page.locator(".qrow-wrap").filter({ hasText: "LFRPS12-1420" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Make step 2 say what the menu shows" })).toHaveCount(0);
 
-  await row.getByRole("button", { name: "Make step 2 say what the menu shows" }).click();
+  await boot(page, "#/tests");
   const dock = page.getByRole("complementary", { name: "Claude" });
-  await dock.getByRole("button", { name: "Dismiss" }).click();
-  await expect(row.getByRole("button", { name: "Make step 2 say what the menu shows" })).toHaveCount(0);
+  const rail = dock.getByRole("button", { name: "Open Claude" });
+  if (await rail.isVisible()) await rail.click();
+  await dock.getByRole("button", { name: /^Actions/ }).click();
+  const card = dock.getByRole("region", { name: "Claude action: Make step 2 say what the menu shows" });
+  await expect(card.getByRole("combobox", { name: "Model" })).toHaveValue("sonnet");
+  await expect(card.getByRole("combobox", { name: "Effort" })).toHaveValue("medium");
+  await card.getByRole("button", { name: "Dismiss" }).click();
+  await expect(card).toHaveCount(0);
   const again = await api<{ ignored?: boolean }>(url, "actions.propose", {
     problem: "Le résultat attendu ne dit pas ce que montre le menu.",
     title: "Make step 2 say what the menu shows",

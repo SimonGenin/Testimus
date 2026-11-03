@@ -1,12 +1,10 @@
 import { type CSSProperties, useCallback, useEffect, useState } from "react";
 import type { Job } from "../../../core/types.ts";
 import { ApiError, call, events } from "../../api.ts";
-import { ActionButton } from "../../components/claude/ActionButton.tsx";
 import { JobLog, useJob } from "../../components/shell/JobLog.tsx";
 import { ProblemPanel } from "../../components/shell/ProblemPanel.tsx";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
 import { Button, DragEdge, Icon, Severity, Skeleton } from "../../components/ui/index.ts";
-import { useActions } from "../../lib/actions.ts";
 import { useApp } from "../../lib/app.ts";
 import { cx, plural } from "../../lib/format.ts";
 import { duration, kindLabel, percent, resultLine } from "../../lib/jobs.ts";
@@ -208,7 +206,6 @@ export function JobsScreen() {
 function JobDetail({ job: listed, now }: { job: Job; now: number }) {
   const app = useApp();
   const { job: live, events: list } = useJob(listed.id);
-  const acts = useActions({ jobId: listed.id });
   const job = live && (live.status !== "running" || listed.status === "running") ? { ...listed, ...live } : listed;
   const cancel = () => call("jobs.cancel", { id: job.id }).catch((e) => errorToast(e, "Could not cancel the job"));
   const r = (job.result ?? {}) as { tests?: string[] };
@@ -246,13 +243,6 @@ function JobDetail({ job: listed, now }: { job: Job; now: number }) {
       )}
       {job.status === "failed" && (
         <ProblemPanel error={new ApiError(job.error ?? "The job failed.")} doing={kindLabel(job.kind)} />
-      )}
-      {acts.length > 0 && (
-        <div className="jobdetail-actions">
-          {acts.map((a) => (
-            <ActionButton key={a.id} action={a} />
-          ))}
-        </div>
       )}
       {job.kind === "generate" && job.status === "done" && !!r.tests?.length && (
         <div className="jobdetail-actions">

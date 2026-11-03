@@ -35,8 +35,9 @@ Jira changed, is refused — plan again). Pass `overwriteRemote: true` for a tes
 when the user asked to replace that Jira change with the local version.
 
 A problem you see and could fix in a later run (a lost figure, a finding you can correct) can be left as a **Claude action**: `actions_propose` with a title (a verb first), the
-problem, why you can fix it, a short plan and its scope. The user sees a button next to the problem and
-runs it when they choose. `actions_list` shows the open ones.
+problem, why you can fix it, a short plan, its scope, and the model and effort the fix needs (haiku, sonnet
+or opus; low to xhigh). The user finds it in the Actions tab of Ask Claude and runs it when they choose.
+`actions_list` shows the open ones.
 
 ## test.md
 

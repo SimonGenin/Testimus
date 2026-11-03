@@ -1,10 +1,36 @@
-import type { ReactNode } from "react";
-import type { ClaudeAction, Effort } from "../../../core/types.ts";
+import { type ReactNode, useEffect, useState } from "react";
+import type { ClaudeAction, ClaudeScope, Effort } from "../../../core/types.ts";
+import { call } from "../../api.ts";
 import { originLine, scopeWords } from "../../lib/actions.ts";
 import { Button, Chip, Icon } from "../ui/index.ts";
-import { EFFORTS, ModelPicker } from "./ModelPicker.tsx";
+import { cap, EFFORTS, ModelPicker } from "./ModelPicker.tsx";
 
-const RANK: Record<string, number> = { low: 0, medium: 1, high: 2, xhigh: 3, max: 4 };
+// ponytail: the contexts the run attaches when none is picked — the test's own list, else the project's defaults
+// (claude/actions.ts runAction), by name
+function useActionContexts(scope: ClaudeScope, defaults: string[] | undefined): string[] | null {
+  const [names, setNames] = useState<string[] | null>(null);
+  const testId = "testId" in scope ? scope.testId : "";
+  const key = (defaults ?? []).join(",");
+  useEffect(() => {
+    let on = true;
+    Promise.all([
+      testId
+        ? call<{ effective: string[] }>("contexts.ofTest", { testId }).then((r) => r.effective)
+        : Promise.resolve(key ? key.split(",") : []),
+      call<{ id: string; name: string }[]>("contexts.list", {}),
+    ])
+      .then(([ids, all]) => {
+        if (on) setNames(ids.flatMap((id) => all.find((c) => c.id === id)?.name ?? []));
+      })
+      .catch(() => {
+        if (on) setNames(null);
+      });
+    return () => {
+      on = false;
+    };
+  }, [testId, key]);
+  return names;
+}
 
 export function ActionCard({
   action,
@@ -12,6 +38,7 @@ export function ActionCard({
   busy,
   model,
   effort,
+  contexts,
   meta,
   onModel,
   onEffort,
@@ -25,6 +52,7 @@ export function ActionCard({
   busy: boolean;
   model: string;
   effort: Effort;
+  contexts?: string[];
   meta?: string;
   onModel: (m: string) => void;
   onEffort: (e: Effort) => void;
@@ -34,7 +62,8 @@ export function ActionCard({
   children?: ReactNode;
 }) {
   const by = action.proposedBy;
-  const low = !!by.effort && RANK[by.effort] < RANK.high;
+  const s = action.suggest;
+  const names = useActionContexts(action.scope, contexts);
   return (
     <section className="acard" aria-label={`Claude action: ${action.title}`}>
       <div className="acard-top">
@@ -56,14 +85,16 @@ export function ActionCard({
                 {action.why}
                 {action.plan.length > 0 && (
                   <ul>
-                    {action.plan.map((s) => (
-                      <li key={s}>{s}</li>
+                    {action.plan.map((x) => (
+                      <li key={x}>{x}</li>
                     ))}
                   </ul>
                 )}
               </dd>
               <dt>Access</dt>
-              <dd>Every Testimus command. Jira writes stop at a plan: you push.</dd>
+              <dd>Every Testimus command · read and edit the project files</dd>
+              <dt>Context</dt>
+              <dd>{names === null ? "…" : names.length ? names.join(", ") : "None"}</dd>
             </dl>
             <div className="acard-ctrls">
               <ModelPicker value={model} className="btn btn-sm select" onChange={onModel} />
@@ -93,7 +124,7 @@ export function ActionCard({
               </Button>
             </div>
             <span className="muted acard-hint">
-              {originLine(action)}.{low ? " A higher effort is usually worth it for a fix." : ""}
+              {originLine(action)}.{s ? ` Suggested for this task: ${cap(s.model)} · ${s.effort}.` : ""}
             </span>
           </>
         ) : (

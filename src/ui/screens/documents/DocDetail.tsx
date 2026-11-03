@@ -1,11 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { DocJson, FigureEntry } from "../../../core/types.ts";
 import { call, project } from "../../api.ts";
-import { ActionButton } from "../../components/claude/ActionButton.tsx";
-import { ActionCount } from "../../components/claude/ActionCount.tsx";
 import { AdditionalContext } from "../../components/claude/AdditionalContext.tsx";
 import { Button, DragEdge, Icon, IconButton, Menu, Segmented, Severity, Skeleton } from "../../components/ui/index.ts";
-import { forProblem, useActions } from "../../lib/actions.ts";
 import { baseName, desktop, pathJoin, reveal } from "../../lib/desktop.ts";
 import { cx, message, plural } from "../../lib/format.ts";
 import type { SideEdge } from "../../lib/sideWidth.ts";
@@ -76,7 +73,6 @@ export function DocDetail({
   const [context, setContext] = useState("");
   const [ctxIds, setCtxIds] = useState<string[] | null>(null);
   const [error, setError] = useState("");
-  const acts = useActions({ docId: id });
   const running = useUploads().find((u) => u.docId === id && u.job === "convert" && !settled(u));
   const [opened, setOpened] = useState(false);
   const wasRunning = useRef(false);
@@ -304,7 +300,6 @@ export function DocDetail({
               Sections
             </Button>
           )}
-          <ActionCount actions={acts} />
           {sideFolded && (
             <Button
               size="sm"
@@ -442,18 +437,14 @@ export function DocDetail({
                 Conversion <span className="muted">{plural(d.warnings.length, "warning")}</span>
               </span>
               <ul className="docdoc-warns">
-                {d.warnings.map((w) => {
-                  const a = forProblem(acts, w);
-                  return (
-                    <li key={w} className="docdoc-warn">
-                      <Icon name="warning" />
-                      <div className="docdoc-warn-text">
-                        <p>{w}</p>
-                        {a && <ActionButton action={a} />}
-                      </div>
-                    </li>
-                  );
-                })}
+                {d.warnings.map((w) => (
+                  <li key={w} className="docdoc-warn">
+                    <Icon name="warning" />
+                    <div className="docdoc-warn-text">
+                      <p>{w}</p>
+                    </div>
+                  </li>
+                ))}
               </ul>
             </div>
           )}

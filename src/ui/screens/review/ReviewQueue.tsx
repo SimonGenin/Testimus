@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import type { Review } from "../../../core/types.ts";
-import { ActionButton } from "../../components/claude/ActionButton.tsx";
 import {
   Button,
   GeneratedBadge,
@@ -11,7 +10,6 @@ import {
   Severity,
   Skeleton,
 } from "../../components/ui/index.ts";
-import { useActions } from "../../lib/actions.ts";
 import { cx, plural } from "../../lib/format.ts";
 
 export type QueueItem = {
@@ -87,7 +85,6 @@ export function ReviewQueue({
   notice?: ReactNode;
 }) {
   const all = counts ? counts.checked + counts.toFix + counts.draft : undefined;
-  const acts = useActions({});
   return (
     <aside className="queue" aria-label="Review queue">
       {head}
@@ -174,12 +171,11 @@ export function ReviewQueue({
           </div>
         ) : (
           items.map((t) => {
-            const mine = acts.filter((a) => a.where === `test:${t.id}`);
             return (
               <div key={t.id} className="qrow-wrap">
                 <button
                   type="button"
-                  className={cx("qrow", t.id === activeId && "qrow-on", mine.length > 0 && "qrow-with-cab")}
+                  className={cx("qrow", t.id === activeId && "qrow-on")}
                   aria-current={t.id === activeId ? "true" : undefined}
                   data-id={t.id}
                   onClick={() => onOpen(t.id)}
@@ -193,11 +189,6 @@ export function ReviewQueue({
                     <Counts item={t} />
                   </span>
                 </button>
-                {mine.length > 0 && (
-                  <span className="qrow-cab">
-                    <ActionButton action={mine[0]} compact />
-                  </span>
-                )}
               </div>
             );
           })

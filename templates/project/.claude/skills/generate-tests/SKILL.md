@@ -204,14 +204,14 @@ that step:
 
 A skipped item is sometimes something you could fix in a later run with the app's tools: the
 conversion lost a figure or a table the section relies on (a PDF rendering would bring it back).
-Propose it with `actions_propose`, using the `runId` your prompt gives you; the user sees a « Claude
-action » button and decides.
+Propose it with `actions_propose`, using the `runId` your prompt gives you; the user sees it as a card
+in the Actions tab of Ask Claude and decides.
 
 ```json
 { "runId": "<runId>", "where": "doc:<docId>", "problem": "<what is missing, in one sentence>",
   "title": "Recover figure 40 from the PDF", "why": "§5.6.6 relies on it to state the menu.",
   "plan": ["Find the PDF of the document", "Convert again with it", "Test §5.6.6"],
-  "scope": { "kind": "doc", "docId": "<docId>" } }
+  "scope": { "kind": "doc", "docId": "<docId>" }, "model": "opus", "effort": "high" }
 ```
 
 At most 3, only when you are confident, never for a choice only the team can make.

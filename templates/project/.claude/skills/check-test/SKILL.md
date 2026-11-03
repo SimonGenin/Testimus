@@ -82,13 +82,13 @@ count by severity.
 
 When you are sure you could correct a finding yourself in a later run — the right passage is in the
 documents, the fix is in the test — propose it with `actions_propose`, using the `runId` your prompt
-gives you. The user sees a « Claude action » button next to the finding and decides whether to run it.
+gives you. The user sees it as a card in the Actions tab of Ask Claude and decides whether to run it.
 
 ```json
 { "runId": "<runId>", "problem": "<the finding's message, verbatim>",
   "title": "Cite the source of step 4", "why": "§5.6.6 states the expected menu.",
   "plan": ["Read §5.6.6", "Rewrite the expected result", "Add the source line"],
-  "scope": { "kind": "step", "testId": "<test id>", "step": 4 } }
+  "scope": { "kind": "step", "testId": "<test id>", "step": 4 }, "model": "sonnet", "effort": "medium" }
 ```
 
 At most 3, never for a choice only the team can make (the documents contradict each other, a

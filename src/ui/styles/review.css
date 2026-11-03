@@ -662,19 +662,3 @@
 .qrow-wrap {
   position: relative;
 }
-
-.qrow-with-cab {
-  padding-right: 48px;
-}
-
-.qrow-cab {
-  position: absolute;
-  right: 14px;
-  bottom: 10px;
-}
-
-.find-cab {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 4px;
-}

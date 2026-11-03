@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import type { Finding, Source, Step, XrayJson } from "../../../core/types.ts";
 import { ClaudeBadge, FindingCard, IconButton, ItemLinks, Severity, SourceChip } from "../../components/ui/index.ts";
 import { fieldViews, itemLinks, parseSourceRef, stepSources } from "../../lib/fields.ts";
@@ -60,9 +59,7 @@ export function ReviewStep({
   onFold,
   onSelect,
   onOpenImage,
-  cab,
 }: {
-  cab?: (f: Finding) => ReactNode;
   n: number;
   step: Step;
   xray: XrayJson;
@@ -162,7 +159,6 @@ export function ReviewStep({
           {!f.sources.length && f.pass === "semantic" && (
             <span className="muted find-note">No passage was found for it.</span>
           )}
-          {cab?.(f)}
         </FindingCard>
       ))}
     </article>

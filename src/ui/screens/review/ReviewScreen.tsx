@@ -1,11 +1,9 @@
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CheckFile, Source, SyncState, Test } from "../../../core/types.ts";
 import { call, fileUrl, run } from "../../api.ts";
-import { ActionCount } from "../../components/claude/ActionCount.tsx";
 import { Activity } from "../../components/shell/Activity.tsx";
 import { docLink } from "../../components/sources/PassageView.tsx";
 import { Button, DragEdge, Icon, IconButton, Kbd, Severity, Skeleton } from "../../components/ui/index.ts";
-import { useActions } from "../../lib/actions.ts";
 import { useApp } from "../../lib/app.ts";
 import { useDraft } from "../../lib/drafts.ts";
 import { flushEditor } from "../../lib/editorBus.ts";
@@ -37,7 +35,6 @@ const FILTER_STATES: Record<QueueFilter, string[] | undefined> = {
 
 export function ReviewScreen() {
   const app = useApp();
-  const allActs = useActions({});
   const [queueW, queueEdge] = useSideWidth("testimus.queueWidth", 240, 480, "before");
   const [sourceW, sourceEdge] = useSideWidth("testimus.sourceWidth", 300, 720, "after");
   const routeId = app.route.screen === "review" ? (app.route.arg ?? "") : "";
@@ -380,7 +377,6 @@ export function ReviewScreen() {
             <div className="tside-head">
               <span className="h queue-title">Generated tests</span>
               <span className="spacer" />
-              <ActionCount actions={allActs.filter((a) => a.where.startsWith("test:"))} />
               <Activity />
             </div>
           }
@@ -478,7 +474,6 @@ export function ReviewScreen() {
                 </div>
               ) : (
                 <ReviewTest
-                  testId={data.id}
                   test={data.test}
                   sync={data.sync}
                   edited={data.edited}

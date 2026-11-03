@@ -1,5 +1,5 @@
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ClaudeAction, CredsStatus, Job, SearchMatch, Source, XrayJson } from "../../core/types.ts";
+import type { CredsStatus, Job, SearchMatch, Source, XrayJson } from "../../core/types.ts";
 import { type CommandInfo, call, commands, events, fileUrl, setProject } from "../api.ts";
 import { ClaudeDock, type DockJob, type DockRequest } from "../components/claude/ClaudeDock.tsx";
 import { CommandForm, hasInput } from "../components/shell/CommandForm.tsx";
@@ -227,12 +227,6 @@ export function App() {
     setDockReq({ mode: "test", job, nonce: Date.now() });
   }, []);
 
-  const openAction = useCallback((a: ClaudeAction | ClaudeAction[]) => {
-    userFold.current = false;
-    setFolded(false);
-    setDockReq({ mode: "test", actions: Array.isArray(a) ? a : [a], nonce: Date.now() });
-  }, []);
-
   // ponytail: Review needs its three columns, so the dock folds to its strip there and comes back after
   const lastScreen = useRef<Screen | null>(null);
   useEffect(() => {
@@ -263,7 +257,6 @@ export function App() {
       openSource: setSource,
       askClaude,
       runInDock,
-      openAction,
       openPalette,
     }),
     [
@@ -279,7 +272,6 @@ export function App() {
       refreshInfo,
       askClaude,
       runInDock,
-      openAction,
       openPalette,
     ],
   );

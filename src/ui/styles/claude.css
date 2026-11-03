@@ -48,14 +48,24 @@
 }
 
 .dock-seg .seg {
-  flex: 1 1 0;
+  flex: 1 1 auto;
   min-width: 0;
+  padding: 0 4px;
   justify-content: center;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   display: block;
   line-height: 26px;
+}
+
+.dock-seg .seg-count {
+  margin-left: 5px;
+  color: var(--claude);
+}
+
+.dock-seg .seg-on .seg-count {
+  color: inherit;
 }
 
 .dock-seg .seg:disabled {
@@ -67,19 +77,6 @@
   height: 24px;
   line-height: 22px;
   font-size: 12.5px;
-}
-
-.dock-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  padding-top: 4px;
-  font-size: 13px;
-}
-
-.dock-actions > .muted {
-  flex-basis: 100%;
 }
 
 .dock-scope {
@@ -871,98 +868,6 @@
   }
 }
 
-/* Claude action button: a chip-sized neutral button, only the Claude logo carries the Claude colour */
-.cab {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 26px;
-  max-width: 100%;
-  padding: 0 10px 0 8px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-s);
-  background: var(--surface);
-  color: var(--ink);
-  font: 600 13px / 1 var(--font-body);
-  white-space: nowrap;
-  cursor: pointer;
-  flex: none;
-}
-
-.cab:hover,
-.cab:focus-visible {
-  border-color: var(--claude);
-  background: var(--claude-bg);
-}
-
-.cab:focus-visible {
-  outline: 2px solid var(--claude);
-  outline-offset: 2px;
-}
-
-.cab-logo {
-  width: 14px;
-  height: 14px;
-  color: var(--claude);
-  flex: none;
-}
-
-.cab-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.cab-icon {
-  width: 26px;
-  padding: 0;
-  justify-content: center;
-}
-
-.cab-run {
-  color: var(--ink-3);
-  border-style: dashed;
-}
-
-.cab-spin {
-  border-top-color: var(--claude);
-}
-
-.cab-count {
-  font: 500 11px var(--font-mono);
-  background: var(--claude-bg);
-  color: var(--claude);
-  padding: 2px 5px;
-  border-radius: 4px;
-}
-
-.cab-pop {
-  position: fixed;
-  z-index: 60;
-  width: 320px;
-  max-width: calc(100vw - 16px);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 12px 14px;
-  background: var(--surface);
-  color: var(--ink-2);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  font: 400 13.5px / 1.4 var(--font-body);
-  white-space: normal;
-  pointer-events: none;
-}
-
-.cab-pop strong {
-  color: var(--ink);
-}
-
-.cab-from {
-  font-size: 11.5px;
-  color: var(--ink-3);
-}
-
 /* the action card in Ask Claude */
 .acard {
   border: 1px solid var(--claude);
@@ -1056,19 +961,6 @@
 
 .acard-hint {
   font-size: 12.5px;
-}
-
-/* where a button sits beside the problem it fixes */
-.with-cab {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.with-cab > :first-child {
-  flex: 1 1 260px;
-  min-width: 0;
 }
 
 .dock-scope-line {

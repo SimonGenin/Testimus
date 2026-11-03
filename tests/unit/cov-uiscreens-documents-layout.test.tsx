@@ -305,23 +305,16 @@ describe("Claude actions on documents", () => {
     ...o,
   });
 
-  it("the list row shows a document's first action; the settings put it beside the warning it fixes", async () => {
+  it("stay in Ask Claude: neither the list nor the settings show them", async () => {
     listed({ warnings: ["2 comments dropped", "1 table split"] });
-    const all = [
-      action(),
-      action({ id: "act-2", title: "Second", problem: "other" }),
-      action({ id: "x", where: "test:T" }),
-    ];
-    api.routes["actions.list"] = (i) => (i.docId ? all.filter((a) => a.where === `doc:${i.docId}`) : all);
+    api.routes["actions.list"] = () => [action()];
     mount(<DocumentsScreen />, { route: { screen: "documents", arg: "D1" } });
     const list = await screen.findByRole("region", { name: "Document list" });
-    expect(await within(list).findByRole("button", { name: "Recover the figures" })).toBeInTheDocument();
-    expect(within(list).queryByRole("button", { name: "Second" })).toBeNull();
     const settings = await screen.findByRole("complementary", { name: "Document settings" });
-    const fix = await within(settings).findByRole("button", { name: "Recover the figures" });
-    expect(fix.closest(".docdoc-warn")).toHaveTextContent("2 comments dropped");
-    const other = within(settings).getByText("1 table split").closest(".docdoc-warn") as HTMLElement;
-    expect(within(other).queryByRole("button")).toBeNull();
+    expect(await within(settings).findByText("2 comments dropped")).toBeInTheDocument();
+    expect(within(list).queryByRole("button", { name: "Recover the figures" })).toBeNull();
+    expect(within(settings).queryByRole("button", { name: "Recover the figures" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Claude actions/ })).toBeNull();
   });
 });
 

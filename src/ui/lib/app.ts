@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react";
-import type { ClaudeAction, ProjectJson, Review, Source, StepColumn, XrayJson } from "../../core/types.ts";
+import type { ProjectJson, Review, Source, StepColumn, XrayJson } from "../../core/types.ts";
 
 export type Screen =
   | "documents"
@@ -56,7 +56,6 @@ export type AppState = {
   openSource: (s: Source) => void;
   askClaude: (scope: "test" | "step", prompt?: string) => void;
   runInDock: (job: { name: string; input: unknown; label: string; testId: string }) => void;
-  openAction: (a: ClaudeAction | ClaudeAction[]) => void;
   openPalette: () => void;
 };
 

@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from "react";
+import { useState } from "react";
 import type { Precondition, SyncState, Test } from "../../../core/types.ts";
 import {
   Button,
@@ -44,9 +44,7 @@ export function TestHeader({
   onContexts,
   onManageContexts,
   update,
-  actions,
 }: {
-  actions?: ReactNode;
   test: Test;
   sync: SyncState;
   edited?: boolean;
@@ -157,7 +155,6 @@ export function TestHeader({
                   : ""}
         </span>
         <div className="spacer" />
-        {actions}
         <Button tone="quiet" icon="claude" onClick={onAsk}>
           Ask Claude
         </Button>
