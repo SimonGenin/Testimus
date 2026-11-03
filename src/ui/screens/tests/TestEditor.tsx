@@ -10,9 +10,11 @@ import type {
   Test,
 } from "../../../core/types.ts";
 import { call, fileUrl, project, run } from "../../api.ts";
+import { ActionCount } from "../../components/claude/ActionCount.tsx";
 import { CONTEXTS_EVENT, ContextsDialog } from "../../components/claude/ContextsDialog.tsx";
 import { RevertConflict } from "../../components/claude/RevertConflict.tsx";
 import { Button, Confirm, DragEdge, Icon, type MenuItem, Segmented, Skeleton } from "../../components/ui/index.ts";
+import { useActions } from "../../lib/actions.ts";
 import { useApp } from "../../lib/app.ts";
 import { blankStep } from "../../lib/blocks.ts";
 import { columnsOf, projectModes } from "../../lib/columns.ts";
@@ -89,6 +91,7 @@ export function TestEditor({
   onOpen: (id: string) => void;
 }) {
   const app = useApp();
+  const acts = useActions({ testId });
   const jiraKey = app.info?.project.jiraOffline ? "" : (app.info?.project.jiraProject ?? "");
   const xray = app.xray ?? DEFAULT_XRAY;
   const [test, setTest] = useState<Test | null>(null);
@@ -714,6 +717,7 @@ export function TestEditor({
       }}
     >
       <TestHeader
+        actions={<ActionCount actions={acts} />}
         test={test}
         sync={sync}
         dirty={dirty}

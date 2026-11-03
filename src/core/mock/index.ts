@@ -6,6 +6,7 @@ import { quietCtx } from "../command.ts";
 import { env } from "../env.ts";
 import { DEFAULT_PROJECT, writeJson, writeProject } from "../lib/project.ts";
 import { mockSpawnClaude } from "./claude.ts";
+import "./claude-actions.ts";
 import "./claude-check.ts";
 import "./claude-gen.ts";
 import { mockHttp } from "./jira.ts";

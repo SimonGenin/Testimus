@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react";
 import type { ClaudeRun, DocRef, JobEvent } from "../../core/types.ts";
 import { run } from "../api.ts";
+import { triageWhenClaude } from "./actions.ts";
 import { baseName, pathOf } from "./desktop.ts";
 import { message } from "./format.ts";
 import { toast } from "./toast.ts";
@@ -99,8 +100,13 @@ async function reindex(key: number): Promise<void> {
 async function addOne(key: number, input: Record<string, unknown>, onDone: () => void) {
   try {
     patch(key, { phase: "converting", message: "Converting", pct: null });
-    const doc = await run<{ id: string }>("docs.add", { ...input, ...claude }, progressOf(key, "converting"));
+    const doc = await run<{ id: string; warnings?: string[] }>(
+      "docs.add",
+      { ...input, ...claude },
+      progressOf(key, "converting"),
+    );
     patch(key, { docId: doc?.id });
+    if (doc?.id && doc.warnings?.length) triageWhenClaude({ docId: doc.id, ...claude });
   } catch (e) {
     patch(key, { phase: "failed", message: message(e), error: e });
     onDone();

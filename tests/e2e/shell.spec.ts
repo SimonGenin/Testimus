@@ -54,10 +54,10 @@ test("Ctrl J opens and folds the Claude dock", async ({ page }) => {
   const dock = page.getByRole("complementary", { name: "Claude" });
   await expect(dock.getByRole("button", { name: "Open Claude" })).toBeVisible();
   await page.keyboard.press("Control+j");
-  await expect(dock.getByRole("heading", { name: "Claude" })).toBeVisible();
+  await expect(dock.getByRole("heading", { name: "Ask Claude" })).toBeVisible();
   await page.keyboard.press("Control+j");
   await expect(dock.getByRole("button", { name: "Open Claude" })).toBeVisible();
-  await expect(dock.getByRole("heading", { name: "Claude" })).toHaveCount(0);
+  await expect(dock.getByRole("heading", { name: "Ask Claude" })).toHaveCount(0);
   await dock.getByRole("button", { name: "Open Claude" }).click();
   await dock.getByRole("button", { name: /^Hide/ }).click();
   await expect(dock.getByRole("button", { name: "Open Claude" })).toBeVisible();

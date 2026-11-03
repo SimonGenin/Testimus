@@ -254,6 +254,7 @@ const app = (withProject = true): AppState =>
     openSource: vi.fn(),
     askClaude: vi.fn(),
     runInDock: vi.fn(),
+    openAction: vi.fn(),
     openPalette: vi.fn(),
   }) as unknown as AppState;
 

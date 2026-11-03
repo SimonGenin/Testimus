@@ -154,3 +154,19 @@ line and the `### Attachments` list exactly as they are. Cite the figure in `###
   An empty list when everything is covered.
 - `consulted`: the `docId#anchor` of every section and figure you read. Testimus keeps its own
   record of what you opened (from your tool calls); this list is compared with it.
+
+## 5. Claude actions (optional)
+
+An uncovered item is sometimes something you could fix in a later run with the app's tools: the
+conversion lost a figure or a table the section relies on (a PDF rendering would bring it back), a
+requirement id pattern is missing so the ids are not tracked. Propose it with `actions_propose`,
+using the `runId` your prompt gives you; the user sees a « Claude action » button and decides.
+
+```json
+{ "runId": "<runId>", "where": "doc:<docId>", "problem": "<what is missing, in one sentence>",
+  "title": "Recover figure 40 from the PDF", "why": "§5.6.6 relies on it to state the menu.",
+  "plan": ["Find the PDF of the document", "Convert again with it", "Cover §5.6.6"],
+  "scope": { "kind": "doc", "docId": "<docId>" } }
+```
+
+At most 3, only when you are confident, never for a choice only the team can make.

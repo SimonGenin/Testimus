@@ -99,7 +99,7 @@ describe("dock run details", () => {
   it("runs on the whole project and shows the changes on the first changed test", async () => {
     net.routes["claude.run"] = () => ({ ok: true, runId: "r1", changedTests: ["t9"], changedSteps: { t9: [1] } });
     const { state } = mount({}, { focus: null, ...claude({ contexts: undefined }) });
-    fireEvent.click(screen.getByRole("tab", { name: "On the project" }));
+    fireEvent.click(screen.getByRole("button", { name: "Change every test" }));
     ask("Tout");
     fireEvent.click(await screen.findByRole("button", { name: "Show changes" }));
     expect(state.navigate).toHaveBeenCalledWith("tests", "t9");
@@ -108,7 +108,7 @@ describe("dock run details", () => {
   it("falls back to an empty test id when a project run names no test", async () => {
     net.routes["claude.run"] = () => ({ ok: true, runId: "r2", changedSteps: [3] });
     const { state } = mount({}, { focus: null });
-    fireEvent.click(screen.getByRole("tab", { name: "On the project" }));
+    fireEvent.click(screen.getByRole("button", { name: "Change every test" }));
     ask("Tout");
     fireEvent.click(await screen.findByRole("button", { name: "Show changes" }));
     expect(state.navigate).toHaveBeenCalledWith("tests", "");

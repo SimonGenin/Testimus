@@ -100,9 +100,9 @@ describe("dock: scope, presets, contexts, models", () => {
     routes["claude.run"] = () => ({ ok: true, summary: "Done", durationMs: 1200, changedTests: [], raw: "" });
     const state = withClaude({ contexts: ["ctx-b"] });
     render(wrap(state, <ClaudeDock folded={false} onFold={() => {}} />));
-    const tab = screen.getByRole("tab", { name: "On the project" });
-    expect(tab).toBeEnabled();
-    fireEvent.click(tab);
+    const change = screen.getByRole("button", { name: "Change every test" });
+    expect(change).toBeEnabled();
+    fireEvent.click(change);
     const scope = screen.getByRole("group", { name: "Claude scope" });
     expect(within(scope).getByText("Whole project")).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: "Leave Glossary out of this run" })).toBeInTheDocument();
@@ -200,7 +200,7 @@ describe("dock: scope, presets, contexts, models", () => {
     expect(await screen.findByText("Done")).toBeInTheDocument();
     cleanup();
     render(wrap(withClaude({}), <ClaudeDock folded={false} onFold={() => {}} />));
-    expect(screen.getByRole("tab", { name: "Ask the documents" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("button", { name: "Ask the documents" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: /Send/ })).toBeDisabled();
   });
 
@@ -275,12 +275,13 @@ describe("dock: scope, presets, contexts, models", () => {
   it("switches between step, test and project", async () => {
     routes["claude.run"] = () => ({ ok: true, summary: "ok", changedTests: [], raw: "" });
     render(wrap(app({ focus: focus({ step: 2 }) }), <ClaudeDock folded={false} onFold={() => {}} />));
-    fireEvent.click(screen.getByRole("button", { name: "Whole project" }));
+    fireEvent.click(screen.getByRole("button", { name: "Project" }));
+    fireEvent.click(screen.getByRole("button", { name: "Change every test" }));
     expect(within(screen.getByRole("group", { name: "Claude scope" })).getByText("Whole project")).toBeInTheDocument();
     send("A");
     await waitFor(() => expect(callsOf("claude.run")).toHaveLength(1));
     expect(callsOf("claude.run")[0].input.scope).toEqual({ kind: "project" });
-    fireEvent.click(screen.getByRole("button", { name: "Only step 2" }));
+    fireEvent.click(screen.getByRole("button", { name: "Step 2" }));
     send("B");
     await waitFor(() => expect(callsOf("claude.run")).toHaveLength(2));
     expect(callsOf("claude.run")[1].input.scope).toEqual({ kind: "step", testId: "local-1", step: 2 });

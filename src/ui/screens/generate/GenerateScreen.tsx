@@ -1,12 +1,14 @@
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
 import type { DocRef, Effort, Job, LocalTestRef, StepColumn, Test } from "../../../core/types.ts";
 import { call } from "../../api.ts";
+import { ActionCount } from "../../components/claude/ActionCount.tsx";
 import { AdditionalContext } from "../../components/claude/AdditionalContext.tsx";
 import { type ClaudeStatus, ConnectClaude } from "../../components/claude/ConnectClaude.tsx";
 import { cap, EFFORTS, ModelPicker } from "../../components/claude/ModelPicker.tsx";
 import { useJob } from "../../components/shell/JobLog.tsx";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
 import { Button, DragEdge, Icon } from "../../components/ui/index.ts";
+import { useActions } from "../../lib/actions.ts";
 import { activityOf, DOING } from "../../lib/activity.ts";
 import { useApp } from "../../lib/app.ts";
 import { plural } from "../../lib/format.ts";
@@ -34,6 +36,7 @@ let chosen: { model: string; effort: Effort } | null = null;
 
 export function GenerateScreen() {
   const app = useApp();
+  const genActs = useActions({});
   const [formW, formEdge] = useSideWidth("testimus.genFormWidth", 320, 720, "before");
   const cfg = app.info?.project;
   const columns = (app.info?.columns ?? []) as StepColumn[];
@@ -194,7 +197,9 @@ export function GenerateScreen() {
 
   return (
     <div className="screen">
-      <ScreenHeader title="Generate" meta="Claude writes tests from the documents, with a source for every claim" />
+      <ScreenHeader title="Generate" meta="Claude writes tests from the documents, with a source for every claim">
+        <ActionCount actions={genActs.filter((a) => a.proposedBy.run === "generate")} />
+      </ScreenHeader>
       <div className="gen" style={formW ? ({ "--genform-size": `${formW}px` } as CSSProperties) : undefined}>
         <section className="gen-form" aria-label="Request">
           <div className="gen-block">

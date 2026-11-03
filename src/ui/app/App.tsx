@@ -1,5 +1,5 @@
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { CredsStatus, Job, Source, XrayJson } from "../../core/types.ts";
+import type { ClaudeAction, CredsStatus, Job, Source, XrayJson } from "../../core/types.ts";
 import { type CommandInfo, call, commands, events, fileUrl, setProject } from "../api.ts";
 import { ClaudeDock, type DockJob, type DockRequest } from "../components/claude/ClaudeDock.tsx";
 import { CommandForm, hasInput } from "../components/shell/CommandForm.tsx";
@@ -9,6 +9,7 @@ import { NAV, Rail } from "../components/shell/Rail.tsx";
 import { PassageDialog } from "../components/sources/PassageDialog.tsx";
 import { docLink } from "../components/sources/PassageView.tsx";
 import { DragEdge, Toasts } from "../components/ui/index.ts";
+import { triageWhenClaude } from "../lib/actions.ts";
 import { AppContext, type AppState, type ClaudeRun, type Focus, type ProjectInfo, type Screen } from "../lib/app.ts";
 import { DEFAULT_XRAY } from "../lib/fields.ts";
 import { mirrorPrefs, restorePrefs } from "../lib/prefsMirror.ts";
@@ -33,6 +34,17 @@ export function parseRoute(hash: string): { screen: Screen; arg?: string } {
   const s = SCREENS.includes(screen as Screen) ? (screen as Screen) : "tests";
   const arg = rest.length ? decodeURIComponent(rest.join("/")) : undefined;
   return { screen: s, arg };
+}
+
+// ponytail: a failed job of the documents, the index or the tests is shown to Claude once, cheaply (project model, low
+// effort), when Claude is there — it may leave a Claude action on the job; a Claude run or a Jira call is never triaged
+const TRIAGED = /^(docs\.|rag-|rag\.|describe-figures|generate|check|traces)/;
+const triaged = new Set<string>();
+
+function triageFailed(job: Job): void {
+  if (!TRIAGED.test(job.kind) || triaged.has(job.id)) return;
+  triaged.add(job.id);
+  triageWhenClaude({ jobId: job.id });
 }
 
 export function App() {
@@ -118,6 +130,7 @@ export function App() {
         else next.delete(e.job.id);
         return next;
       });
+      if (e.job.status === "failed") triageFailed(e.job);
       if (e.job.kind === "check" && e.job.status === "done") {
         const tests = ((e.job.result as { tests?: { errors: number; warnings: number }[] })?.tests ?? []).filter(
           Boolean,
@@ -212,6 +225,12 @@ export function App() {
     setDockReq({ mode: "test", job, nonce: Date.now() });
   }, []);
 
+  const openAction = useCallback((a: ClaudeAction | ClaudeAction[]) => {
+    userFold.current = false;
+    setFolded(false);
+    setDockReq({ mode: "test", actions: Array.isArray(a) ? a : [a], nonce: Date.now() });
+  }, []);
+
   // ponytail: Review needs its three columns, so the dock folds to its strip there and comes back after
   const lastScreen = useRef<Screen | null>(null);
   useEffect(() => {
@@ -242,6 +261,7 @@ export function App() {
       openSource: setSource,
       askClaude,
       runInDock,
+      openAction,
       openPalette,
     }),
     [
@@ -257,6 +277,7 @@ export function App() {
       refreshInfo,
       askClaude,
       runInDock,
+      openAction,
       openPalette,
     ],
   );

@@ -1,5 +1,6 @@
 import { Fragment } from "react";
 import type { CheckFile, Source, SyncState, Test, XrayJson } from "../../../core/types.ts";
+import { ActionButton } from "../../components/claude/ActionButton.tsx";
 import { RevertConflict } from "../../components/claude/RevertConflict.tsx";
 import {
   Badge,
@@ -11,6 +12,7 @@ import {
   Severity,
   SyncBadge,
 } from "../../components/ui/index.ts";
+import { forProblem, useActions } from "../../lib/actions.ts";
 import { idsByKind, isRequirementField, splitIds } from "../../lib/fields.ts";
 import { plural } from "../../lib/format.ts";
 import { sourceOfId } from "../../lib/traces.ts";
@@ -32,6 +34,7 @@ export const shortId = (first: string, id: string) => {
 };
 
 export function ReviewTest({
+  testId,
   test,
   sync,
   check,
@@ -57,6 +60,7 @@ export function ReviewTest({
   onTakeJira,
   onKeepMine,
 }: {
+  testId?: string;
   test: Test;
   sync: SyncState;
   check: CheckFile | null;
@@ -83,6 +87,15 @@ export function ReviewTest({
   onKeepMine: () => void;
 }) {
   const findings = check?.findings ?? [];
+  const acts = useActions(testId ? { testId } : null);
+  const cab = (f: { message: string }) => {
+    const a = forProblem(acts, f.message);
+    return a ? (
+      <div className="find-cab">
+        <ActionButton action={a} />
+      </div>
+    ) : null;
+  };
   const whole = findings.filter((f) => !f.step || f.step > test.steps.length);
   const kinds = idsByKind(test.steps);
   const allFolded = test.steps.every((_, i) => folded.has(i));
@@ -190,6 +203,7 @@ export function ReviewTest({
       {whole.map((f, i) => (
         <FindingCard key={i} finding={f} stale={stale} scope="Whole test">
           <FindingSources finding={f} selected={selected} onSelect={(s) => onSelect(s, null)} />
+          {cab(f)}
         </FindingCard>
       ))}
 
@@ -202,6 +216,7 @@ export function ReviewTest({
             step={s}
             xray={xray}
             findings={findings.filter((f) => f.step === n)}
+            cab={cab}
             stale={stale}
             folded={folded.has(i) && activeStep !== i}
             active={activeStep === i}

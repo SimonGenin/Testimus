@@ -154,7 +154,7 @@ describe("actions.propose, actions.run and the revert", () => {
     };
     expect(seen[0].stdin).toContain("Figure 41 is a shape drawn in Word");
     expect(r.proposed).toHaveLength(1);
-    expect(r.proposed[0].proposedBy).toMatchObject({ run: "triage", model: "haiku", effort: "low" });
+    expect(r.proposed[0].proposedBy).toMatchObject({ run: "import", model: "haiku", effort: "low" });
   });
 
   it("runs with the whole command set, snapshots the document folder, and reverts it", async () => {

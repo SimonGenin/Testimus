@@ -4,6 +4,7 @@ import { fieldOrder, readXray } from "../lib/project.ts";
 import { readCheck, readTest, testExists, writeTest } from "../lib/store.ts";
 import type { Finding, Test } from "../types.ts";
 import { mockStream, registerMockScript } from "./claude.ts";
+import { mockPropose, runIdIn } from "./claude-actions.ts";
 
 const DOC = "SOSIE_211_D401-1_3";
 const TK_QUOTE = "un sectionneur avec TK manœuvré régulièrement ne propose que Propriétés";
@@ -119,6 +120,17 @@ registerMockScript(
         if (!testExists(spawn.cwd, id)) return;
         found = mockFindings(readTest(spawn.cwd, id).test);
         record(spawn.cwd, id, found);
+        const vague = found.find((f) => f.kind === "vague-result" && f.step);
+        const runId = runIdIn(spawn.stdin);
+        if (vague && runId)
+          mockPropose(spawn.cwd, {
+            runId,
+            problem: vague.message,
+            title: `Make step ${vague.step} say what the menu shows`,
+            why: "§5.6.6 lists what the menu of this object proposes.",
+            plan: ["Read §5.6.6", "Rewrite the expected result", "Add the source line"],
+            scope: { kind: "step", testId: id, step: vague.step },
+          });
       },
       texts: ["J'ai relu chaque step avec le passage cité. ", "Les anomalies sont enregistrées."],
       get result() {

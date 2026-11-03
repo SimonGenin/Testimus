@@ -175,7 +175,10 @@ export const commands: Command[] = [
       contexts: CONTEXT_IDS.optional().describe("Context ids to attach (default: the effective ones)"),
       note: NOTE,
     }),
-    output: RESULT.extend({ action: ACTION }),
+    output: RESULT.extend({
+      action: ACTION,
+      changedFiles: z.array(z.string()).describe("Files other than tests the action changed, relative to the project"),
+    }),
     mutates: true,
     job: "claude",
     positional: ["id"],
@@ -211,7 +214,14 @@ export const commands: Command[] = [
       if (!input.docId === !input.jobId) throw new UserError("Give either docId or jobId.");
       const problems = input.docId ? docProblems(project, input.docId) : jobProblems(project, input.jobId ?? "");
       const where = input.docId ? `the document ${input.docId}` : `the job ${input.jobId}`;
-      return await triage(ctx, project, problems, where, { model: input.model, effort: input.effort }, "triage");
+      return await triage(
+        ctx,
+        project,
+        problems,
+        where,
+        { model: input.model, effort: input.effort },
+        input.docId ? "import" : "job",
+      );
     },
   }),
 ];

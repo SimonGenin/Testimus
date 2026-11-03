@@ -39,6 +39,8 @@
   --ok-bg: #e6f3ea;
   --hl: #ffe680;
   --logo-tile: #ffffff;
+  --claude: #c2603e;
+  --claude-bg: #fbefe9;
   --scrim: rgba(13, 17, 17, 0.42);
   --shadow: 0 1px 2px rgba(13, 17, 17, 0.06), 0 10px 30px rgba(13, 17, 17, 0.1);
   color-scheme: light;
@@ -67,6 +69,8 @@
     --ok-bg: #15281c;
     --hl: rgba(255, 212, 0, 0.3);
     --logo-tile: #e8eeee;
+    --claude: #e9906f;
+    --claude-bg: #2e1c15;
     --scrim: rgba(0, 0, 0, 0.6);
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 12px 32px rgba(0, 0, 0, 0.45);
     color-scheme: dark;
@@ -95,6 +99,8 @@
   --ok-bg: #15281c;
   --hl: rgba(255, 212, 0, 0.3);
   --logo-tile: #e8eeee;
+  --claude: #e9906f;
+  --claude-bg: #2e1c15;
   --scrim: rgba(0, 0, 0, 0.6);
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 12px 32px rgba(0, 0, 0, 0.45);
   color-scheme: dark;

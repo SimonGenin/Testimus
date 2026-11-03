@@ -1,11 +1,14 @@
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
 import type { DocRef } from "../../../core/types.ts";
 import { call, events } from "../../api.ts";
+import { ActionButton } from "../../components/claude/ActionButton.tsx";
+import { ActionCount } from "../../components/claude/ActionCount.tsx";
 import { problemOf } from "../../components/shell/ProblemPanel.tsx";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
 import { DOC_STATUS } from "../../components/sources/PassageView.tsx";
 import { TracesBar } from "../../components/traces/TracesBar.tsx";
 import { Badge, Button, DragEdge, Icon, IconButton, Modal, Severity, Skeleton } from "../../components/ui/index.ts";
+import { useActions } from "../../lib/actions.ts";
 import { useApp } from "../../lib/app.ts";
 import { desktop, pickFiles } from "../../lib/desktop.ts";
 import { cx } from "../../lib/format.ts";
@@ -79,7 +82,7 @@ function IndexFailed({ u, colSpan, onReindex }: { u: Upload; colSpan: number; on
   );
 }
 
-const REFRESH = new Set(["docs.add", "docs.convert", "rag-index", "describe-figures"]);
+const REFRESH = new Set(["docs.add", "docs.convert", "rag-index", "describe-figures", "claude"]);
 
 export function DocumentsScreen() {
   const app = useApp();
@@ -91,6 +94,7 @@ export function DocumentsScreen() {
   const [path, setPath] = useState("");
   const picker = useRef<HTMLInputElement>(null);
   const uploads = useUploads();
+  const acts = useActions({});
   const arg = app.route.screen === "documents" ? (app.route.arg ?? "") : "";
   const hash = arg.indexOf("#");
   const routeId = hash < 0 ? arg : arg.slice(0, hash);
@@ -168,6 +172,7 @@ export function DocumentsScreen() {
         title="Documents"
         meta={`${pages} document${pages === 1 ? "" : "s"}${busy.length ? ` · ${busy.length} being added` : ""} · drop Word or PDF files anywhere here to add them`}
       >
+        <ActionCount actions={acts.filter((a) => a.where.startsWith("doc:"))} />
         <ImportClaude />
         <Button tone="quiet" size="sm" onClick={() => setAskPath(true)}>
           Add from a path
@@ -275,13 +280,21 @@ export function DocumentsScreen() {
                             <Severity tone={ix.tone}>{ix.word}</Severity>
                           </td>
                           <td>
-                            {d.warnings.length ? (
-                              <span title={d.warnings.join("\n")}>
-                                <Severity tone="warning">{String(d.warnings.length)}</Severity>
-                              </span>
-                            ) : (
-                              <span className="muted">—</span>
-                            )}
+                            <span className="tbl-warn">
+                              {d.warnings.length ? (
+                                <span title={d.warnings.join("\n")}>
+                                  <Severity tone="warning">{String(d.warnings.length)}</Severity>
+                                </span>
+                              ) : (
+                                <span className="muted">—</span>
+                              )}
+                              {acts
+                                .filter((a) => a.where === `doc:${d.id}`)
+                                .slice(0, 1)
+                                .map((a) => (
+                                  <ActionButton key={a.id} action={a} compact />
+                                ))}
+                            </span>
                           </td>
                         </tr>,
                         ...failed.map((u) => <IndexFailed key={u.key} u={u} colSpan={4} onReindex={reindex} />),
@@ -303,7 +316,7 @@ export function DocumentsScreen() {
             <>
               <DragEdge className="side-edge" label="Resize the document details" {...sideEdge} />
               <DocDetail
-                key={activeId}
+                key={`${activeId} ${docs?.find((x) => x.id === activeId)?.convertedAt ?? ""}`}
                 id={activeId}
                 anchor={anchor}
                 quote={quote}

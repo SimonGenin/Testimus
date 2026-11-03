@@ -277,10 +277,10 @@ describe("Claude dock: on a test", () => {
     });
     net.routes["claude.revert"] = () => ({ reverted: ["local-1"] });
     const { state } = mount({}, { focus: focus({ key: "LFRPS12-1", step: 2 }) });
-    expect(screen.getByRole("tab", { name: "On this test" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("button", { name: "Test" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByText("LFRPS12-1")).toBeInTheDocument();
     expect(screen.getByText(/whole test/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Only step 2" }));
+    fireEvent.click(screen.getByRole("button", { name: "Step 2" }));
     expect(screen.getByText(/step 2/)).toBeInTheDocument();
     ask("Ajoute une source");
     await waitFor(() => expect(callsOf("claude.run")).toHaveLength(1));
@@ -304,7 +304,7 @@ describe("Claude dock: on a test", () => {
     expect(await screen.findByText("Reverted")).toBeInTheDocument();
     expect(screen.getByText("Claude's changes reverted")).toBeInTheDocument();
     expect(screen.getByText("1 test restored.")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Whole test" }));
+    fireEvent.click(screen.getByRole("button", { name: "Test" }));
     ask("Encore");
     await waitFor(() => expect(callsOf("claude.run")).toHaveLength(2));
     expect(callsOf("claude.run")[1].input.scope).toEqual({ kind: "test", testId: "local-1" });
@@ -313,7 +313,7 @@ describe("Claude dock: on a test", () => {
   it("reports a review fix: checked again, still To fix, several tests", async () => {
     mount({}, { focus: focus() });
     expect(screen.getByText("local test")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Only step/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "Step" })).toBeDisabled();
     net.routes["claude.run"] = () => ({
       ok: true,
       summary: "",
@@ -451,22 +451,21 @@ describe("Claude dock: on a test", () => {
   it("follows the focus: whole test without a step, the whole project without a test", async () => {
     net.routes["claude.run"] = () => ({ ok: true, summary: "all done" });
     const { update } = mount({}, { focus: focus({ step: 1 }) });
-    fireEvent.click(screen.getByRole("button", { name: "Only step 1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Step 1" }));
     update({}, { focus: focus({ step: null }) });
     expect(screen.getByText(/whole test/)).toBeInTheDocument();
     update({}, { focus: null });
-    expect(screen.getByRole("tab", { name: "On the project" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("button", { name: "Project" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Change every test" }));
     expect(screen.getByText(/work on every test of the project/)).toBeInTheDocument();
     ask("Tout relire");
     await waitFor(() => expect(callsOf("claude.run")).toHaveLength(1));
     expect(callsOf("claude.run")[0].input.scope).toEqual({ kind: "project" });
-    fireEvent.click(screen.getByRole("tab", { name: "Ask the documents" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ask the documents" }));
     net.routes["chat.ask"] = () => ({ chatId: "c", answer: "a" });
     ask("Q");
     expect(await screen.findByText("a")).toBeInTheDocument();
     update({}, { focus: focus() });
-    expect(screen.getByRole("tab", { name: "Ask the documents" })).toHaveAttribute("aria-selected", "true");
-    fireEvent.click(screen.getByRole("tab", { name: "On this test" }));
     expect(screen.getByRole("textbox", { name: "Ask Claude about this test" })).toBeInTheDocument();
     expect(screen.queryByText("Tout relire", { selector: ".bubble" })).toBeNull();
   });
@@ -496,7 +495,7 @@ describe("Claude dock: requests from the app", () => {
     update({ request: { mode: "test", scope: "test", nonce: 2 } });
     expect(chip()).toHaveTextContent("LFRPS12-1 · whole test");
     expect(chip()).not.toHaveTextContent("· step 2");
-    expect(screen.getByRole("button", { name: "Only step 2" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Step 2" })).toBeInTheDocument();
     ask("Relis tout");
     await waitFor(() => expect(callsOf("claude.run")).toHaveLength(1));
     expect(callsOf("claude.run")[0].input.scope).toEqual({ kind: "test", testId: "local-1" });

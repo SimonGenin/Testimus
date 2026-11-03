@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { DocJson, DocRef, FigureEntry, TraceItem, TraceScan, TraceView } from "../../../core/types.ts";
 import { call, project } from "../../api.ts";
+import { ActionButton } from "../../components/claude/ActionButton.tsx";
+import { ActionCount } from "../../components/claude/ActionCount.tsx";
 import { Button, Chip, Icon, IconButton, Menu, Severity, Skeleton } from "../../components/ui/index.ts";
+import { forProblem, useActions } from "../../lib/actions.ts";
 import { desktop, pathJoin, reveal } from "../../lib/desktop.ts";
 import { message, plural } from "../../lib/format.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
@@ -61,6 +64,7 @@ export function DocDetail({
   const traces = tracesNow() ?? [];
   const tracesKey = traces.map((t) => `${t.id}=${t.patterns.join("|")}`).join(",");
   const requirements = idPattern(traces.find((t) => t.id === REQUIREMENT));
+  const acts = useActions({ docId: id });
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: the tracked kinds are compared by their key
   useEffect(() => {
@@ -188,6 +192,7 @@ export function DocDetail({
               </>
             )}
           </span>
+          <ActionCount actions={acts} />
           <Menu
             label="More actions for this document"
             align="right"
@@ -297,12 +302,18 @@ export function DocDetail({
       {d.warnings.length > 0 && (
         <div className="docdetail-warn">
           <span className="label">Conversion warnings</span>
-          {d.warnings.map((w) => (
-            <p key={w} className="sev s-warn">
-              <Icon name="warning" />
-              {w}
-            </p>
-          ))}
+          {d.warnings.map((w) => {
+            const a = forProblem(acts, w);
+            return (
+              <div key={w} className="with-cab">
+                <p className="sev s-warn">
+                  <Icon name="warning" />
+                  {w}
+                </p>
+                {a && <ActionButton action={a} />}
+              </div>
+            );
+          })}
         </div>
       )}
 

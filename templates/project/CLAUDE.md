@@ -35,6 +35,11 @@ call `xray_push` with the `planHash` that `xray_plan` returned (a push without i
 Jira changed, is refused — plan again). Pass `overwriteRemote: true` for a test changed in Jira only
 when the user asked to replace that Jira change with the local version.
 
+A problem you see and could fix in a later run (a lost figure, a finding you can correct, a missing id
+pattern) can be left as a **Claude action**: `actions_propose` with a title (a verb first), the
+problem, why you can fix it, a short plan and its scope. The user sees a button next to the problem and
+runs it when they choose. `actions_list` shows the open ones.
+
 ## test.md
 
 ```markdown

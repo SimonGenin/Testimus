@@ -20,7 +20,10 @@ test("a request runs live, the tests land, and « Review these tests » opens th
   await shoot(page, "generate");
 
   await request.getByRole("button", { name: "Only some sections…" }).first().click();
-  await request.getByRole("button", { name: /^Unfold/ }).first().click();
+  await request
+    .getByRole("button", { name: /^Unfold/ })
+    .first()
+    .click();
   await expect(request.getByRole("list", { name: "Sections" }).getByRole("checkbox").first()).toBeVisible();
   await request.getByRole("button", { name: "Text", exact: true }).first().click();
   await shoot(page, "generate-sections");

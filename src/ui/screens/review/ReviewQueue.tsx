@@ -1,5 +1,7 @@
 import type { Review } from "../../../core/types.ts";
+import { ActionButton } from "../../components/claude/ActionButton.tsx";
 import { Button, Icon, Menu, ReviewBadge, Segmented, Severity, Skeleton } from "../../components/ui/index.ts";
+import { useActions } from "../../lib/actions.ts";
 import { cx, plural } from "../../lib/format.ts";
 
 export type QueueItem = {
@@ -70,6 +72,7 @@ export function ReviewQueue({
   onOpen: (id: string) => void;
 }) {
   const all = counts ? counts.checked + counts.toFix + counts.draft : undefined;
+  const acts = useActions({});
   return (
     <aside className="queue" aria-label="Review queue">
       <div className="queue-filters">
@@ -148,24 +151,33 @@ export function ReviewQueue({
             </p>
           </div>
         ) : (
-          items.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              className={cx("qrow", t.id === activeId && "qrow-on")}
-              aria-current={t.id === activeId ? "true" : undefined}
-              data-id={t.id}
-              onClick={() => onOpen(t.id)}
-            >
-              <span className="mono muted">{t.key ?? "Not in Jira yet"}</span>
-              <span className="qrow-title">{t.summary || "Untitled test"}</span>
-              <span className="muted qrow-folder">{t.folder || "/"}</span>
-              <span className="qrow-badges">
-                <ReviewBadge review={t.review} small />
-                <Counts item={t} />
-              </span>
-            </button>
-          ))
+          items.map((t) => {
+            const mine = acts.filter((a) => a.where === `test:${t.id}`);
+            return (
+              <div key={t.id} className="qrow-wrap">
+                <button
+                  type="button"
+                  className={cx("qrow", t.id === activeId && "qrow-on", mine.length > 0 && "qrow-with-cab")}
+                  aria-current={t.id === activeId ? "true" : undefined}
+                  data-id={t.id}
+                  onClick={() => onOpen(t.id)}
+                >
+                  <span className="mono muted">{t.key ?? "Not in Jira yet"}</span>
+                  <span className="qrow-title">{t.summary || "Untitled test"}</span>
+                  <span className="muted qrow-folder">{t.folder || "/"}</span>
+                  <span className="qrow-badges">
+                    <ReviewBadge review={t.review} small />
+                    <Counts item={t} />
+                  </span>
+                </button>
+                {mine.length > 0 && (
+                  <span className="qrow-cab">
+                    <ActionButton action={mine[0]} compact />
+                  </span>
+                )}
+              </div>
+            );
+          })
         )}
       </div>
     </aside>

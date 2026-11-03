@@ -9,7 +9,7 @@ const ORIGINAL = "Ouvrir la vue de traction de la ligne 92 et repérer le sectio
 test("Ask the documents streams an answer whose source chips open the passage", async ({ page }) => {
   await boot(page, "#/documents");
   const dock = await openDock(page);
-  await dock.getByRole("tab", { name: "Ask the documents" }).click();
+  await dock.getByRole("button", { name: "Ask the documents" }).click();
   await dock
     .getByRole("textbox", { name: "Ask the documents" })
     .fill("Que propose le menu contextuel d'un sectionneur ?");
@@ -37,7 +37,7 @@ test("the palette sends a question to the documents", async ({ page }) => {
   await palette.getByRole("combobox", { name: "Command" }).fill("quel est le menu du sectionneur");
   await palette.getByRole("option", { name: /Ask the documents: “quel est le menu du sectionneur”/ }).click();
   const dock = page.getByRole("complementary", { name: "Claude" });
-  await expect(dock.getByRole("tab", { name: "Ask the documents" })).toHaveAttribute("aria-selected", "true");
+  await expect(dock.getByRole("button", { name: "Ask the documents" })).toHaveAttribute("aria-pressed", "true");
   await expect(dock.getByRole("textbox", { name: "Ask the documents" })).toHaveValue("quel est le menu du sectionneur");
   await dock.getByRole("button", { name: "Send" }).click();
   await expect(dock.getByText(/Le menu contextuel d'un sectionneur dépend de son type/)).toBeVisible();
@@ -46,7 +46,7 @@ test("the palette sends a question to the documents", async ({ page }) => {
 test("On this test: Claude changes a step, the editor marks it, Revert puts it back", async ({ page }) => {
   await openTest(page, "LFRPS12-1420");
   const dock = await openDock(page);
-  await expect(dock.getByRole("tab", { name: "On this test" })).toHaveAttribute("aria-selected", "true");
+  await expect(dock.getByRole("button", { name: "Test", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(dock.getByText("LFRPS12-1420")).toBeVisible();
   await dock.getByRole("textbox", { name: "Ask Claude about this test" }).fill("Précise l'action du step 1.");
   await dock.getByRole("button", { name: "Send" }).click();

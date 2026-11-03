@@ -24,7 +24,7 @@ test.describe("Claude signed out", () => {
   test("a question to the documents says Claude is not signed in and how to fix it", async ({ page }) => {
     await boot(page, "#/documents");
     const dock = await openDock(page);
-    await dock.getByRole("tab", { name: "Ask the documents" }).click();
+    await dock.getByRole("button", { name: "Ask the documents" }).click();
     await dock.getByRole("textbox", { name: "Ask the documents" }).fill("Que propose le menu ?");
     await dock.getByRole("button", { name: "Send" }).click();
     await expect(

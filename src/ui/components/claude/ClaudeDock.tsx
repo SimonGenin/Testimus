@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type {
+  ClaudeAction,
   ClaudeEvent,
   ClaudeResult,
   ClaudeScope,
@@ -10,12 +11,15 @@ import type {
   Tokens,
 } from "../../../core/types.ts";
 import { ApiError, call, run } from "../../api.ts";
+import { type Action, actionsChanged, useActions } from "../../lib/actions.ts";
 import { useApp } from "../../lib/app.ts";
 import { flushEditor } from "../../lib/editorBus.ts";
 import { cx, message, plural } from "../../lib/format.ts";
 import { editedAfterRun, revertRun } from "../../lib/revert.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
-import { Badge, Button, Chip, Icon, Kbd, SourceChip, Tabs } from "../ui/index.ts";
+import { Badge, Button, Icon, Kbd, Segmented, SourceChip } from "../ui/index.ts";
+import { ActionButton } from "./ActionButton.tsx";
+import { ActionCard } from "./ActionCard.tsx";
 import { AdditionalContext } from "./AdditionalContext.tsx";
 import { AnswerText } from "./AnswerText.tsx";
 import { type ClaudeStatus, ConnectClaude } from "./ConnectClaude.tsx";
@@ -24,7 +28,7 @@ import { EFFORTS, ModelPicker } from "./ModelPicker.tsx";
 import { OnTopToggle } from "./OnTopToggle.tsx";
 
 type Mode = "docs" | "test";
-type Kind = "step" | "test" | "project";
+type Kind = "step" | "test" | "doc" | "project";
 
 type Meta = { durationMs: number; tokens?: Tokens; sessionId?: string; model: string; effort: Effort };
 type Again = {
@@ -41,18 +45,32 @@ type Again = {
 type Turn = {
   id: number;
   role: "user" | "assistant";
+  kind?: "run" | "chat";
   text: string;
   tools: { label: string; done: boolean }[];
   running?: boolean;
   label?: string;
+  testId?: string;
   sources?: Source[];
   trouble?: Diagnosis | { title: string; detail: string };
-  run?: { runId: string; testId: string; steps: number; tests: number; reverted?: boolean; review?: string };
+  run?: {
+    runId: string;
+    testId: string;
+    docId?: string;
+    steps: number;
+    tests: number;
+    files?: number;
+    reverted?: boolean;
+    review?: string;
+  };
   note?: string;
   meta?: Meta;
   raw?: string;
   showRaw?: boolean;
   again?: Again;
+  action?: ClaudeAction;
+  ready?: boolean;
+  pick?: { model: string; effort: Effort };
 };
 
 // ponytail: review.fix re-checks in the same job — it says whether the test went back to checked, and why not
@@ -81,8 +99,10 @@ export function metaLine(m: Meta): string {
 type RunResult = ClaudeResult & {
   runId?: string;
   changedSteps?: Record<string, number[]>;
+  changedFiles?: string[];
   review?: string;
   message?: string;
+  action?: ClaudeAction;
 };
 type ChatResult = {
   chatId: string;
@@ -113,6 +133,15 @@ export function toolLabel(name: string, input: string): string {
   return `Used ${short}`;
 }
 
+// ponytail: an action's scope is the dock's scope — several tests are worked on from the project
+export function kindOf(s: ClaudeScope): Kind {
+  if (s.kind === "step" || s.kind === "test" || s.kind === "doc") return s.kind;
+  return "project";
+}
+
+export const docOfRoute = (r: { screen: string; arg?: string }): string | null =>
+  r.screen === "documents" && r.arg ? r.arg.split("#")[0] || null : null;
+
 let seq = 0;
 
 export type DockJob = { name: string; input: unknown; label: string; testId: string };
@@ -121,6 +150,7 @@ export type DockRequest = {
   scope?: "test" | "step" | "project";
   prompt?: string;
   job?: DockJob;
+  actions?: ClaudeAction[];
   nonce: number;
 };
 
@@ -135,11 +165,12 @@ export function ClaudeDock({
 }) {
   const app = useApp();
   const focus = app.focus;
+  const docId = docOfRoute(app.route);
   const cfg = app.info?.project.claude;
   const projectDir = app.info?.dir;
-  const [mode, setMode] = useState<Mode>("docs");
-  const [scope, setScope] = useState<Kind>("test");
-  const [turns, setTurns] = useState<Record<Mode, Turn[]>>({ docs: [], test: [] });
+  const [scope, setScope] = useState<Kind>("project");
+  const [ask, setAsk] = useState(true);
+  const [turns, setTurns] = useState<Turn[]>([]);
   const [prompt, setPrompt] = useState("");
   const [preset, setPreset] = useState(-1);
   const [model, setModel] = useState(cfg?.model ?? "opus");
@@ -196,16 +227,17 @@ export function ClaudeDock({
   }, [loadContexts]);
 
   useEffect(() => {
-    setScope(testId ? "test" : "project");
+    setScope(testId ? "test" : docId ? "doc" : "project");
     setCtxPick(null);
-    // ponytail: another test opened — the result card of the previous one goes (Xray Editor)
-    setTurns((all) => (all.test.some((t) => t.running) ? all : { ...all, test: [] }));
-  }, [testId]);
+    // ponytail: another test opened — the run card of the previous one goes (Xray Editor); answers and actions stay
+    setTurns((all) => (all.some((t) => t.running) ? all : all.filter((t) => t.kind !== "run")));
+  }, [testId, docId]);
 
   useEffect(() => {
-    if (focus && mode === "docs" && !turns.docs.length) setMode("test");
     if (focus?.step == null && scope === "step") setScope("test");
-  }, [focus, mode, scope, turns.docs.length]);
+    if (!focus && (scope === "step" || scope === "test")) setScope(docId ? "doc" : "project");
+    if (!docId && scope === "doc") setScope(focus ? "test" : "project");
+  }, [focus, docId, scope]);
 
   useEffect(() => {
     if (started === null) return;
@@ -213,21 +245,20 @@ export function ClaudeDock({
     return () => clearInterval(t);
   }, [started]);
 
-  const turnCount = turns[mode].length;
-  const lastText = turns[mode][turnCount - 1]?.text;
+  const turnCount = turns.length;
+  const lastText = turns[turnCount - 1]?.text;
   useEffect(() => {
     if (turnCount || lastText) scroller.current?.scrollTo?.({ top: scroller.current.scrollHeight });
   }, [turnCount, lastText]);
 
-  const patch = (m: Mode, id: number, fn: (t: Turn) => Turn) =>
-    setTurns((all) => ({ ...all, [m]: all[m].map((t) => (t.id === id ? fn(t) : t)) }));
+  const patch = (id: number, fn: (t: Turn) => Turn) => setTurns((all) => all.map((t) => (t.id === id ? fn(t) : t)));
 
-  const onEvent = (m: Mode, id: number) => (e: JobEvent) => {
+  const onEvent = (id: number) => (e: JobEvent) => {
     if (e.type !== "claude") return;
     const ev: ClaudeEvent = e.event;
-    if (ev.type === "text") patch(m, id, (t) => ({ ...t, text: t.text + ev.text }));
+    if (ev.type === "text") patch(id, (t) => ({ ...t, text: t.text + ev.text }));
     else if (ev.type === "tool")
-      patch(m, id, (t) => ({
+      patch(id, (t) => ({
         ...t,
         tools: [...t.tools.map((x) => ({ ...x, done: true })), { label: toolLabel(ev.name, ev.input), done: false }],
       }));
@@ -235,10 +266,10 @@ export function ClaudeDock({
 
   const offline = !!status && (!status.installed || status.signedIn === false);
   const running = busy;
-  const kind: Kind = !focus ? "project" : scope;
+  const kind: Kind = scope;
+  const mode: Mode = kind === "doc" || (kind === "project" && ask) ? "docs" : "test";
 
   const runOnTest = async (
-    m: Mode,
     answerId: number,
     testId: string,
     name: string,
@@ -252,7 +283,7 @@ export function ClaudeDock({
       type Ran = RunResult & { changedSteps?: Record<string, number[]> | number[] };
       let r: Ran;
       try {
-        r = await run<Ran>(name, args, onEvent(m, answerId), setJobId);
+        r = await run<Ran>(name, args, onEvent(answerId), setJobId);
       } catch (e) {
         // ponytail: a cancelled run keeps what Claude already wrote — it is shown, reloaded and revertable like any run
         const left = e instanceof ApiError && e.cancelled ? (e.result as Ran | undefined) : undefined;
@@ -270,25 +301,29 @@ export function ClaudeDock({
       const ok = r.ok !== false;
       const reported = typeof r.durationMs === "number";
       const durationMs = reported ? r.durationMs : Date.now() - t0;
-      patch(m, answerId, (t) => ({
+      const sc = r.action?.scope;
+      patch(answerId, (t) => ({
         ...t,
         text: t.text || r.summary,
         trouble: ok ? undefined : (r.diagnosis ?? { title: "The run did not finish", detail: r.summary }),
-        note: ok ? outcome.note : undefined,
+        note: ok && !t.action ? outcome.note : undefined,
         meta:
           again || reported
             ? { durationMs, tokens: r.tokens, sessionId: r.sessionId, model: used.model, effort: used.effort }
             : t.meta,
         raw: typeof r.raw === "string" ? r.raw : t.raw,
         again: ok ? undefined : again,
+        action: r.action ?? t.action,
         // ponytail: every run with a snapshot gets its card, « 0 steps changed » too, with Revert (Xray Editor)
         run: r.runId
           ? {
               runId: r.runId,
               testId: testId || changedTests[0] || "",
+              ...(sc?.kind === "doc" ? { docId: sc.docId } : {}),
               steps,
               tests: changedTests.length,
-              review: r.review,
+              ...(r.changedFiles ? { files: r.changedFiles.length } : {}),
+              review: t.action ? undefined : r.review,
             }
           : undefined,
       }));
@@ -303,31 +338,33 @@ export function ClaudeDock({
         nonce: Date.now(),
       });
       app.testsChanged();
+      if (r.changedFiles?.length) app.refreshInfo();
       if (r.diagnosis && ["connect", "login"].includes(r.diagnosis.kind)) void check();
     } finally {
       app.setClaudeRunning(null);
     }
   };
 
-  const start = (m: Mode, text: string, label?: string) => {
-    const user: Turn = { id: ++seq, role: "user", text, tools: [], label };
-    const answer: Turn = { id: ++seq, role: "assistant", text: "", tools: [], running: true };
-    // ponytail: on a test the dock shows the last run only (Xray Editor's result card); the documents tab is a chat
-    setTurns((all) => ({ ...all, [m]: m === "test" ? [user, answer] : [...all[m], user, answer] }));
+  const start = (kind: "run" | "chat", text: string, label?: string, testId?: string) => {
+    const user: Turn = { id: ++seq, role: "user", kind, text, tools: [], label, testId };
+    const answer: Turn = { id: ++seq, role: "assistant", kind, text: "", tools: [], running: true, testId };
+    // ponytail: a run shows its last result card only (Xray Editor's), the questions are a conversation, and the
+    // action cards stay until run, put aside or dismissed
+    setTurns((all) => [...(kind === "run" ? all.filter((t) => t.kind !== "run") : all), user, answer]);
     setBusy(true);
     setStarted(Date.now());
     return answer.id;
   };
 
-  const settle = (m: Mode, answerId: number) => {
-    patch(m, answerId, (t) => ({ ...t, running: false, tools: t.tools.map((x) => ({ ...x, done: true })) }));
+  const settle = (answerId: number) => {
+    patch(answerId, (t) => ({ ...t, running: false, tools: t.tools.map((x) => ({ ...x, done: true })) }));
     setBusy(false);
     setStarted(null);
     setJobId(null);
   };
 
-  const stopped = (m: Mode, answerId: number, e: unknown, again?: Again) => {
-    patch(m, answerId, (t) => ({ ...t, trouble: { title: "Claude stopped", detail: message(e) }, again }));
+  const stopped = (answerId: number, e: unknown, again?: Again) => {
+    patch(answerId, (t) => ({ ...t, trouble: { title: "Claude stopped", detail: message(e) }, again }));
     setLast({ seconds: 0, summary: message(e), ok: false });
   };
 
@@ -336,26 +373,103 @@ export function ClaudeDock({
       toast({ kind: "info", title: "Claude is busy", detail: "Wait for the current run, or cancel it (Esc)." });
       return;
     }
-    const answerId = start("test", job.label);
+    const answerId = start("run", job.label, undefined, job.testId);
     try {
       await flushEditor();
-      await runOnTest("test", answerId, job.testId, job.name, job.input, Date.now(), {
+      await runOnTest(answerId, job.testId, job.name, job.input, Date.now(), {
         model: cfg?.model ?? "",
         effort: cfg?.effort ?? "high",
       });
     } catch (e) {
-      stopped("test", answerId, e);
+      stopped(answerId, e);
     } finally {
-      settle("test", answerId);
+      settle(answerId);
     }
+  };
+
+  // ponytail: an action comes in as its own card, ready to run with the model and effort chosen on it — never as a
+  // prompt copied into the box; the same action asked twice is the same card
+  const addActions = (list: ClaudeAction[]) => {
+    const first = list[0];
+    if (!first) return;
+    if (!running) setScope(kindOf(first.scope));
+    setTurns((all) => {
+      const have = new Set(all.filter((t) => t.action && t.ready).map((t) => t.action?.id));
+      const fresh = list.filter((a) => !have.has(a.id));
+      return [
+        ...all,
+        ...fresh.map(
+          (a): Turn => ({
+            id: ++seq,
+            role: "assistant",
+            text: "",
+            tools: [],
+            action: a,
+            ready: true,
+            pick: { model: cfg?.model ?? "opus", effort: cfg?.effort ?? "high" },
+          }),
+        ),
+      ];
+    });
+  };
+
+  const runAction = async (t: Turn) => {
+    const a = t.action;
+    if (!a || !t.pick) return;
+    if (busy) {
+      toast({ kind: "info", title: "Claude is busy", detail: "Wait for the current run, or cancel it (Esc)." });
+      return;
+    }
+    const used = t.pick;
+    patch(t.id, (x) => ({ ...x, ready: false, running: true, text: "", tools: [], trouble: undefined }));
+    setBusy(true);
+    setStarted(Date.now());
+    const tid = "testId" in a.scope ? a.scope.testId : "";
+    try {
+      await flushEditor();
+      await runOnTest(
+        t.id,
+        tid,
+        "actions.run",
+        { id: a.id, model: used.model || undefined, effort: used.effort },
+        Date.now(),
+        used,
+      );
+    } catch (e) {
+      stopped(t.id, e);
+    } finally {
+      settle(t.id);
+      actionsChanged();
+    }
+  };
+
+  const dropCard = (t: Turn) => setTurns((all) => all.filter((x) => x.id !== t.id));
+
+  const dismiss = (t: Turn) => {
+    if (!t.action) return;
+    call("actions.dismiss", { id: t.action.id })
+      .then(() => {
+        dropCard(t);
+        actionsChanged();
+      })
+      .catch((e) => errorToast(e, "Could not dismiss the action"));
   };
 
   const seen = useRef(0);
   useEffect(() => {
     if (!request || request.nonce === seen.current) return;
     seen.current = request.nonce;
-    setMode(request.mode);
-    if (request.scope) setScope(request.scope);
+    if (request.actions) {
+      addActions(request.actions);
+      return;
+    }
+    if (request.mode === "docs") {
+      setScope(docId ? "doc" : "project");
+      setAsk(true);
+    } else if (request.scope) {
+      setScope(request.scope);
+      if (request.scope === "project") setAsk(false);
+    }
     if (request.job) {
       void runJob(request.job);
       return;
@@ -371,7 +485,8 @@ export function ClaudeDock({
     if (running) return;
     const m = a.mode;
     const t0 = Date.now();
-    const answerId = start(m, a.text, a.label);
+    const tid = a.scope && "testId" in a.scope ? a.scope.testId : undefined;
+    const answerId = start(m === "test" ? "run" : "chat", a.text, a.label, m === "test" ? tid : undefined);
     try {
       if (m === "docs") {
         const r = await run<ChatResult>(
@@ -384,13 +499,13 @@ export function ClaudeDock({
             ...(a.contexts?.length ? { contexts: a.contexts } : {}),
             ...(a.note ? { note: a.note } : {}),
           },
-          onEvent(m, answerId),
+          onEvent(answerId),
           setJobId,
         );
         setChatId(r.chatId ?? chatId);
         const ok = r.ok !== false;
         const durationMs = Date.now() - t0;
-        patch(m, answerId, (t) => ({
+        patch(answerId, (t) => ({
           ...t,
           text: r.answer || t.text,
           sources: r.sources ?? [],
@@ -403,11 +518,9 @@ export function ClaudeDock({
       } else if (a.scope) {
         await flushEditor();
         const sc = a.scope;
-        const tid = "testId" in sc ? sc.testId : (focus?.testId ?? "");
         await runOnTest(
-          m,
           answerId,
-          tid,
+          "testId" in sc ? sc.testId : (focus?.testId ?? ""),
           "claude.run",
           {
             scope: sc,
@@ -423,9 +536,9 @@ export function ClaudeDock({
         );
       }
     } catch (e) {
-      stopped(m, answerId, e, a);
+      stopped(answerId, e, a);
     } finally {
-      settle(m, answerId);
+      settle(answerId);
     }
   };
 
@@ -440,8 +553,26 @@ export function ClaudeDock({
       ? `Step ${focus.step}`
       : kind === "test" && focus
         ? (focus.key ?? "This test")
-        : "Whole project";
+        : kind === "doc" && docId
+          ? docId
+          : "Whole project";
   const presets = cfg?.presets ?? [];
+  const here = useActions(
+    !projectDir
+      ? null
+      : (kind === "step" || kind === "test") && testId
+        ? { testId }
+        : kind === "doc" && docId
+          ? { docId }
+          : {},
+  );
+  const carded = new Set(turns.filter((t) => t.action).map((t) => t.action?.id));
+  const waiting = here.filter((a) => !carded.has(a.id) && a.state === "open");
+
+  const docNote = (n: string) =>
+    [docId ? `The question is about the document ${docId}: answer from docs/${docId}/doc.md first.` : "", n]
+      .filter(Boolean)
+      .join("\n");
 
   const send = (text: string) => {
     const q = text.trim();
@@ -450,7 +581,15 @@ export function ClaudeDock({
     if ((!q && mode === "docs") || running) return;
     const a: Again =
       mode === "docs"
-        ? { mode, text: q, model, effort, contexts: ctxPick ?? [], note: note.trim() || undefined }
+        ? {
+            mode,
+            text: q,
+            model,
+            effort,
+            contexts: ctxPick ?? [],
+            note: (kind === "doc" ? docNote(note.trim()) : note.trim()) || undefined,
+            label: kind === "doc" && docId ? docId : undefined,
+          }
         : {
             mode,
             text: q,
@@ -478,14 +617,16 @@ export function ClaudeDock({
     if (!t.run) return;
     try {
       await flushEditor();
-      const r = await revertRun(t.run.runId, force);
-      patch("test", t.id, (x) => ({ ...x, run: x.run && { ...x.run, reverted: true } }));
+      const r = (await revertRun(t.run.runId, force)) as { reverted?: string[]; files?: string[] };
+      patch(t.id, (x) => ({ ...x, run: x.run && { ...x.run, reverted: true } }));
       app.setLastRun({ runId: "", changedTests: r.reverted ?? [], changedSteps: {}, nonce: Date.now() });
       app.testsChanged();
+      if (r.files?.length) app.refreshInfo();
+      actionsChanged();
       toast({
         kind: "info",
         title: "Claude's changes reverted",
-        detail: `${plural(r.reverted?.length ?? 0, "test")} restored.`,
+        detail: `${plural(r.reverted?.length ?? 0, "test")}${r.files?.length ? ` and ${plural(r.files.length, "file")}` : ""} restored.`,
       });
     } catch (e) {
       if (!force && editedAfterRun(e))
@@ -530,30 +671,173 @@ export function ClaudeDock({
       </aside>
     );
 
-  const list = turns[mode];
   const ctxIds = ctxPick ?? (mode === "test" ? (ctxOn ?? []) : []);
-  const scopeLink = (k: Kind, label: string) => (
-    <button key={k} type="button" className="linkbtn" disabled={running} onClick={() => setScope(k)}>
-      {label}
-    </button>
-  );
   const scopeRow = (
-    <fieldset className="dock-scope plainset" aria-label="Claude scope">
-      <span className="label">Scope</span>
-      <Chip small>
-        {kind === "project" || !focus ? (
+    <fieldset className="dock-scopes plainset" aria-label="Claude scope">
+      <Segmented<Kind>
+        label="Scope"
+        className="dock-seg"
+        value={kind}
+        onChange={(k) => !running && setScope(k)}
+        options={[
+          {
+            value: "step",
+            label: focus?.step != null ? `Step ${focus.step}` : "Step",
+            disabled: running || focus?.step == null,
+            title: focus?.step != null ? `Only step ${focus.step} of ${focus.key ?? "this test"}` : "Open a step first",
+          },
+          {
+            value: "test",
+            label: "Test",
+            disabled: running || !focus,
+            title: focus ? `The whole test ${focus.key ?? focus.summary}` : "Open a test first",
+          },
+          {
+            value: "doc",
+            label: "Document",
+            disabled: running || !docId,
+            title: docId ? `The document ${docId}` : "Open a document first",
+          },
+          { value: "project", label: "Project", disabled: running, title: "The whole project" },
+        ]}
+      />
+      <span className="muted dock-scope-line">
+        {kind === "project" ? (
           "Whole project"
+        ) : kind === "doc" ? (
+          <>
+            <span className="mono dock-key">{docId}</span> · whole document
+          </>
         ) : (
           <>
-            <span className="mono dock-key">{focus.key ?? "local test"}</span>
-            {kind === "step" && focus.step != null ? ` · step ${focus.step}` : " · whole test"}
+            <span className="mono dock-key">{focus?.key ?? "local test"}</span>
+            {kind === "step" && focus?.step != null ? ` · step ${focus.step}` : " · whole test"}
           </>
         )}
-      </Chip>
-      {focus && focus.step != null && kind !== "step" && scopeLink("step", `Only step ${focus.step}`)}
-      {focus && kind !== "test" && scopeLink("test", "Whole test")}
-      {kind !== "project" && scopeLink("project", "Whole project")}
+      </span>
+      {kind === "project" && (
+        <Segmented<"ask" | "change">
+          label="What Claude does on the project"
+          className="dock-seg dock-seg-sub"
+          value={ask ? "ask" : "change"}
+          onChange={(v) => !running && setAsk(v === "ask")}
+          options={[
+            { value: "ask", label: "Ask the documents", disabled: running, title: "Questions; nothing is changed" },
+            {
+              value: "change",
+              label: "Change every test",
+              disabled: running,
+              title: "Claude may edit every test; every change can be reverted",
+            },
+          ]}
+        />
+      )}
     </fieldset>
+  );
+
+  const body = (t: Turn) => (
+    <>
+      {t.tools.length > 0 && (
+        <div className="tool-steps">
+          {t.tools.map((x, i) => (
+            <span key={i} className={cx("tool-step", !x.done && "is-running")}>
+              <span className="tool-glyph" aria-hidden="true">
+                {x.done ? <Icon name="check" className="tool-ok" /> : <span className="spin spin-sm" />}
+              </span>
+              <span className="tool-label">
+                {x.label}
+                {!x.done && "…"}
+              </span>
+            </span>
+          ))}
+        </div>
+      )}
+      {(t.text || (t.running && !t.tools.some((x) => !x.done))) && (
+        <AnswerText text={t.text} running={t.running} onOpenSource={app.openSource} />
+      )}
+      {!!t.sources?.length && (
+        <div className="turn-sources">
+          {t.sources.map((s, i) => (
+            <SourceChip key={i} source={s} onOpen={app.openSource} />
+          ))}
+        </div>
+      )}
+      {t.trouble && (
+        <div className="trouble" role="status">
+          <strong>{t.trouble.title}</strong>
+          {t.trouble.detail && <p>{t.trouble.detail}</p>}
+        </div>
+      )}
+      {t.note && (
+        <div className="trouble" role="status">
+          <strong>Still To fix</strong>
+          <p>{t.note}</p>
+        </div>
+      )}
+      {t.run && (
+        <div className="runcard">
+          <span className="runcard-title">
+            {t.run.reverted
+              ? "Reverted"
+              : t.action
+                ? `${
+                    [t.run.files ? plural(t.run.files, "file") : "", t.run.steps ? plural(t.run.steps, "step") : ""]
+                      .filter(Boolean)
+                      .join(" and ") || "Nothing"
+                  } changed`
+                : `${plural(t.run.steps, "step")} changed${t.run.tests > 1 ? ` in ${t.run.tests} tests` : ""} · ${fixOutcome(t.run).word}`}
+          </span>
+          {!t.run.reverted && (
+            <div className="runcard-actions">
+              <Button
+                size="sm"
+                onClick={() =>
+                  t.run?.docId && !t.run.steps
+                    ? app.navigate("documents", t.run.docId)
+                    : app.navigate("tests", t.run?.testId)
+                }
+              >
+                Show changes
+              </Button>
+              <Button size="sm" icon="revert" onClick={() => void revert(t)}>
+                Revert
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+      {t.meta && !t.running && <span className="muted mono run-meta">{metaLine(t.meta)}</span>}
+      {!t.running && (t.again || t.trouble || t.raw !== undefined) && (
+        <div className={cx("runcard-actions", (t.again || t.trouble) && "run-fail")}>
+          {t.again && (
+            <Button size="sm" icon="revert" disabled={running} onClick={() => t.again && void execute(t.again)}>
+              Retry
+            </Button>
+          )}
+          {t.action && t.trouble && (
+            <Button
+              size="sm"
+              icon="revert"
+              disabled={running}
+              onClick={() => patch(t.id, (x) => ({ ...x, ready: true, trouble: undefined }))}
+            >
+              Try again
+            </Button>
+          )}
+          {t.raw !== undefined && (
+            <Button size="sm" tone="quiet" onClick={() => patch(t.id, (x) => ({ ...x, showRaw: !x.showRaw }))}>
+              {t.showRaw ? "Hide raw output" : "Show raw output"}
+            </Button>
+          )}
+          {(t.again || t.trouble) && (
+            <Button size="sm" tone="quiet" onClick={() => app.navigate("settings", "claude")}>
+              Open Settings
+            </Button>
+          )}
+        </div>
+      )}
+      {t.showRaw && t.raw !== undefined && <pre className="run-raw">{t.raw || "(no output)"}</pre>}
+    </>
   );
 
   return (
@@ -568,8 +852,8 @@ export function ClaudeDock({
       }}
     >
       <div className="dock-head">
-        <Icon name="claude" />
-        <h2 className="h dock-title">Claude</h2>
+        <Icon name="claude" className="dock-logo" />
+        <h2 className="h dock-title">Ask Claude</h2>
         {notInstalled && (
           <Badge tone="warn" small>
             not connected
@@ -581,16 +865,6 @@ export function ClaudeDock({
           Hide
         </Button>
       </div>
-      <Tabs
-        label="Claude mode"
-        className="dock-tabs"
-        value={mode}
-        onChange={setMode}
-        options={[
-          { value: "docs", label: "Ask the documents" },
-          { value: "test", label: focus ? "On this test" : "On the project" },
-        ]}
-      />
       {offline && status ? (
         <ConnectClaude
           status={status}
@@ -601,18 +875,20 @@ export function ClaudeDock({
         />
       ) : (
         <>
-          {mode === "test" && scopeRow}
+          {scopeRow}
           <div className="dock-log" ref={scroller} aria-live="polite">
-            {!list.length && (
+            {!turns.length && (
               <p className="muted dock-empty">
                 {mode === "docs"
-                  ? "Ask anything about the documents. Answers come with the passages they rely on."
-                  : focus
-                    ? "Ask Claude to change or explain this test. Every change can be reverted."
-                    : "Ask Claude to work on every test of the project. Every change can be reverted."}
+                  ? kind === "doc"
+                    ? `Ask anything about ${docId}. Answers come with the passages they rely on.`
+                    : "Ask anything about the documents. Answers come with the passages they rely on."
+                  : kind === "project"
+                    ? "Ask Claude to work on every test of the project. Every change can be reverted."
+                    : "Ask Claude to change or explain this test. Every change can be reverted."}
               </p>
             )}
-            {list.map((t) =>
+            {turns.map((t) =>
               t.role === "user" ? (
                 <div key={t.id} className="bubble-wrap">
                   {t.label && <span className="muted bubble-label">{t.label}</span>}
@@ -622,96 +898,39 @@ export function ClaudeDock({
                     )}
                   </div>
                 </div>
+              ) : t.action ? (
+                <ActionCard
+                  key={t.id}
+                  action={t.action}
+                  ready={!!t.ready}
+                  busy={running}
+                  model={t.pick?.model ?? model}
+                  effort={t.pick?.effort ?? effort}
+                  meta={t.meta && !t.running ? `${t.meta.model || "default"} · ${t.meta.effort}` : undefined}
+                  onModel={(m) => patch(t.id, (x) => ({ ...x, pick: { model: m, effort: x.pick?.effort ?? effort } }))}
+                  onEffort={(e) => patch(t.id, (x) => ({ ...x, pick: { model: x.pick?.model ?? model, effort: e } }))}
+                  onRun={() => void runAction(t)}
+                  onLater={() => dropCard(t)}
+                  onDismiss={() => dismiss(t)}
+                >
+                  <div className="turn">{body(t)}</div>
+                </ActionCard>
               ) : (
                 <div key={t.id} className="turn">
-                  {t.tools.length > 0 && (
-                    <div className="tool-steps">
-                      {t.tools.map((x, i) => (
-                        <span key={i} className={cx("tool-step", !x.done && "is-running")}>
-                          <span className="tool-glyph" aria-hidden="true">
-                            {x.done ? <Icon name="check" className="tool-ok" /> : <span className="spin spin-sm" />}
-                          </span>
-                          <span className="tool-label">
-                            {x.label}
-                            {!x.done && "…"}
-                          </span>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  {(t.text || (t.running && !t.tools.some((x) => !x.done))) && (
-                    <AnswerText text={t.text} running={t.running} onOpenSource={app.openSource} />
-                  )}
-                  {!!t.sources?.length && (
-                    <div className="turn-sources">
-                      {t.sources.map((s, i) => (
-                        <SourceChip key={i} source={s} onOpen={app.openSource} />
-                      ))}
-                    </div>
-                  )}
-                  {t.trouble && (
-                    <div className="trouble" role="status">
-                      <strong>{t.trouble.title}</strong>
-                      {t.trouble.detail && <p>{t.trouble.detail}</p>}
-                    </div>
-                  )}
-                  {t.note && (
-                    <div className="trouble" role="status">
-                      <strong>Still To fix</strong>
-                      <p>{t.note}</p>
-                    </div>
-                  )}
-                  {t.run && (
-                    <div className="runcard">
-                      <span className="runcard-title">
-                        {t.run.reverted
-                          ? "Reverted"
-                          : `${plural(t.run.steps, "step")} changed${t.run.tests > 1 ? ` in ${t.run.tests} tests` : ""} · ${fixOutcome(t.run).word}`}
-                      </span>
-                      {!t.run.reverted && (
-                        <div className="runcard-actions">
-                          <Button size="sm" onClick={() => app.navigate("tests", t.run?.testId)}>
-                            Show changes
-                          </Button>
-                          <Button size="sm" icon="revert" onClick={() => void revert(t)}>
-                            Revert
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  {t.meta && !t.running && <span className="muted mono run-meta">{metaLine(t.meta)}</span>}
-                  {!t.running && (t.again || t.trouble || t.raw !== undefined) && (
-                    <div className={cx("runcard-actions", (t.again || t.trouble) && "run-fail")}>
-                      {t.again && (
-                        <Button
-                          size="sm"
-                          icon="revert"
-                          disabled={running}
-                          onClick={() => t.again && void execute(t.again)}
-                        >
-                          Retry
-                        </Button>
-                      )}
-                      {t.raw !== undefined && (
-                        <Button
-                          size="sm"
-                          tone="quiet"
-                          onClick={() => patch(mode, t.id, (x) => ({ ...x, showRaw: !x.showRaw }))}
-                        >
-                          {t.showRaw ? "Hide raw output" : "Show raw output"}
-                        </Button>
-                      )}
-                      {(t.again || t.trouble) && (
-                        <Button size="sm" tone="quiet" onClick={() => app.navigate("settings", "claude")}>
-                          Open Settings
-                        </Button>
-                      )}
-                    </div>
-                  )}
-                  {t.showRaw && t.raw !== undefined && <pre className="run-raw">{t.raw || "(no output)"}</pre>}
+                  {body(t)}
                 </div>
               ),
+            )}
+            {waiting.length > 0 && (
+              <div className="dock-actions">
+                <span className="muted">
+                  {plural(waiting.length, "Claude action")}{" "}
+                  {kind === "doc" ? "on this document" : kind === "project" ? "in the project" : "on this test"}
+                </span>
+                {waiting.slice(0, 6).map((a: Action) => (
+                  <ActionButton key={a.id} action={a} onOpen={(x) => addActions([x])} />
+                ))}
+              </div>
             )}
           </div>
           <div className="dock-foot">
@@ -747,10 +966,12 @@ export function ClaudeDock({
             />
             <label htmlFor="dock-ask" className="sr">
               {mode === "docs"
-                ? "Ask the documents"
-                : focus
-                  ? "Ask Claude about this test"
-                  : "Ask Claude about the project"}
+                ? kind === "doc"
+                  ? `Ask about ${docId}`
+                  : "Ask the documents"
+                : kind === "project"
+                  ? "Ask Claude about the project"
+                  : "Ask Claude about this test"}
             </label>
             <textarea
               id="dock-ask"
@@ -759,10 +980,12 @@ export function ClaudeDock({
               rows={2}
               placeholder={
                 mode === "docs"
-                  ? "Ask the documents…"
-                  : focus
-                    ? "Ask Claude to change or explain this test…"
-                    : "Tell Claude what to do with every test…"
+                  ? kind === "doc"
+                    ? `Ask anything about ${docId}…`
+                    : "Ask the documents…"
+                  : kind === "project"
+                    ? "Tell Claude what to do with every test…"
+                    : "Ask Claude to change or explain this test…"
               }
               value={prompt}
               onChange={(e) => {

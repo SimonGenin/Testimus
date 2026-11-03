@@ -518,6 +518,7 @@ function appState(route: AppState["route"], navigate: AppState["navigate"], dir:
     openSource: vi.fn(),
     askClaude: vi.fn(),
     runInDock: vi.fn(),
+    openAction: vi.fn(),
     openPalette: vi.fn(),
   };
 }

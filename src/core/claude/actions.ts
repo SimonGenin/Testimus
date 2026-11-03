@@ -5,6 +5,7 @@ import { readProject } from "../lib/project.ts";
 import type { ClaudeAction, ClaudeRun, Effort } from "../types.ts";
 import { contextLines, effectiveContexts, readContexts, scopeLines } from "./prompt.ts";
 import { newRunId, type RunResult, runClaude } from "./run.ts";
+import { readRun } from "./snapshot.ts";
 
 export const ACTION_MARKER = "Testimus Claude action";
 export const TRIAGE_MARKER = "Testimus triage";
@@ -72,7 +73,7 @@ export function actionPrompt(project: string, a: ClaudeAction, contexts: string[
   return lines.join("\n");
 }
 
-export type ActionRun = Omit<RunResult, "calls"> & { action: ClaudeAction };
+export type ActionRun = Omit<RunResult, "calls"> & { action: ClaudeAction; changedFiles: string[] };
 
 export async function runAction(
   ctx: Ctx,
@@ -108,7 +109,7 @@ export async function runAction(
       state: r.ok ? "done" : "open",
       last: { runId, ok: r.ok, summary: r.summary, at: env.now().toISOString(), model, effort },
     };
-    return { ...r, action: left };
+    return { ...r, action: left, changedFiles: readRun(project, runId).changedFiles ?? [] };
   } finally {
     writeAction(project, left);
   }
