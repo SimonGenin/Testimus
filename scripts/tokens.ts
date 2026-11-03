@@ -57,6 +57,59 @@ for (const [name, value] of light) {
 }
 for (const name of dark.keys()) if (!light.has(name)) throw new Error(`--${name} is dark only`);
 
+// ponytail: values design/build/kit.css writes in px inside a component rule (no token for them in tokens.css); kept here
+// so a component never holds a literal size (N4) — each says where it comes from
+const EXTRA: Record<string, Record<string, string>> = {
+  color: {
+    logoTile: "#ffffff", // the rail's logo tile, white in both themes (design README)
+  },
+  size: {
+    kbd: "18px", // kit.css .kbd min-width and height; a badge's count
+    tooltipMax: "280px", // kit.css .tooltip max-width
+    chip: "22px", // kit.css .chip--square / --source, chips inside a chip field
+    resizeHit: "9px", // kit.css .resize grab zone
+    knob: "10px", // kit.css switch knob, a status dot, a skeleton text line
+    tableHead: "30px", // kit.css .table th
+    menuMin: "200px", // kit.css .menu min-width
+    menuMax: "320px", // kit.css .menu max-width
+    toast: "380px", // kit.css .toast width
+    emptyMax: "420px", // kit.css .empty max-width
+    chipInputMin: "80px", // kit.css .chipfield input min-width
+    paletteButton: "260px", // shell.mjs top bar palette button
+    paletteButtonCompact: "200px", // the same under 1500 px
+    railItem: "56px", // shell.mjs rail item
+    figurePreview: "140px", // the passage's figure preview
+    dockStripLabel: "360px", // the folded dock's vertical label
+    stepLabel: "110px", // _editor.mjs step card field label column
+    thumb: "96px", // _editor.mjs step image thumbnail
+    thumbLarge: "160px", // _editor.mjs larger thumbnail
+  },
+  fontSize: {
+    micro: "10px", // shell.mjs rail label under the icon
+  },
+  lineHeight: {
+    micro: "12px",
+    railLabel: "13px",
+  },
+};
+
+// ponytail: the layouts the mockups switch at (design/build/screens: @container widths), as media queries
+const BREAKPOINTS: Record<string, number> = {
+  narrow: 760, // screens in one column
+  list: 900, // the tests list becomes a drawer
+  sm: 1100, // side panes become drawers
+  dock: 1300, // the dock floats over the screen, the palette narrows
+  queue: 1400, // the review queue folds to a strip
+  docs: 1464, // the documents list becomes a drawer
+  wide: 1500, // the palette button narrows, the kit page goes to one column
+};
+
+for (const [family, values] of Object.entries(EXTRA)) {
+  const list = groups.get(family) ?? [];
+  for (const [key, value] of Object.entries(values)) list.push({ key, light: value });
+  groups.set(family, list);
+}
+
 const q = (v: string) => JSON.stringify(v);
 const lines: string[] = [
   'import * as stylex from "@stylexjs/stylex";',
@@ -89,6 +142,10 @@ for (const [theme, pick] of [
     lines.push("});", "");
   }
 lines.push(
+  "export const breakpoint = stylex.defineConsts({",
+  ...Object.entries(BREAKPOINTS).map(([k, px]) => `  ${k}: ${q(`@media (max-width: ${px - 1}px)`)},`),
+  "});",
+  "",
   `export const lightTheme = [${themed.map((f) => `${f}Light`).join(", ")}];`,
   `export const darkTheme = [${themed.map((f) => `${f}Dark`).join(", ")}];`,
   "",

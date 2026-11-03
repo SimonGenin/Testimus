@@ -216,3 +216,33 @@ export function useAutosave<T>(o: AutosaveOptions<T>): Autosave<T> {
     readOnly: o.readOnly ?? false,
   };
 }
+
+const drafts = new Map<string, string>();
+const draftListeners = new Set<() => void>();
+
+// ponytail: unsent typing (the dock's prompt, a To fix note, a form being filled) kept per key for the life of the page;
+// returning to the screen finds it, sending clears it
+export function useDraft(key: Key | null, initial = ""): [string, (next: string) => void, () => void] {
+  const id = key ? idOf(key) : null;
+  useSyncExternalStore(
+    (fn) => {
+      draftListeners.add(fn);
+      return () => draftListeners.delete(fn);
+    },
+    () => (id ? drafts.get(id) : undefined),
+  );
+  const set = useCallback(
+    (next: string) => {
+      if (!id) return;
+      drafts.set(id, next);
+      for (const fn of draftListeners) fn();
+    },
+    [id],
+  );
+  const clear = useCallback(() => {
+    if (!id) return;
+    drafts.delete(id);
+    for (const fn of draftListeners) fn();
+  }, [id]);
+  return [id ? (drafts.get(id) ?? initial) : initial, set, clear];
+}

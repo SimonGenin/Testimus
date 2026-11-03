@@ -1,0 +1,46 @@
+import * as stylex from "@stylexjs/stylex";
+import { createElement } from "react";
+import { size } from "../../styles/tokens.stylex.ts";
+import { ICONS, type IconName } from "./icons.ts";
+
+export type { IconName };
+
+const styles = stylex.create({
+  icon: {
+    flex: "none",
+    display: "inline-block",
+    verticalAlign: "middle",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.5,
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+  },
+  sm: { width: size.iconSm, height: size.iconSm },
+  md: { width: size.iconMd, height: size.iconMd },
+  lg: { width: size.iconLg, height: size.iconLg },
+});
+
+export type IconProps = {
+  name: IconName;
+  /** sm 14 px (badges, chips) · md 16 px (buttons, rows, menus; default) · lg 20 px (rail, empty states) */
+  size?: "sm" | "md" | "lg";
+  /** an icon alone says something: its label is read out; beside a word it is decoration (no label) */
+  label?: string;
+};
+
+// ponytail: the design's SVG set as data — each shape is rebuilt as an element, never injected as markup
+export function Icon({ name, size: s = "md", label }: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      role={label ? "img" : undefined}
+      aria-label={label}
+      aria-hidden={label ? undefined : true}
+      focusable="false"
+      {...stylex.props(styles.icon, styles[s])}
+    >
+      {ICONS[name].map(([tag, attrs], i) => createElement(tag, { key: i, ...attrs }))}
+    </svg>
+  );
+}

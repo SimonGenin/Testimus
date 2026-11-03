@@ -66,6 +66,7 @@ export const color = stylex.defineVars({
   diffRemoved: { default: "#b3261e", [DARK]: "#f28b7d" },
   diffClaude: { default: "#6b3fc6", [DARK]: "#b69df3" },
   scheme: { default: "light", [DARK]: "dark" },
+  logoTile: "#ffffff",
 });
 
 export const shadow = stylex.defineVars({
@@ -122,6 +123,25 @@ export const size = stylex.defineVars({
   modalSm: "440px",
   modalMd: "640px",
   modalLg: "960px",
+  kbd: "18px",
+  tooltipMax: "280px",
+  chip: "22px",
+  resizeHit: "9px",
+  knob: "10px",
+  tableHead: "30px",
+  menuMin: "200px",
+  menuMax: "320px",
+  toast: "380px",
+  emptyMax: "420px",
+  chipInputMin: "80px",
+  paletteButton: "260px",
+  paletteButtonCompact: "200px",
+  railItem: "56px",
+  figurePreview: "140px",
+  dockStripLabel: "360px",
+  stepLabel: "110px",
+  thumb: "96px",
+  thumbLarge: "160px",
 });
 
 export const border = stylex.defineVars({
@@ -180,6 +200,7 @@ export const fontSize = stylex.defineVars({
   reading: "15px",
   readingHeading: "17px",
   code: "12px",
+  micro: "10px",
 });
 
 export const lineHeight = stylex.defineVars({
@@ -194,6 +215,8 @@ export const lineHeight = stylex.defineVars({
   reading: "24px",
   readingHeading: "24px",
   code: "18px",
+  micro: "12px",
+  railLabel: "13px",
 });
 
 export const colorLight = stylex.createTheme(color, {
@@ -334,6 +357,16 @@ export const shadowDark = stylex.createTheme(shadow, {
   s1: "0 1px 2px rgba(0, 0, 0, 0.40)",
   s2: "0 6px 16px rgba(0, 0, 0, 0.50), 0 0 0 1px rgba(255, 255, 255, 0.06)",
   s3: "0 20px 48px rgba(0, 0, 0, 0.60), 0 0 0 1px rgba(255, 255, 255, 0.08)",
+});
+
+export const breakpoint = stylex.defineConsts({
+  narrow: "@media (max-width: 759px)",
+  list: "@media (max-width: 899px)",
+  sm: "@media (max-width: 1099px)",
+  dock: "@media (max-width: 1299px)",
+  queue: "@media (max-width: 1399px)",
+  docs: "@media (max-width: 1463px)",
+  wide: "@media (max-width: 1499px)",
 });
 
 export const lightTheme = [colorLight, shadowLight];
