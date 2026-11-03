@@ -103,7 +103,11 @@ export const llamaIo = {
     signal: AbortSignal,
   ): Promise<void> {
     const res = await fetch(url, { signal, headers: { "user-agent": "testimus" } });
-    if (!res.ok || !res.body) throw new UserError(`Download failed: HTTP ${res.status} ${url}`);
+    if (!res.ok || !res.body)
+      throw new UserError(
+        `Download failed: HTTP ${res.status} ${url}`,
+        "Check the network or the proxy, then run testimus models pullRuntime again.",
+      );
     const total = Number(res.headers.get("content-length") ?? 0);
     let loaded = 0;
     const counted = Readable.fromWeb(res.body as import("node:stream/web").ReadableStream<Uint8Array>);
@@ -124,7 +128,10 @@ export async function sha256File(file: string): Promise<string> {
 function safeName(name: string): string {
   const n = normalize(name.replace(/\\/g, "/"));
   if (!n || n.startsWith("..") || /^[a-z]:/i.test(n) || n.startsWith(sep) || n.split(sep).includes(".."))
-    throw new UserError(`Refused a zip entry outside the target folder: ${name}`);
+    throw new UserError(
+      `Refused a zip entry outside the target folder: ${name}`,
+      "Run testimus models pullRuntime again: the build is downloaded and checked anew.",
+    );
   return n;
 }
 
@@ -142,23 +149,38 @@ export function extractZip(file: string, dest: string): string[] {
         eocd = i;
         break;
       }
-    if (eocd < 0) throw new UserError(`Not a zip file: ${basename(file)}`);
+    if (eocd < 0)
+      throw new UserError(
+        `Not a zip file: ${basename(file)}`,
+        "Run testimus models pullRuntime again: the build is downloaded and checked anew.",
+      );
     const count = tail.readUInt16LE(eocd + 10);
     const cdSize = tail.readUInt32LE(eocd + 12);
     const cdOffset = tail.readUInt32LE(eocd + 16);
-    if (count === 0xffff || cdOffset === 0xffffffff) throw new UserError(`Zip64 is not supported: ${basename(file)}`);
+    if (count === 0xffff || cdOffset === 0xffffffff)
+      throw new UserError(
+        `Zip64 is not supported: ${basename(file)}`,
+        "Run testimus models pullRuntime again: the build is downloaded and checked anew.",
+      );
     const cd = Buffer.alloc(cdSize);
     readSync(fd, cd, 0, cdSize, cdOffset);
     const entries: { name: string; method: number; crc: number; csize: number; local: number }[] = [];
     let p = 0;
     for (let i = 0; i < count; i++) {
-      if (cd.readUInt32LE(p) !== 0x02014b50) throw new UserError(`Corrupt zip: ${basename(file)}`);
+      if (cd.readUInt32LE(p) !== 0x02014b50)
+        throw new UserError(
+          `Corrupt zip: ${basename(file)}`,
+          "Run testimus models pullRuntime again: the build is downloaded and checked anew.",
+        );
       const nameLen = cd.readUInt16LE(p + 28);
       const name = cd.subarray(p + 46, p + 46 + nameLen).toString("utf8");
       const csize = cd.readUInt32LE(p + 20);
       const local = cd.readUInt32LE(p + 42);
       if (csize === 0xffffffff || local === 0xffffffff)
-        throw new UserError(`Zip64 is not supported: ${basename(file)}`);
+        throw new UserError(
+          `Zip64 is not supported: ${basename(file)}`,
+          "Run testimus models pullRuntime again: the build is downloaded and checked anew.",
+        );
       if (!name.endsWith("/"))
         entries.push({
           name: safeName(name).split(sep).join("/"),
@@ -180,8 +202,16 @@ export function extractZip(file: string, dest: string): string[] {
       const raw = Buffer.alloc(e.csize);
       readSync(fd, raw, 0, e.csize, start);
       const data = e.method === 0 ? raw : e.method === 8 ? inflateRawSync(raw) : null;
-      if (!data) throw new UserError(`Unsupported zip compression ${e.method} in ${basename(file)}`);
-      if (crc32(data) !== e.crc) throw new UserError(`Corrupt zip entry ${e.name} in ${basename(file)}`);
+      if (!data)
+        throw new UserError(
+          `Unsupported zip compression ${e.method} in ${basename(file)}`,
+          "Run testimus models pullRuntime again: the build is downloaded and checked anew.",
+        );
+      if (crc32(data) !== e.crc)
+        throw new UserError(
+          `Corrupt zip entry ${e.name} in ${basename(file)}`,
+          "Run testimus models pullRuntime again: the build is downloaded and checked anew.",
+        );
       const target = join(dest, rel);
       mkdirSync(dirname(target), { recursive: true });
       writeFileSync(target, data);
@@ -210,6 +240,7 @@ export async function pullLlamaBuild(
   if (free !== null && free < needMB)
     throw new UserError(
       `Not enough free space for llama.cpp ${LLAMA_BUILD} (${backend}): ${needMB} MB needed, ${free} MB free on ${dir}.`,
+      "Free space on that drive, or move the models folder (testimus models setDir).",
     );
   const dl = join(target, ".download");
   mkdirSync(dl, { recursive: true });
@@ -240,7 +271,10 @@ export async function pullLlamaBuild(
     const got = await sha256File(part);
     if (got !== a.sha256) {
       rmSync(part, { force: true });
-      throw new UserError(`${a.name} does not match its published SHA-256 (got ${got}): deleted.`);
+      throw new UserError(
+        `${a.name} does not match its published SHA-256 (got ${got}): deleted.`,
+        "Run testimus models pullRuntime again; if it fails again, the network may alter downloads (proxy).",
+      );
     }
     renameSync(part, zip);
   }
@@ -251,7 +285,11 @@ export async function pullLlamaBuild(
   );
   rmSync(dl, { recursive: true, force: true });
   const found = findLlamaBuild(target);
-  if (!found) throw new UserError(`llama-server.exe is missing from the llama.cpp ${LLAMA_BUILD} (${backend}) zip.`);
+  if (!found)
+    throw new UserError(
+      `llama-server.exe is missing from the llama.cpp ${LLAMA_BUILD} (${backend}) zip.`,
+      "Run testimus models pullRuntime again, or choose another build with --backend.",
+    );
   return { ...found, via: "download" };
 }
 
@@ -270,7 +308,10 @@ export function llamaBuild(): LlamaRuntime {
 function serverFor(m: ResolvedModel, kind: ServerKind): Promise<LlamaServer> {
   const model = m.install.path;
   if (!model || !/\.gguf$/i.test(model) || !existsSync(model))
-    throw new UserError(`${m.entry.label}: its GGUF file is missing (${model ?? "no path"}).`);
+    throw new UserError(
+      `${m.entry.label}: its GGUF file is missing (${model ?? "no path"}).`,
+      `Download it again: testimus models pull ${m.entry.id}.`,
+    );
   const b = llamaBuild();
   const onGpu = b.backend !== "cpu";
   return ensureServer({

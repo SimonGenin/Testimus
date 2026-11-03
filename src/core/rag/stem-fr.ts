@@ -404,6 +404,17 @@ export function fold(text: string): string {
   return text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 }
 
+// ponytail: folded one character at a time, so an offset in the folded text is the same offset in the text — the
+// marks found on one land on the other
+export function foldKeep(text: string): string {
+  let out = "";
+  for (const c of text) {
+    const f = c.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+    out += f.length === c.length ? f : c.toLowerCase().length === c.length ? c.toLowerCase() : c;
+  }
+  return out;
+}
+
 // ponytail: articles and prepositions only (SPEC-RAG §4.2) — negation and restriction words (ne, pas, sauf, excepté,
 // uniquement, seulement, interdit, jamais, sans) and meaningful prepositions (sous, hors, avant, après) stay searchable
 export const STOP_WORDS: ReadonlySet<string> = new Set(

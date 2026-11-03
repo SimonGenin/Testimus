@@ -6,8 +6,9 @@ import { quietCtx } from "../../src/core/command.ts";
 import { find } from "../../src/core/commands/index.ts";
 import { env } from "../../src/core/env.ts";
 import { indexProject } from "../../src/core/rag/indexer.ts";
+import { foldKeep } from "../../src/core/rag/stem-fr.ts";
 import { marksIn, searchAll } from "../../src/core/search/all.ts";
-import { compile, corpus, distance, field, foldKeep, search, snippet } from "../../src/core/search/match.ts";
+import { compile, corpus, distance, field, search, snippet } from "../../src/core/search/match.ts";
 import { parseQuery } from "../../src/core/search/query.ts";
 import { embedTests, embedText, vectorsFile } from "../../src/core/search/vectors.ts";
 
