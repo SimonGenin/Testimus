@@ -1,0 +1,143 @@
+import * as stylex from "@stylexjs/stylex";
+import { border, color, fontFamily, fontSize, lineHeight, radius, size, space } from "../../styles/tokens.stylex.ts";
+import { Icon, type IconName } from "./Icon.tsx";
+import { Tooltip } from "./Tooltip.tsx";
+
+const styles = stylex.create({
+  chip: {
+    boxSizing: "border-box",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: space.s2,
+    minWidth: 0,
+    maxWidth: "100%",
+    height: size.chip,
+    margin: 0,
+    paddingBlock: 0,
+    paddingInlineStart: space.s2,
+    paddingInlineEnd: space.s3,
+    borderStyle: "solid",
+    borderWidth: border.width,
+    borderColor: color.border,
+    borderRadius: radius.r1,
+    backgroundColor: color.surfaceSunken,
+    color: color.text,
+    fontFamily: "inherit",
+    fontSize: fontSize.compact,
+    lineHeight: lineHeight.compact,
+    textAlign: "start",
+    whiteSpace: "nowrap",
+  },
+  opens: {
+    cursor: "pointer",
+    backgroundColor: { default: color.surfaceSunken, ":hover": color.surfaceHover },
+    outline: { default: "none", ":focus-visible": `${border.widthStrong} solid ${color.focusRing}` },
+    outlineOffset: border.width,
+  },
+  compact: { paddingInlineEnd: space.s2 },
+  icon: { display: "inline-flex", color: color.textMuted },
+  ref: {
+    flexShrink: 0,
+    maxWidth: `calc(100% - ${size.iconSm} - ${space.s2})`,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    fontFamily: fontFamily.mono,
+    fontSize: fontSize.code,
+    color: color.textLink,
+  },
+  quote: {
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    fontFamily: fontFamily.reading,
+    fontStyle: "italic",
+    color: color.textMuted,
+  },
+  on: { backgroundColor: color.accentSubtle, borderColor: color.accent },
+  notFound: { backgroundColor: color.dangerSubtle, borderColor: color.dangerBorder },
+  notFoundText: { color: color.danger },
+  notAtAnchor: { backgroundColor: color.warningSubtle, borderColor: color.warningBorder },
+  notAtAnchorText: { color: color.warning },
+  forceHover: { backgroundColor: color.surfaceHover },
+  forceFocus: { outline: `${border.widthStrong} solid ${color.focusRing}` },
+});
+
+export type SourceState = "ok" | "not-found" | "not-at-anchor";
+
+const STATE: Record<Exclude<SourceState, "ok">, { icon: IconName; word: string; says: string }> = {
+  "not-found": { icon: "x-circle", word: "Not found", says: "The quote is not in the document." },
+  "not-at-anchor": {
+    icon: "alert-triangle",
+    word: "Not at its anchor",
+    says: "The quote is in the document, but not at this anchor.",
+  },
+};
+
+export type SourceChipProps = {
+  /** where the claim comes from, formatted by the caller (« §5.6.6 », « fig:40 », « D401 §5.6.6 ») */
+  reference: string;
+  /** the passage's words, in the reading face; left out of a compact chip */
+  quote?: string;
+  /** opens the passage; without it the chip is only read */
+  onOpen?: () => void;
+  /** the mechanical check of the quote: found at its anchor, not found, or found elsewhere */
+  state?: SourceState;
+  /** the passage open now (aria-pressed) */
+  pressed?: boolean;
+  /** a figure: the image icon instead of the quote mark */
+  figure?: boolean;
+  /** inside a line of text: the reference alone */
+  compact?: boolean;
+  /** the catalogue only */
+  debugState?: "hover" | "focus";
+};
+
+// ponytail: not a Chip option — a source is two runs in two faces (the mono reference, the quote in the reading face)
+// with the check's verdict, and it opens a passage; a Chip is one string you press or remove (catalogue note)
+export function SourceChip({
+  reference,
+  quote,
+  onOpen,
+  state = "ok",
+  pressed,
+  figure = false,
+  compact = false,
+  debugState,
+}: SourceChipProps) {
+  const bad = state === "ok" ? null : STATE[state];
+  const shownQuote = compact ? undefined : quote;
+  const look = stylex.props(
+    styles.chip,
+    onOpen && styles.opens,
+    compact && styles.compact,
+    pressed && styles.on,
+    state === "not-found" && styles.notFound,
+    state === "not-at-anchor" && styles.notAtAnchor,
+    debugState === "hover" && styles.forceHover,
+    debugState === "focus" && styles.forceFocus,
+  );
+  const tone = state === "not-found" ? styles.notFoundText : state === "not-at-anchor" ? styles.notAtAnchorText : null;
+  const inner = (
+    <>
+      <span {...stylex.props(styles.icon, tone)}>
+        <Icon name={bad ? bad.icon : figure ? "image" : "quote"} size="sm" label={bad?.word} />
+      </span>{" "}
+      <span {...stylex.props(styles.ref, tone)}>{reference}</span>
+      {shownQuote && (
+        <>
+          {" "}
+          <span {...stylex.props(styles.quote)}>“{shownQuote}”</span>
+        </>
+      )}
+    </>
+  );
+  const tip = [quote ? `${reference} — “${quote}”` : reference, bad?.says].filter(Boolean).join(" ");
+  const chip = onOpen ? (
+    <button type="button" aria-pressed={pressed} onClick={onOpen} {...look}>
+      {inner}
+    </button>
+  ) : (
+    <span {...look}>{inner}</span>
+  );
+  return <Tooltip label={tip}>{chip}</Tooltip>;
+}
