@@ -1,7 +1,10 @@
-import { useEffect, useState } from "react";
-import { call } from "../../api.ts";
-import { Badge, Icon, Skeleton } from "../../components/legacy/index.ts";
-import { cx } from "../../lib/format.ts";
+import * as stylex from "@stylexjs/stylex";
+import { Badge } from "../../components/ui/Badge.tsx";
+import { Disclosure } from "../../components/ui/Disclosure.tsx";
+import { List } from "../../components/ui/List.tsx";
+import { Skeleton } from "../../components/ui/Skeleton.tsx";
+import { useRead } from "../../lib/data/query.ts";
+import { border, color, fontFamily, fontSize, fontWeight, lineHeight, space } from "../../styles/tokens.stylex.ts";
 
 export type Evidence = {
   testId: string;
@@ -11,6 +14,29 @@ export type Evidence = {
   searched: { tool: string; query: string }[];
 };
 
+const styles = stylex.create({
+  wrap: {
+    borderTopWidth: border.width,
+    borderTopStyle: "solid",
+    borderTopColor: color.border,
+    paddingTop: space.s3,
+  },
+  sum: { fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textMuted },
+  group: {
+    display: "flex",
+    alignItems: "center",
+    gap: space.s2,
+    paddingBlock: space.s2,
+    fontSize: fontSize.caption,
+    lineHeight: lineHeight.caption,
+    fontWeight: fontWeight.semibold,
+    color: color.textMuted,
+  },
+  note: { margin: 0, fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textMuted },
+  ref: { fontFamily: fontFamily.mono, fontSize: fontSize.code },
+});
+
+// ponytail: what the generation that wrote the test actually opened (its evidence ledger), each one a way into the panel
 export function EvidenceBlock({
   testId,
   selected,
@@ -20,79 +46,53 @@ export function EvidenceBlock({
   selected: string;
   onPick: (ref: string) => void;
 }) {
-  const [ev, setEv] = useState<Evidence | null>(null);
-  const [missing, setMissing] = useState(false);
-  const [open, setOpen] = useState(false);
-  useEffect(() => {
-    setEv(null);
-    setMissing(false);
-    if (!testId) return;
-    let dead = false;
-    call<Evidence>("review.evidence", { testId })
-      .then((r) => !dead && setEv(r))
-      .catch(() => !dead && setMissing(true));
-    return () => {
-      dead = true;
-    };
-  }, [testId]);
-
-  const summary = missing || ev?.jobId === null ? "Not recorded" : !ev ? null : `${ev.read.length} read`;
-  const ref = (r: string, title: string, cited: boolean) => (
-    <li key={r}>
-      <button
-        type="button"
-        className={cx("ev-ref", selected === r && "ev-ref-on")}
-        onClick={() => onPick(r)}
-        aria-current={selected === r ? "true" : undefined}
-      >
-        <span className="mono ev-anchor">{r}</span>
-        {title && <span className="ev-title">{title}</span>}
-      </button>
-      {cited && (
-        <Badge tone="ok" icon="check" small title="A step cites it">
-          Cited
-        </Badge>
-      )}
-    </li>
-  );
-
+  const r = useRead("review.evidence", { testId }, { enabled: !!testId });
+  const ev = r.data as Evidence | undefined;
+  const missing = r.isError;
+  const summary = missing || ev?.jobId === null ? "Not recorded" : ev ? `${ev.read.length} read` : null;
   return (
-    <section className="evidence" aria-label="Sources read">
-      <button
-        type="button"
-        className="ev-head"
-        aria-expanded={open}
-        aria-controls="ev-body"
-        onClick={() => setOpen((o) => !o)}
+    <div {...stylex.props(styles.wrap)}>
+      <Disclosure
+        summary="Sources read"
+        meta={summary === null ? <Skeleton width="30%" /> : <span {...stylex.props(styles.sum)}>{summary}</span>}
       >
-        <Icon name={open ? "down" : "right"} />
-        <span className="ev-head-title">Sources read</span>
-        <span className="spacer" />
-        {summary === null ? <Skeleton w={110} h={12} /> : <span className="ev-sum">{summary}</span>}
-      </button>
-      {open && (
-        <div id="ev-body" className="ev-body">
-          {missing ? (
-            <p className="muted">
-              The generation's reading is not recorded for this test (written by hand, imported, or before Testimus kept
-              it).
-            </p>
-          ) : !ev ? (
-            <Skeleton h={40} />
-          ) : (
-            <>
-              <span className="label">Read by the generation ({ev.read.length})</span>
-              {ev.jobId === null ? (
-                <p className="muted">Not recorded: this test was not written by a generation Testimus followed.</p>
-              ) : ev.read.length ? (
-                <ul className="ev-list">{ev.read.map((r) => ref(r.ref, r.title, r.cited))}</ul>
-              ) : (
-                <p className="muted">Nothing opened.</p>
-              )}
-            </>
-          )}
-        </div>
-      )}
-    </section>
+        {missing ? (
+          <p {...stylex.props(styles.note)}>
+            The generation's reading is not recorded for this test (written by hand, imported, or before Testimus kept
+            it).
+          </p>
+        ) : !ev ? (
+          <Skeleton kind="block" />
+        ) : (
+          <>
+            <span {...stylex.props(styles.group)}>Read by the generation ({ev.read.length})</span>
+            {ev.jobId === null ? (
+              <p {...stylex.props(styles.note)}>
+                Not recorded: this test was not written by a generation Testimus followed.
+              </p>
+            ) : ev.read.length ? (
+              <List
+                label="Read by the generation"
+                items={ev.read}
+                getKey={(x) => x.ref}
+                selected={selected}
+                onSelect={onPick}
+                renderItem={(x) => ({
+                  title: x.title || <span {...stylex.props(styles.ref)}>{x.ref}</span>,
+                  meta: x.title ? <span {...stylex.props(styles.ref)}>{x.ref}</span> : undefined,
+                  trail: x.cited ? (
+                    <Badge size="sm" tone="success" icon="check" label="Cited" tooltip="A step cites it" />
+                  ) : (
+                    <Badge size="sm" label="Read" />
+                  ),
+                })}
+              />
+            ) : (
+              <p {...stylex.props(styles.note)}>Nothing opened.</p>
+            )}
+          </>
+        )}
+      </Disclosure>
+    </div>
   );
 }

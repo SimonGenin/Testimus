@@ -1,16 +1,16 @@
+import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
 import type { Review } from "../../../core/types.ts";
-import {
-  Button,
-  GeneratedBadge,
-  Icon,
-  Menu,
-  ReviewBadge,
-  Segmented,
-  Severity,
-  Skeleton,
-} from "../../components/legacy/index.ts";
-import { cx, plural } from "../../lib/format.ts";
+import { Badge, ReviewBadge } from "../../components/ui/Badge.tsx";
+import { Banner } from "../../components/ui/Banner.tsx";
+import { Button } from "../../components/ui/Button.tsx";
+import { Checkbox } from "../../components/ui/Checkbox.tsx";
+import { EmptyState } from "../../components/ui/EmptyState.tsx";
+import { List } from "../../components/ui/List.tsx";
+import { Segmented } from "../../components/ui/Segmented.tsx";
+import { Select } from "../../components/ui/Select.tsx";
+import { plural } from "../../lib/format.ts";
+import { border, color, container, fontSize, fontWeight, lineHeight, size, space } from "../../styles/tokens.stylex.ts";
 
 export type QueueItem = {
   id: string;
@@ -31,43 +31,93 @@ export type QueueCounts = { checked: number; toFix: number; draft: number; unche
 export type QueueFilter = "all" | "checked" | "to-fix" | "validated";
 export type QueueSort = "anomalies" | "state" | "folder" | "recent";
 
-const SORTS: Record<QueueSort, string> = {
-  anomalies: "Most issues first",
-  state: "By review state",
-  folder: "By folder",
-  recent: "Last edited first",
-};
+const SORTS: { value: QueueSort; label: string }[] = [
+  { value: "anomalies", label: "Most issues" },
+  { value: "state", label: "State" },
+  { value: "folder", label: "Folder" },
+  { value: "recent", label: "Recent" },
+];
+
+const styles = stylex.create({
+  queue: {
+    flex: "none",
+    width: size.sidebar,
+    display: { default: "flex", [container.reviewQueue]: "none" },
+    flexDirection: "column",
+    minWidth: 0,
+    minHeight: 0,
+    backgroundColor: color.surface,
+  },
+  head: {
+    flex: "none",
+    display: "flex",
+    alignItems: "center",
+    gap: space.s3,
+    minHeight: size.topbar,
+    paddingBlock: space.s2,
+    paddingInline: space.s5,
+    borderBottomWidth: border.width,
+    borderBottomStyle: "solid",
+    borderBottomColor: color.border,
+  },
+  title: { fontSize: fontSize.titleSm, lineHeight: lineHeight.titleSm, fontWeight: fontWeight.semibold },
+  grow: { flex: 1, minWidth: 0 },
+  tools: {
+    flex: "none",
+    display: "flex",
+    flexDirection: "column",
+    gap: space.s3,
+    paddingTop: space.s3,
+    paddingInline: space.s4,
+    paddingBottom: space.s4,
+    borderBottomWidth: border.width,
+    borderBottomStyle: "solid",
+    borderBottomColor: color.border,
+  },
+  row: { display: "flex", alignItems: "center", gap: space.s2, minWidth: 0, flexWrap: "wrap" },
+  notice: { paddingTop: space.s3, paddingInline: space.s3 },
+  body: { flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: space.s5 },
+});
 
 function Counts({ item }: { item: QueueItem }) {
-  if (item.unchecked) return <Severity tone="stale">Not checked yet</Severity>;
-  const tone = item.stale ? "stale" : undefined;
-  if (!item.errors && !item.warnings && !item.infos) return <Severity tone="ok">No findings</Severity>;
-  return (
-    <>
-      {item.errors > 0 && <Severity tone={tone ?? "error"}>{plural(item.errors, "error")}</Severity>}
-      {item.warnings > 0 && <Severity tone={tone ?? "warning"}>{plural(item.warnings, "warning")}</Severity>}
-      {item.infos > 0 && <Severity tone={tone ?? "info"}>{plural(item.infos, "note")}</Severity>}
-    </>
-  );
+  if (item.unchecked) return <Badge size="sm" icon="clock" label="Not checked yet" />;
+  const quiet = item.stale;
+  const out: ReactNode[] = [];
+  if (item.errors)
+    out.push(
+      <Badge
+        key="e"
+        size="sm"
+        tone={quiet ? "neutral" : "danger"}
+        icon="x-circle"
+        label={plural(item.errors, "error")}
+      />,
+    );
+  if (item.warnings)
+    out.push(
+      <Badge
+        key="w"
+        size="sm"
+        tone={quiet ? "neutral" : "warning"}
+        icon="alert-triangle"
+        label={plural(item.warnings, "warning")}
+      />,
+    );
+  if (item.infos)
+    out.push(
+      <Badge key="i" size="sm" tone={quiet ? "neutral" : "info"} icon="info" label={plural(item.infos, "note")} />,
+    );
+  if (!out.length && !item.stale)
+    out.push(<Badge key="ok" size="sm" tone="success" icon="check" label="No findings" />);
+  if (item.stale) out.push(<Badge key="s" size="sm" icon="history" label="Changed since its check" />);
+  return <>{out}</>;
 }
 
-export function ReviewQueue({
-  items,
-  counts,
-  activeId,
-  filter,
-  sort,
-  folder,
-  folders,
-  withFindings,
-  onFilter,
-  onSort,
-  onFolder,
-  onWithFindings,
-  onOpen,
-  head,
-  notice,
-}: {
+const tip = (t: QueueItem) =>
+  [t.key ?? "Not in Jira yet", t.summary || "Untitled test", t.folder || "/"].join(" — ") +
+  (t.edited ? " · edited since it was generated" : "");
+
+export type ReviewQueueProps = {
   items: QueueItem[] | null;
   counts: QueueCounts | null;
   activeId: string;
@@ -81,118 +131,117 @@ export function ReviewQueue({
   onFolder: (f: string) => void;
   onWithFindings: (on: boolean) => void;
   onOpen: (id: string) => void;
-  head?: ReactNode;
+  /** the tests that need the check (never checked, or changed since): « Check all » runs it on them */
+  checkAll?: { ids: string[]; running: boolean; onCheck: () => void };
+  /** a read of the queue that failed, with a way to ask again */
+  error?: { message: string; onRetry: () => void };
   notice?: ReactNode;
-}) {
-  const all = counts ? counts.checked + counts.toFix + counts.draft : undefined;
+  width?: number;
+};
+
+export function ReviewQueue(p: ReviewQueueProps) {
+  const all = p.counts ? p.counts.checked + p.counts.toFix + p.counts.draft : undefined;
+  const narrowed = p.filter !== "all" || !!p.folder || p.withFindings;
   return (
-    <aside className="queue" aria-label="Review queue">
-      {head}
-      {notice}
-      <div className="queue-filters">
+    <aside aria-label="Review queue" {...stylex.props(styles.queue)} style={p.width ? { width: p.width } : undefined}>
+      <div {...stylex.props(styles.head)}>
+        <span {...stylex.props(styles.title)}>Queue</span>
+        {all !== undefined && <Badge count size="sm" label={String(all)} />}
+        <span {...stylex.props(styles.grow)} />
+        {p.checkAll && (
+          <Button
+            size="sm"
+            variant="quiet"
+            icon="eye"
+            label="Check all"
+            loading={p.checkAll.running}
+            disabled={!p.checkAll.ids.length && "Every test of the queue is checked and up to date"}
+            onClick={p.checkAll.onCheck}
+          />
+        )}
+      </div>
+      <div {...stylex.props(styles.tools)}>
         <Segmented
+          size="sm"
           label="Filter by review state"
-          value={filter}
-          onChange={onFilter}
+          value={p.filter}
+          onChange={p.onFilter}
           options={[
             { value: "all", label: "All", count: all },
-            { value: "checked", label: "Checked", count: counts?.checked },
-            { value: "to-fix", label: "To fix", count: counts?.toFix },
-            { value: "validated", label: "Validated", count: counts?.validated },
+            { value: "checked", label: "Checked", count: p.counts?.checked },
+            { value: "to-fix", label: "To fix", count: p.counts?.toFix },
+            { value: "validated", label: "Validated", count: p.counts?.validated },
           ]}
         />
-        <div className="queue-menus">
-          <Menu
+        <div {...stylex.props(styles.row)}>
+          <Select
             label="Sort the queue"
-            trigger={({ open, toggle, id }) => (
-              <Button size="sm" className="queue-menu" aria-expanded={open} aria-controls={id} onClick={toggle}>
-                <span>{withFindings ? "With findings" : SORTS[sort]}</span>
-                <Icon name="down" />
-              </Button>
-            )}
-            items={[
-              ...(Object.keys(SORTS) as QueueSort[]).map((s) => ({
-                key: s,
-                label: SORTS[s],
-                on: sort === s,
-                onSelect: () => onSort(s),
-              })),
-              { kind: "sep" as const, key: "sep" },
-              {
-                key: "findings",
-                label: "Only tests with findings",
-                icon: withFindings ? ("check" as const) : undefined,
-                on: withFindings,
-                onSelect: () => onWithFindings(!withFindings),
-              },
-            ]}
+            appearance="quiet"
+            size="sm"
+            prefix="Sort"
+            value={p.sort}
+            options={SORTS}
+            onChange={p.onSort}
           />
-          <Menu
+          <Select
             label="Filter by folder"
-            align="right"
-            trigger={({ open, toggle, id }) => (
-              <Button size="sm" className="queue-menu" aria-expanded={open} aria-controls={id} onClick={toggle}>
-                <span className="queue-menu-text">{folder || "All folders"}</span>
-                <Icon name="down" />
-              </Button>
-            )}
-            items={[
-              { key: "", label: "All folders", on: !folder, onSelect: () => onFolder("") },
-              ...folders.map((f) => ({ key: f, label: f, on: folder === f, onSelect: () => onFolder(f) })),
-            ]}
+            appearance="quiet"
+            size="sm"
+            icon="folder"
+            value={p.folder}
+            options={[{ value: "", label: "All folders" }, ...p.folders.map((f) => ({ value: f, label: f }))]}
+            onChange={p.onFolder}
           />
         </div>
+        <Checkbox label="Only with findings" checked={p.withFindings} onChange={p.onWithFindings} />
       </div>
-      <div className="queue-list">
-        {!items ? (
-          <div role="status" aria-busy="true" aria-label="Loading the queue">
-            {[0, 1, 2, 3, 4].map((i) => (
-              <div key={i} className="qrow">
-                <Skeleton w={96} h={10} />
-                <Skeleton w="86%" h={14} />
-                <Skeleton w={130} h={10} />
-                <Skeleton w={150} h={18} r={9} />
-              </div>
-            ))}
-          </div>
-        ) : !items.length ? (
-          <div className="queue-empty">
-            <Icon name="validated" size={28} />
-            <p className="h">
-              {filter === "validated" ? "No generated test validated yet" : "Nothing waiting for review"}
-            </p>
-            <p className="muted">
-              {filter === "all" && !folder && !withFindings
-                ? "Generated tests land here once written, until you validate them."
-                : filter === "validated" && !folder && !withFindings
-                  ? "A generated test stays readable here once validated, and also appears in Tests."
-                  : "No test matches these filters."}
-            </p>
-          </div>
-        ) : (
-          items.map((t) => {
-            return (
-              <div key={t.id} className="qrow-wrap">
-                <button
-                  type="button"
-                  className={cx("qrow", t.id === activeId && "qrow-on")}
-                  aria-current={t.id === activeId ? "true" : undefined}
-                  data-id={t.id}
-                  onClick={() => onOpen(t.id)}
-                >
-                  <span className="mono muted">{t.key ?? "Not in Jira yet"}</span>
-                  <span className="qrow-title">{t.summary || "Untitled test"}</span>
-                  <span className="muted qrow-folder">{t.folder || "/"}</span>
-                  <span className="qrow-badges">
-                    <GeneratedBadge edited={t.edited} small />
-                    <ReviewBadge review={t.review} small />
-                    <Counts item={t} />
-                  </span>
-                </button>
-              </div>
-            );
-          })
-        )}
+      {p.error && (
+        <div {...stylex.props(styles.notice)}>
+          <Banner
+            tone="danger"
+            compact
+            title="Could not read the review queue"
+            actions={<Button size="sm" label="Retry" onClick={p.error.onRetry} />}
+          >
+            {p.error.message}
+          </Banner>
+        </div>
+      )}
+      {p.notice && <div {...stylex.props(styles.notice)}>{p.notice}</div>}
+      <div {...stylex.props(styles.body)}>
+        <List
+          label="Tests to review"
+          density="two-line"
+          items={p.items ?? []}
+          loading={p.items === null ? 5 : false}
+          getKey={(t) => t.id}
+          selected={p.activeId}
+          onSelect={p.onOpen}
+          renderItem={(t) => ({
+            title: t.summary || "Untitled test",
+            tooltip: tip(t),
+            meta: (
+              <>
+                <ReviewBadge state={t.review} size="sm" />
+                <Counts item={t} />
+              </>
+            ),
+          })}
+          empty={
+            <EmptyState
+              compact
+              icon="validated"
+              title={p.filter === "validated" ? "No generated test validated yet" : "Nothing waiting for review"}
+              text={
+                !narrowed
+                  ? "Generated tests land here once written, until you validate them."
+                  : p.filter === "validated" && !p.folder && !p.withFindings
+                    ? "A generated test stays readable here once validated, and also appears in Tests."
+                    : "No test matches these filters."
+              }
+            />
+          }
+        />
       </div>
     </aside>
   );
