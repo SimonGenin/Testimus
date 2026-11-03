@@ -164,10 +164,11 @@ test("Browse opens a project, the window takes its name, Show in Explorer reveal
     await expect.poll(async () => (await main(app)).revealed).toEqual([dir]);
 
     await page.getByRole("button", { name: "Show the document list" }).click();
-    const docs = page.getByRole("region", { name: "Document list" }).getByRole("row", { name: /^SOSIE_/ });
+    const docs = page.getByRole("region", { name: "Document list" }).getByRole("option", { name: /SOSIE_/ });
     await expect(docs).toHaveCount(2);
     await docs.first().click();
-    const show = page.getByRole("button", { name: "Show in Explorer" });
+    await page.getByRole("button", { name: "More actions for this document" }).click();
+    const show = page.getByRole("menuitem", { name: "Show in Explorer" });
     await expect(show).toBeVisible();
     await shoot(page, "desktop-documents");
     await show.click();
@@ -235,11 +236,17 @@ test("documents go to the core by path, the taskbar follows the jobs, their end 
   try {
     await stubMain(app);
     await go(page, "#/documents");
-    // ponytail: an added document opens, and under 1300px the list folds into a drawer — the rows are counted there
-    const rows = page
-      .getByRole("region", { name: "Document list", includeHidden: true })
-      .getByRole("row", { name: /^SOSIE_/, includeHidden: true });
-    await expect(rows).toHaveCount(2, { timeout: 30_000 });
+    // ponytail: an added document opens, and under 1300px the list folds into a drawer — it is opened to count the
+    // rows, then closed (a drawer is modal: the screen's buttons wait behind it)
+    const rows = page.getByRole("region", { name: "Document list" }).getByRole("option", { name: /SOSIE_/ });
+    const count = async (n: number) => {
+      const drawer = page.getByRole("button", { name: "Show the document list" });
+      const folded = await drawer.isVisible();
+      if (folded) await drawer.click();
+      await expect(rows).toHaveCount(n, { timeout: 60_000 });
+      if (folded) await page.keyboard.press("Escape");
+    };
+    await count(2);
 
     const bodies: unknown[] = [];
     page.on("request", (r) => {
@@ -250,7 +257,7 @@ test("documents go to the core by path, the taskbar follows the jobs, their end 
     writeFileSync(picked, sampleDocx());
     await pick(app, [picked]);
     await page.getByRole("button", { name: "Add documents" }).click();
-    await expect(rows).toHaveCount(3, { timeout: 60_000 });
+    await count(3);
     expect((await main(app)).asked.at(-1)).toMatchObject({
       title: "Add documents",
       filters: [{ name: "Word or PDF", extensions: ["docx", "pdf"] }],
@@ -260,8 +267,25 @@ test("documents go to the core by path, the taskbar follows the jobs, their end 
 
     const dropped = join(dir, "SOSIE_212_D402-1_2.docx");
     writeFileSync(dropped, sampleDocx({ extraParagraph: "Dropped from Explorer." }));
-    await page.locator('input[type="file"]').setInputFiles(dropped);
-    await expect(rows).toHaveCount(4, { timeout: 60_000 });
+    // ponytail: a file dropped from Explorer — the file is made by a scratch input (Electron gives it its real path), then
+    // dropped on the screen as Explorer would
+    await page.evaluate(() => {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.id = "e2e-drop";
+      document.body.append(input);
+    });
+    await page.locator("#e2e-drop").setInputFiles(dropped);
+    await page.evaluate(() => {
+      const input = document.getElementById("e2e-drop") as HTMLInputElement;
+      const data = new DataTransfer();
+      for (const f of input.files ?? []) data.items.add(f);
+      const target = document.querySelector('[data-testid="documents-screen"]') as HTMLElement;
+      for (const type of ["dragover", "drop"])
+        target.dispatchEvent(new DragEvent(type, { dataTransfer: data, bubbles: true, cancelable: true }));
+      input.remove();
+    });
+    await count(4);
     expect(bodies).toEqual([{ files: [{ path: picked }] }, { files: [{ path: dropped }] }]);
 
     await expect.poll(async () => (await main(app)).progress.at(-1), { timeout: 30_000 }).toBe(-1);
