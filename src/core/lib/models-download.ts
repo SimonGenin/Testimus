@@ -9,7 +9,7 @@ import {
   statfsSync,
   statSync,
 } from "node:fs";
-import { dirname, join, parse } from "node:path";
+import { dirname, join, parse, win32 } from "node:path";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { UserError } from "../command.ts";
@@ -22,10 +22,13 @@ export type DownloadDeps = {
   freeMB(dir: string): number | null;
 };
 
+// ponytail: a drive-letter path climbs as a Windows path on any system, so a drive that is not there gives null
+// instead of the free space of the current folder (a Windows path read on a Mac is relative to it)
 export function freeMB(dir: string): number | null {
+  const climb = /^[a-z]:[\\/]/i.test(dir) ? win32.dirname : dirname;
   let d = dir;
   while (!existsSync(d)) {
-    const up = dirname(d);
+    const up = climb(d);
     if (up === d) return null;
     d = up;
   }
@@ -37,6 +40,8 @@ export function freeMB(dir: string): number | null {
   }
 }
 
+// ponytail: a seam env does not have — Hugging Face's fetch (with Range and a stream) and the free space; --mock
+// serves fake bytes through it and the tests play a cut connection or a full drive
 export const downloadDeps: DownloadDeps = {
   fetch: (url, init) => fetch(url, init),
   freeMB,
@@ -130,7 +135,7 @@ export async function downloadFile(
     if (res.status === 200) start = 0;
     else if (res.status !== 206)
       throw new UserError(`Download of ${f.path} failed: HTTP ${res.status}.`, "Check the network or the proxy.");
-    if (!res.body) throw new UserError(`Download of ${f.path} returned no data.`);
+    if (!res.body) throw new UserError(`Download of ${f.path} returned no data.`, "Check the network or the proxy.");
     opts.onBytes(start);
     const count = new Transform({
       transform(chunk: Buffer, _enc, done) {

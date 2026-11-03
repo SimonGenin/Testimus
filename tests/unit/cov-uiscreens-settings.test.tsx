@@ -280,7 +280,7 @@ describe("Settings › Smart columns", () => {
     fireEvent.click(screen.getByRole("button", { name: "Read again from Xray" }));
     expect(await screen.findByText("Could not read the step fields from Jira")).toBeInTheDocument();
     let release = () => {};
-    api.routes["xray.fields"] = () => ({ fields: [] });
+    api.routes["xray.refreshFields"] = () => ({ fields: [] });
     const slow = new Promise<void>((r) => {
       release = r;
     });

@@ -2,9 +2,9 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, isAbsolute, join, resolve } from "node:path";
 import { UserError } from "../command.ts";
 import type { EvalReport, PolicyName } from "./eval.ts";
-import { ROLES } from "./eval.ts";
+import { ROLES } from "./eval-score.ts";
 
-export const SEED = 20261102;
+const SEED = 20261102;
 const EPS = 1e-9;
 
 export function mulberry32(seed: number): () => number {
@@ -76,8 +76,8 @@ export function latestReport(project: string, except: string): string | null {
   return files[0] ?? null;
 }
 
-export type RoleDiff = { recall: number; baseline: number; diff: number; n: number };
-export type CompareRow = {
+type RoleDiff = { recall: number; baseline: number; diff: number; n: number };
+type CompareRow = {
   report: string;
   setting: string;
   n: number;
@@ -92,7 +92,7 @@ export type CompareRow = {
   provisional: boolean;
   warnings: string[];
 };
-export type Comparison = {
+type Comparison = {
   baseline: string;
   policy: PolicyName;
   k: number;

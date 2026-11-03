@@ -1,5 +1,6 @@
 // ponytail: a port of the Snowball French stemmer (snowballstem.org/algorithms/french, BSD) — french.sbl, master of
-// 2026-11; checked word for word against snowball-data/french in tests/unit/stem-fr.test.ts
+// 2026-11; checked word for word against snowball-data/french in tests/unit/core/rag/stem-fr.test.ts. One file on purpose:
+// it is mostly the algorithm's suffix tables, read top to bottom against french.sbl; split, it would no longer compare.
 export const STEM_VERSION = 1;
 
 const VOWELS = "aeiouyâàëéêèïîôûù";
@@ -402,6 +403,17 @@ export function stemText(text: string): string {
 
 export function fold(text: string): string {
   return text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+}
+
+// ponytail: folded one character at a time, so an offset in the folded text is the same offset in the text — the
+// marks found on one land on the other
+export function foldKeep(text: string): string {
+  let out = "";
+  for (const c of text) {
+    const f = c.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+    out += f.length === c.length ? f : c.toLowerCase().length === c.length ? c.toLowerCase() : c;
+  }
+  return out;
 }
 
 // ponytail: articles and prepositions only (SPEC-RAG §4.2) — negation and restriction words (ne, pas, sauf, excepté,

@@ -237,7 +237,11 @@ async function rerank(m: ResolvedModel, query: string, texts: string[]): Promise
 async function probe(m: ResolvedModel): Promise<{ dims: number; maxTokens: number }> {
   if (m.entry.kind === "reranker" && m.entry.rerankerKind === "yes-no-lm") {
     const [s] = await rerankYesNo(m, "probe", ["Testimus probe sentence."]);
-    if (!Number.isFinite(s)) throw new UserError(`${m.entry.label} gave no yes/no score.`);
+    if (!Number.isFinite(s))
+      throw new UserError(
+        `${m.entry.label} gave no yes/no score.`,
+        "Check the model with testimus models verify, or choose another reranker.",
+      );
     const { tokenizer } = await load(m, "yes-no-lm");
     return { dims: 1, maxTokens: maxTokens(m, tokenizer) };
   }

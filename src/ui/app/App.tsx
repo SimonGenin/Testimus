@@ -154,7 +154,7 @@ export function App() {
     const dir = info?.dir;
     if (!dir || !jiraKey || fieldsFor.current === dir) return;
     fieldsFor.current = dir;
-    call<XrayJson>("xray.fields", {})
+    call<XrayJson>("xray.refreshFields", {})
       .then((x) => {
         if (fieldsFor.current === dir && x?.fields?.length) refreshInfo();
       })

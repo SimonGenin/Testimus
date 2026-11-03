@@ -1,14 +1,14 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { UserError } from "../../command.ts";
-import { readFigures } from "../../lib/docs.ts";
+import { docDir, readDocMd, readFigures } from "../../lib/docs.ts";
 import { loadMsSoFar, recordPerf } from "../../lib/models-perf.ts";
 import { readProject } from "../../lib/project.ts";
 import type { RetrievalSettings, SearchHit } from "../../types.ts";
 import { activeModels } from "../activation.ts";
 import { docFigures } from "../chunk.ts";
-import { type ChunkRow, chunkCount, chunksByRowid, indexFile, nearest, openDb, toChunk } from "../db.ts";
+import { type ChunkRow, chunkCount, chunksByRowid, indexFile, nearest, toChunk, withDb } from "../db.ts";
 import { embedWith, rerankFor, rerankWith } from "../embed.ts";
 import { spaceOf } from "../fingerprint.ts";
 import { keep, type RetrievalOverride, type SearchOpts } from "./filter.ts";
@@ -17,7 +17,7 @@ import { type VectorResult, vector } from "./vector.ts";
 
 export type { RetrievalOverride, SearchMode, SearchOpts } from "./filter.ts";
 
-export const RRF_K = 60;
+const RRF_K = 60;
 
 export const RETRIEVAL_DEFAULTS: RetrievalSettings = {
   candidates: 50,
@@ -83,7 +83,7 @@ async function rerankOf(project: string, o: SearchOpts, query: string, texts: st
 
 const messageOf = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-export function rerankThreshold(r: RetrievalSettings, model: string): number | undefined {
+function rerankThreshold(r: RetrievalSettings, model: string): number | undefined {
   return r.rerank.thresholds?.[model] ?? r.rerank.threshold;
 }
 
@@ -95,8 +95,7 @@ export function rrf(lists: number[][], k = RRF_K): [number, number][] {
 
 function figureFile(project: string, c: ChunkRow): string | undefined {
   if (c.kind !== "figure") return undefined;
-  const dir = join(project, "docs", c.docId);
-  const md = existsSync(join(dir, "doc.md")) ? readFileSync(join(dir, "doc.md"), "utf8") : "";
+  const md = existsSync(join(docDir(project, c.docId), "doc.md")) ? readDocMd(project, c.docId) : "";
   const f = docFigures(md, readFigures(project, c.docId)).find((x) => x.anchor === c.anchor);
   return f?.file ? `docs/${c.docId}/${f.file}` : undefined;
 }
@@ -106,8 +105,8 @@ function figureFile(project: string, c: ChunkRow): string | undefined {
 export type Ranked = { chunk: ChunkRow; score: number; degraded?: string; lexical?: true };
 
 export type Expand = RetrievalSettings["expand"];
-export type SearchLog = (level: "warn", message: string) => void;
-export type SearchInput = SearchOpts & { expand?: Expand; log?: SearchLog };
+type SearchLog = (level: "warn", message: string) => void;
+type SearchInput = SearchOpts & { expand?: Expand; log?: SearchLog };
 
 export async function searchChunks(
   project: string,
@@ -130,8 +129,7 @@ async function ranked(
   if (!existsSync(file)) throw new UserError("The project has no index yet.", "Run testimus rag index.");
   const settings = retrievalSettings(project, opts.retrieval, opts.model ? undefined : await packRetrieval(project));
   const o: SearchOpts = { ...opts, retrieval: settings, project };
-  const db = openDb(file);
-  try {
+  return withDb(file, async (db) => {
     const lists: number[][] = [];
     let degraded: string | null = null;
     if (mode !== "vector") {
@@ -206,9 +204,7 @@ async function ranked(
       ms: Math.round(performance.now() - t0 - (loadMsSoFar() - l0)),
     });
     return { hits, settings };
-  } finally {
-    db.close();
-  }
+  });
 }
 
 const hitOf = (project: string, c: ChunkRow, score: number, extra: Partial<SearchHit> = {}): SearchHit => {
@@ -231,10 +227,9 @@ const parentOf = (n: string) => n.split(".").slice(0, -1).join(".");
 // ponytail: expansion follows the document's own structure, never a model — the parent section, the section a figure
 // sits in, and (graph) the sections the hit cross-references or amends; added after the k hits, each passage once,
 // flagged `via`
-export function expandHits(project: string, hits: Ranked[], expand: Expand, opts: SearchOpts): SearchHit[] {
+function expandHits(project: string, hits: Ranked[], expand: Expand, opts: SearchOpts): SearchHit[] {
   if (expand === "none" || !hits.length) return [];
-  const db = openDb(opts.dbFile ?? indexFile(project));
-  try {
+  return withDb(opts.dbFile ?? indexFile(project), (db) => {
     const sectionChunk = db.prepare(
       "select * from chunks where doc_id = ? and (id = ? or id = ?) order by rowid limit 1",
     );
@@ -259,9 +254,7 @@ export function expandHits(project: string, hits: Ranked[], expand: Expand, opts
       for (const r of linked.all(`${c.docId}#${c.anchor}`) as { dst: string }[]) addSection(r.dst, score, "graph");
     }
     return out;
-  } finally {
-    db.close();
-  }
+  });
 }
 
 export async function search(project: string, query: string, opts: SearchInput = {}): Promise<SearchHit[]> {

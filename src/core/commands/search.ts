@@ -4,8 +4,10 @@ import { searchAll } from "../search/all.ts";
 import { embedTests } from "../search/vectors.ts";
 import { REVIEWS, type Review, type SearchKind } from "../types.ts";
 
-const kind = z.enum(["test", "document", "passage"] as [SearchKind, ...SearchKind[]]);
-const mark = z.tuple([z.number(), z.number()]);
+const kind = z
+  .enum(["test", "document", "passage"] as [SearchKind, ...SearchKind[]])
+  .describe("test, document or passage");
+const mark = z.tuple([z.number(), z.number()]).describe("[start, end) of a match");
 
 export const commands = [
   command({
@@ -43,12 +45,15 @@ export const commands = [
             why: z
               .enum(["words", "meaning", "both", "filter"])
               .describe("Found by its words, by its meaning, both, or listed by a filter alone"),
-            testId: z.string().optional(),
-            key: z.string().optional(),
-            review: z.enum(REVIEWS as [Review, ...Review[]]).optional(),
+            testId: z.string().optional().describe("For a test: its id (folder name)"),
+            key: z.string().optional().describe("For a test: its Jira key once pushed"),
+            review: z
+              .enum(REVIEWS as [Review, ...Review[]])
+              .optional()
+              .describe("For a test: its review state"),
             awaiting: z.boolean().optional().describe("A generated test still waiting for review (opens in Review)"),
             step: z.number().optional().describe("Step number (1-based) the snippet comes from"),
-            docId: z.string().optional(),
+            docId: z.string().optional().describe("For a document or a passage: the document id"),
             anchor: z.string().optional().describe("§5.6.6, fig:<n> or page:<n>"),
           }),
         )

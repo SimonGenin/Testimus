@@ -9,7 +9,7 @@ export type Section = {
   body: string;
 };
 
-export type DocFigure = {
+type DocFigure = {
   n: string;
   anchor: string;
   file: string;
@@ -125,7 +125,7 @@ function ids(text: string, re: RegExp): string[] {
   return [...new Set([...text.matchAll(re)].map((m) => m[1]))];
 }
 
-export function defaultHeader(doc: DocJson, s: Pick<Section, "path" | "title" | "number">): string {
+function defaultHeader(doc: DocJson, s: Pick<Section, "path" | "title" | "number">): string {
   const where = s.number ? `${s.path} ${s.title}` : s.title;
   return `${doc.code} ${doc.title} — ${where}`.trim();
 }
@@ -201,7 +201,7 @@ export function chunkDoc(doc: DocJson, md: string, entries: FigureEntry[]): Chun
 // symbol by its label; like the description they are Claude's reading, never quotable (the check reads doc.md only)
 export const LABELS_PREFIX = "Visible text:";
 
-export function figureText(f: Pick<DocFigure, "caption" | "description" | "labels">): string {
+function figureText(f: Pick<DocFigure, "caption" | "description" | "labels">): string {
   const labels = (f.labels ?? []).map((l) => l.trim()).filter(Boolean);
   return [f.caption, f.description, labels.length ? `${LABELS_PREFIX} ${labels.join(" · ")}` : ""]
     .filter(Boolean)

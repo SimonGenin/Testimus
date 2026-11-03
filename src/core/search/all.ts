@@ -1,8 +1,9 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { readDoc } from "../lib/docs.ts";
+import { docIds, readDoc } from "../lib/docs.ts";
 import { indexFile } from "../rag/db.ts";
 import { search as passages } from "../rag/search/hybrid.ts";
+import { foldKeep } from "../rag/stem-fr.ts";
 import {
   awaitsReview,
   type DocJson,
@@ -18,7 +19,6 @@ import {
   corpus,
   type Doc,
   field,
-  foldKeep,
   isCode,
   merge,
   type Scored,
@@ -30,7 +30,7 @@ import { KINDS, parseQuery, type Query, testsOnly, wants } from "./query.ts";
 import { keepTest, type TestDoc, testsCorpus } from "./tests.ts";
 import { nearestTests } from "./vectors.ts";
 
-export type SearchAllInput = { query: string; in?: SearchKind[]; k?: number; meaning?: boolean };
+type SearchAllInput = { query: string; in?: SearchKind[]; k?: number; meaning?: boolean };
 
 const RRF = 60;
 const MEANING_SPREAD = 0.15;
@@ -59,10 +59,8 @@ function docCorpus(project: string): Corpus<DocDoc> {
   const key = docsStamp(project);
   const hit = docCache.get(project);
   if (hit?.key === key) return hit.corpus;
-  const root = join(project, "docs");
   const docs: DocDoc[] = [];
-  for (const id of existsSync(root) ? readdirSync(root) : []) {
-    if (!existsSync(join(root, id, "doc.json"))) continue;
+  for (const id of docIds(project)) {
     try {
       const doc = readDoc(project, id);
       docs.push({

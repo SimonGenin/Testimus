@@ -10,18 +10,15 @@ import { transformersRuntime } from "./runtimes/transformers.ts";
 import type { Runtime } from "./runtimes/types.ts";
 import type { SearchOpts } from "./search/filter.ts";
 
-export type { EmbedMode } from "../types.ts";
-export { fakeRerank, fakeVector } from "./runtimes/mock.ts";
-export type { Runtime } from "./runtimes/types.ts";
-export { words } from "./search/lexical.ts";
-
+// ponytail: the runtime of each kind of model; tests put a counting or failing runtime here (no real model runs in a
+// unit test, and env has no seam for it), --mock serves every model from the mock one
 export const runtimes: Record<RuntimeId, Runtime> = {
   transformers: transformersRuntime,
   llamacpp: llamacppRuntime,
   mock: mockRuntime,
 };
 
-export function runtimeOf(m: ResolvedModel): Runtime {
+function runtimeOf(m: ResolvedModel): Runtime {
   return runtimes[env.mock ? "mock" : m.runtime];
 }
 

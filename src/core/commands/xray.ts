@@ -1,161 +1,117 @@
-import { resolve } from "node:path";
 import { z } from "zod";
-import { type Ctx, command, projectOf, UserError } from "../command.ts";
-import { env } from "../env.ts";
-import { storeXray } from "../lib/columns.ts";
-import { browseUrl, getFolderTree, getStepFields, listPreconditions, listTests, searchTests } from "../lib/jira.ts";
-import { readProject } from "../lib/project.ts";
-import { listLocalTests, localTestRef } from "../lib/store.ts";
+import { throwIfAborted } from "../../shared/run/work.ts";
+import { command, projectOf, UserError } from "../command.ts";
+import { browseUrl } from "../lib/jira/http.ts";
 import {
-  checkRemote,
-  connectJira,
-  disconnectJira,
-  executePlan,
-  type Push,
-  planView,
-  projectInfo,
-  pullToLocal,
-  pushTest,
-} from "../lib/sync.ts";
-import { REVIEWS, type Review } from "../types.ts";
+  allInFolder,
+  getFolderTree,
+  ISSUE_KEY,
+  listPreconditions,
+  listTests,
+  PAGE,
+  searchTests,
+} from "../lib/jira/read.ts";
+import { readProject, readXray } from "../lib/project.ts";
+import { listLocalTests, localTestRef } from "../lib/store.ts";
+import { connectJira, disconnectJira, projectInfo, refreshFields } from "../lib/sync/connect.ts";
+import { checkRemote, pullToLocal } from "../lib/sync/pull.ts";
+import { planView, pushTest, runPush } from "../lib/sync/push.ts";
+import { type Folder, type LocalTestRef, REVIEWS, type Review } from "../types.ts";
 
 const id = z.string().describe("Test id: the folder under tests/ — a Jira key (LFRPS12-1420) or local-<8hex>");
-const review = z.enum(REVIEWS as [Review, ...Review[]]);
+const review = z.enum(REVIEWS as [Review, ...Review[]]).describe("The test's review state (test.md review:)");
 const field = z.object({
-  id: z.string(),
-  name: z.string(),
-  type: z.string(),
-  builtin: z.boolean(),
+  id: z.string().describe("Xray's id of the field (action, data, result for the built-in three)"),
+  name: z.string().describe("The field's name, as test.md writes it (### <name>)"),
+  type: z.string().describe("Xray's field type (text, text-single, toggle, multi-select…)"),
+  builtin: z.boolean().describe("One of Action, Data, Expected Result"),
   required: z.boolean().optional().describe("Xray requires a value on every step"),
   disabled: z.boolean().optional().describe("Switched off in Xray's project settings (kept, shown « off in Xray »)"),
 });
 const xrayJson = z.object({
-  fetchedAt: z.string().optional().describe("When the fields were read from Xray"),
+  fetchedAt: z.string().optional().describe("When the fields were read from Xray (absent: never read)"),
   fields: z.array(field).describe("Xray's step fields, built-in and custom, in Xray's order"),
 });
+const folder: z.ZodType<Folder> = z.object({
+  name: z.string().describe("The folder's name (/ for the root)"),
+  path: z.string().describe("Its full path, e.g. /Traction/Sectionneurs"),
+  testsCount: z.number().describe("Tests directly in this folder"),
+  totalCount: z.number().describe("Tests in this folder and all its sub-folders"),
+  get folders() {
+    return z.array(folder).describe("Its sub-folders, sorted by path");
+  },
+});
 const remoteRef = z.object({
-  key: z.string(),
-  issueId: z.string(),
-  summary: z.string(),
-  status: z.string(),
-  labels: z.array(z.string()),
-  folder: z.string(),
-  stepCount: z.number(),
+  key: z.string().describe("Issue key, e.g. LFRPS12-1420"),
+  issueId: z.string().describe("Jira's numeric issue id"),
+  summary: z.string().describe("The test's summary"),
+  status: z.string().describe("Jira workflow status (To Do, In Progress…)"),
+  labels: z.array(z.string()).describe("Jira labels, the review label included"),
+  folder: z.string().describe("Xray folder path"),
+  stepCount: z.number().describe("Number of steps in Xray"),
 });
 const planOp = z.object({
-  label: z.string(),
-  kind: z.enum(["create", "update", "upload", "embed", "label", "link", "folder", "other"]),
+  label: z.string().describe("What this operation does, in words"),
+  kind: z
+    .enum(["create", "update", "upload", "embed", "label", "link", "folder", "other"])
+    .describe("The kind of Jira write"),
 });
 const planSchema = z.object({
-  testId: z.string(),
-  key: z.string().optional(),
-  ops: z.array(planOp),
-  warnings: z.array(z.string()),
-  remoteChanged: z.boolean(),
+  testId: z.string().describe("The test id the plan was built for"),
+  key: z.string().optional().describe("Its Jira key (absent: the push creates the test)"),
+  ops: z.array(planOp).describe("The Jira writes, in the order they run"),
+  warnings: z.array(z.string()).describe("What the user should know before pushing"),
+  remoteChanged: z.boolean().describe("Jira changed since the last sync — pushing replaces that change"),
   review,
   planHash: z.string().describe("Hash of these ops and of the test file — xray.push takes it to run exactly this plan"),
 });
 const opResult = z.object({
-  label: z.string(),
-  status: z.enum(["done", "failed", "not-started"]),
-  error: z.string().optional(),
+  label: z.string().describe("The operation, as in the plan"),
+  status: z.enum(["done", "failed", "not-started"]).describe("What happened to it"),
+  error: z.string().optional().describe("Why Jira refused it"),
 });
-const syncEnum = z.enum(["local", "modified", "synced", "remote-changed"]);
+const statusRow = z.object({
+  id: z.string().describe("Test id"),
+  key: z.string().optional().describe("Jira key (absent: never pushed)"),
+  sync: z
+    .enum(["local", "modified", "synced", "remote-changed"])
+    .describe("local: never pushed; modified: unpushed changes; synced: same as Jira; remote-changed: Jira moved"),
+  remote: z
+    .enum(["unchanged", "remote-changed", "unverified"])
+    .describe("What Jira said now (unverified: not asked — never synced, disconnected, or Jira unreachable)"),
+});
+const statusOut = z.object({ tests: z.array(statusRow).describe("One row per test") });
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-// ponytail: the plan a failed push was executing, kept per test so "resume from op k" runs the same ops
-// the user saw — a rebuilt plan would already have dropped the ops that went through
-const unfinished = new Map<string, Push>();
-
-// ponytail: one push of a test at a time in this process — two at once (two tabs, UI + Claude) would
-// both run the create op and leave two Jira tests
-const pushing = new Set<string>();
-
-type PushInput = { id: string; dryRun: boolean; planHash?: string; overwriteRemote: boolean; from?: number };
-type OpResult = z.infer<typeof opResult>;
-
-async function push(ctx: Ctx, project: string, slot: string, input: PushInput) {
-  const kept = input.from !== undefined ? unfinished.get(slot) : undefined;
-  if (input.from !== undefined && !kept)
-    ctx.log("info", "No stopped push of this test in memory — the plan is rebuilt and run from its first op.");
-  const p = kept ?? (await pushTest(project, input.id));
-  const plan = planView(p);
-  const ops: OpResult[] = p.plan.ops.map((o, i) => ({
-    label: o.label,
-    status: kept && i < (input.from ?? 0) ? "done" : "not-started",
-  }));
-  if (input.dryRun) return { ok: true, id: input.id, plan, ops };
-  if (input.planHash !== p.hash)
-    throw new UserError(
-      "The test or Jira changed since you saw the plan — nothing was pushed.",
-      `Look at the new plan (xray.plan ${input.id}) and push with its planHash.`,
-    );
-  if (p.plan.remoteChanged && !input.overwriteRemote)
-    throw new UserError(
-      `${p.local.key ?? input.id} was changed in Jira since your last sync — pushing would replace that change.`,
-      "Pull it from Jira first, or push with overwriteRemote to replace the Jira version.",
-    );
-  const from = kept ? (input.from ?? 0) : 0;
-  const total = p.plan.ops.length;
-  const r = await executePlan(
-    project,
-    p,
-    (i, state) => {
-      if (state === "running") ctx.progress({ message: p.plan.ops[i].label, done: i, total });
-      if (state === "done") ops[i].status = "done";
-      if (state === "failed") ops[i].status = "failed";
-    },
-    from,
-    ctx.signal,
-  );
-  const cancelled = r.cancelled ?? false;
-  const view = { ...plan, warnings: [...p.plan.warnings] };
-  if (!r.ok) {
-    unfinished.set(slot, p);
-    const at = r.failedAt ?? 0;
-    if (r.cancelled === undefined) ops[at].error = message(r.error);
-    ctx.log(
-      r.cancelled === undefined ? "error" : "warn",
-      r.cancelled === undefined ? `Stopped at operation ${at + 1} of ${total}: ${message(r.error)}` : message(r.error),
-    );
-    return { ok: false, id: r.id, plan: view, ops, failedAt: r.failedAt, error: message(r.error), cancelled };
-  }
-  unfinished.delete(slot);
-  ctx.progress({ message: "pushed", done: total, total });
-  if (r.error) ctx.log("warn", `Pushed, but the refresh from Jira failed: ${message(r.error)}`);
-  return {
-    ok: true,
-    id: r.id,
-    plan: view,
-    ops,
-    cancelled,
-    ...(r.error ? { error: `Pushed; refreshing from Jira failed — ${message(r.error)}` } : {}),
-  };
-}
-
-async function allInFolder(projectId: string, folder: string, descendants: boolean): Promise<string[]> {
-  const keys: string[] = [];
-  for (let page = 0; ; page++) {
-    const { tests, total } = await listTests(projectId, { folder, descendants }, page);
-    keys.push(...tests.map((t) => t.key));
-    if (!tests.length || keys.length >= total) return keys;
-  }
+async function statusOf(project: string, r: LocalTestRef) {
+  const remote = r.key && r.synced ? await checkRemote(project, r.id) : ("unverified" as const);
+  const now = localTestRef(project, r.id) ?? r;
+  return { id: r.id, ...(r.key ? { key: r.key } : {}), sync: now.sync, remote };
 }
 
 export const commands = [
   command({
     name: "xray.fields",
     summary:
-      "Fetch the project's Xray step fields (built-in and custom) into xray.json; the team's columns (columns.json) follow a field renamed or dropped in Xray.",
+      "The project's Xray step fields as last read (xray.json), without asking Xray; xray.refreshFields reads them again.",
+    input: z.object({}),
+    output: xrayJson,
+    mutates: false,
+    async run(ctx) {
+      return readXray(projectOf(ctx));
+    },
+  }),
+
+  command({
+    name: "xray.refreshFields",
+    summary:
+      "Read the project's Xray step fields (built-in and custom) again from Xray into xray.json; the team's columns (columns.json) follow a field renamed or dropped in Xray.",
     input: z.object({}),
     output: xrayJson,
     mutates: true,
     async run(ctx) {
-      const project = projectOf(ctx);
-      const info = await projectInfo(project);
-      const fields = await getStepFields(info.id);
-      return storeXray(project, fields, env.now().toISOString());
+      return refreshFields(projectOf(ctx));
     },
   }),
 
@@ -166,7 +122,10 @@ export const commands = [
     input: z.object({
       key: z.string().optional().describe("Jira project key, e.g. LFRPS12 (default: the key already in project.json)"),
     }),
-    output: z.object({ jiraProject: z.string(), name: z.string().describe("The Jira project's name") }),
+    output: z.object({
+      jiraProject: z.string().describe("The Jira project key now saved in project.json"),
+      name: z.string().describe("The Jira project's name"),
+    }),
     mutates: true,
     positional: ["key"],
     async run(ctx, input) {
@@ -185,7 +144,7 @@ export const commands = [
     summary:
       "Work locally only: nothing reads or writes Jira for this project until xray.connect (the key is kept, local tests stay as they are).",
     input: z.object({}),
-    output: z.object({ jiraProject: z.string() }),
+    output: z.object({ jiraProject: z.string().describe("The key kept in project.json, unused until xray.connect") }),
     mutates: true,
     async run(ctx) {
       const project = projectOf(ctx);
@@ -198,7 +157,7 @@ export const commands = [
     name: "xray.folders",
     summary: "The project's Xray folder tree (direct and total test counts).",
     input: z.object({ path: z.string().optional().describe("Folder to start from (default: / — the whole tree)") }),
-    output: z.unknown(),
+    output: folder,
     mutates: false,
     async run(ctx, input) {
       const info = await projectInfo(projectOf(ctx));
@@ -208,19 +167,20 @@ export const commands = [
 
   command({
     name: "xray.search",
-    summary:
-      "Find remote tests in Jira: by text in the summary or an issue key, or the tests of a folder (pages of 100).",
+    summary: `Find remote tests in Jira: by text in the summary or an issue key, or the tests of a folder (pages of ${PAGE}).`,
     input: z.object({
       text: z.string().optional().describe("Words of the summary, an issue key (LFRPS12-1420) or its number (1420)"),
       folder: z.string().optional().describe("Xray folder to list when no text is given (default: /)"),
       descendants: z.boolean().default(false).describe("With folder: include the sub-folders"),
-      page: z.number().int().min(0).default(0).describe("With folder: page number, 100 tests per page"),
+      page: z.number().int().min(0).default(0).describe(`With folder: page number, ${PAGE} tests per page`),
     }),
-    output: z.object({ tests: z.array(remoteRef), total: z.number() }),
+    output: z.object({
+      tests: z.array(remoteRef).describe("The tests found (one page when listing a folder)"),
+      total: z.number().describe("How many tests match in all"),
+    }),
     mutates: false,
     async run(ctx, input) {
-      const project = projectOf(ctx);
-      const info = await projectInfo(project);
+      const info = await projectInfo(projectOf(ctx));
       if (input.text?.trim()) {
         const tests = await searchTests(info.id, input.text, info.key);
         return { tests, total: tests.length };
@@ -234,7 +194,16 @@ export const commands = [
     summary:
       "The project's Xray Preconditions (key, summary, definition), sorted by key — what a test can attach (test.md frontmatter preconditions).",
     input: z.object({}),
-    output: z.array(z.object({ key: z.string(), issueId: z.string(), summary: z.string(), definition: z.string() })),
+    output: z
+      .array(
+        z.object({
+          key: z.string().describe("Issue key of the precondition"),
+          issueId: z.string().describe("Jira's numeric issue id"),
+          summary: z.string().describe("Its summary"),
+          definition: z.string().describe("Its definition text"),
+        }),
+      )
+      .describe("Every precondition of the project, sorted by key"),
     mutates: false,
     async run(ctx) {
       const info = await projectInfo(projectOf(ctx));
@@ -246,11 +215,11 @@ export const commands = [
     name: "xray.browse",
     summary: "The Jira page of an issue (<site>/browse/<KEY>), to open it in the browser. No network.",
     input: z.object({ key: z.string().describe("Issue key, e.g. LFRPS12-1420") }),
-    output: z.object({ url: z.string() }),
+    output: z.object({ url: z.string().describe("The issue's page on the Jira site") }),
     mutates: false,
     positional: ["key"],
     async run(_ctx, input) {
-      if (!/^[A-Za-z][A-Za-z0-9]*-[0-9]+$/.test(input.key.trim()))
+      if (!ISSUE_KEY.test(input.key.trim()))
         throw new UserError(`"${input.key}" is not an issue key.`, "Write it like LFRPS12-1420.");
       return { url: browseUrl(input.key.trim().toUpperCase()) };
     },
@@ -268,9 +237,18 @@ export const commands = [
       overwrite: z.boolean().default(false).describe("Replace a local copy that has unpushed changes"),
     }),
     output: z.object({
-      pulled: z.array(z.string()),
-      skipped: z.array(z.object({ key: z.string(), reason: z.string() })),
-      failed: z.array(z.object({ key: z.string(), error: z.string() })),
+      pulled: z.array(z.string()).describe("Keys written to tests/, sorted"),
+      skipped: z
+        .array(
+          z.object({
+            key: z.string().describe("Issue key"),
+            reason: z.string().describe("Why it was left as it is"),
+          }),
+        )
+        .describe("Local copies kept because they hold unpushed or never-synced work"),
+      failed: z
+        .array(z.object({ key: z.string().describe("Issue key"), error: z.string().describe("What went wrong") }))
+        .describe("Keys that could not be pulled"),
     }),
     mutates: true,
     job: "pull",
@@ -337,32 +315,42 @@ export const commands = [
   command({
     name: "xray.status",
     summary:
-      "Sync state of one or every local test against Jira: re-checks Jira for the tests that were synced (no image download).",
-    input: z.object({ id: id.optional().describe("One test id; every test of the project when absent") }),
-    output: z.object({
-      tests: z.array(
-        z.object({
-          id: z.string(),
-          key: z.string().optional(),
-          sync: syncEnum,
-          remote: z.enum(["unchanged", "remote-changed", "unverified"]),
-        }),
-      ),
-    }),
+      "Sync state of one local test against Jira: re-checks Jira when the test was synced (no image download). xray.statusAll checks every test.",
+    input: z.object({ id }),
+    output: statusOut,
     mutates: false,
+    positional: ["id"],
     async run(ctx, input) {
       const project = projectOf(ctx);
-      const one = input.id ? localTestRef(project, input.id) : null;
-      if (input.id && !one)
-        throw new UserError(`No test ${input.id} in this project.`, "testimus tests list shows them.");
-      const refs = one ? [one] : listLocalTests(project);
+      const one = localTestRef(project, input.id);
+      if (!one)
+        throw new UserError(`No test ${input.id} in this project.`, "testimus tests list shows them.", "not-found");
+      return { tests: [await statusOf(project, one)] };
+    },
+  }),
+
+  command({
+    name: "xray.statusAll",
+    summary:
+      "Sync state of every local test against Jira (job): re-checks Jira for each test that was synced, one request per test, cancellable.",
+    input: z.object({}),
+    output: statusOut,
+    mutates: false,
+    job: "status",
+    subject: () => "every test",
+    async run(ctx) {
+      const project = projectOf(ctx);
+      const refs = listLocalTests(project);
+      let done = 0;
+      ctx.progress({ message: `${refs.length} tests to check`, done, total: refs.length });
       const tests = await Promise.all(
         refs.map(async (r) => {
-          const remote = r.key && r.synced ? await checkRemote(project, r.id) : ("unverified" as const);
-          const now = localTestRef(project, r.id) ?? r;
-          return { id: r.id, ...(r.key ? { key: r.key } : {}), sync: now.sync, remote };
+          const row = await statusOf(project, r);
+          ctx.progress({ message: `${r.id}: ${row.remote}`, done: ++done, total: refs.length });
+          return row;
         }),
       );
+      throwIfAborted(ctx.signal);
       return { tests };
     },
   }),
@@ -370,10 +358,11 @@ export const commands = [
   command({
     name: "xray.plan",
     summary:
-      "What a push of one test would do in Jira (re-reads Jira, writes nothing): ops, warnings and the planHash xray.push needs.",
+      "What a push of one test would do in Jira (re-reads Jira, writes nothing): ops, warnings and the planHash xray.push needs. The same plan as xray.push --dry-run, as a read a Claude run may call (it may not call xray.push).",
     input: z.object({ id }),
     output: planSchema,
     mutates: false,
+    positional: ["id"],
     async run(ctx, input) {
       return planView(await pushTest(projectOf(ctx), input.id));
     },
@@ -382,7 +371,7 @@ export const commands = [
   command({
     name: "xray.push",
     summary:
-      "Push one test to Jira: runs the plan the user confirmed (planHash from xray.plan) op by op and stops at the first failure or a cancel. dryRun returns the plan only; from resumes a stopped push at that op.",
+      "Push one test to Jira (job). dryRun returns the plan — ops, warnings and its planHash — and writes nothing; without dryRun, runs the plan the user confirmed (that planHash) op by op and stops at the first failure or a cancel; from resumes a stopped push at that op.",
     input: z.object({
       id,
       dryRun: z.boolean().default(false).describe("Return the plan (and its planHash) without writing anything"),
@@ -404,12 +393,12 @@ export const commands = [
         .describe("Resume the push that stopped, from this op index (failedAt of the previous result)"),
     }),
     output: z.object({
-      ok: z.boolean(),
+      ok: z.boolean().describe("Every op ran (a dry run: the plan was built)"),
       id: z.string().describe("The test id after the push — the new Jira key when the test was created"),
-      plan: planSchema,
-      ops: z.array(opResult),
-      failedAt: z.number().optional(),
-      error: z.string().optional(),
+      plan: planSchema.describe("The plan run, or to run"),
+      ops: z.array(opResult).describe("Each op of the plan and what happened to it"),
+      failedAt: z.number().optional().describe("Index of the op that failed or was not started after a cancel"),
+      error: z.string().optional().describe("Why the push stopped, or why the refresh after it failed"),
       cancelled: z
         .boolean()
         .optional()
@@ -417,28 +406,9 @@ export const commands = [
     }),
     mutates: true,
     job: "push",
-    subject: (i) => i.id,
+    subject: (i) => (i.dryRun ? `${i.id} (plan only)` : i.id),
     async run(ctx, input) {
-      const project = projectOf(ctx);
-      const slot = `${resolve(project)}|${input.id}`;
-      if (!input.dryRun) {
-        if (!input.planHash)
-          throw new UserError(
-            "A push runs only the plan you looked at — no planHash given.",
-            `Run xray.plan for ${input.id} (or push with dryRun), check its ops, then push with its planHash.`,
-          );
-        if (pushing.has(slot))
-          throw new UserError(
-            `A push of ${input.id} is already running.`,
-            "Wait for it to finish (Jobs shows it), then look at the new plan.",
-          );
-        pushing.add(slot);
-      }
-      try {
-        return await push(ctx, project, slot, input);
-      } finally {
-        if (!input.dryRun) pushing.delete(slot);
-      }
+      return runPush(ctx, projectOf(ctx), input);
     },
   }),
 ];

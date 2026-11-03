@@ -4,9 +4,10 @@ import { UserError } from "../../command.ts";
 import { docDir, findDoc, readDocMd, readFigures } from "../../lib/docs.ts";
 import { readProject } from "../../lib/project.ts";
 import type { DocJson, FigureEntry, Passage, PassageOutlineItem } from "../../types.ts";
+import { normalizeAnchor } from "../anchors.ts";
 import { docFigures, lines, markerLine, parseSections, type Section, sectionAt, stripComments } from "../chunk.ts";
 
-export type FigureView = FigureEntry & {
+type FigureView = FigureEntry & {
   docId: string;
   n: string;
   path: string;
@@ -24,7 +25,7 @@ function loadDoc(
 ): { doc: Partial<DocJson>; md: string; figures: FigureEntry[]; dir: string } {
   const dir = docDir(project, docId);
   if (!existsSync(join(dir, "doc.md")))
-    throw new UserError(`No document ${docId} in this project.`, "testimus docs list shows the documents.");
+    throw new UserError(`No document ${docId} in this project.`, "testimus docs list shows the documents.", "doc-gone");
   return {
     doc: findDoc(project, docId) ?? {},
     md: readDocMd(project, docId),
@@ -38,15 +39,9 @@ export function passageMaxChars(project: string): number {
   return typeof n === "number" && n > 0 ? n : PASSAGE_MAX_CHARS;
 }
 
-export function normalizeAnchor(anchor: string): string {
-  const a = anchor.trim();
-  if (/^fig[:\s]/i.test(a)) return `fig:${a.slice(4).trim()}`;
-  return `§${a.replace(/^§\s*/, "")}`;
-}
-
 const levelOf = (ls: string[], s: Section) => /^(#+)/.exec(ls[s.line])?.[1].length ?? 7;
 
-export function sectionEnd(ls: string[], sections: Section[], s: Section): number {
+function sectionEnd(ls: string[], sections: Section[], s: Section): number {
   const next = sections.find((x) => x.line > s.line);
   return next ? next.line : ls.length;
 }
@@ -113,7 +108,7 @@ const squeeze = (s: string) => stripComments(s).replace(/\*/g, "").replace(/\s+/
 
 // ponytail: the line where a quote starts inside [from, to), found whitespace- and case-folded the way the check and
 // the Review highlight read it (a quote may run over several lines)
-export function quoteLine(ls: string[], from: number, to: number, quote: string): number | null {
+function quoteLine(ls: string[], from: number, to: number, quote: string): number | null {
   const q = squeeze(quote);
   if (!q) return null;
   let joined = "";
