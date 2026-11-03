@@ -39,7 +39,7 @@ export function effectiveContexts(project: string, testId?: string): string[] {
   return ids.filter((id) => /^[\w-]+$/.test(id) && existsSync(contextDir(project, id)));
 }
 
-export function readDocContexts(project: string, docId: string): string[] | null {
+function readDocContexts(project: string, docId: string): string[] | null {
   const c = findDoc(project, docId)?.contexts;
   return Array.isArray(c) ? c.filter((x): x is string => typeof x === "string" && /^[\w-]+$/.test(x)) : null;
 }
@@ -128,6 +128,8 @@ export function readContexts(project: string, ids: string[]): Context[] {
 }
 
 const slash = (p: string) => p.replace(/\\/g, "/");
+
+export const EDIT_MARKER = "Use the edit-test skill for the request below.";
 
 export function scopeLines(scope: ClaudeScope): string[] {
   if (scope.kind === "project")

@@ -189,7 +189,8 @@ export function Toast({
           <Button
             variant="quiet"
             size="sm"
-            label={counting ? `${action.label} · ${left} s` : action.label}
+            label={action.label}
+            countdown={counting ? left : undefined}
             onClick={onAction ?? action.onAction}
           />
         )}
@@ -199,13 +200,18 @@ export function Toast({
   );
 }
 
-// ponytail: the stack, bottom right, once in the app shell
-export function Toaster() {
-  const list = useSyncExternalStore(
+/** the live toasts (for an adapter or a test); the stack reads the same store */
+export function useToasts(): readonly Item[] {
+  return useSyncExternalStore(
     subscribe,
     () => items,
     () => items,
   );
+}
+
+// ponytail: the stack, bottom right, once in the app shell
+export function Toaster() {
+  const list = useToasts();
   return (
     <section aria-label="Notifications" {...stylex.props(styles.stack)}>
       {list.map((t) => (

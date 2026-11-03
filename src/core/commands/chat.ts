@@ -1,9 +1,13 @@
 import { z } from "zod";
 import { ask, listChats, showChat } from "../claude/chat.ts";
+import { CONTEXT_IDS, CONVERSATION, DIAGNOSIS, EFFORT, MODEL, NOTE, TOKENS } from "../claude/schemas.ts";
 import { command, projectOf } from "../command.ts";
-import { CONTEXT_IDS, CONVERSATION, EFFORT, MODEL, NOTE } from "./claude.ts";
 
-const SOURCE = z.object({ docId: z.string(), anchor: z.string(), quote: z.string() });
+const SOURCE = z.object({
+  docId: z.string().describe("The document"),
+  anchor: z.string().describe("The section (§…), figure (fig:…) or page (page:…)"),
+  quote: z.string().describe("The exact words quoted from doc.md"),
+});
 
 export const commands = [
   command({
@@ -19,19 +23,16 @@ export const commands = [
       conversation: CONVERSATION,
     }),
     output: z.object({
-      chatId: z.string(),
-      sessionId: z.string().optional(),
-      ok: z.boolean(),
-      answer: z.string(),
-      sources: z.array(SOURCE),
-      costUsd: z.number().optional(),
-      tokens: z
-        .object({ input: z.number(), output: z.number() })
-        .optional()
-        .describe("Tokens the run used (input incl. cache)"),
-      diagnosis: z.object({ kind: z.string(), title: z.string(), detail: z.string() }).optional(),
+      chatId: z.string().describe("The conversation, to continue it"),
+      sessionId: z.string().optional().describe("The Claude Code session the conversation resumes"),
+      ok: z.boolean().describe("Whether Claude answered"),
+      answer: z.string().describe("Claude's answer, or why it failed"),
+      sources: z.array(SOURCE).describe("The sources the answer cites"),
+      costUsd: z.number().optional().describe("What the run cost"),
+      tokens: TOKENS.optional(),
+      diagnosis: DIAGNOSIS.optional(),
     }),
-    mutates: false,
+    mutates: true,
     job: "chat",
     positional: ["question"],
     subject: (i) => i.question.slice(0, 60),
@@ -54,7 +55,14 @@ export const commands = [
     name: "chat.list",
     summary: "The conversations with the documents, most recent first.",
     input: z.object({}),
-    output: z.array(z.object({ id: z.string(), title: z.string(), updatedAt: z.string(), turns: z.number() })),
+    output: z.array(
+      z.object({
+        id: z.string().describe("Conversation id"),
+        title: z.string().describe("Its first question"),
+        updatedAt: z.string().describe("When it last changed"),
+        turns: z.number().describe("How many questions and answers"),
+      }),
+    ),
     mutates: false,
     async run(ctx) {
       return listChats(projectOf(ctx));
@@ -65,11 +73,19 @@ export const commands = [
     summary: "One conversation with all its turns.",
     input: z.object({ chatId: z.string().describe("Conversation id (from chat.list).") }),
     output: z.object({
-      id: z.string(),
-      sessionId: z.string().optional(),
-      title: z.string(),
-      turns: z.array(z.object({ role: z.enum(["user", "assistant"]), text: z.string(), at: z.string() })),
-      updatedAt: z.string(),
+      id: z.string().describe("Conversation id"),
+      sessionId: z.string().optional().describe("The Claude Code session it resumes"),
+      title: z.string().describe("Its first question"),
+      turns: z
+        .array(
+          z.object({
+            role: z.enum(["user", "assistant"]).describe("user = the question, assistant = Claude's answer"),
+            text: z.string().describe("What was said"),
+            at: z.string().describe("When"),
+          }),
+        )
+        .describe("The questions and answers, in order"),
+      updatedAt: z.string().describe("When it last changed"),
     }),
     mutates: false,
     positional: ["chatId"],

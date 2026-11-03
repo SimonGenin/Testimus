@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { type KeyboardEvent, useState } from "react";
+import { type KeyboardEvent, type ReactNode, useState } from "react";
 import { useDraft } from "../../lib/data/autosave.ts";
 import {
   border,
@@ -103,6 +103,10 @@ export type ClaudeBlockProps = Omit<TextProps, "multiline" | "appearance" | "onK
   contexts?: { id: string; label: string; on: boolean }[];
   onContext?: (id: string, on: boolean) => void;
   onAddContext?: () => void;
+  /** in place of the « Add context » button: a trigger of the owner's (a Popover listing the contexts) */
+  addContext?: ReactNode;
+  /** inside the frame, under the text and above the foot (an additional note, a custom model's name) */
+  children?: ReactNode;
   /** chips that put their prompt in the box; typing clears the pressed one */
   quickAsks?: { label: string; prompt: string }[];
   model?: Choice;
@@ -135,6 +139,8 @@ export function ClaudeBlock(props: ClaudeBlockProps) {
     contexts,
     onContext,
     onAddContext,
+    addContext,
+    children,
     quickAsks,
     model,
     effort,
@@ -209,9 +215,17 @@ export function ClaudeBlock(props: ClaudeBlockProps) {
               onToggle={() => onContext?.(c.id, !c.on)}
             />
           ))}
-          {onAddContext && (
-            <Button size="sm" variant="quiet" icon="plus" label="Add context" disabled={busy} onClick={onAddContext} />
-          )}
+          {addContext ??
+            (onAddContext && (
+              <Button
+                size="sm"
+                variant="quiet"
+                icon="plus"
+                label="Add context"
+                disabled={busy}
+                onClick={onAddContext}
+              />
+            ))}
         </div>
       )}
       {quickAsks && quickAsks.length > 0 && (
@@ -245,6 +259,7 @@ export function ClaudeBlock(props: ClaudeBlockProps) {
         onKeyDown={onKeyDown}
         draftKey={undefined}
       />
+      {children}
       {!autosave && (
         <div {...stylex.props(styles.foot, busy && styles.footRunning)}>
           {scope && (

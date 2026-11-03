@@ -1,4 +1,5 @@
 import os from "node:os";
+import { every } from "../../shared/run/work.ts";
 import { readSettings } from "./project.ts";
 
 export const AGENTS_DEFAULT = 5;
@@ -72,15 +73,15 @@ export function agentPool(
   let active = 0;
   const waiting: (() => void)[] = [];
   let prev = adaptive ? deps.cpus() : { idle: 0, total: 0 };
-  let timer: ReturnType<typeof setInterval> | undefined;
+  let stopTicks: (() => void) | undefined;
   const pump = () => {
     while (active < limit && waiting.length) {
       active++;
       waiting.shift()?.();
     }
-    if (!active && !waiting.length && timer) {
-      clearInterval(timer);
-      timer = undefined;
+    if (!active && !waiting.length && stopTicks) {
+      stopTicks();
+      stopTicks = undefined;
     }
   };
   const tick = () => {
@@ -96,10 +97,7 @@ export function agentPool(
   };
   return {
     async run(work) {
-      if (adaptive && !timer) {
-        timer = setInterval(tick, deps.everyMs);
-        timer.unref?.();
-      }
+      if (adaptive && !stopTicks) stopTicks = every(deps.everyMs, tick);
       await new Promise<void>((r) => {
         waiting.push(r);
         pump();

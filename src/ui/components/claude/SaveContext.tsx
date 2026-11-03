@@ -19,8 +19,7 @@ export function SaveContext({
   const save = async () => {
     setSaving(true);
     try {
-      const c = await call<ContextSummary>("contexts.create", { name: name.trim(), shared });
-      await call("contexts.set", { id: c.id, notes: note.trim() });
+      const c = await call<ContextSummary>("contexts.create", { name: name.trim(), shared, notes: note.trim() });
       window.dispatchEvent(new Event(CONTEXTS_EVENT));
       toast({ kind: "ok", title: `Context « ${name.trim()} » saved` });
       onSaved(c.id);

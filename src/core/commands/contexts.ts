@@ -1,95 +1,47 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
-import { basename, isAbsolute, join, resolve } from "node:path";
+import { rmSync } from "node:fs";
+import { join } from "node:path";
 import { z } from "zod";
-import {
-  contextDir,
-  effectiveContexts,
-  isShared,
-  projectContexts,
-  readContextFile,
-  readContexts,
-  readTestContexts,
-  sharedContexts,
-  writeContextFile,
-  writeTestContexts,
-} from "../claude/prompt.ts";
+import { effectiveContexts, projectContexts, readTestContexts, writeTestContexts } from "../claude/prompt.ts";
 import { command, projectOf, UserError } from "../command.ts";
-import { copyDirAtomic } from "../lib/atomic.ts";
-import { isProject, readProject } from "../lib/project.ts";
-import { hex8, testExists, writeAtomic } from "../lib/store.ts";
+import { unchangedSince } from "../lib/atomic.ts";
+import {
+  addContextFile,
+  contextFolder,
+  copyContext,
+  createContext,
+  listContexts,
+  otherProject,
+  removeContextFile,
+  setContext,
+  shareContext,
+  showContext,
+} from "../lib/contexts.ts";
+import { readProject } from "../lib/project.ts";
+import { testExists } from "../lib/store.ts";
+import { IF_MTIME } from "../schemas.ts";
 
 const ID = z.string().regex(/^[\w-]+$/, "A context id: letters, digits, _ and -");
 const id = ID.describe("Context id: the folder under contexts/ (ctx-<8hex>)");
 const testId = z.string().describe("Test id: the folder under tests/ — a Jira key or local-<8hex>");
 
 const summary = z.object({
-  id: z.string(),
-  name: z.string(),
+  id: z.string().describe("Context id"),
+  name: z.string().describe("Name shown in the UI and in Claude's prompt"),
   paths: z.array(z.string()).describe("Folders or files outside the project Claude may read in place"),
   files: z.array(z.string()).describe("Files copied into contexts/<id>/files/"),
-  hasNotes: z.boolean(),
+  hasNotes: z.boolean().describe("context.md has notes"),
   shared: z.boolean().describe("In the shared library every project sees, not in this project's contexts/"),
 });
-const detail = summary.extend({ notes: z.string().describe("The notes: the body of contexts/<id>/context.md") });
+const detail = summary.extend({
+  notes: z.string().describe("The notes: the body of contexts/<id>/context.md"),
+  mtime: z.number().describe("context.md modification time (ms, rounded): contexts.set ifMtime"),
+});
+const PATHS =
+  "Folders or files Claude may read in place, absolute or relative to the project folder (replaces the list)";
 
-function otherProject(from: string, project: string): string {
-  const dir = resolve(from);
-  if (!isProject(dir)) throw new UserError(`${from} is not a project folder.`, "testimus project list shows them.");
-  if (dir === resolve(project)) throw new UserError("That is this project.", "Pick another project folder.");
-  return dir;
-}
-
-function mustExist(project: string, cid: string): string {
-  const dir = contextDir(project, cid);
-  if (!existsSync(dir) || !statSync(dir).isDirectory())
-    throw new UserError(`No context ${cid} in this project.`, "testimus contexts list shows them.");
-  return dir;
-}
-
-function show(project: string, cid: string) {
-  const [c] = readContexts(project, [cid]);
-  if (!c) throw new UserError(`No context ${cid} in this project.`, "testimus contexts list shows them.");
-  return {
-    id: c.id,
-    name: c.name,
-    paths: c.paths,
-    files: c.files,
-    hasNotes: !!c.text.trim(),
-    shared: isShared(project, c.id),
-    notes: c.text,
-  };
-}
-
-const idsIn = (root: string) =>
-  existsSync(root)
-    ? readdirSync(root, { withFileTypes: true })
-        .filter((d) => d.isDirectory() && /^[\w-]+$/.test(d.name))
-        .map((d) => d.name)
-    : [];
-
-function list(project: string, withShared = true) {
-  const ids = [...new Set([...idsIn(join(project, "contexts")), ...(withShared ? idsIn(sharedContexts()) : [])])];
-  return readContexts(project, ids)
-    .map((c) => ({
-      id: c.id,
-      name: c.name,
-      paths: c.paths,
-      files: c.files,
-      hasNotes: !!c.text.trim(),
-      shared: isShared(project, c.id),
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name));
-}
-
-const safeName = (name: string) => basename(name).replace(/[<>:"/\\|?*]+/g, "_") || "file";
-
-function freeName(dir: string, name: string): string {
-  const dot = name.lastIndexOf(".");
-  const stem = dot > 0 ? name.slice(0, dot) : name;
-  const ext = dot > 0 ? name.slice(dot) : "";
-  let out = name;
-  for (let k = 2; existsSync(join(dir, out)); k++) out = `${stem} (${k})${ext}`;
-  return out;
+function mustHaveTest(project: string, test: string): void {
+  if (!testExists(project, test))
+    throw new UserError(`No test ${test} in this project.`, "testimus tests list shows the tests.");
 }
 
 export const commands = [
@@ -107,7 +59,7 @@ export const commands = [
     mutates: false,
     async run(ctx, input) {
       const project = projectOf(ctx);
-      return input.from ? list(otherProject(input.from, project), false) : list(project);
+      return input.from ? listContexts(otherProject(input.from, project), false) : listContexts(project);
     },
   }),
   command({
@@ -118,29 +70,26 @@ export const commands = [
     mutates: false,
     positional: ["id"],
     async run(ctx, input) {
-      return show(projectOf(ctx), input.id);
+      return showContext(projectOf(ctx), input.id);
     },
   }),
   command({
     name: "contexts.create",
-    summary: "Create an empty context (contexts/ctx-<8hex>/, or in the shared library with --shared).",
+    summary:
+      "Create a context (contexts/ctx-<8hex>/, or in the shared library with --shared), empty or with its notes and outside paths — « Save as context » is one call.",
     input: z.object({
       name: z.string().optional().describe("Name shown in the UI and in Claude's prompt (default: New context)"),
       shared: z
         .boolean()
         .optional()
         .describe("Put it in the shared library every project sees (default: this project)"),
+      notes: z.string().optional().describe("Its notes, the body of context.md (default: none)"),
+      paths: z.array(z.string()).optional().describe(PATHS),
     }),
     output: detail,
     mutates: true,
     async run(ctx, input) {
-      const project = projectOf(ctx);
-      let cid = `ctx-${hex8()}`;
-      while (existsSync(contextDir(project, cid))) cid = `ctx-${hex8()}`;
-      const dir = join(input.shared ? sharedContexts() : join(project, "contexts"), cid);
-      mkdirSync(join(dir, "files"), { recursive: true });
-      writeContextFile(dir, { name: input.name?.trim() || "New context", paths: [], notes: "" });
-      return show(project, cid);
+      return createContext(projectOf(ctx), input);
     },
   }),
   command({
@@ -155,13 +104,7 @@ export const commands = [
     mutates: true,
     positional: ["from", "id"],
     async run(ctx, input) {
-      const project = projectOf(ctx);
-      const source = mustExist(otherProject(input.from, project), input.id);
-      let cid = input.id;
-      while (existsSync(contextDir(project, cid))) cid = `ctx-${hex8()}`;
-      mkdirSync(join(project, "contexts"), { recursive: true });
-      copyDirAtomic(source, contextDir(project, cid));
-      return show(project, cid);
+      return copyContext(projectOf(ctx), input.from, input.id);
     },
   }),
   command({
@@ -176,45 +119,27 @@ export const commands = [
     mutates: true,
     positional: ["id"],
     async run(ctx, input) {
-      const project = projectOf(ctx);
-      const from = mustExist(project, input.id);
-      if (isShared(project, input.id) === input.shared) return show(project, input.id);
-      const to = join(input.shared ? sharedContexts() : join(project, "contexts"), input.id);
-      if (existsSync(to)) throw new UserError(`A context ${input.id} is already there.`);
-      mkdirSync(join(to, ".."), { recursive: true });
-      // ponytail: copy then delete — the library sits in AppData, the project often on another drive
-      copyDirAtomic(from, to);
-      rmSync(from, { recursive: true, force: true });
-      return show(project, input.id);
+      return shareContext(projectOf(ctx), input.id, input.shared);
     },
   }),
   command({
     name: "contexts.set",
-    summary: "Change a context (contexts/<id>/context.md): its name, its notes or its list of outside paths.",
+    summary:
+      "Change a context (contexts/<id>/context.md): its name, its notes or its list of outside paths. With ifMtime, refused (code conflict) when context.md changed on disk since it was read.",
     input: z.object({
       id,
       name: z.string().optional().describe("New name"),
       notes: z.string().optional().describe("New notes, the body of context.md (markdown, may be empty)"),
-      paths: z
-        .array(z.string())
-        .optional()
-        .describe(
-          "Folders or files Claude may read in place, absolute or relative to the project folder (replaces the list)",
-        ),
+      paths: z.array(z.string()).optional().describe(PATHS),
+      ifMtime: IF_MTIME,
     }),
     output: detail,
     mutates: true,
     positional: ["id"],
     async run(ctx, input) {
       const project = projectOf(ctx);
-      const dir = mustExist(project, input.id);
-      const c = readContextFile(dir);
-      if (input.name !== undefined) c.name = input.name.trim() || c.name || input.id;
-      // ponytail: a path is kept as typed (Xray Editor); a relative one is read from the project folder, Claude's cwd
-      if (input.paths) c.paths = [...new Set(input.paths.map((p) => p.trim()).filter(Boolean))];
-      if (input.notes !== undefined) c.notes = input.notes;
-      if (input.name !== undefined || input.paths || input.notes !== undefined) writeContextFile(dir, c);
-      return show(project, input.id);
+      unchangedSince(join(contextFolder(project, input.id), "context.md"), input.ifMtime, `Context ${input.id}`);
+      return setContext(project, input.id, input);
     },
   }),
   command({
@@ -231,19 +156,8 @@ export const commands = [
     positional: ["id", "file"],
     async run(ctx, input) {
       const project = projectOf(ctx);
-      const files = join(mustExist(project, input.id), "files");
-      mkdirSync(files, { recursive: true });
-      let added: string;
-      if (input.dataBase64 !== undefined) {
-        added = freeName(files, safeName(input.name ?? "file"));
-        writeAtomic(join(files, added), Buffer.from(input.dataBase64.replace(/^data:[^,]*,/, ""), "base64"));
-      } else if (input.file) {
-        if (!isAbsolute(input.file) || !existsSync(input.file) || !statSync(input.file).isFile())
-          throw new UserError(`No file ${input.file}.`, "Give the absolute path of an existing file.");
-        added = freeName(files, safeName(input.file));
-        writeAtomic(join(files, added), readFileSync(input.file));
-      } else throw new UserError("Give a file or an upload.", "contexts addFile <id> /path/to/glossary.pdf");
-      return { ...show(project, input.id), added };
+      const added = addContextFile(project, input.id, input);
+      return { ...showContext(project, input.id), added };
     },
   }),
   command({
@@ -254,12 +168,7 @@ export const commands = [
     mutates: true,
     positional: ["id", "name"],
     async run(ctx, input) {
-      const project = projectOf(ctx);
-      const files = join(mustExist(project, input.id), "files");
-      if (basename(input.name) !== input.name || input.name.includes(".."))
-        throw new UserError(`"${input.name}" is not a file of this context.`);
-      rmSync(join(files, input.name), { force: true });
-      return show(project, input.id);
+      return removeContextFile(projectOf(ctx), input.id, input.name);
     },
   }),
   command({
@@ -267,12 +176,14 @@ export const commands = [
     summary:
       "Delete a context folder (a shared one for every project); tests and project defaults that named it simply stop attaching it (outside paths are not touched).",
     input: z.object({ id }),
-    output: z.object({ id: z.string(), removed: z.boolean() }),
+    output: z.object({
+      id: z.string().describe("The context id"),
+      removed: z.boolean().describe("The folder is gone"),
+    }),
     mutates: true,
     positional: ["id"],
     async run(ctx, input) {
-      const project = projectOf(ctx);
-      rmSync(mustExist(project, input.id), { recursive: true, force: true });
+      rmSync(contextFolder(projectOf(ctx), input.id), { recursive: true, force: true });
       return { id: input.id, removed: true };
     },
   }),
@@ -290,7 +201,7 @@ export const commands = [
     positional: ["testId"],
     async run(ctx, input) {
       const project = projectOf(ctx);
-      if (!testExists(project, input.testId)) throw new UserError(`No test ${input.testId} in this project.`);
+      mustHaveTest(project, input.testId);
       return {
         effective: effectiveContexts(project, input.testId),
         own: readTestContexts(project, input.testId),
@@ -319,12 +230,15 @@ export const commands = [
       testId,
       contexts: z.array(ID).nullable().describe("Context ids for this test, or null to follow the project"),
     }),
-    output: z.object({ effective: z.array(z.string()), own: z.array(z.string()).nullable() }),
+    output: z.object({
+      effective: z.array(z.string()).describe("Context ids a run on this test attaches (existing ones only)"),
+      own: z.array(z.string()).nullable().describe("The test's own list, null when it follows the project"),
+    }),
     mutates: true,
     positional: ["testId"],
     async run(ctx, input) {
       const project = projectOf(ctx);
-      if (!testExists(project, input.testId)) throw new UserError(`No test ${input.testId} in this project.`);
+      mustHaveTest(project, input.testId);
       writeTestContexts(project, input.testId, input.contexts);
       return { effective: effectiveContexts(project, input.testId), own: readTestContexts(project, input.testId) };
     },

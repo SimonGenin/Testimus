@@ -1,4 +1,6 @@
+import { LOOPBACK } from "../shared/loopback.ts";
 import { killChildren } from "../shared/run/process.ts";
+import { scope, sleep, timeout } from "../shared/run/work.ts";
 import { cancelAll } from "./jobs.ts";
 import type { Job } from "./types.ts";
 
@@ -11,18 +13,9 @@ export function shellOf(value = process.env.TESTIMUS_SHELL): Shell {
   return { face, version: m[2], label: `${face} ${m[2]}` };
 }
 
-export const LOOPBACK = ["localhost", "127.0.0.1", "::1"];
-
 function noProxyOf(vars: NodeJS.ProcessEnv): string {
   const key = Object.keys(vars).find((k) => k.toUpperCase() === "NO_PROXY" && vars[k]);
   return key ? (vars[key] ?? "") : "";
-}
-
-export function withLoopbackNoProxy(value: string | undefined): string {
-  const have = (value ?? "").split(",").map((s) => s.trim().toLowerCase());
-  const missing = LOOPBACK.filter((h) => !have.includes(h));
-  if (!missing.length) return value ?? "";
-  return value?.trim() ? `${value},${missing.join(",")}` : missing.join(",");
 }
 
 // ponytail: Node reads the proxy variables once at start-up; with NODE_USE_ENV_PROXY=1 and HTTP_PROXY set, a plain
@@ -54,32 +47,28 @@ export type Stopped = { jobs: Job[]; killed: number[] };
 // then any claude still alive outside a job, then the local model servers; a hard deadline covers a stuck step
 export async function stopCore(o: StopOpts): Promise<Stopped> {
   const grace = o.graceMs ?? 5000;
-  const force = setTimeout(() => o.exit(1), grace + 1000);
-  try {
-    o.closeServer?.();
-    const cancelled = cancelAll(grace);
-    const killed = killChildren();
-    const jobs = await cancelled;
-    killed.push(...killChildren().filter((p) => !killed.includes(p)));
-    const { stopAllServers } = await import("./rag/runtimes/llamacpp.ts");
-    await Promise.race([stopAllServers().catch(() => {}), new Promise((r) => setTimeout(r, grace).unref())]);
-    o.dropConnections?.();
-    clearTimeout(force);
-    o.exit(0);
-    return { jobs, killed };
-  } catch (e) {
-    clearTimeout(force);
-    process.stderr.write(`Stopping Testimus: ${e instanceof Error ? e.message : String(e)}\n`);
-    o.exit(1);
-    return { jobs: [], killed: [] };
-  }
-}
-
-export function onParentGone(stdin: NodeJS.ReadableStream, stop: () => void): void {
-  stdin.on("end", stop);
-  stdin.on("close", stop);
-  stdin.on("error", stop);
-  stdin.resume();
+  return scope(async (s) => {
+    sleep(grace + 1000, s.signal).then(
+      () => o.exit(1),
+      () => {},
+    );
+    try {
+      o.closeServer?.();
+      const cancelled = cancelAll(grace);
+      const killed = killChildren();
+      const jobs = await cancelled;
+      killed.push(...killChildren().filter((p) => !killed.includes(p)));
+      const { stopAllServers } = await import("./rag/runtimes/llamacpp.ts");
+      await timeout(grace, () => stopAllServers()).catch(() => {});
+      o.dropConnections?.();
+      o.exit(0);
+      return { jobs, killed };
+    } catch (e) {
+      process.stderr.write(`Stopping Testimus: ${e instanceof Error ? e.message : String(e)}\n`);
+      o.exit(1);
+      return { jobs: [], killed: [] };
+    }
+  });
 }
 
 export const STOP_SIGNALS: NodeJS.Signals[] = ["SIGINT", "SIGTERM", "SIGBREAK", "SIGHUP"];

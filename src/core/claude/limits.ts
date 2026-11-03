@@ -1,14 +1,14 @@
-import { spawn } from "node:child_process";
-import { setTimeout as wait } from "node:timers/promises";
-import { killTree } from "../../shared/run/process.ts";
+import { start } from "../../shared/run/process.ts";
+import { scope, sleep } from "../../shared/run/work.ts";
 import { type Ctx, UserError } from "../command.ts";
+import { env } from "../env.ts";
 import { AGENTS_CAP, busy, type CpuTimes, HOT_CPU, LOW_MB, type Load, loadDeps, loadLine } from "../lib/agents.ts";
 import type { AgentsLevel, AgentsMeasure } from "../types.ts";
 import { mcpServer } from "./run.ts";
 
 // ponytail: claude.exe itself is not started by the test (it would spend the subscription): its memory is counted
-export const CLAUDE_MB = 350;
-export const PACE_MS = 1500;
+const CLAUDE_MB = 350;
+const PACE_MS = 1500;
 
 const QUERIES = [
   "conditions de déclenchement de l'alarme",
@@ -23,7 +23,7 @@ export type ProbeWorker = {
   ready: Promise<void>;
   searches(since: number): number[];
   failure(): string | null;
-  stop(): void;
+  stop(): void | Promise<void>;
 };
 
 export type ProbeDeps = {
@@ -37,15 +37,11 @@ export type ProbeDeps = {
 };
 
 // ponytail: one worker is what an agent runs on this PC besides claude.exe — the project's Testimus MCP server, which
-// loads the embedding model in its own memory and searches the index now and then
+// loads the embedding model in its own memory and searches the index now and then; it is a child of the run layer
+// (registered, killed with its tree when Testimus stops)
 export function mcpWorker(project: string, paceMs = PACE_MS): ProbeWorker {
   const s = mcpServer();
-  const child = spawn(s.command, s.args, {
-    cwd: project,
-    windowsHide: true,
-    env: { ...process.env, ...s.env },
-    stdio: ["pipe", "pipe", "ignore"],
-  });
+  const stopping = new AbortController();
   const done: { at: number; ms: number }[] = [];
   const pending = new Map<number, () => void>();
   let failed: string | null = null;
@@ -55,12 +51,14 @@ export function mcpWorker(project: string, paceMs = PACE_MS): ProbeWorker {
   const readyP = new Promise<void>((r) => {
     ready = r;
   });
-  let buf = "";
-  child.stdout.setEncoding("utf8").on("data", (d: string) => {
-    buf += d;
-    for (let i = buf.indexOf("\n"); i >= 0; i = buf.indexOf("\n")) {
-      const line = buf.slice(0, i);
-      buf = buf.slice(i + 1);
+  const proc = start({
+    exe: s.command,
+    args: s.args,
+    cwd: project,
+    env: { ...process.env, ...s.env },
+    keepStdin: true,
+    onLine(line, stream) {
+      if (stream !== "stdout") return;
       try {
         const id = (JSON.parse(line) as { id?: unknown }).id;
         if (typeof id === "number") {
@@ -68,19 +66,24 @@ export function mcpWorker(project: string, paceMs = PACE_MS): ProbeWorker {
           pending.delete(id);
         }
       } catch {}
-    }
+    },
   });
   const end = (why: string | null) => {
     if (!stopped && why) failed = why;
     stopped = true;
+    stopping.abort();
     for (const r of pending.values()) r();
     pending.clear();
     ready();
   };
-  child.on("error", (e) => end(`the Testimus MCP server did not start: ${e.message}`));
-  child.on("exit", (code) => end(`the Testimus MCP server stopped (exit code ${code ?? "none"})`));
-  child.stdin.on("error", () => {});
-  const send = (msg: object) => child.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", ...msg })}\n`);
+  void proc.exited.then((exit) =>
+    end(
+      proc.pid === undefined
+        ? `the Testimus MCP server did not start: ${exit.error ?? exit.stderr}`
+        : `the Testimus MCP server stopped (exit code ${exit.code})`,
+    ),
+  );
+  const send = (msg: object) => proc.write(`${JSON.stringify({ jsonrpc: "2.0", ...msg })}\n`);
   const request = (method: string, params: object) =>
     new Promise<void>((r) => {
       if (stopped) return r();
@@ -101,16 +104,18 @@ export function mcpWorker(project: string, paceMs = PACE_MS): ProbeWorker {
       if (stopped) break;
       done.push({ at: Date.now(), ms: Date.now() - t0 });
       ready();
-      await wait(paceMs);
+      await sleep(paceMs, stopping.signal).catch(() => {});
     }
   })();
   return {
     ready: readyP,
     searches: (since) => done.filter((d) => d.at >= since).map((d) => d.ms),
     failure: () => failed,
-    stop() {
+    async stop() {
       stopped = true;
-      if (child.pid && child.exitCode === null) killTree(child.pid);
+      stopping.abort();
+      await proc.kill();
+      await proc.exited;
     },
   };
 }
@@ -120,7 +125,7 @@ export function probeDeps(project: string): ProbeDeps {
     start: () => mcpWorker(project),
     cpus: loadDeps.cpus,
     freeMB: loadDeps.freeMB,
-    sleep: (ms, signal) => wait(ms, undefined, { signal }).catch(() => {}),
+    sleep: (ms, signal) => sleep(ms, signal).catch(() => {}),
     now: () => Date.now(),
     windowMs: 6000,
     readyMs: 120000,
@@ -151,7 +156,8 @@ export async function probeAgents(ctx: Ctx, deps: ProbeDeps, cap = AGENTS_CAP): 
   const levels: AgentsLevel[] = [];
   let limit = 0;
   let reason = "";
-  try {
+  await scope(async (s) => {
+    s.defer(() => Promise.all(workers.map((w) => w.stop())));
     ctx.progress({ message: "Measuring the PC at rest" });
     const t = deps.cpus();
     await deps.sleep(deps.windowMs, ctx.signal);
@@ -200,9 +206,7 @@ export async function probeAgents(ctx: Ctx, deps: ProbeDeps, cap = AGENTS_CAP): 
       }
       limit = n;
     }
-  } finally {
-    for (const w of workers) w.stop();
-  }
+  });
   if (!reason) reason = ctx.signal.aborted ? "Cancelled." : `Reached ${cap}, the most Testimus allows.`;
-  return { limit: Math.max(1, limit), at: new Date().toISOString(), reason, levels };
+  return { limit: Math.max(1, limit), at: env.now().toISOString(), reason, levels };
 }

@@ -17,7 +17,7 @@ beforeEach(() => {
       const input = init?.body ? (JSON.parse(init.body) as Record<string, unknown>) : {};
       calls.push({ name, input });
       if (name === "system.settings") return new Response(JSON.stringify({ ui: saved }), { status: 200 });
-      if (name === "system.saveSettings") {
+      if (name === "system.set") {
         saved = input.ui as Record<string, string>;
         return new Response(JSON.stringify({}), { status: 200 });
       }
@@ -56,7 +56,7 @@ describe("page preferences kept in settings.json (desktop app)", () => {
     await vi.advanceTimersByTimeAsync(1000);
     expect(saved).toEqual({ "testimus.editorWidth": "900" });
     await vi.advanceTimersByTimeAsync(3000);
-    expect(calls.filter((c) => c.name === "system.saveSettings")).toHaveLength(1);
+    expect(calls.filter((c) => c.name === "system.set")).toHaveLength(1);
     localStorage.setItem("testimus.theme", "light");
     window.dispatchEvent(new Event("pagehide"));
     await vi.advanceTimersByTimeAsync(0);

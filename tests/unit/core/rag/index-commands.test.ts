@@ -10,6 +10,7 @@ import { fingerprintOf } from "../../../../src/core/rag/fingerprint.ts";
 import { indexProject } from "../../../../src/core/rag/indexer.ts";
 import type { ResolvedModel, SpaceFingerprint } from "../../../../src/core/types.ts";
 import { copyFixture, tempRoot } from "../../cov-faces-helpers.ts";
+import "../../../../src/core/commands/index.ts";
 
 const active = vi.hoisted(() => ({ embedding: null as unknown }));
 

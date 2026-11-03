@@ -1,4 +1,3 @@
-import type { ChildProcess } from "node:child_process";
 import { mkdirSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -60,7 +59,7 @@ let core: Core | null = null;
 let ready: Ready | null = null;
 let origin: string | null = null;
 let lastPort: number | undefined;
-let uiDev: ChildProcess | null = null;
+let uiDev: { pid?: number } | null = null;
 let errorMessage = "";
 let pendingFolder: string | null = args.folder;
 let zoom = 1;

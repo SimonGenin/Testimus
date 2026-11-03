@@ -1,4 +1,4 @@
-Snowball French reference vocabulary, used by tests/unit/stem-fr.test.ts.
+Snowball French reference vocabulary, used by tests/unit/core/rag/stem-fr.test.ts.
 
 voc.txt     input words, one per line
 output.txt  the stem of the word on the same line of voc.txt

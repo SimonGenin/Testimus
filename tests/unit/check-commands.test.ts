@@ -9,6 +9,7 @@ import { type ClaudeOut, type ClaudeSpawn, env } from "../../src/core/env.ts";
 import { recordSemantic } from "../../src/core/lib/check.ts";
 import { DEFAULT_SETTINGS, writeSettings } from "../../src/core/lib/project.ts";
 import { readCheck, readTest } from "../../src/core/lib/store.ts";
+import "../../src/core/commands/index.ts";
 
 const FIXTURE = new URL("../fixtures/project/", import.meta.url);
 const DOC = "SOSIE_211_D401-1_3";
@@ -37,6 +38,7 @@ function fakeSkill(
   o: { record?: boolean; tools?: (id: string) => string[] } = {},
 ) {
   env.spawnClaude = async (s) => {
+    if (s.args.includes("--version")) return { code: 0, stdout: "2.1.0 (Claude Code)\n", stderr: "" };
     seen.push(s);
     const id = testIdOf(s);
     await during(s, id);

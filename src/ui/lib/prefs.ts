@@ -94,6 +94,12 @@ export function writePref<N extends PrefName>(name: N, value: PrefValue<N>): voi
   changed();
 }
 
+// ponytail: outside React (the desktop mirror pushes a change at once, not on its next tick)
+export function onPrefsChange(fn: () => void): () => void {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
+
 export function usePref<N extends PrefName>(name: N): [PrefValue<N>, (value: PrefValue<N>) => void] {
   useSyncExternalStore(
     (fn) => {

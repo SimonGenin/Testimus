@@ -13,6 +13,8 @@ import {
   shellArgs,
 } from "../../../src/desktop/core.ts";
 
+const WIN = process.platform === "win32";
+
 describe("ready line", () => {
   it("reads the line serve --ready-json writes", () => {
     expect(parseReady('{"ready":true,"url":"http://127.0.0.1:53211/","pid":4242,"version":"0.2.0"}')).toEqual({
@@ -95,7 +97,7 @@ describe("core launch", () => {
     );
   });
 
-  it("finds node on the PATH, or TESTIMUS_NODE first", () => {
+  it.runIf(WIN)("finds node on the PATH, or TESTIMUS_NODE first (Windows)", () => {
     const sep = process.platform === "win32" ? ";" : ":";
     const exe = process.platform === "win32" ? "node.exe" : "node";
     const has = (p: string) => p === join("C:\\b", exe);
@@ -103,6 +105,14 @@ describe("core launch", () => {
     expect(findNode({ PATH: "C:\\a" }, has)).toBeNull();
     expect(findNode({ TESTIMUS_NODE: "D:\\n.exe", PATH: "C:\\b" }, (p) => p === "D:\\n.exe")).toBe("D:\\n.exe");
     expect(findNode({ TESTIMUS_NODE: "D:\\missing.exe", PATH: "C:\\b" }, has)).toBeNull();
+  });
+
+  it.runIf(!WIN)("finds node on the PATH, or TESTIMUS_NODE first (POSIX)", () => {
+    const has = (p: string) => p === join("/b", "node");
+    expect(findNode({ PATH: ["/a", '"/b"', ""].join(":") }, has)).toBe(join("/b", "node"));
+    expect(findNode({ PATH: "/a" }, has)).toBeNull();
+    expect(findNode({ TESTIMUS_NODE: "/opt/n", PATH: "/b" }, (p) => p === "/opt/n")).toBe("/opt/n");
+    expect(findNode({ TESTIMUS_NODE: "/opt/missing", PATH: "/b" }, has)).toBeNull();
   });
 
   it("tells the core it runs in the shell and never as Electron's Node", () => {
@@ -132,13 +142,25 @@ describe("core launch", () => {
     expect(devProxy.NO_PROXY).toBe("localhost,127.0.0.1,::1");
   });
 
-  it("reads --mock, --ui-dev and a folder from the command line", () => {
+  it.runIf(WIN)("reads --mock, --ui-dev and a folder from the command line (Windows)", () => {
     const dirs = new Set([join("D:\\", "proj")]);
     const a = shellArgs(["Testimus.exe", "--inspect=0", "dist/desktop/main.mjs", "--mock", "proj"], "D:\\", (p) =>
       dirs.has(p),
     );
     expect(a).toEqual({ mock: true, uiDev: false, folder: join("D:\\", "proj") });
     expect(shellArgs(["electron", "main.mjs", "--ui-dev"], "D:\\", () => false)).toEqual({
+      mock: false,
+      uiDev: true,
+      folder: null,
+    });
+  });
+  it.runIf(!WIN)("reads --mock, --ui-dev and a folder from the command line (POSIX)", () => {
+    const dirs = new Set([join("/home/u", "proj")]);
+    const a = shellArgs(["electron", "--inspect=0", "dist/desktop/main.mjs", "--mock", "proj"], "/home/u", (p) =>
+      dirs.has(p),
+    );
+    expect(a).toEqual({ mock: true, uiDev: false, folder: join("/home/u", "proj") });
+    expect(shellArgs(["electron", "main.mjs", "--ui-dev"], "/home/u", () => false)).toEqual({
       mock: false,
       uiDev: true,
       folder: null,

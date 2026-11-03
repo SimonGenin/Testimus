@@ -2,7 +2,7 @@ import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { _electron, type ElectronApplication, expect, type Page, test } from "@playwright/test";
 
 const ROOT = join(import.meta.dirname, "..", "..", "..");
@@ -53,10 +53,24 @@ function corePid(local: string): number {
   return Number(m[1]);
 }
 
+// ponytail: the program's name while the pid lives — tasklist on Windows, ps elsewhere (a zombie counts as gone)
 function running(pid: number): string | null {
+  if (process.platform !== "win32") {
+    const out = spawnSync("ps", ["-p", String(pid), "-o", "stat=,comm="], { encoding: "utf8" }).stdout.trim();
+    const m = out.match(/^(\S+)\s+(.+)$/);
+    return m && !m[1].startsWith("Z") ? basename(m[2]) : null;
+  }
   const out = spawnSync("tasklist", ["/FI", `PID eq ${pid}`, "/FO", "CSV", "/NH"], { encoding: "utf8" }).stdout;
   const m = out.match(/^"([^"]+)","(\d+)"/m);
   return m && Number(m[2]) === pid ? m[1] : null;
+}
+
+function killTree(pid: number): void {
+  if (process.platform === "win32") spawnSync("taskkill", ["/T", "/F", "/PID", String(pid)]);
+  else
+    try {
+      process.kill(pid, "SIGKILL");
+    } catch {}
 }
 
 async function call<T>(page: Page, name: string, input: unknown = {}, project?: string): Promise<T> {
@@ -141,11 +155,13 @@ test("the window opens on the splash, reaches Documents, and is locked down", as
       page.evaluate(() => window.testimusDesktop?.openExternal("file:///C:/Windows/notepad.exe")),
     ).rejects.toThrow(/https/);
 
-    const prefs = await app.evaluate(({ BrowserWindow }) => {
+    const prefs = await app.evaluate(({ BrowserWindow, Menu }) => {
       const w = BrowserWindow.getAllWindows()[0];
-      return { menu: w.isMenuBarVisible(), title: w.getTitle() };
+      const menus = Menu.getApplicationMenu()?.items.map((i) => i.label) ?? [];
+      return { menu: w.isMenuBarVisible(), title: w.getTitle(), menus };
     });
-    expect(prefs.menu).toBe(false);
+    if (process.platform === "darwin") expect(prefs.menus).toEqual(["Edit", "View"]);
+    else expect(prefs.menu).toBe(false);
     expect(prefs.title).toBe(await page.title());
 
     await page.evaluate(() => document.fonts.ready);
@@ -232,8 +248,9 @@ test("pickFolder (stubbed in the main process) opens a project; a second launch 
     await page.reload();
     await expect(page.getByRole("button", { name: /^Project DESK Desktop proof/ })).toBeVisible({ timeout: 30_000 });
 
-    expect(await page.evaluate((d) => window.testimusDesktop?.reveal(`${d}\\project.json`), dir)).toBe(true);
-    expect(await page.evaluate(() => window.testimusDesktop?.reveal("C:\\Windows\\System32"))).toBe(false);
+    const outside = process.platform === "win32" ? "C:\\Windows\\System32" : "/usr/bin";
+    expect(await page.evaluate((p) => window.testimusDesktop?.reveal(p), join(dir, "project.json"))).toBe(true);
+    expect(await page.evaluate((p) => window.testimusDesktop?.reveal(p), outside)).toBe(false);
     expect(await app.evaluate(() => (globalThis as unknown as { revealed: string[] }).revealed)).toEqual([
       join(dir, "project.json"),
     ]);
@@ -287,9 +304,8 @@ test("quitting with a running job asks first, then cancels it and leaves no proc
     core = corePid(shell.local);
     await quitAsks(shell, [launcherPid, electronPid], core);
   } finally {
-    for (const pid of [launcherPid, electronPid])
-      if (running(pid)) spawnSync("taskkill", ["/T", "/F", "/PID", String(pid)]);
-    if (core && running(core)) spawnSync("taskkill", ["/T", "/F", "/PID", String(core)]);
+    for (const pid of [launcherPid, electronPid]) if (running(pid)) killTree(pid);
+    if (core && running(core)) killTree(core);
   }
 });
 
@@ -349,7 +365,8 @@ async function quitAsks(shell: Shell, [launcherPid, electronPid]: number[], core
 }
 
 test("a core that cannot start shows the error page with its log, Restart and the log folder", async () => {
-  const shell = await launch({ TESTIMUS_NODE: "C:\\Windows\\System32\\where.exe" });
+  const notNode = process.platform === "win32" ? "C:\\Windows\\System32\\where.exe" : "/usr/bin/which";
+  const shell = await launch({ TESTIMUS_NODE: notNode });
   const { app, page } = shell;
   try {
     await expect(page.getByRole("heading", { name: "Testimus could not start" })).toBeVisible({ timeout: 30_000 });

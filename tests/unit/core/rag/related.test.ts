@@ -122,7 +122,7 @@ describe("rag.related", () => {
 
   describe("recall tools reach Claude (SPEC-RAG §4.6, SPEC §11)", () => {
     it("rag_mentions, rag_related and review_evidence are read-only tools of every run kind", async () => {
-      const { mcpAccess } = await import("../../../../src/core/claude/run.ts");
+      const { mcpAccess } = await import("../../../../src/core/claude/access.ts");
       for (const kind of ["chat", "check", "generate", "fix"] as const) {
         const { allow, deny } = await mcpAccess(kind);
         for (const t of ["rag_mentions", "rag_related", "review_evidence"]) {

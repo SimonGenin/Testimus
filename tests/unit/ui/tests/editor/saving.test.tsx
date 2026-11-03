@@ -53,7 +53,7 @@ beforeEach(() => {
   server.routes["xray.pull"] = () => ({ pulled: ["LFRPS12-7"], failed: [] });
   server.routes["contexts.ofTest"] = () => ({ effective: [], own: null });
   server.routes["contexts.list"] = () => [];
-  server.routes["tests.columns"] = () => ({ own: null });
+  server.routes["tests.folds"] = () => ({ own: null });
   server.routes["xray.preconditions"] = () => [];
   server.routes["xray.folders"] = () => ({ name: "/", path: "/", testsCount: 0, totalCount: 0, folders: [] });
   server.routes["xray.status"] = (input) => ({ tests: [{ id: input.id, sync: "synced", remote: "unchanged" }] });

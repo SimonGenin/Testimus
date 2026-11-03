@@ -47,7 +47,7 @@ export const sameConversion = (a: DocConversion = {}, b: DocConversion = {}) =>
 
 const block = (example: DocConversion) => ["```" + CONVERSION_TAG, JSON.stringify(example), "```"];
 
-export function studyPrompt(
+function studyPrompt(
   doc: Pick<DocJson, "id" | "code" | "title" | "conversion">,
   inspection: unknown,
   extra: string[] = [],

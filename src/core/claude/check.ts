@@ -1,21 +1,15 @@
-import type { Ctx } from "../command.ts";
+import { type Ctx, UserError } from "../command.ts";
 import { agentPool, loadLine } from "../lib/agents.ts";
-import {
-  type Corpus,
-  loadCorpus,
-  readTestReview,
-  recordSemantic,
-  runMechanical,
-  semanticOf,
-  setReview,
-} from "../lib/check.ts";
+import { type Corpus, loadCorpus, recordSemantic, runMechanical, semanticOf } from "../lib/check.ts";
 import { readProject } from "../lib/project.ts";
-import { readCheck } from "../lib/store.ts";
+import { readTestReview, setReview } from "../lib/review.ts";
+import { listLocalTests, readCheck, testExists } from "../lib/store.ts";
 import type { CheckFile, Diagnosis, Finding, Review } from "../types.ts";
 import { proposeLines } from "./actions.ts";
 import { effectiveContexts } from "./prompt.ts";
-import { newRunId, runClaude } from "./run.ts";
+import { insideClaude, newRunId, runClaude } from "./run.ts";
 import { revert } from "./snapshot.ts";
+import { claudeVersion } from "./status.ts";
 import { calledFor } from "./stream.ts";
 
 export type TestCheck = {
@@ -28,6 +22,45 @@ export type TestCheck = {
   runId?: string;
   diagnosis?: Diagnosis;
 };
+
+export const inFolder = (folder: string, f: string) => {
+  const root = f.replace(/\/+$/, "");
+  return folder === root || folder.startsWith(`${root}/`) || root === "";
+};
+
+export function selectTests(project: string, input: { ids?: string[]; folder?: string; all?: boolean }): string[] {
+  const tests = listLocalTests(project);
+  if (input.all) return tests.map((t) => t.id);
+  if (!input.ids?.length && input.folder === undefined)
+    throw new UserError("Say which tests to check.", "Pass ids, a folder (--folder /Traction) or --all.");
+  const out = new Set<string>();
+  for (const t of input.ids ?? []) {
+    if (!testExists(project, t))
+      throw new UserError(`No test ${t} in this project.`, "testimus tests list shows the tests.");
+    out.add(t);
+  }
+  if (input.folder !== undefined) {
+    const f = input.folder;
+    const hit = tests.filter((t) => inFolder(t.folder, f));
+    if (!hit.length && !out.size)
+      throw new UserError(`No test in the folder ${f}.`, "testimus tests list shows the tests and their folders.");
+    for (const t of hit) out.add(t.id);
+  }
+  return [...out];
+}
+
+// ponytail: asked for, the semantic pass runs (a Claude that fails says so on each test); not said, it runs when Claude
+// Code is connected; called from inside a Claude run (the .mcp.json env says so), Claude itself is the semantic checker
+export async function semanticPlan(
+  asked: boolean | undefined,
+  signal?: AbortSignal,
+): Promise<{ semantic: boolean; why?: string }> {
+  if (asked === false) return { semantic: false, why: "Mechanical pass only, as asked." };
+  if (insideClaude()) return { semantic: false, why: "Called from a Claude run: mechanical pass only." };
+  if (asked === undefined && !(await claudeVersion(false, signal)).ok)
+    return { semantic: false, why: "Claude Code is not connected: mechanical pass only." };
+  return { semantic: true };
+}
 
 export const findingLine = (f: Finding) =>
   `- ${f.step ? `step ${f.step}` : "test"} — ${f.kind} (${f.severity}): ${f.message}${f.sources.length ? ` [${f.sources.join(", ")}]` : ""}`;

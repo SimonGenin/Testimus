@@ -359,6 +359,13 @@ export const shadowDark = stylex.createTheme(shadow, {
   s3: "0 20px 48px rgba(0, 0, 0, 0.60), 0 0 0 1px rgba(255, 255, 255, 0.08)",
 });
 
+export const container = stylex.defineConsts({
+  reviewQueue: "@container review (max-width: 1019px)",
+  reviewSource: "@container review (max-width: 759px)",
+  paneCompact: "@container (max-width: 599px)",
+  paneNarrow: "@container (max-width: 399px)",
+});
+
 export const breakpoint = stylex.defineConsts({
   narrow: "@media (max-width: 759px)",
   list: "@media (max-width: 899px)",

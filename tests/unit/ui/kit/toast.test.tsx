@@ -62,9 +62,10 @@ describe("Toast", () => {
     render(<Toaster />);
     show({ title: "Step 3 deleted", action: { label: "Undo", onAction }, seconds: 5, onExpire });
     const t = screen.getByRole("status", { name: "Step 3 deleted" });
-    expect(within(t).getByRole("button", { name: "Undo · 5 s" })).toBeInTheDocument();
+    expect(within(t).getByRole("button", { name: "Undo" })).toHaveTextContent("Undo· 5 s");
     act(() => vi.advanceTimersByTime(1000));
-    fireEvent.click(within(t).getByRole("button", { name: "Undo · 4 s" }));
+    expect(within(t).getByRole("button", { name: "Undo" })).toHaveTextContent("Undo· 4 s");
+    fireEvent.click(within(t).getByRole("button", { name: "Undo" }));
     expect(onAction).toHaveBeenCalledTimes(1);
     expect(onExpire).not.toHaveBeenCalled();
     expect(screen.queryByRole("status", { name: "Step 3 deleted" })).toBeNull();
@@ -114,7 +115,8 @@ describe("Toast", () => {
     const onDismiss = vi.fn();
     const onAction = vi.fn();
     render(<Toast title="Plain" action={{ label: "Open", onAction }} left={3} onDismiss={onDismiss} />);
-    fireEvent.click(screen.getByRole("button", { name: "Open · 3 s" }));
+    expect(screen.getByRole("button", { name: "Open" })).toHaveTextContent("Open· 3 s");
+    fireEvent.click(screen.getByRole("button", { name: "Open" }));
     expect(onAction).toHaveBeenCalledTimes(1);
     fireEvent.click(within(screen.getByRole("status", { name: "Plain" })).getByRole("button", { name: "Dismiss" }));
     expect(onDismiss).toHaveBeenCalledTimes(1);

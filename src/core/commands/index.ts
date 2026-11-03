@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { provideCommands } from "../claude/access.ts";
 import { type Command, type Ctx, type Progress, UserError } from "../command.ts";
 import { startJob } from "../jobs.ts";
 import type { ClaudeEvent, JobCause } from "../types.ts";
@@ -77,6 +78,7 @@ export const registry: Command[] = [
 ].sort((a, b) => a.name.localeCompare(b.name));
 
 const byName = new Map<string, Command>(registry.map((c) => [c.name, c]));
+provideCommands(() => registry);
 
 export function find(name: string): Command {
   const c = byName.get(name);

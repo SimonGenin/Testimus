@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { UserError } from "../command.ts";
-import type { ColumnEntry, ColumnShow, StepColumn, XrayField, XrayJson } from "../types.ts";
+import type { ColumnEntry, ColumnModes, ColumnShow, StepColumn, XrayField, XrayJson } from "../types.ts";
 import { readJson, readXray, writeJson, writeXray } from "./project.ts";
 
 export const DEFAULT_DESCRIPTIONS: Record<string, string> = {
@@ -92,6 +92,13 @@ export function stepColumns(
 
 export const fieldOrder = (project: string): string[] => stepColumns(project).map((c) => c.name);
 
+// ponytail: the project's modes a test folds by — filled and collapsed; open is the default and hidden is not folding
+export function projectFolds(project: string): ColumnModes {
+  const out: ColumnModes = {};
+  for (const c of stepColumns(project)) if (c.mode === "filled" || c.mode === "collapsed") out[c.name] = c.mode;
+  return out;
+}
+
 const entryOf = ({ col, entry }: Resolved): ColumnEntry => ({
   name: col.name,
   ...(col.id ? { id: col.id } : {}),
@@ -164,7 +171,7 @@ function known(now: Resolved[], names: string[]): void {
   if (unknown.length)
     throw new UserError(
       `Not a step column of this project: ${[...new Set(unknown)].join(", ")}.`,
-      `Known columns: ${now.map((r) => r.col.name).join(", ")} (testimus xray fields reads Xray's again).`,
+      `Known columns: ${now.map((r) => r.col.name).join(", ")} (testimus xray refreshFields reads Xray's again).`,
     );
 }
 
