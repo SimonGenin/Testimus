@@ -37,7 +37,7 @@ function row(
   return { id, label, state, detail, ...(fix ? { fix } : {}), ...(action ? { action } : {}) };
 }
 
-const SETUP: DoctorAction = { label: "Connect Atlassian", command: "system.setup" };
+const SETUP: DoctorAction = { label: "Connect Atlassian", command: "system.setCredentials" };
 const SIGN_IN: DoctorAction = { label: "Check Claude sign-in", command: "system.doctor", input: { claude: true } };
 const LIGHTER: DoctorAction = { label: "Choose a lighter pack", command: "models.usePack" };
 
@@ -96,7 +96,7 @@ export async function claudeVersionCheck(timeoutMs: number): Promise<DoctorCheck
   const exe = claudeExe();
   const fix =
     "Install it: irm https://claude.ai/install.ps1 | iex — or set its path with testimus system saveSettings --claude-exe <path>.";
-  const exePath: DoctorAction = { label: "Set the claude.exe path", command: "system.saveSettings" };
+  const exePath: DoctorAction = { label: "Set the claude.exe path", command: "system.set" };
   try {
     const out = await env.spawnClaude({
       exe,

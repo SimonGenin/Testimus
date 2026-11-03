@@ -64,12 +64,12 @@ describe("siteUrl", () => {
   });
 });
 
-describe("system.setup", () => {
+describe("system.setCredentials", () => {
   it("reports missing files and checks nothing when called empty", async () => {
-    const r = (await invoke("system.setup", {}, { project: null })) as any;
+    const r = (await invoke("system.credentials", {}, { project: null })) as any;
     expect(r.status.jira).toMatchObject({ exists: false, complete: false });
     expect(r.status.xray).toMatchObject({ exists: false, complete: false });
-    expect(r.saved).toEqual([]);
+    expect(r.saved).toBeUndefined();
     expect(r.checks).toEqual([]);
     expect(r.ok).toBe(false);
     expect(calls).toEqual([]);
@@ -82,7 +82,7 @@ describe("system.setup", () => {
       "\uFEFF" + JSON.stringify({ baseUrl: "https://acme.atlassian.net/wiki", email: "a@b.c", token: "t" }),
     );
     writeFileSync(xrayFile(), JSON.stringify({ clientId: "id", clientSecret: "s" }));
-    const r = (await invoke("system.setup", {}, { project: null })) as any;
+    const r = (await invoke("system.credentials", {}, { project: null })) as any;
     expect(r.status.jira).toMatchObject({ exists: true, complete: true, baseUrl: "https://acme.atlassian.net/wiki" });
     expect(r.status.xray).toMatchObject({ exists: true, complete: true });
     expect(calls).toEqual([]);
@@ -96,7 +96,7 @@ describe("system.setup", () => {
     );
     writeFileSync(xrayFile(), JSON.stringify({ clientId: "id", apiBase: "https://eu.xray.cloud.getxray.app" }));
     const r = (await invoke(
-      "system.setup",
+      "system.setCredentials",
       { site: "https://acme.atlassian.net", token: "new-token", clientSecret: "new-secret" },
       { project: null },
     )) as any;
@@ -129,7 +129,7 @@ describe("system.setup", () => {
       JSON.stringify({ baseUrl: "https://acme.atlassian.net/wiki", email: "me@b.c", token: "tok", accountId: "42" }),
     );
     writeFileSync(xrayFile(), JSON.stringify({ clientId: "id", clientSecret: "sec" }));
-    const r = (await invoke("system.setup", { clear: ["token", "clientSecret"] }, { project: null })) as any;
+    const r = (await invoke("system.setCredentials", { clear: ["token", "clientSecret"] }, { project: null })) as any;
     expect(read(jiraFile())).toEqual({ baseUrl: "https://acme.atlassian.net/wiki", email: "me@b.c", accountId: "42" });
     expect(read(xrayFile())).toEqual({ clientId: "id" });
     expect(r.saved).toEqual(["token", "clientSecret"]);
@@ -140,7 +140,7 @@ describe("system.setup", () => {
     process.env.TESTIMUS_JIRA_TOKEN = "env-token";
     process.env.TESTIMUS_XRAY_SECRET = "env-secret";
     const r = (await invoke(
-      "system.setup",
+      "system.setCredentials",
       { site: "acme", email: "me@acme.com", clientId: "cid" },
       { project: null },
     )) as any;
@@ -157,7 +157,7 @@ describe("system.setup", () => {
   it("says what to fix when Jira refuses the token", async () => {
     fakeHttp(401, 200);
     const r = (await invoke(
-      "system.setup",
+      "system.setCredentials",
       { site: "acme", email: "me@acme.com", token: "bad", clientId: "cid", clientSecret: "s" },
       { project: null },
     )) as any;
@@ -173,7 +173,7 @@ describe("system.setup", () => {
 describe("system settings", () => {
   it("keeps the page's testimus.* preferences (desktop app), nothing else", async () => {
     const s = (await invoke(
-      "system.saveSettings",
+      "system.set",
       { ui: { "testimus.theme": "dark", "testimus.sidebarWidth": "300", other: "x" } },
       { project: null },
     )) as { ui?: Record<string, string> };
@@ -185,10 +185,10 @@ describe("system settings", () => {
     const s0 = (await invoke("system.settings", {}, { project: null })) as any;
     expect(s0).toMatchObject({ models: { allowRemote: true } });
     expect(s0).not.toHaveProperty("theme");
-    await invoke("system.saveSettings", { allowRemote: false }, { project: null });
+    await invoke("system.set", { allowRemote: false }, { project: null });
     const exe = join(mkdtempSync(join(tmpdir(), "testimus-exe-")), "claude.exe");
     writeFileSync(exe, "");
-    const s1 = (await invoke("system.saveSettings", { claudeExe: ` ${exe} ` }, { project: null })) as any;
+    const s1 = (await invoke("system.set", { claudeExe: ` ${exe} ` }, { project: null })) as any;
     expect(s1).toMatchObject({ claude: { exe } });
     expect(s1.models.allowRemote).toBe(false);
     expect(read(join(env.dataDir(), "settings.json")).models.allowRemote).toBe(false);
@@ -196,22 +196,20 @@ describe("system settings", () => {
 
   it("keeps a claude.exe path as typed even when it does not run (Xray Editor), but refuses command characters", async () => {
     for (const claudeExe of ["echo INJECTED & rem", 'C:\\a"b\\claude.exe', "x | y"])
-      await expect(invoke("system.saveSettings", { claudeExe }, { project: null })).rejects.toThrow(
-        /command line would run/,
-      );
-    const s = (await invoke("system.saveSettings", { claudeExe: " C:\\nowhere\\claude.exe " }, { project: null })) as {
+      await expect(invoke("system.set", { claudeExe }, { project: null })).rejects.toThrow(/command line would run/);
+    const s = (await invoke("system.set", { claudeExe: " C:\\nowhere\\claude.exe " }, { project: null })) as {
       claude: { exe: string };
     };
     expect(s.claude.exe).toBe("C:\\nowhere\\claude.exe");
-    await invoke("system.saveSettings", { claudeExe: "" }, { project: null });
+    await invoke("system.set", { claudeExe: "" }, { project: null });
   });
 
   it("refuses a Jira site or an Xray API outside Atlassian unless confirmed", async () => {
-    await expect(invoke("system.setup", { site: "https://collector.evil.example" }, { project: null })).rejects.toThrow(
-      /not an Atlassian Cloud site/,
-    );
     await expect(
-      invoke("system.setup", { apiBase: "https://collector.evil.example" }, { project: null }),
+      invoke("system.setCredentials", { site: "https://collector.evil.example" }, { project: null }),
+    ).rejects.toThrow(/not an Atlassian Cloud site/);
+    await expect(
+      invoke("system.setCredentials", { apiBase: "https://collector.evil.example" }, { project: null }),
     ).rejects.toThrow(/not an Xray Cloud address/);
   });
 });
@@ -221,7 +219,7 @@ describe("models.pull (system.pullModel, its v1 alias, is gone)", () => {
     await expect(invoke("models.pull", { model: "nope" }, { project: null, wait: true })).rejects.toThrow(
       /Unknown model nope/,
     );
-    await invoke("system.saveSettings", { allowRemote: false }, { project: null });
+    await invoke("system.set", { allowRemote: false }, { project: null });
     if (findModel("Xenova/bge-m3", "q8")) return;
     const prev = process.env.TESTIMUS_MODELS;
     process.env.TESTIMUS_MODELS = join(env.localDir(), "empty-models");

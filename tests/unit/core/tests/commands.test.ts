@@ -76,3 +76,62 @@ describe("tests.list and tests.remove through the registry", () => {
     expect(list.map((t) => t.id)).not.toContain("local-3f9a12c0");
   });
 });
+
+type Show = { test: { summary: string; steps: unknown[] }; mtime: number; check: unknown; remote: unknown };
+
+describe("the other tests.* commands through the registry, each output against its schema", () => {
+  it("tests.show gives the parsed test, the remote copy, the last check and the mtime tests.list gives", async () => {
+    const s = await call<Show>("tests.show", { id: "LFRPS12-1420" }, P);
+    expect(s.test.steps).toHaveLength(5);
+    expect(s.remote).not.toBeNull();
+    expect(s.check).not.toBeNull();
+    const ref = (await call<(Ref & { mtime: number })[]>("tests.list", {}, P)).find((t) => t.id === "LFRPS12-1420");
+    expect(s.mtime).toBe(ref?.mtime);
+  });
+
+  it("tests.list says which tests await review", async () => {
+    const list = await call<(Ref & { awaiting: boolean; generated: boolean })[]>("tests.list", {}, P);
+    for (const t of list) expect(t.awaiting).toBe(t.generated && t.review !== "validated");
+  });
+
+  it("tests.create, tests.edit and tests.clone write local tests", async () => {
+    const { id } = await call<{ id: string }>("tests.create", { summary: "Nouveau" }, P);
+    const edited = await call<Ref>(
+      "tests.edit",
+      { id, steps: [{ op: "set", step: 1, field: "Action", value: "Ouvrir" }] },
+      P,
+    );
+    expect(edited.summary).toBe("Nouveau");
+    const copy = await call<{ id: string }>("tests.clone", { id }, P);
+    expect(copy.id).toMatch(/^local-[0-9a-f]{8}$/);
+    expect(readFileSync(join(P, "tests", copy.id, "test.md"), "utf8")).toContain("Ouvrir");
+  });
+
+  it("tests.save writes over the version it was read from, and refuses one that moved on disk (code conflict)", async () => {
+    const s = await call<Show>("tests.show", { id: "local-3f9a12c0" }, P);
+    const saved = await call<Ref>(
+      "tests.save",
+      { id: "local-3f9a12c0", test: { ...s.test, summary: "Relu" }, ifMtime: s.mtime },
+      P,
+    );
+    expect(saved.summary).toBe("Relu");
+    const file = join(P, "tests", "local-3f9a12c0", "test.md");
+    writeFileSync(file, readFileSync(file, "utf8").replace("Relu", "Changé ailleurs"));
+    const stale = call("tests.save", { id: "local-3f9a12c0", test: { ...s.test, summary: "Mien" }, ifMtime: 1 }, P);
+    await expect(stale).rejects.toMatchObject({ code: "conflict" });
+    expect(readFileSync(file, "utf8")).toContain("Changé ailleurs");
+    const fresh = await call<Show>("tests.show", { id: "local-3f9a12c0" }, P);
+    await call("tests.save", { id: "local-3f9a12c0", test: fresh.test, ifMtime: fresh.mtime }, P);
+  });
+
+  it("tests.folds and tests.setFolds keep a test's own folds apart from the project's", async () => {
+    expect(await call("tests.folds", { id: "LFRPS12-1420" }, P)).toEqual({ own: null, project: { Data: "filled" } });
+    const set = await call<{ own: unknown }>(
+      "tests.setFolds",
+      { id: "LFRPS12-1420", modes: { Action: "collapsed" } },
+      P,
+    );
+    expect(set.own).toEqual({ Action: "collapsed" });
+    expect((await call<{ own: unknown }>("tests.setFolds", { id: "LFRPS12-1420", modes: null }, P)).own).toBeNull();
+  });
+});

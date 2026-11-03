@@ -140,7 +140,15 @@ describe("tool access of an action", () => {
     const has = (n: string) => a.allow.includes(`mcp__testimus__${n}`);
     for (const n of ["docs_convert", "docs_set", "project_set", "tests_save", "columns_save", "check_run", "xray_plan"])
       expect(has(n), n).toBe(true);
-    for (const n of ["claude_run", "actions_run", "gen_tests", "chat_ask", "xray_push", "system_setup", "project_open"])
+    for (const n of [
+      "claude_run",
+      "actions_run",
+      "gen_tests",
+      "chat_ask",
+      "xray_push",
+      "system_setCredentials",
+      "project_open",
+    ])
       expect(has(n), n).toBe(false);
   });
 });

@@ -4,10 +4,10 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { invoke } from "../../src/core/commands/index.ts";
-import { STARTER_ASKS } from "../../src/core/commands/project.ts";
 import { env } from "../../src/core/env.ts";
 import { stepColumns } from "../../src/core/lib/columns.ts";
 import { projectsRoot, readProject, readSettings, readXray, writeJson } from "../../src/core/lib/project.ts";
+import { STARTER_ASKS } from "../../src/core/lib/project-init.ts";
 
 const FIXTURE = fileURLToPath(new URL("../fixtures/project/", import.meta.url));
 const tmp = (p: string) => mkdtempSync(join(tmpdir(), p));

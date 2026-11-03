@@ -3,9 +3,11 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync
 import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { quietCtx } from "../../src/core/command.ts";
-import { commands, initProject, projectInfo, templateDir } from "../../src/core/commands/project.ts";
+import { commands } from "../../src/core/commands/project.ts";
 import { startJob } from "../../src/core/jobs.ts";
 import { readProject, readSettings, writeSettings } from "../../src/core/lib/project.ts";
+import { projectOverview } from "../../src/core/lib/project-info.ts";
+import { initProject, templateDir } from "../../src/core/lib/project-init.ts";
 import { copyFixture, tempRoot } from "./cov-faces-helpers.ts";
 
 let project = "";
@@ -71,7 +73,7 @@ describe("initProject", () => {
   });
 });
 
-describe("projectInfo", () => {
+describe("projectOverview", () => {
   it("counts only test folders with a test.md, an unknown review as draft", () => {
     mkdirSync(join(project, "tests", "empty-folder"), { recursive: true });
     mkdirSync(join(project, "tests", "local-0000000e"), { recursive: true });
@@ -88,7 +90,7 @@ describe("projectInfo", () => {
         job: { id: "old-1", kind: "k", subject: "s", status: "done", startedAt: "x" },
       }),
     );
-    const info = projectInfo(project);
+    const info = projectOverview(project);
     expect(info.counts.tests).toBe(5);
     expect(info.counts.review.draft).toBe(2);
   });
@@ -97,7 +99,7 @@ describe("projectInfo", () => {
     const bare = join(tempRoot("project-bare"), "bare");
     mkdirSync(bare, { recursive: true });
     writeFileSync(join(bare, "project.json"), JSON.stringify({ name: "b", jiraProject: "B" }));
-    expect(projectInfo(bare).counts).toMatchObject({ tests: 0, docs: 0, jobsRunning: 0 });
+    expect(projectOverview(bare).counts).toMatchObject({ tests: 0, docs: 0, jobsRunning: 0 });
   });
 });
 

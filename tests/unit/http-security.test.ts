@@ -137,6 +137,18 @@ describe("HTTP face guard", () => {
     expect(bad.status).toBe(400);
   });
 
+  it("serves the command list and the event stream on GET only (405 otherwise)", async () => {
+    const json = { cookie, "content-type": "application/json" };
+    for (const path of ["/api", "/api/", "/api/events"]) {
+      const r = await post(path, "{}", json);
+      expect(r.status, path).toBe(405);
+      expect(r.headers.get("allow"), path).toBe("GET");
+    }
+    const list = await fetch(`${base}/api`, { headers: { cookie } });
+    expect(list.status).toBe(200);
+    expect(((await list.json()) as { commands: unknown[] }).commands.length).toBeGreaterThan(0);
+  });
+
   it("keeps GET /api/system/version public for start-up probes", async () => {
     const r = await fetch(`${base}/api/system/version`);
     expect(r.status).toBe(200);

@@ -6,7 +6,7 @@ import { registry } from "../../../src/core/commands/index.ts";
 const CORE = join(import.meta.dirname, "..", "core");
 
 // ponytail: a ratchet like the architecture guards — it may only go down, and at 0 it blocks (GOAL-V3 N6, wave 5)
-const LIMIT = 95;
+const LIMIT = 64;
 
 function files(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((d) =>

@@ -33,7 +33,7 @@ export function TestsScreen() {
   const accessOf = (s: CredsStatus) => setAccess(s.jira.complete && s.xray.complete);
   // biome-ignore lint/correctness/useExhaustiveDependencies: asked again when the project changes
   useEffect(() => {
-    call<{ status: CredsStatus }>("system.setup", {})
+    call<{ status: CredsStatus }>("system.credentials", {})
       .then((r) => r?.status && accessOf(r.status))
       .catch(() => setAccess(null));
   }, [dir]);

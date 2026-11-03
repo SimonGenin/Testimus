@@ -70,25 +70,25 @@ describe("tests.show extras", () => {
   });
 });
 
-describe("tests.columns / tests.setColumns", () => {
+describe("tests.folds / tests.setFolds", () => {
   it("layers the test's own modes over the project's and never touches test.md", async () => {
     const md = readFileSync(join(P, "tests/LFRPS12-1420/test.md"), "utf8");
-    expect(await run("tests.columns", { id: "LFRPS12-1420" })).toEqual({ own: null, project: { Data: "filled" } });
-    const set = await run("tests.setColumns", { id: "LFRPS12-1420", modes: { Data: "open", Exigence: "collapsed" } });
+    expect(await run("tests.folds", { id: "LFRPS12-1420" })).toEqual({ own: null, project: { Data: "filled" } });
+    const set = await run("tests.setFolds", { id: "LFRPS12-1420", modes: { Data: "open", Exigence: "collapsed" } });
     expect(set.own).toEqual({ Data: "open", Exigence: "collapsed" });
     expect(JSON.parse(readFileSync(join(P, "tests/LFRPS12-1420/local.json"), "utf8"))).toEqual({
       columns: { Data: "open", Exigence: "collapsed" },
     });
     expect(readFileSync(join(P, "tests/LFRPS12-1420/test.md"), "utf8")).toBe(md);
     expect((await run("tests.show", { id: "LFRPS12-1420" })).md).toBe(md);
-    expect((await run("tests.setColumns", { id: "LFRPS12-1420", modes: null })).own).toBeNull();
+    expect((await run("tests.setFolds", { id: "LFRPS12-1420", modes: null })).own).toBeNull();
     expect(existsSync(join(P, "tests/LFRPS12-1420/local.json"))).toBe(false);
   });
 
   it("columns.setModes saves the project's « when filled » columns", async () => {
     const r = setModes(P, { Data: "filled", Exigence: "filled" });
     expect(r.filter((c) => c.mode === "filled").map((c) => c.name)).toEqual(["Data", "Exigence"]);
-    expect((await run("tests.columns", { id: "LFRPS12-1420" })).project).toEqual({
+    expect((await run("tests.folds", { id: "LFRPS12-1420" })).project).toEqual({
       Data: "filled",
       Exigence: "filled",
     });

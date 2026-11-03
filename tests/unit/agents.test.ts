@@ -1,14 +1,23 @@
-import { cpSync, mkdtempSync, rmSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { mcpWorker, type ProbeDeps, type ProbeWorker, probeAgents, verdict } from "../../src/core/claude/limits.ts";
+import {
+  mcpWorker,
+  type ProbeDeps,
+  type ProbeWorker,
+  probeAgents,
+  probeDeps,
+  verdict,
+} from "../../src/core/claude/limits.ts";
 import { quietCtx } from "../../src/core/command.ts";
 import { invoke } from "../../src/core/commands/index.ts";
+import { agentProbe } from "../../src/core/commands/system.ts";
 import { env } from "../../src/core/env.ts";
 import { agentPool, agentsSetting, busy, type LoadDeps, nextLimit } from "../../src/core/lib/agents.ts";
 import { DEFAULT_SETTINGS, readSettings, writeSettings } from "../../src/core/lib/project.ts";
 import { mockProbeDeps } from "../../src/core/mock/agents.ts";
+import { indexFile } from "../../src/core/rag/db.ts";
 
 const FIXTURE = join(import.meta.dirname, "..", "fixtures", "project");
 
@@ -39,18 +48,19 @@ beforeEach(() => {
 });
 afterEach(() => {
   env.mock = false;
+  agentProbe.deps = probeDeps;
 });
 
 describe("agents setting", () => {
   it("defaults to 5 agents, adapting; a saved value is clamped to 1–32", async () => {
     expect(agentsSetting()).toEqual({ max: 5, adaptive: true });
-    await invoke("system.saveSettings", { agentsMax: 12, agentsAdaptive: false }, { project: null });
+    await invoke("system.set", { agentsMax: 12, agentsAdaptive: false }, { project: null });
     expect(agentsSetting()).toEqual({ max: 12, adaptive: false });
     expect(((await invoke("system.settings", {}, { project: null })) as any).agents).toEqual({
       max: 12,
       adaptive: false,
     });
-    await expect(invoke("system.saveSettings", { agentsMax: 40 }, { project: null })).rejects.toThrow();
+    await expect(invoke("system.set", { agentsMax: 40 }, { project: null })).rejects.toThrow();
     writeSettings({ ...DEFAULT_SETTINGS, agents: { max: 99 } });
     expect(agentsSetting().max).toBe(32);
   });
@@ -270,11 +280,13 @@ describe("testing the PC's limits", () => {
     rmSync(join(project, "index"), { recursive: true, force: true });
     await expect(invoke("system.testAgents", {}, { project })).rejects.toThrow("The project has no index yet");
     await expect(invoke("system.testAgents", {}, { project: null })).rejects.toThrow("No project is open.");
-    env.mock = true;
+    mkdirSync(dirname(indexFile(project)), { recursive: true });
+    writeFileSync(indexFile(project), "");
+    agentProbe.deps = () => mockProbeDeps();
     const r = (await invoke("system.testAgents", {}, { project })) as any;
     expect(r).toMatchObject({ limit: 10, applied: true });
     expect(readSettings().agents).toMatchObject({ max: 10, measured: { limit: 10 } });
-    await invoke("system.saveSettings", { agentsMax: 4 }, { project: null });
+    await invoke("system.set", { agentsMax: 4 }, { project: null });
     expect((await invoke("system.testAgents", { apply: false }, { project })) as any).toMatchObject({
       applied: false,
     });

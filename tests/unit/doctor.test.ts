@@ -154,7 +154,7 @@ describe("doctor", () => {
       input: { model: "bge-m3-q8" },
     });
     expect(by.claudeLogin.action).toMatchObject({ command: "system.doctor", input: { claude: true } });
-    expect(by.xray.action).toMatchObject({ command: "system.setup" });
+    expect(by.xray.action).toMatchObject({ command: "system.setCredentials" });
     expect(http.map((h) => `${h.method} ${h.url}`).sort()).toEqual([
       "GET https://acme.atlassian.net/rest/api/3/myself",
       "POST https://xray.cloud.getxray.app/api/v2/authenticate",

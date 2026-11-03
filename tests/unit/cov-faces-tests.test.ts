@@ -41,21 +41,21 @@ describe("tests.save", () => {
   });
 });
 
-describe("tests.columns", () => {
+describe("tests.folds", () => {
   it("lists the project's collapsed and filled fields", async () => {
     setModes(project, { Exigence: "collapsed" });
-    const r = await run("tests.columns", { id: LOCAL });
+    const r = await run("tests.folds", { id: LOCAL });
     expect(r).toEqual({ own: null, project: { Data: "filled", Exigence: "collapsed" } });
   });
 
   it("keeps only the valid modes of a test's own columns and follows the project again on {}", async () => {
-    await run("tests.setColumns", { id: LOCAL, modes: { Action: "collapsed" } });
+    await run("tests.setFolds", { id: LOCAL, modes: { Action: "collapsed" } });
     writeFileSync(
       join(project, "tests", LOCAL, "local.json"),
       JSON.stringify({ columns: { Action: "collapsed", Data: "weird", "Expected Result": "open" } }),
     );
-    expect((await run("tests.columns", { id: LOCAL })).own).toEqual({ Action: "collapsed", "Expected Result": "open" });
-    expect((await run("tests.setColumns", { id: LOCAL, modes: {} })).own).toBeNull();
-    expect((await run("tests.setColumns", { id: LOCAL, modes: null })).own).toBeNull();
+    expect((await run("tests.folds", { id: LOCAL })).own).toEqual({ Action: "collapsed", "Expected Result": "open" });
+    expect((await run("tests.setFolds", { id: LOCAL, modes: {} })).own).toBeNull();
+    expect((await run("tests.setFolds", { id: LOCAL, modes: null })).own).toBeNull();
   });
 });

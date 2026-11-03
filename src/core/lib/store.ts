@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { existsSync, readdirSync, readFileSync, renameSync, rmSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, renameSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
@@ -15,7 +15,7 @@ import type {
   TestLocal,
   TestState,
 } from "../types.ts";
-import { copyDirAtomic, writeAtomic } from "./atomic.ts";
+import { copyDirAtomic, fileMtime, writeAtomic } from "./atomic.ts";
 import { sha256 } from "./hash.ts";
 import { readJson, readXray, writeJson } from "./project.ts";
 import { mapRefs, outsideTest, parseTest, sameTestMd, serializeTest, testMdHash } from "./testfile.ts";
@@ -176,10 +176,16 @@ export function localTestRef(project: string, id: string): LocalTestRef | null {
     sync: syncState(project, id, md, remote),
     synced: remote !== null,
     dirty: remote === null || !sameTestMd(md, remote),
-    mtime: Math.round(statSync(join(dir, "test.md")).mtimeMs),
+    mtime: fileMtime(join(dir, "test.md")),
     stepCount: test.steps.length,
     ...(findings ? { findings } : {}),
   };
+}
+
+// ponytail: a folder holds the tests filed in it and below it; "" or "/" is the whole repository
+export function inFolder(folder: string, under: string): boolean {
+  const base = under.replace(/\/+$/, "");
+  return base === "" || folder === base || folder.startsWith(`${base}/`);
 }
 
 export function listLocalTests(project: string): LocalTestRef[] {

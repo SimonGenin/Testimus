@@ -40,15 +40,15 @@ test("every input field is described and the id is positional", () => {
   }
   expect(commands.map((c) => c.name).sort()).toEqual([
     "tests.clone",
-    "tests.columns",
     "tests.create",
     "tests.edit",
+    "tests.folds",
     "tests.list",
     "tests.remove",
     "tests.removeImage",
     "tests.restore",
     "tests.save",
-    "tests.setColumns",
+    "tests.setFolds",
     "tests.show",
   ]);
 });

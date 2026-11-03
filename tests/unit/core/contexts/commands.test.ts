@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -178,5 +178,33 @@ describe("contexts.* through the registry", () => {
     await call("contexts.setTest", { testId: "LFRPS12-1420", contexts: [a.id, b.id] }, P);
     const out = await call<{ effective: string[] }>("contexts.ofProject", {}, P);
     expect(out.effective.sort()).toEqual([a.id, b.id].sort());
+  });
+
+  it("contexts.create takes the notes and the paths at once (« Save as context » is one call)", async () => {
+    const c = await call<Detail>(
+      "contexts.create",
+      { name: "Glossaire", notes: "PCC = poste de commande centralisé", paths: [" D:\\docs ", "D:\\docs"] },
+      P,
+    );
+    expect(c).toMatchObject({ name: "Glossaire", notes: "PCC = poste de commande centralisé", hasNotes: true });
+    expect(c.paths).toEqual(["D:\\docs"]);
+    expect(readFileSync(join(P, "contexts", c.id, "context.md"), "utf8")).toContain("PCC = poste de commande");
+  });
+
+  it("contexts.set refuses to write over a context.md changed on disk since it was read (code conflict)", async () => {
+    const c = await call<Detail & { mtime: number }>("contexts.create", { name: "A" }, P);
+    expect(c.mtime).toBeGreaterThan(0);
+    const next = await call<Detail & { mtime: number }>(
+      "contexts.set",
+      { id: c.id, notes: "one", ifMtime: c.mtime },
+      P,
+    );
+    const file = join(P, "contexts", c.id, "context.md");
+    writeFileSync(file, readFileSync(file, "utf8").replace("one", "by hand"));
+    utimesSync(file, new Date(), new Date(next.mtime + 5000));
+    await expect(call("contexts.set", { id: c.id, notes: "mine", ifMtime: next.mtime }, P)).rejects.toMatchObject({
+      code: "conflict",
+    });
+    expect((await call<Detail>("contexts.show", { id: c.id }, P)).notes).toBe("by hand");
   });
 });

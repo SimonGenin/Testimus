@@ -77,12 +77,12 @@ test("the Columns popover folds Data for this test only", async ({ page }) => {
   await pop.getByRole("button", { name: "this test" }).click();
   await pop.getByRole("group", { name: "Data column" }).getByRole("button", { name: "collapsed" }).click();
   await expect
-    .poll(async () => (await api<{ own: unknown }>(url, "tests.columns", { id: "LFRPS12-1420" })).own)
+    .poll(async () => (await api<{ own: unknown }>(url, "tests.folds", { id: "LFRPS12-1420" })).own)
     .toEqual({ Data: "collapsed" });
   await expect(main(page).getByRole("textbox", { name: /^Data of step/ })).toHaveCount(0);
   await pop.getByRole("button", { name: "use project's" }).click();
   await expect
-    .poll(async () => (await api<{ own: unknown }>(url, "tests.columns", { id: "LFRPS12-1420" })).own)
+    .poll(async () => (await api<{ own: unknown }>(url, "tests.folds", { id: "LFRPS12-1420" })).own)
     .toBeNull();
 });
 

@@ -1,4 +1,14 @@
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -199,15 +209,31 @@ describe("project notes", () => {
   it("reads and writes the project's CLAUDE.md", async () => {
     const file = join(P, "CLAUDE.md");
     rmSync(file, { force: true });
-    expect(await run("project.notes")).toEqual({ file, text: "" });
-    expect(await run("project.setNotes", { text: "# Notes\n\nPCC = poste de commande centralisé\n" })).toEqual({
+    expect(await run("project.notes")).toEqual({ file, text: "", mtime: 0 });
+    const written = await run<{ mtime: number }>("project.setNotes", {
+      text: "# Notes\n\nPCC = poste de commande centralisé\n",
+    });
+    expect(written).toEqual({
       file,
       bytes: Buffer.byteLength("# Notes\n\nPCC = poste de commande centralisé\n"),
+      mtime: Math.round(statSync(file).mtimeMs),
     });
     expect(readFileSync(file, "utf8")).toBe("# Notes\n\nPCC = poste de commande centralisé\n");
-    expect(await run("project.notes")).toMatchObject({ text: "# Notes\n\nPCC = poste de commande centralisé\n" });
-    await run("project.setNotes", { text: "" });
+    expect(await run("project.notes")).toMatchObject({
+      text: "# Notes\n\nPCC = poste de commande centralisé\n",
+      mtime: written.mtime,
+    });
+    await run("project.setNotes", { text: "", ifMtime: written.mtime });
     expect(readFileSync(file, "utf8")).toBe("");
+  });
+
+  it("refuses to write over notes changed on disk since they were read (code conflict)", async () => {
+    const file = join(P, "CLAUDE.md");
+    const { mtime } = await run<{ mtime: number }>("project.notes");
+    writeFileSync(file, "Changed by hand\n");
+    utimesSync(file, new Date(), new Date(mtime + 5000));
+    await expect(run("project.setNotes", { text: "Mine", ifMtime: mtime })).rejects.toMatchObject({ code: "conflict" });
+    expect(readFileSync(file, "utf8")).toBe("Changed by hand\n");
   });
 
   it("needs an open project", async () => {

@@ -35,7 +35,7 @@ const baseOf = (url?: string) =>
     .replace(/\/+$/, "")
     .replace(/\/wiki$/, "");
 
-// ponytail: what system.setup writes for that root — the root as typed (a typed /wiki kept, as in Xray Editor), and
+// ponytail: what system.setCredentials writes for that root — the root as typed (a typed /wiki kept, as in Xray Editor), and
 // an unchanged site keeps the exact value already there
 export function savedAs(root: string, previous?: string): string {
   if (!root) return "";
@@ -104,7 +104,7 @@ export function ConnectAtlassian({
   told.current = onStatus;
 
   useEffect(() => {
-    call<SetupResult>("system.setup", {})
+    call<SetupResult>("system.credentials", {})
       .then((r) => {
         setStatus(r.status);
         savedSite(r.status.jira.baseUrl ?? "");
@@ -136,7 +136,7 @@ export function ConnectAtlassian({
     setBusy(true);
     setError("");
     try {
-      const input: Record<string, unknown> = { check: true };
+      const input: Record<string, unknown> = {};
       if (root && saved !== status.jira.baseUrl) {
         input.site = root;
         // ponytail: a site that is not *.atlassian.net is the user's choice (Xray Editor saves any site) — said so here
@@ -155,7 +155,7 @@ export function ConnectAtlassian({
         !secret.trim() && was.clientSecret ? "clientSecret" : "",
       ].filter(Boolean);
       if (clear.length) input.clear = clear;
-      const r = await call<SetupResult>("system.setup", input);
+      const r = await call<SetupResult>("system.setCredentials", input);
       setStatus(r.status);
       onStatus?.(r.status);
       kept.current = { token: token.trim(), clientId: clientId.trim(), clientSecret: secret.trim() };

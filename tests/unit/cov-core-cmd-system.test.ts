@@ -26,12 +26,12 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-describe("system.setup — less common inputs", () => {
+describe("system.credentials and system.setCredentials — less common inputs", () => {
   it("takes the token and the secret from the environment, and another https host when confirmed", async () => {
     vi.stubEnv("TESTIMUS_JIRA_TOKEN", "env-token");
     vi.stubEnv("TESTIMUS_XRAY_SECRET", "env-secret");
     const r = (await invoke(
-      "system.setup",
+      "system.setCredentials",
       {
         site: "https://jira.acme.example",
         email: "a@b.c",
@@ -51,18 +51,21 @@ describe("system.setup — less common inputs", () => {
   });
 
   it("a check with no credentials at all runs no check", async () => {
-    const r = (await invoke("system.setup", { check: true }, { project: null })) as { checks: unknown[]; ok: boolean };
+    const r = (await invoke("system.credentials", { check: true }, { project: null })) as {
+      checks: unknown[];
+      ok: boolean;
+    };
     expect(r).toMatchObject({ checks: [], ok: false });
   });
 
   it("refuses an Xray address that is not Xray Cloud unless confirmed", async () => {
     await expect(
-      invoke("system.setup", { apiBase: "https://collector.evil.example" }, { project: null }),
+      invoke("system.setCredentials", { apiBase: "https://collector.evil.example" }, { project: null }),
     ).rejects.toThrow(/not an Xray Cloud address/);
   });
 });
 
-describe("models.pull and system.saveSettings", () => {
+describe("models.pull and system.set", () => {
   it("refuses an unknown model", async () => {
     await expect(invoke("models.pull", { model: "nope" }, { project: null, wait: true })).rejects.toThrow(
       /Unknown model nope/,
@@ -89,7 +92,7 @@ describe("models.pull and system.saveSettings", () => {
 
   it("an empty claude.exe means PATH, and downloads can be turned back on", async () => {
     expect(checkedExe("   ")).toBe("");
-    await invoke("system.saveSettings", { claudeExe: "", allowRemote: true }, { project: null });
+    await invoke("system.set", { claudeExe: "", allowRemote: true }, { project: null });
     expect(readSettings()).toMatchObject({ claude: { exe: "" }, models: { allowRemote: true } });
   });
 });

@@ -834,7 +834,7 @@ stops at the first failure), plus:
   switched off in Xray) or `collapsed` (folded on every step, its toggle shows `Name ●` when it holds
   something), plus `hidden` (a Testimus extra: left out unless a step holds text in it). `columns.setModes` and
   `columns.order` change them. A test's `local.json` `columns` (§3) overrides the folding column by column
-  (`tests.columns`, `tests.setColumns`), the step card's own toggle overrides both for the session, and Action
+  (`tests.folds`, `tests.setFolds`), the step card's own toggle overrides both for the session, and Action
   and Expected Result never fold. Reading Xray again (`xray.fields`, before every push) rewrites `xray.json`;
   `columns.json` follows a field renamed in Xray (same id: its description and mode go to the new name), keeps a
   field Xray dropped as a local column (its text stays in the tests) and turns a local column the team then
