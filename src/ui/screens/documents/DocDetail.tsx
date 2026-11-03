@@ -4,10 +4,11 @@ import { call, project } from "../../api.ts";
 import { ActionButton } from "../../components/claude/ActionButton.tsx";
 import { ActionCount } from "../../components/claude/ActionCount.tsx";
 import { AdditionalContext } from "../../components/claude/AdditionalContext.tsx";
-import { Button, Icon, IconButton, Menu, Segmented, Severity, Skeleton } from "../../components/ui/index.ts";
+import { Button, DragEdge, Icon, IconButton, Menu, Segmented, Severity, Skeleton } from "../../components/ui/index.ts";
 import { forProblem, useActions } from "../../lib/actions.ts";
 import { baseName, desktop, pathJoin, reveal } from "../../lib/desktop.ts";
 import { cx, message, plural } from "../../lib/format.ts";
+import type { SideEdge } from "../../lib/sideWidth.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 import { idPattern, REQUIREMENT, tracesNow } from "../../lib/traces.ts";
 import { settled, useUploads } from "../../lib/uploads.ts";
@@ -47,6 +48,8 @@ export function DocDetail({
   anchor,
   quote = "",
   fold = "wide",
+  tocEdge,
+  sideEdge,
   listOpen = false,
   onShowList,
   onAnchor,
@@ -57,6 +60,8 @@ export function DocDetail({
   anchor: string;
   quote?: string;
   fold?: Fold;
+  tocEdge?: SideEdge;
+  sideEdge?: SideEdge;
   listOpen?: boolean;
   onShowList?: () => void;
   onAnchor: (anchor: string) => void;
@@ -357,6 +362,9 @@ export function DocDetail({
             ))}
           </nav>
         )}
+        {reading && tocEdge && !tocFolded && (
+          <DragEdge className="doctoc-edge" label="Resize the sections" {...tocEdge} />
+        )}
         {drawer === "sections" && <div className="docs-scrim" aria-hidden="true" onClick={() => setDrawer(null)} />}
 
         <div className="docdoc-view">
@@ -408,6 +416,7 @@ export function DocDetail({
         </div>
 
         {drawer === "details" && <div className="docs-scrim" aria-hidden="true" onClick={() => setDrawer(null)} />}
+        {sideEdge && !sideFolded && <DragEdge className="docdoc-side-edge" label="Resize the settings" {...sideEdge} />}
         <aside className="docdoc-side" aria-label="Document settings">
           <div className="formfield">
             <span className="docdoc-label">Status</span>
@@ -439,19 +448,23 @@ export function DocDetail({
 
           {!running && d.warnings.length > 0 && (
             <div className="docdetail-warn">
-              <span className="docdoc-label">Conversion</span>
-              {d.warnings.map((w) => {
-                const a = forProblem(acts, w);
-                return (
-                  <div key={w} className="with-cab docdoc-warn">
-                    <p className="sev s-warn">
+              <span className="docdoc-label">
+                Conversion <span className="muted">{plural(d.warnings.length, "warning")}</span>
+              </span>
+              <ul className="docdoc-warns">
+                {d.warnings.map((w) => {
+                  const a = forProblem(acts, w);
+                  return (
+                    <li key={w} className="docdoc-warn">
                       <Icon name="warning" />
-                      {w}
-                    </p>
-                    {a && <ActionButton action={a} />}
-                  </div>
-                );
-              })}
+                      <div className="docdoc-warn-text">
+                        <p>{w}</p>
+                        {a && <ActionButton action={a} />}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
           )}
 

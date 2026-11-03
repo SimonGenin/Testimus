@@ -12,7 +12,7 @@ import { useActions } from "../../lib/actions.ts";
 import { useApp } from "../../lib/app.ts";
 import { desktop, pickFiles } from "../../lib/desktop.ts";
 import { cx } from "../../lib/format.ts";
-import { useSideWidth } from "../../lib/sideWidth.ts";
+import { type SideEdge, useSideWidth } from "../../lib/sideWidth.ts";
 import { errorToast } from "../../lib/toast.ts";
 import {
   addDocFiles,
@@ -81,13 +81,32 @@ const REFRESH = new Set(["docs.add", "docs.convert", "rag-index", "describe-figu
 
 export type Fold = "wide" | "medium" | "small" | "tiny";
 
-// ponytail: the outer columns fold first so the text keeps ~480px — list 248, sections 256, settings 300
-export const foldOf = (width: number): Fold =>
-  width >= 1300 ? "wide" : width >= 1040 ? "medium" : width >= 760 ? "small" : "tiny";
+const TEXT = 496;
+const COLS = { list: 248, toc: 256, side: 300 };
+type Cols = typeof COLS;
+
+// ponytail: the outer columns fold first so the text keeps TEXT px, at the widths the user dragged them to
+export const foldOf = (width: number, c: Cols = COLS): Fold =>
+  width >= c.list + c.toc + c.side + TEXT
+    ? "wide"
+    : width >= c.toc + c.side + TEXT
+      ? "medium"
+      : width >= c.toc + TEXT
+        ? "small"
+        : "tiny";
+
+const SHOWN: Record<Fold, (keyof Cols)[]> = {
+  wide: ["list", "toc", "side"],
+  medium: ["toc", "side"],
+  small: ["toc"],
+  tiny: [],
+};
 
 export function DocumentsScreen() {
   const app = useApp();
   const [listW, listEdge] = useSideWidth("testimus.docsListWidth", 200, 420, "before");
+  const [tocW, tocEdge] = useSideWidth("testimus.docsTocWidth", 180, 420, "before");
+  const [sideW, sideEdge] = useSideWidth("testimus.docsSideWidth", 260, 520, "after");
   const body = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(Number.POSITIVE_INFINITY);
   const [listOpen, setListOpen] = useState(false);
@@ -157,8 +176,19 @@ export function DocumentsScreen() {
   const listed = (u: Upload) => !!docs?.some((d) => (u.docId ? d.id === u.docId : owns(u, d)));
   const pages = docs?.length ?? 0;
   const hasBody = !(docs && !docs.length && !uploads.length);
-  const fold = foldOf(width);
+  const cols = { list: listW ?? COLS.list, toc: tocW ?? COLS.toc, side: sideW ?? COLS.side };
+  const fold = foldOf(width, cols);
   const folded = fold !== "wide";
+  // ponytail: a column grows only into the room the text can spare, so a drag never folds what it resizes
+  const roomy = (edge: SideEdge, col: keyof Cols): SideEdge => {
+    const others = SHOWN[fold].filter((k) => k !== col).reduce((sum, k) => sum + cols[k], 0);
+    return { ...edge, width: (dx, w) => Math.min(edge.width(dx, w), Math.max(w, width - others - TEXT)) };
+  };
+  const vars = {
+    ...(listW ? { "--docs-list-w": `${listW}px` } : {}),
+    ...(tocW ? { "--docs-toc-w": `${tocW}px` } : {}),
+    ...(sideW ? { "--docs-side-w": `${sideW}px` } : {}),
+  } as CSSProperties;
 
   useEffect(() => {
     const el = body.current;
@@ -252,11 +282,7 @@ export function DocumentsScreen() {
           </Button>
         </div>
       ) : (
-        <div
-          ref={body}
-          className={cx("docs-body", `is-${fold}`, listOpen && "is-list-open")}
-          style={listW ? ({ "--docs-list-w": `${listW}px` } as CSSProperties) : undefined}
-        >
+        <div ref={body} className={cx("docs-body", `is-${fold}`, listOpen && "is-list-open")} style={vars}>
           <section className="docs-list scroll" aria-label="Document list">
             <table className="tbl docs-tbl">
               <thead className="sr">
@@ -333,7 +359,9 @@ export function DocumentsScreen() {
               </tbody>
             </table>
           </section>
-          {!folded && <DragEdge className="docs-list-edge" label="Resize the document list" {...listEdge} />}
+          {!folded && (
+            <DragEdge className="docs-list-edge" label="Resize the document list" {...roomy(listEdge, "list")} />
+          )}
           {folded && listOpen && <div className="docs-scrim" aria-hidden="true" onClick={() => setListOpen(false)} />}
           {active ? (
             <DocDetail
@@ -342,6 +370,8 @@ export function DocumentsScreen() {
               anchor={anchor}
               quote={quote}
               fold={fold}
+              tocEdge={roomy(tocEdge, "toc")}
+              sideEdge={roomy(sideEdge, "side")}
               listOpen={listOpen}
               onShowList={folded ? () => setListOpen((o) => !o) : undefined}
               onAnchor={(a) => app.navigate("documents", `${activeId}#${a}`)}

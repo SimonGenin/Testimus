@@ -88,7 +88,7 @@ const bodyOf = (c: HTMLElement) => c.querySelector(".docs-body") as HTMLElement;
 
 describe("foldOf", () => {
   it("folds the outer columns first as the screen narrows", () => {
-    expect([Number.POSITIVE_INFINITY, 1300, 1299, 1040, 1039, 760, 759, 0].map(foldOf)).toEqual([
+    expect([Number.POSITIVE_INFINITY, 1300, 1299, 1052, 1051, 752, 751, 0].map((w) => foldOf(w))).toEqual([
       "wide",
       "wide",
       "medium",
@@ -98,6 +98,46 @@ describe("foldOf", () => {
       "tiny",
       "tiny",
     ]);
+  });
+});
+
+describe("foldOf with dragged widths", () => {
+  it("wider columns fold sooner, narrower ones later", () => {
+    expect(foldOf(1300, { list: 300, toc: 256, side: 300 })).toBe("medium");
+    expect(foldOf(1160, { list: 200, toc: 200, side: 260 })).toBe("wide");
+    expect(foldOf(700, { list: 248, toc: 180, side: 300 })).toBe("small");
+  });
+});
+
+describe("Documents screen resizing", () => {
+  it("wide: the sections and the settings have their own edges, at the widths last chosen", async () => {
+    listed();
+    localStorage.setItem("testimus.docsTocWidth", "200");
+    localStorage.setItem("testimus.docsSideWidth", "360");
+    const { container } = mount(<DocumentsScreen />, { route: { screen: "documents", arg: "D1" } });
+    localStorage.removeItem("testimus.docsTocWidth");
+    localStorage.removeItem("testimus.docsSideWidth");
+    await screen.findByText("Part §1.1");
+    expect(bodyOf(container).style.getPropertyValue("--docs-toc-w")).toBe("200px");
+    expect(bodyOf(container).style.getPropertyValue("--docs-side-w")).toBe("360px");
+    expect(screen.getByRole("separator", { name: "Resize the sections" })).toBeInTheDocument();
+    expect(screen.getByRole("separator", { name: "Resize the settings" })).toBeInTheDocument();
+  });
+
+  it("a drag grows a column only into the room the text can spare", async () => {
+    listed();
+    sized(1400);
+    const { container } = mount(<DocumentsScreen />, { route: { screen: "documents", arg: "D1" } });
+    await screen.findByText("Part §1.1");
+    const edge = screen.getByRole("separator", { name: "Resize the settings" });
+    const side = screen.getByRole("complementary", { name: "Document settings" });
+    side.getBoundingClientRect = () => ({ width: 300 }) as DOMRect;
+    fireEvent.pointerDown(edge, { clientX: 1000, pointerId: 1 });
+    fireEvent.pointerMove(edge, { clientX: 700, pointerId: 1 });
+    expect(bodyOf(container).style.getPropertyValue("--docs-side-w")).toBe("400px");
+    fireEvent.pointerUp(edge, { pointerId: 1 });
+    expect(bodyOf(container)).toHaveClass("is-wide");
+    localStorage.removeItem("testimus.docsSideWidth");
   });
 });
 

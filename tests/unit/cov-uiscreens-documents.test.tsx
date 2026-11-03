@@ -940,7 +940,9 @@ describe("Documents screen", () => {
     expect(within(side).queryByText("Context for this conversion only")).toBeNull();
 
     fireEvent.click(within(side).getByRole("button", { name: "Convert and index" }));
-    await waitFor(() => expect(named("docs.convert")[0]?.input).toEqual({ id: "NEW2", contexts: [] }));
+    await waitFor(() =>
+      expect(named("docs.convert")[0]?.input).toEqual({ id: "NEW2", contexts: [], describeFigures: true }),
+    );
     expect(await within(list).findByText("Conversion failed")).toBeInTheDocument();
     expect(within(list).getByText(/fresh.docx stays as it was: source missing/)).toBeInTheDocument();
     fireEvent.click(within(list).getByRole("button", { name: "Dismiss the conversion failure of fresh.docx" }));
@@ -1098,8 +1100,13 @@ describe("Documents screen", () => {
     expect(within(side).queryByRole("region", { name: "Convert again" })).toBeNull();
     fireEvent.click(within(side).getByRole("button", { name: "More actions for this document" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Convert again…" }));
+    const describe = within(side).getByRole("checkbox", { name: "Claude describes the figures not described yet" });
+    expect(describe).toBeChecked();
+    fireEvent.click(describe);
     fireEvent.click(within(side).getByRole("button", { name: "Convert again and index" }));
-    await waitFor(() => expect(named("docs.convert")[0]?.input).toEqual({ id: "D1", contexts: [] }));
+    await waitFor(() =>
+      expect(named("docs.convert")[0]?.input).toEqual({ id: "D1", contexts: [], describeFigures: false }),
+    );
     expect(within(side).queryByRole("region", { name: "Convert again" })).toBeNull();
   });
 

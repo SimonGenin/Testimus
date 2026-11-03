@@ -54,9 +54,9 @@ export function tracedElsewhere(docId: string, md: string, opts: EvidenceOpts) {
   return out;
 }
 
-async function withFigures(ctx: Ctx, doc: DocJson, claude: JobRun): Promise<DocJson> {
+async function withFigures(ctx: Ctx, doc: DocJson, claude: JobRun, on: boolean | undefined): Promise<DocJson> {
   const project = projectOf(ctx);
-  if (!shouldDescribeFigures(project) || !doc.stats?.figures) return doc;
+  if (!(on ?? shouldDescribeFigures(project)) || !doc.stats?.figures) return doc;
   try {
     ctx.progress({ message: "Claude describes the figures" });
     await describeFigures(project, doc.id, ctx, claude);
@@ -131,6 +131,12 @@ const triageOn = z
   .boolean()
   .optional()
   .describe("Then have Claude look at the conversion warnings and propose a Claude action for those it can fix");
+const figuresOn = z
+  .boolean()
+  .optional()
+  .describe(
+    "Have Claude describe the figures not described yet, after the conversion (default: project.json rag.describeFigures, on)",
+  );
 const contexts = CONTEXT_IDS.optional().describe(
   "Saved contexts Claude reads for this conversion only, on top of the document's own (docs.set contexts)",
 );
@@ -198,6 +204,7 @@ export const commands: Command[] = [
       effort,
       note: NOTE,
       contexts,
+      describeFigures: figuresOn,
       triage: triageOn,
     }),
     output: docJson.extend({ citedBy }),
@@ -229,7 +236,7 @@ export const commands: Command[] = [
           : added;
         if (doc !== added) writeDoc(project, doc);
         if (!input.convert) return { ...doc, citedBy: [] };
-        await withFigures(ctx, doc, runOf(input));
+        await withFigures(ctx, doc, runOf(input), input.describeFigures);
         const citing = recheckCiting(ctx, doc);
         await withTriage(ctx, doc, runOf(input), input.triage);
         return { ...doc, citedBy: citing };
@@ -254,6 +261,7 @@ export const commands: Command[] = [
       effort,
       note: NOTE,
       contexts,
+      describeFigures: figuresOn,
       triage: triageOn,
     }),
     output: docJson.extend({ citedBy }),
@@ -268,6 +276,7 @@ export const commands: Command[] = [
         ctx,
         await reconvertDoc(project, input.id, ctx.signal, (message) => ctx.progress({ message })),
         runOf(input),
+        input.describeFigures,
       );
       const citing = recheckCiting(ctx, doc);
       await withTriage(ctx, doc, runOf(input), input.triage);

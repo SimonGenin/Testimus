@@ -63,6 +63,24 @@ describe("docs.add with figure descriptions", () => {
     expect(() => convert.input.parse({ id: "DOC_D", effort: "huge" })).toThrow();
   });
 
+  it("describeFigures on the import wins over project.json rag.describeFigures, both ways", async () => {
+    const project = join(tempRoot("docsfig"), "p");
+    writeProject(project, DEFAULT_PROJECT);
+    const data = Buffer.from(sampleDocx()).toString("base64");
+    picked.length = 0;
+    failures.push("absent", "absent");
+    await add(project, { dataBase64: data, id: "DOC_F", describeFigures: false }, []);
+    expect(picked).toEqual([]);
+    writeProject(project, { ...DEFAULT_PROJECT, rag: { ...DEFAULT_PROJECT.rag, describeFigures: false } });
+    await add(project, { dataBase64: data, id: "DOC_G" }, []);
+    expect(picked).toEqual([]);
+    const convert = commands.find((x) => x.name === "docs.convert");
+    if (!convert) throw new Error("no docs.convert");
+    await convert.run(quietCtx(project), convert.input.parse({ id: "DOC_G", describeFigures: true }) as never);
+    expect(picked).toHaveLength(1);
+    failures.length = 0;
+  });
+
   it("cleans the upload folder when the PDF rendering cannot be read", async () => {
     const project = join(tempRoot("docsfig"), "p");
     writeProject(project, DEFAULT_PROJECT);

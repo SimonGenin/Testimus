@@ -39,3 +39,5 @@ export function useSideWidth(key: string, min: number, max: number, side: "befor
   };
   return [dragW ?? width, edge] as const;
 }
+
+export type SideEdge = ReturnType<typeof useSideWidth>[1];

@@ -111,7 +111,12 @@ async function addOne(key: number, input: Record<string, unknown>, onDone: (docI
 
 export type JobContext = { note?: string; contexts?: string[] };
 
-export async function convertDoc(id: string, name: string, job: JobContext, onDone: () => void): Promise<void> {
+export async function convertDoc(
+  id: string,
+  name: string,
+  job: JobContext & { describeFigures?: boolean },
+  onDone: () => void,
+): Promise<void> {
   const key = ++seq;
   items = [
     ...items,
@@ -122,7 +127,7 @@ export async function convertDoc(id: string, name: string, job: JobContext, onDo
   try {
     const doc = await run<{ id: string; warnings?: string[] }>(
       "docs.convert",
-      { id, ...claude, ...extra },
+      { id, ...claude, ...extra, ...(job.describeFigures !== undefined && { describeFigures: job.describeFigures }) },
       progressOf(key, "converting"),
     );
     if (doc?.warnings?.length) triageWhenClaude({ docId: id, ...claude, ...extra });
