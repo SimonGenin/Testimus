@@ -7,8 +7,11 @@ export const DEFAULT_BUDGETS: Budgets = { queryMs: 1000, indexPassagesPerSec: 5,
 
 export function readRegistry(): ModelsRegistry {
   const raw = readJson<Partial<ModelsRegistry>>(registryFile(), {});
-  return { ...raw, allowRemote: raw.allowRemote ?? readSettings().models.allowRemote, installs: raw.installs ?? [] };
+  return { ...raw, installs: raw.installs ?? [] };
 }
+
+// ponytail: whether models may be downloaded is a setting of this PC (settings.json models.allowRemote), nowhere else
+export const downloadsAllowed = (): boolean => readSettings().models.allowRemote;
 
 export function writeRegistry(r: ModelsRegistry): void {
   writeJson(registryFile(), r);

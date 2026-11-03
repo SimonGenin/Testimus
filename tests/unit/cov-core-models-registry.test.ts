@@ -50,9 +50,9 @@ describe("registry helpers", () => {
     dropInstall("m");
     expect(installsOf("m")).toEqual([]);
     expect(installsOf("n")).toHaveLength(1);
-    expect(runtimesDir({ allowRemote: true, installs: [] })).toBeUndefined();
-    expect(runtimesDir({ allowRemote: true, installs: [], dir: "D:\\m" })).toBe(join("D:\\m", "runtimes"));
-    expect(runtimesDir({ allowRemote: true, installs: [], dir: "D:\\m", runtimesDir: "E:\\r" })).toBe("E:\\r");
+    expect(runtimesDir({ installs: [] })).toBeUndefined();
+    expect(runtimesDir({ installs: [], dir: "D:\\m" })).toBe(join("D:\\m", "runtimes"));
+    expect(runtimesDir({ installs: [], dir: "D:\\m", runtimesDir: "E:\\r" })).toBe("E:\\r");
   });
 });
 

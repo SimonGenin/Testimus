@@ -27,7 +27,7 @@ import {
 import { fitOf } from "./models-fit.ts";
 import { machineProfile } from "./models-hardware.ts";
 import { opSignal, perfStats, speedLine } from "./models-perf.ts";
-import { putInstall, readRegistry, updateRegistry } from "./models-registry.ts";
+import { downloadsAllowed, putInstall, readRegistry, updateRegistry } from "./models-registry.ts";
 import { deviceOf, isGguf, resolveInstalled } from "./models-resolve.ts";
 import { isComplete } from "./models-store.ts";
 import { readSettings } from "./project.ts";
@@ -248,7 +248,7 @@ async function pullOnce(ctx: Ctx, input: PullInput, entry: CatalogEntry): Promis
       state: have.install.status,
     };
   const r = readRegistry();
-  if (!r.allowRemote)
+  if (!downloadsAllowed())
     throw new UserError(
       `${entry.label} is not on this PC and downloads are off (allowRemote = false).`,
       "Copy it from the team share and register it: testimus models add <folder>.",

@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished } from "vitest";
 import { quietCtx } from "../../src/core/command.ts";
 import { invoke } from "../../src/core/commands/index.ts";
 import { registryFile } from "../../src/core/lib/models-catalog.ts";
@@ -17,6 +17,7 @@ import {
 import { pinMachineProfile } from "../../src/core/lib/models-hardware.ts";
 import { NO_DIR, pull } from "../../src/core/lib/models-install.ts";
 import { readRegistry, writeRegistry } from "../../src/core/lib/models-registry.ts";
+import { readSettings, writeSettings } from "../../src/core/lib/project.ts";
 import type { CatalogEntry, MachineProfile } from "../../src/core/types.ts";
 
 const saved = { ...downloadDeps };
@@ -321,7 +322,9 @@ describe("models.pull", () => {
 
   it("refuses when downloads are off", async () => {
     withEntries(ggufEntry("tiny", BODY));
-    writeRegistry({ ...readRegistry(), dir, allowRemote: false });
+    writeRegistry({ ...readRegistry(), dir });
+    writeSettings({ ...readSettings(), models: { allowRemote: false } });
+    onTestFinished(() => writeSettings({ ...readSettings(), models: { allowRemote: true } }));
     await expect(pull(quietCtx(null), { model: "tiny" })).rejects.toThrow(/downloads are off/);
   });
 

@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 const fsCtl = vi.hoisted(() => ({ statfsFails: false }));
 vi.mock("node:fs", async (importOriginal) => {
@@ -31,7 +31,7 @@ import {
 import { catalogEntry, registryFile } from "../../src/core/lib/models-catalog.ts";
 import { pinMachineProfile } from "../../src/core/lib/models-hardware.ts";
 import { readRegistry, writeRegistry } from "../../src/core/lib/models-registry.ts";
-import { DEFAULT_PROJECT, writeProject } from "../../src/core/lib/project.ts";
+import { DEFAULT_PROJECT, readSettings, writeProject, writeSettings } from "../../src/core/lib/project.ts";
 import type { CatalogEntry, DoctorCheck, MachineProfile, ResolvedModel, RuntimeId } from "../../src/core/types.ts";
 
 const saved = { http: env.http, spawn: env.spawnClaude };
@@ -194,7 +194,8 @@ describe("jira and xray checks", () => {
 
 describe("model rows", () => {
   it("a model missing while downloads are off, or unknown to the catalog", async () => {
-    writeRegistry({ ...readRegistry(), allowRemote: false });
+    writeSettings({ ...readSettings(), models: { allowRemote: false } });
+    onTestFinished(() => writeSettings({ ...readSettings(), models: { allowRemote: true } }));
     const r = by(
       await modelRows(null, deps({ active: async () => ({ embedding: null, reranker: null, wanted: ["bge-m3-q8"] }) })),
     );

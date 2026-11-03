@@ -11,7 +11,7 @@ import { catalogEntry, pack } from "./models-catalog.ts";
 import { fitOf } from "./models-fit.ts";
 import { machineProfile } from "./models-hardware.ts";
 import { perfStats, readPerf } from "./models-perf.ts";
-import { budgets, readRegistry } from "./models-registry.ts";
+import { budgets, downloadsAllowed, readRegistry } from "./models-registry.ts";
 import { resolveInstalled } from "./models-resolve.ts";
 import { readSettings } from "./project.ts";
 
@@ -270,7 +270,7 @@ function installRow(kind: "embedding" | "reranker", m: ResolvedModel | null, wan
   if (!m && !wanted) return row(id, label, "skip", "none in use");
   if (!m) {
     const e = wanted ? catalogEntry(wanted) : undefined;
-    const remote = readRegistry().allowRemote;
+    const remote = downloadsAllowed();
     return row(
       id,
       label,

@@ -292,7 +292,6 @@ export async function setupModelsMock(
 
   writeRegistry({
     ...(dir ? { dir } : {}),
-    allowRemote: true,
     installs,
     ...(llamacpp ? { llamacpp } : {}),
     catalog: entries,

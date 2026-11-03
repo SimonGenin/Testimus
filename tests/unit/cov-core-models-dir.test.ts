@@ -46,7 +46,6 @@ function seedModel(): ModelsRegistry {
   put(join(m, "sub", "b.bin"), Buffer.alloc(500, 2));
   const r: ModelsRegistry = {
     dir: old,
-    allowRemote: true,
     installs: [{ model: "m", via: "download", runtime: "transformers", path: m, status: "installed" }],
   };
   writeRegistry(r);
@@ -58,7 +57,6 @@ function seedRuntime(): ModelsRegistry {
   put(exe, "exe");
   const r: ModelsRegistry = {
     dir: old,
-    allowRemote: true,
     installs: [],
     llamacpp: { exe, build: "b1", backend: "cpu", via: "download" },
   };
@@ -127,7 +125,7 @@ describe("runtimes folder", () => {
 describe("applySetDir — the edges", () => {
   it("a dry-run plan applied later creates the folder", async () => {
     const to = join(base, "new");
-    const plan = planSetDir(input(to, { dryRun: true }), deps(), { allowRemote: true, installs: [] });
+    const plan = planSetDir(input(to, { dryRun: true }), deps(), { installs: [] });
     expect(existsSync(to)).toBe(false);
     await applySetDir(plan, { signal: new AbortController().signal, onProgress: () => {} });
     expect(existsSync(to)).toBe(true);

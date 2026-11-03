@@ -101,7 +101,7 @@ const onnxFolder = (root: string, withOnnx = true) => {
   return root;
 };
 const registry = (over: Partial<Parameters<typeof writeRegistry>[0]> = {}) =>
-  writeRegistry({ allowRemote: true, installs: [], catalog: [GG, ON, NOHF], ...over });
+  writeRegistry({ installs: [], catalog: [GG, ON, NOHF], ...over });
 const inst = (o: Partial<Installation> & Pick<Installation, "model">): Installation => ({
   via: "download",
   runtime: "transformers",

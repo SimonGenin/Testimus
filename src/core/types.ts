@@ -387,7 +387,6 @@ export type LlamaRuntime = { exe: string; build: string; backend: LlamaBackend; 
 export type ModelsRegistry = {
   dir?: string;
   runtimesDir?: string;
-  allowRemote: boolean;
   installs: Installation[];
   llamacpp?: LlamaRuntime;
   catalog?: CatalogEntry[];
