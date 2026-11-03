@@ -64,6 +64,8 @@ describe("revert after later edits", () => {
     const refusal = new ApiError(
       "local-69d87001 changed after the Claude run run-1: reverting would lose those edits.",
       "Look at the test first; revert with force to discard the later edits too.",
+      409,
+      "edited-after-run",
     );
     expect(editedAfterRun(refusal)).toBe(true);
     expect(editedAfterRun(new Error("Unknown run"))).toBe(false);

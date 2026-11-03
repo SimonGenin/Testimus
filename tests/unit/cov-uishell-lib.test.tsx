@@ -391,7 +391,10 @@ describe("fields, marks, revert, editor bus, app context", () => {
     await revertRun("r1");
     await revertRun("r2", true);
     expect(callsOf("claude.revert").map((c) => c.input)).toEqual([{ runId: "r1" }, { runId: "r2", force: true }]);
-    expect(editedAfterRun(new Error("The test changed after the Claude run"))).toBe(true);
+    expect(editedAfterRun(new ApiError("The test changed after the Claude run", undefined, 409, "edited-after-run"))).toBe(
+      true,
+    );
+    expect(editedAfterRun(new Error("The test changed after the Claude run"))).toBe(false);
     expect(editedAfterRun("other")).toBe(false);
   });
 
