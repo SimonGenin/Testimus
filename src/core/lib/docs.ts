@@ -18,7 +18,7 @@ export function docDir(project: string, id: string): string {
 export function readDoc(project: string, id: string): DocJson {
   const file = join(docDir(project, id), "doc.json");
   if (!existsSync(file)) throw new UserError(`No document ${id}.`, "testimus docs list shows the project's documents.");
-  return { ...(JSON.parse(readFileSync(file, "utf8").replace(/^﻿/, "")) as DocJson), id };
+  return { ...(JSON.parse(readFileSync(file, "utf8").replace(/^\uFEFF/, "")) as DocJson), id };
 }
 
 export function writeDoc(project: string, doc: DocJson): void {

@@ -75,7 +75,10 @@ export function attachImage(project: string, input: AttachInput): Attached {
   const { test } = readTest(project, input.id);
   const step = test.steps[input.step - 1];
   if (!step || input.step < 1)
-    throw new UserError(`Step ${input.step} does not exist — the test has ${test.steps.length} step(s).`);
+    throw new UserError(
+      `Step ${input.step} does not exist — the test has ${test.steps.length} step(s).`,
+      `Give a step from 1 to ${test.steps.length}, or add the step first (tests.edit).`,
+    );
   const fig = input.figure ? figureFile(project, input.figure) : null;
   const src = fig ? fig.path : sourceFile(project, input.file as string);
   const img = addImage(project, input.id, new Uint8Array(readFileSync(src)), extname(src));
