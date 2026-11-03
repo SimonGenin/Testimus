@@ -1,6 +1,7 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { sleep } from "../../shared/run/work.ts";
 import type { ClaudeOut, ClaudeSpawn } from "../env.ts";
+import { fieldOrder } from "../lib/columns.ts";
+import { readTest, testExists, writeTest } from "../lib/store.ts";
 
 type Script = { match: (prompt: string, args: string[]) => boolean; run: (spawn: ClaudeSpawn) => Promise<ClaudeOut> };
 
@@ -13,19 +14,12 @@ export function registerMockScript(
   scripts.push({ match, run });
 }
 
-const sleep = (ms: number, signal?: AbortSignal) =>
-  new Promise<boolean>((done) => {
-    if (signal?.aborted) return done(false);
-    const t = setTimeout(() => done(true), ms);
-    signal?.addEventListener(
-      "abort",
-      () => {
-        clearTimeout(t);
-        done(false);
-      },
-      { once: true },
-    );
-  });
+// ponytail: false when the run was cancelled meanwhile — the mock cancels like the real claude (the e2e prove Cancel)
+const pause = (ms: number, signal?: AbortSignal) =>
+  sleep(ms, signal).then(
+    () => true,
+    () => false,
+  );
 
 let sessions = 0;
 
@@ -49,7 +43,7 @@ export async function mockStream(spawn: ClaudeSpawn, s: MockStream): Promise<Cla
     const line = JSON.stringify(m);
     lines.push(line);
     spawn.onLine?.(line);
-    return await sleep(s.delayMs ?? 150, spawn.signal);
+    return await pause(s.delayMs ?? 150, spawn.signal);
   };
   const cancelled = (): ClaudeOut => ({ code: 130, stdout: `${lines.join("\n")}\n`, stderr: "" });
   const started = Date.now();
@@ -110,17 +104,16 @@ registerMockScript(
 
 function editTest(cwd: string, prompt: string): string | null {
   const id = prompt.match(/^Files: tests\/([^/]+)\/test\.md/m)?.[1];
-  if (!id) return null;
-  const file = join(cwd, "tests", id, "test.md");
-  if (!existsSync(file)) return null;
-  const step = Number(prompt.match(/^Scope: step (\d+) /m)?.[1] ?? 1);
-  const md = readFileSync(file, "utf8");
-  const parts = md.split(/(?=^## Step \d+)/m);
-  const i = parts.findIndex((p) => p.startsWith(`## Step ${step}`));
-  if (i < 0) return null;
-  parts[i] = parts[i].replace(/(### Action\r?\n\r?\n[^\r\n]+)/, "$1 Vérifier l'affichage avant de continuer.");
-  writeFileSync(file, parts.join(""), "utf8");
-  return `Step ${step} of ${id}`;
+  if (!id || !testExists(cwd, id)) return null;
+  const n = Number(prompt.match(/^Scope: step (\d+) /m)?.[1] ?? 1);
+  const { test } = readTest(cwd, id);
+  const step = test.steps[n - 1];
+  const action = step?.fields.Action;
+  if (!action?.trim()) return null;
+  const [first, ...rest] = action.split("\n");
+  step.fields.Action = [`${first} Vérifier l'affichage avant de continuer.`, ...rest].join("\n");
+  writeTest(cwd, id, test, fieldOrder(cwd));
+  return `Step ${n} of ${id}`;
 }
 
 registerMockScript(
@@ -157,7 +150,7 @@ export async function mockSpawnClaude(run: ClaudeSpawn): Promise<ClaudeOut> {
   }
   // ponytail: TESTIMUS_MOCK_CLAUDE_MS=<ms> makes every run take that long, so a conversion can be watched
   const ms = Number(process.env.TESTIMUS_MOCK_CLAUDE_MS) || 0;
-  if (ms) await new Promise((r) => setTimeout(r, ms));
+  if (ms && !(await pause(ms, run.signal))) return { code: 130, stdout: "", stderr: "Cancelled." };
   for (let i = scripts.length - 1; i >= 0; i--)
     if (scripts[i].match(run.stdin, run.args)) return await scripts[i].run(run);
   return { code: 1, stdout: "", stderr: "mock claude: no script" };

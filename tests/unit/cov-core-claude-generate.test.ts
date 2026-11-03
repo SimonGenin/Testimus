@@ -2,13 +2,16 @@ import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } f
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { generateTests, genPrompt, languageName, parseGenReport, stampTest } from "../../src/core/claude/generate.ts";
+import { genPrompt, languageName } from "../../src/core/claude/gen-prompt.ts";
+import { parseGenReport } from "../../src/core/claude/gen-reply.ts";
+import { generateTests, stampTest } from "../../src/core/claude/generate.ts";
 import type { Ctx } from "../../src/core/command.ts";
 import { type ClaudeOut, env } from "../../src/core/env.ts";
 import { DEFAULT_SETTINGS, readProject, writeProject, writeSettings } from "../../src/core/lib/project.ts";
 import { readTest } from "../../src/core/lib/store.ts";
 import { writeContextMd } from "./context-helpers.ts";
 import { markIndexedInDb as markIndexed } from "./index-state-helpers.ts";
+import "../../src/core/commands/index.ts";
 
 const FIXTURE = join(import.meta.dirname, "..", "fixtures", "project");
 const real = env.spawnClaude;

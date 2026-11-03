@@ -1,77 +1,21 @@
 import { z } from "zod";
-import { checkTests, promoteChecked } from "../claude/check.ts";
+import { checkTests, promoteChecked, selectTests, semanticPlan } from "../claude/check.ts";
+import { CHECK_FILE, FINDING_KINDS, REVIEW, SEVERITY, TEST_REF } from "../claude/schemas.ts";
 import { command, projectOf, UserError } from "../command.ts";
 import { isStale, recordSemantic } from "../lib/check.ts";
-import { listLocalTests, readCheck, testExists } from "../lib/store.ts";
-import type { FindingKind } from "../types.ts";
+import { readCheck, testExists } from "../lib/store.ts";
 
-export const KINDS: [FindingKind, ...FindingKind[]] = [
-  "source-missing",
-  "quote-not-found",
-  "unsupported",
-  "contradicted",
-  "wrong-object",
-  "negative-missing",
-  "case-missing",
-  "not-simulated-unsourced",
-  "vague-result",
-  "documents-conflict",
-  "empty-field",
-  "raw-embed",
-  "duplicate-step",
-  "figure-not-embedded",
-  "column-unsourced",
-  "item-not-found",
-  "other",
-];
-
-const id = z.string().describe("Test id: the folder under tests/ — a Jira key (LFRPS12-1420) or local-<8hex>");
-const severity = z.enum(["error", "warning", "info"]);
-
-export const finding = z.object({
-  step: z.number().int().min(1).optional(),
-  kind: z.enum(KINDS),
-  severity,
-  message: z.string(),
-  sources: z.array(z.string()),
-  pass: z.enum(["mechanical", "semantic"]).optional(),
+const counts = z.object({
+  errors: z.number().describe("Errors"),
+  warnings: z.number().describe("Warnings"),
+  infos: z.number().describe("Infos"),
 });
-
-export const checkFile = z.object({ at: z.string(), testHash: z.string(), findings: z.array(finding) });
-
-const counts = z.object({ errors: z.number(), warnings: z.number(), infos: z.number() });
 
 const tally = (fs: { severity: string }[]) => ({
   errors: fs.filter((f) => f.severity === "error").length,
   warnings: fs.filter((f) => f.severity === "warning").length,
   infos: fs.filter((f) => f.severity === "info").length,
 });
-
-const inFolder = (folder: string, f: string) => {
-  const root = f.replace(/\/+$/, "");
-  return folder === root || folder.startsWith(`${root}/`) || root === "";
-};
-
-export function selectTests(project: string, input: { ids?: string[]; folder?: string; all?: boolean }): string[] {
-  const tests = listLocalTests(project);
-  if (input.all) return tests.map((t) => t.id);
-  if (!input.ids?.length && input.folder === undefined)
-    throw new UserError("Say which tests to check.", "Pass ids, a folder (--folder /Traction) or --all.");
-  const out = new Set<string>();
-  for (const t of input.ids ?? []) {
-    if (!testExists(project, t))
-      throw new UserError(`No test ${t} in this project.`, "testimus tests list shows the tests.");
-    out.add(t);
-  }
-  if (input.folder !== undefined) {
-    const f = input.folder;
-    const hit = tests.filter((t) => inFolder(t.folder, f));
-    if (!hit.length && !out.size)
-      throw new UserError(`No test in the folder ${f}.`, "testimus tests list shows the tests and their folders.");
-    for (const t of hit) out.add(t.id);
-  }
-  return [...out];
-}
 
 const subjectOf = (i: { ids?: string[]; folder?: string; all?: boolean }) =>
   i.all ? "all tests" : [...(i.ids ?? []), ...(i.folder !== undefined ? [i.folder] : [])].join(", ") || "tests";
@@ -87,24 +31,32 @@ export const commands = [
       all: z.boolean().optional().describe("Check every test of the project"),
       semantic: z
         .boolean()
-        .default(true)
-        .describe("Also run the check-test skill through Claude (default true); false = mechanical pass only"),
+        .optional()
+        .describe(
+          "Also run the check-test skill through Claude (default: when Claude Code is connected); false = mechanical pass only",
+        ),
     }),
     output: z.object({
-      tests: z.array(
-        z.object({
-          id: z.string(),
-          ok: z.boolean(),
-          review: z.string(),
-          errors: z.number(),
-          warnings: z.number(),
-          infos: z.number(),
-          summary: z.string().optional(),
-          runId: z.string().optional(),
-        }),
-      ),
-      totals: counts,
-      failed: z.array(z.string()),
+      tests: z
+        .array(
+          z.object({
+            id: z.string().describe("Test id"),
+            ok: z.boolean().describe("False when its semantic check did not finish"),
+            review: REVIEW,
+            errors: z.number().describe("Errors found"),
+            warnings: z.number().describe("Warnings found"),
+            infos: z.number().describe("Infos found"),
+            summary: z.string().optional().describe("Claude's one-line answer for this test"),
+            runId: z.string().optional().describe("The check-test run of this test"),
+          }),
+        )
+        .describe("Each test checked"),
+      totals: counts.describe("The findings of every test checked"),
+      failed: z.array(z.string()).describe("Tests whose semantic check did not finish"),
+      semantic: z
+        .enum(["done", "skipped"])
+        .describe("Whether the check-test skill ran (done) or only the mechanical pass did (skipped)"),
+      why: z.string().optional().describe("Why the semantic pass was skipped"),
     }),
     mutates: true,
     job: "check",
@@ -112,10 +64,9 @@ export const commands = [
     async run(ctx, input) {
       const project = projectOf(ctx);
       const ids = selectTests(project, input);
-      // ponytail: called from inside a Claude run (the .mcp.json env says so), Claude is the semantic checker
-      const nested = !!process.env.TESTIMUS_IN_CLAUDE && input.semantic;
-      if (nested) ctx.log("info", "Called from a Claude run: mechanical pass only.");
-      const results = await checkTests(ctx, project, ids, input.semantic && !nested);
+      const plan = await semanticPlan(input.semantic, ctx.signal);
+      if (plan.why) ctx.log("info", plan.why);
+      const results = await checkTests(ctx, project, ids, plan.semantic);
       const tests = results.map((r) => {
         const review = promoteChecked(ctx, project, r);
         return {
@@ -131,6 +82,8 @@ export const commands = [
         tests,
         totals: tally(results.flatMap((r) => r.check.findings)),
         failed: results.filter((r) => !r.ok).map((r) => r.id),
+        semantic: plan.semantic ? ("done" as const) : ("skipped" as const),
+        ...(plan.why ? { why: plan.why } : {}),
       };
     },
   }),
@@ -140,15 +93,13 @@ export const commands = [
     summary:
       "Record the semantic findings of one test (what the check-test skill sends): replaces the previous semantic findings, keeps the mechanical ones, stamps the current testHash.",
     input: z.object({
-      id,
+      id: TEST_REF,
       findings: z
         .array(
           z.object({
             step: z.number().int().min(1).optional().describe("Step number (1-based); absent for the whole test"),
-            kind: z.enum(KINDS).describe("Finding kind (SPEC §8)"),
-            severity: severity.describe(
-              "error = a tester would pass a wrong behavior or fail a right one; warning = gap or vague; info otherwise",
-            ),
+            kind: z.enum(FINDING_KINDS).describe("Finding kind (SPEC §8)"),
+            severity: SEVERITY,
             message: z.string().min(1).describe("One sentence in the project language naming the exact discrepancy"),
             sources: z
               .array(z.string())
@@ -158,7 +109,7 @@ export const commands = [
         )
         .describe("Every semantic finding of this check ([] when there is none)"),
     }),
-    output: checkFile,
+    output: CHECK_FILE,
     mutates: true,
     positional: ["id"],
     async run(ctx, input) {
@@ -172,8 +123,12 @@ export const commands = [
   command({
     name: "check.show",
     summary: "The last check of a test (check.json) and whether it is stale (the test changed since).",
-    input: z.object({ id }),
-    output: z.object({ id: z.string(), check: checkFile.nullable(), stale: z.boolean() }),
+    input: z.object({ id: TEST_REF }),
+    output: z.object({
+      id: z.string().describe("Test id"),
+      check: CHECK_FILE.nullable().describe("Its last check, or null when it was never checked"),
+      stale: z.boolean().describe("The test changed since that check"),
+    }),
     mutates: false,
     positional: ["id"],
     async run(ctx, input) {

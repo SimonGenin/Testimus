@@ -4,12 +4,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it } from "vitest";
-import { mcpAccess, mcpName, readOnlyCommands } from "../../src/core/claude/run.ts";
-import { registry } from "../../src/core/commands/index.ts";
-import { toolName } from "../../src/faces/mcp.ts";
+import { mcpAccess, mcpName, readOnlyCommands } from "../../../src/core/claude/access.ts";
+import { registry } from "../../../src/core/commands/index.ts";
+import { toolName } from "../../../src/faces/mcp.ts";
 
-const CLI = fileURLToPath(new URL("../../src/faces/cli.ts", import.meta.url));
-const FIXTURE = fileURLToPath(new URL("../fixtures/project/", import.meta.url));
+const CLI = fileURLToPath(new URL("../../../src/faces/cli.ts", import.meta.url));
+const FIXTURE = fileURLToPath(new URL("../../fixtures/project/", import.meta.url));
 
 type Msg = { id?: number; result?: Record<string, unknown>; error?: unknown; method?: string };
 

@@ -3,6 +3,7 @@ import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { ensureMcpJson } from "../claude/run.ts";
+import { EFFORT, MODEL } from "../claude/schemas.ts";
 import { command, projectOf, UserError } from "../command.ts";
 import { listJobs, runsIn } from "../jobs.ts";
 import { stepColumns } from "../lib/columns.ts";
@@ -24,7 +25,6 @@ import {
 } from "../lib/project.ts";
 import { writeAtomic } from "../lib/store.ts";
 import { awaitsReview, type ProjectJson, REVIEWS, type Review } from "../types.ts";
-import { EFFORT, MODEL } from "./claude.ts";
 
 const FOLDERS = ["docs", "tests", "contexts"];
 

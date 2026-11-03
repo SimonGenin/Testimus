@@ -1,94 +1,40 @@
 import { z } from "zod";
 import { diagnose } from "../claude/diagnose.ts";
-import { buildPrompt, effectiveContexts, projectContexts, readContexts } from "../claude/prompt.ts";
+import { buildPrompt, EDIT_MARKER, effectiveContexts, projectContexts, readContexts } from "../claude/prompt.ts";
 import { runClaude } from "../claude/run.ts";
+import {
+  CONTEXT_IDS,
+  CONVERSATION,
+  DIAGNOSIS,
+  EFFORT,
+  MODEL,
+  NOTE,
+  RESULT,
+  SCOPE,
+  scopeLabel,
+} from "../claude/schemas.ts";
 import { readRun, revert } from "../claude/snapshot.ts";
 import { CONNECT, checkSignedIn, claudeExe, claudeVersion } from "../claude/status.ts";
 import { command, projectOf } from "../command.ts";
 import { readProject } from "../lib/project.ts";
-import type { ClaudeScope } from "../types.ts";
 
-export const EFFORT = z.enum(["low", "medium", "high", "xhigh", "max"]);
-
-export const EDIT_MARKER = "Use the edit-test skill for the request below.";
-
-export const MODEL = z
-  .string()
-  .regex(/^[A-Za-z0-9.\-[\]:]+$/, "A model alias or id: letters, digits and . - [ ] : only");
-
-export const CONTEXT_IDS = z.array(z.string().regex(/^[\w-]+$/, "A context id: letters, digits, _ and -"));
-
-export const NOTE = z
-  .string()
-  .max(20000)
-  .optional()
-  .describe("Additional context for this run only, in plain words (said to Claude in full)");
-
-export const CONVERSATION = z
-  .string()
-  .max(60000)
-  .optional()
-  .describe(
-    "The earlier exchanges of the Claude panel the user has not cleared, as a transcript (said to Claude in full as background)",
-  );
-
-const TEST_ID = z
-  .string()
-  .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/, "A test id: a Jira key or local-<8hex>")
-  .refine((s) => !s.includes(".."), "A test id never contains ..");
-
-export const SCOPE = z.discriminatedUnion("kind", [
-  z.object({
-    kind: z.literal("step").describe("One step of one test."),
-    testId: TEST_ID.describe("Test folder id (Jira key or local-…)."),
-    step: z.number().int().min(1).describe("Step number, 1-based."),
-  }),
-  z.object({
-    kind: z.literal("test").describe("One whole test."),
-    testId: TEST_ID.describe("Test folder id (Jira key or local-…)."),
-  }),
-  z.object({
-    kind: z.literal("tests").describe("Several tests."),
-    testIds: z.array(TEST_ID).min(1).describe("Test folder ids."),
-  }),
-  z.object({
-    kind: z.literal("doc").describe("One document and the tests that cite it."),
-    docId: TEST_ID.describe("Document id (its folder under docs/)."),
-  }),
-  z.object({ kind: z.literal("project").describe("The whole project: every test, every document.") }),
-]);
-
-export const DIAGNOSIS = z.object({
-  kind: z.enum(["connect", "login", "credit", "limit", "network", "other"]),
-  title: z.string(),
-  detail: z.string(),
-});
-
-export const RESULT = z.object({
-  runId: z.string(),
-  ok: z.boolean(),
-  summary: z.string(),
-  durationMs: z.number(),
-  costUsd: z.number().optional(),
-  tokens: z
-    .object({ input: z.number(), output: z.number() })
-    .optional()
-    .describe("Tokens the run used (input incl. cache)"),
-  sessionId: z.string().optional(),
-  changedTests: z.array(z.string()),
-  written: z.array(z.string()).describe("Tests the run itself wrote (its tool calls)"),
-  changedSteps: z.record(z.string(), z.array(z.number())),
+const STATUS = z.object({
+  installed: z.boolean().describe("claude --version answered"),
+  version: z.string().optional().describe("Its version"),
+  exe: z.string().describe("The Claude program Testimus runs (the setting, or the one found on PATH)"),
+  signedIn: z.boolean().nullable().describe("Whether a tiny run worked; null when it was not tried (signIn not asked)"),
+  detail: z.string().describe("What claude said, first line"),
   diagnosis: DIAGNOSIS.optional(),
-  raw: z.string(),
+  connect: z
+    .array(
+      z.object({
+        title: z.string().describe("The step"),
+        cmd: z.string().describe("What to type"),
+        hint: z.string().describe("Where and how"),
+      }),
+    )
+    .describe("How to install Claude Code and sign in"),
 });
-
-export function scopeLabel(s: ClaudeScope): string {
-  if (s.kind === "doc") return s.docId;
-  if (s.kind === "step") return `${s.testId} step ${s.step}`;
-  if (s.kind === "test") return s.testId;
-  if (s.kind === "tests") return `${s.testIds.length} tests`;
-  return "project";
-}
 
 export const commands = [
   command({
@@ -173,19 +119,11 @@ export const commands = [
         .describe("Also check the sign-in with a tiny real `claude -p` run (costs a few tokens)."),
       refresh: z.boolean().optional().describe("Ask `claude --version` again instead of the remembered answer."),
     }),
-    output: z.object({
-      installed: z.boolean(),
-      version: z.string().optional(),
-      exe: z.string(),
-      signedIn: z.boolean().nullable(),
-      detail: z.string(),
-      diagnosis: DIAGNOSIS.optional(),
-      connect: z.array(z.object({ title: z.string(), cmd: z.string(), hint: z.string() })),
-    }),
+    output: STATUS,
     mutates: false,
     global: true,
     async run(ctx, input) {
-      const v = await claudeVersion(input.refresh === true);
+      const v = await claudeVersion(input.refresh === true, ctx.signal);
       const base = { exe: claudeExe(), connect: CONNECT };
       if (!v.ok) return { ...base, installed: false, signedIn: false, detail: v.text, diagnosis: diagnose(v.text) };
       const version = v.text.match(/\d+\.\d+\.\d+/)?.[0];

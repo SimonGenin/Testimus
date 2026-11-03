@@ -3,15 +3,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { resetProbe } from "../../src/core/claude/status.ts";
-import { find, invoke } from "../../src/core/commands/index.ts";
-import { env } from "../../src/core/env.ts";
-import { showJob } from "../../src/core/jobs.ts";
-import { mockSpawnClaude } from "../../src/core/mock/claude.ts";
-import type { ClaudeEvent } from "../../src/core/types.ts";
-import { callTool } from "../../src/faces/mcp.ts";
+import { resetProbe } from "../../../../src/core/claude/status.ts";
+import { find, invoke } from "../../../../src/core/commands/index.ts";
+import { env } from "../../../../src/core/env.ts";
+import { showJob } from "../../../../src/core/jobs.ts";
+import { mockSpawnClaude } from "../../../../src/core/mock/claude.ts";
+import type { ClaudeEvent } from "../../../../src/core/types.ts";
+import { callTool } from "../../../../src/faces/mcp.ts";
 
-const FIXTURE = fileURLToPath(new URL("../fixtures/project/", import.meta.url));
+const FIXTURE = fileURLToPath(new URL("../../../fixtures/project/", import.meta.url));
 const real = env.spawnClaude;
 
 function copyFixture(): string {

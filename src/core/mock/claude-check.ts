@@ -1,5 +1,4 @@
-import { quietCtx } from "../command.ts";
-import { commands } from "../commands/check.ts";
+import { invoke } from "../commands/index.ts";
 import { fieldOrder } from "../lib/columns.ts";
 import { readCheck, readTest, testExists, writeTest } from "../lib/store.ts";
 import type { Finding, Test } from "../types.ts";
@@ -58,8 +57,7 @@ export function mockFindings(test: Test): Found[] {
 }
 
 function record(project: string, id: string, findings: Found[]): void {
-  const c = commands.find((x) => x.name === "check.record");
-  c?.run(quietCtx(project), c.input.parse({ id, findings }) as never).catch(() => {});
+  invoke("check.record", { id, findings }, { project }).catch(() => {});
 }
 
 export function mockFix(project: string, id: string): string[] {

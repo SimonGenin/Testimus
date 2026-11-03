@@ -7,8 +7,8 @@ import {
   tokensOf,
   toolCalls,
   writtenTests,
-} from "../../src/core/claude/stream.ts";
-import type { ClaudeEvent } from "../../src/core/types.ts";
+} from "../../../../src/core/claude/stream.ts";
+import type { ClaudeEvent } from "../../../../src/core/types.ts";
 
 const line = (m: unknown) => JSON.stringify(m);
 

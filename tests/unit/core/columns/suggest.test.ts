@@ -3,10 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { columnsPrompt, columnUse, parseColumns, toProposals } from "../../src/core/claude/columns.ts";
-import { invoke } from "../../src/core/commands/index.ts";
-import { type ClaudeSpawn, env } from "../../src/core/env.ts";
-import { setModes, stepColumns } from "../../src/core/lib/columns.ts";
+import { columnsPrompt, columnUse, parseColumns, toProposals } from "../../../../src/core/claude/columns.ts";
+import { invoke } from "../../../../src/core/commands/index.ts";
+import { type ClaudeSpawn, env } from "../../../../src/core/env.ts";
+import { setModes, stepColumns } from "../../../../src/core/lib/columns.ts";
 import {
   DEFAULT_SETTINGS,
   readProject,
@@ -14,11 +14,11 @@ import {
   writeProject,
   writeSettings,
   writeXray,
-} from "../../src/core/lib/project.ts";
-import { mockSpawnClaude } from "../../src/core/mock/claude.ts";
-import "../../src/core/mock/claude-columns.ts";
+} from "../../../../src/core/lib/project.ts";
+import { mockSpawnClaude } from "../../../../src/core/mock/claude.ts";
+import "../../../../src/core/mock/claude-columns.ts";
 
-const FIXTURE = fileURLToPath(new URL("../fixtures/project/", import.meta.url));
+const FIXTURE = fileURLToPath(new URL("../../../fixtures/project/", import.meta.url));
 const real = env.spawnClaude;
 let calls: ClaudeSpawn[] = [];
 

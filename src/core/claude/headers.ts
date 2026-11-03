@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 import { findDoc } from "../lib/docs.ts";
 import { readProject, readSettings } from "../lib/project.ts";
 import type { Chunk, DocJson } from "../types.ts";
-import { languageName } from "./generate.ts";
+import { languageName } from "./gen-prompt.ts";
 import { docContexts, docRunLines, type JobRun } from "./prompt.ts";
 import { runClaude } from "./run.ts";
 
@@ -11,7 +11,7 @@ export const HEADERS_TAG = "headers";
 export const HEADERS_BATCH = 40;
 const EXCERPT = 1200;
 
-export function claudeHeadersOn(project: string): boolean {
+function claudeHeadersOn(project: string): boolean {
   return (readProject(project).rag as { claudeHeaders?: boolean }).claudeHeaders === true;
 }
 

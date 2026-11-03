@@ -723,8 +723,10 @@ The parser stays tolerant (never throws on a human or Claude edit; returns warni
 
 ## 7. Generation
 
-- Input: a request (a feature in words, a document section, a list of requirement ids, or a mix), a
-  target Xray folder, the project's language (default `fr`).
+- Input: a request (a feature in words), documents or document sections (`docId#§x.y`), or a mix, a
+  target Xray folder, the project's language (default `fr`). `gen.preview` says, before any run, which tests
+  `discard` would replace (Claude's tests still awaiting review, never one pushed to Jira) and which documents of
+  the scope are not indexed or stale.
 - Run: `gen.tests` starts a job that runs the project's `generate-tests` skill through `claude -p`
   with the MCP tools available. The skill searches the index, reads the cited sections and figures,
   and writes one `tests/local-<8hex>/test.md` per test with `review: draft`.
@@ -738,15 +740,15 @@ The parser stays tolerant (never throws on a human or Claude edit; returns warni
   with it):
   - positive and negative paths, black-box or white-box technique chosen per feature and named in
     the description;
-  - **when requirements are given, each one is covered** by at least one step, and a step's
-    `Exigence` field lists only requirements the step actually verifies;
+  - every smart column is filled as its description says (§6), and only with what a source supports;
   - every expected result has a source; no source → the step is not written, the gap is reported;
   - "not simulated" is written only when a source says so;
-  - no reference inside Action / Expected text; references live in `Exigence` and `### Sources`;
+  - no reference inside Action / Expected text; references live in `### Sources`;
   - figures from the documents are embedded where the step needs them.
-- Output of the job: the test ids written, and the requests it could not cover (with why). The skill
-  ends its reply with a fenced `gen-report` block `{ "tests", "covered", "uncovered": [{ item, why }] }`
-  that the core parses; the result is also kept in `.testimus/gen/<generation>.json`. Every new test is
+- Output of the job: the test ids written, and what it could not test (with why). The skill
+  ends its reply with a fenced `gen-report` block `{ "tests", "skipped": [{ item, why }], "consulted" }`
+  that the core parses (`claude/gen-reply.ts`; a request that takes more than one test is planned first in a
+  `test-plan` block, then written one run per test); the result is also kept in `.testimus/gen/<generation>.json`. Every new test is
   stamped `review: draft` + `generated_by: <jobId>` and gets its mechanical check at once. The run is
   snapshotted, so a whole generation can be reverted (`claude.revert`).
 - **Evidence ledger**: from the run's stream-json tool calls (never from the model's report) the core derives what
@@ -797,6 +799,10 @@ Rules fixed while building (2026-11):
   than once in its passage → `quote-weak` (warning). The review panel highlights a quote only at its anchor.
 - A document that changes (reconversion, removal) re-runs the mechanical pass of the tests citing it; the semantic
   findings stay while they were stamped for the same `test.md`.
+- `check.run` decides the semantic pass itself: not asked, it runs when Claude Code is connected (`claude --version`
+  answers), else the check is the mechanical pass only and says so (`semantic: "skipped"`, `why`); `semantic: false`
+  is the mechanical pass only; `semantic: true` runs it anyway (a missing Claude then leaves its warning on each
+  test). The page never decides it.
 - `check.run` writes the mechanical findings first; the skill sends its findings with `check_record`,
   which replaces the semantic ones, keeps the mechanical ones and stamps the current `testHash`. A failed
   semantic run leaves an `other` warning. Semantic runs get Read, Glob, Grep, Skill and only the read-only MCP tools
@@ -811,7 +817,8 @@ Rules fixed while building (2026-11):
   `rag.passage { ref, around: quote }`, so a quote far down a section longer than the cap is shown and highlighted;
   when the section's own text does not hold it (`quoteFound: false`) it says so and offers Open in document.
 - Two decisions: **Validate** (`review: validated`) or **To fix** with a note (`review: to-fix`).
-  "To fix" offers **Ask Claude to fix it** (`fix-test` skill, scope = this test, note as request);
+  "To fix" offers **Ask Claude to fix it** (`fix-test` skill, scope = this test, note as request): one command,
+  `review.fix { id, note }`, marks the test `to-fix` with the note (as `review.set` would) then runs the fix;
   the result goes back to `checked` after a re-check, never straight to `validated`.
 - A test goes `draft` → `checked` only after a successful semantic check. `to-fix` needs a note;
   `validate` clears it; `reviewed_by` is the OS user name. Review changes touch frontmatter lines only,
@@ -820,10 +827,9 @@ Rules fixed while building (2026-11):
 - A push of a test that is not `validated` asks for confirmation.
 - On push, the review state becomes a Jira label (`testimus-validated`, `testimus-to-fix`) so the
   team sees it in Jira; the label prefix is a `project.json` setting.
-- `review.evidence <testId>` → `{ testId, jobId | null, consulted, read: [{ ref, title, cited }], related: [{ ref,
-  kind, title, read, via }], searched }`: « sources read » (what the generation opened; `cited` when a step's source
-  is that reference or one of its sub-sections) and « sources related » (the sections `rag.related` links to the
-  requirements in the requirement field, read or not). The Review screen shows both.
+- `review.evidence <testId>` → `{ testId, jobId | null, consulted, read: [{ ref, title, cited }], searched }`:
+  « sources read » (what the generation opened; `cited` when a step's source is that reference or one of its
+  sub-sections) and the searches it made. The Review screen shows them.
 
 ## 10. Xray sync
 
@@ -887,11 +893,12 @@ stops at the first failure), plus:
   `jobId`, `label`) and, for a run that may edit tests, its snapshot (contents before, hashes after, the tests the
   run itself wrote, changed steps; copies of the files it may change under `before/`); **Revert** works from the run id, also after a restart, refuses when a
   test changed after the run (unless `force`, which the UI sends only from an explicit « Revert anyway »),
-  and never deletes a test the run did not write. The Generate screen shows the check results `gen.tests`
+  and never deletes a test the run did not write; the refusal carries the code `edited-after-run`. The Generate screen shows the check results `gen.tests`
   returns (`checks`); it starts no check of its own.
-- Tool access per run kind (after the adversarial review, 2026-11), computed from the registry:
-  chat, figure descriptions and context headers get the read-only commands only (no job, no `system`,
-  `project`, `jobs`, `claude`, `chat.ask`, `rag.eval`); the check adds `check_record`; generation adds
+- Tool access per run kind (after the adversarial review, 2026-11), computed in `claude/access.ts` from the command
+  list the registry hands over (`provideCommands`; the Claude layer never imports the registry):
+  chat, figure descriptions and context headers get the read-only commands only (`mutates: false`, no job, no
+  `system`, `project`, `jobs`, `claude`); the check adds `check_record`; generation adds
   `tests_create`, `tests_edit`, `tests_save`, `tests_addImage`, `check_run`; a fix or `claude.run` adds
   `tests_edit`, `tests_save`, `tests_addImage`. Every other Testimus tool goes into `--disallowedTools`,
   with `Edit`/`Write` on `docs/**`, `index/**`, `.testimus/**`, `contexts/**`,
@@ -906,7 +913,7 @@ stops at the first failure), plus:
   (`.testimus/shipped.json` records the shipped versions); `project.set` refuses an empty or
   space-containing `labelPrefix`.
 - `rag_mentions`, `rag_related` and `review_evidence` are read-only commands, so every run kind gets them. The
-  shipped skills use them (SPEC-RAG §4.6): `generate-tests` calls `rag_related` on each requirement and section in
+  shipped skills use them (SPEC-RAG §4.6): `generate-tests` calls `rag_related` on each section in
   scope and `rag_mentions` on each object, screen, gesture and acronym, reads the sections in full before designing,
   cites a fact only a figure shows as `fig:N` with its caption after reading the image, and lists `consulted` in its
   gen-report; `check-test` reads a `fig:` source's image before accepting it and looks for contradictions with
@@ -920,7 +927,15 @@ stops at the first failure), plus:
   `claude -p` process tree (through a `.cmd` shim claude is a grandchild); a run cancelled before it started
   never spawns.
 - Failure diagnosis (connect / login / credit / limit / network) and the "Claude not installed"
-  panel are ported from Xray Editor as they are.
+  panel are ported from Xray Editor as they are. « Is Claude there » is `claude --version`, shared by every caller
+  for one configured program: it gives up after 10 s (the hanging process is killed), an answer that failed is asked
+  again next time, and a caller's cancel ends only its own wait. A run that answered counts as « there ».
+- **Triage**: `actions.triage { docId | jobId }` has Claude look at a document's conversion warnings or a failed
+  job and propose actions; without Claude it looks at nothing and says so (`skipped`). The core, not the page,
+  decides which failed jobs Claude looks at: `actions.triageFailed { jobId }` (the page calls it once per failed
+  job) starts one cheap triage (project model, effort low, cause `after-failure`) for a failed job of the
+  documents, the index, the figures, a generation or a check — never a Claude run or a Jira call — once per job,
+  and only when Claude is there; otherwise it returns why not.
 - Claude acts on the app only through the MCP tools and by editing files in the project folder;
   it never calls the HTTP API.
 - **Contexts** (Xray Editor §7): a run on a test attaches the test's own list (`tests/<id>/local.json` `contexts`) when
@@ -936,14 +951,15 @@ Group | Verbs (all with `--json`; mutating ones marked *)
 `docs` | `add`* (job: copy + convert one document; a path, or an upload as base64), `addFiles`* (job: the files dropped or picked together, a .docx paired with its .pdf, copied only), `convert`* (job: convert, figures, re-check of the citing tests, triage, and with `index` the search index), `inspect` (profile of the originals), `page` (a page of the PDF copy as a PNG under .testimus/pages), `list` (with index freshness), `show` (+ `contextMtime`), `set`* (status, amends, context with `ifMtime`…), `describeFigures`* (job, Claude), `remove`* (`--dry-run`)
 `rag` | `index`* (job; one run at a time per index), `search` (mode hybrid · bm25 · vector; `expand`), `passage` (docId#anchor → text + figures, centred on `around`, capped; code `doc-gone` for a missing document), `figure`, `mentions` (every passage holding a term, no model), `related` (graph neighbours, no model), `eval`* (job, L1; updates the index, writes its report), `compare` (reports → intervals), `status` (active model, space, freshness per document), `spaces`, `dropSpace`*
 `search` | `all` (Ctrl K: tests, documents, passages, by words and by meaning), `index`* (job: embeds the tests for search by meaning)
-`chat` | `ask` (job, streamed), `list`, `show`
-`claude` | `run`* (job: a scoped request « On this test » — step, test, tests or project), `revert`* (runId), `status` (installed, version, signed in, how to connect)
+`chat` | `ask`* (job, streamed; writes the conversation under `.testimus/chats/`), `list`, `show`
+`claude` | `run`* (job: a scoped request « On this test » — step, test, tests or project), `revert`* (runId; refuses with code `edited-after-run`), `status` (installed, version, signed in, how to connect)
+`actions` | `list`, `show`, `propose`* (from a Claude run), `dismiss`*, `run`* (job, Claude, snapshotted), `triage`* (job, Claude: a document's warnings or a failed job), `triageFailed`* (the core decides whether Claude looks at a failed job, and starts the triage)
 `contexts` | `list` (the project's own and the shared library's, each with `shared`; `--from <project>` lists another project's own), `show`, `create`* (`--shared` puts it in the library), `share`* (move into the library or back into this project), `set`* (name, notes, outside paths), `addFile`* (a path or an upload), `removeFile`*, `remove`*, `copy`* (from another project: notes, paths and files; a taken id gets a new one), `ofTest` (effective · own · project), `setTest`* (a test's full list, or null to follow the project)
 `columns` | `list` (the step columns in order: origin, status, description, mode), `save`* (a description, Reference source, or a new local column), `setModes`* (open · filled · collapsed · hidden, by column), `order`*, `remove`* (a local column), `suggest` (job, Claude, read-only: proposals for columns.save)
 `tests` | `list`, `show` (+ the picture files present and test.md's mtime), `create`*, `edit`* (field-level patch incl. preconditions, and step ops set · add · remove · move · sources, steps numbered from 1), `save`* (the whole test, the editor's save), `restore`* (Undo local changes: test.md ← .remote.md), `clone`*, `addImage`* (a file or a document figure → `images/`, embedded in a step), `storeImage`* (a pasted picture → `images/`, test.md untouched), `removeImage`* (a picture no step lists any more), `columns`, `setColumns`* (per-test folding, in `local.json`), `remove`*
-`gen` | `tests`* (job), `bench`* (job, L2 benchmark with Claude; costly)
-`check` | `run`* (job: mechanical pass, then the `check-test` skill; writes `check.json`), `record`* (the skill's semantic findings for one test), `show`
-`review` | `set`* (validate / to-fix + note), `fix`* (Claude, job), `queue` (what awaits review), `evidence` (sources read / related)
+`gen` | `tests`* (job), `preview` (what `tests` would replace, documents not indexed or stale), `bench`* (job, L2 benchmark with Claude; costly)
+`check` | `run`* (job: mechanical pass, then the `check-test` skill when Claude is there; writes `check.json`; says `semantic: done · skipped`), `record`* (the skill's semantic findings for one test), `show`
+`review` | `set`* (validate / to-fix + note), `fix`* (Claude, job; with a note, marks the test to-fix first), `queue` (what awaits review), `evidence` (sources read)
 `xray` | `fields` (the step fields in `xray.json`, no network), `refreshFields`* (read them again from Xray — also before every push and when a project opens; a field switched off in Xray is kept with `disabled`, `required` kept), `connect`*, `disconnect`*, `folders` (the tree with counts), `search`, `preconditions` (the project's, with definitions), `browse` (an issue's Jira page), `pull`* (job), `status` (one test), `statusAll` (job, every test), `plan` (what a push would do, and its `planHash`; = `push --dry-run`, readable by Claude runs), `push`* (job; `from` resumes after a failed operation)
 `models` | `catalog` (with the fit on this PC), `list`, `dirs` (the models and runtimes folders), `add`* (path A), `pull`* (job, checked download), `pullRuntime`* (job, llama.cpp build), `remove`*, `verify`* (job), `planDir` (what changing the folder would do), `setDir`* (job: move · keep · copy), `use`* (Custom; dry-run: fit and a lighter model), `packs` (with the next lighter pack), `planPack` (a pack's plan), `usePack`* (job with steps), `measure` (job), `hardware`, `fit`, `perf`, `advice`, `dismissAdvice`*
 `jobs` | `list`, `show`, `cancel`*
