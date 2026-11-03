@@ -96,6 +96,23 @@ describe("serve --mock models", () => {
     expect((await packs()).find((x) => x.id === "performance")?.active).toBe(true);
   });
 
+  it("usePack --downloadOnly keeps the current pack; a model pulled twice at once is fetched once", async () => {
+    const dry = (await invoke("models.usePack", { pack: "quality", dryRun: true }, { project })) as {
+      plan: { download: { model: string }[] };
+    };
+    const first = dry.plan.download[0].model;
+    mockDownloads.fetched.length = 0;
+    const out = (await invoke("models.usePack", { pack: "quality", downloadOnly: true }, { project })) as {
+      jobIds: string[];
+    };
+    expect(await invoke("models.pull", { model: first }, { project: null })).toMatchObject({ model: first });
+    expect((await waitJob(out.jobIds[0])).status).toBe("done");
+    expect(new Set(mockDownloads.fetched).size).toBe(mockDownloads.fetched.length);
+    const p = await packs();
+    expect(p.find((x) => x.id === "quality")).toMatchObject({ active: false, downloadMB: 0 });
+    expect(p.find((x) => x.id === "performance")?.active).toBe(true);
+  });
+
   it("a half-downloaded GGUF resumes with a Range request", async () => {
     mockDownloads.fetched.length = 0;
     const r = (await invoke("models.pull", { model: "qwen3-embedding-4b-q8" }, { project: null })) as {

@@ -274,7 +274,7 @@ describe("Settings › Models section", () => {
       variant: 0,
       embedding: "emb-s",
       reranker: "rr",
-      plan: { download: i.dryRun ? [{ model: "rr", sizeMB: 300 }] : [], dir: "D:\\m", reindex: true, expected: "fast" },
+      plan: { download: [], dir: "D:\\m", reindex: true, expected: "fast" },
       jobIds: i.dryRun ? [] : ["rag-index-9", "up-9"],
       dryRun: !!i.dryRun,
     });
@@ -284,13 +284,45 @@ describe("Settings › Models section", () => {
     fireEvent.click(within(dlg).getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("dialog", { name: "Use the Balanced pack" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Use the Balanced pack" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Download 300 MB and use" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Use Balanced" }));
     expect(await screen.findByText("Balanced pack chosen for this project")).toBeInTheDocument();
     expect(screen.getByRole("status", { name: "Indexing the documents" })).toBeInTheDocument();
     expect(screen.getByRole("status", { name: "Installing Balanced" })).toBeInTheDocument();
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
     end("up-9", "done", { result: { indexJob: null } });
     end("rag-index-9", "done");
+  });
+
+  it("a pack with downloads is only downloaded; another pack stays choosable meanwhile", async () => {
+    base({ packs: [pack("balanced", { downloadMB: 300 }), pack("light", { active: true })] });
+    models.routes["models.usePack"] = (i) => ({
+      pack: i.pack,
+      variant: 0,
+      embedding: "emb-s",
+      reranker: null,
+      plan: {
+        download: i.pack === "balanced" ? [{ model: "emb-s", sizeMB: 300 }] : [],
+        dir: "D:\\m",
+        reindex: true,
+        expected: "",
+      },
+      jobIds: i.dryRun ? [] : ["dl-1"],
+      dryRun: !!i.dryRun,
+    });
+    mount(<ModelsSection />);
+    fireEvent.click(await screen.findByRole("button", { name: "Use the Balanced pack" }));
+    const dlg = await screen.findByRole("dialog", { name: "Download the Balanced pack" });
+    expect(within(dlg).getByText(/Once used, the documents are indexed again/)).toBeInTheDocument();
+    fireEvent.click(within(dlg).getByRole("button", { name: "Download 300 MB" }));
+    expect(await screen.findByRole("status", { name: "Downloading Balanced" })).toBeInTheDocument();
+    expect(named("models.usePack").at(-1)?.input).toEqual({ pack: "balanced", downloadOnly: true });
+    expect(screen.queryByText("Balanced pack chosen for this project")).toBeNull();
+    expect(screen.getByRole("button", { name: "Use the Light pack" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "Use the Light pack" }));
+    expect(await screen.findByRole("dialog", { name: "Use the Light pack" })).toBeInTheDocument();
+    await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
+    end("dl-1", "done", { result: { indexJob: null } });
+    expect(await screen.findByText("Balanced pack downloaded")).toBeInTheDocument();
   });
 
   it("a plan that needs a folder asks for one, then plans again; Change… in the plan too", async () => {
@@ -319,11 +351,11 @@ describe("Settings › Models section", () => {
     dir = "D:\\models";
     fireEvent.click(screen.getByRole("button", { name: "Apply folder" }));
     expect(await screen.findByText("Models folder saved")).toBeInTheDocument();
-    const dlg = await screen.findByRole("dialog", { name: "Use the Balanced pack" });
+    const dlg = await screen.findByRole("dialog", { name: "Download the Balanced pack" });
     fireEvent.click(within(dlg).getByRole("button", { name: "Change…" }));
     expect(await screen.findByText("folder D:\\models need 0")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Apply folder" }));
-    expect(await screen.findByRole("dialog", { name: "Use the Balanced pack" })).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "Download the Balanced pack" })).toBeInTheDocument();
   });
 
   it("a confirm refused for want of a folder asks for one; other refusals are reported", async () => {
@@ -343,18 +375,18 @@ describe("Settings › Models section", () => {
         : failing(refusal);
     mount(<ModelsSection />);
     fireEvent.click(await screen.findByRole("button", { name: "Use the Balanced pack" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Download 50 MB and use" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Download 50 MB" }));
     expect(await screen.findByText("folder D:\\m need 50")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Apply folder" }));
     fireEvent.click(
-      within(await screen.findByRole("dialog", { name: "Use the Balanced pack" })).getByRole("button", {
+      within(await screen.findByRole("dialog", { name: "Download the Balanced pack" })).getByRole("button", {
         name: "Cancel",
       }),
     );
     refusal = "Disk full";
     fireEvent.click(screen.getByRole("button", { name: "Use the Balanced pack" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Download 50 MB and use" }));
-    expect(await screen.findByText("Could not use the Balanced pack")).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "Download 50 MB" }));
+    expect(await screen.findByText("Could not download the Balanced pack")).toBeInTheDocument();
   });
 
   it("a plan that cannot be made is reported", async () => {

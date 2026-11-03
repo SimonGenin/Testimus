@@ -211,10 +211,18 @@ export function ModelsSection() {
   const confirmPack = async () => {
     if (!plan) return;
     const { row } = plan;
+    const downloadOnly = plan.out.plan.download.length > 0;
     setPlanning(true);
     try {
-      const r = await call<UsePackOut>("models.usePack", { pack: row.id });
+      const r = await call<UsePackOut>("models.usePack", { pack: row.id, downloadOnly });
       setPlan(null);
+      if (downloadOnly) {
+        for (const id of r.jobIds)
+          track(id, row.id, `Downloading ${row.label}`, () =>
+            toast({ kind: "ok", title: `${row.label} pack downloaded`, detail: "Use this pack to switch to it." }),
+          );
+        return;
+      }
       toast({ kind: "ok", title: `${row.label} pack chosen for this project` });
       for (const id of r.jobIds) {
         if (id.startsWith("rag-index")) track(id, "index", "Indexing the documents");
@@ -226,7 +234,7 @@ export function ModelsSection() {
       if (/choose where models are stored/i.test(m)) {
         setPlan(null);
         setFolder({ needMB: plan.out.plan.download.reduce((a, d) => a + d.sizeMB, 0), next: () => void planPack(row) });
-      } else errorToast(e, `Could not use the ${row.label} pack`);
+      } else errorToast(e, `Could not ${downloadOnly ? "download" : "use"} the ${row.label} pack`);
     } finally {
       setPlanning(false);
     }
@@ -362,6 +370,7 @@ export function ModelsSection() {
   const inUse = status && status.embedding !== "none" ? [status.embedding, status.reranker ?? ""].filter(Boolean) : [];
   const customActive = !!packs && !packs.some((p) => p.active) && status?.activation === "machine";
   const busy = ops.some((o) => !GLOBAL_OPS.includes(o.key) || o.key === "dir") || planning;
+  const packBusy = ops.some((o) => o.key === "dir") || planning;
   const globalOps = ops.filter((o) => GLOBAL_OPS.includes(o.key));
   const top = advice[0];
   const benchPack = packs?.find((p) => p.id === benchOf) ?? null;
@@ -413,7 +422,7 @@ export function ModelsSection() {
         <AdviceBanner
           advice={top}
           label={label}
-          busy={busy}
+          busy={packBusy}
           onApply={() => void applyAdvice(top)}
           onDismiss={() => void dismiss(top)}
         />
@@ -440,7 +449,7 @@ export function ModelsSection() {
               pack={p}
               label={label}
               op={ops.find((o) => o.key === p.id) ?? null}
-              busy={busy}
+              busy={packBusy}
               onUse={() => choosePack(p)}
               onCancel={cancel}
               bench={p.embedding ? benches[p.embedding] : undefined}

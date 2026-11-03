@@ -365,10 +365,14 @@ export const commands: Command[] = [
   command({
     name: "models.usePack",
     summary:
-      "Use a pack for the open project on this PC: install what its variant needs, activate it, start the index job.",
+      "Use a pack for the open project on this PC: install what its variant needs, activate it, start the index job (--download-only stops after the downloads).",
     input: z.object({
       pack: z.string().describe("light, performance, balanced, quality"),
       reference: z.boolean().default(false).describe("Also make it the team reference in project.json"),
+      downloadOnly: z
+        .boolean()
+        .default(false)
+        .describe("Only download what the pack needs; the project keeps its current pack until it is used"),
       dryRun: z.boolean().default(false).describe("Show the plan: downloads, where, reindex, expected speed"),
     }),
     output: z.object({
@@ -409,13 +413,13 @@ export const commands: Command[] = [
         return p.reindex ? await modelsDeps.startIndex(project) : null;
       };
       if (!p.download.length && !llama) {
-        const id = await activate();
+        const id = input.downloadOnly ? null : await activate();
         return { ...out, jobIds: id ? [id] : [], dryRun: false };
       }
       const { job } = startJob("models-usePack", input.pack, project, async (jctx) => {
         for (const d of p.download) await pull(jctx, { model: d.model });
         if (llama) await pullLlama(jctx, "auto");
-        const index = await activate();
+        const index = input.downloadOnly ? null : await activate();
         return { pack: input.pack, variant: r.variantIndex, indexJob: index };
       });
       return { ...out, jobIds: [job.id], dryRun: false };

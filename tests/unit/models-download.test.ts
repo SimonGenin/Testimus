@@ -303,6 +303,23 @@ describe("models.pull", () => {
     expect(requests).toHaveLength(1);
   });
 
+  it("a second pull of the same model waits for the first; cancelling a wait stops only that one", async () => {
+    withEntries(ggufEntry("tiny", BODY));
+    writeRegistry({ ...readRegistry(), dir });
+    serve({ "tiny.gguf": BODY });
+    const first = pull(quietCtx(null), { model: "tiny" });
+    const ctrl = new AbortController();
+    const gone = pull(quietCtx(null, ctrl.signal), { model: "tiny" });
+    ctrl.abort(new Error("cancelled"));
+    await expect(gone).rejects.toThrow("cancelled");
+    await expect(pull(quietCtx(null, ctrl.signal), { model: "tiny" })).rejects.toThrow("cancelled");
+    const second = pull(quietCtx(null), { model: "tiny" });
+    const r = await first;
+    expect(r.via).toBe("download");
+    expect((await second).where).toBe(r.where);
+    expect(requests).toHaveLength(1);
+  });
+
   it("refuses when downloads are off", async () => {
     withEntries(ggufEntry("tiny", BODY));
     writeRegistry({ ...readRegistry(), dir, allowRemote: false });

@@ -279,7 +279,7 @@ describe("small model widgets", () => {
     expect(screen.getByText(/nothing to rebuild/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Change…" }));
     expect(onChangeFolder).toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Download 2.0 GB and use" }));
+    fireEvent.click(screen.getByRole("button", { name: "Download 2.0 GB" }));
     expect(onConfirm).toHaveBeenCalled();
     rerender(
       <PackPlanDialog

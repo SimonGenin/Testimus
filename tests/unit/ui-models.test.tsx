@@ -310,7 +310,7 @@ describe("Settings › Models — packs", () => {
     expect(screen.getByText("D:\\models")).toBeInTheDocument();
   });
 
-  it("asks before a pack that is not « fits », then shows the dry-run plan, then uses it", async () => {
+  it("asks before a pack that is not « fits », then shows the dry-run plan, then downloads it", async () => {
     base();
     show();
     fireEvent.click(await screen.findByRole("button", { name: "Use the Balanced pack" }));
@@ -318,7 +318,7 @@ describe("Settings › Models — packs", () => {
     expect(within(ask).getByText("Tight: 7.6 GB needed, 7.0 GB usable.")).toBeInTheDocument();
     expect(named("models.usePack").filter((c) => c.input.pack === "balanced")).toHaveLength(0);
     fireEvent.click(within(ask).getByRole("button", { name: "Use anyway" }));
-    const plan = await screen.findByRole("dialog", { name: "Use the Balanced pack" });
+    const plan = await screen.findByRole("dialog", { name: "Download the Balanced pack" });
     expect(within(plan).getByText("D:\\models")).toBeInTheDocument();
     expect(within(plan).getByText("2.3 GB")).toBeInTheDocument();
     expect(
@@ -326,7 +326,7 @@ describe("Settings › Models — packs", () => {
         .filter((c) => c.input.pack === "balanced")
         .map((c) => c.input),
     ).toEqual([{ pack: "balanced", dryRun: true }]);
-    fireEvent.click(within(plan).getByRole("button", { name: "Download 2.3 GB and use" }));
+    fireEvent.click(within(plan).getByRole("button", { name: "Download 2.3 GB" }));
     await waitFor(() =>
       expect(
         named("models.usePack")
@@ -334,6 +334,7 @@ describe("Settings › Models — packs", () => {
           .at(-1)?.input,
       ).toEqual({
         pack: "balanced",
+        downloadOnly: true,
       }),
     );
     await waitFor(() => expect(named("jobs.show").some((c) => c.input.id === "models-usePack-1a2b")).toBe(true));
@@ -502,7 +503,7 @@ describe("Settings › Models — table, advice", () => {
     expect(within(banner).getByText(/switch to Balanced pack/)).toBeInTheDocument();
     expect(within(banner).getByText("Queries take 30 ms (p95), well under the 1 s budget.")).toBeInTheDocument();
     fireEvent.click(within(banner).getByRole("button", { name: "Apply" }));
-    await screen.findByRole("dialog", { name: "Use the Balanced pack" });
+    await screen.findByRole("dialog", { name: "Download the Balanced pack" });
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     fireEvent.click(within(banner).getByRole("button", { name: "Dismiss" }));
     await waitFor(() => expect(screen.queryByRole("region", { name: "Advice" })).toBeNull());

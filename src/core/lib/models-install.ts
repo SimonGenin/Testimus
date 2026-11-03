@@ -216,8 +216,28 @@ export type PullResult = { model: string; via: string; where: string; sizeMB: nu
 
 export const NO_DIR = "Choose where models are stored: `testimus models setDir <folder>`";
 
+const pulling = new Map<string, Promise<PullResult>>();
+
 export async function pull(ctx: Ctx, input: PullInput): Promise<PullResult> {
   const entry = needEntry(input.model);
+  for (let prev = pulling.get(entry.id); prev; prev = pulling.get(entry.id)) {
+    ctx.signal.throwIfAborted();
+    ctx.progress({ message: `${entry.label}: waiting for the download already running` });
+    await Promise.race([
+      prev.catch(() => {}),
+      new Promise((_, no) => ctx.signal.addEventListener("abort", () => no(ctx.signal.reason), { once: true })),
+    ]);
+  }
+  const p = pullOnce(ctx, input, entry);
+  pulling.set(entry.id, p);
+  try {
+    return await p;
+  } finally {
+    if (pulling.get(entry.id) === p) pulling.delete(entry.id);
+  }
+}
+
+async function pullOnce(ctx: Ctx, input: PullInput, entry: CatalogEntry): Promise<PullResult> {
   const have = resolveInstalled(entry.id);
   if (have?.install.path)
     return {

@@ -21,22 +21,32 @@ export function PackPlanDialog({
 }) {
   const p = out.plan;
   const total = p.download.reduce((a, d) => a + d.sizeMB, 0);
+  const download = p.download.length > 0;
+  const title = download ? `Download the ${pack.label} pack` : `Use the ${pack.label} pack`;
   return (
     <Modal
-      label={`Use the ${pack.label} pack`}
-      title={`Use the ${pack.label} pack`}
-      subtitle="For this project, on this PC. Nothing changes for your colleagues."
+      label={title}
+      title={title}
+      subtitle={
+        download
+          ? "Onto this PC. The project keeps its current pack: use this one once it is downloaded."
+          : "For this project, on this PC. Nothing changes for your colleagues."
+      }
       width={560}
       onClose={onClose}
       foot={
         <>
-          <span className="muted foot-hint">The previous vectors are kept: switching back is quick.</span>
+          <span className="muted foot-hint">
+            {download
+              ? "You can choose another pack while it downloads."
+              : "The previous vectors are kept: switching back is quick."}
+          </span>
           <span className="spacer" />
           <Button tone="quiet" onClick={onClose}>
             Cancel
           </Button>
           <Button tone="primary" disabled={busy} onClick={onConfirm}>
-            {p.download.length ? `Download ${size(total)} and use` : `Use ${pack.label}`}
+            {download ? `Download ${size(total)}` : `Use ${pack.label}`}
           </Button>
         </>
       }
@@ -80,7 +90,7 @@ export function PackPlanDialog({
         <span className="label">Index</span>
         <span>
           {p.reindex
-            ? "The documents are indexed again with the new model (a job; search keeps working on words meanwhile)."
+            ? `${download ? "Once used, the" : "The"} documents are indexed again with the new model (a job; search keeps working on words meanwhile).`
             : "Already indexed with these models: nothing to rebuild."}
         </span>
       </div>

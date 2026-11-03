@@ -44,7 +44,7 @@ test.describe("default PC: a 16 GB GPU, a models folder", () => {
     await shoot(page, "models-packs-e2e");
 
     await advice.getByRole("button", { name: "Apply" }).click();
-    const plan = page.getByRole("dialog", { name: "Use the Performance pack" });
+    const plan = page.getByRole("dialog", { name: "Download the Performance pack" });
     await expect(plan).toContainText("Qwen3 Embedding 0.6B (16-bit, DirectML)");
     await plan.getByRole("button", { name: "Cancel" }).click();
     await expect(plan).toBeHidden();
@@ -56,18 +56,26 @@ test.describe("default PC: a 16 GB GPU, a models folder", () => {
     await expect(page.getByRole("region", { name: "Advice" })).toHaveCount(0);
   });
 
-  test("Use this pack shows the plan, then downloads in a job and takes over", async ({ page }) => {
+  test("Use this pack shows the plan, downloads in a job, then Use takes over", async ({ page }) => {
     const models = await openModels(page);
     await models.getByRole("button", { name: "Use the Performance pack" }).click();
-    const plan = page.getByRole("dialog", { name: "Use the Performance pack" });
+    const plan = page.getByRole("dialog", { name: "Download the Performance pack" });
     await expect(plan).toContainText("Qwen3 Embedding 0.6B (16-bit, DirectML)");
     await expect(plan).toContainText(join(await sandbox(url), "models"));
     await shoot(page, "models-plan-e2e");
-    await plan.getByRole("button", { name: /^Download .* and use$/ }).click();
+    await plan.getByRole("button", { name: /^Download \S+ [MG]B$/ }).click();
     await expect(plan).toBeHidden();
     const card = models.getByRole("article", { name: "Performance pack" });
-    await expect(card.getByRole("status", { name: "Installing Performance" })).toBeVisible();
+    await expect(card.getByRole("status", { name: "Downloading Performance" })).toBeVisible();
+    await expect(models.getByRole("button", { name: "Use the Balanced pack" })).toBeEnabled();
     await shoot(page, "models-download-e2e");
+    await expect(card).toContainText("Nothing left", { timeout: 30_000 });
+    await expect(card).not.toContainText("In use");
+    await card.getByRole("button", { name: "Use the Performance pack" }).click();
+    await page
+      .getByRole("dialog", { name: "Use the Performance pack" })
+      .getByRole("button", { name: "Use Performance" })
+      .click();
     await expect(card).toContainText("In use", { timeout: 30_000 });
     await expect(models.getByRole("article", { name: "Light pack" })).not.toContainText("In use");
   });
@@ -108,13 +116,13 @@ test.describe("a 4 GB GPU", () => {
     await expect(ask).toContainText("Your GPU has 4.0 GB");
     await shoot(page, "models-fit-gpu-e2e");
     await ask.getByRole("button", { name: "Choose a lighter one" }).click();
-    const balanced = page.getByRole("dialog", { name: "Use the Balanced pack" });
+    const balanced = page.getByRole("dialog", { name: /^(Use|Download) the Balanced pack$/ });
     await expect(balanced).toContainText("Qwen3 Embedding 0.6B (8-bit, GGUF)");
     await balanced.getByRole("button", { name: "Cancel" }).click();
     await expect(balanced).toBeHidden();
     await quality.getByRole("button", { name: "Use the Quality pack" }).click();
     await ask.getByRole("button", { name: "Use anyway" }).click();
-    await expect(page.getByRole("dialog", { name: "Use the Quality pack" })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Download the Quality pack" })).toBeVisible();
   });
 });
 
@@ -152,12 +160,17 @@ test.describe("first download, no models folder chosen", () => {
     await expect(where.getByRole("status")).toContainText("free on");
     await shoot(page, "models-folder-first-e2e");
     await where.getByRole("button", { name: "Store models here" }).click();
-    const plan = page.getByRole("dialog", { name: "Use the Performance pack" });
+    const plan = page.getByRole("dialog", { name: "Download the Performance pack" });
     await expect(plan).toContainText(join(root, "first-models"));
-    await plan.getByRole("button", { name: /^Download .* and use$/ }).click();
-    await expect(models.getByRole("article", { name: "Performance pack" })).toContainText("In use", {
-      timeout: 30_000,
-    });
+    await plan.getByRole("button", { name: /^Download \S+ [MG]B$/ }).click();
+    const card = models.getByRole("article", { name: "Performance pack" });
+    await expect(card).toContainText("Nothing left", { timeout: 30_000 });
+    await card.getByRole("button", { name: "Use the Performance pack" }).click();
+    await page
+      .getByRole("dialog", { name: "Use the Performance pack" })
+      .getByRole("button", { name: "Use Performance" })
+      .click();
+    await expect(card).toContainText("In use", { timeout: 30_000 });
 
     await models.getByRole("button", { name: "Change…" }).first().click();
     const change = page.getByRole("dialog", { name: "Models folder" });
