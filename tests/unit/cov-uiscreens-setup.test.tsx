@@ -6,7 +6,7 @@ import { setProject } from "../../src/ui/api.ts";
 import { resetDoctor } from "../../src/ui/lib/doctor.ts";
 import { FirstRunScreen } from "../../src/ui/screens/setup/FirstRunScreen.tsx";
 import { PackStep } from "../../src/ui/screens/setup/PackStep.tsx";
-import { ProjectStep } from "../../src/ui/screens/setup/ProjectStep.tsx";
+import { ProjectStep, projectFolder } from "../../src/ui/screens/setup/ProjectStep.tsx";
 import { clearToasts, mount } from "./cov-uiscreens-helpers.tsx";
 import { api, fakeDesktop, fakeFetch, named, noDesktop } from "./ui-desktop-helpers.tsx";
 
@@ -231,6 +231,12 @@ describe("First launch › Project", () => {
       language: "en",
     });
     expect(named("project.open")[0].input).toEqual({ dir: "D:\\Testimus\\Projects\\RATP Sosie" });
+  });
+
+  it("names the project folder with the separator of the projects folder", () => {
+    expect(projectFolder("D:\\Testimus\\Projects\\", "Aller")).toBe("D:\\Testimus\\Projects\\Aller");
+    expect(projectFolder("/Users/ana/Testimus/Projects/", "Aller")).toBe("/Users/ana/Testimus/Projects/Aller");
+    expect(projectFolder("/Users/ana", "")).toBe("");
   });
 
   it("without a name the folder is the Jira key; a typed projects folder wins; a failed creation says why", async () => {

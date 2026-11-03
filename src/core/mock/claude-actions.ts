@@ -92,7 +92,7 @@ registerMockScript(
       delayMs: 80,
       tools: [
         { name: "mcp__testimus__rag_search", input: { query: "menu contextuel sectionneur" } },
-        { name: "mcp__testimus__rag_passage", input: { docId: DOC, anchor: "§5.6.6" } },
+        { name: "mcp__testimus__rag_passage", input: { ref: `${DOC}#§5.6.6` } },
         doc
           ? { name: "mcp__testimus__docs_set", input: { id: doc[1] } }
           : { name: "mcp__testimus__tests_save", input: { id: step?.[2] ?? test?.[1] ?? "" } },

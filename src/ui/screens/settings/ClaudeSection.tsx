@@ -6,7 +6,7 @@ import { CONTEXTS_EVENT, type ContextSummary, ContextsDialog } from "../../compo
 import { cap, EFFORTS, ModelPicker } from "../../components/claude/ModelPicker.tsx";
 import { Button, IconButton } from "../../components/ui/index.ts";
 import { useApp } from "../../lib/app.ts";
-import { desktop, pickFiles } from "../../lib/desktop.ts";
+import { desktop, examplePath, onWindows, pickFiles } from "../../lib/desktop.ts";
 import { useDraft } from "../../lib/drafts.ts";
 import { cx, message } from "../../lib/format.ts";
 import { errorToast } from "../../lib/toast.ts";
@@ -76,7 +76,7 @@ function ClaudeProgram({ s, setS }: SettingsProps) {
         <input
           id="settings-claude-exe"
           className="field mono"
-          placeholder="Found on PATH — or C:\Users\me\AppData\Roaming\npm\claude.cmd"
+          placeholder={`Found on PATH — or ${examplePath("C:\\Users\\me\\AppData\\Roaming\\npm\\claude.cmd", "/Users/you/.local/bin/claude")}`}
           spellCheck={false}
           value={exe}
           onChange={(e) => setExe(e.target.value)}
@@ -90,7 +90,7 @@ function ClaudeProgram({ s, setS }: SettingsProps) {
             onClick={() =>
               void pickFiles(
                 "Choose the Claude program",
-                [{ name: "Programs", extensions: ["exe", "cmd"] }],
+                onWindows() ? [{ name: "Programs", extensions: ["exe", "cmd"] }] : [],
                 false,
               ).then(([picked]) => {
                 if (!picked) return;

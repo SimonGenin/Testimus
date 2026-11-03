@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { existsSync, readFileSync, statfsSync } from "node:fs";
 import os from "node:os";
-import { parse } from "node:path";
+import { win32 } from "node:path";
 import { env } from "../env.ts";
 import { onnxVersion } from "../rag/runtimes/ort.ts";
 import type { DriveInfo, GpuInfo, LoadedModel, MachineProfile } from "../types.ts";
@@ -41,7 +41,7 @@ function statfs(root: string): { freeMB: number; totalMB: number } | null {
 }
 
 function drives(): string[] {
-  if (process.platform !== "win32") return ["/"];
+  if (process.platform !== "win32") return [os.homedir()];
   const out: string[] = [];
   for (let c = 67; c <= 90; c++) {
     const root = `${String.fromCharCode(c)}:\\`;
@@ -218,8 +218,12 @@ export function pinMachineProfile(p: MachineProfile | null): void {
 }
 
 export function driveOf(machine: MachineProfile, path: string): DriveInfo | undefined {
-  const root = parse(path).root.toLowerCase();
-  return machine.drives.find((d) => d.root.toLowerCase() === root);
+  const root = win32.parse(path).root.toLowerCase();
+  const under = (r: string) => {
+    const base = r.replace(/\/+$/, "");
+    return path === base || path.startsWith(`${base}/`);
+  };
+  return machine.drives.find((d) => (d.root.startsWith("/") ? under(d.root) : d.root.toLowerCase() === root));
 }
 
 // ponytail: a profile without a system (an imposed profile written before it existed) is the Windows PC it was taken on

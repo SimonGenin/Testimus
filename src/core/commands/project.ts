@@ -228,7 +228,9 @@ export const commands: Command[] = [
       last: z.string(),
       root: z
         .string()
-        .describe("Where a new project folder goes by default: D:\\Testimus\\Projects, or C: when there is no D:"),
+        .describe(
+          "Where a new project folder goes by default: D:\\Testimus\\Projects on Windows (C: when there is no D:), ~/Testimus/Projects elsewhere",
+        ),
       projects: z.array(z.object({ dir: z.string(), name: z.string(), jiraProject: z.string(), exists: z.boolean() })),
     }),
     mutates: false,

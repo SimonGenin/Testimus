@@ -151,7 +151,10 @@ export function planSetDir(
   r: ModelsRegistry = readRegistry(),
 ): SetDirPlan {
   if (!isAbsolute(input.dir))
-    throw new UserError(`${input.dir} is not an absolute folder.`, "Give a full path, e.g. D:\\Testimus\\models.");
+    throw new UserError(
+      `${input.dir} is not an absolute folder.`,
+      "Give a full path, e.g. D:\\Testimus\\models or /Users/you/Testimus/models.",
+    );
   const dir = resolve(input.dir);
   const flags = [input.move && "move", input.keep && "keep", input.copy && "copy"].filter(Boolean) as (
     | "move"

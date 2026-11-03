@@ -41,7 +41,7 @@ registerMockScript(
         { name: "mcp__testimus__tests_list", input: {} },
         { name: "Read", input: { file_path: "tests/LFRPS12-1420/test.md" } },
         { name: "mcp__testimus__rag_search", input: { query: "poste opérateur TCO PCC" } },
-        { name: "mcp__testimus__rag_passage", input: { docId: "SOSIE_211_D401-1_3", anchor: "§5.6.6" } },
+        { name: "mcp__testimus__rag_passage", input: { ref: "SOSIE_211_D401-1_3#§5.6.6" } },
       ],
       texts: [text],
       result: text,

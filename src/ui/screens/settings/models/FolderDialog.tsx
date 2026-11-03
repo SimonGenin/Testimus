@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { ApiError, call } from "../../../api.ts";
 import { Button, Icon, Modal, Segmented, Skeleton } from "../../../components/ui/index.ts";
+import { absolutePath, examplePath } from "../../../lib/desktop.ts";
 import { cx, message } from "../../../lib/format.ts";
 import type { Hardware, SetDirOut } from "./data.ts";
-import { bestDrive, defaultFolder, folderPicker, size } from "./data.ts";
+import { bestDrive, defaultFolder, folderPicker, onDrive, size } from "./data.ts";
 
 type Choice = "move" | "keep" | "copy";
 
@@ -12,8 +13,6 @@ const CHOICES: { value: Choice; label: string; title: string }[] = [
   { value: "keep", label: "Keep where they are", title: "Nothing moves; only new downloads go to the new folder" },
   { value: "copy", label: "Copy", title: "Copy them there and keep the old copy" },
 ];
-
-const rootOf = (dir: string) => /^[a-zA-Z]:[\\/]/.exec(dir)?.[0].replace("/", "\\").toUpperCase() ?? "";
 
 export function FolderDialog({
   current,
@@ -51,7 +50,7 @@ export function FolderDialog({
     setPlan(null);
     setRefusal(null);
     const d = dir.trim();
-    if (!/^[a-zA-Z]:[\\/]|^\\\\/.test(d)) return;
+    if (!absolutePath(d)) return;
     let dead = false;
     const t = setTimeout(() => {
       call<SetDirOut>("models.setDir", { dir: d, dryRun: true, ...(changing ? { [choice]: true } : {}) })
@@ -76,8 +75,8 @@ export function FolderDialog({
     }
   };
 
-  const at = rootOf(dir);
   const drives = hw?.drives ?? [];
+  const example = defaultFolder(drives[0]?.root ?? examplePath("D:\\", "/Users/you"));
   const moving = changing && choice !== "keep" && (plan?.installedMB ?? 0) > 0;
   return (
     <Modal
@@ -129,7 +128,7 @@ export function FolderDialog({
           {drives.map((d) => {
             const short = d.freeMB < needMB * 1.2;
             const used = d.totalMB ? Math.round(((d.totalMB - d.freeMB) / d.totalMB) * 100) : 0;
-            const on = at === d.root.toUpperCase();
+            const on = onDrive(dir.trim(), d.root);
             return (
               <label key={d.root} className={cx("drive", on && "drive-on", short && "drive-short")}>
                 <input
@@ -165,7 +164,7 @@ export function FolderDialog({
           id="models-dir"
           className="field mono"
           value={dir}
-          placeholder="D:\Testimus\models"
+          placeholder={example}
           onChange={(e) => {
             setTyped(true);
             setDir(e.target.value);
@@ -186,8 +185,8 @@ export function FolderDialog({
           </Button>
         )}
       </div>
-      {typed && !/^[a-zA-Z]:[\\/]|^\\\\/.test(dir.trim()) && dir.trim() && (
-        <span className="muted">Type a full path, e.g. D:\Testimus\models.</span>
+      {typed && !absolutePath(dir.trim()) && dir.trim() && (
+        <span className="muted">Type a full path, e.g. {example}.</span>
       )}
       {changing && (
         <div className="formfield">

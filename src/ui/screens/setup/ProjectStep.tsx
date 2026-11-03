@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { call } from "../../api.ts";
 import { Button, Field, IconButton, Menu, Skeleton } from "../../components/ui/index.ts";
 import { useApp } from "../../lib/app.ts";
-import { desktop, openProject, pickFolder } from "../../lib/desktop.ts";
+import { desktop, examplePath, openProject, pathJoin, pickFolder } from "../../lib/desktop.ts";
 import { useDraft } from "../../lib/drafts.ts";
 import { cx, message } from "../../lib/format.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
@@ -15,7 +15,7 @@ export function projectFolder(where: string, title: string): string {
     .replace(/[<>:"/\\|?*]/g, "")
     .replace(/[. ]+$/, "")
     .trim();
-  return where.trim() && name ? `${where.trim().replace(/[\\/]+$/, "")}\\${name}` : "";
+  return where.trim() && name ? pathJoin(where.trim(), name) : "";
 }
 
 export function ProjectStep({ onBack, onOpened }: { onBack: () => void; onOpened?: () => void }) {
@@ -230,7 +230,7 @@ export function ProjectStep({ onBack, onOpened }: { onBack: () => void; onOpened
             <input
               id="proj-where"
               className="field mono"
-              placeholder="D:\Testimus\Projects"
+              placeholder={examplePath("D:\\Testimus\\Projects", "/Users/you/Testimus/Projects")}
               value={where}
               onChange={(e) => setWhere(e.target.value)}
             />

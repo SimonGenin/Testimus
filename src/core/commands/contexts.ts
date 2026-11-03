@@ -245,7 +245,7 @@ export const commands: Command[] = [
           throw new UserError(`No file ${input.file}.`, "Give the absolute path of an existing file.");
         added = freeName(files, safeName(input.file));
         writeAtomic(join(files, added), readFileSync(input.file));
-      } else throw new UserError("Give a file or an upload.", "contexts addFile <id> D:\\notes\\glossary.pdf");
+      } else throw new UserError("Give a file or an upload.", "contexts addFile <id> /path/to/glossary.pdf");
       return { ...show(project, input.id), added };
     },
   }),
