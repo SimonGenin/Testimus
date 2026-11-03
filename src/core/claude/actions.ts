@@ -1,6 +1,6 @@
 import type { Ctx } from "../command.ts";
 import { env } from "../env.ts";
-import { allActions, type Listed, readAction, writeAction } from "../lib/actions.ts";
+import { allActions, type Listed, readAction, suggestFor, writeAction } from "../lib/actions.ts";
 import { readProject } from "../lib/project.ts";
 import type { ClaudeAction, ClaudeRun, Effort } from "../types.ts";
 import { contextLines, effectiveContexts, readContexts, scopeLines } from "./prompt.ts";
@@ -13,14 +13,21 @@ export const TRIAGE_MARKER = "Testimus triage";
 export type Problem = { where: string; text: string };
 
 // ponytail: what a run that sees problems is told — it may leave a button behind, for a problem it can really fix
+// ponytail: the proposing run knows the fix best — it says which model and effort the fix needs, Opus and xhigh at most
+export const SUGGEST_RULE = [
+  "model and effort: what the fix needs — model haiku (a mechanical change), sonnet (ordinary test edits) or opus",
+  "(reading documents, judging); effort low (one obvious change), medium, high (a real search) or xhigh (long, delicate).",
+];
+
 export function proposeLines(runId: string, examples: string): string[] {
   return [
     "",
     "If you see a problem you could fix yourself in a later run with the app's tools, propose it with actions_propose",
-    `(it shows the user a « Claude action » button): { runId: "${runId}", problem, title, why, plan, scope }.`,
+    `(the user sees it as a card in the Actions tab of Ask Claude): { runId: "${runId}", problem, title, why, plan, scope, model, effort }.`,
     `For example: ${examples}.`,
     "title: a verb first, at most 60 characters, in English (« Recover 23 figures from the PDF »); problem: the problem",
     "as Testimus or you stated it; why: one sentence on why you can fix it; plan: 2 to 5 short steps.",
+    ...SUGGEST_RULE,
     "Propose only what you are confident about, at most 3, and never for a choice only the team can make.",
   ];
 }
@@ -45,7 +52,9 @@ export function triagePrompt(
     "For a problem you can really fix, call actions_propose once:",
     `{ runId: "${runId}", where: "<the [place] of the problem>", problem: "<the problem text, verbatim>",`,
     '  title: "<a verb first, at most 60 characters, in English>", why: "<one sentence>", plan: ["<2 to 5 short steps>"],',
-    '  scope: { kind: "doc", docId } | { kind: "test", testId } | { kind: "step", testId, step } | { kind: "project" } }',
+    '  scope: { kind: "doc", docId } | { kind: "test", testId } | { kind: "step", testId, step } | { kind: "project" },',
+    '  model: "haiku" | "sonnet" | "opus", effort: "low" | "medium" | "high" | "xhigh" }',
+    ...SUGGEST_RULE,
     "Skip a problem nobody can fix from the files (a drawing lost in the source, a choice only the team can make).",
     `Write why and plan in English; quote the problem as given (project language: ${language}).`,
     "Reply in one line: how many actions you proposed.",
@@ -95,9 +104,9 @@ export async function runAction(
   o: { model?: string; effort?: Effort; note?: string; contexts?: string[]; conversation?: string },
 ): Promise<ActionRun> {
   const a = readAction(project, id);
-  const p = readProject(project);
-  const model = o.model || p.claude.model;
-  const effort = o.effort || p.claude.effort;
+  const s = a.suggest ?? suggestFor(a);
+  const model = o.model || s.model;
+  const effort = o.effort || s.effort;
   const ids = o.contexts ?? effectiveContexts(project, "testId" in a.scope ? a.scope.testId : undefined);
   const runId = newRunId();
   writeAction(project, { ...a, state: "running" });

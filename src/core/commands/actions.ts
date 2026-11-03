@@ -7,16 +7,28 @@ import { readRunMeta } from "../claude/run.ts";
 import { type Command, command, projectOf, UserError } from "../command.ts";
 import { env } from "../env.ts";
 import { showJob } from "../jobs.ts";
-import { listActions, listed, proposeAction, readAction, WHERE, writeAction } from "../lib/actions.ts";
+import {
+  listActions,
+  listed,
+  proposeAction,
+  readAction,
+  runningNow,
+  suggestFor,
+  WHERE,
+  writeAction,
+} from "../lib/actions.ts";
 import { readDoc } from "../lib/docs.ts";
 import { testDir } from "../lib/store.ts";
-import type { ClaudeScope } from "../types.ts";
+import { ACTION_EFFORTS, ACTION_MODELS, type ClaudeScope } from "../types.ts";
 import { CONTEXT_IDS, CONVERSATION, EFFORT, MODEL, NOTE, RESULT, SCOPE, scopeLabel } from "./claude.ts";
 
 const id = z
   .string()
   .regex(/^act-[\w-]+$/, "An action id: act-…")
   .describe("Action id (act-…)");
+
+const SUGGEST_MODEL = z.enum(ACTION_MODELS);
+const SUGGEST_EFFORT = z.enum(ACTION_EFFORTS);
 
 const ACTION = z.object({
   id: z.string().describe("Action id"),
@@ -36,6 +48,10 @@ const ACTION = z.object({
       runId: z.string().optional().describe("The proposing run"),
     })
     .describe("Who proposed the action — its quality depends on that run's model and effort"),
+  suggest: z
+    .object({ model: SUGGEST_MODEL, effort: SUGGEST_EFFORT })
+    .optional()
+    .describe("The model and effort the fix needs, as the proposing run judged it (Opus and xhigh at most)"),
   state: z.enum(["open", "running", "done", "dismissed"]).describe("open, running, done or dismissed"),
   at: z.string().describe("When it was proposed"),
   last: z
@@ -109,7 +125,7 @@ export const commands: Command[] = [
   command({
     name: "actions.propose",
     summary:
-      "Propose a Claude action for a problem you can fix in a later run: the user sees a button with the title next to the problem. One open action per problem; a dismissed problem stays dismissed.",
+      "Propose a Claude action for a problem you can fix in a later run: the user sees a card with the title in the Actions tab of Ask Claude. One open action per problem; a dismissed problem stays dismissed.",
     input: z.object({
       runId: z
         .string()
@@ -125,6 +141,12 @@ export const commands: Command[] = [
       why: z.string().min(1).max(2000).describe("One sentence: why you can fix it"),
       plan: z.array(z.string().max(300)).min(1).max(8).describe("2 to 5 short steps you would take"),
       scope: SCOPE.describe("What the action works on: { kind: step|test|doc|project, testId?, step?, docId? }"),
+      model: SUGGEST_MODEL.optional().describe(
+        "The model the fix needs: haiku for a mechanical change, sonnet for ordinary test edits, opus for reading documents and judging",
+      ),
+      effort: SUGGEST_EFFORT.optional().describe(
+        "The effort the fix needs: low for one obvious change, medium for a few, high for a real search, xhigh for a long or delicate one",
+      ),
     }),
     output: LISTED.extend({ ignored: z.boolean().optional().describe("True when the user dismissed this problem") }),
     mutates: true,
@@ -147,6 +169,10 @@ export const commands: Command[] = [
           at: env.now().toISOString(),
           ...(meta && input.runId ? { runId: input.runId } : {}),
         },
+        suggest: {
+          model: input.model ?? suggestFor(input).model,
+          effort: input.effort ?? suggestFor(input).effort,
+        },
       });
       return { ...listed(project, a), ...(a.ignored ? { ignored: true } : {}) };
     },
@@ -161,7 +187,8 @@ export const commands: Command[] = [
     async run(ctx, input) {
       const project = projectOf(ctx);
       const a = readAction(project, input.id);
-      if (a.state === "running") throw new UserError("This action is running.", "Cancel its run first.");
+      if (a.state === "running" && runningNow(project, a.id))
+        throw new UserError("This action is running.", "Cancel its run first.");
       return listed(project, writeAction(project, { ...a, state: "dismissed" }));
     },
   }),
@@ -171,8 +198,8 @@ export const commands: Command[] = [
       "Run a Claude action with the app's whole command set; everything it changes (tests, the document in scope, project.json) is snapshotted, so claude.revert puts it back.",
     input: z.object({
       id,
-      model: MODEL.optional().describe("Model alias or name (default: project.json claude.model)"),
-      effort: EFFORT.optional().describe("Effort level (default: project.json claude.effort)"),
+      model: MODEL.optional().describe("Model alias or name (default: the action's suggested model)"),
+      effort: EFFORT.optional().describe("Effort level (default: the action's suggested effort)"),
       contexts: CONTEXT_IDS.optional().describe("Context ids to attach (default: the effective ones)"),
       note: NOTE,
       conversation: CONVERSATION,
@@ -188,7 +215,8 @@ export const commands: Command[] = [
     async run(ctx, input) {
       const project = projectOf(ctx);
       const a = readAction(project, input.id);
-      if (a.state === "running") throw new UserError("This action is already running.");
+      if (a.state === "running" && runningNow(project, a.id, ctx.jobId))
+        throw new UserError("This action is already running.");
       ctx.progress({ message: `Claude action on ${scopeLabel(a.scope)}: ${a.title}` });
       return await runAction(ctx, project, input.id, input);
     },

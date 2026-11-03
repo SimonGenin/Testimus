@@ -551,6 +551,10 @@ export type ClaudeScope =
   | { kind: "doc"; docId: string }
   | { kind: "project" };
 export type ActionState = "open" | "running" | "done" | "dismissed";
+export const ACTION_MODELS = ["haiku", "sonnet", "opus"] as const;
+export const ACTION_EFFORTS = ["low", "medium", "high", "xhigh"] as const;
+export type ActionModel = (typeof ACTION_MODELS)[number];
+export type ActionEffort = (typeof ACTION_EFFORTS)[number];
 export type ClaudeAction = {
   id: string;
   title: string;
@@ -561,6 +565,7 @@ export type ClaudeAction = {
   plan: string[];
   stamp: string;
   proposedBy: { run: string; model: string; effort: Effort | ""; at: string; runId?: string };
+  suggest?: { model: ActionModel; effort: ActionEffort };
   state: ActionState;
   at: string;
   last?: { runId: string; ok: boolean; summary: string; at: string; model: string; effort: Effort };

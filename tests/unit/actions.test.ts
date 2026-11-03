@@ -8,7 +8,7 @@ import { checkPrompt } from "../../src/core/claude/check.ts";
 import { mcpAccess } from "../../src/core/claude/run.ts";
 import { invoke } from "../../src/core/commands/index.ts";
 import { type ClaudeSpawn, env } from "../../src/core/env.ts";
-import { listActions, proposeAction, stampOf, whereOf } from "../../src/core/lib/actions.ts";
+import { listActions, proposeAction, stampOf, suggestFor, whereOf, writeAction } from "../../src/core/lib/actions.ts";
 import { DEFAULT_SETTINGS, writeSettings } from "../../src/core/lib/project.ts";
 import type { ClaudeAction } from "../../src/core/types.ts";
 
@@ -81,7 +81,13 @@ describe("the action store", () => {
     expect(listActions(dir, { docId: DOC })).toHaveLength(0);
 
     const f = join(dir, "tests", TEST, "test.md");
-    writeFileSync(f, `${readFileSync(f, "utf8")}\n`);
+    const md = readFileSync(f, "utf8");
+    writeFileSync(
+      f,
+      `${md.replace("review: checked", "review: validated").replace("folder: /Traction", "folder: /T")}\n`,
+    );
+    expect(listActions(dir)).toHaveLength(1);
+    writeFileSync(f, md.replace("Vérifie le menu", "Contrôle le menu"));
     expect(listActions(dir)).toEqual([]);
     expect(listActions(dir, { all: true })[0].stale).toBe(true);
 
@@ -91,6 +97,14 @@ describe("the action store", () => {
       expect(proposeAction(dir, proposal()).ignored).toBe(true);
       expect(listActions(dir)).toEqual([]);
     });
+  });
+
+  it("opens again an action left running by an app that stopped", async () => {
+    const a = proposeAction(dir, proposal());
+    writeAction(dir, { ...a, state: "running" });
+    expect(listActions(dir).map((x) => x.state)).toEqual(["open"]);
+    await invoke("actions.dismiss", { id: a.id }, { project: dir });
+    expect(listActions(dir, { all: true })[0].state).toBe("dismissed");
   });
 
   it("refuses a place that does not exist", () => {
@@ -128,6 +142,57 @@ describe("tool access of an action", () => {
       expect(has(n), n).toBe(true);
     for (const n of ["claude_run", "actions_run", "gen_tests", "chat_ask", "xray_push", "system_setup", "project_open"])
       expect(has(n), n).toBe(false);
+  });
+});
+
+describe("the model and effort an action suggests", () => {
+  it("is what the proposing run asked, Opus and xhigh at most, else judged from the scope and the plan", async () => {
+    const asked = (await invoke(
+      "actions.propose",
+      {
+        problem: "Step 2 has no source",
+        title: "Cite step 2",
+        why: "§5.6.6",
+        plan: ["Add it"],
+        scope: proposal().scope,
+        model: "haiku",
+        effort: "low",
+      },
+      { project: dir },
+    )) as ClaudeAction;
+    expect(asked.suggest).toEqual({ model: "haiku", effort: "low" });
+    await expect(
+      invoke("actions.propose", { ...proposal(), problem: "x", model: "fable" }, { project: dir }),
+    ).rejects.toThrow();
+    await expect(
+      invoke("actions.propose", { ...proposal(), problem: "x", effort: "max" }, { project: dir }),
+    ).rejects.toThrow();
+    expect(suggestFor({ scope: { kind: "step", testId: TEST, step: 1 }, plan: ["a"] })).toEqual({
+      model: "sonnet",
+      effort: "medium",
+    });
+    expect(suggestFor({ scope: { kind: "test", testId: TEST }, plan: ["a"] })).toEqual({
+      model: "sonnet",
+      effort: "high",
+    });
+    expect(suggestFor({ scope: { kind: "project" }, plan: ["a", "b", "c", "d", "e"] })).toEqual({
+      model: "opus",
+      effort: "xhigh",
+    });
+    const old = proposeAction(dir, { ...proposal({ scope: { kind: "doc", docId: DOC } }), suggest: undefined });
+    expect(listActions(dir, { docId: DOC }).find((x) => x.id === old.id)?.suggest).toEqual({
+      model: "opus",
+      effort: "high",
+    });
+  });
+
+  it("is what actions.run uses when no model or effort is given", async () => {
+    const a = proposeAction(dir, { ...proposal(), suggest: { model: "haiku", effort: "low" } });
+    fake("Done.");
+    await invoke("actions.run", { id: a.id }, { project: dir });
+    const args = seen[0].args.join(" ");
+    expect(args).toMatch(/--model haiku/);
+    expect(args).toMatch(/--effort low/);
   });
 });
 

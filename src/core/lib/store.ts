@@ -69,7 +69,7 @@ export function writeRemote(project: string, id: string, md: string): void {
 
 // ponytail: what a person can change in a test, and only that — the review keys, the key, the folder, the
 // labels (the review label comes back with a pull) and the attachment names all move without anyone editing it
-const contentPrint = (t: Test) =>
+export const contentPrint = (t: Test) =>
   sha256(
     JSON.stringify([
       t.summary.trim(),
