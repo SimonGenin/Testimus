@@ -98,6 +98,8 @@ const styles = stylex.create({
   },
   bareMulti: { minHeight: `calc(${lineHeight.body} * 2 + ${space.s5})` },
   bareStill: { backgroundColor: "transparent", borderWidth: 0 },
+  wraps: { flexWrap: "wrap", alignItems: "center", rowGap: space.s1 },
+  wrapsValue: { minWidth: size.chipInputMin },
   title: { fontSize: fontSize.title, lineHeight: lineHeight.title, fontWeight: fontWeight.semibold },
   invalid: {
     borderColor: color.danger,
@@ -200,7 +202,16 @@ export type TextProps = {
   placeholder?: string;
   error?: string;
   icon?: IconName;
+  /** content before the value that wraps with it (the chips of a chip field) */
+  leading?: ReactNode;
   trailing?: ReactNode;
+  /** the field drives a list of suggestions (a chip field, a folder picker): its combobox state */
+  combobox?: {
+    expanded: boolean;
+    controls: string;
+    activeDescendant?: string;
+    autocomplete?: "list" | "both" | "none";
+  };
   /** read-only while a Claude run holds the file */
   lockedBy?: "claude" | null;
   disabled?: boolean;
@@ -372,6 +383,11 @@ function TextField(p: TextProps) {
     "aria-label": p.label ? undefined : p.ariaLabel,
     "aria-invalid": p.error ? true : undefined,
     "aria-describedby": [hintId, errorId].filter(Boolean).join(" ") || undefined,
+    role: p.combobox ? "combobox" : undefined,
+    "aria-expanded": p.combobox?.expanded,
+    "aria-controls": p.combobox?.controls,
+    "aria-activedescendant": p.combobox?.activeDescendant,
+    "aria-autocomplete": p.combobox?.autocomplete,
     onKeyDown: p.onKeyDown,
     onFocus: p.onFocus,
     onBlur: () => {
@@ -405,6 +421,7 @@ function TextField(p: TextProps) {
           claude && styles.claude,
           p.disabled && styles.disabled,
           p.appearance === "bare" && (locked || p.disabled) && styles.bareStill,
+          p.leading !== undefined && styles.wraps,
         )}
       >
         {p.icon && (
@@ -412,6 +429,7 @@ function TextField(p: TextProps) {
             <Icon name={p.icon} />
           </span>
         )}
+        {p.leading}
         {multiline ? (
           <textarea
             {...common}
@@ -426,7 +444,7 @@ function TextField(p: TextProps) {
             ref={setRef}
             type={p.type ?? "text"}
             onChange={(e) => p.onChange?.(e.target.value)}
-            {...stylex.props(styles.value)}
+            {...stylex.props(styles.value, p.leading !== undefined && styles.wrapsValue)}
           />
         )}
         {p.trailing && <span {...stylex.props(styles.trail, multiline && styles.trailMulti)}>{p.trailing}</span>}

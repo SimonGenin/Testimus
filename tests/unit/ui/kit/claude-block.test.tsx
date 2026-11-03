@@ -186,3 +186,16 @@ describe("ClaudeBlock", () => {
     );
   });
 });
+
+describe("ClaudeBlock frameless", () => {
+  it("leaves the frame to its container", () => {
+    render(<ClaudeBlock ariaLabel="framed" value="" onSubmit={() => {}} />);
+    render(<ClaudeBlock ariaLabel="frameless" value="" frameless onSubmit={() => {}} />);
+    const frame = (name: string) => {
+      let el: HTMLElement | null = screen.getByRole("textbox", { name });
+      while (el && !el.querySelector("button")) el = el.parentElement;
+      return el?.getAttribute("class");
+    };
+    expect(frame("framed")).not.toBe(frame("frameless"));
+  });
+});

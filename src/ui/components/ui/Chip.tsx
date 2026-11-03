@@ -51,6 +51,13 @@ const styles = stylex.create({
     outline: { default: "none", ":focus-visible": `${border.widthStrong} solid ${color.focusRing}` },
   },
   forceHover: { backgroundColor: color.surfaceHover },
+  inField: {
+    height: size.chip,
+    borderRadius: radius.r1,
+    backgroundColor: color.surfaceSunken,
+    borderColor: color.border,
+  },
+  dot: { color: color.accent, fontSize: fontSize.small, lineHeight: 1 },
 });
 
 export type ChipProps = {
@@ -68,6 +75,12 @@ export type ChipProps = {
   mono?: boolean;
   /** inside a field */
   square?: boolean;
+  /** a value inside a chip field (sunken, square, 22 px) */
+  inField?: boolean;
+  /** a chip that opens or does something without being a toggle (a folded column « Data ● ») */
+  onClick?: () => void;
+  /** a dot after the label: something is there (a folded column that holds text) */
+  dot?: boolean;
   icon?: IconName;
   disabled?: boolean;
   /** the catalogue only */
@@ -84,19 +97,24 @@ export function Chip({
   strikeOff = false,
   mono = false,
   square = false,
+  inField = false,
+  onClick,
+  dot = false,
   icon,
   disabled = false,
   debugState,
 }: ChipProps) {
   const toggle = onToggle !== undefined;
+  const pressable = toggle || onClick !== undefined;
   const on = toggle && pressed === true;
   const look = stylex.props(
     styles.chip,
-    !toggle && styles.still,
+    !pressable && styles.still,
     on && (tone === "claude" ? styles.claudeOn : styles.on),
     toggle && pressed === false && strikeOff && styles.off,
     mono && styles.mono,
     square && styles.square,
+    inField && styles.inField,
     disabled && styles.disabled,
     debugState === "hover" && styles.forceHover,
   );
@@ -108,11 +126,22 @@ export function Chip({
         </span>
       )}
       <span {...stylex.props(styles.label)}>{label}</span>
+      {dot && (
+        <span aria-hidden="true" {...stylex.props(styles.dot)}>
+          ●
+        </span>
+      )}
     </>
   );
   if (toggle)
     return (
       <button type="button" aria-pressed={pressed === true} disabled={disabled} onClick={onToggle} {...look}>
+        {inner}
+      </button>
+    );
+  if (onClick)
+    return (
+      <button type="button" disabled={disabled} onClick={onClick} {...look}>
         {inner}
       </button>
     );

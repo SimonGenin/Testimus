@@ -34,6 +34,7 @@ const styles = stylex.create({
     overflow: "hidden",
   },
   plain: { borderRadius: radius.r2 },
+  frameless: { borderWidth: 0, borderRadius: 0, boxShadow: { default: null, ":focus-within": null } },
   running: { borderColor: color.claudeBorder },
   disabled: { backgroundColor: color.surfaceSunken, borderColor: color.border },
   forceFocus: { borderColor: color.claude, boxShadow: `0 0 0 ${border.width} ${color.claude}` },
@@ -119,8 +120,10 @@ export type ClaudeBlockProps = Omit<TextProps, "multiline" | "appearance" | "onK
   onCancel?: () => void;
   /** Claude is not there: the reason replaces the hint and Send is off */
   unavailable?: string;
-  /** a frame with the tighter radius (inside a card or a popover) */
+  /** a frame with the tighter radius (inside a card) */
   plain?: boolean;
+  /** no frame at all: the container draws it (the « Ask Claude » popover) */
+  frameless?: boolean;
 };
 
 const elapsed = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
@@ -144,6 +147,7 @@ export function ClaudeBlock(props: ClaudeBlockProps) {
     onCancel,
     unavailable,
     plain = false,
+    frameless = false,
     ...text
   } = props;
   const autosave = submit === "autosave";
@@ -184,6 +188,7 @@ export function ClaudeBlock(props: ClaudeBlockProps) {
       {...stylex.props(
         styles.frame,
         plain && styles.plain,
+        frameless && styles.frameless,
         busy && styles.running,
         (off || text.disabled) && styles.disabled,
         text.debugState === "focus" && styles.forceFocus,

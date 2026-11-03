@@ -158,6 +158,9 @@ describe("Icon, Spinner, Kbd, Banner", () => {
     render(<Icon name="validated" size="lg" label="Validated" />);
     expect(screen.getByRole("img", { name: "Validated" })).toBeInTheDocument();
     render(<Icon name="info" size="sm" />);
+    const a = render(<Icon name="check" size="xs" bold />).container.querySelector("svg");
+    const b = render(<Icon name="check" size="xs" />).container.querySelector("svg");
+    expect(cls(a as Element)).not.toBe(cls(b as Element));
   });
 
   it("a spinner is silent unless it is the only sign of the work", () => {

@@ -295,3 +295,36 @@ describe("Select", () => {
     expect(s.parentElement).toHaveAccessibleDescription("Claude is working");
   });
 });
+
+describe("model options asked by the kit lots", () => {
+  it("Text puts leading content before the value, and drives a list as a combobox", () => {
+    render(
+      <Text
+        ariaLabel="Labels"
+        value=""
+        leading={<span>chip-a</span>}
+        combobox={{ expanded: true, controls: "list-1", activeDescendant: "opt-2", autocomplete: "list" }}
+        onChange={() => {}}
+      />,
+    );
+    const f = screen.getByRole("combobox", { name: "Labels" });
+    expect(f).toHaveAttribute("aria-expanded", "true");
+    expect(f).toHaveAttribute("aria-controls", "list-1");
+    expect(f).toHaveAttribute("aria-activedescendant", "opt-2");
+    expect(f).toHaveAttribute("aria-autocomplete", "list");
+    expect(f.previousElementSibling).toHaveTextContent("chip-a");
+  });
+
+  it("Chip sits in a field, can be pressed without being a toggle, and shows a dot", () => {
+    const onClick = vi.fn();
+    render(<Chip label="Data" onClick={onClick} dot />);
+    const c = screen.getByRole("button", { name: /Data/ });
+    expect(c).not.toHaveAttribute("aria-pressed");
+    expect(c).toHaveTextContent("●");
+    fireEvent.click(c);
+    expect(onClick).toHaveBeenCalled();
+    render(<Chip label="in field" inField onRemove={() => {}} />);
+    render(<Chip label="plain one" onRemove={() => {}} />);
+    expect(cls(screen.getByText("in field").parentElement)).not.toBe(cls(screen.getByText("plain one").parentElement));
+  });
+});
