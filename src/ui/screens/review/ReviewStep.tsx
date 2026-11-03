@@ -1,72 +1,219 @@
+import * as stylex from "@stylexjs/stylex";
 import type { ColumnLayout, Finding, Source, Step } from "../../../core/types.ts";
+import { Badge, DIFF } from "../../components/ui/Badge.tsx";
+import { Button } from "../../components/ui/Button.tsx";
+import { Icon } from "../../components/ui/Icon.tsx";
+import { SourceChip } from "../../components/ui/SourceChip.tsx";
+import { fieldViews, type ItemLink, itemLinks, sourceLabel, stepSources } from "../../lib/fields.ts";
 import {
-  ClaudeBadge,
-  FindingCard,
-  IconButton,
-  ItemLinks,
-  Severity,
-  SourceChip,
-} from "../../components/legacy/index.ts";
-import { fieldViews, itemLinks, parseSourceRef, stepSources } from "../../lib/fields.ts";
-import { cx, plural } from "../../lib/format.ts";
+  border,
+  color,
+  container,
+  focus,
+  fontFamily,
+  fontSize,
+  fontWeight,
+  lineHeight,
+  radius,
+  shadow,
+  size,
+  space,
+} from "../../styles/tokens.stylex.ts";
 import { FieldBlocks } from "../tests/FieldBlocks.tsx";
+import { FindingCard } from "./FindingCard.tsx";
+import { findingSummary, firstLine, refKey } from "./sources.ts";
+
+export { FindingSources } from "./FindingCard.tsx";
+export { findingSummary, refKey } from "./sources.ts";
 
 const noop = () => {};
 
-export const refKey = (s: Pick<Source, "docId" | "anchor">) => `${s.docId}#${s.anchor}`;
+const styles = stylex.create({
+  card: {
+    containerType: "inline-size",
+    display: "flex",
+    flexDirection: "column",
+    borderWidth: border.width,
+    borderStyle: "solid",
+    borderColor: color.borderStrong,
+    borderRadius: radius.r3,
+    backgroundColor: color.surface,
+    boxShadow: shadow.s1,
+  },
+  active: { outline: `${border.widthStrong} solid ${color.focusRing}`, outlineOffset: focus.offset },
+  claude: { borderColor: color.claudeBorder },
+  head: {
+    display: "flex",
+    alignItems: "center",
+    gap: space.s2,
+    minHeight: `calc(${size.controlMd} + ${space.s5})`,
+    paddingTop: space.s3,
+    paddingRight: space.s4,
+    paddingBottom: space.s2,
+    paddingLeft: space.s3,
+  },
+  folded: { paddingBottom: space.s3, cursor: "pointer" },
+  num: {
+    flex: "none",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: size.controlSm,
+    height: size.controlSm,
+    paddingInline: space.s2,
+    borderRadius: radius.r2,
+    backgroundColor: color.surfaceSunken,
+    color: color.text,
+    fontSize: fontSize.compact,
+    fontWeight: fontWeight.semibold,
+    fontVariantNumeric: "tabular-nums",
+  },
+  numClaude: { backgroundColor: color.claudeSubtle, color: color.claudeText },
+  line: {
+    flex: 1,
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    fontSize: fontSize.body,
+    lineHeight: lineHeight.body,
+  },
+  empty: { color: color.textSubtle },
+  grow: { flex: 1 },
+  ok: {
+    flex: "none",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: space.s2,
+    fontSize: fontSize.small,
+    lineHeight: lineHeight.small,
+    color: color.textMuted,
+  },
+  fields: {
+    display: "flex",
+    flexDirection: "column",
+    gap: space.s2,
+    paddingTop: 0,
+    paddingRight: space.s5,
+    paddingBottom: space.s3,
+    paddingLeft: space.s4,
+  },
+  field: {
+    display: "grid",
+    gridTemplateColumns: { default: `${size.stepLabel} minmax(0, 1fr)`, [container.paneNarrow]: "minmax(0, 1fr)" },
+    gap: space.s4,
+    alignItems: "start",
+  },
+  label: {
+    paddingTop: `calc(${space.s2} + ${space.s1})`,
+    fontSize: fontSize.small,
+    lineHeight: lineHeight.small,
+    fontWeight: fontWeight.medium,
+    color: color.textMuted,
+  },
+  value: { display: "flex", flexDirection: "column", gap: space.s2, minWidth: 0 },
+  quiet: { paddingBlock: space.s2, fontSize: fontSize.small, color: color.textSubtle },
+  sources: {
+    display: "flex",
+    flexDirection: "column",
+    gap: space.s2,
+    marginTop: 0,
+    marginRight: space.s5,
+    marginBottom: 0,
+    marginLeft: space.s4,
+    paddingTop: space.s3,
+    paddingBottom: space.s4,
+    borderTopWidth: border.width,
+    borderTopStyle: "solid",
+    borderTopColor: color.border,
+  },
+  chips: { display: "flex", flexWrap: "wrap", gap: space.s2, alignItems: "center", minWidth: 0 },
+  item: { display: "inline-flex", alignItems: "center", gap: space.s2, flexWrap: "wrap" },
+  itemName: { fontFamily: fontFamily.mono, fontSize: fontSize.code },
+  nosource: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: space.s2,
+    fontSize: fontSize.small,
+    color: color.textSubtle,
+  },
+  findings: {
+    display: "flex",
+    flexDirection: "column",
+    gap: space.s2,
+    paddingTop: 0,
+    paddingRight: space.s5,
+    paddingBottom: space.s4,
+    paddingLeft: space.s4,
+  },
+});
 
-export function findingSummary(fs: Finding[]): { tone: "error" | "warning" | "info" | "ok"; text: string } {
-  const e = fs.filter((f) => f.severity === "error").length;
-  const w = fs.filter((f) => f.severity === "warning").length;
-  const i = fs.filter((f) => f.severity === "info").length;
-  if (e) return { tone: "error", text: plural(e, "error") };
-  if (w) return { tone: "warning", text: plural(w, "warning") };
-  if (i) return { tone: "info", text: plural(i, "note") };
-  return { tone: "ok", text: "No findings" };
+const TONE = { error: "danger", warning: "warning", info: "info" } as const;
+const ICON = { error: "x-circle", warning: "alert-triangle", info: "info" } as const;
+
+function Summary({ findings, stale }: { findings: Finding[]; stale: boolean }) {
+  const sum = findingSummary(findings);
+  if (sum.tone === "ok")
+    return (
+      <span {...stylex.props(styles.ok)}>
+        <Icon name="check" size="sm" />
+        No findings
+      </span>
+    );
+  return (
+    <Badge
+      size="sm"
+      tone={stale ? "neutral" : TONE[sum.tone]}
+      icon={stale ? "history" : ICON[sum.tone]}
+      label={sum.text}
+    />
+  );
 }
 
-const firstLine = (s: string) =>
-  s
-    .replace(/!\[\]\([^)]*\)/g, "")
-    .trim()
-    .split("\n")[0] ?? "";
-
-export function FindingSources({
-  finding,
-  selected,
-  onSelect,
-}: {
-  finding: Finding;
-  selected: string;
-  onSelect: (s: Source) => void;
-}) {
-  const refs = finding.sources.map(parseSourceRef).filter((s): s is Source => !!s);
-  if (!refs.length) return null;
+function Links({ links, selected, onOpen }: { links: ItemLink[]; selected: string; onOpen: (s: Source) => void }) {
   return (
-    <div className="chips">
-      {refs.map((s) => (
-        <SourceChip key={refKey(s)} source={s} on={selected === refKey(s)} onOpen={onSelect} />
-      ))}
+    <div {...stylex.props(styles.chips)}>
+      {links.map((l, i) =>
+        !l.item ? (
+          l.sources.map((s) => (
+            <SourceChip
+              key={`${i}-${refKey(s)}-${s.quote}`}
+              reference={sourceLabel(s)}
+              quote={s.quote || undefined}
+              figure={s.anchor.startsWith("fig:")}
+              pressed={selected === refKey(s)}
+              onOpen={() => onOpen(s)}
+            />
+          ))
+        ) : l.sources.length === 1 ? (
+          <SourceChip
+            key={l.item}
+            reference={`${l.item} · ${sourceLabel(l.sources[0])}`}
+            figure={l.sources[0].anchor.startsWith("fig:")}
+            pressed={selected === refKey(l.sources[0])}
+            onOpen={() => onOpen(l.sources[0])}
+          />
+        ) : (
+          <span key={l.item} {...stylex.props(styles.item)}>
+            <span {...stylex.props(styles.itemName)}>{l.item}</span>
+            {l.sources.map((s) => (
+              <SourceChip
+                key={`${refKey(s)}-${s.quote}`}
+                compact
+                reference={sourceLabel(s)}
+                quote={s.quote || undefined}
+                pressed={selected === refKey(s)}
+                onOpen={() => onOpen(s)}
+              />
+            ))}
+          </span>
+        ),
+      )}
     </div>
   );
 }
 
-export function ReviewStep({
-  n,
-  step,
-  xray,
-  findings,
-  stale,
-  folded,
-  active,
-  claude,
-  added,
-  selected,
-  url,
-  onFold,
-  onSelect,
-  onOpenImage,
-}: {
+export type ReviewStepProps = {
   n: number;
   step: Step;
   xray: ColumnLayout;
@@ -74,6 +221,7 @@ export function ReviewStep({
   stale: boolean;
   folded: boolean;
   active: boolean;
+  /** Claude's last run changed this step (added: it wrote it) */
   claude?: boolean;
   added?: boolean;
   selected: string;
@@ -81,93 +229,123 @@ export function ReviewStep({
   onFold: (folded: boolean) => void;
   onSelect: (s: Source, step: number) => void;
   onOpenImage: (file: string) => void;
-}) {
-  const sum = findingSummary(findings);
-  const tone = stale && sum.tone !== "ok" ? "stale" : sum.tone;
+};
+
+// ponytail: one step as the reviewer reads it — its columns read-only, its sources, and the findings the check put on it
+export function ReviewStep(p: ReviewStepProps) {
+  const { n, step, xray, findings, stale, selected } = p;
   const views = fieldViews(xray, step);
   const loose = stepSources(
     xray,
     step,
     views.map((v) => v.name),
   );
-  const pick = (s: Source) => onSelect(s, n);
+  const pick = (s: Source) => p.onSelect(s, n);
+  const mark = p.claude && <Badge size="sm" {...DIFF.claude} label={p.added ? "Added by Claude" : DIFF.claude.label} />;
+  const look = stylex.props(styles.card, p.active && styles.active, p.claude && styles.claude);
+  const num = <span {...stylex.props(styles.num, p.claude && styles.numClaude)}>{n}</span>;
 
-  if (folded)
+  if (p.folded) {
+    const line = firstLine(step.fields[views[0]?.name ?? "Action"] ?? "");
     return (
-      <article className={cx("card rstep rstep-folded", active && "is-active")} aria-label={`Step ${n}`}>
-        <span className="num">{n}</span>
-        {claude && <ClaudeBadge added={added} small />}
-        <span className="rstep-line">
-          {firstLine(step.fields[views[0]?.name ?? "Action"] ?? "") || <span className="muted">Empty step</span>}
-        </span>
-        <Severity tone={tone}>{sum.text}</Severity>
-        <IconButton icon="down" label={`Expand step ${n}`} onClick={() => onFold(false)} />
+      <article aria-label={`Step ${n}`} aria-current={p.active ? "step" : undefined} {...look}>
+        <div {...stylex.props(styles.head, styles.folded)} onClick={() => p.onFold(false)}>
+          {num}
+          {mark}
+          <span {...stylex.props(styles.line, !line && styles.empty)}>{line || "Empty step"}</span>
+          <Summary findings={findings} stale={stale} />
+          <Button
+            size="sm"
+            variant="quiet"
+            iconOnly
+            icon="chevron-down"
+            label={`Expand step ${n}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              p.onFold(false);
+            }}
+          />
+        </div>
       </article>
     );
+  }
 
   return (
-    <article
-      className={cx("card rstep", active && "is-active", findings.length > 0 && "has-findings")}
-      aria-label={`Step ${n}`}
-    >
-      <div className="rstep-head">
-        <span className="num">{n}</span>
-        {claude && <ClaudeBadge added={added} />}
-        <Severity tone={tone}>{sum.text}</Severity>
-        <span className="spacer" />
-        <IconButton icon="up" label={`Fold step ${n}`} onClick={() => onFold(true)} />
+    <article aria-label={`Step ${n}`} aria-current={p.active ? "step" : undefined} {...look}>
+      <div {...stylex.props(styles.head)}>
+        {num}
+        {mark}
+        <span {...stylex.props(styles.grow)} />
+        {findings.length > 0 && <Summary findings={findings} stale={stale} />}
+        <Button
+          size="sm"
+          variant="quiet"
+          iconOnly
+          icon="chevron-up"
+          label={`Fold step ${n}`}
+          onClick={() => p.onFold(true)}
+        />
       </div>
-      {views.map((v) => {
-        const value = step.fields[v.name] ?? "";
-        if (!value.trim() && !v.collapsed) return null;
-        const links = itemLinks(xray, step, v.name);
-        return (
-          <div key={v.name} className="fl" data-field={v.name}>
-            <span className="fl-k">{v.name}</span>
-            {!value.trim() ? (
-              <span className="muted fl-empty">Folded · empty</span>
-            ) : (
-              <div className="fl-v">
-                <FieldBlocks
-                  idBase={`r${n}-${v.name.replace(/\W+/g, "")}`}
-                  name={v.name}
-                  label={v.name}
-                  text={value}
-                  images={step.images}
-                  url={url}
-                  stepNumber={n}
-                  readOnly
-                  onText={noop}
-                  onAddFiles={noop}
-                  onFieldText={noop}
-                  onDropBlock={noop}
-                  onRemove={noop}
-                  onOpen={onOpenImage}
-                />
-                {links.length > 0 && <ItemLinks column={v.name} links={links} selected={selected} onOpen={pick} />}
-              </div>
-            )}
-          </div>
-        );
-      })}
-      {loose.length > 0 && (
-        <div className="fl">
-          <span className="fl-k">Sources</span>
-          <div className="chips">
-            {loose.map((s, i) => (
-              <SourceChip key={i} source={s} on={selected === refKey(s)} onOpen={pick} />
-            ))}
-          </div>
+      <div {...stylex.props(styles.fields)}>
+        {views.map((v) => {
+          const value = step.fields[v.name] ?? "";
+          if (!value.trim() && !v.collapsed) return null;
+          const links = itemLinks(xray, step, v.name);
+          return (
+            <div key={v.name} data-field={v.name} {...stylex.props(styles.field)}>
+              <span {...stylex.props(styles.label)}>{v.name}</span>
+              {!value.trim() ? (
+                <span {...stylex.props(styles.quiet)}>Folded · empty</span>
+              ) : (
+                <div {...stylex.props(styles.value)}>
+                  <FieldBlocks
+                    idBase={`r${n}-${v.name.replace(/\W+/g, "")}`}
+                    name={v.name}
+                    label={v.name}
+                    text={value}
+                    images={step.images}
+                    url={p.url}
+                    stepNumber={n}
+                    readOnly
+                    onText={noop}
+                    onAddFiles={noop}
+                    onFieldText={noop}
+                    onDropBlock={noop}
+                    onRemove={noop}
+                    onOpen={p.onOpenImage}
+                  />
+                  {links.length > 0 && <Links links={links} selected={selected} onOpen={pick} />}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <div {...stylex.props(styles.sources)}>
+        <span {...stylex.props(styles.label)}>Sources</span>
+        {loose.length > 0 ? (
+          <Links links={[{ item: "", sources: loose }]} selected={selected} onOpen={pick} />
+        ) : (
+          <span {...stylex.props(styles.nosource)}>
+            <Icon name="quote" size="sm" />
+            No source
+          </span>
+        )}
+      </div>
+      {findings.length > 0 && (
+        <div {...stylex.props(styles.findings)}>
+          {findings.map((f, i) => (
+            <FindingCard
+              key={`${f.kind}-${i}`}
+              finding={f}
+              stale={stale}
+              where={`Step ${n}`}
+              selected={selected}
+              onSelect={pick}
+            />
+          ))}
         </div>
       )}
-      {findings.map((f, i) => (
-        <FindingCard key={i} finding={f} stale={stale}>
-          <FindingSources finding={f} selected={selected} onSelect={pick} />
-          {!f.sources.length && f.pass === "semantic" && (
-            <span className="muted find-note">No passage was found for it.</span>
-          )}
-        </FindingCard>
-      ))}
     </article>
   );
 }

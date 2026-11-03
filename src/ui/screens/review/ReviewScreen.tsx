@@ -1,156 +1,95 @@
-import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { CheckFile, Source, SyncState, Test } from "../../../core/types.ts";
-import { call, fileUrl, run } from "../../api.ts";
-import { Button, DragEdge, Icon, IconButton, Kbd, Severity, Skeleton } from "../../components/legacy/index.ts";
-import { Activity } from "../../components/shell/Activity.tsx";
+import * as stylex from "@stylexjs/stylex";
+import { useEffect, useRef, useState } from "react";
+import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
 import { docLink } from "../../components/sources/PassageView.tsx";
+import { Banner } from "../../components/ui/Banner.tsx";
+import { Button } from "../../components/ui/Button.tsx";
+import { ResizeHandle } from "../../components/ui/ResizeHandle.tsx";
 import { useApp } from "../../lib/app.ts";
-import { useDraft } from "../../lib/drafts.ts";
-import { flushEditor } from "../../lib/editorBus.ts";
-import { message, plural } from "../../lib/format.ts";
-import { addedSteps } from "../../lib/marks.ts";
-import { editedAfterRun, revertRun } from "../../lib/revert.ts";
-import { useSideWidth } from "../../lib/sideWidth.ts";
+import { fileUrl } from "../../lib/data/client.ts";
+import { useCommand } from "../../lib/data/query.ts";
+import { plural } from "../../lib/format.ts";
+import { usePref } from "../../lib/prefs.ts";
+import { editedAfterRun } from "../../lib/revert.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
+import { border, color, container, fontSize, lineHeight, size, space } from "../../styles/tokens.stylex.ts";
 import { PushDialog } from "../tests/PushDialog.tsx";
-import { TestEditor } from "../tests/TestEditor.tsx";
 import { FixNote } from "./FixNote.tsx";
-import { type QueueCounts, type QueueFilter, type QueueItem, type QueueSort, ReviewQueue } from "./ReviewQueue.tsx";
-import { refKey } from "./ReviewStep.tsx";
-import { type Marks, ReviewTest } from "./ReviewTest.tsx";
-import { notAtAnchor, SourcePanel } from "./SourcePanel.tsx";
+import { ReviewEdit } from "./ReviewEdit.tsx";
+import { ReviewEmpty, ReviewLoading } from "./ReviewEmpty.tsx";
+import { ReviewFoot } from "./ReviewFoot.tsx";
+import { ReviewQueue } from "./ReviewQueue.tsx";
+import { ReviewTest } from "./ReviewTest.tsx";
+import { SourcePanel } from "./SourcePanel.tsx";
+import { notAtAnchor, placedSources, refKey } from "./sources.ts";
+import { useDecisions, useQueueFilters, useReviewData } from "./useReview.ts";
+import { useReviewKeys } from "./useReviewKeys.ts";
+import { useReviewView } from "./useReviewView.ts";
 
-type Loaded = { id: string; test: Test; sync: SyncState; edited: boolean; check: CheckFile | null; stale: boolean };
-type Selection = { source: Source; step: number | null; label?: string } | null;
+const QUEUE = { min: 240, max: 480, initial: 300 };
+const SOURCE = { min: 300, max: 720, initial: 420 };
 
-const typing = (t: EventTarget | null) =>
-  t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
-
-const FILTER_STATES: Record<QueueFilter, string[] | undefined> = {
-  all: undefined,
-  checked: ["checked"],
-  "to-fix": ["to-fix"],
-  validated: ["validated"],
-};
+const styles = stylex.create({
+  screen: { flex: 1, minHeight: 0, minWidth: 0, display: "flex", flexDirection: "column" },
+  review: {
+    flex: 1,
+    minHeight: 0,
+    minWidth: 0,
+    display: "flex",
+    containerName: "review",
+    containerType: "inline-size",
+  },
+  queueEdge: { display: { default: "flex", [container.reviewQueue]: "none" } },
+  sourceEdge: { display: { default: "flex", [container.reviewSource]: "none" } },
+  strip: {
+    display: { default: "none", [container.reviewQueue]: "flex" },
+    flex: "none",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: space.s2,
+    width: size.controlLg,
+    paddingBlock: space.s3,
+    borderRightWidth: border.width,
+    borderRightStyle: "solid",
+    borderRightColor: color.border,
+    backgroundColor: color.surface,
+  },
+  pos: {
+    fontSize: fontSize.small,
+    lineHeight: lineHeight.small,
+    fontVariantNumeric: "tabular-nums",
+    color: color.textMuted,
+    writingMode: "vertical-rl",
+  },
+  main: {
+    flex: "1 1 0",
+    minWidth: size.dock,
+    minHeight: 0,
+    display: "flex",
+    flexDirection: "column",
+    containerType: "inline-size",
+    backgroundColor: color.canvas,
+  },
+  notice: { padding: space.s5 },
+});
 
 export function ReviewScreen() {
   const app = useApp();
-  const [queueW, queueEdge] = useSideWidth("testimus.queueWidth", 240, 480, "before");
-  const [sourceW, sourceEdge] = useSideWidth("testimus.sourceWidth", 300, 720, "after");
   const routeId = app.route.screen === "review" ? (app.route.arg ?? "") : "";
-  const [items, setItems] = useState<QueueItem[] | null>(null);
-  const [counts, setCounts] = useState<QueueCounts | null>(null);
-  const [folders, setFolders] = useState<string[]>([]);
-  const [unchecked, setUnchecked] = useState<string[]>([]);
-  const [checking, setChecking] = useState<string[]>([]);
-  const [filter, setFilter] = useDraft<QueueFilter>("review.filter", "all");
-  const [sort, setSort] = useDraft<QueueSort>("review.sort", "anomalies");
-  const [folder, setFolder] = useDraft("review.folder", "");
-  const [withFindings, setWithFindings] = useDraft("review.withFindings", false);
-  const [data, setData] = useState<Loaded | null>(null);
-  const [loadError, setLoadError] = useState("");
-  const [editing, setEditing] = useState(false);
-  const [folded, setFolded] = useState<Set<number>>(new Set());
-  const [activeStep, setActiveStep] = useState(-1);
-  const [sel, setSel] = useState<Selection>(null);
-  const [fixOpen, setFixOpen] = useState(false);
+  const filters = useQueueFilters();
+  const d = useReviewData(routeId, filters);
+  const { items, data, activeId } = d;
+  const open = (id: string | null) => (id ? app.navigate("review", id) : app.navigate("review"));
+  const act = useDecisions(d.input, open);
+  const view = useReviewView(activeId, data, app.lastRun);
+  const revert = useCommand("claude.revert", { flushFirst: [["tests.show"]] });
+  const [queueW, setQueueW] = usePref("queueWidth");
+  const [sourceW, setSourceW] = usePref("sourceWidth");
+  const [drag, setDrag] = useState<{ queue?: number; source?: number }>({});
   const [busy, setBusy] = useState(false);
   const [pushing, setPushing] = useState(false);
-  const [marks, setMarks] = useState<Marks | null>(null);
   const [revertConflict, setRevertConflict] = useState<string | null>(null);
-  const [claudeReady, setClaudeReady] = useState(true);
   const body = useRef<HTMLDivElement>(null);
-
-  const activeId = routeId || items?.[0]?.id || "";
-
-  const loadQueue = useCallback(async () => {
-    try {
-      const r = await call<{ tests: QueueItem[]; counts: QueueCounts }>("review.queue", {
-        ...(FILTER_STATES[filter] ? { state: FILTER_STATES[filter] } : {}),
-        ...(folder ? { folder } : {}),
-        ...(withFindings ? { withFindings: true } : {}),
-        sort,
-      });
-      setItems(r?.tests ?? []);
-      setCounts(r?.counts ?? null);
-      return r?.tests ?? [];
-    } catch (e) {
-      setItems([]);
-      errorToast(e, "Could not read the review queue");
-      return [];
-    }
-  }, [filter, folder, withFindings, sort]);
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: reload when a run or another screen changes the tests
-  useEffect(() => {
-    void loadQueue();
-  }, [loadQueue, app.testsNonce, app.info?.dir]);
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: the folder list comes from the whole queue, once per change
-  useEffect(() => {
-    call<{ tests: QueueItem[] }>("review.queue", {})
-      .then((r) => {
-        const all = r?.tests ?? [];
-        setFolders([...new Set(all.map((t) => t.folder).filter(Boolean))].sort());
-        setUnchecked(all.filter((t) => t.unchecked).map((t) => t.id));
-      })
-      .catch(() => {});
-  }, [app.testsNonce, app.info?.dir]);
-
-  useEffect(() => {
-    call<{ installed?: boolean; signedIn?: boolean | null }>("claude.status", {})
-      .then((s) => setClaudeReady(!!s?.installed && s.signedIn !== false))
-      .catch(() => {});
-  }, []);
-
-  const load = useCallback(async (id: string) => {
-    const [show, chk] = await Promise.all([
-      call<{ id: string; test: Test; sync?: SyncState; edited?: boolean }>("tests.show", { id }),
-      call<{ check: CheckFile | null; stale: boolean }>("check.show", { id }).catch(() => ({
-        check: null,
-        stale: false,
-      })),
-    ]);
-    const loaded: Loaded = {
-      id,
-      test: show.test,
-      sync: show.sync ?? (show.test.key ? "synced" : "local"),
-      edited: !!show.edited,
-      check: chk?.check ?? null,
-      stale: !!chk?.stale,
-    };
-    setData(loaded);
-    setLoadError("");
-    return loaded;
-  }, []);
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: a new test opens fresh; testsNonce reloads the same one
-  useEffect(() => {
-    if (!activeId) {
-      setData(null);
-      return;
-    }
-    let dead = false;
-    if (data?.id !== activeId) {
-      setData(null);
-      setEditing(false);
-      setFixOpen(false);
-      setMarks(null);
-      setSel(null);
-      setActiveStep(-1);
-    }
-    load(activeId)
-      .then((l) => {
-        if (dead) return;
-        if (data?.id === activeId) return;
-        const fs = l.check?.findings ?? [];
-        setFolded(new Set(l.test.steps.map((_, i) => i).filter((i) => !fs.some((f) => f.step === i + 1))));
-      })
-      .catch((e) => !dead && setLoadError(message(e)));
-    return () => {
-      dead = true;
-    };
-  }, [activeId, app.testsNonce]);
 
   const { setFocus } = app;
   useEffect(() => {
@@ -159,467 +98,326 @@ export function ReviewScreen() {
       testId: data.id,
       key: data.test.key,
       summary: data.test.summary,
-      step: activeStep >= 0 ? activeStep + 1 : null,
+      step: view.activeStep >= 0 ? view.activeStep + 1 : null,
     });
-  }, [setFocus, data, activeStep]);
+  }, [setFocus, data, view.activeStep]);
   useEffect(() => () => setFocus(null), [setFocus]);
 
-  const lastRun = app.lastRun;
-  // biome-ignore lint/correctness/useExhaustiveDependencies: a run is consumed once, by its nonce
-  useEffect(() => {
-    if (!lastRun || !activeId) return;
-    if (!lastRun.runId) {
-      setMarks(null);
-      return;
-    }
-    if (!lastRun.changedTests.includes(activeId) && !lastRun.changedSteps[activeId]) return;
-    const before = data?.id === activeId ? data.test.steps.length : undefined;
-    const steps = lastRun.changedSteps[activeId] ?? [];
-    setMarks({ runId: lastRun.runId, steps: new Set(steps), added: addedSteps(steps, before) });
-    setFolded((f) => new Set([...f].filter((i) => !steps.includes(i + 1))));
-  }, [lastRun?.nonce]);
+  const placed = data ? placedSources(data.test, data.check) : [];
+  const sel = view.sel;
+  const selKey = sel ? refKey(sel.source) : "";
+  const selIndex = sel ? placed.findIndex((s) => refKey(s.source) === selKey && s.step === sel.step) : -1;
+  const findings = data?.check?.findings ?? [];
+  const running = !!data && app.claudeRunning === data.id;
+  const label = data ? (data.test.key ?? data.test.summary) : "";
+  const at = items?.findIndex((t) => t.id === activeId) ?? -1;
 
-  const open = useCallback((id: string) => app.navigate("review", id), [app]);
-
-  const move = useCallback(
-    (dir: 1 | -1) => {
-      if (!items?.length) return;
-      const at = items.findIndex((t) => t.id === activeId);
-      const next = items[Math.min(items.length - 1, Math.max(0, at + dir))];
-      if (next && next.id !== activeId) open(next.id);
-    },
-    [items, activeId, open],
-  );
-
-  const afterDecision = async (id: string) => {
-    const before = items ?? [];
-    const at = before.findIndex((t) => t.id === id);
-    const list = await loadQueue();
-    app.refreshInfo();
-    const next = list.find((t, i) => i >= at && t.id !== id) ?? list.filter((t) => t.id !== id).pop();
-    if (next) open(next.id);
-    else app.navigate("review");
+  const move = (by: 1 | -1) => {
+    if (!items?.length) return;
+    const next = items[Math.min(items.length - 1, Math.max(0, at + by))];
+    if (next && next.id !== activeId) open(next.id);
   };
 
-  const validate = async () => {
-    if (!data || busy || fixOpen) return;
-    setBusy(true);
-    try {
-      await flushEditor();
-      await call("review.set", { id: data.id, decision: "validate" });
-      toast({ kind: "ok", title: "Validated", detail: data.test.key ?? data.test.summary });
-      await afterDecision(data.id);
-    } catch (e) {
-      errorToast(e, "Could not validate the test");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const markToFix = async (note: string, askClaude: boolean) => {
+  const selectStep = (i: number) => {
     if (!data) return;
+    const n = Math.max(0, Math.min(data.test.steps.length - 1, i));
+    const own = placed.find((s) => s.step === n + 1);
+    view.patch({ activeStep: n, ...(own && view.sel ? { sel: own } : {}) });
+    requestAnimationFrame(() =>
+      body.current
+        ?.querySelector(`[aria-label="Step ${n + 1}"]`)
+        ?.scrollIntoView?.({ block: "nearest", behavior: "smooth" }),
+    );
+  };
+
+  const decide = async (work: () => Promise<unknown>) => {
+    if (busy) return;
     setBusy(true);
     try {
-      await flushEditor();
-      if (!askClaude) await call("review.set", { id: data.id, decision: "to-fix", note });
-      setFixOpen(false);
-      if (askClaude) {
-        app.runInDock({ name: "review.fix", input: { id: data.id, note }, label: note, testId: data.id });
-        await load(data.id);
-        void loadQueue();
-      } else {
-        toast({ kind: "info", title: "Marked To fix", detail: data.test.key ?? data.test.summary });
-        await afterDecision(data.id);
-      }
-    } catch (e) {
-      errorToast(e, "Could not mark the test To fix");
+      await work();
     } finally {
       setBusy(false);
     }
   };
 
-  const revert = async (force = false) => {
-    if (!marks) return;
+  const validate = () => {
+    if (!data || view.fixOpen || running) return;
+    void decide(() => act.validate(data.id, label, items ?? []));
+  };
+
+  const markToFix = (note: string, askClaude: boolean) => {
+    if (!data) return;
+    view.patch({ fixOpen: false });
+    if (askClaude) askFix(note);
+    else void decide(() => act.markToFix(data.id, label, items ?? [], note));
+  };
+
+  const askFix = (note?: string) => {
+    if (!data) return;
+    const text = note ?? data.test.reviewNote ?? "";
+    void act.flush(data.id).then(() =>
+      app.runInDock({
+        name: "review.fix",
+        input: note ? { id: data.id, note } : { id: data.id },
+        label: text || "Fix the test",
+        testId: data.id,
+      }),
+    );
+  };
+
+  const undo = async (force = false) => {
+    if (!view.marks) return;
     try {
-      await revertRun(marks.runId, force);
+      await revert.mutateAsync(force ? { runId: view.marks.runId, force: true } : { runId: view.marks.runId });
       setRevertConflict(null);
-      setMarks(null);
+      view.patch({ marks: null });
       app.setLastRun({ runId: "", changedTests: [], changedSteps: {}, nonce: Date.now() });
-      app.testsChanged();
       toast({ kind: "info", title: "Claude's changes reverted" });
     } catch (e) {
-      if (!force && editedAfterRun(e)) setRevertConflict(message(e));
+      if (!force && (editedAfterRun(e) || (e as { code?: string }).code === "edited-after-run"))
+        setRevertConflict(e instanceof Error ? e.message : String(e));
       else errorToast(e, "Could not revert Claude's changes");
     }
   };
 
-  // ponytail: without Claude the check is the mechanical pass only; the finished job's toast comes from the shell
-  const check = async (ids: string[]) => {
-    if (!ids.length || checking.length) return;
-    setChecking(ids);
-    try {
-      await run("check.run", { ids });
-      app.refreshInfo();
-      app.testsChanged();
-    } catch (e) {
-      errorToast(e, ids.length === 1 ? "Could not check the test" : "Could not check the tests");
-    } finally {
-      setChecking([]);
-    }
-  };
-
-  const takeJira = async () => {
-    if (!data?.test.key) return;
-    try {
-      await run("xray.pull", { key: data.test.key, overwrite: true });
-      toast({ kind: "ok", title: "Jira's version taken", detail: data.test.key });
-      app.testsChanged();
-    } catch (e) {
-      errorToast(e, `Could not pull ${data.test.key}`);
-    }
-  };
-
-  const stepSources = useMemo(() => {
-    if (!data) return [] as { source: Source; step: number | null }[];
-    const out: { source: Source; step: number | null }[] = [];
-    const seen = new Set<string>();
-    const add = (source: Source, step: number | null) => {
-      const k = refKey(source) + (step ?? "");
-      if (seen.has(k)) return;
-      seen.add(k);
-      out.push({ source, step });
-    };
-    for (const f of data.check?.findings ?? [])
-      if (!f.step)
-        for (const r of f.sources) {
-          const [docId, anchor] = r.split("#");
-          if (anchor) add({ docId, anchor, quote: "" }, null);
-        }
-    data.test.steps.forEach((s, i) => {
-      for (const src of s.sources) add(src, i + 1);
-      for (const f of data.check?.findings ?? [])
-        if (f.step === i + 1)
-          for (const r of f.sources) {
-            const [docId, anchor] = r.split("#");
-            if (anchor) add({ docId, anchor, quote: "" }, i + 1);
-          }
-    });
-    return out;
-  }, [data]);
-
-  const selectStep = useCallback(
-    (i: number) => {
-      if (!data) return;
-      const n = Math.max(0, Math.min(data.test.steps.length - 1, i));
-      setActiveStep(n);
-      const own = stepSources.find((s) => s.step === n + 1);
-      if (own) setSel((cur) => cur && own);
-      requestAnimationFrame(() =>
-        body.current
-          ?.querySelector(`[aria-label="Step ${n + 1}"]`)
-          ?.scrollIntoView?.({ block: "nearest", behavior: "smooth" }),
-      );
-    },
-    [data, stepSources],
-  );
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.ctrlKey || e.altKey || e.metaKey || typing(e.target) || fixOpen || pushing) return;
-      if (document.querySelector(".overlay")) return;
-      const k = e.key.toLowerCase();
-      if (k === "j") move(1);
-      else if (k === "k") move(-1);
-      else if (editing) return;
-      else if (k === "v") void validate();
-      else if (k === "f" && data) setFixOpen(true);
-      else if (e.key === "ArrowDown" && data) selectStep(activeStep + 1);
-      else if (e.key === "ArrowUp" && data) selectStep(activeStep - 1);
-      else return;
-      e.preventDefault();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+  useReviewKeys({
+    next: () => move(1),
+    previous: () => move(-1),
+    validate,
+    toFix: () => data && !running && view.patch({ fixOpen: true }),
+    step: (by) => data && selectStep(view.activeStep + by),
+    editing: view.editing,
+    off: view.fixOpen || pushing,
   });
 
-  const findings = data?.check?.findings ?? [];
-  const errors = findings.filter((f) => f.severity === "error").length;
-  const selKey = sel ? refKey(sel.source) : "";
-  const selIndex = sel ? stepSources.findIndex((s) => refKey(s.source) === selKey && s.step === sel.step) : -1;
-  const running = !!data && app.claudeRunning === data.id;
+  const queueWidth = drag.queue ?? queueW ?? QUEUE.initial;
+  const sourceWidth = drag.source ?? sourceW ?? SOURCE.initial;
+  const pick = (ref: string) => {
+    const own = placed.find((s) => refKey(s.source) === ref);
+    const i = ref.indexOf("#");
+    view.patch({
+      sel: own ?? {
+        source: { docId: ref.slice(0, i), anchor: ref.slice(i + 1), quote: "" },
+        step: null,
+        label: "Read by the generation",
+      },
+    });
+  };
 
   return (
-    <div className="screen">
-      <div
-        className="review"
-        style={
-          {
-            ...(queueW && { "--queue-size": `${queueW}px` }),
-            ...(sourceW && { "--source-size": `${sourceW}px` }),
-          } as CSSProperties
-        }
-      >
+    <div {...stylex.props(styles.screen)}>
+      <ScreenHeader title="Review" />
+      <div {...stylex.props(styles.review)}>
         <ReviewQueue
           items={items}
-          counts={counts}
+          counts={d.counts}
           activeId={activeId}
-          filter={filter}
-          sort={sort}
-          folder={folder}
-          folders={folders}
-          withFindings={withFindings}
-          onFilter={setFilter}
-          onSort={setSort}
-          onFolder={setFolder}
-          onWithFindings={setWithFindings}
+          filter={filters.filter}
+          sort={filters.sort}
+          folder={filters.folder}
+          folders={d.folders}
+          withFindings={filters.withFindings}
+          onFilter={filters.setFilter}
+          onSort={filters.setSort}
+          onFolder={filters.setFolder}
+          onWithFindings={filters.setWithFindings}
           onOpen={open}
-          head={
-            <div className="tside-head">
-              <span className="h queue-title">Generated tests</span>
-              <span className="spacer" />
-              <Activity />
-            </div>
-          }
+          width={queueW === null && drag.queue === undefined ? undefined : queueWidth}
+          checkAll={{ ids: d.needsCheck, running: act.checking, onCheck: () => act.check(d.needsCheck) }}
+          error={d.queueError ? { message: d.queueError, onRetry: d.retryQueue } : undefined}
           notice={
-            unchecked.length > 0 && (
-              <div className="queue-unchecked" role="status">
-                <span className="muted">{plural(unchecked.length, "test")} not checked yet</span>
-                <span className="spacer" />
-                <Button
-                  size="sm"
-                  icon="review"
-                  disabled={checking.length > 0}
-                  aria-label={`Check the ${plural(unchecked.length, "test")} not checked yet`}
-                  onClick={() => void check(unchecked)}
-                >
-                  {checking.length > 0 ? "Checking…" : "Check"}
-                </Button>
-              </div>
+            d.unchecked.length > 0 && (
+              <Banner
+                compact
+                title={`${plural(d.unchecked.length, "test")} not checked yet`}
+                actions={
+                  <Button
+                    size="sm"
+                    icon="eye"
+                    label="Check"
+                    loading={act.checking}
+                    onClick={() => act.check(d.unchecked)}
+                  />
+                }
+              >
+                The check finds what the documents do not support.
+              </Banner>
             )
           }
         />
-        <DragEdge className="queue-edge" label="Resize the review queue" {...queueEdge} />
-        <nav className="queue-strip" aria-label="Review queue, folded">
-          <IconButton icon="up" label="Previous test (K)" disabled={!items?.length} onClick={() => move(-1)} />
-          <span className="muted queue-strip-pos">
-            {items?.length
-              ? `${
-                  Math.max(
-                    0,
-                    items.findIndex((t) => t.id === activeId),
-                  ) + 1
-                }/${items.length}`
-              : "0"}
-          </span>
-          <IconButton icon="down" label="Next test (J)" disabled={!items?.length} onClick={() => move(1)} />
-        </nav>
-        <section className="review-main" aria-label="Test under review">
-          {editing && data ? (
-            <div className="review-edit">
-              <div className="review-editbar">
-                <span className="label">Editing</span>
-                <span className="spacer" />
-                <Button
-                  size="sm"
-                  tone="primary"
-                  icon="check"
-                  onClick={() => void flushEditor().then(() => setEditing(false))}
-                >
-                  Done editing
-                </Button>
-              </div>
-              <TestEditor
-                key={data.id}
-                testId={data.id}
-                onOpen={(id) => app.navigate("tests", id)}
-                onSaved={() => {}}
-              />
-            </div>
-          ) : (
-            <div className="review-body" ref={body}>
-              {loadError ? (
-                <div className="problem" role="alert">
-                  <Severity tone="error">This test could not be opened</Severity>
-                  <p>{loadError}</p>
-                </div>
-              ) : !activeId ? (
-                items && (
-                  <div className="review-empty">
-                    <Icon name="review" size={40} />
-                    <h2 className="h">Nothing to review</h2>
-                    <p className="muted">
-                      Generated tests come here once written and checked. Once validated they stay readable here and
-                      appear in Tests.
-                    </p>
-                    <div className="review-empty-actions">
-                      <Button tone="primary" onClick={() => app.navigate("generate")}>
-                        Generate tests
-                      </Button>
-                    </div>
-                  </div>
-                )
-              ) : !data ? (
-                <div className="rtest" role="status" aria-busy="true" aria-label="Loading the test">
-                  <Skeleton w={260} h={12} />
-                  <Skeleton w="70%" h={26} />
-                  <Skeleton w={340} h={22} />
-                  {[0, 1, 2].map((i) => (
-                    <div key={i} className="card rstep">
-                      <Skeleton w={28} h={28} r={8} />
-                      <Skeleton w="90%" h={13} />
-                      <Skeleton w="75%" h={13} />
-                      <Skeleton w="82%" h={13} />
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <ReviewTest
-                  test={data.test}
-                  sync={data.sync}
-                  edited={data.edited}
-                  check={data.check}
-                  stale={data.stale}
-                  xray={app.xray}
-                  folded={folded}
-                  activeStep={activeStep}
-                  selected={selKey}
-                  marks={marks}
-                  claudeRunning={running}
-                  url={(file) => fileUrl(`tests/${data.id}/${file}`)}
-                  onFold={(i, f) => {
-                    setFolded((cur) => {
-                      const next = new Set(cur);
-                      if (f) next.add(i);
-                      else next.delete(i);
-                      return next;
-                    });
-                    if (f && i === activeStep) setActiveStep(-1);
-                  }}
-                  onFoldAll={(f) => {
-                    setFolded(f ? new Set(data.test.steps.map((_, i) => i)) : new Set());
-                    if (f) setActiveStep(-1);
-                  }}
-                  onSelect={(source, step) => {
-                    setSel(sel && refKey(source) === selKey && sel.step === step ? null : { source, step });
-                    if (step) setActiveStep(step - 1);
-                  }}
-                  onOpenImage={(file) => window.open(fileUrl(`tests/${data.id}/${file}`), "_blank")}
-                  onEdit={() => setEditing(true)}
-                  onRevert={() => void revert()}
-                  revertConflict={revertConflict}
-                  fixMessage={
-                    lastRun?.testId === data.id &&
-                    lastRun.review &&
-                    lastRun.review !== "checked" &&
-                    lastRun.review === data.test.review
-                      ? lastRun.message || "Claude's fix did not bring the test back to Checked."
-                      : undefined
-                  }
-                  onRevertAnyway={() => void revert(true)}
-                  onKeepAfterRun={() => setRevertConflict(null)}
-                  onCompare={() => app.navigate("tests", data.id)}
-                  onTakeJira={() => void takeJira()}
-                  onKeepMine={() => setPushing(true)}
-                />
-              )}
-            </div>
-          )}
-          {fixOpen && data && (
-            <FixNote
-              id={data.id}
-              initial={data.test.review === "to-fix" ? (data.test.reviewNote ?? "") : ""}
-              claudeReady={claudeReady}
-              onCancel={() => setFixOpen(false)}
-              onSubmit={(note, ask) => void markToFix(note, ask)}
-            />
-          )}
-          <div className="review-foot">
-            <div className="muted review-keys">
-              <span>
-                <Kbd>J</Kbd> <Kbd>K</Kbd> next / previous test
-              </span>
-              <span>
-                <Kbd>↑</Kbd> <Kbd>↓</Kbd> step
-              </span>
-            </div>
-            <span className="spacer" />
-            {data && (data.stale || unchecked.includes(data.id)) && (
-              <Button
-                icon="review"
-                disabled={checking.length > 0 || running}
-                title={data.stale ? "The test changed since its last check" : "This test was never checked"}
-                onClick={() => void check([data.id])}
-              >
-                {checking.includes(data.id) ? "Checking…" : data.stale ? "Check again" : "Check"}
-              </Button>
-            )}
-            {errors > 0 && (
-              <span
-                className="review-open"
-                title={`${plural(errors, "error")} still open${data?.stale ? " · out of date" : ""}`}
-              >
-                <Severity tone={data?.stale ? "stale" : "error"}>
-                  {plural(errors, "error")}
-                  <span className="review-open-long"> still open{data?.stale ? " · out of date" : ""}</span>
-                </Severity>
-              </span>
-            )}
-            <Button
-              icon="edit"
-              kbd="F"
-              className={fixOpen ? "chip-on" : undefined}
-              aria-expanded={fixOpen}
-              disabled={!data || busy || running}
-              onClick={() => setFixOpen((o) => !o)}
-            >
-              To fix
-            </Button>
-            <Button
-              tone={fixOpen ? "secondary" : "primary"}
-              icon="check"
-              kbd="V"
-              disabled={!data || busy || fixOpen || running}
-              onClick={() => void validate()}
-            >
-              Validate
-            </Button>
-          </div>
-        </section>
-        {!editing && sel && <DragEdge className="srcpanel-edge" label="Resize the source panel" {...sourceEdge} />}
-        {!editing && sel && (
-          <SourcePanel
-            source={sel.source}
-            label={sel.label ?? (sel.step ? `Source of step ${sel.step}` : "Source of the whole-test finding")}
-            index={Math.max(0, selIndex)}
-            total={stepSources.length}
-            testId={data?.id ?? ""}
-            misplaced={notAtAnchor(findings, selKey, sel.step)}
-            onClose={() => setSel(null)}
-            onOpenDoc={(docId, anchor, quote) => app.navigate("documents", docLink(docId, anchor, quote))}
-            onPick={(ref) => {
-              const at = ref.indexOf("#");
-              const own = stepSources.find((s) => refKey(s.source) === ref);
-              setSel(
-                own ?? {
-                  source: { docId: ref.slice(0, at), anchor: ref.slice(at + 1), quote: "" },
-                  step: null,
-                  label: "Read by the generation",
-                },
-              );
+        <div {...stylex.props(styles.queueEdge)}>
+          <ResizeHandle
+            label="Resize the review queue"
+            value={queueWidth}
+            min={QUEUE.min}
+            max={QUEUE.max}
+            defaultValue={QUEUE.initial}
+            onChange={(px) => setDrag((cur) => ({ ...cur, queue: px }))}
+            onCommit={(px) => {
+              setQueueW(px === QUEUE.initial ? null : px);
+              setDrag((cur) => ({ ...cur, queue: undefined }));
             }}
           />
+        </div>
+        <nav aria-label="Review queue, folded" {...stylex.props(styles.strip)}>
+          <Button
+            size="sm"
+            variant="quiet"
+            iconOnly
+            icon="chevron-up"
+            label="Previous test (K)"
+            disabled={!items?.length}
+            onClick={() => move(-1)}
+          />
+          <span {...stylex.props(styles.pos)} data-testid="queue-position">
+            {items?.length ? `${Math.max(0, at) + 1} / ${items.length}` : "0"}
+          </span>
+          <Button
+            size="sm"
+            variant="quiet"
+            iconOnly
+            icon="chevron-down"
+            label="Next test (J)"
+            disabled={!items?.length}
+            onClick={() => move(1)}
+          />
+        </nav>
+        <section aria-label="Test under review" {...stylex.props(styles.main)}>
+          {view.editing && data ? (
+            <ReviewEdit
+              id={data.id}
+              testKey={data.test.key}
+              onAsk={() => app.askClaude("test")}
+              onBack={() => void act.flush(data.id).then(() => view.patch({ editing: false }))}
+              onOpen={(id) => app.navigate("tests", id)}
+            />
+          ) : d.loadError ? (
+            <div {...stylex.props(styles.notice)}>
+              <Banner tone="danger" title="This test could not be opened">
+                {d.loadError}
+              </Banner>
+            </div>
+          ) : !activeId ? (
+            items && (
+              <ReviewEmpty
+                validated={filters.filter === "all" ? (d.counts?.validated ?? 0) : 0}
+                onGenerate={() => app.navigate("generate")}
+                onTests={() => app.navigate("tests")}
+              />
+            )
+          ) : !data ? (
+            <ReviewLoading />
+          ) : (
+            <ReviewTest
+              bodyRef={body}
+              test={data.test}
+              sync={data.sync}
+              edited={data.edited}
+              check={data.check}
+              stale={data.stale}
+              xray={app.xray}
+              folded={view.folded}
+              activeStep={view.activeStep}
+              selected={selKey}
+              selectedStep={sel ? sel.step : undefined}
+              marks={view.marks}
+              claudeRunning={running}
+              claudeReady={d.claudeReady}
+              url={(file) => fileUrl(`tests/${data.id}/${file}`)}
+              onFold={view.fold}
+              onFoldAll={(f) => view.foldAll(f, data.test.steps.length)}
+              onSelect={(source, step) => {
+                const same = sel && refKey(source) === selKey && sel.step === step;
+                view.patch({ sel: same ? null : { source, step }, ...(step ? { activeStep: step - 1 } : {}) });
+              }}
+              onOpenImage={(file) => window.open(fileUrl(`tests/${data.id}/${file}`), "_blank")}
+              onEdit={() => view.patch({ editing: true })}
+              onRevert={() => void undo()}
+              revertConflict={revertConflict}
+              fixMessage={
+                app.lastRun?.testId === data.id &&
+                app.lastRun.review &&
+                app.lastRun.review !== "checked" &&
+                app.lastRun.review === data.test.review
+                  ? app.lastRun.message || "Claude's fix did not bring the test back to Checked."
+                  : undefined
+              }
+              onRevertAnyway={() => void undo(true)}
+              onKeepAfterRun={() => setRevertConflict(null)}
+              onCompare={() => app.navigate("tests", data.id)}
+              onTakeJira={() => data.test.key && act.takeJira(data.test.key)}
+              onKeepMine={() => setPushing(true)}
+              pulling={act.pulling}
+              checking={act.checking}
+              onCheck={() => act.check([data.id])}
+              onAskFix={() => askFix()}
+              onEditNote={() => view.patch({ fixOpen: true })}
+            />
+          )}
+          {!view.editing && (
+            <ReviewFoot
+              errors={findings.filter((f) => f.severity === "error").length}
+              stale={!!data?.stale}
+              off={!data || busy || (running && "Claude is working on this test — wait for it to finish")}
+              fixOpen={view.fixOpen}
+              onToFix={() => view.patch({ fixOpen: !view.fixOpen })}
+              onValidate={validate}
+            />
+          )}
+        </section>
+        {!view.editing && sel && (
+          <>
+            <div {...stylex.props(styles.sourceEdge)}>
+              <ResizeHandle
+                label="Resize the source panel"
+                side="left"
+                value={sourceWidth}
+                min={SOURCE.min}
+                max={SOURCE.max}
+                defaultValue={SOURCE.initial}
+                onChange={(px) => setDrag((cur) => ({ ...cur, source: px }))}
+                onCommit={(px) => {
+                  setSourceW(px === SOURCE.initial ? null : px);
+                  setDrag((cur) => ({ ...cur, source: undefined }));
+                }}
+              />
+            </div>
+            <SourcePanel
+              source={sel.source}
+              label={sel.label ?? (sel.step ? `Source of step ${sel.step}` : "Source of the whole-test finding")}
+              index={Math.max(0, selIndex)}
+              total={placed.length}
+              testId={data?.id ?? ""}
+              misplaced={notAtAnchor(findings, selKey, sel.step)}
+              width={sourceW === null && drag.source === undefined ? undefined : sourceWidth}
+              onClose={() => view.patch({ sel: null })}
+              onOpenDoc={(docId, anchor, quote) => app.navigate("documents", docLink(docId, anchor, quote))}
+              onPick={pick}
+              onStep={(by) => {
+                const next = placed[Math.max(0, selIndex) + by];
+                if (next) view.patch({ sel: next, ...(next.step ? { activeStep: next.step - 1 } : {}) });
+              }}
+            />
+          </>
         )}
       </div>
+      {view.fixOpen && data && (
+        <FixNote
+          id={data.id}
+          initial={data.test.review === "to-fix" ? (data.test.reviewNote ?? "") : ""}
+          subtitle={[data.test.summary, data.test.key].filter(Boolean).join(" · ")}
+          claudeReady={d.claudeReady}
+          onCancel={() => view.patch({ fixOpen: false })}
+          onSubmit={markToFix}
+        />
+      )}
       {pushing && data && (
         <PushDialog
           testId={data.id}
           testKey={data.test.key}
           summary={data.test.summary}
           review={data.test.review}
-          onDone={() => {
-            setPushing(false);
-            app.testsChanged();
-          }}
+          onDone={() => setPushing(false)}
           onClose={() => setPushing(false)}
           onCompare={() => app.navigate("tests", data.id)}
         />
