@@ -3,14 +3,12 @@ import type { ColumnLayout, Finding, Source, Step } from "../../../core/types.ts
 import { Badge, DIFF } from "../../components/ui/Badge.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
-import { SourceChip } from "../../components/ui/SourceChip.tsx";
-import { fieldViews, type ItemLink, itemLinks, sourceLabel, stepSources } from "../../lib/fields.ts";
+import { fieldViews, itemLinks, stepSources } from "../../lib/fields.ts";
 import {
   border,
   color,
   container,
   focus,
-  fontFamily,
   fontSize,
   fontWeight,
   lineHeight,
@@ -21,7 +19,8 @@ import {
 } from "../../styles/tokens.stylex.ts";
 import { FieldBlocks } from "../tests/FieldBlocks.tsx";
 import { FindingCard } from "./FindingCard.tsx";
-import { findingSummary, firstLine, refKey } from "./sources.ts";
+import { Links, Summary } from "./StepSources.tsx";
+import { firstLine } from "./sources.ts";
 
 export { FindingSources } from "./FindingCard.tsx";
 export { findingSummary, refKey } from "./sources.ts";
@@ -80,15 +79,6 @@ const styles = stylex.create({
   },
   empty: { color: color.textSubtle },
   grow: { flex: 1 },
-  ok: {
-    flex: "none",
-    display: "inline-flex",
-    alignItems: "center",
-    gap: space.s2,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
-    color: color.textMuted,
-  },
   fields: {
     display: "flex",
     flexDirection: "column",
@@ -127,9 +117,6 @@ const styles = stylex.create({
     borderTopStyle: "solid",
     borderTopColor: color.border,
   },
-  chips: { display: "flex", flexWrap: "wrap", gap: space.s2, alignItems: "center", minWidth: 0 },
-  item: { display: "inline-flex", alignItems: "center", gap: space.s2, flexWrap: "wrap" },
-  itemName: { fontFamily: fontFamily.mono, fontSize: fontSize.code },
   nosource: {
     display: "inline-flex",
     alignItems: "center",
@@ -147,71 +134,6 @@ const styles = stylex.create({
     paddingLeft: space.s4,
   },
 });
-
-const TONE = { error: "danger", warning: "warning", info: "info" } as const;
-const ICON = { error: "x-circle", warning: "alert-triangle", info: "info" } as const;
-
-function Summary({ findings, stale }: { findings: Finding[]; stale: boolean }) {
-  const sum = findingSummary(findings);
-  if (sum.tone === "ok")
-    return (
-      <span {...stylex.props(styles.ok)}>
-        <Icon name="check" size="sm" />
-        No findings
-      </span>
-    );
-  return (
-    <Badge
-      size="sm"
-      tone={stale ? "neutral" : TONE[sum.tone]}
-      icon={stale ? "history" : ICON[sum.tone]}
-      label={sum.text}
-    />
-  );
-}
-
-function Links({ links, selected, onOpen }: { links: ItemLink[]; selected: string; onOpen: (s: Source) => void }) {
-  return (
-    <div {...stylex.props(styles.chips)}>
-      {links.map((l, i) =>
-        !l.item ? (
-          l.sources.map((s) => (
-            <SourceChip
-              key={`${i}-${refKey(s)}-${s.quote}`}
-              reference={sourceLabel(s)}
-              quote={s.quote || undefined}
-              figure={s.anchor.startsWith("fig:")}
-              pressed={selected === refKey(s)}
-              onOpen={() => onOpen(s)}
-            />
-          ))
-        ) : l.sources.length === 1 ? (
-          <SourceChip
-            key={l.item}
-            reference={`${l.item} · ${sourceLabel(l.sources[0])}`}
-            figure={l.sources[0].anchor.startsWith("fig:")}
-            pressed={selected === refKey(l.sources[0])}
-            onOpen={() => onOpen(l.sources[0])}
-          />
-        ) : (
-          <span key={l.item} {...stylex.props(styles.item)}>
-            <span {...stylex.props(styles.itemName)}>{l.item}</span>
-            {l.sources.map((s) => (
-              <SourceChip
-                key={`${refKey(s)}-${s.quote}`}
-                compact
-                reference={sourceLabel(s)}
-                quote={s.quote || undefined}
-                pressed={selected === refKey(s)}
-                onOpen={() => onOpen(s)}
-              />
-            ))}
-          </span>
-        ),
-      )}
-    </div>
-  );
-}
 
 export type ReviewStepProps = {
   n: number;
