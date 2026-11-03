@@ -1,26 +1,26 @@
-import { useEffect, useState } from "react";
+import { useEffect, useReducer } from "react";
 import { desktop, readAlwaysOnTop, setAlwaysOnTop } from "../../lib/desktop.ts";
-import { cx } from "../../lib/format.ts";
-import { Icon } from "../legacy/index.ts";
+import { Button } from "../ui/Button.tsx";
 
-export function OnTopToggle({ className }: { className?: string }) {
-  const [on, setOn] = useState(readAlwaysOnTop);
+// ponytail: the pin of the dock's head; the choice is kept by lib/desktop (in the preferences), which tells the window
+// and every pin and switch that shows it
+export function OnTopToggle() {
+  const [, redraw] = useReducer((n: number) => n + 1, 0);
   useEffect(() => {
-    const onChange = (e: Event) => setOn((e as CustomEvent<boolean>).detail === true);
-    window.addEventListener("testimus:on-top", onChange);
-    return () => window.removeEventListener("testimus:on-top", onChange);
+    window.addEventListener("testimus:on-top", redraw);
+    return () => window.removeEventListener("testimus:on-top", redraw);
   }, []);
   if (!desktop()) return null;
+  const on = readAlwaysOnTop();
   return (
-    <button
-      type="button"
-      className={cx("btn btn-quiet btn-sm iconbtn ontop", on && "ontop-on", className)}
-      aria-pressed={on}
-      aria-label="Always on top"
-      title={on ? "Always on top — click to let other windows cover Testimus" : "Always on top"}
+    <Button
+      variant="quiet"
+      size="sm"
+      icon="pin"
+      iconOnly
+      pressed={on}
+      label="Always on top"
       onClick={() => void setAlwaysOnTop(!on)}
-    >
-      <Icon name="pin" />
-    </button>
+    />
   );
 }

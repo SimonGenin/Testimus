@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render as rtlRender, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setProject } from "../../../../src/ui/api.ts";
 import { ConnectClaude } from "../../../../src/ui/components/claude/ConnectClaude.tsx";
@@ -9,8 +9,11 @@ import { OnTopToggle } from "../../../../src/ui/components/claude/OnTopToggle.ts
 import { Toasts } from "../../../../src/ui/components/legacy/index.ts";
 import { readAlwaysOnTop, restoreAlwaysOnTop, setAlwaysOnTop } from "../../../../src/ui/lib/desktop.ts";
 import { closeToast, useToasts } from "../../../../src/ui/lib/toast.ts";
-import { fakeNet } from "../../cov-uishell-helpers.tsx";
+import { dataWrapper, fakeNet } from "../../cov-uishell-helpers.tsx";
 import { fakeDesktop, noDesktop } from "../../ui-desktop-helpers.tsx";
+
+const render = ((ui: Parameters<typeof rtlRender>[0], o?: Parameters<typeof rtlRender>[1]) =>
+  rtlRender(ui, { wrapper: dataWrapper(), ...o })) as typeof rtlRender;
 
 let ids: number[] = [];
 function Probe() {
@@ -84,16 +87,16 @@ describe("always on top", () => {
     fakeDesktop();
     const set = vi.fn(async (on: boolean) => on);
     (window.testimusDesktop as unknown as { setAlwaysOnTop: typeof set }).setAlwaysOnTop = set;
-    render(<OnTopToggle className="x" />);
+    render(<OnTopToggle />);
     const pin = screen.getByRole("button", { name: "Always on top" });
     expect(pin).toHaveAttribute("aria-pressed", "false");
-    expect(pin).toHaveAttribute("title", "Always on top");
+    expect(pin).toHaveAccessibleDescription("Always on top");
     fireEvent.click(pin);
     await waitFor(() => expect(set).toHaveBeenCalledWith(true));
     expect(pin).toHaveAttribute("aria-pressed", "true");
-    expect(pin).toHaveClass("ontop-on", "x");
     act(() => {
-      window.dispatchEvent(new CustomEvent("testimus:on-top", { detail: "yes" }));
+      localStorage.setItem("testimus.alwaysOnTop", "false");
+      window.dispatchEvent(new CustomEvent("testimus:on-top", { detail: false }));
     });
     expect(pin).toHaveAttribute("aria-pressed", "false");
   });
@@ -115,7 +118,7 @@ describe("ModelPicker", () => {
     expect(box).toHaveAttribute("aria-invalid", "true");
     fireEvent.keyDown(box, { key: "Enter" });
     fireEvent.change(box, { target: { value: "claude-x-1[1m]" } });
-    expect(box).toHaveAttribute("aria-invalid", "false");
+    expect(box).not.toHaveAttribute("aria-invalid");
     fireEvent.keyDown(box, { key: "a" });
     expect(change).toHaveBeenCalledTimes(1);
     fireEvent.keyDown(box, { key: "Enter" });
@@ -137,7 +140,7 @@ describe("ModelPicker", () => {
         <ModelPicker id="m" value="mine" className="c" onChange={() => {}} />
       </>,
     );
-    expect(screen.getByRole("combobox", { name: "Default model" })).toHaveValue("custom");
+    expect(screen.getByLabelText("Default model")).toHaveValue("custom");
     expect(cap("")).toBe("");
     expect(cap("opus")).toBe("Opus");
   });

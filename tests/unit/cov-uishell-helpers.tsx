@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 import { vi } from "vitest";
 import type { Job, JobEvent } from "../../src/core/types.ts";
 import { AppContext, type AppState, useApp } from "../../src/ui/lib/app.ts";
+import { DataProvider } from "../../src/ui/lib/data/provider.tsx";
+import { createQueryClient } from "../../src/ui/lib/data/query.ts";
 import { app } from "./ui-desktop-helpers.tsx";
 
 export function FakeScreen({ name }: { name: string }) {
@@ -164,4 +166,14 @@ export function deferred<T = unknown>() {
     reject = rej;
   });
   return { promise, resolve, reject };
+}
+
+// the data layer a component reads through (useRead, useCommand, job events): a fresh cache per render
+export function dataWrapper() {
+  const client = createQueryClient();
+  return ({ children }: { children: ReactNode }) => <DataProvider client={client}>{children}</DataProvider>;
+}
+
+export function renderWithData(ui: ReactNode) {
+  return render(ui, { wrapper: dataWrapper() });
 }

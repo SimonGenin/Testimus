@@ -1,9 +1,13 @@
 import { useState } from "react";
-import { call } from "../../api.ts";
-import { errorToast, toast } from "../../lib/toast.ts";
-import { Button, Modal } from "../legacy/index.ts";
-import { CONTEXTS_EVENT, type ContextSummary } from "./ContextsDialog.tsx";
+import { message } from "../../lib/format.ts";
+import { toast } from "../../lib/toast.ts";
+import { Button } from "../ui/Button.tsx";
+import { Checkbox } from "../ui/Checkbox.tsx";
+import { Modal } from "../ui/Modal.tsx";
+import { Text } from "../ui/Text.tsx";
+import { useContextWrite } from "./contexts.ts";
 
+// ponytail: a note said for one run becomes a saved context any later run can take
 export function SaveContext({
   note,
   onSaved,
@@ -13,59 +17,47 @@ export function SaveContext({
   onSaved: (id: string) => void;
   onClose: () => void;
 }) {
+  const write = useContextWrite();
   const [name, setName] = useState(note.trim().split("\n")[0].slice(0, 60));
   const [shared, setShared] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const save = async () => {
+    if (!name.trim() || saving) return;
     setSaving(true);
+    setError(null);
     try {
-      const c = await call<ContextSummary>("contexts.create", { name: name.trim(), shared });
-      await call("contexts.set", { id: c.id, notes: note.trim() });
-      window.dispatchEvent(new Event(CONTEXTS_EVENT));
+      const c = await write("contexts.create", { name: name.trim(), shared });
+      if (!c) return;
+      if (note.trim()) await write("contexts.set", { id: c.id, notes: note.trim() });
       toast({ kind: "ok", title: `Context « ${name.trim()} » saved` });
       onSaved(c.id);
       onClose();
     } catch (e) {
-      errorToast(e, "Could not save the context");
+      setError(`Could not save the context: ${message(e)}`);
     } finally {
       setSaving(false);
     }
   };
   return (
     <Modal
-      label="Save as context"
       title="Save as context"
-      subtitle="The note becomes a saved context: import it in any Claude run later."
-      width={480}
+      icon="context"
+      size="sm"
+      subtitle="The note becomes a saved context: take it in any Claude run later."
+      busy={saving}
+      error={error}
       onClose={onClose}
-      foot={
+      onSubmit={() => void save()}
+      actions={
         <>
-          <span className="spacer" />
-          <Button tone="quiet" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button tone="primary" disabled={!name.trim() || saving} onClick={() => void save()}>
-            {saving ? "Saving…" : "Save"}
-          </Button>
+          <Button variant="quiet" label="Cancel" onClick={onClose} />
+          <Button variant="primary" type="submit" label="Save" loading={saving} disabled={!name.trim()} />
         </>
       }
     >
-      <label className="label" htmlFor="ctx-save-name">
-        Name
-      </label>
-      <input
-        id="ctx-save-name"
-        className="field"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && name.trim()) void save();
-        }}
-      />
-      <label className="ctxdlg-share">
-        <input type="checkbox" checked={shared} onChange={(e) => setShared(e.target.checked)} />
-        Shared with every project
-      </label>
+      <Text label="Name" autoFocus value={name} onChange={setName} />
+      <Checkbox label="Shared with every project" checked={shared} onChange={setShared} />
     </Modal>
   );
 }

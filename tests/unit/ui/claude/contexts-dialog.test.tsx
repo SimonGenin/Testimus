@@ -1,13 +1,16 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render as rtlRender, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setProject } from "../../../../src/ui/api.ts";
 import { CONTEXTS_EVENT, ContextsDialog, contextLine } from "../../../../src/ui/components/claude/ContextsDialog.tsx";
 import { Toasts } from "../../../../src/ui/components/legacy/index.ts";
 import { closeToast, useToasts } from "../../../../src/ui/lib/toast.ts";
-import { callsOf, Fail, fakeNet, net } from "../../cov-uishell-helpers.tsx";
+import { callsOf, dataWrapper, Fail, fakeNet, net } from "../../cov-uishell-helpers.tsx";
 import { fakeDesktop, noDesktop } from "../../ui-desktop-helpers.tsx";
+
+const render = ((ui: Parameters<typeof rtlRender>[0], o?: Parameters<typeof rtlRender>[1]) =>
+  rtlRender(ui, { wrapper: dataWrapper(), ...o })) as typeof rtlRender;
 
 let ids: number[] = [];
 function Probe() {
@@ -110,7 +113,7 @@ function mount(initialId?: string) {
 }
 
 const option = (name: RegExp) => screen.getByRole("option", { name });
-const nameBox = () => screen.getByLabelText("Name");
+const nameBox = () => screen.getByLabelText(/^Name/);
 const notesBox = () => screen.getByLabelText(/^Notes/);
 
 describe("contextLine", () => {
@@ -229,7 +232,7 @@ describe("ContextsDialog", () => {
     backend([glossary]);
     mount();
     await waitFor(() => expect(nameBox()).toHaveValue("Glossaire"));
-    const input = screen.getByLabelText("Files to add") as HTMLInputElement;
+    const input = document.querySelector("input[type=file]") as HTMLInputElement;
     const click = vi.spyOn(input, "click");
     fireEvent.click(screen.getByRole("button", { name: /Add files/ }));
     expect(click).toHaveBeenCalled();

@@ -1,80 +1,107 @@
+import * as stylex from "@stylexjs/stylex";
 import { useEffect, useState } from "react";
 import type { Effort } from "../../../core/types.ts";
+import { size, space } from "../../styles/tokens.stylex.ts";
+import { Select, type SelectOption } from "../ui/Select.tsx";
+import { Text } from "../ui/Text.tsx";
 
 export const MODELS = ["fable", "opus", "sonnet", "haiku"];
 export const EFFORTS: Effort[] = ["low", "medium", "high", "xhigh", "max"];
 export const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 const VALID = /^[A-Za-z0-9.\-[\]:]+$/;
+const CUSTOM = "custom";
 
-// ponytail: a model the list does not know (a full id, a new alias) is typed in; it is handed over on blur or
-// Enter only, so a half-typed name is never saved nor sent
-export function ModelPicker({
-  id,
-  value,
-  className,
-  onChange,
-}: {
-  id?: string;
-  value: string;
-  className: string;
-  onChange: (model: string) => void;
-}) {
+const styles = stylex.create({
+  row: { display: "inline-flex", alignItems: "center", gap: space.s2, minWidth: 0 },
+  custom: { width: size.menuMin },
+});
+
+export const effortOptions: SelectOption<Effort>[] = EFFORTS.map((e) => ({ value: e, label: `Effort: ${e}` }));
+
+// ponytail: the model list plus « custom… »; a model the list does not know (a full id, a new alias) is typed in and
+// handed over on blur or Enter only, so a half-typed name is never saved nor sent
+export function useModelChoice(value: string, onChange: (model: string) => void) {
   const [custom, setCustom] = useState(!MODELS.includes(value));
   const [text, setText] = useState(MODELS.includes(value) ? "" : value);
   useEffect(() => {
-    if (MODELS.includes(value)) {
-      setCustom(false);
+    setCustom(!MODELS.includes(value));
+    if (!MODELS.includes(value)) setText(value);
+  }, [value]);
+  const options: SelectOption<string>[] = [
+    ...MODELS.map((m) => ({ value: m, label: cap(m) })),
+    { value: CUSTOM, label: "custom…" },
+  ];
+  const pick = (v: string) => {
+    if (v === CUSTOM) {
+      setCustom(true);
+      setText("");
       return;
     }
-    setCustom(true);
-    setText(value);
-  }, [value]);
+    setCustom(false);
+    onChange(v);
+  };
   const commit = () => {
     const t = text.trim();
     if (t && VALID.test(t) && t !== value) onChange(t);
   };
+  const invalid = !!text.trim() && !VALID.test(text.trim());
+  return { selected: custom ? CUSTOM : value, options, pick, custom, text, setText, commit, invalid };
+}
+
+export function CustomModel({ choice }: { choice: ReturnType<typeof useModelChoice> }) {
+  if (!choice.custom) return null;
   return (
-    <>
-      <select
-        id={id}
-        className={className}
-        aria-label={id ? undefined : "Model"}
-        value={custom ? "custom" : value}
-        onChange={(e) => {
-          if (e.target.value === "custom") {
-            setCustom(true);
-            setText("");
-            return;
+    <span {...stylex.props(styles.custom)}>
+      <Text
+        ariaLabel="Custom model"
+        placeholder="Model id or alias"
+        size="sm"
+        spellCheck={false}
+        value={choice.text}
+        error={choice.invalid ? "Letters, digits, . - : [ ] only" : undefined}
+        onChange={choice.setText}
+        onBlur={choice.commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            choice.commit();
           }
-          setCustom(false);
-          onChange(e.target.value);
         }}
-      >
-        {MODELS.map((m) => (
-          <option key={m} value={m}>
-            {cap(m)}
-          </option>
-        ))}
-        <option value="custom">custom…</option>
-      </select>
-      {custom && (
-        <input
-          className="field model-custom mono"
-          aria-label="Custom model"
-          placeholder="Model id or alias"
-          spellCheck={false}
-          aria-invalid={!!text.trim() && !VALID.test(text.trim())}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              commit();
-            }
-          }}
-        />
-      )}
-    </>
+      />
+    </span>
+  );
+}
+
+export function ModelPicker({
+  value,
+  onChange,
+  label = "Model",
+  size: s = "sm",
+  appearance = "quiet",
+  id,
+}: {
+  value: string;
+  onChange: (model: string) => void;
+  label?: string;
+  size?: "sm" | "md";
+  appearance?: "boxed" | "quiet";
+  /** named by a label outside (`<label htmlFor>`) */
+  id?: string;
+  className?: string;
+}) {
+  const choice = useModelChoice(value, onChange);
+  return (
+    <span {...stylex.props(styles.row)}>
+      <Select
+        id={id}
+        label={label}
+        size={s}
+        appearance={appearance}
+        value={choice.selected}
+        options={choice.options}
+        onChange={choice.pick}
+      />
+      <CustomModel choice={choice} />
+    </span>
   );
 }

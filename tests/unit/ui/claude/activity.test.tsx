@@ -1,12 +1,16 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render as rtlRender, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Job, JobEvent } from "../../../../src/core/types.ts";
 import { ClaudeActivity as GenActivity } from "../../../../src/ui/components/claude/ClaudeActivity.tsx";
 import { activityOf, gist, lasted, linesRead, outlineOf } from "../../../../src/ui/lib/activity.ts";
 import { landedIds } from "../../../../src/ui/screens/generate/GenResult.tsx";
+import { dataWrapper } from "../../cov-uishell-helpers.tsx";
 import { api, fakeFetch, named } from "../../ui-desktop-helpers.tsx";
+
+const render = ((ui: Parameters<typeof rtlRender>[0], o?: Parameters<typeof rtlRender>[1]) =>
+  rtlRender(ui, { wrapper: dataWrapper(), ...o })) as typeof rtlRender;
 
 beforeEach(() => fakeFetch());
 afterEach(() => {
@@ -213,7 +217,7 @@ describe("GenActivity", () => {
     const events = run();
     render(<GenActivity events={events} running={false} now={Date.now()} />);
     expect(screen.getByRole("heading", { name: "Got ready" })).toBeInTheDocument();
-    expect(screen.getByText("generate-tests")).toHaveClass("act-skill");
+    expect(screen.getByText("generate-tests")).toHaveAttribute("data-testid", "act-skill");
     expect(
       screen.getByText(
         "Looked up SOSIE_4113_D401-1, listed the existing tests, read the team notes on SOSIE_4113_D401-1, read the project instructions.",
@@ -230,7 +234,7 @@ describe("GenActivity", () => {
     expect(screen.getByRole("heading", { name: "Planned 3 tests" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Wrote the steps of 3 tests" })).toBeInTheDocument();
     expect(screen.getByText("Last written: local-0000abcd; 1 test written more than once.")).toBeInTheDocument();
-    expect(screen.getByText("The generation changed the existing test X")).toHaveClass("act-warn");
+    expect(screen.getByText("The generation changed the existing test X")).toHaveAttribute("data-level", "warn");
     expect(screen.getByRole("heading", { name: "Checked the new tests" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Done · 2 tests written" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Show the 4 actions" }));
@@ -240,8 +244,9 @@ describe("GenActivity", () => {
     fireEvent.click(screen.getByRole("button", { name: "What Claude did" }));
     expect(screen.queryByRole("heading", { name: "Got ready" })).toBeNull();
     expect(screen.queryByRole("button", { name: /raw log/ })).toBeNull();
-    const fold = screen.getByRole("button", { name: "What Claude did 6 phases" });
+    const fold = screen.getByRole("button", { name: "What Claude did" });
     expect(fold).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByText("6 phases")).toBeInTheDocument();
     fireEvent.click(fold);
     expect(screen.getByRole("heading", { name: "Got ready" })).toBeInTheDocument();
   });
@@ -265,11 +270,11 @@ describe("GenActivity", () => {
     expect(
       screen.getByText("Lines 1–399, in 3 pages; 199 lines skipped; 100 lines read more than once."),
     ).toBeInTheDocument();
-    expect(container.querySelectorAll(".readbar-page.is-latest")).toHaveLength(1);
+    expect(screen.getAllByTestId("readbar-latest")).toHaveLength(1);
     rerender(<GenActivity events={events} running={true} now={Date.now()} />);
     expect(screen.getByRole("heading", { name: "Writing the steps: 1 of 2 done" })).toBeInTheDocument();
     expect(screen.getByText("Last written: “A”.")).toBeInTheDocument();
-    expect(container.querySelector(".is-live .run-dot")).not.toBeNull();
+    expect(container.querySelector('[aria-current="step"]')).not.toBeNull();
     rerender(
       <GenActivity
         events={[tool("mcp__testimus__rag_search", { query: "q" }), tool("Read", { file_path: DOC })]}
@@ -278,12 +283,12 @@ describe("GenActivity", () => {
       />,
     );
     expect(screen.getByText("Read in one go; nothing read twice.")).toBeInTheDocument();
-    expect(screen.getByText("“q”")).toHaveClass("act-query");
+    expect(screen.getByText("“q”")).toHaveAttribute("data-testid", "act-query");
     rerender(
       <GenActivity events={[tool("mcp__testimus__rag_search", { query: "q" })]} running={true} now={Date.now()} />,
     );
     expect(screen.getByRole("heading", { name: "Searching the documents" })).toBeInTheDocument();
-    expect(screen.getByText(/Searched for/)).toHaveClass("act-search");
+    expect(screen.getByText(/Searched for/)).toHaveAttribute("data-testid", "act-search");
   });
 
   it("before anything happens, and for a run with nothing recorded", () => {
@@ -386,15 +391,15 @@ describe("what the index and the check add", () => {
     expect(screen.getByRole("region", { name: "Check run" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Read Q" })).toBeInTheDocument();
     expect(await screen.findByText("3 sections opened from the index")).toBeInTheDocument();
-    const pins = [...container.querySelectorAll(".docmap-pin")].map((p) => p.getAttribute("title"));
+    const pins = (await screen.findAllByTestId("docmap-pin")).map((p) => p.getAttribute("title"));
     expect(pins).toEqual(["§2.1 Retrying failed jobs · line 6", "fig:12 Job lifecycle · line 4"]);
-    expect(container.querySelectorAll(".readbar-chapter")).toHaveLength(1);
+    expect(screen.getAllByTestId("readbar-chapter")).toHaveLength(1);
     expect(screen.getByText("and 1 more")).toBeInTheDocument();
-    expect(screen.getByText("Retries are in chapter 2.")).toHaveClass("act-said");
+    expect(screen.getByText("Retries are in chapter 2.")).toHaveAttribute("data-testid", "act-said");
     expect(screen.getByRole("heading", { name: "Checked the new tests" })).toBeInTheDocument();
-    expect(screen.getByText("No anomaly")).toHaveClass("act-verdict", "is-ok");
-    expect(screen.getByText("Retry a job")).toHaveClass("act-name");
-    expect(screen.getByText("2 errors, 1 warning")).toHaveClass("is-err");
+    expect(screen.getByText("No anomaly").closest("li")).toHaveAttribute("data-verdict", "ok");
+    expect(screen.getByText("Retry a job").closest("li")).toHaveAttribute("data-verdict", "ok");
+    expect(screen.getByText("2 errors, 1 warning").closest("li")).toHaveAttribute("data-verdict", "err");
     expect(screen.getByRole("heading", { name: "Edited the steps of 1 test after the check" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Show the 10 actions" }));
     expect(screen.getByText("Opened").nextElementSibling?.textContent).toBe(

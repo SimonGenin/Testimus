@@ -1,16 +1,21 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render as rtlRender, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ClaudeDock, metaLine } from "../../../../src/ui/components/claude/ClaudeDock.tsx";
 import { ContextsDialog, contextLine } from "../../../../src/ui/components/claude/ContextsDialog.tsx";
 import { AppContext, type AppState, type Focus } from "../../../../src/ui/lib/app.ts";
+import { setProject } from "../../../../src/ui/lib/data/client.ts";
 import { restoreAlwaysOnTop } from "../../../../src/ui/lib/desktop.ts";
 import { resetDoctor } from "../../../../src/ui/lib/doctor.ts";
 import { AppearanceSection } from "../../../../src/ui/screens/settings/AppearanceSection.tsx";
 import { ClaudeSection } from "../../../../src/ui/screens/settings/ClaudeSection.tsx";
+import { dataWrapper } from "../../cov-uishell-helpers.tsx";
 import { app } from "../../ui-desktop-helpers.tsx";
+
+const render = ((ui: Parameters<typeof rtlRender>[0], o?: Parameters<typeof rtlRender>[1]) =>
+  rtlRender(ui, { wrapper: dataWrapper(), ...o })) as typeof rtlRender;
 
 type Handler = (input: Record<string, unknown>) => unknown;
 let calls: { name: string; input: Record<string, unknown> }[] = [];
@@ -23,7 +28,10 @@ class FakeES {
   close() {}
 }
 
+let run = 0;
+
 beforeEach(() => {
+  setProject(`/p/dock-settings-${++run}`);
   calls = [];
   routes = { "claude.status": () => ({ installed: true, version: "2.1.0", signedIn: null, exe: "claude" }) };
   resetDoctor();
@@ -50,6 +58,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  setProject(null);
   vi.unstubAllGlobals();
   delete window.testimusDesktop;
 });
@@ -96,11 +105,10 @@ describe("dock: scope, presets, contexts, models", () => {
     routes["claude.run"] = () => ({ ok: true, summary: "Done", durationMs: 1200, changedTests: [], raw: "" });
     const state = withClaude({ contexts: [] });
     render(wrap(state, <ClaudeDock folded={false} onFold={() => {}} />));
-    expect(screen.getByRole("button", { name: "Project" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("tab", { name: /On the project/ })).toHaveAttribute("aria-selected", "true");
     expect(screen.queryByRole("button", { name: "Change every test" })).toBeNull();
-    const scope = screen.getByRole("group", { name: "Claude scope" });
-    expect(within(scope).getByText("Whole project · tests, documents, contexts")).toBeInTheDocument();
-    expect(await screen.findByRole("button", { name: "Leave Glossary out of this run" })).toBeInTheDocument();
+    expect(screen.getByText("Whole project · its tests, documents and contexts")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Glossary" })).toHaveAttribute("aria-pressed", "true");
     send("Uniformise les verbes");
     await waitFor(() => expect(callsOf("claude.run")).toHaveLength(1));
     expect(callsOf("claude.run")[0].input).toEqual({
@@ -111,7 +119,7 @@ describe("dock: scope, presets, contexts, models", () => {
       contexts: ["ctx-b"],
     });
     expect(await screen.findByText("1.2 s · no tokens reported · sonnet / medium")).toBeInTheDocument();
-    expect(screen.getByText("Whole project", { selector: ".bubble-label" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Request · Whole project" })).toHaveTextContent("Uniformise les verbes");
     expect(state.setClaudeRunning).toHaveBeenCalledWith("*project*");
   });
 
@@ -146,11 +154,12 @@ describe("dock: scope, presets, contexts, models", () => {
     fireEvent.change(box(), { target: { value: "Same label, other prompt!" } });
     expect(second).toHaveAttribute("aria-pressed", "false");
     fireEvent.click(first);
-    fireEvent.change(box(), { target: { value: "Rephrase in house style" } });
-    fireEvent.click(first);
+    expect(box()).toHaveValue("Rephrase in house style");
+    expect(first).toHaveAttribute("aria-pressed", "true");
     expect(callsOf("claude.run")).toHaveLength(0);
-    fireEvent.click(await screen.findByRole("button", { name: "Leave Glossary out of this run" }));
-    expect(screen.queryByRole("button", { name: "Leave Glossary out of this run" })).toBeNull();
+    const glossary = await screen.findByRole("button", { name: "Glossary" });
+    fireEvent.click(glossary);
+    expect(glossary).toHaveAttribute("aria-pressed", "false");
     send();
     await waitFor(() => expect(callsOf("claude.run")).toHaveLength(1));
     expect(callsOf("claude.run")[0].input).toMatchObject({
@@ -195,7 +204,7 @@ describe("dock: scope, presets, contexts, models", () => {
     expect(await screen.findByText("Done")).toBeInTheDocument();
     cleanup();
     render(wrap(withClaude({}), <ClaudeDock folded={false} onFold={() => {}} />));
-    expect(screen.getByRole("button", { name: "Project" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("tab", { name: /On the project/ })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("button", { name: /Send/ })).toBeEnabled();
   });
 
@@ -213,7 +222,9 @@ describe("dock: scope, presets, contexts, models", () => {
     send();
     expect(await screen.findByText("Answer 2")).toBeInTheDocument();
     expect(screen.getByText("Answer 1")).toBeInTheDocument();
-    expect(screen.getAllByText("Raccourcis", { selector: ".bubble" })).toHaveLength(2);
+    expect(screen.getAllByRole("group", { name: "Request · This test" })).toHaveLength(2);
+    for (const g of screen.getAllByRole("group", { name: "Request · This test" }))
+      expect(g).toHaveTextContent("Raccourcis");
     expect(callsOf("claude.run")[1].input.conversation).toBe(
       "User (This test): Raccourcis\n\nClaude: Answer 1 (0 steps changed)",
     );
@@ -221,9 +232,9 @@ describe("dock: scope, presets, contexts, models", () => {
       wrap({ ...state, focus: focus({ testId: "local-2" }) }, <ClaudeDock folded={false} onFold={() => {}} />),
     );
     expect(screen.getByText("Answer 2")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start over" }));
     expect(screen.queryByText("Answer 2")).toBeNull();
-    expect(screen.getByRole("button", { name: "Clear" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Start over" })).toBeNull();
     send("Encore");
     await waitFor(() => expect(callsOf("claude.run")).toHaveLength(3));
     expect(callsOf("claude.run")[2].input.conversation).toBeUndefined();
@@ -270,22 +281,22 @@ describe("dock: scope, presets, contexts, models", () => {
     });
     const state = app({ focus: focus() });
     const r = render(wrap(state, <ClaudeDock folded={false} onFold={() => {}} />));
-    fireEvent.click(await screen.findByRole("button", { name: "Leave Glossary out of this run" }));
-    expect(screen.queryByRole("button", { name: "Leave Glossary out of this run" })).toBeNull();
+    fireEvent.click(await screen.findByRole("button", { name: "Glossary" }));
+    expect(screen.getByRole("button", { name: "Glossary" })).toHaveAttribute("aria-pressed", "false");
     r.rerender(wrap({ ...state, focus: focus({ testId: "t2" }) }, <ClaudeDock folded={false} onFold={() => {}} />));
-    await waitFor(() => expect(screen.queryByRole("button", { name: "Leave House style out of this run" })).toBeNull());
-    expect(screen.getByRole("button", { name: "Leave Glossary out of this run" })).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("button", { name: "House style" })).toBeNull());
+    expect(await screen.findByRole("button", { name: "Glossary" })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("switches between step, test and project", async () => {
     routes["claude.run"] = () => ({ ok: true, summary: "ok", changedTests: [], raw: "" });
     render(wrap(app({ focus: focus({ step: 2 }) }), <ClaudeDock folded={false} onFold={() => {}} />));
-    fireEvent.click(screen.getByRole("button", { name: "Project" }));
-    expect(within(screen.getByRole("group", { name: "Claude scope" })).getByText(/^Whole project/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: "Whole project" }));
+    expect(screen.getByRole("radio", { name: "Whole project" })).toHaveAttribute("aria-checked", "true");
     send("A");
     await waitFor(() => expect(callsOf("claude.run")).toHaveLength(1));
     expect(callsOf("claude.run")[0].input.scope).toEqual({ kind: "project" });
-    fireEvent.click(screen.getByRole("button", { name: "Step 2" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Step 2" }));
     send("B");
     await waitFor(() => expect(callsOf("claude.run")).toHaveLength(2));
     expect(callsOf("claude.run")[1].input.scope).toEqual({ kind: "step", testId: "local-1", step: 2 });
@@ -319,13 +330,13 @@ describe("dock: run details and failures", () => {
     const state = app({ focus: focus() });
     const r = render(wrap(state, <ClaudeDock folded={false} onFold={() => {}} />));
     send("Go");
-    expect(await screen.findByTitle("Seconds running")).toHaveTextContent(/\d+\.\d s/);
+    expect(await screen.findByText(/^\d+:\d\d$/)).toBeInTheDocument();
     await act(async () =>
       finish({ ok: true, summary: "Rewrote step 3\nmore", durationMs: 4500, changedTests: [], raw: "" }),
     );
     expect(await screen.findByText(/^4\.5 s · no tokens reported/)).toBeInTheDocument();
     r.rerender(wrap(state, <ClaudeDock folded onFold={() => {}} />));
-    expect(screen.getByText("4.5 s").parentElement).toHaveAttribute("title", "Rewrote step 3");
+    expect(screen.getByText(/^Last run · 4\.5 s/)).toHaveAttribute("title", "Rewrote step 3");
   });
 
   it("a failed run offers Retry, the raw output and the settings", async () => {
@@ -369,7 +380,7 @@ describe("dock: run details and failures", () => {
     fireEvent.click(screen.getByRole("button", { name: "Set the path myself…" }));
     expect(state.navigate).toHaveBeenCalledWith("settings", "claude-exe");
     r.rerender(wrap(state, <ClaudeDock folded onFold={() => {}} />));
-    expect(screen.getByText("not connected")).toBeInTheDocument();
+    expect(screen.getByText("Claude · not connected")).toBeInTheDocument();
   });
 
   it("the connect panel shows what the Claude CLI probe answered, in the dock and in Settings", async () => {
@@ -383,8 +394,9 @@ describe("dock: run details and failures", () => {
     });
     const r = render(wrap(app(), <ClaudeDock folded={false} onFold={() => {}} />));
     const title = await screen.findByText("Claude isn't signed in on this PC yet");
-    const panel = title.closest(".connect") as HTMLElement;
-    expect(within(panel).getByText(probe)).toHaveClass("connect-hint");
+    const panel = title.parentElement as HTMLElement;
+    expect(within(panel).getByText("What Testimus saw")).toBeInTheDocument();
+    expect(within(panel).getByText(probe)).toBeInTheDocument();
     expect(within(panel).getByText("/login")).toBeInTheDocument();
     r.unmount();
     routes["system.settings"] = () => ({ claude: { exe: "" }, models: { allowRemote: true } });
@@ -396,7 +408,7 @@ describe("dock: run details and failures", () => {
     });
     render(wrap(app({ info: null }), <ClaudeSection />));
     const heading = await screen.findByText("Claude isn't installed on this PC yet");
-    expect(within(heading.closest(".connect") as HTMLElement).getByText("spawn claude ENOENT")).toBeInTheDocument();
+    expect(within(heading.parentElement as HTMLElement).getByText("spawn claude ENOENT")).toBeInTheDocument();
   });
 
   it("meta line words", () => {
@@ -441,7 +453,9 @@ describe("contexts dialog", () => {
     const changed = vi.fn();
     window.addEventListener("testimus:contexts", changed);
     render(<ContextsDialog onClose={onClose} initialId="ctx-a" />);
-    expect(await screen.findByRole("option", { name: /House style/ })).toHaveAttribute("aria-selected", "true");
+    await waitFor(() =>
+      expect(screen.getByRole("option", { name: /House style/ })).toHaveAttribute("aria-selected", "true"),
+    );
     expect(screen.getByText("1 file")).toBeInTheDocument();
     const notes = await screen.findByRole("textbox", { name: /Notes/ });
     fireEvent.change(notes, { target: { value: "Une action par pas." } });
@@ -452,8 +466,8 @@ describe("contexts dialog", () => {
       name: "House style",
       notes: "Une action par pas.",
     });
-    fireEvent.change(screen.getByRole("textbox", { name: "Name" }), { target: { value: "Style" } });
-    fireEvent.blur(screen.getByRole("textbox", { name: "Name" }));
+    fireEvent.change(screen.getByRole("textbox", { name: /^Name/ }), { target: { value: "Style" } });
+    fireEvent.blur(screen.getByRole("textbox", { name: /^Name/ }));
     await waitFor(() => expect(callsOf("contexts.set")).toHaveLength(2));
     expect(await screen.findByText("1 file · notes")).toBeInTheDocument();
     expect(screen.getByRole("option", { name: /^Style/ })).toBeInTheDocument();
@@ -464,7 +478,7 @@ describe("contexts dialog", () => {
     expect(screen.queryByRole("button", { name: "Browse folder…" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Remove path D:\\Specs\\J5" }));
     await waitFor(() => expect(screen.queryByText("D:\\Specs\\J5")).toBeNull());
-    const input = screen.getByLabelText("Files to add");
+    const input = document.querySelector("input[type=file]") as HTMLInputElement;
     fireEvent.change(input, { target: { files: [new File(["hello"], "plan.txt", { type: "text/plain" })] } });
     expect(await screen.findByText("plan.txt")).toBeInTheDocument();
     expect(callsOf("contexts.addFile")[0].input).toEqual({
@@ -475,11 +489,13 @@ describe("contexts dialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "Remove file g.pdf" }));
     await waitFor(() => expect(screen.queryByText("g.pdf")).toBeNull());
     fireEvent.click(screen.getByRole("button", { name: "New context" }));
-    expect(await screen.findByRole("option", { name: /New context/ })).toHaveAttribute("aria-selected", "true");
+    await waitFor(() =>
+      expect(screen.getByRole("option", { name: /New context/ })).toHaveAttribute("aria-selected", "true"),
+    );
     expect(callsOf("contexts.create")[0].input).toEqual({ shared: true });
     fireEvent.click(screen.getByRole("button", { name: "Delete context" }));
     await waitFor(() => expect(callsOf("contexts.remove")).toHaveLength(1));
-    expect(await screen.findByRole("option", { name: /Style/ })).toHaveAttribute("aria-selected", "true");
+    await waitFor(() => expect(screen.getByRole("option", { name: /Style/ })).toHaveAttribute("aria-selected", "true"));
     expect(changed).toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(onClose).toHaveBeenCalled();
@@ -549,17 +565,16 @@ describe("contexts dialog", () => {
       return { ...one(), notes: "" };
     };
     render(<ContextsDialog onClose={() => {}} />);
-    const box = await screen.findByRole("checkbox", { name: /Shared with every project/ });
-    expect(box).not.toBeChecked();
+    const box = await screen.findByRole("switch", { name: /Shared with every project/ });
+    expect(box).toHaveAttribute("aria-checked", "false");
     fireEvent.click(box);
-    await waitFor(() => expect(box).toBeChecked());
+    await waitFor(() =>
+      expect(screen.getByRole("switch", { name: /Shared with every project/ })).toHaveAttribute("aria-checked", "true"),
+    );
     expect(callsOf("contexts.share")[0].input).toEqual({ id: "ctx-a", shared: true });
     expect(screen.getByRole("option", { name: /shared · empty/ })).toBeVisible();
-    expect(screen.getByText("shared library · ctx-a/")).toBeVisible();
-    expect(screen.getByRole("button", { name: "Delete context" })).toHaveAttribute(
-      "title",
-      "Deleted for every project",
-    );
+    expect(screen.getByText(/shared library · ctx-a\//)).toBeVisible();
+    expect(screen.getByText("· deleted for every project")).toBeVisible();
   });
 
   it("says what a context holds", () => {

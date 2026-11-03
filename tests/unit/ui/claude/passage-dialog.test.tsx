@@ -1,12 +1,15 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render as rtlRender, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Passage } from "../../../../src/core/types.ts";
 import { setProject } from "../../../../src/ui/api.ts";
 import { PassageDialog } from "../../../../src/ui/components/sources/PassageDialog.tsx";
 import { closeToast } from "../../../../src/ui/lib/toast.ts";
-import { callsOf, deferred, Fail, fakeEvents, fakeNet, net } from "../../cov-uishell-helpers.tsx";
+import { callsOf, dataWrapper, deferred, Fail, fakeEvents, fakeNet, net } from "../../cov-uishell-helpers.tsx";
+
+const render = ((ui: Parameters<typeof rtlRender>[0], o?: Parameters<typeof rtlRender>[1]) =>
+  rtlRender(ui, { wrapper: dataWrapper(), ...o })) as typeof rtlRender;
 
 const ids: number[] = [];
 
@@ -49,7 +52,8 @@ describe("Passage dialog", () => {
       <PassageDialog source={{ docId: "D", anchor: "§1", quote: "Propriétés" }} onClose={close} onOpenDoc={open} />,
     );
     expect(screen.getByRole("status", { name: "Loading the passage" })).toBeInTheDocument();
-    expect(screen.getByRole("dialog", { name: "Source D §1" })).toHaveTextContent("D · §1");
+    expect(screen.getByRole("dialog", { name: "D §1" })).toHaveTextContent("D · §1");
+    expect(screen.getByRole("region", { name: "Source D §1" })).toBeInTheDocument();
     await act(async () => gate.resolve(null));
     expect(await screen.findByText("Spécification")).toBeInTheDocument();
     expect(screen.getByText("SOSIE_211 · v3 · §1")).toBeInTheDocument();
@@ -71,7 +75,7 @@ describe("Passage dialog", () => {
     cleanup();
     render(<PassageDialog source={{ docId: "D", anchor: "§9", quote: "" }} onClose={() => {}} />);
     expect(await screen.findByText(/could not be shown/)).toBeInTheDocument();
-    expect(document.querySelector(".q")).toBeNull();
+    expect(screen.queryByText(/«/)).toBeNull();
   });
 
   it("a source whose document was deleted says so and offers no document to open", async () => {

@@ -1,13 +1,18 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render as rtlRender, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Passage } from "../../../../src/core/types.ts";
 import { setProject } from "../../../../src/ui/api.ts";
 import { AnswerText, parseAnswer } from "../../../../src/ui/components/claude/AnswerText.tsx";
 import { ClaudeDock } from "../../../../src/ui/components/claude/ClaudeDock.tsx";
 import { DocBadges, emphasisRuns, highlight, PassageText } from "../../../../src/ui/components/sources/PassageView.tsx";
-import { callsOf, deferred, fakeEvents, fakeNet, net, withApp } from "../../cov-uishell-helpers.tsx";
+import { AppContext } from "../../../../src/ui/lib/app.ts";
+import { callsOf, dataWrapper, deferred, fakeEvents, fakeNet, net } from "../../cov-uishell-helpers.tsx";
+import { app } from "../../ui-desktop-helpers.tsx";
+
+const render = ((ui: Parameters<typeof rtlRender>[0], o?: Parameters<typeof rtlRender>[1]) =>
+  rtlRender(ui, { wrapper: dataWrapper(), ...o })) as typeof rtlRender;
 
 beforeEach(() => {
   fakeNet();
@@ -37,13 +42,17 @@ describe("dock remaining paths", () => {
       await gate.promise;
       return { ok: true, summary: "réponse" };
     };
-    withApp(<ClaudeDock folded={false} onFold={() => {}} />, { info: null });
+    render(
+      <AppContext.Provider value={app({ info: null })}>
+        <ClaudeDock folded={false} onFold={() => {}} />
+      </AppContext.Provider>,
+    );
     expect(screen.getByRole("combobox", { name: "Model" })).toHaveValue("opus");
     expect(screen.getByRole("combobox", { name: "Effort" })).toHaveValue("high");
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "Q" } });
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
     await waitFor(() => expect(callsOf("claude.run")).toHaveLength(1));
-    expect(screen.getByRole("button", { name: /Cancel/ })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /Cancel/ })).toBeNull();
     fireEvent.keyDown(screen.getByRole("complementary", { name: "Claude" }), { key: "Escape" });
     expect(callsOf("jobs.cancel")).toHaveLength(0);
     await act(async () => gate.resolve(null));
@@ -83,6 +92,6 @@ describe("passage view remaining paths", () => {
     expect(screen.getAllByRole("img", { name: "Le menu" })[0]).toHaveAttribute("src", "/files/docs/D/figures/f2.png");
     expect(screen.getAllByRole("heading").map((h) => h.textContent)).toEqual(["5.6 Menus", "Sans numéro", "5.6 Menus"]);
     expect(screen.getAllByText("italique")[0].closest("mark")).not.toBeNull();
-    expect(document.querySelectorAll("mark.hl").length).toBeGreaterThan(1);
+    expect(document.querySelectorAll("mark[data-hl]").length).toBeGreaterThan(1);
   });
 });
