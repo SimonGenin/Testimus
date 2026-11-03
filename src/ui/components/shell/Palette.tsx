@@ -275,11 +275,11 @@ export function Palette({
                       key={r.id}
                       {...r.props}
                       role="option"
+                      id={optionId(i)}
                       selected={i === cur}
                       onActivate={() => pick(i)}
                       ref={(el) => {
                         if (!el) return;
-                        el.id = optionId(i);
                         if (i === cur) el.scrollIntoView?.({ block: "nearest" });
                         el.onmouseenter = () => setAt(i);
                       }}
