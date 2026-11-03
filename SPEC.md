@@ -323,21 +323,19 @@ used: GGUF models run on llama.cpp, which Testimus downloads itself (same files 
 
 - **Chunking follows the document**: one chunk per lowest-level section, split further only above
   ~800 tokens, never across a heading. Each chunk keeps `{ docId, anchor, path: "5 > 5.6 > 5.6.6",
-  reqIds[], figureIds[], text }` and a context header (deterministic, or one sentence written by Claude
+  figureIds[], kind, text }` (`kind` `section` or `figure`) and a context header (deterministic, or one sentence written by Claude
   when `rag.claudeHeaders` is on — Anthropic's contextual retrieval).
 - **Figures are chunks too**: caption + Claude's description + one line `Visible text: <label> · <label> …`,
   pointing at the image file, so a search can return a picture (a button label or a symbol name finds its screenshot
   by BM25 as well as by vectors) and a generated step can embed it. A caption pasted without its picture is
   still a figure (no file; its caption is the « Figure N – … » text of its paragraph).
-- **Requirement matrices are indexed row by row** (§4): one `matrix-row` chunk per row, placed under the
-  section the row traces to.
-- **Hybrid search**: SQLite FTS5 (BM25 — exact codes, requirement ids, device names, French stems) +
+- **Hybrid search**: SQLite FTS5 (BM25 — exact codes, device names, French stems) +
   `sqlite-vec` (semantic recall), merged by reciprocal rank fusion; an optional reranker reorders the
   fused candidates. A reranker that fails (server down, out of memory, any error) leaves the fused ranking as it
   is, with a warning logged — never an error; when it answers, nothing changes. At this scale (≈ 2,000 chunks for the RATP corpus) `sqlite-vec`'s exhaustive search
   answers in milliseconds; one file holds text, FTS5, graph and vectors, no server.
-- **Lexical search in French**. `chunks_fts` has four columns: `header`, `text`, `codes` (requirement
-  ids, `fig N`, the section number) tokenized by unicode61 without diacritics — the exact forms — and `stem`, the
+- **Lexical search in French**. `chunks_fts` has four columns: `header`, `text`, `codes` (`fig N` of
+  each figure the chunk holds, the section number) tokenized by unicode61 without diacritics — the exact forms — and `stem`, the
   header and text through the Snowball French stemmer (`rag/stem-fr.ts`, a pure TypeScript port of `french.sbl`,
   BSD, checked word for word against the Snowball reference vocabulary, 21,653 words; elisions are expanded first,
   so « n'est » is stored as `ne est`). Changing the stemmer bumps `STEM_VERSION`, which rebuilds the FTS table when
@@ -360,27 +358,23 @@ used: GGUF models run on llama.cpp, which Testimus downloads itself (same files 
     whole words only, so an id never matches a longer id; an acronym of one or two letters keeps its case), its
     French stems (not for a code or an all-capital acronym; stop words skipped), and its glossary expansions both
     ways — or a JavaScript regex (`regex`, case-insensitive). A section's title (also of a section with no text of its
-    own — only sub-sections or its matrix), its text, a figure's caption and description and a matrix row are searched. Hits are grouped by document (most hits first) and section
-    (document order; a matrix row is `docId#req:ID@matrix`), with `count` and one line of context per hit (at most
+    own — only sub-sections), its text, and a figure's caption and description are searched. Hits are grouped by
+    document (most hits first) and section (document order), with `count` and one line of context per hit (at most
     10 per section). Paginated by sections (`page`, `pageSize` ≤ 200), never a top-k; `forms` lists what was
     searched. Measured on the 22 J5 documents: « sectionneur » 81 hits in 31 sections of 6 documents, « DSO » (+
     « Départ Sur Ordre ») 277 hits in 94 sections of 9 documents, 0.7 s from the CLI; « DSO » in SOSIE_4111_D401-1: 21 hits, the title of
     § 3.15 included.
-  - `rag.related <ref> [--depth 2]` returns the graph neighbours of `docId#anchor` (`§x.y`, `req:ID`,
-    `req:ID@matrix`, `fig:N`) or of a bare requirement id (every document that carries it), each with its kind,
-    direction (`out` = ref → neighbour), title (section title, caption, or the requirement's statement), path and
-    depth: defining and traced sections, sections that mention it, requirements a section defines and mentions,
-    cross-references both ways, parent and children, siblings (each once), figures, and the amending documents — the document
-    itself and the amending sections that name this section or one of its ancestors. A requirement also gets its
-    `statement`: text before the id alone, a document that amends nothing before a PA, a body statement before a
-    matrix row, then document order. `warnings` names a traced section that is neither the defining section nor one of its ancestors,
-    or that the document lacks. Depth 2 adds the neighbours of the neighbours once (siblings are not expanded),
-    up to 200 neighbours in all (every depth-1 neighbour is kept): beyond that, `truncated: true` and `total` (J5:
-    `EXI_MOP_SPF_519_A_2830 --depth 2` 995 → 200, total 964 once duplicate siblings are gone).
-    An unknown document, anchor or id is an error.
+  - `rag.related <ref> [--depth 2]` returns the graph neighbours of `docId#anchor` (`§x.y`, `fig:N`; the anchor is
+    read as people write it: « § 5.6 », « fig 40 », a chunk part `~2` dropped — `rag/anchors.ts`, the one reader of
+    anchors) or of a bare `docId`, each with its kind, direction (`out` = ref → neighbour), title (section title or
+    caption), path and depth: cross-references both ways, parent and children, siblings (each once), figures, and the
+    amending documents — the document itself and the amending sections that name this section or one of its
+    ancestors; amending documents come first. Depth 2 adds the neighbours of the neighbours once (siblings are not
+    expanded), up to 200 neighbours in all (every depth-1 neighbour is kept): beyond that, `truncated: true` and
+    `total`. An unknown document or anchor is an error.
   - `rag.search` `expand` (default `project.json.rag.retrieval.expand`, else `none`): `section` adds, after the k
-    hits, the parent section of a section hit, the section a figure or a matrix row sits under, and the sections
-    the requirements of a hit trace to; `graph` also adds each requirement the hit carries or names as its statement.
+    hits, the parent section of a section hit and the section a figure sits in; `graph` also adds the sections each
+    section hit cross-references or amends.
     Each added passage appears once, flagged `via`, with the score of the hit that brought it.
 - **Retrieval settings** (`project.json.rag.retrieval`, all optional; defaults `{ candidates: 50, rrfK: 60,
   bm25Weights: [1, 1, 5], rerank: { top: 30, mode: "topk" }, expand: "none" }`; precedence: defaults < the active
@@ -395,7 +389,8 @@ used: GGUF models run on llama.cpp, which Testimus downloads itself (same files 
   and document instructions (with `{task}` filled from `project.json.rag.queryTask`, default an English sentence) ·
   dimension · max input tokens · text recipe version. The model identity is the SHA-256 of its weights — the GGUF file or the ONNX weight file(s) of the entry's
   dtype — never a path, so a moved model keeps its space; the device is not part of it.
-  - `rag.index` updates chunks, FTS and edges once, then embeds only what the **active** space lacks. `--force`
+  - `rag.index` updates chunks, FTS and edges once, then embeds only what the **active** space lacks. One index run
+    at a time per `rag.db`: a second `rag.index` (or a conversion's index step) waits for the running one. `--force`
     chunks every document again (each chunk asks for its header again), rebuilds the FTS table and re-embeds the
     active space only: a chunk that comes out the same keeps its row, so every other space keeps its vectors. A chunk
     added, changed or removed leaves every other space `complete: false`; activating that model again embeds only
@@ -589,13 +584,14 @@ used: GGUF models run on llama.cpp, which Testimus downloads itself (same files 
   `amendment`, `contradiction`, `figure`; a line in another form is refused. A line with `validated: false` (a bootstrap set proposed
   by Claude, not yet confirmed by a tester) makes every report **provisional**.
   - `rag.eval` (L1, a job) runs each behavior under two fixed policies: `search` (rag.search on the question and
-    each query, fused by RRF) and `search+graph` (the same, plus `rag.related` on the anchor and requirement ids of
-    each top-k passage, plus `rag.mentions` on the queries and the ids and acronyms of the question). Metrics at
+    each query, fused by RRF) and `search+graph` (the same, plus `rag.related` on the anchor of
+    each top-k passage, plus `rag.mentions` on the queries and the codes and acronyms of the question). Metrics at
     k = 10, 20, 50: evidence recall (mean share of `must` evidence found), complete (share of behaviors with every
     `must` found), precision, characters returned to Claude, recall by role (exceptions, amendments,
     contradictions first); nDCG@10 and MRR on the search ranking. The report, `.testimus/eval/<date>-<setting>.json`,
     stores the chunker version, header mode, vector space id and fingerprint, effective retrieval settings,
-    reranker, ks, corpus hash, set hash, app version and the provisional flag. Without overrides it measures this
+    reranker, ks, corpus hash, set hash, app version and the provisional flag. `rag.eval` brings the index up to date
+    first (so it is declared as changing files); its output schema is the report itself, field by field. Without overrides it measures this
     PC's active models; `--embedding` / `--reranker` take a catalog id installed here,
     embedded into its own vector space of `index/rag.db` (the active space, the index state and this PC's choice are
     untouched); `--mode bm25` embeds nothing; `--retrieval.<key>` overrides any retrieval setting for the run.
@@ -632,31 +628,23 @@ used: GGUF models run on llama.cpp, which Testimus downloads itself (same files 
 - Claude also reads `doc.md` files directly (Grep/Read) — the index finds, the file proves.
 - Details fixed while building (2026-11):
   - Chunk ids: `docId#§x.y`, `docId#§x.y~n` for the parts of a split section, `docId#fig:N` for a figure
-    (its path is the section that shows it), `docId#req:ID@matrix` for a matrix row (`~2`, `~3` when an id
-    repeats; text = the row's cells joined by ` | `; path and header = the traced section, the matrix's own
-    section when the cell says « À compléter »). The matrix table is left out of its section's own chunks.
-  - Requirement graph, rebuilt with the chunks into `rag.db` `edges(src, dst, kind, doc_id)`, full references
-    (`docId#anchor`, a bare `docId` for a document-level amendment): `defines` req → section of its statement;
-    `traces` req → the matrix Section column and `requirements/requirements.csv` (`doc`, `chapter`), existing
-    sections only; `mentions` section → every id in its text; `refers` section → `§ x`, `cf. x`, `voir le
-    chapitre x`, `section x.y` of the same document and `<code or id> §x` of another, existing sections only;
+    (its path is the section that shows it).
+  - Document graph, rebuilt with the chunks into `rag.db` `edges(src, dst, kind, doc_id)`, full references
+    (`docId#anchor`, a bare `docId` for a document-level amendment): `refers` section → `§ x`, `cf. x`, `voir le
+    chapitre x`, `section x.y` of the same document and `<code> §x` of another, existing sections only;
     `parent` / `sibling` from the numbers; `shows` section → its figure markers; `amends` from `doc.json.amends`,
     and section-level when the amending text names a section (`P25 § 2.1`) that exists in exactly one amended
-    document and not in the amending one (7–29 such edges in each J5 PA). Measured on D401-1_3: 324 `defines`,
-    174 `traces`, 494 `mentions`, 102 `parent`, 418 `sibling`, 43 `shows`.
+    document and not in the amending one (7–29 such edges in each J5 PA). Measured on D401-1_3: 102 `parent`,
+    418 `sibling`, 43 `shows`.
   - Passage cap: `rag.passage` text is capped at `project.json.rag.passageMaxChars` (default 12,000). Above it:
-    `truncated: true`, whole lines around the focus (from the top without one) plus the header rows of the table
-    the focus sits in, `outline` = every sub-section `{ anchor, title, chars, reqIds, figureIds }`, and `readMore` =
-    `Read docs/<id>/doc.md lines a–b …`. `req:ID` → `focus` = the statement (§4), `text` = the owning section;
-    `req:ID@matrix` → `focus` = the rendered row. `rag.passage { ref, around: <quote> }` centres the capped window on
+    `truncated: true`, whole lines around the quote given (from the top without one) plus the header rows of the
+    table it sits in, `outline` = every sub-section `{ anchor, title, chars, figureIds }`, and `readMore` =
+    `Read docs/<id>/doc.md lines a–b …`. `rag.passage { ref, around: <quote> }` centres the capped window on
     the line where the quote starts (case, spaces and `*` ignored, over several lines) and returns `quoteFound`
-    (whether the section's own text holds it). For a `req:` id that its document only lists, `focus` = `Stated in
-    <docId>#req:ID (cite it there): <statement>`. Measured on D401-1_3: `req:EXI_MOP_SPF_531_A_1670` focus 142
-    characters (was 93,950), `req:EXI_MOP_SPF_511_A_10` focus 444 (was 24).
-  - `docs.show` returns `info: [{ req, defined, traced, message }]` for a body requirement whose matrix section is
-    neither its defining section nor an ancestor of it, or is missing from the document — often the sign that the
-    matrix and the body disagree.
-  - Context header: Claude's sentence comes through `hooks.describeChunks`, asked only for new or changed chunks,
+    (whether the section's own text holds it). A document that is not in the project fails with the error code
+    `doc-gone` (the page tells a removed document from a wrong anchor without listing the documents).
+  - Context header: Claude's sentence comes from `claude/headers.ts`, handed to the indexer by `rag.index` and
+    `rag.eval` (the indexer itself never calls Claude), asked only for new or changed chunks,
     and only when `project.json.rag.claudeHeaders` is true (off by default: on 900 pages it costs hundreds of
     runs). Figure descriptions are written by Claude once per document, in batches, at conversion
     (`rag.describeFigures`, on by default). Without Claude (or when it fails) the deterministic header
@@ -918,7 +906,8 @@ Group | Verbs (all with `--json`; mutating ones marked *)
 ---|---
 `project` | `init`*, `openKey`* (open or create by Jira key), `info` (project.json + xray.json + the step columns in order with their modes + counts for the rail), `list`, `notes` (the project's CLAUDE.md), `setNotes`*, `set`* (patch project.json: names, language, label prefix, folders, rag keys incl. reference, queryTask, passageMaxChars, retrieval; glossary; Claude defaults), `open`* (last project)
 `docs` | `add`* (copy + convert; a path, or an upload as base64 from the UI), `convert`*, `list`, `show`, `set`* (status, amends, context…), `describeFigures`* (job, Claude), `remove`*
-`rag` | `index`* (job), `search` (mode hybrid · bm25 · vector; `expand`), `passage` (docId#anchor → text + figures + focus, capped), `figure`, `mentions` (every passage holding a term, no model), `related` (graph neighbours, no model), `eval` (job, L1), `compare` (reports → intervals), `status` (active model, space, freshness per document), `spaces`, `dropSpace`*
+`rag` | `index`* (job; one run at a time per index), `search` (mode hybrid · bm25 · vector; `expand`), `passage` (docId#anchor → text + figures, centred on `around`, capped; code `doc-gone` for a missing document), `figure`, `mentions` (every passage holding a term, no model), `related` (graph neighbours, no model), `eval`* (job, L1; updates the index, writes its report), `compare` (reports → intervals), `status` (active model, space, freshness per document), `spaces`, `dropSpace`*
+`search` | `all` (Ctrl K: tests, documents, passages, by words and by meaning), `index`* (job: embeds the tests for search by meaning)
 `chat` | `ask` (job, streamed), `list`, `show`
 `claude` | `run`* (job: a scoped request « On this test » — step, test, tests or project), `revert`* (runId), `status` (installed, version, signed in, how to connect)
 `contexts` | `list` (the project's own and the shared library's, each with `shared`; `--from <project>` lists another project's own), `show`, `create`* (`--shared` puts it in the library), `share`* (move into the library or back into this project), `set`* (name, notes, outside paths), `addFile`* (a path or an upload), `removeFile`*, `remove`*, `copy`* (from another project: notes, paths and files; a taken id gets a new one), `ofTest` (effective · own · project), `setTest`* (a test's full list, or null to follow the project)
