@@ -138,12 +138,15 @@ export function App() {
         toast({
           kind: "ok",
           title: `Check finished — ${tests.length} test${tests.length === 1 ? "" : "s"}, ${n} with findings`,
-          action: {
-            label: "Open Review",
-            run: () => {
-              window.location.hash = "#/review";
-            },
-          },
+          action:
+            parseRoute(window.location.hash).screen === "review"
+              ? undefined
+              : {
+                  label: "Open Review",
+                  run: () => {
+                    window.location.hash = "#/review";
+                  },
+                },
         });
       }
     });
@@ -308,7 +311,6 @@ export function App() {
   const actions: PaletteAction[] = useMemo(
     () => [
       ...NAV.map((n) => ({ id: `go-${n.id}`, label: `Go to ${n.label}`, icon: n.icon, run: () => navigate(n.id) })),
-      { id: "go-review", label: "Go to Review", icon: "review" as const, run: () => navigate("review") },
       { id: "go-settings", label: "Go to Settings", icon: "settings" as const, run: () => navigate("settings") },
       { id: "go-doctor", label: "Open the system check", icon: "info" as const, run: () => navigate("doctor") },
       { id: "go-import", label: "Import a CSV of tests", icon: "pull" as const, run: () => navigate("import") },
@@ -338,7 +340,7 @@ export function App() {
   );
 
   const counts: Partial<Record<Screen, number>> = {
-    generate: info?.counts?.awaiting,
+    review: info?.counts?.awaiting,
     jobs: running.size,
   };
 

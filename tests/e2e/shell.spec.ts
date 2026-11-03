@@ -3,11 +3,12 @@ import { boot, expect, test } from "./helpers.ts";
 test("the rail shows the project and moves between screens", async ({ page }) => {
   await boot(page);
   const rail = page.getByRole("navigation", { name: "Main" });
-  await expect(rail.getByRole("button", { name: /^Generate/ })).toContainText("2");
-  await expect(rail.getByRole("button", { name: /^Review/ })).toHaveCount(0);
+  await expect(rail.getByRole("button", { name: /^Review/ })).toContainText("2");
+  await expect(rail.getByRole("button", { name: /^Generate/ })).not.toContainText(/\d/);
   for (const [name, hash] of [
     ["Documents", "#/documents"],
     ["Generate", "#/generate"],
+    ["Review", "#/review"],
     ["Jobs", "#/jobs"],
     ["Settings", "#/settings"],
     ["Tests", "#/tests"],

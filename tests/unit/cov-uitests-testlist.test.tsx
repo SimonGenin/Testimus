@@ -123,7 +123,7 @@ describe("TestList helpers", () => {
     expect(root.folders[1].folders[0]).toMatchObject({ name: "Sub", path: "/Lot/Sub", total: 1 });
   });
 
-  it("lists hand-made tests and validated generated ones; the rest waits in Generate's review", () => {
+  it("lists hand-made tests and validated generated ones; the rest waits in Review", () => {
     const mixed = [
       ref({ id: "hand", summary: "Hand draft" }),
       ref({ id: "gen-ok", summary: "Generated validated", generated: true, review: "validated" }),

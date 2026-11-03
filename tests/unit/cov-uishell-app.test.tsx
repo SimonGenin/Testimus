@@ -125,7 +125,7 @@ describe("App boot", () => {
     expect(await screen.findByRole("region", { name: "Tests screen" })).toBeInTheDocument();
     await waitFor(() => expect(project()).toBe("C:\\p"));
     await waitFor(() => expect(screen.getByText(/fields 2/)).toBeInTheDocument());
-    expect(screen.getByRole("button", { name: /^Generate/ })).toHaveTextContent("3");
+    expect(screen.getByRole("button", { name: /^Review/ })).toHaveTextContent("3");
     expect(callsOf("system.setup")).toHaveLength(1);
     expect(window.location.hash).toBe("");
   });
@@ -452,6 +452,7 @@ describe("App jobs", () => {
       );
     });
     expect(await screen.findByText("Check finished — 1 test, 0 with findings")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open Review" })).toBeNull();
     act(() => {
       FakeES.emit(status(job({ id: "d", kind: "check", status: "done" })));
       FakeES.emit(status(job({ id: "e", kind: "check", status: "failed" })));

@@ -420,10 +420,10 @@ describe("Rail, system status, theme and headers", () => {
   it("navigates from the rail and shows counts and the current screen", async () => {
     net.routes["system.doctor"] = () => [{ id: "node", label: "Node", state: "fail", detail: "" }];
     net.routes["project.list"] = () => [];
-    const { state } = withApp(<Rail counts={{ generate: 3, jobs: 0 }} />, { route: { screen: "doctor" } });
-    expect(screen.getByRole("button", { name: /Generate/ })).toHaveTextContent("3");
+    const { state } = withApp(<Rail counts={{ review: 3, jobs: 0 }} />, { route: { screen: "doctor" } });
+    expect(screen.getByRole("button", { name: /Review/ })).toHaveTextContent("3");
+    expect(screen.getByRole("button", { name: /Generate/ })).not.toHaveTextContent(/\d/);
     expect(screen.getByRole("button", { name: /Tests/ })).not.toHaveTextContent(/\d/);
-    expect(screen.queryByRole("button", { name: /Review/ })).toBeNull();
     expect(screen.getByRole("button", { name: /Jobs/ })).not.toHaveTextContent(/\d/);
     fireEvent.click(screen.getByRole("button", { name: /Tests/ }));
     expect(state.navigate).toHaveBeenCalledWith("tests", undefined);
@@ -435,7 +435,8 @@ describe("Rail, system status, theme and headers", () => {
     expect(state.navigate).toHaveBeenCalledWith("doctor", undefined);
     cleanup();
     withApp(<Rail counts={{}} />, { route: { screen: "review" } });
-    expect(screen.getByRole("button", { name: /Generate/ })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("button", { name: /Review/ })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("button", { name: /Generate/ })).not.toHaveAttribute("aria-current");
     expect(screen.getByRole("button", { name: /Tests/ })).not.toHaveAttribute("aria-current");
   });
 

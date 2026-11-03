@@ -635,4 +635,36 @@ describe("Review screen", () => {
     release();
     await act(async () => {});
   });
+
+  it("checks the tests never checked from the queue, and the open one when it is unchecked or out of date", async () => {
+    routes({ queue: [item("K-1", { unchecked: true }), item("K-2", { unchecked: true }), item("L-3")] });
+    api.routes["check.run"] = () => ({ tests: [], totals: {}, failed: [] });
+    const { app: a } = show();
+    await screen.findByRole("heading", { name: "Summary K-1" });
+    expect(await screen.findByText("2 tests not checked yet")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Check the 2 tests not checked yet" }));
+    await waitFor(() => expect(a.testsChanged).toHaveBeenCalled());
+    expect(named("check.run")[0].input).toEqual({ ids: ["K-1", "K-2"], semantic: true });
+    expect(a.refreshInfo).toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Check" }));
+    await waitFor(() => expect(named("check.run")).toHaveLength(2));
+    expect(named("check.run")[1].input).toEqual({ ids: ["K-1"], semantic: true });
+    cleanup();
+    routes({ queue: [item("K-1")], stale: true });
+    delete api.routes["check.run"];
+    api.routes["claude.status"] = () => ({ installed: false });
+    show();
+    await screen.findByRole("heading", { name: "Summary K-1" });
+    expect(screen.queryByText(/not checked yet/)).toBeNull();
+    fireEvent.click(await screen.findByRole("button", { name: "Check again" }));
+    expect(await screen.findByText("Could not check the test")).toBeInTheDocument();
+    expect(named("check.run").at(-1)?.input).toEqual({ ids: ["K-1"], semantic: false });
+  });
+
+  it("a fresh, checked test has no Check button", async () => {
+    routes({ queue: [item("K-1")] });
+    show();
+    await screen.findByRole("heading", { name: "Summary K-1" });
+    expect(screen.queryByRole("button", { name: /^Check( again)?$/ })).toBeNull();
+  });
 });

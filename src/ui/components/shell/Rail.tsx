@@ -10,6 +10,7 @@ import { ThemeToggle } from "./ThemeToggle.tsx";
 export const NAV: { id: Screen; label: string; icon: IconName }[] = [
   { id: "documents", label: "Documents", icon: "documents" },
   { id: "generate", label: "Generate", icon: "generate" },
+  { id: "review", label: "Review", icon: "review" },
   { id: "tests", label: "Tests", icon: "tests" },
   { id: "jobs", label: "Jobs", icon: "jobs" },
 ];
@@ -32,7 +33,7 @@ export function Rail({ counts }: { counts: Partial<Record<Screen, number>> }) {
           key={n.id}
           label={n.label}
           icon={n.icon}
-          current={at === n.id || (n.id === "generate" && at === "review")}
+          current={at === n.id}
           count={counts[n.id]}
           onClick={() => go(n.id)}
         />

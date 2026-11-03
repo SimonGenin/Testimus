@@ -89,7 +89,7 @@ export function TestsScreen() {
     [reload, navigate],
   );
 
-  // ponytail: only validated tests live in Tests — a generated test still in review opens in Generate's review
+  // ponytail: only validated tests live in Tests — a generated test still in review opens in Review
   useEffect(() => {
     const ref = refs.find((r) => r.id === activeId);
     if (ref && awaitsReview(ref)) navigate("review", activeId);

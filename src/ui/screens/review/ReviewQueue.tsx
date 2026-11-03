@@ -68,6 +68,7 @@ export function ReviewQueue({
   onWithFindings,
   onOpen,
   head,
+  notice,
 }: {
   items: QueueItem[] | null;
   counts: QueueCounts | null;
@@ -83,12 +84,14 @@ export function ReviewQueue({
   onWithFindings: (on: boolean) => void;
   onOpen: (id: string) => void;
   head?: ReactNode;
+  notice?: ReactNode;
 }) {
   const all = counts ? counts.checked + counts.toFix + counts.draft : undefined;
   const acts = useActions({});
   return (
     <aside className="queue" aria-label="Review queue">
       {head}
+      {notice}
       <div className="queue-filters">
         <Segmented
           label="Filter by review state"

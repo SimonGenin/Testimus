@@ -8,7 +8,7 @@ test("the local list groups tests by folder and filters by text", async ({ page 
   await expect(side.getByRole("tab", { name: /^Local/ })).toHaveAttribute("aria-selected", "true");
   await expect(side.getByRole("tab", { name: /^Local/ })).toContainText("1");
   await expect(side.getByRole("button", { name: /^Disjoncteur — ouverture à distance LFRPS12-1398/ })).toBeVisible();
-  // ponytail: the two generated tests of the fixture are not validated yet — they wait in Generate's review
+  // ponytail: the two generated tests of the fixture are not validated yet — they wait in Review
   await expect(side.getByRole("button", { name: /LFRPS12-1420/ })).toHaveCount(0);
   await expect(side.getByRole("button", { name: /^Sectionneur avec TK/ })).toHaveCount(0);
   await side.getByRole("textbox", { name: "Filter tests" }).fill("Disjoncteur");

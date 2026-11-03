@@ -21,6 +21,15 @@
   font-size: 13px;
 }
 
+.queue-unchecked {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px 8px 16px;
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+}
+
 .queue-filters {
   padding: 14px 16px 12px;
   display: flex;

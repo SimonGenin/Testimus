@@ -104,7 +104,7 @@ describe("TestsScreen", () => {
     await waitFor(() => expect(callsTo("tests.list")).toHaveLength(2));
   });
 
-  it("sends a generated test still in review to Generate's review, never a validated one", async () => {
+  it("sends a generated test still in review to Review, never a validated one", async () => {
     refs = [ref("g1", { generated: true, review: "checked" }), ref("g2", { generated: true, review: "validated" })];
     const { state, again } = screenOf({ route: { screen: "tests", arg: "g1" } });
     await waitFor(() => expect(state.navigate).toHaveBeenCalledWith("review", "g1"));

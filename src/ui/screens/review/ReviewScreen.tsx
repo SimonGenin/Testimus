@@ -44,6 +44,8 @@ export function ReviewScreen() {
   const [items, setItems] = useState<QueueItem[] | null>(null);
   const [counts, setCounts] = useState<QueueCounts | null>(null);
   const [folders, setFolders] = useState<string[]>([]);
+  const [unchecked, setUnchecked] = useState<string[]>([]);
+  const [checking, setChecking] = useState<string[]>([]);
   const [filter, setFilter] = useDraft<QueueFilter>("review.filter", "all");
   const [sort, setSort] = useDraft<QueueSort>("review.sort", "anomalies");
   const [folder, setFolder] = useDraft("review.folder", "");
@@ -90,7 +92,11 @@ export function ReviewScreen() {
   // biome-ignore lint/correctness/useExhaustiveDependencies: the folder list comes from the whole queue, once per change
   useEffect(() => {
     call<{ tests: QueueItem[] }>("review.queue", {})
-      .then((r) => setFolders([...new Set((r?.tests ?? []).map((t) => t.folder).filter(Boolean))].sort()))
+      .then((r) => {
+        const all = r?.tests ?? [];
+        setFolders([...new Set(all.map((t) => t.folder).filter(Boolean))].sort());
+        setUnchecked(all.filter((t) => t.unchecked).map((t) => t.id));
+      })
       .catch(() => {});
   }, [app.testsNonce, app.info?.dir]);
 
@@ -250,6 +256,21 @@ export function ReviewScreen() {
     }
   };
 
+  // ponytail: without Claude the check is the mechanical pass only; the finished job's toast comes from the shell
+  const check = async (ids: string[]) => {
+    if (!ids.length || checking.length) return;
+    setChecking(ids);
+    try {
+      await run("check.run", { ids, semantic: claudeReady });
+      app.refreshInfo();
+      app.testsChanged();
+    } catch (e) {
+      errorToast(e, ids.length === 1 ? "Could not check the test" : "Could not check the tests");
+    } finally {
+      setChecking([]);
+    }
+  };
+
   const takeJira = async () => {
     if (!data?.test.key) return;
     try {
@@ -362,6 +383,23 @@ export function ReviewScreen() {
               <ActionCount actions={allActs.filter((a) => a.where.startsWith("test:"))} />
               <Activity />
             </div>
+          }
+          notice={
+            unchecked.length > 0 && (
+              <div className="queue-unchecked" role="status">
+                <span className="muted">{plural(unchecked.length, "test")} not checked yet</span>
+                <span className="spacer" />
+                <Button
+                  size="sm"
+                  icon="review"
+                  disabled={checking.length > 0}
+                  aria-label={`Check the ${plural(unchecked.length, "test")} not checked yet`}
+                  onClick={() => void check(unchecked)}
+                >
+                  {checking.length > 0 ? "Checking…" : "Check"}
+                </Button>
+              </div>
+            )
           }
         />
         <DragEdge className="queue-edge" label="Resize the review queue" {...queueEdge} />
@@ -510,6 +548,16 @@ export function ReviewScreen() {
               </span>
             </div>
             <span className="spacer" />
+            {data && (data.stale || unchecked.includes(data.id)) && (
+              <Button
+                icon="review"
+                disabled={checking.length > 0 || running}
+                title={data.stale ? "The test changed since its last check" : "This test was never checked"}
+                onClick={() => void check([data.id])}
+              >
+                {checking.includes(data.id) ? "Checking…" : data.stale ? "Check again" : "Check"}
+              </Button>
+            )}
             {errors > 0 && (
               <span
                 className="review-open"
