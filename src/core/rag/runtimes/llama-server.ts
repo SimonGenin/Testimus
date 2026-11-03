@@ -59,12 +59,18 @@ export const serverTimeouts = { readyMs: 180000, pollMs: 250, sweepMs: 60000 };
 export const serverIo = {
   spawn(exe: string, args: string[]): Proc {
     const listeners: ((t: string) => void)[] = [];
-    const proc = startProcess({ exe, args, onLine: (line) => listeners.forEach((l) => l(`${line}\n`)) });
+    const proc = startProcess({
+      exe,
+      args,
+      onLine: (line) => {
+        for (const l of listeners) l(`${line}\n`);
+      },
+    });
     return {
       pid: proc.pid,
       onOutput: (cb) => listeners.push(cb),
       exited: proc.exited.then((e) => {
-        if (e.error) listeners.forEach((l) => l(e.error as string));
+        if (e.error) for (const l of listeners) l(e.error);
         return e.error && proc.pid === undefined ? -1 : e.code;
       }),
     };

@@ -3,27 +3,80 @@
   "files": {
     "includes": ["src/**", "tests/**", "scripts/**", "*.ts", "*.json", "!tests/fixtures", "!**/dist"]
   },
-  "formatter": { "indentStyle": "space", "indentWidth": 2, "lineWidth": 120 },
-  "javascript": { "formatter": { "quoteStyle": "double" } },
+  "formatter": {
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 120
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double"
+    }
+  },
   "linter": {
     "rules": {
       "preset": "recommended",
-      "style": { "noNonNullAssertion": "off", "useTemplate": "off" },
-      "suspicious": { "noExplicitAny": "off", "noControlCharactersInRegex": "off", "noArrayIndexKey": "off" },
+      "style": {
+        "noNonNullAssertion": "off",
+        "useTemplate": "off"
+      },
+      "suspicious": {
+        "noExplicitAny": "off",
+        "noControlCharactersInRegex": "off",
+        "noArrayIndexKey": "off"
+      },
       "a11y": {
         "noStaticElementInteractions": "off",
         "useKeyWithClickEvents": "off",
         "noAutofocus": "off",
         "noLabelWithoutControl": "off"
       },
-      "complexity": { "noForEach": "off" },
+      "complexity": {
+        "noForEach": "off"
+      },
       "correctness": {
         "useExhaustiveDependencies": {
           "level": "error",
-          "options": { "hooks": [{ "name": "useDraft", "stableResult": [1, 2] }] }
+          "options": {
+            "hooks": [
+              {
+                "name": "useDraft",
+                "stableResult": [1, 2]
+              }
+            ]
+          }
+        },
+        "noRestrictedElements": {
+          "level": "info",
+          "options": {
+            "elements": {
+              "button": "<button> outside the kit: use the kit in src/ui/components/ui (GOAL-V3 N2)",
+              "input": "<input> outside the kit: use the kit in src/ui/components/ui (GOAL-V3 N2)",
+              "textarea": "<textarea> outside the kit: use the kit in src/ui/components/ui (GOAL-V3 N2)",
+              "select": "<select> outside the kit: use the kit in src/ui/components/ui (GOAL-V3 N2)"
+            }
+          }
         }
       }
     }
   },
-  "assist": { "actions": { "source": { "organizeImports": "on" } } }
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["src/ui/components/ui/**", "tests/**", "scripts/**", "src/desktop/**"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noRestrictedElements": "off"
+          }
+        }
+      }
+    }
+  ]
 }
