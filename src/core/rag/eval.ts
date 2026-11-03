@@ -43,12 +43,10 @@ export const MENTIONS_PAGES = 10;
 // ponytail: the graph tools are filled by another phase; tests swap them here
 export const graph = { related, mentions };
 
-export type EvalBehavior = Behavior & { kind: string };
 export type BehaviorSet = {
   file: string;
-  format: "behaviors" | "questions" | "mixed";
   hash: string;
-  behaviors: EvalBehavior[];
+  behaviors: Behavior[];
 };
 
 const evidenceSchema = z.object({
@@ -64,15 +62,6 @@ const behaviorSchema = z.object({
   category: z.string().optional(),
   validated: z.boolean().optional(),
 });
-const questionSchema = z.object({
-  id: z.string().optional(),
-  question: z.string().min(1).optional(),
-  q: z.string().min(1).optional(),
-  expected: z.array(z.string().min(1)).min(1),
-  kind: z.string().optional(),
-  validated: z.boolean().optional(),
-});
-
 export function readBehaviors(file: string): BehaviorSet {
   if (!existsSync(file))
     throw new UserError(
@@ -80,8 +69,7 @@ export function readBehaviors(file: string): BehaviorSet {
       "A pack is measured on Testimus's reference document (testimus models measure <pack>); this project's own set goes in eval/behaviors.jsonl.",
     );
   const raw = readFileSync(file, "utf8").replace(/^﻿/, "");
-  const formats = new Set<string>();
-  const behaviors: EvalBehavior[] = [];
+  const behaviors: Behavior[] = [];
   for (const [i, l] of raw.split(/\r?\n/).entries()) {
     if (!l.trim()) continue;
     const where = `${file} line ${i + 1}`;
@@ -92,29 +80,13 @@ export function readBehaviors(file: string): BehaviorSet {
       throw new UserError(`${where} is not JSON.`, "One JSON object per line.");
     }
     const issues = (e: z.ZodError) => e.issues.map((x) => `${x.path.join(".") || "line"}: ${x.message}`).join("; ");
-    if (o && typeof o === "object" && "evidence" in o) {
-      const r = behaviorSchema.safeParse(o);
-      if (!r.success) throw new UserError(`${where}: ${issues(r.error)}.`, "See the rag-eval skill for the format.");
-      if (!r.data.evidence.some((e) => e.must))
-        throw new UserError(`${where}: no evidence has must: true.`, "Mark the evidence a test cannot do without.");
-      behaviors.push({ ...r.data, kind: "untagged" });
-      formats.add("behaviors");
-      continue;
-    }
-    const r = questionSchema.safeParse(o);
-    const question = r.success ? (r.data.question ?? r.data.q) : undefined;
-    if (!r.success || !question)
-      throw new UserError(`${where} needs a question and evidence (or expected anchors).`, "See the rag-eval skill.");
-    behaviors.push({
-      id: r.data.id ?? `q${i + 1}`,
-      question,
-      queries: [],
-      evidence: r.data.expected.map((ref) => ({ ref, role: "rule" as const, must: true })),
-      ...(r.data.kind ? { category: r.data.kind } : {}),
-      ...(r.data.validated !== undefined ? { validated: r.data.validated } : {}),
-      kind: r.data.kind ?? "untagged",
-    });
-    formats.add("questions");
+    if (!o || typeof o !== "object" || !("evidence" in o))
+      throw new UserError(`${where} needs a question and evidence.`, "See the rag-eval skill.");
+    const r = behaviorSchema.safeParse(o);
+    if (!r.success) throw new UserError(`${where}: ${issues(r.error)}.`, "See the rag-eval skill for the format.");
+    if (!r.data.evidence.some((e) => e.must))
+      throw new UserError(`${where}: no evidence has must: true.`, "Mark the evidence a test cannot do without.");
+    behaviors.push(r.data);
   }
   const seen = new Set<string>();
   for (const b of behaviors) {
@@ -123,13 +95,11 @@ export function readBehaviors(file: string): BehaviorSet {
     seen.add(b.id);
   }
   if (!behaviors.length) throw new UserError(`${file} holds no behavior.`, "See the rag-eval skill.");
-  const format = formats.size > 1 ? "mixed" : formats.has("behaviors") ? "behaviors" : "questions";
-  return { file, format, hash: sha256(raw.replace(/\r\n/g, "\n")).slice(0, 16), behaviors };
+  return { file, hash: sha256(raw.replace(/\r\n/g, "\n")).slice(0, 16), behaviors };
 }
 
 export function defaultSet(project: string): string {
-  const v2 = join(project, "eval", "behaviors.jsonl");
-  return existsSync(v2) ? v2 : join(project, "eval", "questions.jsonl");
+  return join(project, "eval", "behaviors.jsonl");
 }
 
 type ChunkKey = Pick<ChunkRow, "docId" | "anchor" | "figureIds">;
@@ -335,6 +305,7 @@ export type BehaviorReport = {
   category: string | null;
   validated: boolean | null;
   must: number;
+  rank: number | null;
   policies: Partial<Record<PolicyName, BehaviorScore>>;
 };
 export type EvalConfig = {
@@ -348,7 +319,7 @@ export type EvalConfig = {
   ks: number[];
   mrrK: number;
   corpus: string;
-  set: { file: string; format: string; hash: string; behaviors: number; validated: boolean };
+  set: { file: string; hash: string; behaviors: number; validated: boolean };
   app: string;
   index: string;
 };
@@ -364,9 +335,6 @@ export type EvalReport = Scores & {
   mode: SearchMode;
   k: number;
   index: string;
-  byKind: Record<string, Scores>;
-  byCategory: Record<string, Scores>;
-  questions: { question: string; kind: string; expected: string[]; rank: number | null; top: string[] }[];
   report: string;
 };
 
@@ -481,7 +449,6 @@ export async function runEval(project: string, ctx: Ctx, opts: EvalOpts = {}): P
 
   const degraded = new Set<string>();
   const behaviors: BehaviorReport[] = [];
-  const legacy: EvalReport["questions"] = [];
   for (const [i, b] of set.behaviors.entries()) {
     if (ctx.signal.aborted) throw new Error("Evaluation cancelled.");
     ctx.progress({ message: `Behavior ${i + 1}/${set.behaviors.length}`, done: i, total: set.behaviors.length });
@@ -525,19 +492,13 @@ export async function runEval(project: string, ctx: Ctx, opts: EvalOpts = {}): P
     const must = b.evidence.filter((e) => e.must).map((e) => e.ref);
     const alone = lists[0];
     const at = alone.findIndex((h) => must.some((m) => hitMatches(h.chunk, m)));
-    legacy.push({
-      question: b.question,
-      kind: b.kind,
-      expected: must,
-      rank: at < 0 ? null : at + 1,
-      top: ranked.slice(0, 3).map((r) => r.item.ref),
-    });
     behaviors.push({
       id: b.id,
       question: b.question,
       category: b.category ?? null,
       validated: b.validated ?? null,
       must: must.length,
+      rank: at < 0 ? null : at + 1,
       policies,
     });
   }
@@ -568,7 +529,6 @@ export async function runEval(project: string, ctx: Ctx, opts: EvalOpts = {}): P
   const stamp = env.now().toISOString().replace(/[:.]/g, "-").slice(0, 19);
   const report = join(project, ".testimus", "eval", `${stamp}-${setting}.json`);
   const index = live;
-  const kinds = [...new Set(legacy.map((r) => r.kind))];
   const out: EvalReport = {
     version: 2,
     setting,
@@ -586,7 +546,6 @@ export async function runEval(project: string, ctx: Ctx, opts: EvalOpts = {}): P
       corpus: fp.corpus,
       set: {
         file: set.file,
-        format: set.format,
         hash: set.hash,
         behaviors: set.behaviors.length,
         validated: !provisional,
@@ -602,28 +561,9 @@ export async function runEval(project: string, ctx: Ctx, opts: EvalOpts = {}): P
     k: mrrK,
     index,
     ...score(
-      legacy.map((r) => r.rank),
+      behaviors.map((b) => b.rank),
       mrrK,
     ),
-    byKind: Object.fromEntries(
-      kinds.map((kind) => [
-        kind,
-        score(
-          legacy.filter((r) => r.kind === kind).map((r) => r.rank),
-          mrrK,
-        ),
-      ]),
-    ),
-    byCategory: Object.fromEntries(
-      [...new Set(behaviors.map((b) => b.category ?? "untagged"))].map((cat) => [
-        cat,
-        score(
-          legacy.filter((_, i) => (behaviors[i].category ?? "untagged") === cat).map((r) => r.rank),
-          mrrK,
-        ),
-      ]),
-    ),
-    questions: legacy,
     report,
   };
   writeJson(report, out);

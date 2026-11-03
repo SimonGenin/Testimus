@@ -32,17 +32,16 @@ One line per functional behavior, with **all** its evidence:
   the retriever under test never builds its own gold. Such lines carry `"validated": false` until a
   tester confirms them; any such line makes every report **provisional** (say so wherever a number
   is quoted). A tester validating a line removes the flag (or sets it true).
-- The old `eval/questions.jsonl` (`{question|q, expected[], kind}`) is still read: each expected
-  anchor becomes a `rule` with `must: true`. Lines of both formats can be mixed.
+- Only this format is read: a line without `evidence` (the old `eval/questions.jsonl` form) is refused.
 - The set is project data, versioned with the project folder. Never tune on behaviors you then report
   on: keep a held-out third.
 
 ## L1 — `rag.eval` (cheap, deterministic)
 
 `testimus rag eval [--set eval/behaviors.jsonl] [--mode hybrid|bm25|vector] [--k 10]
-[--embedding <profile>] [--reranker <profile>|none] [--retrieval.rrfK=20 …] --json`
+[--embedding <catalog id>] [--reranker <catalog id>|none] [--retrieval.rrfK=20 …] --json`
 
-Default set: `eval/behaviors.jsonl`, else `eval/questions.jsonl`. Every behavior runs under two
+Default set: `eval/behaviors.jsonl`. Every behavior runs under two
 fixed policies:
 
 - `search` — `rag.search` on the question and each query, fused by RRF; top k passages.
@@ -60,7 +59,7 @@ A report is written to `.testimus/eval/<date>-<setting>.json` with everything ne
 chunker version (hash of chunk ids and hashes), header mode, vector space (id + fingerprint), effective
 retrieval settings, reranker, ks, corpus hash, set hash and format, app version, `provisional`.
 
-`--embedding` / `--reranker` take a catalog id (or a v1 profile name) installed on this PC: the
+`--embedding` / `--reranker` take a catalog id installed on this PC: the
 candidate is embedded into its own vector space of `index/rag.db` (SPEC-RAG §6.3) and searched there;
 the active space, `index/state.json` and this PC's choice are not touched, and switching to it later
 reuses those vectors. Without them the run measures this PC's active models. `--mode bm25` embeds

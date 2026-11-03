@@ -75,9 +75,13 @@ describe("behavior set corners", () => {
     expect(() => readBehaviors(write([5]))).toThrow(/needs a question/);
   });
 
-  it("reads q as the question, keeps kind and validated", () => {
-    const s = readBehaviors(write([{ q: "Q ?", expected: ["D#§1"], kind: "acronym", validated: true }]));
-    expect(s.behaviors[0]).toMatchObject({ id: "q1", question: "Q ?", category: "acronym", validated: true });
+  it("keeps category and validated of a behavior", () => {
+    const s = readBehaviors(
+      write([
+        { id: "b1", question: "Q ?", evidence: [{ ref: "D#§1", role: "rule" }], category: "acronym", validated: true },
+      ]),
+    );
+    expect(s.behaviors[0]).toMatchObject({ id: "b1", question: "Q ?", category: "acronym", validated: true });
   });
 });
 
@@ -158,7 +162,7 @@ describe("runEval corners", () => {
   it("a behavior that nothing retrieves has no rank", async () => {
     const set = write([{ id: "lost", question: "zzzz qqqq", evidence: [{ ref: "NOPE#§9", role: "rule" }] }]);
     const r = await runEval(dir, quietCtx(dir), { mode: "bm25", set });
-    expect(r.questions[0].rank).toBeNull();
+    expect(r.behaviors[0].rank).toBeNull();
   });
 
   it("mentions not built yet turns the graph policy off", async () => {
@@ -205,7 +209,7 @@ describe("runEval corners", () => {
     expect(r.embedding).toBe("none");
     expect(r.setting).toBe("none-bm25");
     expect(r.config.headers).toBe("claude");
-    expect(r.questions.some((q) => q.rank === null) || r.questions.every((q) => q.rank !== null)).toBe(true);
-    expect(r.questions[0].expected[0]).toContain(D3);
+    expect(r.behaviors.some((b) => b.rank === null) || r.behaviors.every((b) => b.rank !== null)).toBe(true);
+    expect(r.behaviors[0].must).toBeGreaterThan(0);
   });
 });

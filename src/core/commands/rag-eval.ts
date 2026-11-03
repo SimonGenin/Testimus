@@ -74,12 +74,9 @@ export const commands: Command[] = [
   command({
     name: "rag.eval",
     summary:
-      "Benchmark retrieval (L1) over eval/behaviors.jsonl (or eval/questions.jsonl): evidence recall@10/20/50, complete, recall by role, precision, nDCG@10, MRR, characters — for search and for search + related + mentions. Report with its fingerprints in .testimus/eval/.",
+      "Benchmark retrieval (L1) over eval/behaviors.jsonl: evidence recall@10/20/50, complete, recall by role, precision, nDCG@10, MRR, characters — for search and for search + related + mentions. Report with its fingerprints in .testimus/eval/.",
     input: z.object({
-      set: z
-        .string()
-        .optional()
-        .describe("Behavior set, relative to the project (default eval/behaviors.jsonl, else eval/questions.jsonl)"),
+      set: z.string().optional().describe("Behavior set, relative to the project (default eval/behaviors.jsonl)"),
       k: z.number().int().min(1).max(50).default(10).describe("Rank cut-off for MRR (recall is at 10, 20 and 50)"),
       embedding: z
         .string()
@@ -112,7 +109,6 @@ export const commands: Command[] = [
           corpus: z.string().describe("Hash of the indexed documents"),
           set: z.object({
             file: z.string(),
-            format: z.string(),
             hash: z.string(),
             behaviors: z.number(),
             validated: z.boolean(),
@@ -138,6 +134,10 @@ export const commands: Command[] = [
           category: z.string().nullable(),
           validated: z.boolean().nullable(),
           must: z.number(),
+          rank: z
+            .number()
+            .nullable()
+            .describe("Rank of the first must evidence for the question alone (null: not in the top k)"),
           policies: z.record(z.string(), z.unknown()).describe("Per policy: recall, complete, roles, ranks"),
         }),
       ),
@@ -146,17 +146,6 @@ export const commands: Command[] = [
       mode: z.string(),
       k: z.number(),
       index: z.string(),
-      byKind: z.record(z.string(), scores).describe("v1 scores by question kind"),
-      byCategory: z.record(z.string(), scores).describe("v1 scores by behavior category"),
-      questions: z.array(
-        z.object({
-          question: z.string(),
-          kind: z.string(),
-          expected: z.array(z.string()),
-          rank: z.number().nullable(),
-          top: z.array(z.string()),
-        }),
-      ),
       report: z.string().describe("Where the report was saved"),
     }),
     mutates: false,
