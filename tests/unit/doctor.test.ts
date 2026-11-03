@@ -127,7 +127,6 @@ describe("doctor", () => {
       "model.fit",
       "model.offload",
       "index.space",
-      "llamacpp",
       "disk.index",
       "proxy",
     ]);
@@ -148,6 +147,14 @@ describe("doctor", () => {
     expect(by["disk.index"].state).not.toBe("skip");
     for (const r of rows) if (r.state === "fail" || r.state === "warn") expect(r.fix, r.id).toBeTruthy();
     for (const r of rows) if (r.state === "ok") expect(r.fix, r.id).toBeUndefined();
+    for (const r of rows) if (r.state === "ok") expect(r.action, r.id).toBeUndefined();
+    expect(by["model.embedding"].action).toEqual({
+      label: "Download BGE-M3 (8-bit, CPU)",
+      command: "models.pull",
+      input: { model: "bge-m3-q8" },
+    });
+    expect(by.claudeLogin.action).toMatchObject({ command: "system.doctor", input: { claude: true } });
+    expect(by.xray.action).toMatchObject({ command: "system.setup" });
     expect(http.map((h) => `${h.method} ${h.url}`).sort()).toEqual([
       "GET https://acme.atlassian.net/rest/api/3/myself",
       "POST https://xray.cloud.getxray.app/api/v2/authenticate",
@@ -237,13 +244,21 @@ describe("doctor — models (§7.11)", () => {
       await modelRows(null, fakeModels({ active: async () => ({ embedding: verified, reranker: null, wanted: [] }) })),
     );
     expect(r["model.embedding"].state).toBe("ok");
-    expect(r.llamacpp).toMatchObject({ state: "fail", fix: expect.stringMatching(/pullRuntime/) });
+    expect(r.llamacpp).toMatchObject({
+      state: "fail",
+      fix: expect.stringMatching(/pullRuntime/),
+      action: { command: "models.pullRuntime" },
+    });
     const notYet = resolvedAs("bge-m3-q8", "transformers", "installed");
     r = by(
       await modelRows(null, fakeModels({ active: async () => ({ embedding: notYet, reranker: null, wanted: [] }) })),
     );
-    expect(r["model.embedding"]).toMatchObject({ state: "warn", fix: "testimus models verify bge-m3-q8" });
-    expect(r.llamacpp.state).toBe("skip");
+    expect(r["model.embedding"]).toMatchObject({
+      state: "warn",
+      fix: "testimus models verify bge-m3-q8",
+      action: { label: "Verify", command: "models.verify", input: { model: "bge-m3-q8" } },
+    });
+    expect(r.llamacpp).toBeUndefined();
   });
 
   it("fit of embedding + reranker together; RAM too small fails", async () => {

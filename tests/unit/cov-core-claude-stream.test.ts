@@ -1,8 +1,29 @@
 import { describe, expect, it } from "vitest";
-import { calledFor, eventsOf, sessionOf, streamParser, toolCalls, writtenTests } from "../../src/core/claude/stream.ts";
+import {
+  calledFor,
+  eventsOf,
+  sessionOf,
+  streamParser,
+  tokensOf,
+  toolCalls,
+  writtenTests,
+} from "../../src/core/claude/stream.ts";
 import type { ClaudeEvent } from "../../src/core/types.ts";
 
 const line = (m: unknown) => JSON.stringify(m);
+
+describe("tokensOf", () => {
+  it("adds cached input to input, ignores junk and reports nothing when nothing was counted", () => {
+    expect(tokensOf(undefined)).toBeUndefined();
+    expect(tokensOf("x")).toBeUndefined();
+    expect(tokensOf({ input_tokens: 0, output_tokens: -3 })).toBeUndefined();
+    expect(
+      tokensOf({ input_tokens: 10, cache_creation_input_tokens: 200, cache_read_input_tokens: "9", output_tokens: 42 }),
+    ).toEqual({ input: 210, output: 42 });
+    const [r] = eventsOf(line({ type: "result", result: "ok", usage: { input_tokens: 5, output_tokens: 7 } }));
+    expect(r).toMatchObject({ type: "result", tokens: { input: 5, output: 7 } });
+  });
+});
 
 describe("eventsOf", () => {
   it("ignores lines that are not a JSON object or carry no content", () => {

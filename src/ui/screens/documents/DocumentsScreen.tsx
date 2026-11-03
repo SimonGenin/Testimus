@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { DocRef } from "../../../core/types.ts";
 import { call, events } from "../../api.ts";
-import { ProblemPanel, problemOf } from "../../components/shell/ProblemPanel.tsx";
+import { problemOf } from "../../components/shell/ProblemPanel.tsx";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
 import { BINDING, DOC_STATUS } from "../../components/sources/PassageView.tsx";
 import { TracesBar } from "../../components/traces/TracesBar.tsx";
@@ -16,12 +16,14 @@ import {
   addDocPaths,
   dismissUpload,
   forgetSettled,
+  owns,
   reindexAll,
   settled,
   type Upload,
   useUploads,
 } from "../../lib/uploads.ts";
 import { DocDetail } from "./DocDetail.tsx";
+import { UploadRow } from "./UploadRow.tsx";
 
 export const INDEX_LOOK = {
   fresh: { tone: "ok" as const, word: "Up to date" },
@@ -70,50 +72,6 @@ function IndexFailed({ u, colSpan, onReindex }: { u: Upload; colSpan: number; on
             </Button>
           </div>
         </div>
-      </td>
-    </tr>
-  );
-}
-
-function UploadRow({ u, onReindex }: { u: Upload; onReindex: () => void }) {
-  if (u.phase === "index-failed") return <IndexFailed u={u} colSpan={5} onReindex={onReindex} />;
-  return (
-    <tr className="up-row">
-      <td className="tbl-doc" title={u.name}>
-        <div className="mono muted tbl-sub">{u.docId ?? "New document"}</div>
-        <div className="tbl-title">{u.name}</div>
-      </td>
-      <td colSpan={4}>
-        {u.phase === "failed" ? (
-          <div className="up-fail">
-            <ProblemPanel
-              error={u.error ?? new Error(u.message)}
-              doing={`Adding ${u.name}`}
-              untouched="Nothing else changed in the project."
-            />
-            <IconButton icon="close" label={`Dismiss ${u.name}`} onClick={() => dismissUpload(u.key)} />
-          </div>
-        ) : u.phase === "done" ? (
-          <Severity tone="ok">Added and indexed</Severity>
-        ) : (
-          <div className="up-prog">
-            <span>
-              {u.phase === "reading" ? "Reading" : u.phase === "converting" ? "Converting" : "Indexing"}
-              {u.pct !== null ? ` · ${u.pct}%` : ""}
-            </span>
-            <div
-              className="prog"
-              role="progressbar"
-              aria-label={u.phase === "indexing" ? "Indexing" : "Converting"}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={u.pct ?? undefined}
-            >
-              <span style={{ width: `${u.pct ?? 35}%` }} className={u.pct === null ? "prog-busy" : undefined} />
-            </div>
-            <span className="muted">{u.phase === "indexing" ? u.message : "then indexing"}</span>
-          </div>
-        )}
       </td>
     </tr>
   );
@@ -178,7 +136,7 @@ export function DocumentsScreen() {
   };
 
   const busy = uploads.filter((u) => !settled(u));
-  const listed = (u: Upload) => !!u.docId && !!docs?.some((d) => d.id === u.docId);
+  const listed = (u: Upload) => !!docs?.some((d) => (u.docId ? d.id === u.docId : owns(u, d)));
   const reindex = () => void reindexAll(changed);
   const pages = docs?.length ?? 0;
 
@@ -288,17 +246,18 @@ export function DocumentsScreen() {
                   : docs.map((d) => {
                       const st = DOC_STATUS[d.status] ?? { label: d.status, tone: "neutral" as const };
                       const ix = INDEX_LOOK[d.indexed] ?? INDEX_LOOK.missing;
-                      const mine = uploads.filter((u) => u.docId === d.id);
-                      const running = mine.find((u) => u.phase === "indexing");
-                      const failed = mine.filter((u) => u.phase === "index-failed");
+                      const failed = uploads.filter((u) => u.docId === d.id && u.phase === "index-failed");
+                      const open = () => app.navigate("documents", d.id);
+                      const inFlight = uploads.find((u) => owns(u, d));
+                      if (inFlight) return <UploadRow key={d.id} u={inFlight} on={d.id === activeId} onOpen={open} />;
                       return [
                         <tr
                           key={d.id}
                           className={cx(d.id === activeId && "row-on")}
                           aria-selected={d.id === activeId}
                           tabIndex={0}
-                          onClick={() => app.navigate("documents", d.id)}
-                          onKeyDown={(e) => e.key === "Enter" && app.navigate("documents", d.id)}
+                          onClick={open}
+                          onKeyDown={(e) => e.key === "Enter" && open()}
                         >
                           <td className="tbl-doc" title={`${d.code} · ${d.version} — ${d.title}`}>
                             <div className="mono muted tbl-sub">
@@ -311,14 +270,7 @@ export function DocumentsScreen() {
                           </td>
                           <td>{BINDING[d.binding] ?? d.binding}</td>
                           <td className="tbl-state">
-                            {running ? (
-                              <span className="sev s-run">
-                                <span className="dot run-dot" />
-                                Indexing{running.pct !== null ? ` · ${running.pct}%` : ""}
-                              </span>
-                            ) : (
-                              <Severity tone={ix.tone}>{ix.word}</Severity>
-                            )}
+                            <Severity tone={ix.tone}>{ix.word}</Severity>
                           </td>
                           <td>
                             {d.warnings.length ? (
@@ -335,9 +287,13 @@ export function DocumentsScreen() {
                     })}
                 {uploads
                   .filter((u) => !listed(u))
-                  .map((u) => (
-                    <UploadRow key={u.key} u={u} onReindex={reindex} />
-                  ))}
+                  .map((u) =>
+                    u.phase === "index-failed" ? (
+                      <IndexFailed key={u.key} u={u} colSpan={5} onReindex={reindex} />
+                    ) : (
+                      <UploadRow key={u.key} u={u} />
+                    ),
+                  )}
               </tbody>
             </table>
           </section>

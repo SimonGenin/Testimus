@@ -531,13 +531,23 @@ export type ClaudeScope =
 export type ClaudeEvent =
   | { type: "text"; text: string }
   | { type: "tool"; name: string; input: string }
-  | { type: "result"; ok: boolean; text: string; costUsd?: number; sessionId?: string; durationMs: number }
+  | {
+      type: "result";
+      ok: boolean;
+      text: string;
+      costUsd?: number;
+      tokens?: Tokens;
+      sessionId?: string;
+      durationMs: number;
+    }
   | { type: "stderr"; text: string };
+export type Tokens = { input: number; output: number };
 export type ClaudeResult = {
   ok: boolean;
   summary: string;
   durationMs: number;
   costUsd?: number;
+  tokens?: Tokens;
   sessionId?: string;
   changedTests: string[];
   diagnosis?: Diagnosis;
@@ -577,7 +587,15 @@ export type JobEvent =
 // System (SPEC §14)
 
 export type CheckState = "ok" | "warn" | "fail" | "skip";
-export type DoctorCheck = { id: string; label: string; state: CheckState; detail: string; fix?: string };
+export type DoctorAction = { label: string; command: string; input?: Record<string, unknown>; value?: string };
+export type DoctorCheck = {
+  id: string;
+  label: string;
+  state: CheckState;
+  detail: string;
+  fix?: string;
+  action?: DoctorAction;
+};
 export type CredsStatus = {
   jira: {
     file: string;

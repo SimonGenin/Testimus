@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import type { JobEvent } from "../../core/types.ts";
+import type { DocRef, JobEvent } from "../../core/types.ts";
 import { run } from "../api.ts";
 import { baseName, pathOf } from "./desktop.ts";
 import { message } from "./format.ts";
@@ -11,6 +11,7 @@ export type Upload = {
   phase: "reading" | "converting" | "indexing" | "done" | "failed" | "index-failed";
   pct: number | null;
   message: string;
+  at: number;
   docId?: string;
   error?: unknown;
 };
@@ -43,6 +44,15 @@ export function dismissUpload(key: number): void {
 }
 
 export const settled = (u: Upload) => u.phase === "done" || u.phase === "failed" || u.phase === "index-failed";
+
+// ponytail: docs.add writes doc.json before it returns (figures are described after), so the list can show
+// the document while its upload still has no id — the file name and a conversion after the drop tie them
+export const owns = (u: Upload, d: DocRef) =>
+  !settled(u) &&
+  (u.docId
+    ? u.docId === d.id
+    : baseName(d.source.path.replace(/^upload: /, "")).toLowerCase() === u.name.toLowerCase() &&
+      Date.parse(d.convertedAt) >= u.at);
 
 // ponytail: a finished or failed row is shown once — leaving the screen forgets it; the job stays in Jobs
 export function forgetSettled(): void {
@@ -138,8 +148,8 @@ async function addDocs(picked: Picked[], onDone: () => void): Promise<void> {
     items = [
       ...items,
       f.path
-        ? { key, name: f.name, phase: "converting", pct: null, message: "Converting" }
-        : { key, name: f.name, phase: "reading", pct: null, message: "Reading the file" },
+        ? { key, name: f.name, at: Date.now(), phase: "converting", pct: null, message: "Converting" }
+        : { key, name: f.name, at: Date.now(), phase: "reading", pct: null, message: "Reading the file" },
     ];
     emit();
     const pdf = /\.docx$/i.test(f.name) ? pdfs.find((p) => stem(p.name) === stem(f.name)) : undefined;
@@ -162,14 +172,14 @@ async function addDocs(picked: Picked[], onDone: () => void): Promise<void> {
 export async function addDocPath(path: string, onDone: () => void): Promise<void> {
   const key = ++seq;
   const name = path.split(/[\\/]/).pop() || path;
-  items = [...items, { key, name, phase: "converting", pct: null, message: "Converting" }];
+  items = [...items, { key, name, at: Date.now(), phase: "converting", pct: null, message: "Converting" }];
   emit();
   await addOne(key, { file: path }, onDone);
 }
 
 export async function reindexAll(onDone: () => void): Promise<void> {
   const key = ++seq;
-  items = [...items, { key, name: "All documents", phase: "indexing", pct: null, message: "Indexing" }];
+  items = [...items, { key, name: "All documents", at: Date.now(), phase: "indexing", pct: null, message: "Indexing" }];
   emit();
   try {
     await reindex(key);

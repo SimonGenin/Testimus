@@ -1,4 +1,4 @@
-import type { ClaudeEvent } from "../types.ts";
+import type { ClaudeEvent, Tokens } from "../types.ts";
 
 function short(v: unknown): string {
   const s = typeof v === "string" ? v : JSON.stringify(v ?? {});
@@ -30,11 +30,23 @@ export function eventsOf(line: string): ClaudeEvent[] {
         ok: m.is_error !== true && (m.subtype === undefined || m.subtype === "success"),
         text: typeof m.result === "string" ? m.result : "",
         costUsd: typeof m.total_cost_usd === "number" ? m.total_cost_usd : undefined,
+        tokens: tokensOf(m.usage),
         sessionId: typeof m.session_id === "string" ? m.session_id : undefined,
         durationMs: typeof m.duration_ms === "number" ? m.duration_ms : 0,
       },
     ];
   return [];
+}
+
+const count = (v: unknown) => (typeof v === "number" && v > 0 ? v : 0);
+
+// ponytail: on a subscription the cost means nothing — the tokens are what counts; cached input is input too
+export function tokensOf(usage: unknown): Tokens | undefined {
+  if (!usage || typeof usage !== "object") return undefined;
+  const u = usage as Record<string, unknown>;
+  const input = count(u.input_tokens) + count(u.cache_creation_input_tokens) + count(u.cache_read_input_tokens);
+  const output = count(u.output_tokens);
+  return input || output ? { input, output } : undefined;
 }
 
 // ponytail: lines may arrive whole, several per chunk, or cut in two — a line is parsed once it ends

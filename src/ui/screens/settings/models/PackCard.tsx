@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Badge, Button, Icon } from "../../../components/ui/index.ts";
 import { cx } from "../../../lib/format.ts";
+import type { Bench } from "./BenchDialog.tsx";
 import type { Op, PackRow } from "./data.ts";
 import { size } from "./data.ts";
 import { FitChip } from "./FitChip.tsx";
@@ -15,6 +16,8 @@ export function PackCard({
   busy,
   onUse,
   onCancel,
+  bench,
+  onMeasure,
 }: {
   pack: PackRow;
   label: (id: string) => string;
@@ -22,6 +25,8 @@ export function PackCard({
   busy: boolean;
   onUse: () => void;
   onCancel: (jobId: string) => void;
+  bench?: Bench;
+  onMeasure?: () => void;
 }) {
   const models: ReactNode = pack.embedding ? (
     <>
@@ -30,6 +35,8 @@ export function PackCard({
       {pack.reranker ? label(pack.reranker) : <span className="muted">no reranker</span>}
     </>
   ) : null;
+  const measuring = bench?.status === "running";
+  const ready = pack.available && pack.downloadMB === 0;
   return (
     <article
       className={cx("card pack", pack.active && "pack-on", !pack.available && "pack-off")}
@@ -93,6 +100,22 @@ export function PackCard({
             onClick={onUse}
           >
             Use this pack
+          </Button>
+        )}
+        {!op && onMeasure && (
+          <Button
+            size="sm"
+            tone="quiet"
+            disabled={!ready || (busy && !measuring)}
+            title={ready ? undefined : "Install the pack's models first (Use this pack)"}
+            aria-label={measuring ? `Measuring the ${pack.label} pack` : `Measure the ${pack.label} pack`}
+            onClick={onMeasure}
+          >
+            {measuring
+              ? `Measuring${bench.pct !== null ? ` · ${bench.pct} %` : "…"}`
+              : /^evidence recall/.test(pack.quality)
+                ? "Measure again"
+                : "Measure"}
           </Button>
         )}
       </div>

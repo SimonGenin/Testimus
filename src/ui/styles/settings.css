@@ -479,9 +479,13 @@
 
 .mactions {
   display: flex;
-  gap: 4px;
+  gap: 6px;
   justify-content: flex-end;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+}
+
+.mactions .btn-remove:not(:disabled) {
+  color: var(--err);
 }
 
 .addfolder {
@@ -742,7 +746,7 @@
 }
 
 .mtable th:nth-child(5) {
-  width: 196px;
+  width: 268px;
 }
 
 .mtable td,
@@ -795,4 +799,12 @@
   .frow {
     min-width: 560px;
   }
+}
+
+.bench-intro {
+  margin: 0 0 8px;
+}
+
+.bench-state {
+  margin: 12px 0 4px;
 }

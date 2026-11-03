@@ -60,10 +60,19 @@ const claude = (c: Partial<NonNullable<AppState["info"]>["project"]["claude"]>, 
 
 describe("dock run details", () => {
   it("names the default model in the timing line", () => {
-    expect(metaLine({ durationMs: 1234, model: "", effort: "low" })).toBe("1.2 s · no cost reported · default / low");
+    expect(metaLine({ durationMs: 1234, model: "", effort: "low" })).toBe("1.2 s · no tokens reported · default / low");
     expect(
-      metaLine({ durationMs: 500, costUsd: 0.0123, sessionId: "abcdef123456", model: "opus", effort: "max" }),
-    ).toBe("0.5 s · $0.012 · opus / max · session abcdef12…");
+      metaLine({
+        durationMs: 500,
+        tokens: { input: 18412, output: 640 },
+        sessionId: "abcdef123456",
+        model: "opus",
+        effort: "max",
+      }),
+    ).toBe("0.5 s · 18k tokens in · 640 out · opus / max · session abcdef12…");
+    expect(metaLine({ durationMs: 500, tokens: { input: 2345, output: 0 }, model: "m", effort: "low" })).toBe(
+      "0.5 s · 2.3k tokens in · 0 out · m / low",
+    );
   });
 
   it("sends no model when the project names none, and copes with an answer without text", async () => {

@@ -229,18 +229,21 @@ describe("model rows", () => {
     expect(r["index.space"].detail).toBe("raw");
   });
 
-  it("a registered llama.cpp build is ok; one whose exe is gone fails when a model needs it", async () => {
+  it("the llama.cpp row shows only while a model in use runs on it: ok with its build, failed when the exe is gone", async () => {
     const dir = mkdtempSync(join(tmpdir(), "testimus-cov-doctor-llama-"));
     const exe = join(dir, "llama-server.exe");
     writeFileSync(exe, "");
     writeRegistry({ ...readRegistry(), llamacpp: { exe, build: "b1", backend: "cpu", via: "path" } });
-    expect(by(await modelRows(null, deps())).llamacpp).toMatchObject({ state: "ok", detail: `b1 (cpu) at ${exe}` });
-    rmSync(exe);
+    expect(by(await modelRows(null, deps())).llamacpp).toBeUndefined();
     const llama = resolvedAs("qwen3-embedding-0.6b-q8", "llamacpp", dir);
-    const r = by(
-      await modelRows(null, deps({ active: async () => ({ embedding: llama, reranker: null, wanted: [] }) })),
-    );
-    expect(r.llamacpp).toMatchObject({ state: "fail", detail: `${exe} is missing` });
+    const uses = deps({ active: async () => ({ embedding: llama, reranker: null, wanted: [] }) });
+    expect(by(await modelRows(null, uses)).llamacpp).toMatchObject({ state: "ok", detail: `b1 (cpu) at ${exe}` });
+    rmSync(exe);
+    expect(by(await modelRows(null, uses)).llamacpp).toMatchObject({
+      state: "fail",
+      detail: `${exe} is missing`,
+      action: { command: "models.pullRuntime" },
+    });
   });
 
   it("models on the system drive with room are a plain ok row; without SystemDrive the temp drive is used", async () => {

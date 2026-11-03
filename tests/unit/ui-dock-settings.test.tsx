@@ -116,7 +116,7 @@ describe("dock: scope, presets, contexts, models", () => {
       effort: "medium",
       contexts: ["ctx-b"],
     });
-    expect(await screen.findByText("1.2 s · no cost reported · sonnet / medium")).toBeInTheDocument();
+    expect(await screen.findByText("1.2 s · no tokens reported · sonnet / medium")).toBeInTheDocument();
     expect(screen.getAllByText("Whole project")).toHaveLength(2);
     expect(state.setClaudeRunning).toHaveBeenCalledWith("*project*");
   });
@@ -128,7 +128,7 @@ describe("dock: scope, presets, contexts, models", () => {
       ok: true,
       summary: "ok",
       durationMs: 12300,
-      costUsd: 0.0412,
+      tokens: { input: 24100, output: 1200 },
       sessionId: "abcdef123456",
       changedTests: [],
       raw: "",
@@ -168,7 +168,9 @@ describe("dock: scope, presets, contexts, models", () => {
       effort: "high",
     });
     expect(screen.getByText("LFRPS12-1 · Rephrase")).toBeInTheDocument();
-    expect(await screen.findByText("12.3 s · $0.041 · opus / high · session abcdef12…")).toBeInTheDocument();
+    expect(
+      await screen.findByText("12.3 s · 24k tokens in · 1.2k out · opus / high · session abcdef12…"),
+    ).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Rephrase", pressed: false })).toHaveLength(2);
   });
 
@@ -282,7 +284,7 @@ describe("dock: run details and failures", () => {
     await act(async () =>
       finish({ ok: true, summary: "Rewrote step 3\nmore", durationMs: 4500, changedTests: [], raw: "" }),
     );
-    expect(await screen.findByText(/^4\.5 s · no cost reported/)).toBeInTheDocument();
+    expect(await screen.findByText(/^4\.5 s · no tokens reported/)).toBeInTheDocument();
     r.rerender(wrap(state, <ClaudeDock folded onFold={() => {}} />));
     expect(screen.getByText("Last run: 4.5 s")).toHaveAttribute("title", "Rewrote step 3");
   });
@@ -329,8 +331,8 @@ describe("dock: run details and failures", () => {
   });
 
   it("meta line words", () => {
-    expect(metaLine({ durationMs: 12345, costUsd: 0.04, model: "opus", effort: "high" })).toBe(
-      "12.3 s · $0.040 · opus / high",
+    expect(metaLine({ durationMs: 12345, tokens: { input: 900, output: 41 }, model: "opus", effort: "high" })).toBe(
+      "12.3 s · 900 tokens in · 41 out · opus / high",
     );
   });
 });

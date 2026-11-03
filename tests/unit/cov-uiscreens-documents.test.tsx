@@ -531,6 +531,11 @@ describe("Documents screen", () => {
     await waitFor(() => expect(named("docs.add")[0]?.input).toEqual({ file: "C:\\d\\spec.docx" }));
     const row = await screen.findByText("spec.docx");
     expect(await within(row.closest("tr") as HTMLElement).findByText(/Adding spec.docx stopped/)).toBeInTheDocument();
+    expect(within(row.closest("tr") as HTMLElement).getByText("Converting", { selector: "li" })).toHaveClass(
+      "is-failed",
+    );
+    expect(within(row.closest("tr") as HTMLElement).getByText("Not added")).toBeInTheDocument();
+    expect(within(row.closest("tr") as HTMLElement).queryByRole("progressbar")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Dismiss spec.docx" }));
     expect(screen.queryByText("spec.docx")).toBeNull();
   });
@@ -548,11 +553,20 @@ describe("Documents screen", () => {
     fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Add" }));
     expect(await screen.findByRole("progressbar", { name: "Converting" })).toBeInTheDocument();
     expect(screen.getByText(/1 being added/)).toBeInTheDocument();
-    expect(screen.getByText("then indexing")).toBeInTheDocument();
+    const row = screen.getByText("new.pdf").closest("tr") as HTMLElement;
+    expect(within(row).getAllByRole("cell")).toHaveLength(1);
+    expect(within(row).getByRole("cell")).toHaveAttribute("colspan", "5");
+    const step = (name: string) => within(row).getByText(name, { selector: "li" });
+    expect(step("Converting")).toHaveAttribute("aria-current", "step");
+    expect(step("Indexing")).toHaveClass("is-todo");
+    expect(within(row).getByText("New document")).toBeInTheDocument();
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
-    emit({ jobId: "add-1", at, type: "progress", message: "Converting", done: 1, total: 2 });
-    expect(await screen.findByText("Converting · 50%")).toBeInTheDocument();
+    emit({ jobId: "add-1", at, type: "progress", message: "Converting docx", done: 1, total: 2 });
+    expect(await within(row).findByText("50%")).toBeInTheDocument();
+    expect(within(row).getByText("Converting docx")).toBeInTheDocument();
+    expect(within(row).getByRole("progressbar")).toHaveAttribute("aria-valuenow", "50");
     emit({ jobId: "add-1", at, type: "progress", message: "Converting" });
+    expect(within(row).queryByText("50%")).toBeNull();
     const done = (id: string, result: unknown): JobEvent => ({
       jobId: id,
       at,
@@ -561,11 +575,74 @@ describe("Documents screen", () => {
     });
     emit(done("add-1", { id: "NEW" }));
     expect(await screen.findByRole("progressbar", { name: "Indexing" })).toBeInTheDocument();
+    const indexing = screen.getByText("new.pdf").closest("tr") as HTMLElement;
+    expect(within(indexing).getByText("NEW")).toBeInTheDocument();
+    expect(within(indexing).getByText("Converting", { selector: "li" })).toHaveClass("is-done");
+    expect(within(indexing).getByText("Indexing", { selector: "li" })).toHaveAttribute("aria-current", "step");
     emit({ jobId: "ix-1", at, type: "progress", message: "Embedding passages", done: 1, total: 4 });
-    expect(await screen.findByText("Indexing · 25%")).toBeInTheDocument();
-    expect(screen.getByText("Embedding passages")).toBeInTheDocument();
+    expect(await within(indexing).findByText("25%")).toBeInTheDocument();
+    expect(within(indexing).getByText("Embedding passages")).toBeInTheDocument();
     emit(done("ix-1", {}));
     expect(await screen.findByText("Added and indexed")).toBeInTheDocument();
+    const added = screen.getByText("new.pdf").closest("tr") as HTMLElement;
+    expect(within(added).getByText("Indexing", { selector: "li" })).toHaveClass("is-done");
+    expect(within(added).getByRole("progressbar", { name: "Added" })).toHaveAttribute("aria-valuenow", "100");
+  });
+
+  it("a document listed while its upload still runs shows once, as the upload, then as itself", async () => {
+    let listed = false;
+    const old = doc("OLD", { title: "Older copy", source: { path: "C:/x/early.docx", sha256: "", file: "" } });
+    let early: DocRef | null = null;
+    api.routes["docs.list"] = () => {
+      if (listed && !early)
+        early = doc("EARLY", {
+          title: "Early bird",
+          status: "draft",
+          indexed: "missing",
+          warnings: ["one"],
+          source: { path: "C:\\n\\early.docx", sha256: "", file: "source.docx" },
+          convertedAt: new Date().toISOString(),
+        });
+      return early ? [old, early] : [old];
+    };
+    detail();
+    api.routes["docs.add"] = () => ({ jobId: "add-3" });
+    api.routes["rag.index"] = () => ({ jobId: "ix-3" });
+    api.routes["jobs.show"] = (i) => ({ job: { id: i.id, kind: "x", subject: "", status: "running", startedAt: at } });
+    const { app: a } = mount(<DocumentsScreen />);
+    await screen.findByText("Older copy");
+    fireEvent.click(screen.getByRole("button", { name: "Add from a path" }));
+    fireEvent.change(screen.getByLabelText("Path of the file"), { target: { value: "C:\\n\\early.docx" } });
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Add" }));
+    const list = await screen.findByRole("region", { name: "Document list" });
+    await within(list).findByText("early.docx");
+    await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
+    listed = true;
+    const status = (id: string, kind: string, result?: unknown): JobEvent => ({
+      jobId: id,
+      at,
+      type: "status",
+      job: { id, kind, subject: "", status: "done", startedAt: at, result },
+    });
+    emit(status("fig-3", "describe-figures"));
+    await waitFor(() => expect(early).not.toBeNull());
+    await waitFor(() => expect(within(list).getAllByRole("row")).toHaveLength(3));
+    expect(within(list).queryByText("Early bird")).toBeNull();
+    expect(within(list).getByText("Older copy")).toBeInTheDocument();
+    const row = within(list).getByText("early.docx").closest("tr") as HTMLElement;
+    expect(within(row).getByText("Converting", { selector: "li" })).toHaveAttribute("aria-current", "step");
+    fireEvent.click(row);
+    expect(a.navigate).toHaveBeenCalledWith("documents", "EARLY");
+    fireEvent.keyDown(row, { key: "Enter" });
+    expect(a.navigate).toHaveBeenCalledTimes(2);
+    emit(status("add-3", "docs.add", { id: "EARLY" }));
+    expect(await within(list).findByRole("progressbar", { name: "Indexing" })).toBeInTheDocument();
+    expect(within(list).getAllByRole("row")).toHaveLength(3);
+    expect(within(list).queryByText("Early bird")).toBeNull();
+    emit(status("ix-3", "rag-index", {}));
+    expect(await within(list).findByText("Early bird")).toBeInTheDocument();
+    expect(within(list).queryByText("early.docx")).toBeNull();
+    expect(within(list).getAllByRole("row")).toHaveLength(3);
   });
 
   it("indexing of a listed document: running state, failure with its fix, reindex, jobs, dismiss", async () => {
@@ -584,11 +661,12 @@ describe("Documents screen", () => {
     fireEvent.change(screen.getByLabelText("Path of the file"), { target: { value: "C:/n/fresh.docx" } });
     fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Add" }));
     const list = await screen.findByRole("region", { name: "Document list" });
-    await waitFor(() => expect(within(list).getByText("Fresh one")).toBeInTheDocument());
-    expect(await within(list).findByText("Indexing")).toBeInTheDocument();
+    expect(await within(list).findByRole("progressbar", { name: "Indexing" })).toBeInTheDocument();
+    expect(within(list).queryByText("Fresh one")).toBeNull();
+    expect(within(list).getAllByText("fresh.docx")).toHaveLength(1);
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
     emit({ jobId: "ix-2", at, type: "progress", message: "m", done: 3, total: 4 });
-    expect(await within(list).findByText("Indexing · 75%")).toBeInTheDocument();
+    expect(await within(list).findByText("75%")).toBeInTheDocument();
     emit({
       jobId: "ix-2",
       at,

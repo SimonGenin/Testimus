@@ -48,6 +48,10 @@ const RESULT = z.object({
   summary: z.string(),
   durationMs: z.number(),
   costUsd: z.number().optional(),
+  tokens: z
+    .object({ input: z.number(), output: z.number() })
+    .optional()
+    .describe("Tokens the run used (input incl. cache)"),
   sessionId: z.string().optional(),
   changedTests: z.array(z.string()),
   written: z.array(z.string()).describe("Tests the run itself wrote (its tool calls)"),

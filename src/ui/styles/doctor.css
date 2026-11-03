@@ -42,10 +42,9 @@
   overflow-wrap: anywhere;
 }
 
-.doctor-login {
+.chk-act {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .setup {

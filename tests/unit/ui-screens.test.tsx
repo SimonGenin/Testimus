@@ -440,6 +440,7 @@ describe("System check", () => {
           state: "warn",
           detail: "Claude is installed but not signed in.",
           fix: "Type claude, then /login.",
+          action: { label: "Check Claude sign-in", command: "system.doctor", input: { claude: true } },
         },
         { id: "jira", label: "Jira reachable", state: "fail", detail: "401", fix: "Check the token." },
       ],

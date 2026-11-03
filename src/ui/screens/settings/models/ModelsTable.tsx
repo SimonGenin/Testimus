@@ -99,8 +99,9 @@ export function ModelsTable({
                       {here && (
                         <Button
                           size="sm"
-                          tone="quiet"
+                          icon="check"
                           disabled={busy}
+                          title="Load the model and embed one sentence to check it works"
                           aria-label={`Verify ${r.label}`}
                           onClick={() => onVerify(r)}
                         >
@@ -110,7 +111,8 @@ export function ModelsTable({
                       {inst && (
                         <Button
                           size="sm"
-                          tone="quiet"
+                          icon="trash"
+                          className="btn-remove"
                           disabled={busy || used}
                           title={used ? "In use for this project: choose another model first" : undefined}
                           aria-label={`Remove ${r.label}`}

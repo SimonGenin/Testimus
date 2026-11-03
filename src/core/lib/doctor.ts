@@ -4,7 +4,7 @@ import { dirname, parse } from "node:path";
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
 import { LOOPBACK, loopbackProxyGap, shellOf } from "../shell.ts";
-import type { CatalogEntry, DoctorCheck, MachineProfile, ResolvedModel } from "../types.ts";
+import type { CatalogEntry, DoctorAction, DoctorCheck, MachineProfile, ResolvedModel } from "../types.ts";
 import { jiraCreds, xrayCreds } from "./creds.ts";
 import { catalogEntry } from "./models-catalog.ts";
 import { fitOf } from "./models-fit.ts";
@@ -23,9 +23,21 @@ export type DoctorOpts = {
 
 const GB = 1024 ** 3;
 
-function row(id: string, label: string, state: DoctorCheck["state"], detail: string, fix?: string): DoctorCheck {
-  return fix && state !== "ok" ? { id, label, state, detail, fix } : { id, label, state, detail };
+function row(
+  id: string,
+  label: string,
+  state: DoctorCheck["state"],
+  detail: string,
+  fix?: string,
+  action?: DoctorAction,
+): DoctorCheck {
+  if (state === "ok") return { id, label, state, detail };
+  return { id, label, state, detail, ...(fix ? { fix } : {}), ...(action ? { action } : {}) };
 }
+
+const SETUP: DoctorAction = { label: "Connect Atlassian", command: "system.setup" };
+const SIGN_IN: DoctorAction = { label: "Check Claude sign-in", command: "system.doctor", input: { claude: true } };
+const LIGHTER: DoctorAction = { label: "Choose a lighter pack", command: "models.usePack" };
 
 function message(e: unknown): string {
   const err = e as { message?: string; cause?: { code?: string; message?: string } };
@@ -84,6 +96,7 @@ export async function claudeVersionCheck(timeoutMs: number): Promise<DoctorCheck
   const exe = claudeExe();
   const fix =
     "Install it: irm https://claude.ai/install.ps1 | iex — or set its path with testimus system saveSettings --claude-exe <path>.";
+  const exePath: DoctorAction = { label: "Set the claude.exe path", command: "system.saveSettings" };
   try {
     const out = await env.spawnClaude({
       exe,
@@ -93,10 +106,10 @@ export async function claudeVersionCheck(timeoutMs: number): Promise<DoctorCheck
       signal: AbortSignal.timeout(timeoutMs),
     });
     const v = out.stdout.match(/\d+\.\d+\.\d+/)?.[0];
-    if (out.code !== 0 || !v) return row("claude", label, "fail", `${exe} not found or not working`, fix);
+    if (out.code !== 0 || !v) return row("claude", label, "fail", `${exe} not found or not working`, fix, exePath);
     return row("claude", label, "ok", `${exe} ${v}`);
   } catch (e) {
-    return row("claude", label, "fail", `${exe}: ${message(e)}`, fix);
+    return row("claude", label, "fail", `${exe}: ${message(e)}`, fix, exePath);
   }
 }
 
@@ -119,9 +132,9 @@ export async function claudeLoginCheck(timeoutMs: number): Promise<DoctorCheck> 
     if (out.code === 0 && !result.is_error) return row("claudeLogin", label, "ok", "a minimal claude -p run answered");
     if (/limit|credit|usage/i.test(text))
       return row("claudeLogin", label, "warn", text.slice(0, 200), "Your plan's limit is reached: wait or upgrade.");
-    return row("claudeLogin", label, "fail", text.slice(0, 200) || `claude -p exited with ${out.code}`, fix);
+    return row("claudeLogin", label, "fail", text.slice(0, 200) || `claude -p exited with ${out.code}`, fix, SIGN_IN);
   } catch (e) {
-    return row("claudeLogin", label, "fail", message(e), fix);
+    return row("claudeLogin", label, "fail", message(e), fix, SIGN_IN);
   }
 }
 
@@ -131,7 +144,7 @@ export async function jiraCheck(timeoutMs: number): Promise<DoctorCheck> {
   try {
     c = jiraCreds();
   } catch (e) {
-    return row("jira", label, "fail", message(e), e instanceof UserError ? e.fix : undefined);
+    return row("jira", label, "fail", message(e), e instanceof UserError ? e.fix : undefined, SETUP);
   }
   const host = new URL(c.base).host;
   try {
@@ -155,6 +168,7 @@ export async function jiraCheck(timeoutMs: number): Promise<DoctorCheck> {
         "fail",
         `Jira ${res.status} — check ~/.atlassian/credentials.json`,
         "Create an API token at https://id.atlassian.com/manage-profile/security/api-tokens, then testimus system setup --token <token>.",
+        SETUP,
       );
     return row(
       "jira",
@@ -162,6 +176,7 @@ export async function jiraCheck(timeoutMs: number): Promise<DoctorCheck> {
       "fail",
       `Jira ${res.status} on ${host}`,
       "Check the site in ~/.atlassian/credentials.json.",
+      SETUP,
     );
   } catch (e) {
     return row(
@@ -180,7 +195,7 @@ export async function xrayCheck(timeoutMs: number): Promise<DoctorCheck> {
   try {
     c = xrayCreds();
   } catch (e) {
-    return row("xray", label, "fail", message(e), e instanceof UserError ? e.fix : undefined);
+    return row("xray", label, "fail", message(e), e instanceof UserError ? e.fix : undefined, SETUP);
   }
   const host = new URL(c.apiBase).host;
   try {
@@ -200,6 +215,7 @@ export async function xrayCheck(timeoutMs: number): Promise<DoctorCheck> {
         "fail",
         "Xray 401 — check ~/.atlassian/xray_credentials.json (client id / secret)",
         "Ask your Jira admin for an Xray API key (client id + secret), then testimus system setup.",
+        SETUP,
       );
     return row("xray", label, "fail", `Xray authentication failed (${res.status}) on ${host}`, "Retry later.");
   } catch (e) {
@@ -264,12 +280,19 @@ function installRow(kind: "embedding" | "reranker", m: ResolvedModel | null, wan
       remote
         ? `testimus models pull ${e?.id ?? wanted} (or choose a pack: testimus models usePack light).`
         : "Copy it from the team share, then testimus models add <folder>.",
+      remote
+        ? { label: `Download ${e?.label ?? wanted}`, command: "models.pull", input: { model: e?.id ?? wanted } }
+        : { label: "Add from a folder…", command: "models.add" },
     );
   }
   const where = m.install.path ?? m.runtime;
   const detail = `${m.entry.label} — ${m.runtime}, ${m.device}, ${where}`;
   if (m.install.status === "verified" || m.runtime === "mock") return row(id, label, "ok", `${detail} (verified)`);
-  return row(id, label, "warn", `${detail} (not verified yet)`, `testimus models verify ${m.entry.id}`);
+  return row(id, label, "warn", `${detail} (not verified yet)`, `testimus models verify ${m.entry.id}`, {
+    label: "Verify",
+    command: "models.verify",
+    input: { model: m.entry.id },
+  });
 }
 
 function systemRoot(): string {
@@ -290,6 +313,7 @@ export async function modelRows(project: string | null, deps: ModelDeps = modelD
         "warn",
         "not chosen yet: the first download asks where models go",
         "testimus models setDir <folder> (a drive with room; avoid C: when it is short of space).",
+        { label: "Choose the models folder…", command: "models.setDir" },
       ),
     );
   const sys = systemRoot();
@@ -307,6 +331,12 @@ export async function modelRows(project: string | null, deps: ModelDeps = modelD
             "warn",
             c.detail,
             "Move them: testimus models setDir <folder on another drive> --move.",
+            {
+              label: "Move the models…",
+              command: "models.setDir",
+              input: { move: true },
+              value: reg.dir ?? onSystem[0],
+            },
           ),
     );
   }
@@ -327,7 +357,14 @@ export async function modelRows(project: string | null, deps: ModelDeps = modelD
     const f = fitOf(entries, machine, { headroom: budgets().headroom, lines: readPerf() });
     const state = f.verdict === "fits" ? "ok" : f.verdict === "ram-too-small" ? "fail" : "warn";
     rows.push(
-      row("model.fit", "Models fit this PC", state, f.message, "Choose a lighter pack: testimus models packs."),
+      row(
+        "model.fit",
+        "Models fit this PC",
+        state,
+        f.message,
+        "Choose a lighter pack: testimus models packs.",
+        LIGHTER,
+      ),
     );
   }
   const ours = entries.map((e) => e.id);
@@ -342,6 +379,7 @@ export async function modelRows(project: string | null, deps: ModelDeps = modelD
           "warn",
           `partly on the processor: ${[...new Set(partly)].join(", ")}`,
           "Choose a lighter pack or variant: testimus models advice.",
+          LIGHTER,
         )
       : row(
           "model.offload",
@@ -354,15 +392,20 @@ export async function modelRows(project: string | null, deps: ModelDeps = modelD
     const degraded = await deps.space(project).catch((e: unknown) => (e instanceof Error ? e.message : String(e)));
     rows.push(
       degraded
-        ? row("index.space", "Vectors of the active model", "warn", degraded, "testimus rag index")
+        ? row("index.space", "Vectors of the active model", "warn", degraded, "testimus rag index", {
+            label: "Index now",
+            command: "rag.index",
+          })
         : row("index.space", "Vectors of the active model", "ok", "complete"),
     );
   } else rows.push(row("index.space", "Vectors of the active model", "skip", "no project open"));
   const usesLlama = [active.embedding, active.reranker].some((m) => m?.runtime === "llamacpp");
   const build = reg.llamacpp;
+  // ponytail: llama.cpp is only the GGUF runtime — its row exists while a model in use runs on it
+  if (!usesLlama) return rows;
   if (build && existsSync(build.exe))
     rows.push(row("llamacpp", "llama.cpp build", "ok", `${build.build} (${build.backend}) at ${build.exe}`));
-  else if (usesLlama)
+  else
     rows.push(
       row(
         "llamacpp",
@@ -370,9 +413,9 @@ export async function modelRows(project: string | null, deps: ModelDeps = modelD
         "fail",
         build ? `${build.exe} is missing` : "a model in use needs llama.cpp and no build is registered",
         "testimus models pullRuntime (or testimus models add <llama.cpp folder>).",
+        { label: "Download llama.cpp", command: "models.pullRuntime" },
       ),
     );
-  else rows.push(row("llamacpp", "llama.cpp build", "skip", "not needed by the models in use"));
   return rows;
 }
 
@@ -427,7 +470,14 @@ export async function runDoctor(opts: DoctorOpts): Promise<DoctorCheck[]> {
   const login: Promise<DoctorCheck> = opts.claude
     ? claudeLoginCheck(Math.max(t, 60000))
     : Promise.resolve(
-        row("claudeLogin", "Claude signed in", "skip", "not checked", "testimus system doctor --claude runs one."),
+        row(
+          "claudeLogin",
+          "Claude signed in",
+          "skip",
+          "not checked",
+          "testimus system doctor --claude runs one.",
+          SIGN_IN,
+        ),
       );
   const rows = await Promise.all([
     nodeCheck(),

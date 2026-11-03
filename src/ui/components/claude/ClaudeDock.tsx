@@ -7,6 +7,7 @@ import type {
   Effort,
   JobEvent,
   Source,
+  Tokens,
 } from "../../../core/types.ts";
 import { ApiError, call, run } from "../../api.ts";
 import { useApp } from "../../lib/app.ts";
@@ -24,7 +25,7 @@ import { OnTopToggle } from "./OnTopToggle.tsx";
 type Mode = "docs" | "test";
 type Kind = "step" | "test" | "project";
 
-type Meta = { durationMs: number; costUsd?: number; sessionId?: string; model: string; effort: Effort };
+type Meta = { durationMs: number; tokens?: Tokens; sessionId?: string; model: string; effort: Effort };
 type Again = {
   mode: Mode;
   text: string;
@@ -62,10 +63,12 @@ export function fixOutcome(r: { review?: string; message?: string }): { word: st
 // ponytail: a run with no test (the whole project) still marks Claude as running, so every editor locks
 export const PROJECT_RUN = "*project*";
 
+const kilo = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : String(n));
+
 export function metaLine(m: Meta): string {
   return [
     `${(m.durationMs / 1000).toFixed(1)} s`,
-    m.costUsd === undefined ? "no cost reported" : `$${m.costUsd.toFixed(3)}`,
+    m.tokens ? `${kilo(m.tokens.input)} tokens in · ${kilo(m.tokens.output)} out` : "no tokens reported",
     `${m.model || "default"} / ${m.effort}`,
     m.sessionId ? `session ${m.sessionId.slice(0, 8)}…` : "",
   ]
@@ -85,7 +88,7 @@ type ChatResult = {
   answer: string;
   sources?: Source[];
   diagnosis?: Diagnosis;
-  costUsd?: number;
+  tokens?: Tokens;
   sessionId?: string;
 };
 
@@ -273,7 +276,7 @@ export function ClaudeDock({
         note: ok ? outcome.note : undefined,
         meta:
           again || reported
-            ? { durationMs, costUsd: r.costUsd, sessionId: r.sessionId, model: used.model, effort: used.effort }
+            ? { durationMs, tokens: r.tokens, sessionId: r.sessionId, model: used.model, effort: used.effort }
             : t.meta,
         raw: typeof r.raw === "string" ? r.raw : t.raw,
         again: ok ? undefined : again,
@@ -383,7 +386,7 @@ export function ClaudeDock({
           text: r.answer || t.text,
           sources: r.sources ?? [],
           trouble: ok ? undefined : (r.diagnosis ?? { title: "Claude could not answer", detail: "" }),
-          meta: { durationMs, costUsd: r.costUsd, sessionId: r.sessionId, model: a.model, effort: a.effort },
+          meta: { durationMs, tokens: r.tokens, sessionId: r.sessionId, model: a.model, effort: a.effort },
           again: ok ? undefined : a,
         }));
         setLast({ seconds: durationMs / 1000, summary: (r.answer ?? "").split("\n")[0], ok });

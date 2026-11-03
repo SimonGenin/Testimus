@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { JobEvent } from "../../src/core/types.ts";
+import type { DocRef, JobEvent } from "../../src/core/types.ts";
 
 const runs: { name: string; input: Record<string, unknown> }[] = [];
 let handlers: Record<string, (input: Record<string, unknown>, onEvent?: (e: JobEvent) => void) => unknown> = {};
@@ -31,6 +31,7 @@ const {
   addDocPaths,
   dismissUpload,
   forgetSettled,
+  owns,
   readBase64,
   reindexAll,
   settled,
@@ -201,6 +202,21 @@ describe("uploads", () => {
       release();
       await pending;
     });
+  });
+
+  it("ties a listed document to the upload still adding it", () => {
+    const u = { key: 1, name: "Spec (3).docx", at: 1000, phase: "converting" as const, pct: null, message: "" };
+    const d = (path: string, convertedAt: string, id = "SPEC_3_") =>
+      ({ id, source: { path, sha256: "", file: "source.docx" }, convertedAt }) as DocRef;
+    const later = new Date(2000).toISOString();
+    expect(owns(u, d("C:\\in\\spec (3).DOCX", later))).toBe(true);
+    expect(owns(u, d("upload: Spec (3).docx", later))).toBe(true);
+    expect(owns(u, d("C:\\in\\Spec (3).docx", new Date(500).toISOString()))).toBe(false);
+    expect(owns(u, d("C:\\in\\Other.docx", later))).toBe(false);
+    expect(owns(u, d("C:\\in\\Spec (3).docx", ""))).toBe(false);
+    expect(owns({ ...u, docId: "SPEC_3_" }, d("C:\\elsewhere.docx", ""))).toBe(true);
+    expect(owns({ ...u, docId: "SPEC_3_" }, d("C:\\in\\Spec (3).docx", later, "OTHER"))).toBe(false);
+    expect(owns({ ...u, phase: "failed" }, d("C:\\in\\Spec (3).docx", later))).toBe(false);
   });
 
   it("reads base64 and fails with a default message", async () => {

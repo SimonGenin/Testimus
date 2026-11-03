@@ -23,7 +23,7 @@ import {
   status,
   withApp,
 } from "./cov-uishell-helpers.tsx";
-import { app } from "./ui-desktop-helpers.tsx";
+import { app, fakeDesktop, noDesktop } from "./ui-desktop-helpers.tsx";
 
 let ids: number[] = [];
 function Probe() {
@@ -261,6 +261,67 @@ describe("System check screen", () => {
     fail = true;
     fireEvent.click(screen.getByRole("button", { name: /Check again/ }));
     expect(await screen.findByText("The check could not run: core down")).toBeInTheDocument();
+  });
+
+  it("turns each fix into a button: runs the command, opens the settings or the folder dialog", async () => {
+    let verifyFails = false;
+    net.routes["models.verify"] = () => {
+      if (verifyFails) throw new Fail("broken model");
+      return { ok: true };
+    };
+    net.routes["models.add"] = () => ({ model: "m" });
+    net.routes["models.hardware"] = () => ({ drives: [] });
+    net.routes["system.doctor"] = () => [
+      c({
+        id: "model.embedding",
+        label: "Embedding model",
+        state: "warn",
+        detail: "not verified",
+        fix: "testimus models verify m",
+        action: { label: "Verify", command: "models.verify", input: { model: "m" } },
+      }),
+      c({ id: "jira", state: "fail", detail: "401", action: { label: "Connect Atlassian", command: "system.setup" } }),
+      c({ id: "model.fit", state: "warn", action: { label: "Choose a lighter pack", command: "models.usePack" } }),
+      c({ id: "models.dir", state: "warn", action: { label: "Choose the models folder…", command: "models.setDir" } }),
+      c({
+        id: "model.reranker",
+        state: "warn",
+        action: { label: "Add from a folder…", command: "models.add", input: { kind: "x" } },
+      }),
+    ];
+    const { state } = withApp(
+      <>
+        <DoctorScreen />
+        <Probe />
+      </>,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "Verify" }));
+    expect(screen.queryByText(/What to do/)).toBeNull();
+    await waitFor(() => expect(callsOf("models.verify")[0]?.input).toEqual({ model: "m" }));
+    expect(await screen.findByText("Embedding model: done")).toBeInTheDocument();
+    verifyFails = true;
+    fireEvent.click(await screen.findByRole("button", { name: "Verify" }));
+    expect(await screen.findByText("Verify failed")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Connect Atlassian" }));
+    expect(state.navigate).toHaveBeenCalledWith("settings", "access");
+    fireEvent.click(screen.getByRole("button", { name: "Choose a lighter pack" }));
+    expect(state.navigate).toHaveBeenCalledWith("settings", "models");
+    noDesktop();
+    fireEvent.click(screen.getByRole("button", { name: "Add from a folder…" }));
+    expect(state.navigate).toHaveBeenCalledTimes(3);
+    const d = fakeDesktop({ folder: "E:\\share\\model" });
+    fireEvent.click(screen.getByRole("button", { name: "Add from a folder…" }));
+    await waitFor(() => expect(callsOf("models.add")[0]?.input).toEqual({ kind: "x", path: "E:\\share\\model" }));
+    expect(d.pickFolder).toHaveBeenCalled();
+    d.pickFolder.mockResolvedValueOnce(null);
+    fireEvent.click(await screen.findByRole("button", { name: "Add from a folder…" }));
+    await waitFor(() => expect(d.pickFolder).toHaveBeenCalledTimes(2));
+    expect(callsOf("models.add")).toHaveLength(1);
+    noDesktop();
+    fireEvent.click(screen.getByRole("button", { name: "Choose the models folder…" }));
+    expect(await screen.findByRole("dialog", { name: "Models folder" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 });
 

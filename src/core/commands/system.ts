@@ -19,6 +19,15 @@ const check = z.object({
   state: z.enum(["ok", "warn", "fail", "skip"]),
   detail: z.string(),
   fix: z.string().optional(),
+  action: z
+    .object({
+      label: z.string().describe("Button text in the UI"),
+      command: z.string().describe("The command that fixes the row, e.g. models.verify"),
+      input: z.record(z.string(), z.unknown()).optional().describe("Its input; a value the user picks is left out"),
+      value: z.string().optional().describe("The value in place now, where a picker starts"),
+    })
+    .optional()
+    .describe("The command that fixes this row, shown as a button by the UI"),
 });
 
 const status = z.object({

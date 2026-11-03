@@ -5,7 +5,7 @@ import { env } from "../env.ts";
 import { loadCorpus, runMechanical } from "../lib/check.ts";
 import { fieldOrder, readProject, readXray, writeJson } from "../lib/project.ts";
 import { readTest, testExists, writeTest } from "../lib/store.ts";
-import type { ClaudeEvent, Diagnosis, Effort } from "../types.ts";
+import type { ClaudeEvent, Diagnosis, Effort, Tokens } from "../types.ts";
 import { checkTests, promoteChecked } from "./check.ts";
 import { ledgerOf } from "./ledger.ts";
 import { contextDir, readContexts } from "./prompt.ts";
@@ -59,6 +59,7 @@ export type GenResult = {
   reportFound: boolean;
   consulted: number;
   costUsd?: number;
+  tokens?: Tokens;
   durationMs: number;
   diagnosis?: Diagnosis;
 };
@@ -289,6 +290,7 @@ export async function generateTests(project: string, input: GenInput, ctx: Ctx):
     reportFound: final.found,
     consulted: ledger.consulted.length,
     costUsd: run.costUsd,
+    tokens: run.tokens,
     durationMs: run.durationMs,
     ...(run.diagnosis ? { diagnosis: run.diagnosis } : {}),
   };

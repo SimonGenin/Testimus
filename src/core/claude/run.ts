@@ -299,6 +299,7 @@ export async function runClaude(o: RunOpts): Promise<RunResult> {
     raw,
     durationMs: result?.durationMs || Date.now() - started,
     costUsd: result?.costUsd,
+    tokens: result?.tokens,
     sessionId: result?.sessionId ?? sessionOf(out.stdout),
   };
   if (!o.signal?.aborted)

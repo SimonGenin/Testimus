@@ -76,6 +76,7 @@ export async function mockStream(spawn: ClaudeSpawn, s: MockStream): Promise<Cla
     session_id: sessionId,
     duration_ms: Date.now() - started,
     total_cost_usd: s.costUsd ?? 0.0123,
+    usage: { input_tokens: 12, cache_read_input_tokens: 18400, output_tokens: 640 },
   });
   return { code: s.isError ? 1 : 0, stdout: `${lines.join("\n")}\n`, stderr: "" };
 }

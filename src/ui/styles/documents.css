@@ -17,26 +17,6 @@
   z-index: 5;
 }
 
-.up-prog {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.up-prog .prog {
-  flex: 0 0 160px;
-}
-
-.up-fail {
-  display: flex;
-  gap: 8px;
-  align-items: flex-start;
-}
-
-.up-fail .problem {
-  flex: 1;
-}
-
 .up-fail-head {
   display: flex;
   align-items: center;
@@ -184,4 +164,211 @@
   border-radius: var(--radius);
   background: var(--warn-bg);
   color: var(--ink-2);
+}
+
+.docs-screen .tbl .up-row {
+  cursor: default;
+}
+
+.docs-screen .tbl .up-row:not(.row-on):hover {
+  background: transparent;
+}
+
+.docs-screen .tbl .up-row.is-open {
+  cursor: pointer;
+}
+
+.docs-screen .tbl .up-row.is-open:not(.row-on):hover {
+  background: var(--surface-2);
+}
+
+/* ponytail: size containment keeps the row from widening the table — the cell spans all five columns and
+   its content fits whatever width they leave */
+.up {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.up-line {
+  display: grid;
+  grid-template-columns: minmax(0, 34%) minmax(0, 1fr);
+  grid-template-areas: "name track";
+  align-items: center;
+  column-gap: 24px;
+  row-gap: 10px;
+}
+
+.up-line.has-act {
+  grid-template-columns: minmax(0, 34%) minmax(0, 1fr) auto;
+  grid-template-areas: "name track act";
+}
+
+.up-name {
+  grid-area: name;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.up-tile {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius);
+  background: var(--info-bg);
+  color: var(--info);
+}
+
+.up-tile.is-failed {
+  background: var(--err-bg);
+  color: var(--err);
+}
+
+.up-name-text {
+  min-width: 0;
+}
+
+.up-name-text > div {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.up-track {
+  grid-area: track;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.up-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.up-steps {
+  flex: none;
+  display: flex;
+  align-items: center;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.up-step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+.up-step + .up-step::before {
+  content: "";
+  width: 22px;
+  height: 1px;
+  margin: 0 8px;
+  background: var(--line-strong);
+}
+
+.up-mark {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+}
+
+.up-step.is-now {
+  color: var(--info);
+  font-weight: 600;
+}
+
+.up-step.is-now .up-mark::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: sk-pulse 1s ease-in-out infinite;
+}
+
+.up-step.is-done {
+  color: var(--ok);
+}
+
+.up-step.is-done .up-mark,
+.up-step.is-failed .up-mark {
+  border-color: transparent;
+  background: currentColor;
+}
+
+.up-step.is-done .up-mark svg,
+.up-step.is-failed .up-mark svg {
+  color: var(--surface);
+}
+
+.up-step.is-failed {
+  color: var(--err);
+  font-weight: 600;
+}
+
+.up-msg {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.up-pct {
+  flex: none;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+}
+
+.up-bar {
+  width: 100%;
+}
+
+.up-bar > span {
+  background: var(--info);
+}
+
+.up-bar.is-done > span {
+  background: var(--ok);
+}
+
+.up-act {
+  grid-area: act;
+  align-self: start;
+}
+
+@container (max-width: 640px) {
+  .up-line,
+  .up-line.has-act {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "name act"
+      "track track";
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .up-step.is-now .up-mark::after {
+    animation: none;
+  }
 }

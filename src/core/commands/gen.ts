@@ -84,6 +84,10 @@ export const commands: Command[] = [
           "How many passages (docId#anchor) the run actually opened, read from its tool calls; the list is in .testimus/gen/<job>.json",
         ),
       costUsd: z.number().optional(),
+      tokens: z
+        .object({ input: z.number(), output: z.number() })
+        .optional()
+        .describe("Tokens the run used (input incl. cache)"),
       durationMs: z.number(),
       diagnosis: DIAGNOSIS.optional(),
     }),

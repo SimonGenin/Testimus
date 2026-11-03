@@ -7,6 +7,7 @@ import { message } from "../../lib/format.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 import { AddFolder } from "./models/AddFolder.tsx";
 import { AdviceBanner } from "./models/AdviceBanner.tsx";
+import { type Bench, BenchDialog, NO_SET } from "./models/BenchDialog.tsx";
 import { ConfirmDialog } from "./models/ConfirmDialog.tsx";
 import { CustomCard } from "./models/CustomCard.tsx";
 import type { AdviceRow, CatalogRow, Installed, Op, PackRow, RagStatus, SetDirOut, UsePackOut } from "./models/data.ts";
@@ -43,6 +44,9 @@ export function ModelsSection() {
   const [plan, setPlan] = useState<Plan | null>(null);
   const [removing, setRemoving] = useState<{ row: CatalogRow; inst: Installed } | null>(null);
   const [planning, setPlanning] = useState(false);
+  const [benches, setBenches] = useState<Record<string, Bench>>({});
+  const [benchOf, setBenchOf] = useState<string | null>(null);
+  const shownBench = useRef<string | null>(null);
   const table = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
@@ -89,6 +93,34 @@ export function ModelsSection() {
     [load, patchOp, dropOp],
   );
 
+  const followBench = useCallback(
+    (embedding: string, jobId: string, title: string) => {
+      const patch = (p: Partial<Bench>) =>
+        setBenches((b) => (b[embedding]?.jobId === jobId ? { ...b, [embedding]: { ...b[embedding], ...p } } : b));
+      setBenches((b) => ({ ...b, [embedding]: { jobId, status: "running", message: "Starting", pct: null } }));
+      waitJob(jobId, (e) => {
+        if (e.type === "progress") patch({ message: e.message, pct: pctOf(e.done, e.total) });
+      })
+        .then(() => {
+          patch({ status: "done" });
+          if (shownBench.current !== embedding) toast({ kind: "ok", title: `${title} measured` });
+        })
+        .catch((e) => {
+          const cancelled = !!(e as { cancelled?: boolean }).cancelled;
+          patch({ status: cancelled ? "cancelled" : "failed", error: message(e) });
+          if (!cancelled && shownBench.current !== embedding)
+            errorToast(
+              e,
+              NO_SET.test(message(e))
+                ? `${title}: no behavior set to measure against`
+                : `${title}: the measure stopped`,
+            );
+        })
+        .finally(() => void load());
+    },
+    [load],
+  );
+
   const trackIndex = useCallback(async () => {
     const running = await call<Job[]>("jobs.list", { running: true }).catch(() => [] as Job[]);
     const ix = (running ?? []).find((j) => j.kind === "rag-index");
@@ -116,6 +148,7 @@ export function ModelsSection() {
           else if (j.kind === "models-move" || j.kind === "models-copy")
             track(j.id, "dir", j.kind === "models-move" ? "Moving the models" : "Copying the models");
           else if (j.kind === "rag-index") track(j.id, "index", "Indexing the documents");
+          else if (j.kind === "rag-eval" && j.subject !== "eval") followBench(j.subject, j.id, j.subject);
         }
       })
       .catch(() => {});
@@ -123,6 +156,28 @@ export function ModelsSection() {
 
   const label = useCallback((id: string) => catalog?.find((c) => c.id === id)?.label ?? id, [catalog]);
   const cancel = (jobId: string) => call("jobs.cancel", { id: jobId }).catch((e) => errorToast(e, "Could not cancel"));
+
+  const showBench = (id: string | null, embedding: string | null) => {
+    shownBench.current = embedding;
+    setBenchOf(id);
+  };
+
+  const measure = async (row: PackRow) => {
+    const embedding = row.embedding;
+    if (!embedding) return;
+    showBench(row.id, embedding);
+    if (benches[embedding]?.status === "running") return;
+    setBenches((b) => ({ ...b, [embedding]: { jobId: "", status: "running", message: "Starting", pct: null } }));
+    try {
+      const out = await call<{ jobId: string }>("rag.eval", { embedding, reranker: row.reranker });
+      followBench(embedding, out.jobId, `${row.label} pack`);
+    } catch (e) {
+      setBenches((b) => ({
+        ...b,
+        [embedding]: { jobId: "", status: "failed", message: "", pct: null, error: message(e) },
+      }));
+    }
+  };
 
   const planPack = async (row: PackRow) => {
     setPlanning(true);
@@ -309,6 +364,7 @@ export function ModelsSection() {
   const busy = ops.some((o) => !GLOBAL_OPS.includes(o.key) || o.key === "dir") || planning;
   const globalOps = ops.filter((o) => GLOBAL_OPS.includes(o.key));
   const top = advice[0];
+  const benchPack = packs?.find((p) => p.id === benchOf) ?? null;
   const here = installed.length;
 
   return (
@@ -387,6 +443,8 @@ export function ModelsSection() {
               busy={busy}
               onUse={() => choosePack(p)}
               onCancel={cancel}
+              bench={p.embedding ? benches[p.embedding] : undefined}
+              onMeasure={() => void measure(p)}
             />
           ))}
           <CustomCard
@@ -467,6 +525,16 @@ export function ModelsSection() {
             setPlan(null);
             setFolder({ needMB: 0, next: () => void planPack(row) });
           }}
+        />
+      )}
+      {benchPack?.embedding && (
+        <BenchDialog
+          pack={benchPack}
+          bench={benches[benchPack.embedding]}
+          label={label}
+          onCancel={cancel}
+          onAgain={() => void measure(benchPack)}
+          onClose={() => showBench(null, null)}
         />
       )}
       {folder && (

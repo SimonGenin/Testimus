@@ -22,6 +22,10 @@ export const commands: Command[] = [
       answer: z.string(),
       sources: z.array(SOURCE),
       costUsd: z.number().optional(),
+      tokens: z
+        .object({ input: z.number(), output: z.number() })
+        .optional()
+        .describe("Tokens the run used (input incl. cache)"),
       diagnosis: z.object({ kind: z.string(), title: z.string(), detail: z.string() }).optional(),
     }),
     mutates: false,

@@ -170,8 +170,9 @@ Global settings (`%APPDATA%\Testimus\settings.json`): known project folders, las
 user's Atlassian skills (`xray-find`, `atlassian-import`, `comment-task`…): one set per user, read in
 place, never copied into a project or into Testimus' settings.
 
-- `%USERPROFILE%\.atlassian\credentials.json` — `{ "baseUrl": "https://<tenant>.atlassian.net/wiki",
-  "email", "token" }`. Jira base = `baseUrl` without its `/wiki` suffix; auth = HTTP Basic
+- `%USERPROFILE%\.atlassian\credentials.json` — `{ "baseUrl": "https://<tenant>.atlassian.net[/wiki]",
+  "email", "token" }` (`/wiki` only when the user typed it, or already there — Xray Editor's rule). Jira base =
+  `baseUrl` without its `/wiki` suffix; auth = HTTP Basic
   `email:token`.
 - `%USERPROFILE%\.atlassian\xray_credentials.json` — `{ "clientId", "clientSecret", "apiBase"? }`
   (`apiBase` defaults to `https://xray.cloud.getxray.app`). Auth = `POST {apiBase}/api/v2/authenticate`
@@ -776,7 +777,8 @@ stops at the first failure), plus:
 - Push safety (after the adversarial review, 2026-11): `xray.plan` returns a `planHash` (the ordered
   operations and `test.md`); `xray.push` requires it and refuses when it no longer matches, so the plan
   executed is the plan shown (a resume uses the kept plan's hash). One push per test at a time; the
-  create re-reads the local test first. A test changed in Jira is pushed only with `overwriteRemote`.
+  create re-reads the local test first. A test changed in Jira is pushed only with `overwriteRemote`; the push dialog sends it when the user confirms a
+  plan that shows « Changed in Jira since your pull » (no extra tick, as in Xray Editor).
   A cancel is honoured between operations (the one in flight finishes; the job is « cancelled » only when
   nothing ran after it). Attachments must be files inside `tests/<id>/`. An empty or space-containing
   `labelPrefix` falls back to `testimus-` with a warning. Direct CSV import saves the mapping once Xray
@@ -790,7 +792,7 @@ stops at the first failure), plus:
   `--output-format stream-json --verbose`, `--model`, `--effort`, `--permission-mode acceptEdits`,
   `--add-dir` for each attached context, `--mcp-config .mcp.json` and `--allowedTools` covering
   `mcp__testimus__*` (a project `.mcp.json` alone is not trusted in `-p` mode). Stream events are
-  forwarded to the UI as they come (tool calls, text, cost). Also `--strict-mcp-config` and
+  forwarded to the UI as they come (tool calls, text, tokens: `usage` input + cache creation + cache read, and output). Also `--strict-mcp-config` and
   `--tools Read,Edit,Write,Glob,Grep,Skill` (chat: Read, Glob, Grep, Skill only). Every run and
   `project.init` rewrite `.mcp.json` so it starts the same Testimus (the installed shim, or `node
   <checkout>/src/faces/cli.ts mcp` in development).
@@ -842,7 +844,7 @@ stops at the first failure), plus:
 
 Group | Verbs (all with `--json`; mutating ones marked *)
 ---|---
-`project` | `init`*, `info` (project.json + xray.json + field order + counts for the rail), `list`, `notes` (the project's CLAUDE.md), `setNotes`*, `set`* (patch project.json: names, language, label prefix, folders, rag keys incl. reference, queryTask, passageMaxChars, retrieval; requirementPatterns, requirementMatrix, glossary; Claude defaults), `open`* (last project)
+`project` | `init`*, `openKey`* (open or create by Jira key), `info` (project.json + xray.json + field order + counts for the rail), `list`, `notes` (the project's CLAUDE.md), `setNotes`*, `set`* (patch project.json: names, language, label prefix, folders, rag keys incl. reference, queryTask, passageMaxChars, retrieval; requirementPatterns, requirementMatrix, glossary; Claude defaults), `open`* (last project)
 `docs` | `add`* (copy + convert; a path, or an upload as base64 from the UI), `convert`*, `list`, `show`, `set`* (status, binding, supersededBy, amends, context…), `describeFigures`* (job, Claude), `remove`*
 `rag` | `index`* (job), `search` (mode hybrid · bm25 · vector; `expand`), `passage` (docId#anchor → text + figures + focus, capped), `figure`, `mentions` (every passage holding a term, no model), `related` (graph neighbours, no model), `eval` (job, L1), `compare` (reports → intervals), `status` (active model, space, freshness per document), `spaces`, `dropSpace`*
 `chat` | `ask` (job, streamed), `list`, `show`
@@ -879,21 +881,25 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
     test open) offers step N, whole test and whole project (`{kind:"project"}`); with no test the scope is the
     project, a focus change resets it to the test. Quick asks are chips that put their prompt in the box (editable,
     `aria-pressed`; typing clears it; the run is labelled « <scope> · <preset> »). Models fable · opus · sonnet ·
-    haiku · custom… (a typed alias), effort low…max, per run over the project defaults. « Context: » chips list the
+    haiku · custom… (a typed alias), effort low…max, per run over the project defaults (a new project: opus / high, as
+    in Xray Editor). « Context: » chips list the
     focused test's effective contexts (`contexts.ofTest`, the project defaults with no test), each a toggle for this
     run only, reset when the focused test changes; the run sends the effective list minus the ones switched off. Each
-    answer ends with « 12.3 s · $0.041 · opus / high · session … » (« no cost reported »); a seconds counter runs
-    beside Cancel; the folded dock shows « Last run: N s ». A failed run offers Retry (same prompt, scope, contexts,
+    answer ends with « 12.3 s · 24k tokens in · 1.2k out · opus / high · session … » (« no tokens reported »; on a
+    subscription the cost means nothing, so it is kept in the results but not shown); a seconds counter runs
+    beside Cancel; the folded dock shows « Last run: N s — <first line of the summary> ». On a test or the project the
+    dock shows the last run only (Xray Editor's result card): the request stays in the box, every run with a snapshot
+    gets its card (« 0 steps changed » too, with Revert), and the card goes when another test is opened; « Ask the
+    documents » stays a conversation. A failed run offers Retry (same prompt, scope, contexts,
     model, effort), Show / Hide raw output and Open Settings. Not connected: « Claude is optional — everything else
     works without it », « Set the path myself… » (Settings at the Claude program field), and a « not connected » chip
     on the folded dock. In the desktop app a pin toggle (« Always on top ») sits in the dock header.
   - **Contexts dialog** (Settings › Claude « Manage contexts… », and the test header's « Manage contexts… »): the list
     (name, « N files · N paths · notes »), « + New context », « Copy from another project… » (a known project, then
     one of its contexts: `contexts.copy`); a shared context reads « shared · … » in the list; the editor: « Shared with
-    every project » (`contexts.share`; the footer then reads « shared library · <id>/ » and Delete warns « for every
-    project »), Name and Notes (saved 400 ms after the last
+    every project » (`contexts.share`; the footer then reads « shared library · <id>/ »), Name and Notes (saved 400 ms after the last
     key, on blur, on switch and on close), Paths (typed + Add, « Browse folder… » in the desktop app, ✕; absolute
-    only), Files (uploaded through `contexts.addFile`, ✕), Delete context (inline confirmation). Every change fires the
+    only), Files (uploaded through `contexts.addFile`, ✕), Delete context (one click, as in Xray Editor; « Deleted for every project » as its tooltip on a shared one). Every change fires the
     window event `testimus:contexts`, on which the dock, Settings › Claude and the test header reload.
   - **Settings additions** (parity with Xray Editor §2, §8): a version pill `v<version>` beside the title; Settings ›
     Claude holds the Claude program field (Browse in the desktop app; Check saves it then runs `claude.status
@@ -902,9 +908,9 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
     place / added / removed by index, and default contexts as toggle chips by name. Settings › Access lists both
     credential files with their paths as found · valid / missing / invalid — <problem> (`credsStatus.invalid`,
     `problem`). The guided connection (first launch and Access): (1) site and email — a tenant name or any page URL is
-    reduced to the site root (`system.setup --site` does the same for an Atlassian page URL) and an `*.atlassian.net` site is
-    saved with `/wiki` (§2: the shared file keeps the form other Atlassian tools need; Jira calls drop it), any other
-    site is saved as its https root, a typed `/wiki` kept (`otherHost`; `system.setup --site` cleans up the same way), « Will be saved as <value> »; (2) « Open API tokens » with the
+    reduced to its https site root, a typed `/wiki` kept and nothing added (Xray Editor's rule; an unchanged site keeps
+    the spelling already in the file; a host outside atlassian.net is sent with `otherHost`; `system.setup --site`
+    cleans up the same way), « Will be saved as <value> »; (2) « Open API tokens » with the
     instructions (the plain token, not *with scopes*; longest expiry; shown only once); (3) the Xray key path « ⚙
     Settings → Apps → Xray → API Keys → Create API Key, for your own user », « Open Jira apps »
     (`<site>/plugins/servlet/upm`), « only a Jira admin sees that page »; secrets hidden until Show; « Saved in <dir> »
@@ -962,7 +968,19 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
     asks only for a changed or never-pushed copy); the sidebar has Xray Editor's two boxes — « Search Jira » (any text jumps to the Jira tab and asks Jira, a key or a number too) and « Filter tests » (narrows the local tests, the Jira folders and the listed Jira tests without asking Jira; Enter or « Search Jira for … » sends it to the first box); a failed reload on window focus is a toast; the
     « not a step field » push warning names only columns that hold something; files copied into a project (documents,
     context files) are written atomically too, and folders (a context copied or shared, a clone's images) are copied to
-    `<folder>.tmp` then renamed (`copyDirAtomic`). Every file the app owns under a project or the user's profile is
+    `<folder>.tmp` then renamed (`copyDirAtomic`). After a push Jira took but whose read-back failed, the toast says the local copy was not
+    refreshed and points to Download from Jira; Download and Restore step re-check a Claude run on confirm; Revert saves
+    the pending edit first; Jira folder loads and searches show in the activity indicator (no Cancel: they are not
+    jobs); a Claude run on a test or the project may start with an empty box (the scope and the house rules are the
+    request); a saved email, token, Client ID or secret emptied in the connection form is erased (`system.setup
+    --clear`); the Jira key is upper-cased as typed in Settings › Project; values typed in Settings › Claude and
+    Settings › Project are saved when Settings closes, not only on blur. « Show in Explorer » on a folder opens the folder (a file is shown
+    selected); a context path may be relative (read from the project folder, Claude's working directory); the Claude
+    program path is kept as typed even when it does not run (the status then says ✕ not found with the install guide;
+    only characters a command line would run are refused); a custom step value Xray returns without its column's name
+    is left out; the projects menu has « Open by Jira key… » (`project.openKey`: a known project with that key, else
+    a new project folder named after it beside the last one); while Jira or Xray access is incomplete the empty Tests
+    pane is the connection form (« Connect to Jira and Xray »). Every file the app owns under a project or the user's profile is
     written to `<file>.tmp` then renamed, the `.tmp` removed if the rename fails; a unit test fails on any other
     `writeFileSync` in `src/core` outside the model files and the mock. A cancelled Claude run that already changed files
     is shown like a finished one (changed steps marked, the editor reloaded, Revert offered). A 429 wait outside any job
@@ -1046,8 +1064,12 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
     into Xray (dryRun plan shown first; opens the first test). An answer that lands after the user left the screen
     navigates nowhere.
   - **Jobs** — list (kind, subject, progress, duration, result) and detail (live log from jobs.show + events, Cancel).
-  - **System check** — system.doctor rows as icon + word (OK / To do / Failed / Not checked / Info) with what to do;
-    « Check Claude sign-in » = doctor {claude:true}; the rail's status dot shows the last result.
+  - **System check** — system.doctor rows as icon + word (OK / To do / Failed / Not checked / Info). A row with an
+    `action` shows it as a button in place of the CLI fix text: the command runs (a job is followed to its end,
+    then the check runs again), or — when the user has a value to give — `models.setDir` opens the models folder
+    dialog, `models.add` the folder picker (Settings → Models in a browser), `system.setup` / `system.saveSettings`
+    / `models.usePack` open Settings → Access / Claude / Models. « Check Claude sign-in » (doctor {claude:true}) sits
+    in its row and keeps the words saying what to do beside it; the rail's status dot shows the last result.
   - **First launch (#/setup)** — shown once per session when the credential files are incomplete or no project is
     open: Access (system.setup prefilled, secrets never sent back, Test connection = setup with check), Project
     (project.list / project.open / project.init), then **Search pack** (`#/setup/pack`): the four packs with fit and
@@ -1071,7 +1093,15 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
       **Use anyway** and **Choose a lighter one** (the next lighter pack, or the largest smaller model that fits); « RAM
       too small » offers no Use anyway. Use this pack shows `models.usePack --dry-run` (models, downloads, folder,
       reindex, expected speed), then runs it and follows its jobs on the card (progress, Cancel); running model and
-      index jobs are picked up again when the screen opens. Below, « Model catalog » (folded): `models.catalog` +
+      index jobs are picked up again when the screen opens. Each pack card has « Measure » (« Measure again » once its
+      quality is measured; disabled, with the reason, until the pack's models are on this PC): a dialog starts
+      `rag.eval --embedding <variant's embedding> --reranker <its reranker | null>` and follows the job (progress,
+      « Cancel the measure » = `jobs.cancel`); closing the dialog leaves the job running (Jobs screen, « Measuring · n % »
+      on the card, a toast when it ends), the button reopens that job instead of starting another, and a running
+      `rag-eval` job of a catalog embedding is picked up when the screen opens. When it ends the cards are read again:
+      quality from the new report, speed from the eval's `embed.query` / `rerank` timings in the perf journal. Without a
+      behavior set the dialog says so, names `eval/behaviors.jsonl` and how it is drafted (Claude Code with the
+      rag-eval skill, confirmed line by line by a tester; provisional until then). Below, « Model catalog » (folded): `models.catalog` +
       `models.list` rows with state chip, size, fit chip, kind · tier · runtimes, where it is and the speed measured
       here; Install (`models.pull`), Use (`models.fit` on the pair, then `models.use`), Verify, Remove (after a
       confirmation saying what is deleted); « Add from a folder… » (`models.add`, Browse… in the desktop shell). The
@@ -1197,7 +1227,9 @@ step, and is told exactly what is missing when something is.
   §3 says, and checks it read-only (Jira `myself`, Xray authenticate). It is a command like any
   other: the UI shows it as its first-run screen, ported from Xray Editor's Settings credentials
   form.
-- **`system.doctor`**: one line per check, each with what to do when it fails:
+- **`system.doctor`**: one line per check, each with what to do when it fails (`fix`, CLI words) and, when one
+  command repairs it, that command as `action` (`label`, `command`, `input` without the value the user picks,
+  `value` = the one in place now):
   - native modules load;
   - `claude` found, its version, signed in (a minimal `claude -p` run);
   - Jira and Xray reachable and authenticated (read-only);
@@ -1206,7 +1238,8 @@ step, and is told exactly what is missing when something is.
     with < 10 GB free is a warning (`models.system`); the active embedding and reranker installed and verified
     (`model.embedding`, `model.reranker`); they fit together (`model.fit`, « RAM too small » fails); a model
     partly on the processor in the timings journal is a warning (`model.offload`); the active vector space
-    complete (`index.space`); the llama.cpp build (`llamacpp`, required when a model in use runs on llama.cpp);
+    complete (`index.space`); the llama.cpp build (`llamacpp`, a row only while a model in use runs on llama.cpp —
+    the GGUF runtime; absent otherwise);
   - disk space for the index; the proxy in use (`proxy`: fails when loopback calls would go through it).
 
   The UI runs it at first start and whenever a Claude or Jira call fails. Xray Editor's "Claude not

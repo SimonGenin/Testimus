@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
 import { readJson, readProject, writeJson } from "../lib/project.ts";
-import type { ChatSession, ClaudeEvent, Diagnosis, Effort, Source } from "../types.ts";
+import type { ChatSession, ClaudeEvent, Diagnosis, Effort, Source, Tokens } from "../types.ts";
 import { chatPrompt } from "./prompt.ts";
 import { runClaude } from "./run.ts";
 
@@ -61,6 +61,7 @@ export type AskResult = {
   answer: string;
   sources: Source[];
   costUsd?: number;
+  tokens?: Tokens;
   diagnosis?: Diagnosis;
 };
 
@@ -103,6 +104,7 @@ export async function ask(o: AskOpts): Promise<AskResult> {
     answer: res.ok ? answer : res.summary,
     sources: res.ok ? sourceRefs(answer) : [],
     costUsd: res.costUsd,
+    tokens: res.tokens,
     diagnosis: res.diagnosis,
   };
 }
