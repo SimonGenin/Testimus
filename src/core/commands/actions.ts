@@ -26,8 +26,8 @@ const id = z
   .regex(/^act-[\w-]+$/, "An action id: act-…")
   .describe("Action id (act-…)");
 
-const SUGGEST_MODEL = z.enum(ACTION_MODELS);
-const SUGGEST_EFFORT = z.enum(ACTION_EFFORTS);
+const SUGGEST_MODEL = z.enum(ACTION_MODELS).describe("haiku, sonnet or opus");
+const SUGGEST_EFFORT = z.enum(ACTION_EFFORTS).describe("low, medium, high or xhigh");
 
 const ACTION = z.object({
   id: z.string().describe("Action id"),
@@ -55,12 +55,12 @@ const ACTION = z.object({
   at: z.string().describe("When it was proposed"),
   last: z
     .object({
-      runId: z.string(),
-      ok: z.boolean(),
-      summary: z.string(),
-      at: z.string(),
-      model: z.string(),
-      effort: EFFORT,
+      runId: z.string().describe("The run, for claude.revert"),
+      ok: z.boolean().describe("Whether it finished"),
+      summary: z.string().describe("Claude's reply"),
+      at: z.string().describe("When it ended"),
+      model: z.string().describe("The model it ran with"),
+      effort: EFFORT.describe("The effort it ran with"),
     })
     .optional()
     .describe("The last run of the action"),
@@ -190,7 +190,7 @@ export const commands = [
       conversation: CONVERSATION,
     }),
     output: RESULT.extend({
-      action: ACTION,
+      action: ACTION.describe("The action after its run: done when the run finished, open otherwise"),
       changedFiles: z.array(z.string()).describe("Files other than tests the action changed, relative to the project"),
     }),
     mutates: true,

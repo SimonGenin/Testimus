@@ -34,11 +34,11 @@ export const commands = [
       note: z.string().optional().describe("What to fix, in the reviewer's words (required for to-fix)"),
     }),
     output: z.object({
-      id: z.string(),
+      id: z.string().describe("Test id"),
       review: REVIEW,
-      reviewNote: z.string().optional(),
-      reviewedBy: z.string().optional(),
-      reviewedAt: z.string().optional(),
+      reviewNote: z.string().optional().describe("The reviewer's note (to-fix)"),
+      reviewedBy: z.string().optional().describe("Who decided"),
+      reviewedAt: z.string().optional().describe("When"),
     }),
     mutates: true,
     positional: ["id", "decision"],
@@ -72,14 +72,16 @@ export const commands = [
         ),
     }),
     output: z.object({
-      tests: z.array(queueItem),
-      counts: z.object({
-        checked: z.number(),
-        toFix: z.number(),
-        draft: z.number(),
-        unchecked: z.number(),
-        validated: z.number().describe("Generated tests already validated (not in the default list)"),
-      }),
+      tests: z.array(queueItem).describe("The tests listed, in the order asked"),
+      counts: z
+        .object({
+          checked: z.number().describe("Generated tests checked, awaiting review"),
+          toFix: z.number().describe("Generated tests to fix"),
+          draft: z.number().describe("Generated drafts"),
+          unchecked: z.number().describe("Awaiting tests no check ran on"),
+          validated: z.number().describe("Generated tests already validated (not in the default list)"),
+        })
+        .describe("How many generated tests are in each state"),
     }),
     mutates: false,
     async run(ctx, input) {
@@ -102,16 +104,16 @@ export const commands = [
       semantic: z.boolean().default(true).describe("Re-check with the check-test skill too (default true)"),
     }),
     output: z.object({
-      ok: z.boolean(),
-      runId: z.string(),
-      summary: z.string(),
-      changedSteps: z.array(z.number()),
+      ok: z.boolean().describe("Whether Claude's fix run finished"),
+      runId: z.string().describe("The fix run, for claude.revert"),
+      summary: z.string().describe("Claude's reply"),
+      changedSteps: z.array(z.number()).describe("The steps the fix changed"),
       changedTests: z
         .array(z.string())
         .optional()
         .describe("Tests whose file changed (also when only the header did, so the editor reloads)"),
       review: REVIEW,
-      check: CHECK_FILE.nullable(),
+      check: CHECK_FILE.nullable().describe("The re-check, or the last check when the fix failed"),
       message: z.string().optional().describe("Why the test did not go back to checked (re-check failed or skipped)"),
       diagnosis: DIAGNOSIS.optional(),
     }),

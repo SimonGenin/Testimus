@@ -59,24 +59,24 @@ export const commands = [
     }),
     output: z.object({
       runId: z.string().describe("Claude run id — claude.revert removes the tests it wrote"),
-      ok: z.boolean(),
+      ok: z.boolean().describe("Whether the generation finished"),
       summary: z.string().describe("Claude's final reply"),
       tests: z.array(z.string()).describe("Ids of the new tests (review: draft, generated_by: this job)"),
       checks: z
         .array(
           z.object({
-            id: z.string(),
-            ok: z.boolean(),
-            review: z.string(),
-            errors: z.number(),
-            warnings: z.number(),
+            id: z.string().describe("Test id"),
+            ok: z.boolean().describe("False when its semantic check did not finish"),
+            review: z.string().describe("Its review state after the check"),
+            errors: z.number().describe("Errors found"),
+            warnings: z.number().describe("Warnings found"),
           }),
         )
         .describe("The check of each new test (empty with check: false)"),
       changed: z.array(z.string()).describe("Existing tests the run changed although it should not have"),
       discarded: z.array(z.string()).describe("Tests deleted before the run (discard: true)"),
       skipped: z
-        .array(z.object({ item: z.string(), why: z.string() }))
+        .array(z.object({ item: z.string().describe("What was asked"), why: z.string().describe("Why no test") }))
         .describe("What the request asked for that no test could be written for, and why"),
       reportFound: z.boolean().describe("Whether Claude's reply carried the gen-report block"),
       consulted: z
@@ -97,9 +97,9 @@ export const commands = [
       remaining: z
         .number()
         .describe("Planned tests not written (cancelled, or a failed run), also listed in skipped: resume writes them"),
-      costUsd: z.number().optional(),
+      costUsd: z.number().optional().describe("What the runs cost"),
       tokens: TOKENS.optional(),
-      durationMs: z.number(),
+      durationMs: z.number().describe("How long the generation took"),
       diagnosis: DIAGNOSIS.optional(),
     }),
     mutates: true,
@@ -123,16 +123,18 @@ export const commands = [
       effort: EFFORT.optional().describe("Effort level (default: low)"),
     }),
     output: z.object({
-      docs: z.array(
-        z.object({
-          docId: z.string(),
-          figures: z.number(),
-          described: z.number(),
-          missing: z.array(z.string()).describe("Figure anchors Claude gave no description for"),
-          runIds: z.array(z.string()),
-          costUsd: z.number(),
-        }),
-      ),
+      docs: z
+        .array(
+          z.object({
+            docId: z.string().describe("The document"),
+            figures: z.number().describe("Its figures"),
+            described: z.number().describe("Figures with a description now"),
+            missing: z.array(z.string()).describe("Figure anchors Claude gave no description for"),
+            runIds: z.array(z.string()).describe("The Claude runs"),
+            costUsd: z.number().describe("What they cost"),
+          }),
+        )
+        .describe("Each document looked at"),
     }),
     mutates: true,
     job: "describe-figures",

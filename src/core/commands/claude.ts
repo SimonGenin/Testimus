@@ -18,6 +18,24 @@ import { CONNECT, checkSignedIn, claudeExe, claudeVersion } from "../claude/stat
 import { command, projectOf } from "../command.ts";
 import { readProject } from "../lib/project.ts";
 
+const STATUS = z.object({
+  installed: z.boolean().describe("claude --version answered"),
+  version: z.string().optional().describe("Its version"),
+  exe: z.string().describe("The Claude program Testimus runs (the setting, or the one found on PATH)"),
+  signedIn: z.boolean().nullable().describe("Whether a tiny run worked; null when it was not tried (signIn not asked)"),
+  detail: z.string().describe("What claude said, first line"),
+  diagnosis: DIAGNOSIS.optional(),
+  connect: z
+    .array(
+      z.object({
+        title: z.string().describe("The step"),
+        cmd: z.string().describe("What to type"),
+        hint: z.string().describe("Where and how"),
+      }),
+    )
+    .describe("How to install Claude Code and sign in"),
+});
+
 export const commands = [
   command({
     name: "claude.run",
@@ -101,15 +119,7 @@ export const commands = [
         .describe("Also check the sign-in with a tiny real `claude -p` run (costs a few tokens)."),
       refresh: z.boolean().optional().describe("Ask `claude --version` again instead of the remembered answer."),
     }),
-    output: z.object({
-      installed: z.boolean(),
-      version: z.string().optional(),
-      exe: z.string(),
-      signedIn: z.boolean().nullable(),
-      detail: z.string(),
-      diagnosis: DIAGNOSIS.optional(),
-      connect: z.array(z.object({ title: z.string(), cmd: z.string(), hint: z.string() })),
-    }),
+    output: STATUS,
     mutates: false,
     global: true,
     async run(ctx, input) {

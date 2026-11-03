@@ -124,7 +124,11 @@ export const commands = [
     name: "check.show",
     summary: "The last check of a test (check.json) and whether it is stale (the test changed since).",
     input: z.object({ id: TEST_REF }),
-    output: z.object({ id: z.string(), check: CHECK_FILE.nullable(), stale: z.boolean() }),
+    output: z.object({
+      id: z.string().describe("Test id"),
+      check: CHECK_FILE.nullable().describe("Its last check, or null when it was never checked"),
+      stale: z.boolean().describe("The test changed since that check"),
+    }),
     mutates: false,
     positional: ["id"],
     async run(ctx, input) {
