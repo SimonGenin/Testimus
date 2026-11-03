@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { addDoc } from "../../src/core/lib/docs.ts";
+import { addDoc } from "../../src/core/lib/docs-convert.ts";
 import { sampleDocx } from "../fixtures/docx/sample.ts";
 
 function onePagePdf(): Uint8Array {
