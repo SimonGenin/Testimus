@@ -145,7 +145,7 @@ describe("the converters give the reference outputs", () => {
 
   it("png: gray, RGB and RGBA pictures", () => {
     const pngs = {
-      gray: sha(encodePng(2, 1, 0, new Uint8Array([0, 255]))),
+      gray: sha(encodePng(2, 1, 1, new Uint8Array([0, 255]))),
       rgb: sha(encodePng(2, 2, 3, new Uint8Array([255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255]))),
       rgba: sha(encodePng(1, 1, 4, new Uint8Array([1, 2, 3, 4]))),
     };
