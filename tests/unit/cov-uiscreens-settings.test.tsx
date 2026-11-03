@@ -46,7 +46,7 @@ describe("Settings screen", () => {
     expect(scroll).toHaveBeenCalledWith({ block: "start" });
     fireEvent.click(within(nav).getByRole("button", { name: "Access" }));
     expect(a.navigate).toHaveBeenCalledWith("settings", "access");
-    expect(screen.getByRole("region", { name: "Claude" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Connection to Claude" })).toBeInTheDocument();
     expect(screen.queryByText("Models stub")).not.toBeInTheDocument();
     expect(document.querySelector("#settings-access")).toBeNull();
   });

@@ -149,7 +149,6 @@ function QuickAsks({ presets, save }: { presets: Preset[]; save: (p: Preset[]) =
   useEffect(() => () => onUnmount.current(), []);
   return (
     <div className="formfield">
-      <span className="label">Quick asks</span>
       <div className="quickasks">
         {drafts.map((p, i) => (
           <div key={i} className="quickask">
@@ -258,82 +257,99 @@ export function ClaudeSection() {
 
   const save = (claude: Record<string, unknown>, what: string) => void saveProject({ claude }, app.refreshInfo, what);
   return (
-    <section className="card sect" id="settings-claude" aria-labelledby="s-claude">
-      <h2 id="s-claude" className="h sect-title">
-        Claude
-      </h2>
-      <ClaudeProgram s={s} setS={setS} />
-      <AgentsField s={s} setS={setS} />
+    <>
+      <section className="card sect" id="settings-claude" aria-labelledby="s-claude">
+        <h2 id="s-claude" className="h sect-title">
+          Connection to Claude
+        </h2>
+        <ClaudeProgram s={s} setS={setS} />
+        <AgentsField s={s} setS={setS} />
+      </section>
       {c && (
         <>
-          <div className="formgrid">
-            <div className="formfield">
-              <label className="label" htmlFor="set-model">
-                Default model
-              </label>
-              <div className="model-pick">
-                <ModelPicker
-                  id="set-model"
+          <section className="card sect" id="settings-claude-dock" aria-labelledby="s-claude-dock">
+            <h2 id="s-claude-dock" className="h sect-title">
+              Claude dock
+            </h2>
+            <div className="formgrid">
+              <div className="formfield">
+                <label className="label" htmlFor="set-model">
+                  Default model
+                </label>
+                <div className="model-pick">
+                  <ModelPicker
+                    id="set-model"
+                    className="field"
+                    value={c.model}
+                    onChange={(model) => save({ model }, "Model")}
+                  />
+                </div>
+              </div>
+              <div className="formfield">
+                <label className="label" htmlFor="set-effort">
+                  Default effort
+                </label>
+                <select
+                  id="set-effort"
                   className="field"
-                  value={c.model}
-                  onChange={(model) => save({ model }, "Model")}
-                />
+                  value={c.effort}
+                  onChange={(e) => save({ effort: e.target.value as Effort }, "Effort")}
+                >
+                  {EFFORTS.map((e) => (
+                    <option key={e} value={e}>
+                      {cap(e)}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
+            <span className="muted">Pre-selected in the Claude dock; each run can still change them.</span>
+          </section>
+          <section className="card sect" id="settings-claude-quickasks" aria-labelledby="s-claude-quickasks">
+            <h2 id="s-claude-quickasks" className="h sect-title">
+              Quick asks
+            </h2>
+            <QuickAsks presets={c.presets ?? []} save={(presets) => save({ presets }, "Quick asks")} />
+          </section>
+          <section className="card sect" id="settings-claude-contexts" aria-labelledby="s-claude-contexts">
+            <h2 id="s-claude-contexts" className="h sect-title">
+              Contexts
+            </h2>
             <div className="formfield">
-              <label className="label" htmlFor="set-effort">
-                Default effort
-              </label>
-              <select
-                id="set-effort"
-                className="field"
-                value={c.effort}
-                onChange={(e) => save({ effort: e.target.value as Effort }, "Effort")}
-              >
-                {EFFORTS.map((e) => (
-                  <option key={e} value={e}>
-                    {cap(e)}
-                  </option>
-                ))}
-              </select>
+              <span className="label">Default contexts — attached to every test that has no list of its own</span>
+              <fieldset className="presets plainset" aria-label="Default contexts">
+                {contexts?.map((x) => {
+                  const on = c.contexts.includes(x.id);
+                  return (
+                    <button
+                      key={x.id}
+                      type="button"
+                      className={cx("chip chip-btn", on && "chip-on")}
+                      aria-pressed={on}
+                      onClick={() =>
+                        save(
+                          { contexts: on ? c.contexts.filter((id) => id !== x.id) : [...c.contexts, x.id] },
+                          "Default contexts",
+                        )
+                      }
+                    >
+                      {x.name || x.id}
+                    </button>
+                  );
+                })}
+                {contexts && !contexts.length && <span className="muted">No context yet.</span>}
+              </fieldset>
+              <div>
+                <Button size="sm" onClick={() => setManaging(true)}>
+                  Manage contexts…
+                </Button>
+              </div>
+              <span className="muted">
+                A context is notes, copied files and outside paths Claude reads before it works (contexts/ in the
+                project).
+              </span>
             </div>
-          </div>
-          <span className="muted">Pre-selected in the Claude dock; each run can still change them.</span>
-          <QuickAsks presets={c.presets ?? []} save={(presets) => save({ presets }, "Quick asks")} />
-          <div className="formfield">
-            <span className="label">Default contexts — attached to every test that has no list of its own</span>
-            <fieldset className="presets plainset" aria-label="Default contexts">
-              {contexts?.map((x) => {
-                const on = c.contexts.includes(x.id);
-                return (
-                  <button
-                    key={x.id}
-                    type="button"
-                    className={cx("chip chip-btn", on && "chip-on")}
-                    aria-pressed={on}
-                    onClick={() =>
-                      save(
-                        { contexts: on ? c.contexts.filter((id) => id !== x.id) : [...c.contexts, x.id] },
-                        "Default contexts",
-                      )
-                    }
-                  >
-                    {x.name || x.id}
-                  </button>
-                );
-              })}
-              {contexts && !contexts.length && <span className="muted">No context yet.</span>}
-            </fieldset>
-            <div>
-              <Button size="sm" onClick={() => setManaging(true)}>
-                Manage contexts…
-              </Button>
-            </div>
-            <span className="muted">
-              A context is notes, copied files and outside paths Claude reads before it works (contexts/ in the
-              project).
-            </span>
-          </div>
+          </section>
         </>
       )}
       {managing && (
@@ -344,6 +360,6 @@ export function ClaudeSection() {
           }}
         />
       )}
-    </section>
+    </>
   );
 }
