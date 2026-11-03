@@ -1,4 +1,3 @@
-import { Fragment } from "react";
 import type { CheckFile, Source, SyncState, Test, XrayJson } from "../../../core/types.ts";
 import { RevertConflict } from "../../components/claude/RevertConflict.tsx";
 import {
@@ -6,30 +5,14 @@ import {
   Button,
   FindingCard,
   Icon,
-  RequirementChip,
   ReviewBadge,
   Severity,
   SyncBadge,
 } from "../../components/ui/index.ts";
-import { idsByKind, isRequirementField, splitIds } from "../../lib/fields.ts";
 import { plural } from "../../lib/format.ts";
-import { sourceOfId } from "../../lib/traces.ts";
 import { FindingSources, ReviewStep } from "./ReviewStep.tsx";
 
 export type Marks = { runId: string; steps: Set<number>; added: Set<number> };
-
-export function requirementsOf(test: Test): string[] {
-  const out: string[] = [];
-  for (const s of test.steps)
-    for (const [k, v] of Object.entries(s.fields))
-      if (isRequirementField(k)) for (const id of splitIds(v)) if (!out.includes(id)) out.push(id);
-  return out;
-}
-
-export const shortId = (first: string, id: string) => {
-  const cut = first.lastIndexOf("_");
-  return cut > 0 && id !== first && id.startsWith(first.slice(0, cut + 1)) ? `…${id.slice(cut)}` : id;
-};
 
 export function ReviewTest({
   test,
@@ -84,7 +67,6 @@ export function ReviewTest({
 }) {
   const findings = check?.findings ?? [];
   const whole = findings.filter((f) => !f.step || f.step > test.steps.length);
-  const kinds = idsByKind(test.steps);
   const allFolded = test.steps.every((_, i) => folded.has(i));
   return (
     <div className="rtest">
@@ -106,20 +88,7 @@ export function ReviewTest({
           </Button>
         </div>
         <h2 className="h rtest-title">{test.summary || "Untitled test"}</h2>
-        <div className="rtest-reqs">
-          {kinds.map((g) => (
-            <Fragment key={g.label}>
-              <span className="label">{g.label} ids</span>
-              {g.ids.map((r) => (
-                <span key={r} title={r}>
-                  <RequirementChip
-                    id={shortId(g.ids[0], r)}
-                    onClick={() => void sourceOfId(r).then((s) => s && onSelect(s, null))}
-                  />
-                </span>
-              ))}
-            </Fragment>
-          ))}
+        <div className="rtest-sub">
           <span className="muted">{plural(test.steps.length, "step")}</span>
           {!check && <Badge tone="neutral">Not checked yet</Badge>}
         </div>

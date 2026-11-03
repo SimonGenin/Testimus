@@ -314,8 +314,7 @@ describe("ReviewTest", () => {
     });
     render(<ReviewTest {...p} />);
     expect(screen.getByText("K-1")).toBeInTheDocument();
-    expect(screen.getByText("…_2")).toBeInTheDocument();
-    expect(screen.getByText("Requirement ids")).toBeInTheDocument();
+    expect(screen.queryByText("Requirement ids")).not.toBeInTheDocument();
     expect(screen.getAllByText("Whole test")).toHaveLength(2);
     fireEvent.click(screen.getByRole("button", { name: /D §1/ }));
     expect(p.onSelect).toHaveBeenCalledWith({ docId: "D", anchor: "§1", quote: "" }, null);

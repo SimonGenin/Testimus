@@ -19,23 +19,6 @@ const REQUIREMENT = /^(exigences?|requirements?|req)$/i;
 export const isRequirementField = (name: string) =>
   tracesNow() ? !!traceOfField(name) : REQUIREMENT.test(name.trim());
 
-// ponytail: the ids a test cites, one group per tracked kind, in the order of its steps
-export function idsByKind(steps: Step[]): { label: string; ids: string[] }[] {
-  const out: { label: string; ids: string[] }[] = [];
-  for (const s of steps)
-    for (const [k, v] of Object.entries(s.fields)) {
-      if (!isRequirementField(k)) continue;
-      const label = traceOfField(k)?.label ?? "Requirement";
-      let g = out.find((x) => x.label === label);
-      if (!g) {
-        g = { label, ids: [] };
-        out.push(g);
-      }
-      for (const id of splitIds(v)) if (!g.ids.includes(id)) g.ids.push(id);
-    }
-  return out.filter((g) => g.ids.length);
-}
-
 // ponytail: a local column is one the project keeps in test.md only — no Xray field has its id or its name
 export function localColumns(x: XrayJson): string[] {
   const ids = new Set(x.fields.map((f) => f.id));

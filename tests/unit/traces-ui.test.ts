@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TraceView } from "../../src/core/types.ts";
-import { idsByKind, isRequirementField, splitIds } from "../../src/ui/lib/fields.ts";
+import { isRequirementField, splitIds } from "../../src/ui/lib/fields.ts";
 import { exampleOf, handOff, setTraces, takeHandoff, traceOfField } from "../../src/ui/lib/traces.ts";
 
 const view = (id: string, label: string, field: string, patterns: string[]): TraceView => ({
@@ -31,25 +31,6 @@ describe("tracked ids in the UI", () => {
     expect(traceOfField("FIGURE")?.id).toBe("figure");
     setTraces([]);
     expect(isRequirementField("Exigence")).toBe(false);
-    setTraces(null);
-  });
-
-  it("groups the ids a test cites by tracked kind", () => {
-    const step = (fields: Record<string, string>) => ({ fields, sources: [], images: [] });
-    const steps = [
-      step({ Action: "a", Exigence: "EXI_A, EXI_B", Figure: "Figure 40" }),
-      step({ Exigence: "EXI_A", Figure: "" }),
-    ];
-    setTraces(null);
-    expect(idsByKind(steps)).toEqual([{ label: "Requirement", ids: ["EXI_A", "EXI_B"] }]);
-    setTraces([
-      view("requirement", "Exigence", "Exigence", ["EXI_\\w+"]),
-      view("figure", "Figure", "Figure", [String.raw`\bFigure \d+`]),
-    ]);
-    expect(idsByKind(steps)).toEqual([
-      { label: "Exigence", ids: ["EXI_A", "EXI_B"] },
-      { label: "Figure", ids: ["Figure 40"] },
-    ]);
     setTraces(null);
   });
 
