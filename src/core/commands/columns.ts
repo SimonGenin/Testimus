@@ -1,6 +1,8 @@
 import { z } from "zod";
+import { suggestColumns } from "../claude/columns.ts";
 import { type Command, command, projectOf } from "../command.ts";
 import { removeColumn, saveColumn, stepColumns } from "../lib/columns.ts";
+import { MODEL } from "./claude.ts";
 
 const column = z.object({
   name: z.string(),
@@ -47,5 +49,52 @@ export const commands: Command[] = [
     mutates: true,
     positional: ["name"],
     run: async (ctx, input) => removeColumn(projectOf(ctx), input.name),
+  }),
+  command({
+    name: "columns.suggest",
+    summary:
+      "Ask Claude what each step column should hold — it reads the columns, Xray's step fields, the tests, the documents and the contexts, and proposes descriptions or new local columns. Nothing is saved: apply a proposal with columns.save.",
+    input: z.object({
+      ask: z.string().default("").describe("What the team wants from the columns, in words; empty = review them all"),
+      contexts: z
+        .array(z.string().regex(/^[\w-]+$/))
+        .default([])
+        .describe("Saved contexts (contexts.list ids) to read, on top of the project's"),
+      model: MODEL.optional().describe("Model alias or name (default: project.json claude.model)"),
+    }),
+    output: z.object({
+      ok: z.boolean().describe("false when the run failed or gave no columns block"),
+      proposals: z
+        .array(
+          z.object({
+            name: z.string().describe("The column: an existing one, or a new local column"),
+            kind: z
+              .enum(["xray", "local", "new"])
+              .describe("xray: a step field of Xray; local: in test.md only; new: a local column to add"),
+            builtin: z.boolean().describe("Action, Data or Expected Result"),
+            current: z.string().nullable().describe("Its description today; null for a new column"),
+            description: z.string().describe("The proposed description; empty = Claude never fills the column"),
+            why: z.string().describe("Why, in one sentence, from what Claude read"),
+          }),
+        )
+        .describe("Only the columns Claude would change or add"),
+      summary: z.string().describe("Claude's reply"),
+      costUsd: z.number().optional(),
+      diagnosis: z.object({ kind: z.string(), title: z.string(), detail: z.string() }).optional(),
+    }),
+    mutates: false,
+    job: "columns",
+    positional: ["ask"],
+    subject: (i) => i.ask.slice(0, 60) || "Every column",
+    async run(ctx, input) {
+      return await suggestColumns({
+        project: projectOf(ctx),
+        ask: input.ask,
+        contexts: input.contexts,
+        model: input.model,
+        signal: ctx.signal,
+        onEvent: (e) => ctx.claude(e),
+      });
+    },
   }),
 ];

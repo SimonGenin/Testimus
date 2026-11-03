@@ -142,4 +142,4 @@ Answer in French. Plain words first; code on request.
 - `rag-eval` — building the question set and comparing retrieval settings.
 
 The runtime skills the app ships to every project live in `templates/project/.claude/skills/`
-(`generate-tests`, `check-test`, `fix-test`, `ask-docs`). Edit them there; they are product code.
+(`generate-tests`, `check-test`, `fix-test`, `ask-docs`, `define-columns`…). Edit them there; they are product code.

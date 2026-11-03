@@ -8,6 +8,7 @@ import { DEFAULT_PROJECT, writeJson, writeProject } from "../lib/project.ts";
 import { mockSpawnClaude } from "./claude.ts";
 import "./claude-actions.ts";
 import "./claude-check.ts";
+import "./claude-columns.ts";
 import "./claude-gen.ts";
 import { mockHttp } from "./jira.ts";
 import { mockModelsOptions, setupModelsMock } from "./models.ts";

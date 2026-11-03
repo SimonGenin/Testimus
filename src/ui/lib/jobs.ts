@@ -6,6 +6,7 @@ export const KIND: Record<string, string> = {
   generate: "Generate tests",
   fix: "Claude fix",
   check: "Check tests",
+  columns: "Define the columns",
   claude: "Claude request",
   "actions.triage": "Claude looks at problems",
   chat: "Ask the documents",

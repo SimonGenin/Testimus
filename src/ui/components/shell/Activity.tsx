@@ -28,6 +28,7 @@ const KIND: Record<string, [IconName, Tone]> = {
   generate: ["generate", "claude"],
   fix: ["claude", "claude"],
   check: ["claude", "claude"],
+  columns: ["claude", "claude"],
   claude: ["claude", "claude"],
   chat: ["claude", "claude"],
   "actions.triage": ["claude", "claude"],

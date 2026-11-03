@@ -885,3 +885,100 @@
   flex-wrap: wrap;
   gap: 10px;
 }
+
+.colclaude {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 4px 0 14px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--claude) 30%, var(--line));
+  border-radius: var(--radius);
+  background: var(--claude-bg);
+}
+
+.colclaude-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+
+.colclaude-head > svg {
+  color: var(--claude);
+  align-self: center;
+}
+
+.colclaude-title {
+  font-weight: 600;
+  color: var(--claude);
+}
+
+.colclaude-acts {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.colclaude-reading {
+  font-size: 13px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.colclaude-answer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.colclaude-said {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.colclaude-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.colclaude-prop {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.colclaude-prop p {
+  margin: 0;
+}
+
+.colclaude-prop .label {
+  margin-right: 6px;
+}
+
+.colclaude-was {
+  color: var(--ink-3);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--ink-3) 50%, transparent);
+}
+
+.colclaude-was .label {
+  display: inline-block;
+  text-decoration: none;
+}
+
+.colclaude-why {
+  font-size: 13px;
+}
