@@ -177,13 +177,13 @@ export function ImportScreen() {
       toast({
         kind: "ok",
         title: `${plural(r.written.length, "test")} imported`,
-        detail: "As Draft — check and review them.",
+        detail: "In the Local tab — written by your team, so no review needed.",
       });
       app.testsChanged();
       app.refreshInfo();
       if (r.written.length) {
         void call("check.run", { ids: r.written, semantic: false }).catch(() => {});
-        if (here.current) app.navigate("review", r.written[0]);
+        if (here.current) app.navigate("tests", r.written[0]);
       }
     } catch (e) {
       setFailure(e);
@@ -241,7 +241,7 @@ export function ImportScreen() {
 
   return (
     <div className="screen">
-      <ScreenHeader title="Import CSV" meta="Bring in tests made elsewhere, then review them here" />
+      <ScreenHeader title="Import CSV" meta="Bring in tests made elsewhere" />
       <div className="scroll">
         <div className="imp">
           <Steps at={importing ? 3 : at} />
@@ -418,9 +418,8 @@ export function ImportScreen() {
                       <span className="opt-title">Import locally</span> <span className="muted">— recommended</span>
                       <br />
                       <span className="muted">
-                        Tests arrive as Draft in{" "}
-                        <span className="mono">{folder.trim() || tests[0]?.folder || "/"}</span>, then go through the
-                        check and your review before Jira.
+                        Tests arrive in <span className="mono">{folder.trim() || tests[0]?.folder || "/"}</span>, in the
+                        Local tab: written by your team, they need no review before Jira.
                       </span>
                     </span>
                   </label>

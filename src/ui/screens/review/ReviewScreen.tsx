@@ -2,7 +2,7 @@ import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState }
 import type { CheckFile, Source, SyncState, Test } from "../../../core/types.ts";
 import { call, fileUrl, run } from "../../api.ts";
 import { ActionCount } from "../../components/claude/ActionCount.tsx";
-import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
+import { Activity } from "../../components/shell/Activity.tsx";
 import { docLink } from "../../components/sources/PassageView.tsx";
 import { Button, DragEdge, Icon, IconButton, Kbd, Severity, Skeleton } from "../../components/ui/index.ts";
 import { useActions } from "../../lib/actions.ts";
@@ -15,6 +15,7 @@ import { useSideWidth } from "../../lib/sideWidth.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 import { PushDialog } from "../tests/PushDialog.tsx";
 import { TestEditor } from "../tests/TestEditor.tsx";
+import { TestsTabs } from "../tests/TestsTabs.tsx";
 import { FixNote } from "./FixNote.tsx";
 import { type QueueCounts, type QueueFilter, type QueueItem, type QueueSort, ReviewQueue } from "./ReviewQueue.tsx";
 import { refKey } from "./ReviewStep.tsx";
@@ -333,20 +334,9 @@ export function ReviewScreen() {
   const selKey = sel ? refKey(sel.source) : "";
   const selIndex = sel ? stepSources.findIndex((s) => refKey(s.source) === selKey && s.step === sel.step) : -1;
   const running = !!data && app.claudeRunning === data.id;
-  const waiting = counts ? counts.checked + counts.toFix + counts.draft : 0;
 
   return (
     <div className="screen">
-      <ScreenHeader
-        title="Review"
-        meta={
-          counts
-            ? `${plural(waiting, "test")} waiting · ${counts.toFix} marked To fix${counts.unchecked ? ` · ${counts.unchecked} not checked yet` : ""}`
-            : undefined
-        }
-      >
-        <ActionCount actions={allActs.filter((a) => a.where.startsWith("test:"))} />
-      </ScreenHeader>
       <div
         className="review"
         style={
@@ -370,6 +360,22 @@ export function ReviewScreen() {
           onFolder={setFolder}
           onWithFindings={setWithFindings}
           onOpen={open}
+          head={
+            <div className="tside-head">
+              <TestsTabs
+                value="review"
+                local={
+                  app.info?.counts && counts
+                    ? Math.max(0, app.info.counts.tests - counts.checked - counts.toFix - counts.draft)
+                    : undefined
+                }
+                review={counts ? counts.checked + counts.toFix + counts.draft : undefined}
+              />
+              <span className="spacer" />
+              <ActionCount actions={allActs.filter((a) => a.where.startsWith("test:"))} />
+              <Activity />
+            </div>
+          }
         />
         <DragEdge className="queue-edge" label="Resize the review queue" {...queueEdge} />
         <nav className="queue-strip" aria-label="Review queue, folded">
@@ -420,13 +426,12 @@ export function ReviewScreen() {
                   <div className="review-empty">
                     <Icon name="review" size={40} />
                     <h2 className="h">Nothing to review</h2>
-                    <p className="muted">Generate tests or import a CSV: they come here once written and checked.</p>
+                    <p className="muted">
+                      Generated tests come here once written and checked, and go to the Local tab once validated.
+                    </p>
                     <div className="review-empty-actions">
                       <Button tone="primary" onClick={() => app.navigate("generate")}>
                         Generate tests
-                      </Button>
-                      <Button tone="quiet" onClick={() => app.navigate("import")}>
-                        Import a CSV
                       </Button>
                     </div>
                   </div>

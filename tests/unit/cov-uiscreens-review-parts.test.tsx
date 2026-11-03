@@ -165,7 +165,7 @@ describe("ReviewQueue", () => {
     const { rerender } = render(<ReviewQueue {...props({ items: null })} />);
     expect(screen.getByRole("status", { name: "Loading the queue" })).toBeInTheDocument();
     rerender(<ReviewQueue {...props()} />);
-    expect(screen.getByText(/Generated, imported and fixed tests land here/)).toBeInTheDocument();
+    expect(screen.getByText(/Generated tests land here once written/)).toBeInTheDocument();
     rerender(<ReviewQueue {...props({ withFindings: true })} />);
     expect(screen.getByText("No test matches these filters.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /With findings/ })).toBeInTheDocument();

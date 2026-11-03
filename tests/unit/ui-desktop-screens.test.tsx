@@ -186,7 +186,7 @@ describe("Import CSV", () => {
     fireEvent.click(screen.getByRole("button", { name: "Import 1 test locally" }));
     await waitFor(() => expect(named("xray.importCsv")).toHaveLength(2));
     expect(named("xray.importCsv")[1].input).toMatchObject({ mode: "local", file: "C:\\exports\\tests.csv" });
-    await waitFor(() => expect(a.navigate).toHaveBeenCalledWith("review", "local-1"));
+    await waitFor(() => expect(a.navigate).toHaveBeenCalledWith("tests", "local-1"));
   });
 
   it("a cancelled picker changes nothing; without the bridge the file input opens", async () => {

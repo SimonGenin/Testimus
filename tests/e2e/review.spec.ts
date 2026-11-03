@@ -11,7 +11,7 @@ const SUMMARY_LOCAL = "Sectionneur avec TK — manœuvre régulière";
 
 test("the queue lists what awaits review and filters by state", async ({ page }) => {
   await boot(page, "#/review");
-  await expect(page.getByRole("heading", { level: 1, name: "Review" })).toBeVisible();
+  await expect(queue(page).getByRole("tab", { name: /^Review/ })).toHaveAttribute("aria-selected", "true");
   const items = queue(page).getByRole("button", { name: /\/Traction\/Sectionneurs/ });
   await expect(items).toHaveCount(2);
   await expect(items.first()).toContainText("2 errors");

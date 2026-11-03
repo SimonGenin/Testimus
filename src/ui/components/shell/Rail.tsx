@@ -9,7 +9,6 @@ export const NAV: { id: Screen; label: string; icon: IconName }[] = [
   { id: "documents", label: "Documents", icon: "documents" },
   { id: "generate", label: "Generate", icon: "generate" },
   { id: "tests", label: "Tests", icon: "tests" },
-  { id: "review", label: "Review", icon: "review" },
   { id: "jobs", label: "Jobs", icon: "jobs" },
 ];
 
@@ -26,7 +25,7 @@ export function Rail({ counts }: { counts: Partial<Record<Screen, number>> }) {
           key={n.id}
           label={n.label}
           icon={n.icon}
-          current={at === n.id}
+          current={at === n.id || (n.id === "tests" && at === "review")}
           count={counts[n.id]}
           onClick={() => app.navigate(n.id)}
         />

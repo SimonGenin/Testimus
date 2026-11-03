@@ -124,6 +124,26 @@ describe("TestList helpers", () => {
     expect(root.folders[1].folders[0]).toMatchObject({ name: "Sub", path: "/Lot/Sub", total: 1 });
   });
 
+  it("lists hand-made tests and validated generated ones; the rest waits on the Review tab", () => {
+    const mixed = [
+      ref({ id: "hand", summary: "Hand draft" }),
+      ref({ id: "gen-ok", summary: "Generated validated", generated: true, review: "validated" }),
+      ref({ id: "gen-wait", summary: "Generated checked", generated: true, review: "checked" }),
+    ];
+    const { state } = list({ refs: mixed });
+    expect(screen.getByRole("button", { name: /^Hand draft/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Generated validated/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Generated checked/ })).toBeNull();
+    expect(screen.getByRole("tab", { name: "Local 2" })).toHaveAttribute("aria-selected", "true");
+    fireEvent.click(screen.getByRole("tab", { name: "Review 1" }));
+    expect(state.navigate).toHaveBeenCalledWith("review");
+    cleanup();
+    const { state: s2 } = list({ refs: [mixed[2]] });
+    expect(screen.getByText(/1 generated test waiting for review/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Open Review" }));
+    expect(s2.navigate).toHaveBeenCalledWith("review");
+  });
+
   it("knows a key or a bare number is a Jira question", () => {
     expect(isKeyQuery("LFRPS12-12")).toBe(true);
     expect(isKeyQuery(" 42 ")).toBe(true);

@@ -236,6 +236,13 @@ describe("GenActivity", () => {
     expect(screen.getByText(/Planned “Alarmes”/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Hide the 4 actions" }));
     expect(screen.queryByText(/Planned “Alarmes”/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "What Claude did" }));
+    expect(screen.queryByRole("heading", { name: "Got ready" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /raw log/ })).toBeNull();
+    const fold = screen.getByRole("button", { name: "What Claude did 6 phases" });
+    expect(fold).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(fold);
+    expect(screen.getByRole("heading", { name: "Got ready" })).toBeInTheDocument();
   });
 
   it("while running: the live phase, its pulse, the count against the plan; a failed doc lookup leaves the bar to scale", async () => {

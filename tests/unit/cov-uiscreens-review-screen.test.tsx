@@ -6,6 +6,7 @@ import type { Finding, Test, XrayJson } from "../../src/core/types.ts";
 import type { AppState, ClaudeRun } from "../../src/ui/lib/app.ts";
 import type { QueueItem } from "../../src/ui/screens/review/ReviewQueue.tsx";
 import { ReviewScreen } from "../../src/ui/screens/review/ReviewScreen.tsx";
+import { askedTab, clearAskedTab } from "../../src/ui/screens/tests/TestsTabs.tsx";
 import { clearToasts, mount } from "./cov-uiscreens-helpers.tsx";
 import { api, fakeFetch, named } from "./ui-desktop-helpers.tsx";
 
@@ -154,7 +155,7 @@ describe("Review screen", () => {
     routes();
     const { app: a } = show({ route: { screen: "documents" } });
     expect(await screen.findByRole("heading", { name: "Summary K-1" })).toBeInTheDocument();
-    expect(screen.getByText("3 tests waiting · 1 marked To fix · 1 not checked yet")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Review 3" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByText("Source of step 2")).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Passage D#§2" })).toBeInTheDocument();
     expect(screen.getByText("1 of 2 sources")).toBeInTheDocument();
@@ -215,16 +216,22 @@ describe("Review screen", () => {
     expect(await screen.findByText("This test could not be opened")).toBeInTheDocument();
   });
 
-  it("an empty queue offers to generate or import; a failed queue is reported", async () => {
+  it("an empty queue offers to generate; its tabs lead back to the list; a failed queue is reported", async () => {
     routes({ queue: [] });
     api.routes["review.queue"] = () => null;
     const { app: a } = show({ route: { screen: "review" } });
     expect(await screen.findByRole("heading", { name: "Nothing to review" })).toBeInTheDocument();
     expect(screen.getByText("0", { selector: ".queue-strip-pos" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Generate tests" }));
-    fireEvent.click(screen.getByRole("button", { name: "Import a CSV" }));
     expect(a.navigate).toHaveBeenCalledWith("generate");
-    expect(a.navigate).toHaveBeenCalledWith("import");
+    fireEvent.click(screen.getByRole("tab", { name: /^Review/ }));
+    expect(a.navigate).toHaveBeenLastCalledWith("review");
+    fireEvent.click(screen.getByRole("tab", { name: /^Jira/ }));
+    expect(a.navigate).toHaveBeenLastCalledWith("tests");
+    expect(askedTab()).toBe("jira");
+    clearAskedTab();
+    fireEvent.click(screen.getByRole("tab", { name: /^Local/ }));
+    expect(askedTab()).toBe("local");
     key("j");
     key("v");
     expect(named("review.set")).toHaveLength(0);
@@ -573,7 +580,7 @@ describe("Review screen", () => {
     api.routes["claude.status"] = () => ({ installed: false, signedIn: null });
     const { app: a } = show({ route: { screen: "review", arg: "L-1" } });
     await screen.findByRole("heading", { name: "Summary L-1" });
-    expect(screen.getByText("2 tests waiting · 1 marked To fix")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Review 2" })).toBeInTheDocument();
     const chip = screen.getAllByRole("button", { name: /W §0/ })[0];
     fireEvent.click(chip);
     expect(await screen.findByText("Source of the whole-test finding")).toBeInTheDocument();
