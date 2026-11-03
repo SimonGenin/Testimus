@@ -30,7 +30,7 @@ const PATHS: Rule[] = [
   ],
   [/^tests\/([^/]+)\/images\//, (m) => [["tests.show", { id: m[1] }]]],
   [
-    /^tests\/([^/]+)\/(local|claude|columns)\.json$/,
+    /^tests\/([^/]+)\/local\.json$/,
     (m) => [
       ["contexts.ofTest", { testId: m[1] }],
       ["tests.columns", { id: m[1] }],
@@ -75,7 +75,7 @@ const KINDS: Rule[] = [
   [/^search-index$/, () => [["search.all"]]],
   [/^generate$/, () => [["review.evidence"], ["review.queue"]]],
   [
-    /^(models-|pullModel)/,
+    /^models-/,
     () => [
       ["models.list"],
       ["models.catalog"],

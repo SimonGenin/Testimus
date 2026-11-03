@@ -60,7 +60,7 @@ src/core/lib/        testfile, table, adf, store, jira, sync (ported from Xray E
                      download, install, registry, resolve, perf, advice, quality, store, dir)
 src/core/rag/        convert* (docx/pdf/html/png → doc.md + figures), chunk, embed, models (profiles),
                      db, indexer, search/ (lexical, vector, hybrid, passage), runtimes/ (transformers,
-                     llamacpp, llama-server), statements, graph, related, mentions, glossary,
+                     llamacpp, llama-server), graph, related, mentions, glossary,
                      stem-fr, fingerprint, activation (vector spaces), eval, bench, compare;
                      inspect (docs.inspect: the profile of an original), pdf (pages drawn: figures, docs.page)
 src/core/search/     search.all (Ctrl K, the tests list): query (filters), match (accents, French
@@ -95,7 +95,7 @@ tests/unit/          vitest (desktop/ for the shell); tests/e2e/ playwright (des
   `serve` and talks to `/api`. Its bridge (`window.testimusDesktop`) carries presentation only
   (pickers, paths, reveal, progress, notifications) and every screen must work without it (browser mode).
 - **Files are the state.** A project folder is a Claude Code project (SPEC §3). `test.md`,
-  `doc.json`, `context.md`, `project.json`, `xray.json` are the truth; `index/`, `.testimus/`,
+  `doc.json`, `context.md`, `project.json`, `columns.json` are the truth (`xray.json` is Xray's step schema, fetched); `index/`, `.testimus/`,
   `check.json`, `.remote.md` are derived or managed and can be rebuilt or compared, never hand-edited.
 - **Sources are data, not decoration.** A claim's source is `docId#anchor "quote"`; the quote must be
   findable verbatim in `doc.md`. Anchors are stable across reconversion — never number them by
