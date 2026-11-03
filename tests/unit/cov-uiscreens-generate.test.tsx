@@ -3,7 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { DocRef, Job, JobEvent, LocalTestRef, Test } from "../../src/core/types.ts";
+import type { CheckFile, DocRef, Job, JobEvent, LocalTestRef, Test } from "../../src/core/types.ts";
 import type { AppState } from "../../src/ui/lib/app.ts";
 import { type DocScope, flip, ownText, parents, scopeOf, tick } from "../../src/ui/lib/scope.ts";
 import { handOff, setTraces } from "../../src/ui/lib/traces.ts";
@@ -20,7 +20,7 @@ import {
   RunHead,
 } from "../../src/ui/screens/generate/GenResult.tsx";
 import { clearToasts, mount } from "./cov-uiscreens-helpers.tsx";
-import { api, app, FakeEventSource, fakeFetch, named } from "./ui-desktop-helpers.tsx";
+import { api, app, FakeEventSource, fakeFetch, named, xray } from "./ui-desktop-helpers.tsx";
 
 beforeEach(() => {
   fakeFetch();
@@ -113,26 +113,90 @@ describe("Generate › result helpers", () => {
   });
 
   it("GenCard: placeholders while writing or loading", () => {
-    render(<GenCard item={{ id: "x" }} writing checking={false} onOpen={vi.fn()} />);
+    render(<GenCard item={{ id: "x" }} writing checking={false} xray={xray} onOpen={vi.fn()} onSource={vi.fn()} />);
     expect(screen.getByRole("status", { name: "Claude is writing a test" })).toHaveTextContent("Writing…");
     cleanup();
-    render(<GenCard item={{ id: "x" }} writing={false} checking={false} onOpen={vi.fn()} />);
+    render(
+      <GenCard item={{ id: "x" }} writing={false} checking={false} xray={xray} onOpen={vi.fn()} onSource={vi.fn()} />,
+    );
     expect(screen.getByRole("status", { name: "Loading a test" })).toHaveTextContent("Loading…");
   });
 
-  it("GenCard: findings from the check, then from the test list, and no id chips", () => {
+  it("GenCard: the steps are shown open, fold, and open in Review", () => {
     const onOpen = vi.fn();
-    const t = test("", [{ Exigence: "EXI_A_1, EXI_A_2" }, { Exigence: "OTHER_9" }]);
+    const onSource = vi.fn();
+    const t = test("Tournois", [{ Action: "Lancer le tournoi", "Expected Result": "Le tableau s'affiche" }]);
+    t.steps[0].sources = [{ docId: "D1", anchor: "§1", quote: "q" }];
+    const check: CheckFile = {
+      at,
+      testHash: "h",
+      findings: [
+        { kind: "quote-not-found", severity: "error", message: "Quote absent", sources: [], step: 1 },
+        { kind: "source-missing", severity: "warning", message: "Nothing on the goal", sources: [] },
+      ],
+    };
+    render(
+      <GenCard
+        item={{ id: "x", test: t, check }}
+        writing={false}
+        checking={false}
+        xray={xray}
+        onOpen={onOpen}
+        onSource={onSource}
+      />,
+    );
+    const card = screen.getByRole("region", { name: "Tournois" });
+    expect(card).toHaveTextContent("Lancer le tournoi");
+    expect(card).toHaveTextContent("Le tableau s'affiche");
+    expect(card).toHaveTextContent("Quote absent");
+    expect(card).toHaveTextContent("Nothing on the goal");
+    fireEvent.click(screen.getByRole("button", { name: /D1/ }));
+    expect(onSource).toHaveBeenCalledWith(expect.objectContaining({ docId: "D1", anchor: "§1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Fold step 1" }));
+    expect(screen.getByRole("button", { name: "Expand step 1" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Expand step 1" }));
+    expect(screen.getByRole("button", { name: "Fold step 1" })).toBeInTheDocument();
+    const toggle = screen.getByRole("button", { name: "Tournois" });
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(card).not.toHaveTextContent("Lancer le tournoi");
+    fireEvent.click(screen.getByRole("button", { name: "Open in Review" }));
+    expect(onOpen).toHaveBeenCalled();
+    cleanup();
+    render(
+      <GenCard
+        item={{ id: "x", test: test("Vide", []) }}
+        writing={false}
+        checking={false}
+        xray={xray}
+        onOpen={onOpen}
+        onSource={onSource}
+      />,
+    );
+    expect(screen.getByText("This test has no steps yet.")).toBeInTheDocument();
+  });
+
+  it("GenCard: findings from the check, then from the test list", () => {
+    const onOpen = vi.fn();
+    const t = test("", []);
     const show = (props: Partial<Parameters<typeof GenCard>[0]>) => {
       cleanup();
-      render(<GenCard item={{ id: "x", test: t }} writing={false} checking={false} onOpen={onOpen} {...props} />);
+      render(
+        <GenCard
+          item={{ id: "x", test: t }}
+          writing={false}
+          checking={false}
+          xray={xray}
+          onOpen={onOpen}
+          onSource={vi.fn()}
+          {...props}
+        />,
+      );
     };
     show({ check: { id: "x", ok: false, review: "to-fix", errors: 2, warnings: 0 } });
     expect(screen.getByText("Untitled test")).toBeInTheDocument();
     expect(screen.getByText("2 errors")).toBeInTheDocument();
-    expect(screen.queryByText("OTHER_9")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button"));
-    expect(onOpen).toHaveBeenCalled();
     show({ check: { id: "x", ok: false, review: "draft", errors: 0, warnings: 1 } });
     expect(screen.getByText("1 warning")).toBeInTheDocument();
     show({ check: { id: "x", ok: true, review: "checked", errors: 0, warnings: 0 } });
@@ -145,7 +209,7 @@ describe("Generate › result helpers", () => {
       show({
         item: {
           id: "x",
-          test: test("T"),
+          test: test("T", []),
           ref: ref("x", { findings: { errors: 0, warnings: 0, infos: 0, stale: false, ...f } }),
         },
       });
@@ -437,7 +501,7 @@ describe("Generate screen", () => {
     expect(screen.getByText("Project default: Claude-x / medium")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Generate again" })).toBeInTheDocument();
     expect(a.testsChanged).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: /Premier/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Open in Review" }));
     expect(a.navigate).toHaveBeenCalledWith("review", "local-aaaaaaaa");
     fireEvent.click(screen.getByRole("button", { name: "Review these tests" }));
     expect(a.navigate).toHaveBeenCalledTimes(2);

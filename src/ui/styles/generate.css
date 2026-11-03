@@ -83,15 +83,42 @@
 }
 
 .gcard {
+  border-bottom: 1px solid var(--line);
+}
+
+.gcard:last-child {
+  border-bottom: 0;
+}
+
+.gcard-wait {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-rows: auto auto;
   gap: 6px 16px;
   align-items: center;
-  width: 100%;
   padding: 14px 18px;
+}
+
+.gcard-wait > .badge {
+  justify-self: end;
+}
+
+.gcard-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px 10px 10px;
+}
+
+.gcard-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
   border: 0;
-  border-bottom: 1px solid var(--line);
+  border-radius: var(--radius);
   background: transparent;
   color: var(--ink);
   font: inherit;
@@ -99,12 +126,13 @@
   cursor: pointer;
 }
 
-button.gcard:hover {
+.gcard-toggle:hover {
   background: var(--surface-2);
 }
 
-.gcard:last-child {
-  border-bottom: 0;
+.gcard-toggle > svg {
+  flex: none;
+  color: var(--ink-3);
 }
 
 .gcard-title {
@@ -118,8 +146,11 @@ button.gcard:hover {
   flex-wrap: wrap;
 }
 
-.gcard > .badge {
-  justify-self: end;
+.gcard-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 18px 18px;
 }
 
 .reqpick {

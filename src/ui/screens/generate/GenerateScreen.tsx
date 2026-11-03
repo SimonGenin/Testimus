@@ -1,6 +1,7 @@
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
 import {
   awaitsReview,
+  type CheckFile,
   type DocRef,
   type Effort,
   type Job,
@@ -125,15 +126,21 @@ export function GenerateScreen() {
     const there = want.filter((id) => refs.some((r) => r.id === id));
     const shows = await Promise.all(
       there.map((id) =>
-        call<{ test: Test }>("tests.show", { id })
-          .then((r) => [id, r.test] as const)
-          .catch(() => [id, undefined] as const),
+        call<{ test: Test; check?: CheckFile | null }>("tests.show", { id })
+          .then((r) => [id, r.test, r.check] as const)
+          .catch(() => [id, undefined, undefined] as const),
       ),
     );
     setLanded((cur) => {
       const next = { ...cur };
-      for (const [id, test] of shows)
-        if (test || all) next[id] = { id, test: test ?? cur[id]?.test, ref: refs.find((r) => r.id === id) };
+      for (const [id, test, check] of shows)
+        if (test || all)
+          next[id] = {
+            id,
+            test: test ?? cur[id]?.test,
+            ref: refs.find((r) => r.id === id),
+            check: test ? check : cur[id]?.check,
+          };
       return next;
     });
   }, []);
@@ -385,7 +392,9 @@ export function GenerateScreen() {
                       check={checkOf(id)}
                       writing={running && i === ids.length - 1}
                       checking={running && i < ids.length - 1}
+                      xray={app.xray}
                       onOpen={() => app.navigate("review", id)}
+                      onSource={app.openSource}
                     />
                   ))}
                 </section>

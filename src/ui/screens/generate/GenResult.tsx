@@ -1,7 +1,10 @@
-import type { Job, JobEvent, LocalTestRef, Review, Test } from "../../../core/types.ts";
-import { Button, ReviewBadge, Severity, Skeleton } from "../../components/ui/index.ts";
+import { useState } from "react";
+import type { CheckFile, Job, JobEvent, LocalTestRef, Review, Source, Test, XrayJson } from "../../../core/types.ts";
+import { fileUrl } from "../../api.ts";
+import { Button, FindingCard, Icon, ReviewBadge, Severity, Skeleton } from "../../components/ui/index.ts";
 import { plural } from "../../lib/format.ts";
 import { duration } from "../../lib/jobs.ts";
+import { FindingSources, ReviewStep } from "../review/ReviewStep.tsx";
 
 export type GenCheck = { id: string; ok: boolean; review: string; errors: number; warnings: number };
 
@@ -19,7 +22,7 @@ export type GenOutput = {
   diagnosis?: { kind: string; title: string; detail: string };
 };
 
-export type Landed = { id: string; test?: Test; ref?: LocalTestRef };
+export type Landed = { id: string; test?: Test; ref?: LocalTestRef; check?: CheckFile | null };
 
 const writingOf = (m: string) => m.match(/Writing (local-[0-9a-f]{8})/i)?.[1]?.toLowerCase();
 
@@ -72,18 +75,24 @@ export function GenCard({
   check,
   writing,
   checking,
+  xray,
   onOpen,
+  onSource,
 }: {
   item: Landed;
   check?: GenCheck;
   writing: boolean;
   checking: boolean;
+  xray: XrayJson;
   onOpen: () => void;
+  onSource: (s: Source) => void;
 }) {
+  const [open, setOpen] = useState(true);
+  const [folded, setFolded] = useState<Set<number>>(new Set());
   if (!item.test)
     return (
       <div
-        className="gcard"
+        className="gcard gcard-wait"
         role="status"
         aria-busy="true"
         aria-label={writing ? "Claude is writing a test" : "Loading a test"}
@@ -96,15 +105,62 @@ export function GenCard({
         <Skeleton w={70} h={20} r={10} />
       </div>
     );
+  const test = item.test;
+  const title = test.summary || "Untitled test";
+  const findings = item.check?.findings ?? [];
+  const stale = !!item.ref?.findings?.stale;
+  const url = (file: string) => fileUrl(`tests/${item.id}/${file}`);
+  const fold = (i: number, f: boolean) =>
+    setFolded((cur) => {
+      const next = new Set(cur);
+      if (f) next.add(i);
+      else next.delete(i);
+      return next;
+    });
   return (
-    <button type="button" className="gcard" onClick={onOpen}>
-      <span className="gcard-title">{item.test.summary || "Untitled test"}</span>
-      <Findings refItem={item.ref} check={check} checking={checking} />
-      <span className="gcard-meta">
-        <span className="muted">{plural(item.test.steps.length, "step")}</span>
-      </span>
-      <ReviewBadge review={(check?.review ?? item.ref?.review ?? item.test.review) as Review} small />
-    </button>
+    <section className="gcard" aria-label={title}>
+      <div className="gcard-head">
+        <button type="button" className="gcard-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
+          <Icon name={open ? "down" : "right"} />
+          <span className="gcard-title">{title}</span>
+        </button>
+        <span className="muted">{plural(test.steps.length, "step")}</span>
+        <Findings refItem={item.ref} check={check} checking={checking} />
+        <ReviewBadge review={(check?.review ?? item.ref?.review ?? test.review) as Review} small />
+        <Button size="sm" tone="quiet" icon="right" onClick={onOpen}>
+          Open in Review
+        </Button>
+      </div>
+      {open && (
+        <div className="gcard-body">
+          {findings
+            .filter((f) => !f.step || f.step > test.steps.length)
+            .map((f, i) => (
+              <FindingCard key={i} finding={f} stale={stale} scope="Whole test">
+                <FindingSources finding={f} selected="" onSelect={onSource} />
+              </FindingCard>
+            ))}
+          {test.steps.map((s, i) => (
+            <ReviewStep
+              key={i}
+              n={i + 1}
+              step={s}
+              xray={xray}
+              findings={findings.filter((f) => f.step === i + 1)}
+              stale={stale}
+              folded={folded.has(i)}
+              active={false}
+              selected=""
+              url={url}
+              onFold={(f) => fold(i, f)}
+              onSelect={(s) => onSource(s)}
+              onOpenImage={(file) => window.open(url(file), "_blank")}
+            />
+          ))}
+          {!test.steps.length && <p className="muted">This test has no steps yet.</p>}
+        </div>
+      )}
+    </section>
   );
 }
 
