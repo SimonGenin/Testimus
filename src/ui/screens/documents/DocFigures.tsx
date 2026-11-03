@@ -22,7 +22,7 @@ const styles = stylex.create({
   },
   grid: {
     display: "grid",
-    gridTemplateColumns: `repeat(auto-fill, minmax(${size.thumbLarge}, 1fr))`,
+    gridTemplateColumns: `repeat(auto-fill, minmax(${size.menuMax}, 1fr))`,
     gap: space.s4,
     margin: 0,
     padding: 0,
@@ -39,6 +39,7 @@ const styles = stylex.create({
     borderRadius: radius.r3,
     backgroundColor: color.surface,
     minWidth: 0,
+    overflow: "hidden",
   },
   img: {
     display: "flex",
