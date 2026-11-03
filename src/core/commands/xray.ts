@@ -255,7 +255,7 @@ export const commands: Command[] = [
       const project = projectOf(ctx);
       const info = await projectInfo(project);
       const fields = await getStepFields(info.id);
-      const next = { ...followXray(project, readXray(project), fields), fetchedAt: env.now().toISOString() };
+      const next = { ...followXray(readXray(project), fields), fetchedAt: env.now().toISOString() };
       writeXray(project, next);
       return next;
     },
@@ -617,7 +617,7 @@ export const commands: Command[] = [
         .record(z.string(), z.string())
         .optional()
         .describe(
-          "Column → target: a step field name (Action, Expected Result, Exigence…) or #step, #summary, #description, #folder, #labels, #ignore. Unmapped columns are guessed.",
+          "Column → target: a step field name (Action, Expected Result, a smart column…) or #step, #summary, #description, #folder, #labels, #ignore. Unmapped columns are guessed.",
         ),
       folder: z.string().optional().describe("Xray folder of the imported tests when the CSV has no folder column"),
       dryRun: z

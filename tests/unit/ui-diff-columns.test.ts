@@ -66,13 +66,13 @@ const xray: XrayJson = {
 };
 
 describe("columns", () => {
-  it("kinds: blocks for the built-ins, requirement chips, line, text, read-only; unknown names marked", () => {
+  it("kinds: blocks for the built-ins, line, text, read-only; unknown names marked", () => {
     const cols = columnsOf(xray, { fields: { Autre: "x" }, sources: [], images: [] });
     expect(cols.map((c) => [c.name, c.kind, c.known])).toEqual([
       ["Action", "blocks", true],
       ["Data", "blocks", true],
       ["Expected Result", "blocks", true],
-      ["Exigence", "requirements", true],
+      ["Exigence", "line", true],
       ["Note", "text", true],
       ["Flag", "readonly", true],
       ["Autre", "text", false],

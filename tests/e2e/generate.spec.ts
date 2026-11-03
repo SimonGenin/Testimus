@@ -15,7 +15,7 @@ test("a request runs live, the tests land, and « Review these tests » opens th
   await request.getByRole("button", { name: "Select none" }).click();
   await expect(request.getByRole("button", { name: "Generate" })).toBeDisabled();
   await request.getByRole("button", { name: "Select all" }).click();
-  await expect(request.getByRole("list", { name: "Step columns" }).getByText("Exigence")).toBeVisible();
+  await expect(request.getByRole("list", { name: "Smart columns" }).getByText("Exigence")).toBeVisible();
   await expect(result.getByRole("heading", { name: "Tests appear here as Claude writes them" })).toBeVisible();
   await shoot(page, "generate");
 
@@ -42,7 +42,7 @@ test("a request runs live, the tests land, and « Review these tests » opens th
   await shoot(page, "generate-running");
 
   await expect(result.getByRole("heading", { name: "2 tests written", exact: true })).toBeVisible({ timeout: 20_000 });
-  await expect(result.getByText("Not covered")).toBeVisible();
+  await expect(result.getByText("Skipped")).toBeVisible();
   await expect(result.getByText(/sectionneur avec TK/).first()).toBeVisible();
   const landed = result.getByRole("button", { name: /^Sectionneur (sans|avec) TK/ });
   await expect(landed).toHaveCount(2);

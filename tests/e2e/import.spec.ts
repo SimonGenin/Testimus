@@ -51,8 +51,6 @@ test("the team's CSV is mapped, previewed with its warning, and imported as loca
   await expect(main.getByRole("article")).toHaveCount(5);
   await expect(main.getByText("Draft", { exact: true })).toBeVisible();
   await expect(
-    main.getByRole("article", { name: "Step 1", exact: true }).getByRole("button", {
-      name: "Remove requirement EXI_MOP_SPF_510_A_20",
-    }),
-  ).toBeVisible();
+    main.getByRole("article", { name: "Step 1", exact: true }).getByRole("textbox", { name: "Exigence of step 1" }),
+  ).toHaveValue(/EXI_MOP_SPF_510_A_20/);
 });

@@ -1,6 +1,14 @@
 import type { DatabaseSync } from "node:sqlite";
 import { describe, expect, it } from "vitest";
-import { approxTokens, docFigures, MAX_TOKENS, markerLine, sectionAt, sectionPath } from "../../src/core/rag/chunk.ts";
+import {
+  approxTokens,
+  chunkDoc,
+  docFigures,
+  MAX_TOKENS,
+  markerLine,
+  sectionAt,
+  sectionPath,
+} from "../../src/core/rag/chunk.ts";
 import { anchorsOf, extOf, guessDate, guessTitle, slug, uniqueKey } from "../../src/core/rag/convert.ts";
 import {
   cleanSpaces,
@@ -15,7 +23,6 @@ import {
 import { encodePng, unpackGray1 } from "../../src/core/rag/convert-png.ts";
 import { fingerprintOf, legacySpace, modelIdentity, spaceOf } from "../../src/core/rag/fingerprint.ts";
 import type { CatalogEntry, DocJson, ResolvedModel } from "../../src/core/types.ts";
-import { chunkDoc } from "./ratp.ts";
 
 describe("convert helpers", () => {
   it("numbers a key that is already taken", () => {
@@ -46,10 +53,9 @@ describe("convert helpers", () => {
     expect(guessTitle(["Projet X", "Cahier des charges"])).toBe("Cahier des charges");
   });
 
-  it("lists anchors and ignores page markers", () => {
+  it("lists anchors and ignores page markers and other comments", () => {
     expect(anchorsOf("<!-- page 1 --> <!-- § 2 --> <!-- req R1 --> <!-- fig 3 -->")).toEqual({
       sections: ["2"],
-      requirements: ["R1"],
       figures: ["3"],
     });
   });
@@ -145,8 +151,8 @@ describe("chunks", () => {
     expect(sectionPath("intro")).toBe("intro");
     expect(sectionPath("1.2")).toBe("1 > 1.2");
     expect(approxTokens("abcde")).toBe(2);
-    expect(markerLine("a\n<!-- req X -->", "req", "X")).toBe(1);
-    expect(markerLine("a", "fig", "1")).toBe(-1);
+    expect(markerLine("a\n<!-- fig 1 -->", "1")).toBe(1);
+    expect(markerLine("a\n<!-- req 1 -->", "1")).toBe(-1);
     expect(sectionAt([], -1)).toBeUndefined();
   });
 
@@ -189,30 +195,25 @@ describe("chunks", () => {
     for (const c of two) expect(c.text.startsWith("| A | B |\n| --- | --- |")).toBe(true);
   });
 
-  it("gives matrix rows their traced section, their holder or nothing, and figures outside sections the doc header", () => {
+  it("keeps a table in its section's chunk, drops other comments from the text, and heads a figure outside sections with the doc", () => {
     const md = [
       "![Logo](figures/fig-0.png) <!-- fig 0 -->",
       "",
-      "| Code exigences | Objet | Chapitre |",
-      "| --- | --- | --- |",
-      "| EXI_X_1 | Un texte. | 9.9 |",
-      "| EXI_X_2 | Autre. | À compléter |",
-      "",
       "# 1 Titre <!-- § 1 -->",
       "",
+      "<!-- req EXI_X_3 -->",
       "Body.",
       "",
-      "| Code exigences | Objet | Chapitre |",
+      "| Code | Objet | Chapitre |",
       "| --- | --- | --- |",
       "| EXI_X_3 | Trois. | 1 |",
-      "| EXI_X_4 | Quatre. | À compléter |",
     ].join("\n");
     const chunks = chunkDoc(doc, md, []);
-    const row = (id: string) => chunks.find((c) => c.id === `D#req:${id}@matrix`);
-    expect(row("EXI_X_1")).toMatchObject({ path: "9 > 9.9", header: "D Doc — 9 > 9.9" });
-    expect(row("EXI_X_2")).toMatchObject({ path: "", header: "D Doc —" });
-    expect(row("EXI_X_3")).toMatchObject({ path: "1", header: "D Doc — 1 Titre" });
-    expect(row("EXI_X_4")).toMatchObject({ path: "1", header: "D Doc — 1 Titre" });
+    expect(chunks.map((c) => [c.anchor, c.kind])).toEqual([
+      ["§1", "section"],
+      ["fig:0", "figure"],
+    ]);
+    expect(chunks[0].text).toBe("Body.\n\n| Code | Objet | Chapitre |\n| --- | --- | --- |\n| EXI_X_3 | Trois. | 1 |");
     expect(chunks.find((c) => c.anchor === "fig:0")).toMatchObject({ path: "", header: "D Doc" });
   });
 });

@@ -71,10 +71,10 @@ describe("StepCard", () => {
     expect(screen.getByLabelText("Data of step 2")).toHaveValue("Sectionneur S 12, position fermée.");
   });
 
-  it("shows Exigence as requirement chips and the sources strip", () => {
+  it("shows Exigence as plain text and the sources strip", () => {
     const { container } = card(xray);
-    const reqs = Array.from(container.querySelectorAll(".chip.req")).map((e) => e.textContent);
-    expect(reqs).toEqual(["EXI_MOP_SPF_511_A_1670", "EXI_MOP_SPF_510_A_20"]);
+    expect(screen.getByLabelText("Exigence of step 2")).toHaveValue("EXI_MOP_SPF_511_A_1670, EXI_MOP_SPF_510_A_20");
+    expect(container.querySelector('[data-field="Exigence"] .chip')).toBeNull();
     const strip = container.querySelector(".sources");
     expect(strip).toHaveTextContent("Sources");
     expect(strip).toHaveTextContent("SOSIE_211_D401-1_3 §5.6.6");
@@ -89,10 +89,10 @@ describe("StepCard", () => {
     expect(next.fields["Expected Result"]).toBe(step.fields["Expected Result"]);
   });
 
-  it("removes a requirement without touching the others", () => {
+  it("edits a smart column as plain text", () => {
     const onChange = vi.fn();
     card(xray, onChange);
-    fireEvent.click(screen.getByRole("button", { name: "Remove requirement EXI_MOP_SPF_510_A_20" }));
+    fireEvent.change(screen.getByLabelText("Exigence of step 2"), { target: { value: "EXI_MOP_SPF_511_A_1670" } });
     const next = onChange.mock.calls[0][0](step) as Step;
     expect(next.fields.Exigence).toBe("EXI_MOP_SPF_511_A_1670");
   });

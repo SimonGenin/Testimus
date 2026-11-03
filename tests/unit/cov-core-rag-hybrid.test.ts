@@ -28,9 +28,9 @@ beforeEach(async () => {
       "<!-- req EXI_X_1 -->",
       "Le frein se serre à l'arrêt.",
       "",
-      "## 2 Matrice <!-- § 2 -->",
+      "## 2 Tableau <!-- § 2 -->",
       "",
-      "| Exigence | Section | Objet |",
+      "| Code | Section | Objet |",
       "| --- | --- | --- |",
       "| EXI_X_2 | 1 | Le frein se desserre au départ |",
     ].join("\n"),
@@ -42,9 +42,13 @@ beforeEach(async () => {
       "",
       "## 1 Pantographe <!-- § 1 -->",
       "",
-      "Le pantographe applique EXI_X_1, EXI_X_2 et EXI_GHOST_9.",
+      "Le pantographe applique SPEC_X §1 et SPEC_X §9 (voir le chapitre 3).",
       "",
       "<!-- fig 2 --> Figure 2 – Schéma du pantographe",
+      "",
+      "## 3 Annexe <!-- § 3 -->",
+      "",
+      "Rien de plus.",
     ].join("\n"),
   );
   await indexProject(dir, quietCtx(dir), { model: null });
@@ -70,14 +74,16 @@ describe("search", () => {
     await expect(search(dir, "frein", { mode: "bm25" })).rejects.toThrow(/no index yet/);
   });
 
-  it("graph expansion adds the named statements, body and matrix, skips unknown ids and other documents", async () => {
+  it("graph expansion adds the sections a hit cross-references, in its own and other documents", async () => {
     const all = refs(await search(dir, "pantographe applique", { mode: "bm25", k: 1, expand: "graph" }));
-    expect(all).toEqual(expect.arrayContaining(["SPEC_X#req:EXI_X_1 via graph", "SPEC_X#req:EXI_X_2 via graph"]));
-    expect(all.some((r) => r.includes("EXI_GHOST_9"))).toBe(false);
+    expect(all).toEqual(["SPEC_Y#§1", "SPEC_X#§1 via graph", "SPEC_Y#§3 via graph"]);
+    expect(refs(await search(dir, "pantographe applique", { mode: "bm25", k: 1, expand: "section" }))).toEqual([
+      "SPEC_Y#§1",
+    ]);
     const only = refs(
       await search(dir, "pantographe applique", { mode: "bm25", k: 1, expand: "graph", docIds: ["SPEC_Y"] }),
     );
-    expect(only.some((r) => r.startsWith("SPEC_X"))).toBe(false);
+    expect(only).toEqual(["SPEC_Y#§1", "SPEC_Y#§3 via graph"]);
   });
 
   it("a figure hit without a picture file has no figure path, nor one whose doc.md is gone", async () => {

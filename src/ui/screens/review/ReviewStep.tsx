@@ -1,16 +1,8 @@
 import type { ReactNode } from "react";
 import type { Finding, Source, Step, XrayJson } from "../../../core/types.ts";
-import {
-  ClaudeBadge,
-  FindingCard,
-  IconButton,
-  RequirementChip,
-  Severity,
-  SourceChip,
-} from "../../components/ui/index.ts";
-import { fieldViews, parseSourceRef, splitIds } from "../../lib/fields.ts";
+import { ClaudeBadge, FindingCard, IconButton, Severity, SourceChip } from "../../components/ui/index.ts";
+import { fieldViews, parseSourceRef } from "../../lib/fields.ts";
 import { cx, plural } from "../../lib/format.ts";
-import { sourceOfId } from "../../lib/traces.ts";
 import { FieldBlocks } from "../tests/FieldBlocks.tsx";
 
 const noop = () => {};
@@ -32,13 +24,6 @@ const firstLine = (s: string) =>
     .replace(/!\[\]\([^)]*\)/g, "")
     .trim()
     .split("\n")[0] ?? "";
-
-const flagged = (fs: Finding[], id: string) =>
-  fs.some(
-    (f) =>
-      (f.kind === "wrong-requirement" || f.kind === "requirement-unknown" || f.kind === "id-unknown") &&
-      (f.message.includes(id) || f.sources.some((s) => s.endsWith(id))),
-  );
 
 export function FindingSources({
   finding,
@@ -131,17 +116,6 @@ export function ReviewStep({
             <span className="fl-k">{v.name}</span>
             {!value.trim() ? (
               <span className="muted fl-empty">Folded · empty</span>
-            ) : v.requirements ? (
-              <div className="chips">
-                {splitIds(value).map((id) => (
-                  <RequirementChip
-                    key={id}
-                    id={id}
-                    error={flagged(findings, id)}
-                    onClick={() => void sourceOfId(id).then((s) => s && pick(s))}
-                  />
-                ))}
-              </div>
             ) : (
               <FieldBlocks
                 idBase={`r${n}-${v.name.replace(/\W+/g, "")}`}

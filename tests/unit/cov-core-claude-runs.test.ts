@@ -189,9 +189,9 @@ describe("chat edges", () => {
   });
 
   it("reads sources quoted with curly quotes and guillemets, once each", () => {
-    expect(sourceRefs('A [D#§1.2. “un texte”] B [D#req:R1 : « autre »] C D#fig:3, "x" D#§1.2 “un texte”')).toEqual([
+    expect(sourceRefs('A [D#§1.2. “un texte”] B [D#page:4 : « autre »] C D#fig:3, "x" D#§1.2 “un texte”')).toEqual([
       { docId: "D", anchor: "§1.2", quote: "un texte" },
-      { docId: "D", anchor: "req:R1", quote: "autre" },
+      { docId: "D", anchor: "page:4", quote: "autre" },
       { docId: "D", anchor: "fig:3", quote: "x" },
     ]);
   });

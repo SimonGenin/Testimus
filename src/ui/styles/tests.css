@@ -510,24 +510,6 @@
   }
 }
 
-.reqfield {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  align-items: center;
-  padding-top: 5px;
-}
-
-.reqfield .btn-sm {
-  height: 26px;
-}
-
-.reqfield-input {
-  width: 240px;
-  height: 28px;
-  padding: 3px 8px;
-}
-
 .sources {
   display: flex;
   align-items: center;

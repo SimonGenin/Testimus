@@ -102,7 +102,6 @@ beforeEach(() => {
         docId: "D",
         anchor: `§${n}`,
         path: `${n}`,
-        reqIds: [],
         figureIds: [],
         header: `H${n}`,
         text: `score ${n / 10}`,

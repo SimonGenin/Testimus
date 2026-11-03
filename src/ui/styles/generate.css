@@ -68,7 +68,7 @@
   font-size: 20px;
 }
 
-.uncovered {
+.gen-skipped {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -153,58 +153,6 @@
   padding: 0 18px 18px;
 }
 
-.reqpick {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  position: relative;
-}
-
-.reqpick-list {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  z-index: 5;
-  margin-top: 4px;
-  background: var(--surface);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 4px;
-  max-height: 280px;
-  overflow: auto;
-}
-
-.reqpick-opt {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  width: 100%;
-  padding: 7px 10px;
-  border: 0;
-  border-radius: var(--radius-s);
-  background: transparent;
-  color: var(--ink);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.reqpick-opt.is-on,
-.reqpick-opt:hover {
-  background: var(--surface-2);
-}
-
-.reqpick-text {
-  font-size: 12.5px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 100%;
-}
-
 .secpick {
   display: flex;
   flex-direction: column;
@@ -277,17 +225,6 @@
 
 .gen-hint {
   font-size: 13px;
-}
-
-.gen-handed {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 10px;
-  border-radius: var(--radius-s);
-  background: var(--info-bg);
-  color: var(--info);
-  font-size: 13.5px;
 }
 
 .dscope {
@@ -504,10 +441,6 @@ button.stree-tw:hover {
 
 .colview-item.is-empty .colview-desc {
   font-style: italic;
-}
-
-.colview-ids {
-  font-size: 12.5px;
 }
 
 .gen-run-pick {

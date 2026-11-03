@@ -32,13 +32,9 @@ Sur la vue synoptique principale, repérer un sectionneur sans TK sur la schéma
 
 Le sectionneur est représenté par le symbole du sectionneur : un carré blanc cerclé de noir sur le trait de la caténaire.
 
-### Exigence
-
-EXI_MOP_SPF_511_A_1650
-
 ### Sources
 
-- ${DOC}#req:EXI_MOP_SPF_511_A_1650 "Le sectionneur est représenté sur la schématique de traction par le symbole de la Figure 40"
+- ${DOC}#§5.6.6 "Le sectionneur est représenté sur la schématique de traction par le symbole de la Figure 40"
 - ${DOC}#fig:40 "Représentation graphique sectionneur"
 
 ## Step 2
@@ -51,13 +47,9 @@ Clic droit sur le sectionneur sans TK.
 
 Le menu contextuel propose : Propriétés, Autoriser l'ouverture, Annuler l'autorisation d'ouverture, Confirmer l'ouverture, Autoriser la fermeture, Annuler l'autorisation de fermeture, Confirmer la fermeture.
 
-### Exigence
-
-EXI_MOP_SPF_511_A_1670
-
 ### Sources
 
-- ${DOC}#req:EXI_MOP_SPF_511_A_1670 "Le menu contextuel d'un sectionneur sans TK propose : Propriétés, Autoriser l'ouverture"
+- ${DOC}#§5.6.6 "Le menu contextuel d'un sectionneur sans TK propose : Propriétés, Autoriser l'ouverture"
 
 ## Step 3
 
@@ -69,13 +61,9 @@ Choisir Propriétés dans le menu contextuel.
 
 La fenêtre Propriétés affiche l'état de la position, les heures de la dernière autorisation et confirmation d'ouverture et de fermeture, et les points kilométriques voie 1 et voie 2.
 
-### Exigence
-
-EXI_MOP_SPF_511_A_1680
-
 ### Sources
 
-- ${DOC}#req:EXI_MOP_SPF_511_A_1680 "La fenêtre Propriétés affiche l'état de la position"
+- ${DOC}#§5.6.6 "La fenêtre Propriétés affiche l'état de la position"
 
 ## Step 4
 
@@ -87,13 +75,9 @@ Fermer la fenêtre Propriétés, puis choisir Autoriser l'ouverture et Confirmer
 
 Le symbole du sectionneur montre l'état ouvert sur la schématique, sans qu'aucune fenêtre ne s'ouvre.
 
-### Exigence
-
-EXI_MOP_SPF_511_A_1660
-
 ### Sources
 
-- ${DOC}#req:EXI_MOP_SPF_511_A_1660 "L'état ouvert ou fermé du sectionneur est visible sans ouvrir de fenêtre"
+- ${DOC}#§5.6.6 "L'état ouvert ou fermé du sectionneur est visible sans ouvrir de fenêtre"
 `;
 
 const tkTest = (folder: string, partial: boolean) => `---
@@ -118,10 +102,6 @@ Clic droit sur un sectionneur avec TK manœuvré régulièrement.
 
 Le menu contextuel ne propose que Propriétés : aucune commande d'autorisation ni de confirmation n'apparaît.
 
-### Exigence
-
-EXI_MOP_SPF_510_A_20
-
 ### Sources
 
 - ${DOC}#§5.6.6 "un sectionneur avec TK ne propose que Propriétés"
@@ -136,13 +116,9 @@ Choisir Propriétés.
 
 La fenêtre Propriétés affiche l'état de la position et les points kilométriques voie 1 et voie 2.
 
-### Exigence
-
-EXI_MOP_SPF_511_A_1680
-
 ### Sources
 
-- ${DOC}#req:EXI_MOP_SPF_511_A_1680 "La fenêtre Propriétés affiche l'état de la position"
+- ${DOC}#§5.6.6 "La fenêtre Propriétés affiche l'état de la position"
 ${
   partial
     ? `- ${DOC}#§5.6.7 "les points kilométriques voie 1 et voie 2"
@@ -150,7 +126,7 @@ ${
     : ""
 }`;
 
-const UNCOVERED = [
+const SKIPPED = [
   {
     item: "Manœuvre à distance d'un sectionneur avec TK",
     why: "context.md : les sectionneurs avec TK ne sont pas encore câblés dans le simulateur ; aucune source ne décrit le résultat attendu.",
@@ -169,9 +145,9 @@ function writeTests(spawn: ClaudeSpawn, ids: string[]): void {
   } catch {}
 }
 
-// ponytail: a request about the sectionneur « avec TK » reads only §5.6.6 of doc.md, so the TCO requirement of §5
-// stays « related, not read », and cites one quote under the wrong section — the Review screen's two evidence states;
-// any other request reads the whole document and cites every quote where it is
+// ponytail: a request about the sectionneur « avec TK » reads only §5.6.6 of doc.md and cites one quote under the
+// wrong section — the Review screen's evidence state; any other request reads the whole document and cites every
+// quote where it is
 function partialRead(prompt: string): boolean {
   return /avec TK/i.test(prompt);
 }
@@ -183,12 +159,11 @@ registerMockScript(
     const file = (id: string) => join(spawn.cwd, "tests", id, "test.md");
     const report = {
       tests: ids,
-      covered: ["EXI_MOP_SPF_511_A_1650", "EXI_MOP_SPF_511_A_1660", "EXI_MOP_SPF_511_A_1670", "EXI_MOP_SPF_511_A_1680"],
-      uncovered: UNCOVERED,
+      skipped: SKIPPED,
     };
     const reply = [
       `Tests écrits : ${ids[0]} (sectionneur sans TK, 4 steps), ${ids[1]} (sectionneur avec TK, chemin négatif, 2 steps).`,
-      "Non couvert : la manœuvre à distance d'un sectionneur avec TK (non câblée dans le simulateur).",
+      "Non testé : la manœuvre à distance d'un sectionneur avec TK (non câblée dans le simulateur).",
       "",
       "```" + REPORT_TAG,
       JSON.stringify(report),
@@ -198,7 +173,7 @@ registerMockScript(
       tools: [
         { name: "Skill", input: { skill: "generate-tests" } },
         { name: "mcp__testimus__rag_search", input: { query: "sectionneur menu contextuel" } },
-        { name: "mcp__testimus__rag_search", input: { query: "EXI_MOP_SPF_511_A_1670" } },
+        { name: "mcp__testimus__rag_search", input: { query: "fenêtre Propriétés sectionneur" } },
         { name: "mcp__testimus__rag_passage", input: { ref: `${DOC}#§5.6.6` } },
         { name: "mcp__testimus__rag_figure", input: { docId: DOC, n: "40" } },
         {
@@ -214,7 +189,7 @@ registerMockScript(
       ],
       edit: () => writeTests(spawn, ids),
       texts: [
-        "J'ai lu le §5.6.6 et les exigences EXI_MOP_SPF_511_A_1650 à 1680. ",
+        "J'ai lu le §5.6.6 et la Figure 40. ",
         "Deux tests : le sectionneur sans TK (chemin positif) et le sectionneur avec TK (chemin négatif).\n\n",
         reply,
       ],
@@ -224,7 +199,7 @@ registerMockScript(
   },
 );
 
-// ponytail: a scope past PLAN_ABOVE requirements gets a two-test plan; each planned run is the script above
+// ponytail: a scope past PLAN_ABOVE sections gets a two-test plan; each planned run is the script above
 registerMockScript(
   (prompt) => prompt.includes(GEN_MARKER) && prompt.includes(PLAN_MARKER),
   (spawn) => {
@@ -233,17 +208,15 @@ registerMockScript(
         {
           summary: "Sectionneur sans TK — menu contextuel et ouverture",
           technique: "cas d'utilisation",
-          requirements: ["EXI_MOP_SPF_511_A_1650", "EXI_MOP_SPF_511_A_1670"],
           sections: [`${DOC}#§5.6.6`],
         },
         {
           summary: "Sectionneur avec TK — refus de la manœuvre locale",
           technique: "chemin négatif",
-          requirements: ["EXI_MOP_SPF_511_A_1660", "EXI_MOP_SPF_511_A_1680"],
           sections: [`${DOC}#§5.6.6`],
         },
       ],
-      uncovered: UNCOVERED,
+      skipped: SKIPPED,
     };
     const reply = `Plan : 2 tests.\n\n\`\`\`${PLAN_TAG}\n${JSON.stringify(plan)}\n\`\`\``;
     return mockStream(spawn, {

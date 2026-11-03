@@ -51,8 +51,7 @@ vi.mock("pdfjs-dist/legacy/build/pdf.mjs", async (importOriginal) => {
   };
 });
 
-const { pdfFigures } = await import("../../src/core/rag/convert-pdf.ts");
-const { convertPdf } = await import("./ratp.ts");
+const { convertPdf, pdfFigures } = await import("../../src/core/rag/convert-pdf.ts");
 
 type T = { size?: number; d?: number; height?: number; width?: number | null; font?: string; eol?: boolean };
 const t = (str: string, x: number, y: number, o: T = {}) => {
@@ -115,7 +114,6 @@ function bigDoc(): FakePage[] {
     items: [
       ...chrome(2),
       t("Annexe générale", 72, 780, { size: 16 }),
-      t("EXI_A_1 Grand", 72, 760, { size: 16 }),
       t("Fin de phrase.", 72, 740, { size: 16 }),
       t("Annexe générale", 72, 720, { size: 16 }),
       t("Figure 7 : Schéma vectoriel", 72, 700),
@@ -200,7 +198,6 @@ describe("convertPdf over a scripted pdf.js", () => {
     expect(md).toContain("### Annexe générale <!-- § annexe-generale-2 -->");
     expect(md).toContain("### 3.1 Saut direct <!-- § 3.1 -->");
     expect(md).toContain("## Grand titre <!-- § grand-titre -->");
-    expect(md).toContain("<!-- req EXI_A_1 -->\nEXI_A_1 Grand");
     expect(md).not.toContain("Fin de phrase. <!--");
     expect(md).toContain("Figure 7 : Schéma vectoriel <!-- fig 7 -->");
     expect(md).toContain("![](figures/fig-f1.png) <!-- fig f1 -->");
@@ -250,7 +247,7 @@ describe("convertPdf over a scripted pdf.js", () => {
 
   it("converts an empty document under its code", async () => {
     state.pages = [];
-    const c = await convertPdf(new Uint8Array(), { code: "EMPTY", reqPatterns: ["REQ-\\d+"] });
+    const c = await convertPdf(new Uint8Array(), { code: "EMPTY" });
     expect(c.md).toBe("# EMPTY — EMPTY\n");
     expect(c.meta).toEqual({ title: "", date: "" });
   });

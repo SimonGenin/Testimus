@@ -8,7 +8,7 @@ export const mode = z
   .default("hybrid")
   .describe("hybrid = BM25 + vectors fused by RRF; bm25 or vector alone to compare");
 
-export const chunkKind = z.enum(["section", "figure", "matrix-row"]);
+export const chunkKind = z.enum(["section", "figure"]);
 
 const figureEntry = z.object({ file: z.string(), anchor: z.string(), caption: z.string(), description: z.string() });
 
@@ -17,7 +17,7 @@ export const commands: Command[] = [
     name: "rag.search",
     summary: "Search the project's documents (hybrid BM25 + vectors); returns passages with their anchors.",
     input: z.object({
-      query: z.string().min(1).describe("What to look for: a question, a requirement id, a device name"),
+      query: z.string().min(1).describe("What to look for: a question, a code, a device name"),
       k: z.number().int().min(1).max(50).default(10).describe("How many passages to return"),
       docIds: z.array(z.string()).optional().describe("Only search these documents"),
       mode,
@@ -25,7 +25,7 @@ export const commands: Command[] = [
         .enum(["none", "section", "graph"])
         .optional()
         .describe(
-          "Add related passages flagged `via`: section = parent and traced sections; graph = also the statements of the requirements in each hit (default: project.json rag.retrieval.expand, else none)",
+          "Add related passages flagged `via`: section = parent sections and the section a figure sits in; graph = also the sections each hit cross-references or amends (default: project.json rag.retrieval.expand, else none)",
         ),
     }),
     output: z.array(
@@ -51,9 +51,9 @@ export const commands: Command[] = [
   }),
   command({
     name: "rag.passage",
-    summary: "Read one passage of a document by its source reference docId#anchor (§5.6.6, req:ID, fig:N).",
+    summary: "Read one passage of a document by its source reference docId#anchor (§5.6.6, fig:N).",
     input: z.object({
-      ref: z.string().min(3).describe("Source reference docId#anchor, e.g. SOSIE_211_D401-1_3#§5.6.6 or DOC#req:EXI_…"),
+      ref: z.string().min(3).describe("Source reference docId#anchor, e.g. SOSIE_211_D401-1_3#§5.6.6 or DOC#fig:40"),
       around: z
         .string()
         .optional()
@@ -67,7 +67,6 @@ export const commands: Command[] = [
       path: z.string(),
       title: z.string(),
       text: z.string().describe("The section's text, capped at project.json rag.passageMaxChars (default 12000)"),
-      focus: z.string().optional().describe("For req: anchors, the requirement's statement (never the id alone)"),
       truncated: z.boolean().optional().describe("True when text was cut at the cap; read the rest with readMore"),
       quoteFound: z
         .boolean()
@@ -79,12 +78,11 @@ export const commands: Command[] = [
             anchor: z.string(),
             title: z.string(),
             chars: z.number(),
-            reqIds: z.array(z.string()),
             figureIds: z.array(z.string()),
           }),
         )
         .optional()
-        .describe("When truncated: the section's sub-sections with their size, requirement ids and figures"),
+        .describe("When truncated: the section's sub-sections with their size and figures"),
       readMore: z
         .string()
         .optional()

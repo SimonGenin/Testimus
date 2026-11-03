@@ -210,7 +210,7 @@ button.chip:hover {
   color: var(--err);
 }
 
-.chip.req {
+.chip.chip-mono {
   font-family: var(--font-mono);
   font-size: 11.5px;
   color: var(--ink);
@@ -233,7 +233,7 @@ button.chip:hover {
   padding: 0;
 }
 
-.has-x .chip.req + .chip-x {
+.has-x .chip.chip-mono + .chip-x {
   background: var(--surface-2);
   border-color: transparent;
 }

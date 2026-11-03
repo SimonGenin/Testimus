@@ -276,7 +276,7 @@ describe("PullPane", () => {
       "1 step",
       "4 images",
       "2 preconditions",
-      "1 requirement",
+      "1 linked issue",
       "0 labels",
     ]);
     expect(phases()).toEqual([

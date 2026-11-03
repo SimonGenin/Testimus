@@ -1,13 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import type { ColumnMode, StepColumn, TraceView } from "../../../core/types.ts";
-import { Icon, IconButton, Segmented } from "../../components/ui/index.ts";
+import type { ColumnMode, StepColumn } from "../../../core/types.ts";
+import { Icon, IconButton } from "../../components/ui/index.ts";
 import { MODES } from "../../lib/columns.ts";
-import { cx, plural } from "../../lib/format.ts";
+import { cx } from "../../lib/format.ts";
 import { columnTag } from "../generate/ColumnsView.tsx";
 
 export function ColumnRow({
   column,
-  trace,
   mode,
   hidden,
   disabled,
@@ -15,9 +14,6 @@ export function ColumnRow({
   last,
   dragging,
   onDescribe,
-  onKind,
-  onPattern,
-  onCoverage,
   onMode,
   onHidden,
   onMove,
@@ -25,7 +21,6 @@ export function ColumnRow({
   drag,
 }: {
   column: StepColumn;
-  trace?: TraceView;
   mode: ColumnMode;
   hidden: boolean;
   disabled: boolean;
@@ -33,9 +28,6 @@ export function ColumnRow({
   last: boolean;
   dragging: boolean;
   onDescribe: (text: string) => void;
-  onKind: (kind: "text" | "ids") => void;
-  onPattern: () => void;
-  onCoverage: () => void;
   onMode: (m: ColumnMode) => void;
   onHidden: (h: boolean) => void;
   onMove: (by: number) => void;
@@ -68,17 +60,6 @@ export function ColumnRow({
         <span className="colrow-name">{c.name}</span>
         <span className={cx("tagpill", `tagpill-${tag.tone}`)}>{tag.label}</span>
         <span className="spacer" />
-        {!c.builtin && (
-          <Segmented
-            label={`${c.name}: kind of content`}
-            value={trace ? "ids" : "text"}
-            options={[
-              { value: "text", label: "Free text" },
-              { value: "ids", label: "Id list" },
-            ]}
-            onChange={onKind}
-          />
-        )}
         <select
           className="field frow-mode"
           aria-label={`${c.name} folding`}
@@ -121,20 +102,6 @@ export function ColumnRow({
         onChange={(e) => setText(e.target.value)}
         onBlur={describe}
       />
-      {trace && (
-        <div className="colrow-ids">
-          <span className="mono muted colrow-pat">{trace.patterns.join("  |  ")}</span>
-          <span>
-            {plural(trace.found, "id")} in {plural(trace.docs, "document")}
-          </span>
-          <button type="button" className="linkbtn" onClick={onPattern}>
-            Change the pattern…
-          </button>
-          <button type="button" className="linkbtn" onClick={onCoverage}>
-            Coverage
-          </button>
-        </div>
-      )}
       {c.status === "new" && (
         <p className="colrow-note">New in Xray: describe it, or leave it empty and Claude never fills it.</p>
       )}

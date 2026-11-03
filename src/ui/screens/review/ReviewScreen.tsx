@@ -560,7 +560,7 @@ export function ReviewScreen() {
                 own ?? {
                   source: { docId: ref.slice(0, at), anchor: ref.slice(at + 1), quote: "" },
                   step: null,
-                  label: "Related to this test",
+                  label: "Read by the generation",
                 },
               );
             }}

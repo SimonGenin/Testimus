@@ -4,8 +4,6 @@ import { UserError } from "../../command.ts";
 import { readJson } from "../../lib/project.ts";
 import type { DocJson, FigureEntry, Passage, PassageOutlineItem, ProjectJson } from "../../types.ts";
 import { docFigures, lines, markerLine, parseSections, type Section, sectionAt, stripComments } from "../chunk.ts";
-import { statementOf } from "../related.ts";
-import { evidenceOptions, matrixRows, statementsOf, tablesOf } from "../statements.ts";
 
 export type FigureView = FigureEntry & {
   docId: string;
@@ -39,7 +37,6 @@ export function passageMaxChars(project: string): number {
 
 export function normalizeAnchor(anchor: string): string {
   const a = anchor.trim();
-  if (/^req[:\s]/i.test(a)) return `req:${a.slice(4).trim()}`;
   if (/^fig[:\s]/i.test(a)) return `fig:${a.slice(4).trim()}`;
   return `§${a.replace(/^§\s*/, "")}`;
 }
@@ -62,7 +59,6 @@ export function outlineOf(md: string, s: Section): PassageOutlineItem[] {
       anchor: x.anchor,
       title: x.title,
       chars: stripComments(x.body).length,
-      reqIds: [...new Set([...x.body.matchAll(/<!--\s*req\s+(\S+?)\s*-->/g)].map((m) => m[1]))],
       figureIds: [...new Set([...x.body.matchAll(/<!--\s*fig\s+(\S+?)\s*-->/g)].map((m) => m[1]))],
     });
   }
@@ -70,9 +66,17 @@ export function outlineOf(md: string, s: Section): PassageOutlineItem[] {
 }
 
 const shown = (l: string) => stripComments(l).length + 1;
+const isSeparator = (line = "") => /^\s*\|?[\s:|-]+\|?\s*$/.test(line) && line.includes("-");
+
+function tableStart(ls: string[], at: number): number {
+  if (!ls[at]?.startsWith("|")) return -1;
+  let start = at;
+  while (start > 0 && ls[start - 1].startsWith("|")) start--;
+  return isSeparator(ls[start + 1]) ? start : -1;
+}
 
 // ponytail: above the cap, keep whole lines around the focus (or from the top), and the header rows of the
-// table the focus sits in, so a matrix row still reads as a row of its table
+// table the focus sits in, so a row still reads as a row of its table
 export function capLines(
   ls: string[],
   from: number,
@@ -97,8 +101,8 @@ export function capLines(
       grew = true;
     }
   }
-  const table = tablesOf(ls.join("\n")).find((t) => t.start < at && at < t.end && a > t.start);
-  const head = table ? ls.slice(table.start, table.start + 2) : [];
+  const start = tableStart(ls, at);
+  const head = start >= 0 && start < at && a > start ? ls.slice(start, start + 2) : [];
   return { text: stripComments([...head, ...ls.slice(a, b)].join("\n")), truncated: true, a, b };
 }
 
@@ -151,7 +155,7 @@ export function passage(project: string, ref: string, around?: string): PassageV
   if (anchor.startsWith("fig:")) {
     const f = all.find((x) => x.anchor === anchor);
     if (!f) throw notFound();
-    const s = sectionAt(sections, markerLine(md, "fig", f.n));
+    const s = sectionAt(sections, markerLine(md, f.n));
     return {
       docId,
       anchor,
@@ -162,50 +166,11 @@ export function passage(project: string, ref: string, around?: string): PassageV
       doc: docInfo,
     };
   }
-  const opts = evidenceOptions(project);
-  const matrixAt = /^req:(.+?)@matrix(~\d+)?$/.exec(anchor);
-  if (matrixAt) {
-    const row = matrixRows(md, opts).find((r) => r.anchor === anchor);
-    if (!row) throw notFound();
-    const traced = row.traced[0];
-    const target = traced ? sections.find((s) => s.number === traced) : undefined;
-    const holder = sectionAt(sections, row.line);
-    const t = row.matrix.table;
-    return {
-      docId,
-      anchor,
-      path: target?.path ?? holder?.path ?? "",
-      title: target?.title ?? holder?.title ?? "",
-      text: stripComments([...ls.slice(t.start, t.start + 2), ls[row.line]].join("\n")),
-      figures: [],
-      focus: row.statement,
-      doc: docInfo,
-    };
-  }
-  let focus: string | undefined;
-  let focusLine: number | undefined;
-  let s = sections.find((x) => x.anchor === anchor);
-  if (anchor.startsWith("req:")) {
-    const id = anchor.slice(4);
-    const st = statementsOf(docId, md, opts).get(id);
-    const at = markerLine(md, "req", id);
-    if (!st && at < 0) throw notFound();
-    focusLine = st?.start ?? at;
-    s = sectionAt(sections, focusLine);
-    focus = st?.text;
-    // ponytail: a document that only lists the id (a PA's « paragraphes identiques, non reproduits ») points at the
-    // document that states it — never the id alone
-    if (!st || stripComments(st.text).replace(/[*`]/g, "").trim() === id) {
-      const elsewhere = statementOf(project, id);
-      if (elsewhere && elsewhere.docId !== docId)
-        focus = `Stated in ${elsewhere.docId}#req:${id} (cite it there): ${elsewhere.text}`;
-    }
-  }
+  const s = sections.find((x) => x.anchor === anchor);
   if (!s) throw notFound();
   const end = sectionEnd(ls, sections, s);
   const quoted = around?.trim() ? quoteLine(ls, s.line + 1, end, around) : undefined;
-  if (typeof quoted === "number") focusLine = quoted;
-  const cut = capLines(ls, s.line + 1, end, max, focusLine);
+  const cut = capLines(ls, s.line + 1, end, max, quoted ?? undefined);
   const inSection = new Set([...s.body.matchAll(/<!--\s*fig\s+(\S+?)\s*-->/g)].map((x) => x[1]));
   return {
     docId,
@@ -215,7 +180,6 @@ export function passage(project: string, ref: string, around?: string): PassageV
     text: cut.text,
     figures: all.filter((f) => inSection.has(f.n)).map(entry),
     doc: docInfo,
-    ...(focus ? { focus } : {}),
     ...(quoted !== undefined ? { quoteFound: quoted !== null } : {}),
     ...(cut.truncated
       ? {
@@ -241,7 +205,7 @@ export function figure(project: string, docId: string, n: string): FigureView {
     file: f.file ? `docs/${docId}/${f.file}` : "",
     caption: f.caption,
     description: f.description,
-    path: sectionAt(parseSections(md), markerLine(md, "fig", f.n))?.path ?? "",
+    path: sectionAt(parseSections(md), markerLine(md, f.n))?.path ?? "",
     absPath,
     picture: !!f.file,
     exists: !!f.file && existsSync(absPath),

@@ -4,17 +4,15 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CheckFile, DocRef, Job, JobEvent, LocalTestRef, Test } from "../../src/core/types.ts";
-import type { AppState } from "../../src/ui/lib/app.ts";
 import { type DocScope, flip, ownText, parents, scopeOf, tick } from "../../src/ui/lib/scope.ts";
-import { handOff, setTraces } from "../../src/ui/lib/traces.ts";
 import { ColumnsView } from "../../src/ui/screens/generate/ColumnsView.tsx";
 import { DocScopePicker } from "../../src/ui/screens/generate/DocScopePicker.tsx";
 import { GenerateScreen } from "../../src/ui/screens/generate/GenerateScreen.tsx";
 import {
-  Coverage,
   checkLine,
   GenCard,
   type GenOutput,
+  GenSummary,
   landedIds,
   passagesRead,
   RunHead,
@@ -56,7 +54,7 @@ const output = (over: Partial<GenOutput> = {}): GenOutput => ({
   summary: "",
   tests: [],
   changed: [],
-  uncovered: [],
+  skipped: [],
   reportFound: true,
   durationMs: 1,
   ...over,
@@ -273,25 +271,23 @@ describe("Generate › result helpers", () => {
     expect(screen.getByText("Cancelled · 3 tests kept")).toBeInTheDocument();
   });
 
-  it("Coverage: requirements covered, missing report, uncovered items, changed tests", () => {
+  it("GenSummary: missing report, skipped items, changed tests", () => {
     const { rerender } = render(
-      <Coverage
-        asked={[{ label: "Requirement", ids: ["R1", "R2"] }]}
+      <GenSummary
         result={output({
           reportFound: false,
-          uncovered: [{ item: "R2 alarm", why: "no passage" }],
+          skipped: [{ item: "R2 alarm", why: "no passage" }],
           changed: ["T9", "T8"],
         })}
         checked="checked line"
       />,
     );
-    expect(screen.getByText("1 of 2 requirement ids covered.")).toBeInTheDocument();
     expect(screen.getByText(/checked line/)).toBeInTheDocument();
-    expect(screen.getByText(/Claude did not say what it could not cover/)).toBeInTheDocument();
+    expect(screen.getByText(/Claude did not say what it could not write a test for/)).toBeInTheDocument();
     expect(screen.getByText("R2 alarm")).toBeInTheDocument();
+    expect(screen.getByText("Skipped")).toBeInTheDocument();
     expect(screen.getByText(/Claude also changed 2 existing tests: T9, T8/)).toBeInTheDocument();
-    rerender(<Coverage asked={[]} result={output({ reportFound: false, ok: false })} checked="" />);
-    expect(screen.queryByText(/covered\./)).toBeNull();
+    rerender(<GenSummary result={output({ reportFound: false, ok: false })} checked="" />);
     expect(screen.queryByText(/did not say/)).toBeNull();
     expect(screen.queryByText(/also changed/)).toBeNull();
   });
@@ -418,15 +414,14 @@ describe("Generate › documents", () => {
   });
 });
 
-describe("Generate › step columns", () => {
-  it("lists each column with its origin, its id list and what Claude writes; new ones ask to define", () => {
+describe("Generate › smart columns", () => {
+  it("lists each column with its origin and what Claude writes; new ones ask to define", () => {
     const onEdit = vi.fn();
-    setTraces([{ id: "r", label: "Requirement", patterns: ["X"], field: "Exigence" } as never]);
     render(
       <ColumnsView
         columns={[
           { name: "Action", origin: "xray", builtin: true, status: "ok", description: "One gesture" },
-          { name: "Exigence", origin: "xray", builtin: false, status: "ok", description: "Ids" },
+          { name: "Exigence", origin: "xray", builtin: false, status: "ok", description: "What the step checks" },
           { name: "Version", origin: "xray", builtin: false, status: "new", description: "" },
           { name: "Note", origin: "local", builtin: false, status: "ok", description: "" },
           { name: "Old", origin: "local", builtin: false, status: "gone", description: "x" },
@@ -438,12 +433,11 @@ describe("Generate › step columns", () => {
     expect(screen.getByText("New in Xray")).toBeInTheDocument();
     expect(screen.getByText("Local only")).toBeInTheDocument();
     expect(screen.getByText("No longer in Xray")).toBeInTheDocument();
-    expect(screen.getByText("Every Requirement id of the picked scope is to be covered.")).toBeInTheDocument();
+    expect(screen.getByText("What the step checks")).toBeInTheDocument();
     expect(screen.getAllByText("No description — Claude leaves it empty.")).toHaveLength(2);
     expect(screen.getByText(/A column came from Xray without a description/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Define the columns" }));
     expect(onEdit).toHaveBeenCalled();
-    setTraces(null);
     cleanup();
     render(
       <ColumnsView
@@ -556,41 +550,6 @@ describe("Generate screen", () => {
     await waitFor(() => expect(named("claude.status")).toHaveLength(1));
     fireEvent.change(screen.getByLabelText("What should be tested?"), { target: { value: "x" } });
     expect(screen.getByRole("button", { name: "Generate" })).toBeEnabled();
-  });
-
-  it("takes ids handed from Coverage, sends them as tracked ids and reports their coverage", async () => {
-    base();
-    const traces = [
-      { id: "requirement", label: "Requirement", patterns: ["EXI_\\d+"], field: "Exigence" },
-      { id: "alarm", label: "Alarm", patterns: ["ALM-\\d+"], field: "Alarme" },
-    ];
-    api.routes["gen.tests"] = () => ({ jobId: "g9" });
-    api.routes["jobs.show"] = () => ({
-      job: job({
-        id: "g9",
-        status: "done",
-        endedAt: at,
-        result: output({ uncovered: [{ item: "ALM-12 fire", why: "no passage" }] }),
-      }),
-      events: [],
-    });
-    handOff("alarm", ["ALM-12"]);
-    mount(<GenerateScreen />, { info: { ...app().info, traces } as AppState["info"] });
-    expect(screen.getByText(/From Coverage: 1 alarm id/)).toBeInTheDocument();
-    await screen.findByText("Traction");
-    fireEvent.click(screen.getByRole("button", { name: "Generate" }));
-    expect(await screen.findByText("0 of 1 alarm id covered.")).toBeInTheDocument();
-    expect(named("gen.tests")[0].input).toMatchObject({
-      request: "",
-      docs: ["D1"],
-      tracked: [{ trace: "alarm", ids: ["ALM-12"] }],
-      contexts: [],
-    });
-    cleanup();
-    handOff("requirement", ["EXI_7"]);
-    mount(<GenerateScreen />, { info: { ...app().info, traces } as AppState["info"] });
-    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
-    expect(screen.queryByText(/From Coverage/)).toBeNull();
   });
 
   it("sends the scope, the context, the model; reports a refused start and ignores an answer without a job", async () => {

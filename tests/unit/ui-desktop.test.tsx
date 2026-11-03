@@ -214,7 +214,7 @@ describe("Documents › adding", () => {
   function renderDocs() {
     api.routes["docs.list"] = () => [docRef];
     api.routes["docs.show"] = (i) =>
-      i.anchor ? { md: "text" } : { doc: docRef, context: "", toc: [], requirements: [], figures: [], md: "" };
+      i.anchor ? { md: "text" } : { doc: docRef, context: "", toc: [], figures: [], md: "" };
     return render(
       <AppContext.Provider value={app()}>
         <DocumentsScreen />

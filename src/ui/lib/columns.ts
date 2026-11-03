@@ -1,14 +1,13 @@
 import type { ColumnMode, ColumnModes, Step, XrayJson } from "../../core/types.ts";
 import { BUILTIN_FIELDS } from "../../core/types.ts";
-import { fieldViews, isRequirementField } from "./fields.ts";
+import { fieldViews } from "./fields.ts";
 
 // One column of the step card. A built-in one is a field of blocks (text, screenshots, tables); a project
 // one is plain text — `line` for Xray's single-line type, `text` for the rest — or `readonly` when Xray
-// holds something other than text there, which this app draws but never edits; the requirement field is
-// drawn as chips
+// holds something other than text there, which this app draws but never edits
 export type Column = {
   name: string;
-  kind: "blocks" | "text" | "line" | "readonly" | "requirements";
+  kind: "blocks" | "text" | "line" | "readonly";
   known: boolean;
   off?: boolean;
 };
@@ -24,7 +23,6 @@ export function columnsOf(x: XrayJson, step?: Step, linked = true): Column[] {
     const known = !linked || types.has(v.name);
     const flag = off.has(v.name) ? { off: true } : {};
     if (BUILTIN_FIELDS.includes(v.name)) return { name: v.name, kind: "blocks", known: true, ...flag };
-    if (isRequirementField(v.name)) return { name: v.name, kind: "requirements", known, ...flag };
     return { name: v.name, kind: known ? kindOf(types.get(v.name) ?? "") : "text", known, ...flag };
   });
 }
@@ -69,7 +67,7 @@ export function splitTracks(cols: Column[]): string {
     .map((c) =>
       c.kind === "blocks"
         ? `minmax(0, ${alone && c.name === "Expected Result" ? 1.25 : 1}fr)`
-        : `minmax(0, ${c.kind === "line" || c.kind === "requirements" ? 0.6 : 0.8}fr)`,
+        : `minmax(0, ${c.kind === "line" ? 0.6 : 0.8}fr)`,
     )
     .join(" ");
 }

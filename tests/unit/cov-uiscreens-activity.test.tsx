@@ -3,7 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Job, JobEvent } from "../../src/core/types.ts";
-import { activityOf, coverage, lasted } from "../../src/ui/lib/activity.ts";
+import { activityOf, lasted, linesRead } from "../../src/ui/lib/activity.ts";
 import { GenActivity } from "../../src/ui/screens/generate/GenActivity.tsx";
 import { landedIds } from "../../src/ui/screens/generate/GenResult.tsx";
 import { api, fakeFetch, named } from "./ui-desktop-helpers.tsx";
@@ -39,7 +39,7 @@ function run(): JobEvent[] {
     page(400, 700),
     tool("Glob", { pattern: "docs/SOSIE_4113_D401-1/*" }),
     page(1100, 800),
-    tool("mcp__testimus__traces_list", {}),
+    tool("mcp__testimus__docs_list", {}),
     page(1900, 480),
     tool("mcp__testimus__tests_create", { summary: "Circulation des trains" }),
     tool("mcp__testimus__tests_create", { summary: "Alarmes" }),
@@ -93,7 +93,7 @@ describe("activityOf", () => {
         ],
       },
     ]);
-    expect(p[1].acts.map((a) => a.text)).toContain("Listed the tracked ids");
+    expect(p[1].acts.map((a) => a.text)).toContain("Listed the documents");
     expect(p[1].acts.map((a) => a.text)).toContain("Listed docs/SOSIE_4113_D401-1/*");
     expect(p[2].planned).toEqual(["Circulation des trains", "Alarmes", "Untitled test"]);
     expect(p[3].written).toEqual([
@@ -177,7 +177,7 @@ describe("activityOf", () => {
 
   it("measures what was read: in order, twice, skipped, whole", () => {
     expect(
-      coverage([
+      linesRead([
         { from: 1, to: 400 },
         { from: 400, to: 1000 },
       ]),
@@ -189,7 +189,7 @@ describe("activityOf", () => {
       whole: false,
     });
     expect(
-      coverage([
+      linesRead([
         { from: 500, to: 600 },
         { from: 1, to: 100 },
         { from: 1, to: 100 },

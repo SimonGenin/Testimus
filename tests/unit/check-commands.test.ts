@@ -51,12 +51,12 @@ function fakeSkill(
   };
 }
 
-const wrongReq = {
+const wrongObject = {
   step: 2,
-  kind: "wrong-requirement" as const,
+  kind: "wrong-object" as const,
   severity: "error" as const,
-  message: "EXI_MOP_SPF_510_A_20 ne porte pas sur ce step.",
-  sources: [`${DOC}#req:EXI_MOP_SPF_510_A_20`],
+  message: "Le step 2 teste la vue de traction, pas le TCO du §5.",
+  sources: [`${DOC}#§5`],
 };
 
 const setReviewLine = (id: string, review: string) => {
@@ -100,7 +100,7 @@ describe("check commands", () => {
   it("semantic pass: one read-only check-test run per test; the skill's findings land in check.json; draft becomes checked", async () => {
     setReviewLine("local-3f9a12c0", "draft");
     fakeSkill((s, id) => {
-      if (id === "LFRPS12-1420") recordSemantic(s.cwd, id, [wrongReq]);
+      if (id === "LFRPS12-1420") recordSemantic(s.cwd, id, [wrongObject]);
       else recordSemantic(s.cwd, id, []);
     });
     const progress: Progress[] = [];
@@ -115,7 +115,7 @@ describe("check commands", () => {
     expect(out.failed).toEqual([]);
     const c = readCheck(project, "LFRPS12-1420")!;
     expect(c.findings.map((f) => `${f.step}:${f.kind}:${f.pass}`)).toEqual([
-      "2:wrong-requirement:semantic",
+      "2:wrong-object:semantic",
       "5:source-missing:mechanical",
     ]);
     expect(readTest(project, "local-3f9a12c0").test.review).toBe("checked");
@@ -125,7 +125,7 @@ describe("check commands", () => {
   });
 
   it("the previous semantic findings are dropped by a new run; to-fix and validated keep their state", async () => {
-    recordSemantic(project, "local-3f9a12c0", [{ ...wrongReq, step: 1 }]);
+    recordSemantic(project, "local-3f9a12c0", [{ ...wrongObject, step: 1 }]);
     fakeSkill(() => {});
     const out = await run("check.run", { all: true });
     expect(out.tests.map((t: any) => `${t.id}:${t.review}`)).toEqual([
@@ -175,10 +175,10 @@ describe("check commands", () => {
   });
 
   it("check.record merges the skill's findings and validates them; check.show says when it is stale", async () => {
-    const c = await run("check.record", { id: "LFRPS12-1420", findings: [wrongReq] });
+    const c = await run("check.record", { id: "LFRPS12-1420", findings: [wrongObject] });
     expect(c.findings).toHaveLength(2);
     await expect(
-      run("check.record", { id: "LFRPS12-1420", findings: [{ ...wrongReq, kind: "nonsense" }] }),
+      run("check.record", { id: "LFRPS12-1420", findings: [{ ...wrongObject, kind: "nonsense" }] }),
     ).rejects.toThrow();
     await expect(run("check.record", { id: "nope-1", findings: [] })).rejects.toThrow("No test nope-1");
     expect(await run("check.show", { id: "LFRPS12-1420" })).toMatchObject({ stale: false, check: c });

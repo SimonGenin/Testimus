@@ -55,7 +55,7 @@ const proposal = (over: Partial<ClaudeAction> = {}) => ({
   title: "Cite the source of step 2",
   scope: { kind: "step" as const, testId: TEST, step: 2 },
   problem: "Step 2 has no source",
-  why: "The requirement is in §5.6.6.",
+  why: "The behaviour is in §5.6.6.",
   plan: ["Find the passage", "Add the source line"],
   proposedBy: { run: "check", model: "opus", effort: "high" as const, at: "2026-11-03T10:00:00Z" },
   ...over,
@@ -124,7 +124,7 @@ describe("tool access of an action", () => {
   it("is the whole command set minus another Claude run, Jira writes and the machine", async () => {
     const a = await mcpAccess("action");
     const has = (n: string) => a.allow.includes(`mcp__testimus__${n}`);
-    for (const n of ["docs_convert", "docs_set", "project_set", "tests_save", "traces_save", "check_run", "xray_plan"])
+    for (const n of ["docs_convert", "docs_set", "project_set", "tests_save", "columns_save", "check_run", "xray_plan"])
       expect(has(n), n).toBe(true);
     for (const n of ["claude_run", "actions_run", "gen_tests", "chat_ask", "xray_push", "system_setup", "project_open"])
       expect(has(n), n).toBe(false);

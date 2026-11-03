@@ -1,9 +1,8 @@
 import { inflateSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import { anchorsOf } from "../../src/core/rag/convert.ts";
-import { pdfFigures } from "../../src/core/rag/convert-pdf.ts";
+import { convertPdf, pdfFigures } from "../../src/core/rag/convert-pdf.ts";
 import { encodePng } from "../../src/core/rag/convert-png.ts";
-import { convertPdf } from "./ratp.ts";
 
 const text = (size: number, y: number, s: string) => `BT /F1 ${size} Tf 72 ${y} Td (${s}) Tj ET`;
 
@@ -60,7 +59,7 @@ describe("PNG encoder", () => {
 });
 
 describe("convertPdf", () => {
-  it("guesses headings from numbering, anchors requirements, pages and figures", async () => {
+  it("guesses headings from numbering, anchors pages and figures", async () => {
     const c = await convertPdf(samplePdf(), { code: "DOC" });
     expect(c.md).toContain("<!-- page 1 -->");
     expect(c.md).toContain("<!-- page 2 -->");
@@ -69,7 +68,7 @@ describe("convertPdf", () => {
     expect(c.md).toContain(
       "Ce document decrit la traction du simulateur. Il couvre les sectionneurs et les disjoncteurs.",
     );
-    expect(c.md).toContain("<!-- req EXI_MOP_SPF_511_A_1650 -->\nEXI_MOP_SPF_511_A_1650 : le sectionneur est affiche.");
+    expect(c.md).toContain("\n\nEXI_MOP_SPF_511_A_1650 : le sectionneur est affiche.");
     expect(c.md).toContain("![Figure 40 - Representation graphique sectionneur](figures/fig-40.png) <!-- fig 40 -->");
     expect(c.md).toContain("- premier point");
     expect(anchorsOf(c.md).sections).toEqual(["1", "1.1"]);
@@ -78,7 +77,7 @@ describe("convertPdf", () => {
     expect(c.convertedWith).toMatch(/^pdfjs-dist /);
   });
 
-  it("reads lettered, dashed headings and anchors each numbered article under them", async () => {
+  it("reads lettered, dashed headings and starts a paragraph at each numbered article under them", async () => {
     const c = await convertPdf(
       samplePdf([
         text(12, 780, "S.1 \x96 LES CERCLES SPORTIFS"),
@@ -95,13 +94,10 @@ describe("convertPdf", () => {
     );
     expect(c.md).toContain("## S.1 LES CERCLES SPORTIFS <!-- § S.1 -->");
     expect(c.md).toContain("### S.1.1 GENERALITES <!-- § S.1.1 -->");
-    expect(c.md).toContain(
-      "<!-- req S.1.1.1 -->\nS.1.1.1 Un cercle sportif est une association. Il est dirige par un comite.",
-    );
-    expect(c.md).toContain("<!-- req S.1.1.2 -->\nS.1.1.2 Les tables sont conformes");
-    expect(c.md).not.toContain("req S.2.1");
+    expect(c.md).toContain("\n\nS.1.1.1 Un cercle sportif est une association. Il est dirige par un comite.\n\n");
+    expect(c.md).toContain("\n\nS.1.1.2 Les tables sont conformes");
+    expect(c.md).not.toContain("<!-- req ");
     expect(anchorsOf(c.md).sections).toEqual(["S.1", "S.1.1"]);
-    expect(anchorsOf(c.md).requirements).toEqual(["S.1.1.1", "S.1.1.2"]);
   });
 
   it("gives the captioned figures for a docx to borrow", async () => {

@@ -64,11 +64,11 @@ describe("generation prompt, the edges", () => {
 });
 
 describe("gen-report parsing, the edges", () => {
-  it("skips a block that is not an object and keeps only named uncovered items", () => {
+  it("skips a block that is not an object and keeps only named skipped items", () => {
     const r = parseGenReport(
       [
         "```gen-report",
-        '{"tests": [], "uncovered": [{"item": "A", "why": 3}, {"item": "  "}, {"why": "x"}, null, 5]}',
+        '{"tests": [], "skipped": [{"item": "A", "why": 3}, {"item": "  "}, {"why": "x"}, null, 5]}',
         "```",
         "```gen-report",
         "[1, 2]",
@@ -76,9 +76,9 @@ describe("gen-report parsing, the edges", () => {
       ].join("\n"),
     );
     expect(r.found).toBe(true);
-    expect(r.uncovered).toEqual([{ item: "A", why: "" }]);
+    expect(r.skipped).toEqual([{ item: "A", why: "" }]);
     expect(parseGenReport('```gen-report\n"text"\n```').found).toBe(false);
-    expect(parseGenReport('```gen-report\n{"uncovered": "no"}\n```').uncovered).toEqual([]);
+    expect(parseGenReport('```gen-report\n{"skipped": "no"}\n```').skipped).toEqual([]);
   });
 });
 

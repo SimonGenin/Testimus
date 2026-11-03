@@ -10,7 +10,6 @@ import {
   type Figure,
   guessDate,
   guessTitle,
-  reqRegex,
   sameCaption,
   slug,
   TRAILING_CAPTION_RE,
@@ -212,8 +211,6 @@ export async function convertDocx(buf: Uint8Array, opts: ConvertOpts): Promise<C
     return outline !== undefined ? outline + 1 : Number(named![1]);
   };
 
-  const reqs = reqRegex(opts.reqPatterns);
-  const reqOnly = new RegExp(`^(?:${reqs.source})\\s*:?$`);
   const headings: Heading[] = [];
   const counters: number[] = [];
   const slugs = new Set<string>();
@@ -227,7 +224,6 @@ export async function convertDocx(buf: Uint8Array, opts: ConvertOpts): Promise<C
     const level = numbering?.level !== undefined ? Number(numbering.level) + 1 : styleLevel;
     const text = cleanSpaces(textOfElement(p)).trim();
     if (!text) return { ...p, children: [] };
-    if (reqOnly.test(text)) return { ...p, styleName: "Testimus Req" };
     const written = text.match(/^(\d{1,3}(?:\.\d{1,3}){0,8})\.?\s+(\S.*)$/);
     const numbered = linked.has(styleId!)
       ? p.numbering != null
@@ -255,10 +251,7 @@ export async function convertDocx(buf: Uint8Array, opts: ConvertOpts): Promise<C
   });
 
   const imgs: Img[] = [];
-  const styleMap = [
-    ...[1, 2, 3, 4, 5, 6].map((l) => `p[style-name='Testimus H${l}'] => h${l}:fresh`),
-    "p[style-name='Testimus Req'] => p.tm-req:fresh",
-  ];
+  const styleMap = [1, 2, 3, 4, 5, 6].map((l) => `p[style-name='Testimus H${l}'] => h${l}:fresh`);
   const result = await mammoth.convertToHtml(
     { buffer: Buffer.from(buf) },
     {
@@ -326,10 +319,6 @@ export async function convertDocx(buf: Uint8Array, opts: ConvertOpts): Promise<C
       );
       return md ? { kind: "image", md, text: "" } : null;
     }
-    if ((n.attrs.class ?? "").includes("tm-req")) {
-      const id = cleanSpaces(textOf(n)).trim().replace(/\s*:$/, "");
-      return { kind: "para", md: `**${id}**`, text: id };
-    }
     return undefined;
   };
 
@@ -368,6 +357,6 @@ export async function convertDocx(buf: Uint8Array, opts: ConvertOpts): Promise<C
       `Figure ${missing.join(", ")}: caption without a picture in the .docx (drawn shape, table or pasted text)${pdfPool ? " and not found in the .pdf" : " — add the .pdf to recover them"}`,
     );
 
-  const md = assemble(`# ${opts.code} — ${title || opts.code}`, blocks, reqs);
+  const md = assemble(`# ${opts.code} — ${title || opts.code}`, blocks);
   return { md, figures, warnings, meta: { title, date }, convertedWith: MAMMOTH };
 }

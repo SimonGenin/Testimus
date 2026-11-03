@@ -2,10 +2,9 @@
 import "@testing-library/jest-dom/vitest";
 import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { DoctorCheck, TraceView } from "../../src/core/types.ts";
+import type { DoctorCheck } from "../../src/core/types.ts";
 import { setProject } from "../../src/ui/api.ts";
 import { resetDoctor, runDoctor } from "../../src/ui/lib/doctor.ts";
-import { setTraces } from "../../src/ui/lib/traces.ts";
 import { AccessSection, fileState } from "../../src/ui/screens/settings/AccessSection.tsx";
 import { AppearanceSection } from "../../src/ui/screens/settings/AppearanceSection.tsx";
 import { ClaudeSection, exeLine } from "../../src/ui/screens/settings/ClaudeSection.tsx";
@@ -25,17 +24,6 @@ import { app, fakeDesktop, noDesktop } from "./ui-desktop-helpers.tsx";
 
 vi.mock("../../src/ui/screens/settings/ModelsSection.tsx", () => ({
   ModelsSection: () => <section id="settings-models">Models stub</section>,
-}));
-
-vi.mock("../../src/ui/components/traces/TrackDialog.tsx", () => ({
-  TrackDialog: ({ initial, onClose }: { initial?: { label: string }; onClose: () => void }) => (
-    <div role="dialog" aria-label="Track stub">
-      <span>track {initial?.label ?? "new"}</span>
-      <button type="button" onClick={onClose}>
-        Close track
-      </button>
-    </div>
-  ),
 }));
 
 vi.mock("../../src/ui/components/claude/ContextsDialog.tsx", () => ({
@@ -293,64 +281,16 @@ describe("Settings › Access and First launch › Access", () => {
   });
 });
 
-describe("Settings › Step columns › id lists", () => {
-  const trace = (over: Partial<TraceView>): TraceView =>
-    ({
-      id: "requirement",
-      label: "Requirement",
-      patterns: ["EXI_[A-Z]+", "REQ-\\d+"],
-      field: "Exigence",
-      origin: "declared",
-      column: "in-xray",
-      found: 12,
-      docs: 2,
-      ...over,
-    }) as TraceView;
+describe("Settings › Smart columns › plain text", () => {
   const col = (name: string, builtin = false) => ({ name, origin: "xray", builtin, status: "ok", description: "" });
 
-  it("a free-text column becomes an id list through the track dialog; an id list shows its pattern", async () => {
-    const traces = [trace({})];
-    setTraces(traces);
-    mount(<ColumnsSection />, {
-      info: info({}, { traces, columns: [col("Action", true), col("Exigence"), col("Note")] }),
-    });
-    expect(screen.queryByRole("group", { name: "Action: kind of content" })).toBeNull();
-    const rows = within(screen.getByRole("list", { name: "Step columns" })).getAllByRole("listitem");
-    expect(rows[1]).toHaveTextContent("EXI_[A-Z]+ | REQ-\\d+");
-    expect(rows[1]).toHaveTextContent("12 ids in 2 documents");
-    fireEvent.click(within(rows[2]).getByRole("button", { name: "Free text" }));
-    expect(screen.queryByRole("dialog")).toBeNull();
-    fireEvent.click(within(rows[2]).getByRole("button", { name: "Id list" }));
-    expect(screen.getByText("track new")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Close track" }));
-    fireEvent.click(within(rows[1]).getByRole("button", { name: "Id list" }));
-    expect(screen.queryByRole("dialog")).toBeNull();
-    fireEvent.click(within(rows[1]).getByRole("button", { name: "Change the pattern…" }));
-    expect(screen.getByText("track Requirement")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Close track" }));
-    fireEvent.click(within(rows[1]).getByRole("button", { name: "Coverage" }));
-    expect(await screen.findByRole("dialog")).toBeInTheDocument();
-    setTraces(null);
-  });
-
-  it("an id list becomes free text after a confirmation", async () => {
-    const traces = [trace({})];
-    setTraces(traces);
-    const { app: a } = mount(<ColumnsSection />, { info: info({}, { traces, columns: [col("Exigence")] }) });
-    const free = screen.getByRole("button", { name: "Free text" });
-    fireEvent.click(free);
-    fireEvent.click(screen.getByRole("button", { name: "Keep the id list" }));
-    expect(screen.queryByRole("dialog", { name: "Exigence as free text" })).toBeNull();
-    fireEvent.click(free);
-    fireEvent.click(screen.getByRole("button", { name: "Make it free text" }));
-    expect(await screen.findByText("Could not change the column")).toBeInTheDocument();
-    models.routes["traces.remove"] = () => ({});
-    fireEvent.click(free);
-    fireEvent.click(screen.getByRole("button", { name: "Make it free text" }));
-    expect(await screen.findByText("Exigence is free text again")).toBeInTheDocument();
-    expect(named("traces.remove").at(-1)?.input).toEqual({ id: "requirement" });
-    expect(a.refreshInfo).toHaveBeenCalled();
-    setTraces(null);
+  it("a column is a name and what Claude writes in it — no kind of content, no pattern", () => {
+    mount(<ColumnsSection />, { info: info({}, { columns: [col("Action", true), col("Exigence")] }) });
+    const rows = within(screen.getByRole("list", { name: "Smart columns" })).getAllByRole("listitem");
+    expect(rows).toHaveLength(2);
+    expect(screen.getByLabelText("What Claude writes in Exigence")).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Exigence: kind of content" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Coverage" })).toBeNull();
   });
 });
 

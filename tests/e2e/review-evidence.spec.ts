@@ -2,9 +2,7 @@ import { boot, expect, mockServer, shoot, test } from "./helpers.ts";
 
 mockServer(4369);
 
-test("a generated test shows the sources it read and the related ones it did not; a misplaced quote is not highlighted", async ({
-  page,
-}) => {
+test("a generated test shows the sources it read; a misplaced quote is not highlighted", async ({ page }) => {
   await boot(page, "#/generate");
   const request = page.getByRole("region", { name: "Request" });
   const result = page.getByRole("region", { name: "Result" });
@@ -25,25 +23,17 @@ test("a generated test shows the sources it read and the related ones it did not
   await expect(panel.getByRole("status").filter({ hasText: "Quote not at this anchor" })).toBeVisible();
   await expect(panel.locator("mark")).toHaveCount(0);
 
-  const evidence = page.getByRole("region", { name: "Sources read and related" });
-  const head = evidence.getByRole("button", { name: /^Sources read \/ related/ });
+  const evidence = page.getByRole("region", { name: "Sources read" });
+  const head = evidence.getByRole("button", { name: /^Sources read/ });
   await expect(head).toHaveAttribute("aria-expanded", "false");
-  await expect(head).toContainText("2 read · 1 related unread");
+  await expect(head).toContainText("2 read");
   await head.click();
   await expect(evidence.getByText("Read by the generation (2)")).toBeVisible();
-  await expect(evidence.getByText("Related, not read (1)")).toBeVisible();
-  await expect(evidence.getByRole("button", { name: /SOSIE_211_D401-1_3#§5\.6\.6/ })).toBeVisible();
+  const read = evidence.getByRole("button", { name: /SOSIE_211_D401-1_3#§5\.6\.6/ });
+  await expect(read).toBeVisible();
   await expect(evidence).toContainText("Cited");
-  const unread = evidence.getByRole("button", { name: /SOSIE_211_D401-1_3#§5 / });
-  await expect(unread).toContainText("EXI_MOP_SPF_510_A_20");
   await shoot(page, "review-evidence-e2e");
 
-  await unread.click();
-  await expect(panel).toContainText("Le TCO à deux rangs affiche la schématique du trafic");
-  await expect(
-    under
-      .getByRole("note")
-      .filter({ hasText: /§5\b|EXI_MOP_SPF_510_A_20/ })
-      .first(),
-  ).toBeVisible();
+  await read.click();
+  await expect(panel).toContainText("Selon le type de sectionneur");
 });

@@ -10,8 +10,6 @@ import { docFigures } from "../chunk.ts";
 import { type ChunkRow, chunkCount, chunksByRowid, indexFile, nearest, openDb, toChunk } from "../db.ts";
 import { embedWith, rerankFor, rerankWith } from "../embed.ts";
 import { spaceOf } from "../fingerprint.ts";
-import { statementOf } from "../related.ts";
-import { evidenceOptions, idsIn } from "../statements.ts";
 import { keep, type RetrievalOverride, type SearchOpts } from "./filter.ts";
 import { bm25 } from "./lexical.ts";
 import { type VectorResult, vector } from "./vector.ts";
@@ -229,9 +227,9 @@ const hitOf = (project: string, c: ChunkRow, score: number, extra: Partial<Searc
 
 const parentOf = (n: string) => n.split(".").slice(0, -1).join(".");
 
-// ponytail: expansion follows the document's own structure, never a model — the parent section, the section a
-// matrix row or a requirement of the hit traces to, and (graph) the statements of the requirements the hit names;
-// added after the k hits, each passage once, flagged `via`
+// ponytail: expansion follows the document's own structure, never a model — the parent section, the section a figure
+// sits in, and (graph) the sections the hit cross-references or amends; added after the k hits, each passage once,
+// flagged `via`
 export function expandHits(project: string, hits: Ranked[], expand: Expand, opts: SearchOpts): SearchHit[] {
   if (expand === "none" || !hits.length) return [];
   const db = openDb(opts.dbFile ?? indexFile(project));
@@ -239,45 +237,25 @@ export function expandHits(project: string, hits: Ranked[], expand: Expand, opts
     const sectionChunk = db.prepare(
       "select * from chunks where doc_id = ? and (id = ? or id = ?) order by rowid limit 1",
     );
-    const traced = db.prepare("select dst from edges where src = ? and kind = 'traces'");
+    const linked = db.prepare("select dst from edges where src = ? and kind in ('refers', 'amends')");
     const seen = new Set(hits.map((h) => `${h.chunk.docId}#${h.chunk.anchor}`));
     const out: SearchHit[] = [];
-    const addSection = (ref: string, score: number) => {
+    const addSection = (ref: string, score: number, via: "section" | "graph") => {
       const m = ref.match(/^([^#]+)#(§.+)$/);
       if (!m || seen.has(ref)) return;
       const raw = sectionChunk.get(m[1], ref, `${ref}~1`) as Parameters<typeof toChunk>[0] | undefined;
       const c = raw ? toChunk(raw) : undefined;
       if (!keep(c, opts)) return;
       seen.add(ref);
-      out.push(hitOf(project, c, score, { via: "section" }));
+      out.push(hitOf(project, c, score, { via }));
     };
-    const evidence = evidenceOptions(project);
     for (const { chunk: c, score } of hits) {
       const n = c.path.split(" > ").pop() ?? "";
       if (c.kind === "section" && c.anchor.startsWith("§") && parentOf(n))
-        addSection(`${c.docId}#§${parentOf(n)}`, score);
-      if (c.kind !== "section" && n) addSection(`${c.docId}#§${n}`, score);
-      for (const id of c.reqIds)
-        for (const r of traced.all(`${c.docId}#req:${id}`) as { dst: string }[]) addSection(r.dst, score);
-      if (expand !== "graph") continue;
-      for (const id of [...new Set([...c.reqIds, ...idsIn(c.text, evidence)])]) {
-        const st = statementOf(project, id);
-        if (!st) continue;
-        const ref = `${st.docId}#req:${st.id}`;
-        if (seen.has(ref) || (st.docId === c.docId && st.section === c.anchor)) continue;
-        if (opts.docIds?.length && !opts.docIds.includes(st.docId)) continue;
-        seen.add(ref);
-        out.push({
-          docId: st.docId,
-          anchor: `req:${st.id}`,
-          path: st.path,
-          text: st.text,
-          header: st.header,
-          score,
-          kind: st.source === "matrix" ? "matrix-row" : "section",
-          via: "graph",
-        });
-      }
+        addSection(`${c.docId}#§${parentOf(n)}`, score, "section");
+      if (c.kind !== "section" && n) addSection(`${c.docId}#§${n}`, score, "section");
+      if (expand !== "graph" || c.kind !== "section") continue;
+      for (const r of linked.all(`${c.docId}#${c.anchor}`) as { dst: string }[]) addSection(r.dst, score, "graph");
     }
     return out;
   } finally {

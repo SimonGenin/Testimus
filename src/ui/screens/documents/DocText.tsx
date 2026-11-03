@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { fileUrl } from "../../api.ts";
-import { Chip, RequirementChip } from "../../components/ui/index.ts";
+import { Chip } from "../../components/ui/index.ts";
 
 const clean = (s: string) => s.replace(/<!--[\s\S]*?-->/g, "").trim();
 const squeeze = (s: string) => s.replace(/\*/g, "").replace(/\s+/g, " ").trim().toLowerCase();
@@ -68,15 +68,11 @@ export function DocText({
   docId,
   md,
   focus,
-  requirements,
-  onRequirement,
   onFigure,
 }: {
   docId: string;
   md: string;
   focus?: string;
-  requirements?: RegExp | null;
-  onRequirement?: (id: string) => void;
   onFigure: (anchor: string) => void;
 }) {
   const raws = md.split(/\n{2,}/).filter((b) => clean(b));
@@ -120,17 +116,9 @@ export function DocText({
               ))}
             </pre>
           );
-        const ids = requirements ? [...new Set(b.match(requirements) ?? [])] : [];
         return (
           <div key={i} className={hot ? "doctext-p is-focus" : "doctext-p"}>
             {parts.map((p, j) => ("src" in p ? figure(p, j, false) : <p key={j}>{inline(p.text)}</p>))}
-            {ids.length > 0 && onRequirement && (
-              <div className="chips">
-                {ids.map((id) => (
-                  <RequirementChip key={id} id={id} onClick={() => onRequirement(id)} />
-                ))}
-              </div>
-            )}
           </div>
         );
       })}

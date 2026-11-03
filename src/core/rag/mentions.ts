@@ -1,11 +1,10 @@
 import { existsSync, statSync } from "node:fs";
 import { UserError } from "../command.ts";
-import type { Chunk, DocJson } from "../types.ts";
+import type { Chunk, ChunkKind, DocJson } from "../types.ts";
 import { chunkDoc, lines, parseSections } from "./chunk.ts";
 import { chunksOf, indexFile, openDb } from "./db.ts";
 import { expandTerm } from "./glossary.ts";
 import { projectDocs } from "./indexer.ts";
-import { evidenceOptions } from "./statements.ts";
 import { fold, STOP_WORDS, stemWord } from "./stem-fr.ts";
 
 export type MentionsInput = {
@@ -21,7 +20,7 @@ export type MentionSection = {
   ref: string;
   path: string;
   title: string;
-  kind: "section" | "figure" | "matrix-row";
+  kind: ChunkKind;
   count: number;
   hits: { form: string; context: string }[];
 };
@@ -56,17 +55,7 @@ function positions(md: string): (anchor: string) => number {
       if (!at.has(key)) at.set(key, i);
     }
   });
-  return (anchor) => {
-    const known = at.get(anchor);
-    if (known !== undefined) return known;
-    const row = anchor.match(/^req:(.+?)@matrix(?:~(\d+))?$/);
-    if (row) {
-      const n = Number(row[2] ?? 1);
-      let seen = 0;
-      for (let i = 0; i < ls.length; i++) if (/^\s*\|/.test(ls[i]) && ls[i].includes(row[1]) && ++seen === n) return i;
-    }
-    return ls.length;
-  };
+  return (anchor) => at.get(anchor) ?? ls.length;
 }
 
 const cache = new Map<string, { key: string; docs: CorpusDoc[] }>();
@@ -80,7 +69,6 @@ export function corpusDocs(project: string): CorpusDoc[] {
   const key = [hasIndex ? statSync(file).mtimeMs : 0, ...docs.map((d) => `${d.doc.id}:${d.content}`)].join("\n");
   const hit = cache.get(project);
   if (hit?.key === key) return hit.docs;
-  const opts = evidenceOptions(project);
   const db = hasIndex ? openDb(file) : null;
   try {
     const indexed = new Map<string, string>();
@@ -89,7 +77,7 @@ export function corpusDocs(project: string): CorpusDoc[] {
         indexed.set(r.doc_id, r.content);
     const out = docs.map((d): CorpusDoc => {
       const fresh = db && indexed.get(d.doc.id) === d.content;
-      const chunks = fresh ? chunksOf(db, d.doc.id) : chunkDoc(d.doc, d.md, d.figures, opts);
+      const chunks = fresh ? chunksOf(db, d.doc.id) : chunkDoc(d.doc, d.md, d.figures);
       const sections = parseSections(d.md).map((s) => ({ anchor: s.anchor, title: s.title, path: s.path }));
       return {
         doc: d.doc,
@@ -112,11 +100,6 @@ export const baseAnchor = (anchor: string) => anchor.replace(/~\d+$/, "");
 export function chunkTitle(d: CorpusDoc, c: Chunk): string {
   const a = baseAnchor(c.anchor);
   if (c.kind === "figure") return c.text.split("\n")[0] ?? "";
-  if (c.kind === "matrix-row") {
-    const traced = c.path.split(" > ").pop() ?? "";
-    const t = d.titles.get(`§${traced}`);
-    return `${c.reqIds[0] ?? a} (matrix)${t ? ` → ${traced} ${t}` : ""}`;
-  }
   return d.titles.get(a) ?? "";
 }
 
@@ -230,7 +213,7 @@ const searchable = (d: CorpusDoc, c: Chunk) => {
 
 export function mentions(project: string, input: MentionsInput): Mentions {
   const term = input.term.trim();
-  if (!term) throw new UserError("Nothing to look for: the term is empty.", "Give a word, an id or an acronym.");
+  if (!term) throw new UserError("Nothing to look for: the term is empty.", "Give a word, a code or an acronym.");
   const page = Math.max(1, Math.floor(input.page ?? 1));
   const pageSize = Math.max(1, Math.floor(input.pageSize ?? 50));
   const forms = input.regex ? [term] : input.glossary === false ? [term] : expandTerm(project, term);
@@ -272,7 +255,7 @@ export function mentions(project: string, input: MentionsInput): Mentions {
       for (const s of spans)
         if (g.hits.length < MAX_HITS) g.hits.push({ form: text.slice(s.start, s.end), context: contextOf(text, s) });
     }
-    // ponytail: a section with no text of its own (only sub-sections, or only its matrix) has no chunk — its title
+    // ponytail: a section with no text of its own (only sub-sections) has no chunk — its title
     // is searched all the same
     const chunked = new Set(d.chunks.filter((c) => c.kind === "section").map((c) => baseAnchor(c.anchor)));
     for (const s of d.sections) {

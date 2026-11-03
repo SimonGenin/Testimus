@@ -3,7 +3,7 @@ import type { JobEvent } from "../../../core/types.ts";
 import { call } from "../../api.ts";
 import { JobLog } from "../../components/shell/JobLog.tsx";
 import { Button, Icon } from "../../components/ui/index.ts";
-import { activityOf, coverage, DOING, lasted, lines, type Phase, type Span } from "../../lib/activity.ts";
+import { activityOf, DOING, lasted, lines, linesRead, type Phase, type Span } from "../../lib/activity.ts";
 import { cx, plural } from "../../lib/format.ts";
 import { clock } from "../../lib/jobs.ts";
 
@@ -11,7 +11,7 @@ const sentence = (parts: string[]) =>
   `${[...new Set(parts)].map((p, i) => (i ? p.charAt(0).toLowerCase() + p.slice(1) : p)).join(", ")}.`;
 
 function ReadBar({ spans, total, live }: { spans: Span[]; total: number | undefined; live: boolean }) {
-  const c = coverage(spans);
+  const c = linesRead(spans);
   const known = spans.filter((s): s is { from: number; to: number } => s.to !== null);
   const end = Math.max(total ?? 0, c.last);
   const pct = (n: number) => `${(n / end) * 100}%`;

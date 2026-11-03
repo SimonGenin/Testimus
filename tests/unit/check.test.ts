@@ -5,11 +5,9 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   anchorKey,
   isStale,
-  loadCorpus,
   mechanicalCheck,
   patchReview,
   recordSemantic,
-  requirementFieldOf,
   runMechanical,
   setReview,
 } from "../../src/core/lib/check.ts";
@@ -42,7 +40,7 @@ describe("mechanical check — the fixture", () => {
     expect(check1398()).toEqual([]);
   });
 
-  it("LFRPS12-1420: only step 5 lacks a source (quotes under req and fig anchors are found)", () => {
+  it("LFRPS12-1420: only step 5 lacks a source (quotes under § and fig anchors are found)", () => {
     expect(kinds(mechanicalCheck(project, "LFRPS12-1420"))).toEqual(["5:source-missing:warning"]);
     expect(mechanicalCheck(project, "LFRPS12-1420")[0]).toMatchObject({
       message: expect.stringMatching(/^Step 5 has no source for its expected result/),
@@ -82,6 +80,7 @@ describe("mechanical check — sources", () => {
     expect(kinds(check1398())).toEqual(["1:source-missing:error"]);
     edit(testFile("LFRPS12-1398"), "#§5.6.9", "#req:EXI_NOPE");
     expect(kinds(check1398())).toContain("1:source-missing:error");
+    expect(check1398()[0].message).toContain("has no anchor §req:EXI_NOPE");
     edit(testFile("LFRPS12-1398"), "#req:EXI_NOPE", "#fig:41");
     expect(kinds(check1398())).toContain("1:source-missing:error");
   });
@@ -89,8 +88,8 @@ describe("mechanical check — sources", () => {
   it("anchors are read in every spelling", () => {
     expect(anchorKey("§ 5.6.6")).toBe("§5.6.6");
     expect(anchorKey("5.6.6")).toBe("§5.6.6");
-    expect(anchorKey("req EXI_A")).toBe("req:EXI_A");
-    expect(anchorKey("fig:40")).toBe("fig:40");
+    expect(anchorKey("fig 40")).toBe("fig:40");
+    expect(anchorKey("page:12")).toBe("page:12");
     edit(testFile("LFRPS12-1398"), "#§5.6.7", "#5.6.7");
     expect(check1398()).toEqual([]);
   });
@@ -137,32 +136,9 @@ describe("mechanical check — sources", () => {
   });
 });
 
-describe("mechanical check — requirements and steps", () => {
-  it("the requirement field is the xray.json field named like Exigence, or project.json's requirementField", () => {
-    expect(requirementFieldOf(project)).toBe("Exigence");
-    const pj = join(project, "project.json");
-    writeFileSync(pj, JSON.stringify({ ...JSON.parse(readFileSync(pj, "utf8")), requirementField: "Req" }));
-    expect(requirementFieldOf(project)).toBe("Req");
-  });
-
-  it("an unknown requirement id is an error; ids from the CSV or from a req anchor are known", () => {
+describe("mechanical check — steps", () => {
+  it("a smart column is free text: whatever it holds raises no finding", () => {
     edit(testFile("local-3f9a12c0"), "EXI_MOP_SPF_511_A_1670", "EXI_MOP_SPF_511_A_1670; EXI_UNKNOWN_1");
-    expect(kinds(mechanicalCheck(project, "local-3f9a12c0"))).toEqual(["2:requirement-unknown:error"]);
-    writeFileSync(join(project, "requirements", "requirements.csv"), "id,text\n");
-    expect(loadCorpus(project).requirements.has("EXI_MOP_SPF_511_A_1670")).toBe(true);
-    edit(docFile(DOC, "doc.md"), "<!-- req EXI_MOP_SPF_511_A_1670 -->", "");
-    expect(kinds(mechanicalCheck(project, "local-3f9a12c0"))).toContain("2:requirement-unknown:error");
-  });
-
-  it("ids matching the requirement patterns in a document's text are known", () => {
-    edit(testFile("local-3f9a12c0"), "EXI_MOP_SPF_511_A_1670", "EXI_MOP_SPF_511_A_1670, REQ-77");
-    expect(kinds(mechanicalCheck(project, "local-3f9a12c0"))).toEqual(["2:requirement-unknown:error"]);
-    edit(docFile(DOC, "doc.md"), "Chaque objet de traction", "Selon REQ-77, chaque objet de traction");
-    const pj = join(project, "project.json");
-    writeFileSync(
-      pj,
-      JSON.stringify({ ...JSON.parse(readFileSync(pj, "utf8")), requirementPatterns: ["\\bREQ-\\d+"] }),
-    );
     expect(mechanicalCheck(project, "local-3f9a12c0")).toEqual([]);
   });
 
@@ -213,16 +189,16 @@ describe("check.json", () => {
     const c = recordSemantic(project, "LFRPS12-1420", [
       {
         step: 2,
-        kind: "wrong-requirement",
+        kind: "wrong-object",
         severity: "error",
         message: "m1",
-        sources: [`${DOC}#req:EXI_MOP_SPF_510_A_20`],
+        sources: [`${DOC}#§5`],
       },
       { kind: "negative-missing", severity: "warning", message: "m0", sources: [] },
     ]);
     expect(c.findings.map((f) => `${f.step ?? "-"}:${f.kind}:${f.pass}`)).toEqual([
       "-:negative-missing:semantic",
-      "2:wrong-requirement:semantic",
+      "2:wrong-object:semantic",
       "5:source-missing:mechanical",
     ]);
     expect(isStale(project, "LFRPS12-1420")).toBe(false);

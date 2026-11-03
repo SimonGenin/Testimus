@@ -41,7 +41,6 @@ type Scope = "all" | SearchKind | "commands";
 const SCOPES: { id: Scope; label: string }[] = [
   { id: "all", label: "All" },
   { id: "test", label: "Tests" },
-  { id: "requirement", label: "Requirements" },
   { id: "document", label: "Documents" },
   { id: "passage", label: "Passages" },
   { id: "commands", label: "Commands" },
@@ -54,7 +53,7 @@ const PER_GROUP = 6;
 const PER_SCOPE = 40;
 const fold = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().trim();
 
-// ponytail: one box for everything — the project's tests, requirements, documents and passages (search.all, words
+// ponytail: one box for everything — the project's tests, documents and passages (search.all, words
 // first then meaning), the commands and the screens; a command whose name starts with what is typed comes first
 export function Palette({
   commands,
@@ -215,7 +214,7 @@ export function Palette({
           <input
             autoFocus
             aria-label="Search"
-            placeholder={onHit ? "Search tests, requirements, documents — or run a command" : "Run a command"}
+            placeholder={onHit ? "Search tests, documents, passages — or run a command" : "Run a command"}
             value={query}
             role="combobox"
             aria-expanded="true"

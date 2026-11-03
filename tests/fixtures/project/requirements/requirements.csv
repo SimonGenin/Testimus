@@ -1,6 +1,0 @@
-id,text,doc,chapter,status
-EXI_MOP_SPF_510_A_20,"Le TCO à deux rangs affiche la schématique du trafic sur le rang haut et la schématique de traction sur le rang bas.",SOSIE_211_D401-1_3,5,applicable
-EXI_MOP_SPF_511_A_1650,"Le sectionneur est représenté sur la schématique de traction par le symbole de la Figure 40.",SOSIE_211_D401-1_3,5.6.6,applicable
-EXI_MOP_SPF_511_A_1660,"L'état ouvert ou fermé du sectionneur est visible sans ouvrir de fenêtre.",SOSIE_211_D401-1_3,5.6.6,applicable
-EXI_MOP_SPF_511_A_1670,"Le menu contextuel d'un sectionneur sans TK propose les commandes d'autorisation et de confirmation.",SOSIE_211_D401-1_3,5.6.6,applicable
-EXI_MOP_SPF_511_A_1680,"La fenêtre Propriétés affiche l'état de la position, les heures et les points kilométriques.",SOSIE_211_D401-1_3,5.6.6,applicable

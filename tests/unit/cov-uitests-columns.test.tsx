@@ -2,17 +2,14 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ColumnModes, Step, TraceView, XrayJson } from "../../src/core/types.ts";
+import type { ColumnModes, Step, XrayJson } from "../../src/core/types.ts";
 import type { Column } from "../../src/ui/lib/columns.ts";
-import { setTraces } from "../../src/ui/lib/traces.ts";
 import { ColumnField } from "../../src/ui/screens/tests/ColumnField.tsx";
 import { ColumnsMenu } from "../../src/ui/screens/tests/ColumnsMenu.tsx";
-import { RequirementField } from "../../src/ui/screens/tests/RequirementField.tsx";
 import { GoneStep, WasView } from "../../src/ui/screens/tests/WasView.tsx";
 
 afterEach(() => {
   cleanup();
-  setTraces(null);
 });
 
 describe("ColumnField", () => {
@@ -177,35 +174,6 @@ describe("ColumnsMenu", () => {
     toggle();
     toggle();
     expect(screen.queryByRole("dialog")).toBeNull();
-  });
-});
-
-const trace: TraceView = {
-  id: "req",
-  label: "Requirement",
-  patterns: ["\\bEXI_[A-Z]+_\\d+\\b"],
-  field: "Exigence",
-  origin: "declared",
-  column: "in-xray",
-  found: 1,
-  docs: 1,
-};
-
-describe("RequirementField with traces", () => {
-  it("names chips by the trace and suggests an example id", () => {
-    setTraces([trace]);
-    render(<RequirementField label="Exigence" value="EXI_A_1" stepNumber={1} onChange={vi.fn()} />);
-    expect(screen.getByRole("button", { name: "Remove requirement EXI_A_1" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Add Exigence to step 1" }));
-    expect(screen.getByRole("textbox")).toHaveAttribute("placeholder", "EXI__…");
-  });
-
-  it("falls back to the trace label when its pattern has no literal part", () => {
-    setTraces([{ ...trace, label: "Hazard", field: "Risk", patterns: [] }]);
-    render(<RequirementField label="Risk" value="H1" stepNumber={1} onChange={vi.fn()} />);
-    expect(screen.getByRole("button", { name: "Remove hazard H1" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Add Risk to step 1" }));
-    expect(screen.getByRole("textbox")).toHaveAttribute("placeholder", "Hazard");
   });
 });
 

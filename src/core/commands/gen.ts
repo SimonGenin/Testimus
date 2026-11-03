@@ -5,7 +5,6 @@ import { describeFigures } from "../claude/figures.ts";
 import { generateTests } from "../claude/generate.ts";
 import { claudeHeaders } from "../claude/headers.ts";
 import { type Command, command, projectOf } from "../command.ts";
-import { projectTraces } from "../lib/traces.ts";
 import { hooks } from "../rag/chunk.ts";
 import { CONTEXT_IDS, EFFORT, MODEL, NOTE } from "./claude.ts";
 
@@ -28,18 +27,8 @@ export const commands: Command[] = [
         .string()
         .default("")
         .describe(
-          "What to test, in words: a feature, a screen, an operator procedure (may be empty with requirements or sections)",
+          "What to test, in words: a feature, a screen, an operator procedure (may be empty with documents or sections)",
         ),
-      requirements: z.array(z.string()).optional().describe("Requirement ids each to be verified by at least one step"),
-      tracked: z
-        .array(
-          z.object({
-            trace: z.string().describe("Key of a tracked kind (traces.list), other than requirement"),
-            ids: z.array(z.string()).describe("Its ids, each to be verified by at least one step"),
-          }),
-        )
-        .optional()
-        .describe("Other tracked ids to cover (alarm codes, use cases…), by kind"),
       sections: z
         .array(z.string())
         .optional()
@@ -91,9 +80,9 @@ export const commands: Command[] = [
         .describe("The check of each new test (empty with check: false)"),
       changed: z.array(z.string()).describe("Existing tests the run changed although it should not have"),
       discarded: z.array(z.string()).describe("Tests deleted before the run (discard: true)"),
-      uncovered: z
+      skipped: z
         .array(z.object({ item: z.string(), why: z.string() }))
-        .describe("What could not be covered, and why"),
+        .describe("What the request asked for that no test could be written for, and why"),
       reportFound: z.boolean().describe("Whether Claude's reply carried the gen-report block"),
       consulted: z
         .number()
@@ -116,28 +105,11 @@ export const commands: Command[] = [
     mutates: true,
     job: "generate",
     subject: (i) => {
-      const s =
-        i.request.trim() ||
-        [
-          ...(i.requirements ?? []),
-          ...(i.tracked ?? []).flatMap((t) => t.ids),
-          ...(i.docs ?? []),
-          ...(i.sections ?? []),
-        ].join(", ");
+      const s = i.request.trim() || [...(i.docs ?? []), ...(i.sections ?? [])].join(", ");
       return s.length > 80 ? `${s.slice(0, 77)}...` : s;
     },
     async run(ctx, input) {
-      const project = projectOf(ctx);
-      const { tracked, ...rest } = input;
-      const traces = projectTraces(project).traces;
-      const extra = (tracked ?? [])
-        .filter((t) => t.ids.length)
-        .map(
-          (t) =>
-            `${traces.find((x) => x.id === t.trace)?.label ?? t.trace} ids to cover, each by at least one step: ${t.ids.join(", ")}`,
-        );
-      const request = extra.length ? [rest.request.trim() || "(none in words)", ...extra].join("\n") : rest.request;
-      return await generateTests(project, { ...rest, request }, ctx);
+      return await generateTests(projectOf(ctx), input, ctx);
     },
   }),
   command({

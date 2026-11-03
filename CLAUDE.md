@@ -94,6 +94,9 @@ tests/unit/          vitest (desktop/ for the shell); tests/e2e/ playwright (des
 - **Sources are data, not decoration.** A claim's source is `docId#anchor "quote"`; the quote must be
   findable verbatim in `doc.md`. Anchors are stable across reconversion — never number them by
   position.
+- **No column is special.** A step column is a smart column: Claude fills it from its description, and
+  that is all. Conversion, the index, the check, the skills and the UI never know a column by name:
+  what a column holds is whatever its description asks for.
 - **Jira writes are plans first.** Every mutating Xray command supports `--dry-run` and the UI shows
   the plan before acting. **Never write to a production Jira project (LFRPS12, BHPTCC) during
   development**: write paths are proven by unit tests over a fake `http`; live checks are read-only.

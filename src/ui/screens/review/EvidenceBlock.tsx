@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { call } from "../../api.ts";
 import { Badge, Icon, Skeleton } from "../../components/ui/index.ts";
 import { cx } from "../../lib/format.ts";
@@ -8,15 +8,7 @@ export type Evidence = {
   jobId: string | null;
   consulted: string[];
   read: { ref: string; title: string; cited: boolean }[];
-  related: { ref: string; kind: string; title: string; read: boolean; via: string }[];
   searched: { tool: string; query: string }[];
-};
-
-const KIND: Record<string, string> = {
-  defines: "Defines",
-  traces: "Traced to",
-  mentions: "Mentions",
-  amends: "Amends",
 };
 
 export function EvidenceBlock({
@@ -44,13 +36,8 @@ export function EvidenceBlock({
     };
   }, [testId]);
 
-  const unread = ev?.related.filter((r) => !r.read) ?? [];
-  const summary = missing
-    ? "Not recorded"
-    : !ev
-      ? null
-      : `${ev.jobId === null ? "" : `${ev.read.length} read · `}${unread.length} related unread`;
-  const ref = (r: string, title: string, extra?: ReactNode, cited?: boolean) => (
+  const summary = missing || ev?.jobId === null ? "Not recorded" : !ev ? null : `${ev.read.length} read`;
+  const ref = (r: string, title: string, cited: boolean) => (
     <li key={r}>
       <button
         type="button"
@@ -60,7 +47,6 @@ export function EvidenceBlock({
       >
         <span className="mono ev-anchor">{r}</span>
         {title && <span className="ev-title">{title}</span>}
-        {extra}
       </button>
       {cited && (
         <Badge tone="ok" icon="check" small title="A step cites it">
@@ -71,7 +57,7 @@ export function EvidenceBlock({
   );
 
   return (
-    <section className="evidence" aria-label="Sources read and related">
+    <section className="evidence" aria-label="Sources read">
       <button
         type="button"
         className="ev-head"
@@ -80,16 +66,9 @@ export function EvidenceBlock({
         onClick={() => setOpen((o) => !o)}
       >
         <Icon name={open ? "down" : "right"} />
-        <span className="ev-head-title">Sources read / related</span>
+        <span className="ev-head-title">Sources read</span>
         <span className="spacer" />
-        {summary === null ? (
-          <Skeleton w={110} h={12} />
-        ) : (
-          <span className={cx("ev-sum", unread.length > 0 && "ev-sum-warn")}>
-            {unread.length > 0 && <Icon name="warning" size={13} />}
-            {summary}
-          </span>
-        )}
+        {summary === null ? <Skeleton w={110} h={12} /> : <span className="ev-sum">{summary}</span>}
       </button>
       {open && (
         <div id="ev-body" className="ev-body">
@@ -106,21 +85,9 @@ export function EvidenceBlock({
               {ev.jobId === null ? (
                 <p className="muted">Not recorded: this test was not written by a generation Testimus followed.</p>
               ) : ev.read.length ? (
-                <ul className="ev-list">{ev.read.map((r) => ref(r.ref, r.title, null, r.cited))}</ul>
+                <ul className="ev-list">{ev.read.map((r) => ref(r.ref, r.title, r.cited))}</ul>
               ) : (
                 <p className="muted">Nothing opened.</p>
-              )}
-              <span className="label">Related, not read ({unread.length})</span>
-              {unread.length ? (
-                <ul className="ev-list">
-                  {unread.map((r) =>
-                    ref(r.ref, r.title, <span className="muted ev-via">{r.via || KIND[r.kind] || r.kind}</span>),
-                  )}
-                </ul>
-              ) : (
-                <p className="muted">
-                  {ev.related.length ? "Every related section was read." : "No related section found."}
-                </p>
               )}
             </>
           )}

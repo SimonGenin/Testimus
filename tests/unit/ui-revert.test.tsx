@@ -99,8 +99,8 @@ describe("review.fix outcome", () => {
   });
 
   it("shows the message in Review when the fix left the test To fix", () => {
-    view({ fixMessage: "The re-check found 1 error: wrong requirement on step 1." });
+    view({ fixMessage: "The re-check found 1 error: quote not found on step 1." });
     expect(screen.getByText("Still To fix after Claude's fix")).toBeInTheDocument();
-    expect(screen.getByText("The re-check found 1 error: wrong requirement on step 1.")).toBeInTheDocument();
+    expect(screen.getByText("The re-check found 1 error: quote not found on step 1.")).toBeInTheDocument();
   });
 });

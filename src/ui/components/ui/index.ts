@@ -15,7 +15,6 @@ export { Kbd } from "./Kbd.tsx";
 export { Marked } from "./Marked.tsx";
 export { Menu, type MenuItem } from "./Menu.tsx";
 export { Modal } from "./Modal.tsx";
-export { RequirementChip } from "./RequirementChip.tsx";
 export { REVIEW, ReviewBadge } from "./ReviewBadge.tsx";
 export { Segmented } from "./Segmented.tsx";
 export { Severity, type SeverityTone } from "./Severity.tsx";

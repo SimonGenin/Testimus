@@ -86,17 +86,17 @@ describe("review.set", () => {
     const out = await run("review.set", {
       id: "LFRPS12-1420",
       decision: "to-fix",
-      note: 'Step 2: retirer "EXI_MOP_SPF_510_A_20"',
+      note: 'Step 2: nommer "Propriétés"',
     });
     expect(out).toEqual({
       id: "LFRPS12-1420",
       review: "to-fix",
-      reviewNote: 'Step 2: retirer "EXI_MOP_SPF_510_A_20"',
+      reviewNote: 'Step 2: nommer "Propriétés"',
       reviewedBy: osUser(),
       reviewedAt: "2026-11-02T10:00:00.000Z",
     });
     const md = readFileSync(testFile("LFRPS12-1420"), "utf8");
-    expect(md).toContain('review_note: "Step 2: retirer \\"EXI_MOP_SPF_510_A_20\\""');
+    expect(md).toContain('review_note: "Step 2: nommer \\"Propriétés\\""');
     expect(md).toContain("generated_by: gen-tests-1a2b3c4d");
     expect(readTest(project, "LFRPS12-1420").test.steps).toHaveLength(5);
     expect(readCheck(project, "LFRPS12-1420")!.testHash).toBe(hash);
@@ -238,7 +238,7 @@ describe("review.fix", () => {
       testFile("LFRPS12-1420"),
       readFileSync(testFile("LFRPS12-1420"), "utf8").replace("review: checked", "review: to-fix"),
     );
-    const out = await run("review.fix", { id: "LFRPS12-1420", note: "Retirer EXI_MOP_SPF_510_A_20 du step 2" });
+    const out = await run("review.fix", { id: "LFRPS12-1420", note: "Nommer les commandes au step 2" });
     expect(out).toMatchObject({ ok: false, review: "to-fix", changedSteps: [] });
     expect(out.diagnosis?.kind).toBe("credit");
     expect(readCheck(project, "LFRPS12-1420")).toEqual(before);
@@ -256,12 +256,7 @@ describe("--mock review loop (scripted check-test and fix-test)", () => {
     );
     expect(out.failed).toEqual([]);
     const k1420 = readCheck(project, "LFRPS12-1420")!.findings.map((f) => `${f.step ?? "-"}:${f.kind}`);
-    expect(k1420).toEqual([
-      "-:negative-missing",
-      "2:wrong-requirement",
-      "5:source-missing",
-      "5:not-simulated-unsourced",
-    ]);
+    expect(k1420).toEqual(["-:negative-missing", "5:source-missing", "5:not-simulated-unsourced"]);
     expect(readCheck(project, "local-3f9a12c0")!.findings.map((f) => `${f.step}:${f.kind}`)).toEqual([
       "2:vague-result",
     ]);
@@ -273,17 +268,16 @@ describe("--mock review loop (scripted check-test and fix-test)", () => {
 
     const f1420 = await run("review.fix", {
       id: "LFRPS12-1420",
-      note: "Corriger les exigences et ajouter le cas avec TK.",
+      note: "Ajouter le cas avec TK.",
     });
     expect(f1420.ok).toBe(true);
     const t = readTest(project, "LFRPS12-1420").test;
     expect(t.steps).toHaveLength(6);
-    expect(t.steps[1].fields.Exigence).toBe("EXI_MOP_SPF_511_A_1670");
     expect(existsSync(join(project, ".testimus", "runs", f1420.runId, "run.json"))).toBe(true);
   });
 });
 
-describe("review.evidence and related-unread (SPEC-RAG §5.3)", () => {
+describe("review.evidence (SPEC-RAG §5.3)", () => {
   const ledger = (consulted: string[]) => {
     mkdirSync(join(project, ".testimus", "gen"), { recursive: true });
     writeFileSync(
@@ -291,36 +285,12 @@ describe("review.evidence and related-unread (SPEC-RAG §5.3)", () => {
       JSON.stringify({ runId: "r", consulted, searched: [{ tool: "rag_search", query: "sectionneur" }] }),
     );
   };
-  const unread = () =>
-    mechanicalCheck(project, "LFRPS12-1420")
-      .filter((f) => f.kind === "related-unread")
-      .map((f) => [f.step, f.severity, f.sources[0]]);
-
-  it("without a ledger: no job, nothing read, the related sections all unread, no finding", async () => {
+  it("without a ledger: no job, nothing read", async () => {
     const e = await run("review.evidence", { testId: "LFRPS12-1420" });
-    expect(e).toMatchObject({ testId: "LFRPS12-1420", jobId: null, consulted: [], read: [], searched: [] });
-    expect(e.related).toEqual(
-      expect.arrayContaining([
-        {
-          ref: `${DOC}#§5.6.6`,
-          kind: "defines",
-          title: "Sectionneur (S)",
-          read: false,
-          via: "defines EXI_MOP_SPF_511_A_1650",
-        },
-        {
-          ref: `${DOC}#§5`,
-          kind: "defines",
-          title: "Schématique de traction",
-          read: false,
-          via: "defines EXI_MOP_SPF_510_A_20",
-        },
-      ]),
-    );
-    expect(unread()).toEqual([]);
+    expect(e).toEqual({ testId: "LFRPS12-1420", jobId: null, consulted: [], read: [], searched: [] });
   });
 
-  it("with the generation's ledger: what was read, what a step cites, what was related but never opened", async () => {
+  it("with the generation's ledger: what was read and what a step cites; the check adds nothing", async () => {
     ledger([`${DOC}#§5.6`, `${DOC}#fig:40`, "SOSIE_211_D401-1_4#§4.2"]);
     const e = await run("review.evidence", { testId: "LFRPS12-1420" });
     expect(e.jobId).toBe("gen-tests-1a2b3c4d");
@@ -330,15 +300,8 @@ describe("review.evidence and related-unread (SPEC-RAG §5.3)", () => {
       { ref: `${DOC}#fig:40`, title: "Figure 40 – Représentation graphique sectionneur", cited: true },
       { ref: "SOSIE_211_D401-1_4#§4.2", title: "Signal d'arrêt", cited: false },
     ]);
-    const rel = new Map((e.related as { ref: string; read: boolean }[]).map((r) => [r.ref, r.read]));
-    expect(rel.get(`${DOC}#§5.6.6`)).toBe(true);
-    expect(rel.get(`${DOC}#§5`)).toBe(false);
     expect(e.searched).toEqual([{ tool: "rag_search", query: "sectionneur" }]);
-    expect(unread()).toEqual([[2, "info", `${DOC}#§5`]]);
-    const f = mechanicalCheck(project, "LFRPS12-1420").find((x) => x.kind === "related-unread");
-    expect(f?.message).toBe(
-      `Step 2: EXI_MOP_SPF_510_A_20 is defined in ${DOC}#§5 (Schématique de traction), which the generation gen-tests-1a2b3c4d never opened.`,
-    );
+    expect(mechanicalCheck(project, "LFRPS12-1420").map((f) => `${f.step}:${f.kind}`)).toEqual(["5:source-missing"]);
   });
 
   it("refuses an unknown test", async () => {

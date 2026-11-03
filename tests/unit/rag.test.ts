@@ -70,23 +70,17 @@ describe("models", () => {
 });
 
 describe("chunking", () => {
-  it("makes one chunk per section with anchors, paths, requirement ids and figures", () => {
+  it("makes one chunk per section with anchors, paths and figures", () => {
     const { doc, md, figures } = docOf(D3);
     const chunks = chunkDoc(doc, md, figures);
     expect(chunks.map((c) => c.id)).toEqual([`${D3}#§5`, `${D3}#§5.6`, `${D3}#§5.6.6`, `${D3}#§5.6.7`, `${D3}#fig:40`]);
     const s = chunks[2];
     expect(s.path).toBe("5 > 5.6 > 5.6.6");
-    expect(s.reqIds).toEqual([
-      "EXI_MOP_SPF_511_A_1650",
-      "EXI_MOP_SPF_511_A_1660",
-      "EXI_MOP_SPF_511_A_1670",
-      "EXI_MOP_SPF_511_A_1680",
-    ]);
     expect(s.figureIds).toEqual(["40"]);
     expect(s.header).toBe(`${D3} Traction — 5 > 5.6 > 5.6.6 Sectionneur (S)`);
     expect(s.text).not.toContain("<!--");
     expect(s.text).toContain("Autoriser l'ouverture");
-    expect(chunks[0].reqIds).toEqual(["EXI_MOP_SPF_510_A_20"]);
+    expect(chunks[0].text).toContain("EXI_MOP_SPF_510_A_20 : Le TCO à deux rangs");
     expect(chunks[0].text).not.toContain("Objets de traction");
     const f = chunks[4];
     expect(f).toMatchObject({ kind: "figure", anchor: "fig:40", path: "5 > 5.6 > 5.6.6", figureIds: ["40"] });
@@ -123,10 +117,10 @@ describe("search primitives", () => {
     expect(fused[2][1]).toBeCloseTo(1 / 62);
   });
 
-  it("matches an expected anchor by section, requirement or figure", () => {
-    const c = { docId: D3, anchor: "§5.6.6", reqIds: ["EXI_MOP_SPF_511_A_1670"], figureIds: ["40"] };
+  it("matches an expected anchor by section or figure", () => {
+    const c = { docId: D3, anchor: "§5.6.6", figureIds: ["40"] };
     expect(hitMatches(c, `${D3}#§5.6.6`)).toBe(true);
-    expect(hitMatches(c, `${D3}#req:EXI_MOP_SPF_511_A_1670`)).toBe(true);
+    expect(hitMatches(c, `${D3}#req:EXI_MOP_SPF_511_A_1670`)).toBe(false);
     expect(hitMatches(c, `${D3}#fig:40`)).toBe(true);
     expect(hitMatches(c, `${D3}#§5.6.7`)).toBe(false);
     expect(hitMatches(c, `${D4}#§5.6.6`)).toBe(false);
@@ -138,7 +132,7 @@ describe("search primitives", () => {
 });
 
 describe("index", () => {
-  it("indexes the fixture project and finds a requirement id exactly with BM25", async () => {
+  it("indexes the fixture project and finds a code exactly with BM25", async () => {
     const r = await indexProject(dir, quietCtx(dir));
     expect(r).toMatchObject({ embedding: "bge-m3-q8", dims: 1024, vectorsRebuilt: true, chunks: 7, embedded: 7 });
     expect(calls.every((c) => c.startsWith("doc:bge-m3-q8:"))).toBe(true);
@@ -152,7 +146,7 @@ describe("index", () => {
     const hits = await searchChunks(dir, "EXI_MOP_SPF_511_A_1670", { mode: "bm25" });
     expect(hits).toHaveLength(1);
     expect(hits[0].chunk.id).toBe(`${D3}#§5.6.6`);
-    expect(hits[0].chunk.reqIds).toContain("EXI_MOP_SPF_511_A_1670");
+    expect(hits[0].chunk.text).toContain("EXI_MOP_SPF_511_A_1670");
   });
 
   it("returns hybrid hits with figure files and a query-side embedding", async () => {
@@ -237,7 +231,7 @@ describe("index", () => {
 });
 
 describe("passages", () => {
-  it("reads a section by §, a requirement by req: and a figure by fig:", () => {
+  it("reads a section by § and a figure by fig:", () => {
     const s = passage(dir, `${D3}#§5.6.6`);
     expect(s).toMatchObject({ anchor: "§5.6.6", path: "5 > 5.6 > 5.6.6", title: "Sectionneur (S)" });
     expect(s.text).toContain("Confirmer la fermeture");
@@ -245,10 +239,7 @@ describe("passages", () => {
     expect(s.figures.map((f) => f.anchor)).toEqual(["fig:40"]);
     expect(s.doc).toMatchObject({ code: D3, status: "validated" });
 
-    const r = passage(dir, `${D3}#req:EXI_MOP_SPF_511_A_1680`);
-    expect(r).toMatchObject({ anchor: "req:EXI_MOP_SPF_511_A_1680", path: "5 > 5.6 > 5.6.6" });
-    expect(r.focus).toMatch(/^EXI_MOP_SPF_511_A_1680 : La fenêtre Propriétés/);
-    expect(r.text).toContain("menu contextuel");
+    expect(() => passage(dir, `${D3}#req:EXI_MOP_SPF_511_A_1680`)).toThrow(/no anchor/);
 
     const f = passage(dir, `${D3}#fig:40`);
     expect(f).toMatchObject({
@@ -290,9 +281,7 @@ describe("rag commands", () => {
       anchor: string;
     }[];
     expect(hits[0].anchor).toBe("§5.6.6");
-    const p = (await invoke("rag.passage", { ref: `${D3}#req:EXI_MOP_SPF_511_A_1670` }, { project: dir })) as {
-      focus: string;
-    };
-    expect(p.focus).toContain("Annuler l'autorisation d'ouverture");
+    const p = (await invoke("rag.passage", { ref: `${D3}#§5.6.6` }, { project: dir })) as { text: string };
+    expect(p.text).toContain("Annuler l'autorisation d'ouverture");
   });
 });

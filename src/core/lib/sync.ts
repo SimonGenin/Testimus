@@ -82,7 +82,7 @@ export async function freshXray(project: string): Promise<XrayJson> {
   const x = readXray(project);
   try {
     const fields = await getStepFields((await projectInfo(project)).id);
-    const next = { ...followXray(project, x, fields), fetchedAt: new Date().toISOString() };
+    const next = { ...followXray(x, fields), fetchedAt: new Date().toISOString() };
     writeXray(project, next);
     return next;
   } catch {

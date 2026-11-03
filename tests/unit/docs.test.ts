@@ -9,12 +9,9 @@ import { isStale, recheckMechanical, recordSemantic, testsCiting } from "../../s
 import { headingAt, normalizeAnchor, sectionOf } from "../../src/core/lib/docs.ts";
 import { sha256 } from "../../src/core/lib/hash.ts";
 import { readCheck } from "../../src/core/lib/store.ts";
-import { LEGACY_PATTERN } from "../../src/core/lib/traces.ts";
 import { docContent } from "../../src/core/rag/indexer.ts";
 import type { DocJson, DocRef, FigureEntry } from "../../src/core/types.ts";
 import { sampleDocx } from "../fixtures/docx/sample.ts";
-
-const EXIGENCE = { id: "requirement", label: "Exigence", patterns: [LEGACY_PATTERN], field: "Exigence" };
 
 async function run<T = unknown>(project: string, name: string, raw: unknown): Promise<T> {
   const c = commands.find((x) => x.name === name);
@@ -29,7 +26,7 @@ beforeEach(() => {
   const root = mkdtempSync(join(tmpdir(), "testimus-docs-"));
   project = join(root, "project");
   mkdirSync(project);
-  writeFileSync(join(project, "project.json"), JSON.stringify({ name: "t", jiraProject: "T", traces: [EXIGENCE] }));
+  writeFileSync(join(project, "project.json"), JSON.stringify({ name: "t", jiraProject: "T" }));
   mkdirSync(join(root, "client"));
   original = join(root, "client", "SOSIE_211_D401-1_3_01.01.docx");
   writeFileSync(original, sampleDocx());
@@ -49,7 +46,7 @@ describe("docs commands", () => {
       kind: "spec",
       status: "draft",
       source: { path: original, sha256: sha256(before), file: "source.docx" },
-      stats: { sections: 20, figures: 1, requirements: 3 },
+      stats: { sections: 21, figures: 1 },
     });
     expect(doc.warnings).toHaveLength(3);
     expect(readFileSync(original)).toEqual(before);
@@ -92,7 +89,7 @@ describe("docs commands", () => {
     expect(existsSync(join(dir, "source.docx"))).toBe(true);
     expect(existsSync(join(dir, "doc.md"))).toBe(false);
     expect((await run<DocRef[]>(project, "docs.list", {}))[0].indexed).toBe("missing");
-    expect(await run(project, "docs.show", { id: doc.id })).toMatchObject({ toc: [], requirements: [], md: "" });
+    expect(await run(project, "docs.show", { id: doc.id })).toMatchObject({ toc: [], md: "" });
     await run(project, "docs.set", { id: doc.id, status: "submitted", context: "Edition for the 2024 tender" });
     expect(docRunLines(project, doc.id, { note: "Only chapter 5 matters" })).toEqual([
       "",
@@ -119,16 +116,16 @@ describe("docs commands", () => {
       title: "Spécification fonctionnelle – Traction",
       date: "2026-06-12",
       status: "submitted",
-      stats: { sections: 20, figures: 1, requirements: 3 },
+      stats: { sections: 21, figures: 1 },
     });
     expect(converted.convertedAt).not.toBe("");
     expect(readFileSync(join(dir, "context.md"), "utf8")).toBe("Edition for the 2024 tender\n");
-    const brief = await run<{ md: string; toc: unknown[]; info: unknown[] }>(project, "docs.show", {
+    const brief = await run<{ md: string; toc: unknown[] }>(project, "docs.show", {
       id: doc.id,
       brief: true,
     });
-    expect(brief).toMatchObject({ md: "", info: [] });
-    expect(brief.toc).toHaveLength(20);
+    expect(brief).toMatchObject({ md: "" });
+    expect(brief.toc).toHaveLength(21);
 
     await run(project, "docs.remove", { id: doc.id });
     await run(project, "docs.add", { file: original, convert: false });
@@ -184,11 +181,10 @@ describe("docs commands", () => {
     expect(await run<DocRef[]>(project, "docs.list", { status: "validated" })).toEqual([]);
   });
 
-  it("shows a document, a section, a requirement and a figure", async () => {
+  it("shows a document, a section and a figure; ids in the text are plain text", async () => {
     await run(project, "docs.add", { file: original });
     type Show = {
       toc: { anchor: string; title: string; level: number }[];
-      requirements: string[];
       md: string;
       context: string;
     };
@@ -198,20 +194,18 @@ describe("docs commands", () => {
       title: "Sectionneur (S)",
       level: 3,
     });
-    expect(all.requirements).toEqual(["EXI_MOP_SPF_511_A_1650", "EXI_MOP_SPF_511_A_1670", "EXI_MOP_SPF_511_A_1680"]);
+    expect(all).not.toHaveProperty("requirements");
+    expect(all.md).toContain("EXI_MOP_SPF_511_A_1670");
+    expect(all.md).not.toContain("<!-- req ");
     expect(all.context).toBe("");
     const sec = await run<Show>(project, "docs.show", { id: "SOSIE_211_D401-1_3", anchor: "§5.6.6" });
     expect(sec.md.startsWith("#### 5.6.6 Sectionneur (S)")).toBe(true);
     expect(sec.md).not.toContain("5.6.7");
     const parent = await run<Show>(project, "docs.show", { id: "SOSIE_211_D401-1_3", anchor: "5.6" });
     expect(parent.md).toContain("5.6.7 Disjoncteur");
-    const req = await run<Show>(project, "docs.show", {
-      id: "SOSIE_211_D401-1_3",
-      anchor: "req:EXI_MOP_SPF_511_A_1670",
-    });
-    expect(req.md).toBe(
-      "<!-- req EXI_MOP_SPF_511_A_1670 -->\nEXI_MOP_SPF_511_A_1670 : Le menu contextuel d'un sectionneur sans TK propose **Propriétés**.",
-    );
+    await expect(
+      run(project, "docs.show", { id: "SOSIE_211_D401-1_3", anchor: "req:EXI_MOP_SPF_511_A_1670" }),
+    ).rejects.toThrow(/No anchor/);
     const fig = await run<Show>(project, "docs.show", {
       id: "SOSIE_211_D401-1_3",
       anchor: "SOSIE_211_D401-1_3#fig:40",
@@ -219,15 +213,6 @@ describe("docs commands", () => {
     expect(fig.md).toBe("![Figure 40 – Représentation graphique sectionneur](figures/fig-40.png) <!-- fig 40 -->");
     await expect(run(project, "docs.show", { id: "SOSIE_211_D401-1_3", anchor: "§9.9" })).rejects.toThrow(/No anchor/);
     await expect(run(project, "docs.show", { id: "nope" })).rejects.toThrow(/No document nope/);
-  });
-
-  it("a project that tracks no requirements gets no requirement anchors, whatever its documents hold", async () => {
-    writeFileSync(join(project, "project.json"), JSON.stringify({ name: "t", jiraProject: "T" }));
-    await run(project, "docs.add", { file: original });
-    const all = await run<{ requirements: string[]; md: string }>(project, "docs.show", { id: "SOSIE_211_D401-1_3" });
-    expect(all.requirements).toEqual([]);
-    expect(all.md).toContain("EXI_MOP_SPF_511_A_1670");
-    expect(all.md).not.toContain("<!-- req ");
   });
 
   it("sets team fields and context, then removes", async () => {
@@ -349,7 +334,7 @@ describe("docs commands", () => {
     expect(s.context).toMatch(/ligne 92/);
     const r = await run<{ section?: string }>(copy, "docs.show", {
       id: "SOSIE_211_D401-1_3",
-      anchor: "req:EXI_MOP_SPF_511_A_1680",
+      anchor: "fig:40",
     });
     expect(r.section).toBe("§5.6.6");
   });
@@ -359,8 +344,8 @@ describe("anchors", () => {
   it("normalizes the anchor spellings sources use", () => {
     expect(normalizeAnchor("§5.6.6")).toEqual({ kind: "§", id: "5.6.6" });
     expect(normalizeAnchor("5.6.6")).toEqual({ kind: "§", id: "5.6.6" });
-    expect(normalizeAnchor("DOC#req:EXI_A_1")).toEqual({ kind: "req", id: "EXI_A_1" });
-    expect(normalizeAnchor("EXI_A_1")).toEqual({ kind: "req", id: "EXI_A_1" });
+    expect(normalizeAnchor("DOC#fig:40")).toEqual({ kind: "fig", id: "40" });
+    expect(normalizeAnchor("EXI_A_1")).toEqual({ kind: "§", id: "EXI_A_1" });
     expect(normalizeAnchor("fig 40")).toEqual({ kind: "fig", id: "40" });
     expect(normalizeAnchor("page:3")).toEqual({ kind: "page", id: "3" });
   });
@@ -373,15 +358,15 @@ describe("anchors", () => {
   it("names the section whose heading holds an anchor", () => {
     const md = [
       "# 1 Un <!-- § 1 -->",
-      "<!-- req EXI_A_1 -->",
+      "![E](e.png) <!-- fig 2 -->",
       "texte",
       "## 1.2 Deux <!-- § 1.2 -->",
       "![F](f.png) <!-- fig 3 -->",
     ].join("\n");
-    expect(headingAt(md, "req:EXI_A_1")).toBe("§1");
+    expect(headingAt(md, "fig:2")).toBe("§1");
     expect(headingAt(md, "fig:3")).toBe("§1.2");
     expect(headingAt(md, "§1.2")).toBe("§1.2");
-    expect(headingAt(md, "req:EXI_NONE")).toBeNull();
-    expect(headingAt("<!-- req EXI_A_1 -->\ntexte", "req:EXI_A_1")).toBeNull();
+    expect(headingAt(md, "fig:9")).toBeNull();
+    expect(headingAt("![E](e.png) <!-- fig 2 -->\ntexte", "fig:2")).toBeNull();
   });
 });

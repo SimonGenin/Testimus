@@ -16,15 +16,9 @@ export type Converted = {
 
 export type ConvertOpts = {
   code: string;
-  reqPatterns?: string[];
   pdfFigures?: Figure[];
   signal?: AbortSignal;
 };
-
-// ponytail: the requirement ids are the project's (its requirement trace); with none, nothing is a requirement
-export function reqRegex(patterns: string[] = []): RegExp {
-  return patterns.length ? new RegExp(patterns.map((p) => `(?:${p})`).join("|"), "g") : /(?!)/g;
-}
 
 export function slug(text: string): string {
   return (
@@ -86,34 +80,16 @@ export function guessTitle(lines: string[]): string {
   );
 }
 
-export type Anchors = { sections: string[]; requirements: string[]; figures: string[] };
+export type Anchors = { sections: string[]; figures: string[] };
 
 export function anchorsOf(md: string): Anchors {
-  const a: Anchors = { sections: [], requirements: [], figures: [] };
-  for (const m of md.matchAll(/<!-- (§|req|fig|page) ([^ ]+) -->/g)) {
-    if (m[1] === "§") a.sections.push(m[2]);
-    else if (m[1] === "req") a.requirements.push(m[2]);
-    else if (m[1] === "fig") a.figures.push(m[2]);
-  }
+  const a: Anchors = { sections: [], figures: [] };
+  for (const m of md.matchAll(/<!-- (§|fig) ([^ ]+) -->/g)) (m[1] === "§" ? a.sections : a.figures).push(m[2]);
   return a;
 }
 
-export function assemble(head: string, blocks: Block[], reqs: RegExp): string {
-  const owner = new Map<string, number>();
-  const found = blocks.map((b) => [...new Set([...b.text.matchAll(reqs)].map((m) => m[0]))]);
-  found.forEach((ids, i) => {
-    const lead = blocks[i].text.replace(/^[\s*_|-]+/, "");
-    for (const id of ids) if (!owner.has(id) && lead.startsWith(id)) owner.set(id, i);
-  });
-  found.forEach((ids, i) => {
-    for (const id of ids) if (!owner.has(id)) owner.set(id, i);
-  });
-  const out = [head];
-  blocks.forEach((b, i) => {
-    const mine = found[i].filter((id) => owner.get(id) === i);
-    out.push(mine.map((id) => `<!-- req ${id} -->\n`).join("") + b.md);
-  });
-  return `${out.join("\n\n")}\n`;
+export function assemble(head: string, blocks: Block[]): string {
+  return `${[head, ...blocks.map((b) => b.md)].join("\n\n")}\n`;
 }
 
 export function sameCaption(a: string, b: string): boolean {

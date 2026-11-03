@@ -54,9 +54,9 @@ An attachment shows in Jira only when the step text embeds it:
 
 - Field definitions: `getProjectSettings(projectIdOrKey: "<project id>") { testStepSettings { fields {
   id name type required disabled values } } }`. Built-ins come back as `action`, `data`, `result`;
-  LFRPS12 adds `{ id: "69d5fcb02f2b49abf7fb76e6", name: "Exigence", type: "text-single" }`.
-- Read: `Step.customFields { id name value }` — `value` is a JSON scalar; Exigence is a plain string,
-  several ids joined by `", "`. `data` may be `null`.
+  LFRPS12 adds one `text-single` custom field (`id: "69d5fcb02f2b49abf7fb76e6"`).
+- Read: `Step.customFields { id name value }` — `value` is a JSON scalar; a `text-single` value is a
+  plain string. `data` may be `null`.
 - Write: `customFields: [{ id, value }]` (`CustomStepFieldInput`) in `CreateStepInput` and
   `UpdateStepInput` (schema-checked; not yet run as a write).
 

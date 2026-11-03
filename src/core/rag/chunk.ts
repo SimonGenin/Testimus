@@ -1,5 +1,4 @@
 import type { Chunk, ClaudeRun, DocJson, FigureEntry } from "../types.ts";
-import { type EvidenceOpts, matrixRows } from "./statements.ts";
 
 export type Section = {
   anchor: string;
@@ -34,9 +33,7 @@ export const MAX_TOKENS = 800;
 
 const HEADING = /^#{1,6}\s+(.*)$/;
 const SECTION_ANCHOR = /<!--\s*§\s*(.*?)\s*-->/;
-const REQ = /<!--\s*req\s+(\S+?)\s*-->/g;
 const FIG = /<!--\s*fig\s+(\S+?)\s*-->/g;
-const MARKER_LINE = /^\s*<!--\s*req\s+\S+?\s*-->\s*$/;
 export const FIGURE_IMAGE = /!\[([^\]]*)\]\(([^)\s]+)[^)]*\)\s*<!--\s*fig\s+(\S+?)\s*-->/g;
 const NUMBERED = /^[0-9A-Z]{1,3}(\.[0-9A-Za-z]{1,3})*$/;
 
@@ -166,39 +163,17 @@ function split(body: string): string[] {
   return parts;
 }
 
-// ponytail: a requirement matrix is indexed row by row (`req:ID@matrix`, path = the traced section); its
-// table and the markers in front of it leave the section's own chunks, which would only repeat it
-export function chunkDoc(doc: DocJson, md: string, entries: FigureEntry[], opts: EvidenceOpts = {}): Chunk[] {
-  const rows = matrixRows(md, opts);
-  const ls = lines(md);
-  for (const t of new Set(rows.map((r) => r.matrix.table))) {
-    let a = t.start;
-    while (a > 0 && MARKER_LINE.test(ls[a - 1])) a--;
-    for (let i = a; i < t.end; i++) ls[i] = "";
-  }
-  // ponytail: a marker the converter put in front of a heading (the id is first named in that heading) belongs to
-  // the section the heading opens, not to the one above it
-  const carried = new Map<number, string[]>();
-  for (let i = 0; i < ls.length; i++) {
-    if (!MARKER_LINE.test(ls[i])) continue;
-    let n = i + 1;
-    while (n < ls.length && (!ls[n].trim() || MARKER_LINE.test(ls[n]))) n++;
-    if (n >= ls.length || !HEADING.test(ls[n]) || !SECTION_ANCHOR.test(ls[n])) continue;
-    carried.set(n, [...(carried.get(n) ?? []), ...ids(ls[i], REQ)]);
-    ls[i] = "";
-  }
+export function chunkDoc(doc: DocJson, md: string, entries: FigureEntry[]): Chunk[] {
   const sections = parseSections(md);
-  const bodies = new Map(parseSections(ls.join("\n")).map((s) => [`${s.anchor} ${s.line}`, s.body]));
   const chunks: Chunk[] = [];
   for (const s of sections) {
-    const parts = split(bodies.get(`${s.anchor} ${s.line}`) ?? s.body).filter((p) => stripComments(p));
+    const parts = split(s.body).filter((p) => stripComments(p));
     parts.forEach((raw, i) => {
       chunks.push({
         id: `${doc.id}#${s.anchor}${parts.length > 1 ? `~${i + 1}` : ""}`,
         docId: doc.id,
         anchor: s.anchor,
         path: s.path,
-        reqIds: [...new Set([...(i === 0 ? (carried.get(s.line) ?? []) : []), ...ids(raw, REQ)])],
         figureIds: ids(raw, FIG),
         header: defaultHeader(doc, s),
         text: stripComments(raw),
@@ -206,34 +181,13 @@ export function chunkDoc(doc: DocJson, md: string, entries: FigureEntry[], opts:
       });
     });
   }
-  for (const r of rows) {
-    const holder = sectionAt(sections, r.line);
-    const traced = r.traced[0];
-    const where = (traced ? sections.find((s) => s.number === traced) : holder) ?? {
-      path: sectionPath(traced ?? ""),
-      title: "",
-      number: traced ?? "",
-    };
-    chunks.push({
-      id: `${doc.id}#${r.anchor}`,
-      docId: doc.id,
-      anchor: r.anchor,
-      path: traced ? sectionPath(traced) : (holder?.path ?? ""),
-      reqIds: [r.id],
-      figureIds: [],
-      header: defaultHeader(doc, where),
-      text: r.text,
-      kind: "matrix-row",
-    });
-  }
   for (const f of docFigures(md, entries)) {
-    const s = sectionAt(sections, markerLine(md, "fig", f.n));
+    const s = sectionAt(sections, markerLine(md, f.n));
     chunks.push({
       id: `${doc.id}#${f.anchor}`,
       docId: doc.id,
       anchor: f.anchor,
       path: s?.path ?? "",
-      reqIds: [],
       figureIds: [f.n],
       header: s ? defaultHeader(doc, s) : `${doc.code} ${doc.title}`,
       text: figureText(f),
@@ -254,11 +208,8 @@ export function figureText(f: Pick<DocFigure, "caption" | "description" | "label
     .join("\n");
 }
 
-export function markerLine(md: string, kind: "req" | "fig", id: string): number {
-  return lines(md).findIndex((l) => {
-    const m = l.match(kind === "req" ? /<!--\s*req\s+(\S+?)\s*-->/ : /<!--\s*fig\s+(\S+?)\s*-->/);
-    return m?.[1] === id;
-  });
+export function markerLine(md: string, figure: string): number {
+  return lines(md).findIndex((l) => l.match(/<!--\s*fig\s+(\S+?)\s*-->/)?.[1] === figure);
 }
 
 export function lines(md: string): string[] {

@@ -30,7 +30,7 @@ EXI_MOP_SPF_511_A_1650
 
 ### Sources
 
-- SOSIE_211_D401-1_3#req:EXI_MOP_SPF_511_A_1650 "Le sectionneur est représenté sur la schématique de traction"
+- SOSIE_211_D401-1_3#§5.6.6 "Le sectionneur est représenté sur la schématique de traction"
 
 ## Step 2
 

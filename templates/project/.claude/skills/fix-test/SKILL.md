@@ -14,22 +14,20 @@ description: Correct one Xray test from a reviewer's "To fix" note and the test'
 ## Rules
 
 - Change only what the note and the findings ask for, plus what they imply (renumbering, a source that
-  no longer fits). Keep step ids (`<!-- id -->`), attachments and untouched steps byte for byte.
+  no longer fits). Keep each step's `<!-- id -->`, attachments and untouched steps byte for byte.
 - Every expected result you add or change gets a `### Sources` line with an exact quote, same rules as
-  generate-tests: `- <docId>#<anchor> "<words copied from docs/<docId>/doc.md>"`, anchor `§x.y`,
-  `req:ID` or `fig:N`; the quote must be in the cited passage itself.
-  Find them with `rag_related` (on the step's requirements: defining and traced sections, amending
-  documents), `rag_mentions` (on the step's objects, across all documents) and `rag_search`, then
+  generate-tests: `- <docId>#<anchor> "<words copied from docs/<docId>/doc.md>"`, anchor `§x.y`
+  or `fig:N`; the quote must be in the cited passage itself.
+  Find them with `rag_mentions` (on the step's objects, across all documents), `rag_related` (on the
+  cited sections: sub-sections, cross-references, amending documents) and `rag_search`, then
   read them with `rag_passage` and in `doc.md`. A `fig:` source is cited with its caption, after you
   `Read` the image.
 - A `figure-not-embedded` finding names a document picture the tester needs: `Read` it, then embed
   it with `tests_addImage` `{ id, step, figure: "<docId>#fig:<n>", field }` — `Action` when it shows
   where to act, `Expected Result` when it shows what to see — and cite it in that step's
   `### Sources`. Never copy image files or write `### Attachments` by hand.
-- A `related-unread` finding names a section linked to a covered requirement that the generation never
-  opened: read it, and change the step only if it says something the test contradicts or misses.
-- A step's requirement field (`Exigence`) lists only requirements the step actually verifies; so does
-  every tracked column of `project.json.traces` for its own ids.
+- A smart column (`columns_list`) holds what its description asks for; one whose description is
+  empty stays empty.
 - Write "not simulated" only when a source says so.
 - A finding you think is wrong: leave the step, explain why in the reply, citing the passage.
 - Do not touch `review`, `review_note`, `reviewed_by`, `reviewed_at` or `generated_by` in the

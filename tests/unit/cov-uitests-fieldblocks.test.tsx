@@ -6,7 +6,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { StepImage } from "../../src/core/types.ts";
 import { NEW_TABLE } from "../../src/ui/lib/table.ts";
 import { FieldBlocks, MOVE } from "../../src/ui/screens/tests/FieldBlocks.tsx";
-import { RequirementField } from "../../src/ui/screens/tests/RequirementField.tsx";
 import { mount } from "./cov-uiscreens-helpers.tsx";
 
 afterEach(cleanup);
@@ -308,48 +307,6 @@ describe("TableBlock", () => {
     expect(rows).toHaveLength(2);
     fireEvent.click(rows[1]);
     expect(h.onFieldText).toHaveBeenLastCalledWith("||a||||");
-  });
-});
-
-describe("RequirementField", () => {
-  const rf = (value: string, readOnly = false) => {
-    const onChange = vi.fn();
-    render(<RequirementField label="Exigence" value={value} stepNumber={2} readOnly={readOnly} onChange={onChange} />);
-    return onChange;
-  };
-
-  it("adds ids on Enter, skipping known ones, and removes one", () => {
-    const onChange = rf("R1, R2");
-    fireEvent.click(screen.getByRole("button", { name: "Remove requirement R1" }));
-    expect(onChange).toHaveBeenLastCalledWith("R2");
-    fireEvent.click(screen.getByRole("button", { name: "Add Exigence to step 2" }));
-    const input = screen.getByRole("textbox", { name: "Add Exigence to step 2" });
-    fireEvent.change(input, { target: { value: "R2 R3;R4" } });
-    fireEvent.keyDown(input, { key: "a" });
-    fireEvent.keyDown(input, { key: "Enter" });
-    expect(onChange).toHaveBeenLastCalledWith("R1, R2, R3, R4");
-    expect(screen.queryByRole("textbox")).toBeNull();
-  });
-
-  it("commits on blur, does nothing for known ids, and cancels on Escape", () => {
-    const onChange = rf("R1");
-    fireEvent.click(screen.getByRole("button", { name: "Add Exigence to step 2" }));
-    let input = screen.getByRole("textbox", { name: "Add Exigence to step 2" });
-    fireEvent.change(input, { target: { value: "R1" } });
-    fireEvent.blur(input);
-    expect(onChange).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Add Exigence to step 2" }));
-    input = screen.getByRole("textbox", { name: "Add Exigence to step 2" });
-    fireEvent.change(input, { target: { value: "R9" } });
-    fireEvent.keyDown(input, { key: "Escape" });
-    expect(screen.queryByRole("textbox")).toBeNull();
-    expect(onChange).not.toHaveBeenCalled();
-  });
-
-  it("is read-only without add or remove", () => {
-    rf("R1", true);
-    expect(screen.getByText("R1")).toBeInTheDocument();
-    expect(screen.queryByRole("button")).toBeNull();
   });
 });
 

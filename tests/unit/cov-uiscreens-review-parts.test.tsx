@@ -227,7 +227,7 @@ describe("ReviewStep", () => {
     expect(screen.getByText("Empty step")).toBeInTheDocument();
   });
 
-  it("open: fields, folded empty field, requirements flagged, sources, findings and folding", () => {
+  it("open: fields, folded empty field, a smart column as text, sources, findings and folding", () => {
     const p = base({
       active: true,
       claude: true,
@@ -237,8 +237,6 @@ describe("ReviewStep", () => {
       ),
       selected: "D#§1",
       findings: [
-        finding({ kind: "wrong-requirement", message: "EXI_1 is wrong", severity: "error" }),
-        finding({ kind: "requirement-unknown", message: "x", sources: ["D#req:EXI_2"] }),
         finding({ kind: "source-missing", message: "EXI_3 here", pass: "semantic" }),
         finding({ kind: "source-missing", message: "mech", pass: "mechanical", sources: ["D#§9"] }),
       ],
@@ -249,9 +247,8 @@ describe("ReviewStep", () => {
     expect(within(art).getByText("Changed by Claude")).toBeInTheDocument();
     expect(within(art).getByText("Folded · empty")).toBeInTheDocument();
     expect(art.querySelector('[data-field="Expected Result"]')).toBeNull();
-    expect(screen.getByText("EXI_1").closest(".chip")).toHaveClass("chip-err");
-    expect(screen.getAllByText("EXI_2")[0].closest(".chip")).toHaveClass("chip-err");
-    expect(screen.getByText("EXI_3").closest(".chip")).not.toHaveClass("chip-err");
+    expect(art.querySelector('[data-field="Exigence"]')).toHaveTextContent("EXI_1, EXI_2, EXI_3");
+    expect(art.querySelector('[data-field="Exigence"] .chip')).toBeNull();
     expect(screen.getAllByText("No passage was found for it.")).toHaveLength(1);
     fireEvent.click(screen.getByRole("button", { name: /D §1/ }));
     expect(p.onSelect).toHaveBeenCalledWith({ docId: "D", anchor: "§1", quote: "q" }, 2);
@@ -301,7 +298,7 @@ describe("ReviewTest", () => {
     ...over,
   });
 
-  it("head, requirements, remote change, whole-test findings and step folding", () => {
+  it("head, remote change, whole-test findings and step folding", () => {
     const p = props({
       sync: "remote-changed",
       check: {
@@ -314,7 +311,6 @@ describe("ReviewTest", () => {
     });
     render(<ReviewTest {...p} />);
     expect(screen.getByText("K-1")).toBeInTheDocument();
-    expect(screen.queryByText("Requirement ids")).not.toBeInTheDocument();
     expect(screen.getAllByText("Whole test")).toHaveLength(2);
     fireEvent.click(screen.getByRole("button", { name: /D §1/ }));
     expect(p.onSelect).toHaveBeenCalledWith({ docId: "D", anchor: "§1", quote: "" }, null);
@@ -417,7 +413,7 @@ describe("SourcePanel and EvidenceBlock", () => {
     expect(await screen.findByRole("heading", { name: "Doc D" })).toBeInTheDocument();
     expect(screen.getByText("C-D · v2")).toBeInTheDocument();
     expect(screen.getByText("1 of 1 source")).toBeInTheDocument();
-    expect(screen.queryByRole("region", { name: "Sources read and related" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Sources read" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Open in document" }));
     expect(onOpenDoc).toHaveBeenCalledWith("D", "§1", "citation");
     fireEvent.click(screen.getByRole("button", { name: "Close the source" }));
@@ -485,26 +481,25 @@ describe("SourcePanel and EvidenceBlock", () => {
     expect(screen.getByRole("heading", { name: "B#2" })).toBeInTheDocument();
   });
 
-  it("evidence: loading, a related section shown by its kind, toggling, and late answers ignored", async () => {
+  it("evidence: loading, what was read, toggling, and late answers ignored", async () => {
     api.routes["review.evidence"] = () => ({
       testId: "T",
       jobId: "j",
       consulted: [],
-      read: [{ ref: "D#§1", title: "", cited: false }],
-      related: [
-        { ref: "D#§2", kind: "amends", title: "Two", read: false, via: "" },
-        { ref: "D#§3", kind: "odd", title: "Three", read: false, via: "" },
+      read: [
+        { ref: "D#§1", title: "", cited: false },
+        { ref: "D#§2", title: "Two", cited: true },
       ],
       searched: [],
     });
     const onPick = vi.fn();
     const { rerender } = render(<EvidenceBlock testId="T" selected="D#§2" onPick={onPick} />);
-    const head = screen.getByRole("button", { name: /Sources read \/ related/ });
+    const head = screen.getByRole("button", { name: /Sources read/ });
     fireEvent.click(head);
     expect(head).toHaveAttribute("aria-expanded", "true");
-    expect(await screen.findByText("1 read · 2 related unread")).toBeInTheDocument();
-    expect(screen.getByText("Amends")).toBeInTheDocument();
-    expect(screen.getByText("odd")).toBeInTheDocument();
+    expect(await screen.findByText("2 read")).toBeInTheDocument();
+    expect(screen.getByText("Two")).toBeInTheDocument();
+    expect(screen.getByText("Cited")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /D#§2/ })).toHaveAttribute("aria-current", "true");
     fireEvent.click(screen.getByRole("button", { name: /D#§1/ }));
     expect(onPick).toHaveBeenCalledWith("D#§1");
@@ -526,7 +521,6 @@ describe("SourcePanel and EvidenceBlock", () => {
       jobId: "j",
       consulted: [],
       read: [],
-      related: [],
       searched: [],
     });
     const f = globalThis.fetch;

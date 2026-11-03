@@ -91,7 +91,7 @@ const CHAT_ANSWER = [
   "Le menu contextuel d'un sectionneur dépend de son type. ",
   'Selon la spécification, « Selon le type de sectionneur, le menu contextuel diffère » [SOSIE_211_D401-1_3#§5.6.6 "Selon le type de sectionneur, le menu contextuel diffère"]. ',
   "Un sectionneur sans télécommande (TK) propose Propriétés et les commandes d'autorisation et de confirmation d'ouverture et de fermeture ",
-  '[SOSIE_211_D401-1_3#req:EXI_MOP_SPF_511_A_1670 "Le menu contextuel d\'un sectionneur sans TK propose"]. ',
+  '[SOSIE_211_D401-1_3#§5.6.6 "Le menu contextuel d\'un sectionneur sans TK propose"]. ',
   "Les documents ne précisent pas l'ordre d'affichage des commandes dans le menu.",
 ];
 
@@ -106,42 +106,6 @@ registerMockScript(
       texts: CHAT_ANSWER,
       result: CHAT_ANSWER.join(""),
     }),
-);
-
-// ponytail: the fixture documents hold requirement ids and figure numbers — anything else is honestly not there
-function traceAnswer(ask: string): Record<string, unknown> {
-  if (/exigence|requirement|EXI/i.test(ask))
-    return {
-      label: "Exigence",
-      patterns: [String.raw`\bEXI_[A-Z0-9_]*[A-Z0-9]`],
-      field: "Exigence",
-      why: "Les documents écrivent les exigences EXI_MOP_SPF_…, p. ex. EXI_MOP_SPF_511_A_1670 au § 5.6.6.",
-    };
-  if (/figure|sch[ée]ma|image/i.test(ask))
-    return {
-      label: "Figure",
-      patterns: [String.raw`\bFigure \d+\b`],
-      field: "Figure",
-      why: "SOSIE_211_D401-1_3 numérote ses figures (Figure 40 au § 5.6.6).",
-    };
-  return { label: "", patterns: [], field: "", why: `Les documents ne contiennent rien qui ressemble à « ${ask} ».` };
-}
-
-registerMockScript(
-  (prompt) => prompt.startsWith("Testimus tracked-ids proposal"),
-  (spawn) => {
-    const ask = spawn.stdin.match(/^« (.*) »$/m)?.[1] ?? "";
-    const block = `\`\`\`trace\n${JSON.stringify(traceAnswer(ask))}\n\`\`\``;
-    return mockStream(spawn, {
-      tools: [
-        { name: "Grep", input: { pattern: ask.split(/\s+/)[0] ?? "", path: "docs" } },
-        { name: "Read", input: { file_path: "docs/SOSIE_211_D401-1_3/doc.md" } },
-      ],
-      texts: [block],
-      result: block,
-      delayMs: 120,
-    });
-  },
 );
 
 function editTest(cwd: string, prompt: string): string | null {

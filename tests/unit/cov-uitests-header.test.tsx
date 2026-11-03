@@ -182,7 +182,7 @@ describe("TestHeader", () => {
     const { apply } = header({ details: true });
     fireEvent.change(screen.getByLabelText("Labels"), { target: { value: "regress," } });
     expect(apply().labels).toEqual(["smoke", "regress"]);
-    fireEvent.change(screen.getByLabelText("Covers"), { target: { value: "lfrps12-2;" } });
+    fireEvent.change(screen.getByLabelText("Linked issues"), { target: { value: "lfrps12-2;" } });
     expect(apply().covers).toEqual(["LFRPS12-1", "LFRPS12-2"]);
     fireEvent.change(screen.getByLabelText("Description"), { target: { value: "New" } });
     expect(apply().description).toBe("New");

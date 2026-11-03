@@ -16,7 +16,7 @@ export type GenOutput = {
   checks?: GenCheck[];
   changed: string[];
   discarded?: string[];
-  uncovered: { item: string; why: string }[];
+  skipped: { item: string; why: string }[];
   reportFound: boolean;
   durationMs: number;
   diagnosis?: { kind: string; title: string; detail: string };
@@ -234,26 +234,10 @@ export function RunHead({
   );
 }
 
-export function Coverage({
-  asked,
-  result,
-  checked,
-}: {
-  asked: { label: string; ids: string[] }[];
-  result: GenOutput;
-  checked: string;
-}) {
-  const covered = (ids: string[]) => ids.filter((r) => !result.uncovered.some((u) => u.item.includes(r))).length;
+export function GenSummary({ result, checked }: { result: GenOutput; checked: string }) {
   return (
     <>
-      <p>
-        {asked.map((a) => (
-          <strong key={a.label}>
-            {covered(a.ids)} of {plural(a.ids.length, `${a.label.toLowerCase()} id`)} covered.{" "}
-          </strong>
-        ))}
-        {checked}
-      </p>
+      <p>{checked}</p>
       {!!result.discarded?.length && (
         <p className="muted">
           {plural(result.discarded.length, "test")} not validated yet {result.discarded.length === 1 ? "was" : "were"}{" "}
@@ -261,11 +245,11 @@ export function Coverage({
         </p>
       )}
       {!result.reportFound && result.ok && (
-        <p className="muted">Claude did not say what it could not cover: read its reply in the log.</p>
+        <p className="muted">Claude did not say what it could not write a test for: read its reply in the log.</p>
       )}
-      {result.uncovered.map((u) => (
-        <div key={u.item} className="uncovered">
-          <Severity tone="warning">Not covered</Severity>
+      {(result.skipped ?? []).map((u) => (
+        <div key={u.item} className="gen-skipped">
+          <Severity tone="warning">Skipped</Severity>
           <p>
             <span className="mono">{u.item}</span> — {u.why}
           </p>

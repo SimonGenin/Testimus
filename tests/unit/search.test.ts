@@ -35,19 +35,19 @@ const ids = (q: string, ...texts: string[]) => {
 describe("parseQuery", () => {
   it("splits words, phrases, exclusions and filters; an unknown key stays text", () => {
     const q = parseQuery(
-      'menu "fenêtre Propriétés" -ouverture in:tests review:fix label:"Sprint 3" req:EXI_1 has:findings',
+      'menu "fenêtre Propriétés" -ouverture in:tests review:fix label:"Sprint 3" ref:ABC_1 has:findings',
     );
-    expect(q.terms).toEqual(["menu", "req:EXI_1"]);
+    expect(q.terms).toEqual(["menu", "ref:ABC_1"]);
     expect(q.phrases).toEqual(["fenêtre Propriétés"]);
     expect(q.exclude).toEqual(["ouverture"]);
     expect(q.filters).toEqual({ in: ["test"], review: ["to-fix"], label: ["sprint 3"], has: ["findings"] });
-    expect(q.text).toBe("menu fenêtre Propriétés req:EXI_1");
+    expect(q.text).toBe("menu fenêtre Propriétés ref:ABC_1");
   });
 
   it("reads the other filters and their aliases, and keeps a filter with a bad value as text", () => {
-    const q = parseQuery("in:exigences in:docs sync:mod folder:Traction doc:sosie is:awaiting review:nope");
+    const q = parseQuery("in:passages in:docs sync:mod folder:Traction doc:sosie is:awaiting review:nope");
     expect(q.filters).toEqual({
-      in: ["requirement", "document"],
+      in: ["passage", "document"],
       sync: ["modified"],
       folder: ["/traction"],
       doc: ["sosie"],
@@ -116,21 +116,15 @@ describe("matching", () => {
 });
 
 describe("searchAll", () => {
-  it("finds a test by a step, says where, and finds the requirement", async () => {
+  it("finds a test by a step and says where", async () => {
     const r = await searchAll(dir, { query: "fenetre proprietes", meaning: false });
     const test = r.hits.find((h) => h.kind === "test");
     expect(test).toMatchObject({ id: "LFRPS12-1420", review: "checked", why: "words" });
-    expect(r.hits.find((h) => h.kind === "requirement")).toMatchObject({
-      id: "EXI_MOP_SPF_511_A_1680",
-      docId: "SOSIE_211_D401-1_3",
-      anchor: "req:EXI_MOP_SPF_511_A_1680",
-    });
     expect(r.meaning).toBe("off");
   });
 
-  it("puts the kind of an exact key or id first, and never asks the meaning of a code", async () => {
+  it("puts the kind of an exact key first, and never asks the meaning of a code", async () => {
     const r = await searchAll(dir, { query: "EXI_MOP_SPF_511_A_1670" });
-    expect(r.order[0]).toBe("requirement");
     expect(r.meaning).toBe("off");
     const t = await searchAll(dir, { query: "LFRPS12-1398" });
     expect(t.order[0]).toBe("test");

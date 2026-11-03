@@ -2,7 +2,6 @@ import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { readDoc } from "../lib/docs.ts";
 import { indexFile } from "../rag/db.ts";
-import { allStatements, type StatementHit } from "../rag/related.ts";
 import { search as passages } from "../rag/search/hybrid.ts";
 import {
   awaitsReview,
@@ -53,28 +52,8 @@ function docsStamp(project: string): string {
     .join("|");
 }
 
-type ReqDoc = Doc & { st: StatementHit };
 type DocDoc = Doc & { doc: DocJson };
-const reqCache = new Map<string, { key: string; corpus: Corpus<ReqDoc> }>();
 const docCache = new Map<string, { key: string; corpus: Corpus<DocDoc> }>();
-
-function reqCorpus(project: string): Corpus<ReqDoc> {
-  const key = `${docsStamp(project)}#${stamp(indexFile(project))}`;
-  const hit = reqCache.get(project);
-  if (hit?.key === key) return hit.corpus;
-  const c = corpus(
-    allStatements(project).map((st) => ({
-      st,
-      fields: [
-        field("id", st.id, 10),
-        field("statement", st.text, 3),
-        field("section", st.header.replace(st.docId, ""), 1),
-      ],
-    })),
-  );
-  reqCache.set(project, { key, corpus: c });
-  return c;
-}
 
 function docCorpus(project: string): Corpus<DocDoc> {
   const key = docsStamp(project);
@@ -179,30 +158,6 @@ async function findTests(project: string, q: Query, c: Compiled | null, k: numbe
   return { hits: hits.slice(0, k), total: hits.length, unembedded, ...(note ? { note } : {}), meaning: used };
 }
 
-function findRequirements(project: string, q: Query, k: number): Found {
-  const all = reqCorpus(project);
-  const docs = q.filters.doc?.length ? all.docs.filter((d) => inDocs(d.st.docId, q)) : all.docs;
-  const found = search(compile(q, all.vocab), docs);
-  const hits = found.slice(0, k).map((s): SearchMatch => {
-    const st = s.doc.st;
-    const cut = snippet(st.text, marksOf(s as Scored<Doc>, "statement"));
-    return {
-      kind: "requirement",
-      id: st.id,
-      title: st.id,
-      titleMarks: marksOf(s as Scored<Doc>, "id"),
-      detail: st.header,
-      snippet: cut.text,
-      marks: cut.marks,
-      score: s.score,
-      why: "words",
-      docId: st.docId,
-      anchor: `req:${st.id}`,
-    };
-  });
-  return { hits, total: found.length, unembedded: 0 };
-}
-
 function findDocuments(project: string, q: Query, k: number): Found {
   const all = docCorpus(project);
   const found = search(compile(q, all.vocab), all.docs);
@@ -290,10 +245,10 @@ async function findPassages(project: string, q: Query, k: number, meaning: boole
 }
 
 function orderOf(q: Query, found: Partial<Record<SearchKind, Found>>): SearchKind[] {
-  const codes = q.terms.map((t) => foldKeep(t).replace(/^req:/, ""));
+  const codes = q.terms.map((t) => foldKeep(t));
   const exact = (kind: SearchKind) =>
     (found[kind]?.hits ?? []).some((h) => codes.includes(foldKeep(kind === "test" ? (h.key ?? h.id) : h.id)));
-  const first = (["test", "requirement", "document"] as SearchKind[]).find(exact);
+  const first = (["test", "document"] as SearchKind[]).find(exact);
   return first ? [first, ...KINDS.filter((x) => x !== first)] : [...KINDS];
 }
 
@@ -303,7 +258,7 @@ export async function searchAll(project: string, input: SearchAllInput): Promise
   if (!q.filters.in?.length && testsOnly(q.filters)) q.filters.in = ["test"];
   const k = input.k ?? 8;
   const hasText = !!(q.terms.length || q.phrases.length);
-  // ponytail: a key or a requirement id alone is a question for words — its meaning would only add noise
+  // ponytail: a key or a code alone is a question for words — its meaning would only add noise
   const meaning = (input.meaning ?? true) && !!(q.phrases.length || q.terms.some((t) => !isCode(t)));
   const found: Partial<Record<SearchKind, Found>> = {};
   const notes: string[] = [];
@@ -320,7 +275,6 @@ export async function searchAll(project: string, input: SearchAllInput): Promise
       return findTests(project, q, hasText ? compile(q, all.vocab) : null, k, meaning);
     });
   if (hasText) {
-    if (wants(q, "requirement")) await guard("requirement", () => findRequirements(project, q, k));
     if (wants(q, "document")) await guard("document", () => findDocuments(project, q, k));
     if (wants(q, "passage") && q.text.trim()) await guard("passage", () => findPassages(project, q, k, meaning));
   }

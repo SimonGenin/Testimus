@@ -2,14 +2,12 @@
 import "@testing-library/jest-dom/vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Step, Test, TraceView, XrayJson } from "../../src/core/types.ts";
+import type { Step, Test, XrayJson } from "../../src/core/types.ts";
 import { setProject } from "../../src/ui/api.ts";
 import { ConnectClaude } from "../../src/ui/components/claude/ConnectClaude.tsx";
 import { cap, ModelPicker } from "../../src/ui/components/claude/ModelPicker.tsx";
 import { OnTopToggle } from "../../src/ui/components/claude/OnTopToggle.tsx";
-import { TracesBar } from "../../src/ui/components/traces/TracesBar.tsx";
 import { Confirm, Toasts } from "../../src/ui/components/ui/index.ts";
-import type { AppState } from "../../src/ui/lib/app.ts";
 import {
   collapsible,
   columnsOf,
@@ -22,11 +20,9 @@ import {
 import { readAlwaysOnTop, restoreAlwaysOnTop, setAlwaysOnTop } from "../../src/ui/lib/desktop.ts";
 import { differs, diffLocal, lossOf, restoreStep, sameStep } from "../../src/ui/lib/diff.ts";
 import { discardEditor, setDiscarder } from "../../src/ui/lib/editorBus.ts";
-import { fieldViews, isRequirementField } from "../../src/ui/lib/fields.ts";
 import { closeToast, useToasts } from "../../src/ui/lib/toast.ts";
-import { exampleOf, REQUIREMENT, setTraces, traceOfField, tracesNow } from "../../src/ui/lib/traces.ts";
-import { callsOf, fakeNet, net, withApp } from "./cov-uishell-helpers.tsx";
-import { app, fakeDesktop, noDesktop } from "./ui-desktop-helpers.tsx";
+import { fakeNet } from "./cov-uishell-helpers.tsx";
+import { fakeDesktop, noDesktop } from "./ui-desktop-helpers.tsx";
 
 let ids: number[] = [];
 function Probe() {
@@ -44,21 +40,8 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
   noDesktop();
-  setTraces(null);
   setProject(null);
   localStorage.clear();
-});
-
-const trace = (o: Partial<TraceView> = {}): TraceView => ({
-  id: "req",
-  label: "Exigence",
-  patterns: ["\\bEXI_[A-Z]+_\\d+\\b"],
-  field: "Exigence",
-  origin: "declared",
-  column: "in-xray",
-  found: 1,
-  docs: 1,
-  ...o,
 });
 
 const step = (fields: Record<string, string>, id?: string, o: Partial<Step> = {}): Step => ({
@@ -82,41 +65,6 @@ const test = (steps: Step[], o: Partial<Test> = {}): Test =>
     steps,
     ...o,
   }) as Test;
-
-describe("traces store and the field helpers", () => {
-  it("finds a trace by its column, whatever the case and spaces", () => {
-    expect(tracesNow()).toBeNull();
-    expect(traceOfField("Exigence")).toBeUndefined();
-    setTraces([trace()]);
-    expect(tracesNow()).toHaveLength(1);
-    expect(traceOfField("  exigence ")?.id).toBe("req");
-    expect(REQUIREMENT).toBe("requirement");
-  });
-
-  it("writes an example id out of the first pattern, or falls back to the label", () => {
-    expect(exampleOf({ patterns: ["\\bEXI_[A-Z]+_\\d+\\b"], label: "Exigence" })).toBe("EXI__…");
-    expect(exampleOf({ patterns: ["ALM-\\d{3}"], label: "Alarme" })).toBe("ALM-…");
-    expect(exampleOf({ patterns: ["(?:UC|CU)\\.\\d+"], label: "Cas" })).toBe("UCCU.…");
-    expect(exampleOf({ patterns: ["\\d+"], label: "Numéro" })).toBe("Numéro");
-    expect(exampleOf({ patterns: [], label: "Vide" })).toBe("Vide");
-  });
-
-  it("uses the tracked columns once the project is read", () => {
-    const x: XrayJson = {
-      fields: [{ id: "a", name: "Action", type: "text", builtin: true }],
-      prefs: { order: [], collapsed: [], hidden: [] },
-    };
-    expect(isRequirementField("Exigence")).toBe(true);
-    setTraces([trace(), trace({ id: "alm", field: "Action" })]);
-    expect(isRequirementField("Exigence")).toBe(true);
-    expect(isRequirementField("Requirements")).toBe(false);
-    const views = fieldViews(x);
-    expect(views.map((v) => [v.name, v.requirements, v.trace?.id])).toEqual([
-      ["Action", true, "alm"],
-      ["Exigence", true, "req"],
-    ]);
-  });
-});
 
 describe("editor bus discard", () => {
   it("hands the test about to be deleted to the editor, when one is listening", () => {
@@ -148,7 +96,7 @@ describe("columns", () => {
     expect(columnsOf(x, step({ Extra: "x" }))).toEqual([
       { name: "Action", kind: "blocks", known: true },
       { name: "Expected Result", kind: "blocks", known: true },
-      { name: "Exigence", kind: "requirements", known: true },
+      { name: "Exigence", kind: "line", known: true },
       { name: "Note", kind: "text", known: true },
       { name: "Select", kind: "readonly", known: true },
       { name: "Ref", kind: "line", known: true },
@@ -382,63 +330,5 @@ describe("ConnectClaude, the optional buttons", () => {
     fireEvent.click(screen.getByRole("button", { name: "Set the path myself…" }));
     expect(setPath).toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: "Open system check" })).toBeNull();
-  });
-});
-
-describe("TracesBar", () => {
-  const withTraces = (traces?: TraceView[]): Partial<AppState> => {
-    const base = app().info as NonNullable<AppState["info"]>;
-    return { info: { ...base, traces } };
-  };
-
-  it("lists the tracked ids and opens one, or a new one", async () => {
-    net.routes["traces.find"] = () => ({ total: 0, distinct: 0, docs: [], items: [] });
-    withApp(<TracesBar hint="Nothing tracked yet" />, {
-      ...withTraces([
-        trace({ found: 2 }),
-        trace({ id: "alm", label: "Alarme", field: "Alarme", column: "local", found: 1 }),
-      ]),
-      xray: { ...app().xray, fetchedAt: "2026-11-01T10:00:00Z" },
-    });
-    expect(screen.queryByText("Nothing tracked yet")).toBeNull();
-    const local = screen.getByRole("button", { name: /Alarme · 1 id/ });
-    expect(local).toHaveAttribute("title", expect.stringContaining("not in Xray yet"));
-    expect(screen.getByRole("button", { name: /Exigence · 2 ids/ })).not.toHaveAttribute(
-      "title",
-      expect.stringContaining("not in Xray"),
-    );
-    fireEvent.click(local);
-    expect(screen.getByRole("dialog", { name: "Change the tracked Alarme ids" })).toBeInTheDocument();
-    await waitFor(() => expect(callsOf("traces.find")).toHaveLength(1));
-    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-    expect(screen.queryByRole("dialog")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: /Track ids…/ }));
-    expect(screen.getByRole("dialog", { name: "Track ids from the documents" })).toBeInTheDocument();
-  });
-
-  it("says nothing of Xray while Jira is not connected or its step fields are unread", () => {
-    const traces = withTraces([trace({ id: "alm", label: "Alarme", field: "Alarme", column: "local", found: 1 })]);
-    const base = traces.info as NonNullable<AppState["info"]>;
-    const read = { ...app().xray, fetchedAt: "2026-11-01T10:00:00Z" };
-    for (const over of [
-      { ...traces, xray: { ...read, fetchedAt: undefined } },
-      { info: { ...base, project: { ...base.project, jiraOffline: true } }, xray: read },
-      { info: { ...base, project: { ...base.project, jiraProject: "" } }, xray: read },
-    ]) {
-      withApp(<TracesBar hint="" />, over);
-      expect(screen.getByRole("button", { name: /Alarme · 1 id/ })).not.toHaveAttribute(
-        "title",
-        expect.stringContaining("not in Xray"),
-      );
-      cleanup();
-    }
-  });
-
-  it("shows the hint when nothing is tracked or no project is read", () => {
-    withApp(<TracesBar hint="Nothing tracked yet" />, withTraces(undefined));
-    expect(screen.getByText("Nothing tracked yet")).toBeInTheDocument();
-    cleanup();
-    withApp(<TracesBar hint="No project" />, { info: null });
-    expect(screen.getByText("No project")).toBeInTheDocument();
   });
 });

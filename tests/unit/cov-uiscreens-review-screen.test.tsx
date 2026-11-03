@@ -130,8 +130,10 @@ function routes(s: Setup = {}) {
     testId: "K-1",
     jobId: "j",
     consulted: [],
-    read: [{ ref: "D#§2", title: "", cited: true }],
-    related: [{ ref: "E#§7", kind: "mentions", title: "Seven", read: false, via: "" }],
+    read: [
+      { ref: "D#§2", title: "", cited: true },
+      { ref: "E#§7", title: "Seven", cited: false },
+    ],
     searched: [],
   });
   api.routes["review.set"] = () => ({});
@@ -363,15 +365,15 @@ describe("Review screen", () => {
     expect(a.navigate).toHaveBeenCalledWith("documents", 'D#§2 "q2"');
   });
 
-  it("evidence picks: a step source keeps its step, a related one is labelled", async () => {
+  it("evidence picks: a step source keeps its step, another read one is labelled", async () => {
     routes();
     show();
     await screen.findByRole("heading", { name: "Summary K-1" });
     fireEvent.click(screen.getByRole("button", { name: "Unfold all" }));
     fireEvent.click(screen.getAllByRole("button", { name: /D §2/ })[0]);
-    fireEvent.click(await screen.findByRole("button", { name: /Sources read \/ related/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Sources read/ }));
     fireEvent.click(await screen.findByRole("button", { name: /E#§7/ }));
-    expect(await screen.findByText("Related to this test")).toBeInTheDocument();
+    expect(await screen.findByText("Read by the generation")).toBeInTheDocument();
     expect(screen.getByText("1 of 2 sources")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /^D#§2/ }));
     expect(await screen.findByText("Source of step 2")).toBeInTheDocument();

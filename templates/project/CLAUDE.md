@@ -6,19 +6,17 @@ and what the team knows about both. Testimus (the app) and you work on the same 
 ## What is here
 
 - `docs/<docId>/` — one document: `doc.md` (converted text, anchors as `<!-- § 5.6.6 -->`,
-  `<!-- req EXI_… -->`, `<!-- fig 40 -->`), `figures/`, `doc.json` (version, `status`,
+  `<!-- fig 40 -->`, `<!-- page 12 -->`), `figures/`, `doc.json` (version, `status`,
   `amends`), `context.md` when the team wrote one (what it says about the document; `docs_show`
   returns it as `context` — read it before using the document).
 - `tests/<id>/test.md` — one Xray test (format below); `images/` its screenshots.
-- `requirements/requirements.csv` — the requirement list, when the project has one.
 - `contexts/` — reference notes attached to runs.
-- `project.json` — Jira project, language, defaults, and `traces`: the kinds of ids the project tracks
-  (requirements, alarm codes…), each with its patterns and its step column. `xray.json` — the Xray
-  step fields.
+- `project.json` — Jira project, language, defaults. `xray.json` — the Xray step fields and the
+  smart columns' descriptions.
 
 Never edit: `index/`, `.testimus/`, `tests/*/.remote.md`, `tests/*/check.json`, `doc.json.source`.
 When Testimus runs you (generate, fix, check, ask), you may only write under `tests/`: `docs/`, `index/`,
-`.testimus/`, `contexts/`, `requirements/`, `.claude/`, `project.json`, `xray.json`, `.mcp.json` and
+`.testimus/`, `contexts/`, `.claude/`, `project.json`, `xray.json`, `.mcp.json` and
 `CLAUDE.md` are refused, and each run allows only the tools its job needs.
 
 ## Tools
@@ -36,8 +34,7 @@ call `xray_push` with the `planHash` that `xray_plan` returned (a push without i
 Jira changed, is refused — plan again). Pass `overwriteRemote: true` for a test changed in Jira only
 when the user asked to replace that Jira change with the local version.
 
-A problem you see and could fix in a later run (a lost figure, a finding you can correct, a missing id
-pattern) can be left as a **Claude action**: `actions_propose` with a title (a verb first), the
+A problem you see and could fix in a later run (a lost figure, a finding you can correct) can be left as a **Claude action**: `actions_propose` with a title (a verb first), the
 problem, why you can fix it, a short plan and its scope. The user sees a button next to the problem and
 runs it when they choose. `actions_list` shows the open ones.
 
@@ -67,10 +64,6 @@ What the tester observes.
 
 ![](images/img-3f9a2c1d.png)
 
-### Exigence
-
-EXI_MOP_SPF_511_A_1670
-
 ### Sources
 
 - SOSIE_211_D401-1_3#§5.6.6 "Selon le type de sectionneur, le menu contextuel diffère"
@@ -81,14 +74,13 @@ EXI_MOP_SPF_511_A_1670
 - images/img-3f9a2c1d.png (SOSIE_211_D401-1_3#fig:40)
 ```
 
-- Field headings are the step columns: the names in `xray.json` `fields` (`Action`, `Data`,
+- Field headings are the smart columns: the names in `xray.json` `fields` (`Action`, `Data`,
   `Expected Result`, custom fields) and the project's local columns (`xray.json` `columns` entries
   Xray does not have — kept in test.md, never pushed). Each column's `description` there says what
   goes in it; a column with an empty description stays empty. Leave a field out when it is empty.
 - `### Sources`: one line per claim, `<docId>#<anchor> "<short quote copied exactly from doc.md>"`.
   A quote that is not verbatim in `doc.md` is an error.
-- No reference inside Action or Expected Result text: references go in the requirement field, the
-  tracked columns (`project.json.traces`) and `### Sources`.
+- No reference inside Action or Expected Result text: references go in `### Sources`.
 - Pictures: a document figure goes into a step with `tests_addImage` (`figure: "<docId>#fig:<n>"`) —
   in the Action when it shows where to act, in the Expected Result when it shows what to see. It
   writes the `![](images/…)` line and the `### Attachments` entry, which names the figure it came from.

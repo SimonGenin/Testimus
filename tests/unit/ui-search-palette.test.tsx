@@ -21,7 +21,7 @@ const hit = (h: Partial<SearchMatch>): SearchMatch => ({
 const result = (hits: SearchMatch[], extra: Partial<SearchResult> = {}): SearchResult => ({
   hits,
   totals: { test: hits.filter((h) => h.kind === "test").length },
-  order: ["test", "requirement", "document", "passage"],
+  order: ["test", "document", "passage"],
   meaning: "on",
   unembedded: 0,
   notes: [],
@@ -43,16 +43,16 @@ describe("search palette", () => {
       result(
         [
           hit({ snippet: "Clic droit sur le sectionneur", marks: [[18, 29]], where: "Step 2 · Action", step: 2 }),
-          hit({ kind: "requirement", id: "EXI_1", title: "EXI_1", titleMarks: [], docId: "D", anchor: "req:EXI_1" }),
+          hit({ kind: "document", id: "D", title: "Spécification", titleMarks: [], docId: "D" }),
         ],
-        { totals: { test: 9, requirement: 1 } },
+        { totals: { test: 9, document: 1 } },
       );
     const onHit = vi.fn();
     const onClose = vi.fn();
     render(<Palette commands={[]} actions={[]} onCommand={() => {}} onHit={onHit} onClose={onClose} />);
     fireEvent.change(screen.getByRole("combobox", { name: "Search" }), { target: { value: "sectionneur" } });
     expect(await screen.findByText("Step 2 · Action")).toBeInTheDocument();
-    expect(screen.getAllByText("Requirements")).toHaveLength(2);
+    expect(screen.getAllByText("Documents")).toHaveLength(2);
     expect(screen.getByRole("button", { name: "All 9 tests" })).toBeInTheDocument();
     expect(screen.getAllByText("sectionneur")[0].tagName).toBe("MARK");
     fireEvent.keyDown(screen.getByRole("combobox"), { key: "Enter" });

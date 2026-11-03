@@ -18,13 +18,12 @@ One line per functional behavior, with **all** its evidence:
  "question": "Que propose le menu contextuel d'un sectionneur sans TK, et dans quels cas diffère-t-il ?",
  "queries": ["menu contextuel sectionneur", "sectionneur sans TK"],
  "evidence": [
-   {"ref": "SOSIE_211_D401-1_3#req:EXI_MOP_SPF_511_A_1670", "role": "rule", "must": true},
-   {"ref": "SOSIE_211_D401-1_3#§5.6.6", "role": "exception", "must": true},
+   {"ref": "SOSIE_211_D401-1_3#§5.6.6", "role": "rule", "must": true},
    {"ref": "SOSIE_211_D401-1_3#fig:40", "role": "figure", "must": false}],
  "category": "one-section", "validated": false}
 ```
 
-- `ref` is `docId#anchor` (`§x.y`, `req:ID`, `fig:N`). Roles: `definition`, `rule`, `condition`,
+- `ref` is `docId#anchor` (`§x.y`, `fig:N`). Roles: `definition`, `rule`, `condition`,
   `exception`, `amendment`, `contradiction`, `figure`. `must` defaults to true; each line needs at
   least one `must`. `queries` (optional) are what a tester would type; `category` groups the report.
 - Cover the categories of §10.2: one section; distant sections of one document; several documents;
@@ -47,9 +46,8 @@ Default set: `eval/behaviors.jsonl`, else `eval/questions.jsonl`. Every behavior
 fixed policies:
 
 - `search` — `rag.search` on the question and each query, fused by RRF; top k passages.
-- `search+graph` — the same, then `rag.related` (depth 1) on the anchor and up to 10 requirement ids
-  of each top-k passage, then `rag.mentions` (every page) on the queries and the ids/acronyms of the
-  question. Until `rag.related` / `rag.mentions` are built the report marks this policy
+- `search+graph` — the same, then `rag.related` (depth 1) on the anchor of each top-k passage, then
+  `rag.mentions` (every page) on the queries and the codes/acronyms of the question. Until `rag.related` / `rag.mentions` are built the report marks this policy
   `available: false` with the reason.
 
 Per policy, at k = 10, 20, 50: **evidence recall** (mean share of `must` evidence found), **complete**
@@ -101,7 +99,7 @@ configurations (the reference and the best in L1) × 3 runs.
 
 ## Order of experiments (SPEC-RAG §10.8)
 
-1. today's system (baseline); 2. + statements, matrix rows, graph, passage cap; 3. + related/mentions
+1. today's system (baseline); 2. + graph, passage cap; 3. + related/mentions
 (`search+graph`); 4. + French stemming, glossary, stop words; 5. embeddings (bge-m3, Qwen3 0.6B / 4B /
 8B); 6. rerankers on the best of 5, `topk` vs `threshold`. One change per report.
 

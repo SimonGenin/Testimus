@@ -33,7 +33,6 @@ describe("project.init", () => {
       "docs/",
       "tests/",
       "contexts/",
-      "requirements/",
     ])
       expect(r.created).toContain(f);
     expect(readProject(dir)).toMatchObject({ name: "RATP Sosie", jiraProject: "LFRPS12", language: "fr" });

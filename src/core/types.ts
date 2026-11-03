@@ -133,13 +133,8 @@ export type FindingKind =
   | "quote-not-found"
   | "quote-not-at-anchor"
   | "quote-weak"
-  | "related-unread"
   | "unsupported"
   | "contradicted"
-  | "wrong-requirement"
-  | "requirement-unknown"
-  | "id-unknown"
-  | "requirement-not-covered"
   | "wrong-object"
   | "negative-missing"
   | "case-missing"
@@ -163,7 +158,7 @@ export type CheckFile = { at: string; testHash: string; findings: Finding[] };
 
 // Documents (SPEC §4)
 
-export type DocKind = "spec" | "requirements" | "minutes" | "other";
+export type DocKind = "spec" | "minutes" | "other";
 export type DocStatus = "draft" | "submitted" | "validated";
 export type DocJson = {
   id: string;
@@ -178,7 +173,7 @@ export type DocJson = {
   convertedWith: string;
   convertedAt: string;
   warnings: string[];
-  stats?: { sections: number; figures: number; requirements: number; chars: number };
+  stats?: { sections: number; figures: number; chars: number };
 };
 export type FigureEntry = {
   file: string;
@@ -203,13 +198,12 @@ export type ModelProfile = {
   docPrefix: string;
   maxTokens: number;
 };
-export type ChunkKind = "section" | "figure" | "matrix-row";
+export type ChunkKind = "section" | "figure";
 export type Chunk = {
   id: string;
   docId: string;
   anchor: string;
   path: string;
-  reqIds: string[];
   figureIds: string[];
   header: string;
   text: string;
@@ -230,7 +224,7 @@ export type SearchHit = {
 
 // Search everywhere (search.all)
 
-export type SearchKind = "test" | "requirement" | "document" | "passage";
+export type SearchKind = "test" | "document" | "passage";
 export type SearchMark = [number, number];
 export type SearchMatch = {
   kind: SearchKind;
@@ -264,7 +258,6 @@ export type PassageOutlineItem = {
   anchor: string;
   title: string;
   chars: number;
-  reqIds: string[];
   figureIds: string[];
 };
 export type Passage = {
@@ -274,25 +267,15 @@ export type Passage = {
   title: string;
   text: string;
   figures: FigureEntry[];
-  focus?: string;
   truncated?: boolean;
   outline?: PassageOutlineItem[];
   readMore?: string;
   doc: { code: string; title: string; version: string; status: DocStatus };
 };
 
-// Evidence model (SPEC-RAG §3)
+// Document graph (SPEC-RAG §3)
 
-export type ReqStatement = {
-  id: string;
-  docId: string;
-  source: "body" | "matrix";
-  section: string;
-  text: string;
-  traced: string[];
-};
-export type RequirementMatrixSpec = { idColumn: string; sectionColumn: string; textColumn?: string };
-export type EdgeKind = "defines" | "traces" | "mentions" | "refers" | "parent" | "sibling" | "shows" | "amends";
+export type EdgeKind = "refers" | "parent" | "sibling" | "shows" | "amends";
 export type Edge = { from: string; to: string; kind: EdgeKind; docId: string };
 
 // Retrieval (SPEC-RAG §4)
@@ -525,39 +508,9 @@ export type ProjectJson = {
   };
   claude: ClaudeConfig;
   csvMapping?: Record<string, string>;
-  requirementPatterns?: string[];
-  requirementMatrix?: RequirementMatrixSpec;
-  requirementField?: string;
-  traces?: Trace[];
   glossary?: Record<string, string>;
 };
 
-// Tracked ids (SPEC §4 « Tracked ids »): what the team picks out of the documents and writes in a step column
-export type Trace = { id: string; label: string; patterns: string[]; field: string; ask?: string };
-export type TraceView = Trace & {
-  origin: "declared" | "detected";
-  column: "in-xray" | "local";
-  found: number;
-  docs: number;
-};
-export type TraceItem = { id: string; doc: string; anchor: string; context: string };
-export type TraceScan = {
-  total: number;
-  distinct: number;
-  docs: { doc: string; count: number; distinct: number }[];
-  items: TraceItem[];
-};
-export type TraceUse = { test: string; key?: string; summary: string; steps: number[] };
-export type TraceCoverage = {
-  trace: string;
-  label: string;
-  field: string;
-  total: number;
-  covered: number;
-  tests: number;
-  items: (TraceItem & { uses: TraceUse[] })[];
-  unknown: { id: string; uses: TraceUse[] }[];
-};
 export type Context = { id: string; name: string; text: string; paths: string[]; files: string[] };
 
 export type Settings = {

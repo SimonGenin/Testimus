@@ -5,7 +5,6 @@ import { collapsible, columnsOf, splitTracks } from "../../lib/columns.ts";
 import { cx } from "../../lib/format.ts";
 import { ColumnField } from "./ColumnField.tsx";
 import { FieldBlocks } from "./FieldBlocks.tsx";
-import { RequirementField } from "./RequirementField.tsx";
 import type { StepLayout } from "./StepCard.tsx";
 
 const none = () => {};
@@ -70,8 +69,6 @@ export function WasView({
                   onRemove={none}
                   onOpen={(file) => onOpenImage(file, step.images)}
                 />
-              ) : c.kind === "requirements" ? (
-                <RequirementField label={c.name} value={value} stepNumber={n} readOnly onChange={none} />
               ) : (
                 <ColumnField column={c} value={value} stepNumber={n} readOnly onChange={none} />
               )}

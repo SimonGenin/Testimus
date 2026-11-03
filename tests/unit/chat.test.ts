@@ -46,7 +46,7 @@ afterEach(() => {
 
 const ANSWER =
   'Le menu diffère selon le type [SOSIE_211_D401-1_3#§5.6.6 "Selon le type de sectionneur, le menu contextuel diffère"]. ' +
-  'Sans TK : [SOSIE_211_D401-1_3#req:EXI_MOP_SPF_511_A_1670 "Le menu contextuel d\'un sectionneur sans TK propose"].';
+  'Sans TK : [SOSIE_211_D401-1_3#§5.6.6 "Le menu contextuel d\'un sectionneur sans TK propose"].';
 
 describe("source refs", () => {
   it('parses docId#anchor "quote" in the three anchor kinds and the usual quote marks', () => {
@@ -58,7 +58,7 @@ describe("source refs", () => {
       },
       {
         docId: "SOSIE_211_D401-1_3",
-        anchor: "req:EXI_MOP_SPF_511_A_1670",
+        anchor: "§5.6.6",
         quote: "Le menu contextuel d'un sectionneur sans TK propose",
       },
     ]);

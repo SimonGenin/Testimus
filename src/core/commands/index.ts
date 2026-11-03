@@ -22,13 +22,11 @@ import { commands as review } from "./review.ts";
 import { commands as search } from "./search.ts";
 import { commands as system } from "./system.ts";
 import { commands as tests } from "./tests.ts";
-import { commands as traces } from "./traces.ts";
 import { commands as xray } from "./xray.ts";
 
 export const registry: Command[] = [
   ...project,
   ...docs,
-  ...traces,
   ...columns,
   ...rag,
   ...search,

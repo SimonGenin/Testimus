@@ -97,16 +97,13 @@ describe("generation prompt", () => {
   it("names the skill, the request, the scope, the folder, the language and the report block", () => {
     const p = genPrompt(dir, {
       request: "Menu contextuel des sectionneurs",
-      requirements: ["EXI_MOP_SPF_511_A_1670", " EXI_MOP_SPF_511_A_1670", "EXI_MOP_SPF_511_A_1680"],
-      sections: ["SOSIE_211_D401-1_3#§5.6.6"],
+      sections: ["SOSIE_211_D401-1_3#§5.6.6", " SOSIE_211_D401-1_3#§5.6.6"],
       folder: "/Traction/Sectionneurs",
     });
     expect(p).toMatch(/^Use the generate-tests skill/);
     expect(p).toContain("Request: Menu contextuel des sectionneurs");
-    expect(p).toContain(
-      "each by at least one step (read each one first): EXI_MOP_SPF_511_A_1670, EXI_MOP_SPF_511_A_1680\n",
-    );
-    expect(p).toContain("rag_passage and in doc.md): SOSIE_211_D401-1_3#§5.6.6");
+    expect(p).toContain("rag_passage and in doc.md): SOSIE_211_D401-1_3#§5.6.6\n");
+    expect(p).toContain("Smart columns — write each as ### <column> in every step, following its description:");
     expect(p).toContain("Target Xray folder: /Traction/Sectionneurs");
     expect(p).toContain('Language of the tests: French (project.json language "fr").');
     expect(p).toContain("review: draft");
@@ -116,7 +113,7 @@ describe("generation prompt", () => {
   });
 
   it("without a folder offers the project's folders; without words says so", () => {
-    const p = genPrompt(dir, { request: " ", requirements: ["EXI_MOP_SPF_511_A_1650"] });
+    const p = genPrompt(dir, { request: " ", docs: ["SOSIE_211_D401-1_3"] });
     expect(p).toContain(
       "pick the closest of project.json folders (/Traction/Sectionneurs, /Traction/Disjoncteurs, /Signalisation)",
     );
@@ -125,7 +122,7 @@ describe("generation prompt", () => {
   });
 
   it("refuses an empty request and a malformed section", () => {
-    expect(() => checkGenInput({ request: "  ", requirements: [" "], sections: [] })).toThrow(/Nothing to generate/);
+    expect(() => checkGenInput({ request: "  ", docs: [" "], sections: [] })).toThrow(/Nothing to generate/);
     expect(() => checkGenInput({ request: "x", sections: ["§5.6.6"] })).toThrow(/Not a document section: §5.6.6/);
     expect(() => checkGenInput({ request: "", sections: ["DOC#§5.6.6"] })).not.toThrow();
   });
@@ -136,20 +133,19 @@ describe("gen-report parsing", () => {
     const t = [
       "Done.",
       "```gen-report",
-      '{"tests": ["local-00000001"], "uncovered": []}',
+      '{"tests": ["local-00000001"], "skipped": []}',
       "```",
       "Corrected:",
       "```gen-report",
-      '{"tests": ["local-1a2b3c4d"], "covered": ["EXI_A"], "uncovered": [{"item": "EXI_B", "why": "no source"}, "EXI_C", {"why": "no item"}]}',
+      '{"tests": ["local-1a2b3c4d"], "skipped": [{"item": "Menu B", "why": "no source"}, "Menu C", {"why": "no item"}]}',
       "```",
     ].join("\n");
     expect(parseGenReport(t)).toEqual({
       found: true,
       tests: ["local-1a2b3c4d"],
-      covered: ["EXI_A"],
-      uncovered: [
-        { item: "EXI_B", why: "no source" },
-        { item: "EXI_C", why: "" },
+      skipped: [
+        { item: "Menu B", why: "no source" },
+        { item: "Menu C", why: "" },
       ],
       consulted: [],
     });
@@ -157,16 +153,15 @@ describe("gen-report parsing", () => {
     expect(parseGenReport(withConsulted).consulted).toEqual(["D#§1"]);
   });
 
-  it("accepts an untagged json block holding uncovered, and says when there is no report", () => {
-    expect(parseGenReport('x\n```json\n{"uncovered": [{"item": "A", "why": "w"}]}\n```').uncovered).toEqual([
+  it("accepts an untagged json block holding skipped, and says when there is no report", () => {
+    expect(parseGenReport('x\n```json\n{"skipped": [{"item": "A", "why": "w"}]}\n```').skipped).toEqual([
       { item: "A", why: "w" },
     ]);
     expect(parseGenReport('```json\n{"other": 1}\n```').found).toBe(false);
     expect(parseGenReport("```gen-report\n{not json\n```")).toEqual({
       found: false,
       tests: [],
-      covered: [],
-      uncovered: [],
+      skipped: [],
       consulted: [],
     });
     expect(parseGenReport("Tests written.").found).toBe(false);
@@ -198,25 +193,27 @@ describe("gen-report parsing", () => {
 describe("planned generation", () => {
   const bigDoc = () => {
     mkdirSync(join(dir, "docs", "BIG_DOC"), { recursive: true });
-    const reqs = Array.from({ length: 16 }, (_, k) => `EXI_BIG_${String(k).padStart(2, "0")}`);
     writeFileSync(
       join(dir, "docs", "BIG_DOC", "doc.md"),
-      ["# Big", "", ...reqs.map((r, k) => `<!-- req ${r} -->\n${r} : le bouton ${k} s'allume.\n`)].join("\n"),
+      [
+        "# Big",
+        "",
+        ...Array.from(
+          { length: 16 },
+          (_, k) => `## ${k + 1} Bouton ${k} <!-- § ${k + 1} -->\n\nLe bouton ${k} s'allume.\n`,
+        ),
+      ].join("\n"),
     );
   };
 
-  it("asks for a plan past 15 requirements in scope, never inside a planned test", () => {
+  it("asks for a plan past 15 sections in scope, never inside a planned test", () => {
     bigDoc();
     expect(genPrompt(dir, { request: "Tout le document", docs: ["BIG_DOC"] })).toContain(
-      `The scope holds 16 requirements. When covering it takes more than 3 tests, ${PLAN_MARKER} instead: write no test, and end your reply with its ${PLAN_TAG} block`,
+      `The scope holds 16 sections. When testing it takes more than 3 tests, ${PLAN_MARKER} instead: write no test, and end your reply with its ${PLAN_TAG} block`,
     );
-    expect(genPrompt(dir, { request: "x", requirements: ["EXI_MOP_SPF_511_A_1650"] })).not.toContain(PLAN_MARKER);
-    const t = {
-      summary: "Boutons 0 à 7",
-      technique: "partition",
-      requirements: ["EXI_BIG_00"],
-      sections: ["BIG_DOC#§1"],
-    };
+    expect(genPrompt(dir, { request: "x", sections: ["BIG_DOC#§1"] })).not.toContain(PLAN_MARKER);
+    expect(genPrompt(dir, { request: "x", docs: ["SOSIE_211_D401-1_3"] })).not.toContain(PLAN_MARKER);
+    const t = { summary: "Boutons 0 à 7", technique: "partition", sections: ["BIG_DOC#§1"] };
     const part = genPrompt(dir, plannedInput({ request: "Tout le document", docs: ["BIG_DOC"] }, t), [], undefined, {
       n: 1,
       of: 2,
@@ -235,18 +232,14 @@ describe("planned generation", () => {
     const t = [
       block({ tests: [{ summary: "Old" }] }),
       block({
-        tests: [
-          { summary: " A ", technique: "états", requirements: ["EXI_1"], sections: ["DOC#§2", "§3"] },
-          { summary: "" },
-          "B",
-        ],
-        uncovered: [{ item: "EXI_9", why: "not observable by a manual tester" }],
+        tests: [{ summary: " A ", technique: "états", sections: ["DOC#§2", "§3"] }, { summary: "" }, "B"],
+        skipped: [{ item: "Fonction serveur", why: "not observable by a manual tester" }],
       }),
     ].join("\n");
     expect(parsePlan(t)).toEqual({
       found: true,
-      tests: [{ summary: "A", technique: "états", requirements: ["EXI_1"], sections: ["DOC#§2"] }],
-      uncovered: [{ item: "EXI_9", why: "not observable by a manual tester" }],
+      tests: [{ summary: "A", technique: "états", sections: ["DOC#§2"] }],
+      skipped: [{ item: "Fonction serveur", why: "not observable by a manual tester" }],
     });
     expect(parsePlan(block({ tests: [] })).found).toBe(false);
     expect(parsePlan("```test-plan\nnot json\n```").found).toBe(false);
@@ -256,10 +249,10 @@ describe("planned generation", () => {
     bigDoc();
     const plan = {
       tests: [
-        { summary: "Boutons 0 à 7", requirements: ["EXI_BIG_00"], sections: ["BIG_DOC#req:EXI_BIG_00"] },
-        { summary: "Boutons 8 à 14", requirements: ["EXI_BIG_08"], sections: [] },
+        { summary: "Boutons 0 à 7", sections: ["BIG_DOC#§1"] },
+        { summary: "Boutons 8 à 14", sections: [] },
       ],
-      uncovered: [{ item: "EXI_BIG_15", why: "not observable by a manual tester" }],
+      skipped: [{ item: "Bouton 15", why: "not observable by a manual tester" }],
     };
     const planReply = `Deux tests.\n\`\`\`${PLAN_TAG}\n${JSON.stringify(plan)}\n\`\`\``;
     const ids = ["local-0000a001", "local-0000b002"];
@@ -269,8 +262,8 @@ describe("planned generation", () => {
         if (s.stdin.includes(PLAN_MARKER))
           return [tool("mcp__testimus__docs_show", { id: "BIG_DOC" }), result(planReply)];
         const id = ids[nth(s) - 1];
-        const uncovered = nth(s) === 2 ? [{ item: "EXI_BIG_09", why: "no passage" }] : [];
-        const reply = `Écrit ${id}.\n\`\`\`gen-report\n${JSON.stringify({ tests: [id], uncovered })}\n\`\`\``;
+        const skipped = nth(s) === 2 ? [{ item: "Bouton 9", why: "no passage" }] : [];
+        const reply = `Écrit ${id}.\n\`\`\`gen-report\n${JSON.stringify({ tests: [id], skipped })}\n\`\`\``;
         return [tool("Write", { file_path: join(dir, "tests", id, "test.md"), content: "…" }), result(reply)];
       },
       (s) => {
@@ -289,7 +282,7 @@ describe("planned generation", () => {
       ok: boolean;
       tests: string[];
       planned: number;
-      uncovered: unknown[];
+      skipped: unknown[];
       reportFound: boolean;
       costUsd: number;
       summary: string;
@@ -300,9 +293,9 @@ describe("planned generation", () => {
     expect(r.ok).toBe(true);
     expect(r.planned).toBe(2);
     expect([...r.tests].sort()).toEqual(ids);
-    expect(r.uncovered).toEqual([
-      { item: "EXI_BIG_15", why: "not observable by a manual tester" },
-      { item: "EXI_BIG_09", why: "no passage" },
+    expect(r.skipped).toEqual([
+      { item: "Bouton 15", why: "not observable by a manual tester" },
+      { item: "Bouton 9", why: "no passage" },
     ]);
     expect(r.reportFound).toBe(true);
     expect(r.costUsd).toBe(0.75);
@@ -321,11 +314,11 @@ describe("planned generation", () => {
       "gen.tests",
       { request: "Tout le document", docs: ["BIG_DOC"], check: false },
       { project: dir },
-    )) as { ok: boolean; planned: number; tests: string[]; uncovered: unknown[] };
+    )) as { ok: boolean; planned: number; tests: string[]; skipped: unknown[] };
     expect(r.ok).toBe(true);
     expect(r.planned).toBe(2);
     expect(r.tests).toHaveLength(4);
-    expect(r.uncovered.length).toBeGreaterThan(0);
+    expect(r.skipped.length).toBeGreaterThan(0);
   });
 
   it("a plan without tests runs nothing more", async () => {
@@ -345,11 +338,11 @@ describe("planned generation", () => {
 });
 
 describe("gen.tests", () => {
-  it("runs Claude on the project, stamps every new test draft + generated_by, returns the uncovered items", async () => {
+  it("runs Claude on the project, stamps every new test draft + generated_by, returns the skipped items", async () => {
     const id = "local-0badcafe";
     const events: JobEvent[] = [];
     const off = subscribe((e) => events.push(e));
-    const reply = `Écrit ${id}.\n\`\`\`gen-report\n{"tests": ["${id}"], "covered": [], "uncovered": [{"item": "EXI_MOP_SPF_511_A_1690", "why": "absent des documents"}]}\n\`\`\``;
+    const reply = `Écrit ${id}.\n\`\`\`gen-report\n{"tests": ["${id}"], "skipped": [{"item": "Fermeture du disjoncteur", "why": "absent des documents"}]}\n\`\`\``;
     fake(
       () => [
         tool("mcp__testimus__rag_search", { query: "disjoncteur" }),
@@ -371,7 +364,7 @@ describe("gen.tests", () => {
       runId: string;
       tests: string[];
       changed: string[];
-      uncovered: unknown[];
+      skipped: unknown[];
       costUsd: number;
       ok: boolean;
       reportFound: boolean;
@@ -382,7 +375,7 @@ describe("gen.tests", () => {
     expect(r.tests).toEqual([id]);
     expect(r.consulted).toBe(1);
     expect(r.changed).toEqual([]);
-    expect(r.uncovered).toEqual([{ item: "EXI_MOP_SPF_511_A_1690", why: "absent des documents" }]);
+    expect(r.skipped).toEqual([{ item: "Fermeture du disjoncteur", why: "absent des documents" }]);
     expect(r.reportFound).toBe(true);
     expect(r.costUsd).toBe(0.25);
 
@@ -465,11 +458,11 @@ describe("gen.tests", () => {
     const r = (await invoke("gen.tests", { request: "x" }, { project: dir })) as {
       tests: string[];
       changed: string[];
-      uncovered: unknown[];
+      skipped: unknown[];
       reportFound: boolean;
     };
     off();
-    expect(r).toMatchObject({ tests: [], changed: ["LFRPS12-1398"], uncovered: [], reportFound: false });
+    expect(r).toMatchObject({ tests: [], changed: ["LFRPS12-1398"], skipped: [], reportFound: false });
     expect(logs.some((m) => m.includes("changed the existing test LFRPS12-1398"))).toBe(true);
     expect(logs.some((m) => m.includes("no gen-report block"))).toBe(true);
   });
@@ -485,7 +478,7 @@ describe("gen.tests", () => {
         folder: "/Traction/Sectionneurs",
       },
       { project: dir },
-    )) as { tests: string[]; uncovered: { item: string }[]; ok: boolean; costUsd: number; consulted: number };
+    )) as { tests: string[]; skipped: { item: string }[]; ok: boolean; costUsd: number; consulted: number };
     expect(r.ok).toBe(true);
     expect(r.tests).toHaveLength(2);
     const by = readTest(dir, r.tests[0]).test.generatedBy as string;
@@ -508,7 +501,7 @@ describe("gen.tests", () => {
         .filter((d) => !before.includes(d))
         .sort(),
     ).toEqual([...r.tests].sort());
-    expect(r.uncovered).toHaveLength(1);
+    expect(r.skipped).toHaveLength(1);
     expect(r.costUsd).toBeGreaterThan(0);
 
     const notFound = r.tests.map((id) => {
@@ -531,86 +524,4 @@ describe("gen.tests", () => {
     expect(withFigure.fields["Expected Result"]).toContain(`![](${withFigure.images[0].file})`);
     expect(existsSync(join(dir, "tests", menu, withFigure.images[0].file))).toBe(true);
   }, 20000);
-});
-
-describe("the evidence ledger is written before the first check (review #3)", () => {
-  const id = "local-0badc0de";
-  const TCO_MD = `---
-summary: TCO deux rangs
-folder: /
-labels: []
-review: draft
----
-
-## Description
-
-x
-
-## Step 1
-
-### Action
-
-Regarder le TCO.
-
-### Expected Result
-
-Le rang haut affiche la schématique du trafic.
-
-### Exigence
-
-EXI_MOP_SPF_510_A_20
-
-### Sources
-
-- SOSIE_211_D401-1_3#§5 "Le TCO à deux rangs affiche la schématique du trafic sur le rang haut"
-`;
-  const reply = `Écrit ${id}.\n\`\`\`gen-report\n{"tests": ["${id}"], "covered": [], "uncovered": []}\n\`\`\``;
-  let calls = 0;
-  beforeEach(() => {
-    calls = 0;
-    fake(
-      () =>
-        ++calls === 1
-          ? [
-              tool("mcp__testimus__rag_passage", { ref: "SOSIE_211_D401-1_3#§5.6.6" }),
-              tool("Write", { file_path: join(dir, "tests", id, "test.md"), content: "…" }),
-              text(reply),
-              result(reply),
-            ]
-          : [result("Aucune anomalie.")],
-      (s) => {
-        if (calls > 0) return;
-        mkdirSync(join(s.cwd, "tests", id), { recursive: true });
-        writeFileSync(join(s.cwd, "tests", id, "test.md"), TCO_MD);
-      },
-    );
-  });
-  const unread = () =>
-    readJson<{ findings: { kind: string; message: string }[] }>(join(dir, "tests", id, "check.json"), {
-      findings: [],
-    }).findings.filter((f) => f.kind === "related-unread");
-
-  it("gen.tests without the semantic check: check.json already has related-unread for the section never opened", async () => {
-    const r = (await invoke("gen.tests", { request: "TCO deux rangs", check: false }, { project: dir })) as {
-      tests: string[];
-      consulted: number;
-    };
-    expect(r.tests).toEqual([id]);
-    expect(r.consulted).toBe(1);
-    expect(unread()).toHaveLength(1);
-    expect(unread()[0].message).toMatch(/SOSIE_211_D401-1_3#§5\b/);
-    const by = readTest(dir, id).test.generatedBy as string;
-    const ledger = readJson<{ consulted: string[]; tests: string[]; covered?: unknown }>(
-      join(dir, ".testimus", "gen", `${by}.json`),
-      { consulted: [], tests: [] },
-    );
-    expect(ledger).toMatchObject({ consulted: ["SOSIE_211_D401-1_3#§5.6.6"], tests: [id], covered: [] });
-  });
-
-  it("gen.tests with the semantic check: the recorded check carries it too", async () => {
-    const r = (await invoke("gen.tests", { request: "TCO deux rangs" }, { project: dir })) as { tests: string[] };
-    expect(r.tests).toEqual([id]);
-    expect(calls).toBeGreaterThan(1);
-    expect(unread()).toHaveLength(1);
-  });
 });

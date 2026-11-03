@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { parseCsvRows } from "../../src/ui/lib/csv.ts";
 import { toBase64, uploadImage } from "../../src/ui/lib/files.ts";
-import { loadRequirements, parseCsvRows } from "../../src/ui/lib/requirements.ts";
 import { api, fakeFetch } from "./ui-desktop-helpers.tsx";
 
 afterEach(() => {
@@ -67,68 +67,5 @@ describe("parseCsvRows", () => {
       ["id", "text", "doc"],
       ["A", "b,c", "D"],
     ]);
-  });
-});
-
-type Route = (url: string, body: Record<string, unknown>) => Response | Promise<Response>;
-
-const stubFetch = (route: Route) =>
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (url: string, init?: { body?: string }) =>
-      route(String(url), init?.body ? (JSON.parse(init.body) as Record<string, unknown>) : {}),
-    ),
-  );
-
-const json = (v: unknown) => new Response(JSON.stringify(v), { status: 200 });
-
-describe("loadRequirements", () => {
-  it("merges the CSV with the ids found in documents, sorted numerically", async () => {
-    stubFetch((url, body) => {
-      if (url.startsWith("/files/")) return new Response("﻿ID;Text;Doc\nREQ_10;Ten;D1\nREQ_2; Two ;D1\n;x;y\n");
-      if (url === "/api/docs/list") return json([{ id: "D1" }, { id: "D2" }, { id: "D3" }]);
-      if (body.id === "D1") return json({ requirements: ["REQ_2", "REQ_3"] });
-      if (body.id === "D2") return new Response(JSON.stringify({ error: "gone" }), { status: 500 });
-      return json({});
-    });
-    expect(await loadRequirements()).toEqual([
-      { id: "REQ_2", text: "Two", doc: "D1" },
-      { id: "REQ_3", text: "", doc: "D1" },
-      { id: "REQ_10", text: "Ten", doc: "D1" },
-    ]);
-  });
-
-  it("reads a CSV with only an id column and empty answers from the documents", async () => {
-    stubFetch((url) => {
-      if (url.startsWith("/files/")) return new Response("id\nR1\nR2,extra\n");
-      return json(null);
-    });
-    expect(await loadRequirements()).toEqual([
-      { id: "R1", text: "", doc: "" },
-      { id: "R2", text: "", doc: "" },
-    ]);
-  });
-
-  it("ignores a CSV without an id column, a missing CSV and failing calls", async () => {
-    stubFetch((url) => {
-      if (url.startsWith("/files/")) return new Response("name,text\nA,b\n");
-      throw new Error("offline");
-    });
-    expect(await loadRequirements()).toEqual([]);
-    stubFetch((url) => {
-      if (url.startsWith("/files/")) return new Response("", { status: 404 });
-      if (url === "/api/docs/list") return json([{ id: "D1" }]);
-      return json({ requirements: ["X1"] });
-    });
-    expect(await loadRequirements()).toEqual([{ id: "X1", text: "", doc: "D1" }]);
-    stubFetch(() => {
-      throw new Error("offline");
-    });
-    expect(await loadRequirements()).toEqual([]);
-  });
-
-  it("reads an empty CSV file", async () => {
-    stubFetch((url) => (url.startsWith("/files/") ? new Response("") : json([])));
-    expect(await loadRequirements()).toEqual([]);
   });
 });

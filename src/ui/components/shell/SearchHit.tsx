@@ -3,7 +3,6 @@ import { type IconName, Marked, ReviewBadge } from "../ui/index.ts";
 
 export const KIND: Record<SearchKind, { label: string; one: string; icon: IconName }> = {
   test: { label: "Tests", one: "test", icon: "tests" },
-  requirement: { label: "Requirements", one: "requirement", icon: "tag" },
   document: { label: "Documents", one: "document", icon: "documents" },
   passage: { label: "In the documents", one: "passage", icon: "text" },
 };

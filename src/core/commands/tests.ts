@@ -45,14 +45,14 @@ const ref = z.object({
 
 const source = z.object({
   docId: z.string().describe("Document code (docs/<docId>/)"),
-  anchor: z.string().describe("Anchor in the document: §5.6.6, req:<id> or fig:<n>"),
+  anchor: z.string().describe("Anchor in the document: §5.6.6, fig:<n> or page:<n>"),
   quote: z.string().describe("Short quote copied verbatim from doc.md"),
 });
 const step = z.object({
   id: z.string().optional().describe("Xray step id, when the step came from Jira"),
   fields: z
     .record(z.string(), z.string())
-    .describe("Step fields by Xray name (Action, Data, Expected Result, custom fields such as Exigence)"),
+    .describe("Step fields by Xray name (Action, Data, Expected Result, and the smart columns)"),
   sources: z.array(source).default([]).describe("Claims the step relies on (local, never pushed)"),
   images: z
     .array(
@@ -75,7 +75,7 @@ const testSchema = z.object({
   labels: z.array(z.string()).default([]).describe("Jira labels"),
   status: z.string().optional().describe("Jira status (informational, never pushed)"),
   description: z.string().default("").describe("Test description"),
-  covers: z.array(z.string()).default([]).describe("Issue keys the test covers"),
+  covers: z.array(z.string()).default([]).describe("Issue keys the test is linked to in Jira (« Test » links)"),
   clonedFrom: z.string().optional().describe("Key of the test this one was cloned from"),
   preconditions: z.array(z.string()).default([]).describe("Precondition issue keys"),
   review: review.default("draft").describe("Review state — read-only here: a save keeps the one on disk (review.set)"),
@@ -100,7 +100,9 @@ const stepOp = z.discriminatedUnion("op", [
   z.object({
     op: z.literal("set").describe("Set one field of a step; an empty value removes the field"),
     step: z.number().int().describe("Step number, 1-based"),
-    field: z.string().describe("Field name (Action, Data, Expected Result, Exigence…); `Expected` = Expected Result"),
+    field: z
+      .string()
+      .describe("Field name (Action, Data, Expected Result or a smart column); `Expected` = Expected Result"),
     value: z.string().describe("New text of the field"),
   }),
   z.object({
@@ -291,7 +293,7 @@ export const commands: Command[] = [
       folder: z.string().optional().describe("Xray folder path (default: /)"),
       description: z.string().optional().describe("Test description"),
       labels: z.array(z.string()).optional().describe("Jira labels"),
-      covers: z.array(z.string()).optional().describe("Issue keys the test covers"),
+      covers: z.array(z.string()).optional().describe("Issue keys the test is linked to in Jira (« Test » links)"),
     }),
     output: z.object({ id: z.string() }),
     mutates: true,
@@ -315,7 +317,7 @@ export const commands: Command[] = [
       folder: z.string().optional().describe("New Xray folder path"),
       labels: z.array(z.string()).optional().describe("New label list (replaces it)"),
       description: z.string().optional().describe("New description"),
-      covers: z.array(z.string()).optional().describe("New list of covered issue keys (replaces it)"),
+      covers: z.array(z.string()).optional().describe("New list of issue keys linked by « Test » links (replaces it)"),
       preconditions: z
         .array(z.string())
         .optional()

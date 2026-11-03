@@ -21,7 +21,7 @@ export const GEN_MARKER = "Use the generate-tests skill";
 export const REPORT_TAG = "gen-report";
 export const PLAN_TAG = "test-plan";
 export const PLAN_MARKER = "use the plan-tests skill";
-// ponytail: past this many requirements in scope, one run reads the whole scope once and writes every test from
+// ponytail: past this many sections in scope, one run reads the whole scope once and writes every test from
 // memory (2026-11-03: 20 tests, one of 40 steps, 172 findings); a plan, then one run per test, re-reads each part
 export const PLAN_ABOVE = 15;
 export const PLAN_MAX = 30;
@@ -40,7 +40,6 @@ export const languageName = (code: string) => LANGUAGES[code.toLowerCase()] ?? c
 
 export type GenInput = {
   request: string;
-  requirements?: string[];
   sections?: string[];
   docs?: string[];
   folder?: string;
@@ -52,17 +51,16 @@ export type GenInput = {
   discard?: boolean;
 };
 
-export type Uncovered = { item: string; why: string };
+export type Skipped = { item: string; why: string };
 export type GenReport = {
   found: boolean;
   tests: string[];
-  covered: string[];
-  uncovered: Uncovered[];
+  skipped: Skipped[];
   consulted: string[];
 };
 
-export type PlannedTest = { summary: string; technique: string; requirements: string[]; sections: string[] };
-export type TestPlan = { found: boolean; tests: PlannedTest[]; uncovered: Uncovered[] };
+export type PlannedTest = { summary: string; technique: string; sections: string[] };
+export type TestPlan = { found: boolean; tests: PlannedTest[]; skipped: Skipped[] };
 
 export type GenCheck = { id: string; ok: boolean; review: string; errors: number; warnings: number };
 
@@ -74,7 +72,7 @@ export type GenResult = {
   checks: GenCheck[];
   changed: string[];
   discarded: string[];
-  uncovered: Uncovered[];
+  skipped: Skipped[];
   reportFound: boolean;
   consulted: number;
   planned: number;
@@ -87,20 +85,18 @@ export type GenResult = {
 const clean = (xs: string[] | undefined) => [...new Set((xs ?? []).map((x) => x.trim()).filter(Boolean))];
 const isSection = (s: string) => /^[^#\s]+#\S.*$/.test(s);
 
-export function scopeRequirements(project: string, i: GenInput): string[] {
+export function scopeSections(project: string, i: GenInput): number {
   const docs = clean(i.docs).filter((d) => existsSync(join(project, "docs", d, "doc.md")));
-  return [
-    ...new Set([...clean(i.requirements), ...docs.flatMap((d) => anchorsOf(readDocMd(project, d)).requirements)]),
-  ];
+  return clean(i.sections).length + docs.reduce((n, d) => n + anchorsOf(readDocMd(project, d)).sections.length, 0);
 }
 
 export type PlanPart = { n: number; of: number; request: string };
 
 export function checkGenInput(i: GenInput, project?: string): void {
-  if (!i.request.trim() && !clean(i.requirements).length && !clean(i.sections).length && !clean(i.docs).length)
+  if (!i.request.trim() && !clean(i.sections).length && !clean(i.docs).length)
     throw new UserError(
-      "Nothing to generate: the request, the requirements, the documents and the sections are all empty.",
-      "Describe the feature in words, or give documents, requirement ids or document sections (DOC#§5.6.6).",
+      "Nothing to generate: the request, the documents and the sections are all empty.",
+      "Describe the feature in words, or give documents or document sections (DOC#§5.6.6).",
     );
   const missing = project ? clean(i.docs).filter((d) => !existsSync(join(project, "docs", d, "doc.md"))) : [];
   if (missing.length)
@@ -121,32 +117,29 @@ export function genPrompt(
   part?: PlanPart,
 ): string {
   const p = readProject(project);
-  const reqs = clean(i.requirements);
   const sections = clean(i.sections);
   const docs = clean(i.docs);
-  const size = part ? 0 : scopeRequirements(project, i).length;
   const lines = [
     `${GEN_MARKER} to write Xray manual tests for the request below, in this project folder.`,
     "",
-    `Request: ${i.request.trim() || "(none in words — cover the documents, requirements and sections below)"}`,
+    `Request: ${i.request.trim() || "(none in words — test the documents and sections below)"}`,
   ];
   if (part)
     lines.push(
       `This is test ${part.n} of ${part.of} of a plan${part.request ? ` for: ${part.request}` : ""}. Write exactly this one test; the other tests of the plan are written by other runs.`,
     );
+  const size = part ? 0 : scopeSections(project, i);
   if (size > PLAN_ABOVE)
     lines.push(
-      `The scope holds ${size} requirements. When covering it takes more than 3 tests, ${PLAN_MARKER} instead: write no test, and end your reply with its ${PLAN_TAG} block instead of the report block below.`,
+      `The scope holds ${size} sections. When testing it takes more than 3 tests, ${PLAN_MARKER} instead: write no test, and end your reply with its ${PLAN_TAG} block instead of the report block below.`,
     );
-  if (reqs.length)
-    lines.push(`Requirements to cover, each by at least one step (read each one first): ${reqs.join(", ")}`);
   if (docs.length)
     lines.push(
-      `Documents in scope, each in full (${i.request.trim() ? "find in them what the request is about" : "cover the behaviors they specify"}): ${docs.join(", ")}`,
+      `Documents in scope, each in full (${i.request.trim() ? "find in them what the request is about" : "test the behaviors they specify"}): ${docs.join(", ")}`,
     );
   if (sections.length)
     lines.push(`Document sections in scope (read each with rag_passage and in doc.md): ${sections.join(", ")}`);
-  lines.push(...columnGuidance(project, docs.length || sections.length ? { docs, sections } : undefined), "");
+  lines.push(...columnGuidance(project), "");
   lines.push(
     i.folder?.trim()
       ? `Target Xray folder: ${i.folder.trim()}`
@@ -162,14 +155,14 @@ export function genPrompt(
     lines.push(
       ...proposeLines(
         runId,
-        'a document section you could not cover because its text is a picture or a table the conversion lost — { kind: "doc", docId }, where: "doc:<docId>"',
+        'a document section you could not test because its text is a picture or a table the conversion lost — { kind: "doc", docId }, where: "doc:<docId>"',
       ),
     );
   lines.push(
     "",
     `When you finish, end your reply with the report block of the skill (section 4), exactly this shape:`,
     "```" + REPORT_TAG,
-    '{"tests": ["local-…"], "covered": ["<requirement id or behavior>"], "uncovered": [{"item": "<requirement id or behavior>", "why": "<reason>"}], "consulted": ["<docId#anchor you read>"]}',
+    '{"tests": ["local-…"], "skipped": [{"item": "<behavior>", "why": "<reason>"}], "consulted": ["<docId#anchor you read>"]}',
     "```",
     "",
   );
@@ -180,9 +173,9 @@ function asStrings(v: unknown): string[] {
   return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string" && !!x.trim()).map((x) => x.trim()) : [];
 }
 
-function asUncovered(v: unknown): Uncovered[] {
+function asSkipped(v: unknown): Skipped[] {
   if (!Array.isArray(v)) return [];
-  const out: Uncovered[] = [];
+  const out: Skipped[] = [];
   for (const u of v) {
     if (typeof u === "string" && u.trim()) out.push({ item: u.trim(), why: "" });
     else if (u && typeof u === "object") {
@@ -195,11 +188,11 @@ function asUncovered(v: unknown): Uncovered[] {
 }
 
 // ponytail: the report is the last fenced block tagged gen-report; a plain ```json block that holds
-// "uncovered" is accepted too, because a model sometimes drops the tag — anything else is no report
+// "skipped" is accepted too, because a model sometimes drops the tag — anything else is no report
 export function parseGenReport(text: string): GenReport {
   const blocks = [...text.matchAll(/```[ \t]*([\w-]*)[^\n]*\n([\s\S]*?)```/g)];
   const tagged = blocks.filter((b) => b[1] === REPORT_TAG);
-  const loose = blocks.filter((b) => b[1] !== REPORT_TAG && b[2].includes('"uncovered"'));
+  const loose = blocks.filter((b) => b[1] !== REPORT_TAG && b[2].includes('"skipped"'));
   for (const b of [...tagged.reverse(), ...loose.reverse()]) {
     try {
       const o = JSON.parse(b[2]) as Record<string, unknown>;
@@ -207,13 +200,12 @@ export function parseGenReport(text: string): GenReport {
       return {
         found: true,
         tests: asStrings(o.tests),
-        covered: asStrings(o.covered),
-        uncovered: asUncovered(o.uncovered),
+        skipped: asSkipped(o.skipped),
         consulted: asStrings(o.consulted),
       };
     } catch {}
   }
-  return { found: false, tests: [], covered: [], uncovered: [], consulted: [] };
+  return { found: false, tests: [], skipped: [], consulted: [] };
 }
 
 // ponytail: the plan is the last fenced block tagged test-plan; a planned test needs a summary, and keeps only the
@@ -233,21 +225,19 @@ export function parsePlan(text: string): TestPlan {
         tests.push({
           summary,
           technique: typeof x.technique === "string" ? x.technique.trim() : "",
-          requirements: asStrings(x.requirements),
           sections: asStrings(x.sections).filter(isSection),
         });
       }
-      if (tests.length) return { found: true, tests, uncovered: asUncovered(o.uncovered) };
+      if (tests.length) return { found: true, tests, skipped: asSkipped(o.skipped) };
     } catch {}
   }
-  return { found: false, tests: [], uncovered: [] };
+  return { found: false, tests: [], skipped: [] };
 }
 
 export function plannedInput(i: GenInput, t: PlannedTest): GenInput {
   return {
     ...i,
     request: t.technique ? `${t.summary} (${t.technique})` : t.summary,
-    requirements: t.requirements,
     sections: t.sections,
     docs: t.sections.length ? [] : i.docs,
   };
@@ -394,7 +384,7 @@ export async function generateTests(project: string, input: GenInput, ctx: Ctx):
   const tests = union(runs.map((r) => r.tests));
   const changed = union(runs.map((r) => r.changed));
   // ponytail: the evidence ledger is on disk before the new tests are checked, so their first check already
-  // sees what the generation never opened (related-unread); the full report replaces it below
+  // knows what the generation opened; the full report replaces it below
   const ledger = ledgerOf(
     project,
     runs.flatMap((r) => r.run.calls),
@@ -432,8 +422,7 @@ export async function generateTests(project: string, input: GenInput, ctx: Ctx):
   const reports = planned.length ? planned.map((r) => r.report) : [first.report];
   const reportFound = reports.every((r) => r.found);
   const failed = runs.find((r) => !r.run.ok)?.run;
-  if (!reportFound && !failed)
-    ctx.log("warn", "The generation reply has no gen-report block: uncovered items unknown.");
+  if (!reportFound && !failed) ctx.log("warn", "The generation reply has no gen-report block: skipped items unknown.");
   if (failed) ctx.log("error", failed.summary);
   const sum = (f: (r: RunResult) => number | undefined) =>
     runs.some((r) => f(r.run) !== undefined) ? runs.reduce((a, r) => a + (f(r.run) ?? 0), 0) : undefined;
@@ -451,7 +440,7 @@ export async function generateTests(project: string, input: GenInput, ctx: Ctx):
     checks,
     changed,
     discarded,
-    uncovered: [...(plan?.uncovered ?? []), ...reports.flatMap((r) => r.uncovered)],
+    skipped: [...(plan?.skipped ?? []), ...reports.flatMap((r) => r.skipped)],
     reportFound,
     consulted: ledger.consulted.length,
     planned: planned.length,
@@ -464,7 +453,6 @@ export async function generateTests(project: string, input: GenInput, ctx: Ctx):
     at: env.now().toISOString(),
     input,
     ...result,
-    covered: union(reports.map((r) => r.covered)),
     consulted: ledger.consulted,
     searched: ledger.searched,
     reportedConsulted: union(reports.map((r) => r.consulted)),

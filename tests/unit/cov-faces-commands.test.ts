@@ -3,13 +3,12 @@ import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { type Command, quietCtx } from "../../src/core/command.ts";
 import { commands as checkCommands } from "../../src/core/commands/check.ts";
-import { commands as docsCommands, tracedElsewhere } from "../../src/core/commands/docs.ts";
+import { commands as docsCommands } from "../../src/core/commands/docs.ts";
 import { commands as imageCommands, storeImage } from "../../src/core/commands/images.ts";
 import { commands as ragCommands } from "../../src/core/commands/rag.ts";
 import { commands as reviewCommands } from "../../src/core/commands/review.ts";
 import type { DocJson } from "../../src/core/types.ts";
 import { copyFixture, tempRoot } from "./cov-faces-helpers.ts";
-import { RATP } from "./ratp.ts";
 
 const DOC = "SOSIE_211_D401-1_3";
 const LOCAL = "local-3f9a12c0";
@@ -95,29 +94,6 @@ describe("docs commands", () => {
 
   it("refuses an anchor the document does not have", async () => {
     await expect(run("docs.show", { id: DOC, anchor: "§99.99" })).rejects.toThrow(`No anchor §99.99 in ${DOC}.`);
-  });
-});
-
-describe("tracedElsewhere", () => {
-  const md = readFileSync(
-    join(import.meta.dirname, "..", "fixtures", "evidence", "project", "docs", "SPEC_A", "doc.md"),
-    "utf8",
-  );
-
-  it("reports a requirement the matrix traces to another section, or to one the document lacks", () => {
-    expect(tracedElsewhere("SPEC_A", md, RATP).map((x) => x.message)).toEqual([
-      "EXI_MOP_SPF_100_A_40 is defined in §2.2 but the matrix traces it to §3.2.",
-    ]);
-    const lacking = md.replace("double clic. | 3.2 |", "double clic. | 9.9 |");
-    expect(tracedElsewhere("SPEC_A", lacking, RATP)).toEqual([
-      {
-        req: "EXI_MOP_SPF_100_A_40",
-        defined: "§2.2",
-        traced: ["§9.9"],
-        message:
-          "EXI_MOP_SPF_100_A_40 is defined in §2.2 but the matrix traces it to §9.9, which this document does not have.",
-      },
-    ]);
   });
 });
 

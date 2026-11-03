@@ -1,6 +1,6 @@
 {
   "at": "2026-10-30T10:02:00.000Z",
-  "testHash": "872ca440786899bb",
+  "testHash": "50013b5ee423d0a8",
   "findings": [
     {
       "kind": "negative-missing",
@@ -11,10 +11,10 @@
     },
     {
       "step": 2,
-      "kind": "wrong-requirement",
+      "kind": "unsupported",
       "severity": "error",
-      "message": "EXI_MOP_SPF_510_A_20 porte sur le TCO à deux rangs, pas sur la vue testée par ce step.",
-      "sources": ["SOSIE_211_D401-1_3#req:EXI_MOP_SPF_510_A_20"],
+      "message": "Le §5.6.6 ne dit pas que le menu s'ouvre sur la vue de traction : il décrit le menu contextuel du sectionneur, pas la vue où il apparaît.",
+      "sources": ["SOSIE_211_D401-1_3#§5.6.6"],
       "pass": "semantic"
     },
     {

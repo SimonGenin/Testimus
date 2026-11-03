@@ -66,13 +66,13 @@ describe("rag.mentions (SPEC-RAG §4.1)", () => {
     const m = mentions(dir, { term: "EXI_MOP_SPF_900_A_1" });
     expect(m.forms).toEqual(["EXI_MOP_SPF_900_A_1"]);
     expect(refs(m)).toContain("GLOSS#§2");
-    expect(refs(m)).toContain("SPEC_A#req:EXI_MOP_SPF_900_A_1@matrix");
+    expect(refs(m)).toContain("SPEC_A#§6.1");
     expect(section(m, "GLOSS#§2")?.count).toBe(1);
     expect(section(m, "GLOSS#§2")?.hits[0]).toEqual({
       form: "EXI_MOP_SPF_900_A_1",
       context: "Le DSO est refusé hors service. Voir EXI_MOP_SPF_900_A_10 et EXI_MOP_SPF_900_A_1.",
     });
-    expect(section(m, "SPEC_A#req:EXI_MOP_SPF_900_A_1@matrix")?.kind).toBe("matrix-row");
+    expect(section(m, "SPEC_A#§6.1")?.count).toBe(1);
   });
 
   it("matches the stemmed form, case and accents aside; stem: false keeps the exact form only", () => {

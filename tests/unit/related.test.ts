@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { quietCtx } from "../../src/core/command.ts";
 import { invoke } from "../../src/core/commands/index.ts";
 import { indexProject } from "../../src/core/rag/indexer.ts";
-import { RELATED_MAX, type Related, related, statementOf } from "../../src/core/rag/related.ts";
+import { RELATED_MAX, type Related, related } from "../../src/core/rag/related.ts";
 
 const FIXTURE = join(import.meta.dirname, "..", "fixtures", "evidence", "project");
 let dir: string;
@@ -30,7 +30,7 @@ beforeEach(() => {
       "## 7 Rafraîchissement <!-- § 7 -->",
       "",
       "<!-- req EXI_MOP_SPF_100_A_20 -->",
-      "Comme le demande EXI_MOP_SPF_100_A_20, la vue se rafraîchit (voir SPEC_A §2.2).",
+      "Comme le demande EXI_MOP_SPF_100_A_20, la vue se rafraîchit (voir SPEC_B §4.1).",
     ].join("\n"),
   );
 });
@@ -43,55 +43,34 @@ const of = (r: Related, kind: string, direction?: "in" | "out", depth = 1) =>
     .map((n) => n.ref);
 
 describe("rag.related (SPEC-RAG §3.3, §4.1)", () => {
-  it("a requirement: its statement, defining and traced sections, the sections that mention it, the amending document", () => {
-    const r = related(dir, { ref: "SPEC_A#req:EXI_MOP_SPF_100_A_40" });
-    expect(r.ref).toBe("SPEC_A#req:EXI_MOP_SPF_100_A_40");
-    expect(r.statement).toEqual({
-      id: "EXI_MOP_SPF_100_A_40",
-      source: "body",
-      section: "SPEC_A#§2.2",
-      text: "**EXI_MOP_SPF_100_A_40**\n\nLa vue détaillée s'ouvre par un double clic sur le poste.",
-    });
-    expect(of(r, "defines", "out")).toEqual(["SPEC_A#§2.2"]);
-    expect(of(r, "traces", "out")).toEqual(["SPEC_A#§3.2"]);
-    expect(of(r, "mentions", "in")).toEqual(["SPEC_A#§2.2", "SPEC_A#§6.1"]);
-    expect(of(r, "amends", "in")).toEqual(["PA1_SPEC_A"]);
-    expect(r.neighbours.find((n) => n.ref === "SPEC_A#§3.2")).toMatchObject({ title: "Ouverture", path: "3 > 3.2" });
-  });
-
-  it("warns when the matrix traces a requirement elsewhere than where it is defined (an ancestor is fine)", () => {
-    expect(related(dir, { ref: "SPEC_A#req:EXI_MOP_SPF_100_A_40" }).warnings).toEqual([
-      "EXI_MOP_SPF_100_A_40: traced to SPEC_A#§3.2 but defined in SPEC_A#§2.2 — the matrix and the body may disagree.",
-    ]);
-    expect(related(dir, { ref: "SPEC_A#req:EXI_MOP_SPF_100_A_10" }).warnings).toEqual([]);
-  });
-
-  it("a bare requirement id: every document that carries it", () => {
-    const r = related(dir, { ref: "EXI_MOP_SPF_100_A_20" });
-    expect(r.ref).toBe("EXI_MOP_SPF_100_A_20");
-    expect(r.statement?.section).toBe("SPEC_A#§2.1");
-    expect(of(r, "defines", "out").sort()).toEqual(["SPEC_A#§2.1", "SPEC_C#§7"]);
-    expect(of(r, "traces", "out").sort()).toEqual(["SPEC_A#§1.1", "SPEC_A#§2"]);
-    expect(r.warnings.join(" ")).toMatch(/traced to SPEC_A#§1\.1/);
-    expect(statementOf(dir, "EXI_MOP_SPF_100_A_20")).toMatchObject({
-      docId: "SPEC_A",
-      section: "§2.1",
-      path: "2 > 2.1",
-    });
-  });
-
-  it("a section: parent, children, siblings, cross-references both ways, figures, requirements, amendments", () => {
+  it("a section: parent, children, siblings, cross-references both ways, figures, amendments", () => {
     const r = related(dir, { ref: "SPEC_A#§2.1" });
+    expect(r.ref).toBe("SPEC_A#§2.1");
     expect(of(r, "parent", "out")).toEqual(["SPEC_A#§2"]);
     expect(r.neighbours.filter((n) => n.kind === "sibling")).toMatchObject([{ ref: "SPEC_A#§2.2", direction: "out" }]);
     expect(of(r, "refers", "in")).toEqual(["SPEC_A#§1", "SPEC_A#§2.2"]);
     expect(of(r, "shows", "out")).toEqual(["SPEC_A#fig:1"]);
-    expect(of(r, "defines", "in")).toEqual(["SPEC_A#req:EXI_MOP_SPF_100_A_10", "SPEC_A#req:EXI_MOP_SPF_100_A_20"]);
-    expect(of(r, "mentions", "out")).toEqual(["SPEC_A#req:EXI_MOP_SPF_100_A_10", "SPEC_A#req:EXI_MOP_SPF_100_A_20"]);
     expect(of(r, "amends", "in")).toEqual(["PA1_SPEC_A", "PA1_SPEC_A#§commentaires-majeurs"]);
+    expect(r.neighbours.map((n) => n.kind)).toEqual([
+      "amends",
+      "amends",
+      "parent",
+      "refers",
+      "refers",
+      "shows",
+      "sibling",
+    ]);
     expect(r.neighbours.find((n) => n.ref === "SPEC_A#fig:1")?.title).toBe("Figure 1 – Vue ligne complète");
+    expect(r.neighbours.find((n) => n.ref === "SPEC_A#§1")).toMatchObject({ title: "Généralités", path: "1" });
     expect(of(related(dir, { ref: "SPEC_A#§2" }), "parent", "in")).toEqual(["SPEC_A#§2.1", "SPEC_A#§2.2"]);
-    expect(of(related(dir, { ref: "SPEC_B#§4.1" }), "refers", "in")).toEqual(["SPEC_A#§2.2"]);
+    expect(of(related(dir, { ref: "SPEC_B#§4.1" }), "refers", "in")).toEqual(["SPEC_A#§2.2", "SPEC_C#§7"]);
+  });
+
+  it("an old requirement marker is an ordinary comment: no edge, no anchor", () => {
+    const r = related(dir, { ref: "SPEC_C#§7" });
+    expect(r.neighbours.map((n) => `${n.kind} ${n.ref}`)).toEqual(["refers SPEC_B#§4.1"]);
+    expect(() => related(dir, { ref: "SPEC_C#req:EXI_MOP_SPF_100_A_20" })).toThrow(/No anchor/);
+    expect(() => related(dir, { ref: "EXI_MOP_SPF_100_A_20" })).toThrow(/No document EXI_MOP_SPF_100_A_20/);
   });
 
   it("an amendment reaches the sub-sections of the section it amends", () => {
@@ -101,19 +80,19 @@ describe("rag.related (SPEC-RAG §3.3, §4.1)", () => {
     expect(of(related(dir, { ref: "SPEC_A#§2.2" }), "amends", "in")).toContain("PA2#§remarques");
   });
 
-  it("a figure and a matrix row", () => {
+  it("a figure and a whole document", () => {
     expect(of(related(dir, { ref: "SPEC_A#fig:1" }), "shows", "in")).toEqual(["SPEC_A#§2.1"]);
-    const row = related(dir, { ref: "SPEC_A#req:EXI_MOP_SPF_900_A_2@matrix" });
-    expect(row.ref).toBe("SPEC_A#req:EXI_MOP_SPF_900_A_2");
-    expect(row.statement?.source).toBe("matrix");
+    const doc = related(dir, { ref: "SPEC_A" });
+    expect(doc.ref).toBe("SPEC_A");
+    expect(doc.neighbours).toMatchObject([{ ref: "PA1_SPEC_A", kind: "amends", direction: "in" }]);
   });
 
   it("depth 2 adds the neighbours of the neighbours, once, after depth 1", () => {
-    const one = related(dir, { ref: "SPEC_A#req:EXI_MOP_SPF_100_A_10" });
-    const two = related(dir, { ref: "SPEC_A#req:EXI_MOP_SPF_100_A_10", depth: 2 });
+    const one = related(dir, { ref: "SPEC_A#§1" });
+    const two = related(dir, { ref: "SPEC_A#§1", depth: 2 });
     expect(two.neighbours.slice(0, one.neighbours.length)).toEqual(one.neighbours);
     expect(of(two, "shows", "out", 2)).toEqual(["SPEC_A#fig:1"]);
-    expect(of(two, "parent", "out", 2)).toContain("SPEC_A#§2");
+    expect(of(two, "amends", "in", 2)).toEqual(["PA1_SPEC_A#§commentaires-majeurs"]);
     const depth1 = new Set(one.neighbours.map((n) => n.ref));
     for (const n of two.neighbours.filter((x) => x.depth === 2)) expect(depth1.has(n.ref)).toBe(false);
   });
@@ -121,11 +100,11 @@ describe("rag.related (SPEC-RAG §3.3, §4.1)", () => {
   it("refuses what does not exist", () => {
     expect(() => related(dir, { ref: "NOPE#§1" })).toThrow(/No document NOPE/);
     expect(() => related(dir, { ref: "SPEC_A#§9.9" })).toThrow(/No anchor §9\.9/);
-    expect(() => related(dir, { ref: "EXI_UNKNOWN_1" })).toThrow(/No document carries/);
+    expect(() => related(dir, { ref: "SPEC_A#fig:9" })).toThrow(/No anchor fig:9/);
   });
 
   it("gives the same neighbours with and without the index", async () => {
-    const cases = ["SPEC_A#§2.1", "EXI_MOP_SPF_100_A_20", "SPEC_A#req:EXI_MOP_SPF_100_A_40"];
+    const cases = ["SPEC_A#§2.1", "SPEC_A#fig:1", "PA1_SPEC_A#§commentaires-majeurs"];
     const before = cases.map((ref) => related(dir, { ref, depth: 2 }));
     await indexProject(dir, quietCtx(dir), { model: null });
     expect(cases.map((ref) => related(dir, { ref, depth: 2 }))).toEqual(before);
@@ -168,92 +147,31 @@ describe("recall tools reach Claude (SPEC-RAG §4.6, SPEC §11)", () => {
   });
 });
 
-describe("the specification states a requirement, the amendment comments on it (review #5)", () => {
-  beforeEach(() => {
-    addDoc(
-      "SPEC_Z",
-      [
-        "# SPEC_Z — Z",
-        "",
-        "## 3.6 Itinéraires <!-- § 3.6 -->",
-        "",
-        "<!-- req EXI_MOP_SPF_519_A_700 -->",
-        "**EXI_MOP_SPF_519_A_700**",
-        "",
-        "Chaque onglet est divisé en trois parties.",
-        "",
-        "<!-- req EXI_MOP_SPF_519_A_710 -->",
-        "**EXI_MOP_SPF_519_A_710**",
-        "",
-        "Les itinéraires sont représentés dans leur état contrôlé.",
-      ].join("\n"),
-    );
-    addDoc(
-      "PA1_SPEC_Z",
-      [
-        "# PA1_SPEC_Z — PA",
-        "",
-        "## Commentaires Mineurs <!-- § commentaires-mineurs -->",
-        "",
-        "<!-- req EXI_MOP_SPF_519_A_700 -->",
-        "EXI_MOP_SPF_519_A_700",
-        "",
-        "<!-- req EXI_MOP_SPF_519_A_710 -->",
-        "EXI_MOP_SPF_519_A_710",
-        "",
-        "Texte ajouté : les itinéraires commandés sont soulignés.",
-      ].join("\n"),
-      { amends: ["SPEC_Z"] },
-    );
-  });
-
-  it("statementOf, rag.related and rag.passage take the base specification's statement, never the id alone", async () => {
-    expect(statementOf(dir, "EXI_MOP_SPF_519_A_700")).toMatchObject({ docId: "SPEC_Z", section: "§3.6" });
-    expect(statementOf(dir, "EXI_MOP_SPF_519_A_710")).toMatchObject({
-      docId: "SPEC_Z",
-      text: "**EXI_MOP_SPF_519_A_710**\n\nLes itinéraires sont représentés dans leur état contrôlé.",
-    });
-    expect(related(dir, { ref: "EXI_MOP_SPF_519_A_710" }).statement?.section).toBe("SPEC_Z#§3.6");
-    const base = related(dir, { ref: "SPEC_Z#req:EXI_MOP_SPF_519_A_700" });
-    expect(of(base, "amends", "in")).toEqual(["PA1_SPEC_Z", "PA1_SPEC_Z#req:EXI_MOP_SPF_519_A_700"]);
-    const p = (await invoke("rag.passage", { ref: "PA1_SPEC_Z#req:EXI_MOP_SPF_519_A_700" }, quietCtx(dir))) as {
-      focus?: string;
-    };
-    expect(p.focus).toBe(
-      "Stated in SPEC_Z#req:EXI_MOP_SPF_519_A_700 (cite it there): **EXI_MOP_SPF_519_A_700**\n\nChaque onglet est divisé en trois parties.",
-    );
-  });
-});
-
 describe("depth 2 is bounded (review #17)", () => {
   it("stops at RELATED_MAX neighbours, keeps every depth-1 one, says truncated and the total; a sibling once", () => {
     const n = 260;
-    const id = (i: number) => `EXI_MOP_SPF_700_A_${(i + 1) * 10}`;
     addDoc(
       "BIG",
       [
-        "# BIG — Matrice",
+        "# BIG — Règles",
         "",
-        "## 1 Exigences couvertes <!-- § 1 -->",
+        "## 1 Index <!-- § 1 -->",
         "",
-        Array.from({ length: n }, (_, i) => id(i)).join(", "),
+        "La première règle est au § 2.1.",
         "",
         "## 2 Règles <!-- § 2 -->",
         "",
         ...Array.from({ length: n }, (_, i) => [
           `### 2.${i + 1} Règle ${i + 1} <!-- § 2.${i + 1} -->`,
           "",
-          `<!-- req ${id(i)} -->`,
-          `**${id(i)}**`,
-          "",
           `La règle numéro ${i + 1} s'applique.`,
           "",
         ]).flat(),
       ].join("\n"),
     );
-    const one = related(dir, { ref: id(0) });
+    const one = related(dir, { ref: "BIG#§1" });
     expect(one.truncated).toBeUndefined();
-    const two = related(dir, { ref: id(0), depth: 2 });
+    const two = related(dir, { ref: "BIG#§1", depth: 2 });
     expect(two.neighbours).toHaveLength(RELATED_MAX);
     expect(two.truncated).toBe(true);
     expect(two.total).toBeGreaterThan(n);

@@ -30,7 +30,6 @@ Where each piece lives and what to take from it. Read the original; never edit i
 | Where | What |
 |---|---|
 | `C:\Users\s.genin\Transurb\2_SIM - Documents\02_Projects\L.00320 - France - RATP - SOSIE\01 - Manage\01 - Client\14 - Livraisons documentaires\J5\D401-1 Specifications Fonctionnelles - J5\` | the RATP specs the team starts with (copy, never open in place): `Traction\SOSIE_211_D401-1_3_01.01`, `Signalisation\SOSIE_211_D401-1_4_01_01_TC`, `Itinéraires\SOSIE_211_D401-1_5_01_02_TC`, `Modèle train\SOSIE_211_D401-1_2_01.02`, `Instructeur\SOSIE_6_D401-1_01.00`, `PCC NG\SOSIE_4113_D401-1_01.00`, `Console d'Aide au Départ\SOSIE_4114_D401-1_01.01` (`.docx`, some also `.pdf`; `Archives\` holds old versions) |
-| `C:\Users\s.genin\Downloads\Matrice_RATP_analyse_SIM_TCO_v3_20261022.xlsx` | the RATP requirements matrix (sheet `Matrice`: 3 717 rows, `ID Exigence`, `Texte exigence`, target document and chapter, test columns) — source for `requirements/requirements.csv` |
 | `tests/fixtures/csv/` | a CSV the team produces today with NotebookLM / SurfSense (copied from `Downloads`) |
 | `D:\SVN\B040L00320_Ratp_Sosie_Sources\.claude\scripts\inline-figures.py` | puts the docx images back where they belong after a text-only conversion; handles `Target`-before-`Id` relations and VML images |
 | `npx -y @firecrawl/anydoc <file.docx> -o <out.md>` | text + tables of a docx, local, no key (used with `inline-figures.py`) |

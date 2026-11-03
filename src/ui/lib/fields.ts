@@ -1,7 +1,6 @@
-import type { Source, Step, TraceView, XrayJson } from "../../core/types.ts";
-import { traceOfField, tracesNow } from "./traces.ts";
+import type { Source, Step, XrayJson } from "../../core/types.ts";
 
-export type FieldView = { name: string; collapsed: boolean; requirements: boolean; trace?: TraceView };
+export type FieldView = { name: string; collapsed: boolean };
 
 export const DEFAULT_XRAY: XrayJson = {
   fields: [
@@ -11,13 +10,6 @@ export const DEFAULT_XRAY: XrayJson = {
   ],
   prefs: { order: ["Action", "Data", "Expected Result"], collapsed: [], hidden: [], filled: ["Data"] },
 };
-
-// ponytail: an id column is one the project tracks (project.info traces); before the project is read, the
-// requirement column is recognised by its usual names
-const REQUIREMENT = /^(exigences?|requirements?|req)$/i;
-
-export const isRequirementField = (name: string) =>
-  tracesNow() ? !!traceOfField(name) : REQUIREMENT.test(name.trim());
 
 // ponytail: a local column is one the project keeps in test.md only — no Xray field has its id or its name
 export function localColumns(x: XrayJson): string[] {
@@ -33,38 +25,12 @@ export function fieldViews(x: XrayJson, step?: Step): FieldView[] {
   const ordered = x.prefs.order.filter((n) => names.includes(n));
   const all = [...ordered, ...names.filter((n) => !ordered.includes(n))];
   for (const k of Object.keys(step?.fields ?? {})) if (!all.includes(k)) all.push(k);
-  for (const t of tracesNow() ?? []) if (!all.includes(t.field)) all.push(t.field);
   return all
     .filter((n) => !x.prefs.hidden.includes(n) || !!step?.fields[n]?.trim())
-    .map((name) => {
-      const trace = traceOfField(name);
-      return {
-        name,
-        collapsed: x.prefs.collapsed.includes(name),
-        requirements: isRequirementField(name),
-        ...(trace ? { trace } : {}),
-      };
-    });
+    .map((name) => ({ name, collapsed: x.prefs.collapsed.includes(name) }));
 }
 
-// ponytail: ids are listed with commas; a space separates ids only when every word looks like one (EXI_A EXI_B),
-// so an id that holds a space (Figure 40, UC 12) stays whole
-const idLike = (w: string) => /[\p{L}]/u.test(w) && /[\d_]/.test(w);
-
-export const splitIds = (value: string) =>
-  value
-    .split(/[,;\n]+/)
-    .map((v) => v.trim())
-    .filter(Boolean)
-    .flatMap((piece) => {
-      const words = piece.split(/\s+/);
-      return words.length > 1 && words.every(idLike) ? words : [piece];
-    });
-
-export const joinIds = (ids: string[]) => ids.join(", ");
-
 export const sourcePlace = (anchor: string) => {
-  if (anchor.startsWith("req:")) return anchor.slice(4);
   if (anchor.startsWith("fig:")) return `Figure ${anchor.slice(4)}`;
   return anchor;
 };

@@ -30,7 +30,6 @@ const KIND: Record<string, [IconName, Tone]> = {
   check: ["claude", "claude"],
   claude: ["claude", "claude"],
   chat: ["claude", "claude"],
-  traces: ["claude", "claude"],
   "actions.triage": ["claude", "claude"],
   "gen-bench": ["claude", "claude"],
   "rag-eval": ["search", "plain"],

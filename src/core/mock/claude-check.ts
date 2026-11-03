@@ -20,14 +20,6 @@ export function mockFindings(test: Test): Found[] {
   test.steps.forEach((s, i) => {
     const step = i + 1;
     const expected = (s.fields["Expected Result"] ?? "").trim();
-    if ((s.fields.Exigence ?? "").includes("EXI_MOP_SPF_510_A_20"))
-      out.push({
-        step,
-        kind: "wrong-requirement",
-        severity: "error",
-        message: "EXI_MOP_SPF_510_A_20 porte sur le TCO à deux rangs, pas sur le menu contextuel testé par ce step.",
-        sources: [`${DOC}#req:EXI_MOP_SPF_510_A_20`],
-      });
     if (/pas simulée?/i.test(expected) && !s.sources.length)
       out.push({
         step,
@@ -81,15 +73,6 @@ export function mockFix(project: string, id: string): string[] {
     step.fields["Expected Result"] = TK_RESULT;
     step.sources = [{ docId: DOC, anchor: "§5.6.6", quote: TK_QUOTE }];
     changes.push(`step ${target}: le résultat attendu dit maintenant que seul Propriétés est proposé`);
-  }
-  for (const f of findings) {
-    const s = f.kind === "wrong-requirement" && f.step ? test.steps[f.step - 1] : undefined;
-    const bad = /EXI_\w+/.exec(f.message)?.[0];
-    if (!s || !bad || !s.fields.Exigence?.includes(bad)) continue;
-    s.fields.Exigence = s.fields.Exigence.split(/\s*,\s*/)
-      .filter((r) => r !== bad)
-      .join(", ");
-    changes.push(`step ${f.step}: ${bad} retirée du champ Exigence`);
   }
   if (findings.some((f) => f.kind === "negative-missing")) {
     test.steps.push({

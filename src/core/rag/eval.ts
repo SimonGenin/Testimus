@@ -38,7 +38,6 @@ export const ROLES: EvidenceRole[] = [
 ];
 export const POLICIES = ["search", "search+graph"] as const;
 export type PolicyName = (typeof POLICIES)[number];
-export const RELATED_REQS_PER_PASSAGE = 10;
 export const MENTIONS_PAGES = 10;
 
 // ponytail: the graph tools are filled by another phase; tests swap them here
@@ -130,16 +129,14 @@ export function defaultSet(project: string): string {
   return existsSync(v2) ? v2 : join(project, "eval", "questions.jsonl");
 }
 
-type ChunkKey = Pick<ChunkRow, "docId" | "anchor" | "reqIds" | "figureIds">;
+type ChunkKey = Pick<ChunkRow, "docId" | "anchor" | "figureIds">;
 
 export function hitMatches(c: ChunkKey, expected: string): boolean {
   const m = expected.match(/^([^#]+)#(.+)$/);
   if (!m || m[1] !== c.docId) return false;
   const a = normalizeAnchor(m[2]);
   if (c.anchor === a) return true;
-  if (a.startsWith("req:")) return c.reqIds.includes(a.slice(4));
-  if (a.startsWith("fig:")) return c.figureIds.includes(a.slice(4));
-  return false;
+  return a.startsWith("fig:") && c.figureIds.includes(a.slice(4));
 }
 
 function refKey(ref: string): string {
@@ -161,10 +158,7 @@ export function chunkResolver(chunks: ChunkKey[]): (ref: string) => Item {
     if (!m) return { ref, chunks: [] };
     const a = normalizeAnchor(m[2]);
     const of = (byDoc.get(m[1]) ?? []).filter(
-      (c) =>
-        c.anchor === a ||
-        (a.startsWith("req:") && c.reqIds.includes(a.slice(4))) ||
-        (a.startsWith("fig:") && c.figureIds.includes(a.slice(4))),
+      (c) => c.anchor === a || (a.startsWith("fig:") && c.figureIds.includes(a.slice(4))),
     );
     return { ref, chunks: of };
   };
@@ -515,15 +509,7 @@ export async function runEval(project: string, ctx: Ctx, opts: EvalOpts = {}): P
     if (available["search+graph"] === null) {
       try {
         const expansion = new Map<string, { items: Item[]; chars: number }>();
-        for (const { item } of ranked) {
-          const c = item.chunks[0];
-          const refs = [item.ref, ...c.reqIds.slice(0, RELATED_REQS_PER_PASSAGE).map((id) => `${c.docId}#req:${id}`)];
-          const got = refs.map(expand);
-          expansion.set(item.ref, {
-            items: got.flatMap((g) => g.items),
-            chars: got.reduce((a, g) => a + g.chars, 0),
-          });
-        }
+        for (const { item } of ranked) expansion.set(item.ref, expand(item.ref));
         const said = mentionTerms(b).map(mention);
         const extra = { items: said.flatMap((s) => s.items), chars: said.reduce((a, s) => a + s.chars, 0) };
         policies["search+graph"] = scoreBehavior(b, { ranked, expansion, extra }, ks, mrrK);
@@ -554,7 +540,7 @@ export async function runEval(project: string, ctx: Ctx, opts: EvalOpts = {}): P
 
   const describe: Record<PolicyName, string> = {
     search: `rag.search (${mode}) on the question and each query, fused by RRF (k ${settings.rrfK}); top k passages`,
-    "search+graph": `search, then rag.related (depth 1) on the anchor and up to ${RELATED_REQS_PER_PASSAGE} requirement ids of each of the top k passages, then rag.mentions (all pages, up to ${MENTIONS_PAGES} × 200 sections) on the queries and the ids and acronyms of the question`,
+    "search+graph": `search, then rag.related (depth 1) on the anchor of each of the top k passages, then rag.mentions (all pages, up to ${MENTIONS_PAGES} × 200 sections) on the queries and the codes and acronyms of the question`,
   };
   const policies: PolicyReport[] = POLICIES.map((name) => {
     const off = available[name];

@@ -70,15 +70,13 @@ describe("mentions — the less common inputs", () => {
 
 describe("chunkTitle", () => {
   const d = { titles: new Map([["§4", "Quatre"]]) } as unknown as CorpusDoc;
-  const chunk = (c: Partial<Chunk>) =>
-    ({ anchor: "§1", kind: "section", text: "", path: "", reqIds: [], ...c }) as Chunk;
+  const chunk = (c: Partial<Chunk>) => ({ anchor: "§1", kind: "section", text: "", path: "", ...c }) as Chunk;
 
-  it("a matrix row names its requirement and the traced section when known", () => {
-    expect(chunkTitle(d, chunk({ kind: "matrix-row", anchor: "req:X@matrix", path: "2 > 4", reqIds: ["EXI_X"] }))).toBe(
-      "EXI_X (matrix) → 4 Quatre",
-    );
-    expect(chunkTitle(d, chunk({ kind: "matrix-row", anchor: "req:X@matrix~2", path: "" }))).toBe(
-      "req:X@matrix (matrix)",
+  it("a section takes its title, a split part its section's, a figure its caption line", () => {
+    expect(chunkTitle(d, chunk({ anchor: "§4" }))).toBe("Quatre");
+    expect(chunkTitle(d, chunk({ anchor: "§4~2" }))).toBe("Quatre");
+    expect(chunkTitle(d, chunk({ kind: "figure", anchor: "fig:1", text: "Figure 1 – Vue\nsa description" }))).toBe(
+      "Figure 1 – Vue",
     );
   });
 

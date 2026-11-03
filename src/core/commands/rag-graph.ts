@@ -4,15 +4,15 @@ import { mentions } from "../rag/mentions.ts";
 import { related } from "../rag/related.ts";
 import { chunkKind } from "./rag.ts";
 
-const edgeKind = z.enum(["defines", "traces", "mentions", "refers", "parent", "sibling", "shows", "amends"]);
+const edgeKind = z.enum(["refers", "parent", "sibling", "shows", "amends"]);
 
 export const commands: Command[] = [
   command({
     name: "rag.mentions",
     summary:
-      "Every passage of every current document that contains a term, an id or an acronym (exact, stemmed and glossary forms, or a regex), grouped by document and section. No model, no top-k.",
+      "Every passage of every current document that contains a term, a code or an acronym (exact, stemmed and glossary forms, or a regex), grouped by document and section. No model, no top-k.",
     input: z.object({
-      term: z.string().min(1).describe("A word, a phrase, a requirement id, an acronym — or a regex with regex: true"),
+      term: z.string().min(1).describe("A word, a phrase, a code, an acronym — or a regex with regex: true"),
       regex: z.boolean().default(false).describe("Treat term as a JavaScript regular expression (case-insensitive)"),
       stem: z.boolean().default(true).describe("Also match French stemmed forms (sectionneurs → sectionneur)"),
       glossary: z.boolean().default(true).describe("Also match the acronym's long form and the other way round"),
@@ -51,17 +51,13 @@ export const commands: Command[] = [
   command({
     name: "rag.related",
     summary:
-      "The graph neighbours of docId#anchor or of a requirement id: statement, defining and traced sections, requirements mentioned, cross-references both ways, siblings, figures, amending documents. No model.",
+      "The graph neighbours of docId#anchor or of a document: parent section, cross-references both ways, siblings, figures, amending documents. No model.",
     input: z.object({
-      ref: z.string().min(2).describe("docId#anchor (§x.y, req:ID, fig:N) or a bare requirement id"),
+      ref: z.string().min(2).describe("docId#anchor (§x.y, fig:N) or a bare docId"),
       depth: z.number().int().min(1).max(2).default(1).describe("1 = direct neighbours; 2 = their neighbours too"),
     }),
     output: z.object({
       ref: z.string(),
-      statement: z
-        .object({ id: z.string(), source: z.enum(["body", "matrix"]), section: z.string(), text: z.string() })
-        .optional()
-        .describe("For a requirement: the text that defines it"),
       neighbours: z.array(
         z.object({
           ref: z.string(),
@@ -72,7 +68,6 @@ export const commands: Command[] = [
           depth: z.number(),
         }),
       ),
-      warnings: z.array(z.string()).describe("E.g. a traced section that differs from the defining one"),
       truncated: z.literal(true).optional().describe("Set when depth 2 went past 200 neighbours: the list stops there"),
       total: z.number().int().optional().describe("How many neighbours there were before the cut"),
     }),

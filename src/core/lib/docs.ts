@@ -10,7 +10,6 @@ import type { DocJson, DocKind, DocRef, FigureEntry } from "../types.ts";
 import { writeAtomic } from "./atomic.ts";
 import { sha256 } from "./hash.ts";
 import { readJson, writeJson } from "./project.ts";
-import { requirementPatterns } from "./traces.ts";
 
 export type TocEntry = { anchor: string; title: string; level: number };
 export type Stats = NonNullable<DocJson["stats"]>;
@@ -25,18 +24,26 @@ export function docDir(project: string, id: string): string {
 export function readDoc(project: string, id: string): DocJson {
   const file = join(docDir(project, id), "doc.json");
   if (!existsSync(file)) throw new UserError(`No document ${id}.`, "testimus docs list shows the project's documents.");
-  // ponytail: binding and superseded were dropped (deleting an old version replaces superseding it); an older
-  // doc.json reads without them, a superseded one as a draft, and loses them at its next write
+  // ponytail: binding, superseded, the « requirements » kind and its count were dropped; an older doc.json reads
+  // without them (a superseded one as a draft, a requirements one as a spec) and loses them at its next write
   const {
     binding: _b,
     supersededBy: _s,
     ...doc
-  } = JSON.parse(readFileSync(file, "utf8").replace(/^﻿/, "")) as Omit<DocJson, "status"> & {
+  } = JSON.parse(readFileSync(file, "utf8").replace(/^﻿/, "")) as Omit<DocJson, "status" | "kind" | "stats"> & {
     status: string;
+    kind: string;
+    stats?: DocJson["stats"] & { requirements?: number };
     binding?: string;
     supersededBy?: string;
   };
-  return { ...doc, status: doc.status === "superseded" ? "draft" : (doc.status as DocJson["status"]) };
+  const { requirements: _r, ...stats } = doc.stats ?? {};
+  return {
+    ...doc,
+    kind: doc.kind === "requirements" ? "spec" : (doc.kind as DocKind),
+    status: doc.status === "superseded" ? "draft" : (doc.status as DocJson["status"]),
+    ...(doc.stats ? { stats: stats as Stats } : {}),
+  };
 }
 
 export function writeDoc(project: string, doc: DocJson): void {
@@ -98,13 +105,10 @@ export function tocOf(md: string): TocEntry[] {
   return toc;
 }
 
-export function normalizeAnchor(anchor: string): { kind: "§" | "req" | "fig" | "page"; id: string } {
+export function normalizeAnchor(anchor: string): { kind: "§" | "fig" | "page"; id: string } {
   const a = anchor.trim().replace(/^[^#\s]*#/, "");
-  const m = a.match(/^(§|req|fig|page)\s*:?\s*(.+)$/);
-  if (m) return { kind: m[1] as "§", id: m[2].trim() };
-  if (/^\d+(\.\d+)*$/.test(a)) return { kind: "§", id: a };
-  if (/^[A-Z][A-Z0-9]*_[A-Z0-9_]+$/.test(a)) return { kind: "req", id: a };
-  return { kind: "§", id: a };
+  const m = a.match(/^(§|fig|page)\s*:?\s*(.+)$/);
+  return m ? { kind: m[1] as "§", id: m[2].trim() } : { kind: "§", id: a };
 }
 
 export function sectionOf(md: string, anchor: string): string | null {
@@ -120,7 +124,6 @@ export function sectionOf(md: string, anchor: string): string | null {
     for (let i = start + 1; i < lines.length; i++) {
       const h = heading(lines[i]);
       if (kind === "§" && h && h <= heading(lines[start])) end = i;
-      else if (kind === "req" && (h || lines[i].startsWith("<!-- req "))) end = i;
       else if (kind === "page" && (lines[i].startsWith("<!-- page ") || h === 1)) end = i;
       if (end !== lines.length) break;
     }
@@ -177,7 +180,6 @@ export function writeConverted(dir: string, c: Converted): { figures: FigureEntr
     stats: {
       sections: a.sections.length,
       figures: figures.length,
-      requirements: new Set(a.requirements).size,
       chars: c.md.length,
     },
   };
@@ -242,7 +244,6 @@ export async function addDoc(
     progress(`Converting ${ext.slice(1)}`);
     const c = await convertSource(target, {
       code: guess.code,
-      reqPatterns: requirementPatterns(project),
       pdf: existsSync(pdfTarget) && ext === ".docx" ? pdfTarget : undefined,
       signal,
     });
@@ -297,7 +298,6 @@ export async function reconvertDoc(
   const pdf = join(dir, "source.pdf");
   const c = await convertSource(source, {
     code: doc.code,
-    reqPatterns: requirementPatterns(project),
     pdf: extname(source).toLowerCase() === ".docx" && existsSync(pdf) ? pdf : undefined,
     signal,
   });

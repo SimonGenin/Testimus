@@ -28,7 +28,7 @@ export function openDb(file: string): DatabaseSync {
     );
     create table if not exists chunks (
       rowid integer primary key, id text not null unique, doc_id text not null, anchor text not null,
-      path text not null, req_ids text not null, figure_ids text not null, header text not null,
+      path text not null, figure_ids text not null, header text not null,
       text text not null, kind text not null, hash text not null
     );
     create index if not exists chunks_doc on chunks(doc_id);
@@ -43,18 +43,52 @@ export function openDb(file: string): DatabaseSync {
   `);
   migrateFts(db);
   migrateLegacyVectors(db);
+  migrateChunks(db);
   return db;
+}
+
+const CHUNK_COLUMNS = new Set([
+  "rowid",
+  "id",
+  "doc_id",
+  "anchor",
+  "path",
+  "figure_ids",
+  "header",
+  "text",
+  "kind",
+  "hash",
+]);
+
+// ponytail: an index written by an older chunker (a column or a chunk kind this one no longer makes) is cut back to
+// the current shape in place — sections and figures keep their rows and vectors, the FTS and the graph are rebuilt,
+// and every document is chunked again at the next index
+function migrateChunks(db: DatabaseSync): void {
+  const extra = (db.prepare("select name from pragma_table_info('chunks')").all() as { name: string }[])
+    .map((c) => c.name)
+    .filter((n) => !CHUNK_COLUMNS.has(n));
+  if (!extra.length) return;
+  transaction(db, () => {
+    const stale = db.prepare("select rowid from chunks where kind not in ('section', 'figure')").all() as {
+      rowid: number;
+    }[];
+    for (const r of stale) deleteChunk(db, Number(r.rowid));
+    for (const n of extra) db.exec(`alter table chunks drop column "${n}"`);
+    db.exec("delete from edges");
+    db.exec("delete from docs");
+  });
+  rebuildFts(db);
 }
 
 const FTS = `create virtual table chunks_fts using fts5(
   header, text, codes, stem, tokenize = 'unicode61 remove_diacritics 2'
 )`;
 
-function ftsRow(c: Pick<Chunk, "header" | "text" | "reqIds" | "figureIds" | "anchor">) {
+function ftsRow(c: Pick<Chunk, "header" | "text" | "figureIds" | "anchor">) {
   return [
     c.header,
     c.text,
-    [...c.reqIds, ...c.figureIds.map((f) => `fig ${f}`), c.anchor.replace(/^§/, "")].join(" "),
+    [...c.figureIds.map((f) => `fig ${f}`), c.anchor.replace(/^§/, "")].join(" "),
     stemText(`${c.header}\n${c.text}`),
   ];
 }
@@ -258,7 +292,6 @@ type RawChunk = {
   doc_id: string;
   anchor: string;
   path: string;
-  req_ids: string;
   figure_ids: string;
   header: string;
   text: string;
@@ -273,7 +306,6 @@ export function toChunk(r: RawChunk): ChunkRow {
     docId: r.doc_id,
     anchor: r.anchor,
     path: r.path,
-    reqIds: JSON.parse(r.req_ids),
     figureIds: JSON.parse(r.figure_ids),
     header: r.header,
     text: r.text,
@@ -303,21 +335,10 @@ export function chunksByRowid(db: DatabaseSync, rowids: number[]): Map<number, C
 export function insertChunk(db: DatabaseSync, c: Chunk, hash: string): number {
   const r = db
     .prepare(
-      `insert into chunks(id, doc_id, anchor, path, req_ids, figure_ids, header, text, kind, hash)
-       values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `insert into chunks(id, doc_id, anchor, path, figure_ids, header, text, kind, hash)
+       values (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
-    .run(
-      c.id,
-      c.docId,
-      c.anchor,
-      c.path,
-      JSON.stringify(c.reqIds),
-      JSON.stringify(c.figureIds),
-      c.header,
-      c.text,
-      c.kind,
-      hash,
-    );
+    .run(c.id, c.docId, c.anchor, c.path, JSON.stringify(c.figureIds), c.header, c.text, c.kind, hash);
   const rowid = Number(r.lastInsertRowid);
   db.prepare("insert into chunks_fts(rowid, header, text, codes, stem) values (?, ?, ?, ?, ?)").run(
     rowid,
@@ -340,7 +361,7 @@ export function chunkCount(db: DatabaseSync): number {
   return Number((db.prepare("select count(*) n from chunks").get() as { n: number }).n);
 }
 
-// Requirement graph (SPEC-RAG §3.3)
+// Document graph (SPEC-RAG §3.3)
 
 export function replaceEdges(db: DatabaseSync, docId: string, edges: Edge[]): void {
   transaction(db, () => {

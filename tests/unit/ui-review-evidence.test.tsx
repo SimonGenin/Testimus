@@ -45,10 +45,6 @@ const evidence = {
     { ref: "D1#§5.2", title: "Sectionneur", cited: true },
     { ref: "D1#§5.3", title: "Disjoncteur", cited: false },
   ],
-  related: [
-    { ref: "D1#§5.3", kind: "mentions", title: "Disjoncteur", read: true, via: "mentions EXI_1" },
-    { ref: "D2#§2.1", kind: "amends", title: "Amendement", read: false, via: "amends D1 § 5.2" },
-  ],
   searched: [{ tool: "rag_search", query: "sectionneur" }],
 };
 
@@ -67,42 +63,40 @@ const panel = (props: Partial<Parameters<typeof SourcePanel>[0]> = {}) =>
     />,
   );
 
-describe("Review › sources read / related", () => {
-  it("lists what the generation read and the related sections it did not, and picks one", async () => {
+describe("Review › sources read", () => {
+  it("lists what the generation read and picks one", async () => {
     routes["rag.passage"] = () => passage;
     routes["review.evidence"] = () => evidence;
     const onPick = vi.fn();
     panel({ onPick });
-    const block = await screen.findByRole("region", { name: "Sources read and related" });
-    expect(await within(block).findByText("2 read · 1 related unread")).toBeInTheDocument();
-    const head = within(block).getByRole("button", { name: /Sources read \/ related/ });
+    const block = await screen.findByRole("region", { name: "Sources read" });
+    expect(await within(block).findByText("2 read")).toBeInTheDocument();
+    const head = within(block).getByRole("button", { name: /Sources read/ });
     expect(head).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(head);
     expect(within(block).getByText("Read by the generation (2)")).toBeInTheDocument();
-    expect(within(block).getByText("Related, not read (1)")).toBeInTheDocument();
     expect(within(block).getByText("Cited")).toBeInTheDocument();
-    expect(within(block).getByText("amends D1 § 5.2")).toBeInTheDocument();
-    fireEvent.click(within(block).getByRole("button", { name: /D2#§2.1/ }));
-    expect(onPick).toHaveBeenCalledWith("D2#§2.1");
+    fireEvent.click(within(block).getByRole("button", { name: /D1#§5.3/ }));
+    expect(onPick).toHaveBeenCalledWith("D1#§5.3");
   });
 
   it("shows a clean empty state when nothing was recorded (or the command is not there)", async () => {
     routes["rag.passage"] = () => passage;
     panel();
-    const block = await screen.findByRole("region", { name: "Sources read and related" });
+    const block = await screen.findByRole("region", { name: "Sources read" });
     expect(await within(block).findByText("Not recorded")).toBeInTheDocument();
-    fireEvent.click(within(block).getByRole("button", { name: /Sources read \/ related/ }));
+    fireEvent.click(within(block).getByRole("button", { name: /Sources read/ }));
     expect(within(block).getByText(/not recorded for this test/)).toBeInTheDocument();
   });
 
-  it("says « not recorded » for a test without a ledger but still lists its related sections", async () => {
+  it("says « not recorded » for a test without a ledger", async () => {
     routes["rag.passage"] = () => passage;
     routes["review.evidence"] = () => ({ ...evidence, jobId: null, consulted: [], read: [], searched: [] });
     panel();
-    const block = await screen.findByRole("region", { name: "Sources read and related" });
-    fireEvent.click(await within(block).findByRole("button", { name: /Sources read \/ related/ }));
+    const block = await screen.findByRole("region", { name: "Sources read" });
+    fireEvent.click(await within(block).findByRole("button", { name: /Sources read/ }));
     expect(await within(block).findByText(/Not recorded: this test was not written/)).toBeInTheDocument();
-    expect(within(block).getByText("Related, not read (1)")).toBeInTheDocument();
+    expect(within(block).getByText("Not recorded")).toBeInTheDocument();
   });
 
   it("highlights the quote only when it is at its anchor", async () => {

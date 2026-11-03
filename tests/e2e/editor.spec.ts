@@ -11,7 +11,7 @@ const show = (id: string) => api<Shown>(url, "tests.show", { id });
 const main = (page: Page) => page.getByRole("main");
 const step = (page: Page, n: number) => main(page).getByRole("article", { name: `Step ${n}`, exact: true });
 
-test("LFRPS12-1420 opens with fields in xray.json order, Data folded, requirement chips and sources", async ({
+test("LFRPS12-1420 opens with fields in xray.json order, Data folded, smart columns as text and sources", async ({
   page,
 }) => {
   await openTest(page, "LFRPS12-1420");
@@ -39,8 +39,10 @@ test("LFRPS12-1420 opens with fields in xray.json order, Data folded, requiremen
   await data1.click();
   await expect(one.getByRole("button", { name: "+ text" }).first()).toBeVisible();
 
-  await expect(one.getByRole("button", { name: "Remove requirement EXI_MOP_SPF_511_A_1650" })).toBeVisible();
-  await expect(step(page, 2).getByRole("button", { name: /^Remove requirement / })).toHaveCount(2);
+  await expect(one.getByRole("textbox", { name: "Exigence of step 1" })).toHaveValue("EXI_MOP_SPF_511_A_1650");
+  await expect(step(page, 2).getByRole("textbox", { name: "Exigence of step 2" })).toHaveValue(
+    "EXI_MOP_SPF_511_A_1670, EXI_MOP_SPF_510_A_20",
+  );
   await expect(one.getByRole("img", { name: "fig-40.png" })).toBeVisible();
   await expect(step(page, 3).getByRole("table")).toBeVisible();
 
@@ -52,7 +54,7 @@ test("LFRPS12-1420 opens with fields in xray.json order, Data folded, requiremen
 test("a source chip opens the passage with the quote highlighted", async ({ page }) => {
   await openTest(page, "LFRPS12-1420");
   await step(page, 2)
-    .getByRole("button", { name: /^SOSIE_211_D401-1_3 §5\.6\.6 / })
+    .getByRole("button", { name: /^SOSIE_211_D401-1_3 §5\.6\.6 « Selon le type/ })
     .click();
   const dialog = page.getByRole("dialog", { name: /^Source / });
   await expect(dialog).toBeVisible();

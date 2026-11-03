@@ -17,7 +17,6 @@ import { jumpTo, rememberHit } from "../lib/search.ts";
 import { useSideWidth } from "../lib/sideWidth.ts";
 import { readSession, readString, setThemeEverywhere, writeSession } from "../lib/theme.ts";
 import { errorToast, toast } from "../lib/toast.ts";
-import { setTraces } from "../lib/traces.ts";
 import { DoctorScreen } from "../screens/doctor/DoctorScreen.tsx";
 import { DocumentsScreen } from "../screens/documents/DocumentsScreen.tsx";
 import { GenerateScreen } from "../screens/generate/GenerateScreen.tsx";
@@ -39,7 +38,7 @@ export function parseRoute(hash: string): { screen: Screen; arg?: string } {
 
 // ponytail: a failed job of the documents, the index or the tests is shown to Claude once, cheaply (project model, low
 // effort), when Claude is there — it may leave a Claude action on the job; a Claude run or a Jira call is never triaged
-const TRIAGED = /^(docs\.|rag-|rag\.|describe-figures|generate|check|traces)/;
+const TRIAGED = /^(docs\.|rag-|rag\.|describe-figures|generate|check)/;
 const triaged = new Set<string>();
 
 function triageFailed(job: Job): void {
@@ -70,7 +69,6 @@ export function App() {
   const refreshInfo = useCallback(() => {
     call<ProjectInfo>("project.info", {})
       .then(async (r) => {
-        setTraces(r?.traces ?? null);
         setInfo(r);
         if (r?.xray?.fields?.length) setXray(r.xray);
         else {

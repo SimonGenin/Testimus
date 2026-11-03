@@ -41,7 +41,7 @@ export function ChipInput({
       {values.map((v) => (
         <Chip
           key={v}
-          className={mono ? "req" : undefined}
+          className={mono ? "chip-mono" : undefined}
           onRemove={onChange && (() => onChange(values.filter((x) => x !== v)))}
           removeLabel={removeLabel ? removeLabel(v) : `Remove ${v}`}
         >

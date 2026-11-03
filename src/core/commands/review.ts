@@ -199,7 +199,7 @@ export const commands: Command[] = [
   command({
     name: "review.evidence",
     summary:
-      "What the generation of a test really read (its evidence ledger) and the sections rag.related links to the requirements it covers, each marked read or not — « sources read / sources related ».",
+      "What the generation of a test really read (its evidence ledger): the passages it opened, each marked cited or not, and the searches it made — « sources read ».",
     input: z.object({ testId: id }),
     output: z.object({
       testId: z.string().describe("The test"),
@@ -214,26 +214,11 @@ export const commands: Command[] = [
         .array(
           z.object({
             ref: z.string().describe("docId#anchor opened by the generation"),
-            title: z.string().describe("Section title, figure caption or requirement statement"),
+            title: z.string().describe("Section title or figure caption"),
             cited: z.boolean().describe("A step's Sources cite it or one of its sub-sections"),
           }),
         )
         .describe("Sources read"),
-      related: z
-        .array(
-          z.object({
-            ref: z.string().describe("docId#§x.y linked to a covered requirement"),
-            kind: z
-              .enum(["defines", "traces", "mentions", "amends"])
-              .describe(
-                "defines/traces: where the requirement is defined or traced; mentions; amends: an amending section",
-              ),
-            title: z.string().describe("Section title"),
-            read: z.boolean().describe("Whether the generation opened it (or a section above it)"),
-            via: z.string().describe("Why it is related, e.g. « defines EXI_MOP_SPF_511_A_1670 »"),
-          }),
-        )
-        .describe("Sources related, read or not"),
       searched: z
         .array(
           z.object({

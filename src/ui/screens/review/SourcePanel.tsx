@@ -105,7 +105,7 @@ export function SourcePanel({
             <Skeleton w="88%" h={13} />
           </>
         ) : misplaced ? (
-          <PassageText passage={{ ...p, focus: undefined }} quote="" />
+          <PassageText passage={p} quote="" />
         ) : quote.trim() && p.quoteFound === false ? (
           <>
             <div className="srcpanel-miss" role="status">

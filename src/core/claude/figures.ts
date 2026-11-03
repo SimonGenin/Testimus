@@ -45,7 +45,7 @@ export function figuresPrompt(
     "Open each picture below with Read, look at it, and give for a tester who will compare it with the screen of",
     "the simulator:",
     `- description: one or two sentences in ${languageName(language)}, saying what is drawn — symbols, colours,`,
-    "  layout, states. Only what the picture and its caption show; no interpretation, no requirement.",
+    "  layout, states. Only what the picture and its caption show; no interpretation, no expected behaviour.",
     "- labels: every text visible in the picture, copied verbatim (same spelling, accents, case, abbreviations;",
     `  never translated or corrected), one entry per title, button, menu item, field, legend or symbol name; at most ${MAX_LABELS}; [] when the picture has no text.`,
     `- kind: one of ${FIGURE_KINDS.join(", ")} (screen = a software window or screenshot, diagram = a drawing, plan or`,
@@ -140,7 +140,7 @@ export async function describeFigures(
       anchor: f.anchor,
       file: f.file,
       caption: f.caption,
-      section: ((s) => (s ? `${s.number} ${s.title}`.trim() : ""))(sectionAt(sections, markerLine(md, "fig", f.n))),
+      section: ((s) => (s ? `${s.number} ${s.title}`.trim() : ""))(sectionAt(sections, markerLine(md, f.n))),
     }));
   const res: DescribeResult = { docId, figures: all.length, described: 0, missing: [], runIds: [], costUsd: 0 };
   if (!todo.length) return res;

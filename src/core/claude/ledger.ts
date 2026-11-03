@@ -1,9 +1,8 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { readJson } from "../lib/project.ts";
 import { docFigures, parseSections, type Section } from "../rag/chunk.ts";
 import { normalizeRef } from "../rag/related.ts";
-import { evidenceOptions, statementsOf } from "../rag/statements.ts";
 import type { FigureEntry } from "../types.ts";
 import type { ToolCall } from "./stream.ts";
 
@@ -47,17 +46,7 @@ export function ledgerOf(project: string, calls: ToolCall[]): Ledger {
   };
   const openRef = (raw: string) => {
     const ref = normalizeRef(raw);
-    const m = ref.match(/^([^#]+)#(.+)$/);
-    if (!m) {
-      for (const id of reqDocs(project, ref, docOf)) open(`${id}#req:${ref}`);
-      return;
-    }
-    open(ref);
-    if (m[2].startsWith("req:")) {
-      const d = docOf(m[1]);
-      const st = d && statementsOf(m[1], d.md, evidenceOptions(project)).get(m[2].slice(4));
-      if (st?.section) open(`${m[1]}#${st.section}`);
-    }
+    if (/^[^#]+#.+$/.test(ref)) open(ref);
   };
   const searched: Searched[] = [];
   const search = (tool: string, query: string) => {
@@ -103,14 +92,6 @@ export function ledgerOf(project: string, calls: ToolCall[]): Ledger {
     }
   }
   return { consulted, searched };
-}
-
-function reqDocs(project: string, id: string, docOf: (id: string) => Doc | null): string[] {
-  const root = join(project, "docs");
-  if (!existsSync(root)) return [];
-  return readdirSync(root)
-    .filter((d) => docOf(d)?.md.includes(`<!-- req ${id} -->`))
-    .sort();
 }
 
 export function readLedger(project: string, jobId: string | undefined): (Ledger & { jobId: string }) | null {

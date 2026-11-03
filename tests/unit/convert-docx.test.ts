@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { readZip, writeZip } from "../../src/core/lib/zip.ts";
 import { anchorsOf, guessDate, guessFromName, sameCaption } from "../../src/core/rag/convert.ts";
+import { convertDocx } from "../../src/core/rag/convert-docx.ts";
 import { SAMPLE_PNG, sampleDocx } from "../fixtures/docx/sample.ts";
-import { convertDocx } from "./ratp.ts";
 
 describe("zip", () => {
   it("reads back what it writes", () => {
@@ -36,24 +36,24 @@ describe("file name and first page guesses", () => {
 });
 
 describe("convertDocx", () => {
-  it("anchors computed section numbers, requirement ids and figures", async () => {
+  it("anchors computed section numbers and figures; ids in the text are plain text", async () => {
     const c = await convertDocx(sampleDocx(), { code: "SOSIE_211_D401-1_3" });
     expect(c.md.startsWith("# SOSIE_211_D401-1_3 — Spécification fonctionnelle – Traction\n")).toBe(true);
     expect(c.md).toContain("#### 5.6.6 Sectionneur (S) <!-- § 5.6.6 -->");
     expect(c.md).toContain("#### 5.6.7 Disjoncteur (D) <!-- § 5.6.7 -->");
     expect(c.md).toContain("### 1.1 Objet <!-- § 1.1 -->");
     expect(c.md).toContain("## Annexe <!-- § annexe -->");
-    expect(c.md).toContain("<!-- req EXI_MOP_SPF_511_A_1650 -->\n**EXI_MOP_SPF_511_A_1650**");
+    expect(c.md).toContain("##### EXI_MOP_SPF_511_A_1650 <!-- § exi-mop-spf-511-a-1650 -->");
     expect(c.md).toContain(
-      "<!-- req EXI_MOP_SPF_511_A_1670 -->\nEXI_MOP_SPF_511_A_1670 : Le menu contextuel d'un sectionneur sans TK propose **Propriétés**.",
+      "\n\nEXI_MOP_SPF_511_A_1670 : Le menu contextuel d'un sectionneur sans TK propose **Propriétés**.",
     );
-    expect(c.md).toContain("<!-- req EXI_MOP_SPF_511_A_1680 -->\n| Exigence | Texte |");
+    expect(c.md).toContain("\n\n| Exigence | Texte |");
     expect(c.md).toContain("| EXI_MOP_SPF_511_A_1680 | La fenêtre Propriétés \\| état |");
     expect(c.md).toContain("![Figure 40 – Représentation graphique sectionneur](figures/fig-40.png) <!-- fig 40 -->");
     expect(c.md).not.toMatch(/\n\nFigure 40 – Représentation graphique sectionneur\n/);
     expect(c.md).toContain("Figure 41 – Représentation graphique disjoncteur <!-- fig 41 -->");
     expect(c.md).not.toContain("Généralités 3");
-    expect(c.md.match(/<!-- req EXI_MOP_SPF_511_A_1650 -->/g)).toHaveLength(1);
+    expect(c.md).not.toContain("<!-- req ");
 
     const a = anchorsOf(c.md);
     expect(a.sections).toEqual([
@@ -75,10 +75,11 @@ describe("convertDocx", () => {
       "5.6.4",
       "5.6.5",
       "5.6.6",
+      "exi-mop-spf-511-a-1650",
       "5.6.7",
       "annexe",
     ]);
-    expect(a.requirements).toEqual(["EXI_MOP_SPF_511_A_1650", "EXI_MOP_SPF_511_A_1670", "EXI_MOP_SPF_511_A_1680"]);
+
     expect(c.figures).toHaveLength(1);
     expect(c.figures[0]).toMatchObject({
       key: "40",
@@ -116,14 +117,6 @@ describe("convertDocx", () => {
     );
     expect(c.figures.map((f) => f.key)).toEqual(["40", "41"]);
     expect(c.warnings).toContain("Figure 41: picture missing in the .docx, taken from the .pdf");
-  });
-
-  it("accepts the project's other requirement patterns", async () => {
-    const c = await convertDocx(sampleDocx({ extraParagraph: "REQ-TRAC-0042 : le disjoncteur s'ouvre." }), {
-      code: "X",
-      reqPatterns: ["\\bREQ-[A-Z]+-\\d+"],
-    });
-    expect(c.md).toContain("<!-- req REQ-TRAC-0042 -->\nREQ-TRAC-0042 : le disjoncteur s'ouvre.");
   });
 
   it("refuses a file that is not a Word document", async () => {

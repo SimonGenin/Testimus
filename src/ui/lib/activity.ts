@@ -96,7 +96,6 @@ function stepOf(e: Extract<ClaudeEvent, { type: "tool" }>): Step {
   if (name === "docs_show") return { kind: "prepare", text: `Looked up ${str(a.id) || "a document"}` };
   if (name === "docs_list") return { kind: "prepare", text: "Listed the documents" };
   if (name === "tests_list") return { kind: "prepare", text: "Listed the existing tests" };
-  if (name === "traces_list") return { kind: "prepare", text: "Listed the tracked ids" };
   if (name.startsWith("contexts_")) return { kind: "prepare", text: "Read the saved contexts" };
   if (name === "tests_create") {
     const s = str(a.summary) || "Untitled test";
@@ -147,7 +146,7 @@ const open = (kind: PhaseKind, at: string): Phase => ({
 });
 
 // ponytail: a phase opens when Claude starts doing something else; a lookup in the middle of a phase (a test
-// opened, the tracked ids listed) stays in the phase it interrupts
+// opened, the documents listed) stays in the phase it interrupts
 export function activityOf(events: JobEvent[]): Phase[] {
   const out: Phase[] = [];
   const names = new Map<string, string>();
@@ -191,7 +190,7 @@ export function activityOf(events: JobEvent[]): Phase[] {
   return out;
 }
 
-export function coverage(spans: Span[]): {
+export function linesRead(spans: Span[]): {
   last: number;
   read: number;
   twice: number;

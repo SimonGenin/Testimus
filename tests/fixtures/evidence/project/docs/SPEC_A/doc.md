@@ -12,7 +12,6 @@ Le simulateur reproduit le poste de commande centralisé de la ligne.
 
 ### 2.1 Vue ligne <!-- § 2.1 -->
 
-<!-- req EXI_MOP_SPF_100_A_10 -->
 **EXI_MOP_SPF_100_A_10**
 
 La vue ligne affiche tous les postes de redressement de la ligne :
@@ -20,7 +19,6 @@ La vue ligne affiche tous les postes de redressement de la ligne :
 - les postes en service sont en vert
 - les postes hors service sont en gris
 
-<!-- req EXI_MOP_SPF_100_A_20 -->
 EXI_MOP_SPF_100_A_20 : La vue ligne se rafraîchit toutes les secondes.
 
 ![Figure 1 – Vue ligne complète](figures/fig-1.png) <!-- fig 1 -->
@@ -31,10 +29,8 @@ Le poste clignote en cas de défaut. Le poste clignote en cas de défaut.
 
 La vue détaillée reprend les éléments du § 2.1 et renvoie à SPEC_B §4.1 pour les alarmes.
 
-<!-- req EXI_MOP_SPF_100_A_30 -->
 **EXI_MOP_SPF_100_A_30**
 
-<!-- req EXI_MOP_SPF_100_A_40 -->
 **EXI_MOP_SPF_100_A_40**
 
 La vue détaillée s'ouvre par un double clic sur le poste.
@@ -51,8 +47,6 @@ L'ouverture d'un disjoncteur demande une confirmation de l'opérateur.
 
 Ce document répond aux exigences suivantes :
 
-<!-- req EXI_MOP_SPF_900_A_1 -->
-<!-- req EXI_MOP_SPF_900_A_2 -->
 | **Code Exigence** | **Objet** | **Section** |
 | --- | --- | --- |
 | EXI_MOP_SPF_100_A_10 | La vue ligne affiche tous les postes de redressement de la ligne. | 2.1 |

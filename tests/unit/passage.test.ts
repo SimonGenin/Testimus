@@ -20,35 +20,20 @@ beforeEach(() => {
 });
 afterEach(() => rmSync(project, { recursive: true, force: true }));
 
-describe("rag.passage on requirements (F1, F2)", () => {
-  it("req: of a body requirement: focus is the statement, text its section", () => {
-    const p = passage(project, `${A}#req:EXI_MOP_SPF_100_A_10`);
-    expect(p).toMatchObject({ anchor: "req:EXI_MOP_SPF_100_A_10", path: "2 > 2.1", title: "Vue ligne" });
-    expect(p.focus).toMatch(/^\*\*EXI_MOP_SPF_100_A_10\*\*\n\nLa vue ligne affiche/);
-    expect(p.focus).toContain("en gris");
+describe("rag.passage by anchor", () => {
+  it("a section: its text, its path and title, its figures", () => {
+    const p = passage(project, `${A}#2.1`);
+    expect(p).toMatchObject({ anchor: "§2.1", path: "2 > 2.1", title: "Vue ligne" });
     expect(p.text).toContain("se rafraîchit toutes les secondes");
+    expect(p.text).not.toContain("<!--");
     expect(p.truncated).toBeUndefined();
     expect(p.figures.map((f) => f.anchor)).toEqual(["fig:1"]);
+    expect(p).not.toHaveProperty("focus");
   });
 
-  it("req: of a matrix-only requirement: focus is its row, never the whole table", () => {
-    const p = passage(project, `${A}#req:EXI_MOP_SPF_900_A_1`);
-    expect(p.focus).toBe(
-      "EXI_MOP_SPF_900_A_1 — Le simulateur enregistre chaque commande de l'opérateur. (section 3.2)",
-    );
-    expect(p.path).toBe("6 > 6.1");
-  });
-
-  it("req:ID@matrix reads the row, under its traced section", () => {
-    const p = passage(project, `${A}#req:EXI_MOP_SPF_100_A_40@matrix`);
-    expect(p).toMatchObject({ anchor: "req:EXI_MOP_SPF_100_A_40@matrix", path: "3 > 3.2", title: "Ouverture" });
-    expect(p.focus).toBe("EXI_MOP_SPF_100_A_40 — La vue détaillée s'ouvre par un double clic. (section 3.2)");
-    expect(p.text.split("\n")).toEqual([
-      "| **Code Exigence** | **Objet** | **Section** |",
-      "| --- | --- | --- |",
-      "| EXI_MOP_SPF_100_A_40 | La vue détaillée s'ouvre par un double clic. | 3.2 |",
-    ]);
-    expect(() => passage(project, `${A}#req:EXI_NOPE@matrix`)).toThrow(/no anchor/);
+  it("an old requirement anchor is no anchor", () => {
+    expect(() => passage(project, `${A}#req:EXI_MOP_SPF_100_A_10`)).toThrow(/no anchor/);
+    expect(() => passage(project, `${A}#req:EXI_MOP_SPF_100_A_40@matrix`)).toThrow(/no anchor/);
   });
 });
 
@@ -60,10 +45,11 @@ describe("passage cap (SPEC-RAG §3.4)", () => {
     expect(passageMaxChars(project)).toBe(500);
   });
 
-  it("above the cap: truncated, a window around the focus with the table's header, and readMore", () => {
+  it("above the cap: truncated, a window around the quote with the table's header, and readMore", () => {
     setCap(300);
-    const p = passage(project, `${A}#req:EXI_MOP_SPF_900_A_2`);
+    const p = passage(project, `${A}#§6.1`, "Les commandes refusées sont signalées");
     expect(p.truncated).toBe(true);
+    expect(p.quoteFound).toBe(true);
     expect(p.text.length).toBeLessThanOrEqual(300 + 120);
     expect(p.text).toContain("| EXI_MOP_SPF_900_A_2 |");
     expect(p.text.startsWith("| **Code Exigence** | **Objet** | **Section** |\n| --- | --- | --- |")).toBe(true);
@@ -71,7 +57,7 @@ describe("passage cap (SPEC-RAG §3.4)", () => {
     expect(p.outline).toEqual([]);
   });
 
-  it("the outline lists the sub-sections with their size, requirement ids and figures", () => {
+  it("the outline lists the sub-sections with their size and figures", () => {
     const dir = join(project, "docs", "LONG");
     mkdirSync(dir);
     writeFileSync(join(dir, "doc.json"), JSON.stringify({ id: "LONG", code: "LONG", title: "Long" }));
@@ -86,8 +72,8 @@ describe("passage cap (SPEC-RAG §3.4)", () => {
     expect(p.text.startsWith("Paragraphe 0")).toBe(true);
     expect(p.text.length).toBeLessThanOrEqual(1000);
     expect(p.outline).toEqual([
-      { anchor: "§1.1", title: "Petit", chars: "EXI_L_1 : Une règle.".length, reqIds: ["EXI_L_1"], figureIds: [] },
-      { anchor: "§1.1.1", title: "Détail", chars: expect.any(Number), figureIds: ["3"], reqIds: [] },
+      { anchor: "§1.1", title: "Petit", chars: "EXI_L_1 : Une règle.".length, figureIds: [] },
+      { anchor: "§1.1.1", title: "Détail", chars: expect.any(Number), figureIds: ["3"] },
     ]);
     expect(p.readMore).toMatch(/lines 3–\d+ for the whole section .*this passage shows lines 4–\d+/);
     expect(passage(project, "LONG#§2").truncated).toBeUndefined();

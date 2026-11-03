@@ -9,7 +9,6 @@ export const KIND: Record<string, string> = {
   claude: "Claude request",
   "actions.triage": "Claude looks at problems",
   chat: "Ask the documents",
-  traces: "Find ids to track",
   pull: "Pull from Jira",
   push: "Push to Jira",
   "docs.add": "Add document",

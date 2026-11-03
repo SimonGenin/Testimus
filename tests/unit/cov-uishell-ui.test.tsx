@@ -15,7 +15,6 @@ import {
   Kbd,
   Menu,
   Modal,
-  RequirementChip,
   ReviewBadge,
   Segmented,
   Severity,
@@ -80,8 +79,6 @@ describe("small ui pieces", () => {
         <Chip error onRemove={remove}>
           bad
         </Chip>
-        <RequirementChip id="REQ-1" error onRemove={remove} />
-        <RequirementChip id="REQ-2" onClick={click} />
       </>,
     );
     expect(screen.getByText("static")).toHaveClass("chip");
@@ -89,10 +86,8 @@ describe("small ui pieces", () => {
     expect(screen.getByRole("button", { name: "pressed" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByText("bad")).toHaveClass("chip-err");
     fireEvent.click(screen.getByRole("button", { name: "Remove" }));
-    fireEvent.click(screen.getByRole("button", { name: "Remove requirement REQ-1" }));
-    fireEvent.click(screen.getByRole("button", { name: "REQ-2" }));
-    expect(click).toHaveBeenCalledTimes(2);
-    expect(remove).toHaveBeenCalledTimes(2);
+    expect(click).toHaveBeenCalledTimes(1);
+    expect(remove).toHaveBeenCalledTimes(1);
   });
 
   it("renders fields with and without a hint", () => {

@@ -171,13 +171,13 @@ describe("StepCard editing", () => {
     expect(apply().fields.Action).toBeUndefined();
   });
 
-  it("edits a requirement column and a project text column, and notes columns not in Xray", () => {
+  it("edits smart columns as text, and notes columns not in Xray", () => {
     const x: XrayJson = {
       ...xray,
       fields: [...xray.fields, { id: "cf", name: "Exigence", type: "text", builtin: false }],
     };
     const { apply, container } = card({ ...base, fields: { ...base.fields, Exigence: "R1", Note: "n" } }, { xray: x });
-    fireEvent.click(screen.getByRole("button", { name: "Remove requirement R1" }));
+    fireEvent.change(screen.getByLabelText("Exigence of step 2"), { target: { value: "" } });
     expect(apply().fields.Exigence).toBeUndefined();
     fireEvent.change(screen.getByLabelText("Note of step 2"), { target: { value: "noted" } });
     expect(apply().fields.Note).toBe("noted");

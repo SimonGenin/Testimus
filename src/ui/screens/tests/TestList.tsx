@@ -140,7 +140,7 @@ export function TestList({
   const listed = useMemo(() => refs.filter((r) => !awaitsReview(r)), [refs]);
   const waiting = refs.length - listed.length;
   const shown = useMemo(() => localTree(listed.filter((r) => matches(r, q))), [listed, q]);
-  // ponytail: the local filter is search.all on the tests — steps, requirements, sources, filters (review:…) and
+  // ponytail: the local filter is search.all on the tests — steps, sources, filters (review:…) and
   // meaning; the plain text match above shows until it answers, or when it cannot
   const smart = useSearch(tab === "local" ? needle : "", { in: ["test"], k: 300 });
   const ranked = useMemo(() => {

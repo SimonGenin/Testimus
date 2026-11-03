@@ -5,6 +5,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { quietCtx } from "../../src/core/command.ts";
 import { commands } from "../../src/core/commands/xray.ts";
 import { env } from "../../src/core/env.ts";
+import { saveColumn } from "../../src/core/lib/columns.ts";
 import { resetAuth } from "../../src/core/lib/jira.ts";
 import { readProject, readXray } from "../../src/core/lib/project.ts";
 import { listLocalTests, localTestRef, readTest, writeTest } from "../../src/core/lib/store.ts";
@@ -79,12 +80,8 @@ describe("xray commands", () => {
     );
   });
 
-  it("xray.prefs accepts a tracked id column that is in neither Xray nor xray.json", async () => {
-    const p = readProject(project);
-    writeFileSync(
-      join(project, "project.json"),
-      JSON.stringify({ ...p, traces: [{ id: "alarm", label: "Alarm", patterns: ["ALM_\\d+"], field: "Alarme" }] }),
-    );
+  it("xray.prefs accepts a local smart column, kept in xray.json and not in Xray", async () => {
+    saveColumn(project, { name: "Alarme", description: "Le code d'alarme affiché" });
     const out = await run("xray.prefs", { filled: ["Data", "Alarme"] });
     expect(out.prefs.filled).toEqual(["Data", "Alarme"]);
     expect(readXray(project).prefs.filled).toEqual(["Data", "Alarme"]);

@@ -25,15 +25,7 @@ describe("passage — the less common anchors", () => {
   const MD = [
     "<!-- fig 1 --> Figure 1 – Vue générale",
     "",
-    "| Exigence | Section | Objet |",
-    "| --- | --- | --- |",
-    "| EXI_TOP_1 | 9 | Exigence tracée vers une section absente |",
-    "| EXI_TOP_2 | 9 | Seconde exigence tracée ailleurs |",
-    "| EXI_TOP_3 | 7 | Troisième exigence |",
-    "| EXI_TOP_4 |  | Exigence sans section |",
-    "",
-    "<!-- req EXI_EARLY_1 -->",
-    "Une exigence avant toute section.",
+    "Un texte avant toute section.",
     "",
     "## 1 Général <!-- § 1 -->",
     "",
@@ -62,16 +54,9 @@ describe("passage — the less common anchors", () => {
     expect(() => passage(dir, "P#fig:99")).toThrow(/has no anchor fig:99/);
   });
 
-  it("a matrix row traced to a missing section outside any section has no path nor title", () => {
-    expect(passage(dir, "P#req:EXI_TOP_1@matrix")).toMatchObject({ path: "", title: "" });
-    expect(passage(dir, "P#req:EXI_TOP_4@matrix")).toMatchObject({ path: "", title: "" });
-    expect(() => passage(dir, "P#req:EXI_NONE@matrix")).toThrow(/has no anchor/);
-  });
-
-  it("a requirement only marked inline focuses on its marker line; one before any section is refused", () => {
-    expect(passage(dir, "P#req:EXI_INLINE_1")).toMatchObject({ anchor: "req:EXI_INLINE_1", path: "1" });
-    expect(() => passage(dir, "P#req:EXI_EARLY_1")).toThrow(/has no anchor/);
-    expect(() => passage(dir, "P#req:EXI_GHOST_1")).toThrow(/has no anchor/);
+  it("an old requirement marker is an ordinary comment, never an anchor", () => {
+    expect(passage(dir, "P#§1").text).toBe("Le texte cite EXI_INLINE_1 dans une phrase.");
+    expect(() => passage(dir, "P#req:EXI_INLINE_1")).toThrow(/has no anchor/);
   });
 });
 

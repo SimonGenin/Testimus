@@ -38,7 +38,7 @@ test("findings sit on their steps and a source shows its passage with the quote 
   await boot(page, "#/review");
   await expect(under(page).getByRole("heading", { level: 2, name: SUMMARY_1420 })).toBeVisible();
   const step2 = under(page).getByRole("article", { name: "Step 2", exact: true });
-  await expect(step2.getByRole("note").filter({ hasText: "Wrong requirement" })).toBeVisible();
+  await expect(step2.getByRole("note").filter({ hasText: "Unsupported" })).toBeVisible();
   const step5 = under(page).getByRole("article", { name: "Step 5", exact: true });
   await expect(step5.getByRole("note").filter({ hasText: "Not simulated" })).toBeVisible();
   await expect(under(page).getByRole("note").filter({ hasText: "Negative missing" })).toBeVisible();
@@ -72,7 +72,7 @@ test("To fix with a note asks Claude to fix it; the test comes back Checked, nev
   await expect(note.getByRole("alert")).toHaveText("Say what is wrong: the note is required.");
   await note
     .getByRole("textbox", { name: /Note for the author/ })
-    .fill("Retirer EXI_MOP_SPF_510_A_20 du step 2 et ajouter le cas du sectionneur avec TK.");
+    .fill("Sourcer la vue du step 2 et ajouter le cas du sectionneur avec TK.");
   await expect(note.getByRole("checkbox", { name: /Then ask Claude to fix it/ })).toBeChecked();
   await shoot(page, "review-to-fix");
   await note.getByRole("button", { name: /^Mark To fix/ }).click();

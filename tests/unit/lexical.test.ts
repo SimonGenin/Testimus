@@ -15,7 +15,6 @@ const chunk = (id: string, text: string, over: Partial<Chunk> = {}): Chunk => ({
   docId: "D",
   anchor: `§${id}`,
   path: id,
-  reqIds: [],
   figureIds: [],
   header: "Document D",
   text,
@@ -53,7 +52,7 @@ describe("FTS query", () => {
     );
   });
 
-  it("keeps codes and requirement ids as exact phrases, never stemmed", () => {
+  it("keeps codes as exact phrases, never stemmed", () => {
     expect(ftsQuery("EXI_MOP_SPF_511_A_1670")).toBe('{header text codes} : ("exi mop spf 511 a 1670")');
   });
 
@@ -88,9 +87,9 @@ describe("BM25 search", () => {
     expect(bm25(db, "sectionneurs ouverts", {})).toEqual([exact, stemmed]);
   });
 
-  it("matches a requirement id exactly, not its neighbour", () => {
-    const hit = add(chunk("1", "Exigence.", { reqIds: ["EXI_MOP_SPF_511_A_1670"] }));
-    add(chunk("2", "Exigence.", { reqIds: ["EXI_MOP_SPF_511_A_1671"] }));
+  it("matches a code in the text exactly, not its neighbour", () => {
+    const hit = add(chunk("1", "EXI_MOP_SPF_511_A_1670 : le sectionneur."));
+    add(chunk("2", "EXI_MOP_SPF_511_A_1671 : le sectionneur."));
     expect(bm25(db, "EXI_MOP_SPF_511_A_1670", {})).toEqual([hit]);
   });
 

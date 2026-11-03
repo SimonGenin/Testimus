@@ -35,7 +35,7 @@ test("listLocalTests reads review, sync, step count and findings of the fixture"
     errors: 2,
     warnings: 2,
     infos: 0,
-    stale: testHash(md) !== "872ca440786899bb",
+    stale: testHash(md) !== "50013b5ee423d0a8",
   });
   expect(list[2]).toMatchObject({ key: undefined, review: "to-fix", sync: "local", synced: false, dirty: true });
 });

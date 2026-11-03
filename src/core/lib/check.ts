@@ -5,15 +5,12 @@ import { covers, readLedger, type Searched } from "../claude/ledger.ts";
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
 import { FIGURE_IMAGE, parseSections } from "../rag/chunk.ts";
-import { normalizeRef, refInfo, related } from "../rag/related.ts";
-import { type EvidenceOpts, matrixRows, type Statement, statementsOf } from "../rag/statements.ts";
+import { normalizeRef, refInfo } from "../rag/related.ts";
 import type { CheckFile, CitingTest, DocJson, Finding, Review, Step, Test } from "../types.ts";
 import { writeAtomic } from "./atomic.ts";
-import { parseCsv } from "./csv.ts";
-import { readJson, readProject, writeJson } from "./project.ts";
+import { readJson, writeJson } from "./project.ts";
 import { readCheck, readTest, testDir, testExists, testsDir } from "./store.ts";
 import { frontmatterOf, hasRawEmbed, testMdHash } from "./testfile.ts";
-import { compile, idsInCell, projectTraces, REQUIREMENT, requirementPatterns, scanTrace } from "./traces.ts";
 
 export type DocText = {
   id: string;
@@ -22,22 +19,15 @@ export type DocText = {
   text: string;
   md: string;
   scopes: Map<string, string | null>;
-  opts?: EvidenceOpts;
   pieces?: [string, string][];
   pictures?: Set<string>;
 };
-export type Traced = { label: string; field: string; re: RegExp; ids: Set<string> };
-export type Corpus = {
-  docs: Map<string, DocText>;
-  requirements: Set<string>;
-  requirementField: string | null;
-  traced?: Traced[];
-};
+export type Corpus = { docs: Map<string, DocText> };
 
 const ACTION = "Action";
 const EXPECTED = "Expected Result";
 const COMMENTS = /<!--[\s\S]*?-->/g;
-const ANCHORS = /<!--\s*(§|req|fig|page)\s*(\S+?)\s*-->/g;
+const ANCHORS = /<!--\s*(§|fig|page)\s*(\S+?)\s*-->/g;
 
 export const flat = (s: string) => s.replace(/\s+/g, " ").trim();
 // ponytail: doc.md keeps Word's bold and italic as * and **, which a quote never carries
@@ -45,7 +35,7 @@ export const plainText = (s: string) => flat(s.replace(COMMENTS, " ").replace(/\
 
 export function anchorKey(anchor: string): string {
   const a = anchor.trim();
-  const m = /^(req|fig|page)\s*[:\s]\s*(.+)$/i.exec(a);
+  const m = /^(fig|page)\s*[:\s]\s*(.+)$/i.exec(a);
   if (m) return `${m[1].toLowerCase()}:${m[2].trim()}`;
   return `§${a.replace(/^§\s*/, "")}`;
 }
@@ -54,36 +44,8 @@ export function anchorsOf(md: string): Set<string> {
   return new Set([...md.matchAll(ANCHORS)].map((m) => (m[1] === "§" ? `§${m[2]}` : `${m[1]}:${m[2]}`)));
 }
 
-// ponytail: the requirement field is the column of the tracked requirement kind; none while the project
-// tracks no requirements
-export function requirementFieldOf(project: string): string | null {
-  const field = projectTraces(project).traces.find((t) => t.id === REQUIREMENT)?.field;
-  return typeof field === "string" && field.trim() ? field.trim() : null;
-}
-
-function csvRequirements(project: string): string[] {
-  const file = join(project, "requirements", "requirements.csv");
-  if (!existsSync(file)) return [];
-  const t = parseCsv(readFileSync(file, "utf8"));
-  const col = Math.max(
-    0,
-    t.headers.findIndex((h) => /^(id|exigence|requirement)$/i.test(h.trim())),
-  );
-  return t.rows.map((r) => (r[col] ?? "").trim()).filter(Boolean);
-}
-
 export function loadCorpus(project: string): Corpus {
   const docs = new Map<string, DocText>();
-  const requirements = new Set(csvRequirements(project));
-  const pj = readProject(project);
-  const opts: EvidenceOpts = { patterns: requirementPatterns(project), matrix: pj.requirementMatrix };
-  const patterns = (opts.patterns ?? []).flatMap((p) => {
-    try {
-      return [new RegExp(p, "g")];
-    } catch {
-      return [];
-    }
-  });
   const dir = join(project, "docs");
   const entries = existsSync(dir) ? readdirSync(dir, { withFileTypes: true }) : [];
   for (const e of entries) {
@@ -91,49 +53,23 @@ export function loadCorpus(project: string): Corpus {
     if (!e.isDirectory() || !existsSync(mdFile)) continue;
     const md = readFileSync(mdFile, "utf8");
     const doc = readJson<Partial<DocJson>>(join(dir, e.name, "doc.json"), {});
-    const d: DocText = { id: e.name, doc, anchors: anchorsOf(md), text: plainText(md), md, scopes: new Map(), opts };
-    for (const a of d.anchors) if (a.startsWith("req:")) requirements.add(a.slice(4));
-    for (const r of matrixRows(md, opts)) {
-      d.anchors.add(r.anchor);
-      requirements.add(r.id);
-    }
-    for (const re of patterns) for (const m of md.matchAll(re)) requirements.add(m[0]);
+    const d: DocText = { id: e.name, doc, anchors: anchorsOf(md), text: plainText(md), md, scopes: new Map() };
     docs.set(e.name, d);
     if (doc.code && !docs.has(doc.code)) docs.set(doc.code, d);
   }
-  return { docs, requirements, requirementField: requirementFieldOf(project), traced: tracedKinds(project) };
-}
-
-// ponytail: every other tracked kind is checked on its own column: its ids must be written in a document
-function tracedKinds(project: string): Traced[] {
-  return projectTraces(project)
-    .traces.filter((t) => t.id !== REQUIREMENT)
-    .flatMap((t) => {
-      try {
-        const ids = new Set(scanTrace(project, t.patterns).items.map((i) => i.id));
-        return [{ label: t.label, field: t.field, re: compile(t.patterns), ids }];
-      } catch {
-        return [];
-      }
-    });
+  return { docs };
 }
 
 const keysIn = (line: string) =>
   [...line.matchAll(ANCHORS)].map((m) => (m[1] === "§" ? `§${m[2]}` : `${m[1]}:${m[2]}`));
 const SECTION_MARK = /[<]!--\s*§/;
 const PAGE_MARK = /[<]!--\s*page\b/;
-const MARKER_ONLY = /^\s*<!--\s*req\s+\S+?\s*-->\s*$/;
 const headingLevel = (line: string) => (SECTION_MARK.test(line) ? (/^(#{1,6})\s/.exec(line)?.[1].length ?? 0) : 0);
 
-// ponytail: what a citation may quote — a § anchor is its section with the subsections; a requirement
-// is the section that holds its statement; a matrix row (req:ID@matrix) is the row; a figure is its caption
+// ponytail: what a citation may quote — a § anchor is its section with the subsections; a figure is its caption
 // paragraph only (what the picture shows is the semantic pass's job); a page runs to the next
-export function scopeOf(md: string, anchor: string, opts: EvidenceOpts = {}): string | null {
+export function scopeOf(md: string, anchor: string): string | null {
   const lines = md.split(/\r?\n/);
-  if (/^req:.+@matrix(~\d+)?$/.test(anchor)) {
-    const row = matrixRows(md, opts).find((r) => r.anchor === anchor);
-    return row ? plainText(lines[row.line]) : null;
-  }
   const at = lines.findIndex((l) => keysIn(l).includes(anchor));
   if (at < 0) return null;
   const sectionFrom = (start: number): [number, number] => {
@@ -148,60 +84,24 @@ export function scopeOf(md: string, anchor: string, opts: EvidenceOpts = {}): st
     b = at + 1;
     while (b < lines.length && !PAGE_MARK.test(lines[b])) b++;
   } else {
-    let h = at;
-    if (anchor.startsWith("req:")) {
-      let n = at + 1;
-      while (n < lines.length && (!lines[n].trim() || MARKER_ONLY.test(lines[n]))) n++;
-      if (n < lines.length && headingLevel(lines[n])) h = n;
-    }
-    while (h >= 0 && !headingLevel(lines[h])) h--;
-    if (h >= 0) [a, b] = sectionFrom(h);
-    else {
-      a = 0;
-      b = at + 1;
-      while (b < lines.length && !headingLevel(lines[b])) b++;
-    }
-    if (anchor.startsWith("fig:")) {
-      let p0 = at;
-      let p1 = at + 1;
-      while (p0 > 0 && lines[p0 - 1].trim() !== "") p0--;
-      while (p1 < lines.length && lines[p1].trim() !== "") p1++;
-      [a, b] = [p0, p1];
-    }
+    a = at;
+    b = at + 1;
+    while (a > 0 && lines[a - 1].trim() !== "") a--;
+    while (b < lines.length && lines[b].trim() !== "") b++;
   }
-  const scope = plainText(lines.slice(a, b).join("\n"));
-  if (!anchor.startsWith("req:")) return scope;
-  const st = statementsIn(md, opts).get(anchor.slice(4));
-  const own = st?.source === "body" ? plainText(st.text) : "";
-  return own && !scope.includes(own) ? `${scope} ${own}` : scope;
-}
-
-let lastStatements: { md: string; opts: EvidenceOpts; map: Map<string, Statement> } | null = null;
-// ponytail: a requirement's statement may be read away from its marker (a table row, a later id list) — what
-// rag.passage shows as its focus is quotable under req:ID too
-function statementsIn(md: string, opts: EvidenceOpts): Map<string, Statement> {
-  if (lastStatements?.md !== md || lastStatements.opts !== opts)
-    lastStatements = { md, opts, map: statementsOf("", md, opts) };
-  return lastStatements.map;
+  return plainText(lines.slice(a, b).join("\n"));
 }
 
 const scoped = (d: DocText, anchor: string) => {
-  if (!d.scopes.has(anchor)) d.scopes.set(anchor, scopeOf(d.md, anchor, d.opts));
+  if (!d.scopes.has(anchor)) d.scopes.set(anchor, scopeOf(d.md, anchor));
   return d.scopes.get(anchor) ?? null;
 };
 
-// ponytail: where a quote sits — the section whose own text (heading and body, without its subsections or its
-// requirement matrix) holds it, else a matrix row, else a figure caption
-function piecesOf(md: string, opts: EvidenceOpts = {}): [string, string][] {
+// ponytail: where a quote sits — the section whose own text (heading and body, without its subsections) holds
+// it, else a figure caption
+function piecesOf(md: string): [string, string][] {
   const lines = md.split(/\r?\n/);
-  const rows = matrixRows(md, opts);
-  const masked = [...lines];
-  for (const r of rows) masked[r.line] = "";
-  const out: [string, string][] = parseSections(masked.join("\n")).map((s) => [
-    s.anchor,
-    plainText(`${lines[s.line]}\n${s.body}`),
-  ]);
-  for (const r of rows) out.push([r.anchor, plainText(lines[r.line])]);
+  const out: [string, string][] = parseSections(md).map((s) => [s.anchor, plainText(`${lines[s.line]}\n${s.body}`)]);
   lines.forEach((l, i) => {
     const n = /<!--\s*fig\s+(\S+?)\s*-->/.exec(l)?.[1];
     if (!n) return;
@@ -220,7 +120,7 @@ function picturesOf(d: DocText): Set<string> {
 }
 
 export function whereIs(d: DocText, quote: string): string | null {
-  d.pieces ??= piecesOf(d.md, d.opts);
+  d.pieces ??= piecesOf(d.md);
   const q = plainText(quote);
   return d.pieces.find(([, t]) => t.includes(q))?.[0] ?? null;
 }
@@ -239,8 +139,6 @@ export const tooShort = (quote: string) => {
   const q = plainText(quote);
   return q.split(" ").filter(Boolean).length < MIN_WORDS || q.length < MIN_CHARS;
 };
-
-export const requirementIds = (value: string | undefined) => (value ?? "").split(/[\s,;]+/).filter(Boolean);
 
 const short = (s: string) => (s.length > 60 ? `${s.slice(0, 57)}…` : s);
 
@@ -346,7 +244,7 @@ export function mechanicalFindings(test: Test, corpus: Corpus): Finding[] {
           step,
           kind: "source-missing",
           severity: "error",
-          message: `Step ${step}: ${src.docId} has no anchor ${anchor}: cite an existing section, requirement or figure.`,
+          message: `Step ${step}: ${src.docId} has no anchor ${anchor}: cite an existing section, figure or page.`,
           sources: [ref],
         });
       if (!src.quote.trim())
@@ -410,86 +308,13 @@ export function mechanicalFindings(test: Test, corpus: Corpus): Finding[] {
           sources: [ref],
         });
       }
-    if (corpus.requirementField)
-      for (const id of requirementIds(s.fields[corpus.requirementField]))
-        if (!corpus.requirements.has(id))
-          add({
-            step,
-            kind: "requirement-unknown",
-            severity: "error",
-            message: `Step ${step}: requirement ${id} is neither in requirements/requirements.csv nor in a document: fix the id or add the requirement.`,
-            sources: [],
-          });
-    for (const t of corpus.traced ?? []) {
-      const value = Object.entries(s.fields).find(([k]) => k.trim().toLowerCase() === t.field.toLowerCase())?.[1];
-      const cell = idsInCell(value, t.re);
-      for (const id of [...cell.ids.filter((x) => !t.ids.has(x)), ...cell.other])
-        add({
-          step,
-          kind: "id-unknown",
-          severity: "error",
-          message: `Step ${step}: ${t.label} ${id} (column ${t.field}) is written in no document: fix the id, or the patterns of the tracked ids.`,
-          sources: [],
-        });
-    }
   });
   return out;
 }
 
 export function mechanicalCheck(project: string, id: string, corpus: Corpus = loadCorpus(project)): Finding[] {
   const test = readTest(project, id).test;
-  return [...mechanicalFindings(test, corpus), ...relatedUnread(project, test, corpus.requirementField)];
-}
-
-type Link = {
-  ref: string;
-  kind: "defines" | "traces" | "mentions" | "amends";
-  title: string;
-  req: string;
-  step: number;
-};
-
-// ponytail: the requirement field is what a test claims to cover; its defining and traced sections (and, for the
-// Review screen, the sections that mention it and the amending ones) come from rag.related, never from a model
-function requirementLinks(project: string, test: Test, field: string | null, kinds: Link["kind"][]): Link[] {
-  if (!field) return [];
-  const first = new Map<string, number>();
-  test.steps.forEach((s, i) => {
-    for (const r of requirementIds(s.fields[field])) if (!first.has(r)) first.set(r, i + 1);
-  });
-  const out: Link[] = [];
-  const seen = new Set<string>();
-  for (const [req, step] of first) {
-    let r: ReturnType<typeof related>;
-    try {
-      r = related(project, { ref: req });
-    } catch {
-      continue;
-    }
-    for (const n of r.neighbours) {
-      const kind = n.kind as Link["kind"];
-      if (!kinds.includes(kind) || !/#§/.test(n.ref) || seen.has(n.ref)) continue;
-      if ((kind === "defines" || kind === "traces") !== (n.direction === "out")) continue;
-      seen.add(n.ref);
-      out.push({ ref: n.ref, kind, title: n.title, req, step });
-    }
-  }
-  return out;
-}
-
-export function relatedUnread(project: string, test: Test, field: string | null): Finding[] {
-  const ledger = readLedger(project, test.generatedBy);
-  if (!ledger) return [];
-  return requirementLinks(project, test, field, ["defines", "traces"])
-    .filter((l) => !covers(ledger.consulted, l.ref))
-    .map((l) => ({
-      step: l.step,
-      kind: "related-unread" as const,
-      severity: "info" as const,
-      message: `Step ${l.step}: ${l.req} is ${l.kind === "defines" ? "defined" : "traced"} in ${l.ref}${l.title ? ` (${l.title})` : ""}, which the generation ${ledger.jobId} never opened.`,
-      sources: [l.ref],
-      pass: "mechanical" as const,
-    }));
+  return mechanicalFindings(test, corpus);
 }
 
 export type TestEvidence = {
@@ -497,7 +322,6 @@ export type TestEvidence = {
   jobId: string | null;
   consulted: string[];
   read: { ref: string; title: string; cited: boolean }[];
-  related: { ref: string; kind: Link["kind"]; title: string; read: boolean; via: string }[];
   searched: Searched[];
 };
 
@@ -506,30 +330,14 @@ export function testEvidence(project: string, id: string): TestEvidence {
   const ledger = readLedger(project, test.generatedBy);
   const consulted = ledger?.consulted ?? [];
   const cites = test.steps.flatMap((s) => s.sources.map((x) => normalizeRef(`${x.docId}#${x.anchor}`)));
-  const titles = new Map<string, string>();
-  const links = requirementLinks(project, test, requirementFieldOf(project), [
-    "defines",
-    "traces",
-    "mentions",
-    "amends",
-  ]);
-  for (const l of links) titles.set(l.ref, l.title);
-  const titleOf = (ref: string) => titles.get(ref) ?? refInfo(project, ref).title;
   return {
     testId: id,
     jobId: ledger?.jobId ?? null,
     consulted,
     read: consulted.map((ref) => ({
       ref,
-      title: titleOf(ref),
+      title: refInfo(project, ref).title,
       cited: cites.some((c) => c === ref || covers([ref], c)),
-    })),
-    related: links.map((l) => ({
-      ref: l.ref,
-      kind: l.kind,
-      title: l.title,
-      read: covers(consulted, l.ref),
-      via: `${l.kind} ${l.req}`,
     })),
     searched: ledger?.searched ?? [],
   };

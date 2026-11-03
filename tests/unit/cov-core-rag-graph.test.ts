@@ -38,15 +38,4 @@ describe("docEdges — the less common inputs", () => {
       "amends SELF#§1 OTHER#§2",
     ]);
   });
-
-  it("ignores a requirements.csv without doc or chapter columns, and short rows", () => {
-    mkdirSync(join(dir, "requirements"));
-    writeFileSync(join(dir, "requirements", "requirements.csv"), "id,text\nEXI_A_1,x\n");
-    expect(kinds(docEdges(dir, doc("SELF"), MD, []))).toEqual([]);
-    writeFileSync(
-      join(dir, "requirements", "requirements.csv"),
-      "id,doc,chapter\nEXI_A_1,SELF,1\nEXI_A_2\n,SELF,1\nEXI_A_3,SELF\n",
-    );
-    expect(kinds(docEdges(dir, doc("SELF"), MD, []))).toEqual(["traces SELF#req:EXI_A_1 SELF#§1"]);
-  });
 });

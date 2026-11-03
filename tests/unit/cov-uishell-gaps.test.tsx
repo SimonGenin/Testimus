@@ -52,7 +52,7 @@ describe("small remaining paths", () => {
 
   it("parses a reference at the very start of the text", () => {
     expect(parseAnswer('D#§1 "q" puis')).toEqual([{ docId: "D", anchor: "§1", quote: "q" }, " puis"]);
-    expect(parseAnswer('[D#req:S.1.1 "q"] puis')).toEqual([{ docId: "D", anchor: "req:S.1.1", quote: "q" }, " puis"]);
+    expect(parseAnswer('[D#fig:3 "q"] puis')).toEqual([{ docId: "D", anchor: "fig:3", quote: "q" }, " puis"]);
     render(<AnswerText text="D#§2" onOpenSource={() => {}} />);
     expect(screen.getByRole("button", { name: "D §2" })).toBeInTheDocument();
   });
@@ -142,7 +142,6 @@ describe("passage view remaining paths", () => {
       { file: "figures/f1.png", anchor: "fig:1", caption: "", description: "" },
       { file: "figures/f2.png", anchor: "fig:2", caption: "Le menu", description: "" },
     ],
-    focus: "italique",
     doc: { code: "C", title: "T", version: "1", status: "draft" },
   };
 
@@ -154,8 +153,8 @@ describe("passage view remaining paths", () => {
     render(
       <>
         <DocBadges status="archived" />
-        <PassageText passage={base} quote="" />
-        <PassageText passage={{ ...base, anchor: "req:R1", title: "Sans numéro" }} quote="" />
+        <PassageText passage={base} quote="italique" />
+        <PassageText passage={{ ...base, anchor: "fig:1", title: "Sans numéro" }} quote="" />
         <PassageText passage={{ ...base, title: "Menus" }} quote="Gras" />
       </>,
     );

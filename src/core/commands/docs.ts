@@ -25,34 +25,9 @@ import {
   writeContext,
   writeDoc,
 } from "../lib/docs.ts";
-import { parseSections } from "../rag/chunk.ts";
-import { anchorsOf } from "../rag/convert.ts";
 import { unindexDoc } from "../rag/indexer.ts";
-import { type EvidenceOpts, evidenceOptions, statementsOf } from "../rag/statements.ts";
 import type { DocJson } from "../types.ts";
 import { CONTEXT_IDS, EFFORT, MODEL, NOTE } from "./claude.ts";
-
-// ponytail: a traced section is fine when it is the defining section or one of its ancestors (the matrix
-// often names the chapter); anything else is reported, never corrected
-export function tracedElsewhere(docId: string, md: string, opts: EvidenceOpts) {
-  const known = new Set(parseSections(md).map((s) => s.anchor));
-  const out: { req: string; defined: string; traced: string[]; message: string }[] = [];
-  for (const st of statementsOf(docId, md, opts).values()) {
-    if (st.anchor.includes("@matrix") || !st.traced.length || !st.section) continue;
-    const inside = (t: string) => st.section === t || st.section.startsWith(`${t}.`);
-    if (st.traced.some(inside)) continue;
-    const missing = st.traced.filter((t) => !known.has(t));
-    out.push({
-      req: st.id,
-      defined: st.section,
-      traced: st.traced,
-      message: missing.length
-        ? `${st.id} is defined in ${st.section} but the matrix traces it to ${st.traced.join(", ")}, which this document does not have.`
-        : `${st.id} is defined in ${st.section} but the matrix traces it to ${st.traced.join(", ")}.`,
-    });
-  }
-  return out;
-}
 
 async function withFigures(ctx: Ctx, doc: DocJson, claude: JobRun, on: boolean | undefined): Promise<DocJson> {
   const project = projectOf(ctx);
@@ -87,7 +62,7 @@ async function withTriage(ctx: Ctx, doc: DocJson, claude: JobRun, on: boolean | 
   }
 }
 
-const kind = z.enum(["spec", "requirements", "minutes", "other"]);
+const kind = z.enum(["spec", "minutes", "other"]);
 const status = z.enum(["draft", "submitted", "validated"]);
 
 const docJson = z.object({
@@ -103,9 +78,7 @@ const docJson = z.object({
   convertedWith: z.string(),
   convertedAt: z.string(),
   warnings: z.array(z.string()),
-  stats: z
-    .object({ sections: z.number(), figures: z.number(), requirements: z.number(), chars: z.number() })
-    .optional(),
+  stats: z.object({ sections: z.number(), figures: z.number(), chars: z.number() }).optional(),
 });
 
 const figure = z.object({
@@ -296,20 +269,18 @@ export const commands: Command[] = [
   }),
   command({
     name: "docs.show",
-    summary: "Show a document: metadata, context, table of contents, requirement ids, figures and its text.",
+    summary: "Show a document: metadata, context, table of contents, figures and its text.",
     input: z.object({
       id,
       anchor: z
         .string()
         .optional()
-        .describe(
-          "Return only this part of doc.md: §5.6.6 (a section and its subsections), req:EXI_…, fig:40, page:59",
-        ),
+        .describe("Return only this part of doc.md: §5.6.6 (a section and its subsections), fig:40, page:59"),
       brief: z
         .boolean()
         .optional()
         .describe(
-          "Leave the text out (md empty, no info): the facts, outline and figures only — what a conversion has written so far",
+          "Leave the text out (md empty): the facts, outline and figures only — what a conversion has written so far",
         ),
     }),
     output: z.object({
@@ -319,25 +290,12 @@ export const commands: Command[] = [
         .array(z.string())
         .describe("Saved contexts Claude reads with this document: its own list, else the project's defaults"),
       toc: z.array(z.object({ anchor: z.string(), title: z.string(), level: z.number() })),
-      requirements: z.array(z.string()),
       figures: z.array(figure),
       md: z.string(),
       section: z
         .string()
         .optional()
         .describe("With an anchor: the section (§…) whose heading holds it, the toc entry to show as current"),
-      info: z
-        .array(
-          z.object({
-            req: z.string().describe("Requirement id"),
-            defined: z.string().describe("Section whose text defines it, e.g. §3.2.4.2"),
-            traced: z.array(z.string()).describe("Sections the requirement matrix traces it to, e.g. [§3.2.4]"),
-            message: z.string().describe("What differs, in a sentence"),
-          }),
-        )
-        .describe(
-          "Requirements whose matrix Section column names another section than the one defining them — often the sign that the matrix and the body disagree",
-        ),
     }),
     mutates: false,
     positional: ["id", "anchor"],
@@ -362,11 +320,9 @@ export const commands: Command[] = [
         context: readContext(project, input.id),
         contexts: docContexts(project, input.id),
         toc: tocOf(full),
-        requirements: [...new Set(anchorsOf(full).requirements)],
         figures: readFigures(project, input.id),
         md: input.brief ? "" : md,
         ...(section ? { section } : {}),
-        info: input.brief ? [] : tracedElsewhere(input.id, full, evidenceOptions(project)),
       };
     },
   }),
@@ -380,7 +336,7 @@ export const commands: Command[] = [
       title: z.string().optional().describe("Document title"),
       version: z.string().optional().describe("Document version, e.g. 01.01"),
       date: z.string().optional().describe("Document date, YYYY-MM-DD"),
-      kind: kind.optional().describe("spec, requirements, minutes or other"),
+      kind: kind.optional().describe("spec, minutes or other"),
       context: z.string().optional().describe("What the team says about this document; replaces context.md"),
       contexts: CONTEXT_IDS.optional().describe(
         "Saved contexts Claude reads with this document, every time (docs/<id>/claude.json); replaces the list, [] = none",

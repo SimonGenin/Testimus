@@ -24,11 +24,10 @@ import {
   writeXray,
 } from "../lib/project.ts";
 import { writeAtomic } from "../lib/store.ts";
-import { traceViews } from "../lib/traces.ts";
 import { awaitsReview, type ProjectJson, REVIEWS, type Review } from "../types.ts";
 import { EFFORT, MODEL } from "./claude.ts";
 
-const FOLDERS = ["docs", "tests", "contexts", "requirements"];
+const FOLDERS = ["docs", "tests", "contexts"];
 
 export function templateDir(): string {
   const dev = fileURLToPath(new URL("../../../templates/project/", import.meta.url));
@@ -47,7 +46,7 @@ export const STARTER_ASKS = [
   {
     label: "Rephrase in house style",
     prompt:
-      "Rephrase the text in the house style: short imperative sentences, the actor prefix line kept as it is, one ◼ bullet per action. Keep the meaning, the ids and the images.",
+      "Rephrase the text in the house style: short imperative sentences, the actor prefix line kept as it is, one ◼ bullet per action. Keep the meaning and the images.",
   },
 ];
 
@@ -160,7 +159,6 @@ export function projectInfo(dir: string) {
     project: readProject(dir),
     xray,
     fieldOrder: fieldOrder(xray),
-    traces: traceViews(dir),
     columns: stepColumns(dir, xray),
     counts: {
       docs: subdirs(join(dir, "docs")).filter((d) => existsSync(join(dir, "docs", d, "doc.json"))).length,
@@ -208,8 +206,7 @@ export const commands: Command[] = [
       project: z.unknown(),
       xray: z.unknown(),
       fieldOrder: z.array(z.string()),
-      traces: z.array(z.unknown()).describe("The tracked ids (traces.list)"),
-      columns: z.array(z.unknown()).describe("The step columns (columns.list)"),
+      columns: z.array(z.unknown()).describe("The step columns and their descriptions (columns.list)"),
       counts: z.object({
         docs: z.number(),
         tests: z.number(),
@@ -417,15 +414,6 @@ export const commands: Command[] = [
         })
         .optional()
         .describe("Retrieval settings of the project (only the keys given change)."),
-      requirementMatrix: z
-        .object({
-          idColumn: z.string().describe("Header of the column holding the ids"),
-          sectionColumn: z.string().describe("Header of the column holding the traced section"),
-          textColumn: z.string().optional().describe("Header of the column holding the requirement's text"),
-        })
-        .nullable()
-        .optional()
-        .describe("How the requirement matrix is laid out, when its headers are not recognised (null removes it)"),
       glossary: z
         .record(z.string(), z.string())
         .optional()
@@ -484,8 +472,6 @@ export const commands: Command[] = [
       };
       if (input.rag?.reference === null) delete next.rag.reference;
       else if (input.rag?.reference) next.rag.reference = input.rag.reference;
-      if (input.requirementMatrix === null) delete next.requirementMatrix;
-      else if (input.requirementMatrix) next.requirementMatrix = input.requirementMatrix;
       writeProject(dir, next);
       return next;
     },

@@ -17,7 +17,6 @@ import { tablesIn } from "../../lib/table.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 import { ColumnField } from "./ColumnField.tsx";
 import { FieldBlocks, MOVE, type Moved } from "./FieldBlocks.tsx";
-import { RequirementField } from "./RequirementField.tsx";
 import { WasView } from "./WasView.tsx";
 
 export type StepLayout = "stacked" | "split";
@@ -268,16 +267,6 @@ export function StepCard({
 
   const fieldOf = (c: Column) => {
     const value = val(c.name);
-    if (c.kind === "requirements")
-      return (
-        <RequirementField
-          label={c.name}
-          value={value}
-          stepNumber={n}
-          readOnly={readOnly}
-          onChange={(next) => onChange((s) => setField(s, c.name, next))}
-        />
-      );
     if (c.kind !== "blocks")
       return (
         <ColumnField

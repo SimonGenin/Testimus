@@ -60,7 +60,7 @@ beforeEach(() => {
   project = join(root, "project");
   mkdirSync(project);
   mkdirSync(join(root, "client"));
-  writeFileSync(join(project, "project.json"), JSON.stringify({ name: "t", requirementPatterns: "not a list" }));
+  writeFileSync(join(project, "project.json"), JSON.stringify({ name: "t" }));
 });
 
 describe("listDocs and the small readers", () => {
@@ -83,8 +83,26 @@ describe("listDocs and the small readers", () => {
     expect(readContext(project, "D1")).toBe("");
   });
 
-  it("an anchor that is neither a number nor a requirement id is taken as a section name", () => {
+  it("an anchor without a §, fig or page prefix is taken as a section name", () => {
     expect(normalizeAnchor("DOC#annexe-b")).toEqual({ kind: "§", id: "annexe-b" });
+    expect(normalizeAnchor("DOC#req:EXI_A_1")).toEqual({ kind: "§", id: "req:EXI_A_1" });
+  });
+
+  it("reads an older doc.json of kind requirements as a spec, without its requirement count", () => {
+    mkdirSync(join(project, "docs", "D1"), { recursive: true });
+    const old = {
+      id: "D1",
+      kind: "requirements",
+      status: "draft",
+      stats: { sections: 2, figures: 0, requirements: 4, chars: 9 },
+    };
+    writeFileSync(join(project, "docs", "D1", "doc.json"), JSON.stringify(old));
+    expect(readDoc(project, "D1")).toEqual({
+      id: "D1",
+      kind: "spec",
+      status: "draft",
+      stats: { sections: 2, figures: 0, chars: 9 },
+    });
   });
 });
 
@@ -159,7 +177,6 @@ describe("reconvertDoc", () => {
   });
 
   it("a cancelled reconversion of a docx keeps the previous doc.json", async () => {
-    writeFileSync(join(project, "project.json"), JSON.stringify({ name: "t", requirementPatterns: ["REQ-\\d+", 3] }));
     const doc = await addDoc(project, { file: client("DOC_D_01.00.docx", sampleDocx()) });
     const ctl = new AbortController();
     await expect(

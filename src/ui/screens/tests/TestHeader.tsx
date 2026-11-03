@@ -230,7 +230,7 @@ export function TestHeader({
         {!details &&
           test.covers.map((k) => (
             <Chip key={k} small>
-              covers <span className="mono ink">{k}</span>
+              tests <span className="mono ink">{k}</span>
             </Chip>
           ))}
         {test.clonedFrom && (
@@ -260,9 +260,9 @@ export function TestHeader({
             />
           </div>
           <div className="formfield">
-            <span className="label">Covers</span>
+            <span className="label">Linked issues</span>
             <ChipInput
-              label="Covers"
+              label="Linked issues"
               mono
               placeholder="Add an issue key…"
               values={test.covers}

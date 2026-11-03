@@ -1,13 +1,10 @@
 import { useState } from "react";
-import type { ColumnMode, StepColumn, TraceView, XrayJson } from "../../../core/types.ts";
+import type { ColumnMode, StepColumn, XrayJson } from "../../../core/types.ts";
 import { call } from "../../api.ts";
-import { CoverageDialog } from "../../components/traces/CoverageDialog.tsx";
-import { TrackDialog } from "../../components/traces/TrackDialog.tsx";
-import { Button, Modal } from "../../components/ui/index.ts";
+import { Button } from "../../components/ui/index.ts";
 import { useApp } from "../../lib/app.ts";
 import { useDraft } from "../../lib/drafts.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
-import { traceOfField } from "../../lib/traces.ts";
 import { ColumnRow } from "./ColumnRow.tsx";
 
 export function ColumnsSection() {
@@ -16,9 +13,6 @@ export function ColumnsSection() {
   const columns = (app.info?.columns ?? []) as StepColumn[];
   const [drag, setDrag] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [track, setTrack] = useState<{ column: string; trace?: TraceView } | null>(null);
-  const [untrack, setUntrack] = useState<TraceView | null>(null);
-  const [coverage, setCoverage] = useState<string | null>(null);
   const [adding, setAdding] = useDraft("settings.column.adding", false);
   const [name, setName] = useDraft("settings.column.name", "");
   const [desc, setDesc] = useDraft("settings.column.desc", "");
@@ -29,7 +23,7 @@ export function ColumnsSection() {
       await call<XrayJson>("xray.prefs", prefs);
       app.refreshInfo();
     } catch (e) {
-      errorToast(e, "Could not save the step columns");
+      errorToast(e, "Could not save the smart columns");
     }
   };
 
@@ -66,18 +60,6 @@ export function ColumnsSection() {
     }
   };
 
-  const stopIds = async (t: TraceView) => {
-    try {
-      await call("traces.remove", { id: t.id });
-      app.refreshInfo();
-      toast({ kind: "ok", title: `${t.field} is free text again` });
-    } catch (e) {
-      errorToast(e, "Could not change the column");
-    } finally {
-      setUntrack(null);
-    }
-  };
-
   const move = (column: string, to: number) => {
     const rest = order.filter((n) => n !== column);
     rest.splice(Math.max(0, Math.min(rest.length, to)), 0, column);
@@ -109,7 +91,7 @@ export function ColumnsSection() {
     try {
       await call<XrayJson>("xray.fields", {});
       app.refreshInfo();
-      toast({ kind: "ok", title: "Step columns read again from Xray" });
+      toast({ kind: "ok", title: "Smart columns read again from Xray" });
     } catch (e) {
       errorToast(e, "Could not read the step fields from Jira");
     } finally {
@@ -124,7 +106,7 @@ export function ColumnsSection() {
     <section className="card sect" id="settings-columns" aria-labelledby="s-columns">
       <div className="sect-head">
         <h2 id="s-columns" className="h sect-title">
-          Step columns
+          Smart columns
         </h2>
         <span className="spacer" />
         {x.fetchedAt && <span className="muted">Read from Xray {new Date(x.fetchedAt).toLocaleString("en-GB")}</span>}
@@ -134,8 +116,7 @@ export function ColumnsSection() {
       </div>
       <p className="muted">
         Each step of a test is made of these columns. The description is what Claude is told to write in it — leave it
-        empty and Claude never fills the column. An id list column holds ids the documents write (requirements, alarm
-        codes…): it is checked against the documents, and a generation covers every id of its scope.
+        empty and Claude never fills the column.
       </p>
       {(fresh.length > 0 || gone.length > 0) && (
         <p className="colrow-banner" role="status">
@@ -143,49 +124,39 @@ export function ColumnsSection() {
           {gone.length > 0 && `No longer in Xray, kept as local columns: ${gone.join(", ")}.`}
         </p>
       )}
-      <ul className="colrows" aria-label="Step columns">
-        {columns.map((c, i) => {
-          const trace = traceOfField(c.name);
-          return (
-            <ColumnRow
-              key={c.name}
-              column={c}
-              trace={trace}
-              mode={modeOf(c.name)}
-              hidden={x.prefs.hidden.includes(c.name)}
-              disabled={false}
-              first={i === 0}
-              last={i === columns.length - 1}
-              dragging={drag === c.name}
-              onDescribe={(t) => void saveDescription(c.name, t)}
-              onKind={(k) => {
-                if (k === "ids" && !trace) setTrack({ column: c.name });
-                if (k === "text" && trace) setUntrack(trace);
-              }}
-              onPattern={() => trace && setTrack({ column: c.name, trace })}
-              onCoverage={() => trace && setCoverage(trace.id)}
-              onMode={(m) => setMode(c.name, m)}
-              onHidden={(h) => setHidden(c.name, h)}
-              onMove={(by) => move(c.name, i + by)}
-              onRemove={c.origin === "local" ? () => void remove(c.name) : undefined}
-              drag={{
-                draggable: true,
-                onDragStart: (e) => {
-                  setDrag(c.name);
-                  e.dataTransfer.effectAllowed = "move";
-                  e.dataTransfer.setData("text/plain", c.name);
-                },
-                onDragOver: (e) => drag && e.preventDefault(),
-                onDrop: (e) => {
-                  e.preventDefault();
-                  if (drag && drag !== c.name) move(drag, i);
-                  setDrag(null);
-                },
-                onDragEnd: () => setDrag(null),
-              }}
-            />
-          );
-        })}
+      <ul className="colrows" aria-label="Smart columns">
+        {columns.map((c, i) => (
+          <ColumnRow
+            key={c.name}
+            column={c}
+            mode={modeOf(c.name)}
+            hidden={x.prefs.hidden.includes(c.name)}
+            disabled={false}
+            first={i === 0}
+            last={i === columns.length - 1}
+            dragging={drag === c.name}
+            onDescribe={(t) => void saveDescription(c.name, t)}
+            onMode={(m) => setMode(c.name, m)}
+            onHidden={(h) => setHidden(c.name, h)}
+            onMove={(by) => move(c.name, i + by)}
+            onRemove={c.origin === "local" ? () => void remove(c.name) : undefined}
+            drag={{
+              draggable: true,
+              onDragStart: (e) => {
+                setDrag(c.name);
+                e.dataTransfer.effectAllowed = "move";
+                e.dataTransfer.setData("text/plain", c.name);
+              },
+              onDragOver: (e) => drag && e.preventDefault(),
+              onDrop: (e) => {
+                e.preventDefault();
+                if (drag && drag !== c.name) move(drag, i);
+                setDrag(null);
+              },
+              onDragEnd: () => setDrag(null),
+            }}
+          />
+        ))}
       </ul>
       {adding ? (
         <div className="colrow-add">
@@ -228,32 +199,6 @@ export function ColumnsSection() {
             Local columns are kept in test.md and never pushed. Add the field in Xray and it becomes an Xray column.
           </span>
         </div>
-      )}
-      {track && <TrackDialog initial={track.trace} column={track.column} onClose={() => setTrack(null)} />}
-      {coverage && <CoverageDialog initial={coverage} onClose={() => setCoverage(null)} />}
-      {untrack && (
-        <Modal
-          label={`${untrack.field} as free text`}
-          title={`Make ${untrack.field} free text?`}
-          width={480}
-          onClose={() => setUntrack(null)}
-          foot={
-            <>
-              <span className="spacer" />
-              <Button tone="quiet" onClick={() => setUntrack(null)}>
-                Keep the id list
-              </Button>
-              <Button tone="danger" onClick={() => void stopIds(untrack)}>
-                Make it free text
-              </Button>
-            </>
-          }
-        >
-          <p>
-            Its ids are no longer checked against the documents nor counted in Coverage. The values already written in
-            the tests stay as they are, in test.md and in Xray.
-          </p>
-        </Modal>
       )}
     </section>
   );

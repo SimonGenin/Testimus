@@ -19,7 +19,6 @@ test("Ask a document streams an answer whose source chips open the passage", asy
   await expect(dock.getByText(/ne précisent pas l'ordre d'affichage/)).toBeVisible();
   const chip = dock.getByRole("button", { name: /^SOSIE_211_D401-1_3 §5\.6\.6/ }).first();
   await expect(chip).toBeVisible();
-  await expect(dock.getByRole("button", { name: /^SOSIE_211_D401-1_3 EXI_MOP_SPF_511_A_1670/ }).first()).toBeVisible();
   await expect(dock.getByRole("button", { name: "Send" })).toBeVisible();
   await shoot(page, "dock-ask");
 

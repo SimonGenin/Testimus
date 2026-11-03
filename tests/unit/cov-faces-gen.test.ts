@@ -35,15 +35,9 @@ const cmd = (name: string) => {
 const subject = (name: string, raw: unknown) => cmd(name).subject?.(cmd(name).input.parse(raw) as never);
 
 describe("gen subjects", () => {
-  it("names a generation after its request, or its ids and sections, cut at 80 characters", () => {
+  it("names a generation after its request, or its documents and sections, cut at 80 characters", () => {
     expect(subject("gen.tests", { request: " Sectionneurs " })).toBe("Sectionneurs");
-    expect(
-      subject("gen.tests", {
-        requirements: ["R1"],
-        tracked: [{ trace: "alarm", ids: ["A1", "A2"] }],
-        sections: ["D#§1"],
-      }),
-    ).toBe("R1, A1, A2, D#§1");
+    expect(subject("gen.tests", { docs: ["D"], sections: ["E#§1"] })).toBe("D, E#§1");
     expect(subject("gen.tests", {})).toBe("");
     const long = subject("gen.tests", { request: "x".repeat(90) }) ?? "";
     expect(long).toHaveLength(80);
@@ -74,32 +68,9 @@ describe("gen.tests request", () => {
     return seen.requests.at(-1);
   };
 
-  it("says the tracked ids to cover by their label, keeping only the kinds with ids", async () => {
+  it("passes the request as it is", async () => {
     const project = copyFixture(tempRoot("gen"));
-    expect(
-      await runGen(project, {
-        request: " Menus ",
-        tracked: [
-          { trace: "requirement", ids: ["R1", "R2"] },
-          { trace: "uc", ids: [] },
-          { trace: "other", ids: ["X"] },
-        ],
-      }),
-    ).toBe(
-      [
-        "Menus",
-        "Requirement ids to cover, each by at least one step: R1, R2",
-        "other ids to cover, each by at least one step: X",
-      ].join("\n"),
-    );
-    expect(await runGen(project, { tracked: [{ trace: "requirement", ids: ["R1"] }] })).toBe(
-      ["(none in words)", "Requirement ids to cover, each by at least one step: R1"].join("\n"),
-    );
-  });
-
-  it("passes the request as it is when no id is handed", async () => {
-    const project = copyFixture(tempRoot("gen"));
-    expect(await runGen(project, { tracked: [{ trace: "uc", ids: [] }] })).toBe("");
+    expect(await runGen(project, { docs: ["SOSIE_211_D401-1_3"] })).toBe("");
     expect(await runGen(project, { request: "Menus", docs: ["SOSIE_211_D401-1_3"] })).toBe("Menus");
   });
 });

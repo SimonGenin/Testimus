@@ -125,17 +125,6 @@ describe("scripted runs", () => {
     for (const id of made) expect(readTest(dir, id).test.folder).toBe("/Traction/Sectionneurs");
   }, 10000);
 
-  it("a tracked-ids proposal answers a trace block for requirements, figures, or nothing", async () => {
-    const ask = async (what: string) =>
-      resultOf((await mockSpawnClaude(spawn({ stdin: `Testimus tracked-ids proposal\n« ${what} »\n` }))).stdout).result;
-    expect(await ask("les exigences")).toContain('"field":"Exigence"');
-    expect(await ask("les schémas")).toContain('"field":"Figure"');
-    expect(await ask("les couleurs")).toContain('"patterns":[]');
-    expect(
-      resultOf((await mockSpawnClaude(spawn({ stdin: "Testimus tracked-ids proposal\n" }))).stdout).result,
-    ).toContain("```trace");
-  }, 10000);
-
   it("headers and figures scripts answer keyed blocks", async () => {
     const figures = await mockSpawnClaude(
       spawn({ stdin: "Testimus describe-figures run for X.\n- fig:1 — docs/X/figures/a.png\n" }),
@@ -182,22 +171,13 @@ describe("mockFix", () => {
     expect(readFileSync(file, "utf8")).toBe(md);
   });
 
-  it("skips a wrong-requirement finding whose step does not carry that requirement", () => {
+  it("skips the findings it has no fix for, and a vague result without a step", () => {
     const dir = copy();
     writeJson(join(dir, "tests", "LFRPS12-1398", "check.json"), {
       testHash: "x",
       at: "2026-01-01T00:00:00.000Z",
       findings: [
-        {
-          step: 1,
-          kind: "wrong-requirement",
-          severity: "error",
-          message: "EXI_NOT_THERE",
-          sources: [],
-          pass: "semantic",
-        },
-        { kind: "wrong-requirement", severity: "error", message: "no id", sources: [], pass: "semantic" },
-        { step: 99, kind: "wrong-requirement", severity: "error", message: "EXI_X", sources: [], pass: "semantic" },
+        { step: 1, kind: "wrong-object", severity: "error", message: "autre objet", sources: [], pass: "semantic" },
         { kind: "vague-result", severity: "warning", message: "vague", sources: [], pass: "semantic" },
       ],
     });

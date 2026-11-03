@@ -33,7 +33,7 @@ EXI_MOP_SPF_511_A_1650
 
 ### Sources
 
-- SOSIE_211_D401-1_3#req:EXI_MOP_SPF_511_A_1650 "Le sectionneur est représenté sur la schématique de traction par le symbole de la Figure 40"
+- SOSIE_211_D401-1_3#§5.6.6 "Le sectionneur est représenté sur la schématique de traction par le symbole de la Figure 40"
 - SOSIE_211_D401-1_3#fig:40 "Figure 40 – Représentation graphique sectionneur"
 
 ### Attachments
@@ -57,7 +57,7 @@ EXI_MOP_SPF_511_A_1670, EXI_MOP_SPF_510_A_20
 ### Sources
 
 - SOSIE_211_D401-1_3#§5.6.6 "Selon le type de sectionneur, le menu contextuel diffère"
-- SOSIE_211_D401-1_3#req:EXI_MOP_SPF_511_A_1670 "Le menu contextuel d'un sectionneur sans TK propose"
+- SOSIE_211_D401-1_3#§5.6.6 "Le menu contextuel d'un sectionneur sans TK propose"
 
 ## Step 3 <!-- 103 -->
 
@@ -83,7 +83,7 @@ EXI_MOP_SPF_511_A_1680
 
 ### Sources
 
-- SOSIE_211_D401-1_3#req:EXI_MOP_SPF_511_A_1680 "La fenêtre Propriétés affiche l'état de la position"
+- SOSIE_211_D401-1_3#§5.6.6 "La fenêtre Propriétés affiche l'état de la position"
 
 ## Step 4 <!-- 104 -->
 
@@ -101,7 +101,7 @@ EXI_MOP_SPF_511_A_1660
 
 ### Sources
 
-- SOSIE_211_D401-1_3#req:EXI_MOP_SPF_511_A_1660 "L'état ouvert ou fermé du sectionneur est visible sans ouvrir de fenêtre"
+- SOSIE_211_D401-1_3#§5.6.6 "L'état ouvert ou fermé du sectionneur est visible sans ouvrir de fenêtre"
 
 ## Step 5 <!-- 105 -->
 

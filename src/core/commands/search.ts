@@ -4,14 +4,14 @@ import { searchAll } from "../search/all.ts";
 import { embedTests } from "../search/vectors.ts";
 import { REVIEWS, type Review, type SearchKind } from "../types.ts";
 
-const kind = z.enum(["test", "requirement", "document", "passage"] as [SearchKind, ...SearchKind[]]);
+const kind = z.enum(["test", "document", "passage"] as [SearchKind, ...SearchKind[]]);
 const mark = z.tuple([z.number(), z.number()]);
 
 export const commands: Command[] = [
   command({
     name: "search.all",
     summary:
-      "Search everywhere: tests (their words and their meaning), requirements, documents and document passages, ranked, with the matching text.",
+      "Search everywhere: tests (their words and their meaning), documents and document passages, ranked, with the matching text.",
     input: z.object({
       query: z
         .string()
@@ -32,8 +32,8 @@ export const commands: Command[] = [
         .array(
           z.object({
             kind,
-            id: z.string().describe("Test id, requirement id, document id, or docId#anchor for a passage"),
-            title: z.string().describe("What to show first: summary, requirement id, document title, section"),
+            id: z.string().describe("Test id, document id, or docId#anchor for a passage"),
+            title: z.string().describe("What to show first: summary, document title, section"),
             titleMarks: z.array(mark).describe("[start, end) ranges of title that match the query"),
             detail: z.string().optional().describe("Second line: key and folder, document and section"),
             snippet: z.string().optional().describe("The matching text, cut around the first match"),
@@ -49,7 +49,7 @@ export const commands: Command[] = [
             awaiting: z.boolean().optional().describe("A generated test still waiting for review (opens in Review)"),
             step: z.number().optional().describe("Step number (1-based) the snippet comes from"),
             docId: z.string().optional(),
-            anchor: z.string().optional().describe("§5.6.6, req:<id> or fig:<n>"),
+            anchor: z.string().optional().describe("§5.6.6, fig:<n> or page:<n>"),
           }),
         )
         .describe("Results grouped by kind, in the order of `order`"),

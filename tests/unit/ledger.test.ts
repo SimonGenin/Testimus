@@ -39,9 +39,10 @@ function stream(): string {
     ["Skill", { skill: "generate-tests" }, "ok"],
     ["mcp__testimus__rag_search", { query: "vue ligne postes", k: 10 }, "[]"],
     ["mcp__testimus__rag_mentions", { term: "poste" }, "{}"],
-    ["mcp__testimus__rag_passage", { ref: "SPEC_A#req:EXI_MOP_SPF_100_A_40" }, "{}"],
+    ["mcp__testimus__rag_passage", { ref: "SPEC_A#2.2" }, "{}"],
     ["mcp__testimus__rag_passage", { ref: "SPEC_B#§ 4.1" }, "{}"],
     ["mcp__testimus__rag_passage", { ref: "SPEC_A#§9.9" }, "No anchor", true],
+    ["mcp__testimus__rag_related", { ref: "SPEC_A#§3.2" }, "{}"],
     ["mcp__testimus__rag_related", { ref: "EXI_MOP_SPF_100_A_20" }, "{}"],
     ["mcp__testimus__rag_figure", { docId: "SPEC_A", n: "fig:1" }, "{}"],
     ["Read", { file_path: `${ABS}\\docs\\SPEC_A\\doc.md`, offset: 12, limit: 3 }, "…"],
@@ -68,10 +69,9 @@ describe("evidence ledger (SPEC-RAG §5.3)", () => {
 
   it("takes what the run opened from its tool calls: passages, related refs, figures, Read ranges of doc.md", () => {
     expect(ledger.consulted).toEqual([
-      "SPEC_A#req:EXI_MOP_SPF_100_A_40",
       "SPEC_A#§2.2",
       "SPEC_B#§4.1",
-      "SPEC_A#req:EXI_MOP_SPF_100_A_20",
+      "SPEC_A#§3.2",
       "SPEC_A#fig:1",
       "SPEC_A#§2",
       "SPEC_A#§2.1",
@@ -96,7 +96,7 @@ describe("evidence ledger (SPEC-RAG §5.3)", () => {
     expect(covers(["D#§5.6"], "D#§5.6.6")).toBe(true);
     expect(covers(["D#§5.6.6"], "D#§5.6")).toBe(false);
     expect(covers(["D#§5.6"], "E#§5.6.6")).toBe(false);
-    expect(covers(["D#req:X"], "D#req:X")).toBe(true);
+    expect(covers(["D#fig:1"], "D#fig:1")).toBe(true);
   });
 
   it("reads the ledger of a job back, and nothing for a bad id", () => {

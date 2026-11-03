@@ -11,6 +11,11 @@ file; SPEC.md stays the contract. The models and runtimes below are installed on
 Testimus downloads itself (same files as Ollama's `qwen3-embedding` tags); the Ollama parts below (§1.3, §7, §8.3,
 §16.2, §16.4) are kept as history.
 
+**Removed by decision of 2026-11-03: the RAG knows no column and no kind of identifier.** The index was tuned for one
+client's requirement ids; it now reads documents only (sections, figures, pages, references between them). §3.1–§3.3,
+the `req:` anchors, matrix rows and the requirement edges below, and every measurement that relies on them, are
+history, not behavior. A step column is a smart column: Claude fills it from its description.
+
 Marks used below: ✅ verified in the code, on real data or on the dev PC on 2026-11-02 · ⚠️ hypothesis,
 secondary source or to be checked when built.
 

@@ -83,7 +83,7 @@ describe("behavior set corners", () => {
 
 describe("matching corners", () => {
   it("refs without an anchor match by text only", () => {
-    const c = { docId: "D", anchor: "§1", reqIds: [], figureIds: [] };
+    const c = { docId: "D", anchor: "§1", figureIds: [] };
     expect(hitMatches(c, "plain")).toBe(false);
     expect(hitMatches(c, "E#§1")).toBe(false);
     expect(chunkResolver([c])("plain")).toEqual({ ref: "plain", chunks: [] });

@@ -14,7 +14,7 @@ import { SearchSection } from "./SearchSection.tsx";
 
 const SECTIONS = [
   { id: "project", label: "Project", page: ProjectSection, needsProject: true },
-  { id: "columns", label: "Step columns", page: ColumnsSection, needsProject: true },
+  { id: "columns", label: "Smart columns", page: ColumnsSection, needsProject: true },
   { id: "claude", label: "Claude", page: ClaudeSection, needsProject: false },
   { id: "search", label: "Search", page: SearchSection, needsProject: true },
   { id: "models", label: "Models", page: ModelsSection, needsProject: false },

@@ -10,7 +10,6 @@ import { baseName, desktop, pathJoin, reveal } from "../../lib/desktop.ts";
 import { cx, message, plural } from "../../lib/format.ts";
 import type { SideEdge } from "../../lib/sideWidth.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
-import { idPattern, REQUIREMENT, tracesNow } from "../../lib/traces.ts";
 import { settled, useUploads } from "../../lib/uploads.ts";
 import { ConvertDoc } from "./ConvertDoc.tsx";
 import { DocFigures } from "./DocFigures.tsx";
@@ -25,7 +24,6 @@ type Shown = {
   context: string;
   contexts?: string[];
   toc: TocEntry[];
-  requirements: string[];
   figures: FigureEntry[];
   md: string;
 };
@@ -78,7 +76,6 @@ export function DocDetail({
   const [context, setContext] = useState("");
   const [ctxIds, setCtxIds] = useState<string[] | null>(null);
   const [error, setError] = useState("");
-  const requirements = idPattern((tracesNow() ?? []).find((t) => t.id === REQUIREMENT));
   const acts = useActions({ docId: id });
   const running = useUploads().find((u) => u.docId === id && u.job === "convert" && !settled(u));
   const [opened, setOpened] = useState(false);
@@ -139,7 +136,7 @@ export function DocDetail({
   }, [id, shown, target]);
 
   const current = (part?.anchor === target && part.section) || target;
-  const focus = quote || (target.startsWith("req:") ? target.slice(4) : undefined);
+  const focus = quote || undefined;
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new focus moves the highlighted paragraph in the DOM
   useLayoutEffect(() => {
     const box = textBox.current;
@@ -401,14 +398,7 @@ export function DocDetail({
                     <Skeleton w="85%" h={13} />
                   </>
                 ) : (
-                  <DocText
-                    docId={id}
-                    md={part?.md ?? shown.md}
-                    focus={focus}
-                    requirements={requirements}
-                    onRequirement={(rid) => onAnchor(`req:${rid}`)}
-                    onFigure={go}
-                  />
+                  <DocText docId={id} md={part?.md ?? shown.md} focus={focus} onFigure={go} />
                 )}
               </div>
             </div>

@@ -5,10 +5,10 @@ import { ProblemPanel } from "../../components/shell/ProblemPanel.tsx";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
 import { Badge, Button, Icon, Modal, Severity, Skeleton } from "../../components/ui/index.ts";
 import { useApp } from "../../lib/app.ts";
+import { parseCsvRows } from "../../lib/csv.ts";
 import { baseName, desktop, pickFiles } from "../../lib/desktop.ts";
 import { dropDraft, useDraft } from "../../lib/drafts.ts";
 import { cx, plural } from "../../lib/format.ts";
-import { parseCsvRows } from "../../lib/requirements.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 
 type CsvTest = { summary: string; folder: string; steps: { fields: Record<string, string> }[]; row: number };
@@ -271,8 +271,8 @@ export function ImportScreen() {
               <Icon name="pull" size={32} />
               <h2 className="h">Choose a CSV of test steps</h2>
               <p className="muted">
-                One row per step: Step, Action, Expected Result, Exigence… The columns are mapped to your Xray fields
-                next, and the mapping is remembered.
+                One row per step: Step, Action, Data, Expected Result… The columns are mapped to your Xray fields next,
+                and the mapping is remembered.
               </p>
               <Button tone="primary" onClick={browse}>
                 Choose a file

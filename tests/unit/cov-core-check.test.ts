@@ -70,11 +70,7 @@ const docText = (md: string, extra: Partial<DocText> = {}): DocText => ({
   scopes: new Map(),
   ...extra,
 });
-const corpusOf = (d: DocText, field: string | null = null, reqs: string[] = []): Corpus => ({
-  docs: new Map([[d.id, d]]),
-  requirements: new Set(reqs),
-  requirementField: field,
-});
+const corpusOf = (d: DocText): Corpus => ({ docs: new Map([[d.id, d]]) });
 const kinds = (fs: Finding[]) => fs.map((f) => `${f.step ?? "-"}:${f.kind}:${f.severity}`);
 const testMd = (fm: string[], body: string) => `---\n${fm.join("\n")}\n---\n${body}`;
 
@@ -89,9 +85,10 @@ afterEach(() => {
 });
 
 describe("anchorKey and occurrences", () => {
-  it("normalises req/fig/page and § anchors", () => {
-    expect(anchorKey(" req EXI_A ")).toBe("req:EXI_A");
+  it("normalises fig/page and § anchors; anything else is a section", () => {
+    expect(anchorKey(" fig 4 ")).toBe("fig:4");
     expect(anchorKey("PAGE:3")).toBe("page:3");
+    expect(anchorKey("req:EXI_A")).toBe("§req:EXI_A");
     expect(anchorKey("§ 5.6")).toBe("§5.6");
     expect(anchorKey("5.6")).toBe("§5.6");
   });
@@ -104,7 +101,6 @@ describe("anchorKey and occurrences", () => {
 
 describe("scopeOf", () => {
   const md = [
-    "<!-- req EXI_PRE_1 -->",
     "Un texte placé avant tout titre de section.",
     "Encore une ligne avant le titre.",
     "## 1 Premier <!-- § 1 -->",
@@ -121,12 +117,6 @@ describe("scopeOf", () => {
     "Hors de la figure.",
   ].join("\n");
 
-  it("a requirement before any heading runs from the top to the first heading", () => {
-    expect(scopeOf(md, "req:EXI_PRE_1")).toBe(
-      "Un texte placé avant tout titre de section. Encore une ligne avant le titre.",
-    );
-  });
-
   it("a page runs to the next page marker", () => {
     expect(scopeOf(md, "page:1")).toBe("Texte de la page un. Encore la page un.");
     expect(scopeOf(md, "page:2")).toContain("Hors de la figure.");
@@ -136,8 +126,8 @@ describe("scopeOf", () => {
     expect(scopeOf(md, "fig:3")).toBe("Une ligne avant la légende Figure 3 – Schéma une ligne après la légende");
   });
 
-  it("an unknown matrix row or anchor has no scope", () => {
-    expect(scopeOf(md, "req:EXI_NONE@matrix")).toBeNull();
+  it("an unknown anchor has no scope", () => {
+    expect(scopeOf(md, "fig:99")).toBeNull();
     expect(scopeOf(md, "§9")).toBeNull();
   });
 
@@ -148,8 +138,8 @@ describe("scopeOf", () => {
     expect(scopeOf(inline, "§4")).toBe("Texte en ligne suite");
   });
 
-  it("a requirement at the top of a document without headings runs to its end", () => {
-    expect(scopeOf("<!-- req EXI_A_1 -->\nseul texte du document", "req:EXI_A_1")).toBe("seul texte du document");
+  it("a page at the top of a document without headings runs to its end", () => {
+    expect(scopeOf("<!-- page 1 -->\nseul texte du document", "page:1")).toBe("seul texte du document");
   });
 });
 
@@ -240,129 +230,68 @@ describe("mechanicalFindings — the less common branches", () => {
     expect(fs[0].message).toContain(`"${"x".repeat(57)}…"`);
   });
 
-  it("requirement ids are checked only when the project has a requirement field", () => {
+  it("a smart column is free text: what it holds raises no finding", () => {
     const d = docText("## 1 X <!-- § 1 -->");
     const t = testOf([step({ Action: "a", "Expected Result": "", Exigence: "EXI_A_1, EXI_B_2" })]);
-    expect(kinds(mechanicalFindings(t, corpusOf(d, "Exigence", ["EXI_A_1"])))).toEqual([
-      "1:empty-field:error",
-      "1:requirement-unknown:error",
-    ]);
-    expect(kinds(mechanicalFindings(t, corpusOf(d, null)))).toEqual(["1:empty-field:error"]);
+    expect(kinds(mechanicalFindings(t, corpusOf(d)))).toEqual(["1:empty-field:error"]);
   });
 });
 
 describe("loadCorpus", () => {
-  it("without docs, requirements nor xray fields, ignoring files and folders without doc.md", () => {
-    const c = loadCorpus(dir);
-    expect(c.docs.size).toBe(0);
-    expect([...c.requirements]).toEqual([]);
-    expect(c.requirementField).toBeNull();
+  it("without docs, ignoring files and folders without doc.md", () => {
+    expect(loadCorpus(dir).docs.size).toBe(0);
   });
 
-  it("reads the requirement column by its header (else the first), skips bad patterns, files and empty folders", () => {
-    write("project.json", JSON.stringify({ name: "T", requirementPatterns: ["[", String.raw`\bREQ-\d+`] }));
-    write("requirements/requirements.csv", "Titre;Exigence\nun;EXI_CSV_1\ndeux;\nsolo\n");
+  it("a document answers by its folder and by its code, the first one keeping a code", () => {
     write("docs/readme.txt", "not a doc");
     mkdirSync(join(dir, "docs", "EMPTY"), { recursive: true });
-    addDoc("D1", "## 1 X <!-- § 1 -->\nLa règle REQ-42 s'applique.\n");
+    addDoc("D1", "## 1 X <!-- § 1 -->\nLa règle s'applique.\n");
     addDoc("D2", "## 1 Y <!-- § 1 -->\n", { code: "D1" });
+    addDoc("D3", "## 1 Z <!-- § 1 -->\n", { code: "C3" });
     const c = loadCorpus(dir);
-    expect([...c.docs.keys()].sort()).toEqual(["D1", "D2"]);
+    expect([...c.docs.keys()].sort()).toEqual(["C3", "D1", "D2", "D3"]);
     expect(c.docs.get("D1")?.id).toBe("D1");
-    expect([...c.requirements].sort()).toEqual(["EXI_CSV_1", "REQ-42"]);
-
-    write("requirements/requirements.csv", "A;B\nEXI_FIRST_1;x\n;y\n");
-    expect([...loadCorpus(dir).requirements]).toContain("EXI_FIRST_1");
-  });
-
-  it("names the requirement field from the requirement trace; an Xray column alone tracks nothing", () => {
-    write("project.json", JSON.stringify({ name: "T", requirementField: "  Req  " }));
-    expect(loadCorpus(dir).requirementField).toBe("Req");
-    write("project.json", JSON.stringify({ name: "T", requirementField: "  " }));
-    write("xray.json", JSON.stringify({ fields: [{ id: "r", name: "Requirement", type: "text", builtin: false }] }));
-    expect(loadCorpus(dir).requirementField).toBeNull();
-    const trace = { id: "requirement", label: "Req", patterns: [String.raw`\bREQ-\d+`], field: " Req id " };
-    write("project.json", JSON.stringify({ name: "T", traces: [trace] }));
-    expect(loadCorpus(dir).requirementField).toBe("Req id");
+    expect(c.docs.get("C3")?.id).toBe("D3");
   });
 });
 
-describe("requirement links: related-unread and test evidence", () => {
+describe("test evidence", () => {
   const MD = [
     "# SPEC — Spécification",
     "",
     "## 1 Général <!-- § 1 -->",
     "",
-    "<!-- req EXI_LNK_1 -->",
     "La vue détaillée s'ouvre par un double clic sur le poste.",
     "",
-    "## <!-- § 2 -->",
-    "",
-    "Texte sans titre qui cite EXI_LNK_1 dans le corps.",
-    "",
     "## 3 Matrice <!-- § 3 -->",
-    "",
-    "| Exigence | Section | Objet |",
-    "| --- | --- | --- |",
-    "| EXI_LNK_1 | 2 | La vue détaillée |",
-    "",
-    "## 4 Annexe <!-- § 4 -->",
     "",
     "Rien ici.",
   ].join("\n");
 
-  const testWith = (exigences: string[]) =>
-    testMd(
-      ["project: T", "summary: s", "folder: /", "labels: []", "review: none", "generated_by: gen-1"],
-      `\n## Description\n\nd\n\n${exigences
-        .map(
-          (e, i) =>
-            `## Step ${i + 1}\n\n### Action\n\na\n\n### Expected Result\n\nb\n\n### Exigence\n\n${e}\n\n### Sources\n\n- SPEC#§1 "La vue détaillée s'ouvre par un double clic sur le poste."\n`,
-        )
-        .join("\n")}`,
-    );
-
   beforeEach(() => {
-    write(
-      "xray.json",
-      JSON.stringify({
-        fields: [
-          { id: "action", name: "Action", type: "text", builtin: true },
-          { id: "result", name: "Expected Result", type: "text", builtin: true },
-          { id: "cf", name: "Exigence", type: "text", builtin: false },
-        ],
-      }),
-    );
     addDoc("SPEC", MD);
-    write("tests/T-1/test.md", testWith(["EXI_LNK_1", "EXI_LNK_1 EXI_NOWHERE_9"]));
-    write(".testimus/gen/gen-1.json", JSON.stringify({ consulted: ["SPEC#§3"], searched: [] }));
-  });
-
-  it("names the defining and the traced sections never opened, once each, skipping unknown requirements", () => {
-    const unread = mechanicalCheck(dir, "T-1").filter((f) => f.kind === "related-unread");
-    expect(unread.map((f) => f.message)).toEqual([
-      "Step 1: EXI_LNK_1 is defined in SPEC#§1 (Général), which the generation gen-1 never opened.",
-      "Step 1: EXI_LNK_1 is traced in SPEC#§2, which the generation gen-1 never opened.",
-    ]);
-  });
-
-  it("without a requirement field no link is drawn", () => {
-    write("project.json", JSON.stringify({ name: "T", traces: [] }));
-    expect(mechanicalCheck(dir, "T-1").filter((f) => f.kind === "related-unread")).toEqual([]);
-    const e = testEvidence(dir, "T-1");
-    expect(e.related).toEqual([]);
-    expect(e.read).toEqual([{ ref: "SPEC#§3", title: "Matrice", cited: false }]);
-  });
-
-  it("test evidence lists the links with what was read, not what an amendment points at", () => {
-    addDoc("AMD", "# AMD\n\n## 1 Remarque <!-- § 1 -->\n\nVoir SPEC §4 pour le détail.\n", { amends: ["SPEC"] });
-    write("tests/T-1/test.md", testWith(["EXI_LNK_1", "AMD#§1"]));
-    const e = testEvidence(dir, "T-1");
-    expect(e.related.some((r) => r.ref === "SPEC#§4" && r.kind === "amends")).toBe(false);
-    expect(e.jobId).toBe("gen-1");
-    expect(e.related.map((r) => `${r.kind} ${r.ref} ${r.read}`)).toEqual(
-      expect.arrayContaining(["defines SPEC#§1 false", "traces SPEC#§2 false"]),
+    write(
+      "tests/T-1/test.md",
+      testMd(
+        ["project: T", "summary: s", "folder: /", "labels: []", "review: none", "generated_by: gen-1"],
+        `\n## Description\n\nd\n\n## Step 1\n\n### Action\n\na\n\n### Expected Result\n\nb\n\n### Sources\n\n- SPEC#§1 "La vue détaillée s'ouvre par un double clic sur le poste."\n`,
+      ),
     );
+  });
+
+  it("without a ledger: no job, nothing read", () => {
+    expect(testEvidence(dir, "T-1")).toEqual({ testId: "T-1", jobId: null, consulted: [], read: [], searched: [] });
+  });
+
+  it("with the generation's ledger: what was read and whether a step cites it; the check adds nothing", () => {
+    write(".testimus/gen/gen-1.json", JSON.stringify({ consulted: ["SPEC#§1", "SPEC#§3"], searched: [] }));
+    const e = testEvidence(dir, "T-1");
+    expect(e.jobId).toBe("gen-1");
+    expect(e.read).toEqual([
+      { ref: "SPEC#§1", title: "Général", cited: true },
+      { ref: "SPEC#§3", title: "Matrice", cited: false },
+    ]);
+    expect(mechanicalCheck(dir, "T-1")).toEqual([]);
   });
 });
 

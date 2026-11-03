@@ -46,7 +46,6 @@ const chunk = (id: string): Chunk => ({
   docId: "D",
   anchor: `§${id}`,
   path: id,
-  reqIds: [],
   figureIds: [],
   header: "D — header",
   text: `texte ${id}`,
@@ -127,20 +126,71 @@ describe("rag.db schema v2", () => {
     }
   });
 
-  it("stores the requirement graph per document", () => {
+  it("stores the document graph per document", () => {
     const db = openDb(join(dir, "rag.db"));
     try {
       replaceEdges(db, "D", [
-        { from: "D#req:EXI_1", to: "D#§3.2", kind: "defines", docId: "D" },
-        { from: "D#§5.6", to: "D#req:EXI_1", kind: "mentions", docId: "D" },
+        { from: "D#§3.2", to: "D#§3", kind: "parent", docId: "D" },
+        { from: "D#§5.6", to: "D#§3.2", kind: "refers", docId: "D" },
       ]);
-      replaceEdges(db, "D", [{ from: "D#req:EXI_1", to: "D#§3.2.4", kind: "traces", docId: "D" }]);
-      expect(edgesFrom(db, "D#req:EXI_1")).toEqual([
-        { from: "D#req:EXI_1", to: "D#§3.2.4", kind: "traces", docId: "D" },
-      ]);
-      expect(edgesTo(db, "D#req:EXI_1")).toEqual([]);
+      replaceEdges(db, "D", [{ from: "D#§5.6", to: "D#§3.2.4", kind: "refers", docId: "D" }]);
+      expect(edgesFrom(db, "D#§5.6")).toEqual([{ from: "D#§5.6", to: "D#§3.2.4", kind: "refers", docId: "D" }]);
+      expect(edgesTo(db, "D#§3")).toEqual([]);
     } finally {
       db.close();
     }
+  });
+
+  it("cuts an index of an older chunker back to sections and figures: no extra column, no other kind", () => {
+    const file = join(dir, "rag.db");
+    const db = openDb(file);
+    const s = createSpace(db, fp());
+    const keep = insertChunk(db, chunk("1"), "h1");
+    putVector(db, s.id, keep, new Float32Array([1, 0, 0, 0]));
+    setSpace(db, s.id, { complete: true });
+    db.exec("alter table chunks add column req_ids text not null default '[]'");
+    db.prepare(
+      "insert into chunks(id, doc_id, anchor, path, req_ids, figure_ids, header, text, kind, hash) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    ).run(
+      "D#req:EXI_1@matrix",
+      "D",
+      "req:EXI_1@matrix",
+      "",
+      '["EXI_1"]',
+      "[]",
+      "h",
+      "EXI_1 | ligne",
+      "matrix-row",
+      "x",
+    );
+    const row = Number(
+      (db.prepare("select rowid from chunks where kind = 'matrix-row'").get() as { rowid: number }).rowid,
+    );
+    putVector(db, s.id, row, new Float32Array([0, 1, 0, 0]));
+    db.prepare("insert into docs(doc_id, sha256, content) values ('D', '', 'c')").run();
+    replaceEdges(db, "D", [{ from: "D#§1", to: "D#§2", kind: "refers", docId: "D" }]);
+    db.close();
+
+    const again = openDb(file);
+    try {
+      const cols = (again.prepare("select name from pragma_table_info('chunks')").all() as { name: string }[]).map(
+        (c) => c.name,
+      );
+      expect(cols).not.toContain("req_ids");
+      expect((again.prepare("select id, kind from chunks").all() as { id: string }[]).map((c) => c.id)).toEqual([
+        "D#§1",
+      ]);
+      expect(vectorCount(again, s.id)).toBe(1);
+      expect(getSpace(again, s.id)?.complete).toBe(false);
+      expect(again.prepare("select * from docs").all()).toEqual([]);
+      expect(edgesFrom(again, "D#§1")).toEqual([]);
+      expect(again.prepare("select rowid from chunks_fts where chunks_fts match 'EXI_1'").all()).toEqual([]);
+      expect(again.prepare("select rowid from chunks_fts where chunks_fts match 'texte'").all()).toHaveLength(1);
+    } finally {
+      again.close();
+    }
+    const third = openDb(file);
+    expect(vectorCount(third, s.id)).toBe(1);
+    third.close();
   });
 });

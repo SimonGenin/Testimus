@@ -104,7 +104,6 @@ export function DocBadges({ status }: { status: string }) {
 }
 
 export function PassageText({ passage, quote }: { passage: Passage; quote: string }) {
-  const mark = quote || passage.focus || "";
   const num = sectionNumber(passage.anchor);
   return (
     <>
@@ -117,7 +116,7 @@ export function PassageText({ passage, quote }: { passage: Passage; quote: strin
       )}
       <div className="passage-text">
         {paragraphs(passage.text).map((para, i) => (
-          <p key={i}>{highlight(para, mark)}</p>
+          <p key={i}>{highlight(para, quote)}</p>
         ))}
       </div>
       {passage.figures.map((f) => (

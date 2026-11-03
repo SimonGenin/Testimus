@@ -10,9 +10,6 @@ export const KINDS: [FindingKind, ...FindingKind[]] = [
   "quote-not-found",
   "unsupported",
   "contradicted",
-  "wrong-requirement",
-  "requirement-unknown",
-  "requirement-not-covered",
   "wrong-object",
   "negative-missing",
   "case-missing",
@@ -81,7 +78,7 @@ export const commands: Command[] = [
   command({
     name: "check.run",
     summary:
-      "Check tests: the mechanical pass (sources resolve, quotes found, requirement ids exist, empty or duplicated steps), then the check-test skill on each (3 in parallel); writes check.json. A draft test becomes checked.",
+      "Check tests: the mechanical pass (sources resolve, quotes found, empty or duplicated steps), then the check-test skill on each (3 in parallel); writes check.json. A draft test becomes checked.",
     input: z.object({
       ids: z.array(z.string()).optional().describe("Test ids to check"),
       folder: z.string().optional().describe("Check every test of this Xray folder and its subfolders"),

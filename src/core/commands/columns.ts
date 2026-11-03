@@ -9,14 +9,14 @@ const column = z.object({
   status: z
     .enum(["ok", "new", "gone"])
     .describe("new: added in Xray and never described here; gone: was in Xray, no longer — now local"),
-  description: z.string().describe("What Claude writes in it; empty = Claude leaves it empty"),
+  description: z.string().describe("What Claude writes in it (a smart column); empty = Claude leaves it empty"),
 });
 
 export const commands: Command[] = [
   command({
     name: "columns.list",
     summary:
-      "The step columns of the project in display order: Xray's step fields and the local ones, with what Claude writes in each.",
+      "The step columns of the project in display order: Xray's step fields and the local ones, each a smart column with the description Claude follows to fill it.",
     input: z.object({}),
     output: z.array(column),
     mutates: false,
@@ -25,7 +25,7 @@ export const commands: Command[] = [
   command({
     name: "columns.save",
     summary:
-      "Set what Claude writes in a step column (its description), or add a local column (kept in test.md, never pushed).",
+      "Describe a smart column (what Claude writes in it), or add a local smart column (kept in test.md, never pushed).",
     input: z.object({
       name: z.string().min(1).describe("Column name: an Xray step field, a local column, or a new local column"),
       description: z

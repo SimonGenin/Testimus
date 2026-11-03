@@ -90,10 +90,7 @@ describe("behavior set (SPEC-RAG §10.1)", () => {
     expect(s.behaviors[0]).toMatchObject({
       id: "q1",
       queries: [],
-      evidence: [
-        { ref: `${D3}#req:EXI_MOP_SPF_511_A_1670`, role: "rule", must: true },
-        { ref: `${D3}#§5.6.6`, role: "rule", must: true },
-      ],
+      evidence: [{ ref: `${D3}#§5.6.6`, role: "rule", must: true }],
     });
     expect(s.behaviors[0].validated).toBeUndefined();
     const mixed = readBehaviors(
@@ -140,15 +137,10 @@ describe("behavior set (SPEC-RAG §10.1)", () => {
   });
 });
 
-const chunk = (docId: string, anchor: string, reqIds: string[] = [], figureIds: string[] = []) => ({
-  docId,
-  anchor,
-  reqIds,
-  figureIds,
-});
-const item = (docId: string, anchor: string, reqIds: string[] = []): Item => ({
+const chunk = (docId: string, anchor: string, figureIds: string[] = []) => ({ docId, anchor, figureIds });
+const item = (docId: string, anchor: string, figureIds: string[] = []): Item => ({
   ref: `${docId}#${anchor}`,
-  chunks: [chunk(docId, anchor, reqIds)],
+  chunks: [chunk(docId, anchor, figureIds)],
 });
 
 const B: Behavior = {
@@ -159,7 +151,7 @@ const B: Behavior = {
     { ref: "A#§1", role: "rule", must: true },
     { ref: "A#§2", role: "exception", must: true },
     { ref: "A#§3", role: "figure", must: false },
-    { ref: "B#req:R1", role: "amendment", must: true },
+    { ref: "B#§7", role: "amendment", must: true },
   ],
 };
 
@@ -169,7 +161,7 @@ describe("L1 metrics, computed by hand (SPEC-RAG §10.3)", () => {
     { item: item("A", "§2"), chars: 50 },
     { item: item("A", "§3"), chars: 10 },
     { item: item("A", "§1"), chars: 20 },
-    { item: item("B", "§7", ["R1"]), chars: 40 },
+    { item: item("B", "§7"), chars: 40 },
   ];
 
   it("evidence recall, complete, precision, characters, role recall, nDCG@10, MRR", () => {
@@ -196,11 +188,11 @@ describe("L1 metrics, computed by hand (SPEC-RAG §10.3)", () => {
     const two: Behavior = {
       ...B,
       evidence: [
-        { ref: "A#req:X", role: "rule", must: true },
+        { ref: "A#fig:4", role: "figure", must: true },
         { ref: "A#§4", role: "rule", must: true },
       ],
     };
-    const s = scoreBehavior(two, { ranked: [{ item: item("A", "§4", ["X"]), chars: 1 }] }, [10]);
+    const s = scoreBehavior(two, { ranked: [{ item: item("A", "§4", ["4"]), chars: 1 }] }, [10]);
     expect(s.atK[10].recall).toBe(1);
     expect(s.ndcg10).toBeCloseTo(1 / (1 + 1 / Math.log2(3)), 12);
     const none = scoreBehavior(two, { ranked: [] }, [10]);
@@ -209,12 +201,12 @@ describe("L1 metrics, computed by hand (SPEC-RAG §10.3)", () => {
   });
 
   it("search + graph adds the neighbours of the top k passages and every mention, with their characters", () => {
-    const resolve = chunkResolver([chunk("A", "§1"), chunk("B", "§7", ["R1"])]);
+    const resolve = chunkResolver([chunk("A", "§1"), chunk("B", "§7")]);
     const expansion = new Map([[ranked[0].item.ref, { items: [resolve("A#§1"), resolve("A#§9")], chars: 30 }]]);
-    const extra = { items: [resolve("B#req:R1")], chars: 70 };
+    const extra = { items: [resolve("B#§7")], chars: 70 };
     const s = scoreBehavior(B, { ranked: ranked.slice(0, 1), expansion, extra }, [1]);
     expect(s.atK[1]).toEqual({ recall: 2 / 3, complete: false, precision: 2 / 3, chars: 200, items: 3 });
-    expect(s.found[1]).toEqual(["A#§1", "B#req:R1"]);
+    expect(s.found[1]).toEqual(["A#§1", "B#§7"]);
     expect(s.rank).toBeNull();
   });
 
@@ -237,7 +229,7 @@ describe("L1 metrics, computed by hand (SPEC-RAG §10.3)", () => {
     expect(t.mrr).toBeCloseTo((1 / 2 + 1) / 2, 12);
   });
 
-  it("mentions are asked for the queries and the ids and acronyms of the question", () => {
+  it("mentions are asked for the queries and the codes and acronyms of the question", () => {
     expect(mentionTerms({ question: "Que montre le TCO ?", queries: ["TCO deux rangs"] })).toEqual([
       "TCO",
       "TCO deux rangs",
@@ -304,7 +296,6 @@ describe("rag.eval v2 on the fixture project", () => {
         neighbours: ref.endsWith("#§5.6.7")
           ? [{ ref: `${D4}#§4.2`, kind: "refers", direction: "out", title: "Signal", path: "4 > 4.2", depth: 1 }]
           : [],
-        warnings: [],
       };
     };
     const terms: string[] = [];
@@ -315,7 +306,8 @@ describe("rag.eval v2 on the fixture project", () => {
     const r = await runEval(dir, quietCtx(dir), { mode: "bm25" });
     const [search, withGraph] = r.policies;
     expect(withGraph.available).toBe(true);
-    expect(asked).toContain(`${D3}#req:EXI_MOP_SPF_511_A_1670`);
+    expect(asked).toContain(`${D3}#§5.6.7`);
+    expect(asked.every((r) => !r.includes("#req:"))).toBe(true);
     expect(terms).toContain("TCO");
     for (const k of [10, 20, 50]) {
       expect(withGraph.totals?.atK[k].recall).toBeGreaterThanOrEqual(search.totals?.atK[k].recall as number);

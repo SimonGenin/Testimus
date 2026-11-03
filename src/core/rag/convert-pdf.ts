@@ -8,7 +8,6 @@ import {
   type Figure,
   guessDate,
   guessTitle,
-  reqRegex,
   slug,
   uniqueKey,
 } from "./convert.ts";
@@ -232,7 +231,6 @@ const BULLET_RE = /^([•▪◦●○■□➢►\-–—−*]|o(?=\s)|\d+[.)](?
 
 const prefixOf = (n: string) => n.match(/^[A-Z]{1,3}\./)?.[0] ?? "";
 const partsOf = (n: string) => n.slice(prefixOf(n).length).split(".").map(Number);
-const reEscape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 function follows(next: string, last: string): boolean {
   const n = partsOf(next);
@@ -252,7 +250,6 @@ export async function convertPdf(buf: Uint8Array, opts: ConvertOpts): Promise<Co
   for (const s of sizes) freq.set(s, (freq.get(s) ?? 0) + 1);
   const body = [...freq].sort((x, y) => y[1] - x[1])[0]?.[0] ?? 10;
   const headSizes = [...freq.keys()].filter((k) => k >= body + 2.5).sort((x, y) => y - x);
-  const reqs = new RegExp(reqRegex(opts.reqPatterns).source);
 
   const blocks: Block[] = [];
   const figures: Figure[] = [];
@@ -314,7 +311,7 @@ export async function convertPdf(buf: Uint8Array, opts: ConvertOpts): Promise<Co
         /^\p{Lu}/u.test(h[2]) &&
         !/[.;,:]$/.test(h[2]);
       const big = !numbered && headSizes.includes(Math.round(line.size)) && line.text.length <= 120;
-      if (numbered || (big && !reqs.test(line.text) && !/[.;,:]$/.test(line.text))) {
+      if (numbered || (big && !/[.;,:]$/.test(line.text))) {
         flush();
         const number = numbered ? h![1] : "";
         const title = numbered ? h![2] : line.text;
@@ -357,7 +354,6 @@ export async function convertPdf(buf: Uint8Array, opts: ConvertOpts): Promise<Co
     warnings.push(`Figure ${orphanCaps.join(", ")}: caption without an extractable picture (vector drawing)`);
   warnings.push("Converted from PDF: headings are guessed from their numbering, tables are flattened to text");
   const title = guessTitle(a.first);
-  const ids = [...(opts.reqPatterns ?? []), ...articles.map((a) => String.raw`\b${reEscape(a)}(?!\.?\d)`)];
-  const md = assemble(`# ${opts.code} — ${title || opts.code}`, blocks, reqRegex(ids));
+  const md = assemble(`# ${opts.code} — ${title || opts.code}`, blocks);
   return { md, figures, warnings, meta: { title, date: guessDate(a.first.join("\n")) }, convertedWith: PDFJS };
 }

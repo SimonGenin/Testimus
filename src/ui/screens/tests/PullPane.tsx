@@ -89,7 +89,7 @@ function TestCard({ read, summary }: { read?: PullRead; summary: string }) {
         <Fact icon="tests" n={read.steps} word="step" />
         <Fact icon="image" n={read.images} word="image" />
         <Fact icon="lock" n={read.preconditions} word="precondition" />
-        <Fact icon="link" n={read.covers} word="requirement" />
+        <Fact icon="link" n={read.covers} word="linked issue" />
         <Fact icon="tag" n={read.labels} word="label" />
       </div>
     </div>

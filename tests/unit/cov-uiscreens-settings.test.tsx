@@ -134,7 +134,7 @@ describe("Settings › Project", () => {
   });
 });
 
-describe("Settings › Step columns", () => {
+describe("Settings › Smart columns", () => {
   const xray = {
     fields: [
       { id: "action", name: "Action", type: "text", builtin: true },
@@ -167,7 +167,7 @@ describe("Settings › Step columns", () => {
     api.routes["xray.prefs"] = () => ({});
     const withFilled = { ...xray, prefs: { ...xray.prefs, filled: ["Exigence"] } } as typeof xray;
     const { app: a } = mount(<ColumnsSection />, { xray: withFilled, info: withColumns() });
-    const rows = within(screen.getByRole("list", { name: "Step columns" })).getAllByRole("listitem");
+    const rows = within(screen.getByRole("list", { name: "Smart columns" })).getAllByRole("listitem");
     expect(rows[0]).toHaveTextContent("Xray · standard");
     expect(rows[2]).toHaveTextContent("New in Xray");
     expect(rows[4]).toHaveTextContent("No longer in Xray");
@@ -208,7 +208,7 @@ describe("Settings › Step columns", () => {
   it("drags a column onto another, ignores a drop on itself", async () => {
     api.routes["xray.prefs"] = () => ({});
     mount(<ColumnsSection />, { xray, info: withColumns() });
-    const rows = within(screen.getByRole("list", { name: "Step columns" })).getAllByRole("listitem");
+    const rows = within(screen.getByRole("list", { name: "Smart columns" })).getAllByRole("listitem");
     const dataTransfer = { effectAllowed: "", setData: vi.fn() };
     fireEvent.dragOver(rows[1]);
     fireEvent.dragStart(rows[3], { dataTransfer });
@@ -292,7 +292,7 @@ describe("Settings › Step columns", () => {
     fireEvent.click(screen.getByRole("button", { name: "Read again from Xray" }));
     expect(await screen.findByRole("button", { name: "Reading…" })).toBeDisabled();
     release();
-    expect(await screen.findByText("Step columns read again from Xray")).toBeInTheDocument();
+    expect(await screen.findByText("Smart columns read again from Xray")).toBeInTheDocument();
     cleanup();
     const { container } = mount(<ColumnsSection />, { info: null });
     expect(container.querySelector("#settings-columns")).toBeNull();

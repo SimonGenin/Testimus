@@ -30,10 +30,9 @@ describe("minor 3 — a quote must be under the anchor it cites", () => {
     expect(findings(`§5.6.7 ${S567}`)).toEqual([]);
   });
 
-  test("req: is the section holding the requirement", () => {
-    expect(findings(`req:EXI_MOP_SPF_511_A_1650 ${S566}`)).toEqual([]);
-    expect(findings(`req:EXI_MOP_SPF_511_A_1650 ${S567}`)).toEqual([
-      expect.stringMatching(/^error:.* but not under req:EXI_MOP_SPF_511_A_1650/),
+  test("an old req: citation is no anchor of the document", () => {
+    expect(findings(`req:EXI_MOP_SPF_511_A_1650 ${S566}`)).toEqual([
+      `error:${DOC} has no anchor §req:EXI_MOP_SPF_511_A_1650: cite an existing section, figure or page.`,
     ]);
   });
 
@@ -54,8 +53,8 @@ describe("minor 3 — a quote must be under the anchor it cites", () => {
 
 describe("minor 3 — a trivial quote proves nothing", () => {
   test("“de” and “sectionneur” are warnings, not passes", () => {
-    expect(findings('req:EXI_MOP_SPF_510_A_20 "de"', '§5.6.6 "sectionneur"')).toEqual([
-      `warning:the quote "de" is too short to prove anything: quote at least 4 words (20 characters) of ${DOC}#req:EXI_MOP_SPF_510_A_20.`,
+    expect(findings('§5 "de"', '§5.6.6 "sectionneur"')).toEqual([
+      `warning:the quote "de" is too short to prove anything: quote at least 4 words (20 characters) of ${DOC}#§5.`,
       `warning:the quote "sectionneur" is too short to prove anything: quote at least 4 words (20 characters) of ${DOC}#§5.6.6.`,
     ]);
   });
@@ -96,19 +95,12 @@ describe("R2 — the quote is looked for in the cited passage (SPEC-RAG §5.1)",
     ]);
   });
 
-  test("a matrix row is its own anchor: req:ID@matrix holds the row, and is named when the quote is only there", () => {
-    expect(evid('req:EXI_MOP_SPF_900_A_1@matrix "Le simulateur enregistre chaque commande"')).toEqual([]);
-    expect(evid('req:EXI_MOP_SPF_900_A_1@matrix "Les commandes refusées sont signalées"')[0]).toMatchObject({
+  test("a table row is text of its section like any other", () => {
+    expect(evid('§6.1 "Le simulateur enregistre chaque commande"')).toEqual([]);
+    expect(evid('§2.1 "Les commandes refusées sont signalées"')[0]).toMatchObject({
       kind: "quote-not-at-anchor",
-      message: expect.stringMatching(
-        /it is under req:EXI_MOP_SPF_900_A_2@matrix — cite SPEC_A#req:EXI_MOP_SPF_900_A_2@matrix\.$/,
-      ),
+      message: expect.stringMatching(/it is under §6\.1 — cite SPEC_A#§6\.1\.$/),
     });
-    expect(evid('req:EXI_MOP_SPF_100_A_30 "La vue détaillée affiche l\'état du poste sélectionné"')[0]).toMatchObject({
-      kind: "quote-not-at-anchor",
-      message: expect.stringMatching(/under req:EXI_MOP_SPF_100_A_30@matrix/),
-    });
-    expect(evid('req:EXI_MOP_SPF_900_A_1 "Le simulateur enregistre chaque commande"')).toEqual([]);
   });
 
   test("a figure source proves its caption only", () => {

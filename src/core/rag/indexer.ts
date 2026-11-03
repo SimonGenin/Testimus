@@ -33,7 +33,6 @@ import { embedWith } from "./embed.ts";
 import { fingerprintOf, legacySpace, spaceOf } from "./fingerprint.ts";
 import { docEdges } from "./graph.ts";
 import { modelForProfile } from "./models.ts";
-import { evidenceOptions } from "./statements.ts";
 
 export type DocIndexStatus = "indexed" | "unchanged" | "removed";
 export type IndexReport = {
@@ -91,7 +90,7 @@ export function docContent(dir: string, doc: Pick<DocJson, "code" | "title">, md
 }
 
 function chunkHash(c: Chunk): string {
-  return sha256(JSON.stringify([c.anchor, c.path, c.header, c.text, c.kind, c.reqIds, c.figureIds])).slice(0, 16);
+  return sha256(JSON.stringify([c.anchor, c.path, c.header, c.text, c.kind, c.figureIds])).slice(0, 16);
 }
 
 async function headersFor(doc: DocJson, chunks: Chunk[], ctx: Ctx, claude?: ClaudeRun): Promise<string[]> {
@@ -122,7 +121,7 @@ async function indexDoc(
     });
     return "unchanged";
   }
-  const chunks = chunkDoc(d.doc, d.md, d.figures, evidenceOptions(project));
+  const chunks = chunkDoc(d.doc, d.md, d.figures);
   const old = new Map(chunksOf(db, d.doc.id).map((c) => [`${c.id} ${c.hash}`, c]));
   let fresh = chunks.filter((c) => !old.has(`${c.id} ${chunkHash(c)}`));
   let keep = new Set(chunks.map((c) => `${c.id} ${chunkHash(c)}`));

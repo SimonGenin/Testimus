@@ -1,18 +1,12 @@
 import { REVIEWS, type Review, type SearchKind, type SyncState } from "../types.ts";
 
-export const KINDS: readonly SearchKind[] = ["test", "requirement", "document", "passage"];
+export const KINDS: readonly SearchKind[] = ["test", "document", "passage"];
 
 const KIND_WORDS: Record<string, SearchKind> = {
   test: "test",
   tests: "test",
   step: "test",
   steps: "test",
-  req: "requirement",
-  reqs: "requirement",
-  requirement: "requirement",
-  requirements: "requirement",
-  exigence: "requirement",
-  exigences: "requirement",
   doc: "document",
   docs: "document",
   document: "document",
@@ -94,7 +88,7 @@ function filter(f: Filters, key: string, value: string): boolean {
 }
 
 // ponytail: Google-like — words, "exact phrases", -excluded words and key:value filters; an unknown key:value
-// (req:EXI_…, an url) stays text
+// (an url, a code with a colon) stays text
 export function parseQuery(raw: string): Query {
   const terms: string[] = [];
   const phrases: string[] = [];

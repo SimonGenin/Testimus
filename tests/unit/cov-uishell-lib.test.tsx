@@ -17,15 +17,7 @@ import {
 } from "../../src/ui/lib/desktop.ts";
 import { resetDoctor, runDoctor, useDoctor, worst } from "../../src/ui/lib/doctor.ts";
 import { flushEditor, setFlusher } from "../../src/ui/lib/editorBus.ts";
-import {
-  DEFAULT_XRAY,
-  fieldViews,
-  isRequirementField,
-  joinIds,
-  parseSourceRef,
-  sourceLabel,
-  splitIds,
-} from "../../src/ui/lib/fields.ts";
+import { DEFAULT_XRAY, fieldViews, parseSourceRef, sourceLabel } from "../../src/ui/lib/fields.ts";
 import { cx, initials, message, plural, relTime } from "../../src/ui/lib/format.ts";
 import { clock, duration, KIND, kindLabel, logLines, percent, resultLine } from "../../src/ui/lib/jobs.ts";
 import { addedSteps } from "../../src/ui/lib/marks.ts";
@@ -366,18 +358,14 @@ describe("fields, marks, revert, editor bus, app context", () => {
     expect(fieldViews(x).map((v) => v.name)).toEqual(["Expected Result", "Action"]);
     const step = { fields: { Data: "  x ", Exigence: "REQ-1" }, sources: [], images: [] };
     expect(fieldViews(x, step)).toEqual([
-      { name: "Expected Result", collapsed: false, requirements: false },
-      { name: "Action", collapsed: false, requirements: false },
-      { name: "Data", collapsed: true, requirements: false },
-      { name: "Exigence", collapsed: false, requirements: true },
+      { name: "Expected Result", collapsed: false },
+      { name: "Action", collapsed: false },
+      { name: "Data", collapsed: true },
+      { name: "Exigence", collapsed: false },
     ]);
-    expect(isRequirementField(" Requirements ")).toBe(true);
   });
 
-  it("splits ids and labels sources", () => {
-    expect(splitIds(" A, B;C\nD ")).toEqual(["A", "B", "C", "D"]);
-    expect(joinIds(["A", "B"])).toBe("A, B");
-    expect(sourceLabel({ docId: "D", anchor: "req:R1" })).toBe("D R1");
+  it("labels sources", () => {
     expect(sourceLabel({ docId: "D", anchor: "fig:3" })).toBe("D Figure 3");
     expect(sourceLabel({ docId: "D", anchor: "§1.2" })).toBe("D §1.2");
     expect(parseSourceRef('D#§1 "a quote"')).toEqual({ docId: "D", anchor: "§1", quote: "a quote" });

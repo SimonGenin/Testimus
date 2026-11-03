@@ -39,13 +39,13 @@ The testers can use it as soon as this lands, with the CSVs they already make.
 
 ## Phase 3 — Generation with sources
 
-- [x] `generate-tests` skill (from the testers' prompt, with source and requirement rules)
+- [x] `generate-tests` skill (from the testers' prompt, with source rules)
 - [x] `gen.tests` job; Generate screen with live output
 - [x] Figures from documents embedded in generated steps
 
 ## Phase 4 — Check and review
 
-- [x] Mechanical check (sources resolve, quotes found, requirement ids exist)
+- [x] Mechanical check (sources resolve, quotes found)
 - [x] `check-test` skill, parallel over a batch; `check.json`
 - [x] Review screen: editor + findings + highlighted source passage; Validate / To fix
 - [x] `fix-test` skill from a To fix note; review state mirrored to Jira labels
@@ -70,8 +70,8 @@ Audit of everything Xray Editor lets a user see, do or edit, then the gaps close
 ## RAG v2 — SPEC-RAG.md (built 2026-11; behavior in SPEC §4, §5, §8, §12, §14)
 
 - [x] R1 Benchmark v2: `behaviors.jsonl`, L1 metrics, `rag.compare` (bootstrap), reports with fingerprints, `gen.bench`
-- [x] R2 Evidence model: statements, matrix rows, graph, passage cap, `quote-not-at-anchor`, `quote-weak`
-- [x] R3 `rag.mentions`, `rag.related`, `expand`; skills updated; evidence ledger, `related-unread`, `review.evidence`
+- [x] R2 Evidence model: document graph, passage cap, `quote-not-at-anchor`, `quote-weak`
+- [x] R3 `rag.mentions`, `rag.related`, `expand`; skills updated; evidence ledger, `review.evidence`
 - [x] R4 French lexical search: Snowball stemmer, glossary, stop words
 - [x] R5 Vector spaces by fingerprint, migration, per-machine activation, BM25 fallback, transformers.js devices
 - [x] R6 Model manager: catalog, `models.*`, storage folder (move · keep · copy), path and download (SHA-256),
@@ -94,12 +94,10 @@ Audit of everything Xray Editor lets a user see, do or edit, then the gaps close
       proven in a fresh folder (no Windows Sandbox on the build PC; a clean account remains with E0)
 - E5 (optional, out of scope this round): updates from a team folder, proxy from Windows settings
 
-## Tracked ids (SPEC §4 « Tracked ids », §13) — first draft 2026-11-02
+## Smart columns — 2026-11-03
 
-- [x] T1 `traces.*` commands, `project.json.traces`, detection for older projects, Claude proposal, generation told each column
-- [x] T2 UI: « Track ids » dialog (proposal, live preview, what changes, Xray column state), Documents bar, Generate pickers per kind, Settings › Tracked ids
-- [x] T3 Check generic over every kind (`id-unknown`, the requirement field follows `traces`), Review screens group ids by kind, runtime skills read `traces`; statements, `req:` anchors and the graph stay requirement-only by design
-- [x] T4 Coverage per kind: `traces.coverage`, Coverage dialog (not covered / covered / not in the documents), « Generate tests for the missing ids »
+- [x] A step column is a smart column: Claude fills it from its description (Settings › Smart columns); nothing else
+      about a column is special — the documents, the index, the check and the skills know no column by name
 
 ## Claude actions — built 2026-11-03
 
@@ -120,17 +118,15 @@ Audit of everything Xray Editor lets a user see, do or edit, then the gaps close
 What 85 real runs showed (one « whole document » generation: 103 turns, 20 tests written from one read, one of 40
 steps, 172 findings, `vague-result` first; `rag_related` never called):
 
-- [x] K1 `plan-tests` skill: past 15 requirements in scope the generation may answer with a `test-plan` block instead of
-      tests; `gen.tests` then runs generate-tests once per planned test (at most 30), the plan's `uncovered` in the
-      report, one revert for all (`planned` in the result)
+- [x] K1 `plan-tests` skill: on a large scope the generation may answer with a `test-plan` block instead of tests;
+      `gen.tests` then runs generate-tests once per planned test (at most 30), one revert for all (`planned` in the result)
 - [x] K2 `edit-test` skill for the Claude panel on a test or a step (`claude.run` names it), with `check_run` allowed
-- [x] K3 generate-tests: an expected result is observable on the screen (else uncovered), the test states its starting
+- [x] K3 generate-tests: an expected result is observable on the screen (else left out), the test states its starting
       point, a chapter is not a scenario, every `check_run` finding fixed (`quote-weak` too), re-read with `tests_show`
-- [x] K4 check-test: `rag_related` once per requirement id, `rag_mentions` once per object, a missing case is checked
+- [x] K4 check-test: `rag_mentions` once per object, a missing case is checked
       against the other tests first; figures read at the path `rag_figure` gives
 - [x] K5 the team context is `docs_show`'s `context` (most documents have no `context.md`)
 
 ## Later
 
 - Execution support: test sheets for testers, screenshots from R4 runs, NOK → bug draft
-- Requirement coverage report (outside the app, from the `Exigence` field)

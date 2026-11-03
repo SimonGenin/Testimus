@@ -1,7 +1,6 @@
 import { UserError } from "../command.ts";
-import type { ColumnDef, StepColumn, Trace, XrayField, XrayJson } from "../types.ts";
-import { fieldOrder, localColumns, readProject, readXray, writeProject, writeXray } from "./project.ts";
-import { projectTraces, type Scope, scanTrace, scopeIds } from "./traces.ts";
+import type { ColumnDef, StepColumn, XrayField, XrayJson } from "../types.ts";
+import { fieldOrder, localColumns, readXray, writeXray } from "./project.ts";
 
 export const DEFAULT_DESCRIPTIONS: Record<string, string> = {
   Action: "One operator gesture per step, in the imperative, on an object named as the screen names it.",
@@ -11,7 +10,6 @@ export const DEFAULT_DESCRIPTIONS: Record<string, string> = {
 };
 
 const RESERVED = /^(sources|description|attachments|expected|result|step)$/i;
-const MAX_IDS = 300;
 
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
 
@@ -20,31 +18,13 @@ function defOf(x: XrayJson, name: string, field?: XrayField): ColumnDef | undefi
   return (field && defs.find((c) => c.id === field.id)) ?? defs.find((c) => same(c.name, name));
 }
 
-const traceOn = (traces: Trace[], name: string) => traces.find((t) => same(t.field, name));
-
-// ponytail: an id column never described keeps what the generation always wrote there, so a project from before
-// the descriptions generates as it did; an empty description the team saved is kept empty
-function defaultDescription(name: string, builtin: boolean, trace?: Trace): string | undefined {
-  if (builtin) return DEFAULT_DESCRIPTIONS[name] ?? "";
-  if (trace) return `The ${trace.label} ids this step actually verifies, comma-separated.`;
-  return undefined;
-}
-
 export function stepColumns(project: string, x: XrayJson = readXray(project)): StepColumn[] {
-  const traces = projectTraces(project).traces;
   const local = new Set(localColumns(x));
-  const names = fieldOrder(x);
-  // ponytail: an id column tracked before its Xray field exists is a local column until the team adds the field
-  for (const t of traces)
-    if (!names.some((n) => same(n, t.field))) {
-      names.push(t.field);
-      local.add(t.field);
-    }
-  return names.map((name) => {
+  return fieldOrder(x).map((name) => {
     const field = local.has(name) ? undefined : x.fields.find((f) => f.name === name);
     const def = defOf(x, name, field);
     const builtin = !!field?.builtin;
-    const fallback = defaultDescription(name, builtin, traceOn(traces, name));
+    const fallback = builtin ? (DEFAULT_DESCRIPTIONS[name] ?? "") : undefined;
     return {
       name,
       origin: field ? "xray" : "local",
@@ -109,16 +89,13 @@ export function removeColumn(project: string, name: string): StepColumn[] {
     },
   };
   writeXray(project, next);
-  const p = readProject(project);
-  if (p.traces?.some((t) => same(t.field, local)))
-    writeProject(project, { ...p, traces: p.traces.filter((t) => !same(t.field, local)) });
   return stepColumns(project, next);
 }
 
-// ponytail: Xray is read again — a field renamed there (same id) carries its description, folding and tracked
-// ids to the new name; a field Xray dropped stays as a local column so the text the tests hold is never lost;
+// ponytail: Xray is read again — a field renamed there (same id) carries its description and folding to the new
+// name; a field Xray dropped stays as a local column so the text the tests hold is never lost;
 // a local column the team then created in Xray becomes that field
-export function followXray(project: string, before: XrayJson, fields: XrayField[]): XrayJson {
+export function followXray(before: XrayJson, fields: XrayField[]): XrayJson {
   const renames = new Map<string, string>();
   const known = [...before.fields, ...(before.columns ?? []).filter((c) => c.id)];
   for (const f of known) {
@@ -149,43 +126,17 @@ export function followXray(project: string, before: XrayJson, fields: XrayField[
     },
     ...(defs.length ? { columns: defs } : {}),
   };
-  const proj = readProject(project);
-  if (renames.size && proj.traces?.some((t) => renames.has(t.field)))
-    writeProject(project, { ...proj, traces: proj.traces.map((t) => ({ ...t, field: rename(t.field) })) });
   return next;
 }
 
-// ponytail: the columns are said in the request, so the generate-tests skill writes a column it has never heard
-// of; an id column carries its pattern and, when the generation has a scope, every id written in that scope
-export function columnGuidance(project: string, scope?: Scope): string[] {
-  const columns = stepColumns(project);
-  const traces = projectTraces(project).traces;
-  const lines = ["", "Step columns — write each as ### <column> in every step, following its description:"];
+// ponytail: the smart columns are said in the request, so the generate-tests skill writes a column it has never
+// heard of, following its description
+export function columnGuidance(project: string): string[] {
+  const lines = ["", "Smart columns — write each as ### <column> in every step, following its description:"];
   const empty: string[] = [];
-  for (const c of columns) {
-    if (!c.description) {
-      empty.push(c.name);
-      continue;
-    }
-    lines.push(`- ### ${c.name}: ${c.description}`);
-    const t = traceOn(traces, c.name);
-    if (!t) continue;
-    let examples: string[] = [];
-    try {
-      examples = scanTrace(project, t.patterns, { limit: 3 }).items.map((i) => i.id);
-    } catch {}
-    lines.push(
-      `  Ids only as the documents write them (pattern ${t.patterns.join(" | ")}${examples.length ? `, e.g. ${examples.join(", ")}` : ""}); leave the column out of a step that verifies none.`,
-    );
-    if (!scope) continue;
-    let ids: string[] = [];
-    try {
-      ids = scopeIds(project, t.patterns, scope);
-    } catch {}
-    if (ids.length)
-      lines.push(
-        `  ${t.label} ids written in the scope, each to be verified by at least one step (report the ones you cannot cover): ${ids.slice(0, MAX_IDS).join(", ")}${ids.length > MAX_IDS ? ` and ${ids.length - MAX_IDS} more — find them with rag_mentions` : ""}`,
-      );
+  for (const c of stepColumns(project)) {
+    if (c.description) lines.push(`- ### ${c.name}: ${c.description}`);
+    else empty.push(c.name);
   }
   if (empty.length) lines.push(`Leave these columns empty — never write them: ${empty.join(", ")}.`);
   return lines;

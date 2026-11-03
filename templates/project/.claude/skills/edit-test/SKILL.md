@@ -1,6 +1,6 @@
 ---
 name: edit-test
-description: Change existing Xray tests as the user asks — rephrase, add, split or remove steps, add a negative path, change a requirement field, fix a source, translate — keeping step ids, pictures and sources valid. Use for a request on a test or a step from the Testimus Claude panel, or any request to modify an existing test that is neither a To fix note (fix-test) nor new tests (generate-tests).
+description: Change existing Xray tests as the user asks — rephrase, add, split or remove steps, add a negative path, fill a smart column, fix a source, translate — keeping each step's `<!-- id -->`, pictures and sources valid. Use for a request on a test or a step from the Testimus Claude panel, or any request to modify an existing test that is neither a To fix note (fix-test) nor new tests (generate-tests).
 ---
 
 # Edit a test
@@ -15,12 +15,11 @@ a test scope that test, a tests scope those tests. Everything outside it stays b
    `Write` only when the request changes most of it, and keep those three as they are.
 3. **Sources.** Every expected result you add or change gets its source line, with the rules of
    generate-tests: `- <docId>#<anchor> "<words copied from docs/<docId>/doc.md>"`, the quote inside
-   the cited passage itself. Find the passage with `rag_related` (the step's requirement ids),
-   `rag_mentions` (its objects) and `rag_search`, then read it in `doc.md`. A request that asks for
+   the cited passage itself. Find the passage with `rag_mentions` (the step's objects),
+   `rag_related` (the sections it cites) and `rag_search`, then read it in `doc.md`. A request that asks for
    a behavior no passage states: write nothing for it and say so.
-4. **Requirement field** (`Exigence`) and the tracked columns of `project.json.traces`: each step
-   lists only the ids it verifies. When the request removes or moves ids, the `### Sources` lines
-   stay — they prove claims, they are not the link.
+4. **Smart columns** (`columns_list`): a column you write follows its description; a column whose
+   description is empty stays empty.
 5. Leave the frontmatter's `review`, `review_note`, `reviewed_by`, `reviewed_at` and `generated_by`
    as they are, and never edit `check.json`: the edit makes the last check stale and Testimus shows it.
 6. **Done** when, after your last write, `check_run` with `semantic: false` on each changed test

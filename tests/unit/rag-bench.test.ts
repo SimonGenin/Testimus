@@ -50,10 +50,10 @@ afterEach(() => {
 describe("agentic recall", () => {
   it("is the share of must evidence among the refs Claude opened", () => {
     const resolve = chunkResolver([
-      { docId: D3, anchor: "§5.6.6", reqIds: ["EXI_MOP_SPF_511_A_1670"], figureIds: ["40"] },
-      { docId: D4, anchor: "§4.2", reqIds: [], figureIds: [] },
+      { docId: D3, anchor: "§5.6.6", figureIds: ["40"] },
+      { docId: D4, anchor: "§4.2", figureIds: [] },
     ]);
-    const must = [`${D3}#req:EXI_MOP_SPF_511_A_1670`, `${D3}#fig:40`, `${D4}#§4.2`, `${D3}#§5.6.7`];
+    const must = [`${D3}#§5.6.6`, `${D3}#fig:40`, `${D4}#§4.2`, `${D3}#§5.6.7`];
     expect(agenticRecall(must, [resolve(`${D3}#§5.6.6`)])).toBe(2 / 4);
     expect(agenticRecall(must, [resolve(`${D3}#§5.6.6`), resolve(`${D4}#§ 4.2`)])).toBe(3 / 4);
     expect(agenticRecall(must, [])).toBe(0);

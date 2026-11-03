@@ -119,7 +119,7 @@ test("serialized output is exactly the format of SPEC section 6", () => {
     clonedFrom: "BHPTCC-2083",
     preconditions: ["BHPTCC-2075", "BHPTCC-2077"],
     review: "to-fix",
-    reviewNote: "Step 2: wrong requirement",
+    reviewNote: "Step 2: wrong menu",
     reviewedBy: "tester",
     reviewedAt: "2026-10-31T15:20:00.000Z",
     generatedBy: "gen-tests-1a2b3c4d",
@@ -156,7 +156,7 @@ covers: [BHPTCC-2174, BHPTCC-2175]
 cloned_from: BHPTCC-2083
 preconditions: [BHPTCC-2075, BHPTCC-2077]
 review: to-fix
-review_note: "Step 2: wrong requirement"
+review_note: "Step 2: wrong menu"
 reviewed_by: tester
 reviewed_at: 2026-10-31T15:20:00.000Z
 generated_by: gen-tests-1a2b3c4d
@@ -551,7 +551,7 @@ test("the fixture tests read as generic fields, sources and review state", () =>
   expect(t.steps[0].sources).toEqual([
     {
       docId: "SOSIE_211_D401-1_3",
-      anchor: "req:EXI_MOP_SPF_511_A_1650",
+      anchor: "§5.6.6",
       quote: "Le sectionneur est représenté sur la schématique de traction par le symbole de la Figure 40",
     },
     { docId: "SOSIE_211_D401-1_3", anchor: "fig:40", quote: "Figure 40 – Représentation graphique sectionneur" },

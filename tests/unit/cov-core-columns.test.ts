@@ -13,8 +13,7 @@ import {
   saveColumn,
   stepColumns,
 } from "../../src/core/lib/columns.ts";
-import { fieldOrder, readProject, readXray, writeXray } from "../../src/core/lib/project.ts";
-import { scopeIds } from "../../src/core/lib/traces.ts";
+import { fieldOrder, readXray, writeXray } from "../../src/core/lib/project.ts";
 import type { XrayField } from "../../src/core/types.ts";
 
 let dir = "";
@@ -47,10 +46,11 @@ beforeEach(() => {
 
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
-describe("step columns", () => {
+describe("smart columns", () => {
   it("the built-ins carry a default description; a custom field never described is new", () => {
-    project({ traces: [{ id: "requirement", label: "Requirement", patterns: ["EXI_\\w+"], field: "Exigence" }] });
-    xray([exigence, { id: "cf2", name: "Version", type: "text", builtin: false }]);
+    xray([exigence, { id: "cf2", name: "Version", type: "text", builtin: false }], {
+      columns: [{ name: "Exigence", id: "cf1", description: "Le numéro du paragraphe" }],
+    });
     const cols = stepColumns(dir);
     expect(cols.map((c) => [c.name, c.origin, c.status])).toEqual([
       ["Action", "xray", "ok"],
@@ -60,7 +60,7 @@ describe("step columns", () => {
       ["Version", "xray", "new"],
     ]);
     expect(cols[0].description).toBe(DEFAULT_DESCRIPTIONS.Action);
-    expect(cols[3].description).toBe("The Requirement ids this step actually verifies, comma-separated.");
+    expect(cols[3].description).toBe("Le numéro du paragraphe");
     expect(cols[4].description).toBe("");
   });
 
@@ -95,8 +95,7 @@ describe("step columns", () => {
     expect(() => saveColumn(dir, { name: "Autre", description: "" })).not.toThrow();
   });
 
-  it("removes a local column with its folding and tracked ids, never an Xray field", async () => {
-    project({ traces: [{ id: "note", label: "Note", patterns: ["N-\\d+"], field: "Note" }] });
+  it("removes a local column with its folding, never an Xray field", async () => {
     xray([exigence], {
       columns: [{ name: "Note", description: "x" }],
       prefs: { order: ["Note"], collapsed: ["Note"], hidden: ["Note"], filled: ["Note"], open: ["Note"] },
@@ -107,19 +106,9 @@ describe("step columns", () => {
     const x = readXray(dir);
     expect(x.columns).toBeUndefined();
     expect(x.prefs).toMatchObject({ order: [], collapsed: [], hidden: [], filled: [], open: [] });
-    expect(readProject(dir).traces).toEqual([]);
   });
 
-  it("an id column tracked before its Xray field exists is a local column, removable", () => {
-    project({ traces: [{ id: "uc", label: "Use case", patterns: ["UC-\\d+"], field: "Cas" }] });
-    const cas = stepColumns(dir).find((c) => c.name === "Cas");
-    expect(cas).toMatchObject({ origin: "local", status: "ok", description: expect.stringContaining("Use case ids") });
-    removeColumn(dir, "Cas");
-    expect(readProject(dir).traces).toEqual([]);
-  });
-
-  it("follows Xray: a rename keeps the description, folding and tracked ids; a dropped field stays local", () => {
-    project({ traces: [{ id: "requirement", label: "Requirement", patterns: ["EXI_\\d+"], field: "Exigence" }] });
+  it("follows Xray: a rename keeps the description and folding; a dropped field stays local", () => {
     const gone: XrayField = { id: "cf3", name: "Ancien", type: "text", builtin: false };
     xray([exigence, gone], {
       columns: [
@@ -133,7 +122,7 @@ describe("step columns", () => {
       { ...exigence, name: "Exigences" },
       { id: "cf9", name: "version", type: "text", builtin: false },
     ];
-    const next = followXray(dir, readXray(dir), now);
+    const next = followXray(readXray(dir), now);
     writeXray(dir, next);
     expect(next.prefs).toMatchObject({ order: ["Exigences"], collapsed: ["Exigences"], open: ["Exigences"] });
     expect(next.columns).toEqual([
@@ -141,28 +130,27 @@ describe("step columns", () => {
       { name: "version", id: "cf9", description: "La version" },
       { name: "Ancien", id: "cf3" },
     ]);
-    expect(readProject(dir).traces?.[0].field).toBe("Exigences");
     const cols = stepColumns(dir);
     expect(cols.find((c) => c.name === "Ancien")).toMatchObject({ origin: "local", status: "gone" });
     expect(cols.find((c) => c.name === "version")).toMatchObject({ origin: "xray", description: "La version" });
-    const plain = followXray(dir, { ...readXray(dir), columns: undefined }, now);
+    const plain = followXray({ ...readXray(dir), columns: undefined }, now);
     expect(plain.columns).toBeUndefined();
   });
 
-  it("guides the generation: described columns, empty ones left out, ids of the scope", () => {
-    project({ traces: [{ id: "requirement", label: "Requirement", patterns: ["EXI_\\d+"], field: "Exigence" }] });
-    xray([exigence], { columns: [{ name: "Data", id: "data", description: "" }] });
-    write(
-      "docs/D/doc.md",
-      "# D\n\n## 1 A <!-- § 1 -->\n\nEXI_1 <!-- req EXI_9 -->\n\n### 1.1 B <!-- § 1.1 -->\n\nEXI_2\n\n## 2 C <!-- § 2 -->\n\nEXI_3\n",
-    );
-    write("docs/E/doc.md", "# E\n\nEXI_4\n");
-    const lines = columnGuidance(dir, { docs: ["E"], sections: ["D#§1"] }).join("\n");
-    expect(lines).toContain("- ### Action: ");
-    expect(lines).toContain("Leave these columns empty — never write them: Data.");
-    expect(lines).toMatch(/cannot cover\): EXI_1, EXI_2, EXI_4$/m);
-    expect(scopeIds(dir, ["EXI_\\d+"], { docs: [], sections: [] })).toEqual([]);
-    expect(columnGuidance(dir).join("\n")).not.toContain("written in the scope");
+  it("guides the generation: each described smart column with its description, empty ones left out", () => {
+    xray([exigence], {
+      columns: [
+        { name: "Data", id: "data", description: "" },
+        { name: "Exigence", id: "cf1", description: "Le paragraphe vérifié" },
+      ],
+    });
+    const lines = columnGuidance(dir);
+    expect(lines[1]).toBe("Smart columns — write each as ### <column> in every step, following its description:");
+    expect(lines).toContain(`- ### Action: ${DEFAULT_DESCRIPTIONS.Action}`);
+    expect(lines).toContain("- ### Exigence: Le paragraphe vérifié");
+    expect(lines.at(-1)).toBe("Leave these columns empty — never write them: Data.");
+    xray();
+    expect(columnGuidance(dir).some((l) => l.startsWith("Leave"))).toBe(false);
   });
 });
 
@@ -178,9 +166,9 @@ describe("generation input", () => {
     write("docs/D/doc.md", "# D\n");
     const p = genPrompt(dir, { request: "Menus", docs: ["D"], note: " Poste PCC " });
     expect(p).toContain("Documents in scope, each in full (find in them what the request is about): D");
-    expect(p).toContain("Step columns — write each as ### <column>");
+    expect(p).toContain("Smart columns — write each as ### <column>");
     expect(p).toContain("Additional context from the user for this run:\nPoste PCC");
-    expect(genPrompt(dir, { request: "", docs: ["D"] })).toContain("(cover the behaviors they specify)");
+    expect(genPrompt(dir, { request: "", docs: ["D"] })).toContain("(test the behaviors they specify)");
   });
 
   it("context lines: saved contexts pointed at, the note said in full, nothing when both are empty", () => {

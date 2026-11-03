@@ -29,13 +29,10 @@ describe("rag.search expand (SPEC-RAG §4.1)", () => {
     expect(hits.every((h) => !h.via)).toBe(true);
   });
 
-  it("section adds the parent and the traced sections after the k hits, once, flagged via", async () => {
+  it("section adds the parent section that has text of its own after the k hits, flagged via", async () => {
     const top = await search(dir, "double clic", { mode: "bm25", k: 2 });
     const hits = await search(dir, "double clic", { mode: "bm25", k: 2, expand: "section" });
-    expect(hits.slice(0, 2)).toEqual(top);
-    const added = refs(hits.slice(2));
-    expect(added).toContain("SPEC_A#§3.2 via section");
-    expect(new Set(refs(hits).map((r) => r.split(" ")[0])).size).toBe(hits.length);
+    expect(hits).toEqual(top);
     const parent = await search(dir, "reproduit le poste de commande centralisé", {
       mode: "bm25",
       k: 1,
@@ -44,18 +41,10 @@ describe("rag.search expand (SPEC-RAG §4.1)", () => {
     expect(refs(parent)).toEqual(["SPEC_A#§1.1", "SPEC_A#§1 via section"]);
   });
 
-  it("graph adds the statements of the requirements a hit carries or names", async () => {
+  it("graph adds the sections a hit cross-references, in its document and others", async () => {
     const hits = await search(dir, "double clic", { mode: "bm25", k: 2, expand: "graph" });
-    const statement = hits.find((h) => h.anchor === "req:EXI_MOP_SPF_100_A_40");
-    expect(statement).toMatchObject({
-      docId: "SPEC_A",
-      via: "graph",
-      kind: "section",
-      path: "2 > 2.2",
-      text: "**EXI_MOP_SPF_100_A_40**\n\nLa vue détaillée s'ouvre par un double clic sur le poste.",
-    });
-    expect(refs(hits)).toContain("SPEC_A#§3.2 via section");
-    expect(hits.indexOf(statement as SearchHit)).toBeGreaterThanOrEqual(2);
+    expect(refs(hits)).toEqual(["SPEC_A#§2.2", "SPEC_A#§6.1", "SPEC_B#§4.1 via graph", "SPEC_A#§2.1 via graph"]);
+    expect(hits.find((h) => h.anchor === "§4.1")).toMatchObject({ docId: "SPEC_B", kind: "section", via: "graph" });
   });
 
   it("defaults to project.json rag.retrieval.expand, through the rag.search command", async () => {
@@ -65,7 +54,7 @@ describe("rag.search expand (SPEC-RAG §4.1)", () => {
     try {
       const hits = (await invoke(
         "rag.search",
-        { query: "double clic", mode: "bm25", k: 2 },
+        { query: "reproduit le poste de commande centralisé", mode: "bm25", k: 1 },
         { project: dir },
       )) as SearchHit[];
       expect(hits.some((h) => h.via === "section")).toBe(true);

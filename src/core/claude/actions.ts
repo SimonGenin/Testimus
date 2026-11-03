@@ -35,7 +35,7 @@ export function triagePrompt(
   return [
     `${TRIAGE_MARKER} of ${where}: Testimus found the problems below.`,
     "For each one, decide whether you could fix it yourself in a later run, with the app's own commands",
-    "(mcp__testimus__ tools: docs_*, tests_*, traces_*, columns_*, contexts_*, check_run, rag_index…).",
+    "(mcp__testimus__ tools: docs_*, tests_*, columns_*, contexts_*, check_run, rag_index…).",
     "Look first (read only: the project files, the documents, the tests, rag_search); do not change anything now.",
     "",
     "Problems:",
@@ -72,7 +72,7 @@ export function actionPrompt(
   lines.push(
     "",
     "You may use every mcp__testimus__ tool: they are the app's own commands, the same as its CLI and its buttons.",
-    "Change documents, settings and traces through them (docs_convert, docs_set, project_set, traces_save…);",
+    "Change documents, settings and smart columns through them (docs_convert, docs_set, project_set, columns_save…);",
     "files under docs/, index/, .testimus/ and project.json are refused to Edit and Write.",
     "Tests follow the test.md format of CLAUDE.md; every claim keeps or gets its source line",
     '`<docId>#<anchor> "<exact quote from doc.md>"`, found with rag_search and rag_passage.',

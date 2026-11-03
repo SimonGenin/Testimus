@@ -26,15 +26,14 @@ import { plural } from "../../lib/format.ts";
 import { type DocScope, scopeOf } from "../../lib/scope.ts";
 import { useSideWidth } from "../../lib/sideWidth.ts";
 import { errorToast } from "../../lib/toast.ts";
-import { REQUIREMENT, takeHandoff } from "../../lib/traces.ts";
 import { ColumnsView } from "./ColumnsView.tsx";
 import { DocScopePicker } from "./DocScopePicker.tsx";
 import { GenActivity } from "./GenActivity.tsx";
 import {
-  Coverage,
   checkLine,
   GenCard,
   type GenOutput,
+  GenSummary,
   type Landed,
   landedIds,
   passagesRead,
@@ -52,16 +51,13 @@ export function GenerateScreen() {
   const [formW, formEdge] = useSideWidth("testimus.genFormWidth", 320, 720, "before");
   const cfg = app.info?.project;
   const columns = (app.info?.columns ?? []) as StepColumn[];
-  const traces = app.info?.traces ?? [];
   const [request, setRequest] = useDraft("generate.request", "");
-  const [handed, setHanded] = useDraft<Record<string, string[]>>("generate.handed", {});
   const [docs, setDocs] = useState<DocRef[] | null>(null);
   const [scopes, setScopes] = useDraft<Record<string, DocScope>>("generate.scopes", {});
   const [contexts, setContexts] = useDraft<string[] | null>("generate.contexts", null);
   const [model, setModel] = useState(chosen?.model ?? "");
   const [effort, setEffort] = useState<Effort | "">(chosen?.effort ?? "");
   const [jobId, setJobId] = useState<string | null>(null);
-  const [asked, setAsked] = useState<{ label: string; ids: string[] }[]>([]);
   const [starting, setStarting] = useState(false);
   const [replacing, setReplacing] = useState<string[] | null>(null);
   const [status, setStatus] = useState<ClaudeStatus | null>(null);
@@ -80,7 +76,6 @@ export function GenerateScreen() {
   const runModel = model || cfg?.claude.model || "opus";
   const runEffort: Effort = effort || cfg?.claude.effort || "high";
   const ctxIds = contexts ?? cfg?.claude.contexts ?? [];
-  const handedIds = Object.entries(handed).filter(([, v]) => v.length);
 
   const claudeCheck = useCallback((refresh = false) => {
     setCheckingClaude(refresh);
@@ -88,12 +83,6 @@ export function GenerateScreen() {
       .then(setStatus)
       .catch(() => {})
       .finally(() => setCheckingClaude(false));
-  }, []);
-
-  // ponytail: ids handed by another screen replace the draft, once
-  useEffect(() => {
-    const h = takeHandoff();
-    if (Object.keys(h).length) setHanded(h);
   }, []);
 
   useEffect(() => {
@@ -166,7 +155,7 @@ export function GenerateScreen() {
     scopes,
     (docs ?? []).map((d) => d.id),
   );
-  const empty = !request.trim() && !scope.docs.length && !scope.sections.length && !handedIds.length;
+  const empty = !request.trim() && !scope.docs.length && !scope.sections.length;
 
   const pickModel = (m: string) => {
     setModel(m);
@@ -184,16 +173,12 @@ export function GenerateScreen() {
 
   const generate = async (replace: string[] = []) => {
     if (empty) return;
-    const reqs = handed[REQUIREMENT] ?? [];
-    const tracked = handedIds.filter(([k]) => k !== REQUIREMENT).map(([trace, v]) => ({ trace, ids: v }));
     setStarting(true);
     try {
       const r = await call<{ jobId?: string }>("gen.tests", {
         request: request.trim(),
         ...(scope.docs.length ? { docs: scope.docs } : {}),
         ...(scope.sections.length ? { sections: scope.sections } : {}),
-        ...(reqs.length ? { requirements: reqs } : {}),
-        ...(tracked.length ? { tracked } : {}),
         contexts: ctxIds,
         model: runModel,
         effort: runEffort,
@@ -204,7 +189,6 @@ export function GenerateScreen() {
       if (r?.jobId) {
         chained.current = null;
         setLanded({});
-        setAsked(handedIds.map(([k, v]) => ({ label: traces.find((t) => t.id === k)?.label ?? k, ids: v })));
         setJobId(r.jobId);
       }
     } catch (e) {
@@ -251,18 +235,7 @@ export function GenerateScreen() {
               onIds={setContexts}
               onNote={setRequest}
             />
-            <span className="muted gen-hint">Optional: empty means cover what the documents below specify.</span>
-            {handedIds.map(([k, v]) => (
-              <div key={k} className="gen-handed">
-                <span>
-                  From Coverage: {plural(v.length, `${(traces.find((t) => t.id === k)?.label ?? k).toLowerCase()} id`)}{" "}
-                  to cover
-                </span>
-                <button type="button" className="linkbtn" onClick={() => setHanded({ ...handed, [k]: [] })}>
-                  Clear
-                </button>
-              </div>
-            ))}
+            <span className="muted gen-hint">Optional: empty means test what the documents below specify.</span>
           </div>
 
           <div className="gen-block">
@@ -365,7 +338,7 @@ export function GenerateScreen() {
                   onCancel={() => void cancel()}
                   onReview={() => app.navigate("review", ids[0])}
                 />
-                {result && <Coverage asked={asked} result={result} checked={checkText} />}
+                {result && <GenSummary result={result} checked={checkText} />}
                 {job?.status === "failed" && <p>{job.error}</p>}
                 {result?.diagnosis && <p className="muted">{result.diagnosis.detail}</p>}
               </div>

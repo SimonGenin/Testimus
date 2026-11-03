@@ -183,10 +183,10 @@ function reviewRoutes() {
         },
         {
           step: 2,
-          kind: "wrong-requirement",
+          kind: "contradicted",
           severity: "error",
-          message: "EXI_MOP_SPF_510_A_20 porte sur le TCO à deux rangs.",
-          sources: ["SOSIE_211_D401-1_3#req:EXI_MOP_SPF_510_A_20"],
+          message: "Le passage porte sur le TCO à deux rangs.",
+          sources: ["SOSIE_211_D401-1_3#§5.6.6"],
         },
       ],
     },
@@ -215,7 +215,7 @@ describe("Review screen", () => {
     expect(within(queue).getByText("Not checked yet")).toBeInTheDocument();
 
     const step2 = await screen.findByRole("article", { name: "Step 2" });
-    expect(within(step2).getByText(/Error · Wrong requirement/)).toBeInTheDocument();
+    expect(within(step2).getByText(/Error · Contradicted/)).toBeInTheDocument();
     expect(screen.getByText("Whole test")).toBeInTheDocument();
     await waitFor(() => expect(named("rag.passage").length).toBeGreaterThan(0));
     expect(named("rag.passage")[0].input.ref).toMatch(/^SOSIE_211_D401-1_3#/);
@@ -335,7 +335,7 @@ describe("Generate screen", () => {
             { id: "local-bbbbbbbb", ok: false, review: "draft", errors: 2, warnings: 1 },
           ],
           changed: [],
-          uncovered: [{ item: "EXI_MOP_SPF_511_A_1660", why: "no passage describes the alarm" }],
+          skipped: [{ item: "Alarme de sectionneur", why: "no passage describes the alarm" }],
           reportFound: true,
           durationMs: 1000,
         },
@@ -375,7 +375,6 @@ describe("Documents screen", () => {
       doc: doc(String(i.id), "Traction", "fresh"),
       context: "",
       toc: [{ anchor: "§5", title: "Traction", level: 1 }],
-      requirements: [],
       figures: [],
       md: "## 5 Traction",
     });
@@ -403,7 +402,7 @@ describe("Documents screen", () => {
     };
     let added = false;
     routes["docs.list"] = () => (added ? [doc] : []);
-    routes["docs.show"] = () => ({ doc, context: "", toc: [], requirements: [], figures: [], md: "" });
+    routes["docs.show"] = () => ({ doc, context: "", toc: [], figures: [], md: "" });
     routes["docs.add"] = () => {
       added = true;
       return { id: doc.id };

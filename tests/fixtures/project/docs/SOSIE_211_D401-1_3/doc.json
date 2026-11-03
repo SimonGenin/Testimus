@@ -10,5 +10,5 @@
   "convertedWith": "fixture",
   "convertedAt": "2026-10-30T09:00:00.000Z",
   "warnings": ["2 Word comments were dropped", "Figure 41 is a shape drawn in Word: only its labels survive"],
-  "stats": { "sections": 6, "figures": 1, "requirements": 5, "chars": 2400 }
+  "stats": { "sections": 6, "figures": 1, "chars": 2400 }
 }

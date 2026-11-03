@@ -63,7 +63,7 @@ export const isCode = (raw: string) =>
   /[_\d]/.test(raw) || /[\p{L}\p{N}][-#§:.][\p{L}\p{N}]/u.test(raw) || /^§/.test(raw);
 
 // ponytail: a term is a word (matched on the vocabulary: same word, same French stem, a prefix while typing, one or
-// two typos) or a code (a key, a requirement id, a section: matched as it is written, inside the text)
+// two typos) or a code (a key, a code, a section: matched as it is written, inside the text)
 type Term =
   | { kind: "word"; raw: string; levels: Map<string, number> }
   | { kind: "code"; raw: string; needle: string }
@@ -76,7 +76,7 @@ function wordTerm(raw: string, vocab: Map<string, string>, last: boolean): Term 
     .replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "")
     .trim();
   if (!w) return null;
-  if (isCode(w) || /[^\p{L}\p{N}]/u.test(w)) return { kind: "code", raw, needle: w.replace(/^req:/, "") };
+  if (isCode(w) || /[^\p{L}\p{N}]/u.test(w)) return { kind: "code", raw, needle: w };
   const stem = stemWord(w);
   const levels = new Map<string, number>();
   const typos = w.length >= 8 ? 2 : w.length >= 5 ? 1 : 0;
