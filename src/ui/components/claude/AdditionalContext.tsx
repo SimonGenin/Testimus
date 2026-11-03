@@ -13,6 +13,8 @@ export function AdditionalContext({
   ids,
   note,
   of = "this run",
+  labelled,
+  placeholder,
   compact,
   disabled,
   onIds,
@@ -23,6 +25,8 @@ export function AdditionalContext({
   ids: string[];
   note: string;
   of?: string;
+  labelled?: boolean;
+  placeholder?: string;
   compact?: boolean;
   disabled?: boolean;
   onIds: (ids: string[]) => void;
@@ -69,14 +73,16 @@ export function AdditionalContext({
       )}
       {showNote && (
         <>
-          <label htmlFor={id} className="sr">
-            Note for {of}
-          </label>
+          {!labelled && (
+            <label htmlFor={id} className="sr">
+              Note for {of}
+            </label>
+          )}
           <textarea
             id={id}
             className="field addctx-note"
             rows={compact ? 2 : 3}
-            placeholder={`Anything Claude should know for ${of}…`}
+            placeholder={placeholder ?? `Anything Claude should know for ${of}…`}
             value={note}
             disabled={disabled}
             autoFocus={compact && writing && !note}

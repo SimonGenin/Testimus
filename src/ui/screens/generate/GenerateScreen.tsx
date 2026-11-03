@@ -58,7 +58,6 @@ export function GenerateScreen() {
   const [docs, setDocs] = useState<DocRef[] | null>(null);
   const [scopes, setScopes] = useDraft<Record<string, DocScope>>("generate.scopes", {});
   const [contexts, setContexts] = useDraft<string[] | null>("generate.contexts", null);
-  const [note, setNote] = useDraft("generate.note", "");
   const [model, setModel] = useState(chosen?.model ?? "");
   const [effort, setEffort] = useState<Effort | "">(chosen?.effort ?? "");
   const [jobId, setJobId] = useState<string | null>(null);
@@ -196,7 +195,6 @@ export function GenerateScreen() {
         ...(reqs.length ? { requirements: reqs } : {}),
         ...(tracked.length ? { tracked } : {}),
         contexts: ctxIds,
-        ...(note.trim() ? { note: note.trim() } : {}),
         model: runModel,
         effort: runEffort,
         ...(replace.length ? { discard: true } : {}),
@@ -244,13 +242,14 @@ export function GenerateScreen() {
             <label htmlFor="gen-request" className="h gen-label">
               What should be tested?
             </label>
-            <textarea
+            <AdditionalContext
               id="gen-request"
-              className="field"
-              rows={3}
+              labelled
               placeholder="A feature, a screen, an operator procedure… in your own words"
-              value={request}
-              onChange={(e) => setRequest(e.target.value)}
+              ids={ctxIds}
+              note={request}
+              onIds={setContexts}
+              onNote={setRequest}
             />
             <span className="muted gen-hint">Optional: empty means cover what the documents below specify.</span>
             {handedIds.map(([k, v]) => (
@@ -269,13 +268,6 @@ export function GenerateScreen() {
           <div className="gen-block">
             <span className="h gen-label">Documents</span>
             <DocScopePicker docs={docs} scopes={scopes} onChange={setScopes} />
-          </div>
-
-          <div className="gen-block">
-            <span className="h gen-label">
-              Additional context <span className="muted">— optional</span>
-            </span>
-            <AdditionalContext id="gen-note" ids={ctxIds} note={note} onIds={setContexts} onNote={setNote} />
           </div>
 
           <ColumnsView columns={columns} onEdit={() => app.navigate("settings", "columns")} />
@@ -321,13 +313,7 @@ export function GenerateScreen() {
               <li>
                 {plural(columns.length, "column")} · {columns.filter((c) => c.description).length} filled by Claude
               </li>
-              {(ctxIds.length > 0 || note.trim()) && (
-                <li>
-                  {ctxIds.length ? plural(ctxIds.length, "saved context") : ""}
-                  {ctxIds.length && note.trim() ? " + " : ""}
-                  {note.trim() ? "a note" : ""}
-                </li>
-              )}
+              {ctxIds.length > 0 && <li>{plural(ctxIds.length, "saved context")}</li>}
             </ul>
             <div className="gen-go">
               <Button

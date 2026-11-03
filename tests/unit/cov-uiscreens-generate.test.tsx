@@ -605,18 +605,17 @@ describe("Generate screen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Only some sections…" }));
     fireEvent.click(await screen.findByRole("checkbox", { name: /Intro/ }));
     expect(go).toBeEnabled();
-    fireEvent.change(screen.getByRole("textbox", { name: "Note for this run" }), { target: { value: " PCC " } });
+    fireEvent.change(screen.getByLabelText("What should be tested?"), { target: { value: " PCC " } });
     expect(await screen.findByRole("button", { name: "Leave Glossaire out of this run" })).toBeInTheDocument();
-    expect(screen.getByText("1 saved context + a note")).toBeInTheDocument();
+    expect(screen.getByText("1 saved context")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Model"), { target: { value: "opus" } });
     fireEvent.change(screen.getByLabelText("Effort"), { target: { value: "max" } });
     fireEvent.click(go);
     expect(await screen.findByText("Could not start the generation")).toBeInTheDocument();
     expect(named("gen.tests")[0].input).toEqual({
-      request: "",
+      request: "PCC",
       sections: ["D1#§1"],
       contexts: ["g"],
-      note: "PCC",
       model: "opus",
       effort: "max",
     });
