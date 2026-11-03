@@ -42,9 +42,9 @@ export const APP_VERSION = (
 // ponytail: kept for tests/unit/models-refdoc.test.ts until it imports eval-set.ts (core-rag BESOIN)
 export { readBehaviors };
 
-export const POLICIES = ["search", "search+graph"] as const;
+const POLICIES = ["search", "search+graph"] as const;
 export type PolicyName = (typeof POLICIES)[number];
-export const MENTIONS_PAGES = 10;
+const MENTIONS_PAGES = 10;
 
 // ponytail: a policy whose tool answers « not built yet » is reported unavailable instead of failing the run; tests
 // swap the tools here to prove it (env is no seam for them)
@@ -53,7 +53,7 @@ export const graph = { related, mentions };
 const notBuiltYet = (e: unknown) => e instanceof Error && /not built yet/.test(e.message);
 const size = (o: unknown) => JSON.stringify(o).length;
 
-export type PolicyReport = {
+type PolicyReport = {
   name: PolicyName;
   available: boolean;
   reason?: string;
@@ -61,7 +61,7 @@ export type PolicyReport = {
   totals: Totals | null;
   warnings: string[];
 };
-export type BehaviorReport = {
+type BehaviorReport = {
   id: string;
   question: string;
   category: string | null;
@@ -70,7 +70,7 @@ export type BehaviorReport = {
   rank: number | null;
   policies: Partial<Record<PolicyName, BehaviorScore>>;
 };
-export type EvalConfig = {
+type EvalConfig = {
   chunker: string;
   headers: "claude" | "default";
   space: { id: string; model: string; complete: boolean; fingerprint: SpaceFingerprint } | null;
@@ -100,7 +100,7 @@ export type EvalReport = Scores & {
   report: string;
 };
 
-export type EvalOpts = {
+type EvalOpts = {
   set?: string;
   k?: number;
   embedding?: string;

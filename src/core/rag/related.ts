@@ -10,7 +10,7 @@ import { corpusKey, projectDocs } from "./indexer.ts";
 // ponytail: kept for claude/ledger.ts and lib/check.ts until they import it from rag/anchors.ts (core-rag BESOIN)
 export { normalizeRef };
 
-export type Neighbour = {
+type Neighbour = {
   ref: string;
   kind: EdgeKind;
   direction: "out" | "in";

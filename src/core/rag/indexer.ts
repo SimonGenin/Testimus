@@ -35,8 +35,8 @@ import { embedWith } from "./embed.ts";
 import { fingerprintOf, spaceOf } from "./fingerprint.ts";
 import { docEdges } from "./graph.ts";
 
-export type DocIndexStatus = "indexed" | "unchanged" | "removed";
-export type IndexReport = {
+type DocIndexStatus = "indexed" | "unchanged" | "removed";
+type IndexReport = {
   embedding: string;
   dims: number;
   vectorsRebuilt: boolean;
@@ -47,7 +47,7 @@ export type IndexReport = {
   embedded: number;
   ms: number;
 };
-export type IndexState = {
+type IndexState = {
   embedding: string;
   dims: number;
   builtAt: string;
@@ -55,7 +55,7 @@ export type IndexState = {
   space?: string | null;
 };
 
-export type ProjectDoc = { doc: DocJson; dir: string; md: string; figures: FigureEntry[]; content: string };
+type ProjectDoc = { doc: DocJson; dir: string; md: string; figures: FigureEntry[]; content: string };
 
 const BATCH = 16;
 
@@ -202,7 +202,7 @@ export function unindexDoc(project: string, id: string): void {
   });
 }
 
-export type IndexOpts = {
+type IndexOpts = {
   model?: ResolvedModel | null;
   dbFile?: string;
   force?: boolean;

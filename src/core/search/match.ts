@@ -22,10 +22,10 @@ export function corpus<T extends Doc>(docs: T[]): Corpus<T> {
   return { docs, vocab };
 }
 
-export const EXACT = 1;
-export const STEM = 0.9;
-export const PREFIX = 0.75;
-export const FUZZY = 0.6;
+const EXACT = 1;
+const STEM = 0.9;
+const PREFIX = 0.75;
+const FUZZY = 0.6;
 
 export function distance(a: string, b: string, max: number): number {
   if (Math.abs(a.length - b.length) > max) return max + 1;

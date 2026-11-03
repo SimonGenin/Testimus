@@ -7,7 +7,7 @@ import { expandTerm } from "./glossary.ts";
 import { corpusKey, projectDocs } from "./indexer.ts";
 import { fold, STOP_WORDS, stemWord } from "./stem-fr.ts";
 
-export type MentionsInput = {
+type MentionsInput = {
   term: string;
   regex?: boolean;
   stem?: boolean;
@@ -16,7 +16,7 @@ export type MentionsInput = {
   page?: number;
   pageSize?: number;
 };
-export type MentionSection = {
+type MentionSection = {
   ref: string;
   path: string;
   title: string;
@@ -62,7 +62,7 @@ const cache = new Map<string, { key: string; docs: CorpusDoc[] }>();
 
 // ponytail: the index's chunks when the document is indexed as it is now, else the same chunks cut from doc.md —
 // both paths give the same passages, so the tools answer the same with or without an index (SPEC-RAG P1)
-export function corpusDocs(project: string): CorpusDoc[] {
+function corpusDocs(project: string): CorpusDoc[] {
   const docs = projectDocs(project);
   const key = corpusKey(project, docs);
   const hit = cache.get(project);
@@ -88,7 +88,7 @@ export function corpusDocs(project: string): CorpusDoc[] {
   return out;
 }
 
-export const baseAnchor = (anchor: string) => anchor.replace(/~\d+$/, "");
+const baseAnchor = (anchor: string) => anchor.replace(/~\d+$/, "");
 
 export function chunkTitle(d: CorpusDoc, c: Chunk): string {
   const a = baseAnchor(c.anchor);

@@ -28,9 +28,9 @@ export const benchHooks = {
   invoke: registryInvoke,
 };
 
-export const QUOTE_KINDS: FindingKind[] = ["quote-not-found", "quote-not-at-anchor"];
+const QUOTE_KINDS: FindingKind[] = ["quote-not-found", "quote-not-at-anchor"];
 
-export type BenchInput = {
+type BenchInput = {
   set?: string;
   behaviors: string[];
   configs: RagChoice[];
@@ -40,7 +40,7 @@ export type BenchInput = {
   check?: boolean;
   keep?: boolean;
 };
-export type BenchRow = {
+type BenchRow = {
   config: string;
   behavior: string;
   run: number;
@@ -55,7 +55,7 @@ export type BenchRow = {
   runId?: string;
   error?: string;
 };
-export type BenchSummary = {
+type BenchSummary = {
   config: string;
   runs: number;
   failed: number;

@@ -30,7 +30,7 @@ import { KINDS, parseQuery, type Query, testsOnly, wants } from "./query.ts";
 import { keepTest, type TestDoc, testsCorpus } from "./tests.ts";
 import { nearestTests } from "./vectors.ts";
 
-export type SearchAllInput = { query: string; in?: SearchKind[]; k?: number; meaning?: boolean };
+type SearchAllInput = { query: string; in?: SearchKind[]; k?: number; meaning?: boolean };
 
 const RRF = 60;
 const MEANING_SPREAD = 0.15;

@@ -31,14 +31,14 @@ import type { Runtime } from "./types.ts";
 export { stopAllServers } from "./llama-server.ts";
 
 export const LLAMA_BUILD = "b12032";
-export const LLAMA_CUDA = "13.4";
-export const CUDA_MIN_DRIVER = 580;
-export const LLAMA_BATCH = 16;
+const LLAMA_CUDA = "13.4";
+const CUDA_MIN_DRIVER = 580;
+const LLAMA_BATCH = 16;
 const RELEASE_URL = `https://github.com/ggml-org/llama.cpp/releases/download/${LLAMA_BUILD}/`;
 const MARKER = "testimus-build.json";
 const MB = 1024 * 1024;
 
-export type LlamaAsset = { name: string; sha256: string; size: number };
+type LlamaAsset = { name: string; sha256: string; size: number };
 
 // ponytail: SHA-256 read from the GitHub API (`digest` of each asset of release b12032) on 2026-11-02 and pinned here
 export const LLAMA_ASSETS: Record<LlamaBackend, LlamaAsset[]> = {
@@ -119,7 +119,7 @@ export const llamaIo = {
   },
 };
 
-export async function sha256File(file: string): Promise<string> {
+async function sha256File(file: string): Promise<string> {
   const h = createHash("sha256");
   for await (const chunk of createReadStream(file)) h.update(chunk as Buffer);
   return h.digest("hex");
@@ -295,7 +295,7 @@ export async function pullLlamaBuild(
 
 export const llamacppConfig: { build: LlamaRuntime | null } = { build: null };
 
-export function llamaBuild(): LlamaRuntime {
+function llamaBuild(): LlamaRuntime {
   const b = llamacppConfig.build ?? readJson<Partial<ModelsRegistry>>(registryFile(), {}).llamacpp;
   if (!b || !existsSync(b.exe))
     throw new UserError(

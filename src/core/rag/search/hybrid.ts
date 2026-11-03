@@ -17,7 +17,7 @@ import { type VectorResult, vector } from "./vector.ts";
 
 export type { RetrievalOverride, SearchMode, SearchOpts } from "./filter.ts";
 
-export const RRF_K = 60;
+const RRF_K = 60;
 
 export const RETRIEVAL_DEFAULTS: RetrievalSettings = {
   candidates: 50,
@@ -83,7 +83,7 @@ async function rerankOf(project: string, o: SearchOpts, query: string, texts: st
 
 const messageOf = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-export function rerankThreshold(r: RetrievalSettings, model: string): number | undefined {
+function rerankThreshold(r: RetrievalSettings, model: string): number | undefined {
   return r.rerank.thresholds?.[model] ?? r.rerank.threshold;
 }
 
@@ -105,8 +105,8 @@ function figureFile(project: string, c: ChunkRow): string | undefined {
 export type Ranked = { chunk: ChunkRow; score: number; degraded?: string; lexical?: true };
 
 export type Expand = RetrievalSettings["expand"];
-export type SearchLog = (level: "warn", message: string) => void;
-export type SearchInput = SearchOpts & { expand?: Expand; log?: SearchLog };
+type SearchLog = (level: "warn", message: string) => void;
+type SearchInput = SearchOpts & { expand?: Expand; log?: SearchLog };
 
 export async function searchChunks(
   project: string,
@@ -227,7 +227,7 @@ const parentOf = (n: string) => n.split(".").slice(0, -1).join(".");
 // ponytail: expansion follows the document's own structure, never a model — the parent section, the section a figure
 // sits in, and (graph) the sections the hit cross-references or amends; added after the k hits, each passage once,
 // flagged `via`
-export function expandHits(project: string, hits: Ranked[], expand: Expand, opts: SearchOpts): SearchHit[] {
+function expandHits(project: string, hits: Ranked[], expand: Expand, opts: SearchOpts): SearchHit[] {
   if (expand === "none" || !hits.length) return [];
   return withDb(opts.dbFile ?? indexFile(project), (db) => {
     const sectionChunk = db.prepare(

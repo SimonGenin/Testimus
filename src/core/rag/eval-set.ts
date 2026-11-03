@@ -5,7 +5,7 @@ import { UserError } from "../command.ts";
 import { sha256 } from "../lib/hash.ts";
 import type { Behavior } from "../types.ts";
 
-export type BehaviorSet = {
+type BehaviorSet = {
   file: string;
   hash: string;
   behaviors: Behavior[];

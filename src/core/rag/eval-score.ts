@@ -48,7 +48,7 @@ export type Retrieval = {
   expansion?: Map<string, { items: Item[]; chars: number }>;
   extra?: { items: Item[]; chars: number };
 };
-export type AtK = { recall: number; complete: boolean; precision: number; chars: number; items: number };
+type AtK = { recall: number; complete: boolean; precision: number; chars: number; items: number };
 export type BehaviorScore = {
   atK: Record<string, AtK>;
   roles: Record<string, { n: number; found: Record<string, number> }>;

@@ -6,8 +6,8 @@ import { DEFAULT_QUERY_TASK, resolveChoice, resolveInstalled } from "../lib/mode
 import { readProject, readSettings, writeSettings } from "../lib/project.ts";
 import type { ActiveChoice, Pack, PackVariant, RagChoice, ResolvedModel, RetrievalSettings } from "../types.ts";
 
-export type ActivationSource = "machine" | "reference" | "light" | "none";
-export type ActiveModels = {
+type ActivationSource = "machine" | "reference" | "light" | "none";
+type ActiveModels = {
   embedding: ResolvedModel | null;
   reranker: ResolvedModel | null;
   choice: ActiveChoice | null;

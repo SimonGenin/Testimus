@@ -158,7 +158,7 @@ export function transaction<T>(db: DatabaseSync, work: () => T): T {
 
 // Vector spaces (SPEC-RAG §6)
 
-export function fingerprintJson(fp: SpaceFingerprint): string {
+function fingerprintJson(fp: SpaceFingerprint): string {
   const keys = Object.keys(fp).sort() as (keyof SpaceFingerprint)[];
   return JSON.stringify(Object.fromEntries(keys.filter((k) => fp[k] !== undefined).map((k) => [k, fp[k]])));
 }

@@ -26,7 +26,7 @@ const stamp = (file: string) => {
 
 const STEP_WEIGHT: Record<string, number> = { Action: 2.5, "Expected Result": 2.5, Data: 1.5 };
 
-export function testFields(id: string, t: Test): Field[] {
+function testFields(id: string, t: Test): Field[] {
   const out = [
     field("key", t.key ?? id, 10),
     field("summary", t.summary, 6),
