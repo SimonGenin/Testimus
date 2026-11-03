@@ -7,14 +7,14 @@ import { agentPool, agentsSetting, loadLine } from "../lib/agents.ts";
 import { loadCorpus, runMechanical } from "../lib/check.ts";
 import { columnGuidance, fieldOrder } from "../lib/columns.ts";
 import { isConverted, listDocs, readDocMd } from "../lib/docs.ts";
-import { readJson, readProject, writeJson } from "../lib/project.ts";
+import { readProject } from "../lib/project.ts";
 import { listLocalTests, markGenerated, readTest, removeTest, testExists, writeTest } from "../lib/store.ts";
 import { anchorsOf } from "../rag/convert.ts";
 import { readState } from "../rag/indexer.ts";
 import { awaitsReview, type ClaudeEvent, type Diagnosis, type Effort, type Tokens } from "../types.ts";
 import { proposeLines } from "./actions.ts";
 import { checkTests, promoteChecked } from "./check.ts";
-import { ledgerOf, type Searched } from "./ledger.ts";
+import { ledgerOf, readLedger, type Searched, writeLedger } from "./ledger.ts";
 import { contextLines, readContexts } from "./prompt.ts";
 import { newRunId, type RunResult, runClaude } from "./run.ts";
 import { absorbRun, markLeft, readRun } from "./snapshot.ts";
@@ -376,12 +376,8 @@ type Prior = {
   done: number[];
 };
 
-const ledgerPath = (project: string, by: string) => join(project, ".testimus", "gen", `${by}.json`);
-
 export function readPrior(project: string, generation: string): Prior {
-  const l = /^[\w.-]+$/.test(generation)
-    ? readJson<Partial<Prior> | null>(ledgerPath(project, generation), null)
-    : null;
+  const l = readLedger(project, generation);
   if (!l?.input || !l.runId || !l.plan?.tests?.length)
     throw new UserError(
       `No plan to resume under ${generation}.`,
@@ -500,8 +496,7 @@ export async function generateTests(project: string, asked: GenInput, ctx: Ctx):
     searched,
     ...(plan?.found ? { plan, done: [...done].sort((a, b) => a - b) } : {}),
   };
-  const ledgerFile = ledgerPath(project, by);
-  writeJson(ledgerFile, { at: env.now().toISOString(), input, runId, ...kept });
+  writeLedger(project, by, { at: env.now().toISOString(), input, runId, ...kept });
   for (const id of tests) stampTest(project, id, by, input.folder?.trim() || undefined);
   const checks: GenCheck[] = [];
   if (tests.length && input.check !== false && !ctx.signal.aborted) {
@@ -564,7 +559,7 @@ export async function generateTests(project: string, asked: GenInput, ctx: Ctx):
     durationMs: runs.reduce((a, r) => a + r.run.durationMs, 0),
     ...(diagnosis ? { diagnosis } : {}),
   };
-  writeJson(ledgerFile, {
+  writeLedger(project, by, {
     at: env.now().toISOString(),
     input,
     ...result,

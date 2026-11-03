@@ -1,8 +1,9 @@
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { readLedger } from "../claude/ledger.ts";
 import { type Ctx, UserError } from "../command.ts";
 import { env } from "../env.ts";
-import { readJson, writeJson } from "../lib/project.ts";
+import { writeJson } from "../lib/project.ts";
 import { readCheck } from "../lib/store.ts";
 import type { ActiveChoice, Effort, FindingKind, RagChoice } from "../types.ts";
 import { activeChoice, setActiveChoice } from "./activation.ts";
@@ -78,20 +79,9 @@ export function agenticRecall(must: string[], consulted: Item[]): number {
   return must.filter((m) => consulted.some((i) => itemMatches(i, m))).length / must.length;
 }
 
-type Ledger = { runId?: string; consulted?: unknown };
-
-export function readLedger(project: string, runId: string): Ledger | null {
-  const dir = join(project, ".testimus", "gen");
-  if (!existsSync(dir)) return null;
-  for (const f of readdirSync(dir).filter((x) => x.endsWith(".json"))) {
-    const l = readJson<Ledger | null>(join(dir, f), null);
-    if (l?.runId === runId) return l;
-  }
-  return null;
-}
-
 type GenOut = {
   runId: string;
+  generation?: string;
   ok: boolean;
   tests: string[];
   costUsd?: number;
@@ -165,10 +155,7 @@ export async function runBench(project: string, ctx: Ctx, input: BenchInput): Pr
             });
             continue;
           }
-          const ledger = readLedger(project, r.runId);
-          const consulted = Array.isArray(ledger?.consulted)
-            ? ledger.consulted.filter((x): x is string => typeof x === "string")
-            : null;
+          const consulted = readLedger(project, r.generation)?.consulted ?? null;
           const must = b.evidence.filter((e) => e.must).map((e) => e.ref);
           const findings = r.tests.flatMap((id) => readCheck(project, id)?.findings ?? []);
           rows.push({
