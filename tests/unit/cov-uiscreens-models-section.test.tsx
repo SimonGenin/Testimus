@@ -152,18 +152,15 @@ function base(b: Base = {}) {
   models.routes["models.advice"] = () => (b.advice === undefined ? [] : b.advice);
   models.routes["rag.status"] = () =>
     b.status === undefined ? { embedding: "emb-s", reranker: null, activation: "light" } : b.status;
-  models.routes["models.usePack"] = (i) =>
-    i.dryRun
-      ? {
-          pack: i.pack,
-          variant: 0,
-          embedding: "emb-s",
-          reranker: null,
-          plan: { download: [], dir: b.dir === undefined ? "D:\\m" : b.dir, reindex: true, expected: "fast" },
-          jobIds: [],
-          dryRun: true,
-        }
-      : null;
+  models.routes["models.dirs"] = () => ({ dir: b.dir === undefined ? "D:\\m" : b.dir, runtimesDir: null });
+  models.routes["models.planPack"] = (i) => ({
+    pack: i.pack,
+    variant: 0,
+    embedding: "emb-s",
+    reranker: null,
+    plan: { download: [], dir: b.dir === undefined ? "D:\\m" : b.dir, reindex: true, expected: "fast" },
+  });
+  models.routes["models.usePack"] = () => ({ jobId: "up-0" });
   models.routes["jobs.list"] = () => (b.running === undefined ? [] : b.running);
 }
 
@@ -182,7 +179,7 @@ describe("Settings › Models section", () => {
 
   it("empty answers everywhere, a folder not chosen yet, and the catalog loading", async () => {
     base({ catalog: null, installed: null, packs: null, advice: null, status: null, dir: null, running: null });
-    models.routes["models.usePack"] = () => null;
+    models.routes["models.dirs"] = () => null;
     mount(<ModelsSection />);
     expect(screen.getByRole("status", { name: "Loading the packs" })).toBeInTheDocument();
     expect(await screen.findByText("not chosen yet")).toBeInTheDocument();
@@ -214,7 +211,7 @@ describe("Settings › Models section", () => {
       running: [
         { id: "up-1", kind: "models-usePack", subject: "balanced" },
         { id: "pull-1", kind: "models-pull", subject: "big" },
-        { id: "mv-1", kind: "models-move", subject: "" },
+        { id: "mv-1", kind: "models-dir", subject: "move to E:\\m" },
         { id: "ix-1", kind: "rag-index", subject: "" },
         { id: "other", kind: "check", subject: "" },
       ],
@@ -244,7 +241,7 @@ describe("Settings › Models section", () => {
   it("a copy job, a usePack job without an index, and cancelling a job", async () => {
     base({
       running: [
-        { id: "cp-1", kind: "models-copy", subject: "" },
+        { id: "cp-1", kind: "models-dir", subject: "copy to E:\\m" },
         { id: "up-2", kind: "models-usePack", subject: "light" },
       ],
     });
@@ -270,15 +267,14 @@ describe("Settings › Models section", () => {
 
   it("uses a pack that fits: plan, cancel, confirm, then follows its jobs", async () => {
     base({ packs: [pack("balanced", { reranker: "rr" }), pack("light", { active: true })] });
-    models.routes["models.usePack"] = (i) => ({
+    models.routes["models.planPack"] = (i) => ({
       pack: i.pack,
       variant: 0,
       embedding: "emb-s",
       reranker: "rr",
       plan: { download: [], dir: "D:\\m", reindex: true, expected: "fast" },
-      jobIds: i.dryRun ? [] : ["rag-index-9", "up-9"],
-      dryRun: !!i.dryRun,
     });
+    models.routes["models.usePack"] = () => ({ jobId: "up-9" });
     mount(<ModelsSection />);
     fireEvent.click(await screen.findByRole("button", { name: "Use the Balanced pack" }));
     const dlg = await screen.findByRole("dialog", { name: "Use the Balanced pack" });
@@ -287,16 +283,17 @@ describe("Settings › Models section", () => {
     fireEvent.click(screen.getByRole("button", { name: "Use the Balanced pack" }));
     fireEvent.click(await screen.findByRole("button", { name: "Use Balanced" }));
     expect(await screen.findByText("Balanced pack chosen for this project")).toBeInTheDocument();
-    expect(screen.getByRole("status", { name: "Indexing the documents" })).toBeInTheDocument();
     expect(screen.getByRole("status", { name: "Installing Balanced" })).toBeInTheDocument();
+    expect(named("models.usePack").at(-1)?.input).toEqual({ pack: "balanced", downloadOnly: false });
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
-    end("up-9", "done", { result: { indexJob: null } });
+    end("up-9", "done", { result: { indexJob: "rag-index-9" } });
+    expect(await screen.findByRole("status", { name: "Indexing the documents" })).toBeInTheDocument();
     end("rag-index-9", "done");
   });
 
   it("a pack with downloads is only downloaded; another pack stays choosable meanwhile", async () => {
     base({ packs: [pack("balanced", { downloadMB: 300 }), pack("light")] });
-    models.routes["models.usePack"] = (i) => ({
+    models.routes["models.planPack"] = (i) => ({
       pack: i.pack,
       variant: 0,
       embedding: "emb-s",
@@ -307,9 +304,8 @@ describe("Settings › Models section", () => {
         reindex: true,
         expected: "",
       },
-      jobIds: i.dryRun ? [] : ["dl-1"],
-      dryRun: !!i.dryRun,
     });
+    models.routes["models.usePack"] = () => ({ jobId: "dl-1" });
     mount(<ModelsSection />);
     fireEvent.click(await screen.findByRole("button", { name: "Use the Balanced pack" }));
     const dlg = await screen.findByRole("dialog", { name: "Download the Balanced pack" });
@@ -329,7 +325,7 @@ describe("Settings › Models section", () => {
   it("a plan that needs a folder asks for one, then plans again; Change… in the plan too", async () => {
     let dir: string | null = null;
     base({ packs: [pack("balanced")], dir: null });
-    models.routes["models.usePack"] = (i) => ({
+    models.routes["models.planPack"] = (i) => ({
       pack: i.pack,
       variant: 0,
       embedding: "emb-s",
@@ -343,8 +339,6 @@ describe("Settings › Models section", () => {
         reindex: false,
         expected: "",
       },
-      jobIds: [],
-      dryRun: true,
     });
     mount(<ModelsSection />);
     fireEvent.click(await screen.findByRole("button", { name: "Use the Balanced pack" }));
@@ -361,19 +355,15 @@ describe("Settings › Models section", () => {
 
   it("a confirm refused for want of a folder asks for one; other refusals are reported", async () => {
     base({ packs: [pack("balanced")] });
-    let refusal = "Choose where models are stored first.";
-    models.routes["models.usePack"] = (i) =>
-      i.dryRun
-        ? {
-            pack: i.pack,
-            variant: 0,
-            embedding: "emb-s",
-            reranker: null,
-            plan: { download: [{ model: "a", sizeMB: 50 }], dir: "D:\\m", reindex: true, expected: "" },
-            jobIds: [],
-            dryRun: true,
-          }
-        : failing(refusal);
+    let refusal: unknown = { refused: { error: "Choose where models are stored", code: "models-dir-unset" } };
+    models.routes["models.planPack"] = (i) => ({
+      pack: i.pack,
+      variant: 0,
+      embedding: "emb-s",
+      reranker: null,
+      plan: { download: [{ model: "a", sizeMB: 50 }], dir: "D:\\m", reindex: true, expected: "" },
+    });
+    models.routes["models.usePack"] = () => refusal;
     mount(<ModelsSection />);
     fireEvent.click(await screen.findByRole("button", { name: "Use the Balanced pack" }));
     fireEvent.click(await screen.findByRole("button", { name: "Download 50 MB" }));
@@ -384,7 +374,7 @@ describe("Settings › Models section", () => {
         name: "Cancel",
       }),
     );
-    refusal = "Disk full";
+    refusal = failing("Choose where models are stored (in words only, without the code)");
     fireEvent.click(screen.getByRole("button", { name: "Use the Balanced pack" }));
     fireEvent.click(await screen.findByRole("button", { name: "Download 50 MB" }));
     expect(await screen.findByText("Could not download the Balanced pack")).toBeInTheDocument();
@@ -394,7 +384,7 @@ describe("Settings › Models section", () => {
     base({ packs: [pack("balanced")] });
     mount(<ModelsSection />);
     await screen.findByRole("button", { name: "Use the Balanced pack" });
-    models.routes["models.usePack"] = () => failing("no");
+    models.routes["models.planPack"] = () => failing("no");
     fireEvent.click(screen.getByRole("button", { name: "Use the Balanced pack" }));
     expect(await screen.findByText("Could not plan the Balanced pack")).toBeInTheDocument();
   });
@@ -402,8 +392,8 @@ describe("Settings › Models section", () => {
   it("a pack that does not fit asks first: cancel, lighter, use anyway; no lighter at the bottom", async () => {
     base({
       packs: [
-        pack("balanced", { fit: fitOf("tight", "Tight fit") }),
-        pack("light", { fit: fitOf("unknown", "Unknown GPU") }),
+        pack("balanced", { fit: fitOf("tight", "Tight fit"), lighter: "light" }),
+        pack("light", { fit: fitOf("unknown", "Unknown GPU"), lighter: null }),
       ],
     });
     mount(<ModelsSection />);
@@ -444,7 +434,7 @@ describe("Settings › Models section", () => {
     openTable();
     fireEvent.click(screen.getByRole("button", { name: "Install M big" }));
     await waitFor(() => expect(named("models.pull")).toHaveLength(1));
-    answer = failing("Choose where models are stored");
+    answer = { refused: { error: "Choose where models are stored", code: "models-dir-unset" } };
     fireEvent.click(screen.getByRole("button", { name: "Install M big" }));
     expect(await screen.findByText("folder D:\\m need 500")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Apply with copy" }));
@@ -468,21 +458,24 @@ describe("Settings › Models section", () => {
       status: { embedding: "emb-s", reranker: "old-rr", activation: "machine" },
       packs: [pack("light")],
     });
-    models.routes["models.fit"] = () => fitOf("fits");
-    models.routes["models.use"] = () => ({ reindex: true });
-    models.routes["jobs.list"] = (i) => (i.running ? [{ id: "ix-5", kind: "rag-index" }] : []);
+    let reindex = true;
+    models.routes["models.use"] = (i) => ({
+      fit: fitOf("fits"),
+      reindex,
+      indexJob: i.dryRun || !reindex ? null : "ix-5",
+      lighter: null,
+    });
     mount(<ModelsSection />);
     expect((await screen.findAllByText(/M emb-s/, { selector: ".pack-models" })).length).toBeGreaterThan(0);
     openTable();
     expect(screen.getByRole("button", { name: "Use M emb-s for this project" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Use M rr for this project" }));
     expect(await screen.findByText("M rr in use for this project")).toBeInTheDocument();
-    expect(named("models.fit")[0].input).toEqual({ embedding: "emb-s", reranker: "rr" });
-    expect(named("models.use")[0].input).toEqual({ embedding: "emb-s", reranker: "rr" });
+    expect(named("models.use").map((c) => c.input)).toEqual([{ reranker: "rr", dryRun: true }, { reranker: "rr" }]);
     expect(await screen.findAllByRole("status", { name: "Indexing the documents" })).not.toHaveLength(0);
-    models.routes["models.use"] = () => ({ reindex: false });
+    reindex = false;
     fireEvent.click(screen.getByRole("button", { name: "Use M emb-b for this project" }));
-    await waitFor(() => expect(named("models.use")[1]?.input).toEqual({ embedding: "emb-b", reranker: "old-rr" }));
+    await waitFor(() => expect(named("models.use")[3]?.input).toEqual({ embedding: "emb-b" }));
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
     end("ix-5", "done");
   });
@@ -499,10 +492,11 @@ describe("Settings › Models section", () => {
     expect(await screen.findByText("Choose an embedding model first")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Use M emb-b for this project" }));
     expect(await screen.findByText("Could not check whether M emb-b fits")).toBeInTheDocument();
-    models.routes["models.fit"] = () => fitOf("fits");
+    models.routes["models.use"] = (i) =>
+      i.dryRun ? { fit: fitOf("fits"), reindex: true, indexJob: null, lighter: null } : failing("no");
     fireEvent.click(screen.getByRole("button", { name: "Use M emb-b for this project" }));
     expect(await screen.findByText("Could not use M emb-b")).toBeInTheDocument();
-    expect(named("models.fit").at(-1)?.input).toEqual({ embedding: "emb-b" });
+    expect(named("models.use").at(-1)?.input).toEqual({ embedding: "emb-b" });
   });
 
   it("a model that does not fit offers the lighter one: installed is used, missing is installed", async () => {
@@ -516,9 +510,18 @@ describe("Settings › Models section", () => {
       ],
       status: null,
     });
-    models.routes["models.fit"] = (i) =>
-      i.embedding === "small" ? fitOf("fits") : fitOf("gpu-too-small", "Partly on the CPU");
-    models.routes["models.use"] = () => ({ reindex: false });
+    const lighter: Record<string, string | null> = { huge: "mid", mid: "small" };
+    models.routes["models.use"] = (i) => ({
+      fit:
+        i.embedding === "small"
+          ? fitOf("fits")
+          : i.embedding === "tiny-bad"
+            ? fitOf("tight")
+            : fitOf("gpu-too-small", "Partly on the CPU"),
+      reindex: false,
+      indexJob: null,
+      lighter: lighter[String(i.embedding)] ?? null,
+    });
     models.routes["models.pull"] = () => ({});
     mount(<ModelsSection />);
     await screen.findByText(/in the catalog/);
@@ -602,7 +605,7 @@ describe("Settings › Models section", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     fireEvent.click(within(screen.getByRole("region", { name: "Advice" })).getByRole("button", { name: "Dismiss" }));
     expect(await screen.findByText("Could not dismiss the advice")).toBeInTheDocument();
-    models.routes["models.dismiss"] = () => ({});
+    models.routes["models.dismissAdvice"] = () => ({});
     fireEvent.click(within(screen.getByRole("region", { name: "Advice" })).getByRole("button", { name: "Dismiss" }));
     await waitFor(() => expect(screen.queryByRole("region", { name: "Advice" })).toBeNull());
   });
@@ -633,7 +636,7 @@ describe("Settings › Models section", () => {
     models.routes["models.use"] = () => {
       n++;
       if (n === 2) throw new Error("nope");
-      return { reindex: n === 1 };
+      return { reindex: n === 1, indexJob: n === 1 ? "ix-7" : null };
     };
     models.routes["jobs.list"] = () => [];
     mount(<ModelsSection />);

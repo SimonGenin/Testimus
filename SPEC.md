@@ -442,11 +442,17 @@ used: GGUF models run on llama.cpp, which Testimus downloads itself (same files 
     reference document (below): how often search ranks the answering article first and in the top 5, measured on
     this PC when it was, else the catalog's figure measured by Testimus, else « quality not measured yet »; and, when
     the project's own behavior set has a report for that pair, its quality on this project (the `must` evidence
-    recall at 10, search+graph when available, provisional when the report is). `models usePack
-    <pack> [--dry-run]` shows the plan (downloads, folder, reindex, expected speed), then in a job installs what is
-    missing (and the llama.cpp build if a GGUF needs it), tries each downloaded model (`models verify`: load, one
-    sentence, its dimension) — one that does not run here fails the job and the project keeps its pack —, activates
-    the variant for the project on this PC and starts the index job. `models use` is the Custom pack (installed models only). First launch proposes the
+    recall at 10, search+graph when available, provisional when the report is). `models planPack
+    <pack>` shows the plan (downloads, folder, reindex, expected speed) and changes nothing; `models usePack <pack>` is
+    one job with its steps: download what is missing (and the llama.cpp build if a GGUF needs it; the bar runs over
+    all of it), try each downloaded model (`models verify`: load, one sentence, its dimension) — one that does not run
+    here fails the job and the project keeps its pack —, activate the variant for the project on this PC and start the
+    index job (a child job; its id is in the result, `indexJob`); `--download-only` stops after the tries. `models
+    use` is the Custom pack (installed models only): it keeps the other half of the pair unless told, says whether it
+    fits and names a lighter model of the same kind that fits (`--dry-run` stops there and changes nothing), then
+    activates and gives the index job it started. `models packs` gives each pack the next lighter pack available here
+    (`lighter`), which the fit confirmation offers. `models dirs` says where this PC keeps the models and the llama.cpp
+    runtimes (null while not chosen). First launch proposes the
     heaviest pack that fits without running a GGUF or a reranker on the CPU and without falling to the processor when
     it is made for a GPU (`processorOnly`: some variant up to the one resolved has a GPU model and this one runs on
     the processor — Qwen3-0.6B q8 indexes 2.1 passages/s there against bge-m3 q8's 6.6/s, so Light is faster),
@@ -469,22 +475,25 @@ used: GGUF models run on llama.cpp, which Testimus downloads itself (same files 
     (never `curl.exe`, never without certificate checks): each file goes to `<name>.part`, resumes with a Range
     request, is checked against its SHA-256 (or git blob id) and is renamed only then; a mismatch deletes it and
     fails the job; a cancel keeps the `.part`. **No model is written before the user chose the folder**: without
-    one it stops with « Choose where models are stored: `testimus models setDir <folder>` » (or `--dir`); the UI
-    asks with a dialog listing the drives. It refuses when the drive has less than 1.2 × what is left to
+    one it stops with « Choose where models are stored: `testimus models setDir <folder>` » (or `--dir`), error code
+    `models-dir-unset`; the UI asks with a dialog listing the drives. It refuses when the drive has less than 1.2 × what is left to
     download. Whether downloads are allowed is `settings.json` `models.allowRemote`, and only there.
-  - `models setDir <folder> --move | --keep | --copy [--dry-run] [--runtimes]`: without a choice it stops and asks;
+  - `models planDir <folder> --move | --keep | --copy [--runtimes]` says what changing the folder would do (drive, free
+    space, size and files to move) and changes nothing; `models setDir` with the same flags does it, as a job
+    (`models-dir`, its subject `move to <folder>`, `copy to <folder>` or the folder) that a cancel stops with nothing
+    changed (`cancelled: true` in its result). Without a choice it stops and asks;
     downloads are grouped by folder, so a folder two variants of one repository share (bge-m3 q8 / fp16) moves once and
     every installation that points to it follows. Move on the same drive renames, on another drive copies, checks every
     file's SHA-256 and deletes the old copy; copy keeps the old one; keep re-registers the downloads by their path. A
     file already at the target is reused when its SHA-256 is the same; one of another size (refused at the plan, so
-    `--dry-run` says it) or another SHA-256 (refused before anything moves) stops it with the file named. A cancel or a
+    `planDir` says it) or another SHA-256 (refused before anything moves) stops it with the file named. A cancel or a
     failure leaves the old copy and the registry untouched. Refused, with the reason: not enough space (for what is left
-    to write), not writable, a running index or model job, a folder inside a project.
+    to write), not writable, a running index or model job (not the folder change itself), a folder inside a project.
   - `models remove` deletes a download's own files — those of its dtype, never a file another registered installation
     in the same folder uses (tokenizer, config…), so the other variant stays installed and verifiable —, only
     unregisters a path. `models list` gives each installation the size of its
-    own files. `models verify` records `verified` or `broken` in the registry (a mutating command, so read-only Claude
-    runs do not get it).
+    own files. `models verify` (a job, `models-verify`: a load takes seconds to minutes and can be cancelled) records
+    `verified` or `broken` in the registry (a mutating command, so read-only Claude runs do not get it).
 - **Runtimes** behind one seam (`probe`, `embed`, `rerank`), chosen by the installation:
   - **transformers.js** (in the app): device per installation (`cpu`, `dml` DirectML, `webgpu` experimental), dtype
     per device from the catalog; inputs truncated by tokens at `maxInputTokens`; last-token pooling pads on the
@@ -568,7 +577,7 @@ used: GGUF models run on llama.cpp, which Testimus downloads itself (same files 
   known, else by catalog ids, same reranker; the latest) it quotes `rag.compare`'s paired difference in `must` recall
   at 10 with its bootstrap interval (« −3 points of evidence recall, interval −5…−1 (recall@10, 40 behaviors) », plus
   « provisional » when either set is); else « quality difference not measured — run rag.eval --embedding <id> on the
-  candidate before switching ». `models dismiss` hides an advice until its figure moves by more than 25 %. Testimus
+  candidate before switching ». `models dismissAdvice` hides an advice until its figure moves by more than 25 %. Testimus
   never switches by itself.
 - **Reference document.** Testimus ships `templates/reference/syntec/`: a project holding the Syntec collective
   agreement (IDCC 1486, 90 articles, one `<!-- § article-n -->` anchor each) and `eval/behaviors.jsonl`, the 100
@@ -928,7 +937,7 @@ Group | Verbs (all with `--json`; mutating ones marked *)
 `check` | `run`* (job: mechanical pass, then the `check-test` skill; writes `check.json`), `record`* (the skill's semantic findings for one test), `show`
 `review` | `set`* (validate / to-fix + note), `fix`* (Claude, job), `queue` (what awaits review), `evidence` (sources read / related)
 `xray` | `fields`* (also read again before every push and when a project opens; a field switched off in Xray is kept with `disabled`, `required` kept), `folders`, `search`, `preconditions` (the project's, with definitions), `browse` (an issue's Jira page), `pull`* (job), `status`, `plan`, `push`* (job; `from` resumes after a failed operation)
-`models` | `catalog` (with the fit on this PC), `list`, `add`* (path A), `pull`* (job, checked download), `pullRuntime`* (job, llama.cpp build), `remove`*, `verify`, `setDir`* (move · keep · copy, dry-run), `use`* (Custom), `packs`, `usePack`* (job), `hardware`, `fit`, `perf`, `advice`, `dismiss`*
+`models` | `catalog` (with the fit on this PC), `list`, `dirs` (the models and runtimes folders), `add`* (path A), `pull`* (job, checked download), `pullRuntime`* (job, llama.cpp build), `remove`*, `verify`* (job), `planDir` (what changing the folder would do), `setDir`* (job: move · keep · copy), `use`* (Custom; dry-run: fit and a lighter model), `packs` (with the next lighter pack), `planPack` (a pack's plan), `usePack`* (job with steps), `measure` (job), `hardware`, `fit`, `perf`, `advice`, `dismissAdvice`*
 `jobs` | `list`, `show`, `cancel`*
 `system` | `setup`* (credentials), `secrets` (the saved token, Client ID and secret, to show back in the form; denied to Claude runs like every `system.*`), `doctor`, `version` (with `shell`: browser or desktop <version>), `settings`, `saveSettings`* (claude.exe, model downloads, agents at the same time, the page's preferences)
 
@@ -1175,13 +1184,13 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
       last used) each with Drop (`rag.dropSpace` after a confirmation; the active one with `force` and a warning). No
       model list is written in the UI.
     - **Models**: the models folder (« Change… »); the advice banner (`models.advice`, first item: reason, quality,
-      Apply = the pack's plan or `models.use`, Dismiss = `models.dismiss`); the pack cards Light · Performance ·
+      Apply = the pack's plan or `models.use`, Dismiss = `models.dismissAdvice`); the pack cards Light · Performance ·
       Balanced · Quality from `models.packs` plus Custom, the active one marked « In use », each with its variant here
       (« its second choice »), fit chip and message, skipped variants with their numbers, download left, speed, quality
       (on the reference document), « On this project » when the project's own set measured it, « Use this pack ». A pack or a model whose fit is not « fits » opens a confirmation with the verdict's numbers,
       **Use anyway** and **Choose a lighter one** (the next lighter pack, or the largest smaller model that fits); « RAM
-      too small » offers no Use anyway. Use this pack shows `models.usePack --dry-run` (models, downloads, folder,
-      reindex, expected speed), then runs it and follows its jobs on the card (progress, Cancel); running model and
+      too small » offers no Use anyway. Use this pack shows `models.planPack` (models, downloads, folder,
+      reindex, expected speed), then runs `models.usePack` and follows its job, then the index job it names, on the card (progress, Cancel); running model and
       index jobs are picked up again when the screen opens. Each pack card has « Measure » (« Measure again » once its
       quality is measured on this PC; disabled, with the reason, until the pack's models are on this PC): a dialog says
       what is measured (the reference document, the same on every PC; the project's documents are not used), starts
@@ -1191,11 +1200,11 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
       opens. When it ends the cards are read again: quality from the new report, speed from the measure's
       `embed.query` / `rerank` timings in the perf journal. Below, « Model catalog » (folded): `models.catalog` +
       `models.list` rows with state chip, size, fit chip, kind · tier · runtimes, where it is and the speed measured
-      here; Install (`models.pull`), Use (`models.fit` on the pair, then `models.use`), Verify, Remove (after a
+      here; Install (`models.pull`), Use (`models.use --dry-run` for the fit and the lighter model, then `models.use`), Verify, Remove (after a
       confirmation saying what is deleted); « Add from a folder… » (`models.add`, Browse… in the desktop shell). The
       models-folder dialog opens on the first download and from « Change… »: the drives with free space (from
       `models.hardware`), the roomiest local drive with 1.2 × the need preselected (`<drive>\Testimus\models`), a typed
-      folder checked live by `models.setDir --dry-run` (refusals shown with their reason), Move / Keep where they are /
+      folder checked live by `models.planDir` (refusals shown with their reason), Move / Keep where they are /
       Copy when downloads exist; never `wait`: a move or copy is followed as a job.
 - Mock seeds: `TESTIMUS_MOCK_SEED` picks the sandbox's projects, comma-separated, the first one open — `fixture`
   (default, the LFRPS12 sample), `empty` (no document, no test, no Jira key), `none` (no project: the first run) or a

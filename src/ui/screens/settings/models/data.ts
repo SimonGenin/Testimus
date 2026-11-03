@@ -21,6 +21,7 @@ export type PackRow = {
   measuredHere: boolean;
   projectQuality?: string;
   processorOnly?: boolean;
+  lighter?: string | null;
 };
 
 export type CatalogRow = {
@@ -61,8 +62,7 @@ export type UsePackOut = {
   embedding: string;
   reranker: string | null;
   plan: UsePlan;
-  jobIds: string[];
-  dryRun: boolean;
+  indexJob?: string | null;
 };
 
 export type AdviceRow = {
@@ -80,8 +80,7 @@ export type SetDirOut = {
   installedMB: number;
   action: "set" | "move" | "keep" | "copy";
   files: number;
-  jobId?: string;
-  dryRun: boolean;
+  cancelled?: boolean;
 };
 
 export type Hardware = MachineProfile;
@@ -186,14 +185,6 @@ export function suggestPack(rows: PackRow[], hw: Hardware | null, catalog: Catal
     return r.id;
   }
   return "light";
-}
-
-export function lighterPack(rows: PackRow[], id: string): PackRow | null {
-  for (const p of PACK_ORDER.slice(PACK_ORDER.indexOf(id) + 1)) {
-    const r = rows.find((x) => x.id === p);
-    if (r?.available) return r;
-  }
-  return null;
 }
 
 type Picker = { pickFolder?: (o: { title: string; defaultPath?: string }) => Promise<string | null> };

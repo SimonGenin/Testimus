@@ -316,7 +316,7 @@ export async function setupModelsMock(
   llamaIo.download = async (url) => {
     throw new Error(`mock: no network (${url})`);
   };
-  const { modelsDeps } = await import("../commands/models.ts");
+  const { modelsDeps } = await import("../lib/models-use.ts");
   const real = modelsDeps.llama;
   modelsDeps.llama = async () => ({ ...(await real()), pullLlamaBuild: fakePullLlama });
 

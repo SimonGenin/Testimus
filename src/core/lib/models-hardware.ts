@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, statfsSync } from "node:fs";
 import os from "node:os";
-import { win32 } from "node:path";
+
 import { run } from "../../shared/run/process.ts";
 import { env } from "../env.ts";
 import { onnxVersion } from "../rag/runtimes/ort.ts";
@@ -211,15 +211,6 @@ export function knownMachine(): MachineProfile | null {
 
 export function pinMachineProfile(p: MachineProfile | null): void {
   pinned = p;
-}
-
-export function driveOf(machine: MachineProfile, path: string): DriveInfo | undefined {
-  const root = win32.parse(path).root.toLowerCase();
-  const under = (r: string) => {
-    const base = r.replace(/\/+$/, "");
-    return path === base || path.startsWith(`${base}/`);
-  };
-  return machine.drives.find((d) => (d.root.startsWith("/") ? under(d.root) : d.root.toLowerCase() === root));
 }
 
 // ponytail: a profile without a system (an imposed profile written before it existed) is the Windows PC it was taken on

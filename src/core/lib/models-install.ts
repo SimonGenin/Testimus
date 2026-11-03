@@ -1,11 +1,9 @@
 import { existsSync, readdirSync, rmSync, statSync } from "node:fs";
-import { basename, dirname, isAbsolute, join, resolve } from "node:path";
-import type { Ctx } from "../command.ts";
+import { dirname, join } from "node:path";
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
 import type {
   CatalogEntry,
-  Dtype,
   Installation,
   InstallState,
   LlamaRuntime,
@@ -14,22 +12,13 @@ import type {
   ResolvedModel,
 } from "../types.ts";
 import { catalog, catalogEntry, pack } from "./models-catalog.ts";
-import { applySetDir, copyTree, inside, norm, planSetDir, pruneEmpty } from "./models-dir.ts";
-import {
-  checkFile,
-  downloadDeps,
-  filesFor,
-  filesPresent,
-  hashFile,
-  installPath,
-  pullFiles,
-} from "./models-download.ts";
+import { inside, norm, pruneEmpty } from "./models-dir.ts";
+import { checkFile, filesFor } from "./models-download.ts";
 import { fitOf } from "./models-fit.ts";
 import { machineProfile } from "./models-hardware.ts";
 import { opSignal, perfStats, speedLine } from "./models-perf.ts";
-import { downloadsAllowed, putInstall, readRegistry, updateRegistry } from "./models-registry.ts";
-import { deviceOf, isGguf, resolveInstalled } from "./models-resolve.ts";
-import { isComplete } from "./models-store.ts";
+import { budgets, putInstall, readRegistry, updateRegistry } from "./models-registry.ts";
+import { isGguf, resolveInstalled } from "./models-resolve.ts";
 import { readSettings } from "./project.ts";
 
 const MB = 1024 * 1024;
@@ -54,7 +43,7 @@ export function needEntry(id: string): CatalogEntry {
   return e;
 }
 
-function sizeOf(path: string): number {
+export function sizeOf(path: string): number {
   if (!existsSync(path)) return 0;
   const s = statSync(path);
   if (s.isFile()) return s.size;
@@ -77,7 +66,7 @@ function asResolved(entry: CatalogEntry, install: Installation): ResolvedModel {
   };
 }
 
-async function probeInstall(
+export async function probeInstall(
   entry: CatalogEntry,
   install: Installation,
 ): Promise<{ dims: number; ms: number; ok: boolean; message: string }> {
@@ -101,212 +90,9 @@ async function probeInstall(
   }
 }
 
-// --- Path A
-
-function guessTransformers(dir: string, model?: string): CatalogEntry[] {
-  if (model) return [needEntry(model)];
-  const name = basename(dir).toLowerCase();
-  const all = catalog().entries.filter((e) => e.runtimes.includes("transformers") && e.source.hf);
-  const exact = all.filter((e) => filesPresent(dir, filesFor(e)));
-  if (exact.length) return exact;
-  return all.filter(
-    (e) =>
-      e.source.hf?.repo.split("/").pop()?.toLowerCase() === name &&
-      isComplete(dir, e.dtypeByDevice?.dml ?? e.dtypeByDevice?.cpu),
-  );
-}
-
-export type AddResult = { model: string; via: "path"; path: string; dims: number; state: InstallState };
-
-export async function addPath(input: { path: string; model?: string; copy: boolean }, ctx?: Ctx): Promise<AddResult> {
-  if (!isAbsolute(input.path)) throw new UserError(`${input.path} is not an absolute path.`);
-  const path = resolve(input.path);
-  if (!existsSync(path)) throw new UserError(`${path} does not exist.`);
-  const isFile = statSync(path).isFile();
-  if (!isFile && existsSync(join(path, "llama-server.exe"))) {
-    const build = await installDeps.findLlamaBuild(path);
-    if (!build) throw new UserError(`${path} holds llama-server.exe but its build could not be read.`);
-    updateRegistry((r) => {
-      r.llamacpp = { ...build, via: "path" };
-    });
-    return { model: "llama.cpp", via: "path", path: build.exe, dims: 0, state: "installed" };
-  }
-  let entries: CatalogEntry[];
-  if (isFile) {
-    if (!/\.gguf$/i.test(path))
-      throw new UserError(`${path} is not a .gguf file.`, "Give a .gguf file, a model folder or a llama.cpp folder.");
-    const size = statSync(path).size;
-    entries = input.model
-      ? [needEntry(input.model)]
-      : catalog().entries.filter((e) => e.source.file && e.source.file.size === size);
-    if (!entries.length)
-      throw new UserError(
-        `${basename(path)} is not a file of the catalog (no entry has its size).`,
-        "Name it with --model.",
-      );
-    ctx?.progress({ message: `Checking ${basename(path)} (SHA-256)` });
-    const got = await hashFile(path);
-    const hit = entries.find((e) => e.source.file?.sha256 === got.sha256);
-    if (!hit)
-      throw new UserError(
-        `${basename(path)} does not match ${entries.map((e) => e.label).join(" or ")} (SHA-256 ${got.sha256.slice(0, 12)}…).`,
-        "Download it again, or let Testimus download it: testimus models pull <id>.",
-      );
-    entries = [hit];
-  } else {
-    if (!existsSync(join(path, "config.json")) || !existsSync(join(path, "tokenizer.json")))
-      throw new UserError(
-        `${path} is not a Hugging Face model folder (config.json, tokenizer.json, onnx/*.onnx) nor a llama.cpp folder.`,
-      );
-    entries = guessTransformers(path, input.model);
-    if (!entries.length) throw new UserError(`${path} matches no catalog entry.`, "Name it with --model <catalog id>.");
-  }
-  let out: AddResult | null = null;
-  for (const entry of entries) {
-    let where = path;
-    if (input.copy) {
-      const dir = readRegistry().dir;
-      if (!dir) throw new UserError("Choose where models are stored first: testimus models setDir <folder>.");
-      where = installPath(dir, entry);
-      if (existsSync(where)) throw new UserError(`${where} already exists.`, "Register that folder instead.");
-      await copyInto(path, where, ctx);
-    }
-    if (!isFile && !filesPresent(where, filesFor(entry)) && !isComplete(where, entry.dtypeByDevice?.cpu))
-      throw new UserError(`${where} lacks files of ${entry.label}.`);
-    const gguf = isGguf(entry);
-    const machine = await machineProfile().catch(() => null);
-    const install: Installation = {
-      model: entry.id,
-      via: "path",
-      runtime: gguf ? "llamacpp" : "transformers",
-      path: where,
-      ...(entry.source.hf ? { revision: entry.source.hf.revision } : {}),
-      ...(gguf && entry.source.file ? { sha256: entry.source.file.sha256 } : {}),
-      ...(gguf ? {} : { dtype: entry.dtypeByDevice?.[deviceOf(entry, machine)] ?? entry.dtypeByDevice?.cpu }),
-      device: deviceOf(entry, machine),
-      status: "installed",
-    };
-    const probe = await probeInstall(entry, install);
-    if (probe.ok) {
-      install.status = "verified";
-      install.verifiedAt = env.now().toISOString();
-      install.dims = probe.dims;
-    } else ctx?.log("warn", `${entry.label} registered but not verified: ${probe.message}`);
-    putInstall(install);
-    out ??= { model: entry.id, via: "path", path: where, dims: probe.dims, state: install.status };
-  }
-  if (!out) throw new UserError(`${path} matches no catalog entry.`);
-  return out;
-}
-
-async function copyInto(from: string, to: string, ctx?: Ctx): Promise<void> {
-  const total = sizeOf(from);
-  let done = 0;
-  const signal = ctx?.signal ?? new AbortController().signal;
-  await copyTree(from, to, signal, (n) => {
-    done += n;
-    ctx?.progress({ message: `Copying ${basename(from)}`, done: Math.round(done / MB), total: Math.round(total / MB) });
-  });
-}
-
-// --- Path B
-
-export type PullInput = { model: string; dir?: string; dtype?: string };
-export type PullResult = { model: string; via: string; where: string; sizeMB: number; state: InstallState };
-
+// ponytail: the page recognises « no models folder yet » by this code and opens the folder dialog
 export const NO_DIR = "Choose where models are stored: `testimus models setDir <folder>`";
-
-const pulling = new Map<string, Promise<PullResult>>();
-
-export async function pull(ctx: Ctx, input: PullInput): Promise<PullResult> {
-  const entry = needEntry(input.model);
-  for (let prev = pulling.get(entry.id); prev; prev = pulling.get(entry.id)) {
-    ctx.signal.throwIfAborted();
-    ctx.progress({ message: `${entry.label}: waiting for the download already running` });
-    await Promise.race([
-      prev.catch(() => {}),
-      new Promise((_, no) => ctx.signal.addEventListener("abort", () => no(ctx.signal.reason), { once: true })),
-    ]);
-  }
-  const p = pullOnce(ctx, input, entry);
-  pulling.set(entry.id, p);
-  try {
-    return await p;
-  } finally {
-    if (pulling.get(entry.id) === p) pulling.delete(entry.id);
-  }
-}
-
-async function pullOnce(ctx: Ctx, input: PullInput, entry: CatalogEntry): Promise<PullResult> {
-  const have = resolveInstalled(entry.id);
-  if (have?.install.path)
-    return {
-      model: entry.id,
-      via: have.install.via,
-      where: have.install.path,
-      sizeMB: Math.round(bytesOf(entry, have.install) / MB),
-      state: have.install.status,
-    };
-  const r = readRegistry();
-  if (!downloadsAllowed())
-    throw new UserError(
-      `${entry.label} is not on this PC and downloads are off (allowRemote = false).`,
-      "Copy it from the team share and register it: testimus models add <folder>.",
-    );
-  if (!entry.source.hf) throw new UserError(`${entry.label} has no Hugging Face source.`);
-  let dir = r.dir;
-  if (input.dir) {
-    const plan = planSetDir({
-      dir: input.dir,
-      runtimes: false,
-      move: false,
-      keep: !!r.dir,
-      copy: false,
-      dryRun: false,
-    });
-    if (!r.dir) await applySetDir(plan, { signal: ctx.signal, onProgress: () => {} });
-    dir = plan.dir;
-  }
-  if (!dir) throw new UserError(NO_DIR, "Or give --dir <folder> on this command.");
-  const machine = await machineProfile().catch(() => null);
-  const device = deviceOf(entry, machine);
-  const dtype = (input.dtype as Dtype | undefined) ?? entry.dtypeByDevice?.[device] ?? entry.dtypeByDevice?.cpu;
-  const gguf = isGguf(entry);
-  let lastPct = -1;
-  const res = await pullFiles(
-    entry,
-    dir,
-    {
-      dtype,
-      signal: ctx.signal,
-      onProgress: (done, total, file) => {
-        const pct = total ? Math.floor((done / total) * 100) : 0;
-        if (pct === lastPct) return;
-        lastPct = pct;
-        ctx.progress({
-          message: `${entry.label}: ${file}`,
-          done: Math.round(done / MB),
-          total: Math.round(total / MB),
-        });
-      },
-    },
-    downloadDeps,
-  );
-  putInstall({
-    model: entry.id,
-    via: "download",
-    runtime: gguf ? "llamacpp" : "transformers",
-    path: res.path,
-    revision: entry.source.hf.revision,
-    ...(gguf && entry.source.file ? { sha256: entry.source.file.sha256 } : {}),
-    ...(!gguf && dtype ? { dtype } : {}),
-    device,
-    status: "installed",
-  });
-  return { model: entry.id, via: "download", where: res.path, sizeMB: Math.round(res.bytes / MB), state: "installed" };
-}
-
-// --- verify, remove, list
+export const NO_DIR_CODE = "models-dir-unset";
 
 export async function verify(
   model: string,
@@ -375,7 +161,7 @@ function deleteDownload(entry: CatalogEntry, inst: Installation, r: ModelsRegist
   return freed;
 }
 
-function bytesOf(entry: CatalogEntry, i: Installation): number {
+export function bytesOf(entry: CatalogEntry, i: Installation): number {
   const path = i.path;
   if (!path || !existsSync(path)) return 0;
   const own = statSync(path).isFile() ? [] : filesFor(entry, i.dtype);
@@ -469,7 +255,6 @@ export function list(): ListRow[] {
 export async function catalogView(kind?: "embedding" | "reranker", machine?: MachineProfile) {
   const m = machine ?? (await machineProfile());
   const installed = list();
-  const { budgets } = await import("./models-registry.ts");
   const headroom = budgets().headroom;
   return catalog()
     .entries.filter((e) => !kind || e.kind === kind)

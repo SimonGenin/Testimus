@@ -34,6 +34,7 @@ export type SetDirInput = {
   keep: boolean;
   copy: boolean;
   dryRun: boolean;
+  job?: string;
 };
 export type MoveItem = {
   what: string;
@@ -56,16 +57,17 @@ export type SetDirPlan = {
   files: number;
   items: MoveItem[];
 };
-export type DirDeps = { freeMB(dir: string): number | null; busy(): string[]; projects(): string[] };
+export type DirDeps = { freeMB(dir: string): number | null; busy(except?: string): string[]; projects(): string[] };
 
 const BUSY = /rag-index|models-|bench|eval|compare/;
 
 export const dirDeps: DirDeps = {
   freeMB: (d) => downloadDeps.freeMB(d),
-  busy: () => {
+  busy: (except) => {
     const out: string[] = [];
     for (const p of [null, ...readSettings().projects])
-      for (const j of listJobs(p)) if (j.status === "running" && BUSY.test(j.kind)) out.push(`${j.kind} ${j.subject}`);
+      for (const j of listJobs(p))
+        if (j.status === "running" && j.id !== except && BUSY.test(j.kind)) out.push(`${j.kind} ${j.subject}`);
     return out;
   },
   projects: () => readSettings().projects,
@@ -161,7 +163,11 @@ export function planSetDir(
     | "keep"
     | "copy"
   )[];
-  if (flags.length > 1) throw new UserError("Choose one of --move, --keep or --copy.");
+  if (flags.length > 1)
+    throw new UserError(
+      "Choose one of --move, --keep or --copy.",
+      "Give only one of them: they say what happens to the models already there.",
+    );
   for (const p of deps.projects())
     if (inside(dir, p))
       throw new UserError(
@@ -229,7 +235,7 @@ export function planSetDir(
   if (!writable(dir, !input.dryRun))
     throw new UserError(`Cannot write to ${dir}.`, "Choose a folder you can write to (not a read-only share).");
   if (action === "move" || action === "copy") {
-    const busy = deps.busy();
+    const busy = deps.busy(input.job);
     if (busy.length)
       throw new UserError(
         `A job is using the models (${busy.join(", ")}).`,

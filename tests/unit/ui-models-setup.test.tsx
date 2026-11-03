@@ -70,15 +70,14 @@ function base(hw: unknown) {
     { id: "qwen3-4b-gguf", label: "Qwen3 4B", runtimes: ["llamacpp"] },
   ];
   routes["models.hardware"] = () => hw;
-  routes["models.usePack"] = (i) => ({
+  routes["models.planPack"] = (i) => ({
     pack: i.pack,
     variant: 0,
     embedding: "qwen3-onnx-fp16",
     reranker: null,
     plan: { download: [], dir: "D:\\models", reindex: true, expected: "" },
-    jobIds: i.dryRun ? [] : ["rag-index-1"],
-    dryRun: !!i.dryRun,
   });
+  routes["models.usePack"] = () => ({ jobId: "models-usePack-1" });
 }
 
 const app = (withProject = true): AppState =>
@@ -129,9 +128,9 @@ describe("First launch › Search pack", () => {
     expect(screen.getByRole("button", { name: "Analyse again" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Use Performance" }));
     await waitFor(() =>
-      expect(named("models.usePack").map((c) => c.input)).toEqual([
-        { pack: "performance", dryRun: true },
-        { pack: "performance" },
+      expect(calls.filter((c) => /^models\.(planPack|usePack)$/.test(c.name)).map((c) => [c.name, c.input])).toEqual([
+        ["models.planPack", { pack: "performance" }],
+        ["models.usePack", { pack: "performance" }],
       ]),
     );
     await waitFor(() => expect(state.navigate).toHaveBeenCalledWith("documents"));

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ApiError, call } from "../../../api.ts";
+import { ApiError, call, waitJob } from "../../../api.ts";
 import { Button, Icon, Modal, Segmented, Skeleton } from "../../../components/legacy/index.ts";
 import { absolutePath, examplePath } from "../../../lib/desktop.ts";
 import { cx, message } from "../../../lib/format.ts";
@@ -53,7 +53,7 @@ export function FolderDialog({
     if (!absolutePath(d)) return;
     let dead = false;
     const t = setTimeout(() => {
-      call<SetDirOut>("models.setDir", { dir: d, dryRun: true, ...(changing ? { [choice]: true } : {}) })
+      call<SetDirOut>("models.planDir", { dir: d, ...(changing ? { [choice]: true } : {}) })
         .then((r) => !dead && setPlan(r))
         .catch((e) => !dead && setRefusal({ message: message(e), fix: e instanceof ApiError ? e.fix : undefined }));
     }, 250);
@@ -66,8 +66,13 @@ export function FolderDialog({
   const apply = async () => {
     setBusy(true);
     try {
-      const r = await call<SetDirOut>("models.setDir", { dir: dir.trim(), ...(changing ? { [choice]: true } : {}) });
-      onApplied(r.dir, r.jobId ?? null, r.action);
+      const { jobId } = await call<{ jobId: string }>("models.setDir", {
+        dir: dir.trim(),
+        ...(changing ? { [choice]: true } : {}),
+      });
+      const action = plan?.action ?? "set";
+      if (action === "move" || action === "copy") onApplied(plan?.dir ?? dir.trim(), jobId, action);
+      else onApplied((await waitJob<SetDirOut>(jobId)).dir, null, action);
     } catch (e) {
       setRefusal({ message: message(e), fix: e instanceof ApiError ? e.fix : undefined });
     } finally {
