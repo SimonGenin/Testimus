@@ -3,16 +3,23 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { mcpAccess } from "../../src/core/claude/access.ts";
-import { actionPrompt, proposeLines, triagePrompt } from "../../src/core/claude/actions.ts";
-import { checkPrompt } from "../../src/core/claude/check.ts";
-import { invoke } from "../../src/core/commands/index.ts";
-import { type ClaudeSpawn, env } from "../../src/core/env.ts";
-import { listActions, proposeAction, stampOf, suggestFor, whereOf, writeAction } from "../../src/core/lib/actions.ts";
-import { DEFAULT_SETTINGS, writeSettings } from "../../src/core/lib/project.ts";
-import type { ClaudeAction } from "../../src/core/types.ts";
+import { mcpAccess } from "../../../../src/core/claude/access.ts";
+import { actionPrompt, proposeLines, triagePrompt } from "../../../../src/core/claude/actions.ts";
+import { checkPrompt } from "../../../../src/core/claude/check.ts";
+import { invoke } from "../../../../src/core/commands/index.ts";
+import { type ClaudeSpawn, env } from "../../../../src/core/env.ts";
+import {
+  listActions,
+  proposeAction,
+  stampOf,
+  suggestFor,
+  whereOf,
+  writeAction,
+} from "../../../../src/core/lib/actions.ts";
+import { DEFAULT_SETTINGS, writeSettings } from "../../../../src/core/lib/project.ts";
+import type { ClaudeAction } from "../../../../src/core/types.ts";
 
-const FIXTURE = fileURLToPath(new URL("../fixtures/project/", import.meta.url));
+const FIXTURE = fileURLToPath(new URL("../../../fixtures/project/", import.meta.url));
 const DOC = "SOSIE_211_D401-1_3";
 const TEST = "LFRPS12-1420";
 

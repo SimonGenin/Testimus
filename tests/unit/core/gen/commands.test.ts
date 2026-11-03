@@ -1,13 +1,13 @@
 import { rmSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { quietCtx } from "../../src/core/command.ts";
-import { commands } from "../../src/core/commands/gen.ts";
-import { copyFixture, tempRoot } from "./cov-faces-helpers.ts";
+import { quietCtx } from "../../../../src/core/command.ts";
+import { commands } from "../../../../src/core/commands/gen.ts";
+import { copyFixture, tempRoot } from "../../cov-faces-helpers.ts";
 
 const seen = vi.hoisted(() => ({ requests: [] as string[] }));
 
-vi.mock("../../src/core/claude/generate.ts", async (importOriginal) => ({
+vi.mock("../../../../src/core/claude/generate.ts", async (importOriginal) => ({
   ...(await importOriginal<object>()),
   generateTests: async (_project: string, input: { request: string }) => {
     seen.requests.push(input.request);
@@ -15,7 +15,7 @@ vi.mock("../../src/core/claude/generate.ts", async (importOriginal) => ({
   },
 }));
 
-vi.mock("../../src/core/claude/figures.ts", async (importOriginal) => ({
+vi.mock("../../../../src/core/claude/figures.ts", async (importOriginal) => ({
   ...(await importOriginal<object>()),
   describeFigures: async (_project: string, docId: string) => ({
     docId,

@@ -2,12 +2,12 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, write
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { ask, listChats, sourceRefs } from "../../src/core/claude/chat.ts";
-import { checkOne, checkTests, promoteChecked } from "../../src/core/claude/check.ts";
-import { describeFigures, figuresPrompt, parseFigures } from "../../src/core/claude/figures.ts";
-import { fixTest } from "../../src/core/claude/fix.ts";
-import { claudeHeaders, headersPrompt, parseHeaders, projectOfDoc } from "../../src/core/claude/headers.ts";
-import { contextDirs, mcpServer, runClaude } from "../../src/core/claude/run.ts";
+import { ask, listChats, sourceRefs } from "../../../../src/core/claude/chat.ts";
+import { checkOne, checkTests, promoteChecked } from "../../../../src/core/claude/check.ts";
+import { describeFigures, figuresPrompt, parseFigures } from "../../../../src/core/claude/figures.ts";
+import { fixTest } from "../../../../src/core/claude/fix.ts";
+import { claudeHeaders, headersPrompt, parseHeaders, projectOfDoc } from "../../../../src/core/claude/headers.ts";
+import { contextDirs, mcpServer, runClaude } from "../../../../src/core/claude/run.ts";
 import {
   changedStepNumbers,
   finishSnapshot,
@@ -15,11 +15,11 @@ import {
   readRun,
   revert,
   takeSnapshot,
-} from "../../src/core/claude/snapshot.ts";
-import { checkSignedIn, claudeExe, claudeVersion, resetProbe } from "../../src/core/claude/status.ts";
-import type { Ctx } from "../../src/core/command.ts";
-import { type ClaudeOut, type ClaudeSpawn, env } from "../../src/core/env.ts";
-import { readDoc } from "../../src/core/lib/docs.ts";
+} from "../../../../src/core/claude/snapshot.ts";
+import { checkSignedIn, claudeExe, claudeVersion, resetProbe } from "../../../../src/core/claude/status.ts";
+import type { Ctx } from "../../../../src/core/command.ts";
+import { type ClaudeOut, type ClaudeSpawn, env } from "../../../../src/core/env.ts";
+import { readDoc } from "../../../../src/core/lib/docs.ts";
 import {
   DEFAULT_SETTINGS,
   readJson,
@@ -27,12 +27,12 @@ import {
   writeJson,
   writeProject,
   writeSettings,
-} from "../../src/core/lib/project.ts";
-import type { Chunk, FigureEntry } from "../../src/core/types.ts";
-import { writeContextMd } from "./context-helpers.ts";
-import "../../src/core/commands/index.ts";
+} from "../../../../src/core/lib/project.ts";
+import type { Chunk, FigureEntry } from "../../../../src/core/types.ts";
+import { writeContextMd } from "../../context-helpers.ts";
+import "../../../../src/core/commands/index.ts";
 
-const FIXTURE = join(import.meta.dirname, "..", "fixtures", "project");
+const FIXTURE = join(import.meta.dirname, "..", "..", "..", "fixtures", "project");
 const D3 = "SOSIE_211_D401-1_3";
 const real = env.spawnClaude;
 const realPath = process.env.PATH;

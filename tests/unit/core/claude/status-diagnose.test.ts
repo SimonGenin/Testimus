@@ -1,15 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { diagnose, trouble } from "../../src/core/claude/diagnose.ts";
+import { diagnose, trouble } from "../../../../src/core/claude/diagnose.ts";
 import {
   checkSignedIn,
   claudeAnswered,
   claudeVersion,
   resetProbe,
   VERSION_TIMEOUT_MS,
-} from "../../src/core/claude/status.ts";
-import { invoke } from "../../src/core/commands/index.ts";
-import { type ClaudeOut, type ClaudeSpawn, env } from "../../src/core/env.ts";
-import { DEFAULT_SETTINGS, writeSettings } from "../../src/core/lib/project.ts";
+} from "../../../../src/core/claude/status.ts";
+import { invoke } from "../../../../src/core/commands/index.ts";
+import { type ClaudeOut, type ClaudeSpawn, env } from "../../../../src/core/env.ts";
+import { DEFAULT_SETTINGS, writeSettings } from "../../../../src/core/lib/project.ts";
 
 const real = env.spawnClaude;
 let calls: ClaudeSpawn[] = [];

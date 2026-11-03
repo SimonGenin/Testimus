@@ -2,18 +2,18 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { revert } from "../../src/core/claude/snapshot.ts";
-import { quietCtx } from "../../src/core/command.ts";
-import { commands as reviewCommands } from "../../src/core/commands/review.ts";
-import { type ClaudeSpawn, env } from "../../src/core/env.ts";
-import { mechanicalCheck, osUser, recordSemantic } from "../../src/core/lib/check.ts";
-import { DEFAULT_SETTINGS, writeSettings } from "../../src/core/lib/project.ts";
-import { readCheck, readTest } from "../../src/core/lib/store.ts";
-import { mockSpawnClaude } from "../../src/core/mock/claude.ts";
-import "../../src/core/mock/claude-check.ts";
-import "../../src/core/commands/index.ts";
+import { revert } from "../../../../src/core/claude/snapshot.ts";
+import { quietCtx } from "../../../../src/core/command.ts";
+import { commands as reviewCommands } from "../../../../src/core/commands/review.ts";
+import { type ClaudeSpawn, env } from "../../../../src/core/env.ts";
+import { mechanicalCheck, osUser, recordSemantic } from "../../../../src/core/lib/check.ts";
+import { DEFAULT_SETTINGS, writeSettings } from "../../../../src/core/lib/project.ts";
+import { readCheck, readTest } from "../../../../src/core/lib/store.ts";
+import { mockSpawnClaude } from "../../../../src/core/mock/claude.ts";
+import "../../../../src/core/mock/claude-check.ts";
+import "../../../../src/core/commands/index.ts";
 
-const FIXTURE = new URL("../fixtures/project/", import.meta.url);
+const FIXTURE = new URL("../../../fixtures/project/", import.meta.url);
 const DOC = "SOSIE_211_D401-1_3";
 const real = env.spawnClaude;
 const realNow = env.now;
@@ -273,7 +273,7 @@ describe("review.fix", () => {
 describe("--mock review loop (scripted check-test and fix-test)", () => {
   it("check records realistic findings, fix applies the note, the re-check is clean", async () => {
     env.spawnClaude = mockSpawnClaude;
-    const { commands: checkCommands } = await import("../../src/core/commands/check.ts");
+    const { commands: checkCommands } = await import("../../../../src/core/commands/check.ts");
     const check = checkCommands.find((c) => c.name === "check.run")!;
     const out: any = await check.run(
       quietCtx(project),

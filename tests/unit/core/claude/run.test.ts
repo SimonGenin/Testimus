@@ -3,19 +3,19 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { absRule, mcpAccess, protectedRules } from "../../src/core/claude/access.ts";
-import { buildPrompt, EDIT_MARKER } from "../../src/core/claude/prompt.ts";
-import { claudeArgs, ensureMcpJson, mcpServer, runClaude } from "../../src/core/claude/run.ts";
-import { changedStepNumbers, revert, stepBlocks } from "../../src/core/claude/snapshot.ts";
-import { forShell } from "../../src/core/claude/status.ts";
-import { eventsOf, streamParser } from "../../src/core/claude/stream.ts";
-import { invoke } from "../../src/core/commands/index.ts";
-import { type ClaudeOut, type ClaudeSpawn, env } from "../../src/core/env.ts";
-import { DEFAULT_SETTINGS, readJson, writeSettings } from "../../src/core/lib/project.ts";
-import type { ClaudeEvent } from "../../src/core/types.ts";
-import { writeContextMd } from "./context-helpers.ts";
+import { absRule, mcpAccess, protectedRules } from "../../../../src/core/claude/access.ts";
+import { buildPrompt, EDIT_MARKER } from "../../../../src/core/claude/prompt.ts";
+import { claudeArgs, ensureMcpJson, mcpServer, runClaude } from "../../../../src/core/claude/run.ts";
+import { changedStepNumbers, revert, stepBlocks } from "../../../../src/core/claude/snapshot.ts";
+import { forShell } from "../../../../src/core/claude/status.ts";
+import { eventsOf, streamParser } from "../../../../src/core/claude/stream.ts";
+import { invoke } from "../../../../src/core/commands/index.ts";
+import { type ClaudeOut, type ClaudeSpawn, env } from "../../../../src/core/env.ts";
+import { DEFAULT_SETTINGS, readJson, writeSettings } from "../../../../src/core/lib/project.ts";
+import type { ClaudeEvent } from "../../../../src/core/types.ts";
+import { writeContextMd } from "../../context-helpers.ts";
 
-const FIXTURE = fileURLToPath(new URL("../fixtures/project/", import.meta.url));
+const FIXTURE = fileURLToPath(new URL("../../../fixtures/project/", import.meta.url));
 const EXE = "C:/bin/claude.exe";
 
 function copyFixture(): string {

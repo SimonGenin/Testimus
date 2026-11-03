@@ -2,17 +2,17 @@ import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync } from "node
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { GEN_MARKER, REPORT_TAG } from "../../src/core/claude/gen-prompt.ts";
-import type { ClaudeSpawn } from "../../src/core/env.ts";
-import { writeJson } from "../../src/core/lib/project.ts";
-import { readTest } from "../../src/core/lib/store.ts";
-import { mockSpawnClaude, mockStream } from "../../src/core/mock/claude.ts";
-import { mockFindings, mockFix } from "../../src/core/mock/claude-check.ts";
-import "../../src/core/mock/claude-gen.ts";
-import { mockMachine, mockMachineKind } from "../../src/core/mock/machine.ts";
-import type { Test } from "../../src/core/types.ts";
+import { GEN_MARKER, REPORT_TAG } from "../../../../src/core/claude/gen-prompt.ts";
+import type { ClaudeSpawn } from "../../../../src/core/env.ts";
+import { writeJson } from "../../../../src/core/lib/project.ts";
+import { readTest } from "../../../../src/core/lib/store.ts";
+import { mockSpawnClaude, mockStream } from "../../../../src/core/mock/claude.ts";
+import { mockFindings, mockFix } from "../../../../src/core/mock/claude-check.ts";
+import "../../../../src/core/mock/claude-gen.ts";
+import { mockMachine, mockMachineKind } from "../../../../src/core/mock/machine.ts";
+import type { Test } from "../../../../src/core/types.ts";
 
-const FIXTURE = join(import.meta.dirname, "..", "fixtures", "project");
+const FIXTURE = join(import.meta.dirname, "..", "..", "..", "fixtures", "project");
 
 function copy(): string {
   const dir = join(mkdtempSync(join(tmpdir(), "testimus-covmock-")), "LFRPS12");
