@@ -96,7 +96,8 @@ export function truthFiles(project: string, scope: ClaudeScope): { roots: string
   const files = ["project.json", "xray.json"];
   const roots = scope.kind === "doc" ? [`docs/${scope.docId}`] : [];
   if (scope.kind !== "doc")
-    for (const id of docIds(project)) files.push(`docs/${id}/doc.json`, `docs/${id}/context.md`);
+    for (const id of docIds(project))
+      files.push(`docs/${id}/doc.json`, `docs/${id}/context.md`, `docs/${id}/claude.json`);
   return { roots, files: [...files, ...rootFiles(project, roots)] };
 }
 

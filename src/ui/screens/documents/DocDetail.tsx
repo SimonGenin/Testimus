@@ -3,13 +3,16 @@ import type { DocJson, FigureEntry, TraceItem, TraceScan, TraceView } from "../.
 import { call, project } from "../../api.ts";
 import { ActionButton } from "../../components/claude/ActionButton.tsx";
 import { ActionCount } from "../../components/claude/ActionCount.tsx";
+import { AdditionalContext } from "../../components/claude/AdditionalContext.tsx";
 import { Button, Icon, IconButton, Menu, Severity, Skeleton } from "../../components/ui/index.ts";
 import { forProblem, useActions } from "../../lib/actions.ts";
 import { baseName, desktop, pathJoin, reveal } from "../../lib/desktop.ts";
-import { message, plural } from "../../lib/format.ts";
+import { cx, message, plural } from "../../lib/format.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 import { idPattern, REQUIREMENT, tracesNow } from "../../lib/traces.ts";
+import { settled, useUploads } from "../../lib/uploads.ts";
 import { ConvertDoc } from "./ConvertDoc.tsx";
+import { DocReading } from "./DocReading.tsx";
 import { DocText, FigureChip } from "./DocText.tsx";
 import { RemoveDoc } from "./RemoveDoc.tsx";
 
@@ -17,6 +20,7 @@ type TocEntry = { anchor: string; title: string; level: number };
 type Shown = {
   doc: DocJson;
   context: string;
+  contexts?: string[];
   toc: TocEntry[];
   requirements: string[];
   figures: FigureEntry[];
@@ -57,12 +61,23 @@ export function DocDetail({
   const [part, setPart] = useState<{ anchor: string; md: string; section?: string } | null>(null);
   const textBox = useRef<HTMLDivElement>(null);
   const [context, setContext] = useState("");
+  const [ctxIds, setCtxIds] = useState<string[] | null>(null);
   const [error, setError] = useState("");
   const [scanned, setScanned] = useState<{ trace: TraceView; items: TraceItem[] }[]>([]);
   const traces = tracesNow() ?? [];
   const tracesKey = traces.map((t) => `${t.id}=${t.patterns.join("|")}`).join(",");
   const requirements = idPattern(traces.find((t) => t.id === REQUIREMENT));
   const acts = useActions({ docId: id });
+  const running = useUploads().find((u) => u.docId === id && u.job === "convert" && !settled(u));
+  const [opened, setOpened] = useState(false);
+  const wasRunning = useRef(false);
+  useEffect(() => {
+    if (running) wasRunning.current = true;
+    else if (wasRunning.current) {
+      wasRunning.current = false;
+      setOpened(true);
+    }
+  }, [running]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: the tracked kinds are compared by their key
   useEffect(() => {
@@ -89,6 +104,7 @@ export function DocDetail({
         setShown(r);
         setContext(r.context ?? "");
         sent.current = null;
+        setCtxIds(null);
       })
       .catch((e) => !dead && setError(message(e)));
     return () => {
@@ -141,10 +157,19 @@ export function DocDetail({
   }, [part, focus, anchor]);
 
   const set = useCallback(
-    async (patch: Partial<DocJson> & { context?: string }, done?: string) => {
+    async (patch: Partial<DocJson> & { context?: string; contexts?: string[] }, done?: string) => {
       try {
         const doc = await call<DocJson>("docs.set", { id, ...patch });
-        setShown((s) => (s ? { ...s, doc, ...(patch.context !== undefined ? { context: patch.context } : {}) } : s));
+        setShown((s) =>
+          s
+            ? {
+                ...s,
+                doc,
+                ...(patch.context !== undefined ? { context: patch.context } : {}),
+                ...(patch.contexts ? { contexts: patch.contexts } : {}),
+              }
+            : s,
+        );
         if (done) toast({ kind: "ok", title: done });
         onChanged();
       } catch (e) {
@@ -153,6 +178,12 @@ export function DocDetail({
     },
     [id, onChanged],
   );
+
+  // ponytail: « Save as context… » attaches the new context and empties the note in one go — both are saved together
+  // biome-ignore lint/correctness/useExhaustiveDependencies: saved when the list changes, with the note as it is then
+  useEffect(() => {
+    if (ctxIds) void set({ contexts: ctxIds, ...(context !== shown?.context ? { context } : {}) });
+  }, [ctxIds]);
 
   // ponytail: leaving the screen unmounts the note without a blur — what was typed is saved from the cleanup, once:
   // a blur just before has already sent it
@@ -191,7 +222,7 @@ export function DocDetail({
   const from = d.source.file?.endsWith(".pdf") ? "PDF" : "Word";
   const converted = !!d.convertedAt;
   return (
-    <aside className="split-side docdetail" aria-label={`${d.code} details`}>
+    <aside className={cx("split-side docdetail", opened && "docdetail-open")} aria-label={`${d.code} details`}>
       <div className="docdetail-head">
         <div className="docdetail-top">
           <span className="mono muted docdetail-code">
@@ -204,26 +235,32 @@ export function DocDetail({
             )}
           </span>
           <ActionCount actions={acts} />
-          <Menu
-            label="More actions for this document"
-            align="right"
-            items={[
-              ...(converted ? [{ key: "convert", label: "Convert again…", onSelect: () => setAgain(true) }] : []),
-              { key: "delete", label: "Delete", icon: "trash", danger: true, onSelect: () => setAsk(true) },
-            ]}
-            trigger={({ open, toggle, id: mid }) => (
-              <IconButton
-                icon="more"
-                label="More actions for this document"
-                aria-expanded={open}
-                aria-controls={open ? mid : undefined}
-                onClick={toggle}
-              />
-            )}
-          />
+          {!running && (
+            <Menu
+              label="More actions for this document"
+              align="right"
+              items={[
+                ...(converted ? [{ key: "convert", label: "Convert again…", onSelect: () => setAgain(true) }] : []),
+                { key: "delete", label: "Delete", icon: "trash", danger: true, onSelect: () => setAsk(true) },
+              ]}
+              trigger={({ open, toggle, id: mid }) => (
+                <IconButton
+                  icon="more"
+                  label="More actions for this document"
+                  aria-expanded={open}
+                  aria-controls={open ? mid : undefined}
+                  onClick={toggle}
+                />
+              )}
+            />
+          )}
         </div>
         <h2 className="h docdetail-title">{d.title}</h2>
-        {converted ? (
+        {running ? (
+          <span className="muted">
+            Converting from {from} · {baseName(d.source.path.replace(/^upload: /, ""))}
+          </span>
+        ) : converted ? (
           <span className="muted">
             Converted from {from} · {plural(shown.toc.length, "section")} ·{" "}
             {scanned.map((f) => `${plural(f.items.length, `${f.trace.label.toLowerCase()} id`)} · `).join("")}
@@ -257,6 +294,7 @@ export function DocDetail({
             id="doc-status"
             className="field"
             value={d.status}
+            disabled={!!running}
             onChange={(e) => void set({ status: e.target.value as DocJson["status"] })}
           >
             {STATUSES.map((s) => (
@@ -269,23 +307,29 @@ export function DocDetail({
       </div>
 
       <div className="formfield">
-        <label htmlFor="doc-context" className="label">
-          Context — what the team knows about this document. Claude reads it every time.
-        </label>
-        <textarea
+        <span className="label">
+          Claude context{" "}
+          <span className="muted">— what the team knows about this document. Claude reads it every time.</span>
+        </span>
+        <AdditionalContext
           id="doc-context"
-          className="field"
-          rows={3}
-          value={context}
-          onChange={(e) => setContext(e.target.value)}
-          onBlur={() => saveNote("Context saved")}
+          of="this document"
+          ids={ctxIds ?? shown.contexts ?? []}
+          note={context}
+          disabled={!!running}
+          onIds={setCtxIds}
+          onNote={setContext}
+          onNoteBlur={() => saveNote("Context saved")}
         />
       </div>
 
-      {!converted && <ConvertDoc doc={d} onChanged={onChanged} />}
-      {converted && again && <ConvertDoc doc={d} again onClose={() => setAgain(false)} onChanged={onChanged} />}
+      {running && <DocReading docId={id} upload={running} />}
+      {!running && !converted && <ConvertDoc doc={d} onChanged={onChanged} />}
+      {!running && converted && again && (
+        <ConvertDoc doc={d} again onClose={() => setAgain(false)} onChanged={onChanged} />
+      )}
 
-      {d.warnings.length > 0 && (
+      {!running && d.warnings.length > 0 && (
         <div className="docdetail-warn">
           <span className="label">Conversion warnings</span>
           {d.warnings.map((w) => {
@@ -303,7 +347,7 @@ export function DocDetail({
         </div>
       )}
 
-      {converted && (
+      {!running && converted && (
         <div className="docdetail-text">
           <div className="sect-head">
             <span className="label">Converted text</span>
@@ -346,34 +390,35 @@ export function DocDetail({
         </div>
       )}
 
-      {scanned
-        .filter((f) => f.items.length > 0)
-        .map((f) => {
-          const to = (it: TraceItem) =>
-            f.trace.id === REQUIREMENT && shown.requirements.includes(it.id) ? `req:${it.id}` : it.anchor;
-          return (
-            <div key={f.trace.id} className="formfield">
-              <span className="label">
-                {f.trace.label} ids ({f.items.length})
-              </span>
-              <div className="chips docreqs">
-                {f.items.map((it) => (
-                  <button
-                    key={it.id}
-                    type="button"
-                    title={it.context}
-                    className={`chip req chip-btn${target === to(it) ? " chip-on" : ""}`}
-                    onClick={() => to(it) && onAnchor(to(it))}
-                  >
-                    {it.id}
-                  </button>
-                ))}
+      {!running &&
+        scanned
+          .filter((f) => f.items.length > 0)
+          .map((f) => {
+            const to = (it: TraceItem) =>
+              f.trace.id === REQUIREMENT && shown.requirements.includes(it.id) ? `req:${it.id}` : it.anchor;
+            return (
+              <div key={f.trace.id} className="formfield">
+                <span className="label">
+                  {f.trace.label} ids ({f.items.length})
+                </span>
+                <div className="chips docreqs">
+                  {f.items.map((it) => (
+                    <button
+                      key={it.id}
+                      type="button"
+                      title={it.context}
+                      className={`chip req chip-btn${target === to(it) ? " chip-on" : ""}`}
+                      onClick={() => to(it) && onAnchor(to(it))}
+                    >
+                      {it.id}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
 
-      {shown.figures.length > 0 && (
+      {!running && shown.figures.length > 0 && (
         <div className="formfield">
           <span className="label">Figures ({shown.figures.length})</span>
           <div className="chips">

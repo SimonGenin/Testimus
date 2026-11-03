@@ -3,7 +3,7 @@ import { join, resolve } from "node:path";
 import { readJson, readProject, readSettings } from "../lib/project.ts";
 import type { Chunk, DocJson } from "../types.ts";
 import { languageName } from "./generate.ts";
-import { docRunLines, type JobRun } from "./prompt.ts";
+import { docContexts, docRunLines, type JobRun } from "./prompt.ts";
 import { runClaude } from "./run.ts";
 
 export const HEADERS_MARKER = "Testimus context-headers run";
@@ -93,6 +93,7 @@ export async function claudeHeaders(
     const run = await runClaude({
       project: dir,
       prompt: headersPrompt(doc, batch, p.language, docRunLines(dir, doc.id, { note: claude.note })),
+      contexts: docContexts(dir, doc.id),
       model: claude.model || "haiku",
       effort: claude.effort || "low",
       kind: "headers",

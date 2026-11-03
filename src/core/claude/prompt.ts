@@ -43,6 +43,25 @@ export function effectiveContexts(project: string, testId?: string): string[] {
   return ids.filter((id) => /^[\w-]+$/.test(id) && existsSync(contextDir(project, id)));
 }
 
+const docClaudeFile = (project: string, docId: string) => join(project, "docs", docId, "claude.json");
+
+export function readDocContexts(project: string, docId: string): string[] | null {
+  const f = docClaudeFile(project, docId);
+  if (!existsSync(f)) return null;
+  const c = readJson<{ contexts?: unknown }>(f, {}).contexts;
+  return Array.isArray(c) ? c.filter((x): x is string => typeof x === "string" && /^[\w-]+$/.test(x)) : null;
+}
+
+export function writeDocContexts(project: string, docId: string, ids: string[]): void {
+  writeJson(docClaudeFile(project, docId), { contexts: [...new Set(ids)] });
+}
+
+// ponytail: like a test, a document's own list wins whole, else the project's; a run may add its own on top
+export function docContexts(project: string, docId: string, run: JobRun = {}): string[] {
+  const ids = [...(readDocContexts(project, docId) ?? readProject(project).claude.contexts), ...(run.contexts ?? [])];
+  return [...new Set(ids)].filter((id) => /^[\w-]+$/.test(id) && existsSync(contextDir(project, id)));
+}
+
 // ponytail: a request on the whole project reads every context the project or one of its tests attaches, each once
 export function projectContexts(project: string): string[] {
   const dir = join(project, "tests");
@@ -157,14 +176,14 @@ export function contextLines(project: string, contexts: Context[], note = "", co
   return lines;
 }
 
-// ponytail: a document's own Claude runs (figures, headers, triage) hear what the team knows about it, then what
-// the user added for this conversion
+// ponytail: a document's own Claude runs (figures, headers, triage) hear what the team knows about it — its note and
+// its contexts — then what the user added for this run
 export function docRunLines(project: string, docId: string, run: JobRun = {}): string[] {
   const file = join(project, "docs", docId, "context.md");
   const team = existsSync(file) ? readFileSync(file, "utf8").trim() : "";
   return [
     ...(team ? ["", "What the team knows about this document:", team] : []),
-    ...contextLines(project, readContexts(project, run.contexts ?? []), run.note),
+    ...contextLines(project, readContexts(project, docContexts(project, docId, run)), run.note),
   ];
 }
 

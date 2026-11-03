@@ -102,6 +102,18 @@ describe("docs commands", () => {
       "Additional context from the user for this run:",
       "Only chapter 5 matters",
     ]);
+    expect((await run<{ contexts: string[] }>(project, "docs.show", { id: doc.id })).contexts).toEqual([]);
+    mkdirSync(join(project, "contexts", "glossary"), { recursive: true });
+    writeFileSync(join(project, "contexts", "glossary", "context.json"), JSON.stringify({ name: "Glossary" }));
+    writeFileSync(join(project, "contexts", "glossary", "notes.md"), "TK = traction");
+    await run(project, "docs.set", { id: doc.id, contexts: ["glossary", "glossary", "gone"] });
+    expect(JSON.parse(readFileSync(join(dir, "claude.json"), "utf8"))).toEqual({ contexts: ["glossary", "gone"] });
+    expect((await run<{ contexts: string[] }>(project, "docs.show", { id: doc.id })).contexts).toEqual(["glossary"]);
+    expect(docRunLines(project, doc.id, { contexts: ["glossary"] }).join("\n")).toMatch(
+      /What the team knows about this document:\nEdition for the 2024 tender\n\nContext to read before you start[^\n]*\n- Glossary — notes: .*\/contexts\/glossary\/notes\.md$/,
+    );
+    await run(project, "docs.set", { id: doc.id, contexts: [] });
+    expect((await run<{ contexts: string[] }>(project, "docs.show", { id: doc.id })).contexts).toEqual([]);
     const converted = await run<DocJson>(project, "docs.convert", { id: doc.id, note: "Only chapter 5 matters" });
     expect(converted).toMatchObject({
       title: "Spécification fonctionnelle – Traction",
@@ -111,6 +123,12 @@ describe("docs commands", () => {
     });
     expect(converted.convertedAt).not.toBe("");
     expect(readFileSync(join(dir, "context.md"), "utf8")).toBe("Edition for the 2024 tender\n");
+    const brief = await run<{ md: string; toc: unknown[]; info: unknown[] }>(project, "docs.show", {
+      id: doc.id,
+      brief: true,
+    });
+    expect(brief).toMatchObject({ md: "", info: [] });
+    expect(brief.toc).toHaveLength(20);
 
     await run(project, "docs.remove", { id: doc.id });
     await run(project, "docs.add", { file: original, convert: false });

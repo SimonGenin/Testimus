@@ -191,6 +191,9 @@ export async function mockSpawnClaude(run: ClaudeSpawn): Promise<ClaudeOut> {
     run.onLine?.(line);
     return { code: 1, stdout: `${line}\n`, stderr: "" };
   }
+  // ponytail: TESTIMUS_MOCK_CLAUDE_MS=<ms> makes every run take that long, so a conversion can be watched
+  const ms = Number(process.env.TESTIMUS_MOCK_CLAUDE_MS) || 0;
+  if (ms) await new Promise((r) => setTimeout(r, ms));
   for (let i = scripts.length - 1; i >= 0; i--)
     if (scripts[i].match(run.stdin, run.args)) return await scripts[i].run(run);
   return { code: 1, stdout: "", stderr: "mock claude: no script" };

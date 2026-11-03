@@ -134,17 +134,29 @@ export function waitJob<T = unknown>(jobId: string, onEvent?: (e: JobEvent) => v
         reject(e);
       }
     };
+    let heard = false;
     const unsubscribe = events((e) => {
       if (e.jobId !== jobId) return;
+      heard = true;
       onEvent?.(e);
       if (e.type === "status") finish(e.job);
     });
     // ponytail: the event stream can drop a status between two reconnects (or be missing), so the job
-    // is also asked for directly now and then — whichever answer comes first settles it
-    const check = () =>
-      call<{ job: Job }>("jobs.show", { id: jobId })
-        .then((r) => r?.job && finish(r.job))
+    // is also asked for directly now and then — whichever answer comes first settles it; the job starts before
+    // this subscribes, so while the stream says nothing its last progress stands in for the events missed
+    const check = () => {
+      const quiet = !heard;
+      heard = false;
+      return call<{ job: Job }>("jobs.show", { id: jobId })
+        .then((r) => {
+          const j = r?.job;
+          if (!j) return;
+          if (quiet && !heard && j.status === "running" && j.message)
+            onEvent?.({ jobId, at: new Date().toISOString(), type: "progress", message: j.message, ...j.progress });
+          finish(j);
+        })
         .catch(() => {});
+    };
     const poll = setInterval(check, 1500);
     const off = () => {
       clearInterval(poll);

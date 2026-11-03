@@ -4,7 +4,7 @@ import { basename, join } from "node:path";
 import { z } from "zod";
 import { triage } from "../claude/actions.ts";
 import { describeFigures, shouldDescribeFigures } from "../claude/figures.ts";
-import { docRunLines, type JobRun } from "../claude/prompt.ts";
+import { docContexts, docRunLines, type JobRun, writeDocContexts } from "../claude/prompt.ts";
 import { type Command, type Ctx, command, projectOf, UserError } from "../command.ts";
 import { writeAtomic } from "../lib/atomic.ts";
 import { recheckMechanical, testsCiting } from "../lib/check.ts";
@@ -131,7 +131,9 @@ const triageOn = z
   .boolean()
   .optional()
   .describe("Then have Claude look at the conversion warnings and propose a Claude action for those it can fix");
-const contexts = CONTEXT_IDS.optional().describe("Saved contexts Claude reads for this conversion only");
+const contexts = CONTEXT_IDS.optional().describe(
+  "Saved contexts Claude reads for this conversion only, on top of the document's own (docs.set contexts)",
+);
 const runOf = (i: { model?: string; effort?: JobRun["effort"]; note?: string; contexts?: string[] }): JobRun => ({
   model: i.model,
   effort: i.effort,
@@ -294,10 +296,19 @@ export const commands: Command[] = [
         .describe(
           "Return only this part of doc.md: §5.6.6 (a section and its subsections), req:EXI_…, fig:40, page:59",
         ),
+      brief: z
+        .boolean()
+        .optional()
+        .describe(
+          "Leave the text out (md empty, no info): the facts, outline and figures only — what a conversion has written so far",
+        ),
     }),
     output: z.object({
       doc: docJson,
-      context: z.string(),
+      context: z.string().describe("What the team says about this document (context.md)"),
+      contexts: z
+        .array(z.string())
+        .describe("Saved contexts Claude reads with this document: its own list, else the project's defaults"),
       toc: z.array(z.object({ anchor: z.string(), title: z.string(), level: z.number() })),
       requirements: z.array(z.string()),
       figures: z.array(figure),
@@ -340,18 +351,19 @@ export const commands: Command[] = [
       return {
         doc,
         context: readContext(project, input.id),
+        contexts: docContexts(project, input.id),
         toc: tocOf(full),
         requirements: [...new Set(anchorsOf(full).requirements)],
         figures: readFigures(project, input.id),
-        md,
+        md: input.brief ? "" : md,
         ...(section ? { section } : {}),
-        info: tracedElsewhere(input.id, full, evidenceOptions(project)),
+        info: input.brief ? [] : tracedElsewhere(input.id, full, evidenceOptions(project)),
       };
     },
   }),
   command({
     name: "docs.set",
-    summary: "Change what the team decides about a document: status, amends, title, context.",
+    summary: "Change what the team decides about a document: status, amends, title, context, saved contexts.",
     input: z.object({
       id,
       status: status.optional().describe("draft, submitted or validated"),
@@ -361,6 +373,9 @@ export const commands: Command[] = [
       date: z.string().optional().describe("Document date, YYYY-MM-DD"),
       kind: kind.optional().describe("spec, requirements, minutes or other"),
       context: z.string().optional().describe("What the team says about this document; replaces context.md"),
+      contexts: CONTEXT_IDS.optional().describe(
+        "Saved contexts Claude reads with this document, every time (docs/<id>/claude.json); replaces the list, [] = none",
+      ),
     }),
     output: docJson,
     mutates: true,
@@ -384,6 +399,7 @@ export const commands: Command[] = [
       }
       writeDoc(project, doc);
       if (input.context !== undefined) writeContext(project, input.id, input.context);
+      if (input.contexts) writeDocContexts(project, input.id, input.contexts);
       return doc;
     },
   }),

@@ -223,7 +223,7 @@ describe("DocDetail", () => {
     });
     expect(await screen.findByText("Part intro EXI_1")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Intro" })).toBeInTheDocument();
-    expect(screen.getByLabelText(/Context — what the team knows/)).toHaveValue("");
+    expect(screen.getByLabelText("Note for this document")).toHaveValue("");
     cleanup();
     show("", { toc: [] });
     await screen.findByRole("heading", { name: "Title D1" });
@@ -246,13 +246,14 @@ describe("DocDetail", () => {
     expect(screen.getByText("Unknown command docs.show")).toBeInTheDocument();
   });
 
-  it("saves the status and the context", async () => {
+  it("saves the status, the note and the saved contexts", async () => {
     let saved = doc("D1");
     api.routes["docs.set"] = (i) => {
       saved = { ...saved, ...(i as Partial<DocRef>) };
       return saved;
     };
-    const { onChanged } = show();
+    api.routes["contexts.list"] = () => [{ id: "glossary", name: "Glossary", shared: false }];
+    const { onChanged } = show("", { contexts: ["glossary"] });
     await screen.findByRole("heading", { name: "Title D1" });
     const st = screen.getByLabelText("Status");
     expect(
@@ -265,7 +266,8 @@ describe("DocDetail", () => {
     fireEvent.change(st, { target: { value: "draft" } });
     await waitFor(() => expect(named("docs.set")[0]?.input).toEqual({ id: "D1", status: "draft" }));
     expect(screen.queryByText("Amends")).toBeNull();
-    const ctx = screen.getByLabelText(/Context — what the team knows/);
+    expect(screen.getByText(/what the team knows about this document/)).toBeInTheDocument();
+    const ctx = screen.getByLabelText("Note for this document");
     fireEvent.blur(ctx);
     expect(named("docs.set")).toHaveLength(1);
     fireEvent.change(ctx, { target: { value: "new note" } });
@@ -275,6 +277,12 @@ describe("DocDetail", () => {
     fireEvent.blur(ctx);
     expect(named("docs.set")).toHaveLength(2);
     expect(onChanged).toHaveBeenCalledTimes(2);
+    fireEvent.change(ctx, { target: { value: "unsaved note" } });
+    fireEvent.click(await screen.findByRole("button", { name: "Leave Glossary out of this document" }));
+    await waitFor(() =>
+      expect(named("docs.set")[2]?.input).toEqual({ id: "D1", contexts: [], context: "unsaved note" }),
+    );
+    expect(screen.queryByText("Glossary")).toBeNull();
   });
 
   it("⋯ › Delete asks, then removes the document; Cancel and a failure leave it", async () => {
@@ -852,16 +860,13 @@ describe("Documents screen", () => {
     expect(await within(list).findByText("Not converted")).toBeInTheDocument();
     const side = await screen.findByRole("complementary", { name: "C-NEW2 details" });
     expect(within(side).getByText(/Word file, not converted · fresh.docx/)).toBeInTheDocument();
-    expect(within(side).getByLabelText(/Context — what the team knows/)).toBeInTheDocument();
+    expect(within(side).getByLabelText("Note for this document")).toBeInTheDocument();
     expect(within(side).getByText("Not converted yet")).toBeInTheDocument();
     expect(within(side).queryByText("Converted text")).toBeNull();
-    fireEvent.click(within(side).getByRole("button", { name: "Add a note" }));
-    fireEvent.change(within(side).getByLabelText("Note for this run"), { target: { value: "Edition 2024" } });
+    expect(within(side).queryByText("Context for this conversion only")).toBeNull();
 
     fireEvent.click(within(side).getByRole("button", { name: "Convert and index" }));
-    await waitFor(() =>
-      expect(named("docs.convert")[0]?.input).toEqual({ id: "NEW2", note: "Edition 2024", contexts: [] }),
-    );
+    await waitFor(() => expect(named("docs.convert")[0]?.input).toEqual({ id: "NEW2", contexts: [] }));
     expect(await within(list).findByText("Conversion failed")).toBeInTheDocument();
     expect(within(list).getByText(/fresh.docx stays as it was: source missing/)).toBeInTheDocument();
     fireEvent.click(within(list).getByRole("button", { name: "Dismiss the conversion failure of fresh.docx" }));
@@ -871,7 +876,9 @@ describe("Documents screen", () => {
     fail = false;
     fireEvent.click(within(side).getByRole("button", { name: "Convert and index" }));
     expect(await within(list).findByRole("progressbar", { name: "Converting" })).toBeInTheDocument();
-    expect(within(side).getByRole("button", { name: "Converting…" })).toBeDisabled();
+    const reading = within(side).getByRole("region", { name: "Reading the document" });
+    expect(reading).toHaveAttribute("aria-busy", "true");
+    expect(within(side).queryByRole("region", { name: "Convert and index" })).toBeNull();
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
     converted = true;
     emit({
@@ -881,7 +888,7 @@ describe("Documents screen", () => {
       job: { id: "conv-2", kind: "docs.convert", subject: "", status: "done", startedAt: at, result: { id: "NEW2" } },
     });
     expect(await within(list).findByRole("progressbar", { name: "Indexing" })).toBeInTheDocument();
-    await waitFor(() => expect(named("rag.index")[0]?.input).toEqual({ note: "Edition 2024" }));
+    await waitFor(() => expect(named("rag.index")[0]?.input).toEqual({}));
     emit({ jobId: "ix-2", at, type: "progress", message: "m", done: 3, total: 4 });
     expect(await within(list).findByText("75%")).toBeInTheDocument();
     emit({
@@ -898,6 +905,105 @@ describe("Documents screen", () => {
     expect(a.navigate).toHaveBeenCalledWith("jobs");
     fireEvent.click(within(list).getByRole("button", { name: "Dismiss the indexing failure of fresh.docx" }));
     expect(within(list).queryByText("Indexing failed")).toBeNull();
+  });
+
+  it("while a document converts, the panel shows what is read and locks the rest until it is indexed", async () => {
+    let converted = false;
+    let described = 0;
+    const fresh = () =>
+      doc("NEW3", {
+        title: "fresh",
+        source: { path: "C:/n/fresh.docx", sha256: "", file: "source.docx" },
+        indexed: converted ? "fresh" : "missing",
+        convertedAt: converted ? at : "",
+      });
+    const toc = [
+      { anchor: "§1", title: "Objet", level: 1 },
+      { anchor: "§1.1", title: "Portée", level: 2 },
+      { anchor: "§1.1.1", title: "Détail", level: 3 },
+      { anchor: "§2", title: "Règles", level: 1 },
+    ];
+    const figures = ["a", "b", "c"].map((f, i) => ({
+      file: `figures/${f}.png`,
+      anchor: `fig:${f}`,
+      caption: `Figure ${f}`,
+      description: i < described ? "seen" : "",
+    }));
+    let outline = false;
+    api.routes["docs.list"] = () => [fresh()];
+    api.routes["docs.show"] = (i) =>
+      i.anchor
+        ? { md: "Le texte" }
+        : {
+            doc: fresh(),
+            context: "",
+            toc: outline ? toc : [],
+            requirements: [],
+            figures: outline ? figures.map((f, k) => ({ ...f, description: k < described ? "seen" : "" })) : [],
+            md: "",
+          };
+    api.routes["contexts.list"] = () => [];
+    api.routes["docs.convert"] = () => ({ jobId: "conv-5" });
+    api.routes["rag.index"] = () => ({ jobId: "ix-5" });
+    api.routes["jobs.show"] = (i) => ({
+      job: { id: i.id, kind: "x", subject: "", status: "running", startedAt: at, message: "Converting source.docx" },
+    });
+    mount(<DocumentsScreen />, { route: { screen: "documents", arg: "NEW3" } });
+    let side = await screen.findByRole("complementary", { name: "C-NEW3 details" });
+    fireEvent.click(within(side).getByRole("button", { name: "Convert and index" }));
+    const reading = await within(side).findByRole("region", { name: "Reading the document" });
+    expect(await within(reading).findByText("Converting source.docx")).toBeInTheDocument();
+    expect(within(reading).getByRole("listitem", { current: "step" })).toHaveTextContent("Reading the file");
+    expect(reading.querySelectorAll(".docread-line")).toHaveLength(6);
+    expect(within(side).getByLabelText("Status")).toBeDisabled();
+    expect(within(side).getByLabelText("Note for this document")).toBeDisabled();
+    expect(within(side).queryByRole("button", { name: "More actions for this document" })).toBeNull();
+    expect(within(side).getByText(/Converting from Word · fresh.docx/)).toBeInTheDocument();
+
+    outline = true;
+    described = 1;
+    emit({ jobId: "conv-5", at, type: "progress", message: "Describing the figures of NEW3", done: 0, total: 3 });
+    const secs = await within(reading).findByRole("list", { name: "Sections read" });
+    await waitFor(() => expect(within(secs).getAllByRole("listitem")).toHaveLength(3));
+    expect(within(secs).getByText("1.1 Portée")).toBeInTheDocument();
+    expect(within(reading).getByRole("listitem", { current: "step" })).toHaveTextContent(
+      "Claude describes the figures1/3",
+    );
+    const figs = within(reading).getByRole("list", { name: "Figures" });
+    expect(within(figs).getByText("Figure a: described")).toBeInTheDocument();
+    expect(within(figs).getByText("Figure b: not described yet")).toBeInTheDocument();
+    expect(figs.querySelectorAll(".is-looking")).toHaveLength(2);
+    expect(within(side).queryByRole("button", { name: "Figure a" })).toBeNull();
+    expect(within(side).queryByText("Converted text")).toBeNull();
+
+    described = 3;
+    converted = true;
+    emit({
+      jobId: "conv-5",
+      at,
+      type: "status",
+      job: { id: "conv-5", kind: "docs.convert", subject: "", status: "done", startedAt: at, result: { id: "NEW3" } },
+    });
+    await waitFor(() => expect(named("rag.index")).toHaveLength(1));
+    side = await screen.findByRole("complementary", { name: "C-NEW3 details" });
+    const again = await within(side).findByRole("region", { name: "Reading the document" });
+    await waitFor(() => expect(within(again).getByRole("listitem", { current: "step" })).toHaveTextContent("Indexing"));
+    emit({ jobId: "ix-5", at, type: "progress", message: "Embedding NEW3", done: 2, total: 3 });
+    await waitFor(() => expect(again.querySelectorAll(".docread-sec.is-indexed")).toHaveLength(2));
+    expect(again.querySelector(".docread-sec.is-now")).toHaveTextContent("2 Règles");
+    expect(again.querySelectorAll(".docread-fig.is-done")).toHaveLength(3);
+    expect(again.querySelectorAll(".docread-sec.is-new")).toHaveLength(0);
+
+    emit({
+      jobId: "ix-5",
+      at,
+      type: "status",
+      job: { id: "ix-5", kind: "rag.index", subject: "", status: "done", startedAt: at },
+    });
+    expect(await within(side).findByText("Converted text")).toBeInTheDocument();
+    expect(within(side).queryByRole("region", { name: "Reading the document" })).toBeNull();
+    expect(side).toHaveClass("docdetail-open");
+    expect(within(side).getByLabelText("Status")).toBeEnabled();
   });
 
   it("a converted document is converted again from its menu, and the panel closes", async () => {

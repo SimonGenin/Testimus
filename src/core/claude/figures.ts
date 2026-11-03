@@ -6,7 +6,7 @@ import { readJson, readProject, writeJson } from "../lib/project.ts";
 import { docFigures, markerLine, parseSections, sectionAt } from "../rag/chunk.ts";
 import type { DocJson, FigureEntry } from "../types.ts";
 import { languageName } from "./generate.ts";
-import { docRunLines, type JobRun } from "./prompt.ts";
+import { docContexts, docRunLines, type JobRun } from "./prompt.ts";
 import { runClaude } from "./run.ts";
 
 export const FIGURES_MARKER = "Testimus describe-figures run";
@@ -173,6 +173,7 @@ export async function describeFigures(
     const run = await runClaude({
       project,
       prompt: figuresPrompt(doc, batch, p.language, docRunLines(project, docId, opts)),
+      contexts: docContexts(project, docId, opts),
       model: opts.model || p.claude.model,
       effort: opts.effort || "low",
       kind: "figures",

@@ -7,23 +7,27 @@ import { ImportContexts } from "./ImportContexts.tsx";
 import { SaveContext } from "./SaveContext.tsx";
 
 // ponytail: every Claude run takes the same extra context — saved contexts (pointed at) and a note (said in
-// full); the list and the note belong to the caller, for this run only
+// full); the list and the note belong to the caller, for one run or for what it is about (`of`)
 export function AdditionalContext({
   id,
   ids,
   note,
+  of = "this run",
   compact,
   disabled,
   onIds,
   onNote,
+  onNoteBlur,
 }: {
   id: string;
   ids: string[];
   note: string;
+  of?: string;
   compact?: boolean;
   disabled?: boolean;
   onIds: (ids: string[]) => void;
   onNote: (note: string) => void;
+  onNoteBlur?: () => void;
 }) {
   const [all, setAll] = useState<ContextSummary[]>([]);
   const [dialog, setDialog] = useState<"import" | "save" | "manage" | null>(null);
@@ -54,7 +58,7 @@ export function AdditionalContext({
                 icon="text"
                 title={c?.shared ? "Shared with every project" : undefined}
                 onRemove={disabled ? undefined : () => onIds(known.filter((y) => y !== x))}
-                removeLabel={`Leave ${c?.name ?? x} out of this run`}
+                removeLabel={`Leave ${c?.name ?? x} out of ${of}`}
               >
                 {c?.name ?? x}
                 {c?.shared && <span className="tagpill">shared</span>}
@@ -66,17 +70,18 @@ export function AdditionalContext({
       {showNote && (
         <>
           <label htmlFor={id} className="sr">
-            Note for this run
+            Note for {of}
           </label>
           <textarea
             id={id}
             className="field addctx-note"
             rows={compact ? 2 : 3}
-            placeholder="Anything Claude should know for this run…"
+            placeholder={`Anything Claude should know for ${of}…`}
             value={note}
             disabled={disabled}
             autoFocus={compact && writing && !note}
             onChange={(e) => onNote(e.target.value)}
+            onBlur={onNoteBlur}
           />
         </>
       )}
