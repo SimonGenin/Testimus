@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { dirname, parse } from "node:path";
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
+import { LEGACY_ORT, legacyOrt } from "../rag/runtimes/ort.ts";
 import { LOOPBACK, loopbackProxyGap, shellOf } from "../shell.ts";
 import type { CatalogEntry, DoctorAction, DoctorCheck, MachineProfile, ResolvedModel } from "../types.ts";
 import { jiraCreds, xrayCreds } from "./creds.ts";
@@ -77,13 +78,12 @@ export async function onnxCheck(): Promise<DoctorCheck> {
     const ort = (await import("onnxruntime-node")) as { env?: { versions?: { node?: string } } };
     return row("onnx", label, "ok", `onnxruntime ${ort.env?.versions?.node ?? "loaded"}`);
   } catch (e) {
-    return row(
-      "onnx",
-      label,
-      "fail",
-      message(e),
-      "Reinstall Testimus; if it persists, install the Microsoft Visual C++ Redistributable (x64).",
-    );
+    const fix = legacyOrt()
+      ? `On an Intel Mac Testimus needs ${LEGACY_ORT} (onnxruntime-node 1.23.2, the last one built for it): run npm install in the Testimus folder.`
+      : process.platform === "win32"
+        ? "Reinstall Testimus; if it persists, install the Microsoft Visual C++ Redistributable (x64)."
+        : `Reinstall Testimus: onnxruntime-node has no build for ${process.platform} ${process.arch} in this folder.`;
+    return row("onnx", label, "fail", message(e), fix);
   }
 }
 

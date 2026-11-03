@@ -702,6 +702,7 @@ Implementations: `transformers` (exists), `ollama` (new), `llamacpp` (later, exp
 
 - `device` per installation: `cpu` (default), `dml` (DirectML, shipped in onnxruntime-node on
   Windows ✅), `webgpu` (experimental); `dtype` per device from the catalog.
+- onnxruntime-node 1.24+ has no macOS x64 binary: an Intel Mac loads 1.23.2 through an alias (SPEC §5 Runtimes) ✅.
 - Truncation by tokens (`maxInputTokens`), not by 4,000 characters (F9).
 - Last-token pooling: left padding so batches work again (⚠️ check transformers.js padding-side support),
   else batches of 1.

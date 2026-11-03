@@ -5,6 +5,7 @@ import { addTokens, currentOp, peakRssMB, perfFields, timeLoad } from "../../lib
 import { findModel } from "../../lib/models-store.ts";
 import type { Device, Dtype, EmbedMode, ResolvedModel } from "../../types.ts";
 import { instruction } from "../fingerprint.ts";
+import "./ort.ts";
 import type { Runtime } from "./types.ts";
 
 type Tensor = {

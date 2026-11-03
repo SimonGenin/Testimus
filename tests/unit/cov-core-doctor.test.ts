@@ -112,6 +112,26 @@ describe("runtime checks", () => {
     expect(r.state).toBe("fail");
     expect(r.detail).toContain("dll missing");
   });
+
+  it("onnxruntime: the fix names what this system needs", async () => {
+    const { platform, arch } = process;
+    vi.doMock("onnxruntime-node", () => {
+      throw new Error("Cannot find module");
+    });
+    const on = async (p: string, a: string) => {
+      Object.defineProperty(process, "platform", { value: p, configurable: true });
+      Object.defineProperty(process, "arch", { value: a, configurable: true });
+      return (await onnxCheck()).fix;
+    };
+    try {
+      expect(await on("darwin", "x64")).toContain("onnxruntime-node-darwin-x64");
+      expect(await on("win32", "x64")).toContain("Visual C++");
+      expect(await on("darwin", "arm64")).toContain("darwin arm64");
+    } finally {
+      Object.defineProperty(process, "platform", { value: platform, configurable: true });
+      Object.defineProperty(process, "arch", { value: arch, configurable: true });
+    }
+  });
 });
 
 describe("claude checks", () => {

@@ -473,6 +473,11 @@ used: GGUF models run on llama.cpp, which Testimus downloads itself (same files 
     Q8_0 on the GPU. Its scores are not on the GGUF's scale: a `threshold` is set per model id, and none is measured for
     it yet. Measured on the dev PC: bge-m3 q8
     CPU 6.6 passages/s, fp16 DirectML 92/s; Qwen3-0.6B q8 CPU 2.1/s, fp16 DirectML 27/s.
+    onnxruntime-node is the one transformers.js asks for (1.30), except on an Intel Mac (macOS x64): no release
+    after 1.23 ships that binary, so a resolve hook (`rag/runtimes/ort.ts`) loads the optional dependency
+    `onnxruntime-node-darwin-x64` (`npm:onnxruntime-node@1.23.2`) and its `onnxruntime-common` in its place, for
+    transformers.js and the doctor alike; Windows and Apple silicon keep 1.30, and the release does not carry the
+    alias. Checked on a macOS x64 PC: bge-m3 q8 verified (1024 dimensions).
   - **llama.cpp** (GGUF): Testimus starts one `llama-server.exe` per loaded model, bound to 127.0.0.1 on a free
     port with a random `--api-key` per start (a request without it gets 401): `-m <gguf> (--embedding --pooling last
     -ub 8192 | --reranking --pooling rank) -ngl 99 -c 8192`. It waits for `GET /health` = `{"status":"ok"}` (3 min
@@ -1240,7 +1245,8 @@ step, and is told exactly what is missing when something is.
 - **`system.doctor`**: one line per check, each with what to do when it fails (`fix`, CLI words) and, when one
   command repairs it, that command as `action` (`label`, `command`, `input` without the value the user picks,
   `value` = the one in place now):
-  - native modules load;
+  - native modules load (onnxruntime's detail is the version loaded; its fix names what the system needs: the
+    Visual C++ Redistributable on Windows, `npm install` for the 1.23.2 alias on an Intel Mac);
   - `claude` found, its version, signed in (a minimal `claude -p` run);
   - Jira and Xray reachable and authenticated (read-only);
   - the face (`face`: browser, or desktop <version>);
