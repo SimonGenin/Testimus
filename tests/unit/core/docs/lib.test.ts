@@ -3,18 +3,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
-  addDoc,
-  convertSource,
   listDocs,
   normalizeAnchor,
   readContext,
   readDoc,
   readDocMd,
-  reconvertDoc,
   writeContext,
   writeDoc,
-} from "../../src/core/lib/docs.ts";
-import { sampleDocx } from "../fixtures/docx/sample.ts";
+} from "../../../../src/core/lib/docs.ts";
+import { addDoc, convertSource, reconvertDoc } from "../../../../src/core/lib/docs-convert.ts";
+import { sampleDocx } from "../../../fixtures/docx/sample.ts";
 
 const text = (size: number, y: number, s: string) => `BT /F1 ${size} Tf 72 ${y} Td (${s}) Tj ET`;
 

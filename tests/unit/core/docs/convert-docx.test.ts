@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { readZip, writeZip } from "../../src/core/lib/zip.ts";
-import { anchorsOf, guessDate, guessFromName, sameCaption } from "../../src/core/rag/convert.ts";
-import { convertDocx } from "../../src/core/rag/convert-docx.ts";
-import { SAMPLE_PNG, sampleDocx } from "../fixtures/docx/sample.ts";
+import { readZip, writeZip } from "../../../../src/core/lib/zip.ts";
+import { anchorsOf, guessDate, guessFromName, sameCaption } from "../../../../src/core/rag/convert.ts";
+import { convertDocx } from "../../../../src/core/rag/convert-docx.ts";
+import { SAMPLE_PNG, sampleDocx } from "../../../fixtures/docx/sample.ts";
 
 describe("zip", () => {
   it("reads back what it writes", () => {

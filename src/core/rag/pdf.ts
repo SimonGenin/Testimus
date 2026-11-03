@@ -1,6 +1,7 @@
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { getDocument, type PDFDocumentProxy, type PDFPageProxy } from "pdfjs-dist/legacy/build/pdf.mjs";
+import { scope } from "../../shared/run/work.ts";
 import { encodePng, unpackGray1 } from "./convert-png.ts";
 
 const require = createRequire(import.meta.url);
@@ -8,7 +9,7 @@ const ROOT = dirname(require.resolve("pdfjs-dist/package.json"));
 
 export const PDFJS = `pdfjs-dist ${(require("pdfjs-dist/package.json") as { version: string }).version}`;
 
-export function openPdf(buf: Uint8Array): { promise: Promise<PDFDocumentProxy>; destroy(): Promise<void> } {
+function openPdf(buf: Uint8Array): { promise: Promise<PDFDocumentProxy>; destroy(): Promise<void> } {
   return getDocument({
     data: new Uint8Array(buf),
     isEvalSupported: false,
@@ -19,6 +20,16 @@ export function openPdf(buf: Uint8Array): { promise: Promise<PDFDocumentProxy>; 
     cMapUrl: `${join(ROOT, "cmaps")}/`,
     verbosity: 0,
   } as Parameters<typeof getDocument>[0]);
+}
+
+// ponytail: a pdf.js document is opened inside a scope, so it is released however the work ends (a result, an error,
+// a cancel) — even when the file cannot be read at all
+export function withPdf<T>(buf: Uint8Array, work: (doc: PDFDocumentProxy) => Promise<T>): Promise<T> {
+  return scope(async (s) => {
+    const loading = openPdf(buf);
+    s.defer(() => loading.destroy());
+    return work(await loading.promise);
+  });
 }
 
 export type Matrix = [number, number, number, number, number, number];
@@ -118,9 +129,7 @@ export async function renderPage(
   n: number,
   region: [number, number, number, number] = [0, 0, 1, 1],
 ): Promise<{ png: Uint8Array; width: number; height: number; pages: number }> {
-  const loading = openPdf(buf);
-  const doc = await loading.promise;
-  try {
+  return withPdf(buf, async (doc) => {
     if (n < 1 || n > doc.numPages) throw new RangeError(`Page ${n} is outside 1–${doc.numPages}.`);
     const page = await doc.getPage(n);
     const [vx0, vy0, vx1, vy1] = page.view;
@@ -134,9 +143,7 @@ export async function renderPage(
     }));
     if (!out) throw new Error(`Page ${n} could not be drawn.`);
     return { ...out, pages: doc.numPages };
-  } finally {
-    await loading.destroy();
-  }
+  });
 }
 
 // ponytail: the block of ink resting on the bottom of the band, up to the first blank gap of 12 points

@@ -134,17 +134,18 @@ describe("tests.addImage", () => {
     expect(existsSync(join(dir, "tests", "local-3f9a12c0", "images"))).toBe(false);
   });
 
-  it("stores a pasted picture (dataBase64) without touching test.md", async () => {
+  it("stores a pasted picture (tests.storeImage) without touching test.md", async () => {
+    const store = (input: Record<string, unknown>) => invoke("tests.storeImage", input, { project: dir });
     const md = readFileSync(join(dir, "tests", "local-3f9a12c0", "test.md"), "utf8");
     const data = Buffer.from([0x89, 0x50, 0x4e, 0x47, 9, 9]).toString("base64");
-    const r = await add({ id: "local-3f9a12c0", name: "paste.png", ext: "png", dataBase64: data });
+    const r = await store({ id: "local-3f9a12c0", name: "paste.png", ext: "png", dataBase64: data });
     expect(r).toEqual({ file: expect.stringMatching(/^images\/img-[0-9a-f]{8}\.png$/) });
     const file = (r as { file: string }).file;
     expect(readFileSync(join(dir, "tests", "local-3f9a12c0", file))).toEqual(Buffer.from(data, "base64"));
     expect(readFileSync(join(dir, "tests", "local-3f9a12c0", "test.md"), "utf8")).toBe(md);
-    const jpg = (await add({ id: "local-3f9a12c0", name: "photo.JPEG", dataBase64: data })) as { file: string };
+    const jpg = (await store({ id: "local-3f9a12c0", name: "photo.JPEG", dataBase64: data })) as { file: string };
     expect(jpg.file).toMatch(/\.jpg$/);
-    await expect(add({ id: "local-3f9a12c0", ext: "exe", dataBase64: data })).rejects.toThrow(/not a picture/);
-    await expect(add({ id: "local-nope0000", ext: "png", dataBase64: data })).rejects.toThrow(/No test/);
+    await expect(store({ id: "local-3f9a12c0", ext: "exe", dataBase64: data })).rejects.toThrow(/not a picture/);
+    await expect(store({ id: "local-nope0000", ext: "png", dataBase64: data })).rejects.toThrow(/No test/);
   });
 });

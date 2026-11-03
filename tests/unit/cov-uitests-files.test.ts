@@ -35,7 +35,7 @@ describe("toBase64", () => {
 describe("uploadImage", () => {
   it("sends the file under its name and extension and unwraps an { image } answer", async () => {
     fakeFetch();
-    api.routes["tests.addImage"] = (input) => ({ image: { file: `images/${input.name}` } });
+    api.routes["tests.storeImage"] = (input) => ({ image: { file: `images/${input.name}` } });
     const im = await uploadImage("t1", new File(["a"], "Shot.JPEG", { type: "image/jpeg" }));
     expect(im).toEqual({ file: "images/Shot.JPEG" });
     expect(api.calls[0].input).toMatchObject({ id: "t1", name: "Shot.JPEG", ext: "jpg", dataBase64: "YQ==" });
@@ -43,7 +43,7 @@ describe("uploadImage", () => {
 
   it("names a pasted image from its type, or png, and takes a bare image answer", async () => {
     fakeFetch();
-    api.routes["tests.addImage"] = (input) => ({ file: `images/${input.name}` });
+    api.routes["tests.storeImage"] = (input) => ({ file: `images/${input.name}` });
     expect(await uploadImage("t1", new File(["a"], "", { type: "image/webp" }))).toEqual({
       file: "images/paste.webp",
     });

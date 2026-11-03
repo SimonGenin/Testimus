@@ -1,0 +1,41 @@
+{
+  "code": "TAG_NUM",
+  "title": "Generalites",
+  "version": "",
+  "date": "",
+  "kind": "spec",
+  "status": "draft",
+  "source": {
+    "name": "<client>",
+    "file": "source.pdf",
+    "sha256": "cf4aed1698bf965f6b3cbf541c96044fb092275fb6fb1982b9ff3a4040bf1310"
+  },
+  "conversion": {
+    "numbers": [
+      {
+        "number": "1",
+        "title": "Generalites"
+      },
+      {
+        "number": "1.1",
+        "title": "Objet"
+      },
+      {
+        "number": "1.2",
+        "title": "Exigences"
+      }
+    ]
+  },
+  "converted": {
+    "with": "pdfjs-dist 6.5.438 (tagged PDF)",
+    "at": "<at>",
+    "warnings": [
+      "Figure 9: captioned or named in the text, but nothing is drawn there in the PDF — the original lost these pictures (a drawing pasted as text, or never inserted)"
+    ],
+    "stats": {
+      "sections": 3,
+      "figures": 1,
+      "chars": 524
+    }
+  }
+}

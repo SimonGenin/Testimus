@@ -1,0 +1,26 @@
+{
+  "code": "TAG_PLAIN",
+  "title": "Generalites",
+  "version": "",
+  "date": "",
+  "kind": "spec",
+  "status": "draft",
+  "source": {
+    "name": "<client>",
+    "file": "source.pdf",
+    "sha256": "cf4aed1698bf965f6b3cbf541c96044fb092275fb6fb1982b9ff3a4040bf1310"
+  },
+  "converted": {
+    "with": "pdfjs-dist 6.5.438 (tagged PDF)",
+    "at": "<at>",
+    "warnings": [
+      "Figure 9: captioned or named in the text, but nothing is drawn there in the PDF — the original lost these pictures (a drawing pasted as text, or never inserted)",
+      "3 heading numbers are drawn on the page but missing from the PDF text: those headings are anchored by their titles — add the .docx of the same document, or read the numbers on the pages and give them to docs.convert (conversion numbers)"
+    ],
+    "stats": {
+      "sections": 3,
+      "figures": 1,
+      "chars": 534
+    }
+  }
+}
