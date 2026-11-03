@@ -195,7 +195,7 @@ export function cloneLocalTest(project: string, fromId: string, fieldOrder: read
       steps: test.steps.map((s) => ({
         fields: { ...s.fields },
         sources: s.sources.map((x) => ({ ...x })),
-        images: s.images.map((im) => ({ file: im.file })),
+        images: s.images.map((im) => ({ file: im.file, ...(im.figure && { figure: im.figure }) })),
       })),
     },
     fieldOrder,

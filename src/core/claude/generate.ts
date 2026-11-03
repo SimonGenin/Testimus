@@ -117,6 +117,7 @@ export function genPrompt(project: string, i: GenInput, contextIds: string[] = [
     `Language of the tests: ${languageName(p.language)} (project.json language "${p.language}").`,
     "",
     "Write only new tests: one folder tests/local-<8 hex>/test.md per test (tests_create allocates it), with review: draft.",
+    "Pictures matter as much as sources: a step that acts on or looks at a screen, a menu, a symbol or a colour gets the document's picture of it with tests_addImage (skill section 3, Figures) — when the document has one.",
     "Never modify, rename or delete an existing test. Never call a tool that writes to Jira.",
   );
   lines.push(...contextLines(project, readContexts(project, contextIds), i.note));

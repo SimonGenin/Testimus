@@ -22,6 +22,10 @@ description: Correct one Xray test from a reviewer's "To fix" note and the test'
   documents), `rag_mentions` (on the step's objects, across all documents) and `rag_search`, then
   read them with `rag_passage` and in `doc.md`. A `fig:` source is cited with its caption, after you
   `Read` the image.
+- A `figure-not-embedded` finding names a document picture the tester needs: `Read` it, then embed
+  it with `tests_addImage` `{ id, step, figure: "<docId>#fig:<n>", field }` — `Action` when it shows
+  where to act, `Expected Result` when it shows what to see — and cite it in that step's
+  `### Sources`. Never copy image files or write `### Attachments` by hand.
 - A `related-unread` finding names a section linked to a covered requirement that the generation never
   opened: read it, and change the step only if it says something the test contradicts or misses.
 - A step's requirement field (`Exigence`) lists only requirements the step actually verifies; so does

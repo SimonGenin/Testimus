@@ -7,7 +7,14 @@ import { docFigures, lines, markerLine, parseSections, type Section, sectionAt, 
 import { statementOf } from "../related.ts";
 import { evidenceOptions, matrixRows, statementsOf, tablesOf } from "../statements.ts";
 
-export type FigureView = FigureEntry & { docId: string; n: string; path: string; absPath: string; exists: boolean };
+export type FigureView = FigureEntry & {
+  docId: string;
+  n: string;
+  path: string;
+  absPath: string;
+  picture: boolean;
+  exists: boolean;
+};
 export type PassageView = Passage & { quoteFound?: boolean };
 
 export const PASSAGE_MAX_CHARS = 12_000;
@@ -226,16 +233,17 @@ export function figure(project: string, docId: string, n: string): FigureView {
   const f = docFigures(md, figures).find((x) => x.n === key);
   if (!f)
     throw new UserError(`${docId} has no figure ${key}.`, "testimus rag passage <doc>#fig:<n> lists it if it exists.");
-  const absPath = join(dir, f.file);
+  const absPath = f.file ? join(dir, f.file) : "";
   return {
     docId,
     n: f.n,
     anchor: f.anchor,
-    file: `docs/${docId}/${f.file}`,
+    file: f.file ? `docs/${docId}/${f.file}` : "",
     caption: f.caption,
     description: f.description,
     path: sectionAt(parseSections(md), markerLine(md, "fig", f.n))?.path ?? "",
     absPath,
-    exists: existsSync(absPath),
+    picture: !!f.file,
+    exists: !!f.file && existsSync(absPath),
   };
 }

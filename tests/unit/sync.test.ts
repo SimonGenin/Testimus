@@ -243,6 +243,28 @@ test("a push stops at the first failing op, keeps the new key, and resumes from 
   ]);
 });
 
+test("a picture's figure stays local: the push re-pull keeps it and the test reads as synced", async () => {
+  const { test: t } = readTest(project, "local-3f9a12c0");
+  const png = readFileSync(new URL("tests/LFRPS12-1420/images/fig-40.png", FIXTURE));
+  mkdirSync(join(project, "tests/local-3f9a12c0/images"), { recursive: true });
+  writeFileSync(join(project, "tests/local-3f9a12c0/images/img-0000bbbb.png"), png);
+  t.steps[1].images.push({ file: "images/img-0000bbbb.png", figure: "SOSIE_211_D401-1_3#fig:40" });
+  t.steps[1].fields["Expected Result"] += "\n\n![](images/img-0000bbbb.png)";
+  writeTest(project, "local-3f9a12c0", t);
+
+  const r = await executePlan(project, await pushTest(project, "local-3f9a12c0"), () => {});
+  expect(r.ok).toBe(true);
+  const jira = mockJiraTest(r.id)!;
+  expect(readTest(project, r.id).test.steps[1].images).toEqual([
+    {
+      file: "images/img-0000bbbb.png",
+      remoteId: jira.steps[1].attachments[0].id,
+      figure: "SOSIE_211_D401-1_3#fig:40",
+    },
+  ]);
+  expect(localTestRef(project, r.id)?.sync).toBe("synced");
+});
+
 test("a created test keeps its key on disk when a later op fails, so the next push cannot create it twice", async () => {
   const { test: t } = readTest(project, "local-3f9a12c0");
   t.covers = ["LFRPS12-880"];

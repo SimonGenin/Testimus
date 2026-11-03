@@ -7,6 +7,7 @@ import type { StepImage } from "../../src/core/types.ts";
 import { NEW_TABLE } from "../../src/ui/lib/table.ts";
 import { FieldBlocks, MOVE } from "../../src/ui/screens/tests/FieldBlocks.tsx";
 import { RequirementField } from "../../src/ui/screens/tests/RequirementField.tsx";
+import { mount } from "./cov-uiscreens-helpers.tsx";
 
 afterEach(cleanup);
 
@@ -349,5 +350,36 @@ describe("RequirementField", () => {
     rf("R1", true);
     expect(screen.getByText("R1")).toBeInTheDocument();
     expect(screen.queryByRole("button")).toBeNull();
+  });
+});
+
+describe("FieldBlocks — a picture copied from a document figure", () => {
+  it("names its figure and opens it in the source panel; a picture of unknown origin keeps its file name", async () => {
+    const openSource = vi.fn();
+    const pics: StepImage[] = [{ file: "images/a.png", figure: "SOSIE_211_D401-1_3#fig:40" }, { file: "images/b.png" }];
+    const noop = vi.fn();
+    mount(
+      <FieldBlocks
+        idBase="s0-Expected"
+        name="Expected Result"
+        label="Expected Result"
+        text={"Vu\n\n![](images/a.png)\n\n![](images/b.png)"}
+        images={pics}
+        url={(f) => `/u/${f}`}
+        stepNumber={1}
+        readOnly
+        onText={noop}
+        onAddFiles={noop}
+        onFieldText={noop}
+        onDropBlock={noop}
+        onRemove={noop}
+        onOpen={noop}
+      />,
+      { openSource },
+    );
+    await userEvent.click(screen.getByTitle("SOSIE_211_D401-1_3#fig:40"));
+    expect(openSource).toHaveBeenCalledWith({ docId: "SOSIE_211_D401-1_3", anchor: "fig:40", quote: "" });
+    expect(screen.getByText("b.png")).toBeInTheDocument();
+    expect(screen.queryByText("a.png")).toBeNull();
   });
 });

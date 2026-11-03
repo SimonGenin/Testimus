@@ -1,6 +1,7 @@
-import { Fragment, useLayoutEffect, useRef, useState } from "react";
-import type { Block, StepImage } from "../../../core/types.ts";
-import { GrowArea, Icon } from "../../components/ui/index.ts";
+import { Fragment, useContext, useLayoutEffect, useRef, useState } from "react";
+import type { Block, Source, StepImage } from "../../../core/types.ts";
+import { GrowArea, Icon, SourceChip } from "../../components/ui/index.ts";
+import { AppContext } from "../../lib/app.ts";
 import { blocksOf } from "../../lib/blocks.ts";
 import { cx } from "../../lib/format.ts";
 import { NEW_TABLE } from "../../lib/table.ts";
@@ -18,6 +19,10 @@ const takes = (e: React.DragEvent) => ["Files", MOVE].some((t) => e.dataTransfer
 const nameOf = (params: string, url: string) => /alt="([^"]*)"/.exec(params)?.[1] || url;
 const dead = (url: string) => url.startsWith("blob:");
 const base = (file: string) => file.split("/").pop() ?? file;
+const figureSource = (figure: string): Source => {
+  const at = figure.indexOf("#");
+  return { docId: figure.slice(0, at), anchor: figure.slice(at + 1), quote: "" };
+};
 
 export function FieldBlocks({
   idBase,
@@ -52,6 +57,7 @@ export function FieldBlocks({
   onRemove: (block: Block) => void;
   onOpen: (file: string) => void;
 }) {
+  const app = useContext(AppContext);
   const [over, setOver] = useState<number | null>(null);
   // ponytail: the draft caret is a view, not an edit — nothing empty is ever written to the file; it is
   // remembered with the text it was opened on and simply gone once that text changed
@@ -197,7 +203,11 @@ export function FieldBlocks({
                 </button>
                 <figcaption className="imgblock-meta">
                   {!readOnly && handle()}
-                  <span className="imgblock-name mono">{base(b.image.file)}</span>
+                  {b.image.figure ? (
+                    <SourceChip source={figureSource(b.image.figure)} quote={false} onOpen={app?.openSource} />
+                  ) : (
+                    <span className="imgblock-name mono">{base(b.image.file)}</span>
+                  )}
                   {!readOnly && (
                     <button
                       type="button"

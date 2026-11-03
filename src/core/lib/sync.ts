@@ -115,7 +115,7 @@ export const forCompare = (t: Test) =>
           .map(([k, v]) => [k, byId(v, s.images)]),
       ),
       sources: [],
-      images: s.images.map((im) => ({ ...im, file: im.remoteId ?? im.file })),
+      images: s.images.map((im) => ({ file: im.remoteId ?? im.file, ...(im.remoteId && { remoteId: im.remoteId }) })),
     })),
   });
 
@@ -181,7 +181,12 @@ async function doPull(project: string, key: string, { prev, signal, report }: Pu
       before = readTest(project, key).test;
     } catch {}
   const known = new Map<string, string>();
-  for (const s of before?.steps ?? []) for (const im of s.images) if (im.remoteId) known.set(im.remoteId, im.file);
+  const figureOf = new Map<string, string>();
+  for (const s of before?.steps ?? [])
+    for (const im of s.images) {
+      if (im.remoteId) known.set(im.remoteId, im.file);
+      if (im.figure) figureOf.set(im.file, im.figure);
+    }
   const renamed: Array<[number, string, string]> = [];
 
   const total = pulled.images.length;
@@ -199,6 +204,8 @@ async function doPull(project: string, key: string, { prev, signal, report }: Pu
     const take = (file: string) => {
       renamed.push([im.stepIndex, slot.file, file]);
       slot.file = file;
+      const figure = figureOf.get(file);
+      if (figure) slot.figure = figure;
       report?.(`image ${++n} of ${total} downloaded`, { phase: "images", done: n, total });
     };
     if (reuse && existsSync(join(dir, reuse))) return take(reuse);

@@ -1,6 +1,6 @@
 // Tests and steps (SPEC §6, Xray Editor SPEC §3)
 
-export type StepImage = { file: string; remoteId?: string };
+export type StepImage = { file: string; remoteId?: string; figure?: string };
 
 export type Source = { docId: string; anchor: string; quote: string };
 
@@ -149,6 +149,7 @@ export type FindingKind =
   | "empty-field"
   | "raw-embed"
   | "duplicate-step"
+  | "figure-not-embedded"
   | "other";
 export type Finding = {
   step?: number;

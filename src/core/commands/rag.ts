@@ -112,9 +112,12 @@ export const commands: Command[] = [
       docId: z.string(),
       n: z.string(),
       anchor: z.string(),
-      file: z.string().describe("Path relative to the project folder"),
+      file: z.string().describe("Path relative to the project folder; empty when the figure has no picture"),
       absPath: z.string(),
-      exists: z.boolean(),
+      picture: z
+        .boolean()
+        .describe("False when the document writes the figure as text (a table, a caption): nothing to Read or embed"),
+      exists: z.boolean().describe("The picture's file is on disk"),
       caption: z.string(),
       description: z.string(),
       path: z.string(),

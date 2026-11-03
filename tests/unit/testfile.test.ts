@@ -279,6 +279,21 @@ test("attachments are listed once, in Xray order, and an empty list is not writt
   expect(back.steps[1].images).toEqual(t.steps[1].images);
 });
 
+test("an attachment names the document figure it was copied from, before its Xray id", () => {
+  const images = [
+    { file: "images/img-1.png", figure: "SOSIE_211_D401-1_3#fig:40" },
+    { file: "images/img-2.png", remoteId: "att-2", figure: "DOC#fig:f16" },
+    { file: "images/img 3 (copy).png" },
+  ];
+  const md = serializeTest({ ...newTest("DEMO", "/"), steps: [step3("a", "", "r", { images })] });
+  expect(md).toContain(
+    `${ATT}- images/img-1.png (SOSIE_211_D401-1_3#fig:40)\n- images/img-2.png (DOC#fig:f16) <!-- att-2 -->\n- images/img 3 (copy).png\n`,
+  );
+  const { test: back, warnings } = parseTest(md);
+  expect(warnings).toEqual([]);
+  expect(back.steps[0].images).toEqual(images);
+});
+
 test("both legacy image lists merge into the attachments of the step, in file order", () => {
   const { test: t } = parseTest(
     "## Step 1\n\n### Expected\n\nr\n\n### Action Images\n\n- images/a.png\n\n### Expected Images\n\n- images/e.png\n",

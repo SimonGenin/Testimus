@@ -28,7 +28,10 @@ test, not `check.json`. You report what is wrong, precisely enough that a review
    and the step verifies it — else `wrong-requirement`, naming the column. When `traces` has no
    `requirement` kind, the project tracks no requirements: skip them.
 4. For the test as a whole: requirements in its scope that no step verifies; behaviors the documents
-   describe for this object that are missing (other types, other states, the negative path).
+   describe for this object that are missing (other types, other states, the negative path); and
+   the pictures — a step about a screen, a menu, a symbol or a colour whose document section has a
+   figure with a picture (`rag_passage` lists them) that the test does not embed
+   (`figure-not-embedded`). No picture in the document is not a finding.
 5. Look for contradicting passages with `rag_mentions` on each object, screen and gesture of the step
    (every page), in the **other** documents and in the documents that **amend** the cited one
    (`rag_related <docId#anchor>` lists them, kind `amends`) — not with one top-10 search. Read each
@@ -52,6 +55,7 @@ Use exactly these `kind` values:
 | `not-simulated-unsourced` | "not simulated" (or equivalent) written without a source saying so |
 | `vague-result` | an expected result a tester cannot observe or decide |
 | `documents-conflict` | two documents disagree and precedence does not settle it |
+| `figure-not-embedded` | a step acts on or looks at a screen, menu, symbol or colour that a document picture shows, and that picture is not embedded in the test (`sources`: the `fig:` anchor) |
 | `other` | anything else worth the reviewer's eye |
 
 `severity`: `error` when a tester following the test would pass a wrong behavior or fail a right one;

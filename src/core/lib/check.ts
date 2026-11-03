@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { covers, readLedger, type Searched } from "../claude/ledger.ts";
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
-import { parseSections } from "../rag/chunk.ts";
+import { FIGURE_IMAGE, parseSections } from "../rag/chunk.ts";
 import { normalizeRef, refInfo, related } from "../rag/related.ts";
 import { type EvidenceOpts, matrixRows, type Statement, statementsOf } from "../rag/statements.ts";
 import type { CheckFile, CitingTest, DocJson, Finding, Review, Step, Test } from "../types.ts";
@@ -24,6 +24,7 @@ export type DocText = {
   scopes: Map<string, string | null>;
   opts?: EvidenceOpts;
   pieces?: [string, string][];
+  pictures?: Set<string>;
 };
 export type Traced = { label: string; field: string; re: RegExp; ids: Set<string> };
 export type Corpus = {
@@ -213,6 +214,11 @@ function piecesOf(md: string, opts: EvidenceOpts = {}): [string, string][] {
   return out;
 }
 
+function picturesOf(d: DocText): Set<string> {
+  d.pictures ??= new Set([...d.md.matchAll(FIGURE_IMAGE)].map((m) => `fig:${m[3]}`));
+  return d.pictures;
+}
+
 export function whereIs(d: DocText, quote: string): string | null {
   d.pieces ??= piecesOf(d.md, d.opts);
   const q = plainText(quote);
@@ -257,6 +263,14 @@ export function mechanicalFindings(test: Test, corpus: Corpus): Finding[] {
       sources: [],
     });
   const seen = new Map<string, number>();
+  const embedded = new Set(
+    test.steps.flatMap((s) =>
+      s.images.flatMap((im) => {
+        const [docId, anchor] = im.figure?.split("#") ?? [];
+        return anchor ? [`${corpus.docs.get(docId)?.id ?? docId}#${anchor}`] : [];
+      }),
+    ),
+  );
   test.steps.forEach((s, i) => {
     const step = i + 1;
     const expected = s.fields[EXPECTED] ?? "";
@@ -379,6 +393,23 @@ export function mechanicalFindings(test: Test, corpus: Corpus): Finding[] {
           sources: [ref],
         });
     }
+    // ponytail: a step with a picture of unknown origin (pasted, or attached before images knew their figure) may
+    // already show it — only a step without one is told
+    if (!s.images.some((im) => !im.figure))
+      for (const src of s.sources) {
+        const anchor = anchorKey(src.anchor);
+        const d = corpus.docs.get(src.docId);
+        if (!d || !picturesOf(d).has(anchor) || embedded.has(`${d.id}#${anchor}`)) continue;
+        embedded.add(`${d.id}#${anchor}`);
+        const ref = `${src.docId}#${anchor}`;
+        add({
+          step,
+          kind: "figure-not-embedded",
+          severity: "warning",
+          message: `Step ${step} cites ${ref}, a picture the tester needs to see: embed it with tests_addImage { id, step: ${step}, figure: "${ref}" } (Action when it shows where to act, Expected Result when it shows what to see).`,
+          sources: [ref],
+        });
+      }
     if (corpus.requirementField)
       for (const id of requirementIds(s.fields[corpus.requirementField]))
         if (!corpus.requirements.has(id))

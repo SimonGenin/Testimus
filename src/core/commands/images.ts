@@ -40,13 +40,18 @@ function sourceFile(project: string, file: string): string {
   return abs;
 }
 
-function figureFile(project: string, ref: string): string {
+function figureFile(project: string, ref: string): { path: string; figure: string } {
   const m = ref.trim().match(/^([^#\s]+)#\s*(?:fig[:\s]*)?(\S+)$/i);
   if (!m) throw new UserError(`"${ref}" is not a figure reference.`, "Write it docId#fig:40.");
   const f = docFigure(project, m[1], m[2]);
+  if (!f.picture)
+    throw new UserError(
+      `${m[1]}#fig:${f.n} has no picture: the document writes it as text (a table, a caption).`,
+      "Cite it in ### Sources; only a figure with a picture can be embedded.",
+    );
   if (!f.exists)
     throw new UserError(`The file of ${m[1]}#fig:${f.n} is missing (${f.file}).`, "Convert the document again.");
-  return f.absPath;
+  return { path: f.absPath, figure: `${m[1]}#fig:${f.n}` };
 }
 
 // ponytail: the editor's paste — the picture is only stored; the editor splices the ref into the
@@ -79,8 +84,10 @@ export function attachImage(project: string, input: AttachInput): Attached {
   const step = test.steps[input.step - 1];
   if (!step || input.step < 1)
     throw new UserError(`Step ${input.step} does not exist — the test has ${test.steps.length} step(s).`);
-  const src = input.figure ? figureFile(project, input.figure) : sourceFile(project, input.file as string);
+  const fig = input.figure ? figureFile(project, input.figure) : null;
+  const src = fig ? fig.path : sourceFile(project, input.file as string);
   const img = addImage(project, input.id, new Uint8Array(readFileSync(src)), extname(src));
+  if (fig) img.figure = fig.figure;
   step.images.push(img);
   const text = (step.fields[field] ?? "").replace(/\s+$/, "");
   step.fields[field] = text ? `${text}\n\n${imageRef(img.file)}` : imageRef(img.file);

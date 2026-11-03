@@ -37,7 +37,7 @@ const SECTION_ANCHOR = /<!--\s*§\s*(.*?)\s*-->/;
 const REQ = /<!--\s*req\s+(\S+?)\s*-->/g;
 const FIG = /<!--\s*fig\s+(\S+?)\s*-->/g;
 const MARKER_LINE = /^\s*<!--\s*req\s+\S+?\s*-->\s*$/;
-const IMAGE = /!\[([^\]]*)\]\(([^)\s]+)[^)]*\)\s*<!--\s*fig\s+(\S+?)\s*-->/g;
+export const FIGURE_IMAGE = /!\[([^\]]*)\]\(([^)\s]+)[^)]*\)\s*<!--\s*fig\s+(\S+?)\s*-->/g;
 const NUMBERED = /^[0-9A-Z]{1,3}(\.[0-9A-Za-z]{1,3})*$/;
 
 export function approxTokens(text: string): number {
@@ -97,7 +97,7 @@ export function parseSections(md: string): Section[] {
 
 export function docFigures(md: string, entries: FigureEntry[]): DocFigure[] {
   const out = new Map<string, DocFigure>();
-  for (const m of md.matchAll(IMAGE))
+  for (const m of md.matchAll(FIGURE_IMAGE))
     out.set(m[3], { n: m[3], anchor: `fig:${m[3]}`, file: m[2], caption: m[1], description: "" });
   // ponytail: a caption pasted without its picture keeps its marker on the caption paragraph (§4); it is still a
   // figure, with no file, whose caption is the « Figure N – … » part of that paragraph

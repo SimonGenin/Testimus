@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { invoke } from "../../src/core/commands/index.ts";
+import { loadCorpus, mechanicalFindings } from "../../src/core/lib/check.ts";
 import { readTest } from "../../src/core/lib/store.ts";
 
 const FIXTURE = join(import.meta.dirname, "..", "fixtures", "project");
@@ -36,9 +37,61 @@ describe("tests.addImage", () => {
     expect(readFileSync(copy)).toEqual(readFileSync(FIG));
     const { test, warnings } = readTest(dir, "local-3f9a12c0");
     expect(warnings).toEqual([]);
-    expect(test.steps[1].images).toEqual([{ file: r.file }]);
+    expect(test.steps[1].images).toEqual([{ file: r.file, figure: "SOSIE_211_D401-1_3#fig:40" }]);
+    expect(readFileSync(join(dir, "tests", "local-3f9a12c0", "test.md"), "utf8")).toContain(
+      `- ${r.file} (SOSIE_211_D401-1_3#fig:40)`,
+    );
     expect(test.steps[1].fields["Expected Result"]).toBe(`Le menu contextuel s'ouvre.\n\n![](${r.file})`);
     expect(test.steps[0].images).toEqual([]);
+  });
+
+  it("refuses a figure the document writes as text: it has no picture to embed", async () => {
+    const doc = join(dir, "docs", "SOSIE_211_D401-1_3", "doc.md");
+    writeFileSync(doc, `${readFileSync(doc, "utf8")}\nFigure 41 – États des sectionneurs <!-- fig 41 -->\n`);
+    expect(await invoke("rag.figure", { docId: "SOSIE_211_D401-1_3", n: "41" }, { project: dir })).toMatchObject({
+      file: "",
+      absPath: "",
+      picture: false,
+      exists: false,
+    });
+    expect(await invoke("rag.figure", { docId: "SOSIE_211_D401-1_3", n: "40" }, { project: dir })).toMatchObject({
+      picture: true,
+      exists: true,
+    });
+    await expect(add({ id: "local-3f9a12c0", step: 1, figure: "SOSIE_211_D401-1_3#fig:41" })).rejects.toThrow(
+      "SOSIE_211_D401-1_3#fig:41 has no picture: the document writes it as text (a table, a caption).",
+    );
+  });
+
+  it("a clone keeps where each picture came from", async () => {
+    await add({ id: "local-3f9a12c0", step: 2, figure: "SOSIE_211_D401-1_3#fig:40" });
+    const { id } = (await invoke("tests.clone", { id: "local-3f9a12c0" }, { project: dir })) as { id: string };
+    expect(readTest(dir, id).test.steps[1].images).toEqual([
+      { file: expect.stringMatching(/^images\/img-/), figure: "SOSIE_211_D401-1_3#fig:40" },
+    ]);
+  });
+
+  it("check: a cited picture is embedded once per test; a text figure or a picture of unknown origin is not asked for", async () => {
+    const cited = async (sources: string[], images: { file: string; figure?: string }[] = []) => {
+      const { test } = readTest(dir, "local-3f9a12c0");
+      for (const s of test.steps) {
+        s.sources = sources.map((x) => ({ docId: "SOSIE_211_D401-1_3", anchor: x, quote: "Figure 40" }));
+        s.images = [];
+      }
+      test.steps[1].images = images;
+      return mechanicalFindings(test, loadCorpus(dir)).filter((f) => f.kind === "figure-not-embedded");
+    };
+    expect(await cited(["fig:40"])).toEqual([
+      expect.objectContaining({
+        step: 1,
+        severity: "warning",
+        sources: ["SOSIE_211_D401-1_3#fig:40"],
+        message: expect.stringContaining('tests_addImage { id, step: 1, figure: "SOSIE_211_D401-1_3#fig:40" }'),
+      }),
+    ]);
+    expect(await cited(["fig:40"], [{ file: "images/a.png", figure: "SOSIE_211_D401-1_3#fig:40" }])).toEqual([]);
+    expect((await cited(["fig:40"], [{ file: "images/a.png" }])).map((f) => f.step)).toEqual([1]);
+    expect(await cited(["§5.6.6"])).toEqual([]);
   });
 
   it("accepts fig 40 written without the fig: prefix", async () => {

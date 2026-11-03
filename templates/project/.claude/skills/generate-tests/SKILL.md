@@ -39,8 +39,13 @@ document, and the app checks them mechanically first.
    what is not wired yet) and its `doc.json`; when two documents
    disagree apply the precedence of `CLAUDE.md`, and when it does not settle it, say so in the test
    description and in your report.
-5. Look at the figures of those sections (`rag_figure <docId> <n>`, then `Read` the image): a
-   screen, a menu, a symbol table is often the expected result.
+5. **Open the pictures.** `rag_passage` lists the figures of each section; for every figure with a
+   picture (`rag_figure <docId> <n>` says `picture: true`) that shows a screen, a window, a menu, a
+   button, a symbol, a colour legend or a layout, `Read` the image. The figure's description in the
+   index is a summary written by another run: it tells you what to look for, it does not replace
+   the picture — neither for you nor for the tester. Note which step of your tests each picture
+   will illustrate (section 3, Figures). A figure without a picture (a table or a caption written as
+   text) is read in `doc.md` and only cited.
 6. Only then design (section 2).
 
 ## 2. Design
@@ -121,23 +126,39 @@ document, and the app checks them mechanically first.
 - **No source → do not write the step.** Report the gap instead (section 4). Never fill a gap from
   general knowledge of the domain.
 
-### Figures
+### Figures — as important as the sources
 
-Embed a document figure in the step where the tester needs to see it (a symbol, a menu, a dialog):
-call `tests_addImage` with `{ id, step, figure: "<docId>#fig:<n>" }` **after** the file is written —
-it copies the picture into `tests/<id>/images/`, lists it under `### Attachments` and adds
-`![](images/img-….png)` at the end of the Expected Result. Do not copy image files yourself and do
-not write `### Attachments` by hand. If you rewrite the file afterwards, keep the `![](images/…)`
-line and the `### Attachments` list exactly as they are. Cite the figure in `### Sources` too
-(`<docId>#fig:<n> "<caption words>"`).
+The tester runs the test in front of the simulator, not the specification. A picture is how they
+know **where to click** and **what they should see**; a step about a screen without its picture
+sends them back to the document. So every document picture that shows what a step is about goes in
+that step:
+
+- **Where to act** — the window, menu, zone or button the Action uses: embed it in the `Action`.
+- **What to see** — the symbol, colour, state, window content or layout the Expected Result
+  describes: embed it in the `Expected Result` (the default).
+- Embed with `tests_addImage` `{ id, step, figure: "<docId>#fig:<n>", field }` **after** the file is
+  written. It copies the picture into `tests/<id>/images/`, lists it under `### Attachments` with the
+  figure it came from (`- images/img-….png (<docId>#fig:<n>)`) and adds `![](images/img-….png)` at
+  the end of the field; the app shows it as a link to the figure. Never copy image files yourself,
+  never write `### Attachments` by hand. If you rewrite the file afterwards, keep the `![](images/…)`
+  lines and the `### Attachments` list exactly as they are.
+- Cite the figure in `### Sources` of that step too (`<docId>#fig:<n> "<caption words>"`).
+- Once per test is enough: embed a figure at the first step that needs it, not in every step.
+- **No picture, no image — that is fine.** Many steps have none: a rule written in text, a value, a
+  message. Never embed a picture that does not show what the step is about, never one from another
+  object or screen, and never invent one. A figure written as text (a table, `picture: false`) is
+  cited, not embedded — `tests_addImage` refuses it.
 
 ## 4. Before you finish
 
 1. Run `check_run` with `semantic: false` on the tests you wrote (when the tool exists) and fix what it
-   reports — above all `quote-not-found`: open `doc.md` and copy the quote again. Testimus runs the
-   full check (check-test) on the new tests itself once you are done.
+   reports — above all `quote-not-found`: open `doc.md` and copy the quote again; for
+   `figure-not-embedded`, embed the figure it names. Testimus runs the full check (check-test) on the
+   new tests itself once you are done.
 2. Re-read each test once as the tester: could you run it without the specification? Is every
-   expected result observable?
+   expected result observable? **Pictures:** for each step that acts on or looks at a screen, a
+   menu, a symbol or a colour, is the document's picture of it embedded — when the document has
+   one? Embed the missing ones now; a large run is no reason to skip them.
 3. Reply in a few lines, in the project language: the tests written (id, summary, steps), the
    requirements covered, what you could not cover and why. **End the reply with this block**, valid
    JSON, nothing after it:

@@ -55,9 +55,17 @@ const step = z.object({
     .describe("Step fields by Xray name (Action, Data, Expected Result, custom fields such as Exigence)"),
   sources: z.array(source).default([]).describe("Claims the step relies on (local, never pushed)"),
   images: z
-    .array(z.object({ file: z.string(), remoteId: z.string().optional() }))
+    .array(
+      z.object({
+        file: z.string(),
+        remoteId: z.string().optional(),
+        figure: z.string().optional().describe("The document figure the picture was copied from: docId#fig:40"),
+      }),
+    )
     .default([])
-    .describe("Every attachment of the step, embedded or not: images/<file> and its Xray attachment id"),
+    .describe(
+      "Every attachment of the step, embedded or not: images/<file>, its Xray attachment id and the figure it came from",
+    ),
 });
 const testSchema = z.object({
   key: z.string().optional().describe("Jira key; absent for a local test"),
@@ -446,7 +454,8 @@ export const commands: Command[] = [
   }),
   command({
     name: "tests.clone",
-    summary: "Copy a test into a new local test (images included; key, step ids, review and the generated mark dropped: the copy is the team's own).",
+    summary:
+      "Copy a test into a new local test (images included; key, step ids, review and the generated mark dropped: the copy is the team's own).",
     input: z.object({ id }),
     output: z.object({ id: z.string() }),
     mutates: true,

@@ -327,10 +327,12 @@ export function parseTest(md: string, fieldNames: readonly string[] = []): { tes
 
     if (imgs) {
       if (line.trim() === "") continue;
-      const m = /^\s*(?:([-*+])\s+)?(\S.*?)\s*(?:<!--\s*(.*?)\s*-->)?\s*$/.exec(line);
+      const m = /^\s*(?:([-*+])\s+)?(\S.*?)(?:\s+\(([^()\s]+#fig:[^()\s]+)\))?\s*(?:<!--\s*(.*?)\s*-->)?\s*$/.exec(
+        line,
+      );
       if (!m) continue;
       if (!m[1]) warnings.push(`Image line without a "- " bullet: "${line.trim()}"`);
-      imgs.push(m[3] ? { file: m[2], remoteId: m[3] } : { file: m[2] });
+      imgs.push({ file: m[2], ...(m[4] && { remoteId: m[4] }), ...(m[3] && { figure: m[3] }) });
       continue;
     }
     if (cur) {
@@ -410,7 +412,12 @@ export function fieldWarnings(test: Test, known: readonly string[]): string[] {
 
 const imageSection = (images: StepImage[]) =>
   "### Attachments\n\n" +
-  images.map((im) => "- " + im.file + (im.remoteId ? " <!-- " + im.remoteId + " -->" : "")).join("\n");
+  images
+    .map(
+      (im) =>
+        "- " + im.file + (im.figure ? ` (${im.figure})` : "") + (im.remoteId ? " <!-- " + im.remoteId + " -->" : ""),
+    )
+    .join("\n");
 
 // ponytail: an embedded image is a markdown ref inside the field text — one string per field, so the
 // file, the parser, the dirty check and Claude all keep treating a field as text

@@ -64,7 +64,7 @@ What the tester does.
 
 What the tester observes.
 
-![](images/fig-40.png)
+![](images/img-3f9a2c1d.png)
 
 ### Exigence
 
@@ -73,6 +73,11 @@ EXI_MOP_SPF_511_A_1670
 ### Sources
 
 - SOSIE_211_D401-1_3#§5.6.6 "Selon le type de sectionneur, le menu contextuel diffère"
+- SOSIE_211_D401-1_3#fig:40 "Figure 40 – Représentation graphique sectionneur"
+
+### Attachments
+
+- images/img-3f9a2c1d.png (SOSIE_211_D401-1_3#fig:40)
 ```
 
 - Field headings are the step columns: the names in `xray.json` `fields` (`Action`, `Data`,
@@ -83,6 +88,9 @@ EXI_MOP_SPF_511_A_1670
   A quote that is not verbatim in `doc.md` is an error.
 - No reference inside Action or Expected Result text: references go in the requirement field, the
   tracked columns (`project.json.traces`) and `### Sources`.
+- Pictures: a document figure goes into a step with `tests_addImage` (`figure: "<docId>#fig:<n>"`) —
+  in the Action when it shows where to act, in the Expected Result when it shows what to see. It
+  writes the `![](images/…)` line and the `### Attachments` entry, which names the figure it came from.
 - Keep `<!-- id -->` on step headings and `### Attachments` lists as they are; renumber `## Step N`
   in order. A line of text starting with `#` or equal to `---` is escaped with `\`.
 - Write the tests in the language of `project.json` (`language`).

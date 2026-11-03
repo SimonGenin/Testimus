@@ -12,7 +12,9 @@ const findings = (...sources: string[]) =>
       `---\nproject: LFRPS12\nsummary: S\n---\n\n## Step 1\n\n### Action\n\nOuvrir\n\n### Expected Result\n\nVu\n\n### Sources\n\n${sources.map((s) => `- ${DOC}#${s}`).join("\n")}\n`,
     ).test,
     corpus,
-  ).map((f) => `${f.severity}:${f.message.replace(/^Step 1: /, "")}`);
+  )
+    .filter((f) => f.kind !== "figure-not-embedded")
+    .map((f) => `${f.severity}:${f.message.replace(/^Step 1: /, "")}`);
 
 const S5 = '"La schématique de traction occupe la partie basse"';
 const S566 = '"Selon le type de sectionneur, le menu contextuel diffère"';
@@ -72,12 +74,14 @@ const evid = (...sources: string[]) =>
       `---\nproject: EVID\nsummary: S\n---\n\n## Step 1\n\n### Action\n\nOuvrir\n\n### Expected Result\n\nVu\n\n### Sources\n\n${sources.map((s) => `- SPEC_A#${s}`).join("\n")}\n`,
     ).test,
     EVID,
-  ).map((f) => ({
-    kind: f.kind,
-    severity: f.severity,
-    message: f.message.replace(/^Step 1: /, ""),
-    sources: f.sources,
-  }));
+  )
+    .filter((f) => f.kind !== "figure-not-embedded")
+    .map((f) => ({
+      kind: f.kind,
+      severity: f.severity,
+      message: f.message.replace(/^Step 1: /, ""),
+      sources: f.sources,
+    }));
 
 describe("R2 — the quote is looked for in the cited passage (SPEC-RAG §5.1)", () => {
   test("found elsewhere: quote-not-at-anchor, naming the anchor that holds it", () => {
