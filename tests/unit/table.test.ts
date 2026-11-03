@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
-import { addCol, addRow, dropCol, dropRow, tablesIn, width } from "../../src/core/lib/table.ts";
 import { blocksOf, hasRawEmbed, leafBlocks } from "../../src/core/lib/testfile.ts";
+import { addCol, addRow, dropCol, dropRow, tablesIn, width } from "../../src/shared/table.ts";
 
 // the shape EGS-1165 step 3 really has: a header row, image cells, cells holding a bullet list over
 // several lines, and an Xray embed whose own params carry a pipe

@@ -7,10 +7,9 @@ import { readContextFile } from "../../src/core/claude/prompt.ts";
 import { quietCtx } from "../../src/core/command.ts";
 import { commands as contexts } from "../../src/core/commands/contexts.ts";
 import { commands as project } from "../../src/core/commands/project.ts";
-import { copyDirAtomic } from "../../src/core/lib/atomic.ts";
+import { copyDirAtomic, writeAtomic } from "../../src/core/lib/atomic.ts";
 import { credsDir, JIRA_FILE, saveCreds } from "../../src/core/lib/creds.ts";
 import { docDir, writeContext } from "../../src/core/lib/docs.ts";
-import { writeAtomic } from "../../src/core/lib/store.ts";
 
 vi.mock("node:fs", async (importOriginal) => {
   const real = await importOriginal<typeof import("node:fs")>();

@@ -28,8 +28,6 @@ const read = (path: string) => {
   }
 };
 
-export { writeAtomic };
-
 export const hex8 = () => randomBytes(4).toString("hex");
 export const newLocalId = () => `local-${hex8()}`;
 
@@ -212,8 +210,6 @@ export function readTest(
   return { test, warnings, md, ...(remoteMd === null ? {} : { remoteMd }) };
 }
 
-export const loadTest = readTest;
-
 export function writeTest(project: string, id: string, test: Test, fieldOrder: readonly string[] = []): string {
   const outside = outsideTest(test);
   if (outside.length)
@@ -225,8 +221,6 @@ export function writeTest(project: string, id: string, test: Test, fieldOrder: r
   writeAtomic(join(testDir(project, id), "test.md"), md);
   return md;
 }
-
-export const saveTest = writeTest;
 
 export function createLocalTest(project: string, test: Test, fieldOrder: readonly string[] = []): string {
   let id = newLocalId();
@@ -266,8 +260,6 @@ export function cloneLocalTest(project: string, fromId: string, fieldOrder: read
 export function removeTest(project: string, id: string): void {
   rmSync(testDir(project, id), { recursive: true, force: true });
 }
-
-export const deleteLocalTest = removeTest;
 
 export function renameTestFolder(project: string, oldId: string, newId: string): void {
   const to = testDir(project, newId);

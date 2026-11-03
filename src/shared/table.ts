@@ -1,4 +1,6 @@
-import type { Row, Table } from "../types.ts";
+export type Cell = { text: string; at: number; end: number };
+export type Row = { head: boolean; cells: Cell[]; at: number; end: number };
+export type Table = { rows: Row[]; at: number; end: number };
 
 // ponytail: a Jira wiki table is text and it stays text. Nothing here ever regenerates the markup from
 // a model — the parser only says where every cell sits, so editing one is the same single splice into
