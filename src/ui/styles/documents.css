@@ -356,17 +356,21 @@
 .up-step {
   display: flex;
   align-items: center;
-  gap: 6px;
   color: var(--ink-3);
+  font-size: 12px;
   white-space: nowrap;
 }
 
 .up-step + .up-step::before {
   content: "";
-  width: 22px;
+  width: 14px;
   height: 1px;
-  margin: 0 8px;
+  margin: 0 6px;
   background: var(--line-strong);
+}
+
+.up-step.is-done + .up-step::before {
+  background: color-mix(in srgb, var(--ok) 55%, var(--line));
 }
 
 .up-mark {
@@ -375,42 +379,56 @@
   place-items: center;
   width: 16px;
   height: 16px;
+  margin-right: 6px;
   border-radius: 50%;
-  border: 1.5px solid currentColor;
+  font-size: 10px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
-.up-step.is-now {
-  color: var(--info);
+.up-step.is-todo .up-mark {
+  background: var(--surface-3);
+  color: var(--ink-2);
+}
+
+.up-step.is-now,
+.up-step.is-done,
+.up-step.is-failed {
+  height: 22px;
+  padding: 0 9px 0 3px;
+  border-radius: 999px;
   font-weight: 600;
 }
 
-.up-step.is-now .up-mark::after {
-  content: "";
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: currentColor;
-  animation: sk-pulse 1s ease-in-out infinite;
+.up-step.is-now {
+  background: var(--info-bg);
+  color: var(--info);
+}
+
+.up-step.is-now .up-mark {
+  border: 2px solid color-mix(in srgb, currentColor 25%, transparent);
+  border-top-color: currentColor;
+  animation: spin 0.9s linear infinite;
 }
 
 .up-step.is-done {
+  background: var(--ok-bg);
   color: var(--ok);
+}
+
+.up-step.is-failed {
+  background: var(--err-bg);
+  color: var(--err);
 }
 
 .up-step.is-done .up-mark,
 .up-step.is-failed .up-mark {
-  border-color: transparent;
   background: currentColor;
 }
 
 .up-step.is-done .up-mark svg,
 .up-step.is-failed .up-mark svg {
   color: var(--surface);
-}
-
-.up-step.is-failed {
-  color: var(--err);
-  font-weight: 600;
 }
 
 .up-msg {
@@ -456,8 +474,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .up-step.is-now .up-mark::after {
-    animation: none;
+  .up-step.is-now .up-mark {
+    animation-duration: 2.4s;
   }
 }
 

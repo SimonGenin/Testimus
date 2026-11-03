@@ -50,14 +50,18 @@ export function UploadRow({ u, on, onOpen }: { u: Upload; on?: boolean; onOpen?:
             <div className="up-track">
               <div className="up-head">
                 <ol className="up-steps" aria-label="Steps">
-                  {steps.map((s) => (
+                  {steps.map((s, i) => (
                     <li
                       key={s.label}
                       className={`up-step is-${s.state}`}
                       aria-current={s.state === "now" ? "step" : undefined}
                     >
-                      <span className="up-mark">
-                        {s.state === "done" || s.state === "failed" ? <Icon name={MARK[s.state]} size={12} /> : null}
+                      <span className="up-mark" aria-hidden="true">
+                        {s.state === "done" || s.state === "failed" ? (
+                          <Icon name={MARK[s.state]} size={11} />
+                        ) : s.state === "todo" ? (
+                          i + 1
+                        ) : null}
                       </span>
                       {s.label}
                     </li>
