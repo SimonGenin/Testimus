@@ -5,7 +5,7 @@ import { type Ctx, quietCtx } from "../../src/core/command.ts";
 import { commands } from "../../src/core/commands/xray.ts";
 import { env, type HttpReq } from "../../src/core/env.ts";
 import { setModes, stepColumns } from "../../src/core/lib/columns.ts";
-import { resetAuth } from "../../src/core/lib/jira.ts";
+import { resetAuth } from "../../src/core/lib/jira/http.ts";
 import { mockHttp, resetMockJira } from "../../src/core/mock/jira.ts";
 import { copyFixture, FIXTURE, tempRoot } from "./cov-faces-helpers.ts";
 

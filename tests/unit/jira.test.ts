@@ -4,22 +4,18 @@ import { join } from "node:path";
 import { afterAll, beforeEach, describe, expect, it, test, vi } from "vitest";
 import { env, type HttpReq, type HttpRes } from "../../src/core/env.ts";
 import { cancelJob, startJob } from "../../src/core/jobs.ts";
+import { browseUrl, getMyself, resetAuth, retryAfter } from "../../src/core/lib/jira/http.ts";
+import { reviewLabels } from "../../src/core/lib/jira/labels.ts";
+import { decideStepSync, planPush } from "../../src/core/lib/jira/push.ts";
 import {
-  browseUrl,
-  decideStepSync,
   getFolderTree,
-  getMyself,
   getProjectInfo,
   getStepFields,
   listTests,
   type PulledTest,
-  planPush,
   pullTest,
-  resetAuth,
-  retryAfter,
-  reviewLabels,
   searchTests,
-} from "../../src/core/lib/jira.ts";
+} from "../../src/core/lib/jira/read.ts";
 import { hasRawEmbed } from "../../src/core/lib/testfile.ts";
 import type { Precondition, Review, Step, StepImage, Test, XrayField } from "../../src/core/types.ts";
 
@@ -700,7 +696,7 @@ describe("planPush — custom step fields", () => {
     s.fields.Severity = "  ";
     const plan = await planPush(localTest({ steps: [s] }), "local-1", null, deps);
     expect(plan.warnings).toEqual([
-      '"Priority" is not a step field of BHPTCC — not pushed (refresh the fields with xray.fields if it was just added).',
+      '"Priority" is not a step field of BHPTCC — not pushed (refresh the fields with xray.refreshFields if it was just added).',
     ]);
     await runAll(plan.ops);
     expect(JSON.stringify(gql(0).body)).not.toContain("high");

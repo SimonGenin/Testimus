@@ -3,9 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeEach, expect, test } from "vitest";
 import { env } from "../../src/core/env.ts";
-import { resetAuth } from "../../src/core/lib/jira.ts";
+import { resetAuth } from "../../src/core/lib/jira/http.ts";
 import { listLocalTests, localTestRef, readTest, writeTest } from "../../src/core/lib/store.ts";
-import { checkRemote, executePlan, extOf, planView, pullToLocal, pushTest } from "../../src/core/lib/sync.ts";
+import { checkRemote, extOf, pullToLocal } from "../../src/core/lib/sync/pull.ts";
+import { executePlan, planView, pushTest } from "../../src/core/lib/sync/push.ts";
 import { parseTest, serializeTest } from "../../src/core/lib/testfile.ts";
 import { mockHttp, mockJira, mockJiraTest, resetMockJira } from "../../src/core/mock/jira.ts";
 

@@ -5,10 +5,11 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { quietCtx } from "../../src/core/command.ts";
 import { commands } from "../../src/core/commands/xray.ts";
 import { env, type HttpReq } from "../../src/core/env.ts";
-import { labelPrefixOf, resetAuth, reviewLabels, reviewOfLabels } from "../../src/core/lib/jira.ts";
+import { resetAuth } from "../../src/core/lib/jira/http.ts";
+import { labelPrefixOf, reviewLabels, reviewOfLabels } from "../../src/core/lib/jira/labels.ts";
 import { readProject, writeProject } from "../../src/core/lib/project.ts";
 import { listLocalTests, readTest, writeTest } from "../../src/core/lib/store.ts";
-import { executePlan, insideTest, pushTest } from "../../src/core/lib/sync.ts";
+import { executePlan, pushTest, testFilePath } from "../../src/core/lib/sync/push.ts";
 import { serializeTest } from "../../src/core/lib/testfile.ts";
 import { mockHttp, mockJiraTest, resetMockJira } from "../../src/core/mock/jira.ts";
 
@@ -118,12 +119,12 @@ describe("M7 — one push of a test at a time", () => {
 });
 
 describe("M8 — a push uploads only files of the test folder", () => {
-  it("insideTest accepts the test's own files and refuses anything that leaves the folder", () => {
+  it("testFilePath accepts the test's own files and refuses anything that leaves the folder", () => {
     const dir = join(project, "tests", "LFRPS12-1420");
-    expect(insideTest(dir, "images/fig-40.png")).toBe(join(dir, "images", "fig-40.png"));
+    expect(testFilePath(dir, "images/fig-40.png")).toBe(join(dir, "images", "fig-40.png"));
     for (const bad of ["", "../LFRPS12-1398/test.md", "images/../../x.png", "/etc/passwd", "C:/Windows/win.ini"])
-      expect(insideTest(dir, bad), bad).toBeNull();
-    expect(insideTest(dir, join(dir, "images", "fig-40.png"))).toBeNull();
+      expect(testFilePath(dir, bad), bad).toBeNull();
+    expect(testFilePath(dir, join(dir, "images", "fig-40.png"))).toBeNull();
   });
 
   it("refuses the plan when a step attaches a file outside tests/<id>/, and sends nothing", async () => {

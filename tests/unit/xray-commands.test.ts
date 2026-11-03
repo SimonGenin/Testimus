@@ -6,7 +6,7 @@ import { quietCtx } from "../../src/core/command.ts";
 import { commands } from "../../src/core/commands/xray.ts";
 import { env } from "../../src/core/env.ts";
 import { readColumns, saveColumn, setModes, setOrder } from "../../src/core/lib/columns.ts";
-import { resetAuth } from "../../src/core/lib/jira.ts";
+import { resetAuth } from "../../src/core/lib/jira/http.ts";
 import { readXray } from "../../src/core/lib/project.ts";
 import { listLocalTests, localTestRef, readTest, writeTest } from "../../src/core/lib/store.ts";
 import { mockHttp, mockJira, mockJiraTest, resetMockJira } from "../../src/core/mock/jira.ts";
@@ -49,10 +49,11 @@ describe("xray commands", () => {
     }
   });
 
-  it("xray.fields fetches the step schema and keeps the team's columns", async () => {
+  it("xray.refreshFields fetches the step schema and keeps the team's columns", async () => {
     setModes(project, { Exigence: "collapsed" });
     const before = readColumns(project);
-    const out = await run("xray.fields");
+    const out = await run("xray.refreshFields");
+    expect(await run("xray.fields")).toEqual(out);
     expect(out.fields).toEqual([
       { id: "action", name: "Action", type: "text", builtin: true },
       { id: "data", name: "Data", type: "text", builtin: true },
@@ -120,9 +121,9 @@ describe("xray commands", () => {
     );
   });
 
-  it("xray.status re-checks Jira and reports a remote change", async () => {
+  it("xray.statusAll and xray.status re-check Jira and reports a remote change", async () => {
     mockJiraTest("LFRPS12-1398")!.summary = "Changed by someone else";
-    const out = await run("xray.status");
+    const out = await run("xray.statusAll");
     expect(out.tests).toEqual([
       { id: "LFRPS12-1398", key: "LFRPS12-1398", sync: "remote-changed", remote: "remote-changed" },
       { id: "LFRPS12-1420", key: "LFRPS12-1420", sync: "modified", remote: "unchanged" },
@@ -131,7 +132,7 @@ describe("xray commands", () => {
     expect((await run("xray.status", { id: "LFRPS12-1420" })).tests).toHaveLength(1);
   });
 
-  it("xray.plan and a dry run write nothing", async () => {
+  it("xray.plan and a dry run write nothing, and give the same plan", async () => {
     const plan = await run("xray.plan", { id: "LFRPS12-1420" });
     expect(plan.ops.map((o: any) => o.label)).toEqual([
       "Update labels (review label testimus-checked)",
@@ -139,6 +140,7 @@ describe("xray commands", () => {
     ]);
     const dry = await run("xray.push", { id: "LFRPS12-1420", dryRun: true });
     expect(dry.ops.map((o: any) => o.status)).toEqual(["not-started", "not-started"]);
+    expect(dry.plan).toEqual(plan);
     expect(mockJiraTest("LFRPS12-1420")!.labels).toEqual(["testimus-draft"]);
   });
 

@@ -16,7 +16,8 @@ import { commands as project } from "../../src/core/commands/project.ts";
 import { env, type HttpReq, type HttpRes } from "../../src/core/env.ts";
 import { jobNotice, startJob, subscribe } from "../../src/core/jobs.ts";
 import { credsDir, credsStatus, savedSecrets } from "../../src/core/lib/creds.ts";
-import { getProjectInfo, rateLimit, resetAuth } from "../../src/core/lib/jira.ts";
+import { announceWait, resetAuth } from "../../src/core/lib/jira/http.ts";
+import { getProjectInfo } from "../../src/core/lib/jira/read.ts";
 import type { JobEvent } from "../../src/core/types.ts";
 import { writeContextMd } from "./context-helpers.ts";
 
@@ -309,7 +310,7 @@ describe("rate limits", () => {
     expect(jobNotice("x")).toBeUndefined();
     const seen: JobEvent[] = [];
     const off = subscribe((e) => seen.push(e));
-    const resume = rateLimit.onWait(5);
+    const resume = announceWait(5);
     expect(seen.at(-1)).toMatchObject({ jobId: "", type: "notice", message: "Rate limited — waiting 5s" });
     expect(typeof resume).toBe("function");
     (resume as () => void)();

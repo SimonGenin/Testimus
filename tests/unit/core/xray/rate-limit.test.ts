@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "../../../../src/core/commands/index.ts";
 import { env, type HttpRes } from "../../../../src/core/env.ts";
-import { resetAuth } from "../../../../src/core/lib/jira.ts";
+import { resetAuth } from "../../../../src/core/lib/jira/http.ts";
 import { fixtureCopy } from "../registry.ts";
 
 const http = env.http;

@@ -2,22 +2,21 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { env, type HttpReq, type HttpRes } from "../../src/core/env.ts";
+import { subscribe } from "../../src/core/jobs.ts";
+import { getMyself, resetAuth } from "../../src/core/lib/jira/http.ts";
+import { reviewOfLabels } from "../../src/core/lib/jira/labels.ts";
+import { planPush } from "../../src/core/lib/jira/push.ts";
 import {
   getFolderTree,
-  getMyself,
   getProjectInfo,
   getStepFields,
   listPreconditions,
   listTests,
-  mimeOf,
   type PulledTest,
-  planPush,
   pullTest,
-  rateLimit,
-  resetAuth,
-  reviewOfLabels,
   searchTests,
-} from "../../src/core/lib/jira.ts";
+} from "../../src/core/lib/jira/read.ts";
+import { mimeOf } from "../../src/core/lib/jira/steps.ts";
 import type { Precondition, Step, StepImage, Test, XrayField } from "../../src/core/types.ts";
 
 const JIRA = "https://t.atlassian.net";
@@ -35,10 +34,8 @@ const status = (s: number, text?: string): HttpRes => ({ status: s, headers: { "
 const gqlCalls = () => calls.filter((c) => c.url.endsWith("/graphql"));
 
 const http = env.http;
-const onWait = rateLimit.onWait;
 afterAll(() => {
   env.http = http;
-  rateLimit.onWait = onWait;
 });
 
 function writeCreds(jira: unknown = { baseUrl: JIRA, email: "me@x.com", token: "tok" }) {
@@ -55,7 +52,6 @@ beforeEach(() => {
   graph = () => ({});
   authText = '"jwt-1"';
   authStatus = 200;
-  rateLimit.onWait = () => {};
   resetAuth();
   writeCreds();
   env.http = async (req: HttpReq): Promise<HttpRes> => {
@@ -185,9 +181,12 @@ describe("graphql errors", () => {
 
   it("a 429 that does not go away fails with the rate limit message", async () => {
     let waits = 0;
-    rateLimit.onWait = () => waits++;
+    const off = subscribe((e) => {
+      if (e.type === "notice" && e.message.startsWith("Rate limited")) waits++;
+    });
     route = (req) => (req.url.endsWith("/graphql") ? status(429) : undefined);
     await expect(getFolderTree("1")).rejects.toThrow(/rate limit/);
+    off();
     expect(waits).toBe(3);
   });
 

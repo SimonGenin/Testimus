@@ -3,9 +3,9 @@ import { join } from "node:path";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { env } from "../../../../src/core/env.ts";
 import { readColumns, setModes } from "../../../../src/core/lib/columns.ts";
-import { resetAuth } from "../../../../src/core/lib/jira.ts";
+import { resetAuth } from "../../../../src/core/lib/jira/http.ts";
 import { readXray } from "../../../../src/core/lib/project.ts";
-import { mockHttp, resetMockJira } from "../../../../src/core/mock/jira.ts";
+import { mockHttp, mockJiraTest, resetMockJira } from "../../../../src/core/mock/jira.ts";
 import { call, fixtureCopy } from "../registry.ts";
 
 const http = env.http;
@@ -29,11 +29,15 @@ beforeEach(() => {
   env.http = mockHttp;
 });
 
-describe("xray.fields through the registry", () => {
+describe("xray.refreshFields through the registry", () => {
   it("writes the step fields Xray has into xray.json, stamps the fetch and keeps the team's columns", async () => {
     setModes(P, { Exigence: "collapsed" });
     const columns = readColumns(P);
-    const out = await call<{ fields: { name: string; builtin: boolean }[]; fetchedAt: string }>("xray.fields", {}, P);
+    const out = await call<{ fields: { name: string; builtin: boolean }[]; fetchedAt: string }>(
+      "xray.refreshFields",
+      {},
+      P,
+    );
     expect(out.fields.map((f) => [f.name, f.builtin])).toEqual([
       ["Action", true],
       ["Data", true],
@@ -47,9 +51,47 @@ describe("xray.fields through the registry", () => {
   });
 
   it("refuses without a project, and says so when Jira refuses the credentials", async () => {
-    await expect(call("xray.fields", {}, null)).rejects.toThrow(/No project is open/);
+    await expect(call("xray.refreshFields", {}, null)).rejects.toThrow(/No project is open/);
     env.http = async () => ({ status: 401, headers: {}, text: "" });
-    await expect(call("xray.fields", {}, P)).rejects.toThrow(/credentials/i);
+    await expect(call("xray.refreshFields", {}, P)).rejects.toThrow(/credentials/i);
+  });
+});
+
+describe("xray.fields reads xray.json and asks Xray nothing", () => {
+  it("answers what the last refresh wrote, even with Jira unreachable", async () => {
+    const before = readXray(P);
+    env.http = async () => {
+      throw new Error("no network");
+    };
+    expect(await call("xray.fields", {}, P)).toEqual(before);
+    env.http = mockHttp;
+    const fresh = await call("xray.refreshFields", {}, P);
+    env.http = async () => {
+      throw new Error("no network");
+    };
+    expect(await call("xray.fields", {}, P)).toEqual(fresh);
+  });
+});
+
+describe("xray.statusAll checks every test as a job", () => {
+  it("re-checks each synced test", async () => {
+    mockJiraTest("LFRPS12-1398")!.summary = "Changed by someone else";
+    const out = await call<{ tests: { id: string; remote: string }[] }>("xray.statusAll", {}, P);
+    expect(out.tests.map((t) => [t.id, t.remote])).toEqual([
+      ["LFRPS12-1398", "remote-changed"],
+      ["LFRPS12-1420", "unchanged"],
+      ["local-3f9a12c0", "unverified"],
+    ]);
+  });
+
+  it("ends at once when cancelled", async () => {
+    env.http = (req) =>
+      new Promise((_, reject) => req.signal?.addEventListener("abort", () => reject(new Error("aborted"))));
+    const ctrl = new AbortController();
+    const run = call("xray.statusAll", {}, P, { signal: ctrl.signal });
+    run.catch(() => {});
+    ctrl.abort();
+    await expect(run).rejects.toThrow();
   });
 });
 

@@ -4,19 +4,12 @@ import { join } from "node:path";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { env } from "../../src/core/env.ts";
 import { readColumns, setModes } from "../../src/core/lib/columns.ts";
-import { resetAuth } from "../../src/core/lib/jira.ts";
+import { resetAuth } from "../../src/core/lib/jira/http.ts";
 import { readXray } from "../../src/core/lib/project.ts";
 import { readTest } from "../../src/core/lib/store.ts";
-import {
-  checkRemote,
-  executePlan,
-  freshXray,
-  insideTest,
-  type Push,
-  projectInfo,
-  pullToLocal,
-  pushTest,
-} from "../../src/core/lib/sync.ts";
+import { freshXray, projectInfo } from "../../src/core/lib/sync/connect.ts";
+import { checkRemote, pullToLocal } from "../../src/core/lib/sync/pull.ts";
+import { executePlan, type Push, pushTest, testFilePath } from "../../src/core/lib/sync/push.ts";
 import { serializeTest } from "../../src/core/lib/testfile.ts";
 import { mockHttp, mockJira, mockJiraTest, resetMockJira } from "../../src/core/mock/jira.ts";
 
@@ -185,9 +178,9 @@ describe("checkRemote", () => {
 });
 
 describe("push", () => {
-  it("insideTest accepts a file that does not exist yet", () => {
+  it("testFilePath accepts a file that does not exist yet", () => {
     const dir = join(project, "tests", "LFRPS12-1420");
-    expect(insideTest(dir, "images/later.png")).toBe(join(dir, "images", "later.png"));
+    expect(testFilePath(dir, "images/later.png")).toBe(join(dir, "images", "later.png"));
   });
 
   it("names every file outside the test folder", async () => {
