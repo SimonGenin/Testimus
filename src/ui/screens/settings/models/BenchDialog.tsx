@@ -10,8 +10,6 @@ export type Bench = {
   error?: string;
 };
 
-export const NO_SET = /No behavior set/i;
-
 export function BenchDialog({
   pack,
   bench,
@@ -28,34 +26,25 @@ export function BenchDialog({
   onClose: () => void;
 }) {
   const running = !bench || bench.status === "running";
-  const noSet = bench?.status === "failed" && NO_SET.test(bench.error ?? "");
   return (
     <Modal
       label={`Measure the ${pack.label} pack`}
       title={`Measure the ${pack.label} pack`}
-      subtitle="On this project, on this PC."
+      subtitle="On Testimus's reference document, on this PC."
       width={560}
       onClose={onClose}
       foot={
         <>
-          <span className="muted foot-hint">
-            {running
-              ? "Closing this window does not stop the measure."
-              : bench.status === "done"
-                ? "The report is kept in .testimus/eval/."
-                : ""}
-          </span>
+          <span className="muted foot-hint">{running ? "Closing this window does not stop the measure." : ""}</span>
           <span className="spacer" />
           {running ? (
             <Button tone="quiet" disabled={!bench?.jobId} onClick={() => bench && onCancel(bench.jobId)}>
               Cancel the measure
             </Button>
           ) : (
-            !noSet && (
-              <Button tone="quiet" onClick={onAgain}>
-                Measure again
-              </Button>
-            )
+            <Button tone="quiet" onClick={onAgain}>
+              Measure again
+            </Button>
           )}
           <Button tone="primary" onClick={onClose}>
             Close
@@ -64,8 +53,12 @@ export function BenchDialog({
       }
     >
       <p className="bench-intro">
-        Testimus searches the project's documents with these models for every behavior of the project's behavior set and
-        counts how much of the evidence each search finds. The search times become this PC's speed for the pack.
+        Testimus ships a reference document: the Syntec collective agreement, 90 articles, with 100 questions whose
+        answering article is known. It searches that document with these models and counts how often the right article
+        comes first, and how often it is in the top 5. The search times become this PC's speed for the pack.
+      </p>
+      <p className="muted bench-intro">
+        Your project's documents are not used: the same test on every PC makes the packs comparable.
       </p>
       <div className="plan-row">
         <span className="label">Models</span>
@@ -109,24 +102,7 @@ export function BenchDialog({
           The measure was cancelled; no result was written.
         </p>
       )}
-      {noSet && (
-        <div className="problem bench-state" role="alert">
-          <span className="sev s-warn">
-            <Icon name="warning" />
-            This project has no behavior set yet
-          </span>
-          <p>
-            Quality is measured against <span className="mono">eval/behaviors.jsonl</span> in the project folder: one
-            line per behavior a tester checks, with the document passages a test of it needs (its evidence). Add that
-            file, then measure again.
-          </p>
-          <p className="muted">
-            Claude Code can draft it from the documents with Testimus's rag-eval skill; a tester then confirms each
-            line. Until then every result is marked provisional.
-          </p>
-        </div>
-      )}
-      {bench?.status === "failed" && !noSet && (
+      {bench?.status === "failed" && (
         <div className="problem bench-state" role="alert">
           <span className="sev s-err">
             <Icon name="error" />

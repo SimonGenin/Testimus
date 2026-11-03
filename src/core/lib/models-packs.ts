@@ -1,10 +1,11 @@
+import { publishedMeasure, refdocDir } from "../rag/refdoc.ts";
 import type { ActiveChoice, CatalogEntry, Fit, MachineProfile, Pack, PackVariant, PerfLine } from "../types.ts";
 import { PACK_ORDER } from "./models-advice.ts";
 import { catalog, catalogEntry } from "./models-catalog.ts";
 import { deviceFor, fitOf } from "./models-fit.ts";
 import { machineProfile } from "./models-hardware.ts";
 import { perfStats, variantSpeed } from "./models-perf.ts";
-import { evalReports, type Measured, NOT_MEASURED, packQuality } from "./models-quality.ts";
+import { evalReports, type Measured, NOT_MEASURED, packQuality, refdocQuality } from "./models-quality.ts";
 import { budgets, readRegistry } from "./models-registry.ts";
 import { DEFAULT_QUERY_TASK, type Resolution, type ResolveDeps, resolveChoice } from "./models-resolve.ts";
 
@@ -22,6 +23,8 @@ export type PackRow = {
   downloadMB: number;
   speed?: string;
   quality: string;
+  measuredHere: boolean;
+  projectQuality?: string;
   processorOnly: boolean;
 };
 
@@ -56,6 +59,7 @@ export async function packRows(
   deps: ResolveDeps = {},
   project?: string,
   reports: Measured[] = project ? evalReports(project) : [],
+  refReports: Measured[] = evalReports(refdocDir()),
 ): Promise<PackRow[]> {
   const stats = perfStats({ last: 50, lines: deps.lines });
   const machine = await (deps.machine ?? (() => machineProfile()))().catch(() => null);
@@ -63,6 +67,10 @@ export async function packRows(
   for (const p of catalog().packs) {
     const r = await resolveChoice({ pack: p.id }, queryTask, deps);
     const speed = r.variant ? variantSpeed(r.variant.embedding, r.variant.reranker, stats) : undefined;
+    const ref = r.variant
+      ? refdocQuality(r.variant, refReports, publishedMeasure(p.id, r.variant.embedding, r.variant.reranker))
+      : { text: NOT_MEASURED, here: false };
+    const own = r.variant ? packQuality(r.variant, reports) : NOT_MEASURED;
     rows.push({
       id: p.id,
       label: p.label,
@@ -76,7 +84,9 @@ export async function packRows(
       skipped: r.variant ? r.skipped : r.skipped.length ? r.skipped : ["not available on this PC"],
       downloadMB: downloadMBOf(r),
       ...(speed ? { speed } : {}),
-      quality: r.variant ? packQuality(r.variant, reports) : NOT_MEASURED,
+      quality: ref.text,
+      measuredHere: ref.here,
+      ...(own !== NOT_MEASURED ? { projectQuality: own } : {}),
       processorOnly: !!machine && r.variantIndex !== null && processorFallback(p, r.variantIndex, machine),
     });
   }

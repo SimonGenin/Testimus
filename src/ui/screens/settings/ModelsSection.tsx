@@ -7,7 +7,7 @@ import { message } from "../../lib/format.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 import { AddFolder } from "./models/AddFolder.tsx";
 import { AdviceBanner } from "./models/AdviceBanner.tsx";
-import { type Bench, BenchDialog, NO_SET } from "./models/BenchDialog.tsx";
+import { type Bench, BenchDialog } from "./models/BenchDialog.tsx";
 import { ConfirmDialog } from "./models/ConfirmDialog.tsx";
 import { CustomCard } from "./models/CustomCard.tsx";
 import type { AdviceRow, CatalogRow, Installed, Op, PackRow, RagStatus, SetDirOut, UsePackOut } from "./models/data.ts";
@@ -26,6 +26,7 @@ type Plan = { row: PackRow; out: UsePackOut };
 const GLOBAL_OPS = ["index", "dir", "llama.cpp"];
 
 const pctOf = (done?: number, total?: number) => (total ? Math.round(((done ?? 0) / total) * 100) : null);
+const packLabel = (id: string) => `${id.charAt(0).toUpperCase()}${id.slice(1)}`;
 
 export function ModelsSection() {
   const app = useApp();
@@ -94,27 +95,21 @@ export function ModelsSection() {
   );
 
   const followBench = useCallback(
-    (embedding: string, jobId: string, title: string) => {
+    (packId: string, jobId: string, title: string) => {
       const patch = (p: Partial<Bench>) =>
-        setBenches((b) => (b[embedding]?.jobId === jobId ? { ...b, [embedding]: { ...b[embedding], ...p } } : b));
-      setBenches((b) => ({ ...b, [embedding]: { jobId, status: "running", message: "Starting", pct: null } }));
+        setBenches((b) => (b[packId]?.jobId === jobId ? { ...b, [packId]: { ...b[packId], ...p } } : b));
+      setBenches((b) => ({ ...b, [packId]: { jobId, status: "running", message: "Starting", pct: null } }));
       waitJob(jobId, (e) => {
         if (e.type === "progress") patch({ message: e.message, pct: pctOf(e.done, e.total) });
       })
         .then(() => {
           patch({ status: "done" });
-          if (shownBench.current !== embedding) toast({ kind: "ok", title: `${title} measured` });
+          if (shownBench.current !== packId) toast({ kind: "ok", title: `${title} measured` });
         })
         .catch((e) => {
           const cancelled = !!(e as { cancelled?: boolean }).cancelled;
           patch({ status: cancelled ? "cancelled" : "failed", error: message(e) });
-          if (!cancelled && shownBench.current !== embedding)
-            errorToast(
-              e,
-              NO_SET.test(message(e))
-                ? `${title}: no behavior set to measure against`
-                : `${title}: the measure stopped`,
-            );
+          if (!cancelled && shownBench.current !== packId) errorToast(e, `${title}: the measure stopped`);
         })
         .finally(() => void load());
     },
@@ -142,13 +137,12 @@ export function ModelsSection() {
     call<Job[]>("jobs.list", { running: true })
       .then((jobs) => {
         for (const j of jobs ?? []) {
-          if (j.kind === "models-usePack")
-            track(j.id, j.subject, `Installing ${j.subject.charAt(0).toUpperCase()}${j.subject.slice(1)}`, afterPack);
+          if (j.kind === "models-usePack") track(j.id, j.subject, `Installing ${packLabel(j.subject)}`, afterPack);
           else if (j.kind === "models-pull") track(j.id, j.subject, `Downloading ${j.subject}`);
           else if (j.kind === "models-move" || j.kind === "models-copy")
             track(j.id, "dir", j.kind === "models-move" ? "Moving the models" : "Copying the models");
           else if (j.kind === "rag-index") track(j.id, "index", "Indexing the documents");
-          else if (j.kind === "rag-eval" && j.subject !== "eval") followBench(j.subject, j.id, j.subject);
+          else if (j.kind === "models-measure") followBench(j.subject, j.id, `${packLabel(j.subject)} pack`);
         }
       })
       .catch(() => {});
@@ -157,24 +151,22 @@ export function ModelsSection() {
   const label = useCallback((id: string) => catalog?.find((c) => c.id === id)?.label ?? id, [catalog]);
   const cancel = (jobId: string) => call("jobs.cancel", { id: jobId }).catch((e) => errorToast(e, "Could not cancel"));
 
-  const showBench = (id: string | null, embedding: string | null) => {
-    shownBench.current = embedding;
+  const showBench = (id: string | null) => {
+    shownBench.current = id;
     setBenchOf(id);
   };
 
   const measure = async (row: PackRow) => {
-    const embedding = row.embedding;
-    if (!embedding) return;
-    showBench(row.id, embedding);
-    if (benches[embedding]?.status === "running") return;
-    setBenches((b) => ({ ...b, [embedding]: { jobId: "", status: "running", message: "Starting", pct: null } }));
+    showBench(row.id);
+    if (benches[row.id]?.status === "running") return;
+    setBenches((b) => ({ ...b, [row.id]: { jobId: "", status: "running", message: "Starting", pct: null } }));
     try {
-      const out = await call<{ jobId: string }>("rag.eval", { embedding, reranker: row.reranker });
-      followBench(embedding, out.jobId, `${row.label} pack`);
+      const out = await call<{ jobId: string }>("models.measure", { pack: row.id });
+      followBench(row.id, out.jobId, `${row.label} pack`);
     } catch (e) {
       setBenches((b) => ({
         ...b,
-        [embedding]: { jobId: "", status: "failed", message: "", pct: null, error: message(e) },
+        [row.id]: { jobId: "", status: "failed", message: "", pct: null, error: message(e) },
       }));
     }
   };
@@ -452,7 +444,7 @@ export function ModelsSection() {
               busy={packBusy}
               onUse={() => choosePack(p)}
               onCancel={cancel}
-              bench={p.embedding ? benches[p.embedding] : undefined}
+              bench={benches[p.id]}
               onMeasure={() => void measure(p)}
             />
           ))}
@@ -536,14 +528,14 @@ export function ModelsSection() {
           }}
         />
       )}
-      {benchPack?.embedding && (
+      {benchPack && (
         <BenchDialog
           pack={benchPack}
-          bench={benches[benchPack.embedding]}
+          bench={benches[benchPack.id]}
           label={label}
           onCancel={cancel}
           onAgain={() => void measure(benchPack)}
-          onClose={() => showBench(null, null)}
+          onClose={() => showBench(null)}
         />
       )}
       {folder && (

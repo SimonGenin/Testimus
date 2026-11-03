@@ -88,6 +88,12 @@ export function PackCard({
         <dd>{pack.speed ?? "Not measured on this PC yet"}</dd>
         <dt>Quality</dt>
         <dd>{pack.quality}</dd>
+        {pack.projectQuality && (
+          <>
+            <dt>On this project</dt>
+            <dd>{pack.projectQuality}</dd>
+          </>
+        )}
       </dl>
       <div className="pack-foot">
         {op ? (
@@ -117,7 +123,7 @@ export function PackCard({
           >
             {measuring
               ? `Measuring${bench.pct !== null ? ` · ${bench.pct} %` : "…"}`
-              : /^evidence recall/.test(pack.quality)
+              : pack.measuredHere
                 ? "Measure again"
                 : "Measure"}
           </Button>
