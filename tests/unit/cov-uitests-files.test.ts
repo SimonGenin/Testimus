@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { parseCsvRows } from "../../src/ui/lib/csv.ts";
 import { toBase64, uploadImage } from "../../src/ui/lib/files.ts";
 import { api, fakeFetch } from "./ui-desktop-helpers.tsx";
 
@@ -50,22 +49,5 @@ describe("uploadImage", () => {
     });
     expect(await uploadImage("t1", new File(["a"], "", { type: "" }))).toEqual({ file: "images/paste.png" });
     expect(api.calls.map((c) => c.input.ext)).toEqual(["webp", "png"]);
-  });
-});
-
-describe("parseCsvRows", () => {
-  it("splits on commas, keeps quoted separators and doubled quotes, skips blank rows", () => {
-    expect(parseCsvRows('id,text\r\nA,"one, ""two"""\n\n,\nB,x')).toEqual([
-      ["id", "text"],
-      ["A", 'one, "two"'],
-      ["B", "x"],
-    ]);
-  });
-
-  it("picks the semicolon when the header has more of them, and handles a lone \\r", () => {
-    expect(parseCsvRows("id;text;doc\rA;b,c;D\r")).toEqual([
-      ["id", "text", "doc"],
-      ["A", "b,c", "D"],
-    ]);
   });
 });

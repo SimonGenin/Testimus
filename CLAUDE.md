@@ -55,7 +55,7 @@ src/core/env.ts      the one seam: http, home/data dirs, spawnClaude — tests a
 src/core/jobs.ts     long work: progress, cancel, .testimus/jobs/<id>.jsonl, SSE
 src/core/types.ts    shared types
 src/core/shell.ts    which shell runs the core (TESTIMUS_SHELL), loopback NO_PROXY, clean shutdown
-src/core/lib/        testfile, table, adf, store, jira, sync, csv (ported from Xray Editor), check,
+src/core/lib/        testfile, table, adf, store, jira, sync (ported from Xray Editor), check,
                      docs, creds, project, doctor, hash, zip; models-* (catalog, packs, hardware, fit,
                      download, install, registry, resolve, perf, advice, quality, store, dir)
 src/core/rag/        convert* (docx/pdf/html/png → doc.md + figures), chunk, embed, models (profiles),
@@ -79,7 +79,7 @@ src/ui/              React app (app/, components/{ui,shell,claude,sources}, scre
 templates/project/   copied into every project folder by `project init` (CLAUDE.md, .mcp.json, skills)
 scripts/             release.ts, desktop.ts, install.ps1, testimus.cmd, testimus.ico
 tests/unit/          vitest (desktop/ for the shell); tests/e2e/ playwright (desktop/ drives Electron);
-                     tests/fixtures/ the LFRPS12 sample project, CSV, docx, evidence, rag, snowball-fr
+                     tests/fixtures/ the LFRPS12 sample project, docx, evidence, rag, snowball-fr
 ```
 
 ## Architecture rules (the non-obvious ones)

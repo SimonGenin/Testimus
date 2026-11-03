@@ -37,13 +37,6 @@ export type PushDeps = {
   remoteChanged?: boolean;
 };
 export type StepSync = { mode: "in-place"; remove: string[]; update: number[]; add: number[] } | { mode: "rebuild" };
-export type BulkTest = { summary: string; folder: string; description: string; labels: string[]; steps: Step[] };
-export type ImportStatus = {
-  status: string;
-  issues: Array<{ key: string; id: string }>;
-  errors: string[];
-  warnings: string[];
-};
 
 export const PAGE = 100;
 const ATTACHMENT_MARKER = /!xray-attachment:\/\/([^!\n|]+)(?:\|([^!\n]*))?!/g;
@@ -159,24 +152,6 @@ async function xrayJwt(force = false): Promise<string> {
   jwtFor = who;
   if (!jwt) throw new Error("Xray authentication returned an empty token.");
   return jwt;
-}
-
-async function xrayFetch(method: string, path: string, body?: unknown): Promise<any> {
-  const c = xrayCreds();
-  const call = (token: string) =>
-    send({
-      method,
-      url: `${c.apiBase}${path}`,
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json" },
-      body: body === undefined ? undefined : JSON.stringify(body),
-      timeoutMs: 120000,
-    });
-  let res = await call(await xrayJwt());
-  if (res.status === 401) res = await call(await xrayJwt(true));
-  if (res.status === 401) throw new Error("Xray 401 — check ~/.atlassian/xray_credentials.json");
-  if (res.status === 429) throw new Error(RATE_LIMITED);
-  if (res.status >= 400) throw new Error(`Xray ${res.status} on ${path} — ${(res.text ?? "").slice(0, 300)}`);
-  return res.text ? JSON.parse(res.text) : null;
 }
 
 async function gql<T>(query: string, variables: Record<string, unknown>): Promise<T> {
@@ -666,46 +641,6 @@ const stepInput = async (s: Step, read: PushDeps["readImage"], schema: XrayField
     ...(custom.length ? { customFields: custom } : {}),
   };
 };
-
-// The Xray bulk import's JSON (POST /api/v2/import/test/bulk). VERIFY: custom step fields in the bulk
-// payload are sent as `customFields: [{ id, value }]` per step, like the GraphQL step inputs — unproven.
-export function bulkTestJson(t: BulkTest, project: ProjectInfo, schema: XrayField[]) {
-  const fields: Record<string, unknown> = { summary: t.summary, project: { key: project.key } };
-  if (t.labels.length) fields.labels = t.labels;
-  if (t.description.trim()) fields.description = t.description;
-  return {
-    testtype: "Manual",
-    fields,
-    ...(t.folder ? { xray_test_repository_folder: t.folder } : {}),
-    steps: t.steps.map((s) => {
-      const custom = customInput(s, schema);
-      return {
-        action: orBlank(fieldOf(s, "Action")),
-        data: fieldOf(s, "Data"),
-        result: fieldOf(s, "Expected Result"),
-        ...(custom.length ? { customFields: custom } : {}),
-      };
-    }),
-  };
-}
-
-export async function startBulkImport(tests: unknown[]): Promise<string> {
-  const r = await xrayFetch("POST", "/api/v2/import/test/bulk", tests);
-  if (!r?.jobId) throw new Error("Xray bulk import answered without a job id.");
-  return String(r.jobId);
-}
-
-export async function bulkImportStatus(jobId: string): Promise<ImportStatus> {
-  const r = await xrayFetch("GET", `/api/v2/import/test/bulk/${encodeURIComponent(jobId)}/status`);
-  const res = r?.result ?? {};
-  const msg = (e: any) => (typeof e === "string" ? e : JSON.stringify(e?.errors ?? e));
-  return {
-    status: String(r?.status ?? "unknown"),
-    issues: (res.issues ?? []).map((i: any) => ({ key: String(i.key), id: String(i.id) })),
-    errors: (res.errors ?? []).map(msg),
-    warnings: (res.warnings ?? []).map(msg),
-  };
-}
 
 const same = (a: string[], b: string[]) => a.length === b.length && a.every((x, i) => x === b[i]);
 

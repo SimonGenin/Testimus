@@ -1,6 +1,6 @@
 ---
 name: xray-cloud-api
-description: Facts about the Jira Cloud REST and Xray Cloud GraphQL APIs that Testimus relies on (auth, test and step queries, step mutations, custom step fields, attachments embedded in steps, bulk import, rate limits), and how to check one read-only against a live project. Use when writing or debugging anything under src/core/lib/jira.ts or sync.ts, when a command reads or writes Xray, or when a fact about Xray is in doubt.
+description: Facts about the Jira Cloud REST and Xray Cloud GraphQL APIs that Testimus relies on (auth, test and step queries, step mutations, custom step fields, attachments embedded in steps, rate limits), and how to check one read-only against a live project. Use when writing or debugging anything under src/core/lib/jira.ts or sync.ts, when a command reads or writes Xray, or when a fact about Xray is in doubt.
 ---
 
 # Xray Cloud API for Testimus
@@ -59,15 +59,6 @@ An attachment shows in Jira only when the step text embeds it:
   plain string. `data` may be `null`.
 - Write: `customFields: [{ id, value }]` (`CustomStepFieldInput`) in `CreateStepInput` and
   `UpdateStepInput` (schema-checked; not yet run as a write).
-
-## To verify before relying on it (read-only probe first)
-
-- **Bulk import**: `POST /api/v2/import/test/bulk` (JSON array of tests) → `jobId`, then
-  `GET /api/v2/import/test/bulk/{jobId}/status`. Payload shape for steps with custom fields.
-- Xray's CSV importer is a UI feature of Xray; Testimus parses CSV itself.
-
-Write the verified answer into SPEC.md (§10) and into this skill, with the date and the test key it
-was checked on.
 
 ## Limits
 

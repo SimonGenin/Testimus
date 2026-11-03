@@ -28,9 +28,6 @@ vi.mock("../../src/ui/screens/jobs/JobsScreen.tsx", async () => ({
 vi.mock("../../src/ui/screens/doctor/DoctorScreen.tsx", async () => ({
   DoctorScreen: (await import("./cov-uishell-helpers.tsx")).fakeScreen("Doctor screen"),
 }));
-vi.mock("../../src/ui/screens/import/ImportScreen.tsx", async () => ({
-  ImportScreen: (await import("./cov-uishell-helpers.tsx")).fakeScreen("Import screen"),
-}));
 vi.mock("../../src/ui/screens/settings/SettingsScreen.tsx", async () => ({
   SettingsScreen: (await import("./cov-uishell-helpers.tsx")).fakeScreen("Settings screen"),
 }));
@@ -258,7 +255,6 @@ describe("App routing and layout", () => {
       ["#/generate", "Generate screen"],
       ["#/jobs", "Jobs screen"],
       ["#/doctor", "Doctor screen"],
-      ["#/import", "Import screen"],
       ["#/settings", "Settings screen"],
       ["#/tests", "Tests screen"],
     ]) {
@@ -376,7 +372,6 @@ describe("App palette", () => {
       ["go to documents", "#/documents"],
       ["go to settings", "#/settings"],
       ["system check", "#/doctor"],
-      ["import a csv", "#/import"],
     ]) {
       await pick(q);
       await hashIs(hash);

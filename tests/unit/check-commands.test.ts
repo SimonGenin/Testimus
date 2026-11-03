@@ -11,7 +11,6 @@ import { DEFAULT_SETTINGS, writeSettings } from "../../src/core/lib/project.ts";
 import { readCheck, readTest } from "../../src/core/lib/store.ts";
 
 const FIXTURE = new URL("../fixtures/project/", import.meta.url);
-const CSV = new URL("../fixtures/csv/sectionneur-traction-l92.csv", import.meta.url);
 const DOC = "SOSIE_211_D401-1_3";
 const real = env.spawnClaude;
 let project = "";
@@ -199,24 +198,5 @@ describe("check commands", () => {
     await run("check.record", { id: "LFRPS12-1420", findings: [] });
     setReviewLine("LFRPS12-1420", "to-fix");
     expect((await run("check.show", { id: "LFRPS12-1420" })).stale).toBe(false);
-  });
-});
-
-describe("xray.importCsv runs the mechanical check (SPEC §10)", () => {
-  it("local mode writes check.json for each imported test; the tests stay draft", async () => {
-    const out = await run("xray.importCsv", { text: readFileSync(CSV, "utf8"), name: "L92", folder: "/Traction" });
-    expect(out.written).toHaveLength(1);
-    const id = out.written[0];
-    const c = readCheck(project, id)!;
-    expect(c.findings.map((f) => `${f.step}:${f.kind}`)).toEqual([
-      "1:source-missing",
-      "2:source-missing",
-      "3:source-missing",
-      "4:source-missing",
-      "5:source-missing",
-    ]);
-    expect(readTest(project, id).test.review).toBe("draft");
-    const dry = await run("xray.importCsv", { text: readFileSync(CSV, "utf8"), name: "L92", dryRun: true });
-    expect(dry.written).toEqual([]);
   });
 });

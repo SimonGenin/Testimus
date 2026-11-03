@@ -1,16 +1,7 @@
 import { createContext, useContext } from "react";
 import type { ProjectJson, Review, Source, StepColumn, XrayJson } from "../../core/types.ts";
 
-export type Screen =
-  | "documents"
-  | "generate"
-  | "tests"
-  | "review"
-  | "jobs"
-  | "settings"
-  | "doctor"
-  | "import"
-  | "setup";
+export type Screen = "documents" | "generate" | "tests" | "review" | "jobs" | "settings" | "doctor" | "setup";
 
 export type ProjectInfo = {
   dir: string;

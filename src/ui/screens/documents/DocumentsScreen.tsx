@@ -271,9 +271,6 @@ export function DocumentsScreen() {
           <Button tone="primary" onClick={choose}>
             Add documents
           </Button>
-          <Button tone="quiet" size="sm" onClick={() => app.navigate("import")}>
-            Or import a CSV of existing tests
-          </Button>
         </div>
       ) : (
         <div ref={body} className={cx("docs-body", `is-${fold}`, listOpen && "is-list-open")} style={vars}>

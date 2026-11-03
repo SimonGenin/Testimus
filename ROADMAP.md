@@ -5,7 +5,7 @@ the behavior itself is described in SPEC.md, not here.
 
 ## Phase 1 — Base: what Xray Editor does, behind the three faces
 
-The testers can use it as soon as this lands, with the CSVs they already make.
+The testers can use it as soon as this lands.
 
 - [x] Scaffold (SPEC §1): Node 26, TS 7 (erasable only), Vite 8, vitest 5, playwright, Biome;
       `src/faces/cli.ts` with the registry, `help`, `--json`
@@ -14,7 +14,7 @@ The testers can use it as soon as this lands, with the CSVs they already make.
 - [x] Port `testfile` / `table` / `adf` with generic step fields and `### Sources`, round-trip tests
 - [x] Port `jira` / `sync`: pull, folders, push plan, push; `xray.fields` (custom step fields)
 - [x] `xray.json.prefs`: field order, folded by default, hidden
-- [x] `xray.importCsv` local mode (column mapping saved), then direct mode
+- [x] ~~`xray.importCsv` local mode (column mapping saved), then direct mode~~ — removed 2026-11-03
 - [x] UI: port shell, editor, ui vocabulary, styles; generic fields; Claude dock (`claude -p`)
 - [x] `serve --mock` with the fixture Jira; e2e green
 - [x] `system.setup` / `system.doctor` (CLI, MCP, first-run screen)

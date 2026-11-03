@@ -8,7 +8,6 @@ import { project, setProject } from "../../src/ui/api.ts";
 import { ProjectButton } from "../../src/ui/components/shell/ProjectButton.tsx";
 import { Toasts } from "../../src/ui/components/ui/index.ts";
 import { AppContext, type AppState } from "../../src/ui/lib/app.ts";
-import { ImportScreen } from "../../src/ui/screens/import/ImportScreen.tsx";
 import { ClaudeSection } from "../../src/ui/screens/settings/ClaudeSection.tsx";
 import { AccessStep } from "../../src/ui/screens/setup/AccessStep.tsx";
 import { ProjectStep } from "../../src/ui/screens/setup/ProjectStep.tsx";
@@ -142,65 +141,6 @@ describe("First launch › Access", () => {
     within(<AccessStep onContinue={() => {}} onSkip={() => {}} />);
     fireEvent.click(await screen.findByRole("button", { name: "Open API tokens" }));
     expect(open).toHaveBeenCalledWith(TOKENS, "_blank", "noopener,noreferrer");
-  });
-});
-
-describe("Import CSV", () => {
-  const preview = (input: Record<string, unknown>) => ({
-    headers: ["Step", "Action", "Expected Result", "Test"],
-    mapping: { Step: "#step", Action: "Action", "Expected Result": "Expected Result", Test: "#summary" },
-    tests: [
-      {
-        summary: "Disjoncteur",
-        folder: "/",
-        steps: [{ fields: { Action: "Ouvrir", "Expected Result": "Ouvert" } }],
-        row: 2,
-      },
-    ],
-    warnings: [],
-    written: input.mode === "local" ? ["local-1"] : [],
-  });
-
-  it("Choose a file opens the native picker; the core reads the CSV by its path", async () => {
-    const d = fakeDesktop({ files: ["C:\\exports\\tests.csv"] });
-    api.routes["xray.importCsv"] = preview;
-    api.routes["check.run"] = () => ({ jobId: "c1" });
-    const a = within(<ImportScreen />, { route: { screen: "import" } });
-    const click = vi.spyOn(HTMLInputElement.prototype, "click");
-    fireEvent.click(screen.getByRole("button", { name: "Choose a file" }));
-    await waitFor(() => expect(named("xray.importCsv")).toHaveLength(1));
-    expect(click).not.toHaveBeenCalled();
-    expect(d.pickFiles).toHaveBeenCalledWith({
-      title: "Choose a CSV file",
-      filters: [{ name: "CSV", extensions: ["csv"] }],
-      multiple: false,
-    });
-    const sent = named("xray.importCsv")[0].input;
-    expect(sent).toMatchObject({ mode: "preview", file: "C:\\exports\\tests.csv", name: "tests" });
-    expect(sent.text).toBeUndefined();
-    expect(await screen.findByText("tests.csv")).toBeInTheDocument();
-    expect(screen.getByText("C:\\exports\\tests.csv")).toBeInTheDocument();
-    expect(screen.getByText("Ouvrir")).toBeInTheDocument();
-    expect(screen.getByText("Disjoncteur", { selector: ".imp-first" })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Import 1 test locally" }));
-    await waitFor(() => expect(named("xray.importCsv")).toHaveLength(2));
-    expect(named("xray.importCsv")[1].input).toMatchObject({ mode: "local", file: "C:\\exports\\tests.csv" });
-    await waitFor(() => expect(a.navigate).toHaveBeenCalledWith("tests", "local-1"));
-  });
-
-  it("a cancelled picker changes nothing; without the bridge the file input opens", async () => {
-    fakeDesktop({ files: [] });
-    within(<ImportScreen />, { route: { screen: "import" } });
-    fireEvent.click(screen.getByRole("button", { name: "Choose a file" }));
-    await new Promise((r) => setTimeout(r, 20));
-    expect(named("xray.importCsv")).toHaveLength(0);
-    cleanup();
-    noDesktop();
-    within(<ImportScreen />, { route: { screen: "import" } });
-    const click = vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(() => {});
-    fireEvent.click(screen.getByRole("button", { name: "Choose a file" }));
-    expect(click).toHaveBeenCalled();
   });
 });
 

@@ -17,7 +17,7 @@ test("the editor fits a 520 px window beside Jira: the test bar wraps, the list 
   await shoot(page, "narrow-editor", ["light"]);
 });
 
-for (const hash of ["#/documents", "#/generate", "#/jobs", "#/settings", "#/import", "#/doctor"])
+for (const hash of ["#/documents", "#/generate", "#/jobs", "#/settings", "#/doctor"])
   test(`${hash} fits a 520 px window`, async ({ page }) => {
     await boot(page, hash);
     await expect(page.getByRole("heading", { level: 1 })).toBeInViewport();

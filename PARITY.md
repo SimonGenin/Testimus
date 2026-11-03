@@ -148,7 +148,7 @@ a note means Testimus reaches the same capability another way, on purpose (SPEC 
 | 111 | Non-text columns kept as JSON and sent back parsed | jira.ts `customText/customValue` | OK |
 | 112 | Execute op by op, key saved at once, folder renamed, re-pull, resume from the failed op | sync.ts, `xray.push --from` | OK |
 | 113 | Every file written atomically (tmp + rename, tmp removed on failure), file and folder copies included | lib/atomic.ts `writeAtomic`, `copyDirAtomic`; a unit test fails on any file write, copy or append (sync or async) in src/core outside atomic.ts, the job logs, the mock and the model files | OK |
-| 114 | CSV | Xray Editor has none; Testimus adds `xray.importCsv` | n/a |
+| 114 | CSV | Xray Editor has none; Testimus has none either (`xray.importCsv` removed 2026-11-03) | n/a |
 
 ## Proof
 

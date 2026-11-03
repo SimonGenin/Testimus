@@ -146,7 +146,7 @@ arguments in the main process; nothing passes raw `ipcRenderer` to the page.
 |---|---|---|
 | `version()` | `{ shell, electron, chrome }` | About, doctor info |
 | `pickFolder({ title, defaultPath? })` | native folder dialog → absolute path or null | First launch › Project, project menu (« Browse… » beside the text field) |
-| `pickFiles({ title, filters, multiple })` | native file dialog → absolute paths | Documents « Add », Import CSV, Settings › Claude executable |
+| `pickFiles({ title, filters, multiple })` | native file dialog → absolute paths | Documents « Add », Settings › Claude executable |
 | `pathOf(file)` | `webUtils.getPathForFile` for a `File` from an input or a drop → path or "" | Documents drop and input: `docs.add { path }` instead of base64 |
 | `reveal(path)` | `shell.showItemInFolder`, only for a path inside a known project or the data folders | « Show in Explorer » on a project, a document, a test |
 | `openExternal(url)` | default browser, `https:` only | Atlassian token page, Claude docs |

@@ -29,7 +29,6 @@ type MState = {
   preconditions: MPrecondition[];
   folders: string[];
   files: Map<string, Uint8Array>;
-  imports: Map<string, unknown>;
   seq: number;
 };
 
@@ -216,7 +215,6 @@ function seed(): MState {
     ],
     folders: ["/Traction", "/Traction/Sectionneurs", "/Traction/Disjoncteurs", "/Signalisation"],
     files: new Map([["9001", fixtureBytes("project/tests/LFRPS12-1420/images/fig-40.png")]]),
-    imports: new Map(),
     seq: 0,
   };
 }
@@ -493,29 +491,6 @@ function folderNodeExists(path: string): boolean {
   return s.folders.includes(path) || [...s.tests.values()].some((t) => t.folder === path);
 }
 
-type BulkTest = {
-  testtype?: string;
-  xray_test_repository_folder?: string;
-  fields?: Record<string, any>;
-  steps?: StepIn[];
-};
-
-function bulkImport(list: BulkTest[]): string {
-  const jobId = `mock-import-${next()}`;
-  const issues: unknown[] = [];
-  const errors: unknown[] = [];
-  list.forEach((b, elementNumber) => {
-    try {
-      const t = createTest(b.fields ?? {}, b.steps ?? [], b.xray_test_repository_folder);
-      issues.push({ elementNumber, id: t.issueId, key: t.key, self: `${MOCK_JIRA}/rest/api/2/issue/${t.issueId}` });
-    } catch (e) {
-      errors.push({ elementNumber, errors: { message: (e as Error).message } });
-    }
-  });
-  st().imports.set(jobId, { status: "successful", result: { errors, issues, warnings: [] } });
-  return jobId;
-}
-
 function issueJson(t: MTest) {
   return {
     id: t.issueId,
@@ -551,16 +526,6 @@ export async function mockHttp(req: HttpReq): Promise<HttpRes> {
     if ((req.headers?.Authorization ?? "") !== `Bearer ${MOCK_JWT}`) return json({ error: "Unauthorized" }, 401);
     const b = body();
     return graphql(String(b.query ?? ""), b.variables ?? {});
-  }
-  if (path === "/api/v2/import/test/bulk" && req.method === "POST") {
-    const list = body();
-    if (!Array.isArray(list)) return json({ error: "Expected a JSON array of tests" }, 400);
-    return json({ jobId: bulkImport(list) });
-  }
-  const job = /^\/api\/v2\/import\/test\/bulk\/([^/]+)\/status$/.exec(path);
-  if (job) {
-    const r = s.imports.get(job[1]);
-    return r ? json(r) : json({ error: `Import job ${job[1]} not found` }, 404);
   }
 
   if (path === "/rest/api/3/myself") return json(MOCK_ME);

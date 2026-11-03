@@ -4,7 +4,6 @@ import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { adfToText, textToAdf } from "../../src/core/lib/adf.ts";
 import { credsDir, credsStatus, jiraCreds, saveCreds, xrayCreds } from "../../src/core/lib/creds.ts";
-import { csvTests, guessMapping, parseCsv } from "../../src/core/lib/csv.ts";
 import { sha256, testHash } from "../../src/core/lib/hash.ts";
 import { DEFAULT_SETTINGS, readJson, resolveProjectDir, writeSettings } from "../../src/core/lib/project.ts";
 import { addImage, findingCounts, readCheck, testDir } from "../../src/core/lib/store.ts";
@@ -84,44 +83,6 @@ describe("zip", () => {
     const cd = view.getUint32(eocd + 16, true);
     view.setUint32(cd, 0, true);
     expect(() => readZip(zip)).toThrow("Corrupt zip central directory.");
-  });
-});
-
-describe("csv", () => {
-  it("sniffs the separator on the first line only and warns about every gap", () => {
-    const table = parseCsv('Step;Action;Data;Other;Weird\n1;a;"x,y,z";o;w\n2;;;;\n\n1;;;;\n');
-    expect(table.separator).toBe(";");
-    const mapping = { ...guessMapping(table.headers, []), Weird: "Custom" };
-    const r = csvTests(table, mapping, { name: "f", folder: "/", fieldNames: ["Action", "Data", "Expected Result"] });
-    expect(r.tests.map((t) => [t.summary, t.steps.length])).toEqual([
-      ["f (1)", 1],
-      ["f (2)", 0],
-    ]);
-    expect(r.warnings).toEqual([
-      'Column "Other" is mapped to nothing — dropped.',
-      'Column "Weird" goes to "Custom", which is not a step field of this project (run xray.fields).',
-      'No summary column — the tests are named after the file ("f").',
-      '"f (1)" step 1 has no Expected Result.',
-      '"f (2)" (row 4) has no step.',
-    ]);
-  });
-
-  it("warns when no column is a step field and a step has no action", () => {
-    const table = parseCsv("Summary,Expected\nT,r\n");
-    const r = csvTests(table, guessMapping(table.headers, []), { name: "f", folder: "/", fieldNames: [] });
-    expect(r.warnings).toContain('"T" step 1 has no Action.');
-    const none = csvTests(
-      table,
-      { Summary: "#summary", Expected: "#ignore" },
-      { name: "f", folder: "/", fieldNames: [] },
-    );
-    expect(none.warnings).toContain("No column is mapped to a step field — nothing to import.");
-  });
-
-  it("reads short rows as empty cells", () => {
-    const table = { separator: "," as const, headers: ["Summary", "Action", "Folder"], rows: [["T"]] };
-    const r = csvTests(table, guessMapping(table.headers, []), { name: "f", folder: "/D", fieldNames: ["Action"] });
-    expect(r.tests).toEqual([{ summary: "T", folder: "/D", description: "", labels: [], steps: [], row: 2 }]);
   });
 });
 
