@@ -109,6 +109,24 @@ async function pullLlama(ctx: Ctx, backend: "auto" | "cuda" | "vulkan" | "cpu") 
   return build;
 }
 
+async function llamaMB(): Promise<number> {
+  const llama = await modelsDeps.llama();
+  const assets = llama.LLAMA_ASSETS[llama.chooseBackend(await machineProfile())];
+  return assets.reduce((a, x) => a + x.size, 0) / MB;
+}
+
+function stage(ctx: Ctx, from: number, size: number, total: number): Ctx {
+  return {
+    ...ctx,
+    progress: (p) =>
+      ctx.progress({
+        message: p.message,
+        done: Math.round(from + (p.total ? (size * Math.min(p.done ?? 0, p.total)) / p.total : 0)),
+        total: Math.round(total),
+      }),
+  };
+}
+
 function needsLlama(models: string[]): boolean {
   return models.some((id) => {
     const e = catalogEntry(id);
@@ -417,8 +435,15 @@ export const commands: Command[] = [
         return { ...out, jobIds: id ? [id] : [], dryRun: false };
       }
       const { job } = startJob("models-usePack", input.pack, project, async (jctx) => {
-        for (const d of p.download) await pull(jctx, { model: d.model });
-        if (llama) await pullLlama(jctx, "auto");
+        const steps = p.download.map((d) => d.sizeMB);
+        if (llama) steps.push(await llamaMB());
+        const total = steps.reduce((a, s) => a + s, 0);
+        let from = 0;
+        for (const [i, d] of p.download.entries()) {
+          await pull(stage(jctx, from, steps[i], total), { model: d.model });
+          from += steps[i];
+        }
+        if (llama) await pullLlama(stage(jctx, from, steps.at(-1) ?? 0, total), "auto");
         const index = input.downloadOnly ? null : await activate();
         return { pack: input.pack, variant: r.variantIndex, indexJob: index };
       });

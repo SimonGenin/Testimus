@@ -108,6 +108,12 @@ describe("serve --mock models", () => {
     expect(await invoke("models.pull", { model: first }, { project: null })).toMatchObject({ model: first });
     expect((await waitJob(out.jobIds[0])).status).toBe("done");
     expect(new Set(mockDownloads.fetched).size).toBe(mockDownloads.fetched.length);
+    const bars = (showJob(project, out.jobIds[0])?.events ?? []).flatMap((e) =>
+      e.type === "progress" && e.total ? [{ done: e.done ?? 0, total: e.total }] : [],
+    );
+    expect(new Set(bars.map((b) => b.total)).size).toBe(1);
+    expect(bars.every((b, i) => i === 0 || b.done >= bars[i - 1].done)).toBe(true);
+    expect(bars.at(-1)?.done).toBe(bars.at(-1)?.total);
     const p = await packs();
     expect(p.find((x) => x.id === "quality")).toMatchObject({ active: false, downloadMB: 0 });
     expect(p.find((x) => x.id === "performance")?.active).toBe(true);
