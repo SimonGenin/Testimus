@@ -86,7 +86,14 @@ describe("Button", () => {
   it("says when it is a pressed toggle or a menu trigger, and forwards its ref and test id", () => {
     const ref = createRef<HTMLButtonElement>();
     render(
-      <Button label="More" icon="more" iconOnly ref={ref} popup={{ kind: "menu", open: true, controls: "m1" }} data-testid="more" />,
+      <Button
+        label="More"
+        icon="more"
+        iconOnly
+        ref={ref}
+        popup={{ kind: "menu", open: true, controls: "m1" }}
+        data-testid="more"
+      />,
     );
     const b = screen.getByRole("button", { name: "More" });
     expect(b).toHaveAttribute("aria-haspopup", "menu");

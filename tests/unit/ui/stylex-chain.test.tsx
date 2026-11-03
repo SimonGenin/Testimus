@@ -10,9 +10,9 @@ afterEach(cleanup);
 describe("StyleX chain", () => {
   it("compiles the styles of a component into atomic class names", () => {
     render(<KitScreen />);
-    const probe = screen.getByRole("button", { name: "StyleX probe" });
-    expect(probe.className.split(" ").length).toBeGreaterThan(4);
-    expect(screen.getByRole("region", { name: "Component kit" }).className).not.toBe("");
+    const nav = screen.getByRole("navigation", { name: "Components" });
+    expect(nav.className.split(" ").length).toBeGreaterThan(4);
+    expect(screen.getByRole("main", { name: "Component" }).className).not.toBe("");
   });
 
   it("gives the root the page's base, and each explicit theme its own class on top", () => {

@@ -46,7 +46,15 @@ describe("Text", () => {
 
   it("without a visible label takes its accessible name, and says its hint and its error", () => {
     render(
-      <Text ariaLabel="Path" value="" placeholder="C:/claude.exe" hint="An absolute path" error="Use an absolute path" icon="folder" trailing={<span>…</span>} />,
+      <Text
+        ariaLabel="Path"
+        value=""
+        placeholder="C:/claude.exe"
+        hint="An absolute path"
+        error="Use an absolute path"
+        icon="folder"
+        trailing={<span>…</span>}
+      />,
     );
     const f = screen.getByRole("textbox", { name: "Path" });
     expect(f).toHaveAttribute("placeholder", "C:/claude.exe");
@@ -122,7 +130,10 @@ describe("Text", () => {
   });
 
   it("on a conflict with the disk, offers Reload from disk and Keep mine", async () => {
-    const save = vi.fn().mockRejectedValueOnce(new ApiError("moved", undefined, 409, "conflict")).mockResolvedValue("9");
+    const save = vi
+      .fn()
+      .mockRejectedValueOnce(new ApiError("moved", undefined, 409, "conflict"))
+      .mockResolvedValue("9");
     render(<Text ariaLabel="Notes" value="disk" base="1" save={save} saveKey={k()} />, { wrapper });
     fireEvent.change(screen.getByRole("textbox", { name: "Notes" }), { target: { value: "mine" } });
     await act(() => vi.advanceTimersByTimeAsync(400));
@@ -149,7 +160,9 @@ describe("Text", () => {
       takeDisk: vi.fn(),
     };
     const onChange = vi.fn();
-    render(<Text ariaLabel="Expected Result" value="ok" onChange={onChange} autosave={a} appearance="inline" multiline />);
+    render(
+      <Text ariaLabel="Expected Result" value="ok" onChange={onChange} autosave={a} appearance="inline" multiline />,
+    );
     expect(screen.getByText("Saving…")).toBeInTheDocument();
     const f = screen.getByRole("textbox", { name: "Expected Result" });
     fireEvent.change(f, { target: { value: "ok!" } });
@@ -172,7 +185,15 @@ describe("Text", () => {
     const onFocus = vi.fn();
     const ref = createRef<HTMLInputElement | HTMLTextAreaElement>();
     render(
-      <Text ariaLabel="Token" value="" type="password" onKeyDown={onKeyDown} onFocus={onFocus} inputRef={ref} name="t" />,
+      <Text
+        ariaLabel="Token"
+        value=""
+        type="password"
+        onKeyDown={onKeyDown}
+        onFocus={onFocus}
+        inputRef={ref}
+        name="t"
+      />,
     );
     const f = screen.getByLabelText("Token");
     fireEvent.keyDown(f, { key: "Enter" });
@@ -239,7 +260,15 @@ describe("Select", () => {
 
   it("shows a placeholder while nothing is chosen, a visible label, a prefix, an icon, quiet and small looks", () => {
     render(
-      <Select label="Folder" showLabel value={null} placeholder="Choose a folder…" options={options} onChange={() => {}} block />,
+      <Select
+        label="Folder"
+        showLabel
+        value={null}
+        placeholder="Choose a folder…"
+        options={options}
+        onChange={() => {}}
+        block
+      />,
     );
     expect(screen.getByRole("combobox", { name: "Folder" })).toHaveValue("");
     expect(screen.getByRole("option", { name: "Choose a folder…" })).toBeInTheDocument();

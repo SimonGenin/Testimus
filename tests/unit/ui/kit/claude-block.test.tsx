@@ -21,8 +21,20 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-const models = { value: "opus", options: [{ value: "opus", label: "Opus" }, { value: "sonnet", label: "Sonnet" }] };
-const efforts = { value: "high", options: [{ value: "low", label: "Low" }, { value: "high", label: "High" }] };
+const models = {
+  value: "opus",
+  options: [
+    { value: "opus", label: "Opus" },
+    { value: "sonnet", label: "Sonnet" },
+  ],
+};
+const efforts = {
+  value: "high",
+  options: [
+    { value: "low", label: "Low" },
+    { value: "high", label: "High" },
+  ],
+};
 
 describe("ClaudeBlock", () => {
   it("is the Text component: the box, sent by Ctrl+Enter with the run's choices, then emptied", () => {
@@ -51,7 +63,11 @@ describe("ClaudeBlock", () => {
     fireEvent.keyDown(box, { key: "Enter" });
     expect(onSubmit).not.toHaveBeenCalled();
     fireEvent.keyDown(box, { key: "Enter", ctrlKey: true });
-    expect(onSubmit).toHaveBeenCalledWith("Add a negative step", { model: "opus", effort: "high", contexts: ["glossaire"] });
+    expect(onSubmit).toHaveBeenCalledWith("Add a negative step", {
+      model: "opus",
+      effort: "high",
+      contexts: ["glossaire"],
+    });
     expect(box).toHaveValue("");
     fireEvent.change(screen.getByRole("combobox", { name: "Model" }), { target: { value: "sonnet" } });
     expect(onModel).toHaveBeenCalledWith("sonnet");
@@ -89,7 +105,9 @@ describe("ClaudeBlock", () => {
     fireEvent.click(chip);
     expect(chip).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("textbox", { name: "Prompt" })).toHaveValue("Make every step shorter.");
-    fireEvent.change(screen.getByRole("textbox", { name: "Prompt" }), { target: { value: "Make every step shorter!" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Prompt" }), {
+      target: { value: "Make every step shorter!" },
+    });
     expect(chip).toHaveAttribute("aria-pressed", "false");
     fireEvent.click(chip);
     fireEvent.click(chip);
@@ -98,7 +116,9 @@ describe("ClaudeBlock", () => {
 
   it("sends on Enter when asked, and may start with an empty box", () => {
     const onSubmit = vi.fn();
-    render(<ClaudeBlock ariaLabel="Track" value="" submit="enter" allowEmpty submitLabel="Ask Claude" onSubmit={onSubmit} />);
+    render(
+      <ClaudeBlock ariaLabel="Track" value="" submit="enter" allowEmpty submitLabel="Ask Claude" onSubmit={onSubmit} />,
+    );
     expect(screen.getByText("to send")).toBeInTheDocument();
     const box = screen.getByRole("textbox", { name: "Track" });
     fireEvent.keyDown(box, { key: "Enter", shiftKey: true });
