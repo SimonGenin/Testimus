@@ -1,14 +1,13 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { CommandInfo, JsonSchema } from "../../src/ui/api.ts";
-import { Toasts } from "../../src/ui/components/legacy/index.ts";
-import { CommandForm, formValue, hasInput } from "../../src/ui/components/shell/CommandForm.tsx";
-import { closeToast, useToasts } from "../../src/ui/lib/toast.ts";
-import { callsOf, deferred, Fail, fakeNet, net } from "./cov-uishell-helpers.tsx";
+import type { CommandInfo, JsonSchema } from "../../../../src/ui/api.ts";
+import { CommandForm, formValue, hasInput } from "../../../../src/ui/components/shell/CommandForm.tsx";
+import { callsOf, deferred, Fail, fakeEvents, fakeNet, net } from "../../cov-uishell-helpers.tsx";
+import { clearAllToasts, withData } from "./helpers.tsx";
 
-vi.mock("../../src/ui/screens/tests/PushDialog.tsx", () => ({
+vi.mock("../../../../src/ui/screens/tests/PushDialog.tsx", () => ({
   PushDialog: ({ testId, onDone, onClose }: { testId: string; onDone: (id: string) => void; onClose: () => void }) => (
     <div role="dialog" aria-label="Push plan">
       <span>push {testId}</span>
@@ -22,18 +21,13 @@ vi.mock("../../src/ui/screens/tests/PushDialog.tsx", () => ({
   ),
 }));
 
-let ids: number[] = [];
-function Probe() {
-  ids = useToasts().map((t) => t.id);
-  return <Toasts />;
-}
-
-beforeEach(() => fakeNet());
+beforeEach(() => {
+  fakeNet();
+  fakeEvents();
+});
 
 afterEach(() => {
-  act(() => {
-    for (const id of ids) closeToast(id, true);
-  });
+  clearAllToasts();
   cleanup();
   vi.unstubAllGlobals();
 });
@@ -104,7 +98,7 @@ describe("CommandForm", () => {
   it("draws one control per field kind and shows the plain result", async () => {
     net.routes["tests.list"] = (i) => ({ got: i });
     const close = vi.fn();
-    render(
+    withData(
       <CommandForm
         command={cmd("tests.list", {
           id: { type: "string", description: "The test id" },
@@ -119,7 +113,7 @@ describe("CommandForm", () => {
     );
     expect(screen.getByText("The test id")).toBeInTheDocument();
     expect(screen.getByLabelText("flag (optional)")).toHaveAttribute("type", "checkbox");
-    expect(screen.getByLabelText("n (optional)")).toHaveAttribute("type", "number");
+    expect(screen.getByLabelText("n (optional)")).toHaveAttribute("placeholder", "a number");
     expect(screen.getByLabelText("ids (optional)")).toHaveAttribute("placeholder", "comma-separated");
     fireEvent.change(screen.getByLabelText("id"), { target: { value: "local-1" } });
     fireEvent.click(screen.getByLabelText("flag (optional)"));
@@ -128,11 +122,11 @@ describe("CommandForm", () => {
     fireEvent.change(screen.getByLabelText("n (optional)"), { target: { value: "4" } });
     fireEvent.change(screen.getByLabelText("ids (optional)"), { target: { value: "x,y" } });
     fireEvent.submit(document.querySelector("form") as HTMLFormElement);
-    await waitFor(() => expect(document.querySelector(".cmd-result")).not.toBeNull());
-    expect(JSON.parse(document.querySelector(".cmd-result")?.textContent ?? "")).toEqual({
+    const out = await screen.findByTestId("command-result");
+    expect(JSON.parse(out.textContent ?? "")).toEqual({
       got: { id: "local-1", flag: true, mode: "b", obj: { a: 1 }, n: 4, ids: ["x", "y"] },
     });
-    expect(screen.getByText("testimus tests list")).toBeInTheDocument();
+    expect(screen.getByText(/^testimus tests list --id local-1 --flag --mode b --obj/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(close).toHaveBeenCalled();
   });
@@ -141,7 +135,7 @@ describe("CommandForm", () => {
     net.routes["x.run"] = () => {
       throw new Fail("Unknown test");
     };
-    render(<CommandForm command={cmd("x.run", { obj: { type: "object" } })} onClose={() => {}} />);
+    withData(<CommandForm command={cmd("x.run", { obj: { type: "object" } })} onClose={() => {}} />);
     fireEvent.change(screen.getByLabelText("obj (optional)"), { target: { value: "{bad" } });
     fireEvent.click(screen.getByRole("button", { name: "Run" }));
     expect(await screen.findByRole("alert")).toBeInTheDocument();
@@ -159,12 +153,7 @@ describe("CommandForm", () => {
     };
     const close = vi.fn();
     const onJob = vi.fn();
-    render(
-      <>
-        <CommandForm command={cmd("gen.tests", {}, { job: true })} onClose={close} onJob={onJob} />
-        <Probe />
-      </>,
-    );
+    withData(<CommandForm command={cmd("gen.tests", {}, { job: true })} onClose={close} onJob={onJob} />);
     fireEvent.click(screen.getByRole("button", { name: "Run" }));
     expect(await screen.findByRole("button", { name: "Running…" })).toBeDisabled();
     await act(async () => gate.resolve(null));
@@ -175,20 +164,20 @@ describe("CommandForm", () => {
 
   it("shows the result of a job command that did not start a job, and runs without onJob", async () => {
     net.routes["gen.tests"] = () => null;
-    const { unmount } = render(<CommandForm command={cmd("gen.tests", {}, { job: true })} onClose={() => {}} />);
+    const { unmount } = withData(<CommandForm command={cmd("gen.tests", {}, { job: true })} onClose={() => {}} />);
     fireEvent.click(screen.getByRole("button", { name: "Run" }));
-    await waitFor(() => expect(document.querySelector(".cmd-result")?.textContent).toBe("null"));
+    expect(await screen.findByTestId("command-result")).toHaveTextContent("null");
     unmount();
     net.routes["gen.tests"] = () => ({ jobId: "j6" });
     const close = vi.fn();
-    render(<CommandForm command={cmd("gen.tests", {}, { job: true })} onClose={close} />);
+    withData(<CommandForm command={cmd("gen.tests", {}, { job: true })} onClose={close} />);
     fireEvent.click(screen.getByRole("button", { name: "Run" }));
     await waitFor(() => expect(close).toHaveBeenCalled());
   });
 
   it("opens the push plan instead of pushing, and needs the test id", async () => {
     const close = vi.fn();
-    render(<CommandForm command={cmd("xray.push", { id: { type: "string" } })} onClose={close} />);
+    withData(<CommandForm command={cmd("xray.push", { id: { type: "string" } })} onClose={close} />);
     fireEvent.click(screen.getByRole("button", { name: "Run" }));
     expect(await screen.findByText("Give the id of the test to push.")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("id"), { target: { value: "LFRPS12-1" } });

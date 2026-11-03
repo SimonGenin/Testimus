@@ -1,12 +1,12 @@
 import * as stylex from "@stylexjs/stylex";
 import type { SearchResult } from "../../../core/types.ts";
-import { plural } from "../../lib/format.ts";
 import { useCommand } from "../../lib/data/query.ts";
+import { plural } from "../../lib/format.ts";
+import { errorToast, toast } from "../../lib/toast.ts";
 import { border, breakpoint, color, fontSize, lineHeight, space } from "../../styles/tokens.stylex.ts";
 import { Button } from "../ui/Button.tsx";
 import { Chip } from "../ui/Chip.tsx";
 import { Kbd } from "../ui/Kbd.tsx";
-import { errorToast, toast } from "../../lib/toast.ts";
 
 const styles = stylex.create({
   foot: {
@@ -57,7 +57,8 @@ export function PaletteFoot({ result, searchingDeep }: { result: SearchResult | 
             index.mutate(
               {},
               {
-                onSuccess: () => toast({ kind: "ok", title: "Indexing the tests by meaning", detail: "Follow it in Jobs." }),
+                onSuccess: () =>
+                  toast({ kind: "ok", title: "Indexing the tests by meaning", detail: "Follow it in Jobs." }),
                 onError: (e) => errorToast(e, "Could not index the tests"),
               },
             )

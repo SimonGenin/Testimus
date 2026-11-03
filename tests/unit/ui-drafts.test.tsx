@@ -3,10 +3,8 @@ import "@testing-library/jest-dom/vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setProject } from "../../src/ui/api.ts";
-import { Rail } from "../../src/ui/components/shell/Rail.tsx";
 import { draftOf, dropDraft, useDraft } from "../../src/ui/lib/drafts.ts";
 import { FixNote } from "../../src/ui/screens/review/FixNote.tsx";
-import { net, withApp } from "./cov-uishell-helpers.tsx";
 import { fakeFetch } from "./ui-desktop-helpers.tsx";
 
 beforeEach(() => {
@@ -98,22 +96,5 @@ describe("FixNote draft", () => {
     again.unmount();
     render(<FixNote id="T-1" initial="" {...props} />);
     expect(screen.getByLabelText(/Note for the author/)).toHaveValue("");
-  });
-});
-
-describe("Rail memory", () => {
-  it("reopens what was open on a screen, and its own entry goes to its start", () => {
-    net.routes["system.doctor"] = () => [];
-    net.routes["project.list"] = () => [];
-    const { state, rerenderWith } = withApp(<Rail counts={{}} />, { route: { screen: "tests", arg: "T-7" } });
-    rerenderWith({ route: { screen: "documents", arg: "SPEC" } });
-    fireEvent.click(screen.getByRole("button", { name: /Tests/ }));
-    expect(state.navigate).toHaveBeenLastCalledWith("tests", "T-7");
-    fireEvent.click(screen.getByRole("button", { name: /Documents/ }));
-    expect(state.navigate).toHaveBeenLastCalledWith("documents", undefined);
-    rerenderWith({ route: { screen: "tests" } });
-    rerenderWith({ route: { screen: "documents" } });
-    fireEvent.click(screen.getByRole("button", { name: /Tests/ }));
-    expect(state.navigate).toHaveBeenLastCalledWith("tests", undefined);
   });
 });

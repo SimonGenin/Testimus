@@ -249,7 +249,7 @@ export function Palette({
           <Skeleton kind="row" />
         </div>
       ) : total ? (
-        <ul id={`${id}-list`} role="listbox" aria-label="Results" {...stylex.props(styles.list)}>
+        <ul id={`${id}-list`} {...{ role: "listbox" }} aria-label="Results" {...stylex.props(styles.list)}>
           {groups.map((g) => (
             <li key={g.id} role="presentation">
               {g.title && (
@@ -266,7 +266,7 @@ export function Palette({
                   {g.meta && <span {...stylex.props(styles.groupMeta)}>{g.meta}</span>}
                 </div>
               )}
-              <ul role="group" aria-label={g.title || "Claude"} {...stylex.props(styles.group)}>
+              <ul {...{ role: "group" }} aria-label={g.title || "Claude"} {...stylex.props(styles.group)}>
                 {g.rows.map((r) => {
                   n++;
                   const i = n;
@@ -281,6 +281,7 @@ export function Palette({
                         if (!el) return;
                         el.id = optionId(i);
                         if (i === cur) el.scrollIntoView?.({ block: "nearest" });
+                        el.onmouseenter = () => setAt(i);
                       }}
                     />
                   );

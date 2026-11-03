@@ -1,8 +1,9 @@
 import * as stylex from "@stylexjs/stylex";
-import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { QueryClientContext, useQuery } from "@tanstack/react-query";
+import { useContext, useEffect, useMemo, useState } from "react";
 import type { Job } from "../../../core/types.ts";
 import { project } from "../../lib/data/client.ts";
+import { onAnyEvent } from "../../lib/data/events.ts";
 import { useCommand, useRead } from "../../lib/data/query.ts";
 import { plural } from "../../lib/format.ts";
 import { type LocalWork, onLocalWork } from "../../lib/localActivity.ts";
@@ -33,10 +34,22 @@ const styles = stylex.create({
 const isRunning = (j: unknown): j is Job => !!j && typeof j === "object" && (j as Job).status === "running";
 
 // ponytail: the running jobs of the open project, as the cache of jobs.list holds them (the event bridge reads it
-// again on every start and end)
+// again on every start and end); a first read still in the air when a job ends is answered from before that end, so
+// a job the stream said ended stays out
 export function useRunningJobs(): Job[] {
   const list = useRead("jobs.list", { running: true }, { enabled: !!project() });
-  return Array.isArray(list.data) ? list.data.filter(isRunning) : [];
+  const [ended, setEnded] = useState<ReadonlySet<string>>(() => new Set());
+  useEffect(
+    () =>
+      onAnyEvent((e) => {
+        if (e.type === "status" && e.job.status !== "running") setEnded((cur) => new Set(cur).add(e.jobId));
+      }),
+    [],
+  );
+  return useMemo(
+    () => (Array.isArray(list.data) ? list.data.filter((j) => isRunning(j) && !ended.has(j.id)) : []),
+    [list.data, ended],
+  );
 }
 
 // ponytail: the last rate-limit notice the event bridge kept (« Jira asks to wait 30 s »)
@@ -46,8 +59,13 @@ function useNotice(): string {
 }
 
 // ponytail: the activity indicator of the top bar — how many things run, and on click what they are, how far, since
-// when, with Cancel; work the page itself waits on (a Jira tree, a Jira search) shows beside the jobs
+// when, with Cancel; work the page itself waits on (a Jira tree, a Jira search) shows beside the jobs. Outside the data
+// layer (a screen drawn alone) it shows nothing
 export function Activity() {
+  return useContext(QueryClientContext) ? <LiveActivity /> : null;
+}
+
+function LiveActivity() {
   const jobs = useRunningJobs();
   const notice = useNotice();
   const [local, setLocal] = useState<LocalWork[]>([]);

@@ -1,8 +1,9 @@
+import * as stylex from "@stylexjs/stylex";
 import { useEffect, useRef, useState } from "react";
 import type { Job, JobEvent } from "../../../core/types.ts";
 import { call, events } from "../../api.ts";
-import { cx } from "../../lib/format.ts";
 import { clock, logLines } from "../../lib/jobs.ts";
+import { border, color, fontFamily, fontSize, lineHeight, radius, space } from "../../styles/tokens.stylex.ts";
 
 export function useJob(jobId: string | null): { job: Job | null; events: JobEvent[]; error: string } {
   const [job, setJob] = useState<Job | null>(null);
@@ -57,6 +58,29 @@ export function useJob(jobId: string | null): { job: Job | null; events: JobEven
   return { job, events: list, error };
 }
 
+const styles = stylex.create({
+  log: {
+    maxHeight: "50vh",
+    overflow: "auto",
+    padding: space.s3,
+    borderWidth: border.width,
+    borderStyle: "solid",
+    borderColor: color.border,
+    borderRadius: radius.r2,
+    backgroundColor: color.surfaceSunken,
+    fontFamily: fontFamily.mono,
+    fontSize: fontSize.code,
+    lineHeight: lineHeight.code,
+    whiteSpace: "pre-wrap",
+    overflowWrap: "anywhere",
+  },
+  empty: { color: color.textMuted },
+  warn: { color: color.warning },
+  error: { color: color.danger },
+  at: { color: color.textSubtle, marginInlineEnd: space.s3 },
+});
+
+// ponytail: a job's log as it comes, kept scrolled to the end unless the reader scrolled up
 export function JobLog({ events: list, label = "Live log" }: { events: JobEvent[]; label?: string }) {
   const box = useRef<HTMLDivElement>(null);
   const lines = logLines(list);
@@ -68,18 +92,22 @@ export function JobLog({ events: list, label = "Live log" }: { events: JobEvent[
   return (
     <div
       ref={box}
-      className="log"
       role="log"
       aria-label={label}
       onScroll={(e) => {
         const el = e.currentTarget;
         stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
       }}
+      {...stylex.props(styles.log)}
     >
-      {!lines.length && <span className="muted">Nothing logged yet.</span>}
+      {!lines.length && <span {...stylex.props(styles.empty)}>Nothing logged yet.</span>}
       {lines.map((l, i) => (
-        <div key={i} className={cx(l.level === "warn" && "log-warn", l.level === "error" && "log-error")}>
-          <span className="log-at">{clock(l.at)}</span>
+        <div
+          key={i}
+          data-level={l.level}
+          {...stylex.props(l.level === "warn" && styles.warn, l.level === "error" && styles.error)}
+        >
+          <span {...stylex.props(styles.at)}>{clock(l.at)}</span>
           {l.text}
         </div>
       ))}

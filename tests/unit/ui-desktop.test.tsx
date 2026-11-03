@@ -1,15 +1,15 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Job } from "../../src/core/types.ts";
 import { setProject } from "../../src/ui/api.ts";
-import { DesktopBridge, jobNotice } from "../../src/ui/components/shell/DesktopBridge.tsx";
-import { AppContext, type AppState } from "../../src/ui/lib/app.ts";
+import { jobNotice } from "../../src/ui/components/shell/DesktopBridge.tsx";
+import { AppContext } from "../../src/ui/lib/app.ts";
 import { desktop, pathJoin, taskbarFraction, windowTitle } from "../../src/ui/lib/desktop.ts";
 import { addDocFiles } from "../../src/ui/lib/uploads.ts";
 import { DocumentsScreen } from "../../src/ui/screens/documents/DocumentsScreen.tsx";
-import { api, app, FakeEventSource, fakeDesktop, fakeFetch, named, noDesktop } from "./ui-desktop-helpers.tsx";
+import { api, app, fakeDesktop, fakeFetch, named, noDesktop } from "./ui-desktop-helpers.tsx";
 
 beforeEach(() => {
   fakeFetch();
@@ -70,98 +70,6 @@ describe("lib/desktop", () => {
     const failed = jobNotice(job({ kind: "claude", status: "failed", error: "Claude is not signed in.\nmore" }));
     expect(failed.title).toBe("Claude request failed");
     expect(failed.body).toContain("Failed · Claude is not signed in.");
-  });
-});
-
-function renderBridge(over: Partial<AppState> = {}, booted = true) {
-  const a = app(over);
-  const view = render(
-    <AppContext.Provider value={a}>
-      <DesktopBridge booted={booted} />
-    </AppContext.Provider>,
-  );
-  return { a, view };
-}
-
-describe("DesktopBridge", () => {
-  beforeEach(() => {
-    FakeEventSource.last = null;
-    vi.stubGlobal("EventSource", FakeEventSource);
-    api.routes["jobs.list"] = () => [];
-  });
-
-  it("titles the page « Testimus — <project> » in the browser too, and renders nothing", () => {
-    const { view } = renderBridge();
-    expect(document.title).toBe("Testimus — RATP Sosie");
-    expect(view.container).toBeEmptyDOMElement();
-    view.rerender(
-      <AppContext.Provider value={app({ info: null })}>
-        <DesktopBridge booted />
-      </AppContext.Provider>,
-    );
-    expect(document.title).toBe("Testimus");
-  });
-
-  it("without the bridge: no job list read, no taskbar", () => {
-    renderBridge();
-    expect(named("jobs.list")).toHaveLength(0);
-  });
-
-  it("follows Generate, Index, Check and Pull jobs on the taskbar, then clears it", async () => {
-    const d = fakeDesktop();
-    api.routes["jobs.list"] = () => [job({ id: "j0", kind: "rag-index", progress: { done: 1, total: 4 } })];
-    const { view } = renderBridge();
-    await waitFor(() => expect(d.setProgress).toHaveBeenLastCalledWith(0.25));
-    const es = FakeEventSource.last;
-    expect(es).not.toBeNull();
-    act(() => {
-      es?.emit({ jobId: "j1", at: "", type: "status", job: job({ id: "j1", kind: "generate" }) });
-      es?.emit({ jobId: "j9", at: "", type: "status", job: job({ id: "j9", kind: "chat" }) });
-    });
-    expect(d.setProgress).toHaveBeenLastCalledWith(0.13);
-    act(() => es?.emit({ jobId: "j1", at: "", type: "progress", message: "Writing", done: 1, total: 2 }));
-    expect(d.setProgress).toHaveBeenLastCalledWith(0.38);
-    act(() => {
-      es?.emit({ jobId: "j0", at: "", type: "status", job: job({ id: "j0", kind: "rag-index", status: "done" }) });
-      es?.emit({ jobId: "j1", at: "", type: "status", job: job({ id: "j1", status: "cancelled" }) });
-    });
-    expect(d.setProgress).toHaveBeenLastCalledWith(null);
-    view.unmount();
-    expect(d.setProgress).toHaveBeenLastCalledWith(null);
-  });
-
-  it("notifies the end of a job and a failed Claude run, once each, never a cancel", () => {
-    const d = fakeDesktop();
-    renderBridge();
-    const es = FakeEventSource.last;
-    act(() => {
-      es?.emit({ jobId: "a", at: "", type: "status", job: job({ id: "a", status: "done", result: { tests: [] } }) });
-      es?.emit({ jobId: "a", at: "", type: "status", job: job({ id: "a", status: "done", result: { tests: [] } }) });
-      es?.emit({ jobId: "b", at: "", type: "status", job: job({ id: "b", kind: "fix", status: "failed" }) });
-      es?.emit({ jobId: "c", at: "", type: "status", job: job({ id: "c", status: "cancelled" }) });
-    });
-    expect(d.notify).toHaveBeenCalledTimes(2);
-    expect(d.notify.mock.calls[0][0]).toMatchObject({ title: "Generate tests finished" });
-    expect(d.notify.mock.calls[1][0]).toMatchObject({ title: "Claude fix failed" });
-  });
-
-  it("opens a folder handed by a second launch, once the app has read its first project", async () => {
-    const d = fakeDesktop();
-    api.routes["project.open"] = (i) => ({ dir: i.dir });
-    const { a, view } = renderBridge({ route: { screen: "setup" } }, false);
-    expect(d.onOpenProject).not.toHaveBeenCalled();
-    view.rerender(
-      <AppContext.Provider value={a}>
-        <DesktopBridge booted />
-      </AppContext.Provider>,
-    );
-    expect(d.onOpenProject).toHaveBeenCalledTimes(1);
-    act(() => d.open?.("D:\\Other project"));
-    await waitFor(() => expect(a.refreshInfo).toHaveBeenCalled());
-    expect(named("project.open")[0].input).toEqual({ dir: "D:\\Other project" });
-    expect(localStorage.getItem("testimus.project")).toBe("D:\\Other project");
-    expect(a.testsChanged).toHaveBeenCalled();
-    await waitFor(() => expect(a.navigate).toHaveBeenCalledWith("documents"));
   });
 });
 

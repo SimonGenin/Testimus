@@ -16,6 +16,7 @@ import { useDoctor } from "../../src/ui/lib/doctor.ts";
 import { useToasts } from "../../src/ui/lib/toast.ts";
 import { JobsScreen } from "../../src/ui/screens/jobs/JobsScreen.tsx";
 import { callsOf, deferred, FakeES, fakeEvents, fakeNet, job, net, withApp } from "./cov-uishell-helpers.tsx";
+import { withData } from "./ui/shell/helpers.tsx";
 
 function Stores() {
   const d = useDoctor();
@@ -90,7 +91,7 @@ describe("dock remaining paths", () => {
 
 describe("shell remaining paths", () => {
   it("shows an error instead of failing on a command without an input schema", async () => {
-    render(
+    withData(
       <CommandForm
         command={{ name: "a.b", summary: "s", mutates: false, job: false, input: undefined as never }}
         onClose={() => {}}
@@ -110,9 +111,9 @@ describe("shell remaining paths", () => {
 
   it("accepts a project list it does not understand", async () => {
     net.routes["project.list"] = () => null;
-    withApp(<ProjectButton />);
-    fireEvent.click(screen.getByRole("button", { name: /change project/ }));
+    withData(<ProjectButton />);
     await waitFor(() => expect(callsOf("project.list")).toHaveLength(1));
+    fireEvent.click(screen.getByRole("button", { name: /change project/ }));
     expect(screen.getByRole("menuitem", { name: "No other project known yet" })).toBeInTheDocument();
   });
 

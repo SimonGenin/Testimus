@@ -31,11 +31,7 @@ export function useSearch(
   const key = JSON.stringify(input);
   const wordsKey = useSettled(key, WORDS_MS);
   const deepKey = useSettled(key, MEANING_MS);
-  const words = useRead(
-    "search.all",
-    { ...JSON.parse(wordsKey), meaning: false },
-    { enabled: on && wordsKey === key },
-  );
+  const words = useRead("search.all", { ...JSON.parse(wordsKey), meaning: false }, { enabled: on && wordsKey === key });
   const deep = useRead(
     "search.all",
     { ...JSON.parse(deepKey), meaning: true },

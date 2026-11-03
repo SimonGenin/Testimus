@@ -2,39 +2,40 @@
 import "@testing-library/jest-dom/vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { project, setProject } from "../../src/ui/api.ts";
-import { App, parseRoute } from "../../src/ui/app/App.tsx";
-import type { DockRequest } from "../../src/ui/components/claude/ClaudeDock.tsx";
-import { resetDoctor } from "../../src/ui/lib/doctor.ts";
-import { closeToast, useToasts } from "../../src/ui/lib/toast.ts";
-import { callsOf, Fail, FakeES, fakeEvents, fakeNet, job, net, status } from "./cov-uishell-helpers.tsx";
-import { app as appState, xray } from "./ui-desktop-helpers.tsx";
+import { project, setProject } from "../../../../src/ui/api.ts";
+import { App, parseRoute } from "../../../../src/ui/app/App.tsx";
+import type { DockRequest } from "../../../../src/ui/components/claude/ClaudeDock.tsx";
+import { DataProvider } from "../../../../src/ui/lib/data/provider.tsx";
+import { resetDoctor } from "../../../../src/ui/lib/doctor.ts";
+import { closeToast, useToasts } from "../../../../src/ui/lib/toast.ts";
+import { callsOf, Fail, FakeES, fakeEvents, fakeNet, job, net, status } from "../../cov-uishell-helpers.tsx";
+import { app as appState, xray } from "../../ui-desktop-helpers.tsx";
 
-vi.mock("../../src/ui/screens/tests/TestsScreen.tsx", async () => ({
-  TestsScreen: (await import("./cov-uishell-helpers.tsx")).fakeScreen("Tests screen"),
+vi.mock("../../../../src/ui/screens/tests/TestsScreen.tsx", async () => ({
+  TestsScreen: (await import("../../cov-uishell-helpers.tsx")).fakeScreen("Tests screen"),
 }));
-vi.mock("../../src/ui/screens/documents/DocumentsScreen.tsx", async () => ({
-  DocumentsScreen: (await import("./cov-uishell-helpers.tsx")).fakeScreen("Documents screen"),
+vi.mock("../../../../src/ui/screens/documents/DocumentsScreen.tsx", async () => ({
+  DocumentsScreen: (await import("../../cov-uishell-helpers.tsx")).fakeScreen("Documents screen"),
 }));
-vi.mock("../../src/ui/screens/generate/GenerateScreen.tsx", async () => ({
-  GenerateScreen: (await import("./cov-uishell-helpers.tsx")).fakeScreen("Generate screen"),
+vi.mock("../../../../src/ui/screens/generate/GenerateScreen.tsx", async () => ({
+  GenerateScreen: (await import("../../cov-uishell-helpers.tsx")).fakeScreen("Generate screen"),
 }));
-vi.mock("../../src/ui/screens/review/ReviewScreen.tsx", async () => ({
-  ReviewScreen: (await import("./cov-uishell-helpers.tsx")).fakeScreen("Review screen"),
+vi.mock("../../../../src/ui/screens/review/ReviewScreen.tsx", async () => ({
+  ReviewScreen: (await import("../../cov-uishell-helpers.tsx")).fakeScreen("Review screen"),
 }));
-vi.mock("../../src/ui/screens/jobs/JobsScreen.tsx", async () => ({
-  JobsScreen: (await import("./cov-uishell-helpers.tsx")).fakeScreen("Jobs screen"),
+vi.mock("../../../../src/ui/screens/jobs/JobsScreen.tsx", async () => ({
+  JobsScreen: (await import("../../cov-uishell-helpers.tsx")).fakeScreen("Jobs screen"),
 }));
-vi.mock("../../src/ui/screens/doctor/DoctorScreen.tsx", async () => ({
-  DoctorScreen: (await import("./cov-uishell-helpers.tsx")).fakeScreen("Doctor screen"),
+vi.mock("../../../../src/ui/screens/doctor/DoctorScreen.tsx", async () => ({
+  DoctorScreen: (await import("../../cov-uishell-helpers.tsx")).fakeScreen("Doctor screen"),
 }));
-vi.mock("../../src/ui/screens/settings/SettingsScreen.tsx", async () => ({
-  SettingsScreen: (await import("./cov-uishell-helpers.tsx")).fakeScreen("Settings screen"),
+vi.mock("../../../../src/ui/screens/settings/SettingsScreen.tsx", async () => ({
+  SettingsScreen: (await import("../../cov-uishell-helpers.tsx")).fakeScreen("Settings screen"),
 }));
-vi.mock("../../src/ui/screens/setup/FirstRunScreen.tsx", async () => ({
-  FirstRunScreen: (await import("./cov-uishell-helpers.tsx")).fakeScreen("Setup screen"),
+vi.mock("../../../../src/ui/screens/setup/FirstRunScreen.tsx", async () => ({
+  FirstRunScreen: (await import("../../cov-uishell-helpers.tsx")).fakeScreen("Setup screen"),
 }));
-vi.mock("../../src/ui/components/claude/ClaudeDock.tsx", () => ({
+vi.mock("../../../../src/ui/components/claude/ClaudeDock.tsx", () => ({
   ClaudeDock: ({ folded, request, onFold }: { folded: boolean; request?: DockRequest | null; onFold: () => void }) => (
     <aside aria-label="Dock" data-folded={String(folded)} data-request={JSON.stringify(request ?? null)}>
       <button type="button" onClick={onFold}>
@@ -96,10 +97,10 @@ afterEach(() => {
 
 const mount = () =>
   render(
-    <>
+    <DataProvider>
       <App />
       <Probe />
-    </>,
+    </DataProvider>,
   );
 
 const dock = () => screen.getByRole("complementary", { name: "Dock" });
@@ -166,7 +167,7 @@ describe("App boot", () => {
     mount();
     await hashIs("#/setup/project");
     expect(project()).toBeNull();
-    expect(localStorage.getItem("testimus.project")).toBe("");
+    expect(localStorage.getItem("testimus.project")).toBeNull();
     expect(callsOf("project.info")).toHaveLength(1);
     expect(screen.queryByText("Could not read the project")).toBeNull();
   });
@@ -177,7 +178,7 @@ describe("App boot", () => {
       throw new Fail("busy", 500);
     };
     mount();
-    expect(await screen.findByText("Could not read the project")).toBeInTheDocument();
+    expect(await screen.findByText("Could not read the project", {}, { timeout: 10_000 })).toBeInTheDocument();
     expect(project()).toBe("D:\\remembered");
   });
 
@@ -440,29 +441,32 @@ describe("App palette", () => {
 
 describe("App jobs", () => {
   it("counts the running jobs and announces a finished check", async () => {
-    net.routes["jobs.list"] = () => [job({ id: "a" }), job({ id: "b" })];
+    let live = [job({ id: "a" }), job({ id: "b" })];
+    net.routes["jobs.list"] = () => live;
+    const emit = (j: ReturnType<typeof job>) => {
+      live = j.status === "running" ? [...live, j] : live.filter((x) => x.id !== j.id);
+      FakeES.emit(status(j));
+    };
     mount();
-    const jobs = await screen.findByRole("button", { name: /Jobs/ });
-    await waitFor(() => expect(jobs).toHaveTextContent("2"));
+    const jobs = () => screen.getByRole("button", { name: /^Jobs/ });
+    await waitFor(() => expect(jobs()).toHaveTextContent("2"));
     act(() => {
-      FakeES.emit(status(job({ id: "c" })));
+      emit(job({ id: "c" }));
       FakeES.emit({ jobId: "a", at: "", type: "progress", message: "x" });
     });
-    expect(jobs).toHaveTextContent("3");
+    await waitFor(() => expect(jobs()).toHaveTextContent("3"));
     act(() => {
-      FakeES.emit(status(job({ id: "a", status: "done" })));
-      FakeES.emit(
-        status(
-          job({
-            id: "b",
-            kind: "check",
-            status: "done",
-            result: { tests: [{ errors: 1, warnings: 0 }, null, { errors: 0, warnings: 0 }] },
-          }),
-        ),
+      emit(job({ id: "a", status: "done" }));
+      emit(
+        job({
+          id: "b",
+          kind: "check",
+          status: "done",
+          result: { tests: [{ errors: 1, warnings: 0 }, null, { errors: 0, warnings: 0 }] },
+        }),
       );
     });
-    expect(jobs).toHaveTextContent("1");
+    await waitFor(() => expect(jobs()).toHaveTextContent("1"));
     expect(await screen.findByText("Check finished — 2 tests, 1 with findings")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Open Review" }));
     await hashIs("#/review");

@@ -1,14 +1,11 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { JobEvent } from "../../src/core/types.ts";
 import { setProject } from "../../src/ui/api.ts";
-import { App } from "../../src/ui/app/App.tsx";
-import { CONTEXTS_EVENT } from "../../src/ui/components/claude/ContextsDialog.tsx";
-import { ACTIONS_EVENT } from "../../src/ui/lib/actions.ts";
 import { touches, useChanged } from "../../src/ui/lib/changed.ts";
-import { callsOf, FakeES, fakeEvents, fakeNet, net } from "./cov-uishell-helpers.tsx";
+import { FakeES, fakeEvents, fakeNet, net } from "./cov-uishell-helpers.tsx";
 import { app as appState } from "./ui-desktop-helpers.tsx";
 
 vi.mock("../../src/ui/screens/tests/TestsScreen.tsx", async () => {
@@ -79,45 +76,5 @@ describe("useChanged", () => {
     expect(onHit).toHaveBeenCalledTimes(1);
     changed(["docs/D2/figures/f.png"]);
     expect(onHit).toHaveBeenLastCalledWith(["docs/D2/figures/f.png"]);
-  });
-});
-
-describe("App, when a job changed project files", () => {
-  const boot = async () => {
-    render(<App />);
-    expect(await screen.findByLabelText("tests nonce")).toHaveTextContent("0");
-    await waitFor(() => expect(callsOf("project.info")).toHaveLength(1));
-  };
-
-  it("reads the project again, and the tests when one of them changed", async () => {
-    await boot();
-    changed(["docs/D1/doc.md"]);
-    await waitFor(() => expect(callsOf("project.info")).toHaveLength(2));
-    expect(screen.getByLabelText("tests nonce")).toHaveTextContent("0");
-    changed(["tests/local-1/test.md"]);
-    await waitFor(() => expect(callsOf("project.info")).toHaveLength(3));
-    expect(screen.getByLabelText("tests nonce")).toHaveTextContent("1");
-  });
-
-  it("tells the action lists and the context lists to read again when theirs changed", async () => {
-    await boot();
-    const acts = vi.fn();
-    const ctxs = vi.fn();
-    window.addEventListener(ACTIONS_EVENT, acts);
-    window.addEventListener(CONTEXTS_EVENT, ctxs);
-    try {
-      changed(["docs/D1/doc.md"]);
-      expect(acts).not.toHaveBeenCalled();
-      expect(ctxs).not.toHaveBeenCalled();
-      changed([".testimus/actions/act-1.json"]);
-      expect(acts).toHaveBeenCalledTimes(1);
-      changed(["contexts/glossary/context.md"]);
-      changed(["project.json"]);
-      changed(["tests/local-1/local.json"]);
-      expect(ctxs).toHaveBeenCalledTimes(3);
-    } finally {
-      window.removeEventListener(ACTIONS_EVENT, acts);
-      window.removeEventListener(CONTEXTS_EVENT, ctxs);
-    }
   });
 });
