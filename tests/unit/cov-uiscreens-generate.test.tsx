@@ -570,6 +570,40 @@ describe("Generate screen", () => {
     expect(screen.queryByRole("button", { name: "Reset" })).toBeNull();
   });
 
+  it("asks before replacing Claude's tests not validated yet: cancel, review, or delete and generate", async () => {
+    base();
+    api.routes["gen.tests"] = () => ({ jobId: "j2" });
+    api.routes["jobs.show"] = () => ({
+      job: job({ id: "j2", status: "done", endedAt: at, result: output({ discarded: ["local-aaaaaaaa"] }) }),
+      events: [],
+    });
+    api.routes["tests.list"] = () => [
+      ref("local-aaaaaaaa", { generated: true, review: "checked" }),
+      ref("local-bbbbbbbb", { generated: true, review: "validated" }),
+      ref("LFRPS12-1", { generated: true, review: "draft", key: "LFRPS12-1" }),
+      ref("local-cccccccc"),
+    ];
+    const { app: a } = mount(<GenerateScreen />);
+    await screen.findByText("Traction");
+    const go = screen.getByRole("button", { name: "Generate" });
+    fireEvent.click(go);
+    const dialog = await screen.findByRole("dialog", { name: "Replace the tests not validated yet?" });
+    expect(dialog).toHaveTextContent("deletes the 1 test Claude wrote that is not validated yet");
+    expect(dialog).toHaveTextContent("this test and its screenshots");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(named("gen.tests")).toHaveLength(0);
+    fireEvent.click(go);
+    fireEvent.click(await screen.findByRole("button", { name: "Review" }));
+    expect(a.navigate).toHaveBeenCalledWith("review", "local-aaaaaaaa");
+    fireEvent.click(go);
+    fireEvent.click(await screen.findByRole("button", { name: "Delete and generate" }));
+    await waitFor(() => expect(named("gen.tests")).toHaveLength(1));
+    expect(named("gen.tests")[0].input).toMatchObject({ docs: ["D1"], discard: true });
+    expect(await screen.findByText("1 test not validated yet was deleted before this run.")).toBeInTheDocument();
+    expect(a.testsChanged).toHaveBeenCalled();
+  });
+
   it("follows a run: ticks the clock, opens what landed, cancels, then ends", async () => {
     base();
     api.routes["gen.tests"] = () => ({ jobId: "j1" });

@@ -6,8 +6,8 @@ import { env } from "../env.ts";
 import { loadCorpus, runMechanical } from "../lib/check.ts";
 import { columnGuidance } from "../lib/columns.ts";
 import { fieldOrder, readProject, readXray, writeJson } from "../lib/project.ts";
-import { markGenerated, readTest, testExists, writeTest } from "../lib/store.ts";
-import type { ClaudeEvent, Diagnosis, Effort, Tokens } from "../types.ts";
+import { listLocalTests, markGenerated, readTest, removeTest, testExists, writeTest } from "../lib/store.ts";
+import { awaitsReview, type ClaudeEvent, type Diagnosis, type Effort, type Tokens } from "../types.ts";
 import { proposeLines } from "./actions.ts";
 import { checkTests, promoteChecked } from "./check.ts";
 import { ledgerOf } from "./ledger.ts";
@@ -41,6 +41,7 @@ export type GenInput = {
   check?: boolean;
   contexts?: string[];
   note?: string;
+  discard?: boolean;
 };
 
 export type Uncovered = { item: string; why: string };
@@ -61,6 +62,7 @@ export type GenResult = {
   tests: string[];
   checks: GenCheck[];
   changed: string[];
+  discarded: string[];
   uncovered: Uncovered[];
   reportFound: boolean;
   consulted: number;
@@ -216,9 +218,19 @@ export function stampTest(project: string, id: string, generatedBy: string, fold
   writeTest(project, id, want, fieldOrder(readXray(project)));
 }
 
+// ponytail: what a new generation replaces — Claude's tests still waiting in review, never the ones pushed to Jira
+export const discardable = (project: string) =>
+  listLocalTests(project)
+    .filter((t) => awaitsReview(t) && !t.key)
+    .map((t) => t.id);
+
 export async function generateTests(project: string, input: GenInput, ctx: Ctx): Promise<GenResult> {
   checkGenInput(input, project);
   const p = readProject(project);
+  const discarded = input.discard ? discardable(project) : [];
+  for (const id of discarded) removeTest(project, id);
+  if (discarded.length)
+    ctx.log("info", `Deleted ${discarded.length} test(s) not validated yet: ${discarded.join(", ")}.`);
   const contexts = input.contexts ?? p.claude.contexts;
   ctx.progress({ message: "Reading passages" });
   let reads = 0;
@@ -304,6 +316,7 @@ export async function generateTests(project: string, input: GenInput, ctx: Ctx):
     tests,
     checks,
     changed,
+    discarded,
     uncovered: final.uncovered,
     reportFound: final.found,
     consulted: ledger.consulted.length,

@@ -1,5 +1,13 @@
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
-import type { DocRef, Effort, Job, LocalTestRef, StepColumn, Test } from "../../../core/types.ts";
+import {
+  awaitsReview,
+  type DocRef,
+  type Effort,
+  type Job,
+  type LocalTestRef,
+  type StepColumn,
+  type Test,
+} from "../../../core/types.ts";
 import { call } from "../../api.ts";
 import { ActionCount } from "../../components/claude/ActionCount.tsx";
 import { AdditionalContext } from "../../components/claude/AdditionalContext.tsx";
@@ -11,7 +19,9 @@ import { Button, DragEdge, Icon } from "../../components/ui/index.ts";
 import { useActions } from "../../lib/actions.ts";
 import { activityOf, DOING } from "../../lib/activity.ts";
 import { useApp } from "../../lib/app.ts";
+import { discardEditor } from "../../lib/editorBus.ts";
 import { plural } from "../../lib/format.ts";
+import { forgetRecent } from "../../lib/recent.ts";
 import { type DocScope, scopeOf } from "../../lib/scope.ts";
 import { useSideWidth } from "../../lib/sideWidth.ts";
 import { errorToast } from "../../lib/toast.ts";
@@ -29,6 +39,7 @@ import {
   passagesRead,
   RunHead,
 } from "./GenResult.tsx";
+import { ReplaceTests } from "./ReplaceTests.tsx";
 
 // ponytail: the model and effort chosen here stay for the next generation until the app is closed; the project
 // defaults change only from Settings
@@ -52,6 +63,7 @@ export function GenerateScreen() {
   const [jobId, setJobId] = useState<string | null>(null);
   const [asked, setAsked] = useState<{ label: string; ids: string[] }[]>([]);
   const [starting, setStarting] = useState(false);
+  const [replacing, setReplacing] = useState<string[] | null>(null);
   const [status, setStatus] = useState<ClaudeStatus | null>(null);
   const [checkingClaude, setCheckingClaude] = useState(false);
   const [landed, setLanded] = useState<Record<string, Landed>>({});
@@ -130,7 +142,8 @@ export function GenerateScreen() {
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: run once when this screen's generation ends
   useEffect(() => {
-    if (job?.status !== "done" || !result?.tests.length || chained.current === job.id) return;
+    if (job?.status !== "done" || !(result?.tests.length || result?.discarded?.length) || chained.current === job.id)
+      return;
     chained.current = job.id;
     void refresh(result.tests, true);
     app.testsChanged();
@@ -157,7 +170,7 @@ export function GenerateScreen() {
     setEffort("");
   };
 
-  const generate = async () => {
+  const generate = async (replace: string[] = []) => {
     if (empty) return;
     const reqs = handed[REQUIREMENT] ?? [];
     const tracked = handedIds.filter(([k]) => k !== REQUIREMENT).map(([trace, v]) => ({ trace, ids: v }));
@@ -173,7 +186,13 @@ export function GenerateScreen() {
         ...(note.trim() ? { note: note.trim() } : {}),
         model: runModel,
         effort: runEffort,
+        ...(replace.length ? { discard: true } : {}),
       });
+      for (const id of replace) {
+        discardEditor(id);
+        forgetRecent(id);
+      }
+      if (replace.length) app.testsChanged();
       if (r?.jobId) {
         chained.current = null;
         setLanded({});
@@ -185,6 +204,15 @@ export function GenerateScreen() {
     } finally {
       setStarting(false);
     }
+  };
+
+  // ponytail: a new generation replaces Claude's tests still waiting in review — the same rule as gen.tests discard
+  const askThenGenerate = async () => {
+    if (empty) return;
+    const refs = await call<LocalTestRef[]>("tests.list", {}).catch(() => [] as LocalTestRef[]);
+    const ids = refs.filter((t) => awaitsReview(t) && !t.key).map((t) => t.id);
+    if (ids.length) setReplacing(ids);
+    else void generate();
   };
 
   const cancel = () => jobId && call("jobs.cancel", { id: jobId }).catch((e) => errorToast(e, "Could not cancel"));
@@ -296,7 +324,7 @@ export function GenerateScreen() {
                 tone={job ? "secondary" : "primary"}
                 icon="generate"
                 disabled={empty || running || starting || offline}
-                onClick={() => void generate()}
+                onClick={() => void askThenGenerate()}
               >
                 {job ? "Generate again" : "Generate"}
               </Button>
@@ -364,6 +392,20 @@ export function GenerateScreen() {
           )}
         </section>
       </div>
+      {replacing && (
+        <ReplaceTests
+          count={replacing.length}
+          onReview={() => {
+            setReplacing(null);
+            app.navigate("review", replacing[0]);
+          }}
+          onConfirm={() => {
+            setReplacing(null);
+            void generate(replacing);
+          }}
+          onClose={() => setReplacing(null)}
+        />
+      )}
     </div>
   );
 }

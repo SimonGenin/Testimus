@@ -66,6 +66,12 @@ export const commands: Command[] = [
         .describe(
           "Check the new tests in the same job: mechanical + check-test skill; a draft that passes becomes checked (default true); false = mechanical only",
         ),
+      discard: z
+        .boolean()
+        .default(false)
+        .describe(
+          "Delete first the generated tests not validated yet (the review queue, except tests already in Jira): the new generation replaces them; this cannot be reverted",
+        ),
     }),
     output: z.object({
       runId: z.string().describe("Claude run id — claude.revert removes the tests it wrote"),
@@ -84,6 +90,7 @@ export const commands: Command[] = [
         )
         .describe("The check of each new test (empty with check: false)"),
       changed: z.array(z.string()).describe("Existing tests the run changed although it should not have"),
+      discarded: z.array(z.string()).describe("Tests deleted before the run (discard: true)"),
       uncovered: z
         .array(z.object({ item: z.string(), why: z.string() }))
         .describe("What could not be covered, and why"),

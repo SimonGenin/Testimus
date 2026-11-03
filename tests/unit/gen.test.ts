@@ -257,6 +257,40 @@ describe("gen.tests", () => {
     expect(existsSync(join(dir, "tests", id))).toBe(false);
   });
 
+  it("with discard, deletes Claude's tests not validated yet before the run, and keeps the validated and the pushed", async () => {
+    const validated = join(dir, "tests", "local-0000beef");
+    mkdirSync(validated, { recursive: true });
+    writeFileSync(
+      join(validated, "test.md"),
+      NEW_MD.replace("review: to-fix", "review: validated\ngenerated_by: gen-tests-1a2b3c4d"),
+    );
+    const logs: string[] = [];
+    const off = subscribe((e) => {
+      if (e.type === "log") logs.push(e.message);
+    });
+    let during: boolean[] = [];
+    fake(
+      () => [result("Rien à écrire.")],
+      (s) => {
+        during = ["local-3f9a12c0", "local-0000beef", "LFRPS12-1420", "LFRPS12-1398"].map((id) =>
+          existsSync(join(s.cwd, "tests", id)),
+        );
+      },
+    );
+    const r = (await invoke("gen.tests", { request: "x", discard: true, check: false }, { project: dir })) as {
+      discarded: string[];
+    };
+    off();
+    expect(r.discarded).toEqual(["local-3f9a12c0"]);
+    expect(during).toEqual([false, true, true, true]);
+    expect(logs.some((m) => m.includes("Deleted 1 test(s) not validated yet: local-3f9a12c0"))).toBe(true);
+
+    const kept = (await invoke("gen.tests", { request: "x", check: false }, { project: dir })) as {
+      discarded: string[];
+    };
+    expect(kept.discarded).toEqual([]);
+  });
+
   it("reports an existing test the run changed, and works without a report block", async () => {
     const logs: string[] = [];
     const off = subscribe((e) => {

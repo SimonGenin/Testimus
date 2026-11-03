@@ -12,6 +12,7 @@ export type GenOutput = {
   tests: string[];
   checks?: GenCheck[];
   changed: string[];
+  discarded?: string[];
   uncovered: { item: string; why: string }[];
   reportFound: boolean;
   durationMs: number;
@@ -197,6 +198,12 @@ export function Coverage({
         ))}
         {checked}
       </p>
+      {!!result.discarded?.length && (
+        <p className="muted">
+          {plural(result.discarded.length, "test")} not validated yet {result.discarded.length === 1 ? "was" : "were"}{" "}
+          deleted before this run.
+        </p>
+      )}
       {!result.reportFound && result.ok && (
         <p className="muted">Claude did not say what it could not cover: read its reply in the log.</p>
       )}
