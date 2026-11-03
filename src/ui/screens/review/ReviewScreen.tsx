@@ -141,12 +141,6 @@ export function ReviewScreen() {
         if (data?.id === activeId) return;
         const fs = l.check?.findings ?? [];
         setFolded(new Set(l.test.steps.map((_, i) => i).filter((i) => !fs.some((f) => f.step === i + 1))));
-        const first = l.test.steps.findIndex((s) => s.sources.length > 0);
-        const fsrc = fs.find((f) => f.sources.length);
-        if (fsrc) {
-          const [docId, anchor] = fsrc.sources[0].split("#");
-          setSel({ source: { docId, anchor: anchor ?? "", quote: "" }, step: fsrc.step ?? null });
-        } else if (first >= 0) setSel({ source: l.test.steps[first].sources[0], step: first + 1 });
       })
       .catch((e) => !dead && setLoadError(message(e)));
     return () => {
@@ -300,7 +294,7 @@ export function ReviewScreen() {
       const n = Math.max(0, Math.min(data.test.steps.length - 1, i));
       setActiveStep(n);
       const own = stepSources.find((s) => s.step === n + 1);
-      if (own) setSel(own);
+      if (own) setSel((cur) => cur && own);
       requestAnimationFrame(() =>
         body.current
           ?.querySelector(`[aria-label="Step ${n + 1}"]`)
@@ -479,7 +473,7 @@ export function ReviewScreen() {
                     if (f) setActiveStep(-1);
                   }}
                   onSelect={(source, step) => {
-                    setSel({ source, step });
+                    setSel(sel && refKey(source) === selKey && sel.step === step ? null : { source, step });
                     if (step) setActiveStep(step - 1);
                   }}
                   onOpenImage={(file) => window.open(fileUrl(`tests/${data.id}/${file}`), "_blank")}
@@ -553,19 +547,16 @@ export function ReviewScreen() {
             </Button>
           </div>
         </section>
-        {!editing && <DragEdge className="srcpanel-edge" label="Resize the source panel" {...sourceEdge} />}
-        {!editing && (
+        {!editing && sel && <DragEdge className="srcpanel-edge" label="Resize the source panel" {...sourceEdge} />}
+        {!editing && sel && (
           <SourcePanel
-            source={sel?.source ?? null}
-            label={
-              sel
-                ? (sel.label ?? (sel.step ? `Source of step ${sel.step}` : "Source of the whole-test finding"))
-                : "Source"
-            }
+            source={sel.source}
+            label={sel.label ?? (sel.step ? `Source of step ${sel.step}` : "Source of the whole-test finding")}
             index={Math.max(0, selIndex)}
             total={stepSources.length}
             testId={data?.id ?? ""}
-            misplaced={sel ? notAtAnchor(findings, selKey, sel.step) : undefined}
+            misplaced={notAtAnchor(findings, selKey, sel.step)}
+            onClose={() => setSel(null)}
             onOpenDoc={(docId, anchor, quote) => app.navigate("documents", docLink(docId, anchor, quote))}
             onPick={(ref) => {
               const at = ref.indexOf("#");

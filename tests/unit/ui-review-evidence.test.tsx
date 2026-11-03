@@ -60,6 +60,7 @@ const panel = (props: Partial<Parameters<typeof SourcePanel>[0]> = {}) =>
       index={0}
       total={1}
       testId="local-1"
+      onClose={vi.fn()}
       onOpenDoc={vi.fn()}
       onPick={vi.fn()}
       {...props}

@@ -398,9 +398,10 @@ describe("SourcePanel and EvidenceBlock", () => {
     doc: { code: "C-D", title: "Doc D", version: "2", status: "validated" },
   };
 
-  it("shows a passage, its count and opens the document", async () => {
+  it("shows a passage, its count, opens the document and closes", async () => {
     api.routes["rag.passage"] = () => passage;
     const onOpenDoc = vi.fn();
+    const onClose = vi.fn();
     mount(
       <SourcePanel
         source={{ docId: "D", anchor: "§1", quote: "citation" }}
@@ -408,6 +409,7 @@ describe("SourcePanel and EvidenceBlock", () => {
         index={0}
         total={1}
         testId=""
+        onClose={onClose}
         onOpenDoc={onOpenDoc}
         onPick={vi.fn()}
       />,
@@ -418,6 +420,8 @@ describe("SourcePanel and EvidenceBlock", () => {
     expect(screen.queryByRole("region", { name: "Sources read and related" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Open in document" }));
     expect(onOpenDoc).toHaveBeenCalledWith("D", "§1", "citation");
+    fireEvent.click(screen.getByRole("button", { name: "Close the source" }));
+    expect(onClose).toHaveBeenCalled();
   });
 
   it("an unreadable passage shows the quote; no count without sources", async () => {
@@ -428,6 +432,7 @@ describe("SourcePanel and EvidenceBlock", () => {
         index={0}
         total={0}
         testId=""
+        onClose={vi.fn()}
         onOpenDoc={vi.fn()}
         onPick={vi.fn()}
       />,
@@ -446,6 +451,7 @@ describe("SourcePanel and EvidenceBlock", () => {
         index={0}
         total={1}
         testId=""
+        onClose={vi.fn()}
         onOpenDoc={vi.fn()}
         onPick={vi.fn()}
       />,
@@ -470,7 +476,7 @@ describe("SourcePanel and EvidenceBlock", () => {
         return f(url, init);
       }),
     );
-    const props = { label: "L", index: 0, total: 0, testId: "", onOpenDoc: vi.fn(), onPick: vi.fn() };
+    const props = { label: "L", index: 0, total: 0, testId: "", onClose: vi.fn(), onOpenDoc: vi.fn(), onPick: vi.fn() };
     const { rerender } = mount(<SourcePanel {...props} source={{ docId: "A", anchor: "1", quote: "" }} />);
     rerender(<SourcePanel {...props} source={{ docId: "B", anchor: "2", quote: "" }} />);
     expect(await screen.findByRole("heading", { name: "B#2" })).toBeInTheDocument();

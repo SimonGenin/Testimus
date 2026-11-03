@@ -151,14 +151,13 @@ const openFix = () =>
   });
 
 describe("Review screen", () => {
-  it("opens the first test of the queue, its first step source, and the header counts", async () => {
+  it("opens the first test of the queue with no source open, and the header counts", async () => {
     routes();
     const { app: a } = show({ route: { screen: "documents" } });
     expect(await screen.findByRole("heading", { name: "Summary K-1" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Review 3" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByText("Source of step 2")).toBeInTheDocument();
-    expect(await screen.findByRole("heading", { name: "Passage D#§2" })).toBeInTheDocument();
-    expect(screen.getByText("1 of 2 sources")).toBeInTheDocument();
+    expect(screen.queryByRole("complementary", { name: "Source passage" })).toBeNull();
+    expect(named("rag.passage")).toHaveLength(0);
     expect(screen.getByText("1/3")).toBeInTheDocument();
     await waitFor(() =>
       expect(a.setFocus).toHaveBeenCalledWith({ testId: "K-1", key: "K-1", summary: "Summary K-1", step: null }),
@@ -166,7 +165,31 @@ describe("Review screen", () => {
     expect(screen.getByText("Up to date")).toBeInTheDocument();
   });
 
-  it("places the first finding's source, whole-test sources and the stale error count", async () => {
+  it("a source link opens the panel, the same link or the X closes it, the arrows follow it only while open", async () => {
+    routes();
+    show();
+    await screen.findByRole("heading", { name: "Summary K-1" });
+    fireEvent.click(screen.getByRole("button", { name: "Unfold all" }));
+    key("ArrowDown");
+    key("ArrowDown");
+    await waitFor(() => expect(screen.getByRole("article", { name: "Step 2" })).toHaveClass("is-active"));
+    expect(screen.queryByRole("complementary", { name: "Source passage" })).toBeNull();
+    const chip = () => within(screen.getByRole("article", { name: "Step 2" })).getByRole("button", { name: /D §2/ });
+    fireEvent.click(chip());
+    expect(await screen.findByText("Source of step 2")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Passage D#§2" })).toBeInTheDocument();
+    expect(screen.getByText("1 of 2 sources")).toBeInTheDocument();
+    key("ArrowDown");
+    expect(await screen.findByText("Source of step 3")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Close the source" }));
+    expect(screen.queryByRole("complementary", { name: "Source passage" })).toBeNull();
+    fireEvent.click(chip());
+    expect(await screen.findByText("Source of step 2")).toBeInTheDocument();
+    fireEvent.click(chip());
+    expect(screen.queryByRole("complementary", { name: "Source passage" })).toBeNull();
+  });
+
+  it("a whole-test finding's source opens on click; the stale error count", async () => {
     routes({
       findings: [
         { kind: "source-missing", severity: "error", message: "whole", sources: ["W#§0", "W"] },
@@ -176,6 +199,9 @@ describe("Review screen", () => {
       sync: "local",
     });
     show();
+    await screen.findByRole("heading", { name: "Summary K-1" });
+    expect(screen.queryByRole("complementary", { name: "Source passage" })).toBeNull();
+    fireEvent.click(screen.getAllByRole("button", { name: /W §0/ })[0]);
     expect(await screen.findByText("Source of the whole-test finding")).toBeInTheDocument();
     expect(screen.getByTitle("2 errors still open · out of date")).toBeInTheDocument();
     expect(screen.getByText("1 of 4 sources")).toBeInTheDocument();
@@ -183,24 +209,14 @@ describe("Review screen", () => {
     expect(screen.getByRole("article", { name: "Step 2" })).not.toHaveClass("rstep-folded");
   });
 
-  it("a finding source without an anchor opens with an empty anchor", async () => {
-    routes({
-      findings: [{ step: 1, kind: "source-missing", severity: "error", message: "x", sources: ["NOANCHOR"] }],
-    });
-    show();
-    expect(await screen.findByText("Source of step 1")).toBeInTheDocument();
-    expect(screen.getByTitle("1 error still open")).toBeInTheDocument();
-    await waitFor(() => expect(named("rag.passage").at(-1)?.input).toEqual({ ref: "NOANCHOR#" }));
-  });
-
-  it("a test without sources selects nothing; a local test without sync reads as local", async () => {
+  it("a test without sources opens no panel; a local test without sync reads as local", async () => {
     routes({
       queue: [item("L-1")],
       tests: { "L-1": { steps: [{ fields: { Action: "x" }, sources: [], images: [] }] } },
     });
     show({ route: { screen: "review", arg: "L-1" } });
     expect(await screen.findByRole("heading", { name: "Summary L-1" })).toBeInTheDocument();
-    expect(screen.getByText(/Pick a source or a finding/)).toBeInTheDocument();
+    expect(screen.queryByRole("complementary", { name: "Source passage" })).toBeNull();
     expect(screen.getByText("Local only")).toBeInTheDocument();
   });
 
@@ -353,7 +369,9 @@ describe("Review screen", () => {
     routes();
     show();
     await screen.findByRole("heading", { name: "Summary K-1" });
-    fireEvent.click(screen.getByRole("button", { name: /Sources read \/ related/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Unfold all" }));
+    fireEvent.click(screen.getAllByRole("button", { name: /D §2/ })[0]);
+    fireEvent.click(await screen.findByRole("button", { name: /Sources read \/ related/ }));
     fireEvent.click(await screen.findByRole("button", { name: /E#§7/ }));
     expect(await screen.findByText("Related to this test")).toBeInTheDocument();
     expect(screen.getByText("1 of 2 sources")).toBeInTheDocument();

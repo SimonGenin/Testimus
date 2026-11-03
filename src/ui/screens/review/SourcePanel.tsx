@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { Finding, Passage, Source } from "../../../core/types.ts";
 import { call } from "../../api.ts";
 import { DocBadges, PassageText } from "../../components/sources/PassageView.tsx";
-import { Button, Icon, Severity, Skeleton } from "../../components/ui/index.ts";
+import { Button, IconButton, Severity, Skeleton } from "../../components/ui/index.ts";
 import { docGone, goneText } from "../../lib/docGone.ts";
 import { message } from "../../lib/format.ts";
 import { EvidenceBlock } from "./EvidenceBlock.tsx";
@@ -20,29 +20,30 @@ export function SourcePanel({
   total,
   testId,
   misplaced,
+  onClose,
   onOpenDoc,
   onPick,
 }: {
-  source: Source | null;
+  source: Source;
   label: string;
   index: number;
   total: number;
   testId: string;
   misplaced?: Finding;
+  onClose: () => void;
   onOpenDoc: (docId: string, anchor: string, quote: string) => void;
   onPick: (ref: string) => void;
 }) {
   const [p, setP] = useState<(Passage & { quoteFound?: boolean }) | null>(null);
   const [error, setError] = useState("");
   const [gone, setGone] = useState(false);
-  const ref = source ? `${source.docId}#${source.anchor}` : "";
-  const docId = source?.docId ?? "";
-  const quote = source?.quote ?? "";
+  const ref = `${source.docId}#${source.anchor}`;
+  const docId = source.docId;
+  const quote = source.quote;
   useEffect(() => {
     setP(null);
     setError("");
     setGone(false);
-    if (!ref) return;
     let dead = false;
     call<Passage & { quoteFound?: boolean }>("rag.passage", quote.trim() ? { ref, around: quote } : { ref })
       .then((r) => !dead && setP(r))
@@ -58,23 +59,13 @@ export function SourcePanel({
 
   const evidence = testId ? <EvidenceBlock testId={testId} selected={ref} onPick={onPick} /> : null;
 
-  if (!source)
-    return (
-      <aside className="srcpanel" aria-label="Source passage">
-        <div className="srcpanel-empty">
-          <Icon name="link" size={28} />
-          <p className="muted">
-            Pick a source or a finding to read the passage it relies on, with the quote highlighted.
-          </p>
-        </div>
-        {evidence}
-      </aside>
-    );
-
   return (
     <aside className="srcpanel" aria-label="Source passage">
       <div className="srcpanel-head">
-        <span className="label">{label}</span>
+        <div className="srcpanel-top">
+          <span className="label">{label}</span>
+          <IconButton icon="close" label="Close the source" onClick={onClose} />
+        </div>
         <span className="mono srcpanel-code">{p ? `${p.doc.code} · v${p.doc.version}` : source.docId}</span>
         {p ? <h3 className="h srcpanel-title">{p.doc.title}</h3> : !error && <Skeleton w={140} h={18} />}
         {p && (
