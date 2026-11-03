@@ -1,64 +1,11 @@
 import * as stylex from "@stylexjs/stylex";
-import { type KeyboardEvent, type ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import {
-  border,
-  color,
-  fontSize,
-  fontWeight,
-  lineHeight,
-  radius,
-  shadow,
-  size,
-  space,
-  z,
-} from "../../styles/tokens.stylex.ts";
+import { type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from "react";
+import { color, fontSize, lineHeight, radius, shadow, size, space, z } from "../../styles/tokens.stylex.ts";
 import { Chip } from "./Chip.tsx";
 import { Text } from "./Text.tsx";
 
 const styles = stylex.create({
-  field: { display: "flex", flexDirection: "column", gap: space.s2, minWidth: 0 },
-  label: {
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
-    fontWeight: fontWeight.medium,
-    color: color.textMuted,
-  },
-  frame: {
-    boxSizing: "border-box",
-    position: "relative",
-    display: "flex",
-    flexWrap: "wrap",
-    alignItems: "center",
-    gap: space.s2,
-    minWidth: 0,
-    minHeight: size.controlMd,
-    margin: 0,
-    paddingBlock: border.width,
-    paddingInline: space.s2,
-    borderStyle: "solid",
-    borderWidth: border.width,
-    borderColor: { default: color.borderControl, ":hover": color.textMuted, ":focus-within": color.focusRing },
-    boxShadow: { default: null, ":focus-within": `0 0 0 ${border.width} ${color.focusRing}` },
-    borderRadius: radius.r2,
-    backgroundColor: color.surface,
-    cursor: "text",
-  },
-  inline: {
-    borderColor: { default: "transparent", ":hover": color.borderStrong, ":focus-within": color.focusRing },
-    backgroundColor: { default: "transparent", ":hover": color.surface, ":focus-within": color.surface },
-  },
-  still: { cursor: "default" },
-  disabled: { backgroundColor: color.surfaceSunken, borderColor: color.border, cursor: "not-allowed" },
-  forceHover: { borderColor: color.textMuted },
-  forceFocus: { borderColor: color.focusRing, boxShadow: `0 0 0 ${border.width} ${color.focusRing}` },
-  input: {
-    flexGrow: 1,
-    flexShrink: 1,
-    flexBasis: size.chipInputMin,
-    minWidth: size.chipInputMin,
-    marginBlock: `calc(${space.s1} + ${border.width} - ${space.s3})`,
-    marginInline: `calc(${space.s2} - ${space.s4})`,
-  },
+  anchor: { position: "relative", minWidth: 0 },
   list: {
     boxSizing: "border-box",
     position: "absolute",
@@ -100,7 +47,7 @@ export type ChipChoice = { value: string; label: string };
 
 export type ChipFieldProps = {
   values: string[];
-  /** the new set; without it the chips are only read */
+  /** the new set; without it the field is read-only and the chips cannot be removed */
   onChange?: (values: string[]) => void;
   /** the accessible name; shown above the field only with `showLabel` */
   label: string;
@@ -162,24 +109,14 @@ export function ChipField({
     });
   }, [suggests, query, focused]);
 
+  const editable = onChange !== undefined;
   const labelOf = (v: string) => choices?.find((c) => c.value === v)?.label ?? v;
   const items: ChipChoice[] = choices
     ? choices.filter((c) => !values.includes(c.value) && fold(c.label).includes(fold(query.trim())))
     : found.filter((v) => !values.includes(v)).map((v) => ({ value: v, label: v }));
-  const listed = choices !== undefined || suggests;
+  const listed = editable && (choices !== undefined || suggests);
   const open = listed && (focused || debugState === "open") && items.length > 0 && !disabled;
   const shown = open ? Math.min(active, items.length - 1) : -1;
-
-  useLayoutEffect(() => {
-    const el = input.current;
-    if (!el || !listed) return;
-    el.setAttribute("role", "combobox");
-    el.setAttribute("aria-autocomplete", "list");
-    el.setAttribute("aria-expanded", String(open));
-    el.setAttribute("aria-controls", listId);
-    if (shown >= 0) el.setAttribute("aria-activedescendant", `${id}-${shown}`);
-    else el.removeAttribute("aria-activedescendant");
-  });
 
   const add = (raw: string[]) => {
     const fresh = [...new Set(raw.map((v) => v.trim()).filter((v) => v && !values.includes(v)))];
@@ -215,86 +152,79 @@ export function ChipField({
     }
   };
 
-  const editable = onChange !== undefined;
+  const chips = values.map((v) => (
+    <Chip
+      key={v}
+      label={labelOf(v)}
+      mono={mono}
+      inField
+      disabled={disabled}
+      onRemove={editable && !disabled ? () => onChange(values.filter((x) => x !== v)) : undefined}
+    />
+  ));
   return (
-    <div {...stylex.props(styles.field)}>
-      {showLabel && (
-        <label htmlFor={id} {...stylex.props(styles.label)}>
-          {label}
-        </label>
-      )}
-      <fieldset
-        aria-label={label}
-        onClick={(e) => {
-          if (e.target === e.currentTarget) input.current?.focus();
+    <div
+      onClick={(e) => {
+        if (!(e.target as Element).closest("button, input")) input.current?.focus();
+      }}
+      {...stylex.props(styles.anchor)}
+    >
+      <Text
+        id={id}
+        value={query}
+        onChange={(v) => {
+          setActive(-1);
+          setFocused(true);
+          if (!choices && /[,;]$/.test(v)) commit(v);
+          else setQuery(v);
         }}
-        {...stylex.props(
-          styles.frame,
-          appearance === "inline" && styles.inline,
-          !editable && styles.still,
-          debugState === "hover" && styles.forceHover,
-          (debugState === "focus" || debugState === "open") && styles.forceFocus,
-          disabled && styles.disabled,
-        )}
-      >
-        {values.map((v) => (
-          <Chip
-            key={v}
-            label={labelOf(v)}
-            mono={mono}
-            square
-            disabled={disabled}
-            onRemove={editable && !disabled ? () => onChange(values.filter((x) => x !== v)) : undefined}
-          />
-        ))}
-        {editable && (
-          <span {...stylex.props(styles.input)}>
-            <Text
-              id={id}
-              value={query}
-              onChange={(v) => {
-                setActive(-1);
-                setFocused(true);
-                if (!choices && /[,;]$/.test(v)) commit(v);
-                else setQuery(v);
-              }}
-              appearance="bare"
-              size="sm"
-              ariaLabel={showLabel ? undefined : label}
-              placeholder={placeholder}
-              disabled={disabled}
-              autoFocus={autoFocus}
-              spellCheck={false}
-              inputRef={input}
-              onKeyDown={onKeyDown}
-              onFocus={() => setFocused(true)}
-              onBlur={() => {
-                if (!choices) commit(query);
-                setFocused(false);
-              }}
-            />
-          </span>
-        )}
-        {trailing}
-        {open && (
-          <div id={listId} role="listbox" tabIndex={-1} aria-label={label} {...stylex.props(styles.list)}>
-            {items.map((c, i) => (
-              <div
-                key={c.value}
-                id={`${id}-${i}`}
-                role="option"
-                tabIndex={-1}
-                aria-selected={i === shown}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => add([c.value])}
-                {...stylex.props(styles.option, i === shown && styles.active)}
-              >
-                {c.label}
-              </div>
-            ))}
-          </div>
-        )}
-      </fieldset>
+        leading={chips}
+        trailing={trailing}
+        combobox={
+          listed
+            ? {
+                expanded: open,
+                controls: listId,
+                activeDescendant: shown >= 0 ? `${id}-${shown}` : undefined,
+                autocomplete: "list",
+              }
+            : undefined
+        }
+        appearance={appearance}
+        label={showLabel ? label : undefined}
+        ariaLabel={showLabel ? undefined : label}
+        placeholder={editable ? placeholder : undefined}
+        readOnly={!editable}
+        disabled={disabled}
+        autoFocus={autoFocus}
+        spellCheck={false}
+        inputRef={input}
+        onKeyDown={onKeyDown}
+        onFocus={() => setFocused(true)}
+        onBlur={() => {
+          if (editable && !choices) commit(query);
+          setFocused(false);
+        }}
+        debugState={debugState === "open" ? "focus" : debugState}
+      />
+      {open && (
+        <div id={listId} role="listbox" tabIndex={-1} aria-label={label} {...stylex.props(styles.list)}>
+          {items.map((c, i) => (
+            <div
+              key={c.value}
+              id={`${id}-${i}`}
+              role="option"
+              tabIndex={-1}
+              aria-selected={i === shown}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => add([c.value])}
+              {...stylex.props(styles.option, i === shown && styles.active)}
+            >
+              {c.label}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

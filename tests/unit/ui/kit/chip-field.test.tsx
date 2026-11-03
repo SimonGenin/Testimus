@@ -83,11 +83,13 @@ describe("ChipField", () => {
     expect(chips()).toEqual(["b"]);
   });
 
-  it("without onChange the chips are only read: no box, no ✕, a group named by the label", () => {
-    render(<ChipField label="Covers" values={["LFRPS12-880"]} mono />);
-    expect(screen.queryByRole("textbox")).toBeNull();
+  it("without onChange the field is read-only: the chips stay, no ✕, nothing can be typed", () => {
+    render(<ChipField label="Covers" values={["LFRPS12-880"]} mono placeholder="Add an issue key…" />);
+    const covers = screen.getByRole("textbox", { name: "Covers" });
+    expect(covers).toHaveAttribute("readonly");
+    expect(covers).not.toHaveAttribute("placeholder");
     expect(screen.queryByRole("button")).toBeNull();
-    expect(screen.getByRole("group", { name: "Covers" })).toHaveTextContent("LFRPS12-880");
+    expect(screen.getByText("LFRPS12-880")).toBeVisible();
   });
 
   it("shows its label above the field", () => {
@@ -98,7 +100,7 @@ describe("ChipField", () => {
 
   it("a click on the frame puts the caret in the box", () => {
     render(<Labels />);
-    const frame = box().closest("span")?.parentElement as Element;
+    const frame = box().parentElement as Element;
     fireEvent.click(frame);
     expect(box()).toHaveFocus();
   });
@@ -236,7 +238,7 @@ describe("ChipField", () => {
         />
       </>,
     );
-    const frame = (name: string) => screen.getByRole("textbox", { name }).closest("span")?.parentElement ?? null;
+    const frame = (name: string) => screen.getByRole("textbox", { name }).parentElement;
     const chip = (name: string) => frame(name)?.firstElementChild ?? null;
     expect(cls(chip("mono"))).not.toBe(cls(chip("rest")));
     const frames = ["rest", "inline", "hover", "focus"].map((n) => cls(frame(n)));
