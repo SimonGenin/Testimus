@@ -18,7 +18,7 @@ import type { ActiveChoice, CatalogEntry, PackVariant, RagChoice } from "../type
 
 const MB = 1024 * 1024;
 
-const fitVerdict = z.enum(["fits", "tight", "gpu-too-small", "ram-too-small", "unknown", "unsupported"]);
+const fitVerdict = z.enum(["fits", "tight", "gpu-too-small", "ram-too-small", "unknown", "untested", "unsupported"]);
 const fit = z.object({
   verdict: fitVerdict,
   device: z.enum(["gpu", "cpu"]),
@@ -372,10 +372,13 @@ export const commands: Command[] = [
           .string()
           .optional()
           .describe("Evidence recall on this project's own behavior set, when rag.eval has measured these models"),
+        processorOnly: z
+          .boolean()
+          .describe("The pack is made for a GPU and here it runs on the processor: several times slower"),
         suggested: z
           .boolean()
           .describe(
-            "The pack proposed at first launch: the heaviest that fits without a GGUF on the processor, else Light",
+            "The pack proposed at first launch: the heaviest that fits, proven on this system, without a GGUF or a processor fallback, else Light",
           ),
       }),
     ),
@@ -497,6 +500,14 @@ export const commands: Command[] = [
           from += steps[i];
         }
         if (llama) await pullLlama(stage(jctx, from, steps.at(-1) ?? 0, total), "auto");
+        for (const d of p.download) {
+          const tried = await verify(d.model);
+          if (!tried.ok)
+            throw new UserError(
+              `${catalogEntry(d.model)?.label ?? d.model} is downloaded but does not run on this PC: ${tried.message}`,
+              "The project keeps its current pack; choose another one in Settings › Models.",
+            );
+        }
         const index = input.downloadOnly ? null : await activate();
         return { pack: input.pack, variant: r.variantIndex, indexJob: index };
       });
@@ -543,7 +554,7 @@ export const commands: Command[] = [
   command({
     name: "models.fit",
     summary:
-      "Will it fit? For one model or an embedding + reranker pair: fits · tight · GPU too small · RAM too small · not supported on this system.",
+      "Will it fit? For one model or an embedding + reranker pair: fits · tight · GPU too small · RAM too small · untested on this system · not supported on this system.",
     input: z.object({
       embedding: z.string().optional().describe("Catalog id"),
       reranker: z.string().optional().describe("Catalog id"),

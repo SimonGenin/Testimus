@@ -7,8 +7,10 @@ import { cx, message } from "../../lib/format.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 import type { CatalogRow, Hardware, PackRow, UsePackOut } from "../settings/models/data.ts";
 import { machineSummary, size, suggestPack } from "../settings/models/data.ts";
-import { FitChip } from "../settings/models/FitChip.tsx";
+import { FitChip, PROCESSOR_ONLY } from "../settings/models/FitChip.tsx";
 import { FolderDialog } from "../settings/models/FolderDialog.tsx";
+
+const UNTESTED = "Never run on this system yet: Testimus tries it after the download and refuses it if it fails.";
 
 export function PackStep({ onBack }: { onBack: () => void }) {
   const app = useApp();
@@ -156,7 +158,7 @@ export function PackStep({ onBack }: { onBack: () => void }) {
                     </Badge>
                   )}
                   <span className="spacer" />
-                  {machine && <FitChip fit={p.fit} />}
+                  {machine && <FitChip fit={p.fit} processorOnly={p.processorOnly} />}
                 </span>
                 <span className="muted">{p.intent}</span>
                 <span className="packopt-models">
@@ -168,6 +170,14 @@ export function PackStep({ onBack }: { onBack: () => void }) {
                       ? p.fit.message
                       : `Not available on this PC${p.skipped[0] ? `: ${p.skipped[0]}` : ""}`}
                 </span>
+                {machine && p.available && (p.processorOnly || p.fit?.verdict === "untested") && (
+                  <span className="sev s-warn packopt-warn">
+                    <Icon name="warning" />
+                    {[p.processorOnly && PROCESSOR_ONLY, p.fit?.verdict === "untested" && UNTESTED]
+                      .filter(Boolean)
+                      .join(" ")}
+                  </span>
+                )}
               </span>
             </label>
           ))}

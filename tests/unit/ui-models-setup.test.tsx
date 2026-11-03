@@ -137,6 +137,32 @@ describe("First launch › Search pack", () => {
     await waitFor(() => expect(state.navigate).toHaveBeenCalledWith("documents"));
   });
 
+  it("says when a pack made for a GPU runs on the processor, and when a model never ran on this system", async () => {
+    base({
+      system: { platform: "darwin", arch: "x64" },
+      ramTotalMB: 65536,
+      ramFreeMB: 15360,
+      cpu: { model: "Intel(R) Core(TM) i9-9980HK CPU @ 2.40GHz", threads: 16 },
+      drives: [],
+      gpus: [],
+    });
+    routes["models.packs"] = () => [
+      { ...row("light", "Light", "bge-m3-q8", "cpu"), suggested: true },
+      { ...row("performance", "Performance", "qwen3-onnx-fp16", "cpu", 600), variant: 1, processorOnly: true },
+      {
+        ...row("balanced", "Balanced", "qwen3-onnx-fp16", "cpu", 1100),
+        fit: { ...fits("cpu"), verdict: "untested", message: "Not proven on macOS x64." },
+      },
+    ];
+    show();
+    fireEvent.click(await screen.findByRole("button", { name: "Analyse my machine" }));
+    await waitFor(() => expect(screen.getByRole("radio", { name: "Light pack" })).toBeChecked());
+    expect(screen.getAllByText("Processor only")).toHaveLength(1);
+    expect(screen.getByText(/Made for a GPU: here it runs on the processor, several times slower/)).toBeInTheDocument();
+    expect(screen.getByText("Untested here")).toBeInTheDocument();
+    expect(screen.getByText(/Never run on this system yet: Testimus tries it after the download/)).toBeInTheDocument();
+  });
+
   it("an analysis that fails preselects nothing, and the step can be skipped", async () => {
     base(null);
     routes["models.hardware"] = () => {

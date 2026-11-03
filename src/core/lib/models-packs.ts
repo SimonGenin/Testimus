@@ -1,8 +1,9 @@
 import { publishedMeasure, refdocDir } from "../rag/refdoc.ts";
-import type { ActiveChoice, CatalogEntry, Fit, MachineProfile, PerfLine } from "../types.ts";
+import type { ActiveChoice, CatalogEntry, Fit, MachineProfile, Pack, PackVariant, PerfLine } from "../types.ts";
 import { PACK_ORDER } from "./models-advice.ts";
 import { catalog, catalogEntry } from "./models-catalog.ts";
 import { deviceFor, fitOf } from "./models-fit.ts";
+import { machineProfile } from "./models-hardware.ts";
 import { perfStats, variantSpeed } from "./models-perf.ts";
 import { evalReports, type Measured, NOT_MEASURED, packQuality, refdocQuality } from "./models-quality.ts";
 import { budgets, readRegistry } from "./models-registry.ts";
@@ -24,6 +25,7 @@ export type PackRow = {
   quality: string;
   measuredHere: boolean;
   projectQuality?: string;
+  processorOnly: boolean;
 };
 
 export type UsePlan = {
@@ -37,6 +39,20 @@ export function downloadMBOf(r: Resolution): number {
   return r.missing.reduce((a, id) => a + (catalogEntry(id)?.size.downloadMB ?? 0), 0);
 }
 
+function entriesOf(v: PackVariant): CatalogEntry[] {
+  return [v.embedding, v.reranker]
+    .filter((m): m is string => !!m)
+    .map((m) => catalogEntry(m))
+    .filter((e): e is CatalogEntry => !!e);
+}
+
+// ponytail: a pack made for a GPU that runs here on the processor is several times slower than it promises (Qwen3 0.6B
+// indexes 2.1 passages/s on the processor, 27/s on DirectML): it says so and is never the suggestion
+export function processorFallback(p: Pack, i: number, machine: MachineProfile): boolean {
+  const onCpu = entriesOf(p.variants[i]).every((e) => deviceFor(e, machine) === "cpu");
+  return onCpu && p.variants.slice(0, i + 1).some((v) => entriesOf(v).some((e) => e.devices.includes("gpu")));
+}
+
 export async function packRows(
   active: ActiveChoice | null,
   queryTask = DEFAULT_QUERY_TASK,
@@ -46,6 +62,7 @@ export async function packRows(
   refReports: Measured[] = evalReports(refdocDir()),
 ): Promise<PackRow[]> {
   const stats = perfStats({ last: 50, lines: deps.lines });
+  const machine = await (deps.machine ?? (() => machineProfile()))().catch(() => null);
   const rows: PackRow[] = [];
   for (const p of catalog().packs) {
     const r = await resolveChoice({ pack: p.id }, queryTask, deps);
@@ -70,6 +87,7 @@ export async function packRows(
       quality: ref.text,
       measuredHere: ref.here,
       ...(own !== NOT_MEASURED ? { projectQuality: own } : {}),
+      processorOnly: !!machine && r.variantIndex !== null && processorFallback(p, r.variantIndex, machine),
     });
   }
   return rows;
@@ -105,16 +123,13 @@ export function suggestPack(machine: MachineProfile | null, lines: PerfLine[] = 
   for (const id of PACK_ORDER) {
     const p = packs.find((x) => x.id === id);
     if (!p) continue;
-    for (const v of p.variants) {
-      const entries = [v.embedding, v.reranker]
-        .filter((m): m is string => !!m)
-        .map((m) => catalogEntry(m))
-        .filter((e): e is CatalogEntry => !!e);
+    for (const [i, v] of p.variants.entries()) {
+      const entries = entriesOf(v);
       // ponytail: a reranker on the processor makes each query take seconds; it stays a choice, never the suggestion
       const slowOnCpu = entries.some(
         (e) => (!e.runtimes.includes("transformers") || e.kind === "reranker") && deviceFor(e, machine) === "cpu",
       );
-      if (!slowOnCpu && fitsAlone(entries, machine, lines)) return p.id;
+      if (!slowOnCpu && !processorFallback(p, i, machine) && fitsAlone(entries, machine, lines)) return p.id;
     }
   }
   return "light";

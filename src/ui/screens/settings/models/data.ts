@@ -20,6 +20,7 @@ export type PackRow = {
   quality: string;
   measuredHere: boolean;
   projectQuality?: string;
+  processorOnly?: boolean;
 };
 
 export type CatalogRow = {
@@ -140,6 +141,7 @@ export const FIT: Record<FitVerdict, { tone: BadgeTone; icon: IconName; word: st
   "gpu-too-small": { tone: "warn", icon: "warning", word: "Partly on the CPU" },
   "ram-too-small": { tone: "err", icon: "error", word: "RAM too small" },
   unknown: { tone: "info", icon: "info", word: "Not measured" },
+  untested: { tone: "warn", icon: "warning", word: "Untested here" },
   unsupported: { tone: "err", icon: "error", word: "Not supported here" },
 };
 
@@ -179,7 +181,7 @@ export function suggestPack(rows: PackRow[], hw: Hardware | null, catalog: Catal
   };
   for (const id of PACK_ORDER) {
     const r = rows.find((p) => p.id === id);
-    if (!r?.available || r.fit?.verdict !== "fits") continue;
+    if (!r?.available || r.fit?.verdict !== "fits" || r.processorOnly) continue;
     if (r.fit.device === "cpu" && (gguf(r.embedding) || r.reranker)) continue;
     return r.id;
   }

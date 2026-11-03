@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { env } from "../env.ts";
 import { SHIPPED } from "../lib/models-catalog.ts";
 import { downloadDeps, filesFor, hfUrl, installPath } from "../lib/models-download.ts";
+import { installDeps } from "../lib/models-install.ts";
 import { recordPerf } from "../lib/models-perf.ts";
 import { writeRegistry } from "../lib/models-registry.ts";
 import { readSettings, writeJson, writeSettings } from "../lib/project.ts";
@@ -30,6 +31,7 @@ export type MockModelsOptions = {
   advice: MockAdvice;
   index: "vectors" | "bm25";
   downloadMs: number;
+  probe?: "ok" | "fail";
 };
 
 const MB = 1024 * 1024;
@@ -47,6 +49,7 @@ export function mockModelsOptions(e: NodeJS.ProcessEnv = process.env): MockModel
     advice: pick(e.TESTIMUS_MOCK_ADVICE, MOCK_ADVICE, "upgrade"),
     index: pick(e.TESTIMUS_MOCK_INDEX, ["vectors", "bm25"], "vectors"),
     downloadMs: Math.max(0, Number(e.TESTIMUS_MOCK_DOWNLOAD_MS) || 2500),
+    probe: pick(e.TESTIMUS_MOCK_PROBE, ["ok", "fail"] as const, "ok"),
   };
 }
 
@@ -296,6 +299,12 @@ export async function setupModelsMock(
   });
 
   downloadDeps.fetch = fakeFetch;
+  // ponytail: the fake bytes cannot load; a probe answers like a load on this machine would, journal line included
+  installDeps.probe = async (m) => {
+    if (o.probe === "fail") throw new Error("mock: the runtime cannot load this model here (TESTIMUS_MOCK_PROBE=fail)");
+    recordPerf({ at: env.now().toISOString(), op: "model.load", model: m.entry.id, items: 1, ms: 900, loadMs: 900 });
+    return { dims: m.entry.dims, maxTokens: m.entry.maxInputTokens };
+  };
   llamaIo.download = async (url) => {
     throw new Error(`mock: no network (${url})`);
   };

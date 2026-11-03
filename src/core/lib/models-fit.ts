@@ -1,10 +1,10 @@
 import { basename } from "node:path";
 import type { CatalogEntry, Fit, FitVerdict, LoadedModel, MachineProfile, PerfLine } from "../types.ts";
 import { catalogEntry } from "./models-catalog.ts";
-import { mainGpu, platformOf, systemName } from "./models-hardware.ts";
-import { measuredMB } from "./models-perf.ts";
+import { mainGpu, platformOf, systemName, systemOf } from "./models-hardware.ts";
+import { measuredMB, readPerf } from "./models-perf.ts";
 
-const ORDER: FitVerdict[] = ["fits", "unknown", "tight", "gpu-too-small", "ram-too-small", "unsupported"];
+const ORDER: FitVerdict[] = ["fits", "unknown", "untested", "tight", "gpu-too-small", "ram-too-small", "unsupported"];
 
 export const gb = (mb: number): string => `${(mb / 1024).toFixed(1)} GB`;
 
@@ -20,10 +20,20 @@ export function needOf(entry: CatalogEntry, lines?: PerfLine[]): { vram: number;
 // ponytail: llama.cpp is downloaded as its Windows x64 builds only (LLAMA_ASSETS) and DirectML is Windows' own; the
 // 16-bit DirectML variants exist for the GPU, so elsewhere their 8-bit processor twin is the one to run
 export function unsupportedOn(entry: CatalogEntry, machine: MachineProfile): string | null {
+  if (machine.onnx === null && entry.runtimes.includes("transformers"))
+    return "runs on onnxruntime, which does not load on this PC (see Settings › Doctor)";
   if (platformOf(machine) === "win32") return null;
   if (!entry.runtimes.includes("transformers")) return "runs on llama.cpp, which Testimus ships for Windows only";
   if (entry.dtypeByDevice?.dml) return "is made for DirectML, which exists only on Windows";
   return null;
+}
+
+// ponytail: the catalog is proven on Windows x64, the reference PC; elsewhere the runtime differs (onnxruntime 1.23.2 on
+// an Intel Mac) and a model counts as proven by the catalog's `provenOn` or by a load that succeeded on this PC
+export function untestedOn(entry: CatalogEntry, machine: MachineProfile, lines?: PerfLine[]): boolean {
+  const system = systemOf(machine);
+  if (system === "win32-x64" || entry.provenOn?.includes(system)) return false;
+  return !(lines ?? readPerf()).some((l) => l.op === "model.load" && l.model === entry.id && l.items > 0 && !l.oom);
 }
 
 export function deviceFor(entry: CatalogEntry, machine: MachineProfile): "gpu" | "cpu" {
@@ -72,19 +82,29 @@ export function fitOf(
     freeMB: { vram: vramFree, ram: machine.ramFreeMB },
     totalMB: { vram: vramTotal, ram: machine.ramTotalMB },
   };
-  const done = (verdict: FitVerdict, message: string, unload: string[] = []): Fit => ({
-    verdict,
-    ...base,
-    unload,
-    message,
-  });
-
+  const system = `${systemName(platformOf(machine))} ${machine.system?.arch ?? "x64"}`;
   const unsupported = entries.flatMap((e) => {
     const why = unsupportedOn(e, machine);
     return why ? [`${e.label} ${why}`] : [];
   });
   if (unsupported.length)
-    return done("unsupported", `Not supported on ${systemName(platformOf(machine))}: ${unsupported.join("; ")}.`);
+    return {
+      verdict: "unsupported",
+      ...base,
+      unload: [],
+      message: `Not supported on ${systemName(platformOf(machine))}: ${unsupported.join("; ")}.`,
+    };
+  const untested = entries.filter((e) => untestedOn(e, machine, opts.lines)).map((e) => e.label);
+  const one = untested.length === 1;
+  const proof = untested.length
+    ? `Not proven on ${system}${machine.onnx ? ` (onnxruntime ${machine.onnx})` : ""}: ${untested.join(" and ")} ${one ? "has" : "have"} never run on this system, so ${one ? "it" : "they"} may not run at all; Testimus tries ${one ? "it" : "them"} right after the download and refuses ${one ? "it" : "them"} if ${one ? "it fails" : "one fails"}.`
+    : "";
+  const done = (verdict: FitVerdict, message: string, unload: string[] = []): Fit => ({
+    verdict: proof ? worst(verdict, "untested") : verdict,
+    ...base,
+    unload,
+    message: proof ? `${proof} Memory: ${message[0].toLowerCase()}${message.slice(1)}` : message,
+  });
 
   if (ramNeed > machine.ramTotalMB)
     return done(
@@ -95,14 +115,19 @@ export function fitOf(
   let ramMsg = "";
   if (onCpu.length) {
     if (ramNeed <= machine.ramFreeMB * keep)
-      ramMsg = `needs about ${gb(ramNeed)} of memory, ${gb(machine.ramFreeMB)} free`;
+      ramMsg = `${need} about ${gb(ramNeed)} of memory, ${gb(machine.ramFreeMB)} free`;
     else {
       ramVerdict = "tight";
-      ramMsg = `needs about ${gb(ramNeed)} of memory and this PC has ${gb(machine.ramFreeMB)} free (${gb(machine.ramFreeMB * keep)} usable with the ${Math.round(opts.headroom * 100)} % margin): close other programs`;
+      ramMsg = `${need} about ${gb(ramNeed)} of memory and this PC has ${gb(machine.ramFreeMB)} free (${gb(machine.ramFreeMB * keep)} usable with the ${Math.round(opts.headroom * 100)} % margin): close other programs`;
     }
   }
   if (!onGpu.length)
-    return done(ramVerdict, ramVerdict === "fits" ? `Fits: ${labels} ${ramMsg}.` : `Tight: ${labels} ${ramMsg}.`);
+    return done(
+      ramVerdict,
+      ramVerdict === "fits"
+        ? `Fits on the processor${gpu ? "" : " (no GPU Testimus can use)"}: ${labels} ${ramMsg}.`
+        : `Tight: ${labels} ${ramMsg}.`,
+    );
 
   if (vramTotal === null || vramFree === null)
     return done(

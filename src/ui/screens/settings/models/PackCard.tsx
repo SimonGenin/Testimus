@@ -56,7 +56,7 @@ export function PackCard({
           <span className="label">On this PC{pack.variant ? ` (its ${ORDINAL[pack.variant]} choice)` : ""}</span>
           <span className="pack-models">{models}</span>
           <span className="pack-fit">
-            <FitChip fit={pack.fit} />
+            <FitChip fit={pack.fit} processorOnly={pack.processorOnly} />
             <span className="muted pack-fitmsg">{pack.fit?.message}</span>
           </span>
         </div>

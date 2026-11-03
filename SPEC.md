@@ -422,9 +422,13 @@ used: GGUF models run on llama.cpp, which Testimus downloads itself (same files 
     the project's own behavior set has a report for that pair, its quality on this project (the `must` evidence
     recall at 10, search+graph when available, provisional when the report is). `models usePack
     <pack> [--dry-run]` shows the plan (downloads, folder, reindex, expected speed), then in a job installs what is
-    missing (and the llama.cpp build if a GGUF needs it), activates the variant for the project on this PC and
-    starts the index job. `models use` is the Custom pack (installed models only). First launch proposes the
-    heaviest pack that fits without running a GGUF on the CPU, Light when the hardware is unknown.
+    missing (and the llama.cpp build if a GGUF needs it), tries each downloaded model (`models verify`: load, one
+    sentence, its dimension) — one that does not run here fails the job and the project keeps its pack —, activates
+    the variant for the project on this PC and starts the index job. `models use` is the Custom pack (installed models only). First launch proposes the
+    heaviest pack that fits without running a GGUF or a reranker on the CPU and without falling to the processor when
+    it is made for a GPU (`processorOnly`: some variant up to the one resolved has a GPU model and this one runs on
+    the processor — Qwen3-0.6B q8 indexes 2.1 passages/s there against bge-m3 q8's 6.6/s, so Light is faster),
+    Light when the hardware is unknown or nothing else qualifies.
 - **Models on this PC.** The machine registry `%APPDATA%\Testimus\models.json` holds the models folder (`dir`),
   the llama.cpp folder (`runtimesDir`, default `<dir>\runtimes`), `allowRemote` (the old
   `settings.json.models.allowRemote` is still read), the installations (`model`, `via` path · download,
@@ -479,7 +483,9 @@ used: GGUF models run on llama.cpp, which Testimus downloads itself (same files 
     after 1.23 ships that binary, so a resolve hook (`rag/runtimes/ort.ts`) loads the optional dependency
     `onnxruntime-node-darwin-x64` (`npm:onnxruntime-node@1.23.2`) and its `onnxruntime-common` in its place, for
     transformers.js and the doctor alike; Windows and Apple silicon keep 1.30, and the release does not carry the
-    alias. Checked on a macOS x64 PC: bge-m3 q8 verified (1024 dimensions).
+    alias. Checked on a macOS x64 PC (i9-9980HK, onnxruntime 1.23.2, `models verify`): bge-m3 q8 (1024 dimensions),
+    Qwen3-Embedding-0.6B q8 (1024), BGE Reranker v2 M3 q8 and Qwen3-Reranker-0.6B q8 all load and answer; the
+    catalog lists them in `provenOn: ["darwin-x64"]`.
   - **llama.cpp** (GGUF): Testimus starts one `llama-server.exe` per loaded model, bound to 127.0.0.1 on a free
     port with a random `--api-key` per start (a request without it gets 401): `-m <gguf> (--embedding --pooling last
     -ub 8192 | --reranking --pooling rank) -ngl 99 -c 8192`. It waits for `GET /health` = `{"status":"ok"}` (3 min
@@ -494,7 +500,8 @@ used: GGUF models run on llama.cpp, which Testimus downloads itself (same files 
     downloads itself (same files as Ollama's `qwen3-embedding` tags).
 - **Fit.** `models hardware` profiles the PC without admin rights: RAM and CPU from Node; NVIDIA GPUs from
   `nvidia-smi` (total and used VRAM); other adapters from WMI `Win32_VideoController`, their VRAM from the
-  registry's `HardwareInformation.qwMemorySize` (free VRAM unknown); free space per drive; models loaded by Testimus'
+  registry's `HardwareInformation.qwMemorySize` (free VRAM unknown); the onnxruntime version that loads here
+  (`onnx`, null when it does not load — the doctor's onnx row says why); free space per drive; models loaded by Testimus'
   llama.cpp servers (each server named by the catalog id of the model it serves). A model already loaded for the pair being judged is not
   one of the « other loaded models »: it does not unload itself, and its memory counts as already there; for another
   candidate it is named among the models to unload. Cached 10 minutes; `TESTIMUS_MACHINE` imposes a profile (mock,
@@ -502,11 +509,17 @@ used: GGUF models run on llama.cpp, which Testimus downloads itself (same files 
   download. `models fit` judges the embedding and the reranker **together**: fits (need ≤ free × (1 − headroom));
   tight (within the margin, or only once other loaded models are unloaded — they are named); gpu-too-small (need
   > total VRAM: runs partly on the CPU); ram-too-small (refused); unknown (no VRAM figure: « Testimus measures it on
-  first use »); unsupported (refused, judged before the memory: the profile's `system` — Node's platform and arch —
+  first use »); unsupported (refused, judged before the memory: onnxruntime does not load on this PC (`onnx` null)
+  and the model runs on transformers.js, or the profile's `system` — Node's platform and arch —
   is not Windows and a model runs on llama.cpp, shipped as Windows x64 builds only, or is a 16-bit DirectML variant,
   whose 8-bit processor twin is the one to run; a pack skips such a variant like an unavailable one, so on a Mac
   Quality is not available and Performance and Balanced resolve to their CPU variant; a profile without `system`
-  is a Windows one). Messages carry the numbers. On the dev PC (RTX 5080 16 GB): 8B Q8 + reranker 4B = tight (13.6 GB for
+  is a Windows one); untested (memory is not proof: the catalog is proven on Windows x64, the reference PC, and
+  elsewhere a model counts as proven only when its catalog entry lists the system in `provenOn` (`darwin-x64`…) or a
+  `model.load` succeeded on this PC (journal); otherwise « Not proven on <system> (onnxruntime <version>) »,
+  ahead of the memory verdict, which the message still gives; a pack prefers a proven variant like a fitting one).
+  Everything on the processor says so: « Fits on the processor (no GPU Testimus can use) ». Messages carry the
+  numbers. On the dev PC (RTX 5080 16 GB): 8B Q8 + reranker 4B = tight (13.6 GB for
   11.6 GB usable), 8B Q4 + 4B = fits, so Quality resolves to its second variant.
 - **Timings journal** `%LOCALAPPDATA%\Testimus\perf\journal.jsonl`: one line per model operation — `model.load`,
   `embed.query`, `embed.index` (one line per index batch of 16), `rerank`, `search.bm25`, `search.vector`,
@@ -674,6 +687,12 @@ The parser stays tolerant (never throws on a human or Claude edit; returns warni
 - Run: `gen.tests` starts a job that runs the project's `generate-tests` skill through `claude -p`
   with the MCP tools available. The skill searches the index, reads the cited sections and figures,
   and writes one `tests/local-<8hex>/test.md` per test with `review: draft`.
+- Index gate: the scope is the documents and sections given, or every converted document for a request in words
+  alone. `gen.tests` refuses, before any Claude run (resume included), when a document of the scope is not indexed
+  (`docs.list.indexed` `missing`: never indexed, or its last index run failed; no `index/state.json` at all names the
+  whole index as missing) — search cannot find it, so the tests would have no sources; the error says to reindex or
+  to leave it out of the scope. A document `stale` (changed since its last index) only logs a warning: search still
+  finds its previous version.
 - Rules the skill enforces (they come from the testers' current prompt, sharpened by what went wrong
   with it):
   - positive and negative paths, black-box or white-box technique chosen per feature and named in
@@ -1053,7 +1072,9 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
     finding's message is shown above the passage.
   - **Generate** — request, one picker per tracked kind (search by id or text over traces.find; requirements.csv text
     for the requirement kind) — none when the project tracks nothing, with « Track ids… » instead —
-    sections (docs.show toc), folder; gen.tests job shown live (passages read, tests landing as cards from « Writing
+    sections (docs.show toc), folder; the index gate of §7 shown before the run (« Index not ready » with Reindex and
+    Generate disabled for a document of the scope not indexed, « Index not up to date » with Reindex for a stale one,
+    Generate disabled while an index runs); gen.tests job shown live (passages read, tests landing as cards from « Writing
     local-… » progress); at the end check.run on the new tests, then the summary (written, requirements covered, not
     covered + why) and « Review these tests ».
   - **Documents** — list (code · version, title, status, search state from docs.list.indexed, warnings);
@@ -1087,8 +1108,10 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
     running in that project refuses it, a model download does not), then **Search pack** (`#/setup/pack`): the four packs with their models and
     download; above them « Analyse my machine » (`models.hardware {refresh}`, then `models.packs` again) lists the
     system and arch, CPU, memory and the GPU Testimus can use. Until it ran, no pack shows a fit and none is
-    preselected; after it, each pack has its fit (« Not supported here » included) and the suggestion is preselected
-    (the heaviest pack that fits without a GGUF on the processor; Light when the hardware is unknown); « Analyse
+    preselected; after it, each pack has its fit (« Not supported here » and « Untested here » included), « Processor
+    only » beside it when the pack is made for a GPU and runs here on the processor, a warning line saying either,
+    and the suggestion is preselected (the rule of `models packs` above: on a PC without a usable GPU it is Light);
+    « Analyse
     again » measures anew, « Use <pack> » (dry run; the models-folder dialog when a download needs a folder; then
     `models.usePack`), « Skip for now ».
   - **Settings** — Project, Step fields, Tracked ids, Claude, Search, Models, Access, Appearance. Every change saves at once.
@@ -1126,7 +1149,11 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
 - Mock: `serve --mock` also fakes the models side, without network and without touching the PC's models: a machine profile
   (`TESTIMUS_MOCK_MACHINE` = `gpu16` default — 16 GB GPU, 32 GB RAM; `gpu-small` — 4 GB GPU, 16 GB: Quality « GPU too
   small », Balanced « tight »; `cpu-only` — no GPU, 6 GB: Quality not available; `unknown` — a GPU without a VRAM
-  figure; `dev` — the development PC; `mac` — macOS arm64, 32 GB, no GPU: Quality « not supported here »), written to `<sandbox>/machine.json` as `TESTIMUS_MACHINE` unless that is set;
+  figure; `dev` — the development PC; `mac` — macOS arm64, 32 GB, no GPU: Quality « not supported here », the others
+  « untested here »; `mac-intel` — macOS x64, onnxruntime 1.23.2, 64 GB, no GPU: Performance and Balanced « processor
+  only », Light suggested), written to `<sandbox>/machine.json` as `TESTIMUS_MACHINE` unless that is set;
+  the probe after a download (`TESTIMUS_MOCK_PROBE` = `ok` default, journalled like a real load · `fail`: the model
+  does not run here);
   a llama.cpp build
   (`TESTIMUS_MOCK_LLAMACPP` = `found` default · `absent`: fetched by a simulated job); the models folder
   (`TESTIMUS_MOCK_MODELS_DIR` = `set` default · `unset`: the first download asks for it). Two models are registered by

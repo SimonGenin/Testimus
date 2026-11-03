@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   checkGenInput,
   genPrompt,
+  indexGate,
   PLAN_MARKER,
   PLAN_TAG,
   parseGenReport,
@@ -22,6 +23,7 @@ import { readTest } from "../../src/core/lib/store.ts";
 import { mockSpawnClaude } from "../../src/core/mock/claude.ts";
 import "../../src/core/mock/claude-gen.ts";
 import type { JobEvent } from "../../src/core/types.ts";
+import { markIndexed } from "./index-helpers.ts";
 
 const FIXTURE = join(import.meta.dirname, "..", "fixtures", "project");
 const DOC_MD = readFileSync(join(FIXTURE, "docs", "SOSIE_211_D401-1_3", "doc.md"), "utf8");
@@ -85,6 +87,7 @@ const norm = (s: string) => s.replace(/\s+/g, " ");
 beforeEach(() => {
   dir = join(mkdtempSync(join(tmpdir(), "testimus-gen-")), "LFRPS12");
   cpSync(FIXTURE, dir, { recursive: true });
+  markIndexed(dir);
   seen = [];
   writeSettings({ ...DEFAULT_SETTINGS, claude: { exe: "C:/bin/claude.exe" } });
 });
@@ -126,6 +129,28 @@ describe("generation prompt", () => {
     expect(() => checkGenInput({ request: "  ", docs: [" "], sections: [] })).toThrow(/Nothing to generate/);
     expect(() => checkGenInput({ request: "x", sections: ["§5.6.6"] })).toThrow(/Not a document section: §5.6.6/);
     expect(() => checkGenInput({ request: "", sections: ["DOC#§5.6.6"] })).not.toThrow();
+  });
+
+  it("refuses a scope search cannot find, and names what changed since the last index", () => {
+    rmSync(join(dir, "index"), { recursive: true, force: true });
+    expect(() => indexGate(dir, { request: "x" })).toThrow(/The index does not exist yet/);
+    markIndexed(dir, ["SOSIE_211_D401-1_3"]);
+    expect(() => indexGate(dir, { request: "x" })).toThrow(/Not indexed: SOSIE_211_D401-1_4\. Search cannot find it/);
+    expect(() => indexGate(dir, { request: "", sections: ["SOSIE_211_D401-1_4#§1"] })).toThrow(/Not indexed/);
+    expect(indexGate(dir, { request: "", docs: ["SOSIE_211_D401-1_3"] })).toEqual([]);
+    markIndexed(dir);
+    const md = join(dir, "docs", "SOSIE_211_D401-1_4", "doc.md");
+    writeFileSync(md, `${readFileSync(md, "utf8")}\nUne phrase ajoutée.\n`);
+    expect(indexGate(dir, { request: "x" })).toEqual(["SOSIE_211_D401-1_4"]);
+  });
+
+  it("gen.tests fails before any Claude run when a document in scope is not indexed", async () => {
+    markIndexed(dir, ["SOSIE_211_D401-1_3"]);
+    fake(() => [result("never")]);
+    await expect(invoke("gen.tests", { request: "", docs: ["SOSIE_211_D401-1_4"] }, { project: dir })).rejects.toThrow(
+      /Not indexed: SOSIE_211_D401-1_4/,
+    );
+    expect(seen).toEqual([]);
   });
 });
 
@@ -205,6 +230,12 @@ describe("planned generation", () => {
         ),
       ].join("\n"),
     );
+    const fixture = JSON.parse(readFileSync(join(FIXTURE, "docs", "SOSIE_211_D401-1_3", "doc.json"), "utf8"));
+    writeFileSync(
+      join(dir, "docs", "BIG_DOC", "doc.json"),
+      JSON.stringify({ ...fixture, id: "BIG_DOC", code: "BIG_DOC", title: "Big" }),
+    );
+    markIndexed(dir);
   };
 
   it("asks for a plan whenever a request takes more than one test, never inside a planned test", () => {

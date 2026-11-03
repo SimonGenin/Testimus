@@ -336,6 +336,7 @@ export type CatalogEntry = {
   rerankerKind?: "cross-encoder" | "yes-no-lm" | "http";
   size: { downloadMB: number; ramMB: number; vramMB: number };
   devices: ("gpu" | "cpu")[];
+  provenOn?: string[];
   tier: "light" | "standard" | "quality";
   lighter?: string;
   heavier?: string;
@@ -433,6 +434,7 @@ export type LoadedModel = { name: string; sizeMB: number; vramMB: number; runtim
 export type MachineProfile = {
   at: string;
   system?: { platform: string; arch: string };
+  onnx?: string | null;
   ramTotalMB: number;
   ramFreeMB: number;
   cpu: { model: string; threads: number };
@@ -440,7 +442,7 @@ export type MachineProfile = {
   drives: DriveInfo[];
   loaded: LoadedModel[];
 };
-export type FitVerdict = "fits" | "tight" | "gpu-too-small" | "ram-too-small" | "unknown" | "unsupported";
+export type FitVerdict = "fits" | "tight" | "gpu-too-small" | "ram-too-small" | "unknown" | "untested" | "unsupported";
 export type Fit = {
   verdict: FitVerdict;
   device: "gpu" | "cpu";

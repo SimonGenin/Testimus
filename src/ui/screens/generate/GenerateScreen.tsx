@@ -24,6 +24,7 @@ import { plural } from "../../lib/format.ts";
 import { type DocScope, scopeOf } from "../../lib/scope.ts";
 import { useSideWidth } from "../../lib/sideWidth.ts";
 import { errorToast } from "../../lib/toast.ts";
+import { reindexAll, settled, useUploads } from "../../lib/uploads.ts";
 import { ColumnsView } from "./ColumnsView.tsx";
 import { DocScopePicker } from "./DocScopePicker.tsx";
 import { GenActivity } from "./GenActivity.tsx";
@@ -37,6 +38,7 @@ import {
   passagesRead,
   RunHead,
 } from "./GenResult.tsx";
+import { IndexNotice } from "./IndexNotice.tsx";
 import { ReplaceTests } from "./ReplaceTests.tsx";
 
 // ponytail: the model and effort chosen here stay for the next generation until the app is closed; the project
@@ -64,6 +66,7 @@ export function GenerateScreen() {
   const [fold, setFold] = useState<{ all: boolean; flip: Set<string> }>({ all: false, flip: new Set() });
   const [now, setNow] = useState(Date.now());
   const chained = useRef<string | null>(null);
+  const uploads = useUploads();
 
   const gen = useJob(jobId);
   const job: Job | null = gen.job;
@@ -92,11 +95,15 @@ export function GenerateScreen() {
       .finally(() => setCheckingClaude(false));
   }, []);
 
-  useEffect(() => {
-    void claudeCheck();
+  const loadDocs = useCallback(() => {
     call<DocRef[]>("docs.list", {})
       .then((r) => setDocs(r ?? []))
       .catch(() => setDocs([]));
+  }, []);
+
+  useEffect(() => {
+    void claudeCheck();
+    loadDocs();
     call<Job[]>("jobs.list", {})
       .then((jobs) => {
         const last = (jobs ?? []).find((j) => j.kind === "generate");
@@ -106,7 +113,7 @@ export function GenerateScreen() {
         }
       })
       .catch(() => {});
-  }, [claudeCheck]);
+  }, [claudeCheck, loadDocs]);
 
   useEffect(() => {
     if (!running) return;
@@ -163,6 +170,17 @@ export function GenerateScreen() {
     (docs ?? []).map((d) => d.id),
   );
   const empty = !request.trim() && !scope.docs.length && !scope.sections.length;
+  // ponytail: the same scope gen.tests checks — the documents and sections picked, or every document for words alone
+  const picked = new Set([...scope.docs, ...scope.sections.map((s) => s.split("#")[0])]);
+  const searched = (docs ?? []).filter((d) => d.convertedAt && (!picked.size || picked.has(d.id)));
+  const unindexed = searched.filter((d) => d.indexed === "missing");
+  const outdated = searched.filter((d) => d.indexed === "stale");
+  const indexing = uploads.some((u) => !settled(u) && (u.job === "index" || u.phase === "indexing"));
+  const wasIndexing = useRef(indexing);
+  useEffect(() => {
+    if (wasIndexing.current && !indexing) loadDocs();
+    wasIndexing.current = indexing;
+  }, [indexing, loadDocs]);
 
   const pickModel = (m: string) => {
     setModel(m);
@@ -310,11 +328,17 @@ export function GenerateScreen() {
               </li>
               {ctxIds.length > 0 && <li>{plural(ctxIds.length, "saved context")}</li>}
             </ul>
+            <IndexNotice
+              missing={unindexed}
+              stale={outdated}
+              indexing={indexing}
+              onReindex={() => void reindexAll(loadDocs)}
+            />
             <div className="gen-go">
               <Button
                 tone={job ? "secondary" : "primary"}
                 icon="generate"
-                disabled={empty || running || starting || offline}
+                disabled={empty || running || starting || offline || unindexed.length > 0 || indexing}
                 onClick={() => void askThenGenerate()}
               >
                 {job ? "Generate again" : "Generate"}

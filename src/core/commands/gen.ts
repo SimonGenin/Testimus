@@ -21,7 +21,7 @@ export const commands: Command[] = [
   command({
     name: "gen.tests",
     summary:
-      "Generate draft tests from the documents with Claude (generate-tests skill): every expected result sourced, gaps reported. A request that takes more than one test is planned first (plan-tests skill), then written one run per test, several at a time (agents setting).",
+      "Generate draft tests from the documents with Claude (generate-tests skill): every expected result sourced, gaps reported. A request that takes more than one test is planned first (plan-tests skill), then written one run per test, several at a time (agents setting). Refused while a document in scope is not indexed (rag.index); one changed since its last index only warns.",
     input: z.object({
       request: z
         .string()

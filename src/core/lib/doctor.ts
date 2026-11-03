@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { dirname, parse } from "node:path";
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
-import { LEGACY_ORT, legacyOrt } from "../rag/runtimes/ort.ts";
+import { LEGACY_ORT, legacyOrt, onnxVersion } from "../rag/runtimes/ort.ts";
 import { LOOPBACK, loopbackProxyGap, shellOf } from "../shell.ts";
 import type { CatalogEntry, DoctorAction, DoctorCheck, MachineProfile, ResolvedModel } from "../types.ts";
 import { jiraCreds, xrayCreds } from "./creds.ts";
@@ -75,8 +75,7 @@ export async function sqliteCheck(): Promise<DoctorCheck> {
 export async function onnxCheck(): Promise<DoctorCheck> {
   const label = "Embedding runtime (onnxruntime-node)";
   try {
-    const ort = (await import("onnxruntime-node")) as { env?: { versions?: { node?: string } } };
-    return row("onnx", label, "ok", `onnxruntime ${ort.env?.versions?.node ?? "loaded"}`);
+    return row("onnx", label, "ok", `onnxruntime ${await onnxVersion()}`);
   } catch (e) {
     const fix = legacyOrt()
       ? `On an Intel Mac Testimus needs ${LEGACY_ORT} (onnxruntime-node 1.23.2, the last one built for it): run npm install in the Testimus folder.`

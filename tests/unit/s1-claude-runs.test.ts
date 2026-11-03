@@ -12,6 +12,7 @@ import { sha256 } from "../../src/core/lib/hash.ts";
 import { DEFAULT_SETTINGS, readProject, writeProject, writeSettings } from "../../src/core/lib/project.ts";
 import { readCheck, readTest } from "../../src/core/lib/store.ts";
 import type { JobEvent } from "../../src/core/types.ts";
+import { markIndexed } from "./index-helpers.ts";
 
 const FIXTURE = join(import.meta.dirname, "..", "fixtures", "project");
 const real = env.spawnClaude;
@@ -57,6 +58,7 @@ const setReviewLine = (id: string, review: string) =>
 beforeEach(() => {
   dir = join(mkdtempSync(join(tmpdir(), "testimus-s1-")), "LFRPS12");
   cpSync(FIXTURE, dir, { recursive: true });
+  markIndexed(dir);
   writeSettings({ ...DEFAULT_SETTINGS, claude: { exe: "C:/bin/claude.exe" } });
   seen = [];
 });

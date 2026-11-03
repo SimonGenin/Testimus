@@ -120,10 +120,10 @@ describe("pack cards (models.packs)", () => {
 });
 
 describe("first launch (decision 11)", () => {
-  it("suggests the pack that fits best; Light when the hardware is unknown", () => {
+  it("suggests the pack that fits best; Light when the hardware is unknown or a GPU pack would run on the processor", () => {
     expect(suggestPack(devPc)).toBe("quality");
-    expect(suggestPack(cpuLaptop)).toBe("performance");
-    expect(suggestPack(amdPc)).toBe("performance");
+    expect(suggestPack(cpuLaptop)).toBe("light");
+    expect(suggestPack(amdPc)).toBe("light");
     expect(suggestPack(null)).toBe("light");
     expect(suggestPack({ ...cpuLaptop, ramTotalMB: 1500, ramFreeMB: 1000 })).toBe("light");
   });

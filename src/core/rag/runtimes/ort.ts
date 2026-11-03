@@ -11,6 +11,11 @@ export function legacyOrt(): boolean {
   return process.platform === "darwin" && process.arch === "x64";
 }
 
+export async function onnxVersion(): Promise<string> {
+  const ort = (await import("onnxruntime-node")) as { env?: { versions?: { node?: string } } };
+  return ort.env?.versions?.node ?? "loaded";
+}
+
 function root(specifier: string, base: string): string {
   const json = findPackageJSON(specifier, base);
   if (!json) throw new Error(`${specifier} not found`);

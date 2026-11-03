@@ -696,3 +696,17 @@ button.stree-tw:hover {
     animation: none;
   }
 }
+
+.gen-index p {
+  margin: 0;
+}
+
+.gen-index-stale {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 12px;
+  border-radius: var(--radius-s);
+  background: var(--warn-bg);
+  font-size: 13px;
+}

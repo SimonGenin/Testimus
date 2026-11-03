@@ -604,6 +604,33 @@ describe("Generate screen", () => {
     expect(a.navigate).toHaveBeenCalledWith("doctor");
   });
 
+  it("refuses a scope that is not indexed, warns when it is out of date, and reindexes from here", async () => {
+    base();
+    let built = false;
+    const doc = (id: string, title: string, indexed: string) => ({ id, code: id, title, convertedAt: at, indexed });
+    api.routes["docs.list"] = () => [
+      doc("D1", "Traction", built ? "fresh" : "missing"),
+      doc("D2", "Signaux", "stale"),
+      { id: "D3", code: "D3", title: "Brouillon", indexed: "missing" },
+    ];
+    api.routes["rag.index"] = () => {
+      built = true;
+      return { chunks: 3 };
+    };
+    mount(<GenerateScreen />);
+    expect(await screen.findByText("Index not ready")).toBeInTheDocument();
+    expect(screen.getByText(/1 document in scope is not indexed: D1\. Search cannot find it/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Generate" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Reindex" }));
+    expect(await screen.findByText("Index not up to date")).toBeInTheDocument();
+    expect(named("rag.index")).toHaveLength(1);
+    expect(screen.queryByText("Index not ready")).toBeNull();
+    expect(screen.getByText(/D2 changed since the last index/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Generate" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("checkbox", { name: /Signaux/ }));
+    expect(screen.queryByText("Index not up to date")).toBeNull();
+  });
+
   it("an unreadable Claude status does not block generating", async () => {
     base();
     delete api.routes["claude.status"];

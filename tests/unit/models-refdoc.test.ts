@@ -5,6 +5,7 @@ import { quietCtx } from "../../src/core/command.ts";
 import { invoke } from "../../src/core/commands/index.ts";
 import { env } from "../../src/core/env.ts";
 import { SHIPPED } from "../../src/core/lib/models-catalog.ts";
+import { pinMachineProfile } from "../../src/core/lib/models-hardware.ts";
 import { packRows } from "../../src/core/lib/models-packs.ts";
 import {
   evalReports,
@@ -13,6 +14,7 @@ import {
   refdocScore,
   refdocText,
 } from "../../src/core/lib/models-quality.ts";
+import { mockMachine } from "../../src/core/mock/machine.ts";
 import { hooks, parseSections } from "../../src/core/rag/chunk.ts";
 import { type EvalReport, readBehaviors } from "../../src/core/rag/eval.ts";
 import { measureRefdoc, publishedMeasure, REFDOC, refdocDir, refdocSource } from "../../src/core/rag/refdoc.ts";
@@ -23,10 +25,12 @@ const realMock = env.mock;
 beforeEach(() => {
   env.mock = true;
   hooks.describeChunks = null;
+  pinMachineProfile(mockMachine("dev"));
 });
 
 afterEach(() => {
   env.mock = realMock;
+  pinMachineProfile(null);
 });
 
 const report = (ranks: (number | null)[], over: Partial<EvalReport["config"]> = {}): EvalReport =>

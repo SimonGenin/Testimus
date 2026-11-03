@@ -8,6 +8,8 @@ const WHY: Record<Fit["verdict"], string> = {
   "gpu-too-small": "It will run partly on the processor: indexing and search get several times slower.",
   "ram-too-small": "This PC does not have the memory to load it.",
   unknown: "Testimus does not know this GPU's memory yet: it measures it on first use.",
+  untested:
+    "It has never run on this system: it may not run at all. Testimus tries it right after the download and refuses it if it fails.",
   unsupported: "Testimus has no runtime for it on this system.",
 };
 

@@ -3,7 +3,7 @@ import { parse } from "node:path";
 import { env } from "../env.ts";
 import type { GpuInfo, LoadedModel, MachineProfile } from "../types.ts";
 
-export const MOCK_MACHINES = ["gpu16", "gpu-small", "cpu-only", "unknown", "dev", "mac"] as const;
+export const MOCK_MACHINES = ["gpu16", "gpu-small", "cpu-only", "unknown", "dev", "mac", "mac-intel"] as const;
 export type MockMachine = (typeof MOCK_MACHINES)[number];
 
 const GB = 1024;
@@ -67,6 +67,18 @@ export function mockMachine(kind: MockMachine, loaded: LoadedModel[] = []): Mach
         ramTotalMB: 32 * GB,
         ramFreeMB: 14 * GB,
         cpu: { model: "Apple M2 Pro", threads: 12 },
+        gpus: [],
+      };
+    case "mac-intel":
+      return {
+        ...base,
+        system: { platform: "darwin", arch: "x64" },
+        onnx: "1.23.2",
+        drives: [{ root: "/", freeMB: 180 * GB, totalMB: 932 * GB }],
+        loaded: [],
+        ramTotalMB: 64 * GB,
+        ramFreeMB: 15 * GB,
+        cpu: { model: "Intel(R) Core(TM) i9-9980HK CPU @ 2.40GHz", threads: 16 },
         gpus: [],
       };
     case "dev":
