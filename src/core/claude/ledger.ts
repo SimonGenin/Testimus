@@ -4,7 +4,8 @@ import { readFigures } from "../lib/docs.ts";
 import { readJson, writeJson } from "../lib/project.ts";
 import { docFigures, parseSections, type Section } from "../rag/chunk.ts";
 import { normalizeRef } from "../rag/related.ts";
-import type { GenInput, TestPlan } from "./generate.ts";
+import type { GenInput } from "./gen-prompt.ts";
+import type { TestPlan } from "./gen-reply.ts";
 import type { ToolCall } from "./stream.ts";
 
 export type Searched = { tool: string; query: string };

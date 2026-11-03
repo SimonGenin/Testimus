@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 import { findDoc } from "../lib/docs.ts";
 import { readProject, readSettings } from "../lib/project.ts";
 import type { Chunk, DocJson } from "../types.ts";
-import { languageName } from "./generate.ts";
+import { languageName } from "./gen-prompt.ts";
 import { docContexts, docRunLines, type JobRun } from "./prompt.ts";
 import { runClaude } from "./run.ts";
 

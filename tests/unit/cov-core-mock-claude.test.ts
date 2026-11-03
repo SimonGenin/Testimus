@@ -2,7 +2,7 @@ import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync } from "node
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { GEN_MARKER, REPORT_TAG } from "../../src/core/claude/generate.ts";
+import { GEN_MARKER, REPORT_TAG } from "../../src/core/claude/gen-prompt.ts";
 import type { ClaudeSpawn } from "../../src/core/env.ts";
 import { writeJson } from "../../src/core/lib/project.ts";
 import { readTest } from "../../src/core/lib/store.ts";

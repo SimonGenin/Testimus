@@ -2,7 +2,8 @@ import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 import { describeFigures } from "../claude/figures.ts";
-import { discardable, generateTests, scopeIndex } from "../claude/generate.ts";
+import { scopeIndex } from "../claude/gen-prompt.ts";
+import { discardable, generateTests } from "../claude/generate.ts";
 import { CONTEXT_IDS, DIAGNOSIS, EFFORT, MODEL, NOTE, TOKENS } from "../claude/schemas.ts";
 import { command, projectOf } from "../command.ts";
 
