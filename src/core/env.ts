@@ -21,6 +21,7 @@ export type ClaudeSpawn = {
   stdin: string;
   signal?: AbortSignal;
   onLine?(line: string): void;
+  onSpawn?(pid: number): void;
 };
 export type ClaudeOut = { code: number; stdout: string; stderr: string };
 
@@ -99,6 +100,7 @@ export function nodeSpawnClaude(run: ClaudeSpawn): Promise<ClaudeOut> {
       : spawn(exe, run.args, { cwd: run.cwd, windowsHide: true, env: process.env });
     const pid = child.pid;
     if (pid) {
+      run.onSpawn?.(pid);
       children.add(pid);
       child.on("exit", () => children.delete(pid));
     }

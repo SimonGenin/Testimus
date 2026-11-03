@@ -319,7 +319,7 @@ async function genRun(
   ctx: Ctx,
   project: string,
   input: GenInput,
-  o: { runId: string; by: string; contexts: string[]; prompt: string; label: string },
+  o: { runId: string; by: string; contexts: string[]; prompt: string; label: string; title?: string },
 ): Promise<GenRun> {
   const p = readProject(project);
   let reads = 0;
@@ -329,6 +329,7 @@ async function genRun(
     project,
     runId: o.runId,
     label: o.label,
+    ...(o.title ? { title: o.title } : {}),
     prompt: o.prompt,
     model: input.model || p.claude.model,
     effort: input.effort || p.claude.effort,
@@ -414,6 +415,12 @@ export async function generateTests(project: string, asked: GenInput, ctx: Ctx):
   if (discarded.length)
     ctx.log("info", `Deleted ${discarded.length} test(s) not validated yet: ${discarded.join(", ")}.`);
   const contexts = input.contexts ?? p.claude.contexts;
+  ctx.steps?.([
+    ...(prior ? [] : [{ id: "read", label: "Read the sources" }]),
+    { id: "write", label: "Write the tests" },
+    ...(input.check !== false ? [{ id: "check", label: "Check the new tests" }] : []),
+  ]);
+  if (!prior) ctx.step?.("read");
   ctx.progress({ message: "Reading passages" });
   const runId = prior?.runId ?? newRunId();
   const by = asked.resume?.trim() || ctx.jobId || runId;
@@ -425,11 +432,13 @@ export async function generateTests(project: string, asked: GenInput, ctx: Ctx):
         contexts,
         prompt: genPrompt(project, input, contexts, runId),
         label: "generate",
+        title: "read and write",
       });
   const plan = prior?.plan ?? (first && !first.tests.length && first.run.ok ? parsePlan(first.run.summary) : null);
   const of = plan?.found ? plan.tests.length : 0;
   const done = new Set(prior?.done ?? []);
   const todo = plan?.found ? plan.tests.map((t, k) => ({ t, k })).filter(({ k }) => !done.has(k)) : [];
+  if (todo.length) ctx.step?.("write");
   if (prior) ctx.log("info", `Resuming the plan: ${todo.length} of ${of} test(s) left.`);
   const set = agentsSetting();
   if (todo.length && !prior)
@@ -461,6 +470,7 @@ export async function generateTests(project: string, asked: GenInput, ctx: Ctx):
           contexts,
           prompt: genPrompt(project, part, contexts, id, { n: k + 1, of, request: input.request.trim() }),
           label: `generate ${k + 1}/${of}`,
+          title: t.summary,
         });
         absorbRun(project, runId, id);
         finished++;
@@ -494,6 +504,7 @@ export async function generateTests(project: string, asked: GenInput, ctx: Ctx):
   for (const id of tests) stampTest(project, id, by, input.folder?.trim() || undefined);
   const checks: GenCheck[] = [];
   if (tests.length && input.check !== false && !ctx.signal.aborted) {
+    ctx.step?.("check");
     ctx.progress({ message: `Checking ${tests.length} new test(s)` });
     for (const r of await checkTests(ctx, project, tests, true)) {
       const n = (s: string) => r.check.findings.filter((f) => f.severity === s).length;

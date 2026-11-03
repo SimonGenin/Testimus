@@ -4,6 +4,7 @@ import { join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { UserError } from "../command.ts";
 import { env, resolveExe } from "../env.ts";
+import { withProcess } from "../jobs.ts";
 import { perfScope, recordPerf } from "../lib/models-perf.ts";
 import { readJson, writeJson } from "../lib/project.ts";
 import type { ClaudeEvent, ClaudeResult, ClaudeScope, Effort } from "../types.ts";
@@ -249,6 +250,8 @@ export type RunOpts = {
   runId?: string;
   files?: boolean;
   label?: string;
+  // ponytail: how the run is named in its job's processes (a test's title); the label otherwise
+  title?: string;
   onEvent?(e: ClaudeEvent): void;
 };
 
@@ -305,16 +308,23 @@ export async function runClaude(o: RunOpts): Promise<RunResult> {
   let result: Extract<ClaudeEvent, { type: "result" }> | undefined;
   const live = streamParser((e) => o.onEvent?.(e));
   const started = Date.now();
-  const out = await env
-    .spawnClaude({
-      exe: shell.exe,
-      args: shell.args,
-      cwd: project,
-      stdin: o.prompt,
-      signal: o.signal,
-      onLine: (l) => live.push(`${l}\n`),
-    })
-    .catch((err: unknown) => ({ code: -1, stdout: "", stderr: err instanceof Error ? err.message : String(err) }));
+  const out = await withProcess(
+    `Claude · ${o.title ?? o.label ?? o.kind}`,
+    "claude -p",
+    (pid) =>
+      env
+        .spawnClaude({
+          exe: shell.exe,
+          args: shell.args,
+          cwd: project,
+          stdin: o.prompt,
+          signal: o.signal,
+          onLine: (l) => live.push(`${l}\n`),
+          onSpawn: pid,
+        })
+        .catch((err: unknown) => ({ code: -1, stdout: "", stderr: err instanceof Error ? err.message : String(err) })),
+    (r) => r.code,
+  );
   live.end();
   const whole = streamParser((e) => {
     if (e.type === "result") result = e;

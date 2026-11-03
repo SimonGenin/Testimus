@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { type Command, type Ctx, type Progress, UserError } from "../command.ts";
 import { startJob } from "../jobs.ts";
-import type { ClaudeEvent } from "../types.ts";
+import type { ClaudeEvent, JobCause } from "../types.ts";
 import { commands as actions } from "./actions.ts";
 import { commands as chat } from "./chat.ts";
 import { commands as check } from "./check.ts";
@@ -60,6 +60,7 @@ export type InvokeOpts = {
   project: string | null;
   signal?: AbortSignal;
   wait?: boolean;
+  cause?: JobCause;
   onProgress?(p: Progress): void;
   onLog?(level: "info" | "warn" | "error", message: string): void;
   onClaude?(e: ClaudeEvent): void;
@@ -86,12 +87,17 @@ export async function invoke(name: string, raw: unknown, opts: InvokeOpts): Prom
   if (!c.global && !opts.project)
     throw new UserError("No project is open.", "Open or create a project first (testimus project init <dir>).");
   if (c.job) {
+    const cause = c.cause?.(input as never) ?? opts.cause;
+    // ponytail: a job remembers how to run it again unless its input is large (an upload) or a secret's (mcp: false)
+    const text = c.mcp === false ? "" : JSON.stringify(input);
+    const rerun = text && text.length <= 20000 ? { name: c.name, input } : undefined;
     const { job, done } = startJob(
       c.job,
       subjectOf(c, input),
       opts.project,
       (ctx) => c.run(ctx, input as never),
       opts.signal,
+      { cause, rerun },
     );
     if (opts.wait === false) return { jobId: job.id };
     return await done;

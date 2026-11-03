@@ -28,6 +28,7 @@
   --ink-2: #374141;
   --ink-3: #566161;
   --accent: #00a59a;
+  --accent-ink: #00756d;
   --on-accent: #0d1111;
   --err: #b42318;
   --err-bg: #fdeeec;
@@ -58,6 +59,7 @@
     --ink-2: #bac5c5;
     --ink-3: #93a1a1;
     --accent: #00a59a;
+    --accent-ink: #3cc7bb;
     --on-accent: #0d1111;
     --err: #ff8b7b;
     --err-bg: #361b18;
@@ -88,6 +90,7 @@
   --ink-2: #bac5c5;
   --ink-3: #93a1a1;
   --accent: #00a59a;
+  --accent-ink: #3cc7bb;
   --on-accent: #0d1111;
   --err: #ff8b7b;
   --err-bg: #361b18;

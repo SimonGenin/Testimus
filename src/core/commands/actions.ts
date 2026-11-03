@@ -241,6 +241,7 @@ export const commands: Command[] = [
     mutates: true,
     job: "actions.triage",
     subject: (i) => i.docId ?? i.jobId ?? "",
+    cause: (i) => (i.jobId ? { jobId: i.jobId, why: "after-failure" } : undefined),
     async run(ctx, input) {
       const project = projectOf(ctx);
       if (!input.docId === !input.jobId) throw new UserError("Give either docId or jobId.");

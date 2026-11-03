@@ -220,10 +220,14 @@ export function handler(state: ServeState) {
         res.on("close", () => {
           if (!c.job && !res.writableEnded) ctrl.abort();
         });
+        const cause = String(req.headers["x-testimus-cause"] ?? "").match(
+          /^(after-failure|follow-up|retry) ([\w.-]+)$/,
+        );
         const result = await invoke(name, input, {
           project,
           signal: c.job ? undefined : ctrl.signal,
           wait: url.searchParams.get("wait") === "1",
+          ...(cause ? { cause: { jobId: cause[2], why: cause[1] as "after-failure" | "follow-up" | "retry" } } : {}),
         });
         send(res, 200, result ?? null);
         return;

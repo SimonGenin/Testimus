@@ -39,17 +39,21 @@ export function useActions(filter: ActionFilter | null): Action[] {
 }
 
 // ponytail: a look by Claude is only asked for when Claude is there — without it, no job fails for nothing
-export function triageWhenClaude(input: {
-  docId?: string;
-  jobId?: string;
-  model?: string;
-  effort?: string;
-  note?: string;
-  contexts?: string[];
-}): void {
+export function triageWhenClaude(
+  input: {
+    docId?: string;
+    jobId?: string;
+    model?: string;
+    effort?: string;
+    note?: string;
+    contexts?: string[];
+  },
+  after?: string,
+): void {
   call<{ installed: boolean; signedIn: boolean | null }>("claude.status", {})
     .then((s) => {
-      if (s?.installed && s.signedIn !== false) return call("actions.triage", input);
+      if (s?.installed && s.signedIn !== false)
+        return call("actions.triage", input, undefined, after ? { jobId: after, why: "follow-up" } : undefined);
     })
     .catch(() => {});
 }

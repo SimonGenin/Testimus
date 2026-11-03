@@ -610,6 +610,29 @@ export type ChatSession = { id: string; sessionId?: string; title: string; turns
 // Jobs (SPEC §2)
 
 export type JobStatus = "running" | "done" | "failed" | "cancelled";
+export type JobCause = { jobId: string; why: "after-failure" | "follow-up" | "retry" };
+export type StepStatus = "waiting" | "running" | "done" | "failed" | "cancelled" | "skipped";
+export type JobStep = {
+  id: string;
+  label: string;
+  status: StepStatus;
+  startedAt?: string;
+  endedAt?: string;
+  done?: number;
+  total?: number;
+  message?: string;
+  jobId?: string;
+};
+export type JobProcess = {
+  id: string;
+  label: string;
+  command: string;
+  pid?: number;
+  step?: string;
+  startedAt: string;
+  endedAt?: string;
+  exit?: number | null;
+};
 export type Job = {
   id: string;
   kind: string;
@@ -621,7 +644,14 @@ export type Job = {
   message?: string;
   result?: unknown;
   error?: string;
+  fix?: string;
   pid?: number;
+  parentId?: string;
+  cause?: JobCause;
+  steps?: JobStep[];
+  processes?: JobProcess[];
+  interrupted?: true;
+  rerun?: { name: string; input: unknown };
 };
 export type PullStage =
   | {
@@ -648,9 +678,12 @@ export type JobEvent =
       done?: number;
       total?: number;
       pull?: PullInfo;
+      step?: string;
     }
-  | { jobId: string; at: string; type: "log"; level: "info" | "warn" | "error"; message: string }
-  | { jobId: string; at: string; type: "claude"; event: ClaudeEvent }
+  | { jobId: string; at: string; type: "log"; level: "info" | "warn" | "error"; message: string; step?: string }
+  | { jobId: string; at: string; type: "claude"; event: ClaudeEvent; step?: string; process?: string }
+  | { jobId: string; at: string; type: "steps"; steps: JobStep[] }
+  | { jobId: string; at: string; type: "process"; process: JobProcess }
   | { jobId: string; at: string; type: "changed"; paths: string[] }
   | { jobId: ""; at: string; type: "notice"; message: string };
 

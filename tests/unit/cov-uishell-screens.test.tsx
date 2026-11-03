@@ -99,8 +99,13 @@ describe("Jobs screen", () => {
     expect(
       await screen.findByText("1 running · long work runs here, you can keep working meanwhile"),
     ).toBeInTheDocument();
-    const rows = within(list()).getAllByRole("row").slice(1);
+    const jobRows = () =>
+      within(list())
+        .getAllByRole("row")
+        .filter((r) => r.hasAttribute("aria-selected"));
+    const rows = jobRows();
     expect(rows).toHaveLength(4);
+    expect(within(list()).getByRole("columnheader", { name: /^Running · 1$/ })).toBeInTheDocument();
     expect(rows[0]).toHaveAttribute("aria-selected", "true");
     expect(within(rows[0]).getByRole("progressbar", { name: "Generate tests progress" })).toHaveAttribute(
       "aria-valuenow",
@@ -111,7 +116,8 @@ describe("Jobs screen", () => {
     expect(within(rows[1]).getByText("0:09")).toBeInTheDocument();
     expect(within(rows[2]).getByText("—")).toBeInTheDocument();
     expect(within(rows[2]).getByText("Cancelled")).toBeInTheDocument();
-    expect(within(rows[3]).getByText("Failed · Claude stopped")).toBeInTheDocument();
+    expect(within(rows[3]).getByText("Failed")).toBeInTheDocument();
+    expect(within(rows[3]).getByText("Claude stopped")).toBeInTheDocument();
     act(() => {
       FakeES.emit({ jobId: "g1", at: "", type: "progress", message: "Writing 2", done: 2, total: 4 });
       FakeES.emit({ jobId: "g1", at: "", type: "progress", message: "Still writing" });
@@ -120,7 +126,7 @@ describe("Jobs screen", () => {
       FakeES.emit(status(job({ id: "n1", kind: "pull" })));
       FakeES.emit(status(job({ id: "c1", kind: "check", status: "done", result: { tests: [] } })));
     });
-    const now = within(list()).getAllByRole("row").slice(1);
+    const now = jobRows();
     expect(now).toHaveLength(5);
     expect(within(now[0]).getByText("Pull from Jira")).toBeInTheDocument();
     expect(within(now[1]).getByText("No count")).toBeInTheDocument();
@@ -128,7 +134,7 @@ describe("Jobs screen", () => {
       "aria-valuenow",
       "0",
     );
-    expect(within(now[3]).getByText("Done · 0 with findings")).toBeInTheDocument();
+    expect(within(now[3]).getByText("0 with findings")).toBeInTheDocument();
     fireEvent.click(now[2]);
     expect(state.navigate).toHaveBeenCalledWith("jobs", "x1");
     fireEvent.keyDown(now[3], { key: "Enter" });
@@ -141,7 +147,7 @@ describe("Jobs screen", () => {
     net.routes["jobs.list"] = () => [job({ id: "g1", startedAt: new Date(Date.now() - 5000).toISOString() })];
     jobsScreen();
     const row = await screen.findByText("Generate tests", { selector: "td div" });
-    const cell = () => (row.closest("tr") as HTMLElement).querySelector("td.mono")?.textContent;
+    const cell = () => (row.closest("tr") as HTMLElement).querySelector("td.jt-time .mono")?.textContent;
     const first = cell();
     await act(() => new Promise((r) => setTimeout(r, 1100)));
     expect(cell()).not.toBe(first);
@@ -215,6 +221,117 @@ describe("Jobs screen", () => {
     const base = app().info as NonNullable<AppState["info"]>;
     rerenderWith({ info: { ...base, dir: "D:\\other" } });
     await waitFor(() => expect(callsOf("jobs.list").filter((c) => !c.input?.running)).toHaveLength(2));
+  });
+
+  it("draws the tree: steps, jobs inside, processes, what went wrong, and filters and clears", async () => {
+    const end = "2026-11-02T10:01:00Z";
+    net.routes["jobs.list"] = () => [
+      job({
+        id: "add-1",
+        kind: "docs.add",
+        subject: "/Users/me/spec.pdf",
+        steps: [
+          {
+            id: "convert",
+            label: "Copy and convert",
+            status: "running",
+            done: 3,
+            total: 10,
+            message: "Page 3",
+            jobId: "conv-1",
+          },
+          { id: "cited", label: "Re-check the tests citing it", status: "waiting" },
+        ],
+        processes: [
+          {
+            id: "p1",
+            label: "Claude · figures",
+            command: "claude -p",
+            pid: 77,
+            step: "convert",
+            startedAt: "2026-11-02T10:00:01Z",
+          },
+        ],
+      }),
+      job({ id: "conv-1", kind: "docs.convert", subject: "spec", parentId: "add-1" }),
+      job({ id: "chk-1", kind: "check", subject: "t1", status: "done", endedAt: end }),
+      job({ id: "chk-2", kind: "check", subject: "t1", status: "done", endedAt: end }),
+      job({
+        id: "rag-index-0000aaaa",
+        kind: "rag-index",
+        subject: "index",
+        status: "failed",
+        endedAt: end,
+        error: "Cannot find module 'x/onnxruntime_binding.node'",
+        steps: [{ id: "embed", label: "Embed the passages", status: "failed", done: 0, total: 97 }],
+        rerun: { name: "rag.index", input: {} },
+      }),
+      job({
+        id: "tri-1",
+        kind: "actions.triage",
+        subject: "rag-index-0000aaaa",
+        status: "done",
+        endedAt: end,
+        cause: { jobId: "rag-index-0000aaaa", why: "after-failure" },
+        result: { summary: "Install the runtime." },
+      }),
+    ];
+    net.routes["jobs.clear"] = () => ({ cleared: 4 });
+    net.routes["rag.index"] = () => ({ jobId: "rag-index-0000bbbb" });
+    const { state, rerenderWith } = jobsScreen({ route: { screen: "jobs", arg: "add-1" } });
+    const side = await waitFor(() => detail("Add document job"));
+    const steps = within(side).getByRole("list", { name: "Steps" });
+    expect(within(steps).getByText("Copy and convert")).toBeInTheDocument();
+    expect(within(steps).getByText("Waiting")).toBeInTheDocument();
+    expect(within(steps).getByRole("progressbar", { name: "Copy and convert progress" })).toHaveAttribute(
+      "aria-valuenow",
+      "30",
+    );
+    expect(within(steps).getByText("Claude · figures")).toBeInTheDocument();
+    fireEvent.click(within(steps).getByRole("button", { name: /Convert document/ }));
+    expect(state.navigate).toHaveBeenCalledWith("jobs", "conv-1");
+    const rows = within(list()).getAllByRole("row");
+    const names = rows.map((r) => r.textContent ?? "");
+    expect(names.some((t) => t.startsWith("Add documentspec.pdf"))).toBe(true);
+    expect(names.some((t) => t.includes("Convert document"))).toBe(true);
+    expect(names.some((t) => t.includes("Process · claude -p · pid 77"))).toBe(true);
+    expect(names.some((t) => t.includes("Check tests×2"))).toBe(true);
+    expect(names.some((t) => t.includes("After the failure"))).toBe(true);
+    fireEvent.click(within(list()).getByRole("button", { name: "Collapse Add document" }));
+    expect(within(list()).queryByText(/pid 77/)).toBeNull();
+    const checks = within(list()).queryAllByText("Check tests").length;
+    fireEvent.click(within(list()).getByRole("button", { name: "Expand Check tests ×2" }));
+    expect(within(list()).getAllByText("Check tests")).toHaveLength(checks + 1);
+
+    rerenderWith({ route: { screen: "jobs", arg: "rag-index-0000aaaa" } });
+    const failed = await waitFor(() => detail("Index documents job"));
+    const alert = within(failed).getByRole("alert");
+    expect(alert).toHaveTextContent("The search runtime is missing on this machine");
+    expect(alert).toHaveTextContent("Step 1 of 1 · Embed the passages · stopped at 0 of 97");
+    fireEvent.click(within(alert).getByRole("button", { name: /Technical details/ }));
+    expect(within(alert).getByText(/onnxruntime_binding/)).toBeInTheDocument();
+    expect(within(failed).getByText("Install the runtime.")).toBeInTheDocument();
+    fireEvent.click(within(alert).getByRole("button", { name: "Open the diagnosis" }));
+    expect(state.navigate).toHaveBeenCalledWith("jobs", "tri-1");
+    fireEvent.click(within(alert).getByRole("button", { name: /Run again/ }));
+    await waitFor(() => expect(state.navigate).toHaveBeenCalledWith("jobs", "rag-index-0000bbbb"));
+
+    fireEvent.click(within(list()).getByRole("button", { name: /^Failed/ }));
+    expect(within(list()).queryByText("Add document")).toBeNull();
+    fireEvent.change(within(list()).getByRole("textbox", { name: "Filter jobs" }), { target: { value: "zzz" } });
+    expect(await within(list()).findByText("No job matches")).toBeInTheDocument();
+    fireEvent.click(within(list()).getByRole("button", { name: "Clear the filters" }));
+    expect(within(list()).getByText("Add document")).toBeInTheDocument();
+    fireEvent.change(within(list()).getByRole("combobox"), { target: { value: "check" } });
+    expect(within(list()).queryByText("Add document")).toBeNull();
+    fireEvent.click(within(list()).getByRole("checkbox", { name: "Group repeats" }));
+    expect(within(list()).getAllByText("Check tests")).toHaveLength(2);
+
+    fireEvent.click(within(list()).getByRole("button", { name: /Clear finished/ }));
+    const dialog = await screen.findByRole("dialog", { name: "Clear 4 finished jobs?" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Clear" }));
+    await waitFor(() => expect(callsOf("jobs.clear")).toHaveLength(1));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
   it("draws each job state", () => {

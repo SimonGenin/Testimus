@@ -223,6 +223,13 @@ export async function indexProject(
   } = {},
 ): Promise<IndexReport> {
   const t0 = Date.now();
+  ctx.steps?.([
+    { id: "model", label: "Find the search model" },
+    { id: "chunk", label: "Cut the documents into passages" },
+    { id: "embed", label: "Embed the passages" },
+    { id: "save", label: "Save the index" },
+  ]);
+  ctx.step?.("model");
   const { model, degraded } = await chooseModel(project, opts);
   const live = !opts.dbFile;
   const db = openDb(opts.dbFile ?? indexFile(project));
@@ -232,6 +239,7 @@ export async function indexProject(
     if (opts.force) db.exec("delete from docs");
     const docs = projectDocs(project);
     const report: IndexReport["docs"] = [];
+    ctx.step?.("chunk");
     for (const [i, d] of docs.entries()) {
       if (ctx.signal.aborted) throw new Error("Indexing cancelled.");
       ctx.progress({ message: `Chunking ${d.doc.id}`, done: i, total: docs.length });
@@ -253,6 +261,7 @@ export async function indexProject(
     let embedded = 0;
     let vectorsRebuilt = false;
     if (model) {
+      ctx.step?.("embed");
       space = adopt(db, model);
       if (opts.force) db.exec(`delete from ${vecTable(space.id)}`);
       vectorsRebuilt = vectorCount(db, space.id) === 0;
@@ -281,6 +290,7 @@ export async function indexProject(
       const now = env.now().toISOString();
       setSpace(db, space.id, { complete: true, builtAt: now, lastUsed: now });
     } else ctx.log("warn", degraded ?? "No embedding model: lexical index only.");
+    ctx.step?.("save");
     ctx.progress({ message: "Index up to date", done: embedded, total: embedded });
     const embedding = model?.entry.id ?? "none";
     const dims = space?.dims ?? 0;

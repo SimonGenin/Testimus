@@ -66,6 +66,7 @@ async function semanticPass(
     project,
     runId,
     label: "check",
+    title: `check ${id}`,
     prompt: checkPrompt(id, mechanical, p.language, runId),
     model: p.claude.model,
     effort: p.claude.effort,

@@ -35,9 +35,16 @@ import { renderPage } from "../rag/pdf.ts";
 import type { DocConversion, DocJson } from "../types.ts";
 import { CONTEXT_IDS, EFFORT, MODEL, NOTE } from "./claude.ts";
 
+const AFTER_CONVERT = [
+  { id: "figures", label: "Describe the figures" },
+  { id: "cited", label: "Re-check the tests citing it" },
+  { id: "triage", label: "Look at the conversion problems" },
+];
+
 async function withFigures(ctx: Ctx, doc: DocJson, claude: JobRun, on: boolean | undefined): Promise<DocJson> {
   const project = projectOf(ctx);
   if (!(on ?? shouldDescribeFigures(project)) || !doc.stats?.figures) return doc;
+  ctx.step?.("figures");
   try {
     ctx.progress({ message: "Claude describes the figures" });
     await describeFigures(project, doc.id, ctx, claude);
@@ -51,6 +58,7 @@ async function withFigures(ctx: Ctx, doc: DocJson, claude: JobRun, on: boolean |
 // Claude action for those it can fix; a failed look never fails the import
 async function withTriage(ctx: Ctx, doc: DocJson, claude: JobRun, on: boolean | undefined): Promise<void> {
   if (!on || !doc.warnings.length) return;
+  ctx.step?.("triage");
   try {
     const problems = doc.warnings.map((text) => ({ where: `doc:${doc.id}`, text }));
     const project = projectOf(ctx);
@@ -407,6 +415,16 @@ export const commands: Command[] = [
       const pdf = input.pdfBase64 ? save(input.pdfName ?? "rendering.pdf", input.pdfBase64) : input.pdf;
       try {
         const studied = input.convert && (input.study || !!input.conversion);
+        ctx.steps?.(
+          input.convert
+            ? [
+                ...(studied ? [{ id: "copy", label: "Copy the original" }] : []),
+                { id: "convert", label: studied ? "Study and convert" : "Copy and convert" },
+                ...AFTER_CONVERT,
+              ]
+            : [{ id: "copy", label: "Copy the original" }],
+        );
+        ctx.step?.(studied || !input.convert ? "copy" : "convert");
         const added = await addDoc(
           project,
           { file, pdf, id: input.id, kind: input.kind, convert: input.convert && !studied },
@@ -420,12 +438,14 @@ export const commands: Command[] = [
         if (!input.convert) return { ...doc, citedBy: [] };
         if (studied)
           try {
+            ctx.step?.("convert");
             doc = await convertWith(ctx, doc.id, input, runOf(input));
           } catch (e) {
             rmSync(docDir(project, doc.id), { recursive: true, force: true });
             throw e;
           }
         await withFigures(ctx, doc, runOf(input), input.describeFigures);
+        ctx.step?.("cited");
         const citing = recheckCiting(ctx, doc);
         if (!input.study) await withTriage(ctx, doc, runOf(input), input.triage);
         return { ...doc, citedBy: citing };
@@ -472,12 +492,15 @@ export const commands: Command[] = [
       const project = projectOf(ctx);
       if (input.pdf) attachPdf(project, input.id, input.pdf);
       if (input.docx) attachDocx(project, input.id, input.docx);
+      ctx.steps?.([{ id: "convert", label: input.study ? "Study and convert" : "Convert to text" }, ...AFTER_CONVERT]);
+      ctx.step?.("convert");
       const doc = await withFigures(
         ctx,
         await convertWith(ctx, input.id, input, runOf(input)),
         runOf(input),
         input.describeFigures,
       );
+      ctx.step?.("cited");
       const citing = recheckCiting(ctx, doc);
       if (!input.study) await withTriage(ctx, doc, runOf(input), input.triage);
       return { ...doc, citedBy: citing };

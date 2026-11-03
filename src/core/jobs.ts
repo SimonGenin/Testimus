@@ -1,18 +1,20 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { randomBytes } from "node:crypto";
-import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
-import type { Ctx } from "./command.ts";
+import { type Ctx, UserError } from "./command.ts";
 import { env } from "./env.ts";
 import { changedPaths, stampProject } from "./lib/changed.ts";
 import { withPerfScope } from "./lib/models-perf.ts";
-import type { Job, JobEvent } from "./types.ts";
+import type { Job, JobCause, JobEvent, JobProcess, JobStep } from "./types.ts";
 
 type Live = { job: Job; ctrl: AbortController; events: JobEvent[]; project: string | null; done: Promise<unknown> };
 
 const live = new Map<string, Live>();
 const listeners = new Set<(e: JobEvent) => void>();
-const current = new AsyncLocalStorage<{ ctx: Ctx; job: Job }>();
+const current = new AsyncLocalStorage<{ ctx: Ctx; job: Job; live: Live; process?: string }>();
+
+const runningStep = (job: Job): JobStep | undefined => job.steps?.find((s) => s.status === "running");
 
 // ponytail: code deep under a job (the Jira/Xray client waiting out a 429) says so in the job's progress line
 // without being handed the job's context; the returned function puts the previous line back if still ours
@@ -58,20 +60,96 @@ function emit(l: Live, e: JobEvent): void {
   for (const fn of listeners) fn(e);
 }
 
+function emitSteps(l: Live): void {
+  emit(l, {
+    jobId: l.job.id,
+    at: env.now().toISOString(),
+    type: "steps",
+    steps: (l.job.steps ?? []).map((s) => ({ ...s })),
+  });
+}
+
+function emitProcess(l: Live, p: JobProcess): void {
+  emit(l, { jobId: l.job.id, at: env.now().toISOString(), type: "process", process: { ...p } });
+}
+
+// ponytail: a program a job starts (a Claude run, a model server) is recorded on the job with its pid and exit, and
+// the Claude events it streams say which process they came from; outside a job fn just runs
+export async function withProcess<T>(
+  label: string,
+  commandLine: string,
+  fn: (pid: (n?: number) => void) => Promise<T>,
+  exitOf: (r: T) => number | null,
+): Promise<T> {
+  const c = current.getStore();
+  if (!c) return await fn(() => {});
+  const l = c.live;
+  const p: JobProcess = {
+    id: `p${(l.job.processes?.length ?? 0) + 1}`,
+    label,
+    command: commandLine,
+    startedAt: env.now().toISOString(),
+    ...(runningStep(l.job) ? { step: runningStep(l.job)?.id } : {}),
+  };
+  l.job.processes = [...(l.job.processes ?? []), p];
+  emitProcess(l, p);
+  const end = (exit: number | null) => {
+    p.endedAt = env.now().toISOString();
+    p.exit = exit;
+    emitProcess(l, p);
+  };
+  try {
+    const r = await current.run({ ...c, process: p.id }, () =>
+      fn((n) => {
+        if (!n) return;
+        p.pid = n;
+        emitProcess(l, p);
+      }),
+    );
+    end(exitOf(r));
+    return r;
+  } catch (e) {
+    end(null);
+    throw e;
+  }
+}
+
 export function startJob(
   kind: string,
   subject: string,
   project: string | null,
   work: (ctx: Ctx) => Promise<unknown>,
   outer?: AbortSignal,
+  extra: { cause?: JobCause; rerun?: { name: string; input: unknown } } = {},
 ): { job: Job; done: Promise<unknown> } {
   const id = `${kind.replace(/\W+/g, "-")}-${randomBytes(4).toString("hex")}`;
   const ctrl = new AbortController();
   outer?.addEventListener("abort", () => ctrl.abort(), { once: true });
-  const job: Job = { id, kind, subject, status: "running", startedAt: env.now().toISOString(), pid: process.pid };
+  const parent = current.getStore();
+  const job: Job = {
+    id,
+    kind,
+    subject,
+    status: "running",
+    startedAt: env.now().toISOString(),
+    pid: process.pid,
+    ...(parent ? { parentId: parent.job.id } : {}),
+    ...(extra.cause ? { cause: extra.cause } : {}),
+    ...(extra.rerun ? { rerun: extra.rerun } : {}),
+  };
   const l: Live = { job, ctrl, events: [], project, done: Promise.resolve() };
   live.set(id, l);
+  // ponytail: a job started while its parent is in a step carries that step, so the step opens the child's row
+  const carried = parent && runningStep(parent.job);
+  if (parent && carried && !carried.jobId) {
+    carried.jobId = id;
+    emitSteps(parent.live);
+  }
   const at = () => env.now().toISOString();
+  const where = () => {
+    const s = runningStep(job);
+    return s ? { step: s.id } : {};
+  };
   const ctx: Ctx = {
     project,
     signal: ctrl.signal,
@@ -79,6 +157,14 @@ export function startJob(
     progress(p) {
       if (p.total !== undefined) job.progress = { done: p.done ?? 0, total: p.total };
       job.message = p.message;
+      const s = runningStep(job);
+      if (s) {
+        s.message = p.message;
+        if (p.total !== undefined) {
+          s.done = p.done ?? 0;
+          s.total = p.total;
+        }
+      }
       emit(l, {
         jobId: id,
         at: at(),
@@ -87,13 +173,43 @@ export function startJob(
         done: p.done,
         total: p.total,
         ...(p.pull ? { pull: p.pull } : {}),
+        ...where(),
       });
     },
     log(level, message) {
-      emit(l, { jobId: id, at: at(), type: "log", level, message });
+      emit(l, { jobId: id, at: at(), type: "log", level, message, ...where() });
     },
     claude(event) {
-      emit(l, { jobId: id, at: at(), type: "claude", event });
+      const proc = current.getStore()?.process;
+      emit(l, { jobId: id, at: at(), type: "claude", event, ...where(), ...(proc ? { process: proc } : {}) });
+    },
+    steps(list) {
+      const known = new Map((job.steps ?? []).map((s) => [s.id, s]));
+      job.steps = [
+        ...list.map((x) => known.get(x.id) ?? { id: x.id, label: x.label, status: "waiting" as const }),
+        ...[...known.values()].filter((s) => !list.some((x) => x.id === s.id)),
+      ];
+      emitSteps(l);
+    },
+    step(stepId, label) {
+      const t = at();
+      const cur = runningStep(job);
+      if (cur?.id === stepId) return;
+      if (cur) {
+        cur.status = "done";
+        cur.endedAt = t;
+      }
+      job.steps ??= [];
+      let s = job.steps.find((x) => x.id === stepId);
+      if (!s) {
+        s = { id: stepId, label: label ?? stepId, status: "waiting" };
+        job.steps.push(s);
+      } else if (label) s.label = label;
+      for (const x of job.steps.slice(0, job.steps.indexOf(s))) if (x.status === "waiting") x.status = "skipped";
+      s.status = "running";
+      s.startedAt = t;
+      delete s.endedAt;
+      emitSteps(l);
     },
   };
   emit(l, { jobId: id, at: at(), type: "status", job: { ...job } });
@@ -102,7 +218,7 @@ export function startJob(
     try {
       const result = await withPerfScope(
         { jobId: id, project: project ?? undefined },
-        () => current.run({ ctx, job }, () => work(ctx)),
+        () => current.run({ ctx, job, live: l }, () => work(ctx)),
         ctrl.signal,
       );
       const said = (result as { cancelled?: unknown } | null)?.cancelled;
@@ -112,9 +228,19 @@ export function startJob(
     } catch (e) {
       job.status = ctrl.signal.aborted ? "cancelled" : "failed";
       job.error = e instanceof Error ? e.message : String(e);
+      if (e instanceof UserError && e.fix) job.fix = e.fix;
       throw e;
     } finally {
       job.endedAt = at();
+      if (job.steps?.length) {
+        const s = runningStep(job);
+        if (s) {
+          s.status = job.status === "done" ? "done" : job.status === "cancelled" ? "cancelled" : "failed";
+          s.endedAt = job.endedAt;
+        }
+        if (job.status === "done") for (const x of job.steps) if (x.status === "waiting") x.status = "skipped";
+        emitSteps(l);
+      }
       // ponytail: a job says which project files it left changed (a Claude run, a pull, a conversion) before it
       // ends, so every view showing one of them reads it again — whoever started the job
       const paths = project && before ? changedPaths(before, stampProject(project)) : [];
@@ -149,6 +275,7 @@ export async function cancelAll(graceMs: number): Promise<Job[]> {
   for (const l of running) {
     if (l.job.status !== "running") continue;
     l.job.status = "cancelled";
+    l.job.interrupted = true;
     l.job.error = "Stopped with Testimus.";
     l.job.endedAt = env.now().toISOString();
     emit(l, { jobId: l.job.id, at: l.job.endedAt, type: "status", job: { ...l.job } });
@@ -177,10 +304,21 @@ function fromDisk(project: string | null, id: string): { job: Job; events: JobEv
     } catch {}
   }
   let job: Job | null = null;
-  for (const e of events) if (e.type === "status") job = e.job;
+  for (const e of events) {
+    if (e.type === "status") job = { ...e.job };
+    else if (job && e.type === "steps") job.steps = e.steps;
+    else if (job && e.type === "process")
+      job.processes = [...(job.processes ?? []).filter((p) => p.id !== e.process.id), e.process];
+  }
   if (!job) return null;
   if (job.status === "running" && !live.has(id) && !alive(job.pid))
-    job = { ...job, status: "failed", error: "Interrupted (the app stopped)." };
+    job = {
+      ...job,
+      status: "failed",
+      interrupted: true,
+      error: "Interrupted (the app stopped).",
+      steps: job.steps?.map((s) => (s.status === "running" ? { ...s, status: "failed" } : s)),
+    };
   return { job, events };
 }
 
@@ -197,6 +335,20 @@ export function listJobs(project: string | null): Job[] {
   }
   for (const l of live.values()) if (l.project === project || l.project === null) out.set(l.job.id, { ...l.job });
   return [...out.values()].sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+}
+
+// ponytail: clearing forgets finished jobs — their logs go, a running job and its log are never touched
+export function clearJobs(project: string | null, ids?: string[]): number {
+  let n = 0;
+  for (const j of listJobs(project)) {
+    if (j.status === "running" || (ids && !ids.includes(j.id))) continue;
+    const owner = live.get(j.id)?.project ?? project;
+    for (const dir of new Set([owner, project]))
+      if (existsSync(logFile(dir, j.id))) rmSync(logFile(dir, j.id), { force: true });
+    live.delete(j.id);
+    n++;
+  }
+  return n;
 }
 
 export function runsIn(project: string): boolean {

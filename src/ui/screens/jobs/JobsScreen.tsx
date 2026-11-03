@@ -1,84 +1,90 @@
-import { type CSSProperties, useCallback, useEffect, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useMemo, useState } from "react";
 import type { Job } from "../../../core/types.ts";
-import { ApiError, call, events } from "../../api.ts";
-import { ClaudeActivity } from "../../components/claude/ClaudeActivity.tsx";
-import { JobLog, useJob } from "../../components/shell/JobLog.tsx";
-import { ProblemPanel } from "../../components/shell/ProblemPanel.tsx";
+import { call, events } from "../../api.ts";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
-import { Button, DragEdge, Icon, Severity, Skeleton } from "../../components/ui/index.ts";
+import { Button, Confirm, DragEdge, Icon, Segmented, Skeleton } from "../../components/ui/index.ts";
 import { useApp } from "../../lib/app.ts";
-import { cx, plural } from "../../lib/format.ts";
-import { duration, kindLabel, percent, resultLine } from "../../lib/jobs.ts";
+import { plural } from "../../lib/format.ts";
+import {
+  applyEvent,
+  groupRepeats,
+  isRunning,
+  type JobNode,
+  jobTree,
+  kindLabel,
+  sections,
+  subjectLabel,
+  subtree,
+} from "../../lib/jobs.ts";
 import { useSideWidth } from "../../lib/sideWidth.ts";
 import { errorToast } from "../../lib/toast.ts";
+import { JobDetail } from "./JobDetail.tsx";
+import { JobRows, type RowCtx } from "./JobRows.tsx";
 
-const CLI: Record<string, string> = {
-  generate: "testimus gen tests",
-  fix: "testimus review fix",
-  check: "testimus check run",
-  pull: "testimus xray pull",
-  push: "testimus xray push",
-  "docs.add": "testimus docs add",
-  "docs.convert": "testimus docs convert",
-  "rag-index": "testimus rag index",
-  "rag-eval": "testimus rag eval",
-  "models-measure": "testimus models measure",
-  pullModel: "testimus system pull-model",
-  claude: "testimus claude run",
-  chat: "testimus chat ask",
-  "describe-figures": "testimus docs describe-figures",
-};
+export { JobState } from "./JobState.tsx";
 
-export function JobState({ job, now }: { job: Job; now: number }) {
-  const text = resultLine(job);
-  if (job.status === "running")
-    return (
-      <span className="sev s-run">
-        <span className="dot run-dot" />
-        Running · {duration(job, now)}
-      </span>
-    );
-  if (job.status === "done") return <Severity tone="ok">{text}</Severity>;
-  if (job.status === "cancelled")
-    return (
-      <span className="sev s-stop">
-        <Icon name="stop" />
-        {text}
-      </span>
-    );
-  return <Severity tone="error">{text}</Severity>;
+type StatusFilter = "all" | "running" | "failed" | "done" | "stopped";
+
+const TYPES: { id: string; label: string; kinds: (k: string) => boolean }[] = [
+  { id: "documents", label: "Documents", kinds: (k) => k.startsWith("docs.") || k === "describe-figures" },
+  { id: "index", label: "Index", kinds: (k) => k === "rag-index" || k === "search-index" },
+  { id: "generate", label: "Generate", kinds: (k) => k === "generate" },
+  { id: "check", label: "Check", kinds: (k) => k === "check" },
+  {
+    id: "claude",
+    label: "Claude runs",
+    kinds: (k) => ["claude", "actions.triage", "fix", "chat", "columns"].includes(k),
+  },
+  { id: "xray", label: "Jira and Xray", kinds: (k) => k === "pull" || k === "push" },
+  {
+    id: "models",
+    label: "Models",
+    kinds: (k) => k.startsWith("models-") || ["pullModel", "rag-eval", "gen-bench", "agents-test"].includes(k),
+  },
+];
+
+const statusOf = (j: Job): Exclude<StatusFilter, "all"> =>
+  j.status === "running"
+    ? "running"
+    : j.status === "done"
+      ? "done"
+      : j.status === "failed" && !j.interrupted
+        ? "failed"
+        : "stopped";
+
+const leaf = (job: Job): JobNode => ({ job, children: [], after: [], repeats: [] });
+
+function findNode(nodes: JobNode[], id: string): JobNode | null {
+  for (const n of nodes) {
+    if (n.job.id === id) return n;
+    const r = n.repeats.find((j) => j.id === id);
+    if (r) return leaf(r);
+    const deeper = findNode([...n.children, ...n.after], id);
+    if (deeper) return deeper;
+  }
+  return null;
 }
 
-function Progress({ job, label }: { job: Job; label: string }) {
-  const pct = percent(job);
-  if (job.status !== "running")
-    return <span className="muted">{job.progress ? `${job.progress.done} of ${job.progress.total}` : "—"}</span>;
-  return (
-    <div className="jobprog">
-      <div
-        className="prog"
-        role="progressbar"
-        aria-label={`${label} progress`}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={pct ?? undefined}
-      >
-        <span style={{ width: pct === null ? "35%" : `${pct}%` }} className={pct === null ? "prog-busy" : undefined} />
-      </div>
-      {(job.message || job.progress) && (
-        <span className="muted tbl-sub">{job.message || `${job.progress?.done} of ${job.progress?.total}`}</span>
-      )}
-    </div>
-  );
+function readGroup(): boolean {
+  try {
+    return localStorage.getItem("testimus.jobsGroup") !== "0";
+  } catch {
+    return true;
+  }
 }
 
 export function JobsScreen() {
   const app = useApp();
-  const [sideW, sideEdge] = useSideWidth("testimus.jobsSideWidth", 320, 800, "after");
+  const [sideW, sideEdge] = useSideWidth("testimus.jobsSideWidth", 360, 820, "after");
   const [jobs, setJobs] = useState<Job[] | null>(null);
   const [now, setNow] = useState(Date.now());
+  const [text, setText] = useState("");
+  const [status, setStatus] = useState<StatusFilter>("all");
+  const [type, setType] = useState("all");
+  const [group, setGroup] = useState(readGroup);
+  const [open, setOpen] = useState<Record<string, boolean>>({});
+  const [clearing, setClearing] = useState(false);
   const routeId = app.route.screen === "jobs" ? (app.route.arg ?? "") : "";
-  const activeId = routeId || jobs?.[0]?.id || "";
 
   const load = useCallback(() => {
     call<Job[]>("jobs.list", {})
@@ -92,27 +98,7 @@ export function JobsScreen() {
   // biome-ignore lint/correctness/useExhaustiveDependencies: a project switch lists its own jobs
   useEffect(() => {
     load();
-    return events((e) => {
-      if (e.type === "status")
-        setJobs((cur) => {
-          if (!cur) return cur;
-          const i = cur.findIndex((j) => j.id === e.job.id);
-          return i < 0 ? [e.job, ...cur] : cur.map((j) => (j.id === e.job.id ? e.job : j));
-        });
-      else if (e.type === "progress")
-        setJobs(
-          (cur) =>
-            cur?.map((j) =>
-              j.id === e.jobId
-                ? {
-                    ...j,
-                    message: e.message,
-                    progress: e.total !== undefined ? { done: e.done ?? 0, total: e.total } : j.progress,
-                  }
-                : j,
-            ) ?? cur,
-        );
-    });
+    return events((e) => setJobs((cur) => (cur ? applyEvent(cur, e) : cur)));
   }, [load, app.info?.dir]);
 
   const anyRunning = !!jobs?.some((j) => j.status === "running");
@@ -122,8 +108,56 @@ export function JobsScreen() {
     return () => clearInterval(t);
   }, [anyRunning]);
 
-  const running = jobs?.filter((j) => j.status === "running").length ?? 0;
-  const active = jobs?.find((j) => j.id === activeId) ?? null;
+  const byId = useMemo(() => new Map((jobs ?? []).map((j) => [j.id, j])), [jobs]);
+  const tree = useMemo(() => jobTree(jobs ?? []), [jobs]);
+  const kinds = TYPES.find((t) => t.id === type)?.kinds;
+  const needle = text.trim().toLowerCase();
+  const shown = useMemo(() => {
+    const keep = (n: JobNode) =>
+      subtree(n).some(
+        (j) =>
+          (status === "all" || statusOf(j) === status) &&
+          (!kinds || kinds(j.kind)) &&
+          (!needle ||
+            `${kindLabel(j.kind)} ${subjectLabel(j, byId)} ${j.subject} ${j.id}`.toLowerCase().includes(needle)),
+      );
+    const roots = tree.filter(keep);
+    return group ? groupRepeats(roots) : roots;
+  }, [tree, status, kinds, needle, group, byId]);
+
+  const activeId = routeId || shown[0]?.job.id || "";
+  const active = activeId ? findNode(tree, activeId) : null;
+  const counts = (s: StatusFilter) => (jobs ?? []).filter((j) => s === "all" || statusOf(j) === s).length;
+  const finished = (jobs ?? []).filter((j) => j.status !== "running").length;
+  const running = counts("running");
+  const present = TYPES.filter((t) => (jobs ?? []).some((j) => t.kinds(j.kind)));
+
+  const ctx: RowCtx = {
+    byId,
+    activeId,
+    now,
+    isOpen: (n) =>
+      open[n.job.id] ??
+      (isRunning(n) ||
+        (n.job.status === "failed" && n.after.length > 0) ||
+        (activeId !== n.job.id && subtree(n).some((j) => j.id === activeId))),
+    toggle: (id, v) => setOpen((o) => ({ ...o, [id]: v })),
+    pick: (id) => app.navigate("jobs", id),
+  };
+
+  const clear = () =>
+    call<{ cleared: number }>("jobs.clear", {})
+      .then(() => {
+        setClearing(false);
+        setJobs((cur) => cur?.filter((j) => j.status === "running") ?? cur);
+        if (routeId && byId.get(routeId)?.status !== "running") app.navigate("jobs");
+      })
+      .catch((e) => {
+        setClearing(false);
+        errorToast(e, "Could not clear the jobs");
+      });
+
+  const filtered = status !== "all" || type !== "all" || !!needle;
 
   return (
     <div className="screen">
@@ -132,138 +166,156 @@ export function JobsScreen() {
         meta={`${running ? `${running} running · ` : ""}long work runs here, you can keep working meanwhile`}
       />
       <div className="split" style={sideW ? ({ "--side-size": `${sideW}px` } as CSSProperties) : undefined}>
-        <section className="split-main scroll" aria-label="Job list">
-          {!jobs ? (
-            <table className="tbl" aria-busy="true">
-              <tbody>
-                {[0, 1, 2, 3, 4].map((i) => (
-                  <tr key={i}>
-                    <td>
-                      <Skeleton w={120} h={13} />
-                      <Skeleton w={180} h={10} />
-                    </td>
-                    <td>
-                      <Skeleton w={140} h={6} />
-                    </td>
-                    <td>
-                      <Skeleton w={36} h={12} />
-                    </td>
-                    <td>
-                      <Skeleton w={110} h={14} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : !jobs.length ? (
-            <div className="empty">
-              <Icon name="jobs" size={40} />
-              <h2 className="h">No job yet</h2>
-              <p>Adding a document, generating tests, checking them, pulling or pushing: long work shows up here.</p>
-            </div>
-          ) : (
-            <table className="tbl">
-              <thead>
-                <tr>
-                  <th scope="col">Job</th>
-                  <th scope="col">Progress</th>
-                  <th scope="col">Duration</th>
-                  <th scope="col">Result</th>
-                </tr>
-              </thead>
-              <tbody>
-                {jobs.map((j) => (
-                  <tr
-                    key={j.id}
-                    className={cx(j.id === activeId && "row-on")}
-                    aria-selected={j.id === activeId}
-                    tabIndex={0}
-                    onClick={() => app.navigate("jobs", j.id)}
-                    onKeyDown={(e) => e.key === "Enter" && app.navigate("jobs", j.id)}
+        <section className="split-main jt" aria-label="Job list">
+          <div className="jt-bar">
+            <label className="jt-search">
+              <Icon name="search" size={14} />
+              <input
+                aria-label="Filter jobs"
+                placeholder="Filter by job, document or test"
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+              />
+            </label>
+            <Segmented<StatusFilter>
+              label="Status"
+              value={status}
+              onChange={setStatus}
+              options={[
+                { value: "all", label: "All", count: counts("all") },
+                { value: "running", label: "Running", count: counts("running") },
+                { value: "failed", label: "Failed", count: counts("failed") },
+                { value: "done", label: "Done", count: counts("done") },
+                { value: "stopped", label: "Stopped", count: counts("stopped") },
+              ]}
+            />
+            {present.length > 1 && (
+              <label className="jt-type">
+                Type
+                <select value={type} onChange={(e) => setType(e.target.value)}>
+                  <option value="all">All types</option>
+                  {present.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <span className="spacer" />
+            <label className="jt-group">
+              <input
+                type="checkbox"
+                checked={group}
+                onChange={(e) => {
+                  setGroup(e.target.checked);
+                  try {
+                    localStorage.setItem("testimus.jobsGroup", e.target.checked ? "1" : "0");
+                  } catch {}
+                }}
+              />
+              Group repeats
+            </label>
+            <Button size="sm" tone="quiet" icon="trash" disabled={!finished} onClick={() => setClearing(true)}>
+              Clear finished
+            </Button>
+          </div>
+          <div className="scroll">
+            {!jobs ? (
+              <table className="tbl" aria-busy="true">
+                <tbody>
+                  {[0, 1, 2, 3, 4].map((i) => (
+                    <tr key={i}>
+                      <td>
+                        <Skeleton w={120} h={13} />
+                        <Skeleton w={180} h={10} />
+                      </td>
+                      <td>
+                        <Skeleton w={110} h={14} />
+                      </td>
+                      <td>
+                        <Skeleton w={120} h={6} />
+                      </td>
+                      <td>
+                        <Skeleton w={36} h={12} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : !jobs.length ? (
+              <div className="empty">
+                <Icon name="jobs" size={40} />
+                <h2 className="h">No job yet</h2>
+                <p>
+                  Adding, converting or indexing a document, generating or checking tests, pulling or pushing: long work
+                  runs here, with its steps, the jobs it starts and the processes it uses.
+                </p>
+              </div>
+            ) : !shown.length ? (
+              <div className="empty">
+                <h2 className="h">No job matches</h2>
+                {filtered && (
+                  <Button
+                    onClick={() => {
+                      setText("");
+                      setStatus("all");
+                      setType("all");
+                    }}
                   >
-                    <td>
-                      <div>{kindLabel(j.kind)}</div>
-                      <div className="muted tbl-sub">{j.subject}</div>
-                    </td>
-                    <td>
-                      <Progress job={j} label={kindLabel(j.kind)} />
-                    </td>
-                    <td className="mono">{duration(j, now)}</td>
-                    <td>
-                      <JobState job={j} now={now} />
-                    </td>
+                    Clear the filters
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <table className="tbl jt-tbl" aria-label="Jobs">
+                <thead>
+                  <tr>
+                    <th scope="col">Job</th>
+                    <th scope="col" className="jt-col-status">
+                      Status
+                    </th>
+                    <th scope="col" className="jt-col-prog">
+                      Progress
+                    </th>
+                    <th scope="col" className="jt-col-time">
+                      Time
+                    </th>
                   </tr>
+                </thead>
+                {sections(shown, now).map((s) => (
+                  <tbody key={s.title}>
+                    <tr className="jt-section">
+                      <th colSpan={4} scope="colgroup" className={s.title === "Running" ? "t-run" : undefined}>
+                        {s.title} · {s.nodes.length}
+                      </th>
+                    </tr>
+                    {s.nodes.map((n) => (
+                      <JobRows key={n.job.id} node={n} depth={0} c={ctx} />
+                    ))}
+                  </tbody>
                 ))}
-              </tbody>
-            </table>
-          )}
+              </table>
+            )}
+          </div>
         </section>
         {active && <DragEdge className="side-edge" label="Resize the job details" {...sideEdge} />}
-        {active && <JobDetail job={active} now={now} />}
+        {active && <JobDetail node={active} byId={byId} now={now} onOpen={ctx.pick} />}
       </div>
+      {clearing && (
+        <Confirm
+          title={`Clear ${plural(finished, "finished job")}?`}
+          confirm="Clear"
+          danger
+          onConfirm={() => void clear()}
+          onClose={() => setClearing(false)}
+        >
+          <p>
+            Done, failed and cancelled jobs leave the list and their logs are deleted from the project folder. Running
+            jobs stay. Tests, documents and the index are not touched.
+          </p>
+        </Confirm>
+      )}
     </div>
-  );
-}
-
-function JobDetail({ job: listed, now }: { job: Job; now: number }) {
-  const app = useApp();
-  const { job: live, events: list } = useJob(listed.id);
-  const job = live && (live.status !== "running" || listed.status === "running") ? { ...listed, ...live } : listed;
-  const cancel = () => call("jobs.cancel", { id: job.id }).catch((e) => errorToast(e, "Could not cancel the job"));
-  const r = (job.result ?? {}) as { tests?: string[] };
-  const pct = percent(job);
-  return (
-    <aside className="split-side jobdetail" aria-label={`${kindLabel(job.kind)} job`}>
-      <div className="jobdetail-head">
-        <h2 className="h jobdetail-title">{kindLabel(job.kind)}</h2>
-        <JobState job={job} now={now} />
-        <span className="spacer" />
-        {job.status === "running" && (
-          <Button size="sm" icon="stop" onClick={() => void cancel()}>
-            Cancel
-          </Button>
-        )}
-      </div>
-      <p className="muted">{job.subject}</p>
-      {job.status === "running" && (
-        <>
-          <div
-            className="prog"
-            role="progressbar"
-            aria-label={`${kindLabel(job.kind)} progress`}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={pct ?? undefined}
-          >
-            <span
-              style={{ width: pct === null ? "35%" : `${pct}%` }}
-              className={pct === null ? "prog-busy" : undefined}
-            />
-          </div>
-          {job.message && <p>{job.message}</p>}
-        </>
-      )}
-      {job.status === "failed" && (
-        <ProblemPanel error={new ApiError(job.error ?? "The job failed.")} doing={kindLabel(job.kind)} />
-      )}
-      {job.kind === "generate" && job.status === "done" && !!r.tests?.length && (
-        <div className="jobdetail-actions">
-          <Button tone="primary" icon="right" onClick={() => app.navigate("review", r.tests?.[0])}>
-            Review these tests
-          </Button>
-          <span className="muted">{plural(r.tests.length, "test")} written</span>
-        </div>
-      )}
-      {list.some((e) => e.type === "claude") ? (
-        <ClaudeActivity events={list} running={job.status === "running"} now={now} />
-      ) : (
-        <JobLog events={list} />
-      )}
-      {CLI[job.kind] && (
-        <span className="muted jobdetail-cli">
-          Same as <span className="mono">{CLI[job.kind]}</span> · log kept in the project folder
-        </span>
-      )}
-    </aside>
   );
 }

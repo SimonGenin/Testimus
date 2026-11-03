@@ -1,4 +1,4 @@
-import type { Job, JobEvent } from "../core/types.ts";
+import type { Job, JobCause, JobEvent } from "../core/types.ts";
 
 export class ApiError extends Error {
   readonly fix?: string;
@@ -57,11 +57,17 @@ async function read(res: Response): Promise<unknown> {
   return value;
 }
 
-export async function call<T = unknown>(name: string, input: unknown = {}, signal?: AbortSignal): Promise<T> {
+// ponytail: cause ties the job a call starts to the one it follows (a re-index after a conversion, a retry)
+export async function call<T = unknown>(
+  name: string,
+  input: unknown = {},
+  signal?: AbortSignal,
+  cause?: JobCause,
+): Promise<T> {
   const [group, verb] = name.split(".");
   const res = await fetch(`/api/${group}/${verb}`, {
     method: "POST",
-    headers: headers(),
+    headers: cause ? { ...headers(), "X-Testimus-Cause": `${cause.why} ${cause.jobId}` } : headers(),
     body: JSON.stringify(input ?? {}),
     signal,
   });
@@ -171,8 +177,9 @@ export async function run<T = unknown>(
   input: unknown,
   onEvent?: (e: JobEvent) => void,
   onStart?: (jobId: string) => void,
+  cause?: JobCause,
 ): Promise<T> {
-  const r = await call<unknown>(name, input);
+  const r = await call<unknown>(name, input, undefined, cause);
   if (!isJobRef(r)) return r as T;
   onStart?.(r.jobId);
   return await waitJob<T>(r.jobId, onEvent);

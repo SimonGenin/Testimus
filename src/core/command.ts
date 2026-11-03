@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import type { ClaudeEvent, PullInfo } from "./types.ts";
+import type { ClaudeEvent, JobCause, PullInfo } from "./types.ts";
 
 export type Progress = { message: string; done?: number; total?: number; pull?: PullInfo };
 
@@ -10,6 +10,10 @@ export type Ctx = {
   progress(p: Progress): void;
   log(level: "info" | "warn" | "error", message: string): void;
   claude(event: ClaudeEvent): void;
+  // ponytail: a job's named phases — steps() declares them all up front (waiting), step() starts one and ends the
+  // one before it; outside a job they do nothing
+  steps?(list: { id: string; label: string }[]): void;
+  step?(id: string, label?: string): void;
 };
 
 export type Command<I extends z.ZodType = z.ZodType, O extends z.ZodType = z.ZodType> = {
@@ -24,6 +28,7 @@ export type Command<I extends z.ZodType = z.ZodType, O extends z.ZodType = z.Zod
   mcp?: false;
   positional?: string[];
   subject?(input: z.output<I>): string;
+  cause?(input: z.output<I>): JobCause | undefined;
   run(ctx: Ctx, input: z.output<I>): Promise<z.input<O>>;
 };
 

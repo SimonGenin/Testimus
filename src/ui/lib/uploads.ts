@@ -89,11 +89,12 @@ const conversions = new Set<Promise<unknown>>();
 let indexing: Promise<unknown> | null = null;
 let waiting: { keys: number[]; done: Promise<unknown> } | null = null;
 
-function startIndex(keys: number[], note?: string): Promise<unknown> {
+function startIndex(keys: number[], note?: string, after?: string): Promise<unknown> {
   const onEvent = (e: JobEvent) => {
     for (const k of keys) progressOf(k, "indexing")(e);
   };
-  indexing = run("rag.index", { ...claude, ...(note ? { note } : {}) }, onEvent).finally(() => {
+  const cause = after ? { jobId: after, why: "follow-up" as const } : undefined;
+  indexing = run("rag.index", { ...claude, ...(note ? { note } : {}) }, onEvent, undefined, cause).finally(() => {
     indexing = null;
   });
   return indexing;
@@ -101,7 +102,7 @@ function startIndex(keys: number[], note?: string): Promise<unknown> {
 
 // ponytail: an index run reads every document when it starts, so it never starts while a conversion is still
 // writing one, nor joins a run that read it too early: it waits for both, and the requests made meanwhile share it
-async function reindex(key: number, note?: string): Promise<void> {
+async function reindex(key: number, note?: string, after?: string): Promise<void> {
   const ready = !indexing && !conversions.size;
   patch(key, {
     phase: "indexing",
@@ -114,14 +115,14 @@ async function reindex(key: number, note?: string): Promise<void> {
     return;
   }
   if (ready) {
-    await startIndex([key], note);
+    await startIndex([key], note, after);
     return;
   }
   const keys = [key];
   const done = (async () => {
     while (indexing || conversions.size) await Promise.allSettled([indexing, ...conversions]);
     waiting = null;
-    return startIndex(keys, note);
+    return startIndex(keys, note, after);
   })();
   waiting = { keys, done };
   await done;
@@ -155,6 +156,7 @@ export async function convertDoc(
   ];
   emit();
   const extra = { ...(job.note?.trim() ? { note: job.note.trim() } : {}), contexts: job.contexts ?? [] };
+  let jobId = "";
   try {
     const converting: Promise<{ id: string; warnings?: string[] }> = run<{ id: string; warnings?: string[] }>(
       "docs.convert",
@@ -166,10 +168,13 @@ export async function convertDoc(
         ...(job.study && { study: true }),
       },
       progressOf(key, "converting"),
+      (started) => {
+        jobId = started;
+      },
     ).finally(() => conversions.delete(converting));
     conversions.add(converting);
     const doc = await converting;
-    if (doc?.warnings?.length && !job.study) triageWhenClaude({ docId: id, ...claude, ...extra });
+    if (doc?.warnings?.length && !job.study) triageWhenClaude({ docId: id, ...claude, ...extra }, jobId);
   } catch (e) {
     patch(key, { phase: "failed", message: message(e), error: e });
     onDone();
@@ -177,7 +182,7 @@ export async function convertDoc(
   }
   onDone();
   try {
-    await reindex(key, extra.note);
+    await reindex(key, extra.note, jobId);
     patch(key, { phase: "done", message: "Converted and indexed", pct: 100 });
     setTimeout(() => dismissUpload(key), 4000);
   } catch (e) {

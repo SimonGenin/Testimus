@@ -39,10 +39,14 @@ function coerce(t: z.ZodType | undefined, values: string[]): unknown {
 
 const camel = (s: string) => s.replace(/-([a-z])/g, (_, ch: string) => ch.toUpperCase());
 
-function inputFrom(c: Command, argv: string[]): { input: Record<string, unknown>; json: boolean; project?: string } {
+function inputFrom(
+  c: Command,
+  argv: string[],
+): { input: Record<string, unknown>; json: boolean; project?: string; after?: string } {
   const declared: Record<string, { type: "string" | "boolean"; multiple?: boolean }> = {
     project: { type: "string" },
     json: { type: "boolean" },
+    after: { type: "string" },
   };
   for (const [k, t] of Object.entries(shapeOf(c))) {
     const b = baseType(t);
@@ -68,7 +72,7 @@ function inputFrom(c: Command, argv: string[]): { input: Record<string, unknown>
   }
   const input: Record<string, unknown> = {};
   for (const [k, vs] of Object.entries(raw)) {
-    if (k === "json" || k === "project") continue;
+    if (k === "json" || k === "project" || (k === "after" && !shape.after)) continue;
     // ponytail: `--rag.describe-figures=false` sets one key of an object input — PowerShell strips the quotes
     // of a JSON argument passed to a .cmd, so nested values must be writable without JSON
     if (k.includes(".")) {
@@ -99,6 +103,7 @@ function inputFrom(c: Command, argv: string[]): { input: Record<string, unknown>
     input,
     json: values.json === true,
     project: typeof values.project === "string" ? values.project : undefined,
+    after: !shape.after && typeof values.after === "string" ? values.after : undefined,
   };
 }
 
@@ -187,7 +192,7 @@ async function main(argv: string[]): Promise<number> {
   const name = camel(first.includes(".") ? first : `${first}.${second ?? ""}`);
   const args = first.includes(".") ? argv.slice(1) : rest;
   const c = find(name);
-  const { input, json, project } = inputFrom(c, args);
+  const { input, json, project, after } = inputFrom(c, args);
   const ctrl = new AbortController();
   process.on("SIGINT", () => ctrl.abort());
   const unsub = subscribe((e) => {
@@ -201,6 +206,7 @@ async function main(argv: string[]): Promise<number> {
       project: resolveProjectDir(project),
       signal: ctrl.signal,
       wait: true,
+      ...(after ? { cause: { jobId: after, why: "follow-up" as const } } : {}),
       onProgress: (p) =>
         !json && process.stderr.write(`${p.total ? `[${p.done ?? 0}/${p.total}] ` : ""}${p.message}\n`),
       onLog: (level, m) => !json && process.stderr.write(`${level}: ${m}\n`),
