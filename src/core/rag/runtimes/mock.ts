@@ -8,7 +8,7 @@ function hashWord(w: string, dims: number): number {
   return (h >>> 0) % dims;
 }
 
-export function fakeVector(text: string, dims: number): Float32Array {
+function fakeVector(text: string, dims: number): Float32Array {
   const v = new Float32Array(dims);
   for (const w of words(text)) v[hashWord(w, dims)] += 1;
   const n = Math.hypot(...v) || 1;
@@ -16,7 +16,7 @@ export function fakeVector(text: string, dims: number): Float32Array {
   return v;
 }
 
-export function fakeRerank(query: string, texts: string[]): number[] {
+function fakeRerank(query: string, texts: string[]): number[] {
   const q = new Set(words(query));
   return texts.map((t) => {
     const w = words(t);

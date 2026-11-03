@@ -1,4 +1,4 @@
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -44,6 +44,26 @@ export function openDb(file: string): DatabaseSync {
   migrateFts(db);
   migrateChunks(db);
   return db;
+}
+
+// ponytail: the one place a rag.db handle is closed — after the work, whether it returns, throws or settles later
+export function withDb<T>(file: string, work: (db: DatabaseSync) => T): T {
+  const db = openDb(file);
+  let out: T;
+  try {
+    out = work(db);
+  } catch (e) {
+    db.close();
+    throw e;
+  }
+  if (out instanceof Promise) return out.finally(() => db.close()) as T;
+  db.close();
+  return out;
+}
+
+export function withIndex<T>(project: string, none: T, work: (db: DatabaseSync) => T): T {
+  const file = indexFile(project);
+  return existsSync(file) ? withDb(file, work) : none;
 }
 
 const CHUNK_COLUMNS = new Set([
@@ -138,7 +158,7 @@ export function transaction<T>(db: DatabaseSync, work: () => T): T {
 
 // Vector spaces (SPEC-RAG §6)
 
-export function fingerprintJson(fp: SpaceFingerprint): string {
+function fingerprintJson(fp: SpaceFingerprint): string {
   const keys = Object.keys(fp).sort() as (keyof SpaceFingerprint)[];
   return JSON.stringify(Object.fromEntries(keys.filter((k) => fp[k] !== undefined).map((k) => [k, fp[k]])));
 }
@@ -320,6 +340,11 @@ export function deleteChunk(db: DatabaseSync, rowid: number): void {
   }
 }
 
+export function indexedContents(db: DatabaseSync): Map<string, string> {
+  const rows = db.prepare("select doc_id, content from docs").all() as { doc_id: string; content: string }[];
+  return new Map(rows.map((r) => [r.doc_id, r.content]));
+}
+
 export function chunkCount(db: DatabaseSync): number {
   return Number((db.prepare("select count(*) n from chunks").get() as { n: number }).n);
 }
@@ -336,14 +361,6 @@ export function replaceEdges(db: DatabaseSync, docId: string, edges: Edge[]): vo
 
 type RawEdge = { src: string; dst: string; kind: string; doc_id: string };
 const toEdge = (r: RawEdge): Edge => ({ from: r.src, to: r.dst, kind: r.kind as EdgeKind, docId: r.doc_id });
-
-export function edgesFrom(db: DatabaseSync, ref: string): Edge[] {
-  return (db.prepare("select * from edges where src = ?").all(ref) as RawEdge[]).map(toEdge);
-}
-
-export function edgesTo(db: DatabaseSync, ref: string): Edge[] {
-  return (db.prepare("select * from edges where dst = ?").all(ref) as RawEdge[]).map(toEdge);
-}
 
 export function edgesOf(db: DatabaseSync, docId: string): Edge[] {
   return (db.prepare("select * from edges where doc_id = ?").all(docId) as RawEdge[]).map(toEdge);

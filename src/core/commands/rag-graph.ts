@@ -2,9 +2,7 @@ import { z } from "zod";
 import { command, projectOf } from "../command.ts";
 import { mentions } from "../rag/mentions.ts";
 import { related } from "../rag/related.ts";
-import { chunkKind } from "./rag.ts";
-
-const edgeKind = z.enum(["refers", "parent", "sibling", "shows", "amends"]);
+import { chunkKind, edgeKind } from "../rag/schemas.ts";
 
 export const commands = [
   command({
@@ -21,28 +19,39 @@ export const commands = [
       pageSize: z.number().int().min(1).max(200).default(50).describe("Sections per page"),
     }),
     output: z.object({
-      term: z.string(),
+      term: z.string().describe("The term searched, as given"),
       forms: z.array(z.string()).describe("Every form searched: the term, its stem, its glossary expansions"),
       total: z.number().describe("Total hits across all documents"),
       sections: z.number().describe("Sections with at least one hit"),
-      page: z.number(),
-      pages: z.number(),
-      docs: z.array(
-        z.object({
-          docId: z.string(),
-          count: z.number(),
-          sections: z.array(
-            z.object({
-              ref: z.string().describe("docId#anchor of the passage"),
-              path: z.string(),
-              title: z.string(),
-              kind: chunkKind,
-              count: z.number(),
-              hits: z.array(z.object({ form: z.string(), context: z.string().describe("One line around the hit") })),
-            }),
-          ),
-        }),
-      ),
+      page: z.number().describe("This page (1-based)"),
+      pages: z.number().describe("How many pages of sections there are"),
+      docs: z
+        .array(
+          z.object({
+            docId: z.string().describe("Document id"),
+            count: z.number().describe("Hits in this document"),
+            sections: z
+              .array(
+                z.object({
+                  ref: z.string().describe("docId#anchor of the passage"),
+                  path: z.string().describe("Section path"),
+                  title: z.string().describe("Section title"),
+                  kind: chunkKind,
+                  count: z.number().describe("Hits in this passage"),
+                  hits: z
+                    .array(
+                      z.object({
+                        form: z.string().describe("The form that matched"),
+                        context: z.string().describe("One line around the hit"),
+                      }),
+                    )
+                    .describe("Each hit of the passage"),
+                }),
+              )
+              .describe("The document's passages with hits on this page, in document order"),
+          }),
+        )
+        .describe("Documents with hits on this page"),
     }),
     mutates: false,
     positional: ["term"],
@@ -57,17 +66,19 @@ export const commands = [
       depth: z.number().int().min(1).max(2).default(1).describe("1 = direct neighbours; 2 = their neighbours too"),
     }),
     output: z.object({
-      ref: z.string(),
-      neighbours: z.array(
-        z.object({
-          ref: z.string(),
-          kind: edgeKind,
-          direction: z.enum(["out", "in"]).describe("out = this ref → neighbour; in = neighbour → this ref"),
-          title: z.string(),
-          path: z.string(),
-          depth: z.number(),
-        }),
-      ),
+      ref: z.string().describe("The reference asked, normalized"),
+      neighbours: z
+        .array(
+          z.object({
+            ref: z.string().describe("docId#anchor of the neighbour"),
+            kind: edgeKind,
+            direction: z.enum(["out", "in"]).describe("out = this ref → neighbour; in = neighbour → this ref"),
+            title: z.string().describe("Section title or figure caption"),
+            path: z.string().describe("Section path"),
+            depth: z.number().describe("1 = direct neighbour; 2 = neighbour of a neighbour"),
+          }),
+        )
+        .describe("Neighbours, amending documents first"),
       truncated: z.literal(true).optional().describe("Set when depth 2 went past 200 neighbours: the list stops there"),
       total: z.number().int().optional().describe("How many neighbours there were before the cut"),
     }),

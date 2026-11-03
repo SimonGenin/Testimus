@@ -7,7 +7,7 @@ import { fold, frenchTokens, STOP_WORDS, stemWord } from "../stem-fr.ts";
 import { keep, type SearchOpts } from "./filter.ts";
 
 export const CANDIDATES = 50;
-export const BM25_WEIGHTS = [1, 1, 5];
+const BM25_WEIGHTS = [1, 1, 5];
 
 export function words(text: string): string[] {
   return text
