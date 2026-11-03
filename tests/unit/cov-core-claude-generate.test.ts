@@ -7,6 +7,7 @@ import type { Ctx } from "../../src/core/command.ts";
 import { type ClaudeOut, env } from "../../src/core/env.ts";
 import { DEFAULT_SETTINGS, readProject, writeJson, writeProject, writeSettings } from "../../src/core/lib/project.ts";
 import { readTest } from "../../src/core/lib/store.ts";
+import { markIndexed } from "./index-helpers.ts";
 
 const FIXTURE = join(import.meta.dirname, "..", "fixtures", "project");
 const real = env.spawnClaude;
@@ -26,6 +27,7 @@ const ctx = (): Ctx => ({
 beforeEach(() => {
   dir = join(mkdtempSync(join(tmpdir(), "testimus-covgen-")), "LFRPS12");
   cpSync(FIXTURE, dir, { recursive: true });
+  markIndexed(dir);
   logs = [];
   writeSettings({ ...DEFAULT_SETTINGS, claude: { exe: "C:/bin/claude.exe" } });
 });

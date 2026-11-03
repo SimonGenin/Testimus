@@ -6,7 +6,7 @@ import { env } from "../env.ts";
 import { agentPool, agentsSetting, loadLine } from "../lib/agents.ts";
 import { loadCorpus, runMechanical } from "../lib/check.ts";
 import { columnGuidance } from "../lib/columns.ts";
-import { readDocMd } from "../lib/docs.ts";
+import { isConverted, listDocs, readDocMd } from "../lib/docs.ts";
 import { fieldOrder, readJson, readProject, readXray, writeJson } from "../lib/project.ts";
 import { listLocalTests, markGenerated, readTest, removeTest, testExists, writeTest } from "../lib/store.ts";
 import { anchorsOf } from "../rag/convert.ts";
@@ -109,6 +109,27 @@ export function checkGenInput(i: GenInput, project?: string): void {
       `Not a document section: ${bad.join(", ")}.`,
       "Write a section as docId#§x.y, e.g. SOSIE_211_D401-1_3#§5.6.6.",
     );
+}
+
+// ponytail: a document search cannot find gives tests without sources, so the run is refused; one changed since the
+// last index is still found (its old passages), so the run goes on with a warning
+export function indexGate(project: string, i: GenInput): string[] {
+  const asked = new Set([...clean(i.docs), ...clean(i.sections).map((s) => s.split("#")[0])]);
+  const docs = listDocs(project).filter((d) => isConverted(d) && (!asked.size || asked.has(d.id)));
+  if (!docs.length)
+    throw new UserError(
+      "No converted document to generate from.",
+      "Add a document in Documents (testimus docs add), then convert it.",
+    );
+  const missing = docs.filter((d) => d.indexed === "missing").map((d) => d.id);
+  if (missing.length)
+    throw new UserError(
+      existsSync(join(project, "index", "state.json"))
+        ? `Not indexed: ${missing.join(", ")}. Search cannot find ${missing.length === 1 ? "it" : "them"}, so the tests would have no sources.`
+        : "The index does not exist yet: search cannot find any document, so the tests would have no sources.",
+      "Reindex (Documents, Settings › Search, or testimus rag index), or leave these documents out of the scope.",
+    );
+  return docs.filter((d) => d.indexed === "stale").map((d) => d.id);
 }
 
 export function genPrompt(
@@ -381,6 +402,12 @@ export async function generateTests(project: string, asked: GenInput, ctx: Ctx):
     ? { ...prior.input, model: asked.model || prior.input.model, effort: asked.effort || prior.input.effort }
     : asked;
   if (!prior) checkGenInput(input, project);
+  const stale = indexGate(project, input);
+  if (stale.length)
+    ctx.log(
+      "warn",
+      `Index not up to date for ${stale.join(", ")}: what changed since the last index is not searched. Reindex to include it.`,
+    );
   const p = readProject(project);
   const discarded = input.discard && !prior ? discardable(project) : [];
   for (const id of discarded) removeTest(project, id);

@@ -659,6 +659,12 @@ The parser stays tolerant (never throws on a human or Claude edit; returns warni
 - Run: `gen.tests` starts a job that runs the project's `generate-tests` skill through `claude -p`
   with the MCP tools available. The skill searches the index, reads the cited sections and figures,
   and writes one `tests/local-<8hex>/test.md` per test with `review: draft`.
+- Index gate: the scope is the documents and sections given, or every converted document for a request in words
+  alone. `gen.tests` refuses, before any Claude run (resume included), when a document of the scope is not indexed
+  (`docs.list.indexed` `missing`: never indexed, or its last index run failed; no `index/state.json` at all names the
+  whole index as missing) — search cannot find it, so the tests would have no sources; the error says to reindex or
+  to leave it out of the scope. A document `stale` (changed since its last index) only logs a warning: search still
+  finds its previous version.
 - Rules the skill enforces (they come from the testers' current prompt, sharpened by what went wrong
   with it):
   - positive and negative paths, black-box or white-box technique chosen per feature and named in
@@ -1038,7 +1044,9 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
     finding's message is shown above the passage.
   - **Generate** — request, one picker per tracked kind (search by id or text over traces.find; requirements.csv text
     for the requirement kind) — none when the project tracks nothing, with « Track ids… » instead —
-    sections (docs.show toc), folder; gen.tests job shown live (passages read, tests landing as cards from « Writing
+    sections (docs.show toc), folder; the index gate of §7 shown before the run (« Index not ready » with Reindex and
+    Generate disabled for a document of the scope not indexed, « Index not up to date » with Reindex for a stale one,
+    Generate disabled while an index runs); gen.tests job shown live (passages read, tests landing as cards from « Writing
     local-… » progress); at the end check.run on the new tests, then the summary (written, requirements covered, not
     covered + why) and « Review these tests ».
   - **Documents** — list (code · version, title, status, search state from docs.list.indexed, warnings);
