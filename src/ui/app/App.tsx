@@ -247,6 +247,14 @@ export function App() {
 
   const testsChanged = useCallback(() => setTestsNonce((n) => n + 1), []);
 
+  const closeProject = useCallback(() => {
+    setProject(null);
+    writePref("testimus.project", "");
+    setInfo(null);
+    setXray(DEFAULT_XRAY);
+    testsChanged();
+  }, [testsChanged]);
+
   useChanged([""], (paths) => {
     refreshInfo();
     if (touches(paths, ["tests/"]).length) testsChanged();
@@ -271,6 +279,7 @@ export function App() {
       setLastRun,
       testsChanged,
       refreshInfo,
+      closeProject,
       openSource: setSource,
       askClaude,
       runInDock,
@@ -287,6 +296,7 @@ export function App() {
       navigate,
       testsChanged,
       refreshInfo,
+      closeProject,
       askClaude,
       runInDock,
       openPalette,

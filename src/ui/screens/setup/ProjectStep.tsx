@@ -5,7 +5,7 @@ import { useApp } from "../../lib/app.ts";
 import { desktop, openProject, pickFolder } from "../../lib/desktop.ts";
 import { useDraft } from "../../lib/drafts.ts";
 import { cx, message } from "../../lib/format.ts";
-import { errorToast } from "../../lib/toast.ts";
+import { errorToast, toast } from "../../lib/toast.ts";
 import { DeleteProject } from "./DeleteProject.tsx";
 
 type Known = { dir: string; name: string; jiraProject: string; exists: boolean };
@@ -37,6 +37,17 @@ export function ProjectStep({ onBack, onOpened }: { onBack: () => void; onOpened
       drop(d);
     } catch (e) {
       errorToast(e, "Could not hide the project");
+    }
+  };
+
+  const gone = async (k: Known) => {
+    try {
+      await call("project.delete", { dir: k.dir });
+      drop(k.dir);
+      if (k.dir === app.info?.dir) app.closeProject();
+      toast({ kind: "info", title: `Project ${k.name || k.dir} removed`, detail: "Its folder was already gone." });
+    } catch (e) {
+      errorToast(e, "Could not remove the project");
     }
   };
 
@@ -128,14 +139,14 @@ export function ProjectStep({ onBack, onOpened }: { onBack: () => void; onOpened
                       label: "Delete",
                       icon: "trash",
                       danger: true,
-                      disabled: busy || !k.exists || k.dir === current,
-                      title:
-                        k.dir === current
-                          ? "Open another project first"
-                          : k.exists
-                            ? "Delete the project folder from this PC"
-                            : undefined,
-                      onSelect: () => setDel(k),
+                      disabled: busy,
+                      title: k.exists
+                        ? "Delete the project folder from this PC"
+                        : "The folder is already gone: remove the project from the list",
+                      onSelect: () => {
+                        if (k.exists) setDel(k);
+                        else void gone(k);
+                      },
                     },
                   ]}
                   trigger={({ open, toggle, id }) => (
@@ -156,9 +167,11 @@ export function ProjectStep({ onBack, onOpened }: { onBack: () => void; onOpened
       {del && (
         <DeleteProject
           target={del}
+          open={del.dir === current}
           onClose={() => setDel(null)}
           onDeleted={() => {
             drop(del.dir);
+            if (del.dir === current) app.closeProject();
             setDel(null);
           }}
         />

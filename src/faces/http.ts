@@ -185,13 +185,14 @@ export function handler(state: ServeState) {
     }
     try {
       const asked = guarded && !isPublic ? askedProject(req, url) : null;
-      const project = asked ? knownProject(asked, state) : state.project;
+      const open = state.project && existsSync(state.project) ? state.project : null;
+      const project = asked ? knownProject(asked, state) : open;
       if (asked && !project) {
         send(res, 403, { error: "Not a known Testimus project.", fix: "Open it from the project menu first." });
         return;
       }
       if (url.pathname === "/api" || url.pathname === "/api/") {
-        send(res, 200, { project: state.project, mock: state.mock, commands: registry.map(describeCommand) });
+        send(res, 200, { project: open, mock: state.mock, commands: registry.map(describeCommand) });
         return;
       }
       if (url.pathname === "/api/events") {

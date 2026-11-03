@@ -477,6 +477,7 @@ function appState(route: AppState["route"], navigate: AppState["navigate"], dir:
     setLastRun: vi.fn(),
     testsChanged: vi.fn(),
     refreshInfo: vi.fn(),
+    closeProject: vi.fn(),
     openSource: vi.fn(),
     askClaude: vi.fn(),
     runInDock: vi.fn(),

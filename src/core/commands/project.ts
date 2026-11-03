@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { ensureMcpJson } from "../claude/run.ts";
 import { type Command, command, projectOf, UserError } from "../command.ts";
-import { listJobs } from "../jobs.ts";
+import { listJobs, runsIn } from "../jobs.ts";
 import { stepColumns } from "../lib/columns.ts";
 import { sha256 } from "../lib/hash.ts";
 import {
@@ -280,19 +280,28 @@ export const commands: Command[] = [
     name: "project.delete",
     summary:
       "Delete a project folder from this PC (documents, tests, index) and forget it. Nothing is deleted in Jira.",
-    input: z.object({ dir: z.string().describe("A known project folder (project.list), not the open one.") }),
-    output: z.object({ dir: z.string(), deleted: z.boolean() }),
+    input: z.object({
+      dir: z.string().describe("A known project folder (project.list), the open one included (the UI closes it)."),
+    }),
+    output: z.object({
+      dir: z.string().describe("The project folder"),
+      deleted: z.boolean().describe("False when the folder was already gone: the project is only forgotten"),
+    }),
     mutates: true,
     global: true,
     positional: ["dir"],
-    async run(ctx, input) {
+    async run(_ctx, input) {
       const dir = resolve(input.dir);
-      if (ctx.project && resolve(ctx.project) === dir)
-        throw new UserError(`${dir} is the open project.`, "Open another project first, then delete this one.");
       if (!readSettings().projects.some((p) => resolve(p) === dir))
         throw new UserError(`${dir} is not a known project.`, "Only a project listed by project.list is deleted.");
+      if (!existsSync(dir)) {
+        forgetProject(dir);
+        return { dir, deleted: false };
+      }
       if (!isProject(dir))
         throw new UserError(`${dir} is not a Testimus project.`, "Only a folder that holds a project.json is deleted.");
+      if (runsIn(dir))
+        throw new UserError(`A job is running in ${dir}.`, "Cancel it or let it end, then delete the project.");
       rmSync(dir, { recursive: true, force: true, maxRetries: 3 });
       forgetProject(dir);
       return { dir, deleted: true };

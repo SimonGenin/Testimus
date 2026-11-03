@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { randomBytes } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import type { Ctx } from "./command.ts";
 import { env } from "./env.ts";
 import { changedPaths, stampProject } from "./lib/changed.ts";
@@ -197,6 +197,10 @@ export function listJobs(project: string | null): Job[] {
   }
   for (const l of live.values()) if (l.project === project || l.project === null) out.set(l.job.id, { ...l.job });
   return [...out.values()].sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+}
+
+export function runsIn(project: string): boolean {
+  return [...live.values()].some((l) => l.job.status === "running" && !!l.project && resolve(l.project) === project);
 }
 
 export function showJob(project: string | null, id: string): { job: Job; events: JobEvent[] } | null {

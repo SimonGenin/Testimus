@@ -110,7 +110,7 @@ update it when a decision changes, in the same change as the code.
   names (`?project=`, or the `X-Testimus-Project` header, URI-encoded — a malformed one is a 400) is then
   matched as a string (resolved, case-insensitive on Windows) against the known projects (the open one or
   `settings.projects`) before anything touches the disk, and only the matching known entry is opened; an
-  unknown one is a 403. A UNC or device path (`\\host\…`, `//host/…`, `\\?\…`, `\\.\…`) is refused wherever
+  unknown one is a 403. A request that names none gets the open one, or none once its folder is gone. A UNC or device path (`\\host\…`, `//host/…`, `\\?\…`, `\\.\…`) is refused wherever
   the HTTP face reads a path itself (the project selector, `/files/<path>`): opening one would make Windows
   sign in to that host with the user's NTLM hash. Paths inside a command's JSON input are the command's
   business (e.g. `models add` from the team share). `/files` serves only inside a known project, with a
@@ -1076,7 +1076,10 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
     in its row and keeps the words saying what to do beside it; the rail's status dot shows the last result.
   - **First launch (#/setup)** — shown once per session when the credential files are incomplete or no project is
     open: Access (system.setup prefilled, secrets never sent back, Test connection = setup with check), Project
-    (project.list / project.open / project.init), then **Search pack** (`#/setup/pack`): the four packs with their models and
+    (project.list / project.open / project.init; each known project's « … » menu has « Don't show »
+    (`project.forget`) and « Delete » (`project.delete`): a folder still there is deleted after a confirmation, the
+    open project included — the window closes it; a folder already gone is only forgotten, without asking; a job
+    running in that project refuses it, a model download does not), then **Search pack** (`#/setup/pack`): the four packs with their models and
     download; above them « Analyse my machine » (`models.hardware {refresh}`, then `models.packs` again) lists the
     system and arch, CPU, memory and the GPU Testimus can use. Until it ran, no pack shows a fit and none is
     preselected; after it, each pack has its fit (« Not supported here » included) and the suggestion is preselected

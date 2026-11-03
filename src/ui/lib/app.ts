@@ -53,6 +53,7 @@ export type AppState = {
   setLastRun: (r: ClaudeRun | null) => void;
   testsChanged: () => void;
   refreshInfo: () => void;
+  closeProject: () => void;
   openSource: (s: Source) => void;
   askClaude: (scope: "test" | "step", prompt?: string) => void;
   runInDock: (job: { name: string; input: unknown; label: string; testId: string }) => void;
