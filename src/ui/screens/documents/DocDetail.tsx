@@ -5,6 +5,7 @@ import { ActionButton } from "../../components/claude/ActionButton.tsx";
 import { ActionCount } from "../../components/claude/ActionCount.tsx";
 import { Button, Chip, Icon, IconButton, Menu, Severity, Skeleton } from "../../components/ui/index.ts";
 import { forProblem, useActions } from "../../lib/actions.ts";
+import { useChanged } from "../../lib/changed.ts";
 import { desktop, pathJoin, reveal } from "../../lib/desktop.ts";
 import { message, plural } from "../../lib/format.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
@@ -63,8 +64,11 @@ export function DocDetail({
   const tracesKey = traces.map((t) => `${t.id}=${t.patterns.join("|")}`).join(",");
   const requirements = idPattern(traces.find((t) => t.id === REQUIREMENT));
   const acts = useActions({ docId: id });
+  const [version, setVersion] = useState(0);
+  const shownFor = useRef("");
+  useChanged([`docs/${id}/`], () => setVersion((v) => v + 1));
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: the tracked kinds are compared by their key
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the tracked kinds are compared by their key, version reads the same document again
   useEffect(() => {
     let dead = false;
     Promise.all(
@@ -77,11 +81,14 @@ export function DocDetail({
     return () => {
       dead = true;
     };
-  }, [id, tracesKey]);
+  }, [id, tracesKey, version]);
 
+  // ponytail: the same document read again after a job changed it stays on screen until the new text is there
+  // biome-ignore lint/correctness/useExhaustiveDependencies: version reads the same document again
   useEffect(() => {
     let dead = false;
-    setShown(null);
+    if (shownFor.current !== id) setShown(null);
+    shownFor.current = id;
     setError("");
     call<Shown>("docs.show", { id })
       .then((r) => {
@@ -93,7 +100,7 @@ export function DocDetail({
     return () => {
       dead = true;
     };
-  }, [id]);
+  }, [id, version]);
 
   const target = anchor || shown?.toc.find((t) => t.level > 1)?.anchor || shown?.toc[0]?.anchor || "";
   useEffect(() => {

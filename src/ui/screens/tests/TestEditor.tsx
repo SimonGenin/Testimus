@@ -17,6 +17,7 @@ import { Button, Confirm, DragEdge, Icon, type MenuItem, Segmented, Skeleton } f
 import { useActions } from "../../lib/actions.ts";
 import { useApp } from "../../lib/app.ts";
 import { blankStep } from "../../lib/blocks.ts";
+import { useChanged } from "../../lib/changed.ts";
 import { columnsOf, projectModes } from "../../lib/columns.ts";
 import { openExternal } from "../../lib/desktop.ts";
 import { differs, diffLocal, type Gone, lossOf, restoreStep } from "../../lib/diff.ts";
@@ -267,10 +268,11 @@ export function TestEditor({
   const busy = !!app.claudeRunning;
   const busyHere = app.claudeRunning === testId;
 
-  // ponytail: the user may have edited test.md in a terminal or with Claude Code — on window focus the
-  // file's own mtime says whether to reload; a pending edit is saved first, so nothing typed is lost
-  useEffect(() => {
-    const onFocus = async () => {
+  // ponytail: the user may have edited test.md in a terminal or with Claude Code, or a job changed it — on window
+  // focus or when the job ends the file's own mtime says whether to reload; a pending edit is saved first, so nothing
+  // typed is lost; a Claude run that locks the editor reloads its own tests when it ends
+  const reloadFromDisk = useCallback(
+    async (detail: string) => {
       if (!loadedFor.current || busy) return;
       await flush();
       try {
@@ -279,16 +281,22 @@ export function TestEditor({
           await load(r.id);
           setMarks(null);
           app.testsChanged();
-          toast({ kind: "info", title: "Reloaded from disk", detail: "test.md was changed outside the app." });
+          toast({ kind: "info", title: "Reloaded from disk", detail });
         }
       } catch (e) {
         errorToast(e, "Could not reload the test");
       }
-    };
-    const onFocusEvt = () => void onFocus();
+    },
+    [flush, load, busy, app.testsChanged],
+  );
+
+  useEffect(() => {
+    const onFocusEvt = () => void reloadFromDisk("test.md was changed outside the app.");
     window.addEventListener("focus", onFocusEvt);
     return () => window.removeEventListener("focus", onFocusEvt);
-  }, [flush, load, busy, app.testsChanged]);
+  }, [reloadFromDisk]);
+
+  useChanged([`tests/${testId}/test.md`], () => void reloadFromDisk("A job changed test.md."));
 
   useEffect(() => {
     setFlusher(flush);

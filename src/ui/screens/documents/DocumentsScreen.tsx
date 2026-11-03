@@ -10,6 +10,7 @@ import { TracesBar } from "../../components/traces/TracesBar.tsx";
 import { Badge, Button, DragEdge, Icon, IconButton, Modal, Severity, Skeleton } from "../../components/ui/index.ts";
 import { useActions } from "../../lib/actions.ts";
 import { useApp } from "../../lib/app.ts";
+import { useChanged } from "../../lib/changed.ts";
 import { desktop, pickFiles } from "../../lib/desktop.ts";
 import { cx } from "../../lib/format.ts";
 import { useSideWidth } from "../../lib/sideWidth.ts";
@@ -120,6 +121,8 @@ export function DocumentsScreen() {
       }),
     [load],
   );
+
+  useChanged(["docs/"], load);
 
   useEffect(() => forgetSettled, []);
 
