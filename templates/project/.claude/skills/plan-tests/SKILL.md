@@ -12,6 +12,10 @@ what makes those tests short, observable and complete.
 1. **Inventory.** For each document in scope: `docs_show <docId>` — its `toc`, its team `context`
    (what is not simulated). Add the sections the request gives. Read the sections in
    `docs/<docId>/doc.md`, enough to know what each behavior makes the operator do and see.
+   Then search the index for what lies **outside** the scope's sections but changes its behaviors:
+   `rag_mentions` for each main object and screen, `rag_related` on each section that holds a
+   behavior. An exception, an amendment (`PA…`) or a negative path found elsewhere goes in the
+   `sections` of the test it belongs to — each test's run starts from those sections.
 2. **Classify every behavior**, once each:
    - **observable**: a tester at the simulator sees or hears its effect (a window, a menu entry, a
      colour, a symbol, a message, a state shown);
