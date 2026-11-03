@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { fileUrl } from "../../api.ts";
-import { Chip } from "../../components/ui/index.ts";
+import { Chip } from "../../components/legacy/index.ts";
 
 const clean = (s: string) => s.replace(/<!--[\s\S]*?-->/g, "").trim();
 const squeeze = (s: string) => s.replace(/\*/g, "").replace(/\s+/g, " ").trim().toLowerCase();

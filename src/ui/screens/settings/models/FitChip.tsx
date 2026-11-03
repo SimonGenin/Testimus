@@ -1,5 +1,5 @@
 import type { Fit } from "../../../../core/types.ts";
-import { Badge } from "../../../components/ui/index.ts";
+import { Badge } from "../../../components/legacy/index.ts";
 import { FIT } from "./data.ts";
 
 export const PROCESSOR_ONLY = "Made for a GPU: here it runs on the processor, several times slower.";

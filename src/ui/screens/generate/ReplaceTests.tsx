@@ -1,4 +1,4 @@
-import { Confirm } from "../../components/ui/index.ts";
+import { Confirm } from "../../components/legacy/index.ts";
 import { plural } from "../../lib/format.ts";
 
 export function ReplaceTests({

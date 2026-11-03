@@ -12,7 +12,7 @@ import {
   type MenuItem,
   ReviewBadge,
   SyncBadge,
-} from "../../components/ui/index.ts";
+} from "../../components/legacy/index.ts";
 
 export type RemoteCheck = "checking" | "unchanged" | "remote-changed" | "unverified" | null;
 export type ContextRef = { id: string; name: string };

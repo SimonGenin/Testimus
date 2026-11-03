@@ -1,4 +1,4 @@
-import { Button, Icon, Modal } from "../../../components/ui/index.ts";
+import { Button, Icon, Modal } from "../../../components/legacy/index.ts";
 import type { PackRow } from "./data.ts";
 import { OpLine } from "./OpLine.tsx";
 

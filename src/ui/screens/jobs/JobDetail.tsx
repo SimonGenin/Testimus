@@ -3,7 +3,7 @@ import type { Job } from "../../../core/types.ts";
 import { call } from "../../api.ts";
 import { ClaudeActivity } from "../../components/claude/ClaudeActivity.tsx";
 import { useJob } from "../../components/shell/JobLog.tsx";
-import { Button, Icon } from "../../components/ui/index.ts";
+import { Button, Icon } from "../../components/legacy/index.ts";
 import { useApp } from "../../lib/app.ts";
 import { cx, plural } from "../../lib/format.ts";
 import { clock, duration, type JobNode, kindLabel, percent, resultLine, subjectLabel } from "../../lib/jobs.ts";

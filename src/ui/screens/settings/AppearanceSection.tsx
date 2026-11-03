@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Settings } from "../../../core/types.ts";
 import { call } from "../../api.ts";
-import { Segmented } from "../../components/ui/index.ts";
+import { Segmented } from "../../components/legacy/index.ts";
 import { desktop, readAlwaysOnTop, setAlwaysOnTop } from "../../lib/desktop.ts";
 import { readPref, readTheme, setThemeEverywhere, type Theme, writePref } from "../../lib/theme.ts";
 import { errorToast } from "../../lib/toast.ts";

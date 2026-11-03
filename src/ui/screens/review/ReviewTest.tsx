@@ -9,7 +9,7 @@ import {
   ReviewBadge,
   Severity,
   SyncBadge,
-} from "../../components/ui/index.ts";
+} from "../../components/legacy/index.ts";
 import { plural } from "../../lib/format.ts";
 import { FindingSources, ReviewStep } from "./ReviewStep.tsx";
 

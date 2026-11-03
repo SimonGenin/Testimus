@@ -1,5 +1,5 @@
 import type { DocRef } from "../../../core/types.ts";
-import { Skeleton } from "../../components/ui/index.ts";
+import { Skeleton } from "../../components/legacy/index.ts";
 import { cx, plural } from "../../lib/format.ts";
 import type { DocScope } from "../../lib/scope.ts";
 import { SectionTree } from "./SectionTree.tsx";

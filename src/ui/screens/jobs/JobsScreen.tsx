@@ -2,7 +2,7 @@ import { type CSSProperties, useCallback, useEffect, useMemo, useState } from "r
 import type { Job } from "../../../core/types.ts";
 import { call, events } from "../../api.ts";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
-import { Button, Confirm, DragEdge, Icon, Segmented, Skeleton } from "../../components/ui/index.ts";
+import { Button, Confirm, DragEdge, Icon, Segmented, Skeleton } from "../../components/legacy/index.ts";
 import { useApp } from "../../lib/app.ts";
 import { plural } from "../../lib/format.ts";
 import {

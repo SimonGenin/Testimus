@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { call } from "../../api.ts";
-import { Badge, Icon, Skeleton } from "../../components/ui/index.ts";
+import { Badge, Icon, Skeleton } from "../../components/legacy/index.ts";
 import { cx } from "../../lib/format.ts";
 
 export type Evidence = {

@@ -4,8 +4,8 @@ import { call, events } from "../../api.ts";
 import { plural } from "../../lib/format.ts";
 import { type LocalWork, onLocalWork } from "../../lib/localActivity.ts";
 import { errorToast } from "../../lib/toast.ts";
-import { Icon, type IconName } from "../ui/Icon.tsx";
-import { IconButton } from "../ui/IconButton.tsx";
+import { Icon, type IconName } from "../legacy/Icon.tsx";
+import { IconButton } from "../legacy/IconButton.tsx";
 
 type Live = { job: Job; message?: string; done?: number; total?: number };
 type Row = {

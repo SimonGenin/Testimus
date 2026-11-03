@@ -13,7 +13,7 @@ import { Rail } from "../../src/ui/components/shell/Rail.tsx";
 import { ScreenHeader } from "../../src/ui/components/shell/ScreenHeader.tsx";
 import { SystemStatus } from "../../src/ui/components/shell/SystemStatus.tsx";
 import { ThemeToggle } from "../../src/ui/components/shell/ThemeToggle.tsx";
-import { Toasts } from "../../src/ui/components/ui/index.ts";
+import { Toasts } from "../../src/ui/components/legacy/index.ts";
 import type { AppState } from "../../src/ui/lib/app.ts";
 import { resetDoctor } from "../../src/ui/lib/doctor.ts";
 import { setThemeEverywhere } from "../../src/ui/lib/theme.ts";

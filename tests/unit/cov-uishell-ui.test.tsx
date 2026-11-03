@@ -23,7 +23,7 @@ import {
   SyncBadge,
   Tabs,
   Toasts,
-} from "../../src/ui/components/ui/index.ts";
+} from "../../src/ui/components/legacy/index.ts";
 import { closeToast, toast, useToasts } from "../../src/ui/lib/toast.ts";
 
 afterEach(cleanup);

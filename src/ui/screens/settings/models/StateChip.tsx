@@ -1,4 +1,4 @@
-import { Badge } from "../../../components/ui/index.ts";
+import { Badge } from "../../../components/legacy/index.ts";
 import { type ModelState, STATE } from "./data.ts";
 
 export function StateChip({ state }: { state: ModelState }) {

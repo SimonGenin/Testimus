@@ -4,7 +4,7 @@ import { type CommandInfo, call } from "../../api.ts";
 import { cx, plural } from "../../lib/format.ts";
 import { recentHits, useSearch } from "../../lib/search.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
-import { Icon, type IconName, Kbd } from "../ui/index.ts";
+import { Icon, type IconName, Kbd } from "../legacy/index.ts";
 import { KIND, SearchHit } from "./SearchHit.tsx";
 
 export type PaletteAction = { id: string; label: string; icon?: IconName; hint?: string; run: () => void };

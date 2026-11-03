@@ -1,5 +1,5 @@
 import type { DocRef } from "../../../core/types.ts";
-import { Button, Severity } from "../../components/ui/index.ts";
+import { Button, Severity } from "../../components/legacy/index.ts";
 import { plural } from "../../lib/format.ts";
 
 const names = (ds: DocRef[]) => ds.map((d) => d.code || d.id).join(", ");

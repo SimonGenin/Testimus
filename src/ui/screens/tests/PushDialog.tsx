@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { JobEvent, PlanOp, PushOpResult, PushPlanView, Review } from "../../../core/types.ts";
 import { ApiError, call, run } from "../../api.ts";
-import { Button, Icon, type IconName, Modal, REVIEW, Skeleton } from "../../components/ui/index.ts";
+import { Button, Icon, type IconName, Modal, REVIEW, Skeleton } from "../../components/legacy/index.ts";
 import { cx, message, plural } from "../../lib/format.ts";
 import { toast } from "../../lib/toast.ts";
 

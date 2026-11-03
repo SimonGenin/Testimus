@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DoctorCheck, Passage } from "../../src/core/types.ts";
 import { setProject } from "../../src/ui/api.ts";
 import { PassageDialog } from "../../src/ui/components/sources/PassageDialog.tsx";
-import { Toasts } from "../../src/ui/components/ui/index.ts";
+import { Toasts } from "../../src/ui/components/legacy/index.ts";
 import type { AppState } from "../../src/ui/lib/app.ts";
 import { resetDoctor } from "../../src/ui/lib/doctor.ts";
 import { closeToast, useToasts } from "../../src/ui/lib/toast.ts";

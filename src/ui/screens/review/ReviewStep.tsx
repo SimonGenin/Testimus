@@ -1,5 +1,5 @@
 import type { Finding, Source, Step, XrayJson } from "../../../core/types.ts";
-import { ClaudeBadge, FindingCard, IconButton, ItemLinks, Severity, SourceChip } from "../../components/ui/index.ts";
+import { ClaudeBadge, FindingCard, IconButton, ItemLinks, Severity, SourceChip } from "../../components/legacy/index.ts";
 import { fieldViews, itemLinks, parseSourceRef, stepSources } from "../../lib/fields.ts";
 import { cx, plural } from "../../lib/format.ts";
 import { FieldBlocks } from "../tests/FieldBlocks.tsx";

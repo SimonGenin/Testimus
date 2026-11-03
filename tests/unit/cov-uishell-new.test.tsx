@@ -7,7 +7,7 @@ import { setProject } from "../../src/ui/api.ts";
 import { ConnectClaude } from "../../src/ui/components/claude/ConnectClaude.tsx";
 import { cap, ModelPicker } from "../../src/ui/components/claude/ModelPicker.tsx";
 import { OnTopToggle } from "../../src/ui/components/claude/OnTopToggle.tsx";
-import { Confirm, Toasts } from "../../src/ui/components/ui/index.ts";
+import { Confirm, Toasts } from "../../src/ui/components/legacy/index.ts";
 import {
   collapsible,
   columnsOf,

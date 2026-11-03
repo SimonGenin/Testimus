@@ -4,7 +4,7 @@ import { call } from "../../api.ts";
 import { type ClaudeStatus, ConnectClaude } from "../../components/claude/ConnectClaude.tsx";
 import { CONTEXTS_EVENT, type ContextSummary, ContextsDialog } from "../../components/claude/ContextsDialog.tsx";
 import { cap, EFFORTS, ModelPicker } from "../../components/claude/ModelPicker.tsx";
-import { Button, IconButton } from "../../components/ui/index.ts";
+import { Button, IconButton } from "../../components/legacy/index.ts";
 import { useApp } from "../../lib/app.ts";
 import { desktop, examplePath, onWindows, pickFiles } from "../../lib/desktop.ts";
 import { useDraft } from "../../lib/drafts.ts";

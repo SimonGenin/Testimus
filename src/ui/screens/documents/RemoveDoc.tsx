@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { CitingTest, DocJson } from "../../../core/types.ts";
 import { call } from "../../api.ts";
-import { Confirm, ReviewBadge, Skeleton } from "../../components/ui/index.ts";
+import { Confirm, ReviewBadge, Skeleton } from "../../components/legacy/index.ts";
 import { message, plural } from "../../lib/format.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 

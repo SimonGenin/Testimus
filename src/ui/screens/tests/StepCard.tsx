@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Block, ColumnModes, Source, Step, StepImage, XrayJson } from "../../../core/types.ts";
-import { Button, ClaudeBadge, Icon, IconButton, ItemLinks, SourceChip } from "../../components/ui/index.ts";
+import { Button, ClaudeBadge, Icon, IconButton, ItemLinks, SourceChip } from "../../components/legacy/index.ts";
 import { hasRawEmbed, imageRef, leafBlocks } from "../../lib/blocks.ts";
 import {
   type Column,

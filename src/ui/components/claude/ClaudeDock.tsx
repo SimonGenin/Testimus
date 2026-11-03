@@ -18,7 +18,7 @@ import { flushEditor } from "../../lib/editorBus.ts";
 import { cx, message, plural } from "../../lib/format.ts";
 import { editedAfterRun, revertRun } from "../../lib/revert.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
-import { Badge, Button, Icon, Kbd, Segmented, SourceChip } from "../ui/index.ts";
+import { Badge, Button, Icon, Kbd, Segmented, SourceChip } from "../legacy/index.ts";
 import { ActionCard } from "./ActionCard.tsx";
 import { AdditionalContext } from "./AdditionalContext.tsx";
 import { AnswerText } from "./AnswerText.tsx";

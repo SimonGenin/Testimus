@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { call } from "../../../api.ts";
-import { Button } from "../../../components/ui/index.ts";
+import { Button } from "../../../components/legacy/index.ts";
 import { useDraft } from "../../../lib/drafts.ts";
 import { errorToast, toast } from "../../../lib/toast.ts";
 import { folderPicker } from "./data.ts";

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Tabs } from "../../components/ui/index.ts";
+import { Tabs } from "../../components/legacy/index.ts";
 
 export type ListTab = "local" | "jira";
 

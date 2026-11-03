@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LocalTestRef } from "../../src/core/types.ts";
 import { project, setProject } from "../../src/ui/api.ts";
 import { ProjectButton } from "../../src/ui/components/shell/ProjectButton.tsx";
-import { Toasts } from "../../src/ui/components/ui/index.ts";
+import { Toasts } from "../../src/ui/components/legacy/index.ts";
 import { AppContext, type AppState } from "../../src/ui/lib/app.ts";
 import { ClaudeSection } from "../../src/ui/screens/settings/ClaudeSection.tsx";
 import { AccessStep } from "../../src/ui/screens/setup/AccessStep.tsx";

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { ColumnMode, StepColumn, XrayJson } from "../../../core/types.ts";
 import { call } from "../../api.ts";
-import { Button } from "../../components/ui/index.ts";
+import { Button } from "../../components/legacy/index.ts";
 import { useApp } from "../../lib/app.ts";
 import { useDraft } from "../../lib/drafts.ts";
 import { errorToast, toast } from "../../lib/toast.ts";

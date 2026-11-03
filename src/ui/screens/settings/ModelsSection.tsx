@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Fit, Job } from "../../../core/types.ts";
 import { call, waitJob } from "../../api.ts";
-import { Button, Icon, Skeleton } from "../../components/ui/index.ts";
+import { Button, Icon, Skeleton } from "../../components/legacy/index.ts";
 import { useApp } from "../../lib/app.ts";
 import { message } from "../../lib/format.ts";
 import { errorToast, toast } from "../../lib/toast.ts";

@@ -45,6 +45,8 @@ export function grep(
 const UI = () => files("src/ui");
 const DATA_LAYER = (f: string) => f.startsWith("src/ui/lib/data/") || f === "src/ui/lib/prefs.ts";
 const KIT = (f: string) => f.startsWith("src/ui/components/ui/");
+// ponytail: the old kit waits in components/legacy/ until the last screen has moved to the new one (wave 4)
+const LEGACY = (f: string) => f.startsWith("src/ui/components/legacy/");
 
 export async function n1aUnknownCommands(): Promise<Violation[]> {
   const { registry } = await import("../../../src/core/commands/index.ts");
@@ -79,8 +81,14 @@ export function n1dUnknownRoutes(): Violation[] {
 }
 
 export function n2BareControls(): Violation[] {
-  const list = files("src/ui", /\.tsx$/).filter((f) => !KIT(f));
+  const list = files("src/ui", /\.tsx$/).filter((f) => !KIT(f) && !LEGACY(f));
   return grep(list, /<(button|input|textarea|select)[\s>/]|contentEditable/);
+}
+
+export function n2LegacyKit(): Violation[] {
+  return files("src/ui", /\.(ts|tsx)$/)
+    .filter(LEGACY)
+    .map((file) => ({ file, line: 1, text: "old kit file" }));
 }
 
 export function n4LiteralValues(): Violation[] {
@@ -127,6 +135,7 @@ export const GUARDS = {
   "N1c fetch, EventSource or browser storage outside lib/data and lib/prefs": n1cBrowserIoOutsideDataLayer,
   "N1d routes served by faces/http.ts outside the known list": n1dUnknownRoutes,
   "N2 bare button, input, textarea, select or contentEditable outside components/ui": n2BareControls,
+  "N2 old kit files left in components/legacy": n2LegacyKit,
   "N4a literal colours or px sizes outside tokens.stylex.ts": n4LiteralValues,
   "N4c CSS files (other than fonts) and raw HTML in src/ui": n4CssFilesAndRawHtml,
   "N4d inline styles with only constant values": n4StaticInlineStyles,

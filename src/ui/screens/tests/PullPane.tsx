@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Badge, Button, Icon, type IconName, Skeleton } from "../../components/ui/index.ts";
+import { Badge, Button, Icon, type IconName, Skeleton } from "../../components/legacy/index.ts";
 import { cx, plural } from "../../lib/format.ts";
 import type { Pull, PullRead } from "./pulls.ts";
 

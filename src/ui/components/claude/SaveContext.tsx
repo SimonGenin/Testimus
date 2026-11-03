@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { call } from "../../api.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
-import { Button, Modal } from "../ui/index.ts";
+import { Button, Modal } from "../legacy/index.ts";
 import { CONTEXTS_EVENT, type ContextSummary } from "./ContextsDialog.tsx";
 
 export function SaveContext({

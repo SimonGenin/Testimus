@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { Finding, Passage, Source } from "../../../core/types.ts";
 import { call } from "../../api.ts";
 import { DocBadges, PassageText } from "../../components/sources/PassageView.tsx";
-import { Button, IconButton, Severity, Skeleton } from "../../components/ui/index.ts";
+import { Button, IconButton, Severity, Skeleton } from "../../components/legacy/index.ts";
 import { docGone, goneText } from "../../lib/docGone.ts";
 import { message } from "../../lib/format.ts";
 import { EvidenceBlock } from "./EvidenceBlock.tsx";

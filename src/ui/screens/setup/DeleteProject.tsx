@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { call } from "../../api.ts";
-import { Confirm } from "../../components/ui/index.ts";
+import { Confirm } from "../../components/legacy/index.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 
 export type ProjectTarget = { dir: string; name: string; jiraProject: string };

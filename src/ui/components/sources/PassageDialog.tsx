@@ -4,7 +4,7 @@ import { call } from "../../api.ts";
 import { docGone, goneText } from "../../lib/docGone.ts";
 import { sourceLabel } from "../../lib/fields.ts";
 import { message } from "../../lib/format.ts";
-import { Button, Modal, Severity, Skeleton } from "../ui/index.ts";
+import { Button, Modal, Severity, Skeleton } from "../legacy/index.ts";
 import { DocBadges, PassageText } from "./PassageView.tsx";
 
 export { highlight } from "./PassageView.tsx";

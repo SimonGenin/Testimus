@@ -1,5 +1,5 @@
 import type { StepColumn } from "../../../core/types.ts";
-import { Button } from "../../components/ui/index.ts";
+import { Button } from "../../components/legacy/index.ts";
 import { cx } from "../../lib/format.ts";
 
 export function columnTag(c: StepColumn): { label: string; tone: string } {

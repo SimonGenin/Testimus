@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import type { Job, JobProcess } from "../../../core/types.ts";
-import { Icon } from "../../components/ui/index.ts";
+import { Icon } from "../../components/legacy/index.ts";
 import { cx, plural } from "../../lib/format.ts";
 import {
   childSummary,

@@ -17,7 +17,7 @@ import {
 import { cx, plural } from "../../lib/format.ts";
 import { clock } from "../../lib/jobs.ts";
 import { JobLog } from "../shell/JobLog.tsx";
-import { Button, Icon } from "../ui/index.ts";
+import { Button, Icon } from "../legacy/index.ts";
 
 const sentence = (parts: string[]) =>
   `${[...new Set(parts)].map((p, i) => (i ? p.charAt(0).toLowerCase() + p.slice(1) : p)).join(", ")}.`;

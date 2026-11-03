@@ -9,7 +9,7 @@ import { Palette, type PaletteAction } from "../components/shell/Palette.tsx";
 import { NAV, Rail } from "../components/shell/Rail.tsx";
 import { PassageDialog } from "../components/sources/PassageDialog.tsx";
 import { docLink } from "../components/sources/PassageView.tsx";
-import { DragEdge, Toasts } from "../components/ui/index.ts";
+import { DragEdge, Toasts } from "../components/legacy/index.ts";
 import { actionsChanged, triageWhenClaude } from "../lib/actions.ts";
 import { AppContext, type AppState, type ClaudeRun, type Focus, type ProjectInfo, type Screen } from "../lib/app.ts";
 import { touches, useChanged } from "../lib/changed.ts";

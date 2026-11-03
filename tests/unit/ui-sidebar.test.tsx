@@ -7,7 +7,7 @@ import type { Folder, Job, JobEvent, LocalTestRef, RemoteTestRef } from "../../s
 import { setProject } from "../../src/ui/api.ts";
 import { Activity } from "../../src/ui/components/shell/Activity.tsx";
 import { ScreenHeader } from "../../src/ui/components/shell/ScreenHeader.tsx";
-import { Toasts } from "../../src/ui/components/ui/index.ts";
+import { Toasts } from "../../src/ui/components/legacy/index.ts";
 import { AppContext, type AppState } from "../../src/ui/lib/app.ts";
 import { resetLocalWork } from "../../src/ui/lib/localActivity.ts";
 import { closeToast, toast } from "../../src/ui/lib/toast.ts";

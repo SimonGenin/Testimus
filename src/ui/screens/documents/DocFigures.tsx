@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { FigureEntry } from "../../../core/types.ts";
 import { fileUrl } from "../../api.ts";
-import { Segmented } from "../../components/ui/index.ts";
+import { Segmented } from "../../components/legacy/index.ts";
 
 type Which = "all" | "described" | "bare";
 

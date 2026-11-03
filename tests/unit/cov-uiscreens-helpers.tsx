@@ -1,7 +1,7 @@
 import { act, configure, render } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { vi } from "vitest";
-import { Toasts } from "../../src/ui/components/ui/index.ts";
+import { Toasts } from "../../src/ui/components/legacy/index.ts";
 import { AppContext, type AppState } from "../../src/ui/lib/app.ts";
 import { closeToast, useToasts } from "../../src/ui/lib/toast.ts";
 import { app } from "./ui-desktop-helpers.tsx";

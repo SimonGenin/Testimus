@@ -16,7 +16,7 @@ import { type ClaudeStatus, ConnectClaude } from "../../components/claude/Connec
 import { cap, EFFORTS, ModelPicker } from "../../components/claude/ModelPicker.tsx";
 import { useJob } from "../../components/shell/JobLog.tsx";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
-import { Button, DragEdge, Icon } from "../../components/ui/index.ts";
+import { Button, DragEdge, Icon } from "../../components/legacy/index.ts";
 import { activityOf, DOING } from "../../lib/activity.ts";
 import { useApp } from "../../lib/app.ts";
 import { useDraft } from "../../lib/drafts.ts";

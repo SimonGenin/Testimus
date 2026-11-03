@@ -4,7 +4,7 @@ import { call, events } from "../../api.ts";
 import { problemOf } from "../../components/shell/ProblemPanel.tsx";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
 import { DOC_STATUS } from "../../components/sources/PassageView.tsx";
-import { Badge, Button, DragEdge, Icon, IconButton, Modal, Severity, Skeleton } from "../../components/ui/index.ts";
+import { Badge, Button, DragEdge, Icon, IconButton, Modal, Severity, Skeleton } from "../../components/legacy/index.ts";
 import { useApp } from "../../lib/app.ts";
 import { useChanged } from "../../lib/changed.ts";
 import { desktop, examplePath, pickFiles } from "../../lib/desktop.ts";

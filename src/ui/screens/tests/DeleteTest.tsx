@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { LocalTestRef } from "../../../core/types.ts";
 import { call } from "../../api.ts";
-import { Confirm } from "../../components/ui/index.ts";
+import { Confirm } from "../../components/legacy/index.ts";
 import { discardEditor } from "../../lib/editorBus.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 

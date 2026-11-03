@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { call } from "../../api.ts";
-import { Button, Field, IconButton, Menu, Skeleton } from "../../components/ui/index.ts";
+import { Button, Field, IconButton, Menu, Skeleton } from "../../components/legacy/index.ts";
 import { useApp } from "../../lib/app.ts";
 import { desktop, examplePath, openProject, pathJoin, pickFolder } from "../../lib/desktop.ts";
 import { useDraft } from "../../lib/drafts.ts";

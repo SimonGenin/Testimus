@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { CheckFile, Job, JobEvent, LocalTestRef, Review, Source, Test, XrayJson } from "../../../core/types.ts";
 import { fileUrl } from "../../api.ts";
-import { Button, FindingCard, Icon, ReviewBadge, Severity, Skeleton } from "../../components/ui/index.ts";
+import { Button, FindingCard, Icon, ReviewBadge, Severity, Skeleton } from "../../components/legacy/index.ts";
 import { plural } from "../../lib/format.ts";
 import { duration } from "../../lib/jobs.ts";
 import { FindingSources, ReviewStep } from "../review/ReviewStep.tsx";

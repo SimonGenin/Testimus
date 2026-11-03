@@ -17,7 +17,7 @@ import {
   ReviewBadge,
   Skeleton,
   SyncBadge,
-} from "../../components/ui/index.ts";
+} from "../../components/legacy/index.ts";
 import { useApp } from "../../lib/app.ts";
 import { desktop, pathJoin, reveal } from "../../lib/desktop.ts";
 import { draftOf, keepDraft, useDraft } from "../../lib/drafts.ts";

@@ -1,4 +1,4 @@
-import { Badge, Button } from "../../../components/ui/index.ts";
+import { Badge, Button } from "../../../components/legacy/index.ts";
 import { cx } from "../../../lib/format.ts";
 
 export function CustomCard({

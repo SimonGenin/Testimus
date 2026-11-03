@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { nextTheme, readTheme, setThemeEverywhere, type Theme } from "../../lib/theme.ts";
-import { Icon, type IconName } from "../ui/index.ts";
+import { Icon, type IconName } from "../legacy/index.ts";
 
 const LOOK: Record<Theme, { label: string; icon: IconName }> = {
   system: { label: "System", icon: "system" },

@@ -1,5 +1,5 @@
 import { errorToast, toast } from "../../lib/toast.ts";
-import { Button } from "../ui/index.ts";
+import { Button } from "../legacy/index.ts";
 
 export type ClaudeStatus = {
   installed: boolean;

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { RagChoice } from "../../../core/types.ts";
 import { call } from "../../api.ts";
-import { Badge, Button, Icon, Severity, Skeleton } from "../../components/ui/index.ts";
+import { Badge, Button, Icon, Severity, Skeleton } from "../../components/legacy/index.ts";
 import { useApp } from "../../lib/app.ts";
 import { plural, relTime } from "../../lib/format.ts";
 import { errorToast, toast } from "../../lib/toast.ts";

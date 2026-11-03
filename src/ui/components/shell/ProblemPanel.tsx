@@ -1,7 +1,7 @@
 import { ApiError } from "../../api.ts";
 import { useApp } from "../../lib/app.ts";
 import { message } from "../../lib/format.ts";
-import { Button, Severity } from "../ui/index.ts";
+import { Button, Severity } from "../legacy/index.ts";
 
 const ACCESS = /\b(401|403)\b|token|refused|unauthori[sz]ed|credentials|authenticat/i;
 const JIRA = /jira|xray|atlassian/i;
