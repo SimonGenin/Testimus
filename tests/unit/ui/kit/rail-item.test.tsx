@@ -119,3 +119,13 @@ describe("options asked by the screens", () => {
     expect(fn).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("Chip removeLabel", () => {
+  it("names the remove button by what it does", async () => {
+    const { Chip } = await import("../../../../src/ui/components/ui/Chip.tsx");
+    const onRemove = vi.fn();
+    render(<Chip label="Glossaire" onRemove={onRemove} removeLabel="Leave Glossaire out of this run" />);
+    fireEvent.click(screen.getByRole("button", { name: "Leave Glossaire out of this run" }));
+    expect(onRemove).toHaveBeenCalled();
+  });
+});
