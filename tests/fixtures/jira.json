@@ -1,0 +1,228 @@
+{
+  "project": {
+    "id": "12445",
+    "key": "LFRPS12",
+    "name": "RATP Sosie",
+    "testTypeId": "10935"
+  },
+  "stepFields": [
+    {
+      "id": "action",
+      "name": "action",
+      "type": "text"
+    },
+    {
+      "id": "data",
+      "name": "data",
+      "type": "text"
+    },
+    {
+      "id": "result",
+      "name": "result",
+      "type": "text"
+    },
+    {
+      "id": "cf-exigence",
+      "name": "Exigence",
+      "type": "text-single"
+    }
+  ],
+  "tests": [
+    {
+      "issueId": "41420",
+      "key": "LFRPS12-1420",
+      "summary": "Sectionneur sans TK — menu contextuel et propriétés",
+      "folder": "/Traction/Sectionneurs",
+      "labels": [
+        "testimus-draft"
+      ],
+      "description": "Vérifie le menu contextuel et la fenêtre Propriétés d'un sectionneur sans télécommande (TK) sur la vue de traction. Technique boîte noire : partition par type de sectionneur.",
+      "preconditions": [
+        "30077"
+      ],
+      "links": [
+        {
+          "type": "Test",
+          "key": "LFRPS12-880"
+        }
+      ],
+      "steps": [
+        {
+          "id": "101",
+          "action": "Ouvrir la vue de traction de la ligne 92 et repérer le sectionneur S 12.",
+          "result": "Le sectionneur S 12 est affiché sur la schématique de traction avec le symbole du sectionneur.\n\n!xray-attachment://9001|width=320,height=160!",
+          "custom": {
+            "cf-exigence": "EXI_MOP_SPF_511_A_1650"
+          },
+          "attachments": [
+            {
+              "id": "9001",
+              "filename": "fig-40.png"
+            }
+          ]
+        },
+        {
+          "id": "102",
+          "action": "Clic droit sur le sectionneur S 12 de la vue de traction.",
+          "result": "Le menu propose les commandes du sectionneur.",
+          "custom": {
+            "cf-exigence": "EXI_MOP_SPF_511_A_1670, EXI_MOP_SPF_510_A_20"
+          }
+        },
+        {
+          "id": "103",
+          "action": "Choisir Propriétés.",
+          "result": "Une fenêtre affiche l'état de la position, les heures de la dernière autorisation et confirmation d'ouverture et de fermeture, et les points kilométriques voie 1 et voie 2.\n\n||Champ||Valeur attendue||\n|Position|Fermé|\n|PK voie 1|12,480|",
+          "data": "Sectionneur S 12, position fermée.",
+          "custom": {
+            "cf-exigence": "EXI_MOP_SPF_511_A_1680"
+          }
+        },
+        {
+          "id": "104",
+          "action": "Choisir Autoriser l'ouverture puis Confirmer l'ouverture.",
+          "result": "Le symbole du sectionneur S 12 passe à l'état ouvert sans ouvrir de fenêtre.",
+          "custom": {
+            "cf-exigence": "EXI_MOP_SPF_511_A_1660"
+          }
+        },
+        {
+          "id": "105",
+          "action": "Faire circuler un train sur la section du sectionneur ouvert.",
+          "result": "La traction n'est pas simulée : le train garde sa vitesse.",
+          "custom": {
+            "cf-exigence": "EXI_MOP_SPF_511_A_1660"
+          }
+        }
+      ]
+    },
+    {
+      "issueId": "41398",
+      "key": "LFRPS12-1398",
+      "summary": "Disjoncteur — ouverture à distance",
+      "folder": "/Traction/Disjoncteurs",
+      "labels": [
+        "testimus-validated"
+      ],
+      "description": "Vérifie l'ouverture à distance d'un disjoncteur depuis le PCC.",
+      "steps": [
+        {
+          "id": "201",
+          "action": "Clic droit sur le disjoncteur D 4 de la vue de traction.",
+          "result": "Le menu propose Ouvrir, Fermer et Propriétés."
+        }
+      ]
+    },
+    {
+      "issueId": "41401",
+      "key": "LFRPS12-1401",
+      "summary": "Disjoncteur — fermeture à distance",
+      "folder": "/Traction/Disjoncteurs",
+      "description": "Vérifie la fermeture à distance d'un disjoncteur ouvert.",
+      "preconditions": [
+        "30077"
+      ],
+      "steps": [
+        {
+          "id": "211",
+          "action": "Clic droit sur le disjoncteur D 4 ouvert.",
+          "result": "Le menu propose Fermer.",
+          "custom": {
+            "cf-exigence": "EXI_MOP_SPF_511_A_1700"
+          }
+        },
+        {
+          "id": "212",
+          "action": "Choisir Fermer.",
+          "result": "Le disjoncteur D 4 passe à l'état fermé.",
+          "custom": {
+            "cf-exigence": "EXI_MOP_SPF_511_A_1710"
+          }
+        }
+      ]
+    },
+    {
+      "issueId": "41405",
+      "key": "LFRPS12-1405",
+      "summary": "Sectionneur avec TK — propriétés",
+      "folder": "/Traction/Sectionneurs",
+      "labels": [
+        "regression"
+      ],
+      "steps": [
+        {
+          "id": "221",
+          "action": "Clic droit sur un sectionneur avec TK.",
+          "result": "Seul Propriétés est proposé.",
+          "custom": {
+            "cf-exigence": "EXI_MOP_SPF_511_A_1670"
+          }
+        },
+        {
+          "id": "222",
+          "action": "Choisir Propriétés.",
+          "result": "La fenêtre Propriétés s'ouvre.",
+          "custom": {
+            "cf-exigence": "EXI_MOP_SPF_511_A_1680"
+          }
+        }
+      ]
+    },
+    {
+      "issueId": "41410",
+      "key": "LFRPS12-1410",
+      "summary": "Signal — passage au rouge",
+      "folder": "/Signalisation",
+      "status": "In Progress",
+      "steps": [
+        {
+          "id": "231",
+          "action": "Occuper le canton en aval du signal S 3.",
+          "result": "Le signal S 3 passe au rouge.",
+          "custom": {
+            "cf-exigence": "EXI_MOP_SPF_520_A_10"
+          }
+        }
+      ]
+    },
+    {
+      "issueId": "41411",
+      "key": "LFRPS12-1411",
+      "summary": "Signal — feu clignotant",
+      "folder": "/Signalisation",
+      "steps": [
+        {
+          "id": "241",
+          "action": "Commander le feu clignotant du signal S 3.",
+          "result": "Le feu du signal S 3 clignote.",
+          "custom": {
+            "cf-exigence": "EXI_MOP_SPF_520_A_20"
+          }
+        }
+      ]
+    }
+  ],
+  "preconditions": [
+    {
+      "issueId": "30077",
+      "key": "LFRPS12-77",
+      "summary": "Exercice chargé sur la ligne 92",
+      "definition": "# Le logiciel R³ est lancé.\n# Un exercice de la ligne 92 est chargé."
+    },
+    {
+      "issueId": "30078",
+      "key": "LFRPS12-78",
+      "summary": "Un train circule sur la ligne 92",
+      "definition": "# Un train autonome circule sur la ligne 92."
+    }
+  ],
+  "folders": [
+    "/Traction",
+    "/Traction/Sectionneurs",
+    "/Traction/Disjoncteurs",
+    "/Signalisation"
+  ],
+  "files": {
+    "9001": "project/tests/LFRPS12-1420/images/fig-40.png"
+  }
+}

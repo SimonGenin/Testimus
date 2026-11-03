@@ -12,6 +12,7 @@ export const KIND: Record<string, string> = {
   chat: "Ask the documents",
   pull: "Pull from Jira",
   push: "Push to Jira",
+  status: "Check every test against Jira",
   "docs.add": "Add document",
   "docs.convert": "Convert document",
   "describe-figures": "Describe figures",

@@ -8,7 +8,7 @@ import { commands as tests } from "../../src/core/commands/tests.ts";
 import { commands as xray } from "../../src/core/commands/xray.ts";
 import { env } from "../../src/core/env.ts";
 import { setModes } from "../../src/core/lib/columns.ts";
-import { resetAuth } from "../../src/core/lib/jira.ts";
+import { resetAuth } from "../../src/core/lib/jira/http.ts";
 import { readTest, writeTest } from "../../src/core/lib/store.ts";
 import { mockHttp, resetMockJira } from "../../src/core/mock/jira.ts";
 

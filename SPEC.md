@@ -809,9 +809,9 @@ Everything Xray Editor does (its `SPEC.md` §5–§6: pull with images, folders,
 links, dirty detection against `.remote.md`, push plan, 429 back-off, sequential execution that
 stops at the first failure), plus:
 
-- **Step field schema**: `xray.fields` reads every step field of the project, custom ones included,
+- **Step field schema**: `xray.refreshFields` reads every step field of the project, custom ones included,
   into `xray.json` `{ fetchedAt, fields: [{ id, name, type, builtin, required?, disabled? }] }` — what Xray says
-  and nothing else, read again on demand. Source (checked read-only on LFRPS12,
+  and nothing else, read again on demand (`xray.fields` answers the copy in `xray.json` without asking Xray). Source (checked read-only on LFRPS12,
   2026-11-02): GraphQL `getProjectSettings(projectIdOrKey) { testStepSettings { fields { id name type
   required disabled values } } }` — the built-ins come back as `action`/`data`/`result`, LFRPS12 adds
   `Exigence` (`text-single`, id `69d5fcb02f2b49abf7fb76e6`). Steps read `customFields { id name value }`
@@ -823,7 +823,7 @@ stops at the first failure), plus:
   something), plus `hidden` (a Testimus extra: left out unless a step holds text in it). `columns.setModes` and
   `columns.order` change them. A test's `local.json` `columns` (§3) overrides the folding column by column
   (`tests.columns`, `tests.setColumns`), the step card's own toggle overrides both for the session, and Action
-  and Expected Result never fold. Reading Xray again (`xray.fields`, before every push) rewrites `xray.json`;
+  and Expected Result never fold. Reading Xray again (`xray.refreshFields`, also before every push) rewrites `xray.json`;
   `columns.json` follows a field renamed in Xray (same id: its description and mode go to the new name), keeps a
   field Xray dropped as a local column (its text stays in the tests) and turns a local column the team then
   created in Xray into that field.
@@ -834,14 +834,20 @@ stops at the first failure), plus:
   joined with `", "`. Screenshots embed only in the three built-in fields. The project id and test
   issue type are cached in `.testimus/jira-project.json`. Not yet proven live: whether a custom field
   is cleared with `""` or `null`.
-- Push safety (after the adversarial review, 2026-11): `xray.plan` returns a `planHash` (the ordered
-  operations and `test.md`); `xray.push` requires it and refuses when it no longer matches, so the plan
+- Push safety (after the adversarial review, 2026-11): `xray.plan` (= `xray.push --dry-run`, one
+  code path: a read a Claude run may call, since tool access cannot tell a dry run from a push) returns a `planHash`
+  (the ordered operations and `test.md`); `xray.push` requires it and refuses when it no longer matches, so the plan
   executed is the plan shown (a resume uses the kept plan's hash). One push per test at a time; the
   create re-reads the local test first. A test changed in Jira is pushed only with `overwriteRemote`; the push dialog sends it when the user confirms a
   plan that shows « Changed in Jira since your pull » (no extra tick, as in Xray Editor).
   A cancel is honoured between operations (the one in flight finishes; the job is « cancelled » only when
   nothing ran after it). Attachments must be files inside `tests/<id>/`. An empty or space-containing
   `labelPrefix` falls back to `testimus-` with a warning.
+- Code: `lib/jira/` is the client — `http.ts` (auth, the six-request semaphore, the cancellable 429 wait),
+  `read.ts` (project, fields, folders, tests, preconditions, pull), `steps.ts` (a step both ways: custom fields,
+  embedded attachments), `labels.ts` (review labels), `push.ts` (the plan and its operations); `lib/sync/` puts it
+  on the project folder — `connect.ts` (the key, `jira-project.json`, `xray.json`), `pull.ts` (images, undo on any
+  stop, the remote check), `push.ts` (the plan of a test, its hash, op-by-op execution, one push per test).
 - **Never write to a production Jira project during development.** Write paths are proven by unit
   tests over a fake `http` asserting exact payloads (Xray Editor's rule). Live checks are read-only.
 
@@ -916,7 +922,7 @@ Group | Verbs (all with `--json`; mutating ones marked *)
 `gen` | `tests`* (job), `bench`* (job, L2 benchmark with Claude; costly)
 `check` | `run`* (job: mechanical pass, then the `check-test` skill; writes `check.json`), `record`* (the skill's semantic findings for one test), `show`
 `review` | `set`* (validate / to-fix + note), `fix`* (Claude, job), `queue` (what awaits review), `evidence` (sources read / related)
-`xray` | `fields`* (also read again before every push and when a project opens; a field switched off in Xray is kept with `disabled`, `required` kept), `folders`, `search`, `preconditions` (the project's, with definitions), `browse` (an issue's Jira page), `pull`* (job), `status`, `plan`, `push`* (job; `from` resumes after a failed operation)
+`xray` | `fields` (the step fields in `xray.json`, no network), `refreshFields`* (read them again from Xray — also before every push and when a project opens; a field switched off in Xray is kept with `disabled`, `required` kept), `connect`*, `disconnect`*, `folders` (the tree with counts), `search`, `preconditions` (the project's, with definitions), `browse` (an issue's Jira page), `pull`* (job), `status` (one test), `statusAll` (job, every test), `plan` (what a push would do, and its `planHash`; = `push --dry-run`, readable by Claude runs), `push`* (job; `from` resumes after a failed operation)
 `models` | `catalog` (with the fit on this PC), `list`, `add`* (path A), `pull`* (job, checked download), `pullRuntime`* (job, llama.cpp build), `remove`*, `verify`, `setDir`* (move · keep · copy, dry-run), `use`* (Custom), `packs`, `usePack`* (job), `hardware`, `fit`, `perf`, `advice`, `dismiss`*
 `jobs` | `list`, `show`, `cancel`*
 `system` | `setup`* (credentials), `secrets` (the saved token, Client ID and secret, to show back in the form; denied to Claude runs like every `system.*`), `doctor`, `version` (with `shell`: browser or desktop <version>), `settings`, `saveSettings`* (claude.exe, model downloads, agents at the same time, the page's preferences)
