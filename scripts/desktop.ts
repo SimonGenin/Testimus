@@ -32,6 +32,7 @@ export async function buildDesktop(): Promise<string> {
   for (const f of ["splash.html", "error.html", "pages.css"])
     copyFileSync(join(SRC, "pages", f), join(OUT, "pages", f));
   copyFileSync(join(ROOT, "src", "ui", "public", "logo.png"), join(OUT, "pages", "logo.png"));
+  copyFileSync(join(ROOT, "scripts", "testimus.ico"), join(OUT, "pages", "testimus.ico"));
   return join(OUT, "main.mjs");
 }
 

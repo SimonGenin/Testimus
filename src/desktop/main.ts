@@ -40,6 +40,8 @@ import {
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PAGES = join(HERE, "pages");
 const ERROR_PAGE = join(PAGES, "error.html");
+const LOGO = join(PAGES, "logo.png");
+const APP_ID = "Testimus";
 const SHELL_VERSION = __VERSION__;
 const packaged = app.isPackaged;
 const exeDir = dirname(process.execPath);
@@ -68,6 +70,7 @@ let stopped: Promise<void> | null = null;
 let shutDown = false;
 
 app.setPath("userData", join(dataDir(), "desktop"));
+app.setAppUserModelId(APP_ID);
 
 function focus(): void {
   if (!win || win.isDestroyed()) return;
@@ -245,12 +248,20 @@ function createWindow(): BrowserWindow {
     minHeight: MIN_SIZE.height,
     show: false,
     title: "Testimus",
-    icon: join(PAGES, "logo.png"),
+    icon: LOGO,
     backgroundColor: nativeTheme.shouldUseDarkColors ? "#0b0f0f" : "#f4f6f6",
     autoHideMenuBar: false,
     webPreferences: { ...LOCKED_PREFERENCES, preload: join(HERE, "preload.cjs") },
   });
   w.setMenuBarVisibility(false);
+  // ponytail: Windows takes the taskbar button, pin and toast identity from these, not from the window icon; unpackaged
+  // they would be electron.exe's
+  w.setAppDetails({
+    appId: APP_ID,
+    appIconPath: packaged ? process.execPath : join(PAGES, "testimus.ico"),
+    relaunchCommand: packaged ? `"${process.execPath}"` : `"${process.execPath}" "${join(HERE, "main.mjs")}"`,
+    relaunchDisplayName: "Testimus",
+  });
   if (state.maximized) w.maximize();
   w.once("ready-to-show", () => w.show());
   w.on("close", (event) => {
@@ -292,6 +303,7 @@ async function start(): Promise<void> {
     window: () => win,
     origin: () => origin,
     shellPage: pathToFileURL(ERROR_PAGE).href,
+    icon: LOGO,
     version: { shell: SHELL_VERSION, electron: process.versions.electron, chrome: process.versions.chrome },
     knownRoots,
     details: () => ({ message: errorMessage, lines: lastLines(), logDir: logDir() }),

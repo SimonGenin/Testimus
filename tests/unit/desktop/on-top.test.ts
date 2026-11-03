@@ -30,6 +30,7 @@ registerBridge({
   window: () => win as never,
   origin: () => ORIGIN,
   shellPage: "file:///C:/x/pages/error.html",
+  icon: "C:/x/pages/logo.png",
   version: { shell: "0.2.0", electron: "45.2.1", chrome: "140" },
   knownRoots: async () => [],
   details: () => ({ message: "", lines: [], logDir: "" }),

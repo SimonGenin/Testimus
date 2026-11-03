@@ -87,6 +87,7 @@ const deps = {
   window: () => win as never,
   origin: () => origin,
   shellPage: ERROR_PAGE,
+  icon: "C:\\x\\pages\\logo.png",
   version: { shell: "0.2.0", electron: "45.2.1", chrome: "140" },
   knownRoots: vi.fn(async () => [root]),
   details: vi.fn(() => ({ message: "boom", lines: ["a"], logDir: "L" })),
@@ -218,7 +219,10 @@ describe("bridge calls", () => {
   it("notify shows a notification only when the window is not focused", async () => {
     expect(await page("notify", { title: "Done", body: "12 tests" })).toBe(true);
     expect(h.notifications).toHaveLength(1);
-    expect(h.notifications[0]).toMatchObject({ opts: { title: "Done", body: "12 tests" }, shown: true });
+    expect(h.notifications[0]).toMatchObject({
+      opts: { title: "Done", body: "12 tests", icon: "C:\\x\\pages\\logo.png" },
+      shown: true,
+    });
     h.notifications[0].click?.();
     expect(win?.restore).toHaveBeenCalled();
     expect(win?.show).toHaveBeenCalled();

@@ -131,6 +131,7 @@ export type BridgeDeps = {
   window(): BrowserWindow | null;
   origin(): string | null;
   shellPage: string;
+  icon: string;
   version: DesktopVersion;
   knownRoots(): Promise<string[]>;
   details(): { message: string; lines: string[]; logDir: string };
@@ -205,7 +206,7 @@ export function registerBridge(deps: BridgeDeps): void {
     notify(v, win) {
       const o = v as { title: string; body: string };
       if (win.isFocused() || !Notification.isSupported()) return false;
-      const n = new Notification({ title: o.title, body: o.body });
+      const n = new Notification({ title: o.title, body: o.body, icon: deps.icon });
       n.on("click", () => {
         if (win.isDestroyed()) return;
         if (win.isMinimized()) win.restore();
