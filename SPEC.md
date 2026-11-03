@@ -918,10 +918,12 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
     only), Files (uploaded through `contexts.addFile`, ✕), Delete context (one click, as in Xray Editor; « Deleted for every project » as its tooltip on a shared one). Every change fires the
     window event `testimus:contexts`, on which the dock, Settings › Claude and the test header reload.
   - **Settings additions** (parity with Xray Editor §2, §8): a version pill `v<version>` beside the title; Settings ›
-    Claude holds the Claude program field (Browse in the desktop app; Check saves it then runs `claude.status
+    Claude is four cards — Connection to Claude, Claude dock, Quick asks, Contexts (the last three need a project;
+    `#/settings/claude-dock`, `-quickasks`, `-contexts` scroll to them). The connection card holds the Claude program field (Browse in the desktop app; Check saves it then runs `claude.status
     {refresh:true}`; « ✓ <version> · found » / « ✕ <error> · not found · Claude is optional », the connect panel when
-    not found; `#/settings/claude-exe` focuses it), the default model (with custom…) and effort, quick asks edited in
-    place / added / removed by index, and default contexts as toggle chips by name. Settings › Access lists both
+    not found; `#/settings/claude-exe` focuses it) and the agents at the same time; the dock card the default model
+    (with custom…) and effort; the quick asks card the quick asks edited in place / added / removed by index; the
+    contexts card the default contexts as toggle chips by name and « Manage contexts… ». Settings › Access lists both
     credential files with their paths as found · valid / missing / invalid — <problem> (`credsStatus.invalid`,
     `problem`). The guided connection (first launch and Access): (1) site and email — a tenant name or any page URL is
     reduced to its https site root, a typed `/wiki` kept and nothing added (Xray Editor's rule; an unchanged site keeps
