@@ -139,7 +139,10 @@ describe("every xray command through the registry, its output checked against it
       { id: "LFRPS12-1420", dryRun: true },
       P,
     );
-    expect(dry.plan.ops.map((o) => o.label)).toEqual(["Update labels (review label testimus-checked)", "Update step 2"]);
+    expect(dry.plan.ops.map((o) => o.label)).toEqual([
+      "Update labels (review label testimus-checked)",
+      "Update step 2",
+    ]);
     expect(dry.ops.map((o) => o.status)).toEqual(["not-started", "not-started"]);
     await expect(call("xray.push", { id: "LFRPS12-1420" }, P)).rejects.toThrow(/no planHash given/);
     await expect(call("xray.push", { id: "LFRPS12-1420", planHash: "0000" }, P)).rejects.toThrow(
