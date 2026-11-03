@@ -189,6 +189,13 @@ const PATHS = {
     </>
   ),
   text: <path d="M3 4h10M3 8h10M3 12h6" />,
+  jiraOff: (
+    <>
+      <path d="M8 1.8 14.2 8 8 14.2 1.8 8z" />
+      <path d="M8 5.4 10.6 8 8 10.6 5.4 8z" />
+      <path d="m2.2 2.2 11.6 11.6" />
+    </>
+  ),
 } satisfies Record<string, ReactNode>;
 
 const FILLED = {

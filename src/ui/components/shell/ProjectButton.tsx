@@ -5,7 +5,7 @@ import { baseName, desktop, openProject, pickFolder, reveal } from "../../lib/de
 import { initials } from "../../lib/format.ts";
 import { writePref } from "../../lib/theme.ts";
 import { errorToast } from "../../lib/toast.ts";
-import { Menu, type MenuItem } from "../ui/index.ts";
+import { Icon, Menu, type MenuItem } from "../ui/index.ts";
 import { OpenByKey } from "./OpenByKey.tsx";
 
 type Known = { dir: string; name?: string; jiraProject?: string };
@@ -21,7 +21,7 @@ export function ProjectButton() {
   const [byKey, setByKey] = useState(false);
   const p = app.info?.project;
   const name = p?.name || (app.info ? baseName(app.info.dir) : "No project");
-  const key = p?.jiraProject || "—";
+  const key = p?.jiraProject;
   const here = app.info?.dir ?? project();
   const load = () =>
     call("project.list", {})
@@ -81,7 +81,7 @@ export function ProjectButton() {
           <button
             type="button"
             className="rail-item"
-            aria-label={`Project ${key} ${name}, change project`}
+            aria-label={`Project ${key || "not connected to Jira"} ${name}, change project`}
             aria-expanded={open}
             aria-controls={open ? id : undefined}
             onClick={() => {
@@ -90,7 +90,13 @@ export function ProjectButton() {
             }}
           >
             <span className="proj-mark">{initials(name)}</span>
-            <span className="mono proj-key">{key}</span>
+            {key ? (
+              <span className="mono proj-key">{key}</span>
+            ) : (
+              <span className="proj-key" title="Not connected to Jira">
+                <Icon name="jiraOff" size={14} />
+              </span>
+            )}
           </button>
         )}
       />
