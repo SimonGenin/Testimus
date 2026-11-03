@@ -4,8 +4,11 @@ import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { quietCtx } from "../../src/core/command.ts";
 import { commands } from "../../src/core/commands/docs.ts";
+import { isStale, recheckMechanical, recordSemantic, testsCiting } from "../../src/core/lib/check.ts";
 import { normalizeAnchor, sectionOf } from "../../src/core/lib/docs.ts";
 import { sha256 } from "../../src/core/lib/hash.ts";
+import { readCheck } from "../../src/core/lib/store.ts";
+import { docContent } from "../../src/core/rag/indexer.ts";
 import type { DocJson, DocRef, FigureEntry } from "../../src/core/types.ts";
 import { sampleDocx } from "../fixtures/docx/sample.ts";
 
@@ -47,7 +50,9 @@ describe("docs commands", () => {
     expect(doc.warnings).toHaveLength(3);
     expect(readFileSync(original)).toEqual(before);
     expect(readFileSync(join(dir, "source.docx"))).toEqual(before);
-    expect(JSON.parse(readFileSync(join(dir, "doc.json"), "utf8"))).toEqual(doc);
+    const { citedBy, ...json } = doc as DocJson & { citedBy: unknown[] };
+    expect(citedBy).toEqual([]);
+    expect(JSON.parse(readFileSync(join(dir, "doc.json"), "utf8"))).toEqual(json);
     expect(readFileSync(join(dir, "doc.md"), "utf8")).toContain("<!-- § 5.6.6 -->");
     expect(existsSync(join(dir, "figures", "fig-40.png"))).toBe(true);
     const figs = JSON.parse(readFileSync(join(dir, "figures.json"), "utf8")) as FigureEntry[];
@@ -182,6 +187,57 @@ describe("docs commands", () => {
   });
 
   it("reads the fixture project's documents", async () => {
+  it("removing a cited document: dryRun lists the citing tests, the removal re-checks them, re-adding frees them", async () => {
+    const copy = join(mkdtempSync(join(tmpdir(), "testimus-fixture-")), "p");
+    cpSync(join("tests", "fixtures", "project"), copy, { recursive: true });
+    const id = "SOSIE_211_D401-1_3";
+    type Out = { citedBy: { id: string; review: string; steps: number }[]; dryRun: boolean; unlinked: string[] };
+    const md = (t: string) => readFileSync(join(copy, "tests", t, "test.md"), "utf8");
+    const before = md("LFRPS12-1420");
+    const plan = await run<Out>(copy, "docs.remove", { id, dryRun: true });
+    expect(plan.dryRun).toBe(true);
+    expect(plan.citedBy.map((t) => t.id)).toEqual(["LFRPS12-1398", "LFRPS12-1420", "local-3f9a12c0"]);
+    expect(plan.citedBy.every((t) => t.steps > 0)).toBe(true);
+    expect(existsSync(join(copy, "docs", id, "doc.md"))).toBe(true);
+    recordSemantic(copy, "LFRPS12-1420", [
+      { step: 1, kind: "vague-result", severity: "warning", message: "kept", sources: [] },
+    ]);
+
+    const done = await run<Out>(copy, "docs.remove", { id });
+    expect(done.dryRun).toBe(false);
+    expect(done.citedBy.map((t) => t.id)).toEqual(plan.citedBy.map((t) => t.id));
+    expect(existsSync(join(copy, "docs", id))).toBe(false);
+    expect(md("LFRPS12-1420")).toBe(before);
+    const missing = (t: string) =>
+      (readCheck(copy, t)?.findings ?? []).filter((f) => f.message.includes(`cites ${id}, which is not a document`));
+    for (const t of done.citedBy) {
+      expect(missing(t.id).length).toBeGreaterThan(0);
+      expect(isStale(copy, t.id)).toBe(false);
+    }
+    expect(readCheck(copy, "LFRPS12-1420")?.findings.filter((f) => f.pass === "semantic")).toMatchObject([
+      { message: "kept" },
+    ]);
+    await expect(run(copy, "docs.remove", { id, dryRun: true })).rejects.toThrow(/No document/);
+
+    const back = await run<Out>(copy, "docs.add", { file: original, id });
+    expect(back.citedBy.map((t) => t.id)).toEqual(plan.citedBy.map((t) => t.id));
+    for (const t of back.citedBy) expect(missing(t.id)).toEqual([]);
+  });
+
+  it("re-checking drops semantic findings stamped for an older test.md", async () => {
+    const copy = join(mkdtempSync(join(tmpdir(), "testimus-fixture-")), "p");
+    cpSync(join("tests", "fixtures", "project"), copy, { recursive: true });
+    recordSemantic(copy, "LFRPS12-1398", [
+      { step: 1, kind: "vague-result", severity: "warning", message: "old", sources: [] },
+    ]);
+    const file = join(copy, "tests", "LFRPS12-1398", "test.md");
+    writeFileSync(file, `${readFileSync(file, "utf8")}\n`);
+    expect(testsCiting(copy, { id: "nope" })).toEqual([]);
+    const [check] = recheckMechanical(copy, ["LFRPS12-1398"]);
+    expect(check.findings.filter((f) => f.pass === "semantic")).toEqual([]);
+    expect(isStale(copy, "LFRPS12-1398")).toBe(false);
+  });
+
     const copy = join(mkdtempSync(join(tmpdir(), "testimus-fixture-")), "p");
     cpSync(join("tests", "fixtures", "project"), copy, { recursive: true });
     const list = await run<DocRef[]>(copy, "docs.list", {});

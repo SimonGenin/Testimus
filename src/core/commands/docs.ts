@@ -5,6 +5,7 @@ import { z } from "zod";
 import { describeFigures, shouldDescribeFigures } from "../claude/figures.ts";
 import { type Command, type Ctx, command, projectOf, UserError } from "../command.ts";
 import { writeAtomic } from "../lib/atomic.ts";
+import { recheckMechanical, testsCiting } from "../lib/check.ts";
 import {
   addDoc,
   docDir,
@@ -96,6 +97,33 @@ const figure = z.object({
     .describe("What the picture is, as Claude judged it"),
 });
 const id = z.string().describe("Document id (the folder name under docs/, e.g. SOSIE_211_D401-1_3)");
+const citedBy = z
+  .array(
+    z.object({
+      id: z.string().describe("Test id (its folder under tests/)"),
+      key: z.string().optional().describe("Jira key, once the test is in Xray"),
+      summary: z.string().describe("Test summary"),
+      review: z.enum(["draft", "checked", "to-fix", "validated"]).describe("Where the test is in the review"),
+      steps: z.number().describe("Steps with a source that cites the document"),
+    }),
+  )
+  .describe("Tests whose sources cite this document; their mechanical check is redone against the new text");
+
+// ponytail: a test whose document changed did not change itself, so its check.json would stay « fresh » —
+// the tests that cite the document are re-checked whenever its text appears, changes or goes
+function recheckCiting(ctx: Ctx, doc: DocJson): z.input<typeof citedBy> {
+  const project = projectOf(ctx);
+  const cited = testsCiting(project, doc);
+  if (!cited.length) return cited;
+  ctx.progress({
+    message: `Re-checking the ${cited.length === 1 ? "test" : `${cited.length} tests`} citing ${doc.code}`,
+  });
+  recheckMechanical(
+    project,
+    cited.map((t) => t.id),
+  );
+  return cited;
+}
 
 export const commands: Command[] = [
   command({
@@ -117,7 +145,7 @@ export const commands: Command[] = [
         .describe("A .pdf rendering of the same .docx, used only to recover figures the .docx has no picture for"),
       kind: kind.optional().describe("What the document is (default spec)"),
     }),
-    output: docJson,
+    output: docJson.extend({ citedBy }),
     mutates: true,
     job: "docs.add",
     positional: ["file"],
@@ -142,7 +170,8 @@ export const commands: Command[] = [
           ? { ...added, source: { ...added.source, path: `upload: ${basename(input.name || "document.docx")}` } }
           : added;
         if (doc !== added) writeDoc(project, doc);
-        return await withFigures(ctx, doc);
+        await withFigures(ctx, doc);
+        return { ...doc, citedBy: recheckCiting(ctx, doc) };
       } finally {
         rmSync(up, { recursive: true, force: true });
       }
@@ -152,16 +181,17 @@ export const commands: Command[] = [
     name: "docs.convert",
     summary: "Reconvert a document from its copied source; team fields and figure descriptions are kept.",
     input: z.object({ id }),
-    output: docJson,
+    output: docJson.extend({ citedBy }),
     mutates: true,
     job: "docs.convert",
     positional: ["id"],
     subject: (i) => i.id,
     async run(ctx, input) {
-      return await withFigures(
+      const doc = await withFigures(
         ctx,
         await reconvertDoc(projectOf(ctx), input.id, ctx.signal, (message) => ctx.progress({ message })),
       );
+      return { ...doc, citedBy: recheckCiting(ctx, doc) };
     },
   }),
   command({
@@ -275,21 +305,42 @@ export const commands: Command[] = [
   command({
     name: "docs.remove",
     summary:
-      "Remove a document and every trace of it: its folder (copy, doc.md, figures, context), its passages, vectors and links in the search index, and the other documents' references to it.",
-    input: z.object({ id }),
+      "Remove a document and every trace of it: its folder (copy, doc.md, figures, context), its passages, vectors and links in the search index, and the other documents' references to it. Tests that cite it keep their sources and are re-checked, so they report the missing document. dryRun says what would go and which tests cite it.",
+    input: z.object({
+      id,
+      dryRun: z
+        .boolean()
+        .default(false)
+        .describe("Return what would be removed and the tests that cite the document, without removing anything"),
+    }),
     output: z.object({
-      removed: z.string().describe("Id of the removed document"),
-      folder: z.string().describe("The folder that was deleted"),
-      unlinked: z.array(z.string()).describe("Documents that named it in amends and no longer do"),
+      removed: z.string().describe("Id of the removed document (to be removed, with dryRun)"),
+      folder: z.string().describe("The folder that was deleted (to be deleted, with dryRun)"),
+      unlinked: z.array(z.string()).describe("Documents that named it in amends and no longer do (or would not)"),
+      citedBy,
+      dryRun: z.boolean().describe("True when nothing was removed"),
     }),
     mutates: true,
     positional: ["id"],
     async run(ctx, input) {
       const project = projectOf(ctx);
+      const doc = readDoc(project, input.id);
       const folder = docDir(project, input.id);
+      const cited = testsCiting(project, doc);
+      if (input.dryRun) {
+        const unlinked = listDocs(project)
+          .filter((d) => d.amends?.includes(input.id))
+          .map((d) => d.id);
+        return { removed: input.id, folder, unlinked, citedBy: cited, dryRun: true };
+      }
       const unlinked = removeDoc(project, input.id);
       unindexDoc(project, input.id);
-      return { removed: input.id, folder, unlinked };
+      if (cited.length)
+        recheckMechanical(
+          project,
+          cited.map((t) => t.id),
+        );
+      return { removed: input.id, folder, unlinked, citedBy: cited, dryRun: false };
     },
   }),
 ];

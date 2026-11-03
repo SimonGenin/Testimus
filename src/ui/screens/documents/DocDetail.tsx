@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import type { DocJson, DocRef, FigureEntry, TraceItem, TraceScan, TraceView } from "../../../core/types.ts";
 import { call, project } from "../../api.ts";
-import { Button, Chip, Confirm, Icon, IconButton, Menu, Severity, Skeleton } from "../../components/ui/index.ts";
+import { Button, Chip, Icon, IconButton, Menu, Severity, Skeleton } from "../../components/ui/index.ts";
 import { desktop, pathJoin, reveal } from "../../lib/desktop.ts";
 import { message, plural } from "../../lib/format.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 import { REQUIREMENT, tracesNow } from "../../lib/traces.ts";
 import { DocText, FigureChip } from "./DocText.tsx";
+import { RemoveDoc } from "./RemoveDoc.tsx";
 
 type TocEntry = { anchor: string; title: string; level: number };
 type Shown = {
@@ -50,7 +51,6 @@ export function DocDetail({
 }) {
   const [shown, setShown] = useState<Shown | null>(null);
   const [ask, setAsk] = useState(false);
-  const [removing, setRemoving] = useState(false);
   const [part, setPart] = useState<{ anchor: string; md: string; focus?: string } | null>(null);
   const [context, setContext] = useState("");
   const [error, setError] = useState("");
@@ -130,19 +130,6 @@ export function DocDetail({
     },
     [id, onChanged],
   );
-
-  const remove = async () => {
-    setRemoving(true);
-    try {
-      await call("docs.remove", { id });
-      toast({ kind: "info", title: `${shown?.doc.code ?? id} deleted` });
-      onRemoved();
-    } catch (e) {
-      errorToast(e, "Could not delete the document");
-      setRemoving(false);
-      setAsk(false);
-    }
-  };
 
   if (error)
     return (
@@ -382,27 +369,7 @@ export function DocDetail({
         </div>
       )}
 
-      {ask && (
-        <Confirm
-          title="Delete this document?"
-          confirm="Delete"
-          danger
-          busy={removing}
-          loss={
-            <>
-              <strong>What is lost: </strong>the copy of the original, the converted text, the figures and their
-              descriptions, the context, and its passages in the search index. Tests that cite it keep their sources,
-              which the check will then report as missing.
-            </>
-          }
-          onClose={() => setAsk(false)}
-          onConfirm={() => void remove()}
-        >
-          <p>
-            <span className="mono">{d.code}</span> — {d.title} — is removed from the project folder and from the index.
-          </p>
-        </Confirm>
-      )}
+      {ask && <RemoveDoc doc={d} onClose={() => setAsk(false)} onRemoved={onRemoved} />}
     </aside>
   );
 }

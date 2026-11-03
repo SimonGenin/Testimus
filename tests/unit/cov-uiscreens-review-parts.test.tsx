@@ -438,6 +438,25 @@ describe("SourcePanel and EvidenceBlock", () => {
     expect(screen.queryByText(/of 0/)).toBeNull();
   });
 
+  it("a source whose document was deleted says so, with its quote, and hides Open in document", async () => {
+    api.routes["docs.list"] = () => [];
+    mount(
+      <SourcePanel
+        source={{ docId: "GONE", anchor: "§1", quote: "le texte cité" }}
+        label="L"
+        index={0}
+        total={1}
+        testId=""
+        onOpenDoc={vi.fn()}
+        onPick={vi.fn()}
+      />,
+    );
+    expect(await screen.findByText("Document deleted")).toBeInTheDocument();
+    expect(screen.getByText(/add GONE again/)).toBeInTheDocument();
+    expect(screen.getByText("« le texte cité »")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open in document" })).toBeNull();
+  });
+
   it("ignores a passage that arrives after the source changed", async () => {
     let release = () => {};
     const gate = new Promise<void>((r) => {

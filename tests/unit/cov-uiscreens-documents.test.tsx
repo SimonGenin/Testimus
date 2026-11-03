@@ -271,9 +271,9 @@ describe("DocDetail", () => {
 
   it("⋯ › Delete asks, then removes the document; Cancel and a failure leave it", async () => {
     let fail = true;
-    api.routes["docs.remove"] = () => {
-      if (fail) throw new Error("locked");
-      return { removed: "D1", folder: "docs/D1", unlinked: [] };
+    api.routes["docs.remove"] = (i) => {
+      if (fail && !i.dryRun) throw new Error("locked");
+      return { removed: "D1", folder: "docs/D1", unlinked: [], citedBy: [], dryRun: !!i.dryRun };
     };
     const { onRemoved } = show();
     await screen.findByRole("heading", { name: "Title D1" });
@@ -281,11 +281,13 @@ describe("DocDetail", () => {
     more();
     fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
     expect(screen.getByRole("dialog", { name: "Delete this document?" })).toHaveTextContent(/from the index/);
+    expect(await screen.findByText("No test cites it.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("dialog")).toBeNull();
-    expect(named("docs.remove")).toHaveLength(0);
+    expect(named("docs.remove").map((c) => c.input)).toEqual([{ id: "D1", dryRun: true }]);
     more();
     fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Delete" })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     expect(await screen.findByText("Could not delete the document")).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
@@ -293,10 +295,75 @@ describe("DocDetail", () => {
     fail = false;
     more();
     fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Delete" })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(onRemoved).toHaveBeenCalled());
     expect(named("docs.remove").at(-1)?.input).toEqual({ id: "D1" });
     expect(screen.getByText("C-D1 deleted")).toBeInTheDocument();
+  });
+
+  it("Delete lists the tests that cite the document, then says they were re-checked", async () => {
+    const t = (n: number, review = "draft") => ({ id: `local-${n}`, summary: `Test ${n}`, review, steps: 1 });
+    const cited = [{ ...t(0, "validated"), key: "T-1" }, ...Array.from({ length: 9 }, (_, i) => t(i + 1))];
+    api.routes["docs.remove"] = (i) => ({
+      removed: "D1",
+      folder: "docs/D1",
+      unlinked: ["D2"],
+      citedBy: cited,
+      dryRun: !!i.dryRun,
+    });
+    const { onRemoved } = show();
+    await screen.findByRole("heading", { name: "Title D1" });
+    fireEvent.click(screen.getByRole("button", { name: "More actions for this document" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
+    expect(screen.getByRole("button", { name: "Delete" })).toBeDisabled();
+    const list = await screen.findByRole("list", { name: "Tests that cite this document" });
+    const dialog = screen.getByRole("dialog", { name: "Delete this document?" });
+    expect(dialog).toHaveTextContent("10 tests cite it, 1 of them validated");
+    expect(within(list).getAllByRole("listitem")).toHaveLength(8);
+    expect(within(list).getByText("T-1")).toBeInTheDocument();
+    expect(dialog).toHaveTextContent("and 2 more");
+    expect(dialog).toHaveTextContent("This document amends it and will no longer name it: D2");
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(onRemoved).toHaveBeenCalled());
+    expect(screen.getByText(/10 tests citing it were re-checked/)).toBeInTheDocument();
+  });
+
+  it("Delete still works when the citing tests cannot be listed; one citing test reads in the singular", async () => {
+    api.routes["docs.remove"] = (i) => {
+      if (i.dryRun) throw new Error("tests unreadable");
+      return {
+        removed: "D1",
+        folder: "",
+        unlinked: [],
+        citedBy: [{ id: "a", summary: "A", review: "draft", steps: 2 }],
+      };
+    };
+    const { onRemoved } = show();
+    await screen.findByRole("heading", { name: "Title D1" });
+    fireEvent.click(screen.getByRole("button", { name: "More actions for this document" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
+    expect(await screen.findByText(/could not be listed: tests unreadable/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(onRemoved).toHaveBeenCalled());
+    expect(screen.getByText(/1 test citing it was re-checked: its sources/)).toBeInTheDocument();
+  });
+
+  it("Delete with one citing test and several amending documents", async () => {
+    api.routes["docs.remove"] = (i) => ({
+      removed: "D1",
+      folder: "",
+      unlinked: ["D2", "D3"],
+      citedBy: [{ id: "a", summary: "A", review: "draft", steps: 1 }],
+      dryRun: !!i.dryRun,
+    });
+    show();
+    await screen.findByRole("heading", { name: "Title D1" });
+    fireEvent.click(screen.getByRole("button", { name: "More actions for this document" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
+    const dialog = await screen.findByRole("dialog", { name: "Delete this document?" });
+    await waitFor(() => expect(dialog).toHaveTextContent("1 test cites it."));
+    expect(dialog).toHaveTextContent("These documents amend it and will no longer name it: D2, D3");
   });
 
   it("reports a failed save and shows Word documents without a date or amends", async () => {
@@ -519,11 +586,12 @@ describe("Documents screen", () => {
   it("a deleted document leaves the route and the list is read again", async () => {
     api.routes["docs.list"] = () => [doc("D1")];
     api.routes["rag.status"] = status();
-    api.routes["docs.remove"] = () => ({ removed: "D1", folder: "", unlinked: [] });
+    api.routes["docs.remove"] = () => ({ removed: "D1", folder: "", unlinked: [], citedBy: [] });
     detail();
     const { app: a } = mount(<DocumentsScreen />, { route: { screen: "documents", arg: "D1" } });
     fireEvent.click(await screen.findByRole("button", { name: "More actions for this document" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Delete" })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(a.navigate).toHaveBeenCalledWith("documents"));
     await waitFor(() => expect(named("docs.list")).toHaveLength(2));

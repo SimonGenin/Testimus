@@ -373,6 +373,31 @@ describe("Passage dialog", () => {
     expect(document.querySelector(".q")).toBeNull();
   });
 
+  it("a source whose document was deleted says so and offers no document to open", async () => {
+    net.routes["rag.passage"] = () => {
+      throw new Fail("No document D in this project.");
+    };
+    net.routes["docs.list"] = () => [{ id: "OTHER", code: "OTHER" }];
+    render(
+      <PassageDialog
+        source={{ docId: "D", anchor: "§9", quote: "la phrase" }}
+        onClose={() => {}}
+        onOpenDoc={vi.fn()}
+      />,
+    );
+    expect(await screen.findByText("Document deleted")).toBeInTheDocument();
+    expect(screen.getByText(/D is no longer a document of this project/)).toBeInTheDocument();
+    expect(screen.getByText("« la phrase »")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Open in document/ })).toBeNull();
+    cleanup();
+    net.routes["docs.list"] = () => [{ id: "D-folder", code: "D" }];
+    render(<PassageDialog source={{ docId: "D", anchor: "§9", quote: "" }} onClose={() => {}} onOpenDoc={vi.fn()} />);
+    expect(await screen.findByText(/could not be shown/)).toBeInTheDocument();
+    await waitFor(() => expect(callsOf("docs.list").length).toBeGreaterThan(1));
+    expect(screen.queryByText("Document deleted")).toBeNull();
+    expect(screen.getByRole("button", { name: /Open in document/ })).toBeInTheDocument();
+  });
+
   it("drops an answer that lands after it closed", async () => {
     const ok = deferred();
     const ko = deferred();

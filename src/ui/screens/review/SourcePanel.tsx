@@ -3,6 +3,7 @@ import type { Finding, Passage, Source } from "../../../core/types.ts";
 import { call } from "../../api.ts";
 import { DocBadges, PassageText } from "../../components/sources/PassageView.tsx";
 import { Button, Icon, Severity, Skeleton } from "../../components/ui/index.ts";
+import { docGone, goneText } from "../../lib/docGone.ts";
 import { message } from "../../lib/format.ts";
 import { EvidenceBlock } from "./EvidenceBlock.tsx";
 
@@ -33,20 +34,27 @@ export function SourcePanel({
 }) {
   const [p, setP] = useState<(Passage & { quoteFound?: boolean }) | null>(null);
   const [error, setError] = useState("");
+  const [gone, setGone] = useState(false);
   const ref = source ? `${source.docId}#${source.anchor}` : "";
+  const docId = source?.docId ?? "";
   const quote = source?.quote ?? "";
   useEffect(() => {
     setP(null);
     setError("");
+    setGone(false);
     if (!ref) return;
     let dead = false;
     call<Passage & { quoteFound?: boolean }>("rag.passage", quote.trim() ? { ref, around: quote } : { ref })
       .then((r) => !dead && setP(r))
-      .catch((e) => !dead && setError(message(e)));
+      .catch((e) => {
+        if (dead) return;
+        setError(message(e));
+        void docGone(docId).then((g) => !dead && setGone(g));
+      });
     return () => {
       dead = true;
     };
-  }, [ref, quote]);
+  }, [ref, docId, quote]);
 
   const evidence = testId ? <EvidenceBlock testId={testId} selected={ref} onPick={onPick} /> : null;
 
@@ -83,7 +91,13 @@ export function SourcePanel({
             <p className="muted">Not highlighted: the passage below does not hold the quote.</p>
           </div>
         )}
-        {error ? (
+        {gone ? (
+          <div className="srcpanel-miss" role="status">
+            <Severity tone="error">Document deleted</Severity>
+            <p>{goneText(source.docId)}</p>
+            {source.quote && <p className="q">« {source.quote} »</p>}
+          </div>
+        ) : error ? (
           <div className="srcpanel-miss" role="status">
             <p>
               <strong>This passage could not be shown.</strong> {error}
@@ -117,9 +131,11 @@ export function SourcePanel({
       </div>
       {evidence}
       <div className="srcpanel-foot">
-        <Button size="sm" icon="external" onClick={() => onOpenDoc(source.docId, source.anchor)}>
-          Open in document
-        </Button>
+        {!gone && (
+          <Button size="sm" icon="external" onClick={() => onOpenDoc(source.docId, source.anchor)}>
+            Open in document
+          </Button>
+        )}
         <span className="spacer" />
         {total > 0 && (
           <span className="muted srcpanel-count">{`${index + 1} of ${total} source${total > 1 ? "s" : ""}`}</span>

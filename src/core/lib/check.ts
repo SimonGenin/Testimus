@@ -7,11 +7,11 @@ import { env } from "../env.ts";
 import { parseSections } from "../rag/chunk.ts";
 import { normalizeRef, refInfo, related } from "../rag/related.ts";
 import { type EvidenceOpts, matrixRows, type Statement, statementsOf } from "../rag/statements.ts";
-import type { CheckFile, DocJson, Finding, Review, Step, Test } from "../types.ts";
+import type { CheckFile, CitingTest, DocJson, Finding, Review, Step, Test } from "../types.ts";
 import { writeAtomic } from "./atomic.ts";
 import { parseCsv } from "./csv.ts";
 import { readJson, readProject, readXray, writeJson } from "./project.ts";
-import { readCheck, readTest, testDir } from "./store.ts";
+import { readCheck, readTest, testDir, testExists, testsDir } from "./store.ts";
 import { frontmatterOf, hasRawEmbed, testMdHash } from "./testfile.ts";
 import { compile, idsInCell, projectTraces, REQUIREMENT, scanTrace } from "./traces.ts";
 
@@ -531,6 +531,36 @@ export function writeCheck(project: string, id: string, findings: Finding[]): Ch
 
 export function runMechanical(project: string, id: string, corpus?: Corpus): CheckFile {
   return writeCheck(project, id, mechanicalCheck(project, id, corpus));
+}
+
+// ponytail: a source names a document by its id or by its code — loadCorpus answers both, so both count
+export function testsCiting(project: string, doc: { id: string; code?: string }): CitingTest[] {
+  const names = new Set([doc.id, doc.code].filter(Boolean));
+  const dir = testsDir(project);
+  const out: CitingTest[] = [];
+  for (const e of existsSync(dir) ? readdirSync(dir, { withFileTypes: true }) : []) {
+    if (!e.isDirectory() || !testExists(project, e.name)) continue;
+    let test: Test;
+    try {
+      test = readTest(project, e.name).test;
+    } catch {
+      continue;
+    }
+    const steps = test.steps.filter((s) => s.sources.some((x) => names.has(x.docId))).length;
+    if (steps) out.push({ id: e.name, key: test.key, summary: test.summary, review: test.review, steps });
+  }
+  return out.sort((a, b) => a.id.localeCompare(b.id, "en", { numeric: true }));
+}
+
+// ponytail: the test did not change, its documents did — the mechanical pass is redone, and the semantic
+// findings stay while they were stamped for this very test.md
+export function recheckMechanical(project: string, ids: string[]): CheckFile[] {
+  const corpus = loadCorpus(project);
+  return ids.map((id) => {
+    const old = readCheck(project, id);
+    const semantic = old && !isStale(project, id, old) ? semanticOf(old) : [];
+    return writeCheck(project, id, [...mechanicalCheck(project, id, corpus), ...semantic]);
+  });
 }
 
 export const semanticOf = (check: CheckFile | null): Finding[] =>

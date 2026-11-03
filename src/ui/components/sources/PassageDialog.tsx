@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import type { Passage, Source } from "../../../core/types.ts";
 import { call } from "../../api.ts";
+import { docGone, goneText } from "../../lib/docGone.ts";
 import { sourceLabel } from "../../lib/fields.ts";
 import { message } from "../../lib/format.ts";
-import { Button, Modal, Skeleton } from "../ui/index.ts";
+import { Button, Modal, Severity, Skeleton } from "../ui/index.ts";
 import { DocBadges, PassageText } from "./PassageView.tsx";
 
 export { highlight } from "./PassageView.tsx";
@@ -19,11 +20,16 @@ export function PassageDialog({
 }) {
   const [p, setP] = useState<Passage | null>(null);
   const [error, setError] = useState("");
+  const [gone, setGone] = useState(false);
   useEffect(() => {
     let dead = false;
     call<Passage>("rag.passage", { ref: `${source.docId}#${source.anchor}` })
       .then((r) => !dead && setP(r))
-      .catch((e) => !dead && setError(message(e)));
+      .catch((e) => {
+        if (dead) return;
+        setError(message(e));
+        void docGone(source.docId).then((g) => !dead && setGone(g));
+      });
     return () => {
       dead = true;
     };
@@ -42,7 +48,7 @@ export function PassageDialog({
       onClose={onClose}
       foot={
         <>
-          {onOpenDoc && (
+          {onOpenDoc && !gone && (
             <Button size="sm" icon="external" onClick={() => onOpenDoc(source.docId, source.anchor)}>
               Open in document
             </Button>
@@ -54,7 +60,13 @@ export function PassageDialog({
         </>
       }
     >
-      {error ? (
+      {gone ? (
+        <div className="passage-body" role="status">
+          <Severity tone="error">Document deleted</Severity>
+          <p>{goneText(source.docId)}</p>
+          {source.quote && <p className="q">« {source.quote} »</p>}
+        </div>
+      ) : error ? (
         <div className="passage-body">
           <p>This passage could not be shown: {error}</p>
           {source.quote && <p className="q">« {source.quote} »</p>}
