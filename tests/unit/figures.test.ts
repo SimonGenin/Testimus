@@ -124,6 +124,17 @@ describe("figure descriptions", () => {
     ]);
   });
 
+  it("runs with the project model at low effort, or with the model and effort picked", async () => {
+    const args = (i: number) =>
+      seen[i].args.slice(seen[i].args.indexOf("--model"), seen[i].args.indexOf("--model") + 4);
+    fake("```figures\n{}\n```");
+    await describeFigures(dir, D3, quietCtx(dir), { force: true });
+    expect(args(0)).toEqual(["--model", readProject(dir).claude.model, "--effort", "low"]);
+    seen = [];
+    await invoke("docs.describeFigures", { docId: D3, force: true, model: "sonnet", effort: "medium" }, quietCtx(dir));
+    expect(seen.map((_, i) => args(i))).toContainEqual(["--model", "sonnet", "--effort", "medium"]);
+  });
+
   it("adds a figure doc.md shows but figures.json lacks; keeps the old file when Claude fails", async () => {
     writeFileSync(join(dir, "docs", D3, "figures.json"), "[]");
     fake("Rate limit reached", false);

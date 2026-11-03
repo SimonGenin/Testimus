@@ -465,6 +465,7 @@ export type Behavior = {
 // Project (SPEC §3)
 
 export type Effort = "low" | "medium" | "high" | "xhigh" | "max";
+export type ClaudeRun = { model?: string; effort?: Effort };
 export type Preset = { label: string; prompt: string };
 export type ClaudeConfig = { model: string; effort: Effort; presets: Preset[]; contexts: string[] };
 export type ProjectJson = {

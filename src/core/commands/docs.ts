@@ -25,7 +25,8 @@ import { parseSections } from "../rag/chunk.ts";
 import { anchorsOf } from "../rag/convert.ts";
 import { unindexDoc } from "../rag/indexer.ts";
 import { type EvidenceOpts, evidenceOptions, statementsOf } from "../rag/statements.ts";
-import type { DocJson } from "../types.ts";
+import type { ClaudeRun, DocJson } from "../types.ts";
+import { EFFORT, MODEL } from "./claude.ts";
 
 // ponytail: a traced section is fine when it is the defining section or one of its ancestors (the matrix
 // often names the chapter); anything else is reported, never corrected
@@ -49,12 +50,12 @@ export function tracedElsewhere(docId: string, md: string, opts: EvidenceOpts) {
   return out;
 }
 
-async function withFigures(ctx: Ctx, doc: DocJson): Promise<DocJson> {
+async function withFigures(ctx: Ctx, doc: DocJson, claude: ClaudeRun): Promise<DocJson> {
   const project = projectOf(ctx);
   if (!shouldDescribeFigures(project) || !doc.stats?.figures) return doc;
   try {
     ctx.progress({ message: "Claude describes the figures" });
-    await describeFigures(project, doc.id, ctx);
+    await describeFigures(project, doc.id, ctx, claude);
   } catch (e) {
     ctx.log("warn", `Figure descriptions skipped: ${e instanceof Error ? e.message : String(e)}`);
   }
@@ -97,6 +98,10 @@ const figure = z.object({
     .describe("What the picture is, as Claude judged it"),
 });
 const id = z.string().describe("Document id (the folder name under docs/, e.g. SOSIE_211_D401-1_3)");
+const model = MODEL.optional().describe(
+  "Claude model for the figure descriptions (default: project.json claude.model)",
+);
+const effort = EFFORT.optional().describe("Claude effort for the figure descriptions (default: low)");
 const citedBy = z
   .array(
     z.object({
@@ -144,6 +149,8 @@ export const commands: Command[] = [
         .optional()
         .describe("A .pdf rendering of the same .docx, used only to recover figures the .docx has no picture for"),
       kind: kind.optional().describe("What the document is (default spec)"),
+      model,
+      effort,
     }),
     output: docJson.extend({ citedBy }),
     mutates: true,
@@ -170,7 +177,7 @@ export const commands: Command[] = [
           ? { ...added, source: { ...added.source, path: `upload: ${basename(input.name || "document.docx")}` } }
           : added;
         if (doc !== added) writeDoc(project, doc);
-        await withFigures(ctx, doc);
+        await withFigures(ctx, doc, { model: input.model, effort: input.effort });
         return { ...doc, citedBy: recheckCiting(ctx, doc) };
       } finally {
         rmSync(up, { recursive: true, force: true });
@@ -180,7 +187,7 @@ export const commands: Command[] = [
   command({
     name: "docs.convert",
     summary: "Reconvert a document from its copied source; team fields and figure descriptions are kept.",
-    input: z.object({ id }),
+    input: z.object({ id, model, effort }),
     output: docJson.extend({ citedBy }),
     mutates: true,
     job: "docs.convert",
@@ -190,6 +197,7 @@ export const commands: Command[] = [
       const doc = await withFigures(
         ctx,
         await reconvertDoc(projectOf(ctx), input.id, ctx.signal, (message) => ctx.progress({ message })),
+        { model: input.model, effort: input.effort },
       );
       return { ...doc, citedBy: recheckCiting(ctx, doc) };
     },

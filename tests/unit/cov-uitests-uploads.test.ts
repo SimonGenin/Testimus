@@ -31,9 +31,11 @@ const {
   addDocPaths,
   dismissUpload,
   forgetSettled,
+  importClaude,
   owns,
   readBase64,
   reindexAll,
+  setImportClaude,
   settled,
   useUploads,
 } = await import("../../src/ui/lib/uploads.ts");
@@ -92,6 +94,20 @@ describe("uploads", () => {
     expect(runs.filter((r) => r.name === "docs.add").map((r) => r.input)).toEqual([
       { file: "C:\\d\\Spec.docx", pdf: "C:\\d\\spec.PDF" },
     ]);
+  });
+
+  it("sends the Claude model and effort picked for imports to the conversion and the index run", async () => {
+    setImportClaude({ model: "sonnet", effort: "medium" });
+    try {
+      expect(importClaude()).toEqual({ model: "sonnet", effort: "medium" });
+      await act(() => addDocPaths(["C:\\d\\Only.pdf"], () => {}));
+      expect(runs).toEqual([
+        { name: "docs.add", input: { file: "C:\\d\\Only.pdf", model: "sonnet", effort: "medium" } },
+        { name: "rag.index", input: { model: "sonnet", effort: "medium" } },
+      ]);
+    } finally {
+      setImportClaude({});
+    }
   });
 
   it("sends a PDF picked alone, by path", async () => {

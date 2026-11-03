@@ -546,7 +546,7 @@ describe("StepCard chrome", () => {
     );
     expect(container.querySelector("article")).toHaveClass("is-unreadable");
     expect(screen.getByText("Not fully read — never pushed")).toBeInTheDocument();
-    fireEvent.click(screen.getByText("D1 §1"));
+    fireEvent.click(screen.getByRole("button", { name: /D1 §1/ }));
     expect(onOpenSource).toHaveBeenCalledWith(source);
   });
 

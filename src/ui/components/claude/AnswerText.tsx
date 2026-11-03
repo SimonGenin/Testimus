@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import type { Source } from "../../../core/types.ts";
 import { SourceChip } from "../ui/index.ts";
 
-const REF = /\[?([A-Za-z0-9][A-Za-z0-9_.-]*)#((?:§|req:|fig:)[^\s"),;\]]*[^\s"),;.\]])\]?(?:\s+"([^"\n]*)")?/g;
+const REF = /\[?([A-Za-z0-9][A-Za-z0-9_.-]*)#((?:§|req:|fig:)[^\s"),;\]]*[^\s"),;.\]])\]?(?:\s+"([^"\n]*)"\]?)?/g;
 
 export function parseAnswer(text: string): Array<string | Source> {
   const out: Array<string | Source> = [];

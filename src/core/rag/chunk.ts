@@ -1,4 +1,4 @@
-import type { Chunk, DocJson, FigureEntry } from "../types.ts";
+import type { Chunk, ClaudeRun, DocJson, FigureEntry } from "../types.ts";
 import { type EvidenceOpts, matrixRows } from "./statements.ts";
 
 export type Section = {
@@ -25,6 +25,7 @@ export type DescribeChunks = (
   chunks: Chunk[],
   signal: AbortSignal,
   project?: string,
+  run?: ClaudeRun,
 ) => Promise<string[]>;
 
 export const hooks: { describeChunks: DescribeChunks | null } = { describeChunks: null };

@@ -24,6 +24,7 @@ import {
   useUploads,
 } from "../../lib/uploads.ts";
 import { DocDetail } from "./DocDetail.tsx";
+import { ImportClaude } from "./ImportClaude.tsx";
 import { UploadRow } from "./UploadRow.tsx";
 
 export const INDEX_LOOK = {
@@ -164,6 +165,7 @@ export function DocumentsScreen() {
         title="Documents"
         meta={`${pages} document${pages === 1 ? "" : "s"}${busy.length ? ` · ${busy.length} being added` : ""} · drop Word or PDF files anywhere here to add them`}
       >
+        <ImportClaude />
         <Button tone="quiet" size="sm" onClick={() => setAskPath(true)}>
           Add from a path
         </Button>

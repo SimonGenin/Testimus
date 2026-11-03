@@ -213,7 +213,7 @@ describe("small ui pieces", () => {
     fireEvent.click(screen.getByRole("button", { name: /D §1/ }));
     expect(open).toHaveBeenCalledWith({ docId: "D", anchor: "§1", quote: "le texte" });
     expect(screen.getByText("« le texte »")).toBeInTheDocument();
-    expect(screen.getByText("D Figure 2").closest(".chip")).toHaveAttribute("title", "D#fig:2");
+    expect(screen.getByText("Figure 2").closest(".chip")).toHaveAttribute("title", "D#fig:2");
     expect(screen.getByRole("button", { name: "E §3" })).toHaveClass("chip-inline");
     expect(screen.queryByText("« hidden »")).toBeNull();
   });

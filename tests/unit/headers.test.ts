@@ -147,5 +147,16 @@ describe("Claude context headers (hooks.describeChunks)", () => {
     await indexProject(dir, quietCtx(dir), { force: true });
     expect(seen.length).toBeGreaterThan(0);
     expect(headers().every((h) => h.includes("Ce passage du document"))).toBe(true);
+
+    seen.length = 0;
+    await indexProject(dir, quietCtx(dir), { force: true, claude: { model: "sonnet", effort: "medium" } });
+    expect(seen.length).toBeGreaterThan(0);
+    for (const s of seen)
+      expect(s.args.slice(s.args.indexOf("--model"), s.args.indexOf("--model") + 4)).toEqual([
+        "--model",
+        "sonnet",
+        "--effort",
+        "medium",
+      ]);
   });
 });

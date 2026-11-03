@@ -7,6 +7,7 @@ import { chunkCount, dropSpace, getMeta, indexFile, listSpaces, openDb, vectorCo
 import { dimsOf, spaceOf } from "../rag/fingerprint.ts";
 import { indexProject, projectDocs, readState } from "../rag/indexer.ts";
 import type { VectorSpace } from "../types.ts";
+import { EFFORT, MODEL } from "./claude.ts";
 
 const space = z.object({
   id: z.string().describe("12 hex characters: sha256 of the space's fingerprint"),
@@ -46,6 +47,10 @@ export const commands: Command[] = [
       "Build or update the project's search index from docs/: chunks, BM25 and the graph once, then the vectors the active model's space lacks.",
     input: z.object({
       force: z.boolean().default(false).describe("Rebuild everything instead of only what changed"),
+      model: MODEL.optional().describe(
+        "Claude model for the context headers, when project.json rag.claudeHeaders is on (default: haiku)",
+      ),
+      effort: EFFORT.optional().describe("Claude effort for the context headers (default: low)"),
     }),
     output: z.object({
       embedding: z.string().describe("Catalog id of the embedding model used, or none"),
@@ -69,7 +74,7 @@ export const commands: Command[] = [
     mutates: true,
     job: "rag-index",
     subject: () => "index",
-    run: (ctx, input) => indexProject(projectOf(ctx), ctx, { force: input.force }),
+    run: (ctx, { force, model, effort }) => indexProject(projectOf(ctx), ctx, { force, claude: { model, effort } }),
   }),
   command({
     name: "rag.status",
@@ -145,9 +150,9 @@ export const commands: Command[] = [
         degraded,
         chunks: found?.chunks ?? 0,
         builtAt: state?.builtAt ?? null,
-        docs: projectDocs(project).map(({ doc }) => {
+        docs: projectDocs(project).map(({ doc, content }) => {
           const known = state?.docs[doc.id];
-          const same = known === (doc.source?.sha256 ?? "");
+          const same = known === content;
           const indexed: "fresh" | "stale" | "missing" =
             known === undefined ? "missing" : same && (profileMatches || !m) ? "fresh" : "stale";
           return { docId: doc.id, indexed };

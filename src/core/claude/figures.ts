@@ -4,7 +4,7 @@ import type { Ctx } from "../command.ts";
 import { UserError } from "../command.ts";
 import { readJson, readProject, writeJson } from "../lib/project.ts";
 import { docFigures, markerLine, parseSections, sectionAt } from "../rag/chunk.ts";
-import type { DocJson, FigureEntry } from "../types.ts";
+import type { ClaudeRun, DocJson, FigureEntry } from "../types.ts";
 import { languageName } from "./generate.ts";
 import { runClaude } from "./run.ts";
 
@@ -120,7 +120,7 @@ export async function describeFigures(
   project: string,
   docId: string,
   ctx: Ctx,
-  opts: { force?: boolean; model?: string } = {},
+  opts: { force?: boolean } & ClaudeRun = {},
 ): Promise<DescribeResult> {
   const dir = join(project, "docs", docId);
   if (!/^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(docId) || !existsSync(join(dir, "doc.md")))
@@ -171,7 +171,7 @@ export async function describeFigures(
       project,
       prompt: figuresPrompt(doc, batch, p.language),
       model: opts.model || p.claude.model,
-      effort: "low",
+      effort: opts.effort || "low",
       kind: "figures",
       signal: ctx.signal,
       onEvent: (e) => ctx.claude(e),

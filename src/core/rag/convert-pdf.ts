@@ -149,7 +149,8 @@ function repeated<T>(pages: Page[], items: (p: Page) => T[], key: (t: T) => stri
   return new Set([...counts].filter(([, c]) => c >= min).map(([k]) => k));
 }
 
-const isTocLine = (t: string) => /\.{4,}\s*\d+$/.test(t) || /^(?:\d+(?:\.\d+)*|Figure\s+\d+.*)\s.*\s\d{1,3}$/.test(t);
+const isTocLine = (t: string) =>
+  /\.{4,}\s*\d+$/.test(t) || /^(?:(?:[A-Z]{1,3}\.)?\d+(?:\.\d+)*|Figure\s+\d+.*)\s.*\s\d{1,3}$/.test(t);
 
 type Cap = { page: Page; line: Line; num: string; caption: string; key: string };
 
@@ -225,12 +226,17 @@ export async function pdfFigures(buf: Uint8Array, signal?: AbortSignal): Promise
   });
 }
 
-const HEADING_RE = /^(\d{1,2}(?:\.\d{1,3}){0,6})\.?\s+(\S.{1,150})$/;
+const HEADING_RE = /^((?:[A-Z]{1,3}\.)?\d{1,2}(?:\.\d{1,3}){0,6})\.?\s+(?:[-–—]\s*)?(\S.{1,150})$/;
+const ARTICLE_RE = /^((?:[A-Z]{1,3}\.)?\d{1,2}(?:\.\d{1,3}){1,7})\.?(?:\s+\S|$)/;
 const BULLET_RE = /^([•▪◦●○■□➢►\-–—−*]|o(?=\s)|\d+[.)](?=\s))\s*/;
 
+const prefixOf = (n: string) => n.match(/^[A-Z]{1,3}\./)?.[0] ?? "";
+const partsOf = (n: string) => n.slice(prefixOf(n).length).split(".").map(Number);
+const reEscape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 function follows(next: string, last: string): boolean {
-  const n = next.split(".").map(Number);
-  const l = last ? last.split(".").map(Number) : [];
+  const n = partsOf(next);
+  const l = last && prefixOf(last) === prefixOf(next) ? partsOf(last) : [];
   for (let k = 0; k < n.length; k++) {
     const head = n.slice(0, k).every((v, i) => v === l[i]);
     const step = n[k] === (l[k] ?? 0) + 1;
@@ -253,6 +259,7 @@ export async function convertPdf(buf: Uint8Array, opts: ConvertOpts): Promise<Co
   const capOf = new Map<Line, Cap>();
   for (const c of a.caps) capOf.set(c.line, c);
   const sections = new Set<string>();
+  const articles: string[] = [];
   let last = "";
   let order = 0;
   let para: string[] = [];
@@ -302,7 +309,7 @@ export async function convertPdf(buf: Uint8Array, opts: ConvertOpts): Promise<Co
       const numbered =
         h &&
         (line.size > body + 0.5 || line.bold) &&
-        Number(h[1].split(".")[0]) <= 50 &&
+        partsOf(h[1])[0] <= 50 &&
         follows(h[1], last) &&
         /^\p{Lu}/u.test(h[2]) &&
         !/[.;,:]$/.test(h[2]);
@@ -312,7 +319,7 @@ export async function convertPdf(buf: Uint8Array, opts: ConvertOpts): Promise<Co
         const number = numbered ? h![1] : "";
         const title = numbered ? h![2] : line.text;
         if (number) last = number;
-        const level = number ? number.split(".").length : headSizes.indexOf(Math.round(line.size)) + 1;
+        const level = number ? partsOf(number).length : headSizes.indexOf(Math.round(line.size)) + 1;
         const anchor = uniqueKey(sections, number || slug(title));
         blocks.push({
           kind: "heading",
@@ -322,9 +329,12 @@ export async function convertPdf(buf: Uint8Array, opts: ConvertOpts): Promise<Co
         prev = null;
         continue;
       }
+      const art = last ? line.text.match(ARTICLE_RE)?.[1] : undefined;
+      const article = !!art && art.startsWith(`${last}.`) && !articles.includes(art);
+      if (article) articles.push(art);
       const gap = prev ? prev.y - line.y : 0;
       const bullet = BULLET_RE.test(line.text);
-      if (!prev || bullet || gap > Math.max(prev.size, line.size) * 1.6) {
+      if (!prev || bullet || article || gap > Math.max(prev.size, line.size) * 1.6) {
         flush();
         paraBullet = bullet;
         para.push(bullet ? line.text.replace(BULLET_RE, "") : line.text);
@@ -347,6 +357,7 @@ export async function convertPdf(buf: Uint8Array, opts: ConvertOpts): Promise<Co
     warnings.push(`Figure ${orphanCaps.join(", ")}: caption without an extractable picture (vector drawing)`);
   warnings.push("Converted from PDF: headings are guessed from their numbering, tables are flattened to text");
   const title = guessTitle(a.first);
-  const md = assemble(`# ${opts.code} — ${title || opts.code}`, blocks, reqRegex(opts.reqPatterns));
+  const ids = [...(opts.reqPatterns ?? []), ...articles.map((a) => String.raw`\b${reEscape(a)}(?!\.?\d)`)];
+  const md = assemble(`# ${opts.code} — ${title || opts.code}`, blocks, reqRegex(ids));
   return { md, figures, warnings, meta: { title, date: guessDate(a.first.join("\n")) }, convertedWith: PDFJS };
 }

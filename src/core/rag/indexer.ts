@@ -6,7 +6,7 @@ import { env } from "../env.ts";
 import { sha256 } from "../lib/hash.ts";
 import { withPerfScope } from "../lib/models-perf.ts";
 import { readJson, writeJson } from "../lib/project.ts";
-import type { Chunk, DocJson, FigureEntry, ModelProfile, ResolvedModel, VectorSpace } from "../types.ts";
+import type { Chunk, ClaudeRun, DocJson, FigureEntry, ModelProfile, ResolvedModel, VectorSpace } from "../types.ts";
 import { activeModels, queryTaskOf } from "./activation.ts";
 import { chunkDoc, hooks } from "./chunk.ts";
 import {
@@ -78,23 +78,27 @@ export function projectDocs(project: string): ProjectDoc[] {
     const doc = readJson<DocJson>(join(dir, "doc.json"), {} as DocJson);
     if (!doc.id) doc.id = e.name;
     const md = readFileSync(join(dir, "doc.md"), "utf8");
-    const figRaw = existsSync(join(dir, "figures.json")) ? readFileSync(join(dir, "figures.json"), "utf8") : "[]";
     const figures = readJson<FigureEntry[]>(join(dir, "figures.json"), []);
-    const content = sha256(JSON.stringify([md, figRaw, doc.code, doc.title]));
-    out.push({ doc, dir, md, figures, content });
+    out.push({ doc, dir, md, figures, content: docContent(dir, doc, md) });
   }
   return out.sort((a, b) => a.doc.id.localeCompare(b.doc.id));
+}
+
+export function docContent(dir: string, doc: Pick<DocJson, "code" | "title">, md?: string): string {
+  const text = md ?? (existsSync(join(dir, "doc.md")) ? readFileSync(join(dir, "doc.md"), "utf8") : "");
+  const figRaw = existsSync(join(dir, "figures.json")) ? readFileSync(join(dir, "figures.json"), "utf8") : "[]";
+  return sha256(JSON.stringify([text, figRaw, doc.code, doc.title]));
 }
 
 function chunkHash(c: Chunk): string {
   return sha256(JSON.stringify([c.anchor, c.path, c.header, c.text, c.kind, c.reqIds, c.figureIds])).slice(0, 16);
 }
 
-async function headersFor(doc: DocJson, chunks: Chunk[], ctx: Ctx): Promise<string[]> {
+async function headersFor(doc: DocJson, chunks: Chunk[], ctx: Ctx, claude?: ClaudeRun): Promise<string[]> {
   const fallback = chunks.map((c) => c.header);
   if (!hooks.describeChunks || !chunks.length) return fallback;
   try {
-    const got = await hooks.describeChunks(doc, chunks, ctx.signal, ctx.project ?? undefined);
+    const got = await hooks.describeChunks(doc, chunks, ctx.signal, ctx.project ?? undefined, claude);
     return chunks.map((c, i) => got[i]?.trim() || c.header);
   } catch (e) {
     ctx.log("warn", `Context headers for ${doc.id}: default used (${e instanceof Error ? e.message : String(e)})`);
@@ -108,6 +112,7 @@ async function indexDoc(
   ctx: Ctx,
   project: string,
   force = false,
+  claude?: ClaudeRun,
 ): Promise<DocIndexStatus> {
   const row = db.prepare("select content from docs where doc_id = ?").get(d.doc.id) as { content: string } | undefined;
   if (row?.content === d.content) {
@@ -121,10 +126,10 @@ async function indexDoc(
   const old = new Map(chunksOf(db, d.doc.id).map((c) => [`${c.id} ${c.hash}`, c]));
   let fresh = chunks.filter((c) => !old.has(`${c.id} ${chunkHash(c)}`));
   let keep = new Set(chunks.map((c) => `${c.id} ${chunkHash(c)}`));
-  let headers = await headersFor(d.doc, fresh, ctx);
+  let headers = await headersFor(d.doc, fresh, ctx, claude);
   // ponytail: forced, every chunk asks for its header again; one that comes out the same keeps its row and vectors
   if (force) {
-    const all = await headersFor(d.doc, chunks, ctx);
+    const all = await headersFor(d.doc, chunks, ctx, claude);
     const same = (c: Chunk, i: number) => old.get(`${c.id} ${chunkHash(c)}`)?.header === all[i];
     keep = new Set(chunks.filter(same).map((c) => `${c.id} ${chunkHash(c)}`));
     fresh = chunks.filter((c, i) => !same(c, i));
@@ -210,7 +215,13 @@ export function unindexDoc(project: string, id: string): void {
 export async function indexProject(
   project: string,
   ctx: Ctx,
-  opts: { profile?: ModelProfile; model?: ResolvedModel | null; dbFile?: string; force?: boolean } = {},
+  opts: {
+    profile?: ModelProfile;
+    model?: ResolvedModel | null;
+    dbFile?: string;
+    force?: boolean;
+    claude?: ClaudeRun;
+  } = {},
 ): Promise<IndexReport> {
   const t0 = Date.now();
   const { model, degraded } = await chooseModel(project, opts);
@@ -225,7 +236,7 @@ export async function indexProject(
     for (const [i, d] of docs.entries()) {
       if (ctx.signal.aborted) throw new Error("Indexing cancelled.");
       ctx.progress({ message: `Chunking ${d.doc.id}`, done: i, total: docs.length });
-      const status = await indexDoc(db, d, ctx, project, opts.force);
+      const status = await indexDoc(db, d, ctx, project, opts.force, opts.claude);
       report.push({ docId: d.doc.id, status, chunks: chunksOf(db, d.doc.id).length });
     }
     if (opts.force) rebuildFts(db);
@@ -279,7 +290,7 @@ export async function indexProject(
         embedding,
         dims,
         builtAt: env.now().toISOString(),
-        docs: Object.fromEntries(docs.map((d) => [d.doc.id, d.doc.source?.sha256 ?? ""])),
+        docs: Object.fromEntries(docs.map((d) => [d.doc.id, d.content])),
         space: space?.id ?? null,
       };
       writeJson(stateFile(project), state);

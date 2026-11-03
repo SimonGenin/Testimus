@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { readJson, readProject, readSettings } from "../lib/project.ts";
-import type { Chunk, DocJson } from "../types.ts";
+import type { Chunk, ClaudeRun, DocJson } from "../types.ts";
 import { languageName } from "./generate.ts";
 import { runClaude } from "./run.ts";
 
@@ -74,6 +74,7 @@ export async function claudeHeaders(
   chunks: Chunk[],
   signal: AbortSignal,
   project?: string,
+  claude: ClaudeRun = {},
 ): Promise<string[]> {
   const dir = project ?? projectOfDoc(doc);
   if (!dir || !claudeHeadersOn(dir) || !chunks.length) return [];
@@ -85,8 +86,8 @@ export async function claudeHeaders(
     const run = await runClaude({
       project: dir,
       prompt: headersPrompt(doc, batch, p.language),
-      model: "haiku",
-      effort: "low",
+      model: claude.model || "haiku",
+      effort: claude.effort || "low",
       kind: "headers",
       signal,
     });

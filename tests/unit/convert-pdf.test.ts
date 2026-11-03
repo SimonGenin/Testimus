@@ -6,17 +6,19 @@ import { encodePng } from "../../src/core/rag/convert-png.ts";
 
 const text = (size: number, y: number, s: string) => `BT /F1 ${size} Tf 72 ${y} Td (${s}) Tj ET`;
 
-function samplePdf(): Uint8Array {
-  const page1 = [
-    text(18, 780, "1 Introduction"),
-    text(11, 760, "Ce document decrit la traction du simulateur."),
-    text(11, 746, "Il couvre les sectionneurs et les disjoncteurs."),
-    text(18, 720, "1.1 Sectionneur"),
-    text(11, 700, "EXI_MOP_SPF_511_A_1650 : le sectionneur est affiche."),
-    "q 100 0 0 50 72 620 cm /Im1 Do Q",
-    text(11, 605, "Figure 40 - Representation graphique sectionneur"),
-    text(11, 580, "- premier point"),
-  ].join("\n");
+function samplePdf(lines?: string[]): Uint8Array {
+  const page1 = (
+    lines ?? [
+      text(18, 780, "1 Introduction"),
+      text(11, 760, "Ce document decrit la traction du simulateur."),
+      text(11, 746, "Il couvre les sectionneurs et les disjoncteurs."),
+      text(18, 720, "1.1 Sectionneur"),
+      text(11, 700, "EXI_MOP_SPF_511_A_1650 : le sectionneur est affiche."),
+      "q 100 0 0 50 72 620 cm /Im1 Do Q",
+      text(11, 605, "Figure 40 - Representation graphique sectionneur"),
+      text(11, 580, "- premier point"),
+    ]
+  ).join("\n");
   const page2 = [text(11, 780, "Suite du texte sur la page deux."), text(11, 766, "Fin du document.")].join("\n");
   const pixels = "\xff\x00\x00\x00\xff\x00\x00\x00\xff\xff\xff\xff";
   const objects = [
@@ -73,6 +75,32 @@ describe("convertPdf", () => {
     expect(c.figures).toHaveLength(1);
     expect(pngPixels(c.figures[0].data)).toEqual([0, 255, 0, 0, 0, 255, 0, 0, 0, 0, 255, 255, 255, 255]);
     expect(c.convertedWith).toMatch(/^pdfjs-dist /);
+  });
+
+  it("reads lettered, dashed headings and anchors each numbered article under them", async () => {
+    const c = await convertPdf(
+      samplePdf([
+        text(12, 780, "S.1 \x96 LES CERCLES SPORTIFS"),
+        text(12, 760, "S.1.1 -GENERALITES"),
+        text(11, 740, "S.1.1.1 Un cercle sportif est une association."),
+        text(11, 726, "Il est dirige par un comite."),
+        text(11, 712, "S.1.1.2"),
+        text(11, 698, "Les tables sont conformes, voir S.1.1.1 et S.1.1.10."),
+        text(11, 684, "S.2.1 Ce numero ne suit pas la section."),
+        text(11, 670, "Texte courant pour la taille du corps."),
+        text(11, 656, "Encore du texte courant."),
+      ]),
+      { code: "ROI" },
+    );
+    expect(c.md).toContain("## S.1 LES CERCLES SPORTIFS <!-- § S.1 -->");
+    expect(c.md).toContain("### S.1.1 GENERALITES <!-- § S.1.1 -->");
+    expect(c.md).toContain(
+      "<!-- req S.1.1.1 -->\nS.1.1.1 Un cercle sportif est une association. Il est dirige par un comite.",
+    );
+    expect(c.md).toContain("<!-- req S.1.1.2 -->\nS.1.1.2 Les tables sont conformes");
+    expect(c.md).not.toContain("req S.2.1");
+    expect(anchorsOf(c.md).sections).toEqual(["S.1", "S.1.1"]);
+    expect(anchorsOf(c.md).requirements).toEqual(["S.1.1.1", "S.1.1.2"]);
   });
 
   it("gives the captioned figures for a docx to borrow", async () => {

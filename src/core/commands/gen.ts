@@ -136,6 +136,7 @@ export const commands: Command[] = [
       docId: z.string().optional().describe("Document id (folder under docs/); default: every document"),
       force: z.boolean().default(false).describe("Describe again the figures that already have a description"),
       model: MODEL.optional().describe("Model alias or name (default: project.json claude.model)"),
+      effort: EFFORT.optional().describe("Effort level (default: low)"),
     }),
     output: z.object({
       docs: z.array(
@@ -163,7 +164,9 @@ export const commands: Command[] = [
       const docs = [];
       for (const id of ids) {
         if (ctx.signal.aborted) break;
-        docs.push(await describeFigures(project, id, ctx, { force: input.force, model: input.model }));
+        docs.push(
+          await describeFigures(project, id, ctx, { force: input.force, model: input.model, effort: input.effort }),
+        );
       }
       return { docs };
     },

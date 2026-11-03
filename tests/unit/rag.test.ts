@@ -147,7 +147,7 @@ describe("index", () => {
       embedding: "bge-m3-q8",
       dims: 1024,
       space: r.space,
-      docs: { [D3]: "fixture", [D4]: "fixture" },
+      docs: { [D3]: expect.stringMatching(/^[0-9a-f]{64}$/), [D4]: expect.stringMatching(/^[0-9a-f]{64}$/) },
     });
     const hits = await searchChunks(dir, "EXI_MOP_SPF_511_A_1670", { mode: "bm25" });
     expect(hits).toHaveLength(1);

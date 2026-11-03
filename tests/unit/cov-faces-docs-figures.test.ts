@@ -8,10 +8,12 @@ import { sampleDocx } from "../fixtures/docx/sample.ts";
 import { tempRoot } from "./cov-faces-helpers.ts";
 
 const failures: unknown[] = [];
+const picked: unknown[] = [];
 
 vi.mock("../../src/core/claude/figures.ts", async (importOriginal) => ({
   ...(await importOriginal<object>()),
-  describeFigures: async () => {
+  describeFigures: async (_p: string, _id: string, _ctx: unknown, opts: unknown) => {
+    picked.push(opts);
     throw failures.shift();
   },
 }));
@@ -40,6 +42,25 @@ describe("docs.add with figure descriptions", () => {
     ]);
     const uploads = join(project, ".testimus", "uploads");
     expect(existsSync(uploads) ? readdirSync(uploads) : []).toEqual([]);
+  });
+
+  it("hands the model and effort picked for the import to the figure descriptions, on add and reconvert", async () => {
+    const project = join(tempRoot("docsfig"), "p");
+    writeProject(project, DEFAULT_PROJECT);
+    const data = Buffer.from(sampleDocx()).toString("base64");
+    picked.length = 0;
+    failures.push("absent", "absent", "absent");
+    await add(project, { dataBase64: data, id: "DOC_D", model: "sonnet", effort: "high" }, []);
+    await add(project, { dataBase64: data, id: "DOC_E" }, []);
+    const convert = commands.find((x) => x.name === "docs.convert");
+    if (!convert) throw new Error("no docs.convert");
+    await convert.run(quietCtx(project), convert.input.parse({ id: "DOC_D", model: "haiku", effort: "max" }) as never);
+    expect(picked).toEqual([
+      { model: "sonnet", effort: "high" },
+      { model: undefined, effort: undefined },
+      { model: "haiku", effort: "max" },
+    ]);
+    expect(() => convert.input.parse({ id: "DOC_D", effort: "huge" })).toThrow();
   });
 
   it("cleans the upload folder when the PDF rendering cannot be read", async () => {

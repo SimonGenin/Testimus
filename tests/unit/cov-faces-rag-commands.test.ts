@@ -86,9 +86,8 @@ describe("rag index commands without an embedding model", () => {
     expect(st.docs.every((d: { indexed: string }) => d.indexed === "fresh")).toBe(true);
     expect(await run("rag.spaces")).toEqual([]);
     await expect(run("rag.dropSpace", { id: "abcd" })).rejects.toThrow("No vector space abcd in the index.");
-    const file = join(project, "docs", "SOSIE_211_D401-1_4", "doc.json");
-    const { source: _source, ...rest } = JSON.parse(readFileSync(file, "utf8"));
-    writeFileSync(file, JSON.stringify(rest));
+    const file = join(project, "docs", "SOSIE_211_D401-1_4", "doc.md");
+    writeFileSync(file, `${readFileSync(file, "utf8")}\nReconverti.\n`);
     const after = await run("rag.status");
     expect(after.docs.find((d: { docId: string }) => d.docId === "SOSIE_211_D401-1_4").indexed).toBe("stale");
   });

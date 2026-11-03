@@ -110,9 +110,10 @@ describe("docs commands", () => {
     const doc = await run<DocJson>(project, "docs.add", { file: original });
     expect((await run<DocRef[]>(project, "docs.list", {}))[0].indexed).toBe("missing");
     mkdirSync(join(project, "index"));
-    writeFileSync(join(project, "index", "state.json"), JSON.stringify({ docs: { [doc.id]: doc.source.sha256 } }));
+    const dir = join(project, "docs", doc.id);
+    writeFileSync(join(project, "index", "state.json"), JSON.stringify({ docs: { [doc.id]: docContent(dir, doc) } }));
     expect((await run<DocRef[]>(project, "docs.list", {}))[0].indexed).toBe("fresh");
-    writeFileSync(join(project, "index", "state.json"), JSON.stringify({ docs: { [doc.id]: "old" } }));
+    writeFileSync(join(dir, "doc.md"), `${readFileSync(join(dir, "doc.md"), "utf8")}\nReconverti.\n`);
     expect((await run<DocRef[]>(project, "docs.list", {}))[0].indexed).toBe("stale");
     expect(await run<DocRef[]>(project, "docs.list", { status: "validated" })).toEqual([]);
   });
@@ -186,7 +187,6 @@ describe("docs commands", () => {
     ).not.toHaveProperty("indexed");
   });
 
-  it("reads the fixture project's documents", async () => {
   it("removing a cited document: dryRun lists the citing tests, the removal re-checks them, re-adding frees them", async () => {
     const copy = join(mkdtempSync(join(tmpdir(), "testimus-fixture-")), "p");
     cpSync(join("tests", "fixtures", "project"), copy, { recursive: true });
@@ -238,6 +238,7 @@ describe("docs commands", () => {
     expect(isStale(copy, "LFRPS12-1398")).toBe(false);
   });
 
+  it("reads the fixture project's documents", async () => {
     const copy = join(mkdtempSync(join(tmpdir(), "testimus-fixture-")), "p");
     cpSync(join("tests", "fixtures", "project"), copy, { recursive: true });
     const list = await run<DocRef[]>(copy, "docs.list", {});

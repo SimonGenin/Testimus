@@ -52,6 +52,7 @@ describe("small remaining paths", () => {
 
   it("parses a reference at the very start of the text", () => {
     expect(parseAnswer('D#§1 "q" puis')).toEqual([{ docId: "D", anchor: "§1", quote: "q" }, " puis"]);
+    expect(parseAnswer('[D#req:S.1.1 "q"] puis')).toEqual([{ docId: "D", anchor: "req:S.1.1", quote: "q" }, " puis"]);
     render(<AnswerText text="D#§2" onOpenSource={() => {}} />);
     expect(screen.getByRole("button", { name: "D §2" })).toBeInTheDocument();
   });

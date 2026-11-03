@@ -212,6 +212,16 @@
   color: var(--ink-2);
 }
 
+.docs-claude {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.docs-claude .label {
+  margin: 0;
+}
+
 .docs-screen .tbl .up-row {
   cursor: default;
 }

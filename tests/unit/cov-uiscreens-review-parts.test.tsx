@@ -250,7 +250,7 @@ describe("ReviewStep", () => {
     expect(within(art).getByText("Folded · empty")).toBeInTheDocument();
     expect(art.querySelector('[data-field="Expected Result"]')).toBeNull();
     expect(screen.getByText("EXI_1").closest(".chip")).toHaveClass("chip-err");
-    expect(screen.getByText("EXI_2").closest(".chip")).toHaveClass("chip-err");
+    expect(screen.getAllByText("EXI_2")[0].closest(".chip")).toHaveClass("chip-err");
     expect(screen.getByText("EXI_3").closest(".chip")).not.toHaveClass("chip-err");
     expect(screen.getAllByText("No passage was found for it.")).toHaveLength(1);
     fireEvent.click(screen.getByRole("button", { name: /D §1/ }));

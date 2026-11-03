@@ -5,9 +5,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DocRef, JobEvent } from "../../src/core/types.ts";
 import { setProject } from "../../src/ui/api.ts";
 import { setTraces } from "../../src/ui/lib/traces.ts";
+import { importClaude, setImportClaude } from "../../src/ui/lib/uploads.ts";
 import { DocDetail } from "../../src/ui/screens/documents/DocDetail.tsx";
 import { DocText, FigureChip } from "../../src/ui/screens/documents/DocText.tsx";
 import { DocumentsScreen } from "../../src/ui/screens/documents/DocumentsScreen.tsx";
+import { ImportClaude } from "../../src/ui/screens/documents/ImportClaude.tsx";
 import { clearToasts, mount } from "./cov-uiscreens-helpers.tsx";
 import { api, FakeEventSource, fakeDesktop, fakeFetch, named, noDesktop } from "./ui-desktop-helpers.tsx";
 
@@ -879,5 +881,27 @@ describe("Documents screen", () => {
     );
     expect(await screen.findByText("Install a pack")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Dismiss the indexing failure of All documents" }));
+  });
+});
+
+describe("ImportClaude", () => {
+  afterEach(() => setImportClaude({}));
+
+  it("shows the project model at low effort, and keeps what is picked for the next imports", () => {
+    mount(<ImportClaude />);
+    const effort = screen.getByRole("combobox", { name: "Effort" });
+    expect(screen.getByRole("combobox", { name: "Model" })).toHaveValue("sonnet");
+    expect(effort).toHaveValue("low");
+    fireEvent.change(screen.getByRole("combobox", { name: "Model" }), { target: { value: "opus" } });
+    fireEvent.change(effort, { target: { value: "high" } });
+    expect(importClaude()).toEqual({ model: "opus", effort: "high" });
+    cleanup();
+    mount(<ImportClaude />, { info: undefined });
+    expect(screen.getByRole("combobox", { name: "Model" })).toHaveValue("opus");
+    expect(screen.getByRole("combobox", { name: "Effort" })).toHaveValue("high");
+    setImportClaude({});
+    cleanup();
+    mount(<ImportClaude />, { info: undefined });
+    expect(screen.getByRole("combobox", { name: "Model" })).toHaveValue("opus");
   });
 });

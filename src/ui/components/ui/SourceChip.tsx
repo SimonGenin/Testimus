@@ -1,5 +1,5 @@
 import type { Source } from "../../../core/types.ts";
-import { sourceLabel } from "../../lib/fields.ts";
+import { sourcePlace } from "../../lib/fields.ts";
 import { Chip } from "./Chip.tsx";
 
 export function SourceChip({
@@ -25,7 +25,8 @@ export function SourceChip({
       title={`${source.docId}#${source.anchor}${source.quote ? ` "${source.quote}"` : ""}`}
       onClick={onOpen && (() => onOpen(source))}
     >
-      <span className="mono">{sourceLabel(source)}</span>
+      <span className="mono src-doc">{source.docId}</span>{" "}
+      <span className="mono src-at">{sourcePlace(source.anchor)}</span>
       {quote && !inline && source.quote && <span className="q">« {source.quote} »</span>}
     </Chip>
   );

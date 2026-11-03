@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import type { DocRef, JobEvent } from "../../core/types.ts";
+import type { ClaudeRun, DocRef, JobEvent } from "../../core/types.ts";
 import { run } from "../api.ts";
 import { baseName, pathOf } from "./desktop.ts";
 import { message } from "./format.ts";
@@ -77,12 +77,20 @@ const progressOf = (key: number, phase: Upload["phase"]) => (e: JobEvent) => {
   patch(key, { phase, message: e.message, pct });
 };
 
+// ponytail: the model and effort picked on the Documents screen stay for every add and reindex until the app is
+// closed; unpicked, the core keeps its defaults (project model / low for figures, haiku / low for headers)
+let claude: ClaudeRun = {};
+export const importClaude = () => claude;
+export const setImportClaude = (next: ClaudeRun) => {
+  claude = next;
+};
+
 let indexing: Promise<unknown> | null = null;
 
 async function reindex(key: number): Promise<void> {
   patch(key, { phase: "indexing", pct: null, message: "Indexing" });
   // ponytail: several drops in a row share one index run instead of queuing one per document
-  indexing ??= run("rag.index", {}, progressOf(key, "indexing")).finally(() => {
+  indexing ??= run("rag.index", { ...claude }, progressOf(key, "indexing")).finally(() => {
     indexing = null;
   });
   await indexing;
@@ -91,7 +99,7 @@ async function reindex(key: number): Promise<void> {
 async function addOne(key: number, input: Record<string, unknown>, onDone: () => void) {
   try {
     patch(key, { phase: "converting", message: "Converting", pct: null });
-    const doc = await run<{ id: string }>("docs.add", input, progressOf(key, "converting"));
+    const doc = await run<{ id: string }>("docs.add", { ...input, ...claude }, progressOf(key, "converting"));
     patch(key, { docId: doc?.id });
   } catch (e) {
     patch(key, { phase: "failed", message: message(e), error: e });

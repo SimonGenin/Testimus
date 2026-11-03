@@ -5,6 +5,7 @@ import { env } from "../env.ts";
 import { anchorsOf, type Converted, type ConvertOpts, guessFromName } from "../rag/convert.ts";
 import { convertDocx } from "../rag/convert-docx.ts";
 import { convertPdf, pdfFigures } from "../rag/convert-pdf.ts";
+import { docContent } from "../rag/indexer.ts";
 import type { DocJson, DocKind, DocRef, FigureEntry } from "../types.ts";
 import { writeAtomic } from "./atomic.ts";
 import { sha256 } from "./hash.ts";
@@ -54,7 +55,8 @@ export function listDocs(project: string): DocRef[] {
     if (!ID_RE.test(id) || !existsSync(join(root, id, "doc.json"))) continue;
     const doc = readDoc(project, id);
     const at = state[id];
-    out.push({ ...doc, indexed: at === undefined ? "missing" : at === doc.source.sha256 ? "fresh" : "stale" });
+    const content = docContent(join(root, id), doc);
+    out.push({ ...doc, indexed: at === undefined ? "missing" : at === content ? "fresh" : "stale" });
   }
   return out;
 }
