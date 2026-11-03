@@ -1,12 +1,16 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { z } from "zod";
-import { type Command, command, UserError } from "../command.ts";
+import { probeAgents, probeDeps } from "../claude/limits.ts";
+import { type Command, command, projectOf, UserError } from "../command.ts";
 import { env } from "../env.ts";
+import { AGENTS_CAP, AGENTS_DEFAULT, clampAgents } from "../lib/agents.ts";
 import { credsStatus, saveCreds, savedSecrets } from "../lib/creds.ts";
 import { jiraCheck, runDoctor, xrayCheck } from "../lib/doctor.ts";
 import { catalogEntry } from "../lib/models-catalog.ts";
 import { pull } from "../lib/models-install.ts";
 import { readSettings, writeSettings } from "../lib/project.ts";
+import { mockProbeDeps } from "../mock/agents.ts";
+import { indexFile } from "../rag/db.ts";
 import { shellOf } from "../shell.ts";
 import type { Settings } from "../types.ts";
 
@@ -48,6 +52,20 @@ const status = z.object({
   }),
 });
 
+const measure = z.object({
+  limit: z.number().describe("The most agents that held"),
+  at: z.string(),
+  reason: z.string().describe("Why the test stopped there"),
+  levels: z.array(
+    z.object({
+      agents: z.number(),
+      cpu: z.number().describe("Busy share of all the cores, 0 to 1"),
+      freeMB: z.number(),
+      searchMs: z.number().describe("Median time of a search"),
+    }),
+  ),
+});
+
 const settingsOut = z.object({
   projects: z.array(z.string()),
   lastProject: z.string(),
@@ -55,6 +73,14 @@ const settingsOut = z.object({
   stepLayout: z.enum(["stacked", "split"]),
   claude: z.object({ exe: z.string() }),
   models: z.object({ allowRemote: z.boolean() }),
+  agents: z
+    .object({
+      max: z.number().optional(),
+      adaptive: z.boolean().optional(),
+      measured: measure.optional().describe("The last test of this PC's limits (system.testAgents)"),
+    })
+    .optional()
+    .describe(`Claude runs at the same time: max (default ${AGENTS_DEFAULT}), adaptive (default true)`),
   ui: z
     .record(z.string(), z.string())
     .optional()
@@ -253,7 +279,8 @@ export const commands: Command[] = [
 
   command({
     name: "system.settings",
-    summary: "Global settings (%APPDATA%\\Testimus\\settings.json): theme, step layout, claude.exe, model downloads.",
+    summary:
+      "Global settings (%APPDATA%\\Testimus\\settings.json): theme, step layout, claude.exe, model downloads, agents at the same time.",
     input: z.object({}),
     output: settingsOut,
     mutates: false,
@@ -274,6 +301,17 @@ export const commands: Command[] = [
         .boolean()
         .optional()
         .describe("Allow model downloads from Hugging Face (false behind a blocking proxy)."),
+      agentsMax: z
+        .number()
+        .int()
+        .min(1)
+        .max(AGENTS_CAP)
+        .optional()
+        .describe(`The most Claude runs a generation or a check starts at the same time (default ${AGENTS_DEFAULT}).`),
+      agentsAdaptive: z
+        .boolean()
+        .optional()
+        .describe("Start with 2 runs and add one while the CPU and memory have room; start none while the PC is busy."),
       ui: z
         .record(z.string(), z.string())
         .optional()
@@ -288,9 +326,38 @@ export const commands: Command[] = [
       if (input.stepLayout) s.stepLayout = input.stepLayout;
       if (input.claudeExe !== undefined) s.claude = { ...s.claude, exe: checkedExe(input.claudeExe) };
       if (input.allowRemote !== undefined) s.models = { ...s.models, allowRemote: input.allowRemote };
+      if (input.agentsMax !== undefined) s.agents = { ...s.agents, max: clampAgents(input.agentsMax) };
+      if (input.agentsAdaptive !== undefined) s.agents = { ...s.agents, adaptive: input.agentsAdaptive };
       if (input.ui) s.ui = Object.fromEntries(Object.entries(input.ui).filter(([k]) => k.startsWith("testimus.")));
       writeSettings(s);
       return s;
+    },
+  }),
+
+  command({
+    name: "system.testAgents",
+    summary:
+      "Tests how many Claude runs this PC can carry at once: starts the project's Testimus MCP server again and again, each searching the index like an agent, until the CPU, the memory or the search time says stop; saves the limit found as the maximum.",
+    input: z.object({
+      apply: z.boolean().default(true).describe("Save the limit found as the maximum (agents.max)."),
+    }),
+    output: measure.extend({ applied: z.boolean() }),
+    mutates: true,
+    job: "agents-test",
+    async run(ctx, input) {
+      const project = projectOf(ctx);
+      if (!env.mock && !existsSync(indexFile(project)))
+        throw new UserError(
+          "The project has no index yet: an agent's search is what the test measures.",
+          "Index the documents first (Documents screen, or testimus rag index).",
+        );
+      const m = await probeAgents(ctx, env.mock ? mockProbeDeps() : probeDeps(project));
+      const applied = input.apply && !ctx.signal.aborted;
+      const s = readSettings();
+      s.agents = { ...s.agents, ...(applied ? { max: m.limit } : {}), measured: m };
+      writeSettings(s);
+      ctx.log("info", `Limit: ${m.limit} agent${m.limit > 1 ? "s" : ""} — ${m.reason}`);
+      return { ...m, applied };
     },
   }),
 ];

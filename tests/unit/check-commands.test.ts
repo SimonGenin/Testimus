@@ -157,7 +157,8 @@ describe("check commands", () => {
     expect(readFileSync(file, "utf8")).toBe(before);
   });
 
-  it("at most 3 check-test runs at a time", async () => {
+  it("at most agents.max check-test runs at a time when not adapting, 2 to start with when adapting", async () => {
+    writeSettings({ ...DEFAULT_SETTINGS, claude: { exe: "C:/bin/claude.exe" }, agents: { max: 3, adaptive: false } });
     for (const n of [1, 2, 3, 4])
       cpSync(join(project, "tests", "LFRPS12-1398"), join(project, "tests", `local-0000000${n}`), { recursive: true });
     let active = 0;
@@ -172,6 +173,11 @@ describe("check commands", () => {
     expect(out.tests).toHaveLength(7);
     expect(seen).toHaveLength(7);
     expect(peak).toBe(3);
+
+    writeSettings({ ...DEFAULT_SETTINGS, claude: { exe: "C:/bin/claude.exe" } });
+    peak = 0;
+    await run("check.run", { all: true });
+    expect(peak).toBe(2);
   });
 
   it("check.record merges the skill's findings and validates them; check.show says when it is stale", async () => {

@@ -21,7 +21,7 @@ export const commands: Command[] = [
   command({
     name: "gen.tests",
     summary:
-      "Generate draft tests from the documents with Claude (generate-tests skill): every expected result sourced, gaps reported. A scope too large for one run is planned first (plan-tests skill), then written one run per test.",
+      "Generate draft tests from the documents with Claude (generate-tests skill): every expected result sourced, gaps reported. A request that takes more than one test is planned first (plan-tests skill), then written one run per test, several at a time (agents setting).",
     input: z.object({
       request: z
         .string()
@@ -98,7 +98,7 @@ export const commands: Command[] = [
       planned: z
         .number()
         .describe(
-          "Tests written from a plan (plan-tests skill), one Claude run each, three at a time, when the scope was too large for one run; 0 otherwise",
+          "Tests written from a plan (plan-tests skill), one Claude run each, several at a time, when the request took more than one test; 0 otherwise",
         ),
       generation: z
         .string()

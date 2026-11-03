@@ -118,8 +118,9 @@ Audit of everything Xray Editor lets a user see, do or edit, then the gaps close
 What 85 real runs showed (one « whole document » generation: 103 turns, 20 tests written from one read, one of 40
 steps, 172 findings, `vague-result` first; `rag_related` never called):
 
-- [x] K1 `plan-tests` skill: on a large scope the generation may answer with a `test-plan` block instead of tests;
-      `gen.tests` then runs generate-tests once per planned test (every one, three at a time), one revert for all
+- [x] K1 `plan-tests` skill: when a request takes more than one test the generation answers with a `test-plan` block
+      instead of tests; `gen.tests` then runs generate-tests once per planned test (every one, as many at a time as
+      the agents setting and the PC's load allow — `lib/agents.ts`, `system.testAgents`), one revert for all
       (`planned` in the result); a failed run stops the plan, what is left is in `skipped` and `remaining`, and
       `gen.tests --resume <generation>` (the UI's Resume) writes it under the same generation and revert
 - [x] K2 `edit-test` skill for the Claude panel on a test or a step (`claude.run` names it), with `check_run` allowed

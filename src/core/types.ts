@@ -513,6 +513,9 @@ export type ProjectJson = {
 
 export type Context = { id: string; name: string; text: string; paths: string[]; files: string[] };
 
+export type AgentsLevel = { agents: number; cpu: number; freeMB: number; searchMs: number };
+export type AgentsMeasure = { limit: number; at: string; reason: string; levels: AgentsLevel[] };
+
 export type Settings = {
   projects: string[];
   lastProject: string;
@@ -520,6 +523,7 @@ export type Settings = {
   stepLayout: "stacked" | "split";
   claude: { exe: string };
   models: { allowRemote: boolean };
+  agents?: { max?: number; adaptive?: boolean; measured?: AgentsMeasure };
   ui?: Record<string, string>;
   rag?: { byProject?: Record<string, ActiveChoice>; budgets?: Partial<Budgets>; dismissed?: Record<string, string> };
 };
