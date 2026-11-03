@@ -1,0 +1,197 @@
+import { homedir } from "node:os";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
+
+import { env } from "../../../../src/core/env.ts";
+import {
+  type HardwareDeps,
+  hardwareDeps,
+  knownMachine,
+  machineProfile,
+  measureMachine,
+  parseNvidiaSmi,
+  parseRegistryVram,
+  parseWmi,
+  pinMachineProfile,
+  vendorOf,
+} from "../../../../src/core/lib/models-hardware.ts";
+import type { MachineProfile } from "../../../../src/core/types.ts";
+
+const realNow = env.now;
+const platform = process.platform;
+const setPlatform = (p: string) => Object.defineProperty(process, "platform", { value: p, configurable: true });
+
+beforeEach(() => {
+  pinMachineProfile(null);
+});
+afterEach(() => {
+  setPlatform(platform);
+  env.now = realNow;
+  pinMachineProfile(null);
+  vi.unstubAllEnvs();
+});
+
+describe("the real hardware seams", () => {
+  it("exec runs a real program: its exit code and stdout, 1 and no output for a program that is not there", async () => {
+    const node = process.execPath;
+    expect(await hardwareDeps.exec(node, ["-e", "process.stdout.write('out');process.exit(3)"], 10000)).toEqual({
+      code: 3,
+      stdout: "out",
+    });
+    expect(await hardwareDeps.exec("testimus-no-such-program", [], 10000)).toEqual({ code: 1, stdout: "" });
+    expect(await hardwareDeps.exec(node, ["-e", "process.stdout.write('ok')"], 10000)).toEqual({
+      code: 0,
+      stdout: "ok",
+    });
+  });
+
+  it("exec stops a program that outlives its delay, and says it failed", async () => {
+    const t0 = Date.now();
+    const r = await hardwareDeps.exec(process.execPath, ["-e", "setTimeout(() => {}, 20000)"], 300);
+    expect(r.code).not.toBe(0);
+    expect(Date.now() - t0).toBeLessThan(10000);
+  });
+
+  it("statfs reads a drive and gives null for a path that does not exist", () => {
+    const s = hardwareDeps.statfs(process.cwd());
+    expect(s?.totalMB).toBeGreaterThan(0);
+    expect(hardwareDeps.statfs("Q:\\definitely\\not\\here\\nope")).toBeNull();
+  });
+
+  it("drives lists the Windows roots that exist, and the home folder elsewhere", () => {
+    if (platform === "win32") expect(hardwareDeps.drives()).toContain("C:\\");
+    setPlatform("linux");
+    expect(hardwareDeps.drives()).toEqual([homedir()]);
+  });
+
+  it("memory, cpu and loaded servers", async () => {
+    expect(hardwareDeps.mem().totalMB).toBeGreaterThan(0);
+    expect(hardwareDeps.cpu().threads).toBeGreaterThan(0);
+    expect(Array.isArray(await hardwareDeps.loaded())).toBe(true);
+  });
+});
+
+describe("parsers", () => {
+  it("nvidia-smi without memory figures gives null VRAM; a decimal registry size is read too", () => {
+    expect(parseNvidiaSmi("RTX, 551, [N/A], [N/A]")[0]).toMatchObject({ vramTotalMB: null, vramUsedMB: null });
+    const descs = "HKEY_X\\0000\n    DriverDesc    REG_SZ    Card\n";
+    const sizes = "HKEY_X\\0000\n    HardwareInformation.qwMemorySize    REG_QWORD    2097152\n";
+    expect(parseRegistryVram(sizes, descs).get("Card")).toBe(2);
+  });
+});
+
+describe("vendorOf and parseWmi", () => {
+  it("names the vendor or other", () => {
+    expect(vendorOf("Matrox G200")).toBe("other");
+    expect(vendorOf("Intel Arc A770")).toBe("intel");
+  });
+
+  it("keeps only named real adapters, with their driver when given", () => {
+    expect(parseWmi('{"Name":" AMD Radeon ","DriverVersion":"31"}')).toEqual([{ name: "AMD Radeon", driver: "31" }]);
+    expect(parseWmi('[{"Name":"Microsoft Basic Display Adapter"},{"Nope":1},null]')).toEqual([]);
+    expect(parseWmi("not json")).toEqual([]);
+  });
+});
+
+const fakeDeps = (over: Partial<HardwareDeps> = {}): HardwareDeps => ({
+  exec: async () => ({ code: 1, stdout: "" }),
+  statfs: (root) => (root === "C:\\" ? { freeMB: 10, totalMB: 20 } : null),
+  drives: () => ["C:\\", "Z:\\"],
+  loaded: async () => [],
+  mem: () => ({ totalMB: 16000, freeMB: 8000 }),
+  cpu: () => ({ model: "cpu", threads: 8 }),
+  ...over,
+});
+
+describe("measureMachine", () => {
+  it("off Windows: only nvidia-smi is asked; a failing exec or loaded list gives nothing", async () => {
+    setPlatform("linux");
+    const asked: string[] = [];
+    const m = await measureMachine(
+      fakeDeps({
+        exec: async (cmd) => {
+          asked.push(cmd);
+          throw new Error("no nvidia-smi");
+        },
+        loaded: async () => {
+          throw new Error("no servers");
+        },
+      }),
+    );
+    expect(asked).toEqual(["nvidia-smi"]);
+    expect(m).toMatchObject({ gpus: [], loaded: [], drives: [{ root: "C:\\", freeMB: 10, totalMB: 20 }] });
+  });
+
+  it("on Windows: an nvidia card seen by nvidia-smi is not listed twice, WMI adds the others with registry VRAM", async () => {
+    setPlatform("win32");
+    const reg = (value: string, v: string) => `HKEY_LOCAL_MACHINE\\X\\0001\n    ${value}    REG_SZ    ${v}\n`;
+    const m = await measureMachine(
+      fakeDeps({
+        exec: async (cmd, args) => {
+          if (cmd === "nvidia-smi")
+            return {
+              code: 0,
+              stdout: "name, driver_version, memory.total, memory.used\nRTX 4060, 551, 8188 MiB, 100 MiB\n",
+            };
+          if (cmd === "powershell.exe")
+            return {
+              code: 0,
+              stdout:
+                '[{"Name":"rtx 4060"},{"Name":"NVIDIA Quadro"},{"Name":"AMD Radeon","DriverVersion":"31"},{"Name":"Intel UHD"}]',
+            };
+          return args.includes("DriverDesc")
+            ? { code: 0, stdout: reg("DriverDesc", "AMD Radeon") }
+            : { code: 0, stdout: reg("HardwareInformation.qwMemorySize", "0x100000000") };
+        },
+      }),
+    );
+    expect(m.gpus.map((g) => `${g.name}:${g.vendor}:${g.source}:${g.vramTotalMB}:${g.driver ?? "-"}`)).toEqual([
+      "RTX 4060:nvidia:nvidia-smi:8188:551",
+      "AMD Radeon:amd:registry:4096:31",
+      "Intel UHD:intel:wmi:null:-",
+    ]);
+  });
+});
+
+describe("machineProfile", () => {
+  const profile = (at: string): MachineProfile => ({
+    at,
+    ramTotalMB: 1,
+    ramFreeMB: 1,
+    cpu: { model: "x", threads: 1 },
+    gpus: [],
+    drives: [{ root: "D:\\", freeMB: 1, totalMB: 2 }],
+    loaded: [],
+  });
+
+  it("measures once, reuses it for ten minutes, and measures again on refresh or when stale", async () => {
+    vi.stubEnv("TESTIMUS_MACHINE", "");
+    const calls: string[] = [];
+    const real = hardwareDeps.exec;
+    hardwareDeps.exec = async (cmd) => {
+      calls.push(cmd);
+      return { code: 1, stdout: "" };
+    };
+    onTestFinished(() => {
+      hardwareDeps.exec = real;
+    });
+    const t = Date.parse("2026-11-02T10:00:00Z");
+    env.now = () => new Date(t);
+    const first = await machineProfile({ refresh: true });
+    expect(knownMachine()).toBe(first);
+    expect(await machineProfile()).toBe(first);
+    const n = calls.length;
+    env.now = () => new Date(t + 11 * 60 * 1000);
+    const second = await machineProfile();
+    expect(second).not.toBe(first);
+    expect(calls.length).toBeGreaterThan(n);
+    expect(await machineProfile({ refresh: true })).not.toBe(second);
+  });
+
+  it("a pinned profile wins over a measure", async () => {
+    vi.stubEnv("TESTIMUS_MACHINE", "");
+    const p = profile("2026-01-01T00:00:00Z");
+    pinMachineProfile(p);
+    expect(await machineProfile()).toBe(p);
+    expect(knownMachine()).toBe(p);
+  });
+});

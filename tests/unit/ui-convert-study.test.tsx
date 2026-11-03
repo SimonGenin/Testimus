@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DocJson } from "../../src/core/types.ts";
 import { mount } from "./cov-uiscreens-helpers.tsx";
@@ -52,7 +52,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("Convert again with Claude's study", () => {
-  it("shows the options kept from the study and sends study when ticked, without a separate triage", async () => {
+  it("shows the options kept from the study and sends study when ticked, without triage, the index in the same job", async () => {
     mount(<ConvertDoc doc={DOC} again onClose={() => {}} onChanged={() => {}} />);
     const kept = screen.getByText("Converted from the PDF tags, 2 heading numbers read on the pages.");
     expect(kept).toHaveAttribute("title", "Numbers drawn by Word.");
@@ -63,19 +63,23 @@ describe("Convert again with Claude's study", () => {
       fireEvent.click(screen.getByRole("button", { name: "Convert again and index" }));
     });
     const convert = runs.find((r) => r.name === "docs.convert");
-    expect(convert?.input).toMatchObject({ id: "SOSIE_441", study: true });
-    await waitFor(() => expect(runs.some((r) => r.name === "rag.index")).toBe(true));
+    expect(convert?.input).toMatchObject({ id: "SOSIE_441", study: true, index: true });
+    expect(convert?.input).not.toHaveProperty("triage");
     await act(() => new Promise((r) => setTimeout(r, 20)));
+    expect(runs.some((r) => r.name === "rag.index")).toBe(false);
     expect(runs.some((r) => r.name === "actions.triage")).toBe(false);
   });
 
-  it("leaves study out by default", async () => {
+  it("leaves study out by default and asks the core to triage the warnings in the same job", async () => {
     mount(<ConvertDoc doc={{ ...DOC, conversion: undefined }} onChanged={() => {}} />);
     expect(screen.queryByText(/Converted from/)).toBeNull();
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Convert and index" }));
     });
-    expect(runs.find((r) => r.name === "docs.convert")?.input).not.toHaveProperty("study");
-    await waitFor(() => expect(runs.some((r) => r.name === "actions.triage")).toBe(true));
+    const convert = runs.find((r) => r.name === "docs.convert");
+    expect(convert?.input).not.toHaveProperty("study");
+    expect(convert?.input).toMatchObject({ triage: true, index: true });
+    await act(() => new Promise((r) => setTimeout(r, 20)));
+    expect(runs.some((r) => r.name === "actions.triage" || r.name === "claude.status")).toBe(false);
   });
 });

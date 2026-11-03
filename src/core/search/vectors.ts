@@ -67,9 +67,9 @@ function readStore(project: string, space: string, model: string): Store {
   return s && s.space === space ? s : { space, model, tests: {} };
 }
 
-export type Embedder = { model: ResolvedModel; space: string } | { degraded: string };
+type Embedder = { model: ResolvedModel; space: string } | { degraded: string };
 
-export async function embedder(project: string): Promise<Embedder> {
+async function embedder(project: string): Promise<Embedder> {
   try {
     const m = (await activeModels(project)).embedding;
     if (!m) return { degraded: "No embedding model on this PC: tests are found by their words only." };
@@ -88,7 +88,7 @@ function stale(store: Store, docs: TestDoc[]): { doc: TestDoc; text: string; has
     .filter((x) => x.text && store.tests[x.doc.id]?.hash !== x.hash);
 }
 
-export type EmbedReport = { model: string; embedded: number; total: number; degraded?: string };
+type EmbedReport = { model: string; embedded: number; total: number; degraded?: string };
 
 export async function embedTests(project: string, ctx?: Ctx, limit = Number.POSITIVE_INFINITY): Promise<EmbedReport> {
   const e = await embedder(project);
@@ -141,7 +141,7 @@ const cosine = (a: Float32Array, b: Float32Array) => {
   return na && nb ? dot / Math.sqrt(na * nb) : 0;
 };
 
-export type Nearest = { ranked: [string, number][]; unembedded: number; degraded?: string };
+type Nearest = { ranked: [string, number][]; unembedded: number; degraded?: string };
 
 // ponytail: only the tests that already have a vector take part — the others wait for search.index (unembedded
 // says how many), a few freshly edited ones are embedded on the way

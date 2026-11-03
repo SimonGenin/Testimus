@@ -724,6 +724,11 @@ describe("Documents screen", () => {
     expect(container.querySelector(".dropveil")).not.toBeNull();
     fireEvent.dragLeave(zone);
     expect(container.querySelector(".dropveil")).toBeNull();
+    api.routes["docs.addFiles"] = (i) => {
+      const f = (i.files as { name: string }[])[0];
+      if (!f.name.endsWith(".txt")) throw new Error("not read");
+      return { added: [], rejected: [{ name: f.name, why: "not a document", code: "not-a-document" }] };
+    };
     fireEvent.drop(zone, { dataTransfer: { files: [] } });
     fireEvent.drop(zone, { dataTransfer: { files: [new File(["x"], "notes.txt")] } });
     expect(await screen.findByText("Only Word (.docx) and PDF files can be added")).toBeInTheDocument();
@@ -774,7 +779,7 @@ describe("Documents screen", () => {
     expect(add).toBeDisabled();
     fireEvent.change(screen.getByLabelText("Path of the file"), { target: { value: ' "C:\\d\\spec.docx" ' } });
     fireEvent.click(add);
-    await waitFor(() => expect(named("docs.add")[0]?.input).toEqual({ file: "C:\\d\\spec.docx", convert: false }));
+    await waitFor(() => expect(named("docs.addFiles")[0]?.input).toEqual({ files: [{ path: "C:\\d\\spec.docx" }] }));
     const row = await screen.findByText("spec.docx");
     expect(await within(row.closest("tr") as HTMLElement).findByText(/Adding spec.docx stopped/)).toBeInTheDocument();
     expect(within(row.closest("tr") as HTMLElement).getByText("Adding", { selector: "li" })).toHaveClass("is-failed");
@@ -787,7 +792,7 @@ describe("Documents screen", () => {
   it("adding a document only copies it, then opens it: no conversion, no index", async () => {
     api.routes["docs.list"] = () => [doc("D1")];
     detail();
-    api.routes["docs.add"] = () => ({ jobId: "add-1" });
+    api.routes["docs.addFiles"] = () => ({ jobId: "add-1" });
     api.routes["jobs.show"] = (i) => ({ job: { id: i.id, kind: "x", subject: "", status: "running", startedAt: at } });
     const { app: a } = mount(<DocumentsScreen />);
     await screen.findByText("Title D1");
@@ -806,7 +811,14 @@ describe("Documents screen", () => {
       jobId: "add-1",
       at,
       type: "status",
-      job: { id: "add-1", kind: "docs.add", subject: "", status: "done", startedAt: at, result: { id: "NEW" } },
+      job: {
+        id: "add-1",
+        kind: "docs.add",
+        subject: "",
+        status: "done",
+        startedAt: at,
+        result: { added: [{ id: "NEW" }], rejected: [] },
+      },
     });
     await waitFor(() => expect(a.navigate).toHaveBeenCalledWith("documents", "NEW"));
     expect(screen.queryByText("new.pdf")).toBeNull();
@@ -826,7 +838,7 @@ describe("Documents screen", () => {
     });
     api.routes["docs.list"] = () => (listed ? [old, early] : [old]);
     detail();
-    api.routes["docs.add"] = () => ({ jobId: "add-3" });
+    api.routes["docs.addFiles"] = () => ({ jobId: "add-3" });
     api.routes["jobs.show"] = (i) => ({ job: { id: i.id, kind: "x", subject: "", status: "running", startedAt: at } });
     const { app: a } = mount(<DocumentsScreen />);
     await screen.findByText("Older copy");
@@ -849,13 +861,13 @@ describe("Documents screen", () => {
     const row = within(list).getByText("early.docx").closest("tr") as HTMLElement;
     fireEvent.click(row);
     expect(a.navigate).toHaveBeenCalledWith("documents", "EARLY");
-    emit(status("add-3", "docs.add", { id: "EARLY" }));
+    emit(status("add-3", "docs.add", { added: [{ id: "EARLY" }], rejected: [] }));
     expect(await within(list).findByText("Not converted")).toBeInTheDocument();
     expect(within(list).queryByText("early.docx")).toBeNull();
     expect(within(list).getAllByRole("row")).toHaveLength(3);
   });
 
-  it("a document not converted yet: its facts, the job's context, convert and index, failures with their fix", async () => {
+  it("a document not converted yet: its facts, the job's context, convert and index in one job, failures with their fix", async () => {
     let converted = false;
     const fresh = () =>
       doc("NEW2", {
@@ -873,7 +885,6 @@ describe("Documents screen", () => {
       if (fail) throw new Error("source missing");
       return { jobId: "conv-2" };
     };
-    api.routes["rag.index"] = () => ({ jobId: "ix-2" });
     api.routes["jobs.show"] = (i) => ({ job: { id: i.id, kind: "x", subject: "", status: "running", startedAt: at } });
     const { app: a } = mount(<DocumentsScreen />, { route: { screen: "documents", arg: "NEW2" } });
     const list = await screen.findByRole("region", { name: "Document list" });
@@ -887,7 +898,13 @@ describe("Documents screen", () => {
 
     fireEvent.click(within(side).getByRole("button", { name: "Convert and index" }));
     await waitFor(() =>
-      expect(named("docs.convert")[0]?.input).toEqual({ id: "NEW2", contexts: [], describeFigures: true }),
+      expect(named("docs.convert")[0]?.input).toEqual({
+        id: "NEW2",
+        contexts: [],
+        describeFigures: true,
+        triage: true,
+        index: true,
+      }),
     );
     expect(await within(list).findByText("Conversion failed")).toBeInTheDocument();
     expect(within(list).getByText(/fresh.docx stays as it was: source missing/)).toBeInTheDocument();
@@ -903,21 +920,22 @@ describe("Documents screen", () => {
     expect(within(side).queryByRole("region", { name: "Convert and index" })).toBeNull();
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
     converted = true;
+    emit({ jobId: "conv-2", at, type: "progress", message: "Waiting for the other conversions", step: "index" });
+    expect(await within(list).findByRole("progressbar", { name: "Indexing" })).toBeInTheDocument();
+    emit({ jobId: "conv-2", at, type: "progress", message: "m", done: 3, total: 4, step: "index" });
+    expect(await within(list).findByText("75%")).toBeInTheDocument();
     emit({
       jobId: "conv-2",
       at,
       type: "status",
-      job: { id: "conv-2", kind: "docs.convert", subject: "", status: "done", startedAt: at, result: { id: "NEW2" } },
-    });
-    expect(await within(list).findByRole("progressbar", { name: "Indexing" })).toBeInTheDocument();
-    await waitFor(() => expect(named("rag.index")[0]?.input).toEqual({}));
-    emit({ jobId: "ix-2", at, type: "progress", message: "m", done: 3, total: 4 });
-    expect(await within(list).findByText("75%")).toBeInTheDocument();
-    emit({
-      jobId: "ix-2",
-      at,
-      type: "status",
-      job: { id: "ix-2", kind: "rag-index", subject: "", status: "failed", startedAt: at, error: "model missing" },
+      job: {
+        id: "conv-2",
+        kind: "docs.convert",
+        subject: "",
+        status: "done",
+        startedAt: at,
+        result: { id: "NEW2", index: { error: "model missing" } },
+      },
     });
     expect(await within(list).findByText("Indexing failed")).toBeInTheDocument();
     expect(
@@ -927,6 +945,7 @@ describe("Documents screen", () => {
     expect(a.navigate).toHaveBeenCalledWith("jobs");
     fireEvent.click(within(list).getByRole("button", { name: "Dismiss the indexing failure of fresh.docx" }));
     expect(within(list).queryByText("Indexing failed")).toBeNull();
+    expect(named("rag.index")).toEqual([]);
   });
 
   it("while a document converts, the panel shows what is read and locks the rest until it is indexed", async () => {
@@ -965,7 +984,6 @@ describe("Documents screen", () => {
           };
     api.routes["contexts.list"] = () => [];
     api.routes["docs.convert"] = () => ({ jobId: "conv-5" });
-    api.routes["rag.index"] = () => ({ jobId: "ix-5" });
     api.routes["jobs.show"] = (i) => ({
       job: { id: i.id, kind: "x", subject: "", status: "running", startedAt: at, message: "Converting source.docx" },
     });
@@ -1000,33 +1018,41 @@ describe("Documents screen", () => {
 
     described = 3;
     converted = true;
-    emit({
-      jobId: "conv-5",
-      at,
-      type: "status",
-      job: { id: "conv-5", kind: "docs.convert", subject: "", status: "done", startedAt: at, result: { id: "NEW3" } },
-    });
-    await waitFor(() => expect(named("rag.index")).toHaveLength(1));
+    emit({ jobId: "conv-5", at, type: "progress", message: "Describing the figures of NEW3", done: 3, total: 3 });
+    await waitFor(() => expect(within(reading).getByText("Figure c: described")).toBeInTheDocument());
+    const lists = named("docs.list").length;
+    emit({ jobId: "", at, type: "changed", paths: ["docs/NEW3/doc.json"] });
+    await waitFor(() => expect(named("docs.list").length).toBeGreaterThan(lists));
+    await act(() => new Promise((r) => setTimeout(r, 20)));
+    emit({ jobId: "conv-5", at, type: "progress", message: "Waiting for the other conversions", step: "index" });
     side = await screen.findByRole("region", { name: "C-NEW3 details" });
     const again = await within(side).findByRole("region", { name: "Reading the document" });
     await waitFor(() => expect(within(again).getByRole("listitem", { current: "step" })).toHaveTextContent("Indexing"));
-    emit({ jobId: "ix-5", at, type: "progress", message: "Embedding NEW3", done: 2, total: 3 });
+    emit({ jobId: "conv-5", at, type: "progress", message: "Embedding NEW3", done: 2, total: 3, step: "index" });
     await waitFor(() => expect(again.querySelectorAll(".docread-sec.is-indexed")).toHaveLength(2));
     expect(again.querySelector(".docread-sec.is-now")).toHaveTextContent("2 Règles");
     expect(again.querySelectorAll(".docread-fig.is-done")).toHaveLength(3);
     expect(again.querySelectorAll(".docread-sec.is-new")).toHaveLength(0);
 
     emit({
-      jobId: "ix-5",
+      jobId: "conv-5",
       at,
       type: "status",
-      job: { id: "ix-5", kind: "rag.index", subject: "", status: "done", startedAt: at },
+      job: {
+        id: "conv-5",
+        kind: "docs.convert",
+        subject: "",
+        status: "done",
+        startedAt: at,
+        result: { id: "NEW3", index: { chunks: 3 } },
+      },
     });
     expect(await within(side).findByRole("navigation", { name: "Sections" })).toBeInTheDocument();
     expect(within(side).queryByRole("region", { name: "Reading the document" })).toBeNull();
     expect(side).toHaveClass("docdetail-open");
     for (const b of within(within(side).getByRole("group", { name: "Status" })).getAllByRole("button"))
       expect(b).toBeEnabled();
+    expect(named("rag.index")).toEqual([]);
   });
 
   it("a converted document is converted again from its menu, and the panel closes", async () => {
@@ -1050,7 +1076,13 @@ describe("Documents screen", () => {
     fireEvent.click(describe);
     fireEvent.click(within(side).getByRole("button", { name: "Convert again and index" }));
     await waitFor(() =>
-      expect(named("docs.convert")[0]?.input).toEqual({ id: "D1", contexts: [], describeFigures: false }),
+      expect(named("docs.convert")[0]?.input).toEqual({
+        id: "D1",
+        contexts: [],
+        describeFigures: false,
+        triage: true,
+        index: true,
+      }),
     );
     expect(within(side).queryByRole("region", { name: "Convert again" })).toBeNull();
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());

@@ -1,9 +1,9 @@
-import { existsSync } from "node:fs";
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
+import { claudeHeaders } from "../claude/headers.ts";
 import { command, projectOf, UserError } from "../command.ts";
 import { activeModels } from "../rag/activation.ts";
-import { chunkCount, dropSpace, getMeta, indexFile, listSpaces, openDb, vectorCount } from "../rag/db.ts";
+import { chunkCount, dropSpace, getMeta, listSpaces, vectorCount, withIndex } from "../rag/db.ts";
 import { dimsOf, spaceOf } from "../rag/fingerprint.ts";
 import { indexProject, projectDocs, readState } from "../rag/indexer.ts";
 import type { VectorSpace } from "../types.ts";
@@ -21,17 +21,6 @@ const space = z.object({
   lastUsed: z.string().nullable().describe("When the space was last filled"),
   sizeMB: z.number().describe("Approximate size of its vectors (vectors × dims × 4 bytes)"),
 });
-
-function withDb<T>(project: string, none: T, work: (db: DatabaseSync) => T): T {
-  const file = indexFile(project);
-  if (!existsSync(file)) return none;
-  const db = openDb(file);
-  try {
-    return work(db);
-  } finally {
-    db.close();
-  }
-}
 
 function sizeMB(db: DatabaseSync, s: VectorSpace): number {
   return Math.round((vectorCount(db, s.id) * s.dims * 4) / 1e4) / 100;
@@ -76,7 +65,7 @@ export const commands = [
     subject: () => "index",
     run: (ctx, { force, model, effort, note }) => {
       const claude = { model, effort, note };
-      return indexProject(projectOf(ctx), ctx, { force, claude });
+      return indexProject(projectOf(ctx), ctx, { force, claude, describe: claudeHeaders });
     },
   }),
   command({
@@ -122,7 +111,7 @@ export const commands = [
       const project = projectOf(ctx);
       const active = await activeModels(project);
       const m = active.embedding;
-      const found = withDb(project, null, (db) => {
+      const found = withIndex(project, null, (db) => {
         const s = m ? spaceOf(db, m) : undefined;
         return {
           indexEmbedding: getMeta(db, "embedding") ?? null,
@@ -172,7 +161,7 @@ export const commands = [
     run: async (ctx) => {
       const project = projectOf(ctx);
       const m = (await activeModels(project)).embedding;
-      return withDb(project, [], (db) => {
+      return withIndex(project, [], (db) => {
         const active = m ? spaceOf(db, m)?.id : undefined;
         return listSpaces(db).map((s) => ({
           id: s.id,
@@ -208,7 +197,7 @@ export const commands = [
     run: async (ctx, input) => {
       const project = projectOf(ctx);
       const m = (await activeModels(project)).embedding;
-      const out = withDb(project, null, (db) => {
+      const out = withIndex(project, null, (db) => {
         const hits = listSpaces(db).filter((s) => s.id.startsWith(input.id.toLowerCase()));
         if (hits.length !== 1)
           throw new UserError(

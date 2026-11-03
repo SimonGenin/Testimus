@@ -1,159 +1,36 @@
 import { z } from "zod";
-import { type Ctx, command, projectOf, UserError } from "../command.ts";
-import { startJob } from "../jobs.ts";
-import { advise } from "../lib/models-advice.ts";
-import { catalogEntry } from "../lib/models-catalog.ts";
+import { command } from "../command.ts";
 import { applySetDir, planSetDir } from "../lib/models-dir.ts";
-import { fitOf } from "../lib/models-fit.ts";
-import { machineProfile } from "../lib/models-hardware.ts";
-import { addPath, catalogView, list, NO_DIR, needEntry, pull, remove, verify } from "../lib/models-install.ts";
-import { packRows, planOf, suggestPack } from "../lib/models-packs.ts";
-import { perfStats, readPerf, withPerfScope } from "../lib/models-perf.ts";
-import { refdocScore, refdocText } from "../lib/models-quality.ts";
-import { budgets, readRegistry, runtimesDir, updateRegistry } from "../lib/models-registry.ts";
-import { resolveChoice } from "../lib/models-resolve.ts";
-import { readProject, readSettings, writeProject, writeSettings } from "../lib/project.ts";
-import { measureRefdoc } from "../rag/refdoc.ts";
-import type { ActiveChoice, CatalogEntry, PackVariant, RagChoice } from "../types.ts";
+import { catalogView, list, remove, verify } from "../lib/models-install.ts";
+import { addPath } from "../lib/models-install-path.ts";
+import { pull } from "../lib/models-install-pull.ts";
+import { withPerfScope } from "../lib/models-perf.ts";
+import { modelsDir, runtimesDir } from "../lib/models-registry.ts";
+import { pullLlama } from "../lib/models-use.ts";
+import { commands as machine } from "./models-machine.ts";
+import { commands as packs } from "./models-packs.ts";
+import { dirInput, dirOut, fit, MB, modelId, state } from "./models-schemas.ts";
 
-const MB = 1024 * 1024;
-
-const fitVerdict = z.enum(["fits", "tight", "gpu-too-small", "ram-too-small", "unknown", "untested", "unsupported"]);
-const fit = z.object({
-  verdict: fitVerdict,
-  device: z.enum(["gpu", "cpu"]),
-  needMB: z.object({ vram: z.number(), ram: z.number() }),
-  freeMB: z.object({ vram: z.number().nullable(), ram: z.number() }),
-  totalMB: z.object({ vram: z.number().nullable(), ram: z.number() }),
-  unload: z.array(z.string()).describe("Loaded models to unload for a « tight » fit"),
-  message: z.string().describe("The verdict in words, with the numbers"),
-});
-const state = z.enum(["available", "downloading", "installed", "verified", "active", "broken", "outdated"]);
-const choice = z.union([
-  z.object({ pack: z.string() }),
-  z.object({ embedding: z.string(), reranker: z.string().nullable() }),
-]);
-const plan = z.object({
-  download: z.array(z.object({ model: z.string(), sizeMB: z.number() })).describe("Catalog models to download first"),
-  dir: z.string().nullable().describe("Where downloads go (null = the storage folder is not chosen yet)"),
-  reindex: z.boolean().describe("A new vector space will be built"),
-  expected: z.string().describe("Expected speed on this PC when the journal knows it"),
-});
-
-export const modelsDeps = {
-  activeModels: async (project: string) => (await import("../rag/activation.ts")).activeModels(project),
-  activeChoice: async (project: string) => (await import("../rag/activation.ts")).activeChoice(project),
-  setActiveChoice: async (project: string, c: ActiveChoice | RagChoice) =>
-    (await import("../rag/activation.ts")).setActiveChoice(project, c),
-  queryTask: async (project: string) => (await import("../rag/activation.ts")).queryTaskOf(project),
-  startIndex: async (project: string): Promise<string> => {
-    const { invoke } = await import("./index.ts");
-    return ((await invoke("rag.index", {}, { project, wait: false })) as { jobId: string }).jobId;
-  },
-  llama: () => import("../rag/runtimes/llamacpp.ts"),
-};
-
-function entriesOf(ids: (string | null | undefined)[]): CatalogEntry[] {
-  return ids.filter((m): m is string => !!m).map((m) => needEntry(m));
-}
-
-function plainChoice(c: ActiveChoice | RagChoice): RagChoice {
-  return "pack" in c ? { pack: c.pack } : { embedding: c.embedding, reranker: c.reranker };
-}
-
-async function currentVariant(project: string): Promise<{ choice: RagChoice; variant: PackVariant } | null> {
-  const a = await modelsDeps.activeModels(project);
-  if (!a.embedding || !a.choice) return null;
-  return {
-    choice: plainChoice(a.choice),
-    variant: { embedding: a.embedding.entry.id, reranker: a.reranker?.entry.id ?? null },
-  };
-}
-
-async function adviceList(project: string) {
-  const cur = await currentVariant(project);
-  if (!cur) return [];
-  return advise({
-    choice: cur.choice,
-    variant: cur.variant,
-    machine: await machineProfile(),
-    lines: readPerf(),
-    budgets: budgets(),
-    dismissed: readSettings().rag?.dismissed ?? {},
-    project,
-  });
-}
-
-function setReference(project: string, c: RagChoice): void {
-  const p = readProject(project);
-  writeProject(project, { ...p, rag: { ...p.rag, reference: c } });
-}
-
-async function pullLlama(ctx: Ctx, backend: "auto" | "cuda" | "vulkan" | "cpu") {
-  const dir = runtimesDir();
-  if (!dir) throw new UserError(NO_DIR, "Or set the runtimes folder: testimus models setDir <folder> --runtimes.");
-  const llama = await modelsDeps.llama();
-  const chosen = backend === "auto" ? llama.chooseBackend(await machineProfile()) : backend;
-  const build = await llama.pullLlamaBuild(
-    chosen,
-    dir,
-    (p) =>
-      ctx.progress({
-        message: `llama.cpp ${p.file}`,
-        done: Math.round(p.loaded / MB),
-        total: Math.round(p.total / MB),
-      }),
-    ctx.signal,
-  );
-  updateRegistry((r) => {
-    r.llamacpp = { ...build, via: "download" };
-  });
-  return build;
-}
-
-async function llamaMB(): Promise<number> {
-  const llama = await modelsDeps.llama();
-  const assets = llama.LLAMA_ASSETS[llama.chooseBackend(await machineProfile())];
-  return assets.reduce((a, x) => a + x.size, 0) / MB;
-}
-
-function stage(ctx: Ctx, from: number, size: number, total: number): Ctx {
-  return {
-    ...ctx,
-    progress: (p) =>
-      ctx.progress({
-        message: p.message,
-        done: Math.round(from + (p.total ? (size * Math.min(p.done ?? 0, p.total)) / p.total : 0)),
-        total: Math.round(total),
-      }),
-  };
-}
-
-function needsLlama(models: string[]): boolean {
-  return models.some((id) => {
-    const e = catalogEntry(id);
-    return !!e && !e.runtimes.includes("transformers") && e.runtimes.includes("llamacpp");
-  });
-}
-
-export const commands = [
+const own = [
   command({
     name: "models.catalog",
     summary: "The model catalog, with whether each entry fits this PC (RAM, GPU) and its tier.",
     input: z.object({ kind: z.enum(["embedding", "reranker"]).optional().describe("Only this kind") }),
     output: z.array(
-      z.object({
-        id: z.string(),
-        kind: z.enum(["embedding", "reranker"]),
-        label: z.string(),
-        tier: z.string(),
-        runtimes: z.array(z.string()),
-        quantization: z.string(),
-        dims: z.number(),
-        sizeMB: z.number(),
-        state,
-        fit,
-      }),
+      z
+        .object({
+          id: modelId,
+          kind: z.enum(["embedding", "reranker"]).describe("embedding (vectors for search) or reranker (reorders)"),
+          label: z.string().describe("Its name in words"),
+          tier: z.string().describe("light · balanced · quality: how heavy it is"),
+          runtimes: z.array(z.string()).describe("What runs it: transformers (ONNX) or llamacpp (GGUF)"),
+          quantization: z.string().describe("Its precision (fp16, q8, Q4_K_M…)"),
+          dims: z.number().describe("Dimensions of its vectors"),
+          sizeMB: z.number().describe("Download size in MB"),
+          state,
+          fit,
+        })
+        .describe("One catalog entry"),
     ),
     mutates: false,
     global: true,
@@ -164,21 +41,40 @@ export const commands = [
     summary: "Installed models: where, how (path · download), size, state, used by which projects.",
     input: z.object({}),
     output: z.array(
-      z.object({
-        model: z.string(),
-        label: z.string(),
-        via: z.enum(["path", "download"]),
-        runtime: z.string(),
-        where: z.string(),
-        sizeMB: z.number(),
-        state,
-        usedBy: z.array(z.string()),
-        perf: z.string().optional().describe("« on this PC: query 40 ms, index 120 passages/s »"),
-      }),
+      z
+        .object({
+          model: modelId,
+          label: z.string().describe("Its name in words"),
+          via: z
+            .enum(["path", "download"])
+            .describe("path (registered where it is) or download (in the models folder)"),
+          runtime: z.string().describe("transformers or llamacpp"),
+          where: z.string().describe("Its folder or file"),
+          sizeMB: z.number().describe("Size on disk in MB"),
+          state,
+          usedBy: z.array(z.string()).describe("Project folders that use it on this PC"),
+          perf: z.string().optional().describe("« on this PC: query 40 ms, index 120 passages/s »"),
+        })
+        .describe("One installed model"),
     ),
     mutates: false,
     global: true,
     run: async () => list(),
+  }),
+  command({
+    name: "models.dirs",
+    summary: "Where this PC keeps the downloaded models and the llama.cpp runtimes (null while not chosen).",
+    input: z.object({}),
+    output: z.object({
+      dir: z.string().nullable().describe("The models folder (null = not chosen yet: the first download asks)"),
+      runtimesDir: z
+        .string()
+        .nullable()
+        .describe("The llama.cpp runtimes folder (its own, else runtimes/ in the models folder; null = neither)"),
+    }),
+    mutates: false,
+    global: true,
+    run: async () => ({ dir: modelsDir() ?? null, runtimesDir: runtimesDir() ?? null }),
   }),
   command({
     name: "models.add",
@@ -189,7 +85,13 @@ export const commands = [
       model: z.string().optional().describe("Catalog id it is (guessed from the files when omitted)"),
       copy: z.boolean().default(false).describe("Copy it into the models folder instead of using it in place"),
     }),
-    output: z.object({ model: z.string(), via: z.literal("path"), path: z.string(), dims: z.number(), state }),
+    output: z.object({
+      model: z.string().describe("Catalog id it was registered as (llama.cpp for a runtime folder)"),
+      via: z.literal("path").describe("Registered where it is"),
+      path: z.string().describe("The registered folder or file"),
+      dims: z.number().describe("Dimensions it answered with (0 for llama.cpp)"),
+      state,
+    }),
     mutates: true,
     global: true,
     positional: ["path"],
@@ -199,11 +101,17 @@ export const commands = [
     name: "models.pull",
     summary: "Download a catalog model (SHA-256 checked); a job. Stops if the models folder is not chosen.",
     input: z.object({
-      model: z.string().describe("Catalog id"),
+      model: modelId,
       dir: z.string().optional().describe("Models folder for this download (sets it when not chosen yet)"),
       dtype: z.string().optional().describe("transformers models: the dtype to fetch (default from the catalog)"),
     }),
-    output: z.object({ model: z.string(), via: z.string(), where: z.string(), sizeMB: z.number(), state }),
+    output: z.object({
+      model: modelId,
+      via: z.string().describe("download, or path when it was already on this PC"),
+      where: z.string().describe("Its folder or file"),
+      sizeMB: z.number().describe("Size on disk in MB"),
+      state,
+    }),
     mutates: true,
     global: true,
     job: "models-pull",
@@ -217,7 +125,11 @@ export const commands = [
     input: z.object({
       backend: z.enum(["auto", "cuda", "vulkan", "cpu"]).default("auto").describe("auto = from the machine profile"),
     }),
-    output: z.object({ exe: z.string(), build: z.string(), backend: z.enum(["cuda", "vulkan", "cpu"]) }),
+    output: z.object({
+      exe: z.string().describe("Path of llama-server.exe"),
+      build: z.string().describe("llama.cpp build tag"),
+      backend: z.enum(["cuda", "vulkan", "cpu"]).describe("The backend downloaded"),
+    }),
     mutates: true,
     global: true,
     job: "models-pull",
@@ -230,8 +142,14 @@ export const commands = [
   command({
     name: "models.remove",
     summary: "Remove a model: a download deletes its files; a path is only unregistered.",
-    input: z.object({ model: z.string().describe("Catalog id") }),
-    output: z.object({ model: z.string(), removed: z.enum(["files", "registration"]), freedMB: z.number() }),
+    input: z.object({ model: modelId }),
+    output: z.object({
+      model: modelId,
+      removed: z
+        .enum(["files", "registration"])
+        .describe("files (a download deleted) or registration (a path forgotten)"),
+      freedMB: z.number().describe("Disk space freed, in MB"),
+    }),
     mutates: true,
     global: true,
     positional: ["model"],
@@ -240,389 +158,70 @@ export const commands = [
   command({
     name: "models.verify",
     summary:
-      "Probe a model: load it, embed one sentence, check the dimension and the fingerprint; records verified or broken.",
-    input: z.object({ model: z.string().describe("Catalog id") }),
-    output: z.object({ model: z.string(), ok: z.boolean(), dims: z.number(), ms: z.number(), message: z.string() }),
+      "Probe a model: load it, embed one sentence, check the dimension and the fingerprint; records verified or broken. A job.",
+    input: z.object({ model: modelId }),
+    output: z.object({
+      model: modelId,
+      ok: z.boolean().describe("It loaded and answered as the catalog says"),
+      dims: z.number().describe("Dimensions it answered with"),
+      ms: z.number().describe("How long the load and the answer took"),
+      message: z.string().describe("What happened, in words"),
+    }),
     mutates: true,
     global: true,
+    job: "models-verify",
     positional: ["model"],
-    run: async (ctx, input) => withPerfScope({}, () => verify(input.model), ctx.signal),
+    subject: (i) => i.model,
+    run: async (ctx, input) => {
+      ctx.progress({ message: `Loading ${input.model}` });
+      return verify(input.model);
+    },
+  }),
+  command({
+    name: "models.planDir",
+    summary:
+      "What choosing or changing the models folder (or the runtimes folder) would do: the drive, its free space, what moves, stays or is copied. Changes nothing.",
+    input: z.object(dirInput),
+    output: dirOut,
+    mutates: false,
+    global: true,
+    positional: ["dir"],
+    run: async (_ctx, input) => {
+      const p = planSetDir({ ...input, dryRun: true });
+      return { dir: p.dir, drive: p.drive, installedMB: p.installedMB, action: p.action, files: p.files };
+    },
   }),
   command({
     name: "models.setDir",
     summary:
-      "Choose or change the models folder (or the runtimes folder); existing downloads move, stay or are copied.",
-    input: z.object({
-      dir: z.string().describe("Absolute folder, outside any project folder"),
-      runtimes: z.boolean().default(false).describe("Set the llama.cpp runtimes folder instead of the models folder"),
-      move: z.boolean().default(false).describe("Move the downloaded models there (default when changing in the UI)"),
-      keep: z.boolean().default(false).describe("Leave them where they are; only new downloads go there"),
-      copy: z.boolean().default(false).describe("Copy them there and keep the old copy"),
-      dryRun: z.boolean().default(false).describe("Show what would happen"),
-      wait: z.boolean().default(false).describe("Wait for the move or copy job to end (its progress is printed)"),
-    }),
-    output: z.object({
-      dir: z.string(),
-      drive: z.object({ root: z.string(), freeMB: z.number() }),
-      installedMB: z.number(),
-      action: z.enum(["set", "move", "keep", "copy"]),
-      files: z.number(),
-      jobId: z.string().optional().describe("The move or copy job"),
-      dryRun: z.boolean(),
+      "Choose or change the models folder (or the runtimes folder); existing downloads move, stay or are copied. A job: a move or a copy can be cancelled, and then nothing changed.",
+    input: z.object(dirInput),
+    output: dirOut.extend({
+      cancelled: z.boolean().describe("The move or copy was cancelled: the old copy is intact and nothing changed"),
     }),
     mutates: true,
     global: true,
+    job: "models-dir",
     positional: ["dir"],
-    async run(_ctx, input) {
-      const p = planSetDir(input);
-      const out = {
+    subject: (i) => (i.copy ? `copy to ${i.dir}` : i.move ? `move to ${i.dir}` : i.dir),
+    async run(ctx, input) {
+      const p = planSetDir({ ...input, dryRun: false, job: ctx.jobId });
+      const verb = p.action === "move" ? "Moving" : "Copying";
+      const r = await applySetDir(p, {
+        signal: ctx.signal,
+        onProgress: (d, total, what) =>
+          ctx.progress({ message: `${verb} ${what}`, done: Math.round(d / MB), total: Math.round(total / MB) }),
+      });
+      return {
         dir: p.dir,
         drive: p.drive,
         installedMB: p.installedMB,
         action: p.action,
         files: p.files,
-        dryRun: input.dryRun,
+        cancelled: r.cancelled,
       };
-      if (input.dryRun) return out;
-      if (p.action === "set" || p.action === "keep") {
-        await applySetDir(p, { signal: new AbortController().signal, onProgress: () => {} });
-        return out;
-      }
-      const { job, done } = startJob(`models-${p.action}`, p.dir, null, (ctx) =>
-        applySetDir(p, {
-          signal: ctx.signal,
-          onProgress: (d, total, what) =>
-            ctx.progress({
-              message: `${p.action === "move" ? "Moving" : "Copying"} ${what}`,
-              done: Math.round(d / MB),
-              total: Math.round(total / MB),
-            }),
-        }),
-      );
-      if (input.wait) {
-        const r = (await done) as { cancelled: boolean };
-        if (r.cancelled) throw new UserError("Cancelled: the old copy is intact and nothing changed.");
-      }
-      return { ...out, jobId: job.id };
-    },
-  }),
-  command({
-    name: "models.use",
-    summary:
-      "Use an embedding and/or a reranker for the open project on this PC (the « Custom » pack); reindex follows.",
-    input: z.object({
-      embedding: z.string().optional().describe("Catalog id of the embedding"),
-      reranker: z.string().nullable().optional().describe("Catalog id of the reranker, or null for none"),
-      reference: z.boolean().default(false).describe("Also make it the team reference in project.json"),
-    }),
-    output: z.object({ choice, fit, reindex: z.boolean() }),
-    mutates: true,
-    async run(ctx, input) {
-      const project = projectOf(ctx);
-      const cur = await currentVariant(project).catch(() => null);
-      const embedding = input.embedding ?? cur?.variant.embedding;
-      if (!embedding) throw new UserError("Name the embedding to use.", "testimus models use --embedding <id>");
-      const reranker = input.reranker === undefined ? (cur?.variant.reranker ?? null) : input.reranker;
-      const entries = entriesOf([embedding, reranker]);
-      if (entries[0].kind !== "embedding") throw new UserError(`${embedding} is not an embedding model.`);
-      if (reranker && entries[1]?.kind !== "reranker") throw new UserError(`${reranker} is not a reranker.`);
-      const f = fitOf(entries, await machineProfile(), { headroom: budgets().headroom, lines: readPerf() });
-      if (f.verdict === "ram-too-small") throw new UserError(f.message, "Choose a lighter model.");
-      if (f.verdict === "unsupported") throw new UserError(f.message, "Choose a model this system runs.");
-      const r = await resolveChoice({ embedding, reranker }, await modelsDeps.queryTask(project));
-      if (r.missing.length)
-        throw new UserError(
-          `Not on this PC yet: ${r.missing.join(", ")}.`,
-          `Download first: ${r.missing.map((m) => `testimus models pull ${m}`).join(" ; ")}`,
-        );
-      const c = { embedding, reranker };
-      const reindex = cur?.variant.embedding !== embedding;
-      await modelsDeps.setActiveChoice(project, c);
-      if (input.reference) setReference(project, c);
-      if (reindex) await modelsDeps.startIndex(project);
-      return { choice: c, fit: f, reindex };
-    },
-  }),
-  command({
-    name: "models.packs",
-    summary:
-      "The packs, each with the variant it resolves to on this PC, its fit, what is left to download, speed and quality.",
-    input: z.object({}),
-    output: z.array(
-      z.object({
-        id: z.string(),
-        label: z.string(),
-        intent: z.string(),
-        active: z.boolean(),
-        available: z.boolean(),
-        variant: z.number().nullable().describe("Index of the variant that applies here (null = none fits)"),
-        embedding: z.string().nullable(),
-        reranker: z.string().nullable(),
-        fit: fit.nullable(),
-        skipped: z.array(z.string()).describe("Why the variants above were skipped, with the numbers"),
-        downloadMB: z.number(),
-        speed: z.string().optional(),
-        quality: z
-          .string()
-          .describe(
-            "On Testimus's reference document, how often search ranks the answering article first and in the top 5 — measured on this PC, else the catalog's figure measured by Testimus, else « quality not measured yet »",
-          ),
-        measuredHere: z.boolean().describe("The quality above was measured on this PC (models.measure)"),
-        projectQuality: z
-          .string()
-          .optional()
-          .describe("Evidence recall on this project's own behavior set, when rag.eval has measured these models"),
-        processorOnly: z
-          .boolean()
-          .describe("The pack is made for a GPU and here it runs on the processor: several times slower"),
-        suggested: z
-          .boolean()
-          .describe(
-            "The pack proposed at first launch: the heaviest that fits, proven on this system, without a GGUF or a processor fallback, else Light",
-          ),
-      }),
-    ),
-    mutates: false,
-    async run(ctx) {
-      const project = projectOf(ctx);
-      const rows = await packRows(
-        await modelsDeps.activeChoice(project),
-        await modelsDeps.queryTask(project),
-        {},
-        project,
-      );
-      const suggested = suggestPack(await machineProfile(), readPerf());
-      return rows.map((r) => ({ ...r, suggested: r.id === suggested }));
-    },
-  }),
-  command({
-    name: "models.measure",
-    summary:
-      "Measure a pack (or an embedding + reranker pair) on Testimus's reference document: the Syntec collective agreement, 90 articles, 100 questions with the article that answers each. Gives its quality (evidence recall) and this PC's speed; needs no project. A job.",
-    input: z.object({
-      pack: z.string().optional().describe("Pack id: light, performance, balanced, quality (its variant for this PC)"),
-      embedding: z.string().optional().describe("Catalog id of the embedding, instead of a pack"),
-      reranker: z.string().nullable().optional().describe("Catalog id of the reranker with --embedding (none = null)"),
-    }),
-    output: z.object({
-      embedding: z.string(),
-      reranker: z.string().nullable(),
-      first: z.number().describe("Share of the reference questions whose answering article search ranks first"),
-      top5: z.number().describe("Share whose answering article is in the top 5"),
-      questions: z.number(),
-      quality: z.string().describe("The result in words, as the pack card shows it"),
-      report: z.string().describe("Where the report was saved (in this PC's copy of the reference document)"),
-    }),
-    mutates: false,
-    global: true,
-    job: "models-measure",
-    positional: ["pack"],
-    subject: (i) => i.pack ?? i.embedding ?? "pack",
-    async run(ctx, input) {
-      const choice: RagChoice | null = input.pack
-        ? { pack: input.pack }
-        : input.embedding
-          ? { embedding: input.embedding, reranker: input.reranker ?? null }
-          : null;
-      if (!choice) throw new UserError("Say what to measure.", "Give a pack (light, …) or --embedding <catalog id>.");
-      const report = await measureRefdoc(ctx, choice);
-      const s = refdocScore(report) ?? { first: 0, top5: 0, questions: 0 };
-      return {
-        embedding: report.config.embedding,
-        reranker: report.config.reranker,
-        ...s,
-        quality: refdocText(s, "this PC"),
-        report: report.report,
-      };
-    },
-  }),
-  command({
-    name: "models.usePack",
-    summary:
-      "Use a pack for the open project on this PC: install what its variant needs, activate it, start the index job (--download-only stops after the downloads).",
-    input: z.object({
-      pack: z.string().describe("light, performance, balanced, quality"),
-      reference: z.boolean().default(false).describe("Also make it the team reference in project.json"),
-      downloadOnly: z
-        .boolean()
-        .default(false)
-        .describe("Only download what the pack needs; the project keeps its current pack until it is used"),
-      dryRun: z.boolean().default(false).describe("Show the plan: downloads, where, reindex, expected speed"),
-    }),
-    output: z.object({
-      pack: z.string(),
-      variant: z.number(),
-      embedding: z.string(),
-      reranker: z.string().nullable(),
-      plan,
-      jobIds: z.array(z.string()).describe("Download and index jobs started"),
-      dryRun: z.boolean(),
-    }),
-    mutates: true,
-    positional: ["pack"],
-    async run(ctx, input) {
-      const project = projectOf(ctx);
-      const r = await resolveChoice({ pack: input.pack }, await modelsDeps.queryTask(project));
-      if (!r.variant || r.variantIndex === null)
-        throw new UserError(
-          `The ${input.pack} pack is not available on this PC: ${r.skipped.join("; ") || "unknown pack"}.`,
-          "testimus models packs shows each pack and why.",
-        );
-      const variant = r.variant;
-      const p = planOf(r, await modelsDeps.activeChoice(project));
-      const out = {
-        pack: input.pack,
-        variant: r.variantIndex,
-        embedding: variant.embedding,
-        reranker: variant.reranker,
-        plan: p,
-      };
-      if (input.dryRun) return { ...out, jobIds: [], dryRun: true };
-      const models = [variant.embedding, variant.reranker].filter((m): m is string => !!m);
-      const llama = needsLlama(models) && !readRegistry().llamacpp;
-      if ((p.download.length || llama) && !p.dir) throw new UserError(NO_DIR, "Then choose the pack again.");
-      const activate = async () => {
-        await modelsDeps.setActiveChoice(project, { pack: input.pack, variant });
-        if (input.reference) setReference(project, { pack: input.pack });
-        return p.reindex ? await modelsDeps.startIndex(project) : null;
-      };
-      if (!p.download.length && !llama) {
-        const id = input.downloadOnly ? null : await activate();
-        return { ...out, jobIds: id ? [id] : [], dryRun: false };
-      }
-      const { job } = startJob("models-usePack", input.pack, project, async (jctx) => {
-        const steps = p.download.map((d) => d.sizeMB);
-        if (llama) steps.push(await llamaMB());
-        const total = steps.reduce((a, s) => a + s, 0);
-        let from = 0;
-        for (const [i, d] of p.download.entries()) {
-          await pull(stage(jctx, from, steps[i], total), { model: d.model });
-          from += steps[i];
-        }
-        if (llama) await pullLlama(stage(jctx, from, steps.at(-1) ?? 0, total), "auto");
-        for (const d of p.download) {
-          const tried = await verify(d.model);
-          if (!tried.ok)
-            throw new UserError(
-              `${catalogEntry(d.model)?.label ?? d.model} is downloaded but does not run on this PC: ${tried.message}`,
-              "The project keeps its current pack; choose another one in Settings › Models.",
-            );
-        }
-        const index = input.downloadOnly ? null : await activate();
-        return { pack: input.pack, variant: r.variantIndex, indexJob: index };
-      });
-      return { ...out, jobIds: [job.id], dryRun: false };
-    },
-  }),
-  command({
-    name: "models.hardware",
-    summary: "This PC's profile: system, RAM, CPU, GPUs with total and free VRAM, free disk per drive, loaded models.",
-    input: z.object({ refresh: z.boolean().default(false).describe("Measure again instead of the cached profile") }),
-    output: z.object({
-      at: z.string(),
-      system: z
-        .object({ platform: z.string(), arch: z.string() })
-        .optional()
-        .describe("Node's platform and architecture (win32, darwin, linux · x64, arm64); absent means Windows"),
-      ramTotalMB: z.number(),
-      ramFreeMB: z.number(),
-      cpu: z.object({ model: z.string(), threads: z.number() }),
-      gpus: z.array(
-        z.object({
-          name: z.string(),
-          vendor: z.enum(["nvidia", "amd", "intel", "other"]),
-          driver: z.string().optional(),
-          vramTotalMB: z.number().nullable(),
-          vramUsedMB: z.number().nullable(),
-          source: z.enum(["nvidia-smi", "wmi", "registry"]),
-        }),
-      ),
-      drives: z.array(z.object({ root: z.string(), freeMB: z.number(), totalMB: z.number() })),
-      loaded: z.array(
-        z.object({
-          name: z.string(),
-          sizeMB: z.number(),
-          vramMB: z.number(),
-          runtime: z.literal("llamacpp"),
-        }),
-      ),
-    }),
-    mutates: false,
-    global: true,
-    run: async (_ctx, input) => machineProfile({ refresh: input.refresh }),
-  }),
-  command({
-    name: "models.fit",
-    summary:
-      "Will it fit? For one model or an embedding + reranker pair: fits · tight · GPU too small · RAM too small · untested on this system · not supported on this system.",
-    input: z.object({
-      embedding: z.string().optional().describe("Catalog id"),
-      reranker: z.string().optional().describe("Catalog id"),
-    }),
-    output: fit,
-    mutates: false,
-    global: true,
-    async run(_ctx, input) {
-      const entries = entriesOf([input.embedding, input.reranker]);
-      if (!entries.length)
-        throw new UserError("Name a model.", "testimus models fit --embedding <id> [--reranker <id>]");
-      return fitOf(entries, await machineProfile(), { headroom: budgets().headroom, lines: readPerf() });
-    },
-  }),
-  command({
-    name: "models.perf",
-    summary: "Timings recorded on this PC per operation and model: count, p50, p95, throughput, memory.",
-    input: z.object({ model: z.string().optional().describe("Only this catalog id") }),
-    output: z.array(
-      z.object({
-        op: z.string(),
-        model: z.string(),
-        device: z.string(),
-        count: z.number(),
-        p50: z.number(),
-        p95: z.number(),
-        perSecond: z.number(),
-        peakMB: z.number().nullable(),
-        partialOffload: z.boolean(),
-        oom: z.number().describe("Operations that failed for lack of memory"),
-      }),
-    ),
-    mutates: false,
-    global: true,
-    run: async (_ctx, input) => perfStats({ model: input.model }),
-  }),
-  command({
-    name: "models.advice",
-    summary: "Upgrade or downgrade suggestions from the timings, the fit and the benchmark; never switches by itself.",
-    input: z.object({}),
-    output: z.array(
-      z.object({
-        id: z.string(),
-        direction: z.enum(["upgrade", "downgrade"]),
-        from: choice,
-        to: choice,
-        reason: z.string(),
-        quality: z.string(),
-      }),
-    ),
-    mutates: false,
-    async run(ctx) {
-      return (await adviceList(projectOf(ctx))).map(({ metric: _m, ...a }) => a);
-    },
-  }),
-  command({
-    name: "models.dismiss",
-    summary: "Dismiss an advice; it comes back only when its numbers change by more than 25 %.",
-    input: z.object({ id: z.string().describe("Advice id from models.advice") }),
-    output: z.object({ dismissed: z.string() }),
-    mutates: true,
-    positional: ["id"],
-    async run(ctx, input) {
-      const hit = (await adviceList(projectOf(ctx))).find((a) => a.id === input.id);
-      if (!hit) throw new UserError(`No current advice ${input.id}.`, "testimus models advice lists them.");
-      const s = readSettings();
-      writeSettings({ ...s, rag: { ...s.rag, dismissed: { ...s.rag?.dismissed, [hit.id]: String(hit.metric) } } });
-      return { dismissed: hit.id };
     },
   }),
 ];
+
+export const commands = [...own, ...packs, ...machine];

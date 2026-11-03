@@ -11,16 +11,7 @@ import { BUILTIN_FIELDS, type StepImage } from "../types.ts";
 
 const IMAGE_EXT = /^\.?(png|jpe?g|gif|bmp|webp|svg)$/i;
 
-export type AttachInput = {
-  id: string;
-  step?: number;
-  field?: string;
-  file?: string;
-  figure?: string;
-  name?: string;
-  ext?: string;
-  dataBase64?: string;
-};
+export type AttachInput = { id: string; step?: number; field?: string; file?: string; figure?: string };
 export type Attached = { id: string; step: number; field: string; file: string; from: string };
 
 // ponytail: a relative path is the project's (Claude's, a figure's) and may not climb out of it; an
@@ -84,7 +75,10 @@ export function attachImage(project: string, input: AttachInput): Attached {
   const { test } = readTest(project, input.id);
   const step = test.steps[input.step - 1];
   if (!step || input.step < 1)
-    throw new UserError(`Step ${input.step} does not exist — the test has ${test.steps.length} step(s).`);
+    throw new UserError(
+      `Step ${input.step} does not exist — the test has ${test.steps.length} step(s).`,
+      `Give a step from 1 to ${test.steps.length}, or add the step first (tests.edit).`,
+    );
   const fig = input.figure ? figureFile(project, input.figure) : null;
   const src = fig ? fig.path : sourceFile(project, input.file as string);
   const img = addImage(project, input.id, new Uint8Array(readFileSync(src)), extname(src));
@@ -96,19 +90,16 @@ export function attachImage(project: string, input: AttachInput): Attached {
   return { id: input.id, step: input.step, field, file: img.file, from: input.figure?.trim() || input.file || "" };
 }
 
+const testId = z.string().describe("Test id: the folder under tests/ — a Jira key or local-<8hex>");
+
 export const commands = [
   command({
     name: "tests.addImage",
     summary:
-      "Add a picture to a test: a file or a document figure is copied into tests/<id>/images/ and embedded at the end of a step's field; a pasted picture (dataBase64) is only stored.",
+      "Add a picture to a step: a file or a document figure is copied into tests/<id>/images/ and embedded at the end of one of the step's fields.",
     input: z.object({
-      id: z.string().describe("Test id: the folder under tests/ — a Jira key or local-<8hex>"),
-      step: z
-        .number()
-        .int()
-        .min(1)
-        .optional()
-        .describe("Step number, 1-based — required with file or figure, ignored with dataBase64"),
+      id: testId,
+      step: z.number().int().min(1).optional().describe("Step number, 1-based (required)"),
       field: z
         .string()
         .optional()
@@ -118,31 +109,41 @@ export const commands = [
         .optional()
         .describe("Picture to copy: a path inside the project, or an absolute path the user chose"),
       figure: z.string().optional().describe("Document figure to copy instead of a file: docId#fig:40"),
-      dataBase64: z
-        .string()
-        .optional()
-        .describe("A pasted or dropped picture, base64: only stored — the caller embeds the returned file itself"),
-      name: z.string().optional().describe("Original file name of the pasted picture (its extension is the fallback)"),
-      ext: z.string().optional().describe("Extension of the pasted picture: png, jpg, gif, bmp, webp, svg"),
     }),
     output: z.object({
+      id: z.string().describe("The test"),
+      step: z.number().describe("The step that shows the picture, 1-based"),
+      field: z.string().describe("The field the picture was embedded in"),
       file: z.string().describe("The copy, relative to the test folder: images/img-<8hex>.<ext>"),
-      id: z.string().optional(),
-      step: z.number().optional(),
-      field: z.string().optional().describe("The field the picture was embedded in (file or figure mode)"),
-      from: z.string().optional(),
+      from: z.string().describe("Where it came from: the file given, or the figure docId#fig:N"),
     }),
     mutates: true,
     positional: ["id", "step"],
     subject: (i) => (i.step ? `${i.id} step ${i.step}` : i.id),
-    async run(ctx, input) {
-      const project = projectOf(ctx);
-      if (input.dataBase64 !== undefined) {
-        if (input.file || input.figure)
-          throw new UserError("Give a pasted picture or a file or a figure, not several.");
-        return storeImage(project, input.id, input.dataBase64, input.ext || extname(input.name ?? "") || "png");
-      }
-      return attachImage(project, input);
-    },
+    run: async (ctx, input) => attachImage(projectOf(ctx), input),
+  }),
+  command({
+    name: "tests.storeImage",
+    summary:
+      "Store a picture pasted or dropped in the editor in tests/<id>/images/ and return its file; test.md is not touched — the editor puts the reference where the caret is and saves the test.",
+    input: z.object({
+      id: testId,
+      dataBase64: z.string().describe("The picture, base64 (a data: URL prefix is accepted)"),
+      name: z.string().optional().describe("Original file name (its extension is the fallback for ext)"),
+      ext: z
+        .string()
+        .optional()
+        .describe("Extension: png, jpg, gif, bmp, webp, svg (default: from the name, else png)"),
+    }),
+    output: z.object({
+      file: z.string().describe("The copy, relative to the test folder: images/img-<8hex>.<ext>"),
+      remoteId: z.string().optional().describe("Never set for a new picture (Xray gives it on push)"),
+      figure: z.string().optional().describe("Never set for a pasted picture"),
+    }),
+    mutates: true,
+    positional: ["id"],
+    subject: (i) => i.id,
+    run: async (ctx, input) =>
+      storeImage(projectOf(ctx), input.id, input.dataBase64, input.ext || extname(input.name ?? "") || "png"),
   }),
 ];

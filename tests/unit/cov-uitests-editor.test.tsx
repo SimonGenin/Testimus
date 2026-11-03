@@ -482,7 +482,7 @@ describe("TestEditor › saving", () => {
   });
 
   it("uploads a screenshot into the step, and deletes a dropped one once its undo expires", async () => {
-    server.routes["tests.addImage"] = () => ({ file: "images/s.png" });
+    server.routes["tests.storeImage"] = () => ({ file: "images/s.png" });
     server.routes["tests.removeImage"] = () => ({});
     editor();
     await screen.findByLabelText("Expected Result of step 1");

@@ -54,6 +54,8 @@ export type ServerStart = {
 
 export const IDLE_MS = 10 * 60 * 1000;
 export const LLAMA_CTX = 8192;
+// ponytail: serverIo and serverTimeouts are the seam env does not have — the llama-server process, its health
+// polls and its clock — which the tests drive to play a server that never gets ready or dies at start
 export const serverTimeouts = { readyMs: 180000, pollMs: 250, sweepMs: 60000 };
 
 export const serverIo = {
@@ -201,6 +203,7 @@ async function start(o: ServerStart, id: string): Promise<LlamaServer> {
     if (s.exitCode !== undefined) {
       const err = new UserError(
         `llama-server stopped before it was ready (exit code ${s.exitCode}) for ${basename(o.model)}.\n${tail(s)}`,
+        "Check the model (testimus models verify <id>) and the llama.cpp build (testimus models pullRuntime); the end of its log is above.",
       );
       const ms = serverIo.now() - t0;
       if (target) target.loadMs += serverIo.now() - tStart;
@@ -216,6 +219,7 @@ async function start(o: ServerStart, id: string): Promise<LlamaServer> {
       await stopServer(s);
       throw new UserError(
         `llama-server was not ready after ${Math.round(serverTimeouts.readyMs / 1000)} s for ${basename(o.model)}.\n${tail(s)}`,
+        "Retry once the PC is less busy, or choose a lighter pack in Settings › Models.",
       );
     }
     await serverIo.sleep(serverTimeouts.pollMs);
@@ -313,7 +317,10 @@ export async function serverPost<T>(s: LlamaServer, path: string, body: unknown,
         const j = JSON.parse(res.text ?? "") as { error?: { message?: string } | string };
         msg = typeof j.error === "string" ? j.error : (j.error?.message ?? msg);
       } catch {}
-      throw new UserError(`llama-server ${path} failed for ${basename(s.model)}: HTTP ${res.status} ${msg}`);
+      throw new UserError(
+        `llama-server ${path} failed for ${basename(s.model)}: HTTP ${res.status} ${msg}`,
+        "Retry; if it fails again, check the model with testimus models verify <id>.",
+      );
     }
     return JSON.parse(res.text || "{}") as T;
   } finally {

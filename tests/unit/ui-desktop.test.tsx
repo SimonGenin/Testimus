@@ -170,18 +170,16 @@ describe("Documents › adding", () => {
   const pdf = () => new File(["%PDF"], "SOSIE_3.pdf");
 
   beforeEach(() => {
-    api.routes["docs.add"] = () => ({ id: "SOSIE_3" });
+    api.routes["docs.addFiles"] = () => ({ added: [{ id: "SOSIE_3" }], rejected: [] });
     api.routes["rag.index"] = () => ({ chunks: 1 });
   });
 
   it("with the bridge, a dropped or chosen file goes to the core by path, no base64", async () => {
     fakeDesktop({ paths: { "SOSIE_3.docx": "C:\\specs\\SOSIE_3.docx", "SOSIE_3.pdf": "C:\\specs\\SOSIE_3.pdf" } });
     await addDocFiles([docx(), pdf()], () => {});
-    expect(named("docs.add")).toHaveLength(1);
-    expect(named("docs.add")[0].input).toEqual({
-      file: "C:\\specs\\SOSIE_3.docx",
-      pdf: "C:\\specs\\SOSIE_3.pdf",
-      convert: false,
+    expect(named("docs.addFiles")).toHaveLength(1);
+    expect(named("docs.addFiles")[0].input).toEqual({
+      files: [{ path: "C:\\specs\\SOSIE_3.docx" }, { path: "C:\\specs\\SOSIE_3.pdf" }],
     });
   });
 
@@ -190,9 +188,9 @@ describe("Documents › adding", () => {
     await addDocFiles([docx()], () => {});
     noDesktop();
     await addDocFiles([new File(["PK"], "Other.docx")], () => {});
-    const [a, b] = named("docs.add").map((c) => c.input);
+    const [a, b] = named("docs.addFiles").map((c) => (c.input as { files: Record<string, unknown>[] }).files[0]);
     expect(a).toMatchObject({ name: "SOSIE_3.docx", dataBase64: btoa("PK-word") });
-    expect(a.file).toBeUndefined();
+    expect(a.path).toBeUndefined();
     expect(b).toMatchObject({ name: "Other.docx", dataBase64: btoa("PK") });
   });
 
@@ -225,14 +223,14 @@ describe("Documents › adding", () => {
     renderDocs();
     const click = vi.spyOn(HTMLInputElement.prototype, "click");
     fireEvent.click(await screen.findByRole("button", { name: "Add documents" }));
-    await waitFor(() => expect(named("docs.add")).toHaveLength(1));
+    await waitFor(() => expect(named("docs.addFiles")).toHaveLength(1));
     expect(click).not.toHaveBeenCalled();
     expect(d.pickFiles).toHaveBeenCalledWith({
       title: "Add documents",
       filters: [{ name: "Word or PDF", extensions: ["docx", "pdf"] }],
       multiple: true,
     });
-    expect(named("docs.add")[0].input).toEqual({ file: "C:\\specs\\SOSIE_3.docx", convert: false });
+    expect(named("docs.addFiles")[0].input).toEqual({ files: [{ path: "C:\\specs\\SOSIE_3.docx" }] });
     fireEvent.click(await screen.findByRole("button", { name: "Show in Explorer" }));
     await waitFor(() => expect(d.reveal).toHaveBeenCalledWith("C:\\p\\docs\\SOSIE_3"));
   });
@@ -252,7 +250,7 @@ describe("Documents › adding", () => {
     await screen.findByRole("heading", { name: "Spécification" });
     const zone = view.container.querySelector(".docs-screen") as HTMLElement;
     fireEvent.drop(zone, { dataTransfer: { files: [docx()], types: ["Files"] } });
-    await waitFor(() => expect(named("docs.add")).toHaveLength(1));
-    expect(named("docs.add")[0].input).toEqual({ file: "C:\\specs\\SOSIE_3.docx", convert: false });
+    await waitFor(() => expect(named("docs.addFiles")).toHaveLength(1));
+    expect(named("docs.addFiles")[0].input).toEqual({ files: [{ path: "C:\\specs\\SOSIE_3.docx" }] });
   });
 });

@@ -1,4 +1,4 @@
-import { STOP_WORDS, stemWord } from "../rag/stem-fr.ts";
+import { foldKeep, STOP_WORDS, stemWord } from "../rag/stem-fr.ts";
 import type { Query } from "./query.ts";
 
 export type Mark = [number, number];
@@ -6,17 +6,6 @@ export type Token = { at: number; end: number; word: string };
 export type Field = { name: string; text: string; folded: string; tokens: Token[]; w: number; step?: number };
 export type Doc = { fields: Field[] };
 export type Corpus<T extends Doc> = { docs: T[]; vocab: Map<string, string> };
-
-// ponytail: folded one character at a time, so an offset in the folded text is the same offset in the text — the
-// marks found on one land on the other
-export function foldKeep(text: string): string {
-  let out = "";
-  for (const c of text) {
-    const f = c.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
-    out += f.length === c.length ? f : c.toLowerCase().length === c.length ? c.toLowerCase() : c;
-  }
-  return out;
-}
 
 export function field(name: string, text: string, w: number, step?: number): Field {
   const folded = foldKeep(text);
@@ -33,10 +22,10 @@ export function corpus<T extends Doc>(docs: T[]): Corpus<T> {
   return { docs, vocab };
 }
 
-export const EXACT = 1;
-export const STEM = 0.9;
-export const PREFIX = 0.75;
-export const FUZZY = 0.6;
+const EXACT = 1;
+const STEM = 0.9;
+const PREFIX = 0.75;
+const FUZZY = 0.6;
 
 export function distance(a: string, b: string, max: number): number {
   if (Math.abs(a.length - b.length) > max) return max + 1;

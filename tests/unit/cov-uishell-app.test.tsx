@@ -135,7 +135,7 @@ describe("App boot", () => {
       fields: [...x.fields, { id: "cf9", name: "Retired", type: "text", builtin: false, disabled: true }],
     };
     let read = false;
-    net.routes["xray.fields"] = () => {
+    net.routes["xray.refreshFields"] = () => {
       read = true;
       return more;
     };
@@ -143,7 +143,7 @@ describe("App boot", () => {
     net.routes["project.info"] = (i) => (read ? info({ xray: more }) : plain(i));
     mount();
     expect(await screen.findByRole("region", { name: "Tests screen" })).toBeInTheDocument();
-    await waitFor(() => expect(callsOf("xray.fields")).toHaveLength(1));
+    await waitFor(() => expect(callsOf("xray.refreshFields")).toHaveLength(1));
     await waitFor(() =>
       expect(screen.getByRole("region", { name: "Tests screen" })).toHaveTextContent(`fields ${x.fields.length + 1}`),
     );

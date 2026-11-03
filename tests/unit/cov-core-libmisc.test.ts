@@ -2,7 +2,6 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { adfToText, textToAdf } from "../../src/core/lib/adf.ts";
 import { credsDir, credsStatus, jiraCreds, saveCreds, xrayCreds } from "../../src/core/lib/creds.ts";
 import { sha256, testHash } from "../../src/core/lib/hash.ts";
 import { DEFAULT_SETTINGS, readJson, resolveProjectDir, writeSettings } from "../../src/core/lib/project.ts";
@@ -12,49 +11,6 @@ import { readZip, writeZip } from "../../src/core/lib/zip.ts";
 import { dropCol, dropRow, tablesIn } from "../../src/shared/table.ts";
 
 const tmp = () => mkdtempSync(join(tmpdir(), "testimus-covmisc-"));
-
-describe("adf", () => {
-  it("reads mentions, emoji, cards and nested nodes, and a plain string as itself", () => {
-    const doc = {
-      type: "doc",
-      version: 1,
-      content: [
-        {
-          type: "paragraph",
-          content: [
-            { type: "text" },
-            { type: "mention", attrs: { text: "@Ann" } },
-            { type: "mention" },
-            { type: "emoji", attrs: { shortName: ":ok:" } },
-            { type: "emoji", attrs: { text: "😀" } },
-            { type: "emoji" },
-            { type: "inlineCard", attrs: { url: "https://x/browse/AB-12" } },
-            { type: "blockCard", attrs: { url: "https://x/other" } },
-            { type: "inlineCard" },
-            { type: "strong" },
-          ],
-        },
-        { type: "bulletList" },
-        { type: "orderedList" },
-        { type: "listItem" },
-      ],
-    } as const;
-    expect(adfToText(doc as never)).toBe("@Ann:ok:😀AB-12https://x/other");
-    expect(adfToText("plain" as never)).toBe("plain");
-    expect(adfToText({ type: "paragraph", content: [{ type: "text", text: "a" }] })).toBe("a");
-    expect(adfToText({ type: "doc", version: 1 } as never)).toBe("");
-    expect(adfToText(null)).toBe("");
-  });
-
-  it("writes CRLF text as one paragraph per line", () => {
-    expect(textToAdf("a\r\n\r\nb").content).toEqual([
-      { type: "paragraph", content: [{ type: "text", text: "a" }] },
-      { type: "paragraph", content: [] },
-      { type: "paragraph", content: [{ type: "text", text: "b" }] },
-    ]);
-  });
-});
-
 describe("hash", () => {
   it("hashes a test without frontmatter as a whole", () => {
     expect(testHash("body")).toBe(sha256("body").slice(0, 16));

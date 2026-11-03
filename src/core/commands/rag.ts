@@ -1,16 +1,17 @@
 import { z } from "zod";
 import { command, projectOf } from "../command.ts";
+import { chunkKind, searchMode } from "../rag/schemas.ts";
 import { search } from "../rag/search/hybrid.ts";
 import { figure, passage } from "../rag/search/passage.ts";
 
-export const mode = z
-  .enum(["hybrid", "bm25", "vector"])
-  .default("hybrid")
-  .describe("hybrid = BM25 + vectors fused by RRF; bm25 or vector alone to compare");
-
-export const chunkKind = z.enum(["section", "figure"]);
-
-const figureEntry = z.object({ file: z.string(), anchor: z.string(), caption: z.string(), description: z.string() });
+const figureEntry = z
+  .object({
+    file: z.string().describe("Picture file, relative to the document folder; empty when the figure is text"),
+    anchor: z.string().describe("fig:<n>"),
+    caption: z.string().describe("The figure's caption as the document writes it"),
+    description: z.string().describe("What the figure shows, written at conversion"),
+  })
+  .describe("A figure of the passage");
 
 export const commands = [
   command({
@@ -20,7 +21,7 @@ export const commands = [
       query: z.string().min(1).describe("What to look for: a question, a code, a device name"),
       k: z.number().int().min(1).max(50).default(10).describe("How many passages to return"),
       docIds: z.array(z.string()).optional().describe("Only search these documents"),
-      mode,
+      mode: searchMode,
       expand: z
         .enum(["none", "section", "graph"])
         .optional()
@@ -28,30 +29,33 @@ export const commands = [
           "Add related passages flagged `via`: section = parent sections and the section a figure sits in; graph = also the sections each hit cross-references or amends (default: project.json rag.retrieval.expand, else none)",
         ),
     }),
-    output: z.array(
-      z.object({
-        docId: z.string(),
-        anchor: z.string(),
-        path: z.string(),
-        text: z.string(),
-        header: z.string(),
-        score: z.number(),
-        kind: chunkKind,
-        figure: z.string().optional(),
-        via: z.enum(["section", "graph"]).optional().describe("Set when the passage was added by `expand`"),
-        degraded: z
-          .boolean()
-          .optional()
-          .describe("True when vectors were missing or incomplete and the search fell back to BM25 alone"),
-      }),
-    ),
+    output: z
+      .array(
+        z.object({
+          docId: z.string().describe("Document id"),
+          anchor: z.string().describe("§x.y or fig:<n>: the passage's source anchor"),
+          path: z.string().describe("Section path, e.g. 5 > 5.6 > 5.6.6"),
+          text: z.string().describe("The passage's text"),
+          header: z.string().describe("The context line indexed with it (document, section, Claude's sentence)"),
+          score: z.number().describe("Rank score (fused or reranked)"),
+          kind: chunkKind,
+          figure: z.string().optional().describe("For a figure: its picture, relative to the project folder"),
+          via: z.enum(["section", "graph"]).optional().describe("Set when the passage was added by `expand`"),
+          degraded: z
+            .boolean()
+            .optional()
+            .describe("True when vectors were missing or incomplete and the search fell back to BM25 alone"),
+        }),
+      )
+      .describe("Best passages first, then the ones `expand` added"),
     mutates: false,
     positional: ["query"],
     run: (ctx, input) => search(projectOf(ctx), input.query, { ...input, log: (level, m) => ctx.log(level, m) }),
   }),
   command({
     name: "rag.passage",
-    summary: "Read one passage of a document by its source reference docId#anchor (§5.6.6, fig:N).",
+    summary:
+      "Read one passage of a document by its source reference docId#anchor (§5.6.6, fig:N). A document that is not in the project fails with the code doc-gone.",
     input: z.object({
       ref: z.string().min(3).describe("Source reference docId#anchor, e.g. SOSIE_211_D401-1_3#§5.6.6 or DOC#fig:40"),
       around: z
@@ -62,10 +66,10 @@ export const commands = [
         ),
     }),
     output: z.object({
-      docId: z.string(),
-      anchor: z.string(),
-      path: z.string(),
-      title: z.string(),
+      docId: z.string().describe("Document id"),
+      anchor: z.string().describe("The anchor read, normalized (§x.y or fig:<n>)"),
+      path: z.string().describe("Section path, e.g. 5 > 5.6 > 5.6.6"),
+      title: z.string().describe("Section title, or the figure's caption"),
       text: z.string().describe("The section's text, capped at project.json rag.passageMaxChars (default 12000)"),
       truncated: z.boolean().optional().describe("True when text was cut at the cap; read the rest with readMore"),
       quoteFound: z
@@ -75,10 +79,10 @@ export const commands = [
       outline: z
         .array(
           z.object({
-            anchor: z.string(),
-            title: z.string(),
-            chars: z.number(),
-            figureIds: z.array(z.string()),
+            anchor: z.string().describe("Anchor of the sub-section"),
+            title: z.string().describe("Its title"),
+            chars: z.number().describe("Its size in characters"),
+            figureIds: z.array(z.string()).describe("Figure numbers it holds"),
           }),
         )
         .optional()
@@ -87,13 +91,15 @@ export const commands = [
         .string()
         .optional()
         .describe("When truncated: how to read the rest (Read docs/<id>/doc.md lines a–b)"),
-      figures: z.array(figureEntry),
-      doc: z.object({
-        code: z.string(),
-        title: z.string(),
-        version: z.string(),
-        status: z.string(),
-      }),
+      figures: z.array(figureEntry).describe("The figures inside the passage"),
+      doc: z
+        .object({
+          code: z.string().describe("Document code"),
+          title: z.string().describe("Document title"),
+          version: z.string().describe("Document version"),
+          status: z.string().describe("draft, validated…"),
+        })
+        .describe("The document the passage comes from"),
     }),
     mutates: false,
     positional: ["ref"],
@@ -107,18 +113,18 @@ export const commands = [
       n: z.string().describe("Figure number as anchored in doc.md (40 or fig:40)"),
     }),
     output: z.object({
-      docId: z.string(),
-      n: z.string(),
-      anchor: z.string(),
+      docId: z.string().describe("Document id"),
+      n: z.string().describe("Figure number"),
+      anchor: z.string().describe("fig:<n>"),
       file: z.string().describe("Path relative to the project folder; empty when the figure has no picture"),
-      absPath: z.string(),
+      absPath: z.string().describe("Absolute path of the picture; empty without one"),
       picture: z
         .boolean()
         .describe("False when the document writes the figure as text (a table, a caption): nothing to Read or embed"),
       exists: z.boolean().describe("The picture's file is on disk"),
-      caption: z.string(),
-      description: z.string(),
-      path: z.string(),
+      caption: z.string().describe("The figure's caption"),
+      description: z.string().describe("What the figure shows, written at conversion"),
+      path: z.string().describe("Path of the section the figure sits in"),
     }),
     mutates: false,
     positional: ["docId", "n"],

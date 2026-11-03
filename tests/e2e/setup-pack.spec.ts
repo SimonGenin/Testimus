@@ -14,6 +14,8 @@ test.describe("a 16 GB GPU", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Choose how documents are searched" })).toBeVisible();
     const packs = page.getByRole("group", { name: "Search packs" });
     const quality = packs.getByRole("radio", { name: "Quality pack" });
+    await expect(quality).toBeEnabled();
+    await page.getByRole("button", { name: "Analyse my machine" }).click();
     await expect(quality).toBeChecked();
     await expect(
       packs.locator("label").filter({ has: page.getByRole("radio", { name: "Quality pack" }) }),
@@ -45,11 +47,18 @@ test.describe("no GPU, 6 GB, no models folder yet", () => {
     const root = dirname((await api<{ dir: string }>(url, "project.info")).dir);
     await page.goto("/#/setup/pack");
     const packs = page.getByRole("group", { name: "Search packs" });
-    await expect(packs.getByRole("radio", { name: "Performance pack" })).toBeChecked();
+    await expect(packs.getByRole("radio", { name: "Light pack" })).toBeEnabled();
+    await page.getByRole("button", { name: "Analyse my machine" }).click();
+    await expect(packs.getByRole("radio", { name: "Light pack" })).toBeChecked();
     await expect(packs.getByRole("radio", { name: "Quality pack" })).toBeEnabled();
+    for (const heavier of ["Quality pack", "Performance pack"])
+      await expect(
+        packs.locator("label").filter({ has: page.getByRole("radio", { name: heavier }) }),
+      ).not.toContainText("Suggested for this PC");
     await expect(
-      packs.locator("label").filter({ has: page.getByRole("radio", { name: "Quality pack" }) }),
-    ).not.toContainText("Suggested for this PC");
+      packs.locator("label").filter({ has: page.getByRole("radio", { name: "Performance pack" }) }),
+    ).toContainText("Processor only");
+    await packs.getByRole("radio", { name: "Performance pack" }).check();
     await page.getByRole("button", { name: "Use Performance" }).click();
     const where = page.getByRole("dialog", { name: "Models folder" });
     await expect(where).toContainText("Where should models be stored?");

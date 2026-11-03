@@ -1,12 +1,16 @@
-import { existsSync, statSync } from "node:fs";
+import type { DatabaseSync } from "node:sqlite";
 import { UserError } from "../command.ts";
 import type { Edge, EdgeKind } from "../types.ts";
+import { normalizeRef } from "./anchors.ts";
 import { docFigures, markerLine, parseSections, sectionAt } from "./chunk.ts";
-import { edgesOf, indexFile, openDb } from "./db.ts";
+import { edgesOf, indexedContents, withIndex } from "./db.ts";
 import { docEdges } from "./graph.ts";
-import { projectDocs } from "./indexer.ts";
+import { corpusKey, projectDocs } from "./indexer.ts";
 
-export type Neighbour = {
+// ponytail: kept for claude/ledger.ts and lib/check.ts until they import it from rag/anchors.ts (core-rag BESOIN)
+export { normalizeRef };
+
+type Neighbour = {
   ref: string;
   kind: EdgeKind;
   direction: "out" | "in";
@@ -53,18 +57,12 @@ function push<K, V>(m: Map<K, V[]>, k: K, v: V): void {
 // indexer does — the graph never depends on a model, so every PC gets the same neighbours (SPEC-RAG P1)
 function graphOf(project: string): Graph {
   const docs = projectDocs(project);
-  const file = indexFile(project);
-  const hasIndex = existsSync(file);
-  const key = [hasIndex ? statSync(file).mtimeMs : 0, ...docs.map((d) => `${d.doc.id}:${d.content}`)].join("\n");
+  const key = corpusKey(project, docs);
   const hit = cache.get(project);
   if (hit?.key === key) return hit.graph;
-  const db = hasIndex ? openDb(file) : null;
-  const g: Graph = { docs: new Map(), out: new Map(), in: new Map() };
-  try {
-    const indexed = new Map<string, string>();
-    if (db)
-      for (const r of db.prepare("select doc_id, content from docs").all() as { doc_id: string; content: string }[])
-        indexed.set(r.doc_id, r.content);
+  const read = (db: DatabaseSync | null): Graph => {
+    const g: Graph = { docs: new Map(), out: new Map(), in: new Map() };
+    const indexed = db ? indexedContents(db) : new Map<string, string>();
     for (const d of docs) {
       const edges =
         db && indexed.get(d.doc.id) === d.content ? edgesOf(db, d.doc.id) : docEdges(project, d.doc, d.md, d.figures);
@@ -79,9 +77,9 @@ function graphOf(project: string): Graph {
         sections: new Map(parseSections(d.md).map((s) => [s.anchor, { title: s.title, path: s.path }])),
       });
     }
-  } finally {
-    db?.close();
-  }
+    return g;
+  };
+  const g = withIndex(project, null, read) ?? read(null);
   cache.set(project, { key, graph: g });
   return g;
 }
@@ -97,15 +95,6 @@ function figures(d: DocInfo): Map<string, { title: string; path: string }> {
     );
   }
   return d.figures;
-}
-
-export function normalizeRef(ref: string): string {
-  const m = ref.trim().match(/^([^#]+)#(.+)$/);
-  if (!m) return ref.trim();
-  let a = m[2].trim().replace(/~\d+$/, "");
-  const k = a.match(/^fig\s*[:\s]\s*(.+)$/i);
-  a = k ? `fig:${k[1].trim()}` : `§${a.replace(/^§\s*/, "")}`;
-  return `${m[1].trim()}#${a}`;
 }
 
 function infoOf(g: Graph, ref: string): { title: string; path: string } {
