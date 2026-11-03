@@ -86,7 +86,7 @@ describe("serve --mock models", () => {
     const job = await waitJob(out.jobIds[0]);
     expect(job.status).toBe("done");
     const inst = readRegistry().installs.find((i) => i.model === "qwen3-embedding-0.6b-onnx-fp16");
-    expect(inst).toMatchObject({ via: "download", status: "installed" });
+    expect(inst).toMatchObject({ via: "download", status: "verified" });
     const onnx = join(inst?.path ?? "", "onnx", "model_fp16.onnx_data");
     expect(fakeSha(readFileSync(onnx).length)).toBe(
       readRegistry()
@@ -156,6 +156,19 @@ describe("serve --mock models", () => {
     await replay({ machine: "dev" });
     const hw = (await invoke("models.hardware", {}, { project: null })) as { gpus: { name: string }[] };
     expect(hw.gpus.map((g) => g.name)).toEqual(["NVIDIA GeForce RTX 5080", "Intel(R) Graphics"]);
+  });
+
+  it("a downloaded model that does not run here is refused, and the project keeps its pack", async () => {
+    await replay({ machine: "mac-intel", probe: "fail" });
+    await invoke("models.remove", { model: "qwen3-embedding-0.6b-onnx-q8" }, { project: null });
+    const before = (await packs()).find((x) => x.active)?.id;
+    const p = (await packs()).find((x) => x.id === "performance");
+    expect(p).toMatchObject({ variant: 1, processorOnly: true, downloadMB: 600, fit: { verdict: "fits" } });
+    const out = (await invoke("models.usePack", { pack: "performance" }, { project })) as { jobIds: string[] };
+    const job = await waitJob(out.jobIds[0]);
+    expect(job.status).toBe("failed");
+    expect(job.error).toMatch(/is downloaded but does not run on this PC: mock: the runtime cannot load/);
+    expect((await packs()).find((x) => x.active)?.id).toBe(before);
   });
 
   it("no models folder: the first download stops and asks; llama.cpp absent is fetched in a fake job", async () => {

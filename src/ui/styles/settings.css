@@ -750,6 +750,11 @@
   overflow-wrap: anywhere;
 }
 
+.packopt-warn {
+  font-weight: 500;
+  align-items: flex-start;
+}
+
 .models-dir .btn {
   margin-left: auto;
 }

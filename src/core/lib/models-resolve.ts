@@ -200,11 +200,13 @@ export async function resolveChoice(
     const slow = isPack && !!machine && entriesOf(v).some((e) => isGguf(e) && deviceFor(e, machine) === "cpu");
     const why = blocked
       ? blocked.reason
-      : fit && fit.verdict !== "fits"
-        ? `${labels}: ${fit.verdict === "unknown" ? "cannot check the GPU" : `${gb(fit.device === "gpu" ? fit.needMB.vram : fit.needMB.ram)} needed, ${usableOf(fit, headroom)}`} (${fit.verdict})`
-        : slow
-          ? `${labels}: llama.cpp would run on the processor (slow)`
-          : "";
+      : fit?.verdict === "untested"
+        ? `${labels}: never run on this system (untested)`
+        : fit && fit.verdict !== "fits"
+          ? `${labels}: ${fit.verdict === "unknown" ? "cannot check the GPU" : `${gb(fit.device === "gpu" ? fit.needMB.vram : fit.needMB.ram)} needed, ${usableOf(fit, headroom)}`} (${fit.verdict})`
+          : slow
+            ? `${labels}: llama.cpp would run on the processor (slow)`
+            : "";
     tried.push({ v, i, one, fit, ok: !blocked, slow, why });
     if (!blocked && !slow && (!fit || fit.verdict === "fits")) break;
   }

@@ -3,6 +3,7 @@ import { existsSync, readFileSync, statfsSync } from "node:fs";
 import os from "node:os";
 import { parse } from "node:path";
 import { env } from "../env.ts";
+import { onnxVersion } from "../rag/runtimes/ort.ts";
 import type { DriveInfo, GpuInfo, LoadedModel, MachineProfile } from "../types.ts";
 
 const MB = 1024 * 1024;
@@ -18,6 +19,7 @@ export type HardwareDeps = {
   mem(): { totalMB: number; freeMB: number };
   cpu(): { model: string; threads: number };
   system?(): { platform: string; arch: string };
+  onnx?(): Promise<string | null>;
 };
 
 function run(cmd: string, args: string[], timeoutMs: number): Promise<ExecOut> {
@@ -64,6 +66,7 @@ export const hardwareDeps: HardwareDeps = {
   mem: () => ({ totalMB: Math.floor(os.totalmem() / MB), freeMB: Math.floor(os.freemem() / MB) }),
   cpu: () => ({ model: os.cpus()[0]?.model.trim() ?? "unknown", threads: os.cpus().length }),
   system: () => ({ platform: process.platform, arch: process.arch }),
+  onnx: () => onnxVersion().catch(() => null),
 };
 
 export function vendorOf(name: string): GpuInfo["vendor"] {
@@ -156,6 +159,7 @@ export async function measureMachine(deps: HardwareDeps = hardwareDeps): Promise
       : Promise.resolve({ code: 1, stdout: "" }),
     deps.loaded().catch(() => []),
   ]);
+  const onnx = deps.onnx ? await deps.onnx() : undefined;
   const nvidia = smi.code === 0 ? parseNvidiaSmi(smi.stdout) : [];
   const regVram = parseRegistryVram(regSize.stdout, regDesc.stdout);
   const gpus: GpuInfo[] = [...nvidia];
@@ -182,6 +186,7 @@ export async function measureMachine(deps: HardwareDeps = hardwareDeps): Promise
   return {
     at: env.now().toISOString(),
     ...(deps.system ? { system: deps.system() } : {}),
+    ...(onnx !== undefined ? { onnx } : {}),
     ramTotalMB: mem.totalMB,
     ramFreeMB: mem.freeMB,
     cpu: deps.cpu(),
@@ -224,6 +229,10 @@ export function platformOf(machine: MachineProfile): string {
 
 export function systemName(platform: string): string {
   return platform === "win32" ? "Windows" : platform === "darwin" ? "macOS" : platform === "linux" ? "Linux" : platform;
+}
+
+export function systemOf(machine: MachineProfile): string {
+  return `${platformOf(machine)}-${machine.system?.arch ?? "x64"}`;
 }
 
 export function mainGpu(machine: MachineProfile): GpuInfo | null {
