@@ -1,5 +1,6 @@
 // ponytail: a port of the Snowball French stemmer (snowballstem.org/algorithms/french, BSD) — french.sbl, master of
-// 2026-11; checked word for word against snowball-data/french in tests/unit/stem-fr.test.ts
+// 2026-11; checked word for word against snowball-data/french in tests/unit/core/rag/stem-fr.test.ts. One file on purpose:
+// it is mostly the algorithm's suffix tables, read top to bottom against french.sbl; split, it would no longer compare.
 export const STEM_VERSION = 1;
 
 const VOWELS = "aeiouyâàëéêèïîôûù";
