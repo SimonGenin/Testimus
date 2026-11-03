@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, render, renderHook, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { CallResult, JobCommand } from "../../../../src/core/commands/index.ts";
 import type { JobEvent } from "../../../../src/core/types.ts";
 import { setProject } from "../../../../src/ui/lib/data/client.ts";
 import { apply, keysOfKind, keysOfPaths } from "../../../../src/ui/lib/data/events.ts";
@@ -132,6 +133,7 @@ describe("the event tables", () => {
   it("map a changed path to the reads that show it", () => {
     expect(keysOfPaths(["tests/T1/test.md"])).toContainEqual(["tests.show", { id: "T1" }]);
     expect(keysOfPaths(["docs/D1/doc.json"])).toContainEqual(["docs.show", { id: "D1" }]);
+    expect(keysOfPaths(["docs/D1/doc.md"])).toContainEqual(["docs.list"]);
     expect(keysOfPaths(["CLAUDE.md"])).toEqual([["project.notes"]]);
     expect(keysOfPaths(["contexts/c1/context.md"])).toContainEqual(["contexts.list"]);
     expect(keysOfPaths(["somewhere/else.txt"])).toEqual([]);
@@ -140,6 +142,8 @@ describe("the event tables", () => {
   it("map a finished job's kind to what it changed outside the files", () => {
     expect(keysOfKind("rag-index")).toContainEqual(["rag.status"]);
     expect(keysOfKind("models-pull")).toContainEqual(["models.list"]);
+    expect(keysOfKind("docs.convert")).toContainEqual(["docs.list"]);
+    expect(keysOfKind("describe-figures")).toContainEqual(["docs.show"]);
     expect(keysOfKind("unknown")).toEqual([]);
   });
 });
@@ -195,5 +199,15 @@ describe("the server", () => {
     await execute(client, "tests.list", {} as never, { invalidates: "none" });
     expect(isReachable()).toBe(true);
     await waitFor(() => expect(seen.result.current).toBe(true));
+  });
+});
+
+describe("call results", () => {
+  it("a command that runs as a job answers with its id, any other with its output (types)", () => {
+    const job: JobCommand = "rag.index";
+    // @ts-expect-error tests.list does not run as a job
+    const notJob: JobCommand = "tests.list";
+    const started: CallResult<"rag.index"> = { jobId: "rag-index-1" };
+    expect([job, notJob, started.jobId]).toEqual(["rag.index", "tests.list", "rag-index-1"]);
   });
 });

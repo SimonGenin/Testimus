@@ -32,12 +32,15 @@ export type Command<I extends z.ZodType = z.ZodType, O extends z.ZodType = z.Zod
   run(ctx: Ctx, input: z.output<I>): Promise<z.input<O>>;
 };
 
-// ponytail: the name stays a literal type, so the registry's type maps each name to its input and output (the page
-// imports that type, never the registry itself)
-export function command<const N extends `${string}.${string}`, I extends z.ZodType, O extends z.ZodType>(
-  c: Command<I, O> & { name: N },
-): Command<I, O> & { name: N } {
-  return c;
+// ponytail: the name stays a literal type, and so does `job` when the command runs as one, so the registry's type maps
+// each name to its input, its output and whether a call answers with a job id (the page imports that type only)
+export function command<
+  const N extends `${string}.${string}`,
+  I extends z.ZodType,
+  O extends z.ZodType,
+  const J extends string | undefined = undefined,
+>(c: Command<I, O> & { name: N; job?: J }): Command<I, O> & { name: N } & (J extends string ? { job: J } : unknown) {
+  return c as Command<I, O> & { name: N } & (J extends string ? { job: J } : unknown);
 }
 
 // ponytail: `code` is a stable name a page or a script can branch on (`conflict`: the file moved on disk since it was

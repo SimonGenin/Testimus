@@ -7,7 +7,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { useSyncExternalStore } from "react";
-import type { CommandInput, CommandName, CommandOutput } from "../../../core/commands/index.ts";
+import type { CallResult, CommandInput, CommandName, CommandOutput } from "../../../core/commands/index.ts";
 import { ApiError, call, project } from "./client.ts";
 
 export type Key = readonly [project: string | null, name: string, input?: unknown];
@@ -183,11 +183,11 @@ export async function execute<N extends CommandName>(
   input: CommandInput<N>,
   effects: Effects<N> = {},
   p: string | null = project(),
-): Promise<CommandOutput<N>> {
+): Promise<CallResult<N>> {
   if (effects.flushFirst?.length) await flushHook(effects.flushFirst);
   const undo = effects.optimistic?.(client, input);
   try {
-    const out = await reach(() => call<CommandOutput<N>>(name, input ?? {}, { project: p }));
+    const out = await reach(() => call<CallResult<N>>(name, input ?? {}, { project: p }));
     const inv = effects.invalidates ?? "project";
     if (inv === "project") await invalidateProject(client, p);
     else if (inv !== "none") await invalidate(client, inv, p);
@@ -200,7 +200,7 @@ export async function execute<N extends CommandName>(
 
 export function useCommand<N extends CommandName>(name: N, effects: Effects<N> = {}) {
   const client = useQueryClient();
-  return useMutation<CommandOutput<N>, ApiError, CommandInput<N>>({
+  return useMutation<CallResult<N>, ApiError, CommandInput<N>>({
     mutationKey: [name],
     mutationFn: (input) => execute(client, name, input, effects),
   });

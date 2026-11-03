@@ -199,3 +199,25 @@ describe("ClaudeBlock frameless", () => {
     expect(frame("framed")).not.toBe(frame("frameless"));
   });
 });
+
+describe("ClaudeBlock submit none", () => {
+  it("keeps the foot without a send button; Ctrl+Enter still submits", () => {
+    const onSubmit = vi.fn();
+    render(
+      <ClaudeBlock
+        ariaLabel="Request"
+        value="Tests for § 5.6.6"
+        onChange={() => {}}
+        submit="none"
+        scope="Generate"
+        model={{ ...models, onChange: () => {} }}
+        onSubmit={onSubmit}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: "Send" })).toBeNull();
+    expect(screen.queryByText("to send")).toBeNull();
+    expect(screen.getByRole("combobox", { name: "Model" })).toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole("textbox", { name: "Request" }), { key: "Enter", ctrlKey: true });
+    expect(onSubmit).toHaveBeenCalled();
+  });
+});

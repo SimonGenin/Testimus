@@ -1,11 +1,101 @@
-import { type CSSProperties, useEffect, useState } from "react";
-import type { FigureEntry } from "../../../core/types.ts";
-import { call, fileUrl } from "../../api.ts";
-import { Icon } from "../../components/legacy/index.ts";
-import { cx } from "../../lib/format.ts";
+import * as stylex from "@stylexjs/stylex";
+import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
+import { Card } from "../../components/ui/Card.tsx";
+import { Icon } from "../../components/ui/Icon.tsx";
+import { Skeleton } from "../../components/ui/Skeleton.tsx";
+import { Timeline, type TimelineItem } from "../../components/ui/Timeline.tsx";
+import { fileUrl } from "../../lib/data/client.ts";
+import { invalidate, useRead } from "../../lib/data/query.ts";
 import type { Upload } from "../../lib/uploads.ts";
+import {
+  border,
+  color,
+  duration,
+  easing,
+  fontSize,
+  lineHeight,
+  radius,
+  size,
+  space,
+} from "../../styles/tokens.stylex.ts";
 
-type Outline = { toc: { anchor: string; title: string; level: number }[]; figures: FigureEntry[] };
+const appear = stylex.keyframes({
+  from: { opacity: 0, transform: `translateY(${space.s2})` },
+  to: { opacity: 1, transform: "none" },
+});
+
+const styles = stylex.create({
+  wrap: { padding: space.s5, overflowY: "auto", flex: 1, minHeight: 0 },
+  body: { display: "flex", flexDirection: "column", gap: space.s4 },
+  msg: { margin: 0, fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textMuted },
+  toc: { display: "flex", flexDirection: "column", gap: space.s1, margin: 0, padding: 0, listStyle: "none" },
+  sec: {
+    position: "relative",
+    display: "flex",
+    alignItems: "center",
+    gap: space.s3,
+    paddingBlock: space.s1,
+    fontSize: fontSize.compact,
+    lineHeight: lineHeight.compact,
+    color: color.textMuted,
+  },
+  secNew: { animationName: appear, animationDuration: duration.slow, animationTimingFunction: easing.enter },
+  secIndexed: { color: color.text },
+  secNow: { color: color.accentText },
+  indent: (n: number) => ({ paddingLeft: `calc(${space.s5} * ${n})` }),
+  title: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  mark: { display: "inline-flex", width: size.iconSm, color: color.success },
+  more: { fontSize: fontSize.small, color: color.textSubtle },
+  figs: {
+    display: "grid",
+    gridTemplateColumns: `repeat(auto-fill, minmax(${size.controlLg}, ${size.row2}))`,
+    gap: space.s2,
+    margin: 0,
+    padding: 0,
+    listStyle: "none",
+  },
+  fig: {
+    position: "relative",
+    height: size.row2,
+    borderStyle: "solid",
+    borderWidth: border.width,
+    borderColor: color.border,
+    borderRadius: radius.r2,
+    overflow: "hidden",
+    backgroundColor: color.surfaceSunken,
+    opacity: 0.6,
+  },
+  figDone: { opacity: 1 },
+  figLooking: { borderColor: color.claudeBorder, boxShadow: `0 0 0 ${border.width} ${color.claudeBorder}` },
+  figImg: { width: "100%", height: "100%", objectFit: "cover" },
+  figOk: {
+    position: "absolute",
+    right: space.s1,
+    bottom: space.s1,
+    display: "inline-flex",
+    color: color.success,
+    backgroundColor: color.surface,
+    borderRadius: radius.full,
+  },
+  figMore: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: fontSize.small,
+    color: color.textMuted,
+  },
+  lock: { display: "flex", alignItems: "center", gap: space.s2 },
+  sr: {
+    position: "absolute",
+    width: border.width,
+    height: border.width,
+    overflow: "hidden",
+    clip: "rect(0 0 0 0)",
+    whiteSpace: "nowrap",
+  },
+});
+
 type Step = "read" | "figures" | "index";
 
 const STEPS: { key: Step; label: string }[] = [
@@ -18,39 +108,35 @@ const BATCH = 20;
 const SECTIONS = 30;
 const THUMBS = 18;
 
-// ponytail: the panel remounts when the conversion lands; what was already shown does not fade in a second time
-const seen = new Map<string, { sections: number; figures: number }>();
-
 const stepOf = (u: Upload): Step =>
   u.phase === "indexing" ? "index" : /figure|re-checking/i.test(u.message) ? "figures" : "read";
 
+// ponytail: while a document converts, what the job has written so far — its sections, its figures as Claude describes
+// them, the index filling — read again at each step the job reports; the text opens once it is indexed
 export function DocReading({ docId, upload }: { docId: string; upload: Upload }) {
-  const [outline, setOutline] = useState<Outline>({ toc: [], figures: [] });
+  const client = useQueryClient();
   const step = stepOf(upload);
-  const known = outline.toc.length > 0;
+  const outline = useRead("docs.show", { id: docId, brief: true });
+  const toc = outline.data?.toc ?? [];
+  const known = toc.length > 0;
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: read again at each step the job reports, not while it only indexes
   useEffect(() => {
     if (step === "index" && known) return;
-    let dead = false;
-    call<Outline>("docs.show", { id: docId, brief: true })
-      .then((r) => !dead && setOutline({ toc: r.toc ?? [], figures: r.figures ?? [] }))
-      .catch(() => {});
-    return () => {
-      dead = true;
-    };
+    void invalidate(client, [["docs.show", { id: docId, brief: true }]]);
   }, [docId, upload.message, upload.phase]);
 
-  const before = seen.get(docId) ?? { sections: 0, figures: 0 };
-  const sections = outline.toc.filter((t) => t.level <= 2);
+  const seen = useRef({ sections: 0, figures: 0 });
+  const before = seen.current;
+  const sections = toc.filter((t) => t.level <= 2);
   const shownSections = sections.slice(0, SECTIONS);
-  const figures = outline.figures.filter((f) => f.file);
+  const figures = (outline.data?.figures ?? []).filter((f) => f.file);
   const thumbs = figures.slice(0, THUMBS);
   useEffect(() => {
-    seen.set(docId, {
-      sections: Math.max(before.sections, shownSections.length),
-      figures: Math.max(before.figures, thumbs.length),
-    });
+    seen.current = {
+      sections: Math.max(seen.current.sections, shownSections.length),
+      figures: Math.max(seen.current.figures, thumbs.length),
+    };
   });
 
   const described = figures.filter((f) => f.description.trim()).length;
@@ -64,102 +150,107 @@ export function DocReading({ docId, upload }: { docId: string; upload: Upload })
   );
   const filled = step === "index" && upload.pct !== null ? Math.round((upload.pct / 100) * shownSections.length) : 0;
   const at = STEPS.findIndex((s) => s.key === step);
+  const steps: TimelineItem[] = STEPS.map((s, i) => ({
+    key: s.key,
+    state: i < at ? "done" : i === at ? "running" : "waiting",
+    title: s.label,
+    note: s.key === "figures" && figures.length > 0 ? `${described}/${figures.length}` : undefined,
+  }));
 
   return (
-    <section className="card docread" aria-label="Reading the document" aria-busy="true">
-      <ol className="docread-steps" aria-label="Steps">
-        {STEPS.map((s, i) => (
-          <li
-            key={s.key}
-            className={cx("docread-step", i < at && "is-done", i === at && "is-now")}
-            aria-current={i === at ? "step" : undefined}
-          >
-            <span className="docread-mark" aria-hidden="true">
-              {i < at ? <Icon name="check" size={11} /> : i === at ? null : i + 1}
-            </span>
-            {s.label}
-            {s.key === "figures" && figures.length > 0 && (
-              <span className="docread-count">
-                {described}/{figures.length}
-              </span>
+    <div {...stylex.props(styles.wrap)}>
+      <section aria-label="Reading the document" aria-busy="true">
+        <Card>
+          <div {...stylex.props(styles.body)}>
+            <Timeline label="Steps" items={steps} compact />
+            <p role="status" {...stylex.props(styles.msg)}>
+              {upload.message}
+            </p>
+            {known ? (
+              <ol aria-label="Sections read" {...stylex.props(styles.toc)}>
+                {shownSections.map((t, i) => {
+                  const state = i < filled ? "indexed" : step === "index" && i === filled ? "now" : undefined;
+                  return (
+                    <li
+                      key={t.anchor}
+                      data-state={state}
+                      data-new={i >= before.sections ? "" : undefined}
+                      {...stylex.props(
+                        styles.sec,
+                        styles.indent(t.level - 1),
+                        i >= before.sections && styles.secNew,
+                        state === "indexed" && styles.secIndexed,
+                        state === "now" && styles.secNow,
+                      )}
+                    >
+                      <span {...stylex.props(styles.title)}>
+                        {/^§\d+(\.\d+)*$/.test(t.anchor) ? `${t.anchor.slice(1)} ` : ""}
+                        {t.title}
+                      </span>
+                      {state === "indexed" && (
+                        <span {...stylex.props(styles.mark)}>
+                          <Icon name="check" size="sm" />
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
+                {sections.length > SECTIONS && (
+                  <li {...stylex.props(styles.more)}>and {sections.length - SECTIONS} more sections</li>
+                )}
+              </ol>
+            ) : (
+              <div data-testid="reading-scan">
+                <Skeleton lines={6} />
+              </div>
             )}
-          </li>
-        ))}
-      </ol>
-      <p className="muted docread-msg" role="status">
-        {upload.message}
-      </p>
-
-      {known ? (
-        <ol className="docread-toc" aria-label="Sections read">
-          {shownSections.map((t, i) => (
-            <li
-              key={t.anchor}
-              className={cx(
-                "docread-sec",
-                i >= before.sections && "is-new",
-                i < filled && "is-indexed",
-                step === "index" && i === filled && "is-now",
-              )}
-              style={{ "--i": Math.max(0, i - before.sections), paddingLeft: (t.level - 1) * 14 } as CSSProperties}
-            >
-              <span className="docread-title">
-                {/^§\d+(\.\d+)*$/.test(t.anchor) ? `${t.anchor.slice(1)} ` : ""}
-                {t.title}
-              </span>
-              <span className="docread-fill" aria-hidden="true">
-                <span className="docread-bar" />
-              </span>
-            </li>
-          ))}
-          {sections.length > SECTIONS && (
-            <li className="docread-more muted">and {sections.length - SECTIONS} more sections</li>
-          )}
-        </ol>
-      ) : (
-        <div className="docread-scan" aria-hidden="true">
-          {[92, 64, 78, 55, 86, 70].map((w) => (
-            <span key={w} className="docread-line" style={{ width: `${w}%` }} />
-          ))}
-        </div>
-      )}
-
-      {thumbs.length > 0 && (
-        <ul className="docread-figs" aria-label="Figures">
-          {thumbs.map((f, i) => {
-            const done = !!f.description.trim();
-            return (
-              <li
-                key={f.anchor}
-                className={cx(
-                  "docread-fig",
-                  i >= before.figures && "is-new",
-                  done && "is-done",
-                  looking.has(f.anchor) && "is-looking",
+            {thumbs.length > 0 && (
+              <ul aria-label="Figures" {...stylex.props(styles.figs)}>
+                {thumbs.map((f, i) => {
+                  const done = !!f.description.trim();
+                  const on = looking.has(f.anchor);
+                  return (
+                    <li
+                      key={f.anchor}
+                      data-done={done ? "" : undefined}
+                      data-looking={on ? "" : undefined}
+                      title={f.caption || f.anchor}
+                      {...stylex.props(
+                        styles.fig,
+                        i >= before.figures && styles.secNew,
+                        done && styles.figDone,
+                        on && styles.figLooking,
+                      )}
+                    >
+                      <img
+                        src={fileUrl(`docs/${docId}/${f.file}`)}
+                        alt=""
+                        loading="lazy"
+                        {...stylex.props(styles.figImg)}
+                      />
+                      {done && (
+                        <span {...stylex.props(styles.figOk)}>
+                          <Icon name="check-circle" size="sm" />
+                        </span>
+                      )}
+                      <span {...stylex.props(styles.sr)}>
+                        {f.caption || f.anchor}: {done ? "described" : "not described yet"}
+                      </span>
+                    </li>
+                  );
+                })}
+                {figures.length > THUMBS && (
+                  <li {...stylex.props(styles.fig, styles.figMore)}>+{figures.length - THUMBS}</li>
                 )}
-                style={{ "--i": Math.max(0, i - before.figures) } as CSSProperties}
-                title={f.caption || f.anchor}
-              >
-                <img src={fileUrl(`docs/${docId}/${f.file}`)} alt="" loading="lazy" />
-                {done && (
-                  <span className="docread-ok">
-                    <Icon name="check" size={10} />
-                  </span>
-                )}
-                <span className="sr">
-                  {f.caption || f.anchor}: {done ? "described" : "not described yet"}
-                </span>
-              </li>
-            );
-          })}
-          {figures.length > THUMBS && <li className="docread-fig docread-fig-more">+{figures.length - THUMBS}</li>}
-        </ul>
-      )}
-
-      <p className="docread-lock muted">
-        <Icon name="lock" size={13} />
-        The text and the figures open once the document is converted and indexed.
-      </p>
-    </section>
+              </ul>
+            )}
+            <p {...stylex.props(styles.msg, styles.lock)}>
+              <Icon name="lock" size="sm" />
+              The text and the figures open once the document is converted and indexed.
+            </p>
+          </div>
+        </Card>
+      </section>
+    </div>
   );
 }
