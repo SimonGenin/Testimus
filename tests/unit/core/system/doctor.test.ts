@@ -4,15 +4,9 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { invoke } from "../../../../src/core/commands/index.ts";
 import { type ClaudeSpawn, env, type HttpReq } from "../../../../src/core/env.ts";
-import {
-  diskCheck,
-  hideAuth,
-  type ModelDeps,
-  modelRows,
-  nodeCheck,
-  proxyCheck,
-  runDoctor,
-} from "../../../../src/core/lib/doctor.ts";
+import { hideAuth, nodeCheck, proxyCheck, runDoctor } from "../../../../src/core/lib/doctor.ts";
+import { type ModelDeps, modelRows } from "../../../../src/core/lib/doctor-models.ts";
+import { diskCheck } from "../../../../src/core/lib/doctor-row.ts";
 import { catalogEntry, registryFile } from "../../../../src/core/lib/models-catalog.ts";
 import { pinMachineProfile } from "../../../../src/core/lib/models-hardware.ts";
 import { journalFile, recordPerf } from "../../../../src/core/lib/models-perf.ts";
@@ -141,7 +135,10 @@ describe("doctor", () => {
     expect(by.sqlite.detail).toMatch(/sqlite-vec/);
     expect(by.onnx.state).toBe("ok");
     expect(by.face).toMatchObject({ state: "ok", detail: "browser" });
-    expect(by.claude).toMatchObject({ state: "ok", detail: "claude 2.1.300" });
+    expect(by.claude).toMatchObject({
+      state: "ok",
+      detail: expect.stringMatching(/(^|[\\/])claude(\.exe|\.cmd)? 2\.1\.300$/),
+    });
     expect(by.claudeLogin.state).toBe("fail");
     expect(by.claudeLogin.detail).toMatch(/login/);
     expect(by.jira).toMatchObject({ state: "ok", detail: "Tess on acme.atlassian.net" });

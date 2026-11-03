@@ -19,15 +19,13 @@ import { env } from "../../../../src/core/env.ts";
 import {
   claudeLoginCheck,
   claudeVersionCheck,
-  diskCheck,
   jiraCheck,
-  type ModelDeps,
-  modelDeps,
-  modelRows,
   onnxCheck,
   sqliteCheck,
   xrayCheck,
 } from "../../../../src/core/lib/doctor.ts";
+import { type ModelDeps, modelDeps, modelRows } from "../../../../src/core/lib/doctor-models.ts";
+import { diskCheck } from "../../../../src/core/lib/doctor-row.ts";
 import { catalogEntry, registryFile } from "../../../../src/core/lib/models-catalog.ts";
 import { pinMachineProfile } from "../../../../src/core/lib/models-hardware.ts";
 import { readRegistry, writeRegistry } from "../../../../src/core/lib/models-registry.ts";
@@ -145,7 +143,10 @@ describe("claude checks", () => {
     env.spawnClaude = async () => {
       throw Object.assign(new Error("spawn failed"), { cause: { message: "ENOENT" } });
     };
-    expect(await claudeVersionCheck(10)).toMatchObject({ state: "fail", detail: "claude: spawn failed (ENOENT)" });
+    expect(await claudeVersionCheck(10)).toMatchObject({
+      state: "fail",
+      detail: expect.stringMatching(/(^|[\\/])claude(\.exe|\.cmd)?: spawn failed \(ENOENT\)$/),
+    });
   });
 
   it("sign-in: ok, a plan limit, an unreadable answer, a bare exit code, a throw", async () => {

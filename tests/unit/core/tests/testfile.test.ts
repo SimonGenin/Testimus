@@ -1,15 +1,12 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "vitest";
+import { blocksOf, hasRawEmbed, imageRef, mapRefs } from "../../../../src/core/lib/test-blocks.ts";
 import {
   blankStep,
-  blocksOf,
   fieldName,
   fieldWarnings,
   formatSource,
-  hasRawEmbed,
-  imageRef,
-  mapRefs,
   newTest,
   parseSource,
   parseTest,

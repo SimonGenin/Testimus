@@ -16,15 +16,13 @@ import {
   mechanicalCheck,
   mechanicalFindings,
   occurrences,
-  osUser,
-  patchReview,
   recordSemantic,
   scopeOf,
   semanticOf,
-  setReview,
   testEvidence,
   whereIs,
 } from "../../../../src/core/lib/check.ts";
+import { osUser, patchReview, setReview } from "../../../../src/core/lib/review.ts";
 import { normalizeAnchor } from "../../../../src/core/rag/anchors.ts";
 import type { Finding, Step, Test } from "../../../../src/core/types.ts";
 

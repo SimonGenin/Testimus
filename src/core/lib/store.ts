@@ -18,7 +18,8 @@ import type {
 import { copyDirAtomic, fileMtime, writeAtomic } from "./atomic.ts";
 import { sha256 } from "./hash.ts";
 import { readJson, readXray, writeJson } from "./project.ts";
-import { mapRefs, outsideTest, parseTest, sameTestMd, serializeTest, testMdHash } from "./testfile.ts";
+import { mapRefs, outsideTest } from "./test-blocks.ts";
+import { parseTest, sameTestMd, serializeTest, testMdHash } from "./testfile.ts";
 
 const read = (path: string) => {
   try {

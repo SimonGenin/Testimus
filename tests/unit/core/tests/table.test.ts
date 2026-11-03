@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { blocksOf, hasRawEmbed, leafBlocks } from "../../../../src/core/lib/testfile.ts";
+import { blocksOf, hasRawEmbed, leafBlocks } from "../../../../src/core/lib/test-blocks.ts";
 import { addCol, addRow, dropCol, dropRow, tablesIn, width } from "../../../../src/shared/table.ts";
 
 // the shape EGS-1165 step 3 really has: a header row, image cells, cells holding a bullet list over

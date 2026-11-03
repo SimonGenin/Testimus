@@ -2,15 +2,9 @@ import { cpSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
-import {
-  isStale,
-  mechanicalCheck,
-  patchReview,
-  recordSemantic,
-  runMechanical,
-  setReview,
-} from "../../../../src/core/lib/check.ts";
+import { isStale, mechanicalCheck, recordSemantic, runMechanical } from "../../../../src/core/lib/check.ts";
 import { testHash } from "../../../../src/core/lib/hash.ts";
+import { patchReview, setReview } from "../../../../src/core/lib/review.ts";
 import { readCheck, readTest } from "../../../../src/core/lib/store.ts";
 import { normalizeAnchor } from "../../../../src/core/rag/anchors.ts";
 import type { Finding } from "../../../../src/core/types.ts";

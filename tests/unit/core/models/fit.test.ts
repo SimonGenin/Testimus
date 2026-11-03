@@ -1,7 +1,7 @@
 import { rmSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { env } from "../../../../src/core/env.ts";
-import { type ModelDeps, modelRows } from "../../../../src/core/lib/doctor.ts";
+import { type ModelDeps, modelRows } from "../../../../src/core/lib/doctor-models.ts";
 import { type AdviceInput, fitsVariant, packVariantThatFits } from "../../../../src/core/lib/models-advice.ts";
 import { catalog, catalogEntry, registryFile } from "../../../../src/core/lib/models-catalog.ts";
 import { deviceFor, fitOf, needOf } from "../../../../src/core/lib/models-fit.ts";

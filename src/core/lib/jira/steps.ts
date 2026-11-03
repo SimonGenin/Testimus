@@ -1,5 +1,5 @@
 import type { Step, StepImage, XrayField } from "../../types.ts";
-import { imageRef, mapRefs } from "../testfile.ts";
+import { imageRef, mapRefs } from "../test-blocks.ts";
 
 export type RawCustom = { id: string; name?: string; value?: unknown };
 export type RawAttachment = { id: string; filename?: string; downloadLink?: string };

@@ -4,10 +4,12 @@ import { join, resolve } from "node:path";
 import { beforeEach, describe, expect, test } from "vitest";
 import { quietCtx } from "../../../../src/core/command.ts";
 import { commands } from "../../../../src/core/commands/tests.ts";
-import { isStale, patchReview, runMechanical, setReview } from "../../../../src/core/lib/check.ts";
+import { isStale, runMechanical } from "../../../../src/core/lib/check.ts";
 import { testHash } from "../../../../src/core/lib/hash.ts";
+import { patchReview, setReview } from "../../../../src/core/lib/review.ts";
 import { readTest } from "../../../../src/core/lib/store.ts";
-import { insideTest, parseTest, serializeTest, testMdHash } from "../../../../src/core/lib/testfile.ts";
+import { insideTest } from "../../../../src/core/lib/test-blocks.ts";
+import { parseTest, serializeTest, testMdHash } from "../../../../src/core/lib/testfile.ts";
 import type { Test } from "../../../../src/core/types.ts";
 
 const FIXTURE = resolve(import.meta.dirname, "..", "..", "..", "fixtures", "project");
