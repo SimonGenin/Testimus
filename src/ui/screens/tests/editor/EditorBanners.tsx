@@ -1,0 +1,78 @@
+import { RevertConflict } from "../../../components/claude/RevertConflict.tsx";
+import { Banner } from "../../../components/ui/Banner.tsx";
+import { Button } from "../../../components/ui/Button.tsx";
+import { plural } from "../../../lib/format.ts";
+
+export type ClaudeMarked = { i: number; added: boolean }[];
+
+// the notices that sit above the steps while they are true: Claude at work, what Claude changed, the file changed on disk
+export function EditorBanners({
+  busy,
+  busyHere,
+  marked,
+  conflict,
+  revertConflict,
+  onShowChanges,
+  onRevert,
+  onForceRevert,
+  onKeepRevert,
+  onReloadDisk,
+  onKeepMine,
+}: {
+  busy: boolean;
+  busyHere: boolean;
+  /** the steps the last Claude run changed, or null when there is no run to show */
+  marked: ClaudeMarked | null;
+  conflict: boolean;
+  revertConflict: string | null;
+  onShowChanges: () => void;
+  onRevert: () => void;
+  onForceRevert: () => void;
+  onKeepRevert: () => void;
+  onReloadDisk: () => void;
+  onKeepMine: () => void;
+}) {
+  return (
+    <>
+      {conflict && (
+        <Banner
+          tone="warning"
+          icon="conflict"
+          title="test.md changed on disk"
+          actions={
+            <>
+              <Button size="sm" label="Reload from disk" onClick={onReloadDisk} />
+              <Button size="sm" variant="quiet" label="Keep mine" onClick={onKeepMine} />
+            </>
+          }
+        >
+          Another program wrote this test while you were editing it.
+        </Banner>
+      )}
+      {busy && (
+        <Banner tone="claude" icon="claude">
+          {busyHere ? "Claude is working on this test." : "Claude is working."} Editing is paused until it finishes.
+        </Banner>
+      )}
+      {marked && (
+        <Banner
+          tone="claude"
+          icon="claude"
+          title={marked.length ? `Claude changed ${plural(marked.length, "step")}` : "Claude changed this test."}
+          actions={
+            <>
+              {marked.length > 0 && <Button size="sm" label="Show changes" onClick={onShowChanges} />}
+              <Button size="sm" variant="quiet" icon="undo" label="Revert all" onClick={onRevert} />
+            </>
+          }
+        >
+          {marked.length > 0 && `${marked.map((x) => `step ${x.i + 1}${x.added ? " (new)" : ""}`).join(", ")}. `}
+          The test goes back through the check before review.
+        </Banner>
+      )}
+      {marked && revertConflict && (
+        <RevertConflict detail={revertConflict} onForce={onForceRevert} onKeep={onKeepRevert} />
+      )}
+    </>
+  );
+}

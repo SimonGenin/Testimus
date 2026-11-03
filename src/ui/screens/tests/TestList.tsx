@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import {
   awaitsReview,
@@ -117,6 +118,7 @@ export function TestList({
   onCloseDrawer?: () => void;
 }) {
   const app = useApp();
+  const client = useQueryClient();
   const p = app.info?.project;
   const jiraOn = !!p?.jiraProject && !p.jiraOffline;
   // ponytail: what the Jira side was loaded for — a new key, a reconnect or a disconnect starts it again
@@ -259,7 +261,7 @@ export function TestList({
 
   const askDelete = (r: LocalTestRef) => {
     if (needsAsking(r)) setDoomed(r);
-    else void deleteTest(r).then((ok) => ok && deleted(r.id));
+    else void deleteTest(client, r).then((ok) => ok && deleted(r.id));
   };
 
   const disconnect = async () => {

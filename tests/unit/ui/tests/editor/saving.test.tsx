@@ -8,6 +8,7 @@ import { AppContext } from "../../../../../src/ui/lib/app.ts";
 import { TestEditor } from "../../../../../src/ui/screens/tests/TestEditor.tsx";
 import { server, stubServer } from "../../../cov-uitests-helpers.ts";
 import { app } from "../../../ui-desktop-helpers.tsx";
+import { testClient, WithData } from "../data-helpers.tsx";
 
 vi.mock("../../../../../src/ui/lib/toast.ts", async (importOriginal) => {
   const real = await importOriginal<typeof import("../../../../../src/ui/lib/toast.ts")>();
@@ -66,9 +67,11 @@ afterEach(() => {
 
 const editor = () =>
   render(
-    <AppContext.Provider value={app({ route: { screen: "tests", arg: "t1" } })}>
-      <TestEditor testId="t1" onSaved={vi.fn()} onOpen={vi.fn()} />
-    </AppContext.Provider>,
+    <WithData client={testClient()}>
+      <AppContext.Provider value={app({ route: { screen: "tests", arg: "t1" } })}>
+        <TestEditor testId="t1" onSaved={vi.fn()} onOpen={vi.fn()} />
+      </AppContext.Provider>
+    </WithData>,
   );
 
 const order = () =>
@@ -80,8 +83,8 @@ describe("TestEditor autosave: flushed before Download from Jira (audit M-T3)", 
     await screen.findByLabelText("Action of step 1");
     fireEvent.change(screen.getByLabelText("Description"), { target: { value: "Typed just now" } });
     fireEvent.click(screen.getByRole("button", { name: "More actions for this test" }));
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Download from Jira" }));
-    const dlg = await screen.findByRole("dialog", { name: "Download from Jira?" });
+    fireEvent.click(await screen.findByRole("menuitem", { name: /^Download from Jira/ }));
+    const dlg = await screen.findByRole("alertdialog", { name: "Download from Jira?" });
     expect(within(dlg).getByText(/everything you edited since the last sync/)).toBeInTheDocument();
     expect(order()).toEqual(["tests.show", "tests.save", "tests.show"]);
     const saved = server.calls.find((c) => c.name === "tests.save")?.input.test as Test | undefined;
@@ -97,9 +100,9 @@ describe("TestEditor autosave: flushed before Download from Jira (audit M-T3)", 
     editor();
     await screen.findByLabelText("Action of step 1");
     fireEvent.click(screen.getByRole("button", { name: "More actions for this test" }));
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Download from Jira" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: /^Download from Jira/ }));
     await waitFor(() => expect(order()).toContain("xray.pull"));
-    expect(screen.queryByRole("dialog", { name: "Download from Jira?" })).toBeNull();
+    expect(screen.queryByRole("alertdialog", { name: "Download from Jira?" })).toBeNull();
     expect(order()).not.toContain("tests.save");
   });
 
