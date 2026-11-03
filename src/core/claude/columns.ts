@@ -3,7 +3,7 @@ import { listDocs } from "../lib/docs.ts";
 import { readProject, readXray } from "../lib/project.ts";
 import { listLocalTests, readTest } from "../lib/store.ts";
 import type { ClaudeEvent, Diagnosis, StepColumn, XrayJson } from "../types.ts";
-import { languageName } from "./generate.ts";
+import { languageName } from "./gen-prompt.ts";
 import { contextLines, readContexts } from "./prompt.ts";
 import { runClaude } from "./run.ts";
 

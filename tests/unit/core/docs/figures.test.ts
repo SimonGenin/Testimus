@@ -8,16 +8,22 @@ import {
   figuresPrompt,
   parseFigures,
   shouldDescribeFigures,
-} from "../../src/core/claude/figures.ts";
-import { quietCtx } from "../../src/core/command.ts";
-import { invoke } from "../../src/core/commands/index.ts";
-import { type ClaudeOut, type ClaudeSpawn, env } from "../../src/core/env.ts";
-import { DEFAULT_SETTINGS, readJson, readProject, writeProject, writeSettings } from "../../src/core/lib/project.ts";
-import { mockSpawnClaude } from "../../src/core/mock/claude.ts";
-import "../../src/core/mock/claude-gen.ts";
-import type { FigureEntry } from "../../src/core/types.ts";
+} from "../../../../src/core/claude/figures.ts";
+import { quietCtx } from "../../../../src/core/command.ts";
+import { invoke } from "../../../../src/core/commands/index.ts";
+import { type ClaudeOut, type ClaudeSpawn, env } from "../../../../src/core/env.ts";
+import {
+  DEFAULT_SETTINGS,
+  readJson,
+  readProject,
+  writeProject,
+  writeSettings,
+} from "../../../../src/core/lib/project.ts";
+import { mockSpawnClaude } from "../../../../src/core/mock/claude.ts";
+import "../../../../src/core/mock/claude-gen.ts";
+import type { FigureEntry } from "../../../../src/core/types.ts";
 
-const FIXTURE = join(import.meta.dirname, "..", "fixtures", "project");
+const FIXTURE = join(import.meta.dirname, "..", "..", "..", "fixtures", "project");
 const D3 = "SOSIE_211_D401-1_3";
 const real = env.spawnClaude;
 let dir: string;

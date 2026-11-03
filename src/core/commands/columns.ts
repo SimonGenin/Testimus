@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { suggestColumns } from "../claude/columns.ts";
+import { MODEL } from "../claude/schemas.ts";
 import { command, projectOf } from "../command.ts";
 import { removeColumn, saveColumn, setModes, setOrder, stepColumns } from "../lib/columns.ts";
-import { MODEL } from "./claude.ts";
 
 const SHOW = z
   .enum(["open", "filled", "collapsed", "hidden"])

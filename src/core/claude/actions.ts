@@ -1,11 +1,14 @@
-import type { Ctx } from "../command.ts";
+import { type Ctx, UserError } from "../command.ts";
 import { env } from "../env.ts";
+import { listJobs, showJob } from "../jobs.ts";
 import { allActions, type Listed, readAction, suggestFor, writeAction } from "../lib/actions.ts";
+import { readDoc } from "../lib/docs.ts";
 import { readProject } from "../lib/project.ts";
 import type { ClaudeAction, ClaudeRun, Effort } from "../types.ts";
-import { contextLines, effectiveContexts, readContexts, scopeLines } from "./prompt.ts";
+import { contextLines, docRunLines, effectiveContexts, readContexts, scopeLines } from "./prompt.ts";
 import { newRunId, type RunResult, runClaude } from "./run.ts";
 import { readRun } from "./snapshot.ts";
+import { claudeVersion } from "./status.ts";
 
 export const ACTION_MARKER = "Testimus Claude action";
 export const TRIAGE_MARKER = "Testimus triage";
@@ -14,7 +17,7 @@ export type Problem = { where: string; text: string };
 
 // ponytail: what a run that sees problems is told — it may leave a button behind, for a problem it can really fix
 // ponytail: the proposing run knows the fix best — it says which model and effort the fix needs, Opus and xhigh at most
-export const SUGGEST_RULE = [
+const SUGGEST_RULE = [
   "model and effort: what the fix needs — model haiku (a mechanical change), sonnet (ordinary test edits) or opus",
   "(reading documents, judging); effort low (one obvious change), medium, high (a real search) or xhigh (long, delicate).",
 ];
@@ -145,8 +148,11 @@ export async function triage(
   run: ClaudeRun,
   label: string,
   extra: string[] = [],
-): Promise<{ ok: boolean; summary: string; proposed: Listed[] }> {
-  if (!problems.length) return { ok: true, summary: "No problem to look at.", proposed: [] };
+): Promise<{ ok: boolean; summary: string; proposed: Listed[]; skipped?: boolean }> {
+  if (!problems.length) return { ok: true, summary: "No problem to look at.", proposed: [], skipped: true };
+  // ponytail: without Claude nothing is looked at, and the job says so instead of failing
+  if (!(await claudeVersion(false, ctx.signal)).ok)
+    return { ok: false, summary: "Claude Code is not connected: nothing was looked at.", proposed: [], skipped: true };
   const p = readProject(project);
   const runId = newRunId();
   ctx.progress({ message: `Claude looks at ${problems.length === 1 ? "the problem" : `${problems.length} problems`}` });
@@ -163,4 +169,56 @@ export async function triage(
     onEvent: (e) => ctx.claude(e),
   });
   return { ok: r.ok, summary: r.summary, proposed: allActions(project).filter((a) => a.proposedBy.runId === runId) };
+}
+
+function jobProblems(project: string, jobId: string): Problem[] {
+  const shown = showJob(project, jobId);
+  if (!shown) throw new UserError(`No job ${jobId} in this project.`, "testimus jobs list shows the jobs.");
+  const where = `job:${jobId}`;
+  const out: Problem[] = [];
+  if (shown.job.error) out.push({ where, text: `${shown.job.kind} ${shown.job.subject} failed: ${shown.job.error}` });
+  for (const e of shown.events)
+    if (e.type === "log" && e.level !== "info" && out.length < 8) out.push({ where, text: e.message });
+  return out;
+}
+
+const docProblems = (project: string, docId: string): Problem[] =>
+  (readDoc(project, docId).converted?.warnings ?? []).map((text) => ({ where: `doc:${docId}`, text }));
+
+export type TriageInput = ClaudeRun & { docId?: string; jobId?: string; note?: string; contexts?: string[] };
+
+export async function triageRun(ctx: Ctx, project: string, input: TriageInput) {
+  if (!input.docId === !input.jobId)
+    throw new UserError(
+      "Give either docId or jobId.",
+      "--doc-id <document> for its conversion warnings, or --job-id <job> for a failed job.",
+    );
+  const problems = input.docId ? docProblems(project, input.docId) : jobProblems(project, input.jobId ?? "");
+  const where = input.docId ? `the document ${input.docId}` : `the job ${input.jobId}`;
+  return await triage(
+    ctx,
+    project,
+    problems,
+    where,
+    { model: input.model, effort: input.effort },
+    input.docId ? "import" : "job",
+    input.docId ? docRunLines(project, input.docId, input) : [],
+  );
+}
+
+// ponytail: a failed job of the documents, the index, the figures, a generation or a check is shown to Claude once,
+// cheaply (project model, low effort), when Claude is there; a Claude run or a Jira call is never triaged
+const TRIAGED = /^(docs\.|rag-|rag\.|describe-figures|generate|check)/;
+
+export async function triageRefusal(project: string, jobId: string): Promise<string | null> {
+  const shown = showJob(project, jobId);
+  if (!shown) throw new UserError(`No job ${jobId} in this project.`, "testimus jobs list shows the jobs.");
+  const { job } = shown;
+  if (job.status !== "failed") return `The job ${jobId} did not fail (${job.status}).`;
+  if (!TRIAGED.test(job.kind))
+    return `A ${job.kind} job is not shown to Claude (only documents, index, figures, generation and check jobs are).`;
+  if (listJobs(project).some((j) => j.kind === "actions.triage" && j.cause?.jobId === jobId))
+    return `Claude already looked at the job ${jobId}.`;
+  if (!(await claudeVersion()).ok) return "Claude Code is not connected.";
+  return null;
 }

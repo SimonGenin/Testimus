@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { claudeHeaders } from "../claude/headers.ts";
+import { EFFORT } from "../claude/schemas.ts";
 import { command, projectOf } from "../command.ts";
 import { runBench } from "../rag/bench.ts";
 import { compareFiles } from "../rag/compare.ts";
 import { runEval } from "../rag/eval.ts";
 import { policy, retrievalOverride, retrievalSettings, searchMode, spaceFingerprint } from "../rag/schemas.ts";
-import { EFFORT } from "./claude.ts";
 
 const choice = z
   .union([

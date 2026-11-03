@@ -8,13 +8,11 @@ import {
   indexGate,
   PLAN_MARKER,
   PLAN_TAG,
-  parseGenReport,
-  parsePlan,
   plannedInput,
   REPORT_TAG,
-  type Skipped,
-  toolStep,
-} from "../../src/core/claude/generate.ts";
+} from "../../src/core/claude/gen-prompt.ts";
+import { parseGenReport, parsePlan, type Skipped } from "../../src/core/claude/gen-reply.ts";
+import { toolStep } from "../../src/core/claude/generate.ts";
 import { invoke } from "../../src/core/commands/index.ts";
 import { type ClaudeOut, type ClaudeSpawn, env } from "../../src/core/env.ts";
 import { subscribe } from "../../src/core/jobs.ts";

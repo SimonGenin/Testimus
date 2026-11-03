@@ -125,7 +125,7 @@ skill once per planned test.
 ### Sources — the rule that matters most
 
 - **Every Expected Result has at least one source line**; one line per claim it makes:
-  `- <docId>#<anchor> "<short quote>"`, anchor `§4.2`, `req:<id>` or `fig:7` exactly as `doc.md`
+  `- <docId>#<anchor> "<short quote>"`, anchor `§4.2`, `fig:7` or `page:3` exactly as `doc.md`
   anchors them.
 - The quote is **copied from `doc.md`**, character for character: same words, same accents, same
   apostrophes and punctuation, no ellipsis, no paraphrase, no word dropped. 5 to 20 words that carry

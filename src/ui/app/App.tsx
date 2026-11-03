@@ -11,7 +11,7 @@ import { Palette, type PaletteAction } from "../components/shell/Palette.tsx";
 import { NAV, Rail } from "../components/shell/Rail.tsx";
 import { PassageDialog } from "../components/sources/PassageDialog.tsx";
 import { docLink } from "../components/sources/PassageView.tsx";
-import { actionsChanged, triageWhenClaude } from "../lib/actions.ts";
+import { actionsChanged } from "../lib/actions.ts";
 import { AppContext, type AppState, type ClaudeRun, type Focus, type ProjectInfo, type Screen } from "../lib/app.ts";
 import { touches, useChanged } from "../lib/changed.ts";
 import { DEFAULT_LAYOUT } from "../lib/fields.ts";
@@ -39,15 +39,9 @@ export function parseRoute(hash: string): { screen: Screen; arg?: string } {
   return { screen: s, arg };
 }
 
-// ponytail: a failed job of the documents, the index or the tests is shown to Claude once, cheaply (project model, low
-// effort), when Claude is there — it may leave a Claude action on the job; a Claude run or a Jira call is never triaged
-const TRIAGED = /^(docs\.|rag-|rag\.|describe-figures|generate|check)/;
-const triaged = new Set<string>();
-
+// ponytail: the core decides whether Claude looks at a failed job (actions.triageFailed): the page only tells it
 function triageFailed(job: Job): void {
-  if (!TRIAGED.test(job.kind) || triaged.has(job.id)) return;
-  triaged.add(job.id);
-  triageWhenClaude({ jobId: job.id });
+  call("actions.triageFailed", { jobId: job.id }).catch(() => {});
 }
 
 export function App() {

@@ -9,7 +9,7 @@ import { sha256 } from "../lib/hash.ts";
 import { readJson, writeJson } from "../lib/project.ts";
 import { testDir } from "../lib/store.ts";
 import type { ClaudeScope, Effort } from "../types.ts";
-import type { RunKind } from "./run.ts";
+import type { RunKind } from "./access.ts";
 
 // ponytail: .testimus/runs/<runId>/run.json is the whole run — who ran (kind, model, effort, job), and, for a run
 // that may edit tests, the snapshot it can be reverted from (scope, before…)
@@ -75,7 +75,7 @@ function allTests(project: string): string[] {
     .sort();
 }
 
-export function scopeIds(project: string, scope: ClaudeScope): string[] {
+function scopeIds(project: string, scope: ClaudeScope): string[] {
   const ids =
     scope.kind === "project"
       ? allTests(project)
@@ -112,7 +112,7 @@ const rootFiles = (project: string, roots: string[]) => roots.flatMap((r) => wal
 
 // ponytail: an action may change more than tests — the files that hold the truth (SPEC §3) are copied too, the
 // whole folder of a document in scope minus its original copy, which no command ever rewrites
-export function truthFiles(project: string, scope: ClaudeScope): { roots: string[]; files: string[] } {
+function truthFiles(project: string, scope: ClaudeScope): { roots: string[]; files: string[] } {
   const files = ["project.json", "xray.json", "columns.json"];
   const roots = scope.kind === "doc" ? [`docs/${scope.docId}`] : [];
   if (scope.kind !== "doc")
@@ -267,6 +267,7 @@ export function revert(project: string, runId: string, o: RevertOpts = {}): stri
     throw new UserError(
       `${conflicts.join(", ")} changed after the Claude run ${runId}: reverting would lose those edits.`,
       "Look at the test first; revert with force to discard the later edits too.",
+      "edited-after-run",
     );
   for (const rel of files) {
     const abs = join(project, ...rel.split("/"));

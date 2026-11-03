@@ -3,12 +3,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { sourceRefs } from "../../src/core/claude/chat.ts";
-import { invoke } from "../../src/core/commands/index.ts";
-import { type ClaudeSpawn, env } from "../../src/core/env.ts";
-import { DEFAULT_SETTINGS, writeSettings } from "../../src/core/lib/project.ts";
+import { sourceRefs } from "../../../../src/core/claude/chat.ts";
+import { invoke } from "../../../../src/core/commands/index.ts";
+import { type ClaudeSpawn, env } from "../../../../src/core/env.ts";
+import { DEFAULT_SETTINGS, writeSettings } from "../../../../src/core/lib/project.ts";
 
-const FIXTURE = fileURLToPath(new URL("../fixtures/project/", import.meta.url));
+const FIXTURE = fileURLToPath(new URL("../../../fixtures/project/", import.meta.url));
 const real = env.spawnClaude;
 let calls: ClaudeSpawn[] = [];
 
