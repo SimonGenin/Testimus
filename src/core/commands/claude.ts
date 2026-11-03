@@ -113,7 +113,7 @@ export const commands = [
     mutates: false,
     global: true,
     async run(ctx, input) {
-      const v = await claudeVersion(input.refresh === true);
+      const v = await claudeVersion(input.refresh === true, ctx.signal);
       const base = { exe: claudeExe(), connect: CONNECT };
       if (!v.ok) return { ...base, installed: false, signedIn: false, detail: v.text, diagnosis: diagnose(v.text) };
       const version = v.text.match(/\d+\.\d+\.\d+/)?.[0];

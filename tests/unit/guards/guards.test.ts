@@ -12,8 +12,8 @@ const LIMITS: Record<GuardName, number> = {
   "N4a literal colours or px sizes outside tokens.stylex.ts": 1949,
   "N4c CSS files (other than fonts) and raw HTML in src/ui": 16,
   "N4d inline styles with only constant values": 2,
-  "N7 child_process, process.kill or taskkill outside src/shared/run/process.ts": 7,
-  "N7 setTimeout or setInterval in src/core": 9,
+  "N7 child_process, process.kill or taskkill outside src/shared/run/process.ts": 6,
+  "N7 setTimeout or setInterval in src/core": 7,
 };
 
 describe("architecture guards (GOAL-V3 N1, N2, N4, N7)", () => {

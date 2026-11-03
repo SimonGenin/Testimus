@@ -1,6 +1,12 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { diagnose, trouble } from "../../src/core/claude/diagnose.ts";
-import { checkSignedIn, claudeAnswered, claudeVersion, resetProbe } from "../../src/core/claude/status.ts";
+import {
+  checkSignedIn,
+  claudeAnswered,
+  claudeVersion,
+  resetProbe,
+  VERSION_TIMEOUT_MS,
+} from "../../src/core/claude/status.ts";
 import { invoke } from "../../src/core/commands/index.ts";
 import { type ClaudeOut, type ClaudeSpawn, env } from "../../src/core/env.ts";
 import { DEFAULT_SETTINGS, writeSettings } from "../../src/core/lib/project.ts";
@@ -113,6 +119,58 @@ describe("version probe", () => {
     expect(await claudeVersion(true)).toEqual({ ok: false, text: "claude exited with code 1" });
     claudeAnswered();
     expect(await claudeVersion()).toMatchObject({ ok: true });
+  });
+});
+
+describe("version probe limits (N7)", () => {
+  const hang = () => {
+    env.spawnClaude = (s) =>
+      new Promise<ClaudeOut>((resolve) => {
+        calls.push(s);
+        s.signal?.addEventListener("abort", () => resolve({ code: 130, stdout: "", stderr: "killed" }), {
+          once: true,
+        });
+      });
+  };
+
+  it("gives up after the timeout and kills the claude that hangs; the failure is not kept", async () => {
+    vi.useFakeTimers();
+    try {
+      hang();
+      const p = claudeVersion();
+      await vi.advanceTimersByTimeAsync(VERSION_TIMEOUT_MS + 10);
+      expect(await p).toEqual({ ok: false, text: "claude --version did not answer in 10 s" });
+      expect(calls[0].signal?.aborted).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+    canned({ stdout: "2.1.316 (Claude Code)\n" });
+    expect(await claudeVersion()).toEqual({ ok: true, text: "2.1.316 (Claude Code)" });
+    expect(calls).toHaveLength(2);
+    await claudeVersion();
+    expect(calls).toHaveLength(2);
+  });
+
+  it("a failure is asked again; concurrent askers share one claude --version", async () => {
+    canned({ code: 1, stderr: "boom" });
+    const [a, b] = await Promise.all([claudeVersion(), claudeVersion()]);
+    expect(a).toEqual({ ok: false, text: "boom" });
+    expect(b).toBe(a);
+    expect(calls).toHaveLength(1);
+    await claudeVersion();
+    expect(calls).toHaveLength(2);
+  });
+
+  it("a caller's cancel ends its own wait, not the shared probe", async () => {
+    hang();
+    const ctl = new AbortController();
+    const mine = claudeVersion(false, ctl.signal);
+    const other = claudeVersion();
+    ctl.abort();
+    await expect(mine).rejects.toThrow(/Cancelled/);
+    expect(calls[0].signal?.aborted).toBe(false);
+    resetProbe();
+    void other;
   });
 });
 

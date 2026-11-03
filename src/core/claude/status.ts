@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import { resolveExe } from "../../shared/run/process.ts";
+import { scope, TimeoutError, timeout } from "../../shared/run/work.ts";
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
 import { readSettings } from "../lib/project.ts";
@@ -58,28 +59,43 @@ export type Probe = { ok: boolean; text: string };
 
 const firstLine = (s: string) => s.trim().split(/\r?\n/)[0]?.trim() ?? "";
 
+export const VERSION_TIMEOUT_MS = 10000;
+
 let probe: { key: string; run: Promise<Probe> } | null = null;
 
-// ponytail: one `claude --version` per configured exe for the life of the process — the dock, the
-// doctor and claude.status share the answer; a run that answered folds it to ok
-export function claudeVersion(refresh = false): Promise<Probe> {
+const failure = (e: unknown) =>
+  e instanceof TimeoutError
+    ? `claude --version did not answer in ${VERSION_TIMEOUT_MS / 1000} s`
+    : e instanceof Error
+      ? e.message
+      : String(e);
+
+// ponytail: one `claude --version` per configured exe, shared by the dock, the doctor and claude.status; it gives up
+// after VERSION_TIMEOUT_MS (the hanging claude is killed) and only an answer that worked is kept — a failure is asked
+// again next time; a run that answered folds it to ok. A caller's signal ends its own wait, not the shared probe
+export function claudeVersion(refresh = false, signal?: AbortSignal): Promise<Probe> {
   const exe = claudeExe();
-  if (refresh || probe?.key !== exe)
-    probe = {
-      key: exe,
-      run: Promise.resolve()
-        .then(() => env.spawnClaude({ ...claudeCommand(["--version"]), cwd: tmpdir(), stdin: "" }))
-        .then((out) => {
-          const line = firstLine(out.code === 0 ? out.stdout : out.stderr || out.stdout);
-          return { ok: out.code === 0, text: line || `claude exited with code ${out.code}` };
-        })
-        .catch((e: unknown) => ({ ok: false, text: e instanceof Error ? e.message : String(e) })),
-    };
-  return probe.run;
+  if (refresh || !probe || probe.key !== exe) {
+    const run: Promise<Probe> = timeout(VERSION_TIMEOUT_MS, (s) =>
+      env.spawnClaude({ ...claudeCommand(["--version"]), cwd: tmpdir(), stdin: "", signal: s }),
+    )
+      .then((out) => {
+        const line = firstLine(out.code === 0 ? out.stdout : out.stderr || out.stdout);
+        return { ok: out.code === 0, text: line || `claude exited with code ${out.code}` };
+      })
+      .catch((e: unknown) => ({ ok: false, text: failure(e) }));
+    const mine = { key: exe, run };
+    probe = mine;
+    void run.then((r) => {
+      if (!r.ok && probe === mine) probe = null;
+    });
+  }
+  const shared = probe.run;
+  return signal ? scope(() => shared, { signal }) : shared;
 }
 
 export function claudeAnswered(): void {
-  if (probe) probe = { key: probe.key, run: Promise.resolve({ ok: true, text: "claude answered a run" }) };
+  probe = { key: claudeExe(), run: Promise.resolve({ ok: true, text: "claude answered a run" }) };
 }
 
 export function resetProbe(): void {
