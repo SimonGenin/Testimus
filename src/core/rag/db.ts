@@ -6,7 +6,7 @@ import { sha256 } from "../lib/hash.ts";
 import type { Chunk, Edge, EdgeKind, SpaceFingerprint, VectorSpace } from "../types.ts";
 import { STEM_VERSION, stemText } from "./stem-fr.ts";
 
-export type ChunkRow = Chunk & { rowid: number; hash: string; superseded: boolean };
+export type ChunkRow = Chunk & { rowid: number; hash: string };
 
 const require = createRequire(import.meta.url);
 
@@ -24,12 +24,12 @@ export function openDb(file: string): DatabaseSync {
     pragma journal_mode = wal;
     create table if not exists meta (key text primary key, value text not null);
     create table if not exists docs (
-      doc_id text primary key, sha256 text not null, content text not null, superseded integer not null default 0
+      doc_id text primary key, sha256 text not null, content text not null
     );
     create table if not exists chunks (
       rowid integer primary key, id text not null unique, doc_id text not null, anchor text not null,
       path text not null, req_ids text not null, figure_ids text not null, header text not null,
-      text text not null, kind text not null, hash text not null, superseded integer not null default 0
+      text text not null, kind text not null, hash text not null
     );
     create index if not exists chunks_doc on chunks(doc_id);
     create table if not exists edges (src text not null, dst text not null, kind text not null, doc_id text not null);
@@ -264,7 +264,6 @@ type RawChunk = {
   text: string;
   kind: string;
   hash: string;
-  superseded: number;
 };
 
 export function toChunk(r: RawChunk): ChunkRow {
@@ -280,7 +279,6 @@ export function toChunk(r: RawChunk): ChunkRow {
     text: r.text,
     kind: r.kind as Chunk["kind"],
     hash: r.hash,
-    superseded: !!r.superseded,
   };
 }
 
@@ -302,11 +300,11 @@ export function chunksByRowid(db: DatabaseSync, rowids: number[]): Map<number, C
   return out;
 }
 
-export function insertChunk(db: DatabaseSync, c: Chunk, hash: string, superseded: boolean): number {
+export function insertChunk(db: DatabaseSync, c: Chunk, hash: string): number {
   const r = db
     .prepare(
-      `insert into chunks(id, doc_id, anchor, path, req_ids, figure_ids, header, text, kind, hash, superseded)
-       values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `insert into chunks(id, doc_id, anchor, path, req_ids, figure_ids, header, text, kind, hash)
+       values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       c.id,
@@ -319,7 +317,6 @@ export function insertChunk(db: DatabaseSync, c: Chunk, hash: string, superseded
       c.text,
       c.kind,
       hash,
-      superseded ? 1 : 0,
     );
   const rowid = Number(r.lastInsertRowid);
   db.prepare("insert into chunks_fts(rowid, header, text, codes, stem) values (?, ?, ?, ?, ?)").run(

@@ -17,7 +17,6 @@ export const commands: Command[] = [
       stem: z.boolean().default(true).describe("Also match French stemmed forms (sectionneurs → sectionneur)"),
       glossary: z.boolean().default(true).describe("Also match the acronym's long form and the other way round"),
       docIds: z.array(z.string()).optional().describe("Only these documents"),
-      includeSuperseded: z.boolean().default(false).describe("Also search superseded documents"),
       page: z.number().int().min(1).default(1).describe("Page of sections (1-based)"),
       pageSize: z.number().int().min(1).max(200).default(50).describe("Sections per page"),
     }),

@@ -138,7 +138,6 @@ export function passage(project: string, ref: string, around?: string): PassageV
     title: doc.title ?? "",
     version: doc.version ?? "",
     status: doc.status ?? "draft",
-    binding: doc.binding ?? "informative",
   };
   const notFound = () =>
     new UserError(`${docId} has no anchor ${anchor}.`, "Open the document's doc.md to see its anchors.");

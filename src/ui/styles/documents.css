@@ -33,6 +33,18 @@
   gap: 4px;
 }
 
+.docdetail-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.docdetail-top > .docdetail-code {
+  flex: 1;
+  min-width: 0;
+  padding-top: 6px;
+}
+
 .docdetail-title {
   font-size: 20px;
 }

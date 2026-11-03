@@ -36,7 +36,7 @@ document, and the app checks them mechanically first.
      you never opened is reported to the reviewer;
    - the requirement ids that sit in those sections are in scope too: list them.
 4. For each document you use: read its `context.md` (what the team knows: what is not simulated,
-   what is not wired yet) and its `doc.json` — never cite a `superseded` document; when two documents
+   what is not wired yet) and its `doc.json`; when two documents
    disagree apply the precedence of `CLAUDE.md`, and when it does not settle it, say so in the test
    description and in your report.
 5. Look at the figures of those sections (`rag_figure <docId> <n>`, then `Read` the image): a

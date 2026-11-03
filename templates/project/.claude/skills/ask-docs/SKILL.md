@@ -25,8 +25,7 @@ You answer **only** from the project's documents. You never edit a file while an
    Never fill a gap from general knowledge; if you add an interpretation, say it is yours and give no
    source for it.
 5. **Documents disagree?** Show both passages with their sources and apply the precedence of the
-   project `CLAUDE.md` (`doc.json`: superseded never cited, amendments win, mandatory > applicable >
-   informative). When that does not settle it, say so.
+   project `CLAUDE.md` (`doc.json`: amendments win). When that does not settle it, say so.
 6. A figure that answers better than words: `rag_figure`, then `Read` the image, then cite it with
    its `fig:` anchor and its caption as the quote.
 7. Keep it short: a few sentences or a short list. No preamble, no summary of your search.

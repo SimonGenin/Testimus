@@ -124,7 +124,7 @@ function routes(s: Setup = {}) {
     title: "",
     text: "texte",
     figures: [],
-    doc: { code: "D", title: `Passage ${i.ref}`, version: "1", status: "validated", binding: "mandatory" },
+    doc: { code: "D", title: `Passage ${i.ref}`, version: "1", status: "validated" },
   });
   api.routes["review.evidence"] = () => ({
     testId: "K-1",

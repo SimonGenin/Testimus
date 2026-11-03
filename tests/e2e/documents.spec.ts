@@ -6,16 +6,14 @@ import { api, boot, expect, mockServer, shoot, test } from "./helpers.ts";
 
 const { url } = mockServer(4350);
 
-test("the list shows each document with status, binding and index state; the detail shows its text", async ({
-  page,
-}) => {
+test("the list shows each document with status and index state; the detail shows its text", async ({ page }) => {
   await boot(page, "#/documents");
   await expect(page.getByRole("heading", { level: 1, name: "Documents" })).toBeVisible();
   const list = page.getByRole("region", { name: "Document list" });
   const rows = list.getByRole("row", { name: /^SOSIE_/ });
   await expect(rows).toHaveCount(2);
   await expect(rows.first()).toContainText("Validated");
-  await expect(rows.first()).toContainText("Mandatory");
+  await expect(list.getByRole("columnheader", { name: "Binding" })).toHaveCount(0);
   await expect(rows.first()).toContainText(/up to date/i);
   await expect(rows.nth(1)).toContainText("Submitted");
 

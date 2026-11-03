@@ -204,11 +204,13 @@ docs/<docId>/
   is done. The caption is the only quotable text of a figure: a `fig:N` citation is checked against the caption
   paragraph in `doc.md`, never against `figures.json` (description and labels are Claude's reading).
 - `doc.json`: `{ id, code, title, version, date, kind: "spec"|"requirements"|"minutes"|"other",
-  status: "draft"|"submitted"|"validated"|"superseded", binding: "mandatory"|"applicable"|"informative",
-  supersededBy?, amends?: [docId], source: { path, sha256 }, convertedWith, convertedAt }`.
-  `binding` and `status` are what the team decides, not what the file says: the UI edits them,
-  generation and checks read them (a superseded document is never cited; an applicable one is cited
-  with its binding shown).
+  status: "draft"|"submitted"|"validated", amends?: [docId], source: { path, sha256 }, convertedWith, convertedAt }`.
+  `status` is what the team decides, not what the file says: the UI edits it. There is no `binding` and no
+  `superseded` / `supersededBy` any more: binding decided nothing, and an old version is deleted rather than kept
+  and marked. An older `doc.json` reads without them (a superseded one as a draft) and loses them at its next write.
+- `docs.remove <id>` deletes every trace of a document: its folder (copy, doc.md, figures, context), its rows in
+  `index/rag.db` (chunks, full-text rows, vectors in every space — a complete space stays complete — and graph
+  edges), its entry in `index/state.json`, and the other documents' `amends` naming it. Tests citing it are left as they are; check reports their sources as missing.
 - **Conversion prefers `.docx`** (structure and images intact); PDF is the fallback.
 - **Anchors** are what sources point at, so they must be stable across reconversion:
   - every heading carries its section number as anchor: `## 5.6.6 Sectionneur (S) <!-- § 5.6.6 -->`;
@@ -332,8 +334,7 @@ used: GGUF models run on llama.cpp, which Testimus downloads itself (same files 
   it is now, and derive the same chunks and edges from `doc.md` for a document that is not (or when there is no
   index), so they answer the same on every PC, with or without vectors, and see a `doc.md` changed since the last
   index.
-  - `rag.mentions <term>` returns **every** passage of every current document (superseded ones with
-    `includeSuperseded`, `docIds` to narrow) that contains the term: the exact phrase (case and accents ignored,
+  - `rag.mentions <term>` returns **every** passage of every document (`docIds` to narrow) that contains the term: the exact phrase (case and accents ignored,
     whole words only, so an id never matches a longer id; an acronym of one or two letters keeps its case), its
     French stems (not for a code or an all-capital acronym; stop words skipped), and its glossary expansions both
     ways — or a JavaScript regex (`regex`, case-insensitive). A section's title (also of a section with no text of its
@@ -354,7 +355,7 @@ used: GGUF models run on llama.cpp, which Testimus downloads itself (same files 
     or that the document lacks. Depth 2 adds the neighbours of the neighbours once (siblings are not expanded),
     up to 200 neighbours in all (every depth-1 neighbour is kept): beyond that, `truncated: true` and `total` (J5:
     `EXI_MOP_SPF_519_A_2830 --depth 2` 995 → 200, total 964 once duplicate siblings are gone).
-    Superseded documents are left out; an unknown document, anchor or id is an error.
+    An unknown document, anchor or id is an error.
   - `rag.search` `expand` (default `project.json.rag.retrieval.expand`, else `none`): `section` adds, after the k
     hits, the parent section of a section hit, the section a figure or a matrix row sits under, and the sections
     the requirements of a hit trace to; `graph` also adds each requirement the hit carries or names as its statement.
@@ -602,8 +603,6 @@ used: GGUF models run on llama.cpp, which Testimus downloads itself (same files 
     runs). Figure descriptions are written by Claude once per document, in batches, at conversion
     (`rag.describeFigures`, on by default). Without Claude (or when it fails) the deterministic header
     `<code> <title> — <path> <section title>` is used and a warning is logged.
-  - A document counts as superseded when `status` is `superseded` or `supersededBy` is set; its chunks stay
-    indexed and are left out of search unless asked.
 
 ## 6. Test file (`test.md`)
 
@@ -683,13 +682,13 @@ The parser stays tolerant (never throws on a human or Claude edit; returns warni
 
 Two passes, run on demand, on generation, and before review:
 
-1. **Mechanical** (core, no model): every source resolves (doc exists, not superseded, anchor exists,
+1. **Mechanical** (core, no model): every source resolves (doc exists, anchor exists,
    quote found); every `Exigence` id exists in `requirements/` or in a document; empty fields; a
    step with a `raw` embed; duplicated steps.
 2. **Semantic** (`check-test` skill, one test per run, parallel across tests): for each step, does
    the cited passage say what the expected result claims? Plus: requirement listed but not verified,
    requirement in scope but not covered, contradiction between two cited documents (resolved by
-   `doc.json` status/binding, else reported), wrong object (the step tests something other than what
+   `doc.json` status, else reported), wrong object (the step tests something other than what
    its requirement describes), negative path missing.
 
 `check.json`: `{ at, testHash, findings: [{ step?, kind, severity: "error"|"warning"|"info",
@@ -845,7 +844,7 @@ stops at the first failure), plus:
 Group | Verbs (all with `--json`; mutating ones marked *)
 ---|---
 `project` | `init`*, `openKey`* (open or create by Jira key), `info` (project.json + xray.json + field order + counts for the rail), `list`, `notes` (the project's CLAUDE.md), `setNotes`*, `set`* (patch project.json: names, language, label prefix, folders, rag keys incl. reference, queryTask, passageMaxChars, retrieval; requirementPatterns, requirementMatrix, glossary; Claude defaults), `open`* (last project)
-`docs` | `add`* (copy + convert; a path, or an upload as base64 from the UI), `convert`*, `list`, `show`, `set`* (status, binding, supersededBy, amends, context…), `describeFigures`* (job, Claude), `remove`*
+`docs` | `add`* (copy + convert; a path, or an upload as base64 from the UI), `convert`*, `list`, `show`, `set`* (status, amends, context…), `describeFigures`* (job, Claude), `remove`*
 `rag` | `index`* (job), `search` (mode hybrid · bm25 · vector; `expand`), `passage` (docId#anchor → text + figures + focus, capped), `figure`, `mentions` (every passage holding a term, no model), `related` (graph neighbours, no model), `eval` (job, L1), `compare` (reports → intervals), `status` (active model, space, freshness per document), `spaces`, `dropSpace`*
 `chat` | `ask` (job, streamed), `list`, `show`
 `claude` | `run`* (job: a scoped request « On this test » — step, test, tests or project), `revert`* (runId), `status` (installed, version, signed in, how to connect)
@@ -868,8 +867,8 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
   browser, or inside the desktop app (« Desktop shell » below).
 - Layout: left rail (Documents · Generate · Tests · Review · Jobs), main pane, **Claude dock on the
   right everywhere** (chat with the documents, or a scoped request on the current test).
-- **Documents**: list with code, version, status, binding; preview of `doc.md` with anchors and
-  figures; `context.md` editor.
+- **Documents**: list with code, version, status; preview of `doc.md` with anchors and
+  figures; `context.md` editor; ⋯ › Delete removes the document and every trace of it.
 - **Generate**: the request, scope (requirements, sections), folder; the job's live output; the tests
   as they land.
 - **Tests**: Xray Editor's sidebar and editor, with fields from `xray.json` (order, folded,
@@ -1044,9 +1043,10 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
     sections (docs.show toc), folder; gen.tests job shown live (passages read, tests landing as cards from « Writing
     local-… » progress); at the end check.run on the new tests, then the summary (written, requirements covered, not
     covered + why) and « Review these tests ».
-  - **Documents** — list (code · version, title, status, binding, search state from docs.list.indexed, warnings);
-    drop or pick .docx/.pdf → docs.add job (by `file` path in the desktop app, `{ name, dataBase64 }` in the browser) — when the index has no vectors on this PC, a line « Search on words only » gives the reason and « Choose a search pack » then rag.index job; detail edits status, binding,
-    superseded by, amends, context (docs.set), shows the toc and the section text, each tracked kind's ids and the
+  - **Documents** — list (code · version, title, status, search state from docs.list.indexed, warnings);
+    drop or pick .docx/.pdf → docs.add job (by `file` path in the desktop app, `{ name, dataBase64 }` in the browser) — when the index has no vectors on this PC, a line « Search on words only » gives the reason and « Choose a search pack » then rag.index job; detail edits status
+    (Draft · Submitted · Validated), amends, context (docs.set); ⋯ ›
+    Delete (red) asks « Delete this document? » then docs.remove; shows the toc and the section text, each tracked kind's ids and the
     figures as links. Above the list, « Tracked ids »: a chip per kind (count; a warning when its column is not in Xray),
     « Track ids… » and « Coverage ».
   - **Coverage** dialog (Documents, Generate, Settings › Tracked ids): per kind « N of M ids covered by K tests », a
@@ -1131,7 +1131,7 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
 - A Jira write from the palette (`xray.push`, direct `xray.importCsv`) always shows its plan first, like
   the buttons do. A direct CSV import still running in Xray shows « Xray is still importing » with
   « Check again » (resume by `jobId`, never a second import).
-- Shell: Ctrl+K command palette (every registry command by name; a command with input gets a form from its schema), Ctrl+J folds the Claude dock (folded by default at 1280 px and in Review), theme system / light / dark from the rail, step layout and last project remembered per browser; Revert undoes a whole Claude run. The page title is « Testimus — <project name> » (« Testimus » with no project); the desktop window takes it.
+- Shell: Ctrl+K command palette (every registry command by name; a command with input gets a form from its schema), Ctrl+J folds the Claude dock (folded at start and in Review; the user's choice holds until the next start), theme system / light / dark from the rail, step layout and last project remembered per browser; Revert undoes a whole Claude run. The page title is « Testimus — <project name> » (« Testimus » with no project); the desktop window takes it.
 - The app logo (`src/ui/public/logo.png`, `favicon.png`; `scripts/testimus.ico` for the Start-menu shortcut)
   sits on a light tile at the top of the rail and on the first-launch screen.
 - Look and feel: the design « Testimus — UI draft » (Transurb tokens: teal #00a59a reserved for the

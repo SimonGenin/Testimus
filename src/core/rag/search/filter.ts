@@ -8,7 +8,6 @@ export type RetrievalOverride = Omit<Partial<RetrievalSettings>, "rerank"> & {
 export type SearchOpts = {
   k?: number;
   docIds?: string[];
-  includeSuperseded?: boolean;
   mode?: SearchMode;
   profile?: ModelProfile;
   reranker?: ModelProfile | null;
@@ -21,6 +20,5 @@ export type SearchOpts = {
 
 export function keep(c: ChunkRow | undefined, opts: SearchOpts): c is ChunkRow {
   if (!c) return false;
-  if (!opts.includeSuperseded && c.superseded) return false;
   return !opts.docIds?.length || opts.docIds.includes(c.docId);
 }

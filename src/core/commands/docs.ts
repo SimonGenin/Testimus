@@ -22,6 +22,7 @@ import {
 } from "../lib/docs.ts";
 import { parseSections } from "../rag/chunk.ts";
 import { anchorsOf } from "../rag/convert.ts";
+import { unindexDoc } from "../rag/indexer.ts";
 import { type EvidenceOpts, evidenceOptions, statementsOf } from "../rag/statements.ts";
 import type { DocJson } from "../types.ts";
 
@@ -60,8 +61,7 @@ async function withFigures(ctx: Ctx, doc: DocJson): Promise<DocJson> {
 }
 
 const kind = z.enum(["spec", "requirements", "minutes", "other"]);
-const status = z.enum(["draft", "submitted", "validated", "superseded"]);
-const binding = z.enum(["mandatory", "applicable", "informative"]);
+const status = z.enum(["draft", "submitted", "validated"]);
 
 const docJson = z.object({
   id: z.string(),
@@ -71,8 +71,6 @@ const docJson = z.object({
   date: z.string(),
   kind,
   status,
-  binding,
-  supersededBy: z.string().optional(),
   amends: z.array(z.string()).optional(),
   source: z.object({ path: z.string(), sha256: z.string(), file: z.string() }),
   convertedWith: z.string(),
@@ -168,7 +166,7 @@ export const commands: Command[] = [
   }),
   command({
     name: "docs.list",
-    summary: "List the project's documents with their status, binding and index freshness.",
+    summary: "List the project's documents with their status and index freshness.",
     input: z.object({ status: status.optional().describe("Only the documents with this status") }),
     output: z.array(docJson.extend({ indexed: z.enum(["fresh", "stale", "missing"]) })),
     mutates: false,
@@ -238,15 +236,10 @@ export const commands: Command[] = [
   }),
   command({
     name: "docs.set",
-    summary: "Change what the team decides about a document: status, binding, supersededBy, amends, title, context.",
+    summary: "Change what the team decides about a document: status, amends, title, context.",
     input: z.object({
       id,
-      status: status.optional().describe("draft, submitted, validated or superseded"),
-      binding: binding.optional().describe("mandatory, applicable or informative"),
-      supersededBy: z
-        .string()
-        .optional()
-        .describe("Id of the document that replaces this one (sets status superseded); empty string clears it"),
+      status: status.optional().describe("draft, submitted or validated"),
       amends: z.array(z.string()).optional().describe("Ids of the documents this one amends; empty list clears it"),
       title: z.string().optional().describe("Document title"),
       version: z.string().optional().describe("Document version, e.g. 01.01"),
@@ -260,23 +253,16 @@ export const commands: Command[] = [
     async run(ctx, input) {
       const project = projectOf(ctx);
       const doc: DocJson = readDoc(project, input.id);
-      for (const other of [input.supersededBy, ...(input.amends ?? [])])
+      for (const other of input.amends ?? [])
         if (other) {
           if (other === input.id) throw new UserError("A document cannot refer to itself.");
           readDoc(project, other);
         }
       if (input.status) doc.status = input.status;
-      if (input.binding) doc.binding = input.binding;
       if (input.title !== undefined) doc.title = input.title;
       if (input.version !== undefined) doc.version = input.version;
       if (input.date !== undefined) doc.date = input.date;
       if (input.kind) doc.kind = input.kind;
-      if (input.supersededBy !== undefined) {
-        if (input.supersededBy) {
-          doc.supersededBy = input.supersededBy;
-          doc.status = "superseded";
-        } else delete doc.supersededBy;
-      }
       if (input.amends !== undefined) {
         if (input.amends.length) doc.amends = input.amends;
         else delete doc.amends;
@@ -288,16 +274,22 @@ export const commands: Command[] = [
   }),
   command({
     name: "docs.remove",
-    summary: "Remove a document folder (its copy, doc.md, figures and context) from the project.",
+    summary:
+      "Remove a document and every trace of it: its folder (copy, doc.md, figures, context), its passages, vectors and links in the search index, and the other documents' references to it.",
     input: z.object({ id }),
-    output: z.object({ removed: z.string(), folder: z.string() }),
+    output: z.object({
+      removed: z.string().describe("Id of the removed document"),
+      folder: z.string().describe("The folder that was deleted"),
+      unlinked: z.array(z.string()).describe("Documents that named it in amends and no longer do"),
+    }),
     mutates: true,
     positional: ["id"],
     async run(ctx, input) {
       const project = projectOf(ctx);
       const folder = docDir(project, input.id);
-      removeDoc(project, input.id);
-      return { removed: input.id, folder };
+      const unlinked = removeDoc(project, input.id);
+      unindexDoc(project, input.id);
+      return { removed: input.id, folder, unlinked };
     },
   }),
 ];

@@ -317,11 +317,9 @@ describe("Generate › requirement picker", () => {
 });
 
 describe("Generate › section picker", () => {
-  it("lists current documents, opens a table of contents and picks sections", async () => {
+  it("lists the documents, opens a table of contents and picks sections", async () => {
     api.routes["docs.list"] = () => [
       { id: "D1", code: "C1", title: "Traction", status: "validated" },
-      { id: "D0", code: "C0", title: "Old", status: "superseded" },
-      { id: "D9", code: "C9", title: "Older", status: "validated", supersededBy: "D1" },
       { id: "D2", code: "C2", title: "Empty", status: "draft" },
       { id: "D3", code: "C3", title: "Broken", status: "draft" },
     ];
@@ -351,8 +349,6 @@ describe("Generate › section picker", () => {
     const { container } = render(<SectionHost />);
     expect(container.querySelector("[aria-busy='true']")).not.toBeNull();
     const d1 = await screen.findByRole("button", { name: /C1/ });
-    expect(screen.queryByText("Old")).toBeNull();
-    expect(screen.queryByText("Older")).toBeNull();
     fireEvent.click(d1);
     expect(d1).toHaveAttribute("aria-expanded", "true");
     releaseToc();

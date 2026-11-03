@@ -5,7 +5,7 @@ import { type Command, command, projectOf, UserError } from "../command.ts";
 import { activeModels } from "../rag/activation.ts";
 import { chunkCount, dropSpace, getMeta, indexFile, listSpaces, openDb, vectorCount } from "../rag/db.ts";
 import { dimsOf, spaceOf } from "../rag/fingerprint.ts";
-import { indexProject, isSuperseded, projectDocs, readState } from "../rag/indexer.ts";
+import { indexProject, projectDocs, readState } from "../rag/indexer.ts";
 import type { VectorSpace } from "../types.ts";
 
 const space = z.object({
@@ -105,7 +105,6 @@ export const commands: Command[] = [
           z.object({
             docId: z.string().describe("Document id"),
             indexed: z.enum(["fresh", "stale", "missing"]).describe("Index state of the document"),
-            superseded: z.boolean().describe("The document is superseded"),
           }),
         )
         .describe("One line per document"),
@@ -151,7 +150,7 @@ export const commands: Command[] = [
           const same = known === (doc.source?.sha256 ?? "");
           const indexed: "fresh" | "stale" | "missing" =
             known === undefined ? "missing" : same && (profileMatches || !m) ? "fresh" : "stale";
-          return { docId: doc.id, indexed, superseded: isSuperseded(doc) };
+          return { docId: doc.id, indexed };
         }),
       };
     },

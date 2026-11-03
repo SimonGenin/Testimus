@@ -24,7 +24,7 @@ const chunk = (id: string, text: string, over: Partial<Chunk> = {}): Chunk => ({
 });
 
 function add(c: Chunk): number {
-  return insertChunk(db, c, c.id, false);
+  return insertChunk(db, c, c.id);
 }
 
 beforeEach(() => {

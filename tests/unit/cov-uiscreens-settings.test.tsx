@@ -240,8 +240,8 @@ describe("Settings › Search", () => {
     chunks: 4,
     builtAt: null,
     docs: [
-      { docId: "D1", indexed: "stale", superseded: false },
-      { docId: "D2", indexed: "fresh", superseded: false },
+      { docId: "D1", indexed: "stale" },
+      { docId: "D2", indexed: "fresh" },
     ],
     ...over,
   });

@@ -41,9 +41,7 @@ beforeEach(() => {
   writeFileSync(join(dir, "project.json"), "{}");
   addDoc("SPEC", SPEC, { title: "Spécification" });
   addDoc("AMD", "# AMD\n\n## 1 Remarque <!-- § 1 -->\n\nVoir SPEC §1 pour la règle.\n", { amends: ["SPEC"] });
-  addDoc("OLD", "# OLD\n\n## 1 Ancien <!-- § 1 -->\n\n<!-- req EXI_G_1 -->\nAncienne règle.\n", {
-    status: "superseded",
-  });
+  addDoc("OLD", "# OLD\n\n## 1 Ancien <!-- § 1 -->\n\nAncienne règle.\n", {});
   mkdirSync(join(dir, "requirements"));
   writeFileSync(join(dir, "requirements", "requirements.csv"), "id,doc,chapter\nEXI_CSV_9,SPEC,1\n");
 });
@@ -102,7 +100,7 @@ describe("related — the less common origins", () => {
 });
 
 describe("statementOf", () => {
-  it("skips superseded documents, and a statement outside any section is headed by its doc", () => {
+  it("finds a statement, and one outside any section is headed by its doc", () => {
     expect(statementOf(dir, "EXI_G_1")).toMatchObject({ docId: "SPEC", section: "§1", path: "1" });
     expect(statementOf(dir, "EXI_PRE_1")).toMatchObject({
       docId: "SPEC",

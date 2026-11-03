@@ -198,7 +198,7 @@ function reviewRoutes() {
     title: "Sectionneur (S)",
     text: "Selon le type de sectionneur, le menu contextuel diffère.",
     figures: [],
-    doc: { code: "SOSIE_211_D401-1_3", title: "Traction", version: "01.01", status: "validated", binding: "mandatory" },
+    doc: { code: "SOSIE_211_D401-1_3", title: "Traction", version: "01.01", status: "validated" },
   });
   routes["review.set"] = (i) => ({ id: i.id, review: i.decision === "validate" ? "validated" : "to-fix" });
 }
@@ -356,7 +356,6 @@ describe("Documents screen", () => {
       date: "",
       kind: "spec",
       status: "validated",
-      binding: "mandatory",
       source: { path: "", sha256: "", file: "source.docx" },
       convertedWith: "",
       convertedAt: "",
@@ -391,7 +390,6 @@ describe("Documents screen", () => {
       date: "",
       kind: "spec",
       status: "draft",
-      binding: "applicable",
       source: { path: "", sha256: "", file: "source.docx" },
       convertedWith: "",
       convertedAt: "",

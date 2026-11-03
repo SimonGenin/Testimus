@@ -209,14 +209,12 @@ describe("index", () => {
     expect(calls).toEqual([]);
   });
 
-  it("flags superseded documents and leaves them out of search unless asked", async () => {
+  it("an old superseded mark no longer hides a document; docIds narrows the search", async () => {
     const f = join(dir, "docs", D4, "doc.json");
     writeFileSync(f, JSON.stringify({ ...JSON.parse(readFileSync(f, "utf8")), status: "superseded" }));
     await indexProject(dir, quietCtx(dir));
     const out = await search(dir, "signal d'arrêt fermé", { mode: "bm25" });
-    expect(out.some((h) => h.docId === D4)).toBe(false);
-    const all = await search(dir, "signal d'arrêt fermé", { mode: "bm25", includeSuperseded: true });
-    expect(all[0].docId).toBe(D4);
+    expect(out[0].docId).toBe(D4);
     const only = await search(dir, "menu", { mode: "bm25", docIds: [D3] });
     expect(only.every((h) => h.docId === D3)).toBe(true);
   });
@@ -245,7 +243,7 @@ describe("passages", () => {
     expect(s.text).toContain("Confirmer la fermeture");
     expect(s.text).not.toContain("<!--");
     expect(s.figures.map((f) => f.anchor)).toEqual(["fig:40"]);
-    expect(s.doc).toMatchObject({ code: D3, status: "validated", binding: "mandatory" });
+    expect(s.doc).toMatchObject({ code: D3, status: "validated" });
 
     const r = passage(dir, `${D3}#req:EXI_MOP_SPF_511_A_1680`);
     expect(r).toMatchObject({ anchor: "req:EXI_MOP_SPF_511_A_1680", path: "5 > 5.6 > 5.6.6" });

@@ -386,15 +386,15 @@ function fingerprints(file: string, spaceId: string | undefined) {
   const db = openDb(file);
   try {
     const chunks = db.prepare("select id, hash from chunks order by id").all() as { id: string; hash: string }[];
-    const docs = db.prepare("select doc_id, content, superseded from docs order by doc_id").all() as {
+    const docs = db.prepare("select doc_id, content from docs order by doc_id").all() as {
       doc_id: string;
       content: string;
-      superseded: number;
     }[];
     const space = spaceId ? getSpace(db, spaceId) : undefined;
+    // ponytail: the trailing 0 is the superseded flag reports used to hash, kept so their corpus still compares
     return {
       chunker: sha256(chunks.map((c) => `${c.id}\t${c.hash}`).join("\n")).slice(0, 16),
-      corpus: sha256(docs.map((d) => `${d.doc_id}\t${sha256(d.content)}\t${d.superseded}`).join("\n")).slice(0, 16),
+      corpus: sha256(docs.map((d) => `${d.doc_id}\t${sha256(d.content)}\t0`).join("\n")).slice(0, 16),
       space: space
         ? { id: space.id, model: space.modelId, complete: space.complete, fingerprint: space.fingerprint }
         : null,

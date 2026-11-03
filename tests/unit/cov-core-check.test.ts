@@ -37,10 +37,7 @@ const write = (rel: string, text: string) => {
 };
 const addDoc = (id: string, md: string, extra: Record<string, unknown> = {}) => {
   write(`docs/${id}/doc.md`, md);
-  write(
-    `docs/${id}/doc.json`,
-    JSON.stringify({ id, code: id, title: `Doc ${id}`, status: "validated", binding: "mandatory", ...extra }),
-  );
+  write(`docs/${id}/doc.json`, JSON.stringify({ id, code: id, title: `Doc ${id}`, status: "validated", ...extra }));
 };
 const step = (fields: Record<string, string>, sources: Step["sources"] = []): Step => ({
   fields,
@@ -176,22 +173,6 @@ describe("mechanicalFindings — the less common branches", () => {
       "2:empty-field:error",
       "2:empty-field:error",
     ]);
-  });
-
-  it("a superseded document without a successor is named without one", () => {
-    const d = docText("## 1 X <!-- § 1 -->\nLe texte de la section est assez long ici.", {
-      doc: { status: "superseded" },
-      anchors: new Set(["§1"]),
-    });
-    const fs = mechanicalFindings(
-      testOf([
-        step({ Action: "a", "Expected Result": "b" }, [
-          { docId: "D", anchor: "§1", quote: "Le texte de la section est assez long ici." },
-        ]),
-      ]),
-      corpusOf(d),
-    );
-    expect(fs[0].message).toBe("Step 1 cites D, which is superseded: cite the current document.");
   });
 
   it("an anchor the md does not hold falls back to the whole text", () => {

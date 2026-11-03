@@ -41,7 +41,6 @@ describe("docs commands", () => {
       date: "2026-06-12",
       kind: "spec",
       status: "draft",
-      binding: "applicable",
       source: { path: original, sha256: sha256(before), file: "source.docx" },
       stats: { sections: 20, figures: 1, requirements: 3 },
     });
@@ -84,7 +83,6 @@ describe("docs commands", () => {
     await run(project, "docs.set", {
       id: "SOSIE_211_D401-1_3",
       status: "validated",
-      binding: "mandatory",
       title: "Traction",
     });
     const figs = JSON.parse(readFileSync(join(dir, "figures.json"), "utf8")) as FigureEntry[];
@@ -93,7 +91,7 @@ describe("docs commands", () => {
     figs[0].kind = "screen";
     writeFileSync(join(dir, "figures.json"), JSON.stringify(figs));
     const doc = await run<DocJson>(project, "docs.convert", { id: "SOSIE_211_D401-1_3" });
-    expect(doc).toMatchObject({ status: "validated", binding: "mandatory", title: "Traction", version: "01.01" });
+    expect(doc).toMatchObject({ status: "validated", title: "Traction", version: "01.01" });
     expect(readFileSync(join(dir, "doc.md"), "utf8")).toBe(md1);
     const after = JSON.parse(readFileSync(join(dir, "figures.json"), "utf8")) as FigureEntry[];
     expect(after[0]).toMatchObject({
@@ -157,28 +155,30 @@ describe("docs commands", () => {
     await run(project, "docs.add", { file: join(project, "..", "SOSIE_211_D401-1_3_01.02.docx"), id: "D401-1_3_v2" });
     const old = await run<DocJson>(project, "docs.set", {
       id: "SOSIE_211_D401-1_3",
-      supersededBy: "D401-1_3_v2",
+      status: "validated",
       context: "Remplacé par la 01.02.",
     });
-    expect(old).toMatchObject({ status: "superseded", supersededBy: "D401-1_3_v2" });
+    expect(old).toMatchObject({ status: "validated" });
     expect(readFileSync(join(project, "docs", "SOSIE_211_D401-1_3", "context.md"), "utf8")).toBe(
       "Remplacé par la 01.02.\n",
     );
     const v2 = await run<DocJson>(project, "docs.set", { id: "D401-1_3_v2", amends: ["SOSIE_211_D401-1_3"] });
     expect(v2.amends).toEqual(["SOSIE_211_D401-1_3"]);
-    await expect(run(project, "docs.set", { id: "D401-1_3_v2", supersededBy: "ghost" })).rejects.toThrow(
+    await expect(run(project, "docs.set", { id: "D401-1_3_v2", amends: ["ghost"] })).rejects.toThrow(
       /No document ghost/,
     );
-    const cleared = await run<DocJson>(project, "docs.set", {
-      id: "SOSIE_211_D401-1_3",
-      supersededBy: "",
-      status: "validated",
-    });
-    expect(cleared.supersededBy).toBeUndefined();
-    expect(cleared.status).toBe("validated");
-    await run(project, "docs.remove", { id: "D401-1_3_v2" });
+    await expect(run(project, "docs.set", { id: "D401-1_3_v2", status: "superseded" })).rejects.toThrow();
+    await run(project, "docs.set", { id: "SOSIE_211_D401-1_3", amends: ["D401-1_3_v2"] });
+    const gone = await run<{ unlinked: string[] }>(project, "docs.remove", { id: "D401-1_3_v2" });
+    expect(gone.unlinked).toEqual(["SOSIE_211_D401-1_3"]);
     expect(existsSync(join(project, "docs", "D401-1_3_v2"))).toBe(false);
-    expect((await run<DocRef[]>(project, "docs.list", {})).map((d) => d.id)).toEqual(["SOSIE_211_D401-1_3"]);
+    const left = await run<DocRef[]>(project, "docs.list", {});
+    expect(left.map((d) => d.id)).toEqual(["SOSIE_211_D401-1_3"]);
+    expect(left[0]).toMatchObject({ status: "validated" });
+    expect(left[0].amends).toBeUndefined();
+    expect(
+      JSON.parse(readFileSync(join(project, "docs", "SOSIE_211_D401-1_3", "doc.json"), "utf8")),
+    ).not.toHaveProperty("indexed");
   });
 
   it("reads the fixture project's documents", async () => {
@@ -189,6 +189,25 @@ describe("docs commands", () => {
       ["SOSIE_211_D401-1_3", "validated", "missing"],
       ["SOSIE_211_D401-1_4", "submitted", "missing"],
     ]);
+    const legacy = join(copy, "docs", "SOSIE_211_D401-1_4", "doc.json");
+    writeFileSync(
+      legacy,
+      JSON.stringify({
+        ...JSON.parse(readFileSync(legacy, "utf8")),
+        binding: "mandatory",
+        status: "superseded",
+        supersededBy: "SOSIE_211_D401-1_3",
+      }),
+    );
+    const read = (await run<DocRef[]>(copy, "docs.list", {}))[1];
+    expect(read.status).toBe("draft");
+    expect(read).not.toHaveProperty("binding");
+    expect(read).not.toHaveProperty("supersededBy");
+    await run(copy, "docs.set", { id: "SOSIE_211_D401-1_4", context: "x" });
+    const written = JSON.parse(readFileSync(legacy, "utf8"));
+    expect(written.status).toBe("draft");
+    expect(written).not.toHaveProperty("binding");
+    expect(written).not.toHaveProperty("supersededBy");
     const s = await run<{ md: string; context: string }>(copy, "docs.show", {
       id: "SOSIE_211_D401-1_3",
       anchor: "§5.6.6",

@@ -15,7 +15,7 @@ function addDoc(id: string, md: string, extra: Record<string, unknown> = {}) {
   writeFileSync(join(dir, "docs", id, "doc.md"), md);
   writeFileSync(
     join(dir, "docs", id, "doc.json"),
-    JSON.stringify({ id, code: id, title: `Doc ${id}`, status: "validated", binding: "mandatory", ...extra }),
+    JSON.stringify({ id, code: id, title: `Doc ${id}`, status: "validated", ...extra }),
   );
 }
 
@@ -33,7 +33,6 @@ beforeEach(() => {
       "Comme le demande EXI_MOP_SPF_100_A_20, la vue se rafraîchit (voir SPEC_A §2.2).",
     ].join("\n"),
   );
-  addDoc("OLD", "# OLD — O\n\n## 1 X <!-- § 1 -->\n\nVoir SPEC_A §2.1.\n", { status: "superseded" });
 });
 
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
@@ -117,10 +116,6 @@ describe("rag.related (SPEC-RAG §3.3, §4.1)", () => {
     expect(of(two, "parent", "out", 2)).toContain("SPEC_A#§2");
     const depth1 = new Set(one.neighbours.map((n) => n.ref));
     for (const n of two.neighbours.filter((x) => x.depth === 2)) expect(depth1.has(n.ref)).toBe(false);
-  });
-
-  it("never returns a superseded document", () => {
-    expect(of(related(dir, { ref: "SPEC_A#§2.1" }), "refers", "in")).not.toContain("OLD#§1");
   });
 
   it("refuses what does not exist", () => {

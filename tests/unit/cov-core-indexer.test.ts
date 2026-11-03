@@ -6,7 +6,8 @@ import type { Ctx } from "../../src/core/command.ts";
 import { quietCtx } from "../../src/core/command.ts";
 import { env } from "../../src/core/env.ts";
 import { hooks } from "../../src/core/rag/chunk.ts";
-import { indexProject, projectDocs } from "../../src/core/rag/indexer.ts";
+import { chunkCount, indexFile, listSpaces, missingVectors, openDb, vectorCount } from "../../src/core/rag/db.ts";
+import { indexProject, projectDocs, readState, unindexDoc } from "../../src/core/rag/indexer.ts";
 import { EMBEDDINGS } from "../../src/core/rag/models.ts";
 
 const FIXTURE = join(import.meta.dirname, "..", "fixtures", "project");
@@ -67,10 +68,9 @@ describe("indexProject — less common paths", () => {
     expect(r.docs.find((d) => d.docId === D3)?.status).toBe("indexed");
   });
 
-  it("an unchanged superseded document without a source hash is marked superseded", async () => {
+  it("an unchanged document without a source hash stays unchanged", async () => {
     await indexProject(dir, quietCtx(dir), { model: null });
     const j = JSON.parse(readFileSync(docJson(D3), "utf8"));
-    j.status = "superseded";
     delete j.source;
     writeFileSync(docJson(D3), JSON.stringify(j));
     const r = await indexProject(dir, quietCtx(dir), { model: null });
@@ -82,6 +82,36 @@ describe("indexProject — less common paths", () => {
     const r = await indexProject(dir, quietCtx(dir), { profile: EMBEDDINGS[0] });
     expect(r.embedding).toBe("bge-m3-q8");
     expect(r.embedded).toBeGreaterThan(0);
+  });
+
+  it("unindexDoc drops a document's rows, vectors, links and state, and keeps the space complete", async () => {
+    unindexDoc(dir, D3);
+    await indexProject(dir, quietCtx(dir), { profile: EMBEDDINGS[0] });
+    const count = (sql: string) => {
+      const db = openDb(indexFile(dir));
+      try {
+        return Number((db.prepare(sql).get(D3) as { n: number }).n);
+      } finally {
+        db.close();
+      }
+    };
+    expect(count("select count(*) n from chunks where doc_id = ?")).toBeGreaterThan(0);
+    unindexDoc(dir, D3);
+    expect(count("select count(*) n from chunks where doc_id = ?")).toBe(0);
+    expect(count("select count(*) n from docs where doc_id = ?")).toBe(0);
+    expect(count("select count(*) n from edges where doc_id = ?")).toBe(0);
+    const db = openDb(indexFile(dir));
+    try {
+      const [space] = listSpaces(db);
+      expect(space.complete).toBe(true);
+      expect(missingVectors(db, space.id)).toEqual([]);
+      expect(vectorCount(db, space.id)).toBe(chunkCount(db));
+      expect(db.prepare("select count(*) n from chunks_fts").get()).toEqual({ n: chunkCount(db) });
+    } finally {
+      db.close();
+    }
+    expect(readState(dir)?.docs).not.toHaveProperty(D3);
+    unindexDoc(dir, D3);
   });
 
   it("stops before chunking when already cancelled", async () => {

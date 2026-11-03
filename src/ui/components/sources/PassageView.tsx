@@ -83,13 +83,6 @@ export const DOC_STATUS: Record<string, { label: string; tone: BadgeTone }> = {
   draft: { label: "Draft", tone: "neutral" },
   submitted: { label: "Submitted", tone: "info" },
   validated: { label: "Validated", tone: "ok" },
-  superseded: { label: "Superseded", tone: "warn" },
-};
-
-export const BINDING: Record<string, string> = {
-  mandatory: "Mandatory",
-  applicable: "Applicable",
-  informative: "Informative",
 };
 
 export const paragraphs = (text: string) =>
@@ -102,14 +95,9 @@ export const paragraphs = (text: string) =>
 
 export const sectionNumber = (anchor: string) => (anchor.startsWith("§") ? anchor.slice(1) : "");
 
-export function DocBadges({ status, binding }: { status: string; binding: string }) {
+export function DocBadges({ status }: { status: string }) {
   const s = DOC_STATUS[status] ?? { label: status, tone: "neutral" as const };
-  return (
-    <>
-      <Badge tone={s.tone}>{s.label}</Badge>
-      <Badge>{BINDING[binding] ?? binding}</Badge>
-    </>
-  );
+  return <Badge tone={s.tone}>{s.label}</Badge>;
 }
 
 export function PassageText({ passage, quote }: { passage: Passage; quote: string }) {

@@ -6,7 +6,6 @@
   "date": "2026-10-01",
   "kind": "spec",
   "status": "validated",
-  "binding": "mandatory",
   "source": { "path": "SPEC_A.docx", "sha256": "fixture", "file": "source.docx" },
   "convertedWith": "fixture",
   "convertedAt": "2026-10-30T09:00:00.000Z",

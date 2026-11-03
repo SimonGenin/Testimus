@@ -161,14 +161,13 @@ describe("figure descriptions v2 — search and sources", () => {
     const db = openDb(join(dir, "index", "rag.db"));
     try {
       const ids = new Map<number, string>();
-      for (const c of chunkDoc(doc, md(), [v2])) ids.set(insertChunk(db, c, c.id, false), c.id);
+      for (const c of chunkDoc(doc, md(), [v2])) ids.set(insertChunk(db, c, c.id), c.id);
       const hits = bm25(db, "bloquer la manœuvre", {}).map((r) => ids.get(r));
       expect(hits[0]).toBe(`${D3}#fig:40`);
       const before = openDb(join(dir, "index", "v1.db"));
       try {
         const v1 = new Map<number, string>();
-        for (const c of chunkDoc(doc, md(), [{ ...v2, labels: undefined }]))
-          v1.set(insertChunk(before, c, c.id, false), c.id);
+        for (const c of chunkDoc(doc, md(), [{ ...v2, labels: undefined }])) v1.set(insertChunk(before, c, c.id), c.id);
         expect(bm25(before, "bloquer la manœuvre", {}).map((r) => v1.get(r))).not.toContain(`${D3}#fig:40`);
       } finally {
         before.close();

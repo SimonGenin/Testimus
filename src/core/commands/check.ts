@@ -8,7 +8,6 @@ import type { FindingKind } from "../types.ts";
 export const KINDS: [FindingKind, ...FindingKind[]] = [
   "source-missing",
   "quote-not-found",
-  "doc-superseded",
   "unsupported",
   "contradicted",
   "wrong-requirement",

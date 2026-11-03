@@ -396,7 +396,7 @@ describe("SourcePanel and EvidenceBlock", () => {
     title: "One",
     text: "Le texte avec la citation.",
     figures: [],
-    doc: { code: "C-D", title: "Doc D", version: "2", status: "validated", binding: "mandatory" },
+    doc: { code: "C-D", title: "Doc D", version: "2", status: "validated" },
   };
 
   it("shows a passage, its count and opens the document", async () => {

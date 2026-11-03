@@ -33,8 +33,8 @@ test, not `check.json`. You report what is wrong, precisely enough that a review
    (every page), in the **other** documents and in the documents that **amend** the cited one
    (`rag_related <docId#anchor>` lists them, kind `amends`) — not with one top-10 search. Read each
    hit's section before concluding. When a passage disagrees, apply the precedence of the project
-   `CLAUDE.md` and of `doc.json` (`status`, `binding`; an amendment wins over what it amends): say
-   which one wins, or that none does. A superseded document is never the authority.
+   `CLAUDE.md` and of `doc.json` (`status`; an amendment wins over what it amends): say
+   which one wins, or that none does.
 
 ## Finding kinds
 

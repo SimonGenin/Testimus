@@ -11,7 +11,7 @@ export function SectionPicker({ values, onChange }: { values: string[]; onChange
   const [open, setOpen] = useState<Record<string, TocEntry[] | "loading">>({});
   useEffect(() => {
     call<DocRef[]>("docs.list", {})
-      .then((r) => setDocs((r ?? []).filter((d) => d.status !== "superseded" && !d.supersededBy)))
+      .then((r) => setDocs(r ?? []))
       .catch(() => setDocs([]));
   }, []);
 

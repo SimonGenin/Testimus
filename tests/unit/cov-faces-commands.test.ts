@@ -77,7 +77,6 @@ describe("docs commands", () => {
   });
 
   it("refuses a document that refers to itself and edits title, version and date", async () => {
-    await expect(run("docs.set", { id: DOC, supersededBy: DOC })).rejects.toThrow("A document cannot refer to itself.");
     await expect(run("docs.set", { id: DOC, amends: [DOC] })).rejects.toThrow("A document cannot refer to itself.");
     const doc = (await run("docs.set", {
       id: DOC,
@@ -87,10 +86,9 @@ describe("docs commands", () => {
       kind: "minutes",
     })) as DocJson;
     expect(doc).toMatchObject({ title: "T", version: "9", date: "2026-01-01", kind: "minutes" });
-    const linked = (await run("docs.set", { id: DOC, supersededBy: "SOSIE_211_D401-1_4" })) as DocJson;
-    expect(linked.status).toBe("superseded");
-    const cleared = (await run("docs.set", { id: DOC, supersededBy: "", amends: [] })) as DocJson;
-    expect(cleared.supersededBy).toBeUndefined();
+    const linked = (await run("docs.set", { id: DOC, amends: ["SOSIE_211_D401-1_4"] })) as DocJson;
+    expect(linked.amends).toEqual(["SOSIE_211_D401-1_4"]);
+    const cleared = (await run("docs.set", { id: DOC, amends: [] })) as DocJson;
     expect(cleared.amends).toBeUndefined();
   });
 

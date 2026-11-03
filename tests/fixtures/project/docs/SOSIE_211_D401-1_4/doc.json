@@ -6,7 +6,6 @@
   "date": "2026-06-12",
   "kind": "spec",
   "status": "submitted",
-  "binding": "applicable",
   "source": { "path": "SOSIE_211_D401-1_4_01_01_TC.docx", "sha256": "fixture", "file": "source.docx" },
   "convertedWith": "fixture",
   "convertedAt": "2026-10-30T09:00:00.000Z",

@@ -98,7 +98,7 @@ export type RagStatus = {
   degraded: string | null;
   chunks: number;
   builtAt: string | null;
-  docs: { docId: string; indexed: "fresh" | "stale" | "missing"; superseded: boolean }[];
+  docs: { docId: string; indexed: "fresh" | "stale" | "missing" }[];
 };
 
 export type Op = { key: string; jobId: string; label: string; message: string; pct: number | null };

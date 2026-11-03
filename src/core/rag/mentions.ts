@@ -4,7 +4,7 @@ import type { Chunk, DocJson } from "../types.ts";
 import { chunkDoc, lines, parseSections } from "./chunk.ts";
 import { chunksOf, indexFile, openDb } from "./db.ts";
 import { expandTerm } from "./glossary.ts";
-import { isSuperseded, projectDocs } from "./indexer.ts";
+import { projectDocs } from "./indexer.ts";
 import { evidenceOptions } from "./statements.ts";
 import { fold, STOP_WORDS, stemWord } from "./stem-fr.ts";
 
@@ -14,7 +14,6 @@ export type MentionsInput = {
   stem?: boolean;
   glossary?: boolean;
   docIds?: string[];
-  includeSuperseded?: boolean;
   page?: number;
   pageSize?: number;
 };
@@ -39,7 +38,6 @@ export type Mentions = {
 export type CorpusDoc = {
   doc: DocJson;
   md: string;
-  superseded: boolean;
   chunks: Chunk[];
   titles: Map<string, string>;
   sections: { anchor: string; title: string; path: string }[];
@@ -96,7 +94,6 @@ export function corpusDocs(project: string): CorpusDoc[] {
       return {
         doc: d.doc,
         md: d.md,
-        superseded: isSuperseded(d.doc),
         chunks,
         titles: new Map(sections.map((s) => [s.anchor, s.title])),
         sections,
@@ -249,7 +246,6 @@ export function mentions(project: string, input: MentionsInput): Mentions {
   const groups: Group[] = [];
   const perDoc = new Map<string, number>();
   for (const d of corpusDocs(project)) {
-    if (d.superseded && !input.includeSuperseded) continue;
     if (input.docIds?.length && !input.docIds.includes(d.doc.id)) continue;
     const byRef = new Map<string, Group>();
     for (const c of d.chunks) {

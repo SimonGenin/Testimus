@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { DocJson, DocRef, FigureEntry, TraceItem, TraceScan, TraceView } from "../../../core/types.ts";
 import { call, project } from "../../api.ts";
-import { Button, Chip, Icon, Menu, Severity, Skeleton } from "../../components/ui/index.ts";
+import { Button, Chip, Confirm, Icon, IconButton, Menu, Severity, Skeleton } from "../../components/ui/index.ts";
 import { desktop, pathJoin, reveal } from "../../lib/desktop.ts";
 import { message, plural } from "../../lib/format.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
@@ -18,8 +18,7 @@ type Shown = {
   md: string;
 };
 
-const STATUSES = ["draft", "submitted", "validated", "superseded"] as const;
-const BINDINGS = ["mandatory", "applicable", "informative"] as const;
+const STATUSES: DocJson["status"][] = ["draft", "submitted", "validated"];
 const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
 const LEGACY: TraceView = {
   id: REQUIREMENT,
@@ -39,6 +38,7 @@ export function DocDetail({
   onAnchor,
   onChanged,
   onReindex,
+  onRemoved,
 }: {
   id: string;
   anchor: string;
@@ -46,8 +46,11 @@ export function DocDetail({
   onAnchor: (anchor: string) => void;
   onChanged: () => void;
   onReindex: () => void;
+  onRemoved: () => void;
 }) {
   const [shown, setShown] = useState<Shown | null>(null);
+  const [ask, setAsk] = useState(false);
+  const [removing, setRemoving] = useState(false);
   const [part, setPart] = useState<{ anchor: string; md: string; focus?: string } | null>(null);
   const [context, setContext] = useState("");
   const [error, setError] = useState("");
@@ -128,6 +131,19 @@ export function DocDetail({
     [id, onChanged],
   );
 
+  const remove = async () => {
+    setRemoving(true);
+    try {
+      await call("docs.remove", { id });
+      toast({ kind: "info", title: `${shown?.doc.code ?? id} deleted` });
+      onRemoved();
+    } catch (e) {
+      errorToast(e, "Could not delete the document");
+      setRemoving(false);
+      setAsk(false);
+    }
+  };
+
   if (error)
     return (
       <aside className="split-side docdetail" aria-label={`${id} details`}>
@@ -156,15 +172,31 @@ export function DocDetail({
   return (
     <aside className="split-side docdetail" aria-label={`${d.code} details`}>
       <div className="docdetail-head">
-        <span className="mono muted docdetail-code">
-          <span>{d.code}</span> · <span>version {d.version}</span>
-          {d.date && (
-            <>
-              {" · "}
-              <span>{d.date}</span>
-            </>
-          )}
-        </span>
+        <div className="docdetail-top">
+          <span className="mono muted docdetail-code">
+            <span>{d.code}</span> · <span>version {d.version}</span>
+            {d.date && (
+              <>
+                {" · "}
+                <span>{d.date}</span>
+              </>
+            )}
+          </span>
+          <Menu
+            label="More actions for this document"
+            align="right"
+            items={[{ key: "delete", label: "Delete", icon: "trash", danger: true, onSelect: () => setAsk(true) }]}
+            trigger={({ open, toggle, id: mid }) => (
+              <IconButton
+                icon="more"
+                label="More actions for this document"
+                aria-expanded={open}
+                aria-controls={open ? mid : undefined}
+                onClick={toggle}
+              />
+            )}
+          />
+        </div>
         <h2 className="h docdetail-title">{d.title}</h2>
         <span className="muted">
           Converted from {from} · {plural(shown.toc.length, "section")} ·{" "}
@@ -199,41 +231,6 @@ export function DocDetail({
             {STATUSES.map((s) => (
               <option key={s} value={s}>
                 {cap(s)}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="formfield">
-          <label className="label" htmlFor="doc-binding">
-            Binding
-          </label>
-          <select
-            id="doc-binding"
-            className="field"
-            value={d.binding}
-            onChange={(e) => void set({ binding: e.target.value as DocJson["binding"] })}
-          >
-            {BINDINGS.map((s) => (
-              <option key={s} value={s}>
-                {cap(s)}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="formfield">
-          <label className="label" htmlFor="doc-superseded">
-            Superseded by
-          </label>
-          <select
-            id="doc-superseded"
-            className="field"
-            value={d.supersededBy ?? ""}
-            onChange={(e) => void set({ supersededBy: e.target.value })}
-          >
-            <option value="">— none</option>
-            {others.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.code} {o.title}
               </option>
             ))}
           </select>
@@ -383,6 +380,28 @@ export function DocDetail({
             ))}
           </div>
         </div>
+      )}
+
+      {ask && (
+        <Confirm
+          title="Delete this document?"
+          confirm="Delete"
+          danger
+          busy={removing}
+          loss={
+            <>
+              <strong>What is lost: </strong>the copy of the original, the converted text, the figures and their
+              descriptions, the context, and its passages in the search index. Tests that cite it keep their sources,
+              which the check will then report as missing.
+            </>
+          }
+          onClose={() => setAsk(false)}
+          onConfirm={() => void remove()}
+        >
+          <p>
+            <span className="mono">{d.code}</span> — {d.title} — is removed from the project folder and from the index.
+          </p>
+        </Confirm>
       )}
     </aside>
   );

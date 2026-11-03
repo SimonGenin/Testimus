@@ -109,7 +109,6 @@ beforeEach(() => {
         kind: "section",
       },
       `h${n}`,
-      false,
     ),
   );
   db.close();

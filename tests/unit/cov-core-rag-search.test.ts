@@ -53,7 +53,6 @@ describe("passage — the less common anchors", () => {
       title: "",
       version: "",
       status: "draft",
-      binding: "informative",
     });
   });
 

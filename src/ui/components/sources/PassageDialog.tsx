@@ -69,7 +69,7 @@ export function PassageDialog({
       ) : (
         <div className="passage-body">
           <div className="passage-meta">
-            <DocBadges status={p.doc.status} binding={p.doc.binding} />
+            <DocBadges status={p.doc.status} />
           </div>
           <PassageText passage={p} quote={source.quote} />
         </div>

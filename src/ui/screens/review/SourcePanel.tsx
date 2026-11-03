@@ -71,7 +71,7 @@ export function SourcePanel({
         {p ? <h3 className="h srcpanel-title">{p.doc.title}</h3> : !error && <Skeleton w={140} h={18} />}
         {p && (
           <div className="chips">
-            <DocBadges status={p.doc.status} binding={p.doc.binding} />
+            <DocBadges status={p.doc.status} />
           </div>
         )}
       </div>

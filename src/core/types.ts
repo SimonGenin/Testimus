@@ -116,7 +116,6 @@ export type FindingKind =
   | "quote-not-at-anchor"
   | "quote-weak"
   | "related-unread"
-  | "doc-superseded"
   | "unsupported"
   | "contradicted"
   | "wrong-requirement"
@@ -146,8 +145,7 @@ export type CheckFile = { at: string; testHash: string; findings: Finding[] };
 // Documents (SPEC §4)
 
 export type DocKind = "spec" | "requirements" | "minutes" | "other";
-export type DocStatus = "draft" | "submitted" | "validated" | "superseded";
-export type DocBinding = "mandatory" | "applicable" | "informative";
+export type DocStatus = "draft" | "submitted" | "validated";
 export type DocJson = {
   id: string;
   code: string;
@@ -156,8 +154,6 @@ export type DocJson = {
   date: string;
   kind: DocKind;
   status: DocStatus;
-  binding: DocBinding;
-  supersededBy?: string;
   amends?: string[];
   source: { path: string; sha256: string; file: string };
   convertedWith: string;
@@ -230,7 +226,7 @@ export type Passage = {
   truncated?: boolean;
   outline?: PassageOutlineItem[];
   readMore?: string;
-  doc: { code: string; title: string; version: string; status: DocStatus; binding: DocBinding };
+  doc: { code: string; title: string; version: string; status: DocStatus };
 };
 
 // Evidence model (SPEC-RAG §3)

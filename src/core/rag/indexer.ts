@@ -67,10 +67,6 @@ export function readState(project: string): IndexState | null {
   return readJson<IndexState | null>(stateFile(project), null);
 }
 
-export function isSuperseded(doc: DocJson): boolean {
-  return doc.status === "superseded" || !!doc.supersededBy;
-}
-
 export function projectDocs(project: string): ProjectDoc[] {
   const root = join(project, "docs");
   if (!existsSync(root)) return [];
@@ -113,16 +109,10 @@ async function indexDoc(
   project: string,
   force = false,
 ): Promise<DocIndexStatus> {
-  const superseded = isSuperseded(d.doc);
   const row = db.prepare("select content from docs where doc_id = ?").get(d.doc.id) as { content: string } | undefined;
   if (row?.content === d.content) {
     transaction(db, () => {
-      db.prepare("update docs set superseded = ?, sha256 = ? where doc_id = ?").run(
-        superseded ? 1 : 0,
-        d.doc.source?.sha256 ?? "",
-        d.doc.id,
-      );
-      db.prepare("update chunks set superseded = ? where doc_id = ?").run(superseded ? 1 : 0, d.doc.id);
+      db.prepare("update docs set sha256 = ? where doc_id = ?").run(d.doc.source?.sha256 ?? "", d.doc.id);
       replaceEdges(db, d.doc.id, docEdges(project, d.doc, d.md, d.figures));
     });
     return "unchanged";
@@ -143,14 +133,13 @@ async function indexDoc(
   transaction(db, () => {
     for (const [key, c] of old) if (!keep.has(key)) deleteChunk(db, c.rowid);
     fresh.forEach((c, i) => {
-      insertChunk(db, { ...c, header: headers[i] }, chunkHash(c), superseded);
+      insertChunk(db, { ...c, header: headers[i] }, chunkHash(c));
     });
-    db.prepare("update chunks set superseded = ? where doc_id = ?").run(superseded ? 1 : 0, d.doc.id);
     replaceEdges(db, d.doc.id, docEdges(project, d.doc, d.md, d.figures));
     db.prepare(
-      `insert into docs(doc_id, sha256, content, superseded) values (?, ?, ?, ?)
-       on conflict(doc_id) do update set sha256 = excluded.sha256, content = excluded.content, superseded = excluded.superseded`,
-    ).run(d.doc.id, d.doc.source?.sha256 ?? "", d.content, superseded ? 1 : 0);
+      `insert into docs(doc_id, sha256, content) values (?, ?, ?)
+       on conflict(doc_id) do update set sha256 = excluded.sha256, content = excluded.content`,
+    ).run(d.doc.id, d.doc.source?.sha256 ?? "", d.content);
   });
   return "indexed";
 }
@@ -188,6 +177,36 @@ async function chooseModel(
   };
 }
 
+// ponytail: a removed document takes its vectors with it in every space, so a complete space stays complete
+function forgetDoc(db: DatabaseSync, id: string): void {
+  transaction(db, () => {
+    const spaces = listSpaces(db);
+    for (const c of chunksOf(db, id)) {
+      db.prepare("delete from chunks where rowid = ?").run(c.rowid);
+      db.prepare("delete from chunks_fts where rowid = ?").run(c.rowid);
+      for (const s of spaces) db.prepare(`delete from ${vecTable(s.id)} where chunk_rowid = ?`).run(BigInt(c.rowid));
+    }
+    db.prepare("delete from docs where doc_id = ?").run(id);
+    replaceEdges(db, id, []);
+  });
+}
+
+export function unindexDoc(project: string, id: string): void {
+  if (existsSync(indexFile(project))) {
+    const db = openDb(indexFile(project));
+    try {
+      forgetDoc(db, id);
+    } finally {
+      db.close();
+    }
+  }
+  const state = readState(project);
+  if (state?.docs[id] !== undefined) {
+    delete state.docs[id];
+    writeJson(stateFile(project), state);
+  }
+}
+
 export async function indexProject(
   project: string,
   ctx: Ctx,
@@ -215,11 +234,7 @@ export async function indexProject(
       .map((r) => r.doc_id)
       .filter((id) => !onDisk.has(id));
     for (const id of gone) {
-      transaction(db, () => {
-        for (const c of chunksOf(db, id)) deleteChunk(db, c.rowid);
-        db.prepare("delete from docs where doc_id = ?").run(id);
-        replaceEdges(db, id, []);
-      });
+      forgetDoc(db, id);
       report.push({ docId: id, status: "removed", chunks: 0 });
     }
     for (const s of listSpaces(db))

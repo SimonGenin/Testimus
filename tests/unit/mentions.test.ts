@@ -23,7 +23,6 @@ function addDoc(id: string, md: string, extra: Record<string, unknown> = {}) {
       date: "",
       kind: "spec",
       status: "validated",
-      binding: "mandatory",
       source: { path: `${id}.docx`, sha256: id },
       ...extra,
     }),
@@ -55,7 +54,6 @@ beforeEach(() => {
       "Chaque sous-station alimente la ligne.",
     ].join("\n"),
   );
-  addDoc("OLD", "# OLD — Ancien\n\n## 1 Vieux <!-- § 1 -->\n\nLes postes anciens.\n", { status: "superseded" });
 });
 
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
@@ -107,9 +105,7 @@ describe("rag.mentions (SPEC-RAG §4.1)", () => {
     expect(() => mentions(dir, { term: "(", regex: true })).toThrow(/regular expression/);
   });
 
-  it("leaves superseded documents out unless asked, and filters by document", () => {
-    expect(refs(mentions(dir, { term: "poste" }))).not.toContain("OLD#§1");
-    expect(refs(mentions(dir, { term: "poste", includeSuperseded: true }))).toContain("OLD#§1");
+  it("filters by document", () => {
     const only = mentions(dir, { term: "poste", docIds: ["GLOSS"] });
     expect(only.docs.map((d) => d.docId)).toEqual(["GLOSS"]);
   });

@@ -200,7 +200,6 @@ describe("Documents › adding", () => {
     date: "",
     kind: "spec",
     status: "validated",
-    binding: "mandatory",
     source: { path: "C:\\specs\\SOSIE_3.docx", sha256: "x", file: "source.docx" },
     convertedWith: "t",
     convertedAt: "",

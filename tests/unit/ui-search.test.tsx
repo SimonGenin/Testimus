@@ -46,7 +46,7 @@ const status = (over: Record<string, unknown> = {}) => ({
   degraded: null,
   chunks: 40,
   builtAt: null,
-  docs: [{ docId: "D1", indexed: "fresh", superseded: false }],
+  docs: [{ docId: "D1", indexed: "fresh" }],
   ...over,
 });
 

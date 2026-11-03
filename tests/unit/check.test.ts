@@ -68,18 +68,13 @@ describe("mechanical check — sources", () => {
     expect(check1398()).toEqual([]);
   });
 
-  it("superseded document (status or supersededBy)", () => {
-    edit(docFile(DOC, "doc.json"), '"status": "validated"', '"status": "superseded"');
-    expect(kinds(check1398())).toEqual(["1:doc-superseded:error"]);
+  it("an old superseded mark in doc.json no longer stops a citation", () => {
     edit(
       docFile(DOC, "doc.json"),
-      '"status": "superseded"',
-      '"status": "validated", "supersededBy": "SOSIE_211_D401-1_3b"',
+      '"status": "validated"',
+      '"status": "superseded", "supersededBy": "SOSIE_211_D401-1_3b"',
     );
-    expect(check1398()[0]).toMatchObject({
-      kind: "doc-superseded",
-      message: expect.stringContaining("by SOSIE_211_D401-1_3b"),
-    });
+    expect(check1398()).toEqual([]);
   });
 
   it("missing anchor, for each anchor kind", () => {

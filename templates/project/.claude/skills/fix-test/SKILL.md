@@ -17,7 +17,7 @@ description: Correct one Xray test from a reviewer's "To fix" note and the test'
   no longer fits). Keep step ids (`<!-- id -->`), attachments and untouched steps byte for byte.
 - Every expected result you add or change gets a `### Sources` line with an exact quote, same rules as
   generate-tests: `- <docId>#<anchor> "<words copied from docs/<docId>/doc.md>"`, anchor `§x.y`,
-  `req:ID` or `fig:N`, never a superseded document; the quote must be in the cited passage itself.
+  `req:ID` or `fig:N`; the quote must be in the cited passage itself.
   Find them with `rag_related` (on the step's requirements: defining and traced sections, amending
   documents), `rag_mentions` (on the step's objects, across all documents) and `rag_search`, then
   read them with `rag_passage` and in `doc.md`. A `fig:` source is cited with its caption, after you

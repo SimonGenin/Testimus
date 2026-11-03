@@ -20,7 +20,6 @@ export const commands: Command[] = [
       query: z.string().min(1).describe("What to look for: a question, a requirement id, a device name"),
       k: z.number().int().min(1).max(50).default(10).describe("How many passages to return"),
       docIds: z.array(z.string()).optional().describe("Only search these documents"),
-      includeSuperseded: z.boolean().default(false).describe("Also return passages of superseded documents"),
       mode,
       expand: z
         .enum(["none", "section", "graph"])
@@ -96,7 +95,6 @@ export const commands: Command[] = [
         title: z.string(),
         version: z.string(),
         status: z.string(),
-        binding: z.string(),
       }),
     }),
     mutates: false,

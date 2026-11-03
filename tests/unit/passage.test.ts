@@ -125,7 +125,7 @@ describe("a quote past the cap of a long section (review #16)", () => {
     );
     writeFileSync(
       join(project, "docs", "LONG", "doc.json"),
-      JSON.stringify({ id: "LONG", code: "LONG", title: "Longue", status: "validated", binding: "mandatory" }),
+      JSON.stringify({ id: "LONG", code: "LONG", title: "Longue", status: "validated" }),
     );
   };
   const quote = "l'état du disjoncteur de la sous-station en rouge";

@@ -333,7 +333,7 @@ describe("Passage dialog", () => {
     title: "Menus",
     text: "Le menu ne propose que Propriétés.",
     figures: [],
-    doc: { code: "SOSIE_211", title: "Spécification", version: "3", status: "validated", binding: "mandatory" },
+    doc: { code: "SOSIE_211", title: "Spécification", version: "3", status: "validated" },
   };
 
   it("loads the passage, highlights the quote and opens it in its document", async () => {

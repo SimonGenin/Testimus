@@ -108,8 +108,8 @@ describe("rag.db schema v2", () => {
       const b = createSpace(db, fp({ model: "sha:def", modelId: "qwen", dims: 2 }));
       expect(a.id).toBe(spaceId(fp()));
       expect(a.id).not.toBe(b.id);
-      const r1 = insertChunk(db, chunk("1"), "h1", false);
-      const r2 = insertChunk(db, chunk("2"), "h2", false);
+      const r1 = insertChunk(db, chunk("1"), "h1");
+      const r2 = insertChunk(db, chunk("2"), "h2");
       putVector(db, a.id, r1, new Float32Array([1, 0, 0, 0]));
       putVector(db, a.id, r2, new Float32Array([0, 1, 0, 0]));
       putVector(db, b.id, r1, new Float32Array([1, 0]));

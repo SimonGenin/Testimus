@@ -23,7 +23,18 @@ export function docDir(project: string, id: string): string {
 export function readDoc(project: string, id: string): DocJson {
   const file = join(docDir(project, id), "doc.json");
   if (!existsSync(file)) throw new UserError(`No document ${id}.`, "testimus docs list shows the project's documents.");
-  return JSON.parse(readFileSync(file, "utf8").replace(/^﻿/, "")) as DocJson;
+  // ponytail: binding and superseded were dropped (deleting an old version replaces superseding it); an older
+  // doc.json reads without them, a superseded one as a draft, and loses them at its next write
+  const {
+    binding: _b,
+    supersededBy: _s,
+    ...doc
+  } = JSON.parse(readFileSync(file, "utf8").replace(/^﻿/, "")) as Omit<DocJson, "status"> & {
+    status: string;
+    binding?: string;
+    supersededBy?: string;
+  };
+  return { ...doc, status: doc.status === "superseded" ? "draft" : (doc.status as DocJson["status"]) };
 }
 
 export function writeDoc(project: string, doc: DocJson): void {
@@ -211,7 +222,6 @@ export async function addDoc(
       date: c.meta.date,
       kind: input.kind ?? "spec",
       status: "draft",
-      binding: "applicable",
       source: { path: file, sha256: sha256(bytes), file: `source${ext}` },
       convertedWith: c.convertedWith,
       convertedAt: env.now().toISOString(),
@@ -260,7 +270,18 @@ export async function reconvertDoc(
   return next;
 }
 
-export function removeDoc(project: string, id: string): void {
+export function removeDoc(project: string, id: string): string[] {
   readDoc(project, id);
   rmSync(docDir(project, id), { recursive: true, force: true });
+  const touched: string[] = [];
+  for (const other of listDocs(project)) {
+    const { indexed: _, ...doc } = other;
+    if (!doc.amends?.includes(id)) continue;
+    const amends = doc.amends.filter((a) => a !== id);
+    if (amends.length) doc.amends = amends;
+    else delete doc.amends;
+    writeDoc(project, doc);
+    touched.push(doc.id);
+  }
+  return touched;
 }

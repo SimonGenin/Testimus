@@ -6,8 +6,8 @@ and what the team knows about both. Testimus (the app) and you work on the same 
 ## What is here
 
 - `docs/<docId>/` — one document: `doc.md` (converted text, anchors as `<!-- § 5.6.6 -->`,
-  `<!-- req EXI_… -->`, `<!-- fig 40 -->`), `figures/`, `doc.json` (version, `status`, `binding`,
-  `supersededBy`), `context.md` (what the team says about it — read it before using the document).
+  `<!-- req EXI_… -->`, `<!-- fig 40 -->`), `figures/`, `doc.json` (version, `status`,
+  `amends`), `context.md` (what the team says about it — read it before using the document).
 - `tests/<id>/test.md` — one Xray test (format below); `images/` its screenshots.
 - `requirements/requirements.csv` — the requirement list, when the project has one.
 - `contexts/` — reference notes attached to runs.
@@ -82,9 +82,8 @@ EXI_MOP_SPF_511_A_1670
 
 ## Documents disagree
 
-Use `doc.json`: a `superseded` document is never cited; an amendment (`amends`) wins over what it
-amends; `mandatory` outranks `applicable`, which outranks `informative`. When that does not settle
-it, say so in the test description and flag it — never pick silently.
+Use `doc.json`: an amendment (`amends`) wins over what it amends. When that does not settle it,
+say so in the test description and flag it — never pick silently.
 
 ## Team notes
 

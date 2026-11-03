@@ -3,7 +3,7 @@ import type { DocRef } from "../../../core/types.ts";
 import { call, events } from "../../api.ts";
 import { problemOf } from "../../components/shell/ProblemPanel.tsx";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
-import { BINDING, DOC_STATUS } from "../../components/sources/PassageView.tsx";
+import { DOC_STATUS } from "../../components/sources/PassageView.tsx";
 import { TracesBar } from "../../components/traces/TracesBar.tsx";
 import { Badge, Button, Icon, IconButton, Modal, Severity, Skeleton } from "../../components/ui/index.ts";
 import { useApp } from "../../lib/app.ts";
@@ -216,7 +216,6 @@ export function DocumentsScreen() {
                 <tr>
                   <th scope="col">Document</th>
                   <th scope="col">Status</th>
-                  <th scope="col">Binding</th>
                   <th scope="col">Search</th>
                   <th scope="col">Warnings</th>
                 </tr>
@@ -231,9 +230,6 @@ export function DocumentsScreen() {
                         </td>
                         <td>
                           <Skeleton w={80} h={22} r={11} />
-                        </td>
-                        <td>
-                          <Skeleton w={70} h={12} />
                         </td>
                         <td>
                           <Skeleton w={90} h={14} />
@@ -268,7 +264,6 @@ export function DocumentsScreen() {
                           <td>
                             <Badge tone={st.tone}>{st.label}</Badge>
                           </td>
-                          <td>{BINDING[d.binding] ?? d.binding}</td>
                           <td className="tbl-state">
                             <Severity tone={ix.tone}>{ix.word}</Severity>
                           </td>
@@ -282,14 +277,14 @@ export function DocumentsScreen() {
                             )}
                           </td>
                         </tr>,
-                        ...failed.map((u) => <IndexFailed key={u.key} u={u} colSpan={5} onReindex={reindex} />),
+                        ...failed.map((u) => <IndexFailed key={u.key} u={u} colSpan={4} onReindex={reindex} />),
                       ];
                     })}
                 {uploads
                   .filter((u) => !listed(u))
                   .map((u) =>
                     u.phase === "index-failed" ? (
-                      <IndexFailed key={u.key} u={u} colSpan={5} onReindex={reindex} />
+                      <IndexFailed key={u.key} u={u} colSpan={4} onReindex={reindex} />
                     ) : (
                       <UploadRow key={u.key} u={u} />
                     ),
@@ -306,6 +301,10 @@ export function DocumentsScreen() {
               onAnchor={(a) => app.navigate("documents", `${activeId}#${a}`)}
               onChanged={changed}
               onReindex={reindex}
+              onRemoved={() => {
+                app.navigate("documents");
+                changed();
+              }}
             />
           )}
         </div>

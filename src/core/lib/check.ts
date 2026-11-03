@@ -339,14 +339,6 @@ export function mechanicalFindings(test: Test, corpus: Corpus): Finding[] {
         });
         continue;
       }
-      if (d.doc.status === "superseded" || d.doc.supersededBy)
-        add({
-          step,
-          kind: "doc-superseded",
-          severity: "error",
-          message: `Step ${step} cites ${src.docId}, which is superseded${d.doc.supersededBy ? ` by ${d.doc.supersededBy}` : ""}: cite the current document.`,
-          sources: [ref],
-        });
       if (!d.anchors.has(anchor))
         add({
           step,

@@ -142,24 +142,23 @@ describe("passage view remaining paths", () => {
       { file: "figures/f2.png", anchor: "fig:2", caption: "Le menu", description: "" },
     ],
     focus: "italique",
-    doc: { code: "C", title: "T", version: "1", status: "draft", binding: "informative" },
+    doc: { code: "C", title: "T", version: "1", status: "draft" },
   };
 
-  it("keeps a lone star, names unknown statuses and bindings, and shows figures", () => {
+  it("keeps a lone star, names unknown statuses, and shows figures", () => {
     expect(emphasisRuns("a * b")).toEqual([{ text: "a * b", strong: false, em: false }]);
     expect(emphasisRuns("a *b")).toEqual([{ text: "a *b", strong: false, em: false }]);
     expect(emphasisRuns("ab*")).toEqual([{ text: "ab*", strong: false, em: false }]);
     expect(highlight("rien ici", "absent").join("")).toBe("rien ici");
     render(
       <>
-        <DocBadges status="archived" binding="custom" />
+        <DocBadges status="archived" />
         <PassageText passage={base} quote="" />
         <PassageText passage={{ ...base, anchor: "req:R1", title: "Sans numéro" }} quote="" />
         <PassageText passage={{ ...base, title: "Menus" }} quote="Gras" />
       </>,
     );
     expect(screen.getByText("archived")).toBeInTheDocument();
-    expect(screen.getByText("custom")).toBeInTheDocument();
     expect(screen.getAllByRole("img", { name: "figures/f1.png" })).toHaveLength(3);
     expect(screen.getAllByRole("img", { name: "Le menu" })[0]).toHaveAttribute("src", "/files/docs/D/figures/f2.png");
     expect(screen.getAllByRole("heading").map((h) => h.textContent)).toEqual(["5.6 Menus", "Sans numéro", "5.6 Menus"]);

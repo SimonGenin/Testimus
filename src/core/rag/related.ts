@@ -4,7 +4,7 @@ import type { Edge, EdgeKind } from "../types.ts";
 import { docFigures, lines, parseSections, sectionAt } from "./chunk.ts";
 import { edgesOf, indexFile, openDb } from "./db.ts";
 import { docEdges } from "./graph.ts";
-import { isSuperseded, projectDocs } from "./indexer.ts";
+import { projectDocs } from "./indexer.ts";
 import { evidenceOptions, type Statement, statementsOf } from "./statements.ts";
 
 export type Neighbour = {
@@ -31,7 +31,6 @@ export const RELATED_MAX = 200;
 type DocInfo = {
   id: string;
   title: string;
-  superseded: boolean;
   amends: string[];
   md: string;
   sections: Map<string, { title: string; path: string }>;
@@ -83,7 +82,6 @@ function graphOf(project: string): Graph {
       g.docs.set(d.doc.id, {
         id: d.doc.id,
         title: d.doc.title ?? "",
-        superseded: isSuperseded(d.doc),
         amends: d.doc.amends ?? [],
         md: d.md,
         sections: new Map(parseSections(d.md).map((s) => [s.anchor, { title: s.title, path: s.path }])),
@@ -274,7 +272,7 @@ export function statementOf(project: string, id: string): StatementHit | null {
   const found: Statement[] = [];
   for (const ref of [...(g.reqs.get(id) ?? [])].sort()) {
     const d = g.docs.get(docOf(ref));
-    const st = d && !d.superseded ? statements(g, d).get(id) : undefined;
+    const st = d ? statements(g, d).get(id) : undefined;
     if (st) found.push(st);
   }
   const st = bestStatement(g, found);
@@ -301,10 +299,9 @@ export function related(project: string, input: { ref: string; depth?: number })
   const seen = new Set<string>(from);
   const keys = new Set<string>();
   const neighbours: Neighbour[] = [];
-  const visible = (ref: string) => !g.docs.get(docOf(ref))?.superseded;
   const add = (n: { ref: string; kind: EdgeKind; direction: "out" | "in" }, d: number) => {
     const key = n.kind === "sibling" ? `${n.ref} sibling` : `${n.ref} ${n.kind} ${n.direction}`;
-    if (from.includes(n.ref) || keys.has(key) || !visible(n.ref)) return false;
+    if (from.includes(n.ref) || keys.has(key)) return false;
     if (d === 2 && seen.has(n.ref)) return false;
     keys.add(key);
     neighbours.push({ ...n, ...infoOf(g, n.ref), depth: d });

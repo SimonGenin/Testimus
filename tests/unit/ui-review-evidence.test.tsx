@@ -34,7 +34,7 @@ const passage = {
   title: "Sectionneur",
   text: "Le sectionneur est ouvert par l'opérateur depuis le poste.",
   figures: [],
-  doc: { code: "D401", version: "3", title: "Spécification", status: "validated", binding: "mandatory" },
+  doc: { code: "D401", version: "3", title: "Spécification", status: "validated" },
 };
 
 const evidence = {
