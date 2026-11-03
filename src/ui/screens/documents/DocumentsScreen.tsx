@@ -1,192 +1,108 @@
-import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
-import type { DocRef } from "../../../core/types.ts";
-import { call, events } from "../../api.ts";
-import { Badge, Button, DragEdge, Icon, IconButton, Modal, Severity, Skeleton } from "../../components/legacy/index.ts";
-import { problemOf } from "../../components/shell/ProblemPanel.tsx";
+import * as stylex from "@stylexjs/stylex";
+import { useQueryClient } from "@tanstack/react-query";
+import { type DragEvent, useEffect, useRef, useState } from "react";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
-import { DOC_STATUS } from "../../components/sources/PassageView.tsx";
+import { Banner } from "../../components/ui/Banner.tsx";
+import { Button } from "../../components/ui/Button.tsx";
+import { EmptyState } from "../../components/ui/EmptyState.tsx";
+import { Icon } from "../../components/ui/Icon.tsx";
+import { Modal } from "../../components/ui/Modal.tsx";
+import { ResizeHandle } from "../../components/ui/ResizeHandle.tsx";
 import { useApp } from "../../lib/app.ts";
-import { useChanged } from "../../lib/changed.ts";
-import { desktop, examplePath, pickFiles } from "../../lib/desktop.ts";
-import { cx } from "../../lib/format.ts";
-import { type SideEdge, useSideWidth } from "../../lib/sideWidth.ts";
-import { errorToast } from "../../lib/toast.ts";
-import {
-  addDocFiles,
-  addDocPath,
-  addDocPaths,
-  dismissUpload,
-  forgetSettled,
-  owns,
-  settled,
-  type Upload,
-  useUploads,
-} from "../../lib/uploads.ts";
+import { invalidate, useRead } from "../../lib/data/query.ts";
+import { desktop, pickFiles } from "../../lib/desktop.ts";
+import { message } from "../../lib/format.ts";
+import { addDocFiles, addDocPath, addDocPaths, forgetSettled, settled, useUploads } from "../../lib/uploads.ts";
+import { border, color, fontSize, fontWeight, lineHeight, size, space, z } from "../../styles/tokens.stylex.ts";
+import { AddPath } from "./AddPath.tsx";
 import { DocDetail } from "./DocDetail.tsx";
-import { ImportClaude } from "./ImportClaude.tsx";
-import { UploadRow } from "./UploadRow.tsx";
+import { DocList } from "./DocList.tsx";
+import { useDocsLayout } from "./layout.ts";
 
-export const INDEX_LOOK = {
-  fresh: { tone: "ok" as const, word: "Up to date" },
-  stale: { tone: "warning" as const, word: "Reindex needed" },
-  missing: { tone: "warning" as const, word: "Not indexed" },
-};
-const NOT_CONVERTED = { tone: "info" as const, word: "Not converted" };
+const styles = stylex.create({
+  screen: {
+    position: "relative",
+    display: "flex",
+    flexDirection: "column",
+    flex: 1,
+    minWidth: 0,
+    minHeight: 0,
+    backgroundColor: color.canvas,
+  },
+  notice: { paddingInline: space.s5, paddingTop: space.s3 },
+  body: { flex: 1, minHeight: 0, display: "flex", minWidth: 0 },
+  list: {
+    flex: "none",
+    display: "flex",
+    minHeight: 0,
+    backgroundColor: color.surface,
+    borderRightStyle: "solid",
+    borderRightWidth: border.width,
+    borderRightColor: color.border,
+  },
+  listWidth: (w: number) => ({ width: w }),
+  none: { flex: 1, display: "flex", alignItems: "flex-start", padding: space.s5 },
+  empty: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: space.s7 },
+  veil: {
+    position: "absolute",
+    inset: 0,
+    zIndex: z.drawer,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: space.s4,
+    backgroundColor: color.accentSubtle,
+    color: color.accentText,
+    borderStyle: "dashed",
+    borderWidth: border.widthStrong,
+    borderColor: color.accent,
+    fontSize: fontSize.title,
+    lineHeight: lineHeight.title,
+    fontWeight: fontWeight.semibold,
+    pointerEvents: "none",
+  },
+  veilIcon: { display: "inline-flex", width: size.controlLg, height: size.controlLg },
+});
 
-function IndexFailed({ u, colSpan }: { u: Upload; colSpan: number }) {
-  const app = useApp();
-  const p = problemOf(u.error ?? new Error(u.message));
-  const what = u.phase === "failed" ? "conversion" : "indexing";
-  return (
-    <tr className="up-row">
-      <td colSpan={colSpan}>
-        <div className="problem" role="alert">
-          <div className="up-fail-head">
-            <Severity tone="error">{u.phase === "failed" ? "Conversion failed" : "Indexing failed"}</Severity>
-            <span className="spacer" />
-            <IconButton
-              icon="close"
-              label={`Dismiss the ${what} failure of ${u.name}`}
-              onClick={() => dismissUpload(u.key)}
-            />
-          </div>
-          <p>
-            {u.phase === "failed"
-              ? `${u.name} stays as it was: `
-              : u.docId
-                ? `${u.name} was converted, but search cannot find it yet: `
-                : ""}
-            {p.detail}
-          </p>
-          {p.fix && (
-            <p>
-              <strong>What to do:</strong> {p.fix}
-            </p>
-          )}
-          <div className="problem-actions">
-            <Button size="sm" tone="quiet" onClick={() => app.navigate("jobs")}>
-              Open Jobs
-            </Button>
-          </div>
-        </div>
-      </td>
-    </tr>
-  );
+const ACCEPT = ".docx,.pdf";
+
+// ponytail: #/documents/<id>#<anchor> "<quote>" — the document, the place in it and the line to mark
+function target(arg: string) {
+  const hash = arg.indexOf("#");
+  const routeId = hash < 0 ? arg : arg.slice(0, hash);
+  const at = hash < 0 ? "" : arg.slice(hash + 1);
+  const cut = at.indexOf(' "');
+  return {
+    routeId,
+    anchor: cut < 0 ? at : at.slice(0, cut),
+    quote: cut < 0 ? "" : at.slice(cut + 2).replace(/"$/, ""),
+  };
 }
-
-const REFRESH = new Set(["docs.add", "docs.convert", "rag-index", "describe-figures", "claude"]);
-
-export type Fold = "wide" | "medium" | "small" | "tiny";
-
-const TEXT = 496;
-const COLS = { list: 248, toc: 256, side: 300 };
-type Cols = typeof COLS;
-
-// ponytail: the outer columns fold first so the text keeps TEXT px, at the widths the user dragged them to
-export const foldOf = (width: number, c: Cols = COLS): Fold =>
-  width >= c.list + c.toc + c.side + TEXT
-    ? "wide"
-    : width >= c.toc + c.side + TEXT
-      ? "medium"
-      : width >= c.toc + TEXT
-        ? "small"
-        : "tiny";
-
-const SHOWN: Record<Fold, (keyof Cols)[]> = {
-  wide: ["list", "toc", "side"],
-  medium: ["toc", "side"],
-  small: ["toc"],
-  tiny: [],
-};
 
 export function DocumentsScreen() {
   const app = useApp();
-  const [listW, listEdge] = useSideWidth("testimus.docsListWidth", 200, 420, "before");
-  const [tocW, tocEdge] = useSideWidth("testimus.docsTocWidth", 180, 420, "before");
-  const [sideW, sideEdge] = useSideWidth("testimus.docsSideWidth", 260, 520, "after");
+  const client = useQueryClient();
+  const list = useRead("docs.list", {});
+  const rag = useRead("rag.status", {});
+  const uploads = useUploads();
   const body = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(Number.POSITIVE_INFINITY);
+  const { fold, panes } = useDocsLayout(width);
   const [listOpen, setListOpen] = useState(false);
-  const [docs, setDocs] = useState<DocRef[] | null>(null);
-  const [wordsOnly, setWordsOnly] = useState<string | null>(null);
   const [drag, setDrag] = useState(false);
   const [askPath, setAskPath] = useState(false);
-  const [path, setPath] = useState("");
-  const picker = useRef<HTMLInputElement>(null);
-  const uploads = useUploads();
-  const arg = app.route.screen === "documents" ? (app.route.arg ?? "") : "";
-  const hash = arg.indexOf("#");
-  const routeId = hash < 0 ? arg : arg.slice(0, hash);
-  const target = hash < 0 ? "" : arg.slice(hash + 1);
-  const cut = target.indexOf(' "');
-  const anchor = cut < 0 ? target : target.slice(0, cut);
-  const quote = cut < 0 ? "" : target.slice(cut + 2).replace(/"$/, "");
+
+  const docs = list.data ? (Array.isArray(list.data) ? list.data : []) : list.isError ? [] : undefined;
+  const wordsOnly = rag.data?.exists && rag.data.degraded ? rag.data.degraded : null;
+  const { routeId, anchor, quote } = target(app.route.screen === "documents" ? (app.route.arg ?? "") : "");
   const activeId = routeId || docs?.[0]?.id || "";
-
-  const load = useCallback(() => {
-    call<DocRef[]>("docs.list", {})
-      .then((r) => setDocs(Array.isArray(r) ? r : []))
-      .catch((e) => {
-        setDocs([]);
-        errorToast(e, "Could not list the documents");
-      });
-    call<{ exists: boolean; degraded?: string | null }>("rag.status", {})
-      .then((r) => setWordsOnly(r?.exists && r.degraded ? r.degraded : null))
-      .catch(() => setWordsOnly(null));
-  }, []);
-
-  const changed = useCallback(() => {
-    load();
-    app.refreshInfo();
-  }, [load, app]);
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: a project switch lists its own documents
-  useEffect(load, [load, app.info?.dir]);
-
-  useEffect(
-    () =>
-      events((e) => {
-        if (e.type === "status" && e.job.status !== "running" && REFRESH.has(e.job.kind)) load();
-      }),
-    [load],
-  );
-
-  useChanged(["docs/"], load);
+  const active = activeId ? docs?.find((d) => d.id === activeId) : undefined;
+  const busy = uploads.filter((u) => !settled(u)).length;
+  const hasBody = !(docs && !docs.length && !uploads.length);
+  const folded = fold !== "wide";
 
   useEffect(() => forgetSettled, []);
-
-  const added = (id?: string) => {
-    changed();
-    if (id) app.navigate("documents", id);
-  };
-  const add = (files: File[]) => void addDocFiles(files, added);
-  const choose = () => {
-    if (!desktop()) {
-      picker.current?.click();
-      return;
-    }
-    void pickFiles("Add documents", [{ name: "Word or PDF", extensions: ["docx", "pdf"] }], true).then((paths) =>
-      addDocPaths(paths, added),
-    );
-  };
-
-  const busy = uploads.filter((u) => !settled(u));
-  const listed = (u: Upload) => !!docs?.some((d) => (u.docId ? d.id === u.docId : owns(u, d)));
-  const pages = docs?.length ?? 0;
-  const hasBody = !(docs && !docs.length && !uploads.length);
-  const cols = { list: listW ?? COLS.list, toc: tocW ?? COLS.toc, side: sideW ?? COLS.side };
-  const fold = foldOf(width, cols);
-  const folded = fold !== "wide";
-  // ponytail: a column grows only into the room the text can spare, so a drag never folds what it resizes
-  const roomy = (edge: SideEdge, col: keyof Cols): SideEdge => {
-    const others = SHOWN[fold].filter((k) => k !== col).reduce((sum, k) => sum + cols[k], 0);
-    return { ...edge, width: (dx, w) => Math.min(edge.width(dx, w), Math.max(w, width - others - TEXT)) };
-  };
-  const vars = {
-    ...(listW ? { "--docs-list-w": `${listW}px` } : {}),
-    ...(tocW ? { "--docs-toc-w": `${tocW}px` } : {}),
-    ...(sideW ? { "--docs-side-w": `${sideW}px` } : {}),
-  } as CSSProperties;
 
   useEffect(() => {
     const el = body.current;
@@ -200,23 +116,47 @@ export function DocumentsScreen() {
     if (!folded) setListOpen(false);
   }, [folded]);
 
-  useEffect(() => {
-    if (!listOpen) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setListOpen(false);
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [listOpen]);
-
-  const active = activeId && docs?.find((d) => d.id === activeId);
+  const added = (id?: string) => {
+    void invalidate(client, [["docs.list"], ["rag.status"]]);
+    app.refreshInfo();
+    if (id) app.navigate("documents", id);
+  };
+  const addFiles = (files: File[]) => void addDocFiles(files, added);
+  const native = desktop();
+  const addButton = (
+    <Button
+      variant="primary"
+      icon="plus"
+      label="Add documents"
+      pick={native ? undefined : { accept: ACCEPT, multiple: true, onFiles: addFiles }}
+      onClick={
+        native
+          ? () =>
+              void pickFiles("Add documents", [{ name: "Word or PDF", extensions: ["docx", "pdf"] }], true).then((p) =>
+                addDocPaths(p, added),
+              )
+          : undefined
+      }
+    />
+  );
+  const open = (id: string) => {
+    setListOpen(false);
+    app.navigate("documents", id);
+  };
+  const listPane = (head: boolean) => (
+    <DocList docs={docs} uploads={uploads} activeId={activeId} head={head} onOpen={open} />
+  );
+  const onDragOver = (e: DragEvent) => {
+    if (!e.dataTransfer.types.includes("Files")) return;
+    e.preventDefault();
+    setDrag(true);
+  };
 
   return (
     <div
-      className={cx("screen docs-screen", drag && "is-drop")}
-      onDragOver={(e) => {
-        if (!e.dataTransfer.types.includes("Files")) return;
-        e.preventDefault();
-        setDrag(true);
-      }}
+      data-testid="documents-screen"
+      {...stylex.props(styles.screen)}
+      onDragOver={onDragOver}
       onDragLeave={(e) => {
         if (e.currentTarget === e.target) setDrag(false);
       }}
@@ -224,130 +164,58 @@ export function DocumentsScreen() {
         if (!e.dataTransfer.files.length) return;
         e.preventDefault();
         setDrag(false);
-        add(Array.from(e.dataTransfer.files));
+        addFiles(Array.from(e.dataTransfer.files));
       }}
     >
       <ScreenHeader
         title="Documents"
-        meta={`${pages} document${pages === 1 ? "" : "s"}${busy.length ? ` · ${busy.length} in progress` : ""} · drop Word or PDF files anywhere here to add them`}
+        meta={`${docs?.length ?? 0} document${docs?.length === 1 ? "" : "s"}${busy ? ` · ${busy} in progress` : ""}`}
       >
-        <ImportClaude />
-        <Button tone="quiet" size="sm" onClick={() => setAskPath(true)}>
-          Add from a path
-        </Button>
-        <Button tone="primary" icon="plus" onClick={choose}>
-          Add documents
-        </Button>
+        <Button variant="quiet" icon="folder-open" label="Add from a path…" onClick={() => setAskPath(true)} />
+        {addButton}
       </ScreenHeader>
-      {wordsOnly && (
-        <div className="docs-words-only" role="status">
-          <Severity tone="warning">Search on words only</Severity>
-          <span>{wordsOnly}</span>
-          <Button tone="quiet" size="sm" onClick={() => app.navigate("settings", "models")}>
-            Choose a search pack
-          </Button>
+      {list.isError && (
+        <div {...stylex.props(styles.notice)}>
+          <Banner tone="danger" title="Could not list the documents">
+            {message(list.error)}
+          </Banner>
         </div>
       )}
-      <input
-        ref={picker}
-        type="file"
-        accept=".docx,.pdf"
-        multiple
-        hidden
-        aria-label="Choose Word or PDF files to add"
-        onChange={(e) => {
-          add(Array.from(e.target.files ?? []));
-          e.target.value = "";
-        }}
-      />
+      {wordsOnly && (
+        <div {...stylex.props(styles.notice)}>
+          <Banner
+            tone="warning"
+            title="Search on words only"
+            actions={
+              <Button size="sm" label="Choose a search pack" onClick={() => app.navigate("settings", "models")} />
+            }
+          >
+            {wordsOnly}
+          </Banner>
+        </div>
+      )}
       {!hasBody ? (
-        <div className="empty">
-          <Icon name="documents" size={40} />
-          <h2 className="h">Start with the specifications</h2>
-          <p>
-            Add the documents this project tests. Word works best; PDF is fine. Claude reads them to write and check
-            your tests.
-          </p>
-          <Button tone="primary" onClick={choose}>
-            Add documents
-          </Button>
+        <div {...stylex.props(styles.empty)}>
+          <EmptyState
+            icon="documents"
+            title="No document yet"
+            text="Add the specifications this project tests: Word works best, PDF is fine. Drop them anywhere here. Claude reads them to write and check your tests."
+            actions={addButton}
+          />
         </div>
       ) : (
-        <div ref={body} className={cx("docs-body", `is-${fold}`, listOpen && "is-list-open")} style={vars}>
-          <section className="docs-list scroll" aria-label="Document list">
-            <table className="tbl docs-tbl">
-              <thead className="sr">
-                <tr>
-                  <th scope="col">Document</th>
-                </tr>
-              </thead>
-              <tbody>
-                {!docs
-                  ? [0, 1, 2, 3].map((i) => (
-                      <tr key={i} aria-busy="true">
-                        <td>
-                          <Skeleton w={150} h={10} />
-                          <Skeleton w={110} h={14} />
-                          <Skeleton w={160} h={18} r={9} />
-                        </td>
-                      </tr>
-                    ))
-                  : docs.map((d) => {
-                      const st = DOC_STATUS[d.status] ?? { label: d.status, tone: "neutral" as const };
-                      const ix = !d.converted?.at ? NOT_CONVERTED : (INDEX_LOOK[d.indexed] ?? INDEX_LOOK.missing);
-                      const failed = uploads.filter(
-                        (u) => u.docId === d.id && (u.phase === "index-failed" || u.phase === "failed"),
-                      );
-                      const open = () => {
-                        setListOpen(false);
-                        app.navigate("documents", d.id);
-                      };
-                      const inFlight = uploads.find((u) => owns(u, d));
-                      if (inFlight) return <UploadRow key={d.id} u={inFlight} on={d.id === activeId} onOpen={open} />;
-                      return [
-                        <tr
-                          key={d.id}
-                          className={cx(d.id === activeId && "row-on")}
-                          aria-selected={d.id === activeId}
-                          tabIndex={0}
-                          onClick={open}
-                          onKeyDown={(e) => e.key === "Enter" && open()}
-                        >
-                          <td className="tbl-doc" title={`${d.code} · ${d.version} — ${d.title}`}>
-                            <div className="mono muted tbl-sub">
-                              {d.code} · {d.version}
-                            </div>
-                            <div className="tbl-title">{d.title}</div>
-                            <div className="docs-facts">
-                              <Badge tone={st.tone}>{st.label}</Badge>
-                              <Severity tone={ix.tone}>{ix.word}</Severity>
-                              {(d.converted?.warnings ?? []).length > 0 && (
-                                <span title={(d.converted?.warnings ?? []).join("\n")}>
-                                  <Severity tone="warning">{String((d.converted?.warnings ?? []).length)}</Severity>
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                        </tr>,
-                        ...failed.map((u) => <IndexFailed key={u.key} u={u} colSpan={1} />),
-                      ];
-                    })}
-                {uploads
-                  .filter((u) => !listed(u))
-                  .map((u) =>
-                    u.phase === "index-failed" ? (
-                      <IndexFailed key={u.key} u={u} colSpan={1} />
-                    ) : (
-                      <UploadRow key={u.key} u={u} />
-                    ),
-                  )}
-              </tbody>
-            </table>
-          </section>
+        <div ref={body} data-testid="docs-body" data-fold={fold} {...stylex.props(styles.body)}>
           {!folded && (
-            <DragEdge className="docs-list-edge" label="Resize the document list" {...roomy(listEdge, "list")} />
+            <>
+              <div {...stylex.props(styles.list, styles.listWidth(panes.list.value))}>{listPane(true)}</div>
+              <ResizeHandle label="Resize the document list" {...panes.list} />
+            </>
           )}
-          {folded && listOpen && <div className="docs-scrim" aria-hidden="true" onClick={() => setListOpen(false)} />}
+          {folded && listOpen && (
+            <Modal title="Documents" drawer="left" flush onClose={() => setListOpen(false)}>
+              {listPane(false)}
+            </Modal>
+          )}
           {active ? (
             <DocDetail
               key={`${activeId} ${active.converted?.at ?? ""}`}
@@ -355,76 +223,39 @@ export function DocumentsScreen() {
               anchor={anchor}
               quote={quote}
               fold={fold}
-              tocEdge={roomy(tocEdge, "toc")}
-              sideEdge={roomy(sideEdge, "side")}
+              panes={panes}
               listOpen={listOpen}
               onShowList={folded ? () => setListOpen((o) => !o) : undefined}
               onAnchor={(a) => app.navigate("documents", `${activeId}#${a}`)}
-              onChanged={changed}
               onRemoved={() => {
                 app.navigate("documents");
-                changed();
+                app.refreshInfo();
               }}
             />
           ) : (
-            <div className="docs-none">
+            <div {...stylex.props(styles.none)}>
               {folded && (
-                <Button tone="quiet" icon="documents" onClick={() => setListOpen(true)}>
-                  Show the document list
-                </Button>
+                <Button
+                  variant="quiet"
+                  icon="documents"
+                  label="Show the document list"
+                  expanded={listOpen}
+                  onClick={() => setListOpen(true)}
+                />
               )}
             </div>
           )}
         </div>
       )}
       {drag && (
-        <div className="dropveil" aria-hidden="true">
-          <Icon name="documents" size={32} />
-          <span className="h">Drop Word or PDF files to add them</span>
+        <div data-testid="drop-veil" aria-hidden="true" {...stylex.props(styles.veil)}>
+          <span {...stylex.props(styles.veilIcon)}>
+            <Icon name="upload" size="lg" />
+          </span>
+          Drop Word or PDF files to add them
         </div>
       )}
-      {askPath && (
-        <Modal
-          label="Add a document from a path"
-          title="Add a document from a path"
-          subtitle="A .docx (preferred) or .pdf on this PC or a synced share. It is copied into the project; the original is never changed."
-          width={560}
-          onClose={() => setAskPath(false)}
-          foot={
-            <>
-              <span className="spacer" />
-              <Button tone="quiet" onClick={() => setAskPath(false)}>
-                Cancel
-              </Button>
-              <Button
-                tone="primary"
-                disabled={!path.trim()}
-                onClick={() => {
-                  void addDocPath(path.trim().replace(/^"|"$/g, ""), added);
-                  setPath("");
-                  setAskPath(false);
-                }}
-              >
-                Add
-              </Button>
-            </>
-          }
-        >
-          <label className="label" htmlFor="doc-path">
-            Path of the file
-          </label>
-          <input
-            id="doc-path"
-            className="field mono"
-            placeholder={examplePath(
-              "C:\\…\\SOSIE_211_D401-1_3_01.01.docx",
-              "/Users/you/…/SOSIE_211_D401-1_3_01.01.docx",
-            )}
-            value={path}
-            onChange={(e) => setPath(e.target.value)}
-          />
-        </Modal>
-      )}
+      {askPath && <AddPath onAdd={(p) => void addDocPath(p, added)} onClose={() => setAskPath(false)} />}
     </div>
   );
 }
