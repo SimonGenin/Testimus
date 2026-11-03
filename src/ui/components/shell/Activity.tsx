@@ -34,6 +34,7 @@ const KIND: Record<string, [IconName, Tone]> = {
   "actions.triage": ["claude", "claude"],
   "gen-bench": ["claude", "claude"],
   "rag-eval": ["search", "plain"],
+  "models-measure": ["search", "plain"],
   pull: ["pull", "plain"],
   push: ["push", "plain"],
   jira: ["folder", "plain"],

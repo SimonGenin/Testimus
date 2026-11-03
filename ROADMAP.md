@@ -130,6 +130,21 @@ steps, 172 findings, `vague-result` first; `rag_related` never called):
       against the other tests first; figures read at the path `rag_figure` gives
 - [x] K5 the team context is `docs_show`'s `context` (most documents have no `context.md`)
 
+## Reference document — 2026-11-03
+
+« Measure » on a pack card failed on every project without `eval/behaviors.jsonl`, and pointed to a skill the
+projects do not have. A pack is now measured on a document Testimus ships (SPEC §5 « Reference document »):
+
+- [x] M1 `templates/reference/syntec/`: the Syntec agreement (90 articles) and the 100 questions of MTEB-French
+      SyntecRetrieval (Apache-2.0), each with its answering article
+- [x] M2 `models.measure` (a job, no project needed): `rag.eval` on this PC's copy with the pack's variant and its
+      retrieval settings; scored by « right article first » and « in the top 5 » (recall@10 saturates)
+- [x] M3 Pack cards: quality on the reference document (this PC's measure, else the catalog's), « On this project »
+      when the project's own set measured it; the Measure dialog says what is measured
+- [x] M4 `scripts/refdoc.ts` writes the figures into `models/catalog.json` — Light measured (60 % first, 91 % top 5)
+- [ ] M5 Measure Performance, Balanced and Quality on the dev PC (DirectML and llama.cpp variants need Windows):
+      `node scripts/refdoc.ts`
+
 ## Later
 
 - Execution support: test sheets for testers, screenshots from R4 runs, NOK → bug draft

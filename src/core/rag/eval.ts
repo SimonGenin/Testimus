@@ -75,7 +75,10 @@ const questionSchema = z.object({
 
 export function readBehaviors(file: string): BehaviorSet {
   if (!existsSync(file))
-    throw new UserError(`No behavior set at ${file}.`, "Write eval/behaviors.jsonl (see the rag-eval skill).");
+    throw new UserError(
+      `No behavior set at ${file}.`,
+      "A pack is measured on Testimus's reference document (testimus models measure <pack>); this project's own set goes in eval/behaviors.jsonl.",
+    );
   const raw = readFileSync(file, "utf8").replace(/^﻿/, "");
   const formats = new Set<string>();
   const behaviors: EvalBehavior[] = [];
@@ -374,6 +377,7 @@ export type EvalOpts = {
   reranker?: string | null;
   mode?: SearchMode;
   retrieval?: RetrievalOverride;
+  packRetrieval?: RetrievalOverride;
 };
 
 function fingerprints(file: string, spaceId: string | undefined) {
@@ -428,7 +432,7 @@ export async function runEval(project: string, ctx: Ctx, opts: EvalOpts = {}): P
     : opts.reranker === null || opts.reranker === "none" || opts.reranker === "null"
       ? null
       : candidateModel(project, opts.reranker as string, "reranker");
-  const settings = retrievalSettings(project, opts.retrieval, forcedEmbedding ? undefined : active.retrieval);
+  const settings = retrievalSettings(project, opts.retrieval, forcedEmbedding ? opts.packRetrieval : active.retrieval);
   const live = indexFile(project);
 
   const indexed =

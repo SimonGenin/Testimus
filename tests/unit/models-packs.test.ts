@@ -316,15 +316,20 @@ describe("pack cards: speed from the journal, quality from the benchmark (N-perf
     expect(by("performance")?.speed).toBeUndefined();
   });
 
-  it("quality: evidence recall measured on this project for the variant, provisional when the set is", async () => {
+  it("project quality: evidence recall measured on this project's own set, provisional when the set is", async () => {
     writeReport(project, "light.json", "bge-m3-q8", null, 0.625, true);
     writeReport(project, "balanced.json", "qwen3-embedding-4b-q4", "qwen3-reranker-0.6b-q8", 0.8, false);
-    const rows = await packRows(null, "task", deps(), project);
+    const rows = await packRows(null, "task", deps(), project, undefined, []);
     const by = (id: string) => rows.find((r) => r.id === id);
-    expect(by("light")?.quality).toBe("evidence recall 62.5 % on this project (recall@10, 4 behaviors, provisional)");
-    expect(by("balanced")?.quality).toBe("evidence recall 80 % on this project (recall@10, 4 behaviors)");
-    expect(by("quality")?.quality).toBe("quality not measured yet");
-    const viaCommand = (await invoke("models.packs", {}, { project })) as { id: string; quality: string }[];
-    expect(viaCommand.find((r) => r.id === "light")?.quality).toMatch(/^evidence recall 62\.5 % .*provisional\)$/);
+    expect(by("light")?.projectQuality).toBe(
+      "evidence recall 62.5 % on this project (recall@10, 4 behaviors, provisional)",
+    );
+    expect(by("balanced")?.projectQuality).toBe("evidence recall 80 % on this project (recall@10, 4 behaviors)");
+    expect(by("quality")?.projectQuality).toBeUndefined();
+    expect(by("light")?.measuredHere).toBe(false);
+    const viaCommand = (await invoke("models.packs", {}, { project })) as { id: string; projectQuality?: string }[];
+    expect(viaCommand.find((r) => r.id === "light")?.projectQuality).toMatch(
+      /^evidence recall 62\.5 % .*provisional\)$/,
+    );
   });
 });

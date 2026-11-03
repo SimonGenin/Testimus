@@ -18,6 +18,8 @@ export type PackRow = {
   downloadMB: number;
   speed?: string;
   quality: string;
+  measuredHere: boolean;
+  projectQuality?: string;
 };
 
 export type CatalogRow = {

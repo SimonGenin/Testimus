@@ -1,0 +1,22 @@
+{
+  "id": "syntec",
+  "code": "IDCC 1486",
+  "title": "Convention collective Syntec",
+  "version": "MTEB-French",
+  "date": "2024-05-31",
+  "kind": "other",
+  "status": "validated",
+  "source": {
+    "path": "https://huggingface.co/datasets/lyon-nlp/mteb-fr-retrieval-syntec-s2p",
+    "sha256": "c330e46ac87e4129a9e07441bc00625973270d65291030f2339a40f81ec264db",
+    "file": "doc.md"
+  },
+  "convertedWith": "MTEB-French SyntecRetrieval (Apache-2.0)",
+  "convertedAt": "2026-11-03T00:00:00.000Z",
+  "warnings": [],
+  "stats": {
+    "sections": 90,
+    "figures": 0,
+    "chars": 114445
+  }
+}

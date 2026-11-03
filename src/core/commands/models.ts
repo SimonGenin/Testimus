@@ -9,9 +9,11 @@ import { machineProfile } from "../lib/models-hardware.ts";
 import { addPath, catalogView, list, NO_DIR, needEntry, pull, remove, verify } from "../lib/models-install.ts";
 import { packRows, planOf, suggestPack } from "../lib/models-packs.ts";
 import { perfStats, readPerf, withPerfScope } from "../lib/models-perf.ts";
+import { refdocScore, refdocText } from "../lib/models-quality.ts";
 import { budgets, readRegistry, runtimesDir, updateRegistry } from "../lib/models-registry.ts";
 import { resolveChoice } from "../lib/models-resolve.ts";
 import { readProject, readSettings, writeProject, writeSettings } from "../lib/project.ts";
+import { measureRefdoc } from "../rag/refdoc.ts";
 import type { ActiveChoice, CatalogEntry, PackVariant, RagChoice } from "../types.ts";
 
 const MB = 1024 * 1024;
@@ -360,7 +362,16 @@ export const commands: Command[] = [
         skipped: z.array(z.string()).describe("Why the variants above were skipped, with the numbers"),
         downloadMB: z.number(),
         speed: z.string().optional(),
-        quality: z.string().describe("Measured evidence recall, or « quality not measured yet »"),
+        quality: z
+          .string()
+          .describe(
+            "On Testimus's reference document, how often search ranks the answering article first and in the top 5 — measured on this PC, else the catalog's figure measured by Testimus, else « quality not measured yet »",
+          ),
+        measuredHere: z.boolean().describe("The quality above was measured on this PC (models.measure)"),
+        projectQuality: z
+          .string()
+          .optional()
+          .describe("Evidence recall on this project's own behavior set, when rag.eval has measured these models"),
         suggested: z
           .boolean()
           .describe(
@@ -379,6 +390,47 @@ export const commands: Command[] = [
       );
       const suggested = suggestPack(await machineProfile(), readPerf());
       return rows.map((r) => ({ ...r, suggested: r.id === suggested }));
+    },
+  }),
+  command({
+    name: "models.measure",
+    summary:
+      "Measure a pack (or an embedding + reranker pair) on Testimus's reference document: the Syntec collective agreement, 90 articles, 100 questions with the article that answers each. Gives its quality (evidence recall) and this PC's speed; needs no project. A job.",
+    input: z.object({
+      pack: z.string().optional().describe("Pack id: light, performance, balanced, quality (its variant for this PC)"),
+      embedding: z.string().optional().describe("Catalog id of the embedding, instead of a pack"),
+      reranker: z.string().nullable().optional().describe("Catalog id of the reranker with --embedding (none = null)"),
+    }),
+    output: z.object({
+      embedding: z.string(),
+      reranker: z.string().nullable(),
+      first: z.number().describe("Share of the reference questions whose answering article search ranks first"),
+      top5: z.number().describe("Share whose answering article is in the top 5"),
+      questions: z.number(),
+      quality: z.string().describe("The result in words, as the pack card shows it"),
+      report: z.string().describe("Where the report was saved (in this PC's copy of the reference document)"),
+    }),
+    mutates: false,
+    global: true,
+    job: "models-measure",
+    positional: ["pack"],
+    subject: (i) => i.pack ?? i.embedding ?? "pack",
+    async run(ctx, input) {
+      const choice: RagChoice | null = input.pack
+        ? { pack: input.pack }
+        : input.embedding
+          ? { embedding: input.embedding, reranker: input.reranker ?? null }
+          : null;
+      if (!choice) throw new UserError("Say what to measure.", "Give a pack (light, …) or --embedding <catalog id>.");
+      const report = await measureRefdoc(ctx, choice);
+      const s = refdocScore(report) ?? { first: 0, top5: 0, questions: 0 };
+      return {
+        embedding: report.config.embedding,
+        reranker: report.config.reranker,
+        ...s,
+        quality: refdocText(s, "this PC"),
+        report: report.report,
+      };
     },
   }),
   command({

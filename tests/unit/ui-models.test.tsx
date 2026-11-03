@@ -71,6 +71,7 @@ const packs = (): PackRow[] => [
     downloadMB: 0,
     speed: "query 40 ms, index 6 passages/s",
     quality: "quality not measured yet",
+    measuredHere: false,
   },
   {
     id: "balanced",
@@ -85,6 +86,7 @@ const packs = (): PackRow[] => [
     skipped: ["Qwen3 Embedding 4B (8-bit) + Qwen3 Reranker 0.6B: 9.2 GB needed, 7.0 GB usable (tight)"],
     downloadMB: 3100,
     quality: "quality not measured yet",
+    measuredHere: false,
   },
   {
     id: "quality",
@@ -99,6 +101,7 @@ const packs = (): PackRow[] => [
     skipped: ["Qwen3 Embedding 8B (8-bit): RAM too small (refused)"],
     downloadMB: 0,
     quality: "quality not measured yet",
+    measuredHere: false,
   },
 ];
 

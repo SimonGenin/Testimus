@@ -2,6 +2,7 @@ import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { compare, evalDir, readReport } from "../rag/compare.ts";
 import type { EvalReport, PolicyName } from "../rag/eval.ts";
+import type { PackMeasure } from "../types.ts";
 
 export const QUALITY_K = 10;
 export const NOT_MEASURED = "quality not measured yet";
@@ -139,8 +140,38 @@ export function adviceQuality(from: QualityKey, to: QualityKey, reports: Measure
   return `quality difference not measured — ${run} before switching`;
 }
 
+const pct = (x: number) => Math.round(x * 1000) / 10;
+
 export function packQuality(key: QualityKey, reports: Measured[]): string {
   const r = measuredRecall(key, reports);
   if (!r) return NOT_MEASURED;
-  return `evidence recall ${Math.round(r.recall * 1000) / 10} % on this project (recall@${r.k}, ${r.n} behaviors${r.provisional ? ", provisional" : ""})`;
+  return `evidence recall ${pct(r.recall)} % on this project (recall@${r.k}, ${r.n} behaviors${r.provisional ? ", provisional" : ""})`;
+}
+
+export type RefdocScore = { first: number; top5: number; questions: number };
+
+// ponytail: each reference question has one answering article in a 90-article document — recall@10 is near 100 % for
+// every pack, so the reference is scored by where search ranks that article: first, or in the top 5
+export function refdocScore(report: EvalReport): RefdocScore | null {
+  const ranks = report.behaviors.map((b) => b.policies.search?.rank ?? null);
+  if (!ranks.length) return null;
+  const share = (k: number) =>
+    Math.round((ranks.filter((r) => r !== null && r <= k).length / ranks.length) * 1000) / 1000;
+  return { first: share(1), top5: share(5), questions: ranks.length };
+}
+
+export function refdocText(s: RefdocScore, by: "this PC" | "Testimus"): string {
+  return `right article first for ${pct(s.first)} % of the ${s.questions} reference questions, in the top 5 for ${pct(s.top5)} % (measured by ${by})`;
+}
+
+export function refdocQuality(
+  key: QualityKey,
+  local: Measured[],
+  published: PackMeasure | null,
+): { text: string; here: boolean } {
+  const hit = reportFor(key, local);
+  const s = hit ? refdocScore(hit.report) : null;
+  if (s) return { text: refdocText(s, "this PC"), here: true };
+  if (published) return { text: refdocText(published, "Testimus"), here: false };
+  return { text: NOT_MEASURED, here: false };
 }

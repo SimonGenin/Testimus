@@ -320,6 +320,7 @@ const KIND: Record<string, string> = {
   "describe-figures": "Describe figures",
   "rag-index": "Index documents",
   "rag-eval": "Measure search",
+  "models-measure": "Measure a search pack",
   pullModel: "Download model",
 };
 

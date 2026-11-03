@@ -342,12 +342,14 @@ export type CatalogEntry = {
   legacyProfile?: string;
 };
 export type PackVariant = { embedding: string; reranker: string | null };
+export type PackMeasure = PackVariant & { first: number; top5: number; questions: number; app: string; date: string };
 export type Pack = {
   id: string;
   label: string;
   intent: string;
   variants: PackVariant[];
   retrieval?: Partial<RetrievalSettings>;
+  measured?: PackMeasure[];
 };
 export type Catalog = { version: number; entries: CatalogEntry[]; packs: Pack[] };
 

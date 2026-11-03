@@ -416,9 +416,11 @@ used: GGUF models run on llama.cpp, which Testimus downloads itself (same files 
   Performance need transformers.js alone.
   - `models packs` resolves each pack to its first variant whose models are obtainable here and fit together,
     else to its lightest variant that is not « RAM too small » (flagged), else « not available on this PC », and
-    says why each skipped variant was skipped, with the numbers, plus what is left to download. Each card also gives its variant's speed on this PC from the journal and its quality on this project: the `must`
-    evidence recall at 10 of the latest benchmark report for that pair (search+graph when available), marked
-    provisional when the report is, else « quality not measured yet ». `models usePack
+    says why each skipped variant was skipped, with the numbers, plus what is left to download. Each card also gives its variant's speed on this PC from the journal and its quality on the
+    reference document (below): how often search ranks the answering article first and in the top 5, measured on
+    this PC when it was, else the catalog's figure measured by Testimus, else « quality not measured yet »; and, when
+    the project's own behavior set has a report for that pair, its quality on this project (the `must` evidence
+    recall at 10, search+graph when available, provisional when the report is). `models usePack
     <pack> [--dry-run]` shows the plan (downloads, folder, reindex, expected speed), then in a job installs what is
     missing (and the llama.cpp build if a GGUF needs it), activates the variant for the project on this PC and
     starts the index job. `models use` is the Custom pack (installed models only). First launch proposes the
@@ -528,6 +530,19 @@ used: GGUF models run on llama.cpp, which Testimus downloads itself (same files 
   « provisional » when either set is); else « quality difference not measured — run rag.eval --embedding <id> on the
   candidate before switching ». `models dismiss` hides an advice until its figure moves by more than 25 %. Testimus
   never switches by itself.
+- **Reference document.** Testimus ships `templates/reference/syntec/`: a project holding the Syntec collective
+  agreement (IDCC 1486, 90 articles, one `<!-- § article-n -->` anchor each) and `eval/behaviors.jsonl`, the 100
+  questions of MTEB-French SyntecRetrieval (lyon-nlp, Apache-2.0), each with the one article that answers it,
+  written and checked by its authors (`validated: true`). It is the same test on every PC and needs no project, so
+  a pack's quality can be shown before anyone writes a behavior set. `models measure <pack>` (or `--embedding
+  --reranker`, a job `models-measure`) copies it to `%LOCALAPPDATA%\Testimus\reference\syntec\` (its index and
+  reports stay there between measures), runs `rag.eval` on it with the pack's variant for this PC and the pack's
+  retrieval settings, and reports how often search ranks the answering article first and in the top 5 — recall@10
+  is near 100 % for every pack on a 90-article document and does not tell them apart (bge-m3 q8, hybrid: 60 %
+  first, 91 % in the top 5, 96 % in the top 10, measured 2026-11-03). Its search times feed the perf journal like
+  any search. `node scripts/refdoc.ts [pack…]` measures every pack variant whose models are on the PC it runs on and
+  writes the figures into `models/catalog.json` (`packs[].measured`: pair, first, top5, questions, app, date);
+  variants that need Windows (DirectML, llama.cpp) are measured on the dev PC.
 - **Benchmark** (SPEC-RAG §10). Retrieval settings and models are chosen by measurement over
   `<project>/eval/behaviors.jsonl`: one line per functional behavior `{ id, question, queries[], evidence: [{ ref:
   docId#anchor, role, must }], category?, validated? }`, roles `definition`, `rule`, `condition`, `exception`,
@@ -1095,20 +1110,19 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
     - **Models**: the models folder (« Change… »); the advice banner (`models.advice`, first item: reason, quality,
       Apply = the pack's plan or `models.use`, Dismiss = `models.dismiss`); the pack cards Light · Performance ·
       Balanced · Quality from `models.packs` plus Custom, the active one marked « In use », each with its variant here
-      (« its second choice »), fit chip and message, skipped variants with their numbers, download left, speed, quality,
-      « Use this pack ». A pack or a model whose fit is not « fits » opens a confirmation with the verdict's numbers,
+      (« its second choice »), fit chip and message, skipped variants with their numbers, download left, speed, quality
+      (on the reference document), « On this project » when the project's own set measured it, « Use this pack ». A pack or a model whose fit is not « fits » opens a confirmation with the verdict's numbers,
       **Use anyway** and **Choose a lighter one** (the next lighter pack, or the largest smaller model that fits); « RAM
       too small » offers no Use anyway. Use this pack shows `models.usePack --dry-run` (models, downloads, folder,
       reindex, expected speed), then runs it and follows its jobs on the card (progress, Cancel); running model and
       index jobs are picked up again when the screen opens. Each pack card has « Measure » (« Measure again » once its
-      quality is measured; disabled, with the reason, until the pack's models are on this PC): a dialog starts
-      `rag.eval --embedding <variant's embedding> --reranker <its reranker | null>` and follows the job (progress,
-      « Cancel the measure » = `jobs.cancel`); closing the dialog leaves the job running (Jobs screen, « Measuring · n % »
-      on the card, a toast when it ends), the button reopens that job instead of starting another, and a running
-      `rag-eval` job of a catalog embedding is picked up when the screen opens. When it ends the cards are read again:
-      quality from the new report, speed from the eval's `embed.query` / `rerank` timings in the perf journal. Without a
-      behavior set the dialog says so, names `eval/behaviors.jsonl` and how it is drafted (Claude Code with the
-      rag-eval skill, confirmed line by line by a tester; provisional until then). Below, « Model catalog » (folded): `models.catalog` +
+      quality is measured on this PC; disabled, with the reason, until the pack's models are on this PC): a dialog says
+      what is measured (the reference document, the same on every PC; the project's documents are not used), starts
+      `models.measure <pack>` and follows the job (progress, « Cancel the measure » = `jobs.cancel`); closing the
+      dialog leaves the job running (Jobs screen, « Measuring · n % » on the card, a toast when it ends), the button
+      reopens that job instead of starting another, and a running `models-measure` job is picked up when the screen
+      opens. When it ends the cards are read again: quality from the new report, speed from the measure's
+      `embed.query` / `rerank` timings in the perf journal. Below, « Model catalog » (folded): `models.catalog` +
       `models.list` rows with state chip, size, fit chip, kind · tier · runtimes, where it is and the speed measured
       here; Install (`models.pull`), Use (`models.fit` on the pair, then `models.use`), Verify, Remove (after a
       confirmation saying what is deleted); « Add from a folder… » (`models.add`, Browse… in the desktop shell). The

@@ -861,6 +861,17 @@
           "embedding": "bge-m3-q8",
           "reranker": null
         }
+      ],
+      "measured": [
+        {
+          "embedding": "bge-m3-q8",
+          "reranker": null,
+          "first": 0.6,
+          "top5": 0.91,
+          "questions": 100,
+          "app": "0.1.0",
+          "date": "2026-11-03"
+        }
       ]
     },
     {

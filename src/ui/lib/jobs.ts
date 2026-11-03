@@ -20,6 +20,7 @@ export const KIND: Record<string, string> = {
   pullModel: "Download model",
   "models-pull": "Download model",
   "models-usePack": "Use a search pack",
+  "models-measure": "Measure a search pack",
   "models-move": "Move the models",
   "models-copy": "Copy the models",
   "gen-bench": "Benchmark generation",

@@ -21,6 +21,7 @@ const CLI: Record<string, string> = {
   "docs.convert": "testimus docs convert",
   "rag-index": "testimus rag index",
   "rag-eval": "testimus rag eval",
+  "models-measure": "testimus models measure",
   pullModel: "testimus system pull-model",
   claude: "testimus claude run",
   chat: "testimus chat ask",

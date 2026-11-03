@@ -63,6 +63,7 @@ const pack = (id: string, over: Partial<PackRow> = {}): PackRow => ({
   skipped: [],
   downloadMB: 0,
   quality: "q",
+  measuredHere: false,
   ...over,
 });
 
