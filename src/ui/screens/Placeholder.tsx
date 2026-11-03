@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { ScreenHeader } from "../components/shell/ScreenHeader.tsx";
 import { Icon, type IconName } from "../components/legacy/index.ts";
+import { ScreenHeader } from "../components/shell/ScreenHeader.tsx";
 
 export function Placeholder({
   title,

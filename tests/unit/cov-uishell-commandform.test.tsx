@@ -3,8 +3,8 @@ import "@testing-library/jest-dom/vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CommandInfo, JsonSchema } from "../../src/ui/api.ts";
-import { CommandForm, formValue, hasInput } from "../../src/ui/components/shell/CommandForm.tsx";
 import { Toasts } from "../../src/ui/components/legacy/index.ts";
+import { CommandForm, formValue, hasInput } from "../../src/ui/components/shell/CommandForm.tsx";
 import { closeToast, useToasts } from "../../src/ui/lib/toast.ts";
 import { callsOf, deferred, Fail, fakeNet, net } from "./cov-uishell-helpers.tsx";
 

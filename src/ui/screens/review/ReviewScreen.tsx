@@ -1,9 +1,9 @@
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CheckFile, Source, SyncState, Test } from "../../../core/types.ts";
 import { call, fileUrl, run } from "../../api.ts";
+import { Button, DragEdge, Icon, IconButton, Kbd, Severity, Skeleton } from "../../components/legacy/index.ts";
 import { Activity } from "../../components/shell/Activity.tsx";
 import { docLink } from "../../components/sources/PassageView.tsx";
-import { Button, DragEdge, Icon, IconButton, Kbd, Severity, Skeleton } from "../../components/legacy/index.ts";
 import { useApp } from "../../lib/app.ts";
 import { useDraft } from "../../lib/drafts.ts";
 import { flushEditor } from "../../lib/editorBus.ts";

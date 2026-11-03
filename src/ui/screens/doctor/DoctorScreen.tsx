@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import type { CheckState, DoctorAction, DoctorCheck } from "../../../core/types.ts";
 import { run } from "../../api.ts";
-import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
 import { Badge, type BadgeTone, Button, type IconName, Skeleton } from "../../components/legacy/index.ts";
+import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
 import { useApp } from "../../lib/app.ts";
 import { desktop, pickFolder } from "../../lib/desktop.ts";
 import { runDoctor, useDoctor } from "../../lib/doctor.ts";

@@ -3,13 +3,13 @@ import type { CredsStatus, Job, SearchMatch, Source, XrayJson } from "../../core
 import { ApiError, type CommandInfo, call, commands, events, fileUrl, project, setProject } from "../api.ts";
 import { ClaudeDock, type DockJob, type DockRequest } from "../components/claude/ClaudeDock.tsx";
 import { CONTEXTS_EVENT } from "../components/claude/ContextsDialog.tsx";
+import { DragEdge, Toasts } from "../components/legacy/index.ts";
 import { CommandForm, hasInput } from "../components/shell/CommandForm.tsx";
 import { DesktopBridge } from "../components/shell/DesktopBridge.tsx";
 import { Palette, type PaletteAction } from "../components/shell/Palette.tsx";
 import { NAV, Rail } from "../components/shell/Rail.tsx";
 import { PassageDialog } from "../components/sources/PassageDialog.tsx";
 import { docLink } from "../components/sources/PassageView.tsx";
-import { DragEdge, Toasts } from "../components/legacy/index.ts";
 import { actionsChanged, triageWhenClaude } from "../lib/actions.ts";
 import { AppContext, type AppState, type ClaudeRun, type Focus, type ProjectInfo, type Screen } from "../lib/app.ts";
 import { touches, useChanged } from "../lib/changed.ts";

@@ -1,5 +1,5 @@
-import { ProblemPanel } from "../../components/shell/ProblemPanel.tsx";
 import { Icon, IconButton, Severity } from "../../components/legacy/index.ts";
+import { ProblemPanel } from "../../components/shell/ProblemPanel.tsx";
 import { cx } from "../../lib/format.ts";
 import { dismissUpload, type Upload } from "../../lib/uploads.ts";
 

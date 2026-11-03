@@ -69,8 +69,13 @@
   },
   "overrides": [
     {
-      "includes": ["src/ui/components/ui/**",
-        "src/ui/components/legacy/**", "tests/**", "scripts/**", "src/desktop/**"],
+      "includes": [
+        "src/ui/components/ui/**",
+        "src/ui/components/legacy/**",
+        "tests/**",
+        "scripts/**",
+        "src/desktop/**"
+      ],
       "linter": {
         "rules": {
           "correctness": {

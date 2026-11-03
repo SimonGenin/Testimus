@@ -2,9 +2,9 @@
 import "@testing-library/jest-dom/vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Activity, elapsed } from "../../src/ui/components/shell/Activity.tsx";
 import { DragEdge } from "../../src/ui/components/legacy/DragEdge.tsx";
 import { Toasts } from "../../src/ui/components/legacy/index.ts";
+import { Activity, elapsed } from "../../src/ui/components/shell/Activity.tsx";
 import { closeToast, useToasts } from "../../src/ui/lib/toast.ts";
 import { callsOf, deferred, Fail, FakeES, fakeEvents, fakeNet, job, net, status } from "./cov-uishell-helpers.tsx";
 

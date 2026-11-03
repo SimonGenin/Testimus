@@ -2,7 +2,16 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import type { DocJson, FigureEntry } from "../../../core/types.ts";
 import { call, project } from "../../api.ts";
 import { AdditionalContext } from "../../components/claude/AdditionalContext.tsx";
-import { Button, DragEdge, Icon, IconButton, Menu, Segmented, Severity, Skeleton } from "../../components/legacy/index.ts";
+import {
+  Button,
+  DragEdge,
+  Icon,
+  IconButton,
+  Menu,
+  Segmented,
+  Severity,
+  Skeleton,
+} from "../../components/legacy/index.ts";
 import { useChanged } from "../../lib/changed.ts";
 import { baseName, desktop, pathJoin, reveal } from "../../lib/desktop.ts";
 import { cx, message, plural } from "../../lib/format.ts";
