@@ -69,3 +69,45 @@ describe("textToAdf", () => {
       expect(adfToText(textToAdf(t))).toBe(t.replace(/\r\n/g, "\n"));
   });
 });
+
+describe("adf", () => {
+  it("reads mentions, emoji, cards and nested nodes, and a plain string as itself", () => {
+    const doc = {
+      type: "doc",
+      version: 1,
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            { type: "text" },
+            { type: "mention", attrs: { text: "@Ann" } },
+            { type: "mention" },
+            { type: "emoji", attrs: { shortName: ":ok:" } },
+            { type: "emoji", attrs: { text: "😀" } },
+            { type: "emoji" },
+            { type: "inlineCard", attrs: { url: "https://x/browse/AB-12" } },
+            { type: "blockCard", attrs: { url: "https://x/other" } },
+            { type: "inlineCard" },
+            { type: "strong" },
+          ],
+        },
+        { type: "bulletList" },
+        { type: "orderedList" },
+        { type: "listItem" },
+      ],
+    } as const;
+    expect(adfToText(doc as never)).toBe("@Ann:ok:😀AB-12https://x/other");
+    expect(adfToText("plain" as never)).toBe("plain");
+    expect(adfToText({ type: "paragraph", content: [{ type: "text", text: "a" }] })).toBe("a");
+    expect(adfToText({ type: "doc", version: 1 } as never)).toBe("");
+    expect(adfToText(null)).toBe("");
+  });
+
+  it("writes CRLF text as one paragraph per line", () => {
+    expect(textToAdf("a\r\n\r\nb").content).toEqual([
+      { type: "paragraph", content: [{ type: "text", text: "a" }] },
+      { type: "paragraph", content: [] },
+      { type: "paragraph", content: [{ type: "text", text: "b" }] },
+    ]);
+  });
+});
