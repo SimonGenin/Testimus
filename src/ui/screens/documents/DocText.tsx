@@ -7,6 +7,27 @@ const squeeze = (s: string) => s.replace(/\*/g, "").replace(/\s+/g, " ").trim().
 
 const isTable = (b: string) => /^\|/.test(b);
 
+// ponytail: the converter escapes [ and ] in captions and may leave a picture inside a paragraph (a Word image anchored
+// in the text), so the picture is found anywhere in the block, with the fig marker that follows it
+const IMG = /!\[((?:\\.|[^\]\\])*)\]\(([^)\s]+)[^)]*\)(?:\s*<!--\s*fig\s+([\w-]+)\s*-->)?/g;
+const unbracket = (s: string) => s.replace(/\\([[\]\\])/g, "$1");
+
+type Piece = { text: string } | { alt: string; src: string; fig?: string };
+
+function pieces(raw: string): Piece[] {
+  const out: Piece[] = [];
+  let last = 0;
+  for (const m of raw.matchAll(IMG)) {
+    const text = clean(raw.slice(last, m.index));
+    if (text) out.push({ text });
+    out.push({ alt: unbracket(m[1]), src: m[2], fig: m[3] });
+    last = m.index + m[0].length;
+  }
+  const text = clean(raw.slice(last));
+  if (text) out.push({ text });
+  return out;
+}
+
 // ponytail: the block (or table row, "i:j") where the quote starts, found on the squeezed text of the whole part the way
 // the core finds it — a quote may run over several paragraphs or sit in a table cell
 function hotOf(blocks: string[], focus?: string): string | null {
@@ -60,6 +81,20 @@ export function DocText({
 }) {
   const raws = md.split(/\n{2,}/).filter((b) => clean(b));
   const hotKey = hotOf(raws.map(clean), focus);
+  const figure = (p: { alt: string; src: string; fig?: string }, key: number, hot: boolean) => (
+    <figure key={key} className={hot ? "passage-fig is-focus" : "passage-fig"}>
+      <img src={fileUrl(`docs/${docId}/${p.src}`)} alt={p.alt} />
+      <figcaption className="muted">
+        {p.fig ? (
+          <button type="button" className="linkbtn" onClick={() => onFigure(`fig:${p.fig}`)}>
+            {p.alt}
+          </button>
+        ) : (
+          p.alt
+        )}
+      </figcaption>
+    </figure>
+  );
   return (
     <div className="doctext">
       {raws.map((raw, i) => {
@@ -72,24 +107,9 @@ export function DocText({
               {head[2]}
             </h4>
           );
-        const img = b.match(/^!\[([^\]]*)\]\(([^)\s]+)[^)]*\)$/);
-        if (img) {
-          const fig = raw.match(/<!--\s*fig\s+([\w-]+)\s*-->/)?.[1];
-          return (
-            <figure key={i} className={hot ? "passage-fig is-focus" : "passage-fig"}>
-              <img src={fileUrl(`docs/${docId}/${img[2]}`)} alt={img[1]} />
-              <figcaption className="muted">
-                {fig ? (
-                  <button type="button" className="linkbtn" onClick={() => onFigure(`fig:${fig}`)}>
-                    {img[1]}
-                  </button>
-                ) : (
-                  img[1]
-                )}
-              </figcaption>
-            </figure>
-          );
-        }
+        const parts = isTable(b) ? [] : pieces(raw);
+        const only = parts.length === 1 ? parts[0] : null;
+        if (only && "src" in only) return figure(only, i, hot);
         if (isTable(b))
           return (
             <pre key={i} className="doctext-table">
@@ -103,7 +123,7 @@ export function DocText({
         const ids = requirements ? [...new Set(b.match(requirements) ?? [])] : [];
         return (
           <div key={i} className={hot ? "doctext-p is-focus" : "doctext-p"}>
-            <p>{inline(b)}</p>
+            {parts.map((p, j) => ("src" in p ? figure(p, j, false) : <p key={j}>{inline(p.text)}</p>))}
             {ids.length > 0 && onRequirement && (
               <div className="chips">
                 {ids.map((id) => (

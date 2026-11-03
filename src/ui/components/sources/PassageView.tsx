@@ -88,7 +88,7 @@ export const DOC_STATUS: Record<string, { label: string; tone: BadgeTone }> = {
 export const paragraphs = (text: string) =>
   text
     .replace(/<!--[\s\S]*?-->/g, "")
-    .replace(/^!\[[^\]]*\]\([^)]*\)\s*$/gm, "")
+    .replace(/!\[(?:\\.|[^\]\\])*\]\([^)\s]+[^)]*\)/g, "")
     .split(/\n{2,}/)
     .map((p) => p.trim())
     .filter(Boolean);
