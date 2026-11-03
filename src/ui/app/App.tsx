@@ -1,6 +1,6 @@
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CredsStatus, Job, SearchMatch, Source, XrayJson } from "../../core/types.ts";
-import { type CommandInfo, call, commands, events, fileUrl, setProject } from "../api.ts";
+import { ApiError, type CommandInfo, call, commands, events, fileUrl, project, setProject } from "../api.ts";
 import { ClaudeDock, type DockJob, type DockRequest } from "../components/claude/ClaudeDock.tsx";
 import { CONTEXTS_EVENT } from "../components/claude/ContextsDialog.tsx";
 import { CommandForm, hasInput } from "../components/shell/CommandForm.tsx";
@@ -17,7 +17,7 @@ import { DEFAULT_XRAY } from "../lib/fields.ts";
 import { mirrorPrefs, restorePrefs } from "../lib/prefsMirror.ts";
 import { jumpTo, rememberHit } from "../lib/search.ts";
 import { useSideWidth } from "../lib/sideWidth.ts";
-import { readSession, readString, setThemeEverywhere, writeSession } from "../lib/theme.ts";
+import { readSession, readString, setThemeEverywhere, writePref, writeSession } from "../lib/theme.ts";
 import { errorToast, toast } from "../lib/toast.ts";
 import { DoctorScreen } from "../screens/doctor/DoctorScreen.tsx";
 import { DocumentsScreen } from "../screens/documents/DocumentsScreen.tsx";
@@ -102,8 +102,15 @@ export function App() {
         stopMirror = mirrorPrefs();
         const stored = readString("testimus.project");
         setCmds(r.commands ?? []);
-        const dir = stored || r.project;
-        setProject(dir);
+        setProject(stored || r.project);
+        // ponytail: a project this window remembers but the server no longer knows (deleted, moved, forgotten) is
+        // dropped at start, not opened — every call made for it would be refused
+        const refused = (e: unknown) => e instanceof ApiError && e.status === 403;
+        if (stored && (await call("project.info", {}).then(() => false, refused))) {
+          writePref("testimus.project", "");
+          setProject(r.project);
+        }
+        const dir = project();
         if (dir) refreshInfo();
         setBooted(true);
         const shown = readSession("testimus.setupShown");

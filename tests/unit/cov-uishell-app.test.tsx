@@ -153,6 +153,31 @@ describe("App boot", () => {
     expect(project()).toBe("D:\\remembered");
   });
 
+  it("drops a remembered project the server no longer knows and sends a first run to Setup", async () => {
+    localStorage.setItem("testimus.project", "D:\\gone");
+    net.api = () => ({ project: null, mock: false });
+    net.routes["project.info"] = () => {
+      if (project() === "D:\\gone") throw new Fail("Not a known Testimus project.", 403);
+      return info();
+    };
+    mount();
+    await hashIs("#/setup/project");
+    expect(project()).toBeNull();
+    expect(localStorage.getItem("testimus.project")).toBe("");
+    expect(callsOf("project.info")).toHaveLength(1);
+    expect(screen.queryByText("Could not read the project")).toBeNull();
+  });
+
+  it("keeps a remembered project whose info fails for another reason", async () => {
+    localStorage.setItem("testimus.project", "D:\\remembered");
+    net.routes["project.info"] = () => {
+      throw new Fail("busy", 500);
+    };
+    mount();
+    expect(await screen.findByText("Could not read the project")).toBeInTheDocument();
+    expect(project()).toBe("D:\\remembered");
+  });
+
   it("keeps the default fields when xray.json is missing too", async () => {
     net.routes["project.info"] = () => null;
     mount();

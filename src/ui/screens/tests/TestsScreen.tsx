@@ -42,6 +42,11 @@ export function TestsScreen() {
   const reload = useCallback(async () => {
     // ponytail: a list asked for by the project being left never lands in the one now on screen
     const asked = apiProject();
+    // ponytail: before a project is open (the first launch, on its way to the setup screen) there is nothing to list
+    if (!asked) {
+      setLoading(false);
+      return [];
+    }
     try {
       const r = await call<LocalTestRef[]>("tests.list", {});
       const list = Array.isArray(r) ? r : [];

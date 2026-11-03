@@ -63,6 +63,7 @@ beforeEach(() => {
   server.routes["jobs.list"] = () => [];
   errors.length = 0;
   localStorage.clear();
+  setProject("C:\\p");
   Object.defineProperty(window, "innerWidth", { value: 1200, configurable: true });
 });
 
@@ -125,6 +126,14 @@ describe("TestsScreen", () => {
     };
     screenOf();
     await waitFor(() => expect(errors.at(-1)?.title).toBe("Could not list the tests"));
+  });
+
+  it("asks for nothing and says nothing while no project is open", async () => {
+    setProject(null);
+    screenOf();
+    expect(await screen.findByText(/No tests yet/)).toBeInTheDocument();
+    expect(callsTo("tests.list")).toHaveLength(0);
+    expect(errors).toEqual([]);
   });
 
   it("drops a list or an error asked for by the project being left", async () => {
