@@ -50,6 +50,7 @@ const styles = stylex.create({
   titleLine: { display: "flex", alignItems: "center", gap: space.s3, minWidth: 0 },
   title: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   titleOn: { fontWeight: fontWeight.medium },
+  tip: { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", minWidth: 0 },
   meta: {
     display: "flex",
     alignItems: "center",
@@ -202,7 +203,13 @@ export function ListItem({
       {lead && <span {...stylex.props(styles.lead, two && styles.leadTwo, danger && styles.leadDanger)}>{lead}</span>}
       <div {...stylex.props(styles.body)}>
         <div {...stylex.props(styles.titleLine)}>
-          {tooltip ? <Tooltip label={tooltip}>{titleText}</Tooltip> : titleText}
+          {tooltip ? (
+            <span {...stylex.props(styles.tip)}>
+              <Tooltip label={tooltip}>{titleText}</Tooltip>
+            </span>
+          ) : (
+            titleText
+          )}
           {badges}
         </div>
         {meta !== undefined && <div {...stylex.props(styles.meta, disabled && styles.metaOff)}>{meta}</div>}

@@ -10,6 +10,7 @@ const styles = stylex.create({
   wrap: {
     boxSizing: "border-box",
     minWidth: 0,
+    maxWidth: "100%",
     overflow: "auto",
     borderStyle: "solid",
     borderWidth: border.width,
