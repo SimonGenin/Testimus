@@ -64,6 +64,12 @@ function wrap(client = createQueryClient()) {
   };
 }
 
+function Two() {
+  const a = useRead("tests.list");
+  const b = useRead("tests.list");
+  return <p>{a.data && b.data ? `${(a.data as unknown as { tests: unknown[] }).tests.length} both` : "loading"}</p>;
+}
+
 describe("keys", () => {
   it("are [project, command, input], and a machine command has no project", () => {
     expect(key("tests.show", { id: "T1" })).toEqual(["/p", "tests.show", { id: "T1" }]);
@@ -77,11 +83,6 @@ describe("reads", () => {
   it("cache by key and send one request for identical reads", async () => {
     handler = () => ({ tests: [{ id: "T1" }] });
     const { wrapper } = wrap();
-    function Two() {
-      const a = useRead("tests.list");
-      const b = useRead("tests.list");
-      return <p>{a.data && b.data ? `${(a.data as unknown as { tests: unknown[] }).tests.length} both` : "loading"}</p>;
-    }
     render(<Two />, { wrapper });
     expect(await screen.findByText("1 both")).toBeInTheDocument();
     expect(calls.filter((c) => c.name === "tests.list")).toHaveLength(1);
