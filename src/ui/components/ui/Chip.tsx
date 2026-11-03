@@ -67,6 +67,8 @@ export type ChipProps = {
   onToggle?: () => void;
   /** a value in a set (labels, covers, preconditions): shows a remove button */
   onRemove?: () => void;
+  /** the remove button's name when « Remove <label> » does not say what it does (« Leave Glossaire out of this run ») */
+  removeLabel?: string;
   /** claude: something Claude reads (contexts, quick asks) */
   tone?: "neutral" | "claude";
   /** shown struck through when a toggle is off (a context left out of this run) */
@@ -93,6 +95,7 @@ export function Chip({
   pressed,
   onToggle,
   onRemove,
+  removeLabel,
   tone = "neutral",
   strikeOff = false,
   mono = false,
@@ -151,7 +154,7 @@ export function Chip({
       {onRemove && (
         <button
           type="button"
-          aria-label={`Remove ${label}`}
+          aria-label={removeLabel ?? `Remove ${label}`}
           disabled={disabled}
           onClick={onRemove}
           {...stylex.props(styles.remove)}
