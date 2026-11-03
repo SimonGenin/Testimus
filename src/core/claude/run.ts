@@ -11,7 +11,7 @@ import { readJson, writeJson } from "../lib/project.ts";
 import type { ClaudeEvent, ClaudeResult, ClaudeScope, Effort } from "../types.ts";
 import { diagnose } from "./diagnose.ts";
 import { contextDir, readContexts } from "./prompt.ts";
-import { finishSnapshot, takeSnapshot } from "./snapshot.ts";
+import { finishSnapshot, takeSnapshot, writeRunMeta } from "./snapshot.ts";
 import { claudeAnswered, claudeExe, forShell } from "./status.ts";
 import { sessionOf, streamParser, type ToolCall, toolCalls, writtenTests } from "./stream.ts";
 
@@ -264,16 +264,6 @@ export type RunResult = ClaudeResult & {
   calls: ToolCall[];
 };
 
-export type RunMeta = { kind: RunKind; model: string; effort: Effort; at: string; jobId?: string; label?: string };
-
-export const runMeta = (project: string, runId: string) => join(project, ".testimus", "runs", runId, "claude.json");
-
-export function readRunMeta(project: string, runId: string): RunMeta | null {
-  if (!/^[\w-]+$/.test(runId)) return null;
-  const m = readJson<Partial<RunMeta>>(runMeta(project, runId), {});
-  return m.kind && m.model && m.effort ? (m as RunMeta) : null;
-}
-
 export function newRunId(): string {
   return `run-${env.now().toISOString().replace(/\D/g, "").slice(0, 14)}-${randomBytes(3).toString("hex")}`;
 }
@@ -299,7 +289,7 @@ export async function runClaude(o: RunOpts): Promise<RunResult> {
   const shell = forShell(resolveExe(claudeExe()), args);
   const runId = o.runId ?? newRunId();
   if (o.scope) takeSnapshot(project, runId, o.scope, o.files === true);
-  writeJson(runMeta(project, runId), {
+  writeRunMeta(project, runId, {
     kind: o.kind,
     model,
     effort,

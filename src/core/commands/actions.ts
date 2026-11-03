@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import { type Problem, runAction, triage } from "../claude/actions.ts";
 import { docRunLines } from "../claude/prompt.ts";
-import { readRunMeta } from "../claude/run.ts";
+import { readRunMeta } from "../claude/snapshot.ts";
 import { command, projectOf, UserError } from "../command.ts";
 import { env } from "../env.ts";
 import { showJob } from "../jobs.ts";
