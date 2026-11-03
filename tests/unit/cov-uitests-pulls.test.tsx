@@ -2,13 +2,11 @@
 import "@testing-library/jest-dom/vitest";
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { JobEvent, LocalTestRef } from "../../src/core/types.ts";
+import type { JobEvent } from "../../src/core/types.ts";
 import { setProject } from "../../src/ui/api.ts";
 import { setDiscarder } from "../../src/ui/lib/editorBus.ts";
-import { addRecent, recentIds } from "../../src/ui/lib/recent.ts";
 import { DeleteTest, deleteTest, needsAsking } from "../../src/ui/screens/tests/DeleteTest.tsx";
 import { PullPane } from "../../src/ui/screens/tests/PullPane.tsx";
-import { RecentList } from "../../src/ui/screens/tests/RecentList.tsx";
 import { deferred } from "./cov-uitests-helpers.ts";
 
 type Job = {
@@ -320,47 +318,6 @@ describe("PullPane", () => {
   });
 });
 
-const ref = (id: string, o: Partial<LocalTestRef> = {}): LocalTestRef => ({
-  id,
-  summary: `Test ${id}`,
-  folder: "/",
-  review: "draft",
-  generated: false,
-  edited: false,
-  sync: "local",
-  dirty: false,
-  synced: false,
-  mtime: Date.now(),
-  stepCount: 1,
-  ...o,
-});
-
-describe("RecentList", () => {
-  it("lists recently opened tests still in the project, newest first, at most six", () => {
-    const refs = ["a", "b", "c", "d", "e", "f", "g"].map((id) => ref(id));
-    refs.push(ref("old", { mtime: Date.now() - 30 * 864e5 }), ref("blank", { summary: "", key: "K-1" }));
-    const onOpen = vi.fn();
-    const { container } = render(<RecentList refs={refs} onOpen={onOpen} />);
-    expect(container).toBeEmptyDOMElement();
-    act(() => {
-      for (const id of ["old", "gone", "a", "b", "c", "d", "e", "f", "g", "blank"]) addRecent(id);
-    });
-    const items = screen.getAllByRole("button");
-    expect(items.map((b) => b.querySelector(".recent-name")?.textContent)).toEqual([
-      "Untitled",
-      "Test g",
-      "Test f",
-      "Test e",
-      "Test d",
-      "Test c",
-    ]);
-    expect(items[0]).toHaveAttribute("title", "K-1");
-    expect(items[1]).toHaveAttribute("title", "g");
-    fireEvent.click(items[1]);
-    expect(onOpen).toHaveBeenCalledWith("g");
-  });
-});
-
 describe("DeleteTest", () => {
   const target = { id: "t1", key: "K-1", summary: "One", synced: true, dirty: false };
 
@@ -370,14 +327,12 @@ describe("DeleteTest", () => {
     expect(needsAsking({ ...target, synced: false })).toBe(true);
   });
 
-  it("discards the editor, removes the test and forgets it in the recent list", async () => {
+  it("discards the editor and removes the test", async () => {
     const discard = vi.fn();
     setDiscarder(discard);
-    addRecent("t1");
     expect(await deleteTest(target)).toBe(true);
     expect(discard).toHaveBeenCalledWith("t1");
     expect(calls).toEqual([{ name: "tests.remove", input: { id: "t1" } }]);
-    expect(recentIds()).toEqual([]);
     expect(toasts[0]).toEqual({
       kind: "info",
       title: "Local copy of K-1 deleted",

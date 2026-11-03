@@ -10,7 +10,6 @@ import { ScreenHeader } from "../../src/ui/components/shell/ScreenHeader.tsx";
 import { Toasts } from "../../src/ui/components/ui/index.ts";
 import { AppContext, type AppState } from "../../src/ui/lib/app.ts";
 import { resetLocalWork } from "../../src/ui/lib/localActivity.ts";
-import { addRecent } from "../../src/ui/lib/recent.ts";
 import { closeToast, toast } from "../../src/ui/lib/toast.ts";
 import { abandonPulls } from "../../src/ui/screens/tests/pulls.ts";
 import { TestList } from "../../src/ui/screens/tests/TestList.tsx";
@@ -456,45 +455,6 @@ describe("Tests sidebar › local rows", () => {
     expect(named("tests.remove")).toHaveLength(0);
     fireEvent.click(within(dialog).getByRole("button", { name: "Delete local copy" }));
     await waitFor(() => expect(onDeleted).toHaveBeenCalledWith("local-1"));
-  });
-});
-
-describe("Tests sidebar › recent", () => {
-  it("lists this project's tests touched in the last days, toggled by the clock and remembered", () => {
-    const old = Date.now() - 9 * 864e5;
-    const refs = [
-      ...Array.from({ length: 7 }, (_, i) => ref({ id: `local-${i}`, summary: `Recent ${i}` })),
-      ref({ id: "local-old", summary: "Old one", mtime: old }),
-    ];
-    for (const r of refs) addRecent(r.id);
-    const onOpen = vi.fn();
-    list({ refs, onOpen });
-    const recent = screen.getByRole("region", { name: "Recent tests" });
-    expect(within(recent).getAllByRole("button")).toHaveLength(6);
-    expect(within(recent).queryByText("Old one")).toBeNull();
-    expect(within(recent).getAllByRole("button")[0]).toHaveTextContent(/^Old one|^Recent 6/);
-    fireEvent.click(within(recent).getByRole("button", { name: /Recent 6/ }));
-    expect(onOpen).toHaveBeenCalledWith("local-6");
-    const clock = screen.getByRole("button", { name: "Recent tests" });
-    expect(clock).toHaveAttribute("aria-pressed", "true");
-    expect(clock).toHaveAttribute("title", "Hide recent tests");
-    fireEvent.click(clock);
-    expect(screen.queryByRole("region", { name: "Recent tests" })).toBeNull();
-    expect(clock).toHaveAttribute("title", "Show recent tests");
-    expect(localStorage.getItem("testimus.showRecent")).toBe("0");
-    cleanup();
-    list({ refs });
-    expect(screen.queryByRole("region", { name: "Recent tests" })).toBeNull();
-  });
-
-  it("says how long ago each recent test was touched", () => {
-    const refs = [ref({ id: "local-3h", summary: "Three hours", mtime: Date.now() - 3 * 3600e3 })];
-    addRecent("local-3h");
-    list({ refs });
-    const row = within(screen.getByRole("region", { name: "Recent tests" })).getByRole("button", {
-      name: /Three hours/,
-    });
-    expect(row.querySelector(".recent-time")).toHaveTextContent("3h ago");
   });
 });
 

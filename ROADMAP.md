@@ -64,7 +64,7 @@ Audit of everything Xray Editor lets a user see, do or edit, then the gaps close
 - [x] Step card: header fold toggles (open · when filled · collapsed), Ask Claude per step, project column kinds,
       split tracks, Undo by field with image clean-up, orphan detach, empty field = insert strip
 - [x] Sidebar: tab counts, direct/total folders, infinite scroll + sticky head, pull queue + pulling pane, hover ✕,
-      recent list, resizable width, narrow drawer, activity popover, toast countdown
+      resizable width, narrow drawer, activity popover, toast countdown
 - [x] Claude dock and Settings: see SPEC §13 « Claude dock » and « Settings »
 
 ## RAG v2 — SPEC-RAG.md (built 2026-11; behavior in SPEC §4, §5, §8, §12, §14)

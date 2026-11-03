@@ -21,7 +21,6 @@ import { activityOf, DOING } from "../../lib/activity.ts";
 import { useApp } from "../../lib/app.ts";
 import { discardEditor } from "../../lib/editorBus.ts";
 import { plural } from "../../lib/format.ts";
-import { forgetRecent } from "../../lib/recent.ts";
 import { type DocScope, scopeOf } from "../../lib/scope.ts";
 import { useSideWidth } from "../../lib/sideWidth.ts";
 import { errorToast } from "../../lib/toast.ts";
@@ -188,10 +187,7 @@ export function GenerateScreen() {
         effort: runEffort,
         ...(replace.length ? { discard: true } : {}),
       });
-      for (const id of replace) {
-        discardEditor(id);
-        forgetRecent(id);
-      }
+      for (const id of replace) discardEditor(id);
       if (replace.length) app.testsChanged();
       if (r?.jobId) {
         chained.current = null;

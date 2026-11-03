@@ -1,4 +1,4 @@
-/* the Tests sidebar: tabs with counts, Jira tree and its endless folder list, recent list, drawer */
+/* the Tests sidebar: tabs with counts, Jira tree and its endless folder list, drawer */
 
 .tests-screen {
   position: relative;
@@ -39,11 +39,6 @@
 .tside-close {
   display: none;
   align-self: center;
-}
-
-.tside-recent[aria-pressed="true"] {
-  color: var(--ink);
-  background: var(--surface-2);
 }
 
 .tside-actions {
@@ -272,57 +267,6 @@
 .jempty-title {
   font-weight: 600;
   color: var(--ink);
-}
-
-/* recent tests */
-.recent {
-  flex: none;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 8px 12px 10px;
-  border-top: 1px solid var(--line);
-}
-
-.recent-label {
-  margin-bottom: 4px;
-  font: 600 11px / 1.2 var(--font-body);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--ink-3);
-}
-
-.recent-item {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  margin: 0 -6px;
-  padding: 3px 6px;
-  border: 0;
-  border-radius: var(--radius-s);
-  background: transparent;
-  text-align: left;
-  cursor: pointer;
-}
-
-.recent-item:hover {
-  background: var(--surface-2);
-}
-
-.recent-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 13px;
-  color: var(--ink-2);
-}
-
-.recent-time {
-  margin-left: auto;
-  font-size: 11.5px;
-  color: var(--ink-3);
-  white-space: nowrap;
 }
 
 /* activity: the slot is always there, so nothing shifts when a job starts */

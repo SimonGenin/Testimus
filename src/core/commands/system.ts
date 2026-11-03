@@ -58,7 +58,7 @@ const settingsOut = z.object({
   ui: z
     .record(z.string(), z.string())
     .optional()
-    .describe("The page's own preferences (widths, layout, recent tests…), kept here so a new page origin finds them"),
+    .describe("The page's own preferences (widths, layout…), kept here so a new page origin finds them"),
 });
 
 // ponytail: whatever people paste — "transurb", a host, any page URL, http or https — becomes the site root over https

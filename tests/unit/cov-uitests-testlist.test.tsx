@@ -6,7 +6,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Folder, LocalTestRef, RemoteTestRef } from "../../src/core/types.ts";
 import { setProject } from "../../src/ui/api.ts";
 import { AppContext, type AppState } from "../../src/ui/lib/app.ts";
-import { addRecent } from "../../src/ui/lib/recent.ts";
 import { isKeyQuery, localTree, TestList } from "../../src/ui/screens/tests/TestList.tsx";
 import { callsTo, deferred, Fail, server, stubServer } from "./cov-uitests-helpers.ts";
 import { app } from "./ui-desktop-helpers.tsx";
@@ -276,19 +275,6 @@ describe("TestList › local", () => {
     expect(container.querySelector(".tside")).toHaveClass("is-open");
     fireEvent.click(screen.getByRole("button", { name: "Close list" }));
     expect(onCloseDrawer).toHaveBeenCalled();
-  });
-
-  it("shows and hides the recent tests, remembering the choice", () => {
-    addRecent("t-a");
-    list();
-    expect(screen.getByRole("region", { name: "Recent tests" })).toBeInTheDocument();
-    const toggle = screen.getByRole("button", { name: "Recent tests" });
-    expect(toggle).toHaveAttribute("aria-pressed", "true");
-    fireEvent.click(toggle);
-    expect(screen.queryByRole("region", { name: "Recent tests" })).toBeNull();
-    expect(localStorage.getItem("testimus.showRecent")).toBe("0");
-    fireEvent.click(toggle);
-    expect(localStorage.getItem("testimus.showRecent")).toBe("1");
   });
 });
 

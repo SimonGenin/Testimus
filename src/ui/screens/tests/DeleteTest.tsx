@@ -3,7 +3,6 @@ import type { LocalTestRef } from "../../../core/types.ts";
 import { call } from "../../api.ts";
 import { Confirm } from "../../components/ui/index.ts";
 import { discardEditor } from "../../lib/editorBus.ts";
-import { forgetRecent } from "../../lib/recent.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 
 export type DeleteTarget = Pick<LocalTestRef, "id" | "key" | "summary" | "synced" | "dirty">;
@@ -12,7 +11,6 @@ export async function deleteTest(t: DeleteTarget): Promise<boolean> {
   try {
     discardEditor(t.id);
     await call("tests.remove", { id: t.id });
-    forgetRecent(t.id);
     toast({
       kind: "info",
       title: `Local copy of ${t.key ?? t.id} deleted`,

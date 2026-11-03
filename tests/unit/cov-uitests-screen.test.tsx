@@ -5,7 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LocalTestRef } from "../../src/core/types.ts";
 import { setProject } from "../../src/ui/api.ts";
 import { AppContext, type AppState } from "../../src/ui/lib/app.ts";
-import { recentIds } from "../../src/ui/lib/recent.ts";
 import { abandonPulls, startPull } from "../../src/ui/screens/tests/pulls.ts";
 import { TestsScreen } from "../../src/ui/screens/tests/TestsScreen.tsx";
 import { callsTo, deferred, Fail, server, stubServer } from "./cov-uitests-helpers.ts";
@@ -93,17 +92,16 @@ describe("TestsScreen", () => {
     expect(state.navigate).toHaveBeenCalledWith("tests", "t1");
   });
 
-  it("opens the routed test, records it as recent once, and updates its row after a save", async () => {
+  it("opens the routed test and updates its row after a save", async () => {
     const { state, again } = screenOf({ route: { screen: "tests", arg: "t1" } });
     expect(screen.getByText("Editing t1")).toBeInTheDocument();
-    await waitFor(() => expect(recentIds()).toEqual(["t1"]));
+    await screen.findAllByRole("button", { name: /^Test t1/ });
     fireEvent.click(screen.getByRole("button", { name: "saved" }));
     expect((await screen.findAllByRole("button", { name: /^Renamed row/ })).length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole("button", { name: "open t2" }));
     expect(state.navigate).toHaveBeenCalledWith("tests", "t2");
     again({ testsNonce: 1 });
     await waitFor(() => expect(callsTo("tests.list")).toHaveLength(2));
-    expect(recentIds()).toEqual(["t1"]);
   });
 
   it("sends a generated test still in review to Generate's review, never a validated one", async () => {

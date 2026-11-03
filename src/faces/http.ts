@@ -310,7 +310,7 @@ export async function serve(argv: string[]): Promise<void> {
       });
     });
   // ponytail: the desktop shell asks for the port of its last run (same origin, so the page's localStorage —
-  // theme, widths, recent tests — survives a restart) and takes any free one when that port is taken
+  // theme, widths — survives a restart) and takes any free one when that port is taken
   try {
     await listen(port);
   } catch (e) {

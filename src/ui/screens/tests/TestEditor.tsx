@@ -25,7 +25,6 @@ import { DEFAULT_XRAY } from "../../lib/fields.ts";
 import { uploadImage } from "../../lib/files.ts";
 import { cx, message, plural } from "../../lib/format.ts";
 import { addedSteps } from "../../lib/marks.ts";
-import { addRecent, renameRecent } from "../../lib/recent.ts";
 import { editedAfterRun, revertRun } from "../../lib/revert.ts";
 import { readPref, readString, writePref } from "../../lib/theme.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
@@ -213,7 +212,6 @@ export function TestEditor({
     load(testId)
       .then(({ test: t, remote: base }) => {
         if (dead) return;
-        addRecent(testId);
         if (t.key && base) void recheck(testId);
       })
       .catch((e) => {
@@ -988,10 +986,8 @@ export function TestEditor({
           onDone={(id) => {
             setPushing(false);
             app.testsChanged();
-            if (id !== testId) {
-              renameRecent(testId, id);
-              onOpen(id);
-            } else void load(testId).catch((e) => errorToast(e, "Could not reload the test"));
+            if (id !== testId) onOpen(id);
+            else void load(testId).catch((e) => errorToast(e, "Could not reload the test"));
           }}
         />
       )}

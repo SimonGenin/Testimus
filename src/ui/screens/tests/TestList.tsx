@@ -15,12 +15,10 @@ import { useApp } from "../../lib/app.ts";
 import { desktop, pathJoin, reveal } from "../../lib/desktop.ts";
 import { cx, plural } from "../../lib/format.ts";
 import { track } from "../../lib/localActivity.ts";
-import { readPref, writePref } from "../../lib/theme.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 import { type DeleteTarget, DeleteTest, deleteTest, needsAsking } from "./DeleteTest.tsx";
 import { JiraConnect } from "./JiraConnect.tsx";
 import { JiraTab } from "./JiraTab.tsx";
-import { RecentList } from "./RecentList.tsx";
 import { type ListTab, TestsTabs } from "./TestsTabs.tsx";
 
 type Node = { name: string; path: string; tests: LocalTestRef[]; folders: Node[]; total: number };
@@ -124,7 +122,6 @@ export function TestList({
   const [folder, setFolder] = useState("/");
   const [busy, setBusy] = useState<string[]>([]);
   const [doomed, setDoomed] = useState<DeleteTarget | null>(null);
-  const [showRecent, setShowRecent] = useState(() => readPref("testimus.showRecent", ["1", "0"], "1") === "1");
   const active = refs.find((r) => r.id === activeId);
   // ponytail: two boxes, as in Xray Editor — « Search Jira » (any text jumps to the Jira tab and asks Jira) and
   // « Filter tests » (narrows what is listed: local tests, Jira folders, the loaded Jira rows)
@@ -257,12 +254,6 @@ export function TestList({
     }
   };
 
-  const toggleRecent = () => {
-    const next = !showRecent;
-    setShowRecent(next);
-    writePref("testimus.showRecent", next ? "1" : "0");
-  };
-
   const localNode = (n: Node, depth: number) => {
     const isOpen = !shut.has(n.path) || !!q;
     return (
@@ -379,14 +370,6 @@ export function TestList({
             }}
           />
           <div className="tside-actions">
-            <IconButton
-              icon="clock"
-              className="tside-recent"
-              label="Recent tests"
-              title={showRecent ? "Hide recent tests" : "Show recent tests"}
-              aria-pressed={showRecent}
-              onClick={toggleRecent}
-            />
             <Button size="sm" icon="plus" title={`New local test in ${newFolder}`} onClick={() => void create()}>
               New test
             </Button>
@@ -498,7 +481,6 @@ export function TestList({
           </>
         )}
       </div>
-      {showRecent && <RecentList refs={refs} onOpen={onOpen} />}
       {doomed && <DeleteTest target={doomed} onClose={() => setDoomed(null)} onDeleted={() => deleted(doomed.id)} />}
     </aside>
   );

@@ -23,7 +23,6 @@ import { readAlwaysOnTop, restoreAlwaysOnTop, setAlwaysOnTop } from "../../src/u
 import { differs, diffLocal, lossOf, restoreStep, sameStep } from "../../src/ui/lib/diff.ts";
 import { discardEditor, setDiscarder } from "../../src/ui/lib/editorBus.ts";
 import { fieldViews, isRequirementField } from "../../src/ui/lib/fields.ts";
-import { addRecent, forgetRecent, RECENT_DAYS, recentIds, renameRecent } from "../../src/ui/lib/recent.ts";
 import { closeToast, useToasts } from "../../src/ui/lib/toast.ts";
 import { exampleOf, REQUIREMENT, setTraces, traceOfField, tracesNow } from "../../src/ui/lib/traces.ts";
 import { callsOf, fakeNet, net, withApp } from "./cov-uishell-helpers.tsx";
@@ -129,49 +128,6 @@ describe("editor bus discard", () => {
     setDiscarder(null);
     discardEditor("t2");
     expect(fn).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe("recent tests", () => {
-  it("keeps the newest first per project, renames and forgets", () => {
-    const seen = vi.fn();
-    window.addEventListener("testimus:recent", seen);
-    setProject("D:/a");
-    addRecent("t1");
-    addRecent("t2");
-    addRecent("t1");
-    expect(recentIds()).toEqual(["t1", "t2"]);
-    setProject("D:/b");
-    addRecent("x");
-    expect(recentIds()).toEqual(["x"]);
-    setProject("D:/a");
-    renameRecent("t2", "LFRPS12-9");
-    expect(recentIds()).toEqual(["t1", "LFRPS12-9"]);
-    forgetRecent("t1");
-    expect(recentIds()).toEqual(["LFRPS12-9"]);
-    expect(seen).toHaveBeenCalledTimes(6);
-    window.removeEventListener("testimus:recent", seen);
-    setProject(null);
-    addRecent("none");
-    expect(recentIds()).toEqual(["none"]);
-    expect(RECENT_DAYS).toBe(7);
-  });
-
-  it("caps the list at twenty and survives bad or unreadable storage", () => {
-    for (let i = 0; i < 25; i++) addRecent(`t${i}`);
-    expect(recentIds()).toHaveLength(20);
-    expect(recentIds()[0]).toBe("t24");
-    localStorage.setItem("testimus.recent", '{"not":"a list"}');
-    expect(recentIds()).toEqual([]);
-    localStorage.setItem("testimus.recent", '["|a", 3, null]');
-    expect(recentIds()).toEqual(["a"]);
-    localStorage.setItem("testimus.recent", "{broken");
-    expect(recentIds()).toEqual([]);
-    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
-      throw new Error("full");
-    });
-    addRecent("y");
-    expect(recentIds()).toEqual([]);
   });
 });
 

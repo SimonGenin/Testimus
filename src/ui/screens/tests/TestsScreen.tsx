@@ -5,7 +5,6 @@ import { Activity } from "../../components/shell/Activity.tsx";
 import { DragEdge, Icon } from "../../components/ui/index.ts";
 import { useApp } from "../../lib/app.ts";
 import { cx } from "../../lib/format.ts";
-import { addRecent } from "../../lib/recent.ts";
 import { useSideWidth } from "../../lib/sideWidth.ts";
 import { errorToast } from "../../lib/toast.ts";
 import { ConnectAtlassian } from "../settings/ConnectAtlassian.tsx";
@@ -95,13 +94,6 @@ export function TestsScreen() {
     const ref = refs.find((r) => r.id === activeId);
     if (ref && awaitsReview(ref)) navigate("review", activeId);
   }, [refs, activeId, navigate]);
-
-  const recorded = useRef("");
-  useEffect(() => {
-    if (!activeId || recorded.current === activeId || !refs.some((r) => r.id === activeId)) return;
-    recorded.current = activeId;
-    addRecent(activeId);
-  }, [activeId, refs]);
 
   useEffect(() => {
     const onResize = () => setNarrow(window.innerWidth < NARROW);

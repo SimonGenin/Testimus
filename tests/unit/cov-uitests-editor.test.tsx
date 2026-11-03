@@ -7,7 +7,6 @@ import { setProject } from "../../src/ui/api.ts";
 import { ClaudeDock } from "../../src/ui/components/claude/ClaudeDock.tsx";
 import { AppContext, type AppState, type ClaudeRun } from "../../src/ui/lib/app.ts";
 import { discardEditor, flushEditor } from "../../src/ui/lib/editorBus.ts";
-import { recentIds } from "../../src/ui/lib/recent.ts";
 import { TestEditor } from "../../src/ui/screens/tests/TestEditor.tsx";
 import { callsTo, deferred, Fail, server, stubServer } from "./cov-uitests-helpers.ts";
 import { app } from "./ui-desktop-helpers.tsx";
@@ -158,7 +157,6 @@ describe("TestEditor › loading", () => {
     );
     await waitFor(() => expect(onSaved).toHaveBeenCalledWith({ id: "t1", sync: "synced" }));
     expect(callsTo("xray.status")[0].input).toEqual({ id: "t1" });
-    expect(recentIds()).toEqual(["t1"]);
   });
 
   it("opens a precondition in Jira, through the desktop or a new tab, and reports a failure", async () => {
@@ -1220,14 +1218,13 @@ describe("TestEditor › push", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("opens and renames the recent entry after a first push, and reports a failed reload", async () => {
+  it("opens the pushed test after a first push, and reports a failed reload", async () => {
     server.routes["xray.push"] = () => ({ ok: true, id: "LFRPS12-99", ops: [] });
     const { onOpen } = editor();
     await ready();
     fireEvent.click(screen.getByRole("button", { name: "Push to Jira" }));
     await confirm();
     await waitFor(() => expect(onOpen).toHaveBeenCalledWith("LFRPS12-99"));
-    expect(recentIds()).toEqual(["LFRPS12-99"]);
     cleanup();
     server.routes["xray.push"] = () => ({ ok: true, id: "t1", ops: [] });
     editor();
