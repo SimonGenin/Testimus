@@ -60,6 +60,8 @@ const local: LocalTestRef = {
   summary: "Local one",
   folder: "/",
   review: "draft",
+  generated: false,
+  edited: false,
   sync: "modified",
   dirty: true,
   synced: true,

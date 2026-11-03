@@ -76,6 +76,8 @@ const ref = (id: string, over: Partial<LocalTestRef> = {}): LocalTestRef => ({
   summary: id,
   folder: "/",
   review: "draft",
+  generated: false,
+  edited: false,
   sync: "local",
   dirty: false,
   synced: false,

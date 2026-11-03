@@ -2,7 +2,7 @@ import type { ComponentProps } from "react";
 import { cx } from "../../lib/format.ts";
 import { Icon, type IconName } from "./Icon.tsx";
 
-export type BadgeTone = "neutral" | "info" | "warn" | "ok" | "err" | "line";
+export type BadgeTone = "neutral" | "info" | "warn" | "ok" | "err" | "line" | "claude";
 
 export function Badge({
   tone = "neutral",

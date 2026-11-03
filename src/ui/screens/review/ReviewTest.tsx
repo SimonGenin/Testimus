@@ -4,6 +4,7 @@ import {
   Badge,
   Button,
   FindingCard,
+  GeneratedBadge,
   Icon,
   ReviewBadge,
   Severity,
@@ -17,6 +18,7 @@ export type Marks = { runId: string; steps: Set<number>; added: Set<number> };
 export function ReviewTest({
   test,
   sync,
+  edited,
   check,
   stale,
   xray,
@@ -42,6 +44,7 @@ export function ReviewTest({
 }: {
   test: Test;
   sync: SyncState;
+  edited?: boolean;
   check: CheckFile | null;
   stale: boolean;
   xray: XrayJson;
@@ -77,6 +80,7 @@ export function ReviewTest({
             <Icon name="folder" />
             {test.folder || "/"}
           </span>
+          {test.generatedBy && <GeneratedBadge edited={edited} />}
           <ReviewBadge review={test.review} />
           <SyncBadge sync={sync} />
           <span className="spacer" />

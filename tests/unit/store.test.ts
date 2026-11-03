@@ -82,6 +82,27 @@ test("readTest returns both copies and writeTest makes the test modified", () =>
   expect(() => store.readTest(P, "LFRPS12-9999")).toThrow(/No test LFRPS12-9999/);
 });
 
+test("a generated test is edited once its content leaves what the generation wrote", () => {
+  const { test: t } = store.readTest(P, "LFRPS12-1398");
+  store.writeTest(P, "LFRPS12-1398", { ...t, generatedBy: "job-1" });
+  expect(store.localTestRef(P, "LFRPS12-1398")).toMatchObject({ generated: true, edited: false });
+  store.markGenerated(P, "LFRPS12-1398");
+  store.writeTest(P, "LFRPS12-1398", {
+    ...t,
+    generatedBy: "job-1",
+    review: "validated",
+    key: "LFRPS12-7",
+    folder: "/moved",
+    labels: ["testimus-validated"],
+  });
+  expect(store.localTestRef(P, "LFRPS12-1398")?.edited).toBe(false);
+  store.writeTest(P, "LFRPS12-1398", { ...t, generatedBy: "job-1", summary: "Edited by hand" });
+  expect(store.localTestRef(P, "LFRPS12-1398")?.edited).toBe(true);
+  store.writeTest(P, "LFRPS12-1398", { ...t, summary: "Edited by hand" });
+  expect(store.localTestRef(P, "LFRPS12-1398")).toMatchObject({ generated: false, edited: false });
+  store.writeTest(P, "LFRPS12-1398", t);
+});
+
 test("writeTest orders the fields by the order given", () => {
   const t = newTest("LFRPS12", "/");
   t.steps[0].fields = { Exigence: "E", "Expected Result": "r", Action: "a" };

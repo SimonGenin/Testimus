@@ -4,6 +4,7 @@ import {
   Button,
   Chip,
   ChipInput,
+  GeneratedBadge,
   GrowArea,
   Icon,
   IconButton,
@@ -20,6 +21,7 @@ export type TestContexts = { effective: string[]; own: string[] | null };
 export function TestHeader({
   test,
   sync,
+  edited,
   dirty,
   remote,
   saving,
@@ -45,6 +47,7 @@ export function TestHeader({
 }: {
   test: Test;
   sync: SyncState;
+  edited?: boolean;
   dirty: boolean;
   remote: RemoteCheck;
   saving: "idle" | "saving" | "saved";
@@ -203,6 +206,7 @@ export function TestHeader({
         onChange={(e) => update((t) => ({ ...t, summary: e.target.value.replace(/[\r\n]+/g, " ") }))}
       />
       <div className="testhead-chips">
+        {test.generatedBy && <GeneratedBadge edited={edited} />}
         <ReviewBadge review={test.review} />
         <span title={remote === "unverified" ? "Not verified against Jira" : undefined}>
           <SyncBadge sync={sync === "remote-changed" ? (dirty ? "modified" : "synced") : sync} />

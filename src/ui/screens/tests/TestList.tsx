@@ -2,7 +2,16 @@ import { useEffect, useMemo, useState } from "react";
 import type { Folder, LocalTestRef, RemoteTestRef } from "../../../core/types.ts";
 import { call, project, run } from "../../api.ts";
 import { Activity } from "../../components/shell/Activity.tsx";
-import { Button, Icon, IconButton, ReviewBadge, Skeleton, SyncBadge, Tabs } from "../../components/ui/index.ts";
+import {
+  Button,
+  GeneratedBadge,
+  Icon,
+  IconButton,
+  ReviewBadge,
+  Skeleton,
+  SyncBadge,
+  Tabs,
+} from "../../components/ui/index.ts";
 import { useApp } from "../../lib/app.ts";
 import { desktop, pathJoin, reveal } from "../../lib/desktop.ts";
 import { cx, plural } from "../../lib/format.ts";
@@ -292,6 +301,7 @@ export function TestList({
                   <span className="trow-title">{r.summary || "Untitled"}</span>
                   <span className="trow-meta">
                     <span className="mono muted">{r.key ?? "no key"}</span>
+                    {r.generated && <GeneratedBadge edited={r.edited} small />}
                     <ReviewBadge review={r.review} small />
                     <SyncBadge sync={r.sync} small />
                   </span>

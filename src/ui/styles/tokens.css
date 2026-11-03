@@ -35,6 +35,8 @@
   --warn-bg: #fcf2e1;
   --info: #2c5a87;
   --info-bg: #e9f0f8;
+  --claude: #a84a26;
+  --claude-bg: #fbece4;
   --ok: #24683a;
   --ok-bg: #e6f3ea;
   --hl: #ffe680;
@@ -63,6 +65,8 @@
     --warn-bg: #32250f;
     --info: #96bfe8;
     --info-bg: #152638;
+    --claude: #eb9a78;
+    --claude-bg: #3a2118;
     --ok: #88cd9c;
     --ok-bg: #15281c;
     --hl: rgba(255, 212, 0, 0.3);
@@ -91,6 +95,8 @@
   --warn-bg: #32250f;
   --info: #96bfe8;
   --info-bg: #152638;
+  --claude: #eb9a78;
+  --claude-bg: #3a2118;
   --ok: #88cd9c;
   --ok-bg: #15281c;
   --hl: rgba(255, 212, 0, 0.3);

@@ -54,6 +54,8 @@ export type LocalTestRef = {
   summary: string;
   folder: string;
   review: Review;
+  generated: boolean;
+  edited: boolean;
   sync: SyncState;
   dirty: boolean;
   synced: boolean;

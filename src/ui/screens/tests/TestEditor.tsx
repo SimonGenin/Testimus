@@ -41,6 +41,7 @@ export type TestShow = {
   warnings?: string[];
   remote?: Test | null;
   sync?: SyncState;
+  edited?: boolean;
   files?: string[];
   mtime?: number;
 };
@@ -95,6 +96,7 @@ export function TestEditor({
   const [remote, setRemote] = useState<Test | null>(null);
   const [files, setFiles] = useState<Set<string>>(new Set());
   const [sync, setSync] = useState<SyncState>("local");
+  const [edited, setEdited] = useState(false);
   const [check, setCheck] = useState<RemoteCheck>(null);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState<"idle" | "saving" | "saved">("idle");
@@ -147,6 +149,7 @@ export function TestEditor({
       const ref = await call<LocalTestRef & { mtime?: number }>("tests.save", { id: p.id, test: p.test });
       if (ref && loadedFor.current === p.id) {
         if (ref.sync) setSync(ref.sync);
+        setEdited(!!ref.edited);
         if (ref.mtime) mtime.current = ref.mtime;
       }
       if (ref) savedRef.current(ref);
@@ -170,6 +173,7 @@ export function TestEditor({
     setRemote(r.remote ?? null);
     setFiles(new Set(r.files ?? []));
     setSync(r.sync ?? (t.key ? "synced" : "local"));
+    setEdited(!!r.edited);
     setError("");
     return { test: t, remote: r.remote ?? null };
   }, []);
@@ -716,6 +720,7 @@ export function TestEditor({
       <TestHeader
         test={test}
         sync={sync}
+        edited={edited}
         dirty={dirty}
         remote={check}
         saving={saving}

@@ -115,6 +115,8 @@ const ref = (over: Partial<LocalTestRef> & { id: string }): LocalTestRef => ({
   summary: over.id,
   folder: "/",
   review: "draft",
+  generated: false,
+  edited: false,
   sync: "local",
   dirty: false,
   synced: false,

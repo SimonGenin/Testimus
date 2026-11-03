@@ -9,7 +9,10 @@ export const REVIEW: Record<Review, { label: string; tone: BadgeTone; icon: Icon
   validated: { label: "Validated", tone: "ok", icon: "validated" },
 };
 
+const SILENT: readonly Review[] = ["checked", "validated"];
+
 export function ReviewBadge({ review, small, suffix }: { review: Review; small?: boolean; suffix?: string }) {
+  if (SILENT.includes(review)) return null;
   const r = REVIEW[review] ?? REVIEW.draft;
   return (
     <Badge tone={r.tone} icon={r.icon} small={small}>
