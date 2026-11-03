@@ -5,6 +5,7 @@ import {
   contextDir,
   effectiveContexts,
   isShared,
+  projectContexts,
   readContexts,
   readTestContexts,
   sharedContexts,
@@ -298,6 +299,19 @@ export const commands: Command[] = [
         own: readTestContexts(project, input.testId),
         project: readProject(project).claude.contexts,
       };
+    },
+  }),
+  command({
+    name: "contexts.ofProject",
+    summary:
+      "The contexts a request on the whole project attaches: the project's defaults and every test's own list, each once.",
+    input: z.object({}),
+    output: z.object({
+      effective: z.array(z.string()).describe("Context ids a run on the project attaches (existing ones only)"),
+    }),
+    mutates: false,
+    async run(ctx) {
+      return { effective: projectContexts(projectOf(ctx)) };
     },
   }),
   command({

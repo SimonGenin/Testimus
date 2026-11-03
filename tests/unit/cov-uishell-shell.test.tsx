@@ -219,7 +219,7 @@ describe("Palette", () => {
     fireEvent.click(screen.getAllByRole("option")[0]);
     expect(run).toHaveBeenCalled();
     fireEvent.change(input, { target: { value: "  quel menu  " } });
-    const askOption = screen.getByRole("option", { name: /Ask the documents/ });
+    const askOption = screen.getByRole("option", { name: /Ask Claude/ });
     fireEvent.mouseEnter(askOption);
     expect(askOption).toHaveAttribute("aria-selected", "true");
     fireEvent.click(askOption);

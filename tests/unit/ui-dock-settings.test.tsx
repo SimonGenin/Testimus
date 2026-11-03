@@ -72,7 +72,7 @@ const withClaude = (
 
 const focus = (o: Partial<Focus> = {}): Focus => ({ testId: "local-1", summary: "Test", step: null, ...o });
 const wrap = (state: AppState, ui: ReactNode) => <AppContext.Provider value={state}>{ui}</AppContext.Provider>;
-const box = () => screen.getByRole("textbox", { name: /Ask Claude|Ask the documents/ });
+const box = () => screen.getByRole("textbox", { name: /Ask Claude|Ask about/ });
 const send = (text?: string) => {
   if (text !== undefined) fireEvent.change(box(), { target: { value: text } });
   fireEvent.click(screen.getByRole("button", { name: /Send/ }));
@@ -95,16 +95,16 @@ const desktop = (more: Record<string, unknown> = {}) => {
 };
 
 describe("dock: scope, presets, contexts, models", () => {
-  it("without a test the scope is the whole project, with the project's default contexts", async () => {
+  it("without a test the scope is the whole project, with every context the project or a test attaches", async () => {
     routes["contexts.list"] = () => ctxList;
+    routes["contexts.ofProject"] = () => ({ effective: ["ctx-b"] });
     routes["claude.run"] = () => ({ ok: true, summary: "Done", durationMs: 1200, changedTests: [], raw: "" });
-    const state = withClaude({ contexts: ["ctx-b"] });
+    const state = withClaude({ contexts: [] });
     render(wrap(state, <ClaudeDock folded={false} onFold={() => {}} />));
-    const change = screen.getByRole("button", { name: "Change every test" });
-    expect(change).toBeEnabled();
-    fireEvent.click(change);
+    expect(screen.getByRole("button", { name: "Project" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByRole("button", { name: "Change every test" })).toBeNull();
     const scope = screen.getByRole("group", { name: "Claude scope" });
-    expect(within(scope).getByText("Whole project")).toBeInTheDocument();
+    expect(within(scope).getByText("Whole project · tests, documents, contexts")).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: "Leave Glossary out of this run" })).toBeInTheDocument();
     send("Uniformise les verbes");
     await waitFor(() => expect(callsOf("claude.run")).toHaveLength(1));
@@ -116,7 +116,7 @@ describe("dock: scope, presets, contexts, models", () => {
       contexts: ["ctx-b"],
     });
     expect(await screen.findByText("1.2 s · no tokens reported · sonnet / medium")).toBeInTheDocument();
-    expect(screen.getAllByText("Whole project")).toHaveLength(2);
+    expect(screen.getByText("Whole project", { selector: ".bubble-label" })).toBeInTheDocument();
     expect(state.setClaudeRunning).toHaveBeenCalledWith("*project*");
   });
 
@@ -200,8 +200,8 @@ describe("dock: scope, presets, contexts, models", () => {
     expect(await screen.findByText("Done")).toBeInTheDocument();
     cleanup();
     render(wrap(withClaude({}), <ClaudeDock folded={false} onFold={() => {}} />));
-    expect(screen.getByRole("button", { name: "Ask the documents" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: /Send/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Project" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: /Send/ })).toBeEnabled();
   });
 
   it("on a test: one result card per run, the request kept in the box, the card gone when the test changes", async () => {
@@ -276,8 +276,7 @@ describe("dock: scope, presets, contexts, models", () => {
     routes["claude.run"] = () => ({ ok: true, summary: "ok", changedTests: [], raw: "" });
     render(wrap(app({ focus: focus({ step: 2 }) }), <ClaudeDock folded={false} onFold={() => {}} />));
     fireEvent.click(screen.getByRole("button", { name: "Project" }));
-    fireEvent.click(screen.getByRole("button", { name: "Change every test" }));
-    expect(within(screen.getByRole("group", { name: "Claude scope" })).getByText("Whole project")).toBeInTheDocument();
+    expect(within(screen.getByRole("group", { name: "Claude scope" })).getByText(/^Whole project/)).toBeInTheDocument();
     send("A");
     await waitFor(() => expect(callsOf("claude.run")).toHaveLength(1));
     expect(callsOf("claude.run")[0].input.scope).toEqual({ kind: "project" });
@@ -288,7 +287,7 @@ describe("dock: scope, presets, contexts, models", () => {
   });
 
   it("offers fable, opus, sonnet, haiku and a custom model", async () => {
-    routes["chat.ask"] = () => ({ chatId: "c", ok: true, answer: "a", sources: [] });
+    routes["claude.run"] = () => ({ ok: true, summary: "a", changedTests: [], raw: "" });
     render(wrap(app(), <ClaudeDock folded={false} onFold={() => {}} />));
     const model = screen.getByRole("combobox", { name: "Model" });
     expect(
@@ -301,8 +300,8 @@ describe("dock: scope, presets, contexts, models", () => {
     fireEvent.change(custom, { target: { value: "claude-opus-4-1" } });
     fireEvent.blur(custom);
     send("Q");
-    await waitFor(() => expect(callsOf("chat.ask")).toHaveLength(1));
-    expect(callsOf("chat.ask")[0].input).toMatchObject({ model: "claude-opus-4-1" });
+    await waitFor(() => expect(callsOf("claude.run")).toHaveLength(1));
+    expect(callsOf("claude.run")[0].input).toMatchObject({ model: "claude-opus-4-1" });
     fireEvent.change(screen.getByRole("combobox", { name: "Model" }), { target: { value: "haiku" } });
     expect(screen.queryByRole("textbox", { name: "Custom model" })).toBeNull();
   });

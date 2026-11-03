@@ -176,6 +176,8 @@ describe("contexts commands", () => {
     expect(await run("contexts.setTest", { testId: t, contexts: [] })).toEqual({ effective: [], own: [] });
     expect(await run("contexts.setTest", { testId: t, contexts: null })).toEqual({ effective: [a.id], own: null });
     await expect(run("contexts.ofTest", { testId: "NOPE-1" })).rejects.toThrow(/No test NOPE-1/);
+    await run("contexts.setTest", { testId: "LFRPS12-1420", contexts: [b.id, a.id] });
+    expect(await run("contexts.ofProject")).toEqual({ effective: [a.id, b.id] });
   });
 });
 

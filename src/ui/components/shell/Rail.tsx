@@ -20,7 +20,7 @@ export function Rail({ counts }: { counts: Partial<Record<Screen, number>> }) {
       <img className="rail-logo" src="/logo.png" alt="Testimus" />
       <ProjectButton />
       <div className="rail-sep" />
-      {NAV.map((n) => (
+      {NAV.filter((n) => n.id !== "jobs").map((n) => (
         <RailItem
           key={n.id}
           label={n.label}
@@ -31,8 +31,15 @@ export function Rail({ counts }: { counts: Partial<Record<Screen, number>> }) {
         />
       ))}
       <div className="rail-spacer" />
-      <ThemeToggle />
+      <RailItem
+        label="Jobs"
+        icon="jobs"
+        current={at === "jobs"}
+        count={counts.jobs}
+        onClick={() => app.navigate("jobs")}
+      />
       <RailItem label="Settings" icon="settings" current={at === "settings"} onClick={() => app.navigate("settings")} />
+      <ThemeToggle />
       <SystemStatus current={at === "doctor"} onOpen={() => app.navigate("doctor")} />
     </nav>
   );

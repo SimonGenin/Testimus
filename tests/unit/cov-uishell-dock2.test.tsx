@@ -76,11 +76,11 @@ describe("dock run details", () => {
   });
 
   it("sends no model when the project names none, and copes with an answer without text", async () => {
-    net.routes["chat.ask"] = () => ({ chatId: "c" });
+    net.routes["claude.run"] = () => ({ ok: true });
     mount({}, claude({ model: "" }));
     ask("Q");
-    await waitFor(() => expect(callsOf("chat.ask")).toHaveLength(1));
-    expect(callsOf("chat.ask")[0].input).not.toHaveProperty("model");
+    await waitFor(() => expect(callsOf("claude.run")).toHaveLength(1));
+    expect(callsOf("claude.run")[0].input).not.toHaveProperty("model");
     await waitFor(() => expect(screen.getByRole("button", { name: /Send/ })).toBeInTheDocument());
   });
 
@@ -99,7 +99,6 @@ describe("dock run details", () => {
   it("runs on the whole project and shows the changes on the first changed test", async () => {
     net.routes["claude.run"] = () => ({ ok: true, runId: "r1", changedTests: ["t9"], changedSteps: { t9: [1] } });
     const { state } = mount({}, { focus: null, ...claude({ contexts: undefined }) });
-    fireEvent.click(screen.getByRole("button", { name: "Change every test" }));
     ask("Tout");
     fireEvent.click(await screen.findByRole("button", { name: "Show changes" }));
     expect(state.navigate).toHaveBeenCalledWith("tests", "t9");
@@ -108,7 +107,6 @@ describe("dock run details", () => {
   it("falls back to an empty test id when a project run names no test", async () => {
     net.routes["claude.run"] = () => ({ ok: true, runId: "r2", changedSteps: [3] });
     const { state } = mount({}, { focus: null });
-    fireEvent.click(screen.getByRole("button", { name: "Change every test" }));
     ask("Tout");
     fireEvent.click(await screen.findByRole("button", { name: "Show changes" }));
     expect(state.navigate).toHaveBeenCalledWith("tests", "");

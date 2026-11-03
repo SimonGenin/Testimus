@@ -41,6 +41,19 @@ export function effectiveContexts(project: string, testId?: string): string[] {
   return ids.filter((id) => /^[\w-]+$/.test(id) && existsSync(contextDir(project, id)));
 }
 
+// ponytail: a request on the whole project reads every context the project or one of its tests attaches, each once
+export function projectContexts(project: string): string[] {
+  const dir = join(project, "tests");
+  const tests = existsSync(dir)
+    ? readdirSync(dir, { withFileTypes: true })
+        .filter((e) => e.isDirectory())
+        .map((e) => e.name)
+        .sort()
+    : [];
+  const ids = [...readProject(project).claude.contexts, ...tests.flatMap((t) => readTestContexts(project, t) ?? [])];
+  return [...new Set(ids)].filter((id) => /^[\w-]+$/.test(id) && existsSync(contextDir(project, id)));
+}
+
 export function readContexts(project: string, ids: string[]): Context[] {
   const out: Context[] = [];
   for (const id of ids) {
@@ -64,7 +77,11 @@ export function readContexts(project: string, ids: string[]): Context[] {
 const slash = (p: string) => p.replace(/\\/g, "/");
 
 export function scopeLines(scope: ClaudeScope): string[] {
-  if (scope.kind === "project") return ["Scope: every test of this project.", "Files: all tests/*/test.md"];
+  if (scope.kind === "project")
+    return [
+      "Scope: the whole project — every test and every document.",
+      "Files: all tests/*/test.md; the documents through rag_search, rag_passage and docs/*/doc.md (read only)",
+    ];
   if (scope.kind === "tests")
     return [
       `Scope: the tests ${scope.testIds.join(", ")}.`,
@@ -91,6 +108,11 @@ export function buildPrompt(
     lines.push(
       `Only edit "## Step ${scope.step}" of that file (its fields and its ### Sources); do not touch other steps.`,
     );
+  if (scope.kind === "project")
+    lines.push(
+      "When the request is a question, answer it from the documents and the tests and change nothing; " +
+        'put the source of every factual sentence at its end: [<docId>#<anchor> "<exact quote from doc.md>"].',
+    );
   lines.push(
     "Follow the test.md format of CLAUDE.md exactly. Every claim keeps or gets its source line: " +
       '`<docId>#<anchor> "<exact quote from doc.md>"` — use rag_search and rag_passage to find them.',
@@ -99,7 +121,12 @@ export function buildPrompt(
   lines.push(...contextLines(project, contexts, note));
   const req = request.trim();
   if (req) lines.push("", req);
-  lines.push("", "When finished, reply in 2-4 lines: what you changed (which steps) and anything you could not do.");
+  lines.push(
+    "",
+    scope.kind === "project"
+      ? "When finished, give the answer, or reply in 2-4 lines: what you changed (which tests and steps) and anything you could not do."
+      : "When finished, reply in 2-4 lines: what you changed (which steps) and anything you could not do.",
+  );
   return `${lines.join("\n")}\n`;
 }
 

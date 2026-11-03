@@ -22,10 +22,9 @@ test.describe("Claude signed out", () => {
   mockServer(4345, { TESTIMUS_MOCK_CLAUDE: "logged-out" });
 
   test("a question to the documents says Claude is not signed in and how to fix it", async ({ page }) => {
-    await boot(page, "#/documents");
+    await boot(page, "#/documents/SOSIE_211_D401-1_3");
     const dock = await openDock(page);
-    await dock.getByRole("button", { name: "Ask the documents" }).click();
-    await dock.getByRole("textbox", { name: "Ask the documents" }).fill("Que propose le menu ?");
+    await dock.getByRole("textbox", { name: "Ask about SOSIE_211_D401-1_3" }).fill("Que propose le menu ?");
     await dock.getByRole("button", { name: "Send" }).click();
     await expect(
       dock

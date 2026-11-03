@@ -97,16 +97,23 @@ describe("dock helpers", () => {
   });
 });
 
+const onDoc: Partial<AppState> = { route: { screen: "documents", arg: "D" } };
+
 describe("Claude dock: asking the documents", () => {
   it("streams an answer with its tools and sources, and continues the same chat", async () => {
     net.routes["chat.ask"] = () => ({ jobId: "c1" });
     net.routes["jobs.show"] = () => ({ job: job({ id: "c1", kind: "chat" }) });
-    const { state } = mount();
-    expect(screen.getByText(/Ask anything about the documents/)).toBeInTheDocument();
+    const { state } = mount({}, onDoc);
+    expect(screen.getByText(/Ask anything about D\./)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Send/ })).toBeDisabled();
     ask("Quel menu ?");
     await waitFor(() => expect(callsOf("chat.ask")).toHaveLength(1));
-    expect(callsOf("chat.ask")[0].input).toEqual({ question: "Quel menu ?", model: "sonnet", effort: "medium" });
+    expect(callsOf("chat.ask")[0].input).toEqual({
+      question: "Quel menu ?",
+      model: "sonnet",
+      effort: "medium",
+      note: "The question is about the document D: answer from docs/D/doc.md first.",
+    });
     expect(screen.getByText("Quel menu ?")).toHaveClass("bubble");
     await waitFor(() => expect(screen.getByRole("button", { name: /Cancel/ })).toBeEnabled());
     act(() => {
@@ -160,7 +167,7 @@ describe("Claude dock: asking the documents", () => {
       answer: "",
       diagnosis: { kind: "login", title: "Claude is signed out", detail: "Run claude /login" },
     });
-    mount();
+    mount({}, onDoc);
     await waitFor(() => expect(callsOf("claude.status")).toHaveLength(1));
     ask("Q");
     expect(await screen.findByText("Claude is signed out")).toBeInTheDocument();
@@ -184,7 +191,7 @@ describe("Claude dock: asking the documents", () => {
     net.routes["chat.ask"] = () => {
       throw new Fail("core went away", 500);
     };
-    mount();
+    mount({}, onDoc);
     ask("   ");
     ask("draft", { shiftKey: true, ctrlKey: false });
     ask("draft", { ctrlKey: false });
@@ -204,7 +211,7 @@ describe("Claude dock: asking the documents", () => {
       if (cancels > 1) throw new Fail("already gone");
       return null;
     };
-    mount();
+    mount({}, onDoc);
     fireEvent.keyDown(screen.getByRole("complementary", { name: "Claude" }), { key: "Escape" });
     expect(callsOf("jobs.cancel")).toHaveLength(0);
     ask("Long one");
@@ -223,7 +230,7 @@ describe("Claude dock: asking the documents", () => {
   it("shows Running on the folded strip and opens with it", async () => {
     let finish: (v: unknown) => void = () => {};
     net.routes["chat.ask"] = () => new Promise((res) => (finish = res));
-    const { update, onFold } = mount();
+    const { update, onFold } = mount({}, onDoc);
     ask("Q");
     await waitFor(() => expect(callsOf("chat.ask")).toHaveLength(1));
     update({ folded: true });
@@ -261,7 +268,7 @@ describe("Claude dock: connection", () => {
     };
     mount();
     await waitFor(() => expect(callsOf("claude.status").length).toBeGreaterThan(1));
-    expect(screen.getByText(/Ask anything about the documents/)).toBeInTheDocument();
+    expect(screen.getByText(/Ask anything about the project/)).toBeInTheDocument();
   });
 });
 
@@ -456,15 +463,11 @@ describe("Claude dock: on a test", () => {
     expect(screen.getByText(/whole test/)).toBeInTheDocument();
     update({}, { focus: null });
     expect(screen.getByRole("button", { name: "Project" })).toHaveAttribute("aria-pressed", "true");
-    fireEvent.click(screen.getByRole("button", { name: "Change every test" }));
-    expect(screen.getByText(/work on every test of the project/)).toBeInTheDocument();
+    expect(screen.getByText(/Ask anything about the project/)).toBeInTheDocument();
     ask("Tout relire");
     await waitFor(() => expect(callsOf("claude.run")).toHaveLength(1));
     expect(callsOf("claude.run")[0].input.scope).toEqual({ kind: "project" });
-    fireEvent.click(screen.getByRole("button", { name: "Ask the documents" }));
-    net.routes["chat.ask"] = () => ({ chatId: "c", answer: "a" });
-    ask("Q");
-    expect(await screen.findByText("a")).toBeInTheDocument();
+    expect(callsOf("chat.ask")).toHaveLength(0);
     update({}, { focus: focus() });
     expect(screen.getByRole("textbox", { name: "Ask Claude about this test" })).toBeInTheDocument();
     expect(screen.queryByText("Tout relire", { selector: ".bubble" })).toBeNull();

@@ -169,7 +169,6 @@ export function ClaudeDock({
   const cfg = app.info?.project.claude;
   const projectDir = app.info?.dir;
   const [scope, setScope] = useState<Kind>("project");
-  const [ask, setAsk] = useState(true);
   const [turns, setTurns] = useState<Turn[]>([]);
   const [prompt, setPrompt] = useState("");
   const [preset, setPreset] = useState(-1);
@@ -209,17 +208,18 @@ export function ClaudeDock({
 
   const testId = focus?.testId;
   const defaults = cfg?.contexts;
+  const onProject = scope === "project";
   const loadContexts = useCallback(() => {
     if (!projectDir) {
       setCtxOn(null);
       return;
     }
-    if (testId)
-      call<{ effective: string[] }>("contexts.ofTest", { testId })
+    if (onProject || testId)
+      call<{ effective: string[] }>(onProject ? "contexts.ofProject" : "contexts.ofTest", onProject ? {} : { testId })
         .then((r) => setCtxOn(r?.effective ?? null))
         .catch(() => setCtxOn(null));
     else setCtxOn(defaults ?? null);
-  }, [projectDir, testId, defaults]);
+  }, [projectDir, testId, defaults, onProject]);
   useEffect(() => {
     loadContexts();
     window.addEventListener(CONTEXTS_EVENT, loadContexts);
@@ -228,7 +228,6 @@ export function ClaudeDock({
 
   useEffect(() => {
     setScope(testId ? "test" : docId ? "doc" : "project");
-    setCtxPick(null);
     // ponytail: another test opened — the run card of the previous one goes (Xray Editor); answers and actions stay
     setTurns((all) => (all.some((t) => t.running) ? all : all.filter((t) => t.kind !== "run")));
   }, [testId, docId]);
@@ -238,6 +237,11 @@ export function ClaudeDock({
     if (!focus && (scope === "step" || scope === "test")) setScope(docId ? "doc" : "project");
     if (!docId && scope === "doc") setScope(focus ? "test" : "project");
   }, [focus, docId, scope]);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new scope or another test starts from its own contexts
+  useEffect(() => {
+    setCtxPick(null);
+  }, [scope, testId, docId]);
 
   useEffect(() => {
     if (started === null) return;
@@ -267,7 +271,7 @@ export function ClaudeDock({
   const offline = !!status && (!status.installed || status.signedIn === false);
   const running = busy;
   const kind: Kind = scope;
-  const mode: Mode = kind === "doc" || (kind === "project" && ask) ? "docs" : "test";
+  const mode: Mode = kind === "doc" ? "docs" : "test";
 
   const runOnTest = async (
     answerId: number,
@@ -463,13 +467,8 @@ export function ClaudeDock({
       addActions(request.actions);
       return;
     }
-    if (request.mode === "docs") {
-      setScope(docId ? "doc" : "project");
-      setAsk(true);
-    } else if (request.scope) {
-      setScope(request.scope);
-      if (request.scope === "project") setAsk(false);
-    }
+    if (request.mode === "docs") setScope(docId ? "doc" : "project");
+    else if (request.scope) setScope(request.scope);
     if (request.job) {
       void runJob(request.job);
       return;
@@ -681,6 +680,12 @@ export function ClaudeDock({
         onChange={(k) => !running && setScope(k)}
         options={[
           {
+            value: "doc",
+            label: "Document",
+            disabled: running || !docId,
+            title: docId ? `The document ${docId}` : "Open a document first",
+          },
+          {
             value: "step",
             label: focus?.step != null ? `Step ${focus.step}` : "Step",
             disabled: running || focus?.step == null,
@@ -693,17 +698,16 @@ export function ClaudeDock({
             title: focus ? `The whole test ${focus.key ?? focus.summary}` : "Open a test first",
           },
           {
-            value: "doc",
-            label: "Document",
-            disabled: running || !docId,
-            title: docId ? `The document ${docId}` : "Open a document first",
+            value: "project",
+            label: "Project",
+            disabled: running,
+            title: "The whole project: every test, every document and every context",
           },
-          { value: "project", label: "Project", disabled: running, title: "The whole project" },
         ]}
       />
       <span className="muted dock-scope-line">
         {kind === "project" ? (
-          "Whole project"
+          "Whole project · tests, documents, contexts"
         ) : kind === "doc" ? (
           <>
             <span className="mono dock-key">{docId}</span> · whole document
@@ -715,23 +719,6 @@ export function ClaudeDock({
           </>
         )}
       </span>
-      {kind === "project" && (
-        <Segmented<"ask" | "change">
-          label="What Claude does on the project"
-          className="dock-seg dock-seg-sub"
-          value={ask ? "ask" : "change"}
-          onChange={(v) => !running && setAsk(v === "ask")}
-          options={[
-            { value: "ask", label: "Ask the documents", disabled: running, title: "Questions; nothing is changed" },
-            {
-              value: "change",
-              label: "Change every test",
-              disabled: running,
-              title: "Claude may edit every test; every change can be reverted",
-            },
-          ]}
-        />
-      )}
     </fieldset>
   );
 
@@ -884,7 +871,7 @@ export function ClaudeDock({
                     ? `Ask anything about ${docId}. Answers come with the passages they rely on.`
                     : "Ask anything about the documents. Answers come with the passages they rely on."
                   : kind === "project"
-                    ? "Ask Claude to work on every test of the project. Every change can be reverted."
+                    ? "Ask anything about the project, or what to do with its tests. Every change can be reverted."
                     : "Ask Claude to change or explain this test. Every change can be reverted."}
               </p>
             )}
@@ -984,7 +971,7 @@ export function ClaudeDock({
                     ? `Ask anything about ${docId}…`
                     : "Ask the documents…"
                   : kind === "project"
-                    ? "Tell Claude what to do with every test…"
+                    ? "Ask about the project, or tell Claude what to do with its tests…"
                     : "Ask Claude to change or explain this test…"
               }
               value={prompt}

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { diagnose } from "../claude/diagnose.ts";
-import { buildPrompt, effectiveContexts, readContexts } from "../claude/prompt.ts";
+import { buildPrompt, effectiveContexts, projectContexts, readContexts } from "../claude/prompt.ts";
 import { runClaude } from "../claude/run.ts";
 import { readRun, revert } from "../claude/snapshot.ts";
 import { CONNECT, checkSignedIn, claudeExe, claudeVersion } from "../claude/status.ts";
@@ -45,7 +45,7 @@ export const SCOPE = z.discriminatedUnion("kind", [
     kind: z.literal("doc").describe("One document and the tests that cite it."),
     docId: TEST_ID.describe("Document id (its folder under docs/)."),
   }),
-  z.object({ kind: z.literal("project").describe("Every test of the project.") }),
+  z.object({ kind: z.literal("project").describe("The whole project: every test, every document.") }),
 ]);
 
 export const DIAGNOSIS = z.object({
@@ -90,7 +90,9 @@ export const commands: Command[] = [
       prompt: z.string().describe("The request, e.g. « Rephrase in house style »."),
       model: MODEL.optional().describe("Model alias or name (default: project.json claude.model)."),
       effort: EFFORT.optional().describe("Effort level (default: project.json claude.effort)."),
-      contexts: CONTEXT_IDS.optional().describe("Context ids to attach (default: project.json claude.contexts)."),
+      contexts: CONTEXT_IDS.optional().describe(
+        "Context ids to attach (default: the test's own list, else project.json claude.contexts; on the project, every context the project or a test attaches, once each).",
+      ),
       note: NOTE,
     }),
     output: RESULT,
@@ -101,7 +103,10 @@ export const commands: Command[] = [
       const project = projectOf(ctx);
       const p = readProject(project);
       const ids =
-        input.contexts ?? effectiveContexts(project, "testId" in input.scope ? input.scope.testId : undefined);
+        input.contexts ??
+        (input.scope.kind === "project"
+          ? projectContexts(project)
+          : effectiveContexts(project, "testId" in input.scope ? input.scope.testId : undefined));
       ctx.progress({ message: `Claude on ${scopeLabel(input.scope)}` });
       const { calls: _calls, ...r } = await runClaude({
         kind: "run",

@@ -6,6 +6,7 @@ import {
   buildPrompt,
   contextDir,
   effectiveContexts,
+  projectContexts,
   readContexts,
   readTestContexts,
   scopeLines,
@@ -69,7 +70,7 @@ describe("buildPrompt", () => {
     expect(p).not.toContain("Context to read");
     expect(p).toContain('Only edit "## Step 2"');
     expect(p).toContain("\nDo it.\n");
-    expect(scopeLines({ kind: "project" })[0]).toBe("Scope: every test of this project.");
+    expect(scopeLines({ kind: "project" })[0]).toBe("Scope: the whole project — every test and every document.");
   });
 
   it("states the scope, the step-only rule, the contexts and the 2-4 line reply, word for word (PARITY #84)", () => {
@@ -117,13 +118,15 @@ describe("buildPrompt", () => {
     ]);
     const project = buildPrompt({ kind: "project" }, "", [], dir);
     expect(project.split("\n")).toEqual([
-      "Scope: every test of this project.",
-      "Files: all tests/*/test.md",
+      "Scope: the whole project — every test and every document.",
+      "Files: all tests/*/test.md; the documents through rag_search, rag_passage and docs/*/doc.md (read only)",
       "Only modify what the scope allows.",
+      "When the request is a question, answer it from the documents and the tests and change nothing; " +
+        'put the source of every factual sentence at its end: [<docId>#<anchor> "<exact quote from doc.md>"].',
       format,
       shots,
       "",
-      reply,
+      "When finished, give the answer, or reply in 2-4 lines: what you changed (which tests and steps) and anything you could not do.",
       "",
     ]);
     expect(test).not.toContain("Only edit");
@@ -145,6 +148,17 @@ describe("per-test contexts", () => {
     expect(effectiveContexts(dir, "LFRPS12-1420")).toEqual([]);
     writeTestContexts(dir, "LFRPS12-1420", null);
     expect(readTestContexts(dir, "LFRPS12-1420")).toBeNull();
+  });
+
+  it("the whole project attaches the project's list and every test's own, each once", () => {
+    const p = readProject(dir);
+    writeProject(dir, { ...p, claude: { ...p.claude, contexts: ["full", "gone"] } });
+    expect(projectContexts(dir)).toEqual(["full"]);
+    writeTestContexts(dir, "LFRPS12-1420", ["bare", "full"]);
+    writeTestContexts(dir, "LFRPS12-1398", ["bare", "blank"]);
+    expect(projectContexts(dir)).toEqual(["full", "bare", "blank"]);
+    rmSync(join(dir, "tests"), { recursive: true, force: true });
+    expect(projectContexts(dir)).toEqual(["full"]);
   });
 
   it("a claude.json without a list, or with junk in it, reads as no list or as its valid ids", () => {

@@ -139,8 +139,8 @@ export function Palette({
               onClick={() => pick(shown.length)}
             >
               <Icon name="claude" />
-              <span className="pal-label">Ask the documents: “{ask}”</span>
-              <span className="mono muted">chat ask</span>
+              <span className="pal-label">Ask Claude: “{ask}”</span>
+              <span className="mono muted">Claude</span>
             </div>
           )}
           {!total && <p className="muted palette-empty">Nothing matches “{query}”.</p>}

@@ -44,7 +44,7 @@ describe("command palette", () => {
     const shown = options();
     expect(shown.filter((o) => o.includes("xray"))).toHaveLength(2);
     expect(shown.some((o) => o.includes("tests list"))).toBe(false);
-    expect(shown[shown.length - 1]).toContain("Ask the documents");
+    expect(shown[shown.length - 1]).toContain("Ask Claude");
     fireEvent.change(screen.getByRole("combobox"), { target: { value: "jira push" } });
     expect(options().filter((o) => o.includes("xray"))).toEqual([expect.stringContaining("xray push")]);
   });

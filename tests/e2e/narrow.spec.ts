@@ -56,7 +56,7 @@ test("the open Claude dock floats over a 520 px window and stays usable", async 
   await openTest(page, "LFRPS12-1420");
   const dock = page.getByRole("complementary", { name: "Claude" });
   await dock.getByRole("button", { name: "Open Claude" }).click();
-  const box = dock.getByRole("textbox", { name: /Ask Claude|Ask the documents/ });
+  const box = dock.getByRole("textbox", { name: /Ask Claude|Ask about/ });
   await expect(box).toBeInViewport();
   const width = await dock.evaluate((el) => el.getBoundingClientRect().width);
   expect(width).toBeGreaterThan(300);

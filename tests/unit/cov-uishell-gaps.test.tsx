@@ -70,16 +70,16 @@ describe("small remaining paths", () => {
 describe("dock remaining paths", () => {
   it("uses Opus and high effort without a project (Xray Editor's defaults), sends with the button and ignores Escape before the job starts", async () => {
     const gate = deferred();
-    net.routes["chat.ask"] = async () => {
+    net.routes["claude.run"] = async () => {
       await gate.promise;
-      return { chatId: "c", answer: "réponse" };
+      return { ok: true, summary: "réponse" };
     };
     withApp(<ClaudeDock folded={false} onFold={() => {}} />, { info: null });
     expect(screen.getByRole("combobox", { name: "Model" })).toHaveValue("opus");
     expect(screen.getByRole("combobox", { name: "Effort" })).toHaveValue("high");
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "Q" } });
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
-    await waitFor(() => expect(callsOf("chat.ask")).toHaveLength(1));
+    await waitFor(() => expect(callsOf("claude.run")).toHaveLength(1));
     expect(screen.getByRole("button", { name: /Cancel/ })).toBeDisabled();
     fireEvent.keyDown(screen.getByRole("complementary", { name: "Claude" }), { key: "Escape" });
     expect(callsOf("jobs.cancel")).toHaveLength(0);
