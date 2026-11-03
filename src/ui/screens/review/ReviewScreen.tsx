@@ -21,7 +21,7 @@ import { refKey } from "./ReviewStep.tsx";
 import { type Marks, ReviewTest } from "./ReviewTest.tsx";
 import { notAtAnchor, SourcePanel } from "./SourcePanel.tsx";
 
-type Loaded = { id: string; test: Test; sync: SyncState; check: CheckFile | null; stale: boolean };
+type Loaded = { id: string; test: Test; sync: SyncState; edited: boolean; check: CheckFile | null; stale: boolean };
 type Selection = { source: Source; step: number | null; label?: string } | null;
 
 const typing = (t: EventTarget | null) =>
@@ -100,7 +100,7 @@ export function ReviewScreen() {
 
   const load = useCallback(async (id: string) => {
     const [show, chk] = await Promise.all([
-      call<{ id: string; test: Test; sync?: SyncState }>("tests.show", { id }),
+      call<{ id: string; test: Test; sync?: SyncState; edited?: boolean }>("tests.show", { id }),
       call<{ check: CheckFile | null; stale: boolean }>("check.show", { id }).catch(() => ({
         check: null,
         stale: false,
@@ -110,6 +110,7 @@ export function ReviewScreen() {
       id,
       test: show.test,
       sync: show.sync ?? (show.test.key ? "synced" : "local"),
+      edited: !!show.edited,
       check: chk?.check ?? null,
       stale: !!chk?.stale,
     };
@@ -449,6 +450,7 @@ export function ReviewScreen() {
                   testId={data.id}
                   test={data.test}
                   sync={data.sync}
+                  edited={data.edited}
                   check={data.check}
                   stale={data.stale}
                   xray={app.xray}

@@ -1,6 +1,15 @@
 import type { Review } from "../../../core/types.ts";
 import { ActionButton } from "../../components/claude/ActionButton.tsx";
-import { Button, Icon, Menu, ReviewBadge, Segmented, Severity, Skeleton } from "../../components/ui/index.ts";
+import {
+  Button,
+  GeneratedBadge,
+  Icon,
+  Menu,
+  ReviewBadge,
+  Segmented,
+  Severity,
+  Skeleton,
+} from "../../components/ui/index.ts";
 import { useActions } from "../../lib/actions.ts";
 import { cx, plural } from "../../lib/format.ts";
 
@@ -11,6 +20,7 @@ export type QueueItem = {
   folder: string;
   review: Review;
   note?: string;
+  edited?: boolean;
   unchecked: boolean;
   errors: number;
   warnings: number;
@@ -166,6 +176,7 @@ export function ReviewQueue({
                   <span className="qrow-title">{t.summary || "Untitled test"}</span>
                   <span className="muted qrow-folder">{t.folder || "/"}</span>
                   <span className="qrow-badges">
+                    <GeneratedBadge edited={t.edited} small />
                     <ReviewBadge review={t.review} small />
                     <Counts item={t} />
                   </span>

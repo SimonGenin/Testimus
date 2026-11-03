@@ -31,6 +31,10 @@ const ref = z.object({
   summary: z.string(),
   folder: z.string(),
   review,
+  generated: z
+    .boolean()
+    .describe("Written by a generation (generated_by set): it waits in review.queue until validated"),
+  edited: z.boolean().describe("Generated, and its content changed since the generation wrote it"),
   sync: z.enum(["local", "modified", "synced", "remote-changed"]),
   dirty: z.boolean(),
   synced: z.boolean(),
@@ -241,6 +245,7 @@ export const commands: Command[] = [
       remote: z.unknown(),
       remoteMd: z.string().nullable(),
       sync: z.enum(["local", "modified", "synced", "remote-changed"]),
+      edited: z.boolean().describe("Generated, and its content changed since the generation wrote it"),
       findings: counts.nullable(),
       check: z.unknown(),
       files: z.array(z.string()).describe("Picture files present in the test folder (images/…)"),
@@ -262,6 +267,7 @@ export const commands: Command[] = [
         remote: remoteMd === undefined ? null : parseTest(remoteMd).test,
         remoteMd: remoteMd ?? null,
         sync: syncState(dir, input.id, md, remoteMd ?? null),
+        edited: refOf(dir, input.id).edited,
         findings: findingCounts(check, md) ?? null,
         check,
         files: imageFiles(dir, input.id),

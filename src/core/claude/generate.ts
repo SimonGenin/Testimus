@@ -6,7 +6,7 @@ import { env } from "../env.ts";
 import { loadCorpus, runMechanical } from "../lib/check.ts";
 import { columnGuidance } from "../lib/columns.ts";
 import { fieldOrder, readProject, readXray, writeJson } from "../lib/project.ts";
-import { readTest, testExists, writeTest } from "../lib/store.ts";
+import { markGenerated, readTest, testExists, writeTest } from "../lib/store.ts";
 import type { ClaudeEvent, Diagnosis, Effort, Tokens } from "../types.ts";
 import { proposeLines } from "./actions.ts";
 import { checkTests, promoteChecked } from "./check.ts";
@@ -290,6 +290,7 @@ export async function generateTests(project: string, input: GenInput, ctx: Ctx):
     for (const id of tests) runMechanical(project, id, corpus);
   }
   markLeft(project, run.runId, tests);
+  for (const id of tests) markGenerated(project, id);
   for (const id of changed)
     ctx.log("warn", `The generation changed the existing test ${id} — revert with ${run.runId}.`);
   const report = parseGenReport(run.summary);

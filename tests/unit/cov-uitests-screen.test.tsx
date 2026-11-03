@@ -44,6 +44,8 @@ const ref = (id: string, o: Partial<LocalTestRef> = {}): LocalTestRef => ({
   summary: `Test ${id}`,
   folder: "/",
   review: "draft",
+  generated: false,
+  edited: false,
   sync: "synced",
   dirty: false,
   synced: true,

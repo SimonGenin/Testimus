@@ -4,8 +4,9 @@ import { join } from "node:path";
 import { UserError } from "../command.ts";
 import type { CheckFile, FindingCounts, LocalTestRef, StepImage, SyncState, Test } from "../types.ts";
 import { copyDirAtomic, writeAtomic } from "./atomic.ts";
+import { sha256 } from "./hash.ts";
 import { readXray } from "./project.ts";
-import { outsideTest, parseTest, sameTestMd, serializeTest, testMdHash } from "./testfile.ts";
+import { mapRefs, outsideTest, parseTest, sameTestMd, serializeTest, testMdHash } from "./testfile.ts";
 
 const read = (path: string) => {
   try {
@@ -66,6 +67,38 @@ export function writeRemote(project: string, id: string, md: string): void {
   markRemoteChanged(project, id, false);
 }
 
+// ponytail: what a person can change in a test, and only that — the review keys, the key, the folder, the
+// labels (the review label comes back with a pull) and the attachment names all move without anyone editing it
+const contentPrint = (t: Test) =>
+  sha256(
+    JSON.stringify([
+      t.summary.trim(),
+      t.description.trim(),
+      [...t.covers].sort(),
+      [...t.preconditions].sort(),
+      t.steps.map((s) => [
+        Object.entries(s.fields)
+          .map(([k, v]) => [k, mapRefs(v, () => "![]()").trim()])
+          .filter(([, v]) => v !== "")
+          .sort(([a], [b]) => a.localeCompare(b)),
+        s.sources.map((x) => `${x.docId}#${x.anchor} ${x.quote}`),
+        s.images.length,
+      ]),
+    ]),
+  );
+
+const printOf = (project: string, id: string) => join(testDir(project, id), ".generated");
+
+export function markGenerated(project: string, id: string): void {
+  const md = read(join(testDir(project, id), "test.md"));
+  if (md !== null) writeAtomic(printOf(project, id), `${contentPrint(parseTest(md).test)}\n`);
+}
+
+function isEdited(project: string, id: string, test: Test): boolean {
+  const print = test.generatedBy ? read(printOf(project, id))?.trim() : undefined;
+  return !!print && print !== contentPrint(test);
+}
+
 export function syncState(project: string, id: string, md: string, remoteMd: string | null): SyncState {
   if (remoteMd === null) return "local";
   if (isRemoteChanged(project, id)) return "remote-changed";
@@ -85,6 +118,8 @@ export function localTestRef(project: string, id: string): LocalTestRef | null {
     summary: test.summary,
     folder: test.folder,
     review: test.review,
+    generated: !!test.generatedBy,
+    edited: isEdited(project, id, test),
     sync: syncState(project, id, md, remote),
     synced: remote !== null,
     dirty: remote === null || !sameTestMd(md, remote),

@@ -7,6 +7,7 @@ export { Confirm } from "./Confirm.tsx";
 export { DragEdge } from "./DragEdge.tsx";
 export { Field } from "./Field.tsx";
 export { FindingCard, kindLabel } from "./FindingCard.tsx";
+export { GeneratedBadge } from "./GeneratedBadge.tsx";
 export { GrowArea } from "./GrowArea.tsx";
 export { Icon, type IconName } from "./Icon.tsx";
 export { IconButton } from "./IconButton.tsx";
