@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { call } from "../../api.ts";
 import { Button, Field, IconButton, Menu, Skeleton } from "../../components/legacy/index.ts";
 import { useApp } from "../../lib/app.ts";
-import { desktop, examplePath, openProject, pathJoin, pickFolder } from "../../lib/desktop.ts";
+import { desktop, examplePath, openProject, pathJoin, pickFolder, showProject } from "../../lib/desktop.ts";
 import { useDraft } from "../../lib/drafts.ts";
 import { cx, message } from "../../lib/format.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
@@ -83,13 +83,16 @@ export function ProjectStep({ onBack, onOpened }: { onBack: () => void; onOpened
     setBusy(true);
     setError("");
     try {
-      await call("project.init", {
+      const r = await call<{ dir: string }>("project.init", {
         dir,
         ...(key.trim() ? { jiraProject: key.trim().toUpperCase() } : {}),
         ...(name.trim() ? { name: name.trim() } : {}),
         language,
       });
-      await open(dir);
+      showProject(app, r.dir);
+      setBusy(false);
+      if (onOpened) onOpened();
+      else app.navigate("documents");
     } catch (e) {
       setError(message(e));
       setBusy(false);

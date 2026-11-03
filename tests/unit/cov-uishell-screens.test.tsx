@@ -396,7 +396,12 @@ describe("System check screen", () => {
         fix: "testimus models verify m",
         action: { label: "Verify", command: "models.verify", input: { model: "m" } },
       }),
-      c({ id: "jira", state: "fail", detail: "401", action: { label: "Connect Atlassian", command: "system.setup" } }),
+      c({
+        id: "jira",
+        state: "fail",
+        detail: "401",
+        action: { label: "Connect Atlassian", command: "system.setCredentials" },
+      }),
       c({ id: "model.fit", state: "warn", action: { label: "Choose a lighter pack", command: "models.usePack" } }),
       c({ id: "models.dir", state: "warn", action: { label: "Choose the models folder…", command: "models.setDir" } }),
       c({

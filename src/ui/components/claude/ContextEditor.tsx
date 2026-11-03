@@ -2,6 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { type Autosave, useAutosave } from "../../lib/data/autosave.ts";
+import { ApiError } from "../../lib/data/client.ts";
 import { execute, key } from "../../lib/data/query.ts";
 import { desktop, examplePath, pickFolder } from "../../lib/desktop.ts";
 import { toBase64 } from "../../lib/files.ts";
@@ -63,20 +64,20 @@ function useWords(id: string, detail: ContextDetail | undefined): Autosave<Words
   return useAutosave<Words>({
     key: key("contexts.show", { id }),
     value: detail ? { name: detail.name, notes: detail.notes } : undefined,
-    save: async (v) => {
+    base: detail?.mtime === undefined ? undefined : String(detail.mtime),
+    save: async (v, base) => {
       try {
         const d = (await execute(
           client,
           "contexts.set",
-          { id, name: v.name, notes: v.notes },
-          {
-            invalidates: CONTEXT_READS,
-          },
+          { id, name: v.name, notes: v.notes, ...(base ? { ifMtime: Number(base) } : {}) },
+          { invalidates: CONTEXT_READS },
         )) as unknown as ContextDetail;
         client.setQueryData(key("contexts.show", { id }), { ...d, name: v.name, notes: v.notes });
         window.dispatchEvent(new Event(CONTEXTS_EVENT));
+        return d.mtime === undefined ? undefined : String(d.mtime);
       } catch (e) {
-        errorToast(e, "Could not save the context");
+        if (!(e instanceof ApiError && e.code === "conflict")) errorToast(e, "Could not save the context");
         throw e;
       }
     },

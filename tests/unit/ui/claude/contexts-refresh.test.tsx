@@ -56,7 +56,7 @@ beforeEach(() => {
   r["contexts.ofProject"] = () => ({ effective: ["ctx-b"] });
   r["contexts.ofTest"] = () => ({ effective: ["ctx-b"], own: null });
   r["tests.show"] = (i) => ({ id: i.id, test: shown, mtime: 1 });
-  r["tests.columns"] = () => ({ own: null });
+  r["tests.folds"] = () => ({ own: null });
   r["xray.preconditions"] = () => [];
   r["xray.folders"] = () => ({ name: "/", path: "/", testsCount: 0, totalCount: 0, folders: [] });
   r["xray.status"] = (i) => ({ tests: [{ id: i.id, sync: "synced", remote: "unchanged" }] });

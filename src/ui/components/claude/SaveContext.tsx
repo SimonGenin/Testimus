@@ -27,9 +27,8 @@ export function SaveContext({
     setSaving(true);
     setError(null);
     try {
-      const c = await write("contexts.create", { name: name.trim(), shared });
+      const c = await write("contexts.create", { name: name.trim(), shared, notes: note.trim() });
       if (!c) return;
-      if (note.trim()) await write("contexts.set", { id: c.id, notes: note.trim() });
       toast({ kind: "ok", title: `Context « ${name.trim()} » saved` });
       onSaved(c.id);
       onClose();

@@ -5,6 +5,7 @@ import { type Command, UserError } from "../core/command.ts";
 import { describe as describeCommand, find, invoke, registry } from "../core/commands/index.ts";
 import { listJobs, subscribe, waitJob } from "../core/jobs.ts";
 import { resolveProjectDir } from "../core/lib/project.ts";
+import { onStopSignals } from "../core/shell.ts";
 
 type Shape = Record<string, z.ZodType>;
 
@@ -194,7 +195,7 @@ async function main(argv: string[]): Promise<number> {
   const c = find(name);
   const { input, json, project, after } = inputFrom(c, args);
   const ctrl = new AbortController();
-  process.on("SIGINT", () => ctrl.abort());
+  onStopSignals(() => ctrl.abort());
   const unsub = subscribe((e) => {
     if (json) return;
     if (e.type === "progress") process.stderr.write(`${e.total ? `[${e.done ?? 0}/${e.total}] ` : ""}${e.message}\n`);

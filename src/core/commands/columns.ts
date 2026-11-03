@@ -3,30 +3,10 @@ import { suggestColumns } from "../claude/columns.ts";
 import { MODEL } from "../claude/schemas.ts";
 import { command, projectOf } from "../command.ts";
 import { removeColumn, saveColumn, setModes, setOrder, stepColumns } from "../lib/columns.ts";
+import { COLUMN_SHOW, STEP_COLUMN } from "../schemas.ts";
 
-const SHOW = z
-  .enum(["open", "filled", "collapsed", "hidden"])
-  .describe(
-    "open: on every step · filled: only on a step that holds something · collapsed: folded, its toggle shows a dot when it holds something · hidden: left out unless a step holds text in it",
-  );
-
-const column = z.object({
-  name: z.string(),
-  id: z.string().optional().describe("The Xray step field it follows (a local column that was in Xray keeps it)"),
-  origin: z.enum(["xray", "local"]).describe("xray: a step field of Xray, pushed; local: kept in test.md only"),
-  builtin: z.boolean().describe("Action, Data or Expected Result"),
-  status: z
-    .enum(["ok", "new", "gone"])
-    .describe("new: added in Xray and never described here; gone: was in Xray, no longer — now local"),
-  description: z.string().describe("What Claude writes in it (a smart column); empty = Claude leaves it empty"),
-  mode: SHOW,
-  referenceSource: z
-    .boolean()
-    .optional()
-    .describe(
-      'Reference source: each item of the column (a requirement code…) has a source written @<column> "<item>", and the editor makes the item a link to that passage',
-    ),
-});
+const SHOW = COLUMN_SHOW;
+const column = STEP_COLUMN;
 
 export const commands = [
   command({
@@ -63,7 +43,7 @@ export const commands = [
   command({
     name: "columns.setModes",
     summary:
-      "Set how step columns show in every test of the project (columns.json): open, filled, collapsed or hidden; the columns not named keep theirs. A test can fold its own way (tests.setColumns).",
+      "Set how step columns show in every test of the project (columns.json): open, filled, collapsed or hidden; the columns not named keep theirs. A test can fold its own way (tests.setFolds).",
     input: z.object({
       modes: z.record(z.string(), SHOW).describe("Mode by column name (columns.list gives the names)"),
     }),
@@ -118,8 +98,15 @@ export const commands = [
         )
         .describe("Only the columns Claude would change or add"),
       summary: z.string().describe("Claude's reply"),
-      costUsd: z.number().optional(),
-      diagnosis: z.object({ kind: z.string(), title: z.string(), detail: z.string() }).optional(),
+      costUsd: z.number().optional().describe("What the Claude run cost"),
+      diagnosis: z
+        .object({
+          kind: z.string().describe("What went wrong, as a stable name"),
+          title: z.string().describe("What went wrong, in words"),
+          detail: z.string().describe("What to do about it"),
+        })
+        .optional()
+        .describe("Why the run failed, when it did"),
     }),
     mutates: false,
     job: "columns",

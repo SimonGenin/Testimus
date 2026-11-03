@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 import type { PullInfo, PullStage } from "../../../core/types.ts";
-import { project, run } from "../../api.ts";
+import { call, project, run } from "../../api.ts";
 import { message } from "../../lib/format.ts";
 import { errorToast } from "../../lib/toast.ts";
 
@@ -57,11 +57,9 @@ const forget = (key: string, n: number) => {
 };
 
 // ponytail: a job belongs to the project it was started in, and after a switch api.call would name the
-// new one — the core refuses to cancel another project's job
+// new one — the core refuses to cancel another project's job, so the call names the job's own project
 async function cancelJob(id: string, dir: string | null): Promise<void> {
-  const headers: Record<string, string> = { "content-type": "application/json" };
-  if (dir) headers["X-Testimus-Project"] = encodeURIComponent(dir);
-  await fetch("/api/jobs/cancel", { method: "POST", headers, body: JSON.stringify({ id }) }).catch(() => {});
+  await call("jobs.cancel", { id }, { project: dir }).catch(() => {});
 }
 
 export function watchPull(key: string): void {

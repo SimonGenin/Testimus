@@ -12,7 +12,7 @@ export type ContextSummary = {
   hasNotes: boolean;
   shared?: boolean;
 };
-export type ContextDetail = ContextSummary & { notes: string };
+export type ContextDetail = ContextSummary & { notes: string; mtime?: number };
 
 // ponytail: screens not on the data layer yet re-read their context lists on this event; it goes once they read
 // contexts.* through useRead (the invalidation below reaches them)

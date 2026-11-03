@@ -132,15 +132,15 @@ if ($NoSetup) {
 }
 
 # 6. credentials: ask only for what is missing
-try { $status = (& $testimus system setup --json | Out-String | ConvertFrom-Json).status } catch { $status = $null }
+try { $status = (& $testimus system credentials --json | Out-String | ConvertFrom-Json).status } catch { $status = $null }
 if (-not $status) {
-  Say "testimus did not start (system setup failed): run '$testimus system doctor' to see why"
+  Say "testimus did not start (system credentials failed): run '$testimus system doctor' to see why"
   exit 1
 }
 $setupArgs = @()
 if ($NoPrompt -or -not [Environment]::UserInteractive) {
   if (-not ($status.jira.complete -and $status.xray.complete)) {
-    Say "credentials incomplete: run 'testimus system setup' later (prompts skipped with -NoPrompt)"
+    Say "credentials incomplete: run 'testimus system setCredentials' later (prompts skipped with -NoPrompt)"
   }
 } elseif (-not $status.jira.complete) {
   Say "Jira access ($($status.jira.file))"
@@ -156,7 +156,7 @@ if (-not ($NoPrompt -or -not [Environment]::UserInteractive) -and -not $status.x
   $sec = Read-Host "  Xray client secret" -AsSecureString
   $env:TESTIMUS_XRAY_SECRET = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec))
 }
-& $testimus system setup @setupArgs --check
+& $testimus system setCredentials @setupArgs
 Remove-Item Env:TESTIMUS_JIRA_TOKEN, Env:TESTIMUS_XRAY_SECRET -ErrorAction SilentlyContinue
 
 # 7. doctor

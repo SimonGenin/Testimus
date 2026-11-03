@@ -387,7 +387,7 @@ describe("what the index and the check add", () => {
       { jobId: "g", at: at(), type: "progress", message: "local-bbbbbbbb: 2 error(s), 1 warning(s)" },
       tool("mcp__testimus__tests_save", { id: "local-bbbbbbbb", test: { summary: "Other" } }),
     ];
-    const { container } = render(<GenActivity events={events} running={false} now={Date.now()} label="Check run" />);
+    render(<GenActivity events={events} running={false} now={Date.now()} label="Check run" />);
     expect(screen.getByRole("region", { name: "Check run" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Read Q" })).toBeInTheDocument();
     expect(await screen.findByText("3 sections opened from the index")).toBeInTheDocument();

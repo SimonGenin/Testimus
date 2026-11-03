@@ -39,7 +39,7 @@ export function mirrorPrefs(everyMs = 5000): () => void {
     const json = JSON.stringify(now);
     if (json === sent) return;
     sent = json;
-    void call("system.saveSettings", { ui: now }).catch(() => {});
+    void call("system.set", { ui: now }).catch(() => {});
   };
   const timer = setInterval(push, everyMs);
   const onHide = () => document.visibilityState === "hidden" && push();

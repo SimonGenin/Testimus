@@ -1,4 +1,3 @@
-import { spawn } from "node:child_process";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
@@ -11,8 +10,9 @@ import { describe as describeCommand, find, invoke, registry } from "../core/com
 import { env } from "../core/env.ts";
 import { subscribe } from "../core/jobs.ts";
 import { isProject, readSettings, resolveProjectDir } from "../core/lib/project.ts";
-import { loopbackProxyGap, onParentGone, onStopSignals, stopCore } from "../core/shell.ts";
+import { loopbackProxyGap, onStopSignals, stopCore } from "../core/shell.ts";
 import { watchProject } from "../core/watch.ts";
+import { onParentGone, openDetached } from "../shared/run/process.ts";
 import { every } from "../shared/run/work.ts";
 
 const TYPES: Record<string, string> = {
@@ -194,6 +194,12 @@ export function handler(state: ServeState) {
         return;
       }
       if (project) watchProject(project);
+      const listing = url.pathname === "/api" || url.pathname === "/api/" || url.pathname === "/api/events";
+      if (listing && req.method !== "GET") {
+        res.setHeader("allow", "GET");
+        send(res, 405, { error: `${url.pathname} answers GET only.` });
+        return;
+      }
       if (url.pathname === "/api" || url.pathname === "/api/") {
         send(res, 200, { project: open, mock: state.mock, commands: registry.map(describeCommand) });
         return;
@@ -363,12 +369,7 @@ export async function serve(argv: string[]): Promise<void> {
     ready(JSON.stringify({ ready: true, url: `http://127.0.0.1:${state.port}/`, pid: process.pid, version }));
   }
   if (!values["no-open"] && !mock && !ready) {
-    const [cmd, args] =
-      process.platform === "win32"
-        ? ["cmd", ["/c", "start", "", url]]
-        : [process.platform === "darwin" ? "open" : "xdg-open", [url]];
-    spawn(cmd, args, { detached: true, stdio: "ignore" })
-      .on("error", () => {})
-      .unref();
+    if (process.platform === "win32") openDetached("cmd", ["/c", "start", "", url]);
+    else openDetached(process.platform === "darwin" ? "open" : "xdg-open", [url]);
   }
 }
