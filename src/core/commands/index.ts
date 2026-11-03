@@ -52,6 +52,10 @@ export type CommandMap = { [C in Defined as C["name"]]: C };
 export type CommandName = keyof CommandMap;
 export type CommandInput<N extends CommandName> = z.input<CommandMap[N]["input"]>;
 export type CommandOutput<N extends CommandName> = z.output<CommandMap[N]["output"]>;
+export type JobCommand = { [K in CommandName]: CommandMap[K] extends { job: string } ? K : never }[CommandName];
+export type JobStart = { jobId: string };
+/** what a call answers: the output, or for a command that runs as a job, the job's id (its result comes by the job) */
+export type CallResult<N extends CommandName> = N extends JobCommand ? JobStart : CommandOutput<N>;
 
 export const registry: Command[] = [
   ...project,

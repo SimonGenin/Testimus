@@ -111,8 +111,10 @@ export type ClaudeBlockProps = Omit<TextProps, "multiline" | "appearance" | "onK
   quickAsks?: { label: string; prompt: string }[];
   model?: Choice;
   effort?: Choice;
-  /** ctrl-enter (default) and enter call onSubmit; autosave saves like Text (a To fix note, a context's notes) */
-  submit?: "ctrl-enter" | "enter" | "autosave";
+  /** ctrl-enter (default) and enter call onSubmit; autosave saves like Text (a To fix note, a context's notes); none
+   * keeps the foot (scope, model, effort) without a send button — the owner's own button acts (Generate), Ctrl+Enter
+   * still calls onSubmit */
+  submit?: "ctrl-enter" | "enter" | "autosave" | "none";
   onSubmit?: (prompt: string, run: RunChoice) => void;
   submitLabel?: string;
   /** a run on a test or the project may start with an empty box */
@@ -300,6 +302,8 @@ export function ClaudeBlock(props: ClaudeBlockProps) {
               <span {...stylex.props(styles.timer)}>{elapsed(running)}</span>
               {onCancel && <Button size="sm" variant="quiet" label="Cancel" onClick={onCancel} />}
             </>
+          ) : submit === "none" ? (
+            off && <span {...stylex.props(styles.hint)}>{unavailable}</span>
           ) : (
             <>
               <span {...stylex.props(styles.hint)}>
