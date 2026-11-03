@@ -118,6 +118,13 @@ tests/unit/          vitest (desktop/ for the shell); tests/e2e/ playwright (des
 - Nothing may need admin rights, a compiler or Python on a colleague's PC (SPEC §14): a native
   dependency without a win-x64 prebuild is refused.
 
+## Branches and commits
+
+The software is young: the work lives on `master`. A branch or a worktree is only a way for several
+agents to work at once — use one freely. But when the user says « commit » or « merge », the result
+goes to `master`: commit, then merge into `master` (fast-forward when possible), and leave the
+checkout on `master`. Never push unless asked.
+
 ## Talking to the user
 
 Answer in French. Plain words first; code on request.
