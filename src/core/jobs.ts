@@ -40,7 +40,14 @@ export function jobNotice(message: string): (() => void) | undefined {
 // ponytail: the same line for work outside any job (a plain request waiting out a 429) — sent to every open page,
 // and an empty message takes it down
 export function notice(message: string): void {
-  const e: JobEvent = { jobId: "", at: env.now().toISOString(), type: "notice", message };
+  const e: JobEvent = { jobId: "", at: env.now().toISOString(), type: "notice", message, project: null };
+  for (const fn of listeners) fn(e);
+}
+
+// ponytail: files of a project changed outside any job (an edit, a save, Claude Code in a terminal, a sync) — the
+// pages re-read what they show from those paths
+export function filesChanged(project: string, paths: string[]): void {
+  const e: JobEvent = { jobId: "", at: env.now().toISOString(), type: "changed", paths, project };
   for (const fn of listeners) fn(e);
 }
 
@@ -59,6 +66,7 @@ function logFile(project: string | null, id: string): string {
 }
 
 function emit(l: Live, e: JobEvent): void {
+  e.project = l.project;
   l.events.push(e);
   if (l.events.length > 2000) l.events.splice(0, l.events.length - 2000);
   try {

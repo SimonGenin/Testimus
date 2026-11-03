@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { type Command, type Ctx, command, projectOf, UserError } from "../command.ts";
+import { type Ctx, command, projectOf, UserError } from "../command.ts";
 import { startJob } from "../jobs.ts";
 import { advise } from "../lib/models-advice.ts";
 import { catalogEntry } from "../lib/models-catalog.ts";
@@ -136,7 +136,7 @@ function needsLlama(models: string[]): boolean {
   });
 }
 
-export const commands: Command[] = [
+export const commands = [
   command({
     name: "models.catalog",
     summary: "The model catalog, with whether each entry fits this PC (RAM, GPU) and its tier.",

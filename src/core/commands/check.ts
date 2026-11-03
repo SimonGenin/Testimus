@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { checkTests, promoteChecked } from "../claude/check.ts";
-import { type Command, command, projectOf, UserError } from "../command.ts";
+import { command, projectOf, UserError } from "../command.ts";
 import { isStale, recordSemantic } from "../lib/check.ts";
 import { listLocalTests, readCheck, testExists } from "../lib/store.ts";
 import type { FindingKind } from "../types.ts";
@@ -76,7 +76,7 @@ export function selectTests(project: string, input: { ids?: string[]; folder?: s
 const subjectOf = (i: { ids?: string[]; folder?: string; all?: boolean }) =>
   i.all ? "all tests" : [...(i.ids ?? []), ...(i.folder !== undefined ? [i.folder] : [])].join(", ") || "tests";
 
-export const commands: Command[] = [
+export const commands = [
   command({
     name: "check.run",
     summary:

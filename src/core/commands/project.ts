@@ -3,7 +3,7 @@ import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { ensureMcpJson } from "../claude/run.ts";
-import { type Command, command, projectOf, UserError } from "../command.ts";
+import { command, projectOf, UserError } from "../command.ts";
 import { listJobs, runsIn } from "../jobs.ts";
 import { stepColumns } from "../lib/columns.ts";
 import { sha256 } from "../lib/hash.ts";
@@ -172,7 +172,7 @@ export function projectInfo(dir: string) {
 
 const PRESET = z.object({ label: z.string(), prompt: z.string() });
 
-export const commands: Command[] = [
+export const commands = [
   command({
     name: "project.init",
     summary: "Make a folder a Testimus project: template (CLAUDE.md, .mcp.json, skills), project.json, xray.json.",

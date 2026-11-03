@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { suggestColumns } from "../claude/columns.ts";
-import { type Command, command, projectOf } from "../command.ts";
+import { command, projectOf } from "../command.ts";
 import { removeColumn, saveColumn, stepColumns } from "../lib/columns.ts";
 import { MODEL } from "./claude.ts";
 
@@ -20,7 +20,7 @@ const column = z.object({
     ),
 });
 
-export const commands: Command[] = [
+export const commands = [
   command({
     name: "columns.list",
     summary:

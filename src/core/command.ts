@@ -32,15 +32,23 @@ export type Command<I extends z.ZodType = z.ZodType, O extends z.ZodType = z.Zod
   run(ctx: Ctx, input: z.output<I>): Promise<z.input<O>>;
 };
 
-export function command<I extends z.ZodType, O extends z.ZodType>(c: Command<I, O>): Command<I, O> {
+// ponytail: the name stays a literal type, so the registry's type maps each name to its input and output (the page
+// imports that type, never the registry itself)
+export function command<const N extends `${string}.${string}`, I extends z.ZodType, O extends z.ZodType>(
+  c: Command<I, O> & { name: N },
+): Command<I, O> & { name: N } {
   return c;
 }
 
+// ponytail: `code` is a stable name a page or a script can branch on (`conflict`: the file moved on disk since it was
+// read) instead of matching the message
 export class UserError extends Error {
   readonly fix?: string;
-  constructor(message: string, fix?: string) {
+  readonly code?: string;
+  constructor(message: string, fix?: string, code?: string) {
     super(message);
     this.fix = fix;
+    this.code = code;
   }
 }
 

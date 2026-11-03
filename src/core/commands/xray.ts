@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 import { z } from "zod";
-import { type Command, type Ctx, command, projectOf, UserError } from "../command.ts";
+import { type Ctx, command, projectOf, UserError } from "../command.ts";
 import { env } from "../env.ts";
 import { followXray, stepColumns } from "../lib/columns.ts";
 import { browseUrl, getFolderTree, getStepFields, listPreconditions, listTests, searchTests } from "../lib/jira.ts";
@@ -160,7 +160,7 @@ async function allInFolder(projectId: string, folder: string, descendants: boole
   }
 }
 
-export const commands: Command[] = [
+export const commands = [
   command({
     name: "xray.fields",
     summary: "Fetch the project's Xray step fields (built-in and custom) into xray.json; local field prefs are kept.",

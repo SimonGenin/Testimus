@@ -653,7 +653,8 @@ export type PullStage =
   | { phase: "images"; done: number; total: number }
   | { phase: "write" };
 export type PullInfo = { key: string } & PullStage;
-export type JobEvent =
+// ponytail: every event names its project (null: the machine's own work), so a page only follows its own project
+export type JobEvent = (
   | { jobId: string; at: string; type: "status"; job: Job }
   | {
       jobId: string;
@@ -670,7 +671,8 @@ export type JobEvent =
   | { jobId: string; at: string; type: "steps"; steps: JobStep[] }
   | { jobId: string; at: string; type: "process"; process: JobProcess }
   | { jobId: string; at: string; type: "changed"; paths: string[] }
-  | { jobId: ""; at: string; type: "notice"; message: string };
+  | { jobId: ""; at: string; type: "notice"; message: string }
+) & { project?: string | null };
 
 // System (SPEC §14)
 

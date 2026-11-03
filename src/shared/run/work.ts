@@ -171,3 +171,28 @@ export function every(ms: number, tick: () => unknown, signal?: AbortSignal): ()
   signal?.addEventListener("abort", stop, { once: true });
   return stop;
 }
+
+// ponytail: a burst of values becomes one call `ms` after the last of them, with every value gathered
+export function debounce<T>(ms: number, fire: (batch: T[]) => unknown): { push(value: T): void; cancel(): void } {
+  let batch: T[] = [];
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return {
+    push(value) {
+      batch.push(value);
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        const out = batch;
+        batch = [];
+        try {
+          const r = fire(out);
+          if (r instanceof Promise) r.catch(() => {});
+        } catch {}
+      }, ms);
+      timer.unref?.();
+    },
+    cancel() {
+      clearTimeout(timer);
+      batch = [];
+    },
+  };
+}

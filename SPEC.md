@@ -25,7 +25,17 @@ update it when a decision changes, in the same change as the code.
 
 - **One TypeScript code base on Node 26 LTS** (LTS since 2026-10-28, supported to 2029-04; the
   release ships its own copy, §14, so colleagues' PCs need no Node). The **core** runs in Node; the
-  UI is React 19 + Vite 8, no UI library, no CSS framework, no state library (Xray Editor's rules).
+  UI is React 19 + Vite 8, no UI library. Two of Xray Editor's « no » were reopened by the v3 cleanup (2026-11-03):
+  - **StyleX** (`@stylexjs/stylex` + `@stylexjs/unplugin`, pinned) for every style: the design tokens are
+    `src/ui/styles/tokens.stylex.ts` (`defineVars`, a dark scheme by media query, `createTheme` light/dark set on `<html>`
+    from `data-theme`), a component's styles live in its `.tsx` (`stylex.create`), so a deleted component takes its styles
+    with it and an unknown token breaks `tsc`. Reason: fifteen hand-written sheets had drifted (1 839 sizes in px, rules of
+    one area patching another's components). Compiled at build time by Vite (dev with HMR and readable class names, vitest
+    compiles too); no runtime injection, no CSS file but the fonts, no raw HTML.
+  - **TanStack Query v5** (`@tanstack/react-query`, pinned) is the one data layer of the UI (`src/ui/lib/data/`): a cache
+    per command and input, deduplication, cancel, invalidation from the event stream, optimistic updates with rollback,
+    the autosave as a mutation, server reachability. Reason: that work was written by hand in 58 effects, 4 window
+    events, 12 module stores and 3 autosave timers.
 - **Node runs the TypeScript itself** (type stripping): `node src/faces/cli.ts`, no `tsx`, no build
   step in development. The code is therefore erasable-only (`erasableSyntaxOnly`: no `enum`, no
   `namespace`, no constructor parameter properties) and imports name `.ts` files. Xray Editor's code
@@ -64,7 +74,13 @@ update it when a decision changes, in the same change as the code.
   - **Biome** 2: lint and format in one tool, one config, run by `npm run check`. (Oxfmt is faster
     but still beta.)
 - Considered and left out, so nobody adds them by reflex: React Compiler (the UI is small and ported
-  code already memoizes where it matters), a UI kit or Tailwind (Xray Editor's styles are ported),
+  code already memoizes where it matters), a UI kit, Radix/MUI or Tailwind (the kit is ours, built on the design system;
+  a headless primitive is allowed for one component only if accessibility demands it, with the reason written here),
+  Storybook (the component catalogue is the app's own `#/kit` screen), **Effect** (typed errors, concurrency, resources:
+  it would help with cancel, timeouts, retries and guaranteed cleanup, but it does not cover the worst risk — the parent
+  process killed, handled by `--exit-with-stdin` and `taskkill /T` —, would duplicate zod, the contract of the three faces,
+  and would mix two paradigms; that code lives instead in one layer of ours, `src/shared/run/` (§2). Reopen Effect for that
+  layer if it grows past about 500 lines, or if a cancel or cleanup defect comes back),
   an HTTP framework, an ORM, a hosted vector database, `tsx`/`ts-node`, Node single-executable
   packaging (it cannot carry the native modules cleanly; the portable folder can).
 - Claude = the **Claude Code CLI** (`claude -p`) on the user's subscription. Not the Agent SDK: it
@@ -90,6 +106,19 @@ update it when a decision changes, in the same change as the code.
   (`<group>_<verb>`) and the HTTP route from it. A feature that exists only in the UI is a bug.
 - `ctx` carries the project folder, settings, an `AbortSignal`, a progress callback (CLI prints it,
   HTTP streams it, MCP sends notifications) and the activity tracker.
+- **One place for processes, cancels and resources** (`src/shared/run/`, Node only, so the desktop shell imports it too):
+  `work.ts` — cancellable `sleep` and `timeout`, `retry` with a growing delay or the server's `Retry-After`, `semaphore`
+  (the six Jira calls) whose waiters leave on a cancel, `scope` whose cleanups run last-in first-out whatever ends it
+  (result, error, cancel, time out), `every`, `debounce`; `process.ts` — start a program directly or through a `.cmd` shim
+  (the metacharacter refusal), the registry of live children, killing **the whole tree** (`taskkill /T /F` on Windows; off
+  Windows each child leads its own process group, killed with the descendants `ps` knows), stdout and stderr line by line,
+  timeout and cancel, every child killed when the parent goes (`--exit-with-stdin`, signals, exit). Nothing else in `src/`
+  spawns, kills or waits (a guard test, §15).
+- **Events name their project.** Every event of `/api/events` carries `project` (null: the machine's own work, a model
+  download); a page follows only its own project. Besides the job events, a recursive watcher per project in use emits one
+  `changed` event per burst of writes (200 ms), naming the paths — an edit, a save, Claude Code in a terminal, a sync —, the
+  project's `CLAUDE.md` included, its index and the app's bookkeeping under `.testimus/` left out (but proposed actions). A
+  `UserError` may carry a stable `code` a page branches on; `conflict` (the file moved on disk since it was read) is HTTP 409.
 - **Long work is a job**: `generate`, `check` over a batch, `rag.index`, `xray.pull` of a folder.
   A job has an id, progress, a cancel, and a log under `<project>/.testimus/jobs/<id>.jsonl`.
 - **Stopping is clean.** On stdin closing (`--exit-with-stdin`), SIGINT, SIGTERM, SIGBREAK or SIGHUP

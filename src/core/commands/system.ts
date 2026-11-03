@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { z } from "zod";
 import { probeAgents, probeDeps } from "../claude/limits.ts";
-import { type Command, command, projectOf, UserError } from "../command.ts";
+import { command, projectOf, UserError } from "../command.ts";
 import { env } from "../env.ts";
 import { AGENTS_CAP, AGENTS_DEFAULT, clampAgents } from "../lib/agents.ts";
 import { credsStatus, saveCreds, savedSecrets } from "../lib/creds.ts";
@@ -121,7 +121,7 @@ export function checkedExe(raw: string): string {
 const ATLASSIAN = /^https:\/\/[a-z0-9-]+\.atlassian\.net(\/wiki)?\/?$/i;
 const XRAY = /^https:\/\/([a-z0-9-]+\.)*getxray\.app\/?$/i;
 
-export const commands: Command[] = [
+export const commands = [
   command({
     name: "system.version",
     summary: "Testimus and Node versions.",

@@ -1,12 +1,12 @@
 import { z } from "zod";
-import { type Command, command, projectOf } from "../command.ts";
+import { command, projectOf } from "../command.ts";
 import { mentions } from "../rag/mentions.ts";
 import { related } from "../rag/related.ts";
 import { chunkKind } from "./rag.ts";
 
 const edgeKind = z.enum(["refers", "parent", "sibling", "shows", "amends"]);
 
-export const commands: Command[] = [
+export const commands = [
   command({
     name: "rag.mentions",
     summary:

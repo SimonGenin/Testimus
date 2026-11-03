@@ -11,7 +11,7 @@ import {
   sharedContexts,
   writeTestContexts,
 } from "../claude/prompt.ts";
-import { type Command, command, projectOf, UserError } from "../command.ts";
+import { command, projectOf, UserError } from "../command.ts";
 import { copyDirAtomic } from "../lib/atomic.ts";
 import { isProject, readJson, readProject, writeJson } from "../lib/project.ts";
 import { hex8, testExists, writeAtomic } from "../lib/store.ts";
@@ -94,7 +94,7 @@ function freeName(dir: string, name: string): string {
   return out;
 }
 
-export const commands: Command[] = [
+export const commands = [
   command({
     name: "contexts.list",
     summary:

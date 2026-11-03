@@ -87,7 +87,11 @@ tests/unit/          vitest (desktop/ for the shell); tests/e2e/ playwright (des
 - **One registry, three faces.** A capability is a command in `src/core/commands/`; CLI, MCP and HTTP
   are derived from it. Never add a route, a tool or a button that calls domain code directly — that is
   how a UI-only feature appears and Claude loses the ability to do it.
-- **The desktop shell is not a fourth face.** `src/desktop/` never imports `src/core/`; it starts
+- **One place for processes, waits and cleanup.** `src/shared/run/` (`work.ts`: sleep, timeout, retry, semaphore, scope,
+  every, debounce; `process.ts`: start, run, kill the whole tree, live children, exit with the parent) is the only code that
+  spawns, kills or waits; `src/shared/` depends on Node alone. A guard test fails on `node:child_process`, `process.kill`
+  or `taskkill` elsewhere in `src/`, and on `setTimeout`/`setInterval` in `src/core/`.
+- **The desktop shell is not a fourth face.** `src/desktop/` never imports `src/core/` (it may import `src/shared/`); it starts
   `serve` and talks to `/api`. Its bridge (`window.testimusDesktop`) carries presentation only
   (pickers, paths, reveal, progress, notifications) and every screen must work without it (browser mode).
 - **Files are the state.** A project folder is a Claude Code project (SPEC §3). `test.md`,
