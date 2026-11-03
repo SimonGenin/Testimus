@@ -1,4 +1,6 @@
+import { useEffect } from "react";
 import { type Screen, useApp } from "../../lib/app.ts";
+import { draftOf, keepDraft } from "../../lib/drafts.ts";
 import type { IconName } from "../ui/index.ts";
 import { ProjectButton } from "./ProjectButton.tsx";
 import { RailItem } from "./RailItem.tsx";
@@ -15,6 +17,11 @@ export const NAV: { id: Screen; label: string; icon: IconName }[] = [
 export function Rail({ counts }: { counts: Partial<Record<Screen, number>> }) {
   const app = useApp();
   const at = app.route.screen;
+  const arg = app.route.arg;
+  // ponytail: coming back to a screen from the rail opens what was open there; its own entry, clicked again, goes to
+  // its start as before
+  useEffect(() => keepDraft(`route.${at}`, arg), [at, arg]);
+  const go = (s: Screen) => app.navigate(s, s === at ? undefined : draftOf<string>(`route.${s}`));
   return (
     <nav className="rail" aria-label="Main">
       <img className="rail-logo" src="/logo.png" alt="Testimus" />
@@ -27,20 +34,14 @@ export function Rail({ counts }: { counts: Partial<Record<Screen, number>> }) {
           icon={n.icon}
           current={at === n.id || (n.id === "generate" && at === "review")}
           count={counts[n.id]}
-          onClick={() => app.navigate(n.id)}
+          onClick={() => go(n.id)}
         />
       ))}
       <div className="rail-spacer" />
-      <RailItem
-        label="Jobs"
-        icon="jobs"
-        current={at === "jobs"}
-        count={counts.jobs}
-        onClick={() => app.navigate("jobs")}
-      />
-      <RailItem label="Settings" icon="settings" current={at === "settings"} onClick={() => app.navigate("settings")} />
+      <RailItem label="Jobs" icon="jobs" current={at === "jobs"} count={counts.jobs} onClick={() => go("jobs")} />
+      <RailItem label="Settings" icon="settings" current={at === "settings"} onClick={() => go("settings")} />
       <ThemeToggle />
-      <SystemStatus current={at === "doctor"} onOpen={() => app.navigate("doctor")} />
+      <SystemStatus current={at === "doctor"} onOpen={() => go("doctor")} />
     </nav>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ColumnMode, StepColumn, TraceView } from "../../../core/types.ts";
 import { Icon, IconButton, Segmented } from "../../components/ui/index.ts";
 import { MODES } from "../../lib/columns.ts";
@@ -45,6 +45,17 @@ export function ColumnRow({
   const c = column;
   const [text, setText] = useState(c.description);
   useEffect(() => setText(c.description), [c.description]);
+  // ponytail: leaving Settings unmounts the row without a blur — a typed description is saved from the cleanup,
+  // once: a blur just before has already sent it
+  const sent = useRef(c.description);
+  const describe = () => {
+    if (text.trim() === c.description || text === sent.current) return;
+    sent.current = text;
+    onDescribe(text);
+  };
+  const onUnmount = useRef(describe);
+  onUnmount.current = describe;
+  useEffect(() => () => onUnmount.current(), []);
   const tag = columnTag(c);
   const foldable = c.name !== "Action" && c.name !== "Expected Result";
   const id = `col-${c.name.replace(/\W+/g, "-")}`;
@@ -108,7 +119,7 @@ export function ColumnRow({
         placeholder="Empty: Claude leaves this column empty"
         value={text}
         onChange={(e) => setText(e.target.value)}
-        onBlur={() => text.trim() !== c.description && onDescribe(text)}
+        onBlur={describe}
       />
       {trace && (
         <div className="colrow-ids">

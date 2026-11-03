@@ -426,13 +426,13 @@ describe("Rail, system status, theme and headers", () => {
     expect(screen.queryByRole("button", { name: /Review/ })).toBeNull();
     expect(screen.getByRole("button", { name: /Jobs/ })).not.toHaveTextContent(/\d/);
     fireEvent.click(screen.getByRole("button", { name: /Tests/ }));
-    expect(state.navigate).toHaveBeenCalledWith("tests");
+    expect(state.navigate).toHaveBeenCalledWith("tests", undefined);
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
-    expect(state.navigate).toHaveBeenCalledWith("settings");
+    expect(state.navigate).toHaveBeenCalledWith("settings", undefined);
     const sys = await screen.findByRole("button", { name: "System: Needs you. Open the system check" });
     expect(sys).toHaveAttribute("aria-current", "page");
     fireEvent.click(sys);
-    expect(state.navigate).toHaveBeenCalledWith("doctor");
+    expect(state.navigate).toHaveBeenCalledWith("doctor", undefined);
     cleanup();
     withApp(<Rail counts={{}} />, { route: { screen: "review" } });
     expect(screen.getByRole("button", { name: /Generate/ })).toHaveAttribute("aria-current", "page");

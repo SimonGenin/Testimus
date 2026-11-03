@@ -51,7 +51,7 @@ describe("FixNote", () => {
   it("requires a note, submits with Enter or the button, cancels with Escape", () => {
     const onSubmit = vi.fn();
     const onCancel = vi.fn();
-    render(<FixNote initial="" claudeReady onCancel={onCancel} onSubmit={onSubmit} />);
+    render(<FixNote id="T-1" initial="" claudeReady onCancel={onCancel} onSubmit={onSubmit} />);
     const dlg = screen.getByRole("dialog", { name: "Mark as To fix" });
     const area = screen.getByLabelText(/Note for the author/);
     expect(area).toHaveFocus();
@@ -77,7 +77,7 @@ describe("FixNote", () => {
 
   it("without Claude the box is off and the note is kept for later", () => {
     const onSubmit = vi.fn();
-    render(<FixNote initial="old note" claudeReady={false} onCancel={vi.fn()} onSubmit={onSubmit} />);
+    render(<FixNote id="T-1" initial="old note" claudeReady={false} onCancel={vi.fn()} onSubmit={onSubmit} />);
     expect(screen.getByRole("checkbox")).toBeDisabled();
     expect(screen.getByRole("checkbox")).not.toBeChecked();
     expect(screen.getByText(/the note is kept for later/)).toBeInTheDocument();

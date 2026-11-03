@@ -7,6 +7,7 @@ import { docLink } from "../../components/sources/PassageView.tsx";
 import { Button, DragEdge, Icon, IconButton, Kbd, Severity, Skeleton } from "../../components/ui/index.ts";
 import { useActions } from "../../lib/actions.ts";
 import { useApp } from "../../lib/app.ts";
+import { useDraft } from "../../lib/drafts.ts";
 import { flushEditor } from "../../lib/editorBus.ts";
 import { message, plural } from "../../lib/format.ts";
 import { addedSteps } from "../../lib/marks.ts";
@@ -43,10 +44,10 @@ export function ReviewScreen() {
   const [items, setItems] = useState<QueueItem[] | null>(null);
   const [counts, setCounts] = useState<QueueCounts | null>(null);
   const [folders, setFolders] = useState<string[]>([]);
-  const [filter, setFilter] = useState<QueueFilter>("all");
-  const [sort, setSort] = useState<QueueSort>("anomalies");
-  const [folder, setFolder] = useState("");
-  const [withFindings, setWithFindings] = useState(false);
+  const [filter, setFilter] = useDraft<QueueFilter>("review.filter", "all");
+  const [sort, setSort] = useDraft<QueueSort>("review.sort", "anomalies");
+  const [folder, setFolder] = useDraft("review.folder", "");
+  const [withFindings, setWithFindings] = useDraft("review.withFindings", false);
   const [data, setData] = useState<Loaded | null>(null);
   const [loadError, setLoadError] = useState("");
   const [editing, setEditing] = useState(false);
@@ -492,6 +493,7 @@ export function ReviewScreen() {
           )}
           {fixOpen && data && (
             <FixNote
+              id={data.id}
               initial={data.test.review === "to-fix" ? (data.test.reviewNote ?? "") : ""}
               claudeReady={claudeReady}
               onCancel={() => setFixOpen(false)}

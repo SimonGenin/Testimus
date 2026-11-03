@@ -3,6 +3,7 @@ import { call } from "../../api.ts";
 import { Button, IconButton, Menu, Skeleton } from "../../components/ui/index.ts";
 import { useApp } from "../../lib/app.ts";
 import { desktop, openProject, pickFolder } from "../../lib/desktop.ts";
+import { useDraft } from "../../lib/drafts.ts";
 import { cx, message } from "../../lib/format.ts";
 import { errorToast } from "../../lib/toast.ts";
 import { DeleteProject } from "./DeleteProject.tsx";
@@ -12,10 +13,10 @@ type Known = { dir: string; name: string; jiraProject: string; exists: boolean }
 export function ProjectStep({ onBack, onOpened }: { onBack: () => void; onOpened?: () => void }) {
   const app = useApp();
   const [known, setKnown] = useState<Known[] | null>(null);
-  const [dir, setDir] = useState("");
-  const [key, setKey] = useState("");
-  const [name, setName] = useState("");
-  const [language, setLanguage] = useState("fr");
+  const [dir, setDir] = useDraft("setup.project.dir", "");
+  const [key, setKey] = useDraft("setup.project.key", "");
+  const [name, setName] = useDraft("setup.project.name", "");
+  const [language, setLanguage] = useDraft("setup.project.language", "fr");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [del, setDel] = useState<Known | null>(null);

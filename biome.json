@@ -16,7 +16,13 @@
         "noAutofocus": "off",
         "noLabelWithoutControl": "off"
       },
-      "complexity": { "noForEach": "off" }
+      "complexity": { "noForEach": "off" },
+      "correctness": {
+        "useExhaustiveDependencies": {
+          "level": "error",
+          "options": { "hooks": [{ "name": "useDraft", "stableResult": [1, 2] }] }
+        }
+      }
     }
   },
   "assist": { "actions": { "source": { "organizeImports": "on" } } }

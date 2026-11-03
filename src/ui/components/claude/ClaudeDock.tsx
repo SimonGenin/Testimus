@@ -13,6 +13,7 @@ import type {
 import { ApiError, call, run } from "../../api.ts";
 import { type Action, actionsChanged, useActions } from "../../lib/actions.ts";
 import { useApp } from "../../lib/app.ts";
+import { useDraft } from "../../lib/drafts.ts";
 import { flushEditor } from "../../lib/editorBus.ts";
 import { cx, message, plural } from "../../lib/format.ts";
 import { editedAfterRun, revertRun } from "../../lib/revert.ts";
@@ -193,7 +194,7 @@ export function ClaudeDock({
   const projectDir = app.info?.dir;
   const [scope, setScope] = useState<Kind>("project");
   const [turns, setTurns] = useState<Turn[]>([]);
-  const [prompt, setPrompt] = useState("");
+  const [prompt, setPrompt] = useDraft("dock.prompt", "");
   const [preset, setPreset] = useState(-1);
   const [model, setModel] = useState(cfg?.model ?? "opus");
   const [effort, setEffort] = useState<Effort>(cfg?.effort ?? "high");
@@ -209,7 +210,7 @@ export function ClaudeDock({
   // ponytail: what this run reads besides the test — the effective contexts until changed here, never persisted
   // (the test's own list is edited from its header), and a note said in full
   const [ctxPick, setCtxPick] = useState<string[] | null>(null);
-  const [note, setNote] = useState("");
+  const [note, setNote] = useDraft("dock.note", "");
   const scroller = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
 

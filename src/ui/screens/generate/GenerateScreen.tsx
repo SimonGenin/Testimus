@@ -19,6 +19,7 @@ import { Button, DragEdge, Icon } from "../../components/ui/index.ts";
 import { useActions } from "../../lib/actions.ts";
 import { activityOf, DOING } from "../../lib/activity.ts";
 import { useApp } from "../../lib/app.ts";
+import { useDraft } from "../../lib/drafts.ts";
 import { discardEditor } from "../../lib/editorBus.ts";
 import { plural } from "../../lib/format.ts";
 import { type DocScope, scopeOf } from "../../lib/scope.ts";
@@ -51,12 +52,12 @@ export function GenerateScreen() {
   const cfg = app.info?.project;
   const columns = (app.info?.columns ?? []) as StepColumn[];
   const traces = app.info?.traces ?? [];
-  const [request, setRequest] = useState("");
-  const [handed, setHanded] = useState<Record<string, string[]>>(takeHandoff);
+  const [request, setRequest] = useDraft("generate.request", "");
+  const [handed, setHanded] = useDraft<Record<string, string[]>>("generate.handed", {});
   const [docs, setDocs] = useState<DocRef[] | null>(null);
-  const [scopes, setScopes] = useState<Record<string, DocScope>>({});
-  const [contexts, setContexts] = useState<string[] | null>(null);
-  const [note, setNote] = useState("");
+  const [scopes, setScopes] = useDraft<Record<string, DocScope>>("generate.scopes", {});
+  const [contexts, setContexts] = useDraft<string[] | null>("generate.contexts", null);
+  const [note, setNote] = useDraft("generate.note", "");
   const [model, setModel] = useState(chosen?.model ?? "");
   const [effort, setEffort] = useState<Effort | "">(chosen?.effort ?? "");
   const [jobId, setJobId] = useState<string | null>(null);
@@ -87,6 +88,12 @@ export function GenerateScreen() {
       .then(setStatus)
       .catch(() => {})
       .finally(() => setCheckingClaude(false));
+  }, []);
+
+  // ponytail: ids handed by another screen replace the draft, once
+  useEffect(() => {
+    const h = takeHandoff();
+    if (Object.keys(h).length) setHanded(h);
   }, []);
 
   useEffect(() => {

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { call } from "../../api.ts";
 import { Badge, Button, Icon, Skeleton } from "../../components/ui/index.ts";
 import { useApp } from "../../lib/app.ts";
+import { useDraft } from "../../lib/drafts.ts";
 import { cx, message } from "../../lib/format.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 import type { CatalogRow, Hardware, PackRow, UsePackOut } from "../settings/models/data.ts";
@@ -14,7 +15,7 @@ export function PackStep({ onBack }: { onBack: () => void }) {
   const [packs, setPacks] = useState<PackRow[] | null>(null);
   const [catalog, setCatalog] = useState<CatalogRow[]>([]);
   const [suggested, setSuggested] = useState("light");
-  const [chosen, setChosen] = useState("");
+  const [chosen, setChosen, suggest] = useDraft("setup.pack", "");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [folderNeed, setFolderNeed] = useState<number | null>(null);
@@ -32,7 +33,7 @@ export function PackStep({ onBack }: { onBack: () => void }) {
         setPacks(p ?? []);
         setCatalog(c ?? []);
         setSuggested(s);
-        setChosen(s);
+        suggest(s);
       })
       .catch((e) => setError(message(e)));
   }, [hasProject]);

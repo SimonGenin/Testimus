@@ -6,6 +6,7 @@ import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
 import { Badge, Button, Icon, Modal, Severity, Skeleton } from "../../components/ui/index.ts";
 import { useApp } from "../../lib/app.ts";
 import { baseName, desktop, pickFiles } from "../../lib/desktop.ts";
+import { dropDraft, useDraft } from "../../lib/drafts.ts";
 import { cx, plural } from "../../lib/format.ts";
 import { parseCsvRows } from "../../lib/requirements.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
@@ -86,12 +87,12 @@ export function ImportScreen() {
       here.current = false;
     };
   }, []);
-  const [file, setFile] = useState<CsvFile | null>(null);
-  const [mapping, setMapping] = useState<Record<string, string>>({});
+  const [file, setFile] = useDraft<CsvFile | null>("import.file", null);
+  const [mapping, setMapping] = useDraft<Record<string, string>>("import.mapping", {});
   const [preview, setPreview] = useState<Preview | null>(null);
   const [loading, setLoading] = useState(false);
-  const [mode, setMode] = useState<Mode>("local");
-  const [folder, setFolder] = useState("");
+  const [mode, setMode] = useDraft<Mode>("import.mode", "local");
+  const [folder, setFolder] = useDraft("import.folder", "");
   const [plan, setPlan] = useState<PlanOp[] | null>(null);
   const [importing, setImporting] = useState(false);
   const [failure, setFailure] = useState<unknown>(null);
@@ -179,6 +180,7 @@ export function ImportScreen() {
         title: `${plural(r.written.length, "test")} imported`,
         detail: "In the Local tab — written by your team, so no review needed.",
       });
+      dropDraft("import.file", "import.mapping", "import.folder");
       app.testsChanged();
       app.refreshInfo();
       if (r.written.length) {
@@ -222,6 +224,7 @@ export function ImportScreen() {
         title: `${plural(r.written.length, "test")} created in Jira`,
         detail: "Pulled into the project.",
       });
+      dropDraft("import.file", "import.mapping", "import.folder");
       app.testsChanged();
       app.refreshInfo();
       if (r.written[0] && here.current) app.navigate("tests", r.written[0]);

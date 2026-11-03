@@ -13,6 +13,7 @@ import {
 } from "../../components/ui/index.ts";
 import { useApp } from "../../lib/app.ts";
 import { desktop, pathJoin, reveal } from "../../lib/desktop.ts";
+import { draftOf, keepDraft, useDraft } from "../../lib/drafts.ts";
 import { cx, plural } from "../../lib/format.ts";
 import { track } from "../../lib/localActivity.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
@@ -112,14 +113,14 @@ export function TestList({
   const jiraOn = !!p?.jiraProject && !p.jiraOffline;
   // ponytail: what the Jira side was loaded for — a new key, a reconnect or a disconnect starts it again
   const jira = jiraOn ? `${app.info?.dir}|${p.jiraProject}` : "";
-  const [tab, setTab] = useState<ListTab>("local");
-  const [q, setQ] = useState("");
-  const [search, setSearch] = useState("");
-  const [shut, setShut] = useState<Set<string>>(new Set());
+  const [tab, setTab] = useDraft<ListTab>("tests.list.tab", "local");
+  const [q, setQ] = useDraft("tests.list.filter", "");
+  const [search, setSearch] = useDraft("tests.list.search", "");
+  const [shut, setShut] = useDraft<Set<string>>("tests.list.shut", () => new Set());
   const [tree, setTree] = useState<Folder | null>(null);
   const [treeError, setTreeError] = useState("");
-  const [expanded, setExpanded] = useState<Set<string>>(new Set(["/"]));
-  const [folder, setFolder] = useState("/");
+  const [expanded, setExpanded] = useDraft<Set<string>>("tests.list.expanded", () => new Set(["/"]));
+  const [folder, setFolder] = useDraft("tests.list.folder", "/");
   const [busy, setBusy] = useState<string[]>([]);
   const [doomed, setDoomed] = useState<DeleteTarget | null>(null);
   const active = refs.find((r) => r.id === activeId);
@@ -132,8 +133,10 @@ export function TestList({
   const waiting = refs.length - listed.length;
   const shown = useMemo(() => localTree(listed.filter((r) => matches(r, q))), [listed, q]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: runs when the connection changes
+  // ponytail: runs when the connection changes, not when the screen comes back
   useEffect(() => {
+    if (draftOf("tests.list.jira") === jira) return;
+    keepDraft("tests.list.jira", jira);
     setTree(null);
     setTreeError("");
     setFolder("/");

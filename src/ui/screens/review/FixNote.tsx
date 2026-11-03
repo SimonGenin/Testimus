@@ -1,18 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "../../components/ui/index.ts";
+import { dropDraft, useDraft } from "../../lib/drafts.ts";
 
 export function FixNote({
+  id,
   initial,
   claudeReady,
   onCancel,
   onSubmit,
 }: {
+  id: string;
   initial: string;
   claudeReady: boolean;
   onCancel: () => void;
   onSubmit: (note: string, askClaude: boolean) => void;
 }) {
-  const [note, setNote] = useState(initial);
+  const draft = `review.fixNote.${id}`;
+  const [note, setNote] = useDraft(draft, initial);
   const [ask, setAsk] = useState(claudeReady);
   const [tried, setTried] = useState(false);
   const area = useRef<HTMLTextAreaElement>(null);
@@ -25,6 +29,7 @@ export function FixNote({
       area.current?.focus();
       return;
     }
+    dropDraft(draft);
     onSubmit(note.trim(), ask && claudeReady);
   };
   return (
@@ -36,6 +41,7 @@ export function FixNote({
         if (e.key === "Escape") {
           e.preventDefault();
           e.stopPropagation();
+          dropDraft(draft);
           onCancel();
         } else if (e.key === "Enter" && !e.shiftKey) {
           e.preventDefault();
@@ -80,7 +86,13 @@ export function FixNote({
         </span>
       </label>
       <div className="fixnote-foot">
-        <Button tone="quiet" onClick={onCancel}>
+        <Button
+          tone="quiet"
+          onClick={() => {
+            dropDraft(draft);
+            onCancel();
+          }}
+        >
           Cancel
         </Button>
         <Button tone="primary" kbd="Enter" onClick={submit}>

@@ -7,6 +7,7 @@ import { cap, EFFORTS, ModelPicker } from "../../components/claude/ModelPicker.t
 import { Button, IconButton } from "../../components/ui/index.ts";
 import { useApp } from "../../lib/app.ts";
 import { desktop, pickFiles } from "../../lib/desktop.ts";
+import { useDraft } from "../../lib/drafts.ts";
 import { cx, message } from "../../lib/format.ts";
 import { errorToast } from "../../lib/toast.ts";
 import { saveProject } from "./ProjectSection.tsx";
@@ -128,15 +129,22 @@ function ClaudeProgram() {
 
 function QuickAsks({ presets, save }: { presets: Preset[]; save: (p: Preset[]) => void }) {
   const [drafts, setDrafts] = useState(presets);
-  const [adding, setAdding] = useState(false);
-  const [label, setLabel] = useState("");
-  const [prompt, setPrompt] = useState("");
+  const [adding, setAdding] = useDraft("settings.quickAsk.adding", false);
+  const [label, setLabel] = useDraft("settings.quickAsk.label", "");
+  const [prompt, setPrompt] = useDraft("settings.quickAsk.prompt", "");
   useEffect(() => setDrafts(presets), [presets]);
   const edit = (i: number, p: Partial<Preset>) => setDrafts((d) => d.map((x, k) => (k === i ? { ...x, ...p } : x)));
+  // ponytail: leaving Settings unmounts it without a blur — an edited quick ask is saved from the cleanup, once
+  const sent = useRef(presets);
   const commit = () => {
     const next = drafts.map((p) => ({ label: p.label.trim(), prompt: p.prompt.trim() }));
-    if (!same(next, presets) && next.every((p) => p.label && p.prompt)) save(next);
+    if (same(next, presets) || same(next, sent.current) || !next.every((p) => p.label && p.prompt)) return;
+    sent.current = next;
+    save(next);
   };
+  const onUnmount = useRef(commit);
+  onUnmount.current = commit;
+  useEffect(() => () => onUnmount.current(), []);
   return (
     <div className="formfield">
       <span className="label">Quick asks</span>

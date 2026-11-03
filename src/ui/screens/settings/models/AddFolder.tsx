@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { call } from "../../../api.ts";
 import { Button } from "../../../components/ui/index.ts";
+import { useDraft } from "../../../lib/drafts.ts";
 import { errorToast, toast } from "../../../lib/toast.ts";
 import { folderPicker } from "./data.ts";
 
 export function AddFolder({ onAdded }: { onAdded: () => void }) {
-  const [path, setPath] = useState("");
-  const [copy, setCopy] = useState(false);
+  const [path, setPath] = useDraft("settings.models.folder", "");
+  const [copy, setCopy] = useDraft("settings.models.copy", false);
   const [busy, setBusy] = useState(false);
   const pick = folderPicker();
   const add = async () => {

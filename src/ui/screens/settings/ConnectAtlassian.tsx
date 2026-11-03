@@ -4,6 +4,7 @@ import { call } from "../../api.ts";
 import { Button, Icon, Skeleton } from "../../components/ui/index.ts";
 import { desktop, openExternal, reveal } from "../../lib/desktop.ts";
 import { runDoctor } from "../../lib/doctor.ts";
+import { dropDraft, useDraft } from "../../lib/drafts.ts";
 import { cx, message } from "../../lib/format.ts";
 
 export type SetupResult = { status: CredsStatus; saved: string[]; checks: DoctorCheck[]; ok: boolean };
@@ -89,11 +90,11 @@ export function ConnectAtlassian({
   onResult?: (r: SetupResult) => void;
 }) {
   const [status, setStatus] = useState<CredsStatus | null>(null);
-  const [site, setSite] = useState("");
-  const [email, setEmail] = useState("");
-  const [token, setToken] = useState("");
-  const [clientId, setClientId] = useState("");
-  const [secret, setSecret] = useState("");
+  const [site, setSite, savedSite] = useDraft("atlassian.site", "");
+  const [email, setEmail, savedEmail] = useDraft("atlassian.email", "");
+  const [token, setToken, savedToken] = useDraft("atlassian.token", "");
+  const [clientId, setClientId, savedClientId] = useDraft("atlassian.clientId", "");
+  const [secret, setSecret, savedSecret] = useDraft("atlassian.secret", "");
   const [shown, setShown] = useState(false);
   const [busy, setBusy] = useState(false);
   const [words, setWords] = useState<{ jira: Word; xray: Word } | null>(null);
@@ -106,8 +107,8 @@ export function ConnectAtlassian({
     call<SetupResult>("system.setup", {})
       .then((r) => {
         setStatus(r.status);
-        setSite(r.status.jira.baseUrl ?? "");
-        setEmail(r.status.jira.email ?? "");
+        savedSite(r.status.jira.baseUrl ?? "");
+        savedEmail(r.status.jira.email ?? "");
         told.current?.(r.status);
       })
       .catch((e) => setError(message(e)));
@@ -115,9 +116,9 @@ export function ConnectAtlassian({
       .then((s) => {
         if (!s) return;
         kept.current = s;
-        setToken(s.token);
-        setClientId(s.clientId);
-        setSecret(s.clientSecret);
+        savedToken(s.token);
+        savedClientId(s.clientId);
+        savedSecret(s.clientSecret);
       })
       .catch(() => {});
   }, []);
@@ -158,6 +159,7 @@ export function ConnectAtlassian({
       setStatus(r.status);
       onStatus?.(r.status);
       kept.current = { token: token.trim(), clientId: clientId.trim(), clientSecret: secret.trim() };
+      dropDraft("atlassian.site", "atlassian.email", "atlassian.token", "atlassian.clientId", "atlassian.secret");
       setWords({
         jira: jiraWords(r.checks.find((c) => c.id === "jira")),
         xray: xrayWords(r.checks.find((c) => c.id === "xray")),

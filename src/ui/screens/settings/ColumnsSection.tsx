@@ -5,6 +5,7 @@ import { CoverageDialog } from "../../components/traces/CoverageDialog.tsx";
 import { TrackDialog } from "../../components/traces/TrackDialog.tsx";
 import { Button, Modal } from "../../components/ui/index.ts";
 import { useApp } from "../../lib/app.ts";
+import { useDraft } from "../../lib/drafts.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 import { traceOfField } from "../../lib/traces.ts";
 import { ColumnRow } from "./ColumnRow.tsx";
@@ -18,9 +19,9 @@ export function ColumnsSection() {
   const [track, setTrack] = useState<{ column: string; trace?: TraceView } | null>(null);
   const [untrack, setUntrack] = useState<TraceView | null>(null);
   const [coverage, setCoverage] = useState<string | null>(null);
-  const [adding, setAdding] = useState(false);
-  const [name, setName] = useState("");
-  const [desc, setDesc] = useState("");
+  const [adding, setAdding] = useDraft("settings.column.adding", false);
+  const [name, setName] = useDraft("settings.column.name", "");
+  const [desc, setDesc] = useDraft("settings.column.desc", "");
   const order = columns.map((c) => c.name);
 
   const savePrefs = async (prefs: Partial<XrayJson["prefs"]>) => {

@@ -88,6 +88,7 @@ export function DocDetail({
         if (dead) return;
         setShown(r);
         setContext(r.context ?? "");
+        sent.current = null;
       })
       .catch((e) => !dead && setError(message(e)));
     return () => {
@@ -152,6 +153,18 @@ export function DocDetail({
     },
     [id, onChanged],
   );
+
+  // ponytail: leaving the screen unmounts the note without a blur — what was typed is saved from the cleanup, once:
+  // a blur just before has already sent it
+  const sent = useRef<string | null>(null);
+  const saveNote = (done?: string) => {
+    if (!shown || context === (shown.context ?? "") || context === sent.current) return;
+    sent.current = context;
+    void set({ context }, done);
+  };
+  const onLeave = useRef(saveNote);
+  onLeave.current = saveNote;
+  useEffect(() => () => onLeave.current(), []);
 
   if (error)
     return (
@@ -265,7 +278,7 @@ export function DocDetail({
           rows={3}
           value={context}
           onChange={(e) => setContext(e.target.value)}
-          onBlur={() => context !== shown.context && void set({ context }, "Context saved")}
+          onBlur={() => saveNote("Context saved")}
         />
       </div>
 
