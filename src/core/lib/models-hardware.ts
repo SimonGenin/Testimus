@@ -54,6 +54,8 @@ async function loadedModels(): Promise<LoadedModel[]> {
   }
 }
 
+// ponytail: a seam env does not have — the probes of the machine (nvidia-smi, WMI, the registry, statfs, memory),
+// which the tests answer to play a PC Testimus does not run on
 export const hardwareDeps: HardwareDeps = {
   exec,
   statfs,

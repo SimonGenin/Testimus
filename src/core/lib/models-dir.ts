@@ -61,6 +61,8 @@ export type DirDeps = { freeMB(dir: string): number | null; busy(except?: string
 
 const BUSY = /rag-index|models-|bench|eval|compare/;
 
+// ponytail: a seam env does not have — the free space of a drive, the running jobs and the known projects, which
+// the tests set to play a full drive or a busy index without one
 export const dirDeps: DirDeps = {
   freeMB: (d) => downloadDeps.freeMB(d),
   busy: (except) => {

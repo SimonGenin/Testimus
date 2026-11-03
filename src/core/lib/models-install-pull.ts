@@ -50,7 +50,11 @@ async function pullOnce(ctx: Ctx, input: PullInput, entry: CatalogEntry): Promis
       `${entry.label} is not on this PC and downloads are off (allowRemote = false).`,
       "Copy it from the team share and register it: testimus models add <folder>.",
     );
-  if (!entry.source.hf) throw new UserError(`${entry.label} has no Hugging Face source.`);
+  if (!entry.source.hf)
+    throw new UserError(
+      `${entry.label} has no Hugging Face source.`,
+      "Register a copy you have: testimus models add <path>.",
+    );
   let dir = r.dir;
   if (input.dir) {
     const plan = planSetDir({

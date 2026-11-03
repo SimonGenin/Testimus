@@ -23,6 +23,8 @@ import { readSettings } from "./project.ts";
 
 const MB = 1024 * 1024;
 
+// ponytail: a seam env does not have — loading a model to try it (seconds, real weights) and reading a llama.cpp
+// build; --mock answers the probe like a load on this machine, the tests make it fail
 export const installDeps = {
   probe: async (m: ResolvedModel): Promise<{ dims: number; maxTokens: number }> => {
     const servers = await import("../rag/runtimes/llama-server.ts");

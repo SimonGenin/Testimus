@@ -40,6 +40,8 @@ export function freeMB(dir: string): number | null {
   }
 }
 
+// ponytail: a seam env does not have — Hugging Face's fetch (with Range and a stream) and the free space; --mock
+// serves fake bytes through it and the tests play a cut connection or a full drive
 export const downloadDeps: DownloadDeps = {
   fetch: (url, init) => fetch(url, init),
   freeMB,
@@ -133,7 +135,7 @@ export async function downloadFile(
     if (res.status === 200) start = 0;
     else if (res.status !== 206)
       throw new UserError(`Download of ${f.path} failed: HTTP ${res.status}.`, "Check the network or the proxy.");
-    if (!res.body) throw new UserError(`Download of ${f.path} returned no data.`);
+    if (!res.body) throw new UserError(`Download of ${f.path} returned no data.`, "Check the network or the proxy.");
     opts.onBytes(start);
     const count = new Transform({
       transform(chunk: Buffer, _enc, done) {

@@ -31,13 +31,19 @@ function guessTransformers(dir: string, model?: string): CatalogEntry[] {
 export type AddResult = { model: string; via: "path"; path: string; dims: number; state: InstallState };
 
 export async function addPath(input: { path: string; model?: string; copy: boolean }, ctx?: Ctx): Promise<AddResult> {
-  if (!isAbsolute(input.path)) throw new UserError(`${input.path} is not an absolute path.`);
+  if (!isAbsolute(input.path))
+    throw new UserError(`${input.path} is not an absolute path.`, "Give the full path, e.g. D:\\models\\bge-m3.");
   const path = resolve(input.path);
-  if (!existsSync(path)) throw new UserError(`${path} does not exist.`);
+  if (!existsSync(path))
+    throw new UserError(`${path} does not exist.`, "Check the path; a share must be reachable from this PC.");
   const isFile = statSync(path).isFile();
   if (!isFile && existsSync(join(path, "llama-server.exe"))) {
     const build = await installDeps.findLlamaBuild(path);
-    if (!build) throw new UserError(`${path} holds llama-server.exe but its build could not be read.`);
+    if (!build)
+      throw new UserError(
+        `${path} holds llama-server.exe but its build could not be read.`,
+        "Give the folder of an official llama.cpp release, or let Testimus download one: testimus models pullRuntime.",
+      );
     updateRegistry((r) => {
       r.llamacpp = { ...build, via: "path" };
     });
@@ -84,7 +90,7 @@ export async function addPath(input: { path: string; model?: string; copy: boole
       await copyInto(path, where, ctx);
     }
     if (!isFile && !filesPresent(where, filesFor(entry)) && !isComplete(where, entry.dtypeByDevice?.cpu))
-      throw new UserError(`${where} lacks files of ${entry.label}.`);
+      throw new UserError(`${where} lacks files of ${entry.label}.`, "Copy the whole model folder, then add it again.");
     const gguf = isGguf(entry);
     const machine = await machineProfile().catch(() => null);
     const install: Installation = {
@@ -107,7 +113,7 @@ export async function addPath(input: { path: string; model?: string; copy: boole
     putInstall(install);
     out ??= { model: entry.id, via: "path", path: where, dims: probe.dims, state: install.status };
   }
-  if (!out) throw new UserError(`${path} matches no catalog entry.`);
+  if (!out) throw new UserError(`${path} matches no catalog entry.`, "Name it with --model <catalog id>.");
   return out;
 }
 
