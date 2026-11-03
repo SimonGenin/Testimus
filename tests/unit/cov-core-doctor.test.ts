@@ -277,14 +277,17 @@ describe("model rows", () => {
 describe("the real model deps", () => {
   it("without a project: the default models, nothing installed", async () => {
     const a = await modelDeps.active(null);
-    expect(a.wanted).toEqual([DEFAULT_PROJECT.rag.embedding]);
+    expect(a.wanted).toEqual(["bge-m3-q8"]);
     expect(a.reranker).toBeNull();
     expect((await modelDeps.machine()).at).toBe(devPc.at);
   });
 
   it("with a project: what its choice wants, and the space of its index", async () => {
     const project = mkdtempSync(join(tmpdir(), "testimus-cov-doctor-p-"));
-    writeProject(project, { ...DEFAULT_PROJECT, rag: { embedding: "bge-m3-q8", reranker: "bge-reranker-v2-m3-q8" } });
+    writeProject(project, {
+      ...DEFAULT_PROJECT,
+      rag: { reference: { embedding: "bge-m3-q8", reranker: "bge-reranker-v2-m3-q8" } },
+    });
     const a = await modelDeps.active(project);
     expect(a.wanted).toEqual(expect.arrayContaining(["bge-m3-q8"]));
     expect(a.wanted.some((w) => w.startsWith("pack "))).toBe(false);

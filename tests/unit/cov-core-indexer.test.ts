@@ -5,10 +5,10 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Ctx } from "../../src/core/command.ts";
 import { quietCtx } from "../../src/core/command.ts";
 import { env } from "../../src/core/env.ts";
+import { resolveModel } from "../../src/core/rag/activation.ts";
 import { hooks } from "../../src/core/rag/chunk.ts";
 import { chunkCount, indexFile, listSpaces, missingVectors, openDb, vectorCount } from "../../src/core/rag/db.ts";
 import { indexProject, projectDocs, readState, unindexDoc } from "../../src/core/rag/indexer.ts";
-import { EMBEDDINGS } from "../../src/core/rag/models.ts";
 
 const FIXTURE = join(import.meta.dirname, "..", "fixtures", "project");
 const D3 = "SOSIE_211_D401-1_3";
@@ -78,15 +78,15 @@ describe("indexProject — less common paths", () => {
     expect(r.embedding).toBe("none");
   });
 
-  it("indexes with a profile", async () => {
-    const r = await indexProject(dir, quietCtx(dir), { profile: EMBEDDINGS[0] });
+  it("indexes with a given model", async () => {
+    const r = await indexProject(dir, quietCtx(dir), { model: resolveModel("bge-m3-q8") });
     expect(r.embedding).toBe("bge-m3-q8");
     expect(r.embedded).toBeGreaterThan(0);
   });
 
   it("unindexDoc drops a document's rows, vectors, links and state, and keeps the space complete", async () => {
     unindexDoc(dir, D3);
-    await indexProject(dir, quietCtx(dir), { profile: EMBEDDINGS[0] });
+    await indexProject(dir, quietCtx(dir), { model: resolveModel("bge-m3-q8") });
     const count = (sql: string) => {
       const db = openDb(indexFile(dir));
       try {
@@ -137,6 +137,6 @@ describe("indexProject — less common paths", () => {
         if (p.message.startsWith("Embedding")) ctl.abort();
       },
     });
-    await expect(indexProject(dir, ctx, { profile: EMBEDDINGS[0] })).rejects.toThrow(/cancelled/);
+    await expect(indexProject(dir, ctx, { model: resolveModel("bge-m3-q8") })).rejects.toThrow(/cancelled/);
   });
 });

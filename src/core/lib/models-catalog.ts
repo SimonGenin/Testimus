@@ -17,7 +17,7 @@ export function catalog(): Catalog {
 }
 
 export function catalogEntry(id: string, c: Catalog = catalog()): CatalogEntry | undefined {
-  return c.entries.find((e) => e.id === id) ?? c.entries.find((e) => e.legacyProfile === id);
+  return c.entries.find((e) => e.id === id);
 }
 
 export function pack(id: string, c: Catalog = catalog()): Pack | undefined {

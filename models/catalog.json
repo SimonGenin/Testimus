@@ -66,8 +66,7 @@
         "darwin-x64"
       ],
       "tier": "light",
-      "heavier": "bge-m3-fp16",
-      "legacyProfile": "bge-m3"
+      "heavier": "bge-m3-fp16"
     },
     {
       "id": "bge-m3-fp16",
@@ -215,8 +214,7 @@
         "darwin-x64"
       ],
       "tier": "light",
-      "heavier": "qwen3-embedding-0.6b-onnx-fp16",
-      "legacyProfile": "qwen3-embedding-0.6b"
+      "heavier": "qwen3-embedding-0.6b-onnx-fp16"
     },
     {
       "id": "qwen3-embedding-0.6b-onnx-fp16",
@@ -605,8 +603,7 @@
         "darwin-x64"
       ],
       "tier": "light",
-      "heavier": "bge-reranker-v2-m3-fp16",
-      "legacyProfile": "bge-reranker-v2-m3"
+      "heavier": "bge-reranker-v2-m3-fp16"
     },
     {
       "id": "bge-reranker-v2-m3-fp16",

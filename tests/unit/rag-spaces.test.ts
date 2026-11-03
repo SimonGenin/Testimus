@@ -6,7 +6,7 @@ import { quietCtx } from "../../src/core/command.ts";
 import { invoke } from "../../src/core/commands/index.ts";
 import { catalogEntry } from "../../src/core/lib/models-catalog.ts";
 import { setActiveChoice } from "../../src/core/rag/activation.ts";
-import { indexFile, listSpaces, openDb, RECIPE, setMeta, spaceId, vecTable } from "../../src/core/rag/db.ts";
+import { indexFile, listSpaces, openDb, RECIPE, spaceId } from "../../src/core/rag/db.ts";
 import { runtimes } from "../../src/core/rag/embed.ts";
 import { fingerprintOf, modelIdentity } from "../../src/core/rag/fingerprint.ts";
 import { indexProject } from "../../src/core/rag/indexer.ts";
@@ -70,7 +70,7 @@ function counting(): Runtime {
   };
 }
 
-type SpaceRow = { id: string; model: string; complete: boolean; active: boolean; unpinned: boolean; chunks: number };
+type SpaceRow = { id: string; model: string; complete: boolean; active: boolean; chunks: number };
 const spaces = async () => (await invoke("rag.spaces", {}, { project: dir })) as SpaceRow[];
 const use = (embedding: string | null) => setActiveChoice(dir, embedding ? { embedding, reranker: null } : null);
 
@@ -166,38 +166,6 @@ describe("vector spaces", () => {
     expect(again).toMatchObject({ embedding: BGE, embedded: 1 });
     expect(calls).toEqual([`doc:transformers:${BGE}`]);
     expect((await spaces()).every((s) => s.complete)).toBe(true);
-  });
-
-  it("uses the migrated v1 vectors, then pins them under the model's fingerprint", async () => {
-    const built = await indexProject(dir, quietCtx(dir));
-    const db = openDb(indexFile(dir));
-    db.exec(
-      "create virtual table vecs using vec0(chunk_rowid integer primary key, embedding float[1024] distance_metric=cosine)",
-    );
-    db.exec(
-      `insert into vecs(chunk_rowid, embedding) select chunk_rowid, embedding from ${vecTable(built.space ?? "")}`,
-    );
-    db.exec(`drop table ${vecTable(built.space ?? "")}`);
-    db.prepare("delete from spaces").run();
-    setMeta(db, "embedding", "bge-m3");
-    setMeta(db, "dims", "1024");
-    db.close();
-
-    expect(await spaces()).toEqual([expect.objectContaining({ model: "bge-m3", unpinned: true, active: true })]);
-    const again = openDb(indexFile(dir));
-    try {
-      calls = [];
-      const v = await vector(again, dir, "sectionneur", {});
-      expect(v.degraded).toBeNull();
-      expect(v.ids.length).toBeGreaterThan(0);
-    } finally {
-      again.close();
-    }
-    calls = [];
-    const r = await indexProject(dir, quietCtx(dir));
-    expect(r).toMatchObject({ embedding: BGE, embedded: 0, space: built.space });
-    expect(calls).toEqual([]);
-    expect(await spaces()).toEqual([expect.objectContaining({ id: built.space, unpinned: false, chunks: 7 })]);
   });
 
   it("without an installed model: BM25 only, degraded, never an error", async () => {

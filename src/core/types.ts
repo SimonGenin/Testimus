@@ -201,17 +201,6 @@ export type DocRef = DocJson & { indexed: "fresh" | "stale" | "missing" };
 
 // Index (SPEC §5)
 
-export type ModelProfile = {
-  name: string;
-  hfId: string;
-  dims: number;
-  dtype: "fp32" | "fp16" | "q8" | "int8" | "uint8" | "q4";
-  pooling: "cls" | "mean" | "last";
-  normalize: boolean;
-  queryPrefix: string;
-  docPrefix: string;
-  maxTokens: number;
-};
 export type ChunkKind = "section" | "figure";
 export type Chunk = {
   id: string;
@@ -340,7 +329,6 @@ export type CatalogEntry = {
   tier: "light" | "standard" | "quality";
   lighter?: string;
   heavier?: string;
-  legacyProfile?: string;
 };
 export type PackVariant = { embedding: string; reranker: string | null };
 export type PackMeasure = PackVariant & { first: number; top5: number; questions: number; app: string; date: string };
@@ -407,7 +395,6 @@ export type SpaceFingerprint = {
   dims: number;
   maxInputTokens: number;
   recipe: number;
-  unpinned?: boolean;
 };
 export type VectorSpace = {
   id: string;
@@ -516,8 +503,6 @@ export type ProjectJson = {
   labelPrefix: string;
   folders: string[];
   rag: {
-    embedding: string;
-    reranker: string | null;
     claudeHeaders?: boolean;
     describeFigures?: boolean;
     reference?: RagChoice;

@@ -7,22 +7,13 @@ import { quietCtx } from "../../src/core/command.ts";
 import { env } from "../../src/core/env.ts";
 import { catalogEntry } from "../../src/core/lib/models-catalog.ts";
 import { readProject, writeProject } from "../../src/core/lib/project.ts";
-import { activeModels, projectKey, setActiveChoice } from "../../src/core/rag/activation.ts";
+import { activeModels, projectKey, resolveModel, setActiveChoice } from "../../src/core/rag/activation.ts";
 import { indexFile, nearest, openDb, transaction, vecTable } from "../../src/core/rag/db.ts";
 import { embedWith, probeWith, rerankerFor, rerankFor, runtimes } from "../../src/core/rag/embed.ts";
 import { indexProject } from "../../src/core/rag/indexer.ts";
-import {
-  catalogIdOf,
-  embeddingProfile,
-  findProfile,
-  modelForProfile,
-  profileFingerprint,
-  RERANKERS,
-  rerankerProfile,
-} from "../../src/core/rag/models.ts";
 import { mockRuntime } from "../../src/core/rag/runtimes/mock.ts";
 import { vector } from "../../src/core/rag/search/vector.ts";
-import type { ModelProfile, ResolvedModel } from "../../src/core/types.ts";
+import type { ResolvedModel } from "../../src/core/types.ts";
 
 vi.mock("../../src/core/lib/models-resolve.ts", async (importOriginal) => {
   const real = await importOriginal<typeof import("../../src/core/lib/models-resolve.ts")>();
@@ -59,36 +50,10 @@ afterEach(() => {
   rmSync(join(dir, ".."), { recursive: true, force: true });
 });
 
-const fakeProfile = (name: string): ModelProfile => ({ ...RERANKERS[0], name });
-
-describe("v1 model profiles", () => {
-  it("finds, refuses and fingerprints profiles", () => {
-    expect(findProfile("bge-m3")?.dims).toBe(1024);
-    expect(findProfile("nope")).toBeUndefined();
-    expect(rerankerProfile("bge-reranker-v2-m3").dims).toBe(1);
-    expect(() => rerankerProfile("nope")).toThrow(/Unknown reranker profile "nope"/);
-    expect(() => embeddingProfile("nope")).toThrow(/Unknown embedding profile/);
-    expect(profileFingerprint(embeddingProfile("bge-m3"))).toMatchObject({
-      runtime: "transformers",
-      model: "profile:Xenova/bge-m3:q8",
-      modelId: "bge-m3",
-      dims: 1024,
-      maxInputTokens: 8192,
-    });
-  });
-
-  it("maps a profile to its catalog model; refuses one unknown or not installed", () => {
-    expect(catalogIdOf(embeddingProfile("bge-m3"))).toBe(catalogEntry("bge-m3")?.id);
-    expect(() => catalogIdOf(fakeProfile("nope"))).toThrow(/has no catalog entry/);
-    expect(modelForProfile(embeddingProfile("bge-m3"), "task").queryTask).toBe("task");
-    env.mock = false;
-    expect(() => modelForProfile(embeddingProfile("bge-m3"), "task")).toThrow(/bge-m3 is not installed on this PC/);
-  });
-});
-
 describe("embed dispatcher", () => {
   const m = (): ResolvedModel => {
-    const r = modelForProfile(embeddingProfile("bge-m3"), "t");
+    const r = resolveModel("bge-m3-q8", "t");
+    if (!r) throw new Error("bge-m3-q8 does not resolve under --mock");
     return r;
   };
 
@@ -100,23 +65,26 @@ describe("embed dispatcher", () => {
     expect((await probeWith(base)).dims).toBe(base.entry.dims);
   });
 
-  it("rerankerFor: none, a profile, the active one; rerankFor scores or returns null", async () => {
+  it("rerankerFor: none, the active one; rerankFor scores or returns null", async () => {
+    const p = readProject(dir);
+    writeProject(dir, {
+      ...p,
+      rag: { ...p.rag, reference: { embedding: "bge-m3-q8", reranker: "bge-reranker-v2-m3-q8" } },
+    });
     expect(await rerankerFor(dir, { reranker: null })).toBeNull();
-    expect((await rerankerFor(dir, { reranker: rerankerProfile("bge-reranker-v2-m3") }))?.entry.id).toBe(
-      catalogEntry("bge-reranker-v2-m3")?.id,
-    );
+    expect((await rerankerFor(dir, {}))?.entry.id).toBe(catalogEntry("bge-reranker-v2-m3-q8")?.id);
     expect(await rerankFor(dir, { reranker: null }, "q", ["a"])).toBeNull();
-    const r = await rerankFor(dir, { reranker: rerankerProfile("bge-reranker-v2-m3") }, "alpha", ["alpha", "beta"]);
+    const r = await rerankFor(dir, {}, "alpha", ["alpha", "beta"]);
     expect(r?.scores).toEqual([1, 0]);
   });
 });
 
 describe("vector search", () => {
-  it("uses a given profile, and degrades when the query cannot be embedded", async () => {
+  it("uses the active model, and degrades when the query cannot be embedded", async () => {
     await indexProject(dir, quietCtx(dir));
     const db = openDb(indexFile(dir));
     try {
-      const ok = await vector(db, dir, "sectionneur", { profile: embeddingProfile("bge-m3") });
+      const ok = await vector(db, dir, "sectionneur", {});
       expect(ok.degraded).toBeNull();
       expect(ok.ids.length).toBeGreaterThan(0);
       runtimes.mock = {
@@ -140,20 +108,20 @@ describe("vector search", () => {
 });
 
 describe("activation corners", () => {
-  it("an unknown pack is skipped; a project embedding without reranker resolves", async () => {
+  it("an unknown pack is skipped; a reference embedding without reranker resolves", async () => {
     setActiveChoice(dir, { pack: "no-such-pack" });
     const p = readProject(dir);
-    writeProject(dir, { ...p, rag: { ...p.rag, reference: undefined, embedding: "bge-m3", reranker: null } });
+    writeProject(dir, { ...p, rag: { ...p.rag, reference: { embedding: "bge-m3-q8", reranker: null } } });
     const a = await activeModels(dir);
     expect(a.missing).toContain("pack no-such-pack");
-    expect(a.source).toBe("project");
+    expect(a.source).toBe("reference");
     expect(a.reranker).toBeNull();
     writeProject(dir, {
       ...p,
-      rag: { ...p.rag, reference: undefined, embedding: "bge-m3", reranker: "bge-reranker-v2-m3" },
+      rag: { ...p.rag, reference: { embedding: "bge-m3-q8", reranker: "bge-reranker-v2-m3-q8" } },
     });
-    expect((await activeModels(dir)).reranker?.entry.id).toBe(catalogEntry("bge-reranker-v2-m3")?.id);
-    writeProject(dir, { ...p, rag: { ...p.rag, reference: undefined, embedding: "" } });
+    expect((await activeModels(dir)).reranker?.entry.id).toBe(catalogEntry("bge-reranker-v2-m3-q8")?.id);
+    writeProject(dir, { ...p, rag: { ...p.rag, reference: undefined } });
     expect((await activeModels(dir)).source).toBe("light");
     setActiveChoice(dir, null);
   });
@@ -188,20 +156,6 @@ describe("db corners", () => {
       expect(nearest(real, "0123456789ab", new Float32Array([1]), 0)).toEqual([]);
     } finally {
       real.close();
-    }
-  });
-
-  it("a v1 index without its dims meta only drops the old vector table", () => {
-    const file = join(dir, "index", "legacy.db");
-    const first = openDb(file);
-    first.exec("create table vecs (chunk_rowid integer primary key, embedding blob)");
-    first.close();
-    const db = openDb(file);
-    try {
-      expect(db.prepare("select 1 from sqlite_master where name = 'vecs'").get()).toBeUndefined();
-      expect(db.prepare("select count(*) as n from spaces").get()).toEqual({ n: 0 });
-    } finally {
-      db.close();
     }
   });
 });

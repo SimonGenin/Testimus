@@ -406,7 +406,7 @@ function fingerprints(file: string, spaceId: string | undefined) {
 export function candidateModel(project: string, id: string, kind: ModelKind): ResolvedModel {
   const entry = catalogEntry(id);
   if (!entry || entry.kind !== kind)
-    throw new UserError(`Unknown ${kind} ${id}.`, "testimus models catalog lists the ids (v1 profile names work too).");
+    throw new UserError(`Unknown ${kind} ${id}.`, "testimus models catalog lists the ids.");
   const m = resolveModel(entry.id, queryTaskOf(project));
   if (!m)
     throw new UserError(

@@ -59,7 +59,6 @@ const spaces = [
     chunks: 40,
     complete: true,
     active: true,
-    unpinned: false,
     builtAt: "2026-11-01T10:00:00Z",
     lastUsed: "2026-11-02T09:00:00Z",
     sizeMB: 0.16,
@@ -72,7 +71,6 @@ const spaces = [
     chunks: 30,
     complete: false,
     active: false,
-    unpinned: true,
     builtAt: null,
     lastUsed: null,
     sizeMB: 0.12,
@@ -152,7 +150,6 @@ describe("Settings › Search", () => {
     expect(within(active).getByText("Complete")).toBeInTheDocument();
     const old = within(table).getByRole("row", { name: "Space ccc333ddd444" });
     expect(within(old).getByText("Incomplete")).toBeInTheDocument();
-    expect(within(old).getByText(/from v1/)).toBeInTheDocument();
     fireEvent.click(within(old).getByRole("button", { name: "Drop space ccc333ddd444" }));
     const dlg = await screen.findByRole("dialog", { name: "Drop the BGE-M3 (8-bit, CPU) vectors?" });
     expect(named("rag.dropSpace")).toHaveLength(0);

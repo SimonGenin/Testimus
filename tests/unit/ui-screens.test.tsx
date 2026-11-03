@@ -77,7 +77,7 @@ function appState(over: Partial<AppState> = {}): AppState {
         language: "fr",
         labelPrefix: "testimus-",
         folders: ["/Traction/Sectionneurs"],
-        rag: { embedding: "bge-m3", reranker: null },
+        rag: {},
         claude: { model: "sonnet", effort: "medium", presets: [], contexts: [] },
       },
       xray,

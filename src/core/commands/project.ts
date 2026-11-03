@@ -390,8 +390,6 @@ export const commands: Command[] = [
       folders: z.array(z.string()).optional().describe("Xray repository folders offered when generating."),
       rag: z
         .object({
-          embedding: z.string().optional().describe("v1 embedding name, used when no pack or reference is chosen"),
-          reranker: z.string().nullable().optional().describe("v1 reranker name, or null for none"),
           claudeHeaders: z
             .boolean()
             .optional()
@@ -465,8 +463,6 @@ export const commands: Command[] = [
           ...(input.rag?.queryTask !== undefined ? { queryTask: input.rag.queryTask } : {}),
           ...(input.rag?.passageMaxChars !== undefined ? { passageMaxChars: input.rag.passageMaxChars } : {}),
           ...(input.rag?.retrieval ? { retrieval: { ...cur.rag.retrieval, ...input.rag.retrieval } } : {}),
-          embedding: input.rag?.embedding ?? cur.rag.embedding,
-          reranker: input.rag?.reranker !== undefined ? input.rag.reranker : cur.rag.reranker,
           ...((input.rag?.claudeHeaders ?? cur.rag.claudeHeaders) !== undefined && {
             claudeHeaders: input.rag?.claudeHeaders ?? cur.rag.claudeHeaders,
           }),

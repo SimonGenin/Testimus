@@ -62,10 +62,10 @@ describe("system.setup — less common inputs", () => {
   });
 });
 
-describe("system.pullModel and system.saveSettings", () => {
-  it("refuses an unknown profile", async () => {
-    await expect(invoke("system.pullModel", { profile: "nope" }, { project: null, wait: true })).rejects.toThrow(
-      /Unknown model profile nope/,
+describe("models.pull and system.saveSettings", () => {
+  it("refuses an unknown model", async () => {
+    await expect(invoke("models.pull", { model: "nope" }, { project: null, wait: true })).rejects.toThrow(
+      /Unknown model nope/,
     );
   });
 
@@ -80,8 +80,8 @@ describe("system.pullModel and system.saveSettings", () => {
       ],
     });
     try {
-      const r = await invoke("system.pullModel", { profile: "qwen3-embedding-0.6b-q8" }, { project: null, wait: true });
-      expect(r).toMatchObject({ profile: "qwen3-embedding-0.6b-q8", dir: file, where: "path" });
+      const r = await invoke("models.pull", { model: "qwen3-embedding-0.6b-q8" }, { project: null, wait: true });
+      expect(r).toMatchObject({ model: "qwen3-embedding-0.6b-q8", where: file, via: "path" });
     } finally {
       rmSync(registryFile(), { force: true });
     }

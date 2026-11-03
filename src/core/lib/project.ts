@@ -10,7 +10,7 @@ export const DEFAULT_PROJECT: ProjectJson = {
   language: "fr",
   labelPrefix: "testimus-",
   folders: [],
-  rag: { embedding: "bge-m3", reranker: null },
+  rag: {},
   claude: { model: "opus", effort: "high", presets: [], contexts: [] },
 };
 

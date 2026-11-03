@@ -143,11 +143,11 @@ describe("project.info / set / open / list", () => {
     await invoke("project.init", { dir, jiraProject: "DEMO" }, { project: null });
     await invoke(
       "project.set",
-      { language: "en", claude: { model: "opus", presets: [{ label: "L", prompt: "P" }] }, rag: { reranker: null } },
+      { language: "en", claude: { model: "opus", presets: [{ label: "L", prompt: "P" }] }, rag: { queryTask: "Find" } },
       { project: dir },
     );
     const p = readProject(dir);
-    expect(p).toMatchObject({ jiraProject: "DEMO", language: "en", rag: { embedding: "bge-m3", reranker: null } });
+    expect(p).toMatchObject({ jiraProject: "DEMO", language: "en", rag: { queryTask: "Find" } });
     expect(p.claude).toEqual({ model: "opus", effort: "high", presets: [{ label: "L", prompt: "P" }], contexts: [] });
   });
 

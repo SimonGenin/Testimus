@@ -327,7 +327,6 @@ describe("Settings › Search", () => {
     chunks: 4,
     complete: true,
     active: false,
-    unpinned: false,
     builtAt: "not a date",
     lastUsed: null,
     sizeMB: 1,

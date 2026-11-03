@@ -185,7 +185,6 @@ describe("project commands", () => {
         queryTask: "Find",
         passageMaxChars: 2000,
         retrieval: { candidates: 40 },
-        reranker: null,
         claudeHeaders: true,
         describeFigures: false,
         reference: { pack: "light" },
@@ -194,7 +193,7 @@ describe("project commands", () => {
     });
     expect(set).toMatchObject({
       glossary: { TK: "télécommande" },
-      rag: { queryTask: "Find", passageMaxChars: 2000, reranker: null, claudeHeaders: true, describeFigures: false },
+      rag: { queryTask: "Find", passageMaxChars: 2000, claudeHeaders: true, describeFigures: false },
     });
     expect(set.rag.retrieval.candidates).toBe(40);
     expect(set.rag.reference).toEqual({ pack: "light" });

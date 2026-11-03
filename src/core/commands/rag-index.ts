@@ -17,7 +17,6 @@ const space = z.object({
   chunks: z.number().describe("Vectors stored in this space"),
   complete: z.boolean().describe("Every current chunk has a vector in this space"),
   active: z.boolean().describe("The space this PC uses for the open project"),
-  unpinned: z.boolean().describe("Migrated from the v1 index: model identity not recorded"),
   builtAt: z.string().nullable().describe("When the space was last completed"),
   lastUsed: z.string().nullable().describe("When the space was last filled"),
   sizeMB: z.number().describe("Approximate size of its vectors (vectors × dims × 4 bytes)"),
@@ -90,9 +89,9 @@ export const commands: Command[] = [
       reranker: z.string().nullable().describe("Catalog id of the active reranker, or null"),
       dims: z.number().describe("Dimension of the active model, 0 without one"),
       activation: z
-        .enum(["machine", "reference", "project", "light", "none"])
+        .enum(["machine", "reference", "light", "none"])
         .describe(
-          "Where the active models come from: this PC's choice, the project's reference, the v1 rag.embedding / rag.reranker fields, the Light pack, or none (BM25 only)",
+          "Where the active models come from: this PC's choice, the project's reference, the Light pack, or none (BM25 only)",
         ),
       missing: z.array(z.string()).describe("Models or packs chosen but not installed on this PC"),
       exists: z.boolean().describe("index/rag.db exists"),
@@ -183,7 +182,6 @@ export const commands: Command[] = [
           chunks: vectorCount(db, s.id),
           complete: s.complete,
           active: s.id === active,
-          unpinned: !!s.fingerprint.unpinned,
           builtAt: s.builtAt,
           lastUsed: s.lastUsed,
           sizeMB: sizeMB(db, s),

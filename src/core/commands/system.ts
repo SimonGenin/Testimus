@@ -6,8 +6,6 @@ import { env } from "../env.ts";
 import { AGENTS_CAP, AGENTS_DEFAULT, clampAgents } from "../lib/agents.ts";
 import { credsStatus, saveCreds, savedSecrets } from "../lib/creds.ts";
 import { jiraCheck, runDoctor, xrayCheck } from "../lib/doctor.ts";
-import { catalogEntry } from "../lib/models-catalog.ts";
-import { pull } from "../lib/models-install.ts";
 import { readSettings, writeSettings } from "../lib/project.ts";
 import { mockProbeDeps } from "../mock/agents.ts";
 import { indexFile } from "../rag/db.ts";
@@ -255,25 +253,6 @@ export const commands: Command[] = [
     async run(ctx, input) {
       const checks = await runDoctor({ project: ctx.project, claude: input.claude === true });
       return { ok: checks.every((c) => c.state !== "fail"), checks };
-    },
-  }),
-
-  command({
-    name: "system.pullModel",
-    summary: "Alias of models.pull for a v1 profile name (bge-m3, qwen3-embedding-0.6b, bge-reranker-v2-m3).",
-    input: z.object({ profile: z.string().describe("Profile name (v1) or catalog id, e.g. bge-m3.") }),
-    output: z.object({ profile: z.string(), hfId: z.string(), dir: z.string(), where: z.string() }),
-    mutates: true,
-    job: "pullModel",
-    global: true,
-    positional: ["profile"],
-    subject: (input) => input.profile,
-    async run(ctx, input) {
-      const e = catalogEntry(input.profile);
-      if (!e?.source.hf)
-        throw new UserError(`Unknown model profile ${input.profile}.`, "testimus models catalog lists the models.");
-      const r = await pull(ctx, { model: e.id });
-      return { profile: input.profile, hfId: e.source.hf.repo, dir: r.where, where: r.via };
     },
   }),
 

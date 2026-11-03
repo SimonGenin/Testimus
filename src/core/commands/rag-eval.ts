@@ -43,7 +43,7 @@ const retrieval = z
         thresholds: z.record(z.string(), z.number()).optional().describe("Threshold per reranker model id"),
       })
       .optional()
-      .describe("Reranker settings (the reranker itself is --reranker or project.json rag.reranker)"),
+      .describe("Reranker settings (the reranker itself is --reranker or the active configuration)"),
     expand: z.enum(["none", "section", "graph"]).optional().describe("Related passages added to the hits"),
   })
   .describe("Retrieval settings for this run, over project.json rag.retrieval (SPEC-RAG §4.3)");
@@ -85,13 +85,9 @@ export const commands: Command[] = [
         .string()
         .optional()
         .describe(
-          "Candidate embedding (catalog id or v1 profile name, installed here): measured in its own vector space of index/rag.db; the active space is untouched",
+          "Candidate embedding (catalog id, installed here): measured in its own vector space of index/rag.db; the active space is untouched",
         ),
-      reranker: z
-        .string()
-        .nullable()
-        .optional()
-        .describe("Candidate reranker (catalog id or v1 profile name; none = no reranker)"),
+      reranker: z.string().nullable().optional().describe("Candidate reranker (catalog id; none = no reranker)"),
       mode,
       retrieval: retrieval.optional(),
     }),

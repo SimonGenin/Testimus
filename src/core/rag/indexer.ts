@@ -7,15 +7,14 @@ import { docDir, docIds, readDoc, readDocMd, readFigures } from "../lib/docs.ts"
 import { sha256 } from "../lib/hash.ts";
 import { withPerfScope } from "../lib/models-perf.ts";
 import { readJson, writeJson } from "../lib/project.ts";
-import type { Chunk, ClaudeRun, DocJson, FigureEntry, ModelProfile, ResolvedModel, VectorSpace } from "../types.ts";
-import { activeModels, queryTaskOf } from "./activation.ts";
+import type { Chunk, ClaudeRun, DocJson, FigureEntry, ResolvedModel, VectorSpace } from "../types.ts";
+import { activeModels } from "./activation.ts";
 import { chunkDoc, hooks } from "./chunk.ts";
 import {
   chunkCount,
   chunksOf,
   createSpace,
   deleteChunk,
-  dropSpace,
   indexFile,
   insertChunk,
   listSpaces,
@@ -31,9 +30,8 @@ import {
   vectorCount,
 } from "./db.ts";
 import { embedWith } from "./embed.ts";
-import { fingerprintOf, legacySpace, spaceOf } from "./fingerprint.ts";
+import { fingerprintOf, spaceOf } from "./fingerprint.ts";
 import { docEdges } from "./graph.ts";
-import { modelForProfile } from "./models.ts";
 
 export type DocIndexStatus = "indexed" | "unchanged" | "removed";
 export type IndexReport = {
@@ -147,31 +145,11 @@ async function indexDoc(
   return "indexed";
 }
 
-// ponytail: adopting the migrated v1 space copies its vectors under the pinned fingerprint, then drops it
-function adopt(db: DatabaseSync, m: ResolvedModel): VectorSpace {
-  const fp = fingerprintOf(m);
-  const own = spaceOf(db, m);
-  if (own && !own.fingerprint.unpinned) return own;
-  const legacy = legacySpace(db, m);
-  return transaction(db, () => {
-    const s = createSpace(db, fp);
-    if (legacy) {
-      db.exec(
-        `insert or ignore into ${vecTable(s.id)}(chunk_rowid, embedding) select chunk_rowid, embedding from ${vecTable(legacy.id)}`,
-      );
-      setSpace(db, s.id, { builtAt: legacy.builtAt, lastUsed: legacy.lastUsed });
-      dropSpace(db, legacy.id);
-    }
-    return s;
-  });
-}
-
 async function chooseModel(
   project: string,
-  opts: { profile?: ModelProfile; model?: ResolvedModel | null },
+  opts: { model?: ResolvedModel | null },
 ): Promise<{ model: ResolvedModel | null; degraded?: string }> {
   if (opts.model !== undefined) return { model: opts.model };
-  if (opts.profile) return { model: modelForProfile(opts.profile, queryTaskOf(project)) };
   const active = await activeModels(project);
   if (active.embedding) return { model: active.embedding };
   return {
@@ -214,7 +192,6 @@ export async function indexProject(
   project: string,
   ctx: Ctx,
   opts: {
-    profile?: ModelProfile;
     model?: ResolvedModel | null;
     dbFile?: string;
     force?: boolean;
@@ -261,7 +238,7 @@ export async function indexProject(
     let vectorsRebuilt = false;
     if (model) {
       ctx.step?.("embed");
-      space = adopt(db, model);
+      space = spaceOf(db, model) ?? createSpace(db, fingerprintOf(model));
       if (opts.force) db.exec(`delete from ${vecTable(space.id)}`);
       vectorsRebuilt = vectorCount(db, space.id) === 0;
       setMeta(db, "embedding", model.entry.id);
