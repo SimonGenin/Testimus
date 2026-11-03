@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { Step } from "../../src/core/types.ts";
-import { blankStep, blocksOf, hasRawEmbed, imageRef, leafBlocks } from "../../src/ui/lib/blocks.ts";
-import { addCol, addRow, dropCol, dropRow, NEW_TABLE, tablesIn, width } from "../../src/ui/lib/table.ts";
+import type { Step } from "../../../../src/core/types.ts";
+import { blankStep, blocksOf, hasRawEmbed, imageRef, leafBlocks } from "../../../../src/ui/lib/blocks.ts";
+import { addCol, addRow, dropCol, dropRow, NEW_TABLE, tablesIn, width } from "../../../../src/ui/lib/table.ts";
 
 const cellsOf = (text: string) => tablesIn(text).map((t) => t.rows.map((r) => r.cells.map((c) => c.text)));
 

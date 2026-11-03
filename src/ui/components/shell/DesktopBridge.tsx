@@ -2,12 +2,13 @@ import { useEffect, useRef } from "react";
 import type { Job } from "../../../core/types.ts";
 import { useApp } from "../../lib/app.ts";
 import { onAnyEvent } from "../../lib/data/events.ts";
+import { useCommand } from "../../lib/data/query.ts";
 import {
   baseName,
   desktop,
-  openProject,
   PROGRESS_KINDS,
   restoreAlwaysOnTop,
+  showProject,
   type Tracked,
   taskbarFraction,
   tracked,
@@ -32,6 +33,9 @@ export function DesktopBridge({ booted }: { booted: boolean }) {
   const p = app.info?.project;
   const name = p?.name || p?.jiraProject || (app.info?.dir ? baseName(app.info.dir) : "");
   const running = useRunningJobs();
+  const open = useCommand("project.open", { invalidates: [["project.list"]] });
+  const opening = useRef(open.mutateAsync);
+  opening.current = open.mutateAsync;
   const jobs = useRef(new Map<string, Tracked>());
   const shown = useRef<number | null>(null);
 
@@ -43,7 +47,9 @@ export function DesktopBridge({ booted }: { booted: boolean }) {
     const d = desktop();
     if (!d || !booted) return;
     return d.onOpenProject((dir) => {
-      openProject(latest.current, dir)
+      opening
+        .current({ dir })
+        .then((r) => showProject(latest.current, r.dir))
         .then((opened) => {
           toast({ kind: "info", title: "Project opened", detail: opened });
           if (latest.current.route.screen === "setup") latest.current.navigate("documents");

@@ -1,5 +1,5 @@
 import type { Block, Step, StepImage } from "../../core/types.ts";
-import { tablesIn } from "./table.ts";
+import { tablesIn } from "../../shared/table.ts";
 
 const REF = /!\[\]\(([^()\s"]+)(?:\s+"([^"]*)")?\)/;
 const RAW = /!xray-attachment:\/\/[^!\n]*!/;

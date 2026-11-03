@@ -1,8 +1,8 @@
 import { type ReactElement, useEffect, useState } from "react";
 import { useApp } from "../../lib/app.ts";
 import { project, setProject } from "../../lib/data/client.ts";
-import { useRead } from "../../lib/data/query.ts";
-import { baseName, desktop, openProject, pickFolder, reveal } from "../../lib/desktop.ts";
+import { useCommand, useRead } from "../../lib/data/query.ts";
+import { baseName, desktop, pickFolder, reveal, showProject } from "../../lib/desktop.ts";
 import { initials } from "../../lib/format.ts";
 import { writePref } from "../../lib/prefs.ts";
 import { errorToast } from "../../lib/toast.ts";
@@ -24,6 +24,7 @@ export function ProjectButton() {
   const app = useApp();
   const [byKey, setByKey] = useState(false);
   const list = useRead("project.list", {});
+  const open = useCommand("project.open", { invalidates: [["project.list"]] });
   useEffect(() => {
     if (list.error) errorToast(list.error, "Could not list the projects");
   }, [list.error]);
@@ -34,7 +35,11 @@ export function ProjectButton() {
   const known = asKnown(list.data);
   const browse = async () => {
     const dir = await pickFolder("Open a project folder");
-    if (dir) await openProject(app, dir).catch((e) => errorToast(e, "Could not open the project"));
+    if (!dir) return;
+    await open
+      .mutateAsync({ dir })
+      .then((r) => showProject(app, r.dir))
+      .catch((e) => errorToast(e, "Could not open the project"));
   };
   const switchTo = (dir: string) => {
     setProject(dir);
