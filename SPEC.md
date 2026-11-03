@@ -1409,11 +1409,9 @@ captured light and dark in `tests/screens/`.
 - Where the release folder lives (Teams/SharePoint, a network share) and who builds it; whether
   colleagues' PCs can reach Hugging Face and claude.ai through the company proxy. (unchecked)
 - Review state in Jira: label (default) or a custom field?
-- Requirement coverage (100 % of the `EXI_*`) is computed **outside** the app, from the `Exigence`
-  field; a project skill may produce it. Not a screen of Testimus.
+- Requirement coverage (100 % of the ids a team traces) is computed **outside** the app, from the step column the
+  team fills with them (a smart column, §6); a project skill may produce it. Not a screen of Testimus.
 - Desktop app releases: Electron is pinned to one version (45.2.1 today) and supports only its last three
   majors, so a release is built **at least every 6 months** to stay on a patched Chromium. Who builds it is the
   release-folder question above. Signing (SPEC-ELECTRON E0) is checked on a tester's PC before the desktop app is
   handed out; until then the browser mode is the fallback.
-- Requirement ids with a space (`EXI STB F-1`, Instructeur, Modèle train, SOSIE_c) cannot be `req:` anchors yet;
-  proposed: anchor the id with its spaces written `_`, and read both forms in sources.
