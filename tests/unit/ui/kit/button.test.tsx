@@ -204,3 +204,23 @@ describe("Icon, Spinner, Kbd, Banner", () => {
     expect(screen.getByText("Search on words only")).toBeInTheDocument();
   });
 });
+
+describe("Button pick", () => {
+  it("opens a hidden file picker and hands over the files chosen", () => {
+    const onFiles = vi.fn();
+    const { container } = render(
+      <Button label="Add image" icon="image" pick={{ accept: "image/*", multiple: true, onFiles }} />,
+    );
+    const input = container.querySelector("input[type=file]") as HTMLInputElement;
+    expect(input).toHaveAttribute("accept", "image/*");
+    expect(input).toHaveAttribute("multiple");
+    const click = vi.spyOn(input, "click");
+    fireEvent.click(screen.getByRole("button", { name: "Add image" }));
+    expect(click).toHaveBeenCalled();
+    const file = new File(["x"], "shot.png", { type: "image/png" });
+    fireEvent.change(input, { target: { files: [file] } });
+    expect(onFiles).toHaveBeenCalledWith([file]);
+    fireEvent.change(input, { target: { files: [] } });
+    expect(onFiles).toHaveBeenCalledTimes(1);
+  });
+});
