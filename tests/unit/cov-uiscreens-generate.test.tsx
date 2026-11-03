@@ -269,6 +269,27 @@ describe("Generate › result helpers", () => {
     expect(screen.getByText("Cancelled")).toBeInTheDocument();
     head(job({ status: "cancelled" }), 3);
     expect(screen.getByText("Cancelled · 3 tests kept")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Resume/ })).toBeNull();
+  });
+
+  it("RunHead: a stopped plan offers to resume what is left", () => {
+    const onResume = vi.fn();
+    render(
+      <RunHead
+        job={job({ status: "cancelled", endedAt: at })}
+        now={Date.parse(at)}
+        result={null}
+        read={0}
+        count={2}
+        doing=""
+        left={3}
+        onCancel={() => {}}
+        onReview={() => {}}
+        onResume={onResume}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Resume · 3 tests left" }));
+    expect(onResume).toHaveBeenCalledTimes(1);
   });
 
   it("GenSummary: missing report, skipped items, changed tests", () => {

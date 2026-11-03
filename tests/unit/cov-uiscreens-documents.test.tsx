@@ -1029,6 +1029,14 @@ describe("Documents screen", () => {
       expect(named("docs.convert")[0]?.input).toEqual({ id: "D1", contexts: [], describeFigures: false }),
     );
     expect(within(side).queryByRole("region", { name: "Convert again" })).toBeNull();
+    await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
+    emit({
+      jobId: "conv-4",
+      at,
+      type: "status",
+      job: { id: "conv-4", kind: "docs.convert", subject: "", status: "failed", startedAt: at, error: "stopped" },
+    });
+    await waitFor(() => expect(within(side).queryByRole("progressbar", { name: "Converting" })).toBeNull());
   });
 
   it("an index failure with a fix says what to do", async () => {

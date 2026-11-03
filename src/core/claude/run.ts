@@ -18,7 +18,17 @@ export { forShell };
 export const EDIT_TOOLS = ["Read", "Edit", "Write", "Glob", "Grep", "Skill"];
 export const READ_TOOLS = ["Read", "Glob", "Grep", "Skill"];
 
-export type RunKind = "chat" | "figures" | "headers" | "check" | "generate" | "fix" | "run" | "triage" | "action";
+export type RunKind =
+  | "chat"
+  | "figures"
+  | "headers"
+  | "check"
+  | "generate"
+  | "fix"
+  | "run"
+  | "triage"
+  | "action"
+  | "columns";
 
 const TOOLS: Record<RunKind, string[]> = {
   chat: READ_TOOLS,
@@ -30,6 +40,7 @@ const TOOLS: Record<RunKind, string[]> = {
   run: EDIT_TOOLS,
   triage: READ_TOOLS,
   action: EDIT_TOOLS,
+  columns: READ_TOOLS,
 };
 
 const TEST_WRITES = ["tests.edit", "tests.save", "tests.addImage"];
@@ -44,6 +55,7 @@ const EXTRA: Record<RunKind, string[]> = {
   run: [...TEST_WRITES, "check.run"],
   triage: ["actions.propose"],
   action: [],
+  columns: [],
 };
 
 // ponytail: read-only = mutates:false, minus whatever starts Claude, a job, or touches the app or the machine

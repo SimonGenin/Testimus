@@ -6,6 +6,7 @@ import { useApp } from "../../lib/app.ts";
 import { useDraft } from "../../lib/drafts.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 import { ColumnRow } from "./ColumnRow.tsx";
+import { ColumnsClaude } from "./ColumnsClaude.tsx";
 
 export function ColumnsSection() {
   const app = useApp();
@@ -124,6 +125,7 @@ export function ColumnsSection() {
           {gone.length > 0 && `No longer in Xray, kept as local columns: ${gone.join(", ")}.`}
         </p>
       )}
+      <ColumnsClaude columns={columns} />
       <ul className="colrows" aria-label="Smart columns">
         {columns.map((c, i) => (
           <ColumnRow

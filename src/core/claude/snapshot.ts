@@ -192,13 +192,18 @@ export function finishSnapshot(project: string, runId: string, written: string[]
 export function absorbRun(project: string, into: string, from: string): void {
   const rec = readRun(project, into);
   const other = readRun(project, from);
+  // ponytail: runs side by side see each other's new tests — the run that wrote a test has the last word on it
   for (const id of other.changedTests) {
-    if (other.before[id] !== null || id in rec.before) continue;
-    rec.before[id] = null;
-    rec.changedTests.push(id);
+    if (other.before[id] !== null) continue;
+    const wrote = !!other.written?.includes(id);
+    if (id in rec.before && (rec.before[id] !== null || !wrote)) continue;
+    if (!(id in rec.before)) {
+      rec.before[id] = null;
+      rec.changedTests.push(id);
+    }
     rec.changedSteps[id] = other.changedSteps[id] ?? [];
     rec.after = { ...rec.after, [id]: other.after?.[id] ?? null };
-    if (other.written?.includes(id)) rec.written = [...(rec.written ?? []), id];
+    if (wrote && !rec.written?.includes(id)) rec.written = [...(rec.written ?? []), id];
   }
   writeJson(runFile(project, into), rec);
 }

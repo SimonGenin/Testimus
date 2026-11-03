@@ -24,19 +24,32 @@ skill once per planned test.
      (sub-sections, cross-references both ways, figures, amendments);
    - for a request in words: the behaviors of the feature (objects, states, operator gestures,
      screens, messages).
-3. Find **every** relevant passage — completeness first, ranking second:
-   - for each object, screen, gesture and acronym of the scope: `rag_mentions <term>` — every
+3. **Search the index — thoroughly. This is where a test is won or lost.** A test written from the
+   first passages you found misses the exception two chapters further, the amendment that changed
+   the rule, the negative path described in another document. Searching costs seconds; a missed rule
+   costs a wrong test that a reviewer has to catch. The reviewer sees every search you made and every
+   passage you opened (« sources read »): a thin search shows. Completeness first, ranking second:
+   - **List the terms of the scope first**: every object and object type, state, screen, window,
+     menu, button, gesture, message and acronym. Then `rag_mentions <term>` for **each** — every
      passage of every current document that names it (exact, stemmed and glossary forms: « DSO »
      also finds « Départ Sur Ordre »), grouped by document and section, paginated: read every page.
      Scattered rules, distant exceptions and the other documents on the same object (amendments
-     `PA…` above all) are found this way, not by a top-10 search;
-   - `rag_search` for what you cannot name yet (synonyms, a behavior described in words);
+     `PA…` above all) are found this way, not by a top-10 search. A new term met while reading (a
+     state, a message, a window) gets its own `rag_mentions` too;
+   - `rag_search` several times, in different words: the behavior described in words, its synonyms,
+     and **its negative side** in the documents' language (« interdit », « impossible », « refusé »,
+     « grisé », « non disponible », « message d'erreur », « alarme »…) — the negative paths live
+     there;
+   - `rag_related` on **every section you will cite**, not only the ones the request gives:
+     sub-sections, cross-references both ways, figures, amendments. Follow each one that bears on
+     the scope;
    - then **read each section in full** in `docs/<docId>/doc.md` (or `rag_passage`), with its
      surroundings — the index finds, the file proves, and you copy quotes from the file. Testimus
      records what you actually opened and shows it to the reviewer.
 
-   This step is done when every object and screen of the scope has had its own `rag_mentions` call —
-   one call per term, not one per step.
+   This step is done when every term of your list has had its own `rag_mentions` call (one call per
+   term, not one per step), every section you will cite has had its `rag_related`, and the negative
+   side of each gesture has been searched. When in doubt, search once more.
 4. For each document you use: read its team context (`docs_show` returns it as `context`: what is
    not simulated, what is not wired yet — most documents have none) and its `doc.json`; when two documents
    disagree apply the precedence of `CLAUDE.md`, and when it does not settle it, say so in the test
@@ -122,8 +135,10 @@ skill once per planned test.
   `<docId>#fig:<n>` with its caption as the quote (`"Figure 40 – Représentation graphique
   sectionneur"`) — after you `Read` the image yourself. The caption proves only that the figure
   exists; the reviewer and check-test look at the picture.
-- **No source → do not write the step.** Report the gap instead (section 4). Never fill a gap from
-  general knowledge of the domain.
+- **No source → search, then decide.** A step that needs a passage you have not opened yet:
+  `rag_mentions` its object, `rag_search` the behavior, open what they find. Still nothing → do not
+  write the step and report the gap (section 4). Never fill a gap from general knowledge of the
+  domain or from memory of an earlier passage.
 
 ### Figures — as important as the sources
 
@@ -155,13 +170,17 @@ that step:
    `quote-weak` — quote more words, until the quote points at one place; `figure-not-embedded` —
    embed the figure it names. Run it again until it reports nothing you can fix. Testimus runs the
    full check (check-test) on the new tests itself once you are done.
-2. Re-read each test with `tests_show` after your last write, as the tester: could you run it
+2. **Searches, once more.** For each test: did every object, screen and message it names have its
+   `rag_mentions`, every section it cites its `rag_related`, every gesture a search for its negative
+   side? Make the missing calls now, and fix the test with what they find (an exception, an
+   amendment, a negative path) — a rule found late is still worth the fix.
+3. Re-read each test with `tests_show` after your last write, as the tester: could you run it
    without the specification? Every expected result observable on the screen, every state a step
    checks prepared before it, every smart column filled as its description says? **Pictures:** for
    each step that acts on or looks at a screen, a menu, a symbol or a colour, is the document's
    picture of it embedded — when the document has one? Fix what fails, embed the missing pictures,
    or move it to `skipped`; a large run is no reason to skip them.
-3. Reply in a few lines, in the project language: the tests written (folder, summary, steps), what
+4. Reply in a few lines, in the project language: the tests written (folder, summary, steps), what
    you could not test and why. **End the reply with this block**, valid JSON, nothing after it:
 
 ```gen-report
