@@ -241,4 +241,19 @@ describe("mock REST", () => {
     await rest("GET", "/rest/api/3/attachment/content/9001", undefined, true);
     expect(Date.now() - t0).toBeGreaterThanOrEqual(200);
   });
+
+  it("ends its wait when the request is cancelled, like a real request", async () => {
+    env.mock = true;
+    const ctrl = new AbortController();
+    const t0 = Date.now();
+    const req = mockHttp({
+      method: "GET",
+      url: "https://mock.atlassian.net/rest/api/3/attachment/content/9001",
+      binary: true,
+      signal: ctrl.signal,
+    });
+    ctrl.abort();
+    await expect(req).rejects.toThrow();
+    expect(Date.now() - t0).toBeLessThan(150);
+  });
 });
