@@ -408,7 +408,7 @@ describe("Review screen", () => {
   });
 
   it("a Claude run marks its steps, reverts them, handles a conflict, then a forced failure", async () => {
-    reviewRoutes();
+    reviewRoutes({ findings: [] });
     const run = (over: Partial<ClaudeRun>): ClaudeRun => ({
       runId: "run-1",
       changedTests: [],
@@ -533,9 +533,17 @@ describe("Review screen", () => {
   it("a long job's end comes from jobs.show: the pull runs until its job is done", async () => {
     reviewRoutes({ sync: "remote-changed" });
     let status = "running";
-    net.routes["xray.pull"] = () => ({ jobId: "job-1" });
+    let n = 0;
+    net.routes["xray.pull"] = () => ({ jobId: `job-${++n}` });
     net.routes["jobs.show"] = () => ({
-      job: { id: "job-1", kind: "pull", subject: "K-1", status, startedAt: "" },
+      job: {
+        id: `job-${n}`,
+        kind: "pull",
+        subject: "K-1",
+        status,
+        startedAt: "",
+        error: status === "failed" ? "Jira said no" : undefined,
+      },
       events: [],
     });
     const { client } = show();
@@ -553,6 +561,19 @@ describe("Review screen", () => {
       }),
     );
     expect(await screen.findByText("Jira's version taken")).toBeInTheDocument();
+    status = "failed";
+    fireEvent.click(screen.getByRole("button", { name: "Take Jira's version" }));
+    await waitFor(() => expect(named("xray.pull")).toHaveLength(2));
+    act(() =>
+      apply(client, {
+        jobId: "job-2",
+        at: "",
+        type: "status",
+        job: { id: "job-2", kind: "pull", subject: "K-1", status: "failed", startedAt: "", error: "Jira said no" },
+      }),
+    );
+    expect(await screen.findByText("Could not pull K-1")).toBeInTheDocument();
+    expect(screen.getByText("Jira said no")).toBeInTheDocument();
   });
 
   it("a local test changed remotely cannot take Jira's version", async () => {
