@@ -140,6 +140,25 @@
   font-size: 11px;
 }
 
+.trow-hit {
+  padding-left: 16px;
+}
+
+.trow-snip {
+  font-size: 12.5px;
+  line-height: 1.35;
+  color: var(--ink-3);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.tfound-head {
+  padding: 8px 16px 4px;
+  font-size: 12px;
+}
+
 .sk-row {
   display: flex;
   flex-direction: column;
@@ -332,6 +351,12 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  border-radius: var(--radius);
+  transition: box-shadow 0.4s;
+}
+
+.step-slot.is-found {
+  box-shadow: 0 0 0 3px var(--hl);
 }
 
 .dropline {

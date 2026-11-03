@@ -227,6 +227,39 @@ export type SearchHit = {
   via?: "section" | "graph";
   degraded?: boolean;
 };
+
+// Search everywhere (search.all)
+
+export type SearchKind = "test" | "requirement" | "document" | "passage";
+export type SearchMark = [number, number];
+export type SearchMatch = {
+  kind: SearchKind;
+  id: string;
+  title: string;
+  titleMarks: SearchMark[];
+  detail?: string;
+  snippet?: string;
+  marks: SearchMark[];
+  where?: string;
+  score: number;
+  why: "words" | "meaning" | "both" | "filter";
+  testId?: string;
+  key?: string;
+  review?: Review;
+  awaiting?: boolean;
+  step?: number;
+  docId?: string;
+  anchor?: string;
+};
+export type SearchResult = {
+  hits: SearchMatch[];
+  totals: Partial<Record<SearchKind, number>>;
+  order: SearchKind[];
+  meaning: "on" | "off" | "unavailable";
+  unembedded: number;
+  notes: string[];
+};
+
 export type PassageOutlineItem = {
   anchor: string;
   title: string;

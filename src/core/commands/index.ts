@@ -19,6 +19,7 @@ import { commands as ragEval } from "./rag-eval.ts";
 import { commands as ragGraph } from "./rag-graph.ts";
 import { commands as ragIndex } from "./rag-index.ts";
 import { commands as review } from "./review.ts";
+import { commands as search } from "./search.ts";
 import { commands as system } from "./system.ts";
 import { commands as tests } from "./tests.ts";
 import { commands as traces } from "./traces.ts";
@@ -30,6 +31,7 @@ export const registry: Command[] = [
   ...traces,
   ...columns,
   ...rag,
+  ...search,
   ...ragIndex,
   ...ragEval,
   ...ragGraph,

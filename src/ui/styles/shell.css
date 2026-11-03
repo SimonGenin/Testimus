@@ -208,12 +208,12 @@
 }
 
 .palette {
-  width: min(640px, calc(100vw - 32px));
+  width: min(760px, calc(100vw - 32px));
   box-shadow: var(--shadow);
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  max-height: 70vh;
+  max-height: 76vh;
 }
 
 .palette-search {
@@ -270,6 +270,158 @@
 
 .palette-empty {
   padding: 12px 14px;
+}
+
+.pal-scopes {
+  display: flex;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+}
+
+.pal-scope {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: none;
+  color: var(--ink-3);
+  font: 500 13px var(--font-body);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.pal-scope:hover {
+  color: var(--ink);
+  background: var(--surface-2);
+}
+
+.pal-scope.is-on {
+  color: var(--ink);
+  border-color: var(--line-strong);
+  background: var(--surface-2);
+}
+
+.pal-count {
+  font: 500 11px var(--font-mono);
+  color: var(--ink-3);
+}
+
+.pal-group {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px 4px;
+  font: 600 11px var(--font-body);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.pal-more {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--info);
+  font: 500 12px var(--font-body);
+  letter-spacing: 0;
+  text-transform: none;
+  cursor: pointer;
+}
+
+.pal-more:hover {
+  text-decoration: underline;
+}
+
+.pal-more:disabled {
+  color: var(--ink-3);
+  cursor: default;
+  text-decoration: none;
+}
+
+.pal-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.pal-tips {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.pal-tips code {
+  font: 11px var(--font-mono);
+  background: var(--surface-2);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+.hit-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hit-title,
+.hit-snip {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hit-snip {
+  font-size: 13px;
+  color: var(--ink-3);
+}
+
+.hit-where {
+  font-weight: 600;
+  color: var(--ink-2);
+  margin-right: 6px;
+}
+
+.hit-side {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+
+.hit-key {
+  font-size: 12px;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hit-why {
+  font-size: 11px;
+  color: var(--info);
+  background: var(--info-bg);
+  border-radius: 999px;
+  padding: 1px 7px;
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .pal-tips,
+  .hit-key {
+    display: none;
+  }
 }
 
 .rail-logo {

@@ -31,9 +31,9 @@ test("the system status opens the system check", async ({ page }) => {
 test("Ctrl K opens the palette, filters and runs a command", async ({ page }) => {
   await boot(page);
   await page.keyboard.press("Control+k");
-  const palette = page.getByRole("dialog", { name: "Command palette" });
+  const palette = page.getByRole("dialog", { name: "Search everywhere" });
   await expect(palette).toBeVisible();
-  await palette.getByRole("combobox", { name: "Command" }).fill("system.version");
+  await palette.getByRole("combobox", { name: "Search" }).fill("system.version");
   await expect(palette.getByRole("option").first()).toContainText("Testimus and Node versions");
   await page.keyboard.press("Enter");
   await expect(palette).toBeHidden();
@@ -43,8 +43,8 @@ test("Ctrl K opens the palette, filters and runs a command", async ({ page }) =>
 test("the palette navigates and closes with Escape", async ({ page }) => {
   await boot(page);
   await page.keyboard.press("Control+k");
-  const palette = page.getByRole("dialog", { name: "Command palette" });
-  await palette.getByRole("combobox", { name: "Command" }).fill("Go to Jobs");
+  const palette = page.getByRole("dialog", { name: "Search everywhere" });
+  await palette.getByRole("combobox", { name: "Search" }).fill("Go to Jobs");
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/#\/jobs$/);
   await page.keyboard.press("Control+k");

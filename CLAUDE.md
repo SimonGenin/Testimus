@@ -62,6 +62,8 @@ src/core/rag/        convert* (docx/pdf/html/png → doc.md + figures), chunk, e
                      db, indexer, search/ (lexical, vector, hybrid, passage), runtimes/ (transformers,
                      llamacpp, llama-server), statements, graph, related, mentions, glossary,
                      stem-fr, fingerprint, activation (vector spaces), eval, bench, compare
+src/core/search/     search.all (Ctrl K, the tests list): query (filters), match (accents, French
+                     stems, prefixes, typos, codes), tests corpus, vectors (index/tests-vectors.json), all
 src/core/claude/     run (claude -p, per-kind tool access), stream, snapshot/revert, diagnose, status,
                      chat, generate, check, fix, figures, headers, prompt, ledger (evidence ledger)
 src/core/mock/       --mock: fixture Jira (jira.ts), scripted Claude (claude*.ts), fake machine and

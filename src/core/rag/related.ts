@@ -268,7 +268,16 @@ function bestStatement(g: Graph, sts: Statement[]): Statement | undefined {
 }
 
 export function statementOf(project: string, id: string): StatementHit | null {
+  return statementIn(graphOf(project), id);
+}
+
+// ponytail: every requirement of the project with its statement, the graph read once (search.all goes through them)
+export function allStatements(project: string): StatementHit[] {
   const g = graphOf(project);
+  return [...g.reqs.keys()].map((id) => statementIn(g, id)).filter((s): s is StatementHit => !!s);
+}
+
+function statementIn(g: Graph, id: string): StatementHit | null {
   const found: Statement[] = [];
   for (const ref of [...(g.reqs.get(id) ?? [])].sort()) {
     const d = g.docs.get(docOf(ref));

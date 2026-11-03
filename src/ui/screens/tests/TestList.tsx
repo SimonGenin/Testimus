@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { awaitsReview, type Folder, type LocalTestRef, type RemoteTestRef } from "../../../core/types.ts";
+import {
+  awaitsReview,
+  type Folder,
+  type LocalTestRef,
+  type RemoteTestRef,
+  type SearchMatch,
+} from "../../../core/types.ts";
 import { call, project, run } from "../../api.ts";
 import { Activity } from "../../components/shell/Activity.tsx";
 import {
@@ -7,6 +13,7 @@ import {
   GeneratedBadge,
   Icon,
   IconButton,
+  Marked,
   ReviewBadge,
   Skeleton,
   SyncBadge,
@@ -16,6 +23,7 @@ import { desktop, pathJoin, reveal } from "../../lib/desktop.ts";
 import { draftOf, keepDraft, useDraft } from "../../lib/drafts.ts";
 import { cx, plural } from "../../lib/format.ts";
 import { track } from "../../lib/localActivity.ts";
+import { jumpTo, useSearch } from "../../lib/search.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 import { type DeleteTarget, DeleteTest, deleteTest, needsAsking } from "./DeleteTest.tsx";
 import { JiraConnect } from "./JiraConnect.tsx";
@@ -132,6 +140,17 @@ export function TestList({
   const listed = useMemo(() => refs.filter((r) => !awaitsReview(r)), [refs]);
   const waiting = refs.length - listed.length;
   const shown = useMemo(() => localTree(listed.filter((r) => matches(r, q))), [listed, q]);
+  // ponytail: the local filter is search.all on the tests — steps, requirements, sources, filters (review:…) and
+  // meaning; the plain text match above shows until it answers, or when it cannot
+  const smart = useSearch(tab === "local" ? needle : "", { in: ["test"], k: 300 });
+  const ranked = useMemo(() => {
+    if (!smart.result) return null;
+    const byId = new Map(listed.map((r) => [r.id, r]));
+    return smart.result.hits.flatMap((h) => {
+      const r = byId.get(h.id);
+      return h.kind === "test" && r ? [{ hit: h, ref: r }] : [];
+    });
+  }, [smart.result, listed]);
 
   // ponytail: runs when the connection changes, not when the screen comes back
   useEffect(() => {
@@ -317,6 +336,60 @@ export function TestList({
     );
   };
 
+  const foundRow = ({ hit, ref: r }: { hit: SearchMatch; ref: LocalTestRef }) => (
+    <div key={r.id} className="trow-wrap">
+      <button
+        type="button"
+        className={cx("trow trow-hit", r.id === activeId && "trow-on")}
+        aria-current={r.id === activeId || undefined}
+        onClick={() => {
+          jumpTo(r.id, hit.step);
+          onOpen(r.id);
+        }}
+      >
+        <span className="trow-title">
+          <Marked text={hit.title} marks={hit.titleMarks} />
+        </span>
+        {hit.snippet !== undefined ? (
+          <span className="trow-snip">
+            {hit.where && <span className="hit-where">{hit.where}</span>}
+            <Marked text={hit.snippet} marks={hit.marks} />
+          </span>
+        ) : (
+          <span className="trow-snip">{r.folder || "/"}</span>
+        )}
+        <span className="trow-meta">
+          <span className="mono muted">{r.key ?? "no key"}</span>
+          {r.generated && <GeneratedBadge edited={r.edited} small />}
+          <ReviewBadge review={r.review} small />
+          <SyncBadge sync={r.sync} small />
+        </span>
+      </button>
+    </div>
+  );
+
+  const foundList = (found: { hit: SearchMatch; ref: LocalTestRef }[]) => {
+    const words = found.filter((f) => f.hit.why !== "meaning");
+    const near = found.filter((f) => f.hit.why === "meaning");
+    return (
+      <div className="tfound">
+        <p className="muted tfound-head">
+          {plural(words.length, "test")}
+          {smart.loading ? " · searching by meaning…" : ""}
+        </p>
+        {words.map(foundRow)}
+        {near.length > 0 && (
+          <>
+            <p className="muted tfound-head" title="Found by their meaning, not by their words">
+              Similar by meaning
+            </p>
+            {near.map(foundRow)}
+          </>
+        )}
+      </div>
+    );
+  };
+
   return (
     <aside className={cx("tside", open && "is-open")} aria-label="Tests">
       <div className="tside-head">
@@ -361,7 +434,9 @@ export function TestList({
           <input
             id="tsearch"
             className="field tside-search"
-            placeholder={tab === "local" ? "Filter by text or key" : "Filter folders and listed tests"}
+            placeholder={
+              tab === "local" ? "Search the tests: words, steps, review:to-fix…" : "Filter folders and listed tests"
+            }
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => {
@@ -416,7 +491,13 @@ export function TestList({
             {loading && !refs.length ? (
               listSkeleton
             ) : listed.length ? (
-              shown.total ? (
+              needle && ranked ? (
+                ranked.length ? (
+                  foundList(ranked)
+                ) : (
+                  <p className="muted tside-empty">No local test matches “{q}”.</p>
+                )
+              ) : shown.total ? (
                 localNode(shown, 0)
               ) : (
                 <p className="muted tside-empty">No local test matches “{q}”.</p>

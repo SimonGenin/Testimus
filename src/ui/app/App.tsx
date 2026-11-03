@@ -1,5 +1,5 @@
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ClaudeAction, CredsStatus, Job, Source, XrayJson } from "../../core/types.ts";
+import type { ClaudeAction, CredsStatus, Job, SearchMatch, Source, XrayJson } from "../../core/types.ts";
 import { type CommandInfo, call, commands, events, fileUrl, setProject } from "../api.ts";
 import { ClaudeDock, type DockJob, type DockRequest } from "../components/claude/ClaudeDock.tsx";
 import { CommandForm, hasInput } from "../components/shell/CommandForm.tsx";
@@ -13,6 +13,7 @@ import { triageWhenClaude } from "../lib/actions.ts";
 import { AppContext, type AppState, type ClaudeRun, type Focus, type ProjectInfo, type Screen } from "../lib/app.ts";
 import { DEFAULT_XRAY } from "../lib/fields.ts";
 import { mirrorPrefs, restorePrefs } from "../lib/prefsMirror.ts";
+import { jumpTo, rememberHit } from "../lib/search.ts";
 import { useSideWidth } from "../lib/sideWidth.ts";
 import { readSession, readString, setThemeEverywhere, writeSession } from "../lib/theme.ts";
 import { errorToast, toast } from "../lib/toast.ts";
@@ -194,7 +195,7 @@ export function App() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!e.ctrlKey || e.altKey) return;
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
       const k = e.key.toLowerCase();
       if (k === "k") {
         e.preventDefault();
@@ -326,6 +327,18 @@ export function App() {
     [navigate, toggleDock],
   );
 
+  const openHit = useCallback(
+    (h: SearchMatch) => {
+      rememberHit(h);
+      if (h.kind === "test") {
+        jumpTo(h.id, h.awaiting ? undefined : h.step);
+        navigate("tests", h.id);
+      } else if (h.kind === "document") navigate("documents", h.id);
+      else if (h.docId && h.anchor) navigate("documents", docLink(h.docId, h.anchor));
+    },
+    [navigate],
+  );
+
   const counts: Partial<Record<Screen, number>> = {
     generate: info?.counts?.awaiting,
     jobs: running.size,
@@ -366,6 +379,7 @@ export function App() {
           commands={cmds}
           actions={actions}
           onCommand={runCommand}
+          onHit={info ? openHit : undefined}
           onAsk={(q) => {
             userFold.current = false;
             setFolded(false);

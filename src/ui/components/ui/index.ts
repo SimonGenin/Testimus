@@ -12,6 +12,7 @@ export { GrowArea } from "./GrowArea.tsx";
 export { Icon, type IconName } from "./Icon.tsx";
 export { IconButton } from "./IconButton.tsx";
 export { Kbd } from "./Kbd.tsx";
+export { Marked } from "./Marked.tsx";
 export { Menu, type MenuItem } from "./Menu.tsx";
 export { Modal } from "./Modal.tsx";
 export { RequirementChip } from "./RequirementChip.tsx";

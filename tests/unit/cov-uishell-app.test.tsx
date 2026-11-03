@@ -291,11 +291,11 @@ describe("App routing and layout", () => {
     fireEvent.keyDown(window, { key: "k" });
     fireEvent.keyDown(window, { key: "k", ctrlKey: true, altKey: true });
     fireEvent.keyDown(window, { key: "x", ctrlKey: true });
-    expect(screen.queryByRole("dialog", { name: "Command palette" })).toBeNull();
+    expect(screen.queryByRole("dialog", { name: "Search everywhere" })).toBeNull();
     fireEvent.keyDown(window, { key: "K", ctrlKey: true });
-    expect(screen.getByRole("dialog", { name: "Command palette" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Search everywhere" })).toBeInTheDocument();
     fireEvent.keyDown(window, { key: "k", ctrlKey: true });
-    expect(screen.queryByRole("dialog", { name: "Command palette" })).toBeNull();
+    expect(screen.queryByRole("dialog", { name: "Search everywhere" })).toBeNull();
     expect(folded()).toBe("true");
     fireEvent.keyDown(window, { key: "j", ctrlKey: true });
     expect(folded()).toBe("false");

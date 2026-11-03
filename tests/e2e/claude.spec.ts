@@ -33,8 +33,8 @@ test("Ask a document streams an answer whose source chips open the passage", asy
 test("the palette puts a question in the dock, on the open document", async ({ page }) => {
   await boot(page, "#/documents/SOSIE_211_D401-1_3");
   await page.keyboard.press("Control+k");
-  const palette = page.getByRole("dialog", { name: "Command palette" });
-  await palette.getByRole("combobox", { name: "Command" }).fill("quel est le menu du sectionneur");
+  const palette = page.getByRole("dialog", { name: "Search everywhere" });
+  await palette.getByRole("combobox", { name: "Search" }).fill("quel est le menu du sectionneur");
   await palette.getByRole("option", { name: /Ask Claude: “quel est le menu du sectionneur”/ }).click();
   const dock = page.getByRole("complementary", { name: "Claude" });
   await expect(dock.getByRole("button", { name: "Document" })).toHaveAttribute("aria-pressed", "true");

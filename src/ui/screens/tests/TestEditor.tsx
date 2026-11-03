@@ -26,6 +26,7 @@ import { uploadImage } from "../../lib/files.ts";
 import { cx, message, plural } from "../../lib/format.ts";
 import { addedSteps } from "../../lib/marks.ts";
 import { editedAfterRun, revertRun } from "../../lib/revert.ts";
+import { takeJump } from "../../lib/search.ts";
 import { readPref, readString, writePref } from "../../lib/theme.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 import { ColumnsMenu } from "./ColumnsMenu.tsx";
@@ -80,6 +81,13 @@ const readWidth = (): number | null => {
   const n = Number(readString("testimus.editorWidth"));
   return Number.isFinite(n) && n >= MIN_WIDTH ? n : null;
 };
+
+function showStep(i: number) {
+  const el = document.querySelector(`[data-step="${i}"]`);
+  el?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+  el?.classList.add("is-found");
+  setTimeout(() => el?.classList.remove("is-found"), 1800);
+}
 
 export function TestEditor({
   testId,
@@ -213,6 +221,8 @@ export function TestEditor({
       .then(({ test: t, remote: base }) => {
         if (dead) return;
         if (t.key && base) void recheck(testId);
+        const found = takeJump(testId);
+        if (found) setTimeout(() => showStep(found - 1), 60);
       })
       .catch((e) => {
         if (!dead) setError(e instanceof Error ? e.message : String(e));
