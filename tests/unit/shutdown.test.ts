@@ -4,10 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { afterEach, describe, expect, it } from "vitest";
-import { killTree, liveChildren, nodeSpawnClaude } from "../../src/core/env.ts";
+import { nodeSpawnClaude } from "../../src/core/env.ts";
 import { startJob } from "../../src/core/jobs.ts";
 import { onParentGone, onStopSignals, shellOf, stopCore } from "../../src/core/shell.ts";
 import type { JobEvent } from "../../src/core/types.ts";
+import { killTreeSync as killTree, liveChildren } from "../../src/shared/run/process.ts";
 
 const SLEEPER = "setInterval(() => {}, 1000)";
 

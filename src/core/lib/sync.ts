@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
+import { semaphore } from "../../shared/run/work.ts";
 import { UserError } from "../command.ts";
-import { gate } from "../env.ts";
 import type { ProjectInfo, PullStage, PushPlanView, Step, Test, XrayJson } from "../types.ts";
 import { followXray } from "./columns.ts";
 import { sha256 } from "./hash.ts";
@@ -241,7 +241,7 @@ async function doPull(project: string, key: string, { prev, signal, report }: Pu
 
 // ponytail: three pulls at a time — a burst feels parallel and the queue drains in order (jira.ts caps
 // the requests at six too)
-const pullSlot = gate(3);
+const pullSlot = semaphore(3);
 
 export function pullToLocal(project: string, key: string, opts: PullOpts = {}): Promise<string> {
   return pullSlot(() => doPull(project, key, opts));

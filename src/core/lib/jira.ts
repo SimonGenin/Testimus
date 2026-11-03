@@ -1,5 +1,6 @@
-import { env, gate, type HttpReq, type HttpRes } from "../env.ts";
-import { jobNotice, notice } from "../jobs.ts";
+import { semaphore, sleep } from "../../shared/run/work.ts";
+import { env, type HttpReq, type HttpRes } from "../env.ts";
+import { jobNotice, jobSignal, notice } from "../jobs.ts";
 import type {
   Folder,
   PlanOp,
@@ -72,7 +73,7 @@ const b64 = (bytes: Uint8Array) => Buffer.from(bytes).toString("base64");
 // exactly as long as the server asks (Retry-After, seconds or an HTTP date) before being sent again.
 // Nothing else is retried; a request still refused fails, and pushes resume from where they stopped.
 const MAX_WAIT = 120;
-const httpSlot = gate(6);
+const httpSlot = semaphore(6);
 
 export const rateLimit: { onWait: (secs: number) => (() => void) | unknown } = {
   onWait: (secs) => {
@@ -97,17 +98,21 @@ export function retryAfter(headers: Record<string, string>, attempt: number): nu
 }
 
 async function send(req: HttpReq): Promise<HttpRes> {
+  const signal = req.signal ?? jobSignal();
   return httpSlot(async () => {
     for (let attempt = 0; ; attempt++) {
-      const res = await env.http(req);
+      const res = await env.http({ ...req, signal });
       if (res.status !== 429 || attempt === 3) return res;
       const secs = retryAfter(res.headers, attempt);
-      // ponytail: the wait holds its slot on purpose — being rate limited must slow everything down
+      // ponytail: the wait holds its slot on purpose — being rate limited must slow everything down; a cancel ends it
       const resume = rateLimit.onWait(secs);
-      await new Promise((r) => setTimeout(r, secs * 1000));
-      if (typeof resume === "function") resume();
+      try {
+        await sleep(secs * 1000, signal);
+      } finally {
+        if (typeof resume === "function") resume();
+      }
     }
-  });
+  }, signal);
 }
 
 export const RATE_LIMITED =

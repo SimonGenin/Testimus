@@ -1,7 +1,9 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, beforeEach, describe, expect, it, test } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, test, vi } from "vitest";
 import { env, type HttpReq, type HttpRes } from "../../src/core/env.ts";
+import { cancelJob, startJob } from "../../src/core/jobs.ts";
 import {
   browseUrl,
   decideStepSync,
@@ -1081,4 +1083,22 @@ test("a 429 is waited out, then the request is sent again; three refusals fail w
   };
   await expect(getFolderTree("1")).rejects.toThrow(/rate limit reached/);
   expect(n).toBe(4);
+});
+
+test("the wait for a 429 ends at once when its job is cancelled", async () => {
+  resetAuth();
+  let n = 0;
+  env.http = async (req): Promise<HttpRes> => {
+    if (req.url.includes("authenticate")) return { status: 200, headers: {}, text: '"jwt"' };
+    n++;
+    return { status: 429, headers: { "retry-after": "120" }, text: "" };
+  };
+  const p = mkdtempSync(join(tmpdir(), "testimus-429-"));
+  const { job, done } = startJob("xray-pull", "s", p, () => getFolderTree("1"));
+  await vi.waitFor(() => expect(n).toBe(1));
+  const t0 = Date.now();
+  cancelJob(job.id);
+  await expect(done).rejects.toThrow();
+  expect(Date.now() - t0).toBeLessThan(2000);
+  expect(n).toBe(1);
 });

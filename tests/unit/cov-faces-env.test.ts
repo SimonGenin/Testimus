@@ -5,7 +5,9 @@ import type { AddressInfo } from "node:net";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { notBuilt, projectOf, quietCtx, UserError } from "../../src/core/command.ts";
-import { gate, killChildren, killTree, liveChildren, nodeSpawnClaude, resolveExe } from "../../src/core/env.ts";
+import { nodeSpawnClaude } from "../../src/core/env.ts";
+import { killChildren, killTreeSync as killTree, liveChildren, resolveExe } from "../../src/shared/run/process.ts";
+import { semaphore as gate } from "../../src/shared/run/work.ts";
 import { tempRoot } from "./cov-faces-helpers.ts";
 
 const root = tempRoot("env");

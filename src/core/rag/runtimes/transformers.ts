@@ -1,6 +1,6 @@
 import { basename, dirname, resolve } from "node:path";
+import { semaphore } from "../../../shared/run/work.ts";
 import { UserError } from "../../command.ts";
-import { gate } from "../../env.ts";
 import { addTokens, currentOp, peakRssMB, perfFields, timeLoad } from "../../lib/models-perf.ts";
 import { findModel } from "../../lib/models-store.ts";
 import type { Device, Dtype, EmbedMode, ResolvedModel } from "../../types.ts";
@@ -27,7 +27,7 @@ type Model = (inputs: Inputs) => Promise<{ last_hidden_state?: Tensor; logits?: 
 type Loaded = { tokenizer: Tokenizer; model: Model; meanPooling(h: Tensor, mask: Tensor): Tensor };
 type Kind = "embedding" | "cross-encoder" | "yes-no-lm";
 
-const loading = gate(1);
+const loading = semaphore(1);
 const loaded = new Map<string, Promise<Loaded>>();
 
 export function deviceOf(m: ResolvedModel): Exclude<Device, "gpu"> {

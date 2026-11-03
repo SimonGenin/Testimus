@@ -2,6 +2,8 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { randomBytes } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { isAlive } from "../shared/run/process.ts";
+import { sleep } from "../shared/run/work.ts";
 import { type Ctx, UserError } from "./command.ts";
 import { env } from "./env.ts";
 import { changedPaths, stampProject } from "./lib/changed.ts";
@@ -15,6 +17,12 @@ const listeners = new Set<(e: JobEvent) => void>();
 const current = new AsyncLocalStorage<{ ctx: Ctx; job: Job; live: Live; process?: string }>();
 
 const runningStep = (job: Job): JobStep | undefined => job.steps?.find((s) => s.status === "running");
+
+// ponytail: code deep under a job (the Jira/Xray client waiting out a 429) honours the job's cancel without being
+// handed its context
+export function jobSignal(): AbortSignal | undefined {
+  return current.getStore()?.ctx.signal;
+}
 
 // ponytail: code deep under a job (the Jira/Xray client waiting out a 429) says so in the job's progress line
 // without being handed the job's context; the returned function puts the previous line back if still ours
@@ -264,14 +272,9 @@ export function cancelJob(id: string, project?: string | null): boolean {
 export async function cancelAll(graceMs: number): Promise<Job[]> {
   const running = [...live.values()].filter((l) => l.job.status === "running");
   for (const l of running) l.ctrl.abort();
-  let timer: NodeJS.Timeout | undefined;
-  await Promise.race([
-    Promise.allSettled(running.map((l) => l.done)),
-    new Promise<void>((r) => {
-      timer = setTimeout(r, graceMs);
-    }),
-  ]);
-  clearTimeout(timer);
+  const grace = new AbortController();
+  await Promise.race([Promise.allSettled(running.map((l) => l.done)), sleep(graceMs, grace.signal).catch(() => {})]);
+  grace.abort();
   for (const l of running) {
     if (l.job.status !== "running") continue;
     l.job.status = "cancelled";
@@ -284,13 +287,7 @@ export async function cancelAll(graceMs: number): Promise<Job[]> {
 }
 
 function alive(pid?: number): boolean {
-  if (!pid || pid === process.pid) return false;
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch {
-    return false;
-  }
+  return !!pid && pid !== process.pid && isAlive(pid);
 }
 
 function fromDisk(project: string | null, id: string): { job: Job; events: JobEvent[] } | null {

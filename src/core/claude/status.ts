@@ -1,8 +1,9 @@
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
+import { resolveExe } from "../../shared/run/process.ts";
 import { UserError } from "../command.ts";
-import { env, resolveExe } from "../env.ts";
+import { env } from "../env.ts";
 import { readSettings } from "../lib/project.ts";
 import type { ClaudeEvent, Diagnosis } from "../types.ts";
 import { diagnose } from "./diagnose.ts";

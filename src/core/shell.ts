@@ -1,4 +1,4 @@
-import { killChildren } from "./env.ts";
+import { killChildren } from "../shared/run/process.ts";
 import { cancelAll } from "./jobs.ts";
 import type { Job } from "./types.ts";
 

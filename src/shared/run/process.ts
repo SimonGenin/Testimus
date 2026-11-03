@@ -55,20 +55,39 @@ function taskkill(): string {
   return join(process.env.SystemRoot || "C:\\Windows", "System32", "taskkill.exe");
 }
 
+function descendants(pid: number): number[] {
+  const ps = spawnSync("ps", ["-A", "-o", "pid=,ppid="], { encoding: "utf8" });
+  const kids = new Map<number, number[]>();
+  for (const line of (ps.stdout ?? "").split("\n")) {
+    const [child, parent] = line.trim().split(/\s+/).map(Number);
+    if (!child || !parent) continue;
+    kids.set(parent, [...(kids.get(parent) ?? []), child]);
+  }
+  const found: number[] = [];
+  for (let queue = [pid]; queue.length; ) {
+    const next = kids.get(queue.shift() as number) ?? [];
+    found.push(...next);
+    queue.push(...next);
+  }
+  return found;
+}
+
 // ponytail: a child started through cmd is a grandchild — only taskkill /T reaches the whole tree on Windows; elsewhere
-// every child leads its own process group, and the group is what is killed
+// a child started here leads its own process group, and the group goes with the descendants ps knows (a tree started
+// by someone else has no group of its own)
 export function killTreeSync(pid: number): void {
   if (WIN) {
     spawnSync(taskkill(), ["/T", "/F", "/PID", String(pid)], { windowsHide: true, stdio: "ignore" });
     return;
   }
+  const tree = [pid, ...descendants(pid)];
   try {
     process.kill(-pid, "SIGKILL");
-  } catch {
+  } catch {}
+  for (const p of tree)
     try {
-      process.kill(pid, "SIGKILL");
+      process.kill(p, "SIGKILL");
     } catch {}
-  }
 }
 
 export function killTree(pid: number): Promise<void> {

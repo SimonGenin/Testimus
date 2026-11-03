@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { setTimeout as wait } from "node:timers/promises";
+import { killTree } from "../../shared/run/process.ts";
 import { type Ctx, UserError } from "../command.ts";
-import { killTree } from "../env.ts";
 import { AGENTS_CAP, busy, type CpuTimes, HOT_CPU, LOW_MB, type Load, loadDeps, loadLine } from "../lib/agents.ts";
 import type { AgentsLevel, AgentsMeasure } from "../types.ts";
 import { mcpServer } from "./run.ts";
