@@ -3,10 +3,10 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, createEvent, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { StepImage } from "../../src/core/types.ts";
-import { NEW_TABLE } from "../../src/ui/lib/table.ts";
-import { FieldBlocks, MOVE } from "../../src/ui/screens/tests/FieldBlocks.tsx";
-import { mount } from "./cov-uiscreens-helpers.tsx";
+import type { StepImage } from "../../../../../src/core/types.ts";
+import { NEW_TABLE } from "../../../../../src/ui/lib/table.ts";
+import { FieldBlocks, MOVE } from "../../../../../src/ui/screens/tests/FieldBlocks.tsx";
+import { mount } from "../../../cov-uiscreens-helpers.tsx";
 
 afterEach(cleanup);
 
@@ -57,8 +57,8 @@ describe("FieldBlocks", () => {
   it("shows an empty field as its insert strip alone, and types into a draft opened there", () => {
     const { container, onText } = fb("");
     expect(screen.queryByLabelText("Action of step 1")).toBeNull();
-    expect(container.querySelector(".blocks.is-empty")).not.toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "+ text" }));
+    expect(container.querySelector('[data-testid="blocks"][data-empty]')).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Text" }));
     const box = screen.getByLabelText("Action of step 1");
     expect(box).toHaveValue("");
     expect(screen.queryByRole("button", { name: /Delete this text/ })).toBeNull();
@@ -66,13 +66,14 @@ describe("FieldBlocks", () => {
     expect(onText).toHaveBeenCalledWith(0, 0, "typed");
     cleanup();
     const nested = fb("", { nested: true });
-    expect(nested.container.querySelector(".blocks.is-empty")).not.toBeNull();
-    expect(screen.queryByRole("button", { name: "+ table" })).toBeNull();
+    expect(nested.container.querySelector('[data-testid="blocks"][data-empty]')).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "Table" })).toBeNull();
     cleanup();
     const ro = fb("", { readOnly: true });
-    expect(ro.container.querySelector(".blocks.is-empty")).not.toBeNull();
-    expect(screen.queryByRole("button", { name: "+ text" })).toBeNull();
-    expect(screen.queryByLabelText("Add Action screenshots to step 1")).toBeNull();
+    expect(ro.container.querySelector('[data-testid="blocks"][data-empty]')).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "Text" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Image" })).toBeNull();
+    expect(ro.container.querySelector('input[type="file"]')).toBeNull();
   });
 
   it("edits, deletes and pastes images into a text block", () => {
@@ -93,7 +94,7 @@ describe("FieldBlocks", () => {
 
   it("opens a draft box between blocks, focuses it and drops it on blur", () => {
     fb("One\n\n![](images/a.png)\n\nTwo");
-    const plus = screen.getAllByRole("button", { name: "+ text" });
+    const plus = screen.getAllByRole("button", { name: "Text" });
     fireEvent.mouseDown(plus[1]);
     fireEvent.click(plus[1]);
     const boxes = screen.getAllByLabelText("Action of step 1") as HTMLTextAreaElement[];
@@ -101,7 +102,7 @@ describe("FieldBlocks", () => {
     expect(document.activeElement).toBe(boxes[1]);
     fireEvent.blur(boxes[1]);
     expect(screen.getAllByLabelText("Action of step 1")).toHaveLength(2);
-    fireEvent.click(screen.getAllByRole("button", { name: "+ text" })[3]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Text" })[3]);
     expect((screen.getAllByLabelText("Action of step 1") as HTMLTextAreaElement[]).map((b) => b.value)).toEqual([
       "One",
       "Two",
@@ -110,17 +111,18 @@ describe("FieldBlocks", () => {
   });
 
   it("adds an image or a table at an insert point", () => {
-    const { onAddFiles, onText } = fb("One");
-    const picker = screen.getByLabelText("Add Action screenshots to step 1") as HTMLInputElement;
+    const { onAddFiles, onText, container } = fb("One");
+    const picker = container.querySelectorAll('input[type="file"]')[1] as HTMLInputElement;
+    expect(picker).toHaveAttribute("accept", "image/*");
     const click = vi.spyOn(picker, "click");
-    fireEvent.click(screen.getAllByRole("button", { name: "+ image" })[1]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Image" })[1]);
     expect(click).toHaveBeenCalled();
     const shot = new File(["x"], "s.png", { type: "image/png" });
     fireEvent.change(picker, { target: { files: [shot] } });
     expect(onAddFiles).toHaveBeenCalledWith(3, [shot]);
     fireEvent.change(picker, { target: { files: null } });
-    expect(onAddFiles).toHaveBeenLastCalledWith(3, []);
-    fireEvent.click(screen.getAllByRole("button", { name: "+ table" })[0]);
+    expect(onAddFiles).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getAllByRole("button", { name: "Table" })[0]);
     expect(onText).toHaveBeenCalledWith(0, 0, NEW_TABLE);
   });
 
@@ -139,18 +141,19 @@ describe("FieldBlocks", () => {
     expect(onRemove).toHaveBeenLastCalledWith(expect.objectContaining({ kind: "image" }));
     expect(screen.getByRole("img", { name: "Plan" })).toHaveAttribute("src", "https://x.example/p.png");
     expect(screen.getByRole("img", { name: "https://x.example/q.png" })).toBeInTheDocument();
-    expect(screen.getByText("old.png — Jira no longer holds this image")).toBeInTheDocument();
+    expect(screen.getByText("old.png")).toBeInTheDocument();
+    expect(screen.getByText("Jira no longer holds this image.")).toBeInTheDocument();
     expect(screen.queryByRole("img", { name: "old.png" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Remove Plan from Action of step 1" }));
     expect(onRemove).toHaveBeenLastCalledWith(expect.objectContaining({ kind: "extern" }));
-    expect(screen.getByText("Xray markup this editor cannot read")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Xray markup this editor cannot read" }));
     expect(screen.getByText("!xray-attachment://9!")).toBeInTheDocument();
   });
 
   it("captions an image block with its file name, not its path", () => {
     const { container } = fb("![](images/a.png)");
-    const figure = container.querySelector("figure.imgblock") as HTMLElement;
-    expect(within(figure).getByText("a.png")).toHaveClass("imgblock-name");
+    const figure = container.querySelector('[data-testid="image-block"]') as HTMLElement;
+    expect(within(figure).getByText("a.png")).toBeInTheDocument();
     expect(figure.querySelector("figcaption")).toHaveTextContent("a.png");
     expect(figure).not.toHaveTextContent("images/a.png");
   });
@@ -159,7 +162,7 @@ describe("FieldBlocks", () => {
     for (const readOnly of [false, true]) {
       const user = userEvent.setup();
       const { onOpen } = fb("![](images/a.png)", { readOnly });
-      const open = screen.getByRole("button", { name: "a.png" });
+      const open = screen.getByRole("button", { name: "Open a.png" });
       open.focus();
       await user.keyboard("{Control>}{Enter}{/Control}");
       expect(onOpen).not.toHaveBeenCalled();
@@ -173,7 +176,7 @@ describe("FieldBlocks", () => {
     const { container } = fb("![](images/a.png)", {});
     const img = screen.getByRole("img", { name: "a.png" });
     fireEvent.error(img);
-    const figure = container.querySelector("figure.imgblock") as HTMLElement;
+    const figure = container.querySelector('[data-testid="image-block"]') as HTMLElement;
     expect(within(figure).getByText("a.png")).toBeVisible();
     expect(img).toHaveAttribute("alt", "a.png");
     expect(img).toHaveAttribute("src", "/u/images/a.png");
@@ -185,23 +188,23 @@ describe("FieldBlocks", () => {
     });
     expect(screen.queryByRole("button", { name: /Remove/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /Delete/ })).toBeNull();
-    expect(document.querySelector(".blk-handle")).toBeNull();
+    expect(document.querySelector('[data-testid="block-grip"]')).toBeNull();
   });
 
   it("drops a moved block or files on an insert point and highlights it while dragging", () => {
     const { container, onDropBlock, onAddFiles } = fb("One\n\nTwo");
-    const zones = container.querySelectorAll(".blk-insert");
+    const zones = container.querySelectorAll('[data-testid="block-insert"]');
     const zone = zones[1] as HTMLElement;
     fireEvent.dragOver(zone, dt());
-    expect(zone).not.toHaveClass("is-over");
+    expect(zone).not.toHaveAttribute("data-over");
     fireEvent.dragOver(zone, dt({ types: ["Files"] }));
-    expect(zone).toHaveClass("is-over");
+    expect(zone).toHaveAttribute("data-over");
     leave(zone, zone.firstChild);
-    expect(zone).toHaveClass("is-over");
+    expect(zone).toHaveAttribute("data-over");
     leave(zones[0] as HTMLElement, null);
-    expect(zone).toHaveClass("is-over");
+    expect(zone).toHaveAttribute("data-over");
     leave(zone, null);
-    expect(zone).not.toHaveClass("is-over");
+    expect(zone).not.toHaveAttribute("data-over");
     fireEvent.drop(zone, dt());
     expect(onAddFiles).not.toHaveBeenCalled();
     const shot = new File(["x"], "s.png", { type: "image/png" });
@@ -214,7 +217,7 @@ describe("FieldBlocks", () => {
 
   it("drops onto the field itself at its end, but not when read-only", () => {
     const { container, onDropBlock, onAddFiles } = fb("One");
-    const field = container.querySelector(".blocks") as HTMLElement;
+    const field = container.querySelector('[data-testid="blocks"]') as HTMLElement;
     const over = dt({ types: ["Files"] });
     fireEvent.dragOver(field, over);
     fireEvent.dragOver(field, dt());
@@ -225,7 +228,7 @@ describe("FieldBlocks", () => {
     expect(onDropBlock).toHaveBeenCalledWith(3, { step: 1, file: "images/a.png" });
     cleanup();
     const ro = fb("One", { readOnly: true });
-    const f2 = ro.container.querySelector(".blocks") as HTMLElement;
+    const f2 = ro.container.querySelector('[data-testid="blocks"]') as HTMLElement;
     fireEvent.dragOver(f2, dt({ types: ["Files"] }));
     fireEvent.drop(f2, dt({ types: ["Files"] }));
     expect(ro.onAddFiles).not.toHaveBeenCalled();
@@ -233,7 +236,7 @@ describe("FieldBlocks", () => {
 
   it("starts a block drag with its slice of the field, never for a draft or read-only", () => {
     const { container } = fb("One");
-    const row = container.querySelector(".blk-row") as HTMLElement;
+    const row = container.querySelector('[data-testid="block"]') as HTMLElement;
     const ev = dt();
     fireEvent.dragStart(row, ev);
     expect(ev.dataTransfer.setData).toHaveBeenCalledWith(
@@ -243,14 +246,14 @@ describe("FieldBlocks", () => {
     expect(ev.dataTransfer.effectAllowed).toBe("move");
     cleanup();
     const empty = fb("");
-    fireEvent.click(screen.getByRole("button", { name: "+ text" }));
+    fireEvent.click(screen.getByRole("button", { name: "Text" }));
     const ev2 = dt();
-    fireEvent.dragStart(empty.container.querySelector(".blk-row") as HTMLElement, ev2);
+    fireEvent.dragStart(empty.container.querySelector('[data-testid="block"]') as HTMLElement, ev2);
     expect(ev2.dataTransfer.setData).not.toHaveBeenCalled();
     cleanup();
     const ro = fb("One", { readOnly: true });
     const ev3 = dt();
-    fireEvent.dragStart(ro.container.querySelector(".blk-row") as HTMLElement, ev3);
+    fireEvent.dragStart(ro.container.querySelector('[data-testid="block"]') as HTMLElement, ev3);
     expect(ev3.dataTransfer.setData).not.toHaveBeenCalled();
   });
 });
@@ -267,7 +270,7 @@ describe("TableBlock", () => {
     expect(onText).toHaveBeenCalledWith(at, at + 1, "B!");
     fireEvent.click(screen.getByRole("button", { name: "Delete this text of Action, row 2 column 2 of step 1" }));
     expect(onRemove).toHaveBeenCalledWith(expect.objectContaining({ at, end: at + 1 }));
-    const zone = cell.closest(".blocks")?.querySelector(".blk-insert") as HTMLElement;
+    const zone = cell.closest('[data-testid="blocks"]')?.querySelector('[data-testid="block-insert"]') as HTMLElement;
     const shot = new File(["x"], "s.png", { type: "image/png" });
     fireEvent.drop(zone, dt({ types: ["Files"], files: [shot] }));
     expect(onAddFiles).toHaveBeenCalledWith(at, [shot]);
@@ -284,25 +287,27 @@ describe("TableBlock", () => {
     expect(onFieldText).toHaveBeenLastCalledWith("Intro\n\n||H1||\n|a|\n|c|");
     fireEvent.click(screen.getByRole("button", { name: "Delete row 3" }));
     expect(onFieldText).toHaveBeenLastCalledWith("Intro\n\n||H1||H2||\n|a|b|");
-    fireEvent.click(screen.getByRole("button", { name: /Row/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Add row" }));
     expect(onFieldText).toHaveBeenLastCalledWith(`${TABLE}\n| | |`);
-    fireEvent.click(screen.getByRole("button", { name: /Column/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Add column" }));
     expect(onFieldText).toHaveBeenLastCalledWith("Intro\n\n||H1||H2|| ||\n|a|b| |\n|c| |");
-    fireEvent.click(screen.getByRole("button", { name: "Delete this table of Action of step 1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove the table" }));
     expect(onRemove).toHaveBeenLastCalledWith(expect.objectContaining({ kind: "table" }));
   });
 
   it("is read-only without grips or operations", () => {
     fb(TABLE, { readOnly: true });
     expect(screen.queryByRole("button", { name: /Delete column/ })).toBeNull();
-    expect(screen.queryByRole("button", { name: /Row/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Add row" })).toBeNull();
     expect(screen.getByLabelText("Action, row 1 column 1 of step 1")).toHaveAttribute("readonly");
   });
 
   it("passes a nested table rewrite through at the cell offsets, with no table button in a cell", () => {
     const h = fb("||a|||b||");
     const cell = screen.getByLabelText("Action, row 1 column 1 of step 1");
-    expect(within(cell.closest(".blocks") as HTMLElement).queryByRole("button", { name: "+ table" })).toBeNull();
+    expect(
+      within(cell.closest('[data-testid="blocks"]') as HTMLElement).queryByRole("button", { name: "Table" }),
+    ).toBeNull();
     const rows = screen.getAllByRole("button", { name: "Delete row 1" });
     expect(rows).toHaveLength(2);
     fireEvent.click(rows[1]);
@@ -334,7 +339,7 @@ describe("FieldBlocks — a picture copied from a document figure", () => {
       />,
       { openSource },
     );
-    await userEvent.click(screen.getByTitle("SOSIE_211_D401-1_3#fig:40"));
+    await userEvent.click(screen.getByRole("button", { name: /^SOSIE_211_D401-1_3 Figure 40/ }));
     expect(openSource).toHaveBeenCalledWith({ docId: "SOSIE_211_D401-1_3", anchor: "fig:40", quote: "" });
     expect(screen.getByText("b.png")).toBeInTheDocument();
     expect(screen.queryByText("a.png")).toBeNull();

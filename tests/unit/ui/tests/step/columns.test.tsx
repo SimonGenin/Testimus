@@ -2,12 +2,12 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ColumnModes, Step } from "../../src/core/types.ts";
-import type { Column } from "../../src/ui/lib/columns.ts";
-import { ColumnField } from "../../src/ui/screens/tests/ColumnField.tsx";
-import { ColumnsMenu } from "../../src/ui/screens/tests/ColumnsMenu.tsx";
-import { GoneStep, WasView } from "../../src/ui/screens/tests/WasView.tsx";
-import { layoutOf } from "./layout-helpers.ts";
+import type { ColumnModes, Step } from "../../../../../src/core/types.ts";
+import type { Column } from "../../../../../src/ui/lib/columns.ts";
+import { ColumnField } from "../../../../../src/ui/screens/tests/ColumnField.tsx";
+import { ColumnsMenu } from "../../../../../src/ui/screens/tests/ColumnsMenu.tsx";
+import { GoneStep, WasView } from "../../../../../src/ui/screens/tests/WasView.tsx";
+import { layoutOf } from "../../../layout-helpers.ts";
 
 afterEach(() => {
   cleanup();
@@ -75,7 +75,7 @@ const menu = (projectModes: ColumnModes = {}, testModes: ColumnModes | null = nu
   return { ...r, onProject, onTest, toggle };
 };
 
-const row = (name: string) => screen.getByRole("group", { name: `${name} column` });
+const row = (name: string) => screen.getByRole("radiogroup", { name: `${name} column` });
 
 describe("ColumnsMenu", () => {
   it("is absent when no column can fold", () => {
@@ -98,57 +98,87 @@ describe("ColumnsMenu", () => {
     expect(screen.getByRole("button", { name: "Columns" })).toHaveAttribute("aria-controls", dialog.id);
     expect(within(dialog).getByText("not in Xray")).toBeInTheDocument();
     expect(within(dialog).getByText(/Saved in columns.json/)).toBeInTheDocument();
-    expect(within(row("Data")).getByRole("button", { name: "collapsed" })).toHaveAttribute("aria-pressed", "true");
-    fireEvent.click(within(row("Note")).getByRole("button", { name: "when filled" }));
+    expect(within(row("Data")).getByRole("radio", { name: "collapsed" })).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(within(row("Note")).getByRole("radio", { name: "when filled" }));
     expect(onProject).toHaveBeenLastCalledWith({ Data: "collapsed", Note: "filled" });
-    fireEvent.click(within(row("Data")).getByRole("button", { name: "open" }));
+    fireEvent.click(within(row("Data")).getByRole("radio", { name: "open" }));
     expect(onProject).toHaveBeenLastCalledWith({});
     expect(screen.queryByRole("button", { name: "use project's" })).toBeNull();
   });
 
   it("marks a column switched off in Xray, shown when filled unless set open for the project", () => {
     const onProject = vi.fn();
-    render(
+    const all = [...columns, { name: "Retired", kind: "text", known: true, off: true } as Column];
+    const { rerender } = render(
+      <ColumnsMenu columns={all} projectModes={{}} testModes={null} onProject={onProject} onTest={vi.fn()} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Columns" }));
+    expect(screen.getByText("off in Xray")).toBeInTheDocument();
+    expect(within(row("Retired")).getByRole("radio", { name: "when filled" })).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(within(row("Retired")).getByRole("radio", { name: "open" }));
+    expect(onProject).toHaveBeenLastCalledWith({ Retired: "open" });
+    rerender(
       <ColumnsMenu
-        columns={[...columns, { name: "Retired", kind: "text", known: true, off: true }]}
-        projectModes={{}}
+        columns={all}
+        projectModes={{ Retired: "open" }}
         testModes={null}
         onProject={onProject}
         onTest={vi.fn()}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Columns" }));
-    expect(screen.getByText("off in Xray")).toBeInTheDocument();
-    expect(within(row("Retired")).getByRole("button", { name: "when filled" })).toHaveAttribute("aria-pressed", "true");
-    fireEvent.click(within(row("Retired")).getByRole("button", { name: "open" }));
-    expect(onProject).toHaveBeenLastCalledWith({ Retired: "open" });
-    fireEvent.click(within(row("Retired")).getByRole("button", { name: "when filled" }));
+    fireEvent.click(within(row("Retired")).getByRole("radio", { name: "when filled" }));
     expect(onProject).toHaveBeenLastCalledWith({});
   });
 
   it("sets test modes on top of the project's, and clears them when they match", () => {
-    const { onTest, toggle } = menu({ Data: "filled" });
+    const { onTest, onProject, toggle, rerender } = menu({ Data: "filled" });
     toggle();
-    fireEvent.click(screen.getByRole("button", { name: "this test" }));
+    fireEvent.click(screen.getByRole("radio", { name: "this test" }));
     expect(screen.getByText(/Saved for this test only/)).toBeInTheDocument();
-    fireEvent.click(within(row("Data")).getByRole("button", { name: "collapsed" }));
+    fireEvent.click(within(row("Data")).getByRole("radio", { name: "collapsed" }));
     expect(onTest).toHaveBeenLastCalledWith({ Data: "collapsed" });
-    fireEvent.click(within(row("Data")).getByRole("button", { name: "when filled" }));
-    expect(onTest).toHaveBeenLastCalledWith(null);
-    fireEvent.click(within(row("Note")).getByRole("button", { name: "open" }));
+    rerender(
+      <div>
+        <span>outside</span>
+        <ColumnsMenu
+          columns={columns}
+          projectModes={{ Data: "filled" }}
+          testModes={{ Data: "collapsed", Note: "filled" }}
+          onProject={onProject}
+          onTest={onTest}
+        />
+      </div>,
+    );
+    fireEvent.click(within(row("Data")).getByRole("radio", { name: "when filled" }));
+    expect(onTest).toHaveBeenLastCalledWith({ Note: "filled" });
+    fireEvent.click(within(row("Note")).getByRole("radio", { name: "open" }));
+    expect(onTest).toHaveBeenLastCalledWith({ Data: "collapsed" });
+    rerender(
+      <div>
+        <span>outside</span>
+        <ColumnsMenu
+          columns={columns}
+          projectModes={{ Data: "filled" }}
+          testModes={{ Note: "filled" }}
+          onProject={onProject}
+          onTest={onTest}
+        />
+      </div>,
+    );
+    fireEvent.click(within(row("Note")).getByRole("radio", { name: "open" }));
     expect(onTest).toHaveBeenLastCalledWith(null);
   });
 
   it("opens on the test scope when the test overrides, and resets one or all", () => {
     const { onTest, toggle } = menu({}, { Data: "collapsed", Note: "filled" });
     toggle();
-    expect(screen.getByRole("button", { name: "this test" })).toHaveAttribute("aria-pressed", "true");
-    expect(within(row("Note")).getByRole("button", { name: "when filled" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("radio", { name: "this test" })).toHaveAttribute("aria-checked", "true");
+    expect(within(row("Note")).getByRole("radio", { name: "when filled" })).toHaveAttribute("aria-checked", "true");
     fireEvent.click(screen.getAllByRole("button", { name: "use project's" })[0]);
     expect(onTest).toHaveBeenLastCalledWith({ Note: "filled" });
-    fireEvent.click(within(row("Data")).getByRole("button", { name: "when filled" }));
+    fireEvent.click(within(row("Data")).getByRole("radio", { name: "when filled" }));
     expect(onTest).toHaveBeenLastCalledWith({ Data: "filled", Note: "filled" });
-    fireEvent.click(screen.getByRole("button", { name: "all tests" }));
+    fireEvent.click(screen.getByRole("radio", { name: "all tests" }));
     expect(screen.getByText(/This test overrides Data, Note/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "follow the project" }));
     expect(onTest).toHaveBeenLastCalledWith(null);
@@ -164,10 +194,10 @@ describe("ColumnsMenu", () => {
   it("closes on Escape, a click outside and the toggle, not on a click inside", () => {
     const { toggle } = menu();
     toggle();
-    fireEvent.keyDown(window, { key: "a" });
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "a" });
     fireEvent.mouseDown(screen.getByText("Step columns"));
     expect(screen.getByRole("dialog")).toBeInTheDocument();
-    fireEvent.keyDown(window, { key: "Escape" });
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
     expect(screen.queryByRole("dialog")).toBeNull();
     toggle();
     fireEvent.mouseDown(screen.getByText("outside"));
@@ -213,7 +243,7 @@ describe("WasView", () => {
       />,
     );
     const view = screen.getByRole("region", { name: "Step 1 as Jira has it" });
-    expect(Array.from(view.querySelectorAll(".fl-k")).map((e) => e.textContent)).toEqual([
+    expect(Array.from(view.querySelectorAll('[data-testid="field-label"]')).map((e) => e.textContent)).toEqual([
       "Action",
       "Expected Result",
       "Exigence",
@@ -231,9 +261,9 @@ describe("WasView", () => {
     const { container } = render(
       <WasView step={was} xray={xray} layout="split" index={2} url={(f) => f} restoreLabel="R" onOpenImage={vi.fn()} />,
     );
-    const body = container.querySelector(".step-body") as HTMLElement;
-    expect(body).toHaveClass("is-split");
-    expect(body.style.getPropertyValue("--tracks")).toContain("minmax");
+    const body = container.querySelector('[data-testid="step-fields"]') as HTMLElement;
+    expect(body).toHaveAttribute("data-layout", "split");
+    expect(body.style.gridTemplateColumns).toContain("minmax");
     expect(screen.queryByRole("button", { name: "R" })).toBeNull();
   });
 });
@@ -245,20 +275,23 @@ describe("GoneStep", () => {
       <GoneStep step={was} xray={xray} layout="stacked" url={(f) => f} onOpenImage={vi.fn()} onRestore={onRestore} />,
     );
     const gone = screen.getByRole("region", { name: "Deleted step" });
-    expect(gone.querySelector(".step-line")).toHaveTextContent("Open");
+    expect(gone.querySelector('[data-testid="step-line"]')).toHaveTextContent("Open");
     const toggle = screen.getByRole("button", { name: "Jira version" });
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(screen.getByRole("button", { name: "Bring the step back" }));
     expect(onRestore).toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "hide Jira version" }));
-    expect(screen.queryByRole("button", { name: "Bring the step back" })).toBeNull();
+    expect(screen.getByRole("region", { name: "Step 0 as Jira has it" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Hide Jira version" }));
+    expect(screen.queryByRole("region", { name: "Step 0 as Jira has it" })).toBeNull();
   });
 
   it("copes with a step without Action", () => {
     render(
       <GoneStep step={{ ...was, fields: {} }} xray={xray} layout="stacked" url={(f) => f} onOpenImage={vi.fn()} />,
     );
-    expect(screen.getByRole("region", { name: "Deleted step" }).querySelector(".step-line")).toHaveTextContent("");
+    expect(
+      screen.getByRole("region", { name: "Deleted step" }).querySelector('[data-testid="step-line"]'),
+    ).toHaveTextContent("");
   });
 });

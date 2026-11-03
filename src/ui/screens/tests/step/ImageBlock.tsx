@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { Banner } from "../../../components/ui/Banner.tsx";
 import { Button } from "../../../components/ui/Button.tsx";
 import { Icon } from "../../../components/ui/Icon.tsx";
-import { border, color, fontFamily, fontSize, lineHeight, radius, size, space } from "../../../styles/tokens.stylex.ts";
+import { border, color, fontFamily, fontSize, lineHeight, radius, space } from "../../../styles/tokens.stylex.ts";
 import { blockMarker } from "../markers.stylex.ts";
 
 const styles = stylex.create({
@@ -24,7 +24,7 @@ const styles = stylex.create({
     boxSizing: "border-box",
   },
   frame: { display: "flex", justifyContent: "center", maxWidth: "100%", overflow: "hidden", cursor: "zoom-in" },
-  img: { maxWidth: "100%", maxHeight: size.figurePreview, height: "auto", display: "block" },
+  img: { maxWidth: "100%", height: "auto", display: "block" },
   cap: {
     display: "flex",
     alignItems: "center",

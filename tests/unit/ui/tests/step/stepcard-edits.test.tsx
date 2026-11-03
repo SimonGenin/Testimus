@@ -1,18 +1,19 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Step, StepImage } from "../../src/core/types.ts";
-import { MOVE } from "../../src/ui/screens/tests/FieldBlocks.tsx";
-import { cut, put, StepCard } from "../../src/ui/screens/tests/StepCard.tsx";
-import { layoutOf, prefsOf } from "./layout-helpers.ts";
+import type { Step, StepImage } from "../../../../../src/core/types.ts";
+import { MOVE } from "../../../../../src/ui/screens/tests/FieldBlocks.tsx";
+import { StepCard } from "../../../../../src/ui/screens/tests/StepCard.tsx";
+import { cut, put } from "../../../../../src/ui/screens/tests/step/stepText.ts";
+import { layoutOf, prefsOf } from "../../../layout-helpers.ts";
 
 type T = { title: string; detail?: string; onExpire?: () => void; action?: { run: () => void } };
 const toasts: T[] = [];
 const errors: unknown[][] = [];
-vi.mock("../../src/ui/lib/toast.ts", async (importOriginal) => {
-  const real = await importOriginal<typeof import("../../src/ui/lib/toast.ts")>();
+vi.mock("../../../../../src/ui/lib/toast.ts", async (importOriginal) => {
+  const real = await importOriginal<typeof import("../../../../../src/ui/lib/toast.ts")>();
   return {
     ...real,
     toast: vi.fn((t: T) => toasts.push(t)),
@@ -73,10 +74,16 @@ const dt = (o: { types?: string[]; move?: unknown; files?: File[] } = {}) => ({
 });
 
 const blocksOf = (container: HTMLElement, field: string) =>
-  container.querySelector(`[data-field="${field}"] .blocks`) as HTMLElement;
+  container.querySelector(`[data-field="${field}"] [data-testid="blocks"]`) as HTMLElement;
 
 const fieldNames = (container: HTMLElement) =>
-  Array.from(container.querySelectorAll(".step-body > .fl > .fl-k")).map((e) => e.firstChild?.textContent);
+  Array.from(container.querySelectorAll('[data-testid="step-fields"] > [data-field] [data-testid="field-label"]')).map(
+    (e) => e.textContent,
+  );
+
+const foldOf = (name: string) => within(screen.getByRole("article")).getByRole("button", { name });
+
+const tipOf = (el: HTMLElement) => el.closest("span")?.querySelector('[role="tooltip"]')?.textContent;
 
 describe("put and cut", () => {
   it("join with a blank line, or a single line break inside a table", () => {
@@ -99,7 +106,7 @@ describe("StepCard editing", () => {
 
   it("types into an empty field through a draft, ignoring blanks", () => {
     const { container, apply } = card();
-    fireEvent.click(blocksOf(container, "Data").querySelector(".blk-insert button") as HTMLElement);
+    fireEvent.click(within(blocksOf(container, "Data")).getByRole("button", { name: "Text" }));
     fireEvent.change(screen.getByLabelText("Data of step 2"), { target: { value: "  " } });
     expect(apply().fields.Data).toBeUndefined();
     fireEvent.change(screen.getByLabelText("Data of step 2"), { target: { value: "S 12" } });
@@ -125,7 +132,7 @@ describe("StepCard editing", () => {
   it("removes a table with its own toast title, and undoes without a token", () => {
     const step = { ...base, fields: { Action: "|a|" } };
     const { apply } = card(step);
-    fireEvent.click(screen.getByRole("button", { name: "Delete this table of Action of step 2" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove the table" }));
     expect(toasts[0].title).toBe("Table removed");
     toasts[0].action?.run();
     expect(apply({ ...base, fields: {} }).fields.Action).toBe("|a|");
@@ -166,7 +173,7 @@ describe("StepCard editing", () => {
 
   it("rewrites a field from its table tools", () => {
     const { apply } = card({ ...base, fields: { Action: "|a|b|" } });
-    fireEvent.click(screen.getByRole("button", { name: /Row/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Add row" }));
     expect(apply().fields.Action).toBe("|a|b|\n| | |");
     fireEvent.click(screen.getByRole("button", { name: "Delete row 1" }));
     expect(apply().fields.Action).toBeUndefined();
@@ -179,13 +186,13 @@ describe("StepCard editing", () => {
     expect(apply().fields.Exigence).toBeUndefined();
     fireEvent.change(screen.getByLabelText("Note of step 2"), { target: { value: "noted" } });
     expect(apply().fields.Note).toBe("noted");
-    expect(container.querySelector('[data-field="Note"] .fl-note')).toHaveTextContent("not in Xray");
+    expect(container.querySelector('[data-field="Note"]')).toHaveTextContent("not in Xray");
   });
 
   it("notes no column as not in Xray while Xray is not linked", () => {
     const { container } = card({ ...base, fields: { ...base.fields, Note: "n" } }, { linked: false });
     expect(container.querySelector('[data-field="Note"]')).toBeInTheDocument();
-    expect(container.querySelector(".fl-note")).toBeNull();
+    expect(screen.queryByText("not in Xray")).toBeNull();
   });
 });
 
@@ -194,12 +201,12 @@ describe("StepCard columns", () => {
     const x = layoutOf(xray.fields, { ...prefsOf(xray), collapsed: ["Data"] });
     const { container } = card({ ...base, fields: { ...base.fields, Data: "S 12" } }, { xray: x });
     expect(fieldNames(container)).toEqual(["Action", "Expected Result"]);
-    const toggle = screen.getByRole("button", { name: "Data column of step 2" });
-    expect(toggle).toHaveTextContent("Data ●");
-    expect(toggle).toHaveAttribute("title", "This step has Data");
+    const toggle = foldOf("Data");
+    expect(toggle).toHaveTextContent("Data●");
+    expect(tipOf(toggle)).toBe("This step has Data");
     fireEvent.click(toggle);
     expect(fieldNames(container)).toEqual(["Action", "Data", "Expected Result"]);
-    expect(toggle).toHaveAttribute("title", "Fold Data");
+    expect(tipOf(toggle)).toBe("Fold Data");
     fireEvent.click(toggle);
     expect(fieldNames(container)).toEqual(["Action", "Expected Result"]);
   });
@@ -208,9 +215,9 @@ describe("StepCard columns", () => {
     const x = layoutOf(xray.fields, { ...prefsOf(xray), filled: ["Data"] });
     const { container } = card(base, { xray: x });
     expect(fieldNames(container)).toEqual(["Action", "Expected Result"]);
-    const toggle = screen.getByRole("button", { name: "Data column of step 2" });
+    const toggle = foldOf("Data");
     expect(toggle).toHaveTextContent("Data");
-    expect(toggle).toHaveAttribute("title", "Show Data");
+    expect(tipOf(toggle)).toBe("Show Data");
     cleanup();
     const filled = card({ ...base, fields: { ...base.fields, Data: "x" } }, { xray: x });
     expect(fieldNames(filled.container)).toEqual(["Action", "Data", "Expected Result"]);
@@ -223,11 +230,13 @@ describe("StepCard columns", () => {
 
   it("lays the open columns side by side", () => {
     const { container } = card(base, { layout: "split", claude: true, added: true, dragging: true });
-    const body = container.querySelector(".step-body") as HTMLElement;
-    expect(body).toHaveClass("is-split");
-    expect(body.style.getPropertyValue("--tracks")).toContain("minmax");
+    const body = container.querySelector('[data-testid="step-fields"]') as HTMLElement;
+    expect(body).toHaveAttribute("data-layout", "split");
+    expect(body.style.gridTemplateColumns).toContain("minmax");
     expect(screen.getByText("Added by Claude")).toBeInTheDocument();
-    expect(container.querySelector("article")).toHaveClass("is-dragging", "is-claude");
+    const article = container.querySelector("article") as HTMLElement;
+    expect(article).toHaveAttribute("data-dragging");
+    expect(article).toHaveAttribute("data-claude");
   });
 });
 
@@ -334,7 +343,7 @@ describe("StepCard block moves", () => {
 
   it("moves a block into an empty field", () => {
     const { container, apply } = card(step);
-    const zone = blocksOf(container, "Data").querySelector(".blk-insert") as HTMLElement;
+    const zone = blocksOf(container, "Data").querySelector('[data-testid="block-insert"]') as HTMLElement;
     fireEvent.drop(zone, dt({ types: [MOVE], move: { step: 2, field: "Action", at: 0, end: 3 } }));
     expect(apply().fields.Data).toBe("One");
   });
@@ -354,7 +363,7 @@ describe("StepCard block moves", () => {
 
   it("embeds a loose attachment, but only one this step holds", () => {
     const { container, apply } = card(step);
-    const zone = blocksOf(container, "Expected Result").querySelector(".blk-insert") as HTMLElement;
+    const zone = blocksOf(container, "Expected Result").querySelector('[data-testid="block-insert"]') as HTMLElement;
     fireEvent.drop(zone, dt({ types: [MOVE], move: { step: 2, file: "images/loose.png" } }));
     expect(apply().fields["Expected Result"]).toBe("![](images/loose.png)\n\nDone");
     fireEvent.drop(zone, dt({ types: [MOVE], move: { step: 2, file: "images/other.png" } }));
@@ -406,13 +415,13 @@ describe("StepCard Jira version", () => {
     const onRestore = vi.fn();
     const onOpenImage = vi.fn();
     const { container } = card({ ...base, id: "7" }, { mark: "modified", before, onRestore, onOpenImage });
-    expect(container.querySelector("article")).toHaveClass("is-modified");
-    expect(screen.getByText("modified")).toBeInTheDocument();
+    expect(container.querySelector("article")).toHaveAttribute("data-mark", "modified");
+    expect(screen.getByText("Modified")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Jira version" }));
     expect(screen.getByRole("region", { name: "Step 2 as Jira has it" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Restore this step" }));
     expect(onRestore).toHaveBeenCalledWith(before);
-    fireEvent.click(screen.getByRole("button", { name: "hide Jira version" }));
+    fireEvent.click(screen.getByRole("button", { name: "Hide Jira version" }));
     expect(screen.queryByRole("region")).toBeNull();
   });
 
@@ -436,8 +445,8 @@ describe("StepCard Jira version", () => {
 
   it("marks a new step", () => {
     const { container } = card(base, { mark: "new" });
-    expect(container.querySelector("article")).toHaveClass("is-new");
-    expect(screen.getByText("new")).toBeInTheDocument();
+    expect(container.querySelector("article")).toHaveAttribute("data-mark", "new");
+    expect(screen.getByText("New")).toBeInTheDocument();
   });
 });
 
@@ -445,10 +454,10 @@ describe("StepCard chrome", () => {
   it("runs the step tools and keyboard shortcuts", () => {
     const h = { onInsert: vi.fn(), onMove: vi.fn(), onDelete: vi.fn(), onFold: vi.fn(), onAsk: vi.fn() };
     const { container } = card(base, h);
-    fireEvent.click(screen.getByRole("button", { name: "Ask Claude about step 2" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ask Claude" }));
     fireEvent.click(screen.getByRole("button", { name: "Insert a step below step 2" }));
-    fireEvent.click(screen.getByRole("button", { name: "Move step 2 up (Alt+↑)" }));
-    fireEvent.click(screen.getByRole("button", { name: "Move step 2 down (Alt+↓)" }));
+    fireEvent.click(screen.getByRole("button", { name: "Move step 2 up" }));
+    fireEvent.click(screen.getByRole("button", { name: "Move step 2 down" }));
     fireEvent.click(screen.getByRole("button", { name: "Delete step 2" }));
     fireEvent.click(screen.getByRole("button", { name: "Fold step 2" }));
     expect(h.onAsk).toHaveBeenCalled();
@@ -469,8 +478,8 @@ describe("StepCard chrome", () => {
   it("disables moves at the ends and works without handlers", () => {
     const { container } = card(base, { index: 0, count: 1 });
     expect(screen.queryByRole("button", { name: /Ask Claude/ })).toBeNull();
-    expect(screen.getByRole("button", { name: "Move step 1 up (Alt+↑)" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Move step 1 down (Alt+↓)" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Move step 1 up" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Move step 1 down" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Fold step 1" }));
     const article = container.querySelector("article") as HTMLElement;
     fireEvent.keyDown(article, { key: "Enter", ctrlKey: true });
@@ -488,7 +497,7 @@ describe("StepCard chrome", () => {
     const article = container.querySelector("article") as HTMLElement;
     fireEvent.keyDown(article, { key: "Enter", ctrlKey: true });
     expect(onInsert).not.toHaveBeenCalled();
-    fireEvent.mouseDown(container.querySelector(".grip") as HTMLElement);
+    expect(container.querySelector('[data-testid="step-grip"]')).toBeNull();
     expect(article).toHaveAttribute("draggable", "false");
   });
 
@@ -496,7 +505,7 @@ describe("StepCard chrome", () => {
     const h = { onDragStart: vi.fn(), onDragOver: vi.fn(), onDrop: vi.fn(), onDragEnd: vi.fn(), onFocus: vi.fn() };
     const { container } = card(base, h);
     const article = container.querySelector("article") as HTMLElement;
-    const grip = container.querySelector(".grip") as HTMLElement;
+    const grip = container.querySelector('[data-testid="step-grip"]') as HTMLElement;
     expect(article).toHaveAttribute("draggable", "false");
     fireEvent.mouseDown(grip);
     expect(article).toHaveAttribute("draggable", "true");
@@ -533,7 +542,7 @@ describe("StepCard chrome", () => {
       { ...base, fields: { Action: "!xray-attachment://1!" }, sources: [source] },
       { onOpenSource },
     );
-    expect(container.querySelector("article")).toHaveClass("is-unreadable");
+    expect(container.querySelector("article")).toHaveAttribute("data-unreadable");
     expect(screen.getByText("Not fully read — never pushed")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /D1 §1/ }));
     expect(onOpenSource).toHaveBeenCalledWith(source);
@@ -545,8 +554,10 @@ describe("StepCard chrome", () => {
       { ...base, fields: { Action: "![](images/x.png) First\nSecond" } },
       { folded: true, claude: true, dragging: true, mark: "modified", onFold },
     );
-    expect(container.querySelector(".step-line")).toHaveTextContent("First");
-    expect(container.querySelector("article")).toHaveClass("step-folded", "is-dragging", "is-claude", "is-modified");
+    expect(container.querySelector('[data-testid="step-line"]')).toHaveTextContent("First");
+    const article = container.querySelector("article") as HTMLElement;
+    for (const a of ["data-folded", "data-dragging", "data-claude"]) expect(article).toHaveAttribute(a);
+    expect(article).toHaveAttribute("data-mark", "modified");
     expect(screen.getByText("Changed by Claude")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Expand step 2" }));
     expect(onFold).toHaveBeenCalledWith(false);
@@ -562,9 +573,9 @@ describe("StepCard chrome", () => {
 
   it("shows the step number as visible text, open or folded", () => {
     const { container } = card(base, { index: 4, count: 6 });
-    expect(container.querySelector(".step-head .num")?.textContent).toBe("5");
+    expect(container.querySelector('[data-testid="step-number"]')?.textContent).toBe("5");
     cleanup();
     const folded = card(base, { index: 4, count: 6, folded: true });
-    expect(folded.container.querySelector("article .num")?.textContent).toBe("5");
+    expect(folded.container.querySelector('article [data-testid="step-number"]')?.textContent).toBe("5");
   });
 });

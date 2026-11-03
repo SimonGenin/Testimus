@@ -1,7 +1,10 @@
+import * as stylex from "@stylexjs/stylex";
 import { useState } from "react";
-import type { Block, ColumnLayout, ColumnModes, Source, Step, StepImage } from "../../../core/types.ts";
-import { Button, ClaudeBadge, Icon, IconButton, ItemLinks, SourceChip } from "../../components/legacy/index.ts";
-import { hasRawEmbed, imageRef, leafBlocks } from "../../lib/blocks.ts";
+import type { ColumnLayout, ColumnModes, Source, Step, StepImage } from "../../../core/types.ts";
+import { Badge } from "../../components/ui/Badge.tsx";
+import { Button } from "../../components/ui/Button.tsx";
+import type { SaveState } from "../../components/ui/Text.tsx";
+import { hasRawEmbed, leafBlocks } from "../../lib/blocks.ts";
 import {
   type Column,
   collapsible,
@@ -13,43 +16,54 @@ import {
 } from "../../lib/columns.ts";
 import type { StepMark } from "../../lib/diff.ts";
 import { itemLinks, stepSources } from "../../lib/fields.ts";
-import { cx } from "../../lib/format.ts";
-import { tablesIn } from "../../lib/table.ts";
-import { errorToast, toast } from "../../lib/toast.ts";
+import { border, color, fontSize, fontWeight, lineHeight, size, space } from "../../styles/tokens.stylex.ts";
 import { ColumnField } from "./ColumnField.tsx";
-import { FieldBlocks, MOVE, type Moved } from "./FieldBlocks.tsx";
+import { FieldBlocks } from "./FieldBlocks.tsx";
+import { stepMarker } from "./markers.stylex.ts";
+import { cardStyles } from "./step/cardStyles.ts";
+import { ItemLinks } from "./step/ItemLinks.tsx";
+import { MOVE } from "./step/moved.ts";
+import { FieldRow, StepFields } from "./step/StepFields.tsx";
+import { FoldedLine, Grip, MarkBadges, StepHead, type StepMarks, StepNumber } from "./step/StepHead.tsx";
+import { StepOrphans } from "./step/StepOrphans.tsx";
+import { StepSource } from "./step/StepSource.tsx";
+import { firstLine } from "./step/stepText.ts";
+import { useStepEdits } from "./step/useStepEdits.ts";
 import { WasView } from "./WasView.tsx";
 
 export type StepLayout = "stacked" | "split";
 
-// ponytail: one blank line between blocks — a field is Xray text, and a marker glued to a sentence
-// renders inside the paragraph; inside a table cell it is a single line break, or the table would end
-const inTable = (text: string, at: number) => tablesIn(text).some((t) => at > t.at && at < t.end);
-const gap = (text: string, at: number) => (inTable(text, at) ? "\n" : "\n\n");
-
-export const put = (text: string, at: number, chunk: string) =>
-  [text.slice(0, at).replace(/\s+$/, ""), chunk, text.slice(at).replace(/^\s+/, "")]
-    .filter(Boolean)
-    .join(gap(text, at));
-
-export const cut = (text: string, at: number, end: number) =>
-  [text.slice(0, at).replace(/\s+$/, ""), text.slice(end).replace(/^\s+/, "")].filter(Boolean).join(gap(text, at));
-
-const firstLine = (s: string) =>
-  s
-    .replace(/!\[\]\([^)]*\)/g, "")
-    .trim()
-    .split("\n")[0] ?? "";
-
-const setField = (s: Step, name: string, value: string): Step => {
-  const fields = { ...s.fields };
-  if (value) fields[name] = value;
-  else delete fields[name];
-  return { ...s, fields };
-};
-
-const embeds = (s: Step, file: string) =>
-  Object.values(s.fields).some((t) => leafBlocks(t, s.images).some((x) => x.kind === "image" && x.image.file === file));
+const styles = stylex.create({
+  modified: { borderColor: color.warningBorder },
+  added: { borderColor: color.successBorder },
+  claude: { borderColor: color.claudeBorder },
+  unreadable: { borderColor: color.dangerBorder, boxShadow: `0 0 0 ${border.width} ${color.dangerBorder}` },
+  dragging: { opacity: 0.5 },
+  body: { paddingInlineStart: space.s4, paddingInlineEnd: space.s5, paddingBottom: space.s3 },
+  sources: {
+    display: "flex",
+    alignItems: "flex-start",
+    flexWrap: "wrap",
+    gap: space.s2,
+    marginInlineStart: space.s4,
+    marginInlineEnd: space.s5,
+    paddingTop: space.s3,
+    paddingBottom: space.s4,
+    borderTopStyle: "solid",
+    borderTopWidth: border.width,
+    borderTopColor: color.border,
+  },
+  sourcesLabel: {
+    flex: "none",
+    width: size.stepLabel,
+    paddingTop: space.s1,
+    fontSize: fontSize.small,
+    lineHeight: lineHeight.small,
+    fontWeight: fontWeight.medium,
+    color: color.textMuted,
+  },
+  chips: { flex: 1, minWidth: 0, display: "flex", flexWrap: "wrap", gap: space.s2 },
+});
 
 export function StepCard({
   index,
@@ -68,6 +82,7 @@ export function StepCard({
   dragging,
   focused,
   readOnly,
+  saveState,
   url,
   addImage,
   alive,
@@ -104,6 +119,8 @@ export function StepCard({
   // ponytail: the step last worked on keeps its ring while focus is elsewhere (the dock, a dialog), as in Xray Editor
   focused?: boolean;
   readOnly?: boolean;
+  /** the test's save state, shown on the field of this step last edited */
+  saveState?: SaveState;
   url: (file: string) => string;
   addImage?: (file: File) => Promise<StepImage>;
   alive?: () => () => boolean;
@@ -126,6 +143,7 @@ export function StepCard({
   const [armed, setArmed] = useState(false);
   const [folds, setFolds] = useState<Record<string, boolean>>({});
   const [wasOpen, setWasOpen] = useState(false);
+  const [lastField, setLastField] = useState("");
   const n = index + 1;
   const cols = columnsOf(xray, step, linked);
   const val = (name: string) => step.fields[name] ?? "";
@@ -138,7 +156,9 @@ export function StepCard({
     step,
     shown.map((c) => c.name),
   );
-  const token = () => alive?.() ?? (() => true);
+  const edits = useStepEdits({ step, n, onChange, addImage, onImageGone, alive });
+  const marks: StepMarks = { claude, added, mark, unreadable };
+  const split = layout === "split";
 
   const embedded = new Set(
     cols.flatMap((c) =>
@@ -147,132 +167,10 @@ export function StepCard({
   );
   const orphans = step.images.filter((im) => !embedded.has(im.file));
 
-  const setText = (name: string, at: number, end: number, value: string) =>
-    onChange((s) => {
-      const cur = s.fields[name] ?? "";
-      const next =
-        at === end
-          ? value.trim()
-            ? put(cur, at, value)
-            : cur
-          : value
-            ? cur.slice(0, at) + value + cur.slice(end)
-            : cut(cur, at, end);
-      return setField(s, name, next);
-    });
-
-  const addFiles = async (name: string, at: number, files: File[]) => {
-    const images = files.filter((f) => f.type.startsWith("image/"));
-    if (!images.length || !addImage) return;
-    try {
-      const added: StepImage[] = [];
-      for (const f of images) added.push(await addImage(f));
-      onChange((s) => {
-        const cur = s.fields[name] ?? "";
-        const to = Math.min(at, cur.length);
-        return setField(
-          { ...s, images: [...s.images, ...added] },
-          name,
-          put(cur, to, added.map((im) => imageRef(im.file)).join(gap(cur, to))),
-        );
-      });
-    } catch (e) {
-      errorToast(e, "Could not save the screenshot");
-    }
-  };
-
-  const dropBlock = (to: string, at: number, from: Moved) =>
-    onChange((s) => {
-      if (from.step !== n) return s;
-      if (from.field === to && from.at !== undefined && from.end !== undefined && at >= from.at && at <= from.end)
-        return s;
-      const clampTo = (k: number, text: string) => Math.min(Math.max(k, 0), text.length);
-      if (from.at === undefined || from.end === undefined || !from.field) {
-        if (!from.file || !s.images.some((im) => im.file === from.file)) return s;
-        const cur = s.fields[to] ?? "";
-        return setField(s, to, put(cur, clampTo(at, cur), imageRef(from.file)));
-      }
-      const src = s.fields[from.field] ?? "";
-      const chunk = src.slice(from.at, from.end);
-      if (!chunk.trim()) return s;
-      const left = cut(src, from.at, from.end);
-      let next = setField(s, from.field, left);
-      let pos = at;
-      if (from.field === to && from.at < at) pos -= src.length - left.length;
-      const dst = next.fields[to] ?? "";
-      next = setField(next, to, put(dst, clampTo(pos, dst), chunk));
-      return next;
-    });
-
-  // ponytail: an Undo puts back only what the ✕ took — that field, and the attachment when it went with
-  // it — onto the step as it is now, and only on the test instance it was rendered for; a picture left
-  // unattached is deleted once its Undo can no longer bring it back
-  const undoable = (title: string, name: string, before: string, image?: StepImage) => {
-    const ok = token();
-    toast({
-      kind: "info",
-      title,
-      detail: `${name} of step ${n}`,
-      onExpire: image ? () => onImageGone?.(image.file) : undefined,
-      action: {
-        label: "Undo",
-        run: () => {
-          if (!ok()) {
-            toast({ kind: "info", title: "Too late to undo", detail: "The test was reloaded since." });
-            if (image) onImageGone?.(image.file);
-            return;
-          }
-          onChange((s) => {
-            const back = setField(s, name, before);
-            return image && !back.images.some((x) => x.file === image.file)
-              ? { ...back, images: [...back.images, image] }
-              : back;
-          });
-        },
-      },
-    });
-  };
-
-  const removeBlock = (name: string, b: Block) => {
-    const before = val(name);
-    const text = cut(before, b.at, b.end);
-    const after = setField(step, name, text);
-    const gone = b.kind === "image" && !embeds(after, b.image.file) ? b.image : undefined;
-    onChange((s) => {
-      const next = setField(s, name, cut(s.fields[name] ?? "", b.at, b.end));
-      return gone ? { ...next, images: next.images.filter((x) => x.file !== gone.file) } : next;
-    });
-    undoable(
-      b.kind === "text" ? "Text removed" : b.kind === "table" ? "Table removed" : "Image removed",
-      name,
-      before,
-      gone,
-    );
-  };
-
-  const detach = (im: StepImage) => {
-    const ok = token();
-    onChange((s) => ({ ...s, images: s.images.filter((x) => x.file !== im.file) }));
-    toast({
-      kind: "info",
-      title: "Attachment detached",
-      detail: `${im.file.split("/").pop()} of step ${n}`,
-      onExpire: () => onImageGone?.(im.file),
-      action: {
-        label: "Undo",
-        run: () => {
-          if (!ok()) {
-            onImageGone?.(im.file);
-            return;
-          }
-          onChange((s) => (s.images.some((x) => x.file === im.file) ? s : { ...s, images: [...s.images, im] }));
-        },
-      },
-    });
-  };
-
   const fieldOf = (c: Column) => {
     const value = val(c.name);
+    const save = c.name === lastField ? saveState : undefined;
+    const touch = () => setLastField(c.name);
     if (c.kind !== "blocks")
       return (
         <ColumnField
@@ -280,7 +178,11 @@ export function StepCard({
           value={value}
           stepNumber={n}
           readOnly={readOnly}
-          onChange={(next) => onChange((s) => setField(s, c.name, next))}
+          saveState={save}
+          onChange={(next) => {
+            touch();
+            edits.setWhole(c.name, next);
+          }}
         />
       );
     return (
@@ -293,62 +195,53 @@ export function StepCard({
         url={url}
         stepNumber={n}
         readOnly={readOnly}
-        onText={(at, end, v) => setText(c.name, at, end, v)}
-        onAddFiles={(at, files) => void addFiles(c.name, at, files)}
-        onFieldText={(next) => onChange((s) => setField(s, c.name, next))}
-        onDropBlock={(at, moved) => dropBlock(c.name, at, moved)}
-        onRemove={(b) => removeBlock(c.name, b)}
+        saveState={save}
+        onText={(at, end, v) => {
+          touch();
+          edits.setText(c.name, at, end, v);
+        }}
+        onAddFiles={(at, files) => void edits.addFiles(c.name, at, files)}
+        onFieldText={(next) => edits.setWhole(c.name, next)}
+        onDropBlock={(at, moved) => edits.dropBlock(c.name, at, moved)}
+        onRemove={(b) => edits.removeBlock(c.name, b)}
         onOpen={(file) => onOpenImage?.(file, step.images)}
       />
     );
   };
 
-  const withLinks = (c: Column) => {
+  const row = (c: Column) => {
     const links = itemLinks(xray, step, c.name);
-    if (!links.length) return fieldOf(c);
     return (
-      <div className="fl-v">
+      <FieldRow
+        key={c.name}
+        name={c.name}
+        split={split}
+        note={
+          !c.known ? (
+            <Badge
+              label="not in Xray"
+              size="sm"
+              tone="warning"
+              icon="alert-triangle"
+              tooltip="Kept in test.md, never pushed: the project has no such step field in Xray"
+            />
+          ) : c.off ? (
+            <Badge label="off in Xray" size="sm" icon="eye-off" tooltip="Switched off in Xray's project settings" />
+          ) : undefined
+        }
+        onPaste={(e) => {
+          if (readOnly || c.kind !== "blocks" || (e.target as HTMLElement).tagName === "TEXTAREA") return;
+          const files = Array.from(e.clipboardData.files).filter((f) => f.type.startsWith("image/"));
+          if (!files.length) return;
+          e.preventDefault();
+          void edits.addFiles(c.name, val(c.name).length, files);
+        }}
+      >
         {fieldOf(c)}
-        <ItemLinks column={c.name} links={links} onOpen={onOpenSource} />
-      </div>
+        {links.length > 0 && <ItemLinks column={c.name} links={links} onOpen={onOpenSource} />}
+      </FieldRow>
     );
   };
-
-  const row = (c: Column) => (
-    <div
-      key={c.name}
-      className={cx("fl", `fl-${c.kind}`)}
-      data-field={c.name}
-      onPaste={(e) => {
-        if (readOnly || c.kind !== "blocks" || (e.target as HTMLElement).tagName === "TEXTAREA") return;
-        const files = Array.from(e.clipboardData.files).filter((f) => f.type.startsWith("image/"));
-        if (!files.length) return;
-        e.preventDefault();
-        void addFiles(c.name, val(c.name).length, files);
-      }}
-    >
-      <span className="fl-k">
-        {c.name}
-        {!c.known && (
-          <span className="fl-note" title="Kept in test.md, never pushed: the project has no such step field in Xray">
-            not in Xray
-          </span>
-        )}
-      </span>
-      {withLinks(c)}
-    </div>
-  );
-
-  const head = (
-    <span
-      className="grip"
-      title={`Drag step ${n} to reorder`}
-      onMouseDown={() => setArmed(true)}
-      onMouseUp={() => setArmed(false)}
-    >
-      <Icon name="grip" />
-    </span>
-  );
 
   const dnd = {
     draggable: armed && !readOnly,
@@ -373,43 +266,50 @@ export function StepCard({
     },
   };
 
-  const state = cx(
-    claude && "is-claude",
-    mark === "modified" && "is-modified",
-    mark === "new" && "is-new",
-    unreadable && "is-unreadable",
+  const frame = stylex.props(
+    stepMarker,
+    cardStyles.card,
+    mark === "modified" && styles.modified,
+    mark === "new" && styles.added,
+    claude && styles.claude,
+    unreadable && styles.unreadable,
+    focused && cardStyles.focused,
+    dragging && styles.dragging,
   );
-
-  const marks = (
-    <>
-      {claude && <ClaudeBadge added={added} small={folded} />}
-      {mark === "modified" && <span className="mark mark-modified">modified</span>}
-      {mark === "new" && <span className="mark mark-new">new</span>}
-    </>
-  );
+  const state = {
+    "data-mark": mark && mark !== "same" ? mark : undefined,
+    "data-claude": claude || undefined,
+    "data-unreadable": unreadable || undefined,
+    "data-dragging": dragging || undefined,
+    "data-focused": focused || undefined,
+  };
+  const grip = readOnly ? null : <Grip n={n} focused={focused} onArm={setArmed} />;
 
   if (folded)
     return (
-      <article
-        className={cx("card step step-folded", dragging && "is-dragging", focused && "is-focused", state)}
-        aria-label={`Step ${n}`}
-        onFocusCapture={onFocus}
-        {...dnd}
-      >
-        {head}
-        <span className="num">{n}</span>
-        {marks}
-        <span className="step-line">
-          {firstLine(val(cols[0]?.name ?? "Action")) || <span className="muted">Empty step</span>}
-        </span>
-        <IconButton icon="down" label={`Expand step ${n}`} onClick={() => onFold?.(false)} />
+      <article aria-label={`Step ${n}`} data-folded {...state} {...frame} onFocusCapture={onFocus} {...dnd}>
+        <div {...stylex.props(cardStyles.head)}>
+          {grip}
+          <StepNumber n={n} marks={marks} />
+          <MarkBadges marks={marks} size="sm" />
+          <FoldedLine text={firstLine(val(cols[0]?.name ?? "Action"))} />
+          <Button
+            variant="quiet"
+            size="sm"
+            iconOnly
+            icon="chevron-down"
+            label={`Expand step ${n}`}
+            onClick={() => onFold?.(false)}
+          />
+        </div>
       </article>
     );
 
   return (
     <article
-      className={cx("card step", dragging && "is-dragging", focused && "is-focused", state)}
       aria-label={`Step ${n}`}
+      {...state}
+      {...frame}
       onFocusCapture={onFocus}
       onKeyDown={(e) => {
         if (readOnly) return;
@@ -423,100 +323,30 @@ export function StepCard({
       }}
       {...dnd}
     >
-      <div className="step-head">
-        {head}
-        <span className="num">{n}</span>
-        {marks}
-        {before && (
-          <button
-            type="button"
-            className="was-toggle"
-            aria-pressed={wasOpen}
-            title="What Jira has for this step, as of the last sync"
-            onClick={() => setWasOpen(!wasOpen)}
-          >
-            {wasOpen ? "hide Jira version" : "Jira version"}
-          </button>
-        )}
-        {unreadable && (
-          <span className="sev s-err" title="Xray markup this editor cannot read">
-            <Icon name="warning" />
-            Not fully read — never pushed
-          </span>
-        )}
-        <div className="spacer" />
-        <div className="step-folds">
-          {cols.filter(collapsible).map((c) => {
+      <div {...stylex.props(cardStyles.head)}>
+        <StepHead
+          n={n}
+          index={index}
+          count={count}
+          marks={marks}
+          grip={grip}
+          jira={before ? { open: wasOpen, toggle: () => setWasOpen(!wasOpen) } : undefined}
+          folds={cols.filter(collapsible).map((c) => {
             const open = isOpen(c);
-            const filled = val(c.name).trim() !== "";
-            return (
-              <button
-                key={c.name}
-                type="button"
-                className="fold-toggle"
-                aria-pressed={open}
-                aria-label={`${c.name} column of step ${n}`}
-                title={!open && filled ? `This step has ${c.name}` : open ? `Fold ${c.name}` : `Show ${c.name}`}
-                onClick={() => setFolds((f) => ({ ...f, [c.name]: !open }))}
-              >
-                {open || !filled ? c.name : `${c.name} ●`}
-              </button>
-            );
+            return {
+              name: c.name,
+              open,
+              filled: val(c.name).trim() !== "",
+              toggle: () => setFolds((f) => ({ ...f, [c.name]: !open })),
+            };
           })}
-        </div>
-        <div className="step-tools">
-          {!readOnly && (
-            <>
-              {onAsk && (
-                <Button
-                  tone="quiet"
-                  size="sm"
-                  icon="claude"
-                  className="step-ask"
-                  title="Ask Claude about this step"
-                  aria-label={`Ask Claude about step ${n}`}
-                  onClick={onAsk}
-                >
-                  <span className="step-tool-word">Ask Claude</span>
-                </Button>
-              )}
-              <Button
-                tone="quiet"
-                size="sm"
-                icon="plus"
-                className="step-insert"
-                title="Insert below (Ctrl+Enter)"
-                onClick={onInsert}
-                aria-label={`Insert a step below step ${n}`}
-              >
-                <span className="step-tool-word">Insert below</span>
-              </Button>
-              <IconButton
-                icon="up"
-                label={`Move step ${n} up (Alt+↑)`}
-                disabled={index === 0}
-                onClick={() => onMove?.(-1)}
-              />
-              <IconButton
-                icon="down"
-                label={`Move step ${n} down (Alt+↓)`}
-                disabled={index === count - 1}
-                onClick={() => onMove?.(1)}
-              />
-              <Button
-                tone="quiet"
-                size="sm"
-                icon="trash"
-                title="Delete"
-                aria-label={`Delete step ${n}`}
-                onClick={onDelete}
-              >
-                <span className="step-tool-word">Delete</span>
-              </Button>
-            </>
-          )}
-          <IconButton icon="up" className="step-fold" label={`Fold step ${n}`} onClick={() => onFold?.(true)} />
-        </div>
+          readOnly={readOnly}
+          onAsk={onAsk}
+          onMove={onMove}
+          onInsert={onInsert}
+          onDelete={onDelete}
+          onFold={onFold}
+        />
       </div>
       {wasOpen && before && (
         <WasView
@@ -530,52 +360,29 @@ export function StepCard({
           onRestore={readOnly || !onRestore ? undefined : () => onRestore(before)}
         />
       )}
-      <div
-        className={cx("step-body", layout === "split" && "is-split")}
-        style={layout === "split" ? ({ "--tracks": splitTracks(shown) } as React.CSSProperties) : undefined}
-      >
-        {shown.map(row)}
+      <div {...stylex.props(styles.body)}>
+        <StepFields split={split} tracks={splitTracks(shown)}>
+          {shown.map(row)}
+        </StepFields>
       </div>
       {orphans.length > 0 && (
-        <div className="orphans">
-          <span className="label">
-            {orphans.length} attachment{orphans.length > 1 ? "s" : ""} not embedded — drag into a field
-          </span>
-          {orphans.map((im) => (
-            <span key={im.file} className="orphan-box">
-              <img
-                className="orphan"
-                src={url(im.file)}
-                alt={im.file.split("/").pop()}
-                title={im.file.split("/").pop()}
-                draggable={!readOnly}
-                onDragStart={(e) => {
-                  e.dataTransfer.effectAllowed = "move";
-                  e.dataTransfer.setData(MOVE, JSON.stringify({ step: n, file: im.file }));
-                }}
-                onClick={() => onOpenImage?.(im.file, step.images)}
-              />
-              {!readOnly && (
-                <button
-                  type="button"
-                  className="orphan-x"
-                  aria-label={`Detach ${im.file.split("/").pop()} from step ${n}`}
-                  title="Detach this attachment"
-                  onClick={() => detach(im)}
-                >
-                  <Icon name="close" size={10} />
-                </button>
-              )}
-            </span>
-          ))}
-        </div>
+        <StepOrphans
+          n={n}
+          orphans={orphans}
+          readOnly={readOnly}
+          url={url}
+          onOpen={(file) => onOpenImage?.(file, step.images)}
+          onDetach={edits.detach}
+        />
       )}
       {loose.length > 0 && (
-        <div className="sources">
-          <span className="label">Sources</span>
-          {loose.map((s, i) => (
-            <SourceChip key={i} source={s} onOpen={onOpenSource} />
-          ))}
+        <div data-testid="step-sources" {...stylex.props(styles.sources)}>
+          <span {...stylex.props(styles.sourcesLabel)}>Sources</span>
+          <span {...stylex.props(styles.chips)}>
+            {loose.map((s, i) => (
+              <StepSource key={i} source={s} onOpen={onOpenSource} />
+            ))}
+          </span>
         </div>
       )}
     </article>

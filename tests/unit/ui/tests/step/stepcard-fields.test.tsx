@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ColumnLayout, Step } from "../../src/core/types.ts";
-import { StepCard } from "../../src/ui/screens/tests/StepCard.tsx";
-import { layoutOf, prefsOf } from "./layout-helpers.ts";
+import type { ColumnLayout, Step } from "../../../../../src/core/types.ts";
+import { StepCard } from "../../../../../src/ui/screens/tests/StepCard.tsx";
+import { layoutOf, prefsOf } from "../../../layout-helpers.ts";
 
 afterEach(cleanup);
 
@@ -36,7 +36,7 @@ const card = (x: ColumnLayout, onChange = vi.fn()) =>
 describe("StepCard", () => {
   it("draws the fields in xray.json order", () => {
     const { container } = card(layoutOf(xray.fields, { ...prefsOf(xray), collapsed: [] }));
-    const labels = Array.from(container.querySelectorAll(".fl-k")).map((e) => e.textContent);
+    const labels = Array.from(container.querySelectorAll('[data-testid="field-label"]')).map((e) => e.textContent);
     expect(labels).toEqual(["Action", "Data", "Expected Result", "Exigence"]);
   });
 
@@ -50,16 +50,16 @@ describe("StepCard", () => {
     const { container } = render(
       <StepCard index={1} count={3} step={empty} xray={x} layout="stacked" url={(f) => f} onChange={vi.fn()} />,
     );
-    const labels = Array.from(container.querySelectorAll(".fl-k")).map((e) => e.textContent);
+    const labels = Array.from(container.querySelectorAll('[data-testid="field-label"]')).map((e) => e.textContent);
     expect(labels).toEqual(["Expected Result", "Action", "Exigence"]);
   });
 
   it("folds a collapsed column, shows a dot when it holds something, and folds both ways", () => {
     card(xray);
     expect(screen.queryByLabelText("Data of step 2")).toBeNull();
-    const fold = screen.getByRole("button", { name: "Data column of step 2" });
+    const fold = within(screen.getByRole("article", { name: "Step 2" })).getByRole("button", { name: "Data" });
     expect(fold).toHaveAttribute("aria-pressed", "false");
-    expect(fold).toHaveTextContent("Data ●");
+    expect(fold).toHaveTextContent("Data●");
     fireEvent.click(fold);
     expect(screen.getByLabelText("Data of step 2")).toHaveValue("Sectionneur S 12, position fermée.");
     expect(fold).toHaveAttribute("aria-pressed", "true");
@@ -76,8 +76,8 @@ describe("StepCard", () => {
   it("shows Exigence as plain text and the sources strip", () => {
     const { container } = card(xray);
     expect(screen.getByLabelText("Exigence of step 2")).toHaveValue("EXI_MOP_SPF_511_A_1670, EXI_MOP_SPF_510_A_20");
-    expect(container.querySelector('[data-field="Exigence"] .chip')).toBeNull();
-    const strip = container.querySelector(".sources");
+    expect(within(container.querySelector('[data-field="Exigence"]') as HTMLElement).queryByRole("button")).toBeNull();
+    const strip = container.querySelector('[data-testid="step-sources"]');
     expect(strip).toHaveTextContent("Sources");
     expect(strip).toHaveTextContent("SOSIE_211_D401-1_3 §5.6.6");
   });

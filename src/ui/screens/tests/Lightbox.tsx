@@ -1,9 +1,65 @@
+import * as stylex from "@stylexjs/stylex";
 import { useEffect, useRef, useState } from "react";
-import { Icon } from "../../components/legacy/index.ts";
+import { Button } from "../../components/ui/Button.tsx";
+import { Modal } from "../../components/ui/Modal.tsx";
+import { border, color, fontFamily, fontSize, lineHeight, size, space } from "../../styles/tokens.stylex.ts";
 
 type View = { z: number; x: number; y: number };
 const FIT: View = { z: 1, x: 0, y: 0 };
 
+const styles = stylex.create({
+  box: { display: "flex", flexDirection: "column", height: `calc(100vh - ${space.s11})` },
+  bar: {
+    display: "flex",
+    alignItems: "center",
+    gap: space.s2,
+    paddingBlock: space.s2,
+    paddingInline: space.s4,
+    borderBottomStyle: "solid",
+    borderBottomWidth: border.width,
+    borderBottomColor: color.border,
+    fontSize: fontSize.small,
+    lineHeight: lineHeight.small,
+  },
+  name: { fontFamily: fontFamily.mono, fontSize: fontSize.code, color: color.text },
+  muted: { color: color.textMuted },
+  grow: { flex: 1 },
+  stage: {
+    position: "relative",
+    flex: 1,
+    minHeight: 0,
+    display: "flex",
+    alignItems: "center",
+    gap: space.s2,
+    paddingInline: space.s2,
+    backgroundColor: color.surfaceSunken,
+  },
+  well: {
+    flex: 1,
+    height: "100%",
+    minWidth: 0,
+    overflow: "hidden",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pic: { maxWidth: "100%", maxHeight: "100%", cursor: "grab", userSelect: "none", touchAction: "none" },
+  foot: {
+    display: "flex",
+    alignItems: "center",
+    gap: space.s4,
+    minHeight: size.controlMd,
+    paddingInline: space.s4,
+    fontSize: fontSize.small,
+    color: color.textMuted,
+    borderTopStyle: "solid",
+    borderTopWidth: border.width,
+    borderTopColor: color.border,
+  },
+});
+
+// ponytail: the screenshots of a step, one at a time — zoom at the cursor (wheel), + / − / 0, drag to pan, ← → to move,
+// Esc (the Modal's) to close
 export function Lightbox({
   names,
   urls,
@@ -50,75 +106,63 @@ export function Lightbox({
     return () => el.removeEventListener("wheel", onWheel);
   }, []);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-      else if (e.key === "ArrowLeft") onIndex((index - 1 + n) % n);
-      else if (e.key === "ArrowRight") onIndex((index + 1) % n);
-      else if (e.key === "+" || e.key === "=") zoom.current(1.25);
-      else if (e.key === "-") zoom.current(1 / 1.25);
-      else if (e.key === "0") setView(FIT);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [index, n, onIndex, onClose]);
+  const prev = () => onIndex((index - 1 + n) % n);
+  const next = () => onIndex((index + 1) % n);
 
   return (
-    <div
-      className="overlay overlay-lightbox"
-      onMouseDown={(e) => !(e.target as HTMLElement).closest(".lb-pic, .lb-bar, .lb-nav") && onClose()}
-    >
-      <div className="lightbox" role="dialog" aria-modal="true" aria-label={`Screenshot ${names[index]}`}>
-        <div className="lb-bar">
-          <span className="mono">{names[index]}</span>
-          <span className="muted">step {step}</span>
-          <div className="spacer" />
-          <span className="muted">{Math.round(view.z * 100)}%</span>
-          <button
-            type="button"
-            className="btn btn-quiet btn-sm iconbtn"
-            aria-label="Zoom out"
+    <Modal title={`Screenshot ${names[index]}`} size="lg" frameless onClose={onClose}>
+      <div
+        {...stylex.props(styles.box)}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowLeft") prev();
+          else if (e.key === "ArrowRight") next();
+          else if (e.key === "+" || e.key === "=") zoomBy(1.25);
+          else if (e.key === "-") zoomBy(1 / 1.25);
+          else if (e.key === "0") setView(FIT);
+        }}
+      >
+        <div {...stylex.props(styles.bar)}>
+          <span {...stylex.props(styles.name)}>{names[index]}</span>
+          <span {...stylex.props(styles.muted)}>step {step}</span>
+          <span {...stylex.props(styles.grow)} />
+          <span {...stylex.props(styles.muted)}>{Math.round(view.z * 100)}%</span>
+          <Button
+            variant="quiet"
+            size="sm"
+            iconOnly
+            icon="zoom-out"
+            label="Zoom out"
+            shortcut="−"
             onClick={() => zoomBy(1 / 1.25)}
-          >
-            <Icon name="zoomOut" />
-          </button>
-          <button
-            type="button"
-            className="btn btn-quiet btn-sm iconbtn"
-            aria-label="Zoom in"
+          />
+          <Button
+            variant="quiet"
+            size="sm"
+            iconOnly
+            icon="zoom-in"
+            label="Zoom in"
+            shortcut="+"
             onClick={() => zoomBy(1.25)}
-          >
-            <Icon name="zoomIn" />
-          </button>
-          <button
-            type="button"
-            className="btn btn-quiet btn-sm iconbtn"
-            aria-label="Reset zoom"
+          />
+          <Button
+            variant="quiet"
+            size="sm"
+            iconOnly
+            icon="fit"
+            label="Reset zoom"
+            shortcut="0"
             onClick={() => setView(FIT)}
-          >
-            <Icon name="fit" />
-          </button>
-          <button type="button" className="btn btn-quiet btn-sm iconbtn" aria-label="Close" onClick={onClose}>
-            <Icon name="close" />
-          </button>
+          />
+          <Button variant="quiet" size="sm" iconOnly icon="close" label="Close" shortcut="Esc" onClick={onClose} />
         </div>
-        <div className="lb-stage">
-          {n > 1 && (
-            <button
-              type="button"
-              className="btn btn-quiet iconbtn lb-nav"
-              aria-label="Previous image"
-              onClick={() => onIndex((index - 1 + n) % n)}
-            >
-              <Icon name="left" />
-            </button>
-          )}
-          <div className="lb-img" ref={stage}>
+        <div {...stylex.props(styles.stage)}>
+          {n > 1 && <Button variant="quiet" iconOnly icon="chevron-left" label="Previous image" onClick={prev} />}
+          <div ref={stage} {...stylex.props(styles.well)}>
             <img
-              className="lb-pic"
               src={urls[index]}
               alt={names[index]}
               draggable={false}
+              {...stylex.props(styles.pic)}
               style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.z})` }}
               onDoubleClick={() => setView(FIT)}
               onPointerDown={(e) => {
@@ -139,24 +183,15 @@ export function Lightbox({
               }}
             />
           </div>
-          {n > 1 && (
-            <button
-              type="button"
-              className="btn btn-quiet iconbtn lb-nav"
-              aria-label="Next image"
-              onClick={() => onIndex((index + 1) % n)}
-            >
-              <Icon name="right" />
-            </button>
-          )}
+          {n > 1 && <Button variant="quiet" iconOnly icon="chevron-right" label="Next image" onClick={next} />}
         </div>
-        <div className="lb-foot muted">
-          <span className="mono">
+        <div {...stylex.props(styles.foot)}>
+          <span {...stylex.props(styles.name)}>
             {index + 1} of {n}
           </span>
           <span>← → to move · scroll to zoom · drag to pan · 0 to fit · Esc to close</span>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

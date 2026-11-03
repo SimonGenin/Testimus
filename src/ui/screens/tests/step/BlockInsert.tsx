@@ -3,10 +3,14 @@ import { useState } from "react";
 import { Button } from "../../../components/ui/Button.tsx";
 import { border, color, fontSize, lineHeight, radius, shadow, size, space } from "../../../styles/tokens.stylex.ts";
 import { stripMarker } from "../markers.stylex.ts";
-import { type Moved, MOVE } from "./moved.ts";
+import { MOVE, type Moved } from "./moved.ts";
 
 const styles = stylex.create({
   strip: {
+    borderWidth: 0,
+    padding: 0,
+    marginInline: 0,
+    minWidth: 0,
     position: "relative",
     height: space.s5,
     marginBlock: `calc(-1 * ${space.s2})`,
@@ -76,14 +80,13 @@ export function BlockInsert({
   empty?: boolean;
   table: boolean;
   onText: () => void;
-  onImage: () => void;
+  onImage: (files: File[]) => void;
   onTable: () => void;
   onDrop: (drop: { moved: Moved } | { files: File[] }) => void;
 }) {
   const [over, setOver] = useState(false);
   return (
-    <div
-      role="group"
+    <fieldset
       aria-label="Insert a block"
       data-testid="block-insert"
       data-over={over || undefined}
@@ -112,9 +115,15 @@ export function BlockInsert({
       {empty && <span {...stylex.props(styles.hint)}>Empty — type, paste an image or add a table</span>}
       <span {...stylex.props(styles.btns, empty && styles.btnsEmpty)} onMouseDown={(e) => e.preventDefault()}>
         <Button variant="quiet" size="sm" icon="text" label="Text" onClick={onText} />
-        <Button variant="quiet" size="sm" icon="image" label="Image" onClick={onImage} />
+        <Button
+          variant="quiet"
+          size="sm"
+          icon="image"
+          label="Image"
+          pick={{ accept: "image/*", multiple: true, onFiles: onImage }}
+        />
         {table && <Button variant="quiet" size="sm" icon="table" label="Table" onClick={onTable} />}
       </span>
-    </div>
+    </fieldset>
   );
 }

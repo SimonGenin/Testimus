@@ -1,16 +1,65 @@
+import * as stylex from "@stylexjs/stylex";
 import { useState } from "react";
 import type { ColumnLayout, Step, StepImage } from "../../../core/types.ts";
-import { Button } from "../../components/legacy/index.ts";
+import { Badge, DIFF } from "../../components/ui/Badge.tsx";
+import { Button } from "../../components/ui/Button.tsx";
+import { Icon } from "../../components/ui/Icon.tsx";
 import { collapsible, columnsOf, splitTracks } from "../../lib/columns.ts";
-import { cx } from "../../lib/format.ts";
+import { border, color, fontSize, fontWeight, lineHeight, radius, space } from "../../styles/tokens.stylex.ts";
 import { ColumnField } from "./ColumnField.tsx";
 import { FieldBlocks } from "./FieldBlocks.tsx";
 import type { StepLayout } from "./StepCard.tsx";
+import { cardStyles } from "./step/cardStyles.ts";
+import { FieldRow, StepFields } from "./step/StepFields.tsx";
+import { firstLine } from "./step/stepText.ts";
+
+const styles = stylex.create({
+  was: {
+    marginInline: space.s4,
+    marginBottom: space.s3,
+    borderStyle: "solid",
+    borderWidth: border.width,
+    borderColor: color.warningBorder,
+    borderRadius: radius.r2,
+    backgroundColor: color.surfaceSunken,
+  },
+  head: {
+    display: "flex",
+    alignItems: "center",
+    gap: space.s3,
+    paddingBlock: space.s2,
+    paddingInlineStart: space.s4,
+    paddingInlineEnd: space.s2,
+    borderBottomStyle: "solid",
+    borderBottomWidth: border.width,
+    borderBottomColor: color.border,
+    fontSize: fontSize.small,
+    lineHeight: lineHeight.small,
+  },
+  title: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: space.s2,
+    fontWeight: fontWeight.medium,
+    color: color.warning,
+  },
+  grow: { flex: 1 },
+  body: { paddingBlock: space.s2, paddingInline: space.s4 },
+  gone: { borderStyle: "dashed", borderColor: color.dangerBorder, backgroundColor: "transparent", boxShadow: "none" },
+  ghost: {
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    color: color.textMuted,
+    fontSize: fontSize.compact,
+  },
+});
 
 const none = () => {};
 
 // The snapshot of a step, drawn by the very same field blocks as the live card (same layout, same
-// screenshots) — only read-only: no insert strips, no ⋮⋮, no ✕, and its images still open in the lightbox
+// screenshots) — only read-only: no insert strips, no grip, no ✕, and its images still open in the lightbox
 export function WasView({
   step,
   xray,
@@ -32,49 +81,47 @@ export function WasView({
 }) {
   const shown = columnsOf(xray, step).filter((c) => !collapsible(c) || (step.fields[c.name] ?? "").trim());
   const n = index + 1;
+  const split = layout === "split";
   return (
-    <section className="was" aria-label={`Step ${n} as Jira has it`}>
-      <div className="was-head">
-        <span className="was-label">In Jira, last synced</span>
-        <span className="spacer" />
-        {onRestore && (
-          <Button size="sm" icon="revert" onClick={onRestore}>
-            {restoreLabel}
-          </Button>
-        )}
+    <section aria-label={`Step ${n} as Jira has it`} {...stylex.props(styles.was)}>
+      <div {...stylex.props(styles.head)}>
+        <span {...stylex.props(styles.title)}>
+          <Icon name="history" size="sm" />
+          In Jira, last synced
+        </span>
+        <span {...stylex.props(styles.grow)} />
+        {onRestore && <Button size="sm" icon="undo" label={restoreLabel} onClick={onRestore} />}
       </div>
-      <div
-        className={cx("step-body", layout === "split" && "is-split")}
-        style={layout === "split" ? ({ "--tracks": splitTracks(shown) } as React.CSSProperties) : undefined}
-      >
-        {shown.map((c) => {
-          const value = step.fields[c.name] ?? "";
-          return (
-            <div key={c.name} className="fl" data-field={c.name}>
-              <span className="fl-k">{c.name}</span>
-              {c.kind === "blocks" ? (
-                <FieldBlocks
-                  readOnly
-                  idBase={`was${index}-${c.name.replace(/\W+/g, "")}`}
-                  name={c.name}
-                  label={c.name}
-                  text={value}
-                  images={step.images}
-                  url={url}
-                  stepNumber={n}
-                  onText={none}
-                  onAddFiles={none}
-                  onFieldText={none}
-                  onDropBlock={none}
-                  onRemove={none}
-                  onOpen={(file) => onOpenImage(file, step.images)}
-                />
-              ) : (
-                <ColumnField column={c} value={value} stepNumber={n} readOnly onChange={none} />
-              )}
-            </div>
-          );
-        })}
+      <div {...stylex.props(styles.body)}>
+        <StepFields split={split} tracks={splitTracks(shown)}>
+          {shown.map((c) => {
+            const value = step.fields[c.name] ?? "";
+            return (
+              <FieldRow key={c.name} name={c.name} split={split}>
+                {c.kind === "blocks" ? (
+                  <FieldBlocks
+                    readOnly
+                    idBase={`was${index}-${c.name.replace(/\W+/g, "")}`}
+                    name={c.name}
+                    label={c.name}
+                    text={value}
+                    images={step.images}
+                    url={url}
+                    stepNumber={n}
+                    onText={none}
+                    onAddFiles={none}
+                    onFieldText={none}
+                    onDropBlock={none}
+                    onRemove={none}
+                    onOpen={(file) => onOpenImage(file, step.images)}
+                  />
+                ) : (
+                  <ColumnField column={c} value={value} stepNumber={n} readOnly onChange={none} />
+                )}
+              </FieldRow>
+            );
+          })}
+        </StepFields>
       </div>
     </section>
   );
@@ -98,27 +145,23 @@ export function GoneStep({
   onRestore?: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const first = (step.fields.Action ?? "")
-    .replace(/!\[\]\([^)]*\)/g, "")
-    .trim()
-    .split("\n")[0];
   return (
-    <section className="card step step-gone" aria-label="Deleted step">
-      <div className="step-head">
-        <span className="num num-gone" title="This step has no number any more">
-          –
+    <section aria-label="Deleted step" {...stylex.props(cardStyles.card, styles.gone)}>
+      <div {...stylex.props(cardStyles.head)}>
+        <Badge {...DIFF.deleted} />
+        <span data-testid="step-line" {...stylex.props(styles.ghost)}>
+          {firstLine(step.fields.Action ?? "")}
         </span>
-        <span className="mark mark-gone">deleted</span>
-        <span className="step-line muted">{first}</span>
-        <button
-          type="button"
-          className="was-toggle"
-          aria-pressed={open}
-          title="What Jira still has for this step"
+        <span {...stylex.props(styles.grow)} />
+        <Button
+          variant="quiet"
+          size="sm"
+          icon="history"
+          label={open ? "Hide Jira version" : "Jira version"}
+          pressed={open}
           onClick={() => setOpen(!open)}
-        >
-          {open ? "hide Jira version" : "Jira version"}
-        </button>
+        />
+        {onRestore && <Button size="sm" icon="undo" label="Bring the step back" onClick={onRestore} />}
       </div>
       {open && (
         <WasView
@@ -129,7 +172,6 @@ export function GoneStep({
           url={url}
           restoreLabel="Bring the step back"
           onOpenImage={onOpenImage}
-          onRestore={onRestore}
         />
       )}
     </section>

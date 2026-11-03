@@ -2,7 +2,7 @@
 import "@testing-library/jest-dom/vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Lightbox } from "../../src/ui/screens/tests/Lightbox.tsx";
+import { Lightbox } from "../../../../../src/ui/screens/tests/Lightbox.tsx";
 
 beforeEach(() => {
   HTMLElement.prototype.setPointerCapture = vi.fn();
@@ -31,7 +31,7 @@ const box = (over: { index?: number; names?: string[] } = {}) => {
 };
 
 const zoomText = () => screen.getByText(/^\d+%$/).textContent;
-const key = (k: string) => act(() => void window.dispatchEvent(new KeyboardEvent("keydown", { key: k })));
+const key = (k: string) => fireEvent.keyDown(screen.getByRole("img"), { key: k });
 
 describe("Lightbox", () => {
   it("shows the picture, its name, the step and its place", () => {
@@ -124,12 +124,12 @@ describe("Lightbox", () => {
   });
 
   it("closes on a click outside the picture and its bars only", () => {
-    const { onClose, container, pic } = box({ names: ["only.png"] });
+    const { onClose, pic } = box({ names: ["only.png"] });
     expect(screen.queryByRole("button", { name: "Next image" })).toBeNull();
     fireEvent.mouseDown(pic());
     fireEvent.mouseDown(screen.getByText("step 4"));
     expect(onClose).not.toHaveBeenCalled();
-    fireEvent.mouseDown(container.querySelector(".overlay") as HTMLElement);
+    fireEvent.mouseDown(screen.getByRole("dialog").parentElement as HTMLElement);
     expect(onClose).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(onClose).toHaveBeenCalledTimes(2);
