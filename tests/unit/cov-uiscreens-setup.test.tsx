@@ -185,31 +185,39 @@ describe("First launch › Project", () => {
     expect(screen.queryByRole("list", { name: "Known projects" })).toBeNull();
   });
 
-  it("creates a project with every field, then opens it", async () => {
-    api.routes["project.list"] = () => ({ projects: [] });
+  it("creates a project in its own folder under the projects folder, then opens it", async () => {
+    api.routes["project.list"] = () => ({ projects: [], root: "D:\\Testimus\\Projects" });
     api.routes["project.init"] = () => ({});
     api.routes["project.open"] = (i) => ({ dir: i.dir });
     const onOpened = vi.fn();
     mount(<ProjectStep onBack={vi.fn()} onOpened={onOpened} />);
+    await waitFor(() => expect(screen.getByLabelText("Projects folder")).toHaveValue("D:\\Testimus\\Projects"));
     const create = screen.getByRole("button", { name: "Create the project" });
     expect(create).toBeDisabled();
-    fireEvent.change(screen.getByLabelText("Folder"), { target: { value: " D:/new " } });
+    expect(screen.getByText(/gets its own folder in it/)).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Jira project"), { target: { value: " lfr " } });
-    fireEvent.change(screen.getByLabelText("Name"), { target: { value: " New " } });
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: " RATP: Sosie. " } });
     fireEvent.change(screen.getByLabelText("Language of the tests"), { target: { value: "en" } });
+    expect(screen.getByText("D:\\Testimus\\Projects\\RATP Sosie")).toBeInTheDocument();
     fireEvent.click(create);
     await waitFor(() => expect(onOpened).toHaveBeenCalled());
-    expect(named("project.init")[0].input).toEqual({ dir: "D:/new", jiraProject: "LFR", name: "New", language: "en" });
-    expect(named("project.open")[0].input).toEqual({ dir: "D:/new" });
+    expect(named("project.init")[0].input).toEqual({
+      dir: "D:\\Testimus\\Projects\\RATP Sosie",
+      jiraProject: "LFR",
+      name: "RATP: Sosie.",
+      language: "en",
+    });
+    expect(named("project.open")[0].input).toEqual({ dir: "D:\\Testimus\\Projects\\RATP Sosie" });
   });
 
-  it("creates with only a folder; a failed creation says why", async () => {
+  it("without a name the folder is the Jira key; a typed projects folder wins; a failed creation says why", async () => {
     api.routes["project.list"] = () => ({ projects: [] });
     mount(<ProjectStep onBack={vi.fn()} />);
-    fireEvent.change(screen.getByLabelText("Folder"), { target: { value: "D:/x" } });
+    fireEvent.change(screen.getByLabelText("Projects folder"), { target: { value: " E:\\Mine\\ " } });
+    fireEvent.change(screen.getByLabelText("Jira project"), { target: { value: "bhptcc" } });
     fireEvent.click(screen.getByRole("button", { name: "Create the project" }));
     expect(await screen.findByText("Unknown command project.init")).toBeInTheDocument();
-    expect(named("project.init")[0].input).toEqual({ dir: "D:/x", language: "fr" });
+    expect(named("project.init")[0].input).toEqual({ dir: "E:\\Mine\\BHPTCC", jiraProject: "BHPTCC", language: "fr" });
     expect(screen.getByRole("button", { name: "Create the project" })).toBeEnabled();
   });
 
@@ -231,9 +239,9 @@ describe("First launch › Project", () => {
     );
     mount(<ProjectStep onBack={vi.fn()} />);
     fireEvent.click(await screen.findByRole("button", { name: "Open again" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Browse for the project folder" })).toBeDisabled());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Browse for the projects folder" })).toBeDisabled());
     release();
-    await waitFor(() => expect(screen.getByRole("button", { name: "Browse for the project folder" })).toBeEnabled());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Browse for the projects folder" })).toBeEnabled());
   });
 });
 

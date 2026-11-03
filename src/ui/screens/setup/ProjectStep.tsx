@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { call } from "../../api.ts";
-import { Button, IconButton, Menu, Skeleton } from "../../components/ui/index.ts";
+import { Button, Field, IconButton, Menu, Skeleton } from "../../components/ui/index.ts";
 import { useApp } from "../../lib/app.ts";
 import { desktop, openProject, pickFolder } from "../../lib/desktop.ts";
 import { useDraft } from "../../lib/drafts.ts";
@@ -10,10 +10,18 @@ import { DeleteProject } from "./DeleteProject.tsx";
 
 type Known = { dir: string; name: string; jiraProject: string; exists: boolean };
 
+export function projectFolder(where: string, title: string): string {
+  const name = title
+    .replace(/[<>:"/\\|?*]/g, "")
+    .replace(/[. ]+$/, "")
+    .trim();
+  return where.trim() && name ? `${where.trim().replace(/[\\/]+$/, "")}\\${name}` : "";
+}
+
 export function ProjectStep({ onBack, onOpened }: { onBack: () => void; onOpened?: () => void }) {
   const app = useApp();
   const [known, setKnown] = useState<Known[] | null>(null);
-  const [dir, setDir] = useDraft("setup.project.dir", "");
+  const [where, setWhere] = useDraft("setup.project.where", "");
   const [key, setKey] = useDraft("setup.project.key", "");
   const [name, setName] = useDraft("setup.project.name", "");
   const [language, setLanguage] = useDraft("setup.project.language", "fr");
@@ -33,8 +41,12 @@ export function ProjectStep({ onBack, onOpened }: { onBack: () => void; onOpened
   };
 
   useEffect(() => {
-    call<{ projects: Known[] }>("project.list", {})
-      .then((r) => setKnown(r?.projects ?? []))
+    call<{ projects: Known[]; root?: string }>("project.list", {})
+      .then((r) => {
+        setKnown(r?.projects ?? []);
+        const root = r?.root;
+        if (root) setWhere((w) => w || root);
+      })
       .catch(() => setKnown([]));
   }, []);
 
@@ -53,18 +65,20 @@ export function ProjectStep({ onBack, onOpened }: { onBack: () => void; onOpened
     }
   };
 
+  const dir = projectFolder(where, name.trim() || key.trim().toUpperCase());
+
   const create = async () => {
-    if (!dir.trim()) return;
+    if (!dir) return;
     setBusy(true);
     setError("");
     try {
       await call("project.init", {
-        dir: dir.trim(),
+        dir,
         ...(key.trim() ? { jiraProject: key.trim().toUpperCase() } : {}),
         ...(name.trim() ? { name: name.trim() } : {}),
         language,
       });
-      await open(dir.trim());
+      await open(dir);
     } catch (e) {
       setError(message(e));
       setBusy(false);
@@ -151,29 +165,6 @@ export function ProjectStep({ onBack, onOpened }: { onBack: () => void; onOpened
       )}
       <fieldset className="setup-set">
         <legend className="h">New project</legend>
-        <div className="formfield">
-          <label className="label" htmlFor="proj-dir">
-            Folder
-          </label>
-          <div className="pickrow">
-            <input
-              id="proj-dir"
-              className="field mono"
-              placeholder="C:\…\Tests LFRPS12"
-              value={dir}
-              onChange={(e) => setDir(e.target.value)}
-            />
-            {desktop() && (
-              <Button
-                aria-label="Browse for the project folder"
-                disabled={busy}
-                onClick={() => void pickFolder("Choose the project folder").then((d) => d && setDir(d))}
-              >
-                Browse…
-              </Button>
-            )}
-          </div>
-        </div>
         <div className="formgrid">
           <div className="formfield">
             <label className="label" htmlFor="proj-key">
@@ -209,13 +200,45 @@ export function ProjectStep({ onBack, onOpened }: { onBack: () => void; onOpened
             </select>
           </div>
         </div>
+        <Field
+          label="Projects folder"
+          htmlFor="proj-where"
+          hint={
+            dir ? (
+              <>
+                The project is created in <span className="mono">{dir}</span>
+              </>
+            ) : (
+              "The project gets its own folder in it, named after the project."
+            )
+          }
+        >
+          <div className="pickrow">
+            <input
+              id="proj-where"
+              className="field mono"
+              placeholder="D:\Testimus\Projects"
+              value={where}
+              onChange={(e) => setWhere(e.target.value)}
+            />
+            {desktop() && (
+              <Button
+                aria-label="Browse for the projects folder"
+                disabled={busy}
+                onClick={() => void pickFolder("Choose where the project goes").then((d) => d && setWhere(d))}
+              >
+                Browse…
+              </Button>
+            )}
+          </div>
+        </Field>
         {error && <p className="sev s-err">{error}</p>}
         <div className="setup-actions">
           <Button tone="quiet" onClick={onBack}>
             Back
           </Button>
           <span className="spacer" />
-          <Button tone="primary" disabled={!dir.trim() || busy} onClick={() => void create()}>
+          <Button tone="primary" disabled={!dir || busy} onClick={() => void create()}>
             Create the project
           </Button>
         </div>

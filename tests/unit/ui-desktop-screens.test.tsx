@@ -43,23 +43,23 @@ describe("First launch › Project", () => {
   it("Browse… puts the picked folder in the field", async () => {
     const d = fakeDesktop({ folder: "D:\\Tests\\Nouveau" });
     within(<ProjectStep onBack={() => {}} />);
-    fireEvent.click(screen.getByRole("button", { name: "Browse for the project folder" }));
-    await waitFor(() => expect(screen.getByLabelText("Folder")).toHaveValue("D:\\Tests\\Nouveau"));
-    expect(d.pickFolder).toHaveBeenCalledWith({ title: "Choose the project folder" });
+    fireEvent.click(screen.getByRole("button", { name: "Browse for the projects folder" }));
+    await waitFor(() => expect(screen.getByLabelText("Projects folder")).toHaveValue("D:\\Tests\\Nouveau"));
+    expect(d.pickFolder).toHaveBeenCalledWith({ title: "Choose where the project goes" });
   });
 
   it("a cancelled dialog leaves the field alone", async () => {
     const d = fakeDesktop({ folder: null });
     within(<ProjectStep onBack={() => {}} />);
-    fireEvent.change(screen.getByLabelText("Folder"), { target: { value: "C:\\typed" } });
-    fireEvent.click(screen.getByRole("button", { name: "Browse for the project folder" }));
+    fireEvent.change(screen.getByLabelText("Projects folder"), { target: { value: "C:\\typed" } });
+    fireEvent.click(screen.getByRole("button", { name: "Browse for the projects folder" }));
     await waitFor(() => expect(d.pickFolder).toHaveBeenCalled());
-    expect(screen.getByLabelText("Folder")).toHaveValue("C:\\typed");
+    expect(screen.getByLabelText("Projects folder")).toHaveValue("C:\\typed");
   });
 
   it("without the bridge: the text field only", () => {
     within(<ProjectStep onBack={() => {}} />);
-    expect(screen.getByLabelText("Folder")).toBeInTheDocument();
+    expect(screen.getByLabelText("Projects folder")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Browse/ })).toBeNull();
   });
 });

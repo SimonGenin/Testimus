@@ -5,7 +5,8 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { invoke } from "../../src/core/commands/index.ts";
 import { STARTER_ASKS } from "../../src/core/commands/project.ts";
-import { readProject, readSettings, readXray } from "../../src/core/lib/project.ts";
+import { env } from "../../src/core/env.ts";
+import { projectsRoot, readProject, readSettings, readXray, writeJson } from "../../src/core/lib/project.ts";
 
 const FIXTURE = fileURLToPath(new URL("../fixtures/project/", import.meta.url));
 const tmp = (p: string) => mkdtempSync(join(tmpdir(), p));
@@ -61,6 +62,38 @@ describe("project.init", () => {
     expect(r.kept).toEqual(["CLAUDE.md", "project.json", "xray.json"]);
     expect(readFileSync(join(dir, "CLAUDE.md"), "utf8")).toBe("# Team rules\n");
     expect(readProject(dir)).toMatchObject({ name: "Renamed", jiraProject: "LFRPS12", language: "en" });
+  });
+});
+
+describe("projectsRoot", () => {
+  it("is D:\\Testimus\\Projects, or C: when the PC has no D:", () => {
+    if (process.platform !== "win32") return;
+    expect(projectsRoot(() => true)).toBe("D:\\Testimus\\Projects");
+    expect(projectsRoot(() => false)).toBe("C:\\Testimus\\Projects");
+  });
+
+  it("stays in the sandbox under --mock, and project.list hands it to the page", async () => {
+    env.mock = true;
+    try {
+      expect(projectsRoot(() => true)).toBe(join(env.homeDir(), "Testimus", "Projects"));
+      expect(((await invoke("project.list", {}, { project: null })) as { root: string }).root).toBe(
+        join(env.homeDir(), "Testimus", "Projects"),
+      );
+    } finally {
+      env.mock = false;
+    }
+  });
+
+  it("is where project.openKey makes a project when none was opened before", async () => {
+    const before = readSettings();
+    writeJson(join(env.dataDir(), "settings.json"), { ...before, lastProject: "" });
+    env.mock = true;
+    try {
+      const r = (await invoke("project.openKey", { key: "NEWKEY" }, { project: null })) as { dir: string };
+      expect(r.dir).toBe(join(env.homeDir(), "Testimus", "Projects", "NEWKEY"));
+    } finally {
+      env.mock = false;
+    }
   });
 });
 

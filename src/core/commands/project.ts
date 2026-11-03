@@ -4,7 +4,6 @@ import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { ensureMcpJson } from "../claude/run.ts";
 import { type Command, command, projectOf, UserError } from "../command.ts";
-import { env } from "../env.ts";
 import { listJobs } from "../jobs.ts";
 import { stepColumns } from "../lib/columns.ts";
 import { sha256 } from "../lib/hash.ts";
@@ -14,6 +13,7 @@ import {
   fieldOrder,
   forgetProject,
   isProject,
+  projectsRoot,
   readJson,
   readProject,
   readSettings,
@@ -229,6 +229,9 @@ export const commands: Command[] = [
     input: z.object({}),
     output: z.object({
       last: z.string(),
+      root: z
+        .string()
+        .describe("Where a new project folder goes by default: D:\\Testimus\\Projects, or C: when there is no D:"),
       projects: z.array(z.object({ dir: z.string(), name: z.string(), jiraProject: z.string(), exists: z.boolean() })),
     }),
     mutates: false,
@@ -237,6 +240,7 @@ export const commands: Command[] = [
       const s = readSettings();
       return {
         last: s.lastProject,
+        root: projectsRoot(),
         projects: s.projects.map((dir) => {
           const exists = isProject(dir);
           const p = exists ? readProject(dir) : DEFAULT_PROJECT;
@@ -306,7 +310,9 @@ export const commands: Command[] = [
       root: z
         .string()
         .optional()
-        .describe("Folder where a new project folder is made (default: beside the last project, else ~/Testimus)"),
+        .describe(
+          "Folder where a new project folder is made (default: beside the last project, else the projects folder)",
+        ),
     }),
     output: z.object({ dir: z.string(), name: z.string(), jiraProject: z.string(), created: z.boolean() }),
     mutates: true,
@@ -325,7 +331,7 @@ export const commands: Command[] = [
           ? resolve(input.root)
           : s.lastProject
             ? dirname(resolve(s.lastProject))
-            : join(env.homeDir(), "Testimus");
+            : projectsRoot();
         dir = join(root, key);
         if (!isProject(dir)) {
           initProject(dir, { jiraProject: key, name: key });

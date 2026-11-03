@@ -196,9 +196,11 @@ test("Browse opens a project, the window takes its name, Show in Explorer reveal
     await expect.poll(() => img.evaluate((i) => (i as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
 
     await go(page, "#/setup/project");
-    await pick(app, ["D:\\Tests\\Nouveau projet"]);
-    await page.getByRole("button", { name: "Browse for the project folder" }).click();
-    await expect(page.getByRole("textbox", { name: "Folder" })).toHaveValue("D:\\Tests\\Nouveau projet");
+    await pick(app, ["D:\\Tests"]);
+    await page.getByRole("button", { name: "Browse for the projects folder" }).click();
+    await expect(page.getByRole("textbox", { name: "Projects folder" })).toHaveValue("D:\\Tests");
+    await page.getByRole("textbox", { name: "Name" }).fill("Nouveau projet");
+    await expect(page.getByText("D:\\Tests\\Nouveau projet")).toBeVisible();
     await shoot(page, "desktop-setup-project");
 
     await go(page, "#/settings/claude");

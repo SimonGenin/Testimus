@@ -32,6 +32,12 @@ export const DEFAULT_SETTINGS: Settings = {
   models: { allowRemote: true },
 };
 
+// ponytail: one folder holds every project — D: when the PC has one, else C:; --mock keeps it in the sandbox
+export function projectsRoot(hasDrive: (root: string) => boolean = existsSync): string {
+  if (env.mock || process.platform !== "win32") return join(env.homeDir(), "Testimus", "Projects");
+  return `${hasDrive("D:\\") ? "D:" : "C:"}\\Testimus\\Projects`;
+}
+
 export function readJson<T>(file: string, fallback: T): T {
   if (!existsSync(file)) return structuredClone(fallback);
   try {
