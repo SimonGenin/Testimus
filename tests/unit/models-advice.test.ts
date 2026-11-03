@@ -61,7 +61,7 @@ describe("advice (§7.10)", () => {
     ];
     const [a] = advise(input({ lines }));
     expect(a.direction).toBe("downgrade");
-    expect(a.to).toEqual({ embedding: "qwen3-embedding-8b-q4", reranker: "qwen3-reranker-0.6b-q8" });
+    expect(a.to).toEqual({ embedding: "qwen3-embedding-4b-q4", reranker: "qwen3-reranker-4b-q8" });
     expect(a.reason).toMatch(/Quality's lighter variant .*queries take 2\.4 s at p95 here \(budget 1\.0 s\)/);
     expect(a.quality).toMatch(/quality difference not measured/);
     expect(a.id).toBe(adviceId("downgrade", { pack: "quality" }, a.to));
@@ -169,7 +169,7 @@ describe("advice: memory failures and the quality side (N-perf)", () => {
     ];
     const [a] = advise(input({ lines }));
     expect(a.direction).toBe("downgrade");
-    expect(a.to).toEqual({ embedding: "qwen3-embedding-8b-q4", reranker: "qwen3-reranker-0.6b-q8" });
+    expect(a.to).toEqual({ embedding: "qwen3-embedding-4b-q4", reranker: "qwen3-reranker-4b-q8" });
     expect(a.reason).toMatch(/Qwen3 Reranker 4B .* ran out of memory on this PC \(once in its last 50 operations\)/);
     expect(a.metric).toBe(1);
     expect(advise(input({ lines: lines.map((l) => ({ ...l, oom: false })) }))).toEqual([]);
@@ -194,25 +194,20 @@ describe("advice: memory failures and the quality side (N-perf)", () => {
   it("quotes the measured difference when both fingerprints have a report", () => {
     const reports = [
       measured("cur.json", "qwen3-embedding-8b-q4", "qwen3-reranker-4b-q8", ten(0.9)),
-      measured("cand.json", "qwen3-embedding-8b-q4", "qwen3-reranker-0.6b-q8", [
-        ...ten(0.9).slice(0, 7),
-        0.8,
-        0.8,
-        0.8,
-      ]),
+      measured("cand.json", "qwen3-embedding-4b-q4", "qwen3-reranker-4b-q8", [...ten(0.9).slice(0, 7), 0.8, 0.8, 0.8]),
     ];
     const [a] = advise(input({ lines: slow, reports }));
     expect(a.quality).toMatch(
       /^−3 points of evidence recall, interval −\d+(\.\d)?…−?\d+(\.\d)? \(recall@10, 10 behaviors\)$/,
     );
-    const prov = [reports[0], measured("cand.json", "qwen3-embedding-8b-q4", "qwen3-reranker-0.6b-q8", ten(0.9), true)];
+    const prov = [reports[0], measured("cand.json", "qwen3-embedding-4b-q4", "qwen3-reranker-4b-q8", ten(0.9), true)];
     expect(advise(input({ lines: slow, reports: prov }))[0].quality).toMatch(/^0 points .*provisional/);
   });
 
   it("without reports: not measured, and the rag.eval to run on the candidate", () => {
     const [a] = advise(input({ lines: slow, reports: [] }));
     expect(a.quality).toBe(
-      "quality difference not measured — run rag.eval --embedding qwen3-embedding-8b-q4 --reranker qwen3-reranker-0.6b-q8 on the candidate before switching",
+      "quality difference not measured — run rag.eval --embedding qwen3-embedding-4b-q4 --reranker qwen3-reranker-4b-q8 on the candidate before switching",
     );
     const dir = mkdtempSync(join(tmpdir(), "testimus-advice-"));
     expect(advise(input({ lines: slow, project: dir }))[0].quality).toBe(a.quality);

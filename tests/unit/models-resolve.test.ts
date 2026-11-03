@@ -138,11 +138,11 @@ describe("packs (§7.12)", () => {
     expect(r.missing.sort()).toEqual(["qwen3-embedding-8b-q4", "qwen3-reranker-4b-q8"]);
   });
 
-  it("Quality with less free GPU memory: variant 1 is skipped with the numbers, variant 2 applies", async () => {
+  it("Quality with less free GPU memory: variant 1 is skipped with the numbers, variant 2 keeps the 4B reranker", async () => {
     const busy = devPc({ gpus: [{ ...devPc().gpus[0], vramUsedMB: 6000 }] } as Partial<MachineProfile>);
     const r = await resolveChoice({ pack: "quality" }, "task", { machine: async () => busy });
     expect(r.variantIndex).toBe(1);
-    expect(r.variant).toEqual({ embedding: "qwen3-embedding-8b-q4", reranker: "qwen3-reranker-0.6b-q8" });
+    expect(r.variant).toEqual({ embedding: "qwen3-embedding-4b-q4", reranker: "qwen3-reranker-4b-q8" });
     expect(r.skipped).toHaveLength(1);
     expect(r.skipped[0]).toMatch(
       /Qwen3 Embedding 8B \(4-bit\) \+ Qwen3 Reranker 4B .*: 10\.3 GB needed, 8\.6 GB usable \(tight\)/,
@@ -156,7 +156,7 @@ describe("packs (§7.12)", () => {
     placeGguf(dir, "qwen3-embedding-8b-q4");
     const half = await resolveChoice({ pack: "quality" }, "task", { machine: async () => busy });
     expect(half.variantIndex).toBe(1);
-    expect(half.missing).toEqual(["qwen3-reranker-0.6b-q8"]);
+    expect(half.missing.sort()).toEqual(["qwen3-embedding-4b-q4", "qwen3-reranker-4b-q8"]);
 
     placeGguf(dir, "qwen3-reranker-4b-q8");
     const kept = await resolveChoice({ pack: "quality" }, "task", { machine: async () => busy });
@@ -170,7 +170,7 @@ describe("packs (§7.12)", () => {
     const over = await resolveChoice({ pack: "quality" }, "task", { machine: async () => full });
     expect(over.variantIndex).toBe(1);
 
-    placeGguf(dir, "qwen3-reranker-0.6b-q8");
+    placeGguf(dir, "qwen3-embedding-4b-q4");
     const both = await resolveChoice({ pack: "quality" }, "task", { machine: async () => busy });
     expect(both.variantIndex).toBe(1);
     expect(both.fit?.verdict).toBe("fits");
@@ -179,9 +179,20 @@ describe("packs (§7.12)", () => {
   it("a pack whose every variant is tight resolves to its lightest, flagged", async () => {
     const small: MachineProfile = { ...cpuLaptop, ramFreeMB: 6000 };
     const r = await resolveChoice({ pack: "quality" }, "task", { machine: async () => small });
-    expect(r.variantIndex).toBe(2);
+    expect(r.variantIndex).toBe(3);
     expect(r.fit?.verdict).toBe("tight");
-    expect(r.skipped).toHaveLength(2);
+    expect(r.skipped).toHaveLength(3);
+  });
+
+  it("without a GPU, Balanced skips llama.cpp on the processor for its transformers.js variant", async () => {
+    const r = await resolveChoice({ pack: "balanced" }, "task", { machine: async () => cpuLaptop });
+    expect(r.variantIndex).toBe(2);
+    expect(r.variant).toEqual({ embedding: "qwen3-embedding-0.6b-onnx-q8", reranker: "bge-reranker-v2-m3-q8" });
+    expect(r.fit?.verdict).toBe("fits");
+    expect(r.skipped[0]).toMatch(/Qwen3 Embedding 4B .*: llama\.cpp would run on the processor \(slow\)/);
+    const quality = await resolveChoice({ pack: "quality" }, "task", { machine: async () => cpuLaptop });
+    expect(quality.variant).not.toBeNull();
+    expect(quality.fit?.verdict).toBe("fits");
   });
 
   it("a pack with nothing that fits in RAM is not available, with the reason", async () => {
@@ -204,8 +215,11 @@ describe("packs (§7.12)", () => {
   });
 
   it("unknown GPU memory: GGUF variants are « unknown », the pack falls back to its lightest", async () => {
-    const r = await resolveChoice({ pack: "balanced" }, "task", { machine: async () => amdPc });
-    expect(r.variantIndex).toBe(1);
+    const r = await resolveChoice({ pack: "quality" }, "task", { machine: async () => amdPc });
+    expect(r.variantIndex).toBe(3);
     expect(r.fit?.verdict).toBe("unknown");
+    const balanced = await resolveChoice({ pack: "balanced" }, "task", { machine: async () => amdPc });
+    expect(balanced.variantIndex).toBe(2);
+    expect(balanced.fit?.verdict).toBe("fits");
   });
 });

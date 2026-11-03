@@ -145,7 +145,7 @@ export function choiceLabel(c: RagChoice | undefined | null, label: (id: string)
   return c.reranker ? `${label(c.embedding)} + ${label(c.reranker)}` : label(c.embedding);
 }
 
-// ponytail: decision n°11 — the heaviest pack that fits without a GGUF on the processor; Light when the
+// ponytail: decision n°11 — the heaviest pack that fits without a GGUF or a reranker on the processor; Light when the
 // hardware is unknown (no profile, or no RAM figure)
 export function suggestPack(rows: PackRow[], hw: Hardware | null, catalog: CatalogRow[]): string {
   if (!hw?.ramTotalMB) return "light";
@@ -156,7 +156,7 @@ export function suggestPack(rows: PackRow[], hw: Hardware | null, catalog: Catal
   for (const id of PACK_ORDER) {
     const r = rows.find((p) => p.id === id);
     if (!r?.available || r.fit?.verdict !== "fits") continue;
-    if (r.fit.device === "cpu" && (gguf(r.embedding) || gguf(r.reranker))) continue;
+    if (r.fit.device === "cpu" && (gguf(r.embedding) || r.reranker)) continue;
     return r.id;
   }
   return "light";

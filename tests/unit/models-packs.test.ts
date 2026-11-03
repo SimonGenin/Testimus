@@ -106,8 +106,8 @@ describe("pack cards (models.packs)", () => {
     expect([qb.variant, qb.available]).toEqual([1, true]);
     expect(qb.skipped[0]).toMatch(/10\.3 GB needed, 8\.6 GB usable/);
     expect(qb.downloadMB).toBe(
-      (catalogEntry("qwen3-embedding-8b-q4") as CatalogEntry).size.downloadMB +
-        (catalogEntry("qwen3-reranker-0.6b-q8") as CatalogEntry).size.downloadMB,
+      (catalogEntry("qwen3-embedding-4b-q4") as CatalogEntry).size.downloadMB +
+        (catalogEntry("qwen3-reranker-4b-q8") as CatalogEntry).size.downloadMB,
     );
     const marked = await packRows({ pack: "light" }, "task", { machine: async () => devPc });
     expect(marked.filter((r) => r.active).map((r) => r.id)).toEqual(["light"]);

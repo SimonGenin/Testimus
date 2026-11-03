@@ -132,7 +132,7 @@ test.describe("no GPU and 6 GB of memory", () => {
   test("variants too big for the memory are skipped, and a model too big is refused", async ({ page }) => {
     const models = await openModels(page);
     const quality = models.getByRole("article", { name: "Quality pack" });
-    await expect(quality).toContainText("its third choice");
+    await expect(quality).toContainText("its fourth choice");
     await expect(quality).toContainText("Tight");
     await expect(quality.getByRole("list", { name: "Skipped variants" })).toContainText("ram-too-small");
     await models.getByRole("button", { name: "Model catalog" }).click();

@@ -143,16 +143,16 @@ describe("serve --mock models", () => {
     await replay({ machine: "cpu-only" });
     p = await packs();
     const quality = p.find((x) => x.id === "quality");
-    expect(quality).toMatchObject({ available: true, variant: 2, fit: { verdict: "tight" } });
+    expect(quality).toMatchObject({ available: true, variant: 3, fit: { verdict: "tight" } });
     expect(quality?.skipped[0]).toMatch(/of memory \(ram-too-small\)$/);
     const plan = (await invoke("models.usePack", { pack: "quality", dryRun: true }, { project })) as {
       variant: number;
     };
-    expect(plan.variant).toBe(2);
+    expect(plan.variant).toBe(3);
     expect(readRegistry().llamacpp?.backend).toBe("cpu");
     await replay({ machine: "unknown" });
     p = await packs();
-    expect(p.find((x) => x.id === "balanced")?.fit?.verdict).toBe("unknown");
+    expect(p.find((x) => x.id === "quality")?.fit?.verdict).toBe("unknown");
     await replay({ machine: "dev" });
     const hw = (await invoke("models.hardware", {}, { project: null })) as { gpus: { name: string }[] };
     expect(hw.gpus.map((g) => g.name)).toEqual(["NVIDIA GeForce RTX 5080", "Intel(R) Graphics"]);

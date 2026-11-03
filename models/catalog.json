@@ -881,7 +881,7 @@
     {
       "id": "balanced",
       "label": "Balanced",
-      "intent": "Better recall with a reranker, for a GPU with 8 GB or more.",
+      "intent": "Better recall with a reranker; best with a GPU of 8 GB or more, also runs on the processor.",
       "variants": [
         {
           "embedding": "qwen3-embedding-4b-q4",
@@ -890,6 +890,10 @@
         {
           "embedding": "qwen3-embedding-0.6b-q8",
           "reranker": "qwen3-reranker-0.6b-q8"
+        },
+        {
+          "embedding": "qwen3-embedding-0.6b-onnx-q8",
+          "reranker": "bge-reranker-v2-m3-q8"
         }
       ]
     },
@@ -900,6 +904,10 @@
       "variants": [
         {
           "embedding": "qwen3-embedding-8b-q4",
+          "reranker": "qwen3-reranker-4b-q8"
+        },
+        {
+          "embedding": "qwen3-embedding-4b-q4",
           "reranker": "qwen3-reranker-4b-q8"
         },
         {

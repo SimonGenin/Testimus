@@ -100,8 +100,11 @@ export function suggestPack(machine: MachineProfile | null, lines: PerfLine[] = 
         .filter((m): m is string => !!m)
         .map((m) => catalogEntry(m))
         .filter((e): e is CatalogEntry => !!e);
-      const ggufOnCpu = entries.some((e) => !e.runtimes.includes("transformers") && deviceFor(e, machine) === "cpu");
-      if (!ggufOnCpu && fitsAlone(entries, machine, lines)) return p.id;
+      // ponytail: a reranker on the processor makes each query take seconds; it stays a choice, never the suggestion
+      const slowOnCpu = entries.some(
+        (e) => (!e.runtimes.includes("transformers") || e.kind === "reranker") && deviceFor(e, machine) === "cpu",
+      );
+      if (!slowOnCpu && fitsAlone(entries, machine, lines)) return p.id;
     }
   }
   return "light";

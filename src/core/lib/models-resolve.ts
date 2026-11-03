@@ -14,7 +14,7 @@ import type {
 } from "../types.ts";
 import { catalogEntry, pack } from "./models-catalog.ts";
 import { filesFor, filesPresent } from "./models-download.ts";
-import { fitOf, gb } from "./models-fit.ts";
+import { deviceFor, fitOf, gb } from "./models-fit.ts";
 import { knownMachine, machineProfile, mainGpu } from "./models-hardware.ts";
 import { budgets, modelsDir, readRegistry } from "./models-registry.ts";
 import { isComplete, modelDir, modelRoots } from "./models-store.ts";
@@ -182,6 +182,7 @@ export async function resolveChoice(
     one: Record<string, One>;
     fit: Fit | null;
     ok: boolean;
+    slow: boolean;
     why: string;
   }[] = [];
   for (const [i, v] of variants.entries()) {
@@ -192,15 +193,20 @@ export async function resolveChoice(
     const labels = entriesOf(v)
       .map((e) => e.label)
       .join(" + ");
+    // ponytail: llama.cpp on the processor indexes several times slower; a later variant without it is preferred
+    const slow = isPack && !!machine && entriesOf(v).some((e) => isGguf(e) && deviceFor(e, machine) === "cpu");
     const why = blocked
       ? blocked.reason
       : fit && fit.verdict !== "fits"
         ? `${labels}: ${fit.verdict === "unknown" ? "cannot check the GPU" : `${gb(fit.device === "gpu" ? fit.needMB.vram : fit.needMB.ram)} needed, ${usableOf(fit, headroom)}`} (${fit.verdict})`
-        : "";
-    tried.push({ v, i, one, fit, ok: !blocked, why });
-    if (!blocked && (!fit || fit.verdict === "fits")) break;
+        : slow
+          ? `${labels}: llama.cpp would run on the processor (slow)`
+          : "";
+    tried.push({ v, i, one, fit, ok: !blocked, slow, why });
+    if (!blocked && !slow && (!fit || fit.verdict === "fits")) break;
   }
-  const fitting = tried.find((t) => t.ok && (!t.fit || t.fit.verdict === "fits"));
+  const fits = (t: (typeof tried)[number]) => t.ok && (!t.fit || t.fit.verdict === "fits");
+  const fitting = tried.find((t) => fits(t) && !t.slow) ?? tried.find(fits);
   const fallback = [...tried].reverse().find((t) => t.ok && t.fit?.verdict !== "ram-too-small");
   // ponytail: a variant already on this PC that fits the free memory without the margin beats a later one to
   // download, so the pack does not change with what other programs hold at the moment it is chosen
