@@ -72,6 +72,8 @@ test("a pull of a remote-only test downloads nothing it does not need and reads 
   await pullToLocal(project, "LFRPS12-1398");
   const back = readTest(project, "LFRPS12-1398").test;
   expect(back.review).toBe("to-fix");
+  expect(back.labels).toEqual([]);
+  expect(md("LFRPS12-1398")).not.toContain("testimus-to-fix");
   expect(back.reviewedBy).toBeUndefined();
   expect(back.steps[0].sources).toHaveLength(1);
 });
@@ -311,6 +313,14 @@ test("a pull whose download fails leaves nothing on disk", async () => {
   await expect(pullToLocal(project, "LFRPS12-1420")).rejects.toThrow(/Could not download fig-40.png/);
   expect(existsSync(join(project, "tests/LFRPS12-1420"))).toBe(false);
   expect(listLocalTests(project).some((x) => x.id === "LFRPS12-1420")).toBe(false);
+});
+
+test("a review label moved in Jira alone is a change in Jira, though test.md keeps no review label", async () => {
+  await pullToLocal(project, "LFRPS12-1405");
+  expect(await checkRemote(project, "LFRPS12-1405")).toBe("unchanged");
+  const jira = mockJiraTest("LFRPS12-1405")!;
+  jira.labels = [...jira.labels.filter((l) => !l.startsWith("testimus-")), "testimus-validated"];
+  expect(await checkRemote(project, "LFRPS12-1405")).toBe("remote-changed");
 });
 
 test("trailing blank lines and CRLF in Jira's step text are not a change: a fresh pull plans no step update", async () => {

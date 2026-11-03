@@ -14,6 +14,7 @@ import {
   planPush,
   pullTest,
   reviewOfLabels,
+  withoutReviewLabels,
 } from "./jira.ts";
 import { readJson, readProject, readXray, writeJson, writeProject } from "./project.ts";
 import {
@@ -122,6 +123,7 @@ export const forCompare = (t: Test) =>
 // new id is matched by position, like its images. The review state comes from the label when there is one.
 function keepLocal(pulled: Test, before: Test | null, byPosition: boolean, prefix: string): void {
   const labelled = reviewOfLabels(pulled.labels, prefix);
+  pulled.labels = withoutReviewLabels(pulled.labels, prefix);
   pulled.review = labelled ?? before?.review ?? "draft";
   if (before && before.review === pulled.review) {
     pulled.reviewNote = before.reviewNote;
@@ -245,6 +247,16 @@ export function pullToLocal(project: string, key: string, opts: PullOpts = {}): 
   return pullSlot(() => doPull(project, key, opts));
 }
 
+// ponytail: Jira moved since the last pull — its content, or its review label (test.md keeps no review label: the
+// label read at the last pull is the review .remote.md holds)
+function movedInJira(project: string, remote: Test, remoteMd: string): boolean {
+  const prefix = readProject(project).labelPrefix;
+  const was = parseTest(remoteMd).test;
+  const label = reviewOfLabels(remote.labels, prefix);
+  const bare = (t: Test) => forCompare({ ...t, labels: withoutReviewLabels(t.labels, prefix) });
+  return bare(remote) !== bare(was) || (label !== undefined && label !== was.review);
+}
+
 // ponytail: same comparison as remoteChanged, no image download; it leaves the marker store.ts reads, so
 // the sidebar shows "changed in Jira" without asking Jira again
 export async function checkRemote(project: string, id: string): Promise<RemoteState> {
@@ -253,7 +265,7 @@ export async function checkRemote(project: string, id: string): Promise<RemoteSt
   if (!key || !remoteMd || readProject(project).jiraOffline) return "unverified";
   const remote = await pullTest(key).catch(() => null);
   if (!remote) return "unverified";
-  const changed = forCompare(remote.test) !== forCompare(parseTest(remoteMd).test);
+  const changed = movedInJira(project, remote.test, remoteMd);
   markRemoteChanged(project, id, changed);
   return changed ? "remote-changed" : "unchanged";
 }
@@ -289,7 +301,7 @@ export async function pushTest(project: string, id: string): Promise<Push> {
     getMyself(),
     local.key ? pullTest(local.key) : null,
   ]);
-  const remoteChanged = !!(remote && remoteMd && forCompare(remote.test) !== forCompare(parseTest(remoteMd).test));
+  const remoteChanged = !!(remote && remoteMd && movedInJira(project, remote.test, remoteMd));
   if (remote && remoteMd) markRemoteChanged(project, id, remoteChanged);
   const plan = await planPush(local, id, remote, {
     project: info,

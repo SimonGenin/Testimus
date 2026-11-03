@@ -3,7 +3,7 @@ key: LFRPS12-1398
 project: LFRPS12
 summary: Disjoncteur — ouverture à distance
 folder: /Traction/Disjoncteurs
-labels: [testimus-validated]
+labels: []
 status: To Do
 review: validated
 reviewed_by: tester

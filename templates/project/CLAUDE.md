@@ -147,7 +147,8 @@ REQ-EXP-012
 - images/img-3f9a2c1d.png (SPEC_REPORTS#fig:7)
 ```
 
-- Frontmatter: `summary`, `folder` (an Xray repository folder: `xray_folders`), `labels`; once in
+- Frontmatter: `summary`, `folder` (an Xray repository folder: `xray_folders`), `labels` (the team's
+  own; the review label is never written here — the app adds it on push from `review`); once in
   Jira also `key`, `project`, `status`. `covers` and `preconditions` list Jira issue keys — only keys
   that exist (`xray_preconditions` lists the project's preconditions).
 - `review`, `review_note`, `reviewed_by`, `reviewed_at`, `generated_by` belong to the app and the

@@ -583,10 +583,15 @@ export async function getMyself(): Promise<Myself> {
 export const DEFAULT_LABEL_PREFIX = "testimus-";
 export const labelPrefixOf = (prefix: string) => (prefix && !/\s/.test(prefix) ? prefix : DEFAULT_LABEL_PREFIX);
 
-export function reviewLabels(labels: string[], review: Review, prefix: string): string[] {
+// ponytail: test.md never holds the review label — `review:` is the one truth; the label exists in Jira only
+export function withoutReviewLabels(labels: string[], prefix: string): string[] {
   const p = labelPrefixOf(prefix);
   const own = new Set(REVIEWS.map((r) => p + r));
-  return [...labels.filter((l) => !own.has(l)), p + review];
+  return labels.filter((l) => !own.has(l));
+}
+
+export function reviewLabels(labels: string[], review: Review, prefix: string): string[] {
+  return [...withoutReviewLabels(labels, prefix), labelPrefixOf(prefix) + review];
 }
 
 export function reviewOfLabels(labels: string[], prefix: string): Review | undefined {
