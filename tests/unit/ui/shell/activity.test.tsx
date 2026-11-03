@@ -175,5 +175,7 @@ describe("Activity", () => {
     await waitFor(() => expect(callsOf("jobs.list")).toHaveLength(1));
     act(() => FakeES.emit({ jobId: "", at: "", type: "notice", message: "Jira asks to wait 30 s" } as never));
     expect(await screen.findByRole("status")).toHaveTextContent("Jira asks to wait 30 s");
+    act(() => FakeES.emit({ jobId: "", at: "", type: "notice", message: "" } as never));
+    await waitFor(() => expect(screen.queryByText(/Jira asks/)).toBeNull());
   });
 });

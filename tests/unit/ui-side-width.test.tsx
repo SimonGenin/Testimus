@@ -6,8 +6,8 @@ import { DragEdge } from "../../src/ui/components/legacy/index.ts";
 import { useSideWidth } from "../../src/ui/lib/sideWidth.ts";
 
 function Bars() {
-  const [leftW, leftEdge] = useSideWidth("testimus.leftWidth", 200, 400, "before");
-  const [rightW, rightEdge] = useSideWidth("testimus.rightWidth", 300, 600, "after");
+  const [leftW, leftEdge] = useSideWidth("testimus.sidebarWidth", 200, 400, "before");
+  const [rightW, rightEdge] = useSideWidth("testimus.sourceWidth", 300, 600, "after");
   return (
     <div>
       <aside data-testid="left" style={{ width: leftW ?? undefined }} />
@@ -41,32 +41,32 @@ describe("useSideWidth", () => {
     expect(screen.getByTestId("right").style.width).toBe("450px");
     drag("Resize right", 100);
     expect(screen.getByTestId("right").style.width).toBe("300px");
-    expect(localStorage.getItem("testimus.leftWidth")).toBe("400");
-    expect(localStorage.getItem("testimus.rightWidth")).toBe("300");
+    expect(localStorage.getItem("testimus.sidebarWidth")).toBe("400");
+    expect(localStorage.getItem("testimus.sourceWidth")).toBe("300");
   });
 
   it("shows the width while dragging, and a release without a move keeps the saved one", () => {
-    localStorage.setItem("testimus.leftWidth", "320");
+    localStorage.setItem("testimus.sidebarWidth", "320");
     render(<Bars />);
     const edge = screen.getByRole("separator", { name: "Resize left" });
     fireEvent.pointerDown(edge, { clientX: 0 });
     fireEvent.pointerMove(edge, { clientX: 260 });
     expect(screen.getByTestId("left").style.width).toBe("260px");
-    expect(localStorage.getItem("testimus.leftWidth")).toBe("320");
+    expect(localStorage.getItem("testimus.sidebarWidth")).toBe("320");
     fireEvent.pointerUp(edge);
     fireEvent.pointerDown(edge, { clientX: 0 });
     fireEvent.pointerUp(edge);
-    expect(localStorage.getItem("testimus.leftWidth")).toBe("260");
+    expect(localStorage.getItem("testimus.sidebarWidth")).toBe("260");
   });
 
   it("ignores a saved width out of bounds, and double-click goes back to the default", () => {
-    localStorage.setItem("testimus.leftWidth", "9999");
-    localStorage.setItem("testimus.rightWidth", "500");
+    localStorage.setItem("testimus.sidebarWidth", "9999");
+    localStorage.setItem("testimus.sourceWidth", "500");
     render(<Bars />);
     expect(screen.getByTestId("left").style.width).toBe("");
     expect(screen.getByTestId("right").style.width).toBe("500px");
     fireEvent.doubleClick(screen.getByRole("separator", { name: "Resize right" }));
     expect(screen.getByTestId("right").style.width).toBe("");
-    expect(localStorage.getItem("testimus.rightWidth")).toBeNull();
+    expect(localStorage.getItem("testimus.sourceWidth")).toBeNull();
   });
 });
