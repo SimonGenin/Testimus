@@ -38,7 +38,8 @@ export function useReviewView(activeId: string, data: Loaded | null, lastRun: Cl
   }
   if (data && data.id === activeId && v.folded === null) {
     const fs = data.check?.findings ?? [];
-    v = { ...v, folded: new Set(data.test.steps.map((_, i) => i).filter((i) => !fs.some((f) => f.step === i + 1))) };
+    const quiet = data.test.steps.map((_, i) => i).filter((i) => !fs.some((f) => f.step === i + 1));
+    v = { ...v, folded: new Set(data.check ? quiet : []) };
     setView(v);
   }
   const patch = (p: Partial<View>) => setView((cur) => ({ ...cur, ...p }));

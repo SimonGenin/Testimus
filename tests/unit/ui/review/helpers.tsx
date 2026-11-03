@@ -14,7 +14,7 @@ import { app } from "../../ui-desktop-helpers.tsx";
 configure({ asyncUtilTimeout: 4000 });
 
 type Call = { name: string; input: Record<string, unknown> };
-type Refusal = { refused: { error: string; fix?: string; code?: string } };
+type Refusal = { refused: { error: string; fix?: string; code?: string }; status?: number };
 
 export const net = {
   calls: [] as Call[],
@@ -24,7 +24,7 @@ export const net = {
 
 export const named = (n: string) => net.calls.filter((c) => c.name === n);
 
-export const refused = (error: string, code?: string): Refusal => ({ refused: { error, code } });
+export const refused = (error: string, code?: string, status = 400): Refusal => ({ refused: { error, code }, status });
 
 // ponytail: the server as the screen sees it — a route answers, refuses (4xx with a code, as a UserError does) or is
 // missing (404); a route that throws is refused with its message
@@ -49,7 +49,7 @@ export function fakeServer(): void {
         return new Response(JSON.stringify({ error: (e as Error).message }), { status: 400 });
       }
       const no = (out as Refusal | null)?.refused;
-      if (no) return new Response(JSON.stringify(no), { status: 400 });
+      if (no) return new Response(JSON.stringify(no), { status: (out as Refusal).status ?? 400 });
       return new Response(JSON.stringify(out ?? null), { status: 200 });
     }),
   );

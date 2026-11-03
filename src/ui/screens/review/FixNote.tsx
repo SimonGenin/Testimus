@@ -1,15 +1,26 @@
 import * as stylex from "@stylexjs/stylex";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Button } from "../../components/ui/Button.tsx";
 import { ClaudeBlock } from "../../components/ui/ClaudeBlock.tsx";
 import { Modal } from "../../components/ui/Modal.tsx";
 import { useDraft } from "../../lib/data/autosave.ts";
 import { project } from "../../lib/data/client.ts";
-import { color, fontSize, lineHeight } from "../../styles/tokens.stylex.ts";
+import { color, fontSize, fontWeight, lineHeight, space } from "../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
+  note: { display: "flex", flexDirection: "column", gap: space.s2 },
+  label: {
+    fontSize: fontSize.small,
+    lineHeight: lineHeight.small,
+    fontWeight: fontWeight.medium,
+    color: color.textMuted,
+  },
+  hint: { margin: 0, fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textSubtle },
   kept: { fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textSubtle, whiteSpace: "nowrap" },
 });
+
+const HINT =
+  "Saved in test.md as the review note when you mark the test. A fix by Claude goes back through the check; it never becomes Validated on its own.";
 
 export type FixNoteProps = {
   id: string;
@@ -27,6 +38,7 @@ export type FixNoteProps = {
 export function FixNote({ id, initial, subtitle, claudeReady, onCancel, onSubmit }: FixNoteProps) {
   const [note, setNote, drop] = useDraft([project(), "review.fixNote", { id }], initial);
   const [tried, setTried] = useState(false);
+  const field = useId();
   const empty = !note.trim();
   const cancel = () => {
     drop();
@@ -68,6 +80,7 @@ export function FixNote({ id, initial, subtitle, claudeReady, onCancel, onSubmit
       }
     >
       <div
+        {...stylex.props(styles.note)}
         onKeyDown={(e) => {
           if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
             e.preventDefault();
@@ -75,17 +88,20 @@ export function FixNote({ id, initial, subtitle, claudeReady, onCancel, onSubmit
           }
         }}
       >
+        <label htmlFor={field} {...stylex.props(styles.label)}>
+          Note for the author — Claude reads it too
+        </label>
         <ClaudeBlock
+          id={field}
           submit="autosave"
           plain
-          label="Note for the author — Claude reads it too"
           value={note}
           onChange={setNote}
           autoFocus
-          hint="Saved in test.md as the review note when you mark the test. A fix by Claude goes back through the check; it never becomes Validated on its own."
           error={tried && empty ? "Say what is wrong: the note is required." : undefined}
           trailing={note && note !== initial ? <span {...stylex.props(styles.kept)}>Draft kept</span> : undefined}
         />
+        <p {...stylex.props(styles.hint)}>{HINT}</p>
       </div>
     </Modal>
   );

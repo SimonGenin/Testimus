@@ -88,7 +88,7 @@ describe("Review screen", () => {
   });
 
   it("a source link opens the panel, the same link or the X closes it, the arrows follow it only while open", async () => {
-    reviewRoutes();
+    reviewRoutes({ findings: [] });
     show();
     await screen.findByRole("heading", { name: "Summary K-1" });
     fireEvent.click(screen.getByRole("button", { name: "Unfold all" }));
@@ -135,6 +135,15 @@ describe("Review screen", () => {
     expect(screen.getByText("1 of 4 sources")).toBeInTheDocument();
     expect(within(step(1)).getByRole("button", { name: "Expand step 1" })).toBeInTheDocument();
     expect(within(step(2)).getByRole("button", { name: "Fold step 2" })).toBeInTheDocument();
+  });
+
+  it("a test never checked shows every step open, none of them claiming no findings", async () => {
+    reviewRoutes();
+    show();
+    await screen.findByRole("heading", { name: "Summary K-1" });
+    expect(within(step(1)).getByRole("button", { name: "Fold step 1" })).toBeInTheDocument();
+    expect(within(step(3)).getByRole("button", { name: "Fold step 3" })).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Test under review" })).queryByText("No findings")).toBeNull();
   });
 
   it("a test without sources opens no panel; a local test reads as local", async () => {
@@ -302,7 +311,7 @@ describe("Review screen", () => {
   });
 
   it("evidence picks: a step source keeps its step, another read one is labelled", async () => {
-    reviewRoutes();
+    reviewRoutes({ findings: [] });
     show();
     await screen.findByRole("heading", { name: "Summary K-1" });
     fireEvent.click(screen.getByRole("button", { name: "Unfold all" }));
@@ -414,9 +423,8 @@ describe("Review screen", () => {
     rerender(<ReviewScreen />, { lastRun: run({ changedSteps: { "K-1": [1, 4] } }) });
     expect(await screen.findByText("Claude changed 2 steps")).toBeInTheDocument();
     expect(within(step(1)).getByRole("button", { name: "Fold step 1" })).toBeInTheDocument();
-    net.routes["claude.revert"] = () => {
-      throw new Error("K-1 changed after the Claude run");
-    };
+    net.routes["claude.revert"] = () =>
+      refused("K-1 changed after the Claude run run-1: reverting would lose those edits.", "edited-after-run", 409);
     fireEvent.click(screen.getByRole("button", { name: "Revert" }));
     expect(await screen.findByText("Edited after the Claude run")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Keep the test as it is" }));
@@ -557,7 +565,7 @@ describe("Review screen", () => {
   });
 
   it("reads the same test again when its file changes, keeping the view", async () => {
-    reviewRoutes();
+    reviewRoutes({ findings: [] });
     const { client, rerender } = show();
     await screen.findByRole("heading", { name: "Summary K-1" });
     fireEvent.click(screen.getByRole("button", { name: "Unfold all" }));
