@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { fixTest } from "../claude/fix.ts";
-import { type Command, command, projectOf, UserError } from "../command.ts";
+import { command, projectOf, UserError } from "../command.ts";
 import { env } from "../env.ts";
 import { osUser, setReview, testEvidence } from "../lib/check.ts";
 import { listLocalTests, readTest, testExists } from "../lib/store.ts";
@@ -68,7 +68,7 @@ const SORTS: Record<string, (a: QueueItem, b: QueueItem) => number> = {
   recent: (a, b) => b.mtime - a.mtime || byId(a, b),
 };
 
-export const commands: Command[] = [
+export const commands = [
   command({
     name: "review.set",
     summary:

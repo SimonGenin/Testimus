@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { ask, listChats, showChat } from "../claude/chat.ts";
-import { type Command, command, projectOf } from "../command.ts";
+import { command, projectOf } from "../command.ts";
 import { CONTEXT_IDS, CONVERSATION, EFFORT, MODEL, NOTE } from "./claude.ts";
 
 const SOURCE = z.object({ docId: z.string(), anchor: z.string(), quote: z.string() });
 
-export const commands: Command[] = [
+export const commands = [
   command({
     name: "chat.ask",
     summary: 'Ask Claude a question about the project\'s documents; the answer cites docId#anchor "quote".',

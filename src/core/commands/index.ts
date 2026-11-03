@@ -24,6 +24,34 @@ import { commands as system } from "./system.ts";
 import { commands as tests } from "./tests.ts";
 import { commands as xray } from "./xray.ts";
 
+type Defined =
+  | (typeof project)[number]
+  | (typeof docs)[number]
+  | (typeof columns)[number]
+  | (typeof rag)[number]
+  | (typeof search)[number]
+  | (typeof ragIndex)[number]
+  | (typeof ragEval)[number]
+  | (typeof ragGraph)[number]
+  | (typeof models)[number]
+  | (typeof chat)[number]
+  | (typeof claude)[number]
+  | (typeof actions)[number]
+  | (typeof contexts)[number]
+  | (typeof tests)[number]
+  | (typeof images)[number]
+  | (typeof gen)[number]
+  | (typeof check)[number]
+  | (typeof review)[number]
+  | (typeof xray)[number]
+  | (typeof jobs)[number]
+  | (typeof system)[number];
+
+export type CommandMap = { [C in Defined as C["name"]]: C };
+export type CommandName = keyof CommandMap;
+export type CommandInput<N extends CommandName> = z.input<CommandMap[N]["input"]>;
+export type CommandOutput<N extends CommandName> = z.output<CommandMap[N]["output"]>;
+
 export const registry: Command[] = [
   ...project,
   ...docs,

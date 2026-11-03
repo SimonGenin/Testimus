@@ -4,7 +4,7 @@ import { z } from "zod";
 import { type Problem, runAction, triage } from "../claude/actions.ts";
 import { docRunLines } from "../claude/prompt.ts";
 import { readRunMeta } from "../claude/run.ts";
-import { type Command, command, projectOf, UserError } from "../command.ts";
+import { command, projectOf, UserError } from "../command.ts";
 import { env } from "../env.ts";
 import { showJob } from "../jobs.ts";
 import {
@@ -93,7 +93,7 @@ function jobProblems(project: string, jobId: string): Problem[] {
 const docProblems = (project: string, docId: string): Problem[] =>
   readDoc(project, docId).warnings.map((text) => ({ where: `doc:${docId}`, text }));
 
-export const commands: Command[] = [
+export const commands = [
   command({
     name: "actions.list",
     summary:

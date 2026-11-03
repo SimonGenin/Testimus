@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { extname, isAbsolute, relative, resolve } from "node:path";
 import { z } from "zod";
-import { type Command, command, projectOf, UserError } from "../command.ts";
+import { command, projectOf, UserError } from "../command.ts";
 import { fieldOrder, readXray } from "../lib/project.ts";
 import { addImage, readTest, testExists, writeTest } from "../lib/store.ts";
 import { fieldName, imageRef } from "../lib/testfile.ts";
@@ -95,7 +95,7 @@ export function attachImage(project: string, input: AttachInput): Attached {
   return { id: input.id, step: input.step, field, file: img.file, from: input.figure?.trim() || input.file || "" };
 }
 
-export const commands: Command[] = [
+export const commands = [
   command({
     name: "tests.addImage",
     summary:

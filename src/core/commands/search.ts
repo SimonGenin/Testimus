@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { type Command, command, projectOf } from "../command.ts";
+import { command, projectOf } from "../command.ts";
 import { searchAll } from "../search/all.ts";
 import { embedTests } from "../search/vectors.ts";
 import { REVIEWS, type Review, type SearchKind } from "../types.ts";
@@ -7,7 +7,7 @@ import { REVIEWS, type Review, type SearchKind } from "../types.ts";
 const kind = z.enum(["test", "document", "passage"] as [SearchKind, ...SearchKind[]]);
 const mark = z.tuple([z.number(), z.number()]);
 
-export const commands: Command[] = [
+export const commands = [
   command({
     name: "search.all",
     summary:

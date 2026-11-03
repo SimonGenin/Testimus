@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { type Command, command, projectOf, UserError } from "../command.ts";
+import { command, projectOf, UserError } from "../command.ts";
 import { fieldOrder, readJson, readProject, readXray, writeJson } from "../lib/project.ts";
 import {
   cloneLocalTest,
@@ -229,7 +229,7 @@ const underFolder = (folder: string, f: string) => {
   return base === "" || folder === base || folder.startsWith(`${base}/`);
 };
 
-export const commands: Command[] = [
+export const commands = [
   command({
     name: "tests.list",
     summary: "List the project's local tests with their review state, sync state and findings.",

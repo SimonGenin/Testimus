@@ -20,7 +20,7 @@ describe("events name their project", () => {
     const p = mkdtempSync(join(tmpdir(), "testimus-ev-"));
     const l = listen();
     const { done } = startJob("k", "s", p, async (ctx) => {
-      ctx.log("hello");
+      ctx.log("info", "hello");
       ctx.progress({ message: "half" });
     });
     await done;

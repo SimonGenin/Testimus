@@ -6,7 +6,7 @@ import { triage } from "../claude/actions.ts";
 import { describeFigures, shouldDescribeFigures } from "../claude/figures.ts";
 import { docContexts, docRunLines, type JobRun, writeDocContexts } from "../claude/prompt.ts";
 import { checkConversion, sameConversion, studyDoc } from "../claude/study.ts";
-import { type Command, type Ctx, command, projectOf, UserError } from "../command.ts";
+import { type Ctx, command, projectOf, UserError } from "../command.ts";
 import { writeAtomic } from "../lib/atomic.ts";
 import { recheckMechanical, testsCiting } from "../lib/check.ts";
 import {
@@ -361,7 +361,7 @@ function recheckCiting(ctx: Ctx, doc: DocJson): z.input<typeof citedBy> {
   return cited;
 }
 
-export const commands: Command[] = [
+export const commands = [
   command({
     name: "docs.add",
     summary:

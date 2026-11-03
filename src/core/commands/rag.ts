@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { type Command, command, projectOf } from "../command.ts";
+import { command, projectOf } from "../command.ts";
 import { search } from "../rag/search/hybrid.ts";
 import { figure, passage } from "../rag/search/passage.ts";
 
@@ -12,7 +12,7 @@ export const chunkKind = z.enum(["section", "figure"]);
 
 const figureEntry = z.object({ file: z.string(), anchor: z.string(), caption: z.string(), description: z.string() });
 
-export const commands: Command[] = [
+export const commands = [
   command({
     name: "rag.search",
     summary: "Search the project's documents (hybrid BM25 + vectors); returns passages with their anchors.",

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { type Command, command, UserError } from "../command.ts";
+import { command, UserError } from "../command.ts";
 import { cancelJob, clearJobs, listJobs, showJob } from "../jobs.ts";
 
 const job = z.object({
@@ -58,7 +58,7 @@ const job = z.object({
     .describe("The command and input to run it again"),
 });
 
-export const commands: Command[] = [
+export const commands = [
   command({
     name: "jobs.list",
     summary: "List the project's jobs, running and past, newest first.",

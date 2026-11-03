@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
-import { type Command, command, projectOf, UserError } from "../command.ts";
+import { command, projectOf, UserError } from "../command.ts";
 import { activeModels } from "../rag/activation.ts";
 import { chunkCount, dropSpace, getMeta, indexFile, listSpaces, openDb, vectorCount } from "../rag/db.ts";
 import { dimsOf, spaceOf } from "../rag/fingerprint.ts";
@@ -40,7 +40,7 @@ function sizeMB(db: DatabaseSync, s: VectorSpace): number {
 
 const NO_MODEL = "No embedding model is installed on this PC: lexical search only.";
 
-export const commands: Command[] = [
+export const commands = [
   command({
     name: "rag.index",
     summary:

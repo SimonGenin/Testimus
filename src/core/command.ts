@@ -32,7 +32,11 @@ export type Command<I extends z.ZodType = z.ZodType, O extends z.ZodType = z.Zod
   run(ctx: Ctx, input: z.output<I>): Promise<z.input<O>>;
 };
 
-export function command<I extends z.ZodType, O extends z.ZodType>(c: Command<I, O>): Command<I, O> {
+// ponytail: the name stays a literal type, so the registry's type maps each name to its input and output (the page
+// imports that type, never the registry itself)
+export function command<const N extends `${string}.${string}`, I extends z.ZodType, O extends z.ZodType>(
+  c: Command<I, O> & { name: N },
+): Command<I, O> & { name: N } {
   return c;
 }
 

@@ -4,7 +4,7 @@ import { z } from "zod";
 import { describeFigures } from "../claude/figures.ts";
 import { generateTests } from "../claude/generate.ts";
 import { claudeHeaders } from "../claude/headers.ts";
-import { type Command, command, projectOf } from "../command.ts";
+import { command, projectOf } from "../command.ts";
 import { hooks } from "../rag/chunk.ts";
 import { CONTEXT_IDS, EFFORT, MODEL, NOTE } from "./claude.ts";
 
@@ -17,7 +17,7 @@ const DIAGNOSIS = z.object({
   detail: z.string(),
 });
 
-export const commands: Command[] = [
+export const commands = [
   command({
     name: "gen.tests",
     summary:

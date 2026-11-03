@@ -4,7 +4,7 @@ import { buildPrompt, effectiveContexts, projectContexts, readContexts } from ".
 import { runClaude } from "../claude/run.ts";
 import { readRun, revert } from "../claude/snapshot.ts";
 import { CONNECT, checkSignedIn, claudeExe, claudeVersion } from "../claude/status.ts";
-import { type Command, command, projectOf } from "../command.ts";
+import { command, projectOf } from "../command.ts";
 import { readProject } from "../lib/project.ts";
 import type { ClaudeScope } from "../types.ts";
 
@@ -90,7 +90,7 @@ export function scopeLabel(s: ClaudeScope): string {
   return "project";
 }
 
-export const commands: Command[] = [
+export const commands = [
   command({
     name: "claude.run",
     summary:

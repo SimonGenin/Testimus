@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { type Command, command, projectOf } from "../command.ts";
+import { command, projectOf } from "../command.ts";
 import { runBench } from "../rag/bench.ts";
 import { compareFiles } from "../rag/compare.ts";
 import { runEval } from "../rag/eval.ts";
@@ -70,7 +70,7 @@ const policyTotals = z.object({
   mrr: z.number(),
 });
 
-export const commands: Command[] = [
+export const commands = [
   command({
     name: "rag.eval",
     summary:
