@@ -76,6 +76,7 @@ describe("rag commands through the registry, each output checked against its sch
       dir,
     );
     expect(f).toMatchObject({ anchor: "fig:40", picture: true, exists: true });
+    await expect(call("rag.passage", { ref: "GONE#§1" }, dir)).rejects.toMatchObject({ code: "doc-gone" });
   });
 
   it("rag.mentions and rag.related walk the index without a model", async () => {

@@ -25,7 +25,7 @@ function loadDoc(
 ): { doc: Partial<DocJson>; md: string; figures: FigureEntry[]; dir: string } {
   const dir = docDir(project, docId);
   if (!existsSync(join(dir, "doc.md")))
-    throw new UserError(`No document ${docId} in this project.`, "testimus docs list shows the documents.");
+    throw new UserError(`No document ${docId} in this project.`, "testimus docs list shows the documents.", "doc-gone");
   return {
     doc: findDoc(project, docId) ?? {},
     md: readDocMd(project, docId),
