@@ -93,6 +93,14 @@ const EXTRA: Record<string, Record<string, string>> = {
   },
 };
 
+// ponytail: a pane that changes with its own width (the dock open or not), not the window's
+const CONTAINERS: Record<string, string> = {
+  reviewQueue: "@container review (max-width: 1019px)", // the queue folds to a strip (300 queue + 300 source + 420 test)
+  reviewSource: "@container review (max-width: 759px)", // the source panel hides (40 strip + 300 source + 420 test)
+  paneCompact: "@container (max-width: 599px)", // a pane's foot drops its key hints
+  paneNarrow: "@container (max-width: 399px)", // a pane's foot wraps
+};
+
 // ponytail: the layouts the mockups switch at (design/build/screens: @container widths), as media queries
 const BREAKPOINTS: Record<string, number> = {
   narrow: 760, // screens in one column
@@ -142,6 +150,10 @@ for (const [theme, pick] of [
     lines.push("});", "");
   }
 lines.push(
+  "export const container = stylex.defineConsts({",
+  ...Object.entries(CONTAINERS).map(([k, v]) => `  ${k}: ${q(v)},`),
+  "});",
+  "",
   "export const breakpoint = stylex.defineConsts({",
   ...Object.entries(BREAKPOINTS).map(([k, px]) => `  ${k}: ${q(`@media (max-width: ${px - 1}px)`)},`),
   "});",
