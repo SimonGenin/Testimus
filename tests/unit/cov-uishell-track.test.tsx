@@ -37,6 +37,7 @@ const xray: XrayJson = {
     { id: "c1", name: "Exigence", type: "text-single", builtin: false },
   ],
   prefs: { order: [], collapsed: [], hidden: [] },
+  fetchedAt: "2026-10-30T09:12:00.000Z",
 };
 
 const trace = (o: Partial<TraceView> = {}): TraceView => ({
@@ -154,7 +155,9 @@ describe("TrackDialog: writing the pattern", () => {
     fireEvent.click(screen.getByRole("button", { name: /Check Xray again/ }));
     await waitFor(() => expect(state.refreshInfo).toHaveBeenCalled());
     fireEvent.click(screen.getByRole("button", { name: /Check Xray again/ }));
-    expect(await screen.findByText("Could not read the step fields from Jira")).toBeInTheDocument();
+    expect(await screen.findByText("Xray could not be reached")).toBeInTheDocument();
+    expect(screen.queryByText("« Code alarme » is not a step field in Xray yet")).toBeNull();
+    expect(screen.getByText(/Jira 401/)).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Name of one id"), { target: { value: "Alarme" } });
     fireEvent.click(screen.getByRole("button", { name: /Track these ids/ }));
     expect(await screen.findByText("Could not track these ids")).toBeInTheDocument();
@@ -162,6 +165,32 @@ describe("TrackDialog: writing the pattern", () => {
     expect(close).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(close).toHaveBeenCalled();
+  });
+
+  it("does not call a column missing from Xray while Jira is not connected or its fields were never read", async () => {
+    net.routes["traces.find"] = () => scanOf(1);
+    const base = app().info as NonNullable<AppState["info"]>;
+    const offline = { ...base, project: { ...base.project, jiraOffline: true } };
+    const first = withApp(<TrackDialog column="Code alarme" onClose={() => {}} />, { xray, info: offline });
+    fireEvent.click(screen.getByRole("button", { name: "I know the pattern" }));
+    expect(screen.getByText("Not connected to Jira")).toBeInTheDocument();
+    expect(screen.queryByText(/is not a step field in Xray yet/)).toBeNull();
+    first.unmount();
+
+    let read = 0;
+    net.routes["xray.fields"] = () => {
+      read++;
+      return xray;
+    };
+    const { state } = withApp(<TrackDialog column="Code alarme" onClose={() => {}} />, {
+      xray: { ...xray, fetchedAt: undefined },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "I know the pattern" }));
+    expect(screen.getByText("The step fields have not been read from Xray yet")).toBeInTheDocument();
+    expect(screen.queryByText(/is not a step field in Xray yet/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Read the step fields from Xray/ }));
+    await waitFor(() => expect(state.refreshInfo).toHaveBeenCalled());
+    expect(read).toBe(1);
   });
 
   it("changes a tracked trace, refusing a column another trace already holds", async () => {

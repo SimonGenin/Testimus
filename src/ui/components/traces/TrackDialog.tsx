@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import type { TraceScan, TraceView, XrayJson } from "../../../core/types.ts";
-import { call, run } from "../../api.ts";
+import { ApiError, call, run } from "../../api.ts";
 import { useApp } from "../../lib/app.ts";
-import { plural } from "../../lib/format.ts";
+import { message, plural } from "../../lib/format.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 import { toolLabel } from "../claude/ClaudeDock.tsx";
 import { Button, Chip, Modal, Severity, Skeleton } from "../ui/index.ts";
@@ -10,7 +10,7 @@ import { Button, Chip, Modal, Severity, Skeleton } from "../ui/index.ts";
 type Proposal = { label: string; patterns: string[]; field: string; why: string };
 type Proposed = { ok: boolean; proposal: Proposal | null; summary: string; diagnosis?: { detail: string } };
 
-const EXAMPLES = ["Les exigences (EXI_…)", "Les codes d'alarme", "Les cas d'utilisation", "Les numéros de figure"];
+const EXAMPLES = ["Les exigences", "Les codes d'alarme", "Les cas d'utilisation", "Les numéros de figure"];
 
 const lines = (s: string) =>
   s
@@ -50,11 +50,14 @@ export function TrackDialog({
   const [scanning, setScanning] = useState(false);
   const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [unreached, setUnreached] = useState<{ message: string; fix?: string } | null>(null);
 
   const list = useMemo(() => lines(patterns), [patterns]);
   const bad = list.length ? badPattern(list) : null;
   const custom = app.xray.fields.filter((f) => !f.builtin).map((f) => f.name);
   const inXray = app.xray.fields.some((f) => f.name === field.trim());
+  const offline = !app.info?.project.jiraProject || !!app.info.project.jiraOffline;
+  const unread = !app.xray.fetchedAt;
   const taken = (app.info?.traces ?? []).find(
     (t) => t.id !== initial?.id && t.field.trim().toLowerCase() === field.trim().toLowerCase(),
   );
@@ -129,11 +132,12 @@ export function TrackDialog({
 
   const recheck = async () => {
     setRefreshing(true);
+    setUnreached(null);
     try {
       await call<XrayJson>("xray.fields", {});
       app.refreshInfo();
     } catch (e) {
-      errorToast(e, "Could not read the step fields from Jira");
+      setUnreached({ message: message(e), fix: e instanceof ApiError ? e.fix : undefined });
     } finally {
       setRefreshing(false);
     }
@@ -310,6 +314,29 @@ export function TrackDialog({
                   <span className="muted">Name the column to see whether Xray has it.</span>
                 ) : inXray ? (
                   <Severity tone="ok">{`« ${field.trim()} » is a step field in Xray: the values are pushed`}</Severity>
+                ) : offline ? (
+                  <>
+                    <Severity tone="info">Not connected to Jira</Severity>
+                    <span>
+                      Testimus cannot tell whether Xray has a <strong>{field.trim()}</strong> step field. The values
+                      stay in the tests on this PC; once Jira is connected, Testimus reads the step fields and says
+                      whether they can be pushed.
+                    </span>
+                  </>
+                ) : unreached || unread ? (
+                  <>
+                    <Severity tone="info">
+                      {unreached ? "Xray could not be reached" : "The step fields have not been read from Xray yet"}
+                    </Severity>
+                    <span>
+                      Testimus cannot tell yet whether Xray has a <strong>{field.trim()}</strong> step field.
+                      {unreached && ` ${unreached.message}`}
+                      {unreached?.fix && ` ${unreached.fix}`}
+                    </span>
+                    <Button size="sm" icon="pull" disabled={refreshing} onClick={() => void recheck()}>
+                      {refreshing ? "Reading…" : "Read the step fields from Xray"}
+                    </Button>
+                  </>
                 ) : (
                   <>
                     <Severity tone="warning">{`« ${field.trim()} » is not a step field in Xray yet`}</Severity>
