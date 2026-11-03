@@ -19,7 +19,13 @@ export type ProjectInfo = {
   fieldOrder?: string[];
   traces?: TraceView[];
   columns?: StepColumn[];
-  counts?: { docs: number; tests: number; review: Partial<Record<Review, number>>; jobsRunning: number };
+  counts?: {
+    docs: number;
+    tests: number;
+    review: Partial<Record<Review, number>>;
+    awaiting?: number;
+    jobsRunning: number;
+  };
 };
 
 export type Focus = { testId: string; key?: string; summary: string; step: number | null };

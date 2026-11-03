@@ -4,7 +4,7 @@ import { type Command, command, projectOf, UserError } from "../command.ts";
 import { env } from "../env.ts";
 import { osUser, setReview, testEvidence } from "../lib/check.ts";
 import { listLocalTests, readTest, testExists } from "../lib/store.ts";
-import { type LocalTestRef, REVIEWS, type Review } from "../types.ts";
+import { awaitsReview, type LocalTestRef, REVIEWS, type Review } from "../types.ts";
 import { checkFile } from "./check.ts";
 
 const id = z.string().describe("Test id: the folder under tests/ — a Jira key (LFRPS12-1420) or local-<8hex>");
@@ -114,7 +114,7 @@ export const commands: Command[] = [
   command({
     name: "review.queue",
     summary:
-      "The tests awaiting review — checked, to-fix, and draft (flagged unchecked when no check ran) — with their findings counts; filter by state, folder, anomalies; sort.",
+      "The generated tests awaiting review — checked, to-fix, and draft (flagged unchecked when no check ran) — with their findings counts; filter by state, folder, anomalies; sort. A test written by hand, pulled or imported never waits here.",
     input: z.object({
       state: z.array(review).optional().describe("Only these review states (default: checked, to-fix, draft)"),
       folder: z.string().optional().describe("Only this Xray folder and its subfolders"),
@@ -135,7 +135,7 @@ export const commands: Command[] = [
       const project = projectOf(ctx);
       const states = input.state?.length ? input.state : AWAITING;
       const awaiting = listLocalTests(project)
-        .filter((t) => AWAITING.includes(t.review))
+        .filter(awaitsReview)
         .map((t) => itemOf(project, t));
       const tests = awaiting
         .filter((t) => states.includes(t.review))

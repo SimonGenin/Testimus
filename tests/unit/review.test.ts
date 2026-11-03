@@ -130,14 +130,19 @@ describe("review.queue", () => {
   });
 
   it("sorts by anomalies and filters by state, folder and findings", async () => {
-    cpSync(join(project, "tests", "LFRPS12-1398"), join(project, "tests", "local-00000001"), { recursive: true });
-    const f = testFile("local-00000001");
-    writeFileSync(
-      f,
-      readFileSync(f, "utf8")
-        .replace("review: validated", "review: draft")
-        .replace(/^key: .*\n/m, ""),
-    );
+    for (const [id, review] of [
+      ["local-00000001", "review: draft\ngenerated_by: gen-1"],
+      ["local-00000002", "review: draft"],
+    ]) {
+      cpSync(join(project, "tests", "LFRPS12-1398"), join(project, "tests", id), { recursive: true });
+      const f = testFile(id);
+      writeFileSync(
+        f,
+        readFileSync(f, "utf8")
+          .replace("review: validated", review)
+          .replace(/^key: .*\n/m, ""),
+      );
+    }
     recordSemantic(project, "local-3f9a12c0", [
       ...[1, 2, 3].map((step) => ({
         step: 1,

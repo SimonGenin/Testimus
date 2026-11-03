@@ -5,19 +5,26 @@ const { url } = mockServer(4347);
 test("the local list groups tests by folder and filters by text", async ({ page }) => {
   await boot(page, "#/tests");
   const side = page.getByRole("complementary", { name: "Tests" });
-  await expect(side.getByRole("tab", { name: "Local" })).toHaveAttribute("aria-selected", "true");
-  await expect(side.getByRole("button", { name: /LFRPS12-1398 Validated Up to date$/ })).toBeVisible();
-  await expect(side.getByRole("button", { name: /no key To fix Local only$/ })).toBeVisible();
+  await expect(side.getByRole("tab", { name: /^Local/ })).toHaveAttribute("aria-selected", "true");
+  await expect(side.getByRole("tab", { name: /^Local/ })).toContainText("1");
+  await expect(side.getByRole("button", { name: /^Disjoncteur — ouverture à distance LFRPS12-1398/ })).toBeVisible();
+  // ponytail: the two generated tests of the fixture are not validated yet — they wait on the Review tab
+  await expect(side.getByRole("button", { name: /LFRPS12-1420/ })).toHaveCount(0);
+  await expect(side.getByRole("button", { name: /^Sectionneur avec TK/ })).toHaveCount(0);
   await side.getByRole("textbox", { name: "Filter tests" }).fill("Disjoncteur");
   await expect(side.getByRole("button", { name: /LFRPS12-1398/ }).first()).toBeVisible();
-  await expect(side.getByRole("button", { name: /LFRPS12-1420/ })).toHaveCount(0);
   await expect(side.getByRole("button", { name: /Search Jira for/ })).toBeVisible();
   await side.getByRole("textbox", { name: "Filter tests" }).fill("");
-  await side.getByRole("button", { name: /LFRPS12-1420 Checked Modified$/ }).click();
-  await expect(page).toHaveURL(/#\/tests\/LFRPS12-1420$/);
+  await side.getByRole("button", { name: /^Disjoncteur — ouverture à distance LFRPS12-1398/ }).click();
+  await expect(page).toHaveURL(/#\/tests\/LFRPS12-1398$/);
   await expect(page.getByRole("main").getByRole("textbox", { name: "Summary" })).toHaveValue(
-    "Sectionneur sans TK — menu contextuel et propriétés",
+    "Disjoncteur — ouverture à distance",
   );
+  await side.getByRole("tab", { name: /^Review/ }).click();
+  await expect(page).toHaveURL(/#\/review$/);
+  await expect(
+    page.getByRole("complementary", { name: "Review queue" }).getByRole("button", { name: /LFRPS12-1420/ }),
+  ).toBeVisible();
 });
 
 test("the Jira tab shows the folder tree and pulls a remote test", async ({ page }) => {

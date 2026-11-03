@@ -178,14 +178,14 @@ describe("Import CSV screen", () => {
     expect(screen.getByText("/", { selector: ".mono" })).toBeInTheDocument();
   });
 
-  it("imports locally, checks the tests and opens the first in Review", async () => {
+  it("imports locally, checks the tests and opens the first in Tests", async () => {
     api.routes["xray.importCsv"] = (i) => (i.mode === "local" ? preview({ written: ["T1", "T2"] }) : preview());
     api.routes["check.run"] = () => ({});
     const { app: a } = mount(<ImportScreen />, { xray, info: info({ folders: undefined }) });
     pick("Action");
     fireEvent.change(await screen.findByLabelText("Xray folder (when the CSV has none)"), { target: { value: "/Z" } });
     fireEvent.click(await screen.findByRole("button", { name: "Import 1 test locally" }));
-    await waitFor(() => expect(a.navigate).toHaveBeenCalledWith("review", "T1"));
+    await waitFor(() => expect(a.navigate).toHaveBeenCalledWith("tests", "T1"));
     expect(named("xray.importCsv").at(-1)?.input).toMatchObject({ mode: "local", folder: "/Z" });
     expect(named("check.run")[0].input).toEqual({ ids: ["T1", "T2"], semantic: false });
     expect(await screen.findByText("2 tests imported")).toBeInTheDocument();

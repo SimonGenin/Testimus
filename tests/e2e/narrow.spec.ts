@@ -17,7 +17,7 @@ test("the editor fits a 520 px window beside Jira: the test bar wraps, the list 
   await shoot(page, "narrow-editor", ["light"]);
 });
 
-for (const hash of ["#/documents", "#/generate", "#/review", "#/jobs", "#/settings", "#/import", "#/doctor"])
+for (const hash of ["#/documents", "#/generate", "#/jobs", "#/settings", "#/import", "#/doctor"])
   test(`${hash} fits a 520 px window`, async ({ page }) => {
     await boot(page, hash);
     await expect(page.getByRole("heading", { level: 1 })).toBeInViewport();
@@ -25,6 +25,12 @@ for (const hash of ["#/documents", "#/generate", "#/review", "#/jobs", "#/settin
     const actions = page.locator(".screenhead-actions button");
     for (const b of await actions.all()) await expect(b).toBeInViewport();
   });
+
+test("#/review fits a 520 px window", async ({ page }) => {
+  await boot(page, "#/review");
+  await expect(page.getByRole("button", { name: /^Validate/ })).toBeInViewport();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+});
 
 test("#/setup, the first-run screen, fits a 520 px window", async ({ page }) => {
   await page.goto("/#/setup");

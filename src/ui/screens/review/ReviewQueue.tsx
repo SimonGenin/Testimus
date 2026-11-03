@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { Review } from "../../../core/types.ts";
 import {
   Button,
@@ -64,6 +65,7 @@ export function ReviewQueue({
   onFolder,
   onWithFindings,
   onOpen,
+  head,
 }: {
   items: QueueItem[] | null;
   counts: QueueCounts | null;
@@ -78,10 +80,12 @@ export function ReviewQueue({
   onFolder: (f: string) => void;
   onWithFindings: (on: boolean) => void;
   onOpen: (id: string) => void;
+  head?: ReactNode;
 }) {
   const all = counts ? counts.checked + counts.toFix + counts.draft : undefined;
   return (
     <aside className="queue" aria-label="Review queue">
+      {head}
       <div className="queue-filters">
         <Segmented
           label="Filter by review state"
@@ -153,7 +157,7 @@ export function ReviewQueue({
             <p className="h">Nothing waiting for review</p>
             <p className="muted">
               {filter === "all" && !folder && !withFindings
-                ? "Generated, imported and fixed tests land here once written."
+                ? "Generated tests land here once written, until you validate them."
                 : "No test matches these filters."}
             </p>
           </div>

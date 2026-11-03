@@ -23,6 +23,8 @@ export type Block =
 
 export type Review = "draft" | "checked" | "to-fix" | "validated";
 export const REVIEWS: readonly Review[] = ["draft", "checked", "to-fix", "validated"];
+// ponytail: only what Claude generated waits for a reviewer; a test written by hand, pulled or imported is the team's own
+export const awaitsReview = (t: { review: Review; generated: boolean }) => t.generated && t.review !== "validated";
 
 export type Test = {
   key?: string;

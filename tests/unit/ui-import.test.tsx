@@ -160,7 +160,7 @@ describe("direct import still running in Xray", () => {
     expect(stillImporting(preview)).toBeNull();
   });
 
-  it("opens Review on the first draft, unless the user left the screen before the import answered", async () => {
+  it("opens the first imported test, unless the user left the screen before the import answered", async () => {
     let answer: (v: unknown) => void = () => {};
     routes["xray.importCsv"] = (i) =>
       i.mode === "preview"
@@ -180,7 +180,7 @@ describe("direct import still running in Xray", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Import 1 test locally" }));
     await waitFor(() => expect(named("xray.importCsv").at(-1)?.input).toMatchObject({ mode: "local" }));
     answer({ ...preview, written: ["local-0000aaaa"] });
-    await waitFor(() => expect(state.navigate).toHaveBeenCalledWith("review", "local-0000aaaa"));
+    await waitFor(() => expect(state.navigate).toHaveBeenCalledWith("tests", "local-0000aaaa"));
 
     fireEvent.click(screen.getByRole("button", { name: "Import 1 test locally" }));
     await waitFor(() => expect(named("xray.importCsv").filter((c) => c.input.mode === "local")).toHaveLength(2));

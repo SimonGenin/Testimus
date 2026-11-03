@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import type { Folder, LocalTestRef, RemoteTestRef } from "../../../core/types.ts";
+import { awaitsReview, type Folder, type LocalTestRef, type RemoteTestRef } from "../../../core/types.ts";
 import { call, project, run } from "../../api.ts";
 import { Activity } from "../../components/shell/Activity.tsx";
 import {
@@ -10,7 +10,6 @@ import {
   ReviewBadge,
   Skeleton,
   SyncBadge,
-  Tabs,
 } from "../../components/ui/index.ts";
 import { useApp } from "../../lib/app.ts";
 import { desktop, pathJoin, reveal } from "../../lib/desktop.ts";
@@ -22,6 +21,7 @@ import { type DeleteTarget, DeleteTest, deleteTest, needsAsking } from "./Delete
 import { JiraConnect } from "./JiraConnect.tsx";
 import { JiraTab } from "./JiraTab.tsx";
 import { RecentList } from "./RecentList.tsx";
+import { askedTab, clearAskedTab, type ListTab, TestsTabs } from "./TestsTabs.tsx";
 
 type Node = { name: string; path: string; tests: LocalTestRef[]; folders: Node[]; total: number };
 
@@ -114,7 +114,7 @@ export function TestList({
   const jiraOn = !!p?.jiraProject && !p.jiraOffline;
   // ponytail: what the Jira side was loaded for — a new key, a reconnect or a disconnect starts it again
   const jira = jiraOn ? `${app.info?.dir}|${p.jiraProject}` : "";
-  const [tab, setTab] = useState<"local" | "jira">("local");
+  const [tab, setTab] = useState<ListTab>(askedTab);
   const [q, setQ] = useState("");
   const [search, setSearch] = useState("");
   const [shut, setShut] = useState<Set<string>>(new Set());
@@ -131,7 +131,11 @@ export function TestList({
   const query = search.trim();
   const needle = q.trim();
 
-  const shown = useMemo(() => localTree(refs.filter((r) => matches(r, q))), [refs, q]);
+  const listed = useMemo(() => refs.filter((r) => !awaitsReview(r)), [refs]);
+  const waiting = refs.length - listed.length;
+  const shown = useMemo(() => localTree(listed.filter((r) => matches(r, q))), [listed, q]);
+
+  useEffect(clearAskedTab, []);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: runs when the connection changes
   useEffect(() => {
@@ -324,36 +328,20 @@ export function TestList({
   return (
     <aside className={cx("tside", open && "is-open")} aria-label="Tests">
       <div className="tside-head">
-        <Tabs
-          label="Where"
-          className="tside-tabs"
+        <TestsTabs
           value={tab}
-          onChange={setTab}
-          options={[
-            {
-              value: "local",
-              label: (
-                <>
-                  Local <span className="tab-count">{refs.length}</span>
-                </>
-              ),
-            },
-            {
-              value: "jira",
-              label: (
-                <>
-                  Jira{" "}
-                  {!jiraOn ? (
-                    p?.jiraOffline && <span className="tab-count">off</span>
-                  ) : tree ? (
-                    <span className="tab-count">{tree.totalCount}</span>
-                  ) : treeError ? null : (
-                    <Skeleton className="tab-count" w={18} h={8} />
-                  )}
-                </>
-              ),
-            },
-          ]}
+          onPick={setTab}
+          local={listed.length}
+          review={waiting}
+          jira={
+            !jiraOn ? (
+              p?.jiraOffline && <span className="tab-count">off</span>
+            ) : tree ? (
+              <span className="tab-count">{tree.totalCount}</span>
+            ) : treeError ? null : (
+              <Skeleton className="tab-count" w={18} h={8} />
+            )
+          }
         />
         <span className="spacer" />
         <Activity />
@@ -444,7 +432,7 @@ export function TestList({
             )}
             {loading && !refs.length ? (
               listSkeleton
-            ) : refs.length ? (
+            ) : listed.length ? (
               shown.total ? (
                 localNode(shown, 0)
               ) : (
@@ -452,7 +440,21 @@ export function TestList({
               )
             ) : (
               <div className="tside-empty">
-                <p className="muted">No tests yet. Create one, pull from Jira, or generate them from the documents.</p>
+                {waiting ? (
+                  <>
+                    <p className="muted">
+                      Nothing here yet: {plural(waiting, "generated test")} waiting for review. Create one, or pull from
+                      Jira.
+                    </p>
+                    <Button size="sm" icon="review" onClick={() => app.navigate("review")}>
+                      Open Review
+                    </Button>
+                  </>
+                ) : (
+                  <p className="muted">
+                    No tests yet. Create one, pull from Jira, or generate them from the documents.
+                  </p>
+                )}
               </div>
             )}
           </>

@@ -24,7 +24,7 @@ import {
 } from "../lib/project.ts";
 import { writeAtomic } from "../lib/store.ts";
 import { traceViews } from "../lib/traces.ts";
-import { type ProjectJson, REVIEWS, type Review } from "../types.ts";
+import { awaitsReview, type ProjectJson, REVIEWS, type Review } from "../types.ts";
 import { EFFORT, MODEL } from "./claude.ts";
 
 const FOLDERS = ["docs", "tests", "contexts", "requirements"];
@@ -143,13 +143,16 @@ export function projectInfo(dir: string) {
   const xray = readXray(dir);
   const review = Object.fromEntries(REVIEWS.map((r) => [r, 0])) as Record<Review, number>;
   let tests = 0;
+  let awaiting = 0;
   for (const id of subdirs(join(dir, "tests"))) {
     const f = join(dir, "tests", id, "test.md");
     if (!existsSync(f)) continue;
     tests++;
     const front = readFileSync(f, "utf8").match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1] ?? "";
     const r = front.match(/^review:\s*"?([\w-]+)"?\s*$/m)?.[1] as Review | undefined;
-    review[r && REVIEWS.includes(r) ? r : "draft"]++;
+    const state = r && REVIEWS.includes(r) ? r : "draft";
+    review[state]++;
+    if (awaitsReview({ review: state, generated: /^generated_by:\s*\S/m.test(front) })) awaiting++;
   }
   return {
     dir,
@@ -162,6 +165,7 @@ export function projectInfo(dir: string) {
       docs: subdirs(join(dir, "docs")).filter((d) => existsSync(join(dir, "docs", d, "doc.json"))).length,
       tests,
       review,
+      awaiting,
       jobsRunning: listJobs(dir).filter((j) => j.status === "running").length,
     },
   };
@@ -209,6 +213,7 @@ export const commands: Command[] = [
         docs: z.number(),
         tests: z.number(),
         review: z.record(z.string(), z.number()),
+        awaiting: z.number().describe("Generated tests not validated yet (review.queue)"),
         jobsRunning: z.number(),
       }),
     }),
