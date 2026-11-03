@@ -3,7 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { compare, compareFiles, evalDir, latestReport, readReport } from "../../src/core/rag/compare.ts";
-import type { BehaviorScore, EvalReport } from "../../src/core/rag/eval.ts";
+import type { EvalReport } from "../../src/core/rag/eval.ts";
+import type { BehaviorScore } from "../../src/core/rag/eval-score.ts";
 
 let dir: string;
 

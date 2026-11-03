@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, isAbsolute, join, resolve } from "node:path";
 import { UserError } from "../command.ts";
 import type { EvalReport, PolicyName } from "./eval.ts";
-import { ROLES } from "./eval.ts";
+import { ROLES } from "./eval-score.ts";
 
 export const SEED = 20261102;
 const EPS = 1e-9;

@@ -1,6 +1,7 @@
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
+import { CancelledError, isCancelled, type Semaphore, semaphore } from "../../shared/run/work.ts";
 import type { Ctx } from "../command.ts";
 import { env } from "../env.ts";
 import { docDir, docIds, readDoc, readDocMd, readFigures } from "../lib/docs.ts";
@@ -8,7 +9,7 @@ import { sha256 } from "../lib/hash.ts";
 import { withPerfScope } from "../lib/models-perf.ts";
 import type { Chunk, ClaudeRun, DocJson, FigureEntry, ResolvedModel, VectorSpace } from "../types.ts";
 import { activeModels } from "./activation.ts";
-import { chunkDoc, hooks } from "./chunk.ts";
+import { chunkDoc, type DescribeChunks } from "./chunk.ts";
 import {
   chunkCount,
   chunksOf,
@@ -19,7 +20,6 @@ import {
   insertChunk,
   listSpaces,
   missingVectors,
-  openDb,
   putVector,
   rebuildFts,
   replaceEdges,
@@ -28,6 +28,8 @@ import {
   transaction,
   vecTable,
   vectorCount,
+  withDb,
+  withIndex,
 } from "./db.ts";
 import { embedWith } from "./embed.ts";
 import { fingerprintOf, spaceOf } from "./fingerprint.ts";
@@ -71,13 +73,7 @@ function stateIn(db: DatabaseSync): IndexState | null {
 }
 
 export function readState(project: string): IndexState | null {
-  if (!existsSync(indexFile(project))) return null;
-  const db = openDb(indexFile(project));
-  try {
-    return stateIn(db);
-  } finally {
-    db.close();
-  }
+  return withIndex(project, null, stateIn);
 }
 
 export function projectDocs(project: string): ProjectDoc[] {
@@ -93,6 +89,13 @@ export function projectDocs(project: string): ProjectDoc[] {
   return out.sort((a, b) => a.doc.id.localeCompare(b.doc.id));
 }
 
+// ponytail: changes when the index file or a document changes — the corpus tools (mentions, related) cache on it
+export function corpusKey(project: string, docs: ProjectDoc[]): string {
+  const file = indexFile(project);
+  const mtime = existsSync(file) ? statSync(file).mtimeMs : 0;
+  return [mtime, ...docs.map((d) => `${d.doc.id}:${d.content}`)].join("\n");
+}
+
 // ponytail: the dir is a document folder of docs/ — its name is the document id
 export function docContent(dir: string, doc: Pick<DocJson, "code" | "title">, md?: string): string {
   const project = dirname(dirname(dir));
@@ -105,11 +108,13 @@ function chunkHash(c: Chunk): string {
   return sha256(JSON.stringify([c.anchor, c.path, c.header, c.text, c.kind, c.figureIds])).slice(0, 16);
 }
 
-async function headersFor(doc: DocJson, chunks: Chunk[], ctx: Ctx, claude?: ClaudeRun): Promise<string[]> {
+type Headers = { describe?: DescribeChunks; claude?: ClaudeRun };
+
+async function headersFor(doc: DocJson, chunks: Chunk[], ctx: Ctx, h: Headers): Promise<string[]> {
   const fallback = chunks.map((c) => c.header);
-  if (!hooks.describeChunks || !chunks.length) return fallback;
+  if (!h.describe || !chunks.length) return fallback;
   try {
-    const got = await hooks.describeChunks(doc, chunks, ctx.signal, ctx.project ?? undefined, claude);
+    const got = await h.describe(doc, chunks, ctx.signal, ctx.project ?? undefined, h.claude);
     return chunks.map((c, i) => got[i]?.trim() || c.header);
   } catch (e) {
     ctx.log("warn", `Context headers for ${doc.id}: default used (${e instanceof Error ? e.message : String(e)})`);
@@ -122,8 +127,8 @@ async function indexDoc(
   d: ProjectDoc,
   ctx: Ctx,
   project: string,
-  force = false,
-  claude?: ClaudeRun,
+  force: boolean,
+  h: Headers,
 ): Promise<DocIndexStatus> {
   const row = db.prepare("select content from docs where doc_id = ?").get(d.doc.id) as { content: string } | undefined;
   if (row?.content === d.content) {
@@ -137,10 +142,10 @@ async function indexDoc(
   const old = new Map(chunksOf(db, d.doc.id).map((c) => [`${c.id} ${c.hash}`, c]));
   let fresh = chunks.filter((c) => !old.has(`${c.id} ${chunkHash(c)}`));
   let keep = new Set(chunks.map((c) => `${c.id} ${chunkHash(c)}`));
-  let headers = await headersFor(d.doc, fresh, ctx, claude);
+  let headers = await headersFor(d.doc, fresh, ctx, h);
   // ponytail: forced, every chunk asks for its header again; one that comes out the same keeps its row and vectors
   if (force) {
-    const all = await headersFor(d.doc, chunks, ctx, claude);
+    const all = await headersFor(d.doc, chunks, ctx, h);
     const same = (c: Chunk, i: number) => old.get(`${c.id} ${chunkHash(c)}`)?.header === all[i];
     keep = new Set(chunks.filter(same).map((c) => `${c.id} ${chunkHash(c)}`));
     fresh = chunks.filter((c, i) => !same(c, i));
@@ -188,31 +193,42 @@ function forgetDoc(db: DatabaseSync, id: string): void {
 }
 
 export function unindexDoc(project: string, id: string): void {
-  if (existsSync(indexFile(project))) {
-    const db = openDb(indexFile(project));
-    try {
-      forgetDoc(db, id);
-      const state = stateIn(db);
-      if (state?.docs[id] !== undefined) {
-        delete state.docs[id];
-        setMeta(db, STATE, JSON.stringify(state));
-      }
-    } finally {
-      db.close();
-    }
-  }
+  withIndex(project, undefined, (db) => {
+    forgetDoc(db, id);
+    const state = stateIn(db);
+    if (state?.docs[id] === undefined) return;
+    delete state.docs[id];
+    setMeta(db, STATE, JSON.stringify(state));
+  });
 }
 
-export async function indexProject(
-  project: string,
-  ctx: Ctx,
-  opts: {
-    model?: ResolvedModel | null;
-    dbFile?: string;
-    force?: boolean;
-    claude?: ClaudeRun;
-  } = {},
-): Promise<IndexReport> {
+export type IndexOpts = {
+  model?: ResolvedModel | null;
+  dbFile?: string;
+  force?: boolean;
+  describe?: DescribeChunks;
+  claude?: ClaudeRun;
+};
+
+const cancelled = () => new CancelledError("Indexing cancelled.");
+
+const lanes = new Map<string, Semaphore>();
+
+// ponytail: one index run at a time per rag.db — a second rag.index (or a conversion's index step) waits for the first
+// instead of writing the same database beside it
+export function indexProject(project: string, ctx: Ctx, opts: IndexOpts = {}): Promise<IndexReport> {
+  const file = opts.dbFile ?? indexFile(project);
+  let lane = lanes.get(file);
+  if (!lane) {
+    lane = semaphore(1);
+    lanes.set(file, lane);
+  }
+  return lane(() => runIndex(project, ctx, opts, file), ctx.signal).catch((e) => {
+    throw isCancelled(e) ? cancelled() : e;
+  });
+}
+
+async function runIndex(project: string, ctx: Ctx, opts: IndexOpts, file: string): Promise<IndexReport> {
   const t0 = Date.now();
   ctx.steps?.([
     { id: "model", label: "Find the search model" },
@@ -223,8 +239,8 @@ export async function indexProject(
   ctx.step?.("model");
   const { model, degraded } = await chooseModel(project, opts);
   const live = !opts.dbFile;
-  const db = openDb(opts.dbFile ?? indexFile(project));
-  try {
+  const h: Headers = { describe: opts.describe, claude: opts.claude };
+  return withDb(file, async (db) => {
     // ponytail: --force chunks every document again and re-embeds the active space only; an unchanged chunk keeps its
     // row, so the other spaces keep their vectors (activating a model never destroys another space, SPEC-RAG P3)
     if (opts.force) db.exec("delete from docs");
@@ -232,9 +248,9 @@ export async function indexProject(
     const report: IndexReport["docs"] = [];
     ctx.step?.("chunk");
     for (const [i, d] of docs.entries()) {
-      if (ctx.signal.aborted) throw new Error("Indexing cancelled.");
+      if (ctx.signal.aborted) throw cancelled();
       ctx.progress({ message: `Chunking ${d.doc.id}`, done: i, total: docs.length });
-      const status = await indexDoc(db, d, ctx, project, opts.force, opts.claude);
+      const status = await indexDoc(db, d, ctx, project, !!opts.force, h);
       report.push({ docId: d.doc.id, status, chunks: chunksOf(db, d.doc.id).length });
     }
     if (opts.force) rebuildFts(db);
@@ -262,7 +278,7 @@ export async function indexProject(
       const id = space.id;
       await withPerfScope({ fingerprint: id, project, jobId: ctx.jobId }, async () => {
         for (let i = 0; i < todo.length; i += BATCH) {
-          if (ctx.signal.aborted) throw new Error("Indexing cancelled.");
+          if (ctx.signal.aborted) throw cancelled();
           const batch = todo.slice(i, i + BATCH);
           ctx.progress({ message: `Embedding ${batch[0].docId} (${model.entry.id})`, done: i, total: todo.length });
           const vectors = await embedWith(
@@ -306,7 +322,5 @@ export async function indexProject(
       embedded,
       ms: Date.now() - t0,
     };
-  } finally {
-    db.close();
-  }
+  });
 }

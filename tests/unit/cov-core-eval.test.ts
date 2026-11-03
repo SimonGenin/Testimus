@@ -5,20 +5,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { quietCtx } from "../../src/core/command.ts";
 import { env } from "../../src/core/env.ts";
 import { readProject, writeProject } from "../../src/core/lib/project.ts";
-import { hooks } from "../../src/core/rag/chunk.ts";
 import { runtimes } from "../../src/core/rag/embed.ts";
-import {
-  candidateModel,
-  chunkResolver,
-  graph,
-  hitMatches,
-  itemMatches,
-  readBehaviors,
-  runEval,
-  score,
-  scoreBehavior,
-  totals,
-} from "../../src/core/rag/eval.ts";
+import { candidateModel, graph, runEval } from "../../src/core/rag/eval.ts";
+import { chunkResolver, hitMatches, itemMatches, score, scoreBehavior, totals } from "../../src/core/rag/eval-score.ts";
+import { readBehaviors } from "../../src/core/rag/eval-set.ts";
 import { mockRuntime } from "../../src/core/rag/runtimes/mock.ts";
 
 vi.mock("../../src/core/lib/models-resolve.ts", async (importOriginal) => {
@@ -49,7 +39,6 @@ beforeEach(() => {
   dir = join(mkdtempSync(join(tmpdir(), "testimus-cov-eval-")), "P");
   cpSync(FIXTURE, dir, { recursive: true });
   env.mock = true;
-  hooks.describeChunks = null;
   graph.related = (_p, { ref }) => ({ ref, neighbours: [], warnings: [] });
   graph.mentions = (_p, { term }) => ({ term, forms: [term], total: 0, sections: 0, page: 1, pages: 1, docs: [] });
 });

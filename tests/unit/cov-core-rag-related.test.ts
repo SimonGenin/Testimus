@@ -63,6 +63,6 @@ describe("related — the less common origins", () => {
   });
 
   it("refuses a page anchor", () => {
-    expect(() => related(dir, { ref: "SPEC#page:1" })).toThrow(/No anchor §page:1 in SPEC/);
+    expect(() => related(dir, { ref: "SPEC#page:1" })).toThrow(/No anchor page:1 in SPEC/);
   });
 });

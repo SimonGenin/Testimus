@@ -7,21 +7,17 @@ import { invoke } from "../../src/core/commands/index.ts";
 import { env } from "../../src/core/env.ts";
 import { catalogEntry } from "../../src/core/lib/models-catalog.ts";
 import { readJson } from "../../src/core/lib/project.ts";
-import { hooks } from "../../src/core/rag/chunk.ts";
 import { indexFile, listSpaces, openDb, vectorCount } from "../../src/core/rag/db.ts";
+import { type EvalReport, graph, runEval } from "../../src/core/rag/eval.ts";
 import {
   type BehaviorScore,
   chunkResolver,
-  defaultSet,
-  type EvalReport,
-  graph,
   type Item,
   mentionTerms,
-  readBehaviors,
-  runEval,
   scoreBehavior,
   totals,
-} from "../../src/core/rag/eval.ts";
+} from "../../src/core/rag/eval-score.ts";
+import { defaultSet, readBehaviors } from "../../src/core/rag/eval-set.ts";
 import { indexProject, readState } from "../../src/core/rag/indexer.ts";
 import type { Behavior } from "../../src/core/types.ts";
 
@@ -36,7 +32,6 @@ beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "testimus-eval-"));
   cpSync(FIXTURE, dir, { recursive: true });
   env.mock = true;
-  hooks.describeChunks = null;
 });
 
 afterEach(() => {

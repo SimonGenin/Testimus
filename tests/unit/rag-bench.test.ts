@@ -11,8 +11,7 @@ import { mockSpawnClaude } from "../../src/core/mock/claude.ts";
 import "../../src/core/mock/claude-check.ts";
 import "../../src/core/mock/claude-gen.ts";
 import { agenticRecall, type BenchReport, benchHooks, configLabel } from "../../src/core/rag/bench.ts";
-import { hooks } from "../../src/core/rag/chunk.ts";
-import { chunkResolver } from "../../src/core/rag/eval.ts";
+import { chunkResolver } from "../../src/core/rag/eval-score.ts";
 import { indexProject } from "../../src/core/rag/indexer.ts";
 import type { ActiveChoice, RagChoice } from "../../src/core/types.ts";
 
@@ -29,7 +28,6 @@ beforeEach(() => {
   writeSettings({ ...DEFAULT_SETTINGS, claude: { exe: "C:/bin/claude.exe" } });
   env.spawnClaude = mockSpawnClaude;
   env.mock = true;
-  hooks.describeChunks = null;
   active = [];
   benchHooks.current = () => ({ pack: "light" });
   benchHooks.activate = (_p, c) => {

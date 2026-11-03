@@ -11,12 +11,12 @@ import {
   projectOfDoc,
 } from "../../src/core/claude/headers.ts";
 import { quietCtx } from "../../src/core/command.ts";
-import "../../src/core/commands/index.ts";
+import { invoke } from "../../src/core/commands/index.ts";
 import { type ClaudeOut, type ClaudeSpawn, env } from "../../src/core/env.ts";
 import { DEFAULT_SETTINGS, readJson, readProject, writeProject, writeSettings } from "../../src/core/lib/project.ts";
 import { mockSpawnClaude } from "../../src/core/mock/claude.ts";
 import "../../src/core/mock/claude-gen.ts";
-import { chunkDoc, hooks } from "../../src/core/rag/chunk.ts";
+import { chunkDoc } from "../../src/core/rag/chunk.ts";
 import { openDb } from "../../src/core/rag/db.ts";
 import { indexProject } from "../../src/core/rag/indexer.ts";
 import type { Chunk, DocJson, FigureEntry } from "../../src/core/types.ts";
@@ -61,13 +61,15 @@ beforeEach(() => {
 afterEach(() => {
   env.spawnClaude = real.spawn;
   env.mock = false;
-  hooks.describeChunks = claudeHeaders;
   rmSync(join(dir, ".."), { recursive: true, force: true });
 });
 
-describe("Claude context headers (hooks.describeChunks)", () => {
-  it("is the hook installed by the registry", () => {
-    expect(hooks.describeChunks).toBe(claudeHeaders);
+describe("Claude context headers (rag.index hands claudeHeaders to the indexer)", () => {
+  it("the indexer alone never asks Claude, even when rag.claudeHeaders is on", async () => {
+    enable(true);
+    spy();
+    await indexProject(dir, quietCtx(dir));
+    expect(seen).toHaveLength(0);
   });
 
   it("prompts with every chunk id and its text, and parses the headers block by id", () => {
@@ -139,17 +141,17 @@ describe("Claude context headers (hooks.describeChunks)", () => {
         db.close();
       }
     };
-    await indexProject(dir, quietCtx(dir));
+    await invoke("rag.index", {}, { project: dir });
     expect(seen).toHaveLength(0);
     expect(headers().every((h) => !h.includes("Ce passage"))).toBe(true);
 
     enable(true);
-    await indexProject(dir, quietCtx(dir), { force: true });
+    await invoke("rag.index", { force: true }, { project: dir });
     expect(seen.length).toBeGreaterThan(0);
     expect(headers().every((h) => h.includes("Ce passage du document"))).toBe(true);
 
     seen.length = 0;
-    await indexProject(dir, quietCtx(dir), { force: true, claude: { model: "sonnet", effort: "medium" } });
+    await invoke("rag.index", { force: true, model: "sonnet", effort: "medium" }, { project: dir });
     expect(seen.length).toBeGreaterThan(0);
     for (const s of seen)
       expect(s.args.slice(s.args.indexOf("--model"), s.args.indexOf("--model") + 4)).toEqual([

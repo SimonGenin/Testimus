@@ -1,10 +1,10 @@
-import { existsSync, statSync } from "node:fs";
+import type { DatabaseSync } from "node:sqlite";
 import { UserError } from "../command.ts";
 import type { Chunk, ChunkKind, DocJson } from "../types.ts";
 import { chunkDoc, lines, parseSections } from "./chunk.ts";
-import { chunksOf, indexFile, openDb } from "./db.ts";
+import { chunksOf, indexedContents, withIndex } from "./db.ts";
 import { expandTerm } from "./glossary.ts";
-import { projectDocs } from "./indexer.ts";
+import { corpusKey, projectDocs } from "./indexer.ts";
 import { fold, STOP_WORDS, stemWord } from "./stem-fr.ts";
 
 export type MentionsInput = {
@@ -64,18 +64,12 @@ const cache = new Map<string, { key: string; docs: CorpusDoc[] }>();
 // both paths give the same passages, so the tools answer the same with or without an index (SPEC-RAG P1)
 export function corpusDocs(project: string): CorpusDoc[] {
   const docs = projectDocs(project);
-  const file = indexFile(project);
-  const hasIndex = existsSync(file);
-  const key = [hasIndex ? statSync(file).mtimeMs : 0, ...docs.map((d) => `${d.doc.id}:${d.content}`)].join("\n");
+  const key = corpusKey(project, docs);
   const hit = cache.get(project);
   if (hit?.key === key) return hit.docs;
-  const db = hasIndex ? openDb(file) : null;
-  try {
-    const indexed = new Map<string, string>();
-    if (db)
-      for (const r of db.prepare("select doc_id, content from docs").all() as { doc_id: string; content: string }[])
-        indexed.set(r.doc_id, r.content);
-    const out = docs.map((d): CorpusDoc => {
+  const read = (db: DatabaseSync | null): CorpusDoc[] => {
+    const indexed = db ? indexedContents(db) : new Map<string, string>();
+    return docs.map((d): CorpusDoc => {
       const fresh = db && indexed.get(d.doc.id) === d.content;
       const chunks = fresh ? chunksOf(db, d.doc.id) : chunkDoc(d.doc, d.md, d.figures);
       const sections = parseSections(d.md).map((s) => ({ anchor: s.anchor, title: s.title, path: s.path }));
@@ -88,11 +82,10 @@ export function corpusDocs(project: string): CorpusDoc[] {
         position: positions(d.md),
       };
     });
-    cache.set(project, { key, docs: out });
-    return out;
-  } finally {
-    db?.close();
-  }
+  };
+  const out = withIndex(project, null, read) ?? read(null);
+  cache.set(project, { key, docs: out });
+  return out;
 }
 
 export const baseAnchor = (anchor: string) => anchor.replace(/~\d+$/, "");

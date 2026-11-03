@@ -6,9 +6,9 @@ import { quietCtx } from "../../src/core/command.ts";
 import { invoke } from "../../src/core/commands/index.ts";
 import { env } from "../../src/core/env.ts";
 import { readJson, readProject, writeProject } from "../../src/core/lib/project.ts";
-import { chunkDoc, hooks, parseSections } from "../../src/core/rag/chunk.ts";
+import { chunkDoc, type DescribeChunks, parseSections } from "../../src/core/rag/chunk.ts";
 import { runtimes } from "../../src/core/rag/embed.ts";
-import { hitMatches, score } from "../../src/core/rag/eval.ts";
+import { hitMatches, score } from "../../src/core/rag/eval-score.ts";
 import { indexProject, readState } from "../../src/core/rag/indexer.ts";
 import { mockRuntime } from "../../src/core/rag/runtimes/mock.ts";
 import { rrf, search, searchChunks } from "../../src/core/rag/search/hybrid.ts";
@@ -43,13 +43,11 @@ beforeEach(() => {
       return mockRuntime.embed(m, texts, mode);
     },
   };
-  hooks.describeChunks = null;
 });
 
 afterEach(() => {
   env.mock = false;
   runtimes.mock = mockRuntime;
-  hooks.describeChunks = null;
   rmSync(dir, { recursive: true, force: true });
 });
 
@@ -203,17 +201,18 @@ describe("index", () => {
     expect(only.every((h) => h.docId === D3)).toBe(true);
   });
 
-  it("uses the describeChunks hook for new chunks and falls back to the default header", async () => {
-    hooks.describeChunks = async (doc, chunks) => chunks.map((c) => `Cette section de ${doc.code} décrit ${c.anchor}.`);
-    await indexProject(dir, quietCtx(dir));
+  it("uses the describe option for new chunks and falls back to the default header", async () => {
+    const describe: DescribeChunks = async (doc, chunks) =>
+      chunks.map((c) => `Cette section de ${doc.code} décrit ${c.anchor}.`);
+    await indexProject(dir, quietCtx(dir), { describe });
     const [hit] = await searchChunks(dir, "EXI_MOP_SPF_511_A_1670", { mode: "bm25" });
     expect(hit.chunk.header).toBe(`Cette section de ${D3} décrit §5.6.6.`);
 
-    hooks.describeChunks = async () => {
+    const failing: DescribeChunks = async () => {
       throw new Error("claude unavailable");
     };
     const warns: string[] = [];
-    await indexProject(dir, { ...quietCtx(dir), log: (_l, m) => warns.push(m) }, { force: true });
+    await indexProject(dir, { ...quietCtx(dir), log: (_l, m) => warns.push(m) }, { force: true, describe: failing });
     const [again] = await searchChunks(dir, "EXI_MOP_SPF_511_A_1670", { mode: "bm25" });
     expect(again.chunk.header).toBe(`${D3} Traction — 5 > 5.6 > 5.6.6 Sectionneur (S)`);
     expect(warns.join()).toMatch(/default used/);

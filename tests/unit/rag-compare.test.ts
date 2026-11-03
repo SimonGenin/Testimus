@@ -4,7 +4,8 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { invoke } from "../../src/core/commands/index.ts";
 import { bootstrap, compare, compareFiles, mulberry32 } from "../../src/core/rag/compare.ts";
-import type { BehaviorScore, EvalReport } from "../../src/core/rag/eval.ts";
+import type { EvalReport } from "../../src/core/rag/eval.ts";
+import type { BehaviorScore } from "../../src/core/rag/eval-score.ts";
 
 type B = { id: string; recall: number; roles?: Record<string, [number, number]> };
 

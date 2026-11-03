@@ -1,14 +1,14 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { UserError } from "../../command.ts";
-import { readFigures } from "../../lib/docs.ts";
+import { docDir, readDocMd, readFigures } from "../../lib/docs.ts";
 import { loadMsSoFar, recordPerf } from "../../lib/models-perf.ts";
 import { readProject } from "../../lib/project.ts";
 import type { RetrievalSettings, SearchHit } from "../../types.ts";
 import { activeModels } from "../activation.ts";
 import { docFigures } from "../chunk.ts";
-import { type ChunkRow, chunkCount, chunksByRowid, indexFile, nearest, openDb, toChunk } from "../db.ts";
+import { type ChunkRow, chunkCount, chunksByRowid, indexFile, nearest, toChunk, withDb } from "../db.ts";
 import { embedWith, rerankFor, rerankWith } from "../embed.ts";
 import { spaceOf } from "../fingerprint.ts";
 import { keep, type RetrievalOverride, type SearchOpts } from "./filter.ts";
@@ -95,8 +95,7 @@ export function rrf(lists: number[][], k = RRF_K): [number, number][] {
 
 function figureFile(project: string, c: ChunkRow): string | undefined {
   if (c.kind !== "figure") return undefined;
-  const dir = join(project, "docs", c.docId);
-  const md = existsSync(join(dir, "doc.md")) ? readFileSync(join(dir, "doc.md"), "utf8") : "";
+  const md = existsSync(join(docDir(project, c.docId), "doc.md")) ? readDocMd(project, c.docId) : "";
   const f = docFigures(md, readFigures(project, c.docId)).find((x) => x.anchor === c.anchor);
   return f?.file ? `docs/${c.docId}/${f.file}` : undefined;
 }
@@ -130,8 +129,7 @@ async function ranked(
   if (!existsSync(file)) throw new UserError("The project has no index yet.", "Run testimus rag index.");
   const settings = retrievalSettings(project, opts.retrieval, opts.model ? undefined : await packRetrieval(project));
   const o: SearchOpts = { ...opts, retrieval: settings, project };
-  const db = openDb(file);
-  try {
+  return withDb(file, async (db) => {
     const lists: number[][] = [];
     let degraded: string | null = null;
     if (mode !== "vector") {
@@ -206,9 +204,7 @@ async function ranked(
       ms: Math.round(performance.now() - t0 - (loadMsSoFar() - l0)),
     });
     return { hits, settings };
-  } finally {
-    db.close();
-  }
+  });
 }
 
 const hitOf = (project: string, c: ChunkRow, score: number, extra: Partial<SearchHit> = {}): SearchHit => {
@@ -233,8 +229,7 @@ const parentOf = (n: string) => n.split(".").slice(0, -1).join(".");
 // flagged `via`
 export function expandHits(project: string, hits: Ranked[], expand: Expand, opts: SearchOpts): SearchHit[] {
   if (expand === "none" || !hits.length) return [];
-  const db = openDb(opts.dbFile ?? indexFile(project));
-  try {
+  return withDb(opts.dbFile ?? indexFile(project), (db) => {
     const sectionChunk = db.prepare(
       "select * from chunks where doc_id = ? and (id = ? or id = ?) order by rowid limit 1",
     );
@@ -259,9 +254,7 @@ export function expandHits(project: string, hits: Ranked[], expand: Expand, opts
       for (const r of linked.all(`${c.docId}#${c.anchor}`) as { dst: string }[]) addSection(r.dst, score, "graph");
     }
     return out;
-  } finally {
-    db.close();
-  }
+  });
 }
 
 export async function search(project: string, query: string, opts: SearchInput = {}): Promise<SearchHit[]> {

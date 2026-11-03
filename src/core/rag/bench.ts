@@ -1,5 +1,5 @@
-import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { CancelledError, scope } from "../../shared/run/work.ts";
 import { readLedger } from "../claude/ledger.ts";
 import { type Ctx, UserError } from "../command.ts";
 import { env } from "../env.ts";
@@ -7,15 +7,18 @@ import { writeJson } from "../lib/project.ts";
 import { readCheck } from "../lib/store.ts";
 import type { ActiveChoice, Effort, FindingKind, RagChoice } from "../types.ts";
 import { activeChoice, setActiveChoice } from "./activation.ts";
-import { allChunks, indexFile, openDb } from "./db.ts";
-import { APP_VERSION, chunkResolver, defaultSet, type Item, itemMatches, readBehaviors } from "./eval.ts";
+import { allChunks, withIndex } from "./db.ts";
+import { APP_VERSION } from "./eval.ts";
+import { chunkResolver, type Item, itemMatches } from "./eval-score.ts";
+import { defaultSet, readBehaviors } from "./eval-set.ts";
 
 type Invoke = (name: string, input: unknown, opts: { project: string; signal?: AbortSignal }) => Promise<unknown>;
 
 const registryInvoke: Invoke = async (name, input, opts) =>
   (await import("../commands/index.ts")).invoke(name, input, opts);
 
-// ponytail: activation and indexing belong to another phase; tests swap them here
+// ponytail: activating a configuration writes this PC's settings and gen.tests runs Claude — tests swap these four
+// (env is no seam for them); invoke reaches the registry lazily, since the registry imports this file
 export const benchHooks = {
   current: (project: string): ActiveChoice | null => activeChoice(project),
   activate: (project: string, choice: RagChoice | ActiveChoice | null): void => setActiveChoice(project, choice),
@@ -89,13 +92,11 @@ type GenOut = {
 };
 
 function resolver(project: string): (ref: string) => Item {
-  if (!existsSync(indexFile(project))) return (ref) => ({ ref, chunks: [] });
-  const db = openDb(indexFile(project));
-  try {
-    return chunkResolver(allChunks(db));
-  } finally {
-    db.close();
-  }
+  return withIndex(
+    project,
+    (ref: string): Item => ({ ref, chunks: [] }),
+    (db) => chunkResolver(allChunks(db)),
+  );
 }
 
 const mean = (xs: number[]) => (xs.length ? xs.reduce((a, x) => a + x, 0) / xs.length : 0);
@@ -115,7 +116,10 @@ export async function runBench(project: string, ctx: Ctx, input: BenchInput): Pr
   } catch {
     before = undefined;
   }
-  try {
+  await scope(async (s) => {
+    s.defer(() => {
+      if (before !== undefined) benchHooks.activate(project, before);
+    });
     for (const config of input.configs) {
       const label = configLabel(config);
       ctx.progress({ message: `Activating ${label}`, done: rows.length, total });
@@ -124,7 +128,7 @@ export async function runBench(project: string, ctx: Ctx, input: BenchInput): Pr
       const resolveRef = resolver(project);
       for (const b of behaviors)
         for (let run = 1; run <= input.runs; run++) {
-          if (ctx.signal.aborted) throw new Error("Benchmark cancelled.");
+          if (ctx.signal.aborted) throw new CancelledError("Benchmark cancelled.");
           ctx.progress({ message: `${label} · ${b.id} · run ${run}`, done: rows.length, total });
           const t0 = Date.now();
           let r: GenOut;
@@ -183,9 +187,7 @@ export async function runBench(project: string, ctx: Ctx, input: BenchInput): Pr
             }
         }
     }
-  } finally {
-    if (before !== undefined) benchHooks.activate(project, before);
-  }
+  });
   if (rows.some((r) => r.ok && r.agenticRecall === null))
     notes.push(
       "The evidence ledger (.testimus/gen/<job>.json) has no consulted list: agentic recall is not measured (null).",

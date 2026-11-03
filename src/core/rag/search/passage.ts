@@ -4,6 +4,7 @@ import { UserError } from "../../command.ts";
 import { docDir, findDoc, readDocMd, readFigures } from "../../lib/docs.ts";
 import { readProject } from "../../lib/project.ts";
 import type { DocJson, FigureEntry, Passage, PassageOutlineItem } from "../../types.ts";
+import { normalizeAnchor } from "../anchors.ts";
 import { docFigures, lines, markerLine, parseSections, type Section, sectionAt, stripComments } from "../chunk.ts";
 
 export type FigureView = FigureEntry & {
@@ -36,12 +37,6 @@ function loadDoc(
 export function passageMaxChars(project: string): number {
   const n = readProject(project).rag.passageMaxChars;
   return typeof n === "number" && n > 0 ? n : PASSAGE_MAX_CHARS;
-}
-
-export function normalizeAnchor(anchor: string): string {
-  const a = anchor.trim();
-  if (/^fig[:\s]/i.test(a)) return `fig:${a.slice(4).trim()}`;
-  return `§${a.replace(/^§\s*/, "")}`;
 }
 
 const levelOf = (ls: string[], s: Section) => /^(#+)/.exec(ls[s.line])?.[1].length ?? 7;

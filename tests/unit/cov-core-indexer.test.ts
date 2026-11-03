@@ -6,7 +6,7 @@ import type { Ctx } from "../../src/core/command.ts";
 import { quietCtx } from "../../src/core/command.ts";
 import { env } from "../../src/core/env.ts";
 import { resolveModel } from "../../src/core/rag/activation.ts";
-import { hooks } from "../../src/core/rag/chunk.ts";
+import type { DescribeChunks } from "../../src/core/rag/chunk.ts";
 import { chunkCount, indexFile, listSpaces, missingVectors, openDb, vectorCount } from "../../src/core/rag/db.ts";
 import { indexProject, projectDocs, readState, unindexDoc } from "../../src/core/rag/indexer.ts";
 
@@ -21,11 +21,9 @@ beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "testimus-cov-indexer-"));
   cpSync(FIXTURE, dir, { recursive: true });
   env.mock = true;
-  hooks.describeChunks = null;
 });
 afterEach(() => {
   env.mock = false;
-  hooks.describeChunks = null;
   rmSync(dir, { recursive: true, force: true });
 });
 
@@ -49,13 +47,16 @@ describe("projectDocs", () => {
 describe("indexProject — less common paths", () => {
   it("context headers: a non-Error failure keeps the defaults, an empty answer keeps a chunk's own header", async () => {
     const warnings: string[] = [];
-    hooks.describeChunks = async () => {
+    const boom: DescribeChunks = async () => {
       throw "boom";
     };
-    await indexProject(dir, ctxWith({ project: null, log: (_l, m) => warnings.push(m) }), { model: null });
+    await indexProject(dir, ctxWith({ project: null, log: (_l, m) => warnings.push(m) }), {
+      model: null,
+      describe: boom,
+    });
     expect(warnings.some((w) => w.includes("default used (boom)"))).toBe(true);
     let seenProject: string | undefined = "unset";
-    hooks.describeChunks = async (_doc, chunks, _signal, project) => {
+    const blank: DescribeChunks = async (_doc, chunks, _signal, project) => {
       seenProject = project;
       return chunks.map(() => "  ");
     };
@@ -63,7 +64,7 @@ describe("indexProject — less common paths", () => {
       join(dir, "docs", D3, "doc.md"),
       `${readFileSync(join(dir, "docs", D3, "doc.md"), "utf8")}\nAjout.\n`,
     );
-    const r = await indexProject(dir, ctxWith({ project: null }), { model: null });
+    const r = await indexProject(dir, ctxWith({ project: null }), { model: null, describe: blank });
     expect(seenProject).toBeUndefined();
     expect(r.docs.find((d) => d.docId === D3)?.status).toBe("indexed");
   });

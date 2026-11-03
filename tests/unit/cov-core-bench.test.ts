@@ -8,7 +8,6 @@ import { env } from "../../src/core/env.ts";
 import { writeJson } from "../../src/core/lib/project.ts";
 import { activeChoice } from "../../src/core/rag/activation.ts";
 import { benchHooks, runBench } from "../../src/core/rag/bench.ts";
-import { hooks } from "../../src/core/rag/chunk.ts";
 import { indexFile } from "../../src/core/rag/db.ts";
 
 const FIXTURE = join(import.meta.dirname, "..", "fixtures", "project");
@@ -20,7 +19,6 @@ beforeEach(() => {
   dir = join(mkdtempSync(join(tmpdir(), "testimus-cov-bench-")), "P");
   cpSync(FIXTURE, dir, { recursive: true });
   env.mock = true;
-  hooks.describeChunks = null;
   calls = [];
 });
 

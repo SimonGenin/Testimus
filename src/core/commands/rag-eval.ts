@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { claudeHeaders } from "../claude/headers.ts";
 import { command, projectOf } from "../command.ts";
 import { runBench } from "../rag/bench.ts";
 import { compareFiles } from "../rag/compare.ts";
@@ -151,7 +152,7 @@ export const commands = [
     mutates: false,
     job: "rag-eval",
     subject: (i) => i.embedding ?? "eval",
-    run: (ctx, input) => runEval(projectOf(ctx), ctx, input),
+    run: (ctx, input) => runEval(projectOf(ctx), ctx, { ...input, describe: claudeHeaders }),
   }),
   command({
     name: "rag.compare",

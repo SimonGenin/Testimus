@@ -8,8 +8,7 @@ import {
   createSpace,
   deleteChunk,
   dropSpace,
-  edgesFrom,
-  edgesTo,
+  edgesOf,
   getSpace,
   insertChunk,
   listSpaces,
@@ -123,8 +122,10 @@ describe("rag.db schema v2", () => {
         { from: "D#§5.6", to: "D#§3.2", kind: "refers", docId: "D" },
       ]);
       replaceEdges(db, "D", [{ from: "D#§5.6", to: "D#§3.2.4", kind: "refers", docId: "D" }]);
-      expect(edgesFrom(db, "D#§5.6")).toEqual([{ from: "D#§5.6", to: "D#§3.2.4", kind: "refers", docId: "D" }]);
-      expect(edgesTo(db, "D#§3")).toEqual([]);
+      expect(edgesOf(db, "D").filter((e) => e.from === "D#§5.6")).toEqual([
+        { from: "D#§5.6", to: "D#§3.2.4", kind: "refers", docId: "D" },
+      ]);
+      expect(edgesOf(db, "D").filter((e) => e.to === "D#§3")).toEqual([]);
     } finally {
       db.close();
     }
@@ -172,7 +173,7 @@ describe("rag.db schema v2", () => {
       expect(vectorCount(again, s.id)).toBe(1);
       expect(getSpace(again, s.id)?.complete).toBe(false);
       expect(again.prepare("select * from docs").all()).toEqual([]);
-      expect(edgesFrom(again, "D#§1")).toEqual([]);
+      expect(edgesOf(again, "D").filter((e) => e.from === "D#§1")).toEqual([]);
       expect(again.prepare("select rowid from chunks_fts where chunks_fts match 'EXI_1'").all()).toEqual([]);
       expect(again.prepare("select rowid from chunks_fts where chunks_fts match 'texte'").all()).toHaveLength(1);
     } finally {
