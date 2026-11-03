@@ -119,7 +119,7 @@ describe("dock: scope, presets, contexts, models", () => {
       contexts: ["ctx-b"],
     });
     expect(await screen.findByText("1.2 s · no tokens reported · sonnet / medium")).toBeInTheDocument();
-    expect(screen.getByRole("group", { name: "Request · Whole project" })).toHaveTextContent("Uniformise les verbes");
+    expect(screen.getByRole("region", { name: "Request · Whole project" })).toHaveTextContent("Uniformise les verbes");
     expect(state.setClaudeRunning).toHaveBeenCalledWith("*project*");
   });
 
@@ -222,8 +222,8 @@ describe("dock: scope, presets, contexts, models", () => {
     send();
     expect(await screen.findByText("Answer 2")).toBeInTheDocument();
     expect(screen.getByText("Answer 1")).toBeInTheDocument();
-    expect(screen.getAllByRole("group", { name: "Request · This test" })).toHaveLength(2);
-    for (const g of screen.getAllByRole("group", { name: "Request · This test" }))
+    expect(screen.getAllByRole("region", { name: "Request · This test" })).toHaveLength(2);
+    for (const g of screen.getAllByRole("region", { name: "Request · This test" }))
       expect(g).toHaveTextContent("Raccourcis");
     expect(callsOf("claude.run")[1].input.conversation).toBe(
       "User (This test): Raccourcis\n\nClaude: Answer 1 (0 steps changed)",

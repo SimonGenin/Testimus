@@ -112,14 +112,14 @@ export type TurnActions = {
 
 export function UserTurn({ turn }: { turn: Turn }) {
   return (
-    <div role="group" aria-label={`Request${turn.label ? ` · ${turn.label}` : ""}`} {...stylex.props(styles.ask)}>
+    <section aria-label={`Request${turn.label ? ` · ${turn.label}` : ""}`} {...stylex.props(styles.ask)}>
       {turn.label && <span {...stylex.props(styles.label)}>{turn.label}</span>}
       <div {...stylex.props(styles.bubble)}>
         {turn.text || (
           <span {...stylex.props(styles.empty)}>No request — Claude works from the scope and the house rules</span>
         )}
       </div>
-    </div>
+    </section>
   );
 }
 

@@ -25,7 +25,7 @@ test.describe("Claude signed out", () => {
     await boot(page, "#/documents/SOSIE_211_D401-1_3");
     const dock = await openDock(page);
     await dock.getByRole("textbox", { name: "Ask about SOSIE_211_D401-1_3" }).fill("Que propose le menu ?");
-    await dock.getByRole("button", { name: "Send" }).click();
+    await dock.getByRole("button", { name: "Ask", exact: true }).click();
     await expect(
       dock
         .getByText("Claude Code is not signed in.")
