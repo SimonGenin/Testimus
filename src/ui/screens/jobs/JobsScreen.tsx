@@ -1,6 +1,7 @@
 import { type CSSProperties, useCallback, useEffect, useState } from "react";
 import type { Job } from "../../../core/types.ts";
 import { ApiError, call, events } from "../../api.ts";
+import { ClaudeActivity } from "../../components/claude/ClaudeActivity.tsx";
 import { JobLog, useJob } from "../../components/shell/JobLog.tsx";
 import { ProblemPanel } from "../../components/shell/ProblemPanel.tsx";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
@@ -252,7 +253,11 @@ function JobDetail({ job: listed, now }: { job: Job; now: number }) {
           <span className="muted">{plural(r.tests.length, "test")} written</span>
         </div>
       )}
-      <JobLog events={list} />
+      {list.some((e) => e.type === "claude") ? (
+        <ClaudeActivity events={list} running={job.status === "running"} now={now} />
+      ) : (
+        <JobLog events={list} />
+      )}
       {CLI[job.kind] && (
         <span className="muted jobdetail-cli">
           Same as <span className="mono">{CLI[job.kind]}</span> · log kept in the project folder
