@@ -35,10 +35,10 @@ describe("contexts.* through the registry", () => {
     const own = await call<Detail>("contexts.create", { name: "  House style " }, P);
     expect(own).toMatchObject({ name: "House style", shared: false, paths: [], files: [], hasNotes: false, notes: "" });
     expect(own.id).toMatch(/^ctx-[0-9a-f]{8}$/);
-    expect(existsSync(join(P, "contexts", own.id, "context.json"))).toBe(true);
+    expect(existsSync(join(P, "contexts", own.id, "context.md"))).toBe(true);
     const lib = await call<Detail>("contexts.create", { shared: true }, P);
     expect(lib).toMatchObject({ name: "New context", shared: true });
-    expect(existsSync(join(sharedContexts(), lib.id, "notes.md"))).toBe(true);
+    expect(existsSync(join(sharedContexts(), lib.id, "context.md"))).toBe(true);
     expect(existsSync(join(P, "contexts", lib.id))).toBe(false);
   });
 
@@ -70,7 +70,7 @@ describe("contexts.* through the registry", () => {
     await expect(call("contexts.show", { id: "ctx-00000000" }, P)).rejects.toThrow(/No context ctx-00000000/);
   });
 
-  it("contexts.set renames, writes notes.md and replaces the paths, trimmed and once each", async () => {
+  it("contexts.set renames, writes the notes and replaces the paths, trimmed and once each", async () => {
     const c = await call<Detail>("contexts.create", {}, P);
     const set = await call<Detail>(
       "contexts.set",
@@ -78,7 +78,9 @@ describe("contexts.* through the registry", () => {
       P,
     );
     expect(set).toMatchObject({ name: "Style", notes: "x", paths: ["ref/a", "/abs/b"] });
-    expect(readFileSync(join(P, "contexts", c.id, "notes.md"), "utf8")).toBe("x");
+    expect(readFileSync(join(P, "contexts", c.id, "context.md"), "utf8")).toBe(
+      "---\nname: Style\npaths:\n  - ref/a\n  - /abs/b\n---\nx",
+    );
     const blank = await call<Detail>("contexts.set", { id: c.id, name: "   " }, P);
     expect(blank.name).toBe("Style");
     await expect(call("contexts.set", { id: "ctx-missing", name: "a" }, P)).rejects.toThrow(/No context/);

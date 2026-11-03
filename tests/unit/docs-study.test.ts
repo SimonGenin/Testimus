@@ -223,10 +223,10 @@ describe("docs.add and docs.convert with study", () => {
   it("take options from the team, clear them with {}, and never fail on a Claude that answers nothing", async () => {
     const file = original("SPEC-TAGS_01.00.pdf", taggedPdf());
     await invoke("docs.add", { file, conversion: { reader: "layout" }, describeFigures: false }, { project: dir });
-    expect(doc("SPEC-TAGS").convertedWith).not.toMatch(/tagged/);
+    expect(doc("SPEC-TAGS").converted?.with).not.toMatch(/tagged/);
     await invoke("docs.convert", { id: "SPEC-TAGS", conversion: {}, describeFigures: false }, { project: dir });
     expect(doc("SPEC-TAGS").conversion).toBeUndefined();
-    expect(doc("SPEC-TAGS").convertedWith).toMatch(/tagged/);
+    expect(doc("SPEC-TAGS").converted?.with).toMatch(/tagged/);
     claude({ study: "I could not open the pages.", check: "Nothing to say." });
     const r = (await invoke(
       "docs.convert",
@@ -242,7 +242,7 @@ describe("docs.add and docs.convert with study", () => {
     const file = original("SPEC-WORD_01.00.docx", sampleDocx());
     const r = (await invoke("docs.add", { file, study: true, describeFigures: false }, { project: dir })) as DocJson;
     expect(prompts).toHaveLength(0);
-    expect(r.convertedWith).toMatch(/^mammoth/);
+    expect(r.converted?.with).toMatch(/^mammoth/);
   });
 
   it("attach the .docx of a document added from its .pdf: it becomes the source", async () => {
@@ -256,14 +256,14 @@ describe("docs.add and docs.convert with study", () => {
       { project: dir },
     )) as DocJson;
     expect(r.source.file).toBe("source.docx");
-    expect(r.convertedWith).toMatch(/^mammoth/);
+    expect(r.converted?.with).toMatch(/^mammoth/);
     expect(existsSync(join(dir, "docs", "SPEC-TAGS", "source.pdf"))).toBe(true);
     await invoke(
       "docs.convert",
       { id: "SPEC-TAGS", conversion: { from: "pdf" }, describeFigures: false },
       { project: dir },
     );
-    expect(doc("SPEC-TAGS").convertedWith).toMatch(/tagged PDF/);
+    expect(doc("SPEC-TAGS").converted?.with).toMatch(/tagged PDF/);
   });
 });
 

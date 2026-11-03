@@ -82,8 +82,8 @@ describe("per-machine activation", () => {
     expect(activeChoice(link)).toBeNull();
   });
 
-  it("falls back from this PC's choice to the reference, the v1 names, the Light pack, then BM25 only", async () => {
-    project({ embedding: "qwen3-embedding-0.6b", reranker: "bge-reranker-v2-m3", reference: { pack: "performance" } });
+  it("falls back from this PC's choice to the reference, the Light pack, then BM25 only", async () => {
+    project({ reference: { pack: "performance" } });
     setActiveChoice(dir, { embedding: "qwen3-embedding-4b-q8", reranker: null });
 
     installed.add("qwen3-embedding-4b-q8");
@@ -108,11 +108,6 @@ describe("per-machine activation", () => {
     expect(ref2.choice).toMatchObject({ variant: { embedding: "qwen3-embedding-0.6b-onnx-q8" } });
 
     project({ reference: undefined });
-    const v1 = await activeModels(dir);
-    expect(v1.source).toBe("project");
-    expect(v1.embedding?.entry.id).toBe("qwen3-embedding-0.6b-onnx-q8");
-    expect(v1.reranker?.entry.id).toBe("bge-reranker-v2-m3-q8");
-
     installed.clear();
     installed.add("bge-m3-q8");
     const light = await activeModels(dir);
@@ -122,7 +117,7 @@ describe("per-machine activation", () => {
     installed.clear();
     const none = await activeModels(dir);
     expect(none).toMatchObject({ source: "none", embedding: null, reranker: null, choice: null });
-    expect(none.missing).toEqual(["qwen3-embedding-4b-q8", "qwen3-embedding-0.6b", "pack light"]);
+    expect(none.missing).toEqual(["qwen3-embedding-4b-q8", "pack light"]);
   });
 
   it("carries the pack's retrieval settings; a reranker not on this PC is left out and named missing", async () => {
@@ -152,7 +147,7 @@ describe("per-machine activation", () => {
 
   it("fills {task} from project.json rag.queryTask, in English by default", async () => {
     installed.add("qwen3-embedding-0.6b-onnx-q8");
-    project({ embedding: "qwen3-embedding-0.6b-onnx-q8" });
+    project({ reference: { embedding: "qwen3-embedding-0.6b-onnx-q8", reranker: null } });
     const def = fingerprintOf((await activeModels(dir)).embedding as never);
     expect(def.queryInstruction).toMatch(/^Instruct: Given a question about a railway simulator .*\nQuery: $/);
     project({ queryTask: "Étant donné une question, trouver les passages" });
@@ -162,9 +157,9 @@ describe("per-machine activation", () => {
 
   it("under --mock every catalog model resolves to the mock runtime", async () => {
     env.mock = true;
-    expect(resolveModel("bge-m3")).toMatchObject({ runtime: "mock", entry: { id: "bge-m3-q8" } });
+    expect(resolveModel("bge-m3-q8")).toMatchObject({ runtime: "mock", entry: { id: "bge-m3-q8" } });
     expect(resolveModel("nope")).toBeNull();
-    expect((await activeModels(dir)).source).toBe("project");
+    expect((await activeModels(dir)).source).toBe("light");
   });
 });
 

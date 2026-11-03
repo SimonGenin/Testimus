@@ -9,6 +9,7 @@ import { ProjectSection, saveProject } from "../../src/ui/screens/settings/Proje
 import { SearchSection } from "../../src/ui/screens/settings/SearchSection.tsx";
 import { SettingsScreen } from "../../src/ui/screens/settings/SettingsScreen.tsx";
 import { clearToasts, mount } from "./cov-uiscreens-helpers.tsx";
+import { layoutOf } from "./layout-helpers.ts";
 import { api, app, fakeFetch, named, noDesktop } from "./ui-desktop-helpers.tsx";
 
 vi.mock("../../src/ui/screens/settings/ModelsSection.tsx", () => ({
@@ -135,38 +136,40 @@ describe("Settings › Project", () => {
 });
 
 describe("Settings › Smart columns", () => {
-  const xray = {
-    fields: [
+  const xray = layoutOf(
+    [
       { id: "action", name: "Action", type: "text", builtin: true },
       { id: "result", name: "Expected Result", type: "text", builtin: true },
       { id: "cf1", name: "Exigence", type: "text-single", builtin: false },
-      { id: "cf2", name: "Note", builtin: false },
+      { id: "cf2", name: "Note", type: "", builtin: false },
     ],
-    prefs: { order: ["Expected Result", "Gone"], collapsed: ["Note"], hidden: ["Action"] },
-    fetchedAt: "2026-11-01T10:00:00Z",
-  } as unknown as ReturnType<typeof app>["xray"];
+    { order: ["Expected Result", "Gone"], collapsed: ["Note"], hidden: ["Action"] },
+    [],
+    "2026-11-01T10:00:00Z",
+  ) as unknown as ReturnType<typeof app>["xray"];
   const col = (name: string, over: Record<string, unknown> = {}) => ({
     name,
     origin: "xray",
     builtin: name === "Action" || name === "Expected Result",
     status: "ok",
     description: `${name} text`,
+    mode: "open",
     ...over,
   });
   const columns = [
     col("Expected Result"),
-    col("Action"),
-    col("Exigence", { status: "new", description: "" }),
-    col("Note"),
+    col("Action", { mode: "hidden" }),
+    col("Exigence", { status: "new", description: "", mode: "filled" }),
+    col("Note", { mode: "collapsed" }),
     col("Remarque", { origin: "local", status: "gone", description: "" }),
   ];
   const withColumns = (cols: unknown[] = columns) =>
     ({ ...app().info, columns: cols }) as ReturnType<typeof app>["info"];
 
   it("shows each column with its origin, folding, hidden flag, and moves them", async () => {
-    api.routes["xray.prefs"] = () => ({});
-    const withFilled = { ...xray, prefs: { ...xray.prefs, filled: ["Exigence"] } } as typeof xray;
-    const { app: a } = mount(<ColumnsSection />, { xray: withFilled, info: withColumns() });
+    api.routes["columns.setModes"] = () => [];
+    api.routes["columns.order"] = () => [];
+    const { app: a } = mount(<ColumnsSection />, { xray, info: withColumns() });
     const rows = within(screen.getByRole("list", { name: "Smart columns" })).getAllByRole("listitem");
     expect(rows[0]).toHaveTextContent("Xray · standard");
     expect(rows[2]).toHaveTextContent("New in Xray");
@@ -182,31 +185,31 @@ describe("Settings › Smart columns", () => {
     const note = screen.getByLabelText("Note folding");
     expect(note).toHaveValue("collapsed");
     fireEvent.change(note, { target: { value: "open" } });
-    await waitFor(() => expect(named("xray.prefs")[0]?.input).toEqual({ collapsed: [], filled: ["Exigence"] }));
+    await waitFor(() => expect(named("columns.setModes")[0]?.input).toEqual({ modes: { Note: "open" } }));
     fireEvent.change(screen.getByLabelText("Exigence folding"), { target: { value: "collapsed" } });
-    await waitFor(() => expect(named("xray.prefs")[1]?.input).toEqual({ collapsed: ["Note", "Exigence"], filled: [] }));
+    await waitFor(() => expect(named("columns.setModes")[1]?.input).toEqual({ modes: { Exigence: "collapsed" } }));
     fireEvent.click(screen.getByLabelText("Action hidden"));
-    await waitFor(() => expect(named("xray.prefs")[2]?.input).toEqual({ hidden: [] }));
+    await waitFor(() => expect(named("columns.setModes")[2]?.input).toEqual({ modes: { Action: "open" } }));
     fireEvent.click(screen.getByLabelText("Note hidden"));
-    await waitFor(() => expect(named("xray.prefs")[3]?.input).toEqual({ hidden: ["Action", "Note"] }));
+    await waitFor(() => expect(named("columns.setModes")[3]?.input).toEqual({ modes: { Note: "hidden" } }));
     expect(screen.getByRole("button", { name: "Move Expected Result up" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Move Action up" }));
     await waitFor(() =>
-      expect(named("xray.prefs")[4]?.input).toEqual({
-        order: ["Action", "Expected Result", "Exigence", "Note", "Remarque"],
+      expect(named("columns.order")[0]?.input).toEqual({
+        names: ["Action", "Expected Result", "Exigence", "Note", "Remarque"],
       }),
     );
     fireEvent.click(screen.getByRole("button", { name: "Move Action down" }));
     await waitFor(() =>
-      expect(named("xray.prefs")[5]?.input).toEqual({
-        order: ["Expected Result", "Exigence", "Action", "Note", "Remarque"],
+      expect(named("columns.order")[1]?.input).toEqual({
+        names: ["Expected Result", "Exigence", "Action", "Note", "Remarque"],
       }),
     );
     expect(a.refreshInfo).toHaveBeenCalled();
   });
 
   it("drags a column onto another, ignores a drop on itself", async () => {
-    api.routes["xray.prefs"] = () => ({});
+    api.routes["columns.order"] = () => [];
     mount(<ColumnsSection />, { xray, info: withColumns() });
     const rows = within(screen.getByRole("list", { name: "Smart columns" })).getAllByRole("listitem");
     const dataTransfer = { effectAllowed: "", setData: vi.fn() };
@@ -216,19 +219,19 @@ describe("Settings › Smart columns", () => {
     expect(rows[3]).toHaveClass("is-dragging");
     fireEvent.dragOver(rows[0]);
     fireEvent.drop(rows[3]);
-    expect(named("xray.prefs")).toHaveLength(0);
+    expect(named("columns.order")).toHaveLength(0);
     fireEvent.dragStart(rows[3], { dataTransfer });
     fireEvent.drop(rows[0]);
     await waitFor(() =>
-      expect(named("xray.prefs")[0]?.input).toEqual({
-        order: ["Note", "Expected Result", "Action", "Exigence", "Remarque"],
+      expect(named("columns.order")[0]?.input).toEqual({
+        names: ["Note", "Expected Result", "Action", "Exigence", "Remarque"],
       }),
     );
     fireEvent.dragStart(rows[1], { dataTransfer });
     fireEvent.dragEnd(rows[1]);
     expect(rows[1]).not.toHaveClass("is-dragging");
     fireEvent.drop(rows[2]);
-    expect(named("xray.prefs")).toHaveLength(1);
+    expect(named("columns.order")).toHaveLength(1);
   });
 
   it("saves a description on blur, adds and removes a local column, and reports failures", async () => {
@@ -327,7 +330,6 @@ describe("Settings › Search", () => {
     chunks: 4,
     complete: true,
     active: false,
-    unpinned: false,
     builtAt: "not a date",
     lastUsed: null,
     sizeMB: 1,

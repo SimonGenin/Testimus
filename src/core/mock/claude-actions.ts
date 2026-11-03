@@ -1,10 +1,8 @@
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
 import { ACTION_MARKER, TRIAGE_MARKER } from "../claude/actions.ts";
 import { quietCtx } from "../command.ts";
 import { commands } from "../commands/actions.ts";
-import { writeAtomic } from "../lib/atomic.ts";
-import { fieldOrder, readXray } from "../lib/project.ts";
+import { fieldOrder } from "../lib/columns.ts";
+import { readContext, writeContext } from "../lib/docs.ts";
 import { readTest, testExists, writeTest } from "../lib/store.ts";
 import { mockStream, registerMockScript } from "./claude.ts";
 
@@ -66,15 +64,15 @@ function fixStep(project: string, id: string, n: number): string | null {
   if (!step) return null;
   step.fields["Expected Result"] = TK_RESULT;
   step.sources = [{ docId: DOC, anchor: "§5.6.6", quote: TK_QUOTE }];
-  writeTest(project, id, test, fieldOrder(readXray(project)));
+  writeTest(project, id, test, fieldOrder(project));
   return `Step ${n} of ${id} now says what the menu shows, with its source (§5.6.6).`;
 }
 
 function noteDoc(project: string, docId: string): string {
-  const f = join(project, "docs", docId, "context.md");
-  const was = existsSync(f) ? readFileSync(f, "utf8") : "";
-  writeAtomic(
-    f,
+  const was = readContext(project, docId);
+  writeContext(
+    project,
+    docId,
     `${was}${was && !was.endsWith("\n") ? "\n" : ""}Figures lost in the .docx: read them in the original.\n`,
   );
   return `No PDF of ${docId} was found next to the .docx. I noted in its context that the lost figures must be read in the original; add the PDF to recover them.`;

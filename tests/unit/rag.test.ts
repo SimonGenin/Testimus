@@ -10,7 +10,6 @@ import { chunkDoc, hooks, parseSections } from "../../src/core/rag/chunk.ts";
 import { runtimes } from "../../src/core/rag/embed.ts";
 import { hitMatches, score } from "../../src/core/rag/eval.ts";
 import { indexProject, readState } from "../../src/core/rag/indexer.ts";
-import { catalogIdOf, EMBEDDINGS, embeddingProfile, findProfile, RERANKERS } from "../../src/core/rag/models.ts";
 import { mockRuntime } from "../../src/core/rag/runtimes/mock.ts";
 import { rrf, search, searchChunks } from "../../src/core/rag/search/hybrid.ts";
 import { figure, passage } from "../../src/core/rag/search/passage.ts";
@@ -26,7 +25,7 @@ let calls: string[];
 function docOf(id: string): { doc: DocJson; md: string; figures: FigureEntry[] } {
   const d = join(FIXTURE, "docs", id);
   return {
-    doc: readJson<DocJson>(join(d, "doc.json"), {} as DocJson),
+    doc: { ...readJson<DocJson>(join(d, "doc.json"), {} as DocJson), id },
     md: readFileSync(join(d, "doc.md"), "utf8"),
     figures: readJson<FigureEntry[]>(join(d, "figures.json"), []),
   };
@@ -52,21 +51,6 @@ afterEach(() => {
   runtimes.mock = mockRuntime;
   hooks.describeChunks = null;
   rmSync(dir, { recursive: true, force: true });
-});
-
-describe("models", () => {
-  it("are profiles: bge-m3 by default, Qwen3 with its query instruction, the reranker apart", () => {
-    expect(embeddingProfile("bge-m3")).toMatchObject({ dims: 1024, pooling: "cls", normalize: true });
-    const q = embeddingProfile("qwen3-embedding-0.6b");
-    expect(q.pooling).toBe("last");
-    expect(q.queryPrefix).toMatch(/^Instruct: .*\nQuery: $/);
-    expect(findProfile("bge-reranker-v2-m3")).toBe(RERANKERS[0]);
-    expect(EMBEDDINGS.map((m) => m.name)).not.toContain("bge-reranker-v2-m3");
-    expect(() => embeddingProfile("nope")).toThrow(/Unknown embedding profile/);
-    expect(catalogIdOf(embeddingProfile("bge-m3"))).toBe("bge-m3-q8");
-    expect(catalogIdOf(embeddingProfile("qwen3-embedding-0.6b"))).toBe("qwen3-embedding-0.6b-onnx-q8");
-    expect(catalogIdOf(RERANKERS[0])).toBe("bge-reranker-v2-m3-q8");
-  });
 });
 
 describe("chunking", () => {
@@ -178,7 +162,10 @@ describe("index", () => {
     expect(changed.embedded).toBe(1);
 
     const p = readProject(dir);
-    writeProject(dir, { ...p, rag: { ...p.rag, embedding: "qwen3-embedding-0.6b" } });
+    writeProject(dir, {
+      ...p,
+      rag: { ...p.rag, reference: { embedding: "qwen3-embedding-0.6b-onnx-q8", reranker: null } },
+    });
     calls = [];
     const rebuilt = await indexProject(dir, quietCtx(dir));
     expect(rebuilt.vectorsRebuilt).toBe(true);
@@ -196,7 +183,10 @@ describe("index", () => {
   it("falls back to BM25 when the active model has no vectors yet, instead of refusing", async () => {
     await indexProject(dir, quietCtx(dir));
     const p = readProject(dir);
-    writeProject(dir, { ...p, rag: { ...p.rag, embedding: "qwen3-embedding-0.6b" } });
+    writeProject(dir, {
+      ...p,
+      rag: { ...p.rag, reference: { embedding: "qwen3-embedding-0.6b-onnx-q8", reranker: null } },
+    });
     calls = [];
     const hits = await search(dir, "EXI_MOP_SPF_511_A_1670");
     expect(hits[0].anchor).toBe("§5.6.6");

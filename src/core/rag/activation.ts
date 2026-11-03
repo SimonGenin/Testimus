@@ -6,7 +6,7 @@ import { DEFAULT_QUERY_TASK, resolveChoice, resolveInstalled } from "../lib/mode
 import { readProject, readSettings, writeSettings } from "../lib/project.ts";
 import type { ActiveChoice, Pack, PackVariant, RagChoice, ResolvedModel, RetrievalSettings } from "../types.ts";
 
-export type ActivationSource = "machine" | "reference" | "project" | "light" | "none";
+export type ActivationSource = "machine" | "reference" | "light" | "none";
 export type ActiveModels = {
   embedding: ResolvedModel | null;
   reranker: ResolvedModel | null;
@@ -89,7 +89,6 @@ export async function activeModels(project: string): Promise<ActiveModels> {
   const steps: [ActivationSource, RagChoice | null][] = [
     ["machine", activeChoice(project)],
     ["reference", rag.reference ?? null],
-    ["project", rag.embedding ? { embedding: rag.embedding, reranker: rag.reranker ?? null } : null],
     ["light", { pack: "light" }],
   ];
   const missing: string[] = [];

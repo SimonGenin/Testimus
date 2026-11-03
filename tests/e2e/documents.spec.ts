@@ -87,12 +87,12 @@ test("a .docx added from a path is listed unconverted, then converted and indexe
     .getByRole("row", { name: new RegExp(`^${added} · `) });
   await expect(row).toHaveCount(1);
   await expect(row.getByText("Not converted")).toBeVisible();
-  expect(JSON.stringify(await api(url, "docs.show", { id: added }))).toContain('"convertedAt":""');
+  expect(JSON.stringify(await api(url, "docs.show", { id: added }))).not.toContain('"converted":');
   const side = page.getByRole("region", { name: `${added} details` });
   await expect(side.getByText("Not converted yet")).toBeVisible();
   await side.getByRole("button", { name: "Convert and index" }).click();
   await expect
     .poll(async () => JSON.stringify(await api(url, "docs.show", { id: added })), { timeout: 60_000 })
-    .not.toContain('"convertedAt":""');
+    .toContain('"converted":');
   await expect(side.getByRole("navigation", { name: "Sections" })).toBeVisible({ timeout: 30_000 });
 });

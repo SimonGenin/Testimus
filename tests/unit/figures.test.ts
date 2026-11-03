@@ -6,7 +6,7 @@ import {
   describeFigures,
   FIGURES_MARKER,
   figuresPrompt,
-  parseFigureDescriptions,
+  parseFigures,
   shouldDescribeFigures,
 } from "../../src/core/claude/figures.ts";
 import { quietCtx } from "../../src/core/command.ts";
@@ -56,16 +56,18 @@ afterEach(() => {
 describe("figure descriptions", () => {
   it("parses the figures block (object or list, with or without the fig: prefix)", () => {
     expect(
-      parseFigureDescriptions('ok\n```figures\n{"fig:40": " Un carré. ", "41": "Un rond.", "fig:42": ""}\n```'),
+      parseFigures(
+        'ok\n```figures\n{"fig:40": {"description": " Un carré. "}, "41": {"description": "Un rond."}, "fig:42": {"description": ""}}\n```',
+      ),
     ).toEqual({
-      "fig:40": "Un carré.",
-      "fig:41": "Un rond.",
+      "fig:40": { description: "Un carré." },
+      "fig:41": { description: "Un rond." },
     });
-    expect(parseFigureDescriptions('```json\n[{"anchor": "fig:7", "description": "Trait vert."}]\n```')).toEqual({
-      "fig:7": "Trait vert.",
+    expect(parseFigures('```json\n[{"anchor": "fig:7", "description": "Trait vert."}]\n```')).toEqual({
+      "fig:7": { description: "Trait vert." },
     });
-    expect(parseFigureDescriptions('{"fig:3": "Nu."}')).toEqual({ "fig:3": "Nu." });
-    expect(parseFigureDescriptions("Je ne peux pas lire les images.")).toEqual({});
+    expect(parseFigures('{"fig:3": {"description": "Nu."}}')).toEqual({ "fig:3": { description: "Nu." } });
+    expect(parseFigures("Je ne peux pas lire les images.")).toEqual({});
   });
 
   it("prompts with the marker, each picture's path, caption and section, and the language", () => {
@@ -107,7 +109,7 @@ describe("figure descriptions", () => {
         },
       ]),
     );
-    fake('```figures\n{"fig:40": "Un carré blanc cerclé de noir sur un trait sarcelle."}\n```');
+    fake('```figures\n{"fig:40": {"description": "Un carré blanc cerclé de noir sur un trait sarcelle."}}\n```');
     const r = await describeFigures(dir, D3, quietCtx(dir));
     expect(r).toMatchObject({ docId: D3, figures: 1, described: 1, missing: [], costUsd: 0.02 });
     expect(r.runIds).toHaveLength(1);
@@ -144,7 +146,7 @@ describe("figure descriptions", () => {
     expect(figuresOf()).toEqual([]);
     expect(logs.join("\n")).toMatch(/Rate limit/);
 
-    fake('```figures\n{"fig:40": "Symbole du sectionneur."}\n```');
+    fake('```figures\n{"fig:40": {"description": "Symbole du sectionneur."}}\n```');
     await describeFigures(dir, D3, quietCtx(dir));
     expect(figuresOf()).toEqual([
       {

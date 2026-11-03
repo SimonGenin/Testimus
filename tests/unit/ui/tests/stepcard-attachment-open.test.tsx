@@ -2,19 +2,20 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { Step, XrayJson } from "../../../../src/core/types.ts";
+import type { Step } from "../../../../src/core/types.ts";
 import { MOVE } from "../../../../src/ui/screens/tests/FieldBlocks.tsx";
 import { StepCard } from "../../../../src/ui/screens/tests/StepCard.tsx";
+import { layoutOf } from "../../layout-helpers.ts";
 
 afterEach(cleanup);
 
-const xray: XrayJson = {
-  fields: [
+const xray = layoutOf(
+  [
     { id: "action", name: "Action", type: "text", builtin: true },
     { id: "result", name: "Expected Result", type: "text", builtin: true },
   ],
-  prefs: { order: ["Action", "Expected Result"], collapsed: [], hidden: [] },
-};
+  { order: ["Action", "Expected Result"], collapsed: [], hidden: [] },
+);
 
 const step: Step = {
   fields: { Action: "Open the view\n\n![](images/embedded.png)", "Expected Result": "It opens" },

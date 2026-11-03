@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import { type Problem, runAction, triage } from "../claude/actions.ts";
 import { docRunLines } from "../claude/prompt.ts";
-import { readRunMeta } from "../claude/run.ts";
+import { readRunMeta } from "../claude/snapshot.ts";
 import { command, projectOf, UserError } from "../command.ts";
 import { env } from "../env.ts";
 import { showJob } from "../jobs.ts";
@@ -91,7 +91,7 @@ function jobProblems(project: string, jobId: string): Problem[] {
 }
 
 const docProblems = (project: string, docId: string): Problem[] =>
-  readDoc(project, docId).warnings.map((text) => ({ where: `doc:${docId}`, text }));
+  (readDoc(project, docId).converted?.warnings ?? []).map((text) => ({ where: `doc:${docId}`, text }));
 
 export const commands = [
   command({

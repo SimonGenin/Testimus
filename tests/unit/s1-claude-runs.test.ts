@@ -12,7 +12,7 @@ import { sha256 } from "../../src/core/lib/hash.ts";
 import { DEFAULT_SETTINGS, readProject, writeProject, writeSettings } from "../../src/core/lib/project.ts";
 import { readCheck, readTest } from "../../src/core/lib/store.ts";
 import type { JobEvent } from "../../src/core/types.ts";
-import { markIndexed } from "./index-helpers.ts";
+import { markIndexedInDb as markIndexed } from "./index-state-helpers.ts";
 
 const FIXTURE = join(import.meta.dirname, "..", "fixtures", "project");
 const real = env.spawnClaude;

@@ -410,7 +410,7 @@ const docRef = (id: string, title: string, sections?: number) =>
     code: `C-${id}`,
     title,
     status: "validated",
-    stats: sections ? { sections } : undefined,
+    converted: sections ? { with: "", at: "", warnings: [], stats: { sections } } : undefined,
   }) as unknown as DocRef;
 
 describe("Generate › documents", () => {
@@ -481,11 +481,18 @@ describe("Generate › smart columns", () => {
     render(
       <ColumnsView
         columns={[
-          { name: "Action", origin: "xray", builtin: true, status: "ok", description: "One gesture" },
-          { name: "Exigence", origin: "xray", builtin: false, status: "ok", description: "What the step checks" },
-          { name: "Version", origin: "xray", builtin: false, status: "new", description: "" },
-          { name: "Note", origin: "local", builtin: false, status: "ok", description: "" },
-          { name: "Old", origin: "local", builtin: false, status: "gone", description: "x" },
+          { name: "Action", origin: "xray", builtin: true, status: "ok", description: "One gesture", mode: "open" },
+          {
+            name: "Exigence",
+            origin: "xray",
+            builtin: false,
+            status: "ok",
+            description: "What the step checks",
+            mode: "open",
+          },
+          { name: "Version", origin: "xray", builtin: false, status: "new", description: "", mode: "open" },
+          { name: "Note", origin: "local", builtin: false, status: "ok", description: "", mode: "open" },
+          { name: "Old", origin: "local", builtin: false, status: "gone", description: "x", mode: "open" },
         ]}
         onEdit={onEdit}
       />,
@@ -503,8 +510,8 @@ describe("Generate › smart columns", () => {
     render(
       <ColumnsView
         columns={[
-          { name: "A", origin: "xray", builtin: false, status: "new", description: "" },
-          { name: "B", origin: "xray", builtin: false, status: "new", description: "" },
+          { name: "A", origin: "xray", builtin: false, status: "new", description: "", mode: "open" },
+          { name: "B", origin: "xray", builtin: false, status: "new", description: "", mode: "open" },
         ]}
         onEdit={onEdit}
       />,
@@ -607,7 +614,13 @@ describe("Generate screen", () => {
   it("refuses a scope that is not indexed, warns when it is out of date, and reindexes from here", async () => {
     base();
     let built = false;
-    const doc = (id: string, title: string, indexed: string) => ({ id, code: id, title, convertedAt: at, indexed });
+    const doc = (id: string, title: string, indexed: string) => ({
+      id,
+      code: id,
+      title,
+      converted: { with: "", at, warnings: [] },
+      indexed,
+    });
     api.routes["docs.list"] = () => [
       doc("D1", "Traction", built ? "fresh" : "missing"),
       doc("D2", "Signaux", "stale"),

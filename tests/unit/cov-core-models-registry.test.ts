@@ -12,7 +12,7 @@ import {
   runtimesDir,
   writeRegistry,
 } from "../../src/core/lib/models-registry.ts";
-import { findModel, isComplete, pullModel } from "../../src/core/lib/models-store.ts";
+import { findModel, isComplete } from "../../src/core/lib/models-store.ts";
 import type { CatalogEntry, Installation } from "../../src/core/types.ts";
 
 const saved = { ...downloadDeps };
@@ -39,29 +39,6 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-describe("readRegistry drops the Ollama installations, saying so once", () => {
-  it("one installation is said in the singular, and a later read says nothing", () => {
-    const err = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
-    writeFileSync(
-      registryFile(),
-      JSON.stringify({ installs: [{ model: "a", via: "ollama" }, inst("b", "path")], ollama: { url: "x" } }),
-    );
-    expect(readRegistry().installs.map((i) => i.model)).toEqual(["b"]);
-    expect(String(err.mock.calls[0][0])).toContain("lists 1 installation through Ollama");
-    writeFileSync(
-      registryFile(),
-      JSON.stringify({
-        installs: [
-          { model: "a", via: "ollama" },
-          { model: "c", via: "ollama" },
-        ],
-      }),
-    );
-    readRegistry();
-    expect(err).toHaveBeenCalledTimes(1);
-  });
-});
-
 describe("registry helpers", () => {
   it("installsOf, dropInstall with and without a via, runtimesDir", () => {
     putInstall(inst("m", "path"));
@@ -73,9 +50,9 @@ describe("registry helpers", () => {
     dropInstall("m");
     expect(installsOf("m")).toEqual([]);
     expect(installsOf("n")).toHaveLength(1);
-    expect(runtimesDir({ allowRemote: true, installs: [] })).toBeUndefined();
-    expect(runtimesDir({ allowRemote: true, installs: [], dir: "D:\\m" })).toBe(join("D:\\m", "runtimes"));
-    expect(runtimesDir({ allowRemote: true, installs: [], dir: "D:\\m", runtimesDir: "E:\\r" })).toBe("E:\\r");
+    expect(runtimesDir({ installs: [] })).toBeUndefined();
+    expect(runtimesDir({ installs: [], dir: "D:\\m" })).toBe(join("D:\\m", "runtimes"));
+    expect(runtimesDir({ installs: [], dir: "D:\\m", runtimesDir: "E:\\r" })).toBe("E:\\r");
   });
 });
 
@@ -97,26 +74,16 @@ describe("models-store", () => {
     expect(isComplete(m, "odd")).toBe(true);
   });
 
-  it("finds a model under TESTIMUS_MODELS and pullModel returns it without downloading", async () => {
+  it("finds a model under TESTIMUS_MODELS", () => {
     model(join(dir, "acme", "found"), ["config.json", "tokenizer.json", "onnx/model.onnx"]);
     vi.stubEnv("TESTIMUS_MODELS", dir);
     expect(findModel("acme/found")?.root.kind).toBe("env");
-    expect((await pullModel("acme/found", undefined, { allowRemote: false })).dir).toBe(join(dir, "acme", "found"));
+    expect(findModel("acme/found")?.dir).toBe(join(dir, "acme", "found"));
   });
 
-  it("refuses when downloads are off, and a repo the catalog does not have", async () => {
-    vi.stubEnv("TESTIMUS_MODELS", dir);
-    await expect(pullModel("acme/absent", "q8", { allowRemote: false })).rejects.toThrow(/downloads are off/);
-    await expect(pullModel("acme/absent", undefined, { allowRemote: true })).rejects.toThrow(
-      /acme\/absent \(any dtype\) is not in the model catalog/,
-    );
-  });
-
-  it("downloads an entry without a CPU dtype, with progress, and registers it without dtype", async () => {
-    vi.stubEnv("TESTIMUS_MODELS", join(dir, "nothing"));
+  it("lists the catalog entries models.json adds", () => {
+    const sha = "0".repeat(64);
     const body = Buffer.from("{}");
-    const { createHash } = await import("node:crypto");
-    const sha = createHash("sha256").update(body).digest("hex");
     const e = {
       id: "plain-onnx",
       kind: "embedding",
@@ -136,16 +103,6 @@ describe("models-store", () => {
       size: { downloadMB: 1, ramMB: 1, vramMB: 1 },
     } as unknown as CatalogEntry;
     writeRegistry({ ...readRegistry(), dir, catalog: [e] });
-    expect(catalog().entries.map((x) => x.id)).toContain("plain-onnx");
-    downloadDeps.freeMB = () => 1e9;
-    downloadDeps.fetch = async () => new Response(body, { status: 200 });
-    const seen: string[] = [];
-    const hit = await pullModel("acme/plain", undefined, { allowRemote: true, onProgress: (p) => seen.push(p.file) });
-    expect(hit.dir).toBe(join(dir, "acme", "plain"));
-    expect(seen).toContain("config.json");
-    const reg = readRegistry().installs.find((i) => i.model === "plain-onnx");
-    expect(reg).toMatchObject({ via: "download", device: "cpu" });
-    expect(reg?.dtype).toBeUndefined();
     expect(catalog().entries.map((x) => x.id)).toContain("plain-onnx");
   });
 });

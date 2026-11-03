@@ -9,7 +9,8 @@ import { normalizeRef, refInfo } from "../rag/related.ts";
 import type { CheckFile, CitingTest, DocJson, Finding, Review, Step, Test } from "../types.ts";
 import { writeAtomic } from "./atomic.ts";
 import { stepColumns } from "./columns.ts";
-import { readJson, writeJson } from "./project.ts";
+import { findDoc } from "./docs.ts";
+import { writeJson } from "./project.ts";
 import { readCheck, readTest, testDir, testExists, testsDir } from "./store.ts";
 import { frontmatterOf, hasRawEmbed, testMdHash } from "./testfile.ts";
 
@@ -53,7 +54,7 @@ export function loadCorpus(project: string): Corpus {
     const mdFile = join(dir, e.name, "doc.md");
     if (!e.isDirectory() || !existsSync(mdFile)) continue;
     const md = readFileSync(mdFile, "utf8");
-    const doc = readJson<Partial<DocJson>>(join(dir, e.name, "doc.json"), {});
+    const doc: Partial<DocJson> = findDoc(project, e.name) ?? {};
     const d: DocText = { id: e.name, doc, anchors: anchorsOf(md), text: plainText(md), md, scopes: new Map() };
     docs.set(e.name, d);
     if (doc.code && !docs.has(doc.code)) docs.set(doc.code, d);

@@ -4,12 +4,17 @@ import { UserError } from "../command.ts";
 import { env } from "../env.ts";
 import { writeAtomic } from "../lib/atomic.ts";
 import { testsCiting } from "../lib/check.ts";
+import { docIds, findDoc } from "../lib/docs.ts";
 import { sha256 } from "../lib/hash.ts";
 import { readJson, writeJson } from "../lib/project.ts";
 import { testDir } from "../lib/store.ts";
-import type { ClaudeScope, DocJson } from "../types.ts";
+import type { ClaudeScope, Effort } from "../types.ts";
+import type { RunKind } from "./run.ts";
 
-export type RunRecord = {
+// ponytail: .testimus/runs/<runId>/run.json is the whole run — who ran (kind, model, effort, job), and, for a run
+// that may edit tests, the snapshot it can be reverted from (scope, before…)
+export type RunMeta = { kind: RunKind; model: string; effort: Effort; at: string; jobId?: string; label?: string };
+export type RunRecord = Partial<Omit<RunMeta, "at">> & {
   runId: string;
   at: string;
   scope: ClaudeScope;
@@ -28,6 +33,30 @@ export type RunRecord = {
 
 const testMd = (project: string, id: string) => join(testDir(project, id), "test.md");
 const runFile = (project: string, runId: string) => join(project, ".testimus", "runs", runId, "run.json");
+
+const META = ["kind", "model", "effort", "jobId", "label"] as const;
+
+// ponytail: the snapshot is taken first, then who ran is added to the same file
+export function writeRunMeta(project: string, runId: string, meta: RunMeta): void {
+  const rec = readJson<Record<string, unknown>>(runFile(project, runId), {});
+  for (const k of META) delete rec[k];
+  writeJson(runFile(project, runId), { runId, ...rec, ...meta, at: (rec.at as string | undefined) ?? meta.at });
+}
+
+export function readRunMeta(project: string, runId: string): RunMeta | null {
+  if (!/^[\w-]+$/.test(runId)) return null;
+  const m = readJson<Partial<RunMeta>>(runFile(project, runId), {});
+  return m.kind && m.model && m.effort
+    ? {
+        kind: m.kind,
+        model: m.model,
+        effort: m.effort,
+        at: m.at ?? "",
+        ...(m.jobId ? { jobId: m.jobId } : {}),
+        ...(m.label ? { label: m.label } : {}),
+      }
+    : null;
+}
 const beforeFile = (project: string, runId: string, rel: string) =>
   join(project, ".testimus", "runs", runId, "before", ...rel.split("/"));
 const hashOf = (md: string | null) => (md === null ? null : sha256(md));
@@ -61,17 +90,8 @@ export function scopeIds(project: string, scope: ClaudeScope): string[] {
 
 const docOf = (project: string, id: string): { id: string; code?: string } => ({
   id,
-  code: readJson<Partial<DocJson>>(join(project, "docs", id, "doc.json"), {}).code,
+  code: findDoc(project, id)?.code,
 });
-
-function docIds(project: string): string[] {
-  const dir = join(project, "docs");
-  if (!existsSync(dir)) return [];
-  return readdirSync(dir, { withFileTypes: true })
-    .filter((e) => e.isDirectory() && existsSync(join(dir, e.name, "doc.json")))
-    .map((e) => e.name)
-    .sort();
-}
 
 function walk(project: string, rel: string, skip: string): string[] {
   const abs = join(project, ...rel.split("/"));
@@ -84,7 +104,7 @@ function walk(project: string, rel: string, skip: string): string[] {
 }
 
 const originalOf = (project: string, rel: string) => {
-  const file = readJson<Partial<DocJson>>(join(project, ...rel.split("/"), "doc.json"), {}).source?.file;
+  const file = findDoc(project, posix.basename(rel))?.source.file;
   return file ? posix.join(rel, file) : "";
 };
 
@@ -93,11 +113,10 @@ const rootFiles = (project: string, roots: string[]) => roots.flatMap((r) => wal
 // ponytail: an action may change more than tests — the files that hold the truth (SPEC §3) are copied too, the
 // whole folder of a document in scope minus its original copy, which no command ever rewrites
 export function truthFiles(project: string, scope: ClaudeScope): { roots: string[]; files: string[] } {
-  const files = ["project.json", "xray.json"];
+  const files = ["project.json", "xray.json", "columns.json"];
   const roots = scope.kind === "doc" ? [`docs/${scope.docId}`] : [];
   if (scope.kind !== "doc")
-    for (const id of docIds(project))
-      files.push(`docs/${id}/doc.json`, `docs/${id}/context.md`, `docs/${id}/claude.json`);
+    for (const id of docIds(project)) files.push(`docs/${id}/doc.json`, `docs/${id}/context.md`);
   return { roots, files: [...files, ...rootFiles(project, roots)] };
 }
 
@@ -125,9 +144,10 @@ export function takeSnapshot(project: string, runId: string, scope: ClaudeScope,
 }
 
 export function readRun(project: string, runId: string): RunRecord {
-  if (!/^[\w-]+$/.test(runId) || !existsSync(runFile(project, runId)))
+  const rec = /^[\w-]+$/.test(runId) ? readJson<RunRecord | null>(runFile(project, runId), null) : null;
+  if (!rec?.before)
     throw new UserError(`No Claude run ${runId} in this project.`, "Use the runId returned by claude.run.");
-  return readJson<RunRecord>(runFile(project, runId), {} as RunRecord);
+  return rec;
 }
 
 // ponytail: steps are compared as text blocks between `## Step N` headings, positionally, with the

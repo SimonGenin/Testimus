@@ -108,23 +108,44 @@ export type XrayField = {
   required?: boolean;
   disabled?: boolean;
 };
-export type FieldPrefs = { order: string[]; collapsed: string[]; hidden: string[]; filled?: string[]; open?: string[] };
-export type ColumnMode = "open" | "filled" | "collapsed";
-export type ColumnModes = Record<string, ColumnMode>;
-export type XrayJson = { fields: XrayField[]; prefs: FieldPrefs; fetchedAt?: string; columns?: ColumnDef[] };
+// xray.json: what Xray says, read again on demand — never the team's choices
+export type XrayJson = { fetchedAt?: string; fields: XrayField[] };
 
-// Step columns: what Claude writes in each field (description), and the columns that live only in test.md.
-// A column of Xray is followed by its field id (a rename in Xray keeps its description); one without id, or
-// whose id Xray no longer has, is local — kept in test.md, never pushed
-export type ColumnDef = { name: string; id?: string; description?: string; referenceSource?: boolean };
+// How a column folds in the step card; a project column may also be hidden (left out unless a step holds text in it)
+export type ColumnMode = "open" | "filled" | "collapsed";
+export type ColumnShow = ColumnMode | "hidden";
+export type ColumnModes = Record<string, ColumnMode>;
+
+// columns.json: the team's step columns in display order. An entry with the id of an Xray step field follows that
+// field (a rename in Xray keeps its description); one without id, or whose id Xray no longer has, is local — kept
+// in test.md, never pushed. An Xray field without entry comes after them, with its defaults. `description` absent =
+// never described (an empty one says Claude leaves the column empty)
+export type ColumnEntry = {
+  name: string;
+  id?: string;
+  description?: string;
+  mode: ColumnShow;
+  referenceSource?: boolean;
+};
 export type StepColumn = {
   name: string;
+  id?: string;
   origin: "xray" | "local";
   builtin: boolean;
   status: "ok" | "new" | "gone";
   description: string;
+  mode: ColumnShow;
   referenceSource?: boolean;
 };
+// What the step card draws: Xray's fields (types, switched off) and every column with its mode
+export type ColumnLayout = { fetchedAt?: string; fields: XrayField[]; columns: StepColumn[] };
+
+// tests/<id>/local.json: a test's own settings, outside test.md, never making the test modified
+export type TestLocal = { contexts?: string[]; columns?: ColumnModes };
+
+// tests/<id>/.state.json: what the app derived about a test (Jira seen changed since .remote.md; the print of what a
+// generation wrote) — never edited
+export type TestState = { remoteChangedAt?: string; generatedPrint?: string };
 
 export const BUILTIN_FIELDS: readonly string[] = ["Action", "Data", "Expected Result"];
 
@@ -165,6 +186,9 @@ export type CheckFile = { at: string; testHash: string; findings: Finding[] };
 
 export type DocKind = "spec" | "minutes" | "other";
 export type DocStatus = "draft" | "submitted" | "validated";
+// docs/<id>/doc.json — the folder is the id (read in, never written). What the team decides (title… contexts,
+// conversion) sits apart from what the conversion found (`converted`, absent until the first conversion)
+export type DocStats = { sections: number; figures: number; chars: number };
 export type DocJson = {
   id: string;
   code: string;
@@ -174,11 +198,12 @@ export type DocJson = {
   kind: DocKind;
   status: DocStatus;
   amends?: string[];
-  source: { path: string; sha256: string; file: string };
-  convertedWith: string;
-  convertedAt: string;
-  warnings: string[];
-  stats?: { sections: number; figures: number; chars: number };
+  contexts?: string[];
+  // `name`: where the original came from — its path on this PC, or the file name of an upload
+  source: { name: string; file: string; sha256: string; uploaded?: boolean };
+  // the other original beside it (source.pdf beside source.docx, or the reverse)
+  twin?: { file: string; sha256: string };
+  converted?: { with: string; at: string; warnings: string[]; stats?: DocStats };
   conversion?: DocConversion;
 };
 // ponytail: how a document is converted, chosen when Claude studied it (or by the team) and kept so that every
@@ -201,17 +226,6 @@ export type DocRef = DocJson & { indexed: "fresh" | "stale" | "missing" };
 
 // Index (SPEC §5)
 
-export type ModelProfile = {
-  name: string;
-  hfId: string;
-  dims: number;
-  dtype: "fp32" | "fp16" | "q8" | "int8" | "uint8" | "q4";
-  pooling: "cls" | "mean" | "last";
-  normalize: boolean;
-  queryPrefix: string;
-  docPrefix: string;
-  maxTokens: number;
-};
 export type ChunkKind = "section" | "figure";
 export type Chunk = {
   id: string;
@@ -340,7 +354,6 @@ export type CatalogEntry = {
   tier: "light" | "standard" | "quality";
   lighter?: string;
   heavier?: string;
-  legacyProfile?: string;
 };
 export type PackVariant = { embedding: string; reranker: string | null };
 export type PackMeasure = PackVariant & { first: number; top5: number; questions: number; app: string; date: string };
@@ -374,7 +387,6 @@ export type LlamaRuntime = { exe: string; build: string; backend: LlamaBackend; 
 export type ModelsRegistry = {
   dir?: string;
   runtimesDir?: string;
-  allowRemote: boolean;
   installs: Installation[];
   llamacpp?: LlamaRuntime;
   catalog?: CatalogEntry[];
@@ -407,7 +419,6 @@ export type SpaceFingerprint = {
   dims: number;
   maxInputTokens: number;
   recipe: number;
-  unpinned?: boolean;
 };
 export type VectorSpace = {
   id: string;
@@ -516,8 +527,6 @@ export type ProjectJson = {
   labelPrefix: string;
   folders: string[];
   rag: {
-    embedding: string;
-    reranker: string | null;
     claudeHeaders?: boolean;
     describeFigures?: boolean;
     reference?: RagChoice;
@@ -537,8 +546,6 @@ export type AgentsMeasure = { limit: number; at: string; reason: string; levels:
 export type Settings = {
   projects: string[];
   lastProject: string;
-  theme: "system" | "light" | "dark";
-  stepLayout: "stacked" | "split";
   claude: { exe: string };
   models: { allowRemote: boolean };
   agents?: { max?: number; adaptive?: boolean; measured?: AgentsMeasure };

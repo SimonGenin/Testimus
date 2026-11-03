@@ -87,23 +87,6 @@ describe("listDocs and the small readers", () => {
     expect(normalizeAnchor("DOC#annexe-b")).toEqual({ kind: "§", id: "annexe-b" });
     expect(normalizeAnchor("DOC#req:EXI_A_1")).toEqual({ kind: "§", id: "req:EXI_A_1" });
   });
-
-  it("reads an older doc.json of kind requirements as a spec, without its requirement count", () => {
-    mkdirSync(join(project, "docs", "D1"), { recursive: true });
-    const old = {
-      id: "D1",
-      kind: "requirements",
-      status: "draft",
-      stats: { sections: 2, figures: 0, requirements: 4, chars: 9 },
-    };
-    writeFileSync(join(project, "docs", "D1", "doc.json"), JSON.stringify(old));
-    expect(readDoc(project, "D1")).toEqual({
-      id: "D1",
-      kind: "spec",
-      status: "draft",
-      stats: { sections: 2, figures: 0, chars: 9 },
-    });
-  });
 });
 
 describe("convertSource", () => {

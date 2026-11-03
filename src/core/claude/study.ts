@@ -87,9 +87,11 @@ export function checkPrompt(doc: DocJson, runId: string, extra: string[] = []): 
     `${CONVERSION_CHECK_MARKER} of the document ${doc.id} (${doc.title || doc.code}): compare docs/${doc.id}/doc.md`,
     "with its original.",
     "Use the study-document skill, part « After the conversion ».",
-    `Converted with ${doc.convertedWith}${doc.stats ? `: ${doc.stats.sections} sections, ${doc.stats.figures} figures` : ""}.`,
+    `Converted with ${doc.converted?.with}${doc.converted?.stats ? `: ${doc.converted?.stats.sections} sections, ${doc.converted?.stats.figures} figures` : ""}.`,
     `Options: ${JSON.stringify(doc.conversion ?? {})}`,
-    ...(doc.warnings.length ? ["Conversion warnings:", ...doc.warnings.map((w) => `- [doc:${doc.id}] ${w}`)] : []),
+    ...((doc.converted?.warnings ?? []).length
+      ? ["Conversion warnings:", ...(doc.converted?.warnings ?? []).map((w) => `- [doc:${doc.id}] ${w}`)]
+      : []),
     "",
     "docs_page { id, page } draws a page of the original as a PNG (Read it); docs_show { id, anchor } gives a part",
     "of doc.md (page:N, §n, fig:n); docs_inspect gives the counts of the original. Do not edit any file.",

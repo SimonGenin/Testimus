@@ -18,7 +18,6 @@ export type Space = {
   chunks: number;
   complete: boolean;
   active: boolean;
-  unpinned: boolean;
   builtAt: string | null;
   lastUsed: string | null;
   sizeMB: number;
@@ -184,7 +183,7 @@ export function SearchSection() {
                     <div className="mname">
                       <span className="mname-label">{label(s.model)}</span>
                       <span className="muted mono mname-id">
-                        {s.id} · {s.runtime} · {s.dims} dims{s.unpinned ? " · from v1" : ""}
+                        {s.id} · {s.runtime} · {s.dims} dims
                       </span>
                     </div>
                   </td>

@@ -1,20 +1,20 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync } from "node:fs";
+import { basename, dirname, join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import type { Ctx } from "../command.ts";
 import { env } from "../env.ts";
+import { docDir, docIds, readDoc, readDocMd, readFigures } from "../lib/docs.ts";
 import { sha256 } from "../lib/hash.ts";
 import { withPerfScope } from "../lib/models-perf.ts";
-import { readJson, writeJson } from "../lib/project.ts";
-import type { Chunk, ClaudeRun, DocJson, FigureEntry, ModelProfile, ResolvedModel, VectorSpace } from "../types.ts";
-import { activeModels, queryTaskOf } from "./activation.ts";
+import type { Chunk, ClaudeRun, DocJson, FigureEntry, ResolvedModel, VectorSpace } from "../types.ts";
+import { activeModels } from "./activation.ts";
 import { chunkDoc, hooks } from "./chunk.ts";
 import {
   chunkCount,
   chunksOf,
   createSpace,
   deleteChunk,
-  dropSpace,
+  getMeta,
   indexFile,
   insertChunk,
   listSpaces,
@@ -30,9 +30,8 @@ import {
   vectorCount,
 } from "./db.ts";
 import { embedWith } from "./embed.ts";
-import { fingerprintOf, legacySpace, spaceOf } from "./fingerprint.ts";
+import { fingerprintOf, spaceOf } from "./fingerprint.ts";
 import { docEdges } from "./graph.ts";
-import { modelForProfile } from "./models.ts";
 
 export type DocIndexStatus = "indexed" | "unchanged" | "removed";
 export type IndexReport = {
@@ -58,35 +57,48 @@ export type ProjectDoc = { doc: DocJson; dir: string; md: string; figures: Figur
 
 const BATCH = 16;
 
-export function stateFile(project: string): string {
-  return join(project, "index", "state.json");
+// ponytail: what the last complete index run of the project saw lives in rag.db itself (meta « index_state »), so the
+// index is one derived file and its state can never disagree with it
+const STATE = "index_state";
+
+function stateIn(db: DatabaseSync): IndexState | null {
+  try {
+    const raw = getMeta(db, STATE);
+    return raw ? (JSON.parse(raw) as IndexState) : null;
+  } catch {
+    return null;
+  }
 }
 
 export function readState(project: string): IndexState | null {
-  return readJson<IndexState | null>(stateFile(project), null);
+  if (!existsSync(indexFile(project))) return null;
+  const db = openDb(indexFile(project));
+  try {
+    return stateIn(db);
+  } finally {
+    db.close();
+  }
 }
 
 export function projectDocs(project: string): ProjectDoc[] {
-  const root = join(project, "docs");
-  if (!existsSync(root)) return [];
   const out: ProjectDoc[] = [];
-  for (const e of readdirSync(root, { withFileTypes: true })) {
-    if (!e.isDirectory()) continue;
-    const dir = join(root, e.name);
-    if (!existsSync(join(dir, "doc.json")) || !existsSync(join(dir, "doc.md"))) continue;
-    const doc = readJson<DocJson>(join(dir, "doc.json"), {} as DocJson);
-    if (!doc.id) doc.id = e.name;
-    const md = readFileSync(join(dir, "doc.md"), "utf8");
-    const figures = readJson<FigureEntry[]>(join(dir, "figures.json"), []);
+  for (const id of docIds(project)) {
+    const dir = docDir(project, id);
+    if (!existsSync(join(dir, "doc.md"))) continue;
+    const doc = readDoc(project, id);
+    const md = readDocMd(project, id);
+    const figures = readFigures(project, id);
     out.push({ doc, dir, md, figures, content: docContent(dir, doc, md) });
   }
   return out.sort((a, b) => a.doc.id.localeCompare(b.doc.id));
 }
 
+// ponytail: the dir is a document folder of docs/ — its name is the document id
 export function docContent(dir: string, doc: Pick<DocJson, "code" | "title">, md?: string): string {
-  const text = md ?? (existsSync(join(dir, "doc.md")) ? readFileSync(join(dir, "doc.md"), "utf8") : "");
-  const figRaw = existsSync(join(dir, "figures.json")) ? readFileSync(join(dir, "figures.json"), "utf8") : "[]";
-  return sha256(JSON.stringify([text, figRaw, doc.code, doc.title]));
+  const project = dirname(dirname(dir));
+  const id = basename(dir);
+  const text = md ?? readDocMd(project, id);
+  return sha256(JSON.stringify([text, readFigures(project, id), doc.code, doc.title]));
 }
 
 function chunkHash(c: Chunk): string {
@@ -148,31 +160,11 @@ async function indexDoc(
   return "indexed";
 }
 
-// ponytail: adopting the migrated v1 space copies its vectors under the pinned fingerprint, then drops it
-function adopt(db: DatabaseSync, m: ResolvedModel): VectorSpace {
-  const fp = fingerprintOf(m);
-  const own = spaceOf(db, m);
-  if (own && !own.fingerprint.unpinned) return own;
-  const legacy = legacySpace(db, m);
-  return transaction(db, () => {
-    const s = createSpace(db, fp);
-    if (legacy) {
-      db.exec(
-        `insert or ignore into ${vecTable(s.id)}(chunk_rowid, embedding) select chunk_rowid, embedding from ${vecTable(legacy.id)}`,
-      );
-      setSpace(db, s.id, { builtAt: legacy.builtAt, lastUsed: legacy.lastUsed });
-      dropSpace(db, legacy.id);
-    }
-    return s;
-  });
-}
-
 async function chooseModel(
   project: string,
-  opts: { profile?: ModelProfile; model?: ResolvedModel | null },
+  opts: { model?: ResolvedModel | null },
 ): Promise<{ model: ResolvedModel | null; degraded?: string }> {
   if (opts.model !== undefined) return { model: opts.model };
-  if (opts.profile) return { model: modelForProfile(opts.profile, queryTaskOf(project)) };
   const active = await activeModels(project);
   if (active.embedding) return { model: active.embedding };
   return {
@@ -200,14 +192,14 @@ export function unindexDoc(project: string, id: string): void {
     const db = openDb(indexFile(project));
     try {
       forgetDoc(db, id);
+      const state = stateIn(db);
+      if (state?.docs[id] !== undefined) {
+        delete state.docs[id];
+        setMeta(db, STATE, JSON.stringify(state));
+      }
     } finally {
       db.close();
     }
-  }
-  const state = readState(project);
-  if (state?.docs[id] !== undefined) {
-    delete state.docs[id];
-    writeJson(stateFile(project), state);
   }
 }
 
@@ -215,7 +207,6 @@ export async function indexProject(
   project: string,
   ctx: Ctx,
   opts: {
-    profile?: ModelProfile;
     model?: ResolvedModel | null;
     dbFile?: string;
     force?: boolean;
@@ -262,7 +253,7 @@ export async function indexProject(
     let vectorsRebuilt = false;
     if (model) {
       ctx.step?.("embed");
-      space = adopt(db, model);
+      space = spaceOf(db, model) ?? createSpace(db, fingerprintOf(model));
       if (opts.force) db.exec(`delete from ${vecTable(space.id)}`);
       vectorsRebuilt = vectorCount(db, space.id) === 0;
       setMeta(db, "embedding", model.entry.id);
@@ -302,7 +293,7 @@ export async function indexProject(
         docs: Object.fromEntries(docs.map((d) => [d.doc.id, d.content])),
         space: space?.id ?? null,
       };
-      writeJson(stateFile(project), state);
+      setMeta(db, STATE, JSON.stringify(state));
     }
     return {
       embedding,

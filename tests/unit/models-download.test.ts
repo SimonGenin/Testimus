@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished } from "vitest";
 import { quietCtx } from "../../src/core/command.ts";
 import { invoke } from "../../src/core/commands/index.ts";
 import { registryFile } from "../../src/core/lib/models-catalog.ts";
@@ -17,7 +17,7 @@ import {
 import { pinMachineProfile } from "../../src/core/lib/models-hardware.ts";
 import { NO_DIR, pull } from "../../src/core/lib/models-install.ts";
 import { readRegistry, writeRegistry } from "../../src/core/lib/models-registry.ts";
-import { pullModel } from "../../src/core/lib/models-store.ts";
+import { readSettings, writeSettings } from "../../src/core/lib/project.ts";
 import type { CatalogEntry, MachineProfile } from "../../src/core/types.ts";
 
 const saved = { ...downloadDeps };
@@ -322,7 +322,9 @@ describe("models.pull", () => {
 
   it("refuses when downloads are off", async () => {
     withEntries(ggufEntry("tiny", BODY));
-    writeRegistry({ ...readRegistry(), dir, allowRemote: false });
+    writeRegistry({ ...readRegistry(), dir });
+    writeSettings({ ...readSettings(), models: { allowRemote: false } });
+    onTestFinished(() => writeSettings({ ...readSettings(), models: { allowRemote: true } }));
     await expect(pull(quietCtx(null), { model: "tiny" })).rejects.toThrow(/downloads are off/);
   });
 
@@ -333,23 +335,5 @@ describe("models.pull", () => {
     await expect(invoke("models.pull", { model: "tiny" }, { project: null, wait: true })).rejects.toThrow(/checksum/);
     expect(readRegistry().installs).toEqual([]);
     expect(existsSync(join(dir, "acme", "Tiny-GGUF", "tiny.gguf"))).toBe(false);
-  });
-
-  it("the v1 pullModel path downloads into the chosen folder only", async () => {
-    withEntries(onnxEntry());
-    serve({ "config.json": SMALL, "tokenizer.json": SMALL, "onnx/model_quantized.onnx": BODY });
-    const prev = process.env.TESTIMUS_MODELS;
-    process.env.TESTIMUS_MODELS = join(dir, "empty");
-    mkdirSync(process.env.TESTIMUS_MODELS);
-    try {
-      await expect(pullModel("acme/tiny-onnx", "q8", { allowRemote: true })).rejects.toThrow(NO_DIR);
-      writeRegistry({ ...readRegistry(), dir });
-      const hit = await pullModel("acme/tiny-onnx", "q8", { allowRemote: true });
-      expect(hit.dir).toBe(join(dir, "acme", "tiny-onnx"));
-      expect(readRegistry().installs[0]).toMatchObject({ model: "tiny-onnx", via: "download", dtype: "q8" });
-    } finally {
-      if (prev === undefined) delete process.env.TESTIMUS_MODELS;
-      else process.env.TESTIMUS_MODELS = prev;
-    }
   });
 });

@@ -1,14 +1,12 @@
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { UserError } from "../command.ts";
 import { env } from "../env.ts";
 import { registryFile } from "./models-catalog.ts";
 import { readJson } from "./project.ts";
 
 export type ModelRoot = { kind: "dir" | "env" | "user" | "release"; dir: string };
 export type ModelHit = { root: ModelRoot; dir: string };
-export type PullProgress = { file: string; loaded?: number; total?: number };
 
 const SUFFIX: Record<string, string> = {
   fp32: "",
@@ -63,50 +61,4 @@ export function findModel(hfId: string, dtype?: string): ModelHit | null {
     if (isComplete(dir, dtype)) return { root, dir };
   }
   return null;
-}
-
-// ponytail: v1 callers (the transformers runtime) land here; the files now come from the pinned catalog revision
-// into the models folder the user chose (P6), never into %LOCALAPPDATA% by default
-export async function pullModel(
-  hfId: string,
-  dtype: string | undefined,
-  opts: { allowRemote: boolean; onProgress?(p: PullProgress): void; signal?: AbortSignal },
-): Promise<ModelHit> {
-  const hit = findModel(hfId, dtype);
-  if (hit) return hit;
-  if (!opts.allowRemote)
-    throw new UserError(
-      `${hfId} is not on this PC and downloads are off (settings.models.allowRemote = false).`,
-      `Copy the folder ${hfId} from the team share and register it: testimus models add <folder>.`,
-    );
-  const { catalog } = await import("./models-catalog.ts");
-  const { readRegistry, putInstall } = await import("./models-registry.ts");
-  const { pullFiles } = await import("./models-download.ts");
-  const entry = catalog().entries.find(
-    (e) =>
-      e.source.hf?.repo === hfId && e.runtimes.includes("transformers") && (!dtype || e.dtypeByDevice?.cpu === dtype),
-  );
-  if (!entry?.source.hf) throw new UserError(`${hfId} (${dtype ?? "any dtype"}) is not in the model catalog.`);
-  const dir = readRegistry().dir;
-  if (!dir)
-    throw new UserError(
-      "Choose where models are stored: `testimus models setDir <folder>`",
-      "Then run the index again, or download it now: testimus models pull <id>.",
-    );
-  const res = await pullFiles(entry, dir, {
-    dtype,
-    signal: opts.signal ?? new AbortController().signal,
-    onProgress: (loaded, total, file) => opts.onProgress?.({ file, loaded, total }),
-  });
-  putInstall({
-    model: entry.id,
-    via: "download",
-    runtime: "transformers",
-    path: res.path,
-    revision: entry.source.hf.revision,
-    ...(entry.dtypeByDevice?.cpu ? { dtype: entry.dtypeByDevice.cpu } : {}),
-    device: "cpu",
-    status: "installed",
-  });
-  return { root: { kind: "user", dir }, dir: res.path };
 }

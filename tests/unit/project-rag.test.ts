@@ -18,7 +18,7 @@ describe("project.set rag switches", () => {
     const dir = copy();
     await invoke("project.set", { rag: { describeFigures: false } }, { project: dir });
     await invoke("project.set", { rag: { claudeHeaders: true } }, { project: dir });
-    expect(rag(dir)).toEqual({ embedding: "bge-m3", reranker: null, describeFigures: false, claudeHeaders: true });
+    expect(rag(dir)).toEqual({ describeFigures: false, claudeHeaders: true });
   });
 
   it("is reachable from the CLI with a dotted flag, no JSON needed", () => {

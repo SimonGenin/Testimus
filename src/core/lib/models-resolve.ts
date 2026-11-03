@@ -16,7 +16,7 @@ import { catalogEntry, pack } from "./models-catalog.ts";
 import { filesFor, filesPresent } from "./models-download.ts";
 import { deviceFor, fitOf, gb } from "./models-fit.ts";
 import { knownMachine, machineProfile, mainGpu } from "./models-hardware.ts";
-import { budgets, modelsDir, readRegistry } from "./models-registry.ts";
+import { budgets, downloadsAllowed, modelsDir, readRegistry } from "./models-registry.ts";
 import { isComplete, modelDir, modelRoots } from "./models-store.ts";
 
 export const DEFAULT_QUERY_TASK =
@@ -148,7 +148,7 @@ function resolveOne(id: string, queryTask: string): One {
   const runtime = downloadRuntime(entry);
   if (!entry.source.hf || !runtime)
     return { model: null, source: "unavailable", reason: `${entry.label} has no download source` };
-  if (!readRegistry().allowRemote)
+  if (!downloadsAllowed())
     return {
       model: null,
       source: "unavailable",

@@ -6,8 +6,6 @@ import { env } from "../env.ts";
 import { AGENTS_CAP, AGENTS_DEFAULT, clampAgents } from "../lib/agents.ts";
 import { credsStatus, saveCreds, savedSecrets } from "../lib/creds.ts";
 import { jiraCheck, runDoctor, xrayCheck } from "../lib/doctor.ts";
-import { catalogEntry } from "../lib/models-catalog.ts";
-import { pull } from "../lib/models-install.ts";
 import { readSettings, writeSettings } from "../lib/project.ts";
 import { mockProbeDeps } from "../mock/agents.ts";
 import { indexFile } from "../rag/db.ts";
@@ -69,8 +67,6 @@ const measure = z.object({
 const settingsOut = z.object({
   projects: z.array(z.string()),
   lastProject: z.string(),
-  theme: z.enum(["system", "light", "dark"]),
-  stepLayout: z.enum(["stacked", "split"]),
   claude: z.object({ exe: z.string() }),
   models: z.object({ allowRemote: z.boolean() }),
   agents: z
@@ -259,28 +255,9 @@ export const commands = [
   }),
 
   command({
-    name: "system.pullModel",
-    summary: "Alias of models.pull for a v1 profile name (bge-m3, qwen3-embedding-0.6b, bge-reranker-v2-m3).",
-    input: z.object({ profile: z.string().describe("Profile name (v1) or catalog id, e.g. bge-m3.") }),
-    output: z.object({ profile: z.string(), hfId: z.string(), dir: z.string(), where: z.string() }),
-    mutates: true,
-    job: "pullModel",
-    global: true,
-    positional: ["profile"],
-    subject: (input) => input.profile,
-    async run(ctx, input) {
-      const e = catalogEntry(input.profile);
-      if (!e?.source.hf)
-        throw new UserError(`Unknown model profile ${input.profile}.`, "testimus models catalog lists the models.");
-      const r = await pull(ctx, { model: e.id });
-      return { profile: input.profile, hfId: e.source.hf.repo, dir: r.where, where: r.via };
-    },
-  }),
-
-  command({
     name: "system.settings",
     summary:
-      "Global settings (%APPDATA%\\Testimus\\settings.json, ~/.config/Testimus/settings.json elsewhere): theme, step layout, claude.exe, model downloads, agents at the same time.",
+      "Global settings (%APPDATA%\\Testimus\\settings.json, ~/.config/Testimus/settings.json elsewhere): claude.exe, model downloads, agents at the same time, the page's preferences.",
     input: z.object({}),
     output: settingsOut,
     mutates: false,
@@ -294,8 +271,6 @@ export const commands = [
     name: "system.saveSettings",
     summary: "Changes global settings; fields left out keep their value.",
     input: z.object({
-      theme: z.enum(["system", "light", "dark"]).optional().describe("UI theme."),
-      stepLayout: z.enum(["stacked", "split"]).optional().describe("How a step's fields are laid out in the editor."),
       claudeExe: z.string().optional().describe("Path to claude(.exe/.cmd); empty = find claude on PATH."),
       allowRemote: z
         .boolean()
@@ -322,8 +297,6 @@ export const commands = [
     global: true,
     async run(_ctx, input) {
       const s: Settings = readSettings();
-      if (input.theme) s.theme = input.theme;
-      if (input.stepLayout) s.stepLayout = input.stepLayout;
       if (input.claudeExe !== undefined) s.claude = { ...s.claude, exe: checkedExe(input.claudeExe) };
       if (input.allowRemote !== undefined) s.models = { ...s.models, allowRemote: input.allowRemote };
       if (input.agentsMax !== undefined) s.agents = { ...s.agents, max: clampAgents(input.agentsMax) };

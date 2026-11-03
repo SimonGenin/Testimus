@@ -1,6 +1,6 @@
-import { existsSync } from "node:fs";
-import { join, resolve } from "node:path";
-import { readJson, readProject, readSettings } from "../lib/project.ts";
+import { resolve } from "node:path";
+import { findDoc } from "../lib/docs.ts";
+import { readProject, readSettings } from "../lib/project.ts";
 import type { Chunk, DocJson } from "../types.ts";
 import { languageName } from "./generate.ts";
 import { docContexts, docRunLines, type JobRun } from "./prompt.ts";
@@ -16,17 +16,16 @@ export function claudeHeadersOn(project: string): boolean {
 }
 
 // ponytail: the indexer's hook is given the document, not the project — the project is the known
-// folder whose docs/<id>/doc.json is this very conversion (same convertedAt and source hash)
+// folder whose docs/<id>/doc.json is this very conversion (same conversion time and source hash)
 export function projectOfDoc(doc: DocJson): string | null {
   const s = readSettings();
   const candidates = [process.env.TESTIMUS_PROJECT, process.cwd(), s.lastProject, ...s.projects].filter(
     (p): p is string => !!p,
   );
   for (const dir of [...new Set(candidates.map((p) => resolve(p)))]) {
-    const file = join(dir, "docs", doc.id, "doc.json");
-    if (!existsSync(file)) continue;
-    const d = readJson<Partial<DocJson>>(file, {});
-    if (d.convertedAt === doc.convertedAt && d.source?.sha256 === doc.source?.sha256) return dir;
+    const d = findDoc(dir, doc.id);
+    if (!d) continue;
+    if (d.converted?.at === doc.converted?.at && d.source?.sha256 === doc.source?.sha256) return dir;
   }
   return null;
 }

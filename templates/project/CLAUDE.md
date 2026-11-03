@@ -21,17 +21,20 @@ project is in **Team notes** at the end.
 
 - `docs/<docId>/` — one document: `doc.md` (the converted text), `figures/` (its pictures, in reading
   order) and `figures.json` (what each one shows and the text visible in it), `doc.json` (title,
-  version, `kind`, `status` draft · submitted · validated, `amends`: the documents it amends),
+  version, `kind`, `status` draft · submitted · validated, `amends`: the documents it amends, the
+  `contexts` read with it; `converted`: what the last conversion found, its `warnings` included),
   `context.md` when the team wrote one — what it says about the document; read it before using the
   document (`docs_show` returns it as `context`).
 - `tests/<id>/test.md` — one test (format below); `images/` its pictures; `check.json` its last
-  check's findings. `<id>` is the Jira key once pushed (`PROJ-123`), `local-<hex>` before.
-- `contexts/<id>/` — reference material the team attaches to runs: `notes.md`, `files/`, and paths
-  outside the project. A shared library of contexts lives outside the project, for every project.
+  check's findings; `local.json` the test's own settings (its contexts, how its columns fold), never
+  part of the test. `<id>` is the Jira key once pushed (`PROJ-123`), `local-<hex>` before.
+- `contexts/<id>/` — reference material the team attaches to runs: `context.md` (a frontmatter with its
+  `name` and the `paths` outside the project it points at, then its notes), and `files/`. A shared library of contexts lives outside the project, for every project.
 - `project.json` — Jira project, the language of the tests, Xray folders, review label prefix, the
   default Claude model and effort, the contexts every run reads.
-- `xray.json` — the step columns: Xray's step fields and the project's local columns, each with the
-  description you follow to fill it (see **Smart columns**).
+- `columns.json` — the step columns in their order: Xray's step fields and the project's local
+  columns, each with the description you follow to fill it and how it shows (see **Smart columns**).
+- `xray.json` — Xray's step fields as Xray last gave them (read again from Xray, never edited).
 
 Derived files, never edited by hand: `index/`, `.testimus/`, `tests/*/.remote.md`,
 `tests/*/check.json`.
@@ -54,7 +57,7 @@ Testimus starts you for one job, with only the tools that job needs. The prompt 
 | A Claude action (see below) | — | what the action's plan says, through the app's commands |
 
 Files outside `tests/` are never edited directly in a run: `docs/`, `index/`, `.testimus/`,
-`contexts/`, `.claude/`, `project.json`, `xray.json`, `.mcp.json` and this file are refused. What the
+`contexts/`, `.claude/`, `project.json`, `xray.json`, `columns.json`, `.mcp.json` and this file are refused. What the
 app lets a run change there (a document's status, a column's description, a context) goes through
 its command, like a button would.
 
@@ -88,7 +91,7 @@ when the user asked to replace that Jira change with the local version.
 ## Smart columns
 
 Every step is made of columns, and every column is a **smart column**: its description in
-`xray.json` (`columns_list` shows them) says what goes in it, and that description is the whole
+`columns.json` (`columns_list` shows them) says what goes in it, and that description is the whole
 rule. No column is special and none is known by its name: `Action`, `Data`, `Expected Result`,
 custom Xray step fields (a requirement code, a priority, test data…) and **local columns** (kept in
 `test.md`, never pushed to Xray) are all filled the same way — by doing what the description asks.
@@ -144,12 +147,13 @@ REQ-EXP-012
 - images/img-3f9a2c1d.png (SPEC_REPORTS#fig:7)
 ```
 
-- Frontmatter: `summary`, `folder` (an Xray repository folder: `xray_folders`), `labels`; once in
+- Frontmatter: `summary`, `folder` (an Xray repository folder: `xray_folders`), `labels` (the team's
+  own; the review label is never written here — the app adds it on push from `review`); once in
   Jira also `key`, `project`, `status`. `covers` and `preconditions` list Jira issue keys — only keys
   that exist (`xray_preconditions` lists the project's preconditions).
 - `review`, `review_note`, `reviewed_by`, `reviewed_at`, `generated_by` belong to the app and the
   reviewers: never change them. A test is validated by a person, never by a run.
-- Field headings (`### <Column>`) are the smart columns, in the order of `xray.json`. In the example
+- Field headings (`### <Column>`) are the smart columns, in the order of `columns.json`. In the example
   `Requirement` is a custom column with Reference source on; a project without it has no such
   heading.
 - No reference inside a column's text (no « see §4.2 » in Action or Expected Result): references go
@@ -182,7 +186,7 @@ Action when it shows where to act, in the Expected Result when it shows what to 
 
 ## Contexts
 
-A run may come with contexts: the prompt names each one (its `notes.md`, its files, outside paths).
+A run may come with contexts: the prompt names each one (its `context.md`, its files, outside paths).
 Read them before you start; they are reference material, never edited. Which ones apply is chosen by
 the team: the project's defaults, a test's or a document's own list, and per run. A document's
 `context.md` is what the team knows about that document.

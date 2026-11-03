@@ -1,7 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import { onnxFile } from "../lib/models-store.ts";
 import type { ResolvedModel, SpaceFingerprint, VectorSpace } from "../types.ts";
-import { getSpace, listSpaces, RECIPE, spaceId } from "./db.ts";
+import { getSpace, RECIPE, spaceId } from "./db.ts";
 
 export function dimsOf(m: ResolvedModel): number {
   return m.install.dims ?? m.entry.dims;
@@ -43,14 +43,6 @@ export function fingerprintOf(m: ResolvedModel): SpaceFingerprint {
   };
 }
 
-// ponytail: the v1 `vecs` table was migrated as an unpinned space named after its v1 profile; the same model (its
-// catalog entry's legacyProfile), the same dimension and an in-process runtime made it, so its document vectors stand
-export function legacySpace(db: DatabaseSync, m: ResolvedModel): VectorSpace | undefined {
-  if (m.runtime !== "transformers" && m.runtime !== "mock") return undefined;
-  const names = [m.entry.id, m.entry.legacyProfile].filter(Boolean);
-  return listSpaces(db).find((s) => s.fingerprint.unpinned && s.dims === dimsOf(m) && names.includes(s.modelId));
-}
-
 export function spaceOf(db: DatabaseSync, m: ResolvedModel): VectorSpace | undefined {
-  return getSpace(db, spaceId(fingerprintOf(m))) ?? legacySpace(db, m);
+  return getSpace(db, spaceId(fingerprintOf(m)));
 }

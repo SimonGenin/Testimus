@@ -12,6 +12,8 @@ import { readCheck } from "../../src/core/lib/store.ts";
 import { docContent } from "../../src/core/rag/indexer.ts";
 import type { DocJson, DocRef, FigureEntry } from "../../src/core/types.ts";
 import { sampleDocx } from "../fixtures/docx/sample.ts";
+import { writeContextMd } from "./context-helpers.ts";
+import { markIndexedInDb } from "./index-state-helpers.ts";
 
 async function run<T = unknown>(project: string, name: string, raw: unknown): Promise<T> {
   const c = commands.find((x) => x.name === name);
@@ -45,13 +47,14 @@ describe("docs commands", () => {
       date: "2026-06-12",
       kind: "spec",
       status: "draft",
-      source: { path: original, sha256: sha256(before), file: "source.docx" },
-      stats: { sections: 21, figures: 1 },
+      source: { name: original, sha256: sha256(before), file: "source.docx" },
+      converted: { stats: { sections: 21, figures: 1 } },
     });
-    expect(doc.warnings).toHaveLength(3);
+    expect(doc.converted?.warnings).toHaveLength(3);
+    expect(JSON.parse(readFileSync(join(dir, "doc.json"), "utf8"))).not.toHaveProperty("id");
     expect(readFileSync(original)).toEqual(before);
     expect(readFileSync(join(dir, "source.docx"))).toEqual(before);
-    const { citedBy, ...json } = doc as DocJson & { citedBy: unknown[] };
+    const { citedBy, id: _id, ...json } = doc as DocJson & { citedBy: unknown[] };
     expect(citedBy).toEqual([]);
     expect(JSON.parse(readFileSync(join(dir, "doc.json"), "utf8"))).toEqual(json);
     expect(readFileSync(join(dir, "doc.md"), "utf8")).toContain("<!-- § 5.6.6 -->");
@@ -80,12 +83,9 @@ describe("docs commands", () => {
       version: "01.01",
       date: "",
       status: "draft",
-      convertedAt: "",
-      convertedWith: "",
-      warnings: [],
       citedBy: [],
     });
-    expect(doc.stats).toBeUndefined();
+    expect(doc.converted).toBeUndefined();
     expect(existsSync(join(dir, "source.docx"))).toBe(true);
     expect(existsSync(join(dir, "doc.md"))).toBe(false);
     expect((await run<DocRef[]>(project, "docs.list", {}))[0].indexed).toBe("missing");
@@ -101,13 +101,12 @@ describe("docs commands", () => {
     ]);
     expect((await run<{ contexts: string[] }>(project, "docs.show", { id: doc.id })).contexts).toEqual([]);
     mkdirSync(join(project, "contexts", "glossary"), { recursive: true });
-    writeFileSync(join(project, "contexts", "glossary", "context.json"), JSON.stringify({ name: "Glossary" }));
-    writeFileSync(join(project, "contexts", "glossary", "notes.md"), "TK = traction");
+    writeContextMd(join(project, "contexts", "glossary"), { name: "Glossary", notes: "TK = traction" });
     await run(project, "docs.set", { id: doc.id, contexts: ["glossary", "glossary", "gone"] });
-    expect(JSON.parse(readFileSync(join(dir, "claude.json"), "utf8"))).toEqual({ contexts: ["glossary", "gone"] });
+    expect(JSON.parse(readFileSync(join(dir, "doc.json"), "utf8")).contexts).toEqual(["glossary", "gone"]);
     expect((await run<{ contexts: string[] }>(project, "docs.show", { id: doc.id })).contexts).toEqual(["glossary"]);
     expect(docRunLines(project, doc.id, { contexts: ["glossary"] }).join("\n")).toMatch(
-      /What the team knows about this document:\nEdition for the 2024 tender\n\nContext to read before you start[^\n]*\n- Glossary — notes: .*\/contexts\/glossary\/notes\.md$/,
+      /What the team knows about this document:\nEdition for the 2024 tender\n\nContext to read before you start[^\n]*\n- Glossary — notes: .*\/contexts\/glossary\/context\.md$/,
     );
     await run(project, "docs.set", { id: doc.id, contexts: [] });
     expect((await run<{ contexts: string[] }>(project, "docs.show", { id: doc.id })).contexts).toEqual([]);
@@ -116,9 +115,9 @@ describe("docs commands", () => {
       title: "Spécification fonctionnelle – Traction",
       date: "2026-06-12",
       status: "submitted",
-      stats: { sections: 21, figures: 1 },
+      converted: { stats: { sections: 21, figures: 1 } },
     });
-    expect(converted.convertedAt).not.toBe("");
+    expect(converted.converted?.at).not.toBe("");
     expect(readFileSync(join(dir, "context.md"), "utf8")).toBe("Edition for the 2024 tender\n");
     const brief = await run<{ md: string; toc: unknown[] }>(project, "docs.show", {
       id: doc.id,
@@ -172,9 +171,8 @@ describe("docs commands", () => {
   it("lists documents with their index freshness", async () => {
     const doc = await run<DocJson>(project, "docs.add", { file: original });
     expect((await run<DocRef[]>(project, "docs.list", {}))[0].indexed).toBe("missing");
-    mkdirSync(join(project, "index"));
     const dir = join(project, "docs", doc.id);
-    writeFileSync(join(project, "index", "state.json"), JSON.stringify({ docs: { [doc.id]: docContent(dir, doc) } }));
+    markIndexedInDb(project, [doc.id], { [doc.id]: docContent(dir, doc) });
     expect((await run<DocRef[]>(project, "docs.list", {}))[0].indexed).toBe("fresh");
     writeFileSync(join(dir, "doc.md"), `${readFileSync(join(dir, "doc.md"), "utf8")}\nReconverti.\n`);
     expect((await run<DocRef[]>(project, "docs.list", {}))[0].indexed).toBe("stale");
@@ -306,25 +304,6 @@ describe("docs commands", () => {
       ["SOSIE_211_D401-1_3", "validated", "missing"],
       ["SOSIE_211_D401-1_4", "submitted", "missing"],
     ]);
-    const legacy = join(copy, "docs", "SOSIE_211_D401-1_4", "doc.json");
-    writeFileSync(
-      legacy,
-      JSON.stringify({
-        ...JSON.parse(readFileSync(legacy, "utf8")),
-        binding: "mandatory",
-        status: "superseded",
-        supersededBy: "SOSIE_211_D401-1_3",
-      }),
-    );
-    const read = (await run<DocRef[]>(copy, "docs.list", {}))[1];
-    expect(read.status).toBe("draft");
-    expect(read).not.toHaveProperty("binding");
-    expect(read).not.toHaveProperty("supersededBy");
-    await run(copy, "docs.set", { id: "SOSIE_211_D401-1_4", context: "x" });
-    const written = JSON.parse(readFileSync(legacy, "utf8"));
-    expect(written.status).toBe("draft");
-    expect(written).not.toHaveProperty("binding");
-    expect(written).not.toHaveProperty("supersededBy");
     const s = await run<{ md: string; context: string }>(copy, "docs.show", {
       id: "SOSIE_211_D401-1_3",
       anchor: "§5.6.6",

@@ -50,9 +50,7 @@ export const settled = (u: Upload) => u.phase === "done" || u.phase === "failed"
 // ponytail: the list can show a document whose add has not returned its id yet — the file name ties them
 export const owns = (u: Upload, d: DocRef) =>
   !settled(u) &&
-  (u.docId
-    ? u.docId === d.id
-    : u.job === "add" && baseName(d.source.path.replace(/^upload: /, "")).toLowerCase() === u.name.toLowerCase());
+  (u.docId ? u.docId === d.id : u.job === "add" && baseName(d.source.name).toLowerCase() === u.name.toLowerCase());
 
 // ponytail: a finished or failed row is shown once — leaving the screen forgets it; the job stays in Jobs
 export function forgetSettled(): void {
@@ -158,7 +156,10 @@ export async function convertDoc(
   const extra = { ...(job.note?.trim() ? { note: job.note.trim() } : {}), contexts: job.contexts ?? [] };
   let jobId = "";
   try {
-    const converting: Promise<{ id: string; warnings?: string[] }> = run<{ id: string; warnings?: string[] }>(
+    const converting: Promise<{ id: string; converted?: { warnings: string[] } }> = run<{
+      id: string;
+      converted?: { warnings: string[] };
+    }>(
       "docs.convert",
       {
         id,
@@ -174,7 +175,7 @@ export async function convertDoc(
     ).finally(() => conversions.delete(converting));
     conversions.add(converting);
     const doc = await converting;
-    if (doc?.warnings?.length && !job.study) triageWhenClaude({ docId: id, ...claude, ...extra }, jobId);
+    if (doc?.converted?.warnings.length && !job.study) triageWhenClaude({ docId: id, ...claude, ...extra }, jobId);
   } catch (e) {
     patch(key, { phase: "failed", message: message(e), error: e });
     onDone();

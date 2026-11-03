@@ -1,9 +1,8 @@
 import type { DatabaseSync } from "node:sqlite";
-import { activeModels, queryTaskOf } from "../activation.ts";
+import { activeModels } from "../activation.ts";
 import { chunkCount, chunksByRowid, nearest, vectorCount } from "../db.ts";
 import { embedWith } from "../embed.ts";
 import { spaceOf } from "../fingerprint.ts";
-import { modelForProfile } from "../models.ts";
 import { keep, type SearchOpts } from "./filter.ts";
 import { CANDIDATES } from "./lexical.ts";
 
@@ -15,9 +14,7 @@ export async function vector(
   query: string,
   opts: SearchOpts,
 ): Promise<VectorResult> {
-  const m = opts.profile
-    ? modelForProfile(opts.profile, queryTaskOf(project))
-    : (await activeModels(project)).embedding;
+  const m = (await activeModels(project)).embedding;
   if (!m) return { ids: [], degraded: "No embedding model is installed on this PC: lexical search only." };
   const space = spaceOf(db, m);
   if (!space) return { ids: [], degraded: `No vectors for ${m.entry.id} yet: lexical search until rag index ends.` };

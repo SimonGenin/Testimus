@@ -39,8 +39,8 @@ describe("addDoc of a .pdf with its .docx beside it", () => {
     writeFileSync(join(root, "client", "SOSIE_211_D401-1_3_01.01.docx"), sampleDocx());
     const doc = await addDoc(project, { file: pdf });
     expect(doc.source.file).toBe("source.docx");
-    expect(doc.source.path).toMatch(/SOSIE_211_D401-1_3_01\.01\.docx$/);
-    expect(doc.convertedWith).toMatch(/^mammoth/);
+    expect(doc.source.name).toMatch(/SOSIE_211_D401-1_3_01\.01\.docx$/);
+    expect(doc.converted?.with).toMatch(/^mammoth/);
     expect(existsSync(join(project, "docs", doc.id, "source.pdf"))).toBe(true);
   });
 });

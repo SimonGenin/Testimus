@@ -13,6 +13,7 @@ import {
   writeTestContexts,
 } from "../../src/core/claude/prompt.ts";
 import { readProject, writeJson, writeProject } from "../../src/core/lib/project.ts";
+import { writeContextMd } from "./context-helpers.ts";
 
 const FIXTURE = join(import.meta.dirname, "..", "fixtures", "project");
 let dir: string;
@@ -22,15 +23,14 @@ beforeEach(() => {
   cpSync(FIXTURE, dir, { recursive: true });
   const full = contextDir(dir, "full");
   mkdirSync(join(full, "files"), { recursive: true });
-  writeJson(join(full, "context.json"), { name: "Full", paths: ["D:/specs"] });
-  writeFileSync(join(full, "notes.md"), "Some notes");
+  writeContextMd(full, { name: "Full", paths: ["D:/specs"], notes: "Some notes" });
   writeFileSync(join(full, "files", "a.pdf"), "");
   const bare = contextDir(dir, "bare");
   mkdirSync(bare, { recursive: true });
-  writeJson(join(bare, "context.json"), { paths: "not a list" });
+  writeFileSync(join(bare, "context.md"), "---\npaths: not a list\n---\n");
   const blank = contextDir(dir, "blank");
   mkdirSync(blank, { recursive: true });
-  writeFileSync(join(blank, "notes.md"), "   ");
+  writeFileSync(join(blank, "context.md"), "   ");
 });
 
 afterEach(() => {
@@ -57,7 +57,7 @@ describe("buildPrompt", () => {
     expect(p).toContain("Scope: the tests A, B.");
     expect(p).toContain("Files: tests/A/test.md, tests/B/test.md");
     expect(p).toMatch(
-      /- Full — notes: .*\/contexts\/full\/notes\.md; files: .*\/contexts\/full\/files\/a\.pdf; also look at: D:\/specs/,
+      /- Full — notes: .*\/contexts\/full\/context\.md; files: .*\/contexts\/full\/files\/a\.pdf; also look at: D:\/specs/,
     );
     expect(p).toMatch(/^- bare$/m);
     expect(p).toMatch(/^- blank$/m);
@@ -96,7 +96,7 @@ describe("buildPrompt", () => {
       shots,
       "",
       "Context to read before you start (reference material, do not edit it):",
-      `- Full — notes: ${full}/notes.md; files: ${full}/files/a.pdf; also look at: D:/specs`,
+      `- Full — notes: ${full}/context.md; files: ${full}/files/a.pdf; also look at: D:/specs`,
       "",
       "Ajoute la source.",
       "",
@@ -161,8 +161,8 @@ describe("per-test contexts", () => {
     expect(projectContexts(dir)).toEqual(["full"]);
   });
 
-  it("a claude.json without a list, or with junk in it, reads as no list or as its valid ids", () => {
-    const f = join(dir, "tests", "LFRPS12-1420", "claude.json");
+  it("a local.json without a list, or with junk in it, reads as no list or as its valid ids", () => {
+    const f = join(dir, "tests", "LFRPS12-1420", "local.json");
     writeJson(f, { contexts: "full" });
     expect(readTestContexts(dir, "LFRPS12-1420")).toBeNull();
     writeJson(f, { contexts: ["full", 3, "bad id"] });

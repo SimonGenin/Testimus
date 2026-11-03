@@ -1,9 +1,10 @@
-import { cpSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { type Ctx, quietCtx } from "../../src/core/command.ts";
 import { commands } from "../../src/core/commands/xray.ts";
 import { env, type HttpReq } from "../../src/core/env.ts";
+import { setModes, stepColumns } from "../../src/core/lib/columns.ts";
 import { resetAuth } from "../../src/core/lib/jira.ts";
 import { mockHttp, resetMockJira } from "../../src/core/mock/jira.ts";
 import { copyFixture, FIXTURE, tempRoot } from "./cov-faces-helpers.ts";
@@ -135,11 +136,10 @@ describe("xray.push whose refresh fails", () => {
   });
 });
 
-describe("xray.prefs and xray.search defaults", () => {
-  it("keeps every pref when none is given", async () => {
-    const before = JSON.parse(readFileSync(join(project, "xray.json"), "utf8")).prefs;
-    const r = await run("xray.prefs", {});
-    expect(r.prefs).toEqual(before);
+describe("columns.setModes and xray.search defaults", () => {
+  it("keeps every column when no mode is given", () => {
+    const before = stepColumns(project);
+    expect(setModes(project, {})).toEqual(before);
   });
 
   it("lists the root folder when neither text nor folder is given", async () => {

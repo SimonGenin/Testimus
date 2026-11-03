@@ -42,7 +42,6 @@ export function openDb(file: string): DatabaseSync {
     );
   `);
   migrateFts(db);
-  migrateLegacyVectors(db);
   migrateChunks(db);
   return db;
 }
@@ -110,35 +109,6 @@ function migrateFts(db: DatabaseSync): void {
   )?.sql;
   if (sql?.includes("stem") && getMeta(db, "stem_version") === String(STEM_VERSION)) return;
   rebuildFts(db);
-}
-
-// ponytail: the v1 `vecs` table becomes a space whose identity is marked unpinned (SPEC-RAG §6.3); its vectors are
-// copied row by row because a vec0 table cannot be renamed
-function migrateLegacyVectors(db: DatabaseSync): void {
-  if (!db.prepare("select 1 from sqlite_master where name = 'vecs'").get()) return;
-  const name = getMeta(db, "embedding") ?? "unknown";
-  const dims = Number(getMeta(db, "dims") ?? 0);
-  if (dims > 0) {
-    const fp: SpaceFingerprint = {
-      runtime: "transformers",
-      model: `unpinned:${name}`,
-      modelId: name,
-      pooling: "",
-      normalize: true,
-      queryInstruction: "",
-      docInstruction: "",
-      dims,
-      maxInputTokens: 0,
-      recipe: RECIPE,
-      unpinned: true,
-    };
-    transaction(db, () => {
-      const s = createSpace(db, fp);
-      db.exec(`insert into ${vecTable(s.id)}(chunk_rowid, embedding) select chunk_rowid, embedding from vecs`);
-      setSpace(db, s.id, { complete: !missingVectors(db, s.id).length, builtAt: getMeta(db, "built_at") ?? null });
-    });
-  }
-  db.exec("drop table vecs");
 }
 
 export function getMeta(db: DatabaseSync, key: string): string | undefined {
@@ -211,13 +181,6 @@ export function listSpaces(db: DatabaseSync): VectorSpace[] {
 export function getSpace(db: DatabaseSync, id: string): VectorSpace | undefined {
   const r = db.prepare("select * from spaces where id = ?").get(id) as RawSpace | undefined;
   return r ? toSpace(r) : undefined;
-}
-
-export function findSpace(db: DatabaseSync, fp: SpaceFingerprint): VectorSpace | undefined {
-  return (
-    getSpace(db, spaceId(fp)) ??
-    listSpaces(db).find((s) => s.fingerprint.unpinned && s.modelId === fp.modelId && s.dims === fp.dims)
-  );
 }
 
 export function createSpace(db: DatabaseSync, fp: SpaceFingerprint): VectorSpace {

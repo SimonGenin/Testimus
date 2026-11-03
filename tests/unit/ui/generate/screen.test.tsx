@@ -28,7 +28,13 @@ describe("Generate while an index runs (audit M-G1)", () => {
   it("is disabled while the index it started runs, says Indexing…, and comes back with the documents read again", async () => {
     let built = false;
     net.routes["docs.list"] = () => [
-      { id: "D1", code: "D1", title: "Traction", convertedAt: at, indexed: built ? "fresh" : "stale" },
+      {
+        id: "D1",
+        code: "D1",
+        title: "Traction",
+        converted: { with: "", at, warnings: [] },
+        indexed: built ? "fresh" : "stale",
+      },
     ];
     const gate = deferred<unknown>();
     net.routes["rag.index"] = async () => {
@@ -53,7 +59,9 @@ describe("Generate while an index runs (audit M-G1)", () => {
   });
 
   it("is disabled too while an index started from another screen runs", async () => {
-    net.routes["docs.list"] = () => [{ id: "D1", code: "D1", title: "Traction", convertedAt: at, indexed: "fresh" }];
+    net.routes["docs.list"] = () => [
+      { id: "D1", code: "D1", title: "Traction", converted: { with: "", at, warnings: [] }, indexed: "fresh" },
+    ];
     const gate = deferred<unknown>();
     net.routes["rag.index"] = async () => {
       await gate.promise;

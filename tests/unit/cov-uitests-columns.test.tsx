@@ -2,11 +2,12 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ColumnModes, Step, XrayJson } from "../../src/core/types.ts";
+import type { ColumnModes, Step } from "../../src/core/types.ts";
 import type { Column } from "../../src/ui/lib/columns.ts";
 import { ColumnField } from "../../src/ui/screens/tests/ColumnField.tsx";
 import { ColumnsMenu } from "../../src/ui/screens/tests/ColumnsMenu.tsx";
 import { GoneStep, WasView } from "../../src/ui/screens/tests/WasView.tsx";
+import { layoutOf } from "./layout-helpers.ts";
 
 afterEach(() => {
   cleanup();
@@ -96,7 +97,7 @@ describe("ColumnsMenu", () => {
     const dialog = screen.getByRole("dialog", { name: "Step columns" });
     expect(screen.getByRole("button", { name: "Columns" })).toHaveAttribute("aria-controls", dialog.id);
     expect(within(dialog).getByText("not in Xray")).toBeInTheDocument();
-    expect(within(dialog).getByText(/Saved in xray.json/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Saved in columns.json/)).toBeInTheDocument();
     expect(within(row("Data")).getByRole("button", { name: "collapsed" })).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(within(row("Note")).getByRole("button", { name: "when filled" }));
     expect(onProject).toHaveBeenLastCalledWith({ Data: "collapsed", Note: "filled" });
@@ -177,16 +178,16 @@ describe("ColumnsMenu", () => {
   });
 });
 
-const xray: XrayJson = {
-  fields: [
+const xray = layoutOf(
+  [
     { id: "a", name: "Action", type: "text", builtin: true },
     { id: "d", name: "Data", type: "text", builtin: true },
     { id: "r", name: "Expected Result", type: "text", builtin: true },
     { id: "e", name: "Exigence", type: "text", builtin: false },
     { id: "n", name: "Note", type: "text-single", builtin: false },
   ],
-  prefs: { order: [], collapsed: [], hidden: [] },
-};
+  { order: [], collapsed: [], hidden: [] },
+);
 
 const was: Step = {
   id: "11",

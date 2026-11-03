@@ -168,32 +168,62 @@ and the same skills, contexts and MCP tools are there. `testimus project init <d
 `templates/project/` into it. The folder can live anywhere (local disk, SharePoint sync, SVN) and is
 shared by sharing the folder.
 
+**Files are the state.** Every file below is plain text a person can read and edit, with one module of the
+core that reads and writes it (nobody else opens it). The JSON files use camelCase keys; `test.md` keeps Xray
+Editor's snake_case frontmatter. A file the app derives (marked *derived*) can be deleted and is rebuilt; it is
+never edited by hand.
+
 ```
 <project>/
   CLAUDE.md                 project rules for Claude (from the template, then the team's)
-  .mcp.json                 declares `testimus mcp` — Claude reaches every command
-  .claude/skills/           generate-tests, check-test, fix-test, ask-docs (+ the team's own)
-  .claude/agents/           optional
-  project.json              { jiraProject, language, folders, rag: { embedding, reranker },
-                              claude: { model, effort, presets, contexts } }
-  xray.json                 step field schema fetched from Xray + local field preferences (§10)
-  contexts/<id>/            context.json { name, paths }, notes.md, files/ — reference material attached to
-                              runs (Xray Editor §7). The project's own; the shared library every project sees is
-                              <data dir>/contexts/<id>/ (same layout, passed as --add-dir; an own id wins). `paths` are
-                              absolute folders or files outside the project, each passed as --add-dir
+  .mcp.json                 declares `testimus mcp` — Claude reaches every command (rewritten by every run)
+  .claude/skills/           the shipped skills (generate-tests, plan-tests, check-test, fix-test, edit-test,
+                              ask-docs, define-columns, study-document) + the team's own
+  project.json              { name, jiraProject, jiraOffline?, language, labelPrefix, folders,
+                              rag: { reference?, queryTask?, passageMaxChars?, retrieval?, claudeHeaders?,
+                              describeFigures? }, claude: { model, effort, presets, contexts }, glossary? }
+  columns.json              the team's step columns, in display order (below)
+  xray.json                 derived: { fetchedAt, fields: [{ id, name, type, builtin, required?, disabled? }] } —
+                              Xray's step fields as Xray last gave them (§10)
+  contexts/<id>/            context.md (frontmatter `name:`, `paths:` as a list, then the notes as body) and
+                              files/ — reference material attached to runs (Xray Editor §7). `paths` are folders
+                              or files outside the project, each passed as --add-dir. The project's own; the
+                              shared library every project sees is <data dir>/contexts/<id>/ (same layout; an
+                              own id wins)
   docs/<docId>/             one document (§4)
-  requirements/             optional: requirements.csv (id, text, doc, chapter, status)
-  tests/<id>/               test.md, .remote.md, images/, check.json (§6); optional claude.json
-                              { contexts: [ids] } (the test's FULL context list, [] = none, absent = the
-                              project's claude.contexts) and columns.json { <field>: open|filled|collapsed }
-                              (how the step fields fold for this test only) — neither is part of test.md,
-                              so neither makes a test modified; both move with the folder on push-rename
-  index/rag.db              derived, rebuilt by `rag.index`, never edited, not shared
-  .testimus/                jobs, chat sessions, caches — derived, not shared
+  tests/<id>/               test.md (§6), images/, and beside it:
+                              local.json  { contexts?, columns? } — the test's own settings: its FULL context
+                                          list ([] = none, absent = the project's claude.contexts) and how its
+                                          columns fold ({ <column>: open|filled|collapsed }); not part of
+                                          test.md, so it never makes a test modified; it moves with the folder
+                                          on push-rename. Left empty, the file goes
+                              .remote.md  derived: test.md as Jira last sent it (§10)
+                              check.json  derived: the last check (§8)
+                              .state.json derived: { remoteChangedAt?, generatedPrint? } (§6)
+  eval/behaviors.jsonl      the project's retrieval benchmark set (SPEC-RAG §10)
+  index/rag.db              derived: chunks, full text, vectors per space, graph, and the state of the last
+                              index run (meta `index_state`); rebuilt by `rag.index`, not shared
+  .testimus/                derived, not shared: jobs/<id>.jsonl, runs/<runId>/run.json (+ before/, §11),
+                              gen/<generation>.json (§7), chats/, actions/, eval/ (reports), pages/, uploads/,
+                              shipped.json (the template files shipped, §11), jira-project.json (cache)
 ```
 
-Global settings (`%APPDATA%\Testimus\settings.json`): known project folders, last project, UI prefs,
-`claude.exe`.
+`columns.json` is a list, one entry per column, in the order the editor shows them:
+`[{ name, id?, description?, mode: "open"|"filled"|"collapsed"|"hidden", referenceSource? }]`. An entry with
+`id` follows that Xray step field (a field renamed in Xray keeps its entry); one without `id`, or whose field
+Xray no longer has, is a **local column** — kept in `test.md`, never pushed. `description` is what Claude writes
+in the column (empty: Claude leaves it empty; absent: never described — a custom field new from Xray says so);
+the built-ins have a default description. `mode` is how the column shows in every test (§10). An Xray field no
+entry names comes after the entries, with its defaults (`filled` for Data and for a field switched off in Xray,
+`open` otherwise). `columns.save`, `columns.setModes`, `columns.order` and `columns.remove` write it, each time
+the whole list as it is shown; reading Xray again makes it follow Xray (§10).
+
+Global settings (`<data dir>/settings.json`, `%APPDATA%\Testimus` on Windows): `{ projects, lastProject,
+claude: { exe }, models: { allowRemote }, agents?, ui?, rag? }` — known project folders, last project, the
+`claude.exe` to run, whether models may be downloaded (the one place that says it), how many Claude runs at the
+same time, the page's `testimus.*` preferences mirrored (`ui`), the model choice of this PC per project
+(`rag.byProject`). `<data dir>/models.json` holds the models folder, the installations and the team's own
+catalog entries.
 
 **Credentials** are Xray Editor's, in the same files (its SPEC §2, `src/lib/jira.ts`), shared with the
 user's Atlassian skills (`xray-find`, `atlassian-import`, `comment-task`…): one set per user, read in
@@ -217,72 +247,56 @@ place, never copied into a project or into Testimus' settings.
 
 ```
 docs/<docId>/
-  source.docx | source.pdf  the original, copied in (never the SharePoint file itself)
-  doc.md                    converted text with anchors
-  figures/fig-<n>.<ext>     every picture, in reading order
-  figures.json              [{ file, anchor, caption, description, labels?, kind? }] — written by Claude
-  doc.json                  metadata below
+  source.docx | source.pdf  the original, copied in (never the SharePoint file itself); both when the other
+                              rendering is kept beside it (`twin`)
+  doc.md                    derived: converted text with anchors
+  figures/fig-<n>.<ext>     derived: every picture, in reading order
+  figures.json              [{ file, anchor, caption, description, labels?, kind? }] — description, labels and
+                              kind written by Claude
+  doc.json                  below
   context.md                what the team says about this document (free text, read by every run)
 ```
 
-- Figure descriptions v2: Claude `Read`s each picture and returns `{ description, labels, kind }` — `description` one
+- `doc.json` — the folder name is the document id, so the file does not repeat it. What the team decides sits
+  apart from what the conversion found:
+  `{ code, title, version, date, kind: "spec"|"minutes"|"other", status: "draft"|"submitted"|"validated",
+  amends?: [docId], contexts?: [contextId], conversion?: { from?, reader?, numbers?, notes? },
+  source: { name, file, sha256, uploaded? }, twin?: { file, sha256 },
+  converted?: { with, at, warnings, stats?: { sections, figures, chars } } }`.
+  `status` is what the team decides, not what the file says: the UI edits it (`docs.set`, with `amends`, the title,
+  the contexts and `context.md`). `contexts` are the saved contexts Claude reads with this document (absent: the
+  project's defaults). `conversion` is how the document is converted, chosen by the study (`study-document`) or
+  the team, kept so every reconversion gives the same result. `source.name` is where the original came from — its
+  path on this PC, or the uploaded file's name with `uploaded: true`; `source.file` is the copy in the folder;
+  `twin` is the other original beside it (the `.pdf` of a `.docx`, or the reverse). `converted` is absent until the
+  first conversion (`docs.add` with `convert: false` copies only); its `warnings` are the known losses.
+- Figure descriptions: Claude `Read`s each picture and returns `{ description, labels, kind }` — `description` one
   or two sentences in the project's language, `labels` every text visible in the picture copied verbatim (titles,
   buttons, menu items, fields, legends, symbol names; at most 100; `[]` when none), `kind` one of `screen | diagram |
-  symbol | table-image | photo`. A v1 entry (description only) is still read; a later description-only reply keeps
-  the labels and kind already there. `figures.json` is written after every batch of 20, so a run cut short keeps what
-  is done. The caption is the only quotable text of a figure: a `fig:N` citation is checked against the caption
-  paragraph in `doc.md`, never against `figures.json` (description and labels are Claude's reading).
-- `doc.json`: `{ id, code, title, version, date, kind: "spec"|"requirements"|"minutes"|"other",
-  status: "draft"|"submitted"|"validated", amends?: [docId], source: { path, sha256 }, convertedWith, convertedAt }`.
-  `status` is what the team decides, not what the file says: the UI edits it. There is no `binding` and no
-  `superseded` / `supersededBy` any more: binding decided nothing, and an old version is deleted rather than kept
-  and marked. An older `doc.json` reads without them (a superseded one as a draft) and loses them at its next write.
-- `docs.remove <id>` deletes every trace of a document: its folder (copy, doc.md, figures, context), its rows in
-  `index/rag.db` (chunks, full-text rows, vectors in every space — a complete space stays complete — and graph
-  edges), its entry in `index/state.json`, and the other documents' `amends` naming it. Tests citing it are left as they are; check reports their sources as missing.
-- **Conversion prefers `.docx`** (structure and images intact); PDF is the fallback.
-- **Anchors** are what sources point at, so they must be stable across reconversion:
+  symbol | table-image | photo`. A later reply with a description only keeps the labels and kind already there.
+  `figures.json` is written after every batch of 20, so a run cut short keeps what is done. The caption is the only
+  quotable text of a figure: a `fig:N` citation is checked against the caption paragraph in `doc.md`, never against
+  `figures.json` (description and labels are Claude's reading).
+- `docs.remove <id>` deletes every trace of a document: its folder (copies, doc.md, figures, context), its rows in
+  `index/rag.db` (chunks, full-text rows, vectors in every space — a complete space stays complete — graph
+  edges and its entry in the index state), and the other documents' `amends` naming it. Tests citing it are left as
+  they are; the check reports their sources as missing.
+- **Conversion prefers `.docx`** (structure and images intact); PDF is the fallback. A `.pdf` added while the
+  `.docx` of the same name sits beside it converts the `.docx`, the `.pdf` kept as its twin to lend its pictures;
+  `docs.add --pdf` keeps both; `docs.convert --pdf` or `--docx` adds the other rendering later.
+- **Anchors** are what sources point at, so they must be stable across reconversion — never numbered by position:
   - every heading carries its section number as anchor: `## 5.6.6 Sectionneur (S) <!-- § 5.6.6 -->`;
-  - every requirement id found in the text is an anchor: `<!-- req EXI_MOP_SPF_511_A_1670 -->`;
   - figures: `![Figure 40 – Représentation graphique sectionneur](figures/fig-40.png) <!-- fig 40 -->`;
   - a PDF page break: `<!-- page 59 -->` (absent for docx, which has no reliable pages).
-- Known losses, reported in `doc.json.warnings` instead of hidden: Word comments, shapes drawn in
+
+  A source writes them `§5.6.6`, `fig:40`, `page:59` (§6). A code the documents use (a requirement number, an
+  alarm code) is no anchor: it is text, found by search and `rag_mentions`, and a column that holds such codes is
+  a smart column like any other (§6, §8).
+- Known losses, reported in `converted.warnings` instead of hidden: Word comments, shapes drawn in
   Word (only their labels survive), `.emf`/`.wmf` (kept as they are: converting them needs native
   tools that §14 rules out).
-- Fixed while building (2026-11, proven on SOSIE_211_D401-1_3 01.01: 116 sections, 324 requirement
-  ids, 21 figures, identical anchors on reconversion):
-  - Requirement ids: the constant `REQ_PATTERN = \bEXI_[A-Z0-9_]*[A-Z0-9]`, plus a project's own regexes
-    in `project.json.requirementPatterns`. One `<!-- req ID -->` per id, on the line before the block
-    that defines it (else before its first mention; before a table for ids inside it). A Word heading
-    that is only an id (RATP style) is not a section.
-  - Requirement statement (derived from doc.md by `rag/statements.ts`, nothing extra written): the block after
-    `<!-- req ID -->`. A block that only names ids (`**EXI_A**`, `**EXI_A** et **EXI_B**`, `**EXI_A,**`) is a label:
-    the statement runs on through the following blocks up to the next requirement marker, id label, heading or figure
-    (a paragraph ending with a pasted caption is kept, then it stops; a bold sub-title right after the label is not
-    the rule). A marker placed before the heading that names the id gives that heading's section and text (the title,
-    then its blocks); that section's chunk carries the id and the check reads the quote there. When the id has no text
-    at its marker: its matrix row; else what the document first says of it elsewhere — a table row, a later id label
-    followed by text (RATP PA annexes repeat `**EXI_A, EXI_B**` above the rule), a heading, the paragraph that names
-    it; else the text shared by an id list ending with « , » or « et ». Defined only in a matrix: the row, rendered
-    `ID — <Objet> (section <x.y>)`. A non-matrix table gives the row holding the id. Never the id alone, except in a
-    document that says nothing more about it (a PA listing an unchanged paragraph); `rag.passage` then points at the
-    document that states it. Measured on the 22 J5 documents (2026-11-02): statements that were the id alone 23 → 3,
-    labels only 46 → 3 (the three ids PA1_SOSIE_4111 lists « non reproduits »).
-  - Requirement matrix: a table whose id column holds only ids (REQ_PATTERN + requirementPatterns) on at least
-    half its rows, and that has a section column — header `Section`, `Chapitre`, `§` or `Paragraphe` (case,
-    accents and plurals ignored), else a column of section numbers on half the rows.
-    `project.json.requirementMatrix: { idColumn, sectionColumn, textColumn? }` names them by header. The text
-    column is `Objet`/`Libellé`/`Texte`/`Description`, else the longest. A part without a header row is read
-    with its first row. Checked on the 22 current J5 documents (2026-11-02): found in every RATP SPF matrix
-    `Code Exigence(s) | Objet | Section` (10 documents); PCC NG's `ID Exigence | Source` tables are not matrices;
-    the Instructeur, Modèle train and SOSIE_c matrices use `EXI STB F-n` ids, found only with that pattern in
-    requirementPatterns — and an id with a space cannot be an anchor yet (open, §16).
-  - Amendments: a PA document lists what it amends in `doc.json.amends` (set by the team with `docs.set`). For a
-    requirement both carry, the amended specification's statement is the requirement's statement, and the PA's is
-    linked to it by an `amends` edge `PA#req:ID → SPEC#req:ID`. J5: 285 of 1 851 ids were stated from a PA, 276 of
-    them while the specification had the id → 0 (4 ids only a PA carries).
-  - Known source inconsistency, not a conversion rule: SOSIE_211_D401-1_5 §4 numbers some rules differently from its
-    §1.4 matrix (A_2160–2200, A_2540–2680, A_3000–3050) in the .docx itself; statements keep each text as written.
+- Fixed while building (2026-11, proven on SOSIE_211_D401-1_3 01.01: 116 sections, 21 figures, identical anchors
+  on reconversion):
   - Markdown depth = number depth + 1 (`# <code> — <title>`, `## 1`, `#### 5.6.6`); anchors never depend
     on depth. A number written in the heading wins, else Word numbering is recomputed from levels; an
     unnumbered heading gets the slug of its title (`§annexe`), duplicates `-2`.
@@ -293,32 +307,11 @@ docs/<docId>/
   - Text normalisation: non-breaking spaces → space, U+2011 → `-`, soft hyphens removed; bold and
     italic kept as `**` / `*` (the quote check ignores `*`).
   - PDF fallback: headings from numbering or font size, repeated header/footer lines and tiny pictures
-    dropped. RATP PDFs draw heading numbers as pictures, so always prefer the .docx.
-- **Tracked ids** (2026-11-02, first draft): requirements are one kind of id a project may track, not a given.
-  `project.json.traces: [{ id, label, patterns: [regex], field, ask? }]` lists the kinds (requirements, alarm codes,
-  use cases…); each has its step column `field` (an Xray custom step field). Without `traces`, a project is read as
-  before: it tracks its requirements (`id: "requirement"`, REQ_PATTERN + requirementPatterns, the requirement field)
-  when it shows any sign of them — `requirementField`, `requirementPatterns`, an Xray column named like « exigence »,
-  `requirements/requirements.csv` or a `<!-- req -->` anchor — else it tracks nothing, and no screen mentions
-  requirements. The first `traces.save` writes the list, so from then on it is exactly the team's. Saving the
-  `requirement` kind also writes `requirementField` / `requirementPatterns` (what the index and the check read).
-  `traces.find` scans every `doc.md` (comment markers skipped; first occurrence = document, section, line).
-  `traces.coverage` reads every local test: a step cites an id when its column holds text the patterns match
-  (what is left between commas is a value no pattern knows); per kind it gives each id of the documents with the
-  tests and steps citing it (none = not covered) and the values cited that no document writes.
-  `traces.propose` runs Claude read-only (Read, Glob, Grep on the documents, effort low) on a sentence and returns a
-  proposal (label, patterns, field, why) with what its patterns find; nothing is saved until `traces.save`. The
-  generation is told, in its request, each tracked column to fill and the ids to cover (`gen.tests` `tracked`);
-  a column that is not in `xray.json` stays in `test.md` (never pushed) until the team adds the step field in
-  Xray — Testimus cannot create it (no Xray API for step fields). The mechanical check reads the kinds: the
-  requirement field is the `requirement` kind's column (none once it is no longer tracked; before `traces`, as
-  §8 says), and every other kind's column must hold ids its patterns find in a document — else `id-unknown`
-  (error; a value between commas that no pattern matches counts too). Requirements stay the one kind with
-  statements, `req:` anchors, matrices and the graph (defines, traces, amends): other kinds are plain ids,
-  found by their patterns and by `rag_mentions`. The Review screens show each kind's ids under its name, and an
-  id with a space (« Figure 40 ») stays whole: ids are separated by commas, by spaces only when every word is one.
-  The runtime skills read `project.json.traces` (generate-tests fills every tracked column, check-test and
-  fix-test check them; a project without the `requirement` kind skips the requirement parts).
+    dropped; a tagged PDF can be read through its structure (`conversion.reader: "tagged"`). RATP PDFs draw
+    heading numbers as pictures, so always prefer the .docx (or give the study the numbers it saw).
+  - Amendments: an amendment document lists what it amends in `doc.json.amends` (`docs.set`). The graph links it
+    to what it amends (`amends` edges, document and section level), so search, `rag_related` and the skills find
+    the amendment next to the text it changes; an amendment wins over what it amends.
 
 ## 5. Index (RAG)
 
@@ -406,11 +399,11 @@ used: GGUF models run on llama.cpp, which Testimus downloads itself (same files 
     chunks every document again (each chunk asks for its header again), rebuilds the FTS table and re-embeds the
     active space only: a chunk that comes out the same keeps its row, so every other space keeps its vectors. A chunk
     added, changed or removed leaves every other space `complete: false`; activating that model again embeds only
-    the missing chunks. A v1 index's `vecs` table is migrated as an `unpinned` space; when the active model is that
-    v1 profile's catalog entry with the same dimension, search uses it and the next `rag.index` re-files its
-    vectors under the pinned fingerprint without re-embedding. `rag.spaces` lists spaces (model, runtime, vectors,
+    the missing chunks. `rag.spaces` lists spaces (model, runtime, vectors,
     complete, active, size, last used); `rag.dropSpace <id-prefix>` deletes one, never the active one without
-    `--force`. `index/state.json` keeps its v1 fields plus `space`.
+    `--force`. The state of the last complete index run (`{ embedding, dims, builtAt, docs: { <id>: content hash },
+    space }`, what `docs.list` compares for `fresh` / `stale` / `missing`) is kept in `rag.db` itself (meta
+    `index_state`): the index is one derived file.
   - When the active space is missing or incomplete, or the query cannot be embedded (also with a model forced by
     `rag.eval --embedding`), `hybrid` search runs on BM25 alone: every hit carries `degraded: true` and the reason
     is logged as a warning (the command or job log), even when nothing is found — never an error, so Claude keeps
@@ -419,10 +412,10 @@ used: GGUF models run on llama.cpp, which Testimus downloads itself (same files 
 - **Which models this PC uses** (`rag/activation.ts`): this PC's choice in `settings.json.rag.byProject[<key>]`,
   the key being the project folder's real path (lower-cased on Windows); else `project.json.rag.reference` (a pack
   `{ "pack": "light" }` or a pair `{ embedding, reranker }`, the team's reference that the benchmark measures);
-  else the v1 `rag.embedding` / `rag.reranker` names (mapped to catalog entries); else the Light pack. A step is
+  else the Light pack. A step is
   taken only when its embedding model is installed here (a missing reranker is reported and left out). With none
   installed, `rag.index` builds the lexical index only and says why. `rag.status` reports the active model, where
-  its choice came from (`machine | reference | project | light | none`), the active space and any degradation.
+  its choice came from (`machine | reference | light | none`), the active space and any degradation.
   The index stays per machine; two colleagues on different models get the same kind of sources, checked the same
   way.
 - **Models are data** (`models/catalog.json`, shipped; plus the user's own entries in
@@ -478,7 +471,7 @@ used: GGUF models run on llama.cpp, which Testimus downloads itself (same files 
     fails the job; a cancel keeps the `.part`. **No model is written before the user chose the folder**: without
     one it stops with « Choose where models are stored: `testimus models setDir <folder>` » (or `--dir`); the UI
     asks with a dialog listing the drives. It refuses when the drive has less than 1.2 × what is left to
-    download. `system.pullModel` is an alias.
+    download. Whether downloads are allowed is `settings.json` `models.allowRemote`, and only there.
   - `models setDir <folder> --move | --keep | --copy [--dry-run] [--runtimes]`: without a choice it stops and asks;
     downloads are grouped by folder, so a folder two variants of one repository share (bge-m3 q8 / fp16) moves once and
     every installation that points to it follows. Move on the same drive renames, on another drive copies, checks every
@@ -593,8 +586,7 @@ used: GGUF models run on llama.cpp, which Testimus downloads itself (same files 
 - **Benchmark** (SPEC-RAG §10). Retrieval settings and models are chosen by measurement over
   `<project>/eval/behaviors.jsonl`: one line per functional behavior `{ id, question, queries[], evidence: [{ ref:
   docId#anchor, role, must }], category?, validated? }`, roles `definition`, `rule`, `condition`, `exception`,
-  `amendment`, `contradiction`, `figure`. The v1 `eval/questions.jsonl` is still read (each expected anchor = a
-  `rule`, `must: true`) when `behaviors.jsonl` is absent. A line with `validated: false` (a bootstrap set proposed
+  `amendment`, `contradiction`, `figure`; a line in another form is refused. A line with `validated: false` (a bootstrap set proposed
   by Claude, not yet confirmed by a tester) makes every report **provisional**.
   - `rag.eval` (L1, a job) runs each behavior under two fixed policies: `search` (rag.search on the question and
     each query, fused by RRF) and `search+graph` (the same, plus `rag.related` on the anchor and requirement ids of
@@ -604,8 +596,8 @@ used: GGUF models run on llama.cpp, which Testimus downloads itself (same files 
     contradictions first); nDCG@10 and MRR on the search ranking. The report, `.testimus/eval/<date>-<setting>.json`,
     stores the chunker version, header mode, vector space id and fingerprint, effective retrieval settings,
     reranker, ks, corpus hash, set hash, app version and the provisional flag. Without overrides it measures this
-    PC's active models; `--embedding` / `--reranker` take a catalog id (or a v1 profile name) installed here,
-    embedded into its own vector space of `index/rag.db` (the active space, `state.json` and this PC's choice are
+    PC's active models; `--embedding` / `--reranker` take a catalog id installed here,
+    embedded into its own vector space of `index/rag.db` (the active space, the index state and this PC's choice are
     untouched); `--mode bm25` embeds nothing; `--retrieval.<key>` overrides any retrieval setting for the run.
   - `rag.compare` pairs reports by behavior; the mean difference in `must` recall at k gets a bootstrap 95 %
     interval (10,000 resamples, fixed seed). A configuration is adopted only when the interval is above zero and
@@ -675,25 +667,32 @@ used: GGUF models run on llama.cpp, which Testimus downloads itself (same files 
 Xray Editor's format (its `SPEC.md` §3: frontmatter, `## Step N <!-- id -->`, embedded screenshots
 as `![](images/… "params")`, wiki tables, escaping, lossless round-trip) with three changes:
 
-1. **Step fields are generic.** Each `### <Field>` heading is a field of the project's Xray step
-   schema (`xray.json`): `Action`, `Data`, `Expected Result` and every custom step field
-   (`Exigence` for LFRPS12). Unknown headings are kept verbatim and reported. Xray Editor's
-   `### Expected` is read as `Expected Result`.
+1. **Step fields are the smart columns.** Each `### <Column>` heading is a column of `columns.json` (§3): Xray's
+   `Action`, `Data`, `Expected Result`, every custom step field, and the project's local columns (kept here, never
+   pushed). No column is special: what one holds is what its description asks for. Columns are written in the
+   order of `columns.json`. A heading no column names is kept verbatim and reported. Xray Editor's
+   `### Expected` / `### Result` are read as `Expected Result`.
 2. **`### Sources`** (local, never pushed) — one line per claim the step relies on:
    `- <docId>#<anchor> "<short exact quote>"`, e.g.
    `- SOSIE_211_D401-1_3#§5.6.6 "Selon le type de sectionneur, le menu contextuel diffère"`.
-   `docId` is the document code; an anchor is written `§5.6.6`, `req:EXI_MOP_SPF_511_A_1670` or
-   `fig:40` (the three anchor kinds of §4).
-   A quote must appear verbatim (whitespace-normalised) in `docs/<docId>/doc.md`; that is checked
-   mechanically before any model looks at the test (§8).
+   `docId` is the document id or code; an anchor is written `§5.6.6`, `fig:40` or `page:59` (the anchors of §4).
+   A quote must appear verbatim (whitespace-normalised) in `docs/<docId>/doc.md`, inside the cited passage; that
+   is checked mechanically before any model looks at the test (§8). A line may end with `@<column> "<item>"`: it
+   backs that item of the column (a code, a value written in the cell) — what a column with **Reference source**
+   on asks of every item it holds; the editor makes the item a link to its passage.
 3. **Review state** in the frontmatter (local; mirrored to Xray as a label on push, §9):
    `review: draft | checked | to-fix | validated`, `review_note: "…"`, `reviewed_by`, `reviewed_at`,
-   `generated_by: "<job id>"`.
+   `generated_by: "<job id>"`. `labels:` are the team's own: the review label (`<labelPrefix><review>`) is never
+   written there — a pull reads the review from it and drops it, a push adds it from `review:` (§10).
+
+The other sections: `## Description`, `### Attachments` under a step (the pictures of the step no field embeds,
+`- images/<file> <!-- <Jira attachment id> -->`). Frontmatter: `key`, `project`, `summary`, `folder`, `labels`,
+`status`, `covers`, `cloned_from`, `preconditions` and the review keys.
 
 Tolerance (after the adversarial review, 2026-11): the frontmatter fence is `---` with optional
 surrounding whitespace, CRLF and BOM tolerated; unknown `##` sections, unknown frontmatter lines,
 comments, multi-line values (YAML lists) and an unknown `review` value are written back unchanged, with
-a warning; a `### Result` / `### Expected` alias yields to an `xray.json` field of that exact name.
+a warning; a `### Result` / `### Expected` alias yields to a column of that exact name.
 Attachments and embedded images must be relative paths inside the test folder (the parser warns, a write
 refuses anything else). The review keys are read-only for the editor (`tests.save` keeps them from disk):
 only `review.set`, the check, the fix and `tests.restore` (Undo local changes, which puts the whole snapshot
@@ -703,10 +702,13 @@ not closed.
 Writing rules: `labels:` and `review:` are always written, `review_note` is always quoted, empty fields
 are left out, and text before a step's first `###` is read as Action.
 
-`check.json` beside it is the last check's output (§8), derived, never edited. Its `testHash` is the
+Beside it (§3): `check.json` is the last check's output (§8), derived, never edited; its `testHash` is the
 sha256 of `test.md` after the frontmatter, so a review decision does not make findings stale.
-`tests/<id>/.remote-changed` is a derived marker (Jira changed since `.remote.md`): set by the sync's
-re-check, cleared by a pull or a push, never edited.
+`.state.json` `{ remoteChangedAt?, generatedPrint? }` is what the app derived about the test, never edited:
+`remoteChangedAt` (Jira changed since `.remote.md`) is set by the sync's re-check and cleared by a pull or a push;
+`generatedPrint` is the print of the content a generation wrote, so a generated test the team then edited shows as
+edited. A state left empty leaves no file. `local.json` holds the test's own contexts and column folding — never
+part of the test, so changing them never makes it modified.
 The parser stays tolerant (never throws on a human or Claude edit; returns warnings).
 
 ## 7. Generation
@@ -718,8 +720,8 @@ The parser stays tolerant (never throws on a human or Claude edit; returns warni
   and writes one `tests/local-<8hex>/test.md` per test with `review: draft`.
 - Index gate: the scope is the documents and sections given, or every converted document for a request in words
   alone. `gen.tests` refuses, before any Claude run (resume included), when a document of the scope is not indexed
-  (`docs.list.indexed` `missing`: never indexed, or its last index run failed; no `index/state.json` at all names the
-  whole index as missing) — search cannot find it, so the tests would have no sources; the error says to reindex or
+  (`docs.list.indexed` `missing`: never indexed, or its last index run failed; no index state in `index/rag.db` at all names
+  the whole index as missing) — search cannot find it, so the tests would have no sources; the error says to reindex or
   to leave it out of the scope. A document `stale` (changed since its last index) only logs a warning: search still
   finds its previous version.
 - Rules the skill enforces (they come from the testers' current prompt, sharpened by what went wrong
@@ -734,18 +736,19 @@ The parser stays tolerant (never throws on a human or Claude edit; returns warni
   - figures from the documents are embedded where the step needs them.
 - Output of the job: the test ids written, and the requests it could not cover (with why). The skill
   ends its reply with a fenced `gen-report` block `{ "tests", "covered", "uncovered": [{ item, why }] }`
-  that the core parses; the result is also kept in `.testimus/gen/<jobId>.json`. Every new test is
+  that the core parses; the result is also kept in `.testimus/gen/<generation>.json`. Every new test is
   stamped `review: draft` + `generated_by: <jobId>` and gets its mechanical check at once. The run is
   snapshotted, so a whole generation can be reverted (`claude.revert`).
 - **Evidence ledger**: from the run's stream-json tool calls (never from the model's report) the core derives what
-  the generation opened — `rag_passage`, `rag_related` and `rag_figure` references (a `req:` reference also counts its
-  statement's section), `Read` of `docs/<id>/doc.md` mapped to every section the line range crosses, `Read` of a
+  the generation opened — `rag_passage`, `rag_related` and `rag_figure` references, `Read` of `docs/<id>/doc.md` mapped to every section the line range crosses, `Read` of a
   figure image mapped to its `fig:N` — and the searches it made (`rag_search` query, `rag_mentions` term, `Grep`
   pattern on the documents). Failed calls are ignored; a search result is not an opened passage.
-  `.testimus/gen/<jobId>.json` stores `consulted` (references, in the order opened), `searched` (`{ tool, query }`)
-  and `reportedConsulted` (the gen-report's own list); `gen.tests` returns `consulted` as a count; `gen.bench`
-  scores agentic recall from `consulted`. The ledger file is written before the new tests are stamped and checked,
-  so their first check already has `related-unread`; the full result then replaces it in the same file.
+  `.testimus/gen/<generation>.json` (one `GenLedger`, read and written by `claude/ledger.ts` only: `{ at, input,
+  runId, tests, consulted, searched, plan?, done?, reportedConsulted? }` then the full result) stores `consulted`
+  (references, in the order opened), `searched` (`{ tool, query }`) and `reportedConsulted` (the gen-report's own
+  list); `gen.tests` returns `consulted` as a count and the generation's name; `gen.bench` reads that generation's
+  ledger and scores agentic recall from `consulted`; a resume reads its plan there. The ledger is written before
+  the new tests are stamped and checked; the full result then replaces it in the same file.
 - Figures: `tests.addImage` copies a file or a document figure (`docId#fig:N`) into `images/` and embeds
   it at the end of a built-in field; the editor's paste mode (`{ name, ext, dataBase64 }`) only stores
   the file. Figure descriptions run in batches of 20 figures per Claude run (read-only, effort low).
@@ -754,40 +757,42 @@ The parser stays tolerant (never throws on a human or Claude edit; returns warni
 
 Two passes, run on demand, on generation, and before review:
 
-1. **Mechanical** (core, no model): every source resolves (doc exists, anchor exists,
-   quote found); every `Exigence` id exists in `requirements/` or in a document; empty fields; a
-   step with a `raw` embed; duplicated steps.
-2. **Semantic** (`check-test` skill, one test per run, parallel across tests): for each step, does
-   the cited passage say what the expected result claims? Plus: requirement listed but not verified,
-   requirement in scope but not covered, contradiction between two cited documents (resolved by
-   `doc.json` status, else reported), wrong object (the step tests something other than what
-   its requirement describes), negative path missing.
+1. **Mechanical** (core, no model, `lib/check.ts`): the test has steps; each step has an Action and an Expected
+   Result (`empty-field`, error); no `raw` embed Xray cannot show (`raw-embed`, error); no step repeats another
+   (`duplicate-step`, warning); an expected result has a source (`source-missing`, warning); every source
+   resolves — `docId#anchor "quote"` well formed, the document exists (by id or code), the anchor exists
+   (`source-missing`, error) — and its quote is found (below); a column whose **Reference source** is on has a
+   source for its items (`column-unsourced`, warning) and a source naming an item finds it in the cell
+   (`item-not-found`, warning); a step citing a document figure that has a picture embeds it (`figure-not-embedded`,
+   warning, unless the step already holds a picture of unknown origin).
+2. **Semantic** (`check-test` skill, one test per run, as many at a time as the PC allows — `agents`): for each
+   step, does the cited passage say what the expected result claims (`unsupported`, `contradicted`)? Is each smart
+   column filled as its description says? Plus: the step tests something other than what it says (`wrong-object`),
+   a negative path or a case missing (`negative-missing`, `case-missing`), « not simulated » without a source
+   (`not-simulated-unsourced`), an expected result too vague to check (`vague-result`), two documents that disagree
+   (`documents-conflict`, resolved by `doc.json` — an amendment wins over what it amends, a validated document over
+   a draft — else reported), a cited figure the tester needs and the step lacks (`figure-not-embedded`), `other`.
 
 `check.json`: `{ at, testHash, findings: [{ step?, kind, severity: "error"|"warning"|"info",
 message, sources: [docId#anchor], pass: "mechanical"|"semantic" }] }`. A finding is stale when
 `testHash` no longer matches.
 
 Rules fixed while building (2026-11):
-- The requirement field is the column of the `requirement` kind when `project.json.traces` exists (none without
-  that kind); else `project.json.requirementField` if set, else the `xray.json` field named like « exigence » or
-  « requirement ». Every other tracked kind's column is checked for `id-unknown` (§4 « Tracked ids »). An id is known when it is in `requirements/requirements.csv`, is a
-  `req` anchor, or matches `REQ_PATTERN` / `requirementPatterns` in a document's text.
 - Quotes match whitespace-normalised and case-sensitive, ignoring `*` and `<!-- … -->` on both sides, and only
-  inside the cited passage: `§x` = the section with its subsections, `req:ID` = the section holding its
-  statement, `req:ID@matrix` = the row, `fig:N` = the caption paragraph only (what the picture shows is the
-  semantic pass's job, and `check-test` must `Read` the image before accepting it), `page:` = up to the next
-  page. Not in the document → `quote-not-found` (error); in the document but not in the passage →
-  `quote-not-at-anchor` (error) naming where it is — the section whose own text holds it, else a matrix row, else
-  a caption — with both references in `sources`. Under 4 words or 20 characters, or found more than once in its
-  passage → `quote-weak` (warning). The review panel highlights a quote only at its anchor.
-- `related-unread` (info, mechanical): for a test whose `generated_by` job has an evidence ledger, each section
-  that `rag.related` gives as defining or tracing a requirement of the requirement field, and that the generation
-  never opened (neither the section nor a section above it), on the first step that lists that requirement. No
-  ledger, no finding. It is there from the check `gen.tests` makes itself (the ledger is written first).
+  inside the cited passage: `§x` = the section with its subsections, `fig:N` = the caption paragraph only (what the
+  picture shows is the semantic pass's job, and `check-test` must `Read` the image before accepting it), `page:` =
+  up to the next page. No quote → `quote-not-found` (warning); not in the document → `quote-not-found` (error); in
+  the document but not in the passage → `quote-not-at-anchor` (error) naming where it is — the section whose own
+  text holds it, else a caption — with both references in `sources`. Under 4 words or 20 characters, or found more
+  than once in its passage → `quote-weak` (warning). The review panel highlights a quote only at its anchor.
+- A document that changes (reconversion, removal) re-runs the mechanical pass of the tests citing it; the semantic
+  findings stay while they were stamped for the same `test.md`.
 - `check.run` writes the mechanical findings first; the skill sends its findings with `check_record`,
   which replaces the semantic ones, keeps the mechanical ones and stamps the current `testHash`. A failed
-  semantic run leaves an `other` warning. Semantic runs go 3 at a time, with Read, Glob, Grep, Skill and
-  only the read-only MCP tools plus `check_record`; a test a check run edits anyway is put back.
+  semantic run leaves an `other` warning. Semantic runs get Read, Glob, Grep, Skill and only the read-only MCP tools
+  plus `check_record`; a test a check run edits anyway is put back.
+- `review.evidence` reads the generation's evidence ledger (§7) to show what was read and what was cited; it adds
+  no finding.
 
 ## 9. Review
 
@@ -817,20 +822,26 @@ links, dirty detection against `.remote.md`, push plan, 429 back-off, sequential
 stops at the first failure), plus:
 
 - **Step field schema**: `xray.fields` reads every step field of the project, custom ones included,
-  into `xray.json.fields` `[{ id, name, type, builtin }]`. Source (checked read-only on LFRPS12,
+  into `xray.json` `{ fetchedAt, fields: [{ id, name, type, builtin, required?, disabled? }] }` — what Xray says
+  and nothing else, read again on demand. Source (checked read-only on LFRPS12,
   2026-11-02): GraphQL `getProjectSettings(projectIdOrKey) { testStepSettings { fields { id name type
   required disabled values } } }` — the built-ins come back as `action`/`data`/`result`, LFRPS12 adds
   `Exigence` (`text-single`, id `69d5fcb02f2b49abf7fb76e6`). Steps read `customFields { id name value }`
   (Exigence value: `"EXI_MOP_SPF_511_A_1650, EXI_MOP_SPF_511_A_1660"`) and write
-  `customFields: [{ id, value }]` in `CreateStepInput` / `UpdateStepInput`. `xray.json.prefs` is local:
-  `{ order: [name], collapsed: [name], filled: [name], hidden: [name] }` — the project layer of Xray Editor's
-  column folding (its §8): a field is `open` (every step), `filled` (only on a step that holds something —
-  the default for Data) or `collapsed` (folded on every step, its toggle shows `Name ●` when it holds
-  something). A test's `columns.json` (§3) overrides it field by field (`tests.columns`, `tests.setColumns`),
-  the step card's own toggle overrides both for the session, and Action and Expected Result never fold.
-  `hidden` (a Testimus extra) leaves a field out unless a step holds text in it.
+  `customFields: [{ id, value }]` in `CreateStepInput` / `UpdateStepInput`. How each column shows is the team's,
+  in `columns.json` (§3): one `mode` per column — the project layer of Xray Editor's column folding (its §8):
+  `open` (every step), `filled` (only on a step that holds something — the default for Data and for a field
+  switched off in Xray) or `collapsed` (folded on every step, its toggle shows `Name ●` when it holds
+  something), plus `hidden` (a Testimus extra: left out unless a step holds text in it). `columns.setModes` and
+  `columns.order` change them. A test's `local.json` `columns` (§3) overrides the folding column by column
+  (`tests.columns`, `tests.setColumns`), the step card's own toggle overrides both for the session, and Action
+  and Expected Result never fold. Reading Xray again (`xray.fields`, before every push) rewrites `xray.json`;
+  `columns.json` follows a field renamed in Xray (same id: its description and mode go to the new name), keeps a
+  field Xray dropped as a local column (its text stays in the tests) and turns a local column the team then
+  created in Xray into that field.
 - Fixed while building (2026-11): the review label is `<labelPrefix><review>` and replaces any other
-  label of that prefix; a pull reads the review state back from that label and keeps the local
+  label of that prefix; a pull reads the review state back from that label and drops it from `labels:` (test.md never holds it; a
+  review label moved in Jira alone still shows the test changed in Jira), and keeps the local
   `### Sources`, `review_note` and `generated_by`. A field value Xray returns as a list is
   joined with `", "`. Screenshots embed only in the three built-in fields. The project id and test
   issue type are cached in `.testimus/jira-project.json`. Not yet proven live: whether a custom field
@@ -856,8 +867,9 @@ stops at the first failure), plus:
   `--tools Read,Edit,Write,Glob,Grep,Skill` (chat: Read, Glob, Grep, Skill only). Every run and
   `project.init` rewrite `.mcp.json` so it starts the same Testimus (the installed shim, or `node
   <checkout>/src/faces/cli.ts mcp` in development).
-- Runs are recorded under `.testimus/runs/<runId>/run.json` (contents before, hashes after, the tests the
-  run itself wrote, changed steps); **Revert** works from the run id, also after a restart, refuses when a
+- Runs are recorded under `.testimus/runs/<runId>/run.json`, one file per run: who ran (`kind`, `model`, `effort`,
+  `jobId`, `label`) and, for a run that may edit tests, its snapshot (contents before, hashes after, the tests the
+  run itself wrote, changed steps; copies of the files it may change under `before/`); **Revert** works from the run id, also after a restart, refuses when a
   test changed after the run (unless `force`, which the UI sends only from an explicit « Revert anyway »),
   and never deletes a test the run did not write. The Generate screen shows the check results `gen.tests`
   returns (`checks`); it starts no check of its own.
@@ -866,8 +878,8 @@ stops at the first failure), plus:
   `project`, `jobs`, `claude`, `chat.ask`, `rag.eval`); the check adds `check_record`; generation adds
   `tests_create`, `tests_edit`, `tests_save`, `tests_addImage`, `check_run`; a fix or `claude.run` adds
   `tests_edit`, `tests_save`, `tests_addImage`. Every other Testimus tool goes into `--disallowedTools`,
-  with `Edit`/`Write` on `docs/**`, `index/**`, `.testimus/**`, `contexts/**`, `requirements/**`,
-  `.claude/**`, `project.json`, `xray.json`, `.mcp.json`, `CLAUDE.md`. Model names and effort are
+  with `Edit`/`Write` on `docs/**`, `index/**`, `.testimus/**`, `contexts/**`,
+  `.claude/**`, `project.json`, `xray.json`, `columns.json`, `.mcp.json`, `CLAUDE.md`. Model names and effort are
   validated before a run; context ids are `[\w-]+`; `--add-dir` only gets existing folders. `.mcp.json`
   sets `TESTIMUS_IN_CLAUDE=1`, under which `check_run` is mechanical only; installed, it runs
   `cmd /c <abs>\testimus.cmd mcp` (the shim sets `TESTIMUS_HOME_BIN`).
@@ -895,7 +907,7 @@ stops at the first failure), plus:
   panel are ported from Xray Editor as they are.
 - Claude acts on the app only through the MCP tools and by editing files in the project folder;
   it never calls the HTTP API.
-- **Contexts** (Xray Editor §7): a run on a test attaches the test's own list (`tests/<id>/claude.json`) when
+- **Contexts** (Xray Editor §7): a run on a test attaches the test's own list (`tests/<id>/local.json` `contexts`) when
   it has one, else the project's `claude.contexts`; ids whose folder is gone drop out (`effectiveContexts`).
   `claude.run`, the fix and the semantic check use that list unless the caller names its own; the dock's
   per-run chips can switch any of them off for one run. Managed by `contexts.*` (§12).
@@ -904,21 +916,21 @@ stops at the first failure), plus:
 
 Group | Verbs (all with `--json`; mutating ones marked *)
 ---|---
-`project` | `init`*, `openKey`* (open or create by Jira key), `info` (project.json + xray.json + field order + counts for the rail), `list`, `notes` (the project's CLAUDE.md), `setNotes`*, `set`* (patch project.json: names, language, label prefix, folders, rag keys incl. reference, queryTask, passageMaxChars, retrieval; requirementPatterns, requirementMatrix, glossary; Claude defaults), `open`* (last project)
+`project` | `init`*, `openKey`* (open or create by Jira key), `info` (project.json + xray.json + the step columns in order with their modes + counts for the rail), `list`, `notes` (the project's CLAUDE.md), `setNotes`*, `set`* (patch project.json: names, language, label prefix, folders, rag keys incl. reference, queryTask, passageMaxChars, retrieval; glossary; Claude defaults), `open`* (last project)
 `docs` | `add`* (copy + convert; a path, or an upload as base64 from the UI), `convert`*, `list`, `show`, `set`* (status, amends, context…), `describeFigures`* (job, Claude), `remove`*
 `rag` | `index`* (job), `search` (mode hybrid · bm25 · vector; `expand`), `passage` (docId#anchor → text + figures + focus, capped), `figure`, `mentions` (every passage holding a term, no model), `related` (graph neighbours, no model), `eval` (job, L1), `compare` (reports → intervals), `status` (active model, space, freshness per document), `spaces`, `dropSpace`*
 `chat` | `ask` (job, streamed), `list`, `show`
 `claude` | `run`* (job: a scoped request « On this test » — step, test, tests or project), `revert`* (runId), `status` (installed, version, signed in, how to connect)
 `contexts` | `list` (the project's own and the shared library's, each with `shared`; `--from <project>` lists another project's own), `show`, `create`* (`--shared` puts it in the library), `share`* (move into the library or back into this project), `set`* (name, notes, outside paths), `addFile`* (a path or an upload), `removeFile`*, `remove`*, `copy`* (from another project: notes, paths and files; a taken id gets a new one), `ofTest` (effective · own · project), `setTest`* (a test's full list, or null to follow the project)
-`tests` | `list`, `show` (+ the picture files present and test.md's mtime), `create`*, `edit`* (field-level patch incl. preconditions, and step ops set · add · remove · move · sources, steps numbered from 1), `save`* (the whole test, the editor's save), `restore`* (Undo local changes: test.md ← .remote.md), `clone`*, `addImage`* (a file or a document figure → `images/`), `removeImage`* (a picture no step lists any more), `columns`, `setColumns`* (per-test folding), `remove`*
+`columns` | `list` (the step columns in order: origin, status, description, mode), `save`* (a description, Reference source, or a new local column), `setModes`* (open · filled · collapsed · hidden, by column), `order`*, `remove`* (a local column), `suggest` (job, Claude, read-only: proposals for columns.save)
+`tests` | `list`, `show` (+ the picture files present and test.md's mtime), `create`*, `edit`* (field-level patch incl. preconditions, and step ops set · add · remove · move · sources, steps numbered from 1), `save`* (the whole test, the editor's save), `restore`* (Undo local changes: test.md ← .remote.md), `clone`*, `addImage`* (a file or a document figure → `images/`), `removeImage`* (a picture no step lists any more), `columns`, `setColumns`* (per-test folding, in `local.json`), `remove`*
 `gen` | `tests`* (job), `bench`* (job, L2 benchmark with Claude; costly)
-`traces` | `list`, `find`, `coverage`, `propose` (job, Claude, read-only), `save`*, `remove`* — tracked ids (§4)
 `check` | `run`* (job: mechanical pass, then the `check-test` skill; writes `check.json`), `record`* (the skill's semantic findings for one test), `show`
 `review` | `set`* (validate / to-fix + note), `fix`* (Claude, job), `queue` (what awaits review), `evidence` (sources read / related)
-`xray` | `fields`* (also read again before every push and when a project opens; a field switched off in Xray is kept with `disabled`, `required` kept), `prefs`* (order, folded, when filled, hidden, `open` for an off-in-Xray field shown anyway), `folders`, `search`, `preconditions` (the project's, with definitions), `browse` (an issue's Jira page), `pull`* (job), `status`, `plan`, `push`* (job; `from` resumes after a failed operation)
+`xray` | `fields`* (also read again before every push and when a project opens; a field switched off in Xray is kept with `disabled`, `required` kept), `folders`, `search`, `preconditions` (the project's, with definitions), `browse` (an issue's Jira page), `pull`* (job), `status`, `plan`, `push`* (job; `from` resumes after a failed operation)
 `models` | `catalog` (with the fit on this PC), `list`, `add`* (path A), `pull`* (job, checked download), `pullRuntime`* (job, llama.cpp build), `remove`*, `verify`, `setDir`* (move · keep · copy, dry-run), `use`* (Custom), `packs`, `usePack`* (job), `hardware`, `fit`, `perf`, `advice`, `dismiss`*
 `jobs` | `list`, `show`, `cancel`*
-`system` | `setup`* (credentials), `secrets` (the saved token, Client ID and secret, to show back in the form; denied to Claude runs like every `system.*`), `doctor`, `version` (with `shell`: browser or desktop <version>), `pullModel`* (alias of `models.pull`), `settings`, `saveSettings`* (theme, step layout, claude.exe, model downloads)
+`system` | `setup`* (credentials), `secrets` (the saved token, Client ID and secret, to show back in the form; denied to Claude runs like every `system.*`), `doctor`, `version` (with `shell`: browser or desktop <version>), `settings`, `saveSettings`* (claude.exe, model downloads, agents at the same time, the page's preferences)
 
 Every command is documented by its zod schema; `testimus help <group.verb>` prints it.
 

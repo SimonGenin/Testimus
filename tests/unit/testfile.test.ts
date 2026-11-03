@@ -216,7 +216,7 @@ folder: /Release 8.0
 
 Do it
 
-### Images
+### Attachments
 
 - images/img-3f2a9c1d.png <!-- 10412 -->
 - images/img-77b0e1aa.png
@@ -236,7 +236,7 @@ Again
 d
 `;
 
-test("the image lists of format v1 and v2 open as the step attachments", () => {
+test("the attachments list opens as the step attachments and round-trips", () => {
   const { test: v1, warnings } = parseTest(LEGACY);
   expect(warnings).toEqual([]);
   expect(v1.steps[0].images).toEqual([
@@ -292,13 +292,6 @@ test("an attachment names the document figure it was copied from, before its Xra
   const { test: back, warnings } = parseTest(md);
   expect(warnings).toEqual([]);
   expect(back.steps[0].images).toEqual(images);
-});
-
-test("both legacy image lists merge into the attachments of the step, in file order", () => {
-  const { test: t } = parseTest(
-    "## Step 1\n\n### Expected\n\nr\n\n### Action Images\n\n- images/a.png\n\n### Expected Images\n\n- images/e.png\n",
-  );
-  expect(t.steps[0].images).toEqual([{ file: "images/a.png" }, { file: "images/e.png" }]);
 });
 
 test("text lines that look like markdown structure are escaped", () => {
@@ -504,10 +497,10 @@ test("an image Xray embeds by address is a readable extern block, not unreadable
   expect(blocksOf("ok! then: done! now", images).map((b) => b.kind)).toEqual(["text"]);
 });
 
-test("sameTestMd answers on identical bytes and normalises the two spellings that differ", () => {
+test("sameTestMd answers on identical bytes and normalises line endings and the Expected alias", () => {
   const md = serializeTest(mk(1));
   expect(sameTestMd(md, md)).toBe(true);
-  const older = md.replace(/^### Attachments$/gm, "### Images").replace(/\n/g, "\r\n") + "\r\n";
+  const older = md.replace(/\n/g, "\r\n") + "\r\n";
   expect(older).not.toBe(md);
   expect(sameTestMd(md, older)).toBe(true);
   expect(sameTestMd(md, md.replace("### Expected Result", "### Expected"))).toBe(true);

@@ -50,16 +50,13 @@ test("settings save the smart column preferences and the editor honours them", a
 
   await dataFold.selectOption("open");
   await fields.getByRole("button", { name: "Move Exigence up" }).click();
+  type Columns = { columns: { name: string; mode: string }[] };
   await expect
-    .poll(async () => {
-      const xray = (await api<{ xray: { prefs?: { order?: string[]; collapsed?: string[] } } }>(url, "project.info"))
-        .xray;
-      return JSON.stringify(xray.prefs);
-    })
-    .toMatch(/"order":\["Action","Data","Exigence","Expected Result"\]/);
+    .poll(async () => (await api<Columns>(url, "project.info")).columns.map((c) => c.name).join(","))
+    .toBe("Action,Data,Exigence,Expected Result");
   await expect
-    .poll(async () => (await api<{ xray: { prefs?: { filled?: string[] } } }>(url, "project.info")).xray.prefs?.filled)
-    .not.toContain("Data");
+    .poll(async () => (await api<Columns>(url, "project.info")).columns.find((c) => c.name === "Data")?.mode)
+    .toBe("open");
 
   await openTest(page, "LFRPS12-1420");
   const step1 = page.getByRole("main").getByRole("article", { name: "Step 1", exact: true });

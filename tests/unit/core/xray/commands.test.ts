@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { env } from "../../../../src/core/env.ts";
+import { readColumns, setModes } from "../../../../src/core/lib/columns.ts";
 import { resetAuth } from "../../../../src/core/lib/jira.ts";
 import { readXray } from "../../../../src/core/lib/project.ts";
 import { mockHttp, resetMockJira } from "../../../../src/core/mock/jira.ts";
@@ -29,8 +30,9 @@ beforeEach(() => {
 });
 
 describe("xray.fields through the registry", () => {
-  it("writes the step fields Xray has into xray.json, stamps the fetch and keeps the local prefs", async () => {
-    const prefs = readXray(P).prefs;
+  it("writes the step fields Xray has into xray.json, stamps the fetch and keeps the team's columns", async () => {
+    setModes(P, { Exigence: "collapsed" });
+    const columns = readColumns(P);
     const out = await call<{ fields: { name: string; builtin: boolean }[]; fetchedAt: string }>("xray.fields", {}, P);
     expect(out.fields.map((f) => [f.name, f.builtin])).toEqual([
       ["Action", true],
@@ -39,7 +41,8 @@ describe("xray.fields through the registry", () => {
       ["Exigence", false],
     ]);
     expect(Number.isNaN(Date.parse(out.fetchedAt))).toBe(false);
-    expect(readXray(P)).toMatchObject({ fields: out.fields, fetchedAt: out.fetchedAt, prefs });
+    expect(readXray(P)).toEqual({ fields: out.fields, fetchedAt: out.fetchedAt });
+    expect(readColumns(P)).toEqual(columns);
     expect(existsSync(join(P, ".testimus", "jira-project.json"))).toBe(true);
   });
 

@@ -39,10 +39,8 @@ const doc = (id: string, over: Partial<DocRef> = {}): DocRef => ({
   date: "",
   kind: "spec",
   status: "validated",
-  source: { path: "", sha256: "", file: "source.docx" },
-  convertedWith: "",
-  convertedAt: at,
-  warnings: [],
+  source: { name: "", sha256: "", file: "source.docx" },
+  converted: { with: "", at: at, warnings: [] },
   indexed: "fresh",
   ...over,
 });
@@ -137,8 +135,8 @@ describe("DocDetail", () => {
   const shown = (over: Record<string, unknown> = {}) => ({
     doc: doc("D1", {
       date: "2026-01-02",
-      source: { path: "", sha256: "", file: "x.pdf" },
-      warnings: ["2 comments dropped"],
+      source: { name: "", sha256: "", file: "x.pdf" },
+      converted: { with: "", at, warnings: ["2 comments dropped"] },
       amends: ["D2"],
     }),
     context: "known",
@@ -470,7 +468,7 @@ describe("DocDetail", () => {
   });
 
   it("reports a failed save and shows Word documents without a date or amends", async () => {
-    show("", { doc: doc("D1", { source: { path: "", sha256: "" } as DocRef["source"] }) });
+    show("", { doc: doc("D1", { source: { name: "", sha256: "", file: "" } }) });
     await screen.findByRole("heading", { name: "Title D1" });
     expect(screen.getByText(/Converted from Word/)).toBeInTheDocument();
     expect(screen.queryByText("Conversion warnings")).toBeNull();
@@ -524,7 +522,7 @@ describe("Documents screen", () => {
         status: "weird" as DocRef["status"],
         indexed: "gone" as DocRef["indexed"],
       }),
-      doc("D2", { warnings: ["w1", "w2"] }),
+      doc("D2", { converted: { with: "", at, warnings: ["w1", "w2"] } }),
     ];
     api.routes["rag.status"] = status({ degraded: "No vectors yet" });
     detail();
@@ -818,13 +816,13 @@ describe("Documents screen", () => {
 
   it("a document listed while its add still runs shows once, as the upload, then as itself", async () => {
     let listed = false;
-    const old = doc("OLD", { title: "Older copy", source: { path: "C:/x/other.docx", sha256: "", file: "" } });
+    const old = doc("OLD", { title: "Older copy", source: { name: "C:/x/other.docx", sha256: "", file: "" } });
     const early = doc("EARLY", {
       title: "early",
       status: "draft",
       indexed: "missing",
-      source: { path: "C:\\n\\early.docx", sha256: "", file: "source.docx" },
-      convertedAt: "",
+      source: { name: "C:\\n\\early.docx", sha256: "", file: "source.docx" },
+      converted: undefined,
     });
     api.routes["docs.list"] = () => (listed ? [old, early] : [old]);
     detail();
@@ -862,9 +860,9 @@ describe("Documents screen", () => {
     const fresh = () =>
       doc("NEW2", {
         title: "fresh",
-        source: { path: "C:/n/fresh.docx", sha256: "", file: "source.docx" },
+        source: { name: "C:/n/fresh.docx", sha256: "", file: "source.docx" },
         indexed: "missing",
-        convertedAt: converted ? at : "",
+        converted: converted ? { with: "", at, warnings: [] } : undefined,
       });
     api.routes["docs.list"] = () => [fresh()];
     api.routes["docs.show"] = (i) =>
@@ -937,9 +935,9 @@ describe("Documents screen", () => {
     const fresh = () =>
       doc("NEW3", {
         title: "fresh",
-        source: { path: "C:/n/fresh.docx", sha256: "", file: "source.docx" },
+        source: { name: "C:/n/fresh.docx", sha256: "", file: "source.docx" },
         indexed: converted ? "fresh" : "missing",
-        convertedAt: converted ? at : "",
+        converted: converted ? { with: "", at, warnings: [] } : undefined,
       });
     const toc = [
       { anchor: "§1", title: "Objet", level: 1 },

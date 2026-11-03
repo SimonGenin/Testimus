@@ -2,11 +2,12 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } fro
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { readLedger } from "../../src/core/claude/ledger.ts";
 import { quietCtx } from "../../src/core/command.ts";
 import { env } from "../../src/core/env.ts";
 import { writeJson } from "../../src/core/lib/project.ts";
 import { activeChoice } from "../../src/core/rag/activation.ts";
-import { benchHooks, readLedger, runBench } from "../../src/core/rag/bench.ts";
+import { benchHooks, runBench } from "../../src/core/rag/bench.ts";
 import { hooks } from "../../src/core/rag/chunk.ts";
 import { indexFile } from "../../src/core/rag/db.ts";
 
@@ -55,16 +56,16 @@ describe("bench hooks by default", () => {
   }, 30000);
 });
 
-describe("readLedger", () => {
-  it("is null without a gen folder or a matching run", () => {
-    expect(readLedger(dir, "r1")).toBeNull();
+describe("the ledger the bench reads", () => {
+  it("is the generation's: null without a gen folder or without its file, its run and refs with it", () => {
+    expect(readLedger(dir, "g1")).toBeNull();
     const gen = join(dir, ".testimus", "gen");
     mkdirSync(gen, { recursive: true });
     writeJson(join(gen, "a.json"), { runId: "other" });
     writeFileSync(join(gen, "b.txt"), "x");
-    expect(readLedger(dir, "r1")).toBeNull();
-    writeJson(join(gen, "c.json"), { runId: "r1", consulted: ["x"] });
-    expect(readLedger(dir, "r1")).toEqual({ runId: "r1", consulted: ["x"] });
+    expect(readLedger(dir, "g1")).toBeNull();
+    writeJson(join(gen, "g1.json"), { runId: "r1", consulted: ["x"] });
+    expect(readLedger(dir, "g1")).toEqual({ jobId: "g1", runId: "r1", consulted: ["x"], searched: [] });
   });
 });
 
@@ -88,7 +89,7 @@ describe("runBench with fake runs", () => {
       const gen = join(dir, ".testimus", "gen");
       mkdirSync(gen, { recursive: true });
       writeJson(join(gen, "run1.json"), { runId: "run1", consulted: ["SOSIE_211_D401-1_3#§5.6.6", 3] });
-      return { runId: "run1", ok: true, tests: ["T-1"], durationMs: 5 };
+      return { runId: "run1", generation: "run1", ok: true, tests: ["T-1"], durationMs: 5 };
     };
     const r = await runBench(dir, quietCtx(dir), {
       set: validatedSet(),

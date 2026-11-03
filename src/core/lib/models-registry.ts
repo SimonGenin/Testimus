@@ -5,22 +5,13 @@ import { readJson, readSettings, writeJson } from "./project.ts";
 
 export const DEFAULT_BUDGETS: Budgets = { queryMs: 1000, indexPassagesPerSec: 5, headroom: 0.15 };
 
-let warnedDropped = false;
-
-// ponytail: a models.json written before D-12 may hold an "ollama" block or installations via Ollama; both are dropped on read
 export function readRegistry(): ModelsRegistry {
-  const { ollama: _gone, ...raw } = readJson<Partial<ModelsRegistry> & { ollama?: unknown }>(registryFile(), {});
-  const all = raw.installs ?? [];
-  const installs = all.filter((i) => i.via === "path" || i.via === "download");
-  if (installs.length < all.length && !warnedDropped) {
-    warnedDropped = true;
-    const n = all.length - installs.length;
-    process.stderr.write(
-      `warn: models.json lists ${n} installation${n === 1 ? "" : "s"} through Ollama; ignored (Testimus does not use Ollama).\n`,
-    );
-  }
-  return { ...raw, allowRemote: raw.allowRemote ?? readSettings().models.allowRemote, installs };
+  const raw = readJson<Partial<ModelsRegistry>>(registryFile(), {});
+  return { ...raw, installs: raw.installs ?? [] };
 }
+
+// ponytail: whether models may be downloaded is a setting of this PC (settings.json models.allowRemote), nowhere else
+export const downloadsAllowed = (): boolean => readSettings().models.allowRemote;
 
 export function writeRegistry(r: ModelsRegistry): void {
   writeJson(registryFile(), r);

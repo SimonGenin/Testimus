@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { columnsPrompt, columnUse, parseColumns, toProposals } from "../../src/core/claude/columns.ts";
 import { invoke } from "../../src/core/commands/index.ts";
 import { type ClaudeSpawn, env } from "../../src/core/env.ts";
-import { stepColumns } from "../../src/core/lib/columns.ts";
+import { setModes, stepColumns } from "../../src/core/lib/columns.ts";
 import {
   DEFAULT_SETTINGS,
   readProject,
@@ -71,10 +71,9 @@ describe("columns.suggest", () => {
     const prompt = columnsPrompt(dir, "", []);
     expect(prompt).toContain("were read on 2026-10-30");
     x.fields.push({ id: "cf-r", name: "Résultat obtenu", type: "text", builtin: false });
-    x.prefs.order = ["Action", "Data", "Expected Result", "Exigence"];
-    x.prefs.hidden = ["Résultat obtenu"];
     delete x.fetchedAt;
     writeXray(dir, x);
+    setModes(dir, { "Résultat obtenu": "hidden" });
     const again = columnsPrompt(dir, "", []);
     expect(again).toContain("never read");
     expect(again).toMatch(/- Résultat obtenu \(Xray custom field, hidden in the editor/);

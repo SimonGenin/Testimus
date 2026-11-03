@@ -2,10 +2,22 @@ import { randomBytes } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, renameSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { UserError } from "../command.ts";
-import type { CheckFile, FindingCounts, LocalTestRef, StepImage, SyncState, Test } from "../types.ts";
+import { env } from "../env.ts";
+import type {
+  CheckFile,
+  ColumnMode,
+  ColumnModes,
+  FindingCounts,
+  LocalTestRef,
+  StepImage,
+  SyncState,
+  Test,
+  TestLocal,
+  TestState,
+} from "../types.ts";
 import { copyDirAtomic, writeAtomic } from "./atomic.ts";
 import { sha256 } from "./hash.ts";
-import { readXray } from "./project.ts";
+import { readJson, readXray, writeJson } from "./project.ts";
 import { mapRefs, outsideTest, parseTest, sameTestMd, serializeTest, testMdHash } from "./testfile.ts";
 
 const read = (path: string) => {
@@ -50,17 +62,60 @@ export function findingCounts(check: CheckFile | null, md: string): FindingCount
 
 export const readRemote = (project: string, id: string) => read(join(testDir(project, id), ".remote.md"));
 
-const markerOf = (project: string, id: string) => join(testDir(project, id), ".remote-changed");
+const MODES = new Set(["open", "filled", "collapsed"]);
+const localFile = (project: string, id: string) => join(testDir(project, id), "local.json");
 
-// ponytail: Xray Editor only knew a remote change live, by pulling; listing hundreds of tests cannot, so
-// whoever pulls the remote and sees it moved leaves this marker and the next pull or push clears it
-export function markRemoteChanged(project: string, id: string, changed: boolean): void {
-  const file = markerOf(project, id);
-  if (changed) writeAtomic(file, `${new Date().toISOString()}\n`);
-  else rmSync(file, { force: true });
+// ponytail: a test's own settings beside test.md — its contexts (the whole list, [] = none) and how its columns
+// fold; absent keys follow the project, and a file left with nothing is removed
+export function readLocal(project: string, id: string): TestLocal {
+  const raw = readJson<Record<string, unknown>>(localFile(project, id), {});
+  const out: TestLocal = {};
+  if (Array.isArray(raw.contexts))
+    out.contexts = raw.contexts.filter((x): x is string => typeof x === "string" && /^[\w-]+$/.test(x));
+  if (raw.columns && typeof raw.columns === "object") {
+    const columns: ColumnModes = {};
+    for (const [k, v] of Object.entries(raw.columns as Record<string, unknown>))
+      if (typeof v === "string" && MODES.has(v)) columns[k] = v as ColumnMode;
+    if (Object.keys(columns).length) out.columns = columns;
+  }
+  return out;
 }
 
-export const isRemoteChanged = (project: string, id: string) => existsSync(markerOf(project, id));
+export function writeLocal(project: string, id: string, local: TestLocal): void {
+  const next: TestLocal = {
+    ...(local.contexts ? { contexts: [...new Set(local.contexts)] } : {}),
+    ...(local.columns && Object.keys(local.columns).length ? { columns: local.columns } : {}),
+  };
+  if (Object.keys(next).length) writeJson(localFile(project, id), next);
+  else rmSync(localFile(project, id), { force: true });
+}
+
+const stateFile = (project: string, id: string) => join(testDir(project, id), ".state.json");
+
+// ponytail: tests/<id>/.state.json — what the app derived about a test, never edited: when Jira was seen changed
+// since .remote.md, and the print of the content a generation wrote; an empty state leaves no file
+export function readState(project: string, id: string): TestState {
+  const raw = readJson<Record<string, unknown>>(stateFile(project, id), {});
+  return {
+    ...(typeof raw.remoteChangedAt === "string" ? { remoteChangedAt: raw.remoteChangedAt } : {}),
+    ...(typeof raw.generatedPrint === "string" ? { generatedPrint: raw.generatedPrint } : {}),
+  };
+}
+
+function patchState(project: string, id: string, patch: Partial<Record<keyof TestState, string | undefined>>): void {
+  const next: Record<string, string | undefined> = { ...readState(project, id), ...patch };
+  for (const k of Object.keys(next)) if (next[k] === undefined) delete next[k];
+  if (Object.keys(next).length) writeJson(stateFile(project, id), next);
+  else rmSync(stateFile(project, id), { force: true });
+}
+
+// ponytail: Xray Editor only knew a remote change live, by pulling; listing hundreds of tests cannot, so
+// whoever pulls the remote and sees it moved leaves this mark and the next pull or push clears it
+export function markRemoteChanged(project: string, id: string, changed: boolean): void {
+  patchState(project, id, { remoteChangedAt: changed ? env.now().toISOString() : undefined });
+}
+
+export const isRemoteChanged = (project: string, id: string) => !!readState(project, id).remoteChangedAt;
 
 export function writeRemote(project: string, id: string, md: string): void {
   writeAtomic(join(testDir(project, id), ".remote.md"), md);
@@ -87,15 +142,13 @@ export const contentPrint = (t: Test) =>
     ]),
   );
 
-const printOf = (project: string, id: string) => join(testDir(project, id), ".generated");
-
 export function markGenerated(project: string, id: string): void {
   const md = read(join(testDir(project, id), "test.md"));
-  if (md !== null) writeAtomic(printOf(project, id), `${contentPrint(parseTest(md).test)}\n`);
+  if (md !== null) patchState(project, id, { generatedPrint: contentPrint(parseTest(md).test) });
 }
 
 function isEdited(project: string, id: string, test: Test): boolean {
-  const print = test.generatedBy ? read(printOf(project, id))?.trim() : undefined;
+  const print = test.generatedBy ? readState(project, id).generatedPrint : undefined;
   return !!print && print !== contentPrint(test);
 }
 

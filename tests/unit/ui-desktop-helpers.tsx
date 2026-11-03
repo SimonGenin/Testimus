@@ -1,5 +1,5 @@
 import { vi } from "vitest";
-import type { XrayJson } from "../../src/core/types.ts";
+import type { ColumnLayout } from "../../src/core/types.ts";
 import type { TestimusDesktop } from "../../src/desktop/bridge-types.ts";
 import type { AppState } from "../../src/ui/lib/app.ts";
 
@@ -55,13 +55,24 @@ export function noDesktop(): void {
   delete window.testimusDesktop;
 }
 
-export const xray: XrayJson = {
+export const xray: ColumnLayout = {
   fields: [
     { id: "action", name: "Action", type: "text", builtin: true },
     { id: "result", name: "Expected Result", type: "text", builtin: true },
   ],
-  prefs: { order: ["Action", "Expected Result"], collapsed: [], hidden: [] },
-} as XrayJson;
+  columns: [
+    { name: "Action", id: "action", origin: "xray", builtin: true, status: "ok", description: "", mode: "open" },
+    {
+      name: "Expected Result",
+      id: "result",
+      origin: "xray",
+      builtin: true,
+      status: "ok",
+      description: "",
+      mode: "open",
+    },
+  ],
+};
 
 export const app = (over: Partial<AppState> = {}): AppState => ({
   info: {
@@ -72,7 +83,7 @@ export const app = (over: Partial<AppState> = {}): AppState => ({
       language: "fr",
       labelPrefix: "testimus-",
       folders: [],
-      rag: { embedding: "bge-m3", reranker: null },
+      rag: {},
       claude: { model: "sonnet", effort: "medium", presets: [], contexts: [] },
     },
     xray,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { catalogEntry, SHIPPED } from "../../src/core/lib/models-catalog.ts";
+import { SHIPPED } from "../../src/core/lib/models-catalog.ts";
 
 const byId = new Map(SHIPPED.entries.map((e) => [e.id, e]));
 
@@ -28,12 +28,6 @@ describe("models/catalog.json", () => {
       if (e.runtimes.includes("transformers"))
         expect(e.source.hf?.files?.some((f) => f.path.endsWith(".onnx"))).toBe(true);
     }
-  });
-
-  it("maps the v1 profile names to catalog entries", () => {
-    expect(catalogEntry("bge-m3")?.id).toBe("bge-m3-q8");
-    expect(catalogEntry("qwen3-embedding-0.6b")?.id).toBe("qwen3-embedding-0.6b-onnx-q8");
-    expect(catalogEntry("bge-reranker-v2-m3")?.id).toBe("bge-reranker-v2-m3-q8");
   });
 
   it("P8 — every pack resolves with transformers.js and llama.cpp; Light and Performance with transformers.js alone", () => {

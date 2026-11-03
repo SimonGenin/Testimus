@@ -1,12 +1,12 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished } from "vitest";
 import { catalog, catalogEntry, registryFile } from "../../src/core/lib/models-catalog.ts";
 import { pinMachineProfile } from "../../src/core/lib/models-hardware.ts";
 import { readRegistry, writeRegistry } from "../../src/core/lib/models-registry.ts";
 import { ggufPath, resolveChoice, resolveInstalled } from "../../src/core/lib/models-resolve.ts";
-import { settingsFile } from "../../src/core/lib/project.ts";
+import { readSettings, settingsFile, writeSettings } from "../../src/core/lib/project.ts";
 import type { CatalogEntry, MachineProfile } from "../../src/core/types.ts";
 
 function devPc(over: Partial<MachineProfile> = {}): MachineProfile {
@@ -81,7 +81,8 @@ describe("source and runtime of one model (§7.2)", () => {
   });
 
   it("downloads off and nothing here: unavailable, with the reason", async () => {
-    writeRegistry({ ...readRegistry(), allowRemote: false });
+    writeSettings({ ...readSettings(), models: { allowRemote: false } });
+    onTestFinished(() => writeSettings({ ...readSettings(), models: { allowRemote: true } }));
     const r = await resolveChoice({ embedding: id, reranker: null }, "task", { machine });
     expect(r.sources).toEqual({ [id]: "unavailable" });
     expect(r.reasons?.[id]).toMatch(/downloads are off/);

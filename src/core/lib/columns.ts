@@ -1,6 +1,7 @@
+import { join } from "node:path";
 import { UserError } from "../command.ts";
-import type { ColumnDef, StepColumn, XrayField, XrayJson } from "../types.ts";
-import { fieldOrder, localColumns, readXray, writeXray } from "./project.ts";
+import type { ColumnEntry, ColumnShow, StepColumn, XrayField, XrayJson } from "../types.ts";
+import { readJson, readXray, writeJson, writeXray } from "./project.ts";
 
 export const DEFAULT_DESCRIPTIONS: Record<string, string> = {
   Action: "One user action per step, in the imperative, on an object named as the product names it.",
@@ -9,40 +10,113 @@ export const DEFAULT_DESCRIPTIONS: Record<string, string> = {
     "Everything the user observes after the action, checkable on the product, in the words of the document.",
 };
 
+const SHOWS: readonly ColumnShow[] = ["open", "filled", "collapsed", "hidden"];
 const RESERVED = /^(sources|description|attachments|expected|result|step)$/i;
 
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
 
-function defOf(x: XrayJson, name: string, field?: XrayField): ColumnDef | undefined {
-  const defs = x.columns ?? [];
-  return (field && defs.find((c) => c.id === field.id)) ?? defs.find((c) => same(c.name, name));
+const columnsFile = (project: string) => join(project, "columns.json");
+
+// ponytail: Data and a field switched off in Xray show only on a step that holds something (Xray Editor's defaults)
+export const defaultMode = (name: string, field?: XrayField): ColumnShow =>
+  name === "Data" || field?.disabled ? "filled" : "open";
+
+export function readColumns(project: string): ColumnEntry[] {
+  const raw = readJson<unknown>(columnsFile(project), []);
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((e): e is ColumnEntry => !!e && typeof e === "object" && typeof (e as ColumnEntry).name === "string")
+    .map((e) => ({
+      name: e.name,
+      ...(typeof e.id === "string" && e.id ? { id: e.id } : {}),
+      ...(typeof e.description === "string" ? { description: e.description } : {}),
+      mode: SHOWS.includes(e.mode) ? e.mode : defaultMode(e.name),
+      ...(e.referenceSource === true ? { referenceSource: true } : {}),
+    }));
 }
 
-export function stepColumns(project: string, x: XrayJson = readXray(project)): StepColumn[] {
-  const local = new Set(localColumns(x));
-  return fieldOrder(x).map((name) => {
-    const field = local.has(name) ? undefined : x.fields.find((f) => f.name === name);
-    const def = defOf(x, name, field);
+export function writeColumns(project: string, entries: ColumnEntry[]): void {
+  writeJson(columnsFile(project), entries);
+}
+
+type Resolved = { col: StepColumn; entry?: ColumnEntry };
+
+// ponytail: the entries of columns.json in their order, each matched to its Xray field (by id, else by name for an
+// entry without id), then the Xray fields no entry names, in Xray's order
+function resolve(x: XrayJson, entries: ColumnEntry[]): Resolved[] {
+  const used = new Set<XrayField>();
+  const out: Resolved[] = [];
+  const view = (field: XrayField | undefined, entry: ColumnEntry | undefined): Resolved => {
+    const name = field?.name ?? entry?.name ?? "";
     const builtin = !!field?.builtin;
     const fallback = builtin ? (DEFAULT_DESCRIPTIONS[name] ?? "") : undefined;
+    const id = field?.id ?? entry?.id;
     return {
-      name,
-      origin: field ? "xray" : "local",
-      builtin,
-      status: field ? (!def && fallback === undefined ? "new" : "ok") : def?.id ? "gone" : "ok",
-      description: def?.description ?? fallback ?? "",
-      referenceSource: !!def?.referenceSource,
+      col: {
+        name,
+        ...(id ? { id } : {}),
+        origin: field ? "xray" : "local",
+        builtin,
+        status: field
+          ? entry?.description === undefined && fallback === undefined
+            ? "new"
+            : "ok"
+          : entry?.id
+            ? "gone"
+            : "ok",
+        description: entry?.description ?? fallback ?? "",
+        mode: entry?.mode ?? defaultMode(name, field),
+        referenceSource: !!entry?.referenceSource,
+      },
+      ...(entry ? { entry } : {}),
     };
-  });
+  };
+  for (const e of entries) {
+    const field = e.id ? x.fields.find((f) => f.id === e.id) : x.fields.find((f) => same(f.name, e.name));
+    if (field && used.has(field)) continue;
+    if (!field && out.some((r) => same(r.col.name, e.name))) continue;
+    if (field) used.add(field);
+    out.push(view(field, e));
+  }
+  for (const f of x.fields) if (!used.has(f)) out.push(view(f, undefined));
+  return out;
 }
 
-function checkName(x: XrayJson, name: string): void {
+export function stepColumns(
+  project: string,
+  x: XrayJson = readXray(project),
+  entries: ColumnEntry[] = readColumns(project),
+): StepColumn[] {
+  return resolve(x, entries).map((r) => r.col);
+}
+
+export const fieldOrder = (project: string): string[] => stepColumns(project).map((c) => c.name);
+
+const entryOf = ({ col, entry }: Resolved): ColumnEntry => ({
+  name: col.name,
+  ...(col.id ? { id: col.id } : {}),
+  ...(entry?.description !== undefined ? { description: entry.description } : {}),
+  mode: col.mode,
+  ...(col.referenceSource ? { referenceSource: true } : {}),
+});
+
+// ponytail: every change writes the whole list as it is shown, so the order on screen is the order in the file
+function saveAll(project: string, all: ColumnEntry[]): StepColumn[] {
+  writeColumns(project, all);
+  return stepColumns(project, readXray(project), all);
+}
+
+function current(project: string): Resolved[] {
+  return resolve(readXray(project), readColumns(project));
+}
+
+function checkName(columns: StepColumn[], name: string): void {
   if (!name) throw new UserError("A column needs a name.", "E.g. « Remarque testeur ».");
   if (/[\r\n#]/.test(name) || name.length > 60)
     throw new UserError(`« ${name} » cannot be a column name.`, "One line, at most 60 characters, no #.");
   if (RESERVED.test(name))
     throw new UserError(`« ${name} » is a section of test.md, not a column.`, "Choose another name.");
-  if (x.fields.some((f) => same(f.name, name)) || localColumns(x).some((n) => same(n, name)))
+  if (columns.some((c) => same(c.name, name)))
     throw new UserError(`The column « ${name} » already exists.`, "columns.list shows them.");
 }
 
@@ -51,90 +125,93 @@ export function saveColumn(
   project: string,
   input: { name: string; description?: string; referenceSource?: boolean },
 ): StepColumn[] {
-  const x = readXray(project);
   const name = input.name.trim();
-  const change = {
-    ...(input.description !== undefined && { description: input.description.trim() }),
-    ...(input.referenceSource !== undefined && { referenceSource: input.referenceSource }),
-  };
-  const defs = [...(x.columns ?? [])];
-  const field = x.fields.find((f) => same(f.name, name));
-  const def = defOf(x, name, field);
-  if (def) {
-    const at = defs.indexOf(def);
-    defs[at] = { ...def, ...(field ? { name: field.name, id: field.id } : {}), ...change };
-  } else if (field) defs.push({ name: field.name, id: field.id, ...change });
-  else {
-    checkName(x, name);
-    defs.push({ name, description: "", ...change });
+  const now = current(project);
+  const at = now.findIndex((r) => same(r.col.name, name));
+  const all = now.map(entryOf);
+  if (at < 0) {
+    checkName(
+      now.map((r) => r.col),
+      name,
+    );
+    all.push({ name, description: "", mode: "open" });
   }
-  const next = { ...x, columns: defs };
-  writeXray(project, next);
-  return stepColumns(project, next);
+  const i = at < 0 ? all.length - 1 : at;
+  if (input.description !== undefined) all[i] = { ...all[i], description: input.description.trim() };
+  if (input.referenceSource === true) all[i] = { ...all[i], referenceSource: true };
+  if (input.referenceSource === false) {
+    const { referenceSource: _, ...rest } = all[i];
+    all[i] = rest;
+  }
+  return saveAll(project, all);
 }
 
 export function removeColumn(project: string, name: string): StepColumn[] {
-  const x = readXray(project);
-  const local = stepColumns(project, x).find((c) => c.origin === "local" && same(c.name, name))?.name;
+  const now = current(project);
+  const local = now.find((r) => r.col.origin === "local" && same(r.col.name, name));
   if (!local)
     throw new UserError(
-      x.fields.some((f) => same(f.name, name))
+      now.some((r) => r.col.origin === "xray" && same(r.col.name, name))
         ? `« ${name} » is a step field of Xray: it can be hidden, not removed.`
         : `No column called « ${name} ».`,
       "columns.list shows the columns.",
     );
-  const drop = (l: string[]) => l.filter((n) => !same(n, local));
-  const next: XrayJson = {
-    ...x,
-    columns: (x.columns ?? []).filter((c) => !same(c.name, local)),
-    prefs: {
-      ...x.prefs,
-      order: drop(x.prefs.order),
-      collapsed: drop(x.prefs.collapsed),
-      hidden: drop(x.prefs.hidden),
-      filled: drop(x.prefs.filled ?? []),
-      ...(x.prefs.open ? { open: drop(x.prefs.open) } : {}),
-    },
-  };
-  writeXray(project, next);
-  return stepColumns(project, next);
+  return saveAll(project, now.filter((r) => r !== local).map(entryOf));
 }
 
-// ponytail: Xray is read again — a field renamed there (same id) carries its description and folding to the new
-// name; a field Xray dropped stays as a local column so the text the tests hold is never lost;
-// a local column the team then created in Xray becomes that field
-export function followXray(before: XrayJson, fields: XrayField[]): XrayJson {
-  const renames = new Map<string, string>();
-  const known = [...before.fields, ...(before.columns ?? []).filter((c) => c.id)];
-  for (const f of known) {
-    const now = fields.find((n) => n.id === f.id);
-    if (now && now.name !== f.name) renames.set(f.name, now.name);
-  }
-  const rename = (n: string) => renames.get(n) ?? n;
-  const defs: ColumnDef[] = (before.columns ?? []).map((c) => {
-    const byId = c.id ? fields.find((f) => f.id === c.id) : undefined;
-    if (byId) return { ...c, name: byId.name };
-    const byName = !c.id ? fields.find((f) => same(f.name, c.name)) : undefined;
-    return byName ? { ...c, name: byName.name, id: byName.id } : c;
+function known(now: Resolved[], names: string[]): void {
+  const unknown = names.filter((n) => !now.some((r) => r.col.name === n));
+  if (unknown.length)
+    throw new UserError(
+      `Not a step column of this project: ${[...new Set(unknown)].join(", ")}.`,
+      `Known columns: ${now.map((r) => r.col.name).join(", ")} (testimus xray fields reads Xray's again).`,
+    );
+}
+
+export function setModes(project: string, modes: Record<string, ColumnShow>): StepColumn[] {
+  const now = current(project);
+  known(now, Object.keys(modes));
+  return saveAll(
+    project,
+    now.map(entryOf).map((e) => {
+      const mode = modes[e.name];
+      return mode ? { ...e, mode } : e;
+    }),
+  );
+}
+
+export function setOrder(project: string, names: string[]): StepColumn[] {
+  const now = current(project);
+  known(now, names);
+  const first = [...new Set(names)].map((n) => now.find((r) => r.col.name === n) as Resolved);
+  return saveAll(project, [...first, ...now.filter((r) => !first.includes(r))].map(entryOf));
+}
+
+// ponytail: Xray is read again — a field renamed there (same id) carries its description and mode to the new name;
+// a field Xray dropped stays as a local column so the text the tests hold is never lost; a local column the team
+// then created in Xray becomes that field
+export function followXray(before: XrayJson, entries: ColumnEntry[], fields: XrayField[]): ColumnEntry[] {
+  const next: ColumnEntry[] = entries.map((e) => {
+    const byId = e.id ? fields.find((f) => f.id === e.id) : undefined;
+    if (byId) return { ...e, name: byId.name };
+    const byName = !e.id ? fields.find((f) => same(f.name, e.name)) : undefined;
+    return byName ? { ...e, name: byName.name, id: byName.id } : e;
   });
   for (const f of before.fields)
-    if (!f.builtin && !fields.some((n) => n.id === f.id) && !defs.some((c) => c.id === f.id || same(c.name, f.name)))
-      defs.push({ name: f.name, id: f.id });
-  const p = before.prefs;
-  const next: XrayJson = {
-    ...before,
-    fields,
-    prefs: {
-      ...p,
-      order: p.order.map(rename),
-      collapsed: p.collapsed.map(rename),
-      hidden: p.hidden.map(rename),
-      filled: (p.filled ?? []).map(rename),
-      ...(p.open ? { open: p.open.map(rename) } : {}),
-    },
-    ...(defs.length ? { columns: defs } : {}),
-  };
+    if (!f.builtin && !fields.some((n) => n.id === f.id) && !next.some((e) => e.id === f.id || same(e.name, f.name)))
+      next.push({ name: f.name, id: f.id, mode: defaultMode(f.name, f) });
   return next;
+}
+
+// ponytail: reading Xray's step fields writes xray.json, and columns.json only when a column follows a change
+export function storeXray(project: string, fields: XrayField[], fetchedAt: string): XrayJson {
+  const before = readXray(project);
+  const entries = readColumns(project);
+  const next = followXray(before, entries, fields);
+  const x: XrayJson = { fetchedAt, fields };
+  writeXray(project, x);
+  if (JSON.stringify(next) !== JSON.stringify(entries)) writeColumns(project, next);
+  return x;
 }
 
 // ponytail: the smart columns are said in the request, so the generate-tests skill writes a column it has never
@@ -142,12 +219,13 @@ export function followXray(before: XrayJson, fields: XrayField[]): XrayJson {
 export function columnGuidance(project: string): string[] {
   const lines = ["", "Smart columns — write each as ### <column> in every step, following its description:"];
   const empty: string[] = [];
-  for (const c of stepColumns(project)) {
+  const columns = stepColumns(project);
+  for (const c of columns) {
     if (c.description) lines.push(`- ### ${c.name}: ${c.description}`);
     else empty.push(c.name);
   }
   if (empty.length) lines.push(`Leave these columns empty — never write them: ${empty.join(", ")}.`);
-  const linked = stepColumns(project).filter((c) => c.description && c.referenceSource);
+  const linked = columns.filter((c) => c.description && c.referenceSource);
   if (linked.length)
     lines.push(
       `Reference source: every item you write in ${linked.map((c) => c.name).join(", ")} (a requirement code, a value…) has its own ### Sources line, the passage it comes from followed by @<column> "<the item, exactly as written in the cell>" — e.g. - DOC#§4.2 "exact quote" @${linked[0].name} "<item>". The tester clicks the item to open that passage.`,

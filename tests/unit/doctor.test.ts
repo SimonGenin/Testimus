@@ -109,7 +109,7 @@ describe("doctor", () => {
   it("gives one row per check, with a fix on every failing row", async () => {
     writeCreds();
     const project = mkdtempSync(join(tmpdir(), "testimus-doc-"));
-    writeProject(project, { ...DEFAULT_PROJECT, rag: { embedding: "bge-m3", reranker: "rr" } });
+    writeProject(project, { ...DEFAULT_PROJECT, rag: { reference: { embedding: "bge-m3-q8", reranker: "rr" } } });
     const rows = await runDoctor({ project, claude: true, models: fakeModels(), timeoutMs: 2000 });
     const by = Object.fromEntries(rows.map((r) => [r.id, r]));
     expect(rows.map((r) => r.id)).toEqual([

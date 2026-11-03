@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { env } from "../../src/core/env.ts";
+import { readColumns, setModes } from "../../src/core/lib/columns.ts";
 import { resetAuth } from "../../src/core/lib/jira.ts";
 import { readXray } from "../../src/core/lib/project.ts";
 import { readTest } from "../../src/core/lib/store.ts";
@@ -46,10 +47,11 @@ beforeEach(() => {
 const images = (id: string) => readdirSync(join(project, "tests", id, "images"));
 
 describe("freshXray and projectInfo", () => {
-  it("reads the step fields once the project info is cached, keeps the local prefs, and falls back offline", async () => {
-    const before = readXray(project).prefs;
-    const { fields, prefs, fetchedAt } = await freshXray(project);
-    expect(prefs).toEqual(before);
+  it("reads the step fields once the project info is cached, keeps the team's columns, and falls back offline", async () => {
+    setModes(project, { Exigence: "collapsed" });
+    const before = readColumns(project);
+    const { fields, fetchedAt } = await freshXray(project);
+    expect(readColumns(project)).toEqual(before);
     expect(fetchedAt).toBeTruthy();
     expect(readXray(project).fetchedAt).toBe(fetchedAt);
     expect(fields.map((f) => f.name)).toEqual(["Action", "Data", "Expected Result", "Exigence"]);
@@ -194,17 +196,6 @@ describe("push", () => {
     writeFileSync(join(project, "tests", "LFRPS12-1398", "test.md"), serializeTest(test));
     await expect(pushTest(project, "LFRPS12-1398")).rejects.toThrow(
       "Not pushed — step 1: ../a.png, step 1: ../b.png are outside the test folder",
-    );
-  });
-
-  it("refuses a test pulled by an older version that did not keep Jira's embeds", async () => {
-    const file = join(project, "tests/LFRPS12-1420/.remote.md");
-    const old = readFileSync(file, "utf8")
-      .replace(/!\[\]\([^)]*\)/g, "")
-      .replace("### Attachments", "### Images");
-    writeFileSync(file, old);
-    await expect(pushTest(project, "LFRPS12-1420")).rejects.toThrow(
-      "LFRPS12-1420 was pulled by an older version of the app",
     );
   });
 

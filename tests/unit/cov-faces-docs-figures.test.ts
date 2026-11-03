@@ -22,7 +22,10 @@ async function add(project: string, raw: unknown, logs: string[]) {
   const c = commands.find((x) => x.name === "docs.add");
   if (!c) throw new Error("no docs.add");
   const ctx = { ...quietCtx(project), log: (_l: string, m: string) => logs.push(m) };
-  return (await c.run(ctx, c.input.parse(raw) as never)) as { id: string; source: { path: string } };
+  return (await c.run(ctx, c.input.parse(raw) as never)) as {
+    id: string;
+    source: { name: string; uploaded?: boolean };
+  };
 }
 
 describe("docs.add with figure descriptions", () => {
@@ -33,9 +36,9 @@ describe("docs.add with figure descriptions", () => {
     const logs: string[] = [];
     failures.push(new Error("Claude is absent"), "plain refusal");
     const first = await add(project, { dataBase64: data, id: "DOC_A" }, logs);
-    expect(first.source.path).toBe("upload: document.docx");
+    expect(first.source).toMatchObject({ name: "document.docx", uploaded: true });
     const second = await add(project, { name: "spec.docx", dataBase64: data, id: "DOC_B" }, logs);
-    expect(second.source.path).toBe("upload: spec.docx");
+    expect(second.source).toMatchObject({ name: "spec.docx", uploaded: true });
     expect(logs).toEqual([
       "Figure descriptions skipped: Claude is absent",
       "Figure descriptions skipped: plain refusal",

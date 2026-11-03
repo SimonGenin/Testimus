@@ -3,9 +3,10 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Step, StepImage, XrayJson } from "../../src/core/types.ts";
+import type { Step, StepImage } from "../../src/core/types.ts";
 import { MOVE } from "../../src/ui/screens/tests/FieldBlocks.tsx";
 import { cut, put, StepCard } from "../../src/ui/screens/tests/StepCard.tsx";
+import { layoutOf, prefsOf } from "./layout-helpers.ts";
 
 type T = { title: string; detail?: string; onExpire?: () => void; action?: { run: () => void } };
 const toasts: T[] = [];
@@ -26,14 +27,14 @@ beforeEach(() => {
 
 afterEach(cleanup);
 
-const xray: XrayJson = {
-  fields: [
+const xray = layoutOf(
+  [
     { id: "action", name: "Action", type: "text", builtin: true },
     { id: "data", name: "Data", type: "text", builtin: true },
     { id: "result", name: "Expected Result", type: "text", builtin: true },
   ],
-  prefs: { order: ["Action", "Data", "Expected Result"], collapsed: [], hidden: [] },
-};
+  { order: ["Action", "Data", "Expected Result"], collapsed: [], hidden: [] },
+);
 
 const base: Step = {
   fields: { Action: "Open the view", "Expected Result": "The view opens" },
@@ -172,10 +173,7 @@ describe("StepCard editing", () => {
   });
 
   it("edits smart columns as text, and notes columns not in Xray", () => {
-    const x: XrayJson = {
-      ...xray,
-      fields: [...xray.fields, { id: "cf", name: "Exigence", type: "text", builtin: false }],
-    };
+    const x = layoutOf([...xray.fields, { id: "cf", name: "Exigence", type: "text", builtin: false }], prefsOf(xray));
     const { apply, container } = card({ ...base, fields: { ...base.fields, Exigence: "R1", Note: "n" } }, { xray: x });
     fireEvent.change(screen.getByLabelText("Exigence of step 2"), { target: { value: "" } });
     expect(apply().fields.Exigence).toBeUndefined();
@@ -193,7 +191,7 @@ describe("StepCard editing", () => {
 
 describe("StepCard columns", () => {
   it("folds a column by its project mode and opens it per step", () => {
-    const x: XrayJson = { ...xray, prefs: { ...xray.prefs, collapsed: ["Data"] } };
+    const x = layoutOf(xray.fields, { ...prefsOf(xray), collapsed: ["Data"] });
     const { container } = card({ ...base, fields: { ...base.fields, Data: "S 12" } }, { xray: x });
     expect(fieldNames(container)).toEqual(["Action", "Expected Result"]);
     const toggle = screen.getByRole("button", { name: "Data column of step 2" });
@@ -207,7 +205,7 @@ describe("StepCard columns", () => {
   });
 
   it("shows a when-filled column only on a step that holds it", () => {
-    const x: XrayJson = { ...xray, prefs: { ...xray.prefs, filled: ["Data"] } };
+    const x = layoutOf(xray.fields, { ...prefsOf(xray), filled: ["Data"] });
     const { container } = card(base, { xray: x });
     expect(fieldNames(container)).toEqual(["Action", "Expected Result"]);
     const toggle = screen.getByRole("button", { name: "Data column of step 2" });
@@ -557,7 +555,7 @@ describe("StepCard chrome", () => {
     expect(screen.getByText("Empty step")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Expand step 2" }));
     cleanup();
-    const none: XrayJson = { fields: [], prefs: { order: [], collapsed: [], hidden: [] } };
+    const none = layoutOf([], { order: [], collapsed: [], hidden: [] });
     card({ ...base, fields: { Action: "Only action" } }, { folded: true, xray: none });
     expect(screen.getByText("Only action")).toBeInTheDocument();
   });

@@ -512,14 +512,15 @@ export async function release(opts: { reuseUi: boolean; skipNode: boolean }): Pr
 
   const electron = await desktopShell(out, cache, pkg.version);
 
-  const { findProfile } = await import("../src/core/rag/models.ts");
-  const p = findProfile("bge-m3");
+  const { SHIPPED } = await import("../src/core/lib/models-catalog.ts");
+  const light = SHIPPED.packs.find((p) => p.id === "light")?.variants[0]?.embedding;
+  const hfId = SHIPPED.entries.find((e) => e.id === light)?.source.hf?.repo;
   let models = "empty: the first index downloads its model";
   mkdirSync(join(out, "models"), { recursive: true });
-  if (p && existsSync(join(ROOT, ".models", ...p.hfId.split("/"), "config.json"))) {
-    cpSync(join(ROOT, ".models", ...p.hfId.split("/")), join(out, "models", ...p.hfId.split("/")), { recursive: true });
-    models = `${p.name} = ${p.hfId}`;
-  } else process.stderr.write("note: .models/ has no default profile (bge-m3): the release ships without models.\n");
+  if (hfId && existsSync(join(ROOT, ".models", ...hfId.split("/"), "config.json"))) {
+    cpSync(join(ROOT, ".models", ...hfId.split("/")), join(out, "models", ...hfId.split("/")), { recursive: true });
+    models = `${light} = ${hfId}`;
+  } else process.stderr.write(`note: .models/ has no ${light}: the release ships without models.\n`);
 
   for (const f of ["testimus.cmd", "install.ps1", "testimus.ico"]) cpSync(join(ROOT, "scripts", f), join(out, f));
   writeFileSync(join(out, "README.txt"), readme(pkg.version, nodeVersion, electron, models));

@@ -4,12 +4,13 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { invoke } from "../../src/core/commands/index.ts";
 import { loadCorpus, mechanicalCheck, mechanicalFindings } from "../../src/core/lib/check.ts";
-import { columnGuidance, saveColumn, stepColumns } from "../../src/core/lib/columns.ts";
-import { readXray, writeXray } from "../../src/core/lib/project.ts";
+import { columnGuidance, readColumns, saveColumn, stepColumns } from "../../src/core/lib/columns.ts";
+import { writeXray } from "../../src/core/lib/project.ts";
 import { readTest } from "../../src/core/lib/store.ts";
 import { formatSource, parseSource, parseTest, serializeTest } from "../../src/core/lib/testfile.ts";
 import type { Source, Step, Test, XrayJson } from "../../src/core/types.ts";
 import { itemLinks, referencesSources, stepSources } from "../../src/ui/lib/fields.ts";
+import { layoutOf } from "./layout-helpers.ts";
 
 let dir = "";
 const write = (rel: string, text: string) => {
@@ -23,7 +24,6 @@ const XRAY: XrayJson = {
     { id: "result", name: "Expected Result", type: "text", builtin: true },
     { id: "cf1", name: "Exigence", type: "text", builtin: false },
   ],
-  prefs: { order: [], collapsed: [], hidden: [] },
 };
 const DOC = [
   "# Sectionneurs <!-- § 4.2 -->",
@@ -117,9 +117,13 @@ describe("the Reference source option of a column", () => {
     expect(stepColumns(dir).find((c) => c.name === "Exigence")?.referenceSource).toBe(false);
     await invoke("columns.save", { name: "Exigence", referenceSource: true }, { project: dir, wait: true });
     saveColumn(dir, { name: "Exigence", description: "Le code de l'exigence couverte" });
-    expect(readXray(dir).columns).toEqual([
-      { name: "Exigence", id: "cf1", referenceSource: true, description: "Le code de l'exigence couverte" },
-    ]);
+    expect(readColumns(dir).find((c) => c.name === "Exigence")).toEqual({
+      name: "Exigence",
+      id: "cf1",
+      description: "Le code de l'exigence couverte",
+      mode: "open",
+      referenceSource: true,
+    });
     saveColumn(dir, { name: "Exigence", referenceSource: false });
     const c = stepColumns(dir).find((x) => x.name === "Exigence");
     expect([c?.description, c?.referenceSource]).toEqual(["Le code de l'exigence couverte", false]);
@@ -194,7 +198,8 @@ describe("the check of a Reference source column", () => {
 });
 
 describe("item links in the editor", () => {
-  const on: XrayJson = { ...XRAY, columns: [{ name: "Exigence", id: "cf1", referenceSource: true }] };
+  const on = layoutOf(XRAY.fields, {}, [{ name: "Exigence", id: "cf1", referenceSource: true }]);
+  const off = layoutOf(XRAY.fields);
   const a = src(Q1, { column: "Exigence", item: "EXI_A_1650" });
   const b = src(Q2, { column: "Exigence", item: "EXI_A_1670" });
   const c = { ...src(Q2, { column: "Exigence", item: "EXI_A_1650" }), anchor: "§4.3" };
@@ -212,8 +217,8 @@ describe("item links in the editor", () => {
 
   it("leaves every source with the step when the option is off, the item is gone or the column is not shown", () => {
     const s = step({ Exigence: "EXI_A_1650" }, [a, b, plain]);
-    expect(itemLinks(XRAY, s, "Exigence")).toEqual([]);
-    expect(stepSources(XRAY, s, ["Exigence"])).toEqual([a, b, plain]);
+    expect(itemLinks(off, s, "Exigence")).toEqual([]);
+    expect(stepSources(off, s, ["Exigence"])).toEqual([a, b, plain]);
     expect(stepSources(on, s, ["Exigence"])).toEqual([b, plain]);
     expect(stepSources(on, s, ["Action"])).toEqual([a, b, plain]);
     expect(itemLinks(on, step({ Exigence: "" }, [a]), "Exigence")).toEqual([]);

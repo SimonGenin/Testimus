@@ -1,4 +1,3 @@
-import type { DatabaseSync } from "node:sqlite";
 import { describe, expect, it } from "vitest";
 import {
   approxTokens,
@@ -21,7 +20,7 @@ import {
   textOf,
 } from "../../src/core/rag/convert-html.ts";
 import { encodePng, unpackGray1 } from "../../src/core/rag/convert-png.ts";
-import { fingerprintOf, legacySpace, modelIdentity, spaceOf } from "../../src/core/rag/fingerprint.ts";
+import { fingerprintOf, modelIdentity } from "../../src/core/rag/fingerprint.ts";
 import type { CatalogEntry, DocJson, ResolvedModel } from "../../src/core/types.ts";
 
 describe("convert helpers", () => {
@@ -241,11 +240,6 @@ const model = (over: Partial<ResolvedModel> = {}, e: Partial<CatalogEntry> = {})
     ...over,
   }) as ResolvedModel;
 
-const fakeDb = (rows: unknown[]) =>
-  ({
-    prepare: (sql: string) => ({ all: () => rows, get: () => (sql.includes("where id") ? undefined : rows[0]) }),
-  }) as unknown as DatabaseSync;
-
 describe("fingerprint identity", () => {
   it("prefers the file hash, then the install hash, then the weights, then the repo", () => {
     expect(modelIdentity(model({ install: { sha256: "abc" } as ResolvedModel["install"] }))).toBe("sha256:abc");
@@ -265,23 +259,5 @@ describe("fingerprint identity", () => {
   it("defaults pooling and normalization and reads installed dimensions", () => {
     const fp = fingerprintOf(model({ install: { dims: 4 } as ResolvedModel["install"] }));
     expect(fp).toMatchObject({ pooling: "", normalize: true, dims: 4, queryInstruction: "Q find" });
-  });
-
-  it("finds a legacy space only for an in-process runtime with the same model and dimension", () => {
-    const space = {
-      id: "s",
-      fingerprint: JSON.stringify({ unpinned: true }),
-      model_id: "old",
-      dims: 8,
-      built_at: null,
-      complete: 1,
-      last_used: null,
-    };
-    const db = fakeDb([space]);
-    expect(legacySpace(db, model({ runtime: "llamacpp" }))).toBeUndefined();
-    expect(legacySpace(db, model())).toBeUndefined();
-    expect(legacySpace(db, model({}, { legacyProfile: "old" }))?.id).toBe("s");
-    expect(spaceOf(db, model({ runtime: "mock" }, { legacyProfile: "old" }))?.id).toBe("s");
-    expect(legacySpace(fakeDb([{ ...space, dims: 4 }]), model({}, { legacyProfile: "old" }))).toBeUndefined();
   });
 });

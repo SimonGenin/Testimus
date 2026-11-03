@@ -22,7 +22,7 @@ import {
   scoreBehavior,
   totals,
 } from "../../src/core/rag/eval.ts";
-import { indexProject } from "../../src/core/rag/indexer.ts";
+import { indexProject, readState } from "../../src/core/rag/indexer.ts";
 import type { Behavior } from "../../src/core/types.ts";
 
 const FIXTURE = join(import.meta.dirname, "..", "fixtures", "project");
@@ -67,7 +67,6 @@ describe("behavior set (SPEC-RAG §10.1)", () => {
         "",
       ]),
     );
-    expect(s.format).toBe("behaviors");
     expect(s.behaviors).toEqual([
       {
         id: "a",
@@ -78,32 +77,14 @@ describe("behavior set (SPEC-RAG §10.1)", () => {
           { ref: "D#fig:2", role: "figure", must: false },
         ],
         validated: false,
-        kind: "untagged",
       },
     ]);
   });
 
-  it("still reads eval/questions.jsonl: each expected anchor is a must rule", () => {
-    const s = readBehaviors(join(dir, "eval", "questions.jsonl"));
-    expect(s.format).toBe("questions");
-    expect(s.behaviors).toHaveLength(5);
-    expect(s.behaviors[0]).toMatchObject({
-      id: "q1",
-      queries: [],
-      evidence: [{ ref: `${D3}#§5.6.6`, role: "rule", must: true }],
-    });
-    expect(s.behaviors[0].validated).toBeUndefined();
-    const mixed = readBehaviors(
-      write("m.jsonl", [
-        { q: "old", expected: ["D#§1"], kind: "code" },
-        { id: "new", question: "n", evidence: [{ ref: "D#§2", role: "exception", must: true }] },
-      ]),
+  it("refuses a v1 question line (eval/questions.jsonl is no longer read)", () => {
+    expect(() => readBehaviors(write("m.jsonl", [{ q: "old", expected: ["D#§1"], kind: "code" }]))).toThrow(
+      /line 1 needs a question and evidence/,
     );
-    expect(mixed.format).toBe("mixed");
-    expect(mixed.behaviors.map((b) => [b.id, b.kind, b.category])).toEqual([
-      ["q1", "code", "code"],
-      ["new", "untagged", undefined],
-    ]);
   });
 
   it("refuses a line without must evidence, a bad role, a duplicate id, a non-JSON line", () => {
@@ -130,10 +111,8 @@ describe("behavior set (SPEC-RAG §10.1)", () => {
     expect(readBehaviors(join(dir, "2.jsonl")).hash).toBe(crlf.hash);
   });
 
-  it("defaults to eval/behaviors.jsonl, else eval/questions.jsonl", () => {
+  it("defaults to eval/behaviors.jsonl", () => {
     expect(defaultSet(dir)).toBe(join(dir, "eval", "behaviors.jsonl"));
-    rmSync(join(dir, "eval", "behaviors.jsonl"));
-    expect(defaultSet(dir)).toBe(join(dir, "eval", "questions.jsonl"));
   });
 });
 
@@ -253,7 +232,7 @@ describe("rag.eval v2 on the fixture project", () => {
     const r = await runEval(dir, quietCtx(dir));
     expect(r.version).toBe(2);
     expect(r.provisional).toBe(true);
-    expect(r.config.set).toMatchObject({ format: "behaviors", behaviors: 5, validated: false });
+    expect(r.config.set).toMatchObject({ behaviors: 5, validated: false });
     expect(r.config.set.hash).toMatch(/^[0-9a-f]{16}$/);
     expect(r.config.chunker).toMatch(/^[0-9a-f]{16}$/);
     expect(r.config.corpus).toMatch(/^[0-9a-f]{16}$/);
@@ -277,11 +256,10 @@ describe("rag.eval v2 on the fixture project", () => {
       "several-documents",
       "acronym",
     ]);
-    expect(r.questions[0].rank).toBe(1);
+    expect(r.behaviors[0].rank).toBe(1);
     expect(r.n).toBe(5);
     expect(r.setting).toBe("bge-m3-q8-hybrid");
     expect(r.recall10).toBeGreaterThanOrEqual(r.recall5);
-    expect(r.byKind.untagged.n).toBe(5);
     const saved = readJson<EvalReport>(r.report, {} as EvalReport);
     expect(saved.config).toEqual(r.config);
     expect(saved.provisional).toBe(true);
@@ -328,12 +306,12 @@ describe("rag.eval v2 on the fixture project", () => {
     expect(r.setting).toMatch(/^bge-m3-q8-bm25-r[0-9a-f]{6}$/);
   });
 
-  it("measures a candidate model in the live rag.db through its own space; the active space and state.json stay", async () => {
+  it("measures a candidate model in the live rag.db through its own space; the active space and the index state stay", async () => {
     graph.related = () => {
       throw new Error("rag.related is not built yet.");
     };
     await indexProject(dir, quietCtx(dir));
-    const state = readFileSync(join(dir, "index", "state.json"), "utf8");
+    const state = JSON.stringify(readState(dir));
     const spaces = () => {
       const db = openDb(indexFile(dir));
       try {
@@ -344,16 +322,19 @@ describe("rag.eval v2 on the fixture project", () => {
     };
     const before = spaces();
     expect(before).toHaveLength(1);
-    const r = await runEval(dir, quietCtx(dir), { embedding: "qwen3-embedding-0.6b", reranker: "bge-reranker-v2-m3" });
-    const emb = catalogEntry("qwen3-embedding-0.6b")?.id as string;
-    const rer = catalogEntry("bge-reranker-v2-m3")?.id as string;
+    const r = await runEval(dir, quietCtx(dir), {
+      embedding: "qwen3-embedding-0.6b-onnx-q8",
+      reranker: "bge-reranker-v2-m3-q8",
+    });
+    const emb = catalogEntry("qwen3-embedding-0.6b-onnx-q8")?.id as string;
+    const rer = catalogEntry("bge-reranker-v2-m3-q8")?.id as string;
     expect(r.config).toMatchObject({ embedding: emb, reranker: rer, index: indexFile(dir) });
     expect(r.setting).toBe(`${emb}+${rer}-hybrid`);
     const after = spaces();
     expect(after).toHaveLength(2);
     expect(after).toContainEqual(before[0]);
     expect(after.find((s) => s.id === r.config.space?.id)?.model).toBe(emb);
-    expect(readFileSync(join(dir, "index", "state.json"), "utf8")).toBe(state);
+    expect(JSON.stringify(readState(dir))).toBe(state);
     expect(existsSync(join(dir, ".testimus", "eval", emb))).toBe(false);
     expect(r.policies[0].totals?.atK[10].recall).toBeGreaterThan(0);
   });
@@ -365,15 +346,19 @@ describe("rag.eval v2 on the fixture project", () => {
     );
   });
 
-  it("reads the v1 question set: not provisional", async () => {
+  it("a set whose behaviors are all validated is not provisional", async () => {
     graph.related = () => {
       throw new Error("rag.related is not built yet.");
     };
-    const r = await runEval(dir, quietCtx(dir), { set: "eval/questions.jsonl", mode: "bm25" });
-    expect(r.config.set.format).toBe("questions");
+    const lines = readFileSync(join(dir, "eval", "behaviors.jsonl"), "utf8")
+      .split(/\r?\n/)
+      .filter((l) => l.trim())
+      .map((l) => ({ ...JSON.parse(l), validated: true }));
+    write("eval/valid.jsonl", lines);
+    const r = await runEval(dir, quietCtx(dir), { set: "eval/valid.jsonl", mode: "bm25" });
     expect(r.provisional).toBe(false);
     expect(r.config.set.validated).toBe(true);
-    expect(r.byKind.untagged.n).toBe(5);
+    expect(r.n).toBe(5);
   });
 
   it("runs through the registry with a retrieval override", async () => {

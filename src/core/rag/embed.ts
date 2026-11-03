@@ -1,10 +1,9 @@
 import { env } from "../env.ts";
 import { perfFields, perfScope, timeOp, withPerfScope } from "../lib/models-perf.ts";
 import type { EmbedMode, ResolvedModel, RuntimeId } from "../types.ts";
-import { activeModels, queryTaskOf } from "./activation.ts";
+import { activeModels } from "./activation.ts";
 import { spaceId } from "./db.ts";
 import { fingerprintOf } from "./fingerprint.ts";
-import { modelForProfile } from "./models.ts";
 import { llamacppRuntime } from "./runtimes/llamacpp.ts";
 import { mockRuntime } from "./runtimes/mock.ts";
 import { transformersRuntime } from "./runtimes/transformers.ts";
@@ -52,7 +51,6 @@ export function probeWith(m: ResolvedModel): Promise<{ dims: number; maxTokens: 
 
 export async function rerankerFor(project: string, opts: SearchOpts): Promise<ResolvedModel | null> {
   if (opts.reranker === null) return null;
-  if (opts.reranker) return modelForProfile(opts.reranker, queryTaskOf(project));
   return (await activeModels(project)).reranker;
 }
 

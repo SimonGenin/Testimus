@@ -1,13 +1,34 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { readJson } from "../lib/project.ts";
+import { readFigures } from "../lib/docs.ts";
+import { readJson, writeJson } from "../lib/project.ts";
 import { docFigures, parseSections, type Section } from "../rag/chunk.ts";
 import { normalizeRef } from "../rag/related.ts";
-import type { FigureEntry } from "../types.ts";
+import type { GenInput, TestPlan } from "./generate.ts";
 import type { ToolCall } from "./stream.ts";
 
 export type Searched = { tool: string; query: string };
 export type Ledger = { consulted: string[]; searched: Searched[] };
+
+// ponytail: .testimus/gen/<generation>.json — one per generation (named by its job, or the generation it resumes):
+// what was asked, the run, the tests written, what the run opened and searched, its plan; the full result is
+// added when the generation ends. Written by generate.ts, read here only
+export type GenLedger = Ledger & {
+  at?: string;
+  input?: GenInput;
+  runId?: string;
+  tests?: string[];
+  plan?: TestPlan;
+  done?: number[];
+  reportedConsulted?: string[];
+};
+
+export const genLedgerFile = (project: string, generation: string) =>
+  join(project, ".testimus", "gen", `${generation}.json`);
+
+export function writeLedger(project: string, generation: string, ledger: GenLedger & Record<string, unknown>): void {
+  writeJson(genLedgerFile(project, generation), ledger);
+}
 
 const DOC_MD = /(?:^|[\\/])docs[\\/]+([^\\/]+)[\\/]+doc\.md$/i;
 const FIGURE = /(?:^|[\\/])docs[\\/]+([^\\/]+)[\\/]+figures[\\/]+([^\\/]+)$/i;
@@ -83,7 +104,7 @@ export function ledgerOf(project: string, calls: ToolCall[]): Ledger {
       if (fig) {
         const d = docOf(fig[1]);
         if (!d) continue;
-        const entries = readJson<FigureEntry[]>(join(project, "docs", fig[1], "figures.json"), []);
+        const entries = readFigures(project, fig[1]);
         const f = docFigures(d.md, entries).find(
           (x) => x.file.split("/").pop()?.toLowerCase() === fig[2].toLowerCase(),
         );
@@ -94,16 +115,25 @@ export function ledgerOf(project: string, calls: ToolCall[]): Ledger {
   return { consulted, searched };
 }
 
-export function readLedger(project: string, jobId: string | undefined): (Ledger & { jobId: string }) | null {
+const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
+
+export function readLedger(project: string, jobId: string | undefined): (GenLedger & { jobId: string }) | null {
   if (!jobId || !/^[\w.-]+$/.test(jobId)) return null;
-  const l = readJson<Partial<Ledger> | null>(join(project, ".testimus", "gen", `${jobId}.json`), null);
+  const l = readJson<Record<string, unknown> | null>(genLedgerFile(project, jobId), null);
   if (!l || !Array.isArray(l.consulted)) return null;
   return {
     jobId,
-    consulted: l.consulted.filter((x): x is string => typeof x === "string"),
+    consulted: strings(l.consulted),
     searched: Array.isArray(l.searched)
       ? l.searched.filter((s): s is Searched => !!s && typeof s.tool === "string" && typeof s.query === "string")
       : [],
+    ...(typeof l.at === "string" ? { at: l.at } : {}),
+    ...(l.input && typeof l.input === "object" ? { input: l.input as GenInput } : {}),
+    ...(typeof l.runId === "string" ? { runId: l.runId } : {}),
+    ...(Array.isArray(l.tests) ? { tests: strings(l.tests) } : {}),
+    ...(l.plan && typeof l.plan === "object" ? { plan: l.plan as TestPlan } : {}),
+    ...(Array.isArray(l.done) ? { done: l.done.filter((n): n is number => typeof n === "number") } : {}),
+    ...(Array.isArray(l.reportedConsulted) ? { reportedConsulted: strings(l.reportedConsulted) } : {}),
   };
 }
 

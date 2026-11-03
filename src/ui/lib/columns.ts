@@ -1,4 +1,4 @@
-import type { ColumnMode, ColumnModes, Step, XrayJson } from "../../core/types.ts";
+import type { ColumnLayout, ColumnMode, ColumnModes, Step } from "../../core/types.ts";
 import { BUILTIN_FIELDS } from "../../core/types.ts";
 import { fieldViews } from "./fields.ts";
 
@@ -16,7 +16,7 @@ const kindOf = (type: string): Column["kind"] =>
   type === "text-single" ? "line" : type === "text" || type === "" ? "text" : "readonly";
 
 // ponytail: with Jira not connected, or its step fields never read, no column can be said « not in Xray »
-export function columnsOf(x: XrayJson, step?: Step, linked = true): Column[] {
+export function columnsOf(x: ColumnLayout, step?: Step, linked = true): Column[] {
   const types = new Map(x.fields.map((f) => [f.name, f.type]));
   const off = new Set(x.fields.filter((f) => f.disabled).map((f) => f.name));
   return fieldViews(x, step).map((v): Column => {
@@ -30,11 +30,10 @@ export function columnsOf(x: XrayJson, step?: Step, linked = true): Column[] {
 // Action and Expected Result are the test itself and never fold away; every other column can
 export const collapsible = (c: Pick<Column, "name">) => c.name !== "Action" && c.name !== "Expected Result";
 
-export const projectModes = (x: XrayJson): ColumnModes => {
+// ponytail: every column says its mode in columns.list; a hidden one, shown because a step holds text, is open
+export const projectModes = (x: ColumnLayout): ColumnModes => {
   const out: ColumnModes = {};
-  for (const n of x.prefs.open ?? []) out[n] = "open";
-  for (const n of x.prefs.filled ?? []) out[n] = "filled";
-  for (const n of x.prefs.collapsed) out[n] = "collapsed";
+  for (const c of x.columns) if (c.mode !== "hidden") out[c.name] = c.mode;
   return out;
 };
 

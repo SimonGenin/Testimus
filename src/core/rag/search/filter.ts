@@ -1,4 +1,4 @@
-import type { ModelProfile, ResolvedModel, RetrievalSettings } from "../../types.ts";
+import type { ResolvedModel, RetrievalSettings } from "../../types.ts";
 import type { ChunkRow } from "../db.ts";
 
 export type SearchMode = "hybrid" | "bm25" | "vector";
@@ -9,8 +9,7 @@ export type SearchOpts = {
   k?: number;
   docIds?: string[];
   mode?: SearchMode;
-  profile?: ModelProfile;
-  reranker?: ModelProfile | null;
+  reranker?: null;
   dbFile?: string;
   retrieval?: RetrievalOverride;
   project?: string;

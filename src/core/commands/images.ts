@@ -2,7 +2,8 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { extname, isAbsolute, relative, resolve } from "node:path";
 import { z } from "zod";
 import { command, projectOf, UserError } from "../command.ts";
-import { fieldOrder, readXray } from "../lib/project.ts";
+import { fieldOrder } from "../lib/columns.ts";
+import { readXray } from "../lib/project.ts";
 import { addImage, readTest, testExists, writeTest } from "../lib/store.ts";
 import { fieldName, imageRef } from "../lib/testfile.ts";
 import { figure as docFigure } from "../rag/search/passage.ts";
@@ -91,7 +92,7 @@ export function attachImage(project: string, input: AttachInput): Attached {
   step.images.push(img);
   const text = (step.fields[field] ?? "").replace(/\s+$/, "");
   step.fields[field] = text ? `${text}\n\n${imageRef(img.file)}` : imageRef(img.file);
-  writeTest(project, input.id, test, fieldOrder(readXray(project)));
+  writeTest(project, input.id, test, fieldOrder(project));
   return { id: input.id, step: input.step, field, file: img.file, from: input.figure?.trim() || input.file || "" };
 }
 

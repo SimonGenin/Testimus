@@ -1,8 +1,9 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { UserError } from "../../command.ts";
-import { readJson } from "../../lib/project.ts";
-import type { DocJson, FigureEntry, Passage, PassageOutlineItem, ProjectJson } from "../../types.ts";
+import { docDir, findDoc, readDocMd, readFigures } from "../../lib/docs.ts";
+import { readProject } from "../../lib/project.ts";
+import type { DocJson, FigureEntry, Passage, PassageOutlineItem } from "../../types.ts";
 import { docFigures, lines, markerLine, parseSections, type Section, sectionAt, stripComments } from "../chunk.ts";
 
 export type FigureView = FigureEntry & {
@@ -17,21 +18,23 @@ export type PassageView = Passage & { quoteFound?: boolean };
 
 export const PASSAGE_MAX_CHARS = 12_000;
 
-function readDoc(project: string, docId: string): { doc: DocJson; md: string; figures: FigureEntry[]; dir: string } {
-  const dir = join(project, "docs", docId);
+function loadDoc(
+  project: string,
+  docId: string,
+): { doc: Partial<DocJson>; md: string; figures: FigureEntry[]; dir: string } {
+  const dir = docDir(project, docId);
   if (!existsSync(join(dir, "doc.md")))
     throw new UserError(`No document ${docId} in this project.`, "testimus docs list shows the documents.");
-  const doc = readJson<DocJson>(join(dir, "doc.json"), { id: docId } as DocJson);
   return {
-    doc,
-    md: readFileSync(join(dir, "doc.md"), "utf8"),
-    figures: readJson<FigureEntry[]>(join(dir, "figures.json"), []),
+    doc: findDoc(project, docId) ?? {},
+    md: readDocMd(project, docId),
+    figures: readFigures(project, docId),
     dir,
   };
 }
 
 export function passageMaxChars(project: string): number {
-  const n = readJson<Partial<ProjectJson>>(join(project, "project.json"), {}).rag?.passageMaxChars;
+  const n = readProject(project).rag.passageMaxChars;
   return typeof n === "number" && n > 0 ? n : PASSAGE_MAX_CHARS;
 }
 
@@ -132,7 +135,7 @@ export function passage(project: string, ref: string, around?: string): PassageV
   const m = ref.match(/^([^#]+)#(.+)$/);
   if (!m) throw new UserError(`"${ref}" is not a source reference.`, "Write it docId#anchor, e.g. DOC#§5.6.6.");
   const docId = m[1];
-  const { doc, md, figures } = readDoc(project, docId);
+  const { doc, md, figures } = loadDoc(project, docId);
   const anchor = normalizeAnchor(m[2]);
   const ls = lines(md);
   const sections = parseSections(md);
@@ -192,7 +195,7 @@ export function passage(project: string, ref: string, around?: string): PassageV
 }
 
 export function figure(project: string, docId: string, n: string): FigureView {
-  const { md, figures, dir } = readDoc(project, docId);
+  const { md, figures, dir } = loadDoc(project, docId);
   const key = n.replace(/^fig[:\s]*/i, "");
   const f = docFigures(md, figures).find((x) => x.n === key);
   if (!f)

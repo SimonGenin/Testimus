@@ -3,7 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { JobEvent, Test, XrayJson } from "../../src/core/types.ts";
+import type { JobEvent, Test } from "../../src/core/types.ts";
 import { AppContext, type AppState } from "../../src/ui/lib/app.ts";
 import { resetDoctor } from "../../src/ui/lib/doctor.ts";
 import { DoctorScreen } from "../../src/ui/screens/doctor/DoctorScreen.tsx";
@@ -11,6 +11,7 @@ import { DocumentsScreen } from "../../src/ui/screens/documents/DocumentsScreen.
 import { GenerateScreen } from "../../src/ui/screens/generate/GenerateScreen.tsx";
 import { ReviewScreen } from "../../src/ui/screens/review/ReviewScreen.tsx";
 import { ColumnsSection } from "../../src/ui/screens/settings/ColumnsSection.tsx";
+import { layoutOf } from "./layout-helpers.ts";
 
 type Handler = (input: Record<string, unknown>) => unknown;
 type Call = { name: string; input: Record<string, unknown> };
@@ -57,15 +58,15 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const xray: XrayJson = {
-  fields: [
+const xray = layoutOf(
+  [
     { id: "action", name: "Action", type: "text", builtin: true },
     { id: "data", name: "Data", type: "text", builtin: true },
     { id: "result", name: "Expected Result", type: "text", builtin: true },
     { id: "cf", name: "Exigence", type: "text-single", builtin: false },
   ],
-  prefs: { order: ["Action", "Data", "Expected Result", "Exigence"], collapsed: ["Data"], hidden: [] },
-};
+  { order: ["Action", "Data", "Expected Result", "Exigence"], collapsed: ["Data"], hidden: [] },
+);
 
 function appState(over: Partial<AppState> = {}): AppState {
   return {
@@ -77,7 +78,7 @@ function appState(over: Partial<AppState> = {}): AppState {
         language: "fr",
         labelPrefix: "testimus-",
         folders: ["/Traction/Sectionneurs"],
-        rag: { embedding: "bge-m3", reranker: null },
+        rag: {},
         claude: { model: "sonnet", effort: "medium", presets: [], contexts: [] },
       },
       xray,
@@ -365,10 +366,12 @@ describe("Documents screen", () => {
       date: "",
       kind: "spec",
       status: "validated",
-      source: { path: "", sha256: "", file: "source.docx" },
-      convertedWith: "",
-      convertedAt: "2026-11-02T10:00:00.000Z",
-      warnings: indexed === "stale" ? ["2 Word comments were dropped"] : [],
+      source: { name: "", sha256: "", file: "source.docx" },
+      converted: {
+        with: "",
+        at: "2026-11-02T10:00:00.000Z",
+        warnings: indexed === "stale" ? ["2 Word comments were dropped"] : [],
+      },
       indexed,
     });
     routes["docs.list"] = () => [
@@ -398,10 +401,8 @@ describe("Documents screen", () => {
       date: "",
       kind: "spec",
       status: "draft",
-      source: { path: "", sha256: "", file: "source.docx" },
-      convertedWith: "",
-      convertedAt: "",
-      warnings: [],
+      source: { name: "", sha256: "", file: "source.docx" },
+      converted: { with: "", at: "", warnings: [] },
       indexed: "missing",
     };
     let added = false;
@@ -468,8 +469,9 @@ describe("System check", () => {
 });
 
 describe("Settings", () => {
-  it("saves the step column preferences through xray.prefs", async () => {
-    routes["xray.prefs"] = (i) => ({ ...xray, prefs: { ...xray.prefs, ...i } });
+  it("saves the step column preferences through columns.setModes and columns.order", async () => {
+    routes["columns.setModes"] = () => [];
+    routes["columns.order"] = () => [];
     const base = appState({ route: { screen: "settings" } });
     const columns = ["Action", "Data", "Expected Result", "Exigence"].map((name) => ({
       name,
@@ -477,19 +479,20 @@ describe("Settings", () => {
       builtin: name !== "Exigence",
       status: "ok",
       description: "",
+      mode: "open",
     }));
     const app = { ...base, info: { ...base.info, columns } } as AppState;
     wrap(app, <ColumnsSection />);
     fireEvent.click(screen.getByRole("checkbox", { name: "Exigence hidden" }));
-    await waitFor(() => expect(named("xray.prefs")).toHaveLength(1));
-    expect(named("xray.prefs")[0].input).toEqual({ hidden: ["Exigence"] });
+    await waitFor(() => expect(named("columns.setModes")).toHaveLength(1));
+    expect(named("columns.setModes")[0].input).toEqual({ modes: { Exigence: "hidden" } });
     fireEvent.change(screen.getByRole("combobox", { name: "Data folding" }), { target: { value: "filled" } });
-    await waitFor(() => expect(named("xray.prefs")).toHaveLength(2));
-    expect(named("xray.prefs")[1].input).toEqual({ collapsed: [], filled: ["Data"] });
+    await waitFor(() => expect(named("columns.setModes")).toHaveLength(2));
+    expect(named("columns.setModes")[1].input).toEqual({ modes: { Data: "filled" } });
     expect(screen.getByRole("combobox", { name: "Action folding" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Move Exigence up" }));
-    await waitFor(() => expect(named("xray.prefs")).toHaveLength(3));
-    expect(named("xray.prefs")[2].input).toEqual({ order: ["Action", "Data", "Exigence", "Expected Result"] });
+    await waitFor(() => expect(named("columns.order")).toHaveLength(1));
+    expect(named("columns.order")[0].input).toEqual({ names: ["Action", "Data", "Exigence", "Expected Result"] });
     expect(app.refreshInfo).toHaveBeenCalled();
   });
 });

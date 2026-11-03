@@ -1,17 +1,25 @@
 import { z } from "zod";
 import { suggestColumns } from "../claude/columns.ts";
 import { command, projectOf } from "../command.ts";
-import { removeColumn, saveColumn, stepColumns } from "../lib/columns.ts";
+import { removeColumn, saveColumn, setModes, setOrder, stepColumns } from "../lib/columns.ts";
 import { MODEL } from "./claude.ts";
+
+const SHOW = z
+  .enum(["open", "filled", "collapsed", "hidden"])
+  .describe(
+    "open: on every step · filled: only on a step that holds something · collapsed: folded, its toggle shows a dot when it holds something · hidden: left out unless a step holds text in it",
+  );
 
 const column = z.object({
   name: z.string(),
+  id: z.string().optional().describe("The Xray step field it follows (a local column that was in Xray keeps it)"),
   origin: z.enum(["xray", "local"]).describe("xray: a step field of Xray, pushed; local: kept in test.md only"),
   builtin: z.boolean().describe("Action, Data or Expected Result"),
   status: z
     .enum(["ok", "new", "gone"])
     .describe("new: added in Xray and never described here; gone: was in Xray, no longer — now local"),
   description: z.string().describe("What Claude writes in it (a smart column); empty = Claude leaves it empty"),
+  mode: SHOW,
   referenceSource: z
     .boolean()
     .optional()
@@ -51,6 +59,25 @@ export const commands = [
     mutates: true,
     positional: ["name"],
     run: async (ctx, input) => saveColumn(projectOf(ctx), input),
+  }),
+  command({
+    name: "columns.setModes",
+    summary:
+      "Set how step columns show in every test of the project (columns.json): open, filled, collapsed or hidden; the columns not named keep theirs. A test can fold its own way (tests.setColumns).",
+    input: z.object({
+      modes: z.record(z.string(), SHOW).describe("Mode by column name (columns.list gives the names)"),
+    }),
+    output: z.array(column),
+    mutates: true,
+    run: async (ctx, input) => setModes(projectOf(ctx), input.modes),
+  }),
+  command({
+    name: "columns.order",
+    summary: "Put the step columns in this order (columns.json); the columns not named follow in their current order.",
+    input: z.object({ names: z.array(z.string()).describe("Column names, first to last") }),
+    output: z.array(column),
+    mutates: true,
+    run: async (ctx, input) => setOrder(projectOf(ctx), input.names),
   }),
   command({
     name: "columns.remove",

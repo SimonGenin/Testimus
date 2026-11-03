@@ -21,6 +21,7 @@ import { invoke } from "../../src/core/commands/index.ts";
 import { type ClaudeOut, type ClaudeSpawn, env } from "../../src/core/env.ts";
 import { DEFAULT_SETTINGS, readJson, writeSettings } from "../../src/core/lib/project.ts";
 import type { ClaudeEvent } from "../../src/core/types.ts";
+import { writeContextMd } from "./context-helpers.ts";
 
 const FIXTURE = fileURLToPath(new URL("../fixtures/project/", import.meta.url));
 const EXE = "C:/bin/claude.exe";
@@ -299,11 +300,11 @@ describe("runClaude", () => {
     const ext = mkdtempSync(join(tmpdir(), "testimus-ext-"));
     const specs = mkdtempSync(join(tmpdir(), "testimus-specs-"));
     mkdirSync(join(ctx, "files"), { recursive: true });
-    writeFileSync(
-      join(ctx, "context.json"),
-      JSON.stringify({ name: "Manuel", paths: [ext, join(specs, "srs.pdf"), "Z:/not/here"] }),
-    );
-    writeFileSync(join(ctx, "notes.md"), "Lire le chapitre 3.");
+    writeContextMd(ctx, {
+      name: "Manuel",
+      paths: [ext, join(specs, "srs.pdf"), "Z:/not/here"],
+      notes: "Lire le chapitre 3.",
+    });
     writeFileSync(join(ctx, "files", "shot.png"), "x");
     fake([result("ok")]);
     await runClaude({
@@ -368,7 +369,7 @@ describe("claude.run", () => {
       "D:\\p",
     );
     expect(withCtx).toContain(
-      "- Manuel — notes: D:/p/contexts/c1/notes.md; files: D:/p/contexts/c1/files/a.png; also look at: D:/x",
+      "- Manuel — notes: D:/p/contexts/c1/context.md; files: D:/p/contexts/c1/files/a.png; also look at: D:/x",
     );
     expect(withCtx).toContain("\nDo it.\n");
   });

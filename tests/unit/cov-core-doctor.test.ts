@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 const fsCtl = vi.hoisted(() => ({ statfsFails: false }));
 vi.mock("node:fs", async (importOriginal) => {
@@ -31,7 +31,7 @@ import {
 import { catalogEntry, registryFile } from "../../src/core/lib/models-catalog.ts";
 import { pinMachineProfile } from "../../src/core/lib/models-hardware.ts";
 import { readRegistry, writeRegistry } from "../../src/core/lib/models-registry.ts";
-import { DEFAULT_PROJECT, writeProject } from "../../src/core/lib/project.ts";
+import { DEFAULT_PROJECT, readSettings, writeProject, writeSettings } from "../../src/core/lib/project.ts";
 import type { CatalogEntry, DoctorCheck, MachineProfile, ResolvedModel, RuntimeId } from "../../src/core/types.ts";
 
 const saved = { http: env.http, spawn: env.spawnClaude };
@@ -194,7 +194,8 @@ describe("jira and xray checks", () => {
 
 describe("model rows", () => {
   it("a model missing while downloads are off, or unknown to the catalog", async () => {
-    writeRegistry({ ...readRegistry(), allowRemote: false });
+    writeSettings({ ...readSettings(), models: { allowRemote: false } });
+    onTestFinished(() => writeSettings({ ...readSettings(), models: { allowRemote: true } }));
     const r = by(
       await modelRows(null, deps({ active: async () => ({ embedding: null, reranker: null, wanted: ["bge-m3-q8"] }) })),
     );
@@ -277,14 +278,17 @@ describe("model rows", () => {
 describe("the real model deps", () => {
   it("without a project: the default models, nothing installed", async () => {
     const a = await modelDeps.active(null);
-    expect(a.wanted).toEqual([DEFAULT_PROJECT.rag.embedding]);
+    expect(a.wanted).toEqual(["bge-m3-q8"]);
     expect(a.reranker).toBeNull();
     expect((await modelDeps.machine()).at).toBe(devPc.at);
   });
 
   it("with a project: what its choice wants, and the space of its index", async () => {
     const project = mkdtempSync(join(tmpdir(), "testimus-cov-doctor-p-"));
-    writeProject(project, { ...DEFAULT_PROJECT, rag: { embedding: "bge-m3-q8", reranker: "bge-reranker-v2-m3-q8" } });
+    writeProject(project, {
+      ...DEFAULT_PROJECT,
+      rag: { reference: { embedding: "bge-m3-q8", reranker: "bge-reranker-v2-m3-q8" } },
+    });
     const a = await modelDeps.active(project);
     expect(a.wanted).toEqual(expect.arrayContaining(["bge-m3-q8"]));
     expect(a.wanted.some((w) => w.startsWith("pack "))).toBe(false);

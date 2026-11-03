@@ -2,11 +2,12 @@
 import "@testing-library/jest-dom/vitest";
 import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Finding, Test, XrayJson } from "../../src/core/types.ts";
+import type { Finding, Test } from "../../src/core/types.ts";
 import type { AppState, ClaudeRun } from "../../src/ui/lib/app.ts";
 import type { QueueItem } from "../../src/ui/screens/review/ReviewQueue.tsx";
 import { ReviewScreen } from "../../src/ui/screens/review/ReviewScreen.tsx";
 import { clearToasts, mount } from "./cov-uiscreens-helpers.tsx";
+import { layoutOf } from "./layout-helpers.ts";
 import { api, fakeFetch, named } from "./ui-desktop-helpers.tsx";
 
 vi.mock("../../src/ui/screens/tests/TestEditor.tsx", () => ({
@@ -55,13 +56,13 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const xray: XrayJson = {
-  fields: [
+const xray = layoutOf(
+  [
     { id: "action", name: "Action", type: "text", builtin: true },
     { id: "result", name: "Expected Result", type: "text", builtin: true },
   ],
-  prefs: { order: ["Action", "Expected Result"], collapsed: [], hidden: [] },
-};
+  { order: ["Action", "Expected Result"], collapsed: [], hidden: [] },
+);
 
 const item = (id: string, over: Partial<QueueItem> = {}): QueueItem => ({
   id,

@@ -2,12 +2,7 @@ import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:f
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import {
-  describeFigures,
-  figuresPrompt,
-  parseFigureDescriptions,
-  parseFigures,
-} from "../../src/core/claude/figures.ts";
+import { describeFigures, figuresPrompt, parseFigures } from "../../src/core/claude/figures.ts";
 import { quietCtx } from "../../src/core/command.ts";
 import { invoke } from "../../src/core/commands/index.ts";
 import { type ClaudeOut, env } from "../../src/core/env.ts";
@@ -74,13 +69,10 @@ describe("figure descriptions v2 — the reply", () => {
       "fig:40": { description: "Fenêtre.", labels: ["Valider", "Mise hors tension"], kind: "screen" },
       "fig:41": { description: "Un plan.", labels: [] },
     });
-    expect(parseFigureDescriptions(text)).toEqual({ "fig:40": "Fenêtre.", "fig:41": "Un plan." });
   });
 
-  it("still reads a v1 reply (anchor → description) and a v2 list", () => {
-    expect(parseFigures('```figures\n{"fig:40": "Un carré."}\n```')).toEqual({
-      "fig:40": { description: "Un carré." },
-    });
+  it("no longer reads a v1 reply (anchor → description); reads a v2 list", () => {
+    expect(parseFigures('```figures\n{"fig:40": "Un carré."}\n```')).toEqual({});
     expect(
       parseFigures(
         '```json\n[{"anchor": "fig:7", "description": "Trait vert.", "labels": ["DSO"], "kind": "diagram"}]\n```',
@@ -113,7 +105,7 @@ describe("figure descriptions v2 — figures.json", () => {
     expect(old?.kind).toBeUndefined();
   });
 
-  it("describeFigures writes labels and kind from a v2 reply; a later v1 reply keeps them", async () => {
+  it("describeFigures writes labels and kind from a v2 reply; a later description-only reply keeps them", async () => {
     writeFileSync(
       figFile(),
       JSON.stringify([{ file: "figures/fig-40.png", anchor: "fig:40", caption: CAPTION, description: "" }]),
@@ -133,7 +125,7 @@ describe("figure descriptions v2 — figures.json", () => {
         kind: "symbol",
       },
     ]);
-    reply('```figures\n{"fig:40": "Un carré blanc."}\n```');
+    reply('```figures\n{"fig:40": {"description": "Un carré blanc."}}\n```');
     await describeFigures(dir, D3, quietCtx(dir), { force: true });
     expect(figuresOf()[0]).toMatchObject({ description: "Un carré blanc.", labels: ["S 12"], kind: "symbol" });
   });

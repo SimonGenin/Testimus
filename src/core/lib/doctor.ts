@@ -7,13 +7,13 @@ import { LEGACY_ORT, legacyOrt, onnxVersion } from "../rag/runtimes/ort.ts";
 import { LOOPBACK, loopbackProxyGap, shellOf } from "../shell.ts";
 import type { CatalogEntry, DoctorAction, DoctorCheck, MachineProfile, ResolvedModel } from "../types.ts";
 import { jiraCreds, xrayCreds } from "./creds.ts";
-import { catalogEntry } from "./models-catalog.ts";
+import { catalogEntry, pack } from "./models-catalog.ts";
 import { fitOf } from "./models-fit.ts";
 import { machineProfile } from "./models-hardware.ts";
 import { perfStats, readPerf } from "./models-perf.ts";
-import { budgets, readRegistry } from "./models-registry.ts";
+import { budgets, downloadsAllowed, readRegistry } from "./models-registry.ts";
 import { resolveInstalled } from "./models-resolve.ts";
-import { DEFAULT_PROJECT, readSettings } from "./project.ts";
+import { readSettings } from "./project.ts";
 
 export type DoctorOpts = {
   project: string | null;
@@ -246,11 +246,11 @@ async function activeOf(project: string | null) {
     );
     return { embedding: a.embedding, reranker: a.reranker, wanted: [...new Set(wanted)] };
   }
-  const rag = DEFAULT_PROJECT.rag;
+  const light = pack("light")?.variants[0];
   return {
-    embedding: resolveInstalled(rag.embedding),
-    reranker: rag.reranker ? resolveInstalled(rag.reranker) : null,
-    wanted: [rag.embedding, rag.reranker].filter((m): m is string => !!m),
+    embedding: light ? resolveInstalled(light.embedding) : null,
+    reranker: light?.reranker ? resolveInstalled(light.reranker) : null,
+    wanted: [light?.embedding, light?.reranker].filter((m): m is string => !!m),
   };
 }
 
@@ -270,7 +270,7 @@ function installRow(kind: "embedding" | "reranker", m: ResolvedModel | null, wan
   if (!m && !wanted) return row(id, label, "skip", "none in use");
   if (!m) {
     const e = wanted ? catalogEntry(wanted) : undefined;
-    const remote = readRegistry().allowRemote;
+    const remote = downloadsAllowed();
     return row(
       id,
       label,

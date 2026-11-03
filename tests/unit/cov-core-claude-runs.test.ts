@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ask, listChats, sourceRefs } from "../../src/core/claude/chat.ts";
 import { checkOne, checkTests, promoteChecked } from "../../src/core/claude/check.ts";
-import { describeFigures, figuresPrompt, parseFigureDescriptions } from "../../src/core/claude/figures.ts";
+import { describeFigures, figuresPrompt, parseFigures } from "../../src/core/claude/figures.ts";
 import { fixTest } from "../../src/core/claude/fix.ts";
 import { claudeHeaders, headersPrompt, parseHeaders, projectOfDoc } from "../../src/core/claude/headers.ts";
 import { contextDirs, mcpServer, runClaude } from "../../src/core/claude/run.ts";
@@ -19,6 +19,7 @@ import {
 import { checkSignedIn, claudeExe, claudeVersion, resetProbe } from "../../src/core/claude/status.ts";
 import type { Ctx } from "../../src/core/command.ts";
 import { type ClaudeOut, type ClaudeSpawn, env } from "../../src/core/env.ts";
+import { readDoc } from "../../src/core/lib/docs.ts";
 import {
   DEFAULT_SETTINGS,
   readJson,
@@ -27,7 +28,8 @@ import {
   writeProject,
   writeSettings,
 } from "../../src/core/lib/project.ts";
-import type { Chunk, DocJson, FigureEntry } from "../../src/core/types.ts";
+import type { Chunk, FigureEntry } from "../../src/core/types.ts";
+import { writeContextMd } from "./context-helpers.ts";
 
 const FIXTURE = join(import.meta.dirname, "..", "fixtures", "project");
 const D3 = "SOSIE_211_D401-1_3";
@@ -248,13 +250,15 @@ describe("figures edges", () => {
   });
 
   it("reads a bare object and skips list entries without a description", () => {
-    expect(parseFigureDescriptions('voici {"fig:1": "Un carré."}')).toEqual({ "fig:1": "Un carré." });
+    expect(parseFigures('voici {"fig:1": {"description": "Un carré."}}')).toEqual({
+      "fig:1": { description: "Un carré." },
+    });
     expect(
-      parseFigureDescriptions(
+      parseFigures(
         '```json\n[null, {"anchor": "fig:2", "description": " "}, {"anchor": "3", "description": "Rond"}]\n```',
       ),
-    ).toEqual({ "fig:3": "Rond" });
-    expect(parseFigureDescriptions("```figures\nnot json\n```")).toEqual({});
+    ).toEqual({ "fig:3": { description: "Rond" } });
+    expect(parseFigures("```figures\nnot json\n```")).toEqual({});
   });
 
   it("refuses an unknown document; a cancelled job describes nothing", async () => {
@@ -269,7 +273,7 @@ describe("figures edges", () => {
     const entries = readJson<FigureEntry[]>(file, []);
     writeJson(file, [...entries, { file: "figures/old.png", anchor: "fig:99", caption: "Old", description: "Gone" }]);
     rmSync(join(dir, "docs", D3, "doc.json"));
-    answer({ code: 0, stdout: `${resultLine('```figures\n{"fig:40": "Neuf."}\n```')}\n` });
+    answer({ code: 0, stdout: `${resultLine('```figures\n{"fig:40": {"description": "Neuf."}}\n```')}\n` });
     const r = await describeFigures(dir, D3, ctxOf(), { force: true, model: "haiku" });
     expect(r.described).toBe(1);
     expect(seen[0].stdin).toContain(`for the document ${D3}.`);
@@ -299,8 +303,8 @@ describe("headers edges", () => {
   });
 
   it("finds no project for a document nobody knows; a cancelled run throws; nothing to do without chunks", async () => {
-    const doc = readJson<DocJson>(join(dir, "docs", D3, "doc.json"), {} as DocJson);
-    expect(projectOfDoc({ ...doc, convertedAt: "other" })).toBeNull();
+    const doc = readDoc(dir, D3);
+    expect(projectOfDoc({ ...doc, converted: { with: "", at: "other", warnings: [] } })).toBeNull();
     const p = readProject(dir);
     writeProject(dir, { ...p, rag: { ...p.rag, claudeHeaders: true } as typeof p.rag });
     expect(await claudeHeaders(doc, [], new AbortController().signal, dir)).toEqual([]);
@@ -324,7 +328,7 @@ describe("runClaude edges", () => {
   it("context dirs: the context folder, a folder path, and the folder of a file path", () => {
     const c = join(dir, "contexts", "c1");
     mkdirSync(c, { recursive: true });
-    writeJson(join(c, "context.json"), { name: "C1", paths: ["docs", "docs/missing.txt", "nowhere/x/y.txt"] });
+    writeContextMd(c, { name: "C1", paths: ["docs", "docs/missing.txt", "nowhere/x/y.txt"] });
     expect(contextDirs(dir, ["c1", "bad id", "gone"]).sort()).toEqual([c, join(dir, "docs")].sort());
   });
 

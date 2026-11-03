@@ -10,12 +10,10 @@ import {
   dropSpace,
   edgesFrom,
   edgesTo,
-  findSpace,
   getSpace,
   insertChunk,
   listSpaces,
   missingVectors,
-  nearest,
   openDb,
   putVector,
   replaceEdges,
@@ -59,7 +57,7 @@ beforeEach(() => {
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 describe("rag.db schema v2", () => {
-  it("migrates a v1 index: vecs becomes an unpinned space, FTS gains the stem column", () => {
+  it("migrates an older index: FTS gains the stem column, the chunks lose their dropped columns", () => {
     const file = join(dir, "rag.db");
     const old = new DatabaseSync(file, { allowExtension: true });
     (require("sqlite-vec") as { load(db: DatabaseSync): void }).load(old);
@@ -71,32 +69,23 @@ describe("rag.db schema v2", () => {
         text text not null, kind text not null, hash text not null, superseded integer not null default 0
       );
       create virtual table chunks_fts using fts5(header, text, codes, tokenize = 'unicode61 remove_diacritics 2');
-      create virtual table vecs using vec0(chunk_rowid integer primary key, embedding float[4] distance_metric=cosine);
       insert into meta values ('embedding', 'bge-m3'), ('dims', '4');
       insert into chunks values (1, 'D#§1', 'D', '§1', '1', '[]', '[]', 'h', 'sectionneur ouvert', 'section', 'x', 0);
       insert into chunks_fts(rowid, header, text, codes) values (1, 'h', 'sectionneur ouvert', '1');
     `);
-    old.prepare("insert into vecs(chunk_rowid, embedding) values (?, ?)").run(1n, new Float32Array([1, 0, 0, 0]));
     old.close();
 
     const db = openDb(file);
     try {
-      expect(db.prepare("select 1 from sqlite_master where name = 'vecs'").get()).toBeUndefined();
-      const [s] = listSpaces(db);
-      expect(s.fingerprint.unpinned).toBe(true);
-      expect(s.modelId).toBe("bge-m3");
-      expect(s.complete).toBe(true);
-      expect(vectorCount(db, s.id)).toBe(1);
-      expect(nearest(db, s.id, new Float32Array([1, 0, 0, 0]), 1)[0].rowid).toBe(1);
+      expect(listSpaces(db)).toEqual([]);
       const sql = (db.prepare("select sql from sqlite_master where name = 'chunks_fts'").get() as { sql: string }).sql;
       expect(sql).toContain("stem");
       expect(db.prepare("select rowid from chunks_fts where chunks_fts match 'sectionneur'").all()).toHaveLength(1);
-      expect(findSpace(db, fp({ modelId: "bge-m3", dims: 4 }))?.id).toBe(s.id);
     } finally {
       db.close();
     }
     const again = openDb(file);
-    expect(listSpaces(again)).toHaveLength(1);
+    expect(again.prepare("select count(*) as n from chunks").get()).toEqual({ n: 1 });
     again.close();
   });
 

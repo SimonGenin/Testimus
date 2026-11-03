@@ -2,9 +2,10 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { UserError } from "../../command.ts";
+import { readFigures } from "../../lib/docs.ts";
 import { loadMsSoFar, recordPerf } from "../../lib/models-perf.ts";
-import { readJson, readProject } from "../../lib/project.ts";
-import type { FigureEntry, RetrievalSettings, SearchHit } from "../../types.ts";
+import { readProject } from "../../lib/project.ts";
+import type { RetrievalSettings, SearchHit } from "../../types.ts";
 import { activeModels } from "../activation.ts";
 import { docFigures } from "../chunk.ts";
 import { type ChunkRow, chunkCount, chunksByRowid, indexFile, nearest, openDb, toChunk } from "../db.ts";
@@ -96,7 +97,7 @@ function figureFile(project: string, c: ChunkRow): string | undefined {
   if (c.kind !== "figure") return undefined;
   const dir = join(project, "docs", c.docId);
   const md = existsSync(join(dir, "doc.md")) ? readFileSync(join(dir, "doc.md"), "utf8") : "";
-  const f = docFigures(md, readJson<FigureEntry[]>(join(dir, "figures.json"), [])).find((x) => x.anchor === c.anchor);
+  const f = docFigures(md, readFigures(project, c.docId)).find((x) => x.anchor === c.anchor);
   return f?.file ? `docs/${c.docId}/${f.file}` : undefined;
 }
 

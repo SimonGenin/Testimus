@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Step, StepImage, XrayJson } from "../../../core/types.ts";
+import type { ColumnLayout, Step, StepImage } from "../../../core/types.ts";
 import { Button } from "../../components/legacy/index.ts";
 import { collapsible, columnsOf, splitTracks } from "../../lib/columns.ts";
 import { cx } from "../../lib/format.ts";
@@ -22,7 +22,7 @@ export function WasView({
   onRestore,
 }: {
   step: Step;
-  xray: XrayJson;
+  xray: ColumnLayout;
   layout: StepLayout;
   index: number;
   url: (file: string) => string;
@@ -91,7 +91,7 @@ export function GoneStep({
   onRestore,
 }: {
   step: Step;
-  xray: XrayJson;
+  xray: ColumnLayout;
   layout: StepLayout;
   url: (file: string) => string;
   onOpenImage: (file: string, images: StepImage[]) => void;

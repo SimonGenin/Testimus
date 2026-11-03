@@ -8,7 +8,6 @@ import { env, type HttpReq } from "../../src/core/env.ts";
 import { registryFile } from "../../src/core/lib/models-catalog.ts";
 import { resolveInstalled } from "../../src/core/lib/models-resolve.ts";
 import { findModel } from "../../src/core/lib/models-store.ts";
-import { findProfile } from "../../src/core/rag/models.ts";
 
 const atl = () => join(env.homeDir(), ".atlassian");
 const jiraFile = () => join(atl(), "credentials.json");
@@ -184,14 +183,15 @@ describe("system settings", () => {
 
   it("reads defaults and saves only the fields given", async () => {
     const s0 = (await invoke("system.settings", {}, { project: null })) as any;
-    expect(s0).toMatchObject({ theme: "system", stepLayout: "stacked", models: { allowRemote: true } });
-    await invoke("system.saveSettings", { theme: "dark", allowRemote: false }, { project: null });
+    expect(s0).toMatchObject({ models: { allowRemote: true } });
+    expect(s0).not.toHaveProperty("theme");
+    await invoke("system.saveSettings", { allowRemote: false }, { project: null });
     const exe = join(mkdtempSync(join(tmpdir(), "testimus-exe-")), "claude.exe");
     writeFileSync(exe, "");
     const s1 = (await invoke("system.saveSettings", { claudeExe: ` ${exe} ` }, { project: null })) as any;
-    expect(s1).toMatchObject({ theme: "dark", stepLayout: "stacked", claude: { exe } });
+    expect(s1).toMatchObject({ claude: { exe } });
     expect(s1.models.allowRemote).toBe(false);
-    expect(read(join(env.dataDir(), "settings.json")).theme).toBe("dark");
+    expect(read(join(env.dataDir(), "settings.json")).models.allowRemote).toBe(false);
   });
 
   it("keeps a claude.exe path as typed even when it does not run (Xray Editor), but refuses command characters", async () => {
@@ -216,18 +216,17 @@ describe("system settings", () => {
   });
 });
 
-describe("system.pullModel", () => {
-  it("refuses an unknown profile and a download when allowRemote is off", async () => {
-    await expect(invoke("system.pullModel", { profile: "nope" }, { project: null, wait: true })).rejects.toThrow(
-      /Unknown model profile/,
+describe("models.pull (system.pullModel, its v1 alias, is gone)", () => {
+  it("refuses an unknown model and a download when allowRemote is off", async () => {
+    await expect(invoke("models.pull", { model: "nope" }, { project: null, wait: true })).rejects.toThrow(
+      /Unknown model nope/,
     );
     await invoke("system.saveSettings", { allowRemote: false }, { project: null });
-    const p = findProfile("bge-m3")!;
-    if (findModel(p.hfId, p.dtype)) return;
+    if (findModel("Xenova/bge-m3", "q8")) return;
     const prev = process.env.TESTIMUS_MODELS;
     process.env.TESTIMUS_MODELS = join(env.localDir(), "empty-models");
     try {
-      await expect(invoke("system.pullModel", { profile: "bge-m3" }, { project: null, wait: true })).rejects.toThrow(
+      await expect(invoke("models.pull", { model: "bge-m3-q8" }, { project: null, wait: true })).rejects.toThrow(
         /downloads are off/,
       );
     } finally {
@@ -237,15 +236,15 @@ describe("system.pullModel", () => {
   });
 });
 
-describe("system.pullModel — alias of models.pull", () => {
-  it("takes a profile name or catalog id, and stops before any download when the models folder is not chosen", async () => {
+describe("models.pull — the models folder", () => {
+  it("stops before any download when the models folder is not chosen", async () => {
     rmSync(registryFile(), { force: true });
     const prev = process.env.TESTIMUS_MODELS;
     process.env.TESTIMUS_MODELS = join(env.localDir(), "empty-models");
     try {
       expect(resolveInstalled("qwen3-embedding-0.6b-q8")).toBeNull();
       await expect(
-        invoke("system.pullModel", { profile: "qwen3-embedding-0.6b-q8" }, { project: null, wait: true }),
+        invoke("models.pull", { model: "qwen3-embedding-0.6b-q8" }, { project: null, wait: true }),
       ).rejects.toThrow(/Choose where models are stored: `testimus models setDir <folder>`/);
     } finally {
       if (prev === undefined) delete process.env.TESTIMUS_MODELS;

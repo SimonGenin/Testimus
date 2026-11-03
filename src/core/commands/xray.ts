@@ -2,9 +2,9 @@ import { resolve } from "node:path";
 import { z } from "zod";
 import { type Ctx, command, projectOf, UserError } from "../command.ts";
 import { env } from "../env.ts";
-import { followXray, stepColumns } from "../lib/columns.ts";
+import { storeXray } from "../lib/columns.ts";
 import { browseUrl, getFolderTree, getStepFields, listPreconditions, listTests, searchTests } from "../lib/jira.ts";
-import { fieldOrder, readProject, readXray, writeXray } from "../lib/project.ts";
+import { readProject } from "../lib/project.ts";
 import { listLocalTests, localTestRef } from "../lib/store.ts";
 import {
   checkRemote,
@@ -30,25 +30,8 @@ const field = z.object({
   disabled: z.boolean().optional().describe("Switched off in Xray's project settings (kept, shown « off in Xray »)"),
 });
 const xrayJson = z.object({
-  fields: z.array(field),
-  prefs: z.object({
-    order: z.array(z.string()),
-    collapsed: z.array(z.string()),
-    hidden: z.array(z.string()),
-    filled: z.array(z.string()).optional(),
-    open: z.array(z.string()).optional(),
-  }),
-  fetchedAt: z.string().optional(),
-  columns: z
-    .array(
-      z.object({
-        name: z.string(),
-        id: z.string().optional(),
-        description: z.string().optional(),
-        referenceSource: z.boolean().optional(),
-      }),
-    )
-    .optional(),
+  fetchedAt: z.string().optional().describe("When the fields were read from Xray"),
+  fields: z.array(field).describe("Xray's step fields, built-in and custom, in Xray's order"),
 });
 const remoteRef = z.object({
   key: z.string(),
@@ -163,7 +146,8 @@ async function allInFolder(projectId: string, folder: string, descendants: boole
 export const commands = [
   command({
     name: "xray.fields",
-    summary: "Fetch the project's Xray step fields (built-in and custom) into xray.json; local field prefs are kept.",
+    summary:
+      "Fetch the project's Xray step fields (built-in and custom) into xray.json; the team's columns (columns.json) follow a field renamed or dropped in Xray.",
     input: z.object({}),
     output: xrayJson,
     mutates: true,
@@ -171,61 +155,7 @@ export const commands = [
       const project = projectOf(ctx);
       const info = await projectInfo(project);
       const fields = await getStepFields(info.id);
-      const next = { ...followXray(readXray(project), fields), fetchedAt: env.now().toISOString() };
-      writeXray(project, next);
-      return next;
-    },
-  }),
-
-  command({
-    name: "xray.prefs",
-    summary: "Set the local step-field preferences in xray.json: display order, folded fields, hidden fields.",
-    input: z.object({
-      order: z.array(z.string()).optional().describe("Field names in display order (replaces the order)"),
-      collapsed: z.array(z.string()).optional().describe("Field names shown folded (replaces the list)"),
-      filled: z
-        .array(z.string())
-        .optional()
-        .describe("Field names shown only on a step that holds something in them (replaces the list)"),
-      hidden: z.array(z.string()).optional().describe("Field names not shown (replaces the list)"),
-      open: z
-        .array(z.string())
-        .optional()
-        .describe(
-          "Fields switched off in Xray shown open anyway (they fold unless filled by default; replaces the list)",
-        ),
-    }),
-    output: xrayJson,
-    mutates: true,
-    async run(ctx, input) {
-      const project = projectOf(ctx);
-      const x = readXray(project);
-      const names = stepColumns(project, x).map((c) => c.name);
-      const unknown = [
-        ...(input.order ?? []),
-        ...(input.collapsed ?? []),
-        ...(input.hidden ?? []),
-        ...(input.filled ?? []),
-        ...(input.open ?? []),
-      ].filter((n) => !names.includes(n));
-      if (unknown.length)
-        throw new UserError(
-          `Not a step field of this project: ${[...new Set(unknown)].join(", ")}.`,
-          `Known fields: ${names.join(", ")} (testimus xray fields refreshes them).`,
-        );
-      const next = {
-        ...x,
-        prefs: {
-          order: input.order ?? x.prefs.order,
-          collapsed: input.collapsed ?? x.prefs.collapsed,
-          hidden: input.hidden ?? x.prefs.hidden,
-          filled: input.filled ?? x.prefs.filled ?? [],
-          ...((input.open ?? x.prefs.open)?.length ? { open: input.open ?? x.prefs.open } : {}),
-        },
-      };
-      next.prefs.order = fieldOrder(next);
-      writeXray(project, next);
-      return next;
+      return storeXray(project, fields, env.now().toISOString());
     },
   }),
 

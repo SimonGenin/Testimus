@@ -10,7 +10,6 @@ import { sha256 } from "../lib/hash.ts";
 import {
   DEFAULT_PROJECT,
   DEFAULT_XRAY,
-  fieldOrder,
   forgetProject,
   isProject,
   projectsRoot,
@@ -141,6 +140,7 @@ function subdirs(dir: string): string[] {
 
 export function projectInfo(dir: string) {
   const xray = readXray(dir);
+  const columns = stepColumns(dir, xray);
   const review = Object.fromEntries(REVIEWS.map((r) => [r, 0])) as Record<Review, number>;
   let tests = 0;
   let awaiting = 0;
@@ -158,8 +158,8 @@ export function projectInfo(dir: string) {
     dir,
     project: readProject(dir),
     xray,
-    fieldOrder: fieldOrder(xray),
-    columns: stepColumns(dir, xray),
+    fieldOrder: columns.map((c) => c.name),
+    columns,
     counts: {
       docs: subdirs(join(dir, "docs")).filter((d) => existsSync(join(dir, "docs", d, "doc.json"))).length,
       tests,
@@ -390,8 +390,6 @@ export const commands = [
       folders: z.array(z.string()).optional().describe("Xray repository folders offered when generating."),
       rag: z
         .object({
-          embedding: z.string().optional().describe("v1 embedding name, used when no pack or reference is chosen"),
-          reranker: z.string().nullable().optional().describe("v1 reranker name, or null for none"),
           claudeHeaders: z
             .boolean()
             .optional()
@@ -465,8 +463,6 @@ export const commands = [
           ...(input.rag?.queryTask !== undefined ? { queryTask: input.rag.queryTask } : {}),
           ...(input.rag?.passageMaxChars !== undefined ? { passageMaxChars: input.rag.passageMaxChars } : {}),
           ...(input.rag?.retrieval ? { retrieval: { ...cur.rag.retrieval, ...input.rag.retrieval } } : {}),
-          embedding: input.rag?.embedding ?? cur.rag.embedding,
-          reranker: input.rag?.reranker !== undefined ? input.rag.reranker : cur.rag.reranker,
           ...((input.rag?.claudeHeaders ?? cur.rag.claudeHeaders) !== undefined && {
             claudeHeaders: input.rag?.claudeHeaders ?? cur.rag.claudeHeaders,
           }),

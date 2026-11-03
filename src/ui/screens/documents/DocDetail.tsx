@@ -245,7 +245,7 @@ export function DocDetail({
 
   const d = shown.doc;
   const from = d.source.file?.endsWith(".pdf") ? "PDF" : "Word";
-  const converted = !!d.convertedAt;
+  const converted = !!d.converted?.at;
   const reading = !running && converted;
   const sections = shown.toc;
   const at = sections.findIndex((t) => t.anchor === current);
@@ -281,7 +281,7 @@ export function DocDetail({
           </div>
           {running ? (
             <span className="muted docdoc-facts">
-              Converting from {from} · {baseName(d.source.path.replace(/^upload: /, ""))}
+              Converting from {from} · {baseName(d.source.name)}
             </span>
           ) : converted ? (
             <span className="muted docdoc-facts">
@@ -289,7 +289,7 @@ export function DocDetail({
             </span>
           ) : (
             <span className="muted docdoc-facts">
-              {from} file, not converted · {baseName(d.source.path.replace(/^upload: /, ""))}
+              {from} file, not converted · {baseName(d.source.name)}
             </span>
           )}
         </div>
@@ -324,7 +324,9 @@ export function DocDetail({
               onClick={() => toggle("details")}
             >
               Details
-              {!running && d.warnings.length > 0 && <span className="docdoc-dot" title="Conversion warnings" />}
+              {!running && (d.converted?.warnings ?? []).length > 0 && (
+                <span className="docdoc-dot" title="Conversion warnings" />
+              )}
             </Button>
           )}
           {!running && (
@@ -447,13 +449,13 @@ export function DocDetail({
             />
           </div>
 
-          {!running && d.warnings.length > 0 && (
+          {!running && (d.converted?.warnings ?? []).length > 0 && (
             <div className="docdetail-warn">
               <span className="docdoc-label">
-                Conversion <span className="muted">{plural(d.warnings.length, "warning")}</span>
+                Conversion <span className="muted">{plural((d.converted?.warnings ?? []).length, "warning")}</span>
               </span>
               <ul className="docdoc-warns">
-                {d.warnings.map((w) => (
+                {(d.converted?.warnings ?? []).map((w) => (
                   <li key={w} className="docdoc-warn">
                     <Icon name="warning" />
                     <div className="docdoc-warn-text">
