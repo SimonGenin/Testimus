@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { DocRef, JobEvent } from "../../src/core/types.ts";
+import type { DocRef, JobEvent } from "../../../../src/core/types.ts";
 
 const runs: { name: string; input: Record<string, unknown> }[] = [];
 let handlers: Record<string, (input: Record<string, unknown>, onEvent?: (e: JobEvent) => void) => unknown> = {};
 
-vi.mock("../../src/ui/api.ts", async (importOriginal) => {
-  const real = await importOriginal<typeof import("../../src/ui/api.ts")>();
+vi.mock("../../../../src/ui/api.ts", async (importOriginal) => {
+  const real = await importOriginal<typeof import("../../../../src/ui/api.ts")>();
   return {
     ...real,
     run: vi.fn(async (name: string, input: Record<string, unknown>, onEvent?: (e: JobEvent) => void) => {
@@ -20,8 +20,8 @@ vi.mock("../../src/ui/api.ts", async (importOriginal) => {
 });
 
 const toasts: unknown[] = [];
-vi.mock("../../src/ui/lib/toast.ts", async (importOriginal) => {
-  const real = await importOriginal<typeof import("../../src/ui/lib/toast.ts")>();
+vi.mock("../../../../src/ui/lib/toast.ts", async (importOriginal) => {
+  const real = await importOriginal<typeof import("../../../../src/ui/lib/toast.ts")>();
   return { ...real, toast: vi.fn((t: unknown) => toasts.push(t)) };
 });
 
@@ -39,7 +39,7 @@ const {
   setImportClaude,
   settled,
   useUploads,
-} = await import("../../src/ui/lib/uploads.ts");
+} = await import("../../../../src/ui/lib/uploads.ts");
 
 const progress = (message: string, done?: number, total?: number): JobEvent => ({
   jobId: "j",

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Job, JobEvent } from "../../src/core/types.ts";
+import type { Job, JobEvent } from "../../../../src/core/types.ts";
 import {
   applyEvent,
   childSummary,
@@ -12,7 +12,7 @@ import {
   processLabel,
   sections,
   subjectLabel,
-} from "../../src/ui/lib/jobs.ts";
+} from "../../../../src/ui/lib/jobs.ts";
 
 const job = (o: Partial<Job> & { id: string }): Job => ({
   kind: "check",

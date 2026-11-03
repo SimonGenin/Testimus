@@ -2,19 +2,19 @@
 import "@testing-library/jest-dom/vitest";
 import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { JobEvent } from "../../src/core/types.ts";
-import { setProject } from "../../src/ui/api.ts";
-import { touches, useChanged } from "../../src/ui/lib/changed.ts";
-import { FakeES, fakeEvents, fakeNet, net } from "./cov-uishell-helpers.tsx";
-import { app as appState } from "./ui-desktop-helpers.tsx";
+import type { JobEvent } from "../../../../src/core/types.ts";
+import { setProject } from "../../../../src/ui/api.ts";
+import { touches, useChanged } from "../../../../src/ui/lib/changed.ts";
+import { FakeES, fakeEvents, fakeNet, net } from "../../cov-uishell-helpers.tsx";
+import { app as appState } from "../../ui-desktop-helpers.tsx";
 
-vi.mock("../../src/ui/screens/tests/TestsScreen.tsx", async () => {
-  const { useApp } = await import("../../src/ui/lib/app.ts");
+vi.mock("../../../../src/ui/screens/tests/TestsScreen.tsx", async () => {
+  const { useApp } = await import("../../../../src/ui/lib/app.ts");
   return {
     TestsScreen: () => <output aria-label="tests nonce">{useApp().testsNonce}</output>,
   };
 });
-vi.mock("../../src/ui/components/claude/ClaudeDock.tsx", () => ({ ClaudeDock: () => null }));
+vi.mock("../../../../src/ui/components/claude/ClaudeDock.tsx", () => ({ ClaudeDock: () => null }));
 
 const changed = (paths: string[]) =>
   act(() => FakeES.emit({ jobId: "j", at: "2026-11-03T10:00:00.000Z", type: "changed", paths }));

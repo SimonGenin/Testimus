@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import type { Step, Test } from "../../src/core/types.ts";
-import { columnsOf, modeOf, openByDefault, projectModes, splitTracks } from "../../src/ui/lib/columns.ts";
-import { differs, diffLocal, lossOf, restoreStep } from "../../src/ui/lib/diff.ts";
-import { layoutOf, prefsOf } from "./layout-helpers.ts";
+import type { Step, Test } from "../../../../src/core/types.ts";
+import { columnsOf, modeOf, openByDefault, projectModes, splitTracks } from "../../../../src/ui/lib/columns.ts";
+import { differs, diffLocal, lossOf, restoreStep } from "../../../../src/ui/lib/diff.ts";
+import { layoutOf, prefsOf } from "../../layout-helpers.ts";
 
 const s = (id: string | undefined, action: string): Step => ({
   ...(id ? { id } : {}),

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createQueryClient } from "../../src/ui/lib/data/query.ts";
-import { mirrorPrefs, restorePrefs } from "../../src/ui/lib/prefsMirror.ts";
+import { createQueryClient } from "../../../../src/ui/lib/data/query.ts";
+import { mirrorPrefs, restorePrefs } from "../../../../src/ui/lib/prefsMirror.ts";
 
 const client = createQueryClient();
 

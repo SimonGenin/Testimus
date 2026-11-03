@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { toBase64, uploadImage } from "../../src/ui/lib/files.ts";
-import { api, fakeFetch } from "./ui-desktop-helpers.tsx";
+import { toBase64, uploadImage } from "../../../../src/ui/lib/files.ts";
+import { api, fakeFetch } from "../../ui-desktop-helpers.tsx";
 
 afterEach(() => {
   vi.unstubAllGlobals();

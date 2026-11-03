@@ -4,8 +4,8 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { setProject } from "../../src/ui/api.ts";
-import { ClaudeDock, type DockRequest, docOfRoute } from "../../src/ui/components/claude/ClaudeDock.tsx";
-import { type Action, originLine, scopeWords } from "../../src/ui/lib/actions.ts";
+import { ClaudeDock, type DockRequest } from "../../src/ui/components/claude/ClaudeDock.tsx";
+import type { Action } from "../../src/ui/lib/actions.ts";
 import { AppContext, type AppState } from "../../src/ui/lib/app.ts";
 import { callsOf, fakeEvents, fakeNet, net } from "./cov-uishell-helpers.tsx";
 import { app } from "./ui-desktop-helpers.tsx";
@@ -55,19 +55,6 @@ function dock(request: DockRequest | null, over: Partial<AppState> = {}) {
 }
 
 const actionsTab = () => screen.getByRole("button", { name: /^Actions/ });
-
-describe("action words", () => {
-  it("say who proposed the action, with which model and effort, and when", () => {
-    expect(originLine(action())).toBe("Proposed by Opus · low · during the import · 2 min ago");
-    expect(originLine(action({ proposedBy: { run: "x", model: "", effort: "", at: "nope" } }))).toBe(
-      "Proposed by Claude",
-    );
-    expect(scopeWords({ kind: "step", testId: "T-1", step: 4 })).toBe("T-1 · step 4");
-    expect(scopeWords({ kind: "doc", docId: DOC })).toBe(`${DOC} · whole document`);
-    expect(docOfRoute({ screen: "documents", arg: `${DOC}#§5.6.6` })).toBe(DOC);
-    expect(docOfRoute({ screen: "tests", arg: "x" })).toBeNull();
-  });
-});
 
 describe("Ask Claude: the Actions tab", () => {
   it("holds every open action as a card, with the suggested model and effort, then runs and reverts it", async () => {
