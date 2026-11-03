@@ -143,6 +143,7 @@ function PhaseRow({
 }
 
 export function GenActivity({ events, running, now }: { events: JobEvent[]; running: boolean; now: number }) {
+  const [shown, setShown] = useState(true);
   const [raw, setRaw] = useState(false);
   const [totals, setTotals] = useState<Record<string, number>>({});
   const asked = useRef(new Set<string>());
@@ -160,33 +161,54 @@ export function GenActivity({ events, running, now }: { events: JobEvent[]; runn
   const planned = phases.reduce((n, p) => n + p.planned.length, 0);
   return (
     <section className="card act" aria-label="What Claude did">
-      <h2 className="act-heading">What Claude did</h2>
-      {!phases.length && (
-        <p className="muted">{running ? "Claude is starting." : "Nothing was recorded for this run."}</p>
+      <h2 className="act-heading">
+        <button
+          type="button"
+          className="act-fold"
+          aria-expanded={shown}
+          aria-controls="act-body"
+          onClick={() => setShown((s) => !s)}
+        >
+          <Icon name={shown ? "down" : "right"} />
+          What Claude did
+          {!shown && phases.length > 0 && (
+            <>
+              {" "}
+              <span className="act-fold-sum">{plural(phases.length, "phase")}</span>
+            </>
+          )}
+        </button>
+      </h2>
+      {shown && (
+        <div id="act-body" className="act-content">
+          {!phases.length && (
+            <p className="muted">{running ? "Claude is starting." : "Nothing was recorded for this run."}</p>
+          )}
+          <ol className="act-phases">
+            {phases.map((p, i) => (
+              <PhaseRow
+                key={`${p.kind}-${p.from}`}
+                phase={p}
+                live={running && i === phases.length - 1}
+                now={now}
+                totals={totals}
+                planned={planned}
+              />
+            ))}
+          </ol>
+          <Button
+            tone="quiet"
+            size="sm"
+            icon={raw ? "down" : "right"}
+            aria-expanded={raw}
+            className="act-raw"
+            onClick={() => setRaw((r) => !r)}
+          >
+            {raw ? "Hide" : "Show"} the raw log ({plural(events.length, "event")})
+          </Button>
+          {raw && <JobLog events={events} label="Raw log" />}
+        </div>
       )}
-      <ol className="act-phases">
-        {phases.map((p, i) => (
-          <PhaseRow
-            key={`${p.kind}-${p.from}`}
-            phase={p}
-            live={running && i === phases.length - 1}
-            now={now}
-            totals={totals}
-            planned={planned}
-          />
-        ))}
-      </ol>
-      <Button
-        tone="quiet"
-        size="sm"
-        icon={raw ? "down" : "right"}
-        aria-expanded={raw}
-        className="act-raw"
-        onClick={() => setRaw((r) => !r)}
-      >
-        {raw ? "Hide" : "Show"} the raw log ({plural(events.length, "event")})
-      </Button>
-      {raw && <JobLog events={events} label="Raw log" />}
     </section>
   );
 }
