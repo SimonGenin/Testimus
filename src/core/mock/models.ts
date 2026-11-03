@@ -210,7 +210,7 @@ function seedPerf(advice: MockAdvice): void {
   for (const s of perfSeed(advice, now)) recordPerf({ ...s, at: new Date(s.at).toISOString() } as PerfLine);
 }
 
-function seedChoice(project: string, advice: MockAdvice): void {
+export function seedChoice(project: string, advice: MockAdvice): void {
   if (advice === "none" || activeChoice(project)) return;
   if (advice === "upgrade")
     setActiveChoice(project, { pack: "light", variant: { embedding: "bge-m3-q8", reranker: null } });
@@ -225,7 +225,7 @@ export type MockModels = { options: MockModelsOptions; machine: MachineProfile; 
 
 export async function setupModelsMock(
   root: string,
-  project: string,
+  project: string | null,
   o: MockModelsOptions = mockModelsOptions(),
 ): Promise<MockModels> {
   process.env.LOCALAPPDATA = join(root, "localappdata");
@@ -314,7 +314,7 @@ export async function setupModelsMock(
 
   const s = readSettings();
   writeSettings({ ...s, models: { ...s.models, allowRemote: true } });
-  seedChoice(project, o.advice);
+  if (project) seedChoice(project, o.advice);
   seedPerf(o.advice);
   return { options: o, machine, dir, shared };
 }

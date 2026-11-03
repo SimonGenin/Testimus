@@ -1156,6 +1156,13 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
       `models.hardware`), the roomiest local drive with 1.2 × the need preselected (`<drive>\Testimus\models`), a typed
       folder checked live by `models.setDir --dry-run` (refusals shown with their reason), Move / Keep where they are /
       Copy when downloads exist; never `wait`: a move or copy is followed as a job.
+- Mock seeds: `TESTIMUS_MOCK_SEED` picks the sandbox's projects, comma-separated, the first one open — `fixture`
+  (default, the LFRPS12 sample), `empty` (no document, no test, no Jira key), `none` (no project: the first run) or a
+  project folder of this PC, copied into the sandbox and never written. `npm run screens` (`scripts/screens.ts`, catalog
+  in `scripts/screens-catalog.ts`) starts one mock server per scenario (no project, empty project, fixture, a copy of
+  a project of this PC with the fake Jira, Claude absent or logged out, model machines) and shoots every screen, dialog and
+  state at 1920 × 1080, 1366 × 768 and 1024 × 768 (740 × 800 on demand), light and dark, a long pane walked a screen at a time, into
+  `dist/screens/` with `manifest.json` and `index.html` — the material handed to design work.
 - Mock: `serve --mock` also fakes the models side, without network and without touching the PC's models: a machine profile
   (`TESTIMUS_MOCK_MACHINE` = `gpu16` default — 16 GB GPU, 32 GB RAM; `gpu-small` — 4 GB GPU, 16 GB: Quality « GPU too
   small », Balanced « tight »; `cpu-only` — no GPU, 6 GB: Quality not available; `unknown` — a GPU without a VRAM

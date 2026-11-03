@@ -15,7 +15,7 @@ afterAll(() => {
 describe("setupMock with a BM25-only index", () => {
   it("builds the sandbox, points every seam at it and indexes without a model", async () => {
     process.env.TESTIMUS_MOCK_INDEX = "bm25";
-    const project = await setupMock();
+    const project = (await setupMock()) ?? "";
     const root = join(project, "..");
     expect(env.mock).toBe(true);
     expect(env.homeDir()).toBe(join(root, "home"));

@@ -51,7 +51,7 @@ const packs = async () => (await invoke("models.packs", {}, { project })) as Pac
 beforeAll(async () => {
   process.env.TESTIMUS_MOCK_DOWNLOAD_MS = "30";
   delete process.env.TESTIMUS_MACHINE;
-  project = await setupMock();
+  project = (await setupMock()) ?? "";
 }, 60_000);
 
 describe("serve --mock models", () => {

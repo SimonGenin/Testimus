@@ -1,6 +1,6 @@
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { quietCtx } from "../command.ts";
 import { env } from "../env.ts";
@@ -12,7 +12,7 @@ import "./claude-columns.ts";
 import "./claude-gen.ts";
 import "./claude-study.ts";
 import { mockHttp } from "./jira.ts";
-import { mockModelsOptions, setupModelsMock } from "./models.ts";
+import { mockModelsOptions, seedChoice, setupModelsMock } from "./models.ts";
 
 export function fixturesDir(): string {
   return fileURLToPath(new URL("../../../tests/fixtures/", import.meta.url));
@@ -30,13 +30,43 @@ function dropOldSandboxes(): void {
       } catch {}
 }
 
-export async function setupMock(): Promise<string> {
+// ponytail: TESTIMUS_MOCK_SEED picks the sandbox's projects, comma-separated, the first one open: `fixture` (default,
+// the LFRPS12 sample), `empty` (a project with no document and no test, no Jira key), `none` (no project at all: the
+// first run), or a project folder of this PC, copied (never touched)
+function seedProjects(root: string, spec: string): string[] {
+  const dirs: string[] = [];
+  for (const s of spec.split(",").map((x) => x.trim())) {
+    if (!s || s === "none") continue;
+    if (s === "fixture") {
+      const project = join(root, "LFRPS12");
+      const seed = join(fixturesDir(), "project");
+      if (existsSync(join(seed, "project.json"))) cpSync(seed, project, { recursive: true });
+      else {
+        mkdirSync(project, { recursive: true });
+        writeProject(project, { ...DEFAULT_PROJECT, name: "RATP Sosie", jiraProject: "LFRPS12" });
+      }
+      dirs.push(project);
+    } else if (s === "empty") {
+      const project = join(root, "Empty");
+      mkdirSync(project, { recursive: true });
+      writeProject(project, { ...DEFAULT_PROJECT, name: "Empty" });
+      dirs.push(project);
+    } else {
+      if (!existsSync(join(s, "project.json"))) throw new Error(`TESTIMUS_MOCK_SEED: ${s} is not a Testimus project`);
+      const project = join(root, basename(s));
+      cpSync(s, project, { recursive: true });
+      dirs.push(project);
+    }
+  }
+  return dirs;
+}
+
+export async function setupMock(): Promise<string | null> {
   dropOldSandboxes();
   const root = mkdtempSync(join(tmpdir(), "testimus-mock-"));
   const home = join(root, "home");
   const data = join(root, "appdata");
   const local = join(root, "localappdata");
-  const project = join(root, "LFRPS12");
   mkdirSync(join(home, ".atlassian"), { recursive: true });
   writeJson(join(home, ".atlassian", "credentials.json"), {
     baseUrl: "https://mock.atlassian.net/wiki",
@@ -44,12 +74,8 @@ export async function setupMock(): Promise<string> {
     token: "mock-token",
   });
   writeJson(join(home, ".atlassian", "xray_credentials.json"), { clientId: "mock-id", clientSecret: "mock-secret" });
-  const seed = join(fixturesDir(), "project");
-  if (existsSync(join(seed, "project.json"))) cpSync(seed, project, { recursive: true });
-  else {
-    mkdirSync(project, { recursive: true });
-    writeProject(project, { ...DEFAULT_PROJECT, name: "RATP Sosie", jiraProject: "LFRPS12" });
-  }
+  const projects = seedProjects(root, process.env.TESTIMUS_MOCK_SEED || "fixture");
+  const project = projects[0] ?? null;
   writeFileSync(join(root, "README.txt"), "Testimus --mock sandbox: deleted with the temp folder.\n");
   env.mock = true;
   env.homeDir = () => home;
@@ -57,10 +83,13 @@ export async function setupMock(): Promise<string> {
   env.localDir = () => local;
   env.http = mockHttp;
   env.spawnClaude = mockSpawnClaude;
-  writeJson(join(data, "settings.json"), { projects: [project], lastProject: project, models: { allowRemote: false } });
+  writeJson(join(data, "settings.json"), { projects, lastProject: project, models: { allowRemote: false } });
   const models = mockModelsOptions();
   await setupModelsMock(root, project, models);
   const { indexProject } = await import("../rag/indexer.ts");
-  await indexProject(project, quietCtx(project), models.index === "bm25" ? { model: null } : {}).catch(() => {});
+  for (const p of projects) {
+    if (p !== project) seedChoice(p, models.advice);
+    await indexProject(p, quietCtx(p), models.index === "bm25" ? { model: null } : {}).catch(() => {});
+  }
   return project;
 }

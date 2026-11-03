@@ -18,7 +18,8 @@
     "e2e": "playwright test",
     "release": "node scripts/release.ts",
     "desktop": "node scripts/desktop.ts",
-    "desktop:build": "node scripts/desktop.ts --build-only"
+    "desktop:build": "node scripts/desktop.ts --build-only",
+    "screens": "node scripts/screens.ts"
   },
   "dependencies": {
     "@fontsource-variable/jetbrains-mono": "^5.3.0",
