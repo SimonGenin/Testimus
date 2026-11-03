@@ -1,25 +1,5 @@
 import { homedir } from "node:os";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-const exec = vi.hoisted(() => ({
-  answer: (_cmd: string): { err: (Error & { code?: unknown }) | null; stdout: string | undefined } => ({
-    err: null,
-    stdout: "",
-  }),
-  calls: [] as string[],
-}));
-vi.mock("node:child_process", async (importOriginal) => {
-  const real = await importOriginal<typeof import("node:child_process")>();
-  return {
-    ...real,
-    execFile: (cmd: string, _args: string[], _opts: unknown, cb: (e: unknown, out?: string) => void) => {
-      exec.calls.push(cmd);
-      const a = exec.answer(cmd);
-      queueMicrotask(() => cb(a.err, a.stdout));
-      return {};
-    },
-  };
-});
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { env } from "../../src/core/env.ts";
 import {
@@ -42,8 +22,6 @@ const platform = process.platform;
 const setPlatform = (p: string) => Object.defineProperty(process, "platform", { value: p, configurable: true });
 
 beforeEach(() => {
-  exec.calls = [];
-  exec.answer = () => ({ err: null, stdout: "" });
   pinMachineProfile(null);
 });
 afterEach(() => {
@@ -54,16 +32,24 @@ afterEach(() => {
 });
 
 describe("the real hardware seams", () => {
-  it("run maps a numeric error code, a non-numeric one to 1, and a missing stdout to empty", async () => {
-    exec.answer = (cmd) =>
-      cmd === "a"
-        ? { err: Object.assign(new Error("x"), { code: 3 }), stdout: "out" }
-        : cmd === "b"
-          ? { err: Object.assign(new Error("x"), { code: "ENOENT" }), stdout: undefined }
-          : { err: null, stdout: "ok" };
-    expect(await hardwareDeps.exec("a", [], 10)).toEqual({ code: 3, stdout: "out" });
-    expect(await hardwareDeps.exec("b", [], 10)).toEqual({ code: 1, stdout: "" });
-    expect(await hardwareDeps.exec("c", [], 10)).toEqual({ code: 0, stdout: "ok" });
+  it("exec runs a real program: its exit code and stdout, 1 and no output for a program that is not there", async () => {
+    const node = process.execPath;
+    expect(await hardwareDeps.exec(node, ["-e", "process.stdout.write('out');process.exit(3)"], 10000)).toEqual({
+      code: 3,
+      stdout: "out",
+    });
+    expect(await hardwareDeps.exec("testimus-no-such-program", [], 10000)).toEqual({ code: 1, stdout: "" });
+    expect(await hardwareDeps.exec(node, ["-e", "process.stdout.write('ok')"], 10000)).toEqual({
+      code: 0,
+      stdout: "ok",
+    });
+  });
+
+  it("exec stops a program that outlives its delay, and says it failed", async () => {
+    const t0 = Date.now();
+    const r = await hardwareDeps.exec(process.execPath, ["-e", "setTimeout(() => {}, 20000)"], 300);
+    expect(r.code).not.toBe(0);
+    expect(Date.now() - t0).toBeLessThan(10000);
   });
 
   it("statfs reads a drive and gives null for a path that does not exist", () => {
@@ -180,17 +166,25 @@ describe("machineProfile", () => {
 
   it("measures once, reuses it for ten minutes, and measures again on refresh or when stale", async () => {
     vi.stubEnv("TESTIMUS_MACHINE", "");
-    exec.answer = () => ({ err: Object.assign(new Error("absent"), { code: 1 }), stdout: "" });
+    const calls: string[] = [];
+    const real = hardwareDeps.exec;
+    hardwareDeps.exec = async (cmd) => {
+      calls.push(cmd);
+      return { code: 1, stdout: "" };
+    };
+    onTestFinished(() => {
+      hardwareDeps.exec = real;
+    });
     const t = Date.parse("2026-11-02T10:00:00Z");
     env.now = () => new Date(t);
     const first = await machineProfile({ refresh: true });
     expect(knownMachine()).toBe(first);
     expect(await machineProfile()).toBe(first);
-    const n = exec.calls.length;
+    const n = calls.length;
     env.now = () => new Date(t + 11 * 60 * 1000);
     const second = await machineProfile();
     expect(second).not.toBe(first);
-    expect(exec.calls.length).toBeGreaterThan(n);
+    expect(calls.length).toBeGreaterThan(n);
     expect(await machineProfile({ refresh: true })).not.toBe(second);
   });
 

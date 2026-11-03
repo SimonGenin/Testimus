@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { sleep } from "../../shared/run/work.ts";
 import { env } from "../env.ts";
 import { SHIPPED } from "../lib/models-catalog.ts";
 import { downloadDeps, filesFor, hfUrl, installPath } from "../lib/models-download.ts";
@@ -108,7 +109,12 @@ function fakeStream(size: number, start: number, signal: AbortSignal | null | un
         return;
       }
       const n = Math.min(chunk, size - at);
-      await new Promise((r) => setTimeout(r, (mockDownloads.ms * n) / BIG));
+      try {
+        await sleep((mockDownloads.ms * n) / BIG, signal ?? undefined);
+      } catch {
+        c.error(new DOMException("The operation was aborted.", "AbortError"));
+        return;
+      }
       at += n;
       c.enqueue(new Uint8Array(n).fill(FILL));
     },
@@ -146,10 +152,13 @@ async function fakePullLlama(
   signal: AbortSignal,
 ): Promise<LlamaRuntime> {
   const target = join(dir, `${LLAMA_BUILD}-${backend}`);
+  const cancelled = () => new Error(`Download of llama.cpp ${LLAMA_BUILD} (${backend}) cancelled.`);
   for (const a of LLAMA_ASSETS[backend]) {
     for (let i = 1; i <= 8; i++) {
-      if (signal.aborted) throw new Error(`Download of llama.cpp ${LLAMA_BUILD} (${backend}) cancelled.`);
-      await new Promise((r) => setTimeout(r, mockDownloads.ms / 8));
+      if (signal.aborted) throw cancelled();
+      await sleep(mockDownloads.ms / 8, signal).catch(() => {
+        throw cancelled();
+      });
       onProgress({ file: a.name, loaded: Math.round((a.size * i) / 8), total: a.size });
     }
   }
