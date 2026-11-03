@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "testimus-mock",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["src/faces/cli.ts", "serve", "--mock", "--port", "4399", "--no-open"],
+      "port": 4399
+    }
+  ]
+}
