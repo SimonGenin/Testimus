@@ -19,7 +19,9 @@ import {
 } from "./turns.ts";
 import { useClaudeJob } from "./useClaudeJob.ts";
 
-export type DockJob = { name: string; input: unknown; label: string; testId: string };
+// a run handed by the app (Fix with Claude in Review, Ask Claude on a step): `text` is the request as asked, when it
+// is not the label
+export type DockJob = { name: string; input: unknown; label: string; testId: string; text?: string };
 export type Last = { seconds: number; summary: string; ok: boolean };
 
 const TESTS: Prefix[] = [["tests.show"]];
@@ -160,11 +162,12 @@ export function useDockRuns(app: AppState) {
       toast(BUSY);
       return;
     }
-    const answerId = start("run", j.label, undefined, j.testId);
+    const answerId = start("run", j.text ?? j.label, j.text === undefined ? undefined : j.label, j.testId);
     try {
+      const asked = (j.input ?? {}) as { model?: string; effort?: Effort };
       await runOnTest(answerId, j.testId, j.name as "review.fix", j.input, Date.now(), {
-        model: cfg?.model ?? "",
-        effort: cfg?.effort ?? "high",
+        model: asked.model ?? cfg?.model ?? "",
+        effort: asked.effort ?? cfg?.effort ?? "high",
       });
     } catch (e) {
       stopped(answerId, e);

@@ -129,6 +129,34 @@ describe("dock run details", () => {
     );
     expect(await screen.findByText("ok")).toBeInTheDocument();
   });
+
+  it("shows a run asked from a step's popover as its request under its scope, with the model it was asked with", async () => {
+    net.routes["claude.run"] = () => ({ ok: true, summary: "done", durationMs: 1000 });
+    mount(
+      {
+        request: {
+          mode: "test",
+          nonce: 1,
+          job: {
+            name: "claude.run",
+            input: {
+              scope: { kind: "step", testId: "local-1", step: 2 },
+              prompt: "Cite §5.6",
+              model: "haiku",
+              effort: "low",
+            },
+            label: "Step 2",
+            text: "Cite §5.6",
+            testId: "local-1",
+          },
+        },
+      },
+      { focus: focus() },
+    );
+    expect(await screen.findByText("done")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Request · Step 2" })).toHaveTextContent("Cite §5.6");
+    expect(screen.getByText(/haiku \/ low/)).toBeInTheDocument();
+  });
 });
 
 describe("dock contexts", () => {
