@@ -3,6 +3,7 @@ import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync } from "node:
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { readContextFile } from "../../src/core/claude/prompt.ts";
 import { quietCtx } from "../../src/core/command.ts";
 import { commands as contexts } from "../../src/core/commands/contexts.ts";
 import { commands as project } from "../../src/core/commands/project.ts";
@@ -87,18 +88,18 @@ describe("atomic writes: temp file, then rename", () => {
     expect(readFileSync(file, "utf8")).toBe("# Notes\n");
   });
 
-  it("contexts.set writes notes.md atomically, and a failed rename keeps the old notes", async () => {
+  it("contexts.set writes context.md atomically, and a failed rename keeps the old notes", async () => {
     const c = await run<{ id: string }>("contexts.create", { name: "Style" });
     await run("contexts.set", { id: c.id, notes: "Une action par pas." });
     const dir = join(P, "contexts", c.id);
-    const file = join(dir, "notes.md");
+    const file = join(dir, "context.md");
     expectAtomic(file);
-    expect(readFileSync(file, "utf8")).toBe("Une action par pas.");
+    expect(readContextFile(dir).notes).toBe("Une action par pas.");
     expect(tmpsIn(dir)).toEqual([]);
     failRename();
     await expect(run("contexts.set", { id: c.id, notes: "lost" })).rejects.toThrow("EPERM");
     expect(tmpsIn(dir)).toEqual([]);
-    expect(readFileSync(file, "utf8")).toBe("Une action par pas.");
+    expect(readContextFile(dir).notes).toBe("Une action par pas.");
   });
 
   it("docs writeContext writes context.md atomically, and a failed rename keeps the old context", () => {

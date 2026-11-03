@@ -5,8 +5,9 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { generateTests, genPrompt, languageName, parseGenReport, stampTest } from "../../src/core/claude/generate.ts";
 import type { Ctx } from "../../src/core/command.ts";
 import { type ClaudeOut, env } from "../../src/core/env.ts";
-import { DEFAULT_SETTINGS, readProject, writeJson, writeProject, writeSettings } from "../../src/core/lib/project.ts";
+import { DEFAULT_SETTINGS, readProject, writeProject, writeSettings } from "../../src/core/lib/project.ts";
 import { readTest } from "../../src/core/lib/store.ts";
+import { writeContextMd } from "./context-helpers.ts";
 import { markIndexedInDb as markIndexed } from "./index-state-helpers.ts";
 
 const FIXTURE = join(import.meta.dirname, "..", "fixtures", "project");
@@ -52,14 +53,13 @@ describe("generation prompt, the edges", () => {
   it("lists the contexts with their notes, files and paths", () => {
     const c = join(dir, "contexts", "ctx1");
     mkdirSync(join(c, "files"), { recursive: true });
-    writeJson(join(c, "context.json"), { name: "Plan", paths: ["D:/plans"] });
-    writeFileSync(join(c, "notes.md"), "notes");
+    writeContextMd(c, { name: "Plan", paths: ["D:/plans"], notes: "notes" });
     writeFileSync(join(c, "files", "p.pdf"), "");
     mkdirSync(join(dir, "contexts", "ctx2"), { recursive: true });
     const text = genPrompt(dir, { request: "x" }, ["ctx1", "ctx2"]);
     expect(text).toContain("Context to read before you start");
     expect(text).toMatch(
-      /- Plan — notes: \S+\/contexts\/ctx1\/notes\.md; files: \S+\/ctx1\/files\/p\.pdf; also look at: D:\/plans/,
+      /- Plan — notes: \S+\/contexts\/ctx1\/context\.md; files: \S+\/ctx1\/files\/p\.pdf; also look at: D:\/plans/,
     );
     expect(text).toMatch(/^- ctx2$/m);
   });

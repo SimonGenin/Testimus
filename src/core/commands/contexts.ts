@@ -6,14 +6,16 @@ import {
   effectiveContexts,
   isShared,
   projectContexts,
+  readContextFile,
   readContexts,
   readTestContexts,
   sharedContexts,
+  writeContextFile,
   writeTestContexts,
 } from "../claude/prompt.ts";
 import { command, projectOf, UserError } from "../command.ts";
 import { copyDirAtomic } from "../lib/atomic.ts";
-import { isProject, readJson, readProject, writeJson } from "../lib/project.ts";
+import { isProject, readProject } from "../lib/project.ts";
 import { hex8, testExists, writeAtomic } from "../lib/store.ts";
 
 const ID = z.string().regex(/^[\w-]+$/, "A context id: letters, digits, _ and -");
@@ -28,11 +30,7 @@ const summary = z.object({
   hasNotes: z.boolean(),
   shared: z.boolean().describe("In the shared library every project sees, not in this project's contexts/"),
 });
-const detail = summary.extend({ notes: z.string().describe("contexts/<id>/notes.md") });
-
-type Meta = { name?: string; paths?: string[] };
-
-const metaFile = (project: string, cid: string) => join(contextDir(project, cid), "context.json");
+const detail = summary.extend({ notes: z.string().describe("The notes: the body of contexts/<id>/context.md") });
 
 function otherProject(from: string, project: string): string {
   const dir = resolve(from);
@@ -141,8 +139,7 @@ export const commands = [
       while (existsSync(contextDir(project, cid))) cid = `ctx-${hex8()}`;
       const dir = join(input.shared ? sharedContexts() : join(project, "contexts"), cid);
       mkdirSync(join(dir, "files"), { recursive: true });
-      writeJson(join(dir, "context.json"), { name: input.name?.trim() || "New context", paths: [] });
-      writeAtomic(join(dir, "notes.md"), "");
+      writeContextFile(dir, { name: input.name?.trim() || "New context", paths: [], notes: "" });
       return show(project, cid);
     },
   }),
@@ -193,11 +190,11 @@ export const commands = [
   }),
   command({
     name: "contexts.set",
-    summary: "Change a context: its name, its notes (notes.md) or its list of outside paths.",
+    summary: "Change a context (contexts/<id>/context.md): its name, its notes or its list of outside paths.",
     input: z.object({
       id,
       name: z.string().optional().describe("New name"),
-      notes: z.string().optional().describe("New text of notes.md (markdown, may be empty)"),
+      notes: z.string().optional().describe("New notes, the body of context.md (markdown, may be empty)"),
       paths: z
         .array(z.string())
         .optional()
@@ -211,12 +208,12 @@ export const commands = [
     async run(ctx, input) {
       const project = projectOf(ctx);
       const dir = mustExist(project, input.id);
-      const meta = readJson<Meta>(metaFile(project, input.id), {});
-      if (input.name !== undefined) meta.name = input.name.trim() || meta.name || input.id;
+      const c = readContextFile(dir);
+      if (input.name !== undefined) c.name = input.name.trim() || c.name || input.id;
       // ponytail: a path is kept as typed (Xray Editor); a relative one is read from the project folder, Claude's cwd
-      if (input.paths) meta.paths = [...new Set(input.paths.map((p) => p.trim()).filter(Boolean))];
-      if (input.name !== undefined || input.paths) writeJson(metaFile(project, input.id), meta);
-      if (input.notes !== undefined) writeAtomic(join(dir, "notes.md"), input.notes);
+      if (input.paths) c.paths = [...new Set(input.paths.map((p) => p.trim()).filter(Boolean))];
+      if (input.notes !== undefined) c.notes = input.notes;
+      if (input.name !== undefined || input.paths || input.notes !== undefined) writeContextFile(dir, c);
       return show(project, input.id);
     },
   }),

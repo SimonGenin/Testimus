@@ -202,11 +202,10 @@ describe("generation input", () => {
   });
 
   it("context lines: saved contexts pointed at, the note said in full, nothing when both are empty", () => {
-    write("contexts/c1/context.json", JSON.stringify({ name: "Glossaire", paths: [] }));
-    write("contexts/c1/notes.md", "TK");
+    write("contexts/c1/context.md", "---\nname: Glossaire\npaths:\n---\nTK");
     const lines = contextLines(dir, readContexts(dir, ["c1"]), "Note");
     expect(lines[1]).toMatch(/Context to read before you start/);
-    expect(lines[2]).toMatch(/^- Glossaire — notes: .*contexts\/c1\/notes\.md$/);
+    expect(lines[2]).toMatch(/^- Glossaire — notes: .*contexts\/c1\/context\.md$/);
     expect(lines.slice(-2)).toEqual(["Additional context from the user for this run:", "Note"]);
     expect(contextLines(dir, [], " ")).toEqual([]);
   });

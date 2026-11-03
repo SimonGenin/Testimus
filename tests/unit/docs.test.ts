@@ -12,6 +12,7 @@ import { readCheck } from "../../src/core/lib/store.ts";
 import { docContent } from "../../src/core/rag/indexer.ts";
 import type { DocJson, DocRef, FigureEntry } from "../../src/core/types.ts";
 import { sampleDocx } from "../fixtures/docx/sample.ts";
+import { writeContextMd } from "./context-helpers.ts";
 import { markIndexedInDb } from "./index-state-helpers.ts";
 
 async function run<T = unknown>(project: string, name: string, raw: unknown): Promise<T> {
@@ -100,13 +101,12 @@ describe("docs commands", () => {
     ]);
     expect((await run<{ contexts: string[] }>(project, "docs.show", { id: doc.id })).contexts).toEqual([]);
     mkdirSync(join(project, "contexts", "glossary"), { recursive: true });
-    writeFileSync(join(project, "contexts", "glossary", "context.json"), JSON.stringify({ name: "Glossary" }));
-    writeFileSync(join(project, "contexts", "glossary", "notes.md"), "TK = traction");
+    writeContextMd(join(project, "contexts", "glossary"), { name: "Glossary", notes: "TK = traction" });
     await run(project, "docs.set", { id: doc.id, contexts: ["glossary", "glossary", "gone"] });
     expect(JSON.parse(readFileSync(join(dir, "doc.json"), "utf8")).contexts).toEqual(["glossary", "gone"]);
     expect((await run<{ contexts: string[] }>(project, "docs.show", { id: doc.id })).contexts).toEqual(["glossary"]);
     expect(docRunLines(project, doc.id, { contexts: ["glossary"] }).join("\n")).toMatch(
-      /What the team knows about this document:\nEdition for the 2024 tender\n\nContext to read before you start[^\n]*\n- Glossary — notes: .*\/contexts\/glossary\/notes\.md$/,
+      /What the team knows about this document:\nEdition for the 2024 tender\n\nContext to read before you start[^\n]*\n- Glossary — notes: .*\/contexts\/glossary\/context\.md$/,
     );
     await run(project, "docs.set", { id: doc.id, contexts: [] });
     expect((await run<{ contexts: string[] }>(project, "docs.show", { id: doc.id })).contexts).toEqual([]);

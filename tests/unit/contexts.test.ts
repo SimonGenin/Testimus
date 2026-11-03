@@ -2,7 +2,13 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, write
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { buildPrompt, effectiveContexts, readContexts, sharedContexts } from "../../src/core/claude/prompt.ts";
+import {
+  buildPrompt,
+  effectiveContexts,
+  readContextFile,
+  readContexts,
+  sharedContexts,
+} from "../../src/core/claude/prompt.ts";
 import { contextDirs } from "../../src/core/claude/run.ts";
 import { quietCtx } from "../../src/core/command.ts";
 import { commands as contexts } from "../../src/core/commands/contexts.ts";
@@ -12,6 +18,7 @@ import { jobNotice, startJob, subscribe } from "../../src/core/jobs.ts";
 import { credsDir, credsStatus, savedSecrets } from "../../src/core/lib/creds.ts";
 import { getProjectInfo, rateLimit, resetAuth } from "../../src/core/lib/jira.ts";
 import type { JobEvent } from "../../src/core/types.ts";
+import { writeContextMd } from "./context-helpers.ts";
 
 const FIXTURE = resolve(import.meta.dirname, "../fixtures/project");
 const all = [...contexts, ...project];
@@ -54,7 +61,14 @@ describe("contexts commands", () => {
       paths: [outside, ` ${outside} `],
     });
     expect(set).toMatchObject({ name: "Style maison", notes: "Une action par pas.", hasNotes: true, paths: [outside] });
-    expect(readFileSync(join(P, "contexts", c.id, "notes.md"), "utf8")).toBe("Une action par pas.");
+    expect(readContextFile(join(P, "contexts", c.id))).toEqual({
+      name: "Style maison",
+      paths: [outside],
+      notes: "Une action par pas.",
+    });
+    expect(readFileSync(join(P, "contexts", c.id, "context.md"), "utf8")).toMatch(
+      /^---\nname: Style maison\npaths:\n {2}- /,
+    );
     const list = await run<Detail[]>("contexts.list");
     expect(list.map((x) => x.name)).toEqual(["New context", "Style maison"]);
     expect(await run<Detail>("contexts.show", { id: c.id })).toMatchObject({ notes: "Une action par pas." });
@@ -108,7 +122,7 @@ describe("contexts commands", () => {
     expect(own.shared).toBe(false);
     const lib = await run<Detail & { shared: boolean }>("contexts.create", { name: "Glossaire", shared: true });
     expect(lib.shared).toBe(true);
-    expect(existsSync(join(sharedContexts(), lib.id, "context.json"))).toBe(true);
+    expect(existsSync(join(sharedContexts(), lib.id, "context.md"))).toBe(true);
     expect(existsSync(join(P, "contexts", lib.id))).toBe(false);
     await run("contexts.set", { id: lib.id, notes: "PCC = poste de commande" });
     const seen = (await (all.find((x) => x.name === "contexts.list")?.run(quietCtx(other), {}) as Promise<
@@ -125,12 +139,12 @@ describe("contexts commands", () => {
     );
     expect(effectiveContexts(other)).toContain(lib.id);
     expect(buildPrompt({ kind: "project" }, "", readContexts(other, [lib.id]), other)).toContain(
-      `${sharedContexts().replace(/\\/g, "/")}/${lib.id}/notes.md`,
+      `${sharedContexts().replace(/\\/g, "/")}/${lib.id}/context.md`,
     );
     expect(contextDirs(other, [lib.id])).toEqual([join(sharedContexts(), lib.id)]);
     const moved = await run<Detail & { shared: boolean }>("contexts.share", { id: lib.id, shared: false });
     expect(moved).toMatchObject({ shared: false, notes: "PCC = poste de commande" });
-    expect(existsSync(join(P, "contexts", lib.id, "notes.md"))).toBe(true);
+    expect(existsSync(join(P, "contexts", lib.id, "context.md"))).toBe(true);
     expect(existsSync(join(sharedContexts(), lib.id))).toBe(false);
     expect(effectiveContexts(other)).not.toContain(lib.id);
     const back = await run<Detail & { shared: boolean }>("contexts.share", { id: own.id, shared: true });
@@ -149,7 +163,7 @@ describe("contexts commands", () => {
         name: "Glossaire",
       }) as Promise<Detail>)) as Detail;
     writeFileSync(join(other, "contexts", theirs.id, "files", "g.txt"), "PCC");
-    writeFileSync(join(other, "contexts", theirs.id, "notes.md"), "Notes");
+    writeContextMd(join(other, "contexts", theirs.id), { name: "Glossaire", notes: "Notes" });
     expect((await run<Detail[]>("contexts.list", { from: other })).map((c) => c.name)).toEqual(["Glossaire"]);
     const copy = await run<Detail>("contexts.copy", { from: other, id: theirs.id });
     expect(copy).toMatchObject({ id: theirs.id, name: "Glossaire", files: ["g.txt"], notes: "Notes" });

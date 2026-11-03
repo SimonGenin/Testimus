@@ -28,8 +28,8 @@ project is in **Team notes** at the end.
 - `tests/<id>/test.md` — one test (format below); `images/` its pictures; `check.json` its last
   check's findings; `local.json` the test's own settings (its contexts, how its columns fold), never
   part of the test. `<id>` is the Jira key once pushed (`PROJ-123`), `local-<hex>` before.
-- `contexts/<id>/` — reference material the team attaches to runs: `notes.md`, `files/`, and paths
-  outside the project. A shared library of contexts lives outside the project, for every project.
+- `contexts/<id>/` — reference material the team attaches to runs: `context.md` (a frontmatter with its
+  `name` and the `paths` outside the project it points at, then its notes), and `files/`. A shared library of contexts lives outside the project, for every project.
 - `project.json` — Jira project, the language of the tests, Xray folders, review label prefix, the
   default Claude model and effort, the contexts every run reads.
 - `columns.json` — the step columns in their order: Xray's step fields and the project's local
@@ -185,7 +185,7 @@ Action when it shows where to act, in the Expected Result when it shows what to 
 
 ## Contexts
 
-A run may come with contexts: the prompt names each one (its `notes.md`, its files, outside paths).
+A run may come with contexts: the prompt names each one (its `context.md`, its files, outside paths).
 Read them before you start; they are reference material, never edited. Which ones apply is chosen by
 the team: the project's defaults, a test's or a document's own list, and per run. A document's
 `context.md` is what the team knows about that document.

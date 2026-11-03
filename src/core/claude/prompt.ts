@@ -1,8 +1,9 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { env } from "../env.ts";
+import { writeAtomic } from "../lib/atomic.ts";
 import { findDoc, readContext, readDoc, writeDoc } from "../lib/docs.ts";
-import { readJson, readProject } from "../lib/project.ts";
+import { readProject } from "../lib/project.ts";
 import { readLocal, testDir, writeLocal } from "../lib/store.ts";
 import type { ClaudeRun, ClaudeScope, Context } from "../types.ts";
 
@@ -66,20 +67,60 @@ export function projectContexts(project: string): string[] {
   return [...new Set(ids)].filter((id) => /^[\w-]+$/.test(id) && existsSync(contextDir(project, id)));
 }
 
+export type ContextFile = { name: string; paths: string[]; notes: string };
+
+const bare = (v: string) => {
+  const t = v.trim();
+  if (!t.startsWith('"')) return t;
+  try {
+    return String(JSON.parse(t));
+  } catch {
+    return t.slice(1, t.endsWith('"') ? -1 : undefined);
+  }
+};
+const line = (v: string) => (/^\s|\s$|^"|[\r\n]/.test(v) ? JSON.stringify(v) : v);
+
+// ponytail: contexts/<id>/context.md — the frontmatter says what the context is (name, the outside paths Claude may
+// read in place), the body is its notes; the same convention as test.md, readable and editable by hand
+export function readContextFile(dir: string): ContextFile {
+  const file = join(dir, "context.md");
+  const text = existsSync(file) ? readFileSync(file, "utf8").replace(/^\uFEFF/, "") : "";
+  const m = text.match(/^\s*---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/);
+  if (!m) return { name: "", paths: [], notes: text };
+  let name = "";
+  const paths: string[] = [];
+  let inPaths = false;
+  for (const l of m[1].split(/\r?\n/)) {
+    const key = l.match(/^(\w+):\s*(.*)$/);
+    if (key) {
+      inPaths = key[1] === "paths";
+      if (key[1] === "name") name = bare(key[2]);
+      continue;
+    }
+    const item = l.match(/^\s*-\s*(.*)$/);
+    if (inPaths && item && bare(item[1])) paths.push(bare(item[1]));
+  }
+  return { name, paths, notes: text.slice(m[0].length) };
+}
+
+export function writeContextFile(dir: string, c: ContextFile): void {
+  const head = ["---", `name: ${line(c.name)}`, "paths:", ...c.paths.map((p) => `  - ${line(p)}`), "---", ""];
+  writeAtomic(join(dir, "context.md"), `${head.join("\n")}${c.notes}`);
+}
+
 export function readContexts(project: string, ids: string[]): Context[] {
   const out: Context[] = [];
   for (const id of ids) {
     if (!/^[\w-]+$/.test(id)) continue;
     const dir = contextDir(project, id);
     if (!existsSync(dir)) continue;
-    const meta = readJson<{ name?: string; paths?: string[] }>(join(dir, "context.json"), {});
-    const notes = join(dir, "notes.md");
+    const c = readContextFile(dir);
     const files = join(dir, "files");
     out.push({
       id,
-      name: meta.name || id,
-      text: existsSync(notes) ? readFileSync(notes, "utf8") : "",
-      paths: Array.isArray(meta.paths) ? meta.paths : [],
+      name: c.name || id,
+      text: c.notes,
+      paths: c.paths,
       files: existsSync(files) ? readdirSync(files) : [],
     });
   }
@@ -151,7 +192,7 @@ export function contextLines(project: string, contexts: Context[], note = "", co
     for (const c of contexts) {
       const dir = slash(contextDir(project, c.id));
       const parts: string[] = [];
-      if (c.text.trim()) parts.push(`notes: ${dir}/notes.md`);
+      if (c.text.trim()) parts.push(`notes: ${dir}/context.md`);
       if (c.files.length) parts.push(`files: ${c.files.map((f) => `${dir}/files/${f}`).join(", ")}`);
       if (c.paths.length) parts.push(`also look at: ${c.paths.join(", ")}`);
       lines.push(`- ${c.name}${parts.length ? ` — ${parts.join("; ")}` : ""}`);

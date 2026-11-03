@@ -111,7 +111,7 @@ describe("App, when a job changed project files", () => {
       expect(ctxs).not.toHaveBeenCalled();
       changed([".testimus/actions/act-1.json"]);
       expect(acts).toHaveBeenCalledTimes(1);
-      changed(["contexts/glossary/notes.md"]);
+      changed(["contexts/glossary/context.md"]);
       changed(["project.json"]);
       changed(["tests/local-1/local.json"]);
       expect(ctxs).toHaveBeenCalledTimes(3);

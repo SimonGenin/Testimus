@@ -29,6 +29,7 @@ import {
   writeSettings,
 } from "../../src/core/lib/project.ts";
 import type { Chunk, FigureEntry } from "../../src/core/types.ts";
+import { writeContextMd } from "./context-helpers.ts";
 
 const FIXTURE = join(import.meta.dirname, "..", "fixtures", "project");
 const D3 = "SOSIE_211_D401-1_3";
@@ -327,7 +328,7 @@ describe("runClaude edges", () => {
   it("context dirs: the context folder, a folder path, and the folder of a file path", () => {
     const c = join(dir, "contexts", "c1");
     mkdirSync(c, { recursive: true });
-    writeJson(join(c, "context.json"), { name: "C1", paths: ["docs", "docs/missing.txt", "nowhere/x/y.txt"] });
+    writeContextMd(c, { name: "C1", paths: ["docs", "docs/missing.txt", "nowhere/x/y.txt"] });
     expect(contextDirs(dir, ["c1", "bad id", "gone"]).sort()).toEqual([c, join(dir, "docs")].sort());
   });
 
