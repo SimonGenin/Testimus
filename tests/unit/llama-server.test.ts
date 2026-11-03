@@ -60,9 +60,6 @@ beforeEach(() => {
     killed.push(p);
     procs.find((x) => x.pid === p)?.exit(1);
   };
-  serverIo.killSync = (p) => {
-    killed.push(p);
-  };
   serverIo.now = () => clock;
   serverIo.sleep = async (ms) => {
     clock += ms;

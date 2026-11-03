@@ -2,17 +2,19 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const smi: { err: Error | null; stdout: string | undefined } = { err: null, stdout: "" };
 
-vi.mock("node:child_process", async (importOriginal) => {
-  const real = await importOriginal<typeof import("node:child_process")>();
+vi.mock("../../src/shared/run/process.ts", async (importOriginal) => {
+  const real = await importOriginal<typeof import("../../src/shared/run/process.ts")>();
   return {
     ...real,
-    execFile: (_cmd: string, _args: string[], _opts: object, cb: (e: Error | null, out?: string) => void) => {
-      cb(smi.err, smi.stdout);
-    },
+    run: async (spec: { exe: string }) =>
+      spec.exe === "nvidia-smi"
+        ? { code: smi.err ? 1 : 0, stdout: smi.stdout ?? "", stderr: "", cancelled: false, timedOut: false }
+        : real.run(spec as Parameters<typeof real.run>[0]),
   };
 });
 
 const { serverIo } = await import("../../src/core/rag/runtimes/llama-server.ts");
+const { killChildren, liveChildren } = await import("../../src/shared/run/process.ts");
 
 const node = process.execPath;
 const platform = Object.getOwnPropertyDescriptor(process, "platform") as PropertyDescriptor;
@@ -46,17 +48,25 @@ describe("llama-server process io", () => {
     expect(seen.join("")).toMatch(/ENOENT/);
   });
 
+  it("a server is a live child, so the exit guard of Testimus takes it with the others", async () => {
+    const p = sleeper();
+    expect(liveChildren()).toContain(p.pid);
+    expect(killChildren()).toContain(p.pid);
+    expect(await p.exited).not.toBe(0);
+    expect(liveChildren()).not.toContain(p.pid);
+  });
+
   it("finds a free loopback port", async () => {
     const port = await serverIo.freePort();
     expect(port).toBeGreaterThan(0);
   });
 
-  it("kills a process tree (Windows) and synchronously", async () => {
+  it("kills a process tree", async () => {
     const a = sleeper();
     await serverIo.kill(a.pid as number);
     expect(await a.exited).not.toBe(0);
     const b = sleeper();
-    serverIo.killSync(b.pid as number);
+    await serverIo.kill(b.pid as number);
     expect(await b.exited).not.toBe(0);
   });
 
@@ -83,9 +93,9 @@ describe("llama-server process io", () => {
     await a.exited;
     await serverIo.kill(a.pid as number);
     const b = sleeper();
-    serverIo.killSync(b.pid as number);
+    await serverIo.kill(b.pid as number);
     await b.exited;
-    serverIo.killSync(b.pid as number);
+    await serverIo.kill(b.pid as number);
   });
 
   it("sleeps and makes a random key", async () => {

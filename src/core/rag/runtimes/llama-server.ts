@@ -1,7 +1,8 @@
-import { execFile, spawn, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { createServer } from "node:net";
-import { basename, join, resolve } from "node:path";
+import { basename, resolve } from "node:path";
+import { killChildrenOnExit, killTree, run, start as startProcess } from "../../../shared/run/process.ts";
+import { every, sleep } from "../../../shared/run/work.ts";
 import { UserError } from "../../command.ts";
 import { env } from "../../env.ts";
 import {
@@ -55,28 +56,16 @@ export const IDLE_MS = 10 * 60 * 1000;
 export const LLAMA_CTX = 8192;
 export const serverTimeouts = { readyMs: 180000, pollMs: 250, sweepMs: 60000 };
 
-function taskkill(): string {
-  return join(process.env.SystemRoot || "C:\\Windows", "System32", "taskkill.exe");
-}
-
 export const serverIo = {
   spawn(exe: string, args: string[]): Proc {
-    const child = spawn(exe, args, { windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
     const listeners: ((t: string) => void)[] = [];
-    const emit = (d: Buffer | string) => {
-      for (const l of listeners) l(d.toString());
-    };
-    child.stdout?.on("data", emit);
-    child.stderr?.on("data", emit);
+    const proc = startProcess({ exe, args, onLine: (line) => listeners.forEach((l) => l(`${line}\n`)) });
     return {
-      pid: child.pid,
+      pid: proc.pid,
       onOutput: (cb) => listeners.push(cb),
-      exited: new Promise((r) => {
-        child.on("error", (e) => {
-          emit(e.message);
-          r(-1);
-        });
-        child.on("exit", (code) => r(code));
+      exited: proc.exited.then((e) => {
+        if (e.error) listeners.forEach((l) => l(e.error as string));
+        return e.error && proc.pid === undefined ? -1 : e.code;
       }),
     };
   },
@@ -91,50 +80,25 @@ export const serverIo = {
       });
     });
   },
-  // ponytail: llama-server has no child processes today, but /T keeps a future helper from outliving it
-  kill(pid: number): Promise<void> {
-    if (process.platform !== "win32") {
-      try {
-        process.kill(pid);
-      } catch {}
-      return Promise.resolve();
-    }
-    return new Promise((r) => {
-      const k = spawn(taskkill(), ["/T", "/F", "/PID", String(pid)], { windowsHide: true, stdio: "ignore" });
-      k.on("error", () => r());
-      k.on("exit", () => r());
-    });
-  },
-  killSync(pid: number): void {
-    if (process.platform === "win32")
-      spawnSync(taskkill(), ["/T", "/F", "/PID", String(pid)], { windowsHide: true, stdio: "ignore" });
-    else
-      try {
-        process.kill(pid);
-      } catch {}
-  },
+  kill: (pid: number): Promise<void> => killTree(pid),
   now: () => Date.now(),
-  sleep: (ms: number) => new Promise<void>((r) => setTimeout(r, ms)),
+  sleep: (ms: number) => sleep(ms),
   randomKey: () => randomBytes(24).toString("hex"),
   vramUsedMB: nvidiaUsedMB,
 };
 
 // ponytail: llama.cpp holds its weights outside Node; the NVIDIA memory used before and after the load is its share
-function nvidiaUsedMB(): Promise<number | null> {
-  return new Promise((r) => {
-    execFile(
-      "nvidia-smi",
-      ["--query-gpu=memory.used", "--format=csv,noheader,nounits"],
-      { timeout: 5000, windowsHide: true, encoding: "utf8" },
-      (err, stdout) => {
-        const used = (stdout ?? "")
-          .split(/\r?\n/)
-          .map((l) => Number.parseFloat(l))
-          .filter(Number.isFinite);
-        r(err || !used.length ? null : used.reduce((a, b) => a + b, 0));
-      },
-    );
+async function nvidiaUsedMB(): Promise<number | null> {
+  const r = await run({
+    exe: "nvidia-smi",
+    args: ["--query-gpu=memory.used", "--format=csv,noheader,nounits"],
+    timeoutMs: 5000,
   });
+  const used = r.stdout
+    .split(/\r?\n/)
+    .map((l) => Number.parseFloat(l))
+    .filter(Number.isFinite);
+  return r.code !== 0 || !used.length ? null : used.reduce((a, b) => a + b, 0);
 }
 
 export function serverArgs(model: string, kind: ServerKind, port: number, apiKey: string): string[] {
@@ -161,8 +125,7 @@ export function serverArgs(model: string, kind: ServerKind, port: number, apiKey
 const running = new Map<string, LlamaServer>();
 type Starting = { promise: Promise<LlamaServer>; ctrl: AbortController; waiting: number };
 const starting = new Map<string, Starting>();
-let sweeper: ReturnType<typeof setInterval> | null = null;
-let exitHook = false;
+let sweeper: (() => void) | null = null;
 let generation = 0;
 
 function serverId(kind: ServerKind, model: string): string {
@@ -227,7 +190,7 @@ async function start(o: ServerStart, id: string): Promise<LlamaServer> {
     s.exitCode = code;
     if (running.get(id) === s) running.delete(id);
   });
-  hookExit();
+  killChildrenOnExit();
   for (;;) {
     if (s.exitCode !== undefined) {
       const err = new UserError(
@@ -269,10 +232,7 @@ async function start(o: ServerStart, id: string): Promise<LlamaServer> {
     });
   }
   if (target) target.loadMs += serverIo.now() - tStart;
-  if (!sweeper) {
-    sweeper = setInterval(() => void sweepIdle(), serverTimeouts.sweepMs);
-    sweeper.unref();
-  }
+  sweeper ??= every(serverTimeouts.sweepMs, sweepIdle);
   return s;
 }
 
@@ -360,7 +320,7 @@ export async function stopServer(s: LlamaServer): Promise<void> {
   if (running.get(s.id) === s) running.delete(s.id);
   if (s.exitCode === undefined && s.proc.pid !== undefined) await serverIo.kill(s.proc.pid);
   if (running.size === 0 && sweeper) {
-    clearInterval(sweeper);
+    sweeper();
     sweeper = null;
   }
 }
@@ -375,14 +335,6 @@ export async function stopAllServers(): Promise<void> {
   generation++;
   await Promise.allSettled([...starting.values()].map((st) => st.promise));
   for (const s of [...running.values()]) await stopServer(s);
-}
-
-function hookExit(): void {
-  if (exitHook) return;
-  exitHook = true;
-  process.once("exit", () => {
-    for (const s of running.values()) if (s.exitCode === undefined && s.proc.pid) serverIo.killSync(s.proc.pid);
-  });
 }
 
 export function liveServers(): LlamaServer[] {

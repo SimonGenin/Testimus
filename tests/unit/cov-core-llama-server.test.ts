@@ -54,9 +54,6 @@ beforeEach(() => {
     killed.push(p);
     procs.find((x) => x.pid === p)?.exit(1);
   };
-  serverIo.killSync = (p) => {
-    killed.push(p);
-  };
   serverIo.now = () => clock;
   serverIo.sleep = async (ms) => {
     clock += ms;
@@ -215,17 +212,5 @@ describe("llama-server edge cases", () => {
     await new Promise((r) => setTimeout(r, 40));
     expect(killed).toEqual([s.proc.pid]);
     expect(liveServers()).toEqual([]);
-  });
-
-  it("the exit hook kills every live server synchronously", async () => {
-    const a = await ensureServer({ exe: "x.exe", model: "D:/m/a.gguf", kind: "embedding" });
-    const b = await ensureServer({ exe: "x.exe", model: "D:/m/b.gguf", kind: "embedding" });
-    const hook = process.listeners("exit").find((l) => l.toString().includes("killSync"));
-    expect(hook).toBeDefined();
-    procs[1].exit(0);
-    await new Promise((r) => setTimeout(r, 1));
-    (hook as (code: number) => void)(0);
-    expect(killed).toEqual([a.proc.pid]);
-    expect(b.exitCode).toBe(0);
   });
 });
