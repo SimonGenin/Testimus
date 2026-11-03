@@ -114,6 +114,7 @@ describe("DocDetail", () => {
     toc: [
       { anchor: "§5", title: "Traction", level: 1 },
       { anchor: "§5.6", title: "Sectionneur", level: 2 },
+      { anchor: "§partie-sportive", title: "Partie Sportive", level: 1 },
     ],
     requirements: ["EXI_1"],
     figures: [
@@ -139,13 +140,15 @@ describe("DocDetail", () => {
     const { onAnchor, onReindex } = show();
     expect(await screen.findByRole("heading", { name: "Title D1" })).toBeInTheDocument();
     expect(screen.getByText("2026-01-02")).toBeInTheDocument();
-    expect(screen.getByText(/Converted from PDF · 2 sections · 1 requirement id · 2 figures/)).toBeInTheDocument();
+    expect(screen.getByText(/Converted from PDF · 3 sections · 1 requirement id · 2 figures/)).toBeInTheDocument();
     expect(screen.getByText("2 comments dropped")).toBeInTheDocument();
     expect(await screen.findByText("Part §5.6 EXI_1")).toBeInTheDocument();
     const toc = screen.getByRole("navigation", { name: "Sections" });
     expect(within(toc).getByRole("button", { name: "5.6 Sectionneur" })).toHaveAttribute("aria-current", "true");
     fireEvent.click(within(toc).getByRole("button", { name: "5 Traction" }));
     expect(onAnchor).toHaveBeenCalledWith("§5");
+    fireEvent.click(within(toc).getByRole("button", { name: "Partie Sportive" }));
+    expect(onAnchor).toHaveBeenCalledWith("§partie-sportive");
     fireEvent.click(document.querySelector(".docreqs button") as HTMLElement);
     expect(onAnchor).toHaveBeenCalledWith("req:EXI_1");
     fireEvent.click(screen.getByRole("button", { name: "Vue" }));

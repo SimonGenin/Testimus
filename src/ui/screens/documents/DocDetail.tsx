@@ -322,7 +322,7 @@ export function DocDetail({
                 style={{ paddingLeft: 8 + (t.level - 1) * 10 }}
                 onClick={() => onAnchor(t.anchor)}
               >
-                {t.anchor.startsWith("§") ? `${t.anchor.slice(1)} ` : ""}
+                {/^§\d+(\.\d+)*$/.test(t.anchor) ? `${t.anchor.slice(1)} ` : ""}
                 {t.title}
               </button>
             ))}
