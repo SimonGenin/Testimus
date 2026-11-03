@@ -2,7 +2,8 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { Ctx } from "../command.ts";
 import { UserError } from "../command.ts";
-import { env, gate } from "../env.ts";
+import { env } from "../env.ts";
+import { agentPool, agentsSetting, loadLine } from "../lib/agents.ts";
 import { loadCorpus, runMechanical } from "../lib/check.ts";
 import { columnGuidance } from "../lib/columns.ts";
 import { readDocMd } from "../lib/docs.ts";
@@ -21,11 +22,8 @@ export const GEN_MARKER = "Use the generate-tests skill";
 export const REPORT_TAG = "gen-report";
 export const PLAN_TAG = "test-plan";
 export const PLAN_MARKER = "use the plan-tests skill";
-// ponytail: past this many sections in scope, one run reads the whole scope once and writes every test from
-// memory (2026-11-03: 20 tests, one of 40 steps, 172 findings); a plan, then one run per test, re-reads each part
-export const PLAN_ABOVE = 15;
-// ponytail: the planned tests are written this many at a time, like the check — the same total, a third of the wait
-export const PLAN_PARALLEL = 3;
+// ponytail: every request that takes more than one test is planned, then written one run per test, as many at a time
+// as the agents setting and the PC's load allow (lib/agents.ts) — the same total, a fraction of the wait
 
 const LANGUAGES: Record<string, string> = {
   fr: "French",
@@ -133,9 +131,9 @@ export function genPrompt(
       `This is test ${part.n} of ${part.of} of a plan${part.request ? ` for: ${part.request}` : ""}. Write exactly this one test; the other tests of the plan are written by other runs.`,
     );
   const size = part ? 0 : scopeSections(project, i);
-  if (size > PLAN_ABOVE)
+  if (!part)
     lines.push(
-      `The scope holds ${size} sections. When testing it takes more than 3 tests, ${PLAN_MARKER} instead: write no test, and end your reply with its ${PLAN_TAG} block instead of the report block below.`,
+      `The scope holds ${size} section${size === 1 ? "" : "s"}. When testing it takes more than one test, ${PLAN_MARKER} instead: write no test, and end your reply with its ${PLAN_TAG} block instead of the report block below.`,
     );
   if (docs.length)
     lines.push(
@@ -406,17 +404,28 @@ export async function generateTests(project: string, asked: GenInput, ctx: Ctx):
   const done = new Set(prior?.done ?? []);
   const todo = plan?.found ? plan.tests.map((t, k) => ({ t, k })).filter(({ k }) => !done.has(k)) : [];
   if (prior) ctx.log("info", `Resuming the plan: ${todo.length} of ${of} test(s) left.`);
-  else if (todo.length) ctx.log("info", `Plan: ${of} test(s), one run each, ${PLAN_PARALLEL} at a time.`);
-  const slot = gate(PLAN_PARALLEL);
+  const set = agentsSetting();
+  if (todo.length && !prior)
+    ctx.log(
+      "info",
+      `Plan: ${of} test(s), one run each, ${set.adaptive ? `up to ${set.max} at a time as the PC allows` : `${set.max} at a time`}.`,
+    );
+  const pool = agentPool({
+    onLimit: (n, load) => ctx.log("info", `Agents: ${n} at a time (${loadLine(load)}).`),
+  });
   let finished = 0;
   let stop = false;
   // ponytail: a failed run stops the runs not started yet (a credit or login failure would fail them all); a planned
   // test counts as written once its run wrote a test, so a resume never writes it twice
   const parts = await Promise.all(
     todo.map(({ t, k }) =>
-      slot(async () => {
+      pool.run(async () => {
         if (stop || ctx.signal.aborted) return null;
-        ctx.progress({ message: `Test ${k + 1} of ${of}: ${t.summary}`, done: finished, total: todo.length });
+        ctx.progress({
+          message: `Test ${k + 1} of ${of}: ${t.summary} (${pool.active()} running)`,
+          done: finished,
+          total: todo.length,
+        });
         const id = newRunId();
         const part = plannedInput(input, t);
         const r = await genRun(ctx, project, part, {

@@ -1,5 +1,5 @@
 import type { Ctx } from "../command.ts";
-import { gate } from "../env.ts";
+import { agentPool, loadLine } from "../lib/agents.ts";
 import {
   type Corpus,
   loadCorpus,
@@ -17,8 +17,6 @@ import { effectiveContexts } from "./prompt.ts";
 import { newRunId, runClaude } from "./run.ts";
 import { revert } from "./snapshot.ts";
 import { calledFor } from "./stream.ts";
-
-export const PARALLEL = 3;
 
 export type TestCheck = {
   id: string;
@@ -143,13 +141,15 @@ export function promoteChecked(ctx: Ctx, project: string, r: TestCheck): Review 
 
 export async function checkTests(ctx: Ctx, project: string, ids: string[], semantic: boolean): Promise<TestCheck[]> {
   const corpus = loadCorpus(project);
-  const slot = gate(PARALLEL);
+  const pool = agentPool({
+    onLimit: (n, load) => ctx.log("info", `Agents: ${n} at a time (${loadLine(load)}).`),
+  });
   const total = ids.length;
   let done = 0;
   ctx.progress({ message: `Checking ${total} test${total > 1 ? "s" : ""}`, done, total });
   return await Promise.all(
     ids.map((id) =>
-      slot(async () => {
+      pool.run(async () => {
         if (ctx.signal.aborted) {
           const check = readCheck(project, id) ?? runMechanical(project, id, corpus);
           return { id, ok: false, semantic, review: readTestReview(project, id), check, summary: "Cancelled" };

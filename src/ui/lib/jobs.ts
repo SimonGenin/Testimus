@@ -23,6 +23,7 @@ export const KIND: Record<string, string> = {
   "models-move": "Move the models",
   "models-copy": "Copy the models",
   "gen-bench": "Benchmark generation",
+  "agents-test": "Test the PC's limits",
 };
 
 export const kindLabel = (k: string) => KIND[k] ?? k;

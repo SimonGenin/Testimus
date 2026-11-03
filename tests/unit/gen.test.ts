@@ -207,13 +207,14 @@ describe("planned generation", () => {
     );
   };
 
-  it("asks for a plan past 15 sections in scope, never inside a planned test", () => {
+  it("asks for a plan whenever a request takes more than one test, never inside a planned test", () => {
     bigDoc();
     expect(genPrompt(dir, { request: "Tout le document", docs: ["BIG_DOC"] })).toContain(
-      `The scope holds 16 sections. When testing it takes more than 3 tests, ${PLAN_MARKER} instead: write no test, and end your reply with its ${PLAN_TAG} block`,
+      `The scope holds 16 sections. When testing it takes more than one test, ${PLAN_MARKER} instead: write no test, and end your reply with its ${PLAN_TAG} block`,
     );
-    expect(genPrompt(dir, { request: "x", sections: ["BIG_DOC#§1"] })).not.toContain(PLAN_MARKER);
-    expect(genPrompt(dir, { request: "x", docs: ["SOSIE_211_D401-1_3"] })).not.toContain(PLAN_MARKER);
+    expect(genPrompt(dir, { request: "x", sections: ["BIG_DOC#§1"] })).toContain(
+      `The scope holds 1 section. When testing it takes more than one test, ${PLAN_MARKER}`,
+    );
     const t = { summary: "Boutons 0 à 7", technique: "partition", sections: ["BIG_DOC#§1"] };
     const part = genPrompt(dir, plannedInput({ request: "Tout le document", docs: ["BIG_DOC"] }, t), [], undefined, {
       n: 1,
@@ -376,7 +377,8 @@ describe("planned generation", () => {
     return most;
   }
 
-  it("writes every planned test, however many, three runs at a time", async () => {
+  it("writes every planned test, however many, agents.max runs at a time", async () => {
+    writeSettings({ ...DEFAULT_SETTINGS, claude: { exe: "C:/bin/claude.exe" }, agents: { max: 3, adaptive: false } });
     bigDoc();
     const most = planned(35);
     const r = (await invoke(
@@ -394,6 +396,7 @@ describe("planned generation", () => {
   });
 
   it("a failed run stops the plan; what is left is skipped, and a resume writes it under the same generation", async () => {
+    writeSettings({ ...DEFAULT_SETTINGS, claude: { exe: "C:/bin/claude.exe" }, agents: { max: 3, adaptive: false } });
     bigDoc();
     planned(5, (k) => k === 2);
     const r = (await invoke(

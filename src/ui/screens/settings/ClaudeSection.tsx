@@ -10,6 +10,7 @@ import { desktop, pickFiles } from "../../lib/desktop.ts";
 import { useDraft } from "../../lib/drafts.ts";
 import { cx, message } from "../../lib/format.ts";
 import { errorToast } from "../../lib/toast.ts";
+import { AgentsField } from "./AgentsField.tsx";
 import { saveProject } from "./ProjectSection.tsx";
 
 const saveSettings = (patch: Record<string, unknown>) =>
@@ -26,18 +27,19 @@ export function exeLine(s: ClaudeStatus): string {
     : `✕ ${(s.detail || "claude did not answer").split("\n")[0].slice(0, 160)} · not found · Claude is optional`;
 }
 
-function ClaudeProgram() {
+type SettingsProps = { s: Settings | null; setS: (s: Settings) => void };
+
+function ClaudeProgram({ s, setS }: SettingsProps) {
   const app = useApp();
-  const [s, setS] = useState<Settings | null>(null);
   const [exe, setExe] = useState("");
   const [st, setSt] = useState<ClaudeStatus | "checking" | null>(null);
+  const loaded = useRef(false);
   useEffect(() => {
-    call<Settings>("system.settings", {})
-      .then((r) => {
-        setS(r);
-        setExe(r.claude?.exe ?? "");
-      })
-      .catch(() => {});
+    if (!s || loaded.current) return;
+    loaded.current = true;
+    setExe(s.claude?.exe ?? "");
+  }, [s]);
+  useEffect(() => {
     call<ClaudeStatus>("claude.status", {})
       .then((r) => setSt((cur) => cur ?? r))
       .catch(() => {});
@@ -233,6 +235,12 @@ function QuickAsks({ presets, save }: { presets: Preset[]; save: (p: Preset[]) =
 export function ClaudeSection() {
   const app = useApp();
   const c = app.info?.project.claude;
+  const [s, setS] = useState<Settings | null>(null);
+  useEffect(() => {
+    call<Settings>("system.settings", {})
+      .then(setS)
+      .catch(() => {});
+  }, []);
   const [contexts, setContexts] = useState<ContextSummary[] | null>(null);
   const [managing, setManaging] = useState(false);
   const hasProject = !!c;
@@ -254,7 +262,8 @@ export function ClaudeSection() {
       <h2 id="s-claude" className="h sect-title">
         Claude
       </h2>
-      <ClaudeProgram />
+      <ClaudeProgram s={s} setS={setS} />
+      <AgentsField s={s} setS={setS} />
       {c && (
         <>
           <div className="formgrid">

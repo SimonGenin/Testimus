@@ -78,6 +78,8 @@ export function GenCard({
   writing,
   checking,
   xray,
+  open,
+  onToggle,
   onOpen,
   onSource,
 }: {
@@ -86,10 +88,11 @@ export function GenCard({
   writing: boolean;
   checking: boolean;
   xray: XrayJson;
+  open: boolean;
+  onToggle: () => void;
   onOpen: () => void;
   onSource: (s: Source) => void;
 }) {
-  const [open, setOpen] = useState(true);
   const [folded, setFolded] = useState<Set<number>>(new Set());
   if (!item.test)
     return (
@@ -122,7 +125,7 @@ export function GenCard({
   return (
     <section className="gcard" aria-label={title}>
       <div className="gcard-head">
-        <button type="button" className="gcard-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <button type="button" className="gcard-toggle" aria-expanded={open} onClick={onToggle}>
           <Icon name={open ? "down" : "right"} />
           <span className="gcard-title">{title}</span>
         </button>
@@ -174,9 +177,11 @@ export function RunHead({
   count,
   doing,
   left = 0,
+  allFolded = false,
   onCancel,
   onReview,
   onResume,
+  onFoldAll,
 }: {
   job: Job | null;
   now: number;
@@ -185,11 +190,18 @@ export function RunHead({
   count: number;
   doing: string;
   left?: number;
+  allFolded?: boolean;
   onCancel: () => void;
   onReview: () => void;
   onResume?: () => void;
+  onFoldAll?: (folded: boolean) => void;
 }) {
   if (!job) return null;
+  const foldAll = count > 0 && onFoldAll && (
+    <Button size="sm" tone="quiet" onClick={() => onFoldAll(!allFolded)}>
+      {allFolded ? "Unfold all" : "Fold all"}
+    </Button>
+  );
   if (job.status === "running")
     return (
       <div className="genhead">
@@ -202,6 +214,7 @@ export function RunHead({
           {duration(job, now)} · {plural(read, "passage")} read
         </span>
         <span className="spacer" />
+        {foldAll}
         <Button icon="stop" onClick={onCancel}>
           Cancel
         </Button>
@@ -216,6 +229,7 @@ export function RunHead({
           in {duration(job, now)} · {plural(read, "passage")} read
         </span>
         <span className="spacer" />
+        {foldAll}
         {count > 0 && (
           <Button tone="primary" icon="right" onClick={onReview}>
             Review these tests
@@ -231,6 +245,7 @@ export function RunHead({
         <Severity tone="error">{result?.diagnosis?.title ?? "The generation stopped"}</Severity>
       )}
       <span className="spacer" />
+      {foldAll}
       {left > 0 && onResume && (
         <Button tone="primary" icon="generate" onClick={onResume}>
           Resume · {plural(left, "test")} left

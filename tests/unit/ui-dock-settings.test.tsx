@@ -574,6 +574,51 @@ describe("contexts dialog", () => {
 });
 
 describe("settings › Claude", () => {
+  it("agents at the same time: saves the maximum and the adapting, tests the PC's limits and shows the last test", async () => {
+    const base = { claude: { exe: "" }, models: { allowRemote: true } };
+    let agents: Record<string, unknown> = {};
+    routes["system.settings"] = () => ({ ...base, agents });
+    routes["system.saveSettings"] = (i) => {
+      agents = {
+        ...agents,
+        ...(i.agentsMax !== undefined ? { max: i.agentsMax } : {}),
+        ...(i.agentsAdaptive !== undefined ? { adaptive: i.agentsAdaptive } : {}),
+      };
+      return { ...base, agents };
+    };
+    const measured = {
+      limit: 10,
+      at: "2026-11-03T16:00:00.000Z",
+      reason: "With 12 agents the CPU is at 96 %",
+      levels: [],
+    };
+    routes["system.testAgents"] = () => ({ jobId: "j-agents" });
+    routes["jobs.show"] = () => {
+      agents = { ...agents, max: 10, measured };
+      return { job: { id: "j-agents", status: "done", result: { ...measured, applied: true } } };
+    };
+    render(wrap(app(), <ClaudeSection />));
+    const max = (await screen.findByRole("spinbutton", { name: "Agents at the same time" })) as HTMLInputElement;
+    await waitFor(() => expect(max.value).toBe("5"));
+    fireEvent.change(max, { target: { value: "40" } });
+    fireEvent.blur(max);
+    expect(max.value).toBe("5");
+    expect(callsOf("system.saveSettings")).toHaveLength(0);
+    fireEvent.change(max, { target: { value: "8" } });
+    fireEvent.keyDown(max, { key: "Enter" });
+    await waitFor(() => expect(callsOf("system.saveSettings")[0]?.input).toEqual({ agentsMax: 8 }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Adapt to the PC's load" }));
+    await waitFor(() => expect(callsOf("system.saveSettings")[1]?.input).toEqual({ agentsAdaptive: false }));
+    expect(screen.getByRole("checkbox", { name: "Adapt to the PC's load" })).not.toBeChecked();
+
+    fireEvent.click(screen.getByRole("button", { name: "Test this PC's limits" }));
+    expect(
+      await screen.findByText("Last test: 10 agents on 03/11/2026 — With 12 agents the CPU is at 96 %"),
+    ).toBeVisible();
+    await waitFor(() => expect(max.value).toBe("10"));
+    expect(screen.getByRole("button", { name: "Test this PC's limits" })).toBeEnabled();
+  });
+
   it("toggles default contexts by name, edits quick asks in place, removes by index", async () => {
     routes["contexts.list"] = () => ctxList;
     routes["project.set"] = (i) => i;

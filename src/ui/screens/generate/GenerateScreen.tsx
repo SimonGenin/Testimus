@@ -63,6 +63,8 @@ export function GenerateScreen() {
   const [status, setStatus] = useState<ClaudeStatus | null>(null);
   const [checkingClaude, setCheckingClaude] = useState(false);
   const [landed, setLanded] = useState<Record<string, Landed>>({});
+  // ponytail: « Fold all » also folds the tests still to come; flip holds the cards toggled by hand since
+  const [fold, setFold] = useState<{ all: boolean; flip: Set<string> }>({ all: false, flip: new Set() });
   const [now, setNow] = useState(Date.now());
   const chained = useRef<string | null>(null);
 
@@ -77,6 +79,13 @@ export function GenerateScreen() {
   const runModel = model || cfg?.claude.model || "opus";
   const runEffort: Effort = effort || cfg?.claude.effort || "high";
   const ctxIds = contexts ?? cfg?.claude.contexts ?? [];
+  const isOpen = (id: string) => fold.all === fold.flip.has(id);
+  const toggle = (id: string) =>
+    setFold((cur) => {
+      const flip = new Set(cur.flip);
+      if (!flip.delete(id)) flip.add(id);
+      return { all: cur.all, flip };
+    });
 
   const claudeCheck = useCallback((refresh = false) => {
     setCheckingClaude(refresh);
@@ -190,6 +199,7 @@ export function GenerateScreen() {
       if (r?.jobId) {
         chained.current = null;
         setLanded({});
+        setFold({ all: false, flip: new Set() });
         setJobId(r.jobId);
       }
     } catch (e) {
@@ -356,6 +366,8 @@ export function GenerateScreen() {
                   onCancel={() => void cancel()}
                   onReview={() => app.navigate("review", ids[0])}
                   onResume={() => stopped?.generation && void resume(stopped.generation)}
+                  allFolded={ids.every((id) => !isOpen(id))}
+                  onFoldAll={(all) => setFold({ all, flip: new Set() })}
                 />
                 {result && <GenSummary result={result} checked={checkText} />}
                 {job?.status === "failed" && <p>{job.error}</p>}
@@ -371,6 +383,8 @@ export function GenerateScreen() {
                       writing={running && i === ids.length - 1}
                       checking={running && i < ids.length - 1}
                       xray={app.xray}
+                      open={isOpen(id)}
+                      onToggle={() => toggle(id)}
                       onOpen={() => app.navigate("review", id)}
                       onSource={app.openSource}
                     />

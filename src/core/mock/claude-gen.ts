@@ -199,9 +199,12 @@ registerMockScript(
   },
 );
 
-// ponytail: a scope past PLAN_ABOVE sections gets a two-test plan; each planned run is the script above
+// ponytail: a scope past 15 sections gets a two-test plan, each planned run being the script above; a smaller one is
+// written in one run, as a Claude that read it whole would — the fixture's requests keep their one-run story
+export const MOCK_PLAN_ABOVE = 15;
+const scopeSize = (prompt: string) => Number(prompt.match(/The scope holds (\d+) sections?/)?.[1] ?? 0);
 registerMockScript(
-  (prompt) => prompt.includes(GEN_MARKER) && prompt.includes(PLAN_MARKER),
+  (prompt) => prompt.includes(GEN_MARKER) && prompt.includes(PLAN_MARKER) && scopeSize(prompt) > MOCK_PLAN_ABOVE,
   (spawn) => {
     const plan = {
       tests: [
