@@ -3,6 +3,7 @@ import { QueryClientContext, useQuery } from "@tanstack/react-query";
 import { useContext, useEffect, useMemo, useState } from "react";
 import type { CommandName } from "../../../core/commands/index.ts";
 import type { Job } from "../../../core/types.ts";
+import { AppContext } from "../../lib/app.ts";
 import { project } from "../../lib/data/client.ts";
 import { onAnyEvent } from "../../lib/data/events.ts";
 import { useCommand, useFetching, useRead } from "../../lib/data/query.ts";
@@ -29,6 +30,8 @@ const styles = stylex.create({
     whiteSpace: "nowrap",
   },
   list: { margin: 0, padding: 0 },
+  foot: { display: "flex", alignItems: "center", gap: space.s3, flex: 1 },
+  grow: { flex: 1 },
 });
 
 const isRunning = (j: unknown): j is Job => !!j && typeof j === "object" && (j as Job).status === "running";
@@ -75,6 +78,7 @@ function LiveActivity() {
   const jobs = useRunningJobs();
   const notice = useNotice();
   const local = useFetching(WAITED);
+  const app = useContext(AppContext);
   const [open, setOpen] = useState(false);
   const now = useNow(1000, open);
   const cancel = useCommand("jobs.cancel", { invalidates: [["jobs.list"], ["jobs.show"]] });
@@ -113,10 +117,27 @@ function LiveActivity() {
       )}
       {count > 0 && (
         <Popover
-          title="Running jobs"
-          icon="jobs"
+          title="Running"
+          count={count}
           width="sm"
           flush
+          foot={
+            <span {...stylex.props(styles.foot)}>
+              Esc or a click outside closes this
+              <span {...stylex.props(styles.grow)} />
+              {app && (
+                <Button
+                  variant="quiet"
+                  size="sm"
+                  label="Open Jobs"
+                  onClick={() => {
+                    setOpen(false);
+                    app.navigate("jobs");
+                  }}
+                />
+              )}
+            </span>
+          }
           open={open}
           onOpenChange={setOpen}
           trigger={<Button variant="quiet" icon="spinner" label={`${plural(count, "job")} running`} />}
@@ -133,7 +154,7 @@ function LiveActivity() {
                       variant="quiet"
                       size="xs"
                       iconOnly
-                      icon="close"
+                      icon="stop"
                       label={`Cancel ${item.label}`}
                       onClick={() =>
                         cancel.mutate({ id: item.id as string }, { onError: (e) => errorToast(e, "Could not cancel") })

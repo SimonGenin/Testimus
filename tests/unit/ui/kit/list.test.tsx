@@ -330,6 +330,19 @@ describe("List", () => {
     expect(within(badged).getByRole("tooltip", { hidden: true })).toHaveTextContent("badged in full");
   });
 
+  it("rings a row the keyboard reached, not one focused after a click (design-gaps point 83)", () => {
+    render(<Tests />);
+    const [a, b] = screen.getAllByRole("option");
+    fireEvent.pointerDown(document.body);
+    act(() => b.focus());
+    const quiet = b.className;
+    act(() => b.blur());
+    fireEvent.keyDown(document.body, { key: "ArrowDown" });
+    act(() => b.focus());
+    expect(b.className).not.toBe(quiet);
+    expect(a).toBeInTheDocument();
+  });
+
   it("indents a tree row by its depth", () => {
     render(
       <ul>

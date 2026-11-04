@@ -216,6 +216,7 @@ export function DocumentsScreen() {
     >
       <ScreenHeader
         title="Documents"
+        crumbs={active ? [`${active.id} · ${active.title || active.id}`] : []}
         meta={
           docs && !list.isError
             ? `${docs.length} document${docs.length === 1 ? "" : "s"}${busy ? ` · ${busy} in progress` : ""}`

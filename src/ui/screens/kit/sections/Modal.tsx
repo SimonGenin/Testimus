@@ -34,6 +34,28 @@ export const section: KitSection = {
   summary:
     "A task to finish or abandon before going back: a push plan, a form, a manager, a confirmation. The confirmation is an option (confirm), the only place a danger button lives; the lightbox, the palette and the narrow window's side panes are options too (flush, frameless, drawer).",
   note: "Keyboard: the focus goes into the dialog (Cancel for a danger confirmation, the verb for another one), Tab and Shift+Tab stay inside, Escape and Close cancel except while busy, and the focus goes back to what opened it.",
+  guidelines: [
+    {
+      head: "Anatomy",
+      text: "Scrim (`color-scrim`) · panel (`color-surface-raised`, `radius-4`, `shadow-3`) · head: optional icon, title (16 px semibold, a question for a confirmation), optional subtitle, close · body (scrolls; the head and foot stay) · foot: an optional note on the left (« Saved in ~/.atlassian », « Do not close while pushing »), buttons on the right, primary last.",
+    },
+    {
+      head: "Sizes",
+      text: "`sm` 440 px (confirmations) · `md` 640 px (forms, plans) · `lg` 960 px (Contexts, the palette, the lightbox frame).",
+    },
+    {
+      head: "Confirmation option",
+      text: "`sm`, an icon (warning triangle; red circle when `danger`), the title is the question (« Delete the local copy? »), the body says what will happen with numbers (`consequences`), the buttons are « Cancel » and the verb (« Delete », « Overwrite local ») — `danger` variant only when something is lost. Focus starts on Cancel for a danger confirmation, on the verb otherwise.",
+    },
+    {
+      head: "States",
+      text: "open · busy (the primary shows its spinner, close is disabled, the foot note says « Do not close ») · error (a danger banner at the top of the body; the dialog stays open) · long (the body scrolls under a fixed head and foot).",
+    },
+    {
+      head: "Rules",
+      text: "Escape and the close button cancel, except while busy. One modal at a time (a confirmation over a modal replaces its foot instead). A modal never opens on page load. Never put a modal's only explanation in a tooltip.",
+    },
+  ],
   states: () => (
     <States>
       <Cell label="md · a form" wide column>

@@ -7,6 +7,7 @@ export const section: KitSection = {
   file: "Skeleton.tsx",
   summary:
     "The shape of what is loading, drawn at the size of the content it stands for, so nothing moves when it lands. Never stale rows, never a centred spinner; after 10 s it says so and offers Retry.",
+  guidelines: [],
   states: () => (
     <States>
       <Cell label="text · title" column>

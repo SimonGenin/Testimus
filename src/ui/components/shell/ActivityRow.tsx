@@ -1,7 +1,8 @@
 import * as stylex from "@stylexjs/stylex";
 import { type ReactNode, useState } from "react";
 import { useJobEvents } from "../../lib/data/events.ts";
-import { border, color, fontSize, lineHeight, radius, size, space } from "../../styles/tokens.stylex.ts";
+import { kindLabel } from "../../lib/jobs.ts";
+import { border, color, fontFamily, fontSize, lineHeight, radius, size, space } from "../../styles/tokens.stylex.ts";
 import { Icon, type IconName } from "../ui/Icon.tsx";
 import { Progress } from "../ui/Progress.tsx";
 
@@ -72,6 +73,14 @@ const styles = stylex.create({
   claude: { backgroundColor: color.claudeSubtle, color: color.claudeText },
   plain: {},
   body: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: space.s2 },
+  time: {
+    flex: "none",
+    fontFamily: fontFamily.mono,
+    fontSize: fontSize.code,
+    lineHeight: size.controlXs,
+    color: color.textMuted,
+    whiteSpace: "nowrap",
+  },
   label: {
     color: color.text,
     fontSize: fontSize.compact,
@@ -82,8 +91,8 @@ const styles = stylex.create({
   },
 });
 
-// ponytail: one piece of running work — its kind, its subject, its progress as the job says it, its time, and the
-// action that stops it (a job only: a Jira load the page waits on has none)
+// ponytail: one piece of running work — « its kind · its subject », its progress as the job says it, its time on the
+// right, and the action that stops it (a job only: a Jira load the page waits on has none, and says so)
 export function ActivityRow({ item, now, action }: { item: ActivityItem; now: number; action?: ReactNode }) {
   const [live, setLive] = useState<{ message?: string; progress?: { done: number; total: number } }>({});
   useJobEvents(item.id, (e) => {
@@ -97,23 +106,31 @@ export function ActivityRow({ item, now, action }: { item: ActivityItem; now: nu
   const progress = live.progress ?? item.progress;
   const sized = !!progress && progress.total > 0;
   const message = live.message ?? item.message;
-  const detail = [message, sized ? `${progress.done}/${progress.total}` : "", elapsed(item.startedAt, now)]
-    .filter(Boolean)
-    .join(" · ");
+  const job = !!item.id;
+  const detail =
+    [message, sized ? `${progress.done}/${progress.total}` : ""].filter(Boolean).join(" · ") ||
+    (job ? "" : "Not a job — it cannot be cancelled");
+  const kind = job ? kindLabel(item.kind) : "";
+  const title = kind && item.label && item.label !== item.kind ? `${kind} · ${item.label}` : kind || item.label;
   return (
     <li data-kind={tone} {...stylex.props(styles.row)}>
       <span title={item.kind} {...stylex.props(styles.tile, styles[tone])}>
         <Icon name={icon} />
       </span>
       <div {...stylex.props(styles.body)}>
-        <span {...stylex.props(styles.label)}>{item.label}</span>
+        <span title={title} {...stylex.props(styles.label)}>
+          {title}
+        </span>
         <Progress
           label={item.label}
           value={sized ? Math.min(100, (progress.done / progress.total) * 100) : null}
           tone={tone === "claude" ? "claude" : "accent"}
-          detail={detail}
+          detail={detail || undefined}
         />
       </div>
+      <span data-testid="elapsed" {...stylex.props(styles.time)}>
+        {elapsed(item.startedAt, now)}
+      </span>
       {action}
     </li>
   );

@@ -195,13 +195,19 @@ export type ModalProps = {
    * something is lost — the one place a danger button lives */
   confirm?: {
     verb: string;
+    /** red verb carrying the trash, focus on Cancel */
     danger?: boolean;
+    /** the verb's icon when it is not a danger (a danger verb always carries the trash): undo, download… */
+    icon?: IconName;
     onConfirm: () => void | Promise<void>;
     /** the verb waits (true, or the reason) — a plan still being read; Cancel stays */
     disabled?: boolean | string;
   };
   /** what will happen, with numbers: [[2, "modified steps are lost"], [1, "added step is lost"]] */
   consequences?: [number | string, string][];
+  /** where the numbers sit: end (default) after the body's words (« The test goes back to its Jira version… », then
+   * the counts) · start before them, when the words are a note on the counts (« This cannot be undone… ») */
+  consequencesAt?: "start" | "end";
   /** words on the left of the foot (« Saved in ~/.atlassian », « Same as testimus xray push 12 ») */
   footNote?: ReactNode;
   /** buttons on the right of the foot, the primary last */
@@ -236,6 +242,7 @@ export function Modal({
   size: s = "md",
   confirm,
   consequences,
+  consequencesAt = "end",
   footNote,
   actions,
   busy = false,
@@ -361,7 +368,7 @@ export function Modal({
           {shownError}
         </Banner>
       )}
-      {children}
+      {consequencesAt === "end" && children}
       {consequences && consequences.length > 0 && (
         <ul {...stylex.props(styles.consequences)}>
           {consequences.map(([n, what]) => (
@@ -372,6 +379,7 @@ export function Modal({
           ))}
         </ul>
       )}
+      {consequencesAt === "start" && children}
     </div>
   );
 
@@ -385,6 +393,7 @@ export function Modal({
             <Button
               ref={verb}
               variant={confirm.danger ? "danger" : "primary"}
+              icon={confirm.danger ? "trash" : confirm.icon}
               label={confirm.verb}
               loading={working}
               disabled={confirm.disabled}

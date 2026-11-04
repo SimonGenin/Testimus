@@ -354,6 +354,16 @@ describe("App routing and layout", () => {
     await hashIs(`#/documents/${encodeURIComponent('D#§1 "q"')}`);
     expect(await screen.findByRole("region", { name: "Documents screen" })).toBeInTheDocument();
   });
+
+  it("opens a source cited by a test step, and its document link names that test and step", async () => {
+    net.routes["rag.passage"] = () => {
+      throw new Fail("no index");
+    };
+    mount();
+    fireEvent.click(await screen.findByRole("button", { name: "cited source from Tests screen" }));
+    fireEvent.click(await screen.findByRole("button", { name: /Open in document/ }));
+    await hashIs(`#/documents/${encodeURIComponent('D#§1 "q" from LFRPS12-1420 step 2')}`);
+  });
 });
 
 describe("App palette", () => {
@@ -403,18 +413,19 @@ describe("App palette", () => {
     mount();
     await waitFor(() => expect(callsOf("api")).toHaveLength(1));
     await pick("tests list");
-    expect(await screen.findByText("tests.list done")).toBeInTheDocument();
+    expect(await screen.findByText("List the local tests — done")).toBeInTheDocument();
+    expect(screen.getByText("tests.list · 0 items")).toBeInTheDocument();
     const infos = callsOf("project.info").length;
     await pick("rag index");
-    expect(await screen.findByText("rag.index started")).toBeInTheDocument();
-    expect(screen.getByText("Follow it in Jobs.")).toBeInTheDocument();
+    expect(await screen.findByText("Index the documents — started")).toBeInTheDocument();
+    expect(screen.getByText("rag.index · Follow it in Jobs.")).toBeInTheDocument();
     await waitFor(() => expect(callsOf("project.info").length).toBe(infos + 1));
     expect(screen.getByText(/nonce 1/)).toBeInTheDocument();
     net.routes["tests.list"] = () => {
       throw new Fail("broken");
     };
     await pick("tests list");
-    expect(await screen.findByText("tests.list failed")).toBeInTheDocument();
+    expect(await screen.findByText("List the local tests — failed")).toBeInTheDocument();
   });
 
   it("opens the form of a command with input and goes to Jobs when it starts one", async () => {
@@ -422,14 +433,14 @@ describe("App palette", () => {
     mount();
     await waitFor(() => expect(callsOf("api")).toHaveLength(1));
     await pick("xray pull");
-    expect(await screen.findByRole("dialog", { name: "xray.pull" })).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "Pull a test" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
-    expect(screen.queryByRole("dialog", { name: "xray.pull" })).toBeNull();
+    expect(screen.queryByRole("dialog", { name: "Pull a test" })).toBeNull();
     await pick("xray pull");
     fireEvent.change(screen.getByLabelText("key"), { target: { value: "LFRPS12-1" } });
-    fireEvent.click(screen.getByRole("button", { name: "Run" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Run/ }));
     await hashIs("#/jobs");
-    expect(screen.queryByRole("dialog", { name: "xray.pull" })).toBeNull();
+    expect(screen.queryByRole("dialog", { name: "Pull a test" })).toBeNull();
   });
 
   it("copes with a core that lists no commands", async () => {

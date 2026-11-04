@@ -41,6 +41,41 @@ export const section: KitSection = {
   file: "Text.tsx",
   summary:
     "The only editable text: single line or growing, saved by itself (autosave of the data layer), showing where its value stands. A chip field, the Claude block and a table cell are this component with options.",
+  guidelines: [
+    {
+      head: "Anatomy",
+      text: "Optional label (13 px medium, in the text colour) with the save state at its right · the field · optional error line · optional hint. Inside the field: optional leading icon, the value, optional trailing content (a unit, a Browse… button, a Show/Hide for secrets).",
+    },
+    {
+      head: "Options",
+      items: [
+        "`multiline` — grows from 3 lines with its content, never scrolls inside itself (the pane scrolls).",
+        "`appearance`: `boxed` (forms, dialogs, settings) or `inline` (the step editor: no edge until hovered or focused, so a test reads as a document).",
+        "`size`: `md` (14 px) or `sm` (13 px, dense rows and table cells) · `title` (the test summary: 16 px semibold, single line).",
+        "`save`: a command; the component calls it 400 ms after the last key, on blur, on window blur and on unmount. A field without `save` is a plain form field submitted by its dialog.",
+      ],
+    },
+    {
+      head: "Save states",
+      text: "(the word beside the label, or at the bottom-right of an inline block; never a toast):",
+      items: [
+        "**Edited** — typing, the save is pending (shown only after 1 s).",
+        "**Saving…** — spinner.",
+        "**Saved** — quiet check; the time in the tooltip. Fades to nothing after 3 s in inline fields.",
+        "**Not saved — Retry** — danger, the field keeps the text, Retry calls save again; leaving the screen keeps the draft.",
+        "**Changed on disk** — warning; a banner under the field offers « Reload from disk » and « Keep mine ».",
+        "**Read-only — Claude is editing** — violet edge and ground, lock; the value cannot be typed in until the run ends.",
+      ],
+    },
+    {
+      head: "States",
+      text: "default · hover · focus (1 px accent edge + 4 px soft accent halo) · placeholder · disabled · error (danger edge, message below, `aria-invalid`) · read-only (sunken ground, no edge).",
+    },
+    {
+      head: "Rules",
+      text: "A placeholder is an example, never the label. A draft survives a screen change. Errors say what to do (« Use an absolute path »). Don't build another text box: a chip field, the Claude block and a table cell are this component with options.",
+    },
+  ],
   states: () => (
     <States>
       <Cell label="boxed · label · placeholder" column>

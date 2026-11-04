@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CommandInfo, JsonSchema } from "../../../../src/ui/api.ts";
 import { CommandForm, formValue, hasInput } from "../../../../src/ui/components/shell/CommandForm.tsx";
@@ -137,11 +137,11 @@ describe("CommandForm", () => {
     };
     withData(<CommandForm command={cmd("x.run", { obj: { type: "object" } })} onClose={() => {}} />);
     fireEvent.change(screen.getByLabelText("obj (optional)"), { target: { value: "{bad" } });
-    fireEvent.click(screen.getByRole("button", { name: "Run" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Run/ }));
     expect(await screen.findByRole("alert")).toBeInTheDocument();
     expect(callsOf("x.run")).toHaveLength(0);
     fireEvent.change(screen.getByLabelText("obj (optional)"), { target: { value: "{}" } });
-    fireEvent.click(screen.getByRole("button", { name: "Run" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Run/ }));
     expect(await screen.findByText("Unknown test")).toBeInTheDocument();
   });
 
@@ -154,8 +154,8 @@ describe("CommandForm", () => {
     const close = vi.fn();
     const onJob = vi.fn();
     withData(<CommandForm command={cmd("gen.tests", {}, { job: true })} onClose={close} onJob={onJob} />);
-    fireEvent.click(screen.getByRole("button", { name: "Run" }));
-    expect(await screen.findByRole("button", { name: "Running…" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: /^Run/ }));
+    expect(await screen.findByRole("button", { name: /^Running…/ })).toBeDisabled();
     await act(async () => gate.resolve(null));
     await waitFor(() => expect(onJob).toHaveBeenCalledWith("j5"));
     expect(close).toHaveBeenCalled();
@@ -165,29 +165,55 @@ describe("CommandForm", () => {
   it("shows the result of a job command that did not start a job, and runs without onJob", async () => {
     net.routes["gen.tests"] = () => null;
     const { unmount } = withData(<CommandForm command={cmd("gen.tests", {}, { job: true })} onClose={() => {}} />);
-    fireEvent.click(screen.getByRole("button", { name: "Run" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Run/ }));
     expect(await screen.findByTestId("command-result")).toHaveTextContent("null");
     unmount();
     net.routes["gen.tests"] = () => ({ jobId: "j6" });
     const close = vi.fn();
     withData(<CommandForm command={cmd("gen.tests", {}, { job: true })} onClose={close} />);
-    fireEvent.click(screen.getByRole("button", { name: "Run" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Run/ }));
     await waitFor(() => expect(close).toHaveBeenCalled());
   });
 
   it("opens the push plan instead of pushing, and needs the test id", async () => {
     const close = vi.fn();
     withData(<CommandForm command={cmd("xray.push", { id: { type: "string" } })} onClose={close} />);
-    fireEvent.click(screen.getByRole("button", { name: "Run" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Run/ }));
     expect(await screen.findByText("Give the id of the test to push.")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("id"), { target: { value: "LFRPS12-1" } });
-    fireEvent.click(screen.getByRole("button", { name: "Run" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Run/ }));
     expect(await screen.findByText("push LFRPS12-1")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Back" }));
     expect(screen.getByLabelText("id")).toHaveValue("LFRPS12-1");
-    fireEvent.click(screen.getByRole("button", { name: "Run" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Run/ }));
     fireEvent.click(await screen.findByRole("button", { name: "Pushed" }));
     expect(close).toHaveBeenCalled();
     expect(callsOf("xray.push")).toHaveLength(0);
+  });
+
+  it("is titled by what it does with its name beside, picks a document id among the documents, runs on Ctrl+Enter and goes back to the results", async () => {
+    net.routes["docs.list"] = () => [
+      { id: "SOSIE_3", title: "Traction" },
+      { id: "SOSIE_4", title: "Signalisation" },
+    ];
+    net.routes["docs.show"] = (i) => ({ id: i.id });
+    const back = vi.fn();
+    const show = cmd(
+      "docs.show",
+      { id: { type: "string", description: "Document id (the folder name under docs/)" } },
+      { summary: "Show a document: metadata, context, contents, figures and text." },
+    );
+    withData(<CommandForm command={show} onClose={() => {}} onBack={back} />);
+    const dlg = screen.getByRole("dialog", { name: "Show a document" });
+    expect(dlg).toHaveTextContent("docs.show · metadata, context, contents, figures and text.");
+    expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Back to results" }));
+    expect(back).toHaveBeenCalled();
+    const pick = await screen.findByRole("combobox", { name: "id" });
+    expect(within(pick).getByRole("option", { name: "SOSIE_4 · Signalisation" })).toBeInTheDocument();
+    fireEvent.change(pick, { target: { value: "SOSIE_4" } });
+    expect(screen.getByRole("button", { name: /^Run/ })).toHaveTextContent("Ctrl+Enter");
+    fireEvent.keyDown(pick, { key: "Enter", ctrlKey: true });
+    await waitFor(() => expect(callsOf("docs.show")[0]?.input).toEqual({ id: "SOSIE_4" }));
   });
 });

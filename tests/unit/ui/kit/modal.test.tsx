@@ -2,7 +2,7 @@
 import "@testing-library/jest-dom/vitest";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -159,6 +159,8 @@ describe("Modal", () => {
     const items = screen.getAllByRole("listitem");
     expect(items.map((li) => li.textContent)).toEqual(["2modified steps are lost", "1added step is lost"]);
     const del = screen.getByRole("button", { name: "Delete" });
+    expect(del.querySelector("svg"), "the danger verb carries its trash (design-gaps point 17)").not.toBeNull();
+    expect(screen.getByRole("button", { name: "Cancel" }).querySelector("svg")).toBeNull();
     await user.click(del);
     expect(onConfirm).toHaveBeenCalledTimes(1);
     await user.click(screen.getByRole("button", { name: "Cancel" }));
@@ -169,6 +171,28 @@ describe("Modal", () => {
       </Modal>,
     );
     expect(cls(screen.getByRole("button", { name: "Overwrite local" }))).not.toBe(cls(del));
+    expect(screen.getByRole("button", { name: "Overwrite local" }).querySelector("svg")).toBeNull();
+    render(
+      <Modal title="Undo?" confirm={{ verb: "Undo", icon: "undo", onConfirm: () => {} }} onClose={() => {}}>
+        x
+      </Modal>,
+    );
+    expect(screen.getByRole("button", { name: "Undo" }).querySelector("svg")).not.toBeNull();
+    render(
+      <Modal
+        title="Delete this document?"
+        confirm={{ verb: "Delete", danger: true, onConfirm: () => {} }}
+        consequences={[[6, "passages removed"]]}
+        consequencesAt="start"
+        onClose={() => {}}
+      >
+        <p>This cannot be undone.</p>
+      </Modal>,
+    );
+    const doc = screen.getByRole("alertdialog", { name: "Delete this document?" });
+    const list = within(doc).getByRole("list");
+    const note = within(doc).getByText("This cannot be undone.");
+    expect(list.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("a plain confirmation puts the focus on its verb; an async one is busy while it runs, then shows its failure", async () => {

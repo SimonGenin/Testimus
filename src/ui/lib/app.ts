@@ -46,11 +46,14 @@ export type AppState = {
   testsChanged: () => void;
   refreshInfo: () => void;
   closeProject: () => void;
-  openSource: (s: Source) => void;
+  /** a source to show; from: the test (and step) that cites it, so the document it opens can lead back there */
+  openSource: (s: Source, from?: SourceFrom) => void;
   askClaude: (scope: "test" | "step", prompt?: string) => void;
   runInDock: (job: { name: string; input: unknown; label: string; testId: string }) => void;
   openPalette: () => void;
 };
+
+export type SourceFrom = { test: string; step?: number; sources?: Source[] };
 
 export const AppContext = createContext<AppState | null>(null);
 

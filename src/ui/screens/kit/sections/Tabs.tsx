@@ -48,6 +48,7 @@ export const section: KitSection = {
   summary:
     "Views of one thing: Local / Jira, the dock's scope, a document's Text / Figures. Tabs never trigger an action; more than six means the content needs another structure. The arrows move and open.",
   note: "variant steps is the first launch's stepper drawn by the screens: a row of numbered views, the current one marked, the earlier ones done — one component with an option, not a second one.",
+  guidelines: [],
   states: () => (
     <States>
       <Cell label="md · icons · counts (with its panel)" wide column>

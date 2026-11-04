@@ -73,6 +73,7 @@ function DropSpace({ space: s, label, onClose }: { space: Space; label: string; 
         [s.chunks, "vectors deleted from the index"],
         [`${s.sizeMB} MB`, "freed on this PC"],
       ]}
+      consequencesAt="start"
       onClose={onClose}
     >
       {s.active && (

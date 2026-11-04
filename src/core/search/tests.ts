@@ -4,7 +4,7 @@ import { readXray } from "../lib/project.ts";
 import { findingCounts, readCheck, readRemote, syncState, testsDir } from "../lib/store.ts";
 import { parseTest, sameTestMd } from "../lib/testfile.ts";
 import { awaitsReview, type FindingCounts, type SyncState, type Test } from "../types.ts";
-import { type Corpus, corpus, type Doc, type Field, field } from "./match.ts";
+import { type Corpus, corpus, type Doc, type Field, field, imageless } from "./match.ts";
 import type { Filters } from "./query.ts";
 
 export type TestDoc = Doc & {
@@ -33,12 +33,12 @@ function testFields(id: string, t: Test): Field[] {
     field("labels", t.labels.join(", "), 4),
     field("covers", [...t.covers, ...t.preconditions].join(", "), 4),
     field("folder", t.folder, 3),
-    field("description", t.description, 2),
+    field("description", imageless(t.description), 2),
   ];
   if (t.reviewNote) out.push(field("review note", t.reviewNote, 1.5));
   t.steps.forEach((s, i) => {
     for (const [name, text] of Object.entries(s.fields))
-      if (text.trim()) out.push(field(name, text, STEP_WEIGHT[name] ?? 2, i + 1));
+      if (imageless(text).trim()) out.push(field(name, imageless(text), STEP_WEIGHT[name] ?? 2, i + 1));
     if (s.sources.length)
       out.push(field("Sources", s.sources.map((x) => `${x.docId}#${x.anchor} “${x.quote}”`).join("\n"), 1.5, i + 1));
   });

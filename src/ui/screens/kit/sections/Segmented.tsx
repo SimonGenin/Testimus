@@ -19,6 +19,7 @@ export const section: KitSection = {
   file: "Segmented.tsx",
   summary:
     "One of two to five views or modes, all visible (step layout, theme, the review filter, a column's fold): a radiogroup the arrows move through. Options are short nouns; a choice that starts an action is buttons.",
+  guidelines: [],
   states: () => (
     <States>
       <Cell label="md · with icons" wide>
@@ -26,6 +27,9 @@ export const section: KitSection = {
       </Cell>
       <Cell label="sm · counts" wide>
         <Segmented label="Review filter" size="sm" value="all" options={FILTER} onChange={noop} />
+      </Cell>
+      <Cell label="fill: the container's width" wide column>
+        <Segmented label="Review filter, full width" size="sm" fill value="all" options={FILTER} onChange={noop} />
       </Cell>
       <Cell label="icon only (tooltip)">
         <Segmented

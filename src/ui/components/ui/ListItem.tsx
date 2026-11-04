@@ -2,6 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import { type KeyboardEvent, type MouseEvent, type ReactNode, type Ref, useState } from "react";
 import { border, color, fontSize, fontWeight, lineHeight, radius, size, space } from "../../styles/tokens.stylex.ts";
 import { Icon } from "./Icon.tsx";
+import { keyboardFocus } from "./layer.ts";
 import { Tooltip } from "./Tooltip.tsx";
 
 const styles = stylex.create({
@@ -179,7 +180,7 @@ export function ListItem({
       onFocus={(e) => {
         setWithin(true);
         if (e.target === e.currentTarget) {
-          setFocused(true);
+          setFocused(keyboardFocus());
           onFocusRow?.();
         }
       }}

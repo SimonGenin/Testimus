@@ -26,7 +26,7 @@ afterEach(() => {
 });
 
 describe("ProjectButton", () => {
-  const openMenu = () => fireEvent.click(screen.getByRole("button", { name: /change project/ }));
+  const openMenu = () => fireEvent.click(screen.getByRole("button", { name: /change project|^Open a project$/ }));
 
   it("lists the known projects and switches to one", async () => {
     net.routes["project.list"] = () => ({
@@ -48,7 +48,7 @@ describe("ProjectButton", () => {
     await waitFor(() => expect(callsOf("project.list").length).toBe(reads + 1));
     openMenu();
     openMenu();
-    fireEvent.click(await screen.findByRole("menuitem", { name: /New or other project/ }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: /New project/ }));
     expect(state.navigate).toHaveBeenCalledWith("setup", "project");
   });
 
@@ -67,8 +67,12 @@ describe("ProjectButton", () => {
     const dlg = screen.getByRole("dialog", { name: "Open a project by its Jira key" });
     fireEvent.change(within(dlg).getByLabelText("Jira project key"), { target: { value: "bhptcc" } });
     expect(within(dlg).getByLabelText("Jira project key")).toHaveValue("BHPTCC");
-    fireEvent.click(within(dlg).getByRole("button", { name: "Go" }));
-    await waitFor(() => expect(callsOf("project.openKey")[0]?.input).toEqual({ key: "BHPTCC" }));
+    expect(await within(dlg).findByText("D:WorkBHPTCC")).toBeInTheDocument();
+    expect(within(dlg).getByText(/No project here has this key: Testimus will create/)).toBeInTheDocument();
+    expect(callsOf("project.openKey").map((c) => c.input)).toEqual([{ key: "BHPTCC", dryRun: true }]);
+    expect(project()).not.toBe("D:WorkBHPTCC");
+    fireEvent.click(within(dlg).getByRole("button", { name: "Create and open" }));
+    await waitFor(() => expect(callsOf("project.openKey")[1]?.input).toEqual({ key: "BHPTCC" }));
     await waitFor(() => expect(project()).toBe("D:WorkBHPTCC"));
     expect(state.refreshInfo).toHaveBeenCalled();
     expect(callsOf("project.open")).toEqual([]);
@@ -78,9 +82,8 @@ describe("ProjectButton", () => {
   it("says when no other project is known, and when the list fails", async () => {
     net.routes["project.list"] = () => [];
     withData(<ProjectButton />, { info: null });
-    expect(
-      screen.getByRole("button", { name: "Project not connected to Jira No project, change project" }),
-    ).toBeInTheDocument();
+    const none = screen.getByRole("button", { name: "Open a project" });
+    expect(none).toHaveTextContent("no project");
     await waitFor(() => expect(callsOf("project.list")).toHaveLength(1));
     openMenu();
     expect(screen.getByRole("menuitem", { name: "No other project known yet" })).toHaveAttribute(
@@ -181,7 +184,7 @@ describe("Project menu", () => {
   it("without the bridge: neither item", async () => {
     withData(<ProjectButton />);
     openMenu();
-    await screen.findByRole("menuitem", { name: "New or other project…" });
+    await screen.findByRole("menuitem", { name: "New project…" });
     expect(screen.queryByRole("menuitem", { name: "Open a folder…" })).toBeNull();
     expect(screen.queryByRole("menuitem", { name: "Show in Explorer" })).toBeNull();
   });

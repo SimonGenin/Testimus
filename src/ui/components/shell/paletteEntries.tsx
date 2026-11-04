@@ -59,6 +59,15 @@ export const firstSentence = (s: string) => s.split(/(?<=[.:])\s|\s\(/)[0].repla
 
 export const hasInput = (c: CommandInfo) => Object.keys(c.input?.properties ?? {}).length > 0;
 
+// ponytail: with nothing typed, the commands people reach for first lead the list (the design's selection), then
+// every other command by name — the list stays the whole registry
+const FEATURED = ["project.openKey", "docs.show", "chat.ask", "review.queue", "xray.push", "system.doctor"];
+
+export function featuredFirst<T extends { id: string }>(entries: T[]): T[] {
+  const rank = (e: T) => (FEATURED.includes(e.id) ? FEATURED.indexOf(e.id) : FEATURED.length);
+  return [...entries].sort((a, b) => rank(a) - rank(b));
+}
+
 export function filterEntries<T extends { text: string }>(entries: T[], query: string): T[] {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   if (!words.length) return entries;

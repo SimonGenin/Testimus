@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { CommandName } from "../../../core/commands/index.ts";
 import { cliLine } from "../../lib/cli.ts";
 import type { CommandInfo, JsonSchema } from "../../lib/data/client.ts";
-import { execute } from "../../lib/data/query.ts";
+import { execute, useRead } from "../../lib/data/query.ts";
 import { message } from "../../lib/format.ts";
 import { toast } from "../../lib/toast.ts";
 import { PushDialog } from "../../screens/tests/PushDialog.tsx";
@@ -14,6 +14,8 @@ import { Checkbox } from "../ui/Checkbox.tsx";
 import { Modal } from "../ui/Modal.tsx";
 import { Select } from "../ui/Select.tsx";
 import { Text } from "../ui/Text.tsx";
+
+import { firstSentence } from "./paletteEntries.tsx";
 
 export { hasInput } from "./paletteEntries.tsx";
 
@@ -72,15 +74,22 @@ export function formValue(schema: JsonSchema, raw: Record<string, string | boole
 
 const PLACEHOLDER: Record<string, string | undefined> = { list: "comma-separated", json: "JSON", number: "a number" };
 
-// ponytail: a command's form, made from its input schema — one field per input with its describe() as the hint, the
-// command line that does the same, and the plain result (or the job it started)
+// ponytail: a field whose values the project knows is a choice of them, not a box to type into (a document id)
+const isDocId = (s: JsonSchema) => /^Document id\b/.test(s.description ?? "");
+
+// ponytail: a command's form, made from its input schema — titled by what it does, with its name beside; one field per
+// input with its describe() as the hint (a document id is a choice of the project's documents), the command line that
+// does the same, and the plain result (or the job it started); Ctrl+Enter runs it, « Back to results » goes back to
+// the palette it came from
 export function CommandForm({
   command,
   onClose,
+  onBack,
   onJob,
 }: {
   command: CommandInfo;
   onClose: () => void;
+  onBack?: () => void;
   onJob?: (jobId: string) => void;
 }) {
   const client = useQueryClient();
@@ -92,6 +101,8 @@ export function CommandForm({
   const [error, setError] = useState<string | null>(null);
   const [pushId, setPushId] = useState<string | null>(null);
   const set = (k: string, v: string | boolean) => setRaw((r) => ({ ...r, [k]: v }));
+  const wantsDocs = props.some(([, s]) => isDocId(s));
+  const docs = useRead("docs.list", {}, { enabled: wantsDocs }).data ?? [];
   let preview: Record<string, unknown> = {};
   try {
     preview = formValue(command.input, raw);
@@ -148,10 +159,17 @@ export function CommandForm({
         onClose={() => setPushId(null)}
       />
     );
+  const title = firstSentence(command.summary) || command.name;
+  const rest = command.summary.slice(title.length).replace(/^[.:]?\s*/, "");
   return (
     <Modal
-      title={command.name}
-      subtitle={command.summary}
+      title={title}
+      subtitle={
+        <>
+          <span {...stylex.props(styles.mono)}>{command.name}</span>
+          {rest && ` · ${rest}`}
+        </>
+      }
       icon="terminal"
       onClose={onClose}
       onSubmit={() => void submit()}
@@ -163,12 +181,29 @@ export function CommandForm({
       }
       actions={
         <>
-          <Button label="Cancel" onClick={onClose} />
-          <Button variant="primary" type="submit" label={busy ? "Running…" : "Run"} disabled={busy} />
+          {onBack ? (
+            <Button variant="quiet" icon="arrow-left" label="Back to results" onClick={onBack} />
+          ) : (
+            <Button label="Cancel" onClick={onClose} />
+          )}
+          <Button
+            variant="primary"
+            type="submit"
+            label={busy ? "Running…" : "Run"}
+            shortcut="Ctrl+Enter"
+            disabled={busy}
+          />
         </>
       }
     >
-      <div {...stylex.props(styles.fields)}>
+      <div
+        {...stylex.props(styles.fields)}
+        onKeyDown={(e) => {
+          if (e.key !== "Enter" || !(e.ctrlKey || e.metaKey)) return;
+          e.preventDefault();
+          if (!busy) void submit();
+        }}
+      >
         {props.map(([k, s]) => {
           const kind = kindOf(s);
           const label = `${k}${required.has(k) ? "" : " (optional)"}`;
@@ -180,6 +215,19 @@ export function CommandForm({
                 hint={s.description}
                 checked={raw[k] === true}
                 onChange={(on) => set(k, on)}
+              />
+            );
+          if (kind === "string" && isDocId(s) && docs.length)
+            return (
+              <Select
+                key={k}
+                label={label}
+                showLabel
+                block
+                placeholder="Pick a document"
+                value={raw[k] ? String(raw[k]) : null}
+                options={docs.map((d) => ({ value: d.id, label: `${d.id} · ${d.title || d.id}` }))}
+                onChange={(v) => set(k, v)}
               />
             );
           if (kind === "enum")

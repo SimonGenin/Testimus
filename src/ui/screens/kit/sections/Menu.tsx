@@ -47,6 +47,7 @@ export const section: KitSection = {
   summary:
     "A short list of actions (⋯ More actions, the project menu) or of choices (sort, filter) on a Button. The destructive item is last, red, behind its own separator, and always confirms; a disabled item stays visible with its reason.",
   note: "Keyboard: arrows (wrapping), Home and End, type-ahead on the first letters, Enter or Space acts, Escape and Tab close and give the focus back to the trigger. Anchored like Popover (layer.ts) but a separate component: a menu moves the focus between its items, a popover lets Tab move through its fields.",
+  guidelines: [],
   states: () => (
     <States>
       <Cell label="closed (the trigger)">

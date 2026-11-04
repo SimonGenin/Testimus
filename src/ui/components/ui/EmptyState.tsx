@@ -5,7 +5,7 @@ import { Icon, type IconName } from "./Icon.tsx";
 
 const styles = stylex.create({
   empty: {
-    boxSizing: "border-box",
+    boxSizing: "content-box",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",

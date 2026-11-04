@@ -17,6 +17,12 @@ export const section: KitSection = {
   file: "Select.tsx",
   summary:
     "One value from a short, known list (folder, model · effort, sort). More than about twelve values or free text is a Text with suggestions; two values are a Segmented choice or a Switch.",
+  guidelines: [
+    {
+      head: "Options",
+      text: "`boxed` (forms) or `quiet` (toolbars, the dock footer, the queue's sort) · `sm` | `md` · `prefix` (« Sort », « Folder ») · leading icon · `block`. **States.** default · hover · focus/open (accent ring) · disabled (with the reason as tooltip) · placeholder (« Choose a folder… »). **Rules.** More than ~12 values or free text → a Text with suggestions (the folder field), not a select. Never use a select for two options: use a Segmented choice or a Switch.",
+    },
+  ],
   states: () => (
     <States>
       <Cell label="boxed · placeholder · label shown" column>

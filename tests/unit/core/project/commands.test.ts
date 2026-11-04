@@ -32,6 +32,12 @@ describe("project.* through the registry, each output against its schema", () =>
       created: false,
     });
     expect((await call<Listed>("project.list", {}, null)).last).toBe(known.dir);
+    const would = await call<Opened & { created: boolean }>("project.openKey", { key: "NEW1", dryRun: true }, null);
+    expect(would).toEqual({ dir: join(root, "NEW1"), name: "NEW1", jiraProject: "NEW1", created: true });
+    expect(existsSync(join(root, "NEW1"))).toBe(false);
+    expect((await call<Listed>("project.list", {}, null)).last).toBe(known.dir);
+    expect(await call("project.openKey", { key: "other", dryRun: true }, null)).toMatchObject({ created: false });
+    expect((await call<Listed>("project.list", {}, null)).last).toBe(known.dir);
     const made = await call<Opened & { created: boolean }>("project.openKey", { key: "NEW1" }, null);
     expect(made).toMatchObject({ dir: join(root, "NEW1"), jiraProject: "NEW1", created: true });
     expect((await call<Listed>("project.list", {}, null)).last).toBe(made.dir);
