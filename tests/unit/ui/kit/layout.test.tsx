@@ -170,6 +170,37 @@ describe("ResizeHandle", () => {
     fireEvent.blur(rest);
     expect(look(rest)).not.toBe(look(focus));
   });
+
+  it("quiet, draws no line at rest but the same lit line on hover, focus and drag", () => {
+    const line = (p: Partial<ResizeHandleProps>, label: string) => {
+      render(<Pane label={label} {...p} />);
+      return screen.getByRole("separator", { name: label });
+    };
+    const look = (s: HTMLElement) =>
+      cls(s.firstElementChild as Element)
+        .split(" ")
+        .filter((c) => !c.includes("__"))
+        .sort()
+        .join(" ");
+    const rest = line({}, "rest");
+    const quiet = line({ quiet: true }, "quiet");
+    const hover = line({ debugState: "hover" }, "hover");
+    const focus = line({ debugState: "focus" }, "focus");
+    const still = look(quiet);
+    expect(still).not.toBe(look(rest));
+    expect(look(line({ quiet: true, debugState: "hover" }, "quiet hover"))).toBe(look(hover));
+    expect(look(line({ quiet: true, debugState: "focus" }, "quiet focus"))).toBe(look(focus));
+    expect(look(line({ quiet: true, debugState: "drag" }, "quiet drag"))).toBe(look(hover));
+    fireEvent.pointerEnter(quiet);
+    expect(look(quiet)).toBe(look(hover));
+    fireEvent.pointerLeave(quiet);
+    expect(look(quiet)).toBe(still);
+    fireEvent.focus(quiet);
+    expect(look(quiet)).toBe(look(focus));
+    fireEvent.blur(quiet);
+    expect(look(quiet)).toBe(still);
+    expect(quiet).toHaveAttribute("tabindex", "0");
+  });
 });
 
 describe("EmptyState", () => {

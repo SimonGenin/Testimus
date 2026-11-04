@@ -4,7 +4,7 @@ import { color, fontFamily, fontSize, fontWeight, lineHeight, space } from "../.
 import { Badge, ReviewBadge } from "../ui/Badge.tsx";
 import { Icon, type IconName } from "../ui/Icon.tsx";
 import type { ListItemProps } from "../ui/ListItem.tsx";
-import { Marked } from "./Marked.tsx";
+import { Marked } from "../ui/Marked.tsx";
 
 export const KIND: Record<SearchKind, { label: string; one: string; icon: IconName }> = {
   test: { label: "Tests", one: "test", icon: "tests" },

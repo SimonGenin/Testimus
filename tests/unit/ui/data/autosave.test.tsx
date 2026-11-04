@@ -5,10 +5,11 @@ import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   type AutosaveOptions,
-  discardAutosave,
+  clearDrafts,
   flushAutosaves,
   pendingAutosaves,
   useAutosave,
+  useDraft,
 } from "../../../../src/ui/lib/data/autosave.ts";
 import { ApiError } from "../../../../src/ui/lib/data/client.ts";
 import { createQueryClient, execute, type Key } from "../../../../src/ui/lib/data/query.ts";
@@ -22,7 +23,7 @@ beforeEach(() => {
 
 afterEach(async () => {
   cleanup();
-  for (const k of pendingAutosaves()) discardAutosave(k);
+  clearDrafts();
   vi.useRealTimers();
 });
 
@@ -191,5 +192,26 @@ describe("autosave", () => {
     expect(fetch).toHaveBeenCalled();
     vi.unstubAllGlobals();
     await flushAutosaves();
+  });
+});
+
+describe("clearDrafts", () => {
+  it("forgets every unsent draft and every edit waiting for its save, and nothing is sent after", async () => {
+    const save = vi.fn(async () => "2");
+    const a = setup({ save });
+    act(() => a.result.current.set("waiting"));
+    const prompt: Key = ["/p", "dock.prompt", {}];
+    const d = renderHook(() => useDraft(prompt, ""));
+    act(() => d.result.current[1]("typed"));
+    expect(pendingAutosaves()).toHaveLength(1);
+    expect(d.result.current[0]).toBe("typed");
+    act(() => clearDrafts());
+    expect(pendingAutosaves()).toEqual([]);
+    expect(a.result.current.status).toBe("saved");
+    expect(d.result.current[0]).toBe("");
+    await act(() => vi.advanceTimersByTimeAsync(1000));
+    expect(save).not.toHaveBeenCalled();
+    d.unmount();
+    expect(renderHook(() => useDraft(prompt, "")).result.current[0]).toBe("");
   });
 });
