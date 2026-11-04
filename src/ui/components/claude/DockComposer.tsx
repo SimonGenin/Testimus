@@ -103,6 +103,8 @@ export function DockComposer({
             trigger={<Button size="sm" variant="quiet" icon="plus" iconOnly label="Add context" />}
             title="Add context"
             icon="context"
+            align="start"
+            head={false}
             width="sm"
             open={picking}
             onOpenChange={setPicking}

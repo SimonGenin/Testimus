@@ -82,11 +82,6 @@ const styles = stylex.create({
   edge: { display: { default: "flex", [breakpoint.dock]: "none" } },
 });
 
-// ponytail: the end of a document link that names the test citing it (« … "quote" from LFRPS12-1420 step 2 »), so the
-// document can lead back to it; the link has it only after a quote, as Documents reads it
-const citedFrom = (quote: string, from?: SourceFrom) =>
-  from && quote.trim() ? ` from ${from.test}${from.step ? ` step ${from.step}` : ""}` : "";
-
 // ponytail: the shell — the rail, the top bar and the screen in their frame, the Claude dock, the palette, the
 // layers above (a command's form, a source, the toasts); what the screens share is in AppContext
 export function App() {
@@ -273,11 +268,11 @@ export function App() {
       {source && (
         <PassageDialog
           source={source.source}
+          from={source.from}
           onClose={() => setSource(null)}
-          onOpenDoc={(docId, anchor, quote) => {
-            const from = source.from;
+          onOpenDoc={(docId, anchor, quote, cited) => {
             setSource(null);
-            navigate("documents", `${docLink(docId, anchor, quote)}${citedFrom(quote, from)}`);
+            navigate("documents", docLink(docId, anchor, quote, cited));
           }}
         />
       )}
