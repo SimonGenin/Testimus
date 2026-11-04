@@ -73,11 +73,13 @@ export function useDockRuns(app: AppState) {
     used: { model: string; effort: Effort },
     again?: Again,
   ) => {
-    app.setClaudeRunning(testId || PROJECT_RUN);
+    // ponytail: the lock is the running job's (App); until its id comes back the dock says what it asked for
+    const on = testId || PROJECT_RUN;
+    app.setClaudeRunning(on);
     try {
       let r: RunResult;
       try {
-        r = await job.start<RunResult>(name, args, onEvent(answerId), TESTS);
+        r = await job.start<RunResult>(name, args, onEvent(answerId), TESTS, (id) => app.setClaudeRunning(on, id));
       } catch (e) {
         const left = e instanceof ApiError && e.cancelled ? (e.result as RunResult | undefined) : undefined;
         if (!left?.runId) throw e;

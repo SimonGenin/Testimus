@@ -144,11 +144,12 @@ export function useEditorActions({
 
   const askDownload = async () => {
     if (refuseWhileClaude() || !test?.key) return;
-    await doc.doc.flush();
+    const unsaved = await doc.doc.saveNow();
     try {
       await invalidate(client, [["tests.show", { id: testId }]]);
       const r = (await read(client, "tests.show", { id: testId })) as { test: Test; remote?: Test | null };
-      const local = r.remote ? differs(r.test, r.remote) : true;
+      // ponytail: an edit that could not be saved is a local change the download would lose too
+      const local = !!unsaved || (r.remote ? differs(r.test, r.remote) : true);
       if (local) setDialog({ kind: "download" });
       else void download();
     } catch (e) {
@@ -188,7 +189,8 @@ export function useEditorActions({
   };
 
   const clone = async () => {
-    await doc.doc.flush();
+    const unsaved = await doc.doc.saveNow();
+    if (unsaved) return errorToast(unsaved, "Not cloned");
     try {
       const r = (await execute(
         client,
@@ -208,7 +210,8 @@ export function useEditorActions({
 
   const askDelete = async () => {
     if (refuseWhileClaude() || !test) return;
-    await doc.doc.flush();
+    const unsaved = await doc.doc.saveNow();
+    if (unsaved) return errorToast(unsaved, "Not deleted");
     // ponytail: from the editor's menu it always asks (Xray Editor); the sidebar's ✕ asks only when it matters
     setDialog({ kind: "delete" });
   };
@@ -217,7 +220,9 @@ export function useEditorActions({
 
   const askPush = async () => {
     if (refuseWhileClaude()) return;
-    await doc.doc.flush();
+    // ponytail: the plan is made from the file — never from one that is not what the screen shows
+    const unsaved = await doc.doc.saveNow();
+    if (unsaved) return errorToast(unsaved, "Not pushed");
     setPushing(true);
   };
 
@@ -238,9 +243,10 @@ export function useEditorActions({
 
   const revertClaude = async (force = false) => {
     if (!marks) return;
+    // ponytail: a pending edit is saved before the revert reads the file (Xray Editor)
+    const unsaved = await doc.doc.saveNow();
+    if (unsaved) return errorToast(unsaved, "Not reverted");
     try {
-      // ponytail: a pending edit is saved before the revert reads the file (Xray Editor)
-      await doc.doc.flush();
       const r = (await execute(
         client,
         "claude.revert",
@@ -294,13 +300,19 @@ export function useEditorActions({
     }
   };
 
+  // ponytail: the file goes once the step's edit is written — an edit that could not be saved still points at it
   const imageGone = (file: string) => {
-    void doc.doc
-      .flush()
-      .then(() =>
-        execute(client, "tests.removeImage", { id: testId, file }, { invalidates: [["tests.show", { id: testId }]] }),
-      )
-      .catch(() => {});
+    void (async () => {
+      const unsaved = await doc.doc.saveNow();
+      if (unsaved) return errorToast(unsaved, "The image file was kept");
+      await execute(
+        client,
+        "tests.removeImage",
+        { id: testId, file },
+        { invalidates: [["tests.show", { id: testId }]] },
+        docKey[0],
+      );
+    })().catch(() => {});
   };
 
   return {

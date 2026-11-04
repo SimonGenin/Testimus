@@ -187,7 +187,7 @@ export type Effects<N extends CommandName> = {
   invalidates?: Prefix[] | "project" | "none";
   // apply the expected result to the cache now; the returned function puts it back when the call fails
   optimistic?: (client: QueryClient, input: CommandInput<N>) => (() => void) | undefined;
-  // autosaves of these reads are sent first (the command reads what they write)
+  // autosaves of these reads are sent first (the command reads what they write); one that cannot be written refuses it
   flushFirst?: Prefix[];
 };
 
@@ -208,9 +208,9 @@ export function invalidateProject(client: QueryClient, p: string | null = projec
   return client.invalidateQueries({ predicate: (q) => (q.queryKey as Key)[0] === p });
 }
 
-let flushHook: (prefixes: Prefix[]) => Promise<void> = async () => {};
+let flushHook: (prefixes: Prefix[], p: string | null) => Promise<ApiError | null> = async () => null;
 
-export function setFlushHook(fn: (prefixes: Prefix[]) => Promise<void>): void {
+export function setFlushHook(fn: (prefixes: Prefix[], p: string | null) => Promise<ApiError | null>): void {
   flushHook = fn;
 }
 
@@ -221,7 +221,11 @@ export async function execute<N extends CommandName>(
   effects: Effects<N> = {},
   p: string | null = project(),
 ): Promise<CallResult<N>> {
-  if (effects.flushFirst?.length) await flushHook(effects.flushFirst);
+  // ponytail: a command that reads what an autosave writes does not run over a file that is not what the screen shows
+  if (effects.flushFirst?.length) {
+    const why = await flushHook(effects.flushFirst, p);
+    if (why) throw why;
+  }
   const undo = effects.optimistic?.(client, input);
   try {
     const out = await reach(() => call<CallResult<N>>(name, input ?? {}, { project: p }));

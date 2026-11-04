@@ -1,10 +1,21 @@
 import type { Test } from "../../../../core/types.ts";
 import type { MenuEntry } from "../../../components/ui/Menu.tsx";
+import type { AutosaveStatus } from "../../../lib/data/autosave.ts";
 import type { EditorActions } from "./useEditorActions.ts";
 
-// why Push to Jira is off, or false — Claude first, then Jira, then the open plan, then nothing to send
-export function pushReason(o: { busy: boolean; jiraOff: boolean; pushing: boolean; canPush: boolean }): false | string {
+// why Push to Jira is off, or false — Claude first, then an edit that is not written, then Jira, then the open plan,
+// then nothing to send
+export function pushReason(o: {
+  busy: boolean;
+  jiraOff: boolean;
+  pushing: boolean;
+  canPush: boolean;
+  unsaved?: AutosaveStatus;
+}): false | string {
   if (o.busy) return "Claude is working — wait for it to finish";
+  if (o.unsaved === "conflict")
+    return "Your change is not saved: test.md changed on disk — keep yours or reload it first";
+  if (o.unsaved === "error") return "Your last change is not saved — retry the save first";
   if (o.jiraOff) return "Jira is not connected — connect it from the Jira tab of the test list";
   if (o.pushing) return "The push plan is open";
   if (!o.canPush) return "No local change since the last sync — nothing to push";

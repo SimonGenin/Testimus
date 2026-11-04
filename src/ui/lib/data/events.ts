@@ -1,8 +1,8 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import type { Job, JobEvent } from "../../../core/types.ts";
-import { events, onStream, project } from "./client.ts";
-import { invalidate, invalidateProject, key, type Prefix, setReachable } from "./query.ts";
+import { events, onProjectChange, onStream, project } from "./client.ts";
+import { invalidate, invalidateProject, type Key, key, type Prefix, setReachable } from "./query.ts";
 
 type Rule = [pattern: RegExp, keys: (m: RegExpMatchArray) => Prefix[]];
 
@@ -206,9 +206,15 @@ export function connectEvents(client: QueryClient): () => void {
     }
   });
   const offEvents = events((e) => apply(client, e));
+  // ponytail: the events of a project the window left are not applied, so its reads are dropped rather than kept
+  // stale — a project one comes back to is read again (SPEC §13: a switch drops the caches)
+  const offProject = onProjectChange((left) => {
+    if (left !== null) client.removeQueries({ predicate: (q) => (q.queryKey as Key)[0] === left });
+  });
   return () => {
     offEvents();
     offStream();
+    offProject();
   };
 }
 

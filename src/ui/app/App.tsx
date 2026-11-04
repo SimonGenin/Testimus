@@ -26,6 +26,7 @@ import { border, breakpoint, color, radius, shadow, size, space } from "../style
 import { paletteActions } from "./paletteActions.ts";
 import { parseRoute, TITLES, useRoute } from "./routes.ts";
 import { Screens } from "./Screens.tsx";
+import { useClaudeLock } from "./useClaudeLock.ts";
 import { useDock } from "./useDock.ts";
 import { useProject } from "./useProject.ts";
 import { useShellEvents } from "./useShellEvents.ts";
@@ -87,7 +88,6 @@ export function App() {
   const [route, navigate] = useRoute();
   const p = useProject(navigate);
   const [focus, setFocus] = useState<Focus | null>(null);
-  const [claudeRunning, setClaudeRunning] = useState<string | null>(null);
   const [lastRun, setLastRun] = useState<ClaudeRun | null>(null);
   const [testsNonce, setTestsNonce] = useState(0);
   const [source, setSource] = useState<Source | null>(null);
@@ -97,6 +97,7 @@ export function App() {
   const dock = useDock(route.screen);
   const bar = useTopBarSlots();
   const running = useRunningJobs();
+  const { claudeRunning, setClaudeRunning } = useClaudeLock(running);
 
   const testsChanged = useCallback(() => setTestsNonce((n) => n + 1), []);
   const { refreshInfo, closeProject: close } = p;
@@ -167,6 +168,7 @@ export function App() {
       lastRun,
       testsNonce,
       navigate,
+      setClaudeRunning,
       testsChanged,
       refreshInfo,
       closeProject,
