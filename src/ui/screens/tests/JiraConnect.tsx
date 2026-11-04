@@ -16,8 +16,7 @@ const styles = stylex.create({
   icon: { color: color.textMuted },
   title: { margin: 0, fontSize: fontSize.titleSm, lineHeight: lineHeight.titleSm, fontWeight: fontWeight.semibold },
   text: { margin: 0, fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textMuted },
-  row: { display: "flex", alignItems: "flex-end", gap: space.s2 },
-  grow: { flex: 1, minWidth: 0 },
+  start: { alignSelf: "flex-start" },
 });
 
 const JIRA = [["project.info"], ["xray.folders"], ["xray.search"], ["xray.preconditions"], ["xray.status"]] as const;
@@ -65,38 +64,41 @@ export function JiraConnect({ error, onConnected }: { error: string; onConnected
   return (
     <div {...stylex.props(styles.box)}>
       <span {...stylex.props(styles.icon)}>
-        <Icon name={offline ? "drive" : "link"} size="lg" />
+        <Icon name={offline ? "drive" : "plug"} size="lg" />
       </span>
       <h2 {...stylex.props(styles.title)}>
-        {offline ? "Working locally" : p?.jiraProject && error ? "Jira could not be reached" : "Connect to Jira"}
+        {offline
+          ? "Working locally"
+          : p?.jiraProject && error
+            ? "Jira could not be reached"
+            : "Connect this project to Jira"}
       </h2>
       <p {...stylex.props(styles.text)}>
         {offline
           ? `Nothing is read from or written to ${p?.jiraProject} until you reconnect. Your local tests stay as they are.`
           : "Give the key of the Jira project that holds the Xray tests. It is checked in Jira before it is saved."}
       </p>
-      <div {...stylex.props(styles.row)}>
-        <div {...stylex.props(styles.grow)}>
-          <Text
-            label="Jira project key"
-            placeholder="LFRPS12"
-            spellCheck={false}
-            value={key}
-            error={shown ? "" : undefined}
-            onChange={(v) => setKey(v.toUpperCase())}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") void connect();
-            }}
-          />
-        </div>
+      <Text
+        label="Jira project key"
+        placeholder="LFRPS12"
+        spellCheck={false}
+        value={key}
+        error={shown ? "" : undefined}
+        onChange={(v) => setKey(v.toUpperCase())}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") void connect();
+        }}
+      />
+      <span {...stylex.props(styles.start)}>
         <Button
           variant="primary"
+          icon="plug"
           label={busy ? "Checking…" : p?.jiraProject && key === p.jiraProject ? "Reconnect" : "Connect"}
           loading={busy}
           disabled={!key.trim()}
           onClick={() => void connect()}
         />
-      </div>
+      </span>
       {shown && (
         <Banner
           tone="danger"

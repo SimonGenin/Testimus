@@ -458,8 +458,10 @@ describe("TestList › Jira connection", () => {
     search("Alpha");
     expect(screen.queryByText(/Search Jira for/)).toBeNull();
     toJira();
-    expect(screen.getByRole("heading", { name: "Connect to Jira" })).toBeInTheDocument();
-    expect(screen.queryByLabelText("Filter tests")).toBeNull();
+    expect(screen.getByRole("heading", { name: "Connect this project to Jira" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Search Jira")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Pull" })).toBeDisabled();
+    expect(screen.getByLabelText("Filter tests")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Connect" })).toBeDisabled();
     await new Promise((r) => setTimeout(r, 10));
     expect(callsTo("xray.folders")).toHaveLength(0);

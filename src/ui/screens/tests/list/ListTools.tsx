@@ -30,6 +30,7 @@ export function ListTools({
   canReveal,
   reveal,
   noProject = false,
+  jiraOff = false,
   onSearch,
   onFilter,
   onFilterEnter,
@@ -51,6 +52,8 @@ export function ListTools({
   reveal: boolean;
   /** no project is open: nothing to filter, nowhere to create */
   noProject?: boolean;
+  /** the Jira tab of a project not connected to Jira: its search and Pull wait for the connection */
+  jiraOff?: boolean;
   onSearch: (v: string) => void;
   onFilter: (v: string) => void;
   onFilterEnter: () => void;
@@ -69,6 +72,7 @@ export function ListTools({
           ariaLabel="Search Jira"
           placeholder="Search Jira — words or an issue key"
           value={search}
+          disabled={jiraOff}
           onChange={onSearch}
         />
       )}
@@ -123,7 +127,7 @@ export function ListTools({
             iconOnly
             icon="download"
             label="Pull"
-            disabled={pullBusy}
+            disabled={jiraOff ? "Connect the project to Jira first" : pullBusy}
             onClick={onPull}
           />
         )}

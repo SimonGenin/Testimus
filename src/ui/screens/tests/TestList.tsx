@@ -319,9 +319,10 @@ export function TestList({
         />
         <span {...stylex.props(styles.grow)} />
       </div>
-      {(v.tab === "local" || jiraOn) && (
+      {
         <ListTools
-          jira={jiraOn}
+          jira={jiraOn || v.tab === "jira"}
+          jiraOff={!jiraOn}
           local={v.tab === "local"}
           search={v.search}
           filter={v.filter}
@@ -342,7 +343,7 @@ export function TestList({
             if (dir && activeId) void reveal(pathJoin(dir, "tests", activeId, "test.md"));
           }}
         />
-      )}
+      }
       <div {...stylex.props(styles.body)}>
         {v.tab === "local" ? (
           <>
