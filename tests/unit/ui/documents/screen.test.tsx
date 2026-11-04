@@ -183,7 +183,7 @@ describe("Documents screen", () => {
     detail();
     const { app: a } = mountDocs(<DocumentsScreen />, { route: { screen: "documents", arg: "D1" } });
     fireEvent.click(await screen.findByRole("button", { name: "More actions for this document" }));
-    fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete this document…" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Delete" })).not.toHaveAttribute("aria-busy"));
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(a.navigate).toHaveBeenCalledWith("documents"));

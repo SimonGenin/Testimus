@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { indexFile, insertChunk, withDb } from "../../../../src/core/rag/db.ts";
 import { SAMPLE_PNG, sampleDocx } from "../../../fixtures/docx/sample.ts";
 import { taggedPdf } from "../../../fixtures/pdf/tagged.ts";
 import { call, fixtureCopy } from "../registry.ts";
@@ -115,8 +116,31 @@ describe("docs.show, docs.set and docs.remove through the registry", () => {
   it("removes a document: dryRun first, then for real", async () => {
     const P = fixtureCopy("docs-rm");
     await call("docs.set", { id: D4, amends: [D3] }, P);
-    const plan = await call<{ dryRun: boolean; unlinked: string[] }>("docs.remove", { id: D3, dryRun: true }, P);
-    expect(plan).toMatchObject({ dryRun: true, unlinked: [D4] });
+    const bare = await call<{ passages: number }>("docs.remove", { id: D3, dryRun: true }, P);
+    expect(bare.passages).toBe(0);
+    withDb(indexFile(P), (db) => {
+      for (const n of [1, 2])
+        insertChunk(
+          db,
+          {
+            id: `${D3}#p${n}`,
+            docId: D3,
+            anchor: `§${n}`,
+            path: "",
+            figureIds: [],
+            header: "",
+            text: "t",
+            kind: "section",
+          },
+          `h${n}`,
+        );
+    });
+    const plan = await call<{ dryRun: boolean; unlinked: string[]; passages: number }>(
+      "docs.remove",
+      { id: D3, dryRun: true },
+      P,
+    );
+    expect(plan).toMatchObject({ dryRun: true, unlinked: [D4], passages: 2 });
     expect(existsSync(join(P, "docs", D3))).toBe(true);
     const done = await call<{ dryRun: boolean; unlinked: string[] }>("docs.remove", { id: D3 }, P);
     expect(done).toMatchObject({ dryRun: false, unlinked: [D4] });
