@@ -513,6 +513,22 @@ describe("TestEditor › saving", () => {
     await waitFor(() => expect(callsTo("tests.removeImage")[0]?.input).toEqual({ id: "t1", file: "images/s.png" }));
   });
 
+  it("an image dropped in one project is deleted there when its undo expires after the window moved on", async () => {
+    server.routes["tests.removeImage"] = () => ({});
+    shown = makeTest({ steps: [step("![](images/a.png)", { images: [{ file: "images/a.png" }] })] });
+    const here = `C:\\p${seq}`;
+    const r = editor();
+    await screen.findAllByRole("img", { name: "a.png" });
+    fireEvent.click(screen.getByRole("button", { name: "Remove a.png from Action of step 1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove a.png from Expected Result of step 1" }));
+    setProject("C:\\elsewhere");
+    r.unmount();
+    act(() => toasts.at(-1)?.onExpire?.());
+    await waitFor(() => expect(callsTo("tests.removeImage")).toHaveLength(1));
+    expect(callsTo("tests.removeImage")[0].project).toBe(here);
+    expect(callsTo("tests.save").every((c) => c.project === here)).toBe(true);
+  });
+
   it("swallows a failed image removal", async () => {
     server.routes["tests.removeImage"] = () => {
       throw new Fail("x");

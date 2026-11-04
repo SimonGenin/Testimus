@@ -1,6 +1,6 @@
 import { vi } from "vitest";
 
-export type Call = { name: string; input: Record<string, unknown> };
+export type Call = { name: string; input: Record<string, unknown>; project?: string };
 
 export class Fail extends Error {
   status: number;
@@ -26,11 +26,12 @@ export function stubServer(): void {
   server.routes = {};
   vi.stubGlobal(
     "fetch",
-    vi.fn(async (url: string, init?: { body?: string }) => {
+    vi.fn(async (url: string, init?: { body?: string; headers?: Record<string, string> }) => {
       const m = /^\/api\/([^/]+)\/([^/?]+)/.exec(String(url));
       const name = `${m?.[1]}.${m?.[2]}`;
       const input = init?.body ? (JSON.parse(init.body) as Record<string, unknown>) : {};
-      server.calls.push({ name, input });
+      const where = init?.headers?.["X-Testimus-Project"];
+      server.calls.push(where ? { name, input, project: decodeURIComponent(where) } : { name, input });
       const h = server.routes[name];
       if (!h) return new Response(JSON.stringify({ error: `Unknown command ${name}` }), { status: 404 });
       try {

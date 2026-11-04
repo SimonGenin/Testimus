@@ -298,7 +298,13 @@ export function useEditorActions({
     void doc.doc
       .flush()
       .then(() =>
-        execute(client, "tests.removeImage", { id: testId, file }, { invalidates: [["tests.show", { id: testId }]] }),
+        execute(
+          client,
+          "tests.removeImage",
+          { id: testId, file },
+          { invalidates: [["tests.show", { id: testId }]] },
+          docKey[0],
+        ),
       )
       .catch(() => {});
   };

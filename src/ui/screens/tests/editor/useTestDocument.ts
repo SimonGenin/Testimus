@@ -70,11 +70,16 @@ export function useTestDocument(
     base: data?.mtime === undefined ? undefined : String(data.mtime),
     readOnly,
     // ponytail: the save carries the version it was made over; the core refuses it (conflict) when test.md moved since —
-    // « Keep mine » sends it again without one
+    // « Keep mine » sends it again without one; it goes to the project the edit was typed in (the key's), even when it
+    // leaves after the window moved to another
     save: async (test, base) => {
-      const ref = (await execute(client, "tests.save", base ? { id, test, ifMtime: Number(base) } : { id, test }, {
-        invalidates: [["tests.list"], ["review.queue"], ["xray.plan", { id }], ["search.all"], ["project.info"]],
-      })) as (Partial<LocalTestRef> & { id: string; mtime?: number }) | null;
+      const ref = (await execute(
+        client,
+        "tests.save",
+        base ? { id, test, ifMtime: Number(base) } : { id, test },
+        { invalidates: [["tests.list"], ["review.queue"], ["xray.plan", { id }], ["search.all"], ["project.info"]] },
+        k[0],
+      )) as (Partial<LocalTestRef> & { id: string; mtime?: number }) | null;
       own.current.add(test);
       if (ref?.mtime) ownMtimes.current.add(ref.mtime);
       client.setQueryData(k, (old: TestShow | undefined) =>
