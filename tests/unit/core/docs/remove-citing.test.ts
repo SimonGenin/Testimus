@@ -2,7 +2,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } fro
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { proposeAction } from "../../../../src/core/lib/actions.ts";
+import { listed, proposeAction } from "../../../../src/core/lib/actions.ts";
 import { testsCiting } from "../../../../src/core/lib/check.ts";
 import { readDoc, removeDoc, writeDoc } from "../../../../src/core/lib/docs.ts";
 
@@ -63,5 +63,20 @@ describe("an action proposed for a place that is not one", () => {
         where: "somewhere:else",
       }),
     ).toThrow("Not a problem place: somewhere:else.");
+  });
+});
+
+describe("an action left running when the app stopped", () => {
+  it("is open again once no job runs it", () => {
+    const a = proposeAction(P, {
+      title: "Recover the figures",
+      scope: { kind: "project" },
+      problem: "figures missing",
+      why: "w",
+      plan: [],
+      proposedBy: { run: "job", model: "", effort: "", at: "" },
+    });
+    expect(listed(P, { ...a, state: "running" }).state).toBe("open");
+    expect(listed(P, { ...a, state: "done" }).state).toBe("done");
   });
 });
