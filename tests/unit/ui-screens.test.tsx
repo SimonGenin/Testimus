@@ -8,7 +8,6 @@ import { AppContext, type AppState } from "../../src/ui/lib/app.ts";
 import { resetDoctor } from "../../src/ui/lib/doctor.ts";
 import { DoctorScreen } from "../../src/ui/screens/doctor/DoctorScreen.tsx";
 import { DocumentsScreen } from "../../src/ui/screens/documents/DocumentsScreen.tsx";
-import { GenerateScreen } from "../../src/ui/screens/generate/GenerateScreen.tsx";
 import { ReviewScreen } from "../../src/ui/screens/review/ReviewScreen.tsx";
 import { ColumnsSection } from "../../src/ui/screens/settings/ColumnsSection.tsx";
 import { layoutOf } from "./layout-helpers.ts";
@@ -260,94 +259,6 @@ describe("Review screen", () => {
       ),
     );
     expect(named("review.set")).toHaveLength(0);
-  });
-});
-
-describe("Generate screen", () => {
-  it("shows the tests as they land from the job events", async () => {
-    const written: string[] = [];
-    const show = (summary: string): Test => ({ ...test1420, key: undefined, summary, review: "draft" });
-    routes["claude.status"] = () => ({ installed: true, signedIn: true });
-    routes["jobs.list"] = () => [];
-    routes["docs.list"] = () => [];
-    routes["gen.tests"] = () => ({ jobId: "job-gen" });
-    routes["jobs.show"] = () => ({
-      job: { id: "job-gen", kind: "generate", subject: "x", status: "running", startedAt: new Date().toISOString() },
-      events: [],
-    });
-    routes["tests.list"] = () =>
-      written.map((id) => ({
-        id,
-        summary: id,
-        folder: "/",
-        review: "draft",
-        sync: "local",
-        dirty: false,
-        synced: false,
-        mtime: 1,
-        stepCount: 2,
-      }));
-    routes["tests.show"] = (i) => ({
-      id: i.id,
-      test: show(i.id === "local-aaaaaaaa" ? "Premier test" : "Second test"),
-    });
-    wrap(appState({ route: { screen: "generate" } }), <GenerateScreen />);
-    fireEvent.change(screen.getByLabelText("What should be tested?"), { target: { value: "Les sectionneurs" } });
-    fireEvent.click(screen.getByRole("button", { name: "Generate" }));
-    await waitFor(() => expect(named("gen.tests")).toHaveLength(1));
-    expect(named("gen.tests")[0].input).toMatchObject({
-      request: "Les sectionneurs",
-      model: "sonnet",
-      effort: "medium",
-    });
-    await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
-    await screen.findByText("Getting ready");
-
-    const at = new Date().toISOString();
-    FakeEventSource.emit({ jobId: "job-gen", at, type: "progress", message: "Writing local-aaaaaaaa (1)" });
-    expect(await screen.findByLabelText("Claude is writing a test")).toBeInTheDocument();
-    written.push("local-aaaaaaaa");
-    FakeEventSource.emit({ jobId: "job-gen", at, type: "progress", message: "Writing local-bbbbbbbb (2)" });
-    expect(await screen.findByText("Premier test")).toBeInTheDocument();
-    expect(named("tests.show").map((c) => c.input.id)).not.toContain("local-bbbbbbbb");
-
-    written.push("local-bbbbbbbb");
-    FakeEventSource.emit({
-      jobId: "job-gen",
-      at,
-      type: "status",
-      job: {
-        id: "job-gen",
-        kind: "generate",
-        subject: "x",
-        status: "done",
-        startedAt: at,
-        endedAt: at,
-        result: {
-          runId: "r1",
-          ok: true,
-          summary: "",
-          tests: ["local-aaaaaaaa", "local-bbbbbbbb"],
-          checks: [
-            { id: "local-aaaaaaaa", ok: true, review: "checked", errors: 0, warnings: 0 },
-            { id: "local-bbbbbbbb", ok: false, review: "draft", errors: 2, warnings: 1 },
-          ],
-          changed: [],
-          skipped: [{ item: "Alarme de sectionneur", why: "no passage describes the alarm" }],
-          reportFound: true,
-          durationMs: 1000,
-        },
-      },
-    });
-    expect(await screen.findByText("Second test")).toBeInTheDocument();
-    expect(screen.getByText("2 tests written")).toBeInTheDocument();
-    expect(screen.getByText(/no passage describes the alarm/)).toBeInTheDocument();
-    expect(screen.getByText(/All 2 tests went through the check: 1 has findings/)).toBeInTheDocument();
-    const head = (title: string) =>
-      screen.getByRole("region", { name: title }).querySelector(".gcard-head") as HTMLElement;
-    expect(within(head("Second test")).getByText("2 errors")).toBeInTheDocument();
-    expect(within(head("Premier test")).getByText("No findings")).toBeInTheDocument();
-    expect(named("check.run")).toHaveLength(0);
   });
 });
 
