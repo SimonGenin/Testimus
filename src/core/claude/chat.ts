@@ -66,6 +66,7 @@ export type AskResult = {
   costUsd?: number;
   tokens?: Tokens;
   diagnosis?: Diagnosis;
+  raw?: string;
 };
 
 export async function ask(o: AskOpts): Promise<AskResult> {
@@ -111,5 +112,6 @@ export async function ask(o: AskOpts): Promise<AskResult> {
     costUsd: res.costUsd,
     tokens: res.tokens,
     diagnosis: res.diagnosis,
+    raw: res.raw,
   };
 }

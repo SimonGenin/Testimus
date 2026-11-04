@@ -85,6 +85,7 @@ describe("chat.ask", () => {
     };
     expect(first).toMatchObject({ ok: true, sessionId: "sess-1", answer: ANSWER, costUsd: 0.02 });
     expect(first.sources).toHaveLength(2);
+    expect((first as unknown as { raw: string }).raw).toContain(ANSWER.slice(0, 20));
     expect(calls[0].stdin).toContain("ask-docs");
     expect(calls[0].stdin).toContain("Question: Que propose le menu d'un sectionneur ?");
     expect(calls[0].args).not.toContain("--resume");

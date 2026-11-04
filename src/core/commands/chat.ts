@@ -31,6 +31,7 @@ export const commands = [
       costUsd: z.number().optional().describe("What the run cost"),
       tokens: TOKENS.optional(),
       diagnosis: DIAGNOSIS.optional(),
+      raw: z.string().optional().describe("Claude's raw output (stdout and stderr), for « Show raw output »"),
     }),
     mutates: true,
     job: "chat",
