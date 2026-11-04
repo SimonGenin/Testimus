@@ -999,21 +999,24 @@ describe("TestEditor › Jira", () => {
     await ready();
     await menuItem("Undo local changes");
     const dlg = await screen.findByRole("alertdialog", { name: "Undo every local change?" });
-    expect(within(dlg).getByText(/1 modified · 1 added · 1 deleted/)).toBeInTheDocument();
+    const lost = within(dlg)
+      .getAllByRole("listitem")
+      .map((li) => li.textContent);
+    expect(lost).toEqual(["1modified step", "1added step", "1deleted step"]);
     fireEvent.click(within(dlg).getByRole("button", { name: "Cancel" }));
     await menuItem("Undo local changes");
-    fireEvent.click(await screen.findByRole("button", { name: "Undo local changes" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Undo changes" }));
     await waitFor(() => expect(toasts.at(-1)?.title).toBe("Restored the Jira version"));
     expect(onSaved).toHaveBeenCalledWith({ id: "t1", sync: "synced" });
     server.routes["tests.restore"] = () => undefined;
     await menuItem("Undo local changes");
-    fireEvent.click(await screen.findByRole("button", { name: "Undo local changes" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Undo changes" }));
     await waitFor(() => expect(toasts.filter((t) => t.title === "Restored the Jira version")).toHaveLength(2));
     server.routes["tests.restore"] = () => {
       throw new Fail("no snapshot");
     };
     await menuItem("Undo local changes");
-    fireEvent.click(await screen.findByRole("button", { name: "Undo local changes" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Undo changes" }));
     await waitFor(() => expect(errors.at(-1)?.title).toBe("Could not undo the local changes"));
   });
 
@@ -1122,9 +1125,9 @@ describe("TestEditor › menu and settings", () => {
     await ready();
     await menuItem("Delete local copy");
     const dlg = await screen.findByRole("alertdialog", { name: "Delete the local copy?" });
-    expect(within(dlg).getByText(/nothing — the Jira test is left untouched/)).toBeInTheDocument();
+    expect(within(dlg).getByText(/Nothing is lost — the Jira test is left untouched/)).toBeInTheDocument();
     expect(callsTo("tests.remove")).toHaveLength(0);
-    fireEvent.click(within(dlg).getByRole("button", { name: "Delete local copy" }));
+    fireEvent.click(within(dlg).getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(state.navigate).toHaveBeenCalledWith("tests"));
     expect(state.testsChanged).toHaveBeenCalled();
   });
@@ -1139,7 +1142,7 @@ describe("TestEditor › menu and settings", () => {
     await ready();
     await menuItem("Delete local copy");
     const dlg = await screen.findByRole("alertdialog", { name: "Delete the local copy?" });
-    fireEvent.click(within(dlg).getByRole("button", { name: "Delete local copy" }));
+    fireEvent.click(within(dlg).getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(errors.at(-1)?.title).toBe("Could not delete the local copy"));
     expect(state.navigate).not.toHaveBeenCalled();
   });
@@ -1152,7 +1155,10 @@ describe("TestEditor › menu and settings", () => {
     const dlg = await screen.findByRole("alertdialog", { name: "Delete the local copy?" });
     fireEvent.click(within(dlg).getByRole("button", { name: "Cancel" }));
     await menuItem("Delete local copy");
-    fireEvent.click(await screen.findByRole("button", { name: "Delete local copy" }));
+    expect(within(await screen.findByRole("alertdialog")).getByRole("listitem")).toHaveTextContent(
+      "1test never pushed: this is its only copy",
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
     await waitFor(() => expect(state.navigate).toHaveBeenCalledWith("tests"));
   });
 
@@ -1682,7 +1688,7 @@ describe("TestEditor › parity", () => {
     await menuItem("Undo local changes");
     const dlg = await screen.findByRole("alertdialog", { name: "Undo every local change?" });
     again({ claudeRunning: "t1" });
-    fireEvent.click(within(dlg).getByRole("button", { name: "Undo local changes" }));
+    fireEvent.click(within(dlg).getByRole("button", { name: "Undo changes" }));
     expect(toasts.at(-1)?.title).toBe("Wait for Claude to finish");
     await new Promise((r) => setTimeout(r, 20));
     expect(callsTo("tests.restore")).toHaveLength(0);
@@ -1723,7 +1729,7 @@ describe("TestEditor › parity", () => {
     expect(screen.getByText("Claude changed 1 step")).toBeInTheDocument();
     shown = makeTest({ steps: [step("One", { id: "1" }), step("Two", { id: "2" })] });
     await menuItem("Undo local changes");
-    fireEvent.click(await screen.findByRole("button", { name: "Undo local changes" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Undo changes" }));
     await waitFor(() => expect(toasts.at(-1)?.title).toBe("Restored the Jira version"));
     expect(callsTo("tests.restore")).toHaveLength(1);
     expect(screen.queryByText("Changed by Claude")).toBeNull();
@@ -1843,7 +1849,7 @@ describe("TestEditor › late callbacks after the same test reloads (PARITY #3, 
     const deleted = lastToast("Step 2 deleted");
     shown = makeTest({ steps: [step("One", { id: "1" }), step("Two", { id: "2" })] });
     await menuItem("Undo local changes");
-    fireEvent.click(await screen.findByRole("button", { name: "Undo local changes" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Undo changes" }));
     await waitFor(() => expect(toasts.at(-1)?.title).toBe("Restored the Jira version"));
     expect(actions()).toEqual(["One", "Two"]);
     const saves = callsTo("tests.save").length;

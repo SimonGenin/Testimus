@@ -460,9 +460,11 @@ describe("DeleteTest", () => {
         <DeleteTest target={target} onClose={onClose} onDeleted={onDeleted} />
       </WithData>,
     );
-    expect(screen.getByText(/nothing — the Jira test is left untouched and can be pulled again/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Nothing is lost — the Jira test is left untouched and can be pulled again/),
+    ).toBeInTheDocument();
     expect(screen.getByText("K-1")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Delete local copy" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(onDeleted).toHaveBeenCalled());
     cleanup();
     callResult = () => {
@@ -477,10 +479,10 @@ describe("DeleteTest", () => {
         />
       </WithData>,
     );
-    expect(screen.getByText(/this test was never pushed/)).toBeInTheDocument();
+    expect(screen.getByText(/This test was never pushed/)).toBeInTheDocument();
     expect(screen.getByText(/Untitled/)).toBeInTheDocument();
     expect(screen.getByText("t1")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Delete local copy" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(onDeleted).toHaveBeenCalledTimes(1);
   });

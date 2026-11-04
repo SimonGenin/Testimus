@@ -488,6 +488,8 @@ export function TestEditor({
         <DownloadConfirm
           testKey={test.key}
           synced={!!remote}
+          loss={remote ? lossOf(test, remote) : undefined}
+          modifiedSteps={diff?.marks.flatMap((m, i) => (m === "modified" ? [i + 1] : [])) ?? []}
           busy={busyDl}
           onConfirm={actions.download}
           onClose={() => setDialog(null)}
@@ -517,7 +519,14 @@ export function TestEditor({
       )}
       {dialog?.kind === "delete" && (
         <DeleteTest
-          target={{ id: testId, key: test.key, summary: test.summary, synced: !!remote, dirty }}
+          target={{
+            id: testId,
+            key: test.key,
+            summary: test.summary,
+            synced: !!remote,
+            dirty,
+            loss: remote && dirty ? lossOf(test, remote) : undefined,
+          }}
           onClose={() => setDialog(null)}
           onDeleted={() => {
             setDialog(null);

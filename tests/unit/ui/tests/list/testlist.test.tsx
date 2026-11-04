@@ -322,7 +322,7 @@ describe("TestList › delete", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("alertdialog")).toBeNull();
     fireEvent.click(rowAction(localRow(/^Untitled/), "Delete the local copy of t-z"));
-    fireEvent.click(screen.getByRole("button", { name: "Delete local copy" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(onDeleted).toHaveBeenCalledWith("t-z"));
     expect(screen.queryByRole("alertdialog")).toBeNull();
   });

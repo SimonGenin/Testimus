@@ -458,7 +458,7 @@ describe("Tests sidebar › local rows", () => {
     const dialog = screen.getByRole("alertdialog", { name: "Delete the local copy?" });
     expect(within(dialog).getByText(/never pushed, so this is the only copy/)).toBeInTheDocument();
     expect(named("tests.remove")).toHaveLength(0);
-    fireEvent.click(within(dialog).getByRole("button", { name: "Delete local copy" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(onDeleted).toHaveBeenCalledWith("local-1"));
   });
 });

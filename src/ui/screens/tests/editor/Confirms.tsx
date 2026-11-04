@@ -9,11 +9,16 @@ const styles = stylex.create({
   key: { fontFamily: fontFamily.mono, fontSize: fontSize.code },
 });
 
+export type Loss = { modified: number; added: number; deleted: number };
+
+const steps = (n: number, what: string) => `${what} step${n === 1 ? "" : "s"}`;
+
 function Confirm({
   title,
   verb,
   danger,
   busy,
+  consequences,
   onConfirm,
   onClose,
   children,
@@ -22,12 +27,20 @@ function Confirm({
   verb: string;
   danger?: boolean;
   busy?: boolean;
+  consequences?: [number | string, string][];
   onConfirm: () => void | Promise<void>;
   onClose: () => void;
   children: ReactNode;
 }) {
   return (
-    <Modal title={title} size="sm" busy={busy} confirm={{ verb, danger, onConfirm }} onClose={onClose}>
+    <Modal
+      title={title}
+      size="sm"
+      busy={busy}
+      confirm={{ verb, danger, onConfirm }}
+      consequences={consequences}
+      onClose={onClose}
+    >
       {children}
     </Modal>
   );
@@ -36,32 +49,48 @@ function Confirm({
 export function DownloadConfirm({
   testKey,
   synced,
+  loss,
+  modifiedSteps = [],
   busy,
   onConfirm,
   onClose,
 }: {
   testKey: string;
   synced: boolean;
+  /** what the download throws away, against the last sync (none: the snapshot is missing) */
+  loss?: Loss;
+  /** the numbers of the modified steps */
+  modifiedSteps?: number[];
   busy: boolean;
   onConfirm: () => void | Promise<void>;
   onClose: () => void;
 }) {
+  const where = modifiedSteps.length ? ` (step${modifiedSteps.length > 1 ? "s" : ""} ${modifiedSteps.join(", ")})` : "";
   return (
     <Confirm
       title="Download from Jira?"
       verb="Overwrite local"
       danger
       busy={busy}
+      consequences={
+        synced && loss
+          ? [
+              [loss.modified, `${steps(loss.modified, "modified")} ${loss.modified === 1 ? "is" : "are"} lost${where}`],
+              [loss.added + loss.deleted, "added or deleted steps"],
+            ]
+          : undefined
+      }
       onConfirm={onConfirm}
       onClose={onClose}
     >
       <p {...stylex.props(styles.text)}>
-        You have local changes to <span {...stylex.props(styles.key)}>{testKey}</span> that have not been pushed.
-        Downloading fetches the test as Jira has it right now and replaces the local test.md with it.
+        <span {...stylex.props(styles.key)}>{testKey}</span> has local changes. Downloading replaces the local copy with
+        the version in Jira.
       </p>
       <p {...stylex.props(styles.text)}>
-        <strong>Local changes that will be lost: </strong>
-        {synced ? "everything you edited since the last sync." : "this test was never pushed."}
+        {synced
+          ? "Lost: everything you edited since the last sync, header fields included."
+          : "Lost: everything local — this test was never pushed."}
       </p>
     </Confirm>
   );
@@ -72,20 +101,26 @@ export function UndoConfirm({
   onConfirm,
   onClose,
 }: {
-  loss: { modified: number; added: number; deleted: number };
+  loss: Loss;
   onConfirm: () => void | Promise<void>;
   onClose: () => void;
 }) {
   return (
-    <Confirm title="Undo every local change?" verb="Undo local changes" danger onConfirm={onConfirm} onClose={onClose}>
+    <Confirm
+      title="Undo every local change?"
+      verb="Undo changes"
+      danger
+      consequences={[
+        [loss.modified, steps(loss.modified, "modified")],
+        [loss.added, steps(loss.added, "added")],
+        [loss.deleted, steps(loss.deleted, "deleted")],
+      ]}
+      onConfirm={onConfirm}
+      onClose={onClose}
+    >
       <p {...stylex.props(styles.text)}>
-        test.md goes back to the version of the last sync with Jira, from the local snapshot — nothing is downloaded,
-        nothing is pushed.
-      </p>
-      <p {...stylex.props(styles.text)}>
-        <strong>Lost: </strong>
-        {loss.modified} modified · {loss.added} added · {loss.deleted} deleted step(s), plus any edit to the header
-        fields.
+        The test goes back to its version of the last sync with Jira, from the local snapshot, header fields included —
+        nothing is downloaded, nothing is pushed.
       </p>
     </Confirm>
   );
