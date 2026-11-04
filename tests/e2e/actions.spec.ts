@@ -23,16 +23,17 @@ test("a problem Claude can fix becomes a card in the Actions tab only; it runs w
   const dock = page.getByRole("complementary", { name: "Claude" });
   const rail = dock.getByRole("button", { name: "Open Claude" });
   if (await rail.isVisible()) {
-    await expect(rail).toContainText("1");
+    await expect(dock.getByText("1", { exact: true })).toBeVisible();
     await rail.click();
   }
   await expect(dock.getByRole("region", { name: /Claude action/ })).toHaveCount(0);
-  const tab = dock.getByRole("button", { name: /^Actions/ });
+  const tab = dock.getByRole("tab", { name: /^Actions/ });
   await expect(tab).toContainText("1");
   await tab.click();
   const card = dock.getByRole("region", { name: "Claude action: Recover the figure from the PDF" });
   await expect(card).toBeVisible();
   await expect(card).toContainText(`${DOC} · whole document`);
+  await card.getByRole("button", { name: "Show" }).click();
   await expect(card).toContainText("Find the PDF next to the .docx");
   await expect(card).toContainText("Every Testimus command");
   await expect(card).toContainText("Proposed by Haiku · low · during the import");
@@ -40,7 +41,7 @@ test("a problem Claude can fix becomes a card in the Actions tab only; it runs w
   await expect(card.getByRole("combobox", { name: "Effort" })).toHaveValue("high");
   await shoot(page, "action-card");
 
-  await card.getByRole("button", { name: "Run action" }).click();
+  await card.getByRole("button", { name: "Run", exact: true }).click();
   const ran = dock.getByRole("region", { name: "Claude action: Recover the figure from the PDF" });
   await expect(ran.getByText("1 file changed")).toBeVisible({ timeout: 20_000 });
   await expect(ran.getByText("I read the passage the problem is about.")).toBeVisible();
@@ -53,7 +54,7 @@ test("a problem Claude can fix becomes a card in the Actions tab only; it runs w
   await expect(ran.getByText("Reverted")).toBeVisible();
   expect((await api<{ context: string }>(url, "docs.show", { id: DOC })).context).not.toContain("Figures lost");
 
-  await dock.getByRole("button", { name: "Document" }).click();
+  await dock.getByRole("tab", { name: "Documents" }).click();
   await expect(dock.getByRole("region", { name: /Claude action/ })).toHaveCount(0);
 });
 
@@ -77,8 +78,9 @@ test("a step's action is a card in the Actions tab, not on its Review row, and i
   const dock = page.getByRole("complementary", { name: "Claude" });
   const rail = dock.getByRole("button", { name: "Open Claude" });
   if (await rail.isVisible()) await rail.click();
-  await dock.getByRole("button", { name: /^Actions/ }).click();
+  await dock.getByRole("tab", { name: /^Actions/ }).click();
   const card = dock.getByRole("region", { name: "Claude action: Make step 2 say what the menu shows" });
+  await card.getByRole("button", { name: "Show" }).click();
   await expect(card.getByRole("combobox", { name: "Model" })).toHaveValue("sonnet");
   await expect(card.getByRole("combobox", { name: "Effort" })).toHaveValue("medium");
   await card.getByRole("button", { name: "Dismiss" }).click();

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { JobEvent, Test } from "../../src/core/types.ts";
@@ -9,6 +9,7 @@ import { resetDoctor } from "../../src/ui/lib/doctor.ts";
 import { DoctorScreen } from "../../src/ui/screens/doctor/DoctorScreen.tsx";
 import { GenerateScreen } from "../../src/ui/screens/generate/GenerateScreen.tsx";
 import { ColumnsSection } from "../../src/ui/screens/settings/ColumnsSection.tsx";
+import { renderWithData } from "./cov-uishell-helpers.tsx";
 import { layoutOf } from "./layout-helpers.ts";
 
 type Handler = (input: Record<string, unknown>) => unknown;
@@ -102,7 +103,8 @@ function appState(over: Partial<AppState> = {}): AppState {
   };
 }
 
-const wrap = (app: AppState, node: ReactNode) => render(<AppContext.Provider value={app}>{node}</AppContext.Provider>);
+const wrap = (app: AppState, node: ReactNode) =>
+  renderWithData(<AppContext.Provider value={app}>{node}</AppContext.Provider>);
 
 const named = (name: string) => calls.filter((c) => c.name === name);
 

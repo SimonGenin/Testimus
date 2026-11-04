@@ -117,7 +117,7 @@ export async function boot(page: Page, hash = "#/tests"): Promise<void> {
 export async function openDock(page: Page) {
   const dock = page.getByRole("complementary", { name: "Claude" });
   await dock.getByRole("button", { name: "Open Claude" }).click();
-  await expect(dock.getByRole("heading", { name: "Ask Claude" })).toBeVisible();
+  await expect(dock.getByRole("heading", { name: "Claude", exact: true })).toBeVisible();
   return dock;
 }
 

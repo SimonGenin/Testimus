@@ -1,5 +1,7 @@
-import { Button, Severity } from "../legacy/index.ts";
+import { Banner } from "../ui/Banner.tsx";
+import { Button } from "../ui/Button.tsx";
 
+// ponytail: Revert refused because the test changed after the run — said where the run's changes are shown
 export function RevertConflict({
   detail,
   onForce,
@@ -10,20 +12,17 @@ export function RevertConflict({
   onKeep: () => void;
 }) {
   return (
-    <div className="find f-warn revert-conflict" role="alert">
-      <Severity tone="warning">Edited after the Claude run</Severity>
-      <p>{detail}</p>
-      <p className="muted">
-        Reverting anyway puts back the version from before Claude and drops those later edits too.
-      </p>
-      <div className="rstatus-actions">
-        <Button size="sm" icon="revert" onClick={onForce}>
-          Revert anyway
-        </Button>
-        <Button size="sm" tone="quiet" onClick={onKeep}>
-          Keep the test as it is
-        </Button>
-      </div>
-    </div>
+    <Banner
+      tone="warning"
+      title="Edited after the Claude run"
+      actions={
+        <>
+          <Button size="sm" icon="undo" label="Revert anyway" onClick={onForce} />
+          <Button size="sm" variant="quiet" label="Keep the test as it is" onClick={onKeep} />
+        </>
+      }
+    >
+      {detail} Reverting anyway puts back the version from before Claude and drops those later edits too.
+    </Banner>
   );
 }

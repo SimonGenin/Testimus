@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CheckFile, DocRef, Job, JobEvent, LocalTestRef, Test } from "../../src/core/types.ts";
@@ -18,6 +18,7 @@ import {
   RunHead,
 } from "../../src/ui/screens/generate/GenResult.tsx";
 import { clearToasts, mount } from "./cov-uiscreens-helpers.tsx";
+import { renderWithData } from "./cov-uishell-helpers.tsx";
 import { api, app, FakeEventSource, fakeFetch, named, xray } from "./ui-desktop-helpers.tsx";
 
 beforeEach(() => {
@@ -112,10 +113,10 @@ describe("Generate › result helpers", () => {
 
   it("GenCard: placeholders while writing or loading", () => {
     const cb = { open: true, onToggle: vi.fn(), onOpen: vi.fn(), onSource: vi.fn() };
-    render(<GenCard item={{ id: "x" }} writing checking={false} xray={xray} {...cb} />);
+    renderWithData(<GenCard item={{ id: "x" }} writing checking={false} xray={xray} {...cb} />);
     expect(screen.getByRole("status", { name: "Claude is writing a test" })).toHaveTextContent("Writing…");
     cleanup();
-    render(<GenCard item={{ id: "x" }} writing={false} checking={false} xray={xray} {...cb} />);
+    renderWithData(<GenCard item={{ id: "x" }} writing={false} checking={false} xray={xray} {...cb} />);
     expect(screen.getByRole("status", { name: "Loading a test" })).toHaveTextContent("Loading…");
   });
 
@@ -145,7 +146,7 @@ describe("Generate › result helpers", () => {
         onSource={onSource}
       />
     );
-    const { rerender } = render(card1(true));
+    const { rerender } = renderWithData(card1(true));
     const card = screen.getByRole("region", { name: "Tournois" });
     expect(card).toHaveTextContent("Lancer le tournoi");
     expect(card).toHaveTextContent("Le tableau s'affiche");
@@ -167,7 +168,7 @@ describe("Generate › result helpers", () => {
     fireEvent.click(screen.getByRole("button", { name: "Open in Review" }));
     expect(onOpen).toHaveBeenCalled();
     cleanup();
-    render(
+    renderWithData(
       <GenCard
         item={{ id: "x", test: test("Vide", []) }}
         writing={false}
@@ -187,7 +188,7 @@ describe("Generate › result helpers", () => {
     const t = test("", []);
     const show = (props: Partial<Parameters<typeof GenCard>[0]>) => {
       cleanup();
-      render(
+      renderWithData(
         <GenCard
           item={{ id: "x", test: t }}
           writing={false}
@@ -237,7 +238,7 @@ describe("Generate › result helpers", () => {
     const onReview = vi.fn();
     const head = (j: Job | null, count: number, result: GenOutput | null = null) => {
       cleanup();
-      return render(
+      return renderWithData(
         <RunHead
           job={j}
           now={Date.parse(at) + 65000}
@@ -283,7 +284,7 @@ describe("Generate › result helpers", () => {
 
   it("RunHead: a stopped plan offers to resume what is left", () => {
     const onResume = vi.fn();
-    render(
+    renderWithData(
       <RunHead
         job={job({ status: "cancelled", endedAt: at })}
         now={Date.parse(at)}
@@ -305,7 +306,7 @@ describe("Generate › result helpers", () => {
     const onFoldAll = vi.fn();
     const head = (count: number, allFolded: boolean, j = job()) => {
       cleanup();
-      render(
+      renderWithData(
         <RunHead
           job={j}
           now={Date.parse(at)}
@@ -333,7 +334,7 @@ describe("Generate › result helpers", () => {
   });
 
   it("GenSummary: missing report, skipped items, changed tests", () => {
-    const { rerender } = render(
+    const { rerender } = renderWithData(
       <GenSummary
         result={output({
           reportFound: false,
@@ -423,7 +424,7 @@ describe("Generate › documents", () => {
       if (i.anchor) return { md: "## 5 T\n\n### 5.6 O" };
       return { toc };
     };
-    render(<ScopeHost docs={[docRef("D1", "Traction", 62), docRef("D2", "Signaux")]} />);
+    renderWithData(<ScopeHost docs={[docRef("D1", "Traction", 62), docRef("D2", "Signaux")]} />);
     expect(screen.getByText("2 of 2 documents")).toBeInTheDocument();
     expect(screen.getByText(/whole document · 62 sections/)).toBeInTheDocument();
     const d2 = screen.getByRole("checkbox", { name: /Signaux/ });
@@ -462,14 +463,14 @@ describe("Generate › documents", () => {
   });
 
   it("loading, no document, a document without headings", async () => {
-    const { container } = render(<ScopeHost docs={null} />);
+    const { container } = renderWithData(<ScopeHost docs={null} />);
     expect(container.querySelector("[aria-busy='true']")).not.toBeNull();
     cleanup();
-    render(<ScopeHost docs={[]} />);
+    renderWithData(<ScopeHost docs={[]} />);
     expect(screen.getByText("No document yet — add one in Documents.")).toBeInTheDocument();
     cleanup();
     api.routes["docs.show"] = () => null;
-    render(<ScopeHost docs={[docRef("D1", "")]} initial={{ D1: [] }} />);
+    renderWithData(<ScopeHost docs={[docRef("D1", "")]} initial={{ D1: [] }} />);
     expect(await screen.findByText("This document has no headings to pick from.")).toBeInTheDocument();
     expect(screen.getByText("C-D1")).toBeInTheDocument();
   });
@@ -478,7 +479,7 @@ describe("Generate › documents", () => {
 describe("Generate › smart columns", () => {
   it("lists each column with its origin and what Claude writes; new ones ask to define", () => {
     const onEdit = vi.fn();
-    render(
+    renderWithData(
       <ColumnsView
         columns={[
           { name: "Action", origin: "xray", builtin: true, status: "ok", description: "One gesture", mode: "open" },
@@ -507,7 +508,7 @@ describe("Generate › smart columns", () => {
     fireEvent.click(screen.getByRole("button", { name: "Define the columns" }));
     expect(onEdit).toHaveBeenCalled();
     cleanup();
-    render(
+    renderWithData(
       <ColumnsView
         columns={[
           { name: "A", origin: "xray", builtin: false, status: "new", description: "", mode: "open" },
@@ -518,7 +519,7 @@ describe("Generate › smart columns", () => {
     );
     expect(screen.getByText(/2 columns came from Xray without a description — Claude leaves them/)).toBeInTheDocument();
     cleanup();
-    render(<ColumnsView columns={[]} onEdit={onEdit} />);
+    renderWithData(<ColumnsView columns={[]} onEdit={onEdit} />);
     expect(screen.getByRole("button", { name: "Edit in Settings" })).toBeInTheDocument();
   });
 });

@@ -9,21 +9,21 @@ const ORIGINAL = "Ouvrir la vue de traction de la ligne 92 et repérer le sectio
 test("Ask a document streams an answer whose source chips open the passage", async ({ page }) => {
   await boot(page, "#/documents/SOSIE_211_D401-1_3");
   const dock = await openDock(page);
-  await expect(dock.getByRole("button", { name: "Document" })).toHaveAttribute("aria-pressed", "true");
+  await expect(dock.getByRole("radio", { name: "This document" })).toHaveAttribute("aria-checked", "true");
   await dock
     .getByRole("textbox", { name: "Ask about SOSIE_211_D401-1_3" })
     .fill("Que propose le menu contextuel d'un sectionneur ?");
-  await dock.getByRole("button", { name: "Send" }).click();
+  await dock.getByRole("button", { name: "Ask", exact: true }).click();
   await expect(dock.getByText("Que propose le menu contextuel d'un sectionneur ?")).toBeVisible();
   await expect(dock.getByText(/Le menu contextuel d'un sectionneur dépend de son type/)).toBeVisible();
   await expect(dock.getByText(/ne précisent pas l'ordre d'affichage/)).toBeVisible();
   const chip = dock.getByRole("button", { name: /^SOSIE_211_D401-1_3 §5\.6\.6/ }).first();
   await expect(chip).toBeVisible();
-  await expect(dock.getByRole("button", { name: "Send" })).toBeVisible();
+  await expect(dock.getByRole("button", { name: "Ask", exact: true })).toBeVisible();
   await shoot(page, "dock-ask");
 
   await chip.click();
-  const dialog = page.getByRole("dialog", { name: /^Source / });
+  const dialog = page.getByRole("dialog").filter({ has: page.getByRole("region", { name: /^Source / }) });
   await expect(dialog.locator("mark")).toContainText("Selon le type de sectionneur, le menu contextuel diffère");
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
@@ -36,19 +36,19 @@ test("the palette puts a question in the dock, on the open document", async ({ p
   await palette.getByRole("combobox", { name: "Search" }).fill("quel est le menu du sectionneur");
   await palette.getByRole("option", { name: /Ask Claude: “quel est le menu du sectionneur”/ }).click();
   const dock = page.getByRole("complementary", { name: "Claude" });
-  await expect(dock.getByRole("button", { name: "Document" })).toHaveAttribute("aria-pressed", "true");
+  await expect(dock.getByRole("radio", { name: "This document" })).toHaveAttribute("aria-checked", "true");
   await expect(dock.getByRole("textbox", { name: "Ask about SOSIE_211_D401-1_3" })).toHaveValue(
     "quel est le menu du sectionneur",
   );
-  await dock.getByRole("button", { name: "Send" }).click();
+  await dock.getByRole("button", { name: "Ask", exact: true }).click();
   await expect(dock.getByText(/Le menu contextuel d'un sectionneur dépend de son type/)).toBeVisible();
 });
 
 test("On this test: Claude changes a step, the editor marks it, Revert puts it back", async ({ page }) => {
   await openTest(page, "LFRPS12-1420");
   const dock = await openDock(page);
-  await expect(dock.getByRole("button", { name: "Test", exact: true })).toHaveAttribute("aria-pressed", "true");
-  await expect(dock.getByText("LFRPS12-1420")).toBeVisible();
+  await expect(dock.getByRole("radio", { name: "Whole test" })).toHaveAttribute("aria-checked", "true");
+  await expect(dock.getByText("LFRPS12-1420").first()).toBeVisible();
   await dock.getByRole("textbox", { name: "Ask Claude about this test" }).fill("Précise l'action du step 1.");
   await dock.getByRole("button", { name: "Send" }).click();
 
@@ -63,7 +63,7 @@ test("On this test: Claude changes a step, the editor marks it, Revert puts it b
   );
   await shoot(page, "dock-on-this-test");
 
-  await dock.getByRole("button", { name: "Revert" }).click();
+  await dock.getByRole("button", { name: "Revert", exact: true }).click();
   await expect(dock.getByText("Reverted")).toBeVisible();
   await expect.poll(action1).toBe(ORIGINAL);
   await expect(step1.getByRole("textbox", { name: "Action of step 1" })).toHaveValue(ORIGINAL);

@@ -2,8 +2,8 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { setProject } from "../../src/ui/api.ts";
-import { PassageText, paragraphs } from "../../src/ui/components/sources/PassageView.tsx";
+import { setProject } from "../../../../src/ui/api.ts";
+import { PassageText, paragraphs } from "../../../../src/ui/components/sources/PassageView.tsx";
 
 afterEach(cleanup);
 
