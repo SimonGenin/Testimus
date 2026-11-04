@@ -3,7 +3,6 @@ import "@testing-library/jest-dom/vitest";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DoctorCheck } from "../../../../src/core/types.ts";
-import { resetDoctor, runDoctor } from "../../../../src/ui/lib/doctor.ts";
 import { AccessSection, fileState } from "../../../../src/ui/screens/settings/AccessSection.tsx";
 import {
   ConnectAtlassian,
@@ -32,7 +31,6 @@ const verdict = (status: ReturnType<typeof creds>, more: Record<string, unknown>
 
 beforeEach(() => {
   fakeNet();
-  resetDoctor();
   net.routes["system.secrets"] = () => ({ token: "", clientId: "", clientSecret: "" });
   net.routes["system.doctor"] = () => ({ ok: true, checks: [] });
 });
@@ -269,20 +267,20 @@ describe("Settings › Access", () => {
       ok: false,
       checks: [check("jira", "fail", "Jira 401 Unauthorized — token rejected", "New token"), check("xray", "ok")],
     });
-    await runDoctor();
     net.routes["system.credentials"] = () => verdict(creds());
     mountSettings(<AccessSection />);
     const files = await screen.findByRole("list", { name: "Credential files" });
     expect(within(files).getAllByText("Found · valid")).toHaveLength(2);
     expect(within(files).getByText("C:\\Users\\me\\.atlassian\\xray_credentials.json")).toBeInTheDocument();
-    expect(within(within(files).getByRole("listitem", { name: "Xray" })).getByText("Connected")).toBeInTheDocument();
+    expect(
+      await within(within(files).getByRole("listitem", { name: "Xray" })).findByText("Connected"),
+    ).toBeInTheDocument();
     expect(within(files).getByText(/Jira 401 Unauthorized/)).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Connect to Jira and Xray" })).toBeInTheDocument();
   });
 
   it("a missing file, an invalid one with its problem, an incomplete one", async () => {
     net.routes["system.doctor"] = () => ({ ok: true, checks: [check("jira", "skip")] });
-    await runDoctor();
     net.routes["system.credentials"] = () =>
       verdict(creds({ exists: false }, { invalid: true, problem: "not valid JSON" }));
     mountSettings(<AccessSection />);

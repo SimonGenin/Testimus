@@ -8,7 +8,6 @@ import { ContextsDialog, contextLine } from "../../../../src/ui/components/claud
 import { AppContext, type AppState, type Focus } from "../../../../src/ui/lib/app.ts";
 import { setProject } from "../../../../src/ui/lib/data/client.ts";
 import { restoreAlwaysOnTop } from "../../../../src/ui/lib/desktop.ts";
-import { resetDoctor } from "../../../../src/ui/lib/doctor.ts";
 import { AppearanceSection } from "../../../../src/ui/screens/settings/AppearanceSection.tsx";
 import { ClaudeSection } from "../../../../src/ui/screens/settings/ClaudeSection.tsx";
 import { dataWrapper } from "../../cov-uishell-helpers.tsx";
@@ -34,7 +33,6 @@ beforeEach(() => {
   setProject(`/p/dock-settings-${++run}`);
   calls = [];
   routes = { "claude.status": () => ({ installed: true, version: "2.1.0", signedIn: null, exe: "claude" }) };
-  resetDoctor();
   localStorage.clear();
   vi.stubGlobal("EventSource", FakeES);
   vi.stubGlobal(

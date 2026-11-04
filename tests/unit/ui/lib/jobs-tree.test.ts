@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Job, JobEvent } from "../../../../src/core/types.ts";
+import { applyJobEvent } from "../../../../src/ui/lib/data/events.ts";
 import {
-  applyEvent,
   childSummary,
   dayLabel,
   failedStep,
@@ -139,21 +139,21 @@ describe("the log cut by step", () => {
 describe("following the events", () => {
   it("adds, replaces and patches the listed jobs", () => {
     let list: Job[] = [job({ id: "a", status: "running", steps: [{ id: "s", label: "S", status: "running" }] })];
-    list = applyEvent(list, { jobId: "b", at: "x", type: "status", job: job({ id: "b" }) });
+    list = applyJobEvent(list, { jobId: "b", at: "x", type: "status", job: job({ id: "b" }) });
     expect(list.map((j) => j.id)).toEqual(["b", "a"]);
-    list = applyEvent(list, { jobId: "a", at: "x", type: "progress", message: "m", done: 1, total: 4, step: "s" });
+    list = applyJobEvent(list, { jobId: "a", at: "x", type: "progress", message: "m", done: 1, total: 4, step: "s" });
     expect(list[1]).toMatchObject({ message: "m", progress: { done: 1, total: 4 } });
     expect(list[1].steps?.[0]).toMatchObject({ done: 1, total: 4, message: "m" });
-    list = applyEvent(list, { jobId: "a", at: "x", type: "progress", message: "n", step: "s" });
+    list = applyJobEvent(list, { jobId: "a", at: "x", type: "progress", message: "n", step: "s" });
     expect(list[1].steps?.[0]).toMatchObject({ done: 1, message: "n" });
-    list = applyEvent(list, { jobId: "a", at: "x", type: "steps", steps: [] });
+    list = applyJobEvent(list, { jobId: "a", at: "x", type: "steps", steps: [] });
     expect(list[1].steps).toEqual([]);
     const proc = { id: "p1", label: "L", command: "c", startedAt: "x" };
-    list = applyEvent(list, { jobId: "a", at: "x", type: "process", process: proc });
-    list = applyEvent(list, { jobId: "a", at: "x", type: "process", process: { ...proc, exit: 0 } });
+    list = applyJobEvent(list, { jobId: "a", at: "x", type: "process", process: proc });
+    list = applyJobEvent(list, { jobId: "a", at: "x", type: "process", process: { ...proc, exit: 0 } });
     expect(list[1].processes).toEqual([{ ...proc, exit: 0 }]);
-    list = applyEvent(list, { jobId: "a", at: "x", type: "status", job: job({ id: "a", status: "done" }) });
+    list = applyJobEvent(list, { jobId: "a", at: "x", type: "status", job: job({ id: "a", status: "done" }) });
     expect(list[1].status).toBe("done");
-    expect(applyEvent(list, { jobId: "a", at: "x", type: "changed", paths: [] })).toBe(list);
+    expect(applyJobEvent(list, { jobId: "a", at: "x", type: "changed", paths: [] })).toBe(list);
   });
 });

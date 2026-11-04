@@ -4,8 +4,8 @@ import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../../src/ui/app/App.tsx";
 import { CONTEXTS_EVENT } from "../../../../src/ui/components/claude/ContextsDialog.tsx";
-import { ACTIONS_EVENT } from "../../../../src/ui/lib/actions.ts";
 import { setProject } from "../../../../src/ui/lib/data/client.ts";
+import { keysOfPaths } from "../../../../src/ui/lib/data/events.ts";
 import { DataProvider } from "../../../../src/ui/lib/data/provider.tsx";
 import { callsOf, FakeES, fakeEvents, fakeNet, net } from "../../cov-uishell-helpers.tsx";
 import { app as appState } from "../../ui-desktop-helpers.tsx";
@@ -67,22 +67,19 @@ describe("App, when a job changed project files", () => {
 
   it("tells the action lists and the context lists to read again when theirs changed", async () => {
     await boot();
-    const acts = vi.fn();
     const ctxs = vi.fn();
-    window.addEventListener(ACTIONS_EVENT, acts);
     window.addEventListener(CONTEXTS_EVENT, ctxs);
     try {
       changed(["docs/D1/doc.md"]);
-      expect(acts).not.toHaveBeenCalled();
+      expect(keysOfPaths(["docs/D1/doc.md"])).not.toContainEqual(["actions.list"]);
       expect(ctxs).not.toHaveBeenCalled();
       changed([".testimus/actions/act-1.json"]);
-      expect(acts).toHaveBeenCalledTimes(1);
+      expect(keysOfPaths([".testimus/actions/act-1.json"])).toEqual([["actions.list"], ["actions.show"]]);
       changed(["contexts/glossary/context.md"]);
       changed(["project.json"]);
       changed(["tests/local-1/local.json"]);
       expect(ctxs).toHaveBeenCalledTimes(3);
     } finally {
-      window.removeEventListener(ACTIONS_EVENT, acts);
       window.removeEventListener(CONTEXTS_EVENT, ctxs);
     }
   });

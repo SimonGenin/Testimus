@@ -1,7 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { CONTEXTS_EVENT } from "../components/claude/ContextsDialog.tsx";
-import { actionsChanged } from "../lib/actions.ts";
 import { onAnyEvent } from "../lib/data/events.ts";
 import { execute } from "../lib/data/query.ts";
 import { toast } from "../lib/toast.ts";
@@ -12,7 +11,7 @@ const touches = (paths: string[], prefixes: string[]) =>
 
 // ponytail: what the shell does with the event stream — the core is told of a failed job (it decides whether Claude
 // looks at it), a finished check is announced; and the screens not yet on the data layer hear their old signals
-// (testsChanged, the contexts and actions events) until they read through it
+// (testsChanged, the contexts event) until they read through it
 export function useShellEvents(testsChanged: () => void): void {
   const client = useQueryClient();
   const latest = useRef(testsChanged);
@@ -22,7 +21,6 @@ export function useShellEvents(testsChanged: () => void): void {
       onAnyEvent((e) => {
         if (e.type === "changed") {
           if (touches(e.paths, ["tests/"])) latest.current();
-          if (touches(e.paths, [".testimus/actions/"])) actionsChanged();
           if (
             touches(e.paths, ["contexts/", "project.json"]) ||
             e.paths.some((p) => p.endsWith("/local.json") || p.endsWith("/doc.json"))

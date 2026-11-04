@@ -1,44 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
 import type { ClaudeAction, ClaudeScope } from "../../core/types.ts";
-import { call, events } from "../api.ts";
 
 export type Action = ClaudeAction & { stale: boolean };
-export type ActionFilter = { docId?: string; testId?: string; jobId?: string };
-
-export const ACTIONS_EVENT = "testimus:actions";
-
-export const actionsChanged = () => window.dispatchEvent(new Event(ACTIONS_EVENT));
-
-// ponytail: a job that ends may have proposed, run or outdated an action — every list reads again then
-const ENDS = new Set(["done", "failed", "cancelled"]);
-
-export function useActions(filter: ActionFilter | null): Action[] {
-  const [list, setList] = useState<Action[]>([]);
-  const key = filter ? JSON.stringify(filter) : "";
-  const load = useCallback(() => {
-    if (!key) {
-      setList([]);
-      return;
-    }
-    call<Action[]>("actions.list", JSON.parse(key))
-      .then((r) => setList(r ?? []))
-      .catch(() => setList([]));
-  }, [key]);
-  useEffect(() => {
-    load();
-    window.addEventListener(ACTIONS_EVENT, load);
-    const stop = events((e) => {
-      if (e.type === "status" && ENDS.has(e.job.status)) load();
-    });
-    return () => {
-      window.removeEventListener(ACTIONS_EVENT, load);
-      stop();
-    };
-  }, [load]);
-  return list;
-}
-
-export const forProblem = (list: Action[], text: string) => list.find((a) => a.problem === text);
 
 const RUN_WORD: Record<string, string> = {
   import: "during the import",

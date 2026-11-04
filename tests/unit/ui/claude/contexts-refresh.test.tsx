@@ -6,7 +6,6 @@ import type { Test } from "../../../../src/core/types.ts";
 import { setProject } from "../../../../src/ui/api.ts";
 import { ClaudeDock } from "../../../../src/ui/components/claude/ClaudeDock.tsx";
 import { AppContext, type AppState } from "../../../../src/ui/lib/app.ts";
-import { resetDoctor } from "../../../../src/ui/lib/doctor.ts";
 import { ClaudeSection } from "../../../../src/ui/screens/settings/ClaudeSection.tsx";
 import { TestEditor } from "../../../../src/ui/screens/tests/TestEditor.tsx";
 import { dataWrapper, fakeEvents, fakeNet, net } from "../../cov-uishell-helpers.tsx";
@@ -36,7 +35,6 @@ const shown: Test = {
 beforeEach(() => {
   fakeNet();
   fakeEvents();
-  resetDoctor();
   localStorage.clear();
   setProject("/p/contexts-refresh");
   store = {
