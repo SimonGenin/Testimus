@@ -160,7 +160,7 @@ test.describe("first download, no models folder chosen", () => {
   test("the first download asks where models go, then Change… moves them", async ({ page }) => {
     const root = await sandbox(url);
     const models = await openModels(page);
-    await expect(models).toContainText("not chosen yet");
+    await expect(models).toContainText("Not chosen yet — Testimus asks on the first download.");
     await models
       .getByRole("article", { name: "Performance pack" })
       .getByRole("button", { name: "Use this pack" })

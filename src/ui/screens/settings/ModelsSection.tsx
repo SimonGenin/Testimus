@@ -16,7 +16,7 @@ import { AdviceBanner } from "./models/AdviceBanner.tsx";
 import { useModelActions } from "./models/actions.ts";
 import { BenchDialog } from "./models/BenchDialog.tsx";
 import { CustomCard } from "./models/CustomCard.tsx";
-import { size } from "./models/data.ts";
+import { onDrive, size } from "./models/data.ts";
 import { FitConfirm } from "./models/FitConfirm.tsx";
 import { FolderDialog } from "./models/FolderDialog.tsx";
 import { ModelsTable } from "./models/ModelsTable.tsx";
@@ -59,11 +59,15 @@ export function ModelsSection() {
   const advice = useRead("models.advice", {}, { enabled: hasProject });
   const status = useRead("rag.status", {}, { enabled: hasProject });
   const dirs = useRead("models.dirs", {});
+  const hw = useRead("models.hardware", {});
   const [open, setOpen] = useState(false);
   const [benchOf, setBenchOf] = useState<string | null>(null);
   const shownBench = useRef<string | null>(null);
   const table = useRef<HTMLDivElement>(null);
   const dir = dirs.data ? dirs.data.dir : undefined;
+  const drive = dir
+    ? (hw.data?.drives ?? []).filter((d) => onDrive(dir, d.root)).sort((x, y) => y.root.length - x.root.length)[0]
+    : undefined;
 
   const measured = (op: Op, status: "done" | "failed" | "cancelled", error?: string) => {
     const pack = op.key.slice(MEASURE.length);
@@ -123,11 +127,18 @@ export function ModelsSection() {
             {dir === undefined ? (
               <Skeleton width="40%" />
             ) : dir ? (
-              <span title={dir} {...stylex.props(styles.path)}>
-                {dir}
-              </span>
+              <>
+                <span title={dir} {...stylex.props(styles.path)}>
+                  {dir}
+                </span>
+                {drive && (
+                  <span {...stylex.props(styles.muted)}>
+                    · {size(drive.freeMB)} free on {drive.root.replace(/[\\/]+$/, "") || drive.root}
+                  </span>
+                )}
+              </>
             ) : (
-              <span {...stylex.props(styles.muted)}>not chosen yet</span>
+              <span {...stylex.props(styles.muted)}>Not chosen yet — Testimus asks on the first download.</span>
             )}
           </span>
           {ops
