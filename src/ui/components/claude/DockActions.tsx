@@ -1,12 +1,16 @@
+import * as stylex from "@stylexjs/stylex";
 import { useState } from "react";
 import type { ClaudeAction, Effort } from "../../../core/types.ts";
 import type { Action } from "../../lib/actions.ts";
 import { key, useCommand } from "../../lib/data/query.ts";
 import { errorToast } from "../../lib/toast.ts";
+import { space } from "../../styles/tokens.stylex.ts";
 import { EmptyState } from "../ui/EmptyState.tsx";
 import { ActionCard } from "./ActionCard.tsx";
 
 export type Pick = { model: string; effort: Effort };
+
+const styles = stylex.create({ intro: { paddingTop: space.s6 } });
 
 // ponytail: what the Actions tab keeps while the dock lives — the cards put aside (« Not now », back when the app
 // opens again) and the model and effort picked on each card
@@ -52,16 +56,17 @@ export function DockActions({
   const shown = actions.filter((a) => !choices.later.has(a.id));
   if (!shown.length)
     return (
-      <EmptyState
-        icon="list"
-        compact
-        title={actions.length ? "Every action is put aside" : "No action proposed"}
-        text={
-          actions.length
-            ? "They come back when the app is opened again."
-            : "When a run sees a problem it can fix, it proposes it here."
-        }
-      />
+      <div {...stylex.props(styles.intro)}>
+        <EmptyState
+          icon="list"
+          title={actions.length ? "Every action is put aside" : "No Claude action"}
+          text={
+            actions.length
+              ? "They come back when the app is opened again."
+              : "When a run sees a problem it can fix later, it proposes it here. Running one changes files like any run, and Revert undoes it."
+          }
+        />
+      </div>
     );
   return (
     <>

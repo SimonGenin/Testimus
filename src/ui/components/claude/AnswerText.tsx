@@ -46,24 +46,41 @@ export function parseAnswer(text: string): Array<string | Source> {
   return out;
 }
 
-// ponytail: Claude's words as React elements, never HTML: each docId#anchor "quote" becomes a source chip in the line
+const same = (a: Source, b: Source) => a.docId === b.docId && a.anchor === b.anchor && a.quote === b.quote;
+
+// the sources a text cites, each once, in order
+export function sourcesOf(text: string): Source[] {
+  const out: Source[] = [];
+  for (const x of parseAnswer(text)) if (typeof x !== "string" && !out.some((s) => same(s, x))) out.push(x);
+  return out;
+}
+
+// ponytail: Claude's words as React elements, never HTML: each docId#anchor "quote" becomes a source chip in the line,
+// unless the answer lists it under the text (`listed`) — then the words stay words and the chip is in the list
 export function AnswerText({
   text,
   running,
+  listed = [],
   onOpenSource,
 }: {
   text: string;
   running?: boolean;
+  listed?: Source[];
   onOpenSource: (s: Source) => void;
 }) {
   const paras = text.split(/\n{2,}/);
   return (
     <div {...stylex.props(styles.answer)}>
       {paras.map((p, i) => {
-        const parts: ReactNode[] = parseAnswer(p).map((x, k) =>
+        const bits = parseAnswer(p);
+        const parts: ReactNode[] = bits.map((x, k) =>
           typeof x === "string" ? (
-            x
-          ) : (
+            typeof bits[k + 1] === "object" && listed.some((s) => same(s, bits[k + 1] as Source)) ? (
+              x.replace(/\s+$/, "")
+            ) : (
+              x
+            )
+          ) : listed.some((s) => same(s, x)) ? null : (
             <SourceChip
               key={k}
               reference={sourceLabel(x)}
