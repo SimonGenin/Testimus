@@ -818,7 +818,7 @@ describe("TestEditor › Claude", () => {
     expect(await screen.findByText("Claude changed 1 step")).toBeInTheDocument();
     expect(screen.queryByText(/\(new\)/)).toBeNull();
     server.routes["claude.revert"] = (input) => {
-      if (!input.force) throw new Fail("t1 changed after the Claude run");
+      if (!input.force) throw new Fail("t1 changed after the Claude run", undefined, 409, "edited-after-run");
       return {};
     };
     fireEvent.click(screen.getByRole("button", { name: "Revert all" }));
@@ -841,7 +841,7 @@ describe("TestEditor › Claude", () => {
     fireEvent.click(screen.getByRole("button", { name: "Revert all" }));
     await waitFor(() => expect(errors.at(-1)?.title).toBe("Could not revert Claude's changes"));
     server.routes["claude.revert"] = () => {
-      throw new Fail("t1 changed after the Claude run");
+      throw new Fail("t1 changed after the Claude run", undefined, 409, "edited-after-run");
     };
     fireEvent.click(screen.getByRole("button", { name: "Revert all" }));
     fireEvent.click(await screen.findByRole("button", { name: "Revert anyway" }));

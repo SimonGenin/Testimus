@@ -5,10 +5,12 @@ export type Call = { name: string; input: Record<string, unknown> };
 export class Fail extends Error {
   status: number;
   fix?: string;
-  constructor(message: string, fix?: string, status = 500) {
+  code?: string;
+  constructor(message: string, fix?: string, status = 500, code?: string) {
     super(message);
     this.status = status;
     this.fix = fix;
+    this.code = code;
   }
 }
 
@@ -36,7 +38,9 @@ export function stubServer(): void {
         return new Response(v === undefined ? "" : JSON.stringify(v), { status: 200 });
       } catch (e) {
         const f = e as Fail;
-        return new Response(JSON.stringify({ error: f.message, fix: f.fix }), { status: f.status ?? 500 });
+        return new Response(JSON.stringify({ error: f.message, fix: f.fix, code: f.code }), {
+          status: f.status ?? 500,
+        });
       }
     }),
   );

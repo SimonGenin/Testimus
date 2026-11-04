@@ -42,7 +42,7 @@ const styles = stylex.create({
     flexDirection: "column",
     minWidth: size.menuMin,
     maxWidth: size.menuMax,
-    padding: space.s2,
+    padding: space.snug,
     borderRadius: radius.r3,
     backgroundColor: color.surfaceRaised,
     boxShadow: shadow.s2,
@@ -131,7 +131,6 @@ const styles = stylex.create({
     fontSize: fontSize.caption,
     lineHeight: lineHeight.caption,
     fontWeight: fontWeight.semibold,
-    letterSpacing: "0.02em",
     color: color.textSubtle,
   },
   note: {

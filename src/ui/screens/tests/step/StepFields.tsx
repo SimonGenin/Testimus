@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import type { ClipboardEvent, ReactNode } from "react";
-import { breakpoint, color, fontSize, fontWeight, lineHeight, size, space } from "../../../styles/tokens.stylex.ts";
+import { breakpoint, color, fontSize, fontWeight, lineHeight, space } from "../../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
   stacked: { display: "flex", flexDirection: "column", gap: space.s2, minWidth: 0 },
@@ -12,7 +12,7 @@ const styles = stylex.create({
   },
   row: {
     display: "grid",
-    gridTemplateColumns: { default: `${size.stepLabel} minmax(0, 1fr)`, [breakpoint.narrow]: "minmax(0, 1fr)" },
+    gridTemplateColumns: { default: `calc(${space.s11} * 2) minmax(0, 1fr)`, [breakpoint.narrow]: "minmax(0, 1fr)" },
     gap: { default: space.s4, [breakpoint.narrow]: space.s1 },
     alignItems: "start",
     minWidth: 0,

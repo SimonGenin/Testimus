@@ -6,21 +6,25 @@ import { stripMarker } from "../markers.stylex.ts";
 import { MOVE, type Moved } from "./moved.ts";
 
 const styles = stylex.create({
-  strip: {
+  frame: {
     borderWidth: 0,
     padding: 0,
     marginInline: 0,
     minWidth: 0,
     position: "relative",
-    height: space.s5,
+    zIndex: { default: "auto", ":hover": 1, ":focus-within": 1 },
     marginBlock: `calc(-1 * ${space.s2})`,
+  },
+  frameEmpty: { marginBlock: 0 },
+  strip: {
+    position: "relative",
+    height: space.s5,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
   },
   empty: {
     height: size.controlMd,
-    marginBlock: 0,
     justifyContent: "flex-start",
     paddingInlineStart: space.s3,
     color: color.textSubtle,
@@ -48,7 +52,10 @@ const styles = stylex.create({
     },
   },
   btns: {
-    position: "relative",
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    transform: "translate(-50%, -50%)",
     display: "inline-flex",
     alignItems: "center",
     gap: space.s1,
@@ -61,8 +68,12 @@ const styles = stylex.create({
       [stylex.when.ancestor(":hover", stripMarker)]: 1,
       [stylex.when.ancestor(":focus-within", stripMarker)]: 1,
     },
+    pointerEvents: {
+      default: "none",
+      [stylex.when.ancestor(":hover", stripMarker)]: "auto",
+      [stylex.when.ancestor(":focus-within", stripMarker)]: "auto",
+    },
   },
-  btnsEmpty: { position: "absolute", left: "50%", transform: "translateX(-50%)" },
 });
 
 const takes = (e: React.DragEvent) => ["Files", MOVE].some((t) => e.dataTransfer.types.includes(t));
@@ -90,7 +101,7 @@ export function BlockInsert({
       aria-label="Insert a block"
       data-testid="block-insert"
       data-over={over || undefined}
-      {...stylex.props(stripMarker, styles.strip, empty && styles.empty)}
+      {...stylex.props(stripMarker, styles.frame, empty && styles.frameEmpty)}
       onDragOver={(e) => {
         if (!takes(e)) return;
         e.preventDefault();
@@ -111,19 +122,21 @@ export function BlockInsert({
         else onDrop({ files: Array.from(e.dataTransfer.files) });
       }}
     >
-      <span aria-hidden="true" {...stylex.props(styles.line, over && styles.over)} />
-      {empty && <span {...stylex.props(styles.hint)}>Empty — type, paste an image or add a table</span>}
-      <span {...stylex.props(styles.btns, empty && styles.btnsEmpty)} onMouseDown={(e) => e.preventDefault()}>
-        <Button variant="quiet" size="sm" icon="text" label="Text" onClick={onText} />
-        <Button
-          variant="quiet"
-          size="sm"
-          icon="image"
-          label="Image"
-          pick={{ accept: "image/*", multiple: true, onFiles: onImage }}
-        />
-        {table && <Button variant="quiet" size="sm" icon="table" label="Table" onClick={onTable} />}
-      </span>
+      <div {...stylex.props(styles.strip, empty && styles.empty)}>
+        <span aria-hidden="true" {...stylex.props(styles.line, over && styles.over)} />
+        {empty && <span {...stylex.props(styles.hint)}>Empty — type, paste an image or add a table</span>}
+        <span {...stylex.props(styles.btns)} onMouseDown={(e) => e.preventDefault()}>
+          <Button variant="quiet" size="sm" icon="text" label="Text" onClick={onText} />
+          <Button
+            variant="quiet"
+            size="sm"
+            icon="image"
+            label="Image"
+            pick={{ accept: "image/*", multiple: true, onFiles: onImage }}
+          />
+          {table && <Button variant="quiet" size="sm" icon="table" label="Table" onClick={onTable} />}
+        </span>
+      </div>
     </fieldset>
   );
 }

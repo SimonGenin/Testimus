@@ -25,7 +25,7 @@ const styles = stylex.create({
     width: space.s9,
     height: space.s9,
     marginBottom: space.s2,
-    borderRadius: radius.r3,
+    borderRadius: radius.full,
     backgroundColor: color.surfaceSunken,
     color: color.textMuted,
   },

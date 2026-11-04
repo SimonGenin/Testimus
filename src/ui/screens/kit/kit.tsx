@@ -30,7 +30,11 @@ export type KitSection = {
 };
 
 const styles = stylex.create({
-  grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(14rem, 1fr))", gap: space.s4 },
+  grid: {
+    display: "grid",
+    gridTemplateColumns: `repeat(auto-fill, minmax(min(100%, calc(${size.sidebar} - ${space.s10})), 1fr))`,
+    gap: space.s4,
+  },
   wide: { gridColumn: "1 / -1" },
   cell: { display: "flex", flexDirection: "column", gap: space.s2, minWidth: 0, margin: 0 },
   label: { fontFamily: fontFamily.mono, fontSize: fontSize.code, lineHeight: lineHeight.code, color: color.textMuted },
@@ -41,10 +45,10 @@ const styles = stylex.create({
     gap: space.s3,
     minHeight: size.controlLg,
     padding: space.s4,
-    borderStyle: "dashed",
+    borderStyle: "solid",
     borderWidth: border.width,
     borderColor: color.border,
-    borderRadius: radius.r2,
+    borderRadius: radius.r3,
     backgroundColor: color.surface,
   },
   column: { flexDirection: "column", alignItems: "stretch" },

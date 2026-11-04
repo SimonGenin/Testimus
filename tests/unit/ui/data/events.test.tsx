@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Job, JobEvent } from "../../../../src/core/types.ts";
 import { setProject } from "../../../../src/ui/lib/data/client.ts";
-import { connectEvents, onAnyEvent, useJobEvents } from "../../../../src/ui/lib/data/events.ts";
+import { apply, applyJobEvent, connectEvents, onAnyEvent, useJobEvents } from "../../../../src/ui/lib/data/events.ts";
 import { createQueryClient, isReachable, setReachable, useRead } from "../../../../src/ui/lib/data/query.ts";
 
 class FakeSource {
@@ -110,5 +110,36 @@ describe("the event bridge", () => {
     expect(client.getQueryData(["notice"])).toBe("429");
     off();
     stop();
+  });
+
+  it("keeps the jobs list and a job's page live from its events, without reading again", () => {
+    const client = createQueryClient();
+    const run = { ...job("running"), steps: [{ id: "a", label: "A", status: "running" }] } as Job;
+    client.setQueryData(["/p", "jobs.list", {}], [run]);
+    client.setQueryData(["/p", "jobs.list", { running: true }], [run]);
+    client.setQueryData(["/p", "jobs.show", { id: "j1" }], { job: run, events: [] });
+    const send = (e: Record<string, unknown>) => apply(client, { jobId: "j1", at: "", ...e } as JobEvent, "/p");
+    send({ type: "progress", message: "half", done: 1, total: 2, step: "a" });
+    send({ type: "steps", steps: [{ id: "a", label: "A", status: "done" }] });
+    send({ type: "process", process: { id: "p1", label: "llama", pid: 9 } } as never);
+    const listed = client.getQueryData<Job[]>(["/p", "jobs.list", {}])?.[0];
+    expect(listed).toMatchObject({ message: "half", progress: { done: 1, total: 2 }, steps: [{ status: "done" }] });
+    expect(listed?.processes).toHaveLength(1);
+    const shown = client.getQueryData<{ job: Job; events: JobEvent[] }>(["/p", "jobs.show", { id: "j1" }]);
+    expect(shown?.events.map((e) => e.type)).toEqual(["progress", "steps", "process"]);
+    expect(shown?.job.message).toBe("half");
+    send({ type: "status", job: { ...run, id: "j2" } });
+    expect(client.getQueryData<Job[]>(["/p", "jobs.list", {}])?.map((j) => j.id)).toEqual(["j2", "j1"]);
+    expect(reads).toBe(0);
+  });
+
+  it("applies an event to a list of jobs: a new job on top, an unknown event leaves the list", () => {
+    const a = job("running");
+    expect(applyJobEvent([a], { jobId: "j1", at: "", type: "status", job: { ...a, status: "done" } })[0].status).toBe(
+      "done",
+    );
+    expect(applyJobEvent([a], { jobId: "j1", at: "", type: "progress", message: "m" })[0].progress).toBeUndefined();
+    const same = [a];
+    expect(applyJobEvent(same, { jobId: "j1", at: "", type: "log", level: "info", message: "x" })).toBe(same);
   });
 });

@@ -116,6 +116,7 @@ test("a step is moved, added and removed", async ({ page }) => {
 
   await main(page).getByRole("button", { name: "Add step" }).click();
   await expect(main(page).getByRole("article")).toHaveCount(6);
+  await step(page, 6).locator('[data-field="Action"]').getByRole("group", { name: "Insert a block" }).hover();
   await step(page, 6).locator('[data-field="Action"]').getByRole("button", { name: "Text", exact: true }).click();
   await step(page, 6).getByRole("textbox", { name: "Action of step 6" }).fill("Fermer la fenêtre Propriétés.");
   await expect.poll(async () => (await show("LFRPS12-1420")).test.steps.length).toBe(6);

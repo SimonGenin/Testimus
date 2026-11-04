@@ -16,7 +16,7 @@ import {
 } from "../../lib/columns.ts";
 import type { StepMark } from "../../lib/diff.ts";
 import { itemLinks, stepSources } from "../../lib/fields.ts";
-import { border, color, fontSize, fontWeight, lineHeight, size, space } from "../../styles/tokens.stylex.ts";
+import { border, color, fontSize, fontWeight, lineHeight, space } from "../../styles/tokens.stylex.ts";
 import { ColumnField } from "./ColumnField.tsx";
 import { FieldBlocks } from "./FieldBlocks.tsx";
 import { stepMarker } from "./markers.stylex.ts";
@@ -55,7 +55,7 @@ const styles = stylex.create({
   },
   sourcesLabel: {
     flex: "none",
-    width: size.stepLabel,
+    width: `calc(${space.s11} * 2)`,
     paddingTop: space.s1,
     fontSize: fontSize.small,
     lineHeight: lineHeight.small,

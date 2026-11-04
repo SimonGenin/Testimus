@@ -12,20 +12,19 @@ import { APP_VERSION } from "./eval.ts";
 import { chunkResolver, type Item, itemMatches } from "./eval-score.ts";
 import { defaultSet, readBehaviors } from "./eval-set.ts";
 
-type Invoke = (name: string, input: unknown, opts: { project: string; signal?: AbortSignal }) => Promise<unknown>;
+function call(ctx: Ctx, name: string, input: unknown, signal?: AbortSignal): Promise<unknown> {
+  if (!ctx.invoke) throw new Error(`gen.bench runs ${name} through the registry: call it as a command.`);
+  return ctx.invoke(name, input, { signal });
+}
 
-const registryInvoke: Invoke = async (name, input, opts) =>
-  (await import("../commands/index.ts")).invoke(name, input, opts);
-
-// ponytail: activating a configuration writes this PC's settings and gen.tests runs Claude — tests swap these four
-// (env is no seam for them); invoke reaches the registry lazily, since the registry imports this file
+// ponytail: activating a configuration writes this PC's settings — tests swap these three (env is no seam for them);
+// the runs go through ctx.invoke
 export const benchHooks = {
   current: (project: string): ActiveChoice | null => activeChoice(project),
   activate: (project: string, choice: RagChoice | ActiveChoice | null): void => setActiveChoice(project, choice),
-  prepare: async (project: string, ctx: Ctx): Promise<void> => {
-    await registryInvoke("rag.index", {}, { project, signal: ctx.signal });
+  prepare: async (_project: string, ctx: Ctx): Promise<void> => {
+    await call(ctx, "rag.index", {}, ctx.signal);
   },
-  invoke: registryInvoke,
 };
 
 const QUOTE_KINDS: FindingKind[] = ["quote-not-found", "quote-not-at-anchor"];
@@ -133,7 +132,8 @@ export async function runBench(project: string, ctx: Ctx, input: BenchInput): Pr
           const t0 = Date.now();
           let r: GenOut;
           try {
-            r = (await benchHooks.invoke(
+            r = (await call(
+              ctx,
               "gen.tests",
               {
                 request: b.question,
@@ -141,7 +141,7 @@ export async function runBench(project: string, ctx: Ctx, input: BenchInput): Pr
                 ...(input.effort ? { effort: input.effort } : {}),
                 check: input.check ?? true,
               },
-              { project, signal: ctx.signal },
+              ctx.signal,
             )) as GenOut;
           } catch (e) {
             rows.push({
@@ -181,7 +181,7 @@ export async function runBench(project: string, ctx: Ctx, input: BenchInput): Pr
           });
           if (!input.keep && r.tests.length)
             try {
-              await benchHooks.invoke("claude.revert", { runId: r.runId, force: true }, { project });
+              await call(ctx, "claude.revert", { runId: r.runId, force: true });
             } catch (e) {
               notes.push(`Could not remove the tests of ${r.runId}: ${e instanceof Error ? e.message : String(e)}`);
             }

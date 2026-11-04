@@ -9,8 +9,8 @@ test("Ctrl K searches the tests and the documents, and opens a hit", async ({ pa
   await palette.getByRole("combobox", { name: "Search" }).fill("sectioneur menu");
   await expect(palette.getByText("In the documents", { exact: true }).last()).toBeVisible();
   await expect(palette.getByRole("option", { name: /Sectionneur sans TK/ })).toBeVisible();
-  await expect(palette.locator("mark.hl").first()).toBeVisible();
-  await palette.getByRole("tab", { name: "Tests" }).click();
+  await expect(palette.locator("mark").first()).toBeVisible();
+  await palette.getByRole("tab", { name: /^Tests/ }).click();
   await expect(palette.getByText("In the documents", { exact: true })).toHaveCount(0);
   await palette.getByRole("combobox", { name: "Search" }).fill("ouvrir fermer");
   await palette.getByRole("option", { name: /Disjoncteur — ouverture à distance/ }).click();
