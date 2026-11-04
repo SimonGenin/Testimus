@@ -1,135 +1,215 @@
-import { useEffect, useState } from "react";
+import * as stylex from "@stylexjs/stylex";
 import type { Finding, Passage, Source } from "../../../core/types.ts";
-import { call } from "../../api.ts";
-import { Button, IconButton, Severity, Skeleton } from "../../components/legacy/index.ts";
 import { DocBadges, PassageText } from "../../components/sources/PassageView.tsx";
-import { docGone, goneText } from "../../lib/docGone.ts";
-import { message } from "../../lib/format.ts";
+import { Banner } from "../../components/ui/Banner.tsx";
+import { Button } from "../../components/ui/Button.tsx";
+import { Skeleton } from "../../components/ui/Skeleton.tsx";
+import { useRead } from "../../lib/data/query.ts";
+import { goneText } from "../../lib/docGone.ts";
+import {
+  border,
+  color,
+  container,
+  fontFamily,
+  fontSize,
+  fontWeight,
+  lineHeight,
+  size,
+  space,
+} from "../../styles/tokens.stylex.ts";
 import { EvidenceBlock } from "./EvidenceBlock.tsx";
 
-export function notAtAnchor(findings: Finding[], ref: string, step: number | null): Finding | undefined {
-  return findings.find(
-    (f) => f.kind === "quote-not-at-anchor" && f.sources[0] === ref && (step === null || f.step === step),
-  );
-}
+export { notAtAnchor } from "./sources.ts";
 
-export function SourcePanel({
-  source,
-  label,
-  index,
-  total,
-  testId,
-  misplaced,
-  onClose,
-  onOpenDoc,
-  onPick,
-}: {
+const styles = stylex.create({
+  panel: {
+    flex: "0 1 auto",
+    width: size.dock,
+    minWidth: size.sidebar,
+    display: { default: "flex", [container.reviewSource]: "none" },
+    flexDirection: "column",
+    minHeight: 0,
+    backgroundColor: color.surface,
+  },
+  head: {
+    flex: "none",
+    display: "flex",
+    alignItems: "center",
+    gap: space.s3,
+    minHeight: size.topbar,
+    paddingBlock: space.s2,
+    paddingInline: space.s5,
+    borderBottomWidth: border.width,
+    borderBottomStyle: "solid",
+    borderBottomColor: color.border,
+  },
+  title: {
+    flex: 1,
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    fontSize: fontSize.titleSm,
+    lineHeight: lineHeight.titleSm,
+    fontWeight: fontWeight.semibold,
+  },
+  body: {
+    flex: 1,
+    minHeight: 0,
+    overflowY: "auto",
+    paddingBlock: space.s5,
+    paddingInline: space.s6,
+    display: "flex",
+    flexDirection: "column",
+    gap: space.s5,
+  },
+  doc: {
+    display: "flex",
+    alignItems: "center",
+    flexWrap: "wrap",
+    columnGap: space.s3,
+    rowGap: space.s2,
+    fontSize: fontSize.small,
+    lineHeight: lineHeight.small,
+    color: color.textMuted,
+  },
+  code: { fontFamily: fontFamily.mono, fontSize: fontSize.code, color: color.text },
+  ref: { fontFamily: fontFamily.mono, fontSize: fontSize.code, color: color.textLink },
+  docTitle: { margin: 0, fontSize: fontSize.small, lineHeight: lineHeight.small, fontWeight: fontWeight.regular },
+  passage: {
+    display: "flex",
+    flexDirection: "column",
+    gap: space.s3,
+    fontFamily: fontFamily.reading,
+    fontSize: fontSize.reading,
+    lineHeight: lineHeight.reading,
+  },
+  quote: { margin: 0, fontFamily: fontFamily.reading, fontStyle: "italic", color: color.textMuted },
+  foot: {
+    flex: "none",
+    display: "flex",
+    alignItems: "center",
+    gap: space.s3,
+    paddingBlock: space.s3,
+    paddingInline: space.s5,
+    borderTopWidth: border.width,
+    borderTopStyle: "solid",
+    borderTopColor: color.border,
+  },
+  grow: { flex: 1 },
+  count: { fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textMuted, whiteSpace: "nowrap" },
+});
+
+export type SourcePanelProps = {
   source: Source;
   label: string;
   index: number;
   total: number;
   testId: string;
   misplaced?: Finding;
+  width?: number;
   onClose: () => void;
   onOpenDoc: (docId: string, anchor: string, quote: string) => void;
   onPick: (ref: string) => void;
-}) {
-  const [p, setP] = useState<(Passage & { quoteFound?: boolean }) | null>(null);
-  const [error, setError] = useState("");
-  const [gone, setGone] = useState(false);
+  /** the previous or next source of the test */
+  onStep?: (by: 1 | -1) => void;
+};
+
+// ponytail: the passage a source names, its quote marked when it is really there — the reviewer's evidence
+export function SourcePanel(p: SourcePanelProps) {
+  const { source } = p;
   const ref = `${source.docId}#${source.anchor}`;
-  const docId = source.docId;
   const quote = source.quote;
-  useEffect(() => {
-    setP(null);
-    setError("");
-    setGone(false);
-    let dead = false;
-    call<Passage & { quoteFound?: boolean }>("rag.passage", quote.trim() ? { ref, around: quote } : { ref })
-      .then((r) => !dead && setP(r))
-      .catch((e) => {
-        if (dead) return;
-        setError(message(e));
-        void docGone(docId).then((g) => !dead && setGone(g));
-      });
-    return () => {
-      dead = true;
-    };
-  }, [ref, docId, quote]);
-
-  const evidence = testId ? <EvidenceBlock testId={testId} selected={ref} onPick={onPick} /> : null;
-
+  const r = useRead("rag.passage", quote.trim() ? { ref, around: quote } : { ref });
+  const passage = r.data as (Passage & { quoteFound?: boolean }) | undefined;
+  const gone = r.isError && r.error.code === "doc-gone";
+  const quoted = quote && <p {...stylex.props(styles.quote)}>« {quote} »</p>;
   return (
-    <aside className="srcpanel" aria-label="Source passage">
-      <div className="srcpanel-head">
-        <div className="srcpanel-top">
-          <span className="label">{label}</span>
-          <IconButton icon="close" label="Close the source" onClick={onClose} />
-        </div>
-        <span className="mono srcpanel-code">{p ? `${p.doc.code} · v${p.doc.version}` : source.docId}</span>
-        {p ? <h3 className="h srcpanel-title">{p.doc.title}</h3> : !error && <Skeleton w={140} h={18} />}
-        {p && (
-          <div className="chips">
-            <DocBadges status={p.doc.status} />
-          </div>
-        )}
+    <aside aria-label="Source passage" {...stylex.props(styles.panel)} style={p.width ? { width: p.width } : undefined}>
+      <div {...stylex.props(styles.head)}>
+        <span {...stylex.props(styles.title)}>{p.label}</span>
+        <Button size="sm" variant="quiet" iconOnly icon="close" label="Close the source panel" onClick={p.onClose} />
       </div>
-      <div className="srcpanel-body" aria-busy={!p && !error}>
-        {misplaced && (
-          <div className="srcpanel-misplaced" role="status">
-            <Severity tone="error">Quote not at this anchor</Severity>
-            <p>{misplaced.message}</p>
-            <p className="muted">Not highlighted: the passage below does not hold the quote.</p>
-          </div>
+      <div aria-busy={!passage && !r.isError} {...stylex.props(styles.body)}>
+        <div {...stylex.props(styles.doc)}>
+          <span {...stylex.props(styles.code)}>{passage ? passage.doc.code : source.docId}</span>
+          {passage && <span>v{passage.doc.version}</span>}
+          {passage && <h3 {...stylex.props(styles.docTitle)}>{passage.doc.title}</h3>}
+          {passage && <DocBadges status={passage.doc.status} />}
+        </div>
+        <span {...stylex.props(styles.ref)}>{ref}</span>
+        {p.misplaced && (
+          <Banner tone="neutral" icon="alert-triangle" title="Quote not at this anchor">
+            {p.misplaced.message} Not highlighted: the passage below does not hold the quote.
+          </Banner>
         )}
         {gone ? (
-          <div className="srcpanel-miss" role="status">
-            <Severity tone="error">Document deleted</Severity>
-            <p>{goneText(source.docId)}</p>
-            {source.quote && <p className="q">« {source.quote} »</p>}
-          </div>
-        ) : error ? (
-          <div className="srcpanel-miss" role="status">
-            <p>
-              <strong>This passage could not be shown.</strong> {error}
-            </p>
-            {source.quote && <p className="q">« {source.quote} »</p>}
-          </div>
-        ) : !p ? (
           <>
-            <Skeleton w="45%" h={10} />
-            <Skeleton w="60%" h={16} />
-            <Skeleton w="96%" h={13} />
-            <Skeleton w="92%" h={13} />
-            <Skeleton w="80%" h={13} />
-            <Skeleton w="88%" h={13} />
+            <Banner tone="neutral" icon="x-circle" title="Document deleted">
+              {goneText(source.docId)}
+            </Banner>
+            {quoted}
           </>
-        ) : misplaced ? (
-          <PassageText passage={p} quote="" />
-        ) : quote.trim() && p.quoteFound === false ? (
+        ) : r.isError ? (
           <>
-            <div className="srcpanel-miss" role="status">
-              <p className="muted">
+            <Banner tone="neutral" title="This passage could not be shown.">
+              {r.error.message}
+            </Banner>
+            {quoted}
+          </>
+        ) : !passage ? (
+          <Skeleton lines={6} />
+        ) : (
+          <div {...stylex.props(styles.passage)}>
+            {quote.trim() && passage.quoteFound === false && !p.misplaced && (
+              <Banner tone="neutral" compact>
                 Not highlighted: the quote is not in this section’s own text (it may sit in a sub-section) — use Open in
                 document to find it.
-              </p>
-            </div>
-            <PassageText passage={p} quote="" />
-          </>
-        ) : (
-          <PassageText passage={p} quote={source.quote} />
+              </Banner>
+            )}
+            <PassageText passage={passage} quote={p.misplaced || passage.quoteFound === false ? "" : quote} />
+          </div>
         )}
+        {p.testId && <EvidenceBlock testId={p.testId} selected={ref} onPick={p.onPick} />}
       </div>
-      {evidence}
-      <div className="srcpanel-foot">
+      <div {...stylex.props(styles.foot)}>
         {!gone && (
-          <Button size="sm" icon="external" onClick={() => onOpenDoc(source.docId, source.anchor, source.quote)}>
-            Open in document
-          </Button>
+          <Button
+            size="sm"
+            icon="external"
+            label="Open in document"
+            onClick={() => p.onOpenDoc(source.docId, source.anchor, source.quote)}
+          />
         )}
-        <span className="spacer" />
-        {total > 0 && (
-          <span className="muted srcpanel-count">{`${index + 1} of ${total} source${total > 1 ? "s" : ""}`}</span>
+        <span {...stylex.props(styles.grow)} />
+        {p.total > 0 && (
+          <>
+            {p.onStep && (
+              <Button
+                size="sm"
+                variant="quiet"
+                iconOnly
+                icon="chevron-left"
+                label="Previous source"
+                disabled={p.index <= 0}
+                onClick={() => p.onStep?.(-1)}
+              />
+            )}
+            <span
+              {...stylex.props(styles.count)}
+            >{`${p.index + 1} of ${p.total} source${p.total > 1 ? "s" : ""}`}</span>
+            {p.onStep && (
+              <Button
+                size="sm"
+                variant="quiet"
+                iconOnly
+                icon="chevron-right"
+                label="Next source"
+                disabled={p.index >= p.total - 1}
+                onClick={() => p.onStep?.(1)}
+              />
+            )}
+          </>
         )}
       </div>
     </aside>

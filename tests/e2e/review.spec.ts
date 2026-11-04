@@ -11,26 +11,26 @@ const SUMMARY_LOCAL = "Sectionneur avec TK — manœuvre régulière";
 
 test("the queue lists what awaits review and filters by state", async ({ page }) => {
   await boot(page, "#/review");
-  await expect(queue(page).getByText("Generated tests")).toBeVisible();
+  await expect(queue(page).getByText("Queue", { exact: true })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Main" }).getByRole("button", { name: /^Review/ })).toHaveAttribute(
     "aria-current",
     "page",
   );
-  const items = queue(page).getByRole("button", { name: /\/Traction\/Sectionneurs/ });
+  const items = queue(page).getByRole("listbox", { name: "Tests to review" }).getByRole("option");
   await expect(items).toHaveCount(2);
   await expect(items.first()).toContainText("2 errors");
   await queue(page)
-    .getByRole("button", { name: /^To fix 1/ })
+    .getByRole("radio", { name: /^To fix 1/ })
     .click();
   await expect(items).toHaveCount(1);
   await expect(items.first()).toContainText(SUMMARY_LOCAL);
   await queue(page)
-    .getByRole("button", { name: /^Checked 1/ })
+    .getByRole("radio", { name: /^Checked 1/ })
     .click();
   await expect(items).toHaveCount(1);
   await expect(items.first()).toContainText(SUMMARY_1420);
   await queue(page)
-    .getByRole("button", { name: /^All 2/ })
+    .getByRole("radio", { name: /^All 2/ })
     .click();
   await expect(items).toHaveCount(2);
 });
@@ -45,7 +45,7 @@ test("findings sit on their steps and a source shows its passage with the quote 
   await expect(under(page).getByRole("note").filter({ hasText: "Negative missing" })).toBeVisible();
   await expect(under(page).getByRole("article", { name: "Step 1", exact: true })).toContainText("No findings");
 
-  await step2.getByRole("button", { name: /^SOSIE_211_D401-1_3 §5\.6\.6 « Selon le type/ }).click();
+  await step2.getByRole("button", { name: /^SOSIE_211_D401-1_3 §5\.6\.6 “Selon le type/ }).click();
   const panel = page.getByRole("complementary", { name: "Source passage" });
   await expect(panel.locator("mark")).toContainText("Selon le type de sectionneur, le menu contextuel diffère");
   await expect(panel.getByRole("img", { name: /Figure 40/ })).toBeVisible();
@@ -68,15 +68,13 @@ test("To fix with a note asks Claude to fix it; the test comes back Checked, nev
   await under(page)
     .getByRole("button", { name: /^To fix/ })
     .click();
-  const note = page.getByRole("dialog", { name: "Mark as To fix" });
+  const note = page.getByRole("dialog", { name: "What needs fixing?" });
   await note.getByRole("button", { name: /^Mark To fix/ }).click();
-  await expect(note.getByRole("alert")).toHaveText("Say what is wrong: the note is required.");
-  await note
-    .getByRole("textbox", { name: /Note for the author/ })
-    .fill("Sourcer la vue du step 2 et ajouter le cas du sectionneur avec TK.");
-  await expect(note.getByRole("checkbox", { name: /Then ask Claude to fix it/ })).toBeChecked();
+  const box = note.getByRole("textbox", { name: /Note for the author/ });
+  await expect(box).toHaveAccessibleDescription(/Say what is wrong: the note is required\./);
+  await box.fill("Sourcer la vue du step 2 et ajouter le cas du sectionneur avec TK.");
   await shoot(page, "review-to-fix");
-  await note.getByRole("button", { name: /^Mark To fix/ }).click();
+  await note.getByRole("button", { name: "Ask Claude to fix it" }).click();
   await expect(note).toBeHidden();
 
   const seen = new Set<string>();
@@ -103,5 +101,5 @@ test("V validates the open test and the queue moves on", async ({ page }) => {
   await expect(page.getByRole("status").filter({ hasText: "Validated" }).first()).toBeVisible();
   await expect.poll(() => review("LFRPS12-1420")).toBe("validated");
   await expect(under(page).getByRole("heading", { level: 2 })).toHaveText(SUMMARY_LOCAL);
-  await expect(queue(page).getByRole("button", { name: /\/Traction\/Sectionneurs/ })).toHaveCount(1);
+  await expect(queue(page).getByRole("listbox", { name: "Tests to review" }).getByRole("option")).toHaveCount(1);
 });

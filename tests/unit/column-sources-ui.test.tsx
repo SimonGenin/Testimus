@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ColumnLayout, Source, Step, StepColumn } from "../../src/core/types.ts";
 import { setProject } from "../../src/ui/api.ts";
@@ -9,6 +9,7 @@ import { ReviewStep } from "../../src/ui/screens/review/ReviewStep.tsx";
 import { ColumnsSection } from "../../src/ui/screens/settings/ColumnsSection.tsx";
 import { StepCard } from "../../src/ui/screens/tests/StepCard.tsx";
 import { clearToasts, mount } from "./cov-uiscreens-helpers.tsx";
+import { renderWithData } from "./cov-uishell-helpers.tsx";
 import { layoutOf } from "./layout-helpers.ts";
 import { api, app, fakeFetch, named, noDesktop } from "./ui-desktop-helpers.tsx";
 
@@ -57,7 +58,7 @@ const step: Step = {
 };
 
 const card = (x: ColumnLayout, onOpenSource = vi.fn()) => {
-  render(
+  renderWithData(
     <StepCard
       index={0}
       count={1}
@@ -96,7 +97,7 @@ describe("a Reference source column in a step", () => {
 
   it("links the items on the review screen too", () => {
     const onSelect = vi.fn();
-    render(
+    renderWithData(
       <ReviewStep
         n={2}
         step={step}

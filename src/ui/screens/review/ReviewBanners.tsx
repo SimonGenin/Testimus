@@ -1,0 +1,146 @@
+import * as stylex from "@stylexjs/stylex";
+import type { SyncState, Test } from "../../../core/types.ts";
+import { RevertConflict } from "../../components/claude/RevertConflict.tsx";
+import { Banner } from "../../components/ui/Banner.tsx";
+import { Button } from "../../components/ui/Button.tsx";
+import { plural } from "../../lib/format.ts";
+import { space } from "../../styles/tokens.stylex.ts";
+
+export type Marks = { runId: string; steps: Set<number>; added: Set<number> };
+
+export const when = (iso?: string) =>
+  iso
+    ? new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
+    : "";
+
+const styles = stylex.create({
+  stack: { display: "flex", flexDirection: "column", gap: space.s3 },
+});
+
+export type BannersProps = {
+  test: Test;
+  sync: SyncState;
+  checked: boolean;
+  stale: boolean;
+  claudeRunning: boolean;
+  claudeReady: boolean;
+  marks: Marks | null;
+  revertConflict?: string | null;
+  fixMessage?: string;
+  checking?: boolean;
+  pulling?: boolean;
+  onCheck?: () => void;
+  onRevert: () => void;
+  onRevertAnyway?: () => void;
+  onKeepAfterRun?: () => void;
+  onCompare: () => void;
+  onTakeJira: () => void;
+  onKeepMine: () => void;
+  onAskFix?: () => void;
+  onEditNote?: () => void;
+};
+
+// ponytail: what is true of the test under review now, each in its own notice: Jira changed it, Claude works on it or
+// changed it, the check has not run or is out of date, it is marked To fix
+export function ReviewBanners(p: BannersProps) {
+  const { test } = p;
+  const claudeOff = !p.claudeReady && "Claude is not available on this PC right now — the note is kept for later";
+  return (
+    <div {...stylex.props(styles.stack)}>
+      {p.sync === "remote-changed" && (
+        <Banner
+          tone="warning"
+          title="Changed in Jira since your pull"
+          actions={
+            <>
+              <Button size="sm" label="Compare" onClick={p.onCompare} />
+              <Button size="sm" label="Take Jira's version" loading={p.pulling} onClick={p.onTakeJira} />
+              <Button size="sm" variant="quiet" label="Keep mine" onClick={p.onKeepMine} />
+            </>
+          }
+        >
+          Someone changed this test in Jira after your last pull. Choose which version to keep before you push: push is
+          refused until you choose — or until you push anyway and replace their change on purpose.
+        </Banner>
+      )}
+      {p.claudeRunning && (
+        <Banner tone="claude" title="Claude is fixing this test">
+          Follow it in the Claude panel. It goes back through the check when Claude is done; Validate waits until then.
+        </Banner>
+      )}
+      {p.marks && !p.claudeRunning && (
+        <Banner
+          tone="claude"
+          title={`Claude changed ${plural(p.marks.steps.size, "step")}`}
+          actions={<Button size="sm" icon="undo" label="Revert" onClick={p.onRevert} />}
+        >
+          {test.review === "checked"
+            ? "Checked again after the change."
+            : "The test goes back through the check; it stays To fix until you validate it."}
+        </Banner>
+      )}
+      {p.marks && p.revertConflict && (
+        <RevertConflict
+          detail={p.revertConflict}
+          onForce={() => p.onRevertAnyway?.()}
+          onKeep={() => p.onKeepAfterRun?.()}
+        />
+      )}
+      {p.fixMessage && !p.claudeRunning && (
+        <div role="status" aria-label="Claude's fix">
+          <Banner tone="warning" title="Still To fix after Claude's fix">
+            {p.fixMessage}
+          </Banner>
+        </div>
+      )}
+      {!p.claudeRunning && p.onCheck && (!p.checked || p.stale) && (
+        <Banner
+          tone={p.checked ? "neutral" : "info"}
+          icon={p.checked ? "history" : "clock"}
+          title={p.checked ? "Changed since its check" : "Not checked yet"}
+          actions={
+            <Button
+              size="sm"
+              icon="eye"
+              label={p.checked ? "Check again" : "Check"}
+              loading={p.checking}
+              onClick={p.onCheck}
+            />
+          }
+        >
+          {p.checked
+            ? "The findings below may be out of date: check the test again to confirm them."
+            : "Check it before you review it: the check finds the claims the documents do not support."}
+        </Banner>
+      )}
+      {test.review === "to-fix" && test.reviewNote && (
+        <div role="note" aria-label="To fix note">
+          <Banner
+            tone="warning"
+            icon="to-fix"
+            title={["To fix", [test.reviewedBy, when(test.reviewedAt)].filter(Boolean).join(", ")]
+              .filter(Boolean)
+              .join(" — ")}
+            actions={
+              <>
+                {p.onAskFix && (
+                  <Button
+                    size="sm"
+                    variant="claude-quiet"
+                    icon="claude"
+                    label="Ask Claude to fix it"
+                    disabled={p.claudeRunning || claudeOff}
+                    onClick={p.onAskFix}
+                  />
+                )}
+                {p.onEditNote && <Button size="sm" variant="quiet" label="Edit the note" onClick={p.onEditNote} />}
+              </>
+            }
+          >
+            {test.reviewNote}
+          </Banner>
+        </div>
+      )}
+    </div>
+  );
+}

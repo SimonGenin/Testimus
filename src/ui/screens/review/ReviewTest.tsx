@@ -1,47 +1,80 @@
+import * as stylex from "@stylexjs/stylex";
+import type { Ref } from "react";
 import type { CheckFile, ColumnLayout, Source, SyncState, Test } from "../../../core/types.ts";
-import { RevertConflict } from "../../components/claude/RevertConflict.tsx";
-import {
-  Badge,
-  Button,
-  FindingCard,
-  GeneratedBadge,
-  Icon,
-  ReviewBadge,
-  Severity,
-  SyncBadge,
-} from "../../components/legacy/index.ts";
+import { Badge, ReviewBadge, SYNC } from "../../components/ui/Badge.tsx";
+import { Button } from "../../components/ui/Button.tsx";
+import { Icon } from "../../components/ui/Icon.tsx";
 import { plural } from "../../lib/format.ts";
-import { FindingSources, ReviewStep } from "./ReviewStep.tsx";
+import {
+  border,
+  color,
+  container,
+  fontFamily,
+  fontSize,
+  fontWeight,
+  lineHeight,
+  size,
+  space,
+} from "../../styles/tokens.stylex.ts";
+import { FindingCard } from "./FindingCard.tsx";
+import { type BannersProps, type Marks, ReviewBanners, when } from "./ReviewBanners.tsx";
+import { ReviewStep } from "./ReviewStep.tsx";
 
-export type Marks = { runId: string; steps: Set<number>; added: Set<number> };
+export type { Marks } from "./ReviewBanners.tsx";
 
-export function ReviewTest({
-  test,
-  sync,
-  edited,
-  check,
-  stale,
-  xray,
-  folded,
-  activeStep,
-  selected,
-  marks,
-  claudeRunning,
-  url,
-  onFold,
-  onFoldAll,
-  onSelect,
-  onOpenImage,
-  onEdit,
-  onRevert,
-  revertConflict,
-  fixMessage,
-  onRevertAnyway,
-  onKeepAfterRun,
-  onCompare,
-  onTakeJira,
-  onKeepMine,
-}: {
+const SYNC_WORD: Record<SyncState, (typeof SYNC)[keyof typeof SYNC]> = {
+  local: SYNC.local,
+  modified: SYNC.modified,
+  synced: SYNC["in-sync"],
+  "remote-changed": SYNC["changed-in-jira"],
+};
+
+const styles = stylex.create({
+  head: {
+    flex: "none",
+    display: "flex",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: space.s3,
+    minHeight: size.topbar,
+    paddingBlock: space.s2,
+    paddingInline: space.s5,
+    borderBottomWidth: border.width,
+    borderBottomStyle: "solid",
+    borderBottomColor: color.border,
+    backgroundColor: color.surface,
+  },
+  key: { fontFamily: fontFamily.mono, fontSize: fontSize.code, lineHeight: lineHeight.code },
+  local: { color: color.textMuted },
+  folder: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: space.s2,
+    minWidth: 0,
+    fontSize: fontSize.small,
+    lineHeight: lineHeight.small,
+    color: color.textMuted,
+  },
+  grow: { flex: 1, minWidth: 0 },
+  body: { flex: 1, minHeight: 0, overflowY: "auto" },
+  col: {
+    width: "100%",
+    maxWidth: `calc(${size.reading} + ${space.s11} * 2)`,
+    marginInline: "auto",
+    paddingTop: space.s6,
+    paddingInline: { default: space.s7, [container.paneCompact]: space.s5 },
+    paddingBottom: space.s10,
+    display: "flex",
+    flexDirection: "column",
+    gap: space.s4,
+  },
+  titles: { display: "flex", flexDirection: "column", gap: space.s2 },
+  title: { margin: 0, fontSize: fontSize.titleLg, lineHeight: lineHeight.titleLg, fontWeight: fontWeight.semibold },
+  sub: { margin: 0, fontSize: fontSize.compact, lineHeight: lineHeight.compact, color: color.textMuted },
+  none: { margin: 0, color: color.textMuted },
+});
+
+export type ReviewTestProps = Omit<BannersProps, "checked" | "claudeReady" | "test" | "sync"> & {
   test: Test;
   sync: SyncState;
   edited?: boolean;
@@ -51,144 +84,105 @@ export function ReviewTest({
   folded: Set<number>;
   activeStep: number;
   selected: string;
+  /** the step of the open source (null: a whole-test finding's) */
+  selectedStep?: number | null;
   marks: Marks | null;
   claudeRunning: boolean;
+  claudeReady?: boolean;
   url: (file: string) => string;
   onFold: (i: number, folded: boolean) => void;
   onFoldAll: (folded: boolean) => void;
   onSelect: (s: Source, step: number | null) => void;
   onOpenImage: (file: string) => void;
   onEdit: () => void;
-  onRevert: () => void;
-  revertConflict?: string | null;
-  fixMessage?: string;
-  onRevertAnyway?: () => void;
-  onKeepAfterRun?: () => void;
-  onCompare: () => void;
-  onTakeJira: () => void;
-  onKeepMine: () => void;
-}) {
+  bodyRef?: Ref<HTMLDivElement>;
+};
+
+function subline(test: Test, check: CheckFile | null) {
+  const parts = [plural(test.steps.length, "step"), check ? `checked ${when(check.at)}` : "not checked yet"];
+  if (test.review === "to-fix" && test.reviewedBy) parts.push(`marked by ${test.reviewedBy}`);
+  if (test.review === "to-fix" && test.reviewedAt) parts.push(when(test.reviewedAt));
+  return parts.join(" · ");
+}
+
+// ponytail: the test under review, read-only — its head, what is true of it now, the whole-test findings, then the steps
+export function ReviewTest(p: ReviewTestProps) {
+  const { test, check, stale } = p;
   const findings = check?.findings ?? [];
   const whole = findings.filter((f) => !f.step || f.step > test.steps.length);
-  const allFolded = test.steps.every((_, i) => folded.has(i));
+  const allFolded = test.steps.length > 0 && test.steps.every((_, i) => p.folded.has(i));
+  const sync = SYNC_WORD[p.sync] ?? SYNC.local;
   return (
-    <div className="rtest">
-      <div className="rtest-head">
-        <div className="rtest-meta">
-          <span className="mono rtest-key">{test.key ?? "Not in Jira yet"}</span>
-          <span className="muted rtest-folder">
-            <Icon name="folder" />
-            {test.folder || "/"}
-          </span>
-          {test.generatedBy && <GeneratedBadge edited={edited} />}
-          <ReviewBadge review={test.review} />
-          <SyncBadge sync={sync} />
-          <span className="spacer" />
-          <Button size="sm" tone="quiet" onClick={() => onFoldAll(!allFolded)}>
-            {allFolded ? "Unfold all" : "Fold all"}
-          </Button>
-          <Button size="sm" icon="edit" aria-pressed={false} onClick={onEdit}>
-            Edit
-          </Button>
-        </div>
-        <h2 className="h rtest-title">{test.summary || "Untitled test"}</h2>
-        <div className="rtest-sub">
-          <span className="muted">{plural(test.steps.length, "step")}</span>
-          {!check && <Badge tone="neutral">Not checked yet</Badge>}
+    <>
+      <div {...stylex.props(styles.head)}>
+        <span {...stylex.props(styles.key, !test.key && styles.local)}>{test.key ?? "Not in Jira yet"}</span>
+        <span {...stylex.props(styles.folder)}>
+          <Icon name="folder" size="sm" />
+          {test.folder || "/"}
+        </span>
+        <ReviewBadge state={test.review} />
+        {test.generatedBy && (
+          <Badge
+            tone="claude"
+            icon="claude"
+            label={p.edited ? "Generated · edited" : "Generated"}
+            tooltip={p.edited ? "Generated by Claude, then changed by hand" : "Generated by Claude, untouched since"}
+          />
+        )}
+        <Badge {...sync} />
+        <span {...stylex.props(styles.grow)} />
+        <Button
+          size="sm"
+          variant="quiet"
+          icon="layers"
+          label={allFolded ? "Unfold all" : "Fold all"}
+          onClick={() => p.onFoldAll(!allFolded)}
+        />
+        <Button size="sm" icon="text" label="Edit" onClick={p.onEdit} />
+      </div>
+      <div ref={p.bodyRef} {...stylex.props(styles.body)}>
+        <div {...stylex.props(styles.col)}>
+          <div {...stylex.props(styles.titles)}>
+            <h2 {...stylex.props(styles.title)}>{test.summary || "Untitled test"}</h2>
+            <p {...stylex.props(styles.sub)}>{subline(test, check)}</p>
+          </div>
+          <ReviewBanners {...p} checked={!!check} claudeReady={p.claudeReady ?? true} />
+          {whole.map((f, i) => (
+            <FindingCard
+              key={`${f.kind}-${i}`}
+              finding={f}
+              stale={stale}
+              where="Whole test"
+              whole
+              selected={p.selectedStep === null ? p.selected : ""}
+              onSelect={(s) => p.onSelect(s, null)}
+            />
+          ))}
+          {test.steps.map((s, i) => {
+            const n = i + 1;
+            return (
+              <ReviewStep
+                key={s.id ?? i}
+                n={n}
+                step={s}
+                xray={p.xray}
+                findings={findings.filter((f) => f.step === n)}
+                stale={stale}
+                folded={p.folded.has(i) && p.activeStep !== i}
+                active={p.activeStep === i}
+                claude={!!p.marks?.steps.has(n)}
+                added={!!p.marks?.added.has(n)}
+                selected={p.selected}
+                url={p.url}
+                onFold={(f) => p.onFold(i, f)}
+                onSelect={p.onSelect}
+                onOpenImage={p.onOpenImage}
+              />
+            );
+          })}
+          {!test.steps.length && <p {...stylex.props(styles.none)}>This test has no steps yet.</p>}
         </div>
       </div>
-
-      {sync === "remote-changed" && (
-        <div className="rstatus rstatus-warn" role="status">
-          <Severity tone="warning">Changed in Jira since your pull</Severity>
-          <p>Someone changed this test in Jira after your last pull. Choose which version to keep before you push.</p>
-          <div className="rstatus-actions">
-            <Button size="sm" onClick={onCompare}>
-              Compare
-            </Button>
-            <Button size="sm" onClick={onTakeJira}>
-              Take Jira's version
-            </Button>
-            <Button size="sm" tone="quiet" onClick={onKeepMine}>
-              Keep mine
-            </Button>
-          </div>
-          <p className="muted">
-            Push is refused until you choose — or until you push anyway and replace their change on purpose.
-          </p>
-        </div>
-      )}
-
-      {claudeRunning && (
-        <div className="rstatus" role="status" aria-live="polite">
-          <span className="sev s-info">
-            <span className="dot run-dot" />
-            Claude is fixing this test — follow it in the Claude panel.
-          </span>
-        </div>
-      )}
-
-      {marks && !claudeRunning && (
-        <div className="rstatus rstatus-claude" role="status">
-          <Icon name="claude" />
-          <span>
-            <strong>Claude changed {plural(marks.steps.size, "step")}</strong>
-            {test.review === "checked" ? " · re-checked" : " · waiting for the check"}
-          </span>
-          <span className="spacer" />
-          <Button size="sm" icon="revert" onClick={onRevert}>
-            Revert
-          </Button>
-        </div>
-      )}
-
-      {marks && revertConflict && (
-        <RevertConflict detail={revertConflict} onForce={() => onRevertAnyway?.()} onKeep={() => onKeepAfterRun?.()} />
-      )}
-
-      {fixMessage && !claudeRunning && (
-        <div className="rstatus rstatus-warn" role="status" aria-label="Claude's fix">
-          <Severity tone="warning">Still To fix after Claude's fix</Severity>
-          <p>{fixMessage}</p>
-        </div>
-      )}
-
-      {test.review === "to-fix" && test.reviewNote && (
-        <div className="rstatus rstatus-note" role="note" aria-label="To fix note">
-          <span className="label">To fix{test.reviewedBy ? ` · ${test.reviewedBy}` : ""}</span>
-          <p>{test.reviewNote}</p>
-        </div>
-      )}
-
-      {whole.map((f, i) => (
-        <FindingCard key={i} finding={f} stale={stale} scope="Whole test">
-          <FindingSources finding={f} selected={selected} onSelect={(s) => onSelect(s, null)} />
-        </FindingCard>
-      ))}
-
-      {test.steps.map((s, i) => {
-        const n = i + 1;
-        return (
-          <ReviewStep
-            key={i}
-            n={n}
-            step={s}
-            xray={xray}
-            findings={findings.filter((f) => f.step === n)}
-            stale={stale}
-            folded={folded.has(i) && activeStep !== i}
-            active={activeStep === i}
-            claude={!!marks?.steps.has(n)}
-            added={!!marks?.added.has(n)}
-            selected={selected}
-            url={url}
-            onFold={(f) => onFold(i, f)}
-            onSelect={onSelect}
-            onOpenImage={onOpenImage}
-          />
-        );
-      })}
-      {!test.steps.length && <p className="muted">This test has no steps yet.</p>}
-    </div>
+    </>
   );
 }

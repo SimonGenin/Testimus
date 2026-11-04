@@ -18,6 +18,7 @@ const PATHS: Rule[] = [
       ["xray.plan", { id: m[1] }],
       ["search.all"],
       ["project.info"],
+      ["gen.preview"],
     ],
   ],
   [
@@ -33,21 +34,31 @@ const PATHS: Rule[] = [
     /^tests\/([^/]+)\/local\.json$/,
     (m) => [
       ["contexts.ofTest", { testId: m[1] }],
-      ["tests.columns", { id: m[1] }],
+      ["tests.folds", { id: m[1] }],
     ],
   ],
   [/^tests\/([^/]+)\/\.state\.json$/, (m) => [["tests.show", { id: m[1] }], ["tests.list"]]],
-  [/^tests\/([^/]+)(\/|$)/, (m) => [["tests.show", { id: m[1] }], ["tests.list"], ["review.queue"], ["project.info"]]],
+  [
+    /^tests\/([^/]+)(\/|$)/,
+    (m) => [["tests.show", { id: m[1] }], ["tests.list"], ["review.queue"], ["project.info"], ["gen.preview"]],
+  ],
   [
     /^docs\/([^/]+)\/doc\.json$/,
-    (m) => [["docs.list"], ["docs.show", { id: m[1] }], ["rag.status"], ["project.info"], ["rag.passage"]],
+    (m) => [
+      ["docs.list"],
+      ["docs.show", { id: m[1] }],
+      ["rag.status"],
+      ["project.info"],
+      ["rag.passage"],
+      ["gen.preview"],
+    ],
   ],
   [
     /^docs\/([^/]+)\/(doc\.md|figures|figures\.json)/,
-    (m) => [["docs.show", { id: m[1] }], ["rag.passage"], ["rag.figure"], ["docs.page"]],
+    (m) => [["docs.show", { id: m[1] }], ["rag.passage"], ["rag.figure"], ["docs.page"], ["docs.list"]],
   ],
   [/^docs\/([^/]+)\/context\.md$/, (m) => [["docs.show", { id: m[1] }]]],
-  [/^docs\/([^/]+)(\/|$)/, () => [["docs.list"], ["rag.status"], ["project.info"]]],
+  [/^docs\/([^/]+)(\/|$)/, () => [["docs.list"], ["rag.status"], ["project.info"], ["gen.preview"]]],
   [
     /^project\.json$/,
     () => [
@@ -70,10 +81,19 @@ const PATHS: Rule[] = [
 const KINDS: Rule[] = [
   [
     /^rag-index$|^rag\.index$/,
-    () => [["rag.status"], ["rag.spaces"], ["docs.list"], ["docs.show"], ["search.all"], ["models.advice"]],
+    () => [
+      ["rag.status"],
+      ["rag.spaces"],
+      ["docs.list"],
+      ["docs.show"],
+      ["search.all"],
+      ["models.advice"],
+      ["gen.preview"],
+    ],
   ],
   [/^search-index$/, () => [["search.all"]]],
-  [/^generate$/, () => [["review.evidence"], ["review.queue"]]],
+  [/^docs\.(add|addFiles|convert)$|^docs-|^describe-figures$/, () => [["docs.list"], ["docs.show"], ["rag.status"]]],
+  [/^generate$/, () => [["review.evidence"], ["review.queue"], ["gen.preview"]]],
   [
     /^models-/,
     () => [

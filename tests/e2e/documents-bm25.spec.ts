@@ -12,7 +12,7 @@ test("documents indexed on words only still open and search, and indexing again 
 
   await boot(page, "#/documents");
   const list = page.getByRole("region", { name: "Document list" });
-  const rows = list.getByRole("row", { name: /^SOSIE_/ });
+  const rows = list.getByRole("option", { name: /SOSIE_/ });
   await expect(rows).toHaveCount(2);
   await expect(rows.first()).toContainText("Validated");
   const detail = page.getByRole("region", { name: "SOSIE_211_D401-1_3 details" });
@@ -26,7 +26,7 @@ test("documents indexed on words only still open and search, and indexing again 
     .poll(async () => (await api<{ degraded: string | null }>(url, "rag.status")).degraded, { timeout: 30_000 })
     .toBeNull();
   await page.reload();
-  await expect(rows.first()).toContainText(/up to date/i);
+  await expect(rows.first()).toContainText("Indexed");
   const after = await api<{ degraded?: boolean }[]>(url, "rag.search", { query: "sectionneur" });
   expect(after.some((h) => h.degraded)).toBe(false);
 });

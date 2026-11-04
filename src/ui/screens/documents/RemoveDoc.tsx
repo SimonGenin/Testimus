@@ -1,33 +1,50 @@
-import { useEffect, useState } from "react";
-import type { CitingTest, DocJson } from "../../../core/types.ts";
-import { call } from "../../api.ts";
-import { Confirm, ReviewBadge, Skeleton } from "../../components/legacy/index.ts";
+import * as stylex from "@stylexjs/stylex";
+import { useQueryClient } from "@tanstack/react-query";
+import type { DocJson } from "../../../core/types.ts";
+import { ReviewBadge } from "../../components/ui/Badge.tsx";
+import { Modal } from "../../components/ui/Modal.tsx";
+import { Skeleton } from "../../components/ui/Skeleton.tsx";
+import { execute, type Prefix, useRead } from "../../lib/data/query.ts";
 import { message, plural } from "../../lib/format.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
+import { color, fontFamily, fontSize, lineHeight, space } from "../../styles/tokens.stylex.ts";
 
-type Plan = { citedBy: CitingTest[]; unlinked: string[] };
+const styles = stylex.create({
+  body: { display: "flex", flexDirection: "column", gap: space.s3 },
+  p: { margin: 0, fontSize: fontSize.body, lineHeight: lineHeight.body, color: color.text },
+  muted: { margin: 0, fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textMuted },
+  mono: { fontFamily: fontFamily.mono, fontSize: fontSize.code },
+  list: { display: "flex", flexDirection: "column", gap: space.s2, margin: 0, padding: 0, listStyle: "none" },
+  test: {
+    display: "flex",
+    alignItems: "center",
+    gap: space.s3,
+    fontSize: fontSize.small,
+    lineHeight: lineHeight.small,
+  },
+  sum: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+});
 
 const SHOWN = 8;
 
-export function RemoveDoc({ doc, onClose, onRemoved }: { doc: DocJson; onClose: () => void; onRemoved: () => void }) {
-  const [plan, setPlan] = useState<Plan | null>(null);
-  const [planError, setPlanError] = useState("");
-  const [busy, setBusy] = useState(false);
+// ponytail: what a delete changes — the list, the index, and the tests that cited it (re-checked by the core)
+const GONE: Prefix[] = [
+  ["docs.list"],
+  ["rag.status"],
+  ["tests.list"],
+  ["review.queue"],
+  ["check.show"],
+  ["search.all"],
+];
 
-  useEffect(() => {
-    let dead = false;
-    call<Plan>("docs.remove", { id: doc.id, dryRun: true })
-      .then((r) => !dead && setPlan(r))
-      .catch((e) => !dead && setPlanError(message(e)));
-    return () => {
-      dead = true;
-    };
-  }, [doc.id]);
+// ponytail: the plan first (docs.remove --dry-run: the tests that cite it, the documents that amend it), then the delete
+export function RemoveDoc({ doc, onClose, onRemoved }: { doc: DocJson; onClose: () => void; onRemoved: () => void }) {
+  const client = useQueryClient();
+  const plan = useRead("docs.remove", { id: doc.id, dryRun: true });
 
   const remove = async () => {
-    setBusy(true);
     try {
-      const r = await call<Plan>("docs.remove", { id: doc.id });
+      const r = await execute(client, "docs.remove", { id: doc.id }, { invalidates: GONE });
       const n = r.citedBy.length;
       toast({
         kind: "info",
@@ -39,66 +56,66 @@ export function RemoveDoc({ doc, onClose, onRemoved }: { doc: DocJson; onClose: 
       onRemoved();
     } catch (e) {
       errorToast(e, "Could not delete the document");
-      setBusy(false);
       onClose();
     }
   };
 
-  const cited = plan?.citedBy ?? [];
+  const cited = plan.data?.citedBy ?? [];
   const validated = cited.filter((t) => t.review === "validated").length;
+  const unlinked = plan.data?.unlinked ?? [];
   return (
-    <Confirm
+    <Modal
       title="Delete this document?"
-      confirm="Delete"
-      danger
-      busy={busy || (!plan && !planError)}
-      loss={
-        <>
+      size="sm"
+      confirm={{ verb: "Delete", danger: true, onConfirm: remove }}
+      busy={plan.isPending}
+      onClose={onClose}
+    >
+      <div {...stylex.props(styles.body)}>
+        <p {...stylex.props(styles.p)}>
+          <span {...stylex.props(styles.mono)}>{doc.code}</span> — {doc.title} — is removed from the project folder and
+          from the index.
+        </p>
+        <p {...stylex.props(styles.muted)}>
           <strong>What is lost: </strong>the copy of the original, the converted text, the figures and their
           descriptions, the context, and its passages in the search index.
-        </>
-      }
-      onClose={onClose}
-      onConfirm={() => void remove()}
-    >
-      <p>
-        <span className="mono">{doc.code}</span> — {doc.title} — is removed from the project folder and from the index.
-      </p>
-      {planError ? (
-        <p className="muted">The tests that cite it could not be listed: {planError}</p>
-      ) : !plan ? (
-        <div role="status" aria-busy="true" aria-label="Looking for the tests that cite it">
-          <Skeleton w="70%" h={13} />
-        </div>
-      ) : !cited.length ? (
-        <p className="muted">No test cites it.</p>
-      ) : (
-        <div className="doc-cited">
-          <p>
-            <strong>
-              {plural(cited.length, "test")} cite{cited.length === 1 ? "s" : ""} it
-            </strong>
-            {validated ? `, ${validated} of them validated` : ""}. They keep their sources and their review; the check
-            will report each of those sources as a missing document.
-          </p>
-          <ul aria-label="Tests that cite this document">
-            {cited.slice(0, SHOWN).map((t) => (
-              <li key={t.id}>
-                <span className="mono">{t.key ?? t.id}</span>
-                <span className="doc-cited-sum">{t.summary}</span>
-                <ReviewBadge review={t.review} small />
-              </li>
-            ))}
-          </ul>
-          {cited.length > SHOWN && <p className="muted">and {cited.length - SHOWN} more</p>}
-        </div>
-      )}
-      {plan && plan.unlinked.length > 0 && (
-        <p className="muted">
-          {plan.unlinked.length === 1 ? "This document amends it" : "These documents amend it"} and will no longer name
-          it: <span className="mono">{plan.unlinked.join(", ")}</span>
         </p>
-      )}
-    </Confirm>
+        {plan.isError ? (
+          <p {...stylex.props(styles.muted)}>The tests that cite it could not be listed: {message(plan.error)}</p>
+        ) : plan.isPending ? (
+          <div role="status" aria-busy="true" aria-label="Looking for the tests that cite it">
+            <Skeleton width="70%" />
+          </div>
+        ) : !cited.length ? (
+          <p {...stylex.props(styles.muted)}>No test cites it.</p>
+        ) : (
+          <>
+            <p {...stylex.props(styles.p)}>
+              <strong>
+                {plural(cited.length, "test")} cite{cited.length === 1 ? "s" : ""} it
+              </strong>
+              {validated ? `, ${validated} of them validated` : ""}. They keep their sources and their review; the check
+              will report each of those sources as a missing document.
+            </p>
+            <ul aria-label="Tests that cite this document" {...stylex.props(styles.list)}>
+              {cited.slice(0, SHOWN).map((t) => (
+                <li key={t.id} {...stylex.props(styles.test)}>
+                  <span {...stylex.props(styles.mono)}>{t.key ?? t.id}</span>
+                  <span {...stylex.props(styles.sum)}>{t.summary}</span>
+                  <ReviewBadge state={t.review} size="sm" />
+                </li>
+              ))}
+            </ul>
+            {cited.length > SHOWN && <p {...stylex.props(styles.muted)}>and {cited.length - SHOWN} more</p>}
+          </>
+        )}
+        {unlinked.length > 0 && (
+          <p {...stylex.props(styles.muted)}>
+            {unlinked.length === 1 ? "This document amends it" : "These documents amend it"} and will no longer name it:{" "}
+            <span {...stylex.props(styles.mono)}>{unlinked.join(", ")}</span>
+          </p>
+        )}
+      </div>
+    </Modal>
   );
 }
