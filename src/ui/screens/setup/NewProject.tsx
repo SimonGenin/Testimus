@@ -84,6 +84,7 @@ export function NewProject({ f, busy }: { f: ReturnType<typeof useNewProject>; b
           id="proj-lang"
           label="Language of the tests"
           showLabel
+          block
           value={f.language}
           onChange={f.setLanguage}
           options={[

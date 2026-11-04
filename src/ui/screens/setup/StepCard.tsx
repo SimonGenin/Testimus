@@ -15,7 +15,7 @@ const styles = stylex.create({
     color: color.text,
   },
   lead: { margin: 0, color: color.textMuted, fontSize: fontSize.body, lineHeight: lineHeight.body },
-  foot: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s3 },
+  foot: { flex: 1, width: "100%", display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s3 },
   grow: { flex: 1 },
 });
 

@@ -74,7 +74,7 @@ export function CheckTable({
             width: "26%",
             render: (c) => <span {...stylex.props(styles.label)}>{c.label}</span>,
           },
-          { key: "detail", label: "Result", render: (c) => <Result check={c} /> },
+          { key: "detail", label: "Result", width: "38%", render: (c) => <Result check={c} /> },
           {
             key: "fix",
             label: "Fix",

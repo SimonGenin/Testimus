@@ -12,7 +12,6 @@ import { JobCards } from "./JobCard.tsx";
 import { FullLog } from "./JobFullLog.tsx";
 import { JobHead } from "./JobHead.tsx";
 import { JobProblem } from "./JobProblem.tsx";
-import { JobState } from "./JobState.tsx";
 import { JobProcesses, JobSteps } from "./JobSteps.tsx";
 import { useJobDetail } from "./useJobDetail.ts";
 
@@ -136,7 +135,6 @@ export function JobDetail({
       )}
       {job.status === "done" && job.kind !== "generate" && resultLine(job).includes(" · ") && (
         <div {...stylex.props(styles.result)}>
-          <JobState job={job} now={now} size="md" />
           <span {...stylex.props(styles.muted)}>{resultLine(job).split(" · ").slice(1).join(" · ")}</span>
         </div>
       )}

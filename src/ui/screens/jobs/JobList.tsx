@@ -47,7 +47,8 @@ const styles = stylex.create({
   mono: { fontFamily: fontFamily.mono, color: color.text },
   meta: { display: "inline-flex", flexWrap: "wrap", columnGap: space.s2 },
   cause: { fontWeight: fontWeight.medium, color: color.text },
-  times: { color: color.textMuted, fontWeight: fontWeight.regular },
+  times: { color: color.textMuted, fontWeight: fontWeight.regular, marginInlineStart: space.s1 },
+  part: { display: "inline-flex", gap: space.s2 },
 });
 
 const CAUSE: Record<string, string> = {
@@ -163,8 +164,11 @@ function jobItem(r: Extract<Row, { kind: "job" }>, c: ListCtx): ListItemProps {
     meta: (
       <span {...stylex.props(styles.meta)}>
         {cause && <span {...stylex.props(styles.cause)}>{cause}</span>}
-        {meta.map((m) => (
-          <span key={m}>{m}</span>
+        {meta.map((m, i) => (
+          <span key={m} {...stylex.props(styles.part)}>
+            {(i > 0 || cause) && <span aria-hidden="true">·</span>}
+            {m}
+          </span>
         ))}
       </span>
     ),
