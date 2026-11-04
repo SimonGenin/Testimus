@@ -136,6 +136,7 @@ export function ReviewScreen() {
       <div {...stylex.props(styles.review)}>
         <ReviewQueue
           items={items}
+          groups={d.groups}
           counts={d.counts}
           activeId={activeId}
           filter={filters.filter}

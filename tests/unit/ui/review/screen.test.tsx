@@ -273,6 +273,36 @@ describe("Review screen", () => {
     input.remove();
   });
 
+  it("groups the latest generation's tests first, then Earlier, and J/K walk the order shown", async () => {
+    reviewRoutes({
+      queue: [
+        item("K-1", { generatedBy: "gen-old", generatedAt: "2026-10-30T09:00:00.000Z" }),
+        item("K-2", { generatedBy: "gen-new", generatedAt: "2026-10-31T15:02:00.000Z" }),
+        item("L-3", { generatedBy: "gen-new", generatedAt: "2026-10-31T15:02:00.000Z" }),
+      ],
+    });
+    const { app: a } = show({ route: { screen: "review", arg: "L-3" } });
+    await screen.findByRole("heading", { name: "Summary L-3" });
+    const latest = await within(queue()).findByRole("group", { name: /^Generated 31 Oct/ });
+    expect(within(latest).getAllByRole("option").map((o) => o.textContent)).toEqual([
+      expect.stringContaining("Summary K-2"),
+      expect.stringContaining("Summary L-3"),
+    ]);
+    const earlier = within(queue()).getByRole("group", { name: "Earlier" });
+    expect(within(earlier).getAllByRole("option")).toHaveLength(1);
+    expect(within(earlier).getByText("Summary K-1")).toBeInTheDocument();
+    await waitFor(() => expect(position()).toHaveTextContent("2 / 3"));
+    key("j");
+    expect(a.navigate).toHaveBeenLastCalledWith("review", "K-1");
+  });
+
+  it("a queue of one generation has no group head", async () => {
+    reviewRoutes({ queue: [item("K-1", { generatedBy: "gen-a" }), item("K-2", { generatedBy: "gen-a" })] });
+    show();
+    await screen.findByRole("heading", { name: "Summary K-1" });
+    expect(within(queue()).queryByRole("group", { name: "Earlier" })).toBeNull();
+  });
+
   it("at the end of the queue J stays; a dialog blocks the keys", async () => {
     reviewRoutes({ queue: [item("K-1")] });
     const { app: a } = show();

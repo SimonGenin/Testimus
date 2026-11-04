@@ -11,6 +11,7 @@ import { Segmented } from "../../components/ui/Segmented.tsx";
 import { Select } from "../../components/ui/Select.tsx";
 import { plural } from "../../lib/format.ts";
 import { border, color, container, fontSize, fontWeight, lineHeight, size, space } from "../../styles/tokens.stylex.ts";
+import type { QueueGroup } from "./queueGroups.ts";
 
 export type QueueItem = {
   id: string;
@@ -26,6 +27,8 @@ export type QueueItem = {
   infos: number;
   stale: boolean;
   mtime: number;
+  generatedBy?: string;
+  generatedAt?: string;
 };
 export type QueueCounts = { checked: number; toFix: number; draft: number; unchecked: number; validated?: number };
 export type QueueFilter = "all" | "checked" | "to-fix" | "validated";
@@ -118,6 +121,8 @@ const tip = (t: QueueItem) =>
 
 export type ReviewQueueProps = {
   items: QueueItem[] | null;
+  /** the latest generation, then « Earlier », when the queue holds tests of more than one generation */
+  groups?: QueueGroup[];
   counts: QueueCounts | null;
   activeId: string;
   filter: QueueFilter;
@@ -213,6 +218,7 @@ export function ReviewQueue(p: ReviewQueueProps) {
           label="Tests to review"
           density="two-line"
           items={p.items ?? []}
+          groups={p.groups}
           loading={p.items === null ? 5 : false}
           getKey={(t) => t.id}
           selected={p.activeId}
