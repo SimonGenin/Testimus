@@ -16,6 +16,7 @@ const styles = stylex.create({
 // the push at work, op by op; stopped, it says where and why and resumes from that operation
 export function PushProgress({
   name,
+  reference,
   summary,
   ops,
   running,
@@ -27,6 +28,8 @@ export function PushProgress({
   onResume,
 }: {
   name: string;
+  /** the test's key, or its local id, under the title */
+  reference: string;
   summary?: string;
   ops: PlanOp[];
   running: boolean;
@@ -65,13 +68,11 @@ export function PushProgress({
     <Modal
       title={running ? `Pushing ${name} to Jira` : `Push stopped at operation ${failedAt + 1} of ${ops.length}`}
       subtitle={
-        summary || name ? (
-          <>
-            {summary}
-            {summary && name ? " · " : ""}
-            <span {...stylex.props(styles.mono)}>{name}</span>
-          </>
-        ) : undefined
+        <>
+          {summary}
+          {summary ? " · " : ""}
+          <span {...stylex.props(styles.mono)}>{reference}</span>
+        </>
       }
       icon={running ? "push" : "alert-circle"}
       busy={running}
