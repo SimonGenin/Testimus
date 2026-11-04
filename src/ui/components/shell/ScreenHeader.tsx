@@ -1,21 +1,14 @@
 import * as stylex from "@stylexjs/stylex";
 import { type ReactNode, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { color, fontSize, fontWeight, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 import { Icon } from "../ui/Icon.tsx";
+import { type } from "../ui/type.ts";
 import { useTopBar } from "./TopBar.tsx";
 
 const styles = stylex.create({
   alone: { display: "flex", alignItems: "center", gap: space.s3, paddingBlock: space.s3, paddingInline: space.s5 },
-  title: {
-    display: "flex",
-    alignItems: "center",
-    gap: space.s3,
-    margin: 0,
-    fontSize: fontSize.titleSm,
-    lineHeight: lineHeight.titleSm,
-    fontWeight: fontWeight.semibold,
-  },
+  title: { display: "flex", alignItems: "center", gap: space.s3, margin: 0 },
   crumb: {
     display: "inline-flex",
     alignItems: "center",
@@ -23,18 +16,9 @@ const styles = stylex.create({
     minWidth: 0,
     overflow: "hidden",
     color: color.textMuted,
-    fontWeight: fontWeight.regular,
   },
   crumbText: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" },
-  meta: {
-    minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    color: color.textMuted,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
-    fontWeight: fontWeight.regular,
-  },
+  meta: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", color: color.textMuted },
 });
 
 // ponytail: a screen's part of the top bar — its title, the trail under it (« Documents › SOSIE_211 · Traction »,
@@ -65,14 +49,14 @@ export function ScreenHeader({
     <>
       {title}
       {crumbs.map((c) => (
-        <span key={c} title={c} {...stylex.props(styles.crumb)}>
+        <span key={c} title={c} {...stylex.props(type.regular, styles.crumb)}>
           <Icon name="chevron-right" size="sm" />
           <span {...stylex.props(styles.crumbText)}>{c}</span>
         </span>
       ))}
       {badge}
       {meta && (
-        <span title={meta} {...stylex.props(styles.meta)}>
+        <span title={meta} {...stylex.props(type.small, type.regular, styles.meta)}>
           {meta}
         </span>
       )}
@@ -81,7 +65,7 @@ export function ScreenHeader({
   if (!bar)
     return (
       <header {...stylex.props(styles.alone)}>
-        <h1 {...stylex.props(styles.title)}>{head}</h1>
+        <h1 {...stylex.props(type.titleSm, styles.title)}>{head}</h1>
         {children}
       </header>
     );

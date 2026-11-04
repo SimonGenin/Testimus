@@ -4,69 +4,36 @@ import type { Job, JobEvent } from "../../../core/types.ts";
 import { activityOf, DOING, lasted, type Phase, type Verdict } from "../../lib/activity.ts";
 import { plural } from "../../lib/format.ts";
 import { clock } from "../../lib/jobs.ts";
-import { color, fontFamily, fontSize, fontWeight, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { color, fontFamily, space } from "../../styles/tokens.stylex.ts";
 import { JobLog } from "../shell/JobLog.tsx";
 import { Badge, type BadgeTone } from "../ui/Badge.tsx";
 import { Button } from "../ui/Button.tsx";
 import { Disclosure } from "../ui/Disclosure.tsx";
 import { Icon } from "../ui/Icon.tsx";
 import { Timeline, type TimelineItem } from "../ui/Timeline.tsx";
+import { type } from "../ui/type.ts";
 import { DocMap, docsOf, Lookups, Searches } from "./ActivityParts.tsx";
 import { kilo } from "./turns.ts";
 import { claudeSaid } from "./useClaudeStatus.ts";
 
 const styles = stylex.create({
   card: { display: "flex", flexDirection: "column", gap: space.s3 },
-  heading: { margin: 0, fontSize: "inherit", fontWeight: "inherit", lineHeight: "inherit" },
+  heading: { margin: 0, font: "inherit" },
   body: { display: "flex", flexDirection: "column", gap: space.s3, minWidth: 0 },
-  line: { fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textMuted },
+  line: { color: color.textMuted },
   warn: { color: color.warning },
   error: { color: color.danger },
-  skill: {
-    fontFamily: fontFamily.mono,
-    fontSize: fontSize.code,
-    color: color.claudeText,
-    marginInlineStart: space.s1,
-  },
-  plan: {
-    boxSizing: "border-box",
-    margin: 0,
-    paddingInlineStart: space.s5,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
-  },
-  verdicts: {
-    listStyle: "none",
-    margin: 0,
-    padding: 0,
-    display: "flex",
-    flexDirection: "column",
-    gap: space.s2,
-    fontSize: fontSize.small,
-  },
+  skill: { color: color.claudeText, marginInlineStart: space.s1 },
+  plan: { boxSizing: "border-box", margin: 0, paddingInlineStart: space.s5 },
+  verdicts: { listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: space.s2 },
   verdict: { display: "flex", alignItems: "center", gap: space.s3, minWidth: 0 },
-  id: { fontFamily: fontFamily.mono, fontSize: fontSize.code, color: color.textMuted },
+  id: { color: color.textMuted },
   name: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
-  said: {
-    display: "flex",
-    gap: space.s2,
-    margin: 0,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
-    color: color.claudeText,
-  },
+  said: { display: "flex", gap: space.s2, margin: 0, color: color.claudeText },
   toggles: { display: "flex", flexWrap: "wrap", gap: space.s2 },
-  steps: {
-    margin: 0,
-    paddingInlineStart: space.s5,
-    display: "flex",
-    flexDirection: "column",
-    gap: space.s1,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
-  },
+  steps: { margin: 0, paddingInlineStart: space.s5, display: "flex", flexDirection: "column", gap: space.s1 },
   at: { fontFamily: fontFamily.mono, color: color.textSubtle, marginInlineEnd: space.s2 },
-  muted: { margin: 0, fontSize: fontSize.small, color: color.textSubtle, fontWeight: fontWeight.regular },
+  muted: { margin: 0, color: color.textSubtle },
 });
 
 const mss = (ms: number) => {
@@ -142,17 +109,17 @@ function PhaseBody({ phase: p, live, names }: { phase: Phase; live: boolean; nam
   return (
     <div {...stylex.props(styles.body)}>
       {p.skills.length > 0 && (
-        <span {...stylex.props(styles.line)}>
+        <span {...stylex.props(type.small, styles.line)}>
           Followed the skill{p.skills.length > 1 ? "s" : ""}
           {p.skills.map((s) => (
-            <span key={s} data-testid="act-skill" {...stylex.props(styles.skill)}>
+            <span key={s} data-testid="act-skill" {...stylex.props(type.code, styles.skill)}>
               {s}
             </span>
           ))}
         </span>
       )}
       {p.kind === "prepare" && others.length > 0 && (
-        <span {...stylex.props(styles.line)}>{sentence(others.map((a) => a.text))}</span>
+        <span {...stylex.props(type.small, styles.line)}>{sentence(others.map((a) => a.text))}</span>
       )}
       {docsOf(p).map((doc) => (
         <DocMap
@@ -165,14 +132,14 @@ function PhaseBody({ phase: p, live, names }: { phase: Phase; live: boolean; nam
       ))}
       {p.kind === "read" && <Searches p={p} />}
       {p.kind === "plan" && p.planned.length > 0 && (
-        <ol {...stylex.props(styles.plan)}>
+        <ol {...stylex.props(type.small, styles.plan)}>
           {p.planned.map((t, i) => (
             <li key={i}>{t}</li>
           ))}
         </ol>
       )}
       {p.kind === "write" && last && (
-        <span {...stylex.props(styles.line)}>
+        <span {...stylex.props(type.small, styles.line)}>
           Last written: {last.summary ? `“${last.summary}”` : last.id}
           {p.written.some((w) => w.saves > 1) &&
             `; ${plural(p.written.filter((w) => w.saves > 1).length, "test")} written more than once`}
@@ -180,12 +147,12 @@ function PhaseBody({ phase: p, live, names }: { phase: Phase; live: boolean; nam
         </span>
       )}
       {p.verdicts.length > 0 && (
-        <ul aria-label="Check verdicts" {...stylex.props(styles.verdicts)}>
+        <ul aria-label="Check verdicts" {...stylex.props(type.small, styles.verdicts)}>
           {p.verdicts.map((v) => {
             const { label, tone, kind } = verdictOf(v);
             return (
               <li key={v.id} data-verdict={kind} {...stylex.props(styles.verdict)}>
-                <span {...stylex.props(styles.id)}>{v.id}</span>
+                <span {...stylex.props(type.code, styles.id)}>{v.id}</span>
                 <span {...stylex.props(styles.name)}>{names.get(v.id) ?? ""}</span>
                 <Badge tone={tone} size="sm" label={label} />
               </li>
@@ -199,13 +166,13 @@ function PhaseBody({ phase: p, live, names }: { phase: Phase; live: boolean; nam
           <span
             key={i}
             data-level={a.level}
-            {...stylex.props(styles.line, a.level === "warn" ? styles.warn : styles.error)}
+            {...stylex.props(type.small, styles.line, a.level === "warn" ? styles.warn : styles.error)}
           >
             {a.text}
           </span>
         ))}
       {said && p.kind !== "end" && (
-        <p data-testid="act-said" {...stylex.props(styles.said)}>
+        <p data-testid="act-said" {...stylex.props(type.small, styles.said)}>
           <Icon name="claude" size="sm" />
           {said}
         </p>
@@ -231,7 +198,7 @@ function PhaseBody({ phase: p, live, names }: { phase: Phase; live: boolean; nam
       )}
       {open && grouped && <Lookups p={p} />}
       {open && !grouped && (
-        <ol {...stylex.props(styles.steps)}>
+        <ol {...stylex.props(type.small, styles.steps)}>
           {p.acts.map((a, i) => (
             <li
               key={i}
@@ -306,7 +273,7 @@ export function ClaudeActivity({
         }
       >
         {!phases.length && (
-          <p {...stylex.props(styles.muted)}>
+          <p {...stylex.props(type.small, type.regular, styles.muted)}>
             {running ? "Claude is starting." : "Nothing was recorded for this run."}
           </p>
         )}

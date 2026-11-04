@@ -2,19 +2,12 @@ import * as stylex from "@stylexjs/stylex";
 import type { DocJson } from "../../../core/types.ts";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
+import { Raw } from "../../components/ui/Raw.tsx";
+import { type } from "../../components/ui/type.ts";
 import { useApp } from "../../lib/app.ts";
 import { project } from "../../lib/data/client.ts";
 import { desktop, pathJoin, reveal } from "../../lib/desktop.ts";
-import {
-  color,
-  fontFamily,
-  fontSize,
-  fontWeight,
-  lineHeight,
-  radius,
-  size,
-  space,
-} from "../../styles/tokens.stylex.ts";
+import { color, size, space } from "../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
   box: { flex: 1, minHeight: 0, overflowY: "auto" },
@@ -30,34 +23,10 @@ const styles = stylex.create({
     paddingInline: space.s5,
   },
   head: { display: "flex", alignItems: "baseline", flexWrap: "wrap", gap: space.s3 },
-  title: {
-    margin: 0,
-    fontSize: fontSize.title,
-    lineHeight: lineHeight.title,
-    fontWeight: fontWeight.semibold,
-    color: color.text,
-  },
-  mono: { fontFamily: fontFamily.mono, fontSize: fontSize.code, lineHeight: lineHeight.code },
+  title: { margin: 0, color: color.text },
   code: { color: color.textMuted },
   said: { display: "flex", flexDirection: "column", gap: space.s2 },
-  caption: {
-    fontSize: fontSize.caption,
-    lineHeight: lineHeight.caption,
-    fontWeight: fontWeight.medium,
-    color: color.textMuted,
-  },
-  raw: {
-    margin: 0,
-    padding: space.s4,
-    borderRadius: radius.r2,
-    backgroundColor: color.surfaceSunken,
-    color: color.textMuted,
-    fontFamily: fontFamily.mono,
-    fontSize: fontSize.code,
-    lineHeight: lineHeight.code,
-    whiteSpace: "pre-wrap",
-    overflowWrap: "anywhere",
-  },
+  caption: { color: color.textMuted },
   acts: { display: "flex", flexWrap: "wrap", gap: space.s2 },
 });
 
@@ -82,9 +51,9 @@ export function DocUnreadable({
     <div {...stylex.props(styles.box)}>
       <div {...stylex.props(styles.inner)}>
         <div {...stylex.props(styles.head)}>
-          <h2 {...stylex.props(styles.title)}>{doc?.title || id}</h2>
+          <h2 {...stylex.props(type.title, styles.title)}>{doc?.title || id}</h2>
           {doc && (
-            <span {...stylex.props(styles.mono, styles.code)}>
+            <span {...stylex.props(type.code, styles.code)}>
               {doc.code} · version {doc.version}
             </span>
           )}
@@ -99,12 +68,12 @@ export function DocUnreadable({
             </>
           }
         >
-          Testimus could not read <span {...stylex.props(styles.mono)}>docs/{id}/doc.md</span>. Convert it again from
-          its original, or look at the folder.
+          Testimus could not read <span {...stylex.props(type.code)}>docs/{id}/doc.md</span>. Convert it again from its
+          original, or look at the folder.
         </Banner>
         <div {...stylex.props(styles.said)}>
-          <span {...stylex.props(styles.caption)}>What the app said</span>
-          <pre {...stylex.props(styles.raw)}>{error}</pre>
+          <span {...stylex.props(type.caption, styles.caption)}>What the app said</span>
+          <Raw text={error} />
         </div>
         <div {...stylex.props(styles.acts)}>
           {desktop() && dir && (

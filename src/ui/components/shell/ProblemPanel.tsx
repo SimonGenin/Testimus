@@ -2,9 +2,10 @@ import * as stylex from "@stylexjs/stylex";
 import { useApp } from "../../lib/app.ts";
 import { ApiError } from "../../lib/data/client.ts";
 import { message } from "../../lib/format.ts";
-import { color, fontWeight, space } from "../../styles/tokens.stylex.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 import { Banner } from "../ui/Banner.tsx";
 import { Button } from "../ui/Button.tsx";
+import { type } from "../ui/type.ts";
 
 const ACCESS = /\b(401|403)\b|token|refused|unauthori[sz]ed|credentials|authenticat/i;
 const JIRA = /jira|xray|atlassian/i;
@@ -12,7 +13,6 @@ const JIRA = /jira|xray|atlassian/i;
 const styles = stylex.create({
   body: { display: "flex", flexDirection: "column", gap: space.s2, margin: 0 },
   p: { margin: 0 },
-  what: { fontWeight: fontWeight.semibold },
   untouched: { margin: 0, color: color.textMuted },
 });
 
@@ -66,7 +66,7 @@ export function ProblemPanel({
             {doing} stopped: {p.detail}
           </p>
           <p {...stylex.props(styles.p)}>
-            <span {...stylex.props(styles.what)}>What to do:</span>{" "}
+            <span {...stylex.props(type.strong)}>What to do:</span>{" "}
             {p.fix ??
               (p.access
                 ? "create a new API token on your Atlassian account, then paste it in Settings › Access."

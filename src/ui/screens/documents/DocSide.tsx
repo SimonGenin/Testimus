@@ -5,10 +5,11 @@ import type { DocJson } from "../../../core/types.ts";
 import { Badge } from "../../components/ui/Badge.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { Segmented } from "../../components/ui/Segmented.tsx";
+import { type } from "../../components/ui/type.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { baseName } from "../../lib/desktop.ts";
 import { plural } from "../../lib/format.ts";
-import { border, color, fontSize, fontWeight, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { border, color, space } from "../../styles/tokens.stylex.ts";
 import { indexWord } from "./badges.tsx";
 import { DocContext } from "./DocContext.tsx";
 
@@ -25,24 +26,10 @@ const styles = stylex.create({
     borderBottomColor: color.border,
   },
   row: { display: "flex", alignItems: "center", gap: space.s3, flexWrap: "wrap" },
-  caption: {
-    flex: 1,
-    margin: 0,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
-    fontWeight: fontWeight.semibold,
-    color: color.textMuted,
-  },
-  note: { margin: 0, fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textMuted },
+  caption: { flex: 1, margin: 0, color: color.textMuted },
+  note: { margin: 0, color: color.textMuted },
   warns: { display: "flex", flexDirection: "column", gap: space.s2, margin: 0, padding: 0, listStyle: "none" },
-  warn: {
-    display: "flex",
-    gap: space.s2,
-    alignItems: "flex-start",
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
-    color: color.text,
-  },
+  warn: { display: "flex", gap: space.s2, alignItems: "flex-start", color: color.text },
   ok: { display: "flex", alignItems: "center", gap: space.s2 },
   warnIcon: { display: "inline-flex", color: color.warning, marginTop: space.s1 },
 });
@@ -54,7 +41,7 @@ function Section({ title, aside, children }: { title: string; aside?: ReactNode;
   return (
     <section {...stylex.props(styles.sec)}>
       <div {...stylex.props(styles.row)}>
-        <h3 {...stylex.props(styles.caption)}>{title}</h3>
+        <h3 {...stylex.props(type.small, type.strong, styles.caption)}>{title}</h3>
         {aside}
       </div>
       {children}
@@ -87,7 +74,7 @@ export function DocSide({
           options={STATUSES.map((s) => ({ value: s, label: cap(s), disabled: running }))}
           onChange={(s) => s !== d.status && onStatus(s)}
         />
-        <p {...stylex.props(styles.note)}>What the team decided — not what the file says.</p>
+        <p {...stylex.props(type.small, styles.note)}>What the team decided — not what the file says.</p>
       </Section>
       <Section title="Search">
         <div {...stylex.props(styles.row)}>
@@ -106,11 +93,11 @@ export function DocSide({
             ) : undefined
           }
         >
-          <p {...stylex.props(styles.note)}>
+          <p {...stylex.props(type.small, styles.note)}>
             From {from} · {baseName(d.source.name || d.source.file)}
           </p>
           {warnings.length === 0 && !running && (
-            <p {...stylex.props(styles.note, styles.ok)}>
+            <p {...stylex.props(type.small, styles.note, styles.ok)}>
               <Icon name="check" size="sm" />
               Nothing lost.
             </p>
@@ -118,7 +105,7 @@ export function DocSide({
           {warnings.length > 0 && (
             <ul aria-label="Conversion warnings" {...stylex.props(styles.warns)}>
               {warnings.map((w) => (
-                <li key={w} {...stylex.props(styles.warn)}>
+                <li key={w} {...stylex.props(type.small, styles.warn)}>
                   <span {...stylex.props(styles.warnIcon)}>
                     <Icon name="alert-triangle" size="sm" />
                   </span>

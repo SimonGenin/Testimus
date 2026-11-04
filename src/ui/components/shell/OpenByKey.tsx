@@ -45,7 +45,7 @@ export function OpenByKey({ onClose }: { onClose: () => void }) {
     try {
       const r = await openKey.mutateAsync({ key: k });
       showProject(app, r.dir);
-      if (r.created) toast({ kind: "ok", title: `Project ${k} created`, detail: r.dir });
+      if (r.created) toast({ tone: "success", title: `Project ${k} created`, detail: r.dir });
       onClose();
     } catch (e) {
       errorToast(e, `Could not open ${k}`);

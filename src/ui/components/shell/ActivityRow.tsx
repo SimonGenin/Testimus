@@ -3,9 +3,11 @@ import { type ReactNode, useState } from "react";
 import { useJobEvents } from "../../lib/data/events.ts";
 import { kindLabel } from "../../lib/jobs.ts";
 import { kindIcon } from "../../screens/jobs/kinds.ts";
-import { border, color, fontFamily, fontSize, lineHeight, radius, size, space } from "../../styles/tokens.stylex.ts";
-import { Icon, type IconName } from "../ui/Icon.tsx";
+import { border, color, size, space } from "../../styles/tokens.stylex.ts";
+import type { IconName } from "../ui/Icon.tsx";
 import { Progress } from "../ui/Progress.tsx";
+import { Tile } from "../ui/Tile.tsx";
+import { type } from "../ui/type.ts";
 
 export type ActivityItem = {
   key: string;
@@ -36,6 +38,8 @@ const TONE: Record<string, Tone> = {
   "gen-bench": "claude",
 };
 
+const TILE = { doc: "accent", claude: "claude", plain: "neutral" } as const;
+
 const kindOf = (kind: string): [IconName, Tone] => [
   kind === "jira" ? "spinner" : kindIcon(kind),
   TONE[kind] ?? "plain",
@@ -58,33 +62,18 @@ const styles = stylex.create({
     borderTopStyle: { default: "solid", ":first-child": "none" },
     borderColor: color.border,
   },
-  tile: {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    flex: "none",
-    width: size.controlMd,
-    height: size.controlMd,
-    borderRadius: radius.r2,
-    backgroundColor: color.surfaceSunken,
-    color: color.textMuted,
-  },
-  doc: { backgroundColor: color.accentSubtle, color: color.accentText },
-  claude: { backgroundColor: color.claudeSubtle, color: color.claudeText },
-  plain: {},
+  lead: { display: "flex", flex: "none" },
   body: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: space.s2 },
   time: {
     flex: "none",
-    fontFamily: fontFamily.mono,
-    fontSize: fontSize.code,
-    lineHeight: size.controlXs,
+    display: "inline-flex",
+    alignItems: "center",
+    minHeight: size.controlXs,
     color: color.textMuted,
     whiteSpace: "nowrap",
   },
   label: {
     color: color.text,
-    fontSize: fontSize.compact,
-    lineHeight: lineHeight.compact,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
@@ -114,11 +103,11 @@ export function ActivityRow({ item, now, action }: { item: ActivityItem; now: nu
   const title = kind && item.label && item.label !== item.kind ? `${kind} · ${item.label}` : kind || item.label;
   return (
     <li data-kind={tone} {...stylex.props(styles.row)}>
-      <span title={item.kind} {...stylex.props(styles.tile, styles[tone])}>
-        <Icon name={icon} />
+      <span title={item.kind} {...stylex.props(styles.lead)}>
+        <Tile icon={icon} tone={TILE[tone]} />
       </span>
       <div {...stylex.props(styles.body)}>
-        <span title={title} {...stylex.props(styles.label)}>
+        <span title={title} {...stylex.props(type.compact, styles.label)}>
           {title}
         </span>
         <Progress
@@ -128,7 +117,7 @@ export function ActivityRow({ item, now, action }: { item: ActivityItem; now: nu
           detail={detail || undefined}
         />
       </div>
-      <span data-testid="elapsed" {...stylex.props(styles.time)}>
+      <span data-testid="elapsed" {...stylex.props(type.code, type.tabular, styles.time)}>
         {elapsed(item.startedAt, now)}
       </span>
       {action}

@@ -1,41 +1,9 @@
-import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
-import type { Passage } from "../../../core/types.ts";
+import type { Passage as Part } from "../../../core/types.ts";
 import { fileUrl } from "../../lib/data/client.ts";
-import { color, fontFamily, fontSize, fontWeight, lineHeight, size, space } from "../../styles/tokens.stylex.ts";
-import { Badge, type BadgeTone } from "../ui/Badge.tsx";
-import type { IconName } from "../ui/Icon.tsx";
+import { Badge, DOC_STATUS } from "../ui/Badge.tsx";
 import { Marked } from "../ui/Marked.tsx";
-
-const styles = stylex.create({
-  anchor: {
-    marginInlineEnd: space.s2,
-    fontFamily: fontFamily.mono,
-    fontSize: fontSize.code,
-    fontWeight: fontWeight.regular,
-    color: color.textSubtle,
-  },
-  title: {
-    margin: 0,
-    fontFamily: fontFamily.reading,
-    fontSize: fontSize.readingHeading,
-    lineHeight: lineHeight.readingHeading,
-    fontWeight: fontWeight.semibold,
-  },
-  text: {
-    display: "flex",
-    flexDirection: "column",
-    gap: space.s4,
-    fontFamily: fontFamily.reading,
-    fontSize: fontSize.reading,
-    lineHeight: lineHeight.reading,
-    color: color.text,
-  },
-  para: { margin: 0, overflowWrap: "anywhere" },
-  figure: { margin: 0, display: "flex", flexDirection: "column", gap: space.s2 },
-  img: { maxWidth: "100%", maxHeight: size.dockStripLabel, objectFit: "contain", alignSelf: "flex-start" },
-  caption: { fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textSubtle },
-});
+import { Passage } from "../ui/Passage.tsx";
 
 const norm = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
 
@@ -111,13 +79,6 @@ export function highlight(md: string, quote: string): ReactNode[] {
   return out;
 }
 
-// ponytail: a document's status, the same word, tone and icon wherever it shows (the list, a source)
-export const DOC_STATUS: Record<string, { label: string; tone: BadgeTone; icon: IconName }> = {
-  draft: { label: "Draft", tone: "neutral", icon: "circle-dashed" },
-  submitted: { label: "Submitted", tone: "info", icon: "upload" },
-  validated: { label: "Validated", tone: "success", icon: "validated" },
-};
-
 export const paragraphs = (text: string) =>
   text
     .replace(/<!--[\s\S]*?-->/g, "")
@@ -133,43 +94,27 @@ export const docLink = (docId: string, anchor: string, quote = "", from?: { test
 export const sectionNumber = (anchor: string) => (anchor.startsWith("§") ? anchor.slice(1) : "");
 
 export function DocBadges({ status }: { status: string }) {
-  const s = DOC_STATUS[status];
+  const s = DOC_STATUS[status as keyof typeof DOC_STATUS];
   return s ? <Badge {...s} /> : <Badge tone="neutral" label={status} />;
 }
 
-// ponytail: a passage as the document says it — where it sits, its title with its number, the paragraphs with the
-// quote marked, its figures
-export function PassageText({ passage, quote }: { passage: Passage; quote: string }) {
+// ponytail: a passage as the document says it — its title with its number, the paragraphs with the quote marked
+// (through Word's bold and italic, which the kit's Passage does not read), its figures; the space before the title
+// keeps the heading's name « § 5.6.6 Title »
+export function PassageText({ passage, quote }: { passage: Part; quote: string }) {
   const num = sectionNumber(passage.anchor);
   const title = num && passage.title.startsWith(`${num} `) ? passage.title.slice(num.length + 1) : passage.title;
   return (
-    <>
-      {passage.title && (
-        <h4 {...stylex.props(styles.title)}>
-          {num && <span {...stylex.props(styles.anchor)}>§ {num}</span>}
-          {num && " "}
-          {title}
-        </h4>
-      )}
-      <div {...stylex.props(styles.text)}>
-        {paragraphs(passage.text).map((para, i) => (
-          <p key={i} {...stylex.props(styles.para)}>
-            {highlight(para, quote)}
-          </p>
-        ))}
-      </div>
-      {passage.figures.map((f) => (
-        <figure key={f.anchor} {...stylex.props(styles.figure)}>
-          {f.file && (
-            <img
-              src={fileUrl(`docs/${passage.docId}/${f.file}`)}
-              alt={f.caption || f.file}
-              {...stylex.props(styles.img)}
-            />
-          )}
-          <figcaption {...stylex.props(styles.caption)}>{f.caption}</figcaption>
-        </figure>
-      ))}
-    </>
+    <Passage
+      level={4}
+      heading={passage.title ? `${num ? " " : ""}${title}` : undefined}
+      anchor={num ? `§ ${num}` : undefined}
+      paragraphs={paragraphs(passage.text).map((para) => highlight(para, quote))}
+      figures={passage.figures.map((f) => ({
+        src: f.file ? fileUrl(`docs/${passage.docId}/${f.file}`) : undefined,
+        alt: f.caption || f.file,
+        caption: f.caption,
+      }))}
+    />
   );
 }

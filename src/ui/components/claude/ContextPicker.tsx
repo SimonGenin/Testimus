@@ -1,14 +1,15 @@
 import * as stylex from "@stylexjs/stylex";
 import { type ReactNode, useState } from "react";
-import { color, fontSize, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 import { Button } from "../ui/Button.tsx";
 import { Checkbox } from "../ui/Checkbox.tsx";
 import { Text } from "../ui/Text.tsx";
+import { type } from "../ui/type.ts";
 import { type ContextSummary, contextLine } from "./contexts.ts";
 
 const styles = stylex.create({
   picker: { display: "flex", flexDirection: "column", gap: space.s3, minWidth: 0 },
-  head: { fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textSubtle },
+  head: { color: color.textSubtle },
   list: {
     listStyle: "none",
     margin: 0,
@@ -20,7 +21,7 @@ const styles = stylex.create({
     overflowY: "auto",
   },
   acts: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: space.s1 },
-  note: { fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textSubtle, margin: 0 },
+  note: { color: color.textSubtle, margin: 0 },
 });
 
 // ponytail: the saved contexts a run takes, ticked one by one; what is ticked here goes with this run only
@@ -46,7 +47,7 @@ export function ContextPicker({
   const shown = all.filter((c) => !q || c.name.toLowerCase().includes(q));
   return (
     <div {...stylex.props(styles.picker)}>
-      <span {...stylex.props(styles.head)}>Saved contexts — this run</span>
+      <span {...stylex.props(type.small, styles.head)}>Saved contexts — this run</span>
       {all.length > 6 && (
         <Text
           ariaLabel="Search contexts"
@@ -73,14 +74,14 @@ export function ContextPicker({
           ))}
         </ul>
       ) : (
-        <p {...stylex.props(styles.note)}>No saved context yet — write a note and save it as a context.</p>
+        <p {...stylex.props(type.small, styles.note)}>No saved context yet — write a note and save it as a context.</p>
       )}
       <div {...stylex.props(styles.acts)}>
         {extra}
         {onNew && <Button size="sm" variant="quiet" icon="plus" label="New context…" onClick={onNew} />}
         {onManage && <Button size="sm" variant="quiet" icon="settings" label="Manage contexts…" onClick={onManage} />}
       </div>
-      <p {...stylex.props(styles.note)}>{foot}</p>
+      <p {...stylex.props(type.small, styles.note)}>{foot}</p>
     </div>
   );
 }

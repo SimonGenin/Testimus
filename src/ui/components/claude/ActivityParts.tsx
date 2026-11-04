@@ -3,18 +3,9 @@ import { Fragment, type ReactNode, useMemo } from "react";
 import { type Lookup, lines, linesRead, type Outline, outlineOf, type Phase, type Span } from "../../lib/activity.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { plural } from "../../lib/format.ts";
-import {
-  border,
-  color,
-  fontFamily,
-  fontSize,
-  fontWeight,
-  lineHeight,
-  radius,
-  size,
-  space,
-} from "../../styles/tokens.stylex.ts";
+import { border, color, fontFamily, radius, size, space } from "../../styles/tokens.stylex.ts";
 import { Icon, type IconName } from "../ui/Icon.tsx";
+import { type } from "../ui/type.ts";
 
 const styles = stylex.create({
   map: { display: "flex", flexDirection: "column", gap: space.s2 },
@@ -37,15 +28,7 @@ const styles = stylex.create({
     overflow: "hidden",
   },
   chapter: { position: "absolute", top: 0, bottom: 0, width: border.width, backgroundColor: color.borderStrong },
-  marks: {
-    position: "relative",
-    height: lineHeight.caption,
-    overflow: "hidden",
-    fontFamily: fontFamily.mono,
-    fontSize: fontSize.caption,
-    lineHeight: lineHeight.caption,
-    color: color.textSubtle,
-  },
+  marks: { position: "relative", height: "1lh", overflow: "hidden", color: color.textSubtle },
   mark: {
     position: "absolute",
     top: 0,
@@ -62,8 +45,6 @@ const styles = stylex.create({
     flexWrap: "wrap",
     gap: space.s4,
     margin: 0,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
     color: color.textMuted,
   },
   legendItem: { display: "inline-flex", alignItems: "center", gap: space.s2 },
@@ -75,8 +56,6 @@ const styles = stylex.create({
     alignItems: "center",
     gap: space.s2,
     margin: 0,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
     color: color.textMuted,
   },
   query: { fontFamily: fontFamily.reading, color: color.text },
@@ -87,20 +66,11 @@ const styles = stylex.create({
     columnGap: space.s4,
     rowGap: space.s2,
     margin: 0,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
   },
-  dt: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: space.s2,
-    color: color.textSubtle,
-    fontWeight: fontWeight.medium,
-  },
+  dt: { display: "inline-flex", alignItems: "center", gap: space.s2, color: color.textSubtle },
   dd: { margin: 0, display: "flex", flexWrap: "wrap", gap: space.s2, minWidth: 0 },
   opened: { display: "flex", flexDirection: "column", gap: space.s1 },
   open: { display: "flex", gap: space.s2, alignItems: "baseline" },
-  code: { fontFamily: fontFamily.mono, fontSize: fontSize.code },
 });
 
 export const unique = (xs: string[]) => [...new Set(xs.filter(Boolean))];
@@ -196,7 +166,7 @@ export function DocMap({ doc, spans, hits, live }: { doc: string; spans: Span[];
             })}
           </div>
           {marks.length > 0 && (
-            <div aria-hidden="true" data-testid="readbar-marks" {...stylex.props(styles.marks)}>
+            <div aria-hidden="true" data-testid="readbar-marks" {...stylex.props(type.code, styles.marks)}>
               {marks.map((m) => (
                 <span key={m.anchor} style={{ left: pct(m.line - 1) }} {...stylex.props(styles.mark)}>
                   {m.anchor}
@@ -206,7 +176,7 @@ export function DocMap({ doc, spans, hits, live }: { doc: string; spans: Span[];
           )}
         </div>
       )}
-      <p {...stylex.props(styles.legend)}>
+      <p {...stylex.props(type.small, styles.legend)}>
         {spans.length > 0 && (
           <span {...stylex.props(styles.legendItem)}>
             <i aria-hidden="true" {...stylex.props(styles.swatch)} />
@@ -234,7 +204,7 @@ export function Searches({ p }: { p: Phase }) {
   const queries = unique(p.lookups.filter((l) => l.kind === "search").map((l) => l.text));
   if (!queries.length) return null;
   return (
-    <p data-testid="act-search" {...stylex.props(styles.search)}>
+    <p data-testid="act-search" {...stylex.props(type.small, styles.search)}>
       <Icon name="search" size="sm" />
       Searched for
       {queries.slice(0, 3).map((q) => (
@@ -249,7 +219,7 @@ function Opened({ l, many }: { l: Lookup; many: boolean }) {
   const at = useOutline(l.doc)?.anchors.get(l.anchor);
   return (
     <span {...stylex.props(styles.open)}>
-      <code {...stylex.props(styles.code)}>{many ? l.text : l.anchor || l.doc}</code>
+      <code {...stylex.props(type.code)}>{many ? l.text : l.anchor || l.doc}</code>
       <span>{at?.title ?? ""}</span>
       <span {...stylex.props(styles.muted)}>{at?.line ? `line ${lines(at.line)}` : ""}</span>
     </span>
@@ -266,7 +236,7 @@ export function Lookups({ p }: { p: Phase }) {
   const mentions = unique(p.lookups.filter((l) => l.kind === "mention").map((l) => l.text));
   const row = (term: string, body: ReactNode, icon?: IconName) => (
     <>
-      <dt {...stylex.props(styles.dt)}>
+      <dt {...stylex.props(type.medium, styles.dt)}>
         {icon && <Icon name={icon} size="sm" />}
         {term}
       </dt>
@@ -274,7 +244,7 @@ export function Lookups({ p }: { p: Phase }) {
     </>
   );
   return (
-    <dl {...stylex.props(styles.lookups)}>
+    <dl {...stylex.props(type.small, styles.lookups)}>
       {p.reads.map((r) => (
         <Fragment key={r.doc}>
           {row(
@@ -304,7 +274,7 @@ export function Lookups({ p }: { p: Phase }) {
         row(
           "Followed links from",
           follows.map((f) => (
-            <code key={f} {...stylex.props(styles.code)}>
+            <code key={f} {...stylex.props(type.code)}>
               {f}
             </code>
           )),

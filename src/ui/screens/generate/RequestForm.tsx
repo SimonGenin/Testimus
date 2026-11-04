@@ -4,8 +4,9 @@ import { Button } from "../../components/ui/Button.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { Menu } from "../../components/ui/Menu.tsx";
 import { Text } from "../../components/ui/Text.tsx";
+import { type } from "../../components/ui/type.ts";
 import { plural } from "../../lib/format.ts";
-import { border, color, fontSize, fontWeight, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { border, color, space } from "../../styles/tokens.stylex.ts";
 import { ColumnsView } from "./ColumnsView.tsx";
 import { DocScopePicker } from "./DocScopePicker.tsx";
 import { IndexNotice } from "./IndexNotice.tsx";
@@ -25,13 +26,7 @@ const styles = stylex.create({
     padding: space.s6,
   },
   block: { display: "flex", flexDirection: "column", gap: space.s3 },
-  label: {
-    margin: 0,
-    fontSize: fontSize.titleSm,
-    lineHeight: lineHeight.titleSm,
-    fontWeight: fontWeight.semibold,
-    color: color.text,
-  },
+  label: { margin: 0, color: color.text },
   foot: {
     boxSizing: "border-box",
     display: "flex",
@@ -44,16 +39,7 @@ const styles = stylex.create({
     borderTopColor: color.border,
     backgroundColor: color.surface,
   },
-  recap: {
-    flex: 1,
-    minWidth: 0,
-    display: "flex",
-    flexDirection: "column",
-    gap: space.s1,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
-    color: color.textMuted,
-  },
+  recap: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: space.s1, color: color.textMuted },
   reason: { display: "inline-flex", alignItems: "center", gap: space.s1, color: color.text },
 });
 
@@ -97,13 +83,13 @@ export function RequestForm({
       <div {...stylex.props(styles.scroll)}>
         <IndexNotice {...gate} />
         <div {...stylex.props(styles.block)}>
-          <label htmlFor="gen-request" {...stylex.props(styles.label)}>
+          <label htmlFor="gen-request" {...stylex.props(type.titleSm, styles.label)}>
             What should be tested?
           </label>
           <RequestBlock form={form} readOnly={running} unavailable={unavailable} onGenerate={onGenerate} />
         </div>
         <div {...stylex.props(styles.block)}>
-          <h2 {...stylex.props(styles.label)}>Documents</h2>
+          <h2 {...stylex.props(type.titleSm, styles.label)}>Documents</h2>
           <DocScopePicker
             docs={docs}
             scopes={scopes}
@@ -138,7 +124,7 @@ export function RequestForm({
         />
       </div>
       <div {...stylex.props(styles.foot)}>
-        <div {...stylex.props(styles.recap)}>
+        <div {...stylex.props(type.small, styles.recap)}>
           <span>
             {plural(inScope, "document")} in scope
             {narrowed ? ` · ${narrowed} narrowed to sections` : ""}

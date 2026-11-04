@@ -52,7 +52,7 @@ export async function reveal(path: string): Promise<void> {
   if (!d) return;
   try {
     if (!(await d.reveal(path)))
-      toast({ kind: "error", title: "Could not show it in Explorer", detail: `${path} is not there any more.` });
+      toast({ tone: "danger", title: "Could not show it in Explorer", detail: `${path} is not there any more.` });
   } catch (e) {
     errorToast(e, "Could not show it in Explorer");
   }

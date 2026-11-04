@@ -2,24 +2,17 @@ import * as stylex from "@stylexjs/stylex";
 import type { DocRef } from "../../../core/types.ts";
 import { Badge } from "../../components/ui/Badge.tsx";
 import { Button } from "../../components/ui/Button.tsx";
+import { Card } from "../../components/ui/Card.tsx";
 import { Checkbox } from "../../components/ui/Checkbox.tsx";
 import { EmptyState } from "../../components/ui/EmptyState.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
+import { type } from "../../components/ui/type.ts";
 import { plural } from "../../lib/format.ts";
 import type { DocScope } from "../../lib/scope.ts";
-import { border, color, fontSize, lineHeight, radius, space } from "../../styles/tokens.stylex.ts";
+import { border, color, space } from "../../styles/tokens.stylex.ts";
 import { SectionTree } from "./SectionTree.tsx";
 
 const styles = stylex.create({
-  frame: {
-    boxSizing: "border-box",
-    borderStyle: "solid",
-    borderWidth: border.width,
-    borderColor: color.border,
-    borderRadius: radius.r3,
-    backgroundColor: color.surface,
-    overflow: "hidden",
-  },
   head: {
     boxSizing: "border-box",
     display: "flex",
@@ -31,8 +24,6 @@ const styles = stylex.create({
     borderBottomStyle: "solid",
     borderBottomWidth: border.width,
     borderBottomColor: color.border,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
     color: color.textMuted,
   },
   grow: { flex: 1 },
@@ -79,14 +70,16 @@ export function DocScopePicker({
 }) {
   if (!docs)
     return (
-      <div aria-busy="true" {...stylex.props(styles.frame, styles.loading)}>
-        <Skeleton kind="row" />
-        <Skeleton kind="row" />
-      </div>
+      <Card padded={false}>
+        <div aria-busy="true" {...stylex.props(styles.loading)}>
+          <Skeleton kind="row" />
+          <Skeleton kind="row" />
+        </div>
+      </Card>
     );
   if (!docs.length)
     return (
-      <div {...stylex.props(styles.frame)}>
+      <Card padded={false}>
         <EmptyState
           compact
           icon="documents"
@@ -94,15 +87,15 @@ export function DocScopePicker({
           text="Generate writes tests from the project's documents. Add one first."
           actions={onAddDocuments && <Button size="sm" icon="plus" label="Add documents" onClick={onAddDocuments} />}
         />
-      </div>
+      </Card>
     );
   const set = (id: string, s: DocScope) => onChange({ ...scopes, [id]: s });
   const of = (id: string): DocScope => scopes[id] ?? "all";
   const inScope = docs.filter((d) => of(d.id) !== "none").length;
   const narrowed = docs.filter((d) => Array.isArray(of(d.id))).length;
   return (
-    <div {...stylex.props(styles.frame)}>
-      <div {...stylex.props(styles.head)}>
+    <Card padded={false}>
+      <div {...stylex.props(type.small, styles.head)}>
         <span>
           {inScope} of {plural(docs.length, "document")}
           {narrowed ? ` · ${narrowed} narrowed to sections` : ""}
@@ -164,6 +157,6 @@ export function DocScopePicker({
           );
         })}
       </ul>
-    </div>
+    </Card>
   );
 }

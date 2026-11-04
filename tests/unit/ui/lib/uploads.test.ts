@@ -254,7 +254,7 @@ describe("what the page starts", () => {
     const h = current();
     const onDone = vi.fn();
     await act(() => addDocFiles([new File(["x"], "notes.txt"), new File(["PK"], "A.docx")], onDone));
-    expect(toasts[0]).toMatchObject({ kind: "error", detail: "notes.txt" });
+    expect(toasts[0]).toMatchObject({ tone: "danger", detail: "notes.txt" });
     expect(runs.map((r) => r.name)).toEqual(["docs.addFiles"]);
     expect(runs[0].input).toEqual({
       files: [
@@ -358,7 +358,7 @@ describe("what the page starts", () => {
       name: "docs.addFiles",
       input: { files: [{ path: "C:\\d\\Only.pdf" }, { path: "C:\\d\\other.png" }] },
     });
-    expect(toasts[0]).toMatchObject({ kind: "error", detail: "other.png" });
+    expect(toasts[0]).toMatchObject({ tone: "danger", detail: "other.png" });
   });
 
   it("marks a row failed when the copy is refused before its job, named by itself when it has no separator", async () => {

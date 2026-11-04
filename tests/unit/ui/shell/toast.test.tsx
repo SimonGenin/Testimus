@@ -4,7 +4,7 @@ import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Toaster } from "../../../../src/ui/components/ui/Toast.tsx";
 import { ApiError } from "../../../../src/ui/lib/data/client.ts";
-import { closeToast, errorToast, toast } from "../../../../src/ui/lib/toast.ts";
+import { closeToast, errorToast, toast, useToasts } from "../../../../src/ui/lib/toast.ts";
 import { clearAllToasts, withToasts } from "./helpers.tsx";
 
 afterEach(() => {
@@ -40,5 +40,25 @@ describe("toasts from the screens' words, on the kit's stack", () => {
     act(() => closeToast(id, true));
     expect(expired).not.toHaveBeenCalled();
     expect(screen.queryByRole("status", { name: "Deleted" })).toBeNull();
+  });
+
+  it("speaks the kit's tones (a warning too); the old words still map onto them", () => {
+    let tones: string[] = [];
+    function Tones() {
+      tones = useToasts().map((t) => t.tone);
+      return null;
+    }
+    render(
+      <>
+        <Toaster />
+        <Tones />
+      </>,
+    );
+    act(() => {
+      toast({ tone: "warning", title: "Two figures were skipped" });
+      toast({ kind: "ok", title: "Saved" });
+    });
+    expect(screen.getByRole("status", { name: "Two figures were skipped" })).toBeInTheDocument();
+    expect(tones.slice(-2)).toEqual(["warning", "success"]);
   });
 });

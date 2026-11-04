@@ -1,62 +1,28 @@
 import * as stylex from "@stylexjs/stylex";
 import type { StepColumn } from "../../../core/types.ts";
-import { Badge, type BadgeTone } from "../../components/ui/Badge.tsx";
+import { Badge, COLUMN, type Word } from "../../components/ui/Badge.tsx";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
-import type { IconName } from "../../components/ui/Icon.tsx";
-import { border, color, fontSize, fontWeight, lineHeight, radius, space } from "../../styles/tokens.stylex.ts";
+import { Card } from "../../components/ui/Card.tsx";
+import { List } from "../../components/ui/List.tsx";
+import { type } from "../../components/ui/type.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
   block: { display: "flex", flexDirection: "column", gap: space.s3 },
   head: { display: "flex", alignItems: "baseline", gap: space.s2 },
-  title: {
-    margin: 0,
-    fontSize: fontSize.titleSm,
-    lineHeight: lineHeight.titleSm,
-    fontWeight: fontWeight.semibold,
-    color: color.text,
-  },
-  count: { fontSize: fontSize.small, color: color.textSubtle },
+  title: { margin: 0, color: color.text },
+  count: { color: color.textSubtle },
   grow: { flex: 1 },
-  list: {
-    boxSizing: "border-box",
-    listStyle: "none",
-    margin: 0,
-    padding: 0,
-    borderStyle: "solid",
-    borderWidth: border.width,
-    borderColor: color.border,
-    borderRadius: radius.r3,
-    backgroundColor: color.surface,
-  },
-  item: {
-    boxSizing: "border-box",
-    display: "flex",
-    flexDirection: "column",
-    gap: space.s1,
-    paddingBlock: space.s3,
-    paddingInline: space.s4,
-    borderBottomStyle: "solid",
-    borderBottomWidth: { default: border.width, ":last-child": 0 },
-    borderBottomColor: color.border,
-  },
-  name: {
-    display: "flex",
-    flexWrap: "wrap",
-    alignItems: "center",
-    gap: space.s2,
-    fontWeight: fontWeight.semibold,
-    color: color.text,
-  },
-  desc: { fontSize: fontSize.compact, lineHeight: lineHeight.compact, color: color.textMuted },
-  none: { fontSize: fontSize.compact, lineHeight: lineHeight.compact, color: color.textSubtle },
+  desc: { color: color.textMuted },
+  none: { color: color.textSubtle },
 });
 
-export function columnTag(c: StepColumn): { label: string; tone: BadgeTone; icon?: IconName } {
-  if (c.status === "gone") return { label: "No longer in Xray", tone: "warning", icon: "alert-triangle" };
-  if (c.origin === "local") return { label: "Local only", tone: "warning", icon: "file" };
-  if (c.status === "new") return { label: "New in Xray", tone: "warning", icon: "alert-triangle" };
-  return { label: c.builtin ? "Xray · standard" : "Xray", tone: "info" };
+export function columnTag(c: StepColumn): Word {
+  if (c.status === "gone") return COLUMN.gone;
+  if (c.origin === "local") return COLUMN.local;
+  if (c.status === "new") return COLUMN["new-in-xray"];
+  return c.builtin ? COLUMN.standard : COLUMN.xray;
 }
 
 export function ColumnsView({ columns, onEdit }: { columns: StepColumn[]; onEdit: () => void }) {
@@ -65,10 +31,10 @@ export function ColumnsView({ columns, onEdit }: { columns: StepColumn[]; onEdit
   return (
     <section aria-labelledby="gen-columns" {...stylex.props(styles.block)}>
       <div {...stylex.props(styles.head)}>
-        <h2 id="gen-columns" {...stylex.props(styles.title)}>
+        <h2 id="gen-columns" {...stylex.props(type.titleSm, styles.title)}>
           Smart columns
         </h2>
-        <span {...stylex.props(styles.count)}>
+        <span {...stylex.props(type.small, styles.count)}>
           {columns.length} · {filled} filled by Claude
         </span>
         <span {...stylex.props(styles.grow)} />
@@ -80,24 +46,24 @@ export function ColumnsView({ columns, onEdit }: { columns: StepColumn[]; onEdit
           {fresh === 1 ? "it" : "them"} empty until described.
         </Banner>
       )}
-      <ol aria-label="Smart columns" {...stylex.props(styles.list)}>
-        {columns.map((c) => {
-          const tag = columnTag(c);
-          return (
-            <li key={c.name} {...stylex.props(styles.item)}>
-              <span {...stylex.props(styles.name)}>
-                {c.name}
-                <Badge size="sm" tone={tag.tone} icon={tag.icon} label={tag.label} />
-              </span>
-              {c.description ? (
-                <span {...stylex.props(styles.desc)}>{c.description}</span>
-              ) : (
-                <span {...stylex.props(styles.none)}>No description — Claude leaves it empty.</span>
-              )}
-            </li>
-          );
-        })}
-      </ol>
+      <Card padded={false}>
+        <List
+          label="Smart columns"
+          selection="none"
+          divided
+          items={columns}
+          getKey={(c) => c.name}
+          renderItem={(c) => ({
+            title: <span {...stylex.props(type.strong)}>{c.name}</span>,
+            badges: <Badge size="sm" {...columnTag(c)} />,
+            meta: c.description ? (
+              <span {...stylex.props(styles.desc)}>{c.description}</span>
+            ) : (
+              <span {...stylex.props(styles.none)}>No description — Claude leaves it empty.</span>
+            ),
+          })}
+        />
+      </Card>
     </section>
   );
 }

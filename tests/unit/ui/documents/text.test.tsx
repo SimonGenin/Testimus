@@ -11,6 +11,8 @@ afterEach(() => {
 });
 
 const marked = (c: HTMLElement) => [...c.querySelectorAll("[data-focus]")];
+// the quoted words are a <mark> of the kit (Marked) inside the place the reader scrolls to
+const kind = (e: Element) => (e.querySelector("mark") ? "MARK" : e.tagName);
 
 describe("DocText", () => {
   it("renders headings, figures, tables, inline marks and the focus", () => {
@@ -40,7 +42,7 @@ describe("DocText", () => {
     expect(screen.getByText("sectionneur", { selector: "strong" })).toBeInTheDocument();
     expect(screen.getByText("ouvert", { selector: "em" })).toBeInTheDocument();
     expect(marked(container)).toHaveLength(1);
-    expect(marked(container)[0].tagName).toBe("MARK");
+    expect(kind(marked(container)[0])).toBe("MARK");
     expect(marked(container)[0].textContent).toBe("Selon le type");
     expect(marked(container)[0].parentElement).toHaveTextContent("Selon le type de sectionneur, le menu diffère");
   });
@@ -65,7 +67,7 @@ describe("DocText", () => {
     ].join("\n\n");
     const hot = (focus: string) => {
       const { container, unmount } = render(<DocText docId="D" md={md} focus={focus} onFigure={vi.fn()} />);
-      const on = marked(container).map((e) => `${e.tagName}|${e.textContent}`);
+      const on = marked(container).map((e) => `${kind(e)}|${e.textContent}`);
       unmount();
       return on;
     };

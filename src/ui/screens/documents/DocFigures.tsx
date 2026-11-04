@@ -4,21 +4,12 @@ import type { FigureEntry } from "../../../core/types.ts";
 import { Button } from "../../components/ui/Button.tsx";
 import { EmptyState } from "../../components/ui/EmptyState.tsx";
 import { Segmented } from "../../components/ui/Segmented.tsx";
+import { type } from "../../components/ui/type.ts";
 import { useCommand } from "../../lib/data/query.ts";
 import { useProjectJobs } from "../../lib/projectJobs.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 import { importClaude } from "../../lib/uploads.ts";
-import {
-  border,
-  color,
-  container,
-  fontFamily,
-  fontSize,
-  lineHeight,
-  radius,
-  size,
-  space,
-} from "../../styles/tokens.stylex.ts";
+import { border, color, container, radius, size, space } from "../../styles/tokens.stylex.ts";
 import { DescribedBadge, FigureDetail, FigureImage, isDescribed } from "./FigureDetail.tsx";
 
 const styles = stylex.create({
@@ -33,15 +24,7 @@ const styles = stylex.create({
     paddingBottom: space.s10,
     containerType: "inline-size",
   },
-  bar: {
-    display: "flex",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: space.s4,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
-    color: color.textMuted,
-  },
+  bar: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: space.s4, color: color.textMuted },
   grow: { flex: 1 },
   body: {
     display: "grid",
@@ -76,15 +59,8 @@ const styles = stylex.create({
   },
   picked: { borderColor: color.accent, boxShadow: `0 0 0 ${border.width} ${color.accent}` },
   name: { display: "flex", minWidth: 0 },
-  meta: {
-    display: "flex",
-    alignItems: "center",
-    gap: space.s3,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
-    color: color.textMuted,
-  },
-  id: { fontFamily: fontFamily.mono, fontSize: fontSize.code, color: color.textSubtle },
+  meta: { display: "flex", alignItems: "center", gap: space.s3, color: color.textMuted },
+  id: { color: color.textSubtle },
 });
 
 type Which = "all" | "described" | "bare";
@@ -131,7 +107,7 @@ export function DocFigures({
           const jobId = (out as { jobId?: string }).jobId;
           setStarted(jobId);
           toast({
-            kind: "info",
+            tone: "neutral",
             title: anchors ? "Claude reads the figure again" : `Claude describes ${bare.length} figures`,
             detail: "It runs in Jobs; the descriptions appear here as they are written.",
           });
@@ -144,7 +120,7 @@ export function DocFigures({
   return (
     <div {...stylex.props(styles.box)}>
       <div {...stylex.props(styles.inner)}>
-        <div {...stylex.props(styles.bar)}>
+        <div {...stylex.props(type.small, styles.bar)}>
           <Segmented
             label="Which figures"
             size="sm"
@@ -188,8 +164,8 @@ export function DocFigures({
                         onClick={() => setPicked(f.anchor)}
                       />
                     </span>
-                    <span {...stylex.props(styles.meta)}>
-                      <span {...stylex.props(styles.id)}>{f.anchor}</span>
+                    <span {...stylex.props(type.small, styles.meta)}>
+                      <span {...stylex.props(type.code, styles.id)}>{f.anchor}</span>
                       {f.kind && <span>{f.kind}</span>}
                       <span {...stylex.props(styles.grow)} />
                       <DescribedBadge figure={f} />

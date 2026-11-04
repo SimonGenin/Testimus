@@ -1,7 +1,8 @@
 import * as stylex from "@stylexjs/stylex";
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
-import { border, color, fontSize, fontWeight, lineHeight, size, space } from "../../styles/tokens.stylex.ts";
+import { border, breakpoint, color, size, space } from "../../styles/tokens.stylex.ts";
 import { Button } from "../ui/Button.tsx";
+import { type } from "../ui/type.ts";
 import { Activity } from "./Activity.tsx";
 
 const styles = stylex.create({
@@ -10,11 +11,11 @@ const styles = stylex.create({
     flex: "none",
     display: "flex",
     alignItems: "center",
-    gap: space.s3,
+    gap: space.s4,
     height: size.topbar,
     paddingBlock: 0,
-    paddingInlineStart: space.s5,
-    paddingInlineEnd: space.s3,
+    paddingInlineStart: space.s6,
+    paddingInlineEnd: space.s4,
     borderBottomWidth: border.width,
     borderBottomStyle: "solid",
     borderColor: color.border,
@@ -28,10 +29,12 @@ const styles = stylex.create({
     minWidth: 0,
     margin: 0,
     color: color.text,
-    fontSize: fontSize.titleSm,
-    lineHeight: lineHeight.titleSm,
-    fontWeight: fontWeight.semibold,
     whiteSpace: "nowrap",
+  },
+  palette: {
+    flex: "none",
+    display: "flex",
+    width: { default: size.paletteButton, [breakpoint.wide]: size.paletteButtonCompact, [breakpoint.dock]: "auto" },
   },
   slot: { display: "contents" },
   spacer: { flex: 1, minWidth: 0 },
@@ -70,14 +73,16 @@ export function TopBar({
 }) {
   return (
     <header {...stylex.props(styles.bar)}>
-      <h1 {...stylex.props(styles.title)}>
+      <h1 {...stylex.props(type.titleSm, styles.title)}>
         {slots.claimed === 0 && title}
         <span ref={slots.setTitle} {...stylex.props(styles.slot)} />
       </h1>
       <span {...stylex.props(styles.spacer)} />
       <span ref={slots.setActions} {...stylex.props(styles.actions)} />
       <Activity />
-      <Button icon="search" label="Search everything" shortcut="Ctrl K" onClick={onPalette} />
+      <span {...stylex.props(styles.palette)}>
+        <Button variant="field" icon="search" label="Search everything" shortcut="Ctrl K" block onClick={onPalette} />
+      </span>
     </header>
   );
 }

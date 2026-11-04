@@ -262,7 +262,7 @@ async function addDocs(picked: Picked[], onDone: (docId?: string) => void): Prom
   const refused = r.value.rejected.filter((x) => x.code === "not-a-document");
   if (refused.length)
     toast({
-      kind: "error",
+      tone: "danger",
       title: "Only Word (.docx) and PDF files can be added",
       detail: refused.map((x) => x.name).join(", "),
     });

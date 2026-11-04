@@ -2,8 +2,9 @@ import * as stylex from "@stylexjs/stylex";
 import { useEffect } from "react";
 import { type Screen, useApp } from "../../lib/app.ts";
 import { draftOf, keepDraft } from "../../lib/drafts.ts";
-import { color, radius, shadow, size, space } from "../../styles/tokens.stylex.ts";
+import { color, size, space } from "../../styles/tokens.stylex.ts";
 import type { IconName } from "../ui/Icon.tsx";
+import { Logo } from "../ui/Logo.tsx";
 import { RailItem } from "../ui/RailItem.tsx";
 import { ProjectButton } from "./ProjectButton.tsx";
 import { SystemStatus } from "./SystemStatus.tsx";
@@ -30,17 +31,7 @@ const styles = stylex.create({
     overflowY: "auto",
     overflowX: "hidden",
   },
-  logo: {
-    flex: "none",
-    width: size.controlLg,
-    height: size.controlLg,
-    padding: space.s1,
-    boxSizing: "border-box",
-    marginBottom: space.s4,
-    borderRadius: radius.r3,
-    backgroundColor: color.logoTile,
-    boxShadow: shadow.s1,
-  },
+  logo: { flex: "none", display: "flex", marginBottom: space.s5 },
   gap: { flex: "none", height: space.s3 },
   spacer: { flex: 1 },
 });
@@ -59,7 +50,9 @@ export function Rail({ counts, kit = false }: { counts: Partial<Record<Screen, n
   );
   return (
     <nav aria-label="Main" {...stylex.props(styles.rail)}>
-      <img src="/logo.png" alt="Testimus" {...stylex.props(styles.logo)} />
+      <span {...stylex.props(styles.logo)}>
+        <Logo label="Testimus" />
+      </span>
       <ProjectButton />
       <span {...stylex.props(styles.gap)} />
       {NAV.filter((n) => n.id !== "jobs").map((n) => item(n.id, n.label, n.icon))}

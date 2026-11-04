@@ -1,22 +1,14 @@
 import * as stylex from "@stylexjs/stylex";
 import type { DocJson } from "../../../core/types.ts";
+import { Badge } from "../../components/ui/Badge.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Menu, type MenuEntry } from "../../components/ui/Menu.tsx";
 import { Tabs } from "../../components/ui/Tabs.tsx";
+import { type } from "../../components/ui/type.ts";
 import { project } from "../../lib/data/client.ts";
 import { baseName, desktop, pathJoin, reveal } from "../../lib/desktop.ts";
 import { plural } from "../../lib/format.ts";
-import {
-  border,
-  color,
-  fontFamily,
-  fontSize,
-  fontWeight,
-  lineHeight,
-  radius,
-  size,
-  space,
-} from "../../styles/tokens.stylex.ts";
+import { border, color, space } from "../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
   head: {
@@ -25,9 +17,9 @@ const styles = stylex.create({
     alignItems: "center",
     flexWrap: "wrap",
     gap: space.s4,
-    paddingBlock: space.s3,
-    paddingInline: space.s5,
-    minHeight: size.row2,
+    paddingBlock: space.s2,
+    paddingInline: space.s6,
+    minHeight: `calc(${space.s11} - ${space.s2})`,
     borderBottomStyle: "solid",
     borderBottomWidth: border.width,
     borderBottomColor: color.border,
@@ -35,27 +27,12 @@ const styles = stylex.create({
   },
   titles: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: space.s1 },
   titleLine: { display: "flex", alignItems: "baseline", gap: space.s4, minWidth: 0, flexWrap: "wrap" },
-  title: {
-    margin: 0,
-    fontSize: fontSize.title,
-    lineHeight: lineHeight.title,
-    fontWeight: fontWeight.semibold,
-    color: color.text,
-  },
-  code: { fontFamily: fontFamily.mono, fontSize: fontSize.code, lineHeight: lineHeight.code, color: color.textMuted },
-  facts: { fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textMuted },
+  title: { margin: 0, color: color.text },
+  code: { color: color.textMuted },
+  facts: { color: color.textMuted },
   acts: { display: "flex", alignItems: "center", gap: space.s3 },
   dotWrap: { position: "relative", display: "inline-flex" },
-  dot: {
-    position: "absolute",
-    top: space.s1,
-    right: space.s1,
-    width: space.s3,
-    height: space.s3,
-    borderRadius: radius.full,
-    backgroundColor: color.warning,
-    pointerEvents: "none",
-  },
+  dot: { position: "absolute", top: space.s1, right: space.s1, display: "inline-flex", pointerEvents: "none" },
 });
 
 export type View = "text" | "figures";
@@ -132,8 +109,8 @@ export function DocHead({
       )}
       <div {...stylex.props(styles.titles)}>
         <div {...stylex.props(styles.titleLine)}>
-          <h2 {...stylex.props(styles.title)}>{doc.title}</h2>
-          <span {...stylex.props(styles.code)}>
+          <h2 {...stylex.props(type.title, styles.title)}>{doc.title}</h2>
+          <span {...stylex.props(type.code, styles.code)}>
             <span>{doc.code}</span> · <span>version {doc.version}</span>
             {doc.date && (
               <>
@@ -143,7 +120,7 @@ export function DocHead({
             )}
           </span>
         </div>
-        <span {...stylex.props(styles.facts)}>
+        <span {...stylex.props(type.small, styles.facts)}>
           {running
             ? `Converting from ${from} · ${baseName(doc.source.name || doc.source.file)}`
             : converted
@@ -184,7 +161,11 @@ export function DocHead({
               popup={{ kind: "dialog", open: drawer === "details" }}
               onClick={() => onDrawer("details")}
             />
-            {warned && <span data-testid="details-warned" title="Conversion warnings" {...stylex.props(styles.dot)} />}
+            {warned && (
+              <span data-testid="details-warned" title="Conversion warnings" {...stylex.props(styles.dot)}>
+                <Badge dot tone="warning" label="Conversion warnings" />
+              </span>
+            )}
           </span>
         )}
         {!running && (

@@ -7,51 +7,24 @@ import { execute, key } from "../../lib/data/query.ts";
 import { desktop, examplePath, pickFolder } from "../../lib/desktop.ts";
 import { toBase64 } from "../../lib/files.ts";
 import { errorToast } from "../../lib/toast.ts";
-import {
-  border,
-  color,
-  fontFamily,
-  fontSize,
-  fontWeight,
-  lineHeight,
-  radius,
-  space,
-} from "../../styles/tokens.stylex.ts";
+import { space } from "../../styles/tokens.stylex.ts";
 import { Button } from "../ui/Button.tsx";
 import { Chip } from "../ui/Chip.tsx";
 import { ClaudeBlock } from "../ui/ClaudeBlock.tsx";
+import { Field } from "../ui/Field.tsx";
 import { Icon } from "../ui/Icon.tsx";
+import { List } from "../ui/List.tsx";
 import { Switch } from "../ui/Switch.tsx";
 import { Text } from "../ui/Text.tsx";
+import { type } from "../ui/type.ts";
 import { CONTEXT_READS, type ContextDetail, useContextWrite } from "./contexts.ts";
 
 type Words = { name: string; notes: string };
 
 const styles = stylex.create({
   editor: { display: "flex", flexDirection: "column", gap: space.s6, minWidth: 0 },
-  field: { display: "flex", flexDirection: "column", gap: space.s2 },
-  label: { fontSize: fontSize.small, lineHeight: lineHeight.small, fontWeight: fontWeight.semibold, color: color.text },
-  hint: { fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textSubtle },
-  path: {
-    display: "flex",
-    alignItems: "center",
-    gap: space.s3,
-    paddingBlock: space.s3,
-    paddingInline: space.s4,
-    borderStyle: "solid",
-    borderWidth: border.width,
-    borderColor: color.border,
-    borderRadius: radius.r2,
-  },
-  pathText: {
-    flex: 1,
-    minWidth: 0,
-    fontFamily: fontFamily.mono,
-    fontSize: fontSize.code,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
+  stack: { display: "flex", flexDirection: "column", gap: space.s2, minWidth: 0 },
+  pathText: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   add: { display: "flex", alignItems: "flex-start", gap: space.s2 },
   grow: { flex: 1, minWidth: 0 },
   files: { display: "flex", flexWrap: "wrap", gap: space.s2 },
@@ -136,8 +109,7 @@ export function ContextEditor({ detail, words }: { detail: ContextDetail; words:
         onChange={(name) => words.set((p) => ({ ...(p ?? shown), name }))}
         onBlur={() => void words.flush()}
       />
-      <div {...stylex.props(styles.field)}>
-        <span {...stylex.props(styles.label)}>Notes</span>
+      <Field label="Notes">
         <ClaudeBlock
           ariaLabel="Notes (markdown, read by Claude)"
           placeholder="Anything Claude should know: conventions, glossary, where things are…"
@@ -148,87 +120,99 @@ export function ContextEditor({ detail, words }: { detail: ContextDetail; words:
           onChange={(notes) => words.set((p) => ({ ...(p ?? shown), notes }))}
           onBlur={() => void words.flush()}
         />
-      </div>
-      <div {...stylex.props(styles.field)}>
-        <span {...stylex.props(styles.label)}>Paths</span>
-        <span {...stylex.props(styles.hint)}>
-          Folders or files outside the project that Claude may read. Absolute, or relative to the project folder.
-        </span>
-        {detail.paths.map((p) => (
-          <div key={p} {...stylex.props(styles.path)}>
-            <Icon name="folder" />
-            <span title={p} {...stylex.props(styles.pathText)}>
-              {p}
-            </span>
-            <Button
-              size="xs"
-              variant="quiet"
-              icon="close"
-              iconOnly
-              label={`Remove path ${p}`}
-              onClick={() => void removePath(p)}
-            />
-          </div>
-        ))}
-        <div {...stylex.props(styles.add)}>
-          <span {...stylex.props(styles.grow)}>
-            <Text
-              ariaLabel="Path to add"
-              icon="folder"
-              size="sm"
-              placeholder={examplePath("D:\\Specs\\J5", "/Users/you/Specs/J5")}
-              value={path}
-              onChange={setPath}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  void addPath(path);
-                }
-              }}
-            />
-          </span>
-          <Button size="sm" label="Add" disabled={!path.trim()} onClick={() => void addPath(path)} />
-          {desktop() && (
-            <Button
-              size="sm"
-              variant="quiet"
-              icon="folder-open"
-              label="Browse folder…"
-              onClick={() =>
-                void pickFolder("Choose a folder Claude may read").then((p) => {
-                  if (p) void addPath(p);
-                })
-              }
+      </Field>
+      <Field
+        label="Paths"
+        hint="Folders or files outside the project that Claude may read. Absolute, or relative to the project folder."
+      >
+        <span {...stylex.props(styles.stack)}>
+          {detail.paths.length > 0 && (
+            <List
+              label="Paths"
+              selection="none"
+              divided
+              items={detail.paths}
+              getKey={(p) => p}
+              renderItem={(p) => ({
+                lead: <Icon name="folder" />,
+                title: (
+                  <span title={p} {...stylex.props(type.code, styles.pathText)}>
+                    {p}
+                  </span>
+                ),
+                trail: (
+                  <Button
+                    size="xs"
+                    variant="quiet"
+                    icon="close"
+                    iconOnly
+                    label={`Remove path ${p}`}
+                    onClick={() => void removePath(p)}
+                  />
+                ),
+              })}
             />
           )}
-        </div>
-      </div>
-      <div {...stylex.props(styles.field)}>
-        <span {...stylex.props(styles.label)}>Files</span>
-        <span {...stylex.props(styles.hint)}>Copied into the context's folder — images, PDFs, anything.</span>
-        {detail.files.length > 0 && (
-          <div {...stylex.props(styles.files)}>
-            {detail.files.map((f) => (
-              <Chip
-                key={f}
-                label={f}
-                icon="file"
-                square
-                onRemove={() => void removeFile(f)}
-                removeLabel={`Remove file ${f}`}
+          <div {...stylex.props(styles.add)}>
+            <span {...stylex.props(styles.grow)}>
+              <Text
+                ariaLabel="Path to add"
+                icon="folder"
+                size="sm"
+                placeholder={examplePath("D:\\Specs\\J5", "/Users/you/Specs/J5")}
+                value={path}
+                onChange={setPath}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void addPath(path);
+                  }
+                }}
               />
-            ))}
+            </span>
+            <Button size="sm" label="Add" disabled={!path.trim()} onClick={() => void addPath(path)} />
+            {desktop() && (
+              <Button
+                size="sm"
+                variant="quiet"
+                icon="folder-open"
+                label="Browse folder…"
+                onClick={() =>
+                  void pickFolder("Choose a folder Claude may read").then((p) => {
+                    if (p) void addPath(p);
+                  })
+                }
+              />
+            )}
           </div>
-        )}
-        <span>
-          <Button
-            size="sm"
-            icon="upload"
-            label="Add files…"
-            pick={{ multiple: true, onFiles: (files) => void addFiles(files) }}
-          />
         </span>
-      </div>
+      </Field>
+      <Field label="Files" hint="Copied into the context's folder — images, PDFs, anything.">
+        <span {...stylex.props(styles.stack)}>
+          {detail.files.length > 0 && (
+            <div {...stylex.props(styles.files)}>
+              {detail.files.map((f) => (
+                <Chip
+                  key={f}
+                  label={f}
+                  icon="file"
+                  square
+                  onRemove={() => void removeFile(f)}
+                  removeLabel={`Remove file ${f}`}
+                />
+              ))}
+            </div>
+          )}
+          <span>
+            <Button
+              size="sm"
+              icon="upload"
+              label="Add files…"
+              pick={{ multiple: true, onFiles: (files) => void addFiles(files) }}
+            />
+          </span>
+        </span>
+      </Field>
     </div>
   );
 }

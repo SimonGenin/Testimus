@@ -8,10 +8,11 @@ import { Badge } from "../../components/ui/Badge.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Card } from "../../components/ui/Card.tsx";
 import { EmptyState } from "../../components/ui/EmptyState.tsx";
+import { type } from "../../components/ui/type.ts";
 import { activityOf, DOING } from "../../lib/activity.ts";
 import { useApp } from "../../lib/app.ts";
 import { useRead } from "../../lib/data/query.ts";
-import { color, container, fontSize, fontWeight, lineHeight, size, space } from "../../styles/tokens.stylex.ts";
+import { color, container, size, space } from "../../styles/tokens.stylex.ts";
 import { LandedCard } from "./GenCard.tsx";
 import { checkLine, failedRun, GenSummary, RunHead } from "./GenResult.tsx";
 import type { Generation } from "./useGeneration.ts";
@@ -26,7 +27,7 @@ const styles = stylex.create({
     containerType: "inline-size",
   },
   summary: { display: "flex", flexDirection: "column", gap: space.s4 },
-  muted: { margin: 0, fontSize: fontSize.compact, lineHeight: lineHeight.compact, color: color.textMuted },
+  muted: { margin: 0, color: color.textMuted },
   cards: { display: "flex", flexDirection: "column", gap: space.s4 },
   split: {
     display: "grid",
@@ -36,7 +37,7 @@ const styles = stylex.create({
   },
   col: { minWidth: 0 },
   colHead: { display: "flex", alignItems: "center", gap: space.s2, minHeight: size.controlSm },
-  colTitle: { margin: 0, fontSize: fontSize.body, lineHeight: lineHeight.body, fontWeight: fontWeight.semibold },
+  colTitle: { margin: 0 },
   grow: { flex: 1 },
 });
 
@@ -148,7 +149,7 @@ export function ResultPane({
         />
         {result && <GenSummary result={result} checked={checkLine(result.tests, result.checks)} />}
         {result?.diagnosis && job && !failedRun(job, result) && (
-          <p {...stylex.props(styles.muted)}>
+          <p {...stylex.props(type.compact, styles.muted)}>
             <DiagnosisText text={result.diagnosis.detail} />
           </p>
         )}
@@ -183,10 +184,10 @@ export function ResultPane({
           <div {...stylex.props(styles.col)}>{activity}</div>
           <section aria-label="Tests written" aria-live="polite" {...stylex.props(styles.col, styles.cards)}>
             <div {...stylex.props(styles.colHead)}>
-              <h3 {...stylex.props(styles.colTitle)}>Tests</h3>
+              <h3 {...stylex.props(type.body, type.strong, styles.colTitle)}>Tests</h3>
               <Badge count size="sm" label={String(ids.length)} />
               <span {...stylex.props(styles.grow)} />
-              <span {...stylex.props(styles.muted)}>they land here as Claude writes them</span>
+              <span {...stylex.props(type.compact, styles.muted)}>they land here as Claude writes them</span>
             </div>
             {ids.length ? (
               cards

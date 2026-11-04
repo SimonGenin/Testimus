@@ -7,21 +7,11 @@ import { useApp } from "../../lib/app.ts";
 import { useDraft } from "../../lib/data/autosave.ts";
 import { project } from "../../lib/data/client.ts";
 import { key, read, useRead } from "../../lib/data/query.ts";
-import {
-  border,
-  breakpoint,
-  color,
-  fontSize,
-  fontWeight,
-  radius,
-  shadow,
-  size,
-  space,
-  z,
-} from "../../styles/tokens.stylex.ts";
+import { border, breakpoint, color, radius, shadow, size, space, z } from "../../styles/tokens.stylex.ts";
 import { Button } from "../ui/Button.tsx";
 import { Icon } from "../ui/Icon.tsx";
 import { Modal } from "../ui/Modal.tsx";
+import { type } from "../ui/type.ts";
 import { DockActions, useActionChoices } from "./DockActions.tsx";
 import { DockComposer, runIds } from "./DockComposer.tsx";
 import { DockFolded } from "./DockFolded.tsx";
@@ -73,21 +63,13 @@ const styles = stylex.create({
     alignItems: "center",
     gap: space.s2,
     height: size.topbar,
-    paddingInlineStart: space.s4,
-    paddingInlineEnd: space.s2,
+    paddingInlineStart: space.s5,
+    paddingInlineEnd: space.s3,
     borderBottomStyle: "solid",
     borderBottomWidth: border.width,
     borderBottomColor: color.border,
   },
-  title: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: space.s2,
-    margin: 0,
-    fontSize: fontSize.titleSm,
-    fontWeight: fontWeight.semibold,
-    color: color.claudeText,
-  },
+  title: { display: "inline-flex", alignItems: "center", gap: space.s2, margin: 0, color: color.claudeText },
   grow: { flex: 1 },
   foot: {
     boxSizing: "border-box",
@@ -233,7 +215,7 @@ export function ClaudeDock({
       {...stylex.props(styles.dock)}
     >
       <div {...stylex.props(styles.head)}>
-        <h2 {...stylex.props(styles.title)}>
+        <h2 {...stylex.props(type.titleSm, styles.title)}>
           <Icon name="claude" />
           Claude
         </h2>

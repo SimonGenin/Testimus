@@ -1,14 +1,9 @@
 import * as stylex from "@stylexjs/stylex";
-import { color, fontFamily, fontSize, radius, space } from "../../styles/tokens.stylex.ts";
+import { color, radius, space } from "../../styles/tokens.stylex.ts";
+import { type } from "../ui/type.ts";
 
 const styles = stylex.create({
-  code: {
-    paddingInline: space.s1,
-    borderRadius: radius.r1,
-    backgroundColor: color.surfaceSunken,
-    fontFamily: fontFamily.mono,
-    fontSize: fontSize.code,
-  },
+  code: { paddingInline: space.s1, borderRadius: radius.r1, backgroundColor: color.surfaceSunken },
 });
 
 // ponytail: a diagnosis is written with `commands` in backquotes (src/core/claude/diagnose.ts); they are shown as code,
@@ -19,7 +14,7 @@ export function DiagnosisText({ text }: { text: string }) {
     <>
       {parts.map((p, i) =>
         i % 2 ? (
-          <code key={i} {...stylex.props(styles.code)}>
+          <code key={i} {...stylex.props(type.code, styles.code)}>
             {p}
           </code>
         ) : (

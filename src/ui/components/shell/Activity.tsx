@@ -10,25 +10,18 @@ import { useCommand, useFetching, useRead } from "../../lib/data/query.ts";
 import { plural } from "../../lib/format.ts";
 import { useNow } from "../../lib/now.ts";
 import { errorToast } from "../../lib/toast.ts";
-import { color, fontSize, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 import { Button } from "../ui/Button.tsx";
 import { Icon } from "../ui/Icon.tsx";
 import { Popover } from "../ui/Popover.tsx";
+import { type } from "../ui/type.ts";
 import { type ActivityItem, ActivityRow } from "./ActivityRow.tsx";
 
 export { elapsed } from "./ActivityRow.tsx";
 
 const styles = stylex.create({
   bar: { display: "inline-flex", alignItems: "center", gap: space.s2 },
-  notice: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: space.s2,
-    color: color.warning,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
-    whiteSpace: "nowrap",
-  },
+  notice: { display: "inline-flex", alignItems: "center", gap: space.s2, color: color.warning, whiteSpace: "nowrap" },
   list: { margin: 0, padding: 0 },
   foot: { display: "flex", alignItems: "center", gap: space.s3, flex: 1 },
   grow: { flex: 1 },
@@ -110,7 +103,7 @@ function LiveActivity() {
   return (
     <span {...stylex.props(styles.bar)}>
       {notice && (
-        <span role="status" {...stylex.props(styles.notice)}>
+        <span role="status" {...stylex.props(type.small, styles.notice)}>
           <Icon name="clock" size="sm" />
           {notice}
         </span>

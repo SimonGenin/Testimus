@@ -5,10 +5,11 @@ import { Badge, ReviewBadge, type ReviewState, SeverityBadge } from "../../compo
 import { Button } from "../../components/ui/Button.tsx";
 import { Card } from "../../components/ui/Card.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
+import { type } from "../../components/ui/type.ts";
 import { fileUrl } from "../../lib/data/client.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { plural } from "../../lib/format.ts";
-import { border, color, fontFamily, fontSize, lineHeight, radius, space } from "../../styles/tokens.stylex.ts";
+import { border, color, radius, space } from "../../styles/tokens.stylex.ts";
 import { FindingSources, ReviewStep } from "../review/ReviewStep.tsx";
 import type { GenCheck } from "./GenResult.tsx";
 
@@ -26,17 +27,8 @@ const styles = stylex.create({
     borderWidth: border.width,
     borderColor: color.border,
   },
-  waitTitle: { fontSize: fontSize.compact, color: color.textSubtle },
-  meta: {
-    display: "flex",
-    flexWrap: "wrap",
-    alignItems: "center",
-    gap: space.s2,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
-    color: color.textSubtle,
-  },
-  mono: { fontFamily: fontFamily.mono, fontSize: fontSize.code },
+  waitTitle: { color: color.textSubtle },
+  meta: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s2, color: color.textSubtle },
   badges: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s2 },
   body: { display: "flex", flexDirection: "column", gap: space.s3 },
   finding: {
@@ -48,15 +40,9 @@ const styles = stylex.create({
     borderRadius: radius.r2,
     backgroundColor: color.surfaceSunken,
   },
-  findingHead: {
-    display: "flex",
-    alignItems: "center",
-    gap: space.s2,
-    fontSize: fontSize.small,
-    color: color.textMuted,
-  },
-  text: { margin: 0, fontSize: fontSize.compact, lineHeight: lineHeight.compact, color: color.text },
-  muted: { margin: 0, fontSize: fontSize.compact, lineHeight: lineHeight.compact, color: color.textSubtle },
+  findingHead: { display: "flex", alignItems: "center", gap: space.s2, color: color.textMuted },
+  text: { margin: 0, color: color.text },
+  muted: { margin: 0, color: color.textSubtle },
   foot: { display: "flex", alignItems: "center", gap: space.s2, width: "100%" },
   grow: { flex: 1 },
 });
@@ -92,11 +78,11 @@ function Findings({ refItem, check, checking }: { refItem?: LocalTestRef; check?
 function WholeTest({ finding, stale, onSource }: { finding: Finding; stale: boolean; onSource: (s: Source) => void }) {
   return (
     <div role="note" {...stylex.props(styles.finding)}>
-      <span {...stylex.props(styles.findingHead)}>
+      <span {...stylex.props(type.small, styles.findingHead)}>
         <SeverityBadge severity={finding.severity} size="sm" />
         Whole test{stale ? " · out of date" : ""}
       </span>
-      <p {...stylex.props(styles.text)}>{finding.message}</p>
+      <p {...stylex.props(type.compact, styles.text)}>{finding.message}</p>
       <FindingSources finding={finding} selected="" onSelect={onSource} />
     </div>
   );
@@ -136,7 +122,7 @@ export function GenCard({
         aria-label={writing ? "Claude is writing a test" : "Loading a test"}
         {...stylex.props(styles.wait)}
       >
-        <span {...stylex.props(styles.waitTitle)}>{writing ? "Writing…" : "Loading…"}</span>
+        <span {...stylex.props(type.compact, styles.waitTitle)}>{writing ? "Writing…" : "Loading…"}</span>
         <Skeleton kind="title" width="70%" />
         <Skeleton lines={2} />
       </div>
@@ -177,8 +163,8 @@ export function GenCard({
       }
     >
       <div {...stylex.props(styles.body)}>
-        <span {...stylex.props(styles.meta)}>
-          <span {...stylex.props(styles.mono)}>{item.id}</span>· {plural(test.steps.length, "step")}
+        <span {...stylex.props(type.small, styles.meta)}>
+          <span {...stylex.props(type.code)}>{item.id}</span>· {plural(test.steps.length, "step")}
           {test.folder ? ` · ${test.folder}` : ""}
         </span>
         <span {...stylex.props(styles.badges)}>
@@ -210,7 +196,7 @@ export function GenCard({
                 onOpenImage={(file) => window.open(url(file), "_blank")}
               />
             ))}
-            {!test.steps.length && <p {...stylex.props(styles.muted)}>This test has no steps yet.</p>}
+            {!test.steps.length && <p {...stylex.props(type.compact, styles.muted)}>This test has no steps yet.</p>}
           </>
         )}
       </div>
