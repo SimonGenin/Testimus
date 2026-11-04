@@ -36,6 +36,7 @@ const styles = stylex.create({
     transitionTimingFunction: easing.standard,
   },
   lineRow: { width: "100%", height: border.width },
+  quiet: { backgroundColor: "transparent" },
   active: { width: border.widthStrong, backgroundColor: color.accent },
   activeRow: { width: "100%", height: border.widthStrong },
   focused: { width: border.widthStrong, backgroundColor: color.focusRing },
@@ -58,6 +59,8 @@ export type ResizeHandleProps = {
   /** vertical (default): between panes side by side, it resizes a width · horizontal: between panes one above the
    * other, it resizes a height */
   orientation?: "vertical" | "horizontal";
+  /** no line at rest: it shows on hover, focus and while dragging (the test editor's column, whose edge is the page) */
+  quiet?: boolean;
   /** what it resizes (« Test list width ») */
   label: string;
   /** the catalogue only */
@@ -77,6 +80,7 @@ export function ResizeHandle({
   onCommit,
   side = "right",
   orientation = "vertical",
+  quiet = false,
   label,
   debugState,
 }: ResizeHandleProps) {
@@ -156,6 +160,7 @@ export function ResizeHandle({
         {...stylex.props(
           styles.line,
           row && styles.lineRow,
+          quiet && styles.quiet,
           lit && styles.active,
           lit && row && styles.activeRow,
           ringed && styles.focused,

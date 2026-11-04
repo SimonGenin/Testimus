@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { type PrefName, usePref } from "../../lib/prefs.ts";
+import { type PaneHandle, usePaneWidth } from "../../lib/panes.ts";
+import type { PrefName } from "../../lib/prefs.ts";
 
 export type Fold = "wide" | "medium" | "small" | "tiny";
 
@@ -31,31 +31,11 @@ export const SHOWN: Record<Fold, Col[]> = {
   tiny: [],
 };
 
-export type Pane = {
-  value: number;
-  min: number;
-  max: number;
-  defaultValue: number;
-  onChange: (px: number) => void;
-  onCommit: (px: number) => void;
-};
+export type Pane = PaneHandle;
 
-// ponytail: a pane's width is the one being dragged, else the one last chosen (lib/prefs), else its default
 function usePane(col: Col): Pane {
   const l = LIMITS[col];
-  const [kept, keep] = usePref(l.pref);
-  const [live, setLive] = useState<number | null>(null);
-  return {
-    value: live ?? kept ?? COLS[col],
-    min: l.min,
-    max: l.max,
-    defaultValue: COLS[col],
-    onChange: setLive,
-    onCommit: (px) => {
-      keep(px === COLS[col] ? null : px);
-      setLive(null);
-    },
-  };
+  return usePaneWidth(l.pref, { min: l.min, max: l.max, initial: COLS[col] }).handle;
 }
 
 // ponytail: a column grows only into the room the text can spare, so a drag never folds what it resizes

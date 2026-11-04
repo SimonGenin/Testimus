@@ -357,6 +357,14 @@ function SaveWord({ a, claude, inline }: { a?: SaveState; claude: boolean; inlin
   );
 }
 
+// ponytail: a growing field is as tall as its text at its width — measured again when the value changes and when only
+// the width does (the editor's Action | Expected switch, a dragged pane, the window); its own height change is ignored,
+// so the measure never loops
+function grow(el: HTMLTextAreaElement, text: string): void {
+  el.style.height = "auto";
+  el.style.height = text ? `${el.scrollHeight}px` : "";
+}
+
 function TextField(p: TextProps) {
   const auto = useId();
   const id = p.id ?? auto;
@@ -370,10 +378,21 @@ function TextField(p: TextProps) {
   const value = p.value;
   useLayoutEffect(() => {
     const el = ref.current;
-    if (!multiline || !(el instanceof HTMLTextAreaElement)) return;
-    el.style.height = "auto";
-    el.style.height = value ? `${el.scrollHeight}px` : "";
+    if (multiline && el instanceof HTMLTextAreaElement) grow(el, value);
   }, [multiline, value]);
+  useEffect(() => {
+    const el = ref.current;
+    if (!multiline || !(el instanceof HTMLTextAreaElement) || typeof ResizeObserver === "undefined") return;
+    let width = el.getBoundingClientRect().width;
+    const watch = new ResizeObserver(([entry]) => {
+      const now = entry?.contentRect.width ?? el.getBoundingClientRect().width;
+      if (now === width) return;
+      width = now;
+      grow(el, el.value);
+    });
+    watch.observe(el);
+    return () => watch.disconnect();
+  }, [multiline]);
 
   const setRef = (el: HTMLTextAreaElement | HTMLInputElement | null) => {
     ref.current = el;

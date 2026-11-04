@@ -8,6 +8,7 @@ import { ResizeHandle } from "../../components/ui/ResizeHandle.tsx";
 import { type ClaudeRun, useApp } from "../../lib/app.ts";
 import { fileUrl } from "../../lib/data/client.ts";
 import { plural } from "../../lib/format.ts";
+import { usePaneWidth } from "../../lib/panes.ts";
 import { color, container, size, space } from "../../styles/tokens.stylex.ts";
 import { PushDialog } from "../tests/PushDialog.tsx";
 import { FixNote } from "./FixNote.tsx";
@@ -19,7 +20,6 @@ import { ReviewQueue } from "./ReviewQueue.tsx";
 import { ReviewTest } from "./ReviewTest.tsx";
 import { SourcePanel } from "./SourcePanel.tsx";
 import { notAtAnchor, placedSources, refKey } from "./sources.ts";
-import { usePaneWidth } from "./usePaneWidth.ts";
 import { type Loaded, useDecisions, useQueueFilters, useReviewData } from "./useReview.ts";
 import { useReviewActions } from "./useReviewActions.ts";
 import { useReviewKeys } from "./useReviewKeys.ts";
@@ -66,8 +66,8 @@ export function ReviewScreen() {
   const view = useReviewView(activeId, data, app.lastRun);
   const running = !!data && app.claudeRunning === data.id;
   const acts = useReviewActions({ app, data, items, act, view, running });
-  const queueW = usePaneWidth("queueWidth", { min: 240, max: 480, initial: 300 }, "Resize the review queue");
-  const sourceW = usePaneWidth("sourceWidth", { min: 300, max: 720, initial: 420 }, "Resize the source panel");
+  const queueW = usePaneWidth("queueWidth", { min: 240, max: 480, initial: 300 });
+  const sourceW = usePaneWidth("sourceWidth", { min: 300, max: 720, initial: 420 });
   const [pushing, setPushing] = useState(false);
   const body = useRef<HTMLDivElement>(null);
 
@@ -148,7 +148,7 @@ export function ReviewScreen() {
           onFolder={filters.setFolder}
           onWithFindings={filters.setWithFindings}
           onOpen={open}
-          width={queueW.width}
+          width={queueW.moved ? queueW.width : undefined}
           checkAll={{ ids: d.needsCheck, running: act.checking, onCheck: () => act.check(d.needsCheck) }}
           error={d.queueError ? { message: d.queueError, onRetry: d.retryQueue } : undefined}
           notice={
@@ -172,7 +172,7 @@ export function ReviewScreen() {
           }
         />
         <div {...stylex.props(styles.queueEdge)}>
-          <ResizeHandle {...queueW.handle} />
+          <ResizeHandle label="Resize the review queue" {...queueW.handle} />
         </div>
         <QueueStrip at={at} total={items?.length ?? 0} onMove={move} />
         <section aria-label="Test under review" {...stylex.props(styles.main)}>
@@ -254,7 +254,7 @@ export function ReviewScreen() {
         {!view.editing && sel && (
           <>
             <div {...stylex.props(styles.sourceEdge)}>
-              <ResizeHandle {...sourceW.handle} side="left" />
+              <ResizeHandle label="Resize the source panel" {...sourceW.handle} side="left" />
             </div>
             <SourcePanel
               source={sel.source}
@@ -263,7 +263,7 @@ export function ReviewScreen() {
               total={placed.length}
               testId={data?.id ?? ""}
               misplaced={notAtAnchor(findings, selKey, sel.step)}
-              width={sourceW.width}
+              width={sourceW.moved ? sourceW.width : undefined}
               onClose={() => view.patch({ sel: null })}
               onOpenDoc={(docId, anchor, quote) => app.navigate("documents", docLink(docId, anchor, quote))}
               onPick={pick}
