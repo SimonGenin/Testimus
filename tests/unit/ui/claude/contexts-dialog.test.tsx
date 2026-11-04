@@ -185,6 +185,22 @@ describe("ContextsDialog", () => {
     await waitFor(() => expect(store[0].notes).toBe("dernier mot"));
   });
 
+  it("writes text typed in one project to that project, never to the next one", async () => {
+    setProject("C:\\p");
+    backend([glossary]);
+    const { unmount } = mount();
+    await waitFor(() => expect(nameBox()).toHaveValue("Glossaire"));
+    fireEvent.change(notesBox(), { target: { value: "pour p" } });
+    setProject("C:\\other");
+    unmount();
+    await waitFor(() => expect(store[0].notes).toBe("pour p"));
+    const sent = vi
+      .mocked(fetch)
+      .mock.calls.filter(([u]) => String(u).includes("/contexts/set"))
+      .map(([, init]) => decodeURIComponent((init?.headers as Record<string, string>)["X-Testimus-Project"] ?? ""));
+    expect(sent).toEqual(["C:\\p"]);
+  });
+
   it("adds and removes paths, keeping the typed name and notes", async () => {
     backend([glossary]);
     mount();

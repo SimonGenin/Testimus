@@ -115,3 +115,22 @@ describe("the saved contexts a document is read with", () => {
     await waitFor(() => expect(titles).toContain("Could not save the document"));
   });
 });
+
+// ponytail: the project a call went to (its X-Testimus-Project header)
+const sentTo = (path: string) =>
+  vi
+    .mocked(fetch)
+    .mock.calls.filter(([u]) => String(u).includes(path))
+    .map(([, init]) => decodeURIComponent((init?.headers as Record<string, string>)["X-Testimus-Project"] ?? ""));
+
+describe("the note of a document", () => {
+  it("typed in one project is written to that project, never to the next one", async () => {
+    const r = show({});
+    fireEvent.change(screen.getByLabelText("Note for this document"), { target: { value: "for p" } });
+    setProject("D:/other");
+    r.unmount();
+    await waitFor(() => expect(callsOf("docs.set")).toHaveLength(1));
+    expect(callsOf("docs.set")[0].input).toMatchObject({ id: "D-1", context: "for p" });
+    expect(sentTo("/docs/set")).toEqual(["D:/p"]);
+  });
+});
