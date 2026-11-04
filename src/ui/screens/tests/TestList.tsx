@@ -2,9 +2,9 @@ import * as stylex from "@stylexjs/stylex";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import type { Folder, LocalTestRef, RemoteTestRef } from "../../../core/types.ts";
-import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { EmptyState } from "../../components/ui/EmptyState.tsx";
+import { Icon } from "../../components/ui/Icon.tsx";
 import { List } from "../../components/ui/List.tsx";
 import { Modal } from "../../components/ui/Modal.tsx";
 import { useApp } from "../../lib/app.ts";
@@ -14,7 +14,7 @@ import { desktop, pathJoin, reveal } from "../../lib/desktop.ts";
 import { message, plural } from "../../lib/format.ts";
 import { jumpTo, useSearch } from "../../lib/search.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
-import { border, color, space } from "../../styles/tokens.stylex.ts";
+import { border, color, fontSize, lineHeight, space } from "../../styles/tokens.stylex.ts";
 import { type DeleteTarget, DeleteTest, deleteTest, needsAsking } from "./DeleteTest.tsx";
 import { JiraConnect } from "./JiraConnect.tsx";
 import { JiraTab } from "./JiraTab.tsx";
@@ -36,7 +36,11 @@ const styles = stylex.create({
     display: "flex",
     alignItems: "center",
     gap: space.s2,
+    paddingBlock: space.s1,
     paddingInline: space.s3,
+    fontSize: fontSize.small,
+    lineHeight: lineHeight.small,
+    color: color.textMuted,
     borderBottomStyle: "solid",
     borderBottomWidth: border.width,
     borderBottomColor: color.border,
@@ -347,14 +351,9 @@ export function TestList({
         ) : (
           <>
             <div {...stylex.props(styles.conn)}>
-              <Banner
-                tone="success"
-                icon="check"
-                compact
-                actions={<Button size="sm" variant="quiet" label="Disconnect" onClick={() => void disconnect()} />}
-              >
-                Connected to {p?.jiraProject}
-              </Banner>
+              <Icon name="cloud" size="sm" />
+              <span {...stylex.props(styles.grow)}>Connected to {p?.jiraProject}</span>
+              <Button size="xs" variant="quiet" label="Disconnect" onClick={() => void disconnect()} />
             </div>
             <JiraTab
               tree={tree}

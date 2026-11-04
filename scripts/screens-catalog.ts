@@ -899,7 +899,14 @@ function slowShots(): Shot[] {
     {
       id: "tests-pull",
       note: "Pull pane (a Jira test being downloaded)",
-      hash: "#/tests/LFRPS12-1401",
+      hash: "#/tests",
+      prep: async (p) => {
+        await tap(p, /^Jira/);
+        await tap(p, /^Traction [\d/]+$/);
+        await tap(p, /^Disjoncteurs [\d/]+$/);
+        await tap(p, /LFRPS12-1401/);
+        await see(p, /^Pulling LFRPS12-1401/);
+      },
       settle: 1200,
     },
     {
