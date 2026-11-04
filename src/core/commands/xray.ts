@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { throwIfAborted } from "../../shared/run/work.ts";
 import { command, projectOf, UserError } from "../command.ts";
-import { browseUrl } from "../lib/jira/http.ts";
+import { browseUrl, withSignal } from "../lib/jira/http.ts";
 import {
   allInFolder,
   getFolderTree,
@@ -111,7 +111,7 @@ export const commands = [
     output: xrayJson,
     mutates: true,
     async run(ctx) {
-      return refreshFields(projectOf(ctx));
+      return withSignal(ctx.signal, () => refreshFields(projectOf(ctx)));
     },
   }),
 
@@ -134,7 +134,7 @@ export const commands = [
       if (!key) throw new UserError("Which Jira project?", "Give its key, e.g. testimus xray connect LFRPS12.");
       if (!/^[A-Z][A-Z0-9_]*$/.test(key))
         throw new UserError(`"${key}" is not a Jira project key.`, "A key is letters and digits, e.g. LFRPS12.");
-      const info = await connectJira(project, key);
+      const info = await withSignal(ctx.signal, () => connectJira(project, key));
       return { jiraProject: info.key, name: info.name };
     },
   }),
@@ -160,8 +160,10 @@ export const commands = [
     output: folder,
     mutates: false,
     async run(ctx, input) {
-      const info = await projectInfo(projectOf(ctx));
-      return getFolderTree(info.id, input.path || "/");
+      return withSignal(ctx.signal, async () => {
+        const info = await projectInfo(projectOf(ctx));
+        return getFolderTree(info.id, input.path || "/");
+      });
     },
   }),
 
@@ -180,12 +182,14 @@ export const commands = [
     }),
     mutates: false,
     async run(ctx, input) {
-      const info = await projectInfo(projectOf(ctx));
-      if (input.text?.trim()) {
-        const tests = await searchTests(info.id, input.text, info.key);
-        return { tests, total: tests.length };
-      }
-      return listTests(info.id, { folder: input.folder || "/", descendants: input.descendants }, input.page);
+      return withSignal(ctx.signal, async () => {
+        const info = await projectInfo(projectOf(ctx));
+        if (input.text?.trim()) {
+          const tests = await searchTests(info.id, input.text, info.key);
+          return { tests, total: tests.length };
+        }
+        return listTests(info.id, { folder: input.folder || "/", descendants: input.descendants }, input.page);
+      });
     },
   }),
 
@@ -206,8 +210,10 @@ export const commands = [
       .describe("Every precondition of the project, sorted by key"),
     mutates: false,
     async run(ctx) {
-      const info = await projectInfo(projectOf(ctx));
-      return listPreconditions(info.id);
+      return withSignal(ctx.signal, async () => {
+        const info = await projectInfo(projectOf(ctx));
+        return listPreconditions(info.id);
+      });
     },
   }),
 
@@ -325,7 +331,9 @@ export const commands = [
       const one = localTestRef(project, input.id);
       if (!one)
         throw new UserError(`No test ${input.id} in this project.`, "testimus tests list shows them.", "not-found");
-      return { tests: [await statusOf(project, one)] };
+      const row = await withSignal(ctx.signal, () => statusOf(project, one));
+      throwIfAborted(ctx.signal);
+      return { tests: [row] };
     },
   }),
 
@@ -364,7 +372,7 @@ export const commands = [
     mutates: false,
     positional: ["id"],
     async run(ctx, input) {
-      return planView(await pushTest(projectOf(ctx), input.id));
+      return planView(await withSignal(ctx.signal, () => pushTest(projectOf(ctx), input.id)));
     },
   }),
 

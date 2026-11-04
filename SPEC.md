@@ -882,7 +882,9 @@ stops at the first failure), plus:
   A cancel is honoured between operations (the one in flight finishes; the job is « cancelled » only when
   nothing ran after it). Attachments must be files inside `tests/<id>/`. An empty or space-containing
   `labelPrefix` falls back to `testimus-` with a warning.
-- Code: `lib/jira/` is the client — `http.ts` (auth, the six-request semaphore, the cancellable 429 wait),
+- Code: `lib/jira/` is the client — `http.ts` (auth, the six-request semaphore, the cancellable 429 wait: a
+  request and its wait follow the job's cancel, and outside a job the cancel of the command that asked — a search
+  the page gave up ends at once and gives its slot back),
   `read.ts` (project, fields, folders, tests, preconditions, pull), `steps.ts` (a step both ways: custom fields,
   embedded attachments), `labels.ts` (review labels), `push.ts` (the plan and its operations); `lib/sync/` puts it
   on the project folder — `connect.ts` (the key, `jira-project.json`, `xray.json`), `pull.ts` (images, undo on any

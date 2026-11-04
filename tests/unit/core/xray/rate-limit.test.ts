@@ -49,6 +49,80 @@ describe("the wait for a Jira 429 (decision 9)", () => {
   });
 });
 
+describe("the wait for a Jira 429 outside a job follows the command's signal (review 4)", () => {
+  const reads: Array<[string, Record<string, unknown>]> = [
+    ["xray.search", { text: "sectionneur" }],
+    ["xray.folders", {}],
+    ["xray.status", { id: "LFRPS12-1398" }],
+    ["xray.preconditions", {}],
+  ];
+
+  for (const [name, input] of reads)
+    it(`${name}: a 429 Retry-After 60 ends at once when the request is cancelled`, async () => {
+      let asked = 0;
+      env.http = async (req): Promise<HttpRes> => {
+        if (req.url.includes("authenticate")) return { status: 200, headers: {}, text: '"jwt"' };
+        asked++;
+        return { status: 429, headers: { "retry-after": "60" }, text: "" };
+      };
+      const ctrl = new AbortController();
+      const run = invoke(name, input, { project: P, signal: ctrl.signal });
+      run.catch(() => {});
+      await vi.waitFor(() => expect(asked).toBe(1));
+      const t0 = Date.now();
+      ctrl.abort();
+      await expect(run).rejects.toThrow();
+      expect(Date.now() - t0).toBeLessThan(1000);
+      expect(asked).toBe(1);
+    });
+
+  it("the fetch itself is aborted with the request", async () => {
+    let seen: AbortSignal | undefined;
+    env.http = (req): Promise<HttpRes> => {
+      if (req.url.includes("authenticate")) return Promise.resolve({ status: 200, headers: {}, text: '"jwt"' });
+      seen = req.signal;
+      return new Promise((_, reject) => req.signal?.addEventListener("abort", () => reject(new Error("aborted"))));
+    };
+    const ctrl = new AbortController();
+    const run = invoke("xray.search", { text: "sectionneur" }, { project: P, signal: ctrl.signal });
+    run.catch(() => {});
+    await vi.waitFor(() => expect(seen).toBeDefined());
+    ctrl.abort();
+    await expect(run).rejects.toThrow();
+    expect(seen?.aborted).toBe(true);
+  });
+
+  it("six abandoned searches give their slots back at once: the next request is not held", async () => {
+    let limited = true;
+    let asked = 0;
+    env.http = async (req): Promise<HttpRes> => {
+      if (req.url.includes("authenticate")) return { status: 200, headers: {}, text: '"jwt"' };
+      asked++;
+      if (limited) return { status: 429, headers: { "retry-after": "60" }, text: "" };
+      return {
+        status: 200,
+        headers: {},
+        text: JSON.stringify({ data: { getPreconditions: { total: 0, results: [] } } }),
+      };
+    };
+    mkdirSync(join(P, ".testimus"), { recursive: true });
+    writeFileSync(
+      join(P, ".testimus", "jira-project.json"),
+      JSON.stringify({ key: "LFRPS12", id: "10001", name: "LFRPS12", testIssueTypeId: "9" }),
+    );
+    const ctrls = Array.from({ length: 6 }, () => new AbortController());
+    const runs = ctrls.map((c, i) => invoke("xray.search", { text: `s${i}` }, { project: P, signal: c.signal }));
+    for (const r of runs) r.catch(() => {});
+    await vi.waitFor(() => expect(asked).toBe(6));
+    for (const c of ctrls) c.abort();
+    await Promise.allSettled(runs);
+    limited = false;
+    const t0 = Date.now();
+    expect(await invoke("xray.preconditions", {}, { project: P })).toEqual([]);
+    expect(Date.now() - t0).toBeLessThan(1000);
+  });
+});
+
 describe("rate limits", () => {
   const http = env.http;
   afterEach(() => {

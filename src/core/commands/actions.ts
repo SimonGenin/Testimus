@@ -1,12 +1,11 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { runAction, triageRefusal, triageRun } from "../claude/actions.ts";
+import { runAction, triageFailed, triageRun } from "../claude/actions.ts";
 import { CONTEXT_IDS, CONVERSATION, EFFORT, MODEL, NOTE, RESULT, SCOPE, scopeLabel } from "../claude/schemas.ts";
 import { readRunMeta } from "../claude/snapshot.ts";
 import { command, projectOf, UserError } from "../command.ts";
 import { env } from "../env.ts";
-import { startJob } from "../jobs.ts";
 import {
   listActions,
   listed,
@@ -250,22 +249,7 @@ export const commands = [
     mutates: true,
     positional: ["jobId"],
     async run(ctx, input) {
-      const project = projectOf(ctx);
-      const why = await triageRefusal(project, input.jobId);
-      if (why) return { triage: null, why };
-      const job = { jobId: input.jobId };
-      const { job: started } = startJob(
-        "actions.triage",
-        input.jobId,
-        project,
-        (c) => triageRun(c, project, job),
-        undefined,
-        {
-          cause: { jobId: input.jobId, why: "after-failure" },
-          rerun: { name: "actions.triage", input: job },
-        },
-      );
-      return { triage: started.id, why: `Claude looks at the failed ${started.subject} job, cheaply (low effort).` };
+      return triageFailed(projectOf(ctx), input.jobId);
     },
   }),
 ];
