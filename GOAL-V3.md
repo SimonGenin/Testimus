@@ -32,11 +32,17 @@ C'est fini quand **chacun** de ces points est vrai et prouvé dans le rapport, p
    rapport.
 8. `SPEC.md` (§1, §2, §3, §6, §12, §13), `CLAUDE.md` (Layout, règles d'architecture, conventions), `ROADMAP.md` et
    `PARITY.md` décrivent ce qui existe vraiment.
-9. `.build/v3/REPORT.md` existe et reprend ces neuf points un par un, avec leur preuve.
+9. `.build/v3/REPORT.md` existe et reprend ces dix points un par un, avec leur preuve.
+10. Un **agent frais** (sans le contexte de la passe, agent 91 `repasse-design`) a relu toute l'interface et
+    vérifié qu'elle utilise le design system **partout**, pour qu'un changement se fasse ensuite en un seul
+    endroit : chaque contrôle est un composant du kit, chaque icône est celle de la maquette (`design/icons`,
+    `design/build/screens/*.mjs`), chaque couleur, taille, espacement, rayon, ombre ou police vient de
+    `tokens.stylex.ts`, aucun écran ne recopie un composant du kit ni n'en contourne une option. Chacun de ses
+    constats est corrigé, ou justifié dans le rapport (raison, source).
 
 ## Lancement
 
-Cette passe est lancée avec **`/goal`** : tu ne t'arrêtes pas tant que les neuf points de « C'est fini quand »
+Cette passe est lancée avec **`/goal`** : tu ne t'arrêtes pas tant que les dix points de « C'est fini quand »
 ne sont pas tous vrais. Pas de « j'ai fini la vague 2, je fais une pause », pas de rapport intermédiaire présenté
 comme une fin. Si le contexte se compacte ou si la session redémarre, tu reprends par « Ta propre reprise ».
 
@@ -65,7 +71,7 @@ le reste. Qui fait quoi est dans « Sous-agents ».
 La ligne de lancement (courte, parce que `/goal` peut limiter sa longueur) :
 
 ```
-/goal Exécute GOAL-V3.md (le grand nettoyage de Testimus) jusqu'au bout, en orchestrant les sous-agents qu'il décrit. Fini quand les 9 points de « C'est fini quand » sont vrais et prouvés dans .build/v3/REPORT.md : gardes à zéro, build/check/tests/e2e verts après la dernière écriture, couverture tenue, aucune capture perdue, PARITY.md prouvé, revue contradictoire traitée, docs à jour. Lis GOAL-V3.md en entier avant tout.
+/goal Exécute GOAL-V3.md (le grand nettoyage de Testimus) jusqu'au bout, en orchestrant les sous-agents qu'il décrit. Fini quand les 10 points de « C'est fini quand » sont vrais et prouvés dans .build/v3/REPORT.md : gardes à zéro, build/check/tests/e2e verts après la dernière écriture, couverture tenue, aucune capture perdue, PARITY.md prouvé, revue contradictoire traitée, docs à jour. Lis GOAL-V3.md en entier avant tout.
 ```
 
 ## Ne pose aucune question
@@ -496,6 +502,11 @@ au plus en même temps, ceux du cœur encore en cours compris.
    une nouvelle revue à l'œil.
 8. `SPEC.md`, `CLAUDE.md` (Layout, Architecture rules, Conventions), `ROADMAP.md` (une section « v3 — nettoyage »)
    et `PARITY.md` (colonne Testimus à jour) décrivent ce qui existe vraiment.
+9. L'agent 91 (`repasse-design`), lancé **frais** (subagent neuf, sans fork de la conversation) après les écarts aux
+   maquettes : la repasse du point 10 de « C'est fini quand ». Il lit `design/` (SYSTEM.md, components.md, icons,
+   build/screens) et `src/ui/`, et rend `.build/v3/audit/design-system.md` : un tableau « zone · élément · ce que
+   fait l'app (fichier:ligne) · ce que veut le design system (source) · correction ». Les corrections sont faites
+   (par lots sans fichiers communs), puis la barre complète une dernière fois.
 
 ## Brief de chaque sous-agent
 
