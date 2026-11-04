@@ -118,6 +118,7 @@ const styles = stylex.create({
   claudeHover: { backgroundColor: color.claudeHover, borderColor: color.claudeHover },
   claudeQuietHover: { backgroundColor: color.claudeSubtle },
   focusRing: { outline: `${border.widthStrong} solid ${color.focusRing}` },
+  ringOnFocus: { outline: { default: "none", ":focus": `${border.widthStrong} solid ${color.focusRing}` } },
   kbd: { marginInlineStart: space.s2, marginInlineEnd: `calc(-1 * ${space.s2})` },
   hiddenInput: { display: "none" },
 });
@@ -149,6 +150,8 @@ export type ButtonProps = {
   block?: boolean;
   /** a toggle's state (aria-pressed), drawn pressed while on */
   pressed?: boolean;
+  /** the focus ring shows whenever it has the focus, also when the program put it there (a confirmation's Cancel) */
+  ringOnFocus?: boolean;
   /** a fold's trigger (« Show details »): aria-expanded, with a chevron after the label */
   expanded?: boolean;
   /** a menu or popover trigger: what it opens and whether it is open */
@@ -211,6 +214,7 @@ export function Button({
   disabled = false,
   block = false,
   pressed,
+  ringOnFocus = false,
   expanded,
   popup,
   pick,
@@ -253,6 +257,7 @@ export function Button({
         loading && styles.loading,
         !off && pressed && FORCED.pressed[variant],
         !off && (debugState === "hover" || debugState === "pressed") && FORCED[debugState][variant],
+        ringOnFocus && styles.ringOnFocus,
         debugState === "focus" && styles.focusRing,
         off && styles.disabled,
         off && quietish && styles.disabledQuiet,

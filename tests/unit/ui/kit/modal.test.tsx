@@ -180,6 +180,24 @@ describe("Modal", () => {
     expect(screen.getByRole("button", { name: "Undo" }).querySelector("svg")).not.toBeNull();
     render(
       <Modal
+        title="Undo the changes?"
+        confirm={{ verb: "Undo changes", danger: true, icon: "undo", onConfirm: () => {} }}
+        onClose={() => {}}
+      >
+        x
+      </Modal>,
+    );
+    const undo = screen.getByRole("button", { name: "Undo changes" });
+    expect(undo.querySelector("svg")?.innerHTML, "a danger verb may name its own icon").toBe(
+      screen.getByRole("button", { name: "Undo" }).querySelector("svg")?.innerHTML,
+    );
+    expect(undo.querySelector("svg")?.innerHTML).not.toBe(del.querySelector("svg")?.innerHTML);
+    render(<Button label="Plain cancel" />);
+    expect(cls(screen.getAllByRole("button", { name: "Cancel" })[0]), "Cancel shows its ring when focused").not.toBe(
+      cls(screen.getByRole("button", { name: "Plain cancel" })),
+    );
+    render(
+      <Modal
         title="Delete this document?"
         confirm={{ verb: "Delete", danger: true, onConfirm: () => {} }}
         consequences={[[6, "passages removed"]]}

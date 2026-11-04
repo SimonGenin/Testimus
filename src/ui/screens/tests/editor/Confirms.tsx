@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
 import { Banner } from "../../../components/ui/Banner.tsx";
+import type { IconName } from "../../../components/ui/Icon.tsx";
 import { Modal } from "../../../components/ui/Modal.tsx";
 import { fontFamily, fontSize } from "../../../styles/tokens.stylex.ts";
 
@@ -17,6 +18,7 @@ function Confirm({
   title,
   verb,
   danger,
+  icon,
   busy,
   consequences,
   onConfirm,
@@ -26,6 +28,7 @@ function Confirm({
   title: string;
   verb: string;
   danger?: boolean;
+  icon?: IconName;
   busy?: boolean;
   consequences?: [number | string, string][];
   onConfirm: () => void | Promise<void>;
@@ -37,7 +40,7 @@ function Confirm({
       title={title}
       size="sm"
       busy={busy}
-      confirm={{ verb, danger, onConfirm }}
+      confirm={{ verb, danger, icon, onConfirm }}
       consequences={consequences}
       onClose={onClose}
     >
@@ -71,6 +74,7 @@ export function DownloadConfirm({
       title="Download from Jira?"
       verb="Overwrite local"
       danger
+      icon="download"
       busy={busy}
       consequences={
         synced && loss
@@ -110,6 +114,7 @@ export function UndoConfirm({
       title="Undo every local change?"
       verb="Undo changes"
       danger
+      icon="undo"
       consequences={[
         [loss.modified, steps(loss.modified, "modified")],
         [loss.added, steps(loss.added, "added")],
