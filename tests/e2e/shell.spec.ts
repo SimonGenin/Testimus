@@ -29,6 +29,15 @@ test("the system status opens the system check", async ({ page }) => {
   await expect(page).toHaveURL(/#\/doctor$/);
 });
 
+test("the system status says its state in whole words, even « Not checked »", async ({ page }) => {
+  await page.route("**/api/system/doctor", () => {});
+  await boot(page);
+  const status = page.getByRole("button", { name: "System: Not checked. Open the system check" });
+  await expect(status).toHaveText("Not checked");
+  const cut = await status.evaluate((b) => [...b.querySelectorAll("span")].some((s) => s.scrollWidth > s.clientWidth));
+  expect(cut).toBe(false);
+});
+
 test("Ctrl K opens the palette, filters and runs a command", async ({ page }) => {
   await boot(page);
   await page.keyboard.press("Control+k");

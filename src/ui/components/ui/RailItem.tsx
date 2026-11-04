@@ -55,6 +55,7 @@ const styles = stylex.create({
   icon: { display: "inline-flex" },
   iconCurrent: { color: color.accentText },
   label: { maxWidth: size.railItem, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  labelWrap: { whiteSpace: "normal" },
   mono: { fontFamily: fontFamily.mono, fontSize: fontSize.micro, lineHeight: lineHeight.micro },
   avatar: {
     display: "flex",
@@ -106,7 +107,7 @@ export type RailItemProps = {
   count?: number;
   /** initials in a tile in place of the icon (the project) */
   avatar?: string;
-  /** a state dot in place of the icon (the system status); the label says the state */
+  /** a state dot in place of the icon (the system status); the label says the state, on two lines if it needs them */
   dot?: BadgeTone;
   /** the label in mono, small (a project key) */
   mono?: boolean;
@@ -162,7 +163,7 @@ export function RailItem({
           </span>
         )
       )}
-      <span {...stylex.props(styles.label, mono && styles.mono)}>{label}</span>
+      <span {...stylex.props(styles.label, mono && styles.mono, dot !== undefined && styles.labelWrap)}>{label}</span>
       {count !== undefined && count > 0 && (
         <span aria-hidden="true" {...stylex.props(styles.count)}>
           {count}
