@@ -36,6 +36,8 @@ export default defineConfig(({ command }) => ({
     globalSetup: ["./tests/unit/global-setup.ts"],
     setupFiles: ["./tests/unit/setup.ts"],
     testTimeout: 20000,
+    // ponytail: the persistent module cache keeps an import.meta.glob's old file list (a new kit section went unseen)
+    fsModuleCache: false,
     coverage: {
       provider: "v8",
       include: ["src/**/*.{ts,tsx}"],
