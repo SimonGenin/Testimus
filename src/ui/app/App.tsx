@@ -196,10 +196,7 @@ export function App() {
   );
 
   const hasProject = !!p.info;
-  const actions = useMemo(
-    () => paletteActions(navigate, toggleDock, hasProject),
-    [navigate, toggleDock, hasProject],
-  );
+  const actions = useMemo(() => paletteActions(navigate, toggleDock, hasProject), [navigate, toggleDock, hasProject]);
 
   const openHit = useCallback(
     (h: SearchMatch) => {

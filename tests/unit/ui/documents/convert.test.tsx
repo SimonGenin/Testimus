@@ -270,7 +270,9 @@ describe("Converting a document", () => {
     expect(said(/^figures read again/)).toBe("21figures read again — 1 already described is kept");
     expect(said(/^sections reindexed/)).toBe("6sections reindexed in every vector space");
     expect(said(/^conversion warning/)).toBe("1conversion warning recomputed");
-    const counts = within(dialog).getByText(/^figures read again/).closest("ul") as HTMLElement;
+    const counts = within(dialog)
+      .getByText(/^figures read again/)
+      .closest("ul") as HTMLElement;
     expect(
       counts.compareDocumentPosition(within(dialog).getByText("While converting")) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
