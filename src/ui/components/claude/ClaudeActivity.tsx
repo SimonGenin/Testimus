@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { useState } from "react";
-import type { JobEvent } from "../../../core/types.ts";
+import type { Job, JobEvent } from "../../../core/types.ts";
 import { activityOf, DOING, lasted, type Phase, type Verdict } from "../../lib/activity.ts";
 import { plural } from "../../lib/format.ts";
 import { clock } from "../../lib/jobs.ts";
@@ -13,6 +13,7 @@ import { Icon } from "../ui/Icon.tsx";
 import { Timeline, type TimelineItem } from "../ui/Timeline.tsx";
 import { DocMap, docsOf, Lookups, Searches } from "./ActivityParts.tsx";
 import { kilo } from "./turns.ts";
+import { claudeSaid } from "./useClaudeStatus.ts";
 
 const styles = stylex.create({
   card: { display: "flex", flexDirection: "column", gap: space.s3 },
@@ -72,6 +73,16 @@ const mss = (ms: number) => {
   const s = Math.round(ms / 1000);
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 };
+
+// the model and effort a job's run asked for (its input), else the project's defaults it fell back on
+export function askedOf(
+  job: Pick<Job, "rerun"> | null | undefined,
+  defaults?: { model?: string; effort?: string },
+): { model?: string; effort?: string } {
+  const asked = (job?.rerun?.input ?? {}) as { model?: unknown; effort?: unknown };
+  const pick = (v: unknown, d?: string) => (typeof v === "string" && v ? v : d || undefined);
+  return { model: pick(asked.model, defaults?.model), effort: pick(asked.effort, defaults?.effort) };
+}
 
 // the head's line (design jobs-claude): model · effort · m:ss · tokens, from what the run reported at its end
 export function runLine(events: JobEvent[], model?: string, effort?: string): string {
@@ -261,22 +272,22 @@ export function ClaudeActivity({
   const head = runLine(events, model, effort);
   const planned = phases.reduce((n, p) => n + p.planned.length, 0);
   const names = new Map(phases.flatMap((p) => p.written.filter((w) => w.summary).map((w) => [w.id, w.summary])));
+  // ponytail: a run whose Claude stopped on an error does not end on a green « Done »
+  const stopped = !running && !!claudeSaid(events);
   const items: TimelineItem[] = phases.map((p, i) => {
     const live = running && i === phases.length - 1;
     const warned = p.acts.some((a) => a.level === "warn");
+    const failedEnd = stopped && p.kind === "end";
+    const said = title(
+      p,
+      live,
+      planned,
+      phases.slice(0, i).some((x) => x.kind === "check"),
+    );
     return {
       key: `${p.kind}-${p.from}`,
-      state: live ? "running" : p.failed ? "failed" : "done",
-      title: (
-        <h3 {...stylex.props(styles.heading)}>
-          {title(
-            p,
-            live,
-            planned,
-            phases.slice(0, i).some((x) => x.kind === "check"),
-          )}
-        </h3>
-      ),
+      state: live ? "running" : p.failed || failedEnd ? "failed" : "done",
+      title: <h3 {...stylex.props(styles.heading)}>{failedEnd ? said.replace(/^Done\b/, "Stopped") : said}</h3>,
       time: `${clock(p.from)}${p.kind !== "end" ? `, ${lasted(p.from, live ? new Date(now).toISOString() : p.to)}` : ""}`,
       note: warned ? <Icon name="alert-triangle" size="sm" label="Warnings" /> : undefined,
       children: <PhaseBody phase={p} live={live} names={names} />,

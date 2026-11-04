@@ -1,7 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { type ReactNode, useState } from "react";
 import type { Job } from "../../../core/types.ts";
-import { ClaudeActivity } from "../../components/claude/ClaudeActivity.tsx";
+import { askedOf, ClaudeActivity } from "../../components/claude/ClaudeActivity.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Progress } from "../../components/ui/Progress.tsx";
 import { useApp } from "../../lib/app.ts";
@@ -98,6 +98,7 @@ export function JobDetail({
   const claude =
     events.some((e) => e.type === "claude") || (job.processes ?? []).some((p) => p.label.startsWith("Claude"));
   const changed = [...new Set(events.flatMap((e) => (e.type === "changed" ? e.paths : [])))];
+  const { model, effort } = askedOf(job, app.info?.project.claude);
   const carried = new Set((job.steps ?? []).map((s) => s.jobId).filter(Boolean));
   const inside = node.children.filter((n) => !carried.has(n.job.id)).map((n) => n.job);
   const loose = (job.processes ?? []).filter((p) => !p.step || !job.steps?.some((s) => s.id === p.step));
@@ -177,7 +178,7 @@ export function JobDetail({
         </Section>
       )}
 
-      {claude && <ClaudeActivity events={events} running={running} now={now} />}
+      {claude && <ClaudeActivity events={events} running={running} now={now} model={model} effort={effort} />}
 
       {changed.length > 0 && (
         <Section title={`Files changed · ${changed.length}`}>

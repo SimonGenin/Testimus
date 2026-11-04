@@ -21,6 +21,7 @@ export function DockDefaults({ claude }: { claude: ProjectJson["claude"] }) {
               id="set-model"
               size="md"
               appearance="boxed"
+              block
               value={claude.model}
               onChange={(model) => void setProject({ claude: { model } }, "the model")}
             />

@@ -1,7 +1,8 @@
 import * as stylex from "@stylexjs/stylex";
 import { useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { DocRef, Job, StepColumn } from "../../../core/types.ts";
+import { claudeSaid, noteRun, useClaudeStatus } from "../../components/claude/useClaudeStatus.ts";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
 import { ResizeHandle } from "../../components/ui/ResizeHandle.tsx";
 import { useApp } from "../../lib/app.ts";
@@ -55,14 +56,14 @@ export function GenerateScreen() {
   const scopeInput = { docs: form.scope.docs, sections: form.scope.sections };
   const preview = useRead("gen.preview", scopeInput, { enabled: !!docs });
   const [ask, setAsk] = useState<{ refresh?: boolean; signIn?: boolean }>({});
-  const claude = useRead("claude.status", ask);
+  const { read: claude, status: known } = useClaudeStatus(ask);
   const start = useCommand("gen.tests", { invalidates: [["jobs.list"]] });
   const reindex = useCommand("rag.index", { invalidates: [["jobs.list"]] });
   const cancel = useCommand("jobs.cancel", { invalidates: [["jobs.list"], ["jobs.show"]] });
   const [replacing, setReplacing] = useState<string[] | null>(null);
   const [fresh, setFresh] = useState(0);
 
-  const status = claude.data ?? null;
+  const status = known ?? null;
   const offline = !!status && (!status.installed || status.signedIn === false);
   const nameOf = (id: string) => docs?.find((d) => d.id === id)?.code || id;
   const missing = (preview.data?.unindexed ?? []).map(nameOf);
@@ -81,12 +82,23 @@ export function GenerateScreen() {
             ? "A document of the scope is not indexed"
             : null;
 
+  // ponytail: a generation started here that failed on Claude's sign-in shows the connect card, like the dock
+  const startedHere = useRef<string | null>(null);
+  const ended = gen.job && gen.job.id === startedHere.current && gen.job.status !== "running" ? gen.job : null;
+  useEffect(() => {
+    if (!ended) return;
+    startedHere.current = null;
+    const diagnosis = (ended.result as { diagnosis?: { kind: string } } | undefined)?.diagnosis;
+    noteRun(client, { ok: ended.status === "done" && !diagnosis, diagnosis, said: claudeSaid(gen.events) });
+  });
+
   const begin = async (input: Parameters<typeof start.mutateAsync>[0], replaced: string[] = []) => {
     try {
       const r = await start.mutateAsync(input);
       for (const id of replaced) discardAutosave(key("tests.show", { id }));
       if (r?.jobId) {
         setFresh((n) => n + 1);
+        startedHere.current = r.jobId;
         gen.follow(r.jobId);
       }
     } catch (e) {

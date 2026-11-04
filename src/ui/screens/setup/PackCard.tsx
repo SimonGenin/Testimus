@@ -12,7 +12,7 @@ const styles = stylex.create({
   body: { display: "flex", flexDirection: "column", gap: space.s1 },
   intent: { color: color.textMuted, fontSize: fontSize.compact, lineHeight: lineHeight.compact },
   models: { color: color.text, fontSize: fontSize.small, lineHeight: lineHeight.small },
-  warn: { color: color.warning, fontSize: fontSize.small, lineHeight: lineHeight.small },
+  note: { color: color.textMuted, fontSize: fontSize.small, lineHeight: lineHeight.small },
 });
 
 const UNTESTED = "Never run on this system yet: Testimus tries it after the download and refuses it if it fails.";
@@ -45,7 +45,7 @@ export function PackCard({
       : p.fit?.verdict === "unsupported"
         ? p.fit.message
         : `Not available on this PC${p.skipped[0] ? `: ${p.skipped[0]}` : ""}`;
-  const warn =
+  const note =
     analysed && p.available && (p.processorOnly || p.fit?.verdict === "untested")
       ? [p.processorOnly && PROCESSOR_ONLY, p.fit?.verdict === "untested" && UNTESTED].filter(Boolean).join(" ")
       : "";
@@ -70,7 +70,7 @@ export function PackCard({
       <span {...stylex.props(styles.body)}>
         <span {...stylex.props(styles.intent)}>{p.intent}</span>
         <span {...stylex.props(styles.models)}>{models}</span>
-        {warn && <span {...stylex.props(styles.warn)}>{warn}</span>}
+        {note && <span {...stylex.props(styles.note)}>{note}</span>}
       </span>
     </Card>
   );

@@ -72,7 +72,13 @@ export function DoctorScreen() {
         title="System check"
         meta={d.checking && !d.checks ? "Checking…" : d.at ? `Last checked at ${clock(d.at)}` : undefined}
       >
-        <Button variant="primary" icon="refresh" label="Check again" loading={d.checking} onClick={d.again} />
+        <Button
+          variant="primary"
+          icon="refresh"
+          label={d.checking ? "Checking…" : "Check again"}
+          loading={d.checking}
+          onClick={d.again}
+        />
       </ScreenHeader>
       <div {...stylex.props(styles.scroll)}>
         <div {...stylex.props(styles.page)}>

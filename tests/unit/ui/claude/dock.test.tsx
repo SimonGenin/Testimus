@@ -288,7 +288,52 @@ describe("Claude dock: asking the documents", () => {
   });
 });
 
+const CONNECT = [
+  { title: "Install Claude Code", cmd: "irm https://claude.ai/install.ps1 | iex", hint: "In PowerShell." },
+  { title: "Sign in once, in a terminal", cmd: "claude", hint: "It opens your browser." },
+];
+
 describe("Claude dock: connection", () => {
+  it("a run that fails on the sign-in turns the dock into the sign-in card until a check finds Claude signed in", async () => {
+    net.routes["claude.status"] = (i) =>
+      i.signIn
+        ? { installed: true, signedIn: true }
+        : { installed: true, signedIn: null, detail: "2.1.0 (Claude Code)", connect: CONNECT };
+    net.routes["claude.run"] = () => ({
+      ok: false,
+      summary: "Invalid API key · Please run /login",
+      runId: "run-9",
+      changedSteps: [],
+      diagnosis: {
+        kind: "login",
+        title: "Claude Code is not signed in.",
+        detail: "Run `claude` once in a terminal and sign in with your Claude account, then retry.",
+      },
+    });
+    mount({ folded: false }, { focus: focus() });
+    ask("Ajoute le chemin négatif");
+    expect(await screen.findByText("Claude is installed but not signed in")).toBeInTheDocument();
+    expect(screen.getByText("Not connected")).toBeInTheDocument();
+    expect(screen.queryByText("Install Claude Code")).toBeNull();
+    expect(screen.getByText("Sign in once, in a terminal")).toBeInTheDocument();
+    expect(screen.getByText("Come back and check")).toBeInTheDocument();
+    expect(screen.getByText("What Testimus saw").nextElementSibling).toHaveTextContent(
+      "2.1.0 (Claude Code) claude -p: Invalid API key · Please run /login",
+    );
+    expect(screen.getAllByText("Claude is not signed in").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Check again" }));
+    await waitFor(() => expect(screen.queryByText("Claude is installed but not signed in")).toBeNull());
+    expect(callsOf("claude.status").at(-1)?.input).toEqual({ refresh: true, signIn: true });
+    expect(screen.getByText("Claude Code is not signed in.")).toBeInTheDocument();
+    expect(screen.getByText("claude", { selector: "code" }).parentElement).toHaveTextContent(
+      "Run claude once in a terminal and sign in with your Claude account, then retry.",
+    );
+    expect(screen.queryByText("Check queued")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Revert" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeEnabled();
+  });
+
   it("guides the install, checks again with a sign-in probe and opens the system check", async () => {
     net.routes["claude.status"] = (i) =>
       i.refresh ? { installed: true, signedIn: true } : { installed: false, signedIn: null };
@@ -304,7 +349,7 @@ describe("Claude dock: connection", () => {
   it("shows the sign-in steps when installed but signed out, and survives a failed status", async () => {
     net.routes["claude.status"] = () => ({ installed: true, signedIn: false });
     mount();
-    expect(await screen.findByText("Claude isn't signed in on this PC yet")).toBeInTheDocument();
+    expect(await screen.findByText("Claude is installed but not signed in")).toBeInTheDocument();
     cleanup();
     net.routes["claude.status"] = () => {
       throw new Fail("no");

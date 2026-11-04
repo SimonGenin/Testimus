@@ -74,6 +74,11 @@ const STATE: Record<Exclude<SourceState, "ok">, { icon: IconName; word: string; 
   },
 };
 
+// ponytail: a quote is doc.md's exact text, Word bold and italic kept as **…** and *…*; the chip shows the words
+// without the marks, as the passage does
+const unmarked = (quote: string) =>
+  quote.replace(/\*\*(?=\S)([\s\S]*?\S)\*\*/g, "$1").replace(/\*(?=\S)([^*]*?\S)\*/g, "$1");
+
 export type SourceChipProps = {
   /** where the claim comes from, formatted by the caller (« §5.6.6 », « fig:40 », « D401 §5.6.6 ») */
   reference: string;
@@ -106,7 +111,8 @@ export function SourceChip({
   debugState,
 }: SourceChipProps) {
   const bad = state === "ok" ? null : STATE[state];
-  const shownQuote = compact ? undefined : quote;
+  const words = quote ? unmarked(quote) : quote;
+  const shownQuote = compact ? undefined : words;
   const look = stylex.props(
     styles.chip,
     onOpen && styles.opens,
@@ -132,7 +138,7 @@ export function SourceChip({
       )}
     </>
   );
-  const tip = [quote ? `${reference} — “${quote}”` : reference, bad?.says].filter(Boolean).join(" ");
+  const tip = [words ? `${reference} — “${words}”` : reference, bad?.says].filter(Boolean).join(" ");
   const chip = onOpen ? (
     <button type="button" aria-pressed={pressed} onClick={onOpen} {...look}>
       {inner}

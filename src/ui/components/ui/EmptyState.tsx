@@ -18,6 +18,7 @@ const styles = stylex.create({
     color: color.textMuted,
   },
   compact: { paddingBlock: space.s7, paddingInline: space.s5 },
+  wide: { boxSizing: "border-box", maxWidth: size.reading },
   mark: {
     display: "inline-flex",
     alignItems: "center",
@@ -56,13 +57,15 @@ export type EmptyStateProps = {
   actions?: ReactNode;
   /** inside a list's frame or a small card: less room above and below */
   compact?: boolean;
+  /** alone in a wide pane (Generate's result): the text runs to the reading width */
+  wide?: boolean;
 };
 
 // ponytail: fills a list or a pane that has nothing — no illustration, no joke; the title is text, not a heading, so it
 // never breaks the screen's outline
-export function EmptyState({ icon, title, text, actions, compact = false }: EmptyStateProps) {
+export function EmptyState({ icon, title, text, actions, compact = false, wide = false }: EmptyStateProps) {
   return (
-    <div {...stylex.props(styles.empty, compact && styles.compact)}>
+    <div {...stylex.props(styles.empty, compact && styles.compact, wide && styles.wide)}>
       <span {...stylex.props(styles.mark)}>
         <Icon name={icon} size="lg" />
       </span>

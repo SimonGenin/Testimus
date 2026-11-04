@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { Badge } from "../../../../src/ui/components/ui/Badge.tsx";
 import { FirstRunScreen } from "../../../../src/ui/screens/setup/FirstRunScreen.tsx";
 import { PackStep } from "../../../../src/ui/screens/setup/PackStep.tsx";
 import { callsOf, fakeEvents, fakeNet, net, withApp } from "../../helpers/ui-data.tsx";
@@ -282,6 +283,11 @@ describe("First launch › Search pack, as the third step", () => {
         ...row("balanced", "Balanced", "qwen3-onnx-fp16", "cpu", 1100),
         fit: { ...fits("cpu"), verdict: "untested", message: "Not proven on macOS x64." },
       },
+      {
+        ...row("quality", "Quality", "qwen3-8b-gguf", "cpu", 4000),
+        available: false,
+        fit: { ...fits("cpu"), verdict: "unsupported", message: "Every variant runs on llama.cpp, Windows only." },
+      },
     ];
     show();
     await screen.findByRole("radiogroup", { name: "Search packs" });
@@ -291,6 +297,16 @@ describe("First launch › Search pack, as the third step", () => {
     expect(screen.getByText(/Made for a GPU: here it runs on the processor, several times slower/)).toBeInTheDocument();
     expect(within(card("Balanced")).getByText("Untested here")).toBeInTheDocument();
     expect(screen.getByText(/Never run on this system yet: Testimus tries it after the download/)).toBeInTheDocument();
+    const badge = (where: string, word: string) =>
+      within(card(where)).getByText(word).closest("span")?.getAttribute("class");
+    expect(badge("Balanced", "Untested here")).toBe(badge("Performance", "Processor only"));
+    expect(within(card("Balanced")).getByText("Untested here").parentElement?.querySelector("circle")).toHaveAttribute(
+      "stroke-dasharray",
+    );
+    render(<Badge tone="neutral" icon="x-circle" size="sm" label="Neutral" />);
+    expect(badge("Quality", "Not supported here")).toBe(
+      screen.getByText("Neutral").closest("span")?.getAttribute("class"),
+    );
   });
 
   it("an analysis that fails preselects nothing, and the step can be skipped", async () => {

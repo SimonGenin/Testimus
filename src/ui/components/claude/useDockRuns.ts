@@ -19,6 +19,7 @@ import {
   transcript,
 } from "./turns.ts";
 import { useClaudeJob } from "./useClaudeJob.ts";
+import { noteRun } from "./useClaudeStatus.ts";
 
 // a run handed by the app (Fix with Claude in Review, Ask Claude on a step): `text` is the request as asked, when it
 // is not the label
@@ -61,7 +62,8 @@ export function useDockRuns(app: AppState) {
       }));
   };
 
-  const recheck = (diagnosis?: { kind: string }) => {
+  const recheck = (ok: boolean, diagnosis: { kind: string } | undefined, said: string) => {
+    noteRun(client, { ok, diagnosis, said });
     if (diagnosis && ["connect", "login"].includes(diagnosis.kind)) void invalidate(client, [["claude.status"]]);
   };
 
@@ -106,18 +108,20 @@ export function useDockRuns(app: AppState) {
         raw: typeof r.raw === "string" ? r.raw : t.raw,
         again: ok ? undefined : again,
         action: r.action ?? t.action,
-        // ponytail: every run with a snapshot gets its card, « 0 steps changed » too, with Revert (Xray Editor)
-        run: r.runId
-          ? {
-              runId: r.runId,
-              testId: testId || changedTests[0] || "",
-              ...(sc?.kind === "doc" ? { docId: sc.docId } : {}),
-              steps,
-              tests: changedTests.length,
-              ...(r.changedFiles ? { files: r.changedFiles.length } : {}),
-              review: t.action ? undefined : r.review,
-            }
-          : undefined,
+        // ponytail: every run with a snapshot gets its card, « 0 steps changed » too, with Revert (Xray Editor) — but
+        // a failed run that changed nothing has nothing to show, revert or check
+        run:
+          r.runId && (ok || steps > 0 || changedTests.length > 0 || !!r.changedFiles?.length)
+            ? {
+                runId: r.runId,
+                testId: testId || changedTests[0] || "",
+                ...(sc?.kind === "doc" ? { docId: sc.docId } : {}),
+                steps,
+                tests: changedTests.length,
+                ...(r.changedFiles ? { files: r.changedFiles.length } : {}),
+                review: t.action ? undefined : r.review,
+              }
+            : undefined,
       }));
       setLast({ seconds: durationMs / 1000, summary: (r.summary ?? "").split("\n")[0], ok });
       app.setLastRun({
@@ -129,7 +133,7 @@ export function useDockRuns(app: AppState) {
         message: r.message,
         nonce: Date.now(),
       });
-      recheck(r.diagnosis);
+      recheck(ok, r.diagnosis, r.summary ?? "");
     } finally {
       app.setClaudeRunning(null);
     }
@@ -242,7 +246,7 @@ export function useDockRuns(app: AppState) {
           again: ok ? undefined : a,
         }));
         setLast({ seconds: durationMs / 1000, summary: (r.answer ?? "").split("\n")[0], ok });
-        recheck(r.diagnosis);
+        recheck(ok, r.diagnosis, r.raw || r.answer || "");
       } else if (a.scope) {
         await runOnTest(
           answerId,

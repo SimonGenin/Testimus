@@ -29,7 +29,7 @@ test.describe("Claude signed out", () => {
     await expect(
       dock
         .getByText("Claude Code is not signed in.")
-        .or(dock.getByRole("heading", { name: "Claude isn't signed in on this PC yet" })),
+        .or(dock.getByRole("heading", { name: "Claude is installed but not signed in" })),
     ).toBeVisible();
     await expect(page.getByRole("alert")).toHaveCount(0);
   });

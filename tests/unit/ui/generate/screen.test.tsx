@@ -152,7 +152,7 @@ describe("Generate screen", () => {
     expect(go()).toBeDisabled();
     expect(screen.getAllByText("Claude is not connected").length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole("button", { name: "Check again" }));
-    expect(await screen.findByText("Claude isn't signed in on this PC yet")).toBeInTheDocument();
+    expect(await screen.findByText("Claude is installed but not signed in")).toBeInTheDocument();
     expect(named("claude.status").at(-1)?.input).toEqual({ refresh: true, signIn: true });
     fireEvent.click(screen.getByRole("button", { name: "Check again" }));
     await waitFor(() => expect(named("claude.status").filter((c) => c.input.refresh)).toHaveLength(2));
@@ -328,6 +328,54 @@ describe("Generate screen", () => {
     await waitFor(() => expect(named("gen.tests")).toHaveLength(1));
     expect(named("gen.tests")[0].input).toMatchObject({ docs: ["D1"], discard: true });
     expect(await screen.findByText("1 test not validated yet was deleted before this run.")).toBeInTheDocument();
+  });
+
+  it("a generation that fails on Claude's sign-in ends red and shows how to sign in, until a check finds it signed in", async () => {
+    base();
+    api.routes["claude.status"] = (i) =>
+      i.signIn
+        ? { installed: true, signedIn: true }
+        : { installed: true, signedIn: null, detail: "2.1.0 (Claude Code)" };
+    api.routes["gen.tests"] = () => ({ jobId: "j1" });
+    const said = "Invalid API key · Please run /login";
+    const diagnosis = {
+      kind: "login",
+      title: "Claude Code is not signed in.",
+      detail: "Run `claude` once in a terminal and sign in with your Claude account, then retry.",
+    };
+    const ended = job({ status: "done", endedAt: at, result: output({ ok: false, diagnosis }) });
+    const events = [
+      { jobId: "j1", at, type: "progress" as const, message: "Deleted 1 test(s) not validated yet" },
+      {
+        jobId: "j1",
+        at,
+        type: "claude" as const,
+        event: { type: "result" as const, ok: false, text: said, durationMs: 10 },
+      },
+      { jobId: "j1", at, type: "status" as const, job: ended },
+    ];
+    api.routes["jobs.show"] = () => ({ job: ended, events });
+    mountData(<GenerateScreen />);
+    fireEvent.change(screen.getByLabelText("What should be tested?"), { target: { value: "Les sectionneurs" } });
+    await waitFor(() => expect(go()).toBeEnabled());
+    fireEvent.click(go());
+    expect(await screen.findByText("Claude is installed but not signed in")).toBeInTheDocument();
+    expect(screen.getByText(`claude -p: ${said}`)).toBeInTheDocument();
+    expect(go(/^Generate/)).toBeDisabled();
+    expect(screen.getAllByText("Claude is not connected").length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("button", { name: "Check again" }));
+    await waitFor(() => expect(screen.queryByText("Claude is installed but not signed in")).toBeNull());
+    expect(named("claude.status").at(-1)?.input).toEqual({ refresh: true, signIn: true });
+    const end = await screen.findByRole("heading", { name: "Stopped · 0 tests written" });
+    expect(within(end.closest("li") as HTMLElement).getByRole("img", { name: "Failed" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /^Done/ })).toBeNull();
+    const code = screen.getByText("claude", { selector: "code" });
+    expect(code.parentElement).toHaveTextContent(
+      "Run claude once in a terminal and sign in with your Claude account, then retry.",
+    );
+    expect(screen.getByRole("button", { name: /What Claude did/ }).parentElement).toHaveTextContent(
+      "What Claude didsonnet · medium",
+    );
   });
 
   it("follows a run: ticks the clock, opens what landed, cancels, then ends", async () => {

@@ -92,4 +92,17 @@ describe("SourceChip", () => {
     const c = (n: string) => cls(screen.getByRole("button", { name: n }));
     expect(new Set([c("§1"), c("§2"), c("§3")]).size).toBe(3);
   });
+
+  it("shows a quote without doc.md's bold and italic marks, and keeps a lone star", () => {
+    render(
+      <>
+        <SourceChip reference="§5.6.6" quote="ne propose que **Propriétés**." onOpen={() => {}} />
+        <SourceChip reference="§5.6.7" quote="le *Disjoncteur* et la note 2 * 3" />
+      </>,
+    );
+    const b = screen.getByRole("button", { name: "§5.6.6 “ne propose que Propriétés.”" });
+    expect(b).toHaveAccessibleDescription("§5.6.6 — “ne propose que Propriétés.”");
+    expect(screen.getByText("“le Disjoncteur et la note 2 * 3”")).toBeInTheDocument();
+    expect(screen.queryByText(/\*\*/)).toBeNull();
+  });
 });

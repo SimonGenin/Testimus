@@ -45,8 +45,10 @@ describe("System check screen", () => {
     };
     withApp(<DoctorScreen />);
     expect(screen.getByRole("region", { name: "Checks" })).toHaveAttribute("aria-busy", "true");
-    expect(screen.getByText("Checking…")).toBeInTheDocument();
+    expect(screen.getAllByText("Checking…")).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "Checking…" })).toHaveAttribute("aria-busy", "true");
     await waitFor(() => expect(screen.getByText("Proxy")).toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "Check again" })).not.toHaveAttribute("aria-busy");
     expect(screen.getByRole("region", { name: "Checks" })).toHaveAttribute("aria-busy", "false");
     expect(within(row("Proxy")).getByText("Info")).toBeInTheDocument();
     expect(screen.getByText("not used — install it")).toBeInTheDocument();

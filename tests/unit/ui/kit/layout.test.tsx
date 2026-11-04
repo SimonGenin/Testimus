@@ -229,6 +229,19 @@ describe("EmptyState", () => {
     const [a, b] = [...container.children];
     expect(cls(a)).not.toBe(cls(b));
   });
+
+  it("runs to the reading width when wide (alone in a wide pane)", () => {
+    const { container } = render(
+      <>
+        <EmptyState icon="generate" title="a" />
+        <EmptyState icon="generate" title="b" wide />
+        <EmptyState icon="generate" title="c" compact />
+      </>,
+    );
+    const [a, b, c] = [...container.children];
+    expect(cls(b)).not.toBe(cls(a));
+    expect(cls(b)).not.toBe(cls(c));
+  });
 });
 
 describe("Progress", () => {

@@ -100,6 +100,7 @@ const styles = stylex.create({
   },
   whole: { flex: "none" },
   foldableWords: { display: { default: "inline", [container.paneCompact]: "none" } },
+  foldableKeys: { display: { default: "inline-flex", [container.paneNarrow]: "none" } },
   timer: {
     whiteSpace: "nowrap",
     fontVariantNumeric: "tabular-nums",
@@ -332,7 +333,7 @@ export function ClaudeBlock(props: ClaudeBlockProps) {
               {off ? (
                 <span {...stylex.props(styles.hint, styles.whole)}>{unavailable}</span>
               ) : (
-                <span {...stylex.props(styles.hint, styles.keep)}>
+                <span {...stylex.props(styles.hint, styles.keep, styles.foldableKeys)}>
                   <Kbd>{submit === "enter" ? "Enter" : "Ctrl+Enter"}</Kbd>
                   <span {...stylex.props(styles.foldableWords)}>to send</span>
                 </span>

@@ -50,8 +50,8 @@ export const FIT: Record<FitVerdict, { tone: BadgeTone; icon: IconName; word: st
   "gpu-too-small": { tone: "warning", icon: "cpu", word: "Partly on the processor" },
   "ram-too-small": { tone: "danger", icon: "x-circle", word: "RAM too small" },
   unknown: { tone: "info", icon: "info", word: "Not measured" },
-  untested: { tone: "warning", icon: "alert-triangle", word: "Untested here" },
-  unsupported: { tone: "danger", icon: "x-circle", word: "Not supported here" },
+  untested: { tone: "warning", icon: "circle-dashed", word: "Untested here" },
+  unsupported: { tone: "neutral", icon: "x-circle", word: "Not supported here" },
 };
 
 export const STATE: Record<ModelState, { tone: BadgeTone; icon: IconName; word: string }> = {

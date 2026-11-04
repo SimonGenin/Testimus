@@ -1,8 +1,9 @@
 import * as stylex from "@stylexjs/stylex";
 import { useEffect, useState } from "react";
 import type { LocalTestRef } from "../../../core/types.ts";
-import { ClaudeActivity } from "../../components/claude/ClaudeActivity.tsx";
+import { askedOf, ClaudeActivity } from "../../components/claude/ClaudeActivity.tsx";
 import { type ClaudeStatus, ConnectClaude } from "../../components/claude/ConnectClaude.tsx";
+import { DiagnosisText } from "../../components/claude/DiagnosisText.tsx";
 import { Badge } from "../../components/ui/Badge.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Card } from "../../components/ui/Card.tsx";
@@ -93,6 +94,7 @@ export function ResultPane({
       <div {...stylex.props(styles.pane)}>
         {noDocs ? (
           <EmptyState
+            wide
             icon="documents"
             title="Generate needs a document"
             text="Tests are written from the project's specifications, with a source for every expected result. Add a .docx or .pdf first."
@@ -100,6 +102,7 @@ export function ResultPane({
           />
         ) : (
           <EmptyState
+            wide
             icon="generate"
             title="Tests appear here as Claude writes them"
             text="Pick the documents (all of them by default), say what to test if you want, and generate. Every expected result gets a source; what cannot be sourced is reported instead of invented."
@@ -136,7 +139,11 @@ export function ResultPane({
         />
         {result && <GenSummary result={result} checked={checkLine(result.tests, result.checks)} />}
         {job?.status === "failed" && job.error && <p {...stylex.props(styles.error)}>{job.error}</p>}
-        {result?.diagnosis && <p {...stylex.props(styles.muted)}>{result.diagnosis.detail}</p>}
+        {result?.diagnosis && (
+          <p {...stylex.props(styles.muted)}>
+            <DiagnosisText text={result.diagnosis.detail} />
+          </p>
+        )}
       </div>
     </Card>
   );
@@ -156,7 +163,10 @@ export function ResultPane({
       onSource={app.openSource}
     />
   ));
-  const activity = <ClaudeActivity events={gen.events} running={running} now={now} />;
+  const asked = askedOf(job, app.info?.project.claude);
+  const activity = (
+    <ClaudeActivity events={gen.events} running={running} now={now} model={asked.model} effort={asked.effort} />
+  );
   return (
     <div {...stylex.props(styles.pane)}>
       {head}

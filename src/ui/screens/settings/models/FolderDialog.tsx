@@ -35,8 +35,15 @@ const styles = stylex.create({
     lineHeight: lineHeight.compact,
     fontWeight: fontWeight.medium,
   },
-  root: { fontFamily: fontFamily.mono },
+  root: {
+    display: "block",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    fontFamily: fontFamily.mono,
+  },
   free: {
+    flexShrink: 0,
     marginInlineStart: space.s3,
     color: color.textMuted,
     fontSize: fontSize.small,

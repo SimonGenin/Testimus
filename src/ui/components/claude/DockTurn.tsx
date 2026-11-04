@@ -17,6 +17,7 @@ import { Icon } from "../ui/Icon.tsx";
 import { SourceChip } from "../ui/SourceChip.tsx";
 import { Spinner } from "../ui/Spinner.tsx";
 import { AnswerText } from "./AnswerText.tsx";
+import { DiagnosisText } from "./DiagnosisText.tsx";
 import { type Again, changed, metaLine, type RunCard, runBadges, type Turn } from "./turns.ts";
 
 const styles = stylex.create({
@@ -156,7 +157,11 @@ export function AnswerTurn({ turn: t, actions: a }: { turn: Turn; actions: TurnA
           {t.trouble && (
             <div role="status" {...stylex.props(styles.trouble)}>
               <strong {...stylex.props(styles.troubleTitle)}>{t.trouble.title}</strong>
-              {t.trouble.detail && <p {...stylex.props(styles.troubleText)}>{t.trouble.detail}</p>}
+              {t.trouble.detail && (
+                <p {...stylex.props(styles.troubleText)}>
+                  <DiagnosisText text={t.trouble.detail} />
+                </p>
+              )}
             </div>
           )}
           {!!t.sources?.length && (

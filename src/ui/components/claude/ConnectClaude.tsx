@@ -134,6 +134,12 @@ const LOGIN = [
   { title: "Sign in", cmd: "/login", hint: "Follow the page that opens, then come back here." },
 ];
 
+const BACK = {
+  title: "Come back and check",
+  cmd: "",
+  hint: "Testimus runs Claude with your subscription — no API key.",
+};
+
 const copy = (cmd: string) =>
   navigator.clipboard
     .writeText(cmd)
@@ -159,19 +165,23 @@ export function ConnectClaude({
   look?: "card" | "dock" | "panel";
 }) {
   const installed = status.installed;
-  const steps = status.connect?.length ? status.connect : installed ? LOGIN : INSTALL;
   const dock = look === "dock";
   const panel = look === "panel";
+  const listed = status.connect?.length ? status.connect : installed ? LOGIN : INSTALL;
+  const toDo = installed ? listed.filter((s) => !/^install/i.test(s.title)) : listed;
+  const steps = dock && installed ? [...toDo, BACK] : toDo;
+  const numbered = steps.length > 1;
+  const saw = dock ? status.detail : status.detail?.split("\n").filter(Boolean).at(-1);
   return (
     <div {...stylex.props(styles.panel, panel && styles.framed)}>
-      {dock && <Badge tone="danger" icon="plug" label={installed ? "Signed out" : "Not connected"} />}
+      {dock && <Badge tone="danger" icon="plug" label="Not connected" />}
       <h3 {...stylex.props(styles.title, !dock && styles.titleSm)}>
         {look === "card" && (
           <span {...stylex.props(styles.mark)}>
             <Icon name="claude" />
           </span>
         )}
-        {installed ? "Claude isn't signed in on this PC yet" : "Claude isn't installed on this PC yet"}
+        {installed ? "Claude is installed but not signed in" : "Claude isn't installed on this PC yet"}
       </h3>
       <p {...stylex.props(styles.text)}>
         <span {...stylex.props(!dock && styles.strong)}>Claude is optional — everything else works without it.</span>{" "}
@@ -179,23 +189,25 @@ export function ConnectClaude({
       </p>
       <ol {...stylex.props(styles.steps, !dock && styles.stepsTight)}>
         {steps.map((s, i) => (
-          <li key={s.cmd} {...stylex.props(styles.step, dock && styles.stepNumbered)}>
+          <li key={s.title} {...stylex.props(styles.step, dock && styles.stepNumbered)}>
             {dock && <span {...stylex.props(styles.num)}>{i + 1}</span>}
             <span {...stylex.props(styles.stepTitle, !dock && styles.stepTitlePlain)}>
-              {!dock && <span>{i + 1} · </span>}
+              {!dock && numbered && <span>{i + 1} · </span>}
               {s.title}
             </span>
-            <span {...stylex.props(styles.cmd)}>
-              <code {...stylex.props(styles.code, panel && styles.codeOnSunken)}>{s.cmd}</code>
-              <Button
-                size="sm"
-                variant="quiet"
-                icon="copy"
-                iconOnly
-                label={`Copy: ${s.cmd}`}
-                onClick={() => void copy(s.cmd)}
-              />
-            </span>
+            {s.cmd && (
+              <span {...stylex.props(styles.cmd)}>
+                <code {...stylex.props(styles.code, panel && styles.codeOnSunken)}>{s.cmd}</code>
+                <Button
+                  size="sm"
+                  variant="quiet"
+                  icon="copy"
+                  iconOnly
+                  label={`Copy: ${s.cmd}`}
+                  onClick={() => void copy(s.cmd)}
+                />
+              </span>
+            )}
             {s.hint && (
               <span data-testid="connect-hint" {...stylex.props(styles.hint)}>
                 {s.hint}
@@ -204,14 +216,14 @@ export function ConnectClaude({
           </li>
         ))}
       </ol>
-      {status.detail &&
+      {saw &&
         (dock ? (
           <>
             <span {...stylex.props(styles.sawLabel)}>What Testimus saw</span>
-            <pre {...stylex.props(styles.saw)}>{status.detail}</pre>
+            <pre {...stylex.props(styles.saw)}>{saw}</pre>
           </>
         ) : (
-          !panel && <pre {...stylex.props(styles.sawLine)}>{status.detail}</pre>
+          !panel && <pre {...stylex.props(styles.sawLine)}>{saw}</pre>
         ))}
       <div {...stylex.props(styles.foot)}>
         <Button

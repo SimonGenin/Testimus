@@ -264,6 +264,10 @@ describe("Settings › Claude › dock defaults, quick asks, default contexts", 
     fireEvent.change(screen.getByRole("combobox", { name: "Default effort" }), { target: { value: "max" } });
     await waitFor(() => expect(inputs("project.set")[1]).toEqual({ claude: { effort: "max" } }));
     await waitFor(() => expect(screen.getByRole("combobox", { name: "Default effort" })).toHaveValue("max"));
+    const wrap = (el: HTMLElement) => el.parentElement?.getAttribute("class");
+    expect(wrap(screen.getByLabelText("Default model"))).toBe(
+      wrap(screen.getByRole("combobox", { name: "Default effort" })),
+    );
   });
 
   it("the model can be a custom one", async () => {

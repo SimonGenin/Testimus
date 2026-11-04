@@ -391,7 +391,7 @@ describe("dock: run details and failures", () => {
       detail: probe,
     });
     const r = render(wrap(app(), <ClaudeDock folded={false} onFold={() => {}} />));
-    const title = await screen.findByText("Claude isn't signed in on this PC yet");
+    const title = await screen.findByText("Claude is installed but not signed in");
     const panel = title.parentElement as HTMLElement;
     expect(within(panel).getByText("What Testimus saw")).toBeInTheDocument();
     expect(within(panel).getByText(probe)).toBeInTheDocument();

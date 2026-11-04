@@ -190,6 +190,8 @@ describe("ConnectAtlassian", () => {
     expect(screen.getByText("C:\\Users\\me\\.atlassian")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Saved in/ })).toBeNull();
     expect(screen.getByText(/Create API token/)).toBeInTheDocument();
+    expect(screen.getByText(/Create API token/).closest("li")).toHaveTextContent("not “with scopes”");
+    expect(document.querySelector("em, i")).toBeNull();
     expect(screen.getByText(/only a Jira admin sees that page/i)).toBeInTheDocument();
   });
 

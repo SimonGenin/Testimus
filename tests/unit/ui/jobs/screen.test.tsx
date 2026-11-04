@@ -350,6 +350,34 @@ describe("Jobs screen", () => {
     await waitFor(() => expect(within(list()).queryByText("Check tests")).toBeNull());
   });
 
+  it("heads What Claude did with the run's model and effort, else the project's defaults", async () => {
+    const end = "2026-11-02T10:01:00Z";
+    const ran = (id: string): JobEvent[] => [
+      {
+        jobId: id,
+        at: end,
+        type: "claude",
+        event: { type: "result", ok: true, text: "ok", durationMs: 4000, tokens: { input: 18000, output: 640 } },
+      },
+    ];
+    server = [
+      job({
+        id: "fix-1",
+        kind: "fix",
+        status: "done",
+        endedAt: end,
+        rerun: { name: "review.fix", input: { id: "local-1", model: "opus", effort: "high" } },
+      }),
+      job({ id: "fix-2", kind: "fix", status: "done", endedAt: end, rerun: { name: "review.fix", input: {} } }),
+    ];
+    net.routes["jobs.show"] = (i) => ({ job: server.find((j) => j.id === i.id), events: ran(String(i.id)) });
+    const { rerenderWith } = jobsScreen({ route: { screen: "jobs", arg: "fix-1" } });
+    const head = () => within(detail("Claude fix job")).getByRole("button", { name: /What Claude did/ }).parentElement;
+    await waitFor(() => expect(head()).toHaveTextContent("opus · high · 0:04 · 18k tokens in · 640 out"));
+    rerenderWith({ route: { screen: "jobs", arg: "fix-2" } });
+    await waitFor(() => expect(head()).toHaveTextContent("sonnet · medium · 0:04 · 18k tokens in · 640 out"));
+  });
+
   it("reports a clear that fails and keeps the jobs", async () => {
     server = [job({ id: "c1", kind: "check", status: "done", endedAt: "2026-11-02T10:01:00Z" })];
     net.routes["jobs.clear"] = () => {

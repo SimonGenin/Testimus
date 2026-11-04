@@ -22,7 +22,6 @@ import {
 import { Button } from "../ui/Button.tsx";
 import { Icon } from "../ui/Icon.tsx";
 import { Modal } from "../ui/Modal.tsx";
-import type { ClaudeStatus } from "./ConnectClaude.tsx";
 import { DockActions, useActionChoices } from "./DockActions.tsx";
 import { DockComposer, runIds } from "./DockComposer.tsx";
 import { DockFolded } from "./DockFolded.tsx";
@@ -30,6 +29,7 @@ import { DockLog } from "./DockLog.tsx";
 import { DockScope } from "./DockScope.tsx";
 import { OnTopToggle } from "./OnTopToggle.tsx";
 import { type Again, docOfRoute } from "./turns.ts";
+import { useClaudeStatus } from "./useClaudeStatus.ts";
 import { type DockJob, useDockRuns } from "./useDockRuns.ts";
 import { useDockScope } from "./useDockScope.ts";
 import { useNow } from "./useNow.ts";
@@ -128,10 +128,8 @@ export function ClaudeDock({
   const [, setPrompt] = useDraft([project(), "dock.prompt"]);
   const [focusAsk, setFocusAsk] = useState(0);
 
-  const statusRead = useRead("claude.status", {});
-  const status = statusRead.data as ClaudeStatus | undefined;
+  const { status } = useClaudeStatus();
   const offline = !!status && (!status.installed || status.signedIn === false);
-  const notInstalled = !!status && !status.installed;
 
   const ctx = useRunContexts({ tab, sub, focus, docId, projectDir, defaults: cfg?.contexts });
 
@@ -218,7 +216,7 @@ export function ClaudeDock({
         actions={actions.length}
         running={runs.busy}
         seconds={elapsed}
-        offline={notInstalled}
+        offline={offline}
         last={runs.last}
       />
     );
@@ -285,7 +283,9 @@ export function ClaudeDock({
             model={model}
             effort={effort}
             running={runs.busy ? elapsed : null}
-            unavailable={offline ? "Claude is not connected" : undefined}
+            unavailable={
+              offline ? (status?.installed ? "Claude is not signed in" : "Claude is not connected") : undefined
+            }
             onModel={setModel}
             onEffort={setEffort}
             onCancel={runs.jobId ? runs.cancel : undefined}

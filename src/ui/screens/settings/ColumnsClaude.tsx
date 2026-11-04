@@ -5,6 +5,7 @@ import type { CommandOutput } from "../../../core/commands/index.ts";
 import type { StepColumn } from "../../../core/types.ts";
 import { AdditionalContext } from "../../components/claude/AdditionalContext.tsx";
 import { toolLabel } from "../../components/claude/ClaudeDock.tsx";
+import { DiagnosisText } from "../../components/claude/DiagnosisText.tsx";
 import { Badge, type BadgeTone } from "../../components/ui/Badge.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Card } from "../../components/ui/Card.tsx";
@@ -233,7 +234,11 @@ export function ColumnsClaude({ columns }: { columns: StepColumn[] }) {
             <Icon name="claude" size="sm" />
             Claude's proposals
           </span>
-          {answer.text && <p {...stylex.props(styles.said)}>{answer.text}</p>}
+          {answer.text && (
+            <p {...stylex.props(styles.said)}>
+              <DiagnosisText text={answer.text} />
+            </p>
+          )}
           {proposals.length > 0 ? (
             <ul aria-label="Claude's proposals" {...stylex.props(styles.list)}>
               {proposals.map((p) => {

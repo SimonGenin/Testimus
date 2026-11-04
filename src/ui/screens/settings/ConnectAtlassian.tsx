@@ -275,8 +275,8 @@ export function ConnectAtlassian({
               <Button size="sm" icon="external" label="Open API tokens" onClick={() => open(TOKENS)} />
             </li>
             <li>
-              <strong>Create API token</strong> — the plain one, not <em>with scopes</em> (a scoped token does not work
-              here); name it, pick the longest expiry.
+              <strong>Create API token</strong> — the plain one, not “with scopes” (a scoped token does not work here);
+              name it, pick the longest expiry.
             </li>
             <li>Copy it and paste it below: it is shown only once.</li>
           </ol>
