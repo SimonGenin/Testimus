@@ -5,7 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setProject } from "../../../../src/ui/api.ts";
 import { App } from "../../../../src/ui/app/App.tsx";
 import { DataProvider } from "../../../../src/ui/lib/data/provider.tsx";
-import { resetDoctor } from "../../../../src/ui/lib/doctor.ts";
 import { callsOf, fakeEvents, fakeNet, job, net } from "../../cov-uishell-helpers.tsx";
 import { app as appState } from "../../ui-desktop-helpers.tsx";
 
@@ -37,7 +36,6 @@ vi.mock("../../../../src/ui/components/claude/ClaudeDock.tsx", () => ({
 beforeEach(() => {
   fakeNet();
   fakeEvents();
-  resetDoctor();
   window.location.hash = "";
   Object.defineProperty(window, "innerWidth", { value: 1600, configurable: true, writable: true });
   net.api = () => ({ project: "C:\\p", mock: true, commands: [] });
