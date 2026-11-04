@@ -1288,7 +1288,7 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
   are shown once (the job stays in Jobs). « Added by Claude » marks only steps beyond the step count
   before the run; any other change is « Changed by Claude ».
 - A Jira write from the palette (`xray.push`) always shows its plan first, like the buttons do.
-- Shell: Ctrl+K command palette (every registry command by name; a command with input gets a form from its schema), Ctrl+J folds the Claude dock (folded at start and in Review; the user's choice holds until the next start), theme system / light / dark from the rail, step layout and last project remembered per browser; Revert undoes a whole Claude run. The page title is « Testimus — <project name> » (« Testimus » with no project); the desktop window takes it.
+- Shell: Ctrl+K command palette (every registry command by name; a command with input gets a form from its schema; without a project it lists the ways to open one first and goes only to Jobs, Settings and the system check), Ctrl+J folds the Claude dock (folded at start and in Review; the user's choice holds until the next start), theme system / light / dark from the rail, step layout and last project remembered per browser; Revert undoes a whole Claude run. The page title is « Testimus — <project name> » (« Testimus » with no project); the desktop window takes it.
 - The app logo (`src/ui/public/logo.png`, `favicon.png`; `scripts/testimus.ico` for the Start-menu shortcut)
   sits on a light tile at the top of the rail and on the first-launch screen.
 - Built on one kit (GOAL-V3, 2026-11-04): every control is a component of `src/ui/components/ui/` (Button, Text,
