@@ -170,7 +170,9 @@ function shellShots(): Shot[] {
       hash: "#/tests",
       prep: (p) => palette(p),
     },
-    { id: "palette-nothing", note: "Search everywhere, no match", hash: "#/tests", prep: (p) => palette(p, "zzzqqq") },
+    // ponytail: a key-like query — search.all never asks its meaning (a code is a question for words), and the mock's
+    // embedder finds a neighbour for any word, so a plain word would never show the « nothing matches » state
+    { id: "palette-nothing", note: "Search everywhere, no match", hash: "#/tests", prep: (p) => palette(p, "ZZQ-404") },
     {
       id: "project-menu",
       note: "Project menu",
@@ -561,13 +563,17 @@ function fixtureShots(): Shot[] {
     },
     {
       id: "toast-error",
-      note: "An error toast",
-      expectErrors: failedWith(500, "the shot makes docs.list fail (500) to show the error toast"),
+      note: "An error toast: a command run from the palette fails",
+      expectErrors: failedWith(500, "the shot makes system.version fail (500) to show the error toast of an action"),
       hash: "#/tests",
       prep: async (p) => {
-        await fail(p, "**/api/docs/list");
-        await p.goto(`${new URL(p.url()).origin}/#/documents`);
-        await p.getByRole("alert").first().waitFor({ timeout: T });
+        await fail(p, "**/api/system/version");
+        await palette(p, "system.version");
+        await p.keyboard.press("Enter");
+        await p
+          .getByText(/— failed$/)
+          .first()
+          .waitFor({ timeout: T });
       },
     },
     {
@@ -700,7 +706,9 @@ function fixtureShots(): Shot[] {
       hash: "#/tests",
       prep: async (p) => {
         await delay(p, "**/api/jobs/list", 60_000);
-        await p.goto(`${new URL(p.url()).origin}/#/jobs`);
+        const origin = new URL(p.url()).origin;
+        await p.goto("about:blank");
+        await p.goto(`${origin}/#/jobs`);
         await p.waitForTimeout(800);
       },
     },
@@ -710,7 +718,9 @@ function fixtureShots(): Shot[] {
       hash: "#/tests",
       prep: async (p) => {
         await delay(p, "**/api/system/doctor", 60_000);
-        await p.goto(`${new URL(p.url()).origin}/#/doctor`);
+        const origin = new URL(p.url()).origin;
+        await p.goto("about:blank");
+        await p.goto(`${origin}/#/doctor`);
         await p.waitForTimeout(800);
       },
     },
@@ -939,13 +949,14 @@ function slowShots(): Shot[] {
       note: "Pull pane (a Jira test being downloaded)",
       hash: "#/tests",
       prep: async (p) => {
+        // ponytail: the pull answers in 1.5 s and every size and theme is shot after it — held, the pane stays drawn
+        await delay(p, "**/api/xray/pull", 60_000);
         await tap(p, /^Jira/);
         await tap(p, /^Traction [\d/]+$/);
         await tap(p, /^Disjoncteurs [\d/]+$/);
         await tap(p, /LFRPS12-1401/);
         await see(p, /^Pulling LFRPS12-1401/);
       },
-      settle: 1200,
     },
     {
       id: "tests-pushing",
@@ -966,12 +977,40 @@ function slowShots(): Shot[] {
   ];
 }
 
-function claudeOfflineShots(): Shot[] {
+// ponytail: Claude absent shows at once; Claude installed but signed out is known only once something asks it — a run,
+// or the system check's sign-in probe (SPEC §12 claude.status signIn) — so the logged-out shots ask
+function claudeOfflineShots(signIn = false): Shot[] {
   return [
-    { id: "dock", note: "Claude dock, Claude offline", hash: "#/documents", prep: async (p) => void (await dock(p)) },
-    { id: "generate", note: "Generate with Claude offline", hash: "#/generate" },
+    {
+      id: "dock",
+      note: "Claude dock, Claude offline",
+      hash: "#/documents",
+      prep: async (p) => (signIn ? ask(p, "reply ok") : void (await dock(p))),
+    },
+    {
+      id: "generate",
+      note: "Generate with Claude offline",
+      hash: "#/generate",
+      prep: signIn
+        ? async (p) => {
+            await generate(p);
+            await p.waitForTimeout(2500);
+          }
+        : undefined,
+    },
     { id: "settings-claude", note: "Settings › Claude with Claude offline", hash: "#/settings/claude" },
-    { id: "doctor", note: "System check with Claude offline", hash: "#/doctor", settle: 2500 },
+    {
+      id: "doctor",
+      note: "System check with Claude offline",
+      hash: "#/doctor",
+      settle: 2500,
+      prep: signIn
+        ? async (p) => {
+            await tap(p, "Check Claude sign-in");
+            await p.waitForTimeout(2500);
+          }
+        : undefined,
+    },
   ];
 }
 
@@ -979,7 +1018,17 @@ function modelsShots(fit?: string): Shot[] {
   const shots: Shot[] = [
     { id: "settings-models", note: "Settings › Models", hash: "#/settings/models" },
     { id: "settings-search", note: "Settings › Search", hash: "#/settings/search" },
-    { id: "setup-pack", note: "Search pack step", hash: "#/setup/pack", setup: true, ready: heading1 },
+    {
+      id: "setup-pack",
+      note: "Search pack step, this machine analysed",
+      hash: "#/setup/pack",
+      setup: true,
+      ready: heading1,
+      prep: async (p) => {
+        await tap(p, /^Analyse (my machine|again)/);
+        await p.waitForTimeout(1500);
+      },
+    },
   ];
   if (fit)
     shots.push({
@@ -1136,7 +1185,7 @@ export function SCENARIOS(essai: string): Scenario[] {
       id: "claude-logged-out",
       note: "Claude Code not signed in",
       env: { TESTIMUS_MOCK_SEED: "fixture", TESTIMUS_MOCK_CLAUDE: "logged-out" },
-      shots: claudeOfflineShots(),
+      shots: claudeOfflineShots(true),
     },
     {
       id: "words-only",

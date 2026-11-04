@@ -73,10 +73,10 @@ export function ProjectButton() {
   ];
   const trigger = (
     <RailItem
-      label={key || "no key"}
+      label={app.info ? key || "no key" : "no project"}
       mono
-      avatar={initials(name)}
-      ariaLabel={`Project ${key || "not connected to Jira"} ${name}, change project`}
+      {...(app.info ? { avatar: initials(name) } : { icon: "folder" as const })}
+      ariaLabel={app.info ? `Project ${key || "not connected to Jira"} ${name}, change project` : "Open a project"}
       onClick={() => void list.refetch()}
     />
   ) as unknown as ReactElement<ButtonProps>;
