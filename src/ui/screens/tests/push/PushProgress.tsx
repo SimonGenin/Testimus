@@ -59,9 +59,9 @@ export function PushProgress({
     },
     { done: 0, failed: 0, left: 0 },
   );
-  const detail = `${counts.done} done${counts.failed ? ` · ${counts.failed} failed` : ""} · ${counts.left} not started${
-    from > 0 && running ? ` · resumed at ${from + 1}` : ""
-  }`;
+  const detail = running
+    ? `${counts.done} of ${ops.length} done${from > 0 ? ` · resumed at ${from + 1}` : ""}`
+    : `${counts.done} done${counts.failed ? ` · ${counts.failed} failed` : ""} · ${counts.left} not started`;
   // ponytail: Jira's refusal sits under the operation it stopped at; with no operation to hold it, it heads the body
   const placed = !running && !!failure && failedAt >= 0 && failedAt < ops.length;
   return (
