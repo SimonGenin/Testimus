@@ -2,7 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import { useState } from "react";
 import { Button } from "../../../components/ui/Button.tsx";
 import { ResizeHandle } from "../../../components/ui/ResizeHandle.tsx";
-import { type SaveState, Text } from "../../../components/ui/Text.tsx";
+import { type FieldAutosave, Text } from "../../../components/ui/Text.tsx";
 import { space } from "../../../styles/tokens.stylex.ts";
 import { Cell, type KitSection, States } from "../kit.tsx";
 
@@ -24,7 +24,7 @@ function Resizable({ text }: { text: string }) {
 }
 
 const noop = async () => {};
-const state = (status: SaveState["status"], error?: string): SaveState => ({
+const state = (status: FieldAutosave["status"], error?: string): FieldAutosave => ({
   status,
   error,
   flush: noop,
@@ -57,14 +57,14 @@ export const section: KitSection = {
     },
     {
       head: "Save states",
-      text: "(the word beside the label, or at the bottom-right of an inline block; never a toast):",
+      text: "(the SaveState word beside the label, or at the bottom-right of an inline block; never a toast):",
       items: [
-        "**Edited** — typing, the save is pending (shown only after 1 s).",
+        "**Edited · saves in a moment** — typing, the save is pending (shown only after 1 s).",
         "**Saving…** — spinner.",
         "**Saved** — quiet check; the time in the tooltip. Fades to nothing after 3 s in inline fields.",
         "**Not saved — Retry** — danger, the field keeps the text, Retry calls save again; leaving the screen keeps the draft.",
         "**Changed on disk** — warning; a banner under the field offers « Reload from disk » and « Keep mine ».",
-        "**Read-only — Claude is editing** — violet edge and ground, lock; the value cannot be typed in until the run ends.",
+        "**Claude is editing** — violet edge and ground, lock (the tooltip says it is read-only); the value cannot be typed in until the run ends.",
       ],
     },
     {
@@ -141,7 +141,7 @@ export const section: KitSection = {
       <Cell label="Changed on disk" column>
         <Text label="Project notes" multiline value="Mine" autosave={state("conflict")} onChange={() => {}} />
       </Cell>
-      <Cell label="Read-only — Claude is editing" column>
+      <Cell label="Claude is editing (read-only)" column>
         <Text
           label="Expected Result"
           multiline

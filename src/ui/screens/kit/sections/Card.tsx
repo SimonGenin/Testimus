@@ -79,6 +79,37 @@ export const section: KitSection = {
           />
         </Card>
       </Cell>
+      <Cell label="focused · edges (warning, success, claude, danger)" wide column>
+        <Card title="Step 1" focused>
+          Ouvrir le menu contextuel.
+        </Card>
+        <Card title="Step 2" edge="warning">
+          Modified.
+        </Card>
+        <Card title="Step 3" edge="success">
+          New.
+        </Card>
+        <Card title="Step 4" edge="claude">
+          Changed by Claude.
+        </Card>
+        <Card title="Step 5" edge="danger">
+          Unreadable.
+        </Card>
+      </Cell>
+      <Cell label="dashed (a place for what is not there yet)" column>
+        <Card dashed>Claude is writing step 4…</Card>
+      </Cell>
+      <Cell label="onOpen · rest, hover, focus" wide column>
+        <Card title="Figure 3" onOpen={() => {}}>
+          Synoptique du poste.
+        </Card>
+        <Card title="Figure 4" onOpen={() => {}} debugState="hover">
+          Menu contextuel.
+        </Card>
+        <Card title="Figure 5" onOpen={() => {}} debugState="focus">
+          Légende.
+        </Card>
+      </Cell>
       <Cell label="radio · checked, hover, disabled" wide column>
         <Packs />
       </Cell>

@@ -19,6 +19,7 @@ import { Banner } from "./Banner.tsx";
 import { Button } from "./Button.tsx";
 import { Icon, type IconName } from "./Icon.tsx";
 import { focusables } from "./layer.ts";
+import { type } from "./type.ts";
 
 const fade = stylex.keyframes({ from: { opacity: 0 }, to: { opacity: 1 } });
 const rise = stylex.keyframes({
@@ -115,13 +116,7 @@ const styles = stylex.create({
   headIconWarning: { color: color.warning },
   headIconDanger: { color: color.danger },
   titles: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: space.s1 },
-  title: {
-    margin: 0,
-    fontSize: fontSize.title,
-    lineHeight: lineHeight.title,
-    fontWeight: fontWeight.semibold,
-  },
-  titleDrawer: { fontSize: fontSize.titleSm, lineHeight: lineHeight.titleSm },
+  title: { margin: 0 },
   sub: { color: color.textMuted, fontSize: fontSize.compact, lineHeight: lineHeight.compact },
   close: { marginTop: `calc(-1 * ${space.s1})`, marginInlineEnd: `calc(-1 * ${space.s3})` },
   closeDrawer: { marginTop: 0, marginInlineEnd: 0 },
@@ -339,7 +334,7 @@ export function Modal({
         </span>
       )}
       <div {...stylex.props(styles.titles)}>
-        <h2 id={`${id}-title`} {...stylex.props(styles.title, drawer && styles.titleDrawer)}>
+        <h2 id={`${id}-title`} {...stylex.props(type.title, drawer && type.titleSm, styles.title)}>
           {title}
         </h2>
         {subtitle && (

@@ -6,7 +6,7 @@ import { createRef, type ReactNode, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Chip } from "../../../../src/ui/components/ui/Chip.tsx";
 import { Select } from "../../../../src/ui/components/ui/Select.tsx";
-import { type SaveState, Text } from "../../../../src/ui/components/ui/Text.tsx";
+import { type FieldAutosave, Text } from "../../../../src/ui/components/ui/Text.tsx";
 import { clearDrafts } from "../../../../src/ui/lib/data/autosave.ts";
 import { ApiError } from "../../../../src/ui/lib/data/client.ts";
 import { createQueryClient, type Key } from "../../../../src/ui/lib/data/query.ts";
@@ -88,7 +88,7 @@ describe("Text", () => {
   it("is read-only while Claude edits the file, and says so", () => {
     render(<Text ariaLabel="Action" value="x" lockedBy="claude" onChange={() => {}} />);
     expect(screen.getByRole("textbox", { name: "Action" })).toHaveAttribute("readonly");
-    expect(screen.getByText("Read-only — Claude is editing")).toBeInTheDocument();
+    expect(screen.getByText("Claude is editing")).toBeInTheDocument();
   });
 
   it("saves itself 400 ms after the last key and on blur, then says Saved", async () => {
@@ -101,7 +101,7 @@ describe("Text", () => {
     expect(screen.getByText("Saved")).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Notes" })).toBe(f);
     fireEvent.change(f, { target: { value: "disk!!" } });
-    expect(screen.queryByText("Edited")).toBeNull();
+    expect(screen.queryByText("Edited · saves in a moment")).toBeNull();
     await act(() => vi.advanceTimersByTimeAsync(1000));
     expect(save).toHaveBeenCalledTimes(2);
     fireEvent.change(f, { target: { value: "on blur" } });
@@ -113,9 +113,9 @@ describe("Text", () => {
   it("says Edited once a pending edit waits for more than a second (save on blur)", async () => {
     render(<Text label="Notes" value="" save={vi.fn(async () => undefined)} saveKey={k()} delay="blur" />, { wrapper });
     fireEvent.change(screen.getByRole("textbox", { name: /Notes/ }), { target: { value: "a" } });
-    expect(screen.queryByText("Edited")).toBeNull();
+    expect(screen.queryByText("Edited · saves in a moment")).toBeNull();
     await act(() => vi.advanceTimersByTimeAsync(1000));
-    expect(screen.getByText("Edited")).toBeInTheDocument();
+    expect(screen.getByText("Edited · saves in a moment")).toBeInTheDocument();
   });
 
   it("keeps the text when a save fails and Retry sends it again", async () => {
@@ -153,7 +153,7 @@ describe("Text", () => {
   });
 
   it("bound to a document's autosave, shows its state and flushes it on blur", () => {
-    const a: SaveState = {
+    const a: FieldAutosave = {
       status: "saving",
       flush: vi.fn(async () => {}),
       retry: vi.fn(async () => {}),

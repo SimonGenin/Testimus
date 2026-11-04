@@ -1,7 +1,8 @@
 import * as stylex from "@stylexjs/stylex";
 import { type ReactNode, useState } from "react";
 import { ResizeHandle, type ResizeHandleProps } from "../../../components/ui/ResizeHandle.tsx";
-import { color, fontSize, lineHeight, size, space } from "../../../styles/tokens.stylex.ts";
+import { type } from "../../../components/ui/type.ts";
+import { color, size, space } from "../../../styles/tokens.stylex.ts";
 import { Cell, type KitSection, States } from "../kit.tsx";
 
 const styles = stylex.create({
@@ -14,11 +15,8 @@ const styles = stylex.create({
     padding: space.s3,
     backgroundColor: color.surface,
     color: color.textMuted,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
-    fontVariantNumeric: "tabular-nums",
   },
-  rest: { flex: 1, padding: space.s3, color: color.textSubtle, fontSize: fontSize.small },
+  rest: { flex: 1, padding: space.s3, color: color.textSubtle },
 });
 
 function Split({
@@ -34,7 +32,7 @@ function Split({
   const row = orientation === "horizontal";
   return (
     <div {...stylex.props(styles.frame, row && styles.column)}>
-      <div {...stylex.props(styles.pane)} style={row ? { height: px } : { width: px }}>
+      <div {...stylex.props(type.small, type.tabular, styles.pane)} style={row ? { height: px } : { width: px }}>
         {px} px
       </div>
       <ResizeHandle
@@ -48,7 +46,7 @@ function Split({
         debugState={debugState}
         quiet={quiet}
       />
-      <div {...stylex.props(styles.rest)}>Drag, double-click, or focus and use the arrows</div>
+      <div {...stylex.props(type.small, styles.rest)}>Drag, double-click, or focus and use the arrows</div>
     </div>
   );
 }

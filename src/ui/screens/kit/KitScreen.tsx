@@ -5,8 +5,9 @@ import { Badge } from "../../components/ui/Badge.tsx";
 import { EmptyState } from "../../components/ui/EmptyState.tsx";
 import { List } from "../../components/ui/List.tsx";
 import { Text } from "../../components/ui/Text.tsx";
+import { type } from "../../components/ui/type.ts";
 import { AppContext } from "../../lib/app.ts";
-import { border, breakpoint, color, fontSize, lineHeight, size, space } from "../../styles/tokens.stylex.ts";
+import { border, breakpoint, color, size, space } from "../../styles/tokens.stylex.ts";
 import { KitPage } from "./KitPage.tsx";
 import { FAMILIES, type KitSection } from "./kit.tsx";
 
@@ -38,7 +39,7 @@ const styles = stylex.create({
     borderInlineEndColor: color.border,
     backgroundColor: color.surface,
   },
-  count: { fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textSubtle },
+  count: { color: color.textSubtle },
   line: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   main: {
     boxSizing: "border-box",
@@ -74,7 +75,7 @@ export function KitScreen() {
           value={filter}
           onChange={setFilter}
         />
-        <span {...stylex.props(styles.count)}>
+        <span {...stylex.props(type.small, styles.count)}>
           {filter.trim()
             ? `${shown.length} of ${SECTIONS.length} components match`
             : `${SECTIONS.length} components · one per control, options before copies`}

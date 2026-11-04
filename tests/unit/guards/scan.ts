@@ -129,6 +129,43 @@ export function n7WaitsOutsideWork(): Violation[] {
   return grep(files("src/core"), /\bset(?:Timeout|Interval)\(/);
 }
 
+// ponytail: G8 — a value in tokens.stylex.ts that does not come from design/tokens.css is written by scripts/tokens.ts
+// (EXTRA, CONTAINERS, BREAKPOINTS); each is one to ask the design sessions for, so the list may only shrink
+function entries(text: string, name: string): { key: string; line: number }[] {
+  const start = text.indexOf(`const ${name}`);
+  if (start < 0) return [];
+  const end = text.indexOf("\n};", start);
+  const out: { key: string; line: number }[] = [];
+  for (const m of text.slice(start, end).matchAll(/^\s+(\w+):\s*["\d]/gm))
+    out.push({ key: m[1], line: lineOf(text, start + (m.index ?? 0)) + 1 });
+  return out;
+}
+
+export function g8TokensOutsideDesign(): Violation[] {
+  const file = "scripts/tokens.ts";
+  const text = read(file);
+  return ["EXTRA", "CONTAINERS", "BREAKPOINTS"].flatMap((name) =>
+    entries(text, name).map((e) => ({ file, line: e.line, text: `${name}.${e.key}` })),
+  );
+}
+
+// ponytail: G8 — the vocabularies' colour aliases of tokens.css (color-status-*, -severity-*, -diff-*) are read by the
+// kit, so changing one in the design changes the screen
+export function g8AliasesNeverRead(): Violation[] {
+  const tokens = "src/ui/styles/tokens.stylex.ts";
+  const text = read(tokens);
+  const start = text.indexOf("export const color = stylex.defineVars({");
+  const block = text.slice(start, text.indexOf("});", start));
+  const aliases = [...block.matchAll(/^\s+((?:status|severity|diff)\w+):/gm)].map((m) => m[1]);
+  const ui = UI()
+    .filter((f) => f !== tokens)
+    .map(read)
+    .join("\n");
+  return aliases
+    .filter((a) => !new RegExp(`\\bcolor\\.${a}\\b`).test(ui))
+    .map((a) => ({ file: tokens, line: lineOf(text, text.indexOf(`  ${a}:`)), text: `color.${a} never read` }));
+}
+
 export const GUARDS = {
   "N1a unknown or dynamic command names in src/ui": n1aUnknownCommands,
   "N1b value imports from src/core or src/shared/run in src/ui": n1bValueImportsFromCore,
@@ -141,6 +178,8 @@ export const GUARDS = {
   "N4d inline styles with only constant values": n4StaticInlineStyles,
   "N7 child_process, process.kill or taskkill outside src/shared/run/process.ts": n7ProcessOutsideRunLayer,
   "N7 setTimeout or setInterval in src/core": n7WaitsOutsideWork,
+  "G8 token values written by scripts/tokens.ts, not read from design/tokens.css": g8TokensOutsideDesign,
+  "G8 vocabulary colour aliases of tokens.css never read in src/ui": g8AliasesNeverRead,
 } as const;
 
 export type GuardName = keyof typeof GUARDS;

@@ -17,7 +17,6 @@ import {
   duration,
   easing,
   fontSize,
-  fontWeight,
   lineHeight,
   radius,
   shadow,
@@ -29,6 +28,7 @@ import { Badge } from "./Badge.tsx";
 import { Button, type ButtonProps } from "./Button.tsx";
 import { Icon, type IconName } from "./Icon.tsx";
 import { focusables, useAnchor } from "./layer.ts";
+import { type } from "./type.ts";
 
 const appear = stylex.keyframes({ from: { opacity: 0 }, to: { opacity: 1 } });
 
@@ -76,14 +76,7 @@ const styles = stylex.create({
   },
   icon: { display: "inline-flex", color: color.textMuted },
   iconClaude: { color: color.claudeText },
-  title: {
-    flex: 1,
-    minWidth: 0,
-    margin: 0,
-    fontSize: fontSize.titleSm,
-    lineHeight: lineHeight.titleSm,
-    fontWeight: fontWeight.semibold,
-  },
+  title: { flex: 1, minWidth: 0, margin: 0 },
   body: {
     display: "flex",
     flexDirection: "column",
@@ -235,7 +228,7 @@ export function Popover({
                   <Icon name={icon} />
                 </span>
               )}
-              <h2 id={titleId} {...stylex.props(styles.title)}>
+              <h2 id={titleId} {...stylex.props(type.titleSm, styles.title)}>
                 {title}
                 {count !== undefined && (
                   <>

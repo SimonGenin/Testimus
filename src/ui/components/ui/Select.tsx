@@ -1,16 +1,15 @@
 import * as stylex from "@stylexjs/stylex";
 import { useId } from "react";
-import { border, color, focus, fontSize, lineHeight, radius, size, space } from "../../styles/tokens.stylex.ts";
+import { border, color, fontSize, lineHeight, radius, size, space } from "../../styles/tokens.stylex.ts";
+import { Field } from "./Field.tsx";
+import { halo } from "./halo.ts";
 import { Icon, type IconName } from "./Icon.tsx";
 import { Tooltip } from "./Tooltip.tsx";
-
-const FOCUS = `0 0 0 ${border.width} ${color.focusRing}, 0 0 0 ${focus.halo} color-mix(in srgb, ${color.focusRing} 18%, transparent)`;
 
 const styles = stylex.create({
   wrap: { position: "relative", display: "inline-flex", alignItems: "center", minWidth: 0 },
   block: { display: "flex", width: "100%" },
-  labelled: { flexDirection: "column", alignItems: "stretch", gap: space.snug },
-  label: { fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textMuted },
+  start: { alignSelf: "flex-start" },
   select: {
     boxSizing: "border-box",
     appearance: "none",
@@ -24,7 +23,6 @@ const styles = stylex.create({
     borderStyle: "solid",
     borderWidth: border.width,
     borderColor: { default: color.borderField, ":hover": color.borderControl, ":focus-visible": color.focusRing },
-    boxShadow: { default: null, ":focus-visible": FOCUS },
     borderRadius: radius.r2,
     backgroundColor: color.surface,
     color: color.text,
@@ -76,10 +74,17 @@ const styles = stylex.create({
     pointerEvents: "none",
   },
   forceHover: { borderColor: color.borderControl },
-  forceFocus: { borderColor: color.focusRing, boxShadow: FOCUS },
+  forceFocus: { borderColor: color.focusRing },
 });
 
-export type SelectOption<V extends string> = { value: V; label: string; disabled?: boolean };
+export type SelectOption<V extends string> = {
+  value: V;
+  label: string;
+  /** a few words on the choice (« fast, for short asks »): the option's tooltip, and the hint under a labelled select
+   * while it is the chosen one */
+  hint?: string;
+  disabled?: boolean;
+};
 
 export type SelectProps<V extends string> = {
   /** the field's id, when a label outside names it (htmlFor) */
@@ -89,7 +94,10 @@ export type SelectProps<V extends string> = {
   onChange: (value: V) => void;
   /** the accessible name; shown above the field only with `showLabel` */
   label: string;
+  /** the label above the field, as Text's (the kit's Field) */
   showLabel?: boolean;
+  /** under a labelled select: an example, a consequence (else the chosen option's hint) */
+  hint?: string;
   /** boxed (forms) · quiet (toolbars, the dock footer, a sort) */
   appearance?: "boxed" | "quiet";
   size?: "sm" | "md";
@@ -115,6 +123,7 @@ export function Select<V extends string>({
   onChange,
   label,
   showLabel = false,
+  hint,
   appearance = "boxed",
   size: s = "md",
   prefix,
@@ -127,8 +136,9 @@ export function Select<V extends string>({
   const auto = useId();
   const id = givenId ?? auto;
   const off = disabled !== false;
+  const shownHint = hint ?? options.find((o) => o.value === value)?.hint;
   const field = (
-    <span {...stylex.props(styles.wrap, block && styles.block)}>
+    <span {...stylex.props(styles.wrap, block && styles.block, showLabel && !block && styles.start)}>
       {prefix && (
         <span aria-hidden="true" {...stylex.props(styles.prefix)}>
           {icon && <Icon name={icon} />}
@@ -143,17 +153,19 @@ export function Select<V extends string>({
       <select
         id={id}
         aria-label={showLabel ? undefined : label}
+        aria-describedby={showLabel && shownHint ? `${id}-hint` : undefined}
         value={value ?? ""}
         disabled={off}
         onChange={(e) => onChange(e.target.value as V)}
         {...stylex.props(
           styles.select,
+          halo.visible,
           appearance === "quiet" && styles.quiet,
           s === "sm" && styles.sm,
           icon && !prefix && styles.withLead,
           prefix !== undefined && styles.withPrefix,
           debugState === "hover" && styles.forceHover,
-          debugState === "focus" && styles.forceFocus,
+          debugState === "focus" && [styles.forceFocus, halo.shown],
           off && styles.disabled,
         )}
       >
@@ -163,7 +175,7 @@ export function Select<V extends string>({
           </option>
         )}
         {options.map((o) => (
-          <option key={o.value} value={o.value} disabled={o.disabled}>
+          <option key={o.value} value={o.value} disabled={o.disabled} title={o.hint}>
             {o.label}
           </option>
         ))}
@@ -176,11 +188,8 @@ export function Select<V extends string>({
   const shown = typeof disabled === "string" ? <Tooltip label={disabled}>{field}</Tooltip> : field;
   if (!showLabel) return shown;
   return (
-    <span {...stylex.props(styles.wrap, styles.labelled, block && styles.block)}>
-      <label htmlFor={id} {...stylex.props(styles.label)}>
-        {label}
-      </label>
+    <Field label={label} htmlFor={id} hint={shownHint} hintId={`${id}-hint`}>
       {shown}
-    </span>
+    </Field>
   );
 }

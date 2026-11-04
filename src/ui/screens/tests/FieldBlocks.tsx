@@ -4,7 +4,7 @@ import type { Block, StepImage } from "../../../core/types.ts";
 import { Button } from "../../components/ui/Button.tsx";
 import { Disclosure } from "../../components/ui/Disclosure.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
-import { type SaveState, Text } from "../../components/ui/Text.tsx";
+import { type FieldAutosave, Text } from "../../components/ui/Text.tsx";
 import { AppContext } from "../../lib/app.ts";
 import { blocksOf } from "../../lib/blocks.ts";
 import { NEW_TABLE } from "../../lib/table.ts";
@@ -87,7 +87,7 @@ export function FieldBlocks({
   lockedBy?: "claude";
   nested?: boolean;
   /** the save state of the test, shown on the text block last edited here */
-  saveState?: SaveState;
+  saveState?: FieldAutosave;
   onText: (at: number, end: number, value: string) => void;
   onAddFiles: (at: number, files: File[]) => void;
   onFieldText: (next: string) => void;

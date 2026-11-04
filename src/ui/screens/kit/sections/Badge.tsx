@@ -1,7 +1,11 @@
 import {
   Badge,
   type BadgeTone,
+  COLUMN,
   DIFF,
+  DOC_STATUS,
+  HEALTH,
+  jiraStatus,
   REVIEW,
   ReviewBadge,
   SEVERITY,
@@ -18,7 +22,7 @@ export const section: KitSection = {
   file: "Badge.tsx",
   summary:
     "A short state attached to a thing: review, severity, sync, a diff mark, a count. An icon and a word carry the meaning, the tone repeats it — never colour alone, never a tone picked for looks. Screens use the fixed vocabularies.",
-  note: "ReviewBadge and SeverityBadge are thin wrappers with the fixed words; SYNC and DIFF are the other vocabularies, spread into a Badge. busy is the badge with a spinner the screens drew (Running, Indexing…).",
+  note: "ReviewBadge and SeverityBadge are thin wrappers with the fixed words; SYNC, DIFF, COLUMN, DOC_STATUS and HEALTH are the other vocabularies, spread into a Badge, and jiraStatus reads a Jira status. The words of REVIEW, SEVERITY and DIFF (and Modified in SYNC) take their own colour alias (`ink`: color-status-*, -severity-*, -diff-*), so the design changes them in one place. busy is the badge with a spinner the screens drew (Running, Indexing…).",
   guidelines: [
     {
       head: "Anatomy",
@@ -45,6 +49,16 @@ export const section: KitSection = {
       head: "Fixed vocabularies",
       text: "Review: Draft · Checked · To fix · Validated. Severity: Error · Warning · Info. Sync: Checking… · In sync · Modified · Changed in Jira · Conflict · Local only. Diff: New · Modified · Deleted · Changed by Claude.",
     },
+    {
+      head: "Vocabularies of the app",
+      items: [
+        "`COLUMN` a step column's origin: Xray · Xray · standard · Local only (the sync word) · New in Xray · No longer in Xray · New local column.",
+        "`DOC_STATUS` a document's status: Draft · Submitted · Validated.",
+        "`HEALTH` a check of the System check: Failed · To do · OK · Not checked · Info.",
+        "`jiraStatus(name)` a Jira status keeps Jira's word; done words are success, under-way words warning, the rest neutral, each with its icon.",
+        "A screen never writes these words nor picks their tone: it spreads the vocabulary into a Badge.",
+      ],
+    },
   ],
   states: () => (
     <States>
@@ -66,6 +80,26 @@ export const section: KitSection = {
       <Cell label="diff" wide>
         {Object.values(DIFF).map((w) => (
           <Badge key={w.label} {...w} />
+        ))}
+      </Cell>
+      <Cell label="column" wide>
+        {Object.values(COLUMN).map((w) => (
+          <Badge key={w.label} {...w} />
+        ))}
+      </Cell>
+      <Cell label="document status">
+        {Object.values(DOC_STATUS).map((w) => (
+          <Badge key={w.label} {...w} />
+        ))}
+      </Cell>
+      <Cell label="health (System check)" wide>
+        {Object.values(HEALTH).map((w) => (
+          <Badge key={w.label} {...w} />
+        ))}
+      </Cell>
+      <Cell label="Jira status">
+        {["To Do", "In Progress", "Done"].map((s) => (
+          <Badge key={s} {...jiraStatus(s)} size="sm" />
         ))}
       </Cell>
       <Cell label="tones (word only)" wide>

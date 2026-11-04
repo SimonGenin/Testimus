@@ -1,23 +1,13 @@
 import * as stylex from "@stylexjs/stylex";
 import { Marked } from "../../../components/ui/Marked.tsx";
-import { color, fontFamily, fontSize, lineHeight } from "../../../styles/tokens.stylex.ts";
+import { type } from "../../../components/ui/type.ts";
+import { color, fontFamily } from "../../../styles/tokens.stylex.ts";
 import { Cell, type KitSection, States } from "../kit.tsx";
 
 const styles = stylex.create({
-  row: { fontSize: fontSize.body, lineHeight: lineHeight.body, color: color.text },
-  snippet: {
-    fontFamily: fontFamily.reading,
-    fontSize: fontSize.compact,
-    lineHeight: lineHeight.compact,
-    color: color.textMuted,
-  },
-  passage: {
-    margin: 0,
-    fontFamily: fontFamily.reading,
-    fontSize: fontSize.body,
-    lineHeight: lineHeight.reading,
-    color: color.text,
-  },
+  row: { color: color.text },
+  snippet: { fontFamily: fontFamily.reading, color: color.textMuted },
+  passage: { margin: 0, color: color.text },
 });
 
 const TITLE = "Sectionneur — ouverture refusée";
@@ -40,27 +30,27 @@ export const section: KitSection = {
   states: () => (
     <States>
       <Cell label="search: a title" column>
-        <span {...stylex.props(styles.row)}>
+        <span {...stylex.props(type.body, styles.row)}>
           <Marked text={TITLE} marks={[[0, 11]]} />
         </span>
       </Cell>
       <Cell label="search: several matches in a snippet" column>
-        <span {...stylex.props(styles.snippet)}>
+        <span {...stylex.props(type.compact, styles.snippet)}>
           <Marked text={SNIPPET} marks={["ouverture", "sectionneur", "tension"].map((w) => at(SNIPPET, w))} />
         </span>
       </Cell>
       <Cell label="no match" column>
-        <span {...stylex.props(styles.row)}>
+        <span {...stylex.props(type.body, styles.row)}>
           <Marked text={TITLE} marks={[]} />
         </span>
       </Cell>
       <Cell label="quote: the words a source cites" wide column>
-        <p {...stylex.props(styles.passage)}>
+        <p {...stylex.props(type.reading, styles.passage)}>
           <Marked text={PASSAGE} marks={[at(PASSAGE, QUOTE)]} look="quote" />
         </p>
       </Cell>
       <Cell label="very long text, the quote far in" wide column>
-        <p {...stylex.props(styles.passage)}>
+        <p {...stylex.props(type.reading, styles.passage)}>
           <Marked text={LONG} marks={[at(LONG, QUOTE, PASSAGE.length * 2)]} look="quote" />
         </p>
       </Cell>

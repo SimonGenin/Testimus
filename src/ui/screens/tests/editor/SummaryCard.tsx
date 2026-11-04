@@ -4,7 +4,7 @@ import type { SyncState, Test } from "../../../../core/types.ts";
 import { Badge, REVIEW, SYNC } from "../../../components/ui/Badge.tsx";
 import { Button } from "../../../components/ui/Button.tsx";
 import { Chip } from "../../../components/ui/Chip.tsx";
-import { type SaveState, Text } from "../../../components/ui/Text.tsx";
+import { type FieldAutosave, Text } from "../../../components/ui/Text.tsx";
 import { border, color, fontSize, lineHeight, radius, shadow, space } from "../../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
@@ -66,7 +66,7 @@ export function SummaryCard({
   dirty: boolean;
   remote: RemoteCheck;
   readOnly?: boolean;
-  saveState?: SaveState;
+  saveState?: FieldAutosave;
   details: boolean;
   onDetails: (open: boolean) => void;
   onRemote: () => void;

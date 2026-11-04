@@ -42,13 +42,15 @@ export type TooltipProps = {
   /** a shortcut shown as keys after the words */
   shortcut?: string;
   side?: "top" | "bottom" | "left" | "right";
+  /** the catalogue only: shown without the pointer */
+  debugState?: "open";
   /** the control it describes (its accessible description becomes the tooltip) */
   children: ReactElement<{ "aria-describedby"?: string; "aria-expanded"?: boolean | "true" | "false" }>;
 };
 
 // ponytail: shown on hover after 500 ms and at once on keyboard focus, hidden on Escape and while the control's own
 // layer (a menu, a popover) is open; never interactive and never the only place for what is needed to act (SYSTEM.md)
-export function Tooltip({ label, shortcut, side = "top", children }: TooltipProps) {
+export function Tooltip({ label, shortcut, side = "top", children, debugState }: TooltipProps) {
   const id = useId();
   const [open, setOpen] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -75,7 +77,11 @@ export function Tooltip({ label, shortcut, side = "top", children }: TooltipProp
       }}
     >
       {cloneElement(children, { "aria-describedby": id })}
-      <span role="tooltip" id={id} {...stylex.props(styles.bubble, styles[side], (!open || expanded) && styles.closed)}>
+      <span
+        role="tooltip"
+        id={id}
+        {...stylex.props(styles.bubble, styles[side], ((!open && debugState !== "open") || expanded) && styles.closed)}
+      >
         {label}
         {shortcut && <Kbd onFill>{shortcut}</Kbd>}
       </span>

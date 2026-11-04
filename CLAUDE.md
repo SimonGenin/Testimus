@@ -92,7 +92,10 @@ models/catalog.json  the model catalog (packs and variants)
 src/ui/              React app; talks to /api only:
   app/               routes, shell, project boot, dock, palette actions
   components/ui/     the kit — one component per control (Button, Text, ClaudeBlock, Select, Modal, Menu, Toast…),
-                     StyleX, tokens only; the only place that renders a bare <button>/<input>/<select>/<textarea>
+                     StyleX, tokens only; the only place that renders a bare <button>/<input>/<select>/<textarea>;
+                     also the design's other pieces (Field, SaveState, Answer, Ask, Passage, Raw, Facts, Timer, Pane,
+                     Tile, Logo), type.ts (the text styles a screen composes instead of fontSize/fontWeight/lineHeight)
+                     and halo.ts (the one focus halo)
   components/        claude/, shell/, sources/ — composites shared by several screens
   screens/<screen>/  one folder per screen; screens/kit/ is the catalogue (#/kit under --mock)
   lib/data/          the data layer (TanStack Query): client (call, the HTTP seam), query (useRead, useCommand,

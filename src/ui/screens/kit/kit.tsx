@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
-import { border, color, fontFamily, fontSize, lineHeight, radius, size, space } from "../../styles/tokens.stylex.ts";
+import { type } from "../../components/ui/type.ts";
+import { border, color, radius, size, space } from "../../styles/tokens.stylex.ts";
 
 export const FAMILIES = [
   "Foundations",
@@ -42,7 +43,7 @@ const styles = stylex.create({
   },
   wide: { gridColumn: "1 / -1" },
   cell: { display: "flex", flexDirection: "column", gap: space.s2, minWidth: 0, margin: 0 },
-  label: { fontFamily: fontFamily.mono, fontSize: fontSize.code, lineHeight: lineHeight.code, color: color.textMuted },
+  label: { color: color.textMuted },
   stage: {
     boxSizing: "border-box",
     display: "flex",
@@ -78,7 +79,7 @@ export function Cell({
 }) {
   return (
     <figure aria-label={label} {...stylex.props(styles.cell, wide && styles.wide)}>
-      <figcaption {...stylex.props(styles.label)}>{label}</figcaption>
+      <figcaption {...stylex.props(type.code, styles.label)}>{label}</figcaption>
       <div {...stylex.props(styles.stage, column && styles.column)}>{children}</div>
     </figure>
   );

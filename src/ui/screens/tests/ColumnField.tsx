@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { Badge } from "../../components/ui/Badge.tsx";
-import { type SaveState, Text } from "../../components/ui/Text.tsx";
+import { type FieldAutosave, Text } from "../../components/ui/Text.tsx";
 import type { Column } from "../../lib/columns.ts";
 import { color, fontSize, lineHeight, space } from "../../styles/tokens.stylex.ts";
 
@@ -31,7 +31,7 @@ export function ColumnField({
   value: string;
   stepNumber: number;
   readOnly?: boolean;
-  saveState?: SaveState;
+  saveState?: FieldAutosave;
   onChange: (value: string) => void;
 }) {
   const label = `${column.name} of step ${stepNumber}`;

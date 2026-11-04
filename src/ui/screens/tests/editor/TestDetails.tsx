@@ -2,7 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import type { Precondition, Test } from "../../../../core/types.ts";
 import { Button } from "../../../components/ui/Button.tsx";
 import { ChipField } from "../../../components/ui/ChipField.tsx";
-import { type SaveState, Text } from "../../../components/ui/Text.tsx";
+import { type FieldAutosave, Text } from "../../../components/ui/Text.tsx";
 import { border, breakpoint, color, fontSize, fontWeight, lineHeight, space } from "../../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
@@ -47,7 +47,7 @@ export function TestDetails({
 }: {
   test: Test;
   readOnly?: boolean;
-  saveState?: SaveState;
+  saveState?: FieldAutosave;
   preconditions: Precondition[] | null;
   contexts: ContextRef[];
   testContexts: TestContexts | null;

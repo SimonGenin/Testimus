@@ -4,20 +4,8 @@ import { Badge } from "../../components/ui/Badge.tsx";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Table } from "../../components/ui/Table.tsx";
-import {
-  border,
-  breakpoint,
-  color,
-  darkTheme,
-  fontFamily,
-  fontSize,
-  fontWeight,
-  lightTheme,
-  lineHeight,
-  radius,
-  size,
-  space,
-} from "../../styles/tokens.stylex.ts";
+import { type } from "../../components/ui/type.ts";
+import { border, breakpoint, color, darkTheme, lightTheme, radius, size, space } from "../../styles/tokens.stylex.ts";
 import { type Guideline, type KitSection, type PropRow, propsOf } from "./kit.tsx";
 
 const SOURCES = import.meta.glob<string>("../../components/ui/*.tsx", {
@@ -31,8 +19,8 @@ const styles = stylex.create({
   page: { display: "flex", flexDirection: "column", gap: space.s7 },
   head: { display: "flex", flexDirection: "column", gap: space.s3, maxWidth: size.reading },
   row: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: space.s3 },
-  title: { margin: 0, fontSize: fontSize.titleLg, lineHeight: lineHeight.titleLg, fontWeight: fontWeight.semibold },
-  mono: { fontFamily: fontFamily.mono, fontSize: fontSize.code, lineHeight: lineHeight.code, color: color.textMuted },
+  title: { margin: 0 },
+  mono: { color: color.textMuted },
   summary: { margin: 0 },
   columns: {
     display: "grid",
@@ -41,27 +29,12 @@ const styles = stylex.create({
     alignItems: "start",
   },
   sec: { display: "flex", flexDirection: "column", gap: space.s3, minWidth: 0 },
-  secTitle: {
-    display: "flex",
-    alignItems: "center",
-    gap: space.s3,
-    margin: 0,
-    fontSize: fontSize.titleSm,
-    lineHeight: lineHeight.titleSm,
-    fontWeight: fontWeight.semibold,
-  },
+  secTitle: { display: "flex", alignItems: "center", gap: space.s3, margin: 0 },
   grow: { flex: 1 },
   prop: { display: "inline-flex", alignItems: "center", flexWrap: "wrap", gap: space.s2 },
-  propName: { fontFamily: fontFamily.mono, fontSize: fontSize.code, whiteSpace: "nowrap" },
-  propType: {
-    display: "block",
-    fontFamily: fontFamily.mono,
-    fontSize: fontSize.caption,
-    lineHeight: lineHeight.caption,
-    color: color.textMuted,
-    overflowWrap: "anywhere",
-  },
-  propDoc: { display: "block", fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textMuted },
+  propName: { whiteSpace: "nowrap" },
+  propType: { display: "block", color: color.textMuted, overflowWrap: "anywhere" },
+  propDoc: { display: "block", color: color.textMuted },
   previews: { display: "flex", flexDirection: "column", gap: space.s4 },
   theme: {
     boxSizing: "border-box",
@@ -76,20 +49,10 @@ const styles = stylex.create({
     backgroundColor: color.canvas,
     color: color.text,
   },
-  themeName: { fontSize: fontSize.caption, fontWeight: fontWeight.medium, color: color.textMuted },
-  guide: {
-    display: "flex",
-    flexDirection: "column",
-    gap: space.s4,
-    maxWidth: size.reading,
-    fontSize: fontSize.compact,
-    lineHeight: lineHeight.compact,
-  },
+  guide: { display: "flex", flexDirection: "column", gap: space.s4, maxWidth: size.reading },
   para: { margin: 0 },
   list: { display: "flex", flexDirection: "column", gap: space.s2, margin: 0, paddingInlineStart: space.s6 },
   code: {
-    fontFamily: fontFamily.mono,
-    fontSize: fontSize.code,
     paddingInline: space.s1,
     borderRadius: radius.r1,
     backgroundColor: color.surfaceSunken,
@@ -103,7 +66,7 @@ function inline(text: string): ReactNode[] {
     const key = `${i}-${part}`;
     if (part.startsWith("`") && part.endsWith("`") && part.length > 1)
       return (
-        <code key={key} {...stylex.props(styles.code)}>
+        <code key={key} {...stylex.props(type.code, styles.code)}>
           {part.slice(1, -1)}
         </code>
       );
@@ -115,8 +78,8 @@ function inline(text: string): ReactNode[] {
 function Guidelines({ items }: { items: Guideline[] }) {
   return (
     <section aria-label="Guidelines" {...stylex.props(styles.sec)}>
-      <h2 {...stylex.props(styles.secTitle)}>Guidelines</h2>
-      <div {...stylex.props(styles.guide)}>
+      <h2 {...stylex.props(type.titleSm, styles.secTitle)}>Guidelines</h2>
+      <div {...stylex.props(type.compact, styles.guide)}>
         {items.map((g) => (
           <div key={g.head ?? g.text ?? g.items?.[0]}>
             {(g.head || g.text) && (
@@ -148,9 +111,9 @@ function Props({ section }: { section: KitSection }) {
   const rows = propsOf(sourceOf(section.file), section.name);
   return (
     <section aria-label="Props" {...stylex.props(styles.sec)}>
-      <h2 {...stylex.props(styles.secTitle)}>
+      <h2 {...stylex.props(type.titleSm, styles.secTitle)}>
         Props
-        <span {...stylex.props(styles.mono)}>{section.name}Props</span>
+        <span {...stylex.props(type.code, styles.mono)}>{section.name}Props</span>
         <span {...stylex.props(styles.grow)} />
         <Button
           variant="quiet"
@@ -174,7 +137,7 @@ function Props({ section }: { section: KitSection }) {
             width: "30%",
             render: (r) => (
               <span {...stylex.props(styles.prop)}>
-                <span {...stylex.props(styles.propName)}>{r.name}</span>
+                <span {...stylex.props(type.code, styles.propName)}>{r.name}</span>
                 {r.required && <Badge label="required" size="sm" />}
               </span>
             ),
@@ -184,8 +147,8 @@ function Props({ section }: { section: KitSection }) {
             label: "Type and use",
             render: (r) => (
               <>
-                <span {...stylex.props(styles.propType)}>{r.type}</span>
-                {r.doc && <span {...stylex.props(styles.propDoc)}>{r.doc}</span>}
+                <span {...stylex.props(type.code, styles.propType)}>{r.type}</span>
+                {r.doc && <span {...stylex.props(type.small, styles.propDoc)}>{r.doc}</span>}
               </>
             ),
           },
@@ -198,7 +161,7 @@ function Props({ section }: { section: KitSection }) {
 function ThemePanel({ name, theme, section }: { name: string; theme: typeof lightTheme; section: KitSection }) {
   return (
     <section aria-label={`${section.name}, ${name}`} {...stylex.props(...theme, styles.theme)}>
-      <span {...stylex.props(styles.themeName)}>{name}</span>
+      <span {...stylex.props(type.caption)}>{name}</span>
       {section.states()}
     </section>
   );
@@ -211,11 +174,11 @@ export function KitPage({ section }: { section: KitSection }) {
     <article aria-labelledby="kit-title" {...stylex.props(styles.page)}>
       <header {...stylex.props(styles.head)}>
         <div {...stylex.props(styles.row)}>
-          <h1 id="kit-title" {...stylex.props(styles.title)}>
+          <h1 id="kit-title" {...stylex.props(type.titleLg, styles.title)}>
             {section.name}
           </h1>
           <Badge label={section.family} size="sm" />
-          <span {...stylex.props(styles.mono)}>src/ui/components/ui/{section.file}</span>
+          <span {...stylex.props(type.code, styles.mono)}>src/ui/components/ui/{section.file}</span>
         </div>
         <p {...stylex.props(styles.summary)}>{section.summary}</p>
         {section.note && (
@@ -227,7 +190,7 @@ export function KitPage({ section }: { section: KitSection }) {
       <div {...stylex.props(styles.columns)}>
         <Props section={section} />
         <section aria-label="States and options" {...stylex.props(styles.sec)}>
-          <h2 {...stylex.props(styles.secTitle)}>States and options</h2>
+          <h2 {...stylex.props(type.titleSm, styles.secTitle)}>States and options</h2>
           <div {...stylex.props(styles.previews)}>
             <ThemePanel name="Light" theme={lightTheme} section={section} />
             <ThemePanel name="Dark" theme={darkTheme} section={section} />

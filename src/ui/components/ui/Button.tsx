@@ -81,6 +81,17 @@ const styles = stylex.create({
     borderColor: "transparent",
     color: color.claudeText,
   },
+  field: {
+    justifyContent: "flex-start",
+    paddingInlineStart: space.s4,
+    paddingInlineEnd: space.s2,
+    backgroundColor: { default: color.surfaceSunken, ":hover": color.surfaceHover, ":active": color.surfacePressed },
+    borderColor: "transparent",
+    color: { default: color.textSubtle, ":hover": color.textMuted },
+    fontWeight: fontWeight.regular,
+  },
+  fieldHover: { backgroundColor: color.surfaceHover, color: color.textMuted },
+  kbdEnd: { marginInlineStart: "auto", marginInlineEnd: 0 },
   xs: {
     height: size.controlXs,
     paddingInline: space.s2,
@@ -123,11 +134,12 @@ const styles = stylex.create({
   hiddenInput: { display: "none" },
 });
 
-export type ButtonVariant = "primary" | "secondary" | "quiet" | "danger" | "claude" | "claude-quiet";
+export type ButtonVariant = "primary" | "secondary" | "quiet" | "danger" | "claude" | "claude-quiet" | "field";
 
 export type ButtonProps = {
   /** primary: the screen region's one action · secondary (default) · quiet: toolbars and rows · danger: the confirm
-   * of a destructive dialog only · claude / claude-quiet: starts a Claude run */
+   * of a destructive dialog only · claude / claude-quiet: starts a Claude run · field: a sunken pill that opens a
+   * search (the top bar's palette, Ctrl K): words on the left, its shortcut at the right end */
   variant?: ButtonVariant;
   /** xs 24 px (icon-only row actions) · sm 28 px (cards, rows, toasts, the dock's footer) · md 32 px · lg 40 px */
   size?: "xs" | "sm" | "md" | "lg";
@@ -173,6 +185,7 @@ const VARIANT = {
   danger: styles.danger,
   claude: styles.claude,
   "claude-quiet": styles.claudeQuiet,
+  field: styles.field,
 } as const;
 
 const SQUARE = { xs: styles.squareXs, sm: styles.squareSm, md: styles.squareMd, lg: styles.squareLg } as const;
@@ -185,6 +198,7 @@ const FORCED = {
     danger: styles.dangerHover,
     claude: styles.claudeHover,
     "claude-quiet": styles.claudeQuietHover,
+    field: styles.fieldHover,
   },
   pressed: {
     primary: styles.primaryPressed,
@@ -193,6 +207,7 @@ const FORCED = {
     danger: styles.dangerHover,
     claude: styles.claudeHover,
     "claude-quiet": styles.claudeQuietHover,
+    field: styles.fieldHover,
   },
 } as const;
 
@@ -225,7 +240,7 @@ export function Button({
   debugState,
 }: ButtonProps) {
   const off = disabled !== false;
-  const quietish = variant === "quiet" || variant === "claude-quiet";
+  const quietish = variant === "quiet" || variant === "claude-quiet" || variant === "field";
   const filled = variant === "primary" || variant === "danger" || variant === "claude";
   const fileInput = useRef<HTMLInputElement | null>(null);
   const button = (
@@ -271,8 +286,8 @@ export function Button({
         <Icon name={iconAfter ?? (expanded ? "chevron-up" : "chevron-down")} />
       )}
       {!iconOnly && shortcut && (
-        <span {...stylex.props(styles.kbd)}>
-          <Kbd onFill>{shortcut}</Kbd>
+        <span {...stylex.props(styles.kbd, variant === "field" && styles.kbdEnd)}>
+          <Kbd onFill={variant !== "field"}>{shortcut}</Kbd>
         </span>
       )}
     </button>

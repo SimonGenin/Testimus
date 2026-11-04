@@ -25,7 +25,7 @@ const option = (name: string) => {
 const figures = (panel: HTMLElement) =>
   within(panel)
     .getAllByRole("figure")
-    .filter((f) => f.closest("section") === panel)
+    .filter((f) => f.closest("section") === panel && f.hasAttribute("aria-label"))
     .map((f) => f.getAttribute("aria-label"));
 
 describe("Kit catalogue", () => {
@@ -56,7 +56,7 @@ describe("Kit catalogue", () => {
     fireEvent.click(option(name));
     const main = screen.getByRole("main", { name: "Component" });
     expect(within(main).getByRole("heading", { level: 1 })).toHaveTextContent(name);
-    expect(within(main).getByText(/^src\/ui\/components\/ui\/\w+\.tsx$/)).toBeInTheDocument();
+    expect(within(main).getByText(/^src\/ui\/components\/ui\/\w+\.tsx?$/)).toBeInTheDocument();
     const light = within(main).getByRole("region", { name: `${name}, Light` });
     const dark = within(main).getByRole("region", { name: `${name}, Dark` });
     const states = figures(light);

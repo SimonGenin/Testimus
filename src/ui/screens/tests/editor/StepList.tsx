@@ -5,7 +5,7 @@ import { Badge } from "../../../components/ui/Badge.tsx";
 import { Button } from "../../../components/ui/Button.tsx";
 import { EmptyState } from "../../../components/ui/EmptyState.tsx";
 import { Segmented } from "../../../components/ui/Segmented.tsx";
-import type { SaveState } from "../../../components/ui/Text.tsx";
+import type { FieldAutosave } from "../../../components/ui/Text.tsx";
 import type { SourceFrom } from "../../../lib/app.ts";
 import type { Column } from "../../../lib/columns.ts";
 import type { Gone, StepMark } from "../../../lib/diff.ts";
@@ -95,7 +95,7 @@ export function StepList({
   readOnly: boolean;
   focus: number;
   folded: Set<number>;
-  saveState?: SaveState;
+  saveState?: FieldAutosave;
   /** the step whose field was edited last: it shows the save state */
   savedUid: number;
   uidOf: (s: Step) => number;

@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { border, color, fontSize, fontWeight, lineHeight, size, space } from "../../styles/tokens.stylex.ts";
 import { Icon, type IconName } from "./Icon.tsx";
 import { Spinner } from "./Spinner.tsx";
+import { type } from "./type.ts";
 
 const styles = stylex.create({
   list: { display: "flex", flexDirection: "column", margin: 0, padding: 0, listStyle: "none", minWidth: 0 },
@@ -31,13 +32,7 @@ const styles = stylex.create({
   failed: { color: color.danger },
   waiting: { color: color.textSubtle },
   head: { display: "flex", alignItems: "baseline", gap: space.s3, minWidth: 0, minHeight: size.iconLg },
-  title: {
-    minWidth: 0,
-    fontSize: fontSize.titleSm,
-    lineHeight: lineHeight.titleSm,
-    fontWeight: fontWeight.semibold,
-  },
-  compactTitle: { fontSize: fontSize.compact, lineHeight: lineHeight.compact, fontWeight: fontWeight.medium },
+  title: { minWidth: 0 },
   titleWaiting: { color: color.textMuted, fontWeight: fontWeight.medium },
   titleRunning: { color: color.accentText },
   titleRunningClaude: { color: color.claudeText },
@@ -132,7 +127,9 @@ export function Timeline({ label, items, tone = "accent", compact = false }: Tim
               )}
             </span>
             <div {...stylex.props(styles.head)}>
-              <span {...stylex.props(styles.title, compact && styles.compactTitle, titleLook)}>{it.title}</span>
+              <span {...stylex.props(type.titleSm, compact && [type.compact, type.medium], styles.title, titleLook)}>
+                {it.title}
+              </span>
               {it.time && <span {...stylex.props(styles.small)}>{it.time}</span>}
               {it.note && <span {...stylex.props(styles.small, styles.note)}>{it.note}</span>}
             </div>

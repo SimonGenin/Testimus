@@ -61,18 +61,20 @@ export type SkeletonProps = {
   lines?: number;
   /** after 10 s without data the skeleton becomes « Still loading » with Retry, which calls this */
   onRetry?: () => void;
+  /** the catalogue only: the « Still loading » state at once */
+  debugState?: "late";
 };
 
 // ponytail: the shape of what is loading, at the size of the content it stands for, so nothing moves when it lands;
 // never stale rows, never a centred spinner
-export function Skeleton({ kind = "text", width, lines = 1, onRetry }: SkeletonProps) {
+export function Skeleton({ kind = "text", width, lines = 1, onRetry, debugState }: SkeletonProps) {
   const [late, setLate] = useState(false);
   useEffect(() => {
     if (!onRetry) return;
     const t = setTimeout(() => setLate(true), RETRY_AFTER_MS);
     return () => clearTimeout(t);
   }, [onRetry]);
-  if (late && onRetry)
+  if ((late || debugState === "late") && onRetry)
     return (
       <div role="status" {...stylex.props(styles.late)}>
         Still loading — this is taking longer than usual.

@@ -1300,9 +1300,18 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
   Toast, Tooltip, Banner, Badge, List, ListItem, Tabs, Skeleton, ResizeHandle, Table, EmptyState, Progress, Card,
   Disclosure, Timeline, RailItem, Marked, Icon, Spinner, Kbd); a screen assembles them. `Text` is every field (boxed,
   inline in a step, bare), with its save state, Claude's lock and its autosave; `ClaudeBlock` is every place Claude is
-  asked (contexts, quick asks, model and effort, scope, the run and its cancel) and is built on `Text`. Styles are
+  asked (contexts, quick asks, model and effort, scope, the run and its cancel) and is built on `Text`. The pieces of
+  the design that are not controls are in the kit too (2026-11-04, design-system pass): `type.ts` (the text styles,
+  caption … display, with the titles' letter spacing — a screen composes them and never sets a font size, weight,
+  line height or letter spacing itself), `Field` (a labelled control's frame, also Text's and Select's), `SaveState`
+  (Edited · saves in a moment, Saving…, Saved, Not saved, Changed on disk, Claude is editing), `Answer` and `Ask`
+  (Claude's reply and the request), `Passage` (a part of a specification in the reading face), `Raw` (raw output and
+  logs), `Facts` (name and value), `Timer`, `Pane` (a screen's pane: head, body, foot), `Tile` and `Logo`; the badge
+  vocabularies (review, severity, sync, diff, columns, document status, health, Jira status) all live with `Badge`,
+  the review, severity and diff words in their own colour aliases of `tokens.css`. Styles are
   StyleX in the component's file, values only from `src/ui/styles/tokens.stylex.ts` (generated from
-  `design/tokens.css`), themes as classes on `<html>` following `data-theme`. `#/kit` (under `--mock`) is the
+  `design/tokens.css`), themes as classes on `<html>` following `data-theme`; the values `scripts/tokens.ts` adds
+  itself (`EXTRA`, container and media widths) are asked of the design and may only shrink (guard G8). `#/kit` (under `--mock`) is the
   catalogue: every component in each of its states and options, light and dark side by side.
 - Look and feel: the design in `design/` (`SYSTEM.md`, `tokens.css`, the mockups of `design/screens/`; revised
   2026-11-04 for a modern, airy look): clean neutral grounds (near-white canvas, white panes, a rounded white frame

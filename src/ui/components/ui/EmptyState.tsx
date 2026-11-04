@@ -1,7 +1,8 @@
 import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
-import { color, fontSize, fontWeight, lineHeight, radius, size, space } from "../../styles/tokens.stylex.ts";
+import { color, fontSize, lineHeight, radius, size, space } from "../../styles/tokens.stylex.ts";
 import { Icon, type IconName } from "./Icon.tsx";
+import { type } from "./type.ts";
 
 const styles = stylex.create({
   empty: {
@@ -30,12 +31,7 @@ const styles = stylex.create({
     backgroundColor: color.surfaceSunken,
     color: color.textMuted,
   },
-  title: {
-    color: color.text,
-    fontSize: fontSize.titleSm,
-    lineHeight: lineHeight.titleSm,
-    fontWeight: fontWeight.semibold,
-  },
+  title: { color: color.text },
   text: { fontSize: fontSize.compact, lineHeight: lineHeight.compact },
   actions: {
     display: "flex",
@@ -69,7 +65,7 @@ export function EmptyState({ icon, title, text, actions, compact = false, wide =
       <span {...stylex.props(styles.mark)}>
         <Icon name={icon} size="lg" />
       </span>
-      <span {...stylex.props(styles.title)}>{title}</span>
+      <span {...stylex.props(type.titleSm, styles.title)}>{title}</span>
       {text && <span {...stylex.props(styles.text)}>{text}</span>}
       {actions && <div {...stylex.props(styles.actions)}>{actions}</div>}
     </div>

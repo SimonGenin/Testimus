@@ -3,7 +3,7 @@ import { useState } from "react";
 import type { ColumnLayout, ColumnModes, Source, Step, StepImage } from "../../../core/types.ts";
 import { Badge } from "../../components/ui/Badge.tsx";
 import { Button } from "../../components/ui/Button.tsx";
-import type { SaveState } from "../../components/ui/Text.tsx";
+import type { FieldAutosave } from "../../components/ui/Text.tsx";
 import { hasRawEmbed, leafBlocks } from "../../lib/blocks.ts";
 import {
   type Column,
@@ -121,7 +121,7 @@ export function StepCard({
   focused?: boolean;
   readOnly?: boolean;
   /** the test's save state, shown on the field of this step last edited */
-  saveState?: SaveState;
+  saveState?: FieldAutosave;
   url: (file: string) => string;
   addImage?: (file: File) => Promise<StepImage>;
   alive?: () => () => boolean;

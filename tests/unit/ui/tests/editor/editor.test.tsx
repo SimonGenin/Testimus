@@ -1763,7 +1763,7 @@ describe("TestEditor › parity", () => {
     const { again } = editor({ claudeRunning: "t1" });
     await ready();
     expect(screen.getByTestId("editor-held")).toHaveAttribute("inert");
-    expect(screen.getAllByText("Read-only — Claude is editing", { exact: false }).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Claude is editing", { exact: false }).length).toBeGreaterThan(0);
     fireEvent.click(await screen.findByRole("button", { name: "Cancel the run" }));
     await waitFor(() => expect(callsTo("jobs.cancel")[0]?.input).toEqual({ id: "job-c" }));
     expect(screen.getAllByRole("article", { hidden: true })[0].closest("[inert]")).not.toBeNull();

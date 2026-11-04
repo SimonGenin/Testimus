@@ -21,6 +21,9 @@ export const section: KitSection = {
         <Skeleton kind="block" />
         <Skeleton kind="circle" />
       </Cell>
+      <Cell label="after 10 s: Still loading · Retry (onRetry)" wide column>
+        <Skeleton onRetry={() => {}} debugState="late" />
+      </Cell>
       <Cell label="row (a List's loading row)" column>
         <Skeleton kind="row" />
         <Skeleton kind="row" />

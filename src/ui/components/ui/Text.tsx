@@ -1,14 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import {
-  type KeyboardEvent,
-  type ReactNode,
-  type Ref,
-  useEffect,
-  useId,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react";
+import { type KeyboardEvent, type ReactNode, type Ref, useEffect, useId, useLayoutEffect, useRef } from "react";
 import { type AutosaveStatus, type Save, useAutosave, useDraft } from "../../lib/data/autosave.ts";
 import type { Key } from "../../lib/data/query.ts";
 import {
@@ -16,9 +7,7 @@ import {
   color,
   duration,
   easing,
-  focus,
   fontSize,
-  fontWeight,
   lineHeight,
   radius,
   size,
@@ -26,32 +15,13 @@ import {
 } from "../../styles/tokens.stylex.ts";
 import { Banner } from "./Banner.tsx";
 import { Button } from "./Button.tsx";
+import { Field } from "./Field.tsx";
+import { halo } from "./halo.ts";
 import { Icon, type IconName } from "./Icon.tsx";
-import { Spinner } from "./Spinner.tsx";
-
-const FOCUS = `0 0 0 ${border.width} ${color.focusRing}, 0 0 0 ${focus.halo} color-mix(in srgb, ${color.focusRing} 18%, transparent)`;
+import { SaveState } from "./SaveState.tsx";
+import { type } from "./type.ts";
 
 const styles = stylex.create({
-  field: { display: "flex", flexDirection: "column", gap: space.snug, minWidth: 0 },
-  label: {
-    display: "flex",
-    alignItems: "baseline",
-    gap: space.s3,
-    fontSize: fontSize.compact,
-    lineHeight: lineHeight.compact,
-    fontWeight: fontWeight.medium,
-    color: color.text,
-  },
-  labelState: { marginInlineStart: "auto" },
-  hint: { fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textSubtle },
-  error: {
-    display: "flex",
-    gap: space.s2,
-    alignItems: "center",
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
-    color: color.danger,
-  },
   box: {
     boxSizing: "border-box",
     position: "relative",
@@ -68,7 +38,6 @@ const styles = stylex.create({
       ":hover": color.borderControl,
       ":focus-within": color.focusRing,
     },
-    boxShadow: { default: null, ":focus-within": FOCUS },
     borderRadius: radius.r2,
     backgroundColor: color.surface,
     color: color.text,
@@ -110,11 +79,7 @@ const styles = stylex.create({
     paddingInline: space.s2,
   },
   wrapsValue: { minWidth: size.chipInputMin, paddingInline: space.s2, fontSize: fontSize.compact },
-  title: { fontSize: fontSize.title, lineHeight: lineHeight.title, fontWeight: fontWeight.semibold },
-  invalid: {
-    borderColor: color.danger,
-    boxShadow: `0 0 0 ${border.width} ${color.danger}, 0 0 0 ${focus.halo} color-mix(in srgb, ${color.danger} 14%, transparent)`,
-  },
+  invalid: { borderColor: color.danger },
   disabled: {
     backgroundColor: color.surfaceSunken,
     borderColor: color.border,
@@ -154,28 +119,14 @@ const styles = stylex.create({
   area: { resize: "none", overflow: "hidden", whiteSpace: "pre-wrap", overflowWrap: "anywhere" },
   trail: { display: "inline-flex", alignItems: "center", gap: space.s2, alignSelf: "center", color: color.textSubtle },
   trailMulti: { alignSelf: "flex-end" },
-  state: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: space.s2,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
-    fontWeight: fontWeight.regular,
-    color: color.textSubtle,
-    whiteSpace: "nowrap",
-  },
-  stateSaving: { color: color.textMuted },
-  stateError: { color: color.danger },
-  stateConflict: { color: color.warning },
-  stateClaude: { color: color.claudeText },
   stateBelow: { alignSelf: "flex-end" },
   forceHover: { borderColor: color.borderControl },
   forceHoverInline: { borderColor: "transparent", backgroundColor: color.surfaceHover },
-  forceFocus: { borderColor: color.focusRing, boxShadow: FOCUS },
+  forceFocus: { borderColor: color.focusRing },
 });
 
-// the save state a bound field shows (the autosave of the document it writes into)
-export type SaveState = {
+// the autosave a bound field shows the state of (the document it writes into)
+export type FieldAutosave = {
   status: AutosaveStatus;
   error?: string;
   flush(): Promise<void>;
@@ -197,7 +148,7 @@ export type TextProps = {
   base?: string;
   delay?: number | "blur";
   /** the autosave of the document this field writes a part of (the test editor): its state is shown here */
-  autosave?: SaveState;
+  autosave?: FieldAutosave;
   /** a plain field keeps its unsent value under this key when the screen changes */
   draftKey?: Key;
   multiline?: boolean;
@@ -288,76 +239,6 @@ function DraftText(props: TextProps & { draftKey: Key }) {
   );
 }
 
-function useEditedAfter(status: AutosaveStatus | undefined, ms: number): boolean {
-  const [late, setLate] = useState(false);
-  useEffect(() => {
-    if (status !== "pending") {
-      setLate(false);
-      return;
-    }
-    const t = setTimeout(() => setLate(true), ms);
-    return () => clearTimeout(t);
-  }, [status, ms]);
-  return late;
-}
-
-function useFresh(status: AutosaveStatus | undefined, ms: number): boolean {
-  const [fresh, setFresh] = useState(false);
-  const was = useRef(status);
-  useEffect(() => {
-    const before = was.current;
-    was.current = status;
-    if (status !== "saved" || before === "saved" || before === undefined) return;
-    setFresh(true);
-    const t = setTimeout(() => setFresh(false), ms);
-    return () => clearTimeout(t);
-  }, [status, ms]);
-  return fresh;
-}
-
-function SaveWord({ a, claude, inline }: { a?: SaveState; claude: boolean; inline: boolean }) {
-  const edited = useEditedAfter(a?.status, 1000);
-  const fresh = useFresh(a?.status, 3000);
-  if (claude)
-    return (
-      <span {...stylex.props(styles.state, styles.stateClaude)}>
-        <Icon name="lock" size="sm" />
-        Read-only — Claude is editing
-      </span>
-    );
-  if (!a) return null;
-  if (a.status === "saving")
-    return (
-      <span {...stylex.props(styles.state, styles.stateSaving)}>
-        <Spinner size="sm" />
-        Saving…
-      </span>
-    );
-  if (a.status === "pending") return edited ? <span {...stylex.props(styles.state)}>Edited</span> : null;
-  if (a.status === "error")
-    return (
-      <span role="alert" {...stylex.props(styles.state, styles.stateError)}>
-        <Icon name="alert-circle" size="sm" />
-        Not saved
-        <Button size="xs" variant="quiet" label="Retry" onClick={() => void a.retry()} />
-      </span>
-    );
-  if (a.status === "conflict")
-    return (
-      <span {...stylex.props(styles.state, styles.stateConflict)}>
-        <Icon name="conflict" size="sm" />
-        Changed on disk
-      </span>
-    );
-  if (inline && !fresh) return null;
-  return (
-    <span {...stylex.props(styles.state)}>
-      <Icon name="check" size="sm" />
-      Saved
-    </span>
-  );
-}
-
 // ponytail: a growing field is as tall as its text at its width — measured again when the value changes and when only
 // the width does (the editor's Action | Expected switch, a dragged pane, the window); its own height change is ignored,
 // so the measure never loops
@@ -426,28 +307,33 @@ function TextField(p: TextProps) {
       p.onBlur?.();
     },
   };
-  const word = <SaveWord a={a} claude={claude} inline={inline} />;
+  const word = (
+    <SaveState status={claude ? "claude" : (a?.status ?? null)} onRetry={() => void a?.retry()} fade={inline} />
+  );
   return (
-    <div {...stylex.props(styles.field)}>
-      {p.label && (
-        <div {...stylex.props(styles.label)}>
-          <label htmlFor={id}>{p.label}</label>
-          <span {...stylex.props(styles.labelState)}>{word}</span>
-        </div>
-      )}
+    <Field
+      label={p.label}
+      htmlFor={id}
+      state={p.label && (a || claude) ? word : undefined}
+      error={p.error}
+      errorId={errorId}
+      hint={p.hint}
+      hintId={hintId}
+    >
       <div
         {...stylex.props(
           styles.box,
+          halo.within,
           multiline && styles.multi,
           p.size === "sm" && styles.sm,
           inline && styles.inline,
           inline && multiline && styles.inlineMulti,
           p.appearance === "bare" && styles.bare,
           p.appearance === "bare" && multiline && styles.bareMulti,
-          p.title && styles.title,
+          p.title && type.title,
           p.appearance !== "bare" && p.debugState === "hover" && (inline ? styles.forceHoverInline : styles.forceHover),
-          p.appearance !== "bare" && p.debugState === "focus" && styles.forceFocus,
-          p.error !== undefined && styles.invalid,
+          p.appearance !== "bare" && p.debugState === "focus" && [styles.forceFocus, halo.shown],
+          p.error !== undefined && [styles.invalid, halo.invalid],
           p.readOnly && styles.readOnly,
           claude && styles.claude,
           p.disabled && styles.disabled,
@@ -496,17 +382,6 @@ function TextField(p: TextProps) {
           This file changed on disk while you were editing it.
         </Banner>
       )}
-      {p.error && (
-        <span id={errorId} {...stylex.props(styles.error)}>
-          <Icon name="alert-circle" size="sm" />
-          {p.error}
-        </span>
-      )}
-      {p.hint && (
-        <span id={hintId} {...stylex.props(styles.hint)}>
-          {p.hint}
-        </span>
-      )}
-    </div>
+    </Field>
   );
 }

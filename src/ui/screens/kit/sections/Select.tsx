@@ -10,6 +10,11 @@ const sorts = [
   { value: "newest", label: "Newest" },
   { value: "key", label: "Key" },
 ];
+const models = [
+  { value: "haiku", label: "Haiku", hint: "Fast, for short asks and checks." },
+  { value: "sonnet", label: "Sonnet", hint: "The default: writes and fixes tests." },
+  { value: "opus", label: "Opus", hint: "Slow and thorough, for a whole document." },
+];
 
 export const section: KitSection = {
   name: "Select",
@@ -20,7 +25,7 @@ export const section: KitSection = {
   guidelines: [
     {
       head: "Options",
-      text: "`boxed` (forms) or `quiet` (toolbars, the dock footer, the queue's sort) · `sm` | `md` · `prefix` (« Sort », « Folder ») · leading icon · `block`. **States.** default · hover · focus/open (accent ring) · disabled (with the reason as tooltip) · placeholder (« Choose a folder… »). **Rules.** More than ~12 values or free text → a Text with suggestions (the folder field), not a select. Never use a select for two options: use a Segmented choice or a Switch.",
+      text: "`boxed` (forms) or `quiet` (toolbars, the dock footer, the queue's sort) · `sm` | `md` · `prefix` (« Sort », « Folder ») · leading icon · `block` · an option's `hint` (its tooltip, and the hint under a labelled select while it is chosen). The label shown above is the kit's Field, the same as Text's. **States.** default · hover · focus/open (accent ring) · disabled (with the reason as tooltip) · placeholder (« Choose a folder… »). **Rules.** More than ~12 values or free text → a Text with suggestions (the folder field), not a select. Never use a select for two options: use a Segmented choice or a Switch.",
     },
   ],
   states: () => (
@@ -35,6 +40,9 @@ export const section: KitSection = {
           onChange={() => {}}
           block
         />
+      </Cell>
+      <Cell label="label shown · option hints (the chosen one under the field)" column>
+        <Select label="Model" showLabel value="sonnet" options={models} onChange={() => {}} block />
       </Cell>
       <Cell label="boxed · value · icon" column>
         <Select label="Folder" value="/Sectionneur" options={folders} icon="folder" onChange={() => {}} />

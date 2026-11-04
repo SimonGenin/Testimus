@@ -5,25 +5,22 @@ import {
   border,
   color,
   container,
-  focus,
-  fontFamily,
   fontSize,
   fontWeight,
   lineHeight,
   radius,
-  shadow,
   size,
   space,
 } from "../../styles/tokens.stylex.ts";
 import { Button } from "./Button.tsx";
 import { Chip } from "./Chip.tsx";
 import { GroupSelect, type SelectGroup } from "./GroupSelect.tsx";
+import { halo } from "./halo.ts";
 import { Icon } from "./Icon.tsx";
 import { Kbd } from "./Kbd.tsx";
 import { Spinner } from "./Spinner.tsx";
 import { Text, type TextProps } from "./Text.tsx";
-
-const FOCUS = `0 0 0 ${border.width} ${color.claude}, 0 0 0 ${focus.halo} color-mix(in srgb, ${color.claude} 16%, transparent)`;
+import { Timer } from "./Timer.tsx";
 
 const styles = stylex.create({
   frame: {
@@ -33,7 +30,6 @@ const styles = stylex.create({
     borderStyle: "solid",
     borderWidth: border.width,
     borderColor: { default: color.borderField, ":focus-within": color.claude },
-    boxShadow: { default: shadow.s1, ":focus-within": FOCUS },
     borderRadius: radius.r4,
     backgroundColor: color.surface,
     overflow: "hidden",
@@ -42,7 +38,7 @@ const styles = stylex.create({
   frameless: { borderWidth: 0, borderRadius: 0, boxShadow: "none" },
   running: { borderColor: color.claudeBorder },
   disabled: { backgroundColor: color.surfaceSunken, borderColor: color.border, boxShadow: "none" },
-  forceFocus: { borderColor: color.claude, boxShadow: FOCUS },
+  forceFocus: { borderColor: color.claude },
   row: {
     boxSizing: "border-box",
     display: "flex",
@@ -101,13 +97,6 @@ const styles = stylex.create({
   whole: { flex: "none" },
   foldableWords: { display: { default: "inline", [container.paneCompact]: "none" } },
   foldableKeys: { display: { default: "inline-flex", [container.paneNarrow]: "none" } },
-  timer: {
-    whiteSpace: "nowrap",
-    fontVariantNumeric: "tabular-nums",
-    fontFamily: fontFamily.mono,
-    fontSize: fontSize.code,
-    color: color.claudeText,
-  },
 });
 
 export type Choice = Omit<SelectGroup, "label">;
@@ -146,8 +135,6 @@ export type ClaudeBlockProps = Omit<TextProps, "multiline" | "appearance" | "onK
   /** no frame at all: the container draws it (the « Ask Claude » popover) */
   frameless?: boolean;
 };
-
-const elapsed = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
 // ponytail: every place where one writes to or for Claude is the Text component inside this frame — never a second text
 // box; contexts, quick asks, model and effort, send or autosave are options
@@ -210,11 +197,12 @@ export function ClaudeBlock(props: ClaudeBlockProps) {
     <div
       {...stylex.props(
         styles.frame,
+        halo.claudeWithin,
         plain && styles.plain,
         frameless && styles.frameless,
         busy && styles.running,
         (off || text.disabled) && styles.disabled,
-        text.debugState === "focus" && styles.forceFocus,
+        text.debugState === "focus" && [styles.forceFocus, halo.claudeShown],
       )}
     >
       {contexts && (
@@ -304,7 +292,7 @@ export function ClaudeBlock(props: ClaudeBlockProps) {
               <span {...stylex.props(styles.hint, styles.whole)}>
                 <Spinner size="sm" />
                 <span>Claude is working</span>
-                <span {...stylex.props(styles.timer)}>{elapsed(running)}</span>
+                <Timer seconds={running} />
               </span>
               {onCancel && (
                 <span {...stylex.props(styles.keep)}>
