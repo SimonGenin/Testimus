@@ -2,7 +2,8 @@ import * as stylex from "@stylexjs/stylex";
 import type { FitVerdict } from "../../../core/types.ts";
 import { Badge } from "../../components/ui/Badge.tsx";
 import { Card } from "../../components/ui/Card.tsx";
-import { color, fontSize, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { type } from "../../components/ui/type.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 import { FIT, type PackRow, size } from "../settings/models/data.ts";
 import { PROCESSOR_ONLY } from "../settings/models/FitChip.tsx";
 
@@ -10,9 +11,9 @@ const styles = stylex.create({
   title: { display: "inline-flex", flexWrap: "wrap", alignItems: "center", gap: space.s2 },
   badges: { display: "inline-flex", flexWrap: "wrap", gap: space.s2 },
   body: { display: "flex", flexDirection: "column", gap: space.s1 },
-  intent: { color: color.textMuted, fontSize: fontSize.compact, lineHeight: lineHeight.compact },
-  models: { color: color.text, fontSize: fontSize.small, lineHeight: lineHeight.small },
-  note: { color: color.textMuted, fontSize: fontSize.small, lineHeight: lineHeight.small },
+  intent: { color: color.textMuted },
+  models: { color: color.text },
+  note: { color: color.textMuted },
 });
 
 const UNTESTED = "Never run on this system yet: Testimus tries it after the download and refuses it if it fails.";
@@ -68,9 +69,9 @@ export function PackCard({
       }
     >
       <span {...stylex.props(styles.body)}>
-        <span {...stylex.props(styles.intent)}>{p.intent}</span>
-        <span {...stylex.props(styles.models)}>{models}</span>
-        {note && <span {...stylex.props(styles.note)}>{note}</span>}
+        <span {...stylex.props(type.compact, styles.intent)}>{p.intent}</span>
+        <span {...stylex.props(type.small, styles.models)}>{models}</span>
+        {note && <span {...stylex.props(type.small, styles.note)}>{note}</span>}
       </span>
     </Card>
   );

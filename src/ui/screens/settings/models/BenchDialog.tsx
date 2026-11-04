@@ -1,13 +1,13 @@
 import * as stylex from "@stylexjs/stylex";
 import { Banner } from "../../../components/ui/Banner.tsx";
 import { Button } from "../../../components/ui/Button.tsx";
+import { Facts } from "../../../components/ui/Facts.tsx";
 import { Modal } from "../../../components/ui/Modal.tsx";
 import { useCancel } from "../jobs.ts";
 import { Hint, Stack } from "../Section.tsx";
 import type { PackRow } from "./data.ts";
 import { OpLine } from "./OpLine.tsx";
 import { Models } from "./PackCard.tsx";
-import { Row, Rows } from "./PackPlanDialog.tsx";
 
 const styles = stylex.create({ plain: { margin: 0 } });
 
@@ -56,21 +56,23 @@ export function BenchDialog({
           comes first, and how often it is in the top 5. The search times become this PC's speed for the pack.
         </p>
         <Hint>Your project's documents are not used: the same test on every PC makes the packs comparable.</Hint>
-        <Rows>
-          {pack.embedding && (
-            <Row term="Models">
-              <Models embedding={pack.embedding} reranker={pack.reranker} label={label} />
-            </Row>
-          )}
-          {running && (
-            <Row term="Progress">
-              <OpLine
-                op={{ key: pack.id, jobId: bench?.jobId ?? "", label: "Measuring", kind: "models-measure" }}
-                cancellable={false}
-              />
-            </Row>
-          )}
-        </Rows>
+        <Facts
+          items={[
+            !!pack.embedding && {
+              label: "Models",
+              value: <Models embedding={pack.embedding} reranker={pack.reranker} label={label} />,
+            },
+            running && {
+              label: "Progress",
+              value: (
+                <OpLine
+                  op={{ key: pack.id, jobId: bench?.jobId ?? "", label: "Measuring", kind: "models-measure" }}
+                  cancellable={false}
+                />
+              ),
+            },
+          ]}
+        />
         {bench?.status === "done" && (
           <Banner tone="success" title="Measured">
             <span>

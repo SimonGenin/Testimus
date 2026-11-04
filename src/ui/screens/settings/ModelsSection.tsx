@@ -7,10 +7,11 @@ import { Disclosure } from "../../components/ui/Disclosure.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { Modal } from "../../components/ui/Modal.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
+import { type } from "../../components/ui/type.ts";
 import { useApp } from "../../lib/app.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
-import { color, fontFamily, fontSize, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 import { AddFolder } from "./models/AddFolder.tsx";
 import { AdviceBanner } from "./models/AdviceBanner.tsx";
 import { useModelActions } from "./models/actions.ts";
@@ -34,11 +35,8 @@ const styles = stylex.create({
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    fontFamily: fontFamily.mono,
-    fontSize: fontSize.code,
-    lineHeight: lineHeight.code,
   },
-  muted: { color: color.textMuted, fontSize: fontSize.small, lineHeight: lineHeight.small },
+  muted: { color: color.textMuted },
   packs: {
     display: "grid",
     gridTemplateColumns: `repeat(auto-fill, minmax(calc(${space.s11} * 4), 1fr))`,
@@ -128,17 +126,19 @@ export function ModelsSection() {
               <Skeleton width="40%" />
             ) : dir ? (
               <>
-                <span title={dir} {...stylex.props(styles.path)}>
+                <span title={dir} {...stylex.props(type.code, styles.path)}>
                   {dir}
                 </span>
                 {drive && (
-                  <span {...stylex.props(styles.muted)}>
+                  <span {...stylex.props(type.small, styles.muted)}>
                     · {size(drive.freeMB)} free on {drive.root.replace(/[\\/]+$/, "") || drive.root}
                   </span>
                 )}
               </>
             ) : (
-              <span {...stylex.props(styles.muted)}>Not chosen yet — Testimus asks on the first download.</span>
+              <span {...stylex.props(type.small, styles.muted)}>
+                Not chosen yet — Testimus asks on the first download.
+              </span>
             )}
           </span>
           {ops

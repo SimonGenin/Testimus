@@ -4,22 +4,18 @@ import { useState } from "react";
 import { Button } from "../../../components/ui/Button.tsx";
 import { Checkbox } from "../../../components/ui/Checkbox.tsx";
 import { Text } from "../../../components/ui/Text.tsx";
+import { type } from "../../../components/ui/type.ts";
 import { useDraft } from "../../../lib/data/autosave.ts";
 import { execute, type Key } from "../../../lib/data/query.ts";
 import { errorToast, toast } from "../../../lib/toast.ts";
-import { color, fontSize, fontWeight, lineHeight, space } from "../../../styles/tokens.stylex.ts";
+import { color, space } from "../../../styles/tokens.stylex.ts";
 import { Hint, Stack } from "../Section.tsx";
 import { folderPicker } from "./data.ts";
 
 const styles = stylex.create({
   row: { display: "flex", alignItems: "flex-end", gap: space.s3 },
   head: { display: "flex", flexDirection: "column", gap: space.s1 },
-  title: {
-    color: color.text,
-    fontSize: fontSize.titleSm,
-    lineHeight: lineHeight.titleSm,
-    fontWeight: fontWeight.semibold,
-  },
+  title: { color: color.text },
   grow: { flex: 1, minWidth: 0 },
 });
 
@@ -55,7 +51,7 @@ export function AddFolder() {
   return (
     <Stack>
       <div {...stylex.props(styles.head)}>
-        <span {...stylex.props(styles.title)}>Add from a folder…</span>
+        <span {...stylex.props(type.titleSm, styles.title)}>Add from a folder…</span>
         <Hint>
           A model already on disk (a team share, a manual download): a Hugging Face folder, a .gguf file or a llama.cpp
           folder. It is checked with one sentence and used in place.

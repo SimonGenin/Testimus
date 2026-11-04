@@ -6,10 +6,11 @@ import type { ColumnMode, ColumnShow, StepColumn } from "../../../core/types.ts"
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
+import { type } from "../../components/ui/type.ts";
 import { project } from "../../lib/data/client.ts";
 import { execute, type Key, key, type Prefix } from "../../lib/data/query.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
-import { color, fontSize, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 import { ColumnCard, columnFieldId } from "./ColumnCard.tsx";
 import { ColumnsClaude } from "./ColumnsClaude.tsx";
 import { NewColumn } from "./NewColumn.tsx";
@@ -19,7 +20,7 @@ import { Section } from "./Section.tsx";
 const styles = stylex.create({
   list: { display: "flex", flexDirection: "column", gap: space.s5, margin: 0, padding: 0, listStyle: "none" },
   dragging: { opacity: 0.5 },
-  read: { fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textMuted },
+  read: { color: color.textMuted },
 });
 
 const READS: Prefix[] = [["project.info"], ["columns.list"], ["tests.folds"]];
@@ -127,7 +128,9 @@ export function ColumnsSection() {
       actions={
         <>
           {fetchedAt && (
-            <span {...stylex.props(styles.read)}>Read from Xray {new Date(fetchedAt).toLocaleString("en-GB")}</span>
+            <span {...stylex.props(type.small, styles.read)}>
+              Read from Xray {new Date(fetchedAt).toLocaleString("en-GB")}
+            </span>
           )}
           <Button
             size="sm"

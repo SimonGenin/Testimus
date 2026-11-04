@@ -9,19 +9,12 @@ import { Progress } from "../../../components/ui/Progress.tsx";
 import { RadioGroup } from "../../../components/ui/RadioGroup.tsx";
 import { Skeleton } from "../../../components/ui/Skeleton.tsx";
 import { Text } from "../../../components/ui/Text.tsx";
+import { type } from "../../../components/ui/type.ts";
 import { ApiError } from "../../../lib/data/client.ts";
 import { execute, useRead } from "../../../lib/data/query.ts";
 import { absolutePath, examplePath } from "../../../lib/desktop.ts";
 import { message } from "../../../lib/format.ts";
-import {
-  color,
-  fontFamily,
-  fontSize,
-  fontWeight,
-  lineHeight,
-  size as sizes,
-  space,
-} from "../../../styles/tokens.stylex.ts";
+import { color, size as sizes, space } from "../../../styles/tokens.stylex.ts";
 import { useJob } from "../jobs.ts";
 import { Hint, Stack } from "../Section.tsx";
 import type { SetDirOut } from "./data.ts";
@@ -29,25 +22,16 @@ import { bestDrive, defaultFolder, folderPicker, onDrive, size } from "./data.ts
 
 const styles = stylex.create({
   field: { display: "flex", flexDirection: "column", gap: space.snug },
-  label: {
-    color: color.text,
-    fontSize: fontSize.compact,
-    lineHeight: lineHeight.compact,
-    fontWeight: fontWeight.medium,
-  },
   root: {
     display: "block",
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    fontFamily: fontFamily.mono,
   },
   free: {
     flexShrink: 0,
     marginInlineStart: space.s3,
     color: color.textMuted,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
     whiteSpace: "nowrap",
   },
   drives: {
@@ -191,7 +175,7 @@ export function FolderDialog({
           <Skeleton kind="block" />
         ) : (
           <div {...stylex.props(styles.field)}>
-            <span id="models-drives" {...stylex.props(styles.label)}>
+            <span id="models-drives" {...stylex.props(type.label)}>
               Drives
             </span>
             <div role="radiogroup" aria-labelledby="models-drives" {...stylex.props(styles.drives)}>
@@ -201,9 +185,9 @@ export function FolderDialog({
                 return (
                   <Card
                     key={d.root}
-                    title={<span {...stylex.props(styles.root)}>{d.root}</span>}
+                    title={<span {...stylex.props(type.code, styles.root)}>{d.root}</span>}
                     actions={
-                      <span {...stylex.props(styles.free)}>
+                      <span {...stylex.props(type.small, type.regular, styles.free)}>
                         {size(d.freeMB)} free{d.totalMB ? ` of ${size(d.totalMB)}` : ""}
                       </span>
                     }

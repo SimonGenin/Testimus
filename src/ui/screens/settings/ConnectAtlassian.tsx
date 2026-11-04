@@ -9,20 +9,12 @@ import { Button } from "../../components/ui/Button.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { Text } from "../../components/ui/Text.tsx";
+import { type } from "../../components/ui/type.ts";
 import { useDraft } from "../../lib/data/autosave.ts";
 import { execute, invalidate, type Key, read, useRead } from "../../lib/data/query.ts";
 import { desktop, openExternal, reveal } from "../../lib/desktop.ts";
 import { message } from "../../lib/format.ts";
-import {
-  color,
-  fontFamily,
-  fontSize,
-  fontWeight,
-  lineHeight,
-  radius,
-  size,
-  space,
-} from "../../styles/tokens.stylex.ts";
+import { color, radius, size, space } from "../../styles/tokens.stylex.ts";
 import { Grid, Hint } from "./Section.tsx";
 
 const styles = stylex.create({
@@ -38,11 +30,9 @@ const styles = stylex.create({
     borderRadius: radius.full,
     backgroundColor: color.surfaceSunken,
     color: color.textMuted,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
   },
   col: { display: "flex", flexDirection: "column", gap: space.s3, flex: 1, minWidth: 0 },
-  title: { margin: 0, fontSize: fontSize.body, lineHeight: lineHeight.body, fontWeight: fontWeight.semibold },
+  title: { margin: 0 },
   how: {
     boxSizing: "border-box",
     display: "flex",
@@ -50,16 +40,12 @@ const styles = stylex.create({
     gap: space.s2,
     margin: 0,
     paddingLeft: space.s6,
-    fontSize: fontSize.compact,
-    lineHeight: lineHeight.compact,
   },
   foot: { display: "flex", alignItems: "center", gap: space.s3, flexWrap: "wrap" },
   spacer: { flex: 1 },
-  mono: { fontFamily: fontFamily.mono },
   checks: { display: "flex", flexDirection: "column", gap: space.s3 },
   result: { display: "flex", alignItems: "center", gap: space.s3, flexWrap: "wrap" },
-  service: { fontSize: fontSize.compact, lineHeight: lineHeight.compact, fontWeight: fontWeight.semibold },
-  said: { fontSize: fontSize.compact, lineHeight: lineHeight.compact, color: color.text },
+  said: { color: color.text },
 });
 
 export type SetupResult = CommandOutput<"system.setCredentials">;
@@ -243,9 +229,9 @@ export function ConnectAtlassian({
     >
       {lead && <Hint>{lead}</Hint>}
       <div {...stylex.props(styles.step)}>
-        <span {...stylex.props(styles.num)}>1</span>
+        <span {...stylex.props(type.small, type.strong, type.tabular, styles.num)}>1</span>
         <div {...stylex.props(styles.col)}>
-          <h3 {...stylex.props(styles.title)}>Your Jira site and the email you log in with</h3>
+          <h3 {...stylex.props(type.titleSm, styles.title)}>Your Jira site and the email you log in with</h3>
           <Grid>
             <Text
               id="setup-site"
@@ -268,7 +254,7 @@ export function ConnectAtlassian({
           <Hint>
             {saved && saved !== site.trim() ? (
               <>
-                Will be saved as <span {...stylex.props(styles.mono)}>{saved}</span>
+                Will be saved as <span {...stylex.props(type.code)}>{saved}</span>
               </>
             ) : (
               "The address in your browser when you open Jira — just the site, any page of it works."
@@ -278,10 +264,10 @@ export function ConnectAtlassian({
       </div>
 
       <div {...stylex.props(styles.step)}>
-        <span {...stylex.props(styles.num)}>2</span>
+        <span {...stylex.props(type.small, type.strong, type.tabular, styles.num)}>2</span>
         <div {...stylex.props(styles.col)}>
-          <h3 {...stylex.props(styles.title)}>A Jira API token</h3>
-          <ol {...stylex.props(styles.how)}>
+          <h3 {...stylex.props(type.titleSm, styles.title)}>A Jira API token</h3>
+          <ol {...stylex.props(type.compact, styles.how)}>
             <li>
               Open your Atlassian account's token page{" "}
               <Button size="sm" icon="external" label="Open API tokens" onClick={() => open(TOKENS)} />
@@ -305,10 +291,10 @@ export function ConnectAtlassian({
       </div>
 
       <div {...stylex.props(styles.step)}>
-        <span {...stylex.props(styles.num)}>3</span>
+        <span {...stylex.props(type.small, type.strong, type.tabular, styles.num)}>3</span>
         <div {...stylex.props(styles.col)}>
-          <h3 {...stylex.props(styles.title)}>An Xray API key — Client ID and Client secret</h3>
-          <ol {...stylex.props(styles.how)}>
+          <h3 {...stylex.props(type.titleSm, styles.title)}>An Xray API key — Client ID and Client secret</h3>
+          <ol {...stylex.props(type.compact, styles.how)}>
             <li>
               In Jira, <Icon name="settings" size="sm" />{" "}
               <strong>Settings → Apps → Xray → API Keys → Create API Key</strong>, for your own user{" "}
@@ -373,7 +359,7 @@ export function ConnectAtlassian({
           />
         ) : (
           <Hint>
-            Saved in <span {...stylex.props(styles.mono)}>{dir}</span>
+            Saved in <span {...stylex.props(type.code)}>{dir}</span>
           </Hint>
         )}
       </div>
@@ -390,8 +376,8 @@ export function ConnectAtlassian({
               {(["jira", "xray"] as const).map((k) => (
                 <div key={k} {...stylex.props(styles.result)}>
                   <Badge {...RESULT[words[k].ok ? "ok" : words[k].untested ? "untested" : "failed"]} />
-                  <span {...stylex.props(styles.service)}>{k === "jira" ? "Jira" : "Xray"}</span>
-                  <span {...stylex.props(styles.said)}>{words[k].text}</span>
+                  <span {...stylex.props(type.compact, type.strong)}>{k === "jira" ? "Jira" : "Xray"}</span>
+                  <span {...stylex.props(type.compact, styles.said)}>{words[k].text}</span>
                 </div>
               ))}
             </div>

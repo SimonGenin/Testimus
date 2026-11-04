@@ -498,4 +498,53 @@ describe("Jobs › the design's icons (audit icons 86–92)", () => {
     expect(iconsIn(within(procs).getByRole("listitem"))).toEqual(["terminal"]);
     expect(iconsIn(within(side).getByRole("button", { name: "Show the full log" }))).toEqual(["chevron-right"]);
   });
+
+  it("draws the log in the kit's raw block, cut by step, the failed step's line in red, and a repeat count as a badge", async () => {
+    server = [
+      job({
+        id: "x1",
+        kind: "rag-index",
+        status: "failed",
+        endedAt: "2026-11-02T10:01:00Z",
+        error: "out of memory",
+        steps: [
+          { id: "cut", label: "Cut the documents", status: "done" },
+          { id: "embed", label: "Embed the passages", status: "failed" },
+        ],
+      }),
+      job({
+        id: "c1",
+        kind: "check",
+        status: "done",
+        startedAt: "2026-11-02T09:00:00Z",
+        endedAt: "2026-11-02T09:00:01Z",
+      }),
+      job({
+        id: "c2",
+        kind: "check",
+        status: "done",
+        startedAt: "2026-11-02T09:10:00Z",
+        endedAt: "2026-11-02T09:10:01Z",
+      }),
+    ];
+    net.routes["jobs.show"] = (i) => ({
+      job: null,
+      events: [
+        { jobId: i.id, at: "2026-11-02T10:00:01Z", type: "log", level: "info", message: "Chunking", step: "cut" },
+        { jobId: i.id, at: "2026-11-02T10:00:02Z", type: "log", level: "error", message: "No memory", step: "embed" },
+      ],
+    });
+    jobsScreen({ route: { screen: "jobs", arg: "x1" } });
+    const side = await waitFor(() => detail("Index documents job"));
+    const log = await within(side).findByRole("log", { name: "Live log" });
+    const lines = [...log.querySelectorAll("[data-level]")].map((l) => [l.getAttribute("data-level"), l.textContent]);
+    expect(lines).toEqual([
+      ["info", "1 · Cut the documents"],
+      ["info", expect.stringMatching(/^\d\d:00:01Chunking$/)],
+      ["error", "2 · Embed the passages"],
+      ["error", expect.stringMatching(/^\d\d:00:02No memory$/)],
+    ]);
+    expect(within(side).getByRole("heading", { name: "Log" })).toBeInTheDocument();
+    expect(within(rowOf("Check tests")).getByText("×2")).toBeInTheDocument();
+  });
 });

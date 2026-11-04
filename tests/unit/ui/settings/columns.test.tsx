@@ -77,7 +77,9 @@ describe("Settings › Smart columns: a field Xray requires or has switched off 
     expect(card("Action")).not.toHaveTextContent("Off in Xray");
     expect(iconsIn(within(card("Exigence")).getByText("Required")), "audit icons 104").toEqual(["alert-circle"]);
     expect(iconsIn(within(card("Ancienne")).getByText("Off in Xray"))).toEqual(["eye-off"]);
-    expect(iconsIn(within(card("Expected Result")).getByText("Xray · standard"))).toEqual([]);
+    expect(iconsIn(within(card("Expected Result")).getByText("Xray · standard")), "the kit COLUMN word").toEqual([
+      "cloud",
+    ]);
     const off = within(card("Ancienne")).getByText(/^Switched off in Xray/);
     expect(iconsIn(off), "audit icons 106").toEqual(["info"]);
     expect(within(card("Exigence")).queryByText(/^Switched off in Xray/)).toBeNull();
@@ -123,7 +125,7 @@ describe("Settings › Smart columns", () => {
     );
     mountSettings(<ColumnsSection />);
     await screen.findByRole("list", { name: "Smart columns" });
-    expect(iconsIn(within(card("Poste")).getByText("Local only"))).toEqual(["file"]);
+    expect(iconsIn(within(card("Poste")).getByText("Local only")), "the kit COLUMN word").toEqual(["drive"]);
     expect(iconsIn(within(card("Poste")).getByText(/^Kept in test\.md and never pushed/))).toEqual(["info"]);
     expect(within(card("Action")).queryByText(/^Kept in test\.md/)).toBeNull();
   });

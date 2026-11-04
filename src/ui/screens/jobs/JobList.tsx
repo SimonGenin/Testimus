@@ -6,6 +6,7 @@ import { Button } from "../../components/ui/Button.tsx";
 import { List } from "../../components/ui/List.tsx";
 import type { ListItemProps } from "../../components/ui/ListItem.tsx";
 import { Progress } from "../../components/ui/Progress.tsx";
+import { type } from "../../components/ui/type.ts";
 import { plural } from "../../lib/format.ts";
 import {
   childSummary,
@@ -23,16 +24,7 @@ import {
   subjectLabel,
   subtree,
 } from "../../lib/jobs.ts";
-import {
-  color,
-  container,
-  fontFamily,
-  fontSize,
-  fontWeight,
-  lineHeight,
-  size,
-  space,
-} from "../../styles/tokens.stylex.ts";
+import { color, container, size, space } from "../../styles/tokens.stylex.ts";
 import { JobState, KindTile } from "./JobState.tsx";
 
 const styles = stylex.create({
@@ -41,10 +33,7 @@ const styles = stylex.create({
     display: { default: "block", [container.paneCompact]: "none" },
     width: size.thumb,
     color: color.textMuted,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
     textAlign: "end",
-    fontVariantNumeric: "tabular-nums",
   },
   time: {
     display: "flex",
@@ -52,14 +41,11 @@ const styles = stylex.create({
     alignItems: "flex-end",
     minWidth: size.controlLg,
     color: color.textMuted,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
   },
-  mono: { fontFamily: fontFamily.mono, color: color.text },
+  mono: { color: color.text },
   at: { display: { default: "inline", [container.paneCompact]: "none" } },
   meta: { display: "inline-flex", flexWrap: "wrap", columnGap: space.s2 },
-  cause: { fontWeight: fontWeight.medium, color: color.text },
-  times: { color: color.textMuted, fontWeight: fontWeight.regular, marginInlineStart: space.s1 },
+  cause: { color: color.text },
   part: { display: "inline-flex", gap: space.s2 },
 });
 
@@ -121,7 +107,7 @@ function Progressed({ job }: { job: Job }) {
     const done = steps.filter((s) => s.status === "done").length;
     const value = multi ? Math.round((done / steps.length) * 100) : percent(job);
     return (
-      <span {...stylex.props(styles.prog)}>
+      <span {...stylex.props(type.small, type.tabular, styles.prog)}>
         <Progress
           label={multi ? `${kindLabel(job.kind)} steps` : `${kindLabel(job.kind)} progress`}
           value={value}
@@ -137,7 +123,7 @@ function Progressed({ job }: { job: Job }) {
     );
   }
   return (
-    <span {...stylex.props(styles.prog)}>
+    <span {...stylex.props(type.small, type.tabular, styles.prog)}>
       {job.progress?.total ? `${job.progress.done} of ${job.progress.total}` : ""}
     </span>
   );
@@ -148,8 +134,8 @@ function trail(prog: ReactNode, state: ReactNode, time: string, at?: string): Re
     <span {...stylex.props(styles.trail)}>
       {prog}
       {state}
-      <span {...stylex.props(styles.time)}>
-        <span {...stylex.props(styles.mono)}>{time}</span>
+      <span {...stylex.props(type.small, styles.time)}>
+        <span {...stylex.props(type.code, styles.mono)}>{time}</span>
         {at && <span {...stylex.props(styles.at)}>{at}</span>}
       </span>
     </span>
@@ -168,15 +154,11 @@ function jobItem(r: Extract<Row, { kind: "job" }>, c: ListCtx): ListItemProps {
   );
   return {
     lead: <KindTile kind={job.kind} size={depth > 0 ? "sm" : "md"} />,
-    title: (
-      <>
-        {kindLabel(job.kind)}
-        {repeats > 0 && <span {...stylex.props(styles.times)}>×{repeats + 1}</span>}
-      </>
-    ),
+    title: kindLabel(job.kind),
+    badges: repeats > 0 && <Badge label={`×${repeats + 1}`} size="sm" />,
     meta: (
       <span {...stylex.props(styles.meta)}>
-        {cause && <span {...stylex.props(styles.cause)}>{cause}</span>}
+        {cause && <span {...stylex.props(type.medium, styles.cause)}>{cause}</span>}
         {meta.map((m, i) => (
           <span key={m} {...stylex.props(styles.part)}>
             {(i > 0 || cause) && <span aria-hidden="true">·</span>}

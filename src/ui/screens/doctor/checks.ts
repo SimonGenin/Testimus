@@ -1,16 +1,8 @@
 import type { CheckState, DoctorCheck } from "../../../core/types.ts";
-import type { BadgeTone } from "../../components/ui/Badge.tsx";
-import type { IconName } from "../../components/ui/Icon.tsx";
+import type { HEALTH } from "../../components/ui/Badge.tsx";
 
-export type Look = "ok" | "warn" | "fail" | "skip" | "info";
-
-export const LOOK: Record<Look, { label: string; tone: BadgeTone; icon: IconName }> = {
-  fail: { label: "Failed", tone: "danger", icon: "x-circle" },
-  warn: { label: "To do", tone: "warning", icon: "alert-triangle" },
-  ok: { label: "OK", tone: "success", icon: "check-circle" },
-  skip: { label: "Not checked", tone: "neutral", icon: "circle-dashed" },
-  info: { label: "Info", tone: "info", icon: "info" },
-};
+/** a check's word in the kit's HEALTH vocabulary */
+export type Look = keyof typeof HEALTH;
 
 const INFO_IDS = new Set(["proxy"]);
 

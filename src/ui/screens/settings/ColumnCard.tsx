@@ -1,23 +1,23 @@
 import * as stylex from "@stylexjs/stylex";
 import type { ColumnMode, StepColumn, XrayField } from "../../../core/types.ts";
-import { Badge, type BadgeTone } from "../../components/ui/Badge.tsx";
+import { Badge, COLUMN, type Word } from "../../components/ui/Badge.tsx";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Card } from "../../components/ui/Card.tsx";
-import { Icon, type IconName } from "../../components/ui/Icon.tsx";
+import { Field } from "../../components/ui/Field.tsx";
+import { Icon } from "../../components/ui/Icon.tsx";
 import { Segmented } from "../../components/ui/Segmented.tsx";
 import { Switch } from "../../components/ui/Switch.tsx";
 import { Text } from "../../components/ui/Text.tsx";
+import { type } from "../../components/ui/type.ts";
 import type { Save } from "../../lib/data/autosave.ts";
 import type { Key } from "../../lib/data/query.ts";
-import { border, color, fontSize, fontWeight, lineHeight, space } from "../../styles/tokens.stylex.ts";
-import { columnTag } from "../generate/ColumnsView.tsx";
+import { border, color, space } from "../../styles/tokens.stylex.ts";
 import { Hint, Stack } from "./Section.tsx";
 
 const styles = stylex.create({
   head: { display: "inline-flex", alignItems: "center", gap: space.s3, flexWrap: "wrap" },
   grip: { display: "inline-flex", color: color.textSubtle, cursor: "grab" },
-  label: { fontSize: fontSize.compact, lineHeight: lineHeight.compact, fontWeight: fontWeight.medium },
   modes: { display: "flex", alignItems: "center", gap: space.s6, flexWrap: "wrap" },
   acts: { display: "inline-flex", gap: space.s1 },
   note: {
@@ -25,8 +25,6 @@ const styles = stylex.create({
     display: "flex",
     alignItems: "flex-start",
     gap: space.s2,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
     color: color.textSubtle,
   },
   noteIcon: { display: "inline-flex", marginTop: border.width },
@@ -52,18 +50,18 @@ export type ColumnCardProps = {
   onRemove?: () => void;
 };
 
-// ponytail: where the column comes from, as the Step fields screen draws it — a warning for what Xray changed, a
-// file for a column kept in test.md
-function kindBadge(c: StepColumn): { label: string; tone: BadgeTone; icon?: IconName } {
-  const tag = columnTag(c);
-  if (c.status === "gone" || c.status === "new") return { ...tag, icon: "alert-triangle" };
-  if (c.origin === "local") return { label: tag.label, tone: "neutral", icon: "file" };
-  return { label: tag.label, tone: "neutral" };
+// ponytail: where the column comes from, in the kit's column vocabulary — a warning for what Xray changed, the drive
+// for a column kept in test.md
+function kindBadge(c: StepColumn): Word {
+  if (c.status === "gone") return COLUMN.gone;
+  if (c.origin === "local") return COLUMN.local;
+  if (c.status === "new") return COLUMN["new-in-xray"];
+  return c.builtin ? COLUMN.standard : COLUMN.xray;
 }
 
 function Note({ children }: { children: string }) {
   return (
-    <p {...stylex.props(styles.note)}>
+    <p {...stylex.props(type.small, styles.note)}>
       <span {...stylex.props(styles.noteIcon)}>
         <Icon name="info" size="sm" />
       </span>
@@ -147,21 +145,22 @@ export function ColumnCard({
       }
     >
       <Stack>
-        <span {...stylex.props(styles.label)}>Shown in a step</span>
-        <div {...stylex.props(styles.modes)}>
-          <Segmented<ColumnMode>
-            size="sm"
-            label={`${c.name} folding`}
-            value={mode}
-            options={MODES.map((m) => ({
-              ...m,
-              disabled: always && m.value !== "open" ? `${c.name} is always open` : undefined,
-            }))}
-            onChange={onMode}
-          />
-          <Switch label="Hidden" on={c.mode === "hidden"} onChange={onHidden} />
-          <Switch label="Reference source" on={!!c.referenceSource} onChange={onReferenceSource} />
-        </div>
+        <Field label="Shown in a step">
+          <div {...stylex.props(styles.modes)}>
+            <Segmented<ColumnMode>
+              size="sm"
+              label={`${c.name} folding`}
+              value={mode}
+              options={MODES.map((m) => ({
+                ...m,
+                disabled: always && m.value !== "open" ? `${c.name} is always open` : undefined,
+              }))}
+              onChange={onMode}
+            />
+            <Switch label="Hidden" on={c.mode === "hidden"} onChange={onHidden} />
+            <Switch label="Reference source" on={!!c.referenceSource} onChange={onReferenceSource} />
+          </div>
+        </Field>
         <Text
           id={id}
           multiline

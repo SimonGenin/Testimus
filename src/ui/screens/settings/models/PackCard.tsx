@@ -3,8 +3,10 @@ import type { ReactNode } from "react";
 import { Badge } from "../../../components/ui/Badge.tsx";
 import { Button } from "../../../components/ui/Button.tsx";
 import { Card } from "../../../components/ui/Card.tsx";
+import { Facts } from "../../../components/ui/Facts.tsx";
 import { Icon } from "../../../components/ui/Icon.tsx";
-import { border, color, fontSize, fontWeight, lineHeight, space } from "../../../styles/tokens.stylex.ts";
+import { type } from "../../../components/ui/type.ts";
+import { border, color, space } from "../../../styles/tokens.stylex.ts";
 import { useJob } from "../jobs.ts";
 import { Hint } from "../Section.tsx";
 import type { PackRow } from "./data.ts";
@@ -28,9 +30,8 @@ const styles = stylex.create({
     borderTopWidth: border.width,
     borderTopColor: color.border,
   },
-  small: { fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textMuted },
-  models: { fontSize: fontSize.compact, lineHeight: lineHeight.compact, fontWeight: fontWeight.medium },
-  muted: { color: color.textMuted, fontWeight: fontWeight.regular },
+  small: { color: color.textMuted },
+  muted: { color: color.textMuted },
   fit: { display: "flex", gap: space.s2, flexWrap: "wrap" },
   skipped: {
     display: "flex",
@@ -39,22 +40,9 @@ const styles = stylex.create({
     margin: 0,
     padding: 0,
     listStyle: "none",
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
     color: color.textMuted,
   },
   skip: { display: "flex", gap: space.s1, alignItems: "flex-start" },
-  facts: {
-    display: "grid",
-    gridTemplateColumns: "max-content 1fr",
-    columnGap: space.s4,
-    rowGap: space.s1,
-    margin: 0,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
-  },
-  dt: { color: color.textMuted },
-  dd: { margin: 0 },
   foot: { display: "flex", alignItems: "center", gap: space.s3, flexWrap: "wrap", width: "100%" },
 });
 
@@ -70,10 +58,10 @@ export function Models({
   label: (id: string) => string;
 }) {
   return (
-    <span {...stylex.props(styles.models)}>
+    <span {...stylex.props(type.compact, type.medium)}>
       {label(embedding)}
-      <span {...stylex.props(styles.muted)}>{reranker ? " + " : " · "}</span>
-      {reranker ? label(reranker) : <span {...stylex.props(styles.muted)}>no reranker</span>}
+      <span {...stylex.props(type.regular, styles.muted)}>{reranker ? " + " : " · "}</span>
+      {reranker ? label(reranker) : <span {...stylex.props(type.regular, styles.muted)}>no reranker</span>}
     </span>
   );
 }
@@ -149,20 +137,20 @@ export function PackCard({
           <Hint>{pack.intent}</Hint>
           {pack.available ? (
             <div {...stylex.props(styles.variant)}>
-              <span {...stylex.props(styles.small)}>
+              <span {...stylex.props(type.small, styles.small)}>
                 On this PC{pack.variant ? ` (its ${ORDINAL[pack.variant]} choice)` : ""}
               </span>
               {models}
               <span {...stylex.props(styles.fit)}>
                 <FitChip fit={pack.fit} processorOnly={pack.processorOnly} />
               </span>
-              {pack.fit?.message && <span {...stylex.props(styles.small)}>{pack.fit.message}</span>}
+              {pack.fit?.message && <span {...stylex.props(type.small, styles.small)}>{pack.fit.message}</span>}
             </div>
           ) : (
             <Badge label="Not available on this PC" tone="danger" icon="x-circle" />
           )}
           {pack.skipped.length > 0 && (
-            <ul aria-label="Skipped variants" {...stylex.props(styles.skipped)}>
+            <ul aria-label="Skipped variants" {...stylex.props(type.small, styles.skipped)}>
               {pack.skipped.map((s) => (
                 <li key={s} {...stylex.props(styles.skip)}>
                   <Icon name="chevron-right" size="sm" />
@@ -174,22 +162,18 @@ export function PackCard({
               ))}
             </ul>
           )}
-          <dl {...stylex.props(styles.facts)}>
-            <dt {...stylex.props(styles.dt)}>Download</dt>
-            <dd {...stylex.props(styles.dd)}>
-              {pack.available ? (pack.downloadMB > 0 ? size(pack.downloadMB) : "Installed") : "—"}
-            </dd>
-            <dt {...stylex.props(styles.dt)}>Speed</dt>
-            <dd {...stylex.props(styles.dd)}>{pack.speed ?? "Not measured on this PC yet"}</dd>
-            <dt {...stylex.props(styles.dt)}>Quality</dt>
-            <dd {...stylex.props(styles.dd)}>{pack.quality}</dd>
-            {pack.projectQuality && (
-              <>
-                <dt {...stylex.props(styles.dt)}>On this project</dt>
-                <dd {...stylex.props(styles.dd)}>{pack.projectQuality}</dd>
-              </>
-            )}
-          </dl>
+          <Facts
+            size="sm"
+            items={[
+              {
+                label: "Download",
+                value: pack.available ? (pack.downloadMB > 0 ? size(pack.downloadMB) : "Installed") : "—",
+              },
+              { label: "Speed", value: pack.speed ?? "Not measured on this PC yet" },
+              { label: "Quality", value: pack.quality },
+              !!pack.projectQuality && { label: "On this project", value: pack.projectQuality },
+            ]}
+          />
         </div>
       </Card>
     </article>

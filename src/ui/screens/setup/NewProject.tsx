@@ -3,19 +3,14 @@ import { useEffect, useRef } from "react";
 import { Button } from "../../components/ui/Button.tsx";
 import { Select } from "../../components/ui/Select.tsx";
 import { Text } from "../../components/ui/Text.tsx";
+import { type } from "../../components/ui/type.ts";
 import { useDraft } from "../../lib/data/autosave.ts";
 import { desktop, examplePath, pathJoin, pickFolder } from "../../lib/desktop.ts";
-import { breakpoint, color, fontSize, fontWeight, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { breakpoint, color, space } from "../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
   set: { display: "flex", flexDirection: "column", gap: space.s4 },
-  title: {
-    margin: 0,
-    fontSize: fontSize.titleSm,
-    lineHeight: lineHeight.titleSm,
-    fontWeight: fontWeight.semibold,
-    color: color.text,
-  },
+  title: { margin: 0, color: color.text },
   pair: {
     display: "grid",
     gridTemplateColumns: { default: "1fr 1fr", [breakpoint.narrow]: "1fr" },
@@ -74,7 +69,7 @@ export function NewProject({
 }) {
   return (
     <section aria-labelledby="new-project" {...stylex.props(styles.set)}>
-      <h2 id="new-project" {...stylex.props(styles.title)}>
+      <h2 id="new-project" {...stylex.props(type.titleSm, styles.title)}>
         {first ? "New project" : "Or start a new project"}
       </h2>
       <div {...stylex.props(styles.pair)}>

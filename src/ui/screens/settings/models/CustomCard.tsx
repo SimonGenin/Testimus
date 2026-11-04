@@ -2,7 +2,8 @@ import * as stylex from "@stylexjs/stylex";
 import { Badge } from "../../../components/ui/Badge.tsx";
 import { Button } from "../../../components/ui/Button.tsx";
 import { Card } from "../../../components/ui/Card.tsx";
-import { border, color, fontSize, lineHeight, space } from "../../../styles/tokens.stylex.ts";
+import { type } from "../../../components/ui/type.ts";
+import { border, color, space } from "../../../styles/tokens.stylex.ts";
 import { Hint } from "../Section.tsx";
 import { Models } from "./PackCard.tsx";
 
@@ -20,7 +21,7 @@ const styles = stylex.create({
     borderTopWidth: border.width,
     borderTopColor: color.border,
   },
-  small: { fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textMuted },
+  small: { color: color.textMuted },
 });
 
 export function CustomCard({
@@ -51,11 +52,11 @@ export function CustomCard({
         <div {...stylex.props(styles.body)}>
           <Hint>Pick the embedding and the reranker yourself, among the models on this PC.</Hint>
           <div {...stylex.props(styles.variant)}>
-            <span {...stylex.props(styles.small)}>On this PC</span>
+            <span {...stylex.props(type.small, styles.small)}>On this PC</span>
             {active && embedding ? (
               <Models embedding={embedding} reranker={reranker} label={label} />
             ) : (
-              <span {...stylex.props(styles.small)}>Not chosen</span>
+              <span {...stylex.props(type.small, styles.small)}>Not chosen</span>
             )}
           </div>
         </div>

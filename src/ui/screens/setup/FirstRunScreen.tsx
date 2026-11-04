@@ -1,8 +1,10 @@
 import * as stylex from "@stylexjs/stylex";
 import { Button } from "../../components/ui/Button.tsx";
+import { Logo } from "../../components/ui/Logo.tsx";
 import { Tabs } from "../../components/ui/Tabs.tsx";
+import { type } from "../../components/ui/type.ts";
 import { useApp } from "../../lib/app.ts";
-import { color, fontSize, fontWeight, lineHeight, radius, size, space } from "../../styles/tokens.stylex.ts";
+import { color, size, space } from "../../styles/tokens.stylex.ts";
 import { AccessStep } from "./AccessStep.tsx";
 import { PackStep } from "./PackStep.tsx";
 import { ProjectStep } from "./ProjectStep.tsx";
@@ -23,13 +25,9 @@ const styles = stylex.create({
     flex: 1,
     display: "inline-flex",
     alignItems: "center",
-    gap: space.s3,
-    fontSize: fontSize.title,
-    lineHeight: lineHeight.title,
-    fontWeight: fontWeight.semibold,
+    gap: space.s4,
     color: color.text,
   },
-  logo: { width: size.logo, height: size.logo, borderRadius: radius.r2 },
 });
 
 type Step = "access" | "project" | "pack";
@@ -45,8 +43,8 @@ export function FirstRunScreen() {
     <div {...stylex.props(styles.page)}>
       <div {...stylex.props(styles.col)}>
         <div {...stylex.props(styles.top)}>
-          <span {...stylex.props(styles.brand)}>
-            <img src="/logo.png" alt="" {...stylex.props(styles.logo)} />
+          <span {...stylex.props(type.title, styles.brand)}>
+            <Logo />
             Testimus
           </span>
           {app.info && (

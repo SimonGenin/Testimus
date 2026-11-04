@@ -2,27 +2,17 @@ import * as stylex from "@stylexjs/stylex";
 import type { Job } from "../../../core/types.ts";
 import { Badge } from "../../components/ui/Badge.tsx";
 import { Button } from "../../components/ui/Button.tsx";
+import { type } from "../../components/ui/type.ts";
 import { clock, duration, kindLabel, resultLine } from "../../lib/jobs.ts";
-import { color, fontFamily, fontSize, fontWeight, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 import { KindTile } from "./JobState.tsx";
 import { iconOf, toneOf } from "./kinds.ts";
 
 const styles = stylex.create({
   head: { display: "flex", alignItems: "flex-start", gap: space.s3 },
   titles: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column" },
-  title: {
-    margin: 0,
-    fontSize: fontSize.title,
-    lineHeight: lineHeight.title,
-    fontWeight: fontWeight.semibold,
-    color: color.text,
-  },
-  subject: {
-    color: color.textMuted,
-    fontSize: fontSize.compact,
-    lineHeight: lineHeight.compact,
-    overflowWrap: "anywhere",
-  },
+  title: { margin: 0, color: color.text },
+  subject: { color: color.textMuted, overflowWrap: "anywhere" },
   meta: {
     display: "flex",
     flexWrap: "wrap",
@@ -30,11 +20,9 @@ const styles = stylex.create({
     columnGap: space.s3,
     rowGap: space.s1,
     color: color.textMuted,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
   },
-  mono: { fontFamily: fontFamily.mono, color: color.text },
-  id: { fontFamily: fontFamily.mono, color: color.textSubtle },
+  mono: { color: color.text },
+  id: { color: color.textSubtle },
   link: { display: "inline-flex", alignItems: "center", gap: space.s1 },
 });
 
@@ -69,8 +57,8 @@ export function JobHead({
       <div {...stylex.props(styles.head)}>
         <KindTile kind={job.kind} size="lg" />
         <div {...stylex.props(styles.titles)}>
-          <h2 {...stylex.props(styles.title)}>{kindLabel(job.kind)}</h2>
-          {subject && <span {...stylex.props(styles.subject)}>{subject}</span>}
+          <h2 {...stylex.props(type.title, styles.title)}>{kindLabel(job.kind)}</h2>
+          {subject && <span {...stylex.props(type.compact, styles.subject)}>{subject}</span>}
         </div>
         {running ? (
           <Button icon="stop" label="Cancel" onClick={onCancel} />
@@ -78,19 +66,19 @@ export function JobHead({
           onAgain && <Button icon="refresh" label="Run again" onClick={onAgain} />
         )}
       </div>
-      <div {...stylex.props(styles.meta)}>
+      <div {...stylex.props(type.small, styles.meta)}>
         {running ? (
           <Badge label="Running" tone="info" busy />
         ) : (
           <Badge label={resultLine(job).split(" · ")[0]} tone={toneOf(job)} icon={iconOf(job)} />
         )}
-        <span {...stylex.props(styles.mono)}>{duration(job, now)}</span>
+        <span {...stylex.props(type.code, styles.mono)}>{duration(job, now)}</span>
         <span>
           {running ? "started " : ""}
           {clock(job.startedAt)}
           {job.endedAt ? ` → ${clock(job.endedAt)}` : ""}
         </span>
-        <span {...stylex.props(styles.id)}>{job.id}</span>
+        <span {...stylex.props(type.code, styles.id)}>{job.id}</span>
         <Button
           variant="quiet"
           size="xs"

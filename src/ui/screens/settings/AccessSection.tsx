@@ -3,8 +3,9 @@ import type { CredsStatus } from "../../../core/types.ts";
 import { Badge } from "../../components/ui/Badge.tsx";
 import { Card } from "../../components/ui/Card.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
+import { type } from "../../components/ui/type.ts";
 import { useRead } from "../../lib/data/query.ts";
-import { border, color, fontFamily, fontSize, fontWeight, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { border, color, space } from "../../styles/tokens.stylex.ts";
 import { ConnectAtlassian } from "./ConnectAtlassian.tsx";
 import { Section } from "./Section.tsx";
 
@@ -22,18 +23,14 @@ const styles = stylex.create({
   },
   icon: { display: "inline-flex", color: color.textMuted, paddingTop: space.s1 },
   body: { display: "flex", flexDirection: "column", gap: space.s1, flex: 1, minWidth: 0 },
-  name: { fontSize: fontSize.body, lineHeight: lineHeight.body },
   path: {
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    fontFamily: fontFamily.mono,
-    fontSize: fontSize.code,
-    lineHeight: lineHeight.code,
     color: color.textMuted,
   },
   badges: { display: "flex", gap: space.s2, flexWrap: "wrap", justifyContent: "flex-end" },
-  sub: { fontWeight: fontWeight.regular, fontSize: fontSize.small, color: color.textMuted },
+  sub: { color: color.textMuted },
 });
 
 type FileState = CredsStatus["xray"];
@@ -60,8 +57,8 @@ function FileRow({ id, name, file }: { id: "jira" | "xray"; name: string; file: 
         <Icon name="file" />
       </span>
       <div {...stylex.props(styles.body)}>
-        <span {...stylex.props(styles.name)}>{name}</span>
-        <span title={file.file} {...stylex.props(styles.path)}>
+        <span {...stylex.props(type.body)}>{name}</span>
+        <span title={file.file} {...stylex.props(type.code, styles.path)}>
           {file.file}
         </span>
       </div>
@@ -99,7 +96,10 @@ export function AccessSection() {
         <Card
           title={
             <>
-              Credential files <span {...stylex.props(styles.sub)}>shared with your other Atlassian tools</span>
+              Credential files{" "}
+              <span {...stylex.props(type.small, type.regular, styles.sub)}>
+                shared with your other Atlassian tools
+              </span>
             </>
           }
         >

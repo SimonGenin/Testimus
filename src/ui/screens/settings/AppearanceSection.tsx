@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { Badge } from "../../components/ui/Badge.tsx";
 import { Card } from "../../components/ui/Card.tsx";
+import { Field } from "../../components/ui/Field.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { Segmented } from "../../components/ui/Segmented.tsx";
 import { Switch } from "../../components/ui/Switch.tsx";
@@ -9,7 +10,7 @@ import { usePref } from "../../lib/prefs.ts";
 import { type Theme, useTheme } from "../../lib/theme.ts";
 import { space } from "../../styles/tokens.stylex.ts";
 import { useSetting, useSettings } from "./machine.ts";
-import { Grid, Hint, Labelled, Section, Stack } from "./Section.tsx";
+import { Grid, Hint, Section, Stack } from "./Section.tsx";
 
 const styles = stylex.create({
   kept: { display: "flex", alignItems: "center", gap: space.s2 },
@@ -28,7 +29,7 @@ export function AppearanceSection() {
       <Card title="Appearance">
         <Stack>
           <Grid>
-            <Labelled label="Theme" hint="Also from the rail, at the bottom.">
+            <Field label="Theme" hint="Also from the rail, at the bottom.">
               <Segmented<Theme>
                 label="Theme"
                 value={theme}
@@ -39,8 +40,8 @@ export function AppearanceSection() {
                   { value: "dark", label: "Dark", icon: "moon" },
                 ]}
               />
-            </Labelled>
-            <Labelled label="Step layout in the editor">
+            </Field>
+            <Field label="Step layout in the editor">
               <Segmented
                 label="Step layout"
                 value={layout}
@@ -50,7 +51,7 @@ export function AppearanceSection() {
                   { value: "split", label: "Action | Expected", icon: "layout-split" },
                 ]}
               />
-            </Labelled>
+            </Field>
           </Grid>
           <span {...stylex.props(styles.kept)}>
             <Icon name="history" size="sm" />

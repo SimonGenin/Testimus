@@ -2,35 +2,19 @@ import * as stylex from "@stylexjs/stylex";
 import type { Job, JobEvent, JobProcess, JobStep } from "../../../core/types.ts";
 import { Button } from "../../components/ui/Button.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
+import { List } from "../../components/ui/List.tsx";
 import { Progress } from "../../components/ui/Progress.tsx";
+import { Raw } from "../../components/ui/Raw.tsx";
 import { Timeline } from "../../components/ui/Timeline.tsx";
-import { duration, kindLabel, logLines, processLabel, resultLine } from "../../lib/jobs.ts";
-import { border, color, fontSize, lineHeight, radius, space } from "../../styles/tokens.stylex.ts";
-import { LogLines } from "./JobFullLog.tsx";
+import { type } from "../../components/ui/type.ts";
+import { clock, duration, kindLabel, logLines, processLabel, resultLine } from "../../lib/jobs.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 import { stepState } from "./kinds.ts";
 
 const styles = stylex.create({
   body: { display: "flex", flexDirection: "column", gap: space.s2 },
-  msg: { color: color.textMuted, fontSize: fontSize.small, lineHeight: lineHeight.small },
-  procs: { listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: space.s2 },
-  proc: {
-    display: "flex",
-    alignItems: "center",
-    gap: space.s2,
-    paddingBlock: space.s1,
-    paddingInline: space.s3,
-    borderWidth: border.width,
-    borderStyle: "solid",
-    borderColor: color.border,
-    borderRadius: radius.r2,
-    fontSize: fontSize.compact,
-    lineHeight: lineHeight.compact,
-    color: color.text,
-  },
-  lead: { display: "inline-flex" },
-  claude: { color: color.claudeText },
-  grow: { flex: 1, minWidth: 0 },
-  small: { color: color.textMuted, fontSize: fontSize.small, lineHeight: lineHeight.small },
+  msg: { color: color.textMuted },
+  claude: { display: "inline-flex", color: color.claudeText },
   child: { alignSelf: "flex-start" },
 });
 
@@ -43,29 +27,29 @@ const WORD: Record<JobStep["status"], string> = {
   skipped: "Not needed",
 };
 
-function Proc({ p, now }: { p: JobProcess; now: number }) {
-  return (
-    <li {...stylex.props(styles.proc)}>
-      <span {...stylex.props(styles.lead, p.label.startsWith("Claude") && styles.claude)}>
-        <Icon name="terminal" size="sm" />
-      </span>
-      <span {...stylex.props(styles.grow)}>{processLabel(p.label)}</span>
-      <span {...stylex.props(styles.small)}>
-        {p.pid ? `pid ${p.pid} · ` : ""}
-        {!p.endedAt ? "running" : p.exit === 0 ? "ended" : `exited ${p.exit ?? "?"}`} ·{" "}
-        {duration({ startedAt: p.startedAt, endedAt: p.endedAt }, now)}
-      </span>
-    </li>
-  );
-}
+const procState = (p: JobProcess, now: number) =>
+  `${p.pid ? `pid ${p.pid} · ` : ""}${!p.endedAt ? "running" : p.exit === 0 ? "ended" : `exited ${p.exit ?? "?"}`} · ${duration({ startedAt: p.startedAt, endedAt: p.endedAt }, now)}`;
 
 export function JobProcesses({ list, now, label = "Processes" }: { list: JobProcess[]; now: number; label?: string }) {
   return (
-    <ul aria-label={label} {...stylex.props(styles.procs)}>
-      {list.map((p) => (
-        <Proc key={p.id} p={p} now={now} />
-      ))}
-    </ul>
+    <List<JobProcess>
+      label={label}
+      selection="none"
+      divided
+      items={list}
+      getKey={(p) => p.id}
+      renderItem={(p) => ({
+        lead: p.label.startsWith("Claude") ? (
+          <span {...stylex.props(styles.claude)}>
+            <Icon name="terminal" size="sm" />
+          </span>
+        ) : (
+          <Icon name="terminal" size="sm" />
+        ),
+        title: processLabel(p.label),
+        trail: procState(p, now),
+      })}
+    />
   );
 }
 
@@ -113,10 +97,10 @@ export function JobSteps({
               />
             )}
             {s.status === "running" && pct === null && s.message && (
-              <span {...stylex.props(styles.msg)}>{s.message}</span>
+              <span {...stylex.props(type.small, styles.msg)}>{s.message}</span>
             )}
             {s.status !== "running" && s.total ? (
-              <span {...stylex.props(styles.msg)}>
+              <span {...stylex.props(type.small, styles.msg)}>
                 {s.done ?? 0} of {s.total}
               </span>
             ) : null}
@@ -132,7 +116,12 @@ export function JobSteps({
               </span>
             )}
             {mine.length > 0 && <JobProcesses list={mine} now={now} label={`Processes of ${s.label}`} />}
-            {tail.length > 0 && <LogLines lines={tail} />}
+            {tail.length > 0 && (
+              <Raw
+                lines={tail.map((l) => ({ text: l.text, level: l.level, at: clock(l.at) }))}
+                label={`Log of ${s.label}`}
+              />
+            )}
           </div>
         );
         const has = s.status === "running" || !!s.total || !!child || mine.length > 0 || tail.length > 0;

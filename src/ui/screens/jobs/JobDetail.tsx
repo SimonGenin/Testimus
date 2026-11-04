@@ -5,10 +5,11 @@ import { askedOf, ClaudeActivity } from "../../components/claude/ClaudeActivity.
 import { Button } from "../../components/ui/Button.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { Progress } from "../../components/ui/Progress.tsx";
+import { type } from "../../components/ui/type.ts";
 import { useApp } from "../../lib/app.ts";
 import { plural } from "../../lib/format.ts";
 import { type JobNode, kindLabel, percent, resultLine, subjectLabel } from "../../lib/jobs.ts";
-import { border, color, fontFamily, fontSize, fontWeight, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { border, color, space } from "../../styles/tokens.stylex.ts";
 import { JobCards } from "./JobCard.tsx";
 import { FullLog } from "./JobFullLog.tsx";
 import { JobHead } from "./JobHead.tsx";
@@ -32,33 +33,23 @@ const styles = stylex.create({
     backgroundColor: color.surface,
   },
   result: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s3 },
-  muted: { color: color.textMuted, fontSize: fontSize.compact, lineHeight: lineHeight.compact },
-  now: { margin: 0, color: color.textMuted, fontSize: fontSize.compact, lineHeight: lineHeight.compact },
-  sect: { display: "flex", flexDirection: "column", gap: space.s2 },
-  h3: {
-    margin: 0,
-    fontSize: fontSize.caption,
-    lineHeight: lineHeight.caption,
-    fontWeight: fontWeight.semibold,
-    color: color.textMuted,
-  },
+  muted: { color: color.textMuted },
+  now: { margin: 0, color: color.textMuted },
+  sect: { display: "flex", flexDirection: "column", gap: space.s3 },
+  h3: { margin: 0 },
   files: { listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: space.s2 },
   file: { display: "flex", alignItems: "center", gap: space.s3, minWidth: 0 },
   fileIcon: { flex: "none", display: "inline-flex", color: color.textSubtle },
-  how: { flex: "none", fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textSubtle },
-  path: {
-    minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-    fontFamily: fontFamily.mono,
-    fontSize: fontSize.code,
-    lineHeight: lineHeight.code,
-    color: color.text,
-  },
+  how: { flex: "none", color: color.textSubtle },
+  path: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: color.text },
   start: { alignSelf: "flex-start" },
-  cli: { color: color.textMuted, fontSize: fontSize.small, lineHeight: lineHeight.small },
-  mono: { fontFamily: fontFamily.mono },
+  cli: {
+    color: color.textMuted,
+    paddingTop: space.s4,
+    borderTopWidth: border.width,
+    borderTopStyle: "solid",
+    borderTopColor: color.border,
+  },
 });
 
 const CLI: Record<string, string> = {
@@ -81,7 +72,7 @@ const CLI: Record<string, string> = {
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section aria-label={title} {...stylex.props(styles.sect)}>
-      <h3 {...stylex.props(styles.h3)}>{title}</h3>
+      <h3 {...stylex.props(type.caption, styles.h3)}>{title}</h3>
       {children}
     </section>
   );
@@ -134,7 +125,7 @@ export function JobDetail({
       {running && !job.steps?.length && (
         <div {...stylex.props(styles.sect)}>
           <Progress label={`${label} progress`} value={pct} />
-          {job.message && <p {...stylex.props(styles.now)}>{job.message}</p>}
+          {job.message && <p {...stylex.props(type.compact, styles.now)}>{job.message}</p>}
         </div>
       )}
 
@@ -146,12 +137,12 @@ export function JobDetail({
             label="Review these tests"
             onClick={() => app.navigate("review", r.tests?.[0])}
           />
-          <span {...stylex.props(styles.muted)}>{plural(r.tests.length, "test")} written</span>
+          <span {...stylex.props(type.compact, styles.muted)}>{plural(r.tests.length, "test")} written</span>
         </div>
       )}
       {job.status === "done" && job.kind !== "generate" && resultLine(job).includes(" · ") && (
         <div {...stylex.props(styles.result)}>
-          <span {...stylex.props(styles.muted)}>{resultLine(job).split(" · ").slice(1).join(" · ")}</span>
+          <span {...stylex.props(type.compact, styles.muted)}>{resultLine(job).split(" · ").slice(1).join(" · ")}</span>
         </div>
       )}
 
@@ -204,10 +195,10 @@ export function JobDetail({
                     size="sm"
                   />
                 </span>
-                <span title={p} {...stylex.props(styles.path)}>
+                <span title={p} {...stylex.props(type.code, styles.path)}>
                   {p}
                 </span>
-                <span {...stylex.props(styles.how)}>{how.get(p) ?? "modified"}</span>
+                <span {...stylex.props(type.small, styles.how)}>{how.get(p) ?? "modified"}</span>
               </li>
             ))}
           </ul>
@@ -229,8 +220,8 @@ export function JobDetail({
       )}
 
       {CLI[job.kind] && (
-        <span {...stylex.props(styles.cli)}>
-          Same as <span {...stylex.props(styles.mono)}>{CLI[job.kind]}</span> · log kept in the project folder
+        <span {...stylex.props(type.small, styles.cli)}>
+          Same as <span {...stylex.props(type.code)}>{CLI[job.kind]}</span> · log kept in the project folder
         </span>
       )}
     </aside>

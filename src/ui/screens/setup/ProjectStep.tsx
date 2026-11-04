@@ -2,8 +2,9 @@ import * as stylex from "@stylexjs/stylex";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
+import { type } from "../../components/ui/type.ts";
 import { desktop, pickFolder } from "../../lib/desktop.ts";
-import { color, fontSize, fontWeight, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 import { KnownProjects } from "./KnownProjects.tsx";
 import { NewProject, useNewProject } from "./NewProject.tsx";
 import { StepCard } from "./StepCard.tsx";
@@ -13,13 +14,7 @@ export { projectFolder } from "./NewProject.tsx";
 
 const styles = stylex.create({
   known: { display: "flex", flexDirection: "column", gap: space.s3 },
-  title: {
-    margin: 0,
-    fontSize: fontSize.titleSm,
-    lineHeight: lineHeight.titleSm,
-    fontWeight: fontWeight.semibold,
-    color: color.text,
-  },
+  title: { margin: 0, color: color.text },
   more: { display: "flex", flexWrap: "wrap", gap: space.s2 },
 });
 
@@ -53,7 +48,7 @@ export function ProjectStep({ onBack, onOpened }: { onBack: () => void; onOpened
       ) : (
         p.known.length > 0 && (
           <section aria-labelledby="known-h" {...stylex.props(styles.known)}>
-            <h2 id="known-h" {...stylex.props(styles.title)}>
+            <h2 id="known-h" {...stylex.props(type.titleSm, styles.title)}>
               Your projects
             </h2>
             <KnownProjects

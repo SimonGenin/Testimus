@@ -2,13 +2,13 @@ import * as stylex from "@stylexjs/stylex";
 import type { Fit } from "../../../../core/types.ts";
 import { Button } from "../../../components/ui/Button.tsx";
 import { Modal } from "../../../components/ui/Modal.tsx";
-import { fontFamily, space } from "../../../styles/tokens.stylex.ts";
+import { type } from "../../../components/ui/type.ts";
+import { space } from "../../../styles/tokens.stylex.ts";
 import { Hint, Stack } from "../Section.tsx";
 import { size } from "./data.ts";
 import { FitChip, PROCESSOR_ONLY } from "./FitChip.tsx";
 
 const styles = stylex.create({
-  mono: { fontFamily: fontFamily.mono },
   plain: { margin: 0 },
   badges: { display: "flex", flexWrap: "wrap", gap: space.s2 },
 });
@@ -99,7 +99,7 @@ export function FitConfirm({
         )}
         {fit.unload.length > 0 && (
           <Hint>
-            Loaded now: <span {...stylex.props(styles.mono)}>{fit.unload.join(", ")}</span>. They are unloaded after 10
+            Loaded now: <span {...stylex.props(type.code)}>{fit.unload.join(", ")}</span>. They are unloaded after 10
             idle minutes.
           </Hint>
         )}

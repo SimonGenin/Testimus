@@ -3,10 +3,12 @@ import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Card } from "../../components/ui/Card.tsx";
 import { EmptyState } from "../../components/ui/EmptyState.tsx";
+import { Facts } from "../../components/ui/Facts.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
+import { type } from "../../components/ui/type.ts";
 import { useApp } from "../../lib/app.ts";
-import { border, color, fontSize, lineHeight, radius, space } from "../../styles/tokens.stylex.ts";
+import { border, color, radius, space } from "../../styles/tokens.stylex.ts";
 import type { Hardware } from "../settings/models/data.ts";
 import { machineSummary } from "../settings/models/data.ts";
 import { FolderDialog } from "../settings/models/FolderDialog.tsx";
@@ -27,19 +29,7 @@ const styles = stylex.create({
     borderRadius: radius.r3,
     backgroundColor: color.surfaceSunken,
   },
-  facts: {
-    flex: 1,
-    margin: 0,
-    display: "grid",
-    gridTemplateColumns: "auto 1fr",
-    columnGap: space.s4,
-    rowGap: space.s1,
-    fontSize: fontSize.compact,
-    lineHeight: lineHeight.compact,
-  },
-  fact: { display: "contents" },
-  term: { color: color.textMuted },
-  value: { margin: 0, color: color.text },
+  facts: { flex: 1, minWidth: 0 },
   notYet: {
     flex: 1,
     margin: 0,
@@ -47,8 +37,6 @@ const styles = stylex.create({
     alignItems: "center",
     gap: space.s3,
     color: color.textMuted,
-    fontSize: fontSize.compact,
-    lineHeight: lineHeight.compact,
   },
   packs: { display: "flex", flexDirection: "column", gap: space.s3 },
 });
@@ -57,14 +45,9 @@ const FACTS = ["System", "Processor", "Memory", "GPU"];
 
 function Machine({ machine }: { machine: Hardware }) {
   return (
-    <dl aria-label="This machine" {...stylex.props(styles.facts)}>
-      {machineSummary(machine).map((f, i) => (
-        <div key={f} {...stylex.props(styles.fact)}>
-          <dt {...stylex.props(styles.term)}>{FACTS[i]}</dt>
-          <dd {...stylex.props(styles.value)}>{f}</dd>
-        </div>
-      ))}
-    </dl>
+    <div {...stylex.props(styles.facts)}>
+      <Facts label="This machine" items={machineSummary(machine).map((f, i) => ({ label: FACTS[i], value: f }))} />
+    </div>
   );
 }
 
@@ -111,7 +94,7 @@ export function PackStep({ onBack }: { onBack: () => void }) {
         {s.machine ? (
           <Machine machine={s.machine} />
         ) : (
-          <p {...stylex.props(styles.notYet)}>
+          <p {...stylex.props(type.compact, styles.notYet)}>
             <Icon name="cpu" />
             Not analysed yet: until then, no pack is said to fit.
           </p>

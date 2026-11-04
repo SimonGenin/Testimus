@@ -4,28 +4,18 @@ import { Badge } from "../../components/ui/Badge.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { List } from "../../components/ui/List.tsx";
 import { Menu, type MenuEntry } from "../../components/ui/Menu.tsx";
+import { Tile } from "../../components/ui/Tile.tsx";
+import { type } from "../../components/ui/type.ts";
 import { desktop, reveal } from "../../lib/desktop.ts";
 import { initials } from "../../lib/format.ts";
-import { color, fontFamily, fontSize, fontWeight, radius, size, space } from "../../styles/tokens.stylex.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 import { DeleteProject } from "./DeleteProject.tsx";
 import { type Known, labelOf } from "./useProjects.ts";
 
 const styles = stylex.create({
-  avatar: {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    width: size.controlMd,
-    height: size.controlMd,
-    borderRadius: radius.r2,
-    backgroundColor: color.accentSubtle,
-    color: color.accentText,
-    fontSize: fontSize.small,
-    fontWeight: fontWeight.semibold,
-  },
-  dir: { fontFamily: fontFamily.mono, overflowWrap: "anywhere" },
+  dir: { overflowWrap: "anywhere" },
   trail: { display: "flex", alignItems: "center", gap: space.s2 },
-  gone: { color: color.textMuted, fontSize: fontSize.small },
+  gone: { color: color.textMuted },
 });
 
 export function KnownProjects({
@@ -70,10 +60,10 @@ export function KnownProjects({
         items={known}
         getKey={(k) => k.dir}
         renderItem={(k) => ({
-          lead: <span {...stylex.props(styles.avatar)}>{initials(labelOf(k))}</span>,
+          lead: <Tile initials={initials(labelOf(k))} tone="accent" />,
           title: labelOf(k),
           badges: <Badge label={k.jiraProject || "no Jira key"} outline={!!k.jiraProject} size="sm" />,
-          meta: <span {...stylex.props(styles.dir)}>{k.dir}</span>,
+          meta: <span {...stylex.props(type.code, styles.dir)}>{k.dir}</span>,
           trail: (
             <span {...stylex.props(styles.trail)}>
               {k.exists ? (
@@ -85,7 +75,7 @@ export function KnownProjects({
                   onClick={() => onOpen(k.dir)}
                 />
               ) : (
-                <span {...stylex.props(styles.gone)}>Folder not found</span>
+                <span {...stylex.props(type.small, styles.gone)}>Folder not found</span>
               )}
               <Menu
                 align="end"

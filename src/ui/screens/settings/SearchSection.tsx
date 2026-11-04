@@ -6,37 +6,29 @@ import { Badge } from "../../components/ui/Badge.tsx";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Card } from "../../components/ui/Card.tsx";
+import { Facts } from "../../components/ui/Facts.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { Modal } from "../../components/ui/Modal.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { Table } from "../../components/ui/Table.tsx";
+import { type } from "../../components/ui/type.ts";
 import { useApp } from "../../lib/app.ts";
 import { execute, invalidate, useRead } from "../../lib/data/query.ts";
 import { plural, relTime } from "../../lib/format.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 import { reindexAll, useUploads } from "../../lib/uploads.ts";
-import { color, fontFamily, fontSize, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 import { choiceLabel, ORIGIN } from "./models/data.ts";
 import { useInfo } from "./project.ts";
 import { Hint, Section, Stack } from "./Section.tsx";
 
 const styles = stylex.create({
-  facts: {
-    display: "grid",
-    gridTemplateColumns: "max-content 1fr",
-    columnGap: space.s5,
-    rowGap: space.s2,
-    margin: 0,
-    fontSize: fontSize.compact,
-    lineHeight: lineHeight.compact,
-  },
-  dt: { color: color.textMuted },
-  dd: { margin: 0, display: "flex", alignItems: "center", gap: space.s2, flexWrap: "wrap", minWidth: 0 },
+  dd: { display: "flex", alignItems: "center", gap: space.s2, flexWrap: "wrap", minWidth: 0 },
   muted: { color: color.textMuted },
   state: { display: "flex", alignItems: "center", gap: space.s3, flexWrap: "wrap" },
   spacer: { flex: 1 },
   model: { display: "flex", flexDirection: "column", gap: space.s1, minWidth: 0 },
-  id: { fontFamily: fontFamily.mono, fontSize: fontSize.code, lineHeight: lineHeight.code, color: color.textMuted },
+  id: { color: color.textMuted },
   badges: { display: "flex", gap: space.s2, flexWrap: "wrap" },
   lock: { display: "flex", alignItems: "flex-start", gap: space.s2, color: color.textMuted },
 });
@@ -117,46 +109,60 @@ export function SearchSection() {
               {st.error.message}
             </Banner>
           ) : (
-            <dl {...stylex.props(styles.facts)}>
-              <dt {...stylex.props(styles.dt)}>Team reference</dt>
-              <dd {...stylex.props(styles.dd)}>
-                {reference ? choiceLabel(reference, label) : "Not set: the Light pack"}
-                <span {...stylex.props(styles.muted)}>· in project.json, shared with the team</span>
-              </dd>
-              <dt {...stylex.props(styles.dt)}>Used on this PC</dt>
-              <dd {...stylex.props(styles.dd)}>
-                {!s ? (
-                  <Skeleton width="60%" />
-                ) : (
-                  <>
-                    {s.embedding === "none" ? (
-                      "No embedding model"
-                    ) : (
-                      <>
-                        {label(s.embedding)}
-                        <span {...stylex.props(styles.muted)}> · {s.reranker ? label(s.reranker) : "no reranker"}</span>
-                      </>
-                    )}
-                    <Badge
-                      label={ORIGIN[s.activation]}
-                      tone={s.activation === "none" ? "warning" : "neutral"}
-                      outline
-                      size="sm"
-                      tooltip="Where this choice comes from"
-                    />
-                  </>
-                )}
-              </dd>
-              {s && s.missing.length > 0 && (
-                <>
-                  <dt {...stylex.props(styles.dt)}>Not on this PC</dt>
-                  <dd {...stylex.props(styles.dd)}>
-                    <Badge label={s.missing.map(label).join(", ")} tone="warning" icon="alert-triangle" size="sm" />
-                    <span {...stylex.props(styles.muted)}>· install them in Models, or another choice is used</span>
-                  </dd>
-                </>
-              )}
-            </dl>
+            <Facts
+              items={[
+                {
+                  label: "Team reference",
+                  value: (
+                    <span {...stylex.props(styles.dd)}>
+                      {reference ? choiceLabel(reference, label) : "Not set: the Light pack"}
+                      <span {...stylex.props(styles.muted)}>· in project.json, shared with the team</span>
+                    </span>
+                  ),
+                },
+                {
+                  label: "Used on this PC",
+                  value: (
+                    <span {...stylex.props(styles.dd)}>
+                      {!s ? (
+                        <Skeleton width="60%" />
+                      ) : (
+                        <>
+                          {s.embedding === "none" ? (
+                            "No embedding model"
+                          ) : (
+                            <>
+                              {label(s.embedding)}
+                              <span {...stylex.props(styles.muted)}>
+                                {" "}
+                                · {s.reranker ? label(s.reranker) : "no reranker"}
+                              </span>
+                            </>
+                          )}
+                          <Badge
+                            label={ORIGIN[s.activation]}
+                            tone={s.activation === "none" ? "warning" : "neutral"}
+                            outline
+                            size="sm"
+                            tooltip="Where this choice comes from"
+                          />
+                        </>
+                      )}
+                    </span>
+                  ),
+                },
+                s &&
+                  s.missing.length > 0 && {
+                    label: "Not on this PC",
+                    value: (
+                      <span {...stylex.props(styles.dd)}>
+                        <Badge label={s.missing.map(label).join(", ")} tone="warning" icon="alert-triangle" size="sm" />
+                        <span {...stylex.props(styles.muted)}>· install them in Models, or another choice is used</span>
+                      </span>
+                    ),
+                  },
+              ]}
+            />
           )}
           {s?.degraded && (
             <Banner tone="warning" title="Search on words only">
@@ -218,7 +224,7 @@ export function SearchSection() {
                 render: (x) => (
                   <span {...stylex.props(styles.model)}>
                     <span>{label(x.model)}</span>
-                    <span {...stylex.props(styles.id)}>
+                    <span {...stylex.props(type.code, styles.id)}>
                       Space {x.id} · {x.runtime} · {x.dims} dims
                     </span>
                   </span>

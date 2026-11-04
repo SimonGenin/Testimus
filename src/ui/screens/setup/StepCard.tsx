@@ -1,20 +1,14 @@
 import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
 import { Card } from "../../components/ui/Card.tsx";
-import { color, fontSize, fontWeight, letterSpacing, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { type } from "../../components/ui/type.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
   body: { display: "flex", flexDirection: "column", gap: space.s6, padding: space.s5 },
   head: { display: "flex", flexDirection: "column", gap: space.s3 },
-  title: {
-    margin: 0,
-    fontSize: fontSize.display,
-    lineHeight: lineHeight.display,
-    letterSpacing: letterSpacing.display,
-    fontWeight: fontWeight.semibold,
-    color: color.text,
-  },
-  lead: { margin: 0, color: color.textMuted, fontSize: fontSize.body, lineHeight: lineHeight.body },
+  title: { margin: 0, color: color.text },
+  lead: { margin: 0, color: color.textMuted },
   foot: { flex: 1, width: "100%", display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s3 },
   grow: { flex: 1 },
 });
@@ -50,10 +44,10 @@ export function StepCard({
       >
         <div {...stylex.props(styles.body)}>
           <div {...stylex.props(styles.head)}>
-            <h1 id={id} {...stylex.props(styles.title)}>
+            <h1 id={id} {...stylex.props(type.display, styles.title)}>
               {title}
             </h1>
-            {lead && <p {...stylex.props(styles.lead)}>{lead}</p>}
+            {lead && <p {...stylex.props(type.body, styles.lead)}>{lead}</p>}
           </div>
           {children}
         </div>

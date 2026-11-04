@@ -6,12 +6,13 @@ import { ConnectClaude } from "../../components/claude/ConnectClaude.tsx";
 import { Badge } from "../../components/ui/Badge.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Text } from "../../components/ui/Text.tsx";
+import { type } from "../../components/ui/type.ts";
 import { useApp } from "../../lib/app.ts";
 import { flushAutosaves, pendingAutosaves } from "../../lib/data/autosave.ts";
 import { type Key, key, read, useRead } from "../../lib/data/query.ts";
 import { desktop, examplePath, onWindows, pickFiles } from "../../lib/desktop.ts";
 import { message } from "../../lib/format.ts";
-import { color, fontFamily, fontSize, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 import { useSetSettings, useSettings } from "./machine.ts";
 import { Stack } from "./Section.tsx";
 
@@ -22,9 +23,6 @@ const styles = stylex.create({
     minWidth: 0,
     maxWidth: "100%",
     overflowWrap: "anywhere",
-    fontFamily: fontFamily.mono,
-    fontSize: fontSize.code,
-    lineHeight: lineHeight.code,
     color: color.textMuted,
   },
 });
@@ -33,7 +31,7 @@ export type ClaudeStatus = CommandOutput<"claude.status">;
 
 export function exeLine(s: ClaudeStatus): string {
   return s.installed
-    ? `✓ ${s.version ?? "Claude Code"} · found`
+    ? `${s.version ?? "Claude Code"} · found`
     : `${(s.detail || "claude did not answer").split("\n")[0].slice(0, 160)} · Claude is optional`;
 }
 
@@ -112,21 +110,25 @@ export function ClaudeProgram() {
       <div {...stylex.props(styles.row)}>
         <Button size="sm" icon="refresh" label="Check" loading={checking} onClick={() => void check()} />
         {checking && (
-          <span role="status" {...stylex.props(styles.line)}>
+          <span role="status" {...stylex.props(type.code, styles.line)}>
             Running claude --version…
           </span>
         )}
       </div>
       {st && !checking && (
         <div {...stylex.props(styles.state)}>
-          <Badge
-            label={st.installed ? "Found" : "Not found"}
-            tone={st.installed ? "success" : "danger"}
-            icon={st.installed ? "check-circle" : "x-circle"}
-          />
-          <span role="status" title={st.detail} {...stylex.props(styles.line)}>
-            {exeLine(st)}
-          </span>
+          {st.installed ? (
+            <span role="status" title={st.detail}>
+              <Badge label={exeLine(st)} tone="success" icon="check" />
+            </span>
+          ) : (
+            <>
+              <Badge label="Not found" tone="danger" icon="x-circle" />
+              <span role="status" title={st.detail} {...stylex.props(type.code, styles.line)}>
+                {exeLine(st)}
+              </span>
+            </>
+          )}
         </div>
       )}
       {st && !checking && !st.installed && (

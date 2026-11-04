@@ -1,7 +1,8 @@
 import * as stylex from "@stylexjs/stylex";
 import { Button } from "../../../components/ui/Button.tsx";
 import { Table } from "../../../components/ui/Table.tsx";
-import { color, fontFamily, fontSize, lineHeight, space } from "../../../styles/tokens.stylex.ts";
+import { type } from "../../../components/ui/type.ts";
+import { color, space } from "../../../styles/tokens.stylex.ts";
 import type { CatalogRow, Installed } from "./data.ts";
 import { isInstalled, size } from "./data.ts";
 import { FitChip } from "./FitChip.tsx";
@@ -15,13 +16,10 @@ const styles = stylex.create({
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    fontFamily: fontFamily.mono,
-    fontSize: fontSize.code,
-    lineHeight: lineHeight.code,
     color: color.textMuted,
   },
   path: { display: "block", width: 0, minWidth: "100%" },
-  perf: { fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textMuted },
+  perf: { color: color.textMuted },
   acts: { display: "flex", gap: space.s2, flexWrap: "wrap", justifyContent: "flex-end" },
 });
 
@@ -63,15 +61,15 @@ export function ModelsTable({
             return (
               <span {...stylex.props(styles.name)}>
                 <span>{r.label}</span>
-                <span {...stylex.props(styles.sub)}>
+                <span {...stylex.props(type.code, styles.sub)}>
                   {r.kind} · {r.tier} · {r.runtimes.join(", ")}
                 </span>
                 {inst && (
-                  <span title={inst.where} {...stylex.props(styles.sub, styles.path)}>
+                  <span title={inst.where} {...stylex.props(type.code, styles.sub, styles.path)}>
                     {inst.where}
                   </span>
                 )}
-                {inst?.perf && <span {...stylex.props(styles.perf)}>{inst.perf}</span>}
+                {inst?.perf && <span {...stylex.props(type.small, styles.perf)}>{inst.perf}</span>}
               </span>
             );
           },

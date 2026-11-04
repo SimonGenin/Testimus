@@ -9,9 +9,10 @@ import type { IconName } from "../../components/ui/Icon.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { List } from "../../components/ui/List.tsx";
 import { ResizeHandle } from "../../components/ui/ResizeHandle.tsx";
+import { type } from "../../components/ui/type.ts";
 import { useApp } from "../../lib/app.ts";
 import { usePaneWidth } from "../../lib/panes.ts";
-import { border, breakpoint, color, fontSize, lineHeight, size, space } from "../../styles/tokens.stylex.ts";
+import { border, breakpoint, color, size, space } from "../../styles/tokens.stylex.ts";
 import { AccessSection } from "./AccessSection.tsx";
 import { AppearanceSection } from "./AppearanceSection.tsx";
 import { ClaudeSection } from "./ClaudeSection.tsx";
@@ -42,8 +43,6 @@ const styles = stylex.create({
     display: "inline-flex",
     alignItems: "center",
     gap: space.s2,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
     color: color.textMuted,
   },
 });
@@ -115,7 +114,7 @@ export function SettingsScreen() {
         badge={
           <>
             <Badge label={`v${__VERSION__}`} outline size="sm" />
-            <span {...stylex.props(styles.saved)}>
+            <span {...stylex.props(type.small, styles.saved)}>
               <Icon name="check" size="sm" />
               Changes save as you make them
             </span>

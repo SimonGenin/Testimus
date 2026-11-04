@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
-import { breakpoint, color, fontSize, fontWeight, lineHeight, size, space } from "../../styles/tokens.stylex.ts";
+import { type } from "../../components/ui/type.ts";
+import { breakpoint, color, size, space } from "../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
   page: {
@@ -15,8 +16,8 @@ const styles = stylex.create({
   wide: { maxWidth: `calc(${size.reading} + ${size.sidebar})` },
   head: { display: "flex", alignItems: "flex-start", gap: space.s5, flexWrap: "wrap" },
   titles: { display: "flex", flexDirection: "column", gap: space.s2, flex: 1, minWidth: 0 },
-  title: { margin: 0, fontSize: fontSize.titleLg, lineHeight: lineHeight.titleLg, fontWeight: fontWeight.semibold },
-  intro: { margin: 0, fontSize: fontSize.body, lineHeight: lineHeight.body, color: color.textMuted },
+  title: { margin: 0 },
+  intro: { margin: 0, color: color.textMuted },
   actions: { display: "flex", alignItems: "center", gap: space.s3, flexWrap: "wrap" },
   anchor: { scrollMarginTop: space.s5 },
   grid: {
@@ -26,9 +27,7 @@ const styles = stylex.create({
     alignItems: "start",
   },
   stack: { display: "flex", flexDirection: "column", gap: space.s4 },
-  hint: { margin: 0, fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textMuted },
-  field: { display: "flex", flexDirection: "column", gap: space.s2, minWidth: 0 },
-  label: { fontSize: fontSize.compact, lineHeight: lineHeight.compact, fontWeight: fontWeight.medium },
+  hint: { margin: 0, color: color.textMuted },
 });
 
 // ponytail: a settings page — its title and what it is for, then its cards; the cards a route points at
@@ -52,10 +51,10 @@ export function Section({
     <section aria-labelledby={`s-${id}`} {...stylex.props(styles.page, wide && styles.wide)}>
       <div {...stylex.props(styles.head)}>
         <div {...stylex.props(styles.titles)}>
-          <h2 id={`s-${id}`} {...stylex.props(styles.title)}>
+          <h2 id={`s-${id}`} {...stylex.props(type.titleLg, styles.title)}>
             {title}
           </h2>
-          {intro && <p {...stylex.props(styles.intro)}>{intro}</p>}
+          {intro && <p {...stylex.props(type.body, styles.intro)}>{intro}</p>}
         </div>
         {actions && <div {...stylex.props(styles.actions)}>{actions}</div>}
       </div>
@@ -81,36 +80,8 @@ export function Stack({ children }: { children: ReactNode }) {
   return <div {...stylex.props(styles.stack)}>{children}</div>;
 }
 
-// ponytail: a control with its name above and a hint under (a Select, the model picker), laid out as the kit's Text
-export function Labelled({
-  id,
-  label,
-  hint,
-  children,
-}: {
-  /** the field it names; without one (a radio group named by its own aria-label) the words are only shown */
-  id?: string;
-  label: string;
-  hint?: string;
-  children: ReactNode;
-}) {
-  return (
-    <div {...stylex.props(styles.field)}>
-      {id ? (
-        <label htmlFor={id} {...stylex.props(styles.label)}>
-          {label}
-        </label>
-      ) : (
-        <span aria-hidden="true" {...stylex.props(styles.label)}>
-          {label}
-        </span>
-      )}
-      {children}
-      {hint && <p {...stylex.props(styles.hint)}>{hint}</p>}
-    </div>
-  );
-}
-
+// ponytail: a line of help under a card's controls, or alone in a card (« No quick ask yet. »); a hint that belongs to
+// one control is that control's own (Text, Select, Field)
 export function Hint({ children }: { children: ReactNode }) {
-  return <p {...stylex.props(styles.hint)}>{children}</p>;
+  return <p {...stylex.props(type.small, styles.hint)}>{children}</p>;
 }

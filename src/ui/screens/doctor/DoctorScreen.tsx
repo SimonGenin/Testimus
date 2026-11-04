@@ -2,17 +2,18 @@ import * as stylex from "@stylexjs/stylex";
 import { useState } from "react";
 import type { DoctorAction, DoctorCheck } from "../../../core/types.ts";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
-import { Badge } from "../../components/ui/Badge.tsx";
+import { Badge, HEALTH } from "../../components/ui/Badge.tsx";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Table } from "../../components/ui/Table.tsx";
+import { type } from "../../components/ui/type.ts";
 import { useApp } from "../../lib/app.ts";
 import { desktop, pickFolder } from "../../lib/desktop.ts";
 import { toast } from "../../lib/toast.ts";
-import { color, fontFamily, fontSize, lineHeight, size, space } from "../../styles/tokens.stylex.ts";
+import { color, size, space } from "../../styles/tokens.stylex.ts";
 import { FolderDialog } from "../settings/models/FolderDialog.tsx";
 import { CheckTable } from "./CheckTable.tsx";
-import { counts, LOOK, sections } from "./checks.ts";
+import { counts, sections } from "./checks.ts";
 import { useDoctorChecks } from "./useDoctorChecks.ts";
 
 const styles = stylex.create({
@@ -28,11 +29,10 @@ const styles = stylex.create({
     gap: space.s7,
   },
   lead: { display: "flex", flexWrap: "wrap", alignItems: "flex-start", gap: space.s4 },
-  intro: { flex: "1 1 20rem", margin: 0, color: color.textMuted, fontSize: fontSize.body, lineHeight: lineHeight.body },
+  intro: { flex: "1 1 20rem", margin: 0, color: color.textMuted },
   counts: { display: "flex", flexWrap: "wrap", gap: space.s2 },
   checks: { display: "flex", flexDirection: "column", gap: space.s7 },
-  foot: { margin: 0, color: color.textMuted, fontSize: fontSize.small, lineHeight: lineHeight.small },
-  mono: { fontFamily: fontFamily.mono },
+  foot: { margin: 0, color: color.textMuted },
 });
 
 const SETTINGS_OF: Record<string, string> = {
@@ -83,13 +83,13 @@ export function DoctorScreen() {
       <div {...stylex.props(styles.scroll)}>
         <div {...stylex.props(styles.page)}>
           <div {...stylex.props(styles.lead)}>
-            <p {...stylex.props(styles.intro)}>
+            <p {...stylex.props(type.body, styles.intro)}>
               Everything Testimus needs on this PC. Editing, review and push work even when Claude is not available.
             </p>
             {d.checks && (
               <div {...stylex.props(styles.counts)}>
                 {counts(d.checks).map(({ look, n }) => (
-                  <Badge key={look} {...LOOK[look]} label={`${n} ${LOOK[look].label}`} size="sm" />
+                  <Badge key={look} {...HEALTH[look]} label={`${n} ${HEALTH[look].label}`} size="sm" />
                 ))}
               </div>
             )}
@@ -121,8 +121,8 @@ export function DoctorScreen() {
               />
             )}
           </section>
-          <p {...stylex.props(styles.foot)}>
-            The same check from a terminal: <span {...stylex.props(styles.mono)}>testimus system doctor</span> · the
+          <p {...stylex.props(type.small, styles.foot)}>
+            The same check from a terminal: <span {...stylex.props(type.code)}>testimus system doctor</span> · the
             rail's status dot shows the last result.
           </p>
         </div>

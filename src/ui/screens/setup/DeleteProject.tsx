@@ -1,18 +1,13 @@
 import * as stylex from "@stylexjs/stylex";
 import { useState } from "react";
 import { Modal } from "../../components/ui/Modal.tsx";
-import { color, fontFamily, fontSize, fontWeight, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { type } from "../../components/ui/type.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
   body: { display: "flex", flexDirection: "column", gap: space.s2, margin: 0 },
-  name: { fontWeight: fontWeight.semibold, color: color.text },
-  mono: {
-    fontFamily: fontFamily.mono,
-    fontSize: fontSize.code,
-    lineHeight: lineHeight.code,
-    color: color.textMuted,
-    overflowWrap: "anywhere",
-  },
+  name: { color: color.text },
+  mono: { color: color.textMuted, overflowWrap: "anywhere" },
 });
 
 export type ProjectTarget = { dir: string; name: string; jiraProject: string };
@@ -52,10 +47,10 @@ export function DeleteProject({
     >
       <span {...stylex.props(styles.body)}>
         <span>
-          <span {...stylex.props(styles.name)}>{target.name || target.dir}</span>
-          {target.jiraProject && <span {...stylex.props(styles.mono)}> {target.jiraProject}</span>}
+          <span {...stylex.props(type.strong, styles.name)}>{target.name || target.dir}</span>
+          {target.jiraProject && <span {...stylex.props(type.code, styles.mono)}> {target.jiraProject}</span>}
         </span>
-        <span {...stylex.props(styles.mono)}>{target.dir}</span>
+        <span {...stylex.props(type.code, styles.mono)}>{target.dir}</span>
         {open && <span>It is the open project: Testimus closes it first.</span>}
       </span>
     </Modal>
