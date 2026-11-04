@@ -29,9 +29,19 @@ export type JsonSchema = {
 export type ApiInfo = { project: string | null; mock: boolean; commands: CommandInfo[] };
 
 let current: string | null = null;
+const projectListeners = new Set<(left: string | null) => void>();
 
 export function setProject(dir: string | null): void {
+  if (dir === current) return;
+  const left = current;
   current = dir;
+  for (const fn of projectListeners) fn(left);
+}
+
+// ponytail: told when the window moves to another project, with the one it left
+export function onProjectChange(fn: (left: string | null) => void): () => void {
+  projectListeners.add(fn);
+  return () => projectListeners.delete(fn);
 }
 
 export function project(): string | null {

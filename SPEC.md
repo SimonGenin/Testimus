@@ -112,7 +112,9 @@ update it when a decision changes, in the same change as the code.
 - **The page has one data layer** (`src/ui/lib/data/`, TanStack Query): a read is cached under
   `[project, command, input]` (the machine's own reads under `null`), kept until an event says it changed — the
   `changed` paths and the job events of the one `/api/events` stream map to the reads they touch (a job event also
-  updates `jobs.list` and `jobs.show` in place); a plan (`xray.plan`, `models.planPack`, `models.planDir`, any dry run)
+  updates `jobs.list` and `jobs.show` in place; the stream follows the open project only, so moving to another project
+  drops the reads of the one left, and a project one comes back to is read again; a job is followed in the project it
+  was started in); a plan (`xray.plan`, `models.planPack`, `models.planDir`, any dry run)
   is never cached; an action is a mutation that reads again what it touched; an autosaved field is a mutation too
   (400 ms after the last key or on blur, one save in flight per document, `ifMtime` → `conflict` shown, a draft kept
   while it fails; « Reload from disk » makes the version read again the base of the next save; a save goes to the

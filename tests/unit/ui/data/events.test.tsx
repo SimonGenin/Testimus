@@ -98,6 +98,29 @@ describe("the event bridge", () => {
     stop();
   });
 
+  it("drops the reads of a project the window leaves, so coming back reads it again (SPEC: a switch drops the caches)", async () => {
+    const client = createQueryClient();
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+    const stop = connectEvents(client);
+    const src = FakeSource.last as FakeSource;
+    const r = renderHook(() => useRead("jobs.list", { running: true }), { wrapper });
+    await waitFor(() => expect(r.result.current.data).toEqual({ reads: 1 }));
+    client.setQueryData(["/p", "docs.list"], ["old"]);
+    client.setQueryData([null, "project.list"], ["machine"]);
+    act(() => setProject("/other"));
+    r.rerender();
+    await waitFor(() => expect(r.result.current.data).toEqual({ reads: 2 }));
+    expect(client.getQueryData(["/p", "docs.list"])).toBeUndefined();
+    expect(client.getQueryData([null, "project.list"])).toEqual(["machine"]);
+    act(() => src.send({ jobId: "j1", at: "", type: "status", job: job("done"), project: "/p" }));
+    act(() => setProject("/p"));
+    r.rerender();
+    await waitFor(() => expect(r.result.current.data).toEqual({ reads: 3 }));
+    stop();
+  });
+
   it("lets a listener follow every event of the page's project", () => {
     const client = createQueryClient();
     const stop = connectEvents(client);
