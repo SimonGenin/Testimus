@@ -14,7 +14,7 @@ import { border, color, fontSize, fontWeight, lineHeight, size, space } from "..
 import { ConnectAtlassian } from "../settings/ConnectAtlassian.tsx";
 import type { Listed } from "./list/tree.ts";
 import { PullPane } from "./PullPane.tsx";
-import { abandonPulls, cancelPull, onPullLanded, startPull, usePulls, watchPull } from "./pulls.ts";
+import { abandonPulls, cancelPull, onPullLanded, startPull, usePullStage, usePulls, watchPull } from "./pulls.ts";
 import { TestEditor } from "./TestEditor.tsx";
 import { TestList } from "./TestList.tsx";
 
@@ -160,6 +160,7 @@ export function TestsScreen() {
   );
 
   const pull = pulls.find((p) => p.key === activeId);
+  const stage = usePullStage(pull?.jobId);
   const others = pulls.filter((p) => !p.error && p.key !== activeId);
   const lead = narrow ? (
     <Button
@@ -193,18 +194,18 @@ export function TestsScreen() {
           <>
             {lead}
             <PullPane
-              pull={pull}
+              pull={{ ...pull, ...stage }}
               others={others}
               onCancel={() => {
-                cancelPull(pull.key);
+                cancelPull(pull);
                 navigate("tests");
               }}
               onRetry={() => {
-                cancelPull(pull.key);
+                cancelPull(pull);
                 startPull(pull.key, pull.summary);
               }}
               onBack={() => {
-                cancelPull(pull.key);
+                cancelPull(pull);
                 navigate("tests");
               }}
             />

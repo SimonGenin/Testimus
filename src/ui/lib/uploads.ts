@@ -1,10 +1,10 @@
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
 import type { ClaudeRun, DocRef, Job } from "../../core/types.ts";
 import { ApiError, project, run } from "./data/client.ts";
-import { useRead } from "./data/query.ts";
 import { baseName, pathOf } from "./desktop.ts";
 import { message } from "./format.ts";
 import { useNow } from "./now.ts";
+import { useProjectJobs } from "./projectJobs.ts";
 import { toast } from "./toast.ts";
 
 export type Upload = {
@@ -134,19 +134,9 @@ export function useUploads(): Upload[] {
     () => view.version,
     () => view.version,
   );
-  const jobs = useRead("jobs.list", {});
-  const list = (Array.isArray(jobs.data) ? jobs.data : []) as Job[];
+  const list = useProjectJobs(view.local.map((u) => u.jobId));
   const fresh = list.some((j) => KIND[j.kind] && j.endedAt && Date.now() - Date.parse(j.endedAt) < SHOWN_DONE_MS);
   const now = useNow(1000, fresh);
-  const asked = useRef(new Set<string>());
-  const missing = view.local.find((u) => u.jobId && !asked.current.has(u.jobId) && !list.some((j) => j.id === u.jobId));
-  const { refetch } = jobs;
-  // ponytail: a job started here is read in the list at once, even when the stream has not said it started
-  useEffect(() => {
-    if (!missing?.jobId) return;
-    asked.current.add(missing.jobId);
-    void refetch();
-  }, [missing?.jobId, refetch]);
   return uploadsOf(list, view.local, {
     since: view.since,
     dismissed: view.dismissed,

@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { JobEvent } from "../../../../../src/core/types.ts";
+import type { Job, JobEvent } from "../../../../../src/core/types.ts";
 import { discardAutosave } from "../../../../../src/ui/lib/data/autosave.ts";
 import { setProject } from "../../../../../src/ui/lib/data/client.ts";
 import { key } from "../../../../../src/ui/lib/data/query.ts";
@@ -16,21 +17,26 @@ vi.mock("../../../../../src/ui/lib/data/autosave.ts", async (importOriginal) => 
   return { ...real, discardAutosave: vi.fn() };
 });
 
-type Job = {
+type Run = {
   key: string;
-  onEvent?: (e: JobEvent) => void;
   onStart?: (id: string) => void;
   done: ReturnType<typeof deferred<unknown>>;
 };
-const jobs: Job[] = [];
+const runs: Run[] = [];
 let calls: { name: string; input: Record<string, unknown> }[] = [];
 let callResult: () => unknown = () => ({});
+// ponytail: the project's jobs as the server keeps them (jobs.list), and each one's log (jobs.show)
+let served: Job[] = [];
+let logs: Record<string, JobEvent[]> = {};
 
 vi.mock("../../../../../src/ui/lib/data/client.ts", async (importOriginal) => {
   const real = await importOriginal<typeof import("../../../../../src/ui/lib/data/client.ts")>();
   return {
     ...real,
     call: vi.fn(async (name: string, input: Record<string, unknown>, opts?: { project?: string | null }) => {
+      if (name === "jobs.list") return served;
+      if (name === "jobs.show")
+        return { job: served.find((j) => j.id === input.id), events: logs[String(input.id)] ?? [] };
       if (name === "jobs.cancel") {
         cancels.push({ id: String(input.id), project: opts?.project ? encodeURIComponent(opts.project) : undefined });
         if (input.id === "boom") throw new Error("net");
@@ -39,13 +45,11 @@ vi.mock("../../../../../src/ui/lib/data/client.ts", async (importOriginal) => {
       calls.push({ name, input });
       return callResult();
     }),
-    run: vi.fn(
-      (_name: string, input: { key: string }, onEvent?: (e: JobEvent) => void, onStart?: (id: string) => void) => {
-        const done = deferred<unknown>();
-        jobs.push({ key: input.key, onEvent, onStart, done });
-        return done.promise;
-      },
-    ),
+    run: vi.fn((_name: string, input: { key: string }, _on?: unknown, onStart?: (id: string) => void) => {
+      const done = deferred<unknown>();
+      runs.push({ key: input.key, onStart, done });
+      return done.promise;
+    }),
   };
 });
 
@@ -60,16 +64,18 @@ vi.mock("../../../../../src/ui/lib/toast.ts", async (importOriginal) => {
   };
 });
 
-const { abandonPulls, cancelPull, isPulling, onPullLanded, startPull, usePulls, watchPull } = await import(
+const { abandonPulls, cancelPull, onPullLanded, pullsOf, startPull, usePullStage, usePulls, watchPull } = await import(
   "../../../../../src/ui/screens/tests/pulls.ts"
 );
 
 const cancels: { id: string; project?: string }[] = [];
 
 beforeEach(() => {
-  jobs.length = 0;
+  runs.length = 0;
   calls = [];
   callResult = () => ({});
+  served = [];
+  logs = {};
   toasts.length = 0;
   errors.length = 0;
   cancels.length = 0;
@@ -84,120 +90,182 @@ afterEach(() => {
   setProject(null);
 });
 
-const jobOf = (key: string) => jobs.filter((j) => j.key === key).at(-1) as Job;
-const progress = (message: string): Extract<JobEvent, { type: "progress" }> => ({
-  jobId: "j",
-  at: "",
-  type: "progress",
-  message,
+const runOf = (key: string) => runs.filter((j) => j.key === key).at(-1) as Run;
+const pullJob = (o: Partial<Job>): Job => ({
+  id: "job-1",
+  kind: "pull",
+  subject: "K-1",
+  status: "running",
+  startedAt: new Date().toISOString(),
+  ...o,
 });
 
+let client = testClient();
+const wrapper = ({ children }: { children: ReactNode }) => <WithData client={client}>{children}</WithData>;
+const hook = () => {
+  client = testClient();
+  return renderHook(() => usePulls(), { wrapper });
+};
+// ponytail: the server's list changed — the event bridge would read it again on the job's status
+const relist = (next: Job[]) => {
+  served = next;
+  return act(() => client.invalidateQueries());
+};
+const shown = (h: ReturnType<typeof hook>) => h.result.current.map(({ startedAt: _s, ...p }) => p);
+
 describe("pulls", () => {
-  it("queues a pull once, shows its progress without the key prefix, and lands it", async () => {
-    const h = renderHook(() => usePulls());
+  it("shows a pull from the moment it is asked, then as its job goes, without the key prefix, and lands it", async () => {
+    const h = hook();
     const landed = vi.fn();
     const off = onPullLanded(landed);
     watchPull("K-1");
     act(() => startPull("K-1", "One"));
     act(() => startPull("K-1", "One"));
-    expect(jobs).toHaveLength(1);
-    expect(isPulling("K-1")).toBe(true);
-    expect(h.result.current).toEqual([{ key: "K-1", summary: "One", startedAt: expect.any(Number) }]);
-    act(() => jobOf("K-1").onEvent?.(progress("K-1: reading steps")));
-    act(() => jobOf("K-1").onEvent?.(progress("plain line")));
-    act(() => jobOf("K-1").onEvent?.({ jobId: "j", at: "", type: "log", level: "info", message: "x" }));
-    expect(h.result.current[0].message).toBe("plain line");
-    act(() => jobOf("K-1").onStart?.("job-1"));
-    await act(async () => jobOf("K-1").done.resolve({ pulled: ["K-1"] }));
+    expect(runs).toHaveLength(1);
+    expect(shown(h)).toEqual([{ key: "K-1", summary: "One" }]);
+    served = [pullJob({ message: "K-1: reading steps" })];
+    act(() => runOf("K-1").onStart?.("job-1"));
+    await waitFor(() =>
+      expect(shown(h)).toEqual([{ key: "K-1", summary: "One", jobId: "job-1", message: "reading steps" }]),
+    );
+    await relist([pullJob({ message: "plain line" })]);
+    await waitFor(() => expect(h.result.current[0].message).toBe("plain line"));
+    served = [pullJob({ status: "done", endedAt: new Date().toISOString(), result: { pulled: ["K-1"] } })];
+    await act(async () => runOf("K-1").done.resolve({ pulled: ["K-1"] }));
+    await relist(served);
     expect(landed).toHaveBeenCalledWith("K-1", true);
-    expect(h.result.current).toEqual([]);
-    expect(isPulling("K-1")).toBe(false);
+    await waitFor(() => expect(h.result.current).toEqual([]));
     off();
     act(() => startPull("K-2", "Two"));
-    await act(async () => jobOf("K-2").done.resolve(null));
+    await act(async () => runOf("K-2").done.resolve(null));
     expect(landed).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps a failed watched pull in the pane, and toasts an unwatched one", async () => {
-    const h = renderHook(() => usePulls());
+  it("keeps a failed watched pull in the pane, and toasts an unwatched one and lets it go", async () => {
+    const h = hook();
     watchPull("K-3");
     act(() => startPull("K-3", "Three"));
     act(() => startPull("K-4", "Four"));
-    await act(async () => jobOf("K-3").done.resolve({ failed: [{ key: "K-3", error: "403 Forbidden" }] }));
-    await act(async () => jobOf("K-4").done.resolve({ failed: [{ key: "other", error: "first failure" }] }));
-    expect(h.result.current).toEqual([
-      { key: "K-3", summary: "Three", startedAt: expect.any(Number), error: "403 Forbidden" },
-    ]);
-    expect(isPulling("K-3")).toBe(false);
+    await act(async () => runOf("K-3").done.resolve({ failed: [{ key: "K-3", error: "403 Forbidden" }] }));
+    act(() => runOf("K-4").onStart?.("job-4"));
+    await act(async () => runOf("K-4").done.resolve({ failed: [{ key: "other", error: "first failure" }] }));
+    served = [
+      pullJob({ id: "job-4", subject: "K-4", status: "failed", endedAt: new Date().toISOString(), error: "x" }),
+    ];
+    await relist(served);
+    expect(shown(h)).toEqual([{ key: "K-3", summary: "Three", error: "403 Forbidden" }]);
     expect(errors).toEqual([{ e: new Error("first failure"), title: "Could not pull K-4" }]);
     act(() => startPull("K-3", "Three again"));
-    expect(h.result.current).toEqual([{ key: "K-3", summary: "Three again", startedAt: expect.any(Number) }]);
-    await act(async () => jobOf("K-3").done.reject(new Error("offline")));
-    act(() => cancelPull("K-3"));
+    expect(shown(h)).toEqual([{ key: "K-3", summary: "Three again" }]);
+    await act(async () => runOf("K-3").done.reject(new Error("offline")));
+    expect(shown(h)).toEqual([{ key: "K-3", summary: "Three again", error: "offline" }]);
+    act(() => cancelPull(h.result.current[0]));
     expect(h.result.current).toEqual([]);
   });
 
   it("cancels a pull, cancelling its job in the project it started in", async () => {
     setProject("C:\\p one");
-    const h = renderHook(() => usePulls());
+    const h = hook();
     act(() => startPull("K-5", "Five"));
-    act(() => jobOf("K-5").onStart?.("job-5"));
+    act(() => runOf("K-5").onStart?.("job-5"));
+    const pull = h.result.current[0];
     setProject("C:\\other");
-    act(() => cancelPull("K-5"));
+    setProject("C:\\p one");
+    act(() => cancelPull(pull));
     expect(h.result.current).toEqual([]);
     await waitFor(() => expect(cancels).toEqual([{ id: "job-5", project: encodeURIComponent("C:\\p one") }]));
-    act(() => jobOf("K-5").onEvent?.(progress("late")));
-    await act(async () => jobOf("K-5").done.resolve({ pulled: ["K-5"] }));
-    act(() => cancelPull("K-5"));
+    await act(async () => runOf("K-5").done.resolve({ pulled: ["K-5"] }));
     expect(h.result.current).toEqual([]);
   });
 
   it("cancels the job once it starts when the pull was abandoned first, and ignores a late failure", async () => {
+    const h = hook();
     act(() => startPull("K-6", "Six"));
-    act(() => cancelPull("K-6"));
+    act(() => cancelPull(h.result.current[0]));
     expect(cancels).toEqual([]);
-    act(() => jobOf("K-6").onStart?.("boom"));
+    act(() => runOf("K-6").onStart?.("boom"));
     await waitFor(() => expect(cancels).toEqual([{ id: "boom", project: undefined }]));
-    await act(async () => jobOf("K-6").done.reject(new Error("cancelled")));
+    await act(async () => runOf("K-6").done.reject(new Error("cancelled")));
     expect(errors).toEqual([]);
   });
 
   it("does not cancel the job of a pull that already failed", async () => {
+    const h = hook();
     watchPull("K-7");
     act(() => startPull("K-7", "Seven"));
-    act(() => jobOf("K-7").onStart?.("job-7"));
-    await act(async () => jobOf("K-7").done.reject(new Error("gone")));
-    act(() => cancelPull("K-7"));
+    act(() => runOf("K-7").onStart?.("job-7"));
+    await act(async () => runOf("K-7").done.reject(new Error("gone")));
+    act(() => cancelPull(h.result.current[0]));
     expect(cancels).toEqual([]);
   });
 
-  it("abandons the pulls of other projects only", () => {
-    const h = renderHook(() => usePulls());
+  it("abandons the pulls of other projects only, cancelling their running jobs", async () => {
     setProject("C:\\a");
     act(() => startPull("K-8", "Eight"));
+    act(() => runOf("K-8").onStart?.("job-8"));
     setProject("C:\\b");
+    const h = hook();
     act(() => startPull("K-9", "Nine"));
     act(() => abandonPulls((dir) => dir === "C:\\b"));
     expect(h.result.current.map((p) => p.key)).toEqual(["K-9"]);
+    await waitFor(() => expect(cancels).toEqual([{ id: "job-8", project: encodeURIComponent("C:\\a") }]));
   });
 
   it("ignores a stale run of a key that was pulled again", async () => {
-    const h = renderHook(() => usePulls());
+    const h = hook();
     act(() => startPull("K-10", "Ten"));
-    const first = jobOf("K-10");
-    act(() => cancelPull("K-10"));
+    const first = runOf("K-10");
+    act(() => cancelPull(h.result.current[0]));
     act(() => startPull("K-10", "Ten again"));
-    act(() => first.onEvent?.(progress("stale")));
-    expect(h.result.current[0].message).toBeUndefined();
-    await act(async () => jobOf("K-10").done.resolve({}));
+    await act(async () => first.done.reject(new Error("stale")));
+    expect(shown(h)).toEqual([{ key: "K-10", summary: "Ten again" }]);
+    await act(async () => runOf("K-10").done.resolve({}));
     expect(h.result.current).toEqual([]);
+  });
+
+  it("after a reload, or from another window, shows the pulls the project's jobs say are running or failed", () => {
+    const now = Date.now();
+    const iso = (ms: number) => new Date(now + ms).toISOString();
+    const jobs = [
+      pullJob({ id: "a", subject: "K-1", startedAt: iso(0), message: "K-1: steps" }),
+      pullJob({ id: "b", subject: "K-2", status: "failed", startedAt: iso(1), endedAt: iso(2), error: "403" }),
+      pullJob({
+        id: "c",
+        subject: "K-3",
+        status: "done",
+        startedAt: iso(1),
+        endedAt: iso(2),
+        result: { pulled: ["K-3"] },
+      }),
+      pullJob({
+        id: "d",
+        subject: "K-4",
+        status: "done",
+        startedAt: iso(1),
+        endedAt: iso(2),
+        result: { failed: [{ key: "K-4", error: "gone" }] },
+      }),
+      pullJob({ id: "e", subject: "K-5", status: "failed", startedAt: iso(-9), endedAt: iso(-5), error: "old" }),
+      pullJob({ id: "f", subject: "K-6", status: "failed", startedAt: iso(1), endedAt: iso(2), error: "let go" }),
+      { ...pullJob({ id: "g", subject: "D1" }), kind: "docs.convert" },
+    ];
+    const rows = pullsOf(jobs, {
+      project: "C:\\reloaded",
+      mine: [],
+      dismissed: new Set(["C:\\reloaded\nf"]),
+      since: now - 1,
+    });
+    expect(rows.map(({ startedAt: _s, ...p }) => p)).toEqual([
+      { key: "K-1", summary: "", jobId: "a", message: "steps" },
+      { key: "K-2", summary: "", jobId: "b", error: "403" },
+      { key: "K-4", summary: "", jobId: "d", error: "gone" },
+    ]);
   });
 });
 
 describe("pull stages", () => {
-  it("keeps what the core says of the test, the images and the write", () => {
-    const h = renderHook(() => usePulls());
-    act(() => startPull("K-5", "Five"));
+  it("keeps what the core says of the test, the images and the write, from the job's log", async () => {
+    client = testClient();
     const read = {
       key: "K-5",
       phase: "read" as const,
@@ -209,14 +277,27 @@ describe("pull stages", () => {
       covers: 0,
       labels: 3,
     };
-    const staged = (pull: Extract<JobEvent, { type: "progress" }>["pull"]) =>
-      act(() => jobOf("K-5").onEvent?.({ ...progress("K-5: x"), pull }));
-    staged(read);
-    expect(h.result.current[0]).toMatchObject({ phase: "read", read });
-    staged({ key: "K-5", phase: "images", done: 1, total: 2 });
-    expect(h.result.current[0]).toMatchObject({ phase: "images", images: { done: 1, total: 2 }, read });
-    staged({ key: "K-5", phase: "write" });
-    expect(h.result.current[0]).toMatchObject({ phase: "write", images: { done: 1, total: 2 } });
+    served = [pullJob({ id: "job-5", subject: "K-5" })];
+    const progress = (pull: Extract<JobEvent, { type: "progress" }>["pull"]): JobEvent => ({
+      jobId: "job-5",
+      at: "",
+      type: "progress",
+      message: "K-5: x",
+      pull,
+    });
+    logs["job-5"] = [progress(read)];
+    const h = renderHook(() => usePullStage("job-5"), { wrapper });
+    await waitFor(() => expect(h.result.current).toMatchObject({ phase: "read", read }));
+    logs["job-5"] = [...logs["job-5"], progress({ key: "K-5", phase: "images", done: 1, total: 2 })];
+    await act(() => client.invalidateQueries());
+    await waitFor(() =>
+      expect(h.result.current).toMatchObject({ phase: "images", images: { done: 1, total: 2 }, read }),
+    );
+    logs["job-5"] = [...logs["job-5"], progress({ key: "K-5", phase: "write" })];
+    await act(() => client.invalidateQueries());
+    await waitFor(() => expect(h.result.current).toMatchObject({ phase: "write", images: { done: 1, total: 2 } }));
+    const none = renderHook(() => usePullStage(undefined), { wrapper });
+    expect(none.result.current).toEqual({});
   });
 });
 

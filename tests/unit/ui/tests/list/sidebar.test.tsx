@@ -544,8 +544,14 @@ describe("Tests screen › pull queue", () => {
     };
     routes["jobs.show"] = (i) => ({ job: jobs[i.id as string], events: [] });
     routes["jobs.cancel"] = () => ({ cancelled: true });
-    routes["jobs.list"] = () => [];
+    routes["jobs.list"] = () => Object.values(jobs).reverse();
   });
+
+  // ponytail: the server keeps what its jobs said (jobs.list answers with it), and the stream carries it
+  const say = (e: Extract<JobEvent, { type: "progress" }>) => {
+    jobs[e.jobId] = { ...jobs[e.jobId], message: e.message };
+    FakeEventSource.emit(e);
+  };
 
   const finish = (id: string, result: unknown, status: Job["status"] = "done", error?: string) => {
     jobs[id] = { ...jobs[id], status, result, error, endedAt: new Date().toISOString() };
@@ -569,8 +575,8 @@ describe("Tests screen › pull queue", () => {
     expect(line()).toHaveTextContent("contacting Jira…");
     expect(within(await opt(/Nine/)).getByText("Pulling…")).toBeInTheDocument();
     await waitFor(() => expect(named("xray.pull")).toHaveLength(1));
-    FakeEventSource.emit({ jobId: "job-1", at: "", type: "progress", message: "LFRPS12-9: image 3 of 12 downloaded" });
-    expect(line()).toHaveTextContent("image 3 of 12 downloaded");
+    say({ jobId: "job-1", at: "", type: "progress", message: "LFRPS12-9: image 3 of 12 downloaded" });
+    await waitFor(() => expect(line()).toHaveTextContent("image 3 of 12 downloaded"));
     locals = [ref({ id: "LFRPS12-9", key: "LFRPS12-9", summary: "Nine", sync: "synced", synced: true })];
     routes["tests.show"] = () => new Promise(() => {});
     finish("job-1", { pulled: ["LFRPS12-9"], skipped: [], failed: [] });
@@ -586,9 +592,11 @@ describe("Tests screen › pull queue", () => {
     await waitFor(() => expect(named("xray.pull")).toHaveLength(2));
     const main = screen.getByRole("main");
     expect(within(main).getByRole("heading", { name: "Pulling LFRPS12-9" })).toBeInTheDocument();
-    expect(within(main).getByText("1 more pulling in the background")).toBeInTheDocument();
-    FakeEventSource.emit({ jobId: "job-1", at: "", type: "progress", message: "LFRPS12-8: steps fetched" });
-    expect(within(main).getByRole("status", { name: "Pull progress" })).toHaveTextContent("waiting for a free slot…");
+    expect(await within(main).findByText("1 more pulling in the background")).toBeInTheDocument();
+    say({ jobId: "job-1", at: "", type: "progress", message: "LFRPS12-8: steps fetched" });
+    await waitFor(() =>
+      expect(within(main).getByRole("status", { name: "Pull progress" })).toHaveTextContent("waiting for a free slot…"),
+    );
     locals = [ref({ id: "LFRPS12-8", key: "LFRPS12-8", summary: "Eight", sync: "synced", synced: true })];
     const lists = named("tests.list").length;
     finish("job-1", { pulled: ["LFRPS12-8"], skipped: [], failed: [] });
