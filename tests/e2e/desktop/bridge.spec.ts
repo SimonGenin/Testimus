@@ -142,7 +142,7 @@ test("Browse opens a project, the window takes its name, Show in Explorer reveal
     expect(
       await page.evaluate(async () => {
         await document.fonts.ready;
-        return document.fonts.check("16px 'Lexend Variable'") && document.fonts.check("16px 'Source Sans 3 Variable'");
+        return document.fonts.check("16px 'Inter Variable'") && document.fonts.check("16px 'JetBrains Mono Variable'");
       }),
     ).toBe(true);
 

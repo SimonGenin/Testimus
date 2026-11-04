@@ -104,7 +104,7 @@ const EXTRA: Record<string, Record<string, string>> = {
     railItem: "60px", // shell.mjs .rail__item and .rail__status width
     figurePreview: "140px", // the passage's figure preview
     dockStripLabel: "360px", // the folded dock's vertical label
-    stepLabel: "110px", // _editor.mjs step card field label column
+    stepLabel: "192px", // _editor.mjs step card field label column: --ed-label, calc(space-11 * 2)
     thumb: "96px", // _editor.mjs step image thumbnail
     thumbLarge: "160px", // _editor.mjs larger thumbnail
   },
