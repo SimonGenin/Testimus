@@ -254,6 +254,15 @@ p {
   white-space: nowrap;
 }
 
+.badge--warning {
+  background: var(--color-warning-subtle);
+  color: var(--color-warning);
+}
+
+.badge[hidden] {
+  display: none;
+}
+
 .field {
   display: flex;
   flex-direction: column;

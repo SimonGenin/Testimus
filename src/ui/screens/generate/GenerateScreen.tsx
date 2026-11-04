@@ -160,6 +160,7 @@ export function GenerateScreen() {
             onCancel={() =>
               gen.jobId && cancel.mutateAsync({ id: gen.jobId }).catch((e) => errorToast(e, "Could not cancel"))
             }
+            onRetry={() => void generate()}
             onResume={(generation) =>
               void begin({ resume: generation, model: form.runModel, effort: form.runEffort } as Parameters<
                 typeof start.mutateAsync

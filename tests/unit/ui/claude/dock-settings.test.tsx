@@ -547,7 +547,7 @@ describe("contexts dialog", () => {
     fireEvent.change(pick, { target: { value: "D:\\Other" } });
     const ctx = await screen.findByRole("combobox", { name: "Context to copy" });
     expect(ctx).toHaveValue("ctx-g");
-    fireEvent.click(screen.getByRole("button", { name: "Copy" }));
+    fireEvent.click(screen.getByRole("button", { name: "Copy into this project" }));
     await waitFor(() => expect(callsOf("contexts.copy")[0]?.input).toEqual({ from: "D:\\Other", id: "ctx-g" }));
     expect(await screen.findByRole("option", { name: /Glossaire/, selected: true })).toBeVisible();
   });
@@ -581,7 +581,7 @@ describe("contexts dialog", () => {
 });
 
 describe("always on top", () => {
-  it("always on top: hidden in the browser, a switch and a pin in the desktop app, remembered", async () => {
+  it("always on top: hidden in the browser, a switch and a pin in the open dock of the desktop app, remembered", async () => {
     routes["system.settings"] = () => ({ claude: { exe: "" }, models: { allowRemote: true } });
     const r = render(wrap(app(), <AppearanceSection />));
     expect(screen.queryByRole("switch", { name: /Always on top/ })).toBeNull();
@@ -592,7 +592,7 @@ describe("always on top", () => {
         app(),
         <>
           <AppearanceSection />
-          <ClaudeDock folded onFold={() => {}} />
+          <ClaudeDock folded={false} onFold={() => {}} />
         </>,
       ),
     );

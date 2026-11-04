@@ -185,6 +185,10 @@ describe("Generate › smart columns", () => {
     expect(screen.getByText("New in Xray")).toBeInTheDocument();
     expect(screen.getByText("Local only")).toBeInTheDocument();
     expect(screen.getByText("No longer in Xray")).toBeInTheDocument();
+    expect(
+      screen.getByText("New in Xray").closest("span")?.querySelector('[data-icon="alert-triangle"]'),
+    ).not.toBeNull();
+    expect(screen.getByText("Local only").closest("span")?.querySelector('[data-icon="file"]')).not.toBeNull();
     expect(screen.getByText("What the step checks")).toBeInTheDocument();
     expect(screen.getByText("5 · 3 filled by Claude")).toBeInTheDocument();
     expect(screen.getAllByText("No description — Claude leaves it empty.")).toHaveLength(2);
@@ -204,7 +208,9 @@ describe("Generate › smart columns", () => {
     expect(screen.getByText(/2 columns came from Xray without a description — Claude leaves them/)).toBeInTheDocument();
     cleanup();
     render(<ColumnsView columns={[]} onEdit={onEdit} />);
-    expect(screen.getByRole("button", { name: "Edit in Settings" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Define the columns" }).querySelector('[data-icon="claude"]'),
+    ).not.toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
   });
 });

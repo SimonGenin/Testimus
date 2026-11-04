@@ -1,7 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { useEffect, useId, useRef } from "react";
 import { border, color, focus, fontSize, lineHeight, radius, size, space } from "../../styles/tokens.stylex.ts";
-import { Icon } from "./Icon.tsx";
+import { Icon, type IconName } from "./Icon.tsx";
 import { Tooltip } from "./Tooltip.tsx";
 
 const styles = stylex.create({
@@ -55,6 +55,8 @@ const styles = stylex.create({
   },
   markDisabled: { color: color.textDisabled },
   text: { display: "flex", flexDirection: "column", minWidth: 0 },
+  withIcon: { display: "inline-flex", alignItems: "center", gap: space.s2 },
+  lead: { display: "inline-flex", color: color.textMuted },
   hint: { fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textSubtle },
 });
 
@@ -67,6 +69,8 @@ export type CheckboxProps = {
   label: string;
   /** a second line under the label, read as the description */
   hint?: string;
+  /** before the label, what the item is (a saved context: context) */
+  icon?: IconName;
   /** one of N inside a RadioGroup (the models folder: Move / Keep / Copy) */
   radio?: boolean;
   /** the radio group's name (RadioGroup sets it) or a form field's name */
@@ -85,6 +89,7 @@ export function Checkbox({
   onChange,
   label,
   hint,
+  icon,
   radio = false,
   name,
   value,
@@ -130,7 +135,14 @@ export function Checkbox({
         )}
       </span>
       <span {...stylex.props(styles.text)}>
-        <span id={`${id}-label`}>{label}</span>
+        <span id={`${id}-label`} {...stylex.props(icon && styles.withIcon)}>
+          {icon && (
+            <span {...stylex.props(styles.lead)}>
+              <Icon name={icon} />
+            </span>
+          )}
+          {label}
+        </span>
         {hint && (
           <span id={`${id}-hint`} {...stylex.props(styles.hint)}>
             {hint}

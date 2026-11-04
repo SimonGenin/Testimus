@@ -92,7 +92,23 @@ export function Palette({
     setAt(0);
   };
 
-  const groups: Group[] = paletteGroups({ q, scope, entries, commands, result, docs, searching, noProject, onHit });
+  const groups: Group[] = paletteGroups({ q, scope, entries, commands, result, docs, searching, noProject, onHit }).map(
+    (g) =>
+      g.more
+        ? {
+            ...g,
+            rows: [
+              ...g.rows,
+              {
+                id: `more:${g.more.scope}`,
+                stay: true,
+                run: () => g.more && pickScope(g.more.scope),
+                props: { lead: <Icon name="more" />, title: g.more.label },
+              },
+            ],
+          }
+        : g,
+  );
   const nothing = !!q && groups.length === 0;
   const ask = q && onAsk ? q : "";
   if (ask)
@@ -116,7 +132,7 @@ export function Palette({
   const pick = (i: number) => {
     const r = rows[i];
     if (!r) return;
-    onClose();
+    if (!r.stay) onClose();
     r.run();
   };
 
@@ -193,9 +209,6 @@ export function Palette({
         head: !!g.title,
         meta: g.meta,
         keys: g.rows.map((r) => r.id),
-        action: g.more && (
-          <Button variant="quiet" size="xs" label={g.more.label} onClick={() => g.more && pickScope(g.more.scope)} />
-        ),
       }))}
       activeDescendant={{
         id: listId,
@@ -247,7 +260,9 @@ export function Palette({
           <span {...stylex.props(styles.grow)}>
             <Tabs label="Search in" size="sm" value={scope} tabs={tabs} onChange={pickScope} />
           </span>
-          {wordsOnly ? (
+          {searching && q && s.loading ? (
+            <Badge label="Searching…" tone="info" icon="sync" size="sm" tooltip="How passages are found" />
+          ) : wordsOnly ? (
             <Badge
               label="Words only"
               tone="warning"

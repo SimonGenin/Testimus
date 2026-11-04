@@ -3,6 +3,7 @@ import type { Effort } from "../../../core/types.ts";
 import { useApp } from "../../lib/app.ts";
 import { Button } from "../ui/Button.tsx";
 import { ClaudeBlock } from "../ui/ClaudeBlock.tsx";
+import { Icon } from "../ui/Icon.tsx";
 import { Popover } from "../ui/Popover.tsx";
 import { CustomModel, effortOptions, useModelChoice } from "./ModelPicker.tsx";
 import type { DockJob } from "./useDockRuns.ts";
@@ -37,7 +38,12 @@ export function AskClaude({
       flush
       open={open}
       onOpenChange={setOpen}
-      foot="Runs in the dock with this test's contexts"
+      foot={
+        <>
+          <Icon name="info" size="sm" />
+          Runs in the dock with this test's contexts
+        </>
+      }
     >
       <ClaudeBlock
         frameless

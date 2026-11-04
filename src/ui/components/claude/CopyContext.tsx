@@ -75,6 +75,7 @@ export function CopyContext({
         <Select
           label="Project to copy from"
           size="sm"
+          icon="folder"
           block
           placeholder="Choose a project…"
           value={from || null}
@@ -102,7 +103,14 @@ export function CopyContext({
         ))}
       <span {...stylex.props(styles.acts)}>
         <Button size="sm" variant="quiet" label="Cancel" onClick={() => setOpen(false)} />
-        <Button size="sm" label="Copy" disabled={!from || !chosen} onClick={() => void copy()} />
+        <Button
+          size="sm"
+          variant="primary"
+          icon="copy"
+          label="Copy into this project"
+          disabled={!from || !chosen}
+          onClick={() => void copy()}
+        />
       </span>
     </fieldset>
   );

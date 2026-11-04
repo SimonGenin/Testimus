@@ -64,6 +64,7 @@ export function ContextPicker({
             <li key={c.id}>
               <Checkbox
                 label={c.name || c.id}
+                icon="context"
                 hint={`${c.shared ? "shared · " : "this project · "}${contextLine(c)}`}
                 checked={isOn(c.id)}
                 onChange={(on) => onToggle(c.id, on)}

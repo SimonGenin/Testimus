@@ -102,7 +102,7 @@ export function DocHead({
       ? [
           {
             label: "Show in Explorer",
-            icon: "external" as const,
+            icon: "folder-open" as const,
             onSelect: () => void reveal(pathJoin(dir, "docs", doc.id)),
           },
         ]
@@ -124,7 +124,7 @@ export function DocHead({
         <Button
           variant="quiet"
           iconOnly
-          icon="documents"
+          icon="panel-left"
           label="Show the document list"
           expanded={listOpen}
           onClick={onShowList}
@@ -179,9 +179,9 @@ export function DocHead({
             <Button
               size="sm"
               variant="quiet"
-              icon="info"
+              icon="panel-right"
               label="Details"
-              expanded={drawer === "details"}
+              popup={{ kind: "dialog", open: drawer === "details" }}
               onClick={() => onDrawer("details")}
             />
             {warned && <span data-testid="details-warned" title="Conversion warnings" {...stylex.props(styles.dot)} />}

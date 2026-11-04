@@ -50,6 +50,27 @@ describe("error page", () => {
     expect(html).toContain(`The last ${TAIL_LINES} lines`);
   });
 
+  it("marks a failure with x-circle and the log path with the design's file icon", async () => {
+    await load(fake([]));
+    expect(document.getElementById("failed")?.hidden).toBe(false);
+    expect(document.getElementById("failed")?.dataset.icon).toBe("x-circle");
+    expect(document.getElementById("no-answer")?.hidden).toBe(true);
+    expect(document.querySelector(".where [data-icon]")?.getAttribute("data-icon")).toBe("file");
+  });
+
+  it("a core that did not answer in time: « No answer » with the clock, and says it did not start in time", async () => {
+    const { startCore } = await import("../../../src/desktop/core.ts");
+    expect(startCore.toString()).toContain("did not answer within");
+    const s = fake([]);
+    s.details = vi.fn(async () => ({ message: "The core did not answer within 30 s.", lines: [], logDir: "C:\\L" }));
+    await load(s);
+    expect(document.getElementById("failed")?.hidden).toBe(true);
+    expect(document.getElementById("no-answer")?.hidden).toBe(false);
+    expect(document.getElementById("no-answer")?.dataset.icon).toBe("clock");
+    expect(document.getElementById("no-answer")?.textContent?.trim()).toBe("No answer");
+    expect(text("title")).toBe("Testimus did not start in time");
+  });
+
   it("says when the log is empty", async () => {
     await load(fake([]));
     expect(text("lines")).toBe("(the log is empty)");

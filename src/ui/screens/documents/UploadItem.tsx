@@ -35,7 +35,7 @@ export function uploadItem(u: Upload): ListItemProps {
   return {
     title: u.name,
     tooltip: u.name,
-    lead: <Icon name={u.job === "index" ? "refresh" : "documents"} />,
+    lead: <Icon name="documents" />,
     meta: (
       <span {...stylex.props(styles.lines)}>
         <span {...stylex.props(styles.mono)}>{sub}</span>
@@ -91,7 +91,7 @@ export function UploadFailure({ u }: { u: Upload }) {
         title={title}
         actions={
           <>
-            <Button size="sm" variant="quiet" label="Open Jobs" onClick={() => app.navigate("jobs")} />
+            <Button size="sm" variant="quiet" icon="jobs" label="Open Jobs" onClick={() => app.navigate("jobs")} />
             <Button
               size="sm"
               variant="quiet"

@@ -163,14 +163,18 @@ export function runBadges(run: RunCard, action: boolean): RunBadge[] {
     const what = [run.files ? plural(run.files, "file") : "", run.steps ? plural(run.steps, "step") : ""]
       .filter(Boolean)
       .join(" and ");
-    return [{ label: `${what || "Nothing"} changed`, tone: "neutral", icon: "check" }];
+    return [
+      what
+        ? { label: `${what} changed`, tone: "claude", icon: "claude" }
+        : { label: "Nothing changed", tone: "neutral", icon: "check" },
+    ];
   }
   const word = fixOutcome(run).word;
   return [
     {
       label: `${plural(run.steps, "step")} changed${run.tests > 1 ? ` in ${run.tests} tests` : ""}`,
-      tone: "neutral",
-      icon: "check",
+      tone: "claude",
+      icon: "claude",
     },
     { label: word[0].toUpperCase() + word.slice(1), ...OUTCOME[word] },
   ];

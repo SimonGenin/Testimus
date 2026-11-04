@@ -307,7 +307,7 @@ export function DocumentsScreen() {
               {folded && (
                 <Button
                   variant="quiet"
-                  icon="documents"
+                  icon="panel-left"
                   label="Show the document list"
                   expanded={listOpen}
                   onClick={() => setListOpen(true)}

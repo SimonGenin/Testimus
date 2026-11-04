@@ -151,17 +151,17 @@ export const SEVERITY: Record<Severity, Word> = {
 };
 
 export const SYNC = {
-  checking: { label: "Checking…", tone: "info", icon: "sync" },
-  "in-sync": { label: "In sync", tone: "success", icon: "check" },
-  modified: { label: "Modified", tone: "warning", icon: "sync" },
+  checking: { label: "Checking…", tone: "info", icon: "refresh" },
+  "in-sync": { label: "In sync", tone: "success", icon: "sync" },
+  modified: { label: "Modified", tone: "warning", icon: "circle-dot" },
   "changed-in-jira": { label: "Changed in Jira", tone: "warning", icon: "cloud" },
   conflict: { label: "Conflict", tone: "danger", icon: "conflict" },
-  local: { label: "Local only", tone: "neutral", icon: "file" },
+  local: { label: "Local only", tone: "neutral", icon: "drive" },
 } as const satisfies Record<string, Word>;
 
 export const DIFF = {
   new: { label: "New", tone: "success", icon: "plus" },
-  modified: { label: "Modified", tone: "warning", icon: "sync" },
+  modified: { label: "Modified", tone: "warning", icon: "circle-dot" },
   deleted: { label: "Deleted", tone: "danger", icon: "trash" },
   claude: { label: "Changed by Claude", tone: "claude", icon: "claude" },
 } as const satisfies Record<string, Word>;

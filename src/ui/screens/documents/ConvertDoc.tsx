@@ -172,7 +172,7 @@ export function ConvertDoc({
         consequencesAt="start"
         footNote={
           <span {...stylex.props(styles.note)}>
-            <Icon name="jobs" size="sm" />
+            <Icon name="clock" size="sm" />
             It runs in Jobs; you can keep working.
           </span>
         }

@@ -1,9 +1,11 @@
 import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
 import type { Job, JobEvent } from "../../../core/types.ts";
+import { DiagnosisText } from "../../components/claude/DiagnosisText.tsx";
 import { Badge } from "../../components/ui/Badge.tsx";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
+import { Disclosure } from "../../components/ui/Disclosure.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { Progress } from "../../components/ui/Progress.tsx";
 import { Spinner } from "../../components/ui/Spinner.tsx";
@@ -84,6 +86,14 @@ const styles = stylex.create({
   noBody: { display: "flex", flexDirection: "column", gap: space.s1, minWidth: 0 },
   why: { color: color.textMuted },
   item: { fontFamily: fontFamily.mono, fontSize: fontSize.code, overflowWrap: "anywhere" },
+  raw: {
+    margin: 0,
+    fontFamily: fontFamily.mono,
+    fontSize: fontSize.code,
+    color: color.textMuted,
+    overflowWrap: "anywhere",
+  },
+  fold: { alignSelf: "flex-end" },
 });
 
 const writingOf = (m: string) => m.match(/Writing (local-[0-9a-f]{8})/i)?.[1]?.toLowerCase();
@@ -113,6 +123,10 @@ export function passagesRead(events: JobEvent[]): number {
   return n;
 }
 
+// a run that ended without doing what was asked: its head is the danger banner, which says why
+export const failedRun = (job: Job, result: GenOutput | null) =>
+  job.status !== "running" && job.status !== "cancelled" && !(job.status === "done" && result?.ok !== false);
+
 export function checkLine(tests: string[], checks: GenCheck[] | undefined): string {
   if (!checks?.length) return "";
   const n = checks.filter((c) => c.errors + c.warnings > 0).length;
@@ -131,6 +145,8 @@ export type RunHeadProps = {
   onCancel: () => void;
   onReview: () => void;
   onResume?: () => void;
+  /** start the same generation again (a run that stopped before its plan) */
+  onRetry?: () => void;
   onFoldAll?: (folded: boolean) => void;
 };
 
@@ -175,6 +191,7 @@ export function RunHead({
   onCancel,
   onReview,
   onResume,
+  onRetry,
   onFoldAll,
 }: RunHeadProps) {
   if (!job) return null;
@@ -238,28 +255,50 @@ export function RunHead({
         }
       />
     );
+  const resume = left > 0 && onResume && (
+    <Button
+      variant="primary"
+      size="sm"
+      icon="generate"
+      label={`Resume · ${plural(left, "test")} left`}
+      onClick={onResume}
+    />
+  );
+  const review = count > 0 && (
+    <Button size="sm" iconAfter="arrow-right" label="Review these tests" onClick={onReview} />
+  );
+  if (failedRun(job, result))
+    return (
+      <div {...stylex.props(styles.body)}>
+        <Banner
+          tone="danger"
+          title={result?.diagnosis?.title ?? "The generation stopped"}
+          actions={
+            <>
+              {resume ||
+                (onRetry && <Button variant="claude" size="sm" icon="refresh" label="Try again" onClick={onRetry} />)}
+              {review}
+            </>
+          }
+        >
+          {result?.diagnosis?.detail ? <DiagnosisText text={result.diagnosis.detail} /> : job.error}
+        </Banner>
+        {result?.diagnosis?.detail && job.error && (
+          <Disclosure summary="Technical details" quiet>
+            <p {...stylex.props(styles.raw)}>{job.error}</p>
+          </Disclosure>
+        )}
+        {foldAll && <span {...stylex.props(styles.fold)}>{foldAll}</span>}
+      </div>
+    );
   return (
     <Head
-      badge={
-        job.status === "cancelled" ? (
-          <Badge tone="neutral" icon="stop" label={`Cancelled${count ? ` · ${plural(count, "test")} kept` : ""}`} />
-        ) : (
-          <Badge tone="danger" icon="x-circle" label={result?.diagnosis?.title ?? "The generation stopped"} />
-        )
-      }
+      badge={<Badge tone="neutral" icon="stop" label={`Cancelled${count ? ` · ${plural(count, "test")} kept` : ""}`} />}
       actions={
         <>
           {foldAll}
-          {left > 0 && onResume && (
-            <Button
-              variant="primary"
-              size="sm"
-              icon="generate"
-              label={`Resume · ${plural(left, "test")} left`}
-              onClick={onResume}
-            />
-          )}
-          {count > 0 && <Button size="sm" iconAfter="arrow-right" label="Review these tests" onClick={onReview} />}
+          {resume}
+          {review}
         </>
       }
     />

@@ -8,7 +8,7 @@ import { Marked } from "../ui/Marked.tsx";
 
 export const KIND: Record<SearchKind, { label: string; one: string; icon: IconName }> = {
   test: { label: "Tests", one: "test", icon: "tests" },
-  document: { label: "Documents", one: "document", icon: "documents" },
+  document: { label: "Documents", one: "document", icon: "file" },
   passage: { label: "In the documents", one: "passage", icon: "section" },
 };
 

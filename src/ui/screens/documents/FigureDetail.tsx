@@ -3,6 +3,7 @@ import type { FigureEntry } from "../../../core/types.ts";
 import { Badge } from "../../components/ui/Badge.tsx";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
+import { Icon } from "../../components/ui/Icon.tsx";
 import { fileUrl } from "../../lib/data/client.ts";
 import { useRead } from "../../lib/data/query.ts";
 import {
@@ -70,7 +71,9 @@ export function FigureImage({ docId, figure }: { docId: string; figure: FigureEn
     <span {...stylex.props(styles.img)}>
       {figure.file ? (
         <img src={fileUrl(`docs/${docId}/${figure.file}`)} alt="" loading="lazy" {...stylex.props(styles.pic)} />
-      ) : null}
+      ) : (
+        <Icon name="image" size="lg" />
+      )}
     </span>
   );
 }

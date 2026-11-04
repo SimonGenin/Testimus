@@ -3,6 +3,7 @@ import type { StepColumn } from "../../../core/types.ts";
 import { Badge, type BadgeTone } from "../../components/ui/Badge.tsx";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
+import type { IconName } from "../../components/ui/Icon.tsx";
 import { border, color, fontSize, fontWeight, lineHeight, radius, space } from "../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
@@ -51,10 +52,10 @@ const styles = stylex.create({
   none: { fontSize: fontSize.compact, lineHeight: lineHeight.compact, color: color.textSubtle },
 });
 
-export function columnTag(c: StepColumn): { label: string; tone: BadgeTone } {
-  if (c.status === "gone") return { label: "No longer in Xray", tone: "warning" };
-  if (c.origin === "local") return { label: "Local only", tone: "warning" };
-  if (c.status === "new") return { label: "New in Xray", tone: "warning" };
+export function columnTag(c: StepColumn): { label: string; tone: BadgeTone; icon?: IconName } {
+  if (c.status === "gone") return { label: "No longer in Xray", tone: "warning", icon: "alert-triangle" };
+  if (c.origin === "local") return { label: "Local only", tone: "warning", icon: "file" };
+  if (c.status === "new") return { label: "New in Xray", tone: "warning", icon: "alert-triangle" };
   return { label: c.builtin ? "Xray · standard" : "Xray", tone: "info" };
 }
 
@@ -71,13 +72,7 @@ export function ColumnsView({ columns, onEdit }: { columns: StepColumn[]; onEdit
           {columns.length} · {filled} filled by Claude
         </span>
         <span {...stylex.props(styles.grow)} />
-        <Button
-          size="sm"
-          variant={fresh ? "claude-quiet" : "quiet"}
-          icon={fresh ? "claude" : "columns"}
-          label={fresh ? "Define the columns" : "Edit in Settings"}
-          onClick={onEdit}
-        />
+        <Button size="sm" variant="claude-quiet" icon="claude" label="Define the columns" onClick={onEdit} />
       </div>
       {fresh > 0 && (
         <Banner tone="warning" compact>
@@ -92,7 +87,7 @@ export function ColumnsView({ columns, onEdit }: { columns: StepColumn[]; onEdit
             <li key={c.name} {...stylex.props(styles.item)}>
               <span {...stylex.props(styles.name)}>
                 {c.name}
-                <Badge size="sm" tone={tag.tone} label={tag.label} />
+                <Badge size="sm" tone={tag.tone} icon={tag.icon} label={tag.label} />
               </span>
               {c.description ? (
                 <span {...stylex.props(styles.desc)}>{c.description}</span>

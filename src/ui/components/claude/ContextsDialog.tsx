@@ -127,7 +127,7 @@ export function ContextsDialog({ onClose, initialId }: { onClose: () => void; in
             }}
             renderItem={(c) => ({
               title: name(c),
-              lead: <Icon name="text" />,
+              lead: <Icon name="context" />,
               meta: `${c.shared ? "shared · " : ""}${contextLine(c)}`,
             })}
           />

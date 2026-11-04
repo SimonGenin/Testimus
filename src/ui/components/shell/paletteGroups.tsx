@@ -8,7 +8,7 @@ import { type Entry, featuredFirst, filterEntries } from "./paletteEntries.tsx";
 import { hitRow, KIND } from "./SearchHit.tsx";
 
 export type Scope = "all" | SearchKind | "commands";
-export type Row = { id: string; run: () => void; props: ListItemProps; off?: boolean };
+export type Row = { id: string; run: () => void; props: ListItemProps; off?: boolean; stay?: boolean };
 export type Group = { id: string; title: string; meta?: string; more?: { label: string; scope: Scope }; rows: Row[] };
 
 const PER_GROUP = 6;
@@ -113,7 +113,7 @@ export function paletteGroups({
         meta: String(total),
         more:
           scope === "all" && total > hits.length
-            ? { label: `All ${plural(total, KIND[kind].one)}`, scope: kind }
+            ? { label: plural(total - hits.length, `more ${KIND[kind].one}`), scope: kind }
             : undefined,
         rows: hits.map(hitOf),
       });

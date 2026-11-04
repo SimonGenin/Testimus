@@ -36,7 +36,7 @@ function docItem(d: DocRef): ListItemProps {
   return {
     title: d.title,
     tooltip: `${d.code} · ${d.version} — ${d.title}`,
-    lead: <Icon name="documents" />,
+    lead: <Icon name={/\.pdf$/i.test(d.source.file) ? "file" : "documents"} />,
     meta: (
       <span {...stylex.props(styles.lines)}>
         <span {...stylex.props(styles.mono)}>

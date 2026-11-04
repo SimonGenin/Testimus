@@ -14,7 +14,7 @@ import {
   size,
   space,
 } from "../../styles/tokens.stylex.ts";
-import { Icon } from "../ui/Icon.tsx";
+import { Icon, type IconName } from "../ui/Icon.tsx";
 
 const styles = stylex.create({
   map: { display: "flex", flexDirection: "column", gap: space.s2 },
@@ -90,7 +90,13 @@ const styles = stylex.create({
     fontSize: fontSize.small,
     lineHeight: lineHeight.small,
   },
-  dt: { color: color.textSubtle, fontWeight: fontWeight.medium },
+  dt: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: space.s2,
+    color: color.textSubtle,
+    fontWeight: fontWeight.medium,
+  },
   dd: { margin: 0, display: "flex", flexWrap: "wrap", gap: space.s2, minWidth: 0 },
   opened: { display: "flex", flexDirection: "column", gap: space.s1 },
   open: { display: "flex", gap: space.s2, alignItems: "baseline" },
@@ -258,9 +264,12 @@ export function Lookups({ p }: { p: Phase }) {
   const follows = unique(p.lookups.filter((l) => l.kind === "follow").map((l) => l.text));
   const searches = unique(p.lookups.filter((l) => l.kind === "search").map((l) => l.text));
   const mentions = unique(p.lookups.filter((l) => l.kind === "mention").map((l) => l.text));
-  const row = (term: string, body: ReactNode) => (
+  const row = (term: string, body: ReactNode, icon?: IconName) => (
     <>
-      <dt {...stylex.props(styles.dt)}>{term}</dt>
+      <dt {...stylex.props(styles.dt)}>
+        {icon && <Icon name={icon} size="sm" />}
+        {term}
+      </dt>
       <dd {...stylex.props(styles.dd)}>{body}</dd>
     </>
   );
@@ -280,6 +289,7 @@ export function Lookups({ p }: { p: Phase }) {
         row(
           "Searched for",
           searches.map((q) => <Quote key={q} q={q} />),
+          "search",
         )}
       {opens.length > 0 &&
         row(
@@ -303,6 +313,7 @@ export function Lookups({ p }: { p: Phase }) {
         row(
           "Every mention of",
           mentions.map((q) => <Quote key={q} q={q} />),
+          "link",
         )}
     </dl>
   );

@@ -47,14 +47,17 @@ const palette = (onClose = vi.fn()) =>
   withData(<Palette commands={[]} actions={[]} onCommand={() => {}} onHit={() => {}} onClose={onClose} />);
 
 describe("search palette, the rest of its ways", () => {
-  it("« All 9 tests » narrows the search to the tests", async () => {
+  it("« 7 more tests » (the more icon) narrows the search to the tests, the palette stays open", async () => {
     net.routes["search.all"] = () => result([hit("T-1"), hit("T-2")], { totals: { test: 9 } });
     palette();
     fireEvent.change(screen.getByRole("combobox", { name: "Search" }), { target: { value: "sectionneur" } });
-    fireEvent.click(await screen.findByRole("button", { name: "All 9 tests" }));
+    const more = await screen.findByRole("option", { name: "7 more tests" });
+    expect(more.querySelector('[data-icon="more"]')).not.toBeNull();
+    fireEvent.click(more);
     expect(screen.getByRole("tab", { name: /^Tests/ })).toHaveAttribute("aria-selected", "true");
     await waitFor(() => expect(callsOf("search.all").some((c) => (c.input.in as string[])?.[0] === "test")).toBe(true));
-    expect(screen.queryByRole("button", { name: "All 9 tests" })).toBeNull();
+    expect(screen.queryByRole("option", { name: "7 more tests" })).toBeNull();
+    expect(screen.getByRole("combobox", { name: "Search" })).toBeInTheDocument();
   });
 
   it("« Choose a search pack » closes the palette and opens Settings › Search", async () => {

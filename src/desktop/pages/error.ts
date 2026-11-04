@@ -8,6 +8,11 @@ const logs = el("logs") as HTMLButtonElement;
 if (shellPage) {
   shellPage.details().then((d) => {
     el("message").textContent = d.message;
+    if (/did not answer/.test(d.message)) {
+      el("title").textContent = "Testimus did not start in time";
+      el("failed").hidden = true;
+      el("no-answer").hidden = false;
+    }
     const lines = el("lines");
     lines.textContent = d.lines.length ? d.lines.join("\n") : "(the log is empty)";
     lines.scrollTop = lines.scrollHeight;

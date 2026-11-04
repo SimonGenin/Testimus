@@ -363,7 +363,7 @@ describe("Settings › Claude › dock defaults, quick asks, default contexts", 
     expect(screen.getByRole("group", { name: "New quick ask" })).toBeInTheDocument();
   });
 
-  it("default contexts: a switch per saved context, by name; manage, then read again", async () => {
+  it("default contexts: a Claude chip per saved context, by name, pressed when a default; manage, then read again", async () => {
     project = claude({ contexts: ["house"] });
     net.routes["contexts.list"] = () => [
       { id: "house", name: "House style", paths: [], files: [], hasNotes: true },
@@ -371,12 +371,15 @@ describe("Settings › Claude › dock defaults, quick asks, default contexts", 
     ];
     mountSettings(<ClaudeSection />);
     const group = await screen.findByRole("group", { name: "Default contexts" });
-    const house = await within(group).findByRole("switch", { name: "House style" });
-    expect(house).toBeChecked();
+    const house = await within(group).findByRole("button", { name: "House style" });
+    expect(house).toHaveAttribute("aria-pressed", "true");
+    expect(house.querySelector('[data-icon="context"]')).not.toBeNull();
     fireEvent.click(house);
     await waitFor(() => expect(inputs("project.set")[0]).toEqual({ claude: { contexts: [] } }));
-    await waitFor(() => expect(within(group).getByRole("switch", { name: "House style" })).not.toBeChecked());
-    fireEvent.click(within(group).getByRole("switch", { name: "gloss" }));
+    await waitFor(() =>
+      expect(within(group).getByRole("button", { name: "House style" })).toHaveAttribute("aria-pressed", "false"),
+    );
+    fireEvent.click(within(group).getByRole("button", { name: "gloss" }));
     await waitFor(() => expect(inputs("project.set")[1]).toEqual({ claude: { contexts: ["gloss"] } }));
     const before = calls("contexts.list").length;
     fireEvent.click(screen.getByRole("button", { name: "Manage contexts…" }));

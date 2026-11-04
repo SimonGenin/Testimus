@@ -31,7 +31,7 @@ export function useShellEvents(testsChanged: () => void): void {
           );
           const n = tests.filter((t) => t.errors + t.warnings > 0).length;
           toast({
-            kind: "ok",
+            kind: "claude",
             title: `Check finished — ${tests.length} test${tests.length === 1 ? "" : "s"}, ${n} with findings`,
             action:
               parseRoute(window.location.hash).screen === "review"

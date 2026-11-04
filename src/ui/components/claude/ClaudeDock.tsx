@@ -299,11 +299,11 @@ export function ClaudeDock({
         <Modal
           title="Revert anyway?"
           size="sm"
-          icon="undo"
           subtitle="The test changed after the Claude run."
           confirm={{
             verb: "Revert anyway",
             danger: true,
+            icon: null,
             onConfirm: () => (runs.refused ? runs.revert(runs.refused.turn, true) : undefined),
           }}
           consequences={[["", "Reverting puts back the version from before Claude and drops the later edits too."]]}

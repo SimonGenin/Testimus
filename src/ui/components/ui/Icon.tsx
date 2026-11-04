@@ -2,6 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import { createElement } from "react";
 import { size, space } from "../../styles/tokens.stylex.ts";
 import { ICONS, type IconName } from "./icons.ts";
+import { Spinner } from "./Spinner.tsx";
 
 export type { IconName };
 
@@ -34,11 +35,14 @@ export type IconProps = {
   label?: string;
 };
 
-// ponytail: the design's SVG set as data — each shape is rebuilt as an element, never injected as markup
+// ponytail: the design's SVG set as data — each shape is rebuilt as an element, never injected as markup; « spinner »
+// is never drawn still: it is the kit's turning Spinner, as the design draws work going on
 export function Icon({ name, size: s = "md", label, bold = false }: IconProps) {
+  if (name === "spinner") return <Spinner size={s === "xs" || s === "sm" ? "sm" : "md"} label={label} />;
   return (
     <svg
       viewBox="0 0 16 16"
+      data-icon={name}
       role={label ? "img" : undefined}
       aria-label={label}
       aria-hidden={label ? undefined : true}

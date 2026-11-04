@@ -3,8 +3,6 @@ import { plural } from "../../lib/format.ts";
 import { color, fontSize, fontWeight, lineHeight, size, space } from "../../styles/tokens.stylex.ts";
 import { Badge } from "../ui/Badge.tsx";
 import { Button } from "../ui/Button.tsx";
-import { Spinner } from "../ui/Spinner.tsx";
-import { OnTopToggle } from "./OnTopToggle.tsx";
 import type { Last } from "./useDockRuns.ts";
 
 const styles = stylex.create({
@@ -33,7 +31,6 @@ const styles = stylex.create({
   },
   claude: { color: color.claudeText },
   danger: { color: color.danger },
-  grow: { flex: 1 },
 });
 
 // ponytail: the dock folded to its strip — the spark that opens it (Ctrl J), what waits in Actions, and one line:
@@ -62,8 +59,13 @@ export function DockFolded({
         : "Claude";
   return (
     <aside aria-label="Claude" {...stylex.props(styles.strip)}>
-      {running ? <Spinner size="md" label="Claude is running" /> : null}
-      <Button variant="claude-quiet" icon="claude" iconOnly label="Open Claude" onClick={onOpen} />
+      <Button
+        variant="claude-quiet"
+        icon={running ? "spinner" : "claude"}
+        iconOnly
+        label="Open Claude"
+        onClick={onOpen}
+      />
       {actions > 0 && <Badge tone="claude" count label={String(actions)} tooltip={plural(actions, "Claude action")} />}
       <span
         title={last && !running ? last.summary.replace(/[*_`]/g, "") : undefined}
@@ -75,8 +77,6 @@ export function DockFolded({
       >
         {line}
       </span>
-      <span {...stylex.props(styles.grow)} />
-      <OnTopToggle />
     </aside>
   );
 }

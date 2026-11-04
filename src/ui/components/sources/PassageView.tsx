@@ -4,6 +4,7 @@ import type { Passage } from "../../../core/types.ts";
 import { fileUrl } from "../../lib/data/client.ts";
 import { color, fontFamily, fontSize, fontWeight, lineHeight, size, space } from "../../styles/tokens.stylex.ts";
 import { Badge, type BadgeTone } from "../ui/Badge.tsx";
+import type { IconName } from "../ui/Icon.tsx";
 import { Marked } from "../ui/Marked.tsx";
 
 const styles = stylex.create({
@@ -35,9 +36,6 @@ const styles = stylex.create({
   img: { maxWidth: "100%", maxHeight: size.dockStripLabel, objectFit: "contain", alignSelf: "flex-start" },
   caption: { fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textSubtle },
 });
-
-type StatusTone = "neutral" | "info" | "ok";
-const KIT_TONE: Record<StatusTone, BadgeTone> = { neutral: "neutral", info: "info", ok: "success" };
 
 const norm = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
 
@@ -113,10 +111,11 @@ export function highlight(md: string, quote: string): ReactNode[] {
   return out;
 }
 
-export const DOC_STATUS: Record<string, { label: string; tone: StatusTone }> = {
-  draft: { label: "Draft", tone: "neutral" },
-  submitted: { label: "Submitted", tone: "info" },
-  validated: { label: "Validated", tone: "ok" },
+// ponytail: a document's status, the same word, tone and icon wherever it shows (the list, a source)
+export const DOC_STATUS: Record<string, { label: string; tone: BadgeTone; icon: IconName }> = {
+  draft: { label: "Draft", tone: "neutral", icon: "circle-dashed" },
+  submitted: { label: "Submitted", tone: "info", icon: "upload" },
+  validated: { label: "Validated", tone: "success", icon: "validated" },
 };
 
 export const paragraphs = (text: string) =>
@@ -134,8 +133,8 @@ export const docLink = (docId: string, anchor: string, quote = "", from?: { test
 export const sectionNumber = (anchor: string) => (anchor.startsWith("§") ? anchor.slice(1) : "");
 
 export function DocBadges({ status }: { status: string }) {
-  const s = DOC_STATUS[status] ?? { label: status, tone: "neutral" as const };
-  return <Badge tone={KIT_TONE[s.tone]} label={s.label} icon={s.tone === "ok" ? "validated" : undefined} />;
+  const s = DOC_STATUS[status];
+  return s ? <Badge {...s} /> : <Badge tone="neutral" label={status} />;
 }
 
 // ponytail: a passage as the document says it — where it sits, its title with its number, the paragraphs with the

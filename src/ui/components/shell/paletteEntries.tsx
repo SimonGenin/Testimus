@@ -27,21 +27,12 @@ export type Entry = {
   run: () => void;
 };
 
-const GROUP_ICON: Record<string, IconName> = {
-  docs: "documents",
-  rag: "search",
-  search: "search",
-  chat: "claude",
-  claude: "claude",
-  tests: "tests",
-  images: "image",
-  gen: "generate",
-  check: "review",
-  review: "review",
-  xray: "push",
-  jobs: "jobs",
-  system: "settings",
-  project: "folder",
+// ponytail: a command is a chevron, as the design draws it; the few it marks carry their own icon
+const COMMAND_ICON: Record<string, IconName> = {
+  "chat.ask": "claude",
+  "xray.push": "push",
+  "xray.pushFolder": "push",
+  "xray.unpush": "undo",
 };
 
 const styles = stylex.create({
@@ -108,7 +99,7 @@ export function entriesOf(
         label,
         group: "Commands",
         row: {
-          lead: <Icon name={GROUP_ICON[c.name.split(".")[0]] ?? "chevron-right"} />,
+          lead: <Icon name={COMMAND_ICON[c.name] ?? "chevron-right"} />,
           title: label,
           trail: side(c.name, undefined, hasInput(c)),
         },

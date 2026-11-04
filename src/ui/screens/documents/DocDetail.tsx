@@ -140,7 +140,7 @@ export function DocDetail({
             <Button
               variant="quiet"
               iconOnly
-              icon="documents"
+              icon="panel-left"
               label="Show the document list"
               expanded={listOpen}
               onClick={onShowList}

@@ -255,7 +255,7 @@ describe("search palette", () => {
     expect(await screen.findByText("Step 2 · Action")).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "Documents" })).toHaveTextContent("Spécification");
     expect(screen.getByRole("tab", { name: /^Tests/ })).toHaveTextContent("9");
-    expect(screen.getByRole("button", { name: "All 9 tests" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "8 more tests" })).toBeInTheDocument();
     expect(screen.getAllByText("sectionneur")[0].tagName).toBe("MARK");
     fireEvent.keyDown(screen.getByRole("combobox"), { key: "Enter" });
     expect(onClose).toHaveBeenCalled();

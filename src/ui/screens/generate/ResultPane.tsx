@@ -3,9 +3,9 @@ import { useEffect, useState } from "react";
 import type { LocalTestRef } from "../../../core/types.ts";
 import { askedOf, ClaudeActivity } from "../../components/claude/ClaudeActivity.tsx";
 import { type ClaudeStatus, ConnectClaude } from "../../components/claude/ConnectClaude.tsx";
-import { DiagnosisText } from "../../components/claude/DiagnosisText.tsx";
 import { Badge } from "../../components/ui/Badge.tsx";
 import { Button } from "../../components/ui/Button.tsx";
+import { DiagnosisText } from "../../components/claude/DiagnosisText.tsx";
 import { Card } from "../../components/ui/Card.tsx";
 import { EmptyState } from "../../components/ui/EmptyState.tsx";
 import { activityOf, DOING } from "../../lib/activity.ts";
@@ -13,7 +13,7 @@ import { useApp } from "../../lib/app.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { color, container, fontSize, fontWeight, lineHeight, size, space } from "../../styles/tokens.stylex.ts";
 import { LandedCard } from "./GenCard.tsx";
-import { checkLine, GenSummary, RunHead } from "./GenResult.tsx";
+import { checkLine, failedRun, GenSummary, RunHead } from "./GenResult.tsx";
 import type { Generation } from "./useGeneration.ts";
 
 const styles = stylex.create({
@@ -26,7 +26,6 @@ const styles = stylex.create({
     containerType: "inline-size",
   },
   summary: { display: "flex", flexDirection: "column", gap: space.s4 },
-  error: { margin: 0, fontSize: fontSize.body, lineHeight: lineHeight.body, color: color.text },
   muted: { margin: 0, fontSize: fontSize.compact, lineHeight: lineHeight.compact, color: color.textMuted },
   cards: { display: "flex", flexDirection: "column", gap: space.s4 },
   split: {
@@ -53,6 +52,7 @@ export function ResultPane({
   onCheckClaude,
   onCancel,
   onResume,
+  onRetry,
 }: {
   gen: Generation;
   status: ClaudeStatus | null;
@@ -62,6 +62,7 @@ export function ResultPane({
   onCheckClaude: () => void;
   onCancel: () => void;
   onResume: (generation: string) => void;
+  onRetry?: () => void;
 }) {
   const app = useApp();
   const [fold, setFold] = useState<Fold>({ all: false, flip: new Set() });
@@ -98,7 +99,14 @@ export function ResultPane({
             icon="documents"
             title="Generate needs a document"
             text="Tests are written from the project's specifications, with a source for every expected result. Add a .docx or .pdf first."
-            actions={<Button variant="primary" label="Go to Documents" onClick={() => app.navigate("documents")} />}
+            actions={
+              <Button
+                variant="primary"
+                icon="documents"
+                label="Go to Documents"
+                onClick={() => app.navigate("documents")}
+              />
+            }
           />
         ) : (
           <EmptyState
@@ -134,12 +142,12 @@ export function ResultPane({
           onCancel={onCancel}
           onReview={() => app.navigate("review", ids[0])}
           onResume={() => stopped?.generation && onResume(stopped.generation)}
+          onRetry={onRetry}
           allFolded={ids.every((id) => !isOpen(id))}
           onFoldAll={(all) => setFold({ all, flip: new Set() })}
         />
         {result && <GenSummary result={result} checked={checkLine(result.tests, result.checks)} />}
-        {job?.status === "failed" && job.error && <p {...stylex.props(styles.error)}>{job.error}</p>}
-        {result?.diagnosis && (
+        {result?.diagnosis && job && !failedRun(job, result) && (
           <p {...stylex.props(styles.muted)}>
             <DiagnosisText text={result.diagnosis.detail} />
           </p>

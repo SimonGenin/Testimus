@@ -296,6 +296,7 @@ export function ClaudeActivity({
   return (
     <div {...stylex.props(styles.card)}>
       <Disclosure
+        icon="claude"
         summary={label}
         open={shown}
         onOpenChange={setShown}

@@ -56,6 +56,7 @@ export function OpenByKey({ onClose }: { onClose: () => void }) {
   return (
     <Modal
       title="Open a project by its Jira key"
+      icon="key"
       subtitle="A known project with that key opens; otherwise a new project folder named after it is made beside this one."
       size="sm"
       onClose={onClose}

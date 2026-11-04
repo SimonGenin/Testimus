@@ -11,6 +11,7 @@ import { PushDialog } from "../../screens/tests/PushDialog.tsx";
 import { border, color, fontFamily, fontSize, lineHeight, radius, space } from "../../styles/tokens.stylex.ts";
 import { Button } from "../ui/Button.tsx";
 import { Checkbox } from "../ui/Checkbox.tsx";
+import { Icon } from "../ui/Icon.tsx";
 import { Modal } from "../ui/Modal.tsx";
 import { Select } from "../ui/Select.tsx";
 import { Text } from "../ui/Text.tsx";
@@ -176,6 +177,7 @@ export function CommandForm({
       error={error}
       footNote={
         <>
+          <Icon name="terminal" size="sm" />
           Same as <span {...stylex.props(styles.mono)}>{cliLine(command.name, preview)}</span>
         </>
       }

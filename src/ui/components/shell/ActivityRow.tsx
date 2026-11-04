@@ -21,9 +21,9 @@ type Tone = "doc" | "claude" | "plain";
 const KIND: Record<string, [IconName, Tone]> = {
   "docs.add": ["documents", "doc"],
   "docs.convert": ["documents", "doc"],
-  "rag-index": ["documents", "doc"],
+  "rag-index": ["layers", "doc"],
   "describe-figures": ["image", "claude"],
-  generate: ["generate", "claude"],
+  generate: ["claude", "claude"],
   fix: ["claude", "claude"],
   check: ["claude", "claude"],
   columns: ["claude", "claude"],
@@ -35,7 +35,7 @@ const KIND: Record<string, [IconName, Tone]> = {
   "models-measure": ["search", "plain"],
   pull: ["download", "plain"],
   push: ["push", "plain"],
-  jira: ["folder", "plain"],
+  jira: ["spinner", "plain"],
 };
 
 export const kindOf = (kind: string): [IconName, Tone] =>

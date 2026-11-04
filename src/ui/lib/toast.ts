@@ -5,7 +5,7 @@ import { message } from "./format.ts";
 
 export type Toast = {
   id: number;
-  kind: "error" | "info" | "ok";
+  kind: "error" | "info" | "ok" | "claude";
   title: string;
   detail?: string;
   action?: { label: string; run: () => void };
@@ -13,8 +13,8 @@ export type Toast = {
   left: number;
 };
 
-const TONE: Record<Toast["kind"], ToastTone> = { error: "danger", info: "neutral", ok: "success" };
-const KIND: Partial<Record<ToastTone, Toast["kind"]>> = { danger: "error", success: "ok" };
+const TONE: Record<Toast["kind"], ToastTone> = { error: "danger", info: "neutral", ok: "success", claude: "claude" };
+const KIND: Partial<Record<ToastTone, Toast["kind"]>> = { danger: "error", success: "ok", claude: "claude" };
 
 // ponytail: the screens' words for a toast (kind, detail, run) put on the kit's one store (Toast.tsx); a toast closed
 // with its action taken (undone) does not run its onExpire

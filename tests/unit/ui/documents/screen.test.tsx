@@ -84,7 +84,8 @@ describe("Documents screen", () => {
     detail();
     mountDocs(<DocumentsScreen />, { route: { screen: "documents" } });
     await waitFor(() => expect(within(listOf()).getByText("Indexed")).toBeInTheDocument());
-    expect(within(listOf()).getByText("Reindex needed")).toBeInTheDocument();
+    const stale = within(listOf()).getByText("Not up to date").closest("span");
+    expect(stale?.querySelector('[data-icon="alert-triangle"]')).not.toBeNull();
     expect(within(listOf()).getByText("Indexed").closest("span")?.querySelector("svg")).not.toBeNull();
   });
 

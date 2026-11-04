@@ -87,7 +87,7 @@ describe("a context changed in the Contexts dialog shows at once everywhere it i
     const dock = screen.getByRole("complementary", { name: "Claude" });
     expect(await within(dock).findByRole("button", { name: "Glossary" })).toBeInTheDocument();
     const defaults = await screen.findByRole("group", { name: "Default contexts" });
-    expect(await within(defaults).findByRole("switch", { name: "Glossary" })).toBeChecked();
+    expect(await within(defaults).findByRole("button", { name: "Glossary", pressed: true })).toBeInTheDocument();
     await screen.findByLabelText("Action of step 1");
     const details = screen.queryByRole("button", { name: "Details" });
     if (details) fireEvent.click(details);
@@ -104,7 +104,7 @@ describe("a context changed in the Contexts dialog shows at once everywhere it i
     fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
 
     expect(await within(dock).findByRole("button", { name: "Lexique" })).toBeInTheDocument();
-    expect(await within(defaults).findByRole("switch", { name: "Lexique" })).toBeInTheDocument();
+    expect(await within(defaults).findByRole("button", { name: "Lexique" })).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: "Remove Lexique" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Glossary/ })).toBeNull();
   });
@@ -134,7 +134,7 @@ describe("a context changed in the Contexts dialog shows at once everywhere it i
     fireEvent.click(await within(dialog).findByRole("button", { name: "New context" }));
     await waitFor(() => expect(store["ctx-n"]).toBeDefined());
     fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
-    expect(await within(defaults).findByRole("switch", { name: "New context" })).toBeInTheDocument();
+    expect(await within(defaults).findByRole("button", { name: "New context" })).toBeInTheDocument();
     fireEvent.focus(screen.getByRole("combobox", { name: "Claude contexts" }));
     await waitFor(() => expect(screen.getByRole("option", { name: "New context" })).toBeInTheDocument());
   });

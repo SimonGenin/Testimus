@@ -14,9 +14,13 @@
           <div class="card__head">
             <div class="tile tile--sm"><img src="logo.png" alt="" /></div>
             <h1 id="title">Testimus could not start</h1>
-            <span class="badge">
+            <span class="badge" id="failed" data-icon="x-circle">
               <svg class="icon icon--sm" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.25" /><path d="M5.75 5.75l4.5 4.5M10.25 5.75l-4.5 4.5" /></svg>
               Failed
+            </span>
+            <span class="badge badge--warning" id="no-answer" data-icon="clock" hidden>
+              <svg class="icon icon--sm" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.25" /><path d="M8 4.5V8l2.5 1.5" /></svg>
+              No answer
             </span>
           </div>
           <p><span id="message">The core of Testimus stopped.</span> The lines below say why; your projects are untouched.</p>
@@ -25,7 +29,7 @@
             <pre role="log" aria-labelledby="log-title" id="lines"></pre>
           </div>
           <p class="where">
-            <svg class="icon icon--sm" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.75 12.25V4.25c0-.55.45-1 1-1h3.5l1.5 1.5h4.5c.55 0 1 .45 1 1v7.5H1.75z" /></svg>
+            <svg class="icon icon--sm" viewBox="0 0 16 16" aria-hidden="true" data-icon="file"><path d="M4 1.75h5.25L12.25 4.75v9.5H4z" /><path d="M9 1.75V5h3.25" /></svg>
             <span class="mono" id="where"></span>
           </p>
         </div>

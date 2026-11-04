@@ -12,7 +12,7 @@ import {
   radius,
   space,
 } from "../../styles/tokens.stylex.ts";
-import { Icon } from "./Icon.tsx";
+import { Icon, type IconName } from "./Icon.tsx";
 
 const styles = stylex.create({
   wrap: { display: "flex", flexDirection: "column", gap: space.s3, minWidth: 0 },
@@ -46,6 +46,8 @@ const styles = stylex.create({
     transitionTimingFunction: easing.standard,
   },
   open: { transform: "rotate(90deg)" },
+  lead: { display: "inline-flex" },
+  claude: { color: color.claudeText },
   meta: {
     marginInlineStart: "auto",
     color: color.textSubtle,
@@ -71,6 +73,8 @@ export type DisclosureProps = {
   meta?: ReactNode;
   /** a secondary fold (raw output, details under a banner): the summary in the muted tone */
   quiet?: boolean;
+  /** before the summary, what the fold is about (« What Claude did »: claude, in Claude's colour) */
+  icon?: IconName;
   /** shown when open; not rendered when folded */
   children: ReactNode;
   /** the catalogue only */
@@ -86,6 +90,7 @@ export function Disclosure({
   defaultOpen = false,
   meta,
   quiet = false,
+  icon,
   children,
   debugState,
 }: DisclosureProps) {
@@ -113,6 +118,11 @@ export function Disclosure({
           <span {...stylex.props(styles.chevron, shown && styles.open)}>
             <Icon name="chevron-right" size="sm" />
           </span>
+          {icon && (
+            <span {...stylex.props(styles.lead, icon === "claude" && styles.claude)}>
+              <Icon name={icon} />
+            </span>
+          )}
           {summary}
         </button>
         {meta && <span {...stylex.props(styles.meta)}>{meta}</span>}
