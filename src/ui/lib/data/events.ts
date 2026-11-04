@@ -1,8 +1,8 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
-import type { JobEvent } from "../../../core/types.ts";
+import type { Job, JobEvent } from "../../../core/types.ts";
 import { events, onStream, project } from "./client.ts";
-import { invalidate, invalidateProject, type Prefix, setReachable } from "./query.ts";
+import { invalidate, invalidateProject, key, type Prefix, setReachable } from "./query.ts";
 
 type Rule = [pattern: RegExp, keys: (m: RegExpMatchArray) => Prefix[]];
 
@@ -134,6 +134,45 @@ export function keysOfKind(kind: string): Prefix[] {
   });
 }
 
+// ponytail: one job event applied to a list of jobs — a status replaces the job (or adds it on top), the others patch
+// its bar, its steps or its processes
+export function applyJobEvent(jobs: Job[], e: JobEvent): Job[] {
+  if (e.type === "status") {
+    const i = jobs.findIndex((j) => j.id === e.job.id);
+    return i < 0 ? [e.job, ...jobs] : jobs.map((j) => (j.id === e.job.id ? e.job : j));
+  }
+  const patch = (f: (j: Job) => Job) => jobs.map((j) => (j.id === e.jobId ? f(j) : j));
+  if (e.type === "progress")
+    return patch((j) => ({
+      ...j,
+      message: e.message,
+      progress: e.total !== undefined ? { done: e.done ?? 0, total: e.total } : j.progress,
+      steps: j.steps?.map((s) =>
+        s.id === e.step
+          ? { ...s, message: e.message, ...(e.total !== undefined ? { done: e.done ?? 0, total: e.total } : {}) }
+          : s,
+      ),
+    }));
+  if (e.type === "steps") return patch((j) => ({ ...j, steps: e.steps }));
+  if (e.type === "process")
+    return patch((j) => ({
+      ...j,
+      processes: [...(j.processes ?? []).filter((x) => x.id !== e.process.id), e.process],
+    }));
+  return jobs;
+}
+
+// ponytail: the jobs reads follow each event of a job without a round trip; a status still reads them again, since a
+// list of the running jobs drops one that ended
+function follow(client: QueryClient, e: JobEvent, p: string | null): void {
+  client.setQueriesData<Job[]>({ queryKey: key("jobs.list", undefined, p) }, (jobs) =>
+    Array.isArray(jobs) ? applyJobEvent(jobs, e) : jobs,
+  );
+  client.setQueriesData<{ job: Job; events: JobEvent[] }>({ queryKey: key("jobs.show", { id: e.jobId }, p) }, (d) =>
+    d?.job ? { job: applyJobEvent([d.job], e)[0], events: [...(d.events ?? []), e] } : d,
+  );
+}
+
 const jobListeners = new Map<string, Set<(e: JobEvent) => void>>();
 const anyListeners = new Set<(e: JobEvent) => void>();
 
@@ -145,10 +184,11 @@ export function apply(client: QueryClient, e: JobEvent, p: string | null = proje
   else if (e.type === "changed") {
     if (e.paths.includes("")) void invalidateProject(client, p);
     else void invalidate(client, keysOfPaths(e.paths), p);
-  } else if (e.type === "status") {
-    const done = e.job.status !== "running";
+  } else {
+    follow(client, e, p);
+    if (e.type !== "status") return;
     const keys: Prefix[] = [["jobs.list"], ["jobs.show", { id: e.jobId }], ["project.info"]];
-    if (done) keys.push(...keysOfKind(e.job.kind));
+    if (e.job.status !== "running") keys.push(...keysOfKind(e.job.kind));
     void invalidate(client, keys, p);
   }
 }

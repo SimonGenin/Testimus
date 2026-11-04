@@ -152,6 +152,28 @@ export const commands = [
     },
   }),
   command({
+    name: "jobs.rerun",
+    summary: "Run a job again with the same input; the new job says it retries this one.",
+    input: z.object({ id: JOB_ID }),
+    output: z.object({ jobId: z.string().describe("The new job") }),
+    mutates: true,
+    positional: ["id"],
+    async run(ctx, input) {
+      const j = showJob(ctx.project, input.id)?.job;
+      if (!j) throw new UserError(`No job ${input.id}.`, "testimus jobs list shows the jobs of the open project.");
+      if (j.status === "running") throw new UserError(`Job ${input.id} is still running.`, "Wait for it or cancel it.");
+      if (!j.rerun || !ctx.invoke)
+        throw new UserError(
+          `Job ${input.id} cannot be run again from here.`,
+          "Its input was too large or secret to keep: run its command again.",
+        );
+      return (await ctx.invoke(j.rerun.name, j.rerun.input, {
+        cause: { jobId: j.id, why: "retry" },
+        wait: false,
+      })) as { jobId: string };
+    },
+  }),
+  command({
     name: "jobs.cancel",
     summary: "Cancel a running job.",
     input: z.object({ id: JOB_ID }),
