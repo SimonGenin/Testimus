@@ -2,21 +2,22 @@ import * as stylex from "@stylexjs/stylex";
 import { useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import type { Folder, LocalTestRef, RemoteTestRef } from "../../../core/types.ts";
-import { Badge } from "../../components/ui/Badge.tsx";
+import { Badge, jiraStatus } from "../../components/ui/Badge.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { EmptyState } from "../../components/ui/EmptyState.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { List } from "../../components/ui/List.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
+import { type } from "../../components/ui/type.ts";
 import { project } from "../../lib/data/client.ts";
 import { read } from "../../lib/data/query.ts";
 import { plural } from "../../lib/format.ts";
 import { errorToast } from "../../lib/toast.ts";
-import { border, color, fontFamily, fontSize, fontWeight, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { border, color, fontFamily, space } from "../../styles/tokens.stylex.ts";
 import { KeyText, SYNC_OF, SYNC_TIP } from "./list/rows.tsx";
-import { findFolder, flattenFolders, folderName, statusTone } from "./list/tree.ts";
+import { findFolder, flattenFolders, folderName } from "./list/tree.ts";
 
-export { findFolder, folderName, statusTone };
+export { findFolder, folderName };
 
 export const PAGE = 100;
 
@@ -31,15 +32,13 @@ const styles = stylex.create({
     borderTopStyle: "solid",
     borderTopWidth: border.width,
     borderTopColor: color.border,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
   },
-  path: { flex: 1, minWidth: 0, fontWeight: fontWeight.medium, overflow: "hidden", textOverflow: "ellipsis" },
+  path: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" },
   mono: { fontFamily: fontFamily.mono },
   range: { color: color.textMuted },
   meta: { display: "inline-flex", alignItems: "center", flexWrap: "wrap", gap: space.s2 },
-  count: { fontFamily: fontFamily.mono, fontSize: fontSize.code, color: color.textMuted },
-  end: { alignSelf: "center", paddingBlock: space.s2, fontSize: fontSize.small, color: color.textSubtle },
+  count: { color: color.textMuted },
+  end: { alignSelf: "center", paddingBlock: space.s2, color: color.textSubtle },
 });
 
 type Slice = { tests: RemoteTestRef[]; total: number };
@@ -185,7 +184,7 @@ export function JiraTab({
               ),
               trail: (
                 <span
-                  {...stylex.props(styles.count)}
+                  {...stylex.props(type.code, styles.count)}
                   title={`${f.testsCount} directly in this folder, ${f.totalCount} including sub-folders`}
                 >
                   {f.testsCount === f.totalCount ? f.totalCount : `${f.testsCount}/${f.totalCount}`}
@@ -209,8 +208,8 @@ export function JiraTab({
       )}
       {ready && (
         <>
-          <div {...stylex.props(styles.head)}>
-            <span {...stylex.props(styles.path, !(!query && folder === "/") && styles.mono)}>
+          <div {...stylex.props(type.small, styles.head)}>
+            <span {...stylex.props(type.medium, styles.path, !(!query && folder === "/") && styles.mono)}>
               {query ? `search “${query}”` : folderName(folder)}
             </span>
             {!busy && (
@@ -264,13 +263,13 @@ export function JiraTab({
                   meta: (
                     <span {...stylex.props(styles.meta)}>
                       <KeyText text={t.key} />
-                      {t.status && <Badge label={t.status} tone={statusTone(t.status)} size="sm" />}
+                      {t.status && <Badge {...jiraStatus(t.status)} size="sm" />}
                       {local ? (
                         <Badge {...SYNC_OF[local.sync]} tooltip={SYNC_TIP[local.sync]} size="sm" />
                       ) : (
                         <Badge label={busyRow ? "Pulling…" : "Not pulled"} size="sm" busy={busyRow} />
                       )}
-                      <span {...stylex.props(styles.count)}>{plural(t.stepCount, "step")}</span>
+                      <span {...stylex.props(type.code, styles.count)}>{plural(t.stepCount, "step")}</span>
                     </span>
                   ),
                 };
@@ -282,7 +281,7 @@ export function JiraTab({
               <Skeleton kind="row" />
             </div>
           )}
-          {complete && <span {...stylex.props(styles.end)}>all {list.total} loaded</span>}
+          {complete && <span {...stylex.props(type.small, styles.end)}>all {list.total} loaded</span>}
         </>
       )}
     </>

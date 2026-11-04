@@ -1,7 +1,8 @@
 import * as stylex from "@stylexjs/stylex";
 import { useState } from "react";
 import { Button } from "../../../components/ui/Button.tsx";
-import { border, color, fontSize, lineHeight, radius, shadow, size, space } from "../../../styles/tokens.stylex.ts";
+import { type } from "../../../components/ui/type.ts";
+import { border, color, radius, shadow, size, space } from "../../../styles/tokens.stylex.ts";
 import { stripMarker } from "../markers.stylex.ts";
 import { MOVE, type Moved } from "./moved.ts";
 
@@ -28,8 +29,6 @@ const styles = stylex.create({
     justifyContent: "flex-start",
     paddingInlineStart: space.s3,
     color: color.textSubtle,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
   },
   line: {
     boxSizing: "border-box",
@@ -123,7 +122,7 @@ export function BlockInsert({
         else onDrop({ files: Array.from(e.dataTransfer.files) });
       }}
     >
-      <div {...stylex.props(styles.strip, empty && styles.empty)}>
+      <div {...stylex.props(styles.strip, empty && [type.small, styles.empty])}>
         <span aria-hidden="true" {...stylex.props(styles.line, over && styles.over)} />
         {empty && <span {...stylex.props(styles.hint)}>Empty — type, paste an image or add a table</span>}
         <span {...stylex.props(styles.btns)} onMouseDown={(e) => e.preventDefault()}>

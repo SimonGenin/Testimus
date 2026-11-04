@@ -89,8 +89,9 @@ test("the step being edited stands out from the others, and keeps its ring while
 }) => {
   await openTest(page, "LFRPS12-1420");
   const look = (n: number) =>
+    // the ring is drawn by the kit Card the step's article holds (StepFrame)
     step(page, n).evaluate((el) => {
-      const s = getComputedStyle(el);
+      const s = getComputedStyle(el.firstElementChild as Element);
       return `${s.borderColor} | ${s.outlineStyle} ${s.outlineColor} | ${s.boxShadow}`;
     });
   const before = await look(2);

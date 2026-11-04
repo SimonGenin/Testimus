@@ -409,7 +409,8 @@ describe("StepCard block moves", () => {
     card({ ...step, fields: {}, images: [img, { file: "images/b.png" }] }, { readOnly: true });
     expect(screen.getByText("2 attachments — drag into a field")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Detach/ })).toBeNull();
-    expect(screen.queryByRole("button", { name: /in the viewer$/ })).toBeNull();
+    // read-only still opens them from the keyboard: the picture's click has its button (a kit control)
+    expect(screen.getAllByRole("button", { name: /in the viewer$/ })).toHaveLength(2);
     fireEvent.click(screen.getByRole("img", { name: "b.png" }));
   });
 });

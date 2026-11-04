@@ -2,13 +2,14 @@ import * as stylex from "@stylexjs/stylex";
 import type { LocalTestRef, SearchMatch } from "../../../../core/types.ts";
 import { List } from "../../../components/ui/List.tsx";
 import { Marked } from "../../../components/ui/Marked.tsx";
+import { type } from "../../../components/ui/type.ts";
 import { plural } from "../../../lib/format.ts";
-import { color, fontSize, space } from "../../../styles/tokens.stylex.ts";
+import { color, space } from "../../../styles/tokens.stylex.ts";
 import { TestMeta, Where } from "./rows.tsx";
 
 const styles = stylex.create({
   snip: { display: "flex", flexDirection: "column", gap: space.s1, minWidth: 0 },
-  text: { fontSize: fontSize.small, color: color.textMuted, overflow: "hidden", textOverflow: "ellipsis" },
+  text: { color: color.textMuted, overflow: "hidden", textOverflow: "ellipsis" },
 });
 
 export type Found = { hit: SearchMatch; ref: LocalTestRef };
@@ -53,7 +54,7 @@ export function FoundList({
         tooltip: hit.title,
         meta: (
           <span {...stylex.props(styles.snip)}>
-            <span {...stylex.props(styles.text)}>
+            <span {...stylex.props(type.small, styles.text)}>
               {hit.snippet !== undefined ? (
                 <>
                   {hit.where && <Where text={hit.where} />}

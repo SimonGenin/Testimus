@@ -4,6 +4,7 @@ import type { Block, StepImage } from "../../../core/types.ts";
 import { Button } from "../../components/ui/Button.tsx";
 import { Disclosure } from "../../components/ui/Disclosure.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
+import { Raw } from "../../components/ui/Raw.tsx";
 import { type FieldAutosave, Text } from "../../components/ui/Text.tsx";
 import { AppContext } from "../../lib/app.ts";
 import { blocksOf } from "../../lib/blocks.ts";
@@ -11,7 +12,7 @@ import { NEW_TABLE } from "../../lib/table.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 import { blockMarker } from "./markers.stylex.ts";
 import { BlockInsert } from "./step/BlockInsert.tsx";
-import { ExternBlock, ImageBlock, RawBlock } from "./step/ImageBlock.tsx";
+import { ExternBlock, ImageBlock } from "./step/ImageBlock.tsx";
 import { MOVE, type Moved } from "./step/moved.ts";
 import { StepSource } from "./step/StepSource.tsx";
 import { fileName } from "./step/stepText.ts";
@@ -258,7 +259,7 @@ export function FieldBlocks({
             {b.kind === "raw" && (
               <div {...stylex.props(styles.grow)}>
                 <Disclosure summary="Xray markup this editor cannot read" quiet>
-                  <RawBlock text={b.text} />
+                  <Raw text={b.text} />
                 </Disclosure>
                 {!readOnly && (
                   <span {...stylex.props(styles.tools)}>

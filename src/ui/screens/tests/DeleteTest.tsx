@@ -3,13 +3,12 @@ import type { QueryClient } from "@tanstack/react-query";
 import { useQueryClient } from "@tanstack/react-query";
 import type { LocalTestRef } from "../../../core/types.ts";
 import { Modal } from "../../components/ui/Modal.tsx";
+import { type } from "../../components/ui/type.ts";
 import { discardAutosave } from "../../lib/data/autosave.ts";
 import { execute, key } from "../../lib/data/query.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
-import { fontFamily, fontSize } from "../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
-  key: { fontFamily: fontFamily.mono, fontSize: fontSize.code },
   text: { margin: 0 },
 });
 
@@ -81,7 +80,7 @@ export function DeleteTest({
       onClose={onClose}
     >
       <p {...stylex.props(styles.text)}>
-        <span {...stylex.props(styles.key)}>{target.key ?? target.id}</span> — {target.summary || "Untitled"} —{" "}
+        <span {...stylex.props(type.code)}>{target.key ?? target.id}</span> — {target.summary || "Untitled"} —{" "}
         {target.key ? "stays in Jira. Its" : "Its"} test.md, its images and its review state are removed from the
         project.
       </p>

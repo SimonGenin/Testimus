@@ -4,13 +4,13 @@ import { Banner } from "../../../components/ui/Banner.tsx";
 import { Button } from "../../../components/ui/Button.tsx";
 import { Modal } from "../../../components/ui/Modal.tsx";
 import { Progress } from "../../../components/ui/Progress.tsx";
-import { fontFamily, fontSize, space } from "../../../styles/tokens.stylex.ts";
+import { type } from "../../../components/ui/type.ts";
+import { space } from "../../../styles/tokens.stylex.ts";
 import type { Failure, PushResult } from "../PushDialog.tsx";
 import { type OpState, OpsTable } from "./OpsTable.tsx";
 
 const styles = stylex.create({
   body: { display: "flex", flexDirection: "column", gap: space.s3 },
-  mono: { fontFamily: fontFamily.mono, fontSize: fontSize.code },
 });
 
 // the push at work, op by op; stopped, it says where and why and resumes from that operation
@@ -71,7 +71,7 @@ export function PushProgress({
         <>
           {summary}
           {summary ? " · " : ""}
-          <span {...stylex.props(styles.mono)}>{reference}</span>
+          <span {...stylex.props(type.code)}>{reference}</span>
         </>
       }
       icon={running ? "push" : "alert-circle"}

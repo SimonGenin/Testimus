@@ -3,7 +3,8 @@ import { type ReactNode, useState } from "react";
 import { Banner } from "../../../components/ui/Banner.tsx";
 import { Button } from "../../../components/ui/Button.tsx";
 import { Icon } from "../../../components/ui/Icon.tsx";
-import { border, color, fontFamily, fontSize, lineHeight, radius, space } from "../../../styles/tokens.stylex.ts";
+import { type } from "../../../components/ui/type.ts";
+import { border, color, radius, space } from "../../../styles/tokens.stylex.ts";
 import { blockMarker } from "../markers.stylex.ts";
 
 const styles = stylex.create({
@@ -30,33 +31,18 @@ const styles = stylex.create({
     alignItems: "center",
     gap: space.s2,
     minWidth: 0,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
     color: color.textMuted,
   },
   name: {
-    fontFamily: fontFamily.mono,
-    fontSize: fontSize.code,
     color: color.text,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
     minWidth: 0,
   },
-  size: { flex: "none", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" },
+  size: { flex: "none", whiteSpace: "nowrap" },
   grow: { flex: 1 },
   tools: { display: "inline-flex", alignItems: "center", gap: space.s1 },
-  raw: {
-    margin: 0,
-    padding: space.s3,
-    fontFamily: fontFamily.mono,
-    fontSize: fontSize.code,
-    lineHeight: lineHeight.code,
-    whiteSpace: "pre-wrap",
-    overflowWrap: "anywhere",
-    backgroundColor: color.surfaceSunken,
-    borderRadius: radius.r2,
-  },
 });
 
 // the caption of a picture block: its handle, its name (or its figure source), its tools
@@ -72,7 +58,7 @@ export function Caption({
   children?: ReactNode;
 }) {
   return (
-    <figcaption {...stylex.props(styles.cap)}>
+    <figcaption {...stylex.props(type.small, styles.cap)}>
       {grip}
       {icon && <Icon name={icon} size="sm" />}
       {name}
@@ -115,8 +101,8 @@ export function ImageBlock({
         grip={grip}
         name={
           <>
-            {caption ?? <span {...stylex.props(styles.name)}>{name}</span>}
-            {size && <span {...stylex.props(styles.size)}>{size}</span>}
+            {caption ?? <span {...stylex.props(type.code, styles.name)}>{name}</span>}
+            {size && <span {...stylex.props(type.tabular, styles.size)}>{size}</span>}
           </>
         }
       >
@@ -166,7 +152,7 @@ export function ExternBlock({
           Jira no longer holds this image.
         </Banner>
       )}
-      <Caption grip={grip} icon="external" name={<span {...stylex.props(styles.name)}>{name}</span>}>
+      <Caption grip={grip} icon="external" name={<span {...stylex.props(type.code, styles.name)}>{name}</span>}>
         {onRemove && (
           <Button
             variant="quiet"
@@ -180,8 +166,4 @@ export function ExternBlock({
       </Caption>
     </figure>
   );
-}
-
-export function RawBlock({ text }: { text: string }) {
-  return <pre {...stylex.props(styles.raw)}>{text}</pre>;
 }

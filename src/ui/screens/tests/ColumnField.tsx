@@ -1,8 +1,9 @@
 import * as stylex from "@stylexjs/stylex";
 import { Badge } from "../../components/ui/Badge.tsx";
 import { type FieldAutosave, Text } from "../../components/ui/Text.tsx";
+import { type } from "../../components/ui/type.ts";
 import type { Column } from "../../lib/columns.ts";
-import { color, fontSize, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
   ro: {
@@ -10,8 +11,6 @@ const styles = stylex.create({
     alignItems: "center",
     gap: space.s3,
     paddingBlock: space.s2,
-    fontSize: fontSize.body,
-    lineHeight: lineHeight.body,
     whiteSpace: "pre-wrap",
     overflowWrap: "anywhere",
   },
@@ -37,7 +36,7 @@ export function ColumnField({
   const label = `${column.name} of step ${stepNumber}`;
   if (column.kind === "readonly")
     return (
-      <div {...stylex.props(styles.ro)}>
+      <div {...stylex.props(type.body, styles.ro)}>
         <span {...stylex.props(!value && styles.empty)}>{value || "empty"}</span>
         <Badge label="read-only" size="sm" tooltip="Xray holds something other than text here — shown, never edited" />
       </div>

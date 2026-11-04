@@ -16,15 +16,14 @@ import {
 } from "../../lib/columns.ts";
 import type { StepMark } from "../../lib/diff.ts";
 import { itemLinks, stepSources } from "../../lib/fields.ts";
-import { border, color, fontSize, fontWeight, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { space } from "../../styles/tokens.stylex.ts";
 import { ColumnField } from "./ColumnField.tsx";
 import { FieldBlocks } from "./FieldBlocks.tsx";
-import { stepMarker } from "./markers.stylex.ts";
-import { cardStyles } from "./step/cardStyles.ts";
 import { ItemLinks } from "./step/ItemLinks.tsx";
 import { MOVE } from "./step/moved.ts";
 import { FieldRow, StepFields } from "./step/StepFields.tsx";
-import { FoldedLine, Grip, MarkBadges, StepHead, type StepMarks, StepNumber } from "./step/StepHead.tsx";
+import { StepFrame, StepSourcesRow } from "./step/StepFrame.tsx";
+import { Grip, StepHead, type StepMarks } from "./step/StepHead.tsx";
 import { StepOrphans } from "./step/StepOrphans.tsx";
 import { StepSource } from "./step/StepSource.tsx";
 import { firstLine } from "./step/stepText.ts";
@@ -34,36 +33,7 @@ import { WasView } from "./WasView.tsx";
 export type StepLayout = "stacked" | "split";
 
 const styles = stylex.create({
-  modified: { borderColor: color.warningBorder },
-  added: { borderColor: color.successBorder },
-  claude: { borderColor: color.claudeBorder },
-  unreadable: { borderColor: color.dangerBorder, boxShadow: `0 0 0 ${border.width} ${color.dangerBorder}` },
-  dragging: { opacity: 0.5 },
   body: { boxSizing: "border-box", paddingInlineStart: space.s4, paddingInlineEnd: space.s5, paddingBottom: space.s3 },
-  sources: {
-    boxSizing: "border-box",
-    display: "flex",
-    alignItems: "flex-start",
-    flexWrap: "wrap",
-    gap: space.s2,
-    marginInlineStart: space.s4,
-    marginInlineEnd: space.s5,
-    paddingTop: space.s3,
-    paddingBottom: space.s4,
-    borderTopStyle: "solid",
-    borderTopWidth: border.width,
-    borderTopColor: color.border,
-  },
-  sourcesLabel: {
-    flex: "none",
-    width: `calc(${space.s11} * 2)`,
-    paddingTop: space.s1,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
-    fontWeight: fontWeight.medium,
-    color: color.textMuted,
-  },
-  chips: { flex: 1, minWidth: 0, display: "flex", flexWrap: "wrap", gap: space.s2 },
 });
 
 export function StepCard({
@@ -268,33 +238,15 @@ export function StepCard({
     },
   };
 
-  const frame = stylex.props(
-    stepMarker,
-    cardStyles.card,
-    mark === "modified" && styles.modified,
-    mark === "new" && styles.added,
-    claude && styles.claude,
-    unreadable && styles.unreadable,
-    focused && cardStyles.focused,
-    dragging && styles.dragging,
-  );
-  const state = {
-    "data-mark": mark && mark !== "same" ? mark : undefined,
-    "data-claude": claude || undefined,
-    "data-unreadable": unreadable || undefined,
-    "data-dragging": dragging || undefined,
-    "data-focused": focused || undefined,
-  };
   const grip = readOnly ? null : <Grip n={n} focused={focused} onArm={setArmed} />;
+  const frame = { n, marks, grip, focused, dragging, onFocusCapture: onFocus, ...dnd };
 
   if (folded)
     return (
-      <article aria-label={`Step ${n}`} data-folded {...state} {...frame} onFocusCapture={onFocus} {...dnd}>
-        <div {...stylex.props(cardStyles.head)}>
-          {grip}
-          <StepNumber n={n} marks={marks} />
-          <MarkBadges marks={marks} size="sm" />
-          <FoldedLine text={firstLine(val(cols[0]?.name ?? "Action"))} />
+      <StepFrame
+        {...frame}
+        line={firstLine(val(cols[0]?.name ?? "Action"))}
+        head={
           <Button
             variant="quiet"
             size="sm"
@@ -303,16 +255,13 @@ export function StepCard({
             label={`Expand step ${n}`}
             onClick={() => onFold?.(false)}
           />
-        </div>
-      </article>
+        }
+      />
     );
 
   return (
-    <article
-      aria-label={`Step ${n}`}
-      {...state}
+    <StepFrame
       {...frame}
-      onFocusCapture={onFocus}
       onKeyDown={(e) => {
         if (readOnly) return;
         if (e.ctrlKey && e.key === "Enter") {
@@ -323,15 +272,11 @@ export function StepCard({
           onMove?.(e.key === "ArrowUp" ? -1 : 1);
         }
       }}
-      {...dnd}
-    >
-      <div {...stylex.props(cardStyles.head)}>
+      head={
         <StepHead
           n={n}
           index={index}
           count={count}
-          marks={marks}
-          grip={grip}
           jira={before ? { open: wasOpen, toggle: () => setWasOpen(!wasOpen) } : undefined}
           folds={cols.filter(collapsible).map((c) => {
             const open = isOpen(c);
@@ -349,7 +294,8 @@ export function StepCard({
           onDelete={onDelete}
           onFold={onFold}
         />
-      </div>
+      }
+    >
       {wasOpen && before && (
         <WasView
           step={before}
@@ -378,15 +324,12 @@ export function StepCard({
         />
       )}
       {loose.length > 0 && (
-        <div data-testid="step-sources" {...stylex.props(styles.sources)}>
-          <span {...stylex.props(styles.sourcesLabel)}>Sources</span>
-          <span {...stylex.props(styles.chips)}>
-            {loose.map((s, i) => (
-              <StepSource key={i} source={s} onOpen={onOpenSource} />
-            ))}
-          </span>
-        </div>
+        <StepSourcesRow>
+          {loose.map((s, i) => (
+            <StepSource key={i} source={s} onOpen={onOpenSource} />
+          ))}
+        </StepSourcesRow>
       )}
-    </article>
+    </StepFrame>
   );
 }

@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { Button } from "../../components/ui/Button.tsx";
-import { border, color, container, fontSize, lineHeight, size, space } from "../../styles/tokens.stylex.ts";
+import { type } from "../../components/ui/type.ts";
+import { border, color, container, size, space } from "../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
   strip: {
@@ -18,8 +19,6 @@ const styles = stylex.create({
     backgroundColor: color.surface,
   },
   pos: {
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
     fontVariantNumeric: "tabular-nums",
     color: color.textMuted,
     writingMode: "vertical-rl",
@@ -61,7 +60,7 @@ export function QueueStrip({
         disabled={!total}
         onClick={() => onMove(-1)}
       />
-      <span {...stylex.props(styles.pos)} data-testid="queue-position">
+      <span {...stylex.props(type.small, styles.pos)} data-testid="queue-position">
         {total ? `${Math.max(0, at) + 1} / ${total}` : "0"}
       </span>
       <Button

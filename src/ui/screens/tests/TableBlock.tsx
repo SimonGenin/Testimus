@@ -2,8 +2,9 @@ import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
 import type { Block, StepImage, Table } from "../../../core/types.ts";
 import { Button } from "../../components/ui/Button.tsx";
+import { type } from "../../components/ui/type.ts";
 import { addCol, addRow, dropCol, dropRow, width } from "../../lib/table.ts";
-import { border, color, fontSize, fontWeight, lineHeight, radius, space } from "../../styles/tokens.stylex.ts";
+import { border, color, radius, space } from "../../styles/tokens.stylex.ts";
 import { FieldBlocks } from "./FieldBlocks.tsx";
 import { tableMarker } from "./markers.stylex.ts";
 import type { Moved } from "./step/moved.ts";
@@ -28,13 +29,9 @@ const styles = stylex.create({
     borderWidth: border.width,
     borderColor: color.border,
     textAlign: "start",
-    fontWeight: fontWeight.regular,
   },
   head: {
     backgroundColor: color.surfaceSunken,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
-    fontWeight: fontWeight.semibold,
   },
   grips: { boxSizing: "border-box", borderWidth: 0, paddingBlock: space.s1, textAlign: "end" },
   gripCol: { boxSizing: "border-box", width: space.s7, borderWidth: 0, verticalAlign: "middle", textAlign: "center" },
@@ -124,7 +121,7 @@ export function TableBlock({
                     <Cell
                       key={ci}
                       scope={r.head ? "col" : undefined}
-                      {...stylex.props(styles.cell, r.head && styles.head)}
+                      {...stylex.props(type.regular, styles.cell, r.head && [type.small, type.strong, styles.head])}
                     >
                       {c && (
                         <FieldBlocks

@@ -73,6 +73,8 @@ const key = (k: string, extra: Record<string, unknown> = {}) => fireEvent.keyDow
 
 const step = (n: number) => screen.getByRole("article", { name: `Step ${n}` });
 const queue = () => screen.getByRole("complementary", { name: "Review queue" });
+// the queue is a kit Pane; its place in the screen (width, laid over the test) is the frame around it
+const queueFrame = () => queue().parentElement as HTMLElement;
 const position = () => screen.getByTestId("queue-position");
 const toast = (title: string) =>
   screen.getAllByRole("status").find((e) => e.textContent?.startsWith(title)) as HTMLElement;
@@ -319,16 +321,16 @@ describe("Review screen", () => {
     await screen.findByRole("heading", { name: "Summary K-2" });
     await waitFor(() => expect(position()).toHaveTextContent("2 / 3"));
     const toggle = screen.getByRole("button", { name: "Show the queue" });
-    const plain = queue().className;
+    const plain = queueFrame().className;
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-pressed", "true");
-    expect(queue().className).not.toBe(plain);
+    expect(queueFrame().className).not.toBe(plain);
     fireEvent.click(
       within(within(queue()).getByRole("listbox", { name: "Tests to review" })).getAllByRole("option")[0],
     );
     expect(a.navigate).toHaveBeenLastCalledWith("review", "K-1");
     expect(toggle).toHaveAttribute("aria-pressed", "false");
-    expect(queue().className).toBe(plain);
+    expect(queueFrame().className).toBe(plain);
   });
 
   it("groups the latest generation's tests first, then Earlier, and J/K walk the order shown", async () => {
@@ -795,7 +797,7 @@ describe("Review screen", () => {
     const edge = screen.getByRole("separator", { name: "Resize the review queue" });
     fireEvent.keyDown(edge, { key: "End" });
     await waitFor(() => expect(localStorage.getItem("testimus.queueWidth")).toBe("480"));
-    expect(queue()).toHaveStyle({ width: "480px" });
+    expect(queueFrame()).toHaveStyle({ width: "480px" });
     fireEvent.keyDown(edge, { key: "Home" });
     await waitFor(() => expect(localStorage.getItem("testimus.queueWidth")).toBeNull());
   });

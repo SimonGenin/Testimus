@@ -5,13 +5,14 @@ import { Badge } from "../../components/ui/Badge.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Popover } from "../../components/ui/Popover.tsx";
 import { Segmented } from "../../components/ui/Segmented.tsx";
+import { type } from "../../components/ui/type.ts";
 import { type Column, collapsible, defaultMode, MODES, modeOf } from "../../lib/columns.ts";
-import { color, fontSize, fontWeight, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
   box: { display: "flex", flexDirection: "column", gap: space.s3 },
   head: { display: "flex", alignItems: "center", gap: space.s3 },
-  title: { flex: 1, fontSize: fontSize.titleSm, lineHeight: lineHeight.titleSm, fontWeight: fontWeight.semibold },
+  title: { flex: 1 },
   row: { display: "flex", alignItems: "center", gap: space.s4 },
   words: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: space.s1 },
   name: {
@@ -19,13 +20,10 @@ const styles = stylex.create({
     alignItems: "center",
     flexWrap: "wrap",
     gap: space.s2,
-    fontSize: fontSize.compact,
-    lineHeight: lineHeight.compact,
-    fontWeight: fontWeight.medium,
   },
-  what: { fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textMuted },
-  builtin: { flex: "none", fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textMuted },
-  hint: { margin: 0, fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textMuted },
+  what: { color: color.textMuted },
+  builtin: { flex: "none", color: color.textMuted },
+  hint: { margin: 0, color: color.textMuted },
   follow: { display: "flex", alignItems: "center", gap: space.s2, flexWrap: "wrap" },
 });
 
@@ -94,7 +92,7 @@ export function ColumnsMenu({
     >
       <div {...stylex.props(styles.box)}>
         <div {...stylex.props(styles.head)}>
-          <span {...stylex.props(styles.title)}>Step columns</span>
+          <span {...stylex.props(type.titleSm, styles.title)}>Step columns</span>
           <Segmented
             label="Apply to"
             size="sm"
@@ -109,10 +107,10 @@ export function ColumnsMenu({
         {fixed.map((c) => (
           <div key={c.name} {...stylex.props(styles.row)}>
             <span {...stylex.props(styles.words)}>
-              <span {...stylex.props(styles.name)}>{c.name}</span>
-              <span {...stylex.props(styles.what)}>Always open</span>
+              <span {...stylex.props(type.compact, type.medium, styles.name)}>{c.name}</span>
+              <span {...stylex.props(type.small, styles.what)}>Always open</span>
             </span>
-            <span {...stylex.props(styles.builtin)}>built in</span>
+            <span {...stylex.props(type.small, styles.builtin)}>built in</span>
           </div>
         ))}
         {foldable.map((c) => {
@@ -121,14 +119,14 @@ export function ColumnsMenu({
           return (
             <div key={c.name} {...stylex.props(styles.row)}>
               <span {...stylex.props(styles.words)}>
-                <span {...stylex.props(styles.name)}>
+                <span {...stylex.props(type.compact, type.medium, styles.name)}>
                   {c.name}
                   {!c.known && <Badge label="not in Xray" size="sm" tone="warning" icon="alert-triangle" />}
                   {scope === "test" && testModes?.[c.name] && (
                     <Button variant="quiet" size="xs" label="Use the project's" onClick={() => reset(c)} />
                   )}
                 </span>
-                <span {...stylex.props(styles.what)}>{what(c, mode)}</span>
+                <span {...stylex.props(type.small, styles.what)}>{what(c, mode)}</span>
               </span>
               <Segmented
                 label={`${c.name} column`}
@@ -141,7 +139,7 @@ export function ColumnsMenu({
           );
         })}
         {overridden.length > 0 && (
-          <p {...stylex.props(styles.hint, styles.follow)}>
+          <p {...stylex.props(type.small, styles.hint, styles.follow)}>
             {scope === "project" && `This test overrides ${overridden.map((c) => c.name).join(", ")}.`}
             <Button variant="quiet" size="xs" icon="undo" label="Follow the project" onClick={() => onTest(null)} />
           </p>

@@ -3,8 +3,9 @@ import { Button } from "../../components/ui/Button.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { Kbd } from "../../components/ui/Kbd.tsx";
 import { Tooltip } from "../../components/ui/Tooltip.tsx";
+import { type } from "../../components/ui/type.ts";
 import { plural } from "../../lib/format.ts";
-import { border, color, container, fontSize, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { border, color, container, space } from "../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
   foot: {
@@ -25,8 +26,6 @@ const styles = stylex.create({
     display: { default: "inline-flex", [container.paneCompact]: "none" },
     alignItems: "center",
     gap: space.s2,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
     color: color.textMuted,
     whiteSpace: "nowrap",
   },
@@ -36,8 +35,6 @@ const styles = stylex.create({
     display: "inline-flex",
     alignItems: "center",
     gap: space.s2,
-    fontSize: fontSize.compact,
-    lineHeight: lineHeight.compact,
     color: color.danger,
     whiteSpace: "nowrap",
   },
@@ -62,13 +59,13 @@ export function ReviewFoot({ errors, stale, off, fixOpen, marked = false, onToFi
   const still = `${plural(errors, "error")} still open${stale ? " · out of date" : ""}`;
   return (
     <div {...stylex.props(styles.foot)}>
-      <span {...stylex.props(styles.keys)}>
+      <span {...stylex.props(type.small, styles.keys)}>
         <Kbd>J</Kbd> <Kbd>K</Kbd> next / previous test <Kbd>↑</Kbd> <Kbd>↓</Kbd> step <Kbd>F</Kbd> to fix
       </span>
       <span {...stylex.props(styles.grow)} />
       {errors > 0 && (
         <Tooltip label={still}>
-          <span {...stylex.props(styles.open, stale && styles.stale)}>
+          <span {...stylex.props(type.compact, styles.open, stale && styles.stale)}>
             <Icon name={stale ? "history" : "x-circle"} size="sm" />
             {plural(errors, "error")}
             <span {...stylex.props(styles.long)}> still open{stale ? " · out of date" : ""}</span>

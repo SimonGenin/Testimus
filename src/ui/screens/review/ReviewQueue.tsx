@@ -7,21 +7,11 @@ import { Button } from "../../components/ui/Button.tsx";
 import { Checkbox } from "../../components/ui/Checkbox.tsx";
 import { EmptyState } from "../../components/ui/EmptyState.tsx";
 import { List } from "../../components/ui/List.tsx";
+import { Pane } from "../../components/ui/Pane.tsx";
 import { Segmented } from "../../components/ui/Segmented.tsx";
 import { Select } from "../../components/ui/Select.tsx";
 import { plural } from "../../lib/format.ts";
-import {
-  border,
-  color,
-  container,
-  fontSize,
-  fontWeight,
-  lineHeight,
-  shadow,
-  size,
-  space,
-  z,
-} from "../../styles/tokens.stylex.ts";
+import { border, color, container, shadow, size, space, z } from "../../styles/tokens.stylex.ts";
 import type { QueueGroup } from "./queueGroups.ts";
 
 export type QueueItem = {
@@ -70,21 +60,6 @@ const styles = stylex.create({
     zIndex: z.drawer,
     boxShadow: { default: null, [container.reviewQueue]: shadow.s2 },
   },
-  head: {
-    boxSizing: "border-box",
-    flex: "none",
-    display: "flex",
-    alignItems: "center",
-    gap: space.s3,
-    minHeight: size.topbar,
-    paddingBlock: space.s2,
-    paddingInline: space.s5,
-    borderBottomWidth: border.width,
-    borderBottomStyle: "solid",
-    borderBottomColor: color.border,
-  },
-  title: { fontSize: fontSize.titleSm, lineHeight: lineHeight.titleSm, fontWeight: fontWeight.semibold },
-  grow: { flex: 1, minWidth: 0 },
   tools: {
     flex: "none",
     display: "flex",
@@ -167,113 +142,115 @@ export function ReviewQueue(p: ReviewQueueProps) {
   const all = p.counts ? p.counts.checked + p.counts.toFix + p.counts.draft : undefined;
   const narrowed = p.filter !== "all" || !!p.folder || p.withFindings;
   return (
-    <aside
-      aria-label="Review queue"
-      {...stylex.props(styles.queue, p.over && styles.over)}
-      style={p.width ? { width: p.width } : undefined}
-    >
-      <div {...stylex.props(styles.head)}>
-        <span {...stylex.props(styles.title)}>Queue</span>
-        {all !== undefined && <Badge count size="sm" label={String(all)} />}
-        <span {...stylex.props(styles.grow)} />
-        {p.checkAll && (
-          <Button
-            size="sm"
-            variant="quiet"
-            icon="review"
-            label="Check all"
-            loading={p.checkAll.running}
-            disabled={!p.checkAll.ids.length && "Every test of the queue is checked and up to date"}
-            onClick={p.checkAll.onCheck}
-          />
-        )}
-      </div>
-      <div {...stylex.props(styles.tools)}>
-        <Segmented
-          size="sm"
-          fill
-          label="Filter by review state"
-          value={p.filter}
-          onChange={p.onFilter}
-          options={[
-            { value: "all", label: "All", count: all },
-            { value: "checked", label: "Checked", count: p.counts?.checked },
-            { value: "to-fix", label: "To fix", count: p.counts?.toFix },
-            { value: "validated", label: "Validated", count: p.counts?.validated },
-          ]}
-        />
-        <div {...stylex.props(styles.row)}>
-          <Select
-            label="Sort the queue"
-            appearance="quiet"
-            size="sm"
-            prefix="Sort"
-            icon="sort"
-            value={p.sort}
-            options={SORTS}
-            onChange={p.onSort}
-          />
-          <Select
-            label="Filter by folder"
-            appearance="quiet"
-            size="sm"
-            icon="folder"
-            value={p.folder}
-            options={[{ value: "", label: "All folders" }, ...p.folders.map((f) => ({ value: f, label: f }))]}
-            onChange={p.onFolder}
-          />
-        </div>
-        <Checkbox label="Only with findings" checked={p.withFindings} onChange={p.onWithFindings} />
-      </div>
-      {p.error && (
-        <div {...stylex.props(styles.notice)}>
-          <Banner
-            tone="danger"
-            compact
-            title="Could not read the review queue"
-            actions={<Button size="sm" label="Retry" onClick={p.error.onRetry} />}
-          >
-            {p.error.message}
-          </Banner>
-        </div>
-      )}
-      {p.notice && <div {...stylex.props(styles.notice)}>{p.notice}</div>}
-      <div {...stylex.props(styles.body)}>
-        <List
-          label="Tests to review"
-          density="two-line"
-          items={p.items ?? []}
-          groups={p.groups}
-          loading={p.items === null ? 5 : false}
-          getKey={(t) => t.id}
-          selected={p.activeId}
-          onSelect={p.onOpen}
-          renderItem={(t) => ({
-            title: t.summary || "Untitled test",
-            tooltip: tip(t),
-            meta: (
-              <>
-                <ReviewBadge state={t.review} size="sm" />
-                <Counts item={t} />
-              </>
-            ),
-          })}
-          empty={
-            <EmptyState
-              compact
-              icon="validated"
-              title={p.filter === "validated" ? "No generated test validated yet" : "Nothing waiting for review"}
-              text={
-                !narrowed
-                  ? "Generated tests land here once written, until you validate them."
-                  : p.filter === "validated" && !p.folder && !p.withFindings
-                    ? "A generated test stays readable here once validated, and also appears in Tests."
-                    : "No test matches these filters."
-              }
+    <div {...stylex.props(styles.queue, p.over && styles.over)} style={p.width ? { width: p.width } : undefined}>
+      <Pane
+        as="aside"
+        label="Review queue"
+        title="Queue"
+        fill
+        scroll={false}
+        tools={all !== undefined && <Badge count size="sm" label={String(all)} />}
+        actions={
+          p.checkAll && (
+            <Button
+              size="sm"
+              variant="quiet"
+              icon="review"
+              label="Check all"
+              loading={p.checkAll.running}
+              disabled={!p.checkAll.ids.length && "Every test of the queue is checked and up to date"}
+              onClick={p.checkAll.onCheck}
             />
-          }
-        />
-      </div>
-    </aside>
+          )
+        }
+      >
+        <div {...stylex.props(styles.tools)}>
+          <Segmented
+            size="sm"
+            fill
+            label="Filter by review state"
+            value={p.filter}
+            onChange={p.onFilter}
+            options={[
+              { value: "all", label: "All", count: all },
+              { value: "checked", label: "Checked", count: p.counts?.checked },
+              { value: "to-fix", label: "To fix", count: p.counts?.toFix },
+              { value: "validated", label: "Validated", count: p.counts?.validated },
+            ]}
+          />
+          <div {...stylex.props(styles.row)}>
+            <Select
+              label="Sort the queue"
+              appearance="quiet"
+              size="sm"
+              prefix="Sort"
+              icon="sort"
+              value={p.sort}
+              options={SORTS}
+              onChange={p.onSort}
+            />
+            <Select
+              label="Filter by folder"
+              appearance="quiet"
+              size="sm"
+              icon="folder"
+              value={p.folder}
+              options={[{ value: "", label: "All folders" }, ...p.folders.map((f) => ({ value: f, label: f }))]}
+              onChange={p.onFolder}
+            />
+          </div>
+          <Checkbox label="Only with findings" checked={p.withFindings} onChange={p.onWithFindings} />
+        </div>
+        {p.error && (
+          <div {...stylex.props(styles.notice)}>
+            <Banner
+              tone="danger"
+              compact
+              title="Could not read the review queue"
+              actions={<Button size="sm" label="Retry" onClick={p.error.onRetry} />}
+            >
+              {p.error.message}
+            </Banner>
+          </div>
+        )}
+        {p.notice && <div {...stylex.props(styles.notice)}>{p.notice}</div>}
+        <div {...stylex.props(styles.body)}>
+          <List
+            label="Tests to review"
+            density="two-line"
+            items={p.items ?? []}
+            groups={p.groups}
+            loading={p.items === null ? 5 : false}
+            getKey={(t) => t.id}
+            selected={p.activeId}
+            onSelect={p.onOpen}
+            renderItem={(t) => ({
+              title: t.summary || "Untitled test",
+              tooltip: tip(t),
+              meta: (
+                <>
+                  <ReviewBadge state={t.review} size="sm" />
+                  <Counts item={t} />
+                </>
+              ),
+            })}
+            empty={
+              <EmptyState
+                compact
+                icon="validated"
+                title={p.filter === "validated" ? "No generated test validated yet" : "Nothing waiting for review"}
+                text={
+                  !narrowed
+                    ? "Generated tests land here once written, until you validate them."
+                    : p.filter === "validated" && !p.folder && !p.withFindings
+                      ? "A generated test stays readable here once validated, and also appears in Tests."
+                      : "No test matches these filters."
+                }
+              />
+            }
+          />
+        </div>
+      </Pane>
+    </div>
   );
 }
