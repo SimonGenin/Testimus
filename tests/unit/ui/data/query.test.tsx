@@ -14,6 +14,7 @@ import {
   isReachable,
   key,
   setReachable,
+  tuning,
   useCommand,
   useReachable,
   useRead,
@@ -209,5 +210,12 @@ describe("call results", () => {
     const notJob: JobCommand = "tests.list";
     const started: CallResult<"rag.index"> = { jobId: "rag-index-1" };
     expect([job, notJob, started.jobId]).toEqual(["rag.index", "tests.list", "rag-index-1"]);
+  });
+
+  it("keeps a read until the events say otherwise, but never a plan", () => {
+    expect(tuning("docs.list")).toEqual({ staleTime: Number.POSITIVE_INFINITY, gcTime: 5 * 60_000 });
+    expect(tuning("models.planPack")).toEqual({ staleTime: 0, gcTime: 0 });
+    expect(tuning("xray.plan")).toEqual({ staleTime: 0, gcTime: 0 });
+    expect(tuning("docs.remove", { dryRun: true })).toEqual({ staleTime: 0, gcTime: 0 });
   });
 });

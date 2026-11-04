@@ -756,9 +756,9 @@ function fixtureShots(): Shot[] {
       prep: async (p) => {
         await p
           .getByRole("region", { name: "Job list" })
-          .locator('[aria-expanded="false"]')
+          .locator('[role="treeitem"][aria-expanded="false"]')
           .first()
-          .click({ timeout: T });
+          .press("ArrowRight", { timeout: T });
       },
     },
     {

@@ -48,6 +48,7 @@ const TUNING: Record<string, ReadTuning> = {
   "system.doctor": { staleTime: 0 },
   "system.secrets": { staleTime: 0, gcTime: 0 },
   "xray.plan": { staleTime: 0, gcTime: 0 },
+  "models.planPack": { staleTime: 0, gcTime: 0 },
   "xray.browse": { staleTime: 0, gcTime: 0 },
 };
 
