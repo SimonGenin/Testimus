@@ -843,7 +843,11 @@ describe("Settings › Models › measuring a pack", () => {
     expect(dialog()).toHaveTextContent("Syntec collective agreement");
     expect(dialog()).toHaveTextContent("Your project's documents are not used");
     expect(within(dialog()).getByText("no reranker")).toBeInTheDocument();
-    expect(within(dialog()).getByText("Closing this window does not stop the measure.")).toBeInTheDocument();
+    expect(within(dialog()).getByText("Models")).toBeInTheDocument();
+    expect(within(dialog()).getByText("Progress")).toBeInTheDocument();
+    expect(
+      within(dialog()).getByText("Closing this window does not stop the measure: it goes on in Jobs."),
+    ).toBeInTheDocument();
     const ev = [...jobs.keys()].find((k) => k.startsWith("models-measure")) as string;
     await waitFor(() => expect(within(dialog()).getByRole("button", { name: "Cancel the measure" })).toBeEnabled());
     await emit({ jobId: ev, at: "", type: "progress", message: "Behavior 2", done: 2, total: 4 });

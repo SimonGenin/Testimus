@@ -187,13 +187,14 @@ test.describe("first download, no models folder chosen", () => {
     const moved = join(root, "moved-models");
     await typeFolder(change, moved);
     const how = change.getByRole("radiogroup", { name: "The models already downloaded" });
-    await how.getByRole("radio", { name: /^Keep where they are/ }).click();
+    await how.getByRole("radio", { name: /^Keep them where they are/ }).click();
     await expect(change).toContainText("They stay where they are");
     await how.getByRole("radio", { name: /^Copy/ }).click();
     await how.getByRole("radio", { name: /^Move/ }).click();
-    await expect(change.getByRole("button", { name: /^Move \d/ })).toBeEnabled();
+    await expect(change).toContainText(/Moving .* is followed as a job in Jobs\./);
+    await expect(change.getByRole("button", { name: "Use this folder" })).toBeEnabled();
     await shoot(page, "models-folder-change-e2e");
-    await change.getByRole("button", { name: /^Move \d/ }).click();
+    await change.getByRole("button", { name: "Use this folder" }).click();
     await expect(change).toBeHidden();
     await expect(models).toContainText(moved, { timeout: 30_000 });
     await expect
