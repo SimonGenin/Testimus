@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { useState } from "react";
 import type { ColumnLayout, ColumnModes, Source, Step, StepImage, Test } from "../../../../core/types.ts";
+import type { SourceFrom } from "../../../components/sources/PassageDialog.tsx";
 import { Badge } from "../../../components/ui/Badge.tsx";
 import { Button } from "../../../components/ui/Button.tsx";
 import { EmptyState } from "../../../components/ui/EmptyState.tsx";
@@ -114,7 +115,8 @@ export function StepList({
   onAsk: (i: number) => void;
   onRestore: (base: Step, gone: Gone | null, n: number) => void;
   onOpenImage: (file: string, images: StepImage[], step: number, column?: string) => void;
-  onOpenSource: (s: Source) => void;
+  /** a source of a step opened, with the step it backs and that step's sources (‹ › in the dialog) */
+  onOpenSource: (s: Source, from?: SourceFrom) => void;
   onImageGone: (file: string) => void;
 }) {
   const [drag, setDrag] = useState(-1);
@@ -196,7 +198,7 @@ export function StepList({
               onAsk={() => onAsk(i)}
               onRestore={(b) => onRestore(b, null, i + 1)}
               onOpenImage={(file, images, column) => onOpenImage(file, images, i + 1, column)}
-              onOpenSource={onOpenSource}
+              onOpenSource={(src) => onOpenSource(src, { test: test.key ?? testId, step: i + 1, sources: s.sources })}
               onDragStart={() => setDrag(i)}
               onDragOver={(e) => {
                 if (drag < 0) return;

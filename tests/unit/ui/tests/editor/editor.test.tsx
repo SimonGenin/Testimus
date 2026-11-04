@@ -685,6 +685,16 @@ describe("TestEditor › steps", () => {
     expect(document.querySelector('[data-testid="dropline"]')).toBeNull();
   });
 
+  it("opens a step's source with the test, the step and that step's sources", async () => {
+    const a = { docId: "D", anchor: "§1", quote: "one" };
+    const b = { docId: "D", anchor: "§2", quote: "two" };
+    shown = makeTest({ steps: [step("One"), step("Two", { sources: [a, b] })] });
+    const { state } = editor();
+    await ready();
+    fireEvent.click(within(screen.getByRole("article", { name: "Step 2" })).getByRole("button", { name: /D §2/ }));
+    expect(state.openSource).toHaveBeenCalledWith(b, { test: "LFRPS12-7", step: 2, sources: [a, b] });
+  });
+
   it("opens a step's screenshots in the lightbox and moves through them", async () => {
     shown = makeTest({
       steps: [
