@@ -74,6 +74,44 @@ describe("actions.triageFailed: the core decides whether Claude looks at a faile
     });
   });
 
+  it("two pages calling at the same time start one triage, not two (review 8)", async () => {
+    let open: () => void = () => {};
+    const gate = new Promise<void>((r) => {
+      open = r;
+    });
+    env.spawnClaude = async (s) => {
+      seen.push(s);
+      if (s.args.includes("--version")) {
+        await gate;
+        return { code: 0, stdout: "2.1.0 (Claude Code)\n", stderr: "" };
+      }
+      return answer(s, "0 actions proposed.");
+    };
+    const failed = await failedJob("docs.convert");
+    const both = Promise.all([
+      call<Decision>("actions.triageFailed", { jobId: failed }, P),
+      call<Decision>("actions.triageFailed", { jobId: failed }, P),
+    ]);
+    open();
+    const [a, b] = await both;
+    const started = [a, b].filter((d) => d.triage);
+    expect(started).toHaveLength(1);
+    expect([a, b].find((d) => !d.triage)).toEqual({ triage: null, why: `Claude already looked at the job ${failed}.` });
+    await waitJob(started[0]?.triage ?? "");
+    expect(seen.filter((s) => !s.args.includes("--version"))).toHaveLength(1);
+  });
+
+  it("a triage that could not start can be asked again", async () => {
+    claudeAbsent();
+    const failed = await failedJob("generate");
+    expect((await call<Decision>("actions.triageFailed", { jobId: failed }, P)).why).toBe(
+      "Claude Code is not connected.",
+    );
+    resetProbe();
+    claudeHere();
+    expect((await call<Decision>("actions.triageFailed", { jobId: failed }, P)).triage).toMatch(/^actions-triage-/);
+  });
+
   it("never shows Claude a Claude run, a Jira call or a job that did not fail", async () => {
     claudeHere();
     for (const kind of ["claude", "xray.pull", "actions.triage"]) {
