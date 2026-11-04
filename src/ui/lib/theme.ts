@@ -1,13 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { color, darkTheme, fontFamily, fontSize, lightTheme, lineHeight } from "../styles/tokens.stylex.ts";
-import {
-  onPrefsChange,
-  PREFS,
-  type PrefName,
-  readPref as readNamed,
-  usePref,
-  writePref as writeNamed,
-} from "./prefs.ts";
+import { onPrefsChange, readPref as readNamed, usePref, writePref as writeNamed } from "./prefs.ts";
 
 export type Theme = "system" | "light" | "dark";
 
@@ -84,36 +77,3 @@ export function useTheme(): [Theme, (t: Theme) => void] {
   const [theme] = usePref("theme");
   return [theme as Theme, setThemeEverywhere];
 }
-
-const named = (key: string): PrefName | null => {
-  const name = key.replace(/^testimus\./, "");
-  return name in PREFS ? (name as PrefName) : null;
-};
-
-const shown = (name: PrefName): string => (PREFS[name].show as (v: unknown) => string)(readNamed(name));
-
-function writeShown(name: PrefName, raw: string): void {
-  const p = PREFS[name] as { parse(raw: string): unknown; fallback: unknown };
-  writeNamed(name, (p.parse(raw) ?? p.fallback) as never);
-}
-
-// ponytail: the string-keyed reads and writes of the screens not yet on usePref; only declared preferences are kept
-export function readPref<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
-  const name = named(key);
-  const v = name ? shown(name) : "";
-  return allowed.includes(v as T) ? (v as T) : fallback;
-}
-
-export function writePref(key: string, value: string): void {
-  const name = named(key);
-  if (name) writeShown(name, value);
-}
-
-export function readString(key: string): string {
-  const name = named(key);
-  return name ? shown(name) : "";
-}
-
-export const readSession = readString;
-
-export const writeSession = writePref;

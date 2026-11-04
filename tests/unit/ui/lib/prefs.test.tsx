@@ -2,17 +2,8 @@
 import "@testing-library/jest-dom/vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setProject } from "../../../../src/ui/api.ts";
-import {
-  applyTheme,
-  nextTheme,
-  readPref,
-  readSession,
-  readString,
-  readTheme,
-  setThemeEverywhere,
-  writePref,
-  writeSession,
-} from "../../../../src/ui/lib/theme.ts";
+import { readPref, writePref } from "../../../../src/ui/lib/prefs.ts";
+import { applyTheme, nextTheme, readTheme, setThemeEverywhere } from "../../../../src/ui/lib/theme.ts";
 import { fakeNet } from "../../cov-uishell-helpers.tsx";
 import { noDesktop } from "../../ui-desktop-helpers.tsx";
 
@@ -45,24 +36,6 @@ describe("theme and preferences", () => {
     expect(seen).toHaveBeenCalledWith("light");
   });
 
-  it("reads and writes preferences and session values", () => {
-    const LAYOUTS = ["stacked", "split"] as const;
-    expect(readPref("testimus.stepLayout", LAYOUTS, "stacked")).toBe("stacked");
-    writePref("testimus.stepLayout", "split");
-    expect(readPref("testimus.stepLayout", LAYOUTS, "stacked")).toBe("split");
-    writePref("testimus.stepLayout", "z");
-    expect(readPref("testimus.stepLayout", LAYOUTS, "stacked")).toBe("stacked");
-    expect(readString("testimus.missing")).toBe("");
-    writePref("testimus.missing", "x");
-    expect(readString("testimus.missing")).toBe("");
-    writePref("testimus.editorWidth", "900");
-    expect(readString("testimus.editorWidth")).toBe("900");
-    expect(readSession("testimus.setupShown")).toBe("0");
-    writeSession("testimus.setupShown", "1");
-    expect(readSession("testimus.setupShown")).toBe("1");
-    expect(localStorage.getItem("testimus.setupShown")).toBeNull();
-  });
-
   it("survives a storage that throws", () => {
     vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
       throw new Error("denied");
@@ -74,10 +47,10 @@ describe("theme and preferences", () => {
     applyTheme("light");
     expect(document.documentElement.dataset.theme).toBe("light");
     applyTheme("system");
-    expect(readPref("testimus.stepLayout", ["stacked"] as const, "stacked")).toBe("stacked");
-    writePref("testimus.stepLayout", "split");
-    expect(readString("testimus.editorWidth")).toBe("");
-    expect(readSession("testimus.setupShown")).toBe("0");
-    writeSession("testimus.setupShown", "1");
+    expect(readPref("stepLayout")).toBe("stacked");
+    writePref("stepLayout", "split");
+    expect(readPref("editorWidth")).toBeNull();
+    expect(readPref("setupShown")).toBe(false);
+    writePref("setupShown", true);
   });
 });

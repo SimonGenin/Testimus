@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Job } from "../../../../src/core/types.ts";
 import { Activity, elapsed } from "../../../../src/ui/components/shell/Activity.tsx";
 import { setProject } from "../../../../src/ui/lib/data/client.ts";
-import { resetLocalWork, track } from "../../../../src/ui/lib/localActivity.ts";
+import { useRead } from "../../../../src/ui/lib/data/query.ts";
 import { callsOf, deferred, Fail, FakeES, fakeEvents, fakeNet, job, net, status } from "../../cov-uishell-helpers.tsx";
 import { clearAllToasts, withData } from "./helpers.tsx";
 
@@ -25,7 +25,6 @@ afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
   setProject(null);
-  resetLocalWork();
 });
 
 // ponytail: the server's list follows the job's status, as the core's does
@@ -33,6 +32,12 @@ const emit = (j: Job) => {
   jobs = [...jobs.filter((x) => x.id !== j.id), j];
   FakeES.emit(status(j));
 };
+
+// ponytail: a screen reading the Jira folder tree
+function JiraTree() {
+  useRead("xray.folders", {});
+  return null;
+}
 
 const rows = () => within(screen.getByRole("dialog", { name: "Running jobs" })).getAllByRole("listitem");
 
@@ -157,14 +162,17 @@ describe("Activity", () => {
     expect(await screen.findByRole("button", { name: "1 job running" })).toBeInTheDocument();
   });
 
-  it("shows the work the page waits on beside the jobs, without Cancel", async () => {
+  it("shows the Jira reads the page waits on beside the jobs, without Cancel", async () => {
     const load = deferred();
-    withData(<Activity />);
-    act(() => {
-      void track("jira", "Jira folders", load.promise);
-    });
+    net.routes["xray.folders"] = () => load.promise;
+    withData(
+      <>
+        <Activity />
+        <JiraTree />
+      </>,
+    );
     fireEvent.click(await screen.findByRole("button", { name: "1 job running" }));
-    expect(rows()[0]).toHaveTextContent("Jira folders");
+    expect(rows()[0]).toHaveTextContent("Loading the Jira folders");
     expect(within(rows()[0]).queryByRole("button")).toBeNull();
     await act(async () => load.resolve(null));
     expect(screen.queryByRole("button", { name: /running/ })).toBeNull();

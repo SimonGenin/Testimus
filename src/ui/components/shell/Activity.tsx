@@ -1,12 +1,12 @@
 import * as stylex from "@stylexjs/stylex";
 import { QueryClientContext, useQuery } from "@tanstack/react-query";
 import { useContext, useEffect, useMemo, useState } from "react";
+import type { CommandName } from "../../../core/commands/index.ts";
 import type { Job } from "../../../core/types.ts";
 import { project } from "../../lib/data/client.ts";
 import { onAnyEvent } from "../../lib/data/events.ts";
-import { useCommand, useRead } from "../../lib/data/query.ts";
+import { useCommand, useFetching, useRead } from "../../lib/data/query.ts";
 import { plural } from "../../lib/format.ts";
-import { type LocalWork, onLocalWork } from "../../lib/localActivity.ts";
 import { useNow } from "../../lib/now.ts";
 import { errorToast } from "../../lib/toast.ts";
 import { color, fontSize, lineHeight, space } from "../../styles/tokens.stylex.ts";
@@ -61,6 +61,12 @@ function useNotice(): string {
 // ponytail: the activity indicator of the top bar — how many things run, and on click what they are, how far, since
 // when, with Cancel; work the page itself waits on (a Jira tree, a Jira search) shows beside the jobs. Outside the data
 // layer (a screen drawn alone) it shows nothing
+const WAITED_LABEL: Partial<Record<CommandName, string>> = {
+  "xray.folders": "Loading the Jira folders",
+  "xray.search": "Searching Jira",
+};
+const WAITED = Object.keys(WAITED_LABEL) as CommandName[];
+
 export function Activity() {
   return useContext(QueryClientContext) ? <LiveActivity /> : null;
 }
@@ -68,13 +74,12 @@ export function Activity() {
 function LiveActivity() {
   const jobs = useRunningJobs();
   const notice = useNotice();
-  const [local, setLocal] = useState<LocalWork[]>([]);
-  useEffect(() => onLocalWork(setLocal), []);
+  const local = useFetching(WAITED);
   const [open, setOpen] = useState(false);
   const now = useNow(1000, open);
   const cancel = useCommand("jobs.cancel", { invalidates: [["jobs.list"], ["jobs.show"]] });
   const items: ActivityItem[] = [
-    ...local.map((w) => ({ key: `l${w.id}`, kind: w.kind, label: w.label, startedAt: w.startedAt })),
+    ...local.map((w) => ({ key: w.key, kind: "jira", label: WAITED_LABEL[w.name] ?? w.name, startedAt: w.startedAt })),
     ...[...jobs]
       .sort((a, b) => a.startedAt.localeCompare(b.startedAt))
       .map((j) => ({

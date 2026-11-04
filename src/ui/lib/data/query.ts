@@ -6,7 +6,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import type { CallResult, CommandInput, CommandName, CommandOutput } from "../../../core/commands/index.ts";
 import { ApiError, call, project } from "./client.ts";
 
@@ -130,6 +130,41 @@ export function useRead<N extends CommandName>(
     select: options.select,
     ...tuning(name, input),
   });
+}
+
+export type Fetching = { key: string; name: CommandName; startedAt: string };
+
+// ponytail: the reads of these commands the page is waiting on now, each with when it started (a Jira tree, a Jira
+// search shown beside the jobs)
+export function useFetching(names: readonly CommandName[]): Fetching[] {
+  const client = useQueryClient();
+  const [list, setList] = useState<Fetching[]>([]);
+  const watched = names.join(" ");
+  useEffect(() => {
+    const cache = client.getQueryCache();
+    const since = new Map<string, string>();
+    let shown = "";
+    const look = () => {
+      const now = cache
+        .findAll({ fetchStatus: "fetching" })
+        .filter((q) => watched.split(" ").includes(String(q.queryKey[1])));
+      for (const h of [...since.keys()]) if (!now.some((q) => q.queryHash === h)) since.delete(h);
+      for (const q of now) if (!since.has(q.queryHash)) since.set(q.queryHash, new Date().toISOString());
+      const sig = now.map((q) => q.queryHash).join("\n");
+      if (sig === shown) return;
+      shown = sig;
+      setList(
+        now.map((q) => ({
+          key: q.queryHash,
+          name: q.queryKey[1] as CommandName,
+          startedAt: since.get(q.queryHash) as string,
+        })),
+      );
+    };
+    look();
+    return cache.subscribe(look);
+  }, [client, watched]);
+  return list;
 }
 
 export function read<N extends CommandName>(
