@@ -152,7 +152,7 @@ export function JiraTab({
 
   return (
     <>
-      {!query && (
+      {(tree || !query) && (
         <div role={!tree ? "status" : undefined} aria-label={!tree ? "Loading folders" : undefined}>
           <List<(typeof rows)[number]>
             label="Jira folders"

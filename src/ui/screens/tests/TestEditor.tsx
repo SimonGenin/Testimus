@@ -262,6 +262,7 @@ export function TestEditor({
   if (doc.error)
     return (
       <div {...stylex.props(styles.editor)}>
+        {lead}
         <div {...stylex.props(styles.empty)}>
           <Banner
             tone="danger"
@@ -277,6 +278,7 @@ export function TestEditor({
   if (!test || !data)
     return (
       <div role="status" aria-busy="true" aria-label="Loading the test" {...stylex.props(styles.editor)}>
+        {lead}
         <div {...stylex.props(styles.empty)}>
           <Skeleton kind="title" width="70%" />
           <Skeleton lines={2} />
