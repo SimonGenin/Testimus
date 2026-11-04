@@ -23,6 +23,7 @@ const styles = stylex.create({
   warn: { color: color.warning },
   error: { color: color.danger },
   at: { color: color.textSubtle, marginInlineEnd: space.s3 },
+  head: { color: color.text, marginBlockStart: { default: space.s3, ":first-child": 0 } },
   empty: { color: color.textSubtle },
 });
 
@@ -32,6 +33,8 @@ export type RawLine = {
   level?: "info" | "warn" | "error";
   /** when it was written, as shown (« 10:42:03 »), before the text */
   at?: string;
+  /** a line that opens a part of the log (a job's step): in the interface's caption, semibold */
+  head?: boolean;
 };
 
 export type RawProps = {
@@ -82,7 +85,15 @@ export function Raw({ text, lines, empty = "(no output)", maxLines, follow = fal
         <span
           key={i}
           data-level={l.level ?? "info"}
-          {...stylex.props(styles.line, l.level === "warn" && styles.warn, l.level === "error" && styles.error)}
+          {...stylex.props(
+            styles.line,
+            l.head && type.caption,
+            l.head && type.strong,
+            l.head && type.ui,
+            l.head && styles.head,
+            l.level === "warn" && styles.warn,
+            l.level === "error" && styles.error,
+          )}
         >
           {l.at && <span {...stylex.props(styles.at)}>{l.at}</span>}
           {l.text}

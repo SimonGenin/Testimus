@@ -119,6 +119,7 @@ export function Passage({
         {heading && (
           <H {...stylex.props(type.readingHeading, styles.heading)}>
             {anchor && <span {...stylex.props(type.code, styles.anchor)}>{anchor}</span>}
+            {anchor && " "}
             {heading}
           </H>
         )}

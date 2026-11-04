@@ -99,6 +99,11 @@ export const section: KitSection = {
       <Cell label="dashed (a place for what is not there yet)" column>
         <Card dashed>Claude is writing step 4…</Card>
       </Cell>
+      <Cell label="dashed · danger edge (a step Jira has and the test no longer does)" column>
+        <Card dashed edge="danger">
+          Step 3 in Jira — « Ouvrir le menu »
+        </Card>
+      </Cell>
       <Cell label="onOpen · rest, hover, focus" wide column>
         <Card title="Figure 3" onOpen={() => {}}>
           Synoptique du poste.

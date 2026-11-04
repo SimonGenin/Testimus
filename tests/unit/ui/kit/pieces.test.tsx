@@ -166,7 +166,7 @@ describe("Passage (audit n° 11, 26)", () => {
         dim
       />,
     );
-    expect(screen.getByRole("heading", { level: 4 })).toHaveTextContent("§ 5.6.6Menu contextuel");
+    expect(screen.getByRole("heading", { level: 4 })).toHaveTextContent("§ 5.6.6 Menu contextuel");
     expect(screen.getByText("menu diffère", { selector: "mark" })).toBeInTheDocument();
     const cited = screen.getByText("menu diffère").closest("p") as Element;
     const other = screen.getByText("Autre chose.");
@@ -213,6 +213,12 @@ describe("Raw (audit n° 38)", () => {
     expect(levels).toEqual(["info", "warn", "error"]);
     const [ok, warn, err] = [...log.querySelectorAll("[data-level]")].map(cls);
     expect(new Set([ok, warn, err]).size).toBe(3);
+  });
+
+  it("draws a line that opens a part of the log (a job's step) apart from the lines under it", () => {
+    render(<Raw label="Log" lines={[{ text: "1 · Read the sources", head: true }, { text: "read §5.6" }]} />);
+    const [head, line] = [...screen.getByRole("group", { name: "Log" }).querySelectorAll("[data-level]")].map(cls);
+    expect(head).not.toBe(line);
   });
 });
 

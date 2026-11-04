@@ -25,6 +25,7 @@ export function FullLog({ job, events }: { job: Job; events: JobEvent[] }) {
           {
             text: `${(job.steps?.indexOf(p.step) ?? -1) + 1} · ${p.step.label}`,
             level: p.step.status === "failed" ? "error" : "info",
+            head: true,
           },
         ]
       : [];

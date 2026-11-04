@@ -48,6 +48,7 @@ const styles = stylex.create({
     outline: { default: "none", ":focus-visible": `${border.widthStrong} solid ${color.focusRing}` },
     outlineOffset: focus.offset,
   },
+  dashedEdge: { boxShadow: "none" },
   openDashed: { backgroundColor: { default: "transparent", ":hover": color.surfaceHover } },
   openHover: { backgroundColor: color.surfaceHover },
   openFocus: { outline: `${border.widthStrong} solid ${color.focusRing}` },
@@ -161,8 +162,9 @@ export function Card({
   const id = useId();
   const frame = [
     styles.card,
-    edge && EDGE[edge],
     dashed && styles.dashed,
+    edge && EDGE[edge],
+    dashed && edge && styles.dashedEdge,
     selected && styles.selected,
     focused && styles.focused,
   ];

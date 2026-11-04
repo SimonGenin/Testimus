@@ -107,7 +107,7 @@ export function PassageText({ passage, quote }: { passage: Part; quote: string }
   return (
     <Passage
       level={4}
-      heading={passage.title ? `${num ? " " : ""}${title}` : undefined}
+      heading={passage.title ? title : undefined}
       anchor={num ? `§ ${num}` : undefined}
       paragraphs={paragraphs(passage.text).map((para) => highlight(para, quote))}
       figures={passage.figures.map((f) => ({

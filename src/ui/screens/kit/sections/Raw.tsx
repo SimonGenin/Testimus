@@ -28,12 +28,13 @@ export const section: KitSection = {
       <Cell label="text" wide column>
         <Raw text={OUTPUT} />
       </Cell>
-      <Cell label="log lines · time · warn · error · maxLines" wide column>
+      <Cell label="log lines · a step head · time · warn · error · maxLines" wide column>
         <Raw
           label="Live log"
           follow
           maxLines={4}
           lines={[
+            { text: "1 · Convert", head: true },
             { at: "10:42:01", text: "Converting SOSIE_211_D401-1_3.docx" },
             { at: "10:42:03", text: "Figure 12 has no caption", level: "warn" },
             { at: "10:42:04", text: "Indexed 212 sections" },
