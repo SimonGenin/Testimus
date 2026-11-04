@@ -24,8 +24,20 @@ const styles = stylex.create({
 });
 
 // ponytail: the state of a job as one badge — running with its time, else the first words of its result
-export function JobState({ job, now, size: s = "sm" }: { job: Job; now: number; size?: "sm" | "md" }) {
-  if (job.status === "running") return <Badge label={`Running · ${duration(job, now)}`} tone="info" busy size={s} />;
+export function JobState({
+  job,
+  now,
+  size: s = "sm",
+  timed = true,
+}: {
+  job: Job;
+  now: number;
+  size?: "sm" | "md";
+  /** the running time in the badge (false where a column shows it) */
+  timed?: boolean;
+}) {
+  if (job.status === "running")
+    return <Badge label={timed ? `Running · ${duration(job, now)}` : "Running"} tone="info" busy size={s} />;
   return <Badge label={resultLine(job).split(" · ")[0]} tone={toneOf(job)} icon={iconOf(job)} size={s} />;
 }
 
