@@ -33,7 +33,7 @@ const styles = stylex.create({
     flexDirection: "column",
     gap: space.s3,
     width: size.toast,
-    maxWidth: `calc(100vw - ${space.s8})`,
+    maxWidth: `calc(100vw - ${space.s7})`,
     pointerEvents: "none",
   },
   toast: {
@@ -43,7 +43,8 @@ const styles = stylex.create({
     gap: space.s3,
     width: size.toast,
     maxWidth: "100%",
-    padding: space.s4,
+    paddingBlock: space.s4,
+    paddingInline: space.s5,
     borderRadius: radius.r3,
     backgroundColor: color.surfaceRaised,
     boxShadow: shadow.s2,

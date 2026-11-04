@@ -63,22 +63,45 @@ for (const name of dark.keys()) if (!light.has(name)) throw new Error(`--${name}
 const EXTRA: Record<string, Record<string, string>> = {
   color: {
     logoTile: "#ffffff", // the rail's logo tile, white in both themes (design README)
+    sheen: "rgba(255, 255, 255, 0.12)", // kit.css .btn--primary / --danger / --claude: the inset light on a filled button's top edge
+  },
+  space: {
+    snug: "6px", // kit.css .btn and .field gap, .item padding-block and .item__meta gap, .menu padding, .badge--count padding
+    pill: "10px", // kit.css .badge and .chip--source padding beside the text, .item--two padding-block; shell.mjs .rail__item padding-top
+    button: "14px", // kit.css .btn padding-inline
+    inset: "3px", // kit.css .seg and .chipfield padding (a thumb or a chip inside its frame)
+  },
+  radius: {
+    check: "5px", // kit.css .check__box
+  },
+  focus: {
+    halo: "4px", // kit.css .text / .select / .chipfield / .cblock focus: the soft halo around a field's accent edge
   },
   size: {
-    kbd: "18px", // kit.css .kbd min-width and height; a badge's count
+    kbd: "20px", // kit.css .kbd min-width and height; .badge--count
     tooltipMax: "280px", // kit.css .tooltip max-width
-    chip: "22px", // kit.css .chip--square / --source, chips inside a chip field
+    chip: "26px", // kit.css .chip--source height
     resizeHit: "9px", // kit.css .resize grab zone
-    knob: "10px", // kit.css switch knob, a status dot, a skeleton text line
-    tableHead: "30px", // kit.css .table th
+    knob: "12px", // kit.css .switch__track::after
+    switchWidth: "32px", // kit.css .switch__track width
+    switchHeight: "18px", // kit.css .switch__track height
+    badge: "22px", // kit.css .badge height
+    badgeSm: "18px", // kit.css .badge--sm height
+    dot: "8px", // kit.css .badge--dot
+    statusDot: "10px", // shell.mjs .rail__status .badge--dot
+    skeletonLine: "10px", // kit.css .skel and .skel--text height
+    tab: "44px", // kit.css .tab height
+    cardHead: "48px", // kit.css .card__head min-height
+    scrimBlur: "2px", // kit.css .scrim backdrop-filter blur
+    tableHead: "36px", // kit.css .table th
     menuMin: "200px", // kit.css .menu min-width
     menuMax: "320px", // kit.css .menu max-width
     toast: "380px", // kit.css .toast width
     emptyMax: "420px", // kit.css .empty max-width
     chipInputMin: "80px", // kit.css .chipfield input min-width
-    paletteButton: "260px", // shell.mjs top bar palette button
-    paletteButtonCompact: "200px", // the same under 1500 px
-    railItem: "56px", // shell.mjs rail item
+    paletteButton: "280px", // shell.mjs top bar .palette-btn width
+    paletteButtonCompact: "240px", // the same under 1500 px
+    railItem: "60px", // shell.mjs .rail__item and .rail__status width
     figurePreview: "140px", // the passage's figure preview
     dockStripLabel: "360px", // the folded dock's vertical label
     stepLabel: "110px", // _editor.mjs step card field label column
@@ -86,11 +109,12 @@ const EXTRA: Record<string, Record<string, string>> = {
     thumbLarge: "160px", // _editor.mjs larger thumbnail
   },
   fontSize: {
-    micro: "10px", // shell.mjs rail label under the icon
+    micro: "10px", // shell.mjs .rail__project-key and the rail's count pill
+    rail: "11px", // shell.mjs .rail__item and .rail__status label under the icon
   },
   lineHeight: {
-    micro: "12px",
-    railLabel: "13px",
+    micro: "12px", // shell.mjs .rail__project-key
+    railLabel: "14px", // shell.mjs .rail__item and .rail__status label
   },
 };
 

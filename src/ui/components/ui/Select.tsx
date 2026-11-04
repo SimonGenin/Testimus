@@ -1,8 +1,10 @@
 import * as stylex from "@stylexjs/stylex";
 import { useId } from "react";
-import { border, color, fontSize, lineHeight, radius, size, space } from "../../styles/tokens.stylex.ts";
+import { border, color, focus, fontSize, lineHeight, radius, size, space } from "../../styles/tokens.stylex.ts";
 import { Icon, type IconName } from "./Icon.tsx";
 import { Tooltip } from "./Tooltip.tsx";
+
+const FOCUS = `0 0 0 ${border.width} ${color.focusRing}, 0 0 0 ${focus.halo} color-mix(in srgb, ${color.focusRing} 18%, transparent)`;
 
 const styles = stylex.create({
   wrap: { position: "relative", display: "inline-flex", alignItems: "center", minWidth: 0 },
@@ -16,12 +18,12 @@ const styles = stylex.create({
     height: size.controlMd,
     margin: 0,
     paddingBlock: 0,
-    paddingInlineStart: space.s3,
-    paddingInlineEnd: `calc(${space.s2} + ${size.iconSm} + ${space.s2})`,
+    paddingInlineStart: space.s4,
+    paddingInlineEnd: `calc(${space.s3} + ${size.iconSm} + ${space.s2})`,
     borderStyle: "solid",
     borderWidth: border.width,
-    borderColor: { default: color.borderControl, ":hover": color.textMuted, ":focus-visible": color.focusRing },
-    boxShadow: { default: null, ":focus-visible": `0 0 0 ${border.width} ${color.focusRing}` },
+    borderColor: { default: color.borderField, ":hover": color.borderControl, ":focus-visible": color.focusRing },
+    boxShadow: { default: null, ":focus-visible": FOCUS },
     borderRadius: radius.r2,
     backgroundColor: color.surface,
     color: color.text,
@@ -40,31 +42,32 @@ const styles = stylex.create({
     paddingInlineStart: space.s2,
   },
   sm: { height: size.controlSm, fontSize: fontSize.small },
-  withLead: { paddingInlineStart: `calc(${space.s3} + ${size.iconMd} + ${space.s2})` },
+  withLead: { paddingInlineStart: `calc(${space.s4} + ${size.iconMd} + ${space.s2})` },
   withPrefix: { paddingInlineStart: space.s1 },
   disabled: {
     backgroundColor: color.surfaceSunken,
     borderColor: color.border,
+    boxShadow: "none",
     color: color.textDisabled,
     cursor: "not-allowed",
   },
   lead: {
     position: "absolute",
-    insetInlineStart: space.s3,
+    insetInlineStart: space.s4,
     display: "inline-flex",
     color: color.textMuted,
     pointerEvents: "none",
   },
-  prefix: { paddingInlineStart: space.s3, color: color.textMuted, fontSize: fontSize.compact, whiteSpace: "nowrap" },
+  prefix: { paddingInlineStart: space.s4, color: color.textMuted, fontSize: fontSize.compact, whiteSpace: "nowrap" },
   chevron: {
     position: "absolute",
-    insetInlineEnd: space.s2,
+    insetInlineEnd: space.s3,
     display: "inline-flex",
     color: color.textMuted,
     pointerEvents: "none",
   },
-  forceHover: { borderColor: color.textMuted },
-  forceFocus: { borderColor: color.focusRing, boxShadow: `0 0 0 ${border.width} ${color.focusRing}` },
+  forceHover: { borderColor: color.borderControl },
+  forceFocus: { borderColor: color.focusRing, boxShadow: FOCUS },
 });
 
 export type SelectOption<V extends string> = { value: V; label: string; disabled?: boolean };

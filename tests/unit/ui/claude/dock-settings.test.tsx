@@ -605,7 +605,7 @@ describe("always on top", () => {
     expect(pin).toHaveAttribute("aria-pressed", "false");
     fireEvent.click(sw);
     await waitFor(() => expect(d.setAlwaysOnTop).toHaveBeenCalledWith(true));
-    expect(localStorage.getItem("testimus.alwaysOnTop")).toBe("true");
+    expect(localStorage.getItem("testimus.alwaysOnTop")).toBe("1");
     expect(pin).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(pin);
     await waitFor(() => expect(d.setAlwaysOnTop).toHaveBeenLastCalledWith(false));

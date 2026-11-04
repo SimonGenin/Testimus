@@ -1,17 +1,19 @@
 import * as stylex from "@stylexjs/stylex";
 import { color, darkTheme, fontFamily, fontSize, lightTheme, lineHeight } from "../styles/tokens.stylex.ts";
+import {
+  onPrefsChange,
+  PREFS,
+  type PrefName,
+  readPref as readNamed,
+  usePref,
+  writePref as writeNamed,
+} from "./prefs.ts";
 
 export type Theme = "system" | "light" | "dark";
 
 export const THEMES: Theme[] = ["system", "light", "dark"];
 
-export function readTheme(): Theme {
-  try {
-    const t = localStorage.getItem("testimus.theme");
-    if (t === "light" || t === "dark" || t === "system") return t;
-  } catch {}
-  return "system";
-}
+export const readTheme = (): Theme => readNamed("theme") as Theme;
 
 const page = stylex.create({
   root: {
@@ -30,56 +32,87 @@ export function themeClass(t: Theme): string {
   return stylex.props(page.root, ...theme).className ?? "";
 }
 
-export function applyTheme(t: Theme): void {
+function show(t: Theme): void {
   if (t === "system") delete document.documentElement.dataset.theme;
   else document.documentElement.dataset.theme = t;
   document.documentElement.className = themeClass(t);
-  try {
-    localStorage.setItem("testimus.theme", t);
-  } catch {}
 }
 
-export function readPref<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
-  try {
-    const v = localStorage.getItem(key) as T | null;
-    if (v && allowed.includes(v)) return v;
-  } catch {}
-  return fallback;
+export function applyTheme(t: Theme): void {
+  show(t);
+  writeNamed("theme", t);
 }
 
-export function writePref(key: string, value: string): void {
-  try {
-    localStorage.setItem(key, value);
-  } catch {}
+// ponytail: <html> follows the theme wherever it is set — its data-theme (this page, public/theme.js before React, a
+// script or a test) gives the class of the page's base and theme; the preference written here or in another window
+// of the profile gives the data-theme
+export function followTheme(): () => void {
+  const root = document.documentElement;
+  const classFor = () => {
+    const t = root.dataset.theme;
+    root.className = themeClass(t === "light" || t === "dark" ? t : "system");
+  };
+  const sync = () => show(readTheme());
+  const watch = new MutationObserver(classFor);
+  watch.observe(root, { attributes: true, attributeFilter: ["data-theme"] });
+  classFor();
+  const off = onPrefsChange(sync);
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === null || e.key === "testimus.theme") sync();
+  };
+  window.addEventListener("storage", onStorage);
+  return () => {
+    watch.disconnect();
+    off();
+    window.removeEventListener("storage", onStorage);
+  };
 }
 
 export function nextTheme(t: Theme): Theme {
   return THEMES[(THEMES.indexOf(t) + 1) % THEMES.length];
 }
 
+// ponytail: the testimus:theme event is for the screens that still listen to it (Settings › Appearance); the shell
+// follows the preference itself (useTheme)
 export function setThemeEverywhere(t: Theme): void {
   applyTheme(t);
   window.dispatchEvent(new CustomEvent("testimus:theme", { detail: t }));
 }
 
+export function useTheme(): [Theme, (t: Theme) => void] {
+  const [theme] = usePref("theme");
+  return [theme as Theme, setThemeEverywhere];
+}
+
+const named = (key: string): PrefName | null => {
+  const name = key.replace(/^testimus\./, "");
+  return name in PREFS ? (name as PrefName) : null;
+};
+
+const shown = (name: PrefName): string => (PREFS[name].show as (v: unknown) => string)(readNamed(name));
+
+function writeShown(name: PrefName, raw: string): void {
+  const p = PREFS[name] as { parse(raw: string): unknown; fallback: unknown };
+  writeNamed(name, (p.parse(raw) ?? p.fallback) as never);
+}
+
+// ponytail: the string-keyed reads and writes of the screens not yet on usePref; only declared preferences are kept
+export function readPref<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
+  const name = named(key);
+  const v = name ? shown(name) : "";
+  return allowed.includes(v as T) ? (v as T) : fallback;
+}
+
+export function writePref(key: string, value: string): void {
+  const name = named(key);
+  if (name) writeShown(name, value);
+}
+
 export function readString(key: string): string {
-  try {
-    return localStorage.getItem(key) ?? "";
-  } catch {
-    return "";
-  }
+  const name = named(key);
+  return name ? shown(name) : "";
 }
 
-export function readSession(key: string): string {
-  try {
-    return sessionStorage.getItem(key) ?? "";
-  } catch {
-    return "";
-  }
-}
+export const readSession = readString;
 
-export function writeSession(key: string, value: string): void {
-  try {
-    sessionStorage.setItem(key, value);
-  } catch {}
-}
+export const writeSession = writePref;

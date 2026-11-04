@@ -1,8 +1,33 @@
-import type { ReactNode } from "react";
-import { useApp } from "../../lib/app.ts";
-import { Icon, Kbd } from "../legacy/index.ts";
-import { Activity } from "./Activity.tsx";
+import * as stylex from "@stylexjs/stylex";
+import { type ReactNode, useEffect } from "react";
+import { createPortal } from "react-dom";
+import { color, fontSize, fontWeight, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { useTopBar } from "./TopBar.tsx";
 
+const styles = stylex.create({
+  alone: { display: "flex", alignItems: "center", gap: space.s3, paddingBlock: space.s3, paddingInline: space.s5 },
+  title: {
+    display: "flex",
+    alignItems: "center",
+    gap: space.s3,
+    margin: 0,
+    fontSize: fontSize.titleSm,
+    lineHeight: lineHeight.titleSm,
+    fontWeight: fontWeight.semibold,
+  },
+  meta: {
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    color: color.textMuted,
+    fontSize: fontSize.small,
+    lineHeight: lineHeight.small,
+    fontWeight: fontWeight.regular,
+  },
+});
+
+// ponytail: a screen's part of the top bar — its title (with a badge and a short state line) and its actions, put
+// in the shell's bar; outside the shell (a screen tested alone) it draws them in place
 export function ScreenHeader({
   title,
   badge,
@@ -14,28 +39,35 @@ export function ScreenHeader({
   meta?: string;
   children?: ReactNode;
 }) {
-  const app = useApp();
-  return (
-    <header className="screenhead">
-      <h1 className="h screenhead-title">{title}</h1>
+  const bar = useTopBar();
+  const claim = bar?.claim;
+  useEffect(() => {
+    if (!claim) return;
+    claim(1);
+    return () => claim(-1);
+  }, [claim]);
+  const head = (
+    <>
+      {title}
       {badge}
-      {meta ? (
-        <span className="muted screenhead-meta" title={meta}>
+      {meta && (
+        <span title={meta} {...stylex.props(styles.meta)}>
           {meta}
         </span>
-      ) : (
-        <div className="spacer" />
       )}
-      <div className="screenhead-actions">
+    </>
+  );
+  if (!bar)
+    return (
+      <header {...stylex.props(styles.alone)}>
+        <h1 {...stylex.props(styles.title)}>{head}</h1>
         {children}
-        <Activity />
-        <button type="button" className="btn palette-btn" onClick={app.openPalette}>
-          <Icon name="search" />
-          <span className="palette-btn-text">Search or run a command</span>
-          <span className="spacer" />
-          <Kbd>Ctrl K</Kbd>
-        </button>
-      </div>
-    </header>
+      </header>
+    );
+  return (
+    <>
+      {bar.title && createPortal(head, bar.title)}
+      {bar.actions && children && createPortal(children, bar.actions)}
+    </>
   );
 }

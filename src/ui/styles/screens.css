@@ -64,24 +64,8 @@
   box-shadow: inset 3px 0 0 var(--ink);
 }
 
-.tbl-sub {
-  font-size: 12.5px;
-}
-
 .tbl .badge,
-.tbl .sev,
-.tbl-state {
-  white-space: nowrap;
-}
-
-.tbl-doc {
-  width: 100%;
-  max-width: 0;
-}
-
-.tbl-doc > div {
-  overflow: hidden;
-  text-overflow: ellipsis;
+.tbl .sev {
   white-space: nowrap;
 }
 
@@ -260,7 +244,6 @@
 }
 
 .chks,
-.frows-list,
 .setup-projects {
   list-style: none;
   margin: 0;

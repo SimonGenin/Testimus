@@ -12,7 +12,7 @@ function oneOf<T extends string>(values: readonly T[], fallback: T): Pref<T> {
 function flag(fallback: boolean, session?: true): Pref<boolean> {
   return {
     fallback,
-    parse: (r) => (r === "1" ? true : r === "0" ? false : undefined),
+    parse: (r) => (r === "1" || r === "true" ? true : r === "0" || r === "false" ? false : undefined),
     show: (v) => (v ? "1" : "0"),
     ...(session ? { session } : {}),
   };

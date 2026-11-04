@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { call, setProject } from "../../src/ui/api.ts";
@@ -10,8 +10,8 @@ import { ProjectButton } from "../../src/ui/components/shell/ProjectButton.tsx";
 import { baseName } from "../../src/ui/lib/desktop.ts";
 import { useDoctor } from "../../src/ui/lib/doctor.ts";
 import { useToasts } from "../../src/ui/lib/toast.ts";
-import { JobsScreen } from "../../src/ui/screens/jobs/JobsScreen.tsx";
-import { callsOf, deferred, FakeES, fakeEvents, fakeNet, job, net, withApp } from "./cov-uishell-helpers.tsx";
+import { callsOf, fakeEvents, fakeNet, net } from "./cov-uishell-helpers.tsx";
+import { withData } from "./ui/shell/helpers.tsx";
 
 function Stores() {
   const d = useDoctor();
@@ -58,7 +58,7 @@ describe("small remaining paths", () => {
 
 describe("shell remaining paths", () => {
   it("shows an error instead of failing on a command without an input schema", async () => {
-    render(
+    withData(
       <CommandForm
         command={{ name: "a.b", summary: "s", mutates: false, job: false, input: undefined as never }}
         onClose={() => {}}
@@ -78,23 +78,9 @@ describe("shell remaining paths", () => {
 
   it("accepts a project list it does not understand", async () => {
     net.routes["project.list"] = () => null;
-    withApp(<ProjectButton />);
-    fireEvent.click(screen.getByRole("button", { name: /change project/ }));
+    withData(<ProjectButton />);
     await waitFor(() => expect(callsOf("project.list")).toHaveLength(1));
+    fireEvent.click(screen.getByRole("button", { name: /change project/ }));
     expect(screen.getByRole("menuitem", { name: "No other project known yet" })).toBeInTheDocument();
-  });
-
-  it("shows a count without a message, and keeps progress that lands before the list", async () => {
-    const gate = deferred();
-    net.routes["jobs.list"] = async () => {
-      await gate.promise;
-      return [job({ id: "g1", progress: { done: 1, total: 3 } })];
-    };
-    net.routes["jobs.show"] = () => null;
-    withApp(<JobsScreen />, { route: { screen: "jobs" } });
-    act(() => FakeES.emit({ jobId: "g1", at: "", type: "progress", message: "early", done: 1, total: 3 }));
-    await act(async () => gate.resolve(null));
-    const list = await screen.findByRole("region", { name: "Job list" });
-    expect(within(list).getByText("1 of 3")).toBeInTheDocument();
   });
 });

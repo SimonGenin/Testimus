@@ -1,16 +1,17 @@
 import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
-import { border, color, fontSize, fontWeight, lineHeight, radius, space } from "../../styles/tokens.stylex.ts";
+import { border, color, fontSize, fontWeight, lineHeight, radius, size, space } from "../../styles/tokens.stylex.ts";
 import { Icon, type IconName } from "./Icon.tsx";
 
 const styles = stylex.create({
   banner: {
     boxSizing: "border-box",
     display: "flex",
+    flexWrap: "wrap",
     alignItems: "flex-start",
     gap: space.s3,
-    paddingBlock: space.s3,
-    paddingInline: space.s4,
+    paddingBlock: space.s4,
+    paddingInline: space.s5,
     borderStyle: "solid",
     borderWidth: border.width,
     borderRadius: radius.r3,
@@ -18,17 +19,47 @@ const styles = stylex.create({
     fontSize: fontSize.compact,
     lineHeight: lineHeight.compact,
   },
-  compact: { paddingBlock: space.s2, paddingInline: space.s3, borderRadius: radius.r2 },
-  icon: { display: "inline-flex", marginTop: space.s1 },
-  body: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: space.s1 },
+  compact: { paddingBlock: space.s3, paddingInline: space.s4, borderRadius: radius.r2 },
+  icon: { display: "inline-flex", marginTop: border.width },
+  body: {
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: `calc(${size.menuMin} - ${size.iconMd} - ${space.s3})`,
+    minWidth: 0,
+    display: "flex",
+    flexDirection: "column",
+    gap: space.s1,
+  },
   title: { fontWeight: fontWeight.semibold },
-  actions: { display: "flex", gap: space.s3, alignItems: "center", flexWrap: "wrap", alignSelf: "center" },
-  info: { backgroundColor: color.infoSubtle, borderColor: color.infoBorder },
-  success: { backgroundColor: color.successSubtle, borderColor: color.successBorder },
-  warning: { backgroundColor: color.warningSubtle, borderColor: color.warningBorder },
-  danger: { backgroundColor: color.dangerSubtle, borderColor: color.dangerBorder },
-  claude: { backgroundColor: color.claudeSubtle, borderColor: color.claudeBorder },
-  neutral: { backgroundColor: color.surfaceSunken, borderColor: color.border },
+  actions: {
+    display: "flex",
+    gap: space.s3,
+    alignItems: "center",
+    flexWrap: "wrap",
+    alignSelf: "center",
+    marginInlineStart: "auto",
+  },
+  info: { backgroundColor: color.infoSubtle, borderColor: `color-mix(in srgb, ${color.infoBorder} 40%, transparent)` },
+  success: {
+    backgroundColor: color.successSubtle,
+    borderColor: `color-mix(in srgb, ${color.successBorder} 40%, transparent)`,
+  },
+  warning: {
+    backgroundColor: color.warningSubtle,
+    borderColor: `color-mix(in srgb, ${color.warningBorder} 40%, transparent)`,
+  },
+  danger: {
+    backgroundColor: color.dangerSubtle,
+    borderColor: `color-mix(in srgb, ${color.dangerBorder} 40%, transparent)`,
+  },
+  claude: {
+    backgroundColor: color.claudeSubtle,
+    borderColor: `color-mix(in srgb, ${color.claudeBorder} 40%, transparent)`,
+  },
+  neutral: {
+    backgroundColor: color.surfaceSunken,
+    borderColor: `color-mix(in srgb, ${color.border} 40%, transparent)`,
+  },
   iconInfo: { color: color.info },
   iconSuccess: { color: color.success },
   iconWarning: { color: color.warning },

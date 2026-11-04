@@ -43,6 +43,13 @@ describe("presentation preferences", () => {
     expect(localStorage.getItem("testimus.stepLayout")).toBeNull();
   });
 
+  it("read a switch an older version stored as true or false", () => {
+    localStorage.setItem("testimus.alwaysOnTop", "true");
+    expect(readPref("alwaysOnTop")).toBe(true);
+    localStorage.setItem("testimus.showDetails", "false");
+    expect(readPref("showDetails")).toBe(false);
+  });
+
   it("keep a session preference only in the tab", () => {
     writePref("setupShown", true);
     expect(sessionStorage.getItem("testimus.setupShown")).toBe("1");

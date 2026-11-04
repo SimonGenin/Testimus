@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Folder, LocalTestRef, RemoteTestRef } from "../../src/core/types.ts";
 import { setProject } from "../../src/ui/api.ts";
 import { AppContext, type AppState } from "../../src/ui/lib/app.ts";
 import { isKeyQuery, localTree, TestList } from "../../src/ui/screens/tests/TestList.tsx";
+import { renderWithData } from "./cov-uishell-helpers.tsx";
 import { callsTo, deferred, Fail, server, stubServer } from "./cov-uitests-helpers.ts";
 import { app } from "./ui-desktop-helpers.tsx";
 
@@ -86,7 +87,7 @@ const list = (o: Partial<Props> & { reload?: LocalTestRef[]; jira?: Jira } = {})
       <TestList refs={refs} loading={false} activeId="" onOpen={onOpen} onReload={onReload} {...o} />
     </AppContext.Provider>
   );
-  const r = render(tree(state));
+  const r = renderWithData(tree(state));
   return { ...r, onOpen, onReload, state, again: (jira: Jira) => r.rerender(tree(stateOf(jira))) };
 };
 
