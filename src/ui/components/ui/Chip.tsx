@@ -38,6 +38,8 @@ const styles = stylex.create({
   onIcon: { color: color.accentText },
   claudeOn: { backgroundColor: color.claudeSubtle, borderColor: color.claudeBorder, color: color.claudeText },
   claudeIcon: { color: color.claudeText },
+  warning: { backgroundColor: color.warningSubtle, borderColor: color.warningBorder, color: color.warning },
+  warningIcon: { color: color.warning },
   off: {
     color: color.textSubtle,
     textDecoration: "line-through",
@@ -79,8 +81,9 @@ export type ChipProps = {
   onRemove?: () => void;
   /** the remove button's name when « Remove <label> » does not say what it does (« Leave Glossaire out of this run ») */
   removeLabel?: string;
-  /** claude: something Claude reads (contexts, quick asks) */
-  tone?: "neutral" | "claude";
+  /** claude: something Claude reads (contexts, quick asks) · warning: a state to notice, always tinted (the « Jira
+   * version » toggle of a step that differs from Jira) */
+  tone?: "neutral" | "claude" | "warning";
   /** shown struck through when a toggle is off (a context left out of this run) */
   strikeOff?: boolean;
   /** keys and ids */
@@ -123,7 +126,7 @@ export function Chip({
   const look = stylex.props(
     styles.chip,
     !pressable && styles.still,
-    on && (tone === "claude" ? styles.claudeOn : styles.on),
+    tone === "warning" ? styles.warning : on && (tone === "claude" ? styles.claudeOn : styles.on),
     toggle && pressed === false && strikeOff && styles.off,
     mono && styles.mono,
     square && styles.square,
@@ -134,7 +137,12 @@ export function Chip({
   const inner = (
     <>
       {icon && (
-        <span {...stylex.props(styles.icon, on && (tone === "claude" ? styles.claudeIcon : styles.onIcon))}>
+        <span
+          {...stylex.props(
+            styles.icon,
+            tone === "warning" ? styles.warningIcon : on && (tone === "claude" ? styles.claudeIcon : styles.onIcon),
+          )}
+        >
           <Icon name={icon} size="sm" />
         </span>
       )}
