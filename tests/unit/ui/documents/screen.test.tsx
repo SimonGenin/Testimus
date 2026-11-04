@@ -57,7 +57,7 @@ describe("Documents screen", () => {
     expect(within(listOf()).queryByRole("columnheader", { name: "Binding" })).toBeNull();
     expect(within(listOf()).getByText("Not indexed")).toBeInTheDocument();
     expect(within(row("Title D2")).getByText("2")).toBeInTheDocument();
-    expect(screen.getByText("No vectors yet")).toBeInTheDocument();
+    expect(screen.getByText(/so search matches words, not meaning\. Choose a search pack/)).toBeInTheDocument();
     expect(screen.getByText(/^2 documents/)).toBeInTheDocument();
     expect(rows()[1]).toHaveAttribute("aria-selected", "true");
     await waitFor(() =>
@@ -206,6 +206,61 @@ describe("Documents screen", () => {
     delete api.routes["docs.list"];
     mountDocs(<DocumentsScreen />);
     expect(await screen.findByText("Could not list the documents")).toBeInTheDocument();
+    expect(screen.queryByText("No document yet")).toBeNull();
+    expect(screen.queryByText(/^\d+ documents?$/)).toBeNull();
+    api.routes["docs.list"] = () => [doc("D1")];
+    detail();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByText("Title D1")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText("Could not list the documents")).toBeNull());
+  });
+
+  it("while the list loads: the shape of a document, no count yet", async () => {
+    let answer: () => void = () => {};
+    const held = new Promise<void>((r) => (answer = r));
+    const f = globalThis.fetch;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (String(url).startsWith("/api/docs/list")) await held;
+        return f(url, init);
+      }),
+    );
+    api.routes["docs.list"] = () => [doc("D1")];
+    mountDocs(<DocumentsScreen />);
+    const loading = await screen.findByRole("region", { name: "Loading the documents" });
+    expect(loading).toHaveAttribute("aria-busy", "true");
+    expect(screen.queryByText(/\d documents?/)).toBeNull();
+    detail();
+    answer();
+    expect(await screen.findByText("1 document")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Loading the documents" })).toBeNull();
+  });
+
+  it("says why search matches words only, in plain words", async () => {
+    api.routes["docs.list"] = () => [];
+    const why = async (over: Record<string, unknown>) => {
+      api.routes["rag.status"] = status({ degraded: "raw", ...over });
+      mountDocs(<DocumentsScreen />);
+      const text = (await screen.findByText(/so search matches words, not meaning/)).textContent;
+      cleanup();
+      return text?.split(",")[0];
+    };
+    expect(await why({ embedding: "bge-m3-q8", space: null })).toBe("This PC has no vectors for bge-m3-q8 yet");
+    expect(await why({ embedding: "bge-m3-q8", space: { complete: false } })).toBe(
+      "The vectors of bge-m3-q8 on this PC are incomplete",
+    );
+    expect(await why({ embedding: "none", space: null })).toBe("This PC has no search pack yet");
+  });
+
+  it("an empty project offers to add documents or a path", async () => {
+    api.routes["docs.list"] = () => [];
+    mountDocs(<DocumentsScreen />);
+    await screen.findByText("No document yet");
+    expect(screen.getByText(/\.docx \(preferred\) or \.pdf/)).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Add documents" })).toHaveLength(2);
+    fireEvent.click(screen.getAllByRole("button", { name: "Add from a path…" })[1]);
+    expect(pathDialog()).toBeInTheDocument();
   });
 
   it("reloads when the index job ends, not for others", async () => {
@@ -252,6 +307,7 @@ describe("Documents screen", () => {
     expect(veil(container)).toBeNull();
     fireEvent.dragOver(z, { dataTransfer: { types: ["Files"] } });
     expect(veil(container)).not.toBeNull();
+    expect(veil(container)).toHaveTextContent(/Drop Word or PDF files to add them\.docx is preferred/);
     fireEvent.dragLeave(listOf());
     expect(veil(container)).not.toBeNull();
     fireEvent.dragLeave(z);
@@ -394,7 +450,7 @@ describe("Documents screen", () => {
     };
     const { app: a, unmount } = mountDocs(<DocumentsScreen />, { route: { screen: "documents" } });
     await screen.findByText("No document yet");
-    addFromPath();
+    fireEvent.click(screen.getAllByRole("button", { name: "Add from a path…" })[1]);
     fireEvent.change(screen.getByLabelText("Path of the file"), {
       target: { value: "C:/docs/SOSIE_211_D401-1_5.docx" },
     });

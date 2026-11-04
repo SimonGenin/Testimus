@@ -65,6 +65,7 @@ export function ResultPane({
             checking={checking}
             onCheck={onCheckClaude}
             onDoctor={() => app.navigate("doctor")}
+            onSetPath={() => app.navigate("settings", "claude-exe")}
           />
         </Card>
       </div>

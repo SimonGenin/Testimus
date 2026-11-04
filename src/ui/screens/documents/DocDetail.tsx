@@ -6,7 +6,6 @@ import type { DocJson } from "../../../core/types.ts";
 import { Button } from "../../components/ui/Button.tsx";
 import { Modal } from "../../components/ui/Modal.tsx";
 import { ResizeHandle } from "../../components/ui/ResizeHandle.tsx";
-import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { key, useCommand, useRead } from "../../lib/data/query.ts";
 import { message } from "../../lib/format.ts";
 import { errorToast } from "../../lib/toast.ts";
@@ -15,6 +14,7 @@ import { border, color, duration, easing, space } from "../../styles/tokens.styl
 import { ConvertDoc } from "./ConvertDoc.tsx";
 import { DocFigures } from "./DocFigures.tsx";
 import { DocHead, type View } from "./DocHead.tsx";
+import { DocLoading } from "./DocLoading.tsx";
 import { DocPart } from "./DocPart.tsx";
 import { DocReading } from "./DocReading.tsx";
 import { DocSide } from "./DocSide.tsx";
@@ -153,11 +153,11 @@ export function DocDetail({
     );
   if (!shown)
     return (
-      <section aria-label={label} aria-busy="true" {...stylex.props(styles.doc, styles.alone)}>
-        <Skeleton kind="title" width="40%" />
-        <Skeleton width="60%" />
-        <Skeleton kind="block" />
-      </section>
+      <DocLoading
+        label={label}
+        fold={fold}
+        widths={{ toc: panes?.toc.value ?? COLS.toc, side: panes?.side.value ?? COLS.side }}
+      />
     );
 
   const d = shown.doc;
