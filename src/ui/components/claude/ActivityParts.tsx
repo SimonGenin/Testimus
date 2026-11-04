@@ -3,7 +3,7 @@ import { Fragment, type ReactNode, useMemo } from "react";
 import { type Lookup, lines, linesRead, type Outline, outlineOf, type Phase, type Span } from "../../lib/activity.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { plural } from "../../lib/format.ts";
-import { color, fontFamily, size, space } from "../../styles/tokens.stylex.ts";
+import { color, size, space } from "../../styles/tokens.stylex.ts";
 import { Icon, type IconName } from "../ui/Icon.tsx";
 import { ReadMap } from "../ui/ReadMap.tsx";
 import { type } from "../ui/type.ts";
@@ -17,7 +17,7 @@ const styles = stylex.create({
     margin: 0,
     color: color.textMuted,
   },
-  query: { fontFamily: fontFamily.reading, color: color.text },
+  query: { color: color.text },
   muted: { color: color.textSubtle },
   lookups: {
     display: "grid",
@@ -103,7 +103,7 @@ export function DocMap({ doc, spans, hits, live }: { doc: string; spans: Span[];
 }
 
 const Quote = ({ q }: { q: string }) => (
-  <span data-testid="act-query" {...stylex.props(styles.query)}>
+  <span data-testid="act-query" {...stylex.props(type.readingFace, styles.query)}>
     “{q}”
   </span>
 );

@@ -6,13 +6,14 @@ import { Button } from "../../components/ui/Button.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import type { ListItemProps } from "../../components/ui/ListItem.tsx";
 import { Progress } from "../../components/ui/Progress.tsx";
+import { type } from "../../components/ui/type.ts";
 import { useApp } from "../../lib/app.ts";
 import { dismissUpload, type Upload } from "../../lib/uploads.ts";
-import { fontFamily, space } from "../../styles/tokens.stylex.ts";
+import { space } from "../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
   lines: { display: "flex", flexDirection: "column", gap: space.s1, minWidth: 0, flex: 1 },
-  mono: { fontFamily: fontFamily.mono, overflow: "hidden", textOverflow: "ellipsis" },
+  mono: { overflow: "hidden", textOverflow: "ellipsis" },
   failure: { paddingInline: space.s3, paddingBottom: space.s3 },
   fix: { display: "block", marginTop: space.s1 },
 });
@@ -38,7 +39,7 @@ export function uploadItem(u: Upload): ListItemProps {
     lead: <Icon name="documents" />,
     meta: (
       <span {...stylex.props(styles.lines)}>
-        <span {...stylex.props(styles.mono)}>{sub}</span>
+        <span {...stylex.props(type.mono, styles.mono)}>{sub}</span>
         {now ? (
           <Progress
             label={now}

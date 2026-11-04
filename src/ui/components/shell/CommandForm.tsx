@@ -8,7 +8,7 @@ import { execute, useRead } from "../../lib/data/query.ts";
 import { message } from "../../lib/format.ts";
 import { toast } from "../../lib/toast.ts";
 import { PushDialog } from "../../screens/tests/PushDialog.tsx";
-import { fontFamily, space } from "../../styles/tokens.stylex.ts";
+import { space } from "../../styles/tokens.stylex.ts";
 import { Button } from "../ui/Button.tsx";
 import { Checkbox } from "../ui/Checkbox.tsx";
 import { Icon } from "../ui/Icon.tsx";
@@ -16,14 +16,13 @@ import { Modal } from "../ui/Modal.tsx";
 import { Raw } from "../ui/Raw.tsx";
 import { Select } from "../ui/Select.tsx";
 import { Text } from "../ui/Text.tsx";
-
+import { type } from "../ui/type.ts";
 import { firstSentence } from "./paletteEntries.tsx";
 
 export { hasInput } from "./paletteEntries.tsx";
 
 const styles = stylex.create({
   fields: { display: "flex", flexDirection: "column", gap: space.s4 },
-  mono: { fontFamily: fontFamily.mono },
   result: { marginTop: space.s4 },
 });
 
@@ -153,7 +152,7 @@ export function CommandForm({
       title={title}
       subtitle={
         <>
-          <span {...stylex.props(styles.mono)}>{command.name}</span>
+          <span {...stylex.props(type.mono)}>{command.name}</span>
           {rest && ` · ${rest}`}
         </>
       }
@@ -164,7 +163,7 @@ export function CommandForm({
       footNote={
         <>
           <Icon name="terminal" size="sm" />
-          Same as <span {...stylex.props(styles.mono)}>{cliLine(command.name, preview)}</span>
+          Same as <span {...stylex.props(type.mono)}>{cliLine(command.name, preview)}</span>
         </>
       }
       actions={

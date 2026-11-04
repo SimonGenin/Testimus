@@ -4,15 +4,13 @@ import { useApp } from "../../lib/app.ts";
 import { useCommand, useRead } from "../../lib/data/query.ts";
 import { showProject } from "../../lib/desktop.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
-import { fontFamily } from "../../styles/tokens.stylex.ts";
 import { Banner } from "../ui/Banner.tsx";
 import { Button } from "../ui/Button.tsx";
 import { Modal } from "../ui/Modal.tsx";
 import { Text } from "../ui/Text.tsx";
+import { type } from "../ui/type.ts";
 
 const KEY = /^[A-Z][A-Z0-9_]*$/;
-
-const styles = stylex.create({ mono: { fontFamily: fontFamily.mono } });
 
 // ponytail: the key as typed once the typing pauses — the folder it would open is asked then, not on every letter
 function useSettled(value: string, ms: number): string {
@@ -86,7 +84,7 @@ export function OpenByKey({ onClose }: { onClose: () => void }) {
       {would && (
         <Banner tone="neutral" compact icon="folder">
           {would.created ? "No project here has this key: Testimus will create " : "Testimus opens "}
-          <span {...stylex.props(styles.mono)}>{would.dir}</span>.
+          <span {...stylex.props(type.mono)}>{would.dir}</span>.
         </Banner>
       )}
     </Modal>

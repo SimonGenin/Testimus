@@ -4,7 +4,7 @@ import { Button } from "../../components/ui/Button.tsx";
 import { Marked } from "../../components/ui/Marked.tsx";
 import { type } from "../../components/ui/type.ts";
 import { fileUrl } from "../../lib/data/client.ts";
-import { border, color, fontFamily, radius, size, space } from "../../styles/tokens.stylex.ts";
+import { border, color, radius, size, space } from "../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
   text: {
@@ -47,10 +47,10 @@ const styles = stylex.create({
     borderRadius: radius.r2,
     backgroundColor: color.surface,
   },
-  caption: { fontFamily: fontFamily.reading, color: color.textMuted },
+  caption: { color: color.textMuted },
   table: { margin: 0, overflowX: "auto", color: color.text },
   tableRow: { display: "block", whiteSpace: "pre" },
-  empty: { margin: 0, color: color.textMuted, fontFamily: fontFamily.ui },
+  empty: { margin: 0, color: color.textMuted },
 });
 
 const clean = (s: string) => s.replace(/<!--[\s\S]*?-->/g, "").trim();
@@ -177,7 +177,7 @@ export function DocText({
   const picture = (p: Picture, key: number, hot: boolean) => (
     <figure key={key} {...focusMark(hot)} {...stylex.props(styles.figure, hot && styles.focus)}>
       <img src={fileUrl(`docs/${docId}/${p.src}`)} alt={p.alt} {...stylex.props(styles.img)} />
-      <figcaption {...stylex.props(type.small, styles.caption)}>
+      <figcaption {...stylex.props(type.small, type.readingFace, styles.caption)}>
         {p.fig ? <Button size="sm" variant="quiet" label={p.alt} onClick={() => onFigure(`fig:${p.fig}`)} /> : p.alt}
       </figcaption>
     </figure>
@@ -264,7 +264,7 @@ export function DocText({
           </div>
         );
       })}
-      {!raws.length && <p {...stylex.props(type.body, styles.empty)}>This part of the document is empty.</p>}
+      {!raws.length && <p {...stylex.props(type.body, type.ui, styles.empty)}>This part of the document is empty.</p>}
     </div>
   );
 }

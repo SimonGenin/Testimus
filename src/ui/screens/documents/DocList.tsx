@@ -7,7 +7,7 @@ import type { ListItemProps } from "../../components/ui/ListItem.tsx";
 import { type } from "../../components/ui/type.ts";
 import { baseName } from "../../lib/desktop.ts";
 import { owns, settled, type Upload } from "../../lib/uploads.ts";
-import { color, fontFamily, space } from "../../styles/tokens.stylex.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 import { DocBadges } from "./badges.tsx";
 import { UploadFailure, uploadItem } from "./UploadItem.tsx";
 
@@ -24,7 +24,7 @@ const styles = stylex.create({
   },
   body: { boxSizing: "border-box", flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: space.s3 },
   lines: { display: "flex", flexDirection: "column", gap: space.s1, minWidth: 0 },
-  mono: { fontFamily: fontFamily.mono, overflow: "hidden", textOverflow: "ellipsis" },
+  mono: { overflow: "hidden", textOverflow: "ellipsis" },
   badges: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s2 },
 });
 
@@ -37,7 +37,7 @@ function docItem(d: DocRef): ListItemProps {
     lead: <Icon name={/\.pdf$/i.test(d.source.file) ? "file" : "documents"} />,
     meta: (
       <span {...stylex.props(styles.lines)}>
-        <span {...stylex.props(styles.mono)}>
+        <span {...stylex.props(type.mono, styles.mono)}>
           {d.code} · {d.version}
         </span>
         <span {...stylex.props(styles.badges)}>

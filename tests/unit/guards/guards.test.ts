@@ -17,9 +17,10 @@ const LIMITS: Record<GuardName, number> = {
   // ponytail: 42 EXTRA + 4 CONTAINERS + 7 BREAKPOINTS (design-system audit n° 14): asked of the design sessions, never more
   "G8 token values written by scripts/tokens.ts, not read from design/tokens.css": 53,
   "G8 vocabulary colour aliases of tokens.css never read in src/ui": 0,
+  "G1 font size, weight, line height, letter spacing or face picked outside the kit": 0,
 };
 
-describe("architecture guards (GOAL-V3 N1, N2, N4, N7; design-system audit G8)", () => {
+describe("architecture guards (GOAL-V3 N1, N2, N4, N7; design-system audit G1, G8)", () => {
   for (const [name, scan] of Object.entries(GUARDS) as [GuardName, () => unknown][])
     it(`${name}: at most ${LIMITS[name]}`, async () => {
       const found = (await scan()) as { file: string; line: number; text: string }[];

@@ -8,7 +8,7 @@ import { Modal } from "../../../components/ui/Modal.tsx";
 import { Skeleton } from "../../../components/ui/Skeleton.tsx";
 import { type } from "../../../components/ui/type.ts";
 import { plural } from "../../../lib/format.ts";
-import { color, fontFamily, space } from "../../../styles/tokens.stylex.ts";
+import { color, space } from "../../../styles/tokens.stylex.ts";
 import type { Failure, Plan } from "../PushDialog.tsx";
 import { OpsTable } from "./OpsTable.tsx";
 
@@ -17,7 +17,6 @@ const styles = stylex.create({
   what: {
     color: color.textMuted,
   },
-  mono: { fontFamily: fontFamily.mono },
   text: { margin: 0 },
 });
 
@@ -54,7 +53,7 @@ export function PushPlan({
       icon="push"
       footNote={
         <>
-          Same as <span {...stylex.props(styles.mono)}>testimus xray push {testKey ?? testId}</span>
+          Same as <span {...stylex.props(type.mono)}>testimus xray push {testKey ?? testId}</span>
         </>
       }
       actions={

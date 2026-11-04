@@ -5,7 +5,7 @@ import { useRead } from "../../lib/data/query.ts";
 import { goneText } from "../../lib/docGone.ts";
 import { sourceLabel } from "../../lib/fields.ts";
 import { message } from "../../lib/format.ts";
-import { color, fontFamily, space } from "../../styles/tokens.stylex.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 import { Banner } from "../ui/Banner.tsx";
 import { Button } from "../ui/Button.tsx";
 import { Modal } from "../ui/Modal.tsx";
@@ -19,7 +19,6 @@ const styles = stylex.create({
   plain: { margin: 0 },
   body: { display: "flex", flexDirection: "column", gap: space.s4 },
   sub: { display: "inline-flex", flexWrap: "wrap", alignItems: "center", gap: space.s2 },
-  mono: { fontFamily: fontFamily.mono },
   quote: { margin: 0, color: color.textMuted },
   nav: {
     display: "inline-flex",
@@ -71,7 +70,7 @@ export function PassageDialog({
       icon="quote"
       subtitle={
         <span {...stylex.props(styles.sub)}>
-          <span {...stylex.props(type.small, styles.mono)}>{p?.doc.code ?? source.docId}</span>
+          <span {...stylex.props(type.small, type.mono)}>{p?.doc.code ?? source.docId}</span>
           {p ? (
             <>
               <span>
@@ -80,7 +79,7 @@ export function PassageDialog({
               <DocBadges status={p.doc.status} />
             </>
           ) : (
-            <span {...stylex.props(type.small, styles.mono)}>· {source.anchor}</span>
+            <span {...stylex.props(type.small, type.mono)}>· {source.anchor}</span>
           )}
         </span>
       }

@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { type } from "../components/ui/type.ts";
-import { color, darkTheme, fontFamily, lightTheme } from "../styles/tokens.stylex.ts";
+import { color, darkTheme, lightTheme } from "../styles/tokens.stylex.ts";
 import { onPrefsChange, readPref as readNamed, usePref, writePref as writeNamed } from "./prefs.ts";
 
 export type Theme = "system" | "light" | "dark";
@@ -15,14 +15,13 @@ const page = stylex.create({
     backgroundColor: color.canvas,
     color: color.text,
     colorScheme: color.scheme,
-    fontFamily: fontFamily.ui,
   },
 });
 
 // ponytail: <html> carries the page's base (canvas, text, font, color-scheme) and, for an explicit choice, the theme
 export function themeClass(t: Theme): string {
   const theme = t === "system" ? [] : t === "dark" ? darkTheme : lightTheme;
-  return stylex.props(type.body, page.root, ...theme).className ?? "";
+  return stylex.props(type.body, type.ui, page.root, ...theme).className ?? "";
 }
 
 function show(t: Theme): void {

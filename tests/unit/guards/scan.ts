@@ -166,6 +166,15 @@ export function g8AliasesNeverRead(): Violation[] {
     .map((a) => ({ file: tokens, line: lineOf(text, text.indexOf(`  ${a}:`)), text: `color.${a} never read` }));
 }
 
+// ponytail: G1 — the type of a screen is one of the kit's styles (components/ui/type.ts), so changing the design's type
+// changes every screen; no size, weight, line height, letter spacing or face is picked outside the kit
+export function g1TypeOutsideKit(): Violation[] {
+  return grep(
+    UI().filter((f) => !KIT(f) && !f.startsWith("src/ui/styles/")),
+    /\b(?:fontSize|fontWeight|lineHeight|letterSpacing|fontFamily)\.\w+/,
+  );
+}
+
 export const GUARDS = {
   "N1a unknown or dynamic command names in src/ui": n1aUnknownCommands,
   "N1b value imports from src/core or src/shared/run in src/ui": n1bValueImportsFromCore,
@@ -180,6 +189,7 @@ export const GUARDS = {
   "N7 setTimeout or setInterval in src/core": n7WaitsOutsideWork,
   "G8 token values written by scripts/tokens.ts, not read from design/tokens.css": g8TokensOutsideDesign,
   "G8 vocabulary colour aliases of tokens.css never read in src/ui": g8AliasesNeverRead,
+  "G1 font size, weight, line height, letter spacing or face picked outside the kit": g1TypeOutsideKit,
 } as const;
 
 export type GuardName = keyof typeof GUARDS;

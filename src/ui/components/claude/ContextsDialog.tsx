@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { discardAutosave } from "../../lib/data/autosave.ts";
 import { key, useRead } from "../../lib/data/query.ts";
 import { errorToast } from "../../lib/toast.ts";
-import { border, color, fontFamily, size, space } from "../../styles/tokens.stylex.ts";
+import { border, color, size, space } from "../../styles/tokens.stylex.ts";
 import { Button } from "../ui/Button.tsx";
 import { EmptyState } from "../ui/EmptyState.tsx";
 import { Icon } from "../ui/Icon.tsx";
@@ -36,7 +36,7 @@ const styles = stylex.create({
   },
   main: { paddingInlineStart: space.s6, minWidth: 0, minHeight: 0, overflowY: "auto" },
   centered: { display: "flex", alignItems: "center", justifyContent: "center" },
-  path: { display: "inline-flex", alignItems: "center", gap: space.s2, fontFamily: fontFamily.mono },
+  path: { display: "inline-flex", alignItems: "center", gap: space.s2 },
   muted: { color: color.textSubtle },
 });
 
@@ -99,7 +99,7 @@ export function ContextsDialog({ onClose, initialId }: { onClose: () => void; in
       onClose={onClose}
       footNote={
         detail && (
-          <span {...stylex.props(styles.path)}>
+          <span {...stylex.props(type.mono, styles.path)}>
             <Icon name="folder" size="sm" />
             {detail.shared ? `shared library · ${detail.id}/` : `contexts/${detail.id}/`}
             {detail.shared && <span {...stylex.props(type.small, styles.muted)}>· deleted for every project</span>}

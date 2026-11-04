@@ -1,12 +1,12 @@
 import * as stylex from "@stylexjs/stylex";
 import { Marked } from "../../../components/ui/Marked.tsx";
 import { type } from "../../../components/ui/type.ts";
-import { color, fontFamily } from "../../../styles/tokens.stylex.ts";
+import { color } from "../../../styles/tokens.stylex.ts";
 import { Cell, type KitSection, States } from "../kit.tsx";
 
 const styles = stylex.create({
   row: { color: color.text },
-  snippet: { fontFamily: fontFamily.reading, color: color.textMuted },
+  snippet: { color: color.textMuted },
   passage: { margin: 0, color: color.text },
 });
 
@@ -35,7 +35,7 @@ export const section: KitSection = {
         </span>
       </Cell>
       <Cell label="search: several matches in a snippet" column>
-        <span {...stylex.props(type.compact, styles.snippet)}>
+        <span {...stylex.props(type.compact, type.readingFace, styles.snippet)}>
           <Marked text={SNIPPET} marks={["ouverture", "sectionneur", "tension"].map((w) => at(SNIPPET, w))} />
         </span>
       </Cell>

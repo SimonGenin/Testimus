@@ -13,7 +13,7 @@ import { project } from "../../lib/data/client.ts";
 import { read } from "../../lib/data/query.ts";
 import { plural } from "../../lib/format.ts";
 import { errorToast } from "../../lib/toast.ts";
-import { border, color, fontFamily, space } from "../../styles/tokens.stylex.ts";
+import { border, color, space } from "../../styles/tokens.stylex.ts";
 import { KeyText, SYNC_OF, SYNC_TIP } from "./list/rows.tsx";
 import { findFolder, flattenFolders, folderName } from "./list/tree.ts";
 
@@ -34,7 +34,6 @@ const styles = stylex.create({
     borderTopColor: color.border,
   },
   path: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" },
-  mono: { fontFamily: fontFamily.mono },
   range: { color: color.textMuted },
   meta: { display: "inline-flex", alignItems: "center", flexWrap: "wrap", gap: space.s2 },
   count: { color: color.textMuted },
@@ -209,7 +208,7 @@ export function JiraTab({
       {ready && (
         <>
           <div {...stylex.props(type.small, styles.head)}>
-            <span {...stylex.props(type.medium, styles.path, !(!query && folder === "/") && styles.mono)}>
+            <span {...stylex.props(type.medium, styles.path, !(!query && folder === "/") && type.mono)}>
               {query ? `search “${query}”` : folderName(folder)}
             </span>
             {!busy && (

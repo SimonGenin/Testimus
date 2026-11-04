@@ -90,9 +90,16 @@ export const type = stylex.create({
   tabular: { fontVariantNumeric: "tabular-nums" },
   /** the font of the interface, back from the reading or mono face (a UI word inside a passage) */
   ui: { fontFamily: fontFamily.ui },
+  /** the mono face alone, at the size around it: an id, a path, a key inside a sentence */
+  mono: { fontFamily: fontFamily.mono },
+  /** the reading face alone, at the size around it: a query or a quote inside a UI line */
+  readingFace: { fontFamily: fontFamily.reading },
 });
 
-export type TypeStyle = Exclude<keyof typeof type, "medium" | "strong" | "regular" | "tabular" | "ui">;
+export type TypeStyle = Exclude<
+  keyof typeof type,
+  "medium" | "strong" | "regular" | "tabular" | "ui" | "mono" | "readingFace"
+>;
 
 /** the styles a catalogue or a test walks, in the design's order */
 export const TYPE_STYLES: TypeStyle[] = [

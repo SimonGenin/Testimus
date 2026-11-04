@@ -4,7 +4,7 @@ import type { Job, JobEvent } from "../../../core/types.ts";
 import { activityOf, DOING, lasted, type Phase, type Verdict } from "../../lib/activity.ts";
 import { plural } from "../../lib/format.ts";
 import { clock } from "../../lib/jobs.ts";
-import { color, fontFamily, space } from "../../styles/tokens.stylex.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 import { JobLog } from "../shell/JobLog.tsx";
 import { Badge, type BadgeTone } from "../ui/Badge.tsx";
 import { Button } from "../ui/Button.tsx";
@@ -32,7 +32,7 @@ const styles = stylex.create({
   said: { display: "flex", gap: space.s2, margin: 0, color: color.claudeText },
   toggles: { display: "flex", flexWrap: "wrap", gap: space.s2 },
   steps: { margin: 0, paddingInlineStart: space.s5, display: "flex", flexDirection: "column", gap: space.s1 },
-  at: { fontFamily: fontFamily.mono, color: color.textSubtle, marginInlineEnd: space.s2 },
+  at: { color: color.textSubtle, marginInlineEnd: space.s2 },
   muted: { margin: 0, color: color.textSubtle },
 });
 
@@ -205,7 +205,7 @@ function PhaseBody({ phase: p, live, names }: { phase: Phase; live: boolean; nam
               data-level={a.level}
               {...stylex.props(a.level === "warn" && styles.warn, a.level === "error" && styles.error)}
             >
-              <span {...stylex.props(styles.at)}>{clock(a.at)}</span>
+              <span {...stylex.props(type.mono, styles.at)}>{clock(a.at)}</span>
               {a.text}
             </li>
           ))}

@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import type { SearchKind, SearchMatch } from "../../../core/types.ts";
-import { color, fontFamily, space } from "../../styles/tokens.stylex.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 import { Badge, ReviewBadge } from "../ui/Badge.tsx";
 import { Icon, type IconName } from "../ui/Icon.tsx";
 import type { ListItemProps } from "../ui/ListItem.tsx";
@@ -16,7 +16,6 @@ export const KIND: Record<SearchKind, { label: string; one: string; icon: IconNa
 const styles = stylex.create({
   where: { flex: "none", color: color.textMuted, marginInlineEnd: space.s3 },
   cut: { flex: "1 1 0", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
-  snippet: { fontFamily: fontFamily.reading },
   side: { display: "inline-flex", alignItems: "center", gap: space.s2 },
   key: { color: color.textMuted, whiteSpace: "nowrap" },
 });
@@ -28,7 +27,7 @@ export function hitRow(hit: SearchMatch): ListItemProps {
     hit.snippet !== undefined ? (
       <>
         {hit.where && <span {...stylex.props(type.medium, styles.where)}>{hit.where}</span>}
-        <span {...stylex.props(styles.cut, hit.kind === "passage" && styles.snippet)}>
+        <span {...stylex.props(styles.cut, hit.kind === "passage" && type.readingFace)}>
           <Marked text={hit.snippet} marks={hit.marks} />
         </span>
       </>
