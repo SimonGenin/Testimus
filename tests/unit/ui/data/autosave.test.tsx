@@ -133,6 +133,49 @@ describe("autosave", () => {
     expect(b.result.current.status).toBe("saved");
   });
 
+  it("after Reload from disk, the next edit is saved over the version read again, not the one before the conflict", async () => {
+    let disk = "7";
+    const save = vi.fn(async (_v: string, base: string | undefined) => {
+      if (base !== undefined && base !== disk) throw new ApiError("moved", undefined, 409, "conflict");
+      disk = "8";
+      return "8";
+    });
+    const h = setup({ save });
+    act(() => h.result.current.set("edit"));
+    h.rerender({ ...h.props, value: "theirs", base: "7", save });
+    expect(h.result.current.status).toBe("conflict");
+    act(() => h.result.current.takeDisk());
+    h.rerender({ ...h.props, value: "theirs", base: "7", save });
+    expect(h.result.current.value).toBe("theirs");
+    act(() => h.result.current.set("theirs, then mine"));
+    await act(() => vi.advanceTimersByTimeAsync(400));
+    expect(save).toHaveBeenLastCalledWith("theirs, then mine", "7");
+    expect(h.result.current.status).toBe("saved");
+    act(() => h.result.current.set("and again"));
+    await act(() => vi.advanceTimersByTimeAsync(400));
+    expect(save).toHaveBeenLastCalledWith("and again", "8");
+    expect(h.result.current.status).toBe("saved");
+  });
+
+  it("after a save refused as a conflict, Reload from disk takes the version the read brings back", async () => {
+    let disk = "7";
+    const save = vi.fn(async (_v: string, base: string | undefined) => {
+      if (base !== undefined && base !== disk) throw new ApiError("moved", undefined, 409, "conflict");
+      disk = "8";
+      return "8";
+    });
+    const h = setup({ save });
+    act(() => h.result.current.set("edit"));
+    await act(() => vi.advanceTimersByTimeAsync(400));
+    expect(h.result.current.status).toBe("conflict");
+    act(() => h.result.current.takeDisk());
+    h.rerender({ ...h.props, value: "theirs", base: "7", save });
+    act(() => h.result.current.set("mine over theirs"));
+    await act(() => vi.advanceTimersByTimeAsync(400));
+    expect(save).toHaveBeenLastCalledWith("mine over theirs", "7");
+    expect(h.result.current.status).toBe("saved");
+  });
+
   it("sees a change on disk under a pending edit as a conflict instead of overwriting it", async () => {
     const save = vi.fn(async () => "9");
     const h = setup({ save, delay: "blur" });

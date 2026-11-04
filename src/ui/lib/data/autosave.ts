@@ -167,6 +167,8 @@ export function useAutosave<T>(o: AutosaveOptions<T>): Autosave<T> {
   void version;
   const ro = useRef(o.readOnly ?? false);
   ro.current = o.readOnly ?? false;
+  const read = useRef(o.base);
+  read.current = o.base;
 
   useEffect(() => {
     if (o.base === undefined) return;
@@ -208,8 +210,11 @@ export function useAutosave<T>(o: AutosaveOptions<T>): Autosave<T> {
     flush: () => send(e),
     retry: () => send(e),
     keepMine: () => send(e, true),
+    // ponytail: the edit goes and the version read last becomes the base — a read that comes back the same would not
+    // move it, and the next edit would be refused as a conflict nobody made
     takeDisk: () => {
       discardAutosave(o.key);
+      if (read.current !== undefined) e.base = read.current;
       void client.invalidateQueries({ queryKey: o.key as unknown as readonly unknown[] });
     },
     readOnly: o.readOnly ?? false,
