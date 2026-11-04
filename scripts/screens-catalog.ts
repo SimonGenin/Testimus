@@ -928,6 +928,9 @@ function slowShots(): Shot[] {
       note: "Pushing to Jira",
       hash: `#/tests/${T1398}`,
       prep: async (p, s) => {
+        // ponytail: the earlier shots left 60 s Claude runs going, and a Claude run locks the editor and Push
+        for (const j of (await s.api<{ id: string }[]>("jobs.list", { running: true })) ?? [])
+          await s.api("jobs.cancel", { id: j.id }).catch(() => {});
         await openTest(p, s, T1420);
         await tap(p, "Push to Jira");
         await dialog(p, "Push plan");
