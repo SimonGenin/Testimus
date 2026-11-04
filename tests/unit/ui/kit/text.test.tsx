@@ -251,6 +251,20 @@ describe("Text", () => {
 });
 
 describe("Chip", () => {
+  it("a warning tone is tinted whether pressed or not, its icon too (the « Jira version » toggle)", () => {
+    render(
+      <>
+        <Chip label="Jira version" tone="warning" icon="clock" pressed={false} onToggle={() => {}} />
+        <Chip label="Plain" icon="clock" pressed={false} onToggle={() => {}} />
+      </>,
+    );
+    const warn = screen.getByRole("button", { name: "Jira version" });
+    const plain = screen.getByRole("button", { name: "Plain" });
+    expect(warn).toHaveAttribute("aria-pressed", "false");
+    expect(warn.className).not.toBe(plain.className);
+    expect(warn.querySelector("span")?.className).not.toBe(plain.querySelector("span")?.className);
+  });
+
   it("as a toggle is a pressed button; off it can be struck through", () => {
     const onToggle = vi.fn();
     render(<Chip label="Glossaire" pressed onToggle={onToggle} tone="claude" icon="context" />);
