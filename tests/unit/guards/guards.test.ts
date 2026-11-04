@@ -8,7 +8,7 @@ const LIMITS: Record<GuardName, number> = {
   "N1c fetch, EventSource or browser storage outside lib/data and lib/prefs": 0,
   "N1d routes served by faces/http.ts outside the known list": 0,
   "N2 bare button, input, textarea, select or contentEditable outside components/ui": 0,
-  "N2 old kit files left in components/legacy": 27,
+  "N2 old kit files left in components/legacy": 0,
   "N4a literal colours or px sizes outside tokens.stylex.ts": 371,
   "N4c CSS files (other than fonts) and raw HTML in src/ui": 7,
   "N4d inline styles with only constant values": 0,

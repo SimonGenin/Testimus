@@ -6,7 +6,7 @@ import { setProject } from "../../../../src/ui/api.ts";
 import { ConnectClaude } from "../../../../src/ui/components/claude/ConnectClaude.tsx";
 import { cap, ModelPicker } from "../../../../src/ui/components/claude/ModelPicker.tsx";
 import { OnTopToggle } from "../../../../src/ui/components/claude/OnTopToggle.tsx";
-import { Toasts } from "../../../../src/ui/components/legacy/index.ts";
+import { Toaster } from "../../../../src/ui/components/ui/Toast.tsx";
 import { readAlwaysOnTop, restoreAlwaysOnTop, setAlwaysOnTop } from "../../../../src/ui/lib/desktop.ts";
 import { closeToast, useToasts } from "../../../../src/ui/lib/toast.ts";
 import { dataWrapper, fakeNet } from "../../cov-uishell-helpers.tsx";
@@ -18,7 +18,7 @@ const render = ((ui: Parameters<typeof rtlRender>[0], o?: Parameters<typeof rtlR
 let ids: number[] = [];
 function Probe() {
   ids = useToasts().map((t) => t.id);
-  return <Toasts />;
+  return <Toaster />;
 }
 
 beforeEach(() => fakeNet());

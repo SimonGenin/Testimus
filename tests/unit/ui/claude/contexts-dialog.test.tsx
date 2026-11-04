@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render as rtlRender, screen, waitFor } from "@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setProject } from "../../../../src/ui/api.ts";
 import { CONTEXTS_EVENT, ContextsDialog, contextLine } from "../../../../src/ui/components/claude/ContextsDialog.tsx";
-import { Toasts } from "../../../../src/ui/components/legacy/index.ts";
+import { Toaster } from "../../../../src/ui/components/ui/Toast.tsx";
 import { closeToast, useToasts } from "../../../../src/ui/lib/toast.ts";
 import { callsOf, dataWrapper, Fail, fakeNet, net } from "../../cov-uishell-helpers.tsx";
 import { fakeDesktop, noDesktop } from "../../ui-desktop-helpers.tsx";
@@ -15,7 +15,7 @@ const render = ((ui: Parameters<typeof rtlRender>[0], o?: Parameters<typeof rtlR
 let ids: number[] = [];
 function Probe() {
   ids = useToasts().map((t) => t.id);
-  return <Toasts />;
+  return <Toaster />;
 }
 
 type Ctx = { id: string; name: string; notes: string; paths: string[]; files: string[] };

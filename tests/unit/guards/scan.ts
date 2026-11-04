@@ -45,7 +45,7 @@ export function grep(
 const UI = () => files("src/ui");
 const DATA_LAYER = (f: string) => f.startsWith("src/ui/lib/data/") || f === "src/ui/lib/prefs.ts";
 const KIT = (f: string) => f.startsWith("src/ui/components/ui/");
-// ponytail: the old kit waits in components/legacy/ until the last screen has moved to the new one (wave 4)
+// ponytail: the old kit is gone (wave 5); this keeps it from coming back
 const LEGACY = (f: string) => f.startsWith("src/ui/components/legacy/");
 
 export async function n1aUnknownCommands(): Promise<Violation[]> {
@@ -81,7 +81,7 @@ export function n1dUnknownRoutes(): Violation[] {
 }
 
 export function n2BareControls(): Violation[] {
-  const list = files("src/ui", /\.tsx$/).filter((f) => !KIT(f) && !LEGACY(f));
+  const list = files("src/ui", /\.tsx$/).filter((f) => !KIT(f));
   return grep(list, /<(button|input|textarea|select)[\s>/]|contentEditable/);
 }
 

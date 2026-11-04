@@ -3,7 +3,7 @@ import { act, configure, render } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { vi } from "vitest";
 import type { Finding, Test } from "../../../../src/core/types.ts";
-import { Toasts } from "../../../../src/ui/components/legacy/index.ts";
+import { Toaster } from "../../../../src/ui/components/ui/Toast.tsx";
 import { AppContext, type AppState } from "../../../../src/ui/lib/app.ts";
 import { createQueryClient } from "../../../../src/ui/lib/data/query.ts";
 import { closeToast, useToasts } from "../../../../src/ui/lib/toast.ts";
@@ -70,7 +70,7 @@ export function mountReview(ui: ReactNode, over: Partial<AppState> = {}) {
     <QueryClientProvider client={client}>
       <AppContext.Provider value={value}>
         {node}
-        <Toasts />
+        <Toaster />
       </AppContext.Provider>
     </QueryClientProvider>
   );

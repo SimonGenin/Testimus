@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { AnswerText } from "../../../../src/ui/components/claude/AnswerText.tsx";
 import { ConnectClaude } from "../../../../src/ui/components/claude/ConnectClaude.tsx";
 import { RevertConflict } from "../../../../src/ui/components/claude/RevertConflict.tsx";
-import { Toasts } from "../../../../src/ui/components/legacy/index.ts";
+import { Toaster } from "../../../../src/ui/components/ui/Toast.tsx";
 import { closeToast, useToasts } from "../../../../src/ui/lib/toast.ts";
 import { dataWrapper } from "../../cov-uishell-helpers.tsx";
 
@@ -15,7 +15,7 @@ const render = ((ui: Parameters<typeof rtlRender>[0], o?: Parameters<typeof rtlR
 let ids: number[] = [];
 function Probe() {
   ids = useToasts().map((t) => t.id);
-  return <Toasts />;
+  return <Toaster />;
 }
 
 afterEach(() => {

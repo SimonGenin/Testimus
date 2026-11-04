@@ -9,7 +9,7 @@ import {
   fixOutcome,
   toolLabel,
 } from "../../../../src/ui/components/claude/ClaudeDock.tsx";
-import { Toasts } from "../../../../src/ui/components/legacy/index.ts";
+import { Toaster } from "../../../../src/ui/components/ui/Toast.tsx";
 import { AppContext, type AppState, type Focus } from "../../../../src/ui/lib/app.ts";
 import { setFlushHook } from "../../../../src/ui/lib/data/query.ts";
 import { closeToast, useToasts } from "../../../../src/ui/lib/toast.ts";
@@ -32,7 +32,7 @@ const render = ((ui: Parameters<typeof rtlRender>[0], o?: Parameters<typeof rtlR
 let toastIds: number[] = [];
 function ToastProbe() {
   toastIds = useToasts().map((t) => t.id);
-  return <Toasts />;
+  return <Toaster />;
 }
 
 beforeEach(() => {
