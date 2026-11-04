@@ -4,6 +4,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { setProject } from "../../../../src/ui/lib/data/client.ts";
 import { ProjectSection } from "../../../../src/ui/screens/settings/ProjectSection.tsx";
+import { choose, openList } from "../../helpers/select.ts";
 import { fakeDesktop } from "../../helpers/ui-desktop.tsx";
 import { calls, DIR, Fail, fakeNet, info, inputs, label, mountSettings, net, reset } from "./helpers.tsx";
 
@@ -91,10 +92,11 @@ describe("Settings › Project", () => {
     project = info({ language: "de" });
     mountSettings(<ProjectSection />);
     const lang = await waitFor(() => screen.getByRole("combobox", { name: "Language of the tests" }));
-    expect(within(lang).getByRole("option", { name: "de" })).toBeInTheDocument();
-    fireEvent.change(lang, { target: { value: "en" } });
+    expect(lang).toHaveTextContent("de");
+    expect(within(openList(lang)).getByRole("option", { name: "de" })).toHaveAttribute("aria-selected", "true");
+    choose(lang, "English");
     await waitFor(() => expect(inputs("project.set")).toEqual([{ language: "en" }]));
-    expect(lang).toHaveValue("en");
+    expect(lang).toHaveTextContent("English");
   });
 
   it("a refused language is put back and said", async () => {
@@ -103,9 +105,9 @@ describe("Settings › Project", () => {
     };
     mountSettings(<ProjectSection />);
     const lang = await waitFor(() => screen.getByRole("combobox", { name: "Language of the tests" }));
-    fireEvent.change(lang, { target: { value: "en" } });
+    choose(lang, "English");
     expect(await screen.findByText("Could not save the language")).toBeInTheDocument();
-    await waitFor(() => expect(lang).toHaveValue("fr"));
+    await waitFor(() => expect(lang).toHaveTextContent("Français"));
   });
 
   it("falls back on empty values; without a project nothing is asked", async () => {

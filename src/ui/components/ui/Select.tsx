@@ -1,25 +1,29 @@
 import * as stylex from "@stylexjs/stylex";
-import { useId } from "react";
+import { type MouseEvent, type Ref, useId } from "react";
 import { border, color, fontSize, lineHeight, radius, size, space } from "../../styles/tokens.stylex.ts";
+import type { ButtonProps } from "./Button.tsx";
 import { Field } from "./Field.tsx";
 import { halo } from "./halo.ts";
 import { Icon, type IconName } from "./Icon.tsx";
+import { Menu } from "./Menu.tsx";
 import { Tooltip } from "./Tooltip.tsx";
 
 const styles = stylex.create({
-  wrap: { position: "relative", display: "inline-flex", alignItems: "center", minWidth: 0 },
+  wrap: { position: "relative", display: "inline-flex", alignItems: "center", minWidth: 0, maxWidth: "100%" },
   block: { display: "flex", width: "100%" },
   start: { alignSelf: "flex-start" },
   select: {
     boxSizing: "border-box",
-    appearance: "none",
+    display: "flex",
+    alignItems: "center",
     flex: 1,
     minWidth: 0,
     height: size.controlMd,
     margin: 0,
     paddingBlock: 0,
     paddingInlineStart: space.s4,
-    paddingInlineEnd: `calc(${space.s3} + ${size.iconSm} + ${space.s2})`,
+    paddingInlineEnd: space.s3,
+    gap: space.s2,
     borderStyle: "solid",
     borderWidth: border.width,
     borderColor: { default: color.borderField, ":hover": color.borderControl, ":focus-visible": color.focusRing },
@@ -29,11 +33,13 @@ const styles = stylex.create({
     fontFamily: "inherit",
     fontSize: fontSize.compact,
     lineHeight: lineHeight.compact,
-    textOverflow: "ellipsis",
+    textAlign: "start",
     whiteSpace: "nowrap",
     cursor: "pointer",
     outline: "none",
   },
+  value: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" },
+  placeholder: { color: color.textSubtle },
   quiet: {
     borderColor: { default: "transparent", ":hover": "transparent", ":focus-visible": color.focusRing },
     backgroundColor: { default: "transparent", ":hover": color.surfaceHover },
@@ -43,6 +49,7 @@ const styles = stylex.create({
   sm: { height: size.controlSm, fontSize: fontSize.small },
   withLead: { paddingInlineStart: `calc(${space.s4} + ${size.iconMd} + ${space.s2})` },
   withPrefix: { paddingInlineStart: space.s1 },
+  open: { borderColor: color.focusRing },
   disabled: {
     backgroundColor: color.surfaceSunken,
     borderColor: color.border,
@@ -66,13 +73,7 @@ const styles = stylex.create({
     fontSize: fontSize.compact,
     whiteSpace: "nowrap",
   },
-  chevron: {
-    position: "absolute",
-    insetInlineEnd: space.s3,
-    display: "inline-flex",
-    color: color.textMuted,
-    pointerEvents: "none",
-  },
+  chevron: { flex: "none", display: "inline-flex", color: color.textMuted },
   forceHover: { borderColor: color.borderControl },
   forceFocus: { borderColor: color.focusRing },
 });
@@ -80,8 +81,8 @@ const styles = stylex.create({
 export type SelectOption<V extends string> = {
   value: V;
   label: string;
-  /** a few words on the choice (« fast, for short asks »): the option's tooltip, and the hint under a labelled select
-   * while it is the chosen one */
+  /** a few words on the choice (« fast, for short asks »): the second line of the option in the open list, and the
+   * hint under a labelled select while it is the chosen one */
   hint?: string;
   disabled?: boolean;
 };
@@ -111,11 +112,67 @@ export type SelectProps<V extends string> = {
   disabled?: boolean | string;
   block?: boolean;
   /** the catalogue only */
-  debugState?: "hover" | "focus";
+  debugState?: "hover" | "focus" | "open";
 };
 
-// ponytail: one value from a short known list; the list is the platform's own (accessible, keyboard) — more than about
-// twelve values or free text is a Text with suggestions, two values a Segmented choice or a Switch (SYSTEM.md)
+type TriggerProps = {
+  id: string;
+  label: string;
+  shown: string;
+  empty: boolean;
+  named: boolean;
+  describedBy?: string;
+  quiet: boolean;
+  small: boolean;
+  lead: boolean;
+  prefixed: boolean;
+  off: boolean;
+  debugState?: "hover" | "focus" | "open";
+  ref?: Ref<HTMLButtonElement>;
+  popup?: ButtonProps["popup"];
+  onClick?: (e: MouseEvent<HTMLButtonElement>) => void;
+};
+
+// ponytail: the closed field — a select-only combobox (its name is the label, its text the chosen option); Menu hands
+// it its ref, its popup state and its toggle, as it does a Button
+function Trigger(p: TriggerProps) {
+  return (
+    <button
+      ref={p.ref}
+      id={p.id}
+      type="button"
+      role="combobox"
+      aria-label={p.named ? undefined : p.label}
+      aria-describedby={p.describedBy}
+      aria-haspopup="listbox"
+      aria-expanded={p.popup?.open ?? false}
+      aria-controls={p.popup?.controls}
+      disabled={p.off}
+      onClick={p.onClick}
+      {...stylex.props(
+        styles.select,
+        halo.visible,
+        p.quiet && styles.quiet,
+        p.small && styles.sm,
+        p.lead && styles.withLead,
+        p.prefixed && styles.withPrefix,
+        p.popup?.open && styles.open,
+        p.debugState === "hover" && styles.forceHover,
+        p.debugState === "focus" && [styles.forceFocus, halo.shown],
+        p.off && styles.disabled,
+      )}
+    >
+      <span {...stylex.props(styles.value, p.empty && !p.off && styles.placeholder)}>{p.shown}</span>
+      <span aria-hidden="true" {...stylex.props(styles.chevron)}>
+        <Icon name="chevron-down" size="sm" />
+      </span>
+    </button>
+  );
+}
+
+// ponytail: one value from a short known list; the open list is the kit's Menu (SYSTEM.md Select: « a select never draws
+// its own list ») — more than about twelve values or free text is a Text with suggestions, two values a Segmented choice
+// or a Switch
 export function Select<V extends string>({
   id: givenId,
   value,
@@ -136,7 +193,8 @@ export function Select<V extends string>({
   const auto = useId();
   const id = givenId ?? auto;
   const off = disabled !== false;
-  const shownHint = hint ?? options.find((o) => o.value === value)?.hint;
+  const chosen = options.find((o) => o.value === value);
+  const shownHint = hint ?? chosen?.hint;
   const field = (
     <span {...stylex.props(styles.wrap, block && styles.block, showLabel && !block && styles.start)}>
       {prefix && (
@@ -150,39 +208,37 @@ export function Select<V extends string>({
           <Icon name={icon} />
         </span>
       )}
-      <select
-        id={id}
-        aria-label={showLabel ? undefined : label}
-        aria-describedby={showLabel && shownHint ? `${id}-hint` : undefined}
-        value={value ?? ""}
-        disabled={off}
-        onChange={(e) => onChange(e.target.value as V)}
-        {...stylex.props(
-          styles.select,
-          halo.visible,
-          appearance === "quiet" && styles.quiet,
-          s === "sm" && styles.sm,
-          icon && !prefix && styles.withLead,
-          prefix !== undefined && styles.withPrefix,
-          debugState === "hover" && styles.forceHover,
-          debugState === "focus" && [styles.forceFocus, halo.shown],
-          off && styles.disabled,
-        )}
-      >
-        {value === null && (
-          <option value="" disabled>
-            {placeholder ?? "Choose…"}
-          </option>
-        )}
-        {options.map((o) => (
-          <option key={o.value} value={o.value} disabled={o.disabled} title={o.hint}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-      <span {...stylex.props(styles.chevron)}>
-        <Icon name="chevron-down" size="sm" />
-      </span>
+      <Menu
+        label={label}
+        listbox
+        block
+        debugState={debugState === "open" ? "open" : undefined}
+        entries={options.map((o) => ({
+          label: o.label,
+          description: o.hint,
+          checked: o.value === value,
+          disabled: o.disabled,
+          onSelect: () => {
+            if (o.value !== value) onChange(o.value);
+          },
+        }))}
+        trigger={
+          <Trigger
+            id={id}
+            label={label}
+            shown={chosen?.label ?? placeholder ?? "Choose…"}
+            empty={!chosen}
+            named={showLabel}
+            describedBy={showLabel && shownHint ? `${id}-hint` : undefined}
+            quiet={appearance === "quiet"}
+            small={s === "sm"}
+            lead={!!icon && !prefix}
+            prefixed={prefix !== undefined}
+            off={off}
+            debugState={debugState}
+          />
+        }
+      />
     </span>
   );
   const shown = typeof disabled === "string" ? <Tooltip label={disabled}>{field}</Tooltip> : field;

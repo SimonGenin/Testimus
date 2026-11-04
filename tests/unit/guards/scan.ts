@@ -175,6 +175,22 @@ export function g1TypeOutsideKit(): Violation[] {
   );
 }
 
+// ponytail: G2 — a select's open list is the kit's Menu (SYSTEM.md Select), never the browser's own list, anywhere
+export function g2BrowserLists(): Violation[] {
+  return grep(files("src/ui", /\.tsx$/), /<(?:select|option|datalist)\b/);
+}
+
+// ponytail: G2 — a framed box (an edge and rounded corners) drawn by a screen is a Card, a Banner or a kit piece; the
+// ones left are counted so the list may only shrink
+export function g2FramesOutsideKit(): Violation[] {
+  const list = files("src/ui", /\.tsx$/).filter((f) => !KIT(f) && !f.startsWith("src/ui/screens/kit/"));
+  return grep(
+    list,
+    /^ {2}(\w+): \{\n(?:(?! {2}\}).*\n)*? {2}\},?$/m,
+    (m) => /borderStyle: "(?:solid|dashed)"/.test(m[0]) && /borderRadius:/.test(m[0]),
+  );
+}
+
 export const GUARDS = {
   "N1a unknown or dynamic command names in src/ui": n1aUnknownCommands,
   "N1b value imports from src/core or src/shared/run in src/ui": n1bValueImportsFromCore,
@@ -190,6 +206,8 @@ export const GUARDS = {
   "G8 token values written by scripts/tokens.ts, not read from design/tokens.css": g8TokensOutsideDesign,
   "G8 vocabulary colour aliases of tokens.css never read in src/ui": g8AliasesNeverRead,
   "G1 font size, weight, line height, letter spacing or face picked outside the kit": g1TypeOutsideKit,
+  "G2 the browser's own select, option or datalist list in src/ui": g2BrowserLists,
+  "G2 framed boxes (edge and rounded corners) drawn outside the kit": g2FramesOutsideKit,
 } as const;
 
 export type GuardName = keyof typeof GUARDS;

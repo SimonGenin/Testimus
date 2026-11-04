@@ -3,12 +3,13 @@ import type { FigureEntry } from "../../../core/types.ts";
 import { Answer } from "../../components/ui/Answer.tsx";
 import { Badge } from "../../components/ui/Badge.tsx";
 import { Button } from "../../components/ui/Button.tsx";
+import { Card } from "../../components/ui/Card.tsx";
 import { Facts } from "../../components/ui/Facts.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { type } from "../../components/ui/type.ts";
 import { fileUrl } from "../../lib/data/client.ts";
 import { useRead } from "../../lib/data/query.ts";
-import { border, color, radius, space } from "../../styles/tokens.stylex.ts";
+import { color, radius, space } from "../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
   img: {
@@ -23,25 +24,12 @@ const styles = stylex.create({
     overflow: "hidden",
   },
   pic: { maxWidth: "100%", maxHeight: "100%", objectFit: "contain" },
-  detail: {
-    boxSizing: "border-box",
-    display: "flex",
-    flexDirection: "column",
-    gap: space.s5,
-    padding: space.s5,
-    borderStyle: "solid",
-    borderWidth: border.width,
-    borderColor: color.border,
-    borderRadius: radius.r3,
-    minWidth: 0,
-  },
   figure: { margin: 0, display: "flex", flexDirection: "column", gap: space.s2 },
   caption: { color: color.textMuted },
   reading: { display: "flex", flexDirection: "column", gap: space.s2 },
   description: { margin: 0, color: color.text },
   small: { margin: 0, color: color.textMuted },
   labels: { color: color.text },
-  acts: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s3 },
 });
 
 export const isDescribed = (f: FigureEntry) => !!f.description.trim();
@@ -88,64 +76,69 @@ export function FigureDetail({
   const described = !!figure.description.trim();
   const name = figure.caption || figure.anchor;
   return (
-    <aside aria-label={name} {...stylex.props(styles.detail)}>
-      <figure {...stylex.props(styles.figure)}>
-        <FigureImage docId={docId} figure={figure} />
-        {figure.caption && <figcaption {...stylex.props(type.small, styles.caption)}>{figure.caption}</figcaption>}
-      </figure>
-      <Facts
-        items={[
-          {
-            label: "Anchor",
-            value: (
-              <span {...stylex.props(type.code)}>
-                {docId}#{figure.anchor}
+    <aside aria-label={name}>
+      <Card
+        footer={
+          <>
+            <Button size="sm" icon="text" label="Show in the text" onClick={() => onOpen(figure.anchor)} />
+            {figure.file && (
+              <Button
+                size="sm"
+                variant="claude-quiet"
+                icon="claude"
+                label={described ? "Describe again" : "Describe it"}
+                loading={busy}
+                onClick={onDescribe}
+              />
+            )}
+          </>
+        }
+      >
+        <figure {...stylex.props(styles.figure)}>
+          <FigureImage docId={docId} figure={figure} />
+          {figure.caption && <figcaption {...stylex.props(type.small, styles.caption)}>{figure.caption}</figcaption>}
+        </figure>
+        <Facts
+          items={[
+            {
+              label: "Anchor",
+              value: (
+                <span {...stylex.props(type.code)}>
+                  {docId}#{figure.anchor}
+                </span>
+              ),
+            },
+            !!section && {
+              label: "Section",
+              value: <Button size="xs" variant="quiet" label={sectionLabel(section)} onClick={() => onOpen(section)} />,
+            },
+            !!figure.kind && { label: "Kind", value: figure.kind },
+          ]}
+        />
+        {described ? (
+          <Answer title="Claude's reading" meta="Description only — the caption is what a source can quote">
+            <span {...stylex.props(styles.reading)}>
+              <span {...stylex.props(type.compact, styles.description)}>{figure.description}</span>
+              <span {...stylex.props(type.small, styles.small)}>
+                {figure.labels?.length ? (
+                  <>
+                    Text in the picture:{" "}
+                    <span {...stylex.props(type.medium, styles.labels)}>{figure.labels.join(" · ")}</span>
+                  </>
+                ) : (
+                  "No text visible in the picture."
+                )}
               </span>
-            ),
-          },
-          !!section && {
-            label: "Section",
-            value: <Button size="xs" variant="quiet" label={sectionLabel(section)} onClick={() => onOpen(section)} />,
-          },
-          !!figure.kind && { label: "Kind", value: figure.kind },
-        ]}
-      />
-      {described ? (
-        <Answer title="Claude's reading" meta="Description only — the caption is what a source can quote">
-          <span {...stylex.props(styles.reading)}>
-            <span {...stylex.props(type.compact, styles.description)}>{figure.description}</span>
-            <span {...stylex.props(type.small, styles.small)}>
-              {figure.labels?.length ? (
-                <>
-                  Text in the picture:{" "}
-                  <span {...stylex.props(type.medium, styles.labels)}>{figure.labels.join(" · ")}</span>
-                </>
-              ) : (
-                "No text visible in the picture."
-              )}
             </span>
-          </span>
-        </Answer>
-      ) : (
-        <p {...stylex.props(type.small, styles.small)}>
-          {figure.file
-            ? "Claude has not read this picture yet: search finds it by its caption only."
-            : "The conversion kept no picture for this figure: only its caption is in the text."}
-        </p>
-      )}
-      <div {...stylex.props(styles.acts)}>
-        <Button size="sm" icon="text" label="Show in the text" onClick={() => onOpen(figure.anchor)} />
-        {figure.file && (
-          <Button
-            size="sm"
-            variant="claude-quiet"
-            icon="claude"
-            label={described ? "Describe again" : "Describe it"}
-            loading={busy}
-            onClick={onDescribe}
-          />
+          </Answer>
+        ) : (
+          <p {...stylex.props(type.small, styles.small)}>
+            {figure.file
+              ? "Claude has not read this picture yet: search finds it by its caption only."
+              : "The conversion kept no picture for this figure: only its caption is in the text."}
+          </p>
         )}
-      </div>
+      </Card>
     </aside>
   );
 }

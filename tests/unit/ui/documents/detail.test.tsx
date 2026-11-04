@@ -162,7 +162,7 @@ describe("DocDetail", () => {
     const figs = () => within(grid()).queryAllByRole("button");
     expect(figs()).toHaveLength(2);
     const tiles = within(grid()).getAllByRole("listitem");
-    const name = (tile: HTMLElement) => within(tile).getByRole("button").textContent;
+    const name = (tile: HTMLElement) => within(tile).getByRole("button").getAttribute("aria-label");
     expect(name(tiles[0])).toBe("Vue");
     expect(tiles[0]).toHaveTextContent("fig:fig-1");
     expect(tiles[0]).toHaveTextContent("screen");
@@ -183,9 +183,9 @@ describe("DocDetail", () => {
     const which = screen.getByRole("radiogroup", { name: "Which figures" });
     expect(within(which).getByRole("radio", { name: /^All/ })).toHaveTextContent("All 2");
     fireEvent.click(within(which).getByRole("radio", { name: /^Described/ }));
-    expect(figs().map((b) => b.textContent)).toEqual(["Vue"]);
+    expect(figs().map((b) => b.getAttribute("aria-label"))).toEqual(["Vue"]);
     fireEvent.click(within(which).getByRole("radio", { name: /^Not described/ }));
-    expect(figs().map((b) => b.textContent)).toEqual(["fig:fig-2"]);
+    expect(figs().map((b) => b.getAttribute("aria-label"))).toEqual(["fig:fig-2"]);
     const bare = screen.getByRole("complementary", { name: "fig:fig-2" });
     expect(bare).toHaveTextContent("The conversion kept no picture for this figure");
     expect(within(bare).queryByRole("button", { name: /^Describe/ })).toBeNull();
@@ -209,7 +209,7 @@ describe("DocDetail", () => {
     const grid = screen.getByRole("list", { name: "Figures" });
     fireEvent.click(within(grid).getByRole("button", { name: "Coupe" }));
     expect(within(grid).getByRole("button", { name: "Coupe" })).toHaveAttribute("aria-pressed", "true");
-    expect(within(grid).getByRole("button", { name: "Plan" })).toHaveAttribute("aria-pressed", "false");
+    expect(within(grid).getByRole("button", { name: "Plan" })).not.toHaveAttribute("aria-pressed");
     const detail = screen.getByRole("complementary", { name: "Coupe" });
     expect(detail).toHaveTextContent("Claude has not read this picture yet");
     fireEvent.click(within(detail).getByRole("button", { name: "Describe it" }));
@@ -238,7 +238,7 @@ describe("DocDetail", () => {
     expect(
       within(grid)
         .getAllByRole("button")
-        .map((b) => b.textContent),
+        .map((b) => b.getAttribute("aria-label")),
     ).toEqual(["Plan", "fig:b"]);
     expect(screen.queryByRole("button", { name: /^Describe \d/ })).toBeNull();
     fireEvent.click(screen.getByRole("radio", { name: /^Described/ }));

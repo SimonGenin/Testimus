@@ -76,7 +76,7 @@ describe("the dock's and the contexts' icons, as the design draws them", () => {
     expect(iconOf(await screen.findByRole("option", { name: /Glossaire RATP/ }))).toBe("context");
     fireEvent.click(screen.getByRole("button", { name: "Copy from another project…" }));
     const pick = await screen.findByRole("combobox", { name: "Project to copy from" });
-    expect(pick.parentElement?.querySelector('[data-icon="folder"]')).not.toBeNull();
+    expect(pick.parentElement?.parentElement?.querySelector('[data-icon="folder"]')).not.toBeNull();
     expect(iconOf(screen.getByRole("button", { name: "Copy into this project" }))).toBe("copy");
   });
 });

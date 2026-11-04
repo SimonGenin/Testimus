@@ -170,7 +170,7 @@ describe("TestsScreen", () => {
     expect(await screen.findAllByText(/^No project open\.?$/)).toHaveLength(2);
     expect(iconOf(screen.getByText("No project open."))).toBeUndefined();
     expect(screen.queryByText(/No test yet/)).toBeNull();
-    expect(screen.getByRole("textbox", { name: "Filter tests" })).toBeDisabled();
+    expect(screen.getByRole("searchbox", { name: "Filter tests" })).toBeDisabled();
     expect(
       within(screen.getByRole("complementary", { name: "Tests" })).getByRole("button", { name: "New test" }),
     ).toBeDisabled();

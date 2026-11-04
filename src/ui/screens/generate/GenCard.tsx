@@ -9,25 +9,13 @@ import { type } from "../../components/ui/type.ts";
 import { fileUrl } from "../../lib/data/client.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { plural } from "../../lib/format.ts";
-import { border, color, radius, space } from "../../styles/tokens.stylex.ts";
+import { color, radius, space } from "../../styles/tokens.stylex.ts";
 import { FindingSources, ReviewStep } from "../review/ReviewStep.tsx";
 import type { GenCheck } from "./GenResult.tsx";
 
 export type Landed = { id: string; test?: Test; ref?: LocalTestRef; check?: CheckFile | null };
 
 const styles = stylex.create({
-  wait: {
-    display: "flex",
-    flexDirection: "column",
-    gap: space.s3,
-    padding: space.s5,
-    borderRadius: radius.r3,
-    backgroundColor: color.surface,
-    borderStyle: "dashed",
-    borderWidth: border.width,
-    borderColor: color.border,
-  },
-  waitTitle: { color: color.textSubtle },
   meta: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s2, color: color.textSubtle },
   badges: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s2 },
   body: { display: "flex", flexDirection: "column", gap: space.s3 },
@@ -116,15 +104,12 @@ export function GenCard({
   const [folded, setFolded] = useState<Set<number>>(new Set());
   if (!item.test)
     return (
-      <div
-        role="status"
-        aria-busy="true"
-        aria-label={writing ? "Claude is writing a test" : "Loading a test"}
-        {...stylex.props(styles.wait)}
-      >
-        <span {...stylex.props(type.compact, styles.waitTitle)}>{writing ? "Writing…" : "Loading…"}</span>
-        <Skeleton kind="title" width="70%" />
-        <Skeleton lines={2} />
+      <div role="status" aria-busy="true" aria-label={writing ? "Claude is writing a test" : "Loading a test"}>
+        <Card dashed>
+          <span {...stylex.props(type.compact)}>{writing ? "Writing…" : "Loading…"}</span>
+          <Skeleton kind="title" width="70%" />
+          <Skeleton lines={2} />
+        </Card>
       </div>
     );
   const test = item.test;

@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CommandInfo, JsonSchema } from "../../../../src/ui/api.ts";
 import { CommandForm, formValue, hasInput } from "../../../../src/ui/components/shell/CommandForm.tsx";
+import { choose, openList } from "../../helpers/select.ts";
 import { callsOf, deferred, Fail, fakeEvents, fakeNet, net } from "../../helpers/ui-data.tsx";
 import { clearAllToasts, withData } from "./helpers.tsx";
 
@@ -117,7 +118,7 @@ describe("CommandForm", () => {
     expect(screen.getByLabelText("ids (optional)")).toHaveAttribute("placeholder", "comma-separated");
     fireEvent.change(screen.getByLabelText("id"), { target: { value: "local-1" } });
     fireEvent.click(screen.getByLabelText("flag (optional)"));
-    fireEvent.change(screen.getByLabelText("mode (optional)"), { target: { value: "b" } });
+    choose(screen.getByLabelText("mode (optional)"), "b");
     fireEvent.change(screen.getByLabelText("obj (optional)"), { target: { value: '{"a":1}' } });
     fireEvent.change(screen.getByLabelText("n (optional)"), { target: { value: "4" } });
     fireEvent.change(screen.getByLabelText("ids (optional)"), { target: { value: "x,y" } });
@@ -210,8 +211,8 @@ describe("CommandForm", () => {
     fireEvent.click(screen.getByRole("button", { name: "Back to results" }));
     expect(back).toHaveBeenCalled();
     const pick = await screen.findByRole("combobox", { name: "id" });
-    expect(within(pick).getByRole("option", { name: "SOSIE_4 · Signalisation" })).toBeInTheDocument();
-    fireEvent.change(pick, { target: { value: "SOSIE_4" } });
+    expect(within(openList(pick)).getByRole("option", { name: "SOSIE_4 · Signalisation" })).toBeInTheDocument();
+    choose(pick, "SOSIE_4 · Signalisation");
     expect(screen.getByRole("button", { name: /^Run/ })).toHaveTextContent("Ctrl+Enter");
     fireEvent.keyDown(pick, { key: "Enter", ctrlKey: true });
     await waitFor(() => expect(callsOf("docs.show")[0]?.input).toEqual({ id: "SOSIE_4" }));

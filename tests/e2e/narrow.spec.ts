@@ -12,7 +12,7 @@ test("the editor fits a 520 px window beside Jira: the test bar wraps, the list 
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
   await page.getByRole("button", { name: "Show test list" }).click();
   await expect(
-    page.getByRole("complementary", { name: "Tests" }).getByRole("textbox", { name: "Filter tests" }),
+    page.getByRole("complementary", { name: "Tests" }).getByRole("searchbox", { name: "Filter tests" }),
   ).toBeVisible();
   await shoot(page, "narrow-editor", ["light"]);
 });

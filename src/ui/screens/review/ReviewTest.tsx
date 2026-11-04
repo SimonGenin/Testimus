@@ -146,7 +146,6 @@ export function ReviewTest(p: ReviewTestProps) {
               finding={f}
               stale={stale}
               where="Whole test"
-              whole
               index={i}
               selected={p.selected}
               onSelect={(s) => p.onSelect(s, null, i)}

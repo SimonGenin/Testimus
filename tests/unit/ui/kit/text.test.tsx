@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { createRef, type ReactNode, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Chip } from "../../../../src/ui/components/ui/Chip.tsx";
@@ -10,6 +10,7 @@ import { type FieldAutosave, Text } from "../../../../src/ui/components/ui/Text.
 import { clearDrafts } from "../../../../src/ui/lib/data/autosave.ts";
 import { ApiError } from "../../../../src/ui/lib/data/client.ts";
 import { createQueryClient, type Key } from "../../../../src/ui/lib/data/query.ts";
+import { choose, openList } from "../../helpers/select.ts";
 
 const client = createQueryClient();
 const wrapper = ({ children }: { children: ReactNode }) => (
@@ -307,9 +308,12 @@ describe("Select", () => {
     const onChange = vi.fn();
     render(<Select label="Model" value="opus" options={options} onChange={onChange} />);
     const s = screen.getByRole("combobox", { name: "Model" });
-    fireEvent.change(s, { target: { value: "sonnet" } });
+    expect(s).toHaveTextContent("Opus");
+    expect(within(openList(s)).getByRole("option", { name: "Opus" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("option", { name: "Haiku" })).toHaveAttribute("aria-disabled", "true");
+    choose(s, "Sonnet");
     expect(onChange).toHaveBeenCalledWith("sonnet");
-    expect(screen.getByRole("option", { name: "Haiku" })).toBeDisabled();
+    expect(screen.queryByRole("listbox")).toBeNull();
   });
 
   it("shows a placeholder while nothing is chosen, a visible label, a prefix, an icon, quiet and small looks", () => {
@@ -324,8 +328,7 @@ describe("Select", () => {
         block
       />,
     );
-    expect(screen.getByRole("combobox", { name: "Folder" })).toHaveValue("");
-    expect(screen.getByRole("option", { name: "Choose a folder…" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Folder" })).toHaveTextContent("Choose a folder…");
     const looks = new Set<string>();
     for (const [name, p] of [
       ["boxed", {}],
@@ -346,7 +349,7 @@ describe("Select", () => {
     render(<Select label="Effort" value="opus" options={options} onChange={() => {}} disabled="Claude is working" />);
     const s = screen.getByRole("combobox", { name: "Effort" });
     expect(s).toBeDisabled();
-    expect(s.parentElement).toHaveAccessibleDescription("Claude is working");
+    expect(s.closest("[aria-describedby]")).toHaveAccessibleDescription("Claude is working");
   });
 });
 

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppState, ClaudeRun } from "../../../../src/ui/lib/app.ts";
 import { apply } from "../../../../src/ui/lib/data/events.ts";
 import { ReviewScreen } from "../../../../src/ui/screens/review/ReviewScreen.tsx";
+import { choose, openList } from "../../helpers/select.ts";
 import { clearToasts, fakeServer, item, mountReview, named, net, refused, reviewRoutes } from "./helpers.tsx";
 
 vi.mock("../../../../src/ui/screens/tests/TestEditor.tsx", () => ({
@@ -273,12 +274,13 @@ describe("Review screen", () => {
     await waitFor(() =>
       expect(named("review.queue").at(-1)?.input).toEqual({ state: ["validated"], sort: "anomalies" }),
     );
-    await waitFor(() => expect(screen.getByRole("option", { name: "/F" })).toBeInTheDocument());
-    fireEvent.change(screen.getByRole("combobox", { name: "Filter by folder" }), { target: { value: "/F" } });
+    const folder = screen.getByRole("combobox", { name: "Filter by folder" });
+    await waitFor(() => expect(within(openList(folder)).getByRole("option", { name: "/F" })).toBeInTheDocument());
+    choose(folder, "/F");
     await waitFor(() => expect(named("review.queue").at(-1)?.input).toMatchObject({ folder: "/F" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Only with findings" }));
     await waitFor(() => expect(named("review.queue").at(-1)?.input).toMatchObject({ withFindings: true }));
-    fireEvent.change(screen.getByRole("combobox", { name: "Sort the queue" }), { target: { value: "recent" } });
+    choose(screen.getByRole("combobox", { name: "Sort the queue" }), "Recent");
     await waitFor(() => expect(named("review.queue").at(-1)?.input).toMatchObject({ sort: "recent" }));
   });
 

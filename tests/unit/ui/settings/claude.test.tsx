@@ -4,6 +4,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { exeLine } from "../../../../src/ui/screens/settings/ClaudeProgram.tsx";
 import { ClaudeSection } from "../../../../src/ui/screens/settings/ClaudeSection.tsx";
+import { choose } from "../../helpers/select.ts";
 import { fakeDesktop } from "../../helpers/ui-desktop.tsx";
 import { calls, Fail, fakeJob, fakeNet, info, inputs, label, mountSettings, net, reset } from "./helpers.tsx";
 
@@ -259,11 +260,11 @@ describe("Settings › Claude › agents at once", () => {
 describe("Settings › Claude › dock defaults, quick asks, default contexts", () => {
   it("model and effort are saved at once", async () => {
     mountSettings(<ClaudeSection />);
-    fireEvent.change(await screen.findByLabelText("Default model"), { target: { value: "opus" } });
+    choose(await screen.findByLabelText("Default model"), "opus");
     await waitFor(() => expect(inputs("project.set")[0]).toEqual({ claude: { model: "opus" } }));
-    fireEvent.change(screen.getByRole("combobox", { name: "Default effort" }), { target: { value: "max" } });
+    choose(screen.getByRole("combobox", { name: "Default effort" }), "Max");
     await waitFor(() => expect(inputs("project.set")[1]).toEqual({ claude: { effort: "max" } }));
-    await waitFor(() => expect(screen.getByRole("combobox", { name: "Default effort" })).toHaveValue("max"));
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "Default effort" })).toHaveTextContent("Max"));
     const wrap = (el: HTMLElement) => el.parentElement?.getAttribute("class");
     expect(wrap(screen.getByLabelText("Default model"))).toBe(
       wrap(screen.getByRole("combobox", { name: "Default effort" })),
@@ -274,9 +275,9 @@ describe("Settings › Claude › dock defaults, quick asks, default contexts", 
     project = claude({ model: "claude-opus-4-1" });
     mountSettings(<ClaudeSection />);
     const model = await screen.findByLabelText("Default model");
-    expect(model).toHaveValue("custom");
+    expect(model).toHaveTextContent("custom…");
     expect(screen.getByRole("textbox", { name: "Custom model" })).toHaveValue("claude-opus-4-1");
-    fireEvent.change(model, { target: { value: "fable" } });
+    choose(model, "fable");
     await waitFor(() => expect(inputs("project.set")).toEqual([{ claude: { model: "fable" } }]));
   });
 

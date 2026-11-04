@@ -11,6 +11,7 @@ import { setProject } from "../../../../src/ui/lib/data/client.ts";
 import { restoreAlwaysOnTop } from "../../../../src/ui/lib/desktop.ts";
 import { AppearanceSection } from "../../../../src/ui/screens/settings/AppearanceSection.tsx";
 import { ClaudeSection } from "../../../../src/ui/screens/settings/ClaudeSection.tsx";
+import { choose, openList } from "../../helpers/select.ts";
 import { dataWrapper } from "../../helpers/ui-data.tsx";
 import { app } from "../../helpers/ui-desktop.tsx";
 
@@ -543,10 +544,10 @@ describe("contexts dialog", () => {
     render(<ContextsDialog onClose={() => {}} />);
     fireEvent.click(await screen.findByRole("button", { name: "Copy from another project…" }));
     const pick = await screen.findByRole("combobox", { name: "Project to copy from" });
-    expect(within(pick).queryByRole("option", { name: "Gone" })).toBeNull();
-    fireEvent.change(pick, { target: { value: "D:\\Other" } });
+    expect(within(openList(pick)).queryByRole("option", { name: "Gone" })).toBeNull();
+    choose(pick, "Other");
     const ctx = await screen.findByRole("combobox", { name: "Context to copy" });
-    expect(ctx).toHaveValue("ctx-g");
+    expect(ctx).toHaveTextContent("Glossaire");
     fireEvent.click(screen.getByRole("button", { name: "Copy into this project" }));
     await waitFor(() => expect(callsOf("contexts.copy")[0]?.input).toEqual({ from: "D:\\Other", id: "ctx-g" }));
     expect(await screen.findByRole("option", { name: /Glossaire/, selected: true })).toBeVisible();

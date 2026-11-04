@@ -25,7 +25,7 @@ export const section: KitSection = {
   guidelines: [
     {
       head: "Options",
-      text: "`boxed` (forms) or `quiet` (toolbars, the dock footer, the queue's sort) · `sm` | `md` · `prefix` (« Sort », « Folder ») · leading icon · `block` · an option's `hint` (its tooltip, and the hint under a labelled select while it is chosen). The label shown above is the kit's Field, the same as Text's. **States.** default · hover · focus/open (accent ring) · disabled (with the reason as tooltip) · placeholder (« Choose a folder… »). **Rules.** More than ~12 values or free text → a Text with suggestions (the folder field), not a select. Never use a select for two options: use a Segmented choice or a Switch.",
+      text: "`boxed` (forms) or `quiet` (toolbars, the dock footer, the queue's sort) · `sm` | `md` · `prefix` (« Sort », « Folder ») · leading icon · `block` · an option's `hint` (its second line in the open list, and the hint under a labelled select while it is chosen). The open list is the **Menu** (a listbox: the chosen option checked and focused, arrows, type-ahead, Escape) — never the platform's own list. The label shown above is the kit's Field, the same as Text's. **States.** default · hover · focus (accent ring) · open · disabled (with the reason as tooltip) · placeholder (« Choose a folder… »). **Rules.** More than ~12 values or free text → a Text with suggestions (the folder field), not a select. Never use a select for two options: use a Segmented choice or a Switch.",
     },
   ],
   states: () => (
@@ -54,6 +54,9 @@ export const section: KitSection = {
       <Cell label="hover · focus">
         <Select label="hover" value="key" options={sorts} debugState="hover" onChange={() => {}} />
         <Select label="focus" value="key" options={sorts} debugState="focus" onChange={() => {}} />
+      </Cell>
+      <Cell label="open: the list is the Menu" column>
+        <Select label="Model" value="sonnet" options={models} debugState="open" onChange={() => {}} />
       </Cell>
       <Cell label="disabled with its reason">
         <Select label="Model" value="key" options={sorts} disabled="Claude is working" onChange={() => {}} />

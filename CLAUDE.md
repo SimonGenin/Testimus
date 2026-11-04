@@ -127,7 +127,9 @@ tests/unit/          vitest, by area (core/<zone>/, ui/<zone>/, shared/, desktop
   types from `src/core/`); the one SSE stream keeps the cache true (`changed` paths, job events). No `fetch`,
   `EventSource` or browser storage elsewhere (`lib/prefs.ts` holds the presentation preferences). Every control is a
   kit component (`components/ui/`), and so is every drawn piece of the design (an answer, a passage, a raw block, a
-  pane…); a screen assembles them. Styles are StyleX in the component's own file, values only from
+  pane…), a framed box included (a `Card`, not an edge and a radius in the screen); nothing of the browser's own UI
+  shows (a select's list is the kit's `Menu`, a search field's cross is the kit's). Tests pick a select's option with
+  `tests/unit/helpers/select.ts`. A screen assembles them. Styles are StyleX in the component's own file, values only from
   `tokens.stylex.ts`, text only through the kit's `type.ts`: no `.css` but the fonts, no literal colour or px size, no
   constant inline style, no font size, weight, line height or face outside the kit.
   `tests/unit/guards/` fails `npm test` on each of these, and Biome refuses a bare control outside the kit.

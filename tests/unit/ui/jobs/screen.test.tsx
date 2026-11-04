@@ -9,6 +9,7 @@ import { applyJobEvent } from "../../../../src/ui/lib/data/events.ts";
 import { readPref } from "../../../../src/ui/lib/prefs.ts";
 import { JobState, JobsScreen } from "../../../../src/ui/screens/jobs/JobsScreen.tsx";
 import { iconsIn } from "../../helpers/icons.ts";
+import { choose } from "../../helpers/select.ts";
 import {
   callsOf,
   deferred,
@@ -337,7 +338,7 @@ describe("Jobs screen", () => {
     expect(await within(list()).findByText("No job matches")).toBeInTheDocument();
     fireEvent.click(within(list()).getByRole("button", { name: "Clear the filters" }));
     expect(within(list()).getByText("Add document")).toBeInTheDocument();
-    fireEvent.change(within(list()).getByRole("combobox", { name: "Kind" }), { target: { value: "check" } });
+    choose(within(list()).getByRole("combobox", { name: "Kind" }), "Check");
     expect(within(list()).queryByText("Add document")).toBeNull();
     fireEvent.click(within(list()).getByRole("switch", { name: "Group repeats" }));
     expect(within(list()).getAllByText("Check tests")).toHaveLength(2);

@@ -81,20 +81,9 @@ export function ListTools({
         icon="filter"
         ariaLabel="Filter tests"
         placeholder={local ? "Filter tests: words, steps, review:to-fix…" : "Filter folders and listed tests"}
+        type="search"
         value={filter}
         disabled={noProject}
-        trailing={
-          filter && (
-            <Button
-              size="xs"
-              variant="quiet"
-              iconOnly
-              icon="close"
-              label="Empty the filter"
-              onClick={() => onFilter("")}
-            />
-          )
-        }
         onChange={onFilter}
         onKeyDown={(e) => {
           if (e.key === "Enter") {

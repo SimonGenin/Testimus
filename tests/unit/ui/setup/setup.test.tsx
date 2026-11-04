@@ -7,6 +7,7 @@ import { AccessStep } from "../../../../src/ui/screens/setup/AccessStep.tsx";
 import { FirstRunScreen } from "../../../../src/ui/screens/setup/FirstRunScreen.tsx";
 import { ProjectStep, projectFolder } from "../../../../src/ui/screens/setup/ProjectStep.tsx";
 import { iconsIn } from "../../helpers/icons.ts";
+import { choose } from "../../helpers/select.ts";
 import { callsOf, deferred, Fail, fakeEvents, fakeNet, net, withApp } from "../../helpers/ui-data.tsx";
 import { fakeDesktop, noDesktop } from "../../helpers/ui-desktop.tsx";
 
@@ -305,7 +306,7 @@ describe("First launch › Project", () => {
     expect(screen.getByRole("heading", { name: "New project" })).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Jira project key"), { target: { value: " lfr " } });
     fireEvent.change(screen.getByLabelText("Name"), { target: { value: " RATP: Sosie. " } });
-    fireEvent.change(screen.getByLabelText("Language of the tests"), { target: { value: "en" } });
+    choose(screen.getByLabelText("Language of the tests"), "English");
     expect(screen.getByText(/D:\\Testimus\\Projects\\RATP Sosie$/)).toBeInTheDocument();
     fireEvent.click(create);
     await waitFor(() => expect(onOpened).toHaveBeenCalled());

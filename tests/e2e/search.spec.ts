@@ -20,7 +20,7 @@ test("Ctrl K searches the tests and the documents, and opens a hit", async ({ pa
 test("the tests list ranks by what the steps say and shows where", async ({ page }) => {
   await boot(page, "#/tests");
   const side = page.getByRole("complementary", { name: "Tests" });
-  await side.getByRole("textbox", { name: "Filter tests" }).fill("fermé");
+  await side.getByRole("searchbox", { name: "Filter tests" }).fill("fermé");
   const row = side
     .getByRole("option", { name: /Disjoncteur — ouverture à distance/ })
     .or(side.getByRole("treeitem", { name: /Disjoncteur — ouverture à distance/ }));

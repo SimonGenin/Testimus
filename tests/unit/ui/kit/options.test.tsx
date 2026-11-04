@@ -19,6 +19,7 @@ import { Select } from "../../../../src/ui/components/ui/Select.tsx";
 import { Skeleton } from "../../../../src/ui/components/ui/Skeleton.tsx";
 import { Tooltip } from "../../../../src/ui/components/ui/Tooltip.tsx";
 import { files, read } from "../../guards/scan.ts";
+import { openList } from "../../helpers/select.ts";
 
 afterEach(cleanup);
 
@@ -66,11 +67,12 @@ describe("Select (audit n° 50, 52)", () => {
     { value: "opus", label: "Opus", hint: "Thorough." },
   ];
 
-  it("an option's hint is its tooltip, and the chosen one's shows under a labelled select", () => {
+  it("an option's hint is its second line in the list, and the chosen one's shows under a labelled select", () => {
     render(<Select label="Model" showLabel value="opus" options={options} onChange={() => {}} />);
     const field = screen.getByRole("combobox", { name: "Model" });
     expect(field).toHaveAccessibleDescription("Thorough.");
-    expect(screen.getByRole("option", { name: "Haiku" })).toHaveAttribute("title", "Fast.");
+    openList(field);
+    expect(screen.getByRole("option", { name: "Haiku" })).toHaveAccessibleDescription("Fast.");
   });
 
   it("its shown label is the Field's, the same as a Text's", () => {

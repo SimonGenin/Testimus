@@ -133,6 +133,8 @@ export type CardProps = {
   /** the whole card opens something (a figure's tile, a test's summary): it is one button, with hover and focus; it
    * then holds no other control */
   onOpen?: () => void;
+  /** a card that opens: its name, when its whole text is too much to read out (a figure's tile: its caption) */
+  label?: string;
   children: ReactNode;
   /** false: the body has no padding (a list or a table fills it) */
   padded?: boolean;
@@ -154,6 +156,7 @@ export function Card({
   edge,
   dashed = false,
   onOpen,
+  label,
   children,
   padded = true,
   radio,
@@ -214,6 +217,8 @@ export function Card({
     return (
       <button
         type="button"
+        aria-label={label}
+        aria-pressed={selected || undefined}
         onClick={onOpen}
         {...stylex.props(
           frame,

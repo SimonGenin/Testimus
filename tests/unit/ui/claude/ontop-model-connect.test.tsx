@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { act, cleanup, fireEvent, render as rtlRender, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render as rtlRender, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setProject } from "../../../../src/ui/api.ts";
 import { ConnectClaude } from "../../../../src/ui/components/claude/ConnectClaude.tsx";
@@ -9,6 +9,7 @@ import { OnTopToggle } from "../../../../src/ui/components/claude/OnTopToggle.ts
 import { Toaster } from "../../../../src/ui/components/ui/Toast.tsx";
 import { readAlwaysOnTop, restoreAlwaysOnTop, setAlwaysOnTop } from "../../../../src/ui/lib/desktop.ts";
 import { closeToast, useToasts } from "../../../../src/ui/lib/toast.ts";
+import { choose, openList } from "../../helpers/select.ts";
 import { dataWrapper, fakeNet } from "../../helpers/ui-data.tsx";
 import { fakeDesktop, noDesktop } from "../../helpers/ui-desktop.tsx";
 
@@ -107,10 +108,10 @@ describe("ModelPicker", () => {
     const change = vi.fn();
     const { rerender } = render(<ModelPicker value="sonnet" onChange={change} />);
     const select = screen.getByRole("combobox", { name: "Model" });
-    expect(screen.getByRole("option", { name: "fable" })).toBeInTheDocument();
-    fireEvent.change(select, { target: { value: "opus" } });
+    expect(within(openList(select)).getByRole("option", { name: "fable" })).toBeInTheDocument();
+    choose(select, "opus");
     expect(change).toHaveBeenLastCalledWith("opus");
-    fireEvent.change(select, { target: { value: "custom" } });
+    choose(select, "custom…");
     const box = screen.getByRole("textbox", { name: "Custom model" });
     expect(box).toHaveValue("");
     fireEvent.blur(box);
@@ -128,7 +129,7 @@ describe("ModelPicker", () => {
     expect(change).toHaveBeenCalledTimes(2);
     rerender(<ModelPicker value="haiku" onChange={change} />);
     expect(screen.queryByRole("textbox", { name: "Custom model" })).toBeNull();
-    expect(screen.getByRole("combobox", { name: "Model" })).toHaveValue("haiku");
+    expect(screen.getByRole("combobox", { name: "Model" })).toHaveTextContent("haiku");
     rerender(<ModelPicker value="other-1" onChange={change} />);
     expect(screen.getByRole("textbox", { name: "Custom model" })).toHaveValue("other-1");
   });
@@ -140,7 +141,7 @@ describe("ModelPicker", () => {
         <ModelPicker id="m" value="mine" onChange={() => {}} />
       </>,
     );
-    expect(screen.getByLabelText("Default model")).toHaveValue("custom");
+    expect(screen.getByLabelText("Default model")).toHaveTextContent("custom…");
     expect(cap("")).toBe("");
     expect(cap("opus")).toBe("Opus");
   });

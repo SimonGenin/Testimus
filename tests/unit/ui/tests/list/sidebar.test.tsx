@@ -374,7 +374,7 @@ describe("Tests sidebar › search", () => {
     list({ refs: [local1398] });
     search("fermé");
     expect(screen.getByRole("tab", { name: /^Local/ })).toHaveAttribute("aria-selected", "true");
-    fireEvent.keyDown(screen.getByRole("textbox", { name: "Filter tests" }), { key: "Enter" });
+    fireEvent.keyDown(screen.getByRole("searchbox", { name: "Filter tests" }), { key: "Enter" });
     expect(screen.getByRole("tab", { name: /^Jira/ })).toHaveAttribute("aria-selected", "true");
     expect(await screen.findByText("1 found")).toBeInTheDocument();
   });

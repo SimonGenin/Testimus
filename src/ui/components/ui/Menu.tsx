@@ -34,6 +34,7 @@ const appear = stylex.keyframes({ from: { opacity: 0 }, to: { opacity: 1 } });
 
 const styles = stylex.create({
   wrap: { position: "relative", display: "inline-flex", maxWidth: "100%" },
+  block: { display: "flex", width: "100%" },
   wrapOpen: { flexDirection: "column", alignItems: "flex-start", gap: space.s2 },
   wrapOpenEnd: { alignItems: "flex-end" },
   menu: {
@@ -179,6 +180,10 @@ export type MenuProps = {
   debugState?: "open";
   /** the catalogue only: the item drawn as hovered */
   debugActive?: string;
+  /** the open list of a Select: a listbox of options (the checked one selected), at least as wide as its trigger */
+  listbox?: boolean;
+  /** the trigger fills its row (a block Select) */
+  block?: boolean;
 };
 
 type Section = { group?: string; entries: (MenuItem | "separator" | { note: string })[] };
@@ -196,7 +201,16 @@ const TYPE_AHEAD_MS = 500;
 
 // ponytail: a short list of actions or choices on a trigger (SYSTEM.md Menu) — role menu, roving focus on its items
 // (arrows, Home/End, type-ahead), Enter or Space acts, Escape and Tab close it and give the focus back to the trigger
-export function Menu({ trigger, entries, label, align = "start", debugState, debugActive }: MenuProps) {
+export function Menu({
+  trigger,
+  entries,
+  label,
+  align = "start",
+  debugState,
+  debugActive,
+  listbox = false,
+  block = false,
+}: MenuProps) {
   const id = useId();
   const [open, setOpen] = useState(false);
   const shown = open || debugState === "open";
@@ -213,13 +227,17 @@ export function Menu({ trigger, entries, label, align = "start", debugState, deb
     align,
     onDismiss: () => setOpen(false),
   });
-  const items = () => [...(list.current?.querySelectorAll<HTMLElement>('[role^="menuitem"]') ?? [])];
+  const items = () => [...(list.current?.querySelectorAll<HTMLElement>('[role^="menuitem"],[role="option"]') ?? [])];
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: the focus goes in when it opens, once
+  // ponytail: the focus goes in when it opens, once — on the chosen item when there is one
+  // biome-ignore lint/correctness/useExhaustiveDependencies: once, when it opens
   useEffect(() => {
     if (!open) return;
     const all = items();
-    (startAt.current === "last" ? all.at(-1) : all[0])?.focus();
+    const chosen = all.find(
+      (el) => el.getAttribute("aria-checked") === "true" || el.getAttribute("aria-selected") === "true",
+    );
+    (startAt.current === "last" ? all.at(-1) : (chosen ?? all[0]))?.focus();
   }, [open]);
 
   const close = () => {
@@ -269,18 +287,23 @@ export function Menu({ trigger, entries, label, align = "start", debugState, deb
 
   const withIcons = entries.some((e) => typeof e === "object" && "label" in e && e.icon);
   const row = (item: MenuItem) => {
+    // ponytail: an option of a Select is named by its label alone; its second line describes it
+    const described = listbox && item.description ? `${id}-d${entries.indexOf(item)}` : undefined;
     const off = item.disabled !== undefined && item.disabled !== false;
     const hot = debugActive === item.label;
     const el = (
       <button
         key={item.label}
         type="button"
-        {...(item.checked === undefined
-          ? { role: "menuitem" }
-          : { role: "menuitemcheckbox", "aria-checked": item.checked })}
+        {...(listbox
+          ? { role: "option", "aria-selected": item.checked === true }
+          : item.checked === undefined
+            ? { role: "menuitem" }
+            : { role: "menuitemcheckbox", "aria-checked": item.checked })}
         aria-disabled={off || undefined}
         tabIndex={-1}
         data-label={item.label}
+        aria-describedby={described}
         onMouseEnter={(e) => e.currentTarget.focus()}
         onClick={() => {
           if (off) return;
@@ -303,7 +326,11 @@ export function Menu({ trigger, entries, label, align = "start", debugState, deb
         )}
         <span {...stylex.props(styles.text)}>
           <span {...stylex.props(styles.label)}>{item.label}</span>
-          {item.description && <span {...stylex.props(styles.description)}>{item.description}</span>}
+          {item.description && (
+            <span id={described} aria-hidden={described ? true : undefined} {...stylex.props(styles.description)}>
+              {item.description}
+            </span>
+          )}
         </span>
         {item.hint && <span {...stylex.props(styles.hint)}>{item.hint}</span>}
         {item.shortcut && <Kbd>{item.shortcut}</Kbd>}
@@ -337,11 +364,16 @@ export function Menu({ trigger, entries, label, align = "start", debugState, deb
     <span
       ref={wrap}
       onKeyDown={onTriggerKey}
-      {...stylex.props(styles.wrap, inline && styles.wrapOpen, inline && align === "end" && styles.wrapOpenEnd)}
+      {...stylex.props(
+        styles.wrap,
+        block && styles.block,
+        inline && styles.wrapOpen,
+        inline && align === "end" && styles.wrapOpenEnd,
+      )}
     >
       {cloneElement(trigger, {
         ref: button,
-        popup: { kind: "menu", open: shown, controls: shown ? id : undefined },
+        popup: { kind: listbox ? "listbox" : "menu", open: shown, controls: shown ? id : undefined },
         onClick: (e: MouseEvent<HTMLButtonElement>) => {
           trigger.props.onClick?.(e);
           if (inline) return;
@@ -353,10 +385,9 @@ export function Menu({ trigger, entries, label, align = "start", debugState, deb
         <div
           ref={list}
           id={id}
-          role="menu"
-          aria-label={label ?? trigger.props.label}
+          {...{ role: listbox ? "listbox" : "menu", "aria-label": label ?? trigger.props.label }}
           onKeyDown={onListKey}
-          style={inline ? undefined : placed.style}
+          style={inline ? undefined : listbox ? { ...placed.style, minWidth: wrap.current?.offsetWidth } : placed.style}
           {...stylex.props(
             styles.menu,
             !inline && styles.layer,

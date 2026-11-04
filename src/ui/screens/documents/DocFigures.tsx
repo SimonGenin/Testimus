@@ -2,6 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import { useState } from "react";
 import type { FigureEntry } from "../../../core/types.ts";
 import { Button } from "../../components/ui/Button.tsx";
+import { Card } from "../../components/ui/Card.tsx";
 import { EmptyState } from "../../components/ui/EmptyState.tsx";
 import { Segmented } from "../../components/ui/Segmented.tsx";
 import { type } from "../../components/ui/type.ts";
@@ -9,7 +10,7 @@ import { useCommand } from "../../lib/data/query.ts";
 import { useProjectJobs } from "../../lib/projectJobs.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 import { importClaude } from "../../lib/uploads.ts";
-import { border, color, container, radius, size, space } from "../../styles/tokens.stylex.ts";
+import { color, container, size, space } from "../../styles/tokens.stylex.ts";
 import { DescribedBadge, FigureDetail, FigureImage, isDescribed } from "./FigureDetail.tsx";
 
 const styles = stylex.create({
@@ -43,22 +44,7 @@ const styles = stylex.create({
     padding: 0,
     listStyle: "none",
   },
-  tile: {
-    boxSizing: "border-box",
-    display: "flex",
-    flexDirection: "column",
-    gap: space.s3,
-    padding: space.s3,
-    borderStyle: "solid",
-    borderWidth: border.width,
-    borderColor: color.border,
-    borderRadius: radius.r3,
-    backgroundColor: { default: color.surface, ":hover": color.surfaceHover },
-    minWidth: 0,
-    overflow: "hidden",
-  },
-  picked: { borderColor: color.accent, boxShadow: `0 0 0 ${border.width} ${color.accent}` },
-  name: { display: "flex", minWidth: 0 },
+  name: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   meta: { display: "flex", alignItems: "center", gap: space.s3, color: color.textMuted },
   id: { color: color.textSubtle },
 });
@@ -153,23 +139,17 @@ export function DocFigures({
               {shown.map((f) => {
                 const on = f.anchor === current.anchor;
                 return (
-                  <li key={f.anchor} data-picked={on || undefined} {...stylex.props(styles.tile, on && styles.picked)}>
-                    <FigureImage docId={docId} figure={f} />
-                    <span {...stylex.props(styles.name)}>
-                      <Button
-                        size="sm"
-                        variant="quiet"
-                        label={f.caption || f.anchor}
-                        pressed={on}
-                        onClick={() => setPicked(f.anchor)}
-                      />
-                    </span>
-                    <span {...stylex.props(type.small, styles.meta)}>
-                      <span {...stylex.props(type.code, styles.id)}>{f.anchor}</span>
-                      {f.kind && <span>{f.kind}</span>}
-                      <span {...stylex.props(styles.grow)} />
-                      <DescribedBadge figure={f} />
-                    </span>
+                  <li key={f.anchor} data-picked={on || undefined}>
+                    <Card selected={on} label={f.caption || f.anchor} onOpen={() => setPicked(f.anchor)}>
+                      <FigureImage docId={docId} figure={f} />
+                      <span {...stylex.props(type.compact, type.medium, styles.name)}>{f.caption || f.anchor}</span>
+                      <span {...stylex.props(type.small, styles.meta)}>
+                        <span {...stylex.props(type.code, styles.id)}>{f.anchor}</span>
+                        {f.kind && <span>{f.kind}</span>}
+                        <span {...stylex.props(styles.grow)} />
+                        <DescribedBadge figure={f} />
+                      </span>
+                    </Card>
                   </li>
                 );
               })}

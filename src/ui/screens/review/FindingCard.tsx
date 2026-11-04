@@ -1,30 +1,15 @@
 import * as stylex from "@stylexjs/stylex";
 import type { Finding, Source } from "../../../core/types.ts";
 import { Badge, SeverityBadge } from "../../components/ui/Badge.tsx";
+import { Card } from "../../components/ui/Card.tsx";
 import { SourceChip } from "../../components/ui/SourceChip.tsx";
 import { type } from "../../components/ui/type.ts";
 import { parseSourceRef, sourcePlace } from "../../lib/fields.ts";
-import { border, color, radius, shadow, space } from "../../styles/tokens.stylex.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 import { findingMark, kindLabel, refKey } from "./sources.ts";
 
 const styles = stylex.create({
-  card: {
-    boxSizing: "border-box",
-    display: "flex",
-    flexDirection: "column",
-    gap: space.s2,
-    paddingBlock: space.s3,
-    paddingInline: space.s4,
-    borderWidth: border.width,
-    borderStyle: "solid",
-    borderColor: color.border,
-    borderRadius: radius.r2,
-    backgroundColor: color.surfaceSunken,
-  },
-  whole: { backgroundColor: color.surface, boxShadow: shadow.s1 },
-  selected: { borderColor: color.accent, boxShadow: `0 0 0 ${border.width} ${color.accent}` },
   head: { display: "flex", alignItems: "center", gap: space.s3, flexWrap: "wrap" },
-  grow: { flex: 1 },
   where: { color: color.textSubtle },
   message: { margin: 0, overflowWrap: "anywhere" },
   stale: { color: color.textMuted },
@@ -67,7 +52,6 @@ export function FindingCard({
   finding,
   stale,
   where,
-  whole = false,
   index,
   selected,
   onSelect,
@@ -75,7 +59,6 @@ export function FindingCard({
   finding: Finding;
   stale: boolean;
   where: string;
-  whole?: boolean;
   /** its place in the check's findings: the card is marked when the test opened on it */
   index: number;
   selected: string;
@@ -85,28 +68,31 @@ export function FindingCard({
   const by = finding.pass === "mechanical" ? "mechanical check" : finding.pass === "semantic" ? "read by Claude" : "";
   const on = selected === findingMark(index);
   return (
-    <div
-      role="note"
-      aria-label={`${stale ? "Out of date · " : ""}${SEVERITY_WORD[finding.severity]} · ${head}`}
-      {...stylex.props(styles.card, whole && styles.whole, on && styles.selected)}
-    >
-      <div {...stylex.props(styles.head)}>
-        <SeverityBadge severity={finding.severity} />
-        <span {...stylex.props(type.compact, type.medium)}>{head}</span>
-        {stale && <Badge size="sm" icon="history" label="Out of date" tooltip="The test changed after this check" />}
-        <span {...stylex.props(styles.grow)} />
-        <span {...stylex.props(type.small, styles.where)}>{by ? `${where} · ${by}` : where}</span>
-      </div>
-      <p {...stylex.props(type.body, styles.message, stale && styles.stale)}>{finding.message}</p>
-      {stale && (
-        <p {...stylex.props(type.small, styles.note)}>
-          The test changed after this check. Run the check again to confirm.
-        </p>
-      )}
-      <FindingSources finding={finding} index={index} selected={selected} onSelect={onSelect} />
-      {!finding.sources.length && finding.pass === "semantic" && (
-        <p {...stylex.props(type.small, styles.note)}>No passage was found for it.</p>
-      )}
+    <div role="note" aria-label={`${stale ? "Out of date · " : ""}${SEVERITY_WORD[finding.severity]} · ${head}`}>
+      <Card
+        selected={on}
+        title={
+          <span {...stylex.props(styles.head)}>
+            <SeverityBadge severity={finding.severity} />
+            {head}
+            {stale && (
+              <Badge size="sm" icon="history" label="Out of date" tooltip="The test changed after this check" />
+            )}
+          </span>
+        }
+        actions={<span {...stylex.props(type.small, styles.where)}>{by ? `${where} · ${by}` : where}</span>}
+      >
+        <p {...stylex.props(type.body, styles.message, stale && styles.stale)}>{finding.message}</p>
+        {stale && (
+          <p {...stylex.props(type.small, styles.note)}>
+            The test changed after this check. Run the check again to confirm.
+          </p>
+        )}
+        <FindingSources finding={finding} index={index} selected={selected} onSelect={onSelect} />
+        {!finding.sources.length && finding.pass === "semantic" && (
+          <p {...stylex.props(type.small, styles.note)}>No passage was found for it.</p>
+        )}
+      </Card>
     </div>
   );
 }

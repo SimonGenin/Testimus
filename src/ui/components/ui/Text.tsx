@@ -281,6 +281,14 @@ function TextField(p: TextProps) {
     if (typeof p.inputRef === "function") p.inputRef(el);
     else if (p.inputRef) (p.inputRef as { current: unknown }).current = el;
   };
+  // ponytail: a search field is a text input with the kit's own clear button (and Escape), never the browser's cross
+  const search = p.type === "search" && !multiline;
+  const clearable = search && !!p.value && !p.disabled && !locked && !!p.onChange;
+  const trailing =
+    p.trailing ||
+    (clearable && (
+      <Button size="xs" variant="quiet" iconOnly icon="close" label="Clear" onClick={() => p.onChange?.("")} />
+    ));
   const hintId = p.hint ? `${id}-hint` : undefined;
   const errorId = p.error ? `${id}-error` : undefined;
   const common = {
@@ -295,12 +303,20 @@ function TextField(p: TextProps) {
     "aria-label": p.label ? undefined : p.ariaLabel,
     "aria-invalid": p.error ? true : undefined,
     "aria-describedby": [hintId, errorId].filter(Boolean).join(" ") || undefined,
-    role: p.combobox ? "combobox" : undefined,
+    role: p.combobox ? "combobox" : search ? "searchbox" : undefined,
     "aria-expanded": p.combobox?.expanded,
     "aria-controls": p.combobox?.controls,
     "aria-activedescendant": p.combobox?.activeDescendant,
     "aria-autocomplete": p.combobox?.autocomplete,
-    onKeyDown: p.onKeyDown,
+    onKeyDown: (e: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      if (clearable && e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        p.onChange?.("");
+        return;
+      }
+      p.onKeyDown?.(e);
+    },
     onFocus: p.onFocus,
     onBlur: () => {
       void a?.flush();
@@ -359,12 +375,12 @@ function TextField(p: TextProps) {
           <input
             {...common}
             ref={setRef}
-            type={p.type ?? "text"}
+            type={search ? "text" : (p.type ?? "text")}
             onChange={(e) => p.onChange?.(e.target.value)}
             {...stylex.props(styles.value, p.leading !== undefined && styles.wrapsValue)}
           />
         )}
-        {p.trailing && <span {...stylex.props(styles.trail, multiline && styles.trailMulti)}>{p.trailing}</span>}
+        {trailing && <span {...stylex.props(styles.trail, multiline && styles.trailMulti)}>{trailing}</span>}
       </div>
       {!p.label && (a || claude) && <span {...stylex.props(styles.stateBelow)}>{word}</span>}
       {a?.status === "conflict" && (

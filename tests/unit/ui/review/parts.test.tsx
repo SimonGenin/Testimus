@@ -11,6 +11,7 @@ import { type QueueItem, ReviewQueue } from "../../../../src/ui/screens/review/R
 import { FindingSources, findingSummary, ReviewStep } from "../../../../src/ui/screens/review/ReviewStep.tsx";
 import { ReviewTest } from "../../../../src/ui/screens/review/ReviewTest.tsx";
 import { layoutOf } from "../../helpers/layout.ts";
+import { choose } from "../../helpers/select.ts";
 import { fakeServer } from "./helpers.tsx";
 
 beforeEach(() => {
@@ -174,15 +175,15 @@ describe("ReviewQueue", () => {
     fireEvent.click(rows[2]);
     expect(p.onOpen).toHaveBeenCalledWith("c");
     expect(rows[3]).toHaveTextContent("Not checked yet");
-    fireEvent.change(screen.getByRole("combobox", { name: "Sort the queue" }), { target: { value: "folder" } });
+    choose(screen.getByRole("combobox", { name: "Sort the queue" }), "Folder");
     expect(p.onSort).toHaveBeenCalledWith("folder");
     fireEvent.click(screen.getByRole("checkbox", { name: "Only with findings" }));
     expect(p.onWithFindings).toHaveBeenCalledWith(true);
     const folder = screen.getByRole("combobox", { name: "Filter by folder" });
-    expect(folder).toHaveValue("/A");
-    fireEvent.change(folder, { target: { value: "/B" } });
+    expect(folder).toHaveTextContent("/A");
+    choose(folder, "/B");
     expect(p.onFolder).toHaveBeenCalledWith("/B");
-    fireEvent.change(folder, { target: { value: "" } });
+    choose(folder, "All folders");
     expect(p.onFolder).toHaveBeenCalledWith("");
   });
 

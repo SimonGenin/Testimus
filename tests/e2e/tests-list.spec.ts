@@ -15,10 +15,10 @@ test("the local list groups tests by folder and filters by text", async ({ page 
   // ponytail: the two generated tests of the fixture are not validated yet — they wait in Review
   await expect(row(side, /LFRPS12-1420/)).toHaveCount(0);
   await expect(row(side, /^Sectionneur avec TK/)).toHaveCount(0);
-  await side.getByRole("textbox", { name: "Filter tests" }).fill("Disjoncteur");
+  await side.getByRole("searchbox", { name: "Filter tests" }).fill("Disjoncteur");
   await expect(row(side, /LFRPS12-1398/).first()).toBeVisible();
   await expect(side.getByRole("button", { name: /Search Jira for/ })).toBeVisible();
-  await side.getByRole("textbox", { name: "Filter tests" }).fill("");
+  await side.getByRole("searchbox", { name: "Filter tests" }).fill("");
   await row(side, /^Disjoncteur — ouverture à distance LFRPS12-1398/).click();
   await expect(page).toHaveURL(/#\/tests\/LFRPS12-1398$/);
   await expect(page.getByRole("main").getByRole("textbox", { name: "Summary" })).toHaveValue(
