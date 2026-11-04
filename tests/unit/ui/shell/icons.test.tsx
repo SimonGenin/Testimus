@@ -38,9 +38,23 @@ const cmd = (name: string, summary: string): CommandInfo => ({
 });
 const option = (name: string | RegExp) => screen.getByRole("option", { name });
 
+// ponytail: a screen reading the Jira folder tree
+function JiraTree() {
+  useRead("xray.folders", {});
+  return null;
+}
+
 describe("the shell's icons, as the design draws them", () => {
   it("palette: a document found is a file; a command is a chevron unless the design marks it", async () => {
-    const doc: SearchMatch = { kind: "document", id: "D", title: "Traction", titleMarks: [], marks: [], score: 1 };
+    const doc: SearchMatch = {
+      kind: "document",
+      id: "D",
+      title: "Traction",
+      titleMarks: [],
+      marks: [],
+      score: 1,
+      why: "words",
+    };
     net.routes["search.all"] = () => ({
       hits: [doc],
       totals: { document: 1 },
@@ -93,10 +107,6 @@ describe("the shell's icons, as the design draws them", () => {
       job({ id: "g", kind: "generate", subject: "Le sectionneur" }),
       job({ id: "i", kind: "rag-index", subject: "SOSIE_211_D401-1_4" }),
     ];
-    function JiraTree() {
-      useRead("xray.folders", {});
-      return null;
-    }
     withData(
       <>
         <Activity />

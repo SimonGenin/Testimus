@@ -505,6 +505,9 @@ describe("Claude dock: on a test", () => {
     ask("Go");
     fireEvent.click(await screen.findByRole("button", { name: /Revert/ }));
     const ask2 = await screen.findByRole("alertdialog", { name: "Revert anyway?" });
+    expect(ask2.querySelector('[data-icon="alert-circle"]')).not.toBeNull();
+    expect(ask2.querySelector('[data-icon="undo"]')).toBeNull();
+    expect(screen.getByRole("button", { name: "Revert anyway" }).querySelector("svg")).toBeNull();
     expect(ask2).toHaveTextContent("The test changed after the Claude run");
     fireEvent.click(screen.getByRole("button", { name: "Revert anyway" }));
     await waitFor(() => expect(forced).toBe(true));

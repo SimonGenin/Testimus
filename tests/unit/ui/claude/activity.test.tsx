@@ -260,6 +260,7 @@ describe("GenActivity", () => {
     expect(screen.queryByRole("button", { name: /raw log/ })).toBeNull();
     const fold = screen.getByRole("button", { name: "What Claude did" });
     expect(fold).toHaveAttribute("aria-expanded", "false");
+    expect(fold.querySelector('[data-icon="claude"]')).not.toBeNull();
     expect(screen.getByText("6 phases")).toBeInTheDocument();
     fireEvent.click(fold);
     expect(screen.getByRole("heading", { name: "Got ready" })).toBeInTheDocument();
@@ -421,6 +422,7 @@ describe("what the index and the check add", () => {
     );
     expect(screen.getByText("Followed links from").nextElementSibling?.textContent).toBe("Q §2.1");
     expect(screen.getByText("Every mention of").nextElementSibling?.textContent).toBe("“ShouldBeUnique”");
+    expect(screen.getByText("Every mention of").querySelector("[data-icon]")).toHaveAttribute("data-icon", "link");
     fireEvent.click(screen.getByRole("button", { name: "In order, one per line" }));
     expect(screen.getByText("Read Q fig:12")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Grouped" }));

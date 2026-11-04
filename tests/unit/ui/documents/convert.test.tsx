@@ -278,6 +278,11 @@ describe("Converting a document", () => {
       counts.compareDocumentPosition(within(dialog).getByText("While converting")) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(dialog).toHaveTextContent("It runs in Jobs; you can keep working.");
+    expect(
+      within(dialog)
+        .getByText(/It runs in Jobs/)
+        .querySelector("[data-icon]"),
+    ).toHaveAttribute("data-icon", "clock");
     const describe = within(dialog).getByRole("checkbox", { name: "Claude describes the figures not described yet" });
     expect(describe).toBeChecked();
     fireEvent.click(describe);

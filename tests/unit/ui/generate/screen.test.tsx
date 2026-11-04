@@ -140,6 +140,10 @@ describe("Generate screen", () => {
     expect(await screen.findByText("Generate needs a document")).toBeInTheDocument();
     expect(go()).toBeDisabled();
     expect(go()).toHaveAccessibleDescription("Add a document first");
+    expect(screen.getByRole("button", { name: "Go to Documents" }).querySelector("[data-icon]")).toHaveAttribute(
+      "data-icon",
+      "documents",
+    );
     fireEvent.click(screen.getByRole("button", { name: "Go to Documents" }));
     expect(a.navigate).toHaveBeenCalledWith("documents");
     expect(screen.queryByRole("region", { name: "Smart columns" })).toBeNull();

@@ -76,7 +76,12 @@ describe("the design's icons in the kit", () => {
     expect(screen.getByRole("button", { name: "Revert anyway" }).querySelector("svg")).toBeNull();
     cleanup();
     render(
-      <Modal title="Delete?" size="sm" confirm={{ verb: "Delete", danger: true, onConfirm: () => {} }} onClose={() => {}}>
+      <Modal
+        title="Delete?"
+        size="sm"
+        confirm={{ verb: "Delete", danger: true, onConfirm: () => {} }}
+        onClose={() => {}}
+      >
         x
       </Modal>,
     );

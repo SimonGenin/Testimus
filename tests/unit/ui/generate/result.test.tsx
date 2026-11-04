@@ -238,6 +238,42 @@ describe("Generate › result helpers", () => {
     expect(screen.queryByRole("button", { name: /Resume/ })).toBeNull();
   });
 
+  it("RunHead: a failed run is a danger banner that says why, with Try again (refresh) and the raw error folded", () => {
+    const onRetry = vi.fn();
+    render(
+      <RunHead
+        job={job({ status: "failed", endedAt: at, error: "spawn claude: usage limit" })}
+        now={Date.parse(at)}
+        result={output({
+          ok: false,
+          diagnosis: {
+            kind: "limit",
+            title: "Claude stopped before writing any test",
+            detail: "The usage limit was reached.",
+          },
+        })}
+        read={0}
+        count={0}
+        doing=""
+        onCancel={() => {}}
+        onReview={() => {}}
+        onRetry={onRetry}
+      />,
+    );
+    const banner = screen.getByRole("alert");
+    expect(banner).toHaveTextContent("Claude stopped before writing any test");
+    expect(banner).toHaveTextContent("The usage limit was reached.");
+    expect(banner.querySelector('[data-icon="alert-circle"]')).not.toBeNull();
+    expect(document.querySelector('[data-icon="x-circle"]')).toBeNull();
+    const again = within(banner).getByRole("button", { name: "Try again" });
+    expect(again.querySelector("[data-icon]")).toHaveAttribute("data-icon", "refresh");
+    fireEvent.click(again);
+    expect(onRetry).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("spawn claude: usage limit")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Technical details" }));
+    expect(screen.getByText("spawn claude: usage limit")).toBeInTheDocument();
+  });
+
   it("RunHead: a stopped plan offers to resume what is left", () => {
     const onResume = vi.fn();
     render(
