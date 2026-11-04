@@ -132,11 +132,14 @@ test("the window opens on the splash, reaches Documents, and is locked down", as
       location.hash = "#/documents";
     });
     await expect(page.getByRole("heading", { level: 1, name: "Documents" })).toBeVisible({ timeout: 30_000 });
+    // ponytail: the list is a pane on a wide window and a drawer behind a button on a narrower one; the first window
+    // reloads once to take its mirrored preferences back, which can swallow a click — so open it until it holds
     const list = page.getByRole("button", { name: "Show the document list" });
-    if (await list.isVisible()) await list.click();
-    await expect(
-      page.getByRole("region", { name: "Document list" }).getByRole("option", { name: /SOSIE_/ }),
-    ).toHaveCount(2);
+    const rows = page.getByRole("region", { name: "Document list" }).getByRole("option", { name: /SOSIE_/ });
+    await expect(async () => {
+      if ((await list.isVisible()) && (await list.getAttribute("aria-expanded")) !== "true") await list.click();
+      await expect(rows).toHaveCount(2, { timeout: 2_000 });
+    }).toPass({ timeout: 30_000 });
     await expect(page.getByRole("button", { name: /^Project LFRPS12/ })).toBeVisible();
 
     expect(logText(shell.local)).toContain("core ready on http://127.0.0.1:");

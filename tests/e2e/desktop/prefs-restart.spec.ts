@@ -70,7 +70,7 @@ test("a preference chosen in the desktop app is there after the window restarts 
   const second = await launch(env);
   expect(second.origin).toBe(first.origin);
   await expect(second.page.locator("html")).toHaveAttribute("data-theme", "dark");
-  expect(await theme(second.page)).toBe("dark");
+  await expect.poll(() => theme(second.page).catch(() => null)).toBe("dark");
   await second.app.close();
 });
 
@@ -81,14 +81,17 @@ test("when the core had to take another port, the preferences copied to settings
   await expect
     .poll(
       () =>
-        first.page.evaluate(async () => {
-          const r = await fetch("/api/system/settings", {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: "{}",
-          });
-          return ((await r.json()) as { ui?: Record<string, string> }).ui?.["testimus.theme"] ?? null;
-        }),
+        first.page
+          .evaluate(async () => {
+            const r = await fetch("/api/system/settings", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: "{}",
+            });
+            return ((await r.json()) as { ui?: Record<string, string> }).ui?.["testimus.theme"] ?? null;
+          })
+          // ponytail: the window may reload while the preferences settle; that read is asked again
+          .catch(() => null),
       { timeout: 15_000 },
     )
     .toBe("dark");
@@ -101,7 +104,7 @@ test("when the core had to take another port, the preferences copied to settings
     const second = await launch(env);
     expect(second.origin).not.toBe(first.origin);
     await expect(second.page.locator("html")).toHaveAttribute("data-theme", "dark", { timeout: 20_000 });
-    expect(await theme(second.page)).toBe("dark");
+    await expect.poll(() => theme(second.page).catch(() => null)).toBe("dark");
     await second.app.close();
   } finally {
     await new Promise<void>((ok) => taken.close(() => ok()));

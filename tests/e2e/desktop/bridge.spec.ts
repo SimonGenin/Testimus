@@ -165,6 +165,7 @@ test("Browse opens a project, the window takes its name, Show in Explorer reveal
 
     await expect(page.getByRole("heading", { level: 1, name: "Documents" })).toBeVisible();
     const folded = page.getByRole("button", { name: "Show the document list" });
+    await expect(folded.or(page.getByRole("region", { name: "Document list" })).first()).toBeVisible();
     if (await folded.isVisible()) await folded.click();
     const docs = page.getByRole("region", { name: "Document list" }).getByRole("option", { name: /SOSIE_/ });
     await expect(docs).toHaveCount(2);
@@ -243,6 +244,7 @@ test("documents go to the core by path, the taskbar follows the jobs, their end 
     const rows = page.getByRole("region", { name: "Document list" }).getByRole("option", { name: /SOSIE_/ });
     const count = async (n: number) => {
       const drawer = page.getByRole("button", { name: "Show the document list" });
+      await expect(drawer.or(page.getByRole("region", { name: "Document list" })).first()).toBeVisible();
       const folded = await drawer.isVisible();
       if (folded) await drawer.click();
       await expect(rows).toHaveCount(n, { timeout: 60_000 });
