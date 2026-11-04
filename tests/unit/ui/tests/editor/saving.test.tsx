@@ -6,8 +6,8 @@ import type { Step, Test } from "../../../../../src/core/types.ts";
 import { setProject } from "../../../../../src/ui/api.ts";
 import { AppContext } from "../../../../../src/ui/lib/app.ts";
 import { TestEditor } from "../../../../../src/ui/screens/tests/TestEditor.tsx";
-import { server, stubServer } from "../../../cov-uitests-helpers.ts";
-import { app } from "../../../ui-desktop-helpers.tsx";
+import { app } from "../../../helpers/ui-desktop.tsx";
+import { server, stubServer } from "../../../helpers/ui-server.ts";
 import { testClient, WithData } from "../data-helpers.tsx";
 
 vi.mock("../../../../../src/ui/lib/toast.ts", async (importOriginal) => {

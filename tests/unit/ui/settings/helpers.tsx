@@ -8,8 +8,8 @@ import { clearDrafts } from "../../../../src/ui/lib/data/autosave.ts";
 import { setProject } from "../../../../src/ui/lib/data/client.ts";
 import { DataProvider } from "../../../../src/ui/lib/data/provider.tsx";
 import { createQueryClient } from "../../../../src/ui/lib/data/query.ts";
-import { clearToasts } from "../../cov-uiscreens-helpers.tsx";
-import { app } from "../../ui-desktop-helpers.tsx";
+import { app } from "../../helpers/ui-desktop.tsx";
+import { clearToasts } from "../../helpers/ui-screens.tsx";
 
 configure({ asyncUtilTimeout: 4000 });
 

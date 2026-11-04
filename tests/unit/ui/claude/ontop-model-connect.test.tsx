@@ -9,8 +9,8 @@ import { OnTopToggle } from "../../../../src/ui/components/claude/OnTopToggle.ts
 import { Toaster } from "../../../../src/ui/components/ui/Toast.tsx";
 import { readAlwaysOnTop, restoreAlwaysOnTop, setAlwaysOnTop } from "../../../../src/ui/lib/desktop.ts";
 import { closeToast, useToasts } from "../../../../src/ui/lib/toast.ts";
-import { dataWrapper, fakeNet } from "../../cov-uishell-helpers.tsx";
-import { fakeDesktop, noDesktop } from "../../ui-desktop-helpers.tsx";
+import { dataWrapper, fakeNet } from "../../helpers/ui-data.tsx";
+import { fakeDesktop, noDesktop } from "../../helpers/ui-desktop.tsx";
 
 const render = ((ui: Parameters<typeof rtlRender>[0], o?: Parameters<typeof rtlRender>[1]) =>
   rtlRender(ui, { wrapper: dataWrapper(), ...o })) as typeof rtlRender;

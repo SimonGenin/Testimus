@@ -9,10 +9,10 @@ import { AppContext, type AppState, type ClaudeRun } from "../../../../../src/ui
 import { discardAutosave, flushAutosaves } from "../../../../../src/ui/lib/data/autosave.ts";
 import { key } from "../../../../../src/ui/lib/data/query.ts";
 import { TestEditor } from "../../../../../src/ui/screens/tests/TestEditor.tsx";
-import { FakeES } from "../../../cov-uishell-helpers.tsx";
-import { callsTo, deferred, Fail, server, stubServer } from "../../../cov-uitests-helpers.ts";
-import { layoutOf } from "../../../layout-helpers.ts";
-import { app } from "../../../ui-desktop-helpers.tsx";
+import { layoutOf } from "../../../helpers/layout.ts";
+import { FakeES } from "../../../helpers/ui-data.tsx";
+import { app } from "../../../helpers/ui-desktop.tsx";
+import { callsTo, deferred, Fail, server, stubServer } from "../../../helpers/ui-server.ts";
 import { testClient, WithData } from "../data-helpers.tsx";
 
 vi.mock("../../../../../src/ui/components/claude/ContextsDialog.tsx", () => ({

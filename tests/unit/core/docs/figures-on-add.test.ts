@@ -5,7 +5,7 @@ import { quietCtx } from "../../../../src/core/command.ts";
 import { commands } from "../../../../src/core/commands/docs.ts";
 import { DEFAULT_PROJECT, writeProject } from "../../../../src/core/lib/project.ts";
 import { sampleDocx } from "../../../fixtures/docx/sample.ts";
-import { tempRoot } from "../../cov-faces-helpers.ts";
+import { tempRoot } from "../../helpers/faces.ts";
 
 const failures: unknown[] = [];
 const picked: unknown[] = [];

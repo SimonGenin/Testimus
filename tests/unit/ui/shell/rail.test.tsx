@@ -12,8 +12,8 @@ import { TopBar, TopBarContext, useTopBarSlots } from "../../../../src/ui/compon
 import { DataProvider } from "../../../../src/ui/lib/data/provider.tsx";
 import { useRead } from "../../../../src/ui/lib/data/query.ts";
 import { setThemeEverywhere } from "../../../../src/ui/lib/theme.ts";
-import { deferred, fakeEvents, fakeNet, net } from "../../cov-uishell-helpers.tsx";
-import { noDesktop } from "../../ui-desktop-helpers.tsx";
+import { deferred, fakeEvents, fakeNet, net } from "../../helpers/ui-data.tsx";
+import { noDesktop } from "../../helpers/ui-desktop.tsx";
 import { clearAllToasts, withData } from "./helpers.tsx";
 
 beforeEach(() => {

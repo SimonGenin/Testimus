@@ -8,8 +8,8 @@ import { ClaudeDock } from "../../../../src/ui/components/claude/ClaudeDock.tsx"
 import { AppContext, type AppState } from "../../../../src/ui/lib/app.ts";
 import { ClaudeSection } from "../../../../src/ui/screens/settings/ClaudeSection.tsx";
 import { TestEditor } from "../../../../src/ui/screens/tests/TestEditor.tsx";
-import { dataWrapper, fakeEvents, fakeNet, net } from "../../cov-uishell-helpers.tsx";
-import { app } from "../../ui-desktop-helpers.tsx";
+import { dataWrapper, fakeEvents, fakeNet, net } from "../../helpers/ui-data.tsx";
+import { app } from "../../helpers/ui-desktop.tsx";
 
 const render = ((ui: Parameters<typeof rtlRender>[0], o?: Parameters<typeof rtlRender>[1]) =>
   rtlRender(ui, { wrapper: dataWrapper(), ...o })) as typeof rtlRender;

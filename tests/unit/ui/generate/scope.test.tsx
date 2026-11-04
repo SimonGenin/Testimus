@@ -7,7 +7,7 @@ import type { DocRef } from "../../../../src/core/types.ts";
 import { type DocScope, flip, ownText, parents, scopeOf, tick } from "../../../../src/ui/lib/scope.ts";
 import { ColumnsView } from "../../../../src/ui/screens/generate/ColumnsView.tsx";
 import { DocScopePicker } from "../../../../src/ui/screens/generate/DocScopePicker.tsx";
-import { api } from "../../ui-desktop-helpers.tsx";
+import { api } from "../../helpers/ui-desktop.tsx";
 import { docRef, toc } from "./fixtures.ts";
 import { freshPage, renderData } from "./harness.tsx";
 

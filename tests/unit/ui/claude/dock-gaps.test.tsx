@@ -8,8 +8,8 @@ import { AnswerText, parseAnswer } from "../../../../src/ui/components/claude/An
 import { ClaudeDock } from "../../../../src/ui/components/claude/ClaudeDock.tsx";
 import { DocBadges, emphasisRuns, highlight, PassageText } from "../../../../src/ui/components/sources/PassageView.tsx";
 import { AppContext } from "../../../../src/ui/lib/app.ts";
-import { callsOf, dataWrapper, deferred, fakeEvents, fakeNet, net } from "../../cov-uishell-helpers.tsx";
-import { app } from "../../ui-desktop-helpers.tsx";
+import { callsOf, dataWrapper, deferred, fakeEvents, fakeNet, net } from "../../helpers/ui-data.tsx";
+import { app } from "../../helpers/ui-desktop.tsx";
 
 const render = ((ui: Parameters<typeof rtlRender>[0], o?: Parameters<typeof rtlRender>[1]) =>
   rtlRender(ui, { wrapper: dataWrapper(), ...o })) as typeof rtlRender;

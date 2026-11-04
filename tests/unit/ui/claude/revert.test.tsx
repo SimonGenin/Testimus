@@ -7,8 +7,8 @@ import { ApiError } from "../../../../src/ui/api.ts";
 import { fixOutcome } from "../../../../src/ui/components/claude/ClaudeDock.tsx";
 import { editedAfterRun } from "../../../../src/ui/lib/revert.ts";
 import { ReviewTest } from "../../../../src/ui/screens/review/ReviewTest.tsx";
-import { dataWrapper } from "../../cov-uishell-helpers.tsx";
-import { layoutOf } from "../../layout-helpers.ts";
+import { layoutOf } from "../../helpers/layout.ts";
+import { dataWrapper } from "../../helpers/ui-data.tsx";
 
 const render = ((ui: Parameters<typeof rtlRender>[0], o?: Parameters<typeof rtlRender>[1]) =>
   rtlRender(ui, { wrapper: dataWrapper(), ...o })) as typeof rtlRender;

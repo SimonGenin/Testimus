@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Step } from "../../../../../src/core/types.ts";
 import { MOVE } from "../../../../../src/ui/screens/tests/FieldBlocks.tsx";
 import { StepCard } from "../../../../../src/ui/screens/tests/StepCard.tsx";
-import { layoutOf } from "../../../layout-helpers.ts";
+import { layoutOf } from "../../../helpers/layout.ts";
 
 afterEach(cleanup);
 

@@ -6,8 +6,8 @@ import type { LocalTestRef, SearchMatch } from "../../../../../src/core/types.ts
 import { setProject } from "../../../../../src/ui/api.ts";
 import { AppContext } from "../../../../../src/ui/lib/app.ts";
 import { TestList } from "../../../../../src/ui/screens/tests/TestList.tsx";
-import { server, stubServer } from "../../../cov-uitests-helpers.ts";
-import { app } from "../../../ui-desktop-helpers.tsx";
+import { app } from "../../../helpers/ui-desktop.tsx";
+import { server, stubServer } from "../../../helpers/ui-server.ts";
 import { testClient, WithData } from "../data-helpers.tsx";
 
 const ref = (o: Partial<LocalTestRef> & { id: string }): LocalTestRef => ({

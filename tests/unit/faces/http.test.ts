@@ -5,7 +5,7 @@ import type { AddressInfo } from "node:net";
 import { join, parse } from "node:path";
 import { Readable } from "node:stream";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { copyFixture, freshEnv, rawRequest, type Seen, tempRoot, withFakes } from "../cov-faces-helpers.ts";
+import { copyFixture, freshEnv, rawRequest, type Seen, tempRoot, withFakes } from "../helpers/faces.ts";
 
 type HttpModule = typeof import("../../../src/faces/http.ts");
 

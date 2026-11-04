@@ -4,8 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Job, JobEvent } from "../../../../src/core/types.ts";
 import { setProject } from "../../../../src/ui/api.ts";
 import { clock, duration, KIND, kindLabel, logLines, percent, resultLine } from "../../../../src/ui/lib/jobs.ts";
-import { fakeNet, job } from "../../cov-uishell-helpers.tsx";
-import { noDesktop } from "../../ui-desktop-helpers.tsx";
+import { fakeNet, job } from "../../helpers/ui-data.tsx";
+import { noDesktop } from "../../helpers/ui-desktop.tsx";
 
 beforeEach(() => fakeNet());
 

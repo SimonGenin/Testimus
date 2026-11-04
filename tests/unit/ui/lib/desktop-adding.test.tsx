@@ -2,12 +2,12 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Job } from "../../src/core/types.ts";
-import { setProject } from "../../src/ui/api.ts";
-import { jobNotice } from "../../src/ui/components/shell/DesktopBridge.tsx";
-import { desktop, pathJoin, taskbarFraction, windowTitle } from "../../src/ui/lib/desktop.ts";
-import { addDocFiles } from "../../src/ui/lib/uploads.ts";
-import { api, fakeDesktop, fakeFetch, named, noDesktop } from "./ui-desktop-helpers.tsx";
+import type { Job } from "../../../../src/core/types.ts";
+import { setProject } from "../../../../src/ui/api.ts";
+import { jobNotice } from "../../../../src/ui/components/shell/DesktopBridge.tsx";
+import { desktop, pathJoin, taskbarFraction, windowTitle } from "../../../../src/ui/lib/desktop.ts";
+import { addDocFiles } from "../../../../src/ui/lib/uploads.ts";
+import { api, fakeDesktop, fakeFetch, named, noDesktop } from "../../helpers/ui-desktop.tsx";
 
 beforeEach(() => {
   fakeFetch();

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { docsFreshness } from "../../../../src/core/lib/docs-index.ts";
-import { markIndexedInDb } from "../../index-state-helpers.ts";
+import { markIndexedInDb } from "../../helpers/index-state.ts";
 import { fixtureCopy } from "../registry.ts";
 
 const space = { complete: false };

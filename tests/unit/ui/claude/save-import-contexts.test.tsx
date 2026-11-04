@@ -8,7 +8,7 @@ import { AdditionalContext } from "../../../../src/ui/components/claude/Addition
 import { ImportContexts } from "../../../../src/ui/components/claude/ImportContexts.tsx";
 import { SaveContext } from "../../../../src/ui/components/claude/SaveContext.tsx";
 import { closeToast, useToasts } from "../../../../src/ui/lib/toast.ts";
-import { callsOf, dataWrapper, Fail, fakeNet, net } from "../../cov-uishell-helpers.tsx";
+import { callsOf, dataWrapper, Fail, fakeNet, net } from "../../helpers/ui-data.tsx";
 
 let titles: string[] = [];
 let ids: number[] = [];

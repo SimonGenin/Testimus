@@ -4,8 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setProject } from "../../../../src/ui/api.ts";
 import { readPref, writePref } from "../../../../src/ui/lib/prefs.ts";
 import { applyTheme, nextTheme, readTheme, setThemeEverywhere } from "../../../../src/ui/lib/theme.ts";
-import { fakeNet } from "../../cov-uishell-helpers.tsx";
-import { noDesktop } from "../../ui-desktop-helpers.tsx";
+import { fakeNet } from "../../helpers/ui-data.tsx";
+import { noDesktop } from "../../helpers/ui-desktop.tsx";
 
 beforeEach(() => fakeNet());
 

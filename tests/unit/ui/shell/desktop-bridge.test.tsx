@@ -6,8 +6,8 @@ import type { Job } from "../../../../src/core/types.ts";
 import { DesktopBridge, jobNotice } from "../../../../src/ui/components/shell/DesktopBridge.tsx";
 import type { AppState } from "../../../../src/ui/lib/app.ts";
 import { setProject } from "../../../../src/ui/lib/data/client.ts";
-import { callsOf, Fail, FakeES, fakeEvents, fakeNet, job, net, status } from "../../cov-uishell-helpers.tsx";
-import { app, fakeDesktop, noDesktop } from "../../ui-desktop-helpers.tsx";
+import { callsOf, Fail, FakeES, fakeEvents, fakeNet, job, net, status } from "../../helpers/ui-data.tsx";
+import { app, fakeDesktop, noDesktop } from "../../helpers/ui-desktop.tsx";
 import { clearAllToasts, withData } from "./helpers.tsx";
 
 let jobs: Job[] = [];

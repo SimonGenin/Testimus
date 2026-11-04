@@ -102,8 +102,8 @@ src/ui/              React app; talks to /api only:
 templates/project/   copied into every project folder by `project init` (CLAUDE.md, .mcp.json, skills)
 scripts/             release.ts, desktop.ts, install.ps1, testimus.cmd, testimus.ico; tokens.ts and icons.ts
                      (design → tokens.stylex.ts, icons.ts); screens.ts + screens-catalog.ts (npm run screens)
-tests/unit/          vitest, by area (core/<zone>/, ui/<zone>/, shared/, desktop/), guards/ (the ratchet tests of
-                     the architecture rules); tests/e2e/ playwright (desktop/ drives Electron; kit.spec the catalogue);
+tests/unit/          vitest, by area (core/<zone>/, ui/<zone>/, shared/, desktop/), helpers/, guards/ (the tests of
+                     the architecture rules, at zero); tests/e2e/ playwright (desktop/ drives Electron; kit.spec the catalogue);
                      tests/fixtures/ the LFRPS12 sample project, docx, evidence, rag, snowball-fr
 ```
 

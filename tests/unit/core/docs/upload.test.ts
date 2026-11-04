@@ -2,9 +2,9 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { invoke } from "../../src/core/commands/index.ts";
-import { DEFAULT_PROJECT, writeProject } from "../../src/core/lib/project.ts";
-import { sampleDocx } from "../fixtures/docx/sample.ts";
+import { invoke } from "../../../../src/core/commands/index.ts";
+import { DEFAULT_PROJECT, writeProject } from "../../../../src/core/lib/project.ts";
+import { sampleDocx } from "../../../fixtures/docx/sample.ts";
 
 describe("docs.add upload", () => {
   it("adds a document sent as base64 and leaves no upload behind", async () => {

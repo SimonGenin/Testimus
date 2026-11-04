@@ -3,14 +3,14 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { call, setProject } from "../../src/ui/api.ts";
-import { CommandForm } from "../../src/ui/components/shell/CommandForm.tsx";
-import { useJob } from "../../src/ui/components/shell/JobLog.tsx";
-import { ProjectButton } from "../../src/ui/components/shell/ProjectButton.tsx";
-import { baseName } from "../../src/ui/lib/desktop.ts";
-import { useToasts } from "../../src/ui/lib/toast.ts";
-import { callsOf, fakeEvents, fakeNet, net } from "./cov-uishell-helpers.tsx";
-import { withData } from "./ui/shell/helpers.tsx";
+import { call, setProject } from "../../../../src/ui/api.ts";
+import { CommandForm } from "../../../../src/ui/components/shell/CommandForm.tsx";
+import { useJob } from "../../../../src/ui/components/shell/JobLog.tsx";
+import { ProjectButton } from "../../../../src/ui/components/shell/ProjectButton.tsx";
+import { baseName } from "../../../../src/ui/lib/desktop.ts";
+import { useToasts } from "../../../../src/ui/lib/toast.ts";
+import { callsOf, fakeEvents, fakeNet, net } from "../../helpers/ui-data.tsx";
+import { withData } from "./helpers.tsx";
 
 function Stores() {
   const t = useToasts();

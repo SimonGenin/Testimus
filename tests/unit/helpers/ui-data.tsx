@@ -1,11 +1,11 @@
 import { render } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { vi } from "vitest";
-import type { Job, JobEvent } from "../../src/core/types.ts";
-import { AppContext, type AppState, useApp } from "../../src/ui/lib/app.ts";
-import { DataProvider } from "../../src/ui/lib/data/provider.tsx";
-import { createQueryClient } from "../../src/ui/lib/data/query.ts";
-import { app } from "./ui-desktop-helpers.tsx";
+import type { Job, JobEvent } from "../../../src/core/types.ts";
+import { AppContext, type AppState, useApp } from "../../../src/ui/lib/app.ts";
+import { DataProvider } from "../../../src/ui/lib/data/provider.tsx";
+import { createQueryClient } from "../../../src/ui/lib/data/query.ts";
+import { app } from "./ui-desktop.tsx";
 
 export function FakeScreen({ name }: { name: string }) {
   const a = useApp();

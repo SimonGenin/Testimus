@@ -10,8 +10,8 @@ import { setProject } from "../../../../src/ui/lib/data/client.ts";
 import { restoreAlwaysOnTop } from "../../../../src/ui/lib/desktop.ts";
 import { AppearanceSection } from "../../../../src/ui/screens/settings/AppearanceSection.tsx";
 import { ClaudeSection } from "../../../../src/ui/screens/settings/ClaudeSection.tsx";
-import { dataWrapper } from "../../cov-uishell-helpers.tsx";
-import { app } from "../../ui-desktop-helpers.tsx";
+import { dataWrapper } from "../../helpers/ui-data.tsx";
+import { app } from "../../helpers/ui-desktop.tsx";
 
 const render = ((ui: Parameters<typeof rtlRender>[0], o?: Parameters<typeof rtlRender>[1]) =>
   rtlRender(ui, { wrapper: dataWrapper(), ...o })) as typeof rtlRender;

@@ -4,7 +4,7 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FirstRunScreen } from "../../../../src/ui/screens/setup/FirstRunScreen.tsx";
 import { PackStep } from "../../../../src/ui/screens/setup/PackStep.tsx";
-import { callsOf, fakeEvents, fakeNet, net, withApp } from "../../cov-uishell-helpers.tsx";
+import { callsOf, fakeEvents, fakeNet, net, withApp } from "../../helpers/ui-data.tsx";
 
 const toasts = vi.hoisted(() => ({ toast: vi.fn(), errorToast: vi.fn() }));
 vi.mock("../../../../src/ui/lib/toast.ts", () => toasts);

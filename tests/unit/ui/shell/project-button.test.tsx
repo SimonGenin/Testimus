@@ -5,8 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { project, setProject } from "../../../../src/ui/api.ts";
 import { ProjectButton } from "../../../../src/ui/components/shell/ProjectButton.tsx";
 import type { AppState } from "../../../../src/ui/lib/app.ts";
-import { callsOf, Fail, fakeEvents, fakeNet, net } from "../../cov-uishell-helpers.tsx";
-import { app, fakeDesktop, noDesktop } from "../../ui-desktop-helpers.tsx";
+import { callsOf, Fail, fakeEvents, fakeNet, net } from "../../helpers/ui-data.tsx";
+import { app, fakeDesktop, noDesktop } from "../../helpers/ui-desktop.tsx";
 import { clearAllToasts, withData } from "./helpers.tsx";
 
 beforeEach(() => {

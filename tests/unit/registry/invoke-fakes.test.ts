@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import { freshEnv, tempRoot } from "../cov-faces-helpers.ts";
+import { freshEnv, tempRoot } from "../helpers/faces.ts";
 
 const root = tempRoot("registry");
 let index: typeof import("../../../src/core/commands/index.ts");

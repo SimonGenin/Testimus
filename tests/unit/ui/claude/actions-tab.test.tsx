@@ -7,8 +7,8 @@ import { setProject } from "../../../../src/ui/api.ts";
 import { ClaudeDock, type DockRequest } from "../../../../src/ui/components/claude/ClaudeDock.tsx";
 import type { Action } from "../../../../src/ui/lib/actions.ts";
 import { AppContext, type AppState } from "../../../../src/ui/lib/app.ts";
-import { callsOf, dataWrapper, fakeEvents, fakeNet, net } from "../../cov-uishell-helpers.tsx";
-import { app } from "../../ui-desktop-helpers.tsx";
+import { callsOf, dataWrapper, fakeEvents, fakeNet, net } from "../../helpers/ui-data.tsx";
+import { app } from "../../helpers/ui-desktop.tsx";
 
 const render = ((ui: Parameters<typeof rtlRender>[0], o?: Parameters<typeof rtlRender>[1]) =>
   rtlRender(ui, { wrapper: dataWrapper(), ...o })) as typeof rtlRender;

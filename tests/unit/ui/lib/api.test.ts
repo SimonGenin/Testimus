@@ -11,7 +11,7 @@ import {
   setProject,
   waitJob,
 } from "../../../../src/ui/api.ts";
-import { callsOf, Fail, FakeES, fakeEvents, fakeNet, job, net, status } from "../../cov-uishell-helpers.tsx";
+import { callsOf, Fail, FakeES, fakeEvents, fakeNet, job, net, status } from "../../helpers/ui-data.tsx";
 
 beforeEach(() => {
   fakeNet();

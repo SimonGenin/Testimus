@@ -18,16 +18,16 @@ import {
   readContextFile,
   readContexts,
   sharedContexts,
-} from "../../src/core/claude/prompt.ts";
-import { contextDirs } from "../../src/core/claude/run.ts";
-import { quietCtx } from "../../src/core/command.ts";
-import { commands as contexts } from "../../src/core/commands/contexts.ts";
-import { commands as project } from "../../src/core/commands/project.ts";
-import { credsDir, credsStatus, savedSecrets } from "../../src/core/lib/creds.ts";
-import { writeContextMd } from "./context-helpers.ts";
-import "../../src/core/commands/index.ts";
+} from "../../../../src/core/claude/prompt.ts";
+import { contextDirs } from "../../../../src/core/claude/run.ts";
+import { quietCtx } from "../../../../src/core/command.ts";
+import { commands as contexts } from "../../../../src/core/commands/contexts.ts";
+import { commands as project } from "../../../../src/core/commands/project.ts";
+import { credsDir, credsStatus, savedSecrets } from "../../../../src/core/lib/creds.ts";
+import { writeContextMd } from "../../helpers/context.ts";
+import "../../../../src/core/commands/index.ts";
 
-const FIXTURE = resolve(import.meta.dirname, "../fixtures/project");
+const FIXTURE = resolve(import.meta.dirname, "../../../fixtures/project");
 const all = [...contexts, ...project];
 let P = "";
 
@@ -283,10 +283,10 @@ describe("credential files", () => {
     put("xray_credentials.json", "{ broken");
     expect(savedSecrets()).toEqual({ token: "tok", clientId: "", clientSecret: "" });
     put("xray_credentials.json", JSON.stringify({ clientId: "id", clientSecret: "sec" }));
-    const { commands: system } = await import("../../src/core/commands/system.ts");
+    const { commands: system } = await import("../../../../src/core/commands/system.ts");
     const c = system.find((x) => x.name === "system.secrets");
     expect(await c?.run(quietCtx(P), {} as never)).toEqual({ token: "tok", clientId: "id", clientSecret: "sec" });
-    const { mcpAccess } = await import("../../src/core/claude/access.ts");
+    const { mcpAccess } = await import("../../../../src/core/claude/access.ts");
     expect((await mcpAccess("run")).deny).toContain("mcp__testimus__system_secrets");
   });
 });

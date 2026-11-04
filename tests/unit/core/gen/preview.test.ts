@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { markIndexedInDb } from "../../index-state-helpers.ts";
+import { markIndexedInDb } from "../../helpers/index-state.ts";
 import { call, fixtureCopy } from "../registry.ts";
 
 type Preview = { replaces: string[]; searched: string[]; unindexed: string[]; stale: string[] };

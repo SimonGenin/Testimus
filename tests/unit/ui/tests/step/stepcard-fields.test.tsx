@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ColumnLayout, Step } from "../../../../../src/core/types.ts";
 import { StepCard } from "../../../../../src/ui/screens/tests/StepCard.tsx";
-import { layoutOf, prefsOf } from "../../../layout-helpers.ts";
+import { layoutOf, prefsOf } from "../../../helpers/layout.ts";
 
 afterEach(cleanup);
 

@@ -7,7 +7,7 @@ import { ConnectClaude } from "../../../../src/ui/components/claude/ConnectClaud
 import { RevertConflict } from "../../../../src/ui/components/claude/RevertConflict.tsx";
 import { Toaster } from "../../../../src/ui/components/ui/Toast.tsx";
 import { closeToast, useToasts } from "../../../../src/ui/lib/toast.ts";
-import { dataWrapper } from "../../cov-uishell-helpers.tsx";
+import { dataWrapper } from "../../helpers/ui-data.tsx";
 
 const render = ((ui: Parameters<typeof rtlRender>[0], o?: Parameters<typeof rtlRender>[1]) =>
   rtlRender(ui, { wrapper: dataWrapper(), ...o })) as typeof rtlRender;

@@ -2,9 +2,9 @@ import { act } from "@testing-library/react";
 import { vi } from "vitest";
 import type { JobEvent } from "../../../../src/core/types.ts";
 import { setProject } from "../../../../src/ui/lib/data/client.ts";
-import { mount } from "../../cov-uiscreens-helpers.tsx";
-import { renderWithData } from "../../cov-uishell-helpers.tsx";
-import { FakeEventSource, fakeFetch } from "../../ui-desktop-helpers.tsx";
+import { renderWithData } from "../../helpers/ui-data.tsx";
+import { FakeEventSource, fakeFetch } from "../../helpers/ui-desktop.tsx";
+import { mount } from "../../helpers/ui-screens.tsx";
 
 let n = 0;
 

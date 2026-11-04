@@ -13,7 +13,7 @@ import {
   writeTestContexts,
 } from "../../../../src/core/claude/prompt.ts";
 import { readProject, writeJson, writeProject } from "../../../../src/core/lib/project.ts";
-import { writeContextMd } from "../../context-helpers.ts";
+import { writeContextMd } from "../../helpers/context.ts";
 
 const FIXTURE = join(import.meta.dirname, "..", "..", "..", "fixtures", "project");
 let dir: string;

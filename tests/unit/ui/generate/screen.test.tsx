@@ -5,8 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DocRef, Job, LocalTestRef } from "../../../../src/core/types.ts";
 import { setProject } from "../../../../src/ui/lib/data/client.ts";
 import { GenerateScreen } from "../../../../src/ui/screens/generate/GenerateScreen.tsx";
-import { clearToasts } from "../../cov-uiscreens-helpers.tsx";
-import { api, FakeEventSource, named, xray } from "../../ui-desktop-helpers.tsx";
+import { api, FakeEventSource, named, xray } from "../../helpers/ui-desktop.tsx";
+import { clearToasts } from "../../helpers/ui-screens.tsx";
 import { at, job, output, ref, test } from "./fixtures.ts";
 import { emit, freshPage, mountData } from "./harness.tsx";
 

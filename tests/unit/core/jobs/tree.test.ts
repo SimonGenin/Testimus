@@ -5,7 +5,7 @@ import { UserError } from "../../../../src/core/command.ts";
 import { invoke } from "../../../../src/core/commands/index.ts";
 import { clearJobs, listJobs, showJob, startJob, waitJob, withProcess } from "../../../../src/core/jobs.ts";
 import type { JobEvent } from "../../../../src/core/types.ts";
-import { tempRoot } from "../../cov-faces-helpers.ts";
+import { tempRoot } from "../../helpers/faces.ts";
 
 const root = tempRoot("jobs-tree");
 let n = 0;

@@ -8,8 +8,8 @@ import { App, parseRoute } from "../../../../src/ui/app/App.tsx";
 import type { DockRequest } from "../../../../src/ui/components/claude/ClaudeDock.tsx";
 import { DataProvider } from "../../../../src/ui/lib/data/provider.tsx";
 import { closeToast, useToasts } from "../../../../src/ui/lib/toast.ts";
-import { callsOf, fakeEvents, fakeNet, net } from "../../cov-uishell-helpers.tsx";
-import { app as appState } from "../../ui-desktop-helpers.tsx";
+import { callsOf, fakeEvents, fakeNet, net } from "../../helpers/ui-data.tsx";
+import { app as appState } from "../../helpers/ui-desktop.tsx";
 
 vi.mock("../../../../src/ui/screens/tests/TestsScreen.tsx", async () => {
   const { useApp } = await import("../../../../src/ui/lib/app.ts");
@@ -31,10 +31,10 @@ vi.mock("../../../../src/ui/screens/tests/TestsScreen.tsx", async () => {
   };
 });
 vi.mock("../../../../src/ui/screens/documents/DocumentsScreen.tsx", async () => ({
-  DocumentsScreen: (await import("../../cov-uishell-helpers.tsx")).fakeScreen("Documents screen"),
+  DocumentsScreen: (await import("../../helpers/ui-data.tsx")).fakeScreen("Documents screen"),
 }));
 vi.mock("../../../../src/ui/screens/setup/FirstRunScreen.tsx", async () => ({
-  FirstRunScreen: (await import("../../cov-uishell-helpers.tsx")).fakeScreen("Setup screen"),
+  FirstRunScreen: (await import("../../helpers/ui-data.tsx")).fakeScreen("Setup screen"),
 }));
 vi.mock("../../../../src/ui/components/claude/ClaudeDock.tsx", () => ({
   ClaudeDock: ({ folded, onFold }: { folded: boolean; request?: DockRequest | null; onFold: () => void }) => (

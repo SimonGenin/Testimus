@@ -7,8 +7,8 @@ import { CONTEXTS_EVENT } from "../../../../src/ui/components/claude/ContextsDia
 import { setProject } from "../../../../src/ui/lib/data/client.ts";
 import { keysOfPaths } from "../../../../src/ui/lib/data/events.ts";
 import { DataProvider } from "../../../../src/ui/lib/data/provider.tsx";
-import { callsOf, FakeES, fakeEvents, fakeNet, net } from "../../cov-uishell-helpers.tsx";
-import { app as appState } from "../../ui-desktop-helpers.tsx";
+import { callsOf, FakeES, fakeEvents, fakeNet, net } from "../../helpers/ui-data.tsx";
+import { app as appState } from "../../helpers/ui-desktop.tsx";
 import { clearAllToasts } from "./helpers.tsx";
 
 vi.mock("../../../../src/ui/screens/tests/TestsScreen.tsx", async () => {

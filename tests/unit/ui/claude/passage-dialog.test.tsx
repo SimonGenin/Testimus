@@ -6,7 +6,7 @@ import type { Passage } from "../../../../src/core/types.ts";
 import { setProject } from "../../../../src/ui/api.ts";
 import { PassageDialog } from "../../../../src/ui/components/sources/PassageDialog.tsx";
 import { closeToast } from "../../../../src/ui/lib/toast.ts";
-import { callsOf, dataWrapper, deferred, Fail, fakeEvents, fakeNet, net } from "../../cov-uishell-helpers.tsx";
+import { callsOf, dataWrapper, deferred, Fail, fakeEvents, fakeNet, net } from "../../helpers/ui-data.tsx";
 
 const render = ((ui: Parameters<typeof rtlRender>[0], o?: Parameters<typeof rtlRender>[1]) =>
   rtlRender(ui, { wrapper: dataWrapper(), ...o })) as typeof rtlRender;

@@ -8,8 +8,8 @@ import { AppContext, type AppState } from "../../../../src/ui/lib/app.ts";
 import { createQueryClient } from "../../../../src/ui/lib/data/query.ts";
 import { closeToast, useToasts } from "../../../../src/ui/lib/toast.ts";
 import type { QueueItem } from "../../../../src/ui/screens/review/ReviewQueue.tsx";
-import { layoutOf } from "../../layout-helpers.ts";
-import { app } from "../../ui-desktop-helpers.tsx";
+import { layoutOf } from "../../helpers/layout.ts";
+import { app } from "../../helpers/ui-desktop.tsx";
 
 configure({ asyncUtilTimeout: 4000 });
 

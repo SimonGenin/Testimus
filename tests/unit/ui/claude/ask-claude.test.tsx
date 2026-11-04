@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { AskClaude } from "../../../../src/ui/components/claude/AskClaude.tsx";
 import { AppContext, type AppState } from "../../../../src/ui/lib/app.ts";
-import { app } from "../../ui-desktop-helpers.tsx";
+import { app } from "../../helpers/ui-desktop.tsx";
 
 afterEach(cleanup);
 

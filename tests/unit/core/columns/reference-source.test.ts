@@ -10,7 +10,7 @@ import { readTest } from "../../../../src/core/lib/store.ts";
 import { formatSource, parseSource, parseTest, serializeTest } from "../../../../src/core/lib/testfile.ts";
 import type { Source, Step, Test, XrayJson } from "../../../../src/core/types.ts";
 import { itemLinks, referencesSources, stepSources } from "../../../../src/ui/lib/fields.ts";
-import { layoutOf } from "../../layout-helpers.ts";
+import { layoutOf } from "../../helpers/layout.ts";
 
 let dir = "";
 const write = (rel: string, text: string) => {

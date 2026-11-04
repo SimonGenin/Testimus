@@ -8,7 +8,7 @@ import { cancelJob, jobNotice, listJobs, showJob, startJob, subscribe, waitJob }
 import { loopbackProxyGap, stopCore } from "../../../../src/core/shell.ts";
 import type { Job } from "../../../../src/core/types.ts";
 import { withLoopback } from "../../../../src/shared/loopback.ts";
-import { tempRoot } from "../../cov-faces-helpers.ts";
+import { tempRoot } from "../../helpers/faces.ts";
 
 const root = tempRoot("jobs");
 

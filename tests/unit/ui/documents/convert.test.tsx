@@ -6,8 +6,8 @@ import { setProject } from "../../../../src/ui/lib/data/client.ts";
 import { importClaude, setImportClaude } from "../../../../src/ui/lib/uploads.ts";
 import { ClaudeChoice } from "../../../../src/ui/screens/documents/ConvertDoc.tsx";
 import { DocumentsScreen } from "../../../../src/ui/screens/documents/DocumentsScreen.tsx";
-import { clearToasts } from "../../cov-uiscreens-helpers.tsx";
-import { api, FakeEventSource, fakeFetch, named, noDesktop } from "../../ui-desktop-helpers.tsx";
+import { api, FakeEventSource, fakeFetch, named, noDesktop } from "../../helpers/ui-desktop.tsx";
+import { clearToasts } from "../../helpers/ui-screens.tsx";
 import { at, doc, emit, mountDocs, refuse } from "./helpers.tsx";
 
 beforeEach(() => {

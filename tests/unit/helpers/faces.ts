@@ -3,9 +3,9 @@ import { request } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
-import type { Command } from "../../src/core/command.ts";
+import type { Command } from "../../../src/core/command.ts";
 
-export const FIXTURE = join(import.meta.dirname, "..", "fixtures", "project");
+export const FIXTURE = join(import.meta.dirname, "..", "..", "fixtures", "project");
 
 export function tempRoot(tag: string): string {
   return mkdtempSync(join(tmpdir(), `testimus-cov-${tag}-`));
@@ -18,7 +18,7 @@ export function copyFixture(root: string, name = "p"): string {
 }
 
 export async function freshEnv(root: string) {
-  const { env } = await import("../../src/core/env.ts");
+  const { env } = await import("../../../src/core/env.ts");
   env.dataDir = () => join(root, "appdata");
   env.localDir = () => join(root, "localappdata");
   env.homeDir = () => join(root, "home");
@@ -34,7 +34,7 @@ export async function freshEnv(root: string) {
 export type Seen = { aborted: boolean; started: boolean };
 
 export async function fakeCommands(seen: Seen) {
-  const { command } = await import("../../src/core/command.ts");
+  const { command } = await import("../../../src/core/command.ts");
   const none = z.object({});
   return [
     command({
@@ -109,16 +109,16 @@ export async function fakeCommands(seen: Seen) {
 }
 
 export async function withFakes(seen: Seen) {
-  const actual = await import("../../src/core/commands/index.ts");
+  const actual = await import("../../../src/core/commands/index.ts");
   const extra = await fakeCommands(seen);
   const registry = [...actual.registry, ...extra];
-  const { UserError } = await import("../../src/core/command.ts");
+  const { UserError } = await import("../../../src/core/command.ts");
   const find = (name: string) => {
     const c = registry.find((x) => x.name === name);
     if (!c) throw new UserError(`Unknown command ${name}.`, "testimus help lists the commands.");
     return c;
   };
-  const { startJob } = await import("../../src/core/jobs.ts");
+  const { startJob } = await import("../../../src/core/jobs.ts");
   const invoke = async (
     name: string,
     raw: unknown,
@@ -132,7 +132,7 @@ export async function withFakes(seen: Seen) {
       if (opts.wait === false) return { jobId: job.id };
       return await done;
     }
-    const { quietCtx } = await import("../../src/core/command.ts");
+    const { quietCtx } = await import("../../../src/core/command.ts");
     return c.run(quietCtx(opts.project, opts.signal), input as never);
   };
   return { ...actual, registry, find, invoke };

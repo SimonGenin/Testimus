@@ -5,8 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError, setProject } from "../../../../src/ui/api.ts";
 import { Toaster } from "../../../../src/ui/components/ui/Toast.tsx";
 import { closeToast, errorToast, type Toast, toast, useToasts } from "../../../../src/ui/lib/toast.ts";
-import { fakeNet } from "../../cov-uishell-helpers.tsx";
-import { noDesktop } from "../../ui-desktop-helpers.tsx";
+import { fakeNet } from "../../helpers/ui-data.tsx";
+import { noDesktop } from "../../helpers/ui-desktop.tsx";
 
 beforeEach(() => fakeNet());
 

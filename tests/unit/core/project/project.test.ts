@@ -8,7 +8,7 @@ import { startJob } from "../../../../src/core/jobs.ts";
 import { readProject, readSettings, writeSettings } from "../../../../src/core/lib/project.ts";
 import { projectOverview } from "../../../../src/core/lib/project-info.ts";
 import { initProject, templateDir } from "../../../../src/core/lib/project-init.ts";
-import { copyFixture, tempRoot } from "../../cov-faces-helpers.ts";
+import { copyFixture, tempRoot } from "../../helpers/faces.ts";
 
 let project = "";
 const run = async (name: string, raw: unknown = {}): Promise<any> => {

@@ -11,7 +11,7 @@ import {
   siteRoot,
   xrayWords,
 } from "../../../../src/ui/screens/settings/ConnectAtlassian.tsx";
-import { fakeDesktop } from "../../ui-desktop-helpers.tsx";
+import { fakeDesktop } from "../../helpers/ui-desktop.tsx";
 import { calls, Fail, fakeNet, hold, inputs, label, mountSettings, net, reset } from "./helpers.tsx";
 
 const check = (id: string, state: DoctorCheck["state"], detail = "", fix?: string) =>

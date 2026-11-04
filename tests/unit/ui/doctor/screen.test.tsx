@@ -5,8 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DoctorCheck } from "../../../../src/core/types.ts";
 import { setProject } from "../../../../src/ui/lib/data/client.ts";
 import { DoctorScreen } from "../../../../src/ui/screens/doctor/DoctorScreen.tsx";
-import { callsOf, Fail, FakeES, fakeEvents, fakeNet, job, net, status, withApp } from "../../cov-uishell-helpers.tsx";
-import { fakeDesktop, noDesktop } from "../../ui-desktop-helpers.tsx";
+import { callsOf, Fail, FakeES, fakeEvents, fakeNet, job, net, status, withApp } from "../../helpers/ui-data.tsx";
+import { fakeDesktop, noDesktop } from "../../helpers/ui-desktop.tsx";
 
 const toasts = vi.hoisted(() => ({ toast: vi.fn(), errorToast: vi.fn() }));
 vi.mock("../../../../src/ui/lib/toast.ts", () => toasts);

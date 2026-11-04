@@ -13,7 +13,7 @@ import {
   resolveExe,
 } from "../../../../src/shared/run/process.ts";
 import { semaphore as gate } from "../../../../src/shared/run/work.ts";
-import { tempRoot } from "../../cov-faces-helpers.ts";
+import { tempRoot } from "../../helpers/faces.ts";
 
 const root = tempRoot("env");
 const node = process.execPath;

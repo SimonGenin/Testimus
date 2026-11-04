@@ -6,8 +6,8 @@ import type { Job, JobEvent } from "../../../../src/core/types.ts";
 import { ClaudeActivity as GenActivity } from "../../../../src/ui/components/claude/ClaudeActivity.tsx";
 import { activityOf, gist, lasted, linesRead, outlineOf } from "../../../../src/ui/lib/activity.ts";
 import { landedIds } from "../../../../src/ui/screens/generate/GenResult.tsx";
-import { dataWrapper } from "../../cov-uishell-helpers.tsx";
-import { api, fakeFetch, named } from "../../ui-desktop-helpers.tsx";
+import { dataWrapper } from "../../helpers/ui-data.tsx";
+import { api, fakeFetch, named } from "../../helpers/ui-desktop.tsx";
 
 const render = ((ui: Parameters<typeof rtlRender>[0], o?: Parameters<typeof rtlRender>[1]) =>
   rtlRender(ui, { wrapper: dataWrapper(), ...o })) as typeof rtlRender;

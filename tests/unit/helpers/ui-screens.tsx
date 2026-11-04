@@ -1,11 +1,11 @@
 import { act, configure, render } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { vi } from "vitest";
-import { Toaster } from "../../src/ui/components/ui/Toast.tsx";
-import { AppContext, type AppState } from "../../src/ui/lib/app.ts";
-import { closeToast, useToasts } from "../../src/ui/lib/toast.ts";
-import { dataWrapper } from "./cov-uishell-helpers.tsx";
-import { app } from "./ui-desktop-helpers.tsx";
+import { Toaster } from "../../../src/ui/components/ui/Toast.tsx";
+import { AppContext, type AppState } from "../../../src/ui/lib/app.ts";
+import { closeToast, useToasts } from "../../../src/ui/lib/toast.ts";
+import { dataWrapper } from "./ui-data.tsx";
+import { app } from "./ui-desktop.tsx";
 
 configure({ asyncUtilTimeout: 4000 });
 

@@ -8,7 +8,7 @@ import { setProject } from "../../../../../src/ui/lib/data/client.ts";
 import { key } from "../../../../../src/ui/lib/data/query.ts";
 import { DeleteTest, deleteTest, needsAsking } from "../../../../../src/ui/screens/tests/DeleteTest.tsx";
 import { PullPane } from "../../../../../src/ui/screens/tests/PullPane.tsx";
-import { deferred } from "../../../cov-uitests-helpers.ts";
+import { deferred } from "../../../helpers/ui-server.ts";
 import { testClient, WithData } from "../data-helpers.tsx";
 
 vi.mock("../../../../../src/ui/lib/data/autosave.ts", async (importOriginal) => {

@@ -6,7 +6,7 @@ import type { Job } from "../../../../src/core/types.ts";
 import { Activity, elapsed } from "../../../../src/ui/components/shell/Activity.tsx";
 import { setProject } from "../../../../src/ui/lib/data/client.ts";
 import { useRead } from "../../../../src/ui/lib/data/query.ts";
-import { callsOf, deferred, Fail, FakeES, fakeEvents, fakeNet, job, net, status } from "../../cov-uishell-helpers.tsx";
+import { callsOf, deferred, Fail, FakeES, fakeEvents, fakeNet, job, net, status } from "../../helpers/ui-data.tsx";
 import { clearAllToasts, withData } from "./helpers.tsx";
 
 let jobs: Job[] = [];

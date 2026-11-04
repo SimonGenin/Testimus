@@ -2,13 +2,13 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { credsDir, credsStatus, jiraCreds, saveCreds, xrayCreds } from "../../src/core/lib/creds.ts";
-import { sha256, testHash } from "../../src/core/lib/hash.ts";
-import { DEFAULT_SETTINGS, readJson, resolveProjectDir, writeSettings } from "../../src/core/lib/project.ts";
-import { addImage, findingCounts, readCheck, testDir } from "../../src/core/lib/store.ts";
-import { parseTest, serializeTest } from "../../src/core/lib/testfile.ts";
-import { readZip, writeZip } from "../../src/core/lib/zip.ts";
-import { dropCol, dropRow, tablesIn } from "../../src/shared/table.ts";
+import { credsDir, credsStatus, jiraCreds, saveCreds, xrayCreds } from "../../../../src/core/lib/creds.ts";
+import { sha256, testHash } from "../../../../src/core/lib/hash.ts";
+import { DEFAULT_SETTINGS, readJson, resolveProjectDir, writeSettings } from "../../../../src/core/lib/project.ts";
+import { addImage, findingCounts, readCheck, testDir } from "../../../../src/core/lib/store.ts";
+import { parseTest, serializeTest } from "../../../../src/core/lib/testfile.ts";
+import { readZip, writeZip } from "../../../../src/core/lib/zip.ts";
+import { dropCol, dropRow, tablesIn } from "../../../../src/shared/table.ts";
 
 const tmp = () => mkdtempSync(join(tmpdir(), "testimus-covmisc-"));
 describe("hash", () => {

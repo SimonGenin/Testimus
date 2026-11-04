@@ -7,9 +7,9 @@ import { useApp } from "../../../../src/ui/lib/app.ts";
 import { DEFAULT_LAYOUT, fieldViews, parseSourceRef, sourceLabel } from "../../../../src/ui/lib/fields.ts";
 import { addedSteps } from "../../../../src/ui/lib/marks.ts";
 import { editedAfterRun } from "../../../../src/ui/lib/revert.ts";
-import { fakeNet } from "../../cov-uishell-helpers.tsx";
-import { layoutOf } from "../../layout-helpers.ts";
-import { noDesktop } from "../../ui-desktop-helpers.tsx";
+import { layoutOf } from "../../helpers/layout.ts";
+import { fakeNet } from "../../helpers/ui-data.tsx";
+import { noDesktop } from "../../helpers/ui-desktop.tsx";
 
 beforeEach(() => fakeNet());
 

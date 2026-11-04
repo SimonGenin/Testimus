@@ -3,13 +3,13 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { LocalTestRef } from "../../src/core/types.ts";
-import { setProject } from "../../src/ui/api.ts";
-import { AppContext, type AppState } from "../../src/ui/lib/app.ts";
-import { DataProvider } from "../../src/ui/lib/data/provider.tsx";
-import { TestList } from "../../src/ui/screens/tests/TestList.tsx";
-import { dataWrapper } from "./cov-uishell-helpers.tsx";
-import { app, fakeDesktop, fakeFetch, noDesktop } from "./ui-desktop-helpers.tsx";
+import type { LocalTestRef } from "../../../../src/core/types.ts";
+import { setProject } from "../../../../src/ui/api.ts";
+import { AppContext, type AppState } from "../../../../src/ui/lib/app.ts";
+import { DataProvider } from "../../../../src/ui/lib/data/provider.tsx";
+import { TestList } from "../../../../src/ui/screens/tests/TestList.tsx";
+import { dataWrapper } from "../../helpers/ui-data.tsx";
+import { app, fakeDesktop, fakeFetch, noDesktop } from "../../helpers/ui-desktop.tsx";
 
 beforeEach(() => {
   fakeFetch();

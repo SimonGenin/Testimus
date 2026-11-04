@@ -10,20 +10,20 @@ import {
   PLAN_TAG,
   plannedInput,
   REPORT_TAG,
-} from "../../src/core/claude/gen-prompt.ts";
-import { parseGenReport, parsePlan, type Skipped } from "../../src/core/claude/gen-reply.ts";
-import { toolStep } from "../../src/core/claude/generate.ts";
-import { invoke } from "../../src/core/commands/index.ts";
-import { type ClaudeOut, type ClaudeSpawn, env } from "../../src/core/env.ts";
-import { subscribe } from "../../src/core/jobs.ts";
-import { DEFAULT_SETTINGS, readJson, writeSettings } from "../../src/core/lib/project.ts";
-import { readTest } from "../../src/core/lib/store.ts";
-import { mockSpawnClaude } from "../../src/core/mock/claude.ts";
-import "../../src/core/mock/claude-gen.ts";
-import type { JobEvent } from "../../src/core/types.ts";
-import { markIndexedInDb as markIndexed } from "./index-state-helpers.ts";
+} from "../../../../src/core/claude/gen-prompt.ts";
+import { parseGenReport, parsePlan, type Skipped } from "../../../../src/core/claude/gen-reply.ts";
+import { toolStep } from "../../../../src/core/claude/generate.ts";
+import { invoke } from "../../../../src/core/commands/index.ts";
+import { type ClaudeOut, type ClaudeSpawn, env } from "../../../../src/core/env.ts";
+import { subscribe } from "../../../../src/core/jobs.ts";
+import { DEFAULT_SETTINGS, readJson, writeSettings } from "../../../../src/core/lib/project.ts";
+import { readTest } from "../../../../src/core/lib/store.ts";
+import { mockSpawnClaude } from "../../../../src/core/mock/claude.ts";
+import "../../../../src/core/mock/claude-gen.ts";
+import type { JobEvent } from "../../../../src/core/types.ts";
+import { markIndexedInDb as markIndexed } from "../../helpers/index-state.ts";
 
-const FIXTURE = join(import.meta.dirname, "..", "fixtures", "project");
+const FIXTURE = join(import.meta.dirname, "..", "..", "..", "fixtures", "project");
 const DOC_MD = readFileSync(join(FIXTURE, "docs", "SOSIE_211_D401-1_3", "doc.md"), "utf8");
 const real = env.spawnClaude;
 let dir: string;

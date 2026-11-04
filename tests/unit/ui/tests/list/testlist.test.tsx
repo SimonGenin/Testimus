@@ -7,8 +7,8 @@ import type { Folder, LocalTestRef, RemoteTestRef } from "../../../../../src/cor
 import { setProject } from "../../../../../src/ui/api.ts";
 import { AppContext, type AppState } from "../../../../../src/ui/lib/app.ts";
 import { isKeyQuery, localTree, TestList } from "../../../../../src/ui/screens/tests/TestList.tsx";
-import { callsTo, deferred, Fail, server, stubServer } from "../../../cov-uitests-helpers.ts";
-import { app } from "../../../ui-desktop-helpers.tsx";
+import { app } from "../../../helpers/ui-desktop.tsx";
+import { callsTo, deferred, Fail, server, stubServer } from "../../../helpers/ui-server.ts";
 import { testClient, WithData } from "../data-helpers.tsx";
 
 const toasts: { kind: string; title: string; detail?: string }[] = [];

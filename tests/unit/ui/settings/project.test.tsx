@@ -4,7 +4,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { setProject } from "../../../../src/ui/lib/data/client.ts";
 import { ProjectSection } from "../../../../src/ui/screens/settings/ProjectSection.tsx";
-import { fakeDesktop } from "../../ui-desktop-helpers.tsx";
+import { fakeDesktop } from "../../helpers/ui-desktop.tsx";
 import { calls, DIR, Fail, fakeNet, info, inputs, label, mountSettings, net, reset } from "./helpers.tsx";
 
 let project = info();

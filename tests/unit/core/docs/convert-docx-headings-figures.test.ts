@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { writeZip } from "../../src/core/lib/zip.ts";
-import { convertDocx } from "../../src/core/rag/convert-docx.ts";
-import { SAMPLE_PNG } from "../fixtures/docx/sample.ts";
+import { writeZip } from "../../../../src/core/lib/zip.ts";
+import { convertDocx } from "../../../../src/core/rag/convert-docx.ts";
+import { SAMPLE_PNG } from "../../../fixtures/docx/sample.ts";
 
 const W = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"';
 const NS = `${W} xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture" xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart"`;

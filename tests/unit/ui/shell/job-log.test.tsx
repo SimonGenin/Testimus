@@ -5,8 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { JobEvent } from "../../../../src/core/types.ts";
 import { setProject } from "../../../../src/ui/api.ts";
 import { JobLog, useJob } from "../../../../src/ui/components/shell/JobLog.tsx";
-import { callsOf, deferred, Fail, FakeES, fakeEvents, fakeNet, job, net, status } from "../../cov-uishell-helpers.tsx";
-import { noDesktop } from "../../ui-desktop-helpers.tsx";
+import { callsOf, deferred, Fail, FakeES, fakeEvents, fakeNet, job, net, status } from "../../helpers/ui-data.tsx";
+import { noDesktop } from "../../helpers/ui-desktop.tsx";
 import { clearAllToasts } from "./helpers.tsx";
 
 beforeEach(() => {

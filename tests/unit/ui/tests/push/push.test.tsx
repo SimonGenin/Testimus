@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { JobEvent, PushPlanView } from "../../../../../src/core/types.ts";
 import { ApiError } from "../../../../../src/ui/api.ts";
 import { PushDialog } from "../../../../../src/ui/screens/tests/PushDialog.tsx";
-import { deferred } from "../../../cov-uitests-helpers.ts";
+import { deferred } from "../../../helpers/ui-server.ts";
 import { testClient, WithData } from "../data-helpers.tsx";
 
 type Handler = (input: Record<string, unknown>, onEvent?: (e: JobEvent) => void) => unknown;

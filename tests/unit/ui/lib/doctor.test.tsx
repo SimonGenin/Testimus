@@ -4,8 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DoctorCheck } from "../../../../src/core/types.ts";
 import { setProject } from "../../../../src/ui/api.ts";
 import { worst } from "../../../../src/ui/lib/doctor.ts";
-import { fakeNet } from "../../cov-uishell-helpers.tsx";
-import { noDesktop } from "../../ui-desktop-helpers.tsx";
+import { fakeNet } from "../../helpers/ui-data.tsx";
+import { noDesktop } from "../../helpers/ui-desktop.tsx";
 
 beforeEach(() => fakeNet());
 

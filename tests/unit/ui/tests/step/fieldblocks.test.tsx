@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { StepImage } from "../../../../../src/core/types.ts";
 import { NEW_TABLE } from "../../../../../src/ui/lib/table.ts";
 import { FieldBlocks, MOVE } from "../../../../../src/ui/screens/tests/FieldBlocks.tsx";
-import { mount } from "../../../cov-uiscreens-helpers.tsx";
+import { mount } from "../../../helpers/ui-screens.tsx";
 
 afterEach(cleanup);
 

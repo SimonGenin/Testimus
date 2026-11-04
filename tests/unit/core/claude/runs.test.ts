@@ -29,7 +29,7 @@ import {
   writeSettings,
 } from "../../../../src/core/lib/project.ts";
 import type { Chunk, FigureEntry } from "../../../../src/core/types.ts";
-import { writeContextMd } from "../../context-helpers.ts";
+import { writeContextMd } from "../../helpers/context.ts";
 import "../../../../src/core/commands/index.ts";
 
 const FIXTURE = join(import.meta.dirname, "..", "..", "..", "fixtures", "project");

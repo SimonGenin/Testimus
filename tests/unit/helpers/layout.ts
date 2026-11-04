@@ -1,4 +1,4 @@
-import type { ColumnLayout, ColumnShow, StepColumn, XrayField } from "../../src/core/types.ts";
+import type { ColumnLayout, ColumnShow, StepColumn, XrayField } from "../../../src/core/types.ts";
 
 export type OldPrefs = {
   order?: string[];

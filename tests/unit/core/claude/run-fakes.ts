@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach } from "vitest";
 import { type ClaudeOut, type ClaudeSpawn, env } from "../../../../src/core/env.ts";
 import { DEFAULT_SETTINGS, writeSettings } from "../../../../src/core/lib/project.ts";
-import { markIndexedInDb as markIndexed } from "../../index-state-helpers.ts";
+import { markIndexedInDb as markIndexed } from "../../helpers/index-state.ts";
 
 // ponytail: the fake claude and the fixture copy the Claude-run tests share (one project per test)
 export const FIXTURE = join(import.meta.dirname, "..", "..", "..", "fixtures", "project");

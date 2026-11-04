@@ -4,7 +4,7 @@ import { commands as claudeCommands } from "../../../../src/core/commands/claude
 import { commands as ragIndexCommands } from "../../../../src/core/commands/rag-index.ts";
 import { env } from "../../../../src/core/env.ts";
 import { mockSpawnClaude } from "../../../../src/core/mock/claude.ts";
-import { copyFixture, tempRoot } from "../../cov-faces-helpers.ts";
+import { copyFixture, tempRoot } from "../../helpers/faces.ts";
 import "../../../../src/core/commands/index.ts";
 
 const active = vi.hoisted(() => ({ embedding: null as unknown }));

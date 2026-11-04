@@ -19,7 +19,7 @@ import {
   net,
   status,
   withApp,
-} from "../../cov-uishell-helpers.tsx";
+} from "../../helpers/ui-data.tsx";
 
 const toasts = vi.hoisted(() => ({ toast: vi.fn(), errorToast: vi.fn() }));
 vi.mock("../../../../src/ui/lib/toast.ts", () => toasts);

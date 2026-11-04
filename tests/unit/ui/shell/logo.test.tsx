@@ -4,7 +4,7 @@ import { cleanup, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Rail } from "../../../../src/ui/components/shell/Rail.tsx";
 import { FirstRunScreen } from "../../../../src/ui/screens/setup/FirstRunScreen.tsx";
-import { fakeEvents, fakeNet, net, withApp } from "../../cov-uishell-helpers.tsx";
+import { fakeEvents, fakeNet, net, withApp } from "../../helpers/ui-data.tsx";
 import { withData } from "./helpers.tsx";
 
 beforeEach(() => {

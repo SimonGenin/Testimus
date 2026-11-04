@@ -8,7 +8,7 @@ import { Palette } from "../../../../src/ui/components/shell/Palette.tsx";
 import type { CommandInfo } from "../../../../src/ui/lib/data/client.ts";
 import { setProject } from "../../../../src/ui/lib/data/client.ts";
 import { jumpTo, rememberHit, takeJump } from "../../../../src/ui/lib/search.ts";
-import { callsOf, fakeEvents, fakeNet, net } from "../../cov-uishell-helpers.tsx";
+import { callsOf, fakeEvents, fakeNet, net } from "../../helpers/ui-data.tsx";
 import { clearAllToasts, withData } from "./helpers.tsx";
 
 beforeEach(() => {

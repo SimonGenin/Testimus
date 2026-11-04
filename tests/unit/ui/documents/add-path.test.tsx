@@ -3,7 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AddPath } from "../../../../src/ui/screens/documents/AddPath.tsx";
-import { fakeDesktop, noDesktop } from "../../ui-desktop-helpers.tsx";
+import { fakeDesktop, noDesktop } from "../../helpers/ui-desktop.tsx";
 
 afterEach(() => {
   cleanup();

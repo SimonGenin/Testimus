@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { quietCtx } from "../../../../src/core/command.ts";
 import { commands as docsCommands } from "../../../../src/core/commands/docs.ts";
 import { commands as genCommands } from "../../../../src/core/commands/gen.ts";
-import { copyFixture, tempRoot } from "../../cov-faces-helpers.ts";
+import { copyFixture, tempRoot } from "../../helpers/faces.ts";
 
 const seen = vi.hoisted(() => ({ requests: [] as string[] }));
 

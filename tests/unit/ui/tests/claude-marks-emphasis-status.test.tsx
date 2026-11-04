@@ -2,12 +2,12 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import type { Step } from "../../src/core/types.ts";
-import { emphasisRuns, highlight } from "../../src/ui/components/sources/PassageView.tsx";
-import { worst } from "../../src/ui/lib/doctor.ts";
-import { addedSteps } from "../../src/ui/lib/marks.ts";
-import { StepCard } from "../../src/ui/screens/tests/StepCard.tsx";
-import { layoutOf } from "./layout-helpers.ts";
+import type { Step } from "../../../../src/core/types.ts";
+import { emphasisRuns, highlight } from "../../../../src/ui/components/sources/PassageView.tsx";
+import { worst } from "../../../../src/ui/lib/doctor.ts";
+import { addedSteps } from "../../../../src/ui/lib/marks.ts";
+import { StepCard } from "../../../../src/ui/screens/tests/StepCard.tsx";
+import { layoutOf } from "../../helpers/layout.ts";
 
 afterEach(cleanup);
 

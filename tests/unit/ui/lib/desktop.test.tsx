@@ -14,8 +14,8 @@ import {
   tracked,
 } from "../../../../src/ui/lib/desktop.ts";
 import { closeToast, useToasts } from "../../../../src/ui/lib/toast.ts";
-import { fakeNet, net } from "../../cov-uishell-helpers.tsx";
-import { fakeDesktop, noDesktop } from "../../ui-desktop-helpers.tsx";
+import { fakeNet, net } from "../../helpers/ui-data.tsx";
+import { fakeDesktop, noDesktop } from "../../helpers/ui-desktop.tsx";
 
 beforeEach(() => fakeNet());
 

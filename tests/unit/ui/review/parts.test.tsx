@@ -7,7 +7,7 @@ import { FixNote } from "../../../../src/ui/screens/review/FixNote.tsx";
 import { type QueueItem, ReviewQueue } from "../../../../src/ui/screens/review/ReviewQueue.tsx";
 import { FindingSources, findingSummary, ReviewStep } from "../../../../src/ui/screens/review/ReviewStep.tsx";
 import { ReviewTest } from "../../../../src/ui/screens/review/ReviewTest.tsx";
-import { layoutOf } from "../../layout-helpers.ts";
+import { layoutOf } from "../../helpers/layout.ts";
 import { fakeServer } from "./helpers.tsx";
 
 beforeEach(() => {

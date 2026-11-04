@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { copyFixture, freshEnv, type Seen, tempRoot, withFakes } from "../cov-faces-helpers.ts";
+import { copyFixture, freshEnv, type Seen, tempRoot, withFakes } from "../helpers/faces.ts";
 
 type Handler = (input: unknown, ctx: unknown) => Promise<{ content: { text: string }[]; isError?: boolean }>;
 

@@ -6,7 +6,7 @@ import { Toaster } from "../../../../src/ui/components/ui/Toast.tsx";
 import { AppContext, type AppState } from "../../../../src/ui/lib/app.ts";
 import { DataProvider } from "../../../../src/ui/lib/data/provider.tsx";
 import { createQueryClient } from "../../../../src/ui/lib/data/query.ts";
-import { api, app, FakeEventSource } from "../../ui-desktop-helpers.tsx";
+import { api, app, FakeEventSource } from "../../helpers/ui-desktop.tsx";
 
 configure({ asyncUtilTimeout: 4000 });
 

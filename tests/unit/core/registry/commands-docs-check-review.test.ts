@@ -8,7 +8,7 @@ import { commands as imageCommands, storeImage } from "../../../../src/core/comm
 import { commands as ragCommands } from "../../../../src/core/commands/rag.ts";
 import { commands as reviewCommands } from "../../../../src/core/commands/review.ts";
 import type { DocJson } from "../../../../src/core/types.ts";
-import { copyFixture, tempRoot } from "../../cov-faces-helpers.ts";
+import { copyFixture, tempRoot } from "../../helpers/faces.ts";
 
 const DOC = "SOSIE_211_D401-1_3";
 const LOCAL = "local-3f9a12c0";

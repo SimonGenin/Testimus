@@ -5,7 +5,7 @@ import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Folder, LocalTestRef, RemoteTestRef } from "../../../../../src/core/types.ts";
 import { findFolder, folderName, JiraTab, statusTone } from "../../../../../src/ui/screens/tests/JiraTab.tsx";
-import { callsTo, deferred, Fail, server, stubServer } from "../../../cov-uitests-helpers.ts";
+import { callsTo, deferred, Fail, server, stubServer } from "../../../helpers/ui-server.ts";
 import { testClient, WithData } from "../data-helpers.tsx";
 
 const folderRow = (name: RegExp) => screen.getByRole("treeitem", { name });

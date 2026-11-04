@@ -4,7 +4,7 @@ import { Toaster, useToasts } from "../../../../src/ui/components/ui/Toast.tsx";
 import { AppContext, type AppState } from "../../../../src/ui/lib/app.ts";
 import { DataProvider } from "../../../../src/ui/lib/data/provider.tsx";
 import { closeToast } from "../../../../src/ui/lib/toast.ts";
-import { app } from "../../ui-desktop-helpers.tsx";
+import { app } from "../../helpers/ui-desktop.tsx";
 
 let live: number[] = [];
 

@@ -12,7 +12,7 @@ import {
   passagesRead,
   RunHead,
 } from "../../../../src/ui/screens/generate/GenResult.tsx";
-import { xray } from "../../ui-desktop-helpers.tsx";
+import { xray } from "../../helpers/ui-desktop.tsx";
 import { at, job, output, ref, test } from "./fixtures.ts";
 
 afterEach(() => {

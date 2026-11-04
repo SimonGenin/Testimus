@@ -4,8 +4,8 @@ import { cleanup, fireEvent, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError, setProject } from "../../../../src/ui/api.ts";
 import { ProblemPanel, problemOf } from "../../../../src/ui/components/shell/ProblemPanel.tsx";
-import { fakeEvents, fakeNet } from "../../cov-uishell-helpers.tsx";
-import { noDesktop } from "../../ui-desktop-helpers.tsx";
+import { fakeEvents, fakeNet } from "../../helpers/ui-data.tsx";
+import { noDesktop } from "../../helpers/ui-desktop.tsx";
 import { clearAllToasts, withData } from "./helpers.tsx";
 
 beforeEach(() => {

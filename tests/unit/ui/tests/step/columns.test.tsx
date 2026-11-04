@@ -7,7 +7,7 @@ import type { Column } from "../../../../../src/ui/lib/columns.ts";
 import { ColumnField } from "../../../../../src/ui/screens/tests/ColumnField.tsx";
 import { ColumnsMenu } from "../../../../../src/ui/screens/tests/ColumnsMenu.tsx";
 import { GoneStep, WasView } from "../../../../../src/ui/screens/tests/WasView.tsx";
-import { layoutOf } from "../../../layout-helpers.ts";
+import { layoutOf } from "../../../helpers/layout.ts";
 
 afterEach(() => {
   cleanup();

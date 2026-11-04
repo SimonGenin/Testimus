@@ -2,19 +2,19 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
-import { docRunLines } from "../../src/core/claude/prompt.ts";
-import { quietCtx } from "../../src/core/command.ts";
-import { commands } from "../../src/core/commands/docs.ts";
-import { isStale, recheckMechanical, recordSemantic, testsCiting } from "../../src/core/lib/check.ts";
-import { headingAt, sectionOf } from "../../src/core/lib/docs.ts";
-import { sha256 } from "../../src/core/lib/hash.ts";
-import { readCheck } from "../../src/core/lib/store.ts";
-import { parseAnchor } from "../../src/core/rag/anchors.ts";
-import { docContent } from "../../src/core/rag/indexer.ts";
-import type { DocJson, DocRef, FigureEntry } from "../../src/core/types.ts";
-import { sampleDocx } from "../fixtures/docx/sample.ts";
-import { writeContextMd } from "./context-helpers.ts";
-import { markIndexedInDb } from "./index-state-helpers.ts";
+import { docRunLines } from "../../../../src/core/claude/prompt.ts";
+import { quietCtx } from "../../../../src/core/command.ts";
+import { commands } from "../../../../src/core/commands/docs.ts";
+import { isStale, recheckMechanical, recordSemantic, testsCiting } from "../../../../src/core/lib/check.ts";
+import { headingAt, sectionOf } from "../../../../src/core/lib/docs.ts";
+import { sha256 } from "../../../../src/core/lib/hash.ts";
+import { readCheck } from "../../../../src/core/lib/store.ts";
+import { parseAnchor } from "../../../../src/core/rag/anchors.ts";
+import { docContent } from "../../../../src/core/rag/indexer.ts";
+import type { DocJson, DocRef, FigureEntry } from "../../../../src/core/types.ts";
+import { sampleDocx } from "../../../fixtures/docx/sample.ts";
+import { writeContextMd } from "../../helpers/context.ts";
+import { markIndexedInDb } from "../../helpers/index-state.ts";
 
 async function run<T = unknown>(project: string, name: string, raw: unknown): Promise<T> {
   const c = commands.find((x) => x.name === name);

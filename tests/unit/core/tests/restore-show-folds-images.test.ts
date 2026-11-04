@@ -2,17 +2,17 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { quietCtx } from "../../src/core/command.ts";
-import { commands as contexts } from "../../src/core/commands/contexts.ts";
-import { commands as tests } from "../../src/core/commands/tests.ts";
-import { commands as xray } from "../../src/core/commands/xray.ts";
-import { env } from "../../src/core/env.ts";
-import { setModes } from "../../src/core/lib/columns.ts";
-import { resetAuth } from "../../src/core/lib/jira/http.ts";
-import { readTest, writeTest } from "../../src/core/lib/store.ts";
-import { mockHttp, resetMockJira } from "../../src/core/mock/jira.ts";
+import { quietCtx } from "../../../../src/core/command.ts";
+import { commands as contexts } from "../../../../src/core/commands/contexts.ts";
+import { commands as tests } from "../../../../src/core/commands/tests.ts";
+import { commands as xray } from "../../../../src/core/commands/xray.ts";
+import { env } from "../../../../src/core/env.ts";
+import { setModes } from "../../../../src/core/lib/columns.ts";
+import { resetAuth } from "../../../../src/core/lib/jira/http.ts";
+import { readTest, writeTest } from "../../../../src/core/lib/store.ts";
+import { mockHttp, resetMockJira } from "../../../../src/core/mock/jira.ts";
 
-const FIXTURE = resolve(import.meta.dirname, "../fixtures/project");
+const FIXTURE = resolve(import.meta.dirname, "../../../fixtures/project");
 const all = [...tests, ...xray, ...contexts];
 const http = env.http;
 let P = "";

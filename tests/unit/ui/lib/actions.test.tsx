@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setProject } from "../../../../src/ui/api.ts";
 import { docOfRoute } from "../../../../src/ui/components/claude/ClaudeDock.tsx";
 import { type Action, originLine, scopeWords } from "../../../../src/ui/lib/actions.ts";
-import { fakeEvents, fakeNet, net } from "../../cov-uishell-helpers.tsx";
+import { fakeEvents, fakeNet, net } from "../../helpers/ui-data.tsx";
 
 const DOC = "SOSIE_211_D401-1_3";
 

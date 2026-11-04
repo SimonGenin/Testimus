@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CommandInfo, JsonSchema } from "../../../../src/ui/api.ts";
 import { CommandForm, formValue, hasInput } from "../../../../src/ui/components/shell/CommandForm.tsx";
-import { callsOf, deferred, Fail, fakeEvents, fakeNet, net } from "../../cov-uishell-helpers.tsx";
+import { callsOf, deferred, Fail, fakeEvents, fakeNet, net } from "../../helpers/ui-data.tsx";
 import { clearAllToasts, withData } from "./helpers.tsx";
 
 vi.mock("../../../../src/ui/screens/tests/PushDialog.tsx", () => ({

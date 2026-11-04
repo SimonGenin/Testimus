@@ -6,8 +6,8 @@ import { setProject } from "../../../../src/ui/lib/data/client.ts";
 import { AccessStep } from "../../../../src/ui/screens/setup/AccessStep.tsx";
 import { FirstRunScreen } from "../../../../src/ui/screens/setup/FirstRunScreen.tsx";
 import { ProjectStep, projectFolder } from "../../../../src/ui/screens/setup/ProjectStep.tsx";
-import { callsOf, deferred, Fail, fakeEvents, fakeNet, net, withApp } from "../../cov-uishell-helpers.tsx";
-import { fakeDesktop, noDesktop } from "../../ui-desktop-helpers.tsx";
+import { callsOf, deferred, Fail, fakeEvents, fakeNet, net, withApp } from "../../helpers/ui-data.tsx";
+import { fakeDesktop, noDesktop } from "../../helpers/ui-desktop.tsx";
 
 const toasts = vi.hoisted(() => ({ toast: vi.fn(), errorToast: vi.fn() }));
 vi.mock("../../../../src/ui/lib/toast.ts", () => toasts);

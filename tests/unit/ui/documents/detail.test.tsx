@@ -5,8 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DocRef } from "../../../../src/core/types.ts";
 import { setProject } from "../../../../src/ui/lib/data/client.ts";
 import { DocDetail } from "../../../../src/ui/screens/documents/DocDetail.tsx";
-import { clearToasts } from "../../cov-uiscreens-helpers.tsx";
-import { api, FakeEventSource, fakeDesktop, fakeFetch, named, noDesktop } from "../../ui-desktop-helpers.tsx";
+import { api, FakeEventSource, fakeDesktop, fakeFetch, named, noDesktop } from "../../helpers/ui-desktop.tsx";
+import { clearToasts } from "../../helpers/ui-screens.tsx";
 import { at, doc, emit, mountDocs, refuse } from "./helpers.tsx";
 
 beforeEach(() => {

@@ -2,9 +2,9 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setProject } from "../../src/ui/api.ts";
-import { FixNote } from "../../src/ui/screens/review/FixNote.tsx";
-import { fakeFetch } from "./ui-desktop-helpers.tsx";
+import { setProject } from "../../../../src/ui/api.ts";
+import { FixNote } from "../../../../src/ui/screens/review/FixNote.tsx";
+import { fakeFetch } from "../../helpers/ui-desktop.tsx";
 
 beforeEach(() => {
   fakeFetch();

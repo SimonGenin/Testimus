@@ -3,7 +3,7 @@ import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { copyFixture, freshEnv, rawRequest, tempRoot } from "../cov-faces-helpers.ts";
+import { copyFixture, freshEnv, rawRequest, tempRoot } from "../helpers/faces.ts";
 
 const root = tempRoot("serve");
 const project = copyFixture(root);

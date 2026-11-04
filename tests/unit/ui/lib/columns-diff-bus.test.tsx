@@ -15,9 +15,9 @@ import {
 } from "../../../../src/ui/lib/columns.ts";
 import { differs, diffLocal, lossOf, restoreStep, sameStep } from "../../../../src/ui/lib/diff.ts";
 import { closeToast } from "../../../../src/ui/lib/toast.ts";
-import { fakeNet } from "../../cov-uishell-helpers.tsx";
-import { layoutOf } from "../../layout-helpers.ts";
-import { noDesktop } from "../../ui-desktop-helpers.tsx";
+import { layoutOf } from "../../helpers/layout.ts";
+import { fakeNet } from "../../helpers/ui-data.tsx";
+import { noDesktop } from "../../helpers/ui-desktop.tsx";
 
 const ids: number[] = [];
 

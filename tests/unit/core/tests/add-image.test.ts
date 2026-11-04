@@ -2,11 +2,11 @@ import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { invoke } from "../../src/core/commands/index.ts";
-import { loadCorpus, mechanicalFindings } from "../../src/core/lib/check.ts";
-import { readTest } from "../../src/core/lib/store.ts";
+import { invoke } from "../../../../src/core/commands/index.ts";
+import { loadCorpus, mechanicalFindings } from "../../../../src/core/lib/check.ts";
+import { readTest } from "../../../../src/core/lib/store.ts";
 
-const FIXTURE = join(import.meta.dirname, "..", "fixtures", "project");
+const FIXTURE = join(import.meta.dirname, "..", "..", "..", "fixtures", "project");
 const FIG = join(FIXTURE, "docs", "SOSIE_211_D401-1_3", "figures", "fig-40.png");
 let dir: string;
 let outside: string;

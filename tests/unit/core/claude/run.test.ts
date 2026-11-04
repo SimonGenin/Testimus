@@ -13,7 +13,7 @@ import { invoke } from "../../../../src/core/commands/index.ts";
 import { type ClaudeOut, type ClaudeSpawn, env } from "../../../../src/core/env.ts";
 import { DEFAULT_SETTINGS, readJson, writeSettings } from "../../../../src/core/lib/project.ts";
 import type { ClaudeEvent } from "../../../../src/core/types.ts";
-import { writeContextMd } from "../../context-helpers.ts";
+import { writeContextMd } from "../../helpers/context.ts";
 
 const FIXTURE = fileURLToPath(new URL("../../../fixtures/project/", import.meta.url));
 const EXE = "C:/bin/claude.exe";

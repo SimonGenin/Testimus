@@ -7,8 +7,8 @@ import { docLink } from "../../../../src/ui/components/sources/PassageView.tsx";
 import { setProject } from "../../../../src/ui/lib/data/client.ts";
 import { reindexAll } from "../../../../src/ui/lib/uploads.ts";
 import { DocumentsScreen } from "../../../../src/ui/screens/documents/DocumentsScreen.tsx";
-import { clearToasts } from "../../cov-uiscreens-helpers.tsx";
-import { api, FakeEventSource, fakeDesktop, fakeFetch, named, noDesktop } from "../../ui-desktop-helpers.tsx";
+import { api, FakeEventSource, fakeDesktop, fakeFetch, named, noDesktop } from "../../helpers/ui-desktop.tsx";
+import { clearToasts } from "../../helpers/ui-screens.tsx";
 import { at, boxes, doc, emit, mountDocs, refuse } from "./helpers.tsx";
 
 beforeEach(() => {

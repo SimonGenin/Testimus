@@ -1,7 +1,7 @@
 import { vi } from "vitest";
-import type { ColumnLayout } from "../../src/core/types.ts";
-import type { TestimusDesktop } from "../../src/desktop/bridge-types.ts";
-import type { AppState } from "../../src/ui/lib/app.ts";
+import type { ColumnLayout } from "../../../src/core/types.ts";
+import type { TestimusDesktop } from "../../../src/desktop/bridge-types.ts";
+import type { AppState } from "../../../src/ui/lib/app.ts";
 
 export type Call = { name: string; input: Record<string, unknown> };
 

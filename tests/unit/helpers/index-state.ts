@@ -1,7 +1,7 @@
 import { join } from "node:path";
-import { docIds, readDoc } from "../../src/core/lib/docs.ts";
-import { indexFile, openDb, setMeta } from "../../src/core/rag/db.ts";
-import { docContent } from "../../src/core/rag/indexer.ts";
+import { docIds, readDoc } from "../../../src/core/lib/docs.ts";
+import { indexFile, openDb, setMeta } from "../../../src/core/rag/db.ts";
+import { docContent } from "../../../src/core/rag/indexer.ts";
 
 // ponytail: index-helpers.markIndexed wrote index/state.json; the index state now lives in rag.db (meta index_state)
 export function markIndexedInDb(project: string, only?: string[], content?: Record<string, string>): void {

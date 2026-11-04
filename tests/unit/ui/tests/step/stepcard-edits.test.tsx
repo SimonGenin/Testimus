@@ -7,7 +7,7 @@ import type { Step, StepImage } from "../../../../../src/core/types.ts";
 import { MOVE } from "../../../../../src/ui/screens/tests/FieldBlocks.tsx";
 import { StepCard } from "../../../../../src/ui/screens/tests/StepCard.tsx";
 import { cut, put } from "../../../../../src/ui/screens/tests/step/stepText.ts";
-import { layoutOf, prefsOf } from "../../../layout-helpers.ts";
+import { layoutOf, prefsOf } from "../../../helpers/layout.ts";
 
 type T = { title: string; detail?: string; onExpire?: () => void; action?: { run: () => void } };
 const toasts: T[] = [];

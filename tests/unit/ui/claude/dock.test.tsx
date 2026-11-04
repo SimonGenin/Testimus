@@ -13,18 +13,8 @@ import { Toaster } from "../../../../src/ui/components/ui/Toast.tsx";
 import { AppContext, type AppState, type Focus } from "../../../../src/ui/lib/app.ts";
 import { setFlushHook } from "../../../../src/ui/lib/data/query.ts";
 import { closeToast, useToasts } from "../../../../src/ui/lib/toast.ts";
-import {
-  callsOf,
-  dataWrapper,
-  Fail,
-  FakeES,
-  fakeEvents,
-  fakeNet,
-  job,
-  net,
-  status,
-} from "../../cov-uishell-helpers.tsx";
-import { app } from "../../ui-desktop-helpers.tsx";
+import { callsOf, dataWrapper, Fail, FakeES, fakeEvents, fakeNet, job, net, status } from "../../helpers/ui-data.tsx";
+import { app } from "../../helpers/ui-desktop.tsx";
 
 const render = ((ui: Parameters<typeof rtlRender>[0], o?: Parameters<typeof rtlRender>[1]) =>
   rtlRender(ui, { wrapper: dataWrapper(), ...o })) as typeof rtlRender;

@@ -11,7 +11,7 @@ import { closeToast, toast } from "../../../../../src/ui/lib/toast.ts";
 import { abandonPulls } from "../../../../../src/ui/screens/tests/pulls.ts";
 import { TestList } from "../../../../../src/ui/screens/tests/TestList.tsx";
 import { TestsScreen } from "../../../../../src/ui/screens/tests/TestsScreen.tsx";
-import { layoutOf } from "../../../layout-helpers.ts";
+import { layoutOf } from "../../../helpers/layout.ts";
 import { testClient, WithData } from "../data-helpers.tsx";
 
 type Handler = (input: Record<string, unknown>) => unknown;

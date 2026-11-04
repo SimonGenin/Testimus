@@ -6,7 +6,7 @@ import type { CommandOutput } from "../../../../src/core/commands/index.ts";
 import { setProject } from "../../../../src/ui/api.ts";
 import { closeToast, useToasts } from "../../../../src/ui/lib/toast.ts";
 import { DocContext } from "../../../../src/ui/screens/documents/DocContext.tsx";
-import { callsOf, dataWrapper, Fail, fakeNet, net } from "../../cov-uishell-helpers.tsx";
+import { callsOf, dataWrapper, Fail, fakeNet, net } from "../../helpers/ui-data.tsx";
 
 type Shown = CommandOutput<"docs.show">;
 

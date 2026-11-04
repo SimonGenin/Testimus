@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { quietCtx } from "../../../../src/core/command.ts";
 import { commands } from "../../../../src/core/commands/tests.ts";
 import { setModes } from "../../../../src/core/lib/columns.ts";
-import { copyFixture, tempRoot } from "../../cov-faces-helpers.ts";
+import { copyFixture, tempRoot } from "../../helpers/faces.ts";
 
 const LOCAL = "local-3f9a12c0";
 let project = "";

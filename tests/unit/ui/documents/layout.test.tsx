@@ -7,8 +7,8 @@ import type { Action } from "../../../../src/ui/lib/actions.ts";
 import { DocDetail } from "../../../../src/ui/screens/documents/DocDetail.tsx";
 import { DocumentsScreen } from "../../../../src/ui/screens/documents/DocumentsScreen.tsx";
 import { foldOf } from "../../../../src/ui/screens/documents/layout.ts";
-import { clearToasts } from "../../cov-uiscreens-helpers.tsx";
-import { api, FakeEventSource, fakeFetch } from "../../ui-desktop-helpers.tsx";
+import { api, FakeEventSource, fakeFetch } from "../../helpers/ui-desktop.tsx";
+import { clearToasts } from "../../helpers/ui-screens.tsx";
 import { at, doc, mountDocs } from "./helpers.tsx";
 
 beforeEach(() => {

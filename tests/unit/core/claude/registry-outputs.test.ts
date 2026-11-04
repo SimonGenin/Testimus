@@ -6,7 +6,7 @@ import { mockSpawnClaude } from "../../../../src/core/mock/claude.ts";
 import "../../../../src/core/mock/claude-actions.ts";
 import "../../../../src/core/mock/claude-check.ts";
 import "../../../../src/core/mock/claude-gen.ts";
-import { markIndexedInDb } from "../../index-state-helpers.ts";
+import { markIndexedInDb } from "../../helpers/index-state.ts";
 import { call, fixtureCopy } from "../registry.ts";
 
 // ponytail: every command that starts Claude, called through the registry against the scripted Claude of --mock; `call`

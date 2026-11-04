@@ -2,14 +2,14 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ColumnLayout, Source, Step } from "../../src/core/types.ts";
-import { setProject } from "../../src/ui/api.ts";
-import { ReviewStep } from "../../src/ui/screens/review/ReviewStep.tsx";
-import { StepCard } from "../../src/ui/screens/tests/StepCard.tsx";
-import { clearToasts } from "./cov-uiscreens-helpers.tsx";
-import { renderWithData } from "./cov-uishell-helpers.tsx";
-import { layoutOf } from "./layout-helpers.ts";
-import { fakeFetch, noDesktop } from "./ui-desktop-helpers.tsx";
+import type { ColumnLayout, Source, Step } from "../../../../../src/core/types.ts";
+import { setProject } from "../../../../../src/ui/api.ts";
+import { ReviewStep } from "../../../../../src/ui/screens/review/ReviewStep.tsx";
+import { StepCard } from "../../../../../src/ui/screens/tests/StepCard.tsx";
+import { layoutOf } from "../../../helpers/layout.ts";
+import { renderWithData } from "../../../helpers/ui-data.tsx";
+import { fakeFetch, noDesktop } from "../../../helpers/ui-desktop.tsx";
+import { clearToasts } from "../../../helpers/ui-screens.tsx";
 
 beforeEach(() => {
   fakeFetch();

@@ -2,12 +2,12 @@ import { existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
-import { invoke } from "../../src/core/commands/index.ts";
-import { showJob } from "../../src/core/jobs.ts";
-import { readRegistry } from "../../src/core/lib/models-registry.ts";
-import { setupMock } from "../../src/core/mock/index.ts";
-import { fakeSha, type MockModelsOptions, mockDownloads, setupModelsMock } from "../../src/core/mock/models.ts";
-import { setActiveChoice } from "../../src/core/rag/activation.ts";
+import { invoke } from "../../../../src/core/commands/index.ts";
+import { showJob } from "../../../../src/core/jobs.ts";
+import { readRegistry } from "../../../../src/core/lib/models-registry.ts";
+import { setupMock } from "../../../../src/core/mock/index.ts";
+import { fakeSha, type MockModelsOptions, mockDownloads, setupModelsMock } from "../../../../src/core/mock/models.ts";
+import { setActiveChoice } from "../../../../src/core/rag/activation.ts";
 
 type Pack = {
   id: string;
