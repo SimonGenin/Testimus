@@ -5,7 +5,7 @@ import { Icon } from "../../components/ui/Icon.tsx";
 import { SourceChip } from "../../components/ui/SourceChip.tsx";
 import { type ItemLink, sourceLabel } from "../../lib/fields.ts";
 import { color, fontFamily, fontSize, lineHeight, space } from "../../styles/tokens.stylex.ts";
-import { findingSummary, refKey } from "./sources.ts";
+import { chipMark, findingSummary, refKey } from "./sources.ts";
 
 const styles = stylex.create({
   ok: {
@@ -48,10 +48,13 @@ export function Summary({ findings, stale }: { findings: Finding[]; stale: boole
 // ponytail: a step's sources as chips; a smart column's item names the passage it comes from
 export function Links({
   links,
+  step,
   selected,
   onOpen,
 }: {
   links: ItemLink[];
+  /** the step they belong to: a chip is pressed when it is the one that opened the source panel */
+  step: number;
   selected: string;
   onOpen: (s: Source) => void;
 }) {
@@ -65,7 +68,7 @@ export function Links({
               reference={sourceLabel(s)}
               quote={s.quote || undefined}
               figure={s.anchor.startsWith("fig:")}
-              pressed={selected === refKey(s)}
+              pressed={selected === chipMark(step, s)}
               onOpen={() => onOpen(s)}
             />
           ))
@@ -74,7 +77,7 @@ export function Links({
             key={l.item}
             reference={`${l.item} · ${sourceLabel(l.sources[0])}`}
             figure={l.sources[0].anchor.startsWith("fig:")}
-            pressed={selected === refKey(l.sources[0])}
+            pressed={selected === chipMark(step, l.sources[0])}
             onOpen={() => onOpen(l.sources[0])}
           />
         ) : (
@@ -86,7 +89,7 @@ export function Links({
                 compact
                 reference={sourceLabel(s)}
                 quote={s.quote || undefined}
-                pressed={selected === refKey(s)}
+                pressed={selected === chipMark(step, s)}
                 onOpen={() => onOpen(s)}
               />
             ))}

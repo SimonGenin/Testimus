@@ -113,12 +113,15 @@ describe("Review screen", () => {
     fireEvent.click(chip());
     expect(await screen.findByText("Source of step 2")).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Passage D#§2" })).toBeInTheDocument();
-    expect(screen.getByText("1 of 2 sources")).toBeInTheDocument();
+    expect(screen.getByText("1 of 1 source")).toBeInTheDocument();
+    expect(chip()).toHaveAttribute("aria-pressed", "true");
     key("ArrowDown");
     expect(await screen.findByText("Source of step 3")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Previous source" }));
+    expect(screen.getByRole("button", { name: "Previous source" })).toBeDisabled();
+    expect(chip()).toHaveAttribute("aria-pressed", "false");
+    key("ArrowUp");
     expect(await screen.findByText("Source of step 2")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Next source" }));
+    key("ArrowDown");
     expect(await screen.findByText("Source of step 3")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Close the source panel" }));
     expect(screen.queryByRole("complementary", { name: "Source passage" })).toBeNull();
@@ -126,6 +129,43 @@ describe("Review screen", () => {
     expect(await screen.findByText("Source of step 2")).toBeInTheDocument();
     fireEvent.click(chip());
     expect(screen.queryByRole("complementary", { name: "Source passage" })).toBeNull();
+  });
+
+  it("marks only the chip clicked, never others citing the same anchor, and walks the sources of its step", async () => {
+    reviewRoutes({
+      tests: {
+        "K-1": {
+          steps: [
+            { fields: { Action: "One" }, sources: [], images: [] },
+            {
+              fields: { Action: "Two" },
+              sources: [
+                { docId: "D", anchor: "§2", quote: "first" },
+                { docId: "D", anchor: "§2", quote: "second" },
+              ],
+              images: [],
+            },
+            { fields: { Action: "Three" }, sources: [{ docId: "D", anchor: "§2", quote: "third" }], images: [] },
+          ],
+        },
+      },
+      findings: [{ step: 2, kind: "unsupported", severity: "info", message: "same anchor", sources: ["D#§2"] }],
+    });
+    show();
+    await screen.findByRole("heading", { name: "Summary K-1" });
+    expect(await screen.findByText("Finding on step 2 · Unsupported")).toBeInTheDocument();
+    expect(screen.getByText("1 of 1 source")).toBeInTheDocument();
+    for (const b of screen.getAllByRole("button", { name: /D §2/ })) expect(b).toHaveAttribute("aria-pressed", "false");
+    const second = () => within(step(2)).getByRole("button", { name: /second/ });
+    fireEvent.click(second());
+    expect(await screen.findByText("2 of 2 sources")).toBeInTheDocument();
+    const pressed = () =>
+      screen.getAllByRole("button", { pressed: true }).filter((b) => /D §2/.test(b.textContent ?? ""));
+    expect(pressed()).toEqual([second()]);
+    fireEvent.click(screen.getByRole("button", { name: "Previous source" }));
+    expect(await screen.findByText("1 of 2 sources")).toBeInTheDocument();
+    expect(pressed()).toEqual([within(step(2)).getByRole("button", { name: /first/ })]);
+    expect(screen.getByRole("button", { name: "Previous source" })).toBeDisabled();
   });
 
   it("a whole-test finding's source opens on click; the stale error count", async () => {
@@ -147,7 +187,7 @@ describe("Review screen", () => {
     expect(
       screen.getByRole("tooltip", { hidden: true, name: "2 errors still open · out of date" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("1 of 4 sources")).toBeInTheDocument();
+    expect(screen.getByText("1 of 1 source")).toBeInTheDocument();
     expect(within(step(1)).getByRole("button", { name: "Expand step 1" })).toBeInTheDocument();
     expect(within(step(2)).getByRole("button", { name: "Fold step 2" })).toBeInTheDocument();
   });
@@ -367,7 +407,7 @@ describe("Review screen", () => {
     fireEvent.click(await screen.findByRole("button", { name: /Sources read/ }));
     fireEvent.click(await screen.findByRole("option", { name: /E#§7/ }));
     expect(await screen.findByText("Read by the generation")).toBeInTheDocument();
-    expect(screen.getByText("1 of 2 sources")).toBeInTheDocument();
+    expect(screen.getByText("1 of 1 source")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("option", { name: /^D#§2/ }));
     expect(await screen.findByText("Source of step 2")).toBeInTheDocument();
   });

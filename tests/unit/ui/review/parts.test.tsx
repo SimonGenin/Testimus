@@ -270,7 +270,7 @@ describe("ReviewStep", () => {
         { Action: "Ouvrir", "Expected Result": "", Exigence: "EXI_1, EXI_2, EXI_3" },
         { sources: [{ docId: "D", anchor: "§1", quote: "q" }] },
       ),
-      selected: "D#§1",
+      selected: "s2:D#§1|q",
       findings: [
         finding({ kind: "source-missing", message: "EXI_3 here", pass: "semantic" }),
         finding({ kind: "source-missing", message: "mech", pass: "mechanical", sources: ["D#§9"] }),
@@ -293,10 +293,11 @@ describe("ReviewStep", () => {
     );
     expect(screen.getAllByText("No passage was found for it.")).toHaveLength(1);
     expect(screen.getByRole("button", { name: /D §1/ })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: /D §9/ })).toHaveAttribute("aria-pressed", "false");
     fireEvent.click(screen.getByRole("button", { name: /D §1/ }));
     expect(p.onSelect).toHaveBeenCalledWith({ docId: "D", anchor: "§1", quote: "q" }, 2);
     fireEvent.click(screen.getByRole("button", { name: /D §9/ }));
-    expect(p.onSelect).toHaveBeenLastCalledWith({ docId: "D", anchor: "§9", quote: "" }, 2);
+    expect(p.onSelect).toHaveBeenLastCalledWith({ docId: "D", anchor: "§9", quote: "" }, 2, 1);
     fireEvent.click(screen.getByRole("button", { name: "Fold step 2" }));
     expect(p.onFold).toHaveBeenCalledWith(true);
   });
@@ -370,7 +371,7 @@ describe("ReviewTest", () => {
     expect(screen.getByText(/^2 steps · checked 30 Oct/)).toBeInTheDocument();
     expect(screen.getAllByText("Whole test")).toHaveLength(2);
     fireEvent.click(screen.getByRole("button", { name: /D §1/ }));
-    expect(p.onSelect).toHaveBeenCalledWith({ docId: "D", anchor: "§1", quote: "" }, null);
+    expect(p.onSelect).toHaveBeenCalledWith({ docId: "D", anchor: "§1", quote: "" }, null, 0);
     fireEvent.click(screen.getByRole("button", { name: "Compare" }));
     fireEvent.click(screen.getByRole("button", { name: "Take Jira's version" }));
     fireEvent.click(screen.getByRole("button", { name: "Keep mine" }));

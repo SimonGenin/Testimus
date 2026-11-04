@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
-import type { Source } from "../../../core/types.ts";
 import type { ClaudeRun } from "../../lib/app.ts";
 import { addedSteps } from "../../lib/marks.ts";
 import type { Marks } from "./ReviewBanners.tsx";
-import { firstFinding } from "./sources.ts";
+import { firstFinding, type Opened } from "./sources.ts";
 import type { Loaded } from "./useReview.ts";
 
-export type Selection = { source: Source; step: number | null; label?: string } | null;
+export type Selection = Opened | null;
 
 type View = {
   id: string;

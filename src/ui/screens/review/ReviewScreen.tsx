@@ -19,7 +19,7 @@ import { ReviewFoot } from "./ReviewFoot.tsx";
 import { ReviewQueue } from "./ReviewQueue.tsx";
 import { ReviewTest } from "./ReviewTest.tsx";
 import { SourcePanel } from "./SourcePanel.tsx";
-import { notAtAnchor, placedSources, refKey } from "./sources.ts";
+import { chipOpened, findingOpened, moveOpened, notAtAnchor, openedIndex, refKey, stepOpened } from "./sources.ts";
 import { type Loaded, useDecisions, useQueueFilters, useReviewData } from "./useReview.ts";
 import { useReviewActions } from "./useReviewActions.ts";
 import { useReviewKeys } from "./useReviewKeys.ts";
@@ -83,10 +83,8 @@ export function ReviewScreen() {
   }, [setFocus, data, view.activeStep]);
   useEffect(() => () => setFocus(null), [setFocus]);
 
-  const placed = data ? placedSources(data.test, data.check) : [];
   const sel = view.sel;
   const selKey = sel ? refKey(sel.source) : "";
-  const selIndex = sel ? placed.findIndex((s) => refKey(s.source) === selKey && s.step === sel.step) : -1;
   const findings = data?.check?.findings ?? [];
   const at = items?.findIndex((t) => t.id === activeId) ?? -1;
 
@@ -99,8 +97,8 @@ export function ReviewScreen() {
   const selectStep = (i: number) => {
     if (!data) return;
     const n = Math.max(0, Math.min(data.test.steps.length - 1, i));
-    const own = placed.find((s) => s.step === n + 1);
-    view.patch({ activeStep: n, ...(own && view.sel ? { sel: own } : {}) });
+    const own = view.sel ? stepOpened(data.test, data.check, n + 1) : null;
+    view.patch({ activeStep: n, ...(own ? { sel: own } : {}) });
     requestAnimationFrame(() =>
       body.current
         ?.querySelector(`[aria-label="Step ${n + 1}"]`)
@@ -119,14 +117,16 @@ export function ReviewScreen() {
   });
 
   const pick = (ref: string) => {
-    const own = placed.find((s) => refKey(s.source) === ref);
+    const steps = data?.test.steps ?? [];
+    const at = steps.findIndex((s) => s.sources.some((x) => refKey(x) === ref));
+    const cited = at >= 0 ? steps[at].sources.find((x) => refKey(x) === ref) : undefined;
     const i = ref.indexOf("#");
+    const source = { docId: ref.slice(0, i), anchor: ref.slice(i + 1), quote: "" };
     view.patch({
-      sel: own ?? {
-        source: { docId: ref.slice(0, i), anchor: ref.slice(i + 1), quote: "" },
-        step: null,
-        label: "Read by the generation",
-      },
+      sel:
+        data && cited
+          ? chipOpened(data.test, at + 1, cited)
+          : { source, step: null, label: "Read by the generation", mark: `read:${ref}`, list: [source] },
     });
   };
 
@@ -210,7 +210,7 @@ export function ReviewScreen() {
               xray={app.xray}
               folded={view.folded}
               activeStep={view.activeStep}
-              selected={selKey}
+              selected={sel?.mark ?? ""}
               selectedStep={sel ? sel.step : undefined}
               marks={view.marks}
               claudeRunning={running}
@@ -218,9 +218,15 @@ export function ReviewScreen() {
               url={(file) => fileUrl(`tests/${data.id}/${file}`)}
               onFold={view.fold}
               onFoldAll={(f) => view.foldAll(f, data.test.steps.length)}
-              onSelect={(source, step) => {
-                const same = sel && refKey(source) === selKey && sel.step === step && sel.source.quote === source.quote;
-                view.patch({ sel: same ? null : { source, step }, ...(step ? { activeStep: step - 1 } : {}) });
+              onSelect={(source, step, finding) => {
+                const next =
+                  finding !== undefined
+                    ? findingOpened(data.test, data.check, finding, source)
+                    : step
+                      ? chipOpened(data.test, step, source)
+                      : null;
+                const same = !!next && sel?.mark === next.mark;
+                view.patch({ sel: same ? null : next, ...(step ? { activeStep: step - 1 } : {}) });
               }}
               onOpenImage={(file) => window.open(fileUrl(`tests/${data.id}/${file}`), "_blank")}
               onEdit={() => view.patch({ editing: true })}
@@ -259,8 +265,8 @@ export function ReviewScreen() {
             <SourcePanel
               source={sel.source}
               label={sel.label ?? (sel.step ? `Source of step ${sel.step}` : "Source of the whole-test finding")}
-              index={Math.max(0, selIndex)}
-              total={placed.length}
+              index={openedIndex(sel)}
+              total={sel.list.length}
               testId={data?.id ?? ""}
               misplaced={notAtAnchor(findings, selKey, sel.step)}
               width={sourceW.moved ? sourceW.width : undefined}
@@ -275,8 +281,8 @@ export function ReviewScreen() {
               }
               onPick={pick}
               onStep={(by) => {
-                const next = placed[Math.max(0, selIndex) + by];
-                if (next) view.patch({ sel: next, ...(next.step ? { activeStep: next.step - 1 } : {}) });
+                const next = data && moveOpened(data.test, data.check, sel, by);
+                if (next) view.patch({ sel: next });
               }}
             />
           </>

@@ -85,6 +85,7 @@ export type ReviewTestProps = Omit<BannersProps, "checked" | "claudeReady" | "te
   xray: ColumnLayout;
   folded: Set<number>;
   activeStep: number;
+  /** the mark of the element that opened the source panel (sources.ts chipMark, findingMark) */
   selected: string;
   /** the step of the open source (null: a whole-test finding's) */
   selectedStep?: number | null;
@@ -94,7 +95,8 @@ export type ReviewTestProps = Omit<BannersProps, "checked" | "claudeReady" | "te
   url: (file: string) => string;
   onFold: (i: number, folded: boolean) => void;
   onFoldAll: (folded: boolean) => void;
-  onSelect: (s: Source, step: number | null) => void;
+  /** a chip of a step, or of the finding number `finding` */
+  onSelect: (s: Source, step: number | null, finding?: number) => void;
   onOpenImage: (file: string) => void;
   onEdit: () => void;
   bodyRef?: Ref<HTMLDivElement>;
@@ -111,7 +113,8 @@ function subline(test: Test, check: CheckFile | null) {
 export function ReviewTest(p: ReviewTestProps) {
   const { test, check, stale } = p;
   const findings = check?.findings ?? [];
-  const whole = findings.filter((f) => !f.step || f.step > test.steps.length);
+  const indexed = findings.map((f, i) => ({ f, i }));
+  const whole = indexed.filter(({ f }) => !f.step || f.step > test.steps.length);
   const allFolded = test.steps.length > 0 && test.steps.every((_, i) => p.folded.has(i));
   const sync = SYNC_WORD[p.sync] ?? SYNC.local;
   return (
@@ -149,26 +152,29 @@ export function ReviewTest(p: ReviewTestProps) {
             <p {...stylex.props(styles.sub)}>{subline(test, check)}</p>
           </div>
           <ReviewBanners {...p} checked={!!check} claudeReady={p.claudeReady ?? true} />
-          {whole.map((f, i) => (
+          {whole.map(({ f, i }) => (
             <FindingCard
               key={`${f.kind}-${i}`}
               finding={f}
               stale={stale}
               where="Whole test"
               whole
-              selected={p.selectedStep === null ? p.selected : ""}
-              onSelect={(s) => p.onSelect(s, null)}
+              index={i}
+              selected={p.selected}
+              onSelect={(s) => p.onSelect(s, null, i)}
             />
           ))}
           {test.steps.map((s, i) => {
             const n = i + 1;
+            const own = indexed.filter(({ f }) => f.step === n);
             return (
               <ReviewStep
                 key={s.id ?? i}
                 n={n}
                 step={s}
                 xray={p.xray}
-                findings={findings.filter((f) => f.step === n)}
+                findings={own.map(({ f }) => f)}
+                at={own.map(({ i: at }) => at)}
                 stale={stale}
                 folded={p.folded.has(i) && p.activeStep !== i}
                 active={p.activeStep === i}
