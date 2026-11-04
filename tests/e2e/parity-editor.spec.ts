@@ -13,14 +13,14 @@ const show = (id: string) => api<Shown>(url, "tests.show", { id });
 const main = (page: Page) => page.getByRole("main");
 const more = async (page: Page, item: string) => {
   await main(page).getByRole("button", { name: "More actions for this test" }).click();
-  await page.getByRole("menuitem", { name: item }).click();
+  await page.getByRole("menuitem", { name: new RegExp(`^${item.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`) }).click();
 };
 
 test("a step that differs from the last sync is marked, shows its Jira version and is restored", async ({ page }) => {
   await openTest(page, "LFRPS12-1420");
-  const marked = main(page).locator(".step.is-modified");
+  const marked = main(page).locator('article[data-mark="modified"]');
   await expect(marked).toHaveCount(1);
-  await expect(marked.getByText("modified", { exact: true })).toBeVisible();
+  await expect(marked.getByText("Modified", { exact: true })).toBeVisible();
   await marked.getByRole("button", { name: "Jira version" }).click();
   const was = marked.getByRole("region", { name: /as Jira has it$/ });
   await expect(was.getByText("In Jira, last synced")).toBeVisible();
@@ -29,8 +29,8 @@ test("a step that differs from the last sync is marked, shows its Jira version a
   ).toHaveCount(1);
   await shoot(page, "parity-jira-version");
   await was.getByRole("button", { name: "Restore this step" }).click();
-  await page.getByRole("dialog").getByRole("button", { name: "Restore this step" }).click();
-  await expect(main(page).locator(".step.is-modified")).toHaveCount(0);
+  await page.getByRole("alertdialog").getByRole("button", { name: "Restore this step" }).click();
+  await expect(main(page).locator('article[data-mark="modified"]')).toHaveCount(0);
   await expect
     .poll(async () => {
       const r = await show("LFRPS12-1420");
@@ -51,7 +51,7 @@ test("a deleted step leaves a placeholder that brings it back", async ({ page })
   await expect(gone).toBeVisible();
   await gone.getByRole("button", { name: "Jira version" }).click();
   await gone.getByRole("button", { name: "Bring the step back" }).click();
-  await page.getByRole("dialog").getByRole("button", { name: "Bring the step back" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Bring the step back" }).click();
   await expect(main(page).getByRole("article")).toHaveCount(n);
   await expect(main(page).getByRole("region", { name: "Deleted step" })).toHaveCount(0);
 });
@@ -60,13 +60,14 @@ test("preconditions: the panel shows definitions, the header attaches one from t
   page,
 }) => {
   await openTest(page, "LFRPS12-1420");
-  const panel = main(page).locator(".precond-list");
+  const panel = main(page).getByRole("region", { name: "Preconditions" });
   await expect(panel.getByRole("button", { name: "LFRPS12-77" })).toBeVisible();
   await expect(panel.getByText("Exercice chargé sur la ligne 92")).toBeVisible();
   await expect(panel.getByText(/Le logiciel R³ est lancé/)).toBeVisible();
-  await main(page).getByRole("combobox", { name: "Attach precondition" }).selectOption("LFRPS12-78");
+  await main(page).getByRole("combobox", { name: "Preconditions" }).click();
+  await page.getByRole("option", { name: "LFRPS12-78" }).click();
   await expect.poll(async () => (await show("LFRPS12-1420")).test.preconditions).toEqual(["LFRPS12-77", "LFRPS12-78"]);
-  await main(page).getByRole("button", { name: "Detach LFRPS12-78" }).click();
+  await main(page).getByRole("button", { name: "Remove LFRPS12-78" }).click();
   await expect.poll(async () => (await show("LFRPS12-1420")).test.preconditions).toEqual(["LFRPS12-77"]);
 });
 
@@ -74,8 +75,8 @@ test("the Columns popover folds Data for this test only", async ({ page }) => {
   await openTest(page, "LFRPS12-1420");
   await main(page).getByRole("button", { name: "Columns" }).click();
   const pop = page.getByRole("dialog", { name: "Step columns" });
-  await pop.getByRole("button", { name: "this test" }).click();
-  await pop.getByRole("group", { name: "Data column" }).getByRole("button", { name: "collapsed" }).click();
+  await pop.getByRole("radio", { name: "this test" }).click();
+  await pop.getByRole("radiogroup", { name: "Data column" }).getByRole("radio", { name: "collapsed" }).click();
   await expect
     .poll(async () => (await api<{ own: unknown }>(url, "tests.folds", { id: "LFRPS12-1420" })).own)
     .toEqual({ Data: "collapsed" });
@@ -91,7 +92,7 @@ test("Undo local changes counts what is lost and rewinds to the last sync", asyn
   await main(page).getByRole("textbox", { name: "Summary" }).fill("Changed locally");
   await expect.poll(async () => (await show("LFRPS12-1420")).sync).toBe("modified");
   await more(page, "Undo local changes");
-  const d = page.getByRole("dialog", { name: "Undo every local change?" });
+  const d = page.getByRole("alertdialog", { name: "Undo every local change?" });
   await expect(d.getByText(/modified · \d+ added · \d+ deleted step\(s\)/)).toBeVisible();
   await d.getByRole("button", { name: "Undo local changes" }).click();
   await expect.poll(async () => (await show("LFRPS12-1420")).sync).toBe("synced");
@@ -112,7 +113,7 @@ test("Open in Jira opens the issue page", async ({ page }) => {
 test("Delete local copy asks for a never-pushed test and closes the editor", async ({ page }) => {
   await openTest(page, "local-3f9a12c0");
   await more(page, "Delete local copy");
-  const d = page.getByRole("dialog", { name: "Delete the local copy?" });
+  const d = page.getByRole("alertdialog", { name: "Delete the local copy?" });
   await expect(d.getByText(/never pushed, so this is the only copy/)).toBeVisible();
   await d.getByRole("button", { name: "Delete local copy" }).click();
   await expect(page).toHaveURL(/#\/tests$/);
