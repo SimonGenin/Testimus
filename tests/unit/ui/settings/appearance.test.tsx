@@ -25,6 +25,8 @@ describe("Settings › Appearance", () => {
   it("theme and step layout are this browser's; a theme chosen elsewhere (the rail) shows here", () => {
     mountSettings(<AppearanceSection />, { info: null });
     expect(radio("Theme", "System")).toBeChecked();
+    expect(screen.getByText("Step layout in the editor")).toBeVisible();
+    expect(screen.getAllByText("Theme").length).toBeGreaterThan(0);
     fireEvent.click(radio("Theme", "Dark"));
     expect(document.documentElement.dataset.theme).toBe("dark");
     expect(radio("Theme", "Dark")).toBeChecked();

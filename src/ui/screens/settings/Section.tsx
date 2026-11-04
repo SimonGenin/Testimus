@@ -88,16 +88,23 @@ export function Labelled({
   hint,
   children,
 }: {
-  id: string;
+  /** the field it names; without one (a radio group named by its own aria-label) the words are only shown */
+  id?: string;
   label: string;
   hint?: string;
   children: ReactNode;
 }) {
   return (
     <div {...stylex.props(styles.field)}>
-      <label htmlFor={id} {...stylex.props(styles.label)}>
-        {label}
-      </label>
+      {id ? (
+        <label htmlFor={id} {...stylex.props(styles.label)}>
+          {label}
+        </label>
+      ) : (
+        <span aria-hidden="true" {...stylex.props(styles.label)}>
+          {label}
+        </span>
+      )}
       {children}
       {hint && <p {...stylex.props(styles.hint)}>{hint}</p>}
     </div>
