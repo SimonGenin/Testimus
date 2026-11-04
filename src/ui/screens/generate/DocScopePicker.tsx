@@ -92,7 +92,7 @@ export function DocScopePicker({
           icon="documents"
           title="No document yet"
           text="Generate writes tests from the project's documents. Add one first."
-          actions={onAddDocuments && <Button size="sm" label="Add documents" onClick={onAddDocuments} />}
+          actions={onAddDocuments && <Button size="sm" icon="plus" label="Add documents" onClick={onAddDocuments} />}
         />
       </div>
     );

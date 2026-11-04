@@ -1,8 +1,9 @@
 import * as stylex from "@stylexjs/stylex";
 import { useLayoutEffect, useRef } from "react";
+import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
-import { color, fontSize, lineHeight, size, space } from "../../styles/tokens.stylex.ts";
+import { color, fontFamily, fontSize, lineHeight, size, space } from "../../styles/tokens.stylex.ts";
 import { DocText } from "./DocText.tsx";
 import type { TocEntry } from "./DocToc.tsx";
 import { into } from "./scroll.ts";
@@ -27,7 +28,53 @@ const styles = stylex.create({
     color: color.textMuted,
   },
   where: { flex: 1, minWidth: 0 },
+  mono: { fontFamily: fontFamily.mono, fontSize: fontSize.code },
 });
+
+export type QuoteFrom = { test: string; step?: number };
+
+const sectionLabel = (anchor: string) => (anchor.startsWith("§") ? `§ ${anchor.slice(1)}` : anchor);
+
+// ponytail: a quote opened from a test: which test cited it (when the link says so), the way back, and Clear to read on
+// without the mark
+function QuoteBar({
+  under,
+  from,
+  onBack,
+  onClear,
+}: {
+  under: string;
+  from?: QuoteFrom;
+  onBack: () => void;
+  onClear: () => void;
+}) {
+  return (
+    <Banner
+      tone="neutral"
+      icon="quote"
+      actions={
+        <>
+          <Button size="sm" icon="arrow-left" label={from ? "Back to the test" : "Back"} onClick={onBack} />
+          <Button size="sm" variant="quiet" label="Clear" onClick={onClear} />
+        </>
+      }
+    >
+      {from ? (
+        <>
+          The quote cited by <span {...stylex.props(styles.mono)}>{from.test}</span>
+          {from.step ? ` · step ${from.step}` : ""}
+        </>
+      ) : (
+        "The quoted passage"
+      )}
+      {under && (
+        <>
+          , under <span {...stylex.props(styles.mono)}>{sectionLabel(under)}</span>
+        </>
+      )}
+    </Banner>
+  );
+}
 
 const ACTS = ["wheel", "pointerdown", "keydown", "touchstart"] as const;
 
@@ -40,6 +87,8 @@ export function DocPart({
   md,
   loading,
   focus,
+  target,
+  quote,
   onGo,
 }: {
   docId: string;
@@ -48,6 +97,8 @@ export function DocPart({
   md: string;
   loading: boolean;
   focus?: string;
+  target?: string;
+  quote?: { from?: QuoteFrom; onBack: () => void; onClear: () => void };
   onGo: (anchor: string) => void;
 }) {
   const box = useRef<HTMLDivElement>(null);
@@ -80,6 +131,7 @@ export function DocPart({
   return (
     <div ref={box} data-testid="doc-part" {...stylex.props(styles.box)}>
       <div {...stylex.props(styles.inner)}>
+        {focus && quote && <QuoteBar under={current} {...quote} />}
         <div {...stylex.props(styles.nav)}>
           <span {...stylex.props(styles.where)}>
             {chapter ? `${chapter.title} · ` : ""}
@@ -104,7 +156,11 @@ export function DocPart({
             onClick={() => next && onGo(next.anchor)}
           />
         </div>
-        {loading ? <Skeleton lines={4} /> : <DocText docId={docId} md={md} focus={focus} onFigure={onGo} />}
+        {loading ? (
+          <Skeleton lines={4} />
+        ) : (
+          <DocText docId={docId} md={md} focus={focus} target={target} onFigure={onGo} />
+        )}
       </div>
     </div>
   );

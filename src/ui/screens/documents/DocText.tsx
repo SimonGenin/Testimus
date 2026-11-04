@@ -51,6 +51,23 @@ const styles = stylex.create({
   },
   para: { margin: 0 },
   focus: { backgroundColor: color.highlight, color: color.highlightText, borderRadius: radius.r1 },
+  mark: {
+    backgroundColor: color.highlight,
+    color: color.highlightText,
+    borderRadius: radius.mark,
+    boxDecorationBreak: "clone",
+  },
+  target: {
+    backgroundColor: color.surfaceSelected,
+    borderRadius: radius.r1,
+    boxShadow: `0 0 0 ${space.s3} ${color.surfaceSelected}`,
+  },
+  targetGutter: {
+    color: color.textLink,
+    backgroundColor: color.accentSubtle,
+    borderRadius: radius.r1,
+    paddingInline: space.s1,
+  },
   figure: { margin: 0, display: "flex", flexDirection: "column", gap: space.s2, alignItems: "flex-start" },
   img: {
     maxWidth: "100%",
@@ -62,7 +79,6 @@ const styles = stylex.create({
   },
   caption: {
     fontFamily: fontFamily.reading,
-    fontStyle: "italic",
     fontSize: fontSize.small,
     lineHeight: lineHeight.small,
     color: color.textMuted,
@@ -144,16 +160,55 @@ function inline(text: string): ReactNode[] {
 
 const focusMark = (hot: boolean) => (hot ? { "data-focus": "" } : {});
 
+// ponytail: where the quote starts in a paragraph and where it ends there (it may run on into the next ones), found on
+// the text squeezed the way hotOf squeezes it, then mapped back onto the raw text
+function quoteIn(text: string, quote: string): [number, number] | null {
+  const q = squeeze(quote);
+  if (!q) return null;
+  let norm = "";
+  const at: number[] = [];
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (c === "*") continue;
+    if (/\s/.test(c)) {
+      if (!norm || norm.endsWith(" ")) continue;
+      norm += " ";
+    } else norm += c.toLowerCase();
+    at.push(i);
+  }
+  const whole = norm.indexOf(q);
+  if (whole >= 0) return [at[whole], at[whole + q.length - 1] + 1];
+  for (let i = 0; i < norm.length; i++)
+    if (norm[i] !== " " && q.startsWith(norm.slice(i).trimEnd())) return [at[i], text.length];
+  return null;
+}
+
+function marked(text: string, quote: string | undefined): ReactNode[] | null {
+  const span = quote ? quoteIn(text, quote) : null;
+  if (!span) return null;
+  const [from, to] = span;
+  return [
+    ...inline(text.slice(0, from)),
+    <mark key="quote" data-focus="" {...stylex.props(styles.mark)}>
+      {inline(text.slice(from, to))}
+    </mark>,
+    ...inline(text.slice(to)),
+  ];
+}
+
 // ponytail: a part of doc.md as React elements (never raw HTML), in the reading font, its anchors in a gutter
 export function DocText({
   docId,
   md,
   focus,
+  target,
   onFigure,
 }: {
   docId: string;
   md: string;
   focus?: string;
+  /** the anchor a link opened (§5.6.6, fig:40): its heading or figure is set apart, its key lit in the gutter */
+  target?: string;
   onFigure: (anchor: string) => void;
 }) {
   const raws = md.split(/\n{2,}/).filter((b) => clean(b));
@@ -174,14 +229,16 @@ export function DocText({
         const head = b.match(/^(#{1,6})\s+(.*)$/);
         if (head && !b.includes("\n")) {
           const numbered = head[2].match(/^(\d+(?:\.\d+)*)\s+(.*)$/);
+          const on = !!numbered && target === `§${numbered[1]}`;
           return (
             <h4
               key={i}
               data-level={head[1].length}
+              data-target={on || undefined}
               {...focusMark(hot)}
               {...stylex.props(styles.row, styles.heading, hot && styles.focus)}
             >
-              <span {...stylex.props(styles.gutter)}>
+              <span {...stylex.props(styles.gutter, on && styles.targetGutter)}>
                 {numbered && (
                   <>
                     <span aria-hidden="true">§ </span>
@@ -189,7 +246,7 @@ export function DocText({
                   </>
                 )}
               </span>{" "}
-              <span {...stylex.props(styles.block)}>{numbered ? numbered[2] : head[2]}</span>
+              <span {...stylex.props(styles.block, on && styles.target)}>{numbered ? numbered[2] : head[2]}</span>
             </h4>
           );
         }
@@ -211,25 +268,34 @@ export function DocText({
           );
         const parts = pieces(raw);
         const only = parts.length === 1 ? parts[0] : null;
-        if (only && "src" in only)
+        if (only && "src" in only) {
+          const on = !!only.fig && target === `fig:${only.fig}`;
           return (
-            <div key={i} {...stylex.props(styles.row, styles.figRow)}>
-              <span aria-hidden="true" {...stylex.props(styles.gutter)}>
+            <div key={i} data-target={on || undefined} {...stylex.props(styles.row, styles.figRow)}>
+              <span aria-hidden="true" {...stylex.props(styles.gutter, on && styles.targetGutter)}>
                 {only.fig ? `fig ${only.fig}` : ""}
               </span>
-              {picture(only, i, hot)}
+              <span {...stylex.props(styles.block, on && styles.target)}>{picture(only, i, hot)}</span>
             </div>
           );
+        }
+        let quoted = false;
+        const texts = parts.map((p) => {
+          if (!hot || quoted || "src" in p) return null;
+          const m = marked(p.text, focus);
+          if (m) quoted = true;
+          return m;
+        });
         return (
           <div key={i} {...stylex.props(styles.row)}>
             <span {...stylex.props(styles.gutter)} />
-            <div {...focusMark(hot)} {...stylex.props(styles.block, hot && styles.focus)}>
+            <div {...focusMark(hot && !quoted)} {...stylex.props(styles.block, hot && !quoted && styles.focus)}>
               {parts.map((p, j) =>
                 "src" in p ? (
                   picture(p, j, false)
                 ) : (
                   <p key={j} {...stylex.props(styles.para)}>
-                    {inline(p.text)}
+                    {texts[j] ?? inline(p.text)}
                   </p>
                 ),
               )}
