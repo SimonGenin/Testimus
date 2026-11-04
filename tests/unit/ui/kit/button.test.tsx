@@ -106,6 +106,11 @@ describe("Button", () => {
     expect(screen.getByTestId("more")).toBe(b);
     render(<Button label="Stacked" pressed />);
     expect(screen.getByRole("button", { name: "Stacked" })).toHaveAttribute("aria-pressed", "true");
+    render(<Button label="Unstacked" pressed={false} />);
+    render(<Button label="Held" debugState="pressed" />);
+    const on = cls(screen.getByRole("button", { name: "Stacked" }));
+    expect(on).not.toBe(cls(screen.getByRole("button", { name: "Unstacked" })));
+    expect(on).toBe(cls(screen.getByRole("button", { name: "Held" })));
   });
 
   it("is a submit button when asked, full width when block, and shows forced states for the catalogue", () => {

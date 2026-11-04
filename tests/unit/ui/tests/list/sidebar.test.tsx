@@ -570,7 +570,7 @@ describe("Tests screen › pull queue", () => {
     expect(nav).toHaveBeenLastCalledWith("tests", "LFRPS12-9");
     const main = screen.getByRole("main");
     const line = () => within(main).getByRole("status", { name: "Pull progress" });
-    expect(within(main).getByRole("heading", { name: "Pulling LFRPS12-9" })).toBeInTheDocument();
+    expect(within(main).getByRole("region", { name: "Pulling LFRPS12-9" })).toBeInTheDocument();
     expect(within(main).getByText("Nine")).toBeInTheDocument();
     expect(line()).toHaveTextContent("contacting Jira…");
     expect(within(await opt(/Nine/)).getByText("Pulling…")).toBeInTheDocument();
@@ -580,7 +580,7 @@ describe("Tests screen › pull queue", () => {
     locals = [ref({ id: "LFRPS12-9", key: "LFRPS12-9", summary: "Nine", sync: "synced", synced: true })];
     routes["tests.show"] = () => new Promise(() => {});
     finish("job-1", { pulled: ["LFRPS12-9"], skipped: [], failed: [] });
-    await waitFor(() => expect(within(main).queryByRole("heading", { name: "Pulling LFRPS12-9" })).toBeNull());
+    await waitFor(() => expect(within(main).queryByRole("region", { name: "Pulling LFRPS12-9" })).toBeNull());
     expect(nav).toHaveBeenCalledTimes(1);
     await waitFor(async () => expect(await opt(/^Nine/)).toHaveTextContent("In sync"));
   });
@@ -591,7 +591,7 @@ describe("Tests screen › pull queue", () => {
     fireEvent.click(await opt(/Nine/));
     await waitFor(() => expect(named("xray.pull")).toHaveLength(2));
     const main = screen.getByRole("main");
-    expect(within(main).getByRole("heading", { name: "Pulling LFRPS12-9" })).toBeInTheDocument();
+    expect(within(main).getByRole("region", { name: "Pulling LFRPS12-9" })).toBeInTheDocument();
     expect(await within(main).findByText("1 more pulling in the background")).toBeInTheDocument();
     say({ jobId: "job-1", at: "", type: "progress", message: "LFRPS12-8: steps fetched" });
     await waitFor(() =>
@@ -601,7 +601,7 @@ describe("Tests screen › pull queue", () => {
     const lists = named("tests.list").length;
     finish("job-1", { pulled: ["LFRPS12-8"], skipped: [], failed: [] });
     await waitFor(() => expect(named("tests.list").length).toBeGreaterThan(lists));
-    expect(within(main).getByRole("heading", { name: "Pulling LFRPS12-9" })).toBeInTheDocument();
+    expect(within(main).getByRole("region", { name: "Pulling LFRPS12-9" })).toBeInTheDocument();
     expect(nav.mock.calls.map((c) => c[1])).toEqual(["LFRPS12-8", "LFRPS12-9"]);
   });
 
@@ -619,7 +619,7 @@ describe("Tests screen › pull queue", () => {
     expect(within(main).getByText("Jira said 404")).toBeInTheDocument();
     fireEvent.click(within(main).getByRole("button", { name: "Retry" }));
     await waitFor(() => expect(named("xray.pull")).toHaveLength(3));
-    expect(within(main).getByRole("heading", { name: "Pulling LFRPS12-9" })).toBeInTheDocument();
+    expect(within(main).getByRole("region", { name: "Pulling LFRPS12-9" })).toBeInTheDocument();
     finish("job-3", null, "failed", "again");
     fireEvent.click(await within(main).findByRole("button", { name: "Back" }));
     expect(nav).toHaveBeenLastCalledWith("tests", undefined);

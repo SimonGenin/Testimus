@@ -4,6 +4,7 @@ import { osUser, setReview } from "../lib/review.ts";
 import { listLocalTests, readTest, testExists } from "../lib/store.ts";
 import type { LocalTestRef, Review, Test } from "../types.ts";
 import { inFolder } from "./check.ts";
+import { readLedger } from "./ledger.ts";
 
 export type QueueItem = {
   id: string;
@@ -19,6 +20,8 @@ export type QueueItem = {
   infos: number;
   stale: boolean;
   mtime: number;
+  generatedBy?: string;
+  generatedAt?: string;
 };
 
 export type QueueSort = "state" | "anomalies" | "folder" | "recent";
@@ -46,8 +49,10 @@ export function decide(project: string, id: string, decision: "validate" | "to-f
   });
 }
 
-function itemOf(project: string, t: LocalTestRef): QueueItem {
-  const note = t.review === "to-fix" ? readTest(project, t.id).test.reviewNote : undefined;
+function itemOf(project: string, t: LocalTestRef, when: (generation: string) => string | undefined): QueueItem {
+  const test = readTest(project, t.id).test;
+  const note = t.review === "to-fix" ? test.reviewNote : undefined;
+  const at = test.generatedBy ? when(test.generatedBy) : undefined;
   return {
     id: t.id,
     ...(t.key ? { key: t.key } : {}),
@@ -62,6 +67,8 @@ function itemOf(project: string, t: LocalTestRef): QueueItem {
     infos: t.findings?.infos ?? 0,
     stale: t.findings?.stale ?? false,
     mtime: t.mtime,
+    ...(test.generatedBy ? { generatedBy: test.generatedBy } : {}),
+    ...(at ? { generatedAt: at } : {}),
   };
 }
 
@@ -78,9 +85,14 @@ const SORTS: Record<QueueSort, (a: QueueItem, b: QueueItem) => number> = {
 // ponytail: only generated tests are reviewed — one written by hand, pulled or imported never enters the queue
 export function reviewQueue(project: string, f: QueueFilter) {
   const states = f.state?.length ? f.state : AWAITING;
+  const ats = new Map<string, string | undefined>();
+  const when = (g: string) => {
+    if (!ats.has(g)) ats.set(g, readLedger(project, g)?.at);
+    return ats.get(g);
+  };
   const generated = listLocalTests(project)
     .filter((t) => t.generated)
-    .map((t) => itemOf(project, t));
+    .map((t) => itemOf(project, t, when));
   const awaiting = generated.filter((t) => t.review !== "validated");
   const tests = generated
     .filter((t) => states.includes(t.review))

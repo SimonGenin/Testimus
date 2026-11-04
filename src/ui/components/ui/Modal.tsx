@@ -195,9 +195,9 @@ export type ModalProps = {
    * something is lost — the one place a danger button lives */
   confirm?: {
     verb: string;
-    /** red verb carrying the trash, focus on Cancel */
+    /** red verb (with the trash unless it names its own icon), focus on Cancel, its ring shown */
     danger?: boolean;
-    /** the verb's icon when it is not a danger (a danger verb always carries the trash): undo, download… */
+    /** the verb's icon: undo, download… (a danger verb carries the trash without one) */
     icon?: IconName;
     onConfirm: () => void | Promise<void>;
     /** the verb waits (true, or the reason) — a plan still being read; Cancel stays */
@@ -389,11 +389,11 @@ export function Modal({
       <div {...stylex.props(styles.buttons)}>
         {confirm ? (
           <>
-            <Button ref={cancel} label="Cancel" disabled={working} onClick={shut} />
+            <Button ref={cancel} label="Cancel" ringOnFocus disabled={working} onClick={shut} />
             <Button
               ref={verb}
               variant={confirm.danger ? "danger" : "primary"}
-              icon={confirm.danger ? "trash" : confirm.icon}
+              icon={confirm.icon ?? (confirm.danger ? "trash" : undefined)}
               label={confirm.verb}
               loading={working}
               disabled={confirm.disabled}

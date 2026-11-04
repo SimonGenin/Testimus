@@ -1,10 +1,12 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
 import type { CommandInput } from "../../../core/commands/index.ts";
 import type { CheckFile, SyncState, Test } from "../../../core/types.ts";
 import { flushAutosaves, useDraft } from "../../lib/data/autosave.ts";
 import { project } from "../../lib/data/client.ts";
 import { execute, type Prefix, read, useRead } from "../../lib/data/query.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
+import { byGeneration } from "./queueGroups.ts";
 import type { QueueCounts, QueueFilter, QueueItem, QueueSort } from "./ReviewQueue.tsx";
 import { useJobRun } from "./useJobRun.ts";
 
@@ -23,6 +25,8 @@ const STATES: Record<QueueFilter, CommandInput<"review.queue">["state"]> = {
   "to-fix": ["to-fix"],
   validated: ["validated"],
 };
+
+const NONE: QueueItem[] = [];
 
 const draft = (name: string) => [project(), `review.${name}`] as const;
 
@@ -57,7 +61,9 @@ export function useReviewData(routeId: string, filters: Filters) {
   const input = queueInput(filters);
   const queue = useRead("review.queue", input, { keepPrevious: true });
   const whole = useRead("review.queue", {});
-  const items: QueueItem[] | null = queue.isSuccess ? (queue.data?.tests ?? []) : queue.isError ? [] : null;
+  const listed = queue.isSuccess ? (queue.data?.tests ?? NONE) : undefined;
+  const grouped = useMemo(() => (listed ? byGeneration(listed as QueueItem[]) : null), [listed]);
+  const items: QueueItem[] | null = grouped ? grouped.items : queue.isError ? [] : null;
   const all = whole.data?.tests ?? [];
   const activeId = routeId || items?.[0]?.id || "";
   const shown = useRead("tests.show", { id: activeId }, { enabled: !!activeId });
@@ -79,6 +85,7 @@ export function useReviewData(routeId: string, filters: Filters) {
   return {
     input,
     items,
+    groups: grouped?.groups,
     counts: (queue.data?.counts ?? null) as QueueCounts | null,
     queueError: queue.isError ? queue.error.message : "",
     retryQueue: () => void queue.refetch(),
@@ -109,7 +116,7 @@ export function useDecisions(input: ReturnType<typeof queueInput>, open: (id: st
 
   const next = async (id: string, before: QueueItem[]) => {
     const at = before.findIndex((t) => t.id === id);
-    const list = (await read(client, "review.queue", input)).tests;
+    const list = byGeneration((await read(client, "review.queue", input)).tests).items;
     const after = list.find((t, i) => i >= at && t.id !== id) ?? list.filter((t) => t.id !== id).pop();
     open(after?.id ?? null);
   };

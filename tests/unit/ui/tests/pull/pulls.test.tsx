@@ -339,68 +339,33 @@ describe("PullPane", () => {
     covers: 1,
     labels: 0,
   };
-  const WORD: Record<string, string> = { Done: "done", Running: "active", Waiting: "pending", Skipped: "skip" };
-  const phases = () =>
-    [...(screen.getByRole("list", { name: "Pull phases" }).children as HTMLCollectionOf<HTMLElement>)].map((li) => {
-      const mark = li.querySelector("[aria-label]")?.getAttribute("aria-label") ?? "";
-      const words = [...li.querySelectorAll("span")]
-        .filter((s) => s.children.length === 0 && s.textContent)
-        .map((s) => s.textContent)
-        .join("");
-      return `${WORD[mark]} ${words}`;
-    });
 
-  it("draws a skeleton until the test is read, then its facts and the four phases", () => {
-    pane({ key: "K-1", summary: "", startedAt: Date.now() - 65_000 });
-    expect(
-      screen.getByTestId("pull-card").querySelector('[aria-hidden="true"], [role="status"], div div'),
-    ).not.toBeNull();
-    expect(screen.getByText("1:05")).toBeInTheDocument();
-    expect(phases()).toEqual([
-      "active Reach Jira",
-      "pending Read the test",
-      "pending Download the images",
-      "pending Write test.md",
-    ]);
+  it("names the pull by key and summary, a skeleton until the summary is known, and Cancel stops it", () => {
+    pane({ key: "K-1", summary: "" });
+    expect(screen.getByText("K-1 · pulling from Jira")).toBeInTheDocument();
+    expect(screen.queryByRole("heading")).toBeNull();
+    expect(screen.getByRole("progressbar", { name: "Pulling" })).not.toHaveAttribute("aria-valuenow");
     cleanup();
-    pane({ key: "K-1", summary: "One", phase: "read", read, startedAt: Date.now() - 3_000 });
-    expect(screen.getByText("3 s")).toBeInTheDocument();
-    expect(screen.getByText("From Jira", { selector: "p" })).toBeInTheDocument();
-    expect(screen.getByText("/Freinage")).toBeInTheDocument();
-    expect(screen.getByText("To Do")).toBeInTheDocument();
-    expect(screen.getAllByTestId("pull-fact").map((f) => f.textContent)).toEqual([
-      "1 step",
-      "4 images",
-      "2 preconditions",
-      "1 linked issue",
-      "0 labels",
-    ]);
-    expect(phases()).toEqual([
-      "done Jira reached",
-      "done Test read1 step",
-      "active Download the images0 / 4",
-      "pending Write test.md",
-    ]);
+    pane({ key: "K-1", summary: "One", phase: "read", read });
+    expect(screen.getByRole("heading", { name: "From Jira" })).toBeInTheDocument();
     cleanup();
-    pane({ key: "K-1", summary: "One", phase: "images", read, images: { done: 3, total: 4 } });
-    expect(screen.getByRole("progressbar", { name: "Images downloaded" })).toHaveAttribute("aria-valuenow", "75");
-    cleanup();
-    pane({ key: "K-1", summary: "One", phase: "images", read, images: { done: 4, total: 4 } });
-    expect(phases().at(-1)).toBe("active Write test.md");
-    cleanup();
-    pane({ key: "K-1", summary: "One", phase: "write", read: { ...read, images: 0, summary: "", folder: "" } });
-    expect(screen.getByText("One", { selector: "p" })).toBeInTheDocument();
-    expect(screen.getByText("/")).toBeInTheDocument();
-    expect(phases()).toEqual(["done Jira reached", "done Test read1 step", "skip No images", "active Write test.md"]);
-    cleanup();
-    pane({ key: "K-1", summary: "", phase: "read", read: { ...read, images: 0 } });
-    expect(phases().at(-1)).toBe("active Write test.md");
+    pane({ key: "K-1", summary: "One", phase: "write", read: { ...read, summary: "" } });
+    expect(screen.getByRole("heading", { name: "One" })).toBeInTheDocument();
   });
 
-  it("says a queued pull is queued, with every phase still to come", () => {
+  it("measures the images while they download", () => {
+    pane({ key: "K-1", summary: "One", phase: "images", read, images: { done: 3, total: 4 } });
+    const bar = screen.getByRole("progressbar", { name: "Images downloaded" });
+    expect(bar).toHaveAttribute("aria-valuenow", "75");
+    expect(bar).toHaveAttribute("aria-valuetext", "3 of 4 images");
+  });
+
+  it("says a queued pull is queued, waiting for one of the 3 slots", () => {
     pane({ key: "K-1", summary: "" }, [{ key: "K-2", summary: "", message: "steps" }]);
-    expect(screen.getByText("Queued")).toBeInTheDocument();
-    expect(phases().every((p) => p.startsWith("pending"))).toBe(true);
+    expect(screen.getByText("K-1 · queued")).toBeInTheDocument();
+    expect(screen.getByRole("status", { name: "Pull progress" })).toHaveTextContent(
+      "waiting for a free slot… (3 pulls at a time)",
+    );
   });
 
   it("explains a failed pull and offers retry and back", () => {

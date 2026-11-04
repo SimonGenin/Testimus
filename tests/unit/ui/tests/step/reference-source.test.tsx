@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ColumnLayout, Source, Step } from "../../../../../src/core/types.ts";
 import { setProject } from "../../../../../src/ui/api.ts";
 import { ReviewStep } from "../../../../../src/ui/screens/review/ReviewStep.tsx";
+import { chipMark } from "../../../../../src/ui/screens/review/sources.ts";
 import { StepCard } from "../../../../../src/ui/screens/tests/StepCard.tsx";
 import { layoutOf } from "../../../helpers/layout.ts";
 import { renderWithData } from "../../../helpers/ui-data.tsx";
@@ -107,7 +108,7 @@ describe("a Reference source column in a step", () => {
         stale={false}
         folded={false}
         active={false}
-        selected="SPF#§4.2"
+        selected={chipMark(2, a)}
         url={(f) => f}
         onFold={vi.fn()}
         onSelect={onSelect}

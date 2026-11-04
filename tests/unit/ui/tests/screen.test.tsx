@@ -226,7 +226,7 @@ describe("TestsScreen", () => {
     fireEvent.click(await screen.findByRole("option", { name: /^Nine/ }));
     expect(state.navigate).toHaveBeenCalledWith("tests", "K-9");
     again({ route: { screen: "tests", arg: "K-9" } });
-    expect(screen.getByRole("heading", { name: /^Pulling K-9/ })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: /^Pulling K-9/ })).toBeInTheDocument();
     refs = [...refs, ref("t9", { key: "K-9" })];
     await act(async () => gate.resolve({ pulled: ["K-9"] }));
     await waitFor(() => expect(state.navigate).toHaveBeenCalledWith("tests", "t9"));
@@ -255,7 +255,7 @@ describe("TestsScreen", () => {
       ],
     });
     screenOf({ route: { screen: "tests", arg: "K-9" } });
-    expect(await screen.findByRole("heading", { name: /^Pulling K-9/ })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: /^Pulling K-9/ })).toBeInTheDocument();
     expect(screen.getByRole("status", { name: "Pull progress" })).toHaveTextContent("image 2 of 3");
     expect(await screen.findByRole("progressbar", { name: "Images downloaded" })).toHaveAttribute(
       "aria-valuenow",

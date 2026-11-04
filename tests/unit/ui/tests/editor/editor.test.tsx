@@ -622,6 +622,7 @@ describe("TestEditor › steps", () => {
     shown = makeTest({ key: undefined, summary: "New test", steps: [] });
     const { state } = editor();
     await waitFor(() => expect(screen.getByRole("textbox", { name: "Summary" })).toHaveFocus());
+    expect(screen.getByText("This test has no steps yet")).toBeInTheDocument();
     fireEvent.click(await screen.findByRole("button", { name: "Ask Claude to draft them" }));
     expect(state.askClaude).toHaveBeenCalledWith("test", expect.stringMatching(/^Draft the steps of this test/));
     fireEvent.click(await screen.findByRole("button", { name: "Add first step" }));
@@ -710,10 +711,10 @@ describe("TestEditor › steps", () => {
     editor();
     await screen.findByRole("img", { name: "b.png" });
     fireEvent.click(screen.getByRole("button", { name: "Open b.png" }));
-    const box = screen.getByRole("dialog", { name: "Screenshot b.png" });
+    const box = screen.getByRole("dialog", { name: "b.png" });
     expect(within(box).getByText("2 of 3")).toBeInTheDocument();
     fireEvent.click(within(box).getByRole("button", { name: "Next image" }));
-    expect(screen.getByRole("dialog", { name: "Screenshot c.png" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "c.png" })).toBeInTheDocument();
     fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Close" }));
     expect(screen.queryByRole("dialog")).toBeNull();
   });
@@ -1071,7 +1072,7 @@ describe("TestEditor › Jira", () => {
     expect(within(screen.getByRole("article", { name: "Step 1" })).getByText("Modified")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Jira version" }));
     fireEvent.click(screen.getAllByRole("button", { name: "Open b.png" })[0]);
-    expect(screen.getByRole("dialog", { name: "Screenshot b.png" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "b.png" })).toBeInTheDocument();
     fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Close" }));
     fireEvent.click(screen.getByRole("button", { name: "Restore this step" }));
     const dlg = await screen.findByRole("alertdialog", { name: "Restore step 1 from Jira?" });
@@ -1099,7 +1100,7 @@ describe("TestEditor › Jira", () => {
     const gone = screen.getByRole("region", { name: "Deleted step" });
     fireEvent.click(within(gone).getByRole("button", { name: "Jira version" }));
     fireEvent.click(within(gone).getByRole("img", { name: "g.png" }));
-    expect(screen.getByRole("dialog", { name: "Screenshot g.png" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "g.png" })).toBeInTheDocument();
     fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Close" }));
     fireEvent.click(within(gone).getByRole("button", { name: "Bring the step back" }));
     const dlg = await screen.findByRole("alertdialog", { name: "Bring the deleted step back?" });

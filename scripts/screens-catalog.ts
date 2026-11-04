@@ -322,7 +322,7 @@ function fixtureShots(): Shot[] {
       hash: `#/review/${T1420}`,
       prep: async (p) => {
         const chip = step(p, 2)
-          .getByRole("button", { name: /^SOSIE_211_D401-1_3 §5\.6\.6/ })
+          .getByRole("button", { name: /Le menu contextuel d'un sectionneur sans TK propose/ })
           .first();
         await chip.click({ timeout: T });
         await p.getByRole("complementary", { name: "Source passage" }).waitFor({ timeout: T });
@@ -471,7 +471,7 @@ function fixtureShots(): Shot[] {
       hash: `#/tests/${T1420}`,
       prep: async (p) => {
         await step(p, 1).getByRole("img", { name: "fig-40.png" }).click({ timeout: T });
-        await dialog(p, /^Screenshot/);
+        await dialog(p, "fig-40.png");
       },
     },
     {
@@ -516,7 +516,8 @@ function fixtureShots(): Shot[] {
         await tap(p, "New test");
         await step(p, 1).waitFor({ timeout: T });
         await tap(p, "Delete step 1");
-        await see(p, "This test has no steps yet.");
+        await see(p, "This test has no steps yet");
+        await p.getByRole("textbox", { name: "Summary" }).focus();
       },
     },
     // Palette and shell with data
@@ -764,7 +765,7 @@ function fixtureShots(): Shot[] {
       prep: async (p) => {
         await generate(p);
         await p
-          .getByText(/tests? written/)
+          .getByText(/^\d+ tests? written$/)
           .first()
           .waitFor({ timeout: 90_000 });
       },
@@ -776,8 +777,10 @@ function fixtureShots(): Shot[] {
       hash: "#/review",
       prep: async (p) => {
         await openGenerated(p);
-        await step(p, 1)
-          .getByRole("button", { name: /^SOSIE_211_D401-1_3 §5\.6\.6/ })
+        const expand = step(p, 2).getByRole("button", { name: "Expand step 2" });
+        if (await expand.isVisible()) await expand.click();
+        await step(p, 2)
+          .getByRole("button", { name: /La fenêtre Propriétés affiche/ })
           .first()
           .click({ timeout: T });
         await tap(p.getByRole("complementary", { name: "Source passage" }), /^Sources read/);
@@ -955,7 +958,7 @@ function slowShots(): Shot[] {
         await tap(p, /^Traction [\d/]+$/);
         await tap(p, /^Disjoncteurs [\d/]+$/);
         await tap(p, /LFRPS12-1401/);
-        await see(p, /^Pulling LFRPS12-1401/);
+        await see(p, /^LFRPS12-1401 · (pulling from Jira|queued)/);
       },
     },
     {

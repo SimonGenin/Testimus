@@ -155,10 +155,14 @@ export type ReviewStepProps = {
   /** Claude's last run changed this step (added: it wrote it) */
   claude?: boolean;
   added?: boolean;
+  /** the mark of the element that opened the source panel (sources.ts chipMark, findingMark) */
   selected: string;
+  /** each finding's place in the check's findings (default: their order here) */
+  at?: number[];
   url: (file: string) => string;
   onFold: (folded: boolean) => void;
-  onSelect: (s: Source, step: number) => void;
+  /** a chip of the step, or of its finding number `finding` */
+  onSelect: (s: Source, step: number, finding?: number) => void;
   onOpenImage: (file: string) => void;
 };
 
@@ -244,7 +248,7 @@ export function ReviewStep(p: ReviewStepProps) {
                     onRemove={noop}
                     onOpen={p.onOpenImage}
                   />
-                  {links.length > 0 && <Links links={links} selected={selected} onOpen={pick} />}
+                  {links.length > 0 && <Links links={links} step={n} selected={selected} onOpen={pick} />}
                 </div>
               )}
             </div>
@@ -254,7 +258,7 @@ export function ReviewStep(p: ReviewStepProps) {
       <div {...stylex.props(styles.sources)}>
         <span {...stylex.props(styles.label)}>Sources</span>
         {loose.length > 0 ? (
-          <Links links={[{ item: "", sources: loose }]} selected={selected} onOpen={pick} />
+          <Links links={[{ item: "", sources: loose }]} step={n} selected={selected} onOpen={pick} />
         ) : (
           <span {...stylex.props(styles.nosource)}>
             <Icon name="quote" size="sm" />
@@ -270,8 +274,9 @@ export function ReviewStep(p: ReviewStepProps) {
               finding={f}
               stale={stale}
               where={`Step ${n}`}
+              index={p.at?.[i] ?? i}
               selected={selected}
-              onSelect={pick}
+              onSelect={(src) => p.onSelect(src, n, p.at?.[i] ?? i)}
             />
           ))}
         </div>

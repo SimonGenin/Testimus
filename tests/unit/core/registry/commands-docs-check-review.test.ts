@@ -197,6 +197,19 @@ describe("review commands", () => {
     expect(subject("review.fix", { id: LOCAL })).toBe(LOCAL);
   });
 
+  it("says which generation wrote each queued test, and when it started when its ledger says so", async () => {
+    const before = await run("review.queue", {});
+    for (const t of before.tests) expect(t.generatedBy).toBe("gen-tests-1a2b3c4d");
+    expect(before.tests.some((t: { generatedAt?: string }) => t.generatedAt)).toBe(false);
+    mkdirSync(join(project, ".testimus", "gen"), { recursive: true });
+    writeFileSync(
+      join(project, ".testimus", "gen", "gen-tests-1a2b3c4d.json"),
+      JSON.stringify({ at: "2026-10-31T15:02:00.000Z", consulted: [], searched: [] }),
+    );
+    const after = await run("review.queue", {});
+    for (const t of after.tests) expect(t.generatedAt).toBe("2026-10-31T15:02:00.000Z");
+  });
+
   it("filters the queue by state, folder and findings", async () => {
     const q = await run("review.queue", { state: ["draft"], folder: "/Signalisation/" });
     expect(q.tests.map((t: { id: string }) => t.id)).toEqual(["local-0000000b", "local-0000000c"]);

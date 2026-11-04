@@ -4,7 +4,7 @@ import { Badge, SeverityBadge } from "../../components/ui/Badge.tsx";
 import { SourceChip } from "../../components/ui/SourceChip.tsx";
 import { parseSourceRef, sourcePlace } from "../../lib/fields.ts";
 import { border, color, fontSize, fontWeight, lineHeight, radius, shadow, space } from "../../styles/tokens.stylex.ts";
-import { kindLabel, refKey } from "./sources.ts";
+import { findingMark, kindLabel, refKey } from "./sources.ts";
 
 const styles = stylex.create({
   card: {
@@ -34,10 +34,13 @@ const styles = stylex.create({
 
 export function FindingSources({
   finding,
+  index = 0,
   selected,
   onSelect,
 }: {
   finding: Finding;
+  /** its place in the check's findings: its chip is pressed when it opened the source panel */
+  index?: number;
   selected: string;
   onSelect: (s: Source) => void;
 }) {
@@ -51,7 +54,7 @@ export function FindingSources({
           reference={`${s.docId} ${sourcePlace(s.anchor)}`}
           quote={s.quote || undefined}
           figure={s.anchor.startsWith("fig:")}
-          pressed={selected === refKey(s)}
+          pressed={selected === findingMark(index, s)}
           onOpen={() => onSelect(s)}
         />
       ))}
@@ -65,6 +68,7 @@ export function FindingCard({
   stale,
   where,
   whole = false,
+  index,
   selected,
   onSelect,
 }: {
@@ -72,12 +76,14 @@ export function FindingCard({
   stale: boolean;
   where: string;
   whole?: boolean;
+  /** its place in the check's findings: the card is marked when the test opened on it */
+  index: number;
   selected: string;
   onSelect: (s: Source) => void;
 }) {
   const head = `${kindLabel(finding.kind)}`;
   const by = finding.pass === "mechanical" ? "mechanical check" : finding.pass === "semantic" ? "read by Claude" : "";
-  const on = finding.sources.includes(selected);
+  const on = selected === findingMark(index);
   return (
     <div
       role="note"
@@ -95,7 +101,7 @@ export function FindingCard({
       {stale && (
         <p {...stylex.props(styles.note)}>The test changed after this check. Run the check again to confirm.</p>
       )}
-      <FindingSources finding={finding} selected={selected} onSelect={onSelect} />
+      <FindingSources finding={finding} index={index} selected={selected} onSelect={onSelect} />
       {!finding.sources.length && finding.pass === "semantic" && (
         <p {...stylex.props(styles.note)}>No passage was found for it.</p>
       )}

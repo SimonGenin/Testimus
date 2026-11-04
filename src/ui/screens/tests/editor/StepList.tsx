@@ -230,7 +230,7 @@ export function StepList({
       {test.steps.length === 0 ? (
         <EmptyState
           icon="tests"
-          title="This test has no steps yet."
+          title="This test has no steps yet"
           text="Write the first one, or ask Claude to draft the steps from the test's description and sources."
           actions={
             readOnly ? undefined : (

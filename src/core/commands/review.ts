@@ -19,6 +19,11 @@ const queueItem = z.object({
   infos: z.number().describe("Infos of its last check"),
   stale: z.boolean().describe("The test changed since its last check"),
   mtime: z.number().describe("When test.md was last written (ms since 1970)"),
+  generatedBy: z.string().optional().describe("The generation that wrote it (generated_by: its job id)"),
+  generatedAt: z
+    .string()
+    .optional()
+    .describe("When that generation started (ISO), from its ledger .testimus/gen/<id>.json; absent without one"),
 });
 
 export const commands = [

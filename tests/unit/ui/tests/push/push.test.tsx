@@ -181,7 +181,8 @@ describe("PushDialog › running", () => {
     act(() => emit(progress()));
     act(() => emit({ jobId: "j", at: "", type: "log", level: "info", message: "x" }));
     expect(screen.getByRole("progressbar", { name: "1 of 3 operations done" })).toBeInTheDocument();
-    expect(screen.getByText(/1 done · 2 not started/)).toBeInTheDocument();
+    expect(screen.getByText(/^1 of 3 done/)).toBeInTheDocument();
+    expect(screen.queryByText(/not started/), "the operation running is not counted as not started").toBeNull();
     await act(async () => {
       gate.resolve({ ok: true, id: "", ops: [] });
     });

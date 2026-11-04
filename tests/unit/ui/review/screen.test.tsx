@@ -113,12 +113,15 @@ describe("Review screen", () => {
     fireEvent.click(chip());
     expect(await screen.findByText("Source of step 2")).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Passage D#§2" })).toBeInTheDocument();
-    expect(screen.getByText("1 of 2 sources")).toBeInTheDocument();
+    expect(screen.getByText("1 of 1 source")).toBeInTheDocument();
+    expect(chip()).toHaveAttribute("aria-pressed", "true");
     key("ArrowDown");
     expect(await screen.findByText("Source of step 3")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Previous source" }));
+    expect(screen.getByRole("button", { name: "Previous source" })).toBeDisabled();
+    expect(chip()).toHaveAttribute("aria-pressed", "false");
+    key("ArrowUp");
     expect(await screen.findByText("Source of step 2")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Next source" }));
+    key("ArrowDown");
     expect(await screen.findByText("Source of step 3")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Close the source panel" }));
     expect(screen.queryByRole("complementary", { name: "Source passage" })).toBeNull();
@@ -126,6 +129,43 @@ describe("Review screen", () => {
     expect(await screen.findByText("Source of step 2")).toBeInTheDocument();
     fireEvent.click(chip());
     expect(screen.queryByRole("complementary", { name: "Source passage" })).toBeNull();
+  });
+
+  it("marks only the chip clicked, never others citing the same anchor, and walks the sources of its step", async () => {
+    reviewRoutes({
+      tests: {
+        "K-1": {
+          steps: [
+            { fields: { Action: "One" }, sources: [], images: [] },
+            {
+              fields: { Action: "Two" },
+              sources: [
+                { docId: "D", anchor: "§2", quote: "first" },
+                { docId: "D", anchor: "§2", quote: "second" },
+              ],
+              images: [],
+            },
+            { fields: { Action: "Three" }, sources: [{ docId: "D", anchor: "§2", quote: "third" }], images: [] },
+          ],
+        },
+      },
+      findings: [{ step: 2, kind: "unsupported", severity: "info", message: "same anchor", sources: ["D#§2"] }],
+    });
+    show();
+    await screen.findByRole("heading", { name: "Summary K-1" });
+    expect(await screen.findByText("Finding on step 2 · Unsupported")).toBeInTheDocument();
+    expect(screen.getByText("1 of 1 source")).toBeInTheDocument();
+    for (const b of screen.getAllByRole("button", { name: /D §2/ })) expect(b).toHaveAttribute("aria-pressed", "false");
+    const second = () => within(step(2)).getByRole("button", { name: /second/ });
+    fireEvent.click(second());
+    expect(await screen.findByText("2 of 2 sources")).toBeInTheDocument();
+    const pressed = () =>
+      screen.getAllByRole("button", { pressed: true }).filter((b) => /D §2/.test(b.textContent ?? ""));
+    expect(pressed()).toEqual([second()]);
+    fireEvent.click(screen.getByRole("button", { name: "Previous source" }));
+    expect(await screen.findByText("1 of 2 sources")).toBeInTheDocument();
+    expect(pressed()).toEqual([within(step(2)).getByRole("button", { name: /first/ })]);
+    expect(screen.getByRole("button", { name: "Previous source" })).toBeDisabled();
   });
 
   it("a whole-test finding's source opens on click; the stale error count", async () => {
@@ -147,7 +187,7 @@ describe("Review screen", () => {
     expect(
       screen.getByRole("tooltip", { hidden: true, name: "2 errors still open · out of date" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("1 of 4 sources")).toBeInTheDocument();
+    expect(screen.getByText("1 of 1 source")).toBeInTheDocument();
     expect(within(step(1)).getByRole("button", { name: "Expand step 1" })).toBeInTheDocument();
     expect(within(step(2)).getByRole("button", { name: "Fold step 2" })).toBeInTheDocument();
   });
@@ -273,6 +313,37 @@ describe("Review screen", () => {
     input.remove();
   });
 
+  it("groups the latest generation's tests first, then Earlier, and J/K walk the order shown", async () => {
+    reviewRoutes({
+      queue: [
+        item("K-1", { generatedBy: "gen-old", generatedAt: "2026-10-30T09:00:00.000Z" }),
+        item("K-2", { generatedBy: "gen-new", generatedAt: "2026-10-31T15:02:00.000Z" }),
+        item("L-3", { generatedBy: "gen-new", generatedAt: "2026-10-31T15:02:00.000Z" }),
+      ],
+    });
+    const { app: a } = show({ route: { screen: "review", arg: "L-3" } });
+    await screen.findByRole("heading", { name: "Summary L-3" });
+    const latest = await within(queue()).findByRole("group", { name: /^Generated 31 Oct/ });
+    expect(
+      within(latest)
+        .getAllByRole("option")
+        .map((o) => o.textContent),
+    ).toEqual([expect.stringContaining("Summary K-2"), expect.stringContaining("Summary L-3")]);
+    const earlier = within(queue()).getByRole("group", { name: "Earlier" });
+    expect(within(earlier).getAllByRole("option")).toHaveLength(1);
+    expect(within(earlier).getByText("Summary K-1")).toBeInTheDocument();
+    await waitFor(() => expect(position()).toHaveTextContent("2 / 3"));
+    key("j");
+    expect(a.navigate).toHaveBeenLastCalledWith("review", "K-1");
+  });
+
+  it("a queue of one generation has no group head", async () => {
+    reviewRoutes({ queue: [item("K-1", { generatedBy: "gen-a" }), item("K-2", { generatedBy: "gen-a" })] });
+    show();
+    await screen.findByRole("heading", { name: "Summary K-1" });
+    expect(within(queue()).queryByRole("group", { name: "Earlier" })).toBeNull();
+  });
+
   it("at the end of the queue J stays; a dialog blocks the keys", async () => {
     reviewRoutes({ queue: [item("K-1")] });
     const { app: a } = show();
@@ -336,7 +407,7 @@ describe("Review screen", () => {
     fireEvent.click(await screen.findByRole("button", { name: /Sources read/ }));
     fireEvent.click(await screen.findByRole("option", { name: /E#§7/ }));
     expect(await screen.findByText("Read by the generation")).toBeInTheDocument();
-    expect(screen.getByText("1 of 2 sources")).toBeInTheDocument();
+    expect(screen.getByText("1 of 1 source")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("option", { name: /^D#§2/ }));
     expect(await screen.findByText("Source of step 2")).toBeInTheDocument();
   });
