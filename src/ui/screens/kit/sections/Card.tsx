@@ -50,7 +50,7 @@ export const section: KitSection = {
   file: "Card.tsx",
   summary:
     "A framed group with a head (title, actions), a body and a foot: settings sections, model packs, the push plan's operations, a finding, the step card. A state is a badge in the head, never a coloured edge; cards nest once at most.",
-  note: "radio is the « radio card » the screens drew for packs and drives: the card stays a Card, the choice adds a native radio, the whole card picks it, and the arrows move between the cards of one name.",
+  note: "density compact (12/16 px) is a card among many (a finding, a radio card in a list, a figure's detail), tight (8 px) a tile in a grid; fill makes the cards of a grid row as tall as each other. radio is the « radio card » the screens drew for packs and drives: the card stays a Card, the choice adds a native radio, the whole card picks it, and the arrows move between the cards of one name.",
   guidelines: [],
   states: () => (
     <States>
@@ -61,6 +61,22 @@ export const section: KitSection = {
           footer={<Button size="sm" label="Manage contexts…" />}
         >
           The model and effort new runs start with.
+        </Card>
+      </Cell>
+      <Cell label="density compact (a finding, a figure's detail) · tight (a figure's tile)" column>
+        <Card density="compact" title="Unsupported" actions={<Badge label="Error" tone="danger" size="sm" />}>
+          Le §5.6.6 ne dit pas que le menu s'ouvre sur la vue de traction.
+        </Card>
+        <Card density="tight" label="Figure 40" onOpen={() => {}}>
+          Figure 40 · fig:40
+        </Card>
+      </Cell>
+      <Cell label="fill: cards of one row as tall as each other" wide>
+        <Card fill title="Light" footer={<Button size="sm" label="Use" />}>
+          bge-m3 q8.
+        </Card>
+        <Card fill title="Balanced" footer={<Button size="sm" label="Use" />}>
+          bge-m3 + reranker · 1.4 GB — the default for a PC with 16 GB of memory.
         </Card>
       </Cell>
       <Cell label="selected" column>

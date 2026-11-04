@@ -523,15 +523,15 @@ describe("FolderDialog", () => {
     expect(screen.getByRole("dialog", { name: "Where should models be stored?" })).toBeInTheDocument();
     expect(screen.getByText(/This download needs 1000 MB/)).toBeInTheDocument();
     await waitFor(() => expect(folder()).toHaveValue("D:\\Testimus\\models"));
-    expect(screen.getByRole("radio", { name: "E:\\" })).toBeDisabled();
-    expect(screen.getByRole("radio", { name: "D:\\" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: /^E:\\ / })).toBeDisabled();
+    expect(screen.getByRole("radio", { name: /^D:\\ / })).toBeChecked();
     expect(screen.getByText("10 MB free of 100 MB")).toBeInTheDocument();
     expect(screen.getByText("8.8 GB free of 9.8 GB")).toBeInTheDocument();
     expect(screen.getByText("4.9 GB free")).toBeInTheDocument();
     expect(screen.getByText("Drives")).toBeInTheDocument();
     expect(screen.getByText("Not enough room")).toBeInTheDocument();
     expect(await screen.findByText(/free on D:/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("radio", { name: "C:\\" }));
+    fireEvent.click(screen.getByRole("radio", { name: /^C:\\ / }));
     expect(folder()).toHaveValue("C:\\Testimus\\models");
     fireEvent.change(folder(), { target: { value: "relative" } });
     expect(screen.getByText(/Type a full path/)).toBeInTheDocument();

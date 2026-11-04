@@ -2,6 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import type { Folder, LocalTestRef, RemoteTestRef } from "../../../core/types.ts";
+import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { EmptyState } from "../../components/ui/EmptyState.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
@@ -15,7 +16,7 @@ import { desktop, pathJoin, reveal } from "../../lib/desktop.ts";
 import { message, plural } from "../../lib/format.ts";
 import { jumpTo, useSearch } from "../../lib/search.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
-import { border, color, space } from "../../styles/tokens.stylex.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 import { type DeleteTarget, DeleteTest, deleteTest, needsAsking } from "./DeleteTest.tsx";
 import { JiraConnect } from "./JiraConnect.tsx";
 import { JiraTab } from "./JiraTab.tsx";
@@ -30,14 +31,7 @@ export { isKeyQuery, localTree };
 
 const styles = stylex.create({
   side: { display: "flex", flexDirection: "column", minHeight: 0, height: "100%", backgroundColor: color.surface },
-  head: {
-    boxSizing: "border-box",
-    display: "flex",
-    alignItems: "center",
-    gap: space.s2,
-    paddingInline: space.s3,
-    paddingTop: space.s2,
-  },
+  head: { flex: "none" },
   grow: { flex: 1 },
   note: {
     margin: 0,
@@ -45,18 +39,24 @@ const styles = stylex.create({
     paddingInline: space.s5,
     color: color.textMuted,
   },
-  body: { flex: 1, minHeight: 0, overflow: "auto", display: "flex", flexDirection: "column", gap: space.s2 },
+  body: {
+    flex: 1,
+    minHeight: 0,
+    overflow: "auto",
+    display: "flex",
+    flexDirection: "column",
+    gap: space.s2,
+    paddingTop: space.s2,
+  },
+  waiting: { paddingInline: space.s3 },
   conn: {
     boxSizing: "border-box",
     display: "flex",
     alignItems: "center",
     gap: space.s2,
-    paddingBlock: space.s1,
-    paddingInline: space.s3,
+    paddingTop: space.s3,
+    paddingInline: space.s5,
     color: color.textMuted,
-    borderBottomStyle: "solid",
-    borderBottomWidth: border.width,
-    borderBottomColor: color.border,
   },
 });
 
@@ -321,7 +321,6 @@ export function TestList({
           jira={tree?.totalCount}
           jiraOff={!!p?.jiraOffline}
         />
-        <span {...stylex.props(styles.grow)} />
       </div>
       {
         <ListTools
@@ -351,6 +350,18 @@ export function TestList({
       <div {...stylex.props(styles.body)}>
         {v.tab === "local" ? (
           <>
+            {waiting > 0 && listed.length > 0 && (
+              <div {...stylex.props(styles.waiting)}>
+                <Banner
+                  tone="info"
+                  compact
+                  icon="eye"
+                  actions={<Button size="sm" label="Review" onClick={() => app.navigate("review")} />}
+                >
+                  {waiting === 1 ? "1 new test waits for review" : `${waiting} new tests wait for review`}
+                </Banner>
+              </div>
+            )}
             {needle && jiraOn && (
               <Button
                 variant="quiet"

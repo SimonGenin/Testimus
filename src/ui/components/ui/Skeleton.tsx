@@ -23,14 +23,15 @@ const styles = stylex.create({
     animationTimingFunction: "ease-in-out",
     animationIterationCount: "infinite",
   },
-  text: { marginBlock: space.s2 },
+  text: { marginBlock: `calc((${lineHeight.body} - ${size.skeletonLine}) / 2)` },
   title: { height: size.iconSm },
   block: { height: space.s10, borderRadius: radius.r3 },
   circle: { width: size.iconMd, height: size.iconMd, borderRadius: radius.full },
   w70: { width: "70%" },
   w60: { width: "60%" },
   w40: { width: "40%" },
-  lines: { display: "flex", flexDirection: "column", flex: 1, minWidth: 0 },
+  lines: { display: "flex", flexDirection: "column", minWidth: 0 },
+  grow: { flex: 1 },
   row: {
     boxSizing: "border-box",
     display: "flex",
@@ -93,7 +94,7 @@ export function Skeleton({ kind = "text", width, lines = 1, onRetry, debugState 
     return (
       <div aria-hidden="true" {...stylex.props(styles.row)}>
         <span {...stylex.props(styles.bar, styles.circle)} />
-        <span {...stylex.props(styles.lines)}>
+        <span {...stylex.props(styles.lines, styles.grow)}>
           <span {...stylex.props(styles.bar, styles.text, styles.w70)} />
           <span {...stylex.props(styles.bar, styles.text, styles.w40)} />
         </span>

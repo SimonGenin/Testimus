@@ -18,7 +18,6 @@ import { Stack } from "./Section.tsx";
 
 const styles = stylex.create({
   row: { display: "flex", alignItems: "center", gap: space.s3, flexWrap: "wrap" },
-  state: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: space.s2 },
   line: {
     minWidth: 0,
     maxWidth: "100%",
@@ -31,7 +30,7 @@ export type ClaudeStatus = CommandOutput<"claude.status">;
 
 export function exeLine(s: ClaudeStatus): string {
   return s.installed
-    ? `${s.version ?? "Claude Code"} · found`
+    ? (s.version ?? "Claude Code")
     : `${(s.detail || "claude did not answer").split("\n")[0].slice(0, 160)} · Claude is optional`;
 }
 
@@ -109,28 +108,23 @@ export function ClaudeProgram() {
       />
       <div {...stylex.props(styles.row)}>
         <Button size="sm" icon="refresh" label="Check" loading={checking} onClick={() => void check()} />
-        {checking && (
+        {checking ? (
           <span role="status" {...stylex.props(type.code, styles.line)}>
             Running claude --version…
           </span>
+        ) : (
+          st && (
+            <span role="status" title={st.detail} {...stylex.props(styles.row)}>
+              {st.installed ? (
+                <Badge label="Found" tone="success" icon="check-circle" />
+              ) : (
+                <Badge label="Not found" tone="danger" icon="x-circle" />
+              )}
+              <span {...stylex.props(type.code, styles.line)}>{exeLine(st)}</span>
+            </span>
+          )
         )}
       </div>
-      {st && !checking && (
-        <div {...stylex.props(styles.state)}>
-          {st.installed ? (
-            <span role="status" title={st.detail}>
-              <Badge label={exeLine(st)} tone="success" icon="check" />
-            </span>
-          ) : (
-            <>
-              <Badge label="Not found" tone="danger" icon="x-circle" />
-              <span role="status" title={st.detail} {...stylex.props(type.code, styles.line)}>
-                {exeLine(st)}
-              </span>
-            </>
-          )}
-        </div>
-      )}
       {st && !checking && !st.installed && (
         <ConnectClaude
           look="panel"

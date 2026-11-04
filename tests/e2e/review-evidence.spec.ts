@@ -30,7 +30,7 @@ test("a generated test shows the sources it read; a misplaced quote is not highl
   await expect(panel.getByText("2 read", { exact: true })).toBeVisible();
   await head.click();
   const evidence = panel.getByRole("region", { name: "Sources read" });
-  await expect(evidence.getByText("Read by the generation (2)")).toBeVisible();
+  await expect(evidence.getByText("Read by the generation")).toBeVisible();
   const read = evidence.getByRole("option", { name: /SOSIE_211_D401-1_3#§5\.6\.6/ });
   await expect(read).toBeVisible();
   await expect(evidence).toContainText("Cited");

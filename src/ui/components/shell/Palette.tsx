@@ -5,7 +5,7 @@ import { AppContext } from "../../lib/app.ts";
 import type { CommandInfo } from "../../lib/data/client.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { useSearch } from "../../lib/search.ts";
-import { border, color, size, space } from "../../styles/tokens.stylex.ts";
+import { border, color, space } from "../../styles/tokens.stylex.ts";
 import { Badge } from "../ui/Badge.tsx";
 import { Banner } from "../ui/Banner.tsx";
 import { Button } from "../ui/Button.tsx";
@@ -26,7 +26,14 @@ export type { PaletteAction } from "./paletteEntries.tsx";
 export { filterEntries, firstSentence } from "./paletteEntries.tsx";
 
 const styles = stylex.create({
-  head: { padding: space.s3, borderBottomWidth: border.width, borderBottomStyle: "solid", borderColor: color.border },
+  head: {
+    paddingTop: space.s4,
+    paddingInline: space.s4,
+    paddingBottom: space.s3,
+    borderBottomWidth: border.width,
+    borderBottomStyle: "solid",
+    borderColor: color.border,
+  },
   kinds: {
     display: "flex",
     alignItems: "center",
@@ -39,8 +46,9 @@ const styles = stylex.create({
   note: { paddingTop: space.s3, paddingInline: space.s4 },
   grow: { flex: 1, minWidth: 0 },
   list: { boxSizing: "border-box", maxHeight: "60vh", overflowY: "auto" },
+  nothing: { display: "flex", flexDirection: "column", minHeight: `calc(${space.s11} * 4)`, paddingBottom: space.s3 },
+  centred: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center" },
   loading: { display: "flex", flexDirection: "column", gap: space.s3, padding: space.s4 },
-  clear: { display: "inline-flex", alignItems: "center", minHeight: size.controlSm },
   enter: { display: "inline-flex", alignItems: "center", gap: space.s2 },
 });
 
@@ -223,7 +231,7 @@ export function Palette({
     />
   );
   return (
-    <Modal title="Search everywhere" frameless size="lg" onClose={onClose}>
+    <Modal title="Search everywhere" frameless size="palette" onClose={onClose}>
       <div {...stylex.props(styles.head)}>
         <Text
           value={query}
@@ -246,9 +254,7 @@ export function Palette({
             searching && q && s.loading ? (
               <Spinner size="sm" label="Searching" />
             ) : query ? (
-              <span {...stylex.props(styles.clear)}>
-                <Button variant="quiet" size="xs" iconOnly icon="close" label="Clear" onClick={() => setQuery("")} />
-              </span>
+              <Button variant="quiet" size="xs" iconOnly icon="close" label="Clear" onClick={() => setQuery("")} />
             ) : (
               <Kbd>Ctrl K</Kbd>
             )
@@ -325,17 +331,19 @@ export function Palette({
           <Skeleton kind="row" />
         </div>
       ) : (
-        <div {...stylex.props(styles.list)}>
+        <div {...stylex.props(styles.list, (nothing || !items.length) && styles.nothing)}>
           {(nothing || !items.length) && (
-            <EmptyState
-              icon="search"
-              title={q ? `Nothing matches “${q}”` : "Type to search."}
-              text={
-                q
-                  ? "No test, document, passage or command has these words, and nothing close in meaning was found. Try fewer words, or ask Claude to look through the documents."
-                  : undefined
-              }
-            />
+            <div {...stylex.props(styles.centred)}>
+              <EmptyState
+                icon="search"
+                title={q ? `Nothing matches “${q}”` : "Type to search."}
+                text={
+                  q
+                    ? "No test, document, passage or command has these words, and nothing close in meaning was found. Try fewer words, or ask Claude to look through the documents."
+                    : undefined
+                }
+              />
+            </div>
           )}
           {items.length > 0 && list}
         </div>

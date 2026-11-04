@@ -245,6 +245,7 @@ describe("JiraTab list", () => {
     tab();
     await screen.findByText("100 of 150");
     expect(screen.getByRole("status", { name: "Loading more tests in Test Repository" })).toBeInTheDocument();
+    await waitFor(() => expect(FakeIO.last).not.toBeNull());
     const io = FakeIO.last as FakeIO;
     act(() => io.cb([{ isIntersecting: false }]));
     act(() => io.cb([{ isIntersecting: true }]));

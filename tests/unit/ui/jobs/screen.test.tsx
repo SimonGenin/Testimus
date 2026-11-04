@@ -403,7 +403,10 @@ describe("Jobs screen", () => {
     jobsScreen();
     act(() => FakeES.emit({ jobId: "g1", at: "", type: "progress", message: "early", done: 1, total: 3 }));
     await act(async () => gate.resolve(null));
-    expect(await within(list()).findByText("1 of 3")).toBeInTheDocument();
+    expect(await within(list()).findByRole("progressbar", { name: "Generate tests progress" })).toHaveAttribute(
+      "aria-valuenow",
+      "33",
+    );
   });
 
   it("draws each job state", () => {

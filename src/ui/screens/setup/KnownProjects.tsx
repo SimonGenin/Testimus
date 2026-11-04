@@ -2,9 +2,12 @@ import * as stylex from "@stylexjs/stylex";
 import { useState } from "react";
 import { Badge } from "../../components/ui/Badge.tsx";
 import { Button } from "../../components/ui/Button.tsx";
+import { Card } from "../../components/ui/Card.tsx";
+import { Chip } from "../../components/ui/Chip.tsx";
 import { List } from "../../components/ui/List.tsx";
 import { Menu, type MenuEntry } from "../../components/ui/Menu.tsx";
 import { Tile } from "../../components/ui/Tile.tsx";
+import { Tooltip } from "../../components/ui/Tooltip.tsx";
 import { type } from "../../components/ui/type.ts";
 import { desktop, reveal } from "../../lib/desktop.ts";
 import { initials } from "../../lib/format.ts";
@@ -13,7 +16,7 @@ import { DeleteProject } from "./DeleteProject.tsx";
 import { type Known, labelOf } from "./useProjects.ts";
 
 const styles = stylex.create({
-  dir: { overflowWrap: "anywhere" },
+  dir: { display: "block", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   trail: { display: "flex", alignItems: "center", gap: space.s2 },
   gone: { color: color.textMuted },
 });
@@ -53,42 +56,48 @@ export function KnownProjects({
   ];
   return (
     <>
-      <List<Known>
-        label="Known projects"
-        selection="none"
-        divided
-        items={known}
-        getKey={(k) => k.dir}
-        renderItem={(k) => ({
-          lead: <Tile initials={initials(labelOf(k))} tone="accent" />,
-          title: labelOf(k),
-          badges: <Badge label={k.jiraProject || "no Jira key"} outline={!!k.jiraProject} size="sm" />,
-          meta: <span {...stylex.props(type.code, styles.dir)}>{k.dir}</span>,
-          trail: (
-            <span {...stylex.props(styles.trail)}>
-              {k.exists ? (
-                <Button
-                  size="sm"
-                  variant={k.dir === current ? "secondary" : "primary"}
-                  label={k.dir === current ? "Open again" : "Open"}
-                  disabled={busy}
-                  onClick={() => onOpen(k.dir)}
+      <Card padded={false}>
+        <List<Known>
+          label="Known projects"
+          selection="none"
+          divided
+          items={known}
+          getKey={(k) => k.dir}
+          renderItem={(k) => ({
+            lead: <Tile initials={initials(labelOf(k))} tone="accent" />,
+            title: labelOf(k),
+            badges: k.jiraProject ? <Chip label={k.jiraProject} mono /> : <Badge label="no Jira key" size="sm" />,
+            meta: (
+              <Tooltip label={k.dir}>
+                <span {...stylex.props(type.code, styles.dir)}>{k.dir}</span>
+              </Tooltip>
+            ),
+            trail: (
+              <span {...stylex.props(styles.trail)}>
+                {k.exists ? (
+                  <Button
+                    size="sm"
+                    variant={k.dir === current ? "secondary" : "primary"}
+                    label={k.dir === current ? "Open again" : "Open"}
+                    disabled={busy}
+                    onClick={() => onOpen(k.dir)}
+                  />
+                ) : (
+                  <span {...stylex.props(type.small, styles.gone)}>Folder not found</span>
+                )}
+                <Menu
+                  align="end"
+                  label={`More actions for ${labelOf(k)}`}
+                  entries={entries(k)}
+                  trigger={
+                    <Button variant="quiet" size="sm" icon="more" iconOnly label={`More actions for ${labelOf(k)}`} />
+                  }
                 />
-              ) : (
-                <span {...stylex.props(type.small, styles.gone)}>Folder not found</span>
-              )}
-              <Menu
-                align="end"
-                label={`More actions for ${labelOf(k)}`}
-                entries={entries(k)}
-                trigger={
-                  <Button variant="quiet" size="sm" icon="more" iconOnly label={`More actions for ${labelOf(k)}`} />
-                }
-              />
-            </span>
-          ),
-        })}
-      />
+              </span>
+            ),
+          })}
+        />
+      </Card>
       {del && (
         <DeleteProject
           target={del}

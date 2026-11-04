@@ -194,7 +194,7 @@ describe("Review › sources read", () => {
     expect(head).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(head);
     const block = screen.getByRole("region", { name: "Sources read" });
-    expect(within(block).getByText("Read by the generation (2)")).toBeInTheDocument();
+    expect(within(block).getByText("Read by the generation")).toBeInTheDocument();
     expect(within(block).getByText("Cited")).toBeInTheDocument();
     expect(within(block).getByRole("option", { name: /D1#§5\.2/ })).toHaveAttribute("aria-selected", "true");
     fireEvent.click(within(block).getByRole("option", { name: /D1#§5\.3/ }));

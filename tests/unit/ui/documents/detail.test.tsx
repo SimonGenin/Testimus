@@ -377,7 +377,7 @@ describe("DocDetail", () => {
     expect(named("docs.remove").map((c) => c.input)).toEqual([{ id: "D1", dryRun: true }]);
     more();
     fireEvent.click(screen.getByRole("menuitem", { name: "Delete this document…" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Delete" })).not.toHaveAttribute("aria-busy"));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Delete" })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     expect(await screen.findByText("Could not delete the document")).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
@@ -385,7 +385,7 @@ describe("DocDetail", () => {
     fail = false;
     more();
     fireEvent.click(screen.getByRole("menuitem", { name: "Delete this document…" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Delete" })).not.toHaveAttribute("aria-busy"));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Delete" })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(onRemoved).toHaveBeenCalled());
     expect(named("docs.remove").at(-1)?.input).toEqual({ id: "D1" });
@@ -407,7 +407,8 @@ describe("DocDetail", () => {
     await screen.findByRole("heading", { name: "Title D1" });
     more();
     fireEvent.click(screen.getByRole("menuitem", { name: "Delete this document…" }));
-    expect(screen.getByRole("button", { name: "Delete" })).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("button", { name: "Delete" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeEnabled();
     const list = await screen.findByRole("list", { name: "Tests that cite this document" });
     const dialog = screen.getByRole("alertdialog", { name: "Delete this document?" });
     const row = (text: RegExp) => within(dialog).getByText(text).closest("li");

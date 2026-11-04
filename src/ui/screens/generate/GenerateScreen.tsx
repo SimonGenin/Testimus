@@ -52,7 +52,8 @@ export function GenerateScreen() {
   const form = useGenerateForm(info.data, docs ?? undefined);
   const gen = useGeneration();
   const jobs = useRead("jobs.list", {});
-  const indexing = ((jobs.data ?? []) as Job[]).some((j) => j.status === "running" && INDEXING.has(j.kind));
+  const indexJob = ((jobs.data ?? []) as Job[]).find((j) => j.status === "running" && INDEXING.has(j.kind));
+  const indexing = !!indexJob;
   const scopeInput = { docs: form.scope.docs, sections: form.scope.sections };
   const preview = useRead("gen.preview", scopeInput, { enabled: !!docs });
   const [ask, setAsk] = useState<{ refresh?: boolean; signIn?: boolean }>({});
@@ -133,6 +134,8 @@ export function GenerateScreen() {
               missing,
               stale,
               indexing,
+              progress: indexJob?.progress,
+              onShowJob: indexJob ? () => app.navigate("jobs", indexJob.id) : undefined,
               onReindex: () => reindex.mutateAsync({}).catch((e) => errorToast(e, "Could not reindex")),
             }}
             hasJob={!!gen.job}

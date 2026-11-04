@@ -65,10 +65,13 @@ const styles = stylex.create({
     alignItems: "center",
     gap: space.s3,
     minHeight: size.cardHead,
-    paddingBlock: space.s5,
+    paddingBlockStart: space.s5,
+    paddingBlockEnd: space.s4,
     paddingInline: space.s6,
     boxSizing: "border-box",
   },
+  headCompact: { minHeight: 0, paddingBlockStart: space.s4, paddingBlockEnd: space.s3, paddingInline: space.s5 },
+  headTight: { minHeight: 0, paddingBlockStart: space.s3, paddingBlockEnd: space.s2, paddingInline: space.s3 },
   title: { minWidth: 0 },
   actions: { display: "flex", alignItems: "center", gap: space.s2, marginInlineStart: "auto" },
   body: {
@@ -82,6 +85,15 @@ const styles = stylex.create({
     minWidth: 0,
   },
   bodyAlone: { paddingBlockStart: space.s6 },
+  bodyCompact: { gap: space.s3, paddingBlockEnd: space.s4, paddingInline: space.s5 },
+  bodyCompactAlone: { paddingBlockStart: space.s4 },
+  bodyTight: { gap: space.s3, paddingBlockEnd: space.s3, paddingInline: space.s3 },
+  bodyTightAlone: { paddingBlockStart: space.s3 },
+  /** a radio card's body starts under its title, not under the radio */
+  bodyUnderRadio: { paddingInlineStart: `calc(${space.s5} + ${size.iconMd} + ${space.s3})` },
+  fill: { flex: 1, height: "100%" },
+  sunken: { backgroundColor: color.surfaceSunken, boxShadow: "none" },
+  bodyFill: { flex: 1 },
   flush: { paddingBlockStart: 0, paddingBlockEnd: 0, paddingInline: 0, gap: 0 },
   foot: {
     boxSizing: "border-box",
@@ -94,6 +106,8 @@ const styles = stylex.create({
     borderTopWidth: border.width,
     borderTopColor: color.border,
   },
+  footCompact: { paddingBlock: space.s3, paddingInline: space.s5 },
+  footTight: { paddingBlock: space.s2, paddingInline: space.s3 },
   radio: {
     flex: "none",
     width: size.iconMd,
@@ -138,6 +152,13 @@ export type CardProps = {
   children: ReactNode;
   /** false: the body has no padding (a list or a table fills it) */
   padded?: boolean;
+  /** default: 24 px (settings sections, the step card) · compact: 12/16 px (a finding, a radio card among several, a
+   * figure's detail) · tight: 8 px (a figure's tile in a grid) */
+  density?: "default" | "compact" | "tight";
+  /** the card fills its grid cell, so the cards of a row are as tall as each other and their foots line up */
+  fill?: boolean;
+  /** on the sunken ground, no shadow: a card that sits inside another frame (a step's finding inside the step) */
+  sunken?: boolean;
   /** the card is a choice among cards (packs, drives): a radio in the head, the whole card picks it, arrows move between
    * the cards of the same name; put the cards in an element with role radiogroup */
   radio?: { name: string; value: string; checked: boolean; onSelect: (value: string) => void; disabled?: boolean };
@@ -159,6 +180,9 @@ export function Card({
   label,
   children,
   padded = true,
+  density = "default",
+  fill = false,
+  sunken = false,
   radio,
   debugState,
 }: CardProps) {
@@ -170,13 +194,28 @@ export function Card({
     dashed && edge && styles.dashedEdge,
     selected && styles.selected,
     focused && styles.focused,
+    fill && styles.fill,
+    sunken && styles.sunken,
   ];
-  const body = (
-    <div {...stylex.props(styles.body, !title && !radio && !actions && styles.bodyAlone, !padded && styles.flush)}>
-      {children}
-    </div>
+  const alone = !title && !radio && !actions;
+  const compact = density === "compact";
+  const tight = density === "tight";
+  const headLook = [styles.head, compact && styles.headCompact, tight && styles.headTight];
+  const bodyLook = [
+    styles.body,
+    alone && styles.bodyAlone,
+    compact && styles.bodyCompact,
+    compact && alone && styles.bodyCompactAlone,
+    tight && styles.bodyTight,
+    tight && alone && styles.bodyTightAlone,
+    radio && compact && styles.bodyUnderRadio,
+    fill && styles.bodyFill,
+    !padded && styles.flush,
+  ];
+  const body = <div {...stylex.props(bodyLook)}>{children}</div>;
+  const foot = footer && (
+    <div {...stylex.props(styles.foot, compact && styles.footCompact, tight && styles.footTight)}>{footer}</div>
   );
-  const foot = footer && <div {...stylex.props(styles.foot)}>{footer}</div>;
   if (radio) {
     const off = radio.disabled === true;
     return (
@@ -190,7 +229,7 @@ export function Card({
           off && styles.pickDisabled,
         )}
       >
-        <div {...stylex.props(styles.head)}>
+        <div {...stylex.props(headLook)}>
           <input
             type="radio"
             name={radio.name}
@@ -229,19 +268,19 @@ export function Card({
         )}
       >
         {(title || actions) && (
-          <span {...stylex.props(styles.head)}>
+          <span {...stylex.props(headLook)}>
             {title && <span {...stylex.props(type.titleSm, styles.title)}>{title}</span>}
             {actions && <span {...stylex.props(styles.actions)}>{actions}</span>}
           </span>
         )}
-        <span {...stylex.props(styles.body, !title && !actions && styles.bodyAlone, !padded && styles.flush)}>
-          {children}
-        </span>
-        {footer && <span {...stylex.props(styles.foot)}>{footer}</span>}
+        <span {...stylex.props(bodyLook)}>{children}</span>
+        {footer && (
+          <span {...stylex.props(styles.foot, compact && styles.footCompact, tight && styles.footTight)}>{footer}</span>
+        )}
       </button>
     );
   const head = (title || actions) && (
-    <div {...stylex.props(styles.head)}>
+    <div {...stylex.props(headLook)}>
       {title && (
         <span id={id} {...stylex.props(type.titleSm, styles.title)}>
           {title}

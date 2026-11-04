@@ -1,14 +1,7 @@
-import * as stylex from "@stylexjs/stylex";
-import { color, fontSize, lineHeight, space } from "../../styles/tokens.stylex.ts";
-import { Button } from "./Button.tsx";
 import type { IconName } from "./Icon.tsx";
 import { Menu, type MenuEntry } from "./Menu.tsx";
-import type { SelectOption } from "./Select.tsx";
-
-const styles = stylex.create({
-  wrap: { display: "inline-flex", alignItems: "center", gap: space.s1, minWidth: 0 },
-  prefix: { color: color.textMuted, fontSize: fontSize.small, lineHeight: lineHeight.small, whiteSpace: "nowrap" },
-});
+import { type SelectOption, SelectTrigger } from "./Select.tsx";
+import { Tooltip } from "./Tooltip.tsx";
 
 export type SelectGroup = {
   /** the group's title in the list (« Model », « Effort ») */
@@ -50,28 +43,23 @@ export function GroupSelect({ groups, label, prefix, icon = "cpu", disabled = fa
       onSelect: () => g.onChange(o.value),
     })),
   ]);
-  return (
-    <span {...stylex.props(styles.wrap)}>
-      {prefix && (
-        <span aria-hidden="true" {...stylex.props(styles.prefix)}>
-          {prefix}
-        </span>
-      )}
-      <Menu
-        label={label}
-        entries={entries}
-        debugState={debugState}
-        trigger={
-          <Button
-            variant="quiet"
-            size="sm"
-            icon={icon}
-            iconAfter="chevron-down"
-            label={groups.map(shownOf).join(" · ")}
-            disabled={disabled}
-          />
-        }
-      />
-    </span>
+  const field = (
+    <Menu
+      label={label}
+      entries={entries}
+      debugState={debugState}
+      trigger={
+        <SelectTrigger
+          label={label}
+          shown={groups.map(shownOf).join(" · ")}
+          appearance="quiet"
+          size="sm"
+          icon={icon}
+          prefix={prefix}
+          disabled={disabled !== false}
+        />
+      }
+    />
   );
+  return typeof disabled === "string" ? <Tooltip label={disabled}>{field}</Tooltip> : field;
 }

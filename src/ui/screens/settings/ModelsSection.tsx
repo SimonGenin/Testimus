@@ -11,7 +11,7 @@ import { type } from "../../components/ui/type.ts";
 import { useApp } from "../../lib/app.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
-import { color, space } from "../../styles/tokens.stylex.ts";
+import { color, size as sizes, space } from "../../styles/tokens.stylex.ts";
 import { AddFolder } from "./models/AddFolder.tsx";
 import { AdviceBanner } from "./models/AdviceBanner.tsx";
 import { useModelActions } from "./models/actions.ts";
@@ -39,7 +39,7 @@ const styles = stylex.create({
   muted: { color: color.textMuted },
   packs: {
     display: "grid",
-    gridTemplateColumns: `repeat(auto-fill, minmax(calc(${space.s11} * 4), 1fr))`,
+    gridTemplateColumns: `repeat(auto-fill, minmax(${sizes.sidebar}, 1fr))`,
     gap: space.s5,
   },
 });
@@ -113,8 +113,8 @@ export function ModelsSection() {
         actions={
           <Button
             size="sm"
-            label={dir ? "Change…" : "Choose…"}
-            disabled={busy}
+            label={dir === null ? "Choose…" : "Change…"}
+            disabled={busy || dir === undefined}
             onClick={() => a.setFolder({ needMB: 0 })}
           />
         }
@@ -204,39 +204,44 @@ export function ModelsSection() {
               />
             </div>
           )}
-          <div ref={table}>
-            <Disclosure
-              summary="Model catalog"
-              open={open}
-              onOpenChange={setOpen}
-              meta={
-                catalog.data
-                  ? `${catalog.data.length} in the catalog · ${installed.data?.length ?? 0} on this PC`
-                  : "Loading the catalog"
-              }
-            >
-              <Stack>
-                {!catalog.data ? (
-                  <Skeleton kind="block" />
-                ) : (
-                  <ModelsTable
-                    rows={catalog.data}
-                    installed={installed.data ?? []}
-                    inUse={inUse}
-                    ops={ops}
-                    busy={busy}
-                    onInstall={(r) => void a.install(r)}
-                    onUse={(r) => void a.chooseModel(r)}
-                    onVerify={(r) => void a.verify(r)}
-                    onRemove={(row, inst) => a.setRemoving({ row, inst })}
-                  />
-                )}
-                <AddFolder />
-              </Stack>
-            </Disclosure>
-          </div>
         </>
       )}
+      <div ref={table}>
+        <Card footer={open && <AddFolder />}>
+          <Disclosure
+            summary="Model catalog"
+            open={open}
+            onOpenChange={setOpen}
+            meta={
+              catalog.data
+                ? `${catalog.data.length} in the catalog · ${installed.data?.length ?? 0} on this PC`
+                : catalog.isError
+                  ? "Could not be read"
+                  : "Loading the catalog"
+            }
+          >
+            {!catalog.data ? (
+              catalog.isError ? (
+                <Hint>The catalog could not be read: Try again above.</Hint>
+              ) : (
+                <Skeleton kind="block" />
+              )
+            ) : (
+              <ModelsTable
+                rows={catalog.data}
+                installed={installed.data ?? []}
+                inUse={inUse}
+                ops={ops}
+                busy={busy}
+                onInstall={(r) => void a.install(r)}
+                onUse={(r) => void a.chooseModel(r)}
+                onVerify={(r) => void a.verify(r)}
+                onRemove={(row, inst) => a.setRemoving({ row, inst })}
+              />
+            )}
+          </Disclosure>
+        </Card>
+      </div>
       {a.fitAsk && (
         <FitConfirm
           name={a.fitAsk.name}

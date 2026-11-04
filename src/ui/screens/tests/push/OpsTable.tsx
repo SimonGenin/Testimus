@@ -4,14 +4,14 @@ import { Badge } from "../../../components/ui/Badge.tsx";
 import { Icon, type IconName } from "../../../components/ui/Icon.tsx";
 import { Table } from "../../../components/ui/Table.tsx";
 import { type } from "../../../components/ui/type.ts";
-import { color, space } from "../../../styles/tokens.stylex.ts";
+import { color, size, space } from "../../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
-  op: { display: "inline-flex", alignItems: "center", gap: space.s2 },
+  op: { display: "inline-flex", alignItems: "center", gap: space.s3 },
   icon: { display: "inline-flex", color: color.textMuted },
   cell: { display: "flex", flexDirection: "column", gap: space.s1 },
   error: {
-    paddingInlineStart: `calc(${space.s2} + ${space.s4})`,
+    paddingInlineStart: `calc(${space.s3} + ${size.iconSm})`,
     color: color.danger,
     overflowWrap: "anywhere",
   },
@@ -61,7 +61,7 @@ export function OpsTable({
       rows={ops.map((op, i) => ({ n: i + 1, op }))}
       getKey={(r) => String(r.n)}
       columns={[
-        { key: "n", label: "#", numeric: true, width: "8%" },
+        { key: "n", label: "#", numeric: true, width: size.controlMd },
         {
           key: "op",
           label: "Operation",

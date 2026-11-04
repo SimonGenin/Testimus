@@ -14,7 +14,8 @@ export const KIND: Record<SearchKind, { label: string; one: string; icon: IconNa
 };
 
 const styles = stylex.create({
-  where: { flex: "none", color: color.textMuted, marginInlineEnd: space.s3 },
+  where: { flex: "none", color: color.textMuted },
+  anchor: { color: color.textMuted },
   cut: { flex: "1 1 0", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   side: { display: "inline-flex", alignItems: "center", gap: space.s2 },
   key: { color: color.textMuted, whiteSpace: "nowrap" },
@@ -39,7 +40,16 @@ export function hitRow(hit: SearchMatch): ListItemProps {
   const tag = hit.kind === "test" ? (hit.key ?? "local") : hit.kind === "document" ? "" : hit.docId;
   return {
     lead: <Icon name={KIND[hit.kind].icon} />,
-    title: <Marked text={hit.title} marks={hit.titleMarks} />,
+    title: (
+      <>
+        {hit.kind === "passage" && hit.anchor && (
+          <>
+            <span {...stylex.props(type.code, styles.anchor)}>{hit.anchor}</span>{" "}
+          </>
+        )}
+        <Marked text={hit.title} marks={hit.titleMarks} />
+      </>
+    ),
     meta: second,
     trail: (
       <span {...stylex.props(styles.side)}>

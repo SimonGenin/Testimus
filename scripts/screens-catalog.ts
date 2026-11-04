@@ -338,13 +338,13 @@ function fixtureShots(): Shot[] {
       id: "review-sort-menu",
       note: "Sort the queue menu",
       hash: "#/review",
-      prep: (p) => p.getByRole("combobox", { name: "Sort the queue" }).focus({ timeout: T }),
+      prep: (p) => p.getByRole("combobox", { name: "Sort the queue" }).click({ timeout: T }),
     },
     {
       id: "review-folder-menu",
       note: "Filter by folder menu",
       hash: "#/review",
-      prep: (p) => p.getByRole("combobox", { name: "Filter by folder" }).focus({ timeout: T }),
+      prep: (p) => p.getByRole("combobox", { name: "Filter by folder" }).click({ timeout: T }),
     },
     {
       id: "review-to-fix-dialog",
@@ -394,7 +394,7 @@ function fixtureShots(): Shot[] {
       id: "tests-filter-nothing",
       note: "Local list, no match",
       hash: "#/tests",
-      prep: (p) => p.getByRole("textbox", { name: "Filter tests" }).fill("zzzqqq"),
+      prep: (p) => p.getByRole("searchbox", { name: "Filter tests" }).fill("zzzqqq"),
     },
     {
       id: "tests-bad-id",
@@ -615,7 +615,7 @@ function fixtureShots(): Shot[] {
       prep: async (p) => {
         const d = await dock(p);
         await tap(d, "Add context");
-        await dialog(p);
+        await p.getByRole("menu").first().waitFor({ timeout: T });
       },
     },
     {

@@ -6,9 +6,8 @@ import { project } from "../../lib/data/client.ts";
 import { space } from "../../styles/tokens.stylex.ts";
 import { Button } from "../ui/Button.tsx";
 import { ClaudeBlock } from "../ui/ClaudeBlock.tsx";
-import { Popover } from "../ui/Popover.tsx";
+import { Menu } from "../ui/Menu.tsx";
 import { Text } from "../ui/Text.tsx";
-import { ContextPicker } from "./ContextPicker.tsx";
 import { ContextsDialog } from "./ContextsDialog.tsx";
 import type { ContextSummary } from "./contexts.ts";
 import { CustomModel, effortOptions, useModelChoice } from "./ModelPicker.tsx";
@@ -80,7 +79,6 @@ export function DockComposer({
   const [note, setNote] = useDraft([p, "dock.note"]);
   const [noteOpen, setNoteOpen] = useState(false);
   const [dialog, setDialog] = useState<"save" | "manage" | null>(null);
-  const [picking, setPicking] = useState(false);
   const choice = useModelChoice(model, onModel);
   const shownIds = [
     ...new Set([...contexts.effective, ...Object.keys(contexts.pick).filter((id) => contexts.pick[id])]),
@@ -99,45 +97,29 @@ export function DockComposer({
         contexts={shownIds.map((id) => ({ id, label: nameOf(id), on: included(contexts, id) }))}
         onContext={toggle}
         addContext={
-          <Popover
+          <Menu
+            label="Add context"
             trigger={<Button size="sm" variant="quiet" icon="plus" iconOnly label="Add context" />}
-            title="Add context"
-            icon="context"
-            align="start"
-            head={false}
-            width="sm"
-            open={picking}
-            onOpenChange={setPicking}
-          >
-            <ContextPicker
-              all={all}
-              isOn={(id) => included(contexts, id)}
-              onToggle={toggle}
-              onNew={() => {
-                setPicking(false);
-                setDialog("save");
-              }}
-              onManage={() => {
-                setPicking(false);
-                setDialog("manage");
-              }}
-              extra={
-                !noteOpen &&
-                !note.trim() && (
-                  <Button
-                    size="sm"
-                    variant="quiet"
-                    icon="text"
-                    label="Add a note for this run"
-                    onClick={() => {
-                      setPicking(false);
-                      setNoteOpen(true);
-                    }}
-                  />
-                )
-              }
-            />
-          </Popover>
+            entries={[
+              { group: "Saved contexts — this run" },
+              ...(all.length
+                ? all.map((c) => ({
+                    label: c.name || c.id,
+                    icon: "context" as const,
+                    hint: c.shared ? "shared" : "this project",
+                    checked: included(contexts, c.id),
+                    onSelect: () => toggle(c.id, !included(contexts, c.id)),
+                  }))
+                : [{ note: "No saved context yet — write a note and save it as a context." }]),
+              "separator",
+              ...(!noteOpen && !note.trim()
+                ? [{ label: "Add a note for this run", icon: "text" as const, onSelect: () => setNoteOpen(true) }]
+                : []),
+              { label: "New context…", icon: "plus", onSelect: () => setDialog("save") },
+              { label: "Manage contexts…", icon: "settings", onSelect: () => setDialog("manage") },
+              { note: "Ticked contexts go with this run only. The project's defaults are in Settings › Claude." },
+            ]}
+          />
         }
         quickAsks={mode === "test" ? quickAsks : undefined}
         model={{ value: choice.selected, options: choice.options, onChange: choice.pick }}

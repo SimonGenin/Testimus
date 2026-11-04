@@ -180,7 +180,12 @@ describe("First launch › Project", () => {
     const items = within(await list()).getAllByRole("listitem");
     expect(screen.getByRole("heading", { name: "Or start a new project" })).toBeInTheDocument();
     expect(within(items[0]).getByRole("button", { name: "Open again" })).toBeInTheDocument();
-    expect(within(items[1]).getAllByText("C:/other")).toHaveLength(2);
+    expect(within(items[1]).getAllByText("C:/other")).toHaveLength(3);
+    expect(
+      within(items[1])
+        .getAllByRole("tooltip", { hidden: true })
+        .some((t) => t.textContent === "C:/other"),
+    ).toBe(true);
     expect(within(items[1]).getByText("BHP")).toBeInTheDocument();
     expect(within(items[2]).getByText("Folder not found")).toBeInTheDocument();
     fireEvent.click(within(items[1]).getByRole("button", { name: "Open" }));

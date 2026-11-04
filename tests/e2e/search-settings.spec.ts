@@ -53,9 +53,9 @@ test.describe("an index with words only", () => {
   test("search says it runs on words only until Reindex builds the vectors", async ({ page }) => {
     const search = await openSearch(page);
     await expect(search).toContainText("The Light pack (default)");
-    const degraded = search.getByRole("status").filter({ hasText: "Search on words only" });
+    const degraded = search.getByRole("alert").filter({ hasText: "Search on words only" });
     await expect(degraded).toContainText("No vectors for bge-m3-q8 yet");
-    await expect(search).toContainText("Vectors missing for this model");
+    await expect(search).toContainText("no vectors for the active model");
     await expect(search).toContainText("None yet");
     await shoot(page, "search-degraded-e2e");
     await search.getByRole("button", { name: "Reindex" }).click();

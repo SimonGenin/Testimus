@@ -95,18 +95,19 @@ describe("Generate › result helpers", () => {
       />
     );
     const { rerender } = render(card1(true));
-    const card = screen.getByRole("region", { name: "Tournois" });
+    const card = screen.getByRole("region", { name: /^Tournois/ });
     expect(card).toHaveTextContent("Lancer le tournoi");
     expect(card).toHaveTextContent("Le tableau s'affiche");
     expect(card).toHaveTextContent("Quote absent");
     expect(card).toHaveTextContent("Nothing on the goal");
     expect(screen.getAllByRole("note").some((n) => n.textContent?.includes("Whole test"))).toBe(true);
-    fireEvent.click(screen.getByRole("button", { name: /D1/ }));
+    const step = within(card).getByRole("listitem", { name: "Step 1" });
+    expect(step).toHaveTextContent("Step 1 · Action");
+    expect(step).toHaveTextContent("Quote absent");
+    expect(within(step).getByRole("note")).toHaveTextContent("Step 1");
+    fireEvent.click(within(step).getByRole("button", { name: /D1/ }));
     expect(onSource).toHaveBeenCalledWith(expect.objectContaining({ docId: "D1", anchor: "§1" }));
-    fireEvent.click(screen.getByRole("button", { name: "Fold step 1" }));
-    expect(screen.getByRole("button", { name: "Expand step 1" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Expand step 1" }));
-    expect(screen.getByRole("button", { name: "Fold step 1" })).toBeInTheDocument();
+    expect(card.querySelectorAll("section section section")).toHaveLength(0);
     const toggle = screen.getByRole("button", { name: "Tournois" });
     expect(toggle).toHaveAttribute("aria-expanded", "true");
     fireEvent.click(toggle);
@@ -154,7 +155,7 @@ describe("Generate › result helpers", () => {
       );
     };
     show({ check: { id: "x", ok: false, review: "to-fix", errors: 2, warnings: 0 } });
-    expect(screen.getByRole("region", { name: "Untitled test" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: /^Untitled test/ })).toBeInTheDocument();
     expect(screen.getByText("2 errors")).toBeInTheDocument();
     expect(screen.getByText("To fix")).toBeInTheDocument();
     show({ check: { id: "x", ok: false, review: "draft", errors: 0, warnings: 1 } });

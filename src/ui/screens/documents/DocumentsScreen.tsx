@@ -14,7 +14,7 @@ import { invalidate, useRead } from "../../lib/data/query.ts";
 import { desktop, pickFiles } from "../../lib/desktop.ts";
 import { message } from "../../lib/format.ts";
 import { addDocFiles, addDocPath, addDocPaths, forgetSettled, settled, useUploads } from "../../lib/uploads.ts";
-import { border, color, radius, size, space, z } from "../../styles/tokens.stylex.ts";
+import { border, color, radius, space, z } from "../../styles/tokens.stylex.ts";
 import { AddPath } from "./AddPath.tsx";
 import { DocDetail } from "./DocDetail.tsx";
 import { DocList } from "./DocList.tsx";
@@ -29,9 +29,16 @@ const styles = stylex.create({
     flex: 1,
     minWidth: 0,
     minHeight: 0,
-    backgroundColor: color.canvas,
+    backgroundColor: color.surface,
   },
-  notice: { paddingInline: space.s5, paddingTop: space.s3 },
+  notice: {
+    flex: "none",
+    paddingBlock: space.s3,
+    paddingInline: space.s5,
+    borderBottomStyle: "solid",
+    borderBottomWidth: border.width,
+    borderBottomColor: color.border,
+  },
   body: { flex: 1, minHeight: 0, display: "flex", minWidth: 0 },
   list: {
     boxSizing: "border-box",
@@ -45,15 +52,7 @@ const styles = stylex.create({
   },
   listWidth: (w: number) => ({ width: w }),
   none: { boxSizing: "border-box", flex: 1, display: "flex", alignItems: "flex-start", padding: space.s5 },
-  empty: {
-    boxSizing: "border-box",
-    flex: 1,
-    display: "flex",
-    alignItems: "flex-start",
-    justifyContent: "center",
-    paddingInline: space.s7,
-    paddingBlock: space.s10,
-  },
+  empty: { flex: 1, minHeight: 0, overflowY: "auto" },
   veil: {
     boxSizing: "border-box",
     position: "absolute",
@@ -84,7 +83,7 @@ const styles = stylex.create({
     color: color.accentText,
   },
   veilTitle: { color: color.text },
-  veilText: { maxWidth: size.reading, color: color.textMuted },
+  veilText: { color: color.textMuted },
 });
 
 const ACCEPT = ".docx,.pdf";
@@ -208,11 +207,7 @@ export function DocumentsScreen() {
       <ScreenHeader
         title="Documents"
         crumbs={active ? [`${active.id} · ${active.title || active.id}`] : []}
-        meta={
-          docs && !list.isError
-            ? `${docs.length} document${docs.length === 1 ? "" : "s"}${busy ? ` · ${busy} in progress` : ""}`
-            : undefined
-        }
+        meta={busy ? `${busy} in progress` : undefined}
       >
         <Button variant="quiet" icon="folder-open" label="Add from a path…" onClick={() => setAskPath(true)} />
         {addButton()}

@@ -34,6 +34,7 @@ const detail = () => {
     i.anchor ? { md: "x" } : { doc: doc(String(i.id)), context: "", toc: [], figures: [], md: "" };
 };
 const listOf = () => screen.getByRole("region", { name: "Document list" });
+const listHead = () => listOf().firstElementChild as HTMLElement;
 const rows = () => within(listOf()).getAllByRole("option");
 const row = (text: string) => within(listOf()).getAllByText(text)[0].closest('[role="option"]') as HTMLElement;
 const zone = (c: HTMLElement) => c.querySelector('[data-testid="documents-screen"]') as HTMLElement;
@@ -58,7 +59,8 @@ describe("Documents screen", () => {
     expect(within(listOf()).getByText("Not indexed")).toBeInTheDocument();
     expect(within(row("Title D2")).getByText("2")).toBeInTheDocument();
     expect(screen.getByText(/so search matches words, not meaning\. Choose a search pack/)).toBeInTheDocument();
-    expect(screen.getByText(/^2 documents/)).toBeInTheDocument();
+    expect(listHead()).toHaveTextContent(/^Documents\s*2$/);
+    expect(screen.queryByText(/\d documents?/)).toBeNull();
     expect(rows()[1]).toHaveAttribute("aria-selected", "true");
     await waitFor(() =>
       expect(named("docs.show").find((c) => c.input.anchor)?.input).toEqual({ id: "D2", anchor: "§5" }),
@@ -108,7 +110,7 @@ describe("Documents screen", () => {
     const { app: a } = mountDocs(<DocumentsScreen />, { route: { screen: "tests" } });
     fireEvent.click(await screen.findByRole("option", { name: "1 One" }));
     expect(a.navigate).toHaveBeenCalledWith("documents", "D1#§1");
-    expect(screen.getByText(/^1 document$/)).toBeInTheDocument();
+    expect(listHead()).toHaveTextContent(/^Documents\s*1$/);
     expect(screen.queryByText("Search on words only")).toBeNull();
   });
 
@@ -226,7 +228,7 @@ describe("Documents screen", () => {
     const { app: a } = mountDocs(<DocumentsScreen />, { route: { screen: "documents", arg: "D1" } });
     fireEvent.click(await screen.findByRole("button", { name: "More actions for this document" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Delete this document…" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Delete" })).not.toHaveAttribute("aria-busy"));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Delete" })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(a.navigate).toHaveBeenCalledWith("documents"));
     await waitFor(() => expect(named("docs.list")).toHaveLength(2));
@@ -275,7 +277,7 @@ describe("Documents screen", () => {
     expect(screen.queryByText(/\d documents?/)).toBeNull();
     detail();
     answer();
-    expect(await screen.findByText("1 document")).toBeInTheDocument();
+    await waitFor(() => expect(listHead()).toHaveTextContent(/^Documents\s*1$/));
     expect(screen.queryByRole("region", { name: "Loading the documents" })).toBeNull();
   });
 

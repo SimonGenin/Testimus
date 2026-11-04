@@ -7,6 +7,7 @@ import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { type } from "../../components/ui/type.ts";
+import { useApp } from "../../lib/app.ts";
 import { project } from "../../lib/data/client.ts";
 import { execute, type Key, key, type Prefix } from "../../lib/data/query.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
@@ -31,6 +32,7 @@ const shownMode = (c: StepColumn, off: boolean): ColumnMode =>
   c.mode !== "hidden" ? c.mode : c.name === "Data" || off ? "filled" : "open";
 
 export function ColumnsSection() {
+  const app = useApp();
   const client = useQueryClient();
   const info = useInfo();
   const [drag, setDrag] = useState<string | null>(null);
@@ -116,6 +118,7 @@ export function ColumnsSection() {
   };
 
   const fetchedAt = info.data?.xray.fetchedAt;
+  const noKey = !!info.data && !info.data.project.jiraProject?.trim();
   const fresh = columns.filter((c) => c.status === "new").map((c) => c.name);
   const focusColumn = (name: string) => {
     const field = document.getElementById(columnFieldId(name));
@@ -141,11 +144,28 @@ export function ColumnsSection() {
             icon="download"
             label={refreshing ? "Reading…" : "Read again from Xray"}
             loading={refreshing}
+            disabled={noKey ? "Set the project's Jira key first (Project)" : false}
             onClick={() => void refresh()}
           />
         </>
       }
     >
+      {noKey && (
+        <Banner
+          tone="neutral"
+          icon="info"
+          actions={
+            <Button
+              size="sm"
+              variant="quiet"
+              label="Open Project"
+              onClick={() => app.navigate("settings", "project")}
+            />
+          }
+        >
+          This project has no Jira key: the columns are Xray's three standard ones until you set one in Project.
+        </Banner>
+      )}
       {(fresh.length > 0 || gone.length > 0) && (
         <Banner
           tone="warning"

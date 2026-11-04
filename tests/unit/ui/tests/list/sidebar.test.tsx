@@ -658,7 +658,7 @@ describe("Tests screen › layout", () => {
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 1440 });
   });
 
-  it("resizes the sidebar between 240 and 480 px, remembers it, and resets on double-click", () => {
+  it("resizes the sidebar between 260 and 480 px, remembers it, and resets on double-click", () => {
     render(<Harness />);
     const edge = screen.getByRole("separator", { name: "Resize the test list" });
     fireEvent.pointerDown(edge, { clientX: 0 });
@@ -666,10 +666,10 @@ describe("Tests screen › layout", () => {
     expect(listSide().style.width).toBe("480px");
     fireEvent.pointerMove(edge, { clientX: 20 });
     fireEvent.pointerUp(edge);
-    expect(listSide().style.width).toBe("320px");
-    expect(localStorage.getItem("testimus.sidebarWidth")).toBe("320");
+    expect(listSide().style.width).toBe("340px");
+    expect(localStorage.getItem("testimus.sidebarWidth")).toBe("340");
     fireEvent.doubleClick(edge);
-    expect(listSide().style.width).toBe("300px");
+    expect(listSide().style.width).toBe("320px");
     expect(localStorage.getItem("testimus.sidebarWidth")).toBeNull();
   });
 

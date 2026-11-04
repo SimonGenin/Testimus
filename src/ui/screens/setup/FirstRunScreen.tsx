@@ -12,13 +12,15 @@ import { ProjectStep } from "./ProjectStep.tsx";
 const styles = stylex.create({
   page: { flex: 1, minHeight: 0, overflowY: "auto", backgroundColor: color.canvas },
   col: {
-    maxWidth: `calc(${size.reading} - ${space.s9})`,
+    boxSizing: "border-box",
+    maxWidth: `calc(${size.reading} + ${space.s8})`,
     marginInline: "auto",
-    paddingBlock: space.s8,
-    paddingInline: space.s5,
+    paddingBlockStart: space.s9,
+    paddingBlockEnd: space.s10,
+    paddingInline: space.s7,
     display: "flex",
     flexDirection: "column",
-    gap: space.s5,
+    gap: space.s6,
   },
   top: { display: "flex", alignItems: "center", gap: space.s3 },
   brand: {

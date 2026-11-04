@@ -10,6 +10,7 @@ import { List } from "../../components/ui/List.tsx";
 import { Pane } from "../../components/ui/Pane.tsx";
 import { Segmented } from "../../components/ui/Segmented.tsx";
 import { Select } from "../../components/ui/Select.tsx";
+import { type } from "../../components/ui/type.ts";
 import { plural } from "../../lib/format.ts";
 import { border, color, container, shadow, size, space, z } from "../../styles/tokens.stylex.ts";
 import type { QueueGroup } from "./queueGroups.ts";
@@ -72,7 +73,9 @@ const styles = stylex.create({
     borderBottomStyle: "solid",
     borderBottomColor: color.border,
   },
-  row: { display: "flex", alignItems: "center", gap: space.s2, minWidth: 0, flexWrap: "wrap" },
+  row: { display: "flex", alignItems: "center", gap: space.s2, minWidth: 0 },
+  half: { flex: 1, minWidth: 0, display: "flex" },
+  none: { margin: 0, padding: space.s5, color: color.textMuted },
   notice: { paddingTop: space.s3, paddingInline: space.s3 },
   body: { boxSizing: "border-box", flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: space.s5 },
 });
@@ -127,6 +130,8 @@ export type ReviewQueueProps = {
   onSort: (s: QueueSort) => void;
   onFolder: (f: string) => void;
   onWithFindings: (on: boolean) => void;
+  /** back to the whole queue: every filter off (the empty state's « Clear the filters ») */
+  onClearFilters?: () => void;
   onOpen: (id: string) => void;
   /** the tests that need the check (never checked, or changed since): « Check all » runs it on them */
   checkAll?: { ids: string[]; running: boolean; onCheck: () => void };
@@ -141,6 +146,7 @@ export type ReviewQueueProps = {
 export function ReviewQueue(p: ReviewQueueProps) {
   const all = p.counts ? p.counts.checked + p.counts.toFix + p.counts.draft : undefined;
   const narrowed = p.filter !== "all" || !!p.folder || p.withFindings;
+  const onlyValidated = p.filter === "validated" && !p.folder && !p.withFindings;
   return (
     <div {...stylex.props(styles.queue, p.over && styles.over)} style={p.width ? { width: p.width } : undefined}>
       <Pane
@@ -179,25 +185,29 @@ export function ReviewQueue(p: ReviewQueueProps) {
             ]}
           />
           <div {...stylex.props(styles.row)}>
-            <Select
-              label="Sort the queue"
-              appearance="quiet"
-              size="sm"
-              prefix="Sort"
-              icon="sort"
-              value={p.sort}
-              options={SORTS}
-              onChange={p.onSort}
-            />
-            <Select
-              label="Filter by folder"
-              appearance="quiet"
-              size="sm"
-              icon="folder"
-              value={p.folder}
-              options={[{ value: "", label: "All folders" }, ...p.folders.map((f) => ({ value: f, label: f }))]}
-              onChange={p.onFolder}
-            />
+            <div {...stylex.props(styles.half)}>
+              <Select
+                label="Sort the queue"
+                appearance="quiet"
+                size="sm"
+                prefix="Sort"
+                icon="sort"
+                value={p.sort}
+                options={SORTS}
+                onChange={p.onSort}
+              />
+            </div>
+            <div {...stylex.props(styles.half)}>
+              <Select
+                label="Filter by folder"
+                appearance="quiet"
+                size="sm"
+                icon="folder"
+                value={p.folder}
+                options={[{ value: "", label: "All folders" }, ...p.folders.map((f) => ({ value: f, label: f }))]}
+                onChange={p.onFolder}
+              />
+            </div>
           </div>
           <Checkbox label="Only with findings" checked={p.withFindings} onChange={p.onWithFindings} />
         </div>
@@ -235,18 +245,23 @@ export function ReviewQueue(p: ReviewQueueProps) {
               ),
             })}
             empty={
-              <EmptyState
-                compact
-                icon="validated"
-                title={p.filter === "validated" ? "No generated test validated yet" : "Nothing waiting for review"}
-                text={
-                  !narrowed
-                    ? "Generated tests land here once written, until you validate them."
-                    : p.filter === "validated" && !p.folder && !p.withFindings
+              !narrowed ? (
+                <p {...stylex.props(type.small, styles.none)}>The queue is empty.</p>
+              ) : (
+                <EmptyState
+                  compact
+                  icon={p.filter === "validated" ? "validated" : "filter"}
+                  title={onlyValidated ? "No generated test validated yet" : "No test matches these filters"}
+                  text={
+                    onlyValidated
                       ? "A generated test stays readable here once validated, and also appears in Tests."
-                      : "No test matches these filters."
-                }
-              />
+                      : undefined
+                  }
+                  actions={
+                    p.onClearFilters && <Button size="sm" label="Clear the filters" onClick={p.onClearFilters} />
+                  }
+                />
+              )
             }
           />
         </div>

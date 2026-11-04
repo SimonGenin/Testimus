@@ -61,6 +61,7 @@ const styles = stylex.create({
     backgroundColor: { default: "transparent", ":hover": color.surfaceHover },
   },
   inlineMulti: { minHeight: size.controlMd },
+  inlineStill: { backgroundColor: { default: "transparent", ":hover": "transparent" } },
   bare: {
     borderWidth: 0,
     borderColor: "transparent",
@@ -120,6 +121,7 @@ const styles = stylex.create({
   trail: { display: "inline-flex", alignItems: "center", gap: space.s2, alignSelf: "center", color: color.textSubtle },
   trailMulti: { alignSelf: "flex-end" },
   stateBelow: { alignSelf: "flex-end" },
+  stateBelowBare: { paddingInline: space.s4, paddingBlockEnd: space.s3 },
   forceHover: { borderColor: color.borderControl },
   forceHoverInline: { borderColor: "transparent", backgroundColor: color.surfaceHover },
   forceFocus: { borderColor: color.focusRing },
@@ -295,7 +297,7 @@ function TextField(p: TextProps) {
     id,
     name: p.name,
     value: p.value,
-    placeholder: p.placeholder,
+    placeholder: locked && inline ? undefined : p.placeholder,
     disabled: p.disabled,
     readOnly: locked,
     autoFocus: p.autoFocus,
@@ -350,7 +352,8 @@ function TextField(p: TextProps) {
           p.appearance !== "bare" && p.debugState === "hover" && (inline ? styles.forceHoverInline : styles.forceHover),
           p.appearance !== "bare" && p.debugState === "focus" && [styles.forceFocus, halo.shown],
           p.error !== undefined && [styles.invalid, halo.invalid],
-          p.readOnly && styles.readOnly,
+          p.readOnly && !inline && !p.title && styles.readOnly,
+          inline && locked && !claude && styles.inlineStill,
           claude && styles.claude,
           p.disabled && styles.disabled,
           p.appearance === "bare" && (locked || p.disabled) && styles.bareStill,
@@ -367,7 +370,7 @@ function TextField(p: TextProps) {
           <textarea
             {...common}
             ref={setRef}
-            rows={inline ? 1 : 3}
+            rows={inline ? 1 : p.appearance === "bare" ? 2 : 3}
             onChange={(e) => p.onChange?.(e.target.value)}
             {...stylex.props(styles.value, styles.area)}
           />
@@ -382,7 +385,9 @@ function TextField(p: TextProps) {
         )}
         {trailing && <span {...stylex.props(styles.trail, multiline && styles.trailMulti)}>{trailing}</span>}
       </div>
-      {!p.label && (a || claude) && <span {...stylex.props(styles.stateBelow)}>{word}</span>}
+      {!p.label && (a || claude) && (
+        <span {...stylex.props(styles.stateBelow, p.appearance === "bare" && styles.stateBelowBare)}>{word}</span>
+      )}
       {a?.status === "conflict" && (
         <Banner
           tone="warning"

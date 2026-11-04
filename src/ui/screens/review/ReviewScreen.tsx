@@ -150,6 +150,7 @@ export function ReviewScreen() {
           onSort={filters.setSort}
           onFolder={filters.setFolder}
           onWithFindings={filters.setWithFindings}
+          onClearFilters={filters.clear}
           onOpen={(id) => {
             setQueueOver(false);
             open(id);
@@ -162,7 +163,6 @@ export function ReviewScreen() {
             d.unchecked.length > 0 && (
               <Banner
                 compact
-                title={`${plural(d.unchecked.length, "test")} not checked yet`}
                 actions={
                   <Button
                     size="sm"
@@ -173,7 +173,7 @@ export function ReviewScreen() {
                   />
                 }
               >
-                The check finds what the documents do not support.
+                {`${plural(d.unchecked.length, "test")} not checked yet.`}
               </Banner>
             )
           }
@@ -298,7 +298,8 @@ export function ReviewScreen() {
         <FixNote
           id={data.id}
           initial={data.test.review === "to-fix" ? (data.test.reviewNote ?? "") : ""}
-          subtitle={[data.test.summary, data.test.key].filter(Boolean).join(" · ")}
+          summary={data.test.summary}
+          testKey={data.test.key}
           claudeReady={d.claudeReady}
           onCancel={() => view.patch({ fixOpen: false })}
           onSubmit={acts.markToFix}

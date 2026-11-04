@@ -14,7 +14,8 @@ const styles = stylex.create({
   pair: {
     display: "grid",
     gridTemplateColumns: { default: "1fr 1fr", [breakpoint.narrow]: "1fr" },
-    gap: space.s4,
+    rowGap: space.s4,
+    columnGap: space.s5,
     alignItems: "start",
   },
 });

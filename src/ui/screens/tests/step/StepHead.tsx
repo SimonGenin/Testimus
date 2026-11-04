@@ -25,6 +25,7 @@ const styles = stylex.create({
     },
   },
   shown: { opacity: 1 },
+  slot: { flex: "none", display: "inline-flex", width: size.controlXs, height: size.controlXs },
   num: {
     flex: "none",
     display: "inline-flex",
@@ -120,6 +121,11 @@ export function Grip({ n, focused, onArm }: { n: number; focused?: boolean; onAr
       <Icon name="grip" />
     </span>
   );
+}
+
+// the grip's room on a read-only card, so the number stays where it is on an editable one
+export function GripSlot() {
+  return <span aria-hidden="true" {...stylex.props(styles.slot)} />;
 }
 
 // the rest of an open step card's head, after its grip, number and marks (StepFrame): the Jira version toggle, the

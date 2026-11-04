@@ -7,22 +7,19 @@ import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { type } from "../../components/ui/type.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { flip, ownText, parents, type TocEntry, tick } from "../../lib/scope.ts";
-import { border, color, size, space } from "../../styles/tokens.stylex.ts";
+import { color, size, space } from "../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
   tree: {
     boxSizing: "border-box",
     listStyle: "none",
     margin: 0,
-    paddingBlock: space.s2,
+    paddingBlockStart: 0,
+    paddingBlockEnd: space.s3,
     paddingInline: space.s3,
     display: "flex",
     flexDirection: "column",
     gap: space.s1,
-    borderTopStyle: "solid",
-    borderTopWidth: border.width,
-    borderTopColor: color.border,
-    backgroundColor: color.surfaceSunken,
   },
   row: { boxSizing: "border-box", display: "flex", alignItems: "center", gap: space.s2, minHeight: size.row },
   twisty: { width: size.controlSm, flexShrink: 0 },
@@ -99,7 +96,7 @@ export function SectionTree({
           <li
             key={t.anchor}
             {...stylex.props(styles.row)}
-            style={{ paddingInlineStart: `calc(${size.iconMd} * ${t.level - base})` }}
+            style={{ paddingInlineStart: `calc(${space.s6} * ${t.level - base})` }}
           >
             <span {...stylex.props(styles.twisty)}>
               {hasKids(i) && (

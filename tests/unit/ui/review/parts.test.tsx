@@ -191,17 +191,22 @@ describe("ReviewQueue", () => {
     const { rerender } = render(<ReviewQueue {...props({ items: null })} />);
     expect(screen.getByRole("listbox", { name: "Tests to review" })).toHaveAttribute("aria-busy", "true");
     rerender(<ReviewQueue {...props()} />);
-    expect(screen.getByText(/Generated tests land here once written/)).toBeInTheDocument();
-    rerender(<ReviewQueue {...props({ withFindings: true })} />);
-    expect(screen.getByText("No test matches these filters.")).toBeInTheDocument();
+    expect(screen.getByText("The queue is empty.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Clear the filters" })).toBeNull();
+    const onClearFilters = vi.fn();
+    rerender(<ReviewQueue {...props({ withFindings: true, onClearFilters })} />);
+    expect(screen.getByText("No test matches these filters")).toBeInTheDocument();
     expect(screen.getByRole("checkbox", { name: "Only with findings" })).toBeChecked();
-    rerender(<ReviewQueue {...props({ folder: "/A" })} />);
-    expect(screen.getByText("No test matches these filters.")).toBeInTheDocument();
-    rerender(<ReviewQueue {...props({ filter: "checked" })} />);
-    expect(screen.getByText("No test matches these filters.")).toBeInTheDocument();
-    rerender(<ReviewQueue {...props({ filter: "validated" })} />);
+    fireEvent.click(screen.getByRole("button", { name: "Clear the filters" }));
+    expect(onClearFilters).toHaveBeenCalledTimes(1);
+    rerender(<ReviewQueue {...props({ folder: "/A", onClearFilters })} />);
+    expect(screen.getByText("No test matches these filters")).toBeInTheDocument();
+    rerender(<ReviewQueue {...props({ filter: "checked", onClearFilters })} />);
+    expect(screen.getByText("No test matches these filters")).toBeInTheDocument();
+    rerender(<ReviewQueue {...props({ filter: "validated", onClearFilters })} />);
     expect(screen.getByText("No generated test validated yet")).toBeInTheDocument();
     expect(screen.getByText(/stays readable here once validated/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Clear the filters" })).toBeInTheDocument();
   });
 
   it("Check all runs the check on the tests that need it, and says when none does", () => {

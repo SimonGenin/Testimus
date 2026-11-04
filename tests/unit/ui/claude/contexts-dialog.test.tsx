@@ -141,7 +141,9 @@ describe("ContextsDialog", () => {
     expect(option(/new-1/)).toHaveAttribute("aria-selected", "true");
     expect(option(/new-1/)).toHaveTextContent("empty");
     await waitFor(() => expect(changes()).toBe(1));
-    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    const closes = screen.getAllByRole("button", { name: "Close" });
+    expect(closes).toHaveLength(2);
+    fireEvent.click(closes[1]);
     expect(close).toHaveBeenCalled();
   });
 

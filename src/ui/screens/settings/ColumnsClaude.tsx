@@ -3,20 +3,24 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import type { CommandOutput } from "../../../core/commands/index.ts";
 import type { StepColumn } from "../../../core/types.ts";
-import { AdditionalContext } from "../../components/claude/AdditionalContext.tsx";
 import { toolLabel } from "../../components/claude/ClaudeDock.tsx";
+import { ContextsDialog } from "../../components/claude/ContextsDialog.tsx";
 import { DiagnosisText } from "../../components/claude/DiagnosisText.tsx";
+import { SaveContext } from "../../components/claude/SaveContext.tsx";
 import { Answer } from "../../components/ui/Answer.tsx";
 import { Badge, COLUMN, type Word } from "../../components/ui/Badge.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Card } from "../../components/ui/Card.tsx";
+import { ClaudeBlock } from "../../components/ui/ClaudeBlock.tsx";
 import { Facts } from "../../components/ui/Facts.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
+import { Menu, type MenuEntry } from "../../components/ui/Menu.tsx";
 import { type } from "../../components/ui/type.ts";
 import { useDraft } from "../../lib/data/autosave.ts";
 import { project } from "../../lib/data/client.ts";
-import { execute, type Key } from "../../lib/data/query.ts";
+import { execute, type Key, useRead } from "../../lib/data/query.ts";
 import { plural } from "../../lib/format.ts";
+import { useNow } from "../../lib/now.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 import { border, color, space } from "../../styles/tokens.stylex.ts";
 import { useCancel, useJob } from "./jobs.ts";
@@ -26,6 +30,7 @@ const styles = stylex.create({
   title: { display: "inline-flex", alignItems: "center", gap: space.s2, color: color.claudeText },
   acts: { display: "flex", alignItems: "center", gap: space.s3, flexWrap: "wrap" },
   reading: { flex: 1, minWidth: 0, color: color.textMuted },
+  intro: { margin: 0, color: color.textMuted },
   said: { margin: 0, whiteSpace: "pre-wrap" },
   list: { display: "flex", flexDirection: "column", margin: 0, padding: 0, listStyle: "none" },
   prop: {
@@ -60,7 +65,6 @@ function tagOf(p: Proposal): Word {
 const draft = (f: string): Key => [project(), "settings.columns.claude", { f }];
 
 function Asking({ jobId, onAnswer }: { jobId: string; onAnswer: (r: Suggested | null) => void }) {
-  const cancel = useCancel();
   const [reading, setReading] = useState("Claude is reading the columns, the tests and the documents…");
   useJob(
     jobId,
@@ -77,28 +81,42 @@ function Asking({ jobId, onAnswer }: { jobId: string; onAnswer: (r: Suggested | 
     },
   );
   return (
-    <div {...stylex.props(styles.acts)}>
-      <span role="status" {...stylex.props(type.small, styles.reading)}>
-        {reading}
-      </span>
-      <Button size="sm" variant="quiet" label="Cancel" onClick={() => cancel(jobId)} />
-    </div>
+    <span role="status" {...stylex.props(type.small, styles.reading)}>
+      {reading}
+    </span>
   );
 }
 
 // ponytail: Claude proposes, nothing changes until a proposal is applied (columns.save, one per column)
 export function ColumnsClaude({ columns }: { columns: StepColumn[] }) {
   const client = useQueryClient();
+  const cancel = useCancel();
+  const list = useRead("contexts.list", {});
+  const all = list.data ?? [];
   const [ask, setAsk] = useDraft(draft("ask"));
   const [picked, setPicked] = useDraft(draft("contexts"), "[]");
   const ids = JSON.parse(picked) as string[];
+  const setIds = (next: string[]) => setPicked(JSON.stringify(next));
+  const [dialog, setDialog] = useState<"save" | "manage" | null>(null);
   const [starting, setStarting] = useState(false);
+  const [startedAt, setStartedAt] = useState(0);
   const [jobId, setJobId] = useState<string | null>(null);
   const [answer, setAnswer] = useState<{ text: string; proposals: Proposal[] } | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
+  const asking = starting || !!jobId;
+  const now = useNow(1000, asking);
+  const name = (id: string) => all.find((c) => c.id === id)?.name ?? id;
+  const add: MenuEntry[] = [
+    ...all
+      .filter((c) => !ids.includes(c.id))
+      .map((c) => ({ label: c.name, icon: "context" as const, onSelect: () => setIds([...ids, c.id]) })),
+    ...(all.some((c) => !ids.includes(c.id)) ? (["separator"] as MenuEntry[]) : []),
+    { label: "Manage contexts…", onSelect: () => setDialog("manage") },
+  ];
 
   const suggest = async () => {
     setStarting(true);
+    setStartedAt(Date.now());
     setAnswer(null);
     try {
       const r = await execute(client, "columns.suggest", { ask: ask.trim(), contexts: ids }, { invalidates: "none" });
@@ -155,7 +173,6 @@ export function ColumnsClaude({ columns }: { columns: StepColumn[] }) {
   const proposals = (answer?.proposals ?? []).filter(
     (p) => p.kind === "new" || columns.some((c) => c.name === p.name && c.description !== p.description),
   );
-  const asking = starting || !!jobId;
 
   return (
     <>
@@ -168,33 +185,59 @@ export function ColumnsClaude({ columns }: { columns: StepColumn[] }) {
         }
       >
         <Stack>
-          <Hint>
+          <p {...stylex.props(type.compact, styles.intro)}>
             Claude reads the columns, Xray's step fields, the tests, the documents and the contexts, and proposes what
             each column should hold. Nothing changes until you apply a proposal.
-          </Hint>
-          <AdditionalContext
+          </p>
+          <ClaudeBlock
             id="colclaude-ask"
-            of="the columns"
+            ariaLabel="What the columns should hold"
             placeholder="What the columns should hold, in your words — e.g. « each step should say which operator position it uses ». Empty: review them all."
-            ids={ids}
-            note={ask}
-            disabled={asking}
-            onIds={(next) => setPicked(JSON.stringify(next))}
-            onNote={setAsk}
+            value={ask}
+            onChange={setAsk}
+            allowEmpty
+            submitLabel={answer ? "Ask again" : "Ask Claude"}
+            onSubmit={() => void suggest()}
+            running={asking ? Math.max(0, (now - startedAt) / 1000) : null}
+            onCancel={jobId ? () => cancel(jobId) : undefined}
+            contexts={ids.map((x) => ({ id: x, label: name(x), on: true }))}
+            onContext={(x, on) => {
+              if (!on) setIds(ids.filter((y) => y !== x));
+            }}
+            addContext={
+              <Menu
+                label="Add context"
+                entries={add}
+                trigger={
+                  <Button size="sm" variant="quiet" icon="plus" iconOnly label="Add context" disabled={asking} />
+                }
+              />
+            }
           />
           <div {...stylex.props(styles.acts)}>
             <Button
-              variant="claude"
               size="sm"
-              icon="send"
-              label={asking ? "Claude is looking…" : answer ? "Ask again" : "Ask Claude"}
-              disabled={asking}
-              onClick={() => void suggest()}
+              variant="quiet"
+              icon="context"
+              label="Save the request as a context…"
+              disabled={asking ? true : !ask.trim() ? "Write a request first" : false}
+              onClick={() => setDialog("save")}
             />
           </div>
           {jobId && <Asking jobId={jobId} onAnswer={answered} />}
         </Stack>
       </Card>
+      {dialog === "save" && (
+        <SaveContext
+          note={ask}
+          onSaved={(id) => {
+            setIds([...ids, id]);
+            setAsk("");
+          }}
+          onClose={() => setDialog(null)}
+        />
+      )}
+      {dialog === "manage" && <ContextsDialog onClose={() => setDialog(null)} />}
       {answer && (
         <Answer
           title="Claude's proposals"

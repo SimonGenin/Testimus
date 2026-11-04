@@ -170,9 +170,13 @@ describe("dock contexts", () => {
     fireEvent.click(chip);
     expect(chip).toHaveAttribute("aria-pressed", "false");
     fireEvent.click(screen.getByRole("button", { name: "Add context" }));
-    fireEvent.click(screen.getByRole("checkbox", { name: /Glossaire/ }));
+    const pick = screen.getByRole("menuitemcheckbox", { name: /Glossaire/ });
+    expect(pick).toHaveAttribute("aria-checked", "false");
+    fireEvent.click(pick);
     expect(chip).toHaveAttribute("aria-pressed", "true");
-    fireEvent.click(screen.getByRole("button", { name: "Add a note for this run" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add context" }));
+    expect(screen.getByRole("menuitemcheckbox", { name: /Glossaire/ })).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(screen.getByRole("menuitem", { name: "Add a note for this run" }));
     fireEvent.change(screen.getByRole("textbox", { name: "Note for this run" }), { target: { value: " PCC " } });
     ask("Go");
     await waitFor(() => expect(callsOf("claude.run")).toHaveLength(1));

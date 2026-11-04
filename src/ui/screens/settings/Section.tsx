@@ -10,10 +10,10 @@ const styles = stylex.create({
     flexDirection: "column",
     gap: space.s5,
     maxWidth: size.reading,
-    paddingBlock: space.s9,
-    paddingInline: { default: space.s9, [breakpoint.sm]: space.s6, [breakpoint.narrow]: space.s5 },
+    paddingBlock: space.s8,
+    paddingInline: { default: space.s8, [breakpoint.sm]: space.s6, [breakpoint.narrow]: space.s5 },
   },
-  wide: { maxWidth: `calc(${size.reading} + ${size.sidebar})` },
+  wide: { maxWidth: `calc(${size.reading} + ${size.sidebar} + 2 * ${space.s8})` },
   head: { display: "flex", alignItems: "flex-start", gap: space.s5, flexWrap: "wrap" },
   titles: { display: "flex", flexDirection: "column", gap: space.s2, flex: 1, minWidth: 0 },
   title: { margin: 0 },
@@ -27,6 +27,7 @@ const styles = stylex.create({
     alignItems: "start",
   },
   stack: { display: "flex", flexDirection: "column", gap: space.s4 },
+  loose: { gap: space.s6 },
   hint: { margin: 0, color: color.textMuted },
 });
 
@@ -54,7 +55,7 @@ export function Section({
           <h2 id={`s-${id}`} {...stylex.props(type.titleLg, styles.title)}>
             {title}
           </h2>
-          {intro && <p {...stylex.props(type.body, styles.intro)}>{intro}</p>}
+          {intro && <p {...stylex.props(type.compact, styles.intro)}>{intro}</p>}
         </div>
         {actions && <div {...stylex.props(styles.actions)}>{actions}</div>}
       </div>
@@ -76,8 +77,9 @@ export function Grid({ children }: { children: ReactNode }) {
   return <div {...stylex.props(styles.grid)}>{children}</div>;
 }
 
-export function Stack({ children }: { children: ReactNode }) {
-  return <div {...stylex.props(styles.stack)}>{children}</div>;
+// ponytail: a card's lines, 12 px apart; loose: the groups of a card (a field and its result, then another), 24 px
+export function Stack({ loose = false, children }: { loose?: boolean; children: ReactNode }) {
+  return <div {...stylex.props(styles.stack, loose && styles.loose)}>{children}</div>;
 }
 
 // ponytail: a line of help under a card's controls, or alone in a card (« No quick ask yet. »); a hint that belongs to

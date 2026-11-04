@@ -29,6 +29,7 @@ const styles = stylex.create({
   title: { margin: 0 },
   grow: { flex: 1 },
   slot: { position: "relative" },
+  none: { paddingBlock: space.s9 },
   drop: {
     height: border.widthStrong,
     marginBlock: space.s1,
@@ -223,21 +224,25 @@ export function StepList({
       })}
       {drag >= 0 && dropAt === test.steps.length && line}
       {test.steps.length === 0 ? (
-        <EmptyState
-          icon="tests"
-          title="This test has no steps yet"
-          text="Write the first one, or ask Claude to draft the steps from the test's description and sources."
-          actions={
-            readOnly ? undefined : (
-              <>
-                <Button variant="primary" icon="plus" label="Add first step" onClick={() => onInsert(0)} />
-                {onDraft && (
-                  <Button variant="claude-quiet" icon="claude" label="Ask Claude to draft them" onClick={onDraft} />
-                )}
-              </>
-            )
-          }
-        />
+        <Card padded={false}>
+          <div {...stylex.props(styles.none)}>
+            <EmptyState
+              icon="tests"
+              title="This test has no steps yet"
+              text="Write the first one, or ask Claude to draft the steps from the test's description and sources."
+              actions={
+                readOnly ? undefined : (
+                  <>
+                    <Button variant="primary" icon="plus" label="Add first step" onClick={() => onInsert(0)} />
+                    {onDraft && (
+                      <Button variant="claude-quiet" icon="claude" label="Ask Claude to draft them" onClick={onDraft} />
+                    )}
+                  </>
+                )
+              }
+            />
+          </div>
+        </Card>
       ) : (
         !readOnly && (
           <Card dashed padded={false}>

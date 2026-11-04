@@ -54,7 +54,7 @@ export function PackPlanDialog({
       onClose={onClose}
       actions={
         <>
-          <Button variant="quiet" label="Cancel" onClick={onClose} />
+          <Button label="Cancel" onClick={onClose} />
           <Button
             variant="primary"
             icon={download ? "download" : "check"}

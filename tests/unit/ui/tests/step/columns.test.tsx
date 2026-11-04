@@ -41,6 +41,26 @@ describe("ColumnField", () => {
     expect(onChange).toHaveBeenLastCalledWith("xy z");
   });
 
+  it("wraps a line column where the field is narrow, still on one line of text", () => {
+    const onChange = vi.fn();
+    render(<ColumnField column={col("line")} value="" stepNumber={2} wrap onChange={onChange} />);
+    const line = screen.getByLabelText("Note of step 2");
+    expect(line.tagName).toBe("TEXTAREA");
+    expect(fireEvent.keyDown(line, { key: "Enter" })).toBe(false);
+    expect(fireEvent.keyDown(line, { key: "a" })).toBe(true);
+    fireEvent.change(line, { target: { value: "x\ny\r\nz" } });
+    expect(onChange).toHaveBeenLastCalledWith("x y z");
+  });
+
+  it("says an empty column is empty, unless it cannot be edited", () => {
+    const { rerender } = render(<ColumnField column={col("text")} value="" stepNumber={1} onChange={vi.fn()} />);
+    expect(screen.getByText("Empty — type here")).toHaveAttribute("aria-hidden", "true");
+    rerender(<ColumnField column={col("text")} value="a" stepNumber={1} onChange={vi.fn()} />);
+    expect(screen.queryByText("Empty — type here")).toBeNull();
+    rerender(<ColumnField column={col("text")} value="" stepNumber={1} readOnly onChange={vi.fn()} />);
+    expect(screen.queryByText("Empty — type here")).toBeNull();
+  });
+
   it("shows a read-only column, or empty", () => {
     const { rerender } = render(<ColumnField column={col("readonly")} value="42" stepNumber={1} onChange={vi.fn()} />);
     expect(screen.getByText("42")).toBeInTheDocument();

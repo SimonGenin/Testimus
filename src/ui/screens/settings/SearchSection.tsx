@@ -94,6 +94,15 @@ export function SearchSection() {
   const reference = info.data?.project.rag?.reference;
   const fresh = !!s?.exists && s.profileMatches && s.docs.every((d) => d.indexed === "fresh");
   const behind = s?.docs.filter((d) => d.indexed !== "fresh").length ?? 0;
+  const reindex = (
+    <Button
+      size="sm"
+      icon="refresh"
+      label="Reindex"
+      disabled={indexing || (s && !s.docs.length ? "Add documents first" : false)}
+      onClick={() => void reindexAll(() => void invalidate(client, [["rag.status"], ["rag.spaces"]]))}
+    />
+  );
 
   return (
     <Section
@@ -103,7 +112,7 @@ export function SearchSection() {
       actions={<Button icon="cpu" label="Choose models…" onClick={() => app.navigate("settings", "models")} />}
     >
       <Card title="Search on this PC">
-        <Stack>
+        <Stack loose>
           {st.isError ? (
             <Banner tone="danger" title="The index state could not be read">
               {st.error.message}
@@ -165,8 +174,8 @@ export function SearchSection() {
             />
           )}
           {s?.degraded && (
-            <Banner tone="warning" title="Search on words only">
-              <span role="status">Search on words only — {s.degraded}</span>
+            <Banner tone="warning" title="Search on words only" actions={reindex}>
+              {s.degraded}
             </Banner>
           )}
           <div {...stylex.props(styles.state)}>
@@ -186,25 +195,21 @@ export function SearchSection() {
               </>
             ) : !s.exists ? (
               <Badge label="No index yet" tone="warning" icon="alert-triangle" />
+            ) : !s.profileMatches ? (
+              <>
+                <Badge label="Words only" tone="warning" icon="alert-triangle" />
+                <span {...stylex.props(styles.muted)}>
+                  {plural(s.chunks, "passage")} · {plural(s.docs.length, "document")} · no vectors for the active model
+                </span>
+              </>
             ) : (
-              <Badge
-                label={
-                  !s.profileMatches
-                    ? "Vectors missing for this model — reindex"
-                    : `${plural(behind, "document")} to reindex`
-                }
-                tone="warning"
-                icon="alert-triangle"
-              />
+              <>
+                <Badge label="To reindex" tone="warning" icon="alert-triangle" />
+                <span {...stylex.props(styles.muted)}>{plural(behind, "document")} to reindex</span>
+              </>
             )}
             <span {...stylex.props(styles.spacer)} />
-            <Button
-              size="sm"
-              icon="refresh"
-              label="Reindex"
-              disabled={indexing || (s && !s.docs.length ? "Add documents first" : false)}
-              onClick={() => void reindexAll(() => void invalidate(client, [["rag.status"], ["rag.spaces"]]))}
-            />
+            {!s?.degraded && reindex}
           </div>
         </Stack>
       </Card>

@@ -44,7 +44,7 @@ const styles = stylex.create({
     minWidth: 0,
     display: "flex",
     flexDirection: "column",
-    borderInlineStartStyle: "solid",
+    borderInlineStartStyle: { default: "none", [breakpoint.narrow]: "solid" },
     borderInlineStartWidth: border.width,
     borderInlineStartColor: color.border,
     backgroundColor: color.surface,
@@ -74,11 +74,9 @@ const styles = stylex.create({
   foot: {
     boxSizing: "border-box",
     flex: "none",
-    padding: space.s3,
-    borderTopStyle: "solid",
-    borderTopWidth: border.width,
-    borderTopColor: color.border,
-    backgroundColor: color.canvas,
+    paddingTop: space.s3,
+    paddingInline: space.s4,
+    paddingBottom: space.s4,
   },
 });
 

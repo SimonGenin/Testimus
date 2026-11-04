@@ -210,11 +210,15 @@ export function useToasts(): readonly Item[] {
   );
 }
 
-// ponytail: the stack, bottom right, once in the app shell
-export function Toaster() {
+// ponytail: the stack, bottom right, once in the app shell — clear of what holds the right edge (the open Claude dock)
+export function Toaster({ clearEnd }: { clearEnd?: string }) {
   const list = useToasts();
   return (
-    <section aria-label="Notifications" {...stylex.props(styles.stack)}>
+    <section
+      aria-label="Notifications"
+      style={clearEnd ? { insetInlineEnd: `calc(${clearEnd} + ${space.s5})` } : undefined}
+      {...stylex.props(styles.stack)}
+    >
       {list.map((t) => (
         <Toast
           key={t.id}

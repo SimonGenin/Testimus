@@ -45,6 +45,11 @@ export function useQueueFilters() {
     setSort: (s: QueueSort) => setSort(s),
     setFolder,
     setWithFindings: (on: boolean) => setFindings(on ? "1" : ""),
+    clear: () => {
+      setFilter("all");
+      setFolder("");
+      setFindings("");
+    },
   };
 }
 

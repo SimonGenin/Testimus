@@ -39,6 +39,7 @@ const styles = stylex.create({
   titles: { display: "flex", flexDirection: "column", gap: space.s1, minWidth: 0, flex: 1 },
   over: { display: "inline-flex", alignItems: "center", gap: space.s2, color: color.claudeText },
   spin: { display: "inline-flex", alignSelf: "flex-start", marginTop: space.s2, color: color.claude },
+  titleRow: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s3, minWidth: 0 },
   title: { margin: 0, color: color.text },
   meta: { color: color.textSubtle },
   grow: { flex: 1 },
@@ -55,6 +56,8 @@ const styles = stylex.create({
   item: { overflowWrap: "anywhere" },
   fold: { alignSelf: "flex-end" },
 });
+
+const ID = /^(?=.*[\d_])[\w.#-]+$/;
 
 const writingOf = (m: string) => m.match(/Writing (local-[0-9a-f]{8})/i)?.[1]?.toLowerCase();
 
@@ -123,13 +126,19 @@ function Head({
   meta?: string;
   actions: ReactNode;
 }) {
+  const lead = !!over || !title;
   return (
     <div {...stylex.props(styles.head)}>
-      {badge}
+      {lead && badge}
       {(title || meta) && (
         <div {...stylex.props(styles.titles)}>
           {over && <span {...stylex.props(type.small, type.medium, styles.over)}>{over}</span>}
-          {title && <h2 {...stylex.props(type.title, styles.title)}>{title}</h2>}
+          {title && (
+            <span {...stylex.props(styles.titleRow)}>
+              {!lead && badge}
+              <h2 {...stylex.props(type.title, styles.title)}>{title}</h2>
+            </span>
+          )}
           {meta && <span {...stylex.props(type.small, styles.meta)}>{meta}</span>}
         </div>
       )}
@@ -156,12 +165,7 @@ export function RunHead({
 }: RunHeadProps) {
   if (!job) return null;
   const foldAll = count > 0 && onFoldAll && (
-    <Button
-      size="sm"
-      variant="quiet"
-      label={allFolded ? "Unfold all" : "Fold all"}
-      onClick={() => onFoldAll(!allFolded)}
-    />
+    <Button variant="quiet" label={allFolded ? "Unfold all" : "Fold all"} onClick={() => onFoldAll(!allFolded)} />
   );
   if (job.status === "running")
     return (
@@ -184,7 +188,7 @@ export function RunHead({
             <>
               <Timer seconds={Math.round((now - Date.parse(job.startedAt)) / 1000)} />
               {foldAll}
-              <Button size="sm" icon="stop" label="Cancel" onClick={onCancel} />
+              <Button icon="stop" label="Cancel" onClick={onCancel} />
             </>
           }
         />
@@ -201,30 +205,25 @@ export function RunHead({
           <>
             {foldAll}
             {count > 0 && (
-              <Button
-                variant="primary"
-                size="sm"
-                iconAfter="arrow-right"
-                label="Review these tests"
-                onClick={onReview}
-              />
+              <Button variant="primary" iconAfter="arrow-right" label="Review these tests" onClick={onReview} />
             )}
           </>
         }
       />
     );
-  const resume = left > 0 && onResume && (
-    <Button
-      variant="primary"
-      size="sm"
-      icon="generate"
-      label={`Resume · ${plural(left, "test")} left`}
-      onClick={onResume}
-    />
-  );
-  const review = count > 0 && (
-    <Button size="sm" iconAfter="arrow-right" label="Review these tests" onClick={onReview} />
-  );
+  const resume = (s: "sm" | "md") =>
+    left > 0 &&
+    onResume && (
+      <Button
+        variant="primary"
+        size={s}
+        icon="generate"
+        label={`Resume · ${plural(left, "test")} left`}
+        onClick={onResume}
+      />
+    );
+  const review = (s: "sm" | "md") =>
+    count > 0 && <Button size={s} iconAfter="arrow-right" label="Review these tests" onClick={onReview} />;
   if (failedRun(job, result))
     return (
       <div {...stylex.props(styles.body)}>
@@ -233,9 +232,9 @@ export function RunHead({
           title={result?.diagnosis?.title ?? "The generation stopped"}
           actions={
             <>
-              {resume ||
+              {resume("sm") ||
                 (onRetry && <Button variant="claude" size="sm" icon="refresh" label="Try again" onClick={onRetry} />)}
-              {review}
+              {review("sm")}
             </>
           }
         >
@@ -255,8 +254,8 @@ export function RunHead({
       actions={
         <>
           {foldAll}
-          {resume}
-          {review}
+          {resume("md")}
+          {review("md")}
         </>
       }
     />
@@ -291,7 +290,7 @@ export function GenSummary({ result, checked }: { result: GenOutput; checked: st
                   <Icon name="alert-triangle" size="sm" />
                 </span>
                 <span {...stylex.props(styles.noBody)}>
-                  <span {...stylex.props(type.code, styles.item)}>{u.item}</span>
+                  <span {...stylex.props(ID.test(u.item) ? type.code : type.compact, styles.item)}>{u.item}</span>
                   <span {...stylex.props(styles.why)}>{u.why}</span>
                 </span>
               </li>

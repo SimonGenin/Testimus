@@ -21,8 +21,9 @@ const styles = stylex.create({
     display: "flex",
     flexWrap: "wrap",
     alignItems: "center",
-    gap: space.s4,
-    padding: space.s4,
+    gap: space.s5,
+    paddingBlock: space.s4,
+    paddingInline: space.s5,
     borderWidth: border.width,
     borderStyle: "solid",
     borderColor: color.border,
@@ -76,12 +77,13 @@ export function PackStep({ onBack }: { onBack: () => void }) {
       id="pack-h"
       title={TITLE}
       lead="Search runs on this PC and documents never leave it. Analyse the machine to see which packs it runs and the most it runs comfortably; you can change it any time in Settings › Models."
-      back={<Button variant="quiet" icon="chevron-left" label="Back" onClick={onBack} />}
+      back={<Button variant="quiet" size="lg" icon="chevron-left" label="Back" onClick={onBack} />}
       actions={
         <>
-          <Button variant="quiet" label="Skip for now" onClick={s.done} />
+          <Button variant="quiet" size="lg" label="Skip for now" onClick={s.done} />
           <Button
             variant="primary"
+            size="lg"
             label={s.pack ? `Use ${s.pack.label}` : "Use this pack"}
             disabled={!s.pack || s.busy}
             loading={s.busy}
@@ -100,6 +102,7 @@ export function PackStep({ onBack }: { onBack: () => void }) {
           </p>
         )}
         <Button
+          size="lg"
           icon={s.machine ? "refresh" : "cpu"}
           label={s.analysing ? "Analysing…" : s.machine ? "Analyse again" : "Analyse my machine"}
           loading={s.analysing}

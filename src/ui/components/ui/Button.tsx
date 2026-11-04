@@ -270,7 +270,7 @@ export function Button({
         iconOnly && SQUARE[s],
         block && styles.block,
         loading && styles.loading,
-        !off && pressed && FORCED.pressed[variant],
+        !off && (pressed || popup?.open) && FORCED.pressed[variant],
         !off && (debugState === "hover" || debugState === "pressed") && FORCED[debugState][variant],
         ringOnFocus && styles.ringOnFocus,
         debugState === "focus" && styles.focusRing,

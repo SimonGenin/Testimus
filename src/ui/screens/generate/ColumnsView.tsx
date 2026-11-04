@@ -5,11 +5,11 @@ import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Card } from "../../components/ui/Card.tsx";
 import { type } from "../../components/ui/type.ts";
-import { border, color, space } from "../../styles/tokens.stylex.ts";
+import { border, color, size, space } from "../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
   block: { display: "flex", flexDirection: "column", gap: space.s3 },
-  head: { display: "flex", alignItems: "baseline", gap: space.s2 },
+  head: { display: "flex", alignItems: "center", gap: space.s2, minHeight: size.controlSm },
   title: { margin: 0, color: color.text },
   count: { color: color.textSubtle },
   grow: { flex: 1 },

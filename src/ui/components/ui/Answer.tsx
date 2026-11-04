@@ -21,7 +21,7 @@ const styles = stylex.create({
   headError: { color: color.danger },
   headActions: { display: "flex", alignItems: "center", gap: space.s2, marginInlineStart: "auto" },
   body: { display: "flex", flexDirection: "column", gap: space.s3, minWidth: 0, overflowWrap: "anywhere" },
-  meta: { color: color.textMuted },
+  meta: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: color.textMuted },
   foot: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s2 },
 });
 

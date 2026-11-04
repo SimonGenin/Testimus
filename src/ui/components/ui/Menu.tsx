@@ -132,7 +132,7 @@ const styles = stylex.create({
     paddingBottom: space.s2,
     fontSize: fontSize.caption,
     lineHeight: lineHeight.caption,
-    fontWeight: fontWeight.semibold,
+    fontWeight: fontWeight.medium,
     color: color.textSubtle,
   },
   note: {
@@ -387,7 +387,13 @@ export function Menu({
           id={id}
           {...{ role: listbox ? "listbox" : "menu", "aria-label": label ?? trigger.props.label }}
           onKeyDown={onListKey}
-          style={inline ? undefined : listbox ? { ...placed.style, minWidth: wrap.current?.offsetWidth } : placed.style}
+          style={
+            inline
+              ? undefined
+              : listbox
+                ? { ...placed.style, minWidth: `max(${size.menuMin}, ${wrap.current?.offsetWidth ?? 0}px)` }
+                : placed.style
+          }
           {...stylex.props(
             styles.menu,
             !inline && styles.layer,

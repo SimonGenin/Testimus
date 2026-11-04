@@ -27,6 +27,7 @@ const styles = stylex.create({
   },
   icon: { display: "inline-flex", color: color.textMuted },
   file: { color: color.textMuted },
+  notes: { display: "inline-flex", alignItems: "baseline", gap: space.s3 },
 });
 
 const LANGUAGES = [
@@ -59,9 +60,9 @@ function ProjectNotes() {
   return (
     <Card
       title={
-        <>
+        <span {...stylex.props(styles.notes)}>
           Project notes <span {...stylex.props(type.code, styles.file)}>CLAUDE.md</span>
-        </>
+        </span>
       }
     >
       <Stack>
@@ -105,7 +106,13 @@ export function ProjectSection() {
           <Stack>
             <Grid>
               <Text label="Name" value={p.name ?? ""} {...name} />
-              <Text label="Jira project key" value={p.jiraProject ?? ""} hint="Upper-cased as you save." {...jira} />
+              <Text
+                label="Jira project key"
+                value={p.jiraProject ?? ""}
+                placeholder="e.g. LFRPS12"
+                hint="Upper-cased as you save."
+                {...jira}
+              />
               <Select
                 id="set-language"
                 label="Language of the tests"

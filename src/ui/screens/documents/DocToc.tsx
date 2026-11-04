@@ -8,18 +8,6 @@ import { into } from "./scroll.ts";
 
 const styles = stylex.create({
   pane: { display: "flex", flexDirection: "column", minHeight: 0, flex: 1, minWidth: 0 },
-  head: {
-    boxSizing: "border-box",
-    display: "flex",
-    alignItems: "baseline",
-    justifyContent: "space-between",
-    gap: space.s3,
-    paddingTop: space.s4,
-    paddingBottom: space.s2,
-    paddingInline: space.s5,
-    color: color.textMuted,
-  },
-  count: { color: color.textSubtle },
   body: { boxSizing: "border-box", flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: space.s3 },
   number: { color: color.textSubtle },
 });
@@ -49,11 +37,6 @@ export function DocToc({
   }, [current]);
   return (
     <nav aria-label="Sections" {...stylex.props(styles.pane)}>
-      {head && (
-        <div {...stylex.props(type.small, type.strong, styles.head)}>
-          Contents <span {...stylex.props(type.regular, styles.count)}>{plural(sections.length, "section")}</span>
-        </div>
-      )}
       <div ref={box} data-testid="doc-toc" {...stylex.props(styles.body)}>
         <List
           label="Contents"
@@ -61,6 +44,11 @@ export function DocToc({
           getKey={(t) => t.anchor}
           selected={sections.some((t) => t.anchor === current) ? current : null}
           onSelect={onGo}
+          groups={
+            head
+              ? [{ label: "Contents", meta: plural(sections.length, "section"), keys: sections.map((t) => t.anchor) }]
+              : undefined
+          }
           renderItem={(t) => ({
             title: t.title,
             depth: Math.max(0, t.level - 1),

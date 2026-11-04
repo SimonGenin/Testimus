@@ -101,7 +101,7 @@ describe("a context changed in the Contexts dialog shows at once everywhere it i
     fireEvent.change(name, { target: { value: "Lexique" } });
     fireEvent.blur(name);
     await waitFor(() => expect(store["ctx-b"].name).toBe("Lexique"));
-    fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+    fireEvent.click(within(dialog).getAllByRole("button", { name: "Close" }).at(-1) as HTMLElement);
 
     expect(await within(dock).findByRole("button", { name: "Lexique" })).toBeInTheDocument();
     expect(await within(defaults).findByRole("button", { name: "Lexique" })).toBeInTheDocument();
@@ -133,7 +133,7 @@ describe("a context changed in the Contexts dialog shows at once everywhere it i
     const dialog = await screen.findByRole("dialog", { name: "Contexts" });
     fireEvent.click(await within(dialog).findByRole("button", { name: "New context" }));
     await waitFor(() => expect(store["ctx-n"]).toBeDefined());
-    fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+    fireEvent.click(within(dialog).getAllByRole("button", { name: "Close" }).at(-1) as HTMLElement);
     expect(await within(defaults).findByRole("button", { name: "New context" })).toBeInTheDocument();
     fireEvent.focus(screen.getByRole("combobox", { name: "Claude contexts" }));
     await waitFor(() => expect(screen.getByRole("option", { name: "New context" })).toBeInTheDocument());

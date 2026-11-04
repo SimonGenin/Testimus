@@ -8,22 +8,23 @@ import { Icon, type IconName } from "./Icon.tsx";
 import { Menu } from "./Menu.tsx";
 import { Tooltip } from "./Tooltip.tsx";
 
+// ponytail: kit.css .select — one control: icon, prefix, value and chevron inside its edge
 const styles = stylex.create({
-  wrap: { position: "relative", display: "inline-flex", alignItems: "center", minWidth: 0, maxWidth: "100%" },
+  wrap: { display: "inline-flex", minWidth: 0, maxWidth: "100%" },
   block: { display: "flex", width: "100%" },
   start: { alignSelf: "flex-start" },
   select: {
     boxSizing: "border-box",
-    display: "flex",
+    display: "inline-flex",
     alignItems: "center",
-    flex: 1,
+    gap: space.s2,
     minWidth: 0,
+    maxWidth: "100%",
     height: size.controlMd,
     margin: 0,
     paddingBlock: 0,
     paddingInlineStart: space.s4,
     paddingInlineEnd: space.s3,
-    gap: space.s2,
     borderStyle: "solid",
     borderWidth: border.width,
     borderColor: { default: color.borderField, ":hover": color.borderControl, ":focus-visible": color.focusRing },
@@ -38,18 +39,21 @@ const styles = stylex.create({
     cursor: "pointer",
     outline: "none",
   },
+  fill: { display: "flex", flex: 1, width: "100%" },
   value: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" },
+  valueQuiet: { flex: "none" },
   placeholder: { color: color.textSubtle },
+  prefix: { flex: "none", color: color.textMuted },
+  icon: { flex: "none", display: "inline-flex", color: color.textMuted },
   quiet: {
     borderColor: { default: "transparent", ":hover": "transparent", ":focus-visible": color.focusRing },
     backgroundColor: { default: "transparent", ":hover": color.surfaceHover },
     color: { default: color.textMuted, ":hover": color.text },
     paddingInlineStart: space.s2,
   },
-  sm: { height: size.controlSm, fontSize: fontSize.small },
-  withLead: { paddingInlineStart: `calc(${space.s4} + ${size.iconMd} + ${space.s2})` },
-  withPrefix: { paddingInlineStart: space.s1 },
+  sm: { height: size.controlSm, fontSize: fontSize.small, lineHeight: lineHeight.small },
   open: { borderColor: color.focusRing },
+  quietOpen: { backgroundColor: color.surfaceHover, color: color.text },
   disabled: {
     backgroundColor: color.surfaceSunken,
     borderColor: color.border,
@@ -57,24 +61,9 @@ const styles = stylex.create({
     color: color.textDisabled,
     cursor: "not-allowed",
   },
-  lead: {
-    position: "absolute",
-    insetInlineStart: space.s4,
-    display: "inline-flex",
-    color: color.textMuted,
-    pointerEvents: "none",
-  },
-  prefix: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: space.s2,
-    paddingInlineStart: space.s4,
-    color: color.textMuted,
-    fontSize: fontSize.compact,
-    whiteSpace: "nowrap",
-  },
-  chevron: { flex: "none", display: "inline-flex", color: color.textMuted },
+  disabledQuiet: { backgroundColor: "transparent", borderColor: "transparent" },
   forceHover: { borderColor: color.borderControl },
+  forceHoverQuiet: { backgroundColor: color.surfaceHover, color: color.text },
   forceFocus: { borderColor: color.focusRing },
 });
 
@@ -104,7 +93,7 @@ export type SelectProps<V extends string> = {
   size?: "sm" | "md";
   /** a word before the value (« Sort », « Folder ») */
   prefix?: string;
-  /** before the value, or before the prefix when there is one (« Sort »: sort) */
+  /** before the prefix or the value (« Sort »: sort) */
   icon?: IconName;
   /** shown while nothing is chosen (« Choose a folder… ») */
   placeholder?: string;
@@ -115,55 +104,81 @@ export type SelectProps<V extends string> = {
   debugState?: "hover" | "focus" | "open";
 };
 
-type TriggerProps = {
-  id: string;
+export type SelectTriggerProps = {
+  id?: string;
+  /** the accessible name (read out unless a label outside names the field) */
   label: string;
+  /** the chosen option's label, or the placeholder */
   shown: string;
-  empty: boolean;
-  named: boolean;
+  empty?: boolean;
+  /** a label outside names it (htmlFor) */
+  named?: boolean;
   describedBy?: string;
-  quiet: boolean;
-  small: boolean;
-  lead: boolean;
-  prefixed: boolean;
-  off: boolean;
+  appearance?: "boxed" | "quiet";
+  size?: "sm" | "md";
+  prefix?: string;
+  icon?: IconName;
+  disabled?: boolean;
+  block?: boolean;
   debugState?: "hover" | "focus" | "open";
   ref?: Ref<HTMLButtonElement>;
   popup?: ButtonProps["popup"];
   onClick?: (e: MouseEvent<HTMLButtonElement>) => void;
 };
 
-// ponytail: the closed field — a select-only combobox (its name is the label, its text the chosen option); Menu hands
-// it its ref, its popup state and its toggle, as it does a Button
-function Trigger(p: TriggerProps) {
+// ponytail: the closed field of a select — a select-only combobox (its name is the label, its text the chosen option);
+// Menu hands it its ref, its popup state and its toggle, as it does a Button. GroupSelect draws its field with it too
+export function SelectTrigger(p: SelectTriggerProps) {
+  const quiet = p.appearance === "quiet";
+  const open = p.popup?.open === true;
+  // ponytail: under a Menu of several groups (GroupSelect) it is a menu button named by what it shows
+  const menu = p.popup?.kind === "menu";
   return (
     <button
       ref={p.ref}
       id={p.id}
       type="button"
-      role="combobox"
-      aria-label={p.named ? undefined : p.label}
+      role={menu ? undefined : "combobox"}
+      aria-label={p.named || menu ? undefined : p.label}
       aria-describedby={p.describedBy}
-      aria-haspopup="listbox"
-      aria-expanded={p.popup?.open ?? false}
+      aria-haspopup={menu ? "menu" : "listbox"}
+      aria-expanded={open}
       aria-controls={p.popup?.controls}
-      disabled={p.off}
+      disabled={p.disabled}
       onClick={p.onClick}
       {...stylex.props(
         styles.select,
         halo.visible,
-        p.quiet && styles.quiet,
-        p.small && styles.sm,
-        p.lead && styles.withLead,
-        p.prefixed && styles.withPrefix,
-        p.popup?.open && styles.open,
-        p.debugState === "hover" && styles.forceHover,
+        quiet && styles.quiet,
+        p.size === "sm" && styles.sm,
+        p.block && styles.fill,
+        open && (quiet ? styles.quietOpen : styles.open),
+        p.debugState === "hover" && (quiet ? styles.forceHoverQuiet : styles.forceHover),
         p.debugState === "focus" && [styles.forceFocus, halo.shown],
-        p.off && styles.disabled,
+        p.disabled && styles.disabled,
+        p.disabled && quiet && styles.disabledQuiet,
       )}
     >
-      <span {...stylex.props(styles.value, p.empty && !p.off && styles.placeholder)}>{p.shown}</span>
-      <span aria-hidden="true" {...stylex.props(styles.chevron)}>
+      {p.icon && (
+        <span aria-hidden="true" {...stylex.props(styles.icon)}>
+          <Icon name={p.icon} size="sm" />
+        </span>
+      )}
+      {p.prefix && (
+        <span aria-hidden="true" {...stylex.props(styles.prefix)}>
+          {p.prefix}
+        </span>
+      )}
+      <span
+        {...stylex.props(
+          styles.value,
+          quiet && !p.block && styles.valueQuiet,
+          p.empty && !p.disabled && styles.placeholder,
+        )}
+      >
+        {p.shown}
+      </span>
+      <span aria-hidden="true" {...stylex.props(styles.icon)}>
         <Icon name="chevron-down" size="sm" />
       </span>
     </button>
@@ -197,21 +212,10 @@ export function Select<V extends string>({
   const shownHint = hint ?? chosen?.hint;
   const field = (
     <span {...stylex.props(styles.wrap, block && styles.block, showLabel && !block && styles.start)}>
-      {prefix && (
-        <span aria-hidden="true" {...stylex.props(styles.prefix)}>
-          {icon && <Icon name={icon} />}
-          {prefix}
-        </span>
-      )}
-      {icon && !prefix && (
-        <span {...stylex.props(styles.lead)}>
-          <Icon name={icon} />
-        </span>
-      )}
       <Menu
         label={label}
         listbox
-        block
+        block={block}
         debugState={debugState === "open" ? "open" : undefined}
         entries={options.map((o) => ({
           label: o.label,
@@ -223,18 +227,19 @@ export function Select<V extends string>({
           },
         }))}
         trigger={
-          <Trigger
+          <SelectTrigger
             id={id}
             label={label}
             shown={chosen?.label ?? placeholder ?? "Choose…"}
             empty={!chosen}
             named={showLabel}
             describedBy={showLabel && shownHint ? `${id}-hint` : undefined}
-            quiet={appearance === "quiet"}
-            small={s === "sm"}
-            lead={!!icon && !prefix}
-            prefixed={prefix !== undefined}
-            off={off}
+            appearance={appearance}
+            size={s}
+            prefix={prefix}
+            icon={icon}
+            disabled={off}
+            block={block}
             debugState={debugState}
           />
         }

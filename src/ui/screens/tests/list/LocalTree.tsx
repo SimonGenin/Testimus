@@ -1,5 +1,4 @@
 import type { LocalTestRef } from "../../../../core/types.ts";
-import { Badge } from "../../../components/ui/Badge.tsx";
 import { Button } from "../../../components/ui/Button.tsx";
 import { Icon } from "../../../components/ui/Icon.tsx";
 import { List } from "../../../components/ui/List.tsx";
@@ -55,14 +54,13 @@ export function LocalTree({
               depth: r.depth,
               expanded: forceOpen || !shut.has(r.node.path),
               lead: <Icon name={forceOpen || !shut.has(r.node.path) ? "folder-open" : "folder"} size="sm" />,
-              trail: <Badge label={String(r.node.total)} count size="sm" />,
+              trail: String(r.node.total),
             }
           : {
               title: r.ref.summary || "Untitled",
               tooltip: r.ref.summary || "Untitled",
               meta: <TestMeta r={r.ref} />,
               depth: r.depth,
-              expanded: null,
               actions: (
                 <Button
                   variant="quiet"

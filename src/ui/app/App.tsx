@@ -34,7 +34,7 @@ import { useShellEvents } from "./useShellEvents.ts";
 
 export { parseRoute };
 
-const DOCK = { min: 300, max: 720, initial: 420 };
+const DOCK = { min: 300, max: 720, initial: 440 };
 
 const styles = stylex.create({
   app: {
@@ -234,7 +234,7 @@ export function App() {
           </div>
           {!dock.folded && (
             <span {...stylex.props(styles.edge)}>
-              <ResizeHandle label="Resize the Claude panel" side="left" {...dockPane.handle} />
+              <ResizeHandle label="Resize the Claude panel" side="left" quiet {...dockPane.handle} />
             </span>
           )}
           <div
@@ -277,7 +277,7 @@ export function App() {
           }}
         />
       )}
-      <Toaster />
+      <Toaster clearEnd={route.screen === "setup" || dock.folded ? undefined : `${dockPane.width}px`} />
       <DesktopBridge booted={p.booted} />
     </AppContext.Provider>
   );

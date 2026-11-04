@@ -496,7 +496,7 @@ describe("contexts dialog", () => {
     await waitFor(() => expect(callsOf("contexts.remove")).toHaveLength(1));
     await waitFor(() => expect(screen.getByRole("option", { name: /Style/ })).toHaveAttribute("aria-selected", "true"));
     expect(callsOf("contexts.list").length).toBeGreaterThan(1);
-    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Close" }).at(-1) as HTMLElement);
     expect(onClose).toHaveBeenCalled();
   });
 

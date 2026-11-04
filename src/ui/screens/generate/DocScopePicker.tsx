@@ -41,7 +41,7 @@ const styles = stylex.create({
     gap: space.s3,
     paddingBlock: space.s3,
     paddingInlineStart: space.s4,
-    paddingInlineEnd: space.s2,
+    paddingInlineEnd: space.s3,
   },
   side: { display: "flex", flexDirection: "column", alignItems: "flex-end", gap: space.s1, flexShrink: 0 },
   loading: { display: "flex", flexDirection: "column", gap: space.s3, padding: space.s4 },

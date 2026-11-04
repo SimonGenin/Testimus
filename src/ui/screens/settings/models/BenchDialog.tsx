@@ -37,16 +37,19 @@ export function BenchDialog({
       footNote={running ? "Closing this window does not stop the measure: it goes on in Jobs." : undefined}
       onClose={onClose}
       actions={
-        running ? (
-          <Button
-            icon="stop"
-            label="Cancel the measure"
-            disabled={!bench?.jobId}
-            onClick={() => bench && cancel(bench.jobId)}
-          />
-        ) : (
-          <Button variant="quiet" label="Measure again" onClick={onAgain} />
-        )
+        <>
+          {running ? (
+            <Button
+              icon="stop"
+              label="Cancel the measure"
+              disabled={!bench?.jobId}
+              onClick={() => bench && cancel(bench.jobId)}
+            />
+          ) : (
+            <Button variant="quiet" label="Measure again" onClick={onAgain} />
+          )}
+          <Button variant="primary" label="Close" onClick={onClose} />
+        </>
       }
     >
       <Stack>

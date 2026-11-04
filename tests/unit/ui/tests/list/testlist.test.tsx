@@ -150,13 +150,23 @@ describe("TestList helpers", () => {
       ref({ id: "gen-ok", summary: "Generated validated", generated: true, review: "validated" }),
       { ...ref({ id: "gen-wait", summary: "Generated checked", generated: true, review: "checked" }), awaiting: true },
     ];
-    list({ refs: mixed });
+    const { state } = list({ refs: mixed });
     expect(item(/^Hand draft/)).toBeInTheDocument();
     expect(item(/^Generated validated/)).toBeInTheDocument();
     expect(iconOf(within(item(/^Generated validated/)).getByText("Generated"))).toBe("claude");
     expect(screen.queryByRole("treeitem", { name: /Generated checked/ })).toBeNull();
     expect(screen.getByRole("tab", { name: /^Local ?2$/ })).toHaveAttribute("aria-selected", "true");
     expect(screen.queryByRole("tab", { name: /Review/ })).toBeNull();
+    const waits = screen.getByText("1 new test waits for review").closest('[role="status"]') as HTMLElement;
+    expect(iconsIn(waits)).toContain("eye");
+    fireEvent.click(within(waits).getByRole("button", { name: "Review" }));
+    expect(state.navigate).toHaveBeenCalledWith("review");
+    cleanup();
+    list({ refs: [...mixed, { ...mixed[2], id: "gen-wait-2" }] });
+    expect(screen.getByText("2 new tests wait for review")).toBeInTheDocument();
+    cleanup();
+    list({ refs: mixed.slice(0, 2) });
+    expect(screen.queryByText(/wait for review|waits for review/)).toBeNull();
     cleanup();
     const { state: s2 } = list({ refs: [mixed[2]] });
     expect(screen.getByText(/1 generated test waiting for review/)).toBeInTheDocument();

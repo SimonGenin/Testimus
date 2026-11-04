@@ -5,7 +5,7 @@ import { Kbd } from "../../components/ui/Kbd.tsx";
 import { Tooltip } from "../../components/ui/Tooltip.tsx";
 import { type } from "../../components/ui/type.ts";
 import { plural } from "../../lib/format.ts";
-import { border, color, container, space } from "../../styles/tokens.stylex.ts";
+import { border, color, container, size, space } from "../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
   foot: {
@@ -13,25 +13,30 @@ const styles = stylex.create({
     flex: "none",
     display: "flex",
     alignItems: "center",
-    flexWrap: { default: "nowrap", [container.paneNarrow]: "wrap" },
-    gap: space.s3,
-    paddingBlock: space.s3,
-    paddingInline: { default: space.s5, [container.paneNarrow]: space.s4 },
+    gap: space.s4,
+    paddingBlock: space.s4,
+    paddingInline: { default: space.s6, [container.paneCompact]: space.s5 },
     borderTopWidth: border.width,
     borderTopStyle: "solid",
     borderTopColor: color.border,
     backgroundColor: color.surface,
   },
   keys: {
-    display: { default: "inline-flex", [container.paneCompact]: "none" },
+    flexGrow: 0,
+    flexShrink: 1,
+    minWidth: 0,
+    display: { default: "flex", [container.paneCompact]: "none" },
+    flexWrap: "wrap",
     alignItems: "center",
-    gap: space.s2,
+    columnGap: space.s3,
+    height: size.kbd,
+    overflow: "hidden",
     color: color.textMuted,
-    whiteSpace: "nowrap",
   },
+  keyGroup: { display: "inline-flex", alignItems: "center", gap: space.s2, height: size.kbd, whiteSpace: "nowrap" },
   grow: { flex: 1 },
+  count: { flex: "none", display: "inline-flex" },
   open: {
-    flex: "none",
     display: "inline-flex",
     alignItems: "center",
     gap: space.s2,
@@ -39,7 +44,8 @@ const styles = stylex.create({
     whiteSpace: "nowrap",
   },
   stale: { color: color.textMuted },
-  long: { display: { default: "inline", [container.paneNarrow]: "none" } },
+  long: { display: { default: "inline", [container.paneCompact]: "none" } },
+  action: { flex: "none", display: "inline-flex" },
 });
 
 export type ReviewFootProps = {
@@ -60,27 +66,41 @@ export function ReviewFoot({ errors, stale, off, fixOpen, marked = false, onToFi
   return (
     <div {...stylex.props(styles.foot)}>
       <span {...stylex.props(type.small, styles.keys)}>
-        <Kbd>J</Kbd> <Kbd>K</Kbd> next / previous test <Kbd>↑</Kbd> <Kbd>↓</Kbd> step <Kbd>F</Kbd> to fix
+        <span {...stylex.props(styles.keyGroup)}>
+          <Kbd>J</Kbd> <Kbd>K</Kbd> next / previous test
+        </span>
+        <span {...stylex.props(styles.keyGroup)}>
+          <Kbd>↑</Kbd> <Kbd>↓</Kbd> step
+        </span>
+        <span {...stylex.props(styles.keyGroup)}>
+          <Kbd>F</Kbd> to fix
+        </span>
       </span>
       <span {...stylex.props(styles.grow)} />
       {errors > 0 && (
-        <Tooltip label={still}>
-          <span {...stylex.props(type.compact, styles.open, stale && styles.stale)}>
-            <Icon name={stale ? "history" : "x-circle"} size="sm" />
-            {plural(errors, "error")}
-            <span {...stylex.props(styles.long)}> still open{stale ? " · out of date" : ""}</span>
-          </span>
-        </Tooltip>
+        <span {...stylex.props(styles.count)}>
+          <Tooltip label={still}>
+            <span {...stylex.props(type.compact, styles.open, stale && styles.stale)}>
+              <Icon name={stale ? "history" : "x-circle"} size="sm" />
+              {plural(errors, "error")}
+              <span {...stylex.props(styles.long)}> still open{stale ? " · out of date" : ""}</span>
+            </span>
+          </Tooltip>
+        </span>
       )}
-      <Button icon="to-fix" label="To fix" pressed={fixOpen || marked} disabled={off} onClick={onToFix} />
-      <Button
-        variant="primary"
-        icon="validated"
-        label="Validate"
-        shortcut="V"
-        disabled={off || fixOpen}
-        onClick={onValidate}
-      />
+      <span {...stylex.props(styles.action)}>
+        <Button icon="to-fix" label="To fix" pressed={fixOpen || marked} disabled={off} onClick={onToFix} />
+      </span>
+      <span {...stylex.props(styles.action)}>
+        <Button
+          variant="primary"
+          icon="validated"
+          label="Validate"
+          shortcut="V"
+          disabled={off || fixOpen}
+          onClick={onValidate}
+        />
+      </span>
     </div>
   );
 }

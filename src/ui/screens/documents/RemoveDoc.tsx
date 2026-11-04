@@ -84,10 +84,14 @@ export function RemoveDoc({ doc, onClose, onRemoved }: { doc: DocJson; onClose: 
         </>
       }
       size="sm"
-      confirm={{ verb: "Delete", danger: true, onConfirm: remove }}
+      confirm={{
+        verb: "Delete",
+        danger: true,
+        onConfirm: remove,
+        disabled: plan.isPending ? "Looking for the tests that cite it…" : false,
+      }}
       consequences={consequences}
       consequencesAt="start"
-      busy={plan.isPending}
       onClose={onClose}
     >
       <div {...stylex.props(styles.body)}>

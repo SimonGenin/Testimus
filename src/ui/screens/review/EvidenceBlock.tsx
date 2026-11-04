@@ -19,19 +19,15 @@ export type Evidence = {
 const styles = stylex.create({
   wrap: {
     boxSizing: "border-box",
+    marginInline: `calc(-1 * ${space.s3})`,
+    paddingTop: space.s3,
+    paddingInline: space.s3,
     borderTopWidth: border.width,
     borderTopStyle: "solid",
     borderTopColor: color.border,
-    paddingTop: space.s3,
   },
   sum: { color: color.textMuted },
-  group: {
-    display: "flex",
-    alignItems: "center",
-    gap: space.s2,
-    paddingBlock: space.s2,
-    color: color.textMuted,
-  },
+  rows: { marginInline: `calc(-1 * ${space.s3})` },
   note: { margin: 0, color: color.textMuted },
 });
 
@@ -64,35 +60,35 @@ export function EvidenceBlock({
           </p>
         ) : !ev ? (
           <Skeleton kind="block" />
+        ) : ev.jobId === null ? (
+          <p {...stylex.props(type.small, styles.note)}>
+            Not recorded: this test was not written by a generation Testimus followed.
+          </p>
+        ) : ev.read.length ? (
+          <div {...stylex.props(styles.rows)}>
+            <List
+              label="Read by the generation"
+              groups={[
+                { label: "Read by the generation", meta: String(ev.read.length), keys: ev.read.map((x) => x.ref) },
+              ]}
+              items={ev.read}
+              getKey={(x) => x.ref}
+              selected={selected}
+              onSelect={onPick}
+              renderItem={(x) => ({
+                lead: <Icon name={x.ref.includes("#fig:") ? "image" : "section"} size="sm" />,
+                title: x.title || <span {...stylex.props(type.code)}>{x.ref}</span>,
+                meta: x.title ? <span {...stylex.props(type.code)}>{x.ref}</span> : undefined,
+                trail: x.cited ? (
+                  <Badge size="sm" tone="success" icon="check" label="Cited" tooltip="A step cites it" />
+                ) : (
+                  <Badge size="sm" label="Read" />
+                ),
+              })}
+            />
+          </div>
         ) : (
-          <>
-            <span {...stylex.props(type.caption, styles.group)}>Read by the generation ({ev.read.length})</span>
-            {ev.jobId === null ? (
-              <p {...stylex.props(type.small, styles.note)}>
-                Not recorded: this test was not written by a generation Testimus followed.
-              </p>
-            ) : ev.read.length ? (
-              <List
-                label="Read by the generation"
-                items={ev.read}
-                getKey={(x) => x.ref}
-                selected={selected}
-                onSelect={onPick}
-                renderItem={(x) => ({
-                  lead: <Icon name={x.ref.includes("#fig:") ? "image" : "section"} size="sm" />,
-                  title: x.title || <span {...stylex.props(type.code)}>{x.ref}</span>,
-                  meta: x.title ? <span {...stylex.props(type.code)}>{x.ref}</span> : undefined,
-                  trail: x.cited ? (
-                    <Badge size="sm" tone="success" icon="check" label="Cited" tooltip="A step cites it" />
-                  ) : (
-                    <Badge size="sm" label="Read" />
-                  ),
-                })}
-              />
-            ) : (
-              <p {...stylex.props(type.small, styles.note)}>Nothing opened.</p>
-            )}
-          </>
+          <p {...stylex.props(type.small, styles.note)}>Nothing opened.</p>
         )}
       </Disclosure>
     </div>

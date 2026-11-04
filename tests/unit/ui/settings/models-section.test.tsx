@@ -848,6 +848,7 @@ describe("Settings › Models › advice and the folder", () => {
 
 describe("Settings › Models › measuring a pack", () => {
   const dialog = () => screen.getByRole("dialog", { name: "Measure the Light pack" });
+  const close = () => within(dialog()).getAllByRole("button", { name: "Close" }).at(-1) as HTMLElement;
   const measureOf = (name: string) => within(card(name)).getByRole("button", { name: /^Measur/ });
 
   it("starts models.measure on the pack, follows it, keeps it running when closed, reopens it, cancels it", async () => {
@@ -871,7 +872,8 @@ describe("Settings › Models › measuring a pack", () => {
     await emit({ jobId: ev, at: "", type: "progress", message: "Behavior 2", done: 2, total: 4 });
     expect(await within(dialog()).findByText("Measuring · 50 %")).toBeInTheDocument();
     expect(within(dialog()).getByText("Behavior 2")).toBeInTheDocument();
-    fireEvent.click(within(dialog()).getByRole("button", { name: "Close" }));
+    expect(within(dialog()).getAllByRole("button", { name: "Close" })).toHaveLength(2);
+    fireEvent.click(close());
     expect(screen.queryByRole("dialog")).toBeNull();
     await waitFor(() => expect(measureOf("Light")).toHaveTextContent("Measuring · 50 %"));
     expect(calls("jobs.cancel")).toHaveLength(0);
@@ -909,7 +911,7 @@ describe("Settings › Models › measuring a pack", () => {
     await waitFor(() => expect(calls("models.measure")).toHaveLength(2));
     expect(within(dialog()).getByRole("status", { name: "Measuring" })).toBeInTheDocument();
     await waitFor(() => expect(within(dialog()).getByRole("button", { name: "Cancel the measure" })).toBeEnabled());
-    fireEvent.click(within(dialog()).getByRole("button", { name: "Close" }));
+    fireEvent.click(close());
     const ev2 = [...jobs.keys()].filter((k) => k.startsWith("models-measure"))[1];
     await srv.end(ev2, "done", { result: {} });
     expect(await screen.findByText("Light pack measured")).toBeInTheDocument();
@@ -929,7 +931,7 @@ describe("Settings › Models › measuring a pack", () => {
     fireEvent.click(within(dialog()).getByRole("button", { name: "Measure again" }));
     await waitFor(() => expect(calls("models.measure")).toHaveLength(2));
     await waitFor(() => expect(within(dialog()).getByRole("button", { name: "Cancel the measure" })).toBeEnabled());
-    fireEvent.click(within(dialog()).getByRole("button", { name: "Close" }));
+    fireEvent.click(close());
     const ev = [...jobs.keys()].find((k) => k.startsWith("models-measure")) as string;
     await srv.end(ev, "failed", { error: "disk full" });
     expect(await screen.findByText("Light pack: the measure stopped")).toBeInTheDocument();
@@ -945,7 +947,7 @@ describe("Settings › Models › measuring a pack", () => {
     fireEvent.click(measureOf("Light"));
     expect(dialog()).toBeInTheDocument();
     expect(calls("models.measure")).toHaveLength(0);
-    fireEvent.click(within(dialog()).getByRole("button", { name: "Close" }));
+    fireEvent.click(close());
     await srv.end(ev, "done");
     expect(await screen.findByText("Light pack measured")).toBeInTheDocument();
   });

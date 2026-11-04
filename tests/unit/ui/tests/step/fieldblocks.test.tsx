@@ -315,7 +315,8 @@ describe("TableBlock", () => {
     ).toBeNull();
     const rows = screen.getAllByRole("button", { name: "Delete row 1" });
     expect(rows).toHaveLength(2);
-    fireEvent.click(rows[1]);
+    const inner = rows.find((b) => b.closest("table")?.parentElement?.closest("table"));
+    fireEvent.click(inner as HTMLElement);
     expect(h.onFieldText).toHaveBeenLastCalledWith("||a||||");
   });
 });

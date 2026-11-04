@@ -20,11 +20,14 @@ const GROUPS: { title: string; of: (id: string) => boolean }[] = [
 
 const PC = "Testimus on this PC";
 
+/** the sections in their order: the loading view draws them before the rows come */
+export const TITLES = [PC, ...GROUPS.map((g) => g.title)];
+
 export function sections(checks: DoctorCheck[]): { title: string; checks: DoctorCheck[] }[] {
   const titleOf = (id: string) => GROUPS.find((g) => g.of(id))?.title ?? PC;
-  return [PC, ...GROUPS.map((g) => g.title)]
-    .map((title) => ({ title, checks: checks.filter((c) => titleOf(c.id) === title) }))
-    .filter((s) => s.checks.length > 0);
+  return TITLES.map((title) => ({ title, checks: checks.filter((c) => titleOf(c.id) === title) })).filter(
+    (s) => s.checks.length > 0,
+  );
 }
 
 export function counts(checks: DoctorCheck[]): { look: Look; n: number }[] {
@@ -39,4 +42,22 @@ export function merged(plain: DoctorCheck[], probed: DoctorCheck[] | undefined):
   return plain.map((c) =>
     c.state === "skip" && c.id === "claudeLogin" ? (probed.find((p) => p.id === c.id) ?? c) : c,
   );
+}
+
+// ponytail: a path inside a check's words (« D:\models — 640 GB free », « 21 GB free at /home/x ») — a token that starts
+// with a drive, a share, ~/ or / after a space, its last stop or comma left out
+const PATH = /(^|\s)((?:[A-Za-z]:[\\/]|\\\\|~\/|\/)\S+?)(?=[.,;:)]?(?:\s|$))/g;
+
+/** the words of a detail, with the paths apart (drawn in the mono face) */
+export function pathPieces(text: string): { text: string; path?: true }[] {
+  const out: { text: string; path?: true }[] = [];
+  let last = 0;
+  for (const m of text.matchAll(PATH)) {
+    const at = m.index + m[1].length;
+    if (at > last) out.push({ text: text.slice(last, at) });
+    out.push({ text: m[2], path: true });
+    last = at + m[2].length;
+  }
+  if (last < text.length) out.push({ text: text.slice(last) });
+  return out;
 }

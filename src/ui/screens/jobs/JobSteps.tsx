@@ -1,8 +1,8 @@
 import * as stylex from "@stylexjs/stylex";
 import type { Job, JobEvent, JobProcess, JobStep } from "../../../core/types.ts";
 import { Button } from "../../components/ui/Button.tsx";
+import { Card } from "../../components/ui/Card.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
-import { List } from "../../components/ui/List.tsx";
 import { Progress } from "../../components/ui/Progress.tsx";
 import { Raw } from "../../components/ui/Raw.tsx";
 import { Timeline } from "../../components/ui/Timeline.tsx";
@@ -14,7 +14,12 @@ import { stepState } from "./kinds.ts";
 const styles = stylex.create({
   body: { display: "flex", flexDirection: "column", gap: space.s2 },
   msg: { color: color.textMuted },
-  claude: { display: "inline-flex", color: color.claudeText },
+  claude: { color: color.claudeText },
+  procs: { listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: space.s2 },
+  proc: { display: "flex", alignItems: "center", gap: space.s2, minWidth: 0 },
+  procIcon: { flex: "none", display: "inline-flex", color: color.textMuted },
+  procName: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  procState: { flex: "none", color: color.textMuted, whiteSpace: "nowrap" },
   child: { alignSelf: "flex-start" },
 });
 
@@ -32,24 +37,21 @@ const procState = (p: JobProcess, now: number) =>
 
 export function JobProcesses({ list, now, label = "Processes" }: { list: JobProcess[]; now: number; label?: string }) {
   return (
-    <List<JobProcess>
-      label={label}
-      selection="none"
-      divided
-      items={list}
-      getKey={(p) => p.id}
-      renderItem={(p) => ({
-        lead: p.label.startsWith("Claude") ? (
-          <span {...stylex.props(styles.claude)}>
-            <Icon name="terminal" size="sm" />
-          </span>
-        ) : (
-          <Icon name="terminal" size="sm" />
-        ),
-        title: processLabel(p.label),
-        trail: procState(p, now),
-      })}
-    />
+    <ul aria-label={label} {...stylex.props(styles.procs)}>
+      {list.map((p) => (
+        <li key={p.id}>
+          <Card density="tight">
+            <span {...stylex.props(type.compact, styles.proc)}>
+              <span {...stylex.props(styles.procIcon, p.label.startsWith("Claude") && styles.claude)}>
+                <Icon name="terminal" size="sm" />
+              </span>
+              <span {...stylex.props(styles.procName)}>{processLabel(p.label)}</span>
+              <span {...stylex.props(type.small, styles.procState)}>{procState(p, now)}</span>
+            </span>
+          </Card>
+        </li>
+      ))}
+    </ul>
   );
 }
 

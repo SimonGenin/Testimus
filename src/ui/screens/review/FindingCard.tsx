@@ -52,6 +52,7 @@ export function FindingCard({
   finding,
   stale,
   where,
+  sunken = where !== "Whole test",
   index,
   selected,
   onSelect,
@@ -59,6 +60,8 @@ export function FindingCard({
   finding: Finding;
   stale: boolean;
   where: string;
+  /** on the sunken ground (a step's finding inside the white step); false where the step itself is sunken */
+  sunken?: boolean;
   /** its place in the check's findings: the card is marked when the test opened on it */
   index: number;
   selected: string;
@@ -70,11 +73,13 @@ export function FindingCard({
   return (
     <div role="note" aria-label={`${stale ? "Out of date · " : ""}${SEVERITY_WORD[finding.severity]} · ${head}`}>
       <Card
+        density="compact"
+        sunken={sunken}
         selected={on}
         title={
           <span {...stylex.props(styles.head)}>
             <SeverityBadge severity={finding.severity} />
-            {head}
+            <span {...stylex.props(type.label)}>{head}</span>
             {stale && (
               <Badge size="sm" icon="history" label="Out of date" tooltip="The test changed after this check" />
             )}

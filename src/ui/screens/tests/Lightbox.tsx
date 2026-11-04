@@ -2,6 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "../../components/ui/Button.tsx";
 import { Modal } from "../../components/ui/Modal.tsx";
+import { Tooltip } from "../../components/ui/Tooltip.tsx";
 import { type } from "../../components/ui/type.ts";
 import { border, color, space } from "../../styles/tokens.stylex.ts";
 
@@ -12,7 +13,7 @@ const styles = stylex.create({
   stage: {
     boxSizing: "border-box",
     position: "relative",
-    height: "60vh",
+    maxHeight: "60vh",
     display: "flex",
     padding: space.s6,
     backgroundColor: color.surfaceSunken,
@@ -26,8 +27,8 @@ const styles = stylex.create({
     justifyContent: "center",
   },
   pic: {
+    boxSizing: "border-box",
     maxWidth: "100%",
-    maxHeight: "100%",
     cursor: "grab",
     userSelect: "none",
     touchAction: "none",
@@ -70,6 +71,7 @@ export function Lightbox({
   const n = names.length;
   const [view, setView] = useState<View>(FIT);
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
+  const [room, setRoom] = useState<{ w: number; h: number } | null>(null);
   const stage = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; y: number } | null>(null);
 
@@ -101,6 +103,26 @@ export function Lightbox({
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
   }, []);
+
+  // ponytail: the room the picture fits in — the well's width, and the stage's height cap less its padding; Fit is the
+  // larger scale that keeps the whole picture in it, so a small screenshot is shown bigger, not at its pixels
+  const measure = () => {
+    const well = stage.current;
+    const outer = well?.parentElement;
+    if (!well || !outer) return;
+    const cs = getComputedStyle(outer);
+    const h = Number.parseFloat(cs.maxHeight) - Number.parseFloat(cs.paddingTop) - Number.parseFloat(cs.paddingBottom);
+    setRoom(well.clientWidth > 0 && h > 0 ? { w: well.clientWidth, h } : null);
+  };
+  const measured = useRef(measure);
+  measured.current = measure;
+  useEffect(() => {
+    const onResize = () => measured.current();
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  const fit = size && room ? Math.min(room.w / size.w, room.h / size.h) : null;
 
   const prev = () => onIndex((index - 1 + n) % n);
   const next = () => onIndex((index + 1) % n);
@@ -178,7 +200,9 @@ export function Lightbox({
               onClick={() => zoomBy(1.25)}
             />
           </span>
-          <Button size="sm" icon="fit" label="Fit" shortcut="0" onClick={() => setView(FIT)} />
+          <Tooltip label="Fit the picture to the window" shortcut="0">
+            <Button size="sm" icon="fit" label="Fit" onClick={() => setView(FIT)} />
+          </Tooltip>
         </>
       }
     >
@@ -189,8 +213,14 @@ export function Lightbox({
             alt={names[index]}
             draggable={false}
             {...stylex.props(styles.pic)}
-            style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.z})` }}
-            onLoad={(e) => setSize({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
+            style={{
+              transform: `translate(${view.x}px, ${view.y}px) scale(${view.z})`,
+              ...(fit && size ? { width: size.w * fit, height: size.h * fit } : {}),
+            }}
+            onLoad={(e) => {
+              setSize({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight });
+              measure();
+            }}
             onDoubleClick={() => setView(FIT)}
             onPointerDown={(e) => {
               e.currentTarget.setPointerCapture(e.pointerId);

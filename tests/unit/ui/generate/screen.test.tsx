@@ -94,7 +94,7 @@ describe("Generate screen", () => {
     api.routes["tests.list"] = () => [ref("local-aaaaaaaa")];
     api.routes["tests.show"] = () => ({ test: test("Premier") });
     const { app: a } = mountData(<GenerateScreen />);
-    expect(await screen.findByRole("region", { name: "Premier" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: /^Premier/ })).toBeInTheDocument();
     expect(screen.getByText("It hit the limit")).toBeInTheDocument();
     expect(runChoice()).toHaveAccessibleName("Claude-x · medium");
     expect(checkedRun("Model")).toBe("Project default · Claude-x");
@@ -227,9 +227,11 @@ describe("Generate screen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Select none" }));
     expect(go()).toBeDisabled();
     expect(go()).toHaveAccessibleDescription("Say what to test, or pick a document");
+    expect(go()).not.toHaveTextContent("Ctrl+Enter");
     fireEvent.click(screen.getByRole("button", { name: "Only some sections…" }));
     fireEvent.click(await screen.findByRole("checkbox", { name: /Intro/ }));
     expect(go()).toBeEnabled();
+    expect(go()).toHaveTextContent("Ctrl+Enter");
     fireEvent.change(screen.getByLabelText("What should be tested?"), { target: { value: " PCC " } });
     expect(await screen.findByRole("button", { name: "Glossaire", pressed: true })).toBeInTheDocument();
     expect(screen.getByText(/1 saved context/)).toBeInTheDocument();
@@ -327,7 +329,7 @@ describe("Generate screen", () => {
     expect(named("gen.tests")).toHaveLength(0);
     expect(named("gen.preview")[0].input).toEqual({ docs: ["D1"], sections: [] });
     fireEvent.click(go());
-    fireEvent.click(await screen.findByRole("button", { name: "Review" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Validate in Review first" }));
     expect(a.navigate).toHaveBeenCalledWith("review", "local-aaaaaaaa");
     fireEvent.click(go());
     fireEvent.click(await screen.findByRole("button", { name: "Delete and generate" }));
@@ -411,7 +413,7 @@ describe("Generate screen", () => {
     emit({ jobId: "j1", at, type: "progress", message: "Writing local-aaaaaaaa" });
     emit({ jobId: "j1", at, type: "progress", message: "Writing local-bbbbbbbb" });
     emit({ jobId: "j1", at, type: "progress", message: "Writing local-cccccccc" });
-    expect(await screen.findByRole("region", { name: "First" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: /^First/ })).toBeInTheDocument();
     expect(screen.getByRole("status", { name: "Claude is writing a test" })).toBeInTheDocument();
     expect(screen.getAllByText("Checking…").length).toBeGreaterThan(0);
     expect(go(/^Claude is writing/)).toBeDisabled();
@@ -522,11 +524,16 @@ describe("Generate while an index runs (audit M-G1)", () => {
     base();
     let running = true;
     api.routes["docs.list"] = () => [docOf("D1", "Traction")];
-    api.routes["jobs.list"] = () => (running ? [indexJob("running")] : []);
-    mountData(<GenerateScreen />);
+    api.routes["jobs.list"] = () => (running ? [{ ...indexJob("running"), progress: { done: 40, total: 97 } }] : []);
+    const { app: a } = mountData(<GenerateScreen />);
     await screen.findByText("Traction");
     fireEvent.change(screen.getByLabelText("What should be tested?"), { target: { value: "x" } });
     await waitFor(() => expect(go()).toBeDisabled());
+    const bar = screen.getByRole("progressbar", { name: "Index" });
+    expect(bar).toHaveAttribute("aria-valuenow", "41");
+    expect(bar).toHaveAttribute("aria-valuetext", "40 of 97 · Generate waits for it to finish.");
+    fireEvent.click(screen.getByRole("button", { name: "Show the job" }));
+    expect(a.navigate).toHaveBeenCalledWith("jobs", "ix");
     running = false;
     emit({ jobId: "ix", at, type: "status", job: indexJob("done") });
     await waitFor(() => expect(go()).toBeEnabled());
@@ -568,7 +575,7 @@ describe("Generate › the tests land from the job events (was ui-screens)", () 
     written.push("local-aaaaaaaa");
     emit({ jobId: "job-gen", at: now, type: "changed", paths: ["tests/local-aaaaaaaa/test.md"] });
     emit({ jobId: "job-gen", at: now, type: "progress", message: "Writing local-bbbbbbbb (2)" });
-    expect(await screen.findByRole("region", { name: "Premier test" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: /^Premier test/ })).toBeInTheDocument();
     expect(named("tests.show").map((c) => c.input.id)).not.toContain("local-bbbbbbbb");
 
     written.push("local-bbbbbbbb");
@@ -597,13 +604,13 @@ describe("Generate › the tests land from the job events (was ui-screens)", () 
     } as Job;
     api.routes["jobs.show"] = () => ({ job: done, events: [] });
     emit({ jobId: "job-gen", at: now, type: "status", job: done });
-    expect(await screen.findByRole("region", { name: "Second test" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: /^Second test/ })).toBeInTheDocument();
     expect(screen.getByText("2 tests written")).toBeInTheDocument();
     expect(screen.getByText(/no passage describes the alarm/)).toBeInTheDocument();
     expect(screen.getByText(/All 2 tests went through the check: 1 has findings/)).toBeInTheDocument();
-    expect(within(screen.getByRole("region", { name: "Second test" })).getByText("2 errors")).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: /^Second test/ })).getByText("2 errors")).toBeInTheDocument();
     expect(
-      within(screen.getByRole("region", { name: "Premier test" })).getAllByText("No findings").length,
+      within(screen.getByRole("region", { name: /^Premier test/ })).getAllByText("No findings").length,
     ).toBeGreaterThan(0);
     expect(named("check.run")).toHaveLength(0);
   });

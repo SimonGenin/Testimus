@@ -16,9 +16,10 @@ export function AccessStep({ onContinue, onSkip }: { onContinue: () => void; onS
       lead="Testimus reads and writes your tests through your own accounts. Nothing is sent anywhere else. Saved in your user folder, shared with your other Atlassian tools; you can change them later in Settings › Access."
       actions={
         <>
-          <Button variant="quiet" label="Skip for now" onClick={onSkip} />
+          <Button variant="quiet" size="lg" label="Skip for now" onClick={onSkip} />
           <Button
             variant={okAll || found ? "primary" : "secondary"}
+            size="lg"
             iconAfter="chevron-right"
             label="Continue"
             onClick={onContinue}
@@ -31,7 +32,11 @@ export function AccessStep({ onContinue, onSkip }: { onContinue: () => void; onS
           We found the access you already use with Xray Editor. The fields are filled in: just test the connection.
         </Banner>
       )}
-      <ConnectAtlassian onStatus={setStatus} onResult={(r) => setOkAll(r.ok)} />
+      <ConnectAtlassian
+        saveVariant={okAll || found ? "secondary" : "primary"}
+        onStatus={setStatus}
+        onResult={(r) => setOkAll(r.ok)}
+      />
     </StepCard>
   );
 }

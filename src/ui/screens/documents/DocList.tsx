@@ -7,7 +7,7 @@ import type { ListItemProps } from "../../components/ui/ListItem.tsx";
 import { type } from "../../components/ui/type.ts";
 import { baseName } from "../../lib/desktop.ts";
 import { owns, settled, type Upload } from "../../lib/uploads.ts";
-import { color, space } from "../../styles/tokens.stylex.ts";
+import { border, color, size, space } from "../../styles/tokens.stylex.ts";
 import { DocBadges } from "./badges.tsx";
 import { UploadFailure, uploadItem } from "./UploadItem.tsx";
 
@@ -18,9 +18,14 @@ const styles = stylex.create({
     display: "flex",
     alignItems: "center",
     gap: space.s3,
-    paddingBlock: space.s4,
-    paddingInline: space.s5,
+    flex: "none",
+    minHeight: size.topbar,
+    paddingBlock: space.s2,
+    paddingInline: space.s6,
     color: color.text,
+    borderBottomStyle: "solid",
+    borderBottomWidth: border.width,
+    borderBottomColor: color.border,
   },
   body: { boxSizing: "border-box", flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: space.s3 },
   lines: { display: "flex", flexDirection: "column", gap: space.s1, minWidth: 0 },

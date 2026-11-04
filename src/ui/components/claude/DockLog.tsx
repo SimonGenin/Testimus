@@ -23,7 +23,7 @@ const styles = stylex.create({
     flex: 1,
     minHeight: 0,
     overflowY: "auto",
-    padding: space.s4,
+    padding: space.s5,
     display: "flex",
     flexDirection: "column",
     gap: space.s4,

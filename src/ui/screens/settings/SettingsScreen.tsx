@@ -30,7 +30,7 @@ const styles = stylex.create({
     flexShrink: 0,
     overflowY: "auto",
     paddingBlock: space.s3,
-    paddingInline: space.s2,
+    paddingInline: 0,
     backgroundColor: color.surface,
     borderRightStyle: "solid",
     borderRightWidth: border.width,
@@ -43,8 +43,9 @@ const styles = stylex.create({
     display: "inline-flex",
     alignItems: "center",
     gap: space.s2,
-    color: color.textMuted,
+    color: color.textSubtle,
   },
+  waits: { color: color.textMuted },
 });
 
 type Page = { id: string; label: string; icon: IconName; page: ComponentType; needsProject: boolean };
@@ -66,9 +67,9 @@ const CLAUDE_CARDS = [
   { id: "claude-contexts", label: "Contexts" },
 ];
 
-type Entry = { id: string; label: string; icon?: IconName; depth: number };
+type Entry = { id: string; label: string; icon?: IconName; depth: number; waits?: boolean };
 
-const NAV = { min: 160, max: 360, initial: 225 };
+const NAV = { min: 160, max: 360, initial: 240 };
 
 // ponytail: one page per section; #/settings/<section>[-<card>] opens the section and scrolls to the card (a field id
 // is focused); Claude's cards are listed under it while it is open
@@ -103,7 +104,7 @@ export function SettingsScreen() {
   const entries: Entry[] = SECTIONS.flatMap((s) =>
     s.id === "claude" && section.id === "claude"
       ? [{ ...s, depth: 0 }, ...CLAUDE_CARDS.map((c) => ({ ...c, depth: 1, icon: undefined }))]
-      : [{ ...s, depth: 0 }],
+      : [{ ...s, depth: 0, waits: !hasProject && s.needsProject }],
   );
   const current =
     section.id !== "claude" ? section.id : (CLAUDE_CARDS.find((c) => c.id === arg)?.id ?? "claude-connection");
@@ -113,7 +114,9 @@ export function SettingsScreen() {
         title="Settings"
         badge={
           <>
-            <Badge label={`v${__VERSION__}`} outline size="sm" />
+            <span {...stylex.props(type.code)}>
+              <Badge label={`v${__VERSION__}`} outline />
+            </span>
             <span {...stylex.props(type.small, styles.saved)}>
               <Icon name="check" size="sm" />
               Changes save as you make them
@@ -130,9 +133,10 @@ export function SettingsScreen() {
             selected={current}
             onSelect={(id) => app.navigate("settings", id === "claude-connection" ? "claude" : id)}
             renderItem={(e) => ({
-              title: e.label,
+              title: e.waits ? <span {...stylex.props(styles.waits)}>{e.label}</span> : e.label,
               depth: e.depth,
               lead: e.icon ? <Icon name={e.icon} /> : undefined,
+              trail: e.waits ? "needs a project" : undefined,
             })}
           />
         </nav>
@@ -140,7 +144,7 @@ export function SettingsScreen() {
         <div ref={body} key={section.id} {...stylex.props(styles.body)}>
           {!hasProject && section.needsProject ? (
             <Section id={section.id} title={section.label}>
-              <Card>
+              <Card padded={false}>
                 <EmptyState
                   icon="folder"
                   title="No project open"

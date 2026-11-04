@@ -6,7 +6,7 @@ import { type } from "./type.ts";
 
 const styles = stylex.create({
   empty: {
-    boxSizing: "content-box",
+    boxSizing: "border-box",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",

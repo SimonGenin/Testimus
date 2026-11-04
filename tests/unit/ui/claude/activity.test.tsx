@@ -230,7 +230,7 @@ describe("GenActivity", () => {
     const events = run();
     render(<GenActivity events={events} running={false} now={Date.now()} />);
     expect(screen.getByRole("heading", { name: "Got ready" })).toBeInTheDocument();
-    expect(screen.getByText("generate-tests")).toHaveAttribute("data-testid", "act-skill");
+    expect(screen.getByText("generate-tests").closest('[data-testid="act-skill"]')).not.toBeNull();
     expect(
       screen.getByText(
         "Looked up SOSIE_4113_D401-1, listed the existing tests, read the team notes on SOSIE_4113_D401-1, read the project instructions.",
@@ -258,13 +258,17 @@ describe("GenActivity", () => {
     expect(screen.queryByText(/Planned “Alarmes”/)).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "What Claude did" }));
     expect(screen.queryByRole("heading", { name: "Got ready" })).toBeNull();
-    expect(screen.queryByRole("button", { name: /raw log/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Show the raw log/ })).toBeNull();
     const fold = screen.getByRole("button", { name: "What Claude did" });
     expect(fold).toHaveAttribute("aria-expanded", "false");
     expect(fold.querySelector('[data-icon="claude"]')).not.toBeNull();
     expect(screen.getByText("6 phases")).toBeInTheDocument();
-    fireEvent.click(fold);
+    fireEvent.click(screen.getByRole("button", { name: "Raw log" }));
+    expect(fold).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("heading", { name: "Got ready" })).toBeInTheDocument();
+    expect(screen.getByRole("log", { name: "Raw log" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Hide the raw log" }));
+    expect(screen.queryByRole("log")).toBeNull();
   });
 
   it("while running: the live phase, its pulse, the count against the plan; a failed doc lookup leaves the bar to scale", async () => {

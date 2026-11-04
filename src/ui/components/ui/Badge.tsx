@@ -183,7 +183,7 @@ export function Badge({
   return tooltip ? <Tooltip label={tooltip}>{badge}</Tooltip> : badge;
 }
 
-export type Word = { label: string; tone: BadgeTone; icon: IconName; ink?: Ink };
+export type Word = { label: string; tone: BadgeTone; icon?: IconName; ink?: Ink };
 
 export type ReviewState = "draft" | "checked" | "to-fix" | "validated";
 export type Severity = "error" | "warning" | "info";
@@ -220,8 +220,8 @@ export const DIFF = {
 // a step column's origin (Generate's columns, Settings › Columns and Claude's proposals): « Local only » is the sync
 // word, so a local column reads the same everywhere
 export const COLUMN = {
-  xray: { label: "Xray", tone: "info", icon: "cloud" },
-  standard: { label: "Xray · standard", tone: "info", icon: "cloud" },
+  xray: { label: "Xray", tone: "neutral" },
+  standard: { label: "Xray · standard", tone: "neutral" },
   local: SYNC.local,
   "new-in-xray": { label: "New in Xray", tone: "warning", icon: "alert-triangle" },
   gone: { label: "No longer in Xray", tone: "warning", icon: "alert-triangle" },

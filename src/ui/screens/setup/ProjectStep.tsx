@@ -33,10 +33,11 @@ export function ProjectStep({ onBack, onOpened }: { onBack: () => void; onOpened
       id="project-h"
       title="Choose a project"
       lead="A project is a folder: the documents, the tests and what Claude needs. Share it by sharing the folder."
-      back={<Button variant="quiet" icon="chevron-left" label="Back" onClick={onBack} />}
+      back={<Button variant="quiet" size="lg" icon="chevron-left" label="Back" onClick={onBack} />}
       actions={
         <Button
           variant="primary"
+          size="lg"
           label="Create the project"
           disabled={!f.dir || p.busy}
           onClick={() => void create()}

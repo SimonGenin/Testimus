@@ -27,8 +27,10 @@ const fadeIn = stylex.keyframes({ from: { opacity: 0 }, to: { opacity: 1 } });
 
 const styles = stylex.create({
   doc: { boxSizing: "border-box", flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" },
+  row: { flexDirection: "row" },
   opened: { animationName: fadeIn, animationDuration: duration.slow, animationTimingFunction: easing.enter },
   alone: { display: "flex", flexDirection: "column", gap: space.s4, padding: space.s5 },
+  reader: { flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" },
   body: { flex: 1, minHeight: 0, display: "flex", minWidth: 0 },
   toc: {
     boxSizing: "border-box",
@@ -191,66 +193,68 @@ export function DocDetail({
     <section
       aria-label={`${d.code} details`}
       data-opened={opened || undefined}
-      {...stylex.props(styles.doc, opened && styles.opened)}
+      {...stylex.props(styles.doc, styles.row, opened && styles.opened)}
     >
-      <DocHead
-        doc={d}
-        sections={sections.length}
-        figures={shown.figures.length}
-        running={!!running}
-        view={view}
-        onView={setView}
-        listOpen={listOpen}
-        onShowList={onShowList}
-        sectionsButton={tocFolded}
-        detailsButton={sideFolded}
-        drawer={drawer}
-        onDrawer={(w) => setDrawer((o) => (o === w ? null : w))}
-        onConvertAgain={() => setAgain(true)}
-        onDelete={() => setAsk(true)}
-      />
-      <div {...stylex.props(styles.body)}>
-        {reading && !tocFolded && (
-          <>
-            <div {...stylex.props(styles.toc, styles.width(panes?.toc.value ?? COLS.toc))}>{toc(true)}</div>
-            {panes && <ResizeHandle label="Resize the sections" {...panes.toc} />}
-          </>
-        )}
-        {reading && tocFolded && drawer === "sections" && (
-          <Modal title="Contents" drawer="left" flush onClose={() => setDrawer(null)}>
-            {toc(false)}
-          </Modal>
-        )}
-        <div {...stylex.props(styles.view)}>
-          {running && <DocReading docId={id} upload={running} />}
-          {!running && !converted && <ConvertDoc doc={d} />}
-          {reading && view === "figures" && <DocFigures docId={id} figures={shown.figures} onOpen={go} />}
-          {reading && view === "text" && (
-            <DocPart
-              docId={id}
-              sections={sections}
-              current={current}
-              md={part.isError ? message(part.error) : (part.data?.md ?? "")}
-              loading={!part.data && !part.isError}
-              focus={quote || undefined}
-              target={anchor && !quote ? anchor : undefined}
-              quote={onClearQuote && onBack ? { from, onBack, onClear: onClearQuote } : undefined}
-              onGo={go}
-            />
+      <div {...stylex.props(styles.reader)}>
+        <DocHead
+          doc={d}
+          sections={sections.length}
+          figures={shown.figures.length}
+          running={!!running}
+          view={view}
+          onView={setView}
+          listOpen={listOpen}
+          onShowList={onShowList}
+          sectionsButton={tocFolded}
+          detailsButton={sideFolded}
+          drawer={drawer}
+          onDrawer={(w) => setDrawer((o) => (o === w ? null : w))}
+          onConvertAgain={() => setAgain(true)}
+          onDelete={() => setAsk(true)}
+        />
+        <div {...stylex.props(styles.body)}>
+          {reading && !tocFolded && (
+            <>
+              <div {...stylex.props(styles.toc, styles.width(panes?.toc.value ?? COLS.toc))}>{toc(true)}</div>
+              {panes && <ResizeHandle label="Resize the sections" {...panes.toc} />}
+            </>
           )}
+          {reading && tocFolded && drawer === "sections" && (
+            <Modal title="Contents" drawer="left" flush onClose={() => setDrawer(null)}>
+              {toc(false)}
+            </Modal>
+          )}
+          <div {...stylex.props(styles.view)}>
+            {running && <DocReading docId={id} upload={running} />}
+            {!running && !converted && <ConvertDoc doc={d} />}
+            {reading && view === "figures" && <DocFigures docId={id} figures={shown.figures} onOpen={go} />}
+            {reading && view === "text" && (
+              <DocPart
+                docId={id}
+                sections={sections}
+                current={current}
+                md={part.isError ? message(part.error) : (part.data?.md ?? "")}
+                loading={!part.data && !part.isError}
+                focus={quote || undefined}
+                target={anchor && !quote ? anchor : undefined}
+                quote={onClearQuote && onBack ? { from, onBack, onClear: onClearQuote } : undefined}
+                onGo={go}
+              />
+            )}
+          </div>
         </div>
-        {!sideFolded && (
-          <>
-            {panes && <ResizeHandle label="Resize the settings" side="left" {...panes.side} />}
-            <div {...stylex.props(styles.side, styles.width(panes?.side.value ?? COLS.side))}>{side}</div>
-          </>
-        )}
-        {sideFolded && drawer === "details" && (
-          <Modal title="About this document" drawer="right" flush onClose={() => setDrawer(null)}>
-            {side}
-          </Modal>
-        )}
       </div>
+      {!sideFolded && (
+        <>
+          {panes && <ResizeHandle label="Resize the settings" side="left" {...panes.side} />}
+          <div {...stylex.props(styles.side, styles.width(panes?.side.value ?? COLS.side))}>{side}</div>
+        </>
+      )}
+      {sideFolded && drawer === "details" && (
+        <Modal title="About this document" drawer="right" flush onClose={() => setDrawer(null)}>
+          {side}
+        </Modal>
+      )}
       {again && (
         <ConvertDoc
           doc={d}

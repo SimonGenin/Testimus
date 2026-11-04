@@ -1,35 +1,41 @@
 import * as stylex from "@stylexjs/stylex";
-import { useState } from "react";
-import type { CheckFile, ColumnLayout, Finding, LocalTestRef, Source, Test } from "../../../core/types.ts";
-import { Badge, ReviewBadge, type ReviewState, SeverityBadge } from "../../components/ui/Badge.tsx";
+import type { CheckFile, ColumnLayout, Finding, LocalTestRef, Source, Step, Test } from "../../../core/types.ts";
+import { Badge, ReviewBadge, type ReviewState } from "../../components/ui/Badge.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Card } from "../../components/ui/Card.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
+import { SourceChip } from "../../components/ui/SourceChip.tsx";
 import { type } from "../../components/ui/type.ts";
-import { fileUrl } from "../../lib/data/client.ts";
 import { useRead } from "../../lib/data/query.ts";
+import { fieldViews, sourceLabel } from "../../lib/fields.ts";
 import { plural } from "../../lib/format.ts";
 import { color, radius, space } from "../../styles/tokens.stylex.ts";
-import { FindingSources, ReviewStep } from "../review/ReviewStep.tsx";
+import { FindingCard } from "../review/FindingCard.tsx";
+import { refKey } from "../review/sources.ts";
 import type { GenCheck } from "./GenResult.tsx";
 
 export type Landed = { id: string; test?: Test; ref?: LocalTestRef; check?: CheckFile | null };
 
 const styles = stylex.create({
+  titles: { display: "flex", flexDirection: "column", gap: space.s1, minWidth: 0 },
   meta: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s2, color: color.textSubtle },
   badges: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s2 },
   body: { display: "flex", flexDirection: "column", gap: space.s3 },
-  finding: {
+  steps: { listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: space.s3 },
+  step: {
     boxSizing: "border-box",
     display: "flex",
     flexDirection: "column",
     gap: space.s2,
-    padding: space.s3,
+    minWidth: 0,
+    paddingBlock: space.s3,
+    paddingInline: space.s4,
     borderRadius: radius.r2,
     backgroundColor: color.surfaceSunken,
   },
-  findingHead: { display: "flex", alignItems: "center", gap: space.s2, color: color.textMuted },
-  text: { margin: 0, color: color.text },
+  field: { display: "flex", flexDirection: "column", gap: space.s1, minWidth: 0 },
+  value: { color: color.text, whiteSpace: "pre-wrap", overflowWrap: "anywhere" },
+  chips: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s2 },
   muted: { margin: 0, color: color.textSubtle },
   foot: { display: "flex", alignItems: "center", gap: space.s2, width: "100%" },
   grow: { flex: 1 },
@@ -63,16 +69,66 @@ function Findings({ refItem, check, checking }: { refItem?: LocalTestRef; check?
   return <Badge tone="success" icon="check" label="No findings" />;
 }
 
-function WholeTest({ finding, stale, onSource }: { finding: Finding; stale: boolean; onSource: (s: Source) => void }) {
+const textOf = (s: string) => s.replace(/!\[\]\([^)]*\)/g, "").trim();
+
+// ponytail: a landed test's steps as a preview — each column's words and the step's sources, the check's findings on
+// it; Review shows the step cards
+function StepPreview({
+  n,
+  step,
+  xray,
+  findings,
+  stale,
+  onSource,
+}: {
+  n: number;
+  step: Step;
+  xray: ColumnLayout;
+  findings: { finding: Finding; index: number }[];
+  stale: boolean;
+  onSource: (s: Source) => void;
+}) {
+  const fields = fieldViews(xray, step)
+    .map((v) => ({ name: v.name, text: textOf(step.fields[v.name] ?? "") }))
+    .filter((f) => f.text);
   return (
-    <div role="note" {...stylex.props(styles.finding)}>
-      <span {...stylex.props(type.small, styles.findingHead)}>
-        <SeverityBadge severity={finding.severity} size="sm" />
-        Whole test{stale ? " · out of date" : ""}
-      </span>
-      <p {...stylex.props(type.compact, styles.text)}>{finding.message}</p>
-      <FindingSources finding={finding} selected="" onSelect={onSource} />
-    </div>
+    <li aria-label={`Step ${n}`} {...stylex.props(styles.step)}>
+      {fields.map((f, i) => (
+        <span key={f.name} {...stylex.props(styles.field)}>
+          <span {...stylex.props(type.caption)}>{i === 0 ? `Step ${n} · ${f.name}` : f.name}</span>
+          <span {...stylex.props(type.compact, styles.value)}>{f.text}</span>
+        </span>
+      ))}
+      {!fields.length && <span {...stylex.props(type.caption)}>Step {n} · empty</span>}
+      {step.images.length > 0 && (
+        <span {...stylex.props(type.small, styles.muted)}>{plural(step.images.length, "image")}</span>
+      )}
+      {step.sources.length > 0 && (
+        <span {...stylex.props(styles.chips)}>
+          {step.sources.map((s) => (
+            <SourceChip
+              key={`${refKey(s)}|${s.quote}`}
+              reference={sourceLabel(s)}
+              quote={s.quote || undefined}
+              figure={s.anchor.startsWith("fig:")}
+              onOpen={() => onSource(s)}
+            />
+          ))}
+        </span>
+      )}
+      {findings.map(({ finding, index }) => (
+        <FindingCard
+          key={index}
+          finding={finding}
+          stale={stale}
+          where={`Step ${n}`}
+          sunken={false}
+          index={index}
+          selected=""
+          onSelect={onSource}
+        />
+      ))}
+    </li>
   );
 }
 
@@ -101,7 +157,6 @@ export function GenCard({
   onEdit,
   onSource,
 }: GenCardProps) {
-  const [folded, setFolded] = useState<Set<number>>(new Set());
   if (!item.test)
     return (
       <div role="status" aria-busy="true" aria-label={writing ? "Claude is writing a test" : "Loading a test"}>
@@ -116,18 +171,20 @@ export function GenCard({
   const title = test.summary || "Untitled test";
   const findings = item.check?.findings ?? [];
   const stale = !!item.ref?.findings?.stale;
-  const url = (file: string) => fileUrl(`tests/${item.id}/${file}`);
-  const fold = (i: number, f: boolean) =>
-    setFolded((cur) => {
-      const next = new Set(cur);
-      if (f) next.add(i);
-      else next.delete(i);
-      return next;
-    });
+  const placed = findings.map((finding, index) => ({ finding, index }));
+  const onStep = (n: number) => placed.filter((p) => p.finding.step === n);
   const review = (check?.review ?? item.ref?.review ?? test.review) as ReviewState;
   return (
     <Card
-      title={title}
+      title={
+        <span {...stylex.props(styles.titles)}>
+          <span>{title}</span>
+          <span {...stylex.props(type.small, type.regular, styles.meta)}>
+            <span {...stylex.props(type.code)}>{item.id}</span>· {plural(test.steps.length, "step")}
+            {test.folder ? ` · ${test.folder}` : ""}
+          </span>
+        </span>
+      }
       actions={
         <Button
           variant="quiet"
@@ -148,10 +205,6 @@ export function GenCard({
       }
     >
       <div {...stylex.props(styles.body)}>
-        <span {...stylex.props(type.small, styles.meta)}>
-          <span {...stylex.props(type.code)}>{item.id}</span>· {plural(test.steps.length, "step")}
-          {test.folder ? ` · ${test.folder}` : ""}
-        </span>
         <span {...stylex.props(styles.badges)}>
           <ReviewBadge state={review} size="sm" />
           <Badge tone="claude" icon="claude" size="sm" label="Generated" />
@@ -159,29 +212,36 @@ export function GenCard({
         </span>
         {open && (
           <>
-            {findings
-              .filter((f) => !f.step || f.step > test.steps.length)
-              .map((f, i) => (
-                <WholeTest key={i} finding={f} stale={stale} onSource={onSource} />
+            {placed
+              .filter((p) => !p.finding.step || p.finding.step > test.steps.length)
+              .map((p) => (
+                <FindingCard
+                  key={p.index}
+                  finding={p.finding}
+                  stale={stale}
+                  where="Whole test"
+                  index={p.index}
+                  selected=""
+                  onSelect={onSource}
+                />
               ))}
-            {test.steps.map((s, i) => (
-              <ReviewStep
-                key={i}
-                n={i + 1}
-                step={s}
-                xray={xray}
-                findings={findings.filter((f) => f.step === i + 1)}
-                stale={stale}
-                folded={folded.has(i)}
-                active={false}
-                selected=""
-                url={url}
-                onFold={(f) => fold(i, f)}
-                onSelect={(src) => onSource(src)}
-                onOpenImage={(file) => window.open(url(file), "_blank")}
-              />
-            ))}
-            {!test.steps.length && <p {...stylex.props(type.compact, styles.muted)}>This test has no steps yet.</p>}
+            {test.steps.length > 0 ? (
+              <ol aria-label="Steps" {...stylex.props(styles.steps)}>
+                {test.steps.map((s, i) => (
+                  <StepPreview
+                    key={s.id ?? i}
+                    n={i + 1}
+                    step={s}
+                    xray={xray}
+                    findings={onStep(i + 1)}
+                    stale={stale}
+                    onSource={onSource}
+                  />
+                ))}
+              </ol>
+            ) : (
+              <p {...stylex.props(type.compact, styles.muted)}>This test has no steps yet.</p>
+            )}
           </>
         )}
       </div>

@@ -3,8 +3,10 @@ import { type ReactNode, useState } from "react";
 import type { Job } from "../../../core/types.ts";
 import { askedOf, ClaudeActivity } from "../../components/claude/ClaudeActivity.tsx";
 import { Button } from "../../components/ui/Button.tsx";
+import { Disclosure } from "../../components/ui/Disclosure.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { Progress } from "../../components/ui/Progress.tsx";
+import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { type } from "../../components/ui/type.ts";
 import { useApp } from "../../lib/app.ts";
 import { plural } from "../../lib/format.ts";
@@ -25,8 +27,10 @@ const styles = stylex.create({
     overflowY: "auto",
     display: "flex",
     flexDirection: "column",
-    gap: space.s5,
-    padding: space.s6,
+    gap: space.s6,
+    paddingTop: space.s6,
+    paddingInline: space.s6,
+    paddingBottom: space.s9,
     borderInlineStartWidth: border.width,
     borderInlineStartStyle: "solid",
     borderInlineStartColor: color.border,
@@ -42,7 +46,6 @@ const styles = stylex.create({
   fileIcon: { flex: "none", display: "inline-flex", color: color.textSubtle },
   how: { flex: "none", color: color.textSubtle },
   path: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: color.text },
-  start: { alignSelf: "flex-start" },
   cli: {
     color: color.textMuted,
     paddingTop: space.s4,
@@ -75,6 +78,17 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
       <h3 {...stylex.props(type.caption, styles.h3)}>{title}</h3>
       {children}
     </section>
+  );
+}
+
+// ponytail: the detail pane while the jobs are read — its title, its meta line and a block, where they will be
+export function JobDetailSkeleton() {
+  return (
+    <aside aria-label="Job details" aria-busy="true" {...stylex.props(styles.pane)}>
+      <Skeleton kind="title" width="50%" />
+      <Skeleton width="70%" />
+      <Skeleton kind="block" />
+    </aside>
   );
 }
 
@@ -205,16 +219,10 @@ export function JobDetail({
         </Section>
       )}
 
-      {claude && !showLog ? (
-        <span {...stylex.props(styles.start)}>
-          <Button
-            variant="quiet"
-            size="sm"
-            icon="chevron-right"
-            label="Show the full log"
-            onClick={() => setShowLog(true)}
-          />
-        </span>
+      {claude ? (
+        <Disclosure quiet summary="Show the full log" open={showLog} onOpenChange={setShowLog}>
+          <FullLog job={job} events={events} />
+        </Disclosure>
       ) : (
         <FullLog job={job} events={events} />
       )}

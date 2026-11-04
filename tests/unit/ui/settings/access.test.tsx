@@ -282,7 +282,7 @@ describe("Settings › Access", () => {
     expect(within(files).getAllByText("Found · valid")).toHaveLength(2);
     expect(within(files).getByText("C:\\Users\\me\\.atlassian\\xray_credentials.json")).toBeInTheDocument();
     expect(
-      await within(within(files).getByRole("listitem", { name: "Xray" })).findByText("Connected"),
+      await within(within(files).getByText("Xray").closest("li") as HTMLElement).findByText("Connected"),
     ).toBeInTheDocument();
     expect(within(files).getByText(/Jira 401 Unauthorized/)).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Connect to Jira and Xray" })).toBeInTheDocument();

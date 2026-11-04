@@ -14,7 +14,7 @@ const styles = stylex.create({
   split: {
     display: "flex",
     flexDirection: "column",
-    gap: space.s5,
+    gap: space.s6,
   },
   rule: {
     boxSizing: "border-box",

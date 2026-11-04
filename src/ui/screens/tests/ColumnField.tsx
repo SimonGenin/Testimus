@@ -3,7 +3,8 @@ import { Badge } from "../../components/ui/Badge.tsx";
 import { type FieldAutosave, Text } from "../../components/ui/Text.tsx";
 import { type } from "../../components/ui/type.ts";
 import type { Column } from "../../lib/columns.ts";
-import { color, space } from "../../styles/tokens.stylex.ts";
+import { color, size, space } from "../../styles/tokens.stylex.ts";
+import { hintMarker } from "./markers.stylex.ts";
 
 const styles = stylex.create({
   ro: {
@@ -15,14 +16,28 @@ const styles = stylex.create({
     overflowWrap: "anywhere",
   },
   empty: { color: color.textSubtle },
+  field: { position: "relative", minWidth: 0 },
+  hint: {
+    position: "absolute",
+    top: 0,
+    insetInlineStart: space.s3,
+    display: "flex",
+    alignItems: "center",
+    height: size.controlMd,
+    color: color.textSubtle,
+    pointerEvents: "none",
+    opacity: { default: 1, [stylex.when.ancestor(":focus-within", hintMarker)]: 0 },
+  },
 });
 
-// ponytail: a project column is plain text in Xray — it holds no screenshot, so it is no field of blocks
+// ponytail: a project column is plain text in Xray — it holds no screenshot, so it is no field of blocks; a one-line
+// column wraps where the field is narrow (split layout) but still takes no line break
 export function ColumnField({
   column,
   value,
   stepNumber,
   readOnly,
+  wrap,
   saveState,
   onChange,
 }: {
@@ -30,6 +45,8 @@ export function ColumnField({
   value: string;
   stepNumber: number;
   readOnly?: boolean;
+  /** the field is narrow: a one-line column wraps instead of clipping */
+  wrap?: boolean;
   saveState?: FieldAutosave;
   onChange: (value: string) => void;
 }) {
@@ -41,16 +58,25 @@ export function ColumnField({
         <Badge label="read-only" size="sm" tooltip="Xray holds something other than text here — shown, never edited" />
       </div>
     );
+  const line = column.kind === "line";
+  const wrapsLine = line && !!wrap;
   return (
-    <Text
-      multiline={column.kind !== "line"}
-      appearance="inline"
-      ariaLabel={label}
-      value={value}
-      placeholder="Empty — type here"
-      readOnly={readOnly}
-      autosave={saveState}
-      onChange={onChange}
-    />
+    <div {...stylex.props(hintMarker, styles.field)}>
+      <Text
+        multiline={!line || wrapsLine}
+        appearance="inline"
+        ariaLabel={label}
+        value={value}
+        readOnly={readOnly}
+        autosave={saveState}
+        onKeyDown={wrapsLine ? (e) => e.key === "Enter" && e.preventDefault() : undefined}
+        onChange={(v) => onChange(wrapsLine ? v.replace(/\r?\n/g, " ") : v)}
+      />
+      {!value && !readOnly && (
+        <span aria-hidden="true" {...stylex.props(type.small, styles.hint)}>
+          Empty — type here
+        </span>
+      )}
+    </div>
   );
 }

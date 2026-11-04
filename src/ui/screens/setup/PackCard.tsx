@@ -52,11 +52,12 @@ export function PackCard({
       : "";
   return (
     <Card
+      density="compact"
       radio={{ name: "pack", value: p.id, checked: chosen, onSelect: onChoose, disabled: !p.available }}
       title={
         <span {...stylex.props(styles.title)}>
           {p.label} {p.active && <Badge label="In use" tone="success" icon="check" size="sm" />}
-          {suggested && <Badge label="Suggested for this PC" tone="accent" icon="target" outline size="sm" />}
+          {suggested && <Badge label="Suggested for this PC" tone="neutral" icon="target" outline size="sm" />}
         </span>
       }
       actions={

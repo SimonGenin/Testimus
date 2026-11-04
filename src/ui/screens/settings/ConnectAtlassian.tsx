@@ -37,7 +37,7 @@ const styles = stylex.create({
     boxSizing: "border-box",
     display: "flex",
     flexDirection: "column",
-    gap: space.s2,
+    gap: space.s3,
     margin: 0,
     paddingLeft: space.s6,
   },
@@ -132,10 +132,14 @@ const draft = (f: string): Key => [null, "atlassian", { f }];
 // user emptied is erased (Xray Editor saves the form as it is)
 export function ConnectAtlassian({
   lead,
+  saveVariant = "primary",
   onStatus,
   onResult,
 }: {
   lead?: ReactNode;
+  /** the look of « Save and test the connection »: secondary when the caller's own button is the next step (setup,
+   * once the connection is tested) */
+  saveVariant?: "primary" | "secondary";
   onStatus?: (s: CredsStatus) => void;
   onResult?: (r: SetupResult) => void;
 }) {
@@ -335,7 +339,7 @@ export function ConnectAtlassian({
       <div {...stylex.props(styles.foot)}>
         <Button
           type="submit"
-          variant="primary"
+          variant={saveVariant}
           icon="plug"
           label={busy ? "Testing…" : "Save and test the connection"}
           loading={busy}

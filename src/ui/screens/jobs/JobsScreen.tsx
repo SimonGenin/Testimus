@@ -16,7 +16,7 @@ import { plural } from "../../lib/format.ts";
 import { usePaneWidth } from "../../lib/panes.ts";
 import { errorToast } from "../../lib/toast.ts";
 import { space } from "../../styles/tokens.stylex.ts";
-import { JobDetail } from "./JobDetail.tsx";
+import { JobDetail, JobDetailSkeleton } from "./JobDetail.tsx";
 import { JobList, type ListCtx, openByDefault } from "./JobList.tsx";
 import { JobsActions, JobsTools } from "./JobsToolbar.tsx";
 import { findNode } from "./kinds.ts";
@@ -28,7 +28,6 @@ const styles = stylex.create({
   screen: { flex: 1, minHeight: 0, minWidth: 0, display: "flex", flexDirection: "column" },
   split: { flex: 1, minHeight: 0, display: "flex" },
   list: { flex: "1 1 0", minWidth: 0, minHeight: 0, display: "flex", containerType: "inline-size" },
-  scroll: { boxSizing: "border-box", padding: space.s2 },
   notice: { padding: space.s4 },
   side: { flexShrink: 0, minHeight: 0, maxWidth: "55%", display: "flex" },
 });
@@ -97,58 +96,49 @@ export function JobsScreen() {
               />
             }
           >
-            <div {...stylex.props(styles.scroll)}>
-              {j.failed ? (
-                <div {...stylex.props(styles.notice)}>
-                  <Banner
-                    tone="danger"
-                    title="Could not list the jobs"
-                    actions={<Button size="sm" label="Retry" onClick={j.retry} />}
-                  >
-                    The jobs of this project could not be read. No job yet is shown until they are.
-                  </Banner>
-                </div>
-              ) : !j.jobs ? (
-                <List
-                  label="Jobs"
-                  items={[]}
-                  getKey={() => ""}
-                  renderItem={() => ({ title: "" })}
-                  loading={5}
-                  divided
-                />
-              ) : (
-                <JobList
-                  shown={j.shown}
-                  c={ctx}
-                  empty={
-                    !j.jobs.length ? (
-                      <EmptyState
-                        icon="jobs"
-                        title="No job yet"
-                        text="Adding, converting or indexing a document, generating or checking tests, pulling or pushing: long work runs here, with its steps, the jobs it starts and the processes it uses."
-                      />
-                    ) : (
-                      <EmptyState
-                        icon="filter"
-                        title="No job matches"
-                        compact
-                        actions={
-                          j.filtered && <Button label="Clear the filters" onClick={() => j.setFilters(NO_FILTER)} />
-                        }
-                      />
-                    )
-                  }
-                />
-              )}
-            </div>
+            {j.failed ? (
+              <div {...stylex.props(styles.notice)}>
+                <Banner
+                  tone="danger"
+                  title="Could not list the jobs"
+                  actions={<Button size="sm" label="Retry" onClick={j.retry} />}
+                >
+                  The jobs of this project could not be read. No job yet is shown until they are.
+                </Banner>
+              </div>
+            ) : !j.jobs ? (
+              <List label="Jobs" items={[]} getKey={() => ""} renderItem={() => ({ title: "" })} loading={5} />
+            ) : (
+              <JobList
+                shown={j.shown}
+                c={ctx}
+                empty={
+                  !j.jobs.length ? (
+                    <EmptyState
+                      icon="jobs"
+                      title="No job yet"
+                      text="Adding, converting or indexing a document, generating or checking tests, pulling or pushing: long work runs here, with its steps, the jobs it starts and the processes it uses."
+                    />
+                  ) : (
+                    <EmptyState
+                      icon="filter"
+                      title="No job matches"
+                      compact
+                      actions={
+                        j.filtered && <Button label="Clear the filters" onClick={() => j.setFilters(NO_FILTER)} />
+                      }
+                    />
+                  )
+                }
+              />
+            )}
           </Pane>
         </div>
-        {active && (
+        {(active || (!j.jobs && !j.failed)) && (
           <>
             <ResizeHandle label="Resize the job details" side="left" {...side.handle} />
             <div {...stylex.props(styles.side)} style={{ width: side.width }}>
-              <JobDetail node={active} byId={j.byId} now={j.now} onOpen={ctx.pick} />
+              {active ? <JobDetail node={active} byId={j.byId} now={j.now} onOpen={ctx.pick} /> : <JobDetailSkeleton />}
             </div>
           </>
         )}

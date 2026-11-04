@@ -4,43 +4,79 @@ import type { Block, StepImage, Table } from "../../../core/types.ts";
 import { Button } from "../../components/ui/Button.tsx";
 import { type } from "../../components/ui/type.ts";
 import { addCol, addRow, dropCol, dropRow, width } from "../../lib/table.ts";
-import { border, color, radius, space } from "../../styles/tokens.stylex.ts";
+import { border, color, radius, shadow, size, space } from "../../styles/tokens.stylex.ts";
 import { FieldBlocks } from "./FieldBlocks.tsx";
 import { tableMarker } from "./markers.stylex.ts";
 import type { Moved } from "./step/moved.ts";
 
 const styles = stylex.create({
-  block: { display: "flex", flexDirection: "column", gap: space.s2, marginBlock: space.s1, minWidth: 0 },
+  block: { position: "relative", display: "flex", flexDirection: "column", marginBlock: space.s1, minWidth: 0 },
   wrap: {
     boxSizing: "border-box",
-    overflowX: "auto",
     borderStyle: "solid",
     borderWidth: border.width,
-    borderColor: color.border,
+    borderColor: color.borderStrong,
     borderRadius: radius.r2,
+    overflow: "hidden",
+    backgroundColor: color.surface,
   },
   table: { width: "100%", borderCollapse: "collapse", tableLayout: "fixed" },
   cell: {
     boxSizing: "border-box",
+    position: "relative",
     verticalAlign: "top",
-    paddingBlock: 0,
-    paddingInline: space.s1,
+    paddingBlock: space.s1,
+    paddingInline: space.s3,
+    borderWidth: 0,
     borderStyle: "solid",
-    borderWidth: border.width,
     borderColor: color.border,
     textAlign: "start",
   },
-  head: {
-    backgroundColor: color.surfaceSunken,
-  },
-  grips: { boxSizing: "border-box", borderWidth: 0, paddingBlock: space.s1, textAlign: "end" },
-  gripCol: { boxSizing: "border-box", width: space.s7, borderWidth: 0, verticalAlign: "middle", textAlign: "center" },
-  tools: { display: "flex", alignItems: "center", gap: space.s1 },
-  atRest: {
+  below: { borderBottomWidth: border.width },
+  after: { borderInlineStartWidth: border.width },
+  room1: { paddingInlineEnd: `calc(${space.s3} + ${size.controlXs})` },
+  room2: { paddingInlineEnd: `calc(${space.s3} + ${space.s1} + 2 * ${size.controlXs})` },
+  cellX: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    insetInlineEnd: space.s1,
+    display: "flex",
+    alignItems: "center",
+    gap: space.s1,
     opacity: {
       default: 0,
       [stylex.when.ancestor(":hover", tableMarker)]: 1,
       [stylex.when.ancestor(":focus-within", tableMarker)]: 1,
+    },
+    pointerEvents: {
+      default: "none",
+      [stylex.when.ancestor(":hover", tableMarker)]: "auto",
+      [stylex.when.ancestor(":focus-within", tableMarker)]: "auto",
+    },
+  },
+  tools: {
+    position: "absolute",
+    top: "100%",
+    insetInlineStart: 0,
+    zIndex: 1,
+    display: "flex",
+    alignItems: "center",
+    gap: space.s1,
+    marginTop: space.s1,
+    paddingInline: space.s2,
+    borderRadius: radius.r2,
+    backgroundColor: color.surfaceRaised,
+    boxShadow: shadow.s2,
+    opacity: {
+      default: 0,
+      [stylex.when.ancestor(":hover", tableMarker)]: 1,
+      [stylex.when.ancestor(":focus-within", tableMarker)]: 1,
+    },
+    pointerEvents: {
+      default: "none",
+      [stylex.when.ancestor(":hover", tableMarker)]: "auto",
+      [stylex.when.ancestor(":focus-within", tableMarker)]: "auto",
     },
   },
 });
@@ -85,47 +121,40 @@ export function TableBlock({
   onOpen: (file: string) => void;
 }) {
   const cols = width(table);
+  const last = table.rows.length - 1;
   const x = (title: string, run: () => void) => (
-    <span {...stylex.props(styles.atRest)}>
-      <Button variant="quiet" size="xs" iconOnly icon="close" label={title} onClick={run} />
-    </span>
+    <Button variant="quiet" size="xs" iconOnly icon="close" label={title} onClick={run} />
   );
   return (
     <div {...stylex.props(styles.block, tableMarker)}>
       <div {...stylex.props(styles.wrap)}>
         <table {...stylex.props(styles.table)}>
-          {!readOnly && (
-            <thead>
-              <tr>
-                <th {...stylex.props(styles.gripCol)} />
-                {Array.from({ length: cols }, (_, i) => (
-                  <th key={i} {...stylex.props(styles.grips)}>
-                    {x(`Delete column ${i + 1}`, () => onFieldText(dropCol(text, table, i)))}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-          )}
           <tbody>
             {table.rows.map((r, ri) => (
               <tr key={ri}>
-                {!readOnly && (
-                  <td {...stylex.props(styles.gripCol)}>
-                    {x(`Delete row ${ri + 1}`, () => onFieldText(dropRow(text, table, ri)))}
-                  </td>
-                )}
                 {Array.from({ length: cols }, (_, ci) => {
                   const c = r.cells[ci];
                   const Cell = r.head ? "th" : "td";
+                  const lastCol = ci === cols - 1;
+                  const room = readOnly ? 0 : Number(ri === 0) + Number(lastCol);
                   return (
                     <Cell
                       key={ci}
                       scope={r.head ? "col" : undefined}
-                      {...stylex.props(type.regular, styles.cell, r.head && [type.small, type.strong, styles.head])}
+                      {...stylex.props(
+                        type.regular,
+                        styles.cell,
+                        ri < last && styles.below,
+                        ci > 0 && styles.after,
+                        room === 1 && styles.room1,
+                        room === 2 && styles.room2,
+                        r.head && type.caption,
+                      )}
                     >
                       {c && (
                         <FieldBlocks
                           nested
+                          size="sm"
                           idBase={`${idBase}-r${ri}c${ci}`}
                           name={name}
                           label={`${label}, row ${ri + 1} column ${ci + 1}`}
@@ -143,6 +172,12 @@ export function TableBlock({
                           onOpen={onOpen}
                         />
                       )}
+                      {room > 0 && (
+                        <span {...stylex.props(styles.cellX)}>
+                          {ri === 0 && x(`Delete column ${ci + 1}`, () => onFieldText(dropCol(text, table, ci)))}
+                          {lastCol && x(`Delete row ${ri + 1}`, () => onFieldText(dropRow(text, table, ri)))}
+                        </span>
+                      )}
                     </Cell>
                   );
                 })}
@@ -152,7 +187,7 @@ export function TableBlock({
         </table>
       </div>
       {!readOnly && (
-        <div {...stylex.props(styles.tools, styles.atRest)}>
+        <div {...stylex.props(styles.tools)}>
           {grip}
           <Button
             variant="quiet"

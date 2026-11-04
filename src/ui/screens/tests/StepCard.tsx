@@ -23,7 +23,7 @@ import { ItemLinks } from "./step/ItemLinks.tsx";
 import { MOVE } from "./step/moved.ts";
 import { FieldRow, StepFields } from "./step/StepFields.tsx";
 import { StepFrame, StepSourcesRow } from "./step/StepFrame.tsx";
-import { Grip, StepHead, type StepMarks } from "./step/StepHead.tsx";
+import { Grip, GripSlot, StepHead, type StepMarks } from "./step/StepHead.tsx";
 import { StepOrphans } from "./step/StepOrphans.tsx";
 import { StepSource } from "./step/StepSource.tsx";
 import { firstLine } from "./step/stepText.ts";
@@ -149,6 +149,7 @@ export function StepCard({
           value={value}
           stepNumber={n}
           readOnly={readOnly}
+          wrap={split}
           saveState={save}
           onChange={(next) => {
             touch();
@@ -238,7 +239,7 @@ export function StepCard({
     },
   };
 
-  const grip = readOnly ? null : <Grip n={n} focused={focused} onArm={setArmed} />;
+  const grip = readOnly ? <GripSlot /> : <Grip n={n} focused={focused} onArm={setArmed} />;
   const frame = { n, marks, grip, focused, dragging, onFocusCapture: onFocus, ...dnd };
 
   if (folded)

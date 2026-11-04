@@ -1,34 +1,17 @@
 import * as stylex from "@stylexjs/stylex";
-import type { CredsStatus } from "../../../core/types.ts";
+import type { CredsStatus, DoctorCheck } from "../../../core/types.ts";
 import { Badge } from "../../components/ui/Badge.tsx";
 import { Card } from "../../components/ui/Card.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
+import { List } from "../../components/ui/List.tsx";
 import { type } from "../../components/ui/type.ts";
 import { useRead } from "../../lib/data/query.ts";
-import { border, color, space } from "../../styles/tokens.stylex.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 import { ConnectAtlassian } from "./ConnectAtlassian.tsx";
 import { Section } from "./Section.tsx";
 
 const styles = stylex.create({
-  rows: { display: "flex", flexDirection: "column", margin: 0, padding: 0, listStyle: "none" },
-  row: {
-    boxSizing: "border-box",
-    display: "flex",
-    alignItems: "flex-start",
-    gap: space.s3,
-    paddingBlock: space.s3,
-    borderTopStyle: { default: "solid", ":first-child": "none" },
-    borderTopWidth: border.width,
-    borderTopColor: color.border,
-  },
-  icon: { display: "inline-flex", color: color.textMuted, paddingTop: space.s1 },
-  body: { display: "flex", flexDirection: "column", gap: space.s1, flex: 1, minWidth: 0 },
-  path: {
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-    color: color.textMuted,
-  },
+  path: { color: color.textMuted },
   badges: { display: "flex", gap: space.s2, flexWrap: "wrap", justifyContent: "flex-end" },
   sub: { color: color.textMuted },
 });
@@ -46,46 +29,44 @@ const WORD = {
   invalid: { label: "Invalid", tone: "danger", icon: "x-circle" },
 } as const;
 
-function FileRow({ id, name, file }: { id: "jira" | "xray"; name: string; file: FileState }) {
-  const doctor = useRead("system.doctor", {});
+type Row = { id: "jira" | "xray"; name: string; file: FileState };
+
+function Verdict({ id, file, checks }: { id: Row["id"]; file: FileState; checks: DoctorCheck[] }) {
   const s = fileState(file);
-  const c = doctor.data?.checks?.find((x) => x.id === id);
+  const c = checks.find((x) => x.id === id);
   const w = WORD[s];
   return (
-    <li aria-label={name} {...stylex.props(styles.row)}>
-      <span {...stylex.props(styles.icon)}>
-        <Icon name="file" />
-      </span>
-      <div {...stylex.props(styles.body)}>
-        <span {...stylex.props(type.body)}>{name}</span>
-        <span title={file.file} {...stylex.props(type.code, styles.path)}>
-          {file.file}
-        </span>
-      </div>
-      <span {...stylex.props(styles.badges)}>
+    <span {...stylex.props(styles.badges)}>
+      <Badge
+        label={s === "invalid" && file.problem ? `Invalid — ${file.problem}` : w.label}
+        tone={w.tone}
+        icon={w.icon}
+        tooltip={file.problem}
+      />
+      {s === "found" && c && c.state !== "skip" && (
         <Badge
-          label={s === "invalid" && file.problem ? `Invalid — ${file.problem}` : w.label}
-          tone={w.tone}
-          icon={w.icon}
-          tooltip={file.problem}
+          label={c.state === "ok" ? "Connected" : c.detail.slice(0, 60)}
+          tone={c.state === "ok" ? "success" : "danger"}
+          icon={c.state === "ok" ? "plug" : "alert-circle"}
+          tooltip={c.state === "ok" ? undefined : c.fix}
         />
-        {s === "found" && c && c.state !== "skip" && (
-          <Badge
-            label={c.state === "ok" ? "Connected" : c.detail.slice(0, 60)}
-            tone={c.state === "ok" ? "success" : "danger"}
-            icon={c.state === "ok" ? "plug" : "alert-circle"}
-            tooltip={c.state === "ok" ? undefined : c.fix}
-          />
-        )}
-      </span>
-    </li>
+      )}
+    </span>
   );
 }
 
 // ponytail: the two shared files Xray Editor and Testimus read (~/.atlassian), then the guided form that writes them
 export function AccessSection() {
   const creds = useRead("system.credentials", {});
+  const doctor = useRead("system.doctor", {});
   const st = creds.data?.status;
+  const checks = doctor.data?.checks ?? [];
+  const rows: Row[] = st
+    ? [
+        { id: "jira", name: "Jira", file: st.jira },
+        { id: "xray", name: "Xray", file: st.xray },
+      ]
+    : [];
   return (
     <Section
       id="access"
@@ -94,6 +75,7 @@ export function AccessSection() {
     >
       {st && (
         <Card
+          padded={false}
           title={
             <>
               Credential files{" "}
@@ -103,10 +85,23 @@ export function AccessSection() {
             </>
           }
         >
-          <ul aria-label="Credential files" {...stylex.props(styles.rows)}>
-            <FileRow id="jira" name="Jira" file={st.jira} />
-            <FileRow id="xray" name="Xray" file={st.xray} />
-          </ul>
+          <List
+            label="Credential files"
+            selection="none"
+            divided
+            items={rows}
+            getKey={(r) => r.id}
+            renderItem={(r) => ({
+              title: r.name,
+              lead: <Icon name="file" />,
+              meta: (
+                <span title={r.file.file} {...stylex.props(type.code, styles.path)}>
+                  {r.file.file}
+                </span>
+              ),
+              trail: <Verdict id={r.id} file={r.file} checks={checks} />,
+            })}
+          />
         </Card>
       )}
       <Card title="Connect to Jira and Xray">

@@ -2,7 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import { Button } from "../../../components/ui/Button.tsx";
 import { Text } from "../../../components/ui/Text.tsx";
 import { Tooltip } from "../../../components/ui/Tooltip.tsx";
-import { space } from "../../../styles/tokens.stylex.ts";
+import { border, color, space } from "../../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
   tools: {
@@ -11,7 +11,11 @@ const styles = stylex.create({
     flexDirection: "column",
     gap: space.s2,
     paddingInline: space.s3,
-    paddingBottom: space.s2,
+    paddingTop: space.s3,
+    paddingBottom: space.s3,
+    borderBottomStyle: "solid",
+    borderBottomWidth: border.width,
+    borderBottomColor: color.border,
   },
   row: { display: "flex", alignItems: "center", gap: space.s1 },
   grow: { flex: 1 },
@@ -67,7 +71,6 @@ export function ListTools({
       {jira && (
         <Text
           type="search"
-          size="sm"
           icon="search"
           ariaLabel="Search Jira"
           placeholder="Search Jira — words or an issue key"
@@ -77,7 +80,6 @@ export function ListTools({
         />
       )}
       <Text
-        size="sm"
         icon="filter"
         ariaLabel="Filter tests"
         placeholder={local ? "Filter tests: words, steps, review:to-fix…" : "Filter folders and listed tests"}

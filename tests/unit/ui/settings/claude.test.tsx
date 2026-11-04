@@ -4,6 +4,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { exeLine } from "../../../../src/ui/screens/settings/ClaudeProgram.tsx";
 import { ClaudeSection } from "../../../../src/ui/screens/settings/ClaudeSection.tsx";
+import { iconsIn } from "../../helpers/icons.ts";
 import { choose } from "../../helpers/select.ts";
 import { fakeDesktop } from "../../helpers/ui-desktop.tsx";
 import { calls, Fail, fakeJob, fakeNet, info, inputs, label, mountSettings, net, reset } from "./helpers.tsx";
@@ -59,8 +60,8 @@ const exeField = () => screen.getByLabelText(label("Claude program"));
 describe("Settings › Claude › Connection", () => {
   it("exeLine says found or not found", () => {
     const s = (o: Record<string, unknown>) => o as Parameters<typeof exeLine>[0];
-    expect(exeLine(s({ installed: true, version: "2.1.0", signedIn: true }))).toBe("2.1.0 · found");
-    expect(exeLine(s({ installed: true, signedIn: null }))).toBe("Claude Code · found");
+    expect(exeLine(s({ installed: true, version: "2.1.0", signedIn: true }))).toBe("2.1.0");
+    expect(exeLine(s({ installed: true, signedIn: null }))).toBe("Claude Code");
     expect(exeLine(s({ installed: false, signedIn: false, detail: "spawn ENOENT\nmore" }))).toBe(
       "spawn ENOENT · Claude is optional",
     );
@@ -74,8 +75,9 @@ describe("Settings › Claude › Connection", () => {
       return { installed: true, version: "2.0", signedIn: true };
     };
     const { app } = mountSettings(<ClaudeSection />, { info: null });
-    expect(await screen.findByText("2.0 · found")).toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent("2.0 · found");
+    expect(await screen.findByText("2.0")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Found2.0");
+    expect(iconsIn(screen.getByText("Found"))).toEqual(["check-circle"]);
     expect(screen.queryByText("Default model")).toBeNull();
     expect(calls("project.info")).toHaveLength(0);
     const exe = exeField();
@@ -93,7 +95,7 @@ describe("Settings › Claude › Connection", () => {
     expect(app.navigate).toHaveBeenCalledWith("doctor");
     net.routes["claude.status"] = () => ({ installed: true, signedIn: true });
     fireEvent.click(screen.getByRole("button", { name: "Check again" }));
-    expect(await screen.findByText("Claude Code · found")).toBeInTheDocument();
+    expect(await screen.findByText("Claude Code")).toBeInTheDocument();
   });
 
   it("a check whose save fails checks nothing; Check spins while claude --version runs", async () => {
@@ -104,7 +106,7 @@ describe("Settings › Claude › Connection", () => {
     mountSettings(<ClaudeSection />, { info: null });
     const exe = exeField();
     await waitFor(() => expect(exe).toHaveValue("X:/old.exe"));
-    await screen.findByText("2.1.0 · found");
+    await screen.findByText("2.1.0");
     fireEvent.change(exe, { target: { value: "X:/c.exe" } });
     fireEvent.click(screen.getByRole("button", { name: "Check" }));
     expect(await screen.findByText("Not saved")).toBeInTheDocument();
@@ -118,12 +120,12 @@ describe("Settings › Claude › Connection", () => {
     expect(await screen.findByText("Running claude --version…")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Check" })).toHaveAttribute("aria-busy", "true");
     answer({ installed: true, signedIn: true });
-    expect(await screen.findByText("Claude Code · found")).toBeInTheDocument();
+    expect(await screen.findByText("Claude Code")).toBeInTheDocument();
   });
 
   it("checks the Claude program and shows how to connect it when not found", async () => {
     mountSettings(<ClaudeSection />, { info: null });
-    expect(await screen.findByText("2.1.0 · found")).toBeInTheDocument();
+    expect(await screen.findByText("2.1.0")).toBeInTheDocument();
     net.routes["claude.status"] = (i) => {
       expect(i).toEqual({ refresh: true });
       return { installed: false, signedIn: false, exe: "C:\\x\\claude.cmd", detail: "spawn ENOENT" };
@@ -140,14 +142,14 @@ describe("Settings › Claude › Connection", () => {
   it("a Claude program path typed but not left is saved when Settings goes, once, as in Xray Editor", async () => {
     const r = mountSettings(<ClaudeSection />, { info: null });
     await waitFor(() => expect(calls("system.settings")).toHaveLength(1));
-    await screen.findByText("2.1.0 · found");
+    await screen.findByText("2.1.0");
     fireEvent.change(exeField(), { target: { value: "D:\\tools\\claude.cmd" } });
     expect(calls("system.set")).toHaveLength(0);
     r.unmount();
     await waitFor(() => expect(calls("system.set")).toHaveLength(1));
     expect(inputs("system.set")[0]).toEqual({ claudeExe: "D:\\tools\\claude.cmd" });
     const again = mountSettings(<ClaudeSection />, { info: null });
-    await screen.findByText("2.1.0 · found");
+    await screen.findByText("2.1.0");
     again.unmount();
     await new Promise((res) => setTimeout(res, 20));
     expect(calls("system.set")).toHaveLength(1);
@@ -180,7 +182,7 @@ describe("Settings › Claude › Connection", () => {
     expect(exeField()).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Check" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Browse/ })).toBeNull();
-    await screen.findByText("2.1.0 · found");
+    await screen.findByText("2.1.0");
   });
 });
 

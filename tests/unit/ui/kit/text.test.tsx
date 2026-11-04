@@ -334,15 +334,17 @@ describe("Select", () => {
       ["boxed", {}],
       ["quiet", { appearance: "quiet" as const }],
       ["small", { size: "sm" as const }],
-      ["icon", { icon: "sort" as const }],
-      ["prefix", { prefix: "Sort" }],
       ["hover", { debugState: "hover" as const }],
       ["focus", { debugState: "focus" as const }],
     ] as const) {
       render(<Select label={name} value="opus" options={options} onChange={() => {}} {...p} />);
       looks.add(cls(screen.getByRole("combobox", { name })));
     }
-    expect(looks.size).toBe(7);
+    expect(looks.size).toBe(5);
+    render(<Select label="inside" value="opus" options={options} onChange={() => {}} icon="sort" prefix="Sort" />);
+    const inside = screen.getByRole("combobox", { name: "inside" });
+    expect(inside.querySelector('[data-icon="sort"]')).not.toBeNull();
+    expect(inside).toHaveTextContent("SortOpus");
   });
 
   it("disabled with a reason, says why", () => {

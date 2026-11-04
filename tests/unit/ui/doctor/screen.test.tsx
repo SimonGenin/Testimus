@@ -46,6 +46,8 @@ describe("System check screen", () => {
     };
     withApp(<DoctorScreen />);
     expect(screen.getByRole("region", { name: "Checks" })).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("table", { name: "Claude" })).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("table", { name: "This project" })).toHaveAttribute("aria-busy", "true");
     expect(screen.getAllByText("Checking…")).toHaveLength(2);
     expect(screen.getByRole("button", { name: "Checking…" })).toHaveAttribute("aria-busy", "true");
     await waitFor(() => expect(screen.getByText("Proxy")).toBeInTheDocument());
@@ -239,5 +241,22 @@ describe("System check screen", () => {
     state = "failed";
     act(() => FakeES.emit(status(job({ id: "models-pull-2", kind: "models-pull", status: "failed" }))));
     await waitFor(() => expect(titles(toasts.errorToast)).toContain("Download it failed"));
+  });
+
+  it("draws the paths in a check's words in the mono face, nothing else", async () => {
+    net.routes["system.doctor"] = () =>
+      answer([
+        c({ id: "models.dir", label: "Models folder", detail: "D:\\Testimus\\models — 640 GB free" }),
+        c({ id: "disk.index", label: "Disk", detail: "21.0 GB free at /home/ana/p." }),
+        c({ id: "node", label: "Node", detail: "v26.1 · 3.1 / 3.9 GB" }),
+      ]);
+    withApp(<DoctorScreen />);
+    await waitFor(() => expect(screen.getByText("Models folder")).toBeInTheDocument());
+    const mono = (text: string) => [...row(text).querySelectorAll("[class*='code']")].map((e) => e.textContent);
+    expect(mono("Models folder")).toEqual(["D:\\Testimus\\models"]);
+    expect(row("Models folder")).toHaveTextContent("D:\\Testimus\\models — 640 GB free");
+    expect(mono("Disk")).toEqual(["/home/ana/p"]);
+    expect(row("Disk")).toHaveTextContent("21.0 GB free at /home/ana/p.");
+    expect(mono("Node")).toEqual([]);
   });
 });

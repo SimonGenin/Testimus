@@ -37,7 +37,9 @@ describe("the kit's fields carry the design's icons", () => {
     );
     expect(screen.getByText("Glossaire RATP").parentElement?.querySelector('[data-icon="context"]')).not.toBeNull();
     expect(container.querySelector('[data-icon="plus"]')).not.toBeNull();
-    expect(screen.getByText("Sort").querySelector('[data-icon="sort"]')).not.toBeNull();
+    const sort = screen.getByRole("combobox", { name: "Sort" });
+    expect(sort.querySelector('[data-icon="sort"]')).not.toBeNull();
+    expect(sort).toHaveTextContent("SortOldest");
   });
 });
 

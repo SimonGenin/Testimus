@@ -40,14 +40,15 @@ const styles = stylex.create({
   },
   figure: { margin: 0, display: "flex", flexDirection: "column", gap: space.s2, alignItems: "flex-start" },
   img: {
-    maxWidth: "100%",
+    boxSizing: "border-box",
+    maxWidth: `min(100%, calc(${size.sidebar} + ${space.s11}))`,
     borderStyle: "solid",
     borderWidth: border.width,
     borderColor: color.border,
-    borderRadius: radius.r2,
-    backgroundColor: color.surface,
+    borderRadius: radius.r3,
+    backgroundColor: color.surfaceSunken,
   },
-  caption: { color: color.textMuted },
+  caption: { display: "flex", alignItems: "center", gap: space.s2, color: color.textMuted },
   table: { margin: 0, overflowX: "auto", color: color.text },
   tableRow: { display: "block", whiteSpace: "pre" },
   empty: { margin: 0, color: color.textMuted },
@@ -177,8 +178,18 @@ export function DocText({
   const picture = (p: Picture, key: number, hot: boolean) => (
     <figure key={key} {...focusMark(hot)} {...stylex.props(styles.figure, hot && styles.focus)}>
       <img src={fileUrl(`docs/${docId}/${p.src}`)} alt={p.alt} {...stylex.props(styles.img)} />
-      <figcaption {...stylex.props(type.small, type.readingFace, styles.caption)}>
-        {p.fig ? <Button size="sm" variant="quiet" label={p.alt} onClick={() => onFigure(`fig:${p.fig}`)} /> : p.alt}
+      <figcaption {...stylex.props(type.small, styles.caption)}>
+        {p.alt && <span>{p.alt}</span>}
+        {p.fig && (
+          <Button
+            size="xs"
+            variant="quiet"
+            iconOnly
+            icon="link"
+            label={`Link to ${p.alt || `fig ${p.fig}`}`}
+            onClick={() => onFigure(`fig:${p.fig}`)}
+          />
+        )}
       </figcaption>
     </figure>
   );

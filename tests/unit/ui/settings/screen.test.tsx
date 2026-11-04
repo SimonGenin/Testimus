@@ -55,7 +55,9 @@ describe("Settings screen", () => {
 
   it("defaults to Project, and says to open a project without one", () => {
     const { app: state } = mountSettings(<SettingsScreen />, { info: null, route: { screen: "documents" } });
-    expect(option("Project")).toHaveAttribute("aria-selected", "true");
+    expect(option("Project needs a project")).toHaveAttribute("aria-selected", "true");
+    expect(option("Search needs a project")).toBeInTheDocument();
+    expect(option("Claude")).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 2, name: "Project" })).toBeInTheDocument();
     const empty = screen.getByText("No project open").closest("div")?.parentElement;
     expect(iconsIn(empty)[0], "audit icons 103: the empty state's folder").toBe("folder");

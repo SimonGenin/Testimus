@@ -22,17 +22,24 @@ import { bestDrive, defaultFolder, folderPicker, onDrive, size } from "./data.ts
 
 const styles = stylex.create({
   field: { display: "flex", flexDirection: "column", gap: space.snug },
+  drive: { display: "flex", alignItems: "baseline", gap: space.s3, minWidth: 0 },
   root: {
-    display: "block",
+    flexShrink: 0,
+    maxWidth: "100%",
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
   free: {
-    flexShrink: 0,
-    marginInlineStart: space.s3,
-    color: color.textMuted,
+    flexGrow: 1,
+    flexShrink: 1,
+    width: sizes.sidebar,
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
     whiteSpace: "nowrap",
+    textAlign: "end",
+    color: color.textMuted,
   },
   drives: {
     display: "grid",
@@ -141,7 +148,7 @@ export function FolderDialog({
       onClose={onClose}
       actions={
         <>
-          <Button variant="quiet" label="Cancel" onClick={onClose} />
+          <Button label="Cancel" onClick={onClose} />
           <Button
             variant="primary"
             label={changing ? "Use this folder" : "Store models here"}
@@ -185,10 +192,15 @@ export function FolderDialog({
                 return (
                   <Card
                     key={d.root}
-                    title={<span {...stylex.props(type.code, styles.root)}>{d.root}</span>}
-                    actions={
-                      <span {...stylex.props(type.small, type.regular, styles.free)}>
-                        {size(d.freeMB)} free{d.totalMB ? ` of ${size(d.totalMB)}` : ""}
+                    density="compact"
+                    title={
+                      <span {...stylex.props(styles.drive)}>
+                        <span title={d.root} {...stylex.props(type.code, styles.root)}>
+                          {d.root}
+                        </span>{" "}
+                        <span {...stylex.props(type.small, type.regular, styles.free)}>
+                          {size(d.freeMB)} free{d.totalMB ? ` of ${size(d.totalMB)}` : ""}
+                        </span>
                       </span>
                     }
                     radio={{

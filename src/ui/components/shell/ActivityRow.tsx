@@ -4,9 +4,8 @@ import { useJobEvents } from "../../lib/data/events.ts";
 import { kindLabel } from "../../lib/jobs.ts";
 import { kindIcon } from "../../screens/jobs/kinds.ts";
 import { border, color, size, space } from "../../styles/tokens.stylex.ts";
-import type { IconName } from "../ui/Icon.tsx";
+import { Icon, type IconName } from "../ui/Icon.tsx";
 import { Progress } from "../ui/Progress.tsx";
-import { Tile } from "../ui/Tile.tsx";
 import { type } from "../ui/type.ts";
 
 export type ActivityItem = {
@@ -21,8 +20,8 @@ export type ActivityItem = {
 
 type Tone = "doc" | "claude" | "plain";
 
-// ponytail: the icon is the Jobs screen's (one table, kindIcon); here only the tile's tint — and work the page waits
-// on, not a job, turns
+// ponytail: the icon is the Jobs screen's (one table, kindIcon) — a Claude run is Claude's spark, and work the page
+// waits on, not a job, turns; the tone gives the bar its colour
 const TONE: Record<string, Tone> = {
   "docs.add": "doc",
   "docs.convert": "doc",
@@ -38,12 +37,10 @@ const TONE: Record<string, Tone> = {
   "gen-bench": "claude",
 };
 
-const TILE = { doc: "accent", claude: "claude", plain: "neutral" } as const;
-
-const kindOf = (kind: string): [IconName, Tone] => [
-  kind === "jira" ? "spinner" : kindIcon(kind),
-  TONE[kind] ?? "plain",
-];
+const kindOf = (kind: string): [IconName, Tone] => {
+  const tone = TONE[kind] ?? "plain";
+  return [kind === "jira" ? "spinner" : tone === "claude" ? "claude" : kindIcon(kind), tone];
+};
 
 export function elapsed(startedAt: string, now: number): string {
   const s = Math.max(0, Math.round((now - Date.parse(startedAt)) / 1000));
@@ -53,17 +50,25 @@ export function elapsed(startedAt: string, now: number): string {
 const styles = stylex.create({
   row: {
     display: "flex",
-    alignItems: "flex-start",
+    flexDirection: "column",
     gap: space.s3,
-    paddingBlock: space.s3,
-    paddingInline: space.s4,
+    paddingBlock: space.s4,
+    paddingInline: space.s5,
     listStyle: "none",
     borderTopWidth: border.width,
     borderTopStyle: { default: "solid", ":first-child": "none" },
     borderColor: color.border,
   },
-  lead: { display: "flex", flex: "none" },
-  body: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: space.s2 },
+  top: { display: "flex", alignItems: "flex-start", gap: space.s3 },
+  lead: {
+    display: "inline-flex",
+    flex: "none",
+    alignItems: "center",
+    minHeight: size.controlXs,
+    color: color.textMuted,
+  },
+  claude: { color: color.claudeText },
+  body: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: space.s1 },
   time: {
     flex: "none",
     display: "inline-flex",
@@ -73,15 +78,21 @@ const styles = stylex.create({
     whiteSpace: "nowrap",
   },
   label: {
+    display: "flex",
+    alignItems: "center",
+    minHeight: size.controlXs,
     color: color.text,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
+  detail: { color: color.textMuted },
+  bar: { marginInlineStart: `calc(${size.iconMd} + ${space.s3})` },
 });
 
-// ponytail: one piece of running work — « its kind · its subject », its progress as the job says it, its time on the
-// right, and the action that stops it (a job only: a Jira load the page waits on has none, and says so)
+// ponytail: one piece of running work — its icon, « its kind · its subject », what it does now under it, its time and
+// the action that stops it on the right (a job only: a Jira load the page waits on has none, and says so), then its
+// progress as the job says it across the row
 export function ActivityRow({ item, now, action }: { item: ActivityItem; now: number; action?: ReactNode }) {
   const [live, setLive] = useState<{ message?: string; progress?: { done: number; total: number } }>({});
   useJobEvents(item.id, (e) => {
@@ -103,24 +114,30 @@ export function ActivityRow({ item, now, action }: { item: ActivityItem; now: nu
   const title = kind && item.label && item.label !== item.kind ? `${kind} · ${item.label}` : kind || item.label;
   return (
     <li data-kind={tone} {...stylex.props(styles.row)}>
-      <span title={item.kind} {...stylex.props(styles.lead)}>
-        <Tile icon={icon} tone={TILE[tone]} />
-      </span>
-      <div {...stylex.props(styles.body)}>
-        <span title={title} {...stylex.props(type.compact, styles.label)}>
-          {title}
+      <div {...stylex.props(styles.top)}>
+        <span title={item.kind} {...stylex.props(styles.lead, tone === "claude" && styles.claude)}>
+          <Icon name={icon} />
         </span>
-        <Progress
-          label={item.label}
-          value={sized ? Math.min(100, (progress.done / progress.total) * 100) : null}
-          tone={tone === "claude" ? "claude" : "accent"}
-          detail={detail || undefined}
-        />
+        <div {...stylex.props(styles.body)}>
+          <span title={title} {...stylex.props(type.compact, styles.label)}>
+            {title}
+          </span>
+          {detail && <span {...stylex.props(type.small, styles.detail)}>{detail}</span>}
+        </div>
+        <span data-testid="elapsed" {...stylex.props(type.code, type.tabular, styles.time)}>
+          {elapsed(item.startedAt, now)}
+        </span>
+        {action}
       </div>
-      <span data-testid="elapsed" {...stylex.props(type.code, type.tabular, styles.time)}>
-        {elapsed(item.startedAt, now)}
-      </span>
-      {action}
+      {job && (
+        <div {...stylex.props(styles.bar)}>
+          <Progress
+            label={item.label}
+            value={sized ? Math.min(100, (progress.done / progress.total) * 100) : null}
+            tone={tone === "claude" ? "claude" : "accent"}
+          />
+        </div>
+      )}
     </li>
   );
 }

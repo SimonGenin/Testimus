@@ -8,6 +8,7 @@ import { color, space } from "../../styles/tokens.stylex.ts";
 import { JobLog } from "../shell/JobLog.tsx";
 import { Badge, type BadgeTone } from "../ui/Badge.tsx";
 import { Button } from "../ui/Button.tsx";
+import { Card } from "../ui/Card.tsx";
 import { Disclosure } from "../ui/Disclosure.tsx";
 import { Icon } from "../ui/Icon.tsx";
 import { Timeline, type TimelineItem } from "../ui/Timeline.tsx";
@@ -17,23 +18,30 @@ import { kilo } from "./turns.ts";
 import { claudeSaid } from "./useClaudeStatus.ts";
 
 const styles = stylex.create({
-  card: { display: "flex", flexDirection: "column", gap: space.s3 },
   heading: { margin: 0, font: "inherit" },
   body: { display: "flex", flexDirection: "column", gap: space.s3, minWidth: 0 },
-  line: { color: color.textMuted },
+  line: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s2, color: color.text },
+  quiet: { color: color.textMuted },
   warn: { color: color.warning },
   error: { color: color.danger },
-  skill: { color: color.claudeText, marginInlineStart: space.s1 },
-  plan: { boxSizing: "border-box", margin: 0, paddingInlineStart: space.s5 },
+  plan: {
+    boxSizing: "border-box",
+    margin: 0,
+    paddingInlineStart: space.s6,
+    display: "flex",
+    flexDirection: "column",
+    gap: space.s1,
+  },
   verdicts: { listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: space.s2 },
   verdict: { display: "flex", alignItems: "center", gap: space.s3, minWidth: 0 },
   id: { color: color.textMuted },
   name: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
-  said: { display: "flex", gap: space.s2, margin: 0, color: color.claudeText },
-  toggles: { display: "flex", flexWrap: "wrap", gap: space.s2 },
+  said: { display: "flex", alignItems: "flex-start", gap: space.s2, margin: 0, color: color.textMuted },
+  spark: { display: "inline-flex", flex: "none", marginTop: space.s1, color: color.claudeText },
   steps: { margin: 0, paddingInlineStart: space.s5, display: "flex", flexDirection: "column", gap: space.s1 },
   at: { color: color.textSubtle, marginInlineEnd: space.s2 },
   muted: { margin: 0, color: color.textSubtle },
+  meta: { display: "inline-flex", alignItems: "center", gap: space.s3 },
 });
 
 const mss = (ms: number) => {
@@ -109,17 +117,17 @@ function PhaseBody({ phase: p, live, names }: { phase: Phase; live: boolean; nam
   return (
     <div {...stylex.props(styles.body)}>
       {p.skills.length > 0 && (
-        <span {...stylex.props(type.small, styles.line)}>
+        <span {...stylex.props(type.compact, styles.line)}>
           Followed the skill{p.skills.length > 1 ? "s" : ""}
           {p.skills.map((s) => (
-            <span key={s} data-testid="act-skill" {...stylex.props(type.code, styles.skill)}>
-              {s}
+            <span key={s} data-testid="act-skill">
+              <Badge label={s} tone="claude" icon="layers" size="sm" />
             </span>
           ))}
         </span>
       )}
       {p.kind === "prepare" && others.length > 0 && (
-        <span {...stylex.props(type.small, styles.line)}>{sentence(others.map((a) => a.text))}</span>
+        <span {...stylex.props(type.compact, styles.line, styles.quiet)}>{sentence(others.map((a) => a.text))}</span>
       )}
       {docsOf(p).map((doc) => (
         <DocMap
@@ -132,14 +140,14 @@ function PhaseBody({ phase: p, live, names }: { phase: Phase; live: boolean; nam
       ))}
       {p.kind === "read" && <Searches p={p} />}
       {p.kind === "plan" && p.planned.length > 0 && (
-        <ol {...stylex.props(type.small, styles.plan)}>
+        <ol {...stylex.props(type.compact, styles.plan)}>
           {p.planned.map((t, i) => (
             <li key={i}>{t}</li>
           ))}
         </ol>
       )}
       {p.kind === "write" && last && (
-        <span {...stylex.props(type.small, styles.line)}>
+        <span {...stylex.props(type.compact, styles.quiet)}>
           Last written: {last.summary ? `“${last.summary}”` : last.id}
           {p.written.some((w) => w.saves > 1) &&
             `; ${plural(p.written.filter((w) => w.saves > 1).length, "test")} written more than once`}
@@ -147,7 +155,7 @@ function PhaseBody({ phase: p, live, names }: { phase: Phase; live: boolean; nam
         </span>
       )}
       {p.verdicts.length > 0 && (
-        <ul aria-label="Check verdicts" {...stylex.props(type.small, styles.verdicts)}>
+        <ul aria-label="Check verdicts" {...stylex.props(type.compact, styles.verdicts)}>
           {p.verdicts.map((v) => {
             const { label, tone, kind } = verdictOf(v);
             return (
@@ -166,50 +174,54 @@ function PhaseBody({ phase: p, live, names }: { phase: Phase; live: boolean; nam
           <span
             key={i}
             data-level={a.level}
-            {...stylex.props(type.small, styles.line, a.level === "warn" ? styles.warn : styles.error)}
+            {...stylex.props(type.compact, a.level === "warn" ? styles.warn : styles.error)}
           >
             {a.text}
           </span>
         ))}
       {said && p.kind !== "end" && (
-        <p data-testid="act-said" {...stylex.props(type.small, styles.said)}>
-          <Icon name="claude" size="sm" />
+        <p data-testid="act-said" {...stylex.props(type.compact, styles.said)}>
+          <span {...stylex.props(styles.spark)}>
+            <Icon name="claude" size="sm" />
+          </span>
           {said}
         </p>
       )}
       {p.kind !== "end" && steps > 1 && (
-        <div {...stylex.props(styles.toggles)}>
-          <Button
-            variant="quiet"
-            size="sm"
-            label={`${open ? "Hide" : "Show"} the ${steps} actions`}
-            expanded={open}
-            onClick={() => setOpen((o) => !o)}
-          />
-          {open && p.lookups.length > 0 && (
-            <Button
-              variant="quiet"
-              size="sm"
-              label={inOrder ? "Grouped" : "In order, one per line"}
-              onClick={() => setInOrder((o) => !o)}
-            />
+        <Disclosure
+          quiet
+          summary={`${open ? "Hide" : "Show"} the ${steps} actions`}
+          open={open}
+          onOpenChange={setOpen}
+          meta={
+            open &&
+            p.lookups.length > 0 && (
+              <Button
+                variant="quiet"
+                size="sm"
+                label={inOrder ? "Grouped" : "In order, one per line"}
+                onClick={() => setInOrder((o) => !o)}
+              />
+            )
+          }
+        >
+          {grouped ? (
+            <Lookups p={p} />
+          ) : (
+            <ol {...stylex.props(type.small, styles.steps)}>
+              {p.acts.map((a, i) => (
+                <li
+                  key={i}
+                  data-level={a.level}
+                  {...stylex.props(a.level === "warn" && styles.warn, a.level === "error" && styles.error)}
+                >
+                  <span {...stylex.props(type.mono, styles.at)}>{clock(a.at)}</span>
+                  {a.text}
+                </li>
+              ))}
+            </ol>
           )}
-        </div>
-      )}
-      {open && grouped && <Lookups p={p} />}
-      {open && !grouped && (
-        <ol {...stylex.props(type.small, styles.steps)}>
-          {p.acts.map((a, i) => (
-            <li
-              key={i}
-              data-level={a.level}
-              {...stylex.props(a.level === "warn" && styles.warn, a.level === "error" && styles.error)}
-            >
-              <span {...stylex.props(type.mono, styles.at)}>{clock(a.at)}</span>
-              {a.text}
-            </li>
-          ))}
-        </ol>
+        </Disclosure>
       )}
     </div>
   );
@@ -260,36 +272,47 @@ export function ClaudeActivity({
       children: <PhaseBody phase={p} live={live} names={names} />,
     };
   });
+  const line = [head, !shown && phases.length > 0 ? plural(phases.length, "phase") : ""].filter(Boolean).join(" · ");
+  const rawOpen = shown && raw;
   return (
-    <div {...stylex.props(styles.card)}>
+    <Card density="compact">
       <Disclosure
         icon="claude"
         summary={label}
         open={shown}
         onOpenChange={setShown}
         meta={
-          [head, !shown && phases.length > 0 ? plural(phases.length, "phase") : ""].filter(Boolean).join(" · ") ||
-          undefined
+          <span {...stylex.props(styles.meta)}>
+            {line}
+            <Button
+              variant="quiet"
+              size="sm"
+              icon="terminal"
+              label={rawOpen ? "Hide the raw log" : "Raw log"}
+              expanded={rawOpen}
+              onClick={() => {
+                setShown(true);
+                setRaw(!rawOpen);
+              }}
+            />
+          </span>
         }
       >
         {!phases.length && (
-          <p {...stylex.props(type.small, type.regular, styles.muted)}>
+          <p {...stylex.props(type.compact, styles.muted)}>
             {running ? "Claude is starting." : "Nothing was recorded for this run."}
           </p>
         )}
         {phases.length > 0 && <Timeline label="Phases" tone="claude" items={items} />}
-        <span>
-          <Button
-            variant="quiet"
-            size="sm"
-            icon="terminal"
-            label={`${raw ? "Hide" : "Show"} the raw log (${plural(events.length, "event")})`}
-            expanded={raw}
-            onClick={() => setRaw((r) => !r)}
-          />
-        </span>
-        {raw && <JobLog events={events} label="Raw log" />}
+        <Disclosure
+          quiet
+          summary={`${raw ? "Hide" : "Show"} the raw log (${plural(events.length, "event")})`}
+          open={raw}
+          onOpenChange={setRaw}
+        >
+          <JobLog events={events} label="Raw log" />
+        </Disclosure>
       </Disclosure>
-    </div>
+    </Card>
   );
 }

@@ -111,13 +111,13 @@ export function EditorBar({
       />
       <TestSave status={status} activity={activity} claude={claude} onRetry={onRetry} />
       <span {...stylex.props(styles.grow)} />
-      <Button variant="claude-quiet" icon="claude" label="Ask Claude" onClick={onAsk} />
-      <Button variant="primary" icon="push" label="Push to Jira" disabled={pushDisabled} onClick={onPush} />
+      <Button size="sm" variant="claude-quiet" icon="claude" label="Ask Claude" onClick={onAsk} />
+      <Button size="sm" variant="primary" icon="push" label="Push to Jira" disabled={pushDisabled} onClick={onPush} />
       <Menu
         label="More actions for this test"
         align="end"
         entries={menu}
-        trigger={<Button variant="quiet" iconOnly icon="more" label="More actions for this test" />}
+        trigger={<Button size="sm" variant="quiet" iconOnly icon="more" label="More actions for this test" />}
       />
     </div>
   );

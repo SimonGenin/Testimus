@@ -10,7 +10,7 @@ export type Tab = "docs" | "test" | "actions";
 export type Sub = "doc" | "all" | "step" | "test" | "project";
 
 const styles = stylex.create({
-  scope: { display: "flex", flexDirection: "column", gap: space.s3, paddingInline: space.s4, paddingTop: space.s2 },
+  scope: { display: "flex", flexDirection: "column", gap: space.s3, paddingInline: space.s5, paddingTop: space.s4 },
   row: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: space.s3, minWidth: 0 },
   line: { display: "flex", alignItems: "center", gap: space.s2, color: color.textSubtle },
   key: { color: color.textMuted },

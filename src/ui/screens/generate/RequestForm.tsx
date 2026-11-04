@@ -6,7 +6,7 @@ import { Menu } from "../../components/ui/Menu.tsx";
 import { Text } from "../../components/ui/Text.tsx";
 import { type } from "../../components/ui/type.ts";
 import { plural } from "../../lib/format.ts";
-import { border, color, space } from "../../styles/tokens.stylex.ts";
+import { border, color, size, space } from "../../styles/tokens.stylex.ts";
 import { ColumnsView } from "./ColumnsView.tsx";
 import { DocScopePicker } from "./DocScopePicker.tsx";
 import { IndexNotice } from "./IndexNotice.tsx";
@@ -23,17 +23,20 @@ const styles = stylex.create({
     display: "flex",
     flexDirection: "column",
     gap: space.s7,
-    padding: space.s6,
+    paddingBlockStart: space.s6,
+    paddingBlockEnd: space.s8,
+    paddingInline: space.s6,
   },
   block: { display: "flex", flexDirection: "column", gap: space.s3 },
+  head: { display: "flex", alignItems: "center", gap: space.s2, minHeight: size.controlSm },
   label: { margin: 0, color: color.text },
   foot: {
     boxSizing: "border-box",
     display: "flex",
     alignItems: "center",
     gap: space.s4,
-    paddingBlock: space.s3,
-    paddingInline: space.s4,
+    paddingBlock: space.s4,
+    paddingInline: space.s6,
     borderTopStyle: "solid",
     borderTopWidth: border.width,
     borderTopColor: color.border,
@@ -43,7 +46,15 @@ const styles = stylex.create({
   reason: { display: "inline-flex", alignItems: "center", gap: space.s1, color: color.text },
 });
 
-export type Gate = { missing: string[]; stale: string[]; indexing: boolean; onReindex: () => void };
+export type Gate = {
+  missing: string[];
+  stale: string[];
+  indexing: boolean;
+  /** the running index job's progress, when it says */
+  progress?: { done: number; total: number };
+  onShowJob?: () => void;
+  onReindex: () => void;
+};
 
 export function RequestForm({
   form,
@@ -83,13 +94,17 @@ export function RequestForm({
       <div {...stylex.props(styles.scroll)}>
         <IndexNotice {...gate} />
         <div {...stylex.props(styles.block)}>
-          <label htmlFor="gen-request" {...stylex.props(type.titleSm, styles.label)}>
-            What should be tested?
-          </label>
+          <div {...stylex.props(styles.head)}>
+            <label htmlFor="gen-request" {...stylex.props(type.titleSm, styles.label)}>
+              What should be tested?
+            </label>
+          </div>
           <RequestBlock form={form} readOnly={running} unavailable={unavailable} onGenerate={onGenerate} />
         </div>
         <div {...stylex.props(styles.block)}>
-          <h2 {...stylex.props(type.titleSm, styles.label)}>Documents</h2>
+          <div {...stylex.props(styles.head)}>
+            <h2 {...stylex.props(type.titleSm, styles.label)}>Documents</h2>
+          </div>
           <DocScopePicker
             docs={docs}
             scopes={scopes}
@@ -146,7 +161,7 @@ export function RequestForm({
           variant={hasJob ? "secondary" : "primary"}
           icon="generate"
           label={running ? "Claude is writing…" : hasJob ? "Generate again" : "Generate"}
-          shortcut={running ? undefined : "Ctrl+Enter"}
+          shortcut={running || starting || blocked ? undefined : "Ctrl+Enter"}
           loading={running || starting}
           disabled={running || starting || (blocked ?? false)}
           onClick={onGenerate}

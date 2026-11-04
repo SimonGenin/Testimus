@@ -2,19 +2,15 @@ import * as stylex from "@stylexjs/stylex";
 import { useId, useState } from "react";
 import { Button } from "../../components/ui/Button.tsx";
 import { ClaudeBlock } from "../../components/ui/ClaudeBlock.tsx";
+import { Field } from "../../components/ui/Field.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { Modal } from "../../components/ui/Modal.tsx";
 import { type } from "../../components/ui/type.ts";
 import { useDraft } from "../../lib/data/autosave.ts";
 import { project } from "../../lib/data/client.ts";
-import { color, space } from "../../styles/tokens.stylex.ts";
+import { color } from "../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
-  note: { display: "flex", flexDirection: "column", gap: space.s2 },
-  label: {
-    color: color.textMuted,
-  },
-  hint: { margin: 0, color: color.textSubtle },
   kept: { color: color.textSubtle, whiteSpace: "nowrap" },
 });
 
@@ -25,8 +21,9 @@ export type FixNoteProps = {
   id: string;
   /** the note the test already has (marked To fix before) */
   initial: string;
-  /** « Summary · KEY », under the title */
-  subtitle?: string;
+  /** under the title: the test's summary, then its key in mono */
+  summary?: string;
+  testKey?: string;
   claudeReady: boolean;
   onCancel: () => void;
   onSubmit: (note: string, askClaude: boolean) => void;
@@ -34,7 +31,7 @@ export type FixNoteProps = {
 
 // ponytail: the To fix note is a draft of the page until the test is marked — nothing is written before (the note lands
 // in test.md with the decision); Cancel, Escape and the close button drop it
-export function FixNote({ id, initial, subtitle, claudeReady, onCancel, onSubmit }: FixNoteProps) {
+export function FixNote({ id, initial, summary, testKey, claudeReady, onCancel, onSubmit }: FixNoteProps) {
   const [note, setNote, drop] = useDraft([project(), "review.fixNote", { id }], initial);
   const [tried, setTried] = useState(false);
   const field = useId();
@@ -54,7 +51,15 @@ export function FixNote({ id, initial, subtitle, claudeReady, onCancel, onSubmit
   return (
     <Modal
       title="What needs fixing?"
-      subtitle={subtitle}
+      subtitle={
+        summary || testKey ? (
+          <>
+            {summary}
+            {summary && testKey && " · "}
+            {testKey && <span {...stylex.props(type.mono)}>{testKey}</span>}
+          </>
+        ) : undefined
+      }
       icon="to-fix"
       onClose={cancel}
       footNote={
@@ -83,7 +88,6 @@ export function FixNote({ id, initial, subtitle, claudeReady, onCancel, onSubmit
             variant="primary"
             icon="to-fix"
             label="Mark To fix"
-            shortcut="Ctrl Enter"
             disabled={tried && empty}
             onClick={() => submit(false)}
           />
@@ -91,7 +95,6 @@ export function FixNote({ id, initial, subtitle, claudeReady, onCancel, onSubmit
       }
     >
       <div
-        {...stylex.props(styles.note)}
         onKeyDown={(e) => {
           if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
             e.preventDefault();
@@ -99,23 +102,25 @@ export function FixNote({ id, initial, subtitle, claudeReady, onCancel, onSubmit
           }
         }}
       >
-        <label htmlFor={field} {...stylex.props(type.small, type.medium, styles.label)}>
-          Note for the author — Claude reads it too
-        </label>
-        <ClaudeBlock
-          id={field}
-          submit="autosave"
-          plain
-          value={note}
-          onChange={setNote}
-          autoFocus
-          placeholder="Say what is wrong, and what the test should check instead…"
-          error={tried && empty ? "Say what is wrong: the note is required." : undefined}
-          trailing={
-            note && note !== initial ? <span {...stylex.props(type.small, styles.kept)}>Draft kept</span> : undefined
-          }
-        />
-        <p {...stylex.props(type.small, styles.hint)}>{HINT}</p>
+        <Field
+          label="Note for the author — Claude reads it too"
+          htmlFor={field}
+          hint={tried && empty ? undefined : HINT}
+        >
+          <ClaudeBlock
+            id={field}
+            submit="autosave"
+            plain
+            value={note}
+            onChange={setNote}
+            autoFocus
+            placeholder="Say what is wrong, and what the test should check instead…"
+            error={tried && empty ? "Say what is wrong: the note is required." : undefined}
+            trailing={
+              note && note !== initial ? <span {...stylex.props(type.small, styles.kept)}>Draft kept</span> : undefined
+            }
+          />
+        </Field>
       </div>
     </Modal>
   );

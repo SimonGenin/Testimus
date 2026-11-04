@@ -60,7 +60,7 @@ const styles = stylex.create({
   denseTd: { paddingBlock: space.s2, paddingInline: space.s3 },
   gridCell: { borderInlineEndStyle: "solid", borderInlineEndWidth: border.width, borderInlineEndColor: color.border },
   lastCell: { borderInlineEndWidth: 0 },
-  num: { textAlign: "end", fontVariantNumeric: "tabular-nums" },
+  num: { textAlign: "end", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" },
   row: { backgroundColor: { default: null, ":hover": color.surfaceHover } },
   clickable: { cursor: "pointer" },
   rowSelected: { backgroundColor: { default: color.surfaceSelected, ":hover": color.surfaceSelected } },

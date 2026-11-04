@@ -81,6 +81,7 @@ const styles = stylex.create({
   sm: { width: size.modalSm },
   md: {},
   lg: { width: size.modalLg, maxHeight: "84vh" },
+  palette: { width: size.palette, maxHeight: "84vh" },
   drawer: {
     width: size.sidebar,
     maxWidth: `calc(100% - ${space.s9})`,
@@ -185,7 +186,7 @@ export type ModalProps = {
   subtitle?: ReactNode;
   icon?: IconName;
   /** sm 440 px (confirmations) · md 640 px (forms, plans; default) · lg 960 px (managers, the lightbox) */
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "palette";
   /** a confirmation: question title, consequences, Cancel and the verb; danger (red verb, focus on Cancel) only when
    * something is lost — the one place a danger button lives */
   confirm?: {

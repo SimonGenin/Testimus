@@ -26,15 +26,17 @@ import {
 } from "../../lib/jobs.ts";
 import { color, container, size, space } from "../../styles/tokens.stylex.ts";
 import { JobState, KindTile } from "./JobState.tsx";
+import { CLAUDE_KINDS } from "./kinds.ts";
 
 const styles = stylex.create({
   trail: { display: "flex", alignItems: "center", gap: space.s4 },
   prog: {
     display: { default: "block", [container.paneCompact]: "none" },
-    width: size.thumb,
+    width: `calc(${space.s11} + ${space.s5})`,
     color: color.textMuted,
     textAlign: "end",
   },
+  bar: { alignSelf: "center" },
   time: {
     display: "flex",
     flexDirection: "column",
@@ -100,6 +102,11 @@ function flatten(n: JobNode, depth: number, c: ListCtx, out: Row[]): void {
     out.push({ key: j.id, kind: "job", node: { job: j, children: [], after: [], repeats: [] }, depth: depth + 1 });
 }
 
+const claudeRun = (job: Job) =>
+  CLAUDE_KINDS.includes(job.kind) ||
+  job.kind === "generate" ||
+  (job.processes ?? []).some((p) => !p.endedAt && p.label.startsWith("Claude"));
+
 function Progressed({ job }: { job: Job }) {
   const steps = job.steps ?? [];
   if (job.status === "running") {
@@ -107,17 +114,11 @@ function Progressed({ job }: { job: Job }) {
     const done = steps.filter((s) => s.status === "done").length;
     const value = multi ? Math.round((done / steps.length) * 100) : percent(job);
     return (
-      <span {...stylex.props(type.small, type.tabular, styles.prog)}>
+      <span {...stylex.props(styles.prog, styles.bar)}>
         <Progress
           label={multi ? `${kindLabel(job.kind)} steps` : `${kindLabel(job.kind)} progress`}
           value={value}
-          detail={
-            multi
-              ? `${done} of ${steps.length} steps`
-              : job.progress
-                ? `${job.progress.done} of ${job.progress.total}`
-                : undefined
-          }
+          tone={claudeRun(job) ? "claude" : "accent"}
         />
       </span>
     );
@@ -230,7 +231,6 @@ export function JobList({ shown, c, empty }: { shown: JobNode[]; c: ListCtx; emp
     <List<Row>
       label="Jobs"
       tree
-      divided
       density="two-line"
       items={rows}
       getKey={(r) => r.key}

@@ -63,12 +63,8 @@ export function ProjectButton() {
     ...(d ? [{ label: "Open a folder…", icon: "folder-open" as const, onSelect: () => void browse() }] : []),
     { label: "Open by Jira key…", icon: "key", onSelect: () => setByKey(true) },
     { label: "New project…", icon: "plus", onSelect: () => app.navigate("setup", "project") },
-    ...(d && here
-      ? ([
-          "separator",
-          { label: "Show in Explorer", icon: "external", onSelect: () => void reveal(here) },
-        ] as MenuEntry[])
-      : []),
+    "separator",
+    ...(d && here ? [{ label: "Show in Explorer", icon: "external" as const, onSelect: () => void reveal(here) }] : []),
     { note: "« Don't show » and « Delete » for a project are in First launch › Project." },
   ];
   const trigger = (

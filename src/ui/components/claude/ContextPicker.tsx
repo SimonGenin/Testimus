@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { type ReactNode, useState } from "react";
+import { useState } from "react";
 import { color, space } from "../../styles/tokens.stylex.ts";
 import { Button } from "../ui/Button.tsx";
 import { Checkbox } from "../ui/Checkbox.tsx";
@@ -24,22 +24,19 @@ const styles = stylex.create({
   note: { color: color.textSubtle, margin: 0 },
 });
 
-// ponytail: the saved contexts a run takes, ticked one by one; what is ticked here goes with this run only
+// ponytail: the saved contexts a list or a document takes, ticked one by one in a dialog (the dock's run picks its own
+// from the « Add context » menu)
 export function ContextPicker({
   all,
   isOn,
   onToggle,
-  onNew,
   onManage,
-  extra,
   foot = "Ticked contexts go with this run only. The project's defaults are in Settings › Claude.",
 }: {
   all: ContextSummary[];
   isOn: (id: string) => boolean;
   onToggle: (id: string, on: boolean) => void;
-  onNew?: () => void;
   onManage?: () => void;
-  extra?: ReactNode;
   foot?: string;
 }) {
   const [find, setFind] = useState("");
@@ -76,11 +73,11 @@ export function ContextPicker({
       ) : (
         <p {...stylex.props(type.small, styles.note)}>No saved context yet — write a note and save it as a context.</p>
       )}
-      <div {...stylex.props(styles.acts)}>
-        {extra}
-        {onNew && <Button size="sm" variant="quiet" icon="plus" label="New context…" onClick={onNew} />}
-        {onManage && <Button size="sm" variant="quiet" icon="settings" label="Manage contexts…" onClick={onManage} />}
-      </div>
+      {onManage && (
+        <div {...stylex.props(styles.acts)}>
+          <Button size="sm" variant="quiet" icon="settings" label="Manage contexts…" onClick={onManage} />
+        </div>
+      )}
       <p {...stylex.props(type.small, styles.note)}>{foot}</p>
     </div>
   );

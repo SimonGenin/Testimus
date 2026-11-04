@@ -44,7 +44,7 @@ const styles = stylex.create({
     padding: 0,
     listStyle: "none",
   },
-  name: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  name: { minWidth: 0, color: color.textMuted, overflowWrap: "anywhere" },
   meta: { display: "flex", alignItems: "center", gap: space.s3, color: color.textMuted },
   id: { color: color.textSubtle },
 });
@@ -55,16 +55,16 @@ const EMPTY: Record<Which, { title: string; text: string }> = {
   all: { title: "No figure in this document", text: "The conversion found no picture in it." },
   described: {
     title: "No figure is described yet",
-    text: "Claude reads each picture so that search finds what it shows: « Describe » asks for it.",
+    text: "Claude reads each picture so that search finds what it shows: « Describe » asks for it.",
   },
   bare: {
     title: "Every figure is described",
-    text: "Claude described each picture when the document was converted. « Describe again » on a figure asks for a new reading.",
+    text: "Claude described each picture when the document was converted. « Describe again » on a figure asks for a new reading.",
   },
 };
 
 // ponytail: every figure in reading order — a tile picks it, the detail beside says what Claude read in it and opens it
-// in the text; « Describe » has Claude read the pictures not described yet (docs.describeFigures, a job)
+// in the text; « Describe » has Claude read the pictures not described yet (docs.describeFigures, a job)
 export function DocFigures({
   docId,
   figures,
@@ -140,9 +140,14 @@ export function DocFigures({
                 const on = f.anchor === current.anchor;
                 return (
                   <li key={f.anchor} data-picked={on || undefined}>
-                    <Card selected={on} label={f.caption || f.anchor} onOpen={() => setPicked(f.anchor)}>
+                    <Card
+                      density="tight"
+                      selected={on}
+                      label={f.caption || f.anchor}
+                      onOpen={() => setPicked(f.anchor)}
+                    >
                       <FigureImage docId={docId} figure={f} />
-                      <span {...stylex.props(type.compact, type.medium, styles.name)}>{f.caption || f.anchor}</span>
+                      <span {...stylex.props(type.small, styles.name)}>{f.caption || f.anchor}</span>
                       <span {...stylex.props(type.small, styles.meta)}>
                         <span {...stylex.props(type.code, styles.id)}>{f.anchor}</span>
                         {f.kind && <span>{f.kind}</span>}
@@ -164,7 +169,6 @@ export function DocFigures({
           </div>
         ) : (
           <EmptyState
-            compact
             icon={which === "bare" ? "check-circle" : "image"}
             title={EMPTY[which].title}
             text={EMPTY[which].text}

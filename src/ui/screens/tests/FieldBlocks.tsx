@@ -68,6 +68,7 @@ export function FieldBlocks({
   readOnly,
   lockedBy,
   nested,
+  size,
   saveState,
   onText,
   onAddFiles,
@@ -87,6 +88,8 @@ export function FieldBlocks({
   /** read-only because a Claude run holds the test: the text shows Claude's lock */
   lockedBy?: "claude";
   nested?: boolean;
+  /** the text blocks' size: sm inside a table's cells */
+  size?: "sm";
   /** the save state of the test, shown on the text block last edited here */
   saveState?: FieldAutosave;
   onText: (at: number, end: number, value: string) => void;
@@ -189,6 +192,7 @@ export function FieldBlocks({
                     id={id(i)}
                     multiline
                     appearance="inline"
+                    size={size}
                     ariaLabel={where}
                     value={b.text}
                     readOnly={readOnly && !lockedBy}

@@ -320,21 +320,21 @@ describe("TestsScreen", () => {
     fireEvent.pointerUp(edge);
     fireEvent.doubleClick(edge);
     expect(localStorage.getItem("testimus.sidebarWidth")).toBeNull();
-    expect(side().style.width).toBe("300px");
+    expect(side().style.width).toBe("320px");
   });
 
-  it("ignores a stored width below 240 and clamps a drag between 240 and 480 (PARITY #58)", () => {
+  it("ignores a stored width below 260 and clamps a drag between 260 and 480 (PARITY #58)", () => {
     localStorage.setItem("testimus.sidebarWidth", "100");
     screenOf();
-    expect(side().style.width).toBe("300px");
+    expect(side().style.width).toBe("320px");
     const edge = screen.getByRole("separator", { name: "Resize the test list" });
     fireEvent.pointerDown(edge, { clientX: 300, pointerId: 1 });
     fireEvent.pointerMove(edge, { clientX: 250 });
-    expect(side().style.width).toBe("250px");
+    expect(side().style.width).toBe("270px");
     fireEvent.pointerMove(edge, { clientX: 0 });
-    expect(side().style.width).toBe("240px");
+    expect(side().style.width).toBe("260px");
     fireEvent.pointerUp(edge);
-    expect(localStorage.getItem("testimus.sidebarWidth")).toBe("240");
+    expect(localStorage.getItem("testimus.sidebarWidth")).toBe("260");
     fireEvent.pointerDown(edge, { clientX: 300, pointerId: 1 });
     fireEvent.pointerMove(edge, { clientX: 2000 });
     expect(side().style.width).toBe("480px");
@@ -343,13 +343,13 @@ describe("TestsScreen", () => {
   });
 
   it("starts at a remembered width and ignores one out of range", () => {
-    localStorage.setItem("testimus.sidebarWidth", "320");
+    localStorage.setItem("testimus.sidebarWidth", "360");
     screenOf();
-    expect(side().style.width).toBe("320px");
+    expect(side().style.width).toBe("360px");
     cleanup();
     localStorage.setItem("testimus.sidebarWidth", "9999");
     screenOf();
-    expect(side().style.width).toBe("300px");
+    expect(side().style.width).toBe("320px");
   });
 
   it("copes with a storage that throws", () => {

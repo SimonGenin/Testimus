@@ -96,7 +96,7 @@ const styles = stylex.create({
   },
   whole: { flex: "none" },
   foldableWords: { display: { default: "inline", [container.paneCompact]: "none" } },
-  foldableKeys: { display: { default: "inline-flex", [container.paneNarrow]: "none" } },
+  pushEnd: { marginInlineStart: "auto" },
 });
 
 export type Choice = Omit<SelectGroup, "label">;
@@ -282,7 +282,7 @@ export function ClaudeBlock(props: ClaudeBlockProps) {
                   ...(model ? [{ label: "Model", ...model }] : []),
                   ...(effort ? [{ label: "Effort", ...effort }] : []),
                 ]}
-                disabled={off ? unavailable : false}
+                disabled={off ? unavailable : text.disabled || text.readOnly ? "Locked while Claude works" : false}
               />
             </span>
           )}
@@ -305,9 +305,9 @@ export function ClaudeBlock(props: ClaudeBlockProps) {
           ) : (
             <>
               {off ? (
-                <span {...stylex.props(styles.hint, styles.whole)}>{unavailable}</span>
+                <span {...stylex.props(styles.hint, styles.whole, styles.pushEnd)}>{unavailable}</span>
               ) : (
-                <span {...stylex.props(styles.hint, styles.keep, styles.foldableKeys)}>
+                <span {...stylex.props(styles.hint, styles.keep)}>
                   <Kbd>{submit === "enter" ? "Enter" : "Ctrl+Enter"}</Kbd>
                   <span {...stylex.props(styles.foldableWords)}>to send</span>
                 </span>

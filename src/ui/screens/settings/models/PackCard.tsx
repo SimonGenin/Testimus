@@ -8,7 +8,6 @@ import { Icon } from "../../../components/ui/Icon.tsx";
 import { type } from "../../../components/ui/type.ts";
 import { border, color, space } from "../../../styles/tokens.stylex.ts";
 import { useJob } from "../jobs.ts";
-import { Hint } from "../Section.tsx";
 import type { PackRow } from "./data.ts";
 import { size } from "./data.ts";
 import { FitChip } from "./FitChip.tsx";
@@ -19,7 +18,8 @@ const styles = stylex.create({
   card: { display: "flex", flexDirection: "column", minWidth: 0 },
   off: { opacity: 0.7 },
   head: { display: "inline-flex", alignItems: "center", gap: space.s2 },
-  body: { display: "flex", flexDirection: "column", gap: space.s3 },
+  body: { display: "flex", flexDirection: "column", gap: space.s5 },
+  intent: { margin: 0, color: color.textMuted },
   variant: {
     boxSizing: "border-box",
     display: "flex",
@@ -108,10 +108,11 @@ export function PackCard({
   return (
     <article aria-label={`${pack.label} pack`} {...stylex.props(styles.card, !pack.available && styles.off)}>
       <Card
+        fill
         selected={pack.active}
         title={
           <span {...stylex.props(styles.head)}>
-            {pack.label}
+            <span {...stylex.props(type.title)}>{pack.label}</span>
             {pack.active && <Badge label="In use" tone="success" icon="check" size="sm" />}
           </span>
         }
@@ -134,7 +135,7 @@ export function PackCard({
         }
       >
         <div {...stylex.props(styles.body)}>
-          <Hint>{pack.intent}</Hint>
+          <p {...stylex.props(type.compact, styles.intent)}>{pack.intent}</p>
           {pack.available ? (
             <div {...stylex.props(styles.variant)}>
               <span {...stylex.props(type.small, styles.small)}>

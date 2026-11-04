@@ -96,11 +96,14 @@ describe("Settings › Search", () => {
     mountSettings(<SearchSection />);
     expect(await screen.findByText(/Not set: the Light pack/)).toBeInTheDocument();
     expect(await screen.findByText("The Light pack (default)")).toBeInTheDocument();
-    const degraded = screen.getByRole("status");
+    const degraded = screen.getByRole("alert");
     expect(degraded).toHaveTextContent("Search on words only");
-    expect(degraded).toHaveTextContent("No vectors for bge-m3-q8 yet: run rag index.");
+    expect(within(degraded).getByText("No vectors for bge-m3-q8 yet: run rag index.")).toBeInTheDocument();
+    expect(within(degraded).getByRole("button", { name: "Reindex" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Reindex" })).toHaveLength(1);
     expect(screen.getByText("qwen3-embedding-8b-q8")).toBeInTheDocument();
-    expect(screen.getByText("Vectors missing for this model — reindex")).toBeInTheDocument();
+    expect(screen.getByText("Words only")).toBeInTheDocument();
+    expect(screen.getByText(/no vectors for the active model/)).toBeInTheDocument();
   });
 
   it("says how many documents are behind, with no reranker and no origin", async () => {
@@ -115,6 +118,7 @@ describe("Settings › Search", () => {
       });
     mountSettings(<SearchSection />);
     expect(await screen.findByText("1 document to reindex")).toBeInTheDocument();
+    expect(screen.getByText("To reindex")).toBeInTheDocument();
     expect(screen.getByText(/no reranker/)).toBeInTheDocument();
     expect(screen.getByText("None: lexical search only")).toBeInTheDocument();
   });

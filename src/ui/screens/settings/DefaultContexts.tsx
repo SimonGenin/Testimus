@@ -5,15 +5,17 @@ import { ContextsDialog } from "../../components/claude/ContextsDialog.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Card } from "../../components/ui/Card.tsx";
 import { Chip } from "../../components/ui/Chip.tsx";
+import { Field } from "../../components/ui/Field.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
+import { type } from "../../components/ui/type.ts";
 import { invalidate, useRead } from "../../lib/data/query.ts";
-import { space } from "../../styles/tokens.stylex.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 import { type ProjectJson, useSetProject } from "./project.ts";
-import { Hint, Stack } from "./Section.tsx";
 
 const styles = stylex.create({
   set: { margin: 0, padding: 0, borderWidth: 0, minWidth: 0 },
   chips: { display: "flex", flexWrap: "wrap", gap: space.s2 },
+  none: { margin: 0, color: color.textMuted },
 });
 
 // ponytail: the contexts attached to every test without a list of its own — one chip per saved context, pressed when it is a default; the list
@@ -30,8 +32,10 @@ export function DefaultContexts({ chosen }: { chosen: string[] }) {
       title="Contexts"
       actions={<Button size="sm" icon="context" label="Manage contexts…" onClick={() => setManaging(true)} />}
     >
-      <Stack>
-        <Hint>Default contexts — attached to every test that has no list of its own</Hint>
+      <Field
+        label="Default contexts — attached to every test that has no list of its own"
+        hint="A context is notes, copied files and outside paths Claude reads before it works (contexts/ in the project)."
+      >
         <fieldset aria-label="Default contexts" {...stylex.props(styles.set)}>
           {!all.data && !all.isError ? (
             <Skeleton lines={2} />
@@ -53,13 +57,10 @@ export function DefaultContexts({ chosen }: { chosen: string[] }) {
               })}
             </div>
           ) : (
-            <Hint>No context yet.</Hint>
+            <p {...stylex.props(type.compact, styles.none)}>No context yet.</p>
           )}
         </fieldset>
-        <Hint>
-          A context is notes, copied files and outside paths Claude reads before it works (contexts/ in the project).
-        </Hint>
-      </Stack>
+      </Field>
       {managing && (
         <ContextsDialog
           onClose={() => {

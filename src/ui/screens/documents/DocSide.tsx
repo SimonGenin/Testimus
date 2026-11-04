@@ -41,7 +41,7 @@ function Section({ title, aside, children }: { title: string; aside?: ReactNode;
   return (
     <section {...stylex.props(styles.sec)}>
       <div {...stylex.props(styles.row)}>
-        <h3 {...stylex.props(type.small, type.strong, styles.caption)}>{title}</h3>
+        <h3 {...stylex.props(type.caption, styles.caption)}>{title}</h3>
         {aside}
       </div>
       {children}

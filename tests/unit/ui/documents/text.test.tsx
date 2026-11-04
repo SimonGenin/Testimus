@@ -35,9 +35,9 @@ describe("DocText", () => {
       "src",
       "/files/docs/D1/figures/fig-1.png?project=C%3A%2Fp",
     );
-    fireEvent.click(screen.getByRole("button", { name: "Vue de traction" }));
+    fireEvent.click(screen.getByRole("button", { name: "Link to Vue de traction" }));
     expect(onFigure).toHaveBeenCalledWith("fig:fig-1");
-    expect(screen.getByText("Plain", { selector: "figcaption" })).toBeInTheDocument();
+    expect(screen.getByText("Plain", { selector: "figcaption span" })).toBeInTheDocument();
     expect(container.querySelector("pre")).toHaveTextContent("| a | b |");
     expect(screen.getByText("sectionneur", { selector: "strong" })).toBeInTheDocument();
     expect(screen.getByText("ouvert", { selector: "em" })).toBeInTheDocument();
@@ -103,7 +103,7 @@ describe("DocText", () => {
       return t;
     };
     expect(on("§5.6.6")).toEqual(["§ 5.6.6 Sectionneur (S)"]);
-    expect(on("fig:40")).toEqual(["fig 40Figure 40"]);
+    expect(on("fig:40")).toEqual([expect.stringMatching(/^fig 40Figure 40/)]);
     expect(on("§9")).toEqual([]);
     expect(on("")).toEqual([]);
   });
@@ -130,7 +130,7 @@ describe("figures inside a paragraph", () => {
     expect(screen.getByRole("img", { name: "Vue [A]" })).toBeInTheDocument();
     expect(screen.getByText("Le local est l'endroit.")).toBeInTheDocument();
     expect(screen.getByText("Plusieurs locaux.")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Vue [A]" }));
+    fireEvent.click(screen.getByRole("button", { name: "Link to Vue [A]" }));
     expect(onFigure).toHaveBeenCalledWith("fig:f84");
   });
 

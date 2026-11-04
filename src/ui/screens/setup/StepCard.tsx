@@ -9,7 +9,16 @@ const styles = stylex.create({
   head: { display: "flex", flexDirection: "column", gap: space.s3 },
   title: { margin: 0, color: color.text },
   lead: { margin: 0, color: color.textMuted },
-  foot: { flex: 1, width: "100%", display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s3 },
+  foot: {
+    boxSizing: "border-box",
+    flex: 1,
+    width: "100%",
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: space.s3,
+    paddingInline: space.s5,
+  },
   grow: { flex: 1 },
 });
 

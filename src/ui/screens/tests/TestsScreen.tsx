@@ -22,7 +22,7 @@ import { TestEditor } from "./TestEditor.tsx";
 import { TestList } from "./TestList.tsx";
 
 export const NARROW = 900;
-const SIDEBAR = { min: 240, max: 480, initial: 300 };
+const SIDEBAR = { min: 260, max: 480, initial: 320 };
 
 const styles = stylex.create({
   screen: { display: "flex", flex: 1, minWidth: 0, minHeight: 0, height: "100%", backgroundColor: color.canvas },

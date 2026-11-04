@@ -77,9 +77,7 @@ describe("Settings › Smart columns: a field Xray requires or has switched off 
     expect(card("Action")).not.toHaveTextContent("Off in Xray");
     expect(iconsIn(within(card("Exigence")).getByText("Required")), "audit icons 104").toEqual(["alert-circle"]);
     expect(iconsIn(within(card("Ancienne")).getByText("Off in Xray"))).toEqual(["eye-off"]);
-    expect(iconsIn(within(card("Expected Result")).getByText("Xray · standard")), "the kit COLUMN word").toEqual([
-      "cloud",
-    ]);
+    expect(iconsIn(within(card("Expected Result")).getByText("Xray · standard")), "the kit COLUMN word").toEqual([]);
     const off = within(card("Ancienne")).getByText(/^Switched off in Xray/);
     expect(iconsIn(off), "audit icons 106").toEqual(["info"]);
     expect(within(card("Exigence")).queryByText(/^Switched off in Xray/)).toBeNull();

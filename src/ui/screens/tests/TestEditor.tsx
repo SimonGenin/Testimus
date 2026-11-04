@@ -3,8 +3,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import type { ColumnModes, Folder, LocalTestRef, Precondition, Step, StepImage, Test } from "../../../core/types.ts";
 import { ContextsDialog } from "../../components/claude/ContextsDialog.tsx";
-import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
+import { EmptyState } from "../../components/ui/EmptyState.tsx";
 import { useApp } from "../../lib/app.ts";
 import { columnsOf, projectModes } from "../../lib/columns.ts";
 import { pendingAutosaves } from "../../lib/data/autosave.ts";
@@ -48,7 +48,16 @@ const styles = stylex.create({
     flexDirection: "column",
     backgroundColor: color.canvas,
   },
-  empty: { boxSizing: "border-box", padding: space.s7, display: "flex", flexDirection: "column", gap: space.s4 },
+  empty: {
+    boxSizing: "border-box",
+    flex: 1,
+    minHeight: 0,
+    overflow: "auto",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: space.s7,
+  },
 });
 
 type Mark = "changed" | "added";
@@ -255,18 +264,17 @@ export function TestEditor({
       <div {...stylex.props(styles.editor)}>
         {lead}
         <div {...stylex.props(styles.empty)}>
-          <Banner
-            tone="danger"
+          <EmptyState
+            icon="alert-circle"
             title="This test could not be opened"
+            text={message(doc.error)}
             actions={
               <>
-                <Button size="sm" icon="refresh" label="Try again" onClick={() => void doc.recheck().catch(() => {})} />
-                {onBack && <Button size="sm" icon="arrow-left" label="Back to review" onClick={onBack} />}
+                <Button icon="refresh" label="Try again" onClick={() => void doc.recheck().catch(() => {})} />
+                {onBack && <Button icon="arrow-left" label="Back to review" onClick={onBack} />}
               </>
             }
-          >
-            {message(doc.error)}
-          </Banner>
+          />
         </div>
       </div>
     );

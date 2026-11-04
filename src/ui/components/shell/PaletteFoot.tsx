@@ -15,16 +15,17 @@ const styles = stylex.create({
     display: "flex",
     alignItems: "center",
     flexWrap: "wrap",
-    gap: space.s3,
+    gap: space.s5,
     paddingBlock: space.s3,
-    paddingInline: space.s4,
+    paddingInline: space.s5,
     borderTopWidth: border.width,
     borderTopStyle: "solid",
     borderColor: color.border,
     backgroundColor: color.canvas,
     color: color.textMuted,
   },
-  keys: { display: "inline-flex", alignItems: "center", gap: space.s2 },
+  keys: { display: "inline-flex", alignItems: "center", flexWrap: "wrap", gap: space.s5 },
+  key: { display: "inline-flex", alignItems: "center", gap: space.s2 },
   tips: {
     display: { default: "inline-flex", [breakpoint.narrow]: "none" },
     alignItems: "center",
@@ -35,6 +36,17 @@ const styles = stylex.create({
 });
 
 const NARROW = ['"exact"', "-word", "review:to-fix", "label:", "folder:"];
+
+const keys = (pairs: [string, string][]) => (
+  <span {...stylex.props(styles.keys)}>
+    {pairs.map(([k, word]) => (
+      <span key={k} {...stylex.props(styles.key)}>
+        <Kbd>{k}</Kbd>
+        {word}
+      </span>
+    ))}
+  </span>
+);
 
 // ponytail: the keys and what the list is — a search (the filters search.all understands, what the meaning pass says
 // about the tests), the commands (a Jira write shows its plan first), or the commands alone, with no project open
@@ -51,11 +63,11 @@ export function PaletteFoot({
   if (mode !== "search")
     return (
       <div {...stylex.props(type.small, styles.foot)}>
-        <span {...stylex.props(styles.keys)}>
-          {mode === "none" && <Kbd>↑↓</Kbd>}
-          {mode === "none" && " move "}
-          <Kbd>Enter</Kbd> {mode === "none" ? "run" : "open the form"} <Kbd>Esc</Kbd> close
-        </span>
+        {keys([
+          ...(mode === "none" ? ([["↑↓", "move"]] as [string, string][]) : []),
+          ["Enter", mode === "none" ? "run" : "open the form"],
+          ["Esc", "close"],
+        ])}
         <span {...stylex.props(styles.tips)}>
           {mode === "none" ? (
             <Badge label="Commands only" icon="terminal" size="sm" />
@@ -68,9 +80,11 @@ export function PaletteFoot({
   const unembedded = result?.meaning !== "unavailable" ? (result?.unembedded ?? 0) : 0;
   return (
     <div {...stylex.props(type.small, styles.foot)}>
-      <span {...stylex.props(styles.keys)}>
-        <Kbd>↑↓</Kbd> move <Kbd>Enter</Kbd> open <Kbd>Tab</Kbd> next kind
-      </span>
+      {keys([
+        ["↑↓", "move"],
+        ["Enter", "open"],
+        ["Tab", "next kind"],
+      ])}
       {unembedded > 0 ? (
         <Button
           variant="quiet"
@@ -96,7 +110,7 @@ export function PaletteFoot({
       <span {...stylex.props(styles.tips)}>
         Narrow with
         {NARROW.map((n) => (
-          <Chip key={n} label={n} mono />
+          <Chip key={n} label={n} mono square />
         ))}
       </span>
     </div>

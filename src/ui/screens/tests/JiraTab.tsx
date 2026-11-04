@@ -13,7 +13,7 @@ import { project } from "../../lib/data/client.ts";
 import { read } from "../../lib/data/query.ts";
 import { plural } from "../../lib/format.ts";
 import { errorToast } from "../../lib/toast.ts";
-import { border, color, space } from "../../styles/tokens.stylex.ts";
+import { border, color, size, space } from "../../styles/tokens.stylex.ts";
 import { KeyText, SYNC_OF, SYNC_TIP } from "./list/rows.tsx";
 import { findFolder, flattenFolders, folderName } from "./list/tree.ts";
 
@@ -25,15 +25,16 @@ const styles = stylex.create({
   head: {
     boxSizing: "border-box",
     display: "flex",
-    alignItems: "baseline",
+    alignItems: "center",
     gap: space.s3,
-    paddingBlock: space.s2,
-    paddingInline: space.s3,
-    borderTopStyle: "solid",
-    borderTopWidth: border.width,
-    borderTopColor: color.border,
+    minHeight: size.row,
+    paddingInline: space.s5,
+    backgroundColor: color.surfaceSunken,
+    borderBlockStyle: "solid",
+    borderBlockWidth: border.width,
+    borderBlockColor: color.border,
   },
-  path: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" },
+  path: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   range: { color: color.textMuted },
   meta: { display: "inline-flex", alignItems: "center", flexWrap: "wrap", gap: space.s2 },
   count: { color: color.textMuted },
@@ -208,7 +209,7 @@ export function JiraTab({
       {ready && (
         <>
           <div {...stylex.props(type.small, styles.head)}>
-            <span {...stylex.props(type.medium, styles.path, !(!query && folder === "/") && type.mono)}>
+            <span {...stylex.props(!(!query && folder === "/") && type.code, styles.path)}>
               {query ? `search “${query}”` : folderName(folder)}
             </span>
             {!busy && (
@@ -268,9 +269,9 @@ export function JiraTab({
                       ) : (
                         <Badge label={busyRow ? "Pulling…" : "Not pulled"} size="sm" busy={busyRow} />
                       )}
-                      <span {...stylex.props(type.code, styles.count)}>{plural(t.stepCount, "step")}</span>
                     </span>
                   ),
+                  trail: plural(t.stepCount, "step"),
                 };
               }}
             />

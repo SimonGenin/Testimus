@@ -428,7 +428,7 @@ describe("Review screen", () => {
     fireEvent.click(screen.getAllByRole("button", { name: /D §2/ })[0]);
     fireEvent.click(await screen.findByRole("button", { name: /Sources read/ }));
     fireEvent.click(await screen.findByRole("option", { name: /E#§7/ }));
-    expect(await screen.findByText("Read by the generation")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Read by the generation" })).toBeInTheDocument();
     expect(screen.getByText("1 of 1 source")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("option", { name: /^D#§2/ }));
     expect(await screen.findByText("Source of step 2")).toBeInTheDocument();
@@ -761,7 +761,7 @@ describe("Review screen", () => {
     net.routes["check.run"] = () => ({ tests: [], totals: {}, failed: [] });
     show();
     await screen.findByRole("heading", { name: "Summary K-1" });
-    const notice = await within(queue()).findByText("2 tests not checked yet");
+    const notice = await within(queue()).findByText("2 tests not checked yet.");
     fireEvent.click(within(notice.closest("[role=status]") as HTMLElement).getByRole("button", { name: "Check" }));
     await waitFor(() => expect(named("check.run")).toHaveLength(1));
     expect(named("check.run")[0].input).toEqual({ ids: ["K-1", "K-2"] });

@@ -23,18 +23,37 @@ const styles = stylex.create({
     gridTemplateColumns: `${size.sidebar} minmax(0, 1fr)`,
     height: "64vh",
     minHeight: size.modalSm,
+    borderTopStyle: "solid",
+    borderTopWidth: border.width,
+    borderTopColor: color.border,
   },
   side: {
     display: "flex",
     flexDirection: "column",
-    gap: space.s3,
-    paddingInlineEnd: space.s5,
     borderInlineEndStyle: "solid",
     borderInlineEndWidth: border.width,
     borderInlineEndColor: color.border,
     minWidth: 0,
+    minHeight: 0,
   },
-  main: { paddingInlineStart: space.s6, minWidth: 0, minHeight: 0, overflowY: "auto" },
+  sideActs: {
+    display: "flex",
+    flexDirection: "column",
+    gap: space.s2,
+    padding: space.s4,
+    borderBottomStyle: "solid",
+    borderBottomWidth: border.width,
+    borderBottomColor: color.border,
+  },
+  sideList: { flex: 1, minHeight: 0, overflowY: "auto", paddingInline: space.s3 },
+  main: {
+    boxSizing: "border-box",
+    paddingBlock: space.s6,
+    paddingInline: space.s7,
+    minWidth: 0,
+    minHeight: 0,
+    overflowY: "auto",
+  },
   centered: { display: "flex", alignItems: "center", justifyContent: "center" },
   path: { display: "inline-flex", alignItems: "center", gap: space.s2 },
   muted: { color: color.textSubtle },
@@ -95,6 +114,7 @@ export function ContextsDialog({ onClose, initialId }: { onClose: () => void; in
       title="Contexts"
       icon="context"
       size="lg"
+      flush
       subtitle="Notes, files and folders Claude reads before it works. The project's defaults go with every test that has no list of its own."
       onClose={onClose}
       footNote={
@@ -106,32 +126,41 @@ export function ContextsDialog({ onClose, initialId }: { onClose: () => void; in
           </span>
         )
       }
-      actions={detail && <Button variant="quiet" icon="trash" label="Delete context" onClick={() => void remove()} />}
+      actions={
+        <>
+          {detail && <Button variant="quiet" icon="trash" label="Delete context" onClick={() => void remove()} />}
+          <Button label="Close" onClick={onClose} />
+        </>
+      }
     >
       <div {...stylex.props(styles.body)}>
         <div {...stylex.props(styles.side)}>
-          <Button block icon="plus" label="New context" onClick={() => void create()} />
-          <CopyContext
-            open={copying}
-            onOpenChange={setCopying}
-            onCopied={(c) => void words.flush().then(() => setSel(c))}
-          />
-          <List
-            label="Contexts"
-            items={rows}
-            getKey={(c) => c.id}
-            loading={list === undefined && !listRead.error}
-            empty={<span {...stylex.props(type.small, styles.muted)}>No context yet.</span>}
-            selected={detail?.id ?? null}
-            onSelect={(k) => {
-              if (k !== id) void words.flush().then(() => setSel(k));
-            }}
-            renderItem={(c) => ({
-              title: name(c),
-              lead: <Icon name="context" />,
-              meta: `${c.shared ? "shared · " : ""}${contextLine(c)}`,
-            })}
-          />
+          <div {...stylex.props(styles.sideActs)}>
+            <Button block icon="plus" label="New context" onClick={() => void create()} />
+            <CopyContext
+              open={copying}
+              onOpenChange={setCopying}
+              onCopied={(c) => void words.flush().then(() => setSel(c))}
+            />
+          </div>
+          <div {...stylex.props(styles.sideList)}>
+            <List
+              label="Contexts"
+              items={rows}
+              getKey={(c) => c.id}
+              loading={list === undefined && !listRead.error}
+              empty={<span {...stylex.props(type.small, styles.muted)}>No context yet.</span>}
+              selected={detail?.id ?? null}
+              onSelect={(k) => {
+                if (k !== id) void words.flush().then(() => setSel(k));
+              }}
+              renderItem={(c) => ({
+                title: name(c),
+                lead: <Icon name="context" />,
+                meta: `${c.shared ? "shared · " : ""}${contextLine(c)}`,
+              })}
+            />
+          </div>
         </div>
         <div {...stylex.props(styles.main, !detail && !id && styles.centered)}>
           {detail ? (

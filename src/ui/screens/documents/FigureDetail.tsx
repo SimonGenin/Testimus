@@ -30,6 +30,8 @@ const styles = stylex.create({
   description: { margin: 0, color: color.text },
   small: { margin: 0, color: color.textMuted },
   labels: { color: color.text },
+  acts: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s3 },
+  flush: { display: "inline-flex", marginInlineStart: `calc(-1 * ${space.s2})` },
 });
 
 export const isDescribed = (f: FigureEntry) => !!f.description.trim();
@@ -77,23 +79,7 @@ export function FigureDetail({
   const name = figure.caption || figure.anchor;
   return (
     <aside aria-label={name}>
-      <Card
-        footer={
-          <>
-            <Button size="sm" icon="text" label="Show in the text" onClick={() => onOpen(figure.anchor)} />
-            {figure.file && (
-              <Button
-                size="sm"
-                variant="claude-quiet"
-                icon="claude"
-                label={described ? "Describe again" : "Describe it"}
-                loading={busy}
-                onClick={onDescribe}
-              />
-            )}
-          </>
-        }
-      >
+      <Card density="compact">
         <figure {...stylex.props(styles.figure)}>
           <FigureImage docId={docId} figure={figure} />
           {figure.caption && <figcaption {...stylex.props(type.small, styles.caption)}>{figure.caption}</figcaption>}
@@ -110,7 +96,11 @@ export function FigureDetail({
             },
             !!section && {
               label: "Section",
-              value: <Button size="xs" variant="quiet" label={sectionLabel(section)} onClick={() => onOpen(section)} />,
+              value: (
+                <span {...stylex.props(styles.flush)}>
+                  <Button size="xs" variant="quiet" label={sectionLabel(section)} onClick={() => onOpen(section)} />
+                </span>
+              ),
             },
             !!figure.kind && { label: "Kind", value: figure.kind },
           ]}
@@ -138,6 +128,19 @@ export function FigureDetail({
               : "The conversion kept no picture for this figure: only its caption is in the text."}
           </p>
         )}
+        <div {...stylex.props(styles.acts)}>
+          <Button size="sm" icon="text" label="Show in the text" onClick={() => onOpen(figure.anchor)} />
+          {figure.file && (
+            <Button
+              size="sm"
+              variant="claude-quiet"
+              icon="claude"
+              label={described ? "Describe again" : "Describe it"}
+              loading={busy}
+              onClick={onDescribe}
+            />
+          )}
+        </div>
       </Card>
     </aside>
   );

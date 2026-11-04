@@ -23,7 +23,9 @@ const styles = stylex.create({
     display: "flex",
     flexDirection: "column",
     gap: space.s5,
-    padding: space.s6,
+    paddingBlockStart: space.s6,
+    paddingBlockEnd: space.s9,
+    paddingInline: space.s7,
     containerType: "inline-size",
   },
   summary: { display: "flex", flexDirection: "column", gap: space.s4 },
@@ -130,7 +132,7 @@ export function ResultPane({
   const doing = DOING[activityOf(gen.events).at(-1)?.kind ?? "prepare"];
   const checkOf = (id: string) => result?.checks?.find((c) => c.id === id);
   const head = (
-    <Card>
+    <Card density="compact">
       <div {...stylex.props(styles.summary)}>
         <RunHead
           job={job}

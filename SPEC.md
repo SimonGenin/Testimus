@@ -1067,7 +1067,7 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
     job's progress line or « contacting Jira… » / « waiting for a free slot… », Cancel, « N more pulling in the
     background »); the pane follows the last row clicked; a pull that lands unwatched only refreshes the list, an
     unwatched failure is a toast, a watched one the « Pull failed » pane with Retry / Back; leaving never cancels. The
-    sidebar is resizable 240–480 px (`testimus.sidebarWidth`, double-click resets); below 900 px it is a slide-over
+    sidebar is resizable 260–480 px, 320 by default (`testimus.sidebarWidth`, double-click resets); below 900 px it is a slide-over
     with a scrim (☰ « Show test list », Escape, opening a test or ✕ « Close list » close it). Activity: a fixed slot in
     the sidebar head (and in every other screen's header, beside the palette button) shows a spinner and the count of
     running jobs; its popover lists each (kind glyph, subject, latest
