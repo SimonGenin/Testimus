@@ -65,7 +65,7 @@ export async function claudeVersionCheck(timeoutMs: number): Promise<DoctorCheck
   const exe = claudeExe();
   const fix =
     "Install it: irm https://claude.ai/install.ps1 | iex — or set its path with testimus system set --claude-exe <path>.";
-  const exePath: DoctorAction = { label: "Set the claude.exe path", command: "system.set" };
+  const exePath: DoctorAction = { label: "Set the Claude program path", command: "system.set" };
   try {
     const out = await env.spawnClaude({
       exe,

@@ -238,6 +238,7 @@ describe("First launch › Search pack, as the third step", () => {
     expect(callsOf("models.hardware").map((c) => c.input)).toEqual([{ refresh: true }]);
     expect(screen.getByText("Suggested for this PC")).toBeInTheDocument();
     expect(screen.getAllByText("Fits")).toHaveLength(3);
+    for (const b of screen.getAllByText("Fits")) expect(b.querySelector("svg")).not.toBeNull();
     const facts = screen.getByLabelText("This machine");
     expect(facts).toHaveTextContent("macOS · arm64");
     expect(facts).toHaveTextContent("Apple M2 Pro, 12 threads");
@@ -312,7 +313,8 @@ describe("First launch › Search pack, as the third step", () => {
   it("asks for a project first", () => {
     base(null);
     const { state } = show(false);
-    expect(screen.getByText(/Open or create a project first/)).toBeInTheDocument();
+    expect(screen.getByText("Open a project first")).toBeInTheDocument();
+    expect(screen.getByText("The pack is chosen per project, on this PC.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Back to Project" }));
     expect(state.navigate).toHaveBeenCalledWith("setup", "project");
     expect(callsOf("models.packs")).toHaveLength(0);

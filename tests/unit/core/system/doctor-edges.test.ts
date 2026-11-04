@@ -146,6 +146,7 @@ describe("claude checks", () => {
     expect(await claudeVersionCheck(10)).toMatchObject({
       state: "fail",
       detail: expect.stringMatching(/(^|[\\/])claude(\.exe|\.cmd)?: spawn failed \(ENOENT\)$/),
+      action: { label: "Set the Claude program path", command: "system.set" },
     });
   });
 

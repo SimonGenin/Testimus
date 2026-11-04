@@ -67,7 +67,7 @@ export function ProjectStep({ onBack, onOpened }: { onBack: () => void; onOpened
           </section>
         )
       )}
-      <NewProject f={f} busy={p.busy} />
+      <NewProject f={f} busy={p.busy} first={p.known?.length === 0} />
       {desktop() && (
         <div {...stylex.props(styles.more)}>
           <Button

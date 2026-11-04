@@ -7,12 +7,19 @@ import { Text } from "../../../components/ui/Text.tsx";
 import { useDraft } from "../../../lib/data/autosave.ts";
 import { execute, type Key } from "../../../lib/data/query.ts";
 import { errorToast, toast } from "../../../lib/toast.ts";
-import { space } from "../../../styles/tokens.stylex.ts";
+import { color, fontSize, fontWeight, lineHeight, space } from "../../../styles/tokens.stylex.ts";
 import { Hint, Stack } from "../Section.tsx";
 import { folderPicker } from "./data.ts";
 
 const styles = stylex.create({
   row: { display: "flex", alignItems: "flex-end", gap: space.s3 },
+  head: { display: "flex", flexDirection: "column", gap: space.s1 },
+  title: {
+    color: color.text,
+    fontSize: fontSize.titleSm,
+    lineHeight: lineHeight.titleSm,
+    fontWeight: fontWeight.semibold,
+  },
   grow: { flex: 1, minWidth: 0 },
 });
 
@@ -47,14 +54,17 @@ export function AddFolder() {
   };
   return (
     <Stack>
-      <Hint>
-        A model already on disk (a team share, a manual download): a Hugging Face folder, a .gguf file or a llama.cpp
-        folder. It is checked with one sentence and used in place.
-      </Hint>
+      <div {...stylex.props(styles.head)}>
+        <span {...stylex.props(styles.title)}>Add from a folder…</span>
+        <Hint>
+          A model already on disk (a team share, a manual download): a Hugging Face folder, a .gguf file or a llama.cpp
+          folder. It is checked with one sentence and used in place.
+        </Hint>
+      </div>
       <div {...stylex.props(styles.row)}>
         <div {...stylex.props(styles.grow)}>
           <Text
-            label="Add from a folder…"
+            ariaLabel="Add from a folder…"
             value={path}
             onChange={setPath}
             spellCheck={false}
@@ -77,7 +87,8 @@ export function AddFolder() {
         <Button label={busy ? "Checking…" : "Add"} loading={busy} disabled={!path.trim()} onClick={() => void add()} />
       </div>
       <Checkbox
-        label="Copy it into my models folder (a share may be slow or read-only)"
+        label="Copy it into my models folder"
+        hint="A share may be slow or read-only."
         checked={copy === "1"}
         onChange={(on) => setCopy(on ? "1" : "")}
       />

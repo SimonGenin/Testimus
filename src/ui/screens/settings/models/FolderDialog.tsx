@@ -13,13 +13,36 @@ import { ApiError } from "../../../lib/data/client.ts";
 import { execute, useRead } from "../../../lib/data/query.ts";
 import { absolutePath, examplePath } from "../../../lib/desktop.ts";
 import { message } from "../../../lib/format.ts";
-import { size as sizes, space } from "../../../styles/tokens.stylex.ts";
+import {
+  color,
+  fontFamily,
+  fontSize,
+  fontWeight,
+  lineHeight,
+  size as sizes,
+  space,
+} from "../../../styles/tokens.stylex.ts";
 import { useJob } from "../jobs.ts";
 import { Hint, Stack } from "../Section.tsx";
 import type { SetDirOut } from "./data.ts";
 import { bestDrive, defaultFolder, folderPicker, onDrive, size } from "./data.ts";
 
 const styles = stylex.create({
+  field: { display: "flex", flexDirection: "column", gap: space.snug },
+  label: {
+    color: color.text,
+    fontSize: fontSize.compact,
+    lineHeight: lineHeight.compact,
+    fontWeight: fontWeight.medium,
+  },
+  root: { fontFamily: fontFamily.mono },
+  free: {
+    marginInlineStart: space.s3,
+    color: color.textMuted,
+    fontSize: fontSize.small,
+    lineHeight: lineHeight.small,
+    whiteSpace: "nowrap",
+  },
   drives: {
     display: "grid",
     gridTemplateColumns: `repeat(auto-fill, minmax(calc(${sizes.sidebar} * 2 / 3), 1fr))`,
@@ -30,9 +53,9 @@ const styles = stylex.create({
 type Choice = "move" | "keep" | "copy";
 
 const CHOICES: { value: Choice; label: string; hint: string }[] = [
-  { value: "move", label: "Move", hint: "Move the downloaded models there; the old copy is deleted once checked" },
-  { value: "keep", label: "Keep where they are", hint: "Nothing moves; only new downloads go to the new folder" },
-  { value: "copy", label: "Copy", hint: "Copy them there and keep the old copy" },
+  { value: "move", label: "Move them there", hint: "Followed as a job; the old copy is deleted once checked." },
+  { value: "keep", label: "Keep them where they are", hint: "Only new downloads go to the new folder." },
+  { value: "copy", label: "Copy them", hint: "Both folders hold them; nothing is deleted." },
 ];
 
 type Refusal = { message: string; fix?: string };
@@ -117,7 +140,11 @@ export function FolderDialog({
           : "Models are big files. Pick a drive with room; this PC remembers the choice for every project."
       }
       footNote={
-        needMB > 0 ? `This download needs ${size(needMB)} (${size(needMB * 1.2)} free with the margin).` : undefined
+        moving
+          ? `${choice === "move" ? "Moving" : "Copying"} ${size(plan?.installedMB ?? 0)} is followed as a job in Jobs.`
+          : needMB > 0
+            ? `This download needs ${size(needMB)} (${size(needMB * 1.2)} free with the margin).`
+            : undefined
       }
       busy={busy}
       onClose={onClose}
@@ -126,13 +153,7 @@ export function FolderDialog({
           <Button variant="quiet" label="Cancel" onClick={onClose} />
           <Button
             variant="primary"
-            label={
-              moving
-                ? `${choice === "move" ? "Move" : "Copy"} ${size(plan?.installedMB ?? 0)}`
-                : changing
-                  ? "Use this folder"
-                  : "Store models here"
-            }
+            label={changing ? "Use this folder" : "Store models here"}
             loading={busy}
             disabled={!plan}
             onClick={() => void apply()}
@@ -162,33 +183,39 @@ export function FolderDialog({
         ) : !hw.data ? (
           <Skeleton kind="block" />
         ) : (
-          <div role="radiogroup" aria-label="Drives" {...stylex.props(styles.drives)}>
-            {drives.map((d) => {
-              const short = d.freeMB < needMB * 1.2;
-              const used = d.totalMB ? Math.round(((d.totalMB - d.freeMB) / d.totalMB) * 100) : 0;
-              return (
-                <Card
-                  key={d.root}
-                  title={`${d.root} ${size(d.freeMB)} free`}
-                  radio={{
-                    name: "models-drive",
-                    value: d.root,
-                    checked: onDrive(dir.trim(), d.root),
-                    disabled: short,
-                    onSelect: () => {
-                      setTyped(false);
-                      setDir(defaultFolder(d.root));
-                    },
-                  }}
-                >
-                  <Progress
-                    label={`${d.root} used`}
-                    value={used}
-                    detail={short ? "Not enough room" : `of ${size(d.totalMB)}`}
-                  />
-                </Card>
-              );
-            })}
+          <div {...stylex.props(styles.field)}>
+            <span id="models-drives" {...stylex.props(styles.label)}>
+              Drives
+            </span>
+            <div role="radiogroup" aria-labelledby="models-drives" {...stylex.props(styles.drives)}>
+              {drives.map((d) => {
+                const short = d.freeMB < needMB * 1.2;
+                const used = d.totalMB ? Math.round(((d.totalMB - d.freeMB) / d.totalMB) * 100) : 0;
+                return (
+                  <Card
+                    key={d.root}
+                    title={<span {...stylex.props(styles.root)}>{d.root}</span>}
+                    actions={
+                      <span {...stylex.props(styles.free)}>
+                        {size(d.freeMB)} free{d.totalMB ? ` of ${size(d.totalMB)}` : ""}
+                      </span>
+                    }
+                    radio={{
+                      name: "models-drive",
+                      value: d.root,
+                      checked: onDrive(dir.trim(), d.root),
+                      disabled: short,
+                      onSelect: () => {
+                        setTyped(false);
+                        setDir(defaultFolder(d.root));
+                      },
+                    }}
+                  >
+                    <Progress label={`${d.root} used`} value={used} detail={short ? "Not enough room" : undefined} />
+                  </Card>
+                );
+              })}
+            </div>
           </div>
         )}
         <Text

@@ -136,7 +136,7 @@ function Progressed({ job }: { job: Job }) {
   }
   return (
     <span {...stylex.props(styles.prog)}>
-      {job.progress?.total ? `${job.progress.done} of ${job.progress.total}` : "—"}
+      {job.progress?.total ? `${job.progress.done} of ${job.progress.total}` : ""}
     </span>
   );
 }
@@ -185,7 +185,7 @@ function jobItem(r: Extract<Row, { kind: "job" }>, c: ListCtx): ListItemProps {
     ),
     trail: trail(
       <Progressed job={job} />,
-      <JobState job={job} now={c.now} />,
+      <JobState job={job} now={c.now} timed={false} />,
       duration(job, c.now),
       clock(job.startedAt).slice(0, 5),
     ),
@@ -209,8 +209,8 @@ function processItem(r: Extract<Row, { kind: "process" }>, c: ListCtx): ListItem
       ) : (
         <Badge
           label={ok ? "Ended" : `Ended with code ${p.exit ?? "?"}`}
-          tone={ok ? "neutral" : "danger"}
-          icon={ok ? "check-circle" : "x-circle"}
+          tone={ok ? "success" : "danger"}
+          icon={ok ? "check" : "x-circle"}
           size="sm"
         />
       ),

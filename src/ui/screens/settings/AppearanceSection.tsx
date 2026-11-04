@@ -9,10 +9,9 @@ import { usePref } from "../../lib/prefs.ts";
 import { type Theme, useTheme } from "../../lib/theme.ts";
 import { space } from "../../styles/tokens.stylex.ts";
 import { useSetting, useSettings } from "./machine.ts";
-import { Grid, Hint, Section, Stack } from "./Section.tsx";
+import { Grid, Hint, Labelled, Section, Stack } from "./Section.tsx";
 
 const styles = stylex.create({
-  field: { display: "flex", flexDirection: "column", gap: space.s2 },
   kept: { display: "flex", alignItems: "center", gap: space.s2 },
 });
 
@@ -29,7 +28,7 @@ export function AppearanceSection() {
       <Card title="Appearance">
         <Stack>
           <Grid>
-            <div {...stylex.props(styles.field)}>
+            <Labelled label="Theme" hint="Also from the rail, at the bottom.">
               <Segmented<Theme>
                 label="Theme"
                 value={theme}
@@ -40,17 +39,18 @@ export function AppearanceSection() {
                   { value: "dark", label: "Dark", icon: "moon" },
                 ]}
               />
-              <Hint>Also from the rail, at the bottom.</Hint>
-            </div>
-            <Segmented
-              label="Step layout"
-              value={layout}
-              onChange={setLayout}
-              options={[
-                { value: "stacked", label: "Stacked", icon: "layout-stacked" },
-                { value: "split", label: "Action | Expected", icon: "layout-split" },
-              ]}
-            />
+            </Labelled>
+            <Labelled label="Step layout in the editor">
+              <Segmented
+                label="Step layout"
+                value={layout}
+                onChange={setLayout}
+                options={[
+                  { value: "stacked", label: "Stacked", icon: "layout-stacked" },
+                  { value: "split", label: "Action | Expected", icon: "layout-split" },
+                ]}
+              />
+            </Labelled>
           </Grid>
           <span {...stylex.props(styles.kept)}>
             <Icon name="history" size="sm" />

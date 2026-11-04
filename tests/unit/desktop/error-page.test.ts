@@ -37,6 +37,17 @@ describe("error page", () => {
     expect(text("lines")).toBe("line 1\nline 2");
     expect(text("where")).toBe("C:\\L\\logs");
     expect(document.activeElement).toBe(button("restart"));
+    expect(document.querySelector("[role=alert]")?.textContent).toContain(
+      "The core stopped (exit code 1). The lines below say why; your projects are untouched.",
+    );
+    expect(document.getElementById("log-title")?.textContent).toBe("The last 40 lines of the core's output");
+    expect(document.body.textContent).toContain("Logs are kept 14 days.");
+  });
+
+  it("says how long the logs are kept, as the shell does", async () => {
+    const { KEEP_DAYS, TAIL_LINES } = await import("../../../src/desktop/log.ts");
+    expect(html).toContain(`Logs are kept ${KEEP_DAYS} days.`);
+    expect(html).toContain(`The last ${TAIL_LINES} lines`);
   });
 
   it("says when the log is empty", async () => {

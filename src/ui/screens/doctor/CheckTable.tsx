@@ -3,7 +3,7 @@ import type { DoctorAction, DoctorCheck } from "../../../core/types.ts";
 import { Badge } from "../../components/ui/Badge.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Table } from "../../components/ui/Table.tsx";
-import { color, fontSize, fontWeight, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { color, fontSize, fontWeight, lineHeight, size, space } from "../../styles/tokens.stylex.ts";
 import { isOpen, LOOK, lookOf } from "./checks.ts";
 
 const styles = stylex.create({
@@ -20,7 +20,7 @@ const styles = stylex.create({
   open: { color: color.text },
   todo: { color: color.text },
   strong: { fontWeight: fontWeight.semibold },
-  fix: { display: "flex", justifyContent: "flex-end" },
+  fix: { display: "flex", justifyContent: "flex-end", whiteSpace: "nowrap" },
 });
 
 function Result({ check }: { check: DoctorCheck }) {
@@ -65,25 +65,25 @@ export function CheckTable({
           {
             key: "state",
             label: "State",
-            width: "16%",
+            width: `calc(${space.s11} * 2)`,
             render: (c) => <Badge {...LOOK[lookOf(c)]} size="sm" />,
           },
           {
             key: "label",
             label: "Check",
-            width: "26%",
+            width: `calc(${size.sidebar} - ${space.s8})`,
             render: (c) => <span {...stylex.props(styles.label)}>{c.label}</span>,
           },
-          { key: "detail", label: "Result", width: "38%", render: (c) => <Result check={c} /> },
+          { key: "detail", label: "Result", render: (c) => <Result check={c} /> },
           {
             key: "fix",
             label: "Fix",
+            width: "1%",
             render: (c) =>
               c.action && (
                 <span {...stylex.props(styles.fix)}>
                   <Button
                     size="sm"
-                    variant={isOpen(c.state) ? "primary" : "secondary"}
                     icon={c.action.command === "system.doctor" ? "claude" : undefined}
                     label={c.action.label}
                     loading={busy(c)}
