@@ -25,6 +25,7 @@ import {
   space,
   z,
 } from "../../styles/tokens.stylex.ts";
+import { Badge } from "./Badge.tsx";
 import { Button, type ButtonProps } from "./Button.tsx";
 import { Icon, type IconName } from "./Icon.tsx";
 import { focusables, useAnchor } from "./layer.ts";
@@ -115,6 +116,8 @@ export type PopoverProps = {
   /** in the head, beside the icon and the close button; it names the dialog (« Ask Claude · Step 2 ») */
   title: string;
   icon?: IconName;
+  /** a count pill after the title (« Running 3 ») */
+  count?: number;
   /** the content: a ClaudeBlock, a List, a Segmented choice, a small form */
   children: ReactNode;
   /** words under the content (« Runs in the dock with this test's contexts ») */
@@ -144,6 +147,7 @@ export function Popover({
   trigger,
   title,
   icon,
+  count,
   children,
   foot,
   open: controlled,
@@ -233,6 +237,12 @@ export function Popover({
               )}
               <h2 id={titleId} {...stylex.props(styles.title)}>
                 {title}
+                {count !== undefined && (
+                  <>
+                    {" "}
+                    <Badge label={String(count)} count size="sm" />
+                  </>
+                )}
               </h2>
               <Button variant="quiet" size="xs" iconOnly icon="close" label="Close" onClick={close} />
             </div>

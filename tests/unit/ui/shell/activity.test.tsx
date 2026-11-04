@@ -39,7 +39,7 @@ function JiraTree() {
   return null;
 }
 
-const rows = () => within(screen.getByRole("dialog", { name: "Running jobs" })).getAllByRole("listitem");
+const rows = () => within(screen.getByRole("dialog", { name: /^Running \d/ })).getAllByRole("listitem");
 
 describe("Activity", () => {
   it("formats the time a job has run", () => {
@@ -89,6 +89,10 @@ describe("Activity", () => {
     expect(list[1]).toHaveTextContent("Writing 2 · 2/8");
     expect(within(list[1]).getByRole("progressbar")).toHaveAttribute("aria-valuenow", "25");
     expect(list[2]).toHaveTextContent("Starting");
+    expect(list[2]).toHaveTextContent("Generate tests · Gen");
+    expect(within(list[1]).getByTestId("elapsed").textContent).toMatch(/\d/);
+    const pop = screen.getByRole("dialog", { name: /^Running 3/ });
+    expect(within(pop).getByText("Esc or a click outside closes this")).toBeInTheDocument();
     expect(within(list[2]).getByRole("progressbar")).not.toHaveAttribute("aria-valuenow");
     expect(list[0]).not.toHaveTextContent("Reading");
     fireEvent.click(within(list[1]).getByRole("button", { name: "Cancel LFRPS12" }));
@@ -102,7 +106,7 @@ describe("Activity", () => {
     withData(<Activity />);
     const btn = await screen.findByRole("button", { name: "1 job running" });
     fireEvent.click(btn);
-    expect(screen.getByRole("dialog", { name: "Running jobs" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: /^Running \d/ })).toBeInTheDocument();
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
     expect(screen.queryByRole("dialog")).toBeNull();
     fireEvent.click(btn);
@@ -129,7 +133,7 @@ describe("Activity", () => {
     await act(async () => gate.resolve(null));
     const btn = await screen.findByRole("button", { name: "1 job running" });
     fireEvent.click(btn);
-    const time = () => within(rows()[0]).getByRole("progressbar").getAttribute("aria-valuetext");
+    const time = () => within(rows()[0]).getByTestId("elapsed").textContent;
     const first = time();
     await act(() => vi.advanceTimersByTimeAsync(2000));
     expect(time()).not.toBe(first);
@@ -173,6 +177,7 @@ describe("Activity", () => {
     );
     fireEvent.click(await screen.findByRole("button", { name: "1 job running" }));
     expect(rows()[0]).toHaveTextContent("Loading the Jira folders");
+    expect(rows()[0]).toHaveTextContent("Not a job — it cannot be cancelled");
     expect(within(rows()[0]).queryByRole("button")).toBeNull();
     await act(async () => load.resolve(null));
     expect(screen.queryByRole("button", { name: /running/ })).toBeNull();
