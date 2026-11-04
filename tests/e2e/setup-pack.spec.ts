@@ -12,15 +12,15 @@ test.describe("a 16 GB GPU", () => {
     await steps.getByRole("button", { name: /Search pack/ }).click();
     await expect(page).toHaveURL(/#\/setup\/pack$/);
     await expect(page.getByRole("heading", { level: 1, name: "Choose how documents are searched" })).toBeVisible();
-    const packs = page.getByRole("group", { name: "Search packs" });
-    const quality = packs.getByRole("radio", { name: "Quality pack" });
+    const packs = page.getByRole("radiogroup", { name: "Search packs" });
+    const quality = packs.getByRole("radio", { name: /^Quality\b/ });
     await expect(quality).toBeEnabled();
     await page.getByRole("button", { name: "Analyse my machine" }).click();
     await expect(quality).toBeChecked();
-    await expect(
-      packs.locator("label").filter({ has: page.getByRole("radio", { name: "Quality pack" }) }),
-    ).toContainText("Suggested for this PC");
-    await expect(packs.getByRole("radio", { name: "Light pack" })).toBeEnabled();
+    await expect(packs.locator("label").filter({ has: page.getByRole("radio", { name: /^Quality\b/ }) })).toContainText(
+      "Suggested for this PC",
+    );
+    await expect(packs.getByRole("radio", { name: /^Light\b/ })).toBeEnabled();
     await shoot(page, "setup-pack-e2e");
 
     await page.getByRole("button", { name: "Use Quality" }).click();
@@ -34,7 +34,7 @@ test.describe("a 16 GB GPU", () => {
 
   test("Skip for now leaves the choice as it is", async ({ page }) => {
     await page.goto("/#/setup/pack");
-    await page.getByRole("radio", { name: "Light pack" }).check();
+    await page.getByRole("radio", { name: /^Light\b/ }).check();
     await page.getByRole("button", { name: "Skip for now" }).click();
     await expect(page).toHaveURL(/#\/documents/);
   });
@@ -46,19 +46,19 @@ test.describe("no GPU, 6 GB, no models folder yet", () => {
   test("the suggestion avoids a model on the processor, and the first download asks for a folder", async ({ page }) => {
     const root = dirname((await api<{ dir: string }>(url, "project.info")).dir);
     await page.goto("/#/setup/pack");
-    const packs = page.getByRole("group", { name: "Search packs" });
-    await expect(packs.getByRole("radio", { name: "Light pack" })).toBeEnabled();
+    const packs = page.getByRole("radiogroup", { name: "Search packs" });
+    await expect(packs.getByRole("radio", { name: /^Light\b/ })).toBeEnabled();
     await page.getByRole("button", { name: "Analyse my machine" }).click();
-    await expect(packs.getByRole("radio", { name: "Light pack" })).toBeChecked();
-    await expect(packs.getByRole("radio", { name: "Quality pack" })).toBeEnabled();
-    for (const heavier of ["Quality pack", "Performance pack"])
+    await expect(packs.getByRole("radio", { name: /^Light\b/ })).toBeChecked();
+    await expect(packs.getByRole("radio", { name: /^Quality\b/ })).toBeEnabled();
+    for (const heavier of ["Quality", "Performance"])
       await expect(
-        packs.locator("label").filter({ has: page.getByRole("radio", { name: heavier }) }),
+        packs.locator("label").filter({ has: page.getByRole("radio", { name: new RegExp(`^${heavier}\\b`) }) }),
       ).not.toContainText("Suggested for this PC");
     await expect(
-      packs.locator("label").filter({ has: page.getByRole("radio", { name: "Performance pack" }) }),
+      packs.locator("label").filter({ has: page.getByRole("radio", { name: /^Performance\b/ }) }),
     ).toContainText("Processor only");
-    await packs.getByRole("radio", { name: "Performance pack" }).check();
+    await packs.getByRole("radio", { name: /^Performance\b/ }).check();
     await page.getByRole("button", { name: "Use Performance" }).click();
     const where = page.getByRole("dialog", { name: "Models folder" });
     await expect(where).toContainText("Where should models be stored?");

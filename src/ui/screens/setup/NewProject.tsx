@@ -1,0 +1,121 @@
+import * as stylex from "@stylexjs/stylex";
+import { useEffect, useRef } from "react";
+import { Button } from "../../components/ui/Button.tsx";
+import { Select } from "../../components/ui/Select.tsx";
+import { Text } from "../../components/ui/Text.tsx";
+import { useDraft } from "../../lib/data/autosave.ts";
+import { desktop, examplePath, pathJoin, pickFolder } from "../../lib/desktop.ts";
+import { breakpoint, color, fontSize, fontWeight, lineHeight, space } from "../../styles/tokens.stylex.ts";
+
+const styles = stylex.create({
+  set: { display: "flex", flexDirection: "column", gap: space.s4 },
+  title: {
+    margin: 0,
+    fontSize: fontSize.titleSm,
+    lineHeight: lineHeight.titleSm,
+    fontWeight: fontWeight.semibold,
+    color: color.text,
+  },
+  pair: {
+    display: "grid",
+    gridTemplateColumns: { default: "1fr 1fr", [breakpoint.narrow]: "1fr" },
+    gap: space.s4,
+    alignItems: "start",
+  },
+});
+
+export function projectFolder(where: string, title: string): string {
+  const name = title
+    .replace(/[<>:"/\\|?*]/g, "")
+    .replace(/[. ]+$/, "")
+    .trim();
+  return where.trim() && name ? pathJoin(where.trim(), name) : "";
+}
+
+const draft = (field: string) => [null, "project.init", { field }] as const;
+
+export type NewProjectInput = { dir: string; jiraProject?: string; name?: string; language: string };
+
+// ponytail: a new project — its folder is named after it inside the projects folder (project.list's root until one is
+// typed); what is typed is kept while the screen changes
+export function useNewProject(root: string) {
+  const [where, setWhere, clearWhere] = useDraft(draft("where"), "");
+  const [key, setKey, clearKey] = useDraft(draft("key"), "");
+  const [name, setName, clearName] = useDraft(draft("name"), "");
+  const [language, setLanguage, clearLanguage] = useDraft(draft("language"), "fr");
+  const seeded = useRef(false);
+  useEffect(() => {
+    if (!root || seeded.current) return;
+    seeded.current = true;
+    if (!where) setWhere(root);
+  }, [root, where]);
+  const dir = projectFolder(where, name.trim() || key.trim().toUpperCase());
+  const input: NewProjectInput = {
+    dir,
+    ...(key.trim() ? { jiraProject: key.trim().toUpperCase() } : {}),
+    ...(name.trim() ? { name: name.trim() } : {}),
+    language,
+  };
+  const clear = () => {
+    for (const c of [clearWhere, clearKey, clearName, clearLanguage]) c();
+  };
+  return { where, setWhere, key, setKey, name, setName, language, setLanguage, dir, input, clear };
+}
+
+export function NewProject({ f, busy }: { f: ReturnType<typeof useNewProject>; busy: boolean }) {
+  return (
+    <section aria-labelledby="new-project" {...stylex.props(styles.set)}>
+      <h2 id="new-project" {...stylex.props(styles.title)}>
+        Or start a new project
+      </h2>
+      <div {...stylex.props(styles.pair)}>
+        <Text
+          id="proj-key"
+          label="Jira project"
+          hint="Optional: a project without a key never asks Jira."
+          placeholder="e.g. LFRPS12"
+          value={f.key}
+          onChange={f.setKey}
+        />
+        <Text id="proj-name" label="Name" placeholder="e.g. RATP Sosie" value={f.name} onChange={f.setName} />
+      </div>
+      <div {...stylex.props(styles.pair)}>
+        <Select
+          id="proj-lang"
+          label="Language of the tests"
+          showLabel
+          block
+          value={f.language}
+          onChange={f.setLanguage}
+          options={[
+            { value: "fr", label: "Français" },
+            { value: "en", label: "English" },
+          ]}
+        />
+      </div>
+      <Text
+        id="proj-where"
+        label="Projects folder"
+        placeholder={examplePath("D:\\Testimus\\Projects", "/Users/you/Testimus/Projects")}
+        hint={
+          f.dir
+            ? `The project is created in ${f.dir}`
+            : "The project gets its own folder in it, named after the project."
+        }
+        value={f.where}
+        onChange={f.setWhere}
+        trailing={
+          desktop() ? (
+            <Button
+              variant="quiet"
+              size="sm"
+              label="Browse…"
+              disabled={busy}
+              onClick={() => void pickFolder("Choose where the project goes").then((d) => d && f.setWhere(d))}
+            />
+          ) : undefined
+        }
+      />
+    </section>
+  );
+}

@@ -1,18 +1,57 @@
-import { useState } from "react";
+import * as stylex from "@stylexjs/stylex";
+import { type ReactNode, useState } from "react";
 import type { Job } from "../../../core/types.ts";
-import { call } from "../../api.ts";
 import { ClaudeActivity } from "../../components/claude/ClaudeActivity.tsx";
-import { Button, Icon } from "../../components/legacy/index.ts";
-import { useJob } from "../../components/shell/JobLog.tsx";
+import { Button } from "../../components/ui/Button.tsx";
+import { Progress } from "../../components/ui/Progress.tsx";
 import { useApp } from "../../lib/app.ts";
-import { cx, plural } from "../../lib/format.ts";
-import { clock, duration, type JobNode, kindLabel, percent, resultLine, subjectLabel } from "../../lib/jobs.ts";
-import { errorToast } from "../../lib/toast.ts";
-import { JobCard } from "./JobCard.tsx";
+import { plural } from "../../lib/format.ts";
+import { type JobNode, kindLabel, percent, resultLine, subjectLabel } from "../../lib/jobs.ts";
+import { border, color, fontFamily, fontSize, fontWeight, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { JobCards } from "./JobCard.tsx";
 import { FullLog } from "./JobFullLog.tsx";
+import { JobHead } from "./JobHead.tsx";
 import { JobProblem } from "./JobProblem.tsx";
-import { JobState, KindTile, toneOf } from "./JobState.tsx";
 import { JobProcesses, JobSteps } from "./JobSteps.tsx";
+import { useJobDetail } from "./useJobDetail.ts";
+
+const styles = stylex.create({
+  pane: {
+    flex: 1,
+    minWidth: 0,
+    overflowY: "auto",
+    display: "flex",
+    flexDirection: "column",
+    gap: space.s5,
+    padding: space.s6,
+    borderInlineStartWidth: border.width,
+    borderInlineStartStyle: "solid",
+    borderInlineStartColor: color.border,
+    backgroundColor: color.surface,
+  },
+  result: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s3 },
+  muted: { color: color.textMuted, fontSize: fontSize.compact, lineHeight: lineHeight.compact },
+  now: { margin: 0, color: color.textMuted, fontSize: fontSize.compact, lineHeight: lineHeight.compact },
+  sect: { display: "flex", flexDirection: "column", gap: space.s2 },
+  h3: {
+    margin: 0,
+    fontSize: fontSize.caption,
+    lineHeight: lineHeight.caption,
+    fontWeight: fontWeight.semibold,
+    color: color.textMuted,
+  },
+  files: {
+    margin: 0,
+    paddingInlineStart: space.s5,
+    fontFamily: fontFamily.mono,
+    fontSize: fontSize.code,
+    lineHeight: lineHeight.code,
+    color: color.text,
+  },
+  start: { alignSelf: "flex-start" },
+  cli: { color: color.textMuted, fontSize: fontSize.small, lineHeight: lineHeight.small },
+  mono: { fontFamily: fontFamily.mono },
+});
 
 const CLI: Record<string, string> = {
   generate: "testimus gen tests",
@@ -31,11 +70,14 @@ const CLI: Record<string, string> = {
   "actions.triage": "testimus actions triage",
 };
 
-const WHY: Record<string, string> = {
-  "after-failure": "After the failure of",
-  "follow-up": "Follow-up of",
-  retry: "Run again from",
-};
+function Section({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section aria-label={title} {...stylex.props(styles.sect)}>
+      <h3 {...stylex.props(styles.h3)}>{title}</h3>
+      {children}
+    </section>
+  );
+}
 
 export function JobDetail({
   node,
@@ -49,192 +91,119 @@ export function JobDetail({
   onOpen(id: string): void;
 }) {
   const app = useApp();
-  const listed = node.job;
-  const { job: live, events: list } = useJob(listed.id);
-  const job: Job =
-    live && (live.status !== "running" || listed.status === "running")
-      ? { ...listed, ...live, steps: listed.steps ?? live.steps, processes: listed.processes ?? live.processes }
-      : listed;
+  const { job, events, cancel, again } = useJobDetail(node.job, onOpen);
   const [showLog, setShowLog] = useState(false);
-  const cancel = () => call("jobs.cancel", { id: job.id }).catch((e) => errorToast(e, "Could not cancel the job"));
-  const rerun = job.rerun;
-  const again = rerun
-    ? () =>
-        call<{ jobId?: string }>(rerun.name, rerun.input, undefined, { jobId: job.id, why: "retry" })
-          .then((r) => r?.jobId && onOpen(r.jobId))
-          .catch((e) => errorToast(e, "Could not run the job again"))
-    : undefined;
   const r = (job.result ?? {}) as { tests?: string[] };
-  const claude = list.some((e) => e.type === "claude");
-  const changed = [...new Set(list.flatMap((e) => (e.type === "changed" ? e.paths : [])))];
+  const claude = events.some((e) => e.type === "claude");
+  const changed = [...new Set(events.flatMap((e) => (e.type === "changed" ? e.paths : [])))];
   const carried = new Set((job.steps ?? []).map((s) => s.jobId).filter(Boolean));
-  const inside = node.children.filter((n) => !carried.has(n.job.id));
+  const inside = node.children.filter((n) => !carried.has(n.job.id)).map((n) => n.job);
   const loose = (job.processes ?? []).filter((p) => !p.step || !job.steps?.some((s) => s.id === p.step));
-  const origin = job.cause ? byId.get(job.cause.jobId) : undefined;
   const diagnosis = node.after.find((n) => n.job.kind === "actions.triage")?.job;
   const label = kindLabel(job.kind);
-  const subject = subjectLabel(job, byId);
-  const tone = toneOf(job);
+  const running = job.status === "running";
+  const pct = percent(job);
   return (
-    <aside className="split-side jd" aria-label={`${label} job`}>
-      <div className="jd-head">
-        <KindTile kind={job.kind} />
-        <div className="jd-titles">
-          <h2 className="h jd-title">{label}</h2>
-          {subject && <div className="jd-subject">{subject}</div>}
-        </div>
-        {job.status === "running" ? (
-          <Button size="sm" icon="stop" onClick={() => void cancel()}>
-            Cancel
-          </Button>
-        ) : (
-          again && (
-            <Button size="sm" icon="revert" onClick={() => void again()}>
-              Run again
-            </Button>
-          )
-        )}
-      </div>
-      <div className="jd-meta">
-        <span className={cx("jd-pill", `t-${tone}`)}>
-          {job.status === "running"
-            ? `Running · ${duration(job, now)}`
-            : `${resultLine(job).split(" · ")[0]} · ${duration(job, now)}`}
-        </span>
-        <span>
-          {clock(job.startedAt)}
-          {job.endedAt ? ` → ${clock(job.endedAt)}` : ""}
-        </span>
-        {origin && job.cause && (
-          <span>
-            {WHY[job.cause.why]}{" "}
-            <button type="button" className="jd-link" onClick={() => onOpen(origin.id)}>
-              {kindLabel(origin.kind)}
-            </button>
-          </span>
-        )}
-        {job.parentId && byId.get(job.parentId) && (
-          <span>
-            Inside{" "}
-            <button type="button" className="jd-link" onClick={() => onOpen(job.parentId as string)}>
-              {kindLabel((byId.get(job.parentId) as Job).kind)}
-            </button>
-          </span>
-        )}
-        <button
-          type="button"
-          className="jd-id"
-          title="Copy the job id"
-          onClick={() => void navigator.clipboard?.writeText(job.id).catch(() => {})}
-        >
-          {job.id}
-          <Icon name="clone" size={12} />
-        </button>
-      </div>
+    <aside aria-label={`${label} job`} {...stylex.props(styles.pane)}>
+      <JobHead
+        job={job}
+        subject={subjectLabel(job, byId)}
+        byId={byId}
+        now={now}
+        onCancel={() => void cancel()}
+        onAgain={again}
+        onOpen={onOpen}
+      />
 
-      {job.status === "running" && !job.steps?.length && (
-        <div className="jd-run">
-          <div
-            className="prog"
-            role="progressbar"
-            aria-label={`${label} progress`}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={percent(job) ?? undefined}
-          >
-            <span
-              style={{ width: percent(job) === null ? "35%" : `${percent(job)}%` }}
-              className={percent(job) === null ? "prog-busy" : "jt-fill"}
-            />
-          </div>
-          {job.message && <p className="jd-now">{job.message}</p>}
+      {running && !job.steps?.length && (
+        <div {...stylex.props(styles.sect)}>
+          <Progress label={`${label} progress`} value={pct} />
+          {job.message && <p {...stylex.props(styles.now)}>{job.message}</p>}
         </div>
       )}
 
       {job.status === "done" && job.kind === "generate" && !!r.tests?.length && (
-        <div className="jd-result">
-          <Button tone="primary" icon="right" onClick={() => app.navigate("review", r.tests?.[0])}>
-            Review these tests
-          </Button>
-          <span className="muted">{plural(r.tests.length, "test")} written</span>
+        <div {...stylex.props(styles.result)}>
+          <Button
+            variant="primary"
+            iconAfter="arrow-right"
+            label="Review these tests"
+            onClick={() => app.navigate("review", r.tests?.[0])}
+          />
+          <span {...stylex.props(styles.muted)}>{plural(r.tests.length, "test")} written</span>
         </div>
       )}
       {job.status === "done" && job.kind !== "generate" && resultLine(job).includes(" · ") && (
-        <div className="jd-result">
-          <JobState job={job} now={now} />
+        <div {...stylex.props(styles.result)}>
+          <span {...stylex.props(styles.muted)}>{resultLine(job).split(" · ").slice(1).join(" · ")}</span>
         </div>
       )}
 
       {(job.status === "failed" || job.interrupted) && (
-        <JobProblem job={job} events={list} diagnosis={diagnosis} onRetry={again} onOpen={onOpen} />
+        <JobProblem job={job} events={events} diagnosis={diagnosis} onRetry={again} onOpen={onOpen} />
       )}
 
       {!!job.steps?.length && (
-        <section className="jd-sect">
-          <h3 className="jd-h3">Steps</h3>
-          <JobSteps job={job} events={list} byId={byId} now={now} onOpen={onOpen} />
-        </section>
+        <Section title="Steps">
+          <JobSteps job={job} events={events} byId={byId} now={now} onOpen={onOpen} />
+        </Section>
       )}
 
       {inside.length > 0 && (
-        <section className="jd-sect">
-          <h3 className="jd-h3">Jobs inside · {inside.length}</h3>
-          <ul className="jd-cards">
-            {inside.map((n) => (
-              <li key={n.job.id}>
-                <JobCard job={n.job} byId={byId} now={now} onOpen={onOpen} />
-              </li>
-            ))}
-          </ul>
-        </section>
+        <Section title={`Jobs inside · ${inside.length}`}>
+          <JobCards label="Jobs inside" jobs={inside} byId={byId} now={now} onOpen={onOpen} />
+        </Section>
       )}
 
       {loose.length > 0 && (
-        <section className="jd-sect">
-          <h3 className="jd-h3">Processes · {loose.length}</h3>
+        <Section title={`Processes · ${loose.length}`}>
           <JobProcesses list={loose} now={now} />
-        </section>
+        </Section>
       )}
 
       {node.after.length > 0 && (
-        <section className="jd-sect">
-          <h3 className="jd-h3">
-            {job.status === "failed" ? "After this failure" : "Started after it"} · {node.after.length}
-          </h3>
-          <ul className="jd-cards">
-            {node.after.map((n) => (
-              <li key={n.job.id}>
-                <JobCard job={n.job} byId={byId} now={now} onOpen={onOpen} />
-              </li>
-            ))}
-          </ul>
-        </section>
+        <Section
+          title={`${job.status === "failed" ? "After this failure" : "Started after it"} · ${node.after.length}`}
+        >
+          <JobCards
+            label={job.status === "failed" ? "After this failure" : "Started after it"}
+            jobs={node.after.map((n) => n.job)}
+            byId={byId}
+            now={now}
+            onOpen={onOpen}
+          />
+        </Section>
       )}
 
-      {claude && <ClaudeActivity events={list} running={job.status === "running"} now={now} />}
+      {claude && <ClaudeActivity events={events} running={running} now={now} />}
 
       {changed.length > 0 && (
-        <section className="jd-sect">
-          <h3 className="jd-h3">Files changed · {changed.length}</h3>
-          <ul className="jd-files">
+        <Section title={`Files changed · ${changed.length}`}>
+          <ul {...stylex.props(styles.files)}>
             {changed.map((p) => (
               <li key={p}>{p}</li>
             ))}
           </ul>
-        </section>
+        </Section>
       )}
 
       {claude && !showLog ? (
-        <Button size="sm" tone="quiet" className="jd-showlog" onClick={() => setShowLog(true)}>
-          Show the full log
-        </Button>
+        <span {...stylex.props(styles.start)}>
+          <Button
+            variant="quiet"
+            size="sm"
+            icon="terminal"
+            label="Show the full log"
+            onClick={() => setShowLog(true)}
+          />
+        </span>
       ) : (
-        <FullLog job={job} events={list} />
+        <FullLog job={job} events={events} />
       )}
 
       {CLI[job.kind] && (
-        <span className="muted jd-cli">
-          Same as <span className="mono">{CLI[job.kind]}</span> · log kept in the project folder
+        <span {...stylex.props(styles.cli)}>
+          Same as <span {...stylex.props(styles.mono)}>{CLI[job.kind]}</span> · log kept in the project folder
         </span>
       )}
     </aside>

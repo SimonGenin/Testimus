@@ -23,7 +23,7 @@ test("first launch finds the existing access, tests it, then moves to the projec
 test("the system check lists every check with its state", async ({ page }) => {
   await boot(page, "#/doctor");
   await expect(page.getByRole("heading", { level: 1, name: "System check" })).toBeVisible();
-  const checks = page.getByRole("list", { name: "Checks" }).getByRole("listitem");
+  const checks = page.getByRole("region", { name: "Checks" }).getByRole("row");
   await expect(checks.filter({ hasText: "Node runtime" })).toContainText("OK");
   await expect(checks.filter({ hasText: "Claude Code CLI" })).toContainText("OK");
   await expect(checks.filter({ hasText: "Jira reachable" })).toContainText("OK");
@@ -40,15 +40,15 @@ test("settings save the smart column preferences and the editor honours them", a
   await expect(page.getByRole("region", { name: "Smart columns" })).toHaveCount(0);
   await page
     .getByRole("navigation", { name: "Settings sections" })
-    .getByRole("button", { name: "Smart columns" })
+    .getByRole("option", { name: "Smart columns" })
     .click();
   await expect(page.getByRole("textbox", { name: "Jira project" })).toHaveCount(0);
   const fields = page.getByRole("region", { name: "Smart columns" });
-  const dataFold = fields.getByRole("combobox", { name: "Data folding" });
-  await expect(dataFold).toHaveValue("filled");
+  const dataFold = fields.getByRole("radiogroup", { name: "Data folding" });
+  await expect(dataFold.getByRole("radio", { name: "When filled" })).toBeChecked();
   await shoot(page, "settings");
 
-  await dataFold.selectOption("open");
+  await dataFold.getByRole("radio", { name: "Open" }).click();
   await fields.getByRole("button", { name: "Move Exigence up" }).click();
   type Columns = { columns: { name: string; mode: string }[] };
   await expect
@@ -67,12 +67,9 @@ test("settings save the smart column preferences and the editor honours them", a
 
 test("settings switch the theme from Appearance", async ({ page }) => {
   await boot(page, "#/settings");
-  await page.getByRole("navigation", { name: "Settings sections" }).getByRole("button", { name: "Appearance" }).click();
-  const appearance = page.getByRole("region", { name: "Appearance" });
-  await expect(appearance).toBeVisible();
-  await appearance
-    .getByRole("button", { name: "Dark" })
-    .or(appearance.getByRole("radio", { name: "Dark" }))
-    .click();
+  await page.getByRole("navigation", { name: "Settings sections" }).getByRole("option", { name: "Appearance" }).click();
+  const theme = page.getByRole("radiogroup", { name: "Theme" });
+  await expect(theme).toBeVisible();
+  await theme.getByRole("radio", { name: "Dark" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 });

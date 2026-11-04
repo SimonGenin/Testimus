@@ -55,6 +55,10 @@ async function tap(page: Page | Locator, name: string | RegExp): Promise<void> {
   await el.click();
 }
 
+// ponytail: Settings › Models — a pack is an article named « X pack » holding « Use this pack » and « Measure »
+const pickPack = (page: Page, pack: string) =>
+  tap(page.getByRole("article", { name: `${pack} pack` }), "Use this pack");
+
 // ponytail: a kit confirmation is an alertdialog
 const modal = (page: Page | Locator, name?: string | RegExp) =>
   page.getByRole("dialog", name ? { name } : {}).or(page.getByRole("alertdialog", name ? { name } : {}));
@@ -613,7 +617,7 @@ function fixtureShots(): Shot[] {
       note: "Use a pack (plan dialog)",
       hash: "#/settings/models",
       prep: async (p) => {
-        await tap(p, /^Use the Performance pack/);
+        await pickPack(p, "Performance");
         await dialog(p);
       },
     },
@@ -622,7 +626,7 @@ function fixtureShots(): Shot[] {
       note: "Measure a pack",
       hash: "#/settings/models",
       prep: async (p) => {
-        await tap(p, /^Measure the Light pack/);
+        await tap(p.getByRole("article", { name: "Light pack" }), /^Measure/);
         await dialog(p);
       },
     },
@@ -938,7 +942,7 @@ function modelsShots(fit?: string): Shot[] {
       note: `Will the ${fit} pack fit?`,
       hash: "#/settings/models",
       prep: async (p) => {
-        await tap(p, new RegExp(`^Use the ${fit} pack`));
+        await pickPack(p, fit);
         await dialog(p);
       },
     });
@@ -1132,7 +1136,7 @@ export function SCENARIOS(essai: string): Scenario[] {
           note: "The first download asks for a folder",
           hash: "#/settings/models",
           prep: async (p) => {
-            await tap(p, /^Use the Performance pack/);
+            await pickPack(p, "Performance");
             await p.waitForTimeout(500);
             const go = p
               .getByRole("dialog")
