@@ -6,6 +6,7 @@ import { Card } from "../../../components/ui/Card.tsx";
 import { type } from "../../../components/ui/type.ts";
 import { border, color, radius, size, space } from "../../../styles/tokens.stylex.ts";
 import { MOVE } from "./moved.ts";
+import { cardFlush } from "./StepFrame.tsx";
 import { fileName } from "./stepText.ts";
 
 const styles = stylex.create({
@@ -52,7 +53,7 @@ export function StepOrphans({
   return (
     <div {...stylex.props(styles.place)}>
       <Card dashed padded={false}>
-        <div {...stylex.props(styles.box)}>
+        <div {...stylex.props(cardFlush.child, styles.box)}>
           <span {...stylex.props(type.small, styles.label)}>
             <Badge label="Not embedded" icon="attach" size="sm" />
             {orphans.length} attachment{orphans.length > 1 ? "s" : ""} — drag into a field

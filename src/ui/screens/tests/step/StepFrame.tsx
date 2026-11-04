@@ -46,6 +46,12 @@ const styles = stylex.create({
   chips: { flex: 1, minWidth: 0, display: "flex", flexWrap: "wrap", gap: space.s2 },
 });
 
+// ponytail: Card padded={false} keeps its body's padding (its `flush` shorthand loses to the body's longhands) — the one
+// child of a flush card takes it back; BESOIN in .build/v3/agents/ds-tests.md: drop this once the kit's flush works
+export const cardFlush = stylex.create({
+  child: { display: "flex", flexDirection: "column", minWidth: 0, margin: `calc(-1 * ${space.s6})` },
+});
+
 export const edgeOf = (m: StepMarks) =>
   m.unreadable
     ? "danger"
@@ -110,14 +116,16 @@ export function StepFrame({
       {...stylex.props(stepMarker, styles.frame, dragging && styles.dragging)}
     >
       <Card edge={edgeOf(marks)} focused={focused} padded={false}>
-        <div {...stylex.props(styles.head, folded && styles.folded)}>
-          {grip}
-          <StepNumber n={n} marks={marks} />
-          <MarkBadges marks={marks} size={folded ? "sm" : undefined} />
-          {folded && <FoldedLine text={line} />}
-          {head}
+        <div {...stylex.props(cardFlush.child)}>
+          <div {...stylex.props(styles.head, folded && styles.folded)}>
+            {grip}
+            <StepNumber n={n} marks={marks} />
+            <MarkBadges marks={marks} size={folded ? "sm" : undefined} />
+            {folded && <FoldedLine text={line} />}
+            {head}
+          </div>
+          {!folded && children}
         </div>
-        {!folded && children}
       </Card>
     </article>
   );
@@ -128,8 +136,10 @@ export function GoneFrame({ head, children }: { head: ReactNode; children?: Reac
   return (
     <section aria-label="Deleted step" {...stylex.props(styles.frame)}>
       <Card dashed edge="danger" padded={false}>
-        <div {...stylex.props(styles.head, styles.gone)}>{head}</div>
-        {children}
+        <div {...stylex.props(cardFlush.child)}>
+          <div {...stylex.props(styles.head, styles.gone)}>{head}</div>
+          {children}
+        </div>
       </Card>
     </section>
   );

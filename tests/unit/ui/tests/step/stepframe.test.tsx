@@ -60,7 +60,7 @@ const review = (over: { claude?: boolean; folded?: boolean; active?: boolean } =
 // the look of a card: its frame (the kit Card inside the article), its head, its number
 const look = (a: HTMLElement) => {
   const frame = a.firstElementChild as HTMLElement;
-  const head = frame.firstElementChild?.firstElementChild as HTMLElement;
+  const head = frame.firstElementChild?.firstElementChild?.firstElementChild as HTMLElement;
   return [frame.className, head.className, within(a).getByTestId("step-number").className];
 };
 

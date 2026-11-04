@@ -8,6 +8,7 @@ import { Chip } from "../../../components/ui/Chip.tsx";
 import { type FieldAutosave, Text } from "../../../components/ui/Text.tsx";
 import { type } from "../../../components/ui/type.ts";
 import { color, space } from "../../../styles/tokens.stylex.ts";
+import { cardFlush } from "../step/StepFrame.tsx";
 
 const styles = stylex.create({
   card: { minWidth: 0 },
@@ -72,7 +73,7 @@ export function SummaryCard({
   return (
     <section aria-label="Test" {...stylex.props(styles.card)}>
       <Card padded={false}>
-        <div {...stylex.props(styles.inside)}>
+        <div {...stylex.props(cardFlush.child, styles.inside)}>
           <div {...stylex.props(styles.title)}>
             <Text
               title

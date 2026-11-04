@@ -14,6 +14,7 @@ import type { Gone, StepMark } from "../../../lib/diff.ts";
 import { border, color, radius, space } from "../../../styles/tokens.stylex.ts";
 import { ColumnsMenu } from "../ColumnsMenu.tsx";
 import { StepCard, type StepLayout } from "../StepCard.tsx";
+import { cardFlush } from "../step/StepFrame.tsx";
 import { GoneStep } from "../WasView.tsx";
 
 const styles = stylex.create({
@@ -240,14 +241,16 @@ export function StepList({
       ) : (
         !readOnly && (
           <Card dashed padded={false}>
-            <Button
-              variant="quiet"
-              size="lg"
-              icon="plus"
-              label="Add step"
-              block
-              onClick={() => onInsert(test.steps.length)}
-            />
+            <div {...stylex.props(cardFlush.child)}>
+              <Button
+                variant="quiet"
+                size="lg"
+                icon="plus"
+                label="Add step"
+                block
+                onClick={() => onInsert(test.steps.length)}
+              />
+            </div>
           </Card>
         )
       )}
