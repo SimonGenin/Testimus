@@ -1373,6 +1373,72 @@ describe("TestEditor › push", () => {
   });
 });
 
+describe("TestEditor › a gesture over an edit that could not be saved (review #5)", () => {
+  beforeEach(() => {
+    show = { sync: "modified" };
+    server.routes["xray.plan"] = () => ({ testId: "t1", ops: [], warnings: [], remoteChanged: false, planHash: "h" });
+    server.routes["tests.save"] = () => {
+      throw new Fail("disk full", undefined, 500);
+    };
+  });
+
+  const typed = async () => {
+    fireEvent.change(await screen.findByLabelText("Description"), { target: { value: "on screen only" } });
+  };
+
+  it("Push does not open a plan made from the disk, says why, and stays off until the edit is saved", async () => {
+    editor();
+    await typed();
+    fireEvent.click(screen.getByRole("button", { name: "Push to Jira" }));
+    await waitFor(() => expect(errors.at(-1)?.title).toBe("Not pushed"));
+    expect(String((errors.at(-1)?.e as Error).message)).toMatch(/not saved.*disk full/);
+    expect(screen.queryByRole("dialog", { name: "Push plan" })).toBeNull();
+    expect(callsTo("xray.plan")).toHaveLength(0);
+    const push = screen.getByRole("button", { name: "Push to Jira" });
+    expect(push).toBeDisabled();
+    expect(push).toHaveAccessibleDescription(/not saved/);
+  });
+
+  it("a change on disk under the edit keeps Push off and says so", async () => {
+    show = { sync: "modified", mtime: 1 };
+    const { again } = editor();
+    await typed();
+    show = { sync: "modified", mtime: 9 };
+    shown = makeTest({ description: "theirs" });
+    focusWindow();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Push to Jira" })).toHaveAccessibleDescription(/changed on disk/),
+    );
+    again({});
+    expect(screen.getByLabelText("Description")).toHaveValue("on screen only");
+  });
+
+  it("Delete local copy and Clone do not start over an unsaved edit, and say why", async () => {
+    server.routes["tests.clone"] = () => ({ id: "t2" });
+    editor();
+    await typed();
+    await menuItem("Delete local copy");
+    await waitFor(() => expect(errors.at(-1)?.title).toBe("Not deleted"));
+    expect(screen.queryByRole("alertdialog", { name: "Delete the local copy?" })).toBeNull();
+    await menuItem("Clone");
+    await waitFor(() => expect(errors.at(-1)?.title).toBe("Not cloned"));
+    expect(callsTo("tests.clone")).toHaveLength(0);
+  });
+
+  it("Revert Claude's changes does not run over an unsaved edit, and says why", async () => {
+    server.routes["claude.revert"] = () => ({ reverted: ["t1"] });
+    const { again } = editor();
+    await ready();
+    shown = makeTest({ steps: [step("Un"), step("Two"), step("Three"), step("Quatre")] });
+    again({ lastRun: run() });
+    expect(await screen.findByText("Claude changed 2 steps")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Description"), { target: { value: "on screen only" } });
+    fireEvent.click(screen.getByRole("button", { name: "Revert all" }));
+    await waitFor(() => expect(errors.at(-1)?.title).toBe("Not reverted"));
+    expect(callsTo("claude.revert")).toHaveLength(0);
+  });
+});
+
 describe("TestEditor › Xray Editor edge cases", () => {
   it("saves a pending edit before a dock run starts", async () => {
     server.routes["claude.status"] = () => ({ installed: true, signedIn: true });

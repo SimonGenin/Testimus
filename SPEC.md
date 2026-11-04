@@ -115,7 +115,10 @@ update it when a decision changes, in the same change as the code.
   updates `jobs.list` and `jobs.show` in place); a plan (`xray.plan`, `models.planPack`, `models.planDir`, any dry run)
   is never cached; an action is a mutation that reads again what it touched; an autosaved field is a mutation too
   (400 ms after the last key or on blur, one save in flight per document, `ifMtime` → `conflict` shown, a draft kept
-  while it fails). Nothing else in the page fetches, opens a stream or touches browser storage (`lib/prefs.ts` holds
+  while it fails; « Reload from disk » makes the version read again the base of the next save; a save goes to the
+  project of its key, even when it leaves after the window moved to another; a command that reads an autosaved file
+  sends its pending save first and is refused, saying why, while that edit cannot be written — a conflict or a
+  refused save). Nothing else in the page fetches, opens a stream or touches browser storage (`lib/prefs.ts` holds
   the presentation preferences).
 - **One place for processes, cancels and resources** (`src/shared/run/`, Node only, so the desktop shell imports it too):
   `work.ts` — cancellable `sleep` and `timeout`, `retry` with a growing delay or the server's `Retry-After`, `semaphore`
@@ -1092,7 +1095,8 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
     jobs); a Claude run on a test or the project may start with an empty box (the scope and the house rules are the
     request); a saved email, token, Client ID or secret emptied in the connection form is erased (`system.setCredentials
     --clear`); the Jira key is upper-cased as typed in Settings › Project; values typed in Settings › Claude and
-    Settings › Project are saved when Settings closes, not only on blur. « Show in Explorer » on a folder opens the folder (a file is shown
+    Settings › Project are saved when Settings closes, not only on blur; an emptied Name, Jira key or label prefix is
+    not saved and the field says why, keeping the empty box for what is typed next. « Show in Explorer » on a folder opens the folder (a file is shown
     selected); a context path may be relative (read from the project folder, Claude's working directory); the Claude
     program path is kept as typed even when it does not run (the status then says ✕ not found with the install guide;
     only characters a command line would run are refused); a custom step value Xray returns without its column's name
@@ -1110,8 +1114,8 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
     atomically.
   - **Tests — editor** (parity with Xray Editor §8, 2026-11-02). Test bar: key (`local` before the first push),
     folder (typed, or picked from the Xray folder tree merged with project.json folders), save state (« Claude is
-    editing… » during a run), **Ask Claude**, **Push to Jira** (disabled while Claude edits and when the test is in
-    sync), and a `⋯` menu: Clone (saves first, opens the copy), Download from Jira (with a key; re-reads the file
+    editing… » during a run), **Ask Claude**, **Push to Jira** (disabled while Claude edits, while the edit on screen
+    is not saved — a change on disk under it or a refused save — and when the test is in sync), and a `⋯` menu: Clone (saves first, opens the copy), Download from Jira (with a key; re-reads the file
     first and asks « Download from Jira? » / **Overwrite local** only when there are local changes), Undo local
     changes (only while the test differs from `.remote.md`; « Undo every local change? » counts `N modified · N added ·
     N deleted step(s)`; `tests.restore`), Open in Jira ↗ (`xray.browse`, the desktop's openExternal or a new tab),
@@ -1134,7 +1138,9 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
     warns when a snapshot screenshot is no longer in the folder. Empty test: « This test has no steps yet » + **Add
     first step**; else a full-width dashed « Add step ». The editor column is resizable from both edges (min 560 px,
     double-click resets to 1180 px centred, `testimus.editorWidth`). Autosave 400 ms, flushed on leaving the editor,
-    window blur, before push, Claude, clone and download; on window focus a test.md whose mtime changed outside the
+    window blur, before push, Claude, clone and download; Push, Clone, Delete local copy, Revert Claude's changes and
+    the deletion of a dropped image do not start while that save cannot be written (they say why; Download asks, the
+    edit counting as a local change to lose); on window focus a test.md whose mtime changed outside the
     app is reloaded (after saving any pending edit). A failed or closed push reloads the test from disk.
   - **Tests — step card**: number chip coloured by state (modified amber, new blue, unreadable red with a red outline
     and « Not fully read — never pushed »); one header toggle per foldable field (`aria-pressed`, `Name ●` when

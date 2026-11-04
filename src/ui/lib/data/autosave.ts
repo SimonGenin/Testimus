@@ -92,11 +92,35 @@ async function send(e: Entry, force = false): Promise<void> {
   if (e.dirty && (e.status as AutosaveStatus) === "pending") schedule(e);
 }
 
-export async function flushAutosaves(prefixes?: Prefix[], p?: string | null): Promise<void> {
+// ponytail: what still stands between the edit on screen and the file — a change on disk under it, or a refused save
+function unsaved(e: Entry): ApiError | null {
+  if (!e.dirty || (e.status !== "conflict" && e.status !== "error")) return null;
+  const id = (e.key[2] as { id?: unknown } | undefined)?.id;
+  const what = typeof id === "string" ? `Your change to ${id}` : "Your last change";
+  if (e.status === "conflict")
+    return new ApiError(
+      `${what} is not saved: the file changed on disk while you were editing it.`,
+      "Choose « Keep mine » or « Reload from disk » first.",
+      409,
+      "conflict",
+    );
+  const why = (e.error || "the save failed").replace(/\.$/, "");
+  return new ApiError(`${what} is not saved: ${why}.`, "Retry the save first.", 0, "unsaved");
+}
+
+// ponytail: sends what waits until nothing does, and says why when the edit could not be written
+async function flushEntry(e: Entry): Promise<ApiError | null> {
+  await send(e);
+  while (e.dirty && e.status === "pending") await send(e);
+  return unsaved(e);
+}
+
+export async function flushAutosaves(prefixes?: Prefix[], p?: string | null): Promise<ApiError | null> {
   const list = [...entries.values()].filter(
     (e) => !prefixes || prefixes.some((x) => matches(e.key, x, p === undefined ? e.key[0] : p)),
   );
-  await Promise.all(list.map((e) => send(e)));
+  const why = await Promise.all(list.map(flushEntry));
+  return why.find((w) => w !== null) ?? null;
 }
 
 export function discardAutosave(key: Key): void {
@@ -119,7 +143,7 @@ let wired = false;
 function wireWindow(): void {
   if (wired || typeof window === "undefined") return;
   wired = true;
-  setFlushHook((prefixes) => flushAutosaves(prefixes));
+  setFlushHook((prefixes, p) => flushAutosaves(prefixes, p ?? undefined));
   const all = () => void flushAutosaves();
   window.addEventListener("blur", all);
   window.addEventListener("pagehide", all);
@@ -134,6 +158,9 @@ export type Autosave<T> = {
   status: AutosaveStatus;
   error?: string;
   flush(): Promise<void>;
+  // sends what waits now and resolves to why the edit on screen is not written (a conflict, a refused save), null
+  // once it is — a gesture that reads the file asks this first
+  saveNow(): Promise<ApiError | null>;
   retry(): Promise<void>;
   keepMine(): Promise<void>;
   takeDisk(): void;
@@ -207,7 +234,10 @@ export function useAutosave<T>(o: AutosaveOptions<T>): Autosave<T> {
     set,
     status: e.status,
     error: e.error,
-    flush: () => send(e),
+    flush: async () => {
+      await flushEntry(e);
+    },
+    saveNow: () => flushEntry(e),
     retry: () => send(e),
     keepMine: () => send(e, true),
     // ponytail: the edit goes and the version read last becomes the base — a read that comes back the same would not
