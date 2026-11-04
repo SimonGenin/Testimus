@@ -59,6 +59,7 @@ export function ClaudeChoice() {
       <Select
         label="Effort"
         size="sm"
+        appearance="quiet"
         prefix="Effort"
         value={effort}
         options={EFFORTS.map((x) => ({ value: x, label: x }))}
@@ -163,6 +164,7 @@ export function ConvertDoc({
         title={`Convert ${doc.code} again?`}
         subtitle={`Reads ${baseName(doc.source.name || doc.source.file) || "the copy"} again and reindexes it. Status, Claude context and figure descriptions are kept; anchors stay the same, so tests keep their sources.`}
         consequences={consequences}
+        consequencesAt="start"
         footNote={
           <span {...stylex.props(styles.note)}>
             <Icon name="jobs" size="sm" />

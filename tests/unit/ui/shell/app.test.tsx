@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { project, setProject } from "../../../../src/ui/api.ts";
 import { App, parseRoute } from "../../../../src/ui/app/App.tsx";
@@ -449,6 +449,20 @@ describe("App palette", () => {
     await waitFor(() => expect(callsOf("api")).toHaveLength(1));
     await open();
     expect(screen.queryByRole("option", { name: /tests list/ })).toBeNull();
+  });
+
+  it("without a project, goes only to the screens that need none: Jobs, Settings, the system check", async () => {
+    sessionStorage.setItem("testimus.setupShown", "1");
+    window.location.hash = "#/jobs";
+    net.api = () => ({ project: null, commands: [] });
+    mount();
+    await screen.findByRole("region", { name: "Jobs screen" });
+    await open();
+    expect(
+      within(screen.getByRole("group", { name: "Go to" }))
+        .getAllByRole("option")
+        .map((o) => o.textContent?.split("#/")[0]),
+    ).toEqual(["Go to Jobs", "Go to Settings", "Open the system check"]);
   });
 });
 

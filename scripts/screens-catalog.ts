@@ -1090,6 +1090,50 @@ function essaiShots(): Shot[] {
   ];
 }
 
+// ponytail: what a core that stopped on a locked index leaves in the log — the 40 lines the error page shows
+const CORE_FAILED = [
+  "09:14:01.960 [desktop] single instance lock acquired",
+  "09:14:01.988 [desktop] profile %APPDATA%\\Testimus\\desktop",
+  "09:14:02.004 [desktop] splash shown",
+  "09:14:02.051 [desktop] node: C:\\Program Files\\Testimus\\node\\node.exe (v26.12.1)",
+  "09:14:02.077 [desktop] port 4317 free · reusing it",
+  "09:14:02.098 [desktop] spawning the core",
+  "09:14:02.410 [core] TESTIMUS_SHELL desktop/0.1.0",
+  "09:14:02.118 [desktop] Testimus 0.1.0 (desktop) · Electron 45.2.1 · win32 x64",
+  "09:14:02.121 [desktop] window: 1366×768 at 120,64 · zoom 100 % · last port 4317",
+  "09:14:02.130 [desktop] core: C:\\Program Files\\Testimus\\node\\node.exe app\\testimus.mjs serve --port 4317 --port-fallback --no-open --ready-json --exit-with-stdin",
+  "09:14:02.131 [desktop] env: TESTIMUS_SHELL=desktop/0.1.0 NODE_USE_ENV_PROXY=1 TESTIMUS_HOME_BIN=C:\\Program Files\\Testimus\\bin",
+  "09:14:02.402 [core] Testimus 0.1.0 · Node v26.12.1 · win32 x64",
+  "09:14:02.405 [core] home C:\\Users\\tester\\AppData\\Roaming\\Testimus",
+  "09:14:02.405 [core] data C:\\Users\\tester\\AppData\\Local\\Testimus",
+  "09:14:02.406 [core] proxy: none (direct connection)",
+  "09:14:02.411 [core] settings.json read · ui keys 14",
+  "09:14:02.418 [core] models: registry C:\\Users\\tester\\AppData\\Roaming\\Testimus\\models.json · folder D:\\Testimus\\models",
+  "09:14:02.421 [core] models: 3 installed · llama.cpp b6120",
+  "09:14:02.433 [core] project: C:\\Users\\tester\\Testimus\\Projects\\LFRPS12 (last opened)",
+  "09:14:02.436 [core] project: RATP Sosie · LFRPS12 · fr",
+  "09:14:02.440 [core] jobs: 0 running, 2 finished kept",
+  "09:14:02.447 [core] index: opening C:\\Users\\tester\\Testimus\\Projects\\LFRPS12\\index\\rag.sqlite",
+  "09:14:02.452 [core] index: sqlite 3.54.0 · loading sqlite-vec 0.1.9",
+  "09:14:07.459 [core] Error: SQLITE_BUSY: database is locked",
+  "09:14:07.459 [core]     at DatabaseSync.exec (node:sqlite:412:18)",
+  "09:14:07.459 [core]     at openIndex (file:///C:/Program Files/Testimus/app/testimus.mjs:48211:12)",
+  "09:14:07.459 [core]     at activeSpace (file:///C:/Program Files/Testimus/app/testimus.mjs:48390:21)",
+  "09:14:07.460 [core]     at ragStatus (file:///C:/Program Files/Testimus/app/testimus.mjs:49102:17)",
+  "09:14:07.460 [core]     at warmProject (file:///C:/Program Files/Testimus/app/testimus.mjs:61877:9)",
+  "09:14:07.460 [core]     at serve (file:///C:/Program Files/Testimus/app/testimus.mjs:70154:5)",
+  "09:14:07.460 [core]     at async main (file:///C:/Program Files/Testimus/app/testimus.mjs:71020:3) {",
+  "09:14:07.460 [core]   code: 'ERR_SQLITE_ERROR',",
+  "09:14:07.460 [core]   errcode: 5,",
+  "09:14:07.460 [core]   errstr: 'database is locked'",
+  "09:14:07.460 [core] }",
+  "09:14:07.461 [core] hint: another Testimus (browser mode, port 4318) may hold the index of this project",
+  "09:14:07.463 [core] shutdown: closing 0 jobs, 0 children",
+  "09:14:07.470 [core] exit code 1",
+  "09:14:07.471 [desktop] core exited before the ready line (code 1, after 5.3 s)",
+  "09:14:07.471 [desktop] showing the error page · log C:\\Users\\tester\\AppData\\Local\\Testimus\\logs\\desktop-2026-11-03.log",
+];
+
 function desktopShots(): Shot[] {
   const pages = join(ROOT, "dist", "desktop", "pages");
   return [
@@ -1104,17 +1148,17 @@ function desktopShots(): Shot[] {
       id: "error",
       note: "Desktop shell › the core stopped",
       page: async (p) => {
-        await p.addInitScript(() => {
+        await p.addInitScript((lines: string[]) => {
           (window as unknown as { testimusShell: unknown }).testimusShell = {
             details: async () => ({
-              message: "The core of Testimus stopped before it was ready.",
-              lines: ["node: bad option: --frobnicate", "exit code 9"],
-              logDir: "C:\\Users\\tester\\AppData\\Roaming\\Testimus\\logs",
+              message: "The core of Testimus stopped before it was ready (exit code 1).",
+              lines,
+              logDir: "C:\\Users\\tester\\AppData\\Local\\Testimus\\logs",
             }),
             restart: async () => {},
             openLogs: async () => {},
           };
-        });
+        }, CORE_FAILED);
         await p.goto(pathToFileURL(join(pages, "error.html")).href);
         await p.waitForTimeout(400);
       },
