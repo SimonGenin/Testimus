@@ -156,6 +156,11 @@ describe("FieldBlocks", () => {
     expect(within(figure).getByText("a.png")).toBeInTheDocument();
     expect(figure.querySelector("figcaption")).toHaveTextContent("a.png");
     expect(figure).not.toHaveTextContent("images/a.png");
+    const pic = within(figure).getByRole("img", { name: "a.png" }) as HTMLImageElement;
+    Object.defineProperty(pic, "naturalWidth", { value: 320 });
+    Object.defineProperty(pic, "naturalHeight", { value: 160 });
+    fireEvent.load(pic);
+    expect(figure.querySelector("figcaption")).toHaveTextContent("a.png320 × 160");
   });
 
   it("opens an image with Enter but not with Ctrl+Enter, editable or read-only", async () => {

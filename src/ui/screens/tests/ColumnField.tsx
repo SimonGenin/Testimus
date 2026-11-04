@@ -48,6 +48,7 @@ export function ColumnField({
       appearance="inline"
       ariaLabel={label}
       value={value}
+      placeholder="Empty — type here"
       readOnly={readOnly}
       autosave={saveState}
       onChange={onChange}

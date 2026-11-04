@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { Banner } from "../../../components/ui/Banner.tsx";
 import { Button } from "../../../components/ui/Button.tsx";
 import { Icon } from "../../../components/ui/Icon.tsx";
@@ -43,17 +43,9 @@ const styles = stylex.create({
     whiteSpace: "nowrap",
     minWidth: 0,
   },
+  size: { flex: "none", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" },
   grow: { flex: 1 },
-  tools: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: space.s1,
-    opacity: {
-      default: 0,
-      [stylex.when.ancestor(":hover", blockMarker)]: 1,
-      [stylex.when.ancestor(":focus-within", blockMarker)]: 1,
-    },
-  },
+  tools: { display: "inline-flex", alignItems: "center", gap: space.s1 },
   raw: {
     margin: 0,
     padding: space.s3,
@@ -107,12 +99,27 @@ export function ImageBlock({
   onOpen: () => void;
   onRemove?: () => void;
 }) {
+  const [size, setSize] = useState("");
   return (
     <figure data-testid="image-block" {...stylex.props(blockMarker, styles.figure)}>
       <div {...stylex.props(styles.frame)} onClick={onOpen}>
-        <img draggable={false} src={src} alt={name} {...stylex.props(styles.img)} />
+        <img
+          draggable={false}
+          src={src}
+          alt={name}
+          {...stylex.props(styles.img)}
+          onLoad={(e) => setSize(`${e.currentTarget.naturalWidth} × ${e.currentTarget.naturalHeight}`)}
+        />
       </div>
-      <Caption grip={grip} name={caption ?? <span {...stylex.props(styles.name)}>{name}</span>}>
+      <Caption
+        grip={grip}
+        name={
+          <>
+            {caption ?? <span {...stylex.props(styles.name)}>{name}</span>}
+            {size && <span {...stylex.props(styles.size)}>{size}</span>}
+          </>
+        }
+      >
         <Button variant="quiet" size="xs" iconOnly icon="zoom-in" label={`Open ${name}`} onClick={onOpen} />
         {onRemove && (
           <Button
