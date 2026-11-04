@@ -105,7 +105,18 @@ update it when a decision changes, in the same change as the code.
   in `src/core/commands/<group>.ts`. The registry derives the CLI verb, the MCP tool
   (`<group>_<verb>`) and the HTTP route from it. A feature that exists only in the UI is a bug.
 - `ctx` carries the project folder, settings, an `AbortSignal`, a progress callback (CLI prints it,
-  HTTP streams it, MCP sends notifications) and the activity tracker.
+  HTTP streams it, MCP sends notifications), the activity tracker, and `invoke` — another command of the registry in
+  the same project (`gen.bench` runs `gen.tests` and `claude.revert` so; no command imports the registry). The
+  registry's type (`CommandMap`: each name → its input, its output, whether it answers with a job id) is what the page
+  imports, types only: a command name the registry does not know does not compile.
+- **The page has one data layer** (`src/ui/lib/data/`, TanStack Query): a read is cached under
+  `[project, command, input]` (the machine's own reads under `null`), kept until an event says it changed — the
+  `changed` paths and the job events of the one `/api/events` stream map to the reads they touch (a job event also
+  updates `jobs.list` and `jobs.show` in place); a plan (`xray.plan`, `models.planPack`, `models.planDir`, any dry run)
+  is never cached; an action is a mutation that reads again what it touched; an autosaved field is a mutation too
+  (400 ms after the last key or on blur, one save in flight per document, `ifMtime` → `conflict` shown, a draft kept
+  while it fails). Nothing else in the page fetches, opens a stream or touches browser storage (`lib/prefs.ts` holds
+  the presentation preferences).
 - **One place for processes, cancels and resources** (`src/shared/run/`, Node only, so the desktop shell imports it too):
   `work.ts` — cancellable `sleep` and `timeout`, `retry` with a growing delay or the server's `Retry-After`, `semaphore`
   (the six Jira calls) whose waiters leave on a cancel, `scope` whose cleanups run last-in first-out whatever ends it
@@ -962,7 +973,7 @@ Group | Verbs (all with `--json`; mutating ones marked *)
 `review` | `set`* (validate / to-fix + note), `fix`* (Claude, job; with a note, marks the test to-fix first), `queue` (what awaits review), `evidence` (sources read)
 `xray` | `fields` (the step fields in `xray.json`, no network), `refreshFields`* (read them again from Xray — also before every push and when a project opens; a field switched off in Xray is kept with `disabled`, `required` kept), `connect`*, `disconnect`*, `folders` (the tree with counts), `search`, `preconditions` (the project's, with definitions), `browse` (an issue's Jira page), `pull`* (job), `status` (one test), `statusAll` (job, every test), `plan` (what a push would do, and its `planHash`; = `push --dry-run`, readable by Claude runs), `push`* (job; `from` resumes after a failed operation)
 `models` | `catalog` (with the fit on this PC), `list`, `dirs` (the models and runtimes folders), `add`* (path A), `pull`* (job, checked download), `pullRuntime`* (job, llama.cpp build), `remove`*, `verify`* (job), `planDir` (what changing the folder would do), `setDir`* (job: move · keep · copy), `use`* (Custom; dry-run: fit and a lighter model), `packs` (with the next lighter pack), `planPack` (a pack's plan), `usePack`* (job with steps), `measure` (job), `hardware`, `fit`, `perf`, `advice`, `dismissAdvice`*
-`jobs` | `list`, `show` (the job — with the `fix` and the stable `code` of the error it failed on — and its typed log), `cancel`*, `clear`* (forget finished jobs and their logs)
+`jobs` | `list`, `show` (the job — with the `fix` and the stable `code` of the error it failed on — and its typed log), `rerun`* (the same command with the input the job kept, the new job caused by it: `retry`), `cancel`*, `clear`* (forget finished jobs and their logs)
 `system` | `credentials` (which credential files exist and are complete; `check` also checks them read-only), `setCredentials`* (merge into ~/.atlassian, then check both connections read-only), `secrets` (the saved token, Client ID and secret, to show back in the form; denied to Claude runs like every `system.*`), `doctor`, `version` (with `shell`: browser or desktop <version>), `settings`, `set`* (claude.exe, model downloads, agents at the same time, the page's preferences), `testAgents`* (job: how many Claude runs this PC carries)
 
 Every command is documented by its zod schema; `testimus help <group.verb>` prints it.
@@ -1268,6 +1279,15 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
 - Shell: Ctrl+K command palette (every registry command by name; a command with input gets a form from its schema), Ctrl+J folds the Claude dock (folded at start and in Review; the user's choice holds until the next start), theme system / light / dark from the rail, step layout and last project remembered per browser; Revert undoes a whole Claude run. The page title is « Testimus — <project name> » (« Testimus » with no project); the desktop window takes it.
 - The app logo (`src/ui/public/logo.png`, `favicon.png`; `scripts/testimus.ico` for the Start-menu shortcut)
   sits on a light tile at the top of the rail and on the first-launch screen.
+- Built on one kit (GOAL-V3, 2026-11-04): every control is a component of `src/ui/components/ui/` (Button, Text,
+  ClaudeBlock, Chip, SourceChip, ChipField, Select, Checkbox, RadioGroup, Switch, Segmented, Menu, Popover, Modal,
+  Toast, Tooltip, Banner, Badge, List, ListItem, Tabs, Skeleton, ResizeHandle, Table, EmptyState, Progress, Card,
+  Disclosure, Timeline, RailItem, Marked, Icon, Spinner, Kbd); a screen assembles them. `Text` is every field (boxed,
+  inline in a step, bare), with its save state, Claude's lock and its autosave; `ClaudeBlock` is every place Claude is
+  asked (contexts, quick asks, model and effort, scope, the run and its cancel) and is built on `Text`. Styles are
+  StyleX in the component's file, values only from `src/ui/styles/tokens.stylex.ts` (generated from
+  `design/tokens.css`), themes as classes on `<html>` following `data-theme`. `#/kit` (under `--mock`) is the
+  catalogue: every component in each of its states and options, light and dark side by side.
 - Look and feel: the design in `design/` (`SYSTEM.md`, `tokens.css`, the mockups of `design/screens/`; revised
   2026-11-04 for a modern, airy look): clean neutral grounds (near-white canvas, white panes, a rounded white frame
   inset from the window), one ink-blue accent (#3e63dd) for the screen's primary action, the selection and the focus,
