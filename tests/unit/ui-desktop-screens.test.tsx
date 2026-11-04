@@ -8,6 +8,7 @@ import { setProject } from "../../src/ui/api.ts";
 import { AppContext, type AppState } from "../../src/ui/lib/app.ts";
 import { DataProvider } from "../../src/ui/lib/data/provider.tsx";
 import { TestList } from "../../src/ui/screens/tests/TestList.tsx";
+import { dataWrapper } from "./cov-uishell-helpers.tsx";
 import { app, fakeDesktop, fakeFetch, noDesktop } from "./ui-desktop-helpers.tsx";
 
 beforeEach(() => {
@@ -26,7 +27,7 @@ afterEach(() => {
 
 const within = (ui: ReactNode, over: Partial<AppState> = {}) => {
   const a = app(over);
-  render(<AppContext.Provider value={a}>{ui}</AppContext.Provider>);
+  render(<AppContext.Provider value={a}>{ui}</AppContext.Provider>, { wrapper: dataWrapper() });
   return a;
 };
 

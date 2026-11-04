@@ -1,33 +1,31 @@
-import type { ReactNode } from "react";
-import { Tabs } from "../../components/legacy/index.ts";
+import { Tabs } from "../../components/ui/Tabs.tsx";
 
 export type ListTab = "local" | "jira";
 
+// the two sides of the test list: the project's own tests, and Jira's (its count once the tree is read)
 export function TestsTabs({
   value,
   local,
   jira,
+  jiraOff,
   onPick,
 }: {
   value: ListTab;
   local?: number;
-  jira?: ReactNode;
+  jira?: number;
+  /** the project works locally: the tab says Jira is off */
+  jiraOff?: boolean;
   onPick: (tab: ListTab) => void;
 }) {
-  const count = (n?: number) => n !== undefined && <span className="tab-count">{n}</span>;
   return (
-    <Tabs
+    <Tabs<ListTab>
       label="Where"
-      className="tside-tabs"
+      size="sm"
       value={value}
       onChange={onPick}
-      options={[
-        {
-          value: "local",
-          label: <>Local {count(local)}</>,
-          title: "Tests written by hand, pulled, imported, or generated and validated",
-        },
-        { value: "jira", label: <>Jira {jira}</> },
+      tabs={[
+        { value: "local", label: "Local", count: local },
+        { value: "jira", label: jiraOff ? "Jira off" : "Jira", count: jira },
       ]}
     />
   );

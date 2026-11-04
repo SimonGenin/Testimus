@@ -1,5 +1,22 @@
-import { GrowArea } from "../../components/legacy/index.ts";
+import * as stylex from "@stylexjs/stylex";
+import { Badge } from "../../components/ui/Badge.tsx";
+import { type SaveState, Text } from "../../components/ui/Text.tsx";
 import type { Column } from "../../lib/columns.ts";
+import { color, fontSize, lineHeight, space } from "../../styles/tokens.stylex.ts";
+
+const styles = stylex.create({
+  ro: {
+    display: "flex",
+    alignItems: "center",
+    gap: space.s3,
+    paddingBlock: space.s2,
+    fontSize: fontSize.body,
+    lineHeight: lineHeight.body,
+    whiteSpace: "pre-wrap",
+    overflowWrap: "anywhere",
+  },
+  empty: { color: color.textSubtle },
+});
 
 // ponytail: a project column is plain text in Xray — it holds no screenshot, so it is no field of blocks
 export function ColumnField({
@@ -7,37 +24,33 @@ export function ColumnField({
   value,
   stepNumber,
   readOnly,
+  saveState,
   onChange,
 }: {
   column: Column;
   value: string;
   stepNumber: number;
   readOnly?: boolean;
+  saveState?: SaveState;
   onChange: (value: string) => void;
 }) {
   const label = `${column.name} of step ${stepNumber}`;
   if (column.kind === "readonly")
     return (
-      <div className="colfield is-readonly" title="Xray holds something other than text here — shown, never edited">
-        <span>{value || <span className="muted">empty</span>}</span>
-        <span className="colfield-note">read-only</span>
+      <div {...stylex.props(styles.ro)}>
+        <span {...stylex.props(!value && styles.empty)}>{value || "empty"}</span>
+        <Badge label="read-only" size="sm" tooltip="Xray holds something other than text here — shown, never edited" />
       </div>
     );
-  return column.kind === "line" ? (
-    <input
-      className="edit colfield-line"
-      aria-label={label}
+  return (
+    <Text
+      multiline={column.kind !== "line"}
+      appearance="inline"
+      ariaLabel={label}
       value={value}
       readOnly={readOnly}
-      onChange={(e) => onChange(e.target.value)}
-    />
-  ) : (
-    <GrowArea
-      className="edit"
-      aria-label={label}
-      value={value}
-      readOnly={readOnly}
-      onChange={(e) => onChange(e.target.value)}
+      autosave={saveState}
+      onChange={onChange}
     />
   );
 }

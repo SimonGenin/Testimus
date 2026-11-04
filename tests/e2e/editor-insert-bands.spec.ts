@@ -6,6 +6,7 @@ mockServer(4421);
 const shown = (button: Locator) => button.evaluate((el) => getComputedStyle(el.parentElement as Element).opacity);
 
 async function pointAt(page: Page, target: Locator): Promise<void> {
+  await target.scrollIntoViewIfNeeded();
   const box = await target.boundingBox();
   if (!box) throw new Error("nothing to point at");
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
@@ -26,7 +27,7 @@ const fieldOf = (page: Page, label: string) =>
 test("the insert bands of a field fade in only when hovered, and then take a click (PARITY #42)", async ({ page }) => {
   await openTest(page, "LFRPS12-1420");
   const field = fieldOf(page, "Expected Result");
-  const plusText = field.getByRole("button", { name: "+ text" });
+  const plusText = field.getByRole("button", { name: "Text", exact: true });
   expect(await plusText.count()).toBeGreaterThanOrEqual(2);
   await away(page);
   for (const b of await plusText.all()) await expect.poll(() => shown(b)).toBe("0");
@@ -39,30 +40,33 @@ test("the insert bands of a field fade in only when hovered, and then take a cli
   await expect(field.getByRole("textbox")).toHaveCount(2);
 });
 
-test("in a table, an empty cell always shows its insert band, a filled one only while the cell is hovered (PARITY #42)", async ({
+test("in a table, an empty cell always shows its insert strip, a filled one only while its strip is hovered (PARITY #42)", async ({
   page,
 }) => {
   await openTest(page, "LFRPS12-1420");
   const field = fieldOf(page, "Action");
-  const addTable = field.getByRole("button", { name: "+ table" }).last();
+  const addTable = field.getByRole("button", { name: "Table", exact: true }).last();
   await pointAt(page, addTable);
   await addTable.click();
   const table = field.getByRole("table");
   await expect(table).toBeVisible();
   const heads = table.getByRole("columnheader").filter({ hasText: "Heading" });
-  const empty = table.getByRole("cell").filter({ has: page.getByRole("button", { name: "+ text" }) });
+  const empty = table.getByRole("cell").filter({ hasText: "Empty — type, paste an image or add a table" });
   await expect(heads).toHaveCount(2);
   await expect(empty).toHaveCount(2);
-  const bandOf = (cell: Locator) => cell.getByRole("button", { name: "+ text" }).first();
+  const bandOf = (cell: Locator) => cell.getByRole("button", { name: "Text", exact: true }).first();
+  const stripOf = (cell: Locator) => cell.getByRole("group", { name: "Insert a block" }).first();
+  const hintOf = (cell: Locator) =>
+    cell.getByText("Empty — type, paste an image or add a table").evaluate((el) => getComputedStyle(el).opacity);
 
   await away(page);
-  for (const c of await empty.all()) await expect.poll(() => shown(bandOf(c))).toBe("1");
+  for (const c of await empty.all()) await expect.poll(() => hintOf(c)).toBe("1");
   for (const c of await heads.all()) await expect.poll(() => shown(bandOf(c))).toBe("0");
 
-  await pointAt(page, heads.nth(0));
+  await pointAt(page, stripOf(heads.nth(0)));
   await expect.poll(() => shown(bandOf(heads.nth(0)))).toBe("1");
   await expect.poll(() => shown(bandOf(heads.nth(1)))).toBe("0");
-  await pointAt(page, heads.nth(1));
+  await pointAt(page, stripOf(heads.nth(1)));
   await expect.poll(() => shown(bandOf(heads.nth(1)))).toBe("1");
   await expect.poll(() => shown(bandOf(heads.nth(0)))).toBe("0");
 });

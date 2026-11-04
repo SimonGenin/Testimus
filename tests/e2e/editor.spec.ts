@@ -18,26 +18,28 @@ test("LFRPS12-1420 opens with fields in xray.json order, Data folded, smart colu
   await expect(main(page).getByRole("textbox", { name: "Summary" })).toHaveValue(
     "Sectionneur sans TK — menu contextuel et propriétés",
   );
-  await expect(main(page).getByText("Modified", { exact: true })).toBeVisible();
+  await expect(main(page).getByRole("region", { name: "Test" }).getByText("Modified", { exact: true })).toBeVisible();
   await expect(main(page).getByRole("article")).toHaveCount(5);
 
   const one = step(page, 1);
-  const labels = await step(page, 3).locator(".fl-k, .label").allInnerTexts();
+  const labels = await step(page, 3).locator('[data-testid="field-label"]').allInnerTexts();
   const order = ["Action", "Data", "Expected Result", "Exigence"].map((f) => labels.findIndex((l) => l.trim() === f));
   expect(order.every((i) => i >= 0)).toBe(true);
   expect([...order].sort((a, b) => a - b)).toEqual(order);
 
-  const data1 = one.getByRole("button", { name: "Data column of step 1" });
+  const data1 = one.getByRole("button", { name: "Data", exact: true });
   await expect(data1).toHaveAttribute("aria-pressed", "false");
   await expect(one.getByRole("textbox", { name: "Data of step 1" })).toHaveCount(0);
   await expect(step(page, 3).getByRole("textbox", { name: "Data of step 3" })).toHaveValue(
     "Sectionneur S 12, position fermée.",
   );
-  await step(page, 3).getByRole("button", { name: "Data column of step 3" }).click();
+  await step(page, 3).getByRole("button", { name: "Data", exact: true }).click();
   await expect(step(page, 3).getByRole("textbox", { name: "Data of step 3" })).toHaveCount(0);
-  await expect(step(page, 3).getByRole("button", { name: "Data column of step 3" })).toHaveText("Data ●");
+  await expect(step(page, 3).getByRole("button", { name: "Data", exact: true })).toHaveText("Data●");
   await data1.click();
-  await expect(one.getByRole("button", { name: "+ text" }).first()).toBeVisible();
+  await expect(
+    one.locator('[data-field="Data"]').getByRole("button", { name: "Text", exact: true }).first(),
+  ).toBeAttached();
 
   await expect(one.getByRole("textbox", { name: "Exigence of step 1" })).toHaveValue("EXI_MOP_SPF_511_A_1650");
   await expect(step(page, 2).getByRole("textbox", { name: "Exigence of step 2" })).toHaveValue(
@@ -54,9 +56,9 @@ test("LFRPS12-1420 opens with fields in xray.json order, Data folded, smart colu
 test("a source chip opens the passage with the quote highlighted", async ({ page }) => {
   await openTest(page, "LFRPS12-1420");
   await step(page, 2)
-    .getByRole("button", { name: /^SOSIE_211_D401-1_3 §5\.6\.6 « Selon le type/ })
+    .getByRole("button", { name: /^SOSIE_211_D401-1_3 §5\.6\.6 “Selon le type/ })
     .click();
-  const dialog = page.getByRole("dialog", { name: /^Source / });
+  const dialog = page.getByRole("dialog").filter({ has: page.getByRole("region", { name: /^Source / }) });
   await expect(dialog).toBeVisible();
   await expect(dialog.locator("mark")).toContainText("Selon le type de sectionneur, le menu contextuel diffère");
   await shoot(page, "passage");
@@ -114,7 +116,8 @@ test("a step is moved, added and removed", async ({ page }) => {
 
   await main(page).getByRole("button", { name: "Add step" }).click();
   await expect(main(page).getByRole("article")).toHaveCount(6);
-  await step(page, 6).locator('[data-field="Action"]').getByRole("button", { name: "+ text" }).click();
+  await step(page, 6).locator('[data-field="Action"]').getByRole("group", { name: "Insert a block" }).hover();
+  await step(page, 6).locator('[data-field="Action"]').getByRole("button", { name: "Text", exact: true }).click();
   await step(page, 6).getByRole("textbox", { name: "Action of step 6" }).fill("Fermer la fenêtre Propriétés.");
   await expect.poll(async () => (await show("LFRPS12-1420")).test.steps.length).toBe(6);
   await expect
@@ -141,12 +144,12 @@ test("the push plan shows its warning, then the push runs and lands", async ({ p
   await plan.getByRole("button", { name: "Confirm push" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Pushed LFRPS12-1420" })).toBeVisible();
   await expect(page.getByRole("dialog", { name: /^Push/ })).toHaveCount(0);
-  await expect(main(page).getByText("Up to date", { exact: true })).toBeVisible();
+  await expect(main(page).getByRole("region", { name: "Test" }).getByText("In sync", { exact: true })).toBeVisible();
 });
 
 test("a test in sync with Jira has nothing to push", async ({ page }) => {
   await openTest(page, "LFRPS12-1398");
   const push = main(page).getByRole("button", { name: "Push to Jira" });
   await expect(push).toBeDisabled();
-  await expect(push).toHaveAttribute("title", "No local change since the last sync — nothing to push");
+  await expect(push).toHaveAccessibleDescription("No local change since the last sync — nothing to push");
 });

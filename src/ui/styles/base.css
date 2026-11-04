@@ -193,6 +193,26 @@ textarea {
   width: 30px;
 }
 
+.grip {
+  color: var(--ink-3);
+  cursor: grab;
+  display: inline-flex;
+}
+
+.tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.tbl th,
+.tbl td {
+  border: 1px solid var(--line);
+  padding: 2px;
+  text-align: left;
+  vertical-align: top;
+}
+
 .select {
   appearance: none;
   padding-right: 10px;

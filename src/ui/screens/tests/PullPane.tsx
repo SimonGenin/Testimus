@@ -1,9 +1,67 @@
+import * as stylex from "@stylexjs/stylex";
 import { useEffect, useState } from "react";
-import { Badge, Button, Icon, type IconName, Skeleton } from "../../components/legacy/index.ts";
-import { cx, plural } from "../../lib/format.ts";
+import { Badge } from "../../components/ui/Badge.tsx";
+import { Banner } from "../../components/ui/Banner.tsx";
+import { Button } from "../../components/ui/Button.tsx";
+import { Icon, type IconName } from "../../components/ui/Icon.tsx";
+import { Progress } from "../../components/ui/Progress.tsx";
+import { Skeleton } from "../../components/ui/Skeleton.tsx";
+import { Timeline, type TimelineState } from "../../components/ui/Timeline.tsx";
+import { plural } from "../../lib/format.ts";
+import {
+  border,
+  color,
+  fontFamily,
+  fontSize,
+  fontWeight,
+  lineHeight,
+  radius,
+  shadow,
+  size,
+  space,
+} from "../../styles/tokens.stylex.ts";
 import type { Pull, PullRead } from "./pulls.ts";
 
-type RowState = "done" | "active" | "pending" | "skip";
+const styles = stylex.create({
+  pane: { flex: 1, minHeight: 0, overflow: "auto", display: "flex", justifyContent: "center", padding: space.s7 },
+  panel: {
+    boxSizing: "border-box",
+    width: "100%",
+    maxWidth: size.modalMd,
+    alignSelf: "flex-start",
+    display: "flex",
+    flexDirection: "column",
+    gap: space.s4,
+    padding: space.s5,
+    borderStyle: "solid",
+    borderWidth: border.width,
+    borderColor: color.border,
+    borderRadius: radius.r3,
+    backgroundColor: color.surface,
+    boxShadow: shadow.s1,
+  },
+  head: { display: "flex", alignItems: "center", gap: space.s3 },
+  titles: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: space.s1 },
+  title: { margin: 0, fontSize: fontSize.title, lineHeight: lineHeight.title, fontWeight: fontWeight.semibold },
+  mono: { fontFamily: fontFamily.mono },
+  time: { fontFamily: fontFamily.mono, fontSize: fontSize.code, color: color.textMuted },
+  card: {
+    display: "flex",
+    flexDirection: "column",
+    gap: space.s2,
+    padding: space.s4,
+    borderRadius: radius.r2,
+    backgroundColor: color.surfaceSunken,
+  },
+  summary: { margin: 0, fontWeight: fontWeight.medium },
+  where: { display: "flex", alignItems: "center", gap: space.s3, color: color.textMuted, fontSize: fontSize.small },
+  facts: { display: "flex", flexWrap: "wrap", gap: space.s3, fontSize: fontSize.small, color: color.text },
+  fact: { display: "inline-flex", alignItems: "center", gap: space.s1 },
+  zero: { color: color.textSubtle },
+  line: { fontFamily: fontFamily.mono, fontSize: fontSize.code, color: color.textMuted, overflowWrap: "anywhere" },
+  foot: { display: "flex", alignItems: "center", gap: space.s3, color: color.textMuted, fontSize: fontSize.small },
+  error: { margin: 0, overflowWrap: "anywhere" },
+});
 
 const elapsed = (ms: number) => {
   const s = Math.max(0, Math.floor(ms / 1000));
@@ -30,29 +88,11 @@ function stageOf(pull: Pull, queued: boolean): number {
   return 0;
 }
 
-function Phase({ state, label, detail, bar }: { state: RowState; label: string; detail?: string; bar?: number }) {
-  return (
-    <li className={cx("pullpane-phase", `is-${state}`)}>
-      <span className="pullpane-mark" aria-hidden="true">
-        {state === "active" && <span className="spin spin-sm" />}
-        {(state === "done" || state === "skip") && <Icon name="check" size={12} />}
-      </span>
-      <span className="pullpane-label">{label}</span>
-      {detail && <span className="pullpane-detail mono">{detail}</span>}
-      {bar !== undefined && (
-        <span className="prog pullpane-bar" aria-hidden="true">
-          <span style={{ width: `${Math.round(bar * 100)}%` }} />
-        </span>
-      )}
-    </li>
-  );
-}
-
 function Fact({ icon, n, word }: { icon: IconName; n: number; word: string }) {
   return (
-    <span className={cx("pullpane-fact", n === 0 && "is-zero")}>
-      <Icon name={icon} size={13} />
-      <span className="mono">{n}</span> {word}
+    <span data-testid="pull-fact" {...stylex.props(styles.fact, n === 0 && styles.zero)}>
+      <Icon name={icon} size="sm" />
+      {n} {word}
       {n === 1 ? "" : "s"}
     </span>
   );
@@ -61,31 +101,23 @@ function Fact({ icon, n, word }: { icon: IconName; n: number; word: string }) {
 function TestCard({ read, summary }: { read?: PullRead; summary: string }) {
   if (!read)
     return (
-      <div className="pullpane-card" aria-hidden="true">
-        {summary ? <p className="pullpane-summary">{summary}</p> : <Skeleton w="70%" h={14} />}
-        <Skeleton w="45%" h={10} />
-        <div className="pullpane-facts">
-          <Skeleton w={64} h={18} r={9} />
-          <Skeleton w={64} h={18} r={9} />
-          <Skeleton w={88} h={18} r={9} />
-        </div>
+      <div aria-hidden="true" data-testid="pull-card" {...stylex.props(styles.card)}>
+        {summary ? <p {...stylex.props(styles.summary)}>{summary}</p> : <Skeleton kind="title" width="70%" />}
+        <Skeleton width="45%" />
+        <Skeleton lines={2} />
       </div>
     );
   return (
-    <div className="pullpane-card is-read">
-      <p className="pullpane-summary">{read.summary || summary}</p>
-      <div className="pullpane-where">
-        <span className="pullpane-folder">
-          <Icon name="folder" size={13} />
-          <span className="mono">{read.folder || "/"}</span>
+    <div data-testid="pull-card" {...stylex.props(styles.card)}>
+      <p {...stylex.props(styles.summary)}>{read.summary || summary}</p>
+      <div {...stylex.props(styles.where)}>
+        <span {...stylex.props(styles.fact)}>
+          <Icon name="folder" size="sm" />
+          <span {...stylex.props(styles.mono)}>{read.folder || "/"}</span>
         </span>
-        {read.status && (
-          <Badge tone="info" small>
-            {read.status}
-          </Badge>
-        )}
+        {read.status && <Badge label={read.status} tone="info" size="sm" />}
       </div>
-      <div className="pullpane-facts">
+      <div {...stylex.props(styles.facts)}>
         <Fact icon="tests" n={read.steps} word="step" />
         <Fact icon="image" n={read.images} word="image" />
         <Fact icon="lock" n={read.preconditions} word="precondition" />
@@ -96,6 +128,7 @@ function TestCard({ read, summary }: { read?: PullRead; summary: string }) {
   );
 }
 
+// the pane of a Jira test being pulled into the project: what it is, the four phases, Cancel; failed, why and Retry
 export function PullPane({
   pull,
   others,
@@ -112,19 +145,21 @@ export function PullPane({
   const time = useElapsed(pull.startedAt, !pull.error);
   if (pull.error)
     return (
-      <div className="editor-empty pullpane">
-        <Badge tone="err" icon="error">
-          Pull failed
-        </Badge>
-        <h2 className="h">
-          Could not pull <span className="mono">{pull.key}</span>
-        </h2>
-        <p className="pullpane-error">{pull.error}</p>
-        <div className="pullpane-row">
-          <Button tone="primary" onClick={onRetry}>
-            Retry
-          </Button>
-          <Button onClick={onBack}>Back</Button>
+      <div {...stylex.props(styles.pane)}>
+        <div {...stylex.props(styles.panel)}>
+          <Banner
+            tone="danger"
+            title={`Could not pull ${pull.key}`}
+            actions={
+              <>
+                <Button variant="primary" size="sm" label="Retry" onClick={onRetry} />
+                <Button size="sm" label="Back" onClick={onBack} />
+              </>
+            }
+          >
+            <Badge label="Pull failed" tone="danger" icon="x-circle" size="sm" />
+            <p {...stylex.props(styles.error)}>{pull.error}</p>
+          </Banner>
         </div>
       </div>
     );
@@ -133,48 +168,53 @@ export function PullPane({
   const queued = !pull.message && others.some((p) => p.message);
   const line = pull.message ?? (queued ? "waiting for a free slot…" : "contacting Jira…");
   const stage = stageOf(pull, queued);
-  const state = (i: number): RowState => (i < stage ? "done" : i === stage ? "active" : "pending");
+  const state = (i: number): TimelineState => (i < stage ? "done" : i === stage ? "running" : "waiting");
   const read = pull.read;
   const imgs = pull.images ?? (read ? { done: 0, total: read.images } : undefined);
+  const noImages = !!read && !read.images;
   return (
-    <div className="editor-empty pullpane" aria-busy="true">
-      <div className="pullpane-panel">
-        <div className="pullpane-head">
-          <span className={cx("pullpane-badge", queued && "is-queued")} aria-hidden="true">
-            <Icon name="pull" size={18} />
-          </span>
-          <div className="pullpane-title">
-            <span className="pullpane-eyebrow">{queued ? "Queued" : "From Jira"}</span>
-            <h2 className="h">
-              Pulling <span className="mono">{pull.key}</span>
+    <div aria-busy="true" {...stylex.props(styles.pane)}>
+      <div {...stylex.props(styles.panel)}>
+        <div {...stylex.props(styles.head)}>
+          <Icon name="download" size="lg" />
+          <div {...stylex.props(styles.titles)}>
+            <Badge label={queued ? "Queued" : "From Jira"} tone={queued ? "neutral" : "info"} size="sm" />
+            <h2 {...stylex.props(styles.title)}>
+              Pulling <span {...stylex.props(styles.mono)}>{pull.key}</span>
             </h2>
           </div>
-          {time && <span className="pullpane-time mono">{time}</span>}
+          {time && <span {...stylex.props(styles.time)}>{time}</span>}
         </div>
         <TestCard read={read} summary={pull.summary} />
-        <ol className="pullpane-phases">
-          <Phase state={state(0)} label={stage > 0 ? "Jira reached" : "Reach Jira"} />
-          <Phase
-            state={state(1)}
-            label={stage > 1 ? "Test read" : "Read the test"}
-            detail={read ? plural(read.steps, "step") : undefined}
-          />
-          <Phase
-            state={read && !read.images ? "skip" : state(2)}
-            label={read && !read.images ? "No images" : "Download the images"}
-            detail={imgs?.total ? `${imgs.done} / ${imgs.total}` : undefined}
-            bar={imgs?.total ? imgs.done / imgs.total : undefined}
-          />
-          <Phase state={state(3)} label="Write test.md" />
-        </ol>
-        <div className="pullpane-progress mono" role="status">
+        <Timeline
+          label="Pull phases"
+          items={[
+            { key: "reach", state: state(0), title: stage > 0 ? "Jira reached" : "Reach Jira" },
+            {
+              key: "read",
+              state: state(1),
+              title: stage > 1 ? "Test read" : "Read the test",
+              note: read ? plural(read.steps, "step") : undefined,
+            },
+            {
+              key: "images",
+              state: noImages ? "skipped" : state(2),
+              title: noImages ? "No images" : "Download the images",
+              note: imgs?.total ? `${imgs.done} / ${imgs.total}` : undefined,
+              children:
+                imgs?.total && !noImages ? (
+                  <Progress label="Images downloaded" value={(imgs.done / imgs.total) * 100} />
+                ) : undefined,
+            },
+            { key: "write", state: state(3), title: "Write test.md" },
+          ]}
+        />
+        <div role="status" aria-label="Pull progress" {...stylex.props(styles.line)}>
           {line}
         </div>
-        <div className="pullpane-foot">
-          <Button onClick={onCancel}>Cancel</Button>
-          {others.length > 0 && (
-            <span className="muted pullpane-hint">{others.length} more pulling in the background</span>
-          )}
+        <div {...stylex.props(styles.foot)}>
+          <Button label="Cancel" onClick={onCancel} />
+          {others.length > 0 && <span>{others.length} more pulling in the background</span>}
         </div>
       </div>
     </div>

@@ -1,13 +1,18 @@
-import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
-import { awaitsReview, type CredsStatus, type LocalTestRef } from "../../../core/types.ts";
-import { project as apiProject, call } from "../../api.ts";
-import { DragEdge, Icon } from "../../components/legacy/index.ts";
-import { Activity } from "../../components/shell/Activity.tsx";
+import * as stylex from "@stylexjs/stylex";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { CredsStatus, LocalTestRef } from "../../../core/types.ts";
+import { Button } from "../../components/ui/Button.tsx";
+import { EmptyState } from "../../components/ui/EmptyState.tsx";
+import { Modal } from "../../components/ui/Modal.tsx";
+import { ResizeHandle } from "../../components/ui/ResizeHandle.tsx";
 import { useApp } from "../../lib/app.ts";
-import { cx } from "../../lib/format.ts";
-import { useSideWidth } from "../../lib/sideWidth.ts";
+import { project } from "../../lib/data/client.ts";
+import { useRead } from "../../lib/data/query.ts";
+import { usePref } from "../../lib/prefs.ts";
 import { errorToast } from "../../lib/toast.ts";
+import { border, color, fontSize, fontWeight, lineHeight, size, space } from "../../styles/tokens.stylex.ts";
 import { ConnectAtlassian } from "../settings/ConnectAtlassian.tsx";
+import type { Listed } from "./list/tree.ts";
 import { PullPane } from "./PullPane.tsx";
 import { abandonPulls, cancelPull, onPullLanded, startPull, usePulls, watchPull } from "./pulls.ts";
 import { TestEditor } from "./TestEditor.tsx";
@@ -16,67 +21,85 @@ import { TestList } from "./TestList.tsx";
 export const NARROW = 900;
 export const SIDEBAR_MIN = 240;
 export const SIDEBAR_MAX = 480;
+const SIDEBAR_DEFAULT = 300;
 
+const styles = stylex.create({
+  screen: { display: "flex", flex: 1, minWidth: 0, minHeight: 0, height: "100%", backgroundColor: color.canvas },
+  side: {
+    position: "relative",
+    flex: "none",
+    display: "flex",
+    flexDirection: "column",
+    minHeight: 0,
+    borderInlineEndStyle: "solid",
+    borderInlineEndWidth: border.width,
+    borderInlineEndColor: color.border,
+  },
+  edge: { position: "absolute", top: 0, bottom: 0, right: 0, display: "flex" },
+  main: { flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" },
+  pane: { flex: 1, minHeight: 0, overflow: "auto", display: "flex", justifyContent: "center", padding: space.s7 },
+  connect: { width: "100%", maxWidth: size.modalMd, display: "flex", flexDirection: "column", gap: space.s4 },
+  title: { margin: 0, fontSize: fontSize.title, lineHeight: lineHeight.title, fontWeight: fontWeight.semibold },
+});
+
+// ponytail: the narrow breakpoint is a presentation fact of the window, read from its width
+function useNarrow(): boolean {
+  const [narrow, setNarrow] = useState(() => window.innerWidth < NARROW);
+  useEffect(() => {
+    const onResize = () => setNarrow(window.innerWidth < NARROW);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  return narrow;
+}
+
+// ponytail: Tests — the list of the project's tests on the left (a drawer when the window is narrow), the open test, a
+// Jira test being pulled, or what to do when none is open
 export function TestsScreen() {
   const app = useApp();
   const activeId = app.route.screen === "tests" ? (app.route.arg ?? "") : "";
-  const [refs, setRefs] = useState<LocalTestRef[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [shownWidth, edge] = useSideWidth("testimus.sidebarWidth", SIDEBAR_MIN, SIDEBAR_MAX, "before");
-  const [narrow, setNarrow] = useState(() => window.innerWidth < NARROW);
+  const dir = app.info?.dir;
+  const has = !!project();
+  const listQ = useRead("tests.list", {}, { enabled: has });
+  const refs = (Array.isArray(listQ.data) ? listQ.data : []) as LocalTestRef[];
+  const [width, setWidth] = usePref("sidebarWidth");
+  const narrow = useNarrow();
   const [drawer, setDrawer] = useState(false);
   const pulls = usePulls();
-  const dir = app.info?.dir;
   // ponytail: while Jira or Xray access is incomplete the empty pane is the connection form (Xray Editor shows its
   // « Connect to Jira and Xray » screen in place of the editor until both files are complete)
-  const [access, setAccess] = useState<boolean | null>(null);
-  const accessOf = (s: CredsStatus) => setAccess(s.jira.complete && s.xray.complete);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: asked again when the project changes
-  useEffect(() => {
-    call<{ status: CredsStatus }>("system.credentials", {})
-      .then((r) => r?.status && accessOf(r.status))
-      .catch(() => setAccess(null));
-  }, [dir]);
+  const credsQ = useRead("system.credentials", {}, { enabled: has });
+  const creds = (credsQ.data as { status?: CredsStatus } | undefined)?.status;
+  const access = creds ? creds.jira.complete && creds.xray.complete : null;
   const navigate = app.navigate;
 
-  const reload = useCallback(async () => {
-    // ponytail: a list asked for by the project being left never lands in the one now on screen
-    const asked = apiProject();
-    // ponytail: before a project is open (the first launch, on its way to the setup screen) there is nothing to list
-    if (!asked) {
-      setLoading(false);
-      return [];
-    }
-    try {
-      const r = await call<LocalTestRef[]>("tests.list", {});
-      const list = Array.isArray(r) ? r : [];
-      if (apiProject() === asked) setRefs(list);
-      return list;
-    } catch (e) {
-      if (apiProject() === asked) errorToast(e, "Could not list the tests");
-      return [];
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: reload when the project or a run changes the tests
+  // ponytail: an adapter until every screen writes through the data layer — the shell's « tests changed » reads the
+  // list again (Review, Generate and the dock still call it after their runs)
+  const nonce = useRef(app.testsNonce);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: asked again when the shell says the tests changed
   useEffect(() => {
-    void reload();
-  }, [reload, app.testsNonce, dir]);
+    if (nonce.current === app.testsNonce) return;
+    nonce.current = app.testsNonce;
+    if (has) void listQ.refetch();
+  }, [app.testsNonce]);
+
+  useEffect(() => {
+    if (listQ.error) errorToast(listQ.error, "Could not list the tests");
+  }, [listQ.error]);
+
+  const reload = useCallback(async () => {
+    const r = await listQ.refetch();
+    return (Array.isArray(r.data) ? r.data : []) as LocalTestRef[];
+  }, [listQ]);
 
   const lastDir = useRef(dir);
   useEffect(() => {
     const was = lastDir.current;
     lastDir.current = dir;
     if (!dir) return;
-    const now = apiProject();
+    const now = project();
     abandonPulls((d) => d === now);
-    if (was && was !== dir) {
-      setRefs([]);
-      setLoading(true);
-      navigate("tests");
-    }
+    if (was && was !== dir) navigate("tests");
   }, [dir, navigate]);
 
   useEffect(() => {
@@ -97,124 +120,131 @@ export function TestsScreen() {
   // ponytail: only validated tests live in Tests — a generated test still in review opens in Review
   useEffect(() => {
     const ref = refs.find((r) => r.id === activeId);
-    if (ref && awaitsReview(ref)) navigate("review", activeId);
+    if ((ref as Listed | undefined)?.awaiting) navigate("review", activeId);
   }, [refs, activeId, navigate]);
-
-  useEffect(() => {
-    const onResize = () => setNarrow(window.innerWidth < NARROW);
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
 
   useEffect(() => {
     if (!narrow) setDrawer(false);
   }, [narrow]);
-
-  useEffect(() => {
-    if (!drawer) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setDrawer(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [drawer]);
 
   const open = (id: string) => {
     setDrawer(false);
     navigate("tests", id);
   };
 
-  const pullKey = (key: string, summary: string) => {
-    startPull(key, summary);
-    open(key);
-  };
-
-  const deleted = (id: string) => {
-    if (id === activeId) navigate("tests");
-    void reload();
-  };
+  const list = (
+    <TestList
+      key={dir ?? ""}
+      refs={refs}
+      loading={has && listQ.isPending}
+      activeId={activeId}
+      onOpen={open}
+      onReload={reload}
+      pulling={pulls.filter((p) => !p.error).map((p) => p.key)}
+      onPull={(key, summary) => {
+        startPull(key, summary);
+        open(key);
+      }}
+      onDeleted={(id) => {
+        if (id === activeId) navigate("tests");
+        void reload();
+      }}
+    />
+  );
 
   const pull = pulls.find((p) => p.key === activeId);
   const others = pulls.filter((p) => !p.error && p.key !== activeId);
+  const lead = narrow ? (
+    <Button
+      variant="quiet"
+      size="sm"
+      iconOnly
+      icon="menu"
+      label="Show test list"
+      expanded={drawer}
+      onClick={() => setDrawer((d) => !d)}
+    />
+  ) : undefined;
+  const shown = width ?? SIDEBAR_DEFAULT;
 
   return (
-    <div
-      className={cx("tests-screen", narrow && "is-narrow")}
-      style={shownWidth ? ({ "--tside-w": `${shownWidth}px` } as CSSProperties) : undefined}
-    >
-      <TestList
-        key={dir ?? ""}
-        refs={refs}
-        loading={loading}
-        activeId={activeId}
-        onOpen={open}
-        onReload={reload}
-        pulling={pulls.filter((p) => !p.error).map((p) => p.key)}
-        onPull={pullKey}
-        onDeleted={deleted}
-        open={narrow && drawer}
-        onCloseDrawer={() => setDrawer(false)}
-      />
-      {!narrow && <DragEdge className="tside-edge" label="Resize the test list" {...edge} />}
-      {narrow && drawer && <div className="tside-scrim" aria-hidden="true" onClick={() => setDrawer(false)} />}
-      <main className="tests-main">
-        {narrow && (
-          <div className="tests-bar">
-            <button
-              type="button"
-              className="btn btn-quiet btn-sm iconbtn tside-toggle"
-              aria-label="Show test list"
-              title="Show test list"
-              aria-expanded={drawer}
-              onClick={() => setDrawer((d) => !d)}
-            >
-              <span aria-hidden="true">☰</span>
-            </button>
-            <span className="spacer" />
-            {!drawer && <Activity />}
-          </div>
-        )}
-        {pull ? (
-          <PullPane
-            pull={pull}
-            others={others}
-            onCancel={() => {
-              cancelPull(pull.key);
-              navigate("tests");
-            }}
-            onRetry={() => {
-              cancelPull(pull.key);
-              startPull(pull.key, pull.summary);
-            }}
-            onBack={() => {
-              cancelPull(pull.key);
-              navigate("tests");
-            }}
-          />
-        ) : activeId ? (
-          <TestEditor
-            key={activeId}
-            testId={activeId}
-            onOpen={open}
-            onSaved={(ref) => setRefs((list) => list.map((r) => (r.id === ref.id ? { ...r, ...ref } : r)))}
-          />
-        ) : access === false ? (
-          <div className="editor-empty editor-connect">
-            <h2 className="h">Connect to Jira and Xray</h2>
-            <ConnectAtlassian
-              lead="Testimus pulls and pushes your tests with your own Jira and Xray access — the same files Xray Editor uses."
-              onStatus={accessOf}
+    <div {...stylex.props(styles.screen)}>
+      {!narrow && (
+        <div {...stylex.props(styles.side)} style={{ width: shown }}>
+          {list}
+          <span {...stylex.props(styles.edge)}>
+            <ResizeHandle
+              label="Resize the test list"
+              value={shown}
+              min={SIDEBAR_MIN}
+              max={SIDEBAR_MAX}
+              defaultValue={SIDEBAR_DEFAULT}
+              onChange={setWidth}
+              onCommit={(px) => setWidth(px === SIDEBAR_DEFAULT ? null : px)}
             />
-          </div>
+          </span>
+        </div>
+      )}
+      {narrow && drawer && (
+        <Modal title="Tests" drawer="left" flush onClose={() => setDrawer(false)}>
+          {list}
+        </Modal>
+      )}
+      <main {...stylex.props(styles.main)}>
+        {pull ? (
+          <>
+            {lead}
+            <PullPane
+              pull={pull}
+              others={others}
+              onCancel={() => {
+                cancelPull(pull.key);
+                navigate("tests");
+              }}
+              onRetry={() => {
+                cancelPull(pull.key);
+                startPull(pull.key, pull.summary);
+              }}
+              onBack={() => {
+                cancelPull(pull.key);
+                navigate("tests");
+              }}
+            />
+          </>
+        ) : activeId ? (
+          <TestEditor key={activeId} testId={activeId} lead={lead} onOpen={open} onSaved={() => {}} />
         ) : (
-          <div className="editor-empty">
-            <Icon name="tests" size={40} />
-            <h2 className="h">No test open</h2>
-            <p className="muted">
-              Pick a test on the left. Local tests open straight from the project folder; a Jira test is pulled the
-              first time you open it.
-            </p>
-          </div>
+          <>
+            {lead}
+            <div {...stylex.props(styles.pane)}>
+              {!has ? (
+                <EmptyState
+                  icon="tests"
+                  title="No project open"
+                  text="Open a project folder, or make a new one, to see its tests."
+                  actions={<Button variant="primary" label="Open a project" onClick={() => navigate("setup")} />}
+                />
+              ) : access === false ? (
+                <div {...stylex.props(styles.connect)}>
+                  <h2 {...stylex.props(styles.title)}>Connect to Jira and Xray</h2>
+                  <ConnectAtlassian
+                    lead="Testimus pulls and pushes your tests with your own Jira and Xray access — the same files Xray Editor uses."
+                    onStatus={() => void credsQ.refetch()}
+                  />
+                </div>
+              ) : (
+                <EmptyState
+                  icon="tests"
+                  title={narrow ? "No test open" : "Pick a test on the left"}
+                  text={
+                    narrow
+                      ? "Open the test list to pick one; a Jira test is pulled the first time you open it."
+                      : "Local tests open straight from the project folder; a Jira test is pulled the first time you open it."
+                  }
+                />
+              )}
+            </div>
+          </>
         )}
       </main>
     </div>

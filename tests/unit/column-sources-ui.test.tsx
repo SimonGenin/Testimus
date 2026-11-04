@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, screen } from "@testing-library/react";
+import { cleanup, fireEvent, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ColumnLayout, Source, Step } from "../../src/core/types.ts";
 import { setProject } from "../../src/ui/api.ts";
@@ -75,23 +75,27 @@ const card = (x: ColumnLayout, onOpenSource = vi.fn()) => {
 describe("a Reference source column in a step", () => {
   it("makes each item a link to its passage, and lists an item's several sources", () => {
     const open = card(xray(true));
-    const links = document.querySelector('.item-links[data-column="Exigence"]')!;
+    const links = document.querySelector('[data-column="Exigence"]') as HTMLElement;
     expect(links).toHaveTextContent("EXI_1650");
     fireEvent.click(screen.getByRole("button", { name: /EXI_1650/ }));
     expect(open).toHaveBeenCalledWith(a);
-    expect(screen.getByTitle(`SPF#§4.2 "${a.quote}"`)).toBeInTheDocument();
-    expect(links.querySelector(".item-group")).toHaveTextContent("EXI_1670");
+    expect(
+      within(links)
+        .getAllByRole("tooltip")
+        .some((t) => t.textContent?.includes(a.quote)),
+    ).toBe(true);
+    expect(links).toHaveTextContent("EXI_1670");
     fireEvent.click(screen.getByRole("button", { name: /Figure 40/ }));
     expect(open).toHaveBeenLastCalledWith(b2);
-    const rest = document.querySelector(".sources")!;
-    expect(rest.querySelectorAll(".chip")).toHaveLength(1);
+    const rest = screen.getByTestId("step-sources");
+    expect(within(rest).getAllByRole("button")).toHaveLength(1);
     expect(rest).toHaveTextContent("§5.1");
   });
 
   it("keeps every source with the step when the option is off", () => {
     card(xray(false));
-    expect(document.querySelector(".item-links")).toBeNull();
-    expect(document.querySelector(".sources")!.querySelectorAll(".chip")).toHaveLength(4);
+    expect(document.querySelector('[data-column="Exigence"]')).toBeNull();
+    expect(within(screen.getByTestId("step-sources")).getAllByRole("button")).toHaveLength(4);
   });
 
   it("links the items on the review screen too", () => {

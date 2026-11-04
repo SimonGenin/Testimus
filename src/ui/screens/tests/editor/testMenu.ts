@@ -1,0 +1,66 @@
+import type { Test } from "../../../../core/types.ts";
+import type { MenuEntry } from "../../../components/ui/Menu.tsx";
+import type { EditorActions } from "./useEditorActions.ts";
+
+// why Push to Jira is off, or false — Claude first, then Jira, then the open plan, then nothing to send
+export function pushReason(o: { busy: boolean; jiraOff: boolean; pushing: boolean; canPush: boolean }): false | string {
+  if (o.busy) return "Claude is working — wait for it to finish";
+  if (o.jiraOff) return "Jira is not connected — connect it from the Jira tab of the test list";
+  if (o.pushing) return "The push plan is open";
+  if (!o.canPush) return "No local change since the last sync — nothing to push";
+  return false;
+}
+
+// the ⋯ of the editor's bar: what can be done with the test as a whole; Delete last, red, behind its own separator
+export function testMenu({
+  test,
+  remote,
+  dirty,
+  busyDl,
+  actions,
+}: {
+  test: Test;
+  remote: Test | null;
+  dirty: boolean;
+  busyDl: boolean;
+  actions: EditorActions;
+}): MenuEntry[] {
+  const key = test.key;
+  return [
+    { label: "Clone", icon: "copy", hint: "saves first", onSelect: () => void actions.clone() },
+    ...(key
+      ? [
+          {
+            label: "Download from Jira",
+            icon: "download" as const,
+            description: "Fetch what Jira has right now and overwrite the local file",
+            disabled: busyDl ? "Refreshing from Jira…" : false,
+            onSelect: () => void actions.askDownload(),
+          },
+        ]
+      : []),
+    ...(remote
+      ? [
+          {
+            label: "Undo local changes",
+            icon: "undo" as const,
+            description: "Back to the last synced version, from the local snapshot — no network, nothing pushed",
+            disabled: dirty ? false : "Only while the test differs from Jira",
+            onSelect: () => actions.askUndo(),
+          },
+        ]
+      : []),
+    ...(key
+      ? [
+          {
+            label: "Open in Jira ↗",
+            icon: "external" as const,
+            description: `Open ${key} in the browser`,
+            onSelect: () => void actions.openInJira(key),
+          },
+        ]
+      : []),
+    "separator",
+    { label: "Delete local copy", icon: "trash", danger: true, onSelect: () => void actions.askDelete() },
+  ];
+}

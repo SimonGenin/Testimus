@@ -60,8 +60,8 @@ test("settings save the smart column preferences and the editor honours them", a
 
   await openTest(page, "LFRPS12-1420");
   const step1 = page.getByRole("main").getByRole("article", { name: "Step 1", exact: true });
-  await expect(step1.getByRole("button", { name: "Data column of step 1" })).toHaveAttribute("aria-pressed", "true");
-  const labels = (await step1.locator(".fl-k").allInnerTexts()).map((l) => l.trim());
+  await expect(step1.getByRole("button", { name: "Data", exact: true })).toHaveAttribute("aria-pressed", "true");
+  const labels = (await step1.locator('[data-testid="field-label"]').allInnerTexts()).map((l) => l.trim());
   expect(labels.indexOf("Exigence")).toBeLessThan(labels.indexOf("Expected Result"));
 });
 

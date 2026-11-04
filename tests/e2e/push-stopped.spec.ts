@@ -16,7 +16,7 @@ test("a push stops at the oversized attachment, says what to do, and resumes fro
   await expect(plan.getByText("Embed 1 image in step 1")).toBeVisible();
   await plan.getByRole("button", { name: "Confirm push" }).click();
 
-  const progress = page.getByRole("dialog", { name: "Pushing to Jira" });
+  const progress = page.getByRole("dialog", { name: /^(Pushing .* to Jira|Push stopped at operation \d+ of 4)$/ });
   const stopped = progress.getByRole("heading", { name: /^Push stopped at operation \d+ of 4$/ });
   await expect(stopped).toBeVisible();
   const at = Number(((await stopped.textContent()) ?? "").match(/operation (\d+)/)?.[1]);
@@ -30,7 +30,7 @@ test("a push stops at the oversized attachment, says what to do, and resumes fro
   await progress.getByRole("button", { name: `Resume from operation ${at}` }).click();
   await expect(progress.getByRole("heading", { name: `Push stopped at operation ${at} of 4` })).toBeVisible();
   await expect(progress.getByText("Done", { exact: true })).toHaveCount(at - 1);
-  await progress.getByRole("button", { name: "Close" }).click();
+  await progress.getByRole("button", { name: "Close" }).last().click();
   await expect(progress).toBeHidden();
   await expect(page).toHaveURL(/#\/tests\/(local-[0-9a-f]{8}|LFRPS12-\d+)$/);
 });

@@ -1,13 +1,32 @@
+import * as stylex from "@stylexjs/stylex";
+import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { ApiError, call } from "../../api.ts";
-import { Button, Icon } from "../../components/legacy/index.ts";
+import { Banner } from "../../components/ui/Banner.tsx";
+import { Button } from "../../components/ui/Button.tsx";
+import { Icon } from "../../components/ui/Icon.tsx";
+import { Text } from "../../components/ui/Text.tsx";
 import { useApp } from "../../lib/app.ts";
+import { ApiError } from "../../lib/data/client.ts";
+import { execute } from "../../lib/data/query.ts";
 import { errorToast } from "../../lib/toast.ts";
+import { color, fontSize, fontWeight, lineHeight, space } from "../../styles/tokens.stylex.ts";
+
+const styles = stylex.create({
+  box: { display: "flex", flexDirection: "column", alignItems: "stretch", gap: space.s3, padding: space.s5 },
+  icon: { color: color.textMuted },
+  title: { margin: 0, fontSize: fontSize.titleSm, lineHeight: lineHeight.titleSm, fontWeight: fontWeight.semibold },
+  text: { margin: 0, fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textMuted },
+  row: { display: "flex", alignItems: "flex-end", gap: space.s2 },
+  grow: { flex: 1, minWidth: 0 },
+});
+
+const JIRA = [["project.info"], ["xray.folders"], ["xray.search"], ["xray.preconditions"], ["xray.status"]] as const;
 
 // ponytail: the Jira tab when it has nothing to list — no key yet, disconnected by the user, or a key Jira
 // refused; the key is checked by xray.connect before it is saved, so a failure is said here, under the box
 export function JiraConnect({ error, onConnected }: { error: string; onConnected: () => void }) {
   const app = useApp();
+  const client = useQueryClient();
   const p = app.info?.project;
   const [key, setKey] = useState(p?.jiraProject ?? "");
   const [busy, setBusy] = useState(false);
@@ -21,7 +40,7 @@ export function JiraConnect({ error, onConnected }: { error: string; onConnected
     setBusy(true);
     setFailed(null);
     try {
-      await call("xray.connect", { key: key.trim() });
+      await execute(client, "xray.connect", { key: key.trim() }, { invalidates: [...JIRA] });
       app.refreshInfo();
       onConnected();
     } catch (err) {
@@ -36,7 +55,7 @@ export function JiraConnect({ error, onConnected }: { error: string; onConnected
 
   const goOffline = async () => {
     try {
-      await call("xray.disconnect", {});
+      await execute(client, "xray.disconnect", {}, { invalidates: [...JIRA] });
       app.refreshInfo();
     } catch (err) {
       errorToast(err, "Could not disconnect Jira");
@@ -44,53 +63,62 @@ export function JiraConnect({ error, onConnected }: { error: string; onConnected
   };
 
   return (
-    <div className="jconnect">
-      <Icon name={offline ? "local" : "link"} className="jconnect-icon" />
-      <h2 className="jconnect-title">
+    <div {...stylex.props(styles.box)}>
+      <span {...stylex.props(styles.icon)}>
+        <Icon name={offline ? "drive" : "link"} size="lg" />
+      </span>
+      <h2 {...stylex.props(styles.title)}>
         {offline ? "Working locally" : p?.jiraProject && error ? "Jira could not be reached" : "Connect to Jira"}
       </h2>
-      <p className="muted">
+      <p {...stylex.props(styles.text)}>
         {offline
           ? `Nothing is read from or written to ${p?.jiraProject} until you reconnect. Your local tests stay as they are.`
           : "Give the key of the Jira project that holds the Xray tests. It is checked in Jira before it is saved."}
       </p>
-      <label htmlFor="jconnect-key" className="label">
-        Jira project key
-      </label>
-      <div className="jconnect-row">
-        <input
-          id="jconnect-key"
-          className="field mono"
-          placeholder="LFRPS12"
-          autoComplete="off"
-          spellCheck={false}
-          value={key}
-          aria-invalid={!!shown || undefined}
-          aria-describedby={shown ? "jconnect-error" : undefined}
-          onChange={(e) => setKey(e.target.value.toUpperCase())}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") void connect();
-          }}
+      <div {...stylex.props(styles.row)}>
+        <div {...stylex.props(styles.grow)}>
+          <Text
+            label="Jira project key"
+            placeholder="LFRPS12"
+            spellCheck={false}
+            value={key}
+            error={shown ? "" : undefined}
+            onChange={(v) => setKey(v.toUpperCase())}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void connect();
+            }}
+          />
+        </div>
+        <Button
+          variant="primary"
+          label={busy ? "Checking…" : p?.jiraProject && key === p.jiraProject ? "Reconnect" : "Connect"}
+          loading={busy}
+          disabled={!key.trim()}
+          onClick={() => void connect()}
         />
-        <Button tone="primary" size="sm" disabled={!key.trim() || busy} onClick={() => void connect()}>
-          {busy ? "Checking…" : p?.jiraProject && key === p.jiraProject ? "Reconnect" : "Connect"}
-        </Button>
       </div>
       {shown && (
-        <div id="jconnect-error" className="jconnect-error" role="alert">
-          <p>{shown.message}</p>
-          {shown.fix && <p className="muted">{shown.fix}</p>}
-          {access && (
-            <Button size="sm" tone="quiet" icon="settings" onClick={() => app.navigate("setup")}>
-              Set up Jira access
-            </Button>
-          )}
-        </div>
+        <Banner
+          tone="danger"
+          compact
+          actions={
+            access ? (
+              <Button
+                size="sm"
+                variant="quiet"
+                icon="settings"
+                label="Set up Jira access"
+                onClick={() => app.navigate("setup")}
+              />
+            ) : undefined
+          }
+        >
+          {shown.message}
+          {shown.fix && <p {...stylex.props(styles.text)}>{shown.fix}</p>}
+        </Banner>
       )}
       {!offline && p?.jiraProject && error && (
-        <Button size="sm" tone="quiet" icon="local" className="jconnect-offline" onClick={() => void goOffline()}>
-          Work locally for now
-        </Button>
+        <Button variant="quiet" icon="drive" label="Work locally for now" onClick={() => void goOffline()} />
       )}
     </div>
   );

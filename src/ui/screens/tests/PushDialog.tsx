@@ -1,11 +1,14 @@
-import { useEffect, useState } from "react";
-import type { JobEvent, PlanOp, PushOpResult, PushPlanView, Review } from "../../../core/types.ts";
-import { ApiError, call, run } from "../../api.ts";
-import { Button, Icon, type IconName, Modal, REVIEW, Skeleton } from "../../components/legacy/index.ts";
-import { cx, message, plural } from "../../lib/format.ts";
+import { useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import type { JobEvent, PushOpResult, PushPlanView, Review } from "../../../core/types.ts";
+import { ApiError, run } from "../../lib/data/client.ts";
+import { invalidate, useRead } from "../../lib/data/query.ts";
+import { message, plural } from "../../lib/format.ts";
 import { toast } from "../../lib/toast.ts";
+import { PushPlan } from "./push/PushPlan.tsx";
+import { PushProgress } from "./push/PushProgress.tsx";
 
-type PushResult = {
+export type PushResult = {
   ok: boolean;
   id: string;
   plan?: PushPlanView;
@@ -14,21 +17,11 @@ type PushResult = {
   error?: string;
 };
 
-const OP_ICON: Record<PlanOp["kind"], IconName> = {
-  create: "plus",
-  update: "edit",
-  upload: "image",
-  embed: "image",
-  label: "tag",
-  link: "link",
-  folder: "folder",
-  other: "right",
-};
+export type Plan = PushPlanView & { planHash?: string };
+export type Failure = { message: string; fix?: string };
 
-type Phase = "loading" | "plan" | "running" | "failed" | "error";
-
-type Plan = PushPlanView & { planHash?: string };
-
+// ponytail: Jira writes are plans first — the plan is read (xray.plan, never kept), confirming it runs xray.push as a
+// job, op by op; a stop shows where and why, and resumes from that operation
 export function PushDialog({
   testId,
   testKey,
@@ -46,30 +39,15 @@ export function PushDialog({
   onClose: () => void;
   onCompare?: () => void;
 }) {
-  const [phase, setPhase] = useState<Phase>("loading");
-  const [plan, setPlan] = useState<Plan | null>(null);
+  const client = useQueryClient();
+  const planQ = useRead("xray.plan", { id: testId });
+  const [phase, setPhase] = useState<"plan" | "running" | "failed">("plan");
+  const [newer, setNewer] = useState<Plan | null>(null);
   const [done, setDone] = useState(0);
   const [result, setResult] = useState<PushResult | null>(null);
-  const [failure, setFailure] = useState<{ message: string; fix?: string } | null>(null);
+  const [failure, setFailure] = useState<Failure | null>(null);
   const [from, setFrom] = useState(0);
-
-  useEffect(() => {
-    let dead = false;
-    call<Plan>("xray.plan", { id: testId })
-      .then((p) => {
-        if (dead) return;
-        setPlan(p);
-        setPhase("plan");
-      })
-      .catch((e) => {
-        if (dead) return;
-        setFailure({ message: message(e), fix: e instanceof ApiError ? e.fix : undefined });
-        setPhase("error");
-      });
-    return () => {
-      dead = true;
-    };
-  }, [testId]);
+  const plan = newer ?? (planQ.data as Plan | undefined) ?? null;
 
   const push = async (start: number) => {
     setPhase("running");
@@ -91,8 +69,15 @@ export function PushDialog({
         },
         onEvent,
       );
+      void invalidate(client, [
+        ["tests.show", { id: testId }],
+        ["tests.show", { id: r.id || testId }],
+        ["tests.list"],
+        ["xray.status"],
+        ["xray.folders"],
+      ]);
       setResult(r);
-      if (r.plan) setPlan((p) => ({ ...r.plan, planHash: (r.plan as Plan).planHash ?? p?.planHash }) as Plan);
+      if (r.plan) setNewer({ ...r.plan, planHash: (r.plan as Plan).planHash ?? plan?.planHash });
       if (!r.ok) {
         setFailure({
           message: r.error ?? r.ops.find((o) => o.status === "failed")?.error ?? "Jira refused an operation.",
@@ -100,7 +85,7 @@ export function PushDialog({
         setPhase("failed");
         return;
       }
-      const done = plural(r.ops.filter((o) => o.status === "done").length || (plan?.ops.length ?? 0), "operation");
+      const ops = plural(r.ops.filter((o) => o.status === "done").length || (plan?.ops.length ?? 0), "operation");
       // ponytail: Jira took the push but the copy could not be read back — the local file is behind, and the user
       // is told so with the way out (Xray Editor's « Pushed, but the pull afterwards failed »)
       if (r.error)
@@ -109,7 +94,7 @@ export function PushDialog({
           title: `Pushed ${r.id || testKey || "the test"}, but the local copy was not refreshed`,
           detail: `${r.error} — use « Download from Jira » to bring it up to date.`,
         });
-      else toast({ kind: "ok", title: `Pushed ${r.id || testKey || "the test"}`, detail: done });
+      else toast({ kind: "ok", title: `Pushed ${r.id || testKey || "the test"}`, detail: ops });
       onDone(r.id || testId);
     } catch (e) {
       setFailure({ message: message(e), fix: e instanceof ApiError ? e.fix : undefined });
@@ -117,214 +102,33 @@ export function PushDialog({
     }
   };
 
-  const name = testKey ?? "this test";
-  const ops = plan?.ops ?? [];
-
-  if (phase === "running" || phase === "failed") {
-    const failedAt = result?.failedAt ?? (phase === "failed" ? done : -1);
-    const state = (i: number): PushOpResult["status"] | "running" => {
-      const r = result?.ops[i];
-      if (r && (phase === "failed" || r.status !== "not-started")) return r.status;
-      if (i < done) return "done";
-      if (phase === "running" && i === done) return "running";
-      if (phase === "failed" && i === failedAt) return "failed";
-      return "not-started";
-    };
-    const counts = ops.reduce(
-      (c, _, i) => {
-        const s = state(i);
-        if (s === "done") c.done++;
-        else if (s === "failed") c.failed++;
-        else c.left++;
-        return c;
-      },
-      { done: 0, failed: 0, left: 0 },
-    );
+  if (phase !== "plan")
     return (
-      <Modal
-        label="Pushing to Jira"
-        width={576}
-        className="push"
-        title={
-          phase === "running" ? `Pushing ${name} to Jira` : `Push stopped at operation ${failedAt + 1} of ${ops.length}`
-        }
-        onClose={phase === "running" ? () => {} : onClose}
-        foot={
-          phase === "running" ? (
-            <span className="muted">Operations run one after the other; a failure stops the push.</span>
-          ) : (
-            <>
-              <div className="spacer" />
-              <Button onClick={onClose}>Close</Button>
-              <Button tone="primary" onClick={() => void push(Math.max(failedAt, 0))}>
-                Resume from operation {failedAt + 1}
-              </Button>
-            </>
-          )
-        }
-      >
-        <div
-          className="prog"
-          role="progressbar"
-          aria-valuenow={counts.done}
-          aria-valuemin={0}
-          aria-valuemax={ops.length}
-          aria-label={`${counts.done} of ${ops.length} operations done`}
-        >
-          <span style={{ width: `${ops.length ? (counts.done / ops.length) * 100 : 0}%` }} />
-        </div>
-        <p className="muted push-counts">
-          {counts.done} done{counts.failed ? ` · ${counts.failed} failed` : ""} · {counts.left} not started
-          {from > 0 && phase === "running" ? ` · resumed at ${from + 1}` : ""}
-        </p>
-        <div className="ops">
-          {ops.map((op, i) => {
-            const s = state(i);
-            return (
-              <div key={i} className={cx("op", s === "failed" && "op-failed")}>
-                {s === "done" ? (
-                  <Icon name="check" className="op-ok" />
-                ) : s === "failed" ? (
-                  <Icon name="error" className="op-err" />
-                ) : s === "running" ? (
-                  <span className="dot op-dot" />
-                ) : (
-                  <Icon name="draft" className="op-wait" />
-                )}
-                <div className="op-body">
-                  <span className={cx(s === "failed" && "op-title", s === "not-started" && "muted")}>{op.label}</span>
-                  {s === "failed" && failure && (
-                    <>
-                      <p>{failure.message}</p>
-                      <p>
-                        <strong>What to do:</strong>{" "}
-                        {failure.fix ?? "fix what Jira refused, then resume. What is already in Jira stays there."}
-                      </p>
-                    </>
-                  )}
-                </div>
-                <span className={cx("st", `st-${s}`)}>
-                  {s === "done" ? "Done" : s === "failed" ? "Failed" : s === "running" ? "Running" : "Not started"}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </Modal>
+      <PushProgress
+        name={testKey ?? "this test"}
+        ops={plan?.ops ?? []}
+        running={phase === "running"}
+        done={done}
+        from={from}
+        result={result}
+        failure={failure}
+        onClose={onClose}
+        onResume={(at) => void push(at)}
+      />
     );
-  }
 
-  const reviewState: Review = review ?? plan?.review ?? "validated";
-  const notValidated = reviewState !== "validated";
-  const warnings = (plan?.warnings ?? []).filter((w) => !(notValidated && /validat/i.test(w)));
+  const loadError = planQ.error && !plan ? { message: message(planQ.error), fix: planQ.error.fix } : null;
   return (
-    <Modal
-      label="Push plan"
-      width={576}
-      className="push"
-      title={
-        <>
-          Push <span className="mono push-key">{name}</span> to Jira
-        </>
-      }
-      subtitle={summary}
+    <PushPlan
+      testId={testId}
+      testKey={testKey}
+      summary={summary}
+      review={review ?? plan?.review ?? "validated"}
+      plan={plan}
+      error={loadError}
+      onCompare={onCompare}
       onClose={onClose}
-      foot={
-        <>
-          <span className="muted foot-hint">
-            Same as <span className="mono">testimus xray push {testKey ?? testId}</span>
-          </span>
-          <div className="spacer" />
-          <Button tone="quiet" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button tone="primary" icon="push" disabled={phase !== "plan" || !ops.length} onClick={() => void push(0)}>
-            Confirm push
-          </Button>
-        </>
-      }
-    >
-      {phase === "loading" && (
-        <div className="ops" role="status" aria-busy="true" aria-label="Building the push plan">
-          {[70, 82, 64, 76].map((w) => (
-            <div key={w} className="op">
-              <Skeleton w={16} h={16} />
-              <Skeleton w={`${w}%`} h={12} />
-              <span />
-            </div>
-          ))}
-        </div>
-      )}
-      {phase === "error" && failure && (
-        <div className="find f-err" role="alert">
-          <span className="sev s-err">
-            <Icon name="error" />
-            Could not build the push plan
-          </span>
-          <p>{failure.message}</p>
-          {failure.fix && (
-            <p>
-              <strong>What to do:</strong> {failure.fix}
-            </p>
-          )}
-        </div>
-      )}
-      {phase === "plan" && plan && (
-        <>
-          {notValidated && (
-            <div className="find" role="note">
-              <span className="sev s-warn">
-                <Icon name="warning" />
-                This test is {REVIEW[reviewState]?.label ?? reviewState}, not Validated
-              </span>
-              <p>
-                It will reach Jira with its review state as a label. Validate it first if it should go out as reviewed.
-              </p>
-            </div>
-          )}
-          {plan.remoteChanged && (
-            <div className="find" role="note">
-              <span className="sev s-warn">
-                <Icon name="changed" />
-                Changed in Jira since your pull
-              </span>
-              <p>
-                Someone changed this test in Jira after your pull — pushing replaces their change. Compare first if in
-                doubt.
-              </p>
-              {onCompare && (
-                <div>
-                  <Button size="sm" onClick={onCompare}>
-                    Compare with Jira
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
-          {warnings.map((w) => (
-            <div key={w} className="find" role="note">
-              <span className="sev s-warn">
-                <Icon name="warning" />
-                {w}
-              </span>
-            </div>
-          ))}
-          <span className="label push-what">What will happen · {plural(ops.length, "operation")}</span>
-          {ops.length ? (
-            <div className="ops">
-              {ops.map((op, i) => (
-                <div key={i} className="op">
-                  <Icon name={OP_ICON[op.kind] ?? "right"} />
-                  <span>{op.label}</span>
-                  <span />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="muted">Nothing to push: Jira already has this version.</p>
-          )}
-        </>
-      )}
-    </Modal>
+      onConfirm={() => void push(0)}
+    />
   );
 }

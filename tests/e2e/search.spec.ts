@@ -21,7 +21,9 @@ test("the tests list ranks by what the steps say and shows where", async ({ page
   await boot(page, "#/tests");
   const side = page.getByRole("complementary", { name: "Tests" });
   await side.getByRole("textbox", { name: "Filter tests" }).fill("fermé");
-  const row = side.getByRole("button", { name: /Disjoncteur — ouverture à distance/ });
+  const row = side
+    .getByRole("option", { name: /Disjoncteur — ouverture à distance/ })
+    .or(side.getByRole("treeitem", { name: /Disjoncteur — ouverture à distance/ }));
   await expect(row).toContainText("Step 1 · Expected Result");
   await row.click();
   await expect(page).toHaveURL(/#\/tests\/LFRPS12-1398$/);

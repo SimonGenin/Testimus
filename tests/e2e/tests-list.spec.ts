@@ -1,21 +1,25 @@
+import type { Locator } from "@playwright/test";
 import { api, boot, expect, mockServer, openTest, shoot, test } from "./helpers.ts";
 
 const { url } = mockServer(4347);
+
+const row = (side: Locator, name: RegExp) =>
+  side.getByRole("treeitem", { name }).or(side.getByRole("option", { name }));
 
 test("the local list groups tests by folder and filters by text", async ({ page }) => {
   await boot(page, "#/tests");
   const side = page.getByRole("complementary", { name: "Tests" });
   await expect(side.getByRole("tab", { name: /^Local/ })).toHaveAttribute("aria-selected", "true");
   await expect(side.getByRole("tab", { name: /^Local/ })).toContainText("1");
-  await expect(side.getByRole("button", { name: /^Disjoncteur — ouverture à distance LFRPS12-1398/ })).toBeVisible();
+  await expect(row(side, /^Disjoncteur — ouverture à distance LFRPS12-1398/)).toBeVisible();
   // ponytail: the two generated tests of the fixture are not validated yet — they wait in Review
-  await expect(side.getByRole("button", { name: /LFRPS12-1420/ })).toHaveCount(0);
-  await expect(side.getByRole("button", { name: /^Sectionneur avec TK/ })).toHaveCount(0);
+  await expect(row(side, /LFRPS12-1420/)).toHaveCount(0);
+  await expect(row(side, /^Sectionneur avec TK/)).toHaveCount(0);
   await side.getByRole("textbox", { name: "Filter tests" }).fill("Disjoncteur");
-  await expect(side.getByRole("button", { name: /LFRPS12-1398/ }).first()).toBeVisible();
+  await expect(row(side, /LFRPS12-1398/).first()).toBeVisible();
   await expect(side.getByRole("button", { name: /Search Jira for/ })).toBeVisible();
   await side.getByRole("textbox", { name: "Filter tests" }).fill("");
-  await side.getByRole("button", { name: /^Disjoncteur — ouverture à distance LFRPS12-1398/ }).click();
+  await row(side, /^Disjoncteur — ouverture à distance LFRPS12-1398/).click();
   await expect(page).toHaveURL(/#\/tests\/LFRPS12-1398$/);
   await expect(page.getByRole("main").getByRole("textbox", { name: "Summary" })).toHaveValue(
     "Disjoncteur — ouverture à distance",
@@ -23,7 +27,9 @@ test("the local list groups tests by folder and filters by text", async ({ page 
   await page.goto("/#/tests/LFRPS12-1420");
   await expect(page).toHaveURL(/#\/review\/LFRPS12-1420$/);
   await expect(
-    page.getByRole("complementary", { name: "Review queue" }).getByRole("button", { name: /LFRPS12-1420/ }),
+    page
+      .getByRole("complementary", { name: "Review queue" })
+      .getByRole("option", { name: /^Sectionneur sans TK/, selected: true }),
   ).toBeVisible();
 });
 
@@ -31,13 +37,13 @@ test("the Jira tab shows the folder tree and pulls a remote test", async ({ page
   await boot(page, "#/tests");
   const side = page.getByRole("complementary", { name: "Tests" });
   await side.getByRole("tab", { name: "Jira" }).click();
-  await expect(side.getByRole("button", { name: /^Test Repository/ })).toBeVisible();
-  await side.getByRole("button", { name: /^Traction [\d/]+$/ }).click();
-  await side.getByRole("button", { name: /^Disjoncteurs [\d/]+$/ }).click();
-  const remote = side.getByRole("button", { name: /LFRPS12-1401 .*steps?$/ });
-  await expect(remote).toHaveAttribute("title", /Not pulled yet/);
+  await expect(row(side, /^Test Repository/)).toBeVisible();
+  await row(side, /^Traction [\d/]+$/).click();
+  await row(side, /^Disjoncteurs [\d/]+$/).click();
+  const remote = row(side, /LFRPS12-1401.*steps?$/);
+  await expect(remote.locator("[aria-describedby]").first()).toHaveAccessibleDescription(/Not pulled yet/);
   await expect(remote).toBeVisible();
-  await expect(side.getByRole("button", { name: /LFRPS12-1398 .*Up to date \d+ steps?$/ })).toBeVisible();
+  await expect(row(side, /LFRPS12-1398.*In sync.*\d+ steps?$/)).toBeVisible();
   await shoot(page, "tests-jira");
   const before = (await api<unknown[]>(url, "tests.list")).length;
   await remote.click();
@@ -56,7 +62,8 @@ test("a typed issue number searches Jira, and a local row's ✕ deletes a pushed
   await expect(side.getByText(/found/)).toBeVisible();
   await side.getByRole("searchbox", { name: "Search Jira" }).fill("");
   await side.getByRole("tab", { name: /Local/ }).click();
-  await side.getByRole("button", { name: /^Delete the local copy of LFRPS12-1398/ }).click({ force: true });
+  await row(side, /LFRPS12-1398/).hover();
+  await side.getByRole("button", { name: /^Delete the local copy of LFRPS12-1398/ }).click();
   await expect
     .poll(async () => (await api<{ id: string }[]>(url, "tests.list")).map((t) => t.id))
     .not.toContain("LFRPS12-1398");
