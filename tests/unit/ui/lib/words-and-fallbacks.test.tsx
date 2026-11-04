@@ -44,8 +44,8 @@ describe("a job's result line and failed step", () => {
   });
   it("the step to show is the failed one, else the one that was running", () => {
     const steps = [
-      { id: "a", title: "Read", status: "done" },
-      { id: "b", title: "Write", status: "running" },
+      { id: "a", label: "Read", status: "done" },
+      { id: "b", label: "Write", status: "running" },
     ] as Job["steps"];
     expect(failedStep(job({ steps }))?.id).toBe("b");
     expect(failedStep(job({}))).toBeUndefined();

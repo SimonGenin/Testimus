@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { parseQuery } from "../../../../src/core/search/query.ts";
 import { keepTest, type TestDoc, testsCorpus } from "../../../../src/core/search/tests.ts";
-import type { Test } from "../../../../src/core/types.ts";
+import type { Step, Test } from "../../../../src/core/types.ts";
 
 describe("a filter with a value it does not know stays text", () => {
   it("an unknown kind, sync, has or is, and an empty value, are searched as words", () => {
@@ -22,10 +22,10 @@ describe("a filter with a value it does not know stays text", () => {
   });
 });
 
-const step = (o: { sources?: number; images?: number } = {}) => ({
+const step = (o: { sources?: number; images?: number } = {}): Step => ({
   fields: { Action: "a" },
   sources: Array.from({ length: o.sources ?? 0 }, () => ({ docId: "D", anchor: "§1", quote: "q" })),
-  images: Array.from({ length: o.images ?? 0 }, () => "fig.png"),
+  images: Array.from({ length: o.images ?? 0 }, () => ({ file: "fig.png" })),
 });
 
 const doc = (t: Partial<Test>, o: Partial<TestDoc> = {}): TestDoc =>
@@ -56,8 +56,8 @@ describe("which tests a filter keeps", () => {
   it("has: findings, sources, key, images and a review note", () => {
     const bare = doc({});
     for (const h of ["findings", "sources", "key", "images", "note"]) expect(keep(`has:${h}`, bare), h).toBe(false);
-    expect(keep("has:findings", doc({}, { findings: { errors: 0, warnings: 0, infos: 0 } }))).toBe(false);
-    expect(keep("has:findings", doc({}, { findings: { errors: 0, warnings: 1, infos: 0 } }))).toBe(true);
+    expect(keep("has:findings", doc({}, { findings: { errors: 0, warnings: 0, infos: 0, stale: false } }))).toBe(false);
+    expect(keep("has:findings", doc({}, { findings: { errors: 0, warnings: 1, infos: 0, stale: false } }))).toBe(true);
     expect(keep("has:sources", doc({ steps: [step(), step({ sources: 1 })] }))).toBe(true);
     expect(keep("has:key", doc({ key: "LFRPS12-1" }))).toBe(true);
     expect(keep("has:images", doc({ steps: [step({ images: 2 })] }))).toBe(true);
@@ -65,7 +65,7 @@ describe("which tests a filter keeps", () => {
   });
 
   it("is: generated, awaiting review, and changed since Jira", () => {
-    const made = doc({ generatedBy: { model: "opus" } as Test["generatedBy"], review: "checked" });
+    const made = doc({ generatedBy: "opus", review: "checked" });
     expect(keep("is:generated", doc({}))).toBe(false);
     expect(keep("is:generated", made)).toBe(true);
     expect(keep("is:awaiting", made)).toBe(true);

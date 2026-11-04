@@ -54,7 +54,7 @@ const WORDS = [
     step: 2,
   }),
   hit({ id: "t-close", title: "Fermer le sectionneur" }),
-  hit({ id: "D-1", kind: "doc", title: "Spécification" }),
+  hit({ id: "D-1", kind: "document", title: "Spécification" }),
   hit({ id: "t-gone", title: "Not in the list" }),
 ];
 
@@ -133,8 +133,8 @@ describe("the local tests a filter finds", () => {
   });
 
   it("says no local test matches when the search finds no test of the list", async () => {
-    deep = [hit({ id: "D-1", kind: "doc", title: "Spécification" })];
-    server.routes["search.all"] = () => ({ hits: deep, totals: {}, order: ["doc"] });
+    deep = [hit({ id: "D-1", kind: "document", title: "Spécification" })];
+    server.routes["search.all"] = () => ({ hits: deep, totals: {}, order: ["document"] });
     show();
     filter("zzz");
     expect(await screen.findByText("No local test matches “zzz”.", {}, { timeout: 3000 })).toBeInTheDocument();
