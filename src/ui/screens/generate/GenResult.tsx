@@ -30,7 +30,7 @@ export type GenOutput = {
 
 const styles = stylex.create({
   head: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s3 },
-  titles: { display: "flex", flexDirection: "column", gap: space.s1, minWidth: 0 },
+  titles: { display: "flex", flexDirection: "column", gap: space.s1, minWidth: 0, flex: 1 },
   title: {
     margin: 0,
     fontSize: fontSize.title,
@@ -158,7 +158,7 @@ export function RunHead({
             </>
           }
         />
-        <Progress tone="claude" label="Generation" detail={doing} />
+        <Progress tone="claude" label="Generation" detail={count ? doing : undefined} />
       </div>
     );
   if (job.status === "done" && result?.ok !== false)

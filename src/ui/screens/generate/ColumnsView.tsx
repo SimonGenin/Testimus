@@ -37,7 +37,14 @@ const styles = stylex.create({
     borderBottomWidth: { default: border.width, ":last-child": 0 },
     borderBottomColor: color.border,
   },
-  name: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s2, fontWeight: fontWeight.semibold },
+  name: {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: space.s2,
+    fontWeight: fontWeight.semibold,
+    color: color.text,
+  },
   desc: { fontSize: fontSize.compact, lineHeight: lineHeight.compact, color: color.textMuted },
   none: { fontSize: fontSize.compact, lineHeight: lineHeight.compact, color: color.textSubtle, fontStyle: "italic" },
 });
