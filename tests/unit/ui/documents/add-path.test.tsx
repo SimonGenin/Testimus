@@ -36,7 +36,8 @@ describe("Add a document from a path", () => {
     cleanup();
     const d = fakeDesktop({ files: ["D:\\Docs\\D401.pdf"] });
     render(<AddPath onAdd={() => {}} onClose={() => {}} />);
-    fireEvent.click(screen.getByRole("button", { name: "Browse…" }));
+    expect(screen.getAllByRole("button", { name: "Browse…" })).toHaveLength(2);
+    fireEvent.click(screen.getAllByRole("button", { name: "Browse…" })[0]);
     await waitFor(() =>
       expect(screen.getByRole("textbox", { name: "Path of the file" })).toHaveValue("D:\\Docs\\D401.pdf"),
     );
@@ -50,8 +51,37 @@ describe("Add a document from a path", () => {
     render(<AddPath onAdd={() => {}} onClose={() => {}} />);
     const field = screen.getByRole("textbox", { name: "Path of the file" });
     fireEvent.change(field, { target: { value: "C:\\a.docx" } });
-    fireEvent.click(screen.getByRole("button", { name: "Browse…" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Browse…" })[0]);
     await waitFor(() => expect(d.pickFiles).toHaveBeenCalled());
     expect(field).toHaveValue("C:\\a.docx");
+  });
+
+  it("says how to paste a path, takes the PDF rendering of the same name, and refuses another name", () => {
+    const onAdd = vi.fn();
+    render(<AddPath onAdd={onAdd} onClose={() => {}} />);
+    expect(screen.getByRole("dialog", { name: "Add a document from a path" })).toHaveTextContent(
+      /Paste it from (Explorer|the Finder)/,
+    );
+    const pdf = screen.getByRole("textbox", { name: "Its PDF rendering (optional)" });
+    fireEvent.change(screen.getByRole("textbox", { name: "Path of the file" }), {
+      target: { value: "C:\\Specs\\D401.docx" },
+    });
+    fireEvent.change(pdf, { target: { value: "C:\\Specs\\other.pdf" } });
+    expect(screen.getByText("Name it like the .docx: D401.pdf")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add" })).toBeDisabled();
+    fireEvent.change(pdf, { target: { value: "C:\\Specs\\D401.txt" } });
+    expect(screen.getByText("A PDF rendering ends in .pdf")).toBeInTheDocument();
+    fireEvent.change(pdf, { target: { value: '"D:\\Print\\d401.PDF"' } });
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+    expect(onAdd).toHaveBeenCalledWith("C:\\Specs\\D401.docx", "D:\\Print\\d401.PDF");
+  });
+
+  it("a .pdf has no PDF rendering", () => {
+    render(<AddPath onAdd={() => {}} onClose={() => {}} />);
+    fireEvent.change(screen.getByRole("textbox", { name: "Path of the file" }), { target: { value: "C:\\a.pdf" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Its PDF rendering (optional)" }), {
+      target: { value: "C:\\a.pdf" },
+    });
+    expect(screen.getByText("Only a .docx has a PDF rendering")).toBeInTheDocument();
   });
 });

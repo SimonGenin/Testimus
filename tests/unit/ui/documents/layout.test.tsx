@@ -76,7 +76,7 @@ const pressEscape = (name: string) => fireEvent.keyDown(screen.getByRole("dialog
 
 describe("foldOf", () => {
   it("folds the outer columns first as the screen narrows", () => {
-    expect([Number.POSITIVE_INFINITY, 1300, 1299, 1052, 1051, 752, 751, 0].map((w) => foldOf(w))).toEqual([
+    expect([Number.POSITIVE_INFINITY, 1416, 1415, 1096, 1095, 752, 751, 0].map((w) => foldOf(w))).toEqual([
       "wide",
       "wide",
       "medium",
@@ -110,7 +110,7 @@ describe("Documents screen resizing", () => {
 
   it("a drag grows a column only into the room the text can spare, and is kept", async () => {
     listed();
-    sized(1400);
+    sized(1472);
     const { container } = mountDocs(<DocumentsScreen />, { route: { screen: "documents", arg: "D1" } });
     await screen.findByText("Part §1.1");
     const side = edge("Resize the settings");
@@ -121,7 +121,7 @@ describe("Documents screen resizing", () => {
     expect(fold(container)).toBe("wide");
     expect(localStorage.getItem("testimus.docsSideWidth")).toBe("400");
     fireEvent.doubleClick(side);
-    expect(side).toHaveAttribute("aria-valuenow", "300");
+    expect(side).toHaveAttribute("aria-valuenow", "344");
     expect(localStorage.getItem("testimus.docsSideWidth")).toBeNull();
   });
 });
@@ -172,7 +172,7 @@ describe("Documents screen folding", () => {
     expect(drawer("Documents")).toBeNull();
 
     fireEvent.click(show);
-    body.resize(1400);
+    body.resize(1500);
     expect(fold(container)).toBe("wide");
     expect(drawer("Documents")).toBeNull();
     expect(screen.queryByRole("button", { name: "Show the document list" })).toBeNull();

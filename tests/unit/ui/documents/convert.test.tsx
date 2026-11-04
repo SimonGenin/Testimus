@@ -234,25 +234,43 @@ describe("Converting a document", () => {
   });
 
   it("a converted document is converted again from its menu, and the dialog closes", async () => {
-    api.routes["docs.list"] = () => [doc("D1")];
+    const d1 = doc("D1", {
+      converted: { with: "", at, warnings: ["w"], stats: { sections: 6, figures: 21, chars: 900 } },
+      source: { name: "C:/x/source.docx", sha256: "", file: "source.docx" },
+    });
+    api.routes["docs.list"] = () => [d1];
     api.routes["docs.show"] = (i) =>
-      i.anchor ? { md: "x" } : { doc: doc("D1"), context: "", toc: [], figures: [], md: "" };
+      i.anchor
+        ? { md: "x" }
+        : {
+            doc: d1,
+            context: "",
+            toc: [],
+            figures: [{ file: "f.png", anchor: "fig:1", caption: "", description: "lu" }],
+            md: "",
+          };
     api.routes["contexts.list"] = () => [];
     api.routes["docs.convert"] = startsJob("conv-4", "docs.convert");
     api.routes["jobs.show"] = running;
     mountDocs(<DocumentsScreen />);
     const side = await screen.findByRole("region", { name: "C-D1 details" });
     const menu = () => fireEvent.click(within(side).getByRole("button", { name: "More actions for this document" }));
-    expect(screen.queryByRole("dialog", { name: "Convert again" })).toBeNull();
+    expect(screen.queryByRole("dialog", { name: "Convert C-D1 again?" })).toBeNull();
     menu();
     fireEvent.click(screen.getByRole("menuitem", { name: "Convert again…" }));
     fireEvent.click(
-      within(screen.getByRole("dialog", { name: "Convert again" })).getByRole("button", { name: "Cancel" }),
+      within(screen.getByRole("dialog", { name: "Convert C-D1 again?" })).getByRole("button", { name: "Cancel" }),
     );
-    expect(screen.queryByRole("dialog", { name: "Convert again" })).toBeNull();
+    expect(screen.queryByRole("dialog", { name: "Convert C-D1 again?" })).toBeNull();
     menu();
     fireEvent.click(screen.getByRole("menuitem", { name: "Convert again…" }));
-    const dialog = screen.getByRole("dialog", { name: "Convert again" });
+    const dialog = screen.getByRole("dialog", { name: "Convert C-D1 again?" });
+    expect(dialog).toHaveTextContent("Reads source.docx again and reindexes it.");
+    const said = (text: RegExp) => within(dialog).getByText(text).closest("li")?.textContent;
+    expect(said(/^figures read again/)).toBe("21figures read again — 1 already described is kept");
+    expect(said(/^sections reindexed/)).toBe("6sections reindexed in every vector space");
+    expect(said(/^conversion warning/)).toBe("1conversion warning recomputed");
+    expect(dialog).toHaveTextContent("It runs in Jobs; you can keep working.");
     const describe = within(dialog).getByRole("checkbox", { name: "Claude describes the figures not described yet" });
     expect(describe).toBeChecked();
     fireEvent.click(describe);
@@ -266,7 +284,7 @@ describe("Converting a document", () => {
         index: true,
       }),
     );
-    expect(screen.queryByRole("dialog", { name: "Convert again" })).toBeNull();
+    expect(screen.queryByRole("dialog", { name: "Convert C-D1 again?" })).toBeNull();
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
     emit({
       jobId: "conv-4",
@@ -309,7 +327,7 @@ describe("Convert again with Claude's study", () => {
     mountDocs(<DocumentsScreen />);
     fireEvent.click(await screen.findByRole("button", { name: "More actions for this document" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Convert again…" }));
-    const dialog = screen.getByRole("dialog", { name: "Convert again" });
+    const dialog = screen.getByRole("dialog", { name: "Convert SOSIE_441 again?" });
     const kept = within(dialog).getByText("Converted from the PDF tags, 2 heading numbers read on the pages.");
     expect(kept).toHaveAttribute("title", "Numbers drawn by Word.");
     const box = within(dialog).getByRole("checkbox", { name: /Claude studies the original first/ });

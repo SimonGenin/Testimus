@@ -130,6 +130,29 @@ describe("figure descriptions v2 — figures.json", () => {
     expect(figuresOf()[0]).toMatchObject({ description: "Un carré blanc.", labels: ["S 12"], kind: "symbol" });
   });
 
+  it("docs.describeFigures with anchors describes those figures again, and only those; anchors needs a document", async () => {
+    writeFileSync(figFile(), JSON.stringify([v2]));
+    reply('```figures\n{"fig:40": {"description": "Un carré relu."}}\n```');
+    let prompt = "";
+    const spawn = env.spawnClaude;
+    env.spawnClaude = async (s) => {
+      prompt = s.stdin ?? "";
+      return spawn(s);
+    };
+    const none = (await invoke("docs.describeFigures", { docId: D3, anchors: [] }, { project: dir })) as {
+      docs: { described: number }[];
+    };
+    expect(none.docs[0].described).toBe(0);
+    expect(prompt).toBe("");
+    const r = (await invoke("docs.describeFigures", { docId: D3, anchors: ["fig:40"] }, { project: dir })) as {
+      docs: { described: number; missing: string[] }[];
+    };
+    expect(r.docs[0]).toMatchObject({ described: 1, missing: [] });
+    expect(prompt).toContain("fig:40");
+    expect(figuresOf()[0]).toMatchObject({ description: "Un carré relu.", labels: v2.labels, kind: "symbol" });
+    await expect(invoke("docs.describeFigures", { anchors: ["fig:40"] }, { project: dir })).rejects.toThrow(/docId/);
+  });
+
   it("docs.show lists the labels and the kind of a figure", async () => {
     writeFileSync(figFile(), JSON.stringify([v2]));
     const r = (await invoke("docs.show", { id: D3 }, { project: dir })) as { figures: FigureEntry[] };

@@ -5,13 +5,13 @@ import { ReviewBadge } from "../../components/ui/Badge.tsx";
 import { Modal } from "../../components/ui/Modal.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { execute, type Prefix, useRead } from "../../lib/data/query.ts";
+import { baseName } from "../../lib/desktop.ts";
 import { message, plural } from "../../lib/format.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 import { color, fontFamily, fontSize, lineHeight, space } from "../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
   body: { display: "flex", flexDirection: "column", gap: space.s3 },
-  p: { margin: 0, fontSize: fontSize.body, lineHeight: lineHeight.body, color: color.text },
   muted: { margin: 0, fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textMuted },
   mono: { fontFamily: fontFamily.mono, fontSize: fontSize.code },
   list: { display: "flex", flexDirection: "column", gap: space.s2, margin: 0, padding: 0, listStyle: "none" },
@@ -63,25 +63,43 @@ export function RemoveDoc({ doc, onClose, onRemoved }: { doc: DocJson; onClose: 
   const cited = plan.data?.citedBy ?? [];
   const validated = cited.filter((t) => t.review === "validated").length;
   const unlinked = plan.data?.unlinked ?? [];
+  const source = baseName(doc.source.name || doc.source.file) || "the original";
+  const figures = doc.converted?.stats?.figures ?? 0;
+  const passages = plan.data?.passages ?? 0;
+  const consequences: [number, string][] = plan.data
+    ? [
+        [1, `folder deleted: the copy of ${source}, doc.md, ${plural(figures, "figure")} and its Claude context`],
+        [passages, `passage${passages === 1 ? "" : "s"} removed from the index, in every vector space`],
+        ...(cited.length
+          ? [
+              [
+                cited.length,
+                `test${cited.length === 1 ? " cites" : "s cite"} it${validated ? `, ${validated} of them validated` : ""}: they stay as they are; the check will report their sources as missing`,
+              ] as [number, string],
+            ]
+          : []),
+      ]
+    : [];
   return (
     <Modal
       title="Delete this document?"
+      subtitle={
+        <>
+          <span {...stylex.props(styles.mono)}>{doc.code}</span> · {doc.title} · {doc.version}
+        </>
+      }
       size="sm"
       confirm={{ verb: "Delete", danger: true, onConfirm: remove }}
+      consequences={consequences}
       busy={plan.isPending}
       onClose={onClose}
     >
       <div {...stylex.props(styles.body)}>
-        <p {...stylex.props(styles.p)}>
-          <span {...stylex.props(styles.mono)}>{doc.code}</span> — {doc.title} — is removed from the project folder and
-          from the index.
-        </p>
-        <p {...stylex.props(styles.muted)}>
-          <strong>What is lost: </strong>the copy of the original, the converted text, the figures and their
-          descriptions, the context, and its passages in the search index.
-        </p>
         {plan.isError ? (
-          <p {...stylex.props(styles.muted)}>The tests that cite it could not be listed: {message(plan.error)}</p>
+          <p {...stylex.props(styles.muted)}>
+            It leaves the project folder and the index. The tests that cite it could not be listed:{" "}
+            {message(plan.error)}
+          </p>
         ) : plan.isPending ? (
           <div role="status" aria-busy="true" aria-label="Looking for the tests that cite it">
             <Skeleton width="70%" />
@@ -90,13 +108,6 @@ export function RemoveDoc({ doc, onClose, onRemoved }: { doc: DocJson; onClose: 
           <p {...stylex.props(styles.muted)}>No test cites it.</p>
         ) : (
           <>
-            <p {...stylex.props(styles.p)}>
-              <strong>
-                {plural(cited.length, "test")} cite{cited.length === 1 ? "s" : ""} it
-              </strong>
-              {validated ? `, ${validated} of them validated` : ""}. They keep their sources and their review; the check
-              will report each of those sources as a missing document.
-            </p>
             <ul aria-label="Tests that cite this document" {...stylex.props(styles.list)}>
               {cited.slice(0, SHOWN).map((t) => (
                 <li key={t.id} {...stylex.props(styles.test)}>
@@ -115,6 +126,9 @@ export function RemoveDoc({ doc, onClose, onRemoved }: { doc: DocJson; onClose: 
             <span {...stylex.props(styles.mono)}>{unlinked.join(", ")}</span>
           </p>
         )}
+        <p {...stylex.props(styles.muted)}>
+          This cannot be undone: to get it back, add {source} again (status and context start over).
+        </p>
       </div>
     </Modal>
   );

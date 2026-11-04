@@ -71,6 +71,7 @@ export function RequestBlock({
         value={form.request}
         onChange={form.setRequest}
         readOnly={readOnly}
+        disabled={readOnly}
         unavailable={unavailable}
         submit="none"
         allowEmpty={!form.empty}
