@@ -3,13 +3,15 @@ import { useState } from "react";
 import type { ColumnLayout, ColumnModes, Source, Step, StepImage, Test } from "../../../../core/types.ts";
 import { Badge } from "../../../components/ui/Badge.tsx";
 import { Button } from "../../../components/ui/Button.tsx";
+import { Card } from "../../../components/ui/Card.tsx";
 import { EmptyState } from "../../../components/ui/EmptyState.tsx";
 import { Segmented } from "../../../components/ui/Segmented.tsx";
 import type { FieldAutosave } from "../../../components/ui/Text.tsx";
+import { type } from "../../../components/ui/type.ts";
 import type { SourceFrom } from "../../../lib/app.ts";
 import type { Column } from "../../../lib/columns.ts";
 import type { Gone, StepMark } from "../../../lib/diff.ts";
-import { border, color, fontSize, fontWeight, lineHeight, radius, space } from "../../../styles/tokens.stylex.ts";
+import { border, color, radius, space } from "../../../styles/tokens.stylex.ts";
 import { ColumnsMenu } from "../ColumnsMenu.tsx";
 import { StepCard, type StepLayout } from "../StepCard.tsx";
 import { GoneStep } from "../WasView.tsx";
@@ -23,7 +25,7 @@ const styles = stylex.create({
     gap: space.s3,
     paddingTop: space.s3,
   },
-  title: { margin: 0, fontSize: fontSize.titleSm, lineHeight: lineHeight.titleSm, fontWeight: fontWeight.semibold },
+  title: { margin: 0 },
   grow: { flex: 1 },
   slot: { position: "relative" },
   drop: {
@@ -31,14 +33,6 @@ const styles = stylex.create({
     marginBlock: space.s1,
     borderRadius: radius.full,
     backgroundColor: color.accent,
-  },
-  add: {
-    boxSizing: "border-box",
-    display: "flex",
-    borderStyle: "dashed",
-    borderWidth: border.width,
-    borderColor: color.borderControl,
-    borderRadius: radius.r3,
   },
 });
 
@@ -142,7 +136,7 @@ export function StepList({
   return (
     <>
       <div {...stylex.props(styles.head)}>
-        <h2 {...stylex.props(styles.title)}>Steps</h2>
+        <h2 {...stylex.props(type.titleSm, styles.title)}>Steps</h2>
         <Badge label={String(test.steps.length)} count size="sm" />
         <span {...stylex.props(styles.grow)} />
         <ColumnsMenu
@@ -245,7 +239,7 @@ export function StepList({
         />
       ) : (
         !readOnly && (
-          <div {...stylex.props(styles.add)}>
+          <Card dashed padded={false}>
             <Button
               variant="quiet"
               size="lg"
@@ -254,7 +248,7 @@ export function StepList({
               block
               onClick={() => onInsert(test.steps.length)}
             />
-          </div>
+          </Card>
         )
       )}
     </>

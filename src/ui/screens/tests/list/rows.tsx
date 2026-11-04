@@ -1,11 +1,12 @@
 import * as stylex from "@stylexjs/stylex";
 import type { LocalTestRef, SyncState } from "../../../../core/types.ts";
 import { Badge, REVIEW, SYNC } from "../../../components/ui/Badge.tsx";
-import { color, fontFamily, fontSize, space } from "../../../styles/tokens.stylex.ts";
+import { type } from "../../../components/ui/type.ts";
+import { color, space } from "../../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
   meta: { display: "inline-flex", alignItems: "center", flexWrap: "wrap", gap: space.s2, minWidth: 0 },
-  key: { fontFamily: fontFamily.mono, fontSize: fontSize.code, color: color.textMuted },
+  key: { color: color.textMuted },
   where: { color: color.textSubtle, marginInlineEnd: space.s1 },
 });
 
@@ -27,7 +28,7 @@ export const SYNC_TIP: Record<SyncState, string> = {
 export function TestMeta({ r }: { r: LocalTestRef }) {
   return (
     <span {...stylex.props(styles.meta)}>
-      <span {...stylex.props(styles.key)}>{r.key ?? "no key"}</span>
+      <span {...stylex.props(type.code, styles.key)}>{r.key ?? "no key"}</span>
       {r.generated && (
         <Badge
           label={r.edited ? "Generated · edited" : "Generated"}
@@ -43,7 +44,7 @@ export function TestMeta({ r }: { r: LocalTestRef }) {
 }
 
 export function KeyText({ text }: { text: string }) {
-  return <span {...stylex.props(styles.key)}>{text}</span>;
+  return <span {...stylex.props(type.code, styles.key)}>{text}</span>;
 }
 
 export function Where({ text }: { text: string }) {

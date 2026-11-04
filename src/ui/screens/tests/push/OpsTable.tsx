@@ -3,7 +3,8 @@ import type { PlanOp, PushOpResult } from "../../../../core/types.ts";
 import { Badge } from "../../../components/ui/Badge.tsx";
 import { Icon, type IconName } from "../../../components/ui/Icon.tsx";
 import { Table } from "../../../components/ui/Table.tsx";
-import { color, fontSize, lineHeight, space } from "../../../styles/tokens.stylex.ts";
+import { type } from "../../../components/ui/type.ts";
+import { color, space } from "../../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
   op: { display: "inline-flex", alignItems: "center", gap: space.s2 },
@@ -11,8 +12,6 @@ const styles = stylex.create({
   cell: { display: "flex", flexDirection: "column", gap: space.s1 },
   error: {
     paddingInlineStart: `calc(${space.s2} + ${space.s4})`,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
     color: color.danger,
     overflowWrap: "anywhere",
   },
@@ -76,7 +75,7 @@ export function OpsTable({
                   </span>
                   {r.op.label}
                 </span>
-                {why && <span {...stylex.props(styles.error)}>{why}</span>}
+                {why && <span {...stylex.props(type.small, styles.error)}>{why}</span>}
               </span>
             );
           },

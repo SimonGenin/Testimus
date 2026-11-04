@@ -4,18 +4,9 @@ import type { CheckFile, ColumnLayout, Source, SyncState, Test } from "../../../
 import { Badge, ReviewBadge, SYNC } from "../../components/ui/Badge.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
+import { type } from "../../components/ui/type.ts";
 import { plural } from "../../lib/format.ts";
-import {
-  border,
-  color,
-  container,
-  fontFamily,
-  fontSize,
-  fontWeight,
-  lineHeight,
-  size,
-  space,
-} from "../../styles/tokens.stylex.ts";
+import { border, color, container, size, space } from "../../styles/tokens.stylex.ts";
 import { FindingCard } from "./FindingCard.tsx";
 import { type BannersProps, type Marks, ReviewBanners, when } from "./ReviewBanners.tsx";
 import { ReviewStep } from "./ReviewStep.tsx";
@@ -45,15 +36,12 @@ const styles = stylex.create({
     borderBottomColor: color.border,
     backgroundColor: color.surface,
   },
-  key: { fontFamily: fontFamily.mono, fontSize: fontSize.code, lineHeight: lineHeight.code },
   local: { color: color.textMuted },
   folder: {
     display: "inline-flex",
     alignItems: "center",
     gap: space.s2,
     minWidth: 0,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
     color: color.textMuted,
   },
   grow: { flex: 1, minWidth: 0 },
@@ -71,8 +59,8 @@ const styles = stylex.create({
     gap: space.s4,
   },
   titles: { display: "flex", flexDirection: "column", gap: space.s2 },
-  title: { margin: 0, fontSize: fontSize.titleLg, lineHeight: lineHeight.titleLg, fontWeight: fontWeight.semibold },
-  sub: { margin: 0, fontSize: fontSize.compact, lineHeight: lineHeight.compact, color: color.textMuted },
+  title: { margin: 0 },
+  sub: { margin: 0, color: color.textMuted },
   none: { margin: 0, color: color.textMuted },
 });
 
@@ -120,8 +108,8 @@ export function ReviewTest(p: ReviewTestProps) {
   return (
     <>
       <div {...stylex.props(styles.head)}>
-        <span {...stylex.props(styles.key, !test.key && styles.local)}>{test.key ?? "Not in Jira yet"}</span>
-        <span {...stylex.props(styles.folder)}>
+        <span {...stylex.props(type.code, !test.key && styles.local)}>{test.key ?? "Not in Jira yet"}</span>
+        <span {...stylex.props(type.small, styles.folder)}>
           <Icon name="folder" size="sm" />
           {test.folder || "/"}
         </span>
@@ -148,8 +136,8 @@ export function ReviewTest(p: ReviewTestProps) {
       <div ref={p.bodyRef} {...stylex.props(styles.body)}>
         <div {...stylex.props(styles.col)}>
           <div {...stylex.props(styles.titles)}>
-            <h2 {...stylex.props(styles.title)}>{test.summary || "Untitled test"}</h2>
-            <p {...stylex.props(styles.sub)}>{subline(test, check)}</p>
+            <h2 {...stylex.props(type.titleLg, styles.title)}>{test.summary || "Untitled test"}</h2>
+            <p {...stylex.props(type.compact, styles.sub)}>{subline(test, check)}</p>
           </div>
           <ReviewBanners {...p} checked={!!check} claudeReady={p.claudeReady ?? true} />
           {whole.map(({ f, i }) => (

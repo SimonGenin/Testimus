@@ -1,14 +1,15 @@
 import * as stylex from "@stylexjs/stylex";
 import type { Source } from "../../../../core/types.ts";
 import { SourceChip } from "../../../components/ui/SourceChip.tsx";
+import { type } from "../../../components/ui/type.ts";
 import { type ItemLink, sourceLabel } from "../../../lib/fields.ts";
-import { color, fontFamily, fontSize, space } from "../../../styles/tokens.stylex.ts";
+import { color, space } from "../../../styles/tokens.stylex.ts";
 import { StepSource } from "./StepSource.tsx";
 
 const styles = stylex.create({
   links: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s2, paddingInline: space.s3 },
   group: { display: "inline-flex", flexWrap: "wrap", alignItems: "center", gap: space.s1, minWidth: 0 },
-  item: { fontFamily: fontFamily.mono, fontSize: fontSize.code, color: color.text },
+  item: { color: color.text },
 });
 
 // ponytail: the items of a column that links its items to their sources (a requirement code and the passage it comes
@@ -42,7 +43,7 @@ export function ItemLinks({
         }
         return (
           <span key={i} {...stylex.props(styles.group)}>
-            <span {...stylex.props(styles.item)}>{l.item}</span>
+            <span {...stylex.props(type.code, styles.item)}>{l.item}</span>
             {l.sources.map((s, k) => (
               <StepSource key={k} source={s} compact onOpen={onOpen} />
             ))}

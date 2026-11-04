@@ -4,7 +4,8 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Folder, LocalTestRef, RemoteTestRef } from "../../../../../src/core/types.ts";
-import { findFolder, folderName, JiraTab, statusTone } from "../../../../../src/ui/screens/tests/JiraTab.tsx";
+import { jiraStatus } from "../../../../../src/ui/components/ui/Badge.tsx";
+import { findFolder, folderName, JiraTab } from "../../../../../src/ui/screens/tests/JiraTab.tsx";
 import { callsTo, deferred, Fail, server, stubServer } from "../../../helpers/ui-server.ts";
 import { testClient, WithData } from "../data-helpers.tsx";
 
@@ -120,10 +121,10 @@ afterEach(() => {
 });
 
 describe("JiraTab helpers", () => {
-  it("tones statuses, names the root and finds folders", () => {
-    expect(statusTone("Done")).toBe("success");
-    expect(statusTone("In Progress")).toBe("warning");
-    expect(statusTone("To Do")).toBe("neutral");
+  it("tones statuses with the kit's Jira vocabulary, names the root and finds folders", () => {
+    expect(jiraStatus("Done").tone).toBe("success");
+    expect(jiraStatus("In Progress").tone).toBe("warning");
+    expect(jiraStatus("To Do").tone).toBe("neutral");
     expect(folderName("/")).toBe("Test Repository");
     expect(folderName("/Lot")).toBe("/Lot");
     expect(findFolder(tree, "/Lot/Sub")?.name).toBe("Sub");

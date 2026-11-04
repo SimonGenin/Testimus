@@ -6,17 +6,15 @@ import { Button } from "../../../components/ui/Button.tsx";
 import { EmptyState } from "../../../components/ui/EmptyState.tsx";
 import { Modal } from "../../../components/ui/Modal.tsx";
 import { Skeleton } from "../../../components/ui/Skeleton.tsx";
+import { type } from "../../../components/ui/type.ts";
 import { plural } from "../../../lib/format.ts";
-import { color, fontFamily, fontSize, fontWeight, lineHeight, space } from "../../../styles/tokens.stylex.ts";
+import { color, fontFamily, space } from "../../../styles/tokens.stylex.ts";
 import type { Failure, Plan } from "../PushDialog.tsx";
 import { OpsTable } from "./OpsTable.tsx";
 
 const styles = stylex.create({
   body: { display: "flex", flexDirection: "column", gap: space.s3 },
   what: {
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
-    fontWeight: fontWeight.medium,
     color: color.textMuted,
   },
   mono: { fontFamily: fontFamily.mono },
@@ -114,7 +112,9 @@ export function PushPlan({
                 {w}
               </Banner>
             ))}
-            <span {...stylex.props(styles.what)}>What will happen · {plural(ops.length, "operation")}</span>
+            <span {...stylex.props(type.small, type.medium, styles.what)}>
+              What will happen · {plural(ops.length, "operation")}
+            </span>
             {ops.length ? (
               <OpsTable ops={ops} state={() => null} />
             ) : (

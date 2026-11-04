@@ -2,7 +2,8 @@ import * as stylex from "@stylexjs/stylex";
 import type { Precondition } from "../../../../core/types.ts";
 import { Chip } from "../../../components/ui/Chip.tsx";
 import { Icon } from "../../../components/ui/Icon.tsx";
-import { color, fontFamily, fontSize, fontWeight, lineHeight, radius, space } from "../../../styles/tokens.stylex.ts";
+import { type } from "../../../components/ui/type.ts";
+import { color, radius, space } from "../../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
   panel: {
@@ -21,21 +22,15 @@ const styles = stylex.create({
     alignItems: "center",
     flexWrap: "wrap",
     gap: space.s3,
-    fontSize: fontSize.compact,
-    lineHeight: lineHeight.compact,
     color: color.text,
   },
   muted: { color: color.textMuted },
-  summary: { fontWeight: fontWeight.medium },
   grow: { flex: 1 },
   def: {
     boxSizing: "border-box",
     margin: 0,
     paddingInlineStart: `calc(${space.s5} + ${space.s3})`,
     whiteSpace: "pre-wrap",
-    fontFamily: fontFamily.ui,
-    fontSize: fontSize.compact,
-    lineHeight: lineHeight.compact,
     color: color.textMuted,
   },
 });
@@ -56,19 +51,17 @@ export function PreconditionList({
         const p = known?.find((x) => x.key === k);
         return (
           <div key={k} {...stylex.props(styles.one)}>
-            <div {...stylex.props(styles.head)}>
+            <div {...stylex.props(type.compact, styles.head)}>
               <span {...stylex.props(styles.muted)}>
                 <Icon name="lock" size="sm" />
               </span>
               <span {...stylex.props(styles.muted)}>Precondition</span>
               <Chip label={k} mono icon="external" onClick={() => onOpen(k)} />
-              <span {...stylex.props(styles.summary)}>
-                {p?.summary ?? (known === null ? "loading…" : "not loaded")}
-              </span>
+              <span {...stylex.props(type.medium)}>{p?.summary ?? (known === null ? "loading…" : "not loaded")}</span>
               <span {...stylex.props(styles.grow)} />
               <span {...stylex.props(styles.muted)}>Read-only · lives in Jira</span>
             </div>
-            {p?.definition && <p {...stylex.props(styles.def)}>{p.definition}</p>}
+            {p?.definition && <p {...stylex.props(type.compact, type.ui, styles.def)}>{p.definition}</p>}
           </div>
         );
       })}

@@ -2,7 +2,8 @@ import * as stylex from "@stylexjs/stylex";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "../../components/ui/Button.tsx";
 import { Modal } from "../../components/ui/Modal.tsx";
-import { border, color, fontSize, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { type } from "../../components/ui/type.ts";
+import { border, color, space } from "../../styles/tokens.stylex.ts";
 
 type View = { z: number; x: number; y: number };
 const FIT: View = { z: 1, x: 0, y: 0 };
@@ -40,8 +41,6 @@ const styles = stylex.create({
   count: {
     minWidth: space.s10,
     textAlign: "center",
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
     color: color.textMuted,
     fontVariantNumeric: "tabular-nums",
     whiteSpace: "nowrap",
@@ -143,7 +142,7 @@ export function Lightbox({
               disabled={n < 2}
               onClick={prev}
             />
-            <span {...stylex.props(styles.count)}>
+            <span {...stylex.props(type.small, styles.count)}>
               {index + 1} of {n}
             </span>
             <Button
@@ -168,7 +167,7 @@ export function Lightbox({
               shortcut="−"
               onClick={() => zoomBy(1 / 1.25)}
             />
-            <span {...stylex.props(styles.count)}>{Math.round(view.z * 100)} %</span>
+            <span {...stylex.props(type.small, styles.count)}>{Math.round(view.z * 100)} %</span>
             <Button
               variant="quiet"
               size="sm"

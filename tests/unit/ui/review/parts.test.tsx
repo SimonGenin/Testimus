@@ -264,7 +264,7 @@ describe("ReviewStep", () => {
     fireEvent.click(screen.getByRole("button", { name: "Expand step 2" }));
     expect(p.onFold).toHaveBeenCalledWith(false);
     fireEvent.click(screen.getByText("Line one"));
-    expect(p.onFold).toHaveBeenCalledTimes(2);
+    expect(p.onFold).toHaveBeenCalledTimes(1);
     rerender(<ReviewStep {...base({ folded: true, step: step({}), xray: { ...xray, fields: [] } })} />);
     expect(screen.getByText("Empty step")).toBeInTheDocument();
     expect(screen.getByText("No findings")).toBeInTheDocument();

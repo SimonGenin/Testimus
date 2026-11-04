@@ -3,20 +3,23 @@ import type { ReactNode } from "react";
 import { Badge } from "../../../components/ui/Badge.tsx";
 import { Button } from "../../../components/ui/Button.tsx";
 import { Menu, type MenuEntry } from "../../../components/ui/Menu.tsx";
+import { SaveState } from "../../../components/ui/SaveState.tsx";
+import { type } from "../../../components/ui/type.ts";
 import type { AutosaveStatus } from "../../../lib/data/autosave.ts";
-import {
-  border,
-  breakpoint,
-  color,
-  fontFamily,
-  fontSize,
-  lineHeight,
-  size,
-  space,
-  z,
-} from "../../../styles/tokens.stylex.ts";
+import { border, breakpoint, color, size, space, z } from "../../../styles/tokens.stylex.ts";
 import { FolderPicker } from "./FolderPicker.tsx";
-import { SaveStatus } from "./SaveStatus.tsx";
+
+// the state of the whole test in the bar: Claude's hold wins over any activity, an activity over the last save
+function TestSave(p: { status: AutosaveStatus | null; activity?: string; claude?: boolean; onRetry: () => void }) {
+  return (
+    <SaveState
+      live
+      status={p.claude ? "claude" : p.status}
+      activity={p.claude ? undefined : p.activity}
+      onRetry={p.onRetry}
+    />
+  );
+}
 
 const styles = stylex.create({
   bar: {
@@ -38,13 +41,7 @@ const styles = stylex.create({
     borderBottomColor: color.border,
     minWidth: 0,
   },
-  key: {
-    fontFamily: fontFamily.mono,
-    fontSize: fontSize.code,
-    lineHeight: lineHeight.code,
-    color: color.text,
-    whiteSpace: "nowrap",
-  },
+  key: { color: color.text, whiteSpace: "nowrap" },
   local: { color: color.textMuted },
   grow: { flex: 1 },
 });
@@ -89,11 +86,11 @@ export function EditorBar({
     return (
       <div role="toolbar" aria-label="Editing in Review" {...stylex.props(styles.bar)}>
         {lead}
-        <span data-testid="test-key" {...stylex.props(styles.key, !testKey && styles.local)}>
+        <span data-testid="test-key" {...stylex.props(type.code, styles.key, !testKey && styles.local)}>
           {testKey ?? "local"}
         </span>
         <Badge tone="info" icon="text" label="Editing" />
-        <SaveStatus status={status} activity={activity} claude={claude} onRetry={onRetry} />
+        <TestSave status={status} activity={activity} claude={claude} onRetry={onRetry} />
         <span {...stylex.props(styles.grow)} />
         <Button size="sm" variant="claude-quiet" icon="claude" label="Ask Claude" onClick={onAsk} />
         <Button size="sm" variant="primary" icon="arrow-left" label="Back to review" onClick={onBack} />
@@ -102,7 +99,7 @@ export function EditorBar({
   return (
     <div {...stylex.props(styles.bar)}>
       {lead}
-      <span data-testid="test-key" {...stylex.props(styles.key, !testKey && styles.local)}>
+      <span data-testid="test-key" {...stylex.props(type.code, styles.key, !testKey && styles.local)}>
         {testKey ?? "local"}
       </span>
       <FolderPicker
@@ -112,7 +109,7 @@ export function EditorBar({
         onOpen={onFolders}
         onPick={onFolder}
       />
-      <SaveStatus status={status} activity={activity} claude={claude} onRetry={onRetry} />
+      <TestSave status={status} activity={activity} claude={claude} onRetry={onRetry} />
       <span {...stylex.props(styles.grow)} />
       <Button variant="claude-quiet" icon="claude" label="Ask Claude" onClick={onAsk} />
       <Button variant="primary" icon="push" label="Push to Jira" disabled={pushDisabled} onClick={onPush} />

@@ -2,8 +2,9 @@ import * as stylex from "@stylexjs/stylex";
 import type { Finding, Source } from "../../../core/types.ts";
 import { Badge, SeverityBadge } from "../../components/ui/Badge.tsx";
 import { SourceChip } from "../../components/ui/SourceChip.tsx";
+import { type } from "../../components/ui/type.ts";
 import { parseSourceRef, sourcePlace } from "../../lib/fields.ts";
-import { border, color, fontSize, fontWeight, lineHeight, radius, shadow, space } from "../../styles/tokens.stylex.ts";
+import { border, color, radius, shadow, space } from "../../styles/tokens.stylex.ts";
 import { findingMark, kindLabel, refKey } from "./sources.ts";
 
 const styles = stylex.create({
@@ -23,12 +24,11 @@ const styles = stylex.create({
   whole: { backgroundColor: color.surface, boxShadow: shadow.s1 },
   selected: { borderColor: color.accent, boxShadow: `0 0 0 ${border.width} ${color.accent}` },
   head: { display: "flex", alignItems: "center", gap: space.s3, flexWrap: "wrap" },
-  kind: { fontSize: fontSize.compact, lineHeight: lineHeight.compact, fontWeight: fontWeight.medium },
   grow: { flex: 1 },
-  where: { fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textSubtle },
-  message: { margin: 0, fontSize: fontSize.body, lineHeight: lineHeight.body, overflowWrap: "anywhere" },
+  where: { color: color.textSubtle },
+  message: { margin: 0, overflowWrap: "anywhere" },
   stale: { color: color.textMuted },
-  note: { margin: 0, fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textSubtle },
+  note: { margin: 0, color: color.textSubtle },
   chips: { display: "flex", flexWrap: "wrap", gap: space.s2, alignItems: "center" },
 });
 
@@ -92,18 +92,20 @@ export function FindingCard({
     >
       <div {...stylex.props(styles.head)}>
         <SeverityBadge severity={finding.severity} />
-        <span {...stylex.props(styles.kind)}>{head}</span>
+        <span {...stylex.props(type.compact, type.medium)}>{head}</span>
         {stale && <Badge size="sm" icon="history" label="Out of date" tooltip="The test changed after this check" />}
         <span {...stylex.props(styles.grow)} />
-        <span {...stylex.props(styles.where)}>{by ? `${where} · ${by}` : where}</span>
+        <span {...stylex.props(type.small, styles.where)}>{by ? `${where} · ${by}` : where}</span>
       </div>
-      <p {...stylex.props(styles.message, stale && styles.stale)}>{finding.message}</p>
+      <p {...stylex.props(type.body, styles.message, stale && styles.stale)}>{finding.message}</p>
       {stale && (
-        <p {...stylex.props(styles.note)}>The test changed after this check. Run the check again to confirm.</p>
+        <p {...stylex.props(type.small, styles.note)}>
+          The test changed after this check. Run the check again to confirm.
+        </p>
       )}
       <FindingSources finding={finding} index={index} selected={selected} onSelect={onSelect} />
       {!finding.sources.length && finding.pass === "semantic" && (
-        <p {...stylex.props(styles.note)}>No passage was found for it.</p>
+        <p {...stylex.props(type.small, styles.note)}>No passage was found for it.</p>
       )}
     </div>
   );

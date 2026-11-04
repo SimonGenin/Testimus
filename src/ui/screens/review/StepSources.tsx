@@ -3,8 +3,9 @@ import type { Finding, Source } from "../../../core/types.ts";
 import { Badge } from "../../components/ui/Badge.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { SourceChip } from "../../components/ui/SourceChip.tsx";
+import { type } from "../../components/ui/type.ts";
 import { type ItemLink, sourceLabel } from "../../lib/fields.ts";
-import { color, fontFamily, fontSize, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 import { chipMark, findingSummary, refKey } from "./sources.ts";
 
 const styles = stylex.create({
@@ -13,13 +14,10 @@ const styles = stylex.create({
     display: "inline-flex",
     alignItems: "center",
     gap: space.s2,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
     color: color.textMuted,
   },
   chips: { display: "flex", flexWrap: "wrap", gap: space.s2, alignItems: "center", minWidth: 0 },
   item: { display: "inline-flex", alignItems: "center", gap: space.s2, flexWrap: "wrap" },
-  itemName: { fontFamily: fontFamily.mono, fontSize: fontSize.code },
 });
 
 const TONE = { error: "danger", warning: "warning", info: "info" } as const;
@@ -30,7 +28,7 @@ export function Summary({ findings, stale }: { findings: Finding[]; stale: boole
   const sum = findingSummary(findings);
   if (sum.tone === "ok")
     return (
-      <span {...stylex.props(styles.ok)}>
+      <span {...stylex.props(type.small, styles.ok)}>
         <Icon name="check" size="sm" />
         No findings
       </span>
@@ -82,7 +80,7 @@ export function Links({
           />
         ) : (
           <span key={l.item} {...stylex.props(styles.item)}>
-            <span {...stylex.props(styles.itemName)}>{l.item}</span>
+            <span {...stylex.props(type.code)}>{l.item}</span>
             {l.sources.map((s) => (
               <SourceChip
                 key={`${refKey(s)}-${s.quote}`}

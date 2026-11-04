@@ -6,13 +6,14 @@ import { Button } from "../../components/ui/Button.tsx";
 import { EmptyState } from "../../components/ui/EmptyState.tsx";
 import { Modal } from "../../components/ui/Modal.tsx";
 import { ResizeHandle } from "../../components/ui/ResizeHandle.tsx";
+import { type } from "../../components/ui/type.ts";
 import { useApp } from "../../lib/app.ts";
 import { project } from "../../lib/data/client.ts";
 import { execute, useRead } from "../../lib/data/query.ts";
 import { keepDraft } from "../../lib/drafts.ts";
 import { usePaneWidth } from "../../lib/panes.ts";
 import { errorToast } from "../../lib/toast.ts";
-import { border, color, fontSize, fontWeight, lineHeight, size, space } from "../../styles/tokens.stylex.ts";
+import { border, color, size, space } from "../../styles/tokens.stylex.ts";
 import { ConnectAtlassian } from "../settings/ConnectAtlassian.tsx";
 import type { Listed } from "./list/tree.ts";
 import { PullPane } from "./PullPane.tsx";
@@ -50,7 +51,7 @@ const styles = stylex.create({
   },
   top: { alignItems: "flex-start" },
   connect: { width: "100%", maxWidth: size.modalMd, display: "flex", flexDirection: "column", gap: space.s4 },
-  title: { margin: 0, fontSize: fontSize.title, lineHeight: lineHeight.title, fontWeight: fontWeight.semibold },
+  title: { margin: 0 },
 });
 
 // ponytail: the narrow breakpoint is a presentation fact of the window, read from its width
@@ -258,7 +259,7 @@ export function TestsScreen() {
                 />
               ) : access === false ? (
                 <div {...stylex.props(styles.connect)}>
-                  <h2 {...stylex.props(styles.title)}>Connect to Jira and Xray</h2>
+                  <h2 {...stylex.props(type.title, styles.title)}>Connect to Jira and Xray</h2>
                   <ConnectAtlassian
                     lead="Testimus pulls and pushes your tests with your own Jira and Xray access — the same files Xray Editor uses."
                     onStatus={() => void credsQ.refetch()}

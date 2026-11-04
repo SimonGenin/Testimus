@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import type { ClipboardEvent, ReactNode } from "react";
-import { breakpoint, color, fontSize, fontWeight, lineHeight, space } from "../../../styles/tokens.stylex.ts";
+import { type } from "../../../components/ui/type.ts";
+import { breakpoint, color, size, space } from "../../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
   stacked: { display: "flex", flexDirection: "column", gap: space.s2, minWidth: 0 },
@@ -12,7 +13,7 @@ const styles = stylex.create({
   },
   row: {
     display: "grid",
-    gridTemplateColumns: { default: `calc(${space.s11} * 2) minmax(0, 1fr)`, [breakpoint.narrow]: "minmax(0, 1fr)" },
+    gridTemplateColumns: { default: `${size.stepLabel} minmax(0, 1fr)`, [breakpoint.narrow]: "minmax(0, 1fr)" },
     gap: { default: space.s4, [breakpoint.narrow]: space.s1 },
     alignItems: "start",
     minWidth: 0,
@@ -24,9 +25,6 @@ const styles = stylex.create({
     alignItems: "flex-start",
     gap: space.s1,
     paddingTop: `calc(${space.s2} + ${space.s1})`,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
-    fontWeight: fontWeight.medium,
     color: color.textMuted,
     overflowWrap: "anywhere",
   },
@@ -64,7 +62,7 @@ export function FieldRow({
 }) {
   return (
     <div data-field={name} {...stylex.props(styles.row, split && styles.rowSplit)} onPaste={onPaste}>
-      <div {...stylex.props(styles.label, split && styles.labelSplit)}>
+      <div {...stylex.props(type.small, type.medium, styles.label, split && styles.labelSplit)}>
         <span data-testid="field-label">{name}</span>
         {note}
       </div>

@@ -5,17 +5,18 @@ import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { Text } from "../../components/ui/Text.tsx";
+import { type } from "../../components/ui/type.ts";
 import { useApp } from "../../lib/app.ts";
 import { ApiError } from "../../lib/data/client.ts";
 import { execute } from "../../lib/data/query.ts";
 import { errorToast } from "../../lib/toast.ts";
-import { color, fontSize, fontWeight, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
   box: { display: "flex", flexDirection: "column", alignItems: "stretch", gap: space.s3, padding: space.s5 },
   icon: { color: color.textMuted },
-  title: { margin: 0, fontSize: fontSize.titleSm, lineHeight: lineHeight.titleSm, fontWeight: fontWeight.semibold },
-  text: { margin: 0, fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textMuted },
+  title: { margin: 0 },
+  text: { margin: 0, color: color.textMuted },
   start: { alignSelf: "flex-start" },
 });
 
@@ -66,14 +67,14 @@ export function JiraConnect({ error, onConnected }: { error: string; onConnected
       <span {...stylex.props(styles.icon)}>
         <Icon name={offline ? "drive" : "plug"} size="lg" />
       </span>
-      <h2 {...stylex.props(styles.title)}>
+      <h2 {...stylex.props(type.titleSm, styles.title)}>
         {offline
           ? "Working locally"
           : p?.jiraProject && error
             ? "Jira could not be reached"
             : "Connect this project to Jira"}
       </h2>
-      <p {...stylex.props(styles.text)}>
+      <p {...stylex.props(type.small, styles.text)}>
         {offline
           ? `Nothing is read from or written to ${p?.jiraProject} until you reconnect. Your local tests stay as they are.`
           : "Give the key of the Jira project that holds the Xray tests. It is checked in Jira before it is saved."}
@@ -116,7 +117,7 @@ export function JiraConnect({ error, onConnected }: { error: string; onConnected
           }
         >
           {shown.message}
-          {shown.fix && <p {...stylex.props(styles.text)}>{shown.fix}</p>}
+          {shown.fix && <p {...stylex.props(type.small, styles.text)}>{shown.fix}</p>}
         </Banner>
       )}
       {!offline && p?.jiraProject && error && (

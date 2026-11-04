@@ -3,11 +3,10 @@ import type { ReactNode } from "react";
 import { Banner } from "../../../components/ui/Banner.tsx";
 import type { IconName } from "../../../components/ui/Icon.tsx";
 import { Modal } from "../../../components/ui/Modal.tsx";
-import { fontFamily, fontSize } from "../../../styles/tokens.stylex.ts";
+import { type } from "../../../components/ui/type.ts";
 
 const styles = stylex.create({
   text: { margin: 0 },
-  key: { fontFamily: fontFamily.mono, fontSize: fontSize.code },
 });
 
 export type Loss = { modified: number; added: number; deleted: number };
@@ -88,7 +87,7 @@ export function DownloadConfirm({
       onClose={onClose}
     >
       <p {...stylex.props(styles.text)}>
-        <span {...stylex.props(styles.key)}>{testKey}</span> has local changes. Downloading replaces the local copy with
+        <span {...stylex.props(type.code)}>{testKey}</span> has local changes. Downloading replaces the local copy with
         the version in Jira.
       </p>
       <p {...stylex.props(styles.text)}>

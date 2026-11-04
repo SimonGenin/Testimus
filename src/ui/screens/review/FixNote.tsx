@@ -4,20 +4,18 @@ import { Button } from "../../components/ui/Button.tsx";
 import { ClaudeBlock } from "../../components/ui/ClaudeBlock.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { Modal } from "../../components/ui/Modal.tsx";
+import { type } from "../../components/ui/type.ts";
 import { useDraft } from "../../lib/data/autosave.ts";
 import { project } from "../../lib/data/client.ts";
-import { color, fontSize, fontWeight, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
   note: { display: "flex", flexDirection: "column", gap: space.s2 },
   label: {
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
-    fontWeight: fontWeight.medium,
     color: color.textMuted,
   },
-  hint: { margin: 0, fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textSubtle },
-  kept: { fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textSubtle, whiteSpace: "nowrap" },
+  hint: { margin: 0, color: color.textSubtle },
+  kept: { color: color.textSubtle, whiteSpace: "nowrap" },
 });
 
 const HINT =
@@ -101,7 +99,7 @@ export function FixNote({ id, initial, subtitle, claudeReady, onCancel, onSubmit
           }
         }}
       >
-        <label htmlFor={field} {...stylex.props(styles.label)}>
+        <label htmlFor={field} {...stylex.props(type.small, type.medium, styles.label)}>
           Note for the author — Claude reads it too
         </label>
         <ClaudeBlock
@@ -113,9 +111,11 @@ export function FixNote({ id, initial, subtitle, claudeReady, onCancel, onSubmit
           autoFocus
           placeholder="Say what is wrong, and what the test should check instead…"
           error={tried && empty ? "Say what is wrong: the note is required." : undefined}
-          trailing={note && note !== initial ? <span {...stylex.props(styles.kept)}>Draft kept</span> : undefined}
+          trailing={
+            note && note !== initial ? <span {...stylex.props(type.small, styles.kept)}>Draft kept</span> : undefined
+          }
         />
-        <p {...stylex.props(styles.hint)}>{HINT}</p>
+        <p {...stylex.props(type.small, styles.hint)}>{HINT}</p>
       </div>
     </Modal>
   );

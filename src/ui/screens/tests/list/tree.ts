@@ -71,8 +71,5 @@ export const flattenFolders = (
   return out;
 };
 
-export const statusTone = (s: string): "success" | "warning" | "neutral" =>
-  /done|ready|closed|pass/i.test(s) ? "success" : /review|progress|block/i.test(s) ? "warning" : "neutral";
-
 // a row of tests.list: the test, and whether it still waits in Review (a generation not validated yet)
 export type Listed = LocalTestRef & { awaiting?: boolean };

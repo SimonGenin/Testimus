@@ -1,9 +1,10 @@
 import * as stylex from "@stylexjs/stylex";
 import { Button } from "../../components/ui/Button.tsx";
+import { Card } from "../../components/ui/Card.tsx";
 import { EmptyState } from "../../components/ui/EmptyState.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { plural } from "../../lib/format.ts";
-import { border, color, radius, size, space } from "../../styles/tokens.stylex.ts";
+import { size, space } from "../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
   center: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: space.s7 },
@@ -19,17 +20,6 @@ const styles = stylex.create({
     display: "flex",
     flexDirection: "column",
     gap: space.s4,
-  },
-  card: {
-    display: "flex",
-    flexDirection: "column",
-    gap: space.s3,
-    padding: space.s4,
-    borderWidth: border.width,
-    borderStyle: "solid",
-    borderColor: color.border,
-    borderRadius: radius.r3,
-    backgroundColor: color.surface,
   },
 });
 
@@ -70,10 +60,10 @@ export function ReviewLoading() {
       <Skeleton kind="title" width="70%" />
       <Skeleton width="40%" />
       {[0, 1, 2].map((i) => (
-        <div key={i} {...stylex.props(styles.card)}>
+        <Card key={i}>
           <Skeleton kind="circle" />
           <Skeleton lines={3} />
-        </div>
+        </Card>
       ))}
     </div>
   );

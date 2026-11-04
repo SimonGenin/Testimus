@@ -1,12 +1,12 @@
 import * as stylex from "@stylexjs/stylex";
-import type { ReactNode } from "react";
 import { Badge, DIFF } from "../../../components/ui/Badge.tsx";
 import { Button } from "../../../components/ui/Button.tsx";
 import { Chip } from "../../../components/ui/Chip.tsx";
 import { Icon } from "../../../components/ui/Icon.tsx";
 import { Tooltip } from "../../../components/ui/Tooltip.tsx";
+import { type } from "../../../components/ui/type.ts";
 import type { StepMark } from "../../../lib/diff.ts";
-import { border, color, fontSize, fontWeight, radius, size, space } from "../../../styles/tokens.stylex.ts";
+import { border, color, radius, size, space } from "../../../styles/tokens.stylex.ts";
 import { stepMarker } from "../markers.stylex.ts";
 
 const styles = stylex.create({
@@ -37,9 +37,6 @@ const styles = stylex.create({
     borderRadius: radius.r2,
     backgroundColor: color.surfaceSunken,
     color: color.text,
-    fontSize: fontSize.compact,
-    fontWeight: fontWeight.semibold,
-    fontVariantNumeric: "tabular-nums",
   },
   numModified: { backgroundColor: color.warningSubtle, color: color.warning },
   numNew: { backgroundColor: color.successSubtle, color: color.success },
@@ -52,7 +49,6 @@ const styles = stylex.create({
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    fontSize: fontSize.compact,
   },
   empty: { color: color.textSubtle },
   grow: { flex: 1 },
@@ -78,6 +74,9 @@ export function StepNumber({ n, marks }: { n: number; marks: StepMarks }) {
     <span
       data-testid="step-number"
       {...stylex.props(
+        type.compact,
+        type.strong,
+        type.tabular,
         styles.num,
         marks.mark === "modified" && styles.numModified,
         marks.mark === "new" && styles.numNew,
@@ -123,13 +122,12 @@ export function Grip({ n, focused, onArm }: { n: number; focused?: boolean; onAr
   );
 }
 
-// the head of an open step card: grip, number, marks, the Jira version toggle, the column folds and the tools
+// the rest of an open step card's head, after its grip, number and marks (StepFrame): the Jira version toggle, the
+// column folds and the tools
 export function StepHead({
   n,
   index,
   count,
-  marks,
-  grip,
   jira,
   folds,
   readOnly,
@@ -142,8 +140,6 @@ export function StepHead({
   n: number;
   index: number;
   count: number;
-  marks: StepMarks;
-  grip: ReactNode;
   jira?: { open: boolean; toggle: () => void };
   folds: Fold[];
   readOnly?: boolean;
@@ -155,9 +151,6 @@ export function StepHead({
 }) {
   return (
     <>
-      {grip}
-      <StepNumber n={n} marks={marks} />
-      <MarkBadges marks={marks} />
       {jira && (
         <Chip
           tone="warning"
@@ -239,7 +232,7 @@ export function StepHead({
 // the line a folded step keeps: its number, its marks and the first line of its first column
 export function FoldedLine({ text }: { text: string }) {
   return (
-    <span data-testid="step-line" {...stylex.props(styles.line, !text && styles.empty)}>
+    <span data-testid="step-line" {...stylex.props(type.body, styles.line, !text && styles.empty)}>
       {text || "Empty step"}
     </span>
   );

@@ -7,6 +7,7 @@ import { EmptyState } from "../../components/ui/EmptyState.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { List } from "../../components/ui/List.tsx";
 import { Modal } from "../../components/ui/Modal.tsx";
+import { type } from "../../components/ui/type.ts";
 import { useApp } from "../../lib/app.ts";
 import { project, run } from "../../lib/data/client.ts";
 import { execute, useRead } from "../../lib/data/query.ts";
@@ -14,7 +15,7 @@ import { desktop, pathJoin, reveal } from "../../lib/desktop.ts";
 import { message, plural } from "../../lib/format.ts";
 import { jumpTo, useSearch } from "../../lib/search.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
-import { border, color, fontSize, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { border, color, space } from "../../styles/tokens.stylex.ts";
 import { type DeleteTarget, DeleteTest, deleteTest, needsAsking } from "./DeleteTest.tsx";
 import { JiraConnect } from "./JiraConnect.tsx";
 import { JiraTab } from "./JiraTab.tsx";
@@ -42,8 +43,6 @@ const styles = stylex.create({
     margin: 0,
     paddingBlock: space.s3,
     paddingInline: space.s5,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
     color: color.textMuted,
   },
   body: { flex: 1, minHeight: 0, overflow: "auto", display: "flex", flexDirection: "column", gap: space.s2 },
@@ -54,8 +53,6 @@ const styles = stylex.create({
     gap: space.s2,
     paddingBlock: space.s1,
     paddingInline: space.s3,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
     color: color.textMuted,
     borderBottomStyle: "solid",
     borderBottomWidth: border.width,
@@ -248,7 +245,7 @@ export function TestList({
   };
 
   const local = () => {
-    if (!project()) return <p {...stylex.props(styles.note)}>No project open.</p>;
+    if (!project()) return <p {...stylex.props(type.small, styles.note)}>No project open.</p>;
     if (loading && !refs.length)
       return (
         <div role="status" aria-label="Loading tests">
@@ -369,7 +366,7 @@ export function TestList({
           <JiraConnect key={jiraFor} error={treeError} onConnected={() => void treeQ.refetch()} />
         ) : (
           <>
-            <div {...stylex.props(styles.conn)}>
+            <div {...stylex.props(type.small, styles.conn)}>
               <Icon name="cloud" size="sm" />
               <span {...stylex.props(styles.grow)}>Connected to {p?.jiraProject}</span>
               <Button size="xs" variant="quiet" label="Disconnect" onClick={() => void disconnect()} />

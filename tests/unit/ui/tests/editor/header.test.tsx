@@ -136,7 +136,7 @@ describe("the editor's head", () => {
     again({ bar: { status: "saved" } });
     expect(screen.getByText("Saved")).toBeInTheDocument();
     again({ bar: { status: "saved" }, readOnly: true });
-    expect(screen.getByText("Claude is editing…")).toBeInTheDocument();
+    expect(screen.getByText("Claude is editing")).toBeInTheDocument();
     again({ bar: { status: "error" } });
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     again({ bar: { status: "conflict" } });

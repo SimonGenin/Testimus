@@ -4,8 +4,9 @@ import { Disclosure } from "../../components/ui/Disclosure.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { List } from "../../components/ui/List.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
+import { type } from "../../components/ui/type.ts";
 import { useRead } from "../../lib/data/query.ts";
-import { border, color, fontFamily, fontSize, fontWeight, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { border, color, space } from "../../styles/tokens.stylex.ts";
 
 export type Evidence = {
   testId: string;
@@ -23,19 +24,15 @@ const styles = stylex.create({
     borderTopColor: color.border,
     paddingTop: space.s3,
   },
-  sum: { fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textMuted },
+  sum: { color: color.textMuted },
   group: {
     display: "flex",
     alignItems: "center",
     gap: space.s2,
     paddingBlock: space.s2,
-    fontSize: fontSize.caption,
-    lineHeight: lineHeight.caption,
-    fontWeight: fontWeight.semibold,
     color: color.textMuted,
   },
-  note: { margin: 0, fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textMuted },
-  ref: { fontFamily: fontFamily.mono, fontSize: fontSize.code },
+  note: { margin: 0, color: color.textMuted },
 });
 
 // ponytail: what the generation that wrote the test actually opened (its evidence ledger), each one a way into the panel
@@ -56,10 +53,12 @@ export function EvidenceBlock({
     <div {...stylex.props(styles.wrap)}>
       <Disclosure
         summary="Sources read"
-        meta={summary === null ? <Skeleton width="30%" /> : <span {...stylex.props(styles.sum)}>{summary}</span>}
+        meta={
+          summary === null ? <Skeleton width="30%" /> : <span {...stylex.props(type.small, styles.sum)}>{summary}</span>
+        }
       >
         {missing ? (
-          <p {...stylex.props(styles.note)}>
+          <p {...stylex.props(type.small, styles.note)}>
             The generation's reading is not recorded for this test (written by hand, imported, or before Testimus kept
             it).
           </p>
@@ -67,9 +66,9 @@ export function EvidenceBlock({
           <Skeleton kind="block" />
         ) : (
           <>
-            <span {...stylex.props(styles.group)}>Read by the generation ({ev.read.length})</span>
+            <span {...stylex.props(type.caption, styles.group)}>Read by the generation ({ev.read.length})</span>
             {ev.jobId === null ? (
-              <p {...stylex.props(styles.note)}>
+              <p {...stylex.props(type.small, styles.note)}>
                 Not recorded: this test was not written by a generation Testimus followed.
               </p>
             ) : ev.read.length ? (
@@ -81,8 +80,8 @@ export function EvidenceBlock({
                 onSelect={onPick}
                 renderItem={(x) => ({
                   lead: <Icon name={x.ref.includes("#fig:") ? "image" : "section"} size="sm" />,
-                  title: x.title || <span {...stylex.props(styles.ref)}>{x.ref}</span>,
-                  meta: x.title ? <span {...stylex.props(styles.ref)}>{x.ref}</span> : undefined,
+                  title: x.title || <span {...stylex.props(type.code)}>{x.ref}</span>,
+                  meta: x.title ? <span {...stylex.props(type.code)}>{x.ref}</span> : undefined,
                   trail: x.cited ? (
                     <Badge size="sm" tone="success" icon="check" label="Cited" tooltip="A step cites it" />
                   ) : (
@@ -91,7 +90,7 @@ export function EvidenceBlock({
                 })}
               />
             ) : (
-              <p {...stylex.props(styles.note)}>Nothing opened.</p>
+              <p {...stylex.props(type.small, styles.note)}>Nothing opened.</p>
             )}
           </>
         )}

@@ -3,7 +3,8 @@ import type { Precondition, Test } from "../../../../core/types.ts";
 import { Button } from "../../../components/ui/Button.tsx";
 import { ChipField } from "../../../components/ui/ChipField.tsx";
 import { type FieldAutosave, Text } from "../../../components/ui/Text.tsx";
-import { border, breakpoint, color, fontSize, fontWeight, lineHeight, space } from "../../../styles/tokens.stylex.ts";
+import { type } from "../../../components/ui/type.ts";
+import { border, breakpoint, color, space } from "../../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
   grid: {
@@ -20,13 +21,10 @@ const styles = stylex.create({
   wide: { gridColumn: "1 / -1" },
   field: { display: "flex", flexDirection: "column", gap: space.s2, minWidth: 0 },
   label: {
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
-    fontWeight: fontWeight.medium,
     color: color.textMuted,
   },
   row: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: space.s2 },
-  note: { fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textMuted },
+  note: { color: color.textMuted },
 });
 
 export type ContextRef = { id: string; name: string };
@@ -90,9 +88,9 @@ export function TestDetails({
           onChange={readOnly ? undefined : (keys) => update((t) => ({ ...t, preconditions: [...keys].sort() }))}
         />
         {preconditions === null ? (
-          <span {...stylex.props(styles.note)}>Loading the project's preconditions…</span>
+          <span {...stylex.props(type.small, styles.note)}>Loading the project's preconditions…</span>
         ) : !pre.length ? (
-          <span {...stylex.props(styles.note)}>None in this project</span>
+          <span {...stylex.props(type.small, styles.note)}>None in this project</span>
         ) : null}
       </div>
       <div {...stylex.props(styles.field)}>
@@ -108,7 +106,7 @@ export function TestDetails({
           onChange={readOnly || !testContexts ? undefined : (ids) => onContexts(ids)}
         />
         <span {...stylex.props(styles.row)}>
-          <span {...stylex.props(styles.note)}>
+          <span {...stylex.props(type.small, styles.note)}>
             {testContexts?.own != null
               ? "This test's own list"
               : eff.length
