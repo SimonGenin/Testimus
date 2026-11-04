@@ -1,32 +1,39 @@
 import type { Job } from "../../../core/types.ts";
+import { List } from "../../components/ui/List.tsx";
 import { kindLabel, subjectLabel } from "../../lib/jobs.ts";
 import { JobState, KindTile } from "./JobState.tsx";
 
-export function JobCard({
-  job,
+// ponytail: the jobs a job is linked to (the ones inside it, the ones started after it) — a row opens one
+export function JobCards({
+  label,
+  jobs,
   byId,
   now,
   onOpen,
 }: {
-  job: Job;
+  label: string;
+  jobs: Job[];
   byId: Map<string, Job>;
   now: number;
   onOpen(id: string): void;
 }) {
-  const r = job.result as { summary?: string } | undefined;
-  const subject = subjectLabel(job, byId);
   return (
-    <button type="button" className="jd-card" onClick={() => onOpen(job.id)}>
-      <KindTile kind={job.kind} small />
-      <span className="jd-cardtext">
-        <span className="jd-cardtitle">{kindLabel(job.kind)}</span>
-        {job.kind === "actions.triage" && typeof r?.summary === "string" && r.summary ? (
-          <span className="jd-cardsum">{r.summary}</span>
-        ) : (
-          subject && <span className="muted">{subject}</span>
-        )}
-      </span>
-      <JobState job={job} now={now} />
-    </button>
+    <List<Job>
+      label={label}
+      items={jobs}
+      getKey={(j) => j.id}
+      divided
+      onSelect={onOpen}
+      renderItem={(job) => {
+        const r = job.result as { summary?: string } | undefined;
+        const summary = job.kind === "actions.triage" && typeof r?.summary === "string" ? r.summary : "";
+        return {
+          lead: <KindTile kind={job.kind} size="sm" />,
+          title: kindLabel(job.kind),
+          meta: summary || subjectLabel(job, byId) || undefined,
+          trail: <JobState job={job} now={now} />,
+        };
+      }}
+    />
   );
 }

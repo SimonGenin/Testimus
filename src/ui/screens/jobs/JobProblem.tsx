@@ -1,11 +1,46 @@
-import { useState } from "react";
+import * as stylex from "@stylexjs/stylex";
 import type { Job, JobEvent } from "../../../core/types.ts";
-import { Button, Icon } from "../../components/legacy/index.ts";
+import { Banner } from "../../components/ui/Banner.tsx";
+import { Button } from "../../components/ui/Button.tsx";
+import { Disclosure } from "../../components/ui/Disclosure.tsx";
 import { useApp } from "../../lib/app.ts";
-import { cx } from "../../lib/format.ts";
 import { failedStep, problemText } from "../../lib/jobs.ts";
-import { stepTone } from "./JobState.tsx";
+import {
+  border,
+  color,
+  fontFamily,
+  fontSize,
+  fontWeight,
+  lineHeight,
+  radius,
+  space,
+} from "../../styles/tokens.stylex.ts";
 
+const styles = stylex.create({
+  section: { display: "flex", flexDirection: "column", gap: space.s3 },
+  body: { display: "flex", flexDirection: "column", gap: space.s2 },
+  line: { margin: 0 },
+  strong: { fontWeight: fontWeight.semibold },
+  actions: { display: "flex", flexWrap: "wrap", gap: space.s2 },
+  raw: {
+    margin: 0,
+    padding: space.s3,
+    overflowX: "auto",
+    whiteSpace: "pre-wrap",
+    overflowWrap: "anywhere",
+    borderWidth: border.width,
+    borderStyle: "solid",
+    borderColor: color.border,
+    borderRadius: radius.r2,
+    backgroundColor: color.surfaceSunken,
+    color: color.text,
+    fontFamily: fontFamily.mono,
+    fontSize: fontSize.code,
+    lineHeight: lineHeight.code,
+  },
+});
+
+// ponytail: a failure said three ways — what in plain words with what to do, where it stopped, the raw text folded
 export function JobProblem({
   job,
   events,
@@ -20,63 +55,50 @@ export function JobProblem({
   onOpen(id: string): void;
 }) {
   const app = useApp();
-  const [open, setOpen] = useState(false);
   const p = problemText(job, events);
   const step = failedStep(job);
   const steps = job.steps ?? [];
-  const warn = !!job.interrupted;
   return (
-    <section className={cx("jp", warn && "jp-warn")} role="alert" aria-label="What went wrong">
-      <div className="jp-what">
-        <div className="jp-kicker">What happened</div>
-        <div className="jp-title">{p.what}</div>
-        {p.why && <p>{p.why}</p>}
-        {job.fix && (
-          <p>
-            <strong>What to do:</strong> {job.fix}
-          </p>
-        )}
-      </div>
-      {step && (
-        <div className="jp-where">
-          <div className="jp-kicker">Where</div>
-          <div>
-            Step {steps.indexOf(step) + 1} of {steps.length} · <strong>{step.label}</strong>
-            {step.total ? ` · stopped at ${step.done ?? 0} of ${step.total}` : ""}
-          </div>
-          <div className="jp-strip" aria-hidden="true">
-            {steps.map((s) => (
-              <span key={s.id} className={cx("jp-seg", `t-${stepTone(s.status, job.interrupted)}`)}>
-                <span className="jp-segbar" />
-                <span className="jp-seglabel">{s.label}</span>
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-      <div className="jp-actions">
-        {diagnosis && (
-          <Button size="sm" tone="primary" onClick={() => onOpen(diagnosis.id)}>
-            Open the diagnosis
-          </Button>
-        )}
-        {onRetry && (
-          <Button size="sm" tone={diagnosis ? undefined : "primary"} icon="revert" onClick={onRetry}>
-            Run again
-          </Button>
-        )}
-        <Button size="sm" onClick={() => app.navigate("doctor")}>
-          Open the system check
-        </Button>
-      </div>
-      <div className="jp-tech">
-        <button type="button" className="jp-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
-          <Icon name={open ? "down" : "right"} size={14} />
-          Technical details
-          {p.repeated > 1 && <span className="muted jp-count">same error {p.repeated} times</span>}
-        </button>
-        {open && <pre className="log jp-raw">{p.detail}</pre>}
-      </div>
+    <section aria-label="What went wrong" {...stylex.props(styles.section)}>
+      <Banner tone={job.interrupted ? "warning" : "danger"} title={p.what}>
+        <span {...stylex.props(styles.body)}>
+          {p.why && <span {...stylex.props(styles.line)}>{p.why}</span>}
+          {job.fix && (
+            <span {...stylex.props(styles.line)}>
+              <span {...stylex.props(styles.strong)}>What to do:</span> {job.fix}
+            </span>
+          )}
+          {step && (
+            <span {...stylex.props(styles.line)}>
+              Step {steps.indexOf(step) + 1} of {steps.length} ·{" "}
+              <span {...stylex.props(styles.strong)}>{step.label}</span>
+              {step.total ? ` · stopped at ${step.done ?? 0} of ${step.total}` : ""}
+            </span>
+          )}
+          <span {...stylex.props(styles.actions)}>
+            {diagnosis && (
+              <Button size="sm" variant="primary" label="Open the diagnosis" onClick={() => onOpen(diagnosis.id)} />
+            )}
+            {onRetry && (
+              <Button
+                size="sm"
+                variant={diagnosis ? "secondary" : "primary"}
+                icon="refresh"
+                label="Run again"
+                onClick={onRetry}
+              />
+            )}
+            <Button size="sm" label="Open the system check" onClick={() => app.navigate("doctor")} />
+          </span>
+          <Disclosure
+            summary="Technical details"
+            quiet
+            meta={p.repeated > 1 ? `same error ${p.repeated} times` : undefined}
+          >
+            <pre {...stylex.props(styles.raw)}>{p.detail}</pre>
+          </Disclosure>
+        </span>
+      </Banner>
     </section>
   );
 }
