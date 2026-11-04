@@ -1,12 +1,13 @@
 import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
-import { border, color, fontSize, fontWeight, lineHeight, radius, space } from "../../styles/tokens.stylex.ts";
+import { border, color, fontSize, fontWeight, lineHeight, radius, size, space } from "../../styles/tokens.stylex.ts";
 import { Icon, type IconName } from "./Icon.tsx";
 
 const styles = stylex.create({
   banner: {
     boxSizing: "border-box",
     display: "flex",
+    flexWrap: "wrap",
     alignItems: "flex-start",
     gap: space.s3,
     paddingBlock: space.s4,
@@ -20,9 +21,24 @@ const styles = stylex.create({
   },
   compact: { paddingBlock: space.s3, paddingInline: space.s4, borderRadius: radius.r2 },
   icon: { display: "inline-flex", marginTop: border.width },
-  body: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: space.s1 },
+  body: {
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: `calc(${size.menuMin} - ${size.iconMd} - ${space.s3})`,
+    minWidth: 0,
+    display: "flex",
+    flexDirection: "column",
+    gap: space.s1,
+  },
   title: { fontWeight: fontWeight.semibold },
-  actions: { display: "flex", gap: space.s3, alignItems: "center", flexWrap: "wrap", alignSelf: "center" },
+  actions: {
+    display: "flex",
+    gap: space.s3,
+    alignItems: "center",
+    flexWrap: "wrap",
+    alignSelf: "center",
+    marginInlineStart: "auto",
+  },
   info: { backgroundColor: color.infoSubtle, borderColor: `color-mix(in srgb, ${color.infoBorder} 40%, transparent)` },
   success: {
     backgroundColor: color.successSubtle,
