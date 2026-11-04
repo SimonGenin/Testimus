@@ -74,6 +74,19 @@ describe("the saved contexts a document is read with", () => {
     expect(screen.queryByRole("dialog", { name: "Saved contexts" })).toBeNull();
   });
 
+  it("« Manage contexts… » swaps the picker for the contexts manager, which closes back to the document", async () => {
+    show({ contexts: [] });
+    fireEvent.click(screen.getByRole("button", { name: "Use a saved context…" }));
+    fireEvent.click(
+      within(screen.getByRole("dialog", { name: "Saved contexts" })).getByRole("button", { name: "Manage contexts…" }),
+    );
+    const manager = await screen.findByRole("dialog", { name: "Contexts" });
+    expect(screen.queryByRole("dialog", { name: "Saved contexts" })).toBeNull();
+    fireEvent.keyDown(manager, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Contexts" })).toBeNull());
+    expect(callsOf("docs.set")).toHaveLength(0);
+  });
+
   it("saves the note as a context: the document then takes it and its note is emptied", async () => {
     show({ context: "Les positions de l'opérateur", contexts: ["c-ops"] });
     fireEvent.click(screen.getByRole("button", { name: "Save as context…" }));
