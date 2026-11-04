@@ -1,15 +1,33 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render as rtlRender, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setProject } from "../../src/ui/api.ts";
-import { ClaudeDock, type DockRequest, fixOutcome, toolLabel } from "../../src/ui/components/claude/ClaudeDock.tsx";
-import { Toasts } from "../../src/ui/components/legacy/index.ts";
-import { AppContext, type AppState, type Focus } from "../../src/ui/lib/app.ts";
-import { setFlusher } from "../../src/ui/lib/editorBus.ts";
-import { closeToast, useToasts } from "../../src/ui/lib/toast.ts";
-import { callsOf, Fail, FakeES, fakeEvents, fakeNet, job, net, status } from "./cov-uishell-helpers.tsx";
-import { app } from "./ui-desktop-helpers.tsx";
+import { setProject } from "../../../../src/ui/api.ts";
+import {
+  ClaudeDock,
+  type DockRequest,
+  fixOutcome,
+  toolLabel,
+} from "../../../../src/ui/components/claude/ClaudeDock.tsx";
+import { Toasts } from "../../../../src/ui/components/legacy/index.ts";
+import { AppContext, type AppState, type Focus } from "../../../../src/ui/lib/app.ts";
+import { setFlushHook } from "../../../../src/ui/lib/data/query.ts";
+import { closeToast, useToasts } from "../../../../src/ui/lib/toast.ts";
+import {
+  callsOf,
+  dataWrapper,
+  Fail,
+  FakeES,
+  fakeEvents,
+  fakeNet,
+  job,
+  net,
+  status,
+} from "../../cov-uishell-helpers.tsx";
+import { app } from "../../ui-desktop-helpers.tsx";
+
+const render = ((ui: Parameters<typeof rtlRender>[0], o?: Parameters<typeof rtlRender>[1]) =>
+  rtlRender(ui, { wrapper: dataWrapper(), ...o })) as typeof rtlRender;
 
 let toastIds: number[] = [];
 function ToastProbe() {
@@ -29,7 +47,7 @@ afterEach(() => {
   });
   cleanup();
   vi.unstubAllGlobals();
-  setFlusher(null);
+  setFlushHook(async () => {});
   setProject(null);
 });
 
@@ -104,8 +122,8 @@ describe("Claude dock: asking the documents", () => {
     net.routes["chat.ask"] = () => ({ jobId: "c1" });
     net.routes["jobs.show"] = () => ({ job: job({ id: "c1", kind: "chat" }) });
     const { state } = mount({}, onDoc);
-    expect(screen.getByText(/Ask anything about D\./)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Send/ })).toBeDisabled();
+    expect(screen.getByText("Ask anything about D")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Ask/ })).toBeDisabled();
     ask("Quel menu ?");
     await waitFor(() => expect(callsOf("chat.ask")).toHaveLength(1));
     expect(callsOf("chat.ask")[0].input).toEqual({
@@ -114,7 +132,8 @@ describe("Claude dock: asking the documents", () => {
       effort: "medium",
       note: "The question is about the document D: answer from docs/D/doc.md first.",
     });
-    expect(screen.getByText("Quel menu ?")).toHaveClass("bubble");
+    expect(screen.getByText("Quel menu ?")).toBeInTheDocument();
+    expect(box()).toHaveValue("");
     await waitFor(() => expect(screen.getByRole("button", { name: /Cancel/ })).toBeEnabled());
     act(() => {
       FakeES.emit({ jobId: "c1", at: "", type: "progress", message: "x" });
@@ -146,7 +165,7 @@ describe("Claude dock: asking the documents", () => {
         ),
       ),
     );
-    await waitFor(() => expect(screen.getByRole("button", { name: /Send/ })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: /Ask/ })).toBeInTheDocument());
     const chips = screen.getAllByRole("button", { name: /D §5.6/ });
     fireEvent.click(chips[chips.length - 1]);
     expect(state.openSource).toHaveBeenCalledWith({ docId: "D", anchor: "§5.6", quote: "ne propose que" });
@@ -154,7 +173,7 @@ describe("Claude dock: asking the documents", () => {
     ask("Et ensuite ?");
     await waitFor(() => expect(callsOf("chat.ask")).toHaveLength(2));
     expect(callsOf("chat.ask")[1].input.chatId).toBe("chat-1");
-    await waitFor(() => expect(screen.getByRole("button", { name: /Send/ })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: /Ask/ })).toBeInTheDocument());
     ask("Encore ?");
     await waitFor(() => expect(callsOf("chat.ask")).toHaveLength(3));
     expect(callsOf("chat.ask")[2].input.chatId).toBe("chat-1");
@@ -234,13 +253,13 @@ describe("Claude dock: asking the documents", () => {
     ask("Q");
     await waitFor(() => expect(callsOf("chat.ask")).toHaveLength(1));
     update({ folded: true });
-    expect(screen.getByTitle("Claude is running")).toBeInTheDocument();
+    expect(screen.getByText(/Claude is working/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Open Claude" }));
     expect(onFold).toHaveBeenCalled();
     await act(async () => finish({ chatId: "c", answer: "done" }));
-    expect(screen.queryByTitle("Claude is running")).toBeNull();
+    expect(screen.queryByText(/Claude is working/)).toBeNull();
     update({ folded: false });
-    fireEvent.click(screen.getByRole("button", { name: /Hide/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Fold the dock (Ctrl+J)" }));
     expect(onFold).toHaveBeenCalledTimes(2);
   });
 });
@@ -275,7 +294,7 @@ describe("Claude dock: connection", () => {
 describe("Claude dock: on a test", () => {
   it("runs on the whole test or one step and offers to show or revert the change", async () => {
     const flushed = vi.fn(async () => {});
-    setFlusher(flushed);
+    setFlushHook(flushed);
     net.routes["claude.run"] = () => ({
       ok: true,
       summary: "Done",
@@ -284,11 +303,10 @@ describe("Claude dock: on a test", () => {
     });
     net.routes["claude.revert"] = () => ({ reverted: ["local-1"] });
     const { state } = mount({}, { focus: focus({ key: "LFRPS12-1", step: 2 }) });
-    expect(screen.getByRole("button", { name: "Test" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByText("LFRPS12-1")).toBeInTheDocument();
-    expect(screen.getByText(/whole test/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Step 2" }));
-    expect(screen.getByText(/step 2/)).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Whole test" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getAllByText("LFRPS12-1").length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("radio", { name: "Step 2" }));
+    expect(screen.getByRole("radio", { name: "Step 2" })).toHaveAttribute("aria-checked", "true");
     ask("Ajoute une source");
     await waitFor(() => expect(callsOf("claude.run")).toHaveLength(1));
     expect(callsOf("claude.run")[0].input).toEqual({
@@ -297,21 +315,20 @@ describe("Claude dock: on a test", () => {
       model: "sonnet",
       effort: "medium",
     });
-    expect(flushed).toHaveBeenCalled();
+    expect(flushed).toHaveBeenCalledWith([["tests.show"]]);
     expect(await screen.findByText("2 steps changed · check queued")).toBeInTheDocument();
     expect(state.setClaudeRunning).toHaveBeenCalledWith("local-1");
     expect(state.setClaudeRunning).toHaveBeenLastCalledWith(null);
     expect(state.setLastRun).toHaveBeenCalledWith(
       expect.objectContaining({ runId: "run-1", changedTests: ["local-1"], changedSteps: { "local-1": [2, 3] } }),
     );
-    expect(state.testsChanged).toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Show changes" }));
     expect(state.navigate).toHaveBeenCalledWith("tests", "local-1");
     fireEvent.click(screen.getByRole("button", { name: /Revert/ }));
     expect(await screen.findByText("Reverted")).toBeInTheDocument();
     expect(screen.getByText("Claude's changes reverted")).toBeInTheDocument();
     expect(screen.getByText("1 test restored.")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Test" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Whole test" }));
     ask("Encore");
     await waitFor(() => expect(callsOf("claude.run")).toHaveLength(2));
     expect(callsOf("claude.run")[1].input.scope).toEqual({ kind: "test", testId: "local-1" });
@@ -320,7 +337,7 @@ describe("Claude dock: on a test", () => {
   it("reports a review fix: checked again, still To fix, several tests", async () => {
     mount({}, { focus: focus() });
     expect(screen.getByText("local test")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Step" })).toBeDisabled();
+    expect(screen.getByRole("radio", { name: "Step" })).toBeDisabled();
     net.routes["claude.run"] = () => ({
       ok: true,
       summary: "",
@@ -378,7 +395,7 @@ describe("Claude dock: on a test", () => {
     expect(await screen.findByText("The run did not finish")).toBeInTheDocument();
     expect(screen.getByText(/^2 steps changed/)).toBeInTheDocument();
     const order: string[] = [];
-    setFlusher(async () => {
+    setFlushHook(async () => {
       order.push("flush");
     });
     net.routes["claude.revert"] = () => {
@@ -401,13 +418,24 @@ describe("Claude dock: on a test", () => {
       }
       throw new Fail("The test changed after the Claude run");
     };
+    const served = globalThis.fetch;
+    vi.stubGlobal("fetch", async (url: string, init?: { body?: string }) => {
+      if (String(url).endsWith("/claude/revert") && !JSON.parse(init?.body ?? "{}").force)
+        return new Response(
+          JSON.stringify({ error: "The test changed after the Claude run", code: "edited-after-run" }),
+          { status: 409 },
+        );
+      return served(url, init as RequestInit);
+    });
     mount({}, { focus: focus() });
     ask("Go");
     fireEvent.click(await screen.findByRole("button", { name: /Revert/ }));
-    expect(await screen.findByText("Edited after the Claude run")).toBeInTheDocument();
+    const ask2 = await screen.findByRole("alertdialog", { name: "Revert anyway?" });
+    expect(ask2).toHaveTextContent("The test changed after the Claude run");
     fireEvent.click(screen.getByRole("button", { name: "Revert anyway" }));
     await waitFor(() => expect(forced).toBe(true));
     expect(await screen.findByText("0 tests restored.")).toBeInTheDocument();
+    vi.stubGlobal("fetch", served);
     net.routes["claude.revert"] = () => {
       throw new Fail("disk full");
     };
@@ -458,11 +486,11 @@ describe("Claude dock: on a test", () => {
   it("follows the focus: whole test without a step, the whole project without a test", async () => {
     net.routes["claude.run"] = () => ({ ok: true, summary: "all done" });
     const { update } = mount({}, { focus: focus({ step: 1 }) });
-    fireEvent.click(screen.getByRole("button", { name: "Step 1" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Step 1" }));
     update({}, { focus: focus({ step: null }) });
-    expect(screen.getByText(/whole test/)).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Whole test" })).toHaveAttribute("aria-checked", "true");
     update({}, { focus: null });
-    expect(screen.getByRole("button", { name: "Project" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("tab", { name: /On the project/ })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByText(/Ask anything about the project/)).toBeInTheDocument();
     ask("Tout relire");
     await waitFor(() => expect(callsOf("claude.run")).toHaveLength(1));
@@ -470,7 +498,7 @@ describe("Claude dock: on a test", () => {
     expect(callsOf("chat.ask")).toHaveLength(0);
     update({}, { focus: focus() });
     expect(screen.getByRole("textbox", { name: "Ask Claude about this test" })).toBeInTheDocument();
-    expect(screen.getByText("Tout relire", { selector: ".bubble" })).toBeInTheDocument();
+    expect(screen.getByText("Tout relire", { ignore: "textarea, script, style" })).toBeInTheDocument();
   });
 });
 
@@ -484,7 +512,7 @@ describe("Claude dock: requests from the app", () => {
     expect(box()).toHaveValue("edited");
     update({ request: { mode: "test", scope: "step", nonce: 2 } }, { focus: focus({ step: 3 }) });
     expect(box()).toHaveValue("edited");
-    expect(screen.getByText(/step 3/)).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Step 3" })).toHaveAttribute("aria-checked", "true");
   });
 
   it("a whole-test request from the test header leaves the step scope even while a step has the focus (PARITY #5)", async () => {
@@ -493,12 +521,11 @@ describe("Claude dock: requests from the app", () => {
       { request: { mode: "test", scope: "step", nonce: 1 } },
       { focus: focus({ key: "LFRPS12-1", step: 2 }) },
     );
-    const chip = () => screen.getByRole("group", { name: "Claude scope" });
-    expect(chip()).toHaveTextContent("LFRPS12-1 · step 2");
+    const scope = (name: string) => screen.getByRole("radio", { name });
+    expect(scope("Step 2")).toHaveAttribute("aria-checked", "true");
     update({ request: { mode: "test", scope: "test", nonce: 2 } });
-    expect(chip()).toHaveTextContent("LFRPS12-1 · whole test");
-    expect(chip()).not.toHaveTextContent("· step 2");
-    expect(screen.getByRole("button", { name: "Step 2" })).toBeInTheDocument();
+    expect(scope("Whole test")).toHaveAttribute("aria-checked", "true");
+    expect(scope("Step 2")).toHaveAttribute("aria-checked", "false");
     ask("Relis tout");
     await waitFor(() => expect(callsOf("claude.run")).toHaveLength(1));
     expect(callsOf("claude.run")[0].input.scope).toEqual({ kind: "test", testId: "local-1" });
@@ -512,18 +539,18 @@ describe("Claude dock: requests from the app", () => {
       net.routes["jobs.cancel"] = () => null;
       mount({}, { focus: focus() });
       ask("Long run");
-      const clock = await screen.findByTitle("Seconds running");
-      expect(clock).toHaveTextContent("0.0 s");
+      expect(await screen.findByText("0:00")).toBeInTheDocument();
       await waitFor(() => expect(screen.getByRole("button", { name: /Cancel/ })).toBeEnabled());
       act(() => vi.advanceTimersByTime(3000));
-      expect(screen.getByTitle("Seconds running")).toHaveTextContent("3.0 s");
+      expect(screen.getByText("0:03")).toBeInTheDocument();
       act(() => vi.advanceTimersByTime(1500));
-      expect(screen.getByTitle("Seconds running")).toHaveTextContent("4.5 s");
+      expect(screen.getByText("0:04")).toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: /Cancel/ }));
-      await waitFor(() => expect(callsOf("jobs.cancel")).toHaveLength(1));
+      for (let i = 0; i < 5 && !callsOf("jobs.cancel").length; i++) await act(async () => {});
+      expect(callsOf("jobs.cancel")).toHaveLength(1);
       expect(callsOf("jobs.cancel")[0].input).toEqual({ id: "r7" });
       act(() => FakeES.emit(status(job({ id: "r7", kind: "claude", status: "cancelled" }))));
-      await waitFor(() => expect(screen.queryByTitle("Seconds running")).toBeNull());
+      await waitFor(() => expect(screen.queryByText("0:04")).toBeNull());
     } finally {
       vi.useRealTimers();
     }
@@ -538,7 +565,7 @@ describe("Claude dock: requests from the app", () => {
       job: { name: "review.fix", input: { id: "local-1" }, label: "Fix this test", testId: "local-1" },
     });
     const { update } = mount({ request: jobReq(1) }, { focus: focus() });
-    expect(screen.getByText("Fix this test")).toHaveClass("bubble");
+    expect(screen.getByText("Fix this test")).toBeInTheDocument();
     await waitFor(() => expect(callsOf("review.fix")).toHaveLength(1));
     update({ request: jobReq(2) });
     expect(await screen.findByText("Claude is busy")).toBeInTheDocument();

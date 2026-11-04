@@ -1,12 +1,16 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render as rtlRender, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AnswerText } from "../../src/ui/components/claude/AnswerText.tsx";
-import { ConnectClaude } from "../../src/ui/components/claude/ConnectClaude.tsx";
-import { RevertConflict } from "../../src/ui/components/claude/RevertConflict.tsx";
-import { Toasts } from "../../src/ui/components/legacy/index.ts";
-import { closeToast, useToasts } from "../../src/ui/lib/toast.ts";
+import { AnswerText } from "../../../../src/ui/components/claude/AnswerText.tsx";
+import { ConnectClaude } from "../../../../src/ui/components/claude/ConnectClaude.tsx";
+import { RevertConflict } from "../../../../src/ui/components/claude/RevertConflict.tsx";
+import { Toasts } from "../../../../src/ui/components/legacy/index.ts";
+import { closeToast, useToasts } from "../../../../src/ui/lib/toast.ts";
+import { dataWrapper } from "../../cov-uishell-helpers.tsx";
+
+const render = ((ui: Parameters<typeof rtlRender>[0], o?: Parameters<typeof rtlRender>[1]) =>
+  rtlRender(ui, { wrapper: dataWrapper(), ...o })) as typeof rtlRender;
 
 let ids: number[] = [];
 function Probe() {
@@ -63,7 +67,7 @@ describe("ConnectClaude", () => {
       />,
     );
     expect(screen.getByText("Use the proxy")).toBeInTheDocument();
-    expect(document.querySelector(".connect-hint")).toBeNull();
+    expect(screen.queryByTestId("connect-hint")).toBeNull();
     expect(screen.getByRole("button", { name: "Checking…" })).toBeDisabled();
     cleanup();
     render(
@@ -85,14 +89,14 @@ describe("AnswerText", () => {
       <AnswerText text={'Premier.\n\nVoir [D#§1.2] "le menu" et D#fig:3.'} running onOpenSource={open} />,
     );
     expect(container.querySelectorAll("p")).toHaveLength(2);
-    expect(container.querySelectorAll(".caret")).toHaveLength(1);
-    expect(container.querySelectorAll("p")[1].querySelector(".caret")).not.toBeNull();
+    expect(screen.getAllByTestId("caret")).toHaveLength(1);
+    expect(container.querySelectorAll("p")[1]).toContainElement(screen.getByTestId("caret"));
     fireEvent.click(screen.getByRole("button", { name: "D §1.2" }));
     expect(open).toHaveBeenCalledWith({ docId: "D", anchor: "§1.2", quote: "le menu" });
     fireEvent.click(screen.getByRole("button", { name: "D Figure 3" }));
     expect(open).toHaveBeenLastCalledWith({ docId: "D", anchor: "fig:3", quote: "" });
     rerender(<AnswerText text="Fini" onOpenSource={open} />);
-    expect(container.querySelector(".caret")).toBeNull();
+    expect(screen.queryByTestId("caret")).toBeNull();
   });
 });
 

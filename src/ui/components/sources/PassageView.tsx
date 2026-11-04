@@ -1,7 +1,46 @@
+import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
 import type { Passage } from "../../../core/types.ts";
-import { fileUrl } from "../../api.ts";
-import { Badge, type BadgeTone } from "../legacy/index.ts";
+import { fileUrl } from "../../lib/data/client.ts";
+import {
+  color,
+  fontFamily,
+  fontSize,
+  fontWeight,
+  lineHeight,
+  radius,
+  size,
+  space,
+} from "../../styles/tokens.stylex.ts";
+import { Badge, type BadgeTone } from "../ui/Badge.tsx";
+
+const styles = stylex.create({
+  mark: { backgroundColor: color.highlight, color: color.highlightText, borderRadius: radius.r1 },
+  path: { fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textSubtle },
+  title: {
+    margin: 0,
+    fontFamily: fontFamily.reading,
+    fontSize: fontSize.readingHeading,
+    lineHeight: lineHeight.readingHeading,
+    fontWeight: fontWeight.semibold,
+  },
+  text: {
+    display: "flex",
+    flexDirection: "column",
+    gap: space.s4,
+    fontFamily: fontFamily.reading,
+    fontSize: fontSize.reading,
+    lineHeight: lineHeight.reading,
+    color: color.text,
+  },
+  para: { margin: 0, overflowWrap: "anywhere" },
+  figure: { margin: 0, display: "flex", flexDirection: "column", gap: space.s2 },
+  img: { maxWidth: "100%", maxHeight: size.dockStripLabel, objectFit: "contain", alignSelf: "flex-start" },
+  caption: { fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textSubtle, fontStyle: "italic" },
+});
+
+type StatusTone = "neutral" | "info" | "ok";
+const KIT_TONE: Record<StatusTone, BadgeTone> = { neutral: "neutral", info: "info", ok: "success" };
 
 const norm = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
 
@@ -64,7 +103,7 @@ export function highlight(md: string, quote: string): ReactNode[] {
       const key = out.length;
       let node: ReactNode =
         hit && cuts[c] >= hit[0] && cuts[c + 1] <= hit[1] ? (
-          <mark key={`m${key}`} className="hl">
+          <mark key={`m${key}`} data-hl="" {...stylex.props(styles.mark)}>
             {piece}
           </mark>
         ) : (
@@ -79,7 +118,7 @@ export function highlight(md: string, quote: string): ReactNode[] {
   return out;
 }
 
-export const DOC_STATUS: Record<string, { label: string; tone: BadgeTone }> = {
+export const DOC_STATUS: Record<string, { label: string; tone: StatusTone }> = {
   draft: { label: "Draft", tone: "neutral" },
   submitted: { label: "Submitted", tone: "info" },
   validated: { label: "Validated", tone: "ok" },
@@ -100,29 +139,39 @@ export const sectionNumber = (anchor: string) => (anchor.startsWith("§") ? anch
 
 export function DocBadges({ status }: { status: string }) {
   const s = DOC_STATUS[status] ?? { label: status, tone: "neutral" as const };
-  return <Badge tone={s.tone}>{s.label}</Badge>;
+  return <Badge tone={KIT_TONE[s.tone]} label={s.label} icon={s.tone === "ok" ? "validated" : undefined} />;
 }
 
+// ponytail: a passage as the document says it — where it sits, its title with its number, the paragraphs with the
+// quote marked, its figures
 export function PassageText({ passage, quote }: { passage: Passage; quote: string }) {
   const num = sectionNumber(passage.anchor);
   return (
     <>
-      {passage.path && <span className="muted passage-path">{passage.path.split(" > ").join(" › ")}</span>}
+      {passage.path && <span {...stylex.props(styles.path)}>{passage.path.split(" > ").join(" › ")}</span>}
       {passage.title && (
-        <h4 className="h passage-title">
+        <h4 {...stylex.props(styles.title)}>
           {num && !passage.title.startsWith(num) ? `${num} ` : ""}
           {passage.title}
         </h4>
       )}
-      <div className="passage-text">
+      <div {...stylex.props(styles.text)}>
         {paragraphs(passage.text).map((para, i) => (
-          <p key={i}>{highlight(para, quote)}</p>
+          <p key={i} {...stylex.props(styles.para)}>
+            {highlight(para, quote)}
+          </p>
         ))}
       </div>
       {passage.figures.map((f) => (
-        <figure key={f.anchor} className="passage-fig">
-          {f.file && <img src={fileUrl(`docs/${passage.docId}/${f.file}`)} alt={f.caption || f.file} />}
-          <figcaption className="muted">{f.caption}</figcaption>
+        <figure key={f.anchor} {...stylex.props(styles.figure)}>
+          {f.file && (
+            <img
+              src={fileUrl(`docs/${passage.docId}/${f.file}`)}
+              alt={f.caption || f.file}
+              {...stylex.props(styles.img)}
+            />
+          )}
+          <figcaption {...stylex.props(styles.caption)}>{f.caption}</figcaption>
         </figure>
       ))}
     </>
