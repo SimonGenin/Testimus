@@ -38,7 +38,7 @@ test("Ctrl K opens the palette, filters and runs a command", async ({ page }) =>
   await expect(palette.getByRole("option").first()).toContainText("Testimus and Node versions");
   await page.keyboard.press("Enter");
   await expect(palette).toBeHidden();
-  await expect(page.getByRole("status").filter({ hasText: "system.version done" })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Testimus and Node versions — done" })).toBeVisible();
 });
 
 test("the palette navigates and closes with Escape", async ({ page }) => {

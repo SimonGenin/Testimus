@@ -8,7 +8,7 @@ import { useRunningJobs } from "../components/shell/Activity.tsx";
 import { CommandForm } from "../components/shell/CommandForm.tsx";
 import { DesktopBridge } from "../components/shell/DesktopBridge.tsx";
 import { Palette } from "../components/shell/Palette.tsx";
-import { hasInput } from "../components/shell/paletteEntries.tsx";
+import { firstSentence, hasInput } from "../components/shell/paletteEntries.tsx";
 import { Rail } from "../components/shell/Rail.tsx";
 import { ServerLost } from "../components/shell/ServerLost.tsx";
 import { TopBar, TopBarContext, useTopBarSlots } from "../components/shell/TopBar.tsx";
@@ -23,7 +23,7 @@ import { usePaneWidth } from "../lib/panes.ts";
 import { jumpTo, rememberHit } from "../lib/search.ts";
 import { errorToast, toast } from "../lib/toast.ts";
 import { border, breakpoint, color, radius, shadow, size, space } from "../styles/tokens.stylex.ts";
-import { paletteActions } from "./paletteActions.ts";
+import { commandToast, paletteActions } from "./paletteActions.ts";
 import { parseRoute, TITLES, useRoute } from "./routes.ts";
 import { Screens } from "./Screens.tsx";
 import { useClaudeLock } from "./useClaudeLock.ts";
@@ -186,17 +186,12 @@ export function App() {
       }
       execute(client, c.name as CommandName, {} as never, { invalidates: c.mutates ? "project" : "none" })
         .then((r) => {
-          const jobId = (r as { jobId?: string } | null)?.jobId;
-          toast({
-            kind: "ok",
-            title: jobId ? `${c.name} started` : `${c.name} done`,
-            detail: jobId ? "Follow it in Jobs." : undefined,
-          });
+          toast(commandToast(c, r, navigate));
           if (c.mutates) testsChanged();
         })
-        .catch((e) => errorToast(e, `${c.name} failed`));
+        .catch((e) => errorToast(e, `${firstSentence(c.summary) || c.name} — failed`));
     },
-    [client, testsChanged],
+    [client, testsChanged, navigate],
   );
 
   const actions = useMemo(() => paletteActions(navigate, toggleDock), [navigate, toggleDock]);
@@ -252,7 +247,17 @@ export function App() {
           onClose={() => setPalette(false)}
         />
       )}
-      {form && <CommandForm command={form} onClose={() => setForm(null)} onJob={() => navigate("jobs")} />}
+      {form && (
+        <CommandForm
+          command={form}
+          onClose={() => setForm(null)}
+          onBack={() => {
+            setForm(null);
+            setPalette(true);
+          }}
+          onJob={() => navigate("jobs")}
+        />
+      )}
       {source && (
         <PassageDialog
           source={source}

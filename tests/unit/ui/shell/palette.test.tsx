@@ -381,7 +381,7 @@ describe("palette never writes to Jira blind", () => {
     };
     withData(<CommandForm command={push} onClose={() => {}} />);
     fireEvent.change(screen.getByLabelText("id (optional)"), { target: { value: "LFRPS12-1420" } });
-    fireEvent.click(screen.getByRole("button", { name: "Run" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Run/ }));
     const confirm = await screen.findByRole("button", { name: "Confirm push" });
     expect(callsOf("xray.push")).toHaveLength(0);
     await waitFor(() => expect(confirm).toBeEnabled());
