@@ -1,6 +1,12 @@
+import * as stylex from "@stylexjs/stylex";
 import type { Fit } from "../../../../core/types.ts";
-import { Button, Modal } from "../../../components/legacy/index.ts";
+import { Button } from "../../../components/ui/Button.tsx";
+import { Modal } from "../../../components/ui/Modal.tsx";
+import { fontFamily } from "../../../styles/tokens.stylex.ts";
+import { Hint, Stack } from "../Section.tsx";
 import { FitChip } from "./FitChip.tsx";
+
+const styles = stylex.create({ mono: { fontFamily: fontFamily.mono } });
 
 const WHY: Record<Fit["verdict"], string> = {
   fits: "",
@@ -13,6 +19,7 @@ const WHY: Record<Fit["verdict"], string> = {
   unsupported: "Testimus has no runtime for it on this system.",
 };
 
+// ponytail: the dialog's name asks the question (« Will the Quality pack fit? »); its head says the verdict
 export function FitConfirm({
   title,
   fit,
@@ -31,42 +38,33 @@ export function FitConfirm({
   const refused = fit.verdict === "ram-too-small" || fit.verdict === "unsupported";
   return (
     <Modal
-      label={`Will ${title} fit?`}
-      title={refused ? `${title} cannot run on this PC` : `${title} may not fit this PC`}
-      subtitle={<FitChip fit={fit} />}
-      width={520}
-      onClose={onClose}
-      foot={
+      size="sm"
+      title={`Will ${title} fit?`}
+      subtitle={
         <>
-          <Button tone="quiet" onClick={onClose}>
-            Cancel
-          </Button>
-          <span className="spacer" />
-          <Button
-            disabled={!lighter}
-            title={lighter ? `Use ${lighter} instead` : "Nothing lighter"}
-            onClick={onLighter}
-          >
-            Choose a lighter one
-          </Button>
-          {!refused && (
-            <Button tone="primary" onClick={onUse}>
-              Use anyway
-            </Button>
-          )}
+          {refused ? `${title} cannot run on this PC` : `${title} may not fit this PC`} <FitChip fit={fit} />
+        </>
+      }
+      onClose={onClose}
+      actions={
+        <>
+          <Button variant="quiet" label="Cancel" onClick={onClose} />
+          <Button label="Choose a lighter one" disabled={lighter ? false : "Nothing lighter"} onClick={onLighter} />
+          {!refused && <Button variant="primary" label="Use anyway" onClick={onUse} />}
         </>
       }
     >
-      <p className="fit-msg">{fit.message}</p>
-      {!(fit.verdict === "gpu-too-small" && /processor/.test(fit.message)) && (
-        <p className="muted">{WHY[fit.verdict]}</p>
-      )}
-      {fit.unload.length > 0 && (
-        <p className="muted">
-          Loaded now: <span className="mono">{fit.unload.join(", ")}</span>. They are unloaded after 10 idle minutes.
-        </p>
-      )}
-      {lighter && <p className="muted">Lighter choice: {lighter}.</p>}
+      <Stack>
+        <p>{fit.message}</p>
+        {!(fit.verdict === "gpu-too-small" && /processor/.test(fit.message)) && <Hint>{WHY[fit.verdict]}</Hint>}
+        {fit.unload.length > 0 && (
+          <Hint>
+            Loaded now: <span {...stylex.props(styles.mono)}>{fit.unload.join(", ")}</span>. They are unloaded after 10
+            idle minutes.
+          </Hint>
+        )}
+        {lighter && <Hint>Lighter choice: {lighter}.</Hint>}
+      </Stack>
     </Modal>
   );
 }

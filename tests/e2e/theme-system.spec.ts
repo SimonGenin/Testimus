@@ -3,22 +3,24 @@ import { boot, expect, mockServer, setTheme, test } from "./helpers.ts";
 
 mockServer(4393);
 
-const bg = (page: Page) =>
-  page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--bg").trim());
+// ponytail: the page's canvas is the design token color.canvas (tokens.stylex.ts): #f7f7f8 light, #0e0e10 dark
+const LIGHT = "rgb(247, 247, 248)";
+const DARK = "rgb(14, 14, 16)";
+const bg = (page: Page) => page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor);
 
 test("the System theme follows the OS colour scheme", async ({ page }) => {
   await page.emulateMedia({ colorScheme: "light" });
   await boot(page);
   await setTheme(page, "system");
-  expect(await bg(page)).toBe("#f4f6f6");
+  expect(await bg(page)).toBe(LIGHT);
   await page.emulateMedia({ colorScheme: "dark" });
-  await expect.poll(() => bg(page)).toBe("#0b0f0f");
+  await expect.poll(() => bg(page)).toBe(DARK);
   await expect(page.locator("html")).not.toHaveAttribute("data-theme", /./);
   await setTheme(page, "light");
-  expect(await bg(page)).toBe("#f4f6f6");
+  expect(await bg(page)).toBe(LIGHT);
   await page.emulateMedia({ colorScheme: "light" });
   await setTheme(page, "dark");
-  expect(await bg(page)).toBe("#0b0f0f");
+  expect(await bg(page)).toBe(DARK);
 });
 
 const bodyBg = (page: Page) => page.evaluate(() => getComputedStyle(document.body).backgroundColor);

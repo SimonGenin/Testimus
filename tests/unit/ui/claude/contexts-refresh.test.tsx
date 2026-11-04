@@ -47,6 +47,7 @@ beforeEach(() => {
   r["claude.status"] = () => ({ installed: true, version: "2.1.0", signedIn: true, exe: "claude" });
   r["system.settings"] = () => ({ claude: { exe: "claude" } });
   r["contexts.list"] = () => Object.keys(store).map(detail);
+  r["project.info"] = () => ({ ...state().info, columns: [], fieldOrder: [], counts: {} });
   r["contexts.show"] = (i) => detail(String(i.id));
   r["contexts.set"] = (i) => {
     const c = store[String(i.id)];
@@ -88,7 +89,7 @@ describe("a context changed in the Contexts dialog shows at once everywhere it i
     const dock = screen.getByRole("complementary", { name: "Claude" });
     expect(await within(dock).findByRole("button", { name: "Glossary" })).toBeInTheDocument();
     const defaults = await screen.findByRole("group", { name: "Default contexts" });
-    expect(within(defaults).getByRole("button", { name: "Glossary" })).toBeInTheDocument();
+    expect(await within(defaults).findByRole("switch", { name: "Glossary" })).toBeChecked();
     await screen.findByLabelText("Action of step 1");
     const details = screen.queryByRole("button", { name: "Details" });
     if (details) fireEvent.click(details);
@@ -105,7 +106,7 @@ describe("a context changed in the Contexts dialog shows at once everywhere it i
     fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
 
     expect(await within(dock).findByRole("button", { name: "Lexique" })).toBeInTheDocument();
-    expect(await within(defaults).findByRole("button", { name: "Lexique" })).toBeInTheDocument();
+    expect(await within(defaults).findByRole("switch", { name: "Lexique" })).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: "Detach Lexique" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Glossary/ })).toBeNull();
   });
@@ -133,7 +134,7 @@ describe("a context changed in the Contexts dialog shows at once everywhere it i
     fireEvent.click(await within(dialog).findByRole("button", { name: "New context" }));
     await waitFor(() => expect(store["ctx-n"]).toBeDefined());
     fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
-    expect(await within(defaults).findByRole("button", { name: "New context" })).toBeInTheDocument();
+    expect(await within(defaults).findByRole("switch", { name: "New context" })).toBeInTheDocument();
     await waitFor(() =>
       expect(
         within(screen.getByRole("combobox", { name: "Attach context" })).getByRole("option", { name: "New context" }),

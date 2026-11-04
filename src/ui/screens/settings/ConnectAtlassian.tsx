@@ -1,20 +1,69 @@
+import * as stylex from "@stylexjs/stylex";
+import { useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useEffect, useRef, useState } from "react";
+import type { CommandOutput } from "../../../core/commands/index.ts";
 import type { CredsStatus, DoctorCheck } from "../../../core/types.ts";
-import { call } from "../../api.ts";
-import { Button, Icon, Skeleton } from "../../components/legacy/index.ts";
+import { Banner } from "../../components/ui/Banner.tsx";
+import { Button } from "../../components/ui/Button.tsx";
+import { Skeleton } from "../../components/ui/Skeleton.tsx";
+import { Text } from "../../components/ui/Text.tsx";
+import { useDraft } from "../../lib/data/autosave.ts";
+import { execute, type Key, useRead } from "../../lib/data/query.ts";
 import { desktop, openExternal, reveal } from "../../lib/desktop.ts";
 import { runDoctor } from "../../lib/doctor.ts";
-import { dropDraft, useDraft } from "../../lib/drafts.ts";
-import { cx, message } from "../../lib/format.ts";
+import { message } from "../../lib/format.ts";
+import {
+  color,
+  fontFamily,
+  fontSize,
+  fontWeight,
+  lineHeight,
+  radius,
+  size,
+  space,
+} from "../../styles/tokens.stylex.ts";
+import { Grid, Hint } from "./Section.tsx";
 
-export type SetupResult = { status: CredsStatus; saved: string[]; checks: DoctorCheck[]; ok: boolean };
+const styles = stylex.create({
+  form: { display: "flex", flexDirection: "column", gap: space.s6 },
+  step: { display: "flex", gap: space.s4, alignItems: "flex-start" },
+  num: {
+    flexShrink: 0,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: size.controlSm,
+    height: size.controlSm,
+    borderRadius: radius.full,
+    backgroundColor: color.surfaceSunken,
+    color: color.textMuted,
+    fontSize: fontSize.small,
+    lineHeight: lineHeight.small,
+  },
+  col: { display: "flex", flexDirection: "column", gap: space.s3, flex: 1, minWidth: 0 },
+  title: { margin: 0, fontSize: fontSize.body, lineHeight: lineHeight.body, fontWeight: fontWeight.semibold },
+  how: {
+    display: "flex",
+    flexDirection: "column",
+    gap: space.s2,
+    margin: 0,
+    paddingLeft: space.s6,
+    fontSize: fontSize.compact,
+    lineHeight: lineHeight.compact,
+  },
+  foot: { display: "flex", alignItems: "center", gap: space.s3, flexWrap: "wrap" },
+  spacer: { flex: 1 },
+  mono: { fontFamily: fontFamily.mono },
+  checks: { display: "flex", flexDirection: "column", gap: space.s3 },
+});
+
+export type SetupResult = CommandOutput<"system.setCredentials">;
 export type Word = { ok: boolean; text: string };
-type Secrets = { token: string; clientId: string; clientSecret: string };
 
 export const TOKENS = "https://id.atlassian.com/manage-profile/security/api-tokens";
 
-// ponytail: people paste what their browser shows — "transurb", "transurb.atlassian.net", a whole issue URL —
-// and the file wants the site root; a /wiki the user typed is kept (Xray Editor's siteUrl)
+// ponytail: people paste what their browser shows — "transurb", "transurb.atlassian.net", a whole issue URL — and
+// the file wants the site root (the core's siteUrl does the saving; this is only the preview under the field)
 export function siteRoot(input: string): string {
   let s = input.trim().replace(/\s+/g, "");
   if (!s) return "";
@@ -35,8 +84,7 @@ const baseOf = (url?: string) =>
     .replace(/\/+$/, "")
     .replace(/\/wiki$/, "");
 
-// ponytail: what system.setCredentials writes for that root — the root as typed (a typed /wiki kept, as in Xray Editor), and
-// an unchanged site keeps the exact value already there
+// ponytail: an unchanged site keeps the exact value already in the file
 export function savedAs(root: string, previous?: string): string {
   if (!root) return "";
   if (previous && baseOf(previous) === baseOf(root)) return previous.trim();
@@ -80,6 +128,10 @@ const open = (url: string) => {
 
 const dirOf = (file: string) => file.replace(/[\\/][^\\/]+$/, "");
 
+const draft = (f: string): Key => [null, "atlassian", { f }];
+
+// ponytail: what is typed stays a draft until Save and test; the form sends only what changed, and a saved value the
+// user emptied is erased (Xray Editor saves the form as it is)
 export function ConnectAtlassian({
   lead,
   onStatus,
@@ -89,47 +141,36 @@ export function ConnectAtlassian({
   onStatus?: (s: CredsStatus) => void;
   onResult?: (r: SetupResult) => void;
 }) {
-  const [status, setStatus] = useState<CredsStatus | null>(null);
-  const [site, setSite, savedSite] = useDraft("atlassian.site", "");
-  const [email, setEmail, savedEmail] = useDraft("atlassian.email", "");
-  const [token, setToken, savedToken] = useDraft("atlassian.token", "");
-  const [clientId, setClientId, savedClientId] = useDraft("atlassian.clientId", "");
-  const [secret, setSecret, savedSecret] = useDraft("atlassian.secret", "");
+  const client = useQueryClient();
+  const creds = useRead("system.credentials", {});
+  const secrets = useRead("system.secrets", {});
+  const status = creds.data?.status ?? null;
+  const kept = secrets.data ?? { token: "", clientId: "", clientSecret: "" };
+  const [site, setSite, clearSite] = useDraft(draft("site"), status?.jira.baseUrl ?? "");
+  const [email, setEmail, clearEmail] = useDraft(draft("email"), status?.jira.email ?? "");
+  const [token, setToken, clearToken] = useDraft(draft("token"), kept.token);
+  const [clientId, setClientId, clearClientId] = useDraft(draft("clientId"), kept.clientId);
+  const [secret, setSecret, clearSecret] = useDraft(draft("secret"), kept.clientSecret);
   const [shown, setShown] = useState(false);
   const [busy, setBusy] = useState(false);
   const [words, setWords] = useState<{ jira: Word; xray: Word } | null>(null);
   const [error, setError] = useState("");
   const told = useRef(onStatus);
-  const kept = useRef<Secrets>({ token: "", clientId: "", clientSecret: "" });
   told.current = onStatus;
-
   useEffect(() => {
-    call<SetupResult>("system.credentials", {})
-      .then((r) => {
-        setStatus(r.status);
-        savedSite(r.status.jira.baseUrl ?? "");
-        savedEmail(r.status.jira.email ?? "");
-        told.current?.(r.status);
-      })
-      .catch((e) => setError(message(e)));
-    call<Secrets>("system.secrets", {})
-      .then((s) => {
-        if (!s) return;
-        kept.current = s;
-        savedToken(s.token);
-        savedClientId(s.clientId);
-        savedSecret(s.clientSecret);
-      })
-      .catch(() => {});
-  }, []);
+    if (status) told.current?.(status);
+  }, [status]);
 
   const root = siteRoot(site);
   const saved = savedAs(root, status?.jira.baseUrl);
   const base = baseOf(root);
-  const touched = () => {
-    setWords(null);
-    setError("");
-  };
+  const touched =
+    <T,>(set: (v: T) => void) =>
+    (v: T) => {
+      set(v);
+      setWords(null);
+      setError("");
+    };
 
   const save = async () => {
     if (!status) return;
@@ -139,27 +180,23 @@ export function ConnectAtlassian({
       const input: Record<string, unknown> = {};
       if (root && saved !== status.jira.baseUrl) {
         input.site = root;
-        // ponytail: a site that is not *.atlassian.net is the user's choice (Xray Editor saves any site) — said so here
         if (!/\.atlassian\.net(\/|$)/i.test(baseOf(root).replace(/^https?:\/\//, ""))) input.otherHost = true;
       }
       if (email.trim() && email.trim() !== (status.jira.email ?? "")) input.email = email.trim();
-      const was = kept.current;
-      if (token.trim() && token.trim() !== was.token) input.token = token.trim();
-      if (clientId.trim() && clientId.trim() !== was.clientId) input.clientId = clientId.trim();
-      if (secret.trim() && secret.trim() !== was.clientSecret) input.clientSecret = secret.trim();
-      // ponytail: a saved value the user emptied is erased, not kept (Xray Editor saves the form as it is)
+      if (token.trim() && token.trim() !== kept.token) input.token = token.trim();
+      if (clientId.trim() && clientId.trim() !== kept.clientId) input.clientId = clientId.trim();
+      if (secret.trim() && secret.trim() !== kept.clientSecret) input.clientSecret = secret.trim();
       const clear = [
         !email.trim() && status.jira.email ? "email" : "",
-        !token.trim() && was.token ? "token" : "",
-        !clientId.trim() && was.clientId ? "clientId" : "",
-        !secret.trim() && was.clientSecret ? "clientSecret" : "",
+        !token.trim() && kept.token ? "token" : "",
+        !clientId.trim() && kept.clientId ? "clientId" : "",
+        !secret.trim() && kept.clientSecret ? "clientSecret" : "",
       ].filter(Boolean);
       if (clear.length) input.clear = clear;
-      const r = await call<SetupResult>("system.setCredentials", input);
-      setStatus(r.status);
-      onStatus?.(r.status);
-      kept.current = { token: token.trim(), clientId: clientId.trim(), clientSecret: secret.trim() };
-      dropDraft("atlassian.site", "atlassian.email", "atlassian.token", "atlassian.clientId", "atlassian.secret");
+      const r = await execute(client, "system.setCredentials", input, {
+        invalidates: [["system.credentials"], ["system.secrets"]],
+      });
+      for (const c of [clearSite, clearEmail, clearToken, clearClientId, clearSecret]) c();
       setWords({
         jira: jiraWords(r.checks.find((c) => c.id === "jira")),
         xray: xrayWords(r.checks.find((c) => c.id === "xray")),
@@ -173,89 +210,69 @@ export function ConnectAtlassian({
     }
   };
 
-  if (!status && !error)
+  if (creds.isError)
     return (
-      <div className="atl" aria-busy="true">
-        <Skeleton w="60%" h={14} />
-        <Skeleton h={36} />
-        <Skeleton h={36} />
-      </div>
+      <Banner tone="danger" title="The access could not be read">
+        {creds.error.message}
+      </Banner>
     );
+  if (!status || secrets.isPending) return <Skeleton lines={5} />;
 
   const kind = shown ? "text" : "password";
-  const dir = status ? dirOf(status.jira.file) : "~/.atlassian";
+  const dir = dirOf(status.jira.file);
   return (
     <form
-      className="atl"
       aria-label="Connect to Jira and Xray"
+      {...stylex.props(styles.form)}
       onSubmit={(e) => {
         e.preventDefault();
         void save();
       }}
     >
-      {lead && <p className="muted">{lead}</p>}
-      <div className="atl-step">
-        <span className="atl-num">1</span>
-        <div className="atl-col">
-          <span className="atl-title">Your Jira site and the email you log in with</span>
-          <div className="formgrid">
-            <div className="formfield">
-              <label className="label" htmlFor="setup-site">
-                Jira site
-              </label>
-              <input
-                id="setup-site"
-                className="field"
-                placeholder="company.atlassian.net"
-                spellCheck={false}
-                value={site}
-                onChange={(e) => {
-                  setSite(e.target.value);
-                  touched();
-                }}
-              />
-            </div>
-            <div className="formfield">
-              <label className="label" htmlFor="setup-email">
-                Email
-              </label>
-              <input
-                id="setup-email"
-                className="field"
-                type="email"
-                autoComplete="username"
-                placeholder="you@company.com"
-                spellCheck={false}
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  touched();
-                }}
-              />
-            </div>
-          </div>
-          <span className="muted atl-hint">
+      {lead && <Hint>{lead}</Hint>}
+      <div {...stylex.props(styles.step)}>
+        <span {...stylex.props(styles.num)}>1</span>
+        <div {...stylex.props(styles.col)}>
+          <h3 {...stylex.props(styles.title)}>Your Jira site and the email you log in with</h3>
+          <Grid>
+            <Text
+              id="setup-site"
+              label="Jira site"
+              value={site}
+              onChange={touched(setSite)}
+              placeholder="company.atlassian.net"
+              spellCheck={false}
+            />
+            <Text
+              id="setup-email"
+              label="Email"
+              type="email"
+              value={email}
+              onChange={touched(setEmail)}
+              placeholder="you@company.com"
+              spellCheck={false}
+            />
+          </Grid>
+          <Hint>
             {saved && saved !== site.trim() ? (
               <>
-                Will be saved as <span className="mono">{saved}</span>
+                Will be saved as <span {...stylex.props(styles.mono)}>{saved}</span>
               </>
             ) : (
               "The address in your browser when you open Jira — just the site, any page of it works."
             )}
-          </span>
+          </Hint>
         </div>
       </div>
 
-      <div className="atl-step">
-        <span className="atl-num">2</span>
-        <div className="atl-col">
-          <span className="atl-title">A Jira API token</span>
-          <ol className="atl-how">
+      <div {...stylex.props(styles.step)}>
+        <span {...stylex.props(styles.num)}>2</span>
+        <div {...stylex.props(styles.col)}>
+          <h3 {...stylex.props(styles.title)}>A Jira API token</h3>
+          <ol {...stylex.props(styles.how)}>
             <li>
               Open your Atlassian account's token page{" "}
-              <Button size="sm" icon="external" onClick={() => open(TOKENS)}>
-                Open API tokens
-              </Button>
+              <Button size="sm" icon="external" label="Open API tokens" onClick={() => open(TOKENS)} />
             </li>
             <li>
               <strong>Create API token</strong> — the plain one, not <em>with scopes</em> (a scoped token does not work
@@ -263,117 +280,102 @@ export function ConnectAtlassian({
             </li>
             <li>Copy it and paste it below: it is shown only once.</li>
           </ol>
-          <div className="formfield">
-            <label className="label" htmlFor="setup-token">
-              API token
-            </label>
-            <input
-              id="setup-token"
-              className="field"
-              type={kind}
-              autoComplete="off"
-              spellCheck={false}
-              placeholder={status?.jira.complete ? "Saved — leave empty to keep it" : ""}
-              value={token}
-              onChange={(e) => {
-                setToken(e.target.value);
-                touched();
-              }}
-            />
-          </div>
+          <Text
+            id="setup-token"
+            label="API token"
+            type={kind}
+            value={token}
+            onChange={touched(setToken)}
+            spellCheck={false}
+            placeholder={status.jira.complete ? "Saved — leave empty to keep it" : ""}
+          />
         </div>
       </div>
 
-      <div className="atl-step">
-        <span className="atl-num">3</span>
-        <div className="atl-col">
-          <span className="atl-title">An Xray API key (Client ID + Client Secret)</span>
-          <ol className="atl-how">
+      <div {...stylex.props(styles.step)}>
+        <span {...stylex.props(styles.num)}>3</span>
+        <div {...stylex.props(styles.col)}>
+          <h3 {...stylex.props(styles.title)}>An Xray API key — Client ID and Client secret</h3>
+          <ol {...stylex.props(styles.how)}>
             <li>
               In Jira, <strong>⚙ Settings → Apps → Xray → API Keys → Create API Key</strong>, for your own user{" "}
               {base && (
-                <Button size="sm" icon="external" onClick={() => open(`${base}/plugins/servlet/upm`)}>
-                  Open Jira apps
-                </Button>
+                <Button
+                  size="sm"
+                  icon="external"
+                  label="Open Jira apps"
+                  onClick={() => open(`${base}/plugins/servlet/upm`)}
+                />
               )}
             </li>
-            <li>Copy the Client ID and the Client Secret below — the secret is shown only once.</li>
+            <li>Copy the Client ID and the Client secret below — the secret is shown only once.</li>
             <li>Only a Jira admin sees that page: if you are not one, ask yours for a key made for your user.</li>
           </ol>
-          <div className="formgrid">
-            <div className="formfield">
-              <label className="label" htmlFor="setup-cid">
-                Client ID
-              </label>
-              <input
-                id="setup-cid"
-                className="field mono"
-                autoComplete="off"
-                spellCheck={false}
-                placeholder={status?.xray.exists ? "Saved — leave empty to keep it" : ""}
-                value={clientId}
-                onChange={(e) => {
-                  setClientId(e.target.value);
-                  touched();
-                }}
-              />
-            </div>
-            <div className="formfield">
-              <label className="label" htmlFor="setup-secret">
-                Client secret
-              </label>
-              <input
-                id="setup-secret"
-                className="field"
-                type={kind}
-                autoComplete="off"
-                spellCheck={false}
-                placeholder={status?.xray.complete ? "Saved — leave empty to keep it" : ""}
-                value={secret}
-                onChange={(e) => {
-                  setSecret(e.target.value);
-                  touched();
-                }}
-              />
-            </div>
-          </div>
+          <Grid>
+            <Text
+              id="setup-cid"
+              label="Client ID"
+              value={clientId}
+              onChange={touched(setClientId)}
+              spellCheck={false}
+              placeholder={status.xray.exists ? "Saved — leave empty to keep it" : ""}
+            />
+            <Text
+              id="setup-secret"
+              label="Client secret"
+              type={kind}
+              value={secret}
+              onChange={touched(setSecret)}
+              spellCheck={false}
+              placeholder={status.xray.complete ? "Saved — leave empty to keep it" : ""}
+            />
+          </Grid>
         </div>
       </div>
 
-      <div className="atl-foot">
-        <Button tone="primary" disabled={busy || !status} onClick={() => void save()}>
-          {busy ? "Testing…" : "Save and test the connection"}
-        </Button>
-        <Button tone="quiet" size="sm" aria-pressed={shown} onClick={() => setShown(!shown)}>
-          {shown ? "Hide secrets" : "Show secrets"}
-        </Button>
-        <span className="spacer" />
+      <div {...stylex.props(styles.foot)}>
+        <Button
+          type="submit"
+          variant="primary"
+          label={busy ? "Testing…" : "Save and test the connection"}
+          loading={busy}
+        />
+        <Button
+          size="sm"
+          variant="quiet"
+          icon={shown ? "eye-off" : "eye"}
+          label={shown ? "Hide secrets" : "Show secrets"}
+          pressed={shown}
+          onClick={() => setShown(!shown)}
+        />
+        <span {...stylex.props(styles.spacer)} />
         {desktop() ? (
-          <button type="button" className="linkbtn atl-dir" onClick={() => void reveal(dir)}>
-            Saved in <span className="mono">{dir}</span>
-          </button>
+          <Button
+            size="sm"
+            variant="quiet"
+            icon="folder-open"
+            label={`Saved in ${dir}`}
+            onClick={() => void reveal(dir)}
+          />
         ) : (
-          <span className="muted atl-dir">
-            Saved in <span className="mono">{dir}</span>
-          </span>
+          <Hint>
+            Saved in <span {...stylex.props(styles.mono)}>{dir}</span>
+          </Hint>
         )}
       </div>
 
       {(words || error) && (
-        <div className="atl-result" role="status">
+        <div {...stylex.props(styles.checks)}>
           {error && (
-            <div className="atl-check atl-bad">
-              <Icon name="error" />
-              <span>{error}</span>
-            </div>
+            <Banner tone="danger" compact>
+              {error}
+            </Banner>
           )}
           {words &&
             (["jira", "xray"] as const).map((k) => (
-              <div key={k} className={cx("atl-check", words[k].ok ? "atl-ok" : "atl-bad")}>
-                <Icon name={words[k].ok ? "check" : "error"} />
-                <strong>{k === "jira" ? "Jira" : "Xray"}</strong>
-                <span>{words[k].text}</span>
-              </div>
+              <Banner key={k} compact tone={words[k].ok ? "success" : "danger"} title={k === "jira" ? "Jira" : "Xray"}>
+                {words[k].text}
+              </Banner>
             ))}
         </div>
       )}

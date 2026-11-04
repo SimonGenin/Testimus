@@ -22,7 +22,7 @@ test.describe("vectors built, this PC's choice", () => {
     await expect(search.getByRole("radio")).toHaveCount(0);
     await expect(search).not.toContainText("Search on words only");
     const spaces = search.getByRole("table", { name: "Vector spaces" });
-    await expect(spaces.getByRole("row", { name: /^Space / })).toHaveCount(1);
+    await expect(spaces.getByRole("row", { name: /Space [0-9a-f]{12}/ })).toHaveCount(1);
     await expect(spaces).toContainText("In use here");
     await shoot(page, "search-settings-e2e");
   });
@@ -36,13 +36,13 @@ test.describe("vectors built, this PC's choice", () => {
     const search = await openSearch(page);
     await expect(search).toContainText("Qwen3 Embedding 0.6B (8-bit, CPU)");
     const spaces = search.getByRole("table", { name: "Vector spaces" });
-    await expect(spaces.getByRole("row", { name: /^Space / })).toHaveCount(2);
+    await expect(spaces.getByRole("row", { name: /Space [0-9a-f]{12}/ })).toHaveCount(2);
     await shoot(page, "search-spaces-e2e");
     await spaces.getByRole("button", { name: `Drop space ${old?.id}` }).click();
-    const ask = page.getByRole("dialog", { name: "Drop the BGE-M3 (8-bit, CPU) vectors?" });
+    const ask = page.getByRole("alertdialog", { name: "Drop the BGE-M3 (8-bit, CPU) vectors?" });
     await expect(ask).not.toContainText("falls back to words only");
     await ask.getByRole("button", { name: /^Drop / }).click();
-    await expect(spaces.getByRole("row", { name: /^Space / })).toHaveCount(1);
+    await expect(spaces.getByRole("row", { name: /Space [0-9a-f]{12}/ })).toHaveCount(1);
     await expect(spaces).toContainText("Qwen3 Embedding 0.6B (8-bit, CPU)");
   });
 });

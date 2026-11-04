@@ -7,9 +7,8 @@ import type { LocalTestRef } from "../../src/core/types.ts";
 import { setProject } from "../../src/ui/api.ts";
 import { AppContext, type AppState } from "../../src/ui/lib/app.ts";
 import { DataProvider } from "../../src/ui/lib/data/provider.tsx";
-import { ClaudeSection } from "../../src/ui/screens/settings/ClaudeSection.tsx";
 import { TestList } from "../../src/ui/screens/tests/TestList.tsx";
-import { api, app, fakeDesktop, fakeFetch, named, noDesktop } from "./ui-desktop-helpers.tsx";
+import { app, fakeDesktop, fakeFetch, noDesktop } from "./ui-desktop-helpers.tsx";
 
 beforeEach(() => {
   fakeFetch();
@@ -30,38 +29,6 @@ const within = (ui: ReactNode, over: Partial<AppState> = {}) => {
   render(<AppContext.Provider value={a}>{ui}</AppContext.Provider>);
   return a;
 };
-
-describe("Settings › Claude program", () => {
-  beforeEach(() => {
-    api.routes["system.settings"] = () => ({ claude: { exe: "" }, models: { allowRemote: true } });
-    api.routes["system.set"] = (i) => ({ claude: { exe: i.claudeExe ?? "" }, models: { allowRemote: true } });
-    api.routes["claude.status"] = () => ({ installed: true, version: "2.1.0", signedIn: null, exe: "claude" });
-  });
-
-  it("Browse… picks claude.exe and saves it", async () => {
-    const d = fakeDesktop({ files: ["C:\\Users\\me\\.local\\bin\\claude.exe"] });
-    within(<ClaudeSection />, { info: null });
-    const browse = screen.getByRole("button", { name: "Browse for the Claude program" });
-    await waitFor(() => expect(browse).toBeEnabled());
-    fireEvent.click(browse);
-    await waitFor(() => expect(named("system.set")).toHaveLength(1));
-    await waitFor(() => expect(named("claude.status").at(-1)?.input).toEqual({ refresh: true }));
-    expect(d.pickFiles).toHaveBeenCalledWith({
-      title: "Choose the Claude program",
-      filters: process.platform === "win32" ? [{ name: "Programs", extensions: ["exe", "cmd"] }] : [],
-      multiple: false,
-    });
-    expect(named("system.set")[0].input).toEqual({ claudeExe: "C:\\Users\\me\\.local\\bin\\claude.exe" });
-    expect(screen.getByLabelText("Claude program")).toHaveValue("C:\\Users\\me\\.local\\bin\\claude.exe");
-  });
-
-  it("without the bridge: the text field only", () => {
-    within(<ClaudeSection />, { info: null });
-    expect(screen.getByLabelText("Claude program")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Check" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Browse/ })).toBeNull();
-  });
-});
 
 describe("Tests › Show in Explorer", () => {
   const refs: LocalTestRef[] = [

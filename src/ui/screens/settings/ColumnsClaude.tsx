@@ -1,69 +1,117 @@
+import * as stylex from "@stylexjs/stylex";
+import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import type { CommandOutput } from "../../../core/commands/index.ts";
 import type { StepColumn } from "../../../core/types.ts";
-import { call, run } from "../../api.ts";
 import { AdditionalContext } from "../../components/claude/AdditionalContext.tsx";
 import { toolLabel } from "../../components/claude/ClaudeDock.tsx";
-import { Button, Icon } from "../../components/legacy/index.ts";
-import { useApp } from "../../lib/app.ts";
-import { useDraft } from "../../lib/drafts.ts";
-import { cx, plural } from "../../lib/format.ts";
+import { Badge, type BadgeTone } from "../../components/ui/Badge.tsx";
+import { Button } from "../../components/ui/Button.tsx";
+import { Card } from "../../components/ui/Card.tsx";
+import { Icon } from "../../components/ui/Icon.tsx";
+import { useDraft } from "../../lib/data/autosave.ts";
+import { project } from "../../lib/data/client.ts";
+import { execute, type Key } from "../../lib/data/query.ts";
+import { plural } from "../../lib/format.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
+import { border, color, fontSize, fontWeight, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { useCancel, useJob } from "./jobs.ts";
+import { Hint, Stack } from "./Section.tsx";
 
-type Proposal = {
-  name: string;
-  kind: "xray" | "local" | "new";
-  builtin: boolean;
-  current: string | null;
-  description: string;
-  why: string;
-};
-type Suggested = { ok: boolean; proposals: Proposal[]; summary: string; diagnosis?: { detail: string } };
+const styles = stylex.create({
+  title: { display: "inline-flex", alignItems: "center", gap: space.s2, color: color.claudeText },
+  acts: { display: "flex", alignItems: "center", gap: space.s3, flexWrap: "wrap" },
+  reading: { flex: 1, minWidth: 0, fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textMuted },
+  said: { margin: 0, whiteSpace: "pre-wrap", fontSize: fontSize.body, lineHeight: lineHeight.body },
+  list: { display: "flex", flexDirection: "column", gap: space.s4, margin: 0, padding: 0, listStyle: "none" },
+  prop: {
+    display: "flex",
+    flexDirection: "column",
+    gap: space.s2,
+    paddingTop: space.s4,
+    borderTopStyle: "solid",
+    borderTopWidth: border.width,
+    borderTopColor: color.border,
+  },
+  head: { display: "flex", alignItems: "center", gap: space.s3, flexWrap: "wrap" },
+  name: { flex: 1, fontWeight: fontWeight.semibold },
+  line: { margin: 0, fontSize: fontSize.compact, lineHeight: lineHeight.compact },
+  word: { marginRight: space.s2, fontWeight: fontWeight.medium, color: color.textMuted },
+  empty: { fontStyle: "italic", color: color.textMuted },
+});
+
+type Suggested = CommandOutput<"columns.suggest">;
+type Proposal = Suggested["proposals"][number];
 
 const said = (summary: string) => summary.replace(/```[\s\S]*?(```|$)/g, "").trim();
 
-function tagOf(p: Proposal): { label: string; tone: string } {
-  if (p.kind === "new") return { label: "New local column", tone: "warn" };
-  if (p.kind === "local") return { label: "Local only", tone: "warn" };
-  return { label: p.builtin ? "Xray · standard" : "Xray", tone: "info" };
+function tagOf(p: Proposal): { label: string; tone: BadgeTone } {
+  if (p.kind === "new") return { label: "New local column", tone: "warning" };
+  if (p.kind === "local") return { label: "Local only", tone: "neutral" };
+  return { label: p.builtin ? "Xray · standard" : "Xray", tone: "neutral" };
 }
 
+const draft = (f: string): Key => [project(), "settings.columns.claude", { f }];
+
+function Asking({ jobId, onAnswer }: { jobId: string; onAnswer: (r: Suggested | null) => void }) {
+  const cancel = useCancel();
+  const [reading, setReading] = useState("Claude is reading the columns, the tests and the documents…");
+  useJob(
+    jobId,
+    (job) => {
+      if (job.status === "done") onAnswer(job.result as Suggested);
+      else {
+        if (job.status === "failed")
+          errorToast(new Error(job.error ?? "The run failed."), "Claude could not look at the columns");
+        onAnswer(null);
+      }
+    },
+    (e) => {
+      if (e.type === "claude" && e.event.type === "tool") setReading(toolLabel(e.event.name, e.event.input));
+    },
+  );
+  return (
+    <div {...stylex.props(styles.acts)}>
+      <span role="status" {...stylex.props(styles.reading)}>
+        {reading}
+      </span>
+      <Button size="sm" variant="quiet" label="Cancel" onClick={() => cancel(jobId)} />
+    </div>
+  );
+}
+
+// ponytail: Claude proposes, nothing changes until a proposal is applied (columns.save, one per column)
 export function ColumnsClaude({ columns }: { columns: StepColumn[] }) {
-  const app = useApp();
-  const [ask, setAsk] = useDraft("settings.columns.claude.ask", "");
-  const [ids, setIds] = useDraft<string[]>("settings.columns.claude.contexts", []);
-  const [asking, setAsking] = useState(false);
+  const client = useQueryClient();
+  const [ask, setAsk] = useDraft(draft("ask"));
+  const [picked, setPicked] = useDraft(draft("contexts"), "[]");
+  const ids = JSON.parse(picked) as string[];
+  const [starting, setStarting] = useState(false);
   const [jobId, setJobId] = useState<string | null>(null);
-  const [reading, setReading] = useState("");
   const [answer, setAnswer] = useState<{ text: string; proposals: Proposal[] } | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
 
   const suggest = async () => {
-    setAsking(true);
+    setStarting(true);
     setAnswer(null);
-    setReading("Claude is reading the columns, the tests and the documents…");
     try {
-      const r = await run<Suggested>(
-        "columns.suggest",
-        { ask: ask.trim(), contexts: ids },
-        (e) => {
-          if (e.type === "claude" && e.event.type === "tool") setReading(toolLabel(e.event.name, e.event.input));
-        },
-        setJobId,
-      );
-      setAnswer({
-        text: r.ok ? said(r.summary) : r.diagnosis?.detail || said(r.summary) || "Claude gave no proposal.",
-        proposals: r.proposals,
-      });
+      const r = await execute(client, "columns.suggest", { ask: ask.trim(), contexts: ids }, { invalidates: "none" });
+      setJobId(r.jobId);
     } catch (e) {
       errorToast(e, "Claude could not look at the columns");
     } finally {
-      setAsking(false);
-      setJobId(null);
-      setReading("");
+      setStarting(false);
     }
   };
 
-  const cancel = () => jobId && call("jobs.cancel", { id: jobId }).catch((e) => errorToast(e, "Could not cancel"));
+  const answered = (r: Suggested | null) => {
+    setJobId(null);
+    if (!r) return;
+    setAnswer({
+      text: r.ok ? said(r.summary) : r.diagnosis?.detail || said(r.summary) || "Claude gave no proposal.",
+      proposals: r.proposals,
+    });
+  };
 
   const drop = (names: string[]) =>
     setAnswer((a) => a && { ...a, proposals: a.proposals.filter((p) => !names.includes(p.name)) });
@@ -73,7 +121,14 @@ export function ColumnsClaude({ columns }: { columns: StepColumn[] }) {
     const done: string[] = [];
     try {
       for (const p of list) {
-        await call("columns.save", { name: p.name, description: p.description });
+        await execute(
+          client,
+          "columns.save",
+          { name: p.name, description: p.description },
+          {
+            invalidates: [["project.info"], ["columns.list"]],
+          },
+        );
         done.push(p.name);
       }
       toast({
@@ -87,7 +142,6 @@ export function ColumnsClaude({ columns }: { columns: StepColumn[] }) {
       errorToast(e, "Could not save the column");
     } finally {
       drop(done);
-      app.refreshInfo();
       setSaving(null);
     }
   };
@@ -95,91 +149,104 @@ export function ColumnsClaude({ columns }: { columns: StepColumn[] }) {
   const proposals = (answer?.proposals ?? []).filter(
     (p) => p.kind === "new" || columns.some((c) => c.name === p.name && c.description !== p.description),
   );
+  const asking = starting || !!jobId;
 
   return (
-    <section className="colclaude" aria-label="Ask Claude about the columns">
-      <div className="colclaude-head">
-        <Icon name="claude" />
-        <span className="h colclaude-title">Ask Claude</span>
-        <span className="muted">
+    <Card
+      title={
+        <span {...stylex.props(styles.title)}>
+          <Icon name="claude" />
+          Ask Claude about the columns
+        </span>
+      }
+    >
+      <Stack>
+        <Hint>
           Claude reads the columns, Xray's step fields, the tests, the documents and the contexts, and proposes what
           each column should hold. Nothing changes until you apply a proposal.
-        </span>
-      </div>
-      <AdditionalContext
-        id="colclaude-ask"
-        of="the columns"
-        placeholder="What the columns should hold, in your words — e.g. « each step should say which operator position it uses ». Empty: review them all."
-        ids={ids}
-        note={ask}
-        disabled={asking}
-        onIds={setIds}
-        onNote={setAsk}
-      />
-      <div className="colclaude-acts">
-        <Button tone="primary" size="sm" icon="claude" disabled={asking} onClick={() => void suggest()}>
-          {asking ? "Claude is looking…" : answer ? "Ask again" : "Ask Claude"}
-        </Button>
-        {asking && (
-          <>
-            <span className="muted colclaude-reading" role="status">
-              {reading}
-            </span>
-            <Button tone="quiet" size="sm" disabled={!jobId} onClick={() => void cancel()}>
-              Cancel
-            </Button>
-          </>
-        )}
-      </div>
-      {answer && (
-        <div className="colclaude-answer">
-          {answer.text && <p className="colclaude-said">{answer.text}</p>}
-          {proposals.length > 1 && (
-            <div className="colclaude-acts">
-              <Button size="sm" icon="check" disabled={!!saving} onClick={() => void apply(proposals)}>
-                {saving === "*" ? "Applying…" : `Apply all ${proposals.length}`}
-              </Button>
-              <Button size="sm" tone="quiet" disabled={!!saving} onClick={() => setAnswer(null)}>
-                Dismiss
-              </Button>
-            </div>
-          )}
-          {proposals.length > 0 ? (
-            <ul className="colclaude-list" aria-label="Claude's proposals">
-              {proposals.map((p) => {
-                const tag = tagOf(p);
-                return (
-                  <li key={p.name} className="colclaude-prop">
-                    <div className="colrow-head">
-                      <span className="colrow-name">{p.name}</span>
-                      <span className={cx("tagpill", `tagpill-${tag.tone}`)}>{tag.label}</span>
-                      <span className="spacer" />
-                      <Button size="sm" tone="primary" icon="check" disabled={!!saving} onClick={() => void apply([p])}>
-                        {saving === p.name ? "Applying…" : p.kind === "new" ? "Add the column" : "Apply"}
-                      </Button>
-                      <Button size="sm" tone="quiet" disabled={!!saving} onClick={() => drop([p.name])}>
-                        Dismiss
-                      </Button>
-                    </div>
-                    {p.current !== null && (
-                      <p className="colclaude-was">
-                        <span className="label">Today</span> {p.current || <em>empty — Claude never fills it</em>}
-                      </p>
-                    )}
-                    <p className="colclaude-now">
-                      <span className="label">Proposed</span>{" "}
-                      {p.description || <em>empty — Claude stops filling it</em>}
-                    </p>
-                    {p.why && <p className="muted colclaude-why">{p.why}</p>}
-                  </li>
-                );
-              })}
-            </ul>
-          ) : (
-            answer.proposals.length === 0 && <p className="muted">No change proposed.</p>
-          )}
+        </Hint>
+        <AdditionalContext
+          id="colclaude-ask"
+          of="the columns"
+          placeholder="What the columns should hold, in your words — e.g. « each step should say which operator position it uses ». Empty: review them all."
+          ids={ids}
+          note={ask}
+          disabled={asking}
+          onIds={(next) => setPicked(JSON.stringify(next))}
+          onNote={setAsk}
+        />
+        <div {...stylex.props(styles.acts)}>
+          <Button
+            variant="claude"
+            size="sm"
+            icon="claude"
+            label={asking ? "Claude is looking…" : answer ? "Ask again" : "Ask Claude"}
+            disabled={asking}
+            onClick={() => void suggest()}
+          />
         </div>
-      )}
-    </section>
+        {jobId && <Asking jobId={jobId} onAnswer={answered} />}
+        {answer && (
+          <Stack>
+            {answer.text && <p {...stylex.props(styles.said)}>{answer.text}</p>}
+            {proposals.length > 1 && (
+              <div {...stylex.props(styles.acts)}>
+                <Button
+                  size="sm"
+                  icon="check"
+                  label={saving === "*" ? "Applying…" : `Apply all ${proposals.length}`}
+                  disabled={!!saving}
+                  onClick={() => void apply(proposals)}
+                />
+                <Button size="sm" variant="quiet" label="Dismiss" disabled={!!saving} onClick={() => setAnswer(null)} />
+              </div>
+            )}
+            {proposals.length > 0 ? (
+              <ul aria-label="Claude's proposals" {...stylex.props(styles.list)}>
+                {proposals.map((p) => {
+                  const tag = tagOf(p);
+                  return (
+                    <li key={p.name} aria-label={p.name} {...stylex.props(styles.prop)}>
+                      <div {...stylex.props(styles.head)}>
+                        <span {...stylex.props(styles.name)}>{p.name}</span>
+                        <Badge label={tag.label} tone={tag.tone} size="sm" />
+                        <Button
+                          size="sm"
+                          variant="primary"
+                          icon="check"
+                          label={saving === p.name ? "Applying…" : p.kind === "new" ? "Add the column" : "Apply"}
+                          disabled={!!saving}
+                          onClick={() => void apply([p])}
+                        />
+                        <Button
+                          size="sm"
+                          variant="quiet"
+                          label="Dismiss"
+                          disabled={!!saving}
+                          onClick={() => drop([p.name])}
+                        />
+                      </div>
+                      {p.current !== null && (
+                        <p {...stylex.props(styles.line)}>
+                          <span {...stylex.props(styles.word)}>Today</span>
+                          {p.current || <span {...stylex.props(styles.empty)}>empty — Claude never fills it</span>}
+                        </p>
+                      )}
+                      <p {...stylex.props(styles.line)}>
+                        <span {...stylex.props(styles.word)}>Proposed</span>
+                        {p.description || <span {...stylex.props(styles.empty)}>empty — Claude stops filling it</span>}
+                      </p>
+                      {p.why && <Hint>{p.why}</Hint>}
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              answer.proposals.length === 0 && <Hint>No change proposed.</Hint>
+            )}
+          </Stack>
+        )}
+      </Stack>
+    </Card>
   );
 }

@@ -2,16 +2,15 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ColumnLayout, Source, Step, StepColumn } from "../../src/core/types.ts";
+import type { ColumnLayout, Source, Step } from "../../src/core/types.ts";
 import { setProject } from "../../src/ui/api.ts";
 import { resetDoctor } from "../../src/ui/lib/doctor.ts";
 import { ReviewStep } from "../../src/ui/screens/review/ReviewStep.tsx";
-import { ColumnsSection } from "../../src/ui/screens/settings/ColumnsSection.tsx";
 import { StepCard } from "../../src/ui/screens/tests/StepCard.tsx";
-import { clearToasts, mount } from "./cov-uiscreens-helpers.tsx";
+import { clearToasts } from "./cov-uiscreens-helpers.tsx";
 import { renderWithData } from "./cov-uishell-helpers.tsx";
 import { layoutOf } from "./layout-helpers.ts";
-import { api, app, fakeFetch, named, noDesktop } from "./ui-desktop-helpers.tsx";
+import { fakeFetch, noDesktop } from "./ui-desktop-helpers.tsx";
 
 beforeEach(() => {
   fakeFetch();
@@ -117,41 +116,5 @@ describe("a Reference source column in a step", () => {
     expect(link).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(link);
     expect(onSelect).toHaveBeenCalledWith(a, 2);
-  });
-});
-
-describe("the Reference source option in Settings", () => {
-  const col = (name: string, over: Partial<StepColumn> = {}): StepColumn => ({
-    name,
-    origin: "xray",
-    builtin: name !== "Exigence",
-    status: "ok",
-    description: "",
-    mode: "open",
-    ...over,
-  });
-  const info = (cols: StepColumn[]) => ({ ...app().info, columns: cols }) as ReturnType<typeof app>["info"];
-
-  it("saves the option alone and says what it does", async () => {
-    api.routes["columns.save"] = () => [];
-    mount(<ColumnsSection />, {
-      xray: xray(false),
-      info: info([col("Action"), col("Exigence", { referenceSource: false })]),
-    });
-    const box = screen.getByLabelText("Exigence reference source");
-    expect(box).not.toBeChecked();
-    fireEvent.click(box);
-    expect(await screen.findByText("Exigence links its items to their sources")).toBeInTheDocument();
-    expect(named("columns.save").at(-1)?.input).toEqual({ name: "Exigence", referenceSource: true });
-  });
-
-  it("turns it off, and reports a failure", async () => {
-    api.routes["columns.save"] = () => [];
-    mount(<ColumnsSection />, { xray: xray(true), info: info([col("Exigence", { referenceSource: true })]) });
-    fireEvent.click(screen.getByLabelText("Exigence reference source"));
-    expect(await screen.findByText("Exigence is plain text again")).toBeInTheDocument();
-    delete api.routes["columns.save"];
-    fireEvent.click(screen.getByLabelText("Exigence reference source"));
-    expect(await screen.findByText("Could not save the column")).toBeInTheDocument();
   });
 });

@@ -1,109 +1,19 @@
-import type { Fit, FitVerdict, MachineProfile, RagChoice } from "../../../../core/types.ts";
-import type { BadgeTone, IconName } from "../../../components/legacy/index.ts";
+import type { CommandOutput } from "../../../../core/commands/index.ts";
+import type { FitVerdict, RagChoice } from "../../../../core/types.ts";
+import type { BadgeTone } from "../../../components/ui/Badge.tsx";
+import type { IconName } from "../../../components/ui/Icon.tsx";
 
-export type ModelState = "available" | "downloading" | "installed" | "verified" | "active" | "broken" | "outdated";
-
-export type PackRow = {
-  suggested?: boolean;
-  id: string;
-  label: string;
-  intent: string;
-  active: boolean;
-  available: boolean;
-  variant: number | null;
-  embedding: string | null;
-  reranker: string | null;
-  fit: Fit | null;
-  skipped: string[];
-  downloadMB: number;
-  speed?: string;
-  quality: string;
-  measuredHere: boolean;
-  projectQuality?: string;
-  processorOnly?: boolean;
-  lighter?: string | null;
-};
-
-export type CatalogRow = {
-  id: string;
-  kind: "embedding" | "reranker";
-  label: string;
-  tier: string;
-  runtimes: string[];
-  quantization: string;
-  dims: number;
-  sizeMB: number;
-  state: ModelState;
-  fit: Fit;
-};
-
-export type Installed = {
-  model: string;
-  label: string;
-  via: "path" | "download";
-  runtime: string;
-  where: string;
-  sizeMB: number;
-  state: ModelState;
-  usedBy: string[];
-  perf?: string;
-};
-
-export type UsePlan = {
-  download: { model: string; sizeMB: number }[];
-  dir: string | null;
-  reindex: boolean;
-  expected: string;
-};
-
-export type UsePackOut = {
-  pack: string;
-  variant: number;
-  embedding: string;
-  reranker: string | null;
-  plan: UsePlan;
-  indexJob?: string | null;
-};
-
-export type AdviceRow = {
-  id: string;
-  direction: "upgrade" | "downgrade";
-  from: RagChoice;
-  to: RagChoice;
-  reason: string;
-  quality: string;
-};
-
-export type SetDirOut = {
-  dir: string;
-  drive: { root: string; freeMB: number };
-  installedMB: number;
-  action: "set" | "move" | "keep" | "copy";
-  files: number;
-  cancelled?: boolean;
-};
-
-export type Hardware = MachineProfile;
-
-export type Activation = "machine" | "reference" | "project" | "light" | "none";
-
-export type RagStatus = {
-  embedding: string;
-  reranker: string | null;
-  dims: number;
-  activation: Activation;
-  missing: string[];
-  exists: boolean;
-  indexEmbedding: string | null;
-  profileMatches: boolean;
-  space: { id: string; vectors: number; complete: boolean } | null;
-  degraded: string | null;
-  chunks: number;
-  builtAt: string | null;
-  docs: { docId: string; indexed: "fresh" | "stale" | "missing" }[];
-};
-
-export type Op = { key: string; jobId: string; label: string; message: string; pct: number | null };
+export type ModelState = CommandOutput<"models.catalog">[number]["state"];
+export type PackRow = CommandOutput<"models.packs">[number];
+export type CatalogRow = CommandOutput<"models.catalog">[number];
+export type Installed = CommandOutput<"models.list">[number];
+export type UsePackOut = CommandOutput<"models.planPack">;
+export type UsePlan = UsePackOut["plan"];
+export type AdviceRow = CommandOutput<"models.advice">[number];
+export type SetDirOut = CommandOutput<"models.planDir">;
+export type Hardware = CommandOutput<"models.hardware">;
+export type RagStatus = CommandOutput<"rag.status">;
+export type Activation = RagStatus["activation"];
 
 export const PACK_ORDER = ["quality", "balanced", "performance", "light"];
 
@@ -135,29 +45,28 @@ export function machineSummary(hw: Hardware): string[] {
 }
 
 export const FIT: Record<FitVerdict, { tone: BadgeTone; icon: IconName; word: string }> = {
-  fits: { tone: "ok", icon: "check", word: "Fits" },
-  tight: { tone: "warn", icon: "warning", word: "Tight" },
-  "gpu-too-small": { tone: "warn", icon: "warning", word: "Partly on the CPU" },
-  "ram-too-small": { tone: "err", icon: "error", word: "RAM too small" },
+  fits: { tone: "success", icon: "check-circle", word: "Fits" },
+  tight: { tone: "warning", icon: "alert-triangle", word: "Tight" },
+  "gpu-too-small": { tone: "warning", icon: "alert-triangle", word: "Partly on the CPU" },
+  "ram-too-small": { tone: "danger", icon: "x-circle", word: "RAM too small" },
   unknown: { tone: "info", icon: "info", word: "Not measured" },
-  untested: { tone: "warn", icon: "warning", word: "Untested here" },
-  unsupported: { tone: "err", icon: "error", word: "Not supported here" },
+  untested: { tone: "warning", icon: "alert-triangle", word: "Untested here" },
+  unsupported: { tone: "danger", icon: "x-circle", word: "Not supported here" },
 };
 
 export const STATE: Record<ModelState, { tone: BadgeTone; icon: IconName; word: string }> = {
-  available: { tone: "line", icon: "pull", word: "Not installed" },
-  downloading: { tone: "info", icon: "pull", word: "Downloading" },
+  available: { tone: "neutral", icon: "download", word: "Not installed" },
+  downloading: { tone: "info", icon: "download", word: "Downloading" },
   installed: { tone: "neutral", icon: "check", word: "Installed" },
-  verified: { tone: "ok", icon: "checked", word: "Verified" },
-  active: { tone: "ok", icon: "check", word: "In use" },
-  broken: { tone: "err", icon: "error", word: "Broken" },
-  outdated: { tone: "warn", icon: "clock", word: "Outdated" },
+  verified: { tone: "success", icon: "check-circle", word: "Verified" },
+  active: { tone: "success", icon: "circle-dot", word: "In use" },
+  broken: { tone: "danger", icon: "x-circle", word: "Broken" },
+  outdated: { tone: "warning", icon: "clock", word: "Outdated" },
 };
 
 export const ORIGIN: Record<Activation, string> = {
   machine: "This PC's choice",
   reference: "The team reference",
-  project: "The project's model (v1 setting)",
   light: "The Light pack (default)",
   none: "None: lexical search only",
 };

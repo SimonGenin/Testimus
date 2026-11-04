@@ -1,112 +1,91 @@
-import { useEffect, useState } from "react";
-import type { Settings } from "../../../core/types.ts";
-import { call } from "../../api.ts";
-import { Segmented } from "../../components/legacy/index.ts";
-import { desktop, readAlwaysOnTop, setAlwaysOnTop } from "../../lib/desktop.ts";
-import { readPref, readTheme, setThemeEverywhere, type Theme, writePref } from "../../lib/theme.ts";
-import { errorToast } from "../../lib/toast.ts";
+import * as stylex from "@stylexjs/stylex";
+import { Badge } from "../../components/ui/Badge.tsx";
+import { Card } from "../../components/ui/Card.tsx";
+import { Icon } from "../../components/ui/Icon.tsx";
+import { Segmented } from "../../components/ui/Segmented.tsx";
+import { Switch } from "../../components/ui/Switch.tsx";
+import { desktop, setAlwaysOnTop } from "../../lib/desktop.ts";
+import { usePref } from "../../lib/prefs.ts";
+import { type Theme, useTheme } from "../../lib/theme.ts";
+import { space } from "../../styles/tokens.stylex.ts";
+import { useSetting, useSettings } from "./machine.ts";
+import { Grid, Hint, Section, Stack } from "./Section.tsx";
 
-type Layout = "stacked" | "split";
+const styles = stylex.create({
+  field: { display: "flex", flexDirection: "column", gap: space.s2 },
+  kept: { display: "flex", alignItems: "center", gap: space.s2 },
+});
 
-const save = (patch: Record<string, unknown>) =>
-  call<Settings>("system.set", patch).catch((e) => {
-    errorToast(e, "Could not save the settings");
-    return null;
-  });
-
+// ponytail: theme, layout and the window are this browser profile's (lib/prefs, mirrored to settings.json by the
+// desktop app); model downloads are this PC's setting (system.set)
 export function AppearanceSection() {
-  const [theme, setTheme] = useState<Theme>(readTheme);
-  const [layout, setLayout] = useState<Layout>(() => readPref("testimus.stepLayout", ["stacked", "split"], "stacked"));
-  const [s, setS] = useState<Settings | null>(null);
-  const [onTop, setOnTop] = useState(readAlwaysOnTop);
-  useEffect(() => {
-    call<Settings>("system.settings", {})
-      .then(setS)
-      .catch(() => {});
-    const onTheme = (e: Event) => setTheme((e as CustomEvent<Theme>).detail);
-    const onPin = (e: Event) => setOnTop((e as CustomEvent<boolean>).detail === true);
-    window.addEventListener("testimus:theme", onTheme);
-    window.addEventListener("testimus:on-top", onPin);
-    return () => {
-      window.removeEventListener("testimus:theme", onTheme);
-      window.removeEventListener("testimus:on-top", onPin);
-    };
-  }, []);
+  const [theme, setTheme] = useTheme();
+  const [layout, setLayout] = usePref("stepLayout");
+  const [onTop] = usePref("alwaysOnTop");
+  const settings = useSettings();
+  const setting = useSetting();
   return (
-    <section className="card sect" id="settings-appearance" aria-labelledby="s-look">
-      <h2 id="s-look" className="h sect-title">
-        Appearance and this PC
-      </h2>
-      <div className="formgrid">
-        <div className="formfield">
-          <span className="label">Theme</span>
-          <Segmented
-            label="Theme"
-            value={theme}
-            onChange={(t) => {
-              setThemeEverywhere(t);
-              setTheme(t);
-            }}
-            options={[
-              { value: "system", label: "System" },
-              { value: "light", label: "Light" },
-              { value: "dark", label: "Dark" },
-            ]}
-          />
-        </div>
-        <div className="formfield">
-          <span className="label">Step layout in the editor</span>
-          <Segmented
-            label="Step layout"
-            value={layout}
-            onChange={(l) => {
-              setLayout(l);
-              writePref("testimus.stepLayout", l);
-            }}
-            options={[
-              { value: "stacked", label: "Stacked" },
-              { value: "split", label: "Side by side" },
-            ]}
-          />
-        </div>
-      </div>
-      <div className="formgrid">
-        {desktop() && (
-          <div className="formfield">
-            <span className="label" id="set-ontop-label">
-              Window
-            </span>
-            <button
-              type="button"
-              className="switch"
-              role="switch"
-              aria-checked={onTop}
-              aria-labelledby="set-ontop-label set-ontop-text"
-              onClick={() => void setAlwaysOnTop(!onTop)}
-            >
-              <span className="switch-track">
-                <span className="switch-knob" />
-              </span>
-              <span className="switch-text" id="set-ontop-text">
-                <span>Always on top</span>
-                <span className="muted">Keeps the window above Jira and the simulator.</span>
-              </span>
-            </button>
-          </div>
-        )}
-        <label className="formfield setcheck">
-          <span className="label">Model downloads</span>
-          <span>
-            <input
-              type="checkbox"
-              checked={s?.models.allowRemote ?? true}
-              disabled={!s}
-              onChange={(e) => void save({ allowRemote: e.target.checked }).then((r) => r && setS(r))}
-            />{" "}
-            Allow downloads from Hugging Face (turn off behind a proxy that blocks it)
+    <Section id="appearance" title="Appearance" intro="How Testimus looks and behaves on this PC.">
+      <Card title="Appearance">
+        <Stack>
+          <Grid>
+            <div {...stylex.props(styles.field)}>
+              <Segmented<Theme>
+                label="Theme"
+                value={theme}
+                onChange={setTheme}
+                options={[
+                  { value: "system", label: "System", icon: "monitor" },
+                  { value: "light", label: "Light", icon: "sun" },
+                  { value: "dark", label: "Dark", icon: "moon" },
+                ]}
+              />
+              <Hint>Also from the rail, at the bottom.</Hint>
+            </div>
+            <Segmented
+              label="Step layout"
+              value={layout}
+              onChange={setLayout}
+              options={[
+                { value: "stacked", label: "Stacked", icon: "layout-stacked" },
+                { value: "split", label: "Action | Expected", icon: "layout-split" },
+              ]}
+            />
+          </Grid>
+          <span {...stylex.props(styles.kept)}>
+            <Icon name="history" size="sm" />
+            <Hint>Theme, layout, widths and recent tests are kept on this PC across restarts.</Hint>
           </span>
-        </label>
-      </div>
-    </section>
+        </Stack>
+      </Card>
+      {desktop() && (
+        <Card
+          title={
+            <>
+              Window <Badge label="Desktop app" icon="monitor" size="sm" />
+            </>
+          }
+        >
+          <Stack>
+            <Switch label="Always on top" on={onTop} onChange={(on) => void setAlwaysOnTop(on)} />
+            <Hint>
+              Keeps Testimus above Jira while you work beside it. Also from the pin in the Claude dock. Zoom with Ctrl+=
+              · Ctrl+− · Ctrl+0.
+            </Hint>
+          </Stack>
+        </Card>
+      )}
+      <Card title="Model downloads">
+        <Stack>
+          <Switch
+            label="Allow downloads from Hugging Face"
+            on={settings.data?.models.allowRemote ?? true}
+            disabled={!settings.data}
+            onChange={(allowRemote) => void setting({ allowRemote })}
+          />
+          <Hint>Turn it off behind a proxy that blocks them: add models from a folder instead (Models).</Hint>
+        </Stack>
+      </Card>
+    </Section>
   );
 }

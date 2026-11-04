@@ -1,9 +1,14 @@
-import { type CSSProperties, useEffect, useRef } from "react";
-import { DragEdge } from "../../components/legacy/index.ts";
+import * as stylex from "@stylexjs/stylex";
+import { type ComponentType, useEffect, useRef, useState } from "react";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
+import { Badge } from "../../components/ui/Badge.tsx";
+import type { IconName } from "../../components/ui/Icon.tsx";
+import { Icon } from "../../components/ui/Icon.tsx";
+import { List } from "../../components/ui/List.tsx";
+import { ResizeHandle } from "../../components/ui/ResizeHandle.tsx";
 import { useApp } from "../../lib/app.ts";
-import { cx } from "../../lib/format.ts";
-import { useSideWidth } from "../../lib/sideWidth.ts";
+import { usePref } from "../../lib/prefs.ts";
+import { border, breakpoint, color, fontSize, lineHeight, size, space } from "../../styles/tokens.stylex.ts";
 import { AccessSection } from "./AccessSection.tsx";
 import { AppearanceSection } from "./AppearanceSection.tsx";
 import { ClaudeSection } from "./ClaudeSection.tsx";
@@ -11,58 +16,141 @@ import { ColumnsSection } from "./ColumnsSection.tsx";
 import { ModelsSection } from "./ModelsSection.tsx";
 import { ProjectSection } from "./ProjectSection.tsx";
 import { SearchSection } from "./SearchSection.tsx";
+import { Hint } from "./Section.tsx";
 
-const SECTIONS = [
-  { id: "project", label: "Project", page: ProjectSection, needsProject: true },
-  { id: "columns", label: "Smart columns", page: ColumnsSection, needsProject: true },
-  { id: "claude", label: "Claude", page: ClaudeSection, needsProject: false },
-  { id: "search", label: "Search", page: SearchSection, needsProject: true },
-  { id: "models", label: "Models", page: ModelsSection, needsProject: false },
-  { id: "access", label: "Access", page: AccessSection, needsProject: false },
-  { id: "appearance", label: "Appearance", page: AppearanceSection, needsProject: false },
+const styles = stylex.create({
+  screen: { display: "flex", flexDirection: "column", flex: 1, minHeight: 0, minWidth: 0 },
+  frame: { display: "flex", flex: 1, minHeight: 0 },
+  nav: {
+    flexShrink: 0,
+    overflowY: "auto",
+    paddingBlock: space.s3,
+    paddingInline: space.s2,
+    backgroundColor: color.surface,
+    borderRightStyle: "solid",
+    borderRightWidth: border.width,
+    borderRightColor: color.border,
+  },
+  navWidth: (px: number) => ({ width: `${px}px` }),
+  navFold: { maxWidth: { default: "none", [breakpoint.sm]: `calc(${size.sidebar} * 3 / 5)` } },
+  body: { flex: 1, minWidth: 0, overflowY: "auto", backgroundColor: color.canvas },
+  wait: { paddingBlock: space.s7, paddingInline: space.s9 },
+  saved: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: space.s2,
+    fontSize: fontSize.small,
+    lineHeight: lineHeight.small,
+    color: color.textMuted,
+  },
+});
+
+type Page = { id: string; label: string; icon: IconName; page: ComponentType; needsProject: boolean };
+
+const SECTIONS: Page[] = [
+  { id: "project", label: "Project", icon: "folder", page: ProjectSection, needsProject: true },
+  { id: "columns", label: "Smart columns", icon: "columns", page: ColumnsSection, needsProject: true },
+  { id: "claude", label: "Claude", icon: "claude", page: ClaudeSection, needsProject: false },
+  { id: "search", label: "Search", icon: "search", page: SearchSection, needsProject: true },
+  { id: "models", label: "Models", icon: "cpu", page: ModelsSection, needsProject: false },
+  { id: "access", label: "Access", icon: "key", page: AccessSection, needsProject: false },
+  { id: "appearance", label: "Appearance", icon: "sun", page: AppearanceSection, needsProject: false },
 ];
 
+const CLAUDE_CARDS = [
+  { id: "claude-connection", label: "Connection" },
+  { id: "claude-dock", label: "Claude dock" },
+  { id: "claude-quickasks", label: "Quick asks" },
+  { id: "claude-contexts", label: "Contexts" },
+];
+
+type Entry = { id: string; label: string; icon?: IconName; depth: number };
+
+const NAV_DEFAULT = 225;
+
+// ponytail: one page per section; #/settings/<section>[-<card>] opens the section and scrolls to the card (a field id
+// is focused); Claude's cards are listed under it while it is open
 export function SettingsScreen() {
   const app = useApp();
-  const [navW, navEdge] = useSideWidth("testimus.settingsNavWidth", 160, 360, "before");
-  const arg = app.route.screen === "settings" ? (app.route.arg ?? "project").split("-")[0] : "project";
-  const section = SECTIONS.find((s) => s.id === arg) ?? SECTIONS[0];
-  const at = section.id;
+  const [kept, keep] = usePref("settingsNavWidth");
+  const [drag, setDrag] = useState<number | null>(null);
+  const arg = app.route.screen === "settings" ? (app.route.arg ?? "") : "";
+  const section = SECTIONS.find((s) => s.id === arg.split("-")[0]) ?? SECTIONS[0];
   const Page = section.page;
   const body = useRef<HTMLDivElement>(null);
+  const hasProject = !!app.info;
+  // ponytail: a card shows once its read has answered — the screen waits for it to appear before scrolling to it
   useEffect(() => {
-    if (!app.route.arg) return;
-    const el = body.current?.querySelector(`#settings-${app.route.arg}`);
-    el?.scrollIntoView?.({ block: el instanceof HTMLInputElement ? "center" : "start" });
-    if (el instanceof HTMLInputElement) el.focus();
-  }, [app.route.arg]);
+    const root = body.current;
+    if (!arg || !root || !/^[\w-]+$/.test(arg)) return;
+    const go = () => {
+      const el = root.querySelector(`#settings-${arg}`);
+      if (!el) return false;
+      const field = el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement;
+      el.scrollIntoView?.({ block: field ? "center" : "start" });
+      if (field) el.focus();
+      return true;
+    };
+    if (go()) return;
+    const seen = new MutationObserver(() => {
+      if (go()) seen.disconnect();
+    });
+    seen.observe(root, { childList: true, subtree: true });
+    return () => seen.disconnect();
+  }, [arg]);
+
+  const entries: Entry[] = SECTIONS.flatMap((s) =>
+    s.id === "claude" && section.id === "claude"
+      ? [{ ...s, depth: 0 }, ...CLAUDE_CARDS.map((c) => ({ ...c, depth: 1, icon: undefined }))]
+      : [{ ...s, depth: 0 }],
+  );
+  const current =
+    section.id !== "claude" ? section.id : (CLAUDE_CARDS.find((c) => c.id === arg)?.id ?? "claude-connection");
+  const width = drag ?? kept ?? NAV_DEFAULT;
   return (
-    <div className="screen">
+    <div {...stylex.props(styles.screen)}>
       <ScreenHeader
         title="Settings"
-        badge={<span className="version-pill">v{__VERSION__}</span>}
-        meta="Changes are saved as you make them"
+        badge={<Badge label={`v${__VERSION__}`} outline size="sm" />}
+        meta="Changes save as you make them"
       />
-      <div className="settings" style={navW ? ({ "--snav-size": `${navW}px` } as CSSProperties) : undefined}>
-        <nav className="settings-nav" aria-label="Settings sections">
-          {SECTIONS.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              className={cx("sub", at === s.id && "sub-on")}
-              aria-current={at === s.id ? "true" : undefined}
-              onClick={() => app.navigate("settings", s.id)}
-            >
-              {s.label}
-            </button>
-          ))}
+      <div {...stylex.props(styles.frame)}>
+        <nav aria-label="Settings sections" {...stylex.props(styles.nav, styles.navWidth(width), styles.navFold)}>
+          <List
+            label="Settings sections"
+            items={entries}
+            getKey={(e) => e.id}
+            selected={current}
+            onSelect={(id) => app.navigate("settings", id === "claude-connection" ? "claude" : id)}
+            renderItem={(e) => ({
+              title: e.label,
+              depth: e.depth,
+              lead: e.icon ? <Icon name={e.icon} /> : undefined,
+            })}
+          />
         </nav>
-        <DragEdge className="side-edge" label="Resize the section list" {...navEdge} />
-        <div className="settings-body scroll" ref={body} key={at}>
-          {!app.info && section.needsProject && (
-            <p className="muted">Open a project to change its settings: Access and Appearance work without one.</p>
+        <ResizeHandle
+          label="Resize the section list"
+          value={width}
+          min={160}
+          max={360}
+          defaultValue={NAV_DEFAULT}
+          onChange={setDrag}
+          onCommit={(px) => {
+            keep(px === NAV_DEFAULT ? null : px);
+            setDrag(null);
+          }}
+        />
+        <div ref={body} key={section.id} {...stylex.props(styles.body)}>
+          {!hasProject && section.needsProject ? (
+            <div {...stylex.props(styles.wait)}>
+              <Hint>
+                Open a project to change its settings: Claude, Models, Access and Appearance work without one.
+              </Hint>
+            </div>
+          ) : (
+            <Page />
           )}
-          <Page />
         </div>
       </div>
     </div>

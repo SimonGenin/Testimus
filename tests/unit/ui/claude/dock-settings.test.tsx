@@ -587,7 +587,7 @@ describe("always on top", () => {
   it("always on top: hidden in the browser, a switch and a pin in the desktop app, remembered", async () => {
     routes["system.settings"] = () => ({ claude: { exe: "" }, models: { allowRemote: true } });
     const r = render(wrap(app(), <AppearanceSection />));
-    expect(screen.queryByRole("switch")).toBeNull();
+    expect(screen.queryByRole("switch", { name: /Always on top/ })).toBeNull();
     r.unmount();
     const d = desktop();
     render(
