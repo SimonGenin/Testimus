@@ -1087,7 +1087,9 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
     `system.set`) every few seconds and when the window hides, and put back when the page starts on a new origin
     with none (the core had to take another port). Push to Jira is disabled when the test has no local change since its last sync,
     even if Jira changed since (download instead); any Claude run — on this test, another one or the whole project
-    (`claudeRunning` = `*project*`) — locks the editor; « Delete local copy » in the ⋯ menu always asks (the sidebar's ✕
+    (`claudeRunning` = `*project*`), started from the dock, the CLI, MCP or another window — locks the editor: the lock
+    is read from the running Claude jobs of the project (`jobs.list`, kinds `claude` and `fix`), so a reload keeps it and
+    the end of the job lifts it even when the dock is gone; « Delete local copy » in the ⋯ menu always asks (the sidebar's ✕
     asks only for a changed or never-pushed copy); the sidebar has Xray Editor's two boxes — « Search Jira » (any text jumps to the Jira tab and asks Jira, a key or a number too) and « Filter tests » (narrows the local tests, the Jira folders and the listed Jira tests without asking Jira; Enter or « Search Jira for … » sends it to the first box); a failed reload on window focus is a toast; the
     « not a step field » push warning names only columns that hold something; files copied into a project (documents,
     context files) are written atomically too, and folders (a context copied or shared, a clone's images) are copied to
