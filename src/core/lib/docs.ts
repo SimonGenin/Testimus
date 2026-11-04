@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { UserError } from "../command.ts";
+import { parseAnchor } from "../rag/anchors.ts";
 import { docContent, readState } from "../rag/indexer.ts";
 import type { DocJson, DocRef, FigureEntry } from "../types.ts";
 import { writeAtomic } from "./atomic.ts";
@@ -93,14 +94,8 @@ export function tocOf(md: string): TocEntry[] {
   return toc;
 }
 
-export function normalizeAnchor(anchor: string): { kind: "§" | "fig" | "page"; id: string } {
-  const a = anchor.trim().replace(/^[^#\s]*#/, "");
-  const m = a.match(/^(§|fig|page)\s*:?\s*(.+)$/);
-  return m ? { kind: m[1] as "§", id: m[2].trim() } : { kind: "§", id: a };
-}
-
 export function sectionOf(md: string, anchor: string): string | null {
-  const { kind, id } = normalizeAnchor(anchor);
+  const { kind, id } = parseAnchor(anchor);
   const lines = md.split("\n");
   const marker = `<!-- ${kind} ${id} -->`;
   const start = lines.findIndex((l) => l.includes(marker));
@@ -119,7 +114,7 @@ export function sectionOf(md: string, anchor: string): string | null {
 }
 
 export function headingAt(md: string, anchor: string): string | null {
-  const { kind, id } = normalizeAnchor(anchor);
+  const { kind, id } = parseAnchor(anchor);
   if (kind === "§") return `§${id}`;
   const lines = md.split("\n");
   const marker = `<!-- ${kind} ${id} -->`;

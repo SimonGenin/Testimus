@@ -4,6 +4,7 @@ import { basename, extname, join, relative } from "node:path";
 import { scope, throwIfAborted } from "../../shared/run/work.ts";
 import { triage } from "../claude/actions.ts";
 import { describeFigures, shouldDescribeFigures } from "../claude/figures.ts";
+import { claudeHeaders } from "../claude/headers.ts";
 import { docRunLines, type JobRun } from "../claude/prompt.ts";
 import { claudeVersion } from "../claude/status.ts";
 import { checkConversion, sameConversion, studyDoc } from "../claude/study.ts";
@@ -88,7 +89,8 @@ async function withIndex(ctx: Ctx, project: string, claude: JobRun): Promise<Ind
       "rag-index",
       "index",
       project,
-      (c) => indexProject(project, c, { claude: { model: claude.model, effort: claude.effort } }),
+      (c) =>
+        indexProject(project, c, { claude: { model: claude.model, effort: claude.effort }, describe: claudeHeaders }),
       ctx.signal,
       { rerun: { name: "rag.index", input: { force: false } } },
     ).done as Promise<IndexReport>;

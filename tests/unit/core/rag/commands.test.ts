@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { UserError } from "../../../../src/core/command.ts";
 import { env } from "../../../../src/core/env.ts";
+import { whileConverting } from "../../../../src/core/lib/docs-index.ts";
 import { call, fixtureCopy } from "../registry.ts";
 
 const D3 = "SOSIE_211_D401-1_3";
@@ -45,6 +46,23 @@ describe("rag commands through the registry, each output checked against its sch
     const spaces = await call<{ id: string; active: boolean; complete: boolean }[]>("rag.spaces", {}, dir);
     expect(spaces).toHaveLength(1);
     expect(spaces[0]).toMatchObject({ id: r.space, active: true, complete: true });
+  });
+
+  it("rag.index waits for a conversion writing a document, and says so", async () => {
+    let finish = () => {};
+    const converting = whileConverting(dir, () => new Promise<void>((ok) => (finish = ok)));
+    let done = false;
+    const run = call<Index>("rag.index", {}, dir).then((r) => {
+      done = true;
+      return r;
+    });
+    await new Promise((ok) => setTimeout(ok, 50));
+    expect(done).toBe(false);
+    const running = await call<{ kind: string; message?: string }[]>("jobs.list", { running: true }, dir);
+    expect(running.find((j) => j.kind === "rag-index")?.message).toBe("Waiting for the other conversions");
+    finish();
+    await converting;
+    expect((await run).chunks).toBeGreaterThan(0);
   });
 
   it("rag.dropSpace refuses the active space without force, then drops it", async () => {

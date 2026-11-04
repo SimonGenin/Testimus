@@ -2,16 +2,9 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
-import {
-  listDocs,
-  normalizeAnchor,
-  readContext,
-  readDoc,
-  readDocMd,
-  writeContext,
-  writeDoc,
-} from "../../../../src/core/lib/docs.ts";
+import { listDocs, readContext, readDoc, readDocMd, writeContext, writeDoc } from "../../../../src/core/lib/docs.ts";
 import { addDoc, convertSource, reconvertDoc } from "../../../../src/core/lib/docs-convert.ts";
+import { parseAnchor } from "../../../../src/core/rag/anchors.ts";
 import { sampleDocx } from "../../../fixtures/docx/sample.ts";
 
 const text = (size: number, y: number, s: string) => `BT /F1 ${size} Tf 72 ${y} Td (${s}) Tj ET`;
@@ -82,8 +75,8 @@ describe("listDocs and the small readers", () => {
   });
 
   it("an anchor without a §, fig or page prefix is taken as a section name", () => {
-    expect(normalizeAnchor("DOC#annexe-b")).toEqual({ kind: "§", id: "annexe-b" });
-    expect(normalizeAnchor("DOC#req:EXI_A_1")).toEqual({ kind: "§", id: "req:EXI_A_1" });
+    expect(parseAnchor("DOC#annexe-b")).toEqual({ kind: "§", id: "annexe-b" });
+    expect(parseAnchor("DOC#req:EXI_A_1")).toEqual({ kind: "§", id: "req:EXI_A_1" });
   });
 });
 
