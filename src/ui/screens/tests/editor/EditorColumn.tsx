@@ -50,6 +50,7 @@ export function EditorColumn({
   const handle = (side: "left" | "right") => (
     <span {...stylex.props(styles.edge, side === "left" ? styles.left : styles.right)}>
       <ResizeHandle
+        quiet
         label="Resize the editor column"
         side={side}
         value={half}
