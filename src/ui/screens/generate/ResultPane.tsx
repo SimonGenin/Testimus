@@ -3,23 +3,41 @@ import { useEffect, useState } from "react";
 import type { LocalTestRef } from "../../../core/types.ts";
 import { ClaudeActivity } from "../../components/claude/ClaudeActivity.tsx";
 import { type ClaudeStatus, ConnectClaude } from "../../components/claude/ConnectClaude.tsx";
+import { Badge } from "../../components/ui/Badge.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Card } from "../../components/ui/Card.tsx";
 import { EmptyState } from "../../components/ui/EmptyState.tsx";
 import { activityOf, DOING } from "../../lib/activity.ts";
 import { useApp } from "../../lib/app.ts";
 import { useRead } from "../../lib/data/query.ts";
-import { color, fontSize, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { color, container, fontSize, fontWeight, lineHeight, size, space } from "../../styles/tokens.stylex.ts";
 import { LandedCard } from "./GenCard.tsx";
 import { checkLine, GenSummary, RunHead } from "./GenResult.tsx";
 import type { Generation } from "./useGeneration.ts";
 
 const styles = stylex.create({
-  pane: { boxSizing: "border-box", display: "flex", flexDirection: "column", gap: space.s5, padding: space.s6 },
+  pane: {
+    boxSizing: "border-box",
+    display: "flex",
+    flexDirection: "column",
+    gap: space.s5,
+    padding: space.s6,
+    containerType: "inline-size",
+  },
   summary: { display: "flex", flexDirection: "column", gap: space.s4 },
   error: { margin: 0, fontSize: fontSize.body, lineHeight: lineHeight.body, color: color.text },
   muted: { margin: 0, fontSize: fontSize.compact, lineHeight: lineHeight.compact, color: color.textMuted },
   cards: { display: "flex", flexDirection: "column", gap: space.s4 },
+  split: {
+    display: "grid",
+    gridTemplateColumns: { default: "minmax(0, 3fr) minmax(0, 2fr)", [container.paneCompact]: "minmax(0, 1fr)" },
+    gap: space.s5,
+    alignItems: "start",
+  },
+  col: { minWidth: 0 },
+  colHead: { display: "flex", alignItems: "center", gap: space.s2, minHeight: size.controlSm },
+  colTitle: { margin: 0, fontSize: fontSize.body, lineHeight: lineHeight.body, fontWeight: fontWeight.semibold },
+  grow: { flex: 1 },
 });
 
 // ponytail: « Fold all » also folds the tests still to come; flip holds the cards toggled by hand since
@@ -99,50 +117,83 @@ export function ResultPane({
     });
   const doing = DOING[activityOf(gen.events).at(-1)?.kind ?? "prepare"];
   const checkOf = (id: string) => result?.checks?.find((c) => c.id === id);
+  const head = (
+    <Card>
+      <div {...stylex.props(styles.summary)}>
+        <RunHead
+          job={job}
+          now={now}
+          result={result}
+          read={gen.read}
+          count={ids.length}
+          doing={doing}
+          left={starting ? 0 : (stopped?.remaining ?? 0)}
+          onCancel={onCancel}
+          onReview={() => app.navigate("review", ids[0])}
+          onResume={() => stopped?.generation && onResume(stopped.generation)}
+          allFolded={ids.every((id) => !isOpen(id))}
+          onFoldAll={(all) => setFold({ all, flip: new Set() })}
+        />
+        {result && <GenSummary result={result} checked={checkLine(result.tests, result.checks)} />}
+        {job?.status === "failed" && job.error && <p {...stylex.props(styles.error)}>{job.error}</p>}
+        {result?.diagnosis && <p {...stylex.props(styles.muted)}>{result.diagnosis.detail}</p>}
+      </div>
+    </Card>
+  );
+  const cards = ids.map((id, i) => (
+    <LandedCard
+      key={id}
+      id={id}
+      refs={refs.data as LocalTestRef[] | undefined}
+      check={checkOf(id)}
+      writing={running && i === ids.length - 1}
+      checking={running && i < ids.length - 1}
+      xray={app.xray}
+      open={isOpen(id)}
+      onToggle={() => toggle(id)}
+      onOpen={() => app.navigate("review", id)}
+      onEdit={() => app.navigate("tests", id)}
+      onSource={app.openSource}
+    />
+  ));
+  const activity = <ClaudeActivity events={gen.events} running={running} now={now} />;
   return (
     <div {...stylex.props(styles.pane)}>
-      <Card>
-        <div {...stylex.props(styles.summary)}>
-          <RunHead
-            job={job}
-            now={now}
-            result={result}
-            read={gen.read}
-            count={ids.length}
-            doing={doing}
-            left={starting ? 0 : (stopped?.remaining ?? 0)}
-            onCancel={onCancel}
-            onReview={() => app.navigate("review", ids[0])}
-            onResume={() => stopped?.generation && onResume(stopped.generation)}
-            allFolded={ids.every((id) => !isOpen(id))}
-            onFoldAll={(all) => setFold({ all, flip: new Set() })}
-          />
-          {result && <GenSummary result={result} checked={checkLine(result.tests, result.checks)} />}
-          {job?.status === "failed" && job.error && <p {...stylex.props(styles.error)}>{job.error}</p>}
-          {result?.diagnosis && <p {...stylex.props(styles.muted)}>{result.diagnosis.detail}</p>}
+      {head}
+      {running ? (
+        <div {...stylex.props(styles.split)}>
+          <div {...stylex.props(styles.col)}>{activity}</div>
+          <section aria-label="Tests written" aria-live="polite" {...stylex.props(styles.col, styles.cards)}>
+            <div {...stylex.props(styles.colHead)}>
+              <h3 {...stylex.props(styles.colTitle)}>Tests</h3>
+              <Badge count size="sm" label={String(ids.length)} />
+              <span {...stylex.props(styles.grow)} />
+              <span {...stylex.props(styles.muted)}>they land here as Claude writes them</span>
+            </div>
+            {ids.length ? (
+              cards
+            ) : (
+              <Card>
+                <EmptyState
+                  compact
+                  icon="tests"
+                  title="No test written yet"
+                  text="Claude reads first, then plans, then writes."
+                />
+              </Card>
+            )}
+          </section>
         </div>
-      </Card>
-      {ids.length > 0 && (
-        <section aria-label="Tests written" aria-live="polite" {...stylex.props(styles.cards)}>
-          {ids.map((id, i) => (
-            <LandedCard
-              key={id}
-              id={id}
-              refs={refs.data as LocalTestRef[] | undefined}
-              check={checkOf(id)}
-              writing={running && i === ids.length - 1}
-              checking={running && i < ids.length - 1}
-              xray={app.xray}
-              open={isOpen(id)}
-              onToggle={() => toggle(id)}
-              onOpen={() => app.navigate("review", id)}
-              onEdit={() => app.navigate("tests", id)}
-              onSource={app.openSource}
-            />
-          ))}
-        </section>
+      ) : (
+        <>
+          {ids.length > 0 && (
+            <section aria-label="Tests written" aria-live="polite" {...stylex.props(styles.cards)}>
+              {cards}
+            </section>
+          )}
+          {activity}
+        </>
       )}
-      <ClaudeActivity events={gen.events} running={running} now={now} />
     </div>
   );
 }
