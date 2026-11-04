@@ -75,13 +75,13 @@ test("the Columns popover folds Data for this test only", async ({ page }) => {
   await openTest(page, "LFRPS12-1420");
   await main(page).getByRole("button", { name: "Columns" }).click();
   const pop = page.getByRole("dialog", { name: "Step columns" });
-  await pop.getByRole("radio", { name: "this test" }).click();
-  await pop.getByRole("radiogroup", { name: "Data column" }).getByRole("radio", { name: "collapsed" }).click();
+  await pop.getByRole("radio", { name: "This test" }).click();
+  await pop.getByRole("radiogroup", { name: "Data column" }).getByRole("radio", { name: "Collapsed" }).click();
   await expect
     .poll(async () => (await api<{ own: unknown }>(url, "tests.folds", { id: "LFRPS12-1420" })).own)
     .toEqual({ Data: "collapsed" });
   await expect(main(page).getByRole("textbox", { name: /^Data of step/ })).toHaveCount(0);
-  await pop.getByRole("button", { name: "use project's" }).click();
+  await pop.getByRole("button", { name: "Use the project's" }).click();
   await expect
     .poll(async () => (await api<{ own: unknown }>(url, "tests.folds", { id: "LFRPS12-1420" })).own)
     .toBeNull();

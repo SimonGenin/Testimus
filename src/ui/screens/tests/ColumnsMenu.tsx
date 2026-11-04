@@ -10,7 +10,9 @@ import { color, fontSize, fontWeight, lineHeight, space } from "../../styles/tok
 
 const styles = stylex.create({
   box: { display: "flex", flexDirection: "column", gap: space.s3 },
-  row: { display: "flex", flexDirection: "column", gap: space.s1 },
+  scope: { display: "flex", justifyContent: "flex-end" },
+  row: { display: "flex", alignItems: "center", gap: space.s4 },
+  words: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: space.s1 },
   name: {
     display: "flex",
     alignItems: "center",
@@ -20,8 +22,18 @@ const styles = stylex.create({
     lineHeight: lineHeight.compact,
     fontWeight: fontWeight.medium,
   },
+  what: { fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textMuted },
+  builtin: { flex: "none", fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textMuted },
   hint: { margin: 0, fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textMuted },
+  follow: { display: "flex", alignItems: "center", gap: space.s2, flexWrap: "wrap" },
 });
+
+const LABEL: Record<ColumnMode, string> = { open: "Open", filled: "When filled", collapsed: "Collapsed" };
+
+const what = (c: Column, mode: ColumnMode) =>
+  c.off
+    ? "Off in Xray · kept, folded unless filled"
+    : (MODES.find((m) => m.value === mode)?.title ?? "") + (c.kind === "line" ? " · one line" : "");
 
 // Which step columns fold, for this test or for every test of the project. The step card's own toggle
 // still opens or folds one step on top of this, for the session.
@@ -42,6 +54,7 @@ export function ColumnsMenu({
   const [scope, setScope] = useState<"test" | "project">("project");
   const foldable = columns.filter(collapsible);
   if (!foldable.length) return null;
+  const fixed = columns.filter((c) => !collapsible(c));
   const overridden = foldable.filter((c) => testModes?.[c.name]);
 
   const set = (c: Column, mode: ColumnMode) => {
@@ -65,7 +78,7 @@ export function ColumnsMenu({
     <Popover
       title="Step columns"
       icon="columns"
-      width="sm"
+      width="md"
       open={open}
       onOpenChange={(o) => {
         if (o) setScope(overridden.length ? "test" : "project");
@@ -74,49 +87,61 @@ export function ColumnsMenu({
       trigger={<Button variant="quiet" size="sm" icon="columns" iconAfter="chevron-down" label="Columns" />}
       foot={
         scope === "test"
-          ? "Saved for this test only, beside its test.md (local.json) — never part of the test."
-          : "Saved in columns.json — every test of the project that does not choose its own."
+          ? "Saved for this test only, beside its test.md (local.json) — never part of the test. Each step's own toggle folds one step for this session."
+          : "Saved in columns.json — every test of the project that does not choose its own. Each step's own toggle folds one step for this session."
       }
     >
       <div {...stylex.props(styles.box)}>
-        <Segmented
-          label="Apply to"
-          size="sm"
-          value={scope}
-          options={[
-            { value: "test", label: "this test" },
-            { value: "project", label: "all tests" },
-          ]}
-          onChange={setScope}
-        />
-        {foldable.map((c) => (
+        <div {...stylex.props(styles.scope)}>
+          <Segmented
+            label="Apply to"
+            size="sm"
+            value={scope}
+            options={[
+              { value: "test", label: "This test" },
+              { value: "project", label: "All tests" },
+            ]}
+            onChange={setScope}
+          />
+        </div>
+        {fixed.map((c) => (
           <div key={c.name} {...stylex.props(styles.row)}>
-            <span {...stylex.props(styles.name)}>
-              {c.name}
-              {!c.known && <Badge label="not in Xray" size="sm" tone="warning" />}
-              {c.off && <Badge label="off in Xray" size="sm" tooltip="Switched off in Xray's project settings" />}
-              {scope === "test" && testModes?.[c.name] && (
-                <Button variant="quiet" size="xs" label="use project's" onClick={() => reset(c)} />
-              )}
+            <span {...stylex.props(styles.words)}>
+              <span {...stylex.props(styles.name)}>{c.name}</span>
+              <span {...stylex.props(styles.what)}>Always open</span>
             </span>
-            <Segmented
-              label={`${c.name} column`}
-              size="sm"
-              value={
-                scope === "project" ? (projectModes[c.name] ?? defaultMode(c)) : modeOf(c, projectModes, testModes)
-              }
-              options={MODES.map((m) => ({ value: m.value, label: m.label }))}
-              onChange={(m) => set(c, m)}
-            />
+            <span {...stylex.props(styles.builtin)}>built in</span>
           </div>
         ))}
-        <p {...stylex.props(styles.hint)}>
-          Action and Expected Result are always open; each step's own toggle folds one step for this session.
-        </p>
-        {scope === "project" && overridden.length > 0 && (
-          <p {...stylex.props(styles.hint)}>
-            This test overrides {overridden.map((c) => c.name).join(", ")} —{" "}
-            <Button variant="quiet" size="xs" label="follow the project" onClick={() => onTest(null)} />
+        {foldable.map((c) => {
+          const mode =
+            scope === "project" ? (projectModes[c.name] ?? defaultMode(c)) : modeOf(c, projectModes, testModes);
+          return (
+            <div key={c.name} {...stylex.props(styles.row)}>
+              <span {...stylex.props(styles.words)}>
+                <span {...stylex.props(styles.name)}>
+                  {c.name}
+                  {!c.known && <Badge label="not in Xray" size="sm" tone="warning" />}
+                  {scope === "test" && testModes?.[c.name] && (
+                    <Button variant="quiet" size="xs" label="Use the project's" onClick={() => reset(c)} />
+                  )}
+                </span>
+                <span {...stylex.props(styles.what)}>{what(c, mode)}</span>
+              </span>
+              <Segmented
+                label={`${c.name} column`}
+                size="sm"
+                value={mode}
+                options={MODES.map((m) => ({ value: m.value, label: LABEL[m.value] }))}
+                onChange={(m) => set(c, m)}
+              />
+            </div>
+          );
+        })}
+        {overridden.length > 0 && (
+          <p {...stylex.props(styles.hint, styles.follow)}>
+            {scope === "project" && `This test overrides ${overridden.map((c) => c.name).join(", ")}.`}
+            <Button variant="quiet" size="xs" icon="undo" label="Follow the project" onClick={() => onTest(null)} />
           </p>
         )}
       </div>
