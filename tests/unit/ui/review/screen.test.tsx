@@ -324,7 +324,7 @@ describe("Review screen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Open a.png" }));
     expect(open).toHaveBeenCalledWith("/files/tests/K-1/a.png", "_blank");
     fireEvent.click(screen.getByRole("button", { name: "Open in document" }));
-    expect(a.navigate).toHaveBeenCalledWith("documents", 'D#§2 "q2"');
+    expect(a.navigate).toHaveBeenCalledWith("documents", 'D#§2 "q2" from K-1 step 2');
   });
 
   it("evidence picks: a step source keeps its step, another read one is labelled", async () => {

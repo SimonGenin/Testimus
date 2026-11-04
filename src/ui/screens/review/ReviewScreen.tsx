@@ -264,7 +264,14 @@ export function ReviewScreen() {
               misplaced={notAtAnchor(findings, selKey, sel.step)}
               width={sourceW.moved ? sourceW.width : undefined}
               onClose={() => view.patch({ sel: null })}
-              onOpenDoc={(docId, anchor, quote) => app.navigate("documents", docLink(docId, anchor, quote))}
+              onOpenDoc={(docId, anchor, quote) =>
+                app.navigate(
+                  "documents",
+                  data
+                    ? `${docId}#${anchor} "${quote.trim()}" from ${data.id}${sel.step ? ` step ${sel.step}` : ""}`
+                    : docLink(docId, anchor, quote),
+                )
+              }
               onPick={pick}
               onStep={(by) => {
                 const next = placed[Math.max(0, selIndex) + by];
