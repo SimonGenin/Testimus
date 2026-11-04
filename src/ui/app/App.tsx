@@ -16,7 +16,7 @@ import { PassageDialog } from "../components/sources/PassageDialog.tsx";
 import { docLink } from "../components/sources/PassageView.tsx";
 import { ResizeHandle } from "../components/ui/ResizeHandle.tsx";
 import { Toaster } from "../components/ui/Toast.tsx";
-import { AppContext, type AppState, type ClaudeRun, type Focus } from "../lib/app.ts";
+import { AppContext, type AppState, type ClaudeRun, type Focus, type SourceFrom } from "../lib/app.ts";
 import type { CommandInfo } from "../lib/data/client.ts";
 import { execute } from "../lib/data/query.ts";
 import { usePaneWidth } from "../lib/panes.ts";
@@ -25,6 +25,7 @@ import { errorToast, toast } from "../lib/toast.ts";
 import { border, breakpoint, color, radius, shadow, size, space } from "../styles/tokens.stylex.ts";
 import { commandToast, paletteActions } from "./paletteActions.ts";
 import { parseRoute, TITLES, useRoute } from "./routes.ts";
+import { ScreenGuard } from "./ScreenGuard.tsx";
 import { Screens } from "./Screens.tsx";
 import { useClaudeLock } from "./useClaudeLock.ts";
 import { useDock } from "./useDock.ts";
@@ -81,6 +82,11 @@ const styles = stylex.create({
   edge: { display: { default: "flex", [breakpoint.dock]: "none" } },
 });
 
+// ponytail: the end of a document link that names the test citing it (« … "quote" from LFRPS12-1420 step 2 »), so the
+// document can lead back to it; the link has it only after a quote, as Documents reads it
+const citedFrom = (quote: string, from?: SourceFrom) =>
+  from && quote.trim() ? ` from ${from.test}${from.step ? ` step ${from.step}` : ""}` : "";
+
 // ponytail: the shell — the rail, the top bar and the screen in their frame, the Claude dock, the palette, the
 // layers above (a command's form, a source, the toasts); what the screens share is in AppContext
 export function App() {
@@ -90,7 +96,7 @@ export function App() {
   const [focus, setFocus] = useState<Focus | null>(null);
   const [lastRun, setLastRun] = useState<ClaudeRun | null>(null);
   const [testsNonce, setTestsNonce] = useState(0);
-  const [source, setSource] = useState<Source | null>(null);
+  const [source, setSource] = useState<{ source: Source; from?: SourceFrom } | null>(null);
   const [palette, setPalette] = useState(false);
   const [form, setForm] = useState<CommandInfo | null>(null);
   const dockPane = usePaneWidth("dockWidth", DOCK);
@@ -154,7 +160,7 @@ export function App() {
       testsChanged,
       refreshInfo,
       closeProject,
-      openSource: setSource,
+      openSource: (s: Source, from?: SourceFrom) => setSource({ source: s, from }),
       askClaude: dock.askClaude,
       runInDock: dock.runInDock,
       openPalette,
@@ -221,7 +227,13 @@ export function App() {
             <TopBarContext.Provider value={bar.value}>
               <TopBar title={TITLES[route.screen]} onPalette={openPalette} slots={bar} />
               <ServerLost />
-              <div {...stylex.props(styles.screen)}>{p.booted && <Screens screen={route.screen} />}</div>
+              <div {...stylex.props(styles.screen)}>
+                {p.booted && (
+                  <ScreenGuard route={`${route.screen}/${route.arg ?? ""}`}>
+                    <Screens screen={route.screen} />
+                  </ScreenGuard>
+                )}
+              </div>
             </TopBarContext.Provider>
           </div>
           {!dock.folded && (
@@ -260,11 +272,12 @@ export function App() {
       )}
       {source && (
         <PassageDialog
-          source={source}
+          source={source.source}
           onClose={() => setSource(null)}
           onOpenDoc={(docId, anchor, quote) => {
+            const from = source.from;
             setSource(null);
-            navigate("documents", docLink(docId, anchor, quote));
+            navigate("documents", `${docLink(docId, anchor, quote)}${citedFrom(quote, from)}`);
           }}
         />
       )}

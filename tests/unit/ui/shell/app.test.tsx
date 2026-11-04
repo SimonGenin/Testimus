@@ -354,6 +354,16 @@ describe("App routing and layout", () => {
     await hashIs(`#/documents/${encodeURIComponent('D#§1 "q"')}`);
     expect(await screen.findByRole("region", { name: "Documents screen" })).toBeInTheDocument();
   });
+
+  it("opens a source cited by a test step, and its document link names that test and step", async () => {
+    net.routes["rag.passage"] = () => {
+      throw new Fail("no index");
+    };
+    mount();
+    fireEvent.click(await screen.findByRole("button", { name: "cited source from Tests screen" }));
+    fireEvent.click(await screen.findByRole("button", { name: /Open in document/ }));
+    await hashIs(`#/documents/${encodeURIComponent('D#§1 "q" from LFRPS12-1420 step 2')}`);
+  });
 });
 
 describe("App palette", () => {

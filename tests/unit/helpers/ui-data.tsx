@@ -23,6 +23,12 @@ export function FakeScreen({ name }: { name: string }) {
       <button type="button" onClick={() => a.openSource({ docId: "D", anchor: "§1", quote: "q" })}>
         source from {name}
       </button>
+      <button
+        type="button"
+        onClick={() => a.openSource({ docId: "D", anchor: "§1", quote: "q" }, { test: "LFRPS12-1420", step: 2 })}
+      >
+        cited source from {name}
+      </button>
       <button type="button" onClick={a.openPalette}>
         palette from {name}
       </button>
