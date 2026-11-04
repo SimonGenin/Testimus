@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { Locator, Page } from "@playwright/test";
@@ -183,6 +184,15 @@ const DOC2 = "SOSIE_211_D401-1_4";
 const T1420 = "LFRPS12-1420";
 const T1398 = "LFRPS12-1398";
 const TLOCAL = "local-3f9a12c0";
+
+// ponytail: the #/kit catalogue (served under --mock), one shot per component: its page shows light and dark side by
+// side, so one size is enough
+function kitShots(): Shot[] {
+  return readdirSync(join(ROOT, "src", "ui", "screens", "kit", "sections"))
+    .filter((f) => f.endsWith(".tsx"))
+    .map((f) => f.replace(/\.tsx$/, ""))
+    .map((name) => ({ id: `kit-${name.toLowerCase()}`, note: `Kit › ${name}`, hash: `#/kit/${name}`, sizes: ["lg"] }));
+}
 
 function fixtureShots(): Shot[] {
   return [
@@ -1049,6 +1059,12 @@ export function SCENARIOS(essai: string): Scenario[] {
       note: "The LFRPS12 sample project with the fake Jira (every state with data)",
       env: { TESTIMUS_MOCK_SEED: "fixture" },
       shots: fixtureShots(),
+    },
+    {
+      id: "kit",
+      note: "The component catalogue (#/kit): every kit component in each of its states, light and dark",
+      env: { TESTIMUS_MOCK_SEED: "fixture" },
+      shots: kitShots(),
     },
     {
       id: "two-projects",
