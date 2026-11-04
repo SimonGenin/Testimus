@@ -966,7 +966,7 @@ stops at the first failure), plus:
 Group | Verbs (all with `--json`; mutating ones marked *)
 ---|---
 `project` | `init`* (makes the folder a project and the current one; gives its name and Jira key), `openKey`* (open or create by Jira key; the current one), `info` (project.json + xray.json + the step columns in order with their modes + counts for the rail, all typed), `list`, `notes` (the project's CLAUDE.md, with its `mtime`), `setNotes`* (`ifMtime`: refused with code `conflict` when CLAUDE.md moved on disk), `set`* (patch project.json: names, language, label prefix, folders, rag keys incl. reference, queryTask, passageMaxChars, retrieval merged key by key; glossary; Claude defaults; gives project.json back), `open`* (last project), `forget`*, `delete`*
-`docs` | `add`* (job: copy + convert one document; a path, or an upload as base64), `addFiles`* (job: the files dropped or picked together, a .docx paired with its .pdf, copied only), `convert`* (job: convert, figures, re-check of the citing tests, triage, and with `index` the search index), `inspect` (profile of the originals), `page` (a page of the PDF copy as a PNG under .testimus/pages), `list` (with index freshness), `show` (+ `contextMtime`), `set`* (status, amends, context with `ifMtime`…), `describeFigures`* (job, Claude), `remove`* (`--dry-run`)
+`docs` | `add`* (job: copy + convert one document; a path, or an upload as base64), `addFiles`* (job: the files dropped or picked together, a .docx paired with its .pdf, copied only), `convert`* (job: convert, figures, re-check of the citing tests, triage, and with `index` the search index), `inspect` (profile of the originals), `page` (a page of the PDF copy as a PNG under .testimus/pages), `list` (with index freshness), `show` (+ `contextMtime`), `set`* (status, amends, context with `ifMtime`…), `describeFigures`* (job, Claude; the figures not described yet, `--force` all, `anchors` only those, described again), `remove`* (`--dry-run`; says the passages it takes out of the index)
 `rag` | `index`* (job; one run at a time per index), `search` (mode hybrid · bm25 · vector; `expand`), `passage` (docId#anchor → text + figures, centred on `around`, capped; code `doc-gone` for a missing document), `figure`, `mentions` (every passage holding a term, no model), `related` (graph neighbours, no model), `eval`* (job, L1; updates the index, writes its report), `compare` (reports → intervals), `status` (active model, space, freshness per document), `spaces`, `dropSpace`*
 `search` | `all` (Ctrl K: tests, documents, passages, by words and by meaning), `index`* (job: embeds the tests for search by meaning)
 `chat` | `ask`* (job, streamed; writes the conversation under `.testimus/chats/`), `list`, `show`
@@ -1176,11 +1176,22 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
     local-… » progress) and « What Claude did » (below); at the end check.run on the new tests, then the summary (written, not
     covered + why) and « Review these tests ».
   - **Documents** — list (code · version, title, status, search state from docs.list.indexed, warnings);
-    drop or pick .docx/.pdf → docs.add job (by `file` path in the desktop app, `{ name, dataBase64 }` in the browser) — when the index has no vectors on this PC, a line « Search on words only » gives the reason and « Choose a search pack » then rag.index job; detail edits status
-    (Draft · Submitted · Validated), amends, context (docs.set); ⋯ ›
-    Delete (red) asks « Delete this document? » then docs.remove; shows the toc and the section text with its
-    figures as links. (No tracked ids and no coverage: the concept went on 2026-11-03, `cd9d7a8` — a step column is a
-    smart column Claude fills from its description, and requirement coverage is computed outside the app, §16.)
+    drop or pick .docx/.pdf, or « Add from a path… » (with its optional PDF rendering, of the same name) → docs.addFiles
+    job, which only copies (by `file` path in the desktop app, `{ name, dataBase64 }` in the browser) — when the index
+    has no vectors on this PC, a line « Search on words only » says why in plain words and « Choose a search pack » then
+    rag.index job; detail edits status (Draft · Submitted · Validated) and context (docs.set); shows the toc and the
+    section text (a linked heading or figure set apart; a quote marks only the quoted words, under a bar naming the test
+    that cited it when the link says so — `#/documents/<id>#<anchor> "<quote>" from <test> step <n>` — with « Back to
+    the test » and « Clear »). ⋯ › Convert again… (« Convert <code> again? »: figures, sections and warnings redone,
+    descriptions kept), Show in Explorer (desktop), Copy the document id, Delete this document… (« Delete this
+    document? »: the folder, the passages from docs.remove --dry-run, the citing tests; it cannot be undone). The
+    Figures view (always shown, « Figures 0 » too) is a grid in reading order filtered All / Described / Not described;
+    a tile picks a figure and the detail beside it shows the picture, its anchor, section and kind, Claude's reading
+    (description and visible text; never quotable), « Show in the text » and « Describe again »; « Describe N figures »
+    describes those not described yet — both docs.describeFigures jobs. A document whose files cannot be read says so
+    with Try again, Convert again, the app's raw words, Show in Explorer (desktop) and Open the system check.
+    (No tracked ids and no coverage: the concept went on 2026-11-03, `cd9d7a8` — a step column is a smart column
+    Claude fills from its description, and requirement coverage is computed outside the app, §16.)
   - **Jobs** — list (kind, subject, progress, duration, result) and detail (live log from jobs.show + events, Cancel);
     a job in which Claude ran shows « What Claude did » instead of the plain log. « Run again » = `jobs.rerun`: the
     same command with the input the job kept (not kept when large or secret), the new job caused by the old one

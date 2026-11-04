@@ -6,6 +6,7 @@ import { EFFORTS, ModelPicker } from "../../components/claude/ModelPicker.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Card } from "../../components/ui/Card.tsx";
 import { Checkbox } from "../../components/ui/Checkbox.tsx";
+import { Icon } from "../../components/ui/Icon.tsx";
 import { Modal } from "../../components/ui/Modal.tsx";
 import { Select } from "../../components/ui/Select.tsx";
 import { useApp } from "../../lib/app.ts";
@@ -28,6 +29,7 @@ const styles = stylex.create({
   },
   run: { display: "flex", alignItems: "center", gap: space.s3, flexWrap: "wrap" },
   acts: { display: "flex", justifyContent: "flex-end", gap: space.s3 },
+  note: { display: "inline-flex", alignItems: "center", gap: space.s2 },
 });
 
 // ponytail: the options a study (or the team) chose, as kept in doc.json — every conversion follows them
@@ -106,12 +108,23 @@ function Options({
 
 // ponytail: converting reads the copy into text with anchors and figures, then indexes it — one job; « again » keeps
 // the status, the context and the figure descriptions
-export function ConvertDoc({ doc, again = false, onClose }: { doc: DocJson; again?: boolean; onClose?: () => void }) {
+export function ConvertDoc({
+  doc,
+  again = false,
+  described,
+  onClose,
+}: {
+  doc: DocJson;
+  again?: boolean;
+  /** figures that already have a description (they are kept) */
+  described?: number;
+  onClose?: () => void;
+}) {
   const app = useApp();
   const client = useQueryClient();
   const [figures, setFigures] = useState(app.info?.project?.rag.describeFigures !== false);
   const [study, setStudy] = useState(false);
-  const kept = doc.conversion ? optionsOf(doc.conversion) : "";
+  const settled = doc.conversion ? optionsOf(doc.conversion) : "";
   const go = () => {
     void convertDoc(doc.id, baseName(doc.source.name), { describeFigures: figures, study }, () => {
       void invalidate(client, [["docs.list"], ["docs.show", { id: doc.id }], ["rag.status"]]);
@@ -122,29 +135,59 @@ export function ConvertDoc({ doc, again = false, onClose }: { doc: DocJson; agai
   const options = (
     <Options doc={doc} again={again} figures={figures} study={study} onFigures={setFigures} onStudy={setStudy} />
   );
-  if (again)
+  if (again) {
+    const stats = doc.converted?.stats;
+    const warnings = doc.converted?.warnings.length ?? 0;
+    const kept = described ?? 0;
+    const consequences: [number, string][] = [
+      ...(stats?.figures
+        ? [
+            [
+              stats.figures,
+              `figure${stats.figures === 1 ? "" : "s"} read again${kept ? ` — ${kept} already described ${kept === 1 ? "is" : "are"} kept` : ""}`,
+            ] as [number, string],
+          ]
+        : []),
+      ...(stats
+        ? [
+            [stats.sections, `section${stats.sections === 1 ? "" : "s"} reindexed in every vector space`] as [
+              number,
+              string,
+            ],
+          ]
+        : []),
+      [warnings, `conversion warning${warnings === 1 ? "" : "s"} recomputed`],
+    ];
     return (
       <Modal
-        title="Convert again"
-        icon="refresh"
-        subtitle={kept ? <span title={doc.conversion?.notes}>{kept}</span> : undefined}
+        title={`Convert ${doc.code} again?`}
+        subtitle={`Reads ${baseName(doc.source.name || doc.source.file) || "the copy"} again and reindexes it. Status, Claude context and figure descriptions are kept; anchors stay the same, so tests keep their sources.`}
+        consequences={consequences}
+        footNote={
+          <span {...stylex.props(styles.note)}>
+            <Icon name="jobs" size="sm" />
+            It runs in Jobs; you can keep working.
+          </span>
+        }
         onClose={() => onClose?.()}
         actions={
           <>
             <Button label="Cancel" onClick={() => onClose?.()} />
-            <Button variant="primary" label="Convert again and index" onClick={go} />
+            <Button variant="primary" icon="refresh" label="Convert again and index" onClick={go} />
           </>
         }
       >
         <div {...stylex.props(styles.body)}>
-          <p {...stylex.props(styles.text)}>
-            Reads the copied file again and reindexes it; status, Claude context and figure descriptions are kept. The
-            tests that cite it are checked again.
-          </p>
+          {settled && (
+            <p title={doc.conversion?.notes} {...stylex.props(styles.text)}>
+              {settled}
+            </p>
+          )}
           {options}
         </div>
       </Modal>
     );
+  }
   return (
     <div {...stylex.props(styles.wrap)}>
       <section aria-label="Convert and index">
@@ -154,9 +197,9 @@ export function ConvertDoc({ doc, again = false, onClose }: { doc: DocJson; agai
               Set the status and the Claude context first if you know them: Claude reads them while it converts.
               Converting reads the file into text with anchors and figures, then search indexes it.
             </p>
-            {kept && (
+            {settled && (
               <p title={doc.conversion?.notes} {...stylex.props(styles.text)}>
-                {kept}
+                {settled}
               </p>
             )}
             {options}

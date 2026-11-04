@@ -4,7 +4,7 @@ import type { PrefName } from "../../lib/prefs.ts";
 export type Fold = "wide" | "medium" | "small" | "tiny";
 
 export const TEXT = 496;
-export const COLS = { list: 248, toc: 256, side: 300 };
+export const COLS = { list: 320, toc: 256, side: 344 };
 export type Cols = typeof COLS;
 export type Col = keyof Cols;
 

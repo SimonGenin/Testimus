@@ -43,6 +43,7 @@ const styles = stylex.create({
     lineHeight: lineHeight.small,
     color: color.text,
   },
+  ok: { display: "flex", alignItems: "center", gap: space.s2 },
   warnIcon: { display: "inline-flex", color: color.warning, marginTop: space.s1 },
 });
 
@@ -108,6 +109,12 @@ export function DocSide({
           <p {...stylex.props(styles.note)}>
             From {from} · {baseName(d.source.name || d.source.file)}
           </p>
+          {warnings.length === 0 && !running && (
+            <p {...stylex.props(styles.note, styles.ok)}>
+              <Icon name="check" size="sm" />
+              Nothing lost.
+            </p>
+          )}
           {warnings.length > 0 && (
             <ul aria-label="Conversion warnings" {...stylex.props(styles.warns)}>
               {warnings.map((w) => (

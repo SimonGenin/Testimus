@@ -36,6 +36,7 @@ import {
   runOf,
   withUploads,
 } from "../lib/docs-pipeline.ts";
+import { chunksOf, withIndex } from "../rag/db.ts";
 import { unindexDoc } from "../rag/indexer.ts";
 import { renderPage } from "../rag/pdf.ts";
 import type { DocJson } from "../types.ts";
@@ -677,6 +678,7 @@ export const commands = [
       folder: z.string().describe("The folder that was deleted (to be deleted, with dryRun)"),
       unlinked: z.array(z.string()).describe("Documents that named it in amends and no longer do (or would not)"),
       citedBy,
+      passages: z.number().describe("Its passages in the search index, removed in every vector space (or to be)"),
       dryRun: z.boolean().describe("True when nothing was removed"),
     }),
     mutates: true,
@@ -686,8 +688,16 @@ export const commands = [
       const doc = readDoc(project, input.id);
       const folder = docDir(project, input.id);
       const cited = testsCiting(project, doc);
+      const passages = withIndex(project, 0, (db) => chunksOf(db, input.id).length);
       if (input.dryRun)
-        return { removed: input.id, folder, unlinked: amendedBy(project, input.id), citedBy: cited, dryRun: true };
+        return {
+          removed: input.id,
+          folder,
+          unlinked: amendedBy(project, input.id),
+          citedBy: cited,
+          passages,
+          dryRun: true,
+        };
       const unlinked = removeDoc(project, input.id);
       unindexDoc(project, input.id);
       if (cited.length)
@@ -695,7 +705,7 @@ export const commands = [
           project,
           cited.map((t) => t.id),
         );
-      return { removed: input.id, folder, unlinked, citedBy: cited, dryRun: false };
+      return { removed: input.id, folder, unlinked, citedBy: cited, passages, dryRun: false };
     },
   }),
   command({
@@ -705,6 +715,10 @@ export const commands = [
     input: z.object({
       docId: z.string().optional().describe("Document id (folder under docs/); default: every document"),
       force: z.boolean().default(false).describe("Describe again the figures that already have a description"),
+      anchors: z
+        .array(z.string())
+        .optional()
+        .describe("Only these figures (fig:… anchors, with docId), described again even when they have a description"),
       model: MODEL.optional().describe("Model alias or name (default: project.json claude.model)"),
       effort: EFFORT.optional().describe("Effort level (default: low)"),
     }),
@@ -727,6 +741,8 @@ export const commands = [
     subject: (i) => i.docId ?? "all documents",
     async run(ctx, input) {
       const project = projectOf(ctx);
+      if (input.anchors && !input.docId)
+        throw new UserError("anchors names figures of one document: give its docId too.", "testimus docs list");
       const root = join(project, "docs");
       const ids = input.docId
         ? [input.docId]
@@ -737,7 +753,12 @@ export const commands = [
       for (const id of ids) {
         if (ctx.signal.aborted) break;
         docs.push(
-          await describeFigures(project, id, ctx, { force: input.force, model: input.model, effort: input.effort }),
+          await describeFigures(project, id, ctx, {
+            force: input.force,
+            anchors: input.anchors,
+            model: input.model,
+            effort: input.effort,
+          }),
         );
       }
       return { docs };

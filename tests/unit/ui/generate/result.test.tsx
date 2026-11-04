@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CheckFile, Job, JobEvent, LocalTestRef } from "../../../../src/core/types.ts";
 import { GenCard } from "../../../../src/ui/screens/generate/GenCard.tsx";
@@ -207,7 +207,9 @@ describe("Generate › result helpers", () => {
     expect(head(null, 0).container).toBeEmptyDOMElement();
     head(job(), 0);
     expect(screen.getByRole("heading", { name: "Reading the documents" })).toBeInTheDocument();
-    expect(screen.getByText("1:05 · 1 passage read")).toBeInTheDocument();
+    expect(screen.getByText("1 passage read")).toBeInTheDocument();
+    expect(screen.getByRole("timer", { name: "Time since it started" })).toHaveTextContent("1:05");
+    expect(screen.getByText("Claude is writing").parentElement).toHaveTextContent(`Claude is writing·${job().id}`);
     expect(screen.getByRole("progressbar")).toBeInTheDocument();
     head(job(), 2);
     expect(screen.getByText("2 tests so far")).toBeInTheDocument();
@@ -300,12 +302,13 @@ describe("Generate › result helpers", () => {
     );
     expect(screen.getByText(/checked line/)).toBeInTheDocument();
     expect(screen.getByText(/Claude did not say what it could not write a test for/)).toBeInTheDocument();
-    expect(screen.getByText("R2 alarm")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Skipped/ })).toHaveAttribute("aria-expanded", "true");
+    const notCovered = screen.getByRole("region", { name: "Not covered · 1 — and why" });
+    expect(within(notCovered).getByText("R2 alarm")).toBeInTheDocument();
+    expect(within(notCovered).getByText("no passage")).toBeInTheDocument();
     expect(screen.getByText(/Claude also changed 2 existing tests: T9, T8/)).toBeInTheDocument();
     rerender(<GenSummary result={output({ reportFound: false, ok: false })} checked="" />);
     expect(screen.queryByText(/did not say/)).toBeNull();
     expect(screen.queryByText(/also changed/)).toBeNull();
-    expect(screen.queryByRole("button", { name: /Skipped/ })).toBeNull();
+    expect(screen.queryByRole("region", { name: /Not covered/ })).toBeNull();
   });
 });

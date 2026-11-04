@@ -13,10 +13,11 @@ import { invalidate, useRead } from "../../lib/data/query.ts";
 import { desktop, pickFiles } from "../../lib/desktop.ts";
 import { message } from "../../lib/format.ts";
 import { addDocFiles, addDocPath, addDocPaths, forgetSettled, settled, useUploads } from "../../lib/uploads.ts";
-import { border, color, fontSize, fontWeight, lineHeight, size, space, z } from "../../styles/tokens.stylex.ts";
+import { border, color, fontSize, fontWeight, lineHeight, radius, size, space, z } from "../../styles/tokens.stylex.ts";
 import { AddPath } from "./AddPath.tsx";
 import { DocDetail } from "./DocDetail.tsx";
 import { DocList } from "./DocList.tsx";
+import { DocLoading } from "./DocLoading.tsx";
 import { useDocsLayout } from "./layout.ts";
 
 const styles = stylex.create({
@@ -47,46 +48,82 @@ const styles = stylex.create({
     boxSizing: "border-box",
     flex: 1,
     display: "flex",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "center",
-    padding: space.s7,
+    paddingInline: space.s7,
+    paddingBlock: space.s10,
   },
   veil: {
     boxSizing: "border-box",
     position: "absolute",
-    inset: 0,
-    zIndex: z.drawer,
+    inset: space.s3,
+    zIndex: z.modal,
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    gap: space.s4,
-    backgroundColor: color.accentSubtle,
-    color: color.accentText,
+    gap: space.s3,
+    paddingInline: space.s7,
+    textAlign: "center",
+    backgroundColor: `color-mix(in srgb, ${color.surface} 88%, transparent)`,
     borderStyle: "dashed",
     borderWidth: border.widthStrong,
     borderColor: color.accent,
+    borderRadius: radius.r4,
+    pointerEvents: "none",
+  },
+  veilMark: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: space.s11,
+    height: space.s11,
+    borderRadius: radius.full,
+    backgroundColor: color.accentSubtle,
+    color: color.accentText,
+  },
+  veilTitle: {
     fontSize: fontSize.title,
     lineHeight: lineHeight.title,
     fontWeight: fontWeight.semibold,
-    pointerEvents: "none",
+    color: color.text,
   },
-  veilIcon: { display: "inline-flex", width: size.controlLg, height: size.controlLg },
+  veilText: {
+    maxWidth: size.reading,
+    fontSize: fontSize.compact,
+    lineHeight: lineHeight.compact,
+    color: color.textMuted,
+  },
 });
 
 const ACCEPT = ".docx,.pdf";
 
-// ponytail: #/documents/<id>#<anchor> "<quote>" — the document, the place in it and the line to mark
+// ponytail: #/documents/<id>#<anchor> "<quote>" from <test> step <n> — the document, the place in it, the line to mark
+// and the test that cited it (the last part is optional)
 function target(arg: string) {
   const hash = arg.indexOf("#");
   const routeId = hash < 0 ? arg : arg.slice(0, hash);
   const at = hash < 0 ? "" : arg.slice(hash + 1);
   const cut = at.indexOf(' "');
+  const rest = cut < 0 ? "" : at.slice(cut + 2);
+  const m = /^([\s\S]*)" from (\S+)(?: step (\d+))?$/.exec(rest);
   return {
     routeId,
     anchor: cut < 0 ? at : at.slice(0, cut),
-    quote: cut < 0 ? "" : at.slice(cut + 2).replace(/"$/, ""),
+    quote: m ? m[1] : rest.replace(/"$/, ""),
+    from: m ? { test: m[2], ...(m[3] && { step: Number(m[3]) }) } : undefined,
   };
+}
+
+// ponytail: why search matches words only on this PC, and what choosing a search pack does about it
+function wordsOnlyWhy(r: { embedding: string; space: { complete: boolean } | null }): string {
+  const model = r.embedding && r.embedding !== "none" ? r.embedding : "";
+  const why = !model
+    ? "This PC has no search pack yet"
+    : r.space
+      ? `The vectors of ${model} on this PC are incomplete`
+      : `This PC has no vectors for ${model} yet`;
+  return `${why}, so search matches words, not meaning. Choose a search pack: its models download once, then the documents are indexed again.`;
 }
 
 export function DocumentsScreen() {
@@ -103,8 +140,8 @@ export function DocumentsScreen() {
   const [askPath, setAskPath] = useState(false);
 
   const docs = list.data ? (Array.isArray(list.data) ? list.data : []) : list.isError ? [] : undefined;
-  const wordsOnly = rag.data?.exists && rag.data.degraded ? rag.data.degraded : null;
-  const { routeId, anchor, quote } = target(app.route.screen === "documents" ? (app.route.arg ?? "") : "");
+  const wordsOnly = rag.data?.exists && rag.data.degraded ? wordsOnlyWhy(rag.data) : null;
+  const { routeId, anchor, quote, from } = target(app.route.screen === "documents" ? (app.route.arg ?? "") : "");
   const activeId = routeId || docs?.[0]?.id || "";
   const active = activeId ? docs?.find((d) => d.id === activeId) : undefined;
   const busy = uploads.filter((u) => !settled(u)).length;
@@ -132,9 +169,10 @@ export function DocumentsScreen() {
   };
   const addFiles = (files: File[]) => void addDocFiles(files, added);
   const native = desktop();
-  const addButton = (
+  const addButton = (big = false) => (
     <Button
       variant="primary"
+      size={big ? "lg" : "md"}
       icon="plus"
       label="Add documents"
       pick={native ? undefined : { accept: ACCEPT, multiple: true, onFiles: addFiles }}
@@ -178,14 +216,22 @@ export function DocumentsScreen() {
     >
       <ScreenHeader
         title="Documents"
-        meta={`${docs?.length ?? 0} document${docs?.length === 1 ? "" : "s"}${busy ? ` · ${busy} in progress` : ""}`}
+        meta={
+          docs && !list.isError
+            ? `${docs.length} document${docs.length === 1 ? "" : "s"}${busy ? ` · ${busy} in progress` : ""}`
+            : undefined
+        }
       >
         <Button variant="quiet" icon="folder-open" label="Add from a path…" onClick={() => setAskPath(true)} />
-        {addButton}
+        {addButton()}
       </ScreenHeader>
       {list.isError && (
         <div {...stylex.props(styles.notice)}>
-          <Banner tone="danger" title="Could not list the documents">
+          <Banner
+            tone="danger"
+            title="Could not list the documents"
+            actions={<Button size="sm" icon="refresh" label="Retry" onClick={() => void list.refetch()} />}
+          >
             {message(list.error)}
           </Banner>
         </div>
@@ -203,13 +249,18 @@ export function DocumentsScreen() {
           </Banner>
         </div>
       )}
-      {!hasBody ? (
+      {list.isError && !uploads.length ? null : !hasBody ? (
         <div {...stylex.props(styles.empty)}>
           <EmptyState
             icon="documents"
             title="No document yet"
-            text="Add the specifications this project tests: Word works best, PDF is fine. Drop them anywhere here. Claude reads them to write and check your tests."
-            actions={addButton}
+            text="Add the specifications your tests come from: .docx (preferred) or .pdf. Drop files anywhere on this screen, pick them, or give a path on this PC or a synced share."
+            actions={
+              <>
+                {addButton(true)}
+                <Button size="lg" icon="folder-open" label="Add from a path…" onClick={() => setAskPath(true)} />
+              </>
+            }
           />
         </div>
       ) : (
@@ -225,12 +276,21 @@ export function DocumentsScreen() {
               {listPane(false)}
             </Modal>
           )}
-          {active ? (
+          {!docs ? (
+            <DocLoading
+              label="Loading the documents"
+              fold={fold}
+              widths={{ toc: panes.toc.value, side: panes.side.value }}
+            />
+          ) : active ? (
             <DocDetail
               key={`${activeId} ${active.converted?.at ?? ""}`}
               id={activeId}
               anchor={anchor}
               quote={quote}
+              from={from}
+              onClearQuote={() => app.navigate("documents", `${activeId}#${anchor}`)}
+              onBack={() => (from ? app.navigate("tests", from.test) : window.history.back())}
               fold={fold}
               panes={panes}
               listOpen={listOpen}
@@ -258,13 +318,22 @@ export function DocumentsScreen() {
       )}
       {drag && (
         <div data-testid="drop-veil" aria-hidden="true" {...stylex.props(styles.veil)}>
-          <span {...stylex.props(styles.veilIcon)}>
+          <span {...stylex.props(styles.veilMark)}>
             <Icon name="upload" size="lg" />
           </span>
-          Drop Word or PDF files to add them
+          <span {...stylex.props(styles.veilTitle)}>Drop Word or PDF files to add them</span>
+          <span {...stylex.props(styles.veilText)}>
+            .docx is preferred — structure and pictures stay intact; .pdf is the fallback. Each file is copied into the
+            project, ready to convert.
+          </span>
         </div>
       )}
-      {askPath && <AddPath onAdd={(p) => void addDocPath(p, added)} onClose={() => setAskPath(false)} />}
+      {askPath && (
+        <AddPath
+          onAdd={(p, pdf) => void (pdf ? addDocPaths([p, pdf], added) : addDocPath(p, added))}
+          onClose={() => setAskPath(false)}
+        />
+      )}
     </div>
   );
 }

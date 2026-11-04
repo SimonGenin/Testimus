@@ -3,11 +3,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import type { CommandOutput } from "../../../core/commands/index.ts";
 import type { DocJson } from "../../../core/types.ts";
-import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Modal } from "../../components/ui/Modal.tsx";
 import { ResizeHandle } from "../../components/ui/ResizeHandle.tsx";
-import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { key, useCommand, useRead } from "../../lib/data/query.ts";
 import { message } from "../../lib/format.ts";
 import { errorToast } from "../../lib/toast.ts";
@@ -16,10 +14,12 @@ import { border, color, duration, easing, space } from "../../styles/tokens.styl
 import { ConvertDoc } from "./ConvertDoc.tsx";
 import { DocFigures } from "./DocFigures.tsx";
 import { DocHead, type View } from "./DocHead.tsx";
-import { DocPart } from "./DocPart.tsx";
+import { DocLoading } from "./DocLoading.tsx";
+import { DocPart, type QuoteFrom } from "./DocPart.tsx";
 import { DocReading } from "./DocReading.tsx";
 import { DocSide } from "./DocSide.tsx";
 import { DocToc } from "./DocToc.tsx";
+import { DocUnreadable } from "./DocUnreadable.tsx";
 import { COLS, type Fold, type Pane } from "./layout.ts";
 import { RemoveDoc } from "./RemoveDoc.tsx";
 
@@ -63,6 +63,9 @@ export function DocDetail({
   id,
   anchor,
   quote = "",
+  from,
+  onClearQuote,
+  onBack,
   fold = "wide",
   panes,
   listOpen = false,
@@ -73,6 +76,9 @@ export function DocDetail({
   id: string;
   anchor: string;
   quote?: string;
+  from?: QuoteFrom;
+  onClearQuote?: () => void;
+  onBack?: () => void;
   fold?: Fold;
   panes?: Record<"toc" | "side", Pane>;
   listOpen?: boolean;
@@ -82,6 +88,7 @@ export function DocDetail({
 }) {
   const client = useQueryClient();
   const meta = useRead("docs.show", { id, brief: true });
+  const listed = useRead("docs.list", {}).data?.find?.((d) => d.id === id);
   const running = useUploads().find((u) => u.docId === id && u.job === "convert" && !settled(u));
   const [view, setView] = useState<View>("text");
   const [drawer, setDrawer] = useState<Drawer>(null);
@@ -127,9 +134,9 @@ export function DocDetail({
   const label = `${shown?.doc.code ?? id} details`;
   if (meta.isError)
     return (
-      <section aria-label={label} {...stylex.props(styles.doc, styles.alone)}>
+      <section aria-label={label} {...stylex.props(styles.doc)}>
         {onShowList && (
-          <span>
+          <span {...stylex.props(styles.alone)}>
             <Button
               variant="quiet"
               iconOnly
@@ -140,18 +147,23 @@ export function DocDetail({
             />
           </span>
         )}
-        <Banner tone="danger" title="This document could not be opened">
-          {message(meta.error)}
-        </Banner>
+        <DocUnreadable
+          id={id}
+          doc={listed}
+          error={message(meta.error)}
+          onRetry={() => void meta.refetch()}
+          onConvertAgain={listed ? () => setAgain(true) : undefined}
+        />
+        {again && listed && <ConvertDoc doc={listed} again onClose={() => setAgain(false)} />}
       </section>
     );
   if (!shown)
     return (
-      <section aria-label={label} aria-busy="true" {...stylex.props(styles.doc, styles.alone)}>
-        <Skeleton kind="title" width="40%" />
-        <Skeleton width="60%" />
-        <Skeleton kind="block" />
-      </section>
+      <DocLoading
+        label={label}
+        fold={fold}
+        widths={{ toc: panes?.toc.value ?? COLS.toc, side: panes?.side.value ?? COLS.side }}
+      />
     );
 
   const d = shown.doc;
@@ -221,6 +233,8 @@ export function DocDetail({
               md={part.isError ? message(part.error) : (part.data?.md ?? "")}
               loading={!part.data && !part.isError}
               focus={quote || undefined}
+              target={anchor && !quote ? anchor : undefined}
+              quote={onClearQuote && onBack ? { from, onBack, onClear: onClearQuote } : undefined}
               onGo={go}
             />
           )}
@@ -237,7 +251,14 @@ export function DocDetail({
           </Modal>
         )}
       </div>
-      {again && <ConvertDoc doc={d} again onClose={() => setAgain(false)} />}
+      {again && (
+        <ConvertDoc
+          doc={d}
+          again
+          described={shown.figures.filter((f) => f.description.trim()).length}
+          onClose={() => setAgain(false)}
+        />
+      )}
       {ask && <RemoveDoc doc={d} onClose={() => setAsk(false)} onRemoved={onRemoved} />}
     </section>
   );

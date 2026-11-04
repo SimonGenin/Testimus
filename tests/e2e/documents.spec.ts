@@ -6,7 +6,7 @@ import { api, boot, expect, mockServer, shoot, test } from "./helpers.ts";
 
 const { url } = mockServer(4350);
 
-// ponytail: below ~1300px beside the Claude dock the document list and the settings fold into drawers
+// ponytail: below ~1420px beside the Claude dock the document list and the settings fold into drawers
 test.use({ viewport: { width: 1920, height: 1080 } });
 
 test("the list shows each document with status and index state; the detail shows its text", async ({ page }) => {

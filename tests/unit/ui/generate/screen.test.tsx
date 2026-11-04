@@ -140,6 +140,7 @@ describe("Generate screen", () => {
     expect(go()).toHaveAccessibleDescription("Add a document first");
     fireEvent.click(screen.getByRole("button", { name: "Go to Documents" }));
     expect(a.navigate).toHaveBeenCalledWith("documents");
+    expect(screen.queryByRole("region", { name: "Smart columns" })).toBeNull();
   });
 
   it("asks to connect Claude when it is missing, and checks again", async () => {
@@ -346,6 +347,10 @@ describe("Generate screen", () => {
     expect(await screen.findByRole("heading", { name: "Getting ready" })).toBeInTheDocument();
     expect(screen.getByText("Claude is starting.")).toBeInTheDocument();
     expect(screen.getByLabelText("What should be tested?")).toHaveAttribute("readonly");
+    const landing = screen.getByRole("region", { name: "Tests written" });
+    expect(landing).toHaveTextContent("they land here as Claude writes them");
+    expect(within(landing).getByText("No test written yet")).toBeInTheDocument();
+    expect(screen.getByRole("timer", { name: "Time since it started" })).toBeInTheDocument();
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
     await new Promise((r) => setTimeout(r, 1100));
     refs = [ref("local-aaaaaaaa"), ref("local-bbbbbbbb")];
