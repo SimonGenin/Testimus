@@ -3,37 +3,38 @@ import { border, color, fontFamily, fontSize, radius, size, space } from "../../
 
 const styles = stylex.create({
   kbd: {
+    boxSizing: "border-box",
     display: "inline-flex",
     alignItems: "center",
+    justifyContent: "center",
     minWidth: size.kbd,
     height: size.kbd,
     paddingBlock: 0,
     paddingInline: space.s2,
     borderStyle: "solid",
-    borderColor: color.borderStrong,
+    borderColor: color.border,
     borderWidth: border.width,
-    borderBottomWidth: border.widthStrong,
     borderRadius: radius.r1,
-    backgroundColor: color.surface,
+    backgroundColor: color.surfaceSunken,
     color: color.textMuted,
     fontFamily: fontFamily.mono,
     fontSize: fontSize.caption,
     lineHeight: 1,
     whiteSpace: "nowrap",
   },
-  // inside a filled control (a button, a tooltip) it takes the control's colour
+  // inside a control (a button, a tooltip) it is a tinted pill in the control's colour
   onFill: {
-    backgroundColor: "transparent",
+    backgroundColor: "color-mix(in srgb, currentColor 12%, transparent)",
     color: "inherit",
-    borderColor: "currentColor",
-    opacity: 0.7,
+    borderColor: "transparent",
+    opacity: 0.85,
   },
 });
 
 export type KbdProps = {
   /** the keys, as shown: « Ctrl K », « V » */
   children: string;
-  /** inside a filled control: transparent, in the control's colour */
+  /** inside a control (a button, a tooltip): a tinted pill in the control's colour */
   onFill?: boolean;
 };
 

@@ -16,6 +16,7 @@ import {
   color,
   duration,
   easing,
+  focus,
   fontSize,
   fontWeight,
   lineHeight,
@@ -28,16 +29,18 @@ import { Button } from "./Button.tsx";
 import { Icon, type IconName } from "./Icon.tsx";
 import { Spinner } from "./Spinner.tsx";
 
+const FOCUS = `0 0 0 ${border.width} ${color.focusRing}, 0 0 0 ${focus.halo} color-mix(in srgb, ${color.focusRing} 18%, transparent)`;
+
 const styles = stylex.create({
-  field: { display: "flex", flexDirection: "column", gap: space.s2, minWidth: 0 },
+  field: { display: "flex", flexDirection: "column", gap: space.snug, minWidth: 0 },
   label: {
     display: "flex",
     alignItems: "baseline",
     gap: space.s3,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
+    fontSize: fontSize.compact,
+    lineHeight: lineHeight.compact,
     fontWeight: fontWeight.medium,
-    color: color.textMuted,
+    color: color.text,
   },
   labelState: { marginInlineStart: "auto" },
   hint: { fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textSubtle },
@@ -56,16 +59,16 @@ const styles = stylex.create({
     alignItems: "flex-start",
     gap: space.s3,
     minHeight: size.controlMd,
-    paddingBlock: `calc(${space.s2} - ${border.width})`,
-    paddingInline: space.s3,
+    paddingBlock: `calc((${size.controlMd} - ${lineHeight.body}) / 2 - ${border.width})`,
+    paddingInline: space.s4,
     borderStyle: "solid",
     borderWidth: border.width,
     borderColor: {
-      default: color.borderControl,
-      ":hover": color.textMuted,
+      default: color.borderField,
+      ":hover": color.borderControl,
       ":focus-within": color.focusRing,
     },
-    boxShadow: { default: null, ":focus-within": `0 0 0 ${border.width} ${color.focusRing}` },
+    boxShadow: { default: null, ":focus-within": FOCUS },
     borderRadius: radius.r2,
     backgroundColor: color.surface,
     color: color.text,
@@ -84,8 +87,9 @@ const styles = stylex.create({
     lineHeight: lineHeight.compact,
   },
   inline: {
-    borderColor: { default: "transparent", ":hover": color.borderStrong, ":focus-within": color.focusRing },
-    backgroundColor: { default: "transparent", ":hover": color.surface, ":focus-within": color.surface },
+    paddingInline: space.s3,
+    borderColor: { default: "transparent", ":hover": "transparent", ":focus-within": color.focusRing },
+    backgroundColor: { default: "transparent", ":hover": color.surfaceHover },
   },
   inlineMulti: { minHeight: size.controlMd },
   bare: {
@@ -98,29 +102,36 @@ const styles = stylex.create({
   },
   bareMulti: { minHeight: `calc(${lineHeight.body} * 2 + ${space.s5})` },
   bareStill: { backgroundColor: "transparent", borderWidth: 0 },
-  wraps: { flexWrap: "wrap", alignItems: "center", rowGap: space.s1 },
-  wrapsValue: { minWidth: size.chipInputMin },
+  wraps: {
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: space.s2,
+    paddingBlock: space.inset,
+    paddingInline: space.s2,
+  },
+  wrapsValue: { minWidth: size.chipInputMin, paddingInline: space.s2, fontSize: fontSize.compact },
   title: { fontSize: fontSize.title, lineHeight: lineHeight.title, fontWeight: fontWeight.semibold },
   invalid: {
     borderColor: color.danger,
-    boxShadow: `0 0 0 ${border.width} ${color.danger}`,
+    boxShadow: `0 0 0 ${border.width} ${color.danger}, 0 0 0 ${focus.halo} color-mix(in srgb, ${color.danger} 14%, transparent)`,
   },
   disabled: {
     backgroundColor: color.surfaceSunken,
     borderColor: color.border,
+    boxShadow: "none",
     color: color.textDisabled,
     cursor: "not-allowed",
   },
   readOnly: {
     backgroundColor: color.surfaceSunken,
-    borderColor: color.border,
-    borderStyle: "dashed",
+    borderColor: "transparent",
+    boxShadow: "none",
     cursor: "default",
   },
   claude: {
     backgroundColor: color.claudeSubtle,
     borderColor: color.claudeBorder,
-    borderStyle: "dashed",
+    boxShadow: "none",
     cursor: "progress",
   },
   lead: { display: "inline-flex", marginTop: space.s1, color: color.textSubtle },
@@ -157,9 +168,9 @@ const styles = stylex.create({
   stateConflict: { color: color.warning },
   stateClaude: { color: color.claudeText },
   stateBelow: { alignSelf: "flex-end" },
-  forceHover: { borderColor: color.textMuted },
-  forceHoverInline: { borderColor: color.borderStrong, backgroundColor: color.surface },
-  forceFocus: { borderColor: color.focusRing, boxShadow: `0 0 0 ${border.width} ${color.focusRing}` },
+  forceHover: { borderColor: color.borderControl },
+  forceHoverInline: { borderColor: "transparent", backgroundColor: color.surfaceHover },
+  forceFocus: { borderColor: color.focusRing, boxShadow: FOCUS },
 });
 
 // the save state a bound field shows (the autosave of the document it writes into)

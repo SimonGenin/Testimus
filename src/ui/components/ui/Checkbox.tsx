@@ -16,7 +16,7 @@ const styles = stylex.create({
     cursor: "pointer",
   },
   rowDisabled: { color: color.textDisabled, cursor: "not-allowed" },
-  boxWrap: { position: "relative", display: "inline-flex", flex: "none", marginTop: border.width },
+  boxWrap: { position: "relative", display: "inline-flex", flex: "none", marginTop: space.s1 },
   box: {
     boxSizing: "border-box",
     appearance: "none",
@@ -27,7 +27,7 @@ const styles = stylex.create({
     borderStyle: "solid",
     borderWidth: border.width,
     borderColor: { default: color.borderControl, ":hover": color.textMuted },
-    borderRadius: radius.r1,
+    borderRadius: radius.check,
     backgroundColor: color.surface,
     cursor: "inherit",
     outline: { default: "none", ":focus-visible": `${border.widthStrong} solid ${color.focusRing}` },
