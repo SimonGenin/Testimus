@@ -80,6 +80,7 @@ export function PackPlanDialog({
           <Button variant="quiet" label="Cancel" onClick={onClose} />
           <Button
             variant="primary"
+            icon={download ? "download" : "check"}
             label={download ? `Download ${size(total)}` : `Use ${pack.label}`}
             loading={busy}
             onClick={onConfirm}

@@ -7,6 +7,7 @@ import type { Column } from "../../../../../src/ui/lib/columns.ts";
 import { ColumnField } from "../../../../../src/ui/screens/tests/ColumnField.tsx";
 import { ColumnsMenu } from "../../../../../src/ui/screens/tests/ColumnsMenu.tsx";
 import { GoneStep, WasView } from "../../../../../src/ui/screens/tests/WasView.tsx";
+import { iconOf } from "../../../helpers/icons.ts";
 import { layoutOf } from "../../../helpers/layout.ts";
 
 afterEach(() => {
@@ -96,7 +97,7 @@ describe("ColumnsMenu", () => {
     toggle();
     const dialog = screen.getByRole("dialog", { name: "Step columns" });
     expect(screen.getByRole("button", { name: "Columns" })).toHaveAttribute("aria-controls", dialog.id);
-    expect(within(dialog).getByText("not in Xray")).toBeInTheDocument();
+    expect(iconOf(within(dialog).getByText("not in Xray"))).toBe("alert-triangle");
     expect(within(dialog).getByText(/Saved in columns.json/)).toBeInTheDocument();
     expect(within(row("Data")).getByRole("radio", { name: "Collapsed" })).toHaveAttribute("aria-checked", "true");
     fireEvent.click(within(row("Note")).getByRole("radio", { name: "When filled" }));

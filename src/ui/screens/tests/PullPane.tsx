@@ -1,5 +1,4 @@
 import * as stylex from "@stylexjs/stylex";
-import { Badge } from "../../components/ui/Badge.tsx";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Progress } from "../../components/ui/Progress.tsx";
@@ -92,12 +91,11 @@ export function PullPane({
             title={`Could not pull ${pull.key}`}
             actions={
               <>
-                <Button variant="primary" size="sm" label="Retry" onClick={onRetry} />
-                <Button size="sm" label="Back" onClick={onBack} />
+                <Button variant="primary" size="sm" icon="refresh" label="Retry" onClick={onRetry} />
+                <Button size="sm" icon="arrow-left" label="Back" onClick={onBack} />
               </>
             }
           >
-            <Badge label="Pull failed" tone="danger" icon="x-circle" size="sm" />
             <p {...stylex.props(styles.error)}>{pull.error}</p>
           </Banner>
         </div>

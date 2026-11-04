@@ -54,7 +54,7 @@ export function LocalTree({
               title: r.node.name,
               depth: r.depth,
               expanded: forceOpen || !shut.has(r.node.path),
-              lead: <Icon name="folder" size="sm" />,
+              lead: <Icon name={forceOpen || !shut.has(r.node.path) ? "folder-open" : "folder"} size="sm" />,
               trail: <Badge label={String(r.node.total)} count size="sm" />,
             }
           : {

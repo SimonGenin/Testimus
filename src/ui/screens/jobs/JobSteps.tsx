@@ -27,6 +27,7 @@ const styles = stylex.create({
     lineHeight: lineHeight.compact,
     color: color.text,
   },
+  lead: { display: "inline-flex" },
   claude: { color: color.claudeText },
   grow: { flex: 1, minWidth: 0 },
   small: { color: color.textMuted, fontSize: fontSize.small, lineHeight: lineHeight.small },
@@ -43,11 +44,10 @@ const WORD: Record<JobStep["status"], string> = {
 };
 
 function Proc({ p, now }: { p: JobProcess; now: number }) {
-  const claude = p.label.startsWith("Claude");
   return (
     <li {...stylex.props(styles.proc)}>
-      <span {...stylex.props(claude && styles.claude)}>
-        <Icon name={claude ? "claude" : "terminal"} size="sm" />
+      <span {...stylex.props(styles.lead, p.label.startsWith("Claude") && styles.claude)}>
+        <Icon name="terminal" size="sm" />
       </span>
       <span {...stylex.props(styles.grow)}>{processLabel(p.label)}</span>
       <span {...stylex.props(styles.small)}>

@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { Badge } from "../../components/ui/Badge.tsx";
 import { Disclosure } from "../../components/ui/Disclosure.tsx";
+import { Icon } from "../../components/ui/Icon.tsx";
 import { List } from "../../components/ui/List.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { useRead } from "../../lib/data/query.ts";
@@ -79,6 +80,7 @@ export function EvidenceBlock({
                 selected={selected}
                 onSelect={onPick}
                 renderItem={(x) => ({
+                  lead: <Icon name={x.ref.includes("#fig:") ? "image" : "section"} size="sm" />,
                   title: x.title || <span {...stylex.props(styles.ref)}>{x.ref}</span>,
                   meta: x.title ? <span {...stylex.props(styles.ref)}>{x.ref}</span> : undefined,
                   trail: x.cited ? (

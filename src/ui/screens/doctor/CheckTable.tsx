@@ -2,6 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import type { DoctorAction, DoctorCheck } from "../../../core/types.ts";
 import { Badge } from "../../components/ui/Badge.tsx";
 import { Button } from "../../components/ui/Button.tsx";
+import type { IconName } from "../../components/ui/Icon.tsx";
 import { Table } from "../../components/ui/Table.tsx";
 import { color, fontSize, fontWeight, lineHeight, size, space } from "../../styles/tokens.stylex.ts";
 import { isOpen, LOOK, lookOf } from "./checks.ts";
@@ -22,6 +23,16 @@ const styles = stylex.create({
   strong: { fontWeight: fontWeight.semibold },
   fix: { display: "flex", justifyContent: "flex-end", whiteSpace: "nowrap" },
 });
+
+// ponytail: a fix's button says what it does by its command — a download, a folder to choose, an index to run again
+const FIX_ICON: Record<string, IconName> = {
+  "system.doctor": "claude",
+  "models.pull": "download",
+  "models.pullRuntime": "download",
+  "models.setDir": "folder",
+  "models.add": "folder",
+  "rag.index": "refresh",
+};
 
 function Result({ check }: { check: DoctorCheck }) {
   const open = isOpen(check.state);
@@ -84,7 +95,7 @@ export function CheckTable({
                 <span {...stylex.props(styles.fix)}>
                   <Button
                     size="sm"
-                    icon={c.action.command === "system.doctor" ? "claude" : undefined}
+                    icon={FIX_ICON[c.action.command]}
                     label={c.action.label}
                     loading={busy(c)}
                     onClick={() => c.action && onAct(c, c.action)}

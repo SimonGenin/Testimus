@@ -2,6 +2,9 @@ import * as stylex from "@stylexjs/stylex";
 import { type ComponentType, useEffect, useRef } from "react";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
 import { Badge } from "../../components/ui/Badge.tsx";
+import { Button } from "../../components/ui/Button.tsx";
+import { Card } from "../../components/ui/Card.tsx";
+import { EmptyState } from "../../components/ui/EmptyState.tsx";
 import type { IconName } from "../../components/ui/Icon.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { List } from "../../components/ui/List.tsx";
@@ -16,7 +19,7 @@ import { ColumnsSection } from "./ColumnsSection.tsx";
 import { ModelsSection } from "./ModelsSection.tsx";
 import { ProjectSection } from "./ProjectSection.tsx";
 import { SearchSection } from "./SearchSection.tsx";
-import { Hint } from "./Section.tsx";
+import { Section } from "./Section.tsx";
 
 const styles = stylex.create({
   screen: { display: "flex", flexDirection: "column", flex: 1, minHeight: 0, minWidth: 0 },
@@ -35,7 +38,6 @@ const styles = stylex.create({
   navWidth: (px: number) => ({ width: `${px}px` }),
   navFold: { maxWidth: { default: "none", [breakpoint.sm]: `calc(${size.sidebar} * 3 / 5)` } },
   body: { flex: 1, minWidth: 0, overflowY: "auto", backgroundColor: color.canvas },
-  wait: { paddingBlock: space.s7, paddingInline: space.s9 },
   saved: {
     display: "inline-flex",
     alignItems: "center",
@@ -110,8 +112,15 @@ export function SettingsScreen() {
     <div {...stylex.props(styles.screen)}>
       <ScreenHeader
         title="Settings"
-        badge={<Badge label={`v${__VERSION__}`} outline size="sm" />}
-        meta="Changes save as you make them"
+        badge={
+          <>
+            <Badge label={`v${__VERSION__}`} outline size="sm" />
+            <span {...stylex.props(styles.saved)}>
+              <Icon name="check" size="sm" />
+              Changes save as you make them
+            </span>
+          </>
+        }
       />
       <div {...stylex.props(styles.frame)}>
         <nav aria-label="Settings sections" {...stylex.props(styles.nav, styles.navWidth(nav.width), styles.navFold)}>
@@ -131,11 +140,26 @@ export function SettingsScreen() {
         <ResizeHandle label="Resize the section list" {...nav.handle} />
         <div ref={body} key={section.id} {...stylex.props(styles.body)}>
           {!hasProject && section.needsProject ? (
-            <div {...stylex.props(styles.wait)}>
-              <Hint>
-                Open a project to change its settings: Claude, Models, Access and Appearance work without one.
-              </Hint>
-            </div>
+            <Section id={section.id} title={section.label}>
+              <Card>
+                <EmptyState
+                  icon="folder"
+                  title="No project open"
+                  text="Open a project to change its settings. Claude, Models, Access and Appearance work without one."
+                  actions={
+                    <>
+                      <Button
+                        variant="primary"
+                        icon="folder-open"
+                        label="Open a project…"
+                        onClick={() => app.navigate("setup", "project")}
+                      />
+                      <Button label="New project" onClick={() => app.navigate("setup", "project")} />
+                    </>
+                  }
+                />
+              </Card>
+            </Section>
           ) : (
             <Page />
           )}

@@ -9,25 +9,30 @@ import { errorToast } from "../../../lib/toast.ts";
 // the jobs in which Claude edits tests (useClaudeLock): the one the banner can stop
 const EDITS = new Set(["claude", "fix"]);
 
-function ClaudeWorking({ here }: { here: boolean }) {
+// « Cancel the run » of the Claude run that edits tests, while one runs
+export function useCancelClaudeRun() {
   const job = useRunningJobs().find((j) => EDITS.has(j.kind));
   const cancel = useCommand("jobs.cancel", { invalidates: "none" });
+  if (!job) return undefined;
+  return (
+    <Button
+      size="sm"
+      icon="stop"
+      label="Cancel the run"
+      loading={cancel.isPending}
+      onClick={() => cancel.mutate({ id: job.id }, { onError: (e) => errorToast(e, "Could not cancel the run") })}
+    />
+  );
+}
+
+function ClaudeWorking({ here }: { here: boolean }) {
+  const cancel = useCancelClaudeRun();
   return (
     <Banner
       tone="claude"
       icon="lock"
       title={here ? "Claude is working on this test" : "Claude is working"}
-      actions={
-        job && (
-          <Button
-            size="sm"
-            icon="stop"
-            label="Cancel the run"
-            loading={cancel.isPending}
-            onClick={() => cancel.mutate({ id: job.id }, { onError: (e) => errorToast(e, "Could not cancel the run") })}
-          />
-        )
-      }
+      actions={cancel}
     >
       Editing is paused until it finishes. Every change can be reverted.
     </Banner>

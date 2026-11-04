@@ -6,6 +6,7 @@ import { setProject } from "../../../../src/ui/lib/data/client.ts";
 import { AccessStep } from "../../../../src/ui/screens/setup/AccessStep.tsx";
 import { FirstRunScreen } from "../../../../src/ui/screens/setup/FirstRunScreen.tsx";
 import { ProjectStep, projectFolder } from "../../../../src/ui/screens/setup/ProjectStep.tsx";
+import { iconsIn } from "../../helpers/icon-names.tsx";
 import { callsOf, deferred, Fail, fakeEvents, fakeNet, net, withApp } from "../../helpers/ui-data.tsx";
 import { fakeDesktop, noDesktop } from "../../helpers/ui-desktop.tsx";
 
@@ -121,6 +122,7 @@ describe("First launch › Access", () => {
     await screen.findByLabelText("Jira site");
     expect(screen.queryByText(/We found the access/)).toBeNull();
     expect(screen.getByRole("button", { name: "Continue" }).className).not.toMatch(/primary/);
+    expect(iconsIn(screen.getByRole("button", { name: "Continue" })), "audit icons 98").toEqual(["chevron-right"]);
   });
 
   it("the token page opens in the default browser through the bridge, or in a new tab", async () => {

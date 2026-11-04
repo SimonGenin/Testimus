@@ -8,6 +8,7 @@ import { EditorBar } from "../../../../../src/ui/screens/tests/editor/EditorBar.
 import { SummaryCard } from "../../../../../src/ui/screens/tests/editor/SummaryCard.tsx";
 import { TestDetails } from "../../../../../src/ui/screens/tests/editor/TestDetails.tsx";
 import { pushReason } from "../../../../../src/ui/screens/tests/editor/testMenu.ts";
+import { iconOf } from "../../../helpers/icons.ts";
 
 afterEach(cleanup);
 
@@ -128,7 +129,7 @@ describe("the editor's head", () => {
     expect(screen.getByText("Ready")).toBeInTheDocument();
     expect(screen.getByText("smoke")).toBeInTheDocument();
     expect(screen.getByText("covers LFRPS12-1")).toBeInTheDocument();
-    expect(screen.getByText("cloned from LFRPS12-3")).toBeInTheDocument();
+    expect(screen.getByText(/^cloned from/)).toHaveTextContent("cloned from LFRPS12-3");
     expect(screen.getByText("In sync")).toBeInTheDocument();
     again({ bar: { status: "saving" } });
     expect(screen.getByText("Saving…")).toBeInTheDocument();
@@ -164,6 +165,14 @@ describe("the editor's head", () => {
     expect(screen.getByText("Modified")).toBeInTheDocument();
     again({ card: { remote: "unverified" } });
     expect(screen.getByText("Not verified against Jira")).toBeInTheDocument();
+  });
+
+  it("draws the design's icons: Generated claude, Changed in Jira cloud, the clone an external chip", () => {
+    const { again } = header({}, { ...test0, generatedBy: "gen-1" });
+    expect(iconOf(screen.getByText("Generated"))).toBe("claude");
+    expect(iconOf(screen.getByText("LFRPS12-3").parentElement as HTMLElement)).toBe("external");
+    again({ card: { remote: "remote-changed", sync: "remote-changed" } }, { ...test0, generatedBy: "gen-1" });
+    expect(iconOf(screen.getByRole("button", { name: "Changed in Jira" }))).toBe("cloud");
   });
 
   it("changes the folder on leaving and Enter, keeps it on Escape or when unchanged", async () => {

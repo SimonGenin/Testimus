@@ -108,7 +108,7 @@ export function JiraConnect({ error, onConnected }: { error: string; onConnected
               <Button
                 size="sm"
                 variant="quiet"
-                icon="settings"
+                icon="key"
                 label="Set up Jira access"
                 onClick={() => app.navigate("setup")}
               />

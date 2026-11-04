@@ -2,6 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import { useId, useState } from "react";
 import { Button } from "../../components/ui/Button.tsx";
 import { ClaudeBlock } from "../../components/ui/ClaudeBlock.tsx";
+import { Icon } from "../../components/ui/Icon.tsx";
 import { Modal } from "../../components/ui/Modal.tsx";
 import { useDraft } from "../../lib/data/autosave.ts";
 import { project } from "../../lib/data/client.ts";
@@ -58,6 +59,14 @@ export function FixNote({ id, initial, subtitle, claudeReady, onCancel, onSubmit
       subtitle={subtitle}
       icon="to-fix"
       onClose={cancel}
+      footNote={
+        claudeReady ? undefined : (
+          <>
+            <Icon name="plug" size="sm" />
+            Claude is not connected
+          </>
+        )
+      }
       actions={
         <>
           <Button label="Cancel" onClick={cancel} />

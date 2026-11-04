@@ -50,14 +50,14 @@ export function ReviewEmpty({
           icon="validated"
           title="All reviewed"
           text={`${plural(validated, "test")} validated. They are ready to push to Jira from the Tests screen.`}
-          actions={<Button variant="primary" label="Open the tests" onClick={onTests} />}
+          actions={<Button variant="primary" icon="tests" label="Open the tests" onClick={onTests} />}
         />
       ) : (
         <EmptyState
           icon="review"
           title="Nothing to review"
           text="Generated tests come here once written and checked. Once validated they stay readable here and appear in Tests."
-          actions={<Button variant="primary" label="Generate tests" onClick={onGenerate} />}
+          actions={<Button variant="primary" icon="generate" label="Generate tests" onClick={onGenerate} />}
         />
       )}
     </div>

@@ -9,6 +9,7 @@ import { setProject } from "../../../../../src/ui/lib/data/client.ts";
 import { key } from "../../../../../src/ui/lib/data/query.ts";
 import { DeleteTest, deleteTest, needsAsking } from "../../../../../src/ui/screens/tests/DeleteTest.tsx";
 import { PullPane } from "../../../../../src/ui/screens/tests/PullPane.tsx";
+import { iconOf } from "../../../helpers/icons.ts";
 import { deferred } from "../../../helpers/ui-server.ts";
 import { testClient, WithData } from "../data-helpers.tsx";
 
@@ -370,8 +371,12 @@ describe("PullPane", () => {
 
   it("explains a failed pull and offers retry and back", () => {
     const h = pane({ key: "K-1", summary: "One", error: "403 Forbidden" });
-    expect(screen.getByText("Pull failed")).toBeInTheDocument();
+    expect(screen.getByText("Could not pull K-1")).toBeInTheDocument();
+    expect(screen.queryByText("Pull failed")).toBeNull();
     expect(screen.getByText("403 Forbidden")).toBeInTheDocument();
+    expect(iconOf(screen.getByRole("button", { name: "Retry" }))).toBe("refresh");
+    expect(iconOf(screen.getByRole("button", { name: "Back" }))).toBe("arrow-left");
+    expect(iconOf(screen.getByRole("alert"))).toBe("alert-circle");
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     fireEvent.click(screen.getByRole("button", { name: "Back" }));
     expect(h.onRetry).toHaveBeenCalled();

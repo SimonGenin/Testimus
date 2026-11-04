@@ -260,7 +260,7 @@ export function TestEditor({
             title="This test could not be opened"
             actions={
               <>
-                <Button size="sm" label="Try again" onClick={() => void doc.recheck().catch(() => {})} />
+                <Button size="sm" icon="refresh" label="Try again" onClick={() => void doc.recheck().catch(() => {})} />
                 {onBack && <Button size="sm" icon="arrow-left" label="Back to review" onClick={onBack} />}
               </>
             }

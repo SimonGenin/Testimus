@@ -29,7 +29,12 @@ export function TestMeta({ r }: { r: LocalTestRef }) {
     <span {...stylex.props(styles.meta)}>
       <span {...stylex.props(styles.key)}>{r.key ?? "no key"}</span>
       {r.generated && (
-        <Badge label={r.edited ? "Generated · edited" : "Generated"} tone={r.edited ? "info" : "claude"} size="sm" />
+        <Badge
+          label={r.edited ? "Generated · edited" : "Generated"}
+          tone={r.edited ? "info" : "claude"}
+          icon="claude"
+          size="sm"
+        />
       )}
       {r.review in REVIEW && <Badge {...REVIEW[r.review as keyof typeof REVIEW]} size="sm" />}
       <Badge {...(SYNC_OF[r.sync] ?? SYNC.local)} tooltip={SYNC_TIP[r.sync]} size="sm" />

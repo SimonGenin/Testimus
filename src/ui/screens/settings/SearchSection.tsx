@@ -168,6 +168,11 @@ export function SearchSection() {
               <Skeleton width="40%" />
             ) : indexing ? (
               <Badge label="Indexing…" tone="info" busy />
+            ) : !s.docs.length ? (
+              <>
+                <Badge label="Empty" icon="circle-dashed" />
+                <span {...stylex.props(styles.muted)}>No document yet — nothing to index.</span>
+              </>
             ) : fresh ? (
               <>
                 <Badge label="Up to date" tone="success" icon="check-circle" />
@@ -191,7 +196,7 @@ export function SearchSection() {
               size="sm"
               icon="refresh"
               label="Reindex"
-              disabled={indexing}
+              disabled={indexing || (s && !s.docs.length ? "Add documents first" : false)}
               onClick={() => void reindexAll(() => void invalidate(client, [["rag.status"], ["rag.spaces"]]))}
             />
           </div>
@@ -231,7 +236,7 @@ export function SearchSection() {
                     ) : (
                       <Badge label="Incomplete" tone="warning" icon="alert-triangle" size="sm" />
                     )}
-                    {x.active && <Badge label="In use here" tone="success" icon="circle-dot" size="sm" />}
+                    {x.active && <Badge label="In use here" tone="success" icon="target" size="sm" />}
                   </span>
                 ),
               },

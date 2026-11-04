@@ -2,6 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
 import type { Job, JobProcess } from "../../../core/types.ts";
 import { Badge } from "../../components/ui/Badge.tsx";
+import { Button } from "../../components/ui/Button.tsx";
 import { List } from "../../components/ui/List.tsx";
 import type { ListItemProps } from "../../components/ui/ListItem.tsx";
 import { Progress } from "../../components/ui/Progress.tsx";
@@ -79,6 +80,7 @@ export type ListCtx = {
   isOpen(n: JobNode): boolean;
   toggle(id: string, open: boolean): void;
   pick(id: string): void;
+  cancel(id: string): void;
 };
 
 function inside(n: JobNode): string {
@@ -189,6 +191,17 @@ function jobItem(r: Extract<Row, { kind: "job" }>, c: ListCtx): ListItemProps {
       duration(job, c.now),
       clock(job.startedAt).slice(0, 5),
     ),
+    actions:
+      job.status === "running" ? (
+        <Button
+          variant="quiet"
+          size="xs"
+          icon="stop"
+          iconOnly
+          label={`Cancel ${kindLabel(job.kind)}`}
+          onClick={() => c.cancel(job.id)}
+        />
+      ) : undefined,
     depth,
     expanded: open,
   };

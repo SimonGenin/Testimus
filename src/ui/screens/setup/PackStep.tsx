@@ -3,6 +3,7 @@ import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Card } from "../../components/ui/Card.tsx";
 import { EmptyState } from "../../components/ui/EmptyState.tsx";
+import { Icon } from "../../components/ui/Icon.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { useApp } from "../../lib/app.ts";
 import { border, color, fontSize, lineHeight, radius, space } from "../../styles/tokens.stylex.ts";
@@ -39,7 +40,16 @@ const styles = stylex.create({
   fact: { display: "contents" },
   term: { color: color.textMuted },
   value: { margin: 0, color: color.text },
-  notYet: { flex: 1, margin: 0, color: color.textMuted, fontSize: fontSize.compact, lineHeight: lineHeight.compact },
+  notYet: {
+    flex: 1,
+    margin: 0,
+    display: "flex",
+    alignItems: "center",
+    gap: space.s3,
+    color: color.textMuted,
+    fontSize: fontSize.compact,
+    lineHeight: lineHeight.compact,
+  },
   packs: { display: "flex", flexDirection: "column", gap: space.s3 },
 });
 
@@ -101,10 +111,13 @@ export function PackStep({ onBack }: { onBack: () => void }) {
         {s.machine ? (
           <Machine machine={s.machine} />
         ) : (
-          <p {...stylex.props(styles.notYet)}>Not analysed yet: until then, no pack is said to fit.</p>
+          <p {...stylex.props(styles.notYet)}>
+            <Icon name="cpu" />
+            Not analysed yet: until then, no pack is said to fit.
+          </p>
         )}
         <Button
-          icon="refresh"
+          icon={s.machine ? "refresh" : "cpu"}
           label={s.analysing ? "Analysing…" : s.machine ? "Analyse again" : "Analyse my machine"}
           loading={s.analysing}
           disabled={!s.packs}

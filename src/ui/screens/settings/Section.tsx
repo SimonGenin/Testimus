@@ -43,7 +43,7 @@ export function Section({
 }: {
   id: string;
   title: string;
-  intro: ReactNode;
+  intro?: ReactNode;
   actions?: ReactNode;
   wide?: boolean;
   children: ReactNode;
@@ -55,7 +55,7 @@ export function Section({
           <h2 id={`s-${id}`} {...stylex.props(styles.title)}>
             {title}
           </h2>
-          <p {...stylex.props(styles.intro)}>{intro}</p>
+          {intro && <p {...stylex.props(styles.intro)}>{intro}</p>}
         </div>
         {actions && <div {...stylex.props(styles.actions)}>{actions}</div>}
       </div>

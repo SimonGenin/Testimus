@@ -3,8 +3,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import type { CommandOutput } from "../../../core/commands/index.ts";
 import type { CredsStatus, DoctorCheck } from "../../../core/types.ts";
+import { Badge } from "../../components/ui/Badge.tsx";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
+import { Icon } from "../../components/ui/Icon.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { Text } from "../../components/ui/Text.tsx";
 import { useDraft } from "../../lib/data/autosave.ts";
@@ -55,10 +57,20 @@ const styles = stylex.create({
   spacer: { flex: 1 },
   mono: { fontFamily: fontFamily.mono },
   checks: { display: "flex", flexDirection: "column", gap: space.s3 },
+  result: { display: "flex", alignItems: "center", gap: space.s3, flexWrap: "wrap" },
+  service: { fontSize: fontSize.compact, lineHeight: lineHeight.compact, fontWeight: fontWeight.semibold },
+  said: { fontSize: fontSize.compact, lineHeight: lineHeight.compact, color: color.text },
 });
 
 export type SetupResult = CommandOutput<"system.setCredentials">;
-export type Word = { ok: boolean; text: string };
+/** untested: the check did not run, a field is missing */
+export type Word = { ok: boolean; text: string; untested?: true };
+
+const RESULT = {
+  ok: { label: "Connected", tone: "success", icon: "check-circle" },
+  failed: { label: "Failed", tone: "danger", icon: "x-circle" },
+  untested: { label: "Not tested", tone: "warning", icon: "alert-triangle" },
+} as const;
 
 export const TOKENS = "https://id.atlassian.com/manage-profile/security/api-tokens";
 
@@ -93,7 +105,7 @@ export function savedAs(root: string, previous?: string): string {
 
 export function jiraWords(c: DoctorCheck | undefined): Word {
   if (!c || /needs baseUrl|Missing |not valid JSON/.test(c.detail))
-    return { ok: false, text: "Fill in the site, the email and the API token first." };
+    return { ok: false, text: "Fill in the site, the email and the API token first.", untested: true };
   if (c.state === "ok") return { ok: true, text: `Connected as ${c.detail.replace(/ on \S+$/, "")}` };
   if (/Jira 40[13]/.test(c.detail))
     return {
@@ -110,7 +122,7 @@ export function jiraWords(c: DoctorCheck | undefined): Word {
 
 export function xrayWords(c: DoctorCheck | undefined): Word {
   if (!c || /needs clientId|Missing |not valid JSON/.test(c.detail))
-    return { ok: false, text: "Fill in the Client ID and the Client Secret first." };
+    return { ok: false, text: "Fill in the Client ID and the Client Secret first.", untested: true };
   if (c.state === "ok") return { ok: true, text: "Key accepted" };
   if (/Xray 40[13]|authentication failed \(40[0-3]\)/.test(c.detail))
     return {
@@ -298,7 +310,8 @@ export function ConnectAtlassian({
           <h3 {...stylex.props(styles.title)}>An Xray API key — Client ID and Client secret</h3>
           <ol {...stylex.props(styles.how)}>
             <li>
-              In Jira, <strong>⚙ Settings → Apps → Xray → API Keys → Create API Key</strong>, for your own user{" "}
+              In Jira, <Icon name="settings" size="sm" />{" "}
+              <strong>Settings → Apps → Xray → API Keys → Create API Key</strong>, for your own user{" "}
               {base && (
                 <Button
                   size="sm"
@@ -337,6 +350,7 @@ export function ConnectAtlassian({
         <Button
           type="submit"
           variant="primary"
+          icon="plug"
           label={busy ? "Testing…" : "Save and test the connection"}
           loading={busy}
         />
@@ -371,12 +385,17 @@ export function ConnectAtlassian({
               {error}
             </Banner>
           )}
-          {words &&
-            (["jira", "xray"] as const).map((k) => (
-              <Banner key={k} compact tone={words[k].ok ? "success" : "danger"} title={k === "jira" ? "Jira" : "Xray"}>
-                {words[k].text}
-              </Banner>
-            ))}
+          {words && (
+            <div role="status" {...stylex.props(styles.checks)}>
+              {(["jira", "xray"] as const).map((k) => (
+                <div key={k} {...stylex.props(styles.result)}>
+                  <Badge {...RESULT[words[k].ok ? "ok" : words[k].untested ? "untested" : "failed"]} />
+                  <span {...stylex.props(styles.service)}>{k === "jira" ? "Jira" : "Xray"}</span>
+                  <span {...stylex.props(styles.said)}>{words[k].text}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </form>

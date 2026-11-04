@@ -34,6 +34,7 @@ const styles = stylex.create({
     display: "flex",
     containerName: "review",
     containerType: "inline-size",
+    position: "relative",
   },
   queueEdge: { display: { default: "flex", [container.reviewQueue]: "none" } },
   sourceEdge: { display: { default: "flex", [container.reviewSource]: "none" } },
@@ -69,6 +70,7 @@ export function ReviewScreen() {
   const queueW = usePaneWidth("queueWidth", { min: 240, max: 480, initial: 300 });
   const sourceW = usePaneWidth("sourceWidth", { min: 300, max: 720, initial: 420 });
   const [pushing, setPushing] = useState(false);
+  const [queueOver, setQueueOver] = useState(false);
   const body = useRef<HTMLDivElement>(null);
 
   const { setFocus } = app;
@@ -148,7 +150,11 @@ export function ReviewScreen() {
           onSort={filters.setSort}
           onFolder={filters.setFolder}
           onWithFindings={filters.setWithFindings}
-          onOpen={open}
+          onOpen={(id) => {
+            setQueueOver(false);
+            open(id);
+          }}
+          over={queueOver}
           width={queueW.moved ? queueW.width : undefined}
           checkAll={{ ids: d.needsCheck, running: act.checking, onCheck: () => act.check(d.needsCheck) }}
           error={d.queueError ? { message: d.queueError, onRetry: d.retryQueue } : undefined}
@@ -160,7 +166,7 @@ export function ReviewScreen() {
                 actions={
                   <Button
                     size="sm"
-                    icon="eye"
+                    icon="review"
                     label="Check"
                     loading={act.checking}
                     onClick={() => act.check(d.unchecked)}
@@ -175,7 +181,7 @@ export function ReviewScreen() {
         <div {...stylex.props(styles.queueEdge)}>
           <ResizeHandle label="Resize the review queue" {...queueW.handle} />
         </div>
-        <QueueStrip at={at} total={items?.length ?? 0} onMove={move} />
+        <QueueStrip at={at} total={items?.length ?? 0} shown={queueOver} onShow={setQueueOver} onMove={move} />
         <section aria-label="Test under review" {...stylex.props(styles.main)}>
           {view.editing && data ? (
             <ReviewEdit

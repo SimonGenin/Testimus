@@ -10,7 +10,18 @@ import { List } from "../../components/ui/List.tsx";
 import { Segmented } from "../../components/ui/Segmented.tsx";
 import { Select } from "../../components/ui/Select.tsx";
 import { plural } from "../../lib/format.ts";
-import { border, color, container, fontSize, fontWeight, lineHeight, size, space } from "../../styles/tokens.stylex.ts";
+import {
+  border,
+  color,
+  container,
+  fontSize,
+  fontWeight,
+  lineHeight,
+  shadow,
+  size,
+  space,
+  z,
+} from "../../styles/tokens.stylex.ts";
 import type { QueueGroup } from "./queueGroups.ts";
 
 export type QueueItem = {
@@ -50,6 +61,14 @@ const styles = stylex.create({
     minWidth: 0,
     minHeight: 0,
     backgroundColor: color.surface,
+  },
+  over: {
+    display: "flex",
+    position: { default: "static", [container.reviewQueue]: "absolute" },
+    insetBlock: 0,
+    insetInlineStart: size.controlLg,
+    zIndex: z.drawer,
+    boxShadow: { default: null, [container.reviewQueue]: shadow.s2 },
   },
   head: {
     boxSizing: "border-box",
@@ -109,8 +128,7 @@ function Counts({ item }: { item: QueueItem }) {
     );
   if (item.infos)
     out.push(<Badge key="i" size="sm" tone={quiet ? "neutral" : "info"} icon="info" label={`${item.infos} info`} />);
-  if (!out.length && !item.stale)
-    out.push(<Badge key="ok" size="sm" tone="success" icon="check" label="No findings" />);
+  if (!out.length && !item.stale) out.push(<span key="ok">No findings</span>);
   if (item.stale) out.push(<Badge key="s" size="sm" icon="history" label="Changed since its check" />);
   return <>{out}</>;
 }
@@ -141,13 +159,19 @@ export type ReviewQueueProps = {
   error?: { message: string; onRetry: () => void };
   notice?: ReactNode;
   width?: number;
+  /** the queue shown over the test while the screen is too narrow for both (« Show the queue » of the folded strip) */
+  over?: boolean;
 };
 
 export function ReviewQueue(p: ReviewQueueProps) {
   const all = p.counts ? p.counts.checked + p.counts.toFix + p.counts.draft : undefined;
   const narrowed = p.filter !== "all" || !!p.folder || p.withFindings;
   return (
-    <aside aria-label="Review queue" {...stylex.props(styles.queue)} style={p.width ? { width: p.width } : undefined}>
+    <aside
+      aria-label="Review queue"
+      {...stylex.props(styles.queue, p.over && styles.over)}
+      style={p.width ? { width: p.width } : undefined}
+    >
       <div {...stylex.props(styles.head)}>
         <span {...stylex.props(styles.title)}>Queue</span>
         {all !== undefined && <Badge count size="sm" label={String(all)} />}
@@ -156,7 +180,7 @@ export function ReviewQueue(p: ReviewQueueProps) {
           <Button
             size="sm"
             variant="quiet"
-            icon="eye"
+            icon="review"
             label="Check all"
             loading={p.checkAll.running}
             disabled={!p.checkAll.ids.length && "Every test of the queue is checked and up to date"}
@@ -184,6 +208,7 @@ export function ReviewQueue(p: ReviewQueueProps) {
             appearance="quiet"
             size="sm"
             prefix="Sort"
+            icon="sort"
             value={p.sort}
             options={SORTS}
             onChange={p.onSort}

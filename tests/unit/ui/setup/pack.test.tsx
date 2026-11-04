@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Badge } from "../../../../src/ui/components/ui/Badge.tsx";
 import { FirstRunScreen } from "../../../../src/ui/screens/setup/FirstRunScreen.tsx";
 import { PackStep } from "../../../../src/ui/screens/setup/PackStep.tsx";
+import { iconsIn } from "../../helpers/icon-names.tsx";
 import { callsOf, fakeEvents, fakeNet, net, withApp } from "../../helpers/ui-data.tsx";
 
 const toasts = vi.hoisted(() => ({ toast: vi.fn(), errorToast: vi.fn() }));
@@ -234,8 +235,11 @@ describe("First launch › Search pack, as the third step", () => {
     expect(screen.queryByText("Fits")).toBeNull();
     expect(screen.queryByText("Suggested for this PC")).toBeNull();
     expect(screen.getByText(/Not analysed yet/)).toBeInTheDocument();
+    expect(iconsIn(screen.getByText(/Not analysed yet/)), "audit icons 100").toEqual(["cpu"]);
+    expect(iconsIn(screen.getByRole("button", { name: "Analyse my machine" })), "audit icons 99").toEqual(["cpu"]);
     fireEvent.click(screen.getByRole("button", { name: "Analyse my machine" }));
     await waitFor(() => expect(radio("Performance")).toBeChecked());
+    expect(iconsIn(screen.getByRole("button", { name: "Analyse again" }))).toEqual(["refresh"]);
     expect(callsOf("models.hardware").map((c) => c.input)).toEqual([{ refresh: true }]);
     expect(screen.getByText("Suggested for this PC")).toBeInTheDocument();
     expect(screen.getAllByText("Fits")).toHaveLength(3);

@@ -123,7 +123,7 @@ export function ColumnsMenu({
               <span {...stylex.props(styles.words)}>
                 <span {...stylex.props(styles.name)}>
                   {c.name}
-                  {!c.known && <Badge label="not in Xray" size="sm" tone="warning" />}
+                  {!c.known && <Badge label="not in Xray" size="sm" tone="warning" icon="alert-triangle" />}
                   {scope === "test" && testModes?.[c.name] && (
                     <Button variant="quiet" size="xs" label="Use the project's" onClick={() => reset(c)} />
                   )}

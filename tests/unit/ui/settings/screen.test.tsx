@@ -3,6 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SettingsScreen } from "../../../../src/ui/screens/settings/SettingsScreen.tsx";
+import { iconsIn } from "../../helpers/icon-names.tsx";
 import { calls, fakeNet, info, mountSettings, net, reset } from "./helpers.tsx";
 
 vi.mock("../../../../src/ui/screens/settings/ModelsSection.tsx", () => ({
@@ -53,9 +54,18 @@ describe("Settings screen", () => {
   });
 
   it("defaults to Project, and says to open a project without one", () => {
-    mountSettings(<SettingsScreen />, { info: null, route: { screen: "documents" } });
+    const { app: state } = mountSettings(<SettingsScreen />, { info: null, route: { screen: "documents" } });
     expect(option("Project")).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("heading", { level: 2, name: "Project" })).toBeInTheDocument();
+    const empty = screen.getByText("No project open").closest("div")?.parentElement;
+    expect(iconsIn(empty)[0], "audit icons 103: the empty state's folder").toBe("folder");
     expect(screen.getByText(/Open a project to change its settings/)).toBeInTheDocument();
+    const open = screen.getByRole("button", { name: "Open a project…" });
+    expect(iconsIn(open)).toEqual(["folder-open"]);
+    fireEvent.click(open);
+    expect(state.navigate).toHaveBeenCalledWith("setup", "project");
+    fireEvent.click(screen.getByRole("button", { name: "New project" }));
+    expect(state.navigate).toHaveBeenCalledTimes(2);
     expect(calls("project.info")).toHaveLength(0);
     expect(calls("project.notes")).toHaveLength(0);
   });
@@ -82,6 +92,7 @@ describe("Settings screen", () => {
     expect(screen.getByRole("heading", { level: 1, name: /^Settings/ })).toBeInTheDocument();
     expect(screen.getByText(`v${__VERSION__}`)).toBeInTheDocument();
     expect(screen.getByText("Changes save as you make them")).toBeInTheDocument();
+    expect(iconsIn(screen.getByText("Changes save as you make them")), "audit icons 102").toEqual(["check"]);
   });
 
   it("the section list can be resized and keeps its width", () => {

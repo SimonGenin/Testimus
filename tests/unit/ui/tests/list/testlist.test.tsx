@@ -7,6 +7,7 @@ import type { Folder, LocalTestRef, RemoteTestRef } from "../../../../../src/cor
 import { setProject } from "../../../../../src/ui/api.ts";
 import { AppContext, type AppState } from "../../../../../src/ui/lib/app.ts";
 import { isKeyQuery, localTree, TestList } from "../../../../../src/ui/screens/tests/TestList.tsx";
+import { iconOf, iconsIn } from "../../../helpers/icons.ts";
 import { app } from "../../../helpers/ui-desktop.tsx";
 import { callsTo, deferred, Fail, server, stubServer } from "../../../helpers/ui-server.ts";
 import { testClient, WithData } from "../data-helpers.tsx";
@@ -152,12 +153,14 @@ describe("TestList helpers", () => {
     list({ refs: mixed });
     expect(item(/^Hand draft/)).toBeInTheDocument();
     expect(item(/^Generated validated/)).toBeInTheDocument();
+    expect(iconOf(within(item(/^Generated validated/)).getByText("Generated"))).toBe("claude");
     expect(screen.queryByRole("treeitem", { name: /Generated checked/ })).toBeNull();
     expect(screen.getByRole("tab", { name: /^Local ?2$/ })).toHaveAttribute("aria-selected", "true");
     expect(screen.queryByRole("tab", { name: /Review/ })).toBeNull();
     cleanup();
     const { state: s2 } = list({ refs: [mixed[2]] });
     expect(screen.getByText(/1 generated test waiting for review/)).toBeInTheDocument();
+    expect(iconOf(screen.getByRole("button", { name: "Review them" }))).toBeUndefined();
     fireEvent.click(screen.getByRole("button", { name: "Review them" }));
     expect(s2.navigate).toHaveBeenCalledWith("review");
   });
@@ -186,8 +189,10 @@ describe("TestList › local", () => {
     expect(item(/^Untitled/)).toHaveTextContent("no key");
     fireEvent.click(item(/^Bravo/));
     expect(onOpen).toHaveBeenCalledWith("t-b");
+    expect(iconsIn(item(/^Lot/)).slice(0, 2)).toEqual(["chevron-down", "folder-open"]);
     fireEvent.click(item(/^Lot/));
     expect(item(/^Lot/)).toHaveAttribute("aria-expanded", "false");
+    expect(iconsIn(item(/^Lot/)).slice(0, 2)).toEqual(["chevron-right", "folder"]);
     expect(screen.queryByRole("treeitem", { name: /^Alpha/ })).toBeNull();
     search("bravo");
     expect(item(/^Bravo/)).toBeInTheDocument();
@@ -197,6 +202,7 @@ describe("TestList › local", () => {
     expect(item(/^Alpha/)).toBeInTheDocument();
     search("nothing");
     expect(screen.getByText("No local test matches “nothing”.")).toBeInTheDocument();
+    expect(iconOf(screen.getByText("No local test matches “nothing”.").parentElement as HTMLElement)).toBe("filter");
     fireEvent.click(screen.getByRole("button", { name: "Search Jira for “nothing”" }));
     expect(screen.getByRole("tab", { name: /Jira/ })).toHaveAttribute("aria-selected", "true");
   });
@@ -365,9 +371,14 @@ describe("TestList › Jira", () => {
     server.routes["tests.create"] = () => ({ id: "t-new" });
     const { onOpen } = list();
     toJira();
+    expect(iconsIn(await screen.findByRole("treeitem", { name: /^Lot/ })).slice(0, 2)).toEqual([
+      "chevron-right",
+      "folder",
+    ]);
     fireEvent.click(await screen.findByRole("treeitem", { name: /^Lot/ }));
     expect(item(/^Lot/)).toHaveAttribute("aria-expanded", "true");
     expect(item(/^Lot/)).toHaveAttribute("aria-selected", "true");
+    expect(iconsIn(item(/^Lot/)).slice(0, 2)).toEqual(["chevron-down", "folder-open"]);
     expect(tipOf(screen.getByRole("button", { name: "New test" }))).toBe("New local test in /Lot");
     fireEvent.click(item(/^Lot/));
     expect(item(/^Lot/)).toHaveAttribute("aria-expanded", "false");
@@ -499,6 +510,7 @@ describe("TestList › Jira connection", () => {
     toJira();
     fireEvent.change(screen.getByLabelText("Jira project key"), { target: { value: "LFRPS12" } });
     fireEvent.click(screen.getByRole("button", { name: "Connect" }));
+    expect(iconOf(await screen.findByRole("button", { name: "Set up Jira access" }))).toBe("key");
     fireEvent.click(await screen.findByRole("button", { name: "Set up Jira access" }));
     expect(state.navigate).toHaveBeenCalledWith("setup");
   });
