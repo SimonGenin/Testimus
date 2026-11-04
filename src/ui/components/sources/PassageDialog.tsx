@@ -85,8 +85,9 @@ export function PassageDialog({
               </span>
               <DocBadges status={p.doc.status} />
             </>
-          ) : null}
-          <span {...stylex.props(styles.mono)}>· {source.anchor}</span>
+          ) : (
+            <span {...stylex.props(styles.mono)}>· {source.anchor}</span>
+          )}
         </span>
       }
       onClose={onClose}

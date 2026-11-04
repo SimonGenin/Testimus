@@ -52,7 +52,8 @@ test("On this test: Claude changes a step, the editor marks it, Revert puts it b
   await dock.getByRole("textbox", { name: "Ask Claude about this test" }).fill("Précise l'action du step 1.");
   await dock.getByRole("button", { name: "Send" }).click();
 
-  await expect(dock.getByText(/1 step changed · check queued/)).toBeVisible({ timeout: 20_000 });
+  await expect(dock.getByText("1 step changed", { exact: true })).toBeVisible({ timeout: 20_000 });
+  await expect(dock.getByText("Check queued", { exact: true })).toBeVisible();
   await expect.poll(action1).toContain("Vérifier l'affichage avant de continuer.");
   const main = page.getByRole("main");
   await expect(main.getByText(/Claude changed 1 step/)).toBeVisible();
