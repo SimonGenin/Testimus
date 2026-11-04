@@ -48,7 +48,7 @@ const card = (readOnly = false) => {
 describe("StepCard: a loose attachment opens the viewer on a click (StepCard.tsx:546, before it becomes a button)", () => {
   it("names each loose attachment by its file name and shows it from the test folder", () => {
     card();
-    expect(screen.getByText("2 attachments not embedded — drag into a field")).toBeInTheDocument();
+    expect(screen.getByText("2 attachments — drag into a field")).toBeInTheDocument();
     expect(attachment("loose.png")).toBeInTheDocument();
     expect(attachment("other.png")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "loose.png" })).toHaveAttribute("src", "/u/images/loose.png");

@@ -26,10 +26,32 @@ const styles = stylex.create({
   },
 });
 
-// ponytail: the queue folded when the screen is narrow (the dock open): where the open test sits, previous and next
-export function QueueStrip({ at, total, onMove }: { at: number; total: number; onMove: (by: 1 | -1) => void }) {
+// ponytail: the queue folded when the screen is narrow (the dock open): the queue over the test on demand, where the
+// open test sits, previous and next
+export function QueueStrip({
+  at,
+  total,
+  shown,
+  onShow,
+  onMove,
+}: {
+  at: number;
+  total: number;
+  shown: boolean;
+  onShow: (shown: boolean) => void;
+  onMove: (by: 1 | -1) => void;
+}) {
   return (
     <nav aria-label="Review queue, folded" {...stylex.props(styles.strip)}>
+      <Button
+        size="sm"
+        variant="quiet"
+        iconOnly
+        icon="panel-left"
+        label="Show the queue"
+        pressed={shown}
+        onClick={() => onShow(!shown)}
+      />
       <Button
         size="sm"
         variant="quiet"

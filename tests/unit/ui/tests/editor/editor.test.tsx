@@ -9,6 +9,7 @@ import { AppContext, type AppState, type ClaudeRun } from "../../../../../src/ui
 import { discardAutosave, flushAutosaves } from "../../../../../src/ui/lib/data/autosave.ts";
 import { key } from "../../../../../src/ui/lib/data/query.ts";
 import { TestEditor } from "../../../../../src/ui/screens/tests/TestEditor.tsx";
+import { iconOf } from "../../../helpers/icons.ts";
 import { layoutOf } from "../../../helpers/layout.ts";
 import { FakeES } from "../../../helpers/ui-data.tsx";
 import { app } from "../../../helpers/ui-desktop.tsx";
@@ -318,6 +319,7 @@ describe("TestEditor › loading", () => {
     editor();
     expect(await screen.findByText("This test could not be opened")).toBeInTheDocument();
     expect(screen.getByText("No test t1")).toBeInTheDocument();
+    expect(iconOf(screen.getByRole("button", { name: "Try again" }))).toBe("refresh");
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     await waitFor(() => expect(callsTo("tests.show")).toHaveLength(2));
     expect(screen.getByText("No test t1")).toBeInTheDocument();

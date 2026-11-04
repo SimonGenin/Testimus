@@ -8,6 +8,7 @@ import { AppContext, type AppState } from "../../../../src/ui/lib/app.ts";
 import { draftOf, keepDraft } from "../../../../src/ui/lib/drafts.ts";
 import { abandonPulls, startPull } from "../../../../src/ui/screens/tests/pulls.ts";
 import { TestsScreen } from "../../../../src/ui/screens/tests/TestsScreen.tsx";
+import { iconOf } from "../../helpers/icons.ts";
 import { app } from "../../helpers/ui-desktop.tsx";
 import { callsTo, deferred, Fail, server, stubServer } from "../../helpers/ui-server.ts";
 import { testClient, WithData } from "./data-helpers.tsx";
@@ -166,7 +167,8 @@ describe("TestsScreen", () => {
   it("asks for nothing and says nothing while no project is open", async () => {
     setProject(null);
     const { state } = screenOf();
-    expect(await screen.findAllByText("No project open")).toHaveLength(2);
+    expect(await screen.findAllByText(/^No project open\.?$/)).toHaveLength(2);
+    expect(iconOf(screen.getByText("No project open."))).toBeUndefined();
     expect(screen.queryByText(/No test yet/)).toBeNull();
     expect(screen.getByRole("textbox", { name: "Filter tests" })).toBeDisabled();
     expect(
@@ -280,10 +282,10 @@ describe("TestsScreen", () => {
     };
     const { state } = screenOf({ route: { screen: "tests", arg: "K-7" } });
     act(() => startPull("K-7", "Seven"));
-    expect(await screen.findByText("Pull failed")).toBeInTheDocument();
+    expect(await screen.findByText("Could not pull K-7")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     await waitFor(() => expect(n).toBe(2));
-    expect(await screen.findByText("Pull failed")).toBeInTheDocument();
+    expect(await screen.findByText("Could not pull K-7")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Back" }));
     expect(state.navigate).toHaveBeenCalledWith("tests");
     server.routes["xray.pull"] = () => new Promise(() => {});

@@ -614,8 +614,7 @@ describe("Tests screen › pull queue", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Could not pull LFRPS12-8");
     finish("job-2", null, "failed", "Jira said 404");
     const main = screen.getByRole("main");
-    expect(await within(main).findByText("Pull failed")).toBeInTheDocument();
-    expect(within(main).getByText("Could not pull LFRPS12-9")).toBeInTheDocument();
+    expect(await within(main).findByText("Could not pull LFRPS12-9")).toBeInTheDocument();
     expect(within(main).getByText("Jira said 404")).toBeInTheDocument();
     fireEvent.click(within(main).getByRole("button", { name: "Retry" }));
     await waitFor(() => expect(named("xray.pull")).toHaveLength(3));

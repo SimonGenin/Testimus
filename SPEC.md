@@ -1282,7 +1282,8 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
   only until Reindex). `TESTIMUS_MOCK_DOWNLOAD_MS` (2500) paces fake downloads and pulls. A generation request about
   « avec TK » reads only §5.6.6 and cites one quote under the wrong section (the Review's evidence states).
 - Narrow widths (from 760 px, e.g. a laptop at 150 %): Review folds on its own width — under 1020 px the queue folds
-  to a strip (previous / next), under 760 px the source panel hides too, so the test keeps ≥ 420 px. The Claude dock
+  to a strip (Show the queue, which lays the queue over the test until a test is opened from it; previous / next),
+  under 760 px the source panel hides too, so the test keeps ≥ 420 px. The Claude dock
   open beside a screen takes its width (Review at 1440 px with the dock open folds its queue); below 1300 px of window
   the open dock floats over the screen instead (design SYSTEM.md); a
   document added but not indexed shows « Indexing failed » with Reindex under its row; finished add rows

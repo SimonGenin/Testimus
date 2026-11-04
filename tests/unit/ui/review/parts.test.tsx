@@ -1,8 +1,11 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Finding, Step, Test } from "../../../../src/core/types.ts";
+import { createQueryClient } from "../../../../src/ui/lib/data/query.ts";
 import { FixNote } from "../../../../src/ui/screens/review/FixNote.tsx";
 import { type QueueItem, ReviewQueue } from "../../../../src/ui/screens/review/ReviewQueue.tsx";
 import { FindingSources, findingSummary, ReviewStep } from "../../../../src/ui/screens/review/ReviewStep.tsx";
@@ -28,6 +31,11 @@ const xray = layoutOf(
     { id: "cf", name: "Exigence", type: "text", builtin: false },
   ],
   { order: ["Action", "Data", "Expected Result", "Exigence"], collapsed: ["Data"], hidden: [] },
+);
+
+// the banner of a Claude run reads the running jobs (its « Cancel the run »)
+const Data = ({ children }: { children: ReactNode }) => (
+  <QueryClientProvider client={createQueryClient()}>{children}</QueryClientProvider>
 );
 
 const finding = (over: Partial<Finding> = {}): Finding => ({
@@ -408,7 +416,7 @@ describe("ReviewTest", () => {
       onKeepAfterRun,
       fixMessage: "Still wrong",
     });
-    const { rerender } = render(<ReviewTest {...p} />);
+    const { rerender } = render(<ReviewTest {...p} />, { wrapper: Data });
     expect(screen.getByText("Not in Jira yet")).toBeInTheDocument();
     expect(screen.getByText("Untitled test")).toBeInTheDocument();
     expect(screen.getByText(/not checked yet · marked by Ana/)).toBeInTheDocument();
@@ -443,7 +451,7 @@ describe("ReviewTest", () => {
 
   it("the check not run or out of date offers it, never while Claude works on the test", () => {
     const onCheck = vi.fn();
-    const { rerender } = render(<ReviewTest {...props({ check: null, onCheck })} />);
+    const { rerender } = render(<ReviewTest {...props({ check: null, onCheck })} />, { wrapper: Data });
     fireEvent.click(screen.getByRole("button", { name: "Check" }));
     expect(onCheck).toHaveBeenCalled();
     rerender(<ReviewTest {...props({ stale: true, onCheck, checking: true })} />);
