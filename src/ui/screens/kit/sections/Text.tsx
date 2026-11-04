@@ -1,6 +1,27 @@
+import * as stylex from "@stylexjs/stylex";
+import { useState } from "react";
 import { Button } from "../../../components/ui/Button.tsx";
+import { ResizeHandle } from "../../../components/ui/ResizeHandle.tsx";
 import { type SaveState, Text } from "../../../components/ui/Text.tsx";
+import { space } from "../../../styles/tokens.stylex.ts";
 import { Cell, type KitSection, States } from "../kit.tsx";
+
+const styles = stylex.create({
+  resizable: { display: "flex", gap: space.s3, width: "100%" },
+  pane: { flex: "none", minWidth: 0 },
+});
+
+function Resizable({ text }: { text: string }) {
+  const [px, setPx] = useState(240);
+  return (
+    <div {...stylex.props(styles.resizable)}>
+      <div {...stylex.props(styles.pane)} style={{ width: px }}>
+        <Text label="Expected result" multiline value={text} onChange={() => {}} />
+      </div>
+      <ResizeHandle label="Field width" value={px} min={160} max={480} defaultValue={240} onChange={setPx} />
+    </div>
+  );
+}
 
 const noop = async () => {};
 const state = (status: SaveState["status"], error?: string): SaveState => ({
@@ -54,6 +75,9 @@ export const section: KitSection = {
       </Cell>
       <Cell label="multiline, growing (very long text)" wide column>
         <Text label="Description" multiline value={LONG} onChange={() => {}} />
+      </Cell>
+      <Cell label="multiline, its height follows its width (drag the edge)" wide column>
+        <Resizable text={LONG} />
       </Cell>
       <Cell label="inline (the step editor)" wide column>
         <Text

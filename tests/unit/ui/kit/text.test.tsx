@@ -205,6 +205,45 @@ describe("Text", () => {
     expect(f).toHaveAttribute("type", "password");
   });
 
+  it("a growing field fits its text again when its width changes, not when only its height does", () => {
+    const watched: { cb: ResizeObserverCallback; el?: Element; off: boolean }[] = [];
+    class FakeRO {
+      w: (typeof watched)[number];
+      constructor(cb: ResizeObserverCallback) {
+        this.w = { cb, off: false };
+        watched.push(this.w);
+      }
+      observe(el: Element) {
+        this.w.el = el;
+      }
+      disconnect() {
+        this.w.off = true;
+      }
+      unobserve() {}
+    }
+    vi.stubGlobal("ResizeObserver", FakeRO);
+    const { unmount } = render(<Text ariaLabel="Expected" multiline value="Le poste affiche un long message" />);
+    const area = screen.getByRole("textbox", { name: "Expected" }) as HTMLTextAreaElement;
+    let tall = 48;
+    Object.defineProperty(area, "scrollHeight", { configurable: true, get: () => tall });
+    const w = watched.find((x) => x.el === area);
+    expect(w).toBeDefined();
+    const resize = (width: number) =>
+      act(() =>
+        w?.cb([{ target: area, contentRect: { width } } as unknown as ResizeObserverEntry], {} as ResizeObserver),
+      );
+    resize(200);
+    expect(area.style.height).toBe("48px");
+    tall = 96;
+    resize(200);
+    expect(area.style.height).toBe("48px");
+    resize(120);
+    expect(area.style.height).toBe("96px");
+    unmount();
+    expect(w?.off).toBe(true);
+    vi.unstubAllGlobals();
+  });
+
   it("refuses to save without the read it saves", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     expect(() => render(<Text ariaLabel="x" value="" save={vi.fn()} />)).toThrow(/saveKey/);
