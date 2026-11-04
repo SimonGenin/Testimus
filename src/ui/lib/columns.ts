@@ -1,5 +1,4 @@
 import type { ColumnLayout, ColumnMode, ColumnModes, Step } from "../../core/types.ts";
-import { BUILTIN_FIELDS } from "../../core/types.ts";
 import { fieldViews } from "./fields.ts";
 
 // One column of the step card. A built-in one is a field of blocks (text, screenshots, tables); a project
@@ -19,10 +18,11 @@ const kindOf = (type: string): Column["kind"] =>
 export function columnsOf(x: ColumnLayout, step?: Step, linked = true): Column[] {
   const types = new Map(x.fields.map((f) => [f.name, f.type]));
   const off = new Set(x.fields.filter((f) => f.disabled).map((f) => f.name));
+  const builtin = new Set([...x.fields, ...x.columns].filter((f) => f.builtin).map((f) => f.name));
   return fieldViews(x, step).map((v): Column => {
     const known = !linked || types.has(v.name);
     const flag = off.has(v.name) ? { off: true } : {};
-    if (BUILTIN_FIELDS.includes(v.name)) return { name: v.name, kind: "blocks", known: true, ...flag };
+    if (builtin.has(v.name)) return { name: v.name, kind: "blocks", known: true, ...flag };
     return { name: v.name, kind: known ? kindOf(types.get(v.name) ?? "") : "text", known, ...flag };
   });
 }

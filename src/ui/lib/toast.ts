@@ -1,5 +1,6 @@
-import { useSyncExternalStore } from "react";
-import { ApiError } from "../api.ts";
+import { useMemo } from "react";
+import { dismissToast, toast as show, type ToastTone, useToasts as useLive } from "../components/ui/Toast.tsx";
+import { ApiError } from "./data/client.ts";
 import { message } from "./format.ts";
 
 export type Toast = {
@@ -12,36 +13,27 @@ export type Toast = {
   left: number;
 };
 
-const MAX = 3;
+const TONE: Record<Toast["kind"], ToastTone> = { error: "danger", info: "neutral", ok: "success" };
+const KIND: Partial<Record<ToastTone, Toast["kind"]>> = { danger: "error", success: "ok" };
 
-let items: Toast[] = [];
-let seq = 0;
-let timer: ReturnType<typeof setInterval> | undefined;
-const listeners = new Set<() => void>();
-
-const emit = () => {
-  for (const l of listeners) l();
-};
-
-const tick = () => {
-  const next = items.map((t) => (Number.isFinite(t.left) ? { ...t, left: t.left - 1 } : t));
-  for (const t of next) if (t.left <= 0) t.onExpire?.();
-  items = next.filter((t) => t.left > 0);
-  if (!items.some((t) => Number.isFinite(t.left)) && timer) {
-    clearInterval(timer);
-    timer = undefined;
-  }
-  emit();
-};
+// ponytail: the screens' words for a toast (kind, detail, run) put on the kit's one store (Toast.tsx); a toast closed
+// with its action taken (undone) does not run its onExpire
+const undone = new Set<number>();
 
 export function toast(t: Omit<Toast, "id" | "left"> & { left?: number }): number {
-  const id = ++seq;
-  // ponytail: an error the user never saw is worse than a stale one — errors wait for a dismissal
-  const all = [...items, { left: t.kind === "error" ? Number.POSITIVE_INFINITY : 6, ...t, id }];
-  for (const dropped of all.slice(0, -MAX)) dropped.onExpire?.();
-  items = all.slice(-MAX);
-  if (!timer && items.some((x) => Number.isFinite(x.left))) timer = setInterval(tick, 1000);
-  emit();
+  let id = 0;
+  const expire = t.onExpire;
+  id = show({
+    tone: TONE[t.kind],
+    title: t.title,
+    text: t.detail,
+    action: t.action && { label: t.action.label, onAction: t.action.run },
+    seconds: t.left,
+    onExpire: () => {
+      if (undone.delete(id)) return;
+      expire?.();
+    },
+  });
   return id;
 }
 
@@ -52,19 +44,25 @@ export const errorToast = (e: unknown, title = "Something went wrong") =>
     detail: e instanceof ApiError && e.fix ? `${e.message} — ${e.fix}` : message(e),
   });
 
-export function closeToast(id: number, undone = false): void {
-  if (!undone) items.find((t) => t.id === id)?.onExpire?.();
-  items = items.filter((t) => t.id !== id);
-  emit();
+export function closeToast(id: number, taken = false): void {
+  if (taken) undone.add(id);
+  dismissToast(id);
+  undone.delete(id);
 }
 
 export function useToasts(): Toast[] {
-  return useSyncExternalStore(
-    (fn) => {
-      listeners.add(fn);
-      return () => listeners.delete(fn);
-    },
-    () => items,
-    () => items,
+  const live = useLive();
+  return useMemo(
+    () =>
+      live.map((t) => ({
+        id: t.id,
+        kind: KIND[t.tone ?? "neutral"] ?? "info",
+        title: t.title,
+        detail: t.text,
+        action: t.action && { label: t.action.label, run: t.action.onAction },
+        onExpire: t.onExpire,
+        left: t.left,
+      })),
+    [live],
   );
 }

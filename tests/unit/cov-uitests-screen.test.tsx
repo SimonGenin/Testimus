@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LocalTestRef } from "../../src/core/types.ts";
 import { setProject } from "../../src/ui/api.ts";
 import { AppContext, type AppState } from "../../src/ui/lib/app.ts";
 import { abandonPulls, startPull } from "../../src/ui/screens/tests/pulls.ts";
 import { TestsScreen } from "../../src/ui/screens/tests/TestsScreen.tsx";
+import { renderWithData } from "./cov-uishell-helpers.tsx";
 import { callsTo, deferred, Fail, server, stubServer } from "./cov-uitests-helpers.ts";
 import { app } from "./ui-desktop-helpers.tsx";
 
@@ -81,7 +82,7 @@ const screenOf = (over: Partial<AppState> = {}) => {
       <TestsScreen />
     </AppContext.Provider>
   );
-  const r = render(tree(state));
+  const r = renderWithData(tree(state));
   return { ...r, state, again: (o: Partial<AppState>) => r.rerender(tree({ ...state, ...o })) };
 };
 

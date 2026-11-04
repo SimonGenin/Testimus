@@ -1,25 +1,25 @@
 import { useState } from "react";
+import { type PrefName, usePref } from "./prefs.ts";
 
-const read = (key: string, min: number, max: number): number | null => {
-  try {
-    const v = Number(localStorage.getItem(key));
-    return Number.isFinite(v) && v >= min && v <= max ? v : null;
-  } catch {
-    return null;
-  }
-};
+type WidthPref = Extract<
+  PrefName,
+  | "dockWidth"
+  | "sidebarWidth"
+  | "editorWidth"
+  | "docsListWidth"
+  | "docsTocWidth"
+  | "docsSideWidth"
+  | "genFormWidth"
+  | "jobsSideWidth"
+  | "queueWidth"
+  | "sourceWidth"
+  | "settingsNavWidth"
+>;
 
-const write = (key: string, w: number | null) => {
-  try {
-    if (w === null) localStorage.removeItem(key);
-    else localStorage.setItem(key, String(w));
-  } catch {}
-};
-
-// ponytail: one side bar's chosen width — null until the user drags (the CSS default applies), kept in
-// localStorage; `side` says where the bar sits from its DragEdge: "before" (left bar) or "after" (right bar)
+// ponytail: one side bar's chosen width for the screens still on the old drag edge — null until the user drags (the
+// default applies), kept in lib/prefs; `side` says where the bar sits from its edge: "before" (left) or "after"
 export function useSideWidth(key: string, min: number, max: number, side: "before" | "after") {
-  const [width, setWidth] = useState(() => read(key, min, max));
+  const [width, setWidth] = usePref(key.replace(/^testimus\./, "") as WidthPref);
   const [dragW, setDragW] = useState<number | null>(null);
   const edge = {
     target: (el: HTMLElement) => (side === "before" ? el.previousElementSibling : el.nextElementSibling) as HTMLElement,
@@ -28,13 +28,11 @@ export function useSideWidth(key: string, min: number, max: number, side: "befor
     onCommit: () => {
       if (dragW === null) return;
       setWidth(dragW);
-      write(key, dragW);
       setDragW(null);
     },
     onReset: () => {
       setDragW(null);
       setWidth(null);
-      write(key, null);
     },
   };
   return [dragW ?? width, edge] as const;

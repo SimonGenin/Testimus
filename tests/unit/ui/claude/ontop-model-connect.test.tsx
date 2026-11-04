@@ -49,7 +49,7 @@ describe("always on top", () => {
     const set = vi.fn(async (on: boolean) => on);
     (window.testimusDesktop as unknown as { setAlwaysOnTop: typeof set }).setAlwaysOnTop = set;
     expect(await setAlwaysOnTop(true)).toBe(true);
-    expect(localStorage.getItem("testimus.alwaysOnTop")).toBe("true");
+    expect(localStorage.getItem("testimus.alwaysOnTop")).toBe("1");
     set.mockClear();
     restoreAlwaysOnTop();
     expect(set).toHaveBeenCalledWith(true);
