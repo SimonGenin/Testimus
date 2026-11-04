@@ -163,7 +163,9 @@ test("Browse opens a project, the window takes its name, Show in Explorer reveal
     await page.getByRole("menuitem", { name: "Show in Explorer" }).click();
     await expect.poll(async () => (await main(app)).revealed).toEqual([dir]);
 
-    await page.getByRole("button", { name: "Show the document list" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Documents" })).toBeVisible();
+    const folded = page.getByRole("button", { name: "Show the document list" });
+    if (await folded.isVisible()) await folded.click();
     const docs = page.getByRole("region", { name: "Document list" }).getByRole("option", { name: /SOSIE_/ });
     await expect(docs).toHaveCount(2);
     await docs.first().click();
@@ -193,20 +195,20 @@ test("Browse opens a project, the window takes its name, Show in Explorer reveal
       },
       [...png],
     );
-    const img = page.locator("img.imgblock-img").first();
+    const img = page.getByTestId("image-block").getByRole("img").first();
     await expect(img).toBeVisible({ timeout: 15_000 });
     await expect.poll(() => img.evaluate((i) => (i as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
 
     await go(page, "#/setup/project");
     await pick(app, ["D:\\Tests"]);
-    await page.getByRole("button", { name: "Browse for the projects folder" }).click();
+    await page.getByRole("button", { name: "Browse…" }).click();
     await expect(page.getByRole("textbox", { name: "Projects folder" })).toHaveValue("D:\\Tests");
     await page.getByRole("textbox", { name: "Name" }).fill("Nouveau projet");
     await expect(page.getByText("D:\\Tests\\Nouveau projet")).toBeVisible();
     await shoot(page, "desktop-setup-project");
 
     await go(page, "#/settings/claude");
-    const browse = page.getByRole("button", { name: "Browse for the Claude program" });
+    const browse = page.getByRole("button", { name: "Browse…" });
     await browse.scrollIntoViewIfNeeded();
     await expect(browse).toBeEnabled();
     await shoot(page, "desktop-settings-appearance");
@@ -288,7 +290,8 @@ test("documents go to the core by path, the taskbar follows the jobs, their end 
     await count(4);
     expect(bodies).toEqual([{ files: [{ path: picked }] }, { files: [{ path: dropped }] }]);
 
-    await expect.poll(async () => (await main(app)).progress.at(-1), { timeout: 30_000 }).toBe(-1);
+    // ponytail: an addition copies the files (conversion and index are asked for after): no taskbar progress for it
+    expect((await main(app)).progress).toEqual([]);
 
     const { last: project } = await page.evaluate(() =>
       fetch("/api/project/list", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).then(
