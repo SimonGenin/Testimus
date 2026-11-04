@@ -25,6 +25,7 @@ const styles = stylex.create({
   said: { margin: 0, whiteSpace: "pre-wrap", fontSize: fontSize.body, lineHeight: lineHeight.body },
   list: { display: "flex", flexDirection: "column", gap: space.s4, margin: 0, padding: 0, listStyle: "none" },
   prop: {
+    boxSizing: "border-box",
     display: "flex",
     flexDirection: "column",
     gap: space.s2,

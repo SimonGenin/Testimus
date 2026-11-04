@@ -1,3 +1,4 @@
+import * as stylex from "@stylexjs/stylex";
 import { Banner } from "../../../components/ui/Banner.tsx";
 import { Button } from "../../../components/ui/Button.tsx";
 import { Modal } from "../../../components/ui/Modal.tsx";
@@ -6,6 +7,8 @@ import { Hint, Stack } from "../Section.tsx";
 import type { PackRow } from "./data.ts";
 import { OpLine } from "./OpLine.tsx";
 import { Models } from "./PackCard.tsx";
+
+const styles = stylex.create({ plain: { margin: 0 } });
 
 export type Bench = { jobId: string; status: "running" | "done" | "failed" | "cancelled"; error?: string };
 
@@ -46,7 +49,7 @@ export function BenchDialog({
       }
     >
       <Stack>
-        <p>
+        <p {...stylex.props(styles.plain)}>
           Testimus ships a reference document: the Syntec collective agreement, 90 articles, with 100 questions whose
           answering article is known. It searches that document with these models and counts how often the right article
           comes first, and how often it is in the top 5. The search times become this PC's speed for the pack.

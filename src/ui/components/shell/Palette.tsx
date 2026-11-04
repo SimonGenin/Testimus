@@ -42,7 +42,14 @@ const styles = stylex.create({
     borderColor: color.border,
   },
   grow: { flex: 1, minWidth: 0 },
-  list: { margin: 0, padding: space.s2, listStyle: "none", maxHeight: "60vh", overflowY: "auto" },
+  list: {
+    boxSizing: "border-box",
+    margin: 0,
+    padding: space.s2,
+    listStyle: "none",
+    maxHeight: "60vh",
+    overflowY: "auto",
+  },
   group: { margin: 0, padding: 0, listStyle: "none" },
   groupHead: {
     display: "flex",

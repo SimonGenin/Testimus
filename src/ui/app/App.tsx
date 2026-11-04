@@ -44,6 +44,7 @@ const styles = stylex.create({
     backgroundColor: color.canvas,
   },
   frame: {
+    boxSizing: "border-box",
     flex: 1,
     minWidth: 0,
     display: "flex",
@@ -59,7 +60,7 @@ const styles = stylex.create({
   },
   frameOpen: { borderRadius: radius.r3, marginInlineEnd: { default: 0, [breakpoint.dock]: space.s2 } },
   screen: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", position: "relative" },
-  dock: { flex: "none", display: "flex", width: size.dockFolded, zIndex: 1 },
+  dock: { boxSizing: "border-box", flex: "none", display: "flex", width: size.dockFolded, zIndex: 1 },
   dockOpen: {
     width: "var(--dock-size)",
     marginBlock: space.s2,

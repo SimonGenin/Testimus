@@ -29,6 +29,7 @@ const styles = stylex.create({
     overflow: { default: "hidden", [breakpoint.narrow]: "auto" },
   },
   form: (width: string) => ({
+    boxSizing: "border-box",
     flexShrink: 0,
     width: { default: width, [breakpoint.narrow]: "auto" },
     minHeight: 0,

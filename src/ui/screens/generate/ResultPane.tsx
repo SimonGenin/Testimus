@@ -15,7 +15,7 @@ import { checkLine, GenSummary, RunHead } from "./GenResult.tsx";
 import type { Generation } from "./useGeneration.ts";
 
 const styles = stylex.create({
-  pane: { display: "flex", flexDirection: "column", gap: space.s5, padding: space.s6 },
+  pane: { boxSizing: "border-box", display: "flex", flexDirection: "column", gap: space.s5, padding: space.s6 },
   summary: { display: "flex", flexDirection: "column", gap: space.s4 },
   error: { margin: 0, fontSize: fontSize.body, lineHeight: lineHeight.body, color: color.text },
   muted: { margin: 0, fontSize: fontSize.compact, lineHeight: lineHeight.compact, color: color.textMuted },

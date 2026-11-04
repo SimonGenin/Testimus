@@ -7,7 +7,14 @@ import { Skeleton } from "./Skeleton.tsx";
 const LOADING_ROWS = 3;
 
 const styles = stylex.create({
-  list: { display: "flex", flexDirection: "column", margin: 0, paddingBlock: space.s2, paddingInline: 0 },
+  list: {
+    boxSizing: "border-box",
+    display: "flex",
+    flexDirection: "column",
+    margin: 0,
+    paddingBlock: space.s2,
+    paddingInline: 0,
+  },
   flush: { paddingBlock: 0 },
   group: { display: "flex", flexDirection: "column", margin: 0, padding: 0 },
   head: {

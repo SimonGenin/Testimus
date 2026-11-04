@@ -29,10 +29,18 @@ export { isKeyQuery, localTree };
 
 const styles = stylex.create({
   side: { display: "flex", flexDirection: "column", minHeight: 0, height: "100%", backgroundColor: color.surface },
-  head: { display: "flex", alignItems: "center", gap: space.s2, paddingInline: space.s3, paddingTop: space.s2 },
+  head: {
+    boxSizing: "border-box",
+    display: "flex",
+    alignItems: "center",
+    gap: space.s2,
+    paddingInline: space.s3,
+    paddingTop: space.s2,
+  },
   grow: { flex: 1 },
   body: { flex: 1, minHeight: 0, overflow: "auto", display: "flex", flexDirection: "column", gap: space.s2 },
   conn: {
+    boxSizing: "border-box",
     display: "flex",
     alignItems: "center",
     gap: space.s2,

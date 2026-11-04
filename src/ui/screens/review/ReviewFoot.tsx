@@ -8,6 +8,7 @@ import { border, color, container, fontSize, lineHeight, space } from "../../sty
 
 const styles = stylex.create({
   foot: {
+    boxSizing: "border-box",
     flex: "none",
     display: "flex",
     alignItems: "center",

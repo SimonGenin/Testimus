@@ -23,7 +23,7 @@ const styles = stylex.create({
     borderBottomWidth: border.width,
     borderBottomColor: color.border,
   },
-  set: { margin: 0, padding: 0, borderWidth: 0, minWidth: 0 },
+  set: { boxSizing: "border-box", margin: 0, padding: 0, borderWidth: 0, minWidth: 0 },
   fields: { display: "flex", flexDirection: "column", gap: space.s3, flex: 1, minWidth: 0 },
   close: { paddingTop: space.s6 },
   acts: { display: "flex", justifyContent: "flex-end", gap: space.s3 },

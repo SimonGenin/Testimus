@@ -22,6 +22,7 @@ export const PAGE = 100;
 
 const styles = stylex.create({
   head: {
+    boxSizing: "border-box",
     display: "flex",
     alignItems: "baseline",
     gap: space.s3,

@@ -18,7 +18,7 @@ import { Icon } from "../ui/Icon.tsx";
 
 const styles = stylex.create({
   map: { display: "flex", flexDirection: "column", gap: space.s2 },
-  track: { position: "relative", paddingTop: space.s1 },
+  track: { boxSizing: "border-box", position: "relative", paddingTop: space.s1 },
   trackPins: { paddingTop: space.s4 },
   pin: {
     position: "absolute",

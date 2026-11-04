@@ -11,6 +11,7 @@ import { Section } from "./Section.tsx";
 const styles = stylex.create({
   rows: { display: "flex", flexDirection: "column", margin: 0, padding: 0, listStyle: "none" },
   row: {
+    boxSizing: "border-box",
     display: "flex",
     alignItems: "flex-start",
     gap: space.s3,

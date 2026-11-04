@@ -8,6 +8,7 @@ import { into } from "./scroll.ts";
 const styles = stylex.create({
   pane: { display: "flex", flexDirection: "column", minHeight: 0, flex: 1, minWidth: 0 },
   head: {
+    boxSizing: "border-box",
     display: "flex",
     alignItems: "baseline",
     justifyContent: "space-between",
@@ -21,7 +22,7 @@ const styles = stylex.create({
     color: color.textMuted,
   },
   count: { fontWeight: fontWeight.regular, color: color.textSubtle },
-  body: { flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: space.s3 },
+  body: { boxSizing: "border-box", flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: space.s3 },
   number: { fontFamily: fontFamily.mono, fontSize: fontSize.code, color: color.textSubtle },
 });
 

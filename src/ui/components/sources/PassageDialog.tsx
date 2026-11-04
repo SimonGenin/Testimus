@@ -14,6 +14,7 @@ import { DocBadges, PassageText } from "./PassageView.tsx";
 export { highlight } from "./PassageView.tsx";
 
 const styles = stylex.create({
+  plain: { margin: 0 },
   body: { display: "flex", flexDirection: "column", gap: space.s4 },
   meta: { fontFamily: fontFamily.mono, fontSize: fontSize.small },
   quote: {
@@ -75,7 +76,7 @@ export function PassageDialog({
           </>
         ) : read.error ? (
           <>
-            <p>This passage could not be shown: {message(read.error)}</p>
+            <p {...stylex.props(styles.plain)}>This passage could not be shown: {message(read.error)}</p>
             {quote}
           </>
         ) : !p ? (

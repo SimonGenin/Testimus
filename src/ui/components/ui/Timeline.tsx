@@ -7,6 +7,7 @@ import { Spinner } from "./Spinner.tsx";
 const styles = stylex.create({
   list: { display: "flex", flexDirection: "column", margin: 0, padding: 0, listStyle: "none", minWidth: 0 },
   item: {
+    boxSizing: "border-box",
     position: "relative",
     display: "grid",
     gridTemplateColumns: `${size.iconLg} minmax(0, 1fr)`,

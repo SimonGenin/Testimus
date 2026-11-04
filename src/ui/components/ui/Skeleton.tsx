@@ -32,6 +32,7 @@ const styles = stylex.create({
   w40: { width: "40%" },
   lines: { display: "flex", flexDirection: "column", flex: 1, minWidth: 0 },
   row: {
+    boxSizing: "border-box",
     display: "flex",
     alignItems: "center",
     gap: space.s3,

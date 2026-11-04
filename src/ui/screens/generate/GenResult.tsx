@@ -43,7 +43,14 @@ const styles = stylex.create({
   body: { display: "flex", flexDirection: "column", gap: space.s3 },
   line: { margin: 0, fontSize: fontSize.body, lineHeight: lineHeight.body, color: color.text },
   muted: { margin: 0, fontSize: fontSize.compact, lineHeight: lineHeight.compact, color: color.textMuted },
-  skipped: { margin: 0, paddingInlineStart: space.s5, display: "flex", flexDirection: "column", gap: space.s2 },
+  skipped: {
+    boxSizing: "border-box",
+    margin: 0,
+    paddingInlineStart: space.s5,
+    display: "flex",
+    flexDirection: "column",
+    gap: space.s2,
+  },
   item: { fontFamily: fontFamily.mono, fontSize: fontSize.code },
 });
 

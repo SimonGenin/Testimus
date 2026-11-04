@@ -4,6 +4,7 @@ import { border, color, focus, radius, shadow, size, space } from "../../../styl
 // the frame of a step card, shared by the live card and the placeholder of a deleted step
 export const cardStyles = stylex.create({
   card: {
+    boxSizing: "border-box",
     position: "relative",
     display: "flex",
     flexDirection: "column",
@@ -16,6 +17,7 @@ export const cardStyles = stylex.create({
     boxShadow: shadow.s1,
   },
   head: {
+    boxSizing: "border-box",
     display: "flex",
     alignItems: "center",
     flexWrap: "wrap",

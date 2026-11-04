@@ -8,6 +8,7 @@ import { Cell, type KitSection, States } from "../kit.tsx";
 
 const styles = stylex.create({
   well: {
+    boxSizing: "border-box",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",

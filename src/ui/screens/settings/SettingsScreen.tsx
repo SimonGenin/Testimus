@@ -22,6 +22,7 @@ const styles = stylex.create({
   screen: { display: "flex", flexDirection: "column", flex: 1, minHeight: 0, minWidth: 0 },
   frame: { display: "flex", flex: 1, minHeight: 0 },
   nav: {
+    boxSizing: "border-box",
     flexShrink: 0,
     overflowY: "auto",
     paddingBlock: space.s3,

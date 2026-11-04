@@ -14,7 +14,14 @@ import { StepCard, type StepLayout } from "../StepCard.tsx";
 import { GoneStep } from "../WasView.tsx";
 
 const styles = stylex.create({
-  head: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: space.s3, paddingTop: space.s3 },
+  head: {
+    boxSizing: "border-box",
+    display: "flex",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: space.s3,
+    paddingTop: space.s3,
+  },
   title: { margin: 0, fontSize: fontSize.titleSm, lineHeight: lineHeight.titleSm, fontWeight: fontWeight.semibold },
   grow: { flex: 1 },
   slot: { position: "relative" },
@@ -25,6 +32,7 @@ const styles = stylex.create({
     backgroundColor: color.accent,
   },
   add: {
+    boxSizing: "border-box",
     display: "flex",
     borderStyle: "dashed",
     borderWidth: border.width,

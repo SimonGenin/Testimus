@@ -29,6 +29,7 @@ const noop = () => {};
 
 const styles = stylex.create({
   card: {
+    boxSizing: "border-box",
     containerType: "inline-size",
     display: "flex",
     flexDirection: "column",
@@ -42,6 +43,7 @@ const styles = stylex.create({
   active: { outline: `${border.widthStrong} solid ${color.focusRing}`, outlineOffset: focus.offset },
   claude: { borderColor: color.claudeBorder },
   head: {
+    boxSizing: "border-box",
     display: "flex",
     alignItems: "center",
     gap: space.s2,
@@ -53,6 +55,7 @@ const styles = stylex.create({
   },
   folded: { paddingBottom: space.s3, cursor: "pointer" },
   num: {
+    boxSizing: "border-box",
     flex: "none",
     display: "inline-flex",
     alignItems: "center",
@@ -80,6 +83,7 @@ const styles = stylex.create({
   empty: { color: color.textSubtle },
   grow: { flex: 1 },
   fields: {
+    boxSizing: "border-box",
     display: "flex",
     flexDirection: "column",
     gap: space.s2,
@@ -95,6 +99,7 @@ const styles = stylex.create({
     alignItems: "start",
   },
   label: {
+    boxSizing: "border-box",
     paddingTop: `calc(${space.s2} + ${space.s1})`,
     fontSize: fontSize.small,
     lineHeight: lineHeight.small,
@@ -104,6 +109,7 @@ const styles = stylex.create({
   value: { display: "flex", flexDirection: "column", gap: space.s2, minWidth: 0 },
   quiet: { paddingBlock: space.s2, fontSize: fontSize.small, color: color.textSubtle },
   sources: {
+    boxSizing: "border-box",
     display: "flex",
     flexDirection: "column",
     gap: space.s2,
@@ -125,6 +131,7 @@ const styles = stylex.create({
     color: color.textSubtle,
   },
   findings: {
+    boxSizing: "border-box",
     display: "flex",
     flexDirection: "column",
     gap: space.s2,

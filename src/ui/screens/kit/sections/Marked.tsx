@@ -12,6 +12,7 @@ const styles = stylex.create({
     color: color.textMuted,
   },
   passage: {
+    margin: 0,
     fontFamily: fontFamily.reading,
     fontSize: fontSize.body,
     lineHeight: lineHeight.reading,

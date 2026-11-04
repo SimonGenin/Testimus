@@ -32,6 +32,7 @@ const styles = stylex.create({
   notice: { paddingInline: space.s5, paddingTop: space.s3 },
   body: { flex: 1, minHeight: 0, display: "flex", minWidth: 0 },
   list: {
+    boxSizing: "border-box",
     flex: "none",
     display: "flex",
     minHeight: 0,
@@ -41,9 +42,17 @@ const styles = stylex.create({
     borderRightColor: color.border,
   },
   listWidth: (w: number) => ({ width: w }),
-  none: { flex: 1, display: "flex", alignItems: "flex-start", padding: space.s5 },
-  empty: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: space.s7 },
+  none: { boxSizing: "border-box", flex: 1, display: "flex", alignItems: "flex-start", padding: space.s5 },
+  empty: {
+    boxSizing: "border-box",
+    flex: 1,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: space.s7,
+  },
   veil: {
+    boxSizing: "border-box",
     position: "absolute",
     inset: 0,
     zIndex: z.drawer,

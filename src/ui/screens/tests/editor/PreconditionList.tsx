@@ -6,6 +6,7 @@ import { color, fontFamily, fontSize, fontWeight, lineHeight, radius, space } fr
 
 const styles = stylex.create({
   panel: {
+    boxSizing: "border-box",
     display: "flex",
     flexDirection: "column",
     gap: space.s3,
@@ -28,6 +29,7 @@ const styles = stylex.create({
   summary: { fontWeight: fontWeight.medium },
   grow: { flex: 1 },
   def: {
+    boxSizing: "border-box",
     margin: 0,
     paddingInlineStart: `calc(${space.s5} + ${space.s3})`,
     whiteSpace: "pre-wrap",

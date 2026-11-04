@@ -49,6 +49,7 @@ const styles = stylex.create({
     backgroundColor: color.surface,
   },
   head: {
+    boxSizing: "border-box",
     flex: "none",
     display: "flex",
     alignItems: "center",
@@ -76,7 +77,7 @@ const styles = stylex.create({
   },
   row: { display: "flex", alignItems: "center", gap: space.s2, minWidth: 0, flexWrap: "wrap" },
   notice: { paddingTop: space.s3, paddingInline: space.s3 },
-  body: { flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: space.s5 },
+  body: { boxSizing: "border-box", flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: space.s5 },
 });
 
 function Counts({ item }: { item: QueueItem }) {

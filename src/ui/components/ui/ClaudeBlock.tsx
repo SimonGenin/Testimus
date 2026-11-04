@@ -44,6 +44,7 @@ const styles = stylex.create({
   disabled: { backgroundColor: color.surfaceSunken, borderColor: color.border, boxShadow: "none" },
   forceFocus: { borderColor: color.claude, boxShadow: FOCUS },
   row: {
+    boxSizing: "border-box",
     display: "flex",
     flexWrap: "wrap",
     alignItems: "center",
@@ -58,6 +59,7 @@ const styles = stylex.create({
     marginInlineEnd: space.s1,
   },
   foot: {
+    boxSizing: "border-box",
     containerType: "inline-size",
     display: "flex",
     alignItems: "center",

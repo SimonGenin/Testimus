@@ -15,6 +15,7 @@ import { DocContext } from "./DocContext.tsx";
 const styles = stylex.create({
   side: { display: "flex", flexDirection: "column", minHeight: 0, minWidth: 0, flex: 1, overflowY: "auto" },
   sec: {
+    boxSizing: "border-box",
     display: "flex",
     flexDirection: "column",
     gap: space.s3,

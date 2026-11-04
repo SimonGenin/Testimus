@@ -27,6 +27,7 @@ import { PackPlanDialog } from "./models/PackPlanDialog.tsx";
 import { Hint, Section, Stack } from "./Section.tsx";
 
 const styles = stylex.create({
+  plain: { margin: 0 },
   folder: { display: "flex", alignItems: "center", gap: space.s2, minWidth: 0 },
   path: {
     minWidth: 0,
@@ -292,7 +293,7 @@ export function ModelsSection() {
           onClose={() => a.setRemoving(null)}
         >
           <Stack>
-            <p>
+            <p {...stylex.props(styles.plain)}>
               {a.removing.inst.via === "download"
                 ? `Its files (${size(a.removing.inst.sizeMB)}) are deleted from ${a.removing.inst.where}.`
                 : `Testimus forgets it; the folder ${a.removing.inst.where} stays on disk.`}

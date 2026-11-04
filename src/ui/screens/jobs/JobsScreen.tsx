@@ -34,7 +34,7 @@ const styles = stylex.create({
     containerType: "inline-size",
     backgroundColor: color.surface,
   },
-  scroll: { flex: 1, minHeight: 0, overflowY: "auto", padding: space.s2 },
+  scroll: { boxSizing: "border-box", flex: 1, minHeight: 0, overflowY: "auto", padding: space.s2 },
   notice: { padding: space.s4 },
   side: { flexShrink: 0, minHeight: 0, maxWidth: "55%", display: "flex" },
 });

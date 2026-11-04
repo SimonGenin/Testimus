@@ -136,6 +136,7 @@ const styles = stylex.create({
   },
   lead: { display: "inline-flex", marginTop: space.s1, color: color.textSubtle },
   value: {
+    boxSizing: "border-box",
     flex: 1,
     minWidth: 0,
     margin: 0,

@@ -10,6 +10,7 @@ import { border, color, fontSize, lineHeight, size, space } from "../../styles/t
 
 const styles = stylex.create({
   tree: {
+    boxSizing: "border-box",
     listStyle: "none",
     margin: 0,
     paddingBlock: space.s2,
@@ -22,7 +23,7 @@ const styles = stylex.create({
     borderTopColor: color.border,
     backgroundColor: color.surfaceSunken,
   },
-  row: { display: "flex", alignItems: "center", gap: space.s2, minHeight: size.row },
+  row: { boxSizing: "border-box", display: "flex", alignItems: "center", gap: space.s2, minHeight: size.row },
   twisty: { width: size.controlSm, flexShrink: 0 },
   label: { flex: 1, minWidth: 0 },
   text: {

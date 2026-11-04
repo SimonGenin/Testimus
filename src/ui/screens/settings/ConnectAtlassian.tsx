@@ -42,6 +42,7 @@ const styles = stylex.create({
   col: { display: "flex", flexDirection: "column", gap: space.s3, flex: 1, minWidth: 0 },
   title: { margin: 0, fontSize: fontSize.body, lineHeight: lineHeight.body, fontWeight: fontWeight.semibold },
   how: {
+    boxSizing: "border-box",
     display: "flex",
     flexDirection: "column",
     gap: space.s2,

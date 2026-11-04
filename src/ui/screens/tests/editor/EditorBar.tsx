@@ -19,6 +19,7 @@ import { SaveStatus } from "./SaveStatus.tsx";
 
 const styles = stylex.create({
   bar: {
+    boxSizing: "border-box",
     flex: "none",
     position: "relative",
     zIndex: z.sticky,

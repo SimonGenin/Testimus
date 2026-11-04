@@ -4,6 +4,7 @@ import { breakpoint, color, fontSize, fontWeight, lineHeight, size, space } from
 
 const styles = stylex.create({
   page: {
+    boxSizing: "border-box",
     display: "flex",
     flexDirection: "column",
     gap: space.s5,

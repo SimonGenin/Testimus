@@ -19,6 +19,7 @@ const styles = stylex.create({
   screen: { flex: 1, minHeight: 0, minWidth: 0, display: "flex", flexDirection: "column" },
   scroll: { flex: 1, minHeight: 0, overflowY: "auto" },
   page: {
+    boxSizing: "border-box",
     maxWidth: `calc(${size.reading} + ${size.sidebar})`,
     paddingBlock: space.s7,
     paddingInline: space.s7,

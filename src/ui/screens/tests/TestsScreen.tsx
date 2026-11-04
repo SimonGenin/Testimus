@@ -24,6 +24,7 @@ const SIDEBAR = { min: 240, max: 480, initial: 300 };
 const styles = stylex.create({
   screen: { display: "flex", flex: 1, minWidth: 0, minHeight: 0, height: "100%", backgroundColor: color.canvas },
   side: {
+    boxSizing: "border-box",
     position: "relative",
     flex: "none",
     display: "flex",
@@ -35,7 +36,15 @@ const styles = stylex.create({
   },
   edge: { position: "absolute", top: 0, bottom: 0, right: 0, display: "flex" },
   main: { flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" },
-  pane: { flex: 1, minHeight: 0, overflow: "auto", display: "flex", justifyContent: "center", padding: space.s7 },
+  pane: {
+    boxSizing: "border-box",
+    flex: 1,
+    minHeight: 0,
+    overflow: "auto",
+    display: "flex",
+    justifyContent: "center",
+    padding: space.s7,
+  },
   connect: { width: "100%", maxWidth: size.modalMd, display: "flex", flexDirection: "column", gap: space.s4 },
   title: { margin: 0, fontSize: fontSize.title, lineHeight: lineHeight.title, fontWeight: fontWeight.semibold },
 });

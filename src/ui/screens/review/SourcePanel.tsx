@@ -32,6 +32,7 @@ const styles = stylex.create({
     backgroundColor: color.surface,
   },
   head: {
+    boxSizing: "border-box",
     flex: "none",
     display: "flex",
     alignItems: "center",
@@ -54,6 +55,7 @@ const styles = stylex.create({
     fontWeight: fontWeight.semibold,
   },
   body: {
+    boxSizing: "border-box",
     flex: 1,
     minHeight: 0,
     overflowY: "auto",
@@ -86,6 +88,7 @@ const styles = stylex.create({
   },
   quote: { margin: 0, fontFamily: fontFamily.reading, fontStyle: "italic", color: color.textMuted },
   foot: {
+    boxSizing: "border-box",
     flex: "none",
     display: "flex",
     alignItems: "center",

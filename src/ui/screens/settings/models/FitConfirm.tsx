@@ -6,7 +6,7 @@ import { fontFamily } from "../../../styles/tokens.stylex.ts";
 import { Hint, Stack } from "../Section.tsx";
 import { FitChip } from "./FitChip.tsx";
 
-const styles = stylex.create({ mono: { fontFamily: fontFamily.mono } });
+const styles = stylex.create({ mono: { fontFamily: fontFamily.mono }, plain: { margin: 0 } });
 
 const WHY: Record<Fit["verdict"], string> = {
   fits: "",
@@ -55,7 +55,7 @@ export function FitConfirm({
       }
     >
       <Stack>
-        <p>{fit.message}</p>
+        <p {...stylex.props(styles.plain)}>{fit.message}</p>
         {!(fit.verdict === "gpu-too-small" && /processor/.test(fit.message)) && <Hint>{WHY[fit.verdict]}</Hint>}
         {fit.unload.length > 0 && (
           <Hint>
