@@ -40,6 +40,57 @@ describe("api client", () => {
     expect(await run("system.version", {})).toEqual({ version: "0.1.0" });
   });
 
+  it("follows a job in the project it was started in, after the page moved to another project", async () => {
+    vi.useFakeTimers();
+    try {
+      let state = "running";
+      const asked: { name: string; project: string }[] = [];
+      vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
+        const where = decodeURIComponent((init.headers as Record<string, string>)["X-Testimus-Project"] ?? "");
+        asked.push({ name: url, project: where });
+        if (url === "/api/xray/pull") return reply(200, { jobId: "pull-1" });
+        if (where !== "C:\\A") return reply(400, { error: "No job pull-1." });
+        return reply(200, { job: { id: "pull-1", kind: "pull", status: state, result: { pulled: ["K-1"] } } });
+      });
+      setProject("C:\\A");
+      const done = run<{ pulled: string[] }>("xray.pull", { key: "K-1" });
+      await vi.advanceTimersByTimeAsync(0);
+      setProject("C:\\B");
+      state = "done";
+      await vi.advanceTimersByTimeAsync(1500);
+      expect(await done).toEqual({ pulled: ["K-1"] });
+      expect(asked.filter((a) => a.name === "/api/jobs/show").map((a) => a.project)).toEqual(["C:\\A", "C:\\A"]);
+      const n = asked.length;
+      await vi.advanceTimersByTimeAsync(6000);
+      expect(asked).toHaveLength(n);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("stops following a job its project no longer knows, and says so", async () => {
+    vi.useFakeTimers();
+    try {
+      let calls = 0;
+      vi.stubGlobal("fetch", async (url: string) => {
+        calls++;
+        if (url === "/api/xray/pull") return reply(200, { jobId: "pull-2" });
+        return reply(404, { error: "No job pull-2." });
+      });
+      setProject("C:\\A");
+      const done = run("xray.pull", { key: "K-1" }).catch((e: unknown) => e);
+      await vi.advanceTimersByTimeAsync(0);
+      const e = await done;
+      expect(e).toBeInstanceOf(ApiError);
+      expect((e as ApiError).message).toBe("No job pull-2.");
+      const n = calls;
+      await vi.advanceTimersByTimeAsync(6000);
+      expect(calls).toBe(n);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("builds file URLs of the open project", () => {
     setProject("D:/p");
     expect(fileUrl("tests/LFRPS12-1420/images/fig 40.png")).toBe(

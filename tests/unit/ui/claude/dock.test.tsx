@@ -37,7 +37,7 @@ afterEach(() => {
   });
   cleanup();
   vi.unstubAllGlobals();
-  setFlushHook(async () => {});
+  setFlushHook(async () => null);
   setProject(null);
 });
 
@@ -283,7 +283,7 @@ describe("Claude dock: connection", () => {
 
 describe("Claude dock: on a test", () => {
   it("runs on the whole test or one step and offers to show or revert the change", async () => {
-    const flushed = vi.fn(async () => {});
+    const flushed = vi.fn(async () => null);
     setFlushHook(flushed);
     net.routes["claude.run"] = () => ({
       ok: true,
@@ -305,7 +305,7 @@ describe("Claude dock: on a test", () => {
       model: "sonnet",
       effort: "medium",
     });
-    expect(flushed).toHaveBeenCalledWith([["tests.show"]]);
+    expect(flushed).toHaveBeenCalledWith([["tests.show"]], null);
     expect(await screen.findByText("2 steps changed · check queued")).toBeInTheDocument();
     expect(state.setClaudeRunning).toHaveBeenCalledWith("local-1");
     expect(state.setClaudeRunning).toHaveBeenLastCalledWith(null);
@@ -387,6 +387,7 @@ describe("Claude dock: on a test", () => {
     const order: string[] = [];
     setFlushHook(async () => {
       order.push("flush");
+      return null;
     });
     net.routes["claude.revert"] = () => {
       order.push("revert");

@@ -40,7 +40,8 @@ export type AppState = {
   testsNonce: number;
   navigate: (screen: Screen, arg?: string) => void;
   setFocus: (f: Focus | null) => void;
-  setClaudeRunning: (testId: string | null) => void;
+  // the dock's run, until its job is known (jobId) — the lock itself is read from the running jobs
+  setClaudeRunning: (testId: string | null, jobId?: string) => void;
   setLastRun: (r: ClaudeRun | null) => void;
   testsChanged: () => void;
   refreshInfo: () => void;

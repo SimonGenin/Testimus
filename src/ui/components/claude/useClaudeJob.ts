@@ -53,13 +53,20 @@ export function useClaudeJob() {
   }, [job, jobId, end]);
 
   const start = useCallback(
-    async <T>(name: CommandName, input: unknown, onEvent: (e: JobEvent) => void, flushFirst?: Prefix[]): Promise<T> => {
+    async <T>(
+      name: CommandName,
+      input: unknown,
+      onEvent: (e: JobEvent) => void,
+      flushFirst?: Prefix[],
+      onStarted?: (jobId: string) => void,
+    ): Promise<T> => {
       const r = (await execute(client, name, input as CommandInput<typeof name>, {
         invalidates: "none",
         flushFirst,
       })) as unknown;
       const id = (r as { jobId?: unknown })?.jobId;
       if (typeof id !== "string") return r as T;
+      onStarted?.(id);
       return new Promise<T>((resolve, reject) => {
         waiting.current = { onEvent, resolve: resolve as (v: unknown) => void, reject };
         setJobId(id);

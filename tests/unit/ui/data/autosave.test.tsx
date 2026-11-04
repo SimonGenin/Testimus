@@ -133,6 +133,49 @@ describe("autosave", () => {
     expect(b.result.current.status).toBe("saved");
   });
 
+  it("after Reload from disk, the next edit is saved over the version read again, not the one before the conflict", async () => {
+    let disk = "7";
+    const save = vi.fn(async (_v: string, base: string | undefined) => {
+      if (base !== undefined && base !== disk) throw new ApiError("moved", undefined, 409, "conflict");
+      disk = "8";
+      return "8";
+    });
+    const h = setup({ save });
+    act(() => h.result.current.set("edit"));
+    h.rerender({ ...h.props, value: "theirs", base: "7", save });
+    expect(h.result.current.status).toBe("conflict");
+    act(() => h.result.current.takeDisk());
+    h.rerender({ ...h.props, value: "theirs", base: "7", save });
+    expect(h.result.current.value).toBe("theirs");
+    act(() => h.result.current.set("theirs, then mine"));
+    await act(() => vi.advanceTimersByTimeAsync(400));
+    expect(save).toHaveBeenLastCalledWith("theirs, then mine", "7");
+    expect(h.result.current.status).toBe("saved");
+    act(() => h.result.current.set("and again"));
+    await act(() => vi.advanceTimersByTimeAsync(400));
+    expect(save).toHaveBeenLastCalledWith("and again", "8");
+    expect(h.result.current.status).toBe("saved");
+  });
+
+  it("after a save refused as a conflict, Reload from disk takes the version the read brings back", async () => {
+    let disk = "7";
+    const save = vi.fn(async (_v: string, base: string | undefined) => {
+      if (base !== undefined && base !== disk) throw new ApiError("moved", undefined, 409, "conflict");
+      disk = "8";
+      return "8";
+    });
+    const h = setup({ save });
+    act(() => h.result.current.set("edit"));
+    await act(() => vi.advanceTimersByTimeAsync(400));
+    expect(h.result.current.status).toBe("conflict");
+    act(() => h.result.current.takeDisk());
+    h.rerender({ ...h.props, value: "theirs", base: "7", save });
+    act(() => h.result.current.set("mine over theirs"));
+    await act(() => vi.advanceTimersByTimeAsync(400));
+    expect(save).toHaveBeenLastCalledWith("mine over theirs", "7");
+    expect(h.result.current.status).toBe("saved");
+  });
+
   it("sees a change on disk under a pending edit as a conflict instead of overwriting it", async () => {
     const save = vi.fn(async () => "9");
     const h = setup({ save, delay: "blur" });
@@ -192,6 +235,61 @@ describe("autosave", () => {
     expect(fetch).toHaveBeenCalled();
     vi.unstubAllGlobals();
     await flushAutosaves();
+  });
+});
+
+describe("autosave, when what is on screen could not be saved", () => {
+  it("saveNow says why: the file changed on disk, or the save was refused; nothing waiting says nothing", async () => {
+    const a = setup({ save: vi.fn().mockRejectedValue(new ApiError("moved", undefined, 409, "conflict")) });
+    act(() => a.result.current.set("mine"));
+    let why = await act(() => a.result.current.saveNow());
+    expect(why).toBeInstanceOf(ApiError);
+    expect((why as ApiError).code).toBe("conflict");
+    expect((why as ApiError).message).toMatch(/not saved/);
+    expect(a.result.current.value).toBe("mine");
+
+    const b = setup({ save: vi.fn().mockRejectedValue(new ApiError("disk full")) });
+    act(() => b.result.current.set("kept"));
+    why = await act(() => b.result.current.saveNow());
+    expect((why as ApiError).code).toBe("unsaved");
+    expect((why as ApiError).message).toMatch(/disk full/);
+
+    const c = setup({ save: vi.fn(async () => "2") });
+    act(() => c.result.current.set("fine"));
+    expect(await act(() => c.result.current.saveNow())).toBeNull();
+    expect(await act(() => c.result.current.saveNow())).toBeNull();
+  });
+
+  it("a command that needs the file saved first is not sent, and says why", async () => {
+    const k: Key = ["/p", "tests.show", { id: "Tunsaved" }];
+    const h = setup({ key: k, save: vi.fn().mockRejectedValue(new ApiError("disk full")), delay: "blur" });
+    act(() => h.result.current.set("on screen"));
+    const fetch = vi.fn(async () => new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", fetch);
+    const e = await act(() =>
+      execute(client, "xray.plan", { id: "Tunsaved" } as never, {
+        flushFirst: [["tests.show", { id: "Tunsaved" }]],
+        invalidates: "none",
+      }).catch((x: unknown) => x),
+    );
+    vi.unstubAllGlobals();
+    expect(fetch).not.toHaveBeenCalled();
+    expect(e).toBeInstanceOf(ApiError);
+    expect((e as ApiError).message).toMatch(/Tunsaved.*not saved.*disk full/);
+    expect(await flushAutosaves([["tests.show", { id: "Tunsaved" }]])).toBeInstanceOf(ApiError);
+    expect(await flushAutosaves([["tests.show", { id: "nothing-here" }]])).toBeNull();
+    vi.stubGlobal("fetch", fetch);
+    await act(() =>
+      execute(
+        client,
+        "xray.plan",
+        { id: "Tunsaved" } as never,
+        { flushFirst: [["tests.show"]], invalidates: "none" },
+        "/q",
+      ),
+    );
+    vi.unstubAllGlobals();
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 });
 

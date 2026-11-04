@@ -106,6 +106,19 @@ describe("TestEditor autosave: flushed before Download from Jira (audit M-T3)", 
     expect(order()).not.toContain("tests.save");
   });
 
+  it("an edit still waiting when the window moves to another project is saved to the project it was typed in", async () => {
+    const here = `/p/saving-${seq}`;
+    const r = editor();
+    await screen.findByLabelText("Action of step 1");
+    fireEvent.change(screen.getByLabelText("Description"), { target: { value: "Typed in A" } });
+    setProject("/p/elsewhere");
+    r.unmount();
+    await waitFor(() => expect(order()).toContain("tests.save"));
+    const save = server.calls.find((c) => c.name === "tests.save");
+    expect(save?.project).toBe(here);
+    expect((save?.input.test as Test | undefined)?.description).toBe("Typed in A");
+  });
+
   it("an edit typed then left alone for 400 ms is saved once, before any Download is asked", async () => {
     editor();
     await screen.findByLabelText("Action of step 1");

@@ -60,6 +60,21 @@ describe("Settings › Project", () => {
     await waitFor(() => expect(inputs("project.set")).toEqual([{ name: "Sosie" }]));
   });
 
+  it("a name emptied to type another keeps the empty box and says why nothing is saved", async () => {
+    mountSettings(<ProjectSection />);
+    const name = await waitFor(() => box("Name"));
+    fireEvent.change(name, { target: { value: "" } });
+    await new Promise((r) => setTimeout(r, 500));
+    expect(box("Name")).toHaveValue("");
+    expect(calls("project.set")).toHaveLength(0);
+    expect(screen.getByText(/A project needs a name/)).toBeInTheDocument();
+    fireEvent.change(box("Name"), { target: { value: "N" } });
+    expect(box("Name")).toHaveValue("N");
+    expect(screen.queryByText(/A project needs a name/)).not.toBeInTheDocument();
+    await waitFor(() => expect(inputs("project.set")).toEqual([{ name: "N" }]), { timeout: 1500 });
+    await waitFor(() => expect(box("Name")).toHaveValue("N"));
+  });
+
   it("a Jira project key and a label prefix typed but not blurred are saved when Settings goes, once", async () => {
     const r = mountSettings(<ProjectSection />);
     fireEvent.change(await waitFor(() => box("Jira project key")), { target: { value: "bhptcc" } });

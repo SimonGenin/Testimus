@@ -290,7 +290,7 @@ export function TestEditor({
   );
   // ponytail: nothing local to send — the test matches its last sync, even if Jira changed since (Xray Editor)
   const canPush = !(!!remote && !!test.key && !dirty);
-  const pushDisabled = pushReason({ busy, jiraOff: !jiraKey, pushing, canPush });
+  const pushDisabled = pushReason({ busy, jiraOff: !jiraKey, pushing, canPush, unsaved: doc.doc.status });
   const markOf = (s: Step) => marks?.byUid.get(uids.uidOf(s));
   const marked = marks ? test.steps.flatMap((s, i) => (markOf(s) ? [{ i, added: markOf(s) === "added" }] : [])) : null;
   const update = (fn: (t: Test) => Test) => {

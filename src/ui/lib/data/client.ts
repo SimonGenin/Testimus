@@ -29,9 +29,19 @@ export type JsonSchema = {
 export type ApiInfo = { project: string | null; mock: boolean; commands: CommandInfo[] };
 
 let current: string | null = null;
+const projectListeners = new Set<(left: string | null) => void>();
 
 export function setProject(dir: string | null): void {
+  if (dir === current) return;
+  const left = current;
   current = dir;
+  for (const fn of projectListeners) fn(left);
+}
+
+// ponytail: told when the window moves to another project, with the one it left
+export function onProjectChange(fn: (left: string | null) => void): () => void {
+  projectListeners.add(fn);
+  return () => projectListeners.delete(fn);
 }
 
 export function project(): string | null {
@@ -142,9 +152,20 @@ export function events(onEvent: (e: JobEvent) => void): () => void {
 const isJobRef = (v: unknown): v is { jobId: string } =>
   !!v && typeof v === "object" && typeof (v as { jobId?: unknown }).jobId === "string";
 
-export function waitJob<T = unknown>(jobId: string, onEvent?: (e: JobEvent) => void): Promise<T> {
+// ponytail: a job is followed in the project it was started in — the page may have moved on to another one since
+export function waitJob<T = unknown>(
+  jobId: string,
+  onEvent?: (e: JobEvent) => void,
+  p: string | null = current,
+): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     let settled = false;
+    const lost = (e: unknown) => {
+      if (settled || !(e instanceof ApiError) || e.status < 400 || e.status >= 500) return;
+      settled = true;
+      off();
+      reject(e);
+    };
     const finish = (job: Job) => {
       if (settled || job.status === "running") return;
       settled = true;
@@ -177,7 +198,7 @@ export function waitJob<T = unknown>(jobId: string, onEvent?: (e: JobEvent) => v
     const check = () => {
       const quiet = !heard;
       heard = false;
-      return call<{ job: Job }>("jobs.show", { id: jobId })
+      return call<{ job: Job }>("jobs.show", { id: jobId }, { project: p })
         .then((r) => {
           const j = r?.job;
           if (!j) return;
@@ -185,7 +206,7 @@ export function waitJob<T = unknown>(jobId: string, onEvent?: (e: JobEvent) => v
             onEvent?.({ jobId, at: new Date().toISOString(), type: "progress", message: j.message, ...j.progress });
           finish(j);
         })
-        .catch(() => {});
+        .catch(lost);
     };
     const poll = setInterval(check, 1500);
     const off = () => {
@@ -203,8 +224,9 @@ export async function run<T = unknown>(
   onStart?: (jobId: string) => void,
   cause?: JobCause,
 ): Promise<T> {
-  const r = await call<unknown>(name, input, undefined, cause);
+  const p = current;
+  const r = await call<unknown>(name, input, { cause, project: p });
   if (!isJobRef(r)) return r as T;
   onStart?.(r.jobId);
-  return await waitJob<T>(r.jobId, onEvent);
+  return await waitJob<T>(r.jobId, onEvent, p);
 }

@@ -1,6 +1,6 @@
 import { type Ctx, UserError } from "../command.ts";
 import { env } from "../env.ts";
-import { listJobs, showJob } from "../jobs.ts";
+import { listJobs, showJob, startJob } from "../jobs.ts";
 import { allActions, type Listed, readAction, suggestFor, writeAction } from "../lib/actions.ts";
 import { readDoc } from "../lib/docs.ts";
 import { readProject } from "../lib/project.ts";
@@ -210,15 +210,40 @@ export async function triageRun(ctx: Ctx, project: string, input: TriageInput) {
 // cheaply (project model, low effort), when Claude is there; a Claude run or a Jira call is never triaged
 const TRIAGED = /^(docs\.|rag-|rag\.|describe-figures|generate|check)/;
 
-export async function triageRefusal(project: string, jobId: string): Promise<string | null> {
+const deciding = new Set<string>();
+
+// ponytail: the failed job is held from the first check to the triage job's start — asking whether Claude is there
+// takes a while, and two pages that both saw the failure must start one triage, not two
+export async function triageFailed(project: string, jobId: string): Promise<{ triage: string | null; why: string }> {
   const shown = showJob(project, jobId);
   if (!shown) throw new UserError(`No job ${jobId} in this project.`, "testimus jobs list shows the jobs.");
   const { job } = shown;
-  if (job.status !== "failed") return `The job ${jobId} did not fail (${job.status}).`;
+  const no = (why: string) => ({ triage: null, why });
+  if (job.status !== "failed") return no(`The job ${jobId} did not fail (${job.status}).`);
   if (!TRIAGED.test(job.kind))
-    return `A ${job.kind} job is not shown to Claude (only documents, index, figures, generation and check jobs are).`;
-  if (listJobs(project).some((j) => j.kind === "actions.triage" && j.cause?.jobId === jobId))
-    return `Claude already looked at the job ${jobId}.`;
-  if (!(await claudeVersion()).ok) return "Claude Code is not connected.";
-  return null;
+    return no(
+      `A ${job.kind} job is not shown to Claude (only documents, index, figures, generation and check jobs are).`,
+    );
+  const held = `${project}\n${jobId}`;
+  const already = () => listJobs(project).some((j) => j.kind === "actions.triage" && j.cause?.jobId === jobId);
+  if (deciding.has(held) || already()) return no(`Claude already looked at the job ${jobId}.`);
+  deciding.add(held);
+  try {
+    if (!(await claudeVersion()).ok) return no("Claude Code is not connected.");
+    const input = { jobId };
+    const { job: started } = startJob(
+      "actions.triage",
+      jobId,
+      project,
+      (c) => triageRun(c, project, input),
+      undefined,
+      {
+        cause: { jobId, why: "after-failure" },
+        rerun: { name: "actions.triage", input },
+      },
+    );
+    return { triage: started.id, why: `Claude looks at the failed ${started.subject} job, cheaply (low effort).` };
+  } finally {
+    deciding.delete(held);
+  }
 }
