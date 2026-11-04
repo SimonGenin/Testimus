@@ -86,8 +86,8 @@ export function useProjects(onOpened?: () => void) {
       if (k.dir === app.info?.dir) app.closeProject();
       toast(
         gone
-          ? { kind: "info", title: `Project ${labelOf(k)} removed`, detail: "Its folder was already gone." }
-          : { kind: "info", title: `Project ${labelOf(k)} deleted`, detail: "Jira is untouched." },
+          ? { tone: "neutral", title: `Project ${labelOf(k)} removed`, detail: "Its folder was already gone." }
+          : { tone: "neutral", title: `Project ${labelOf(k)} deleted`, detail: "Jira is untouched." },
       );
       return true;
     } catch (e) {

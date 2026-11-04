@@ -39,7 +39,7 @@ export async function deleteTest(client: QueryClient, t: DeleteTarget): Promise<
     );
     client.removeQueries({ queryKey: key("tests.show", { id: t.id }) as unknown as readonly unknown[] });
     toast({
-      kind: "info",
+      tone: "neutral",
       title: `Local copy of ${t.key ?? t.id} deleted`,
       detail: t.key ? "The Jira test is untouched." : undefined,
     });

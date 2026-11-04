@@ -49,7 +49,7 @@ function DropSpace({ space: s, label, onClose }: { space: Space; label: string; 
           invalidates: [["rag.spaces"], ["rag.status"], ["docs.list"], ["models.advice"]],
         },
       );
-      toast({ kind: "ok", title: "Vector space dropped", detail: `${r.dropped} · ${r.freedMB} MB freed` });
+      toast({ tone: "success", title: "Vector space dropped", detail: `${r.dropped} · ${r.freedMB} MB freed` });
     } catch (e) {
       errorToast(e, "Could not drop the vector space");
     } finally {

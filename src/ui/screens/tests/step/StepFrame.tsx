@@ -46,10 +46,8 @@ const styles = stylex.create({
   chips: { flex: 1, minWidth: 0, display: "flex", flexWrap: "wrap", gap: space.s2 },
 });
 
-// ponytail: Card padded={false} keeps its body's padding (its `flush` shorthand loses to the body's longhands) — the one
-// child of a flush card takes it back; BESOIN in .build/v3/agents/ds-tests.md: drop this once the kit's flush works
 export const cardFlush = stylex.create({
-  child: { display: "flex", flexDirection: "column", minWidth: 0, margin: `calc(-1 * ${space.s6})` },
+  child: { display: "flex", flexDirection: "column", minWidth: 0 },
 });
 
 export const edgeOf = (m: StepMarks) =>

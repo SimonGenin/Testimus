@@ -31,8 +31,8 @@ describe("toasts", () => {
     const expired = vi.fn();
     const closed = vi.fn();
     act(() => {
-      toast({ kind: "info", title: "Saved", onExpire: expired });
-      toast({ kind: "error", title: "Broken", onExpire: closed });
+      toast({ tone: "neutral", title: "Saved", onExpire: expired });
+      toast({ tone: "danger", title: "Broken", onExpire: closed });
     });
     expect(result.current.map((t) => t.title)).toEqual(["Saved", "Broken"]);
     act(() => vi.advanceTimersByTime(6000));
@@ -50,16 +50,16 @@ describe("toasts", () => {
     const { result } = renderHook(() => useToasts());
     const dropped = vi.fn();
     act(() => {
-      toast({ kind: "ok", title: "1", onExpire: dropped });
-      toast({ kind: "ok", title: "2" });
-      toast({ kind: "ok", title: "3" });
-      toast({ kind: "ok", title: "4", left: 2 });
+      toast({ tone: "success", title: "1", onExpire: dropped });
+      toast({ tone: "success", title: "2" });
+      toast({ tone: "success", title: "3" });
+      toast({ tone: "success", title: "4", left: 2 });
     });
     expect(dropped).toHaveBeenCalledTimes(1);
     expect(result.current.map((t) => t.title)).toEqual(["2", "3", "4"]);
     const undone = vi.fn();
     act(() => {
-      const id = toast({ kind: "error", title: "kept", onExpire: undone });
+      const id = toast({ tone: "danger", title: "kept", onExpire: undone });
       closeToast(id, true);
     });
     expect(undone).not.toHaveBeenCalled();
@@ -98,9 +98,9 @@ describe("the screens' toasts on the kit's stack", () => {
     const stack = screen.getByRole("region", { name: "Notifications" });
     expect(stack).toBeEmptyDOMElement();
     act(() => {
-      toast({ kind: "error", title: "Broken", detail: "why" });
-      toast({ kind: "ok", title: "Done", action: { label: "Open", run }, onExpire: expire });
-      toast({ kind: "info", title: "Note" });
+      toast({ tone: "danger", title: "Broken", detail: "why" });
+      toast({ tone: "success", title: "Done", action: { label: "Open", run }, onExpire: expire });
+      toast({ tone: "neutral", title: "Note" });
     });
     expect(screen.getByRole("alert", { name: "Broken" })).toHaveTextContent("Brokenwhy");
     expect(within(stack).getAllByRole("status")).toHaveLength(2);
@@ -115,7 +115,7 @@ describe("the screens' toasts on the kit's stack", () => {
   it("leaves no toast behind", () => {
     render(<Left />);
     act(() => {
-      const id = toast({ kind: "error", title: "x" });
+      const id = toast({ tone: "danger", title: "x" });
       closeToast(id, true);
     });
     expect(left).toBe(0);

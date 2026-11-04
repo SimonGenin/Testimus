@@ -83,7 +83,7 @@ export function useStepEdits({ step, n, onChange, addImage, onImageGone, alive }
   const undoable = (title: string, name: string, before: string, image?: StepImage) => {
     const ok = token();
     toast({
-      kind: "info",
+      tone: "neutral",
       title,
       detail: `${name} of step ${n}`,
       onExpire: image ? () => onImageGone?.(image.file) : undefined,
@@ -91,7 +91,7 @@ export function useStepEdits({ step, n, onChange, addImage, onImageGone, alive }
         label: "Undo",
         run: () => {
           if (!ok()) {
-            toast({ kind: "info", title: "Too late to undo", detail: "The test was reloaded since." });
+            toast({ tone: "neutral", title: "Too late to undo", detail: "The test was reloaded since." });
             if (image) onImageGone?.(image.file);
             return;
           }
@@ -126,7 +126,7 @@ export function useStepEdits({ step, n, onChange, addImage, onImageGone, alive }
     const ok = token();
     onChange((s) => ({ ...s, images: s.images.filter((x) => x.file !== im.file) }));
     toast({
-      kind: "info",
+      tone: "neutral",
       title: "Attachment detached",
       detail: `${fileName(im.file)} of step ${n}`,
       onExpire: () => onImageGone?.(im.file),

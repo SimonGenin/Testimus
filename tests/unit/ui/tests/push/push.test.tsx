@@ -187,7 +187,7 @@ describe("PushDialog › running", () => {
       gate.resolve({ ok: true, id: "", ops: [] });
     });
     expect(onDone).toHaveBeenCalledWith("t1");
-    expect(toasts.at(-1)).toEqual({ kind: "ok", title: "Pushed LFRPS12-7", detail: "3 operations" });
+    expect(toasts.at(-1)).toEqual({ tone: "success", title: "Pushed LFRPS12-7", detail: "3 operations" });
   });
 
   it("names the pushed test by its new id and counts the done operations", async () => {
@@ -216,7 +216,7 @@ describe("PushDialog › running", () => {
     await confirm();
     await waitFor(() => expect(onDone).toHaveBeenCalledWith("LFRPS12-99"));
     expect(toasts.at(-1)).toMatchObject({
-      kind: "error",
+      tone: "danger",
       title: "Pushed LFRPS12-99, but the local copy was not refreshed",
       detail: expect.stringContaining("Download from Jira"),
     });

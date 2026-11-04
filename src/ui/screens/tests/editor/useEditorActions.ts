@@ -92,13 +92,13 @@ export function useEditorActions({
       // ponytail: the ring moves to the step that takes the deleted one's place (Xray Editor)
       setFocusStep((f) => (f < 0 ? f : Math.min(f, Math.max(left - 1, 0))));
       toast({
-        kind: "info",
+        tone: "neutral",
         title: `Step ${i + 1} deleted`,
         action: {
           label: "Undo",
           run: () => {
             if (!ok()) {
-              toast({ kind: "info", title: "Too late to undo", detail: "The test was reloaded since." });
+              toast({ tone: "neutral", title: "Too late to undo", detail: "The test was reloaded since." });
               return;
             }
             doc.update((t) => ({ ...t, steps: [...t.steps.slice(0, i), removed as Step, ...t.steps.slice(i)] }));
@@ -133,7 +133,7 @@ export function useEditorActions({
         await doc.reload("download");
         setCheckOverride("unchanged");
       }
-      toast({ kind: "ok", title: `${k} refreshed from Jira` });
+      toast({ tone: "success", title: `${k} refreshed from Jira` });
     } catch (e) {
       errorToast(e, `Could not download ${k}`);
     } finally {
@@ -171,7 +171,11 @@ export function useEditorActions({
       );
       await doc.reload("undo");
       app.testsChanged();
-      toast({ kind: "ok", title: "Restored the Jira version", detail: "From the last sync — nothing was downloaded." });
+      toast({
+        tone: "success",
+        title: "Restored the Jira version",
+        detail: "From the last sync — nothing was downloaded.",
+      });
     } catch (e) {
       errorToast(e, "Could not undo the local changes");
     } finally {
@@ -202,7 +206,7 @@ export function useEditorActions({
       };
       app.testsChanged();
       onOpen(r.id);
-      toast({ kind: "ok", title: "Cloned", detail: "The copy is a new local test." });
+      toast({ tone: "success", title: "Cloned", detail: "The copy is a new local test." });
     } catch (e) {
       errorToast(e, "Could not clone the test");
     }
@@ -261,7 +265,7 @@ export function useEditorActions({
         nonce: Date.now(),
       });
       app.testsChanged();
-      toast({ kind: "info", title: "Claude's changes reverted" });
+      toast({ tone: "neutral", title: "Claude's changes reverted" });
     } catch (e) {
       if (!force && editedAfterRun(e)) setRevertConflict(message(e));
       else errorToast(e, "Could not revert Claude's changes");

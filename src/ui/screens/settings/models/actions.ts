@@ -93,11 +93,11 @@ export function useModelActions(o: {
       setPlan(null);
       if (downloadOnly) {
         o.start(jobId, row.id, "models-usePack", `Downloading ${row.label}`, () =>
-          toast({ kind: "ok", title: `${row.label} pack downloaded`, detail: "Use this pack to switch to it." }),
+          toast({ tone: "success", title: `${row.label} pack downloaded`, detail: "Use this pack to switch to it." }),
         );
         return;
       }
-      toast({ kind: "ok", title: `${row.label} pack chosen for this project` });
+      toast({ tone: "success", title: `${row.label} pack chosen for this project` });
       o.start(jobId, row.id, "models-usePack", `Installing ${row.label}`);
     } catch (e) {
       if (e instanceof ApiError && e.code === "models-dir-unset") {
@@ -127,7 +127,11 @@ export function useModelActions(o: {
   const applyModel = async (r: CatalogRow, pick: { embedding?: string; reranker?: string }) => {
     try {
       const out = await execute(client, "models.use", pick, fx);
-      toast({ kind: "ok", title: `${r.label} in use for this project`, detail: out.reindex ? "Indexing again" : "" });
+      toast({
+        tone: "success",
+        title: `${r.label} in use for this project`,
+        detail: out.reindex ? "Indexing again" : "",
+      });
       if (out.indexJob) o.start(out.indexJob, "index", "rag-index", "Indexing the documents");
     } catch (e) {
       errorToast(e, `Could not use ${r.label}`);
@@ -138,7 +142,7 @@ export function useModelActions(o: {
     const current = o.status && o.status.embedding !== "none" ? o.status.embedding : undefined;
     if (r.kind === "reranker" && !current) {
       toast({
-        kind: "error",
+        tone: "danger",
         title: "Choose an embedding model first",
         detail: "A reranker only reorders its results.",
       });
@@ -169,7 +173,7 @@ export function useModelActions(o: {
       o.start(jobId, r.id, "models-verify", "Verifying", (out) => {
         const v = out as { ok: boolean; dims: number; ms: number; message: string };
         toast({
-          kind: v.ok ? "ok" : "error",
+          tone: v.ok ? "success" : "danger",
           title: v.ok ? `${r.label} works` : `${r.label} failed its check`,
           detail: `${v.message} (${v.dims} dimensions, ${v.ms} ms)`,
         });
@@ -185,7 +189,7 @@ export function useModelActions(o: {
     try {
       const r = await execute(client, "models.remove", { model: row.id }, fx);
       toast({
-        kind: "ok",
+        tone: "success",
         title: `${row.label} removed`,
         detail: r.removed === "registration" ? "Its folder stays on disk" : `${size(r.freedMB)} freed`,
       });
@@ -204,7 +208,7 @@ export function useModelActions(o: {
     }
     try {
       const out = await execute(client, "models.use", a.to, fx);
-      toast({ kind: "ok", title: "Advice applied", detail: out.reindex ? "Indexing again" : "" });
+      toast({ tone: "success", title: "Advice applied", detail: out.reindex ? "Indexing again" : "" });
       if (out.indexJob) o.start(out.indexJob, "index", "rag-index", "Indexing the documents");
     } catch (e) {
       errorToast(e, "Could not apply the advice");

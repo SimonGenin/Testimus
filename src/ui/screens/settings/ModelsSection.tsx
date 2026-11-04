@@ -72,7 +72,7 @@ export function ModelsSection() {
     a.benchEnded(pack, op.jobId, status, error);
     if (shownBench.current === pack) return;
     const title = `${packLabel(pack)} pack`;
-    if (status === "done") toast({ kind: "ok", title: `${title} measured` });
+    if (status === "done") toast({ tone: "success", title: `${title} measured` });
     else if (status === "failed")
       errorToast(new Error(error ?? "The measure stopped."), `${title}: the measure stopped`);
   };
@@ -288,7 +288,7 @@ export function ModelsSection() {
             a.setFolder(null);
             if (jobId)
               start(jobId, "dir", "models-dir", action === "move" ? "Moving the models" : "Copying the models");
-            else toast({ kind: "ok", title: "Models folder saved", detail: d });
+            else toast({ tone: "success", title: "Models folder saved", detail: d });
             next?.();
           }}
           onClose={() => a.setFolder(null)}

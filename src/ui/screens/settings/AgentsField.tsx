@@ -41,7 +41,7 @@ function AgentsTest({ jobId, onEnd }: { jobId: string; onEnd: () => void }) {
     if (job.status === "done") {
       const r = job.result as Tested;
       toast({
-        kind: "ok",
+        tone: "success",
         title: r.applied ? `Maximum set to ${r.limit} agents` : `This PC holds ${r.limit} agents`,
         detail: r.reason,
       });

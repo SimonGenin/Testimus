@@ -134,7 +134,7 @@ export function DoctorScreen() {
           onClose={() => setFolder(null)}
           onApplied={(dir, jobId) => {
             setFolder(null);
-            toast({ kind: "ok", title: jobId ? "Moving the models" : "Models folder saved", detail: dir });
+            toast({ tone: "success", title: jobId ? "Moving the models" : "Models folder saved", detail: dir });
             d.again();
           }}
         />

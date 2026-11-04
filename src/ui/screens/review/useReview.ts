@@ -134,8 +134,8 @@ export function useDecisions(input: ReturnType<typeof queueInput>, open: (id: st
     }
     toast(
       toFix
-        ? { kind: "info", title: "Marked To fix", detail: label }
-        : { kind: "ok", title: "Validated", detail: label },
+        ? { tone: "neutral", title: "Marked To fix", detail: label }
+        : { tone: "success", title: "Validated", detail: label },
     );
     await next(id, before);
     return true;
@@ -161,7 +161,7 @@ export function useDecisions(input: ReturnType<typeof queueInput>, open: (id: st
       void pull.start(
         { key, overwrite: true },
         {
-          done: () => toast({ kind: "ok", title: "Jira's version taken", detail: key }),
+          done: () => toast({ tone: "success", title: "Jira's version taken", detail: key }),
           failed: (e) => errorToast(new Error(e), `Could not pull ${key}`),
         },
       ),

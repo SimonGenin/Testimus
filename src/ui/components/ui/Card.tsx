@@ -81,7 +81,7 @@ const styles = stylex.create({
     minWidth: 0,
   },
   bodyAlone: { paddingBlockStart: space.s6 },
-  flush: { padding: 0, gap: 0 },
+  flush: { paddingBlockStart: 0, paddingBlockEnd: 0, paddingInline: 0, gap: 0 },
   foot: {
     boxSizing: "border-box",
     display: "flex",

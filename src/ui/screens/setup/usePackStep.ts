@@ -55,7 +55,7 @@ export function usePackStep(hasProject: boolean) {
       }
       await execute(client, "models.usePack", { pack: pack.id }, { invalidates: [["models.packs"], ["rag.status"]] });
       toast({
-        kind: "ok",
+        tone: "success",
         title: `${pack.label} pack chosen`,
         detail: plan.plan.download.length ? "Downloading in the background: see Jobs" : "Indexing follows",
       });

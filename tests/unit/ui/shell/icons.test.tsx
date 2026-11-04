@@ -128,7 +128,7 @@ describe("the shell's icons, as the design draws them", () => {
   it("a toast at the end of a Claude run is Claude's", async () => {
     withData(<span />);
     act(() => {
-      toast({ kind: "claude", title: "Check finished — 2 tests, 1 with findings" });
+      toast({ tone: "claude", title: "Check finished — 2 tests, 1 with findings" });
     });
     const t = await screen.findByRole("status", { name: "Check finished — 2 tests, 1 with findings" });
     expect(iconOf(t)).toBe("claude");

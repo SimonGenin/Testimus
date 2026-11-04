@@ -118,7 +118,7 @@ export function TestEditor({
       if (expected === undefined && !pendingAutosaves().some((k) => JSON.stringify(k) === docKey)) {
         app.testsChanged();
         toast({
-          kind: "info",
+          tone: "neutral",
           title: "Reloaded from disk",
           detail: "test.md changed on disk — the editor shows it now.",
         });
@@ -229,7 +229,7 @@ export function TestEditor({
 
   const refuseWhileClaude = () => {
     if (!busy) return false;
-    toast({ kind: "info", title: "Wait for Claude to finish", detail: "This test is being edited right now." });
+    toast({ tone: "neutral", title: "Wait for Claude to finish", detail: "This test is being edited right now." });
     return true;
   };
 
@@ -510,7 +510,7 @@ export function TestEditor({
             if (refuseWhileClaude()) return;
             update((t) => restoreStep(t, d.base, d.gone));
             toast({
-              kind: "ok",
+              tone: "success",
               title: d.gone ? "Deleted step restored" : `Step ${d.n} restored from Jira`,
               detail: "From the last sync — nothing was downloaded.",
             });

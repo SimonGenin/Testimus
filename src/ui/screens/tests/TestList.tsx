@@ -143,8 +143,8 @@ export function TestList({
       if (r?.failed?.length)
         errorToast(new Error(r.failed.map((f) => `${f.key}: ${f.error}`).join("; ")), "Some tests failed to pull");
       if (r?.skipped?.length)
-        toast({ kind: "info", title: `${plural(r.skipped.length, "test")} skipped`, detail: r.skipped[0].reason });
-      if (n) toast({ kind: "ok", title: `${plural(n, "test")} pulled`, detail: label });
+        toast({ tone: "neutral", title: `${plural(r.skipped.length, "test")} skipped`, detail: r.skipped[0].reason });
+      if (n) toast({ tone: "success", title: `${plural(n, "test")} pulled`, detail: label });
     } catch (e) {
       errorToast(e, `Could not pull ${label}`);
     } finally {
@@ -214,7 +214,7 @@ export function TestList({
   const pullActive = () => {
     if (!active?.key) {
       v.setTab("jira");
-      toast({ kind: "info", title: "Pick a folder or a test in Jira", detail: "This test has never been pushed." });
+      toast({ tone: "neutral", title: "Pick a folder or a test in Jira", detail: "This test has never been pushed." });
     } else if (active.dirty) setOverwrite(active);
     else void pull({ key: active.key }, active.key);
   };
@@ -235,7 +235,7 @@ export function TestList({
       await execute(client, "xray.disconnect", {}, { invalidates: [["project.info"], ["xray.folders"]] });
       app.refreshInfo();
       toast({
-        kind: "info",
+        tone: "neutral",
         title: "Working locally",
         detail: `Nothing reads or writes ${p?.jiraProject} until you reconnect.`,
       });

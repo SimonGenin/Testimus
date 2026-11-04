@@ -75,7 +75,7 @@ export function ColumnsSection() {
     void execute(client, "columns.save", { name: column, referenceSource }, { invalidates: READS })
       .then(() =>
         toast({
-          kind: "ok",
+          tone: "success",
           title: referenceSource ? `${column} links its items to their sources` : `${column} is plain text again`,
         }),
       )
@@ -84,7 +84,11 @@ export function ColumnsSection() {
   const remove = (column: string) =>
     void execute(client, "columns.remove", { name: column }, { invalidates: READS })
       .then(() =>
-        toast({ kind: "ok", title: `Column ${column} removed`, detail: "What the tests hold in it stays in test.md." }),
+        toast({
+          tone: "success",
+          title: `Column ${column} removed`,
+          detail: "What the tests hold in it stays in test.md.",
+        }),
       )
       .catch((e) => errorToast(e, "Could not remove the column"));
 
@@ -103,7 +107,7 @@ export function ColumnsSection() {
     setRefreshing(true);
     try {
       await execute(client, "xray.refreshFields", {}, { invalidates: READS });
-      toast({ kind: "ok", title: "Smart columns read again from Xray" });
+      toast({ tone: "success", title: "Smart columns read again from Xray" });
     } catch (e) {
       errorToast(e, "Could not read the step fields from Jira");
     } finally {

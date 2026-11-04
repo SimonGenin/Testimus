@@ -27,7 +27,7 @@ export function useDoctorChecks() {
   const ended = (r: Running, error?: string) => {
     setRunning(null);
     if (error) errorToast(new Error(error), `${r.action.label} failed`);
-    else toast({ kind: "ok", title: `${r.check.label}: done`, detail: r.action.label });
+    else toast({ tone: "success", title: `${r.check.label}: done`, detail: r.action.label });
     void plain.refetch();
   };
 

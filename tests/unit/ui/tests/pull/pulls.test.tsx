@@ -399,12 +399,12 @@ describe("DeleteTest", () => {
     expect(discardAutosave).toHaveBeenCalledWith(key("tests.show", { id: "t1" }));
     expect(calls).toEqual([{ name: "tests.remove", input: { id: "t1" } }]);
     expect(toasts[0]).toEqual({
-      kind: "info",
+      tone: "neutral",
       title: "Local copy of K-1 deleted",
       detail: "The Jira test is untouched.",
     });
     expect(await deleteTest(client, { ...target, key: undefined })).toBe(true);
-    expect(toasts[1]).toEqual({ kind: "info", title: "Local copy of t1 deleted", detail: undefined });
+    expect(toasts[1]).toEqual({ tone: "neutral", title: "Local copy of t1 deleted", detail: undefined });
   });
 
   it("reports a failed delete", async () => {

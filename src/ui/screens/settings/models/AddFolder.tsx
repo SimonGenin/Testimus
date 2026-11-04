@@ -40,7 +40,7 @@ export function AddFolder() {
         { path: path.trim(), copy: copy === "1" },
         { invalidates: [["models.list"], ["models.catalog"], ["models.packs"], ["system.doctor"]] },
       );
-      toast({ kind: "ok", title: `${r.model} added`, detail: `${r.path} · ${r.dims} dimensions` });
+      toast({ tone: "success", title: `${r.model} added`, detail: `${r.path} · ${r.dims} dimensions` });
       setPath("");
     } catch (e) {
       errorToast(e, "This folder could not be added");

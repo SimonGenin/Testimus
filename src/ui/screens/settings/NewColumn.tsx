@@ -31,7 +31,11 @@ export function NewColumn({ reads }: { reads: Prefix[] }) {
   const add = async () => {
     try {
       await execute(client, "columns.save", { name: name.trim(), description: desc }, { invalidates: reads });
-      toast({ kind: "ok", title: `Column ${name.trim()} added`, detail: "Kept in test.md, never pushed to Xray." });
+      toast({
+        tone: "success",
+        title: `Column ${name.trim()} added`,
+        detail: "Kept in test.md, never pushed to Xray.",
+      });
       close();
     } catch (e) {
       errorToast(e, "Could not add the column");

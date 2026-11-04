@@ -90,11 +90,11 @@ export function PushDialog({
       // is told so with the way out (Xray Editor's « Pushed, but the pull afterwards failed »)
       if (r.error)
         toast({
-          kind: "error",
+          tone: "danger",
           title: `Pushed ${r.id || testKey || "the test"}, but the local copy was not refreshed`,
           detail: `${r.error} — use « Download from Jira » to bring it up to date.`,
         });
-      else toast({ kind: "ok", title: `Pushed ${r.id || testKey || "the test"}`, detail: ops });
+      else toast({ tone: "success", title: `Pushed ${r.id || testKey || "the test"}`, detail: ops });
       onDone(r.id || testId);
     } catch (e) {
       setFailure({ message: message(e), fix: e instanceof ApiError ? e.fix : undefined });

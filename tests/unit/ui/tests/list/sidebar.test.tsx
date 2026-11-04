@@ -93,7 +93,7 @@ beforeEach(() => {
 
 afterEach(() => {
   abandonPulls();
-  const last = toast({ kind: "info", title: "" });
+  const last = toast({ tone: "neutral", title: "" });
   for (let i = 1; i <= last; i++) closeToast(i, true);
   cleanup();
   setProject(null);

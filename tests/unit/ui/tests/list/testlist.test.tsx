@@ -270,7 +270,7 @@ describe("TestList › local", () => {
     gate.resolve({ pulled: ["LFRPS12-2"], skipped: [], failed: [] });
     await waitFor(() => expect(onReload).toHaveBeenCalled());
     expect(callsTo("xray.pull")[0].input).toEqual({ key: "LFRPS12-2", overwrite: true });
-    await waitFor(() => expect(toasts.at(-1)).toMatchObject({ kind: "ok", title: "1 test pulled" }));
+    await waitFor(() => expect(toasts.at(-1)).toMatchObject({ tone: "success", title: "1 test pulled" }));
     expect(screen.getByRole("button", { name: "Pull" })).toBeEnabled();
   });
 

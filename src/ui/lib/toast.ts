@@ -3,8 +3,6 @@ import { dismissToast, toast as show, type ToastTone, useToasts as useLive } fro
 import { ApiError } from "./data/client.ts";
 import { message } from "./format.ts";
 
-type OldKind = "error" | "info" | "ok" | "claude";
-
 export type Toast = {
   id: number;
   /** the kit's tone, as Toast.tsx says it: neutral · success · warning · danger · claude */
@@ -16,14 +14,7 @@ export type Toast = {
   left: number;
 };
 
-export type ToastInput = Omit<Toast, "id" | "left" | "tone"> & {
-  tone?: ToastTone;
-  /** ponytail: the old words (error, info, ok, claude), read until every screen says `tone` — then removed */
-  kind?: OldKind;
-  left?: number;
-};
-
-const OLD: Record<OldKind, ToastTone> = { error: "danger", info: "neutral", ok: "success", claude: "claude" };
+export type ToastInput = Omit<Toast, "id" | "left" | "tone"> & { tone?: ToastTone; left?: number };
 
 // ponytail: the kit's one toast store (Toast.tsx), with the screens' detail and run; a toast closed with its action
 // taken (undone) does not run its onExpire
@@ -33,7 +24,7 @@ export function toast(t: ToastInput): number {
   let id = 0;
   const expire = t.onExpire;
   id = show({
-    tone: t.tone ?? (t.kind ? OLD[t.kind] : "neutral"),
+    tone: t.tone ?? "neutral",
     title: t.title,
     text: t.detail,
     action: t.action && { label: t.action.label, onAction: t.action.run },

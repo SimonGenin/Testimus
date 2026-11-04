@@ -138,7 +138,7 @@ export function ColumnsClaude({ columns }: { columns: StepColumn[] }) {
         done.push(p.name);
       }
       toast({
-        kind: "ok",
+        tone: "success",
         title:
           list.length === 1
             ? `${list[0].name}: ${list[0].kind === "new" ? "added" : "described"}`

@@ -54,7 +54,7 @@ export function useReviewActions({ app, data, items, act, view, running }: Args)
       setRevertConflict(null);
       view.patch({ marks: null });
       app.setLastRun({ runId: "", changedTests: [], changedSteps: {}, nonce: Date.now() });
-      toast({ kind: "info", title: "Claude's changes reverted" });
+      toast({ tone: "neutral", title: "Claude's changes reverted" });
     } catch (e) {
       if (!force && (editedAfterRun(e) || (e as { code?: string }).code === "edited-after-run"))
         setRevertConflict(e instanceof Error ? e.message : String(e));
