@@ -33,8 +33,10 @@ npm run screens -- --list                         # le catalogue, sans rien lanc
 Il faut Microsoft Edge (canal `msedge` de Playwright, le même que l'e2e). Le scénario `desktop` lance aussi
 `npm run desktop:build` pour avoir les pages du shell Electron.
 
-Le code de sortie vaut 1 si une capture a échoué. Les autres sont quand même faites. Une capture ratée laisse une
-image de l'état où elle s'est arrêtée dans `<out>/_failed/`.
+Une capture qui échoue est reprise une fois (le journal le dit par une ligne `↻`) : une machine chargée ou une page
+prise pendant un rechargement ne coûte pas une capture. Le code de sortie vaut 1 si une capture échoue encore à la
+seconde prise. Les autres sont quand même faites. Une capture ratée laisse une image de l'état où elle s'est arrêtée
+dans `<out>/_failed/`.
 
 ## Tailles
 

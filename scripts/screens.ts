@@ -229,7 +229,8 @@ async function shootAll(page: Page, sc: Scenario, sh: Shot, dir: string, entry: 
   log(`  ✓ ${sc.id}/${sh.id} (${entry.files.length} images)`);
 }
 
-async function runShot(browser: Browser, server: Server, sc: Scenario, sh: Shot): Promise<void> {
+// ponytail: a shot that fails is taken once more (a slow machine, a page caught mid-reload); a second failure is a loss
+async function runShot(browser: Browser, server: Server, sc: Scenario, sh: Shot, again = true): Promise<void> {
   const first = SIZES[sizes[0]];
   const context = await browser.newContext({
     viewport: { width: first.width, height: first.height },
@@ -280,6 +281,11 @@ async function runShot(browser: Browser, server: Server, sc: Scenario, sh: Shot)
     await shootAll(page, sc, sh, dir, entry);
     manifest.push(entry);
   } catch (e) {
+    if (again) {
+      log(`  ↻ ${sc.id}/${sh.id}: ${(e as Error).message.split("\n")[0]} — once more`);
+      await context.close().catch(() => {});
+      return runShot(browser, server, sc, sh, false);
+    }
     failures.push(`${sc.id}/${sh.id}: ${(e as Error).message.split("\n")[0]}`);
     log(`  ✗ ${sc.id}/${sh.id}: ${(e as Error).message.split("\n")[0]}`);
     const dir = join(out, "_failed");

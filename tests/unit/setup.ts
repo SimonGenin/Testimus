@@ -8,8 +8,8 @@ import { clearDrafts } from "../../src/ui/lib/drafts.ts";
 
 afterEach(() => clearDrafts());
 
-// ponytail: a findBy or waitFor gives the page 4 s, not 1 — a full run under coverage is slow, the assertions stay the same
-configure({ asyncUtilTimeout: 4000 });
+// ponytail: a findBy or waitFor gives the page 10 s, not 1 — a full run under coverage is slow, the assertions stay the same
+configure({ asyncUtilTimeout: 10_000 });
 
 const root = mkdtempSync(join(tmpdir(), "testimus-unit-"));
 env.dataDir = () => join(root, "appdata");
