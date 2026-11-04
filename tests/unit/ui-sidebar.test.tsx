@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Folder, Job, JobEvent, LocalTestRef, RemoteTestRef } from "../../src/core/types.ts";
@@ -12,6 +12,7 @@ import { closeToast, toast } from "../../src/ui/lib/toast.ts";
 import { abandonPulls } from "../../src/ui/screens/tests/pulls.ts";
 import { TestList } from "../../src/ui/screens/tests/TestList.tsx";
 import { TestsScreen } from "../../src/ui/screens/tests/TestsScreen.tsx";
+import { renderWithData } from "./cov-uishell-helpers.tsx";
 import { layoutOf } from "./layout-helpers.ts";
 
 type Handler = (input: Record<string, unknown>) => unknown;
@@ -169,7 +170,7 @@ const local1398 = ref({
 
 function list(props: Partial<Parameters<typeof TestList>[0]> = {}) {
   const refs = props.refs ?? [local1398];
-  return render(
+  return renderWithData(
     <AppContext.Provider value={appState({ screen: "tests" }, () => {}, "D:/P")}>
       <TestList refs={refs} loading={false} activeId="" onOpen={() => {}} onReload={async () => refs} {...props} />
     </AppContext.Provider>,
@@ -544,7 +545,7 @@ describe("Tests screen › pull queue", () => {
   };
 
   const openFreinage = async () => {
-    render(<Harness />);
+    renderWithData(<Harness />);
     toJira();
     fireEvent.click(await screen.findByRole("button", { name: /^Freinage/ }));
   };
@@ -643,7 +644,7 @@ describe("Tests screen › layout", () => {
   });
 
   it("resizes the sidebar between 240 and 480 px, remembers it, and resets on double-click", () => {
-    render(<Harness />);
+    renderWithData(<Harness />);
     const edge = screen.getByRole("separator", { name: "Resize the test list" });
     const shell = edge.parentElement as HTMLElement;
     fireEvent.pointerDown(edge, { clientX: 0 });
@@ -660,7 +661,7 @@ describe("Tests screen › layout", () => {
 
   it("becomes a drawer below 900 px: toggle, scrim, Escape, open a test, and widening", async () => {
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 800 });
-    const { container } = render(<Harness />);
+    const { container } = renderWithData(<Harness />);
     expect(screen.queryByRole("separator", { name: "Resize the test list" })).toBeNull();
     const toggle = screen.getByRole("button", { name: "Show test list" });
     fireEvent.click(toggle);
@@ -699,11 +700,11 @@ describe("Tests screen › layout", () => {
       ok: complete,
     });
     routes["system.credentials"] = routes["system.setCredentials"] = () => creds(false);
-    const first = render(<Harness />);
+    const first = renderWithData(<Harness />);
     expect(await screen.findByRole("heading", { name: "Connect to Jira and Xray" })).toBeInTheDocument();
     first.unmount();
     routes["system.credentials"] = routes["system.setCredentials"] = () => creds(true);
-    render(<Harness />);
+    renderWithData(<Harness />);
     expect(await screen.findByRole("heading", { name: "No test open" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Connect to Jira and Xray" })).toBeNull();
   });
@@ -728,12 +729,12 @@ describe("Tests screen › layout", () => {
     routes["jobs.list"] = () => [
       { id: "j1", kind: "pull", subject: "LFRPS12-9", status: "running", startedAt: new Date().toISOString() },
     ];
-    render(<Harness />);
+    renderWithData(<Harness />);
     const head = side().querySelector(".tside-head") as HTMLElement;
     expect(await within(head).findByRole("button", { name: "1 job running" })).toBeInTheDocument();
     cleanup();
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 800 });
-    const narrow = render(<Harness />).container;
+    const narrow = renderWithData(<Harness />).container;
     const bar = narrow.querySelector(".tests-bar") as HTMLElement;
     expect(await within(bar).findByRole("button", { name: "1 job running" })).toBeInTheDocument();
     fireEvent.click(within(bar).getByRole("button", { name: "Show test list" }));

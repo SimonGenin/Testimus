@@ -163,7 +163,7 @@ describe("command palette", () => {
 
   it("says when nothing matches, ignores Enter then, clears the field, and closes on the backdrop", () => {
     const onClose = vi.fn();
-    const { container } = withData(<Palette commands={commands} actions={[]} onCommand={() => {}} onClose={onClose} />);
+    withData(<Palette commands={commands} actions={[]} onCommand={() => {}} onClose={onClose} />);
     const input = screen.getByRole("combobox");
     fireEvent.change(input, { target: { value: "zzz" } });
     expect(screen.getByText("Nothing matches “zzz”.")).toBeInTheDocument();
@@ -173,7 +173,7 @@ describe("command palette", () => {
     expect(onClose).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Clear" }));
     expect(input).toHaveValue("");
-    fireEvent.mouseDown(container.firstChild as HTMLElement);
+    fireEvent.mouseDown(screen.getByRole("dialog").parentElement as HTMLElement);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
