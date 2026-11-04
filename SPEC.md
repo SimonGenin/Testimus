@@ -1234,9 +1234,11 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
       Apply = the pack's plan or `models.use`, Dismiss = `models.dismissAdvice`); the pack cards Light · Performance ·
       Balanced · Quality from `models.packs` plus Custom, the active one marked « In use », each with its variant here
       (« its second choice »), fit chip and message, skipped variants with their numbers, download left, speed, quality
-      (on the reference document), « On this project » when the project's own set measured it, « Use this pack ». A pack or a model whose fit is not « fits » opens a confirmation with the verdict's numbers,
+      (on the reference document), « On this project » when the project's own set measured it, « Use this pack ». A pack or a model whose fit is not « fits », and a pack made for a GPU that runs on the
+      processor here (« Processor only »), opens a confirmation (« Use the Quality pack anyway? », « Use the Balanced
+      pack on the processor? ») with the verdict, what it needs against what is free (GPU or memory),
       **Use anyway** and **Choose a lighter one** (the next lighter pack, or the largest smaller model that fits); « RAM
-      too small » offers no Use anyway. Use this pack shows `models.planPack` (models, downloads, folder,
+      too small » and « Not supported here » are titled « … cannot run on this PC » and offer no Use anyway. Use this pack shows `models.planPack` (models, downloads, folder,
       reindex, expected speed), then runs `models.usePack` and follows its job, then the index job it names, on the card (progress, Cancel); running model and
       index jobs are picked up again when the screen opens. Each pack card has « Measure » (« Measure again » once its
       quality is measured on this PC; disabled, with the reason, until the pack's models are on this PC): a dialog says

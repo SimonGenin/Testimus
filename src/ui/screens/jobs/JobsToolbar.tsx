@@ -71,17 +71,16 @@ export function JobsToolbar({
         onChange={(status) => onFilters({ ...filters, status })}
         options={STATUSES.map((s) => ({ ...s, count: count(s.value) }))}
       />
-      {present.length > 1 && (
-        <Select
-          label="Kind"
-          prefix="Kind"
-          appearance="quiet"
-          size="sm"
-          value={filters.kind}
-          onChange={(kind) => onFilters({ ...filters, kind })}
-          options={[{ value: "all", label: "All kinds" }, ...present.map((t) => ({ value: t.id, label: t.label }))]}
-        />
-      )}
+      <Select
+        label="Kind"
+        prefix="Kind"
+        appearance="quiet"
+        size="sm"
+        disabled={present.length > 1 ? false : "Only one kind of job here"}
+        value={filters.kind}
+        onChange={(kind) => onFilters({ ...filters, kind })}
+        options={[{ value: "all", label: "All kinds" }, ...present.map((t) => ({ value: t.id, label: t.label }))]}
+      />
       <span {...stylex.props(styles.grow)} />
       <Switch label="Group repeats" on={group} onChange={onGroup} />
       <Button variant="quiet" size="sm" icon="trash" label="Clear finished" disabled={!finished} onClick={onClear} />

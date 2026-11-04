@@ -9,9 +9,7 @@ export function FitChip({ fit, processorOnly }: { fit: Fit | null; processorOnly
   const l = FIT[fit.verdict];
   return (
     <>
-      {processorOnly && (
-        <Badge label="Processor only" tone="warning" icon="alert-triangle" size="sm" tooltip={PROCESSOR_ONLY} />
-      )}
+      {processorOnly && <Badge label="Processor only" tone="warning" icon="cpu" size="sm" tooltip={PROCESSOR_ONLY} />}
       <Badge label={l.word} tone={l.tone} icon={l.icon} size="sm" tooltip={fit.message} />
     </>
   );

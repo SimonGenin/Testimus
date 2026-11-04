@@ -71,6 +71,7 @@ describe("Jobs screen", () => {
     act(() => FakeES.emit(status(job())));
     await act(async () => gate.resolve(null));
     expect(await screen.findByText("No job yet")).toBeInTheDocument();
+    expect(within(list()).getByRole("combobox", { name: "Kind" })).toBeDisabled();
   });
 
   it("says when the jobs cannot be listed, and reads them again on Retry", async () => {
@@ -112,7 +113,8 @@ describe("Jobs screen", () => {
     expect(within(first[0]).getByText("Writing 1")).toBeInTheDocument();
     expect(within(first[1]).getByText("2 of 2")).toBeInTheDocument();
     expect(within(first[1]).getByText("0:09")).toBeInTheDocument();
-    expect(within(first[2]).getByText("—")).toBeInTheDocument();
+    expect(within(first[2]).queryByText("—")).toBeNull();
+    expect(within(first[0]).getByText("Running")).toBeInTheDocument();
     expect(within(first[2]).getByText("Cancelled")).toBeInTheDocument();
     expect(within(first[3]).getByText("Failed")).toBeInTheDocument();
     expect(within(first[3]).getByText("Claude stopped")).toBeInTheDocument();
@@ -296,6 +298,7 @@ describe("Jobs screen", () => {
       "30",
     );
     expect(within(steps).getByText("Claude · figures")).toBeInTheDocument();
+    expect(within(side).getByText("Claude is starting.")).toBeInTheDocument();
     fireEvent.click(within(steps).getByRole("button", { name: /Convert document/ }));
     expect(state.navigate).toHaveBeenCalledWith("jobs", "conv-1");
     const names = rows().map((r) => r.textContent ?? "");
@@ -378,9 +381,11 @@ describe("Jobs screen", () => {
       <>
         <JobState job={job({ status: "running" })} now={Date.parse("2026-11-02T10:00:03Z")} />
         <JobState job={job({ status: "cancelled" })} now={0} />
+        <JobState job={job({ status: "running" })} now={Date.parse("2026-11-02T10:00:03Z")} timed={false} />
       </>,
     );
     expect(screen.getByText(/Running · 0:03/)).toBeInTheDocument();
+    expect(screen.getByText("Running")).toBeInTheDocument();
     expect(screen.getByText("Cancelled")).toBeInTheDocument();
   });
 });

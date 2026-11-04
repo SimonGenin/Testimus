@@ -117,6 +117,8 @@ describe("Settings › Smart columns", () => {
     expect(rows[2]).toHaveTextContent("New in Xray");
     expect(rows[4]).toHaveTextContent("No longer in Xray");
     expect(screen.getByText("New in Xray, not described yet: Exigence")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Describe it" }));
+    expect(screen.getByRole("textbox", { name: /^What Claude writes in Exigence/ })).toHaveFocus();
     expect(screen.getByText(/No longer in Xray, kept as local columns: Remarque\./)).toBeInTheDocument();
     expect(screen.getByText(/Read from Xray/)).toBeInTheDocument();
     const always = within(fold("Action")).getByRole("radio", { name: "When filled" });

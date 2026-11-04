@@ -95,7 +95,8 @@ export function JobDetail({
   const { job, events, cancel, again } = useJobDetail(node.job, onOpen);
   const [showLog, setShowLog] = useState(false);
   const r = (job.result ?? {}) as { tests?: string[] };
-  const claude = events.some((e) => e.type === "claude");
+  const claude =
+    events.some((e) => e.type === "claude") || (job.processes ?? []).some((p) => p.label.startsWith("Claude"));
   const changed = [...new Set(events.flatMap((e) => (e.type === "changed" ? e.paths : [])))];
   const carried = new Set((job.steps ?? []).map((s) => s.jobId).filter(Boolean));
   const inside = node.children.filter((n) => !carried.has(n.job.id)).map((n) => n.job);
