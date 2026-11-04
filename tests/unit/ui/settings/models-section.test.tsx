@@ -468,18 +468,42 @@ describe("Settings › Models", () => {
     });
     mountSettings(<ModelsSection />);
     await use("Balanced");
-    let ask = screen.getByRole("dialog", { name: "Will The Balanced pack fit?" });
+    let ask = screen.getByRole("dialog", { name: "Use the Balanced pack anyway?" });
     expect(ask).toHaveTextContent("Tight: 7.6 GB needed, 7.0 GB usable.");
     expect(within(ask).getByText("Lighter choice: the Light pack.")).toBeInTheDocument();
     expect(calls("models.planPack")).toHaveLength(0);
     fireEvent.click(within(ask).getByRole("button", { name: "Cancel" }));
     await use("Balanced");
     fireEvent.click(screen.getByRole("button", { name: "Choose a lighter one" }));
-    ask = screen.getByRole("dialog", { name: "Will The Light pack fit?" });
+    ask = screen.getByRole("dialog", { name: "Use the Light pack anyway?" });
     expect(within(ask).getByRole("button", { name: "Choose a lighter one" })).toBeDisabled();
     fireEvent.click(within(ask).getByRole("button", { name: "Use anyway" }));
     expect(await screen.findByRole("dialog", { name: "Use the Light pack" })).toBeInTheDocument();
     expect(calls("models.usePack").filter((c) => c.input.pack === "balanced")).toHaveLength(0);
+  });
+
+  it("a pack made for a GPU that runs on the processor here asks first, though it fits", async () => {
+    base({
+      packs: [
+        pack("balanced", {
+          fit: fitOf("fits", "Fits on the processor.", "cpu"),
+          processorOnly: true,
+          lighter: "light",
+        }),
+        pack("light"),
+      ],
+    });
+    mountSettings(<ModelsSection />);
+    await use("Balanced");
+    const ask = screen.getByRole("dialog", { name: "Use the Balanced pack on the processor?" });
+    expect(ask).toHaveTextContent("Processor only");
+    expect(within(ask).getByText("Lighter choice: the Light pack.")).toBeInTheDocument();
+    expect(calls("models.planPack")).toHaveLength(0);
+    fireEvent.click(within(ask).getByRole("button", { name: "Use anyway" }));
+    expect(await screen.findByRole("dialog", { name: "Use the Balanced pack" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await use("Light");
+    expect(await screen.findByRole("dialog", { name: "Use the Light pack" })).toBeInTheDocument();
   });
 });
 
@@ -623,13 +647,13 @@ describe("Settings › Models › the catalog", () => {
     mountSettings(<ModelsSection />);
     openCatalog();
     fireEvent.click(within(await waitFor(() => rowOf("M ram"))).getByRole("button", { name: "Use" }));
-    let ask = await screen.findByRole("dialog", { name: "Will M ram fit?" });
+    let ask = await screen.findByRole("dialog", { name: "M ram cannot run on this PC" });
     expect(ask).toHaveTextContent("RAM too small: 40 GB needed, 32 GB on this PC.");
     expect(within(ask).queryByRole("button", { name: "Use anyway" })).toBeNull();
     fireEvent.click(within(ask).getByRole("button", { name: "Cancel" }));
     fireEvent.click(within(rowOf("M huge")).getByRole("button", { name: "In use" }));
     fireEvent.click(within(rowOf("M mid")).getByRole("button", { name: "Use" }));
-    ask = await screen.findByRole("dialog", { name: "Will M mid fit?" });
+    ask = await screen.findByRole("dialog", { name: "Use M mid anyway?" });
     expect(ask).toHaveTextContent(/runs partly on the CPU/);
     expect(within(ask).getByText("Lighter choice: M small.")).toBeInTheDocument();
     fireEvent.click(within(ask).getByRole("button", { name: "Choose a lighter one" }));
@@ -638,7 +662,7 @@ describe("Settings › Models › the catalog", () => {
     for (const k of [...jobs.keys()]) await srv.end(k, "done");
     await waitFor(() => expect(within(rowOf("M tiny-bad")).getByRole("button", { name: "Use" })).toBeEnabled());
     fireEvent.click(within(rowOf("M tiny-bad")).getByRole("button", { name: "Use" }));
-    ask = await screen.findByRole("dialog", { name: "Will M tiny-bad fit?" });
+    ask = await screen.findByRole("dialog", { name: "Use M tiny-bad anyway?" });
     expect(within(ask).getByRole("button", { name: "Choose a lighter one" })).toBeDisabled();
     fireEvent.click(within(ask).getByRole("button", { name: "Use anyway" }));
     expect(await screen.findByText("M tiny-bad in use for this project")).toBeInTheDocument();

@@ -110,14 +110,14 @@ test.describe("a 4 GB GPU", () => {
   test("a pack that runs partly on the processor asks first, and offers a lighter one", async ({ page }) => {
     const models = await openModels(page);
     const quality = models.getByRole("article", { name: "Quality pack" });
-    await expect(quality).toContainText("Partly on the CPU");
+    await expect(quality).toContainText("Partly on the processor");
     await expect(quality.getByRole("list", { name: "Skipped variants" })).toContainText("gpu-too-small");
     const balancedCard = models.getByRole("article", { name: "Balanced pack" });
     await expect(balancedCard).toContainText("its second choice");
     await expect(balancedCard.getByRole("list", { name: "Skipped variants" })).toContainText("4.0 GB on the GPU");
     await quality.getByRole("button", { name: "Use this pack" }).click();
-    const ask = page.getByRole("dialog", { name: "Will The Quality pack fit?" });
-    await expect(ask).toContainText("may not fit this PC");
+    const ask = page.getByRole("dialog", { name: "Use the Quality pack anyway?" });
+    await expect(ask).toContainText("Partly on the processor");
     await expect(ask).toContainText("Your GPU has 4.0 GB");
     await shoot(page, "models-fit-gpu-e2e");
     await ask.getByRole("button", { name: "Choose a lighter one" }).click();
@@ -146,8 +146,8 @@ test.describe("no GPU and 6 GB of memory", () => {
       .getByRole("row", { name: "Qwen3 Embedding 8B (4-bit)" })
       .getByRole("button", { name: "Use", exact: true })
       .click();
-    const ask = page.getByRole("dialog", { name: /^Will Qwen3 Embedding 8B .* fit\?$/ });
-    await expect(ask).toContainText("cannot run on this PC");
+    const ask = page.getByRole("dialog", { name: /^Qwen3 Embedding 8B .* cannot run on this PC$/ });
+    await expect(ask).toContainText("RAM too small");
     await expect(ask.getByRole("button", { name: "Use anyway" })).toHaveCount(0);
     await shoot(page, "models-fit-ram-e2e");
     await ask.getByRole("button", { name: "Cancel" }).click();

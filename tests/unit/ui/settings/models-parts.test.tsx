@@ -19,7 +19,7 @@ import {
   suggestPack,
 } from "../../../../src/ui/screens/settings/models/data.ts";
 import { FitChip } from "../../../../src/ui/screens/settings/models/FitChip.tsx";
-import { FitConfirm } from "../../../../src/ui/screens/settings/models/FitConfirm.tsx";
+import { FitConfirm, fitNumbers, fitTitle } from "../../../../src/ui/screens/settings/models/FitConfirm.tsx";
 import { FolderDialog } from "../../../../src/ui/screens/settings/models/FolderDialog.tsx";
 import { ModelsTable } from "../../../../src/ui/screens/settings/models/ModelsTable.tsx";
 import { OpLine } from "../../../../src/ui/screens/settings/models/OpLine.tsx";
@@ -236,16 +236,17 @@ describe("small model widgets", () => {
   });
 
   it("FitConfirm: refused, partly on the CPU with its own message, unload list, no lighter", () => {
-    const props = { title: "Big", lighter: null, onUse: vi.fn(), onLighter: vi.fn(), onClose: vi.fn() };
+    const props = { name: "Big", short: "Big", lighter: null, onUse: vi.fn(), onLighter: vi.fn(), onClose: vi.fn() };
     const { rerender } = render(<FitConfirm {...props} fit={fitOf("ram-too-small", "No RAM")} />);
-    expect(screen.getByRole("dialog", { name: "Will Big fit?" })).toBeInTheDocument();
-    expect(screen.getByText(/Big cannot run on this PC/)).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Big cannot run on this PC" })).toBeInTheDocument();
+    expect(screen.getByText("RAM too small")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Use anyway" })).toBeNull();
     expect(screen.getByRole("button", { name: "Choose a lighter one" })).toBeDisabled();
     rerender(
       <FitConfirm {...props} fit={fitOf("gpu-too-small", "It runs on the processor", { unload: ["a", "b"] })} />,
     );
-    expect(screen.getByText(/Big may not fit this PC/)).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Use Big anyway?" })).toBeInTheDocument();
+    expect(screen.getByText("Partly on the processor")).toBeInTheDocument();
     expect(screen.queryByText(/several times slower/)).toBeNull();
     expect(screen.getByText("a, b")).toBeInTheDocument();
     rerender(<FitConfirm {...props} fit={fitOf("gpu-too-small", "GPU small")} lighter="Small" />);
@@ -255,6 +256,45 @@ describe("small model widgets", () => {
     fireEvent.click(screen.getByRole("button", { name: "Choose a lighter one" }));
     expect(props.onUse).toHaveBeenCalled();
     expect(props.onLighter).toHaveBeenCalled();
+  });
+
+  it("FitConfirm: what it needs against what is free, on the GPU or in memory; a GPU pack on the processor", () => {
+    const props = {
+      name: "the Q pack",
+      short: "Q",
+      lighter: null,
+      onUse: vi.fn(),
+      onLighter: vi.fn(),
+      onClose: vi.fn(),
+    };
+    const gpu = fitOf("gpu-too-small", "m", {
+      needMB: { vram: 4710, ram: 0 },
+      freeMB: { vram: 3789, ram: 9000 },
+      totalMB: { vram: 4096, ram: 16000 },
+    });
+    expect(fitNumbers(gpu)).toEqual([
+      ["4.6 GB", "needed on the GPU"],
+      ["3.7 GB", "free on this PC's GPU (4.0 GB in all)"],
+    ]);
+    const { rerender } = render(<FitConfirm {...props} fit={gpu} />);
+    const ask = screen.getByRole("dialog", { name: "Use the Q pack anyway?" });
+    expect(ask).toHaveTextContent("4.6 GBneeded on the GPU");
+    const cpu = fitOf("fits", "Runs on the processor.", {
+      device: "cpu",
+      needMB: { vram: 0, ram: 2355 },
+      freeMB: { vram: null, ram: 4096 },
+      totalMB: { vram: null, ram: 6144 },
+    });
+    expect(fitNumbers(cpu)).toEqual([
+      ["2.3 GB", "of memory needed"],
+      ["4.0 GB", "free on this PC's memory (6.0 GB in all)"],
+    ]);
+    rerender(<FitConfirm {...props} fit={cpu} processorOnly />);
+    expect(screen.getByRole("dialog", { name: "Use the Q pack on the processor?" })).toBeInTheDocument();
+    expect(screen.getByText("Processor only")).toBeInTheDocument();
+    expect(screen.getAllByText(/Made for a GPU/)).toHaveLength(2);
+    expect(fitNumbers(fitOf("unknown"))).toEqual([]);
+    expect(fitTitle("x", "X", fitOf("unsupported"), true)).toBe("X cannot run on this PC");
   });
 
   it("PackCard: a variant beyond the first, measured speed, nothing left, unavailable, a job running", async () => {

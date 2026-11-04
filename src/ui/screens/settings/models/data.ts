@@ -47,7 +47,7 @@ export function machineSummary(hw: Hardware): string[] {
 export const FIT: Record<FitVerdict, { tone: BadgeTone; icon: IconName; word: string }> = {
   fits: { tone: "success", icon: "check-circle", word: "Fits" },
   tight: { tone: "warning", icon: "alert-triangle", word: "Tight" },
-  "gpu-too-small": { tone: "warning", icon: "alert-triangle", word: "Partly on the CPU" },
+  "gpu-too-small": { tone: "warning", icon: "cpu", word: "Partly on the processor" },
   "ram-too-small": { tone: "danger", icon: "x-circle", word: "RAM too small" },
   unknown: { tone: "info", icon: "info", word: "Not measured" },
   untested: { tone: "warning", icon: "alert-triangle", word: "Untested here" },

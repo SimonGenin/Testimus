@@ -228,8 +228,10 @@ export function ModelsSection() {
       )}
       {a.fitAsk && (
         <FitConfirm
-          title={a.fitAsk.title}
+          name={a.fitAsk.name}
+          short={a.fitAsk.short}
           fit={a.fitAsk.fit}
+          processorOnly={a.fitAsk.processorOnly}
           lighter={a.fitAsk.lighter}
           onClose={() => a.setFitAsk(null)}
           onUse={() => {
