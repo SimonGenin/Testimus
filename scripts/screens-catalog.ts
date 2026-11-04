@@ -471,7 +471,7 @@ function fixtureShots(): Shot[] {
       hash: `#/tests/${T1420}`,
       prep: async (p) => {
         await step(p, 1).getByRole("img", { name: "fig-40.png" }).click({ timeout: T });
-        await dialog(p, /^Screenshot/);
+        await dialog(p, "fig-40.png");
       },
     },
     {
@@ -516,7 +516,8 @@ function fixtureShots(): Shot[] {
         await tap(p, "New test");
         await step(p, 1).waitFor({ timeout: T });
         await tap(p, "Delete step 1");
-        await see(p, "This test has no steps yet.");
+        await see(p, "This test has no steps yet");
+        await p.getByRole("textbox", { name: "Summary" }).focus();
       },
     },
     // Palette and shell with data

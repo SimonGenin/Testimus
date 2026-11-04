@@ -36,7 +36,7 @@ const key = (k: string) => fireEvent.keyDown(screen.getByRole("img"), { key: k }
 describe("Lightbox", () => {
   it("shows the picture, its name, the step and its place", () => {
     const { pic } = box({ index: 1 });
-    expect(screen.getByRole("dialog", { name: "Screenshot b.png" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "b.png" })).toBeInTheDocument();
     expect(pic()).toHaveAttribute("src", "/files/b.png");
     expect(screen.getByText("Step 4")).toBeInTheDocument();
     expect(screen.getByText("2 of 3")).toBeInTheDocument();

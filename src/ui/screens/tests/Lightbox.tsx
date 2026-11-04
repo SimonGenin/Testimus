@@ -123,7 +123,7 @@ export function Lightbox({
 
   return (
     <Modal
-      title={`Screenshot ${names[index]}`}
+      title={names[index]}
       subtitle={where}
       icon="image"
       size="lg"
