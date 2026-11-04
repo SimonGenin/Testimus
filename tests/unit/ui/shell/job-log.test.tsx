@@ -26,7 +26,6 @@ afterEach(() => {
 });
 
 const at = (s: number) => `2026-11-02T10:00:${String(s).padStart(2, "0")}.000Z`;
-const _prog = (message: string, s: number, jobId = "j1"): JobEvent => ({ jobId, at: at(s), type: "progress", message });
 
 describe("JobLog", () => {
   it("shows an empty log, colours warnings and errors, and sticks to the bottom until scrolled up", () => {
