@@ -60,8 +60,8 @@ test.describe("no GPU, 6 GB, no models folder yet", () => {
     ).toContainText("Processor only");
     await packs.getByRole("radio", { name: /^Performance\b/ }).check();
     await page.getByRole("button", { name: "Use Performance" }).click();
-    const where = page.getByRole("dialog", { name: "Models folder" });
-    await expect(where).toContainText("Where should models be stored?");
+    const where = page.getByRole("dialog", { name: "Where should models be stored?" });
+    await expect(where).toBeVisible();
     const field = where.getByRole("textbox", { name: "Folder" });
     await expect(field).toHaveValue(/\S/);
     await field.fill(join(root, "setup-models"));

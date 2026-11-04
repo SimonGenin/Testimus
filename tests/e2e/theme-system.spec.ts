@@ -23,7 +23,7 @@ test("the System theme follows the OS colour scheme", async ({ page }) => {
   expect(await bg(page)).toBe(DARK);
 });
 
-const bodyBg = (page: Page) => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+const bodyBg = (page: Page) => page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor);
 
 test("the page background follows the theme chosen, and System follows the OS, without naming a colour", async ({
   page,
