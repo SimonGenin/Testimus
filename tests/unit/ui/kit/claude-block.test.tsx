@@ -5,7 +5,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ClaudeBlock } from "../../../../src/ui/components/ui/ClaudeBlock.tsx";
-import { discardAutosave, pendingAutosaves } from "../../../../src/ui/lib/data/autosave.ts";
+import { clearDrafts } from "../../../../src/ui/lib/data/autosave.ts";
 import { createQueryClient, type Key } from "../../../../src/ui/lib/data/query.ts";
 
 const client = createQueryClient();
@@ -17,7 +17,7 @@ const k = (): Key => ["/p", "dock", { n: ++n }];
 
 afterEach(() => {
   cleanup();
-  for (const key of pendingAutosaves()) discardAutosave(key);
+  clearDrafts();
   vi.useRealTimers();
 });
 

@@ -245,3 +245,17 @@ export function useDraft(key: Key | null, initial = ""): [string, (next: string)
   }, [id]);
   return [id ? (drafts.get(id) ?? initial) : initial, set, clear];
 }
+
+// ponytail: for the tests — forgets every unsent draft and every edit waiting for its save, as a fresh page would
+export function clearDrafts(): void {
+  for (const e of entries.values()) {
+    clearTimeout(e.timer);
+    e.dirty = false;
+    e.value = undefined;
+    e.status = "saved";
+    notify(e);
+  }
+  entries.clear();
+  drafts.clear();
+  for (const fn of draftListeners) fn();
+}

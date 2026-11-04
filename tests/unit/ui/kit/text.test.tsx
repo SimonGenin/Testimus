@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Chip } from "../../../../src/ui/components/ui/Chip.tsx";
 import { Select } from "../../../../src/ui/components/ui/Select.tsx";
 import { type SaveState, Text } from "../../../../src/ui/components/ui/Text.tsx";
-import { discardAutosave, pendingAutosaves } from "../../../../src/ui/lib/data/autosave.ts";
+import { clearDrafts } from "../../../../src/ui/lib/data/autosave.ts";
 import { ApiError } from "../../../../src/ui/lib/data/client.ts";
 import { createQueryClient, type Key } from "../../../../src/ui/lib/data/query.ts";
 
@@ -23,7 +23,7 @@ const box = (el: HTMLElement) => el.parentElement as HTMLElement;
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => {
   cleanup();
-  for (const key of pendingAutosaves()) discardAutosave(key);
+  clearDrafts();
   vi.useRealTimers();
 });
 

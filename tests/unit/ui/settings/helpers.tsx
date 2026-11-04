@@ -4,7 +4,7 @@ import { vi } from "vitest";
 import type { Job, JobEvent } from "../../../../src/core/types.ts";
 import { Toasts } from "../../../../src/ui/components/legacy/index.ts";
 import { AppContext, type AppState } from "../../../../src/ui/lib/app.ts";
-import { discardAutosave, pendingAutosaves } from "../../../../src/ui/lib/data/autosave.ts";
+import { clearDrafts } from "../../../../src/ui/lib/data/autosave.ts";
 import { setProject } from "../../../../src/ui/lib/data/client.ts";
 import { DataProvider } from "../../../../src/ui/lib/data/provider.tsx";
 import { createQueryClient } from "../../../../src/ui/lib/data/query.ts";
@@ -197,7 +197,7 @@ export function mountSettings(ui: ReactNode, over: Partial<AppState> = {}) {
 export function reset(): void {
   cleanup();
   clearToasts();
-  for (const k of pendingAutosaves()) discardAutosave(k);
+  clearDrafts();
   setProject(null);
   localStorage.clear();
   delete window.testimusDesktop;
