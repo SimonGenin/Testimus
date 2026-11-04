@@ -10,7 +10,8 @@ import { color, fontSize, fontWeight, lineHeight, space } from "../../styles/tok
 
 const styles = stylex.create({
   box: { display: "flex", flexDirection: "column", gap: space.s3 },
-  scope: { display: "flex", justifyContent: "flex-end" },
+  head: { display: "flex", alignItems: "center", gap: space.s3 },
+  title: { flex: 1, fontSize: fontSize.titleSm, lineHeight: lineHeight.titleSm, fontWeight: fontWeight.semibold },
   row: { display: "flex", alignItems: "center", gap: space.s4 },
   words: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: space.s1 },
   name: {
@@ -77,7 +78,7 @@ export function ColumnsMenu({
   return (
     <Popover
       title="Step columns"
-      icon="columns"
+      head={false}
       width="md"
       open={open}
       onOpenChange={(o) => {
@@ -92,7 +93,8 @@ export function ColumnsMenu({
       }
     >
       <div {...stylex.props(styles.box)}>
-        <div {...stylex.props(styles.scope)}>
+        <div {...stylex.props(styles.head)}>
+          <span {...stylex.props(styles.title)}>Step columns</span>
           <Segmented
             label="Apply to"
             size="sm"

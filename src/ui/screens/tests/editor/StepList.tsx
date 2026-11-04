@@ -1,12 +1,12 @@
 import * as stylex from "@stylexjs/stylex";
 import { useState } from "react";
 import type { ColumnLayout, ColumnModes, Source, Step, StepImage, Test } from "../../../../core/types.ts";
-import type { SourceFrom } from "../../../components/sources/PassageDialog.tsx";
 import { Badge } from "../../../components/ui/Badge.tsx";
 import { Button } from "../../../components/ui/Button.tsx";
 import { EmptyState } from "../../../components/ui/EmptyState.tsx";
 import { Segmented } from "../../../components/ui/Segmented.tsx";
 import type { SaveState } from "../../../components/ui/Text.tsx";
+import type { SourceFrom } from "../../../lib/app.ts";
 import type { Column } from "../../../lib/columns.ts";
 import type { Gone, StepMark } from "../../../lib/diff.ts";
 import { border, color, fontSize, fontWeight, lineHeight, radius, space } from "../../../styles/tokens.stylex.ts";

@@ -162,6 +162,7 @@ export function ReviewQueue(p: ReviewQueueProps) {
       <div {...stylex.props(styles.tools)}>
         <Segmented
           size="sm"
+          fill
           label="Filter by review state"
           value={p.filter}
           onChange={p.onFilter}
