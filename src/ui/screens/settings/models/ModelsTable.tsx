@@ -20,8 +20,9 @@ const styles = stylex.create({
     lineHeight: lineHeight.code,
     color: color.textMuted,
   },
+  path: { display: "block", width: 0, minWidth: "100%" },
   perf: { fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textMuted },
-  acts: { display: "flex", gap: space.s2, flexWrap: "wrap" },
+  acts: { display: "flex", gap: space.s2, flexWrap: "wrap", justifyContent: "flex-end" },
 });
 
 export function ModelsTable({
@@ -56,16 +57,17 @@ export function ModelsTable({
         {
           key: "model",
           label: "Model",
+          width: "44%",
           render: (r) => {
             const inst = instOf(r);
             return (
               <span {...stylex.props(styles.name)}>
                 <span>{r.label}</span>
                 <span {...stylex.props(styles.sub)}>
-                  {r.kind === "embedding" ? "Embedding" : "Reranker"} · {r.tier} · {r.runtimes.join(", ")}
+                  {r.kind} · {r.tier} · {r.runtimes.join(", ")}
                 </span>
                 {inst && (
-                  <span title={inst.where} {...stylex.props(styles.sub)}>
+                  <span title={inst.where} {...stylex.props(styles.sub, styles.path)}>
                     {inst.where}
                   </span>
                 )}
@@ -80,7 +82,7 @@ export function ModelsTable({
           render: (r) => <StateChip state={inUse.includes(r.id) ? "active" : r.state} />,
         },
         { key: "size", label: "Size", numeric: true, render: (r) => size(instOf(r)?.sizeMB ?? r.sizeMB) },
-        { key: "fit", label: "Fit", render: (r) => <FitChip fit={r.fit} /> },
+        { key: "fit", label: "Fit here", render: (r) => <FitChip fit={r.fit} /> },
         {
           key: "actions",
           label: "Actions",
@@ -103,7 +105,9 @@ export function ModelsTable({
                 ) : (
                   <Button size="sm" label={used ? "In use" : "Use"} disabled={busy || used} onClick={() => onUse(r)} />
                 )}
-                {here && <Button size="sm" icon="check" label="Verify" disabled={busy} onClick={() => onVerify(r)} />}
+                {here && (
+                  <Button size="sm" variant="quiet" label="Verify" disabled={busy} onClick={() => onVerify(r)} />
+                )}
                 {inst && (
                   <Button
                     size="sm"

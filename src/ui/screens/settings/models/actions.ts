@@ -9,7 +9,15 @@ import type { AdviceRow, CatalogRow, Installed, PackRow, RagStatus, UsePackOut }
 import { isInstalled, size } from "./data.ts";
 import { MEASURE } from "./ops.tsx";
 
-export type FitAsk = { title: string; fit: Fit; lighter: string | null; go: () => void; lighterGo: () => void };
+export type FitAsk = {
+  name: string;
+  short: string;
+  fit: Fit;
+  processorOnly: boolean;
+  lighter: string | null;
+  go: () => void;
+  lighterGo: () => void;
+};
 export type FolderAsk = { needMB: number; next?: () => void };
 export type Plan = { row: PackRow; out: UsePackOut };
 
@@ -61,11 +69,13 @@ export function useModelActions(o: {
   };
 
   const choosePack = (row: PackRow) => {
-    if (row.fit && row.fit.verdict !== "fits") {
+    if (row.fit && (row.fit.verdict !== "fits" || row.processorOnly)) {
       const lighter = o.packs?.find((p) => p.id === row.lighter) ?? null;
       setFitAsk({
-        title: `The ${row.label} pack`,
+        name: `the ${row.label} pack`,
+        short: row.label,
         fit: row.fit,
+        processorOnly: row.processorOnly,
         lighter: lighter ? `the ${lighter.label} pack` : null,
         go: () => void planPack(row),
         lighterGo: () => lighter && choosePack(lighter),
@@ -140,8 +150,10 @@ export function useModelActions(o: {
       if (dry.fit.verdict === "fits") return void applyModel(r, pick);
       const lighter = o.catalog?.find((c) => c.id === dry.lighter) ?? null;
       setFitAsk({
-        title: r.label,
+        name: r.label,
+        short: r.label,
         fit: dry.fit,
+        processorOnly: false,
         lighter: lighter?.label ?? null,
         go: () => void applyModel(r, pick),
         lighterGo: () => lighter && (isInstalled(lighter.state) ? void chooseModel(lighter) : void install(lighter)),

@@ -69,17 +69,17 @@ function DropSpace({ space: s, label, onClose }: { space: Space; label: string; 
       size="sm"
       title={`Drop the ${label} vectors?`}
       confirm={{ verb: `Drop ${s.sizeMB} MB`, danger: true, onConfirm: drop }}
-      consequences={[[s.chunks, "vectors are deleted from the index"]]}
+      consequences={[
+        [s.chunks, "vectors deleted from the index"],
+        [`${s.sizeMB} MB`, "freed on this PC"],
+      ]}
       onClose={onClose}
     >
-      <Stack>
-        <Hint>Using this model again embeds the documents again.</Hint>
-        {s.active && (
-          <Banner tone="warning" compact>
-            This PC searches with it: search falls back to words only until you reindex.
-          </Banner>
-        )}
-      </Stack>
+      {s.active && (
+        <Banner tone="warning" compact>
+          This PC searches with it: search falls back to words only until you reindex.
+        </Banner>
+      )}
     </Modal>
   );
 }

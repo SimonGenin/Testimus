@@ -142,7 +142,7 @@ describe("Ask Claude: the Actions tab", () => {
   it("says when there is none, and stays open while the focus moves", async () => {
     const { r, state } = dock(null);
     fireEvent.click(actionsTab());
-    expect(screen.getByText("No action proposed")).toBeInTheDocument();
+    expect(screen.getByText("No Claude action")).toBeInTheDocument();
     r.rerender(
       <AppContext.Provider value={{ ...state, route: { screen: "documents", arg: DOC } }}>
         <ClaudeDock folded={false} request={null} onFold={() => {}} />

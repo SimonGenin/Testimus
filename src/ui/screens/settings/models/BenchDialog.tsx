@@ -7,6 +7,7 @@ import { Hint, Stack } from "../Section.tsx";
 import type { PackRow } from "./data.ts";
 import { OpLine } from "./OpLine.tsx";
 import { Models } from "./PackCard.tsx";
+import { Row, Rows } from "./PackPlanDialog.tsx";
 
 const styles = stylex.create({ plain: { margin: 0 } });
 
@@ -33,12 +34,12 @@ export function BenchDialog({
     <Modal
       title={`Measure the ${pack.label} pack`}
       subtitle="On Testimus's reference document, on this PC."
-      footNote={running ? "Closing this window does not stop the measure." : undefined}
+      footNote={running ? "Closing this window does not stop the measure: it goes on in Jobs." : undefined}
       onClose={onClose}
       actions={
         running ? (
           <Button
-            variant="quiet"
+            icon="stop"
             label="Cancel the measure"
             disabled={!bench?.jobId}
             onClick={() => bench && cancel(bench.jobId)}
@@ -55,13 +56,21 @@ export function BenchDialog({
           comes first, and how often it is in the top 5. The search times become this PC's speed for the pack.
         </p>
         <Hint>Your project's documents are not used: the same test on every PC makes the packs comparable.</Hint>
-        {pack.embedding && <Models embedding={pack.embedding} reranker={pack.reranker} label={label} />}
-        {running && (
-          <OpLine
-            op={{ key: pack.id, jobId: bench?.jobId ?? "", label: "Measuring", kind: "models-measure" }}
-            cancellable={false}
-          />
-        )}
+        <Rows>
+          {pack.embedding && (
+            <Row term="Models">
+              <Models embedding={pack.embedding} reranker={pack.reranker} label={label} />
+            </Row>
+          )}
+          {running && (
+            <Row term="Progress">
+              <OpLine
+                op={{ key: pack.id, jobId: bench?.jobId ?? "", label: "Measuring", kind: "models-measure" }}
+                cancellable={false}
+              />
+            </Row>
+          )}
+        </Rows>
         {bench?.status === "done" && (
           <Banner tone="success" title="Measured">
             <span>

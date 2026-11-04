@@ -144,6 +144,14 @@ function base(b: Base = {}) {
   net.routes["models.advice"] = () => b.advice ?? [];
   net.routes["rag.status"] = () => b.status ?? { embedding: "emb-s", reranker: null, activation: "light" };
   net.routes["models.dirs"] = () => ({ dir, runtimesDir: null });
+  net.routes["models.hardware"] = () => ({
+    ramTotalMB: 16000,
+    gpus: [],
+    drives: [
+      { root: "C:\\", freeMB: 5000, totalMB: 100000 },
+      { root: "D:\\", freeMB: 655360, totalMB: 1900000 },
+    ],
+  });
   net.routes["models.planPack"] = (i) => ({
     pack: i.pack,
     variant: 0,
@@ -200,11 +208,18 @@ describe("Settings › Models", () => {
     mountSettings(<ModelsSection />);
     expect(screen.getByRole("status", { name: "Loading the packs" })).toBeInTheDocument();
     expect(screen.getByText("Loading the catalog")).toBeInTheDocument();
-    expect(await screen.findByText("not chosen yet")).toBeInTheDocument();
+    expect(await screen.findByText("Not chosen yet — Testimus asks on the first download.")).toBeInTheDocument();
     expect(await screen.findByText("0 in the catalog · 0 on this PC")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Choose…" })).toBeInTheDocument();
     answer([]);
     expect(await screen.findByRole("article", { name: "Custom pack" })).toBeInTheDocument();
+  });
+
+  it("says how much room is left on the models folder's drive", async () => {
+    base();
+    mountSettings(<ModelsSection />);
+    expect(await screen.findByText("D:\\m")).toBeInTheDocument();
+    expect(await screen.findByText("· 640 GB free on D:")).toBeInTheDocument();
   });
 
   it("shows an error with Try again when the models cannot be read, never stale cards", async () => {
@@ -238,7 +253,8 @@ describe("Settings › Models", () => {
     mountSettings(<ModelsSection />);
     const light = await screen.findByRole("article", { name: "Light pack" });
     expect(within(light).getByText("In use")).toBeInTheDocument();
-    expect(within(light).getByRole("button", { name: "Using this pack" })).toBeDisabled();
+    expect(within(light).queryByRole("button", { name: /Use this pack|Using this pack/ })).toBeNull();
+    expect(within(light).getByRole("button", { name: /^Measure/ })).toBeInTheDocument();
     expect(within(light).getByText("Installed")).toBeInTheDocument();
     expect(within(light).getByText("query 40 ms, index 6 passages/s")).toBeInTheDocument();
     const balanced = card("Balanced");
@@ -468,18 +484,42 @@ describe("Settings › Models", () => {
     });
     mountSettings(<ModelsSection />);
     await use("Balanced");
-    let ask = screen.getByRole("dialog", { name: "Will The Balanced pack fit?" });
+    let ask = screen.getByRole("dialog", { name: "Use the Balanced pack anyway?" });
     expect(ask).toHaveTextContent("Tight: 7.6 GB needed, 7.0 GB usable.");
     expect(within(ask).getByText("Lighter choice: the Light pack.")).toBeInTheDocument();
     expect(calls("models.planPack")).toHaveLength(0);
     fireEvent.click(within(ask).getByRole("button", { name: "Cancel" }));
     await use("Balanced");
     fireEvent.click(screen.getByRole("button", { name: "Choose a lighter one" }));
-    ask = screen.getByRole("dialog", { name: "Will The Light pack fit?" });
+    ask = screen.getByRole("dialog", { name: "Use the Light pack anyway?" });
     expect(within(ask).getByRole("button", { name: "Choose a lighter one" })).toBeDisabled();
     fireEvent.click(within(ask).getByRole("button", { name: "Use anyway" }));
     expect(await screen.findByRole("dialog", { name: "Use the Light pack" })).toBeInTheDocument();
     expect(calls("models.usePack").filter((c) => c.input.pack === "balanced")).toHaveLength(0);
+  });
+
+  it("a pack made for a GPU that runs on the processor here asks first, though it fits", async () => {
+    base({
+      packs: [
+        pack("balanced", {
+          fit: fitOf("fits", "Fits on the processor.", "cpu"),
+          processorOnly: true,
+          lighter: "light",
+        }),
+        pack("light"),
+      ],
+    });
+    mountSettings(<ModelsSection />);
+    await use("Balanced");
+    const ask = screen.getByRole("dialog", { name: "Use the Balanced pack on the processor?" });
+    expect(ask).toHaveTextContent("Processor only");
+    expect(within(ask).getByText("Lighter choice: the Light pack.")).toBeInTheDocument();
+    expect(calls("models.planPack")).toHaveLength(0);
+    fireEvent.click(within(ask).getByRole("button", { name: "Use anyway" }));
+    expect(await screen.findByRole("dialog", { name: "Use the Balanced pack" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await use("Light");
+    expect(await screen.findByRole("dialog", { name: "Use the Light pack" })).toBeInTheDocument();
   });
 });
 
@@ -512,7 +552,7 @@ describe("Settings › Models › the catalog", () => {
     base({ catalog: [model("big", { sizeMB: 900 })], dir: null });
     net.routes["models.pull"] = (i) => ({ jobId: srv.start({ kind: "models-pull", subject: String(i.model) }) });
     mountSettings(<ModelsSection />);
-    await screen.findByText("not chosen yet");
+    await screen.findByText("Not chosen yet — Testimus asks on the first download.");
     openCatalog();
     fireEvent.click(within(await waitFor(() => rowOf("M big"))).getByRole("button", { name: "Install" }));
     expect(screen.getByText("folder none need 900")).toBeInTheDocument();
@@ -623,13 +663,13 @@ describe("Settings › Models › the catalog", () => {
     mountSettings(<ModelsSection />);
     openCatalog();
     fireEvent.click(within(await waitFor(() => rowOf("M ram"))).getByRole("button", { name: "Use" }));
-    let ask = await screen.findByRole("dialog", { name: "Will M ram fit?" });
+    let ask = await screen.findByRole("dialog", { name: "M ram cannot run on this PC" });
     expect(ask).toHaveTextContent("RAM too small: 40 GB needed, 32 GB on this PC.");
     expect(within(ask).queryByRole("button", { name: "Use anyway" })).toBeNull();
     fireEvent.click(within(ask).getByRole("button", { name: "Cancel" }));
     fireEvent.click(within(rowOf("M huge")).getByRole("button", { name: "In use" }));
     fireEvent.click(within(rowOf("M mid")).getByRole("button", { name: "Use" }));
-    ask = await screen.findByRole("dialog", { name: "Will M mid fit?" });
+    ask = await screen.findByRole("dialog", { name: "Use M mid anyway?" });
     expect(ask).toHaveTextContent(/runs partly on the CPU/);
     expect(within(ask).getByText("Lighter choice: M small.")).toBeInTheDocument();
     fireEvent.click(within(ask).getByRole("button", { name: "Choose a lighter one" }));
@@ -638,7 +678,7 @@ describe("Settings › Models › the catalog", () => {
     for (const k of [...jobs.keys()]) await srv.end(k, "done");
     await waitFor(() => expect(within(rowOf("M tiny-bad")).getByRole("button", { name: "Use" })).toBeEnabled());
     fireEvent.click(within(rowOf("M tiny-bad")).getByRole("button", { name: "Use" }));
-    ask = await screen.findByRole("dialog", { name: "Will M tiny-bad fit?" });
+    ask = await screen.findByRole("dialog", { name: "Use M tiny-bad anyway?" });
     expect(within(ask).getByRole("button", { name: "Choose a lighter one" })).toBeDisabled();
     fireEvent.click(within(ask).getByRole("button", { name: "Use anyway" }));
     expect(await screen.findByText("M tiny-bad in use for this project")).toBeInTheDocument();
@@ -819,7 +859,11 @@ describe("Settings › Models › measuring a pack", () => {
     expect(dialog()).toHaveTextContent("Syntec collective agreement");
     expect(dialog()).toHaveTextContent("Your project's documents are not used");
     expect(within(dialog()).getByText("no reranker")).toBeInTheDocument();
-    expect(within(dialog()).getByText("Closing this window does not stop the measure.")).toBeInTheDocument();
+    expect(within(dialog()).getByText("Models")).toBeInTheDocument();
+    expect(within(dialog()).getByText("Progress")).toBeInTheDocument();
+    expect(
+      within(dialog()).getByText("Closing this window does not stop the measure: it goes on in Jobs."),
+    ).toBeInTheDocument();
     const ev = [...jobs.keys()].find((k) => k.startsWith("models-measure")) as string;
     await waitFor(() => expect(within(dialog()).getByRole("button", { name: "Cancel the measure" })).toBeEnabled());
     await emit({ jobId: ev, at: "", type: "progress", message: "Behavior 2", done: 2, total: 4 });

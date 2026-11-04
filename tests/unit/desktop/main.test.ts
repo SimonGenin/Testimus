@@ -386,7 +386,7 @@ describe("start", () => {
       minHeight: 600,
       show: false,
       title: "Testimus",
-      backgroundColor: "#f4f6f6",
+      backgroundColor: "#f7f7f8",
       webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false },
     });
     expect(w.opts.webPreferences.preload).toBe(join(DESKTOP, "preload.cjs"));
@@ -437,7 +437,7 @@ describe("start", () => {
     expect(launch.command).toBe(join(process.execPath, "..", "node", "node.exe"));
     expect(launch.args).not.toContain("--mock");
     expect(env.NODE_USE_ENV_PROXY).toBe("1");
-    expect(win().opts.backgroundColor).toBe("#0b0f0f");
+    expect(win().opts.backgroundColor).toBe("#0e0e10");
     if (process.platform === "win32")
       expect(win().setAppDetails).toHaveBeenCalledWith({
         appId: "Testimus",

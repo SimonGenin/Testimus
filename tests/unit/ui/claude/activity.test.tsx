@@ -4,7 +4,8 @@ import { cleanup, fireEvent, render as rtlRender, screen, waitFor } from "@testi
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { writtenTests } from "../../../../src/core/claude/stream.ts";
 import type { Job, JobEvent } from "../../../../src/core/types.ts";
-import { ClaudeActivity as GenActivity } from "../../../../src/ui/components/claude/ClaudeActivity.tsx";
+import { sectionMarks } from "../../../../src/ui/components/claude/ActivityParts.tsx";
+import { ClaudeActivity as GenActivity, runLine } from "../../../../src/ui/components/claude/ClaudeActivity.tsx";
 import { activityOf, gist, lasted, linesRead, outlineOf } from "../../../../src/ui/lib/activity.ts";
 import { landedIds } from "../../../../src/ui/screens/generate/GenResult.tsx";
 import { dataWrapper } from "../../helpers/ui-data.tsx";
@@ -424,5 +425,29 @@ describe("what the index and the check add", () => {
     expect(screen.getByText("Read Q fig:12")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Grouped" }));
     expect(screen.queryByText("Read Q fig:12")).toBeNull();
+  });
+});
+
+describe("What Claude did: the head's line and the bar's section marks (design jobs-claude)", () => {
+  it("says model · effort · m:ss · tokens from the run's result, and the chapters and opened sections by line", () => {
+    const result: JobEvent = {
+      jobId: "g",
+      at: at(),
+      type: "claude",
+      event: { type: "result", ok: true, text: "", durationMs: 4200, tokens: { input: 24000, output: 1200 } },
+    };
+    expect(runLine([result], "sonnet", "medium")).toBe("sonnet · medium · 0:04 · 24k tokens in · 1.2k out");
+    expect(runLine([], "opus")).toBe("opus");
+    render(<GenActivity events={[result]} running={false} now={Date.now()} model="sonnet" effort="medium" />);
+    expect(screen.getByText(/sonnet · medium · 0:04/)).toBeInTheDocument();
+    const outline = outlineOf(
+      ["# 5 Traction <!-- §5 -->", "a", "## 5.6 Objets <!-- §5.6 -->", "b", "# 6 Suite <!-- §6 -->", "c"].join("\n"),
+    );
+    expect(sectionMarks(outline, [{ anchor: "§5.6", line: 3 }])).toEqual([
+      { anchor: "§5", line: 1 },
+      { anchor: "§5.6", line: 3 },
+      { anchor: "§6", line: 5 },
+    ]);
+    expect(sectionMarks(null, [])).toEqual([]);
   });
 });

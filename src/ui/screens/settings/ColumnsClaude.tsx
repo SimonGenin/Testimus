@@ -14,7 +14,7 @@ import { project } from "../../lib/data/client.ts";
 import { execute, type Key } from "../../lib/data/query.ts";
 import { plural } from "../../lib/format.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
-import { border, color, fontSize, fontWeight, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { border, color, fontSize, fontWeight, lineHeight, radius, space } from "../../styles/tokens.stylex.ts";
 import { useCancel, useJob } from "./jobs.ts";
 import { Hint, Stack } from "./Section.tsx";
 
@@ -23,22 +23,59 @@ const styles = stylex.create({
   acts: { display: "flex", alignItems: "center", gap: space.s3, flexWrap: "wrap" },
   reading: { flex: 1, minWidth: 0, fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textMuted },
   said: { margin: 0, whiteSpace: "pre-wrap", fontSize: fontSize.body, lineHeight: lineHeight.body },
-  list: { display: "flex", flexDirection: "column", gap: space.s4, margin: 0, padding: 0, listStyle: "none" },
+  answer: {
+    display: "flex",
+    flexDirection: "column",
+    gap: space.s3,
+    padding: space.s5,
+    borderRadius: radius.r3,
+    backgroundColor: color.claudeSubtle,
+    fontSize: fontSize.body,
+    lineHeight: lineHeight.body,
+  },
+  answerHead: {
+    display: "flex",
+    alignItems: "center",
+    gap: space.s2,
+    color: color.claudeText,
+    fontSize: fontSize.small,
+    lineHeight: lineHeight.small,
+    fontWeight: fontWeight.semibold,
+  },
+  list: { display: "flex", flexDirection: "column", margin: 0, padding: 0, listStyle: "none" },
   prop: {
     boxSizing: "border-box",
     display: "flex",
     flexDirection: "column",
-    gap: space.s2,
-    paddingTop: space.s4,
+    gap: space.s3,
+    paddingBottom: space.s4,
+    paddingTop: { default: space.s4, ":first-child": space.s2 },
     borderTopStyle: "solid",
-    borderTopWidth: border.width,
+    borderTopWidth: { default: border.width, ":first-child": 0 },
     borderTopColor: color.border,
   },
   head: { display: "flex", alignItems: "center", gap: space.s3, flexWrap: "wrap" },
-  name: { flex: 1, fontWeight: fontWeight.semibold },
-  line: { margin: 0, fontSize: fontSize.compact, lineHeight: lineHeight.compact },
-  word: { marginRight: space.s2, fontWeight: fontWeight.medium, color: color.textMuted },
-  empty: { fontStyle: "italic", color: color.textMuted },
+  name: { fontSize: fontSize.titleSm, lineHeight: lineHeight.titleSm, fontWeight: fontWeight.semibold },
+  btns: { display: "flex", gap: space.s2, marginInlineStart: "auto" },
+  kv: {
+    display: "grid",
+    gridTemplateColumns: "max-content minmax(0, 1fr)",
+    columnGap: space.s5,
+    rowGap: space.s2,
+    margin: 0,
+  },
+  dt: { color: color.textMuted },
+  dd: { margin: 0, minWidth: 0 },
+  today: { color: color.textMuted, textDecorationColor: color.textSubtle },
+  empty: { color: color.textMuted },
+  why: {
+    display: "flex",
+    gap: space.s2,
+    fontSize: fontSize.small,
+    lineHeight: lineHeight.small,
+    color: color.textMuted,
+  },
+  foot: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s2 },
 });
 
 type Suggested = CommandOutput<"columns.suggest">;
@@ -153,67 +190,62 @@ export function ColumnsClaude({ columns }: { columns: StepColumn[] }) {
   const asking = starting || !!jobId;
 
   return (
-    <Card
-      title={
-        <span {...stylex.props(styles.title)}>
-          <Icon name="claude" />
-          Ask Claude about the columns
-        </span>
-      }
-    >
-      <Stack>
-        <Hint>
-          Claude reads the columns, Xray's step fields, the tests, the documents and the contexts, and proposes what
-          each column should hold. Nothing changes until you apply a proposal.
-        </Hint>
-        <AdditionalContext
-          id="colclaude-ask"
-          of="the columns"
-          placeholder="What the columns should hold, in your words — e.g. « each step should say which operator position it uses ». Empty: review them all."
-          ids={ids}
-          note={ask}
-          disabled={asking}
-          onIds={(next) => setPicked(JSON.stringify(next))}
-          onNote={setAsk}
-        />
-        <div {...stylex.props(styles.acts)}>
-          <Button
-            variant="claude"
-            size="sm"
-            icon="claude"
-            label={asking ? "Claude is looking…" : answer ? "Ask again" : "Ask Claude"}
+    <>
+      <Card
+        title={
+          <span {...stylex.props(styles.title)}>
+            <Icon name="claude" />
+            Ask Claude about the columns
+          </span>
+        }
+      >
+        <Stack>
+          <Hint>
+            Claude reads the columns, Xray's step fields, the tests, the documents and the contexts, and proposes what
+            each column should hold. Nothing changes until you apply a proposal.
+          </Hint>
+          <AdditionalContext
+            id="colclaude-ask"
+            of="the columns"
+            placeholder="What the columns should hold, in your words — e.g. « each step should say which operator position it uses ». Empty: review them all."
+            ids={ids}
+            note={ask}
             disabled={asking}
-            onClick={() => void suggest()}
+            onIds={(next) => setPicked(JSON.stringify(next))}
+            onNote={setAsk}
           />
-        </div>
-        {jobId && <Asking jobId={jobId} onAnswer={answered} />}
-        {answer && (
-          <Stack>
-            {answer.text && <p {...stylex.props(styles.said)}>{answer.text}</p>}
-            {proposals.length > 1 && (
-              <div {...stylex.props(styles.acts)}>
-                <Button
-                  size="sm"
-                  icon="check"
-                  label={saving === "*" ? "Applying…" : `Apply all ${proposals.length}`}
-                  disabled={!!saving}
-                  onClick={() => void apply(proposals)}
-                />
-                <Button size="sm" variant="quiet" label="Dismiss" disabled={!!saving} onClick={() => setAnswer(null)} />
-              </div>
-            )}
-            {proposals.length > 0 ? (
-              <ul aria-label="Claude's proposals" {...stylex.props(styles.list)}>
-                {proposals.map((p) => {
-                  const tag = tagOf(p);
-                  return (
-                    <li key={p.name} aria-label={p.name} {...stylex.props(styles.prop)}>
-                      <div {...stylex.props(styles.head)}>
-                        <span {...stylex.props(styles.name)}>{p.name}</span>
-                        <Badge label={tag.label} tone={tag.tone} size="sm" />
+          <div {...stylex.props(styles.acts)}>
+            <Button
+              variant="claude"
+              size="sm"
+              icon="claude"
+              label={asking ? "Claude is looking…" : answer ? "Ask again" : "Ask Claude"}
+              disabled={asking}
+              onClick={() => void suggest()}
+            />
+          </div>
+          {jobId && <Asking jobId={jobId} onAnswer={answered} />}
+        </Stack>
+      </Card>
+      {answer && (
+        <section aria-labelledby="colclaude-answer" {...stylex.props(styles.answer)}>
+          <span id="colclaude-answer" {...stylex.props(styles.answerHead)}>
+            <Icon name="claude" size="sm" />
+            Claude's proposals
+          </span>
+          {answer.text && <p {...stylex.props(styles.said)}>{answer.text}</p>}
+          {proposals.length > 0 ? (
+            <ul aria-label="Claude's proposals" {...stylex.props(styles.list)}>
+              {proposals.map((p) => {
+                const tag = tagOf(p);
+                return (
+                  <li key={p.name} aria-label={p.name} {...stylex.props(styles.prop)}>
+                    <div {...stylex.props(styles.head)}>
+                      <span {...stylex.props(styles.name)}>{p.name}</span>
+                      <Badge label={tag.label} tone={tag.tone} icon={p.kind === "new" ? "plus" : undefined} size="sm" />
+                      <span {...stylex.props(styles.btns)}>
                         <Button
                           size="sm"
-                          variant="primary"
                           icon="check"
                           label={saving === p.name ? "Applying…" : p.kind === "new" ? "Add the column" : "Apply"}
                           disabled={!!saving}
@@ -226,28 +258,60 @@ export function ColumnsClaude({ columns }: { columns: StepColumn[] }) {
                           disabled={!!saving}
                           onClick={() => drop([p.name])}
                         />
-                      </div>
+                      </span>
+                    </div>
+                    <dl {...stylex.props(styles.kv)}>
                       {p.current !== null && (
-                        <p {...stylex.props(styles.line)}>
-                          <span {...stylex.props(styles.word)}>Today</span>
-                          {p.current || <span {...stylex.props(styles.empty)}>empty — Claude never fills it</span>}
-                        </p>
+                        <>
+                          <dt {...stylex.props(styles.dt)}>Today</dt>
+                          <dd {...stylex.props(styles.dd)}>
+                            {p.current ? (
+                              <del {...stylex.props(styles.today)}>{p.current}</del>
+                            ) : (
+                              <span {...stylex.props(styles.empty)}>empty — Claude never fills it</span>
+                            )}
+                          </dd>
+                        </>
                       )}
-                      <p {...stylex.props(styles.line)}>
-                        <span {...stylex.props(styles.word)}>Proposed</span>
+                      <dt {...stylex.props(styles.dt)}>Proposed</dt>
+                      <dd {...stylex.props(styles.dd)}>
                         {p.description || <span {...stylex.props(styles.empty)}>empty — Claude stops filling it</span>}
-                      </p>
-                      {p.why && <Hint>{p.why}</Hint>}
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : (
-              answer.proposals.length === 0 && <Hint>No change proposed.</Hint>
-            )}
-          </Stack>
-        )}
-      </Stack>
-    </Card>
+                      </dd>
+                    </dl>
+                    {p.why && (
+                      <span {...stylex.props(styles.why)}>
+                        <Icon name="quote" size="sm" />
+                        <span>{p.why}</span>
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            answer.proposals.length === 0 && <Hint>No change proposed.</Hint>
+          )}
+          {proposals.length > 1 && (
+            <div {...stylex.props(styles.foot)}>
+              <Button
+                size="sm"
+                variant="primary"
+                icon="check"
+                label={saving === "*" ? "Applying…" : `Apply all ${proposals.length}`}
+                disabled={!!saving}
+                onClick={() => void apply(proposals)}
+              />
+              <Button
+                size="sm"
+                variant="quiet"
+                label="Dismiss all"
+                disabled={!!saving}
+                onClick={() => setAnswer(null)}
+              />
+            </div>
+          )}
+        </section>
+      )}
+    </>
   );
 }

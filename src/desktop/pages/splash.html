@@ -2,16 +2,21 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self'; style-src 'self'" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self'; style-src 'self'; font-src 'self'" />
     <title>Testimus</title>
     <link rel="stylesheet" href="pages.css" />
   </head>
   <body>
-    <main class="splash" aria-busy="true">
-      <img class="logo" src="logo.png" alt="" />
-      <h1>Testimus</h1>
-      <div class="bar" role="progressbar" aria-label="Starting Testimus"></div>
-      <p>Starting…</p>
+    <main class="desk">
+      <div class="splash" role="status" aria-live="polite" aria-busy="true">
+        <div class="tile tile--lg"><img src="logo.png" alt="" /></div>
+        <h1>Testimus</h1>
+        <div class="progress" role="progressbar" aria-label="Starting Testimus"><div class="progress__bar"></div></div>
+        <div class="splash__state">
+          <span>Starting…</span>
+          <span class="mono">v__VERSION__</span>
+        </div>
+      </div>
     </main>
   </body>
 </html>

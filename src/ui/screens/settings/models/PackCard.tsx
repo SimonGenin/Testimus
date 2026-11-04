@@ -131,9 +131,7 @@ export function PackCard({
           <div {...stylex.props(styles.foot)}>
             {op ? (
               <OpLine op={op} />
-            ) : pack.active && ready ? (
-              <Button size="sm" icon="check" label="Using this pack" disabled={`The ${pack.label} pack is in use`} />
-            ) : (
+            ) : pack.active && ready ? null : (
               <Button size="sm" label="Use this pack" disabled={!pack.available || busy} onClick={onUse} />
             )}
             {!op && onMeasure && (

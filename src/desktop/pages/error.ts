@@ -8,8 +8,11 @@ const logs = el("logs") as HTMLButtonElement;
 if (shellPage) {
   shellPage.details().then((d) => {
     el("message").textContent = d.message;
-    el("lines").textContent = d.lines.length ? d.lines.join("\n") : "(the log is empty)";
+    const lines = el("lines");
+    lines.textContent = d.lines.length ? d.lines.join("\n") : "(the log is empty)";
+    lines.scrollTop = lines.scrollHeight;
     el("where").textContent = d.logDir;
+    el("where").title = d.logDir;
   });
   restart.addEventListener("click", () => {
     restart.disabled = true;

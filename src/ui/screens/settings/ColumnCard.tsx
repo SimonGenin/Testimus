@@ -41,6 +41,8 @@ export type ColumnCardProps = {
   onRemove?: () => void;
 };
 
+export const columnFieldId = (name: string) => `settings-column-${name.replace(/\W+/g, "-")}`;
+
 // ponytail: one step column — how it folds on a step, hidden or not, its items linked to their sources or not, and
 // what Claude is told to write in it (saved by the field)
 export function ColumnCard({
@@ -58,7 +60,7 @@ export function ColumnCard({
 }: ColumnCardProps) {
   const tag = columnTag(c);
   const always = c.name === "Action" || c.name === "Expected Result";
-  const id = `settings-column-${c.name.replace(/\W+/g, "-")}`;
+  const id = columnFieldId(c.name);
   return (
     <Card
       title={
@@ -67,7 +69,7 @@ export function ColumnCard({
             <Icon name="grip" />
           </span>
           {c.name}
-          <Badge label={tag.label} tone={tag.tone} size="sm" />
+          <Badge label={tag.label} tone={tag.tone === "info" ? "neutral" : tag.tone} size="sm" />
           {field?.required && <Badge label="required" tone="info" size="sm" tooltip="Xray refuses a step without it" />}
           {field?.disabled && (
             <Badge

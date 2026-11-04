@@ -7,7 +7,13 @@ import { Badge, type BadgeTone } from "../ui/Badge.tsx";
 import { Marked } from "../ui/Marked.tsx";
 
 const styles = stylex.create({
-  path: { fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textSubtle },
+  anchor: {
+    marginInlineEnd: space.s2,
+    fontFamily: fontFamily.mono,
+    fontSize: fontSize.code,
+    fontWeight: fontWeight.regular,
+    color: color.textSubtle,
+  },
   title: {
     margin: 0,
     fontFamily: fontFamily.reading,
@@ -27,7 +33,7 @@ const styles = stylex.create({
   para: { margin: 0, overflowWrap: "anywhere" },
   figure: { margin: 0, display: "flex", flexDirection: "column", gap: space.s2 },
   img: { maxWidth: "100%", maxHeight: size.dockStripLabel, objectFit: "contain", alignSelf: "flex-start" },
-  caption: { fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textSubtle, fontStyle: "italic" },
+  caption: { fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textSubtle },
 });
 
 type StatusTone = "neutral" | "info" | "ok";
@@ -121,8 +127,9 @@ export const paragraphs = (text: string) =>
     .map((p) => p.trim())
     .filter(Boolean);
 
-export const docLink = (docId: string, anchor: string, quote = "") =>
-  `${docId}#${anchor}${quote.trim() ? ` "${quote.trim()}"` : ""}`;
+// the Documents route of a source; with a quote, `from` names the test (and step) that cites it, for « Back to the test »
+export const docLink = (docId: string, anchor: string, quote = "", from?: { test: string; step?: number }) =>
+  `${docId}#${anchor}${quote.trim() ? ` "${quote.trim()}"${from ? ` from ${from.test}${from.step ? ` step ${from.step}` : ""}` : ""}` : ""}`;
 
 export const sectionNumber = (anchor: string) => (anchor.startsWith("§") ? anchor.slice(1) : "");
 
@@ -135,13 +142,14 @@ export function DocBadges({ status }: { status: string }) {
 // quote marked, its figures
 export function PassageText({ passage, quote }: { passage: Passage; quote: string }) {
   const num = sectionNumber(passage.anchor);
+  const title = num && passage.title.startsWith(`${num} `) ? passage.title.slice(num.length + 1) : passage.title;
   return (
     <>
-      {passage.path && <span {...stylex.props(styles.path)}>{passage.path.split(" > ").join(" › ")}</span>}
       {passage.title && (
         <h4 {...stylex.props(styles.title)}>
-          {num && !passage.title.startsWith(num) ? `${num} ` : ""}
-          {passage.title}
+          {num && <span {...stylex.props(styles.anchor)}>§ {num}</span>}
+          {num && " "}
+          {title}
         </h4>
       )}
       <div {...stylex.props(styles.text)}>

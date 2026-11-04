@@ -62,16 +62,25 @@ export function useNewProject(root: string) {
   return { where, setWhere, key, setKey, name, setName, language, setLanguage, dir, input, clear };
 }
 
-export function NewProject({ f, busy }: { f: ReturnType<typeof useNewProject>; busy: boolean }) {
+export function NewProject({
+  f,
+  busy,
+  first,
+}: {
+  f: ReturnType<typeof useNewProject>;
+  busy: boolean;
+  /** no project is known yet: the section is the only way on */
+  first: boolean;
+}) {
   return (
     <section aria-labelledby="new-project" {...stylex.props(styles.set)}>
       <h2 id="new-project" {...stylex.props(styles.title)}>
-        Or start a new project
+        {first ? "New project" : "Or start a new project"}
       </h2>
       <div {...stylex.props(styles.pair)}>
         <Text
           id="proj-key"
-          label="Jira project"
+          label="Jira project key"
           hint="Optional: a project without a key never asks Jira."
           placeholder="e.g. LFRPS12"
           value={f.key}

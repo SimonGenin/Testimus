@@ -27,7 +27,11 @@ const styles = stylex.create({
   mono: { fontFamily: fontFamily.mono, wordBreak: "break-all" },
 });
 
-function Row({ term, children }: { term: string; children: ReactNode }) {
+export function Rows({ children }: { children: ReactNode }) {
+  return <dl {...stylex.props(styles.rows)}>{children}</dl>;
+}
+
+export function Row({ term, children }: { term: string; children: ReactNode }) {
   return (
     <>
       <dt {...stylex.props(styles.dt)}>{term}</dt>
@@ -83,7 +87,7 @@ export function PackPlanDialog({
         </>
       }
     >
-      <dl {...stylex.props(styles.rows)}>
+      <Rows>
         <Row term="Models">
           <Models embedding={out.embedding} reranker={out.reranker} label={label} />
         </Row>
@@ -116,7 +120,7 @@ export function PackPlanDialog({
             : "Already indexed with these models: nothing to rebuild."}
         </Row>
         <Row term="Expected speed">{p.expected}</Row>
-      </dl>
+      </Rows>
     </Modal>
   );
 }

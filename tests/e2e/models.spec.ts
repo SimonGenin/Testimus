@@ -110,14 +110,14 @@ test.describe("a 4 GB GPU", () => {
   test("a pack that runs partly on the processor asks first, and offers a lighter one", async ({ page }) => {
     const models = await openModels(page);
     const quality = models.getByRole("article", { name: "Quality pack" });
-    await expect(quality).toContainText("Partly on the CPU");
+    await expect(quality).toContainText("Partly on the processor");
     await expect(quality.getByRole("list", { name: "Skipped variants" })).toContainText("gpu-too-small");
     const balancedCard = models.getByRole("article", { name: "Balanced pack" });
     await expect(balancedCard).toContainText("its second choice");
     await expect(balancedCard.getByRole("list", { name: "Skipped variants" })).toContainText("4.0 GB on the GPU");
     await quality.getByRole("button", { name: "Use this pack" }).click();
-    const ask = page.getByRole("dialog", { name: "Will The Quality pack fit?" });
-    await expect(ask).toContainText("may not fit this PC");
+    const ask = page.getByRole("dialog", { name: "Use the Quality pack anyway?" });
+    await expect(ask).toContainText("Partly on the processor");
     await expect(ask).toContainText("Your GPU has 4.0 GB");
     await shoot(page, "models-fit-gpu-e2e");
     await ask.getByRole("button", { name: "Choose a lighter one" }).click();
@@ -146,8 +146,8 @@ test.describe("no GPU and 6 GB of memory", () => {
       .getByRole("row", { name: "Qwen3 Embedding 8B (4-bit)" })
       .getByRole("button", { name: "Use", exact: true })
       .click();
-    const ask = page.getByRole("dialog", { name: /^Will Qwen3 Embedding 8B .* fit\?$/ });
-    await expect(ask).toContainText("cannot run on this PC");
+    const ask = page.getByRole("dialog", { name: /^Qwen3 Embedding 8B .* cannot run on this PC$/ });
+    await expect(ask).toContainText("RAM too small");
     await expect(ask.getByRole("button", { name: "Use anyway" })).toHaveCount(0);
     await shoot(page, "models-fit-ram-e2e");
     await ask.getByRole("button", { name: "Cancel" }).click();
@@ -160,7 +160,7 @@ test.describe("first download, no models folder chosen", () => {
   test("the first download asks where models go, then Change… moves them", async ({ page }) => {
     const root = await sandbox(url);
     const models = await openModels(page);
-    await expect(models).toContainText("not chosen yet");
+    await expect(models).toContainText("Not chosen yet — Testimus asks on the first download.");
     await models
       .getByRole("article", { name: "Performance pack" })
       .getByRole("button", { name: "Use this pack" })
@@ -187,13 +187,14 @@ test.describe("first download, no models folder chosen", () => {
     const moved = join(root, "moved-models");
     await typeFolder(change, moved);
     const how = change.getByRole("radiogroup", { name: "The models already downloaded" });
-    await how.getByRole("radio", { name: /^Keep where they are/ }).click();
+    await how.getByRole("radio", { name: /^Keep them where they are/ }).click();
     await expect(change).toContainText("They stay where they are");
     await how.getByRole("radio", { name: /^Copy/ }).click();
     await how.getByRole("radio", { name: /^Move/ }).click();
-    await expect(change.getByRole("button", { name: /^Move \d/ })).toBeEnabled();
+    await expect(change).toContainText(/Moving .* is followed as a job in Jobs\./);
+    await expect(change.getByRole("button", { name: "Use this folder" })).toBeEnabled();
     await shoot(page, "models-folder-change-e2e");
-    await change.getByRole("button", { name: /^Move \d/ }).click();
+    await change.getByRole("button", { name: "Use this folder" }).click();
     await expect(change).toBeHidden();
     await expect(models).toContainText(moved, { timeout: 30_000 });
     await expect

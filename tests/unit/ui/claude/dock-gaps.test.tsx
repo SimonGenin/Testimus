@@ -90,7 +90,11 @@ describe("passage view remaining paths", () => {
     expect(screen.getByText("archived")).toBeInTheDocument();
     expect(screen.getAllByRole("img", { name: "figures/f1.png" })).toHaveLength(3);
     expect(screen.getAllByRole("img", { name: "Le menu" })[0]).toHaveAttribute("src", "/files/docs/D/figures/f2.png");
-    expect(screen.getAllByRole("heading").map((h) => h.textContent)).toEqual(["5.6 Menus", "Sans numéro", "5.6 Menus"]);
+    expect(screen.getAllByRole("heading").map((h) => h.textContent)).toEqual([
+      "§ 5.6 Menus",
+      "Sans numéro",
+      "§ 5.6 Menus",
+    ]);
     expect(screen.getAllByText("italique")[0].closest("mark")).not.toBeNull();
     expect(document.querySelectorAll("mark[data-hl]").length).toBeGreaterThan(1);
   });

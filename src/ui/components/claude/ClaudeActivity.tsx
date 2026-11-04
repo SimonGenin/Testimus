@@ -12,6 +12,7 @@ import { Disclosure } from "../ui/Disclosure.tsx";
 import { Icon } from "../ui/Icon.tsx";
 import { Timeline, type TimelineItem } from "../ui/Timeline.tsx";
 import { DocMap, docsOf, Lookups, Searches } from "./ActivityParts.tsx";
+import { kilo } from "./turns.ts";
 
 const styles = stylex.create({
   card: { display: "flex", flexDirection: "column", gap: space.s3 },
@@ -51,7 +52,6 @@ const styles = stylex.create({
     margin: 0,
     fontSize: fontSize.small,
     lineHeight: lineHeight.small,
-    fontStyle: "italic",
     color: color.claudeText,
   },
   toggles: { display: "flex", flexWrap: "wrap", gap: space.s2 },
@@ -67,6 +67,24 @@ const styles = stylex.create({
   at: { fontFamily: fontFamily.mono, color: color.textSubtle, marginInlineEnd: space.s2 },
   muted: { margin: 0, fontSize: fontSize.small, color: color.textSubtle, fontWeight: fontWeight.regular },
 });
+
+const mss = (ms: number) => {
+  const s = Math.round(ms / 1000);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+};
+
+// the head's line (design jobs-claude): model · effort · m:ss · tokens, from what the run reported at its end
+export function runLine(events: JobEvent[], model?: string, effort?: string): string {
+  const end = events.flatMap((e) => (e.type === "claude" && e.event.type === "result" ? [e.event] : [])).pop();
+  return [
+    model ?? "",
+    effort ?? "",
+    end ? mss(end.durationMs) : "",
+    end?.tokens ? `${kilo(end.tokens.input)} tokens in · ${kilo(end.tokens.output)} out` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
 
 const sentence = (parts: string[]) =>
   `${[...new Set(parts)].map((p, i) => (i ? p.charAt(0).toLowerCase() + p.slice(1) : p)).join(", ")}.`;
@@ -226,15 +244,21 @@ export function ClaudeActivity({
   running,
   now,
   label = "What Claude did",
+  model,
+  effort,
 }: {
   events: JobEvent[];
   running: boolean;
   now: number;
   label?: string;
+  /** the run's model and effort, from the job's input: they open the head's line */
+  model?: string;
+  effort?: string;
 }) {
   const [shown, setShown] = useState(true);
   const [raw, setRaw] = useState(false);
   const phases = activityOf(events);
+  const head = runLine(events, model, effort);
   const planned = phases.reduce((n, p) => n + p.planned.length, 0);
   const names = new Map(phases.flatMap((p) => p.written.filter((w) => w.summary).map((w) => [w.id, w.summary])));
   const items: TimelineItem[] = phases.map((p, i) => {
@@ -264,7 +288,10 @@ export function ClaudeActivity({
         summary={label}
         open={shown}
         onOpenChange={setShown}
-        meta={!shown && phases.length > 0 ? plural(phases.length, "phase") : undefined}
+        meta={
+          [head, !shown && phases.length > 0 ? plural(phases.length, "phase") : ""].filter(Boolean).join(" · ") ||
+          undefined
+        }
       >
         {!phases.length && (
           <p {...stylex.props(styles.muted)}>

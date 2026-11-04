@@ -969,7 +969,7 @@ Group | Verbs (all with `--json`; mutating ones marked *)
 `docs` | `add`* (job: copy + convert one document; a path, or an upload as base64), `addFiles`* (job: the files dropped or picked together, a .docx paired with its .pdf, copied only), `convert`* (job: convert, figures, re-check of the citing tests, triage, and with `index` the search index), `inspect` (profile of the originals), `page` (a page of the PDF copy as a PNG under .testimus/pages), `list` (with index freshness), `show` (+ `contextMtime`), `set`* (status, amends, context with `ifMtime`…), `describeFigures`* (job, Claude; the figures not described yet, `--force` all, `anchors` only those, described again), `remove`* (`--dry-run`; says the passages it takes out of the index)
 `rag` | `index`* (job; one run at a time per index), `search` (mode hybrid · bm25 · vector; `expand`), `passage` (docId#anchor → text + figures, centred on `around`, capped; code `doc-gone` for a missing document), `figure`, `mentions` (every passage holding a term, no model), `related` (graph neighbours, no model), `eval`* (job, L1; updates the index, writes its report), `compare` (reports → intervals), `status` (active model, space, freshness per document), `spaces`, `dropSpace`*
 `search` | `all` (Ctrl K: tests, documents, passages, by words and by meaning), `index`* (job: embeds the tests for search by meaning)
-`chat` | `ask`* (job, streamed; writes the conversation under `.testimus/chats/`), `list`, `show`
+`chat` | `ask`* (job, streamed; writes the conversation under `.testimus/chats/`; gives the raw output too), `list`, `show`
 `claude` | `run`* (job: a scoped request « On this test » — step, test, tests or project), `revert`* (runId; refuses with code `edited-after-run`), `status` (installed, version, signed in, how to connect)
 `actions` | `list`, `show`, `propose`* (from a Claude run), `dismiss`*, `run`* (job, Claude, snapshotted), `triage`* (job, Claude: a document's warnings or a failed job), `triageFailed`* (the core decides whether Claude looks at a failed job, and starts the triage)
 `contexts` | `list` (the project's own and the shared library's, each with `shared`; `--from <project>` lists another project's own), `show` (with context.md's `mtime`), `create`* (`--shared` puts it in the library; `notes` and `paths` at once: « Save as context » is one call), `share`* (move into the library or back into this project), `set`* (name, notes, outside paths; `ifMtime` refused with code `conflict` when context.md moved on disk), `addFile`* (a path or an upload), `removeFile`*, `remove`*, `copy`* (from another project: notes, paths and files; a taken id gets a new one), `ofTest` (effective · own · project), `ofProject`, `setTest`* (a test's full list, or null to follow the project)
@@ -1013,7 +1013,7 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
     beside Cancel; the folded dock shows « Last run: N s — <first line of the summary> ». On a test or the project the
     dock shows the last run only (Xray Editor's result card): the request stays in the box, every run with a snapshot
     gets its card (« 0 steps changed » too, with Revert), and the card goes when another test is opened; « Ask the
-    documents » stays a conversation. A failed run offers Retry (same prompt, scope, contexts,
+    documents » stays a conversation; with nothing asked yet the Documents tab lists the five latest « Earlier conversations » (`chat.list`), one opens as it was said (`chat.show`) and the next question continues it. A run's card shows « N steps changed » and the check's outcome as badges, Show changes off when nothing changed. A failed run offers Retry (same prompt, scope, contexts,
     model, effort), Show / Hide raw output and Open Settings. Not connected: « Claude is optional — everything else
     works without it », « Set the path myself… » (Settings at the Claude program field), and a « not connected » chip
     on the folded dock. In the desktop app a pin toggle (« Always on top ») sits in the dock header.
@@ -1027,7 +1027,7 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
   - **Settings additions** (parity with Xray Editor §2, §8): a version pill `v<version>` beside the title; Settings ›
     Claude is four cards — Connection to Claude, Claude dock, Quick asks, Contexts (the last three need a project;
     `#/settings/claude-dock`, `-quickasks`, `-contexts` scroll to them). The connection card holds the Claude program field (Browse in the desktop app; Check saves it then runs `claude.status
-    {refresh:true}`; « ✓ <version> · found » / « ✕ <error> · not found · Claude is optional », the connect panel when
+    {refresh:true}`; « ✓ <version> · found » / a « Not found » badge over « <error> · Claude is optional », the connect panel when
     not found; `#/settings/claude-exe` focuses it) and the agents at the same time; the dock card the default model
     (with custom…) and effort; the quick asks card the quick asks edited in place / added / removed by index; the
     contexts card the default contexts as toggle chips by name and « Manage contexts… ». Settings › Access lists both
@@ -1234,9 +1234,11 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
       Apply = the pack's plan or `models.use`, Dismiss = `models.dismissAdvice`); the pack cards Light · Performance ·
       Balanced · Quality from `models.packs` plus Custom, the active one marked « In use », each with its variant here
       (« its second choice »), fit chip and message, skipped variants with their numbers, download left, speed, quality
-      (on the reference document), « On this project » when the project's own set measured it, « Use this pack ». A pack or a model whose fit is not « fits » opens a confirmation with the verdict's numbers,
+      (on the reference document), « On this project » when the project's own set measured it, « Use this pack ». A pack or a model whose fit is not « fits », and a pack made for a GPU that runs on the
+      processor here (« Processor only »), opens a confirmation (« Use the Quality pack anyway? », « Use the Balanced
+      pack on the processor? ») with the verdict, what it needs against what is free (GPU or memory),
       **Use anyway** and **Choose a lighter one** (the next lighter pack, or the largest smaller model that fits); « RAM
-      too small » offers no Use anyway. Use this pack shows `models.planPack` (models, downloads, folder,
+      too small » and « Not supported here » are titled « … cannot run on this PC » and offer no Use anyway. Use this pack shows `models.planPack` (models, downloads, folder,
       reindex, expected speed), then runs `models.usePack` and follows its job, then the index job it names, on the card (progress, Cancel); running model and
       index jobs are picked up again when the screen opens. Each pack card has « Measure » (« Measure again » once its
       quality is measured on this PC; disabled, with the reason, until the pack's models are on this PC): a dialog says

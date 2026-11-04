@@ -30,7 +30,7 @@ export function StepCard({
 }: {
   id: string;
   title: string;
-  lead: ReactNode;
+  lead?: ReactNode;
   children?: ReactNode;
   back?: ReactNode;
   actions?: ReactNode;
@@ -53,7 +53,7 @@ export function StepCard({
             <h1 id={id} {...stylex.props(styles.title)}>
               {title}
             </h1>
-            <p {...stylex.props(styles.lead)}>{lead}</p>
+            {lead && <p {...stylex.props(styles.lead)}>{lead}</p>}
           </div>
           {children}
         </div>

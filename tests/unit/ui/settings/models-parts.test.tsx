@@ -19,7 +19,7 @@ import {
   suggestPack,
 } from "../../../../src/ui/screens/settings/models/data.ts";
 import { FitChip } from "../../../../src/ui/screens/settings/models/FitChip.tsx";
-import { FitConfirm } from "../../../../src/ui/screens/settings/models/FitConfirm.tsx";
+import { FitConfirm, fitNumbers, fitTitle } from "../../../../src/ui/screens/settings/models/FitConfirm.tsx";
 import { FolderDialog } from "../../../../src/ui/screens/settings/models/FolderDialog.tsx";
 import { ModelsTable } from "../../../../src/ui/screens/settings/models/ModelsTable.tsx";
 import { OpLine } from "../../../../src/ui/screens/settings/models/OpLine.tsx";
@@ -236,16 +236,17 @@ describe("small model widgets", () => {
   });
 
   it("FitConfirm: refused, partly on the CPU with its own message, unload list, no lighter", () => {
-    const props = { title: "Big", lighter: null, onUse: vi.fn(), onLighter: vi.fn(), onClose: vi.fn() };
+    const props = { name: "Big", short: "Big", lighter: null, onUse: vi.fn(), onLighter: vi.fn(), onClose: vi.fn() };
     const { rerender } = render(<FitConfirm {...props} fit={fitOf("ram-too-small", "No RAM")} />);
-    expect(screen.getByRole("dialog", { name: "Will Big fit?" })).toBeInTheDocument();
-    expect(screen.getByText(/Big cannot run on this PC/)).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Big cannot run on this PC" })).toBeInTheDocument();
+    expect(screen.getByText("RAM too small")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Use anyway" })).toBeNull();
     expect(screen.getByRole("button", { name: "Choose a lighter one" })).toBeDisabled();
     rerender(
       <FitConfirm {...props} fit={fitOf("gpu-too-small", "It runs on the processor", { unload: ["a", "b"] })} />,
     );
-    expect(screen.getByText(/Big may not fit this PC/)).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Use Big anyway?" })).toBeInTheDocument();
+    expect(screen.getByText("Partly on the processor")).toBeInTheDocument();
     expect(screen.queryByText(/several times slower/)).toBeNull();
     expect(screen.getByText("a, b")).toBeInTheDocument();
     rerender(<FitConfirm {...props} fit={fitOf("gpu-too-small", "GPU small")} lighter="Small" />);
@@ -255,6 +256,45 @@ describe("small model widgets", () => {
     fireEvent.click(screen.getByRole("button", { name: "Choose a lighter one" }));
     expect(props.onUse).toHaveBeenCalled();
     expect(props.onLighter).toHaveBeenCalled();
+  });
+
+  it("FitConfirm: what it needs against what is free, on the GPU or in memory; a GPU pack on the processor", () => {
+    const props = {
+      name: "the Q pack",
+      short: "Q",
+      lighter: null,
+      onUse: vi.fn(),
+      onLighter: vi.fn(),
+      onClose: vi.fn(),
+    };
+    const gpu = fitOf("gpu-too-small", "m", {
+      needMB: { vram: 4710, ram: 0 },
+      freeMB: { vram: 3789, ram: 9000 },
+      totalMB: { vram: 4096, ram: 16000 },
+    });
+    expect(fitNumbers(gpu)).toEqual([
+      ["4.6 GB", "needed on the GPU"],
+      ["3.7 GB", "free on this PC's GPU (4.0 GB in all)"],
+    ]);
+    const { rerender } = render(<FitConfirm {...props} fit={gpu} />);
+    const ask = screen.getByRole("dialog", { name: "Use the Q pack anyway?" });
+    expect(ask).toHaveTextContent("4.6 GBneeded on the GPU");
+    const cpu = fitOf("fits", "Runs on the processor.", {
+      device: "cpu",
+      needMB: { vram: 0, ram: 2355 },
+      freeMB: { vram: null, ram: 4096 },
+      totalMB: { vram: null, ram: 6144 },
+    });
+    expect(fitNumbers(cpu)).toEqual([
+      ["2.3 GB", "of memory needed"],
+      ["4.0 GB", "free on this PC's memory (6.0 GB in all)"],
+    ]);
+    rerender(<FitConfirm {...props} fit={cpu} processorOnly />);
+    expect(screen.getByRole("dialog", { name: "Use the Q pack on the processor?" })).toBeInTheDocument();
+    expect(screen.getByText("Processor only")).toBeInTheDocument();
+    expect(screen.getAllByText(/Made for a GPU/)).toHaveLength(2);
+    expect(fitNumbers(fitOf("unknown"))).toEqual([]);
+    expect(fitTitle("x", "X", fitOf("unsupported"), true)).toBe("X cannot run on this PC");
   });
 
   it("PackCard: a variant beyond the first, measured speed, nothing left, unavailable, a job running", async () => {
@@ -369,7 +409,9 @@ describe("small model widgets", () => {
     );
     const table = screen.getByRole("table", { name: "Model catalog" });
     expect(within(table).getByText("40 ms")).toBeInTheDocument();
-    expect(within(table).getByText(/Reranker · light/)).toBeInTheDocument();
+    expect(within(table).getByText(/reranker · light/)).toBeInTheDocument();
+    expect(within(table).getByRole("columnheader", { name: "Fit here" })).toBeInTheDocument();
+    expect(within(table).getByTitle("\\\\s\\a")).toHaveTextContent("\\\\s\\a");
     const a = within(table).getByRole("row", { name: /Label a/ });
     fireEvent.click(within(a).getByRole("button", { name: "Verify" }));
     expect(onVerify).toHaveBeenCalled();
@@ -464,11 +506,15 @@ describe("FolderDialog", () => {
     expect(screen.getByRole("dialog", { name: "Where should models be stored?" })).toBeInTheDocument();
     expect(screen.getByText(/This download needs 1000 MB/)).toBeInTheDocument();
     await waitFor(() => expect(folder()).toHaveValue("D:\\Testimus\\models"));
-    expect(screen.getByRole("radio", { name: "E:\\ 10 MB free" })).toBeDisabled();
-    expect(screen.getByRole("radio", { name: "D:\\ 8.8 GB free" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "E:\\" })).toBeDisabled();
+    expect(screen.getByRole("radio", { name: "D:\\" })).toBeChecked();
+    expect(screen.getByText("10 MB free of 100 MB")).toBeInTheDocument();
+    expect(screen.getByText("8.8 GB free of 9.8 GB")).toBeInTheDocument();
+    expect(screen.getByText("4.9 GB free")).toBeInTheDocument();
+    expect(screen.getByText("Drives")).toBeInTheDocument();
     expect(screen.getByText("Not enough room")).toBeInTheDocument();
     expect(await screen.findByText(/free on D:/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("radio", { name: "C:\\ 4.9 GB free" }));
+    fireEvent.click(screen.getByRole("radio", { name: "C:\\" }));
     expect(folder()).toHaveValue("C:\\Testimus\\models");
     fireEvent.change(folder(), { target: { value: "relative" } });
     expect(screen.getByText(/Type a full path/)).toBeInTheDocument();
@@ -546,14 +592,16 @@ describe("FolderDialog", () => {
     expect(await screen.findByRole("radiogroup", { name: "Drives" })).toBeEmptyDOMElement();
     fireEvent.change(folder(), { target: { value: "\\\\srv\\models" } });
     expect(await screen.findByText(/in 1 file\. Moved in a job/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Move 2.9 GB" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Use this folder" })).toBeEnabled();
+    expect(screen.getByText("Moving 2.9 GB is followed as a job in Jobs.")).toBeInTheDocument();
     const how = screen.getByRole("radiogroup", { name: "The models already downloaded" });
     fireEvent.click(within(how).getByRole("radio", { name: /^Copy/ }));
     expect(await screen.findByText(/Copied in a job/)).toBeInTheDocument();
     expect(inputs("models.planDir").at(-1)).toEqual({ dir: "\\\\srv\\models", copy: true });
-    fireEvent.click(screen.getByRole("button", { name: "Copy 2.9 GB" }));
+    expect(screen.getByText("Copying 2.9 GB is followed as a job in Jobs.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Use this folder" }));
     await waitFor(() => expect(onApplied).toHaveBeenCalledWith("\\\\srv\\models", "models-dir-0000000f", "copy"));
-    fireEvent.click(within(how).getByRole("radio", { name: /^Keep where they are/ }));
+    fireEvent.click(within(how).getByRole("radio", { name: /^Keep them where they are/ }));
     expect(await screen.findByText(/They stay where they are/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Use this folder" })).toBeEnabled();
     refuse = true;

@@ -7,7 +7,7 @@ test.describe("Claude not installed", () => {
     await openTest(page, "LFRPS12-1420");
     const dock = await openDock(page);
     await expect(dock.getByRole("heading", { name: "Claude isn't installed on this PC yet" })).toBeVisible();
-    await expect(dock.getByText(/Everything else — editing, review, push — works now/)).toBeVisible();
+    await expect(dock.getByText(/editing, review and push work now/)).toBeVisible();
     await expect(dock.getByRole("button", { name: /^Copy: / }).first()).toBeVisible();
     await expect(dock.getByRole("button", { name: "Check again" })).toBeEnabled();
     await expect(page.getByRole("main").getByRole("textbox", { name: "Summary" })).toBeEditable();

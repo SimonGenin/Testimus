@@ -248,7 +248,7 @@ function createWindow(): BrowserWindow {
     show: false,
     title: "Testimus",
     icon: LOGO,
-    backgroundColor: nativeTheme.shouldUseDarkColors ? "#0b0f0f" : "#f4f6f6",
+    backgroundColor: nativeTheme.shouldUseDarkColors ? "#0e0e10" : "#f7f7f8",
     autoHideMenuBar: false,
     webPreferences: { ...LOCKED_PREFERENCES, preload: join(HERE, "preload.cjs") },
   });

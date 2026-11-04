@@ -147,6 +147,8 @@ describe("Settings › Search", () => {
     fireEvent.click(within(old).getByRole("button", { name: "Drop space ccc333ddd444" }));
     const dlg = await screen.findByRole("alertdialog", { name: "Drop the BGE-M3 (8-bit, CPU) vectors?" });
     expect(dlg).not.toHaveTextContent("falls back to words only");
+    expect(dlg).toHaveTextContent("vectors deleted from the index");
+    expect(dlg).toHaveTextContent("0.12 MBfreed on this PC");
     expect(calls("rag.dropSpace")).toHaveLength(0);
     fireEvent.click(within(dlg).getByRole("button", { name: "Drop 0.12 MB" }));
     await waitFor(() => expect(inputs("rag.dropSpace")[0]).toEqual({ id: "ccc333ddd444", force: false }));
