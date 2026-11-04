@@ -1,8 +1,9 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import type { CommandInput, CommandOutput } from "../../../core/commands/index.ts";
 import { useApp } from "../../lib/app.ts";
 import type { Save } from "../../lib/data/autosave.ts";
-import { project } from "../../lib/data/client.ts";
+import { ApiError, project } from "../../lib/data/client.ts";
 import { execute, type Key, key, useRead } from "../../lib/data/query.ts";
 import { errorToast } from "../../lib/toast.ts";
 
@@ -40,19 +41,33 @@ export function useSetProject() {
   };
 }
 
+const EMPTY: Record<"name" | "jiraProject" | "labelPrefix", string> = {
+  name: "A project needs a name — the old one stays until you type another.",
+  jiraProject: "Type the Jira project key — the old one stays until you do.",
+  labelPrefix: "Type a prefix — the old one stays until you do.",
+};
+
 // ponytail: one of project.json's text fields, saved by the field itself (400 ms after the last key, on blur, when the
-// screen goes) — nothing is sent while it is empty or unchanged
+// screen goes) — nothing is sent while it is unchanged; an empty box is refused, so what was typed stays and the field
+// says why
 export function useProjectField(
   field: "name" | "jiraProject" | "labelPrefix",
   tidy: (typed: string) => string = (t) => t.trim(),
-): { saveKey: Key; save: Save<string> } {
+): { saveKey: Key; save: Save<string>; onChange: (typed: string) => void; error?: string } {
   const client = useQueryClient();
+  const [empty, setEmpty] = useState(false);
   const saveKey: Key = [project(), "project.info", { field }];
   const save: Save<string> = async (typed) => {
     const value = tidy(typed);
+    if (!value) throw new ApiError(EMPTY[field]);
     const now = client.getQueryData<Info>(key("project.info", {}) as unknown as readonly unknown[]);
-    if (!value || value === now?.project[field]) return;
+    if (value === now?.project[field]) return;
     await execute(client, "project.set", { [field]: value }, {}, saveKey[0]);
   };
-  return { saveKey, save };
+  return {
+    saveKey,
+    save,
+    onChange: (typed) => setEmpty(!tidy(typed)),
+    ...(empty ? { error: EMPTY[field] } : {}),
+  };
 }
