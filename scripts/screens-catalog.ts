@@ -492,7 +492,7 @@ function fixtureShots(): Shot[] {
       hash: `#/tests/${T1420}`,
       prep: async (p) => {
         await tap(p, "Push to Jira");
-        await dialog(p, "Push plan");
+        await dialog(p, /^(Push plan|Push .* to Jira\?)$/);
         await p.waitForTimeout(1500);
       },
     },
@@ -968,7 +968,7 @@ function slowShots(): Shot[] {
           await s.api("jobs.cancel", { id: j.id }).catch(() => {});
         await openTest(p, s, T1420);
         await tap(p, "Push to Jira");
-        await dialog(p, "Push plan");
+        await dialog(p, /^(Push plan|Push .* to Jira\?)$/);
         await tap(p, "Confirm push");
         await dialog(p, /^Pushing .* to Jira$/);
         await p.waitForTimeout(800);
@@ -1168,7 +1168,7 @@ export function SCENARIOS(essai: string): Scenario[] {
             await tap(p.getByRole("complementary", { name: "Tests" }), "Clone");
             await p.waitForURL(/#\/tests\/local-/, { timeout: T });
             await tap(p.getByRole("main"), "Push to Jira");
-            await dialog(p, "Push plan");
+            await dialog(p, /^(Push plan|Push .* to Jira\?)$/);
             await tap(p, "Confirm push");
             await see(p, /Push stopped/);
           },

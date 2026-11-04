@@ -19,6 +19,10 @@ export const section: KitSection = {
         <Chip label="Glossaire RATP" tone="claude" icon="context" pressed onToggle={() => {}} />
         <Chip label="Ancien lot" tone="claude" icon="context" pressed={false} strikeOff onToggle={() => {}} />
       </Cell>
+      <Cell label="warning tone · a state to notice">
+        <Chip label="Jira version" tone="warning" icon="clock" pressed={false} onToggle={() => {}} />
+        <Chip label="Hide Jira version" tone="warning" icon="clock" pressed onToggle={() => {}} />
+      </Cell>
       <Cell label="removable · mono · square">
         <Chip label="testimus-validated" onRemove={() => {}} />
         <Chip label="LFRPS12-1420" mono onRemove={() => {}} />
