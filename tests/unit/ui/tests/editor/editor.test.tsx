@@ -1391,7 +1391,7 @@ describe("TestEditor › a gesture over an edit that could not be saved (review 
     await typed();
     fireEvent.click(screen.getByRole("button", { name: "Push to Jira" }));
     await waitFor(() => expect(errors.at(-1)?.title).toBe("Not pushed"));
-    expect(String((errors.at(-1)?.e as Error).message)).toMatch(/not saved.*disk full/);
+    expect(String((errors.at(-1)?.e as Error | undefined)?.message)).toMatch(/not saved.*disk full/);
     expect(screen.queryByRole("dialog", { name: "Push plan" })).toBeNull();
     expect(callsTo("xray.plan")).toHaveLength(0);
     const push = screen.getByRole("button", { name: "Push to Jira" });
