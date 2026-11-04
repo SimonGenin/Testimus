@@ -116,7 +116,7 @@ export function DockComposer({
               ...(!noteOpen && !note.trim()
                 ? [{ label: "Add a note for this run", icon: "text" as const, onSelect: () => setNoteOpen(true) }]
                 : []),
-              { label: "New context…", icon: "plus", onSelect: () => setDialog("save") },
+              { label: "Save the note as a context…", icon: "plus", onSelect: () => setDialog("save") },
               { label: "Manage contexts…", icon: "settings", onSelect: () => setDialog("manage") },
               { note: "Ticked contexts go with this run only. The project's defaults are in Settings › Claude." },
             ]}

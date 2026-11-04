@@ -117,7 +117,9 @@ describe("ConnectAtlassian", () => {
     expect(screen.getByText("Lead text")).toBeInTheDocument();
     expect(onStatus).toHaveBeenCalledWith(st);
     expect(screen.getByText(/The address in your browser/)).toBeInTheDocument();
+    expect(screen.queryByText("Not saved yet")).toBeNull();
     fireEvent.change(site, { target: { value: "beta" } });
+    expect(screen.getByText("Not saved yet")).toBeInTheDocument();
     expect(screen.getByText("https://beta.atlassian.net")).toBeInTheDocument();
     expect(screen.getByText(/Will be saved as/)).toBeInTheDocument();
     fireEvent.change(field("Email"), { target: { value: " me@beta " } });
@@ -140,6 +142,7 @@ describe("ConnectAtlassian", () => {
     fireEvent.click(save);
     expect(await screen.findByText("Connected as me@beta")).toBeInTheDocument();
     expect(screen.getByText(/Xray refused this Client ID/)).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText("Not saved yet")).toBeNull());
     const said = screen.getByText("Connected as me@beta").closest('[role="status"]');
     expect(iconsIn(within(said as HTMLElement).getByText("Connected"))).toEqual(["check-circle"]);
     expect(iconsIn(within(said as HTMLElement).getByText("Failed")), "audit icons 115").toEqual(["x-circle"]);

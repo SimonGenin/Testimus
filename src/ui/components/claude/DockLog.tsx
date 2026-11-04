@@ -87,12 +87,20 @@ export function DockLog({
     if (count || lastText) scroller.current?.scrollTo?.({ top: scroller.current.scrollHeight });
   }, [count, lastText]);
 
+  const busy = runs.locked;
   const actions: TurnActions = {
-    busy: runs.busy,
+    busy,
     onOpenSource: app.openSource,
-    onShowChanges: (run) =>
-      run.docId && !run.steps ? app.navigate("documents", run.docId) : app.navigate("tests", run.testId),
+    onShowChanges: (run) => {
+      if (run.docId && !run.steps) app.navigate("documents", run.docId);
+      else if (run.fix && run.testId) app.navigate("review", run.testId);
+      else if (run.testId) app.navigate("tests", run.testId);
+      else app.navigate("tests");
+    },
     onRevert: (t) => void runs.revert(t),
+    conflict: runs.refused && { id: runs.refused.turn.id, detail: runs.refused.detail },
+    onForceRevert: (t) => void runs.revert(t, true),
+    onKeepRevert: runs.keepAsIs,
     onToggleRaw: runs.toggleRaw,
     onRetry: (a) => void runs.execute(a),
     onSettings: () => app.navigate("settings", "claude"),
@@ -130,7 +138,7 @@ export function DockLog({
                 variant="quiet"
                 icon="plus"
                 label="Start over"
-                disabled={runs.busy ? "Claude is working — wait for it to finish" : false}
+                disabled={busy ? "Claude is working — wait for it to finish" : false}
                 onClick={runs.clear}
               />
             </div>
@@ -168,7 +176,7 @@ export function DockLog({
                 key={t.id}
                 action={t.action}
                 ready={false}
-                busy={runs.busy}
+                busy={busy}
                 model=""
                 effort="high"
                 meta={t.meta && !t.running ? `${t.meta.model || "default"} · ${t.meta.effort}` : undefined}

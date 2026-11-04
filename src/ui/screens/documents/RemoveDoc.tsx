@@ -5,10 +5,11 @@ import { ReviewBadge } from "../../components/ui/Badge.tsx";
 import { Modal } from "../../components/ui/Modal.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { type } from "../../components/ui/type.ts";
+import { ApiError } from "../../lib/data/client.ts";
 import { execute, type Prefix, useRead } from "../../lib/data/query.ts";
 import { baseName } from "../../lib/desktop.ts";
 import { message, plural } from "../../lib/format.ts";
-import { errorToast, toast } from "../../lib/toast.ts";
+import { toast } from "../../lib/toast.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
@@ -37,22 +38,20 @@ export function RemoveDoc({ doc, onClose, onRemoved }: { doc: DocJson; onClose: 
   const client = useQueryClient();
   const plan = useRead("docs.remove", { id: doc.id, dryRun: true });
 
+  // ponytail: a failed delete keeps the dialog open with its reason (the Modal shows what the promise rejects with)
   const remove = async () => {
-    try {
-      const r = await execute(client, "docs.remove", { id: doc.id }, { invalidates: GONE });
-      const n = r.citedBy.length;
-      toast({
-        tone: "neutral",
-        title: `${doc.code} deleted`,
-        detail: n
-          ? `${plural(n, "test")} citing it ${n === 1 ? "was" : "were"} re-checked: ${n === 1 ? "its" : "their"} sources now report the missing document.`
-          : undefined,
-      });
-      onRemoved();
-    } catch (e) {
-      errorToast(e, "Could not delete the document");
-      onClose();
-    }
+    const r = await execute(client, "docs.remove", { id: doc.id }, { invalidates: GONE }).catch((e: unknown) => {
+      throw new Error(e instanceof ApiError && e.fix ? `${e.message} — ${e.fix}` : message(e));
+    });
+    const n = r.citedBy.length;
+    toast({
+      tone: "neutral",
+      title: `${doc.code} deleted`,
+      detail: n
+        ? `${plural(n, "test")} citing it ${n === 1 ? "was" : "were"} re-checked: ${n === 1 ? "its" : "their"} sources now report the missing document.`
+        : undefined,
+    });
+    onRemoved();
   };
 
   const cited = plan.data?.citedBy ?? [];

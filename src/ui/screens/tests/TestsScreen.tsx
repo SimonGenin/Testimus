@@ -1,7 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
-import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CredsStatus, LocalTestRef } from "../../../core/types.ts";
+import { NoProject } from "../../components/shell/NoProject.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { EmptyState } from "../../components/ui/EmptyState.tsx";
 import { Modal } from "../../components/ui/Modal.tsx";
@@ -9,12 +9,13 @@ import { ResizeHandle } from "../../components/ui/ResizeHandle.tsx";
 import { type } from "../../components/ui/type.ts";
 import { useApp } from "../../lib/app.ts";
 import { project } from "../../lib/data/client.ts";
-import { execute, useRead } from "../../lib/data/query.ts";
+import { useRead } from "../../lib/data/query.ts";
 import { keepDraft } from "../../lib/drafts.ts";
 import { usePaneWidth } from "../../lib/panes.ts";
 import { errorToast } from "../../lib/toast.ts";
 import { border, color, size, space } from "../../styles/tokens.stylex.ts";
 import { ConnectAtlassian } from "../settings/ConnectAtlassian.tsx";
+import { useNewTest } from "./list/newTest.ts";
 import type { Listed } from "./list/tree.ts";
 import { PullPane } from "./PullPane.tsx";
 import { abandonPulls, cancelPull, onPullLanded, startPull, usePullStage, usePulls, watchPull } from "./pulls.ts";
@@ -147,21 +148,12 @@ export function TestsScreen() {
     navigate("tests", id);
   };
 
-  const client = useQueryClient();
-  const newTest = async () => {
-    try {
-      const r = (await execute(
-        client,
-        "tests.create",
-        { folder: "/", summary: "New test" },
-        { invalidates: [["tests.list"], ["project.info"]] },
-      )) as { id: string };
-      await reload();
-      open(r.id);
-    } catch (e) {
-      errorToast(e, "Could not create the test");
-    }
-  };
+  // ponytail: no test is open here, so New test follows the list's rule with no open folder (the Jira folder picked, else
+  // the root)
+  const { create: newTest } = useNewTest(undefined, async (id) => {
+    await reload();
+    open(id);
+  });
 
   const list = (
     <TestList
@@ -241,22 +233,7 @@ export function TestsScreen() {
             {lead}
             <div {...stylex.props(styles.pane, has && access === false && styles.top)}>
               {!has ? (
-                <EmptyState
-                  icon="folder"
-                  title="No project open"
-                  text="Tests live in a project folder, next to the documents they come from. Open one, or start a new project."
-                  actions={
-                    <>
-                      <Button
-                        variant="primary"
-                        icon="folder-open"
-                        label="Open a project"
-                        onClick={() => navigate("setup")}
-                      />
-                      <Button icon="plus" label="New project" onClick={() => navigate("setup", "project")} />
-                    </>
-                  }
-                />
+                <NoProject text="Tests live in a project folder, next to the documents they come from. Open one, or start a new project." />
               ) : access === false ? (
                 <div {...stylex.props(styles.connect)}>
                   <h2 {...stylex.props(type.title, styles.title)}>Connect to Jira and Xray</h2>

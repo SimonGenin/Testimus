@@ -1,15 +1,17 @@
 import * as stylex from "@stylexjs/stylex";
 import { useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { AgentsMeasure } from "../../../core/types.ts";
 import { Button } from "../../components/ui/Button.tsx";
 import { Switch } from "../../components/ui/Switch.tsx";
 import { Text } from "../../components/ui/Text.tsx";
 import { useApp } from "../../lib/app.ts";
+import { useDraft } from "../../lib/data/autosave.ts";
+import { project } from "../../lib/data/client.ts";
 import { execute, type Key } from "../../lib/data/query.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 import { size, space } from "../../styles/tokens.stylex.ts";
-import { useCancel, useJob } from "./jobs.ts";
+import { useCancel, useJob, useRunning } from "./jobs.ts";
 import { useSetSettings, useSetting, useSettings } from "./machine.ts";
 import { Hint, Stack } from "./Section.tsx";
 
@@ -28,6 +30,7 @@ export const measureLine = (m: AgentsMeasure) =>
   `${m.limit} agent${m.limit > 1 ? "s" : ""} on ${new Date(m.at).toLocaleDateString("en-GB")} — ${m.reason}`;
 
 const MAX_KEY: Key = [null, "system.settings", { field: "agentsMax" }];
+const jobKey = (): Key => [project(), "settings.agents", { f: "job" }];
 
 const valid = (typed: string) => {
   const n = Math.round(Number(typed));
@@ -53,13 +56,14 @@ function AgentsTest({ jobId, onEnd }: { jobId: string; onEnd: () => void }) {
       <Hint>
         <span role="status">{live.message === "Starting" ? "Measuring the PC at rest" : live.message}</span>
       </Hint>
-      <Button size="sm" variant="quiet" label="Cancel" onClick={() => cancel(jobId)} />
+      <Button size="sm" variant="quiet" icon="stop" label="Cancel" onClick={() => cancel(jobId)} />
     </div>
   );
 }
 
 // ponytail: the most Claude runs at once — typed, saved when the field is left; the test is a job (system.testAgents)
-// whose end the event bridge reports, settings.json re-read with it
+// whose end the event bridge reports, settings.json re-read with it; a test still running when the section opens again
+// is found in jobs.list (it cannot be started twice)
 export function AgentsField() {
   const app = useApp();
   const client = useQueryClient();
@@ -67,7 +71,10 @@ export function AgentsField() {
   const setSettings = useSetSettings();
   const setting = useSetting();
   const [starting, setStarting] = useState(false);
-  const [jobId, setJobId] = useState<string | null>(null);
+  const [kept, setJob, clearJob] = useDraft(jobKey());
+  const ended = useRef(new Set<string>());
+  const found = useRunning("agents-test", !!app.info);
+  const jobId = kept || (found && !ended.current.has(found.id) ? found.id : null);
   const [typed, setTyped] = useState<string | null>(null);
   const s = settings.data;
   const saved = s?.agents?.max ?? DEFAULT;
@@ -75,8 +82,8 @@ export function AgentsField() {
   const test = async () => {
     setStarting(true);
     try {
-      const { jobId: id } = await execute(client, "system.testAgents", {}, { invalidates: "none" });
-      setJobId(id);
+      const { jobId: id } = await execute(client, "system.testAgents", {}, { invalidates: [["jobs.list"]] });
+      setJob(id);
     } catch (e) {
       errorToast(e, "The test of this PC's limits stopped");
     } finally {
@@ -120,12 +127,20 @@ export function AgentsField() {
             size="sm"
             icon="cpu"
             label={testing ? "Testing…" : "Test this PC's limits"}
-            disabled={testing || !app.info}
+            disabled={!app.info ? "Open a project first: the test searches its index" : testing}
             onClick={() => void test()}
           />
         </div>
       </div>
-      {jobId && <AgentsTest jobId={jobId} onEnd={() => setJobId(null)} />}
+      {jobId && (
+        <AgentsTest
+          jobId={jobId}
+          onEnd={() => {
+            ended.current.add(jobId);
+            clearJob();
+          }}
+        />
+      )}
       <Hint>
         The most Claude runs a generation or a check starts at once. Adapting, Testimus starts with 2 and adds one while
         the processor and the memory have room; while the PC is busy it starts none, and lets one finish without a

@@ -1,4 +1,6 @@
+import { testOf } from "../../../app/useClaudeLock.ts";
 import { RevertConflict } from "../../../components/claude/RevertConflict.tsx";
+import { claudeOn } from "../../../components/claude/turns.ts";
 import { useRunningJobs } from "../../../components/shell/Activity.tsx";
 import { Banner } from "../../../components/ui/Banner.tsx";
 import { Button } from "../../../components/ui/Button.tsx";
@@ -9,9 +11,10 @@ import { errorToast } from "../../../lib/toast.ts";
 // the jobs in which Claude edits tests (useClaudeLock): the one the banner can stop
 const EDITS = new Set(["claude", "fix"]);
 
-// « Cancel the run » of the Claude run that edits tests, while one runs
-export function useCancelClaudeRun() {
-  const job = useRunningJobs().find((j) => EDITS.has(j.kind));
+// « Cancel the run » of the Claude run that edits tests, while one runs — the one on `testId` when given (a run on it, or
+// on the whole project)
+export function useCancelClaudeRun(testId?: string) {
+  const job = useRunningJobs().find((j) => EDITS.has(j.kind) && (!testId || claudeOn(testOf(j), testId)));
   const cancel = useCommand("jobs.cancel", { invalidates: "none" });
   if (!job) return undefined;
   return (
@@ -94,7 +97,7 @@ export function EditorBanners({
           actions={
             <>
               {marked.length > 0 && <Button size="sm" label="Show changes" onClick={onShowChanges} />}
-              <Button size="sm" variant="quiet" icon="undo" label="Revert all" onClick={onRevert} />
+              <Button size="sm" icon="undo" label="Revert" onClick={onRevert} />
             </>
           }
         >

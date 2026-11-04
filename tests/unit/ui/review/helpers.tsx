@@ -144,6 +144,8 @@ export function reviewRoutes(s: Setup = {}) {
   net.routes["tests.show"] = (i) => ({
     id: i.id,
     test: testOf(String(i.id), s.tests?.[String(i.id)]),
+    // ponytail: a pushed test has its last sync; replacing it with Jira's version reads it to know what is lost
+    ...(String(i.id).startsWith("K") ? { remote: testOf(String(i.id), s.tests?.[String(i.id)]) } : {}),
     sync: s.sync ?? (String(i.id).startsWith("K") ? "synced" : "local"),
     edited: false,
   });

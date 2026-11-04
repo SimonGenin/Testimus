@@ -9,8 +9,8 @@ type Row = { kind: "folder"; node: Node; depth: number } | { kind: "test"; ref: 
 
 const DIR = "dir:";
 
-// ponytail: the project's local tests as a tree of their Xray folders — a folder folds, a test opens, a row's ✕ deletes
-// the local copy
+// ponytail: the project's local tests as a tree of their Xray folders — a folder folds, a test opens, a row's trash
+// deletes the local copy (disabled while Claude works on that test)
 export function LocalTree({
   root,
   shut,
@@ -18,6 +18,7 @@ export function LocalTree({
   activeId,
   onOpen,
   onToggle,
+  locked,
   onDelete,
 }: {
   root: Node;
@@ -27,6 +28,8 @@ export function LocalTree({
   activeId: string;
   onOpen: (id: string) => void;
   onToggle: (path: string) => void;
+  /** why a test's row cannot be deleted now (Claude's lock), or false */
+  locked?: (id: string) => false | string;
   onDelete: (r: LocalTestRef) => void;
 }) {
   const rows: Row[] = [];
@@ -66,8 +69,9 @@ export function LocalTree({
                   variant="quiet"
                   size="xs"
                   iconOnly
-                  icon="close"
+                  icon="trash"
                   label={`Delete the local copy of ${r.ref.key ?? (r.ref.summary || r.ref.id)}`}
+                  disabled={locked?.(r.ref.id) ?? false}
                   onClick={() => onDelete(r.ref)}
                 />
               ),

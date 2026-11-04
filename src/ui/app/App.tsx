@@ -5,9 +5,11 @@ import type { CommandName } from "../../core/commands/index.ts";
 import type { SearchMatch, Source } from "../../core/types.ts";
 import { ClaudeDock } from "../components/claude/ClaudeDock.tsx";
 import { useRunningJobs } from "../components/shell/Activity.tsx";
-import { CommandForm } from "../components/shell/CommandForm.tsx";
+import { CommandForm, lossOf } from "../components/shell/CommandForm.tsx";
 import { DesktopBridge } from "../components/shell/DesktopBridge.tsx";
+import { OpenByKey } from "../components/shell/OpenByKey.tsx";
 import { Palette } from "../components/shell/Palette.tsx";
+import { useOpenFolder } from "../components/shell/ProjectButton.tsx";
 import { firstSentence, hasInput } from "../components/shell/paletteEntries.tsx";
 import { Rail } from "../components/shell/Rail.tsx";
 import { ServerLost } from "../components/shell/ServerLost.tsx";
@@ -21,7 +23,7 @@ import type { CommandInfo } from "../lib/data/client.ts";
 import { execute } from "../lib/data/query.ts";
 import { usePaneWidth } from "../lib/panes.ts";
 import { jumpTo, rememberHit } from "../lib/search.ts";
-import { errorToast, toast } from "../lib/toast.ts";
+import { errorToast, jobToast, toast } from "../lib/toast.ts";
 import { border, breakpoint, color, radius, shadow, size, space } from "../styles/tokens.stylex.ts";
 import { commandToast, paletteActions } from "./paletteActions.ts";
 import { parseRoute, TITLES, useRoute } from "./routes.ts";
@@ -94,6 +96,7 @@ export function App() {
   const [source, setSource] = useState<{ source: Source; from?: SourceFrom } | null>(null);
   const [palette, setPalette] = useState(false);
   const [form, setForm] = useState<CommandInfo | null>(null);
+  const [byKey, setByKey] = useState(false);
   const dockPane = usePaneWidth("dockWidth", DOCK);
   const dock = useDock(route.screen);
   const bar = useTopBarSlots();
@@ -107,7 +110,7 @@ export function App() {
     testsChanged();
   }, [close, testsChanged]);
   const openPalette = useCallback(() => setPalette(true), []);
-  useShellEvents(testsChanged);
+  useShellEvents(testsChanged, navigate);
 
   const toggleDock = dock.toggle;
   useEffect(() => {
@@ -179,20 +182,32 @@ export function App() {
     ],
   );
 
+  const openFolder = useOpenFolder(app);
+  const { askDocs, askClaude } = dock;
+  // ponytail: a command from the palette takes the way the app has for it — a project opens as the rail opens it,
+  // Claude's question and run go to the dock; a command with input or a loss opens its form; the rest runs
   const runCommand = useCallback(
     (c: CommandInfo) => {
-      if (hasInput(c)) {
+      if (c.name === "project.open") return void openFolder();
+      if (c.name === "project.openKey") return setByKey(true);
+      if (c.name === "project.init") return navigate("setup", "project");
+      if (c.name === "chat.ask") return askDocs();
+      if (c.name === "claude.run") return askClaude("test");
+      if (hasInput(c) || lossOf(c.name, {})) {
         setForm(c);
         return;
       }
+      const what = firstSentence(c.summary) || c.name;
       execute(client, c.name as CommandName, {} as never, { invalidates: c.mutates ? "project" : "none" })
         .then((r) => {
-          toast(commandToast(c, r, navigate));
+          const jobId = (r as { jobId?: string } | null)?.jobId;
+          if (jobId) jobToast(`${what} — started`, jobId, navigate);
+          else toast(commandToast(c, r));
           if (c.mutates) testsChanged();
         })
-        .catch((e) => errorToast(e, `${firstSentence(c.summary) || c.name} — failed`));
+        .catch((e) => errorToast(e, `${what} — failed`));
     },
-    [client, testsChanged, navigate],
+    [client, testsChanged, navigate, openFolder, askDocs, askClaude],
   );
 
   const hasProject = !!p.info;
@@ -251,7 +266,7 @@ export function App() {
           actions={actions}
           onCommand={runCommand}
           onHit={p.info ? openHit : undefined}
-          onAsk={dock.askDocs}
+          onAsk={p.info ? (q) => askDocs(q, true) : undefined}
           onClose={() => setPalette(false)}
         />
       )}
@@ -263,9 +278,9 @@ export function App() {
             setForm(null);
             setPalette(true);
           }}
-          onJob={() => navigate("jobs")}
         />
       )}
+      {byKey && <OpenByKey onClose={() => setByKey(false)} />}
       {source && (
         <PassageDialog
           source={source.source}

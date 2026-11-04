@@ -4,6 +4,7 @@ import { useJobEvents } from "../../lib/data/events.ts";
 import { kindLabel } from "../../lib/jobs.ts";
 import { kindIcon } from "../../screens/jobs/kinds.ts";
 import { border, color, size, space } from "../../styles/tokens.stylex.ts";
+import { Button } from "../ui/Button.tsx";
 import { Icon, type IconName } from "../ui/Icon.tsx";
 import { Progress } from "../ui/Progress.tsx";
 import { type } from "../ui/type.ts";
@@ -92,8 +93,18 @@ const styles = stylex.create({
 
 // ponytail: one piece of running work — its icon, « its kind · its subject », what it does now under it, its time and
 // the action that stops it on the right (a job only: a Jira load the page waits on has none, and says so), then its
-// progress as the job says it across the row
-export function ActivityRow({ item, now, action }: { item: ActivityItem; now: number; action?: ReactNode }) {
+// progress as the job says it across the row; a job's title opens it in Jobs
+export function ActivityRow({
+  item,
+  now,
+  action,
+  onOpen,
+}: {
+  item: ActivityItem;
+  now: number;
+  action?: ReactNode;
+  onOpen?: () => void;
+}) {
   const [live, setLive] = useState<{ message?: string; progress?: { done: number; total: number } }>({});
   useJobEvents(item.id, (e) => {
     if (e.type !== "progress") return;
@@ -120,7 +131,7 @@ export function ActivityRow({ item, now, action }: { item: ActivityItem; now: nu
         </span>
         <div {...stylex.props(styles.body)}>
           <span title={title} {...stylex.props(type.compact, styles.label)}>
-            {title}
+            {onOpen ? <Button variant="link" label={title} onClick={onOpen} /> : title}
           </span>
           {detail && <span {...stylex.props(type.small, styles.detail)}>{detail}</span>}
         </div>

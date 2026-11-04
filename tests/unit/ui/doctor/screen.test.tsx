@@ -66,6 +66,62 @@ describe("System check screen", () => {
     fail = true;
     fireEvent.click(screen.getByRole("button", { name: /Check again/ }));
     expect(await screen.findByText("The check could not run: core down")).toBeInTheDocument();
+    fail = false;
+    const runs = callsOf("system.doctor").length;
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    await waitFor(() => expect(callsOf("system.doctor").length).toBeGreaterThan(runs));
+    await waitFor(() => expect(screen.queryByText(/The check could not run/)).toBeNull());
+  });
+
+  it("one fix at a time: the others wait with a reason; the Claude program path opens its field", async () => {
+    net.routes["models.pull"] = () => ({ jobId: "models-pull-1" });
+    net.routes["jobs.show"] = (i) => ({
+      job: job({ id: String(i.id), kind: "models-pull", status: "running" }),
+      events: [],
+    });
+    net.routes["system.doctor"] = () =>
+      answer([
+        c({
+          id: "model.embedding",
+          label: "Embedding model",
+          state: "warn",
+          action: { label: "Download it", command: "models.pull" },
+        }),
+        c({
+          id: "model.reranker",
+          label: "Reranker",
+          state: "warn",
+          action: { label: "Download the reranker", command: "models.pull" },
+        }),
+        c({
+          id: "claude",
+          label: "Claude",
+          state: "fail",
+          action: { label: "Set the Claude program path", command: "system.set" },
+        }),
+      ]);
+    const { state } = withApp(<DoctorScreen />);
+    fireEvent.click(await screen.findByRole("button", { name: "Download it" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Download the reranker" })).toBeDisabled());
+    expect(screen.getByRole("button", { name: "Download the reranker" })).toHaveAccessibleDescription(
+      "Wait for « Download it » to finish",
+    );
+    expect(screen.getByRole("button", { name: "Download it" })).toHaveAttribute("aria-busy", "true");
+    expect(callsOf("models.pull")).toHaveLength(1);
+    cleanup();
+    net.routes["system.doctor"] = () =>
+      answer([
+        c({
+          id: "claude",
+          label: "Claude",
+          state: "fail",
+          action: { label: "Set the Claude program path", command: "system.set" },
+        }),
+      ]);
+    const again = withApp(<DoctorScreen />);
+    fireEvent.click(await screen.findByRole("button", { name: "Set the Claude program path" }));
+    expect(again.state.navigate).toHaveBeenCalledWith("settings", "claude-exe");
+    expect(state.navigate).not.toHaveBeenCalled();
   });
 
   it("shows each check as an icon and a word, with what to do, and checks the sign-in on demand", async () => {

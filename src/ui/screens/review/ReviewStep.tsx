@@ -71,7 +71,8 @@ export type ReviewStepProps = {
   onFold: (folded: boolean) => void;
   /** a chip of the step, or of its finding number `finding` */
   onSelect: (s: Source, step: number, finding?: number) => void;
-  onOpenImage: (file: string) => void;
+  /** a picture of the step, opened in the Lightbox with the step's other pictures */
+  onOpenImage: (file: string, step: number, column?: string) => void;
 };
 
 // ponytail: one step as the reviewer reads it — the step card of Tests (StepFrame), its columns read-only, its sources,
@@ -155,7 +156,7 @@ export function ReviewStep(p: ReviewStepProps) {
                     onFieldText={noop}
                     onDropBlock={noop}
                     onRemove={noop}
-                    onOpen={p.onOpenImage}
+                    onOpen={(file) => p.onOpenImage(file, n, v.name)}
                   />
                   {links.length > 0 && <Links links={links} step={n} selected={selected} onOpen={pick} />}
                 </div>

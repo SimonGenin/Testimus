@@ -66,8 +66,7 @@ describe("Settings screen", () => {
     expect(iconsIn(open)).toEqual(["folder-open"]);
     fireEvent.click(open);
     expect(state.navigate).toHaveBeenCalledWith("setup", "project");
-    fireEvent.click(screen.getByRole("button", { name: "New project" }));
-    expect(state.navigate).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole("button", { name: "New project" })).toBeNull();
     expect(calls("project.info")).toHaveLength(0);
     expect(calls("project.notes")).toHaveLength(0);
   });
@@ -123,6 +122,26 @@ describe("Settings › anchors: #/settings/claude-dock, -quickasks, -contexts, a
     expect(option("Connection")).toHaveAttribute("aria-selected", "true");
     expect(scrolled[0]).toContainElement(screen.getByRole("region", { name: "Connection to Claude" }));
     fireEvent.click(option("Connection"));
+  });
+
+  it("without a project, Claude's project cards are listed as needing one, and the section says so", () => {
+    const { app: state } = mountSettings(<SettingsScreen />, {
+      info: null,
+      route: { screen: "settings", arg: "claude" },
+    });
+    expect(option("Connection")).toBeInTheDocument();
+    expect(option("Claude dock needs a project")).toBeInTheDocument();
+    expect(option("Quick asks needs a project")).toBeInTheDocument();
+    expect(option("Contexts needs a project")).toBeInTheDocument();
+    expect(screen.getByText(/open one to set them/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Open a project…" }));
+    expect(state.navigate).toHaveBeenCalledWith("setup", "project");
+  });
+
+  it("#/settings/project-jira opens Project and focuses the Jira project key", async () => {
+    mountSettings(<SettingsScreen />, { route: { screen: "settings", arg: "project-jira" } });
+    expect(option("Project")).toHaveAttribute("aria-selected", "true");
+    await waitFor(() => expect(screen.getByRole("textbox", { name: /^Jira project key/ })).toHaveFocus());
   });
 
   it("the screen opens a sub-section and focuses a field it points at (#/settings/claude-exe)", () => {

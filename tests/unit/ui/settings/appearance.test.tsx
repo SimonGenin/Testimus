@@ -57,6 +57,12 @@ describe("Settings › Appearance", () => {
     expect(calls("system.set")).toHaveLength(2);
   });
 
+  it("points at Models with a link, for models added from a folder", () => {
+    const { app } = mountSettings(<AppearanceSection />, { info: null });
+    fireEvent.click(screen.getByRole("button", { name: "Models" }));
+    expect(app.navigate).toHaveBeenCalledWith("settings", "models");
+  });
+
   it("always on top: hidden in the browser; on the desktop a switch that keeps the window on top, remembered", async () => {
     const r = mountSettings(<AppearanceSection />, { info: null });
     expect(screen.queryByRole("switch", { name: "Always on top" })).toBeNull();

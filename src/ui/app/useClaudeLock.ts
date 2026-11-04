@@ -9,7 +9,7 @@ const EDITS = new Set(["claude", "fix"]);
 
 // ponytail: the test a running job edits, from the input it was started with — a run on the project, an action, or a
 // job whose input was too large to keep, locks every test
-function testOf(j: Job): string {
+export function testOf(j: Job): string {
   const input = (j.rerun?.input ?? {}) as { id?: unknown; scope?: { kind?: string; testId?: unknown } };
   if (j.rerun?.name === "review.fix" && typeof input.id === "string") return input.id;
   if (j.rerun?.name === "claude.run" && (input.scope?.kind === "test" || input.scope?.kind === "step"))

@@ -37,7 +37,7 @@ const styles = stylex.create({
 
 const SETTINGS_OF: Record<string, string> = {
   "system.setCredentials": "access",
-  "system.set": "claude",
+  "system.set": "claude-exe",
   "models.usePack": "models",
 };
 
@@ -65,6 +65,8 @@ export function DoctorScreen() {
   };
 
   const busy = (c: DoctorCheck) => d.busyId === c.id || (c.action?.command === "system.doctor" && d.signingIn);
+  const blocked = (c: DoctorCheck) =>
+    !!d.fixing && d.fixing.check.id !== c.id && `Wait for « ${d.fixing.action.label} » to finish`;
 
   return (
     <div {...stylex.props(styles.screen)}>
@@ -94,7 +96,14 @@ export function DoctorScreen() {
               </div>
             )}
           </div>
-          {d.error && <Banner tone="danger">The check could not run: {d.error}</Banner>}
+          {d.error && (
+            <Banner
+              tone="danger"
+              actions={<Button size="sm" label="Try again" loading={d.checking} onClick={d.again} />}
+            >
+              The check could not run: {d.error}
+            </Banner>
+          )}
           <section aria-label="Checks" aria-busy={!d.checks} {...stylex.props(styles.checks)}>
             {d.checks
               ? sections(d.checks).map((s) => (
@@ -103,6 +112,7 @@ export function DoctorScreen() {
                     title={s.title}
                     checks={s.checks}
                     busy={busy}
+                    blocked={blocked}
                     onAct={(c, a) => void act(c, a)}
                   />
                 ))

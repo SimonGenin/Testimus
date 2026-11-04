@@ -178,6 +178,7 @@ export function StepCard({
         onDropBlock={(at, moved) => edits.dropBlock(c.name, at, moved)}
         onRemove={(b) => edits.removeBlock(c.name, b)}
         onOpen={(file) => onOpenImage?.(file, step.images, c.name)}
+        onOpenSource={onOpenSource}
       />
     );
   };
@@ -246,7 +247,7 @@ export function StepCard({
     return (
       <StepFrame
         {...frame}
-        line={firstLine(val(cols[0]?.name ?? "Action"))}
+        line={firstLine(cols[0] ? val(cols[0].name) : "")}
         head={
           <Button
             variant="quiet"

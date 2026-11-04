@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import type { Job, JobEvent } from "../../../core/types.ts";
 import { execute, useRead } from "../../lib/data/query.ts";
 import { errorToast } from "../../lib/toast.ts";
+import { useCancel } from "../settings/jobs.ts";
 
 // ponytail: the job shown in the detail — its log from jobs.show (kept live by the event bridge); the list's copy wins
 // over a read that still says running for a job the list already saw end
@@ -15,10 +16,8 @@ export function useJobDetail(listed: Job, onOpen: (id: string) => void) {
       ? { ...listed, ...live, steps: listed.steps ?? live.steps, processes: listed.processes ?? live.processes }
       : listed;
 
-  const cancel = () =>
-    execute(client, "jobs.cancel", { id: job.id }, { invalidates: "none" }).catch((e) =>
-      errorToast(e, "Could not cancel the job"),
-    );
+  const stop = useCancel();
+  const cancel = () => stop(job.id);
 
   const again = job.rerun
     ? () =>

@@ -387,7 +387,7 @@ describe("ReviewTest", () => {
     fireEvent.click(screen.getByRole("button", { name: /D §1/ }));
     expect(p.onSelect).toHaveBeenCalledWith({ docId: "D", anchor: "§1", quote: "" }, null, 0);
     fireEvent.click(screen.getByRole("button", { name: "Compare" }));
-    fireEvent.click(screen.getByRole("button", { name: "Take Jira's version" }));
+    fireEvent.click(screen.getByRole("button", { name: "Replace with Jira's version" }));
     fireEvent.click(screen.getByRole("button", { name: "Keep mine" }));
     expect(p.onCompare).toHaveBeenCalled();
     expect(p.onTakeJira).toHaveBeenCalled();

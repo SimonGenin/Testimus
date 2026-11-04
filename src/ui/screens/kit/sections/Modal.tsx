@@ -45,7 +45,7 @@ export const section: KitSection = {
     },
     {
       head: "Confirmation option",
-      text: "`sm`, an icon (warning triangle; red circle when `danger`), the title is the question (« Delete the local copy? »), the body says what will happen with numbers (`consequences`), the buttons are « Cancel » and the verb (« Delete », « Overwrite local ») — `danger` variant only when something is lost. Focus starts on Cancel for a danger confirmation, on the verb otherwise.",
+      text: "`sm`, an icon (warning triangle; red circle when `danger`), the title is the question (« Delete the local copy? »), the body says what will happen with numbers (`consequences`), the buttons are « Cancel » and the verb (« Delete », « Convert again and index ») — `danger` variant only when something is lost. Focus starts on Cancel for a danger confirmation, on the verb otherwise.",
     },
     {
       head: "States",
@@ -86,10 +86,10 @@ export const section: KitSection = {
       </Cell>
       <Cell label="sm · confirmation: focus on the verb" wide column>
         <Modal
-          title="Download from Jira?"
+          title="Convert the document again?"
           size="sm"
-          confirm={{ verb: "Overwrite local", onConfirm: none }}
-          consequences={[[1, "modified step is replaced by Jira's"]]}
+          confirm={{ verb: "Convert again and index", onConfirm: none }}
+          consequences={[[3, "figures are described again by Claude"]]}
           onClose={none}
           debugState="open"
         >

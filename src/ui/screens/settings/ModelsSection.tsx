@@ -67,6 +67,7 @@ export function ModelsSection() {
     ? (hw.data?.drives ?? []).filter((d) => onDrive(dir, d.root)).sort((x, y) => y.root.length - x.root.length)[0]
     : undefined;
 
+  const label = (id: string) => catalog.data?.find((c) => c.id === id)?.label ?? id;
   const measured = (op: Op, status: "done" | "failed" | "cancelled", error?: string) => {
     const pack = op.key.slice(MEASURE.length);
     a.benchEnded(pack, op.jobId, status, error);
@@ -76,12 +77,14 @@ export function ModelsSection() {
     else if (status === "failed")
       errorToast(new Error(error ?? "The measure stopped."), `${title}: the measure stopped`);
   };
-  const { ops, start, watchers } = useOps((op, job) => {
-    if (op.kind === "models-measure" && job.status !== "running") measured(op, job.status, job.error);
-  });
+  const { ops, start, watchers } = useOps(
+    (op, job) => {
+      if (op.kind === "models-measure" && job.status !== "running") measured(op, job.status, job.error);
+    },
+    (id) => label(id),
+  );
   const a = useModelActions({ packs: packs.data, catalog: catalog.data, status: status.data, dir, start });
 
-  const label = (id: string) => catalog.data?.find((c) => c.id === id)?.label ?? id;
   const st = status.data;
   const inUse = st && st.embedding !== "none" ? [st.embedding, st.reranker ?? ""].filter(Boolean) : [];
   const customActive = !!packs.data && !packs.data.some((p) => p.active) && st?.activation === "machine";
@@ -163,7 +166,7 @@ export function ModelsSection() {
               advice={top}
               label={label}
               busy={packBusy}
-              onApply={() => void a.applyAdvice(top)}
+              onApply={() => a.applyAdvice(top)}
               onDismiss={() => a.dismiss(top)}
             />
           )}
@@ -233,7 +236,8 @@ export function ModelsSection() {
                 inUse={inUse}
                 ops={ops}
                 busy={busy}
-                onInstall={(r) => void a.install(r)}
+                hasProject={hasProject}
+                onInstall={(r) => a.install(r)}
                 onUse={(r) => void a.chooseModel(r)}
                 onVerify={(r) => void a.verify(r)}
                 onRemove={(row, inst) => a.setRemoving({ row, inst })}
@@ -299,13 +303,26 @@ export function ModelsSection() {
           onClose={() => a.setFolder(null)}
         />
       )}
+      {a.ask && (
+        <Modal
+          size="sm"
+          title={a.ask.title}
+          consequences={a.ask.consequences}
+          consequencesAt="start"
+          confirm={{ verb: a.ask.verb, icon: a.ask.icon, onConfirm: a.ask.go }}
+          onClose={() => a.setAsk(null)}
+        >
+          <p {...stylex.props(styles.plain)}>{a.ask.text}</p>
+        </Modal>
+      )}
       {a.removing && (
         <Modal
           size="sm"
           title={`Remove ${a.removing.row.label}?`}
           confirm={{
-            verb: a.removing.inst.via === "path" ? "Forget it" : "Delete it",
+            verb: "Remove",
             danger: a.removing.inst.via !== "path",
+            icon: a.removing.inst.via === "path" ? null : undefined,
             onConfirm: () => a.remove(),
           }}
           onClose={() => a.setRemoving(null)}
@@ -316,7 +333,19 @@ export function ModelsSection() {
                 ? `Its files (${size(a.removing.inst.sizeMB)}) are deleted from ${a.removing.inst.where}.`
                 : `Testimus forgets it; the folder ${a.removing.inst.where} stays on disk.`}
             </p>
-            <Hint>Vector spaces built with it stay in the index until you drop them (Settings › Search).</Hint>
+            <Hint>
+              Vector spaces built with it stay in the index until you drop them in{" "}
+              <Button
+                variant="link"
+                label="Settings › Search"
+                disabled={hasProject ? false : "Open a project first"}
+                onClick={() => {
+                  a.setRemoving(null);
+                  app.navigate("settings", "search");
+                }}
+              />
+              .
+            </Hint>
           </Stack>
         </Modal>
       )}

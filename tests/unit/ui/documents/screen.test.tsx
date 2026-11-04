@@ -182,6 +182,14 @@ describe("Documents screen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Back" }));
     expect(back).toHaveBeenCalled();
     cleanup();
+    a = open(docLink("D1", "§1", "", { test: "LFRPS12-1420", step: 2, screen: "review" }));
+    expect(await screen.findByText(/The passage cited by/)).toHaveTextContent(
+      "The passage cited by LFRPS12-1420 · step 2, under § 1",
+    );
+    expect(document.querySelector("[data-focus]")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Back to the test" }));
+    expect(a.navigate).toHaveBeenCalledWith("review", "LFRPS12-1420");
+    cleanup();
     open("D1#§1");
     await screen.findByText("Une ligne citée ici.");
     expect(screen.queryByText(/The quote/)).toBeNull();
@@ -237,10 +245,18 @@ describe("Documents screen", () => {
 
   it("an unlisted document id shows no detail; lists that fail or are not arrays are empty", async () => {
     api.routes["docs.list"] = () => [doc("D1")];
-    mountDocs(<DocumentsScreen />, { route: { screen: "documents", arg: "NOPE" } });
+    const { app: a } = mountDocs(<DocumentsScreen />, { route: { screen: "documents", arg: "NOPE" } });
     await screen.findByText("Title D1");
     expect(screen.queryByRole("region", { name: / details$/ })).toBeNull();
     expect(screen.queryByRole("button", { name: "Show the document list" })).toBeNull();
+    expect(screen.getByText("Document not found")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Go to Documents" }));
+    expect(a.navigate).toHaveBeenCalledWith("documents");
+    cleanup();
+    detail();
+    mountDocs(<DocumentsScreen />, { route: { screen: "documents", arg: "C-D1#§1" } });
+    expect(await screen.findByRole("region", { name: "C-D1 details" })).toBeInTheDocument();
+    expect(screen.queryByText("Document not found")).toBeNull();
     cleanup();
     api.routes["docs.list"] = () => ({ not: "a list" });
     mountDocs(<DocumentsScreen />);

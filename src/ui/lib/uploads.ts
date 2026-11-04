@@ -1,6 +1,8 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useSyncExternalStore } from "react";
 import type { ClaudeRun, DocRef, Job } from "../../core/types.ts";
 import { ApiError, project, run } from "./data/client.ts";
+import { invalidate } from "./data/query.ts";
 import { baseName, pathOf } from "./desktop.ts";
 import { message } from "./format.ts";
 import { useNow } from "./now.ts";
@@ -15,10 +17,12 @@ export type Upload = {
   pct: number | null;
   message: string;
   docId?: string;
+  /** the job behind the row, once it has one (Cancel, « Open in Jobs ») */
+  jobId?: string;
   error?: unknown;
 };
 
-type Local = Upload & { project: string | null; jobId?: string };
+type Local = Upload & { project: string | null };
 
 const SHOWN_DONE_MS = 4000;
 const KIND: Record<string, Upload["job"]> = { "docs.add": "add", "docs.convert": "convert", "rag-index": "index" };
@@ -76,7 +80,7 @@ const percent = (j: Job) => (j.progress?.total ? Math.round(((j.progress.done ??
 
 function rowsOf(j: Job, now: number): Upload[] {
   const kind = KIND[j.kind];
-  const base = { key: j.id, job: kind, pct: percent(j), message: j.message ?? NOW[kind] };
+  const base = { key: j.id, jobId: j.id, job: kind, pct: percent(j), message: j.message ?? NOW[kind] };
   const docId = kind === "convert" ? j.subject : undefined;
   const name = kind === "index" ? "All documents" : j.subject;
   const row = { ...base, name, ...(docId ? { docId } : {}) };
@@ -197,6 +201,7 @@ export async function convertDoc(
   name: string,
   job: JobContext & { describeFigures?: boolean; study?: boolean },
   onDone: () => void,
+  onStarted?: (jobId: string) => void,
 ): Promise<void> {
   const p = project();
   const extra = { ...(job.note?.trim() ? { note: job.note.trim() } : {}), contexts: job.contexts ?? [] };
@@ -209,7 +214,10 @@ export async function convertDoc(
     index: true,
   };
   await tracked({ name, job: "convert", docId: id, phase: "converting", message: "Converting" }, (onStart) =>
-    run("docs.convert", input, undefined, onStart),
+    run("docs.convert", input, undefined, (jobId) => {
+      onStart(jobId);
+      onStarted?.(jobId);
+    }),
   );
   sameProject(p, onDone);
 }
@@ -279,4 +287,17 @@ export async function reindexAll(onDone: () => void): Promise<void> {
     run("rag.index", claude, undefined, onStart),
   );
   sameProject(p, onDone);
+}
+
+// ponytail: the one Reindex of the page (Documents, Generate, Settings): a tracked row, its failure (shown under the
+// list, or above Generate's form), and what the index changes read again when it ends
+export function useReindex(): { reindex: () => void; indexing: boolean; failure: Upload | undefined } {
+  const client = useQueryClient();
+  const runs = useUploads().filter((u) => u.job === "index");
+  return {
+    indexing: runs.some((u) => !settled(u)),
+    failure: runs.findLast((u) => u.phase === "index-failed"),
+    reindex: () =>
+      void reindexAll(() => void invalidate(client, [["docs.list"], ["rag.status"], ["rag.spaces"], ["gen.preview"]])),
+  };
 }

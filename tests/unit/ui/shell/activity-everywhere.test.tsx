@@ -83,7 +83,7 @@ describe("the activity indicator (PARITY #63)", () => {
     }
     fireEvent.click(screen.getByRole("button", { name: "1 job running" }));
     const list = screen.getByRole("dialog", { name: /^Running \d/ });
-    fireEvent.click(within(list).getByRole("button", { name: "Cancel LFRPS12-9" }));
+    fireEvent.click(within(list).getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(callsOf("jobs.cancel")[0].input).toEqual({ id: "a" }));
   });
 });

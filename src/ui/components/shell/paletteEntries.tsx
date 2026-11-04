@@ -32,8 +32,6 @@ export type Entry = {
 const COMMAND_ICON: Record<string, IconName> = {
   "chat.ask": "claude",
   "xray.push": "push",
-  "xray.pushFolder": "push",
-  "xray.unpush": "undo",
 };
 
 const styles = stylex.create({

@@ -55,7 +55,7 @@ export function FirstRunScreen() {
               size="sm"
               icon="chevron-left"
               label="Back to the app"
-              onClick={() => app.navigate("tests")}
+              onClick={() => app.navigate("documents")}
             />
           )}
         </div>

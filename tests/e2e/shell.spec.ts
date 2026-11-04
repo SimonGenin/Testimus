@@ -41,7 +41,7 @@ test("the system status says its state in whole words, even « Not checked »", 
 test("Ctrl K opens the palette, filters and runs a command", async ({ page }) => {
   await boot(page);
   await page.keyboard.press("Control+k");
-  const palette = page.getByRole("dialog", { name: "Search everywhere" });
+  const palette = page.getByRole("dialog", { name: "Search everything" });
   await expect(palette).toBeVisible();
   await palette.getByRole("combobox", { name: "Search" }).fill("system.version");
   await expect(palette.getByRole("option").first()).toContainText("Testimus and Node versions");
@@ -53,7 +53,7 @@ test("Ctrl K opens the palette, filters and runs a command", async ({ page }) =>
 test("the palette navigates and closes with Escape", async ({ page }) => {
   await boot(page);
   await page.keyboard.press("Control+k");
-  const palette = page.getByRole("dialog", { name: "Search everywhere" });
+  const palette = page.getByRole("dialog", { name: "Search everything" });
   await palette.getByRole("combobox", { name: "Search" }).fill("Go to Jobs");
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/#\/jobs$/);

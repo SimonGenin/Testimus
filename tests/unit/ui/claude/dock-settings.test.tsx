@@ -492,7 +492,8 @@ describe("contexts dialog", () => {
       expect(screen.getByRole("option", { name: /New context/ })).toHaveAttribute("aria-selected", "true"),
     );
     expect(callsOf("contexts.create")[0].input).toEqual({ shared: true });
-    fireEvent.click(screen.getByRole("button", { name: "Delete context" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete context…" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete the context" }));
     await waitFor(() => expect(callsOf("contexts.remove")).toHaveLength(1));
     await waitFor(() => expect(screen.getByRole("option", { name: /Style/ })).toHaveAttribute("aria-selected", "true"));
     expect(callsOf("contexts.list").length).toBeGreaterThan(1);

@@ -10,7 +10,12 @@ import { border, breakpoint, color, size, space, z } from "../../../styles/token
 import { FolderPicker } from "./FolderPicker.tsx";
 
 // the state of the whole test in the bar: Claude's hold wins over any activity, an activity over the last save
-function TestSave(p: { status: AutosaveStatus | null; activity?: string; claude?: boolean; onRetry: () => void }) {
+function TestSave(p: {
+  status: AutosaveStatus | null;
+  activity?: string;
+  claude?: boolean | string;
+  onRetry: () => void;
+}) {
   return (
     <SaveState
       live
@@ -70,7 +75,8 @@ export function EditorBar({
   folders: string[];
   status: AutosaveStatus | null;
   activity?: string;
-  claude?: boolean;
+  /** Claude's lock: true, or why the bar's gestures wait */
+  claude?: boolean | string;
   /** false, or why Push is off */
   pushDisabled: false | string;
   menu: MenuEntry[];
@@ -105,7 +111,7 @@ export function EditorBar({
       <FolderPicker
         folder={folder}
         folders={folders}
-        disabled={claude ? "Claude is working — wait for it to finish" : false}
+        disabled={claude ? (typeof claude === "string" ? claude : "Claude is working — wait for it to finish") : false}
         onOpen={onFolders}
         onPick={onFolder}
       />

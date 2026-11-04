@@ -7,25 +7,28 @@ import { Button } from "../../components/ui/Button.tsx";
 import { EmptyState } from "../../components/ui/EmptyState.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { List } from "../../components/ui/List.tsx";
-import { Modal } from "../../components/ui/Modal.tsx";
 import { type } from "../../components/ui/type.ts";
 import { useApp } from "../../lib/app.ts";
 import { project, run } from "../../lib/data/client.ts";
-import { execute, useRead } from "../../lib/data/query.ts";
+import { useRead } from "../../lib/data/query.ts";
 import { desktop, pathJoin, reveal } from "../../lib/desktop.ts";
 import { message, plural } from "../../lib/format.ts";
 import { jumpTo, useSearch } from "../../lib/search.ts";
-import { errorToast, toast } from "../../lib/toast.ts";
+import { errorToast, jobToast, toast } from "../../lib/toast.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
-import { type DeleteTarget, DeleteTest, deleteTest, needsAsking } from "./DeleteTest.tsx";
-import { JiraConnect } from "./JiraConnect.tsx";
+import { type DeleteTarget, DeleteTest, deleteTarget, deleteTest, needsAsking } from "./DeleteTest.tsx";
+import { JiraConnect, useDisconnect } from "./JiraConnect.tsx";
 import { JiraTab } from "./JiraTab.tsx";
 import { FoundList } from "./list/FoundList.tsx";
 import { ListTools } from "./list/ListTools.tsx";
 import { LocalTree } from "./list/LocalTree.tsx";
+import { useNewTest } from "./list/newTest.ts";
 import { ancestors, isKeyQuery, type Listed, localTree, matches } from "./list/tree.ts";
 import { useListView } from "./list/useListView.ts";
+import { claudeLock } from "./lock.ts";
+import { useReplaceWithJira } from "./replace.tsx";
 import { TestsTabs } from "./TestsTabs.tsx";
+import { cloneTest } from "./testActions.ts";
 
 export { isKeyQuery, localTree };
 
@@ -100,7 +103,8 @@ export function TestList({
   const treeError = jiraOn && treeQ.error ? message(treeQ.error) : "";
   const [busy, setBusy] = useState<string[]>([]);
   const [doomed, setDoomed] = useState<DeleteTarget | null>(null);
-  const [overwrite, setOverwrite] = useState<LocalTestRef | null>(null);
+  const replacing = useReplaceWithJira({ onReplaced: () => void onReload() });
+  const disconnect = useDisconnect();
   const active = refs.find((r) => r.id === activeId);
   const query = v.search.trim();
   const needle = v.filter.trim();
@@ -134,10 +138,14 @@ export function TestList({
     if (query) v.setTab("jira");
   }, [query]);
 
-  const pull = async (input: { key?: string; folder?: string; overwrite?: boolean }, label: string) => {
+  // ponytail: a pull from the list is a job like any other — said once it starts (« Open in Jobs » follows it, and cancels
+  // it there), its outcome said when it ends
+  const pull = async (input: { key?: string; folder?: string }, label: string) => {
     setBusy((b) => [...b, label]);
     try {
-      const r = await run<PullResult>("xray.pull", input);
+      const r = await run<PullResult>("xray.pull", input, undefined, (jobId) =>
+        jobToast(`Pulling ${label} — started`, jobId, app.navigate),
+      );
       await onReload();
       const n = r?.pulled?.length ?? 0;
       if (r?.failed?.length)
@@ -174,49 +182,23 @@ export function TestList({
     });
   };
 
-  const newFolder = v.tab === "jira" && !query ? v.folder : (active?.folder ?? "/");
-  const create = async () => {
-    try {
-      const r = (await execute(
-        client,
-        "tests.create",
-        { folder: newFolder, summary: "New test" },
-        {
-          invalidates: [["tests.list"], ["project.info"]],
-        },
-      )) as { id: string };
-      await onReload();
-      onOpen(r.id);
-    } catch (e) {
-      errorToast(e, "Could not create the test");
-    }
-  };
+  const { folder: newFolder, create } = useNewTest(active?.folder, async (id) => {
+    await onReload();
+    onOpen(id);
+  });
+  const lockOf = (id: string) => claudeLock(app.claudeRunning, id);
+  const activeLock = activeId ? lockOf(activeId) : false;
 
-  const clone = async () => {
-    if (!activeId) return;
-    try {
-      const r = (await execute(
-        client,
-        "tests.clone",
-        { id: activeId },
-        {
-          invalidates: [["tests.list"], ["project.info"]],
-          flushFirst: [["tests.show", { id: activeId }]],
-        },
-      )) as { id: string };
-      await onReload();
-      onOpen(r.id);
-    } catch (e) {
-      errorToast(e, "Could not clone the test");
-    }
+  const clone = () => {
+    if (!activeId || activeLock) return;
+    void cloneTest(client, app, activeId, onOpen);
   };
 
   const pullActive = () => {
     if (!active?.key) {
       v.setTab("jira");
       toast({ tone: "neutral", title: "Pick a folder or a test in Jira", detail: "This test has never been pushed." });
-    } else if (active.dirty) setOverwrite(active);
-    else void pull({ key: active.key }, active.key);
+    } else void replacing.ask(active.id, active.key);
   };
 
   const deleted = (id: string) => {
@@ -225,23 +207,14 @@ export function TestList({
     else void onReload();
   };
 
-  const askDelete = (r: LocalTestRef) => {
-    if (needsAsking(r)) setDoomed(r);
-    else void deleteTest(client, r).then((ok) => ok && deleted(r.id));
-  };
-
-  const disconnect = async () => {
-    try {
-      await execute(client, "xray.disconnect", {}, { invalidates: [["project.info"], ["xray.folders"]] });
-      app.refreshInfo();
-      toast({
-        tone: "neutral",
-        title: "Working locally",
-        detail: `Nothing reads or writes ${p?.jiraProject} until you reconnect.`,
-      });
-    } catch (e) {
-      errorToast(e, "Could not disconnect Jira");
-    }
+  // ponytail: the row's delete decides as the editor's menu does — saved first, what is lost read from the file
+  const askDelete = async (r: LocalTestRef) => {
+    const lock = lockOf(r.id);
+    if (lock) return toast({ tone: "neutral", title: "Wait for Claude to finish", detail: lock });
+    const target = await deleteTarget(client, r.id);
+    if (!target) return;
+    if (needsAsking(target)) setDoomed(target);
+    else if (await deleteTest(client, target)) deleted(r.id);
   };
 
   const local = () => {
@@ -306,7 +279,8 @@ export function TestList({
             return s;
           })
         }
-        onDelete={askDelete}
+        locked={lockOf}
+        onDelete={(r) => void askDelete(r)}
       />
     );
   };
@@ -330,8 +304,9 @@ export function TestList({
           search={v.search}
           filter={v.filter}
           newFolder={newFolder}
-          canClone={!!activeId}
-          pullBusy={!!active?.key && busy.includes(active.key)}
+          canClone={!activeId ? "Open a test to clone it" : activeLock}
+          pullBusy={!!active && (replacing.busy(active.id) || (!!active.key && busy.includes(active.key)))}
+          pullLock={activeLock}
           canReveal={!!activeId && !!project()}
           reveal={!!desktop()}
           noProject={!project()}
@@ -339,7 +314,7 @@ export function TestList({
           onFilter={v.setFilter}
           onFilterEnter={() => needle && jiraOn && v.setSearch(needle)}
           onNew={() => void create()}
-          onClone={() => void clone()}
+          onClone={clone}
           onPull={pullActive}
           onReveal={() => {
             const dir = project();
@@ -401,24 +376,7 @@ export function TestList({
         )}
       </div>
       {doomed && <DeleteTest target={doomed} onClose={() => setDoomed(null)} onDeleted={() => deleted(doomed.id)} />}
-      {overwrite?.key && (
-        <Modal
-          title={`Replace ${overwrite.key} with Jira's version?`}
-          size="sm"
-          confirm={{
-            verb: "Pull and replace",
-            danger: true,
-            onConfirm: () => {
-              const key = overwrite.key as string;
-              setOverwrite(null);
-              void pull({ key, overwrite: true }, key);
-            },
-          }}
-          onClose={() => setOverwrite(null)}
-        >
-          {overwrite.key} has local changes. Pulling replaces them with what Jira has.
-        </Modal>
-      )}
+      {replacing.dialog}
     </aside>
   );
 }

@@ -124,7 +124,7 @@ describe("ColumnsMenu", () => {
     expect(onProject).toHaveBeenLastCalledWith({ Data: "collapsed", Note: "filled" });
     fireEvent.click(within(row("Data")).getByRole("radio", { name: "Open" }));
     expect(onProject).toHaveBeenLastCalledWith({});
-    expect(screen.queryByRole("button", { name: "Use the project's" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Use the project default" })).toBeNull();
   });
 
   it("marks a column switched off in Xray, shown when filled unless set open for the project", () => {
@@ -195,20 +195,20 @@ describe("ColumnsMenu", () => {
     toggle();
     expect(screen.getByRole("radio", { name: "This test" })).toHaveAttribute("aria-checked", "true");
     expect(within(row("Note")).getByRole("radio", { name: "When filled" })).toHaveAttribute("aria-checked", "true");
-    fireEvent.click(screen.getAllByRole("button", { name: "Use the project's" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Use the project default" })[0]);
     expect(onTest).toHaveBeenLastCalledWith({ Note: "filled" });
     fireEvent.click(within(row("Data")).getByRole("radio", { name: "When filled" }));
     expect(onTest).toHaveBeenLastCalledWith({ Data: "filled", Note: "filled" });
     fireEvent.click(screen.getByRole("radio", { name: "All tests" }));
     expect(screen.getByText(/This test overrides Data, Note/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Follow the project" }));
+    fireEvent.click(screen.getByRole("button", { name: "Use the project defaults" }));
     expect(onTest).toHaveBeenLastCalledWith(null);
   });
 
   it("resets the last test override to null", () => {
     const { onTest, toggle } = menu({}, { Data: "collapsed" });
     toggle();
-    fireEvent.click(screen.getByRole("button", { name: "Use the project's" }));
+    fireEvent.click(screen.getByRole("button", { name: "Use the project default" }));
     expect(onTest).toHaveBeenLastCalledWith(null);
   });
 

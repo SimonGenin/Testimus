@@ -56,18 +56,14 @@ export function PushPlan({
           Same as <span {...stylex.props(type.mono)}>testimus xray push {testKey ?? testId}</span>
         </>
       }
-      actions={
-        <>
-          <Button label="Cancel" onClick={onClose} />
-          <Button
-            variant="primary"
-            icon="push"
-            label="Confirm push"
-            disabled={!plan || !ops.length}
-            onClick={onConfirm}
-          />
-        </>
-      }
+      confirm={{
+        verb: "Confirm push",
+        icon: "push",
+        // ponytail: pushing over someone's Jira change loses it, as replacing the local copy loses yours — both danger
+        danger: !!plan?.remoteChanged,
+        disabled: !plan || !ops.length,
+        onConfirm,
+      }}
       onClose={onClose}
     >
       <div {...stylex.props(styles.body)}>

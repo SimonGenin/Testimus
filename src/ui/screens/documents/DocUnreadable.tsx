@@ -31,19 +31,21 @@ const styles = stylex.create({
 });
 
 // ponytail: a document whose files cannot be read — what happened, what to do (read it again, convert it from its
-// original, look at the folder, the system check), and the raw words of the app
+// original, look at the folder, the system check, delete it), and the raw words of the app
 export function DocUnreadable({
   id,
   doc,
   error,
   onRetry,
   onConvertAgain,
+  onDelete,
 }: {
   id: string;
   doc?: DocJson;
   error: string;
   onRetry: () => void;
   onConvertAgain?: () => void;
+  onDelete?: () => void;
 }) {
   const app = useApp();
   const dir = project();
@@ -64,7 +66,7 @@ export function DocUnreadable({
           actions={
             <>
               <Button size="sm" icon="refresh" label="Try again" onClick={onRetry} />
-              {onConvertAgain && <Button size="sm" label="Convert again" onClick={onConvertAgain} />}
+              {onConvertAgain && <Button size="sm" label="Convert again…" onClick={onConvertAgain} />}
             </>
           }
         >
@@ -92,6 +94,9 @@ export function DocUnreadable({
             label="Open the system check"
             onClick={() => app.navigate("doctor")}
           />
+          {onDelete && (
+            <Button size="sm" variant="quiet" icon="trash" label="Delete this document…" onClick={onDelete} />
+          )}
         </div>
       </div>
     </div>

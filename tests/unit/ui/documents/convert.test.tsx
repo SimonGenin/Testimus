@@ -112,8 +112,9 @@ describe("Converting a document", () => {
     expect(
       within(listOf()).getByText(/fresh.docx was converted, but search cannot find it yet: model missing/),
     ).toBeInTheDocument();
-    fireEvent.click(within(listOf()).getByRole("button", { name: "Open Jobs" }));
-    expect(a.navigate).toHaveBeenCalledWith("jobs");
+    expect(within(listOf()).getByRole("button", { name: "Reindex" })).toBeEnabled();
+    fireEvent.click(within(listOf()).getByRole("button", { name: "Open in Jobs" }));
+    expect(a.navigate).toHaveBeenCalledWith("jobs", "conv-2");
     fireEvent.click(within(listOf()).getByRole("button", { name: "Dismiss the indexing failure of fresh.docx" }));
     expect(within(listOf()).queryByText(/search cannot find it yet/)).toBeNull();
     expect(named("rag.index")).toEqual([]);
@@ -163,6 +164,9 @@ describe("Converting a document", () => {
     fireEvent.click(within(side).getByRole("button", { name: "Convert and index" }));
     const reading = await within(side).findByRole("region", { name: "Reading the document" });
     expect(await within(reading).findByText("Converting source.docx")).toBeInTheDocument();
+    api.routes["jobs.cancel"] = () => ({ cancelled: false });
+    fireEvent.click(await within(reading).findByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(named("jobs.cancel").map((c) => c.input)).toEqual([{ id: "conv-5" }]));
     expect(within(reading).getByRole("listitem", { current: "step" })).toHaveTextContent("Reading the file");
     expect(reading.querySelector('[data-testid="reading-scan"]')).not.toBeNull();
     for (const b of within(within(side).getByRole("radiogroup", { name: "Status" })).getAllByRole("radio"))
@@ -253,19 +257,19 @@ describe("Converting a document", () => {
     api.routes["contexts.list"] = () => [];
     api.routes["docs.convert"] = startsJob("conv-4", "docs.convert");
     api.routes["jobs.show"] = running;
-    mountDocs(<DocumentsScreen />);
+    const { app: a } = mountDocs(<DocumentsScreen />);
     const side = await screen.findByRole("region", { name: "C-D1 details" });
     const menu = () => fireEvent.click(within(side).getByRole("button", { name: "More actions for this document" }));
-    expect(screen.queryByRole("dialog", { name: "Convert C-D1 again?" })).toBeNull();
+    expect(screen.queryByRole("alertdialog", { name: "Convert C-D1 again?" })).toBeNull();
     menu();
     fireEvent.click(screen.getByRole("menuitem", { name: "Convert again…" }));
     fireEvent.click(
-      within(screen.getByRole("dialog", { name: "Convert C-D1 again?" })).getByRole("button", { name: "Cancel" }),
+      within(screen.getByRole("alertdialog", { name: "Convert C-D1 again?" })).getByRole("button", { name: "Cancel" }),
     );
-    expect(screen.queryByRole("dialog", { name: "Convert C-D1 again?" })).toBeNull();
+    expect(screen.queryByRole("alertdialog", { name: "Convert C-D1 again?" })).toBeNull();
     menu();
     fireEvent.click(screen.getByRole("menuitem", { name: "Convert again…" }));
-    const dialog = screen.getByRole("dialog", { name: "Convert C-D1 again?" });
+    const dialog = screen.getByRole("alertdialog", { name: "Convert C-D1 again?" });
     expect(dialog).toHaveTextContent("Reads source.docx again and reindexes it.");
     const said = (text: RegExp) => within(dialog).getByText(text).closest("li")?.textContent;
     expect(said(/^figures read again/)).toBe("21figures read again — 1 already described is kept");
@@ -277,12 +281,10 @@ describe("Converting a document", () => {
     expect(
       counts.compareDocumentPosition(within(dialog).getByText("While converting")) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-    expect(dialog).toHaveTextContent("It runs in Jobs; you can keep working.");
-    expect(
-      within(dialog)
-        .getByText(/It runs in Jobs/)
-        .querySelector("[data-icon]"),
-    ).toHaveAttribute("data-icon", "clock");
+    const buttons = within(dialog)
+      .getAllByRole("button")
+      .map((b) => b.textContent);
+    expect(buttons.slice(-2)).toEqual(["Cancel", "Convert again and index"]);
     const describe = within(dialog).getByRole("checkbox", { name: "Claude describes the figures not described yet" });
     expect(describe).toBeChecked();
     fireEvent.click(describe);
@@ -296,7 +298,10 @@ describe("Converting a document", () => {
         index: true,
       }),
     );
-    expect(screen.queryByRole("dialog", { name: "Convert C-D1 again?" })).toBeNull();
+    expect(screen.queryByRole("alertdialog", { name: "Convert C-D1 again?" })).toBeNull();
+    expect(await screen.findByText("Converting C-D1 — started")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Open in Jobs" }));
+    expect(a.navigate).toHaveBeenCalledWith("jobs", "conv-4");
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
     emit({
       jobId: "conv-4",
@@ -339,7 +344,7 @@ describe("Convert again with Claude's study", () => {
     mountDocs(<DocumentsScreen />);
     fireEvent.click(await screen.findByRole("button", { name: "More actions for this document" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Convert again…" }));
-    const dialog = screen.getByRole("dialog", { name: "Convert SOSIE_441 again?" });
+    const dialog = screen.getByRole("alertdialog", { name: "Convert SOSIE_441 again?" });
     const kept = within(dialog).getByText("Converted from the PDF tags, 2 heading numbers read on the pages.");
     expect(kept).toHaveAttribute("title", "Numbers drawn by Word.");
     const box = within(dialog).getByRole("checkbox", { name: /Claude studies the original first/ });
@@ -389,7 +394,7 @@ describe("Convert again with Claude's study", () => {
     expect(input).toMatchObject({ triage: true, index: true });
     await act(() => new Promise((r) => setTimeout(r, 20)));
     expect(named("actions.triage")).toHaveLength(0);
-    expect(named("claude.status")).toHaveLength(0);
+    expect(named("claude.status").every((c) => !(c.input as { signIn?: boolean }).signIn)).toBe(true);
   });
 });
 

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type { CheckState, DoctorCheck } from "../../../core/types.ts";
 import { key, useRead } from "../../lib/data/query.ts";
-import { worst } from "../../lib/doctor.ts";
+import { shownChecks, worst } from "../../lib/doctor.ts";
 import type { BadgeTone } from "../ui/Badge.tsx";
 import { RailItem } from "../ui/RailItem.tsx";
 
@@ -21,8 +21,12 @@ const checksOf = (v: unknown): DoctorCheck[] =>
 export function SystemStatus({ current, onOpen }: { current?: boolean; onOpen: () => void }) {
   const plain = useRead("system.doctor", {});
   const probe = useQuery<unknown>({ queryKey: key("system.doctor", { claude: true }), enabled: false });
-  const probed = checksOf(probe.data);
-  const checks = checksOf(plain.data).map((c) => (c.state === "skip" ? (probed.find((p) => p.id === c.id) ?? c) : c));
+  const checks = shownChecks(
+    checksOf(plain.data),
+    plain.dataUpdatedAt,
+    probe.data ? checksOf(probe.data) : undefined,
+    probe.dataUpdatedAt,
+  );
   const state: CheckState | "unknown" = plain.data ? worst(checks) : "unknown";
   const l = LOOK[state];
   return (

@@ -50,7 +50,7 @@ export function SaveContext({
       onSubmit={() => void save()}
       actions={
         <>
-          <Button variant="quiet" label="Cancel" onClick={onClose} />
+          <Button label="Cancel" onClick={onClose} />
           <Button variant="primary" type="submit" label="Save" loading={saving} disabled={!name.trim()} />
         </>
       }

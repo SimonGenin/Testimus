@@ -30,7 +30,7 @@ export function ImportContexts({
       actions={
         <>
           <Button variant="quiet" label="Manage contexts…" onClick={onManage} />
-          <Button variant="quiet" label="Cancel" onClick={onClose} />
+          <Button label="Cancel" onClick={onClose} />
           <Button
             variant="primary"
             label={on.length ? `Use ${on.length}` : "Use none"}

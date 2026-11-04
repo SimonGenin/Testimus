@@ -160,7 +160,7 @@ describe("ConnectClaude, the optional buttons", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Set the path myself…" }));
     expect(setPath).toHaveBeenCalled();
-    expect(screen.queryByRole("button", { name: "Open system check" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Open the system check" })).toBeNull();
   });
 
   it("says Claude is absent once per look: the dock's badge and « What Testimus saw », a card's one line, Settings' none", () => {

@@ -174,7 +174,7 @@ describe("TestsScreen", () => {
     expect(
       within(screen.getByRole("complementary", { name: "Tests" })).getByRole("button", { name: "New test" }),
     ).toBeDisabled();
-    fireEvent.click(screen.getByRole("button", { name: "New project" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open a project…" }));
     expect(state.navigate).toHaveBeenCalledWith("setup", "project");
     expect(callsTo("tests.list")).toHaveLength(0);
     expect(errors).toEqual([]);
@@ -296,6 +296,20 @@ describe("TestsScreen", () => {
 
   it("navigates away from a deleted open test and reloads", async () => {
     server.routes["tests.remove"] = () => ({});
+    const file = {
+      key: "K-1",
+      project: "K",
+      summary: "Test t1",
+      folder: "/",
+      labels: [],
+      description: "",
+      covers: [],
+      preconditions: [],
+      review: "draft",
+      steps: [],
+      extra: {},
+    };
+    server.routes["tests.show"] = () => ({ test: file, remote: file });
     const { state } = screenOf({ route: { screen: "tests", arg: "t1" } });
     fireEvent.click(await rowAction(/^Test t1/, "Delete the local copy of K-1"));
     await waitFor(() => expect(state.navigate).toHaveBeenCalledWith("tests"));

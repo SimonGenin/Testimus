@@ -57,7 +57,7 @@ const header = (
     onDetails: vi.fn(),
     onPush: vi.fn(),
     onAsk: vi.fn(),
-    onRemote: vi.fn(),
+    onOpenKey: vi.fn(),
     onContexts: vi.fn(),
     onManageContexts: vi.fn(),
     onFolder: vi.fn((f: string) => update((t) => ({ ...t, folder: f }))),
@@ -90,7 +90,7 @@ const header = (
         readOnly={p.readOnly}
         details={!!p.open}
         onDetails={h.onDetails}
-        onRemote={h.onRemote}
+        onOpenKey={h.onOpenKey}
         update={update}
         {...p.card}
       >
@@ -154,14 +154,14 @@ describe("the editor's head", () => {
   });
 
   it("shows the Jira check: checking, changed, conflict and unverified", () => {
-    const { again, onRemote } = header({ card: { remote: "checking" } });
+    const { again } = header({ card: { remote: "checking" } });
     expect(screen.getByText("Checking…")).toBeInTheDocument();
     again({ card: { remote: "remote-changed", sync: "remote-changed" } });
-    fireEvent.click(screen.getByRole("button", { name: "Changed in Jira" }));
-    expect(onRemote).toHaveBeenCalled();
+    expect(screen.getByText("Changed in Jira")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Changed in Jira" })).toBeNull();
     expect(screen.getByText("In sync")).toBeInTheDocument();
     again({ card: { remote: "remote-changed", sync: "remote-changed", dirty: true } });
-    expect(screen.getByRole("button", { name: "Conflict" })).toBeInTheDocument();
+    expect(screen.getByText("Conflict")).toBeInTheDocument();
     expect(screen.getByText("Modified")).toBeInTheDocument();
     again({ card: { remote: "unverified" } });
     expect(screen.getByText("Not verified against Jira")).toBeInTheDocument();
@@ -172,7 +172,13 @@ describe("the editor's head", () => {
     expect(iconOf(screen.getByText("Generated"))).toBe("claude");
     expect(iconOf(screen.getByText("LFRPS12-3").parentElement as HTMLElement)).toBe("external");
     again({ card: { remote: "remote-changed", sync: "remote-changed" } }, { ...test0, generatedBy: "gen-1" });
-    expect(iconOf(screen.getByRole("button", { name: "Changed in Jira" }))).toBe("cloud");
+    expect(iconOf(screen.getByText("Changed in Jira"))).toBe("cloud");
+  });
+
+  it("opens the test it was cloned from in Jira", () => {
+    const { onOpenKey } = header();
+    fireEvent.click(screen.getByRole("button", { name: "LFRPS12-3" }));
+    expect(onOpenKey).toHaveBeenCalledWith("LFRPS12-3");
   });
 
   it("changes the folder on leaving and Enter, keeps it on Escape or when unchanged", async () => {
@@ -314,10 +320,10 @@ describe("the editor's head", () => {
     expect(onContexts).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole("button", { name: "Remove Glossary" }));
     expect(onContexts).toHaveBeenLastCalledWith([]);
-    expect(screen.queryByRole("button", { name: "Reset to project defaults" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Use the project defaults" })).toBeNull();
     again({ open: true, details: { testContexts: { effective: ["c1", "gone"], own: ["c1", "gone"] } } });
     expect(screen.getByText("gone")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Reset to project defaults" }));
+    fireEvent.click(screen.getByRole("button", { name: "Use the project defaults" }));
     expect(onContexts).toHaveBeenLastCalledWith(null);
     again({ open: true, details: { testContexts: { effective: [], own: null } } });
     expect(box()).toHaveAttribute("placeholder", "Attach a context…");
@@ -335,7 +341,7 @@ describe("the editor's head", () => {
     header({ readOnly: true, open: true, details: { testContexts: { effective: ["c1"], own: ["c1"] } } });
     expect(folderButton()).toBeDisabled();
     expect(screen.getByRole("textbox", { name: "Summary" })).toHaveAttribute("readonly");
-    expect(screen.queryByRole("button", { name: "Reset to project defaults" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Use the project defaults" })).toBeNull();
     expect(screen.queryByRole("button", { name: /^Remove/ })).toBeNull();
     expect(screen.getByRole("textbox", { name: "Description" })).toHaveAttribute("readonly");
   });

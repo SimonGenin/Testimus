@@ -8,7 +8,7 @@ import { PackStep } from "../../../../src/ui/screens/setup/PackStep.tsx";
 import { iconsIn } from "../../helpers/icons.ts";
 import { callsOf, fakeEvents, fakeNet, net, withApp } from "../../helpers/ui-data.tsx";
 
-const toasts = vi.hoisted(() => ({ toast: vi.fn(), errorToast: vi.fn() }));
+const toasts = vi.hoisted(() => ({ toast: vi.fn(), errorToast: vi.fn(), jobToast: vi.fn() }));
 vi.mock("../../../../src/ui/lib/toast.ts", () => toasts);
 
 vi.mock("../../../../src/ui/screens/settings/models/FolderDialog.tsx", () => ({
@@ -25,7 +25,7 @@ vi.mock("../../../../src/ui/screens/settings/models/FolderDialog.tsx", () => ({
   ),
 }));
 
-const details = () => toasts.toast.mock.calls.map((a) => a[0].detail);
+const started = () => toasts.jobToast.mock.calls.map((a) => [a[0], a[1], a[3]]);
 const errors = () => toasts.errorToast.mock.calls.map((a) => a[1]);
 
 beforeEach(() => {
@@ -33,6 +33,7 @@ beforeEach(() => {
   fakeEvents();
   toasts.toast.mockClear();
   toasts.errorToast.mockClear();
+  toasts.jobToast.mockClear();
 });
 
 afterEach(() => {
@@ -117,7 +118,7 @@ describe("First launch › Search pack", () => {
     expect(screen.getByRole("radiogroup", { name: "Search packs" })).toBeEmptyDOMElement();
   });
 
-  it("asks for a models folder before a download, then uses the pack", async () => {
+  it("asks for a models folder before a download, then shows the plan, then downloads and uses the pack", async () => {
     let dir: string | null = null;
     net.routes["models.packs"] = () => [pack({ downloadMB: 300 })];
     net.routes["models.catalog"] = () => [];
@@ -134,9 +135,20 @@ describe("First launch › Search pack", () => {
     await screen.findByText("need 300");
     dir = "D:/models";
     fireEvent.click(screen.getByRole("button", { name: "Apply folder" }));
+    const plan = await screen.findByRole("dialog", { name: "Download and use the Light pack" });
+    expect(plan).toHaveTextContent("D:/models");
+    expect(plan).toHaveTextContent("Once downloaded, the documents are indexed again");
+    expect(callsOf("models.usePack")).toHaveLength(0);
+    fireEvent.click(within(plan).getByRole("button", { name: "Download 300 MB" }));
     await waitFor(() => expect(state.navigate).toHaveBeenCalledWith("documents"));
-    expect(details()).toContain("Downloading in the background: see Jobs");
-    expect(callsOf("models.usePack").at(-1)?.input).toEqual({ pack: "light" });
+    expect(started()).toEqual([
+      [
+        "Light pack — started",
+        "models-usePack-1",
+        "It downloads the models, then indexes the documents, in Jobs; you can keep working.",
+      ],
+    ]);
+    expect(callsOf("models.usePack").at(-1)?.input).toEqual({ pack: "light", downloadOnly: false });
   });
 
   it("uses a pack with nothing to download, and reports a failure", async () => {
@@ -148,11 +160,17 @@ describe("First launch › Search pack", () => {
     await screen.findByRole("radiogroup", { name: "Search packs" });
     fireEvent.click(radio("Light"));
     fireEvent.click(screen.getByRole("button", { name: "Use Light" }));
-    await waitFor(() => expect(details()).toContain("Indexing follows"));
+    let plan = await screen.findByRole("dialog", { name: "Use the Light pack" });
+    fireEvent.click(within(plan).getByRole("button", { name: "Use Light" }));
+    await waitFor(() => expect(started()[0]?.[0]).toBe("Light pack — started"));
+    expect(started()[0][2]).toBe("It indexes the documents in Jobs; you can keep working.");
     expect(state.navigate).toHaveBeenCalledWith("documents");
     delete net.routes["models.usePack"];
     fireEvent.click(screen.getByRole("button", { name: "Use Light" }));
+    plan = await screen.findByRole("dialog", { name: "Use the Light pack" });
+    fireEvent.click(within(plan).getByRole("button", { name: "Use Light" }));
     await waitFor(() => expect(errors()).toContain("Could not use the Light pack"));
+    expect(screen.getByRole("dialog", { name: "Use the Light pack" })).toBeInTheDocument();
   });
 
   it("Back calls back", async () => {
@@ -251,12 +269,14 @@ describe("First launch › Search pack, as the third step", () => {
     expect(facts).toHaveTextContent("No GPU Testimus can use here: search runs on the processor");
     expect(screen.getByRole("button", { name: "Analyse again" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Use Performance" }));
+    const plan = await screen.findByRole("dialog", { name: "Use the Performance pack" });
+    fireEvent.click(within(plan).getByRole("button", { name: "Use Performance" }));
     await waitFor(() =>
       expect(
         net.calls.filter((c) => /^models\.(planPack|usePack)$/.test(c.name)).map((c) => [c.name, c.input]),
       ).toEqual([
         ["models.planPack", { pack: "performance" }],
-        ["models.usePack", { pack: "performance" }],
+        ["models.usePack", { pack: "performance", downloadOnly: false }],
       ]),
     );
     await waitFor(() => expect(state.navigate).toHaveBeenCalledWith("documents"));
@@ -327,6 +347,30 @@ describe("First launch › Search pack, as the third step", () => {
     expect(screen.getByRole("button", { name: "Use this pack" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Skip for now" }));
     expect(state.navigate).toHaveBeenCalledWith("documents");
+    expect(callsOf("models.usePack")).toHaveLength(0);
+  });
+
+  it("a pack this PC cannot run is refused as in Settings; one that only just fits asks first", async () => {
+    base({ ramTotalMB: 8192, ramFreeMB: 4096, cpu: { model: "Core", threads: 4 }, drives: [], gpus: [] });
+    net.routes["models.packs"] = () => [
+      { ...row("light", "Light", "bge-m3-q8", "cpu"), fit: { ...fits("cpu"), verdict: "tight", message: "Just." } },
+      {
+        ...row("balanced", "Balanced", "qwen3-4b-gguf", "cpu", 4600),
+        lighter: "light",
+        fit: { ...fits("cpu"), verdict: "ram-too-small", message: "RAM too small: 9 GB needed." },
+      },
+    ];
+    show();
+    await screen.findByRole("radiogroup", { name: "Search packs" });
+    fireEvent.click(radio("Balanced"));
+    fireEvent.click(screen.getByRole("button", { name: "Use Balanced" }));
+    let ask = await screen.findByRole("dialog", { name: "Balanced cannot run on this PC" });
+    expect(within(ask).queryByRole("button", { name: "Use anyway" })).toBeNull();
+    fireEvent.click(within(ask).getByRole("button", { name: "Choose a lighter one" }));
+    ask = await screen.findByRole("dialog", { name: "Use the Light pack anyway?" });
+    fireEvent.click(within(ask).getByRole("button", { name: "Use anyway" }));
+    expect(await screen.findByRole("dialog", { name: "Use the Light pack" })).toBeInTheDocument();
+    expect(callsOf("models.planPack").map((c) => c.input)).toEqual([{ pack: "light" }]);
     expect(callsOf("models.usePack")).toHaveLength(0);
   });
 

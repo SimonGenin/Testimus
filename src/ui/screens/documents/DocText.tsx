@@ -185,8 +185,8 @@ export function DocText({
             size="xs"
             variant="quiet"
             iconOnly
-            icon="link"
-            label={`Link to ${p.alt || `fig ${p.fig}`}`}
+            icon="image"
+            label={`Show ${p.alt || `fig ${p.fig}`} in Figures`}
             onClick={() => onFigure(`fig:${p.fig}`)}
           />
         )}

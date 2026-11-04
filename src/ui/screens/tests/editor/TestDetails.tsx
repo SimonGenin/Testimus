@@ -114,7 +114,7 @@ export function TestDetails({
                 : "Project defaults · none yet"}
           </span>
           {testContexts?.own != null && !readOnly && (
-            <Button variant="quiet" size="xs" label="Reset to project defaults" onClick={() => onContexts(null)} />
+            <Button variant="quiet" size="xs" label="Use the project defaults" onClick={() => onContexts(null)} />
           )}
           <Button variant="quiet" size="xs" icon="context" label="Manage contexts…" onClick={onManageContexts} />
         </span>

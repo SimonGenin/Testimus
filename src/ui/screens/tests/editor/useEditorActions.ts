@@ -4,14 +4,15 @@ import type { ColumnModes, Step, Test } from "../../../../core/types.ts";
 import type { AppState } from "../../../lib/app.ts";
 import { blankStep } from "../../../lib/blocks.ts";
 import { discardAutosave } from "../../../lib/data/autosave.ts";
-import { run } from "../../../lib/data/client.ts";
-import { execute, invalidate, key, read } from "../../../lib/data/query.ts";
+import { execute, key, read } from "../../../lib/data/query.ts";
 import { openExternal } from "../../../lib/desktop.ts";
-import { differs } from "../../../lib/diff.ts";
 import { message } from "../../../lib/format.ts";
-import { editedAfterRun } from "../../../lib/revert.ts";
+import { editedAfterRun, revertDone } from "../../../lib/revert.ts";
 import { errorToast, toast } from "../../../lib/toast.ts";
+import { deleteTarget, deleteTest, needsAsking } from "../DeleteTest.tsx";
+import { useReplaceWithJira } from "../replace.tsx";
 import type { Dialog } from "../TestEditor.tsx";
+import { cloneTest } from "../testActions.ts";
 import type { RemoteCheck } from "./SummaryCard.tsx";
 import type { TestDocument } from "./useTestDocument.ts";
 
@@ -29,10 +30,10 @@ export function useEditorActions({
   refuseWhileClaude,
   setMarks,
   setDialog,
-  setBusyDl,
   setCheckOverride,
   setPushing,
   onOpen,
+  onDeleted: deleted,
   current,
 }: {
   client: QueryClient;
@@ -44,10 +45,11 @@ export function useEditorActions({
   refuseWhileClaude: () => boolean;
   setMarks: (m: Marks) => void;
   setDialog: (d: Dialog | null) => void;
-  setBusyDl: (b: boolean) => void;
   setCheckOverride: (c: RemoteCheck) => void;
   setPushing: (p: boolean) => void;
   onOpen: (id: string) => void;
+  /** the local copy is gone */
+  onDeleted: () => void;
   /** the test the editor shows now */
   current: () => string;
 }) {
@@ -91,14 +93,21 @@ export function useEditorActions({
       doc.update((t) => ({ ...t, steps: t.steps.filter((_, k) => k !== i) }));
       // ponytail: the ring moves to the step that takes the deleted one's place (Xray Editor)
       setFocusStep((f) => (f < 0 ? f : Math.min(f, Math.max(left - 1, 0))));
+      // ponytail: as a block's ✕ — the screenshots no other step embeds go once the Undo can no longer bring them back
+      const others = new Set((test?.steps ?? []).flatMap((s, k) => (k === i ? [] : s.images.map((im) => im.file))));
+      const orphans = () => {
+        for (const im of removed.images) if (!others.has(im.file)) imageGone(im.file);
+      };
       toast({
         tone: "neutral",
         title: `Step ${i + 1} deleted`,
+        onExpire: removed.images.length ? orphans : undefined,
         action: {
           label: "Undo",
           run: () => {
             if (!ok()) {
               toast({ tone: "neutral", title: "Too late to undo", detail: "The test was reloaded since." });
+              orphans();
               return;
             }
             doc.update((t) => ({ ...t, steps: [...t.steps.slice(0, i), removed as Step, ...t.steps.slice(i)] }));
@@ -115,46 +124,19 @@ export function useEditorActions({
       }),
   });
 
-  const download = async () => {
-    const k = test?.key;
-    // ponytail: a run may have started while the dialog was open — checked again on confirm (Xray Editor)
-    if (!k || refuseWhileClaude()) return setDialog(null);
-    setBusyDl(true);
-    try {
-      discardAutosave(docKey);
-      const r = await run<{ pulled: string[]; failed: { key: string; error: string }[] }>("xray.pull", {
-        key: k,
-        overwrite: true,
-      });
-      if (r.failed?.length) throw new Error(r.failed[0].error);
-      app.testsChanged();
+  const replacing = useReplaceWithJira({
+    save: () => doc.doc.saveNow(),
+    onReplaced: async () => {
       // ponytail: the editor may show another test by now — that one stays as it is
-      if (current() === testId) {
-        await doc.reload("download");
-        setCheckOverride("unchanged");
-      }
-      toast({ tone: "success", title: `${k} refreshed from Jira` });
-    } catch (e) {
-      errorToast(e, `Could not download ${k}`);
-    } finally {
-      setBusyDl(false);
-      setDialog(null);
-    }
-  };
+      if (current() !== testId) return;
+      await doc.reload("download");
+      setCheckOverride("unchanged");
+    },
+  });
 
-  const askDownload = async () => {
+  const askDownload = () => {
     if (refuseWhileClaude() || !test?.key) return;
-    const unsaved = await doc.doc.saveNow();
-    try {
-      await invalidate(client, [["tests.show", { id: testId }]]);
-      const r = (await read(client, "tests.show", { id: testId })) as { test: Test; remote?: Test | null };
-      // ponytail: an edit that could not be saved is a local change the download would lose too
-      const local = !!unsaved || (r.remote ? differs(r.test, r.remote) : true);
-      if (local) setDialog({ kind: "download" });
-      else void download();
-    } catch (e) {
-      errorToast(e, "Could not read the test");
-    }
+    void replacing.ask(testId, test.key);
   };
 
   const undoLocal = async () => {
@@ -192,32 +174,18 @@ export function useEditorActions({
     }
   };
 
-  const clone = async () => {
-    const unsaved = await doc.doc.saveNow();
-    if (unsaved) return errorToast(unsaved, "Not cloned");
-    try {
-      const r = (await execute(
-        client,
-        "tests.clone",
-        { id: testId },
-        { invalidates: [["tests.list"], ["project.info"]] },
-      )) as {
-        id: string;
-      };
-      app.testsChanged();
-      onOpen(r.id);
-      toast({ tone: "success", title: "Cloned", detail: "The copy is a new local test." });
-    } catch (e) {
-      errorToast(e, "Could not clone the test");
-    }
+  const clone = () => {
+    if (refuseWhileClaude()) return;
+    void cloneTest(client, app, testId, onOpen, () => doc.doc.saveNow());
   };
 
   const askDelete = async () => {
     if (refuseWhileClaude() || !test) return;
-    const unsaved = await doc.doc.saveNow();
-    if (unsaved) return errorToast(unsaved, "Not deleted");
-    // ponytail: from the editor's menu it always asks (Xray Editor); the sidebar's ✕ asks only when it matters
-    setDialog({ kind: "delete" });
+    const target = await deleteTarget(client, testId, () => doc.doc.saveNow());
+    if (!target) return;
+    // ponytail: the same rule as the list's row — a pushed, unchanged copy goes at once, anything else asks
+    if (needsAsking(target)) setDialog({ kind: "delete", target });
+    else if (await deleteTest(client, target)) deleted();
   };
 
   const askUndo = () => !refuseWhileClaude() && setDialog({ kind: "undo" });
@@ -256,16 +224,10 @@ export function useEditorActions({
         "claude.revert",
         force ? { runId: marks.runId, force: true } : { runId: marks.runId },
         { invalidates: "none" },
-      )) as { reverted?: string[] };
+      )) as { reverted?: string[]; files?: string[] };
       setRevertConflict(null);
-      app.setLastRun({
-        runId: "",
-        changedTests: r.reverted?.length ? r.reverted : [testId],
-        changedSteps: {},
-        nonce: Date.now(),
-      });
+      revertDone(app, marks.runId, r, [testId]);
       app.testsChanged();
-      toast({ tone: "neutral", title: "Claude's changes reverted" });
     } catch (e) {
       if (!force && editedAfterRun(e)) setRevertConflict(message(e));
       else errorToast(e, "Could not revert Claude's changes");
@@ -321,8 +283,9 @@ export function useEditorActions({
 
   return {
     steps,
-    download,
     askDownload,
+    downloading: replacing.busy(testId),
+    replaceDialog: replacing.dialog,
     undoLocal,
     askUndo,
     openInJira,

@@ -46,6 +46,7 @@ const styles = stylex.create({
   checks: { display: "flex", flexDirection: "column", gap: space.s3 },
   result: { display: "flex", alignItems: "center", gap: space.s3, flexWrap: "wrap" },
   said: { color: color.text },
+  unsaved: { color: color.textMuted },
 });
 
 export type SetupResult = CommandOutput<"system.setCredentials">;
@@ -128,8 +129,8 @@ const dirOf = (file: string) => file.replace(/[\\/][^\\/]+$/, "");
 
 const draft = (f: string): Key => [null, "atlassian", { f }];
 
-// ponytail: what is typed stays a draft until Save and test; the form sends only what changed, and a saved value the
-// user emptied is erased (Xray Editor saves the form as it is)
+// ponytail: what is typed stays a draft until Save and test (« Not saved yet » says so meanwhile); the form sends only
+// what changed, and a saved value the user emptied is erased (Xray Editor saves the form as it is)
 export function ConnectAtlassian({
   lead,
   saveVariant = "primary",
@@ -220,6 +221,12 @@ export function ConnectAtlassian({
   if (!status || secrets.isPending) return <Skeleton lines={5} />;
 
   const dir = dirOf(status.jira.file);
+  const unsaved =
+    saved !== (status.jira.baseUrl ?? "").trim() ||
+    email.trim() !== (status.jira.email ?? "") ||
+    token.trim() !== kept.token ||
+    clientId.trim() !== kept.clientId ||
+    secret.trim() !== kept.clientSecret;
   return (
     <form
       aria-label="Connect to Jira and Xray"
@@ -342,6 +349,7 @@ export function ConnectAtlassian({
           label={busy ? "Testing…" : "Save and test the connection"}
           loading={busy}
         />
+        {unsaved && !busy && <span {...stylex.props(type.small, styles.unsaved)}>Not saved yet</span>}
         <span {...stylex.props(styles.spacer)} />
         {desktop() ? (
           <Button

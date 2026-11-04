@@ -3,16 +3,17 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import type { DocConversion, DocJson, Effort } from "../../../core/types.ts";
 import { CustomModel, effortOptions, useModelChoice } from "../../components/claude/ModelPicker.tsx";
+import { useClaudeStatus } from "../../components/claude/useClaudeStatus.ts";
 import { Button } from "../../components/ui/Button.tsx";
 import { Card } from "../../components/ui/Card.tsx";
 import { Checkbox } from "../../components/ui/Checkbox.tsx";
 import { GroupSelect } from "../../components/ui/GroupSelect.tsx";
-import { Icon } from "../../components/ui/Icon.tsx";
 import { Modal } from "../../components/ui/Modal.tsx";
 import { type } from "../../components/ui/type.ts";
 import { useApp } from "../../lib/app.ts";
 import { invalidate } from "../../lib/data/query.ts";
 import { baseName } from "../../lib/desktop.ts";
+import { jobToast } from "../../lib/toast.ts";
 import { convertDoc, importClaude, setImportClaude } from "../../lib/uploads.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 
@@ -24,8 +25,15 @@ const styles = stylex.create({
   caption: { margin: 0, color: color.textMuted },
   run: { display: "flex", alignItems: "center", gap: space.s3, flexWrap: "wrap" },
   acts: { display: "flex", justifyContent: "flex-end", gap: space.s3 },
-  note: { display: "inline-flex", alignItems: "center", gap: space.s2 },
 });
+
+const OFFLINE = "Claude is not connected";
+
+// ponytail: Claude is missing or signed out — what a Claude run asks for is disabled with this reason
+export function useClaudeOffline(): string | false {
+  const { status } = useClaudeStatus();
+  return status && (!status.installed || status.signedIn === false) ? OFFLINE : false;
+}
 
 // ponytail: the options a study (or the team) chose, as kept in doc.json — every conversion follows them
 function optionsOf(c: DocConversion): string {
@@ -74,6 +82,7 @@ function Options({
   again,
   figures,
   study,
+  offline,
   onFigures,
   onStudy,
 }: {
@@ -81,6 +90,7 @@ function Options({
   again: boolean;
   figures: boolean;
   study: boolean;
+  offline: string | false;
   onFigures: (on: boolean) => void;
   onStudy: (on: boolean) => void;
 }) {
@@ -90,14 +100,16 @@ function Options({
       <h3 {...stylex.props(type.small, type.strong, styles.caption)}>While converting</h3>
       {!noFigures && (
         <Checkbox
-          checked={figures}
+          checked={figures && !offline}
+          disabled={offline}
           onChange={onFigures}
           label={again ? "Claude describes the figures not described yet" : "Claude describes the figures"}
           hint="Claude opens each picture and writes what it shows and the text it reads in it, so search finds the figures. One Claude run per 20 figures."
         />
       )}
       <Checkbox
-        checked={study}
+        checked={study && !offline}
+        disabled={offline}
         onChange={onStudy}
         label="Claude studies the original first, then checks the result against its pages"
         hint="Claude chooses the copy, the PDF reader and the heading numbers printed on the pages, then compares the text with the pages. Needs a PDF copy. Two Claude runs."
@@ -125,16 +137,31 @@ export function ConvertDoc({
   const client = useQueryClient();
   const [figures, setFigures] = useState(app.info?.project?.rag.describeFigures !== false);
   const [study, setStudy] = useState(false);
+  const offline = useClaudeOffline();
   const settled = doc.conversion ? optionsOf(doc.conversion) : "";
   const go = () => {
-    void convertDoc(doc.id, baseName(doc.source.name || doc.source.file), { describeFigures: figures, study }, () => {
-      void invalidate(client, [["docs.list"], ["docs.show", { id: doc.id }], ["rag.status"]]);
-      app.refreshInfo();
-    });
+    void convertDoc(
+      doc.id,
+      baseName(doc.source.name || doc.source.file),
+      { describeFigures: figures && !offline, study: study && !offline },
+      () => {
+        void invalidate(client, [["docs.list"], ["docs.show", { id: doc.id }], ["rag.status"]]);
+        app.refreshInfo();
+      },
+      (jobId) => jobToast(`Converting ${doc.code} — started`, jobId, app.navigate),
+    );
     onClose?.();
   };
   const options = (
-    <Options doc={doc} again={again} figures={figures} study={study} onFigures={setFigures} onStudy={setStudy} />
+    <Options
+      doc={doc}
+      again={again}
+      figures={figures}
+      study={study}
+      offline={offline}
+      onFigures={setFigures}
+      onStudy={setStudy}
+    />
   );
   if (again) {
     const stats = doc.converted?.stats;
@@ -165,19 +192,8 @@ export function ConvertDoc({
         subtitle={`Reads ${baseName(doc.source.name || doc.source.file) || "the copy"} again and reindexes it. Status, Claude context and figure descriptions are kept; anchors stay the same, so tests keep their sources.`}
         consequences={consequences}
         consequencesAt="start"
-        footNote={
-          <span {...stylex.props(styles.note)}>
-            <Icon name="clock" size="sm" />
-            It runs in Jobs; you can keep working.
-          </span>
-        }
+        confirm={{ verb: "Convert again and index", icon: "refresh", onConfirm: go }}
         onClose={() => onClose?.()}
-        actions={
-          <>
-            <Button label="Cancel" onClick={() => onClose?.()} />
-            <Button variant="primary" icon="refresh" label="Convert again and index" onClick={go} />
-          </>
-        }
       >
         <div {...stylex.props(styles.body)}>
           {settled && (

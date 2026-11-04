@@ -1024,7 +1024,7 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
     one of its contexts: `contexts.copy`); a shared context reads « shared · … » in the list; the editor: « Shared with
     every project » (`contexts.share`; the footer then reads « shared library · <id>/ »), Name and Notes (saved 400 ms after the last
     key, on blur, on switch and on close), Paths (typed + Add, « Browse folder… » in the desktop app, ✕; absolute
-    only), Files (uploaded through `contexts.addFile`, ✕), Delete context (one click, as in Xray Editor; « Deleted for every project » as its tooltip on a shared one). Every
+    only), Files (uploaded through `contexts.addFile`, ✕), Delete context… (a danger confirmation « Delete the context? » that names what goes: a shared context is deleted for every project, and the tests and defaults that named it stop taking it). Every
     write invalidates the reads of the contexts (`contexts.list`, `contexts.ofTest`, `contexts.ofProject`, `project.info`), so the dock, Settings › Claude and the test header read them again; a change on disk (`contexts/`, `project.json`, a test's `local.json`) does the same through the event stream.
   - **Settings additions** (parity with Xray Editor §2, §8): a version pill `v<version>` beside the title; Settings ›
     Claude is four cards — Connection to Claude, Claude dock, Quick asks, Contexts (the last three need a project;
@@ -1051,17 +1051,21 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
     a skeleton bar while the tree loads); the tree (`xray.folders`) loads when the sidebar mounts. Keyed by the open
     project: a switch drops the caches, ignores answers asked by the old project, cancels its pulls and closes the open
     test. Tools: **New test** (into the selected Jira
-    folder when the Jira tab shows with no query, else the open test's folder, else `/`), Clone, Pull, Show in Explorer
-    (desktop). Search: on Local it filters, and offers « Search Jira for “q” »; an issue key or a bare number switches
+    folder when the Jira tab shows with no query, else the open test's folder, else `/` — the same rule for every « New
+    test » of the screen, the empty states' included), Clone (saves first, opens the copy, « Cloned »; disabled while
+    Claude works on the open test), Pull (the open test: the editor's « Replace with Jira's version », same confirmation;
+    disabled while Claude works on it), Show in Explorer (desktop). Search: on Local it filters, and offers « Search Jira for “q” »; an issue key or a bare number switches
     to Jira by itself (`xray.search` completes the number with the project key); on Jira it runs `xray.search {text}`
     after 300 ms and filters the folder names (`search “q”` · `N found`); loading draws skeletons, never stale rows.
     Tree: root **Test Repository**, counts `direct/total` (one number when equal), a hover ↓ pulls a whole folder; the
     selected folder's list sits below with a sticky head (path, running count `100 of 645`), slices of 100 fetched
     by a sentinel within 240 px (IntersectionObserver; a slice in flight is never asked twice, a stale answer is
-    dropped), `all N loaded` at the end; an empty folder says so with a New local test button. Jira row: summary, key,
+    dropped), `all N loaded` at the end; an empty folder says so with a New test button. A folder's ↓ is a job: a toast
+    « Pulling <folder> — started » with « Open in Jobs » (where it can be cancelled), then what it pulled. Jira row: summary, key,
     status pill (green done/ready/closed/pass, amber review/progress/block), the local sync badge, `N steps`, title
-    « Not pulled yet — opening it downloads it into the project ». Local row: a ✕ on hover or focus deletes the local
-    copy — at once when pushed and unchanged, else after the « Delete the local copy? » dialog (the tests opened lately
+    « Not pulled yet — opening it downloads it into the project ». Local row: a trash on hover or focus deletes the local
+    copy as the editor's menu does (the pending edit saved first, the file read again) — at once when pushed and
+    unchanged, else after the « Delete the local copy? » dialog; disabled while Claude works on that test (the tests opened lately
     are the palette's « Recent », per project; the sidebar has no recent list since 2026-11-03). **Pull queue**: a click on a row with no local copy
     starts its own `xray.pull` (the core runs 3 at a time) and shows at once the pulling pane (key, summary, spinner, the
     job's progress line or « contacting Jira… » / « waiting for a free slot… », Cancel, « N more pulling in the
@@ -1123,23 +1127,29 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
   - **Tests — editor** (parity with Xray Editor §8, 2026-11-02). Test bar: key (`local` before the first push),
     folder (typed, or picked from the Xray folder tree merged with project.json folders), save state (« Claude is
     editing… » during a run), **Ask Claude**, **Push to Jira** (disabled while Claude edits, while the edit on screen
-    is not saved — a change on disk under it or a refused save — and when the test is in sync), and a `⋯` menu: Clone (saves first, opens the copy), Download from Jira (with a key; re-reads the file
-    first and asks « Download from Jira? » / **Overwrite local** only when there are local changes), Undo local
+    is not saved — a change on disk under it or a refused save — and when the test is in sync), and a `⋯` menu: Clone (saves first, opens the copy), Download from Jira (with a key; saves and re-reads the
+    file first and asks « Replace <key> with Jira's version? » / **Replace with Jira's version** (danger, the steps lost)
+    only when there are local changes; one toast « <key> replaced with Jira's version » — the one replacement, which the
+    list's Pull and Review's choice use too), Undo local
     changes (only while the test differs from `.remote.md`; « Undo every local change? » counts `N modified · N added ·
     N deleted step(s)`; `tests.restore`), Open in Jira ↗ (`xray.browse`, the desktop's openExternal or a new tab),
-    Delete local copy (asks unless pushed and unchanged; the pending autosave is dropped first). Download, Undo,
-    Restore and Delete are refused while Claude edits. Chip row: review, sync, the **remote re-check** made on every
-    open of a pushed test (`xray.status {id}`: « checking… » → nothing, « changed in Jira » (amber, click = Download)
-    or « conflict » (red, local changes too, click = the Overwrite confirm); unverified → title « Not verified against
-    Jira »), Jira status (informational), cloned from, and **Details / Hide details** (persisted per browser,
+    Delete local copy (asks unless pushed and unchanged, as the list's row; the pending autosave is dropped first).
+    While Claude runs, Clone, Download, Undo and Delete are disabled with the reason (« Claude is editing this test », «
+    … working on the whole project », « … working on another test »), and a Restore confirmed late is refused. Chip
+    row: review, sync, the **remote re-check** made on every open of a pushed test (`xray.status {id}`: « checking… » →
+    nothing, « changed in Jira » (amber) or « conflict » (red, local changes too), with above the test the notice
+    « Changed in Jira since your pull » and Review's three choices: Compare (scrolls to the first step that differs from
+    the last sync), Replace with Jira's version, Keep mine (the push plan, whose Confirm push is then danger: it
+    replaces their change); unverified → title « Not verified against Jira »), Jira status (informational), cloned
+    from (a chip opening that key in Jira), and **Details / Hide details** (persisted per browser,
     `testimus.showDetails`, default shown): labels and covers chip inputs, Preconditions (chips + a select over
     `xray.preconditions`, « none in this project » when there are none, no free text), Claude contexts (the
-    effective list as chips, ✕ detaches, a select attaches, « reset to project defaults » when the test has its own
+    effective list as chips, ✕ detaches, a select attaches, « Use the project defaults » when the test has its own
     list, « Manage contexts… » opening the Contexts dialog when the project has none) and the description.
     Preconditions panel above the steps: per attached key a chip opening it in Jira, its summary (« not loaded » when
     the list lacks it) and its definition verbatim (pre-wrap), read-only. Steps row: count, **Columns** popover
-    (scope this test / all tests, per foldable field open · when filled · collapsed, « use project's », « follow the
-    project »), layout Stacked / Action | Expected (persisted). **Step diff marks** against `.remote.md` (by step id,
+    (scope this test / all tests, per foldable field open · when filled · collapsed, « Use the project default » per
+    field, « Use the project defaults » for them all), layout Stacked / Action | Expected (persisted). **Step diff marks** against `.remote.md` (by step id,
     only while the test differs): amber `modified` chip and border with a « Jira version » toggle opening the read-only
     snapshot (same blocks, images open in the lightbox) and « Restore this step »; blue `new`; an unnumbered dashed
     `deleted` placeholder where a snapshot step went, with its Jira version and « Bring the step back ». Restoring
@@ -1153,7 +1163,8 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
   - **Tests — step card**: number chip coloured by state (modified amber, new blue, unreadable red with a red outline
     and « Not fully read — never pushed »); one header toggle per foldable field (`aria-pressed`, `Name ●` when
     folded with content, both ways, session only, carried with the step); Ask Claude (scope = this step); ▲ ▼
-    (Alt+↑/↓), insert below (Ctrl+Enter), delete with a 6 s Undo refused after a reload. Built-in fields are columns of
+    (Alt+↑/↓), insert below (Ctrl+Enter), delete with a 6 s Undo refused after a reload (its screenshots no other step
+    embeds are deleted once the Undo expires, as a block's). Built-in fields are columns of
     blocks; a project field is a single line (`text-single`), a growing textarea (`text`) or read-only (anything
     else), the requirement field is chips, and a field the project lacks says « not in Xray ». Split layout puts
     every open field in one grid row (a field 1fr, Expected 1.25fr beside Action alone, a line field .6fr, a text
@@ -1165,24 +1176,35 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
   - **Review** — three columns: queue (review.queue; filter All/Checked/To fix, sort Most issues/State/Folder/
     Recent, Only with findings, folder; when it holds tests of more than one generation, the latest generation's
     tests come first under « Generated <when> », the others under « Earlier », and J/K follow that order), the test read-only (findings placed on their step, test-level ones on top, stale
-    marked; Edit opens the editor in place), source panel (rag.passage of the selected source or finding). Footer: To fix
-    (F, note required, optional « ask Claude » = review.fix shown in the dock) and Validate (V, allowed with open errors,
-    moves to the next test). J/K next/previous test, ↑/↓ step. The dock is folded to its strip in Review.
+    marked; Edit opens the editor in place, and so do « Compare » on a test changed in Jira and Generate's « Open in the
+    editor » of a test still in review (only validated tests live in Tests); a picture opens in the lightbox, as in Tests), source panel (rag.passage of
+    the selected source or finding). Footer: To fix (F, note required, optional « ask Claude » = review.fix shown in the
+    dock; without Claude the note offers « Open the system check ») and Validate (V, allowed with open errors, moves to
+    the next test); both off, keys included, while a decision is being written or Claude works on the test. J/K
+    next/previous test, ↑/↓ step. The dock is folded to its strip in Review. One set needs the check — the tests never
+    checked or changed since: the queue's « Check all » and its notice both run check.run on it (a job: « Open in
+    Jobs »). Filters that leave nothing say so the same way in the queue and the main column, with « Clear the filters ».
     The source panel ends with « Sources read / related » (`review.evidence`, folded): the passages the
     generation opened (cited ones marked) and the related sections it never opened, each opening in the panel; « not
     recorded » for a test without a ledger. A quote with a `quote-not-at-anchor` finding is not highlighted: the
     finding's message is shown above the passage.
-  - **Generate** — request, documents and sections (docs.show toc), the smart columns Claude fills (their
+  - **Generate** — request, documents and sections (docs.show toc; a document not converted yet says « Not converted »,
+    as in Documents, and stays out of the scope — none converted: « Convert a document first » with « Go to Documents »), the smart columns Claude fills (their
     descriptions, « Define the columns » when none is described), folder; the index gate of §7 shown before the run (« Index not ready » with Reindex and
     Generate disabled for a document of the scope not indexed, « Index not up to date » with Reindex for a stale one,
-    Generate disabled while an index runs); gen.tests job shown live (passages read, tests landing as cards from « Writing
+    Generate disabled while an index, a conversion or an add runs, the reason naming which; Reindex is the same tracked
+    run as in Documents and Settings, its failure shown with Reindex); gen.tests job shown live (passages read, tests landing as cards from « Writing
     local-… » progress) and « What Claude did » (below); at the end check.run on the new tests, then the summary (written, not
-    covered + why) and « Review these tests ».
+    covered + why) and « Review these tests »; the run's job id opens it in Jobs; a failed run offers « Run again »
+    (`jobs.rerun`: that job's own input, the form untouched).
   - **Documents** — list (code · version, title, status, search state from docs.list.indexed, warnings);
     drop or pick .docx/.pdf, or « Add from a path… » (with its optional PDF rendering, of the same name) → docs.addFiles
     job, which only copies (by `file` path in the desktop app, `{ name, dataBase64 }` in the browser) — when the index
     has no vectors on this PC, a line « Search on words only » says why in plain words and « Choose a search pack » then
-    rag.index job; detail edits status (Draft · Submitted · Validated) and context (docs.set); shows the toc and the
+    rag.index job; detail edits status (Draft · Submitted · Validated) and context (docs.set: the note, and saved contexts
+    as chips that remove themselves, added from the block's « + » as in Generate); a route naming a document by its code
+    opens it, an unknown one says « Document not found » with « Go to Documents »; a conversion under way shows its steps
+    with Cancel (the list row too); shows the toc and the
     section text (a linked heading or figure set apart; a quote marks only the quoted words, under a bar naming the test
     that cited it when the link says so — `#/documents/<id>#<anchor> "<quote>" from <test> step <n>` — with « Back to
     the test » and « Clear »). ⋯ › Convert again… (« Convert <code> again? »: figures, sections and warnings redone,
@@ -1191,11 +1213,16 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
     Figures view (always shown, « Figures 0 » too) is a grid in reading order filtered All / Described / Not described;
     a tile picks a figure and the detail beside it shows the picture, its anchor, section and kind, Claude's reading
     (description and visible text; never quotable), « Show in the text » and « Describe again »; « Describe N figures »
-    describes those not described yet — both docs.describeFigures jobs. A document whose files cannot be read says so
-    with Try again, Convert again, the app's raw words, Show in Explorer (desktop) and Open the system check.
+    describes those not described yet — both docs.describeFigures jobs, disabled while Claude is missing or signed out
+    (so are the Claude options of a conversion); a figure in the text opens its detail (« Show in Figures »). A document
+    whose files cannot be read says so with Try again, Convert again…, the app's raw words, Show in Explorer (desktop),
+    Open the system check and Delete this document….
     (No tracked ids and no coverage: the concept went on 2026-11-03, `cd9d7a8` — a step column is a smart column
     Claude fills from its description, and requirement coverage is computed outside the app, §16.)
   - **Jobs** — list (kind, subject, progress, duration, result) and detail (live log from jobs.show + events, Cancel);
+    a finished job opens what it made (generate, check, fix → the tests in Review; pull → Tests; docs.add, docs.convert,
+    describe-figures → Documents), and a changed file that is a test's or a document's opens it; a failure sends a
+    Jira access refusal to Settings › Access, anything else to the system check;
     a job in which Claude ran shows « What Claude did » instead of the plain log. « Run again » = `jobs.rerun`: the
     same command with the input the job kept (not kept when large or secret), the new job caused by the old one
     (`retry`).
@@ -1210,10 +1237,13 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
     `action` shows it as a button in place of the CLI fix text: the command runs (a job is followed to its end,
     then the check runs again), or — when the user has a value to give — `models.setDir` opens the models folder
     dialog, `models.add` the folder picker (Settings → Models in a browser), `system.setCredentials` / `system.set`
-    / `models.usePack` open Settings → Access / Claude / Models. « Check Claude sign-in » (doctor {claude:true}) sits
-    in its row and keeps the words saying what to do beside it; the rail's status dot shows the last result.
+    / `models.usePack` open Settings → Access / the Claude program field / Models. One fix runs at a time: the
+    others wait, saying why. « Check Claude sign-in » (doctor {claude:true}) sits in its row and keeps the words saying
+    what to do beside it; the rail's status dot shows the last result, merged with the sign-in answer the same way. A
+    check that could not run says so with « Try again ».
   - **First launch (#/setup)** — shown once per session when the credential files are incomplete or no project is
-    open: Access (system.credentials prefilled, secrets never sent back, Save and test = system.setCredentials), Project
+    open: Access (system.credentials prefilled, secrets never sent back, Save and test = system.setCredentials;
+    Continue once the access is found or tested, « Skip for now » without it), Project
     (project.list / project.open / project.init; each known project's « … » menu has « Don't show »
     (`project.forget`) and « Delete » (`project.delete`): a folder still there is deleted after a confirmation, the
     open project included — the window closes it; a folder already gone is only forgotten, without asking; a job
@@ -1224,17 +1254,24 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
     only » beside it when the pack is made for a GPU and runs here on the processor, a warning line saying either,
     and the suggestion is preselected (the rule of `models packs` above: on a PC without a usable GPU it is Light);
     « Analyse
-    again » measures anew, « Use <pack> » (dry run; the models-folder dialog when a download needs a folder; then
-    `models.usePack`), « Skip for now ».
-  - **Settings** — Project, Smart columns, Claude, Search, Models, Access, Appearance. Every change saves at once.
+    again » measures anew, « Use <pack> » (the way Settings › Models' « Use this pack » goes: the fit confirmation when
+    it does not fit — « … cannot run on this PC » offers no Use anyway —, the models-folder dialog when a download needs
+    a folder, the plan from `models.planPack`, then `models.usePack`, downloaded and used in one job; a toast
+    « <Pack> pack — started » with « Open in Jobs », and on to Documents), « Skip for now ».
+  - **Settings** — Project, Smart columns, Claude, Search, Models, Access, Appearance. Every change saves at once,
+    except the Access form, which says « Not saved yet » while it differs from the files, until Save and test. A
+    section, or a Claude card, that needs a project is marked « needs a project » in the list, and shows the one « No
+    project open » empty state (« Open a project… » → Setup's project step, as on Tests). Removing a local column or
+    a quick ask asks first (a danger confirmation: its description or prompt is lost).
     - **Search**: the team reference (`project.json.rag.reference`), the models used on this PC and where that choice
       comes from (`rag.status.activation`: this PC's choice · the team reference · the project's v1 model · the Light
       pack · none), the models chosen but missing here, « Search on words only » with `rag.status.degraded`'s reason, the
-      index state with Reindex, and the vector spaces (`rag.spaces`: model, runtime, vectors, size, complete, in use here,
+      index state with Reindex (`rag.index`, followed on the page as on Models: progress, Cancel, a toast when it
+      fails; an index job already running is picked up when the page opens), and the vector spaces (`rag.spaces`: model, runtime, vectors, size, complete, in use here,
       last used) each with Drop (`rag.dropSpace` after a confirmation; the active one with `force` and a warning). No
       model list is written in the UI.
     - **Models**: the models folder (« Change… »); the advice banner (`models.advice`, first item: reason, quality,
-      Apply = the pack's plan or `models.use`, Dismiss = `models.dismissAdvice`); the pack cards Light · Performance ·
+      Apply = the pack's or the model's choice, as below, Dismiss = `models.dismissAdvice`); the pack cards Light · Performance ·
       Balanced · Quality from `models.packs` plus Custom, the active one marked « In use », each with its variant here
       (« its second choice »), fit chip and message, skipped variants with their numbers, download left, speed, quality
       (on the reference document), « On this project » when the project's own set measured it, « Use this pack ». A pack or a model whose fit is not « fits », and a pack made for a GPU that runs on the
@@ -1246,14 +1283,16 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
       index jobs are picked up again when the screen opens. Each pack card has « Measure » (« Measure again » once its
       quality is measured on this PC; disabled, with the reason, until the pack's models are on this PC): a dialog says
       what is measured (the reference document, the same on every PC; the project's documents are not used), starts
-      `models.measure <pack>` and follows the job (progress, « Cancel the measure » = `jobs.cancel`); closing the
+      `models.measure <pack>` and follows the job (progress, « Cancel » = `jobs.cancel`); closing the
       dialog leaves the job running (Jobs screen, « Measuring · n % » on the card, a toast when it ends), the button
       reopens that job instead of starting another, and a running `models-measure` job is picked up when the screen
       opens. When it ends the cards are read again: quality from the new report, speed from the measure's
       `embed.query` / `rerank` timings in the perf journal. Below, « Model catalog » (folded): `models.catalog` +
       `models.list` rows with state chip, size, fit chip, kind · tier · runtimes, where it is and the speed measured
-      here; Install (`models.pull`), Use (`models.use --dry-run` for the fit and the lighter model, then `models.use`), Verify, Remove (after a
-      confirmation saying what is deleted); « Add from a folder… » (`models.add`, Browse… in the desktop shell). The
+      here; Install (the fit confirmation when it does not fit, then « Download <model>? » naming the size, then
+      `models.pull`), Use (needs a project: `models.use --dry-run` for the fit and the lighter model, then « Use <model>
+      for this project? » saying whether the documents are indexed again, then `models.use`), Verify, Remove (after a
+      confirmation « Remove <model>? » saying what is deleted, its verb « Remove »); « Add from a folder… » (`models.add`, Browse… in the desktop shell). The
       models-folder dialog opens on the first download and from « Change… »: the drives with free space (from
       `models.hardware`), the roomiest local drive with 1.2 × the need preselected (`<drive>\Testimus\models`), a typed
       folder checked live by `models.planDir` (refusals shown with their reason), Move / Keep where they are /
@@ -1291,7 +1330,7 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
   document added but not indexed shows « Indexing failed » with Reindex under its row; finished add rows
   are shown once (the job stays in Jobs). « Added by Claude » marks only steps beyond the step count
   before the run; any other change is « Changed by Claude ».
-- A Jira write from the palette (`xray.push`) always shows its plan first, like the buttons do.
+- A Jira write from the palette (`xray.push`) always shows its plan first, like the buttons do. Nothing runs blind from the palette: a mutating command with a `dryRun` input shows its plan first (the button then does it, red when something is lost); a command that loses something without a dry run (`project.delete`, `tests.remove`, `xray.pull` with overwrite, `contexts.remove`, `columns.remove`, `models.remove`, `rag.dropSpace`, `jobs.clear`, `claude.revert`; `xray.disconnect` and `project.forget` as a plain confirmation) asks first, naming what goes; a project opens as the rail opens it (`project.open` the folder picker, `project.openKey` its dialog, `project.init` First launch › Project); `chat.ask` and `claude.run` open the dock, `review.fix` and `actions.run` run in it; a started job says so with « Open in Jobs » to that job, never by switching screen. The palette's « Ask Claude: “…” » (with a project open) asks the documents at once in the dock.
 - Shell: Ctrl+K command palette (every registry command by name; a command with input gets a form from its schema; without a project it lists the ways to open one first and goes only to Jobs, Settings and the system check), Ctrl+J folds the Claude dock (folded at start and in Review; the user's choice holds until the next start), theme system / light / dark from the rail, step layout and last project remembered per browser; Revert undoes a whole Claude run. The page title is « Testimus — <project name> » (« Testimus » with no project); the desktop window takes it.
 - The app logo (`src/ui/public/logo.png`, `favicon.png`; `scripts/testimus.ico` for the Start-menu shortcut)
   sits on a light tile at the top of the rail and on the first-launch screen.

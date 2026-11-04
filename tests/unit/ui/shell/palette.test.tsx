@@ -179,13 +179,14 @@ describe("command palette", () => {
 
   it("without a project: commands only, its Project group first, a banner to open one and its own foot", () => {
     const onCommand = vi.fn();
+    const navigate = vi.fn();
     const all = [
       ...commands,
       cmd("project.open", "Open a folder as a project", { dir: { type: "string" } }),
       cmd("project.openKey", "Open a project by its Jira key", { key: { type: "string" } }),
       cmd("project.init", "Create a project", { dir: { type: "string" } }),
     ];
-    withData(<Palette commands={all} actions={[]} onCommand={onCommand} onClose={() => {}} />);
+    withData(<Palette commands={all} actions={[]} onCommand={onCommand} onClose={() => {}} />, { navigate });
     expect(screen.queryByRole("tab")).toBeNull();
     const groups = screen.getAllByRole("group").map((g) => g.getAttribute("aria-label"));
     expect(groups[0]).toBe("Project");
@@ -197,7 +198,8 @@ describe("command palette", () => {
     expect(screen.getByText(/No project is open: only commands are listed/)).toBeInTheDocument();
     expect(screen.getByText("Commands only")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Open a project…" }));
-    expect(onCommand).toHaveBeenCalledWith(expect.objectContaining({ name: "project.open" }));
+    expect(navigate).toHaveBeenCalledWith("setup", "project");
+    expect(onCommand).not.toHaveBeenCalled();
   });
 
   it("says nothing matches above the Ask Claude row, and marks the active row with Enter", () => {

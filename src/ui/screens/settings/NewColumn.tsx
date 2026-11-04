@@ -13,6 +13,7 @@ import { Hint, Stack } from "./Section.tsx";
 
 const styles = stylex.create({
   acts: { display: "flex", alignItems: "center", gap: space.s3, flexWrap: "wrap" },
+  foot: { display: "flex", justifyContent: "flex-end", gap: space.s3 },
 });
 
 const draft = (f: string): Key => [project(), "settings.column", { f }];
@@ -67,7 +68,8 @@ export function NewColumn({ reads }: { reads: Prefix[] }) {
           onChange={setDesc}
           placeholder="Empty: Claude leaves it empty"
         />
-        <div {...stylex.props(styles.acts)}>
+        <div {...stylex.props(styles.foot)}>
+          <Button size="sm" variant="quiet" label="Cancel" onClick={close} />
           <Button
             size="sm"
             variant="primary"
@@ -75,7 +77,6 @@ export function NewColumn({ reads }: { reads: Prefix[] }) {
             disabled={!name.trim()}
             onClick={() => void add()}
           />
-          <Button size="sm" variant="quiet" label="Cancel" onClick={close} />
         </div>
       </Stack>
     </Card>

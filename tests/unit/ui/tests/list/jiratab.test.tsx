@@ -224,7 +224,7 @@ describe("JiraTab list", () => {
     expect(screen.getByText("No tests in this folder")).toBeInTheDocument();
     expect(screen.getByText("/Empty is empty. Pick another folder, or create a test locally.")).toBeInTheDocument();
     expect(screen.getByTestId("jira-range")).toHaveTextContent("0");
-    fireEvent.click(screen.getByRole("button", { name: "New local test" }));
+    fireEvent.click(screen.getByRole("button", { name: "New test" }));
     expect(onNew).toHaveBeenCalled();
     expect(callsTo("xray.search")).toHaveLength(0);
   });

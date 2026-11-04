@@ -9,7 +9,7 @@ import { type } from "../../components/ui/type.ts";
 import { useApp } from "../../lib/app.ts";
 import { ApiError } from "../../lib/data/client.ts";
 import { execute } from "../../lib/data/query.ts";
-import { errorToast } from "../../lib/toast.ts";
+import { errorToast, toast } from "../../lib/toast.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
@@ -21,6 +21,27 @@ const styles = stylex.create({
 });
 
 const JIRA = [["project.info"], ["xray.folders"], ["xray.search"], ["xray.preconditions"], ["xray.status"]] as const;
+
+// ponytail: working locally is one gesture — the list's « Disconnect » and « Work locally for now » here read the same
+// things again and say the same
+export function useDisconnect() {
+  const app = useApp();
+  const client = useQueryClient();
+  return async () => {
+    const was = app.info?.project.jiraProject;
+    try {
+      await execute(client, "xray.disconnect", {}, { invalidates: [...JIRA] });
+      app.refreshInfo();
+      toast({
+        tone: "neutral",
+        title: "Working locally",
+        detail: `Nothing reads or writes ${was ?? "Jira"} until you reconnect.`,
+      });
+    } catch (e) {
+      errorToast(e, "Could not disconnect Jira");
+    }
+  };
+}
 
 // ponytail: the Jira tab when it has nothing to list — no key yet, disconnected by the user, or a key Jira
 // refused; the key is checked by xray.connect before it is saved, so a failure is said here, under the box
@@ -53,14 +74,7 @@ export function JiraConnect({ error, onConnected }: { error: string; onConnected
     }
   };
 
-  const goOffline = async () => {
-    try {
-      await execute(client, "xray.disconnect", {}, { invalidates: [...JIRA] });
-      app.refreshInfo();
-    } catch (err) {
-      errorToast(err, "Could not disconnect Jira");
-    }
-  };
+  const goOffline = useDisconnect();
 
   return (
     <div {...stylex.props(styles.box)}>
@@ -111,7 +125,7 @@ export function JiraConnect({ error, onConnected }: { error: string; onConnected
                 variant="quiet"
                 icon="key"
                 label="Set up Jira access"
-                onClick={() => app.navigate("setup")}
+                onClick={() => app.navigate("settings", "access")}
               />
             ) : undefined
           }

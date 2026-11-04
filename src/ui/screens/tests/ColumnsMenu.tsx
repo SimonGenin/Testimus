@@ -123,7 +123,7 @@ export function ColumnsMenu({
                   {c.name}
                   {!c.known && <Badge label="not in Xray" size="sm" tone="warning" icon="alert-triangle" />}
                   {scope === "test" && testModes?.[c.name] && (
-                    <Button variant="quiet" size="xs" label="Use the project's" onClick={() => reset(c)} />
+                    <Button variant="quiet" size="xs" label="Use the project default" onClick={() => reset(c)} />
                   )}
                 </span>
                 <span {...stylex.props(type.small, styles.what)}>{what(c, mode)}</span>
@@ -141,7 +141,13 @@ export function ColumnsMenu({
         {overridden.length > 0 && (
           <p {...stylex.props(type.small, styles.hint, styles.follow)}>
             {scope === "project" && `This test overrides ${overridden.map((c) => c.name).join(", ")}.`}
-            <Button variant="quiet" size="xs" icon="undo" label="Follow the project" onClick={() => onTest(null)} />
+            <Button
+              variant="quiet"
+              size="xs"
+              icon="undo"
+              label="Use the project defaults"
+              onClick={() => onTest(null)}
+            />
           </p>
         )}
       </div>

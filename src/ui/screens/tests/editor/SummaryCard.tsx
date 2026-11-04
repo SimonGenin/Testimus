@@ -52,7 +52,7 @@ export function SummaryCard({
   saveState,
   details,
   onDetails,
-  onRemote,
+  onOpenKey,
   update,
   children,
 }: {
@@ -65,7 +65,8 @@ export function SummaryCard({
   saveState?: FieldAutosave;
   details: boolean;
   onDetails: (open: boolean) => void;
-  onRemote: () => void;
+  /** a Jira key of the head (cloned from): open it in Jira */
+  onOpenKey: (key: string) => void;
   update: (fn: (t: Test) => Test) => void;
   children?: ReactNode;
 }) {
@@ -102,18 +103,25 @@ export function SummaryCard({
             <Badge {...word} tooltip={remote === "unverified" ? "Not verified against Jira" : undefined} />
             {remote === "checking" && <Badge {...SYNC.checking} busy tooltip={`Checking ${test.key} against Jira`} />}
             {remote === "remote-changed" && (
-              <Button
-                variant="quiet"
-                size="sm"
-                icon={dirty ? "conflict" : "cloud"}
-                label={dirty ? "Conflict" : "Changed in Jira"}
-                onClick={onRemote}
+              <Badge
+                {...(dirty ? SYNC.conflict : SYNC["changed-in-jira"])}
+                tooltip={
+                  dirty
+                    ? "Changed in Jira and here since your pull — choose which version to keep"
+                    : "Someone changed this test in Jira since your pull"
+                }
               />
             )}
             {test.status && <Badge {...jiraStatus(test.status)} tooltip="Jira status (informational, never pushed)" />}
             {test.clonedFrom && (
               <span {...stylex.props(type.small, styles.cloned)}>
-                cloned from <Chip label={test.clonedFrom} mono icon="external" />
+                cloned from{" "}
+                <Chip
+                  label={test.clonedFrom}
+                  mono
+                  icon="external"
+                  onClick={() => onOpenKey(test.clonedFrom as string)}
+                />
               </span>
             )}
             {!details && test.labels.map((l) => <Chip key={l} label={l} />)}

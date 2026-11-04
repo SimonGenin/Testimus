@@ -103,7 +103,7 @@ export function CopyContext({
           <span {...stylex.props(type.small, styles.muted)}>That project has no context</span>
         ))}
       <span {...stylex.props(styles.acts)}>
-        <Button size="sm" variant="quiet" label="Cancel" onClick={() => setOpen(false)} />
+        <Button size="sm" label="Cancel" onClick={() => setOpen(false)} />
         <Button
           size="sm"
           variant="primary"

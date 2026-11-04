@@ -16,10 +16,10 @@ export const packLabel = (id: string) => `${id.charAt(0).toUpperCase()}${id.slic
 
 export const MEASURE = "measure:";
 
-function found(j: Job): Started | null {
+function found(j: Job, name: (id: string) => string): Started | null {
   if (j.kind === "models-usePack") return { key: j.subject, kind: j.kind, label: `Installing ${packLabel(j.subject)}` };
-  if (j.kind === "models-pull") return { key: j.subject, kind: j.kind, label: `Downloading ${j.subject}` };
-  if (j.kind === "models-verify") return { key: j.subject, kind: j.kind, label: "Verifying" };
+  if (j.kind === "models-pull") return { key: j.subject, kind: j.kind, label: `Downloading ${name(j.subject)}` };
+  if (j.kind === "models-verify") return { key: j.subject, kind: j.kind, label: `Verifying ${name(j.subject)}` };
   if (j.kind === "rag-index" || j.kind === "rag.index")
     return { key: "index", kind: j.kind, label: "Indexing the documents" };
   if (j.kind === "models-measure") return { key: `${MEASURE}${j.subject}`, kind: j.kind, label: "Measuring" };
@@ -41,14 +41,15 @@ function Watch({ jobId, onEnd }: { jobId: string; onEnd: (job: Job) => void }) {
   return null;
 }
 
-export function useOps(onEnded?: (op: Op, job: Job) => void) {
+// ponytail: name gives a model's name from its id (the catalog's label), for a job found running after a reload
+export function useOps(onEnded?: (op: Op, job: Job) => void, name: (id: string) => string = (id) => id) {
   const app = useApp();
   const running = useRead("jobs.list", { running: true }, { enabled: !!app.info });
   const [started, setStarted] = useState<Record<string, Started>>({});
   const [ended, setEnded] = useState<Set<string>>(new Set());
   const ops: Op[] = [];
   for (const j of running.data ?? []) {
-    const f = started[j.id] ?? found(j);
+    const f = started[j.id] ?? found(j, name);
     if (f && !ended.has(j.id)) ops.push({ key: f.key, jobId: j.id, label: f.label, kind: f.kind });
   }
   for (const [jobId, s] of Object.entries(started))

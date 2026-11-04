@@ -107,6 +107,7 @@ export function ProjectSection() {
             <Grid>
               <Text label="Name" value={p.name ?? ""} {...name} />
               <Text
+                id="settings-project-jira"
                 label="Jira project key"
                 value={p.jiraProject ?? ""}
                 placeholder="e.g. LFRPS12"

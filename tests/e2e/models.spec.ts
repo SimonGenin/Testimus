@@ -98,6 +98,9 @@ test.describe("default PC: a 16 GB GPU, a models folder", () => {
     await shoot(page, "models-table-e2e");
     const row = table.getByRole("row", { name: "Qwen3 Reranker 4B (8-bit, GGUF)" });
     await row.getByRole("button", { name: "Install" }).click();
+    const plan = page.getByRole("alertdialog", { name: "Download Qwen3 Reranker 4B (8-bit, GGUF)?" });
+    await expect(plan).toContainText("to download");
+    await plan.getByRole("button", { name: /^Download / }).click();
     await expect(row.getByRole("button", { name: "Verify" })).toBeVisible({
       timeout: 30_000,
     });

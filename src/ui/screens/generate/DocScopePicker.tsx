@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import type { DocRef } from "../../../core/types.ts";
 import { Badge } from "../../components/ui/Badge.tsx";
+import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Card } from "../../components/ui/Card.tsx";
 import { Checkbox } from "../../components/ui/Checkbox.tsx";
@@ -10,6 +11,7 @@ import { type } from "../../components/ui/type.ts";
 import { plural } from "../../lib/format.ts";
 import type { DocScope } from "../../lib/scope.ts";
 import { border, color, space } from "../../styles/tokens.stylex.ts";
+import { indexWord } from "../documents/badges.tsx";
 import { SectionTree } from "./SectionTree.tsx";
 
 const styles = stylex.create({
@@ -45,14 +47,16 @@ const styles = stylex.create({
   },
   side: { display: "flex", flexDirection: "column", alignItems: "flex-end", gap: space.s1, flexShrink: 0 },
   loading: { display: "flex", flexDirection: "column", gap: space.s3, padding: space.s4 },
+  notice: { padding: space.s3 },
 });
 
+const converted = (d: DocRef) => !!d.converted?.at;
+const NOT_CONVERTED = "Not converted: convert it in Documents first";
+
+// ponytail: the same words as the Documents list (badges.tsx), « Indexing… » while an index runs
 function IndexBadge({ doc, indexing }: { doc: DocRef; indexing: boolean }) {
-  if (!doc.converted?.at) return null;
-  if (indexing) return <Badge tone="info" busy size="sm" label="Indexing…" />;
-  if (doc.indexed === "missing") return <Badge tone="danger" icon="alert-circle" size="sm" label="Not indexed" />;
-  if (doc.indexed === "stale") return <Badge tone="warning" icon="alert-triangle" size="sm" label="Not up to date" />;
-  return <Badge tone="success" icon="check" size="sm" label="Indexed" />;
+  if (indexing && converted(doc)) return <Badge tone="info" busy size="sm" label="Indexing…" />;
+  return <Badge size="sm" {...indexWord(doc)} />;
 }
 
 export function DocScopePicker({
@@ -85,14 +89,17 @@ export function DocScopePicker({
           icon="documents"
           title="No document yet"
           text="Generate writes tests from the project's documents. Add one first."
-          actions={onAddDocuments && <Button size="sm" icon="plus" label="Add documents" onClick={onAddDocuments} />}
+          actions={
+            onAddDocuments && <Button size="sm" icon="documents" label="Go to Documents" onClick={onAddDocuments} />
+          }
         />
       </Card>
     );
   const set = (id: string, s: DocScope) => onChange({ ...scopes, [id]: s });
   const of = (id: string): DocScope => scopes[id] ?? "all";
-  const inScope = docs.filter((d) => of(d.id) !== "none").length;
-  const narrowed = docs.filter((d) => Array.isArray(of(d.id))).length;
+  const usable = docs.filter(converted);
+  const inScope = usable.filter((d) => of(d.id) !== "none").length;
+  const narrowed = usable.filter((d) => Array.isArray(of(d.id))).length;
   return (
     <Card padded={false}>
       <div {...stylex.props(type.small, styles.head)}>
@@ -114,13 +121,29 @@ export function DocScopePicker({
           onClick={() => onChange(Object.fromEntries(docs.map((d) => [d.id, "none"])))}
         />
       </div>
+      {!usable.length && (
+        <div {...stylex.props(styles.notice)}>
+          <Banner
+            tone="info"
+            compact
+            title="No document is converted yet"
+            actions={
+              onAddDocuments && <Button size="sm" icon="documents" label="Go to Documents" onClick={onAddDocuments} />
+            }
+          >
+            Generate reads converted documents only: convert one in Documents first.
+          </Banner>
+        </div>
+      )}
       <ul aria-label="Documents in scope" {...stylex.props(styles.list)}>
         {docs.map((d) => {
-          const s = of(d.id);
+          const ready = converted(d);
+          const s = ready ? of(d.id) : "none";
           const some = Array.isArray(s);
           const total = d.converted?.stats?.sections;
-          const what =
-            s === "all"
+          const what = !ready
+            ? "not converted yet"
+            : s === "all"
               ? `whole document${total ? ` · ${plural(total, "section")}` : ""}`
               : s === "none"
                 ? "left out"
@@ -133,6 +156,7 @@ export function DocScopePicker({
                 <span {...stylex.props(styles.grow)}>
                   <Checkbox
                     checked={some ? "mixed" : s === "all"}
+                    disabled={ready ? false : NOT_CONVERTED}
                     label={d.title || d.code}
                     hint={`${d.code} · ${what}`}
                     onChange={(on) => set(d.id, on ? "all" : "none")}
@@ -140,7 +164,7 @@ export function DocScopePicker({
                 </span>
                 <span {...stylex.props(styles.side)}>
                   <IndexBadge doc={d} indexing={indexing} />
-                  {some ? (
+                  {!ready ? null : some ? (
                     <Button
                       size="sm"
                       variant="quiet"

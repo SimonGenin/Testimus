@@ -61,6 +61,7 @@ export function CheckTable({
   checks,
   loading = false,
   busy,
+  blocked = () => false,
   onAct,
 }: {
   title: string;
@@ -68,6 +69,8 @@ export function CheckTable({
   /** the check runs: the section and its columns, skeleton rows in them */
   loading?: boolean;
   busy: (c: DoctorCheck) => boolean;
+  /** why a row's fix waits (another fix runs), or false */
+  blocked?: (c: DoctorCheck) => string | false;
   onAct: (c: DoctorCheck, a: DoctorAction) => void;
 }) {
   return (
@@ -105,6 +108,7 @@ export function CheckTable({
                     icon={FIX_ICON[c.action.command]}
                     label={c.action.label}
                     loading={busy(c)}
+                    disabled={!busy(c) && blocked(c)}
                     onClick={() => c.action && onAct(c, c.action)}
                   />
                 </span>

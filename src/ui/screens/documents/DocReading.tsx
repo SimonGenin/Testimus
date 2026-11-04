@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
+import { Button } from "../../components/ui/Button.tsx";
 import { Card } from "../../components/ui/Card.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
@@ -10,6 +11,7 @@ import { fileUrl } from "../../lib/data/client.ts";
 import { invalidate, useRead } from "../../lib/data/query.ts";
 import type { Upload } from "../../lib/uploads.ts";
 import { border, color, duration, easing, radius, size, space } from "../../styles/tokens.stylex.ts";
+import { useCancel } from "../settings/jobs.ts";
 
 const appear = stylex.keyframes({
   from: { opacity: 0, transform: `translateY(${space.s2})` },
@@ -19,6 +21,8 @@ const appear = stylex.keyframes({
 const styles = stylex.create({
   wrap: { padding: space.s5, overflowY: "auto", flex: 1, minHeight: 0 },
   body: { display: "flex", flexDirection: "column", gap: space.s4 },
+  head: { display: "flex", alignItems: "flex-start", gap: space.s3 },
+  grow: { flex: 1, minWidth: 0 },
   msg: { margin: 0, color: color.textMuted },
   toc: { display: "flex", flexDirection: "column", gap: space.s1, margin: 0, padding: 0, listStyle: "none" },
   sec: {
@@ -95,9 +99,11 @@ const stepOf = (u: Upload): Step =>
   u.phase === "indexing" ? "index" : /figure|re-checking/i.test(u.message) ? "figures" : "read";
 
 // ponytail: while a document converts, what the job has written so far — its sections, its figures as Claude describes
-// them, the index filling — read again at each step the job reports; the text opens once it is indexed
+// them, the index filling — read again at each step the job reports; the text opens once it is indexed; Cancel stops
+// the job (the document stays as it was)
 export function DocReading({ docId, upload }: { docId: string; upload: Upload }) {
   const client = useQueryClient();
+  const cancel = useCancel();
   const step = stepOf(upload);
   const outline = useRead("docs.show", { id: docId, brief: true });
   const toc = outline.data?.toc ?? [];
@@ -145,7 +151,20 @@ export function DocReading({ docId, upload }: { docId: string; upload: Upload })
       <section aria-label="Reading the document" aria-busy="true">
         <Card>
           <div {...stylex.props(styles.body)}>
-            <Timeline label="Steps" items={steps} compact />
+            <div {...stylex.props(styles.head)}>
+              <span {...stylex.props(styles.grow)}>
+                <Timeline label="Steps" items={steps} compact />
+              </span>
+              {upload.jobId && (
+                <Button
+                  size="sm"
+                  variant="quiet"
+                  icon="stop"
+                  label="Cancel"
+                  onClick={() => cancel(upload.jobId as string)}
+                />
+              )}
+            </div>
             <p role="status" {...stylex.props(type.small, styles.msg)}>
               {upload.message}
             </p>

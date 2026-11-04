@@ -13,6 +13,7 @@ import { Spinner } from "../ui/Spinner.tsx";
 import { type } from "../ui/type.ts";
 import { AnswerText } from "./AnswerText.tsx";
 import { DiagnosisText } from "./DiagnosisText.tsx";
+import { RevertConflict } from "./RevertConflict.tsx";
 import { type Again, changed, metaLine, type RunCard, runBadges, type Turn } from "./turns.ts";
 
 const styles = stylex.create({
@@ -39,6 +40,10 @@ export type TurnActions = {
   onOpenSource: (s: Source) => void;
   onShowChanges: (run: RunCard) => void;
   onRevert: (t: Turn) => void;
+  /** Revert refused: the test changed after this turn's run — said in its card, as the editor and Review say it */
+  conflict?: { id: number; detail: string } | null;
+  onForceRevert: (t: Turn) => void;
+  onKeepRevert: () => void;
   onToggleRaw: (t: Turn) => void;
   onRetry: (a: Again) => void;
   onSettings: () => void;
@@ -101,7 +106,13 @@ export function AnswerTurn({ turn: t, actions: a }: { turn: Turn; actions: TurnA
                       disabled={changed(t.run) ? false : "Nothing changed"}
                       onClick={() => t.run && a.onShowChanges(t.run)}
                     />
-                    <Button size="sm" icon="undo" label="Revert" onClick={() => a.onRevert(t)} />
+                    <Button
+                      size="sm"
+                      icon="undo"
+                      label="Revert"
+                      disabled={a.busy ? "Claude is working — wait for it to finish" : false}
+                      onClick={() => a.onRevert(t)}
+                    />
                   </>
                 )}
                 {t.raw !== undefined && (
@@ -158,6 +169,9 @@ export function AnswerTurn({ turn: t, actions: a }: { turn: Turn; actions: TurnA
             </div>
           )}
           {t.showRaw && t.raw !== undefined && <Raw text={t.raw} maxLines={20} label="Raw output" />}
+          {t.run && !t.run.reverted && a.conflict?.id === t.id && (
+            <RevertConflict detail={a.conflict.detail} onForce={() => a.onForceRevert(t)} onKeep={a.onKeepRevert} />
+          )}
         </Answer>
       )}
     </>

@@ -1,10 +1,9 @@
 import * as stylex from "@stylexjs/stylex";
 import { type ComponentType, useEffect, useRef } from "react";
+import { NoProject } from "../../components/shell/NoProject.tsx";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
 import { Badge } from "../../components/ui/Badge.tsx";
-import { Button } from "../../components/ui/Button.tsx";
 import { Card } from "../../components/ui/Card.tsx";
-import { EmptyState } from "../../components/ui/EmptyState.tsx";
 import type { IconName } from "../../components/ui/Icon.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { List } from "../../components/ui/List.tsx";
@@ -61,10 +60,10 @@ const SECTIONS: Page[] = [
 ];
 
 const CLAUDE_CARDS = [
-  { id: "claude-connection", label: "Connection" },
-  { id: "claude-dock", label: "Claude dock" },
-  { id: "claude-quickasks", label: "Quick asks" },
-  { id: "claude-contexts", label: "Contexts" },
+  { id: "claude-connection", label: "Connection", needsProject: false },
+  { id: "claude-dock", label: "Claude dock", needsProject: true },
+  { id: "claude-quickasks", label: "Quick asks", needsProject: true },
+  { id: "claude-contexts", label: "Contexts", needsProject: true },
 ];
 
 type Entry = { id: string; label: string; icon?: IconName; depth: number; waits?: boolean };
@@ -103,7 +102,10 @@ export function SettingsScreen() {
 
   const entries: Entry[] = SECTIONS.flatMap((s) =>
     s.id === "claude" && section.id === "claude"
-      ? [{ ...s, depth: 0 }, ...CLAUDE_CARDS.map((c) => ({ ...c, depth: 1, icon: undefined }))]
+      ? [
+          { ...s, depth: 0 },
+          ...CLAUDE_CARDS.map((c) => ({ ...c, depth: 1, icon: undefined, waits: !hasProject && c.needsProject })),
+        ]
       : [{ ...s, depth: 0, waits: !hasProject && s.needsProject }],
   );
   const current =
@@ -145,22 +147,7 @@ export function SettingsScreen() {
           {!hasProject && section.needsProject ? (
             <Section id={section.id} title={section.label}>
               <Card padded={false}>
-                <EmptyState
-                  icon="folder"
-                  title="No project open"
-                  text="Open a project to change its settings. Claude, Models, Access and Appearance work without one."
-                  actions={
-                    <>
-                      <Button
-                        variant="primary"
-                        icon="folder-open"
-                        label="Open a project…"
-                        onClick={() => app.navigate("setup", "project")}
-                      />
-                      <Button label="New project" onClick={() => app.navigate("setup", "project")} />
-                    </>
-                  }
-                />
+                <NoProject text="Open a project to change its settings. Claude, Models, Access and Appearance work without one." />
               </Card>
             </Section>
           ) : (

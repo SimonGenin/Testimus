@@ -146,24 +146,26 @@ describe("CommandForm", () => {
     expect(await screen.findByText("Unknown test")).toBeInTheDocument();
   });
 
-  it("hands a started job over and closes, and shows Running meanwhile", async () => {
+  it("says a started job with « Open in Jobs » to that job and closes, and shows Running meanwhile", async () => {
     const gate = deferred();
     net.routes["gen.tests"] = async () => {
       await gate.promise;
       return { jobId: "j5" };
     };
     const close = vi.fn();
-    const onJob = vi.fn();
-    withData(<CommandForm command={cmd("gen.tests", {}, { job: true })} onClose={close} onJob={onJob} />);
+    const navigate = vi.fn();
+    withData(<CommandForm command={cmd("gen.tests", {}, { job: true })} onClose={close} />, { navigate });
     fireEvent.click(screen.getByRole("button", { name: /^Run/ }));
     expect(await screen.findByRole("button", { name: /^Running…/ })).toBeDisabled();
     await act(async () => gate.resolve(null));
-    await waitFor(() => expect(onJob).toHaveBeenCalledWith("j5"));
-    expect(close).toHaveBeenCalled();
-    expect(screen.getByText("gen.tests started")).toBeInTheDocument();
+    await waitFor(() => expect(close).toHaveBeenCalled());
+    expect(screen.getByText("gen.tests summary — started")).toBeInTheDocument();
+    expect(navigate).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Open in Jobs" }));
+    expect(navigate).toHaveBeenCalledWith("jobs", "j5");
   });
 
-  it("shows the result of a job command that did not start a job, and runs without onJob", async () => {
+  it("shows the result of a job command that did not start a job", async () => {
     net.routes["gen.tests"] = () => null;
     const { unmount } = withData(<CommandForm command={cmd("gen.tests", {}, { job: true })} onClose={() => {}} />);
     fireEvent.click(screen.getByRole("button", { name: /^Run/ }));
@@ -216,5 +218,71 @@ describe("CommandForm", () => {
     expect(screen.getByRole("button", { name: /^Run/ })).toHaveTextContent("Ctrl+Enter");
     fireEvent.keyDown(pick, { key: "Enter", ctrlKey: true });
     await waitFor(() => expect(callsOf("docs.show")[0]?.input).toEqual({ id: "SOSIE_4" }));
+  });
+
+  it("asks before a command that loses something, naming it; Cancel goes back to the form", async () => {
+    net.routes["tests.remove"] = () => ({ id: "local-1", removed: true });
+    withData(
+      <CommandForm command={cmd("tests.remove", { id: { type: "string" } }, { mutates: true })} onClose={() => {}} />,
+    );
+    fireEvent.change(screen.getByLabelText("id"), { target: { value: "local-1" } });
+    fireEvent.click(screen.getByRole("button", { name: /^Run/ }));
+    const ask = await screen.findByRole("alertdialog", { name: "tests.remove summary?" });
+    expect(ask).toHaveTextContent("The test folder is deleted");
+    expect(callsOf("tests.remove")).toHaveLength(0);
+    fireEvent.click(within(ask).getByRole("button", { name: "Cancel" }));
+    expect(screen.getByLabelText("id")).toHaveValue("local-1");
+    fireEvent.click(screen.getByRole("button", { name: /^Run/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete the test" }));
+    expect(await screen.findByTestId("command-result")).toHaveTextContent('"removed": true');
+    expect(callsOf("tests.remove")[0].input).toEqual({ id: "local-1" });
+  });
+
+  it("asks at once for a command without input that changes how the project works", async () => {
+    net.routes["xray.disconnect"] = () => ({ jiraProject: "LFRPS12" });
+    const close = vi.fn();
+    withData(<CommandForm command={cmd("xray.disconnect", {}, { mutates: true })} onClose={close} />);
+    const ask = screen.getByRole("alertdialog", { name: "xray.disconnect summary?" });
+    fireEvent.click(within(ask).getByRole("button", { name: "Cancel" }));
+    expect(close).toHaveBeenCalled();
+    expect(callsOf("xray.disconnect")).toHaveLength(0);
+  });
+
+  it("shows a dry run's plan first, then its button does it, in red when something is lost", async () => {
+    net.routes["docs.remove"] = (i) => ({ removed: "SOSIE_3", dryRun: i.dryRun === true });
+    withData(
+      <CommandForm
+        command={cmd("docs.remove", { id: { type: "string" }, dryRun: { type: "boolean" } }, { mutates: true })}
+        onClose={() => {}}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("id"), { target: { value: "SOSIE_3" } });
+    fireEvent.click(screen.getByRole("button", { name: /^Show the plan/ }));
+    expect(await screen.findByTestId("command-plan")).toHaveTextContent('"dryRun": true');
+    expect(callsOf("docs.remove")[0].input).toEqual({ id: "SOSIE_3", dryRun: true });
+    expect(screen.getByRole("alert")).toHaveTextContent("the tests that cite it report it missing");
+    fireEvent.change(screen.getByLabelText("id"), { target: { value: "SOSIE_4" } });
+    expect(screen.queryByTestId("command-plan")).toBeNull();
+    fireEvent.change(screen.getByLabelText("id"), { target: { value: "SOSIE_3" } });
+    fireEvent.click(screen.getByRole("button", { name: /^Show the plan/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /^Remove the document/ }));
+    expect(await screen.findByTestId("command-result")).toHaveTextContent('"dryRun": false');
+    expect(callsOf("docs.remove")[2].input).toEqual({ id: "SOSIE_3" });
+  });
+
+  it("hands a Claude fix to the dock instead of running it as a bare job", () => {
+    const runInDock = vi.fn();
+    const close = vi.fn();
+    withData(<CommandForm command={cmd("review.fix", { id: { type: "string" } })} onClose={close} />, { runInDock });
+    fireEvent.change(screen.getByLabelText("id"), { target: { value: "local-1" } });
+    fireEvent.click(screen.getByRole("button", { name: /^Run/ }));
+    expect(runInDock).toHaveBeenCalledWith({
+      name: "review.fix",
+      input: { id: "local-1" },
+      label: "Fix the test",
+      testId: "local-1",
+    });
+    expect(close).toHaveBeenCalled();
+    expect(callsOf("review.fix")).toHaveLength(0);
   });
 });

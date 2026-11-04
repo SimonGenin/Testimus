@@ -25,13 +25,15 @@ export type FixNoteProps = {
   summary?: string;
   testKey?: string;
   claudeReady: boolean;
+  /** « Open the system check » under the dialog when Claude is not connected (the note stays a draft) */
+  onDoctor?: () => void;
   onCancel: () => void;
   onSubmit: (note: string, askClaude: boolean) => void;
 };
 
 // ponytail: the To fix note is a draft of the page until the test is marked — nothing is written before (the note lands
 // in test.md with the decision); Cancel, Escape and the close button drop it
-export function FixNote({ id, initial, summary, testKey, claudeReady, onCancel, onSubmit }: FixNoteProps) {
+export function FixNote({ id, initial, summary, testKey, claudeReady, onDoctor, onCancel, onSubmit }: FixNoteProps) {
   const [note, setNote, drop] = useDraft([project(), "review.fixNote", { id }], initial);
   const [tried, setTried] = useState(false);
   const field = useId();
@@ -67,6 +69,12 @@ export function FixNote({ id, initial, summary, testKey, claudeReady, onCancel, 
           <>
             <Icon name="plug" size="sm" />
             Claude is not connected
+            {onDoctor && (
+              <>
+                {" · "}
+                <Button variant="link" label="Open the system check" onClick={onDoctor} />
+              </>
+            )}
           </>
         )
       }

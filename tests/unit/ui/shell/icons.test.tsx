@@ -66,14 +66,12 @@ describe("the shell's icons, as the design draws them", () => {
     const commands = [
       cmd("system.doctor", "Run the system check."),
       cmd("project.openKey", "Open a project by its Jira key."),
-      cmd("xray.unpush", "Undo the last push of a test (restores Jira's copy)."),
       cmd("xray.push", "Push a test to Jira (shows the plan first)."),
       cmd("chat.ask", "Ask Claude a question about the project's documents."),
     ];
     withData(<Palette commands={commands} actions={[]} onCommand={() => {}} onHit={() => {}} onClose={() => {}} />);
     expect(iconOf(option(/Run the system check/))).toBe("chevron-right");
     expect(iconOf(option(/Open a project by its Jira key/))).toBe("chevron-right");
-    expect(iconOf(option(/Undo the last push/))).toBe("undo");
     expect(iconOf(option(/Push a test to Jira/))).toBe("push");
     expect(iconOf(option(/Ask Claude a question/))).toBe("claude");
     fireEvent.change(screen.getByRole("combobox", { name: "Search" }), { target: { value: "traction" } });

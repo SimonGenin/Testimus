@@ -19,7 +19,18 @@ export type FitAsk = {
   lighterGo: () => void;
 };
 export type FolderAsk = { needMB: number; next?: () => void };
+/** the plan of a single model's choice, confirmed before it acts (as a pack's plan is): what it downloads or changes */
+export type ModelAsk = {
+  title: string;
+  text: string;
+  consequences: [number | string, string][];
+  verb: string;
+  icon: "download" | "check";
+  go: () => Promise<void>;
+};
 export type Plan = { row: PackRow; out: UsePackOut };
+
+type Pick = { embedding?: string; reranker?: string | null };
 
 type Start = (jobId: string, key: string, kind: string, label: string, then?: (result: unknown) => void) => void;
 
@@ -40,9 +51,14 @@ export function useModelActions(o: {
   status: RagStatus | undefined;
   dir: string | null | undefined;
   start: Start;
+  /** a pack with downloads is downloaded and then used in the same job (First launch), not only downloaded */
+  thenUse?: boolean;
+  /** the pack's job started: the caller says so (First launch) instead of following it here */
+  onPackStarted?: (row: PackRow, jobId: string, out: UsePackOut) => void;
 }) {
   const client = useQueryClient();
   const [fitAsk, setFitAsk] = useState<FitAsk | null>(null);
+  const [ask, setAsk] = useState<ModelAsk | null>(null);
   const [folder, setFolder] = useState<FolderAsk | null>(null);
   const [plan, setPlan] = useState<Plan | null>(null);
   const [planning, setPlanning] = useState(false);
@@ -86,11 +102,15 @@ export function useModelActions(o: {
   const confirmPack = async () => {
     if (!plan) return;
     const { row } = plan;
-    const downloadOnly = plan.out.plan.download.length > 0;
+    const downloadOnly = !o.thenUse && plan.out.plan.download.length > 0;
     setPlanning(true);
     try {
       const { jobId } = await execute(client, "models.usePack", { pack: row.id, downloadOnly }, fx);
       setPlan(null);
+      if (o.onPackStarted) {
+        o.onPackStarted(row, jobId, plan.out);
+        return;
+      }
       if (downloadOnly) {
         o.start(jobId, row.id, "models-usePack", `Downloading ${row.label}`, () =>
           toast({ tone: "success", title: `${row.label} pack downloaded`, detail: "Use this pack to switch to it." }),
@@ -109,32 +129,97 @@ export function useModelActions(o: {
     }
   };
 
-  const install = async (r: CatalogRow, chosen = false) => {
-    if (!chosen && o.dir === null) {
-      setFolder({ needMB: r.sizeMB, next: () => void install(r, true) });
-      return;
-    }
+  const pull = async (r: CatalogRow) => {
     try {
       const out = await execute(client, "models.pull", { model: r.id }, fx);
+      setAsk(null);
       o.start(out.jobId, r.id, "models-pull", `Downloading ${r.label}`);
     } catch (e) {
-      if (e instanceof ApiError && e.code === "models-dir-unset")
-        setFolder({ needMB: r.sizeMB, next: () => void install(r, true) });
-      else errorToast(e, `Could not install ${r.label}`);
+      if (!(e instanceof ApiError && e.code === "models-dir-unset")) throw e;
+      setAsk(null);
+      setFolder({ needMB: r.sizeMB, next: () => askPull(r) });
     }
   };
 
-  const applyModel = async (r: CatalogRow, pick: { embedding?: string; reranker?: string }) => {
-    try {
-      const out = await execute(client, "models.use", pick, fx);
-      toast({
-        tone: "success",
-        title: `${r.label} in use for this project`,
-        detail: out.reindex ? "Indexing again" : "",
+  const askPull = (r: CatalogRow) =>
+    setAsk({
+      title: `Download ${r.label}?`,
+      text: `Onto this PC${o.dir ? `, into ${o.dir}` : ""}. Nothing changes for the project until you use it.`,
+      consequences: [[size(r.sizeMB), "to download"]],
+      verb: `Download ${size(r.sizeMB)}`,
+      icon: "download",
+      go: () => pull(r),
+    });
+
+  const install = (r: CatalogRow, chosen = false) => {
+    if (!chosen && o.dir === null) {
+      setFolder({ needMB: r.sizeMB, next: () => install(r, true) });
+      return;
+    }
+    if (r.fit && r.fit.verdict !== "fits")
+      setFitAsk({
+        name: r.label,
+        short: r.label,
+        fit: r.fit,
+        processorOnly: false,
+        lighter: null,
+        go: () => askPull(r),
+        lighterGo: () => {},
       });
-      if (out.indexJob) o.start(out.indexJob, "index", "rag-index", "Indexing the documents");
+    else askPull(r);
+  };
+
+  const applyModels = async (name: string, pick: Pick) => {
+    const out = await execute(client, "models.use", pick, fx);
+    setAsk(null);
+    toast({
+      tone: "success",
+      title: `${name} in use for this project`,
+      detail: out.reindex ? "Indexing again" : "",
+    });
+    if (out.indexJob) o.start(out.indexJob, "index", "rag-index", "Indexing the documents");
+  };
+
+  const askUse = (name: string, pick: Pick, reindex: boolean) => {
+    const docs = o.status?.docs?.length ?? 0;
+    setAsk({
+      title: `Use ${name} for this project?`,
+      text: "On this PC only: nothing changes for your colleagues.",
+      consequences: reindex
+        ? [
+            [
+              docs || "The",
+              `${docs === 1 ? "document is" : "documents are"} indexed again with it (a job; search keeps working on words meanwhile)`,
+            ],
+          ]
+        : [["No", "index to rebuild: the documents keep their vectors"]],
+      verb: `Use ${name}`,
+      icon: "check",
+      go: () => applyModels(name, pick),
+    });
+  };
+
+  // ponytail: a single model goes the way a pack goes — does it fit (FitConfirm when not), then its plan, confirmed
+  const chooseModels = async (
+    name: string,
+    pick: Pick,
+    lighterOf: (id: string | null) => { label: string; go: () => void } | null = () => null,
+  ) => {
+    try {
+      const dry = await read(client, "models.use", { ...pick, dryRun: true });
+      if (dry.fit.verdict === "fits") return askUse(name, pick, dry.reindex);
+      const lighter = lighterOf(dry.lighter);
+      setFitAsk({
+        name,
+        short: name,
+        fit: dry.fit,
+        processorOnly: false,
+        lighter: lighter?.label ?? null,
+        go: () => askUse(name, pick, dry.reindex),
+        lighterGo: () => lighter?.go(),
+      });
     } catch (e) {
-      errorToast(e, `Could not use ${r.label}`);
+      errorToast(e, `Could not check whether ${name} fits`);
     }
   };
 
@@ -149,28 +234,21 @@ export function useModelActions(o: {
       return;
     }
     const pick = r.kind === "embedding" ? { embedding: r.id } : { reranker: r.id };
-    try {
-      const dry = await read(client, "models.use", { ...pick, dryRun: true });
-      if (dry.fit.verdict === "fits") return void applyModel(r, pick);
-      const lighter = o.catalog?.find((c) => c.id === dry.lighter) ?? null;
-      setFitAsk({
-        name: r.label,
-        short: r.label,
-        fit: dry.fit,
-        processorOnly: false,
-        lighter: lighter?.label ?? null,
-        go: () => void applyModel(r, pick),
-        lighterGo: () => lighter && (isInstalled(lighter.state) ? void chooseModel(lighter) : void install(lighter)),
-      });
-    } catch (e) {
-      errorToast(e, `Could not check whether ${r.label} fits`);
-    }
+    await chooseModels(r.label, pick, (id) => {
+      const lighter = o.catalog?.find((c) => c.id === id);
+      return lighter
+        ? {
+            label: lighter.label,
+            go: () => (isInstalled(lighter.state) ? void chooseModel(lighter) : install(lighter)),
+          }
+        : null;
+    });
   };
 
   const verify = async (r: CatalogRow) => {
     try {
       const { jobId } = await execute(client, "models.verify", { model: r.id }, fx);
-      o.start(jobId, r.id, "models-verify", "Verifying", (out) => {
+      o.start(jobId, r.id, "models-verify", `Verifying ${r.label}`, (out) => {
         const v = out as { ok: boolean; dims: number; ms: number; message: string };
         toast({
           tone: v.ok ? "success" : "danger",
@@ -186,33 +264,25 @@ export function useModelActions(o: {
   const remove = async () => {
     if (!removing) return;
     const { row } = removing;
-    try {
-      const r = await execute(client, "models.remove", { model: row.id }, fx);
-      toast({
-        tone: "success",
-        title: `${row.label} removed`,
-        detail: r.removed === "registration" ? "Its folder stays on disk" : `${size(r.freedMB)} freed`,
-      });
-    } catch (e) {
-      errorToast(e, `Could not remove ${row.label}`);
-    } finally {
-      setRemoving(null);
-    }
+    const r = await execute(client, "models.remove", { model: row.id }, fx);
+    setRemoving(null);
+    toast({
+      tone: "success",
+      title: `${row.label} removed`,
+      detail: r.removed === "registration" ? "Its folder stays on disk" : `${size(r.freedMB)} freed`,
+    });
   };
 
-  const applyAdvice = async (a: AdviceRow) => {
+  const applyAdvice = (a: AdviceRow) => {
     if ("pack" in a.to) {
       const row = o.packs?.find((p) => p.id === (a.to as { pack: string }).pack);
-      if (row) void planPack(row);
+      if (row) choosePack(row);
       return;
     }
-    try {
-      const out = await execute(client, "models.use", a.to, fx);
-      toast({ tone: "success", title: "Advice applied", detail: out.reindex ? "Indexing again" : "" });
-      if (out.indexJob) o.start(out.indexJob, "index", "rag-index", "Indexing the documents");
-    } catch (e) {
-      errorToast(e, "Could not apply the advice");
-    }
+    const to = a.to as { embedding: string; reranker?: string | null };
+    const label = (id: string) => o.catalog?.find((c) => c.id === id)?.label ?? id;
+    const pick: Pick = { embedding: to.embedding, reranker: to.reranker ?? null };
+    void chooseModels(to.reranker ? `${label(to.embedding)} + ${label(to.reranker)}` : label(to.embedding), pick);
   };
 
   const dismiss = (a: AdviceRow) =>
@@ -237,6 +307,8 @@ export function useModelActions(o: {
   return {
     fitAsk,
     setFitAsk,
+    ask,
+    setAsk,
     folder,
     setFolder,
     plan,

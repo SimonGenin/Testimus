@@ -16,9 +16,11 @@ import { useApp } from "../../lib/app.ts";
 import { execute, invalidate, useRead } from "../../lib/data/query.ts";
 import { plural, relTime } from "../../lib/format.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
-import { reindexAll, useUploads } from "../../lib/uploads.ts";
+import { importClaude } from "../../lib/uploads.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 import { choiceLabel, ORIGIN } from "./models/data.ts";
+import { OpLine } from "./models/OpLine.tsx";
+import { useOps } from "./models/ops.tsx";
 import { useInfo } from "./project.ts";
 import { Hint, Section, Stack } from "./Section.tsx";
 
@@ -27,6 +29,7 @@ const styles = stylex.create({
   muted: { color: color.textMuted },
   state: { display: "flex", alignItems: "center", gap: space.s3, flexWrap: "wrap" },
   spacer: { flex: 1 },
+  run: { flex: 1, minWidth: 0 },
   model: { display: "flex", flexDirection: "column", gap: space.s1, minWidth: 0 },
   id: { color: color.textMuted },
   badges: { display: "flex", gap: space.s2, flexWrap: "wrap" },
@@ -40,21 +43,16 @@ const when = (iso: string | null) => (iso && !Number.isNaN(Date.parse(iso)) ? re
 function DropSpace({ space: s, label, onClose }: { space: Space; label: string; onClose: () => void }) {
   const client = useQueryClient();
   const drop = async () => {
-    try {
-      const r = await execute(
-        client,
-        "rag.dropSpace",
-        { id: s.id, force: s.active },
-        {
-          invalidates: [["rag.spaces"], ["rag.status"], ["docs.list"], ["models.advice"]],
-        },
-      );
-      toast({ tone: "success", title: "Vector space dropped", detail: `${r.dropped} · ${r.freedMB} MB freed` });
-    } catch (e) {
-      errorToast(e, "Could not drop the vector space");
-    } finally {
-      onClose();
-    }
+    const r = await execute(
+      client,
+      "rag.dropSpace",
+      { id: s.id, force: s.active },
+      {
+        invalidates: [["rag.spaces"], ["rag.status"], ["docs.list"], ["models.advice"]],
+      },
+    );
+    onClose();
+    toast({ tone: "success", title: "Vector space dropped", detail: `${r.dropped} · ${r.freedMB} MB freed` });
   };
   return (
     <Modal
@@ -87,9 +85,25 @@ export function SearchSection() {
   const spaces = useRead("rag.spaces", {});
   const catalog = useRead("models.catalog", {});
   const [dropping, setDropping] = useState<Space | null>(null);
-  const indexing = useUploads().some((u) => u.phase === "indexing");
+  const [starting, setStarting] = useState(false);
   const labels = new Map((catalog.data ?? []).map((c) => [c.id, c.label]));
   const label = (id: string) => labels.get(id) ?? id;
+  const { ops, start, watchers } = useOps((op, job) => {
+    if (op.key === "index" && job.status !== "running") void invalidate(client, [["rag.status"], ["rag.spaces"]]);
+  }, label);
+  const run = ops.find((o) => o.key === "index");
+  const indexing = starting || !!run;
+  const startIndex = async () => {
+    setStarting(true);
+    try {
+      const { jobId } = await execute(client, "rag.index", importClaude(), { invalidates: [["jobs.list"]] });
+      start(jobId, "index", "rag-index", "Indexing the documents");
+    } catch (e) {
+      errorToast(e, "Could not reindex");
+    } finally {
+      setStarting(false);
+    }
+  };
   const s = st.data;
   const reference = info.data?.project.rag?.reference;
   const fresh = !!s?.exists && s.profileMatches && s.docs.every((d) => d.indexed === "fresh");
@@ -99,8 +113,9 @@ export function SearchSection() {
       size="sm"
       icon="refresh"
       label="Reindex"
+      loading={starting}
       disabled={indexing || (s && !s.docs.length ? "Add documents first" : false)}
-      onClick={() => void reindexAll(() => void invalidate(client, [["rag.status"], ["rag.spaces"]]))}
+      onClick={() => void startIndex()}
     />
   );
 
@@ -109,8 +124,9 @@ export function SearchSection() {
       id="search"
       title="Search"
       intro="How this project's documents are searched on this PC: the models, the index, and the vectors each model keeps."
-      actions={<Button icon="cpu" label="Choose models…" onClick={() => app.navigate("settings", "models")} />}
+      actions={<Button icon="cpu" label="Go to Models" onClick={() => app.navigate("settings", "models")} />}
     >
+      {watchers}
       <Card title="Search on this PC">
         <Stack loose>
           {st.isError ? (
@@ -166,7 +182,11 @@ export function SearchSection() {
                     value: (
                       <span {...stylex.props(styles.dd)}>
                         <Badge label={s.missing.map(label).join(", ")} tone="warning" icon="alert-triangle" size="sm" />
-                        <span {...stylex.props(styles.muted)}>· install them in Models, or another choice is used</span>
+                        <span {...stylex.props(styles.muted)}>
+                          · install them in{" "}
+                          <Button variant="link" label="Models" onClick={() => app.navigate("settings", "models")} />,
+                          or another choice is used
+                        </span>
                       </span>
                     ),
                   },
@@ -181,8 +201,10 @@ export function SearchSection() {
           <div {...stylex.props(styles.state)}>
             {!s ? (
               <Skeleton width="40%" />
-            ) : indexing ? (
-              <Badge label="Indexing…" tone="info" busy />
+            ) : run ? (
+              <span {...stylex.props(styles.run)}>
+                <OpLine op={run} />
+              </span>
             ) : !s.docs.length ? (
               <>
                 <Badge label="Empty" icon="circle-dashed" />
@@ -208,7 +230,7 @@ export function SearchSection() {
                 <span {...stylex.props(styles.muted)}>{plural(behind, "document")} to reindex</span>
               </>
             )}
-            <span {...stylex.props(styles.spacer)} />
+            {!run && <span {...stylex.props(styles.spacer)} />}
             {!s?.degraded && reindex}
           </div>
         </Stack>

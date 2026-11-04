@@ -76,7 +76,7 @@ export function ProjectStep({ onBack, onOpened }: { onBack: () => void; onOpened
         </div>
       )}
       {p.error && (
-        <Banner tone="danger" compact>
+        <Banner tone="danger" compact title={p.failed || undefined}>
           {p.error}
         </Banner>
       )}

@@ -35,7 +35,7 @@ describe("DocText", () => {
       "src",
       "/files/docs/D1/figures/fig-1.png?project=C%3A%2Fp",
     );
-    fireEvent.click(screen.getByRole("button", { name: "Link to Vue de traction" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show Vue de traction in Figures" }));
     expect(onFigure).toHaveBeenCalledWith("fig:fig-1");
     expect(screen.getByText("Plain", { selector: "figcaption span" })).toBeInTheDocument();
     expect(container.querySelector("pre")).toHaveTextContent("| a | b |");
@@ -130,7 +130,7 @@ describe("figures inside a paragraph", () => {
     expect(screen.getByRole("img", { name: "Vue [A]" })).toBeInTheDocument();
     expect(screen.getByText("Le local est l'endroit.")).toBeInTheDocument();
     expect(screen.getByText("Plusieurs locaux.")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Link to Vue [A]" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show Vue [A] in Figures" }));
     expect(onFigure).toHaveBeenCalledWith("fig:f84");
   });
 

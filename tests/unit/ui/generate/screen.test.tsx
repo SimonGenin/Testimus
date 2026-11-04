@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DocRef, Job, LocalTestRef } from "../../../../src/core/types.ts";
 import { setProject } from "../../../../src/ui/lib/data/client.ts";
 import { GenerateScreen } from "../../../../src/ui/screens/generate/GenerateScreen.tsx";
+import { takeEditAsk } from "../../../../src/ui/screens/review/useReview.ts";
 import { checkedRun, pickRun, runChoice } from "../../helpers/run-choice.ts";
 import { api, FakeEventSource, named, xray } from "../../helpers/ui-desktop.tsx";
 import { clearToasts } from "../../helpers/ui-screens.tsx";
@@ -66,7 +67,16 @@ const preview =
   };
 
 const base = (info: ReturnType<typeof project> | null = project()) => {
-  const docs = [{ id: "D1", code: "C1", title: "Traction", status: "validated" } as unknown as DocRef];
+  const docs = [
+    {
+      id: "D1",
+      code: "C1",
+      title: "Traction",
+      status: "validated",
+      converted: { with: "", at, warnings: [] },
+      indexed: "fresh",
+    } as unknown as DocRef,
+  ];
   api.routes["project.info"] = () => info;
   api.routes["claude.status"] = () => ({ installed: true, signedIn: true });
   api.routes["jobs.list"] = () => [];
@@ -103,13 +113,14 @@ describe("Generate screen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Open in Review" }));
     expect(a.navigate).toHaveBeenCalledWith("review", "local-aaaaaaaa");
     fireEvent.click(screen.getByRole("button", { name: "Open in the editor" }));
-    expect(a.navigate).toHaveBeenCalledWith("tests", "local-aaaaaaaa");
+    expect(a.navigate).toHaveBeenLastCalledWith("review", "local-aaaaaaaa");
+    expect(takeEditAsk("local-aaaaaaaa")).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: /Review these tests/ }));
     expect(a.navigate).toHaveBeenCalledTimes(3);
     expect(screen.getByRole("region", { name: "What Claude did" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Show the raw log (1 event)" }));
-    expect(screen.getByRole("log", { name: "Raw log" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Hide the raw log (1 event)" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show raw output (1 event)" }));
+    expect(screen.getByRole("log", { name: "Raw output" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Hide raw output (1 event)" }));
     expect(screen.queryByRole("log")).toBeNull();
   });
 
@@ -125,12 +136,49 @@ describe("Generate screen", () => {
     api.routes["jobs.show"] = () => ({ job: job({ id: "g1", status: "failed", error: "Claude crashed" }), events: [] });
     mountData(<GenerateScreen />);
     expect(await screen.findByText("Claude crashed")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Show the raw log (0 events)" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show raw output (0 events)" })).toBeInTheDocument();
     cleanup();
     api.routes["jobs.list"] = () => [job({ id: "g2", status: "done" })];
     api.routes["jobs.show"] = () => ({ job: job({ id: "g2", status: "done", endedAt: at }), events: [] });
     mountData(<GenerateScreen />);
     expect(await screen.findByText("0 tests written")).toBeInTheDocument();
+  });
+
+  it("« Run again » after a failed run runs that job again (jobs.rerun) and follows it; the form stays", async () => {
+    base();
+    const failed = job({
+      id: "g1",
+      status: "failed",
+      endedAt: at,
+      error: "Claude crashed",
+      rerun: { name: "gen.tests", input: { request: "old" } },
+    } as Partial<Job>);
+    api.routes["jobs.list"] = () => [failed];
+    api.routes["jobs.show"] = (i) =>
+      i.id === "g1" ? { job: failed, events: [] } : { job: job({ id: "g9" }), events: [] };
+    api.routes["jobs.rerun"] = () => ({ jobId: "g9" });
+    const { app: a } = mountData(<GenerateScreen />);
+    fireEvent.change(await screen.findByLabelText("What should be tested?"), { target: { value: "new words" } });
+    fireEvent.click(await screen.findByRole("button", { name: "Run again" }));
+    await waitFor(() => expect(named("jobs.rerun").map((c) => c.input)).toEqual([{ id: "g1" }]));
+    expect(named("gen.tests")).toHaveLength(0);
+    expect(await screen.findByRole("heading", { name: "Getting ready" })).toBeInTheDocument();
+    expect(screen.getByLabelText("What should be tested?")).toHaveValue("new words");
+    fireEvent.click(screen.getByRole("button", { name: "g9" }));
+    expect(a.navigate).toHaveBeenCalledWith("jobs", "g9");
+  });
+
+  it("documents not converted yet are not in scope: Generate says to convert one first", async () => {
+    base();
+    api.routes["docs.list"] = () => [{ id: "D1", code: "C1", title: "Brut", status: "draft" } as unknown as DocRef];
+    const { app: a } = mountData(<GenerateScreen />);
+    expect(await screen.findByText("No document is converted yet")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /Brut/ })).toBeDisabled();
+    expect(screen.getByText("Not converted")).toBeInTheDocument();
+    expect(screen.getByText("0 documents in scope")).toBeInTheDocument();
+    await waitFor(() => expect(go()).toHaveAccessibleDescription("Convert a document first"));
+    fireEvent.click(screen.getByRole("button", { name: "Go to Documents" }));
+    expect(a.navigate).toHaveBeenCalledWith("documents");
   });
 
   it("with no document, says Generate needs one and leads to Documents", async () => {
@@ -140,11 +188,10 @@ describe("Generate screen", () => {
     expect(await screen.findByText("Generate needs a document")).toBeInTheDocument();
     expect(go()).toBeDisabled();
     expect(go()).toHaveAccessibleDescription("Add a document first");
-    expect(screen.getByRole("button", { name: "Go to Documents" }).querySelector("[data-icon]")).toHaveAttribute(
-      "data-icon",
-      "documents",
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Go to Documents" }));
+    for (const to of screen.getAllByRole("button", { name: "Go to Documents" })) {
+      expect(to.querySelector("[data-icon]")).toHaveAttribute("data-icon", "documents");
+      fireEvent.click(to);
+    }
     expect(a.navigate).toHaveBeenCalledWith("documents");
     expect(screen.queryByRole("region", { name: "Smart columns" })).toBeNull();
   });
@@ -162,7 +209,7 @@ describe("Generate screen", () => {
     expect(named("claude.status").at(-1)?.input).toEqual({ refresh: true, signIn: true });
     fireEvent.click(screen.getByRole("button", { name: "Check again" }));
     await waitFor(() => expect(named("claude.status").filter((c) => c.input.refresh)).toHaveLength(2));
-    fireEvent.click(screen.getByRole("button", { name: "Open system check" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open the system check" }));
     expect(a.navigate).toHaveBeenCalledWith("doctor");
   });
 
@@ -203,7 +250,8 @@ describe("Generate screen", () => {
     api.routes["gen.preview"] = preview(docs);
     mountData(<GenerateScreen />);
     fireEvent.click(await screen.findByRole("button", { name: "Reindex" }));
-    expect(await screen.findByText("Could not reindex")).toBeInTheDocument();
+    expect(await screen.findByText("Indexing failed")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Dismiss the indexing failure of All documents" })).toBeInTheDocument();
   });
 
   it("an unreadable Claude status does not block generating", async () => {
@@ -418,7 +466,7 @@ describe("Generate screen", () => {
     expect(screen.getAllByText("Checking…").length).toBeGreaterThan(0);
     expect(go(/^Claude is writing/)).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-    expect(await screen.findByText("Could not cancel")).toBeInTheDocument();
+    expect(await screen.findByText("Could not cancel the job")).toBeInTheDocument();
     api.routes["jobs.cancel"] = () => ({});
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(named("jobs.cancel")).toHaveLength(2));
@@ -532,7 +580,7 @@ describe("Generate while an index runs (audit M-G1)", () => {
     const bar = screen.getByRole("progressbar", { name: "Index" });
     expect(bar).toHaveAttribute("aria-valuenow", "41");
     expect(bar).toHaveAttribute("aria-valuetext", "40 of 97 · Generate waits for it to finish.");
-    fireEvent.click(screen.getByRole("button", { name: "Show the job" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open in Jobs" }));
     expect(a.navigate).toHaveBeenCalledWith("jobs", "ix");
     running = false;
     emit({ jobId: "ix", at, type: "status", job: indexJob("done") });

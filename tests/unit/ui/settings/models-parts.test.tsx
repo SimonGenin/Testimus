@@ -175,9 +175,17 @@ describe("small model widgets", () => {
     await j.progress("half", 5, 10);
     expect(await screen.findByText("Downloading · 50 %")).toBeInTheDocument();
     expect(screen.getByRole("progressbar", { name: "Downloading" })).toHaveAttribute("aria-valuenow", "50");
-    fireEvent.click(screen.getByRole("button", { name: "Cancel: Downloading" }));
+    const stop = within(screen.getByRole("status", { name: "Downloading" })).getByRole("button", { name: "Cancel" });
+    expect(stop).toHaveTextContent("Cancel");
+    expect(iconsIn(stop)).toEqual(["stop"]);
+    fireEvent.click(stop);
     await waitFor(() => expect(inputs("jobs.cancel")).toEqual([{ id: j.id }]));
     r.unmount();
+    const c = mountSettings(
+      <OpLine op={{ key: "k", jobId: j.id, label: "Downloading", kind: "models-pull" }} compact />,
+    );
+    expect(screen.getByRole("button", { name: "Cancel" })).not.toHaveTextContent("Cancel");
+    c.unmount();
     mountSettings(<OpLine op={{ key: "k", jobId: "", label: "Verifying", kind: "models-verify" }} />);
     expect(screen.queryByRole("button")).toBeNull();
   });
@@ -232,8 +240,8 @@ describe("small model widgets", () => {
     expect(screen.getByText("no reranker")).toBeInTheDocument();
     rerender(<CustomCard active={false} embedding="e" reranker={null} label={(x) => x} onChoose={onChoose} />);
     expect(screen.getByText("Not chosen")).toBeInTheDocument();
-    expect(iconsIn(screen.getByRole("button", { name: "Choose models" })), "audit icons 111").toEqual(["list"]);
-    fireEvent.click(screen.getByRole("button", { name: "Choose models" }));
+    expect(iconsIn(screen.getByRole("button", { name: "Open the catalog" })), "audit icons 111").toEqual(["list"]);
+    fireEvent.click(screen.getByRole("button", { name: "Open the catalog" }));
     expect(onChoose).toHaveBeenCalled();
   });
 
@@ -442,6 +450,27 @@ describe("small model widgets", () => {
     const c = within(table).getByRole("row", { name: /Label c/ });
     expect(within(c).getByRole("button", { name: "In use" })).toBeDisabled();
     expect(within(c).getAllByText("In use").length).toBeGreaterThan(0);
+  });
+
+  it("ModelsTable: without a project, Use waits and says why; Install and Verify stay", () => {
+    mountSettings(
+      <ModelsTable
+        rows={[row("a", { state: "installed" }), row("b")]}
+        installed={[]}
+        inUse={[]}
+        ops={[]}
+        busy={false}
+        hasProject={false}
+        onInstall={vi.fn()}
+        onUse={vi.fn()}
+        onVerify={vi.fn()}
+        onRemove={vi.fn()}
+      />,
+    );
+    const a = screen.getByRole("row", { name: /Label a/ });
+    expect(within(a).getByRole("button", { name: "Use" })).toBeDisabled();
+    expect(within(a).getByRole("button", { name: "Verify" })).toBeEnabled();
+    expect(within(screen.getByRole("row", { name: /Label b/ })).getByRole("button", { name: "Install" })).toBeEnabled();
   });
 });
 

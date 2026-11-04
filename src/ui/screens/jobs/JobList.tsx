@@ -176,14 +176,7 @@ function jobItem(r: Extract<Row, { kind: "job" }>, c: ListCtx): ListItemProps {
     ),
     actions:
       job.status === "running" ? (
-        <Button
-          variant="quiet"
-          size="xs"
-          icon="stop"
-          iconOnly
-          label={`Cancel ${kindLabel(job.kind)}`}
-          onClick={() => c.cancel(job.id)}
-        />
+        <Button variant="quiet" size="xs" icon="stop" iconOnly label="Cancel" onClick={() => c.cancel(job.id)} />
       ) : undefined,
     depth,
     expanded: open,

@@ -11,7 +11,9 @@ import { useApp } from "../../lib/app.ts";
 import { border, color, radius, space } from "../../styles/tokens.stylex.ts";
 import type { Hardware } from "../settings/models/data.ts";
 import { machineSummary } from "../settings/models/data.ts";
+import { FitConfirm } from "../settings/models/FitConfirm.tsx";
 import { FolderDialog } from "../settings/models/FolderDialog.tsx";
+import { PackPlanDialog } from "../settings/models/PackPlanDialog.tsx";
 import { PackCard } from "./PackCard.tsx";
 import { StepCard } from "./StepCard.tsx";
 import { usePackStep } from "./usePackStep.ts";
@@ -57,6 +59,7 @@ const TITLE = "Choose how documents are searched";
 export function PackStep({ onBack }: { onBack: () => void }) {
   const app = useApp();
   const s = usePackStep(!!app.info);
+  const a = s.actions;
 
   if (!app.info)
     return (
@@ -87,7 +90,7 @@ export function PackStep({ onBack }: { onBack: () => void }) {
             label={s.pack ? `Use ${s.pack.label}` : "Use this pack"}
             disabled={!s.pack || s.busy}
             loading={s.busy}
-            onClick={() => void s.use()}
+            onClick={s.use}
           />
         </>
       }
@@ -135,8 +138,51 @@ export function PackStep({ onBack }: { onBack: () => void }) {
           ))}
         </div>
       )}
-      {s.folderNeed !== null && (
-        <FolderDialog current={null} needMB={s.folderNeed} onClose={s.closeFolder} onApplied={s.folderChosen} />
+      {a.fitAsk && (
+        <FitConfirm
+          name={a.fitAsk.name}
+          short={a.fitAsk.short}
+          fit={a.fitAsk.fit}
+          processorOnly={a.fitAsk.processorOnly}
+          lighter={a.fitAsk.lighter}
+          onClose={() => a.setFitAsk(null)}
+          onUse={() => {
+            a.setFitAsk(null);
+            a.fitAsk?.go();
+          }}
+          onLighter={() => {
+            a.setFitAsk(null);
+            a.fitAsk?.lighterGo();
+          }}
+        />
+      )}
+      {a.plan && (
+        <PackPlanDialog
+          pack={a.plan.row}
+          out={a.plan.out}
+          label={s.label}
+          busy={a.planning}
+          thenUse
+          onClose={() => a.setPlan(null)}
+          onConfirm={() => void a.confirmPack()}
+          onChangeFolder={() => {
+            const row = a.plan?.row;
+            a.setPlan(null);
+            if (row) a.setFolder({ needMB: 0, next: () => void a.planPack(row) });
+          }}
+        />
+      )}
+      {a.folder && (
+        <FolderDialog
+          current={null}
+          needMB={a.folder.needMB}
+          onClose={() => a.setFolder(null)}
+          onApplied={() => {
+            const next = a.folder?.next;
+            a.setFolder(null);
+            next?.();
+          }}
+        />
       )}
     </StepCard>
   );

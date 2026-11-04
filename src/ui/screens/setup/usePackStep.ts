@@ -1,14 +1,16 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useApp } from "../../lib/app.ts";
-import { execute, invalidate, read, useRead } from "../../lib/data/query.ts";
-import { errorToast, toast } from "../../lib/toast.ts";
-import type { CatalogRow, Hardware, PackRow, UsePackOut } from "../settings/models/data.ts";
+import { invalidate, read, useRead } from "../../lib/data/query.ts";
+import { errorToast, jobToast } from "../../lib/toast.ts";
+import { useModelActions } from "../settings/models/actions.ts";
+import type { CatalogRow, Hardware, PackRow } from "../settings/models/data.ts";
 import { suggestPack } from "../settings/models/data.ts";
 
 // ponytail: the Search pack step — the packs of the project on this PC, the machine read only when asked (no pack is
-// said to fit before), then « Use » plans the pack, asks for a models folder when a download has nowhere to go, and
-// starts it (a job: the page moves on to the documents)
+// said to fit before), then « Use » goes the way Settings › Models goes: does it fit (FitConfirm), a models folder
+// when a download has nowhere to go, the plan (PackPlanDialog), and the job — downloaded and used at once; the page
+// says it started and moves on to the documents
 export function usePackStep(hasProject: boolean) {
   const app = useApp();
   const client = useQueryClient();
@@ -19,9 +21,6 @@ export function usePackStep(hasProject: boolean) {
   const [machine, setMachine] = useState<Hardware | null>(null);
   const [suggested, setSuggested] = useState<string | null>(null);
   const [analysing, setAnalysing] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [folderNeed, setFolderNeed] = useState<number | null>(null);
-
   const analyse = async () => {
     setAnalysing(true);
     try {
@@ -42,30 +41,25 @@ export function usePackStep(hasProject: boolean) {
 
   const pack = packs?.find((p) => p.id === chosen);
   const done = () => app.navigate("documents");
-
-  const use = async () => {
-    if (!pack) return;
-    setBusy(true);
-    try {
-      await invalidate(client, [["models.planPack", { pack: pack.id }]]);
-      const plan = (await read(client, "models.planPack", { pack: pack.id })) as UsePackOut;
-      if (plan.plan.download.length && !plan.plan.dir) {
-        setFolderNeed(plan.plan.download.reduce((a, d) => a + d.sizeMB, 0));
-        return;
-      }
-      await execute(client, "models.usePack", { pack: pack.id }, { invalidates: [["models.packs"], ["rag.status"]] });
-      toast({
-        tone: "success",
-        title: `${pack.label} pack chosen`,
-        detail: plan.plan.download.length ? "Downloading in the background: see Jobs" : "Indexing follows",
-      });
+  const a = useModelActions({
+    packs: packs ?? undefined,
+    catalog,
+    status: undefined,
+    dir: undefined,
+    start: () => {},
+    thenUse: true,
+    onPackStarted: (row, jobId, out) => {
+      jobToast(
+        `${row.label} pack — started`,
+        jobId,
+        app.navigate,
+        out.plan.download.length
+          ? "It downloads the models, then indexes the documents, in Jobs; you can keep working."
+          : "It indexes the documents in Jobs; you can keep working.",
+      );
       done();
-    } catch (e) {
-      errorToast(e, `Could not use the ${pack.label} pack`);
-    } finally {
-      setBusy(false);
-    }
-  };
+    },
+  });
 
   return {
     packs,
@@ -79,14 +73,9 @@ export function usePackStep(hasProject: boolean) {
     suggested,
     analysing,
     analyse,
-    busy,
-    use,
+    actions: a,
+    busy: a.planning,
+    use: () => pack && a.choosePack(pack),
     done,
-    folderNeed,
-    closeFolder: () => setFolderNeed(null),
-    folderChosen: () => {
-      setFolderNeed(null);
-      void use();
-    },
   };
 }

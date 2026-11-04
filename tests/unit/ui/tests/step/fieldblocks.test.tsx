@@ -350,4 +350,33 @@ describe("FieldBlocks — a picture copied from a document figure", () => {
     expect(screen.getByText("b.png")).toBeInTheDocument();
     expect(screen.queryByText("a.png")).toBeNull();
   });
+
+  it("opens the figure through the step's own opener when it has one (the source dialog then knows its step)", async () => {
+    const openSource = vi.fn();
+    const onOpenSource = vi.fn();
+    const noop = vi.fn();
+    mount(
+      <FieldBlocks
+        idBase="s0-Expected"
+        name="Expected Result"
+        label="Expected Result"
+        text="![](images/a.png)"
+        images={[{ file: "images/a.png", figure: "D#fig:1" }]}
+        url={(f) => `/u/${f}`}
+        stepNumber={1}
+        readOnly
+        onText={noop}
+        onAddFiles={noop}
+        onFieldText={noop}
+        onDropBlock={noop}
+        onRemove={noop}
+        onOpen={noop}
+        onOpenSource={onOpenSource}
+      />,
+      { openSource },
+    );
+    await userEvent.click(screen.getByRole("button", { name: /^D Figure 1/ }));
+    expect(onOpenSource).toHaveBeenCalledWith({ docId: "D", anchor: "fig:1", quote: "" });
+    expect(openSource).not.toHaveBeenCalled();
+  });
 });

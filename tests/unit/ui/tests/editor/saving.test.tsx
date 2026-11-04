@@ -84,12 +84,12 @@ describe("TestEditor autosave: flushed before Download from Jira (audit M-T3)", 
     fireEvent.change(screen.getByLabelText("Description"), { target: { value: "Typed just now" } });
     fireEvent.click(screen.getByRole("button", { name: "More actions for this test" }));
     fireEvent.click(await screen.findByRole("menuitem", { name: /^Download from Jira/ }));
-    const dlg = await screen.findByRole("alertdialog", { name: "Download from Jira?" });
+    const dlg = await screen.findByRole("alertdialog", { name: "Replace LFRPS12-7 with Jira's version?" });
     expect(within(dlg).getByText(/everything you edited since the last sync/)).toBeInTheDocument();
     expect(order()).toEqual(["tests.show", "tests.save", "tests.show"]);
     const saved = server.calls.find((c) => c.name === "tests.save")?.input.test as Test | undefined;
     expect(saved?.description).toBe("Typed just now");
-    fireEvent.click(within(dlg).getByRole("button", { name: "Overwrite local" }));
+    fireEvent.click(within(dlg).getByRole("button", { name: "Replace with Jira's version" }));
     await waitFor(() => expect(order()).toContain("xray.pull"));
     const o = order();
     expect(o.indexOf("tests.save")).toBeLessThan(o.indexOf("xray.pull"));
@@ -102,7 +102,7 @@ describe("TestEditor autosave: flushed before Download from Jira (audit M-T3)", 
     fireEvent.click(screen.getByRole("button", { name: "More actions for this test" }));
     fireEvent.click(await screen.findByRole("menuitem", { name: /^Download from Jira/ }));
     await waitFor(() => expect(order()).toContain("xray.pull"));
-    expect(screen.queryByRole("alertdialog", { name: "Download from Jira?" })).toBeNull();
+    expect(screen.queryByRole("alertdialog", { name: "Replace LFRPS12-7 with Jira's version?" })).toBeNull();
     expect(order()).not.toContain("tests.save");
   });
 

@@ -8,7 +8,7 @@ import type { ListItemProps } from "../../components/ui/ListItem.tsx";
 import { Progress } from "../../components/ui/Progress.tsx";
 import { type } from "../../components/ui/type.ts";
 import { useApp } from "../../lib/app.ts";
-import { dismissUpload, type Upload } from "../../lib/uploads.ts";
+import { dismissUpload, type Upload, useReindex } from "../../lib/uploads.ts";
 import { space } from "../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
@@ -28,8 +28,8 @@ const nowOf = (u: Upload): string | null =>
       : null;
 
 // ponytail: a row of the list while its file is read, added, converted or indexed — the job's step, its last message
-// and its progress; a finished row says so until the list shows the document again
-export function uploadItem(u: Upload): ListItemProps {
+// and its progress (Cancel stops its job); a finished row says so until the list shows the document again
+export function uploadItem(u: Upload, onCancel?: (jobId: string) => void): ListItemProps {
   const now = nowOf(u);
   const msg = u.message === now ? "" : u.message;
   const sub = u.docId ?? (u.job === "index" ? "Search index" : "New document");
@@ -37,6 +37,17 @@ export function uploadItem(u: Upload): ListItemProps {
     title: u.name,
     tooltip: u.name,
     lead: <Icon name="documents" />,
+    actions:
+      now && u.jobId && onCancel ? (
+        <Button
+          size="xs"
+          variant="quiet"
+          iconOnly
+          icon="stop"
+          label="Cancel"
+          onClick={() => onCancel(u.jobId as string)}
+        />
+      ) : undefined,
     meta: (
       <span {...stylex.props(styles.lines)}>
         <span {...stylex.props(type.mono, styles.mono)}>{sub}</span>
@@ -68,8 +79,9 @@ export function uploadItem(u: Upload): ListItemProps {
 }
 
 // ponytail: what stopped and what to do, under the list — the row stays as it was, the job stays in Jobs
-export function UploadFailure({ u }: { u: Upload }) {
+export function UploadFailure({ u, inset = true }: { u: Upload; inset?: boolean }) {
   const app = useApp();
+  const { reindex, indexing } = useReindex();
   const p = problemOf(u.error ?? new Error(u.message));
   const index = u.phase === "index-failed";
   const dismiss = index
@@ -86,13 +98,35 @@ export function UploadFailure({ u }: { u: Upload }) {
       ? `${u.name} stays as it was: `
       : "";
   return (
-    <div {...stylex.props(styles.failure)}>
+    <div {...stylex.props(inset && styles.failure)}>
       <Banner
         tone="danger"
         title={title}
         actions={
           <>
-            <Button size="sm" variant="quiet" icon="jobs" label="Open Jobs" onClick={() => app.navigate("jobs")} />
+            {index && (
+              <Button
+                size="sm"
+                icon="refresh"
+                label="Reindex"
+                disabled={indexing ? "An index run is under way" : false}
+                onClick={() => {
+                  dismissUpload(u.key);
+                  reindex();
+                }}
+              />
+            )}
+            {u.jobId ? (
+              <Button
+                size="sm"
+                variant="quiet"
+                icon="jobs"
+                label="Open in Jobs"
+                onClick={() => app.navigate("jobs", u.jobId)}
+              />
+            ) : (
+              <Button size="sm" variant="quiet" icon="jobs" label="Open Jobs" onClick={() => app.navigate("jobs")} />
+            )}
             <Button
               size="sm"
               variant="quiet"

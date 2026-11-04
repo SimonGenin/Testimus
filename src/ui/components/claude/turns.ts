@@ -36,6 +36,8 @@ export type RunCard = {
   files?: number;
   reverted?: boolean;
   review?: string;
+  /** a review.fix run: its changes are shown in Review */
+  fix?: boolean;
 };
 
 export type Turn = {
@@ -80,6 +82,10 @@ export type ChatResult = {
 
 // ponytail: a run with no test (the whole project) still marks Claude as running, so every editor locks
 export const PROJECT_RUN = "*project*";
+
+// ponytail: the one reading of the lock — Claude works on this test when its run names it or the whole project
+export const claudeOn = (claudeRunning: string | null, testId: string | null | undefined): boolean =>
+  !!testId && (claudeRunning === testId || claudeRunning === PROJECT_RUN);
 
 // ponytail: review.fix re-checks in the same job — it says whether the test went back to checked, and why not
 export function fixOutcome(r: { review?: string; message?: string }): { word: string; note?: string } {

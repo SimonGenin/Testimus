@@ -2,10 +2,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 import type { CommandInput } from "../../../core/commands/index.ts";
 import type { CheckFile, SyncState, Test } from "../../../core/types.ts";
+import type { Screen } from "../../lib/app.ts";
 import { flushAutosaves, useDraft } from "../../lib/data/autosave.ts";
 import { project } from "../../lib/data/client.ts";
 import { execute, type Prefix, read, useRead } from "../../lib/data/query.ts";
-import { errorToast, toast } from "../../lib/toast.ts";
+import { plural } from "../../lib/format.ts";
+import { errorToast, jobToast, toast } from "../../lib/toast.ts";
+import { useReplaceWithJira } from "../tests/replace.tsx";
 import { byGeneration } from "./queueGroups.ts";
 import type { QueueCounts, QueueFilter, QueueItem, QueueSort } from "./ReviewQueue.tsx";
 import { useJobRun } from "./useJobRun.ts";
@@ -114,10 +117,14 @@ const decided = (id: string): Prefix[] => [
 ];
 
 // ponytail: the reviewer's gestures, one command each; the queue read again after a decision says which test is next
-export function useDecisions(input: ReturnType<typeof queueInput>, open: (id: string | null) => void) {
+export function useDecisions(
+  input: ReturnType<typeof queueInput>,
+  open: (id: string | null) => void,
+  navigate: (screen: Screen, arg?: string) => void,
+) {
   const client = useQueryClient();
   const check = useJobRun("check.run");
-  const pull = useJobRun("xray.pull");
+  const replacing = useReplaceWithJira();
 
   const next = async (id: string, before: QueueItem[]) => {
     const at = before.findIndex((t) => t.id === id);
@@ -156,19 +163,30 @@ export function useDecisions(input: ReturnType<typeof queueInput>, open: (id: st
       void check.start(
         { ids },
         {
+          started: (jobId) => jobToast(`Checking ${plural(ids.length, "test")}`, jobId, navigate),
           failed: (e) =>
             errorToast(new Error(e), ids.length === 1 ? "Could not check the test" : "Could not check the tests"),
         },
       );
     },
-    pulling: pull.running,
-    takeJira: (key: string) =>
-      void pull.start(
-        { key, overwrite: true },
-        {
-          done: () => toast({ tone: "success", title: "Jira's version taken", detail: key }),
-          failed: (e) => errorToast(new Error(e), `Could not pull ${key}`),
-        },
-      ),
+    // ponytail: the same « Replace with Jira's version » as the editor and the list — its confirmation is the dialog
+    pulling: (id: string) => replacing.busy(id),
+    takeJira: (id: string, key: string) => void replacing.ask(id, key),
+    replaceDialog: replacing.dialog,
   };
 }
+
+// ponytail: only validated tests live in Tests, so « Open in the editor » of a test still in review opens Review's
+// editor in place — asked once, taken by Review when that test shows
+const editAsked = new Set<string>();
+
+export function openInEditor(navigate: (screen: Screen, arg?: string) => void, id: string, awaiting: boolean): void {
+  if (!awaiting) {
+    navigate("tests", id);
+    return;
+  }
+  editAsked.add(id);
+  navigate("review", id);
+}
+
+export const takeEditAsk = (id: string): boolean => editAsked.delete(id);

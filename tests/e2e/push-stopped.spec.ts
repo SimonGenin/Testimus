@@ -11,7 +11,7 @@ test("a push stops at the oversized attachment, says what to do, and resumes fro
   await expect(main.getByRole("img", { name: "fig-40.png" })).toBeVisible();
 
   await main.getByRole("button", { name: "Push to Jira" }).click();
-  const plan = page.getByRole("dialog", { name: /^Push .* to Jira\?$/ });
+  const plan = page.getByRole("alertdialog", { name: /^Push .* to Jira\?$/ });
   await expect(plan.getByText(/^Create test in Jira/)).toBeVisible();
   await expect(plan.getByText("Embed 1 image in step 1")).toBeVisible();
   await plan.getByRole("button", { name: "Confirm push" }).click();

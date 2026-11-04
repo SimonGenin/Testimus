@@ -13,6 +13,8 @@ import { activityOf, DOING } from "../../lib/activity.ts";
 import { useApp } from "../../lib/app.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { color, container, size, space } from "../../styles/tokens.stylex.ts";
+import { openInEditor } from "../review/useReview.ts";
+import type { Listed } from "../tests/list/tree.ts";
 import { LandedCard } from "./GenCard.tsx";
 import { checkLine, failedRun, GenSummary, RunHead } from "./GenResult.tsx";
 import type { Generation } from "./useGeneration.ts";
@@ -144,12 +146,19 @@ export function ResultPane({
           left={starting ? 0 : (stopped?.remaining ?? 0)}
           onCancel={onCancel}
           onReview={() => app.navigate("review", ids[0])}
+          onOpenJob={job ? () => app.navigate("jobs", job.id) : undefined}
           onResume={() => stopped?.generation && onResume(stopped.generation)}
           onRetry={onRetry}
           allFolded={ids.every((id) => !isOpen(id))}
           onFoldAll={(all) => setFold({ all, flip: new Set() })}
         />
-        {result && <GenSummary result={result} checked={checkLine(result.tests, result.checks)} />}
+        {result && (
+          <GenSummary
+            result={result}
+            checked={checkLine(result.tests, result.checks)}
+            onOpenJob={job ? () => app.navigate("jobs", job.id) : undefined}
+          />
+        )}
         {result?.diagnosis && job && !failedRun(job, result) && (
           <p {...stylex.props(type.compact, styles.muted)}>
             <DiagnosisText text={result.diagnosis.detail} />
@@ -170,7 +179,9 @@ export function ResultPane({
       open={isOpen(id)}
       onToggle={() => toggle(id)}
       onOpen={() => app.navigate("review", id)}
-      onEdit={() => app.navigate("tests", id)}
+      onEdit={() =>
+        openInEditor(app.navigate, id, (refs.data as Listed[] | undefined)?.find((r) => r.id === id)?.awaiting ?? true)
+      }
       onSource={app.openSource}
     />
   ));

@@ -208,6 +208,52 @@ describe("Jobs screen", () => {
     await waitFor(() => expect(detail("Generate tests job")).toBeInTheDocument());
   });
 
+  it("a finished job opens what it made: checked or fixed tests in Review, pulled ones in Tests, documents in Documents", async () => {
+    const end = "2026-11-02T10:01:00Z";
+    server = [
+      job({ id: "c1", kind: "check", status: "done", endedAt: end, result: { tests: [{ id: "K-1" }, { id: "K-2" }] } }),
+      job({ id: "x1", kind: "fix", subject: "K-3", status: "done", endedAt: end, result: { changedSteps: [1] } }),
+      job({ id: "p1", kind: "pull", status: "done", endedAt: end, result: { pulled: ["LFRPS12-9"] } }),
+      job({ id: "d1", kind: "docs.convert", status: "done", endedAt: end, result: { id: "SPEC-1" } }),
+      job({
+        id: "f1",
+        kind: "describe-figures",
+        status: "done",
+        endedAt: end,
+        result: { docs: [{ docId: "SPEC-2" }] },
+      }),
+      job({ id: "j1", kind: "push", status: "failed", endedAt: end, error: "Jira answered 401 Unauthorized" }),
+    ];
+    const { state, rerenderWith } = jobsScreen({ route: { screen: "jobs", arg: "c1" } });
+    fireEvent.click(
+      await waitFor(() => within(detail("Check tests job")).getByRole("button", { name: "Review these tests" })),
+    );
+    expect(state.navigate).toHaveBeenLastCalledWith("review", "K-1");
+    rerenderWith({ route: { screen: "jobs", arg: "x1" } });
+    fireEvent.click(
+      await waitFor(() => within(detail("Claude fix job")).getByRole("button", { name: "Review this test" })),
+    );
+    expect(state.navigate).toHaveBeenLastCalledWith("review", "K-3");
+    rerenderWith({ route: { screen: "jobs", arg: "p1" } });
+    fireEvent.click(
+      await waitFor(() => within(detail("Pull from Jira job")).getByRole("button", { name: "Open the test" })),
+    );
+    expect(state.navigate).toHaveBeenLastCalledWith("tests", "LFRPS12-9");
+    rerenderWith({ route: { screen: "jobs", arg: "d1" } });
+    const conv = await waitFor(() => detail("Convert document job"));
+    fireEvent.click(within(conv).getByRole("button", { name: "Open the document" }));
+    expect(state.navigate).toHaveBeenLastCalledWith("documents", "SPEC-1");
+    rerenderWith({ route: { screen: "jobs", arg: "f1" } });
+    const figs = await waitFor(() => detail("Describe figures job"));
+    fireEvent.click(within(figs).getByRole("button", { name: "Open the document" }));
+    expect(state.navigate).toHaveBeenLastCalledWith("documents", "SPEC-2");
+    rerenderWith({ route: { screen: "jobs", arg: "j1" } });
+    const push = await waitFor(() => detail("Push to Jira job"));
+    expect(within(push).queryByRole("button", { name: "Open the system check" })).toBeNull();
+    fireEvent.click(within(push).getByRole("button", { name: "Open Settings › Access" }));
+    expect(state.navigate).toHaveBeenLastCalledWith("settings", "access");
+  });
+
   it("takes the live state of the detailed job, but not a stale running one", async () => {
     server = [job({ id: "a", status: "running" }), job({ id: "b", status: "done", endedAt: "2026-11-02T10:01:00Z" })];
     net.routes["jobs.show"] = (i) => ({
@@ -216,7 +262,7 @@ describe("Jobs screen", () => {
     });
     const { rerenderWith } = jobsScreen({ route: { screen: "jobs", arg: "a" } });
     const side = await waitFor(() => detail("Generate tests job"));
-    await waitFor(() => expect(within(side).getByRole("button", { name: /Review these tests/ })).toBeInTheDocument());
+    await waitFor(() => expect(within(side).getByRole("button", { name: "Review this test" })).toBeInTheDocument());
     expect(within(side).getByText("log of a")).toBeInTheDocument();
     rerenderWith({ route: { screen: "jobs", arg: "b" } });
     await waitFor(() => expect(screen.getByText("log of b")).toBeInTheDocument());
@@ -449,7 +495,7 @@ describe("Jobs › the design's icons (audit icons 86–92)", () => {
     expect(within(rowOf("Check tests")).queryByRole("button", { name: /^Cancel/ })).toBeNull();
     const running = rowOf("Generate tests");
     fireEvent.pointerEnter(running);
-    const stop = within(running).getByRole("button", { name: "Cancel Generate tests" });
+    const stop = within(running).getByRole("button", { name: "Cancel" });
     expect(iconsIn(stop)).toEqual(["stop"]);
     fireEvent.click(stop);
     await waitFor(() => expect(callsOf("jobs.cancel")[0]?.input).toEqual({ id: "g1" }));
@@ -489,15 +535,17 @@ describe("Jobs › the design's icons (audit icons 86–92)", () => {
         },
       ],
     });
-    jobsScreen({ route: { screen: "jobs", arg: "g1" } });
+    const { state } = jobsScreen({ route: { screen: "jobs", arg: "g1" } });
     const side = await waitFor(() => detail("Generate tests job"));
     const files = await within(side).findByRole("region", { name: "Files changed · 3" });
     const rows = within(files).getAllByRole("listitem");
     expect(rows.map((li) => [iconsIn(li), li.textContent])).toEqual([
-      [["file"], "tests/local-1/test.mdmodified"],
-      [["plus"], "tests/local-2/test.mdadded"],
+      [["file", "arrow-right"], "tests/local-1/test.mdmodifiedOpen local-1 in Tests"],
+      [["plus", "arrow-right"], "tests/local-2/test.mdaddedOpen local-2 in Tests"],
       [["trash"], "tests/local-3/test.mddeleted"],
     ]);
+    fireEvent.click(within(rows[1]).getByRole("button", { name: "Open local-2 in Tests" }));
+    expect(state.navigate).toHaveBeenCalledWith("tests", "local-2");
     const procs = within(side).getByRole("list", { name: "Processes of Read the sources" });
     expect(iconsIn(within(procs).getByRole("listitem"))).toEqual(["terminal"]);
     expect(iconsIn(within(side).getByRole("button", { name: "Show the full log" }))).toEqual(["chevron-right"]);

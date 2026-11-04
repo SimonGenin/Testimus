@@ -1,11 +1,12 @@
 import * as stylex from "@stylexjs/stylex";
 import type { QueryClient } from "@tanstack/react-query";
 import { useQueryClient } from "@tanstack/react-query";
-import type { LocalTestRef } from "../../../core/types.ts";
+import type { LocalTestRef, Test } from "../../../core/types.ts";
 import { Modal } from "../../components/ui/Modal.tsx";
 import { type } from "../../components/ui/type.ts";
-import { discardAutosave } from "../../lib/data/autosave.ts";
-import { execute, key } from "../../lib/data/query.ts";
+import { discardAutosave, flushAutosaves } from "../../lib/data/autosave.ts";
+import { execute, invalidate, key, read } from "../../lib/data/query.ts";
+import { differs, lossOf } from "../../lib/diff.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 
 const styles = stylex.create({
@@ -53,6 +54,38 @@ export async function deleteTest(client: QueryClient, t: DeleteTarget): Promise<
 // ponytail: a pushed, unchanged copy can be pulled again, so it goes without asking; the only copy, or
 // one with unpushed changes, asks first
 export const needsAsking = (t: DeleteTarget) => !t.synced || t.dirty;
+
+// ponytail: the editor's menu and the list's row decide the same way — the pending edit is saved first (an edit that
+// cannot be written refuses the delete), the test is read again, and what it would lose is known from the file, not
+// from a list read before the edit
+export async function deleteTarget(
+  client: QueryClient,
+  id: string,
+  save: () => Promise<unknown> = () => flushAutosaves([["tests.show", { id }]]),
+): Promise<DeleteTarget | null> {
+  const unsaved = await save();
+  if (unsaved) {
+    errorToast(unsaved, "Not deleted");
+    return null;
+  }
+  try {
+    await invalidate(client, [["tests.show", { id }]]);
+    const r = (await read(client, "tests.show", { id })) as { test: Test; remote?: Test | null };
+    const remote = r.remote ?? null;
+    const dirty = remote ? differs(r.test, remote) : !r.test.key;
+    return {
+      id,
+      key: r.test.key,
+      summary: r.test.summary,
+      synced: !!remote,
+      dirty,
+      loss: remote && dirty ? lossOf(r.test, remote) : undefined,
+    };
+  } catch (e) {
+    errorToast(e, "Could not read the test");
+    return null;
+  }
+}
 
 export function DeleteTest({
   target,

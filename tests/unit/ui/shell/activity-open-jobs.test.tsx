@@ -31,4 +31,14 @@ describe("Activity › Open Jobs", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(screen.getByRole("button", { name: "1 job running" })).toBeInTheDocument();
   });
+
+  it("a running job's title opens that job in Jobs", async () => {
+    net.routes["jobs.list"] = () => [job({ id: "a", kind: "pull", subject: "LFRPS12" })];
+    const { state } = withData(<Activity />);
+    fireEvent.click(await screen.findByRole("button", { name: "1 job running" }));
+    const pop = screen.getByRole("dialog", { name: /^Running 1/ });
+    fireEvent.click(within(pop).getByRole("button", { name: /LFRPS12/ }));
+    expect(state.navigate).toHaveBeenCalledWith("jobs", "a");
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
 });

@@ -29,6 +29,7 @@ export function ModelsTable({
   inUse,
   ops,
   busy,
+  hasProject = true,
   onInstall,
   onUse,
   onVerify,
@@ -39,6 +40,8 @@ export function ModelsTable({
   inUse: string[];
   ops: Op[];
   busy: boolean;
+  /** Use chooses for the open project: without one it waits, saying why */
+  hasProject?: boolean;
   onInstall: (r: CatalogRow) => void;
   onUse: (r: CatalogRow) => void;
   onVerify: (r: CatalogRow) => void;
@@ -87,7 +90,7 @@ export function ModelsTable({
           render: (r) => {
             const inst = instOf(r);
             const op = ops.find((o) => o.key === r.id);
-            if (op) return <OpLine op={op} />;
+            if (op) return <OpLine op={op} compact />;
             const here = isInstalled(r.state) || !!inst;
             const used = inUse.includes(r.id);
             return (
@@ -101,7 +104,12 @@ export function ModelsTable({
                     onClick={() => onInstall(r)}
                   />
                 ) : (
-                  <Button size="sm" label={used ? "In use" : "Use"} disabled={busy || used} onClick={() => onUse(r)} />
+                  <Button
+                    size="sm"
+                    label={used ? "In use" : "Use"}
+                    disabled={hasProject ? busy || used : "Open a project first"}
+                    onClick={() => onUse(r)}
+                  />
                 )}
                 {here && (
                   <Button size="sm" variant="quiet" label="Verify" disabled={busy} onClick={() => onVerify(r)} />

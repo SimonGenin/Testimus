@@ -31,6 +31,7 @@ export function useProjects(onOpened?: () => void) {
   const data = (read.data ?? null) as List | null;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [failed, setFailed] = useState("");
 
   const opened = (a: AppState, dir: string) => {
     showProject(a, dir);
@@ -46,7 +47,7 @@ export function useProjects(onOpened?: () => void) {
       opened(app, r?.dir ?? dir);
     } catch (e) {
       setError(message(e));
-      errorToast(e, "Could not open the project");
+      setFailed("Could not open the project");
     } finally {
       setBusy(false);
     }
@@ -62,6 +63,7 @@ export function useProjects(onOpened?: () => void) {
       return true;
     } catch (e) {
       setError(message(e));
+      setFailed("Could not create the project");
       setBusy(false);
       return false;
     }
@@ -102,6 +104,8 @@ export function useProjects(onOpened?: () => void) {
     current: app.info?.dir,
     busy,
     error,
+    /** what failed, the banner's title (« Could not open the project ») */
+    failed,
     open,
     create,
     hide,

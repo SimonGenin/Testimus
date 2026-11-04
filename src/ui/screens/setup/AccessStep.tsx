@@ -22,6 +22,7 @@ export function AccessStep({ onContinue, onSkip }: { onContinue: () => void; onS
             size="lg"
             iconAfter="chevron-right"
             label="Continue"
+            disabled={!(okAll || found) && "Save and test the connection first — or skip for now"}
             onClick={onContinue}
           />
         </>

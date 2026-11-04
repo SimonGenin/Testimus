@@ -315,11 +315,11 @@ describe("App routing and layout", () => {
     fireEvent.keyDown(window, { key: "k" });
     fireEvent.keyDown(window, { key: "k", ctrlKey: true, altKey: true });
     fireEvent.keyDown(window, { key: "x", ctrlKey: true });
-    expect(screen.queryByRole("dialog", { name: "Search everywhere" })).toBeNull();
+    expect(screen.queryByRole("dialog", { name: "Search everything" })).toBeNull();
     fireEvent.keyDown(window, { key: "K", ctrlKey: true });
-    expect(screen.getByRole("dialog", { name: "Search everywhere" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Search everything" })).toBeInTheDocument();
     fireEvent.keyDown(window, { key: "k", ctrlKey: true });
-    expect(screen.queryByRole("dialog", { name: "Search everywhere" })).toBeNull();
+    expect(screen.queryByRole("dialog", { name: "Search everything" })).toBeNull();
     expect(folded()).toBe("true");
     fireEvent.keyDown(window, { key: "j", ctrlKey: true });
     expect(folded()).toBe("false");
@@ -418,7 +418,8 @@ describe("App palette", () => {
     const infos = callsOf("project.info").length;
     await pick("rag index");
     expect(await screen.findByText("Index the documents — started")).toBeInTheDocument();
-    expect(screen.getByText("rag.index · Follow it in Jobs.")).toBeInTheDocument();
+    expect(screen.getByText("It runs in Jobs; you can keep working.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open in Jobs" })).toBeInTheDocument();
     await waitFor(() => expect(callsOf("project.info").length).toBe(infos + 1));
     expect(screen.getByText(/nonce 1/)).toBeInTheDocument();
     net.routes["tests.list"] = () => {
@@ -428,7 +429,7 @@ describe("App palette", () => {
     expect(await screen.findByText("List the local tests — failed")).toBeInTheDocument();
   });
 
-  it("opens the form of a command with input and goes to Jobs when it starts one", async () => {
+  it("opens the form of a command with input; a job it starts is said, with « Open in Jobs » to that job", async () => {
     net.routes["xray.pull"] = () => ({ jobId: "p1" });
     mount();
     await waitFor(() => expect(callsOf("api")).toHaveLength(1));
@@ -439,8 +440,46 @@ describe("App palette", () => {
     await pick("xray pull");
     fireEvent.change(screen.getByLabelText("key"), { target: { value: "LFRPS12-1" } });
     fireEvent.click(screen.getByRole("button", { name: /^Run/ }));
-    await hashIs("#/jobs");
+    expect(await screen.findByText("Pull a test — started")).toBeInTheDocument();
     expect(screen.queryByRole("dialog", { name: "Pull a test" })).toBeNull();
+    expect(window.location.hash).toBe("");
+    fireEvent.click(screen.getByRole("button", { name: "Open in Jobs" }));
+    await hashIs("#/jobs/p1");
+  });
+
+  it("takes a command to the app's own way for it: a project as the rail opens it, Claude's question in the dock", async () => {
+    const c = (name: string, summary: string, input: object = {}) => ({
+      name,
+      summary,
+      mutates: true,
+      job: false,
+      input,
+    });
+    const key = { type: "object", properties: { key: { type: "string" } }, required: ["key"] };
+    net.api = () => ({
+      project: "C:\\p",
+      commands: [
+        c("project.openKey", "Open a project by its Jira key.", key),
+        c("project.init", "Create a project folder.", { type: "object", properties: { dir: { type: "string" } } }),
+        c("chat.ask", "Ask the documents.", { type: "object", properties: { question: { type: "string" } } }),
+        c("xray.disconnect", "Work locally only: nothing reads Jira."),
+      ],
+    });
+    mount();
+    await waitFor(() => expect(callsOf("api")).toHaveLength(1));
+    await pick("project openKey");
+    expect(await screen.findByRole("dialog", { name: "Open a project by its Jira key" })).toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole("dialog", { name: "Open a project by its Jira key" }), { key: "Escape" });
+    await pick("chat ask");
+    expect(folded()).toBe("false");
+    expect(request()).toMatchObject({ mode: "docs" });
+    expect(screen.queryByRole("dialog", { name: "Ask the documents" })).toBeNull();
+    await pick("xray disconnect");
+    expect(await screen.findByRole("alertdialog", { name: "Work locally only?" })).toBeInTheDocument();
+    expect(callsOf("xray.disconnect")).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await pick("project init");
+    await hashIs("#/setup/project");
   });
 
   it("copes with a core that lists no commands", async () => {

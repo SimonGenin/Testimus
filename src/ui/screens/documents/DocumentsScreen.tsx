@@ -88,20 +88,22 @@ const styles = stylex.create({
 
 const ACCEPT = ".docx,.pdf";
 
-// ponytail: #/documents/<id>#<anchor> "<quote>" from <test> step <n> — the document, the place in it, the line to mark
-// and the test that cited it (the last part is optional)
+// ponytail: #/documents/<id>#<anchor> "<quote>" from [review ]<test> step <n> — the document, the place in it, the
+// line to mark and the test that cited it, read in Review or in Tests (the last part is optional)
 function target(arg: string) {
   const hash = arg.indexOf("#");
   const routeId = hash < 0 ? arg : arg.slice(0, hash);
   const at = hash < 0 ? "" : arg.slice(hash + 1);
   const cut = at.indexOf(' "');
   const rest = cut < 0 ? "" : at.slice(cut + 2);
-  const m = /^([\s\S]*)" from (\S+)(?: step (\d+))?$/.exec(rest);
+  const m = /^([\s\S]*)" from (?:(review) )?(\S+)(?: step (\d+))?$/.exec(rest);
   return {
     routeId,
     anchor: cut < 0 ? at : at.slice(0, cut),
     quote: m ? m[1] : rest.replace(/"$/, ""),
-    from: m ? { test: m[2], ...(m[3] && { step: Number(m[3]) }) } : undefined,
+    from: m
+      ? { test: m[3], screen: m[2] ? ("review" as const) : ("tests" as const), ...(m[4] && { step: Number(m[4]) }) }
+      : undefined,
   };
 }
 
@@ -132,8 +134,11 @@ export function DocumentsScreen() {
   const docs = list.data ? (Array.isArray(list.data) ? list.data : []) : list.isError ? [] : undefined;
   const wordsOnly = rag.data?.exists && rag.data.degraded ? wordsOnlyWhy(rag.data) : null;
   const { routeId, anchor, quote, from } = target(app.route.screen === "documents" ? (app.route.arg ?? "") : "");
-  const activeId = routeId || docs?.[0]?.id || "";
+  // ponytail: a source may name a document by its code (SPEC §7) — the route opens it by its id
+  const named = routeId ? (docs?.find((d) => d.id === routeId) ?? docs?.find((d) => d.code === routeId)) : undefined;
+  const activeId = named?.id || routeId || docs?.[0]?.id || "";
   const active = activeId ? docs?.find((d) => d.id === activeId) : undefined;
+  const unknown = !!docs && !!routeId && !active;
   const busy = uploads.filter((u) => !settled(u)).length;
   const hasBody = !(docs && !docs.length && !uploads.length);
   const folded = fold !== "wide";
@@ -209,7 +214,7 @@ export function DocumentsScreen() {
         crumbs={active ? [`${active.id} · ${active.title || active.id}`] : []}
         meta={busy ? `${busy} in progress` : undefined}
       >
-        <Button variant="quiet" icon="folder-open" label="Add from a path…" onClick={() => setAskPath(true)} />
+        <Button icon="folder-open" label="Add from a path…" onClick={() => setAskPath(true)} />
         {addButton()}
       </ScreenHeader>
       {list.isError && (
@@ -277,7 +282,7 @@ export function DocumentsScreen() {
               quote={quote}
               from={from}
               onClearQuote={() => app.navigate("documents", `${activeId}#${anchor}`)}
-              onBack={() => (from ? app.navigate("tests", from.test) : window.history.back())}
+              onBack={() => (from ? app.navigate(from.screen, from.test) : window.history.back())}
               fold={fold}
               panes={panes}
               listOpen={listOpen}
@@ -288,6 +293,40 @@ export function DocumentsScreen() {
                 app.refreshInfo();
               }}
             />
+          ) : unknown ? (
+            <div {...stylex.props(styles.empty)}>
+              <EmptyState
+                icon="documents"
+                title="Document not found"
+                text={`This project has no document ${routeId}: it was deleted, or the link names another project's.`}
+                actions={
+                  <>
+                    {folded && (
+                      <Button
+                        variant="quiet"
+                        icon="panel-left"
+                        label="Show the document list"
+                        expanded={listOpen}
+                        onClick={() => setListOpen(true)}
+                      />
+                    )}
+                    {from && (
+                      <Button
+                        icon="arrow-left"
+                        label="Back to the test"
+                        onClick={() => app.navigate(from.screen, from.test)}
+                      />
+                    )}
+                    <Button
+                      variant="primary"
+                      icon="documents"
+                      label="Go to Documents"
+                      onClick={() => app.navigate("documents")}
+                    />
+                  </>
+                }
+              />
+            </div>
           ) : (
             <div {...stylex.props(styles.none)}>
               {folded && (

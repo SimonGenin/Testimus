@@ -107,12 +107,12 @@ describe("dock run details", () => {
     expect(state.navigate).toHaveBeenCalledWith("tests", "t9");
   });
 
-  it("falls back to an empty test id when a project run names no test", async () => {
+  it("shows the tests list when a project run names no test", async () => {
     net.routes["claude.run"] = () => ({ ok: true, runId: "r2", changedSteps: [3] });
     const { state } = mount({}, { focus: null });
     ask("Tout");
     fireEvent.click(await screen.findByRole("button", { name: "Show changes" }));
-    expect(state.navigate).toHaveBeenCalledWith("tests", "");
+    expect(state.navigate).toHaveBeenCalledWith("tests");
   });
 
   it("runs a job handed by the app without a project read", async () => {

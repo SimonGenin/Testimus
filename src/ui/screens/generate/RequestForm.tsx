@@ -6,10 +6,12 @@ import { Menu } from "../../components/ui/Menu.tsx";
 import { Text } from "../../components/ui/Text.tsx";
 import { type } from "../../components/ui/type.ts";
 import { plural } from "../../lib/format.ts";
+import type { Upload } from "../../lib/uploads.ts";
 import { border, color, size, space } from "../../styles/tokens.stylex.ts";
+import { UploadFailure } from "../documents/UploadItem.tsx";
 import { ColumnsView } from "./ColumnsView.tsx";
 import { DocScopePicker } from "./DocScopePicker.tsx";
-import { IndexNotice } from "./IndexNotice.tsx";
+import { IndexNotice, type Work } from "./IndexNotice.tsx";
 import { RequestBlock } from "./RequestBlock.tsx";
 import type { GenerateForm } from "./useGenerateForm.ts";
 
@@ -49,11 +51,14 @@ const styles = stylex.create({
 export type Gate = {
   missing: string[];
   stale: string[];
-  indexing: boolean;
-  /** the running index job's progress, when it says */
+  /** the document work under way that Generate waits for */
+  work: Work | null;
+  /** the running job's progress, when it says */
   progress?: { done: number; total: number };
   onShowJob?: () => void;
   onReindex: () => void;
+  /** the last reindex that failed (the same banner as under the Documents list) */
+  failure?: Upload;
 };
 
 export function RequestForm({
@@ -92,6 +97,7 @@ export function RequestForm({
   return (
     <section aria-label="Request" {...stylex.props(styles.form)}>
       <div {...stylex.props(styles.scroll)}>
+        {gate.failure && <UploadFailure u={gate.failure} inset={false} />}
         <IndexNotice {...gate} />
         <div {...stylex.props(styles.block)}>
           <div {...stylex.props(styles.head)}>
@@ -108,7 +114,7 @@ export function RequestForm({
           <DocScopePicker
             docs={docs}
             scopes={scopes}
-            indexing={gate.indexing}
+            indexing={gate.work === "index" || gate.work === "convert"}
             onChange={form.setScopes}
             onAddDocuments={onAddDocuments}
           />

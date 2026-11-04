@@ -87,9 +87,15 @@ export const paragraphs = (text: string) =>
     .map((p) => p.trim())
     .filter(Boolean);
 
-// the Documents route of a source; with a quote, `from` names the test (and step) that cites it, for « Back to the test »
-export const docLink = (docId: string, anchor: string, quote = "", from?: { test: string; step?: number }) =>
-  `${docId}#${anchor}${quote.trim() ? ` "${quote.trim()}"${from ? ` from ${from.test}${from.step ? ` step ${from.step}` : ""}` : ""}` : ""}`;
+// the Documents route of a source; its quote (empty when the source has none), and `from`: the test (and step) that
+// cites it and the screen it was read on (Review, else Tests), for « Back to the test »
+export const docLink = (
+  docId: string,
+  anchor: string,
+  quote = "",
+  from?: { test: string; step?: number; screen?: "review" },
+) =>
+  `${docId}#${anchor}${quote.trim() || from ? ` "${quote.trim()}"` : ""}${from ? ` from ${from.screen ? `${from.screen} ` : ""}${from.test}${from.step ? ` step ${from.step}` : ""}` : ""}`;
 
 export const sectionNumber = (anchor: string) => (anchor.startsWith("§") ? anchor.slice(1) : "");
 

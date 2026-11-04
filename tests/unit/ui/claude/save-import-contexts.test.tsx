@@ -147,7 +147,7 @@ describe("The extra context of a run", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add a note" }));
     const note = screen.getByRole("textbox", { name: "Note for the columns" });
     fireEvent.change(note, { target: { value: "Each step names its operator position" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save as context…" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save the note as a context…" }));
     fireEvent.click(
       within(screen.getByRole("dialog", { name: "Save as context" })).getByRole("button", { name: "Save" }),
     );

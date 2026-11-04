@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { dismissToast, toast as show, type ToastTone, useToasts as useLive } from "../components/ui/Toast.tsx";
+import type { Screen } from "./app.ts";
 import { ApiError } from "./data/client.ts";
 import { message } from "./format.ts";
 
@@ -42,6 +43,20 @@ export const errorToast = (e: unknown, title = "Something went wrong") =>
     tone: "danger",
     title,
     detail: e instanceof ApiError && e.fix ? `${e.message} — ${e.fix}` : message(e),
+  });
+
+// ponytail: a job started from anywhere says so the same way — what started, and « Open in Jobs » to that very job
+export const jobToast = (
+  title: string,
+  jobId: string | null | undefined,
+  navigate: (screen: Screen, arg?: string) => void,
+  detail = "It runs in Jobs; you can keep working.",
+) =>
+  toast({
+    tone: "neutral",
+    title,
+    detail,
+    action: jobId ? { label: "Open in Jobs", run: () => navigate("jobs", jobId) } : undefined,
   });
 
 export function closeToast(id: number, taken = false): void {

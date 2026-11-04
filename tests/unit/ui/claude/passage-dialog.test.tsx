@@ -96,7 +96,8 @@ describe("Passage dialog", () => {
     expect(docLink("D", "§1", "Propriétés", { test: "LFRPS12-1420", step: 3 })).toBe(
       'D#§1 "Propriétés" from LFRPS12-1420 step 3',
     );
-    expect(docLink("D", "§1", "", { test: "LFRPS12-1420" })).toBe("D#§1");
+    expect(docLink("D", "§1", "", { test: "LFRPS12-1420", screen: "review" })).toBe('D#§1 "" from review LFRPS12-1420');
+    expect(docLink("D", "§1", "")).toBe("D#§1");
   });
 
   it("says why the passage cannot be shown, with the quote, and needs no document button", async () => {

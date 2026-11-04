@@ -246,7 +246,7 @@ export function JiraTab({
                     compact
                     title="No tests in this folder"
                     text={`${folderName(folder)} is empty. Pick another folder, or create a test locally.`}
-                    actions={<Button size="sm" icon="plus" label="New local test" onClick={onNew} />}
+                    actions={<Button size="sm" icon="plus" label="New test" onClick={onNew} />}
                   />
                 )
               }

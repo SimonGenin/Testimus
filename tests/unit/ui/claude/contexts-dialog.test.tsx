@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { act, cleanup, fireEvent, render as rtlRender, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render as rtlRender, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setProject } from "../../../../src/ui/api.ts";
 import { ContextsDialog, contextLine } from "../../../../src/ui/components/claude/ContextsDialog.tsx";
@@ -280,19 +280,29 @@ describe("ContextsDialog", () => {
     expect(await screen.findByText("Could not remove b.pdf")).toBeInTheDocument();
   });
 
-  it("deletes on one click, as Xray Editor does, then shows the next context or none", async () => {
+  it("deletes after a danger confirm naming what goes, then shows the next context or none", async () => {
     backend([glossary, empty]);
     mount();
+    const confirm = async () => {
+      const dlg = await screen.findByRole("alertdialog", { name: "Delete the context?" });
+      expect(dlg).toHaveTextContent("stop taking it");
+      fireEvent.click(within(dlg).getByRole("button", { name: "Delete the context" }));
+      return dlg;
+    };
     await waitFor(() => expect(nameBox()).toHaveValue("Glossaire"));
     fireEvent.change(nameBox(), { target: { value: "unsaved" } });
-    fireEvent.click(screen.getByRole("button", { name: /Delete context/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete context…" }));
+    expect(callsOf("contexts.remove")).toHaveLength(0);
+    await confirm();
     await waitFor(() => expect(option(/bare/)).toHaveAttribute("aria-selected", "true"));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(callsOf("contexts.set")).toHaveLength(0);
     fail.add("contexts.remove");
-    fireEvent.click(screen.getByRole("button", { name: /Delete context/ }));
-    expect(await screen.findByText("Could not delete the context")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Delete context…" }));
+    const dlg = await confirm();
+    expect(await within(dlg).findByText(/Could not delete the context/)).toBeInTheDocument();
     fail.delete("contexts.remove");
-    fireEvent.click(screen.getByRole("button", { name: /Delete context/ }));
+    fireEvent.click(within(dlg).getByRole("button", { name: "Delete the context" }));
     expect(await screen.findByText("No context yet")).toBeInTheDocument();
   });
 

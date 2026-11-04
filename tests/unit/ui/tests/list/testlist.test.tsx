@@ -3,7 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Folder, LocalTestRef, RemoteTestRef } from "../../../../../src/core/types.ts";
+import type { Folder, LocalTestRef, RemoteTestRef, Test } from "../../../../../src/core/types.ts";
 import { setProject } from "../../../../../src/ui/api.ts";
 import { AppContext, type AppState } from "../../../../../src/ui/lib/app.ts";
 import { isKeyQuery, localTree, TestList } from "../../../../../src/ui/screens/tests/TestList.tsx";
@@ -113,10 +113,32 @@ const jira = (v: string) => fireEvent.change(screen.getByLabelText("Search Jira"
 
 let seq = 0;
 
+// ponytail: the file behind a row — the delete and the pull read it again (what is lost comes from the file, not the
+// list); a dirty row's file differs from its last sync
+const fileOf = (r: LocalTestRef, dirty = r.dirty): { test: Test; remote: Test | null } => {
+  const t: Test = {
+    key: r.key,
+    project: "LFRPS12",
+    summary: r.summary,
+    folder: r.folder,
+    labels: [],
+    description: "",
+    covers: [],
+    preconditions: [],
+    review: r.review,
+    steps: [{ fields: { Action: "One" }, sources: [], images: [] }],
+    extra: {},
+  };
+  return { test: t, remote: r.synced ? { ...t, summary: dirty ? `${r.summary} (Jira)` : r.summary } : null };
+};
+let files: LocalTestRef[] = refs;
+
 beforeEach(() => {
   stubServer();
   // ponytail: the list's view (tab, boxes, folds) is kept per project for the page's life — each case its own project
   setProject(`C:\\list-${++seq}`);
+  files = refs;
+  server.routes["tests.show"] = (input) => fileOf(files.find((r) => r.id === input.id) ?? refs[0]);
   server.routes["xray.folders"] = () => tree;
   server.routes["xray.search"] = () => ({ tests: [], total: 0 });
   server.routes["jobs.list"] = () => [];
@@ -228,7 +250,7 @@ describe("TestList › local", () => {
     server.routes["tests.create"] = () => ({ id: "t-new" });
     const { onOpen, onReload } = list({ activeId: "t-a" });
     const create = screen.getByRole("button", { name: "New test" });
-    expect(tipOf(create)).toBe("New local test in /Lot");
+    expect(tipOf(create)).toBe("New test in /Lot");
     fireEvent.click(create);
     await waitFor(() => expect(onOpen).toHaveBeenCalledWith("t-new"));
     expect(onReload).toHaveBeenCalled();
@@ -269,19 +291,51 @@ describe("TestList › local", () => {
     const gate = deferred<unknown>();
     server.routes["xray.pull"] = () => gate.promise;
     const dirty = refs.map((r) => (r.id === "t-b" ? { ...r, dirty: true } : r));
+    files = dirty;
     const { onReload } = list({ refs: dirty, activeId: "t-b" });
     fireEvent.click(screen.getByRole("button", { name: "Pull" }));
-    const ask = screen.getByRole("alertdialog", { name: "Replace LFRPS12-2 with Jira's version?" });
+    const ask = await screen.findByRole("alertdialog", { name: "Replace LFRPS12-2 with Jira's version?" });
     fireEvent.click(within(ask).getByRole("button", { name: "Cancel" }));
     expect(callsTo("xray.pull")).toHaveLength(0);
     fireEvent.click(screen.getByRole("button", { name: "Pull" }));
-    fireEvent.click(screen.getByRole("button", { name: "Pull and replace" }));
+    const again = await screen.findByRole("alertdialog", { name: "Replace LFRPS12-2 with Jira's version?" });
+    fireEvent.click(within(again).getByRole("button", { name: "Replace with Jira's version" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Pull" })).toBeDisabled());
     gate.resolve({ pulled: ["LFRPS12-2"], skipped: [], failed: [] });
     await waitFor(() => expect(onReload).toHaveBeenCalled());
     expect(callsTo("xray.pull")[0].input).toEqual({ key: "LFRPS12-2", overwrite: true });
-    await waitFor(() => expect(toasts.at(-1)).toMatchObject({ tone: "success", title: "1 test pulled" }));
+    await waitFor(() =>
+      expect(toasts.at(-1)).toMatchObject({ tone: "success", title: "LFRPS12-2 replaced with Jira's version" }),
+    );
+    expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(screen.getByRole("button", { name: "Pull" })).toBeEnabled();
+  });
+
+  it("pulls an unchanged open test at once, and waits while Claude works on it", async () => {
+    server.routes["xray.pull"] = () => ({ pulled: ["LFRPS12-2"], skipped: [], failed: [] });
+    list({ activeId: "t-b" });
+    fireEvent.click(screen.getByRole("button", { name: "Pull" }));
+    await waitFor(() => expect(callsTo("xray.pull")).toHaveLength(1));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    cleanup();
+    const state = { ...stateOf(), claudeRunning: "t-b" };
+    render(
+      <WithData client={testClient()}>
+        <AppContext.Provider value={state}>
+          <TestList refs={refs} loading={false} activeId="t-b" onOpen={vi.fn()} onReload={vi.fn(async () => refs)} />
+        </AppContext.Provider>
+      </WithData>,
+    );
+    expect(screen.getByRole("button", { name: "Pull" })).toHaveAccessibleDescription(
+      "Claude is editing this test — wait for it to finish",
+    );
+    expect(screen.getByRole("button", { name: "Clone" })).toHaveAccessibleDescription(
+      "Claude is editing this test — wait for it to finish",
+    );
+    fireEvent.focus(localRow(/^Bravo/));
+    expect(
+      within(localRow(/^Bravo/)).getByRole("button", { name: "Delete the local copy of LFRPS12-2" }),
+    ).toBeDisabled();
   });
 
   it("sends a never-pushed test to the Jira tab to pick a folder", () => {
@@ -334,11 +388,11 @@ describe("TestList › delete", () => {
     const onDeleted = vi.fn();
     list({ onDeleted });
     fireEvent.click(rowAction(localRow(/^Alpha/), "Delete the local copy of Alpha"));
-    expect(screen.getByRole("alertdialog", { name: "Delete the local copy?" })).toBeInTheDocument();
+    expect(await screen.findByRole("alertdialog", { name: "Delete the local copy?" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("alertdialog")).toBeNull();
     fireEvent.click(rowAction(localRow(/^Untitled/), "Delete the local copy of t-z"));
-    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
     await waitFor(() => expect(onDeleted).toHaveBeenCalledWith("t-z"));
     expect(screen.queryByRole("alertdialog")).toBeNull();
   });
@@ -389,13 +443,13 @@ describe("TestList › Jira", () => {
     expect(item(/^Lot/)).toHaveAttribute("aria-expanded", "true");
     expect(item(/^Lot/)).toHaveAttribute("aria-selected", "true");
     expect(iconsIn(item(/^Lot/)).slice(0, 2)).toEqual(["chevron-down", "folder-open"]);
-    expect(tipOf(screen.getByRole("button", { name: "New test" }))).toBe("New local test in /Lot");
+    expect(tipOf(screen.getByRole("button", { name: "New test" }))).toBe("New test in /Lot");
     fireEvent.click(item(/^Lot/));
     expect(item(/^Lot/)).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(item(/^Test Repository/));
     fireEvent.click(item(/^Lot/));
     expect(item(/^Lot/)).toHaveAttribute("aria-expanded", "true");
-    fireEvent.click(await screen.findByRole("button", { name: "New local test" }));
+    fireEvent.click(await screen.findByRole("button", { name: "New test" }));
     await waitFor(() => expect(callsTo("tests.create")).toHaveLength(1));
     expect(callsTo("tests.create")[0].input).toEqual({ folder: "/Lot", summary: "New test" });
     await waitFor(() => expect(onOpen).toHaveBeenCalledWith("t-new"));
@@ -522,7 +576,7 @@ describe("TestList › Jira connection", () => {
     fireEvent.click(screen.getByRole("button", { name: "Connect" }));
     expect(iconOf(await screen.findByRole("button", { name: "Set up Jira access" }))).toBe("key");
     fireEvent.click(await screen.findByRole("button", { name: "Set up Jira access" }));
-    expect(state.navigate).toHaveBeenCalledWith("setup");
+    expect(state.navigate).toHaveBeenCalledWith("settings", "access");
   });
 
   it("disconnects, then shows the project as worked on locally until a reconnect", async () => {
@@ -562,5 +616,6 @@ describe("TestList › Jira connection", () => {
     fireEvent.click(screen.getByRole("button", { name: "Work locally for now" }));
     await waitFor(() => expect(state.refreshInfo).toHaveBeenCalled());
     expect(callsTo("xray.disconnect")).toHaveLength(1);
+    expect(toasts.at(-1)?.title).toBe("Working locally");
   });
 });

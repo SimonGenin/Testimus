@@ -191,7 +191,7 @@ export function ConnectClaude({
             size="sm"
             variant="quiet"
             icon={look === "card" ? undefined : "doctor"}
-            label="Open system check"
+            label="Open the system check"
             onClick={onDoctor}
           />
         )}

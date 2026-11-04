@@ -5,7 +5,7 @@ mockServer(4397);
 test("Ctrl K searches the tests and the documents, and opens a hit", async ({ page }) => {
   await boot(page, "#/documents");
   await page.keyboard.press("Control+k");
-  const palette = page.getByRole("dialog", { name: "Search everywhere" });
+  const palette = page.getByRole("dialog", { name: "Search everything" });
   await palette.getByRole("combobox", { name: "Search" }).fill("sectioneur menu");
   await expect(palette.getByText("In the documents", { exact: true }).last()).toBeVisible();
   await expect(palette.getByRole("option", { name: /Sectionneur sans TK/ })).toBeVisible();

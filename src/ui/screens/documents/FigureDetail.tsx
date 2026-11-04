@@ -63,12 +63,15 @@ export function FigureDetail({
   docId,
   figure,
   busy,
+  offline = false,
   onOpen,
   onDescribe,
 }: {
   docId: string;
   figure: FigureEntry;
   busy: boolean;
+  /** why Claude cannot read it now (missing or signed out) */
+  offline?: string | false;
   onOpen: (anchor: string) => void;
   onDescribe: () => void;
 }) {
@@ -132,6 +135,7 @@ export function FigureDetail({
               icon="claude"
               label={described ? "Describe again" : "Describe it"}
               loading={busy}
+              disabled={offline}
               onClick={onDescribe}
             />
           )}

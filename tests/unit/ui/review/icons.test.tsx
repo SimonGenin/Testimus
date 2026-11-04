@@ -110,6 +110,16 @@ describe("Review › the design's icons", () => {
     await vi.waitFor(() => expect(named("jobs.cancel")[0]?.input).toEqual({ id: "job-9" }));
   });
 
+  it("« Cancel the run » stops the run on this test, not another test's", async () => {
+    const other = { id: "fix-1", kind: "fix", status: "running", rerun: { name: "review.fix", input: { id: "K-9" } } };
+    const mine = { id: "fix-2", kind: "fix", status: "running", rerun: { name: "review.fix", input: { id: "K-1" } } };
+    net.routes["jobs.list"] = () => [other, mine] as Job[];
+    net.routes["jobs.cancel"] = () => null;
+    mountReview(<ReviewBanners {...banners({ claudeRunning: true, testId: "K-1" })} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Cancel the run" }));
+    await vi.waitFor(() => expect(named("jobs.cancel")[0]?.input).toEqual({ id: "fix-2" }));
+  });
+
   it("the empty review offers « Open the tests » with tests and « Generate tests » with generate (n° 82, 83)", () => {
     const { rerender } = render(<ReviewEmpty validated={2} onGenerate={vi.fn()} onTests={vi.fn()} />);
     expect(iconOf(screen.getByRole("button", { name: "Open the tests" }))).toBe("tests");

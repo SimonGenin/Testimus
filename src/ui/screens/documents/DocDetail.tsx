@@ -96,6 +96,7 @@ export function DocDetail({
   const [drawer, setDrawer] = useState<Drawer>(null);
   const [ask, setAsk] = useState(false);
   const [again, setAgain] = useState(false);
+  const [figure, setFigure] = useState<string>();
   const [opened, setOpened] = useState(false);
   const wasRunning = useRef(false);
   const sideFolded = fold === "small" || fold === "tiny";
@@ -155,8 +156,10 @@ export function DocDetail({
           error={message(meta.error)}
           onRetry={() => void meta.refetch()}
           onConvertAgain={listed ? () => setAgain(true) : undefined}
+          onDelete={listed ? () => setAsk(true) : undefined}
         />
         {again && listed && <ConvertDoc doc={listed} again onClose={() => setAgain(false)} />}
+        {ask && listed && <RemoveDoc doc={listed} onClose={() => setAsk(false)} onRemoved={onRemoved} />}
       </section>
     );
   if (!shown)
@@ -202,7 +205,10 @@ export function DocDetail({
           figures={shown.figures.length}
           running={!!running}
           view={view}
-          onView={setView}
+          onView={(v) => {
+            setFigure(undefined);
+            setView(v);
+          }}
           listOpen={listOpen}
           onShowList={onShowList}
           sectionsButton={tocFolded}
@@ -227,7 +233,9 @@ export function DocDetail({
           <div {...stylex.props(styles.view)}>
             {running && <DocReading docId={id} upload={running} />}
             {!running && !converted && <ConvertDoc doc={d} />}
-            {reading && view === "figures" && <DocFigures docId={id} figures={shown.figures} onOpen={go} />}
+            {reading && view === "figures" && (
+              <DocFigures docId={id} figures={shown.figures} focus={figure} onOpen={go} />
+            )}
             {reading && view === "text" && (
               <DocPart
                 docId={id}
@@ -239,6 +247,10 @@ export function DocDetail({
                 target={anchor && !quote ? anchor : undefined}
                 quote={onClearQuote && onBack ? { from, onBack, onClear: onClearQuote } : undefined}
                 onGo={go}
+                onFigure={(a) => {
+                  setFigure(a);
+                  setView("figures");
+                }}
               />
             )}
           </div>

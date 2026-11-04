@@ -52,7 +52,7 @@ test("the Jira tab shows the folder tree and pulls a remote test", async ({ page
   await expect(page.getByRole("main").getByRole("article", { name: "Step 1" })).toBeVisible();
 });
 
-test("a typed issue number searches Jira, and a local row's ✕ deletes a pushed, unchanged copy at once", async ({
+test("a typed issue number searches Jira, and a local row's trash deletes a pushed, unchanged copy at once", async ({
   page,
 }) => {
   await boot(page, "#/tests");

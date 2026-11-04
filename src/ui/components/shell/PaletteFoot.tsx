@@ -1,8 +1,10 @@
 import * as stylex from "@stylexjs/stylex";
+import { useContext } from "react";
 import type { SearchResult } from "../../../core/types.ts";
+import { AppContext } from "../../lib/app.ts";
 import { useCommand } from "../../lib/data/query.ts";
 import { plural } from "../../lib/format.ts";
-import { errorToast, toast } from "../../lib/toast.ts";
+import { errorToast, jobToast } from "../../lib/toast.ts";
 import { border, breakpoint, color, space } from "../../styles/tokens.stylex.ts";
 import { Badge } from "../ui/Badge.tsx";
 import { Button } from "../ui/Button.tsx";
@@ -60,6 +62,7 @@ export function PaletteFoot({
   searchingDeep: boolean;
 }) {
   const index = useCommand("search.index", { invalidates: "none" });
+  const app = useContext(AppContext);
   if (mode !== "search")
     return (
       <div {...stylex.props(type.small, styles.foot)}>
@@ -97,8 +100,10 @@ export function PaletteFoot({
             index.mutate(
               {},
               {
-                onSuccess: () =>
-                  toast({ tone: "success", title: "Indexing the tests by meaning", detail: "Follow it in Jobs." }),
+                onSuccess: (r) =>
+                  jobToast("Indexing the tests by meaning", (r as { jobId?: string } | null)?.jobId, (s, a) =>
+                    app?.navigate(s, a),
+                  ),
                 onError: (e) => errorToast(e, "Could not index the tests"),
               },
             )

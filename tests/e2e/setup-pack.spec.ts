@@ -24,6 +24,8 @@ test.describe("a 16 GB GPU", () => {
     await shoot(page, "setup-pack-e2e");
 
     await page.getByRole("button", { name: "Use Quality" }).click();
+    const plan = page.getByRole("dialog", { name: /^(Download and use|Use) the Quality pack$/ });
+    await plan.getByRole("button", { name: /^(Download |Use Quality)/ }).click();
     await expect(page).toHaveURL(/#\/documents/);
     await expect
       .poll(async () => (await api<Pack[]>(url, "models.packs")).find((p) => p.id === "quality")?.active, {
@@ -60,6 +62,8 @@ test.describe("no GPU, 6 GB, no models folder yet", () => {
     ).toContainText("Processor only");
     await packs.getByRole("radio", { name: /^Performance\b/ }).check();
     await page.getByRole("button", { name: "Use Performance" }).click();
+    const fit = page.getByRole("dialog", { name: "Use the Performance pack on the processor?" });
+    await fit.getByRole("button", { name: "Use anyway" }).click();
     const where = page.getByRole("dialog", { name: "Where should models be stored?" });
     await expect(where).toBeVisible();
     const field = where.getByRole("textbox", { name: "Folder" });
@@ -69,6 +73,8 @@ test.describe("no GPU, 6 GB, no models folder yet", () => {
     await expect(where.getByRole("status")).toContainText("free on");
     await shoot(page, "setup-pack-folder-e2e");
     await where.getByRole("button", { name: "Store models here" }).click();
+    const plan = page.getByRole("dialog", { name: "Download and use the Performance pack" });
+    await plan.getByRole("button", { name: /^Download / }).click();
     await expect(page).toHaveURL(/#\/documents/);
     await expect
       .poll(async () => (await api<Pack[]>(url, "models.packs")).find((p) => p.id === "performance")?.active, {

@@ -130,7 +130,7 @@ describe("Generate › documents", () => {
     const onAdd = vi.fn();
     renderData(<ScopeHost docs={[]} onAdd={onAdd} />);
     expect(screen.getByText("No document yet")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Add documents" }));
+    fireEvent.click(screen.getByRole("button", { name: "Go to Documents" }));
     expect(onAdd).toHaveBeenCalled();
     cleanup();
     api.routes["docs.show"] = () => null;
@@ -145,14 +145,17 @@ describe("Generate › documents", () => {
       docRef("D1", "Fresh", undefined, { ...converted, indexed: "fresh" } as Partial<DocRef>),
       docRef("D2", "Missing", undefined, { ...converted, indexed: "missing" } as Partial<DocRef>),
       docRef("D3", "Stale", undefined, { ...converted, indexed: "stale" } as Partial<DocRef>),
-      docRef("D4", "Raw"),
+      docRef("D4", "Raw", undefined, { converted: undefined }),
     ];
     renderData(<ScopeHost docs={docs} />);
     const row = (t: string) => screen.getByRole("checkbox", { name: new RegExp(t) }).closest("li") as HTMLElement;
     expect(within(row("Fresh")).getByText("Indexed")).toBeInTheDocument();
     expect(within(row("Missing")).getByText("Not indexed")).toBeInTheDocument();
     expect(within(row("Stale")).getByText("Not up to date")).toBeInTheDocument();
-    expect(within(row("Raw")).queryByText(/index/i)).toBeNull();
+    expect(within(row("Raw")).getByText("Not converted")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /Raw/ })).toBeDisabled();
+    expect(screen.getByRole("checkbox", { name: /Raw/ })).not.toBeChecked();
+    expect(screen.getByText("3 of 4 documents")).toBeInTheDocument();
     cleanup();
     renderData(<ScopeHost docs={docs} indexing />);
     expect(screen.getAllByText("Indexing…")).toHaveLength(3);
@@ -209,7 +212,7 @@ describe("Generate › smart columns", () => {
     cleanup();
     render(<ColumnsView columns={[]} onEdit={onEdit} />);
     expect(
-      screen.getByRole("button", { name: "Define the columns" }).querySelector('[data-icon="claude"]'),
+      screen.getByRole("button", { name: "Define the columns" }).querySelector('[data-icon="settings"]'),
     ).not.toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
   });

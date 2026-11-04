@@ -3,8 +3,8 @@ import { useEffect, useState } from "react";
 import type { CommandName } from "../../../core/commands/index.ts";
 import type { DoctorAction, DoctorCheck } from "../../../core/types.ts";
 import { execute, useRead } from "../../lib/data/query.ts";
+import { shownChecks } from "../../lib/doctor.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
-import { merged } from "./checks.ts";
 
 type Running = { check: DoctorCheck; action: DoctorAction; jobId: string | null };
 
@@ -37,6 +37,7 @@ export function useDoctorChecks() {
   });
 
   const run = async (check: DoctorCheck, action: DoctorAction, input: Record<string, unknown>) => {
+    if (running) return;
     const r: Running = { check, action, jobId: null };
     setRunning(r);
     try {
@@ -55,11 +56,9 @@ export function useDoctorChecks() {
   };
 
   return {
-    checks: !plain.data
-      ? null
-      : signIn.data && signIn.dataUpdatedAt > plain.dataUpdatedAt
-        ? signIn.data.checks
-        : merged(plain.data.checks, signIn.data?.checks),
+    checks: plain.data
+      ? shownChecks(plain.data.checks, plain.dataUpdatedAt, signIn.data?.checks, signIn.dataUpdatedAt)
+      : null,
     at: Math.max(plain.dataUpdatedAt, signIn.dataUpdatedAt),
     checking: plain.isFetching,
     error: plain.error?.message,
@@ -67,6 +66,7 @@ export function useDoctorChecks() {
     signingIn: signIn.isFetching,
     checkSignIn,
     busyId: running?.check.id ?? null,
+    fixing: running,
     run,
   };
 }

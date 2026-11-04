@@ -1,10 +1,12 @@
 import * as stylex from "@stylexjs/stylex";
 import { Badge } from "../../components/ui/Badge.tsx";
+import { Button } from "../../components/ui/Button.tsx";
 import { Card } from "../../components/ui/Card.tsx";
 import { Field } from "../../components/ui/Field.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { Segmented } from "../../components/ui/Segmented.tsx";
 import { Switch } from "../../components/ui/Switch.tsx";
+import { useApp } from "../../lib/app.ts";
 import { desktop, setAlwaysOnTop } from "../../lib/desktop.ts";
 import { usePref } from "../../lib/prefs.ts";
 import { type Theme, useTheme } from "../../lib/theme.ts";
@@ -19,6 +21,7 @@ const styles = stylex.create({
 // ponytail: theme, layout and the window are this browser profile's (lib/prefs, mirrored to settings.json by the
 // desktop app); model downloads are this PC's setting (system.set)
 export function AppearanceSection() {
+  const app = useApp();
   const [theme, setTheme] = useTheme();
   const [layout, setLayout] = usePref("stepLayout");
   const [onTop] = usePref("alwaysOnTop");
@@ -84,7 +87,10 @@ export function AppearanceSection() {
             disabled={!settings.data}
             onChange={(allowRemote) => void setting({ allowRemote })}
           />
-          <Hint>Turn it off behind a proxy that blocks them: add models from a folder instead (Models).</Hint>
+          <Hint>
+            Turn it off behind a proxy that blocks them: add models from a folder instead, in{" "}
+            <Button variant="link" label="Models" onClick={() => app.navigate("settings", "models")} />.
+          </Hint>
         </Stack>
       </Card>
     </Section>

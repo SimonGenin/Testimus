@@ -11,7 +11,7 @@ import { choose } from "../../helpers/select.ts";
 import { callsOf, deferred, Fail, fakeEvents, fakeNet, net, withApp } from "../../helpers/ui-data.tsx";
 import { fakeDesktop, noDesktop } from "../../helpers/ui-desktop.tsx";
 
-const toasts = vi.hoisted(() => ({ toast: vi.fn(), errorToast: vi.fn() }));
+const toasts = vi.hoisted(() => ({ toast: vi.fn(), errorToast: vi.fn(), jobToast: vi.fn() }));
 vi.mock("../../../../src/ui/lib/toast.ts", () => toasts);
 
 const titles = () => toasts.toast.mock.calls.map((a) => a[0].title);
@@ -25,6 +25,7 @@ beforeEach(() => {
   fakeEvents();
   toasts.toast.mockClear();
   toasts.errorToast.mockClear();
+  toasts.jobToast.mockClear();
   projects = [];
   net.routes["project.list"] = () => ({ projects, root: "", last: "" });
 });
@@ -55,7 +56,7 @@ describe("First launch screen", () => {
     fireEvent.click(within(pills[0]).getByRole("button", { name: /Access/ }));
     expect(state.navigate).toHaveBeenCalledWith("setup", undefined);
     fireEvent.click(screen.getByRole("button", { name: "Back to the app" }));
-    expect(state.navigate).toHaveBeenCalledWith("tests");
+    expect(state.navigate).toHaveBeenCalledWith("documents");
   });
 
   it("on the project step: back goes to Access, opening goes to the pack", async () => {
@@ -75,7 +76,8 @@ describe("First launch screen", () => {
   it("on the access step, Continue and Skip go to the project", async () => {
     net.routes["system.credentials"] = net.routes["system.setCredentials"] = () => ({ status: status() });
     const { state } = withApp(<FirstRunScreen />, { route: { screen: "setup" } });
-    fireEvent.click(await screen.findByRole("button", { name: "Continue" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     fireEvent.click(screen.getByRole("button", { name: "Skip for now" }));
     expect(state.navigate).toHaveBeenNthCalledWith(1, "setup", "project");
     expect(state.navigate).toHaveBeenNthCalledWith(2, "setup", "project");
@@ -106,6 +108,7 @@ describe("First launch › Access", () => {
     withApp(<AccessStep onContinue={onContinue} onSkip={onSkip} />);
     expect(await screen.findByText(/We found the access you already use/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Continue" }).className).toMatch(/primary/);
+    expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     fireEvent.click(screen.getByRole("button", { name: "Skip for now" }));
     expect(onContinue).toHaveBeenCalled();
@@ -123,6 +126,11 @@ describe("First launch › Access", () => {
     await screen.findByLabelText("Jira site");
     expect(screen.queryByText(/We found the access/)).toBeNull();
     expect(screen.getByRole("button", { name: "Continue" }).className).not.toMatch(/primary/);
+    expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Continue" })).toHaveAccessibleDescription(
+      "Save and test the connection first — or skip for now",
+    );
+    expect(screen.getByRole("button", { name: "Skip for now" })).toBeEnabled();
     expect(iconsIn(screen.getByRole("button", { name: "Continue" })), "audit icons 98").toEqual(["chevron-right"]);
   });
 
@@ -281,8 +289,9 @@ describe("First launch › Project", () => {
     projects = known();
     withApp(<ProjectStep onBack={vi.fn()} />);
     fireEvent.click(await screen.findByRole("button", { name: "Open again" }));
-    await waitFor(() => expect(errors()).toContain("Could not open the project"));
+    expect(await screen.findByText("Could not open the project")).toBeInTheDocument();
     expect(screen.getByText("Unknown command project.open")).toBeInTheDocument();
+    expect(errors()).not.toContain("Could not open the project");
   });
 
   it("shows no list when the list is empty or unreadable", async () => {

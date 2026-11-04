@@ -106,7 +106,10 @@ describe("Generate › result helpers", () => {
     expect(step).toHaveTextContent("Quote absent");
     expect(within(step).getByRole("note")).toHaveTextContent("Step 1");
     fireEvent.click(within(step).getByRole("button", { name: /D1/ }));
-    expect(onSource).toHaveBeenCalledWith(expect.objectContaining({ docId: "D1", anchor: "§1" }));
+    expect(onSource).toHaveBeenCalledWith(
+      expect.objectContaining({ docId: "D1", anchor: "§1" }),
+      expect.objectContaining({ step: 1, sources: [expect.objectContaining({ anchor: "§1" })] }),
+    );
     expect(card.querySelectorAll("section section section")).toHaveLength(0);
     const toggle = screen.getByRole("button", { name: "Tournois" });
     expect(toggle).toHaveAttribute("aria-expanded", "true");
@@ -239,7 +242,7 @@ describe("Generate › result helpers", () => {
     expect(screen.queryByRole("button", { name: /Resume/ })).toBeNull();
   });
 
-  it("RunHead: a failed run is a danger banner that says why, with Try again (refresh) and the raw error folded", () => {
+  it("RunHead: a failed run is a danger banner that says why, with Run again (refresh) and the raw error folded", () => {
     const onRetry = vi.fn();
     render(
       <RunHead
@@ -266,7 +269,7 @@ describe("Generate › result helpers", () => {
     expect(banner).toHaveTextContent("The usage limit was reached.");
     expect(banner.querySelector('[data-icon="alert-circle"]')).not.toBeNull();
     expect(document.querySelector('[data-icon="x-circle"]')).toBeNull();
-    const again = within(banner).getByRole("button", { name: "Try again" });
+    const again = within(banner).getByRole("button", { name: "Run again" });
     expect(again.querySelector("[data-icon]")).toHaveAttribute("data-icon", "refresh");
     fireEvent.click(again);
     expect(onRetry).toHaveBeenCalledTimes(1);

@@ -23,19 +23,41 @@ const styles = stylex.create({
   },
 });
 
-// ponytail: the queue holds nothing — every test of the filter is reviewed, or none was generated yet
+export type Narrowed = { onlyValidated: boolean; onClear?: () => void };
+
+// ponytail: the queue's filters leave nothing — said the same way in the queue and in the main column
+export function FilteredEmpty({ onlyValidated, onClear, compact }: Narrowed & { compact?: boolean }) {
+  return (
+    <EmptyState
+      compact={compact}
+      icon={onlyValidated ? "validated" : "filter"}
+      title={onlyValidated ? "No generated test validated yet" : "No test matches these filters"}
+      text={
+        onlyValidated ? "A generated test stays readable here once validated, and also appears in Tests." : undefined
+      }
+      actions={onClear && <Button size="sm" label="Clear the filters" onClick={onClear} />}
+    />
+  );
+}
+
+// ponytail: the queue holds nothing — the filters leave nothing, every test is reviewed, or none was generated yet
 export function ReviewEmpty({
   validated,
+  narrowed,
   onGenerate,
   onTests,
 }: {
   validated: number;
+  /** the queue's filters are on: the same empty state as the queue's */
+  narrowed?: Narrowed;
   onGenerate: () => void;
   onTests: () => void;
 }) {
   return (
     <div {...stylex.props(styles.center)}>
-      {validated > 0 ? (
+      {narrowed ? (
+        <FilteredEmpty {...narrowed} />
+      ) : validated > 0 ? (
         <EmptyState
           icon="validated"
           title="All reviewed"

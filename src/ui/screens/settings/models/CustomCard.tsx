@@ -48,7 +48,7 @@ export function CustomCard({
             {active && <Badge label="In use" tone="success" icon="check" size="sm" />}
           </span>
         }
-        footer={<Button size="sm" icon="list" label="Choose models" onClick={onChoose} />}
+        footer={<Button size="sm" icon="list" label="Open the catalog" onClick={onChoose} />}
       >
         <div {...stylex.props(styles.body)}>
           <p {...stylex.props(type.compact, styles.intent)}>

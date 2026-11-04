@@ -77,7 +77,7 @@ const see = (page: Page, text: string | RegExp) => page.getByText(text).first().
 
 async function palette(page: Page, query?: string): Promise<void> {
   await page.keyboard.press("Control+k");
-  await dialog(page, "Search everywhere");
+  await dialog(page, "Search everything");
   if (query) {
     await page.getByRole("combobox", { name: "Search" }).fill(query);
     await page.waitForTimeout(800);

@@ -189,7 +189,6 @@ export function Palette({
     onClose();
     app?.navigate("settings", "search");
   };
-  const openFolder = commands.find((c) => c.name === "project.open");
   const current = rows[cur]?.id;
   const waiting = searching && !!q && s.loading && !result;
   const list = (
@@ -231,7 +230,7 @@ export function Palette({
     />
   );
   return (
-    <Modal title="Search everywhere" frameless size="palette" onClose={onClose}>
+    <Modal title="Search everything" frameless size="palette" onClose={onClose}>
       <div {...stylex.props(styles.head)}>
         <Text
           value={query}
@@ -287,14 +286,15 @@ export function Palette({
             tone="neutral"
             compact
             actions={
-              openFolder && (
+              app && (
                 <Button
                   size="sm"
+                  variant="primary"
                   icon="folder-open"
                   label="Open a project…"
                   onClick={() => {
                     onClose();
-                    onCommand(openFolder);
+                    app.navigate("setup", "project");
                   }}
                 />
               )

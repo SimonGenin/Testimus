@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { Fragment, useContext, useLayoutEffect, useRef, useState } from "react";
-import type { Block, StepImage } from "../../../core/types.ts";
+import type { Block, Source, StepImage } from "../../../core/types.ts";
 import { Button } from "../../components/ui/Button.tsx";
 import { Disclosure } from "../../components/ui/Disclosure.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
@@ -76,6 +76,7 @@ export function FieldBlocks({
   onDropBlock,
   onRemove,
   onOpen,
+  onOpenSource,
 }: {
   idBase: string;
   name: string;
@@ -98,8 +99,11 @@ export function FieldBlocks({
   onDropBlock: (at: number, moved: Moved) => void;
   onRemove: (block: Block) => void;
   onOpen: (file: string) => void;
+  /** a figure's source chip: opens the source with the step it sits in (else the app's dialog, without it) */
+  onOpenSource?: (s: Source) => void;
 }) {
   const app = useContext(AppContext);
+  const openSource = onOpenSource ?? app?.openSource;
   // ponytail: the draft caret is a view, not an edit — nothing empty is ever written to the file; it is
   // remembered with the text it was opened on and simply gone once that text changed
   const [draft, setDraft] = useState<{ at: number; text: string } | null>(null);
@@ -222,7 +226,7 @@ export function FieldBlocks({
                 grip={readOnly ? undefined : <Grip />}
                 caption={
                   b.image.figure ? (
-                    <StepSource source={figureSource(b.image.figure)} compact onOpen={app?.openSource} />
+                    <StepSource source={figureSource(b.image.figure)} compact onOpen={openSource} />
                   ) : undefined
                 }
                 onOpen={() => onOpen(b.image.file)}
@@ -258,6 +262,7 @@ export function FieldBlocks({
                   onDropBlock={onDropBlock}
                   onRemove={onRemove}
                   onOpen={onOpen}
+                  onOpenSource={onOpenSource}
                 />
               </div>
             )}

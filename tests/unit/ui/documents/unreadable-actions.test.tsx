@@ -47,13 +47,20 @@ describe("a document that cannot be opened", () => {
 
   it("offers to convert it again from its original, and the dialog closes without converting", async () => {
     unreadable();
-    fireEvent.click(within(await banner()).getByRole("button", { name: "Convert again" }));
-    const dialog = screen.getByRole("dialog", { name: "Convert C-DX again?" });
+    fireEvent.click(within(await banner()).getByRole("button", { name: "Convert again…" }));
+    const dialog = screen.getByRole("alertdialog", { name: "Convert C-DX again?" });
     fireEvent.keyDown(dialog, { key: "Escape" });
-    expect(screen.queryByRole("dialog", { name: "Convert C-DX again?" })).toBeNull();
+    expect(screen.queryByRole("alertdialog", { name: "Convert C-DX again?" })).toBeNull();
     expect(named("docs.convert")).toEqual([]);
-    fireEvent.click(within(await banner()).getByRole("button", { name: "Convert again" }));
-    expect(screen.getByRole("dialog", { name: "Convert C-DX again?" })).toBeInTheDocument();
+    fireEvent.click(within(await banner()).getByRole("button", { name: "Convert again…" }));
+    expect(screen.getByRole("alertdialog", { name: "Convert C-DX again?" })).toBeInTheDocument();
+  });
+
+  it("offers to delete it, with the same dialog as the ⋯ menu", async () => {
+    unreadable();
+    await banner();
+    fireEvent.click(screen.getByRole("button", { name: "Delete this document…" }));
+    expect(await screen.findByRole("alertdialog", { name: "Delete this document?" })).toBeInTheDocument();
   });
 
   it("opens the system check, and shows the document's folder in the desktop app", async () => {

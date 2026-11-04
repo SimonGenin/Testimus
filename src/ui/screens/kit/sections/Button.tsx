@@ -20,7 +20,7 @@ export const section: KitSection = {
         "`primary` — the one action the screen exists for (Push to Jira, Generate, Validate, Save and test). **At most one per screen region** (a pane, a dialog). Fill `color-accent`, label `color-on-accent`.",
         "`secondary` (default) — every other action that deserves a box: Cancel, Show changes, Reindex. White ground, a light `color-border-field` edge and `shadow-0`; filled buttons add a 1 px inner highlight.",
         "`quiet` — toolbar and row actions, secondary actions in dense places (Insert below, Hide details, Clone). No edge until hovered.",
-        "`danger` — only the confirm button of a destructive dialog (Delete, Overwrite local, Drop). A destructive *entry point* is a red menu item, never a red button on a screen.",
+        "`danger` — only the confirm button of a destructive dialog (Delete, Replace with Jira's version, Drop). A destructive *entry point* is a red menu item, never a red button on a screen.",
         "`claude` / `claude-quiet` — an action that starts a Claude run (Send, Ask Claude, Ask Claude to fix it). Violet means « Claude will act ».",
         "`iconOnly` — square; always has an accessible label shown as tooltip.",
       ],

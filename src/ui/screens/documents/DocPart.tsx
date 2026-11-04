@@ -31,15 +31,17 @@ export type QuoteFrom = { test: string; step?: number };
 
 const sectionLabel = (anchor: string) => (anchor.startsWith("§") ? `§ ${anchor.slice(1)}` : anchor);
 
-// ponytail: a quote opened from a test: which test cited it (when the link says so), the way back, and Clear to read on
-// without the mark
+// ponytail: a quote (or a passage with none) opened from a test: which test cited it (when the link says so), the way
+// back, and Clear to read on without the mark
 function QuoteBar({
   under,
+  quoted,
   from,
   onBack,
   onClear,
 }: {
   under: string;
+  quoted: boolean;
   from?: QuoteFrom;
   onBack: () => void;
   onClear: () => void;
@@ -57,7 +59,7 @@ function QuoteBar({
     >
       {from ? (
         <>
-          The quote cited by <span {...stylex.props(type.code)}>{from.test}</span>
+          {quoted ? "The quote" : "The passage"} cited by <span {...stylex.props(type.code)}>{from.test}</span>
           {from.step ? ` · step ${from.step}` : ""}
         </>
       ) : (
@@ -86,6 +88,7 @@ export function DocPart({
   target,
   quote,
   onGo,
+  onFigure,
 }: {
   docId: string;
   sections: TocEntry[];
@@ -96,6 +99,8 @@ export function DocPart({
   target?: string;
   quote?: { from?: QuoteFrom; onBack: () => void; onClear: () => void };
   onGo: (anchor: string) => void;
+  /** a figure of the text shown in the Figures view */
+  onFigure?: (anchor: string) => void;
 }) {
   const box = useRef<HTMLDivElement>(null);
   const at = sections.findIndex((t) => t.anchor === current);
@@ -127,7 +132,7 @@ export function DocPart({
   return (
     <div ref={box} data-testid="doc-part" {...stylex.props(styles.box)}>
       <div {...stylex.props(styles.inner)}>
-        {focus && quote && <QuoteBar under={current} {...quote} />}
+        {(focus || quote?.from) && quote && <QuoteBar under={current} quoted={!!focus} {...quote} />}
         <div {...stylex.props(type.small, styles.nav)}>
           <span {...stylex.props(styles.where)}>
             {chapter ? `${chapter.title} · ` : ""}
@@ -155,7 +160,7 @@ export function DocPart({
         {loading ? (
           <Skeleton lines={4} />
         ) : (
-          <DocText docId={docId} md={md} focus={focus} target={target} onFigure={onGo} />
+          <DocText docId={docId} md={md} focus={focus} target={target} onFigure={onFigure ?? onGo} />
         )}
       </div>
     </div>

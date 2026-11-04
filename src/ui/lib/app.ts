@@ -27,6 +27,8 @@ export type ClaudeRun = {
   testId?: string;
   review?: string;
   message?: string;
+  /** the run just reverted (its runId): the dock marks its card */
+  reverted?: string;
   nonce: number;
 };
 

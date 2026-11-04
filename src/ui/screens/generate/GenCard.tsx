@@ -6,6 +6,7 @@ import { Card } from "../../components/ui/Card.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { SourceChip } from "../../components/ui/SourceChip.tsx";
 import { type } from "../../components/ui/type.ts";
+import type { SourceFrom } from "../../lib/app.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { fieldViews, sourceLabel } from "../../lib/fields.ts";
 import { plural } from "../../lib/format.ts";
@@ -74,6 +75,7 @@ const textOf = (s: string) => s.replace(/!\[\]\([^)]*\)/g, "").trim();
 // ponytail: a landed test's steps as a preview — each column's words and the step's sources, the check's findings on
 // it; Review shows the step cards
 function StepPreview({
+  testId,
   n,
   step,
   xray,
@@ -81,12 +83,13 @@ function StepPreview({
   stale,
   onSource,
 }: {
+  testId: string;
   n: number;
   step: Step;
   xray: ColumnLayout;
   findings: { finding: Finding; index: number }[];
   stale: boolean;
-  onSource: (s: Source) => void;
+  onSource: (s: Source, from?: SourceFrom) => void;
 }) {
   const fields = fieldViews(xray, step)
     .map((v) => ({ name: v.name, text: textOf(step.fields[v.name] ?? "") }))
@@ -111,7 +114,7 @@ function StepPreview({
               reference={sourceLabel(s)}
               quote={s.quote || undefined}
               figure={s.anchor.startsWith("fig:")}
-              onOpen={() => onSource(s)}
+              onOpen={() => onSource(s, { test: testId, step: n, sources: step.sources })}
             />
           ))}
         </span>
@@ -142,7 +145,8 @@ export type GenCardProps = {
   onToggle: () => void;
   onOpen: () => void;
   onEdit?: () => void;
-  onSource: (s: Source) => void;
+  /** a step's source opens with its step (« Source of step n », ‹ › through its sources) */
+  onSource: (s: Source, from?: SourceFrom) => void;
 };
 
 export function GenCard({
@@ -230,6 +234,7 @@ export function GenCard({
                 {test.steps.map((s, i) => (
                   <StepPreview
                     key={s.id ?? i}
+                    testId={item.id}
                     n={i + 1}
                     step={s}
                     xray={xray}

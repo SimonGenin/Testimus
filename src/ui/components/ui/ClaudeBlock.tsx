@@ -106,6 +106,8 @@ export type ClaudeBlockProps = Omit<TextProps, "multiline" | "appearance" | "onK
   /** the run's effective contexts; a chip switched off is left out of this run only */
   contexts?: { id: string; label: string; on: boolean }[];
   onContext?: (id: string, on: boolean) => void;
+  /** the contexts are kept, not toggled (a document's): each chip removes itself instead of switching off */
+  onRemoveContext?: (id: string) => void;
   onAddContext?: () => void;
   /** in place of the « Add context » button: a trigger of the owner's (a Popover listing the contexts) */
   addContext?: ReactNode;
@@ -142,6 +144,7 @@ export function ClaudeBlock(props: ClaudeBlockProps) {
   const {
     contexts,
     onContext,
+    onRemoveContext,
     onAddContext,
     addContext,
     children,
@@ -208,18 +211,29 @@ export function ClaudeBlock(props: ClaudeBlockProps) {
       {contexts && (
         <div {...stylex.props(styles.row)}>
           <span {...stylex.props(styles.rowLabel)}>Context</span>
-          {contexts.map((c) => (
-            <Chip
-              key={c.id}
-              label={c.label}
-              tone="claude"
-              icon="context"
-              pressed={c.on}
-              strikeOff
-              disabled={busy}
-              onToggle={() => onContext?.(c.id, !c.on)}
-            />
-          ))}
+          {contexts.map((c) =>
+            onRemoveContext ? (
+              <Chip
+                key={c.id}
+                label={c.label}
+                tone="claude"
+                icon="context"
+                disabled={busy || !!text.disabled}
+                onRemove={() => onRemoveContext(c.id)}
+              />
+            ) : (
+              <Chip
+                key={c.id}
+                label={c.label}
+                tone="claude"
+                icon="context"
+                pressed={c.on}
+                strikeOff
+                disabled={busy}
+                onToggle={() => onContext?.(c.id, !c.on)}
+              />
+            ),
+          )}
           {addContext ??
             (onAddContext && (
               <Button

@@ -236,6 +236,12 @@ describe("Settings › Smart columns", () => {
     await waitFor(() => expect(inputs("columns.save").at(-1)).toEqual({ name: "Action", description: "Un geste" }));
     fireEvent.click(screen.getByRole("button", { name: "Add a local column" }));
     expect(screen.getByRole("button", { name: "Add the column" })).toBeDisabled();
+    expect(
+      screen
+        .getByRole("button", { name: "Cancel" })
+        .compareDocumentPosition(screen.getByRole("button", { name: "Add the column" })) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     fireEvent.click(screen.getByRole("button", { name: "Add a local column" }));
     fireEvent.change(screen.getByRole("textbox", { name: label("Name of the local column") }), {
@@ -259,11 +265,22 @@ describe("Settings › Smart columns", () => {
     expect(await screen.findByText("Could not add the column")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("button", { name: "Remove the column Action" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Remove the column Remarque" }));
-    expect(await screen.findByText("Could not remove the column")).toBeInTheDocument();
+    const trash = screen.getByRole("button", { name: "Remove the column Remarque" });
+    expect(iconsIn(trash)).toEqual(["trash"]);
+    fireEvent.click(trash);
+    let sure = await screen.findByRole("alertdialog", { name: "Remove the column Remarque?" });
+    expect(sure).toHaveTextContent("stays in test.md");
+    fireEvent.click(within(sure).getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(calls("columns.remove")).toHaveLength(0);
+    fireEvent.click(trash);
+    sure = await screen.findByRole("alertdialog", { name: "Remove the column Remarque?" });
+    fireEvent.click(within(sure).getByRole("button", { name: "Remove" }));
+    expect(await within(sure).findByText("Unknown command columns.remove")).toBeInTheDocument();
     net.routes["columns.remove"] = () => [];
-    fireEvent.click(screen.getByRole("button", { name: "Remove the column Remarque" }));
+    fireEvent.click(within(sure).getByRole("button", { name: "Remove" }));
     expect(await screen.findByText("Column Remarque removed")).toBeInTheDocument();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(inputs("columns.remove").at(-1)).toEqual({ name: "Remarque" });
   });
 
@@ -317,7 +334,7 @@ describe("Settings › Smart columns", () => {
 });
 
 describe("Settings › Smart columns › the Reference source option", () => {
-  it("saves the option alone and says what it does; turns it off; reports a failure", async () => {
+  it("saves the option alone at once, as the switches beside it; turns it off; reports a failure", async () => {
     project = info({}, { columns: [column("Action"), column("Exigence", { builtin: false, referenceSource: false })] });
     net.routes["columns.save"] = (i) => {
       project = {
@@ -333,16 +350,26 @@ describe("Settings › Smart columns › the Reference source option", () => {
     const sw = () => within(card("Exigence")).getByRole("switch", { name: "Reference source" });
     expect(sw()).not.toBeChecked();
     fireEvent.click(sw());
-    expect(await screen.findByText("Exigence links its items to their sources")).toBeInTheDocument();
-    expect(inputs("columns.save").at(-1)).toEqual({ name: "Exigence", referenceSource: true });
     await waitFor(() => expect(sw()).toBeChecked());
+    await waitFor(() => expect(inputs("columns.save").at(-1)).toEqual({ name: "Exigence", referenceSource: true }));
+    expect(screen.queryByText("Exigence links its items to their sources")).toBeNull();
     fireEvent.click(sw());
-    expect(await screen.findByText("Exigence is plain text again")).toBeInTheDocument();
+    await waitFor(() => expect(inputs("columns.save").at(-1)).toEqual({ name: "Exigence", referenceSource: false }));
     net.routes["columns.save"] = () => {
       throw new Fail("Refused.");
     };
     await waitFor(() => expect(sw()).not.toBeChecked());
     fireEvent.click(sw());
     expect(await screen.findByText("Could not save the column")).toBeInTheDocument();
+    await waitFor(() => expect(sw()).not.toBeChecked());
+  });
+});
+
+describe("Settings › Smart columns › without a Jira key", () => {
+  it("the banner leads to the Jira key field of Project", async () => {
+    project = info({ jiraProject: "" });
+    const { app } = mountSettings(<ColumnsSection />);
+    fireEvent.click(await screen.findByRole("button", { name: "Set the Jira key" }));
+    expect(app.navigate).toHaveBeenCalledWith("settings", "project-jira");
   });
 });

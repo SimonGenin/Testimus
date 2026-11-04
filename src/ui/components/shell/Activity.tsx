@@ -90,6 +90,10 @@ function LiveActivity() {
       })),
   ];
   const count = items.length;
+  const openJob = (id: string) => () => {
+    setOpen(false);
+    app?.navigate("jobs", id);
+  };
   useEffect(() => {
     if (!count) setOpen(false);
   }, [count]);
@@ -141,6 +145,7 @@ function LiveActivity() {
                 key={item.key}
                 item={item}
                 now={now}
+                onOpen={app && item.id ? openJob(item.id) : undefined}
                 action={
                   item.id && (
                     <Button
@@ -148,9 +153,12 @@ function LiveActivity() {
                       size="xs"
                       iconOnly
                       icon="stop"
-                      label={`Cancel ${item.label}`}
+                      label="Cancel"
                       onClick={() =>
-                        cancel.mutate({ id: item.id as string }, { onError: (e) => errorToast(e, "Could not cancel") })
+                        cancel.mutate(
+                          { id: item.id as string },
+                          { onError: (e) => errorToast(e, "Could not cancel the job") },
+                        )
                       }
                     />
                   )

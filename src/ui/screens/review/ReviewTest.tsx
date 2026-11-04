@@ -90,7 +90,7 @@ export type ReviewTestProps = Omit<BannersProps, "checked" | "claudeReady" | "te
   onFoldAll: (folded: boolean) => void;
   /** a chip of a step, or of the finding number `finding` */
   onSelect: (s: Source, step: number | null, finding?: number) => void;
-  onOpenImage: (file: string) => void;
+  onOpenImage: (file: string, step: number, column?: string) => void;
   onEdit: () => void;
   bodyRef?: Ref<HTMLDivElement>;
 };

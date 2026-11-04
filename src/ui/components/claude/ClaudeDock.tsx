@@ -10,7 +10,6 @@ import { key, read, useRead } from "../../lib/data/query.ts";
 import { border, breakpoint, color, radius, shadow, size, space, z } from "../../styles/tokens.stylex.ts";
 import { Button } from "../ui/Button.tsx";
 import { Icon } from "../ui/Icon.tsx";
-import { Modal } from "../ui/Modal.tsx";
 import { type } from "../ui/type.ts";
 import { DockActions, useActionChoices } from "./DockActions.tsx";
 import { DockComposer, runIds } from "./DockComposer.tsx";
@@ -32,6 +31,8 @@ export type DockRequest = {
   mode: "docs" | "test";
   scope?: "test" | "step" | "project";
   prompt?: string;
+  /** the prompt is asked at once (the palette's « Ask Claude »), not only put in the box */
+  send?: boolean;
   job?: DockJob;
   nonce: number;
 };
@@ -98,6 +99,7 @@ export function ClaudeDock({
   const cfg = app.info?.project.claude;
   const projectDir = app.info?.dir;
   const runs = useDockRuns(app);
+  const busy = runs.locked;
   const where = useDockScope(focus, docId);
   const { tab, sub } = where;
   const [model, setModel] = useState(cfg?.model ?? "opus");
@@ -124,6 +126,20 @@ export function ClaudeDock({
     if (cfg?.effort) setEffort(cfg.effort);
   }, [cfg?.model, cfg?.effort]);
 
+  // a question to the documents — about the open one when it is the scope
+  const docsAgain = (q: string, n: string, onDoc: boolean): Again => ({
+    mode: "docs",
+    text: q,
+    model,
+    effort,
+    contexts: runIds(ctx),
+    note:
+      [onDoc ? `The question is about the document ${docId}: answer from docs/${docId}/doc.md first.` : "", n]
+        .filter(Boolean)
+        .join("\n") || undefined,
+    label: onDoc && docId ? docId : undefined,
+  });
+
   const seen = useRef(0);
   useEffect(() => {
     if (!request || request.nonce === seen.current) return;
@@ -131,6 +147,11 @@ export function ClaudeDock({
     where.ask(request.mode, request.scope);
     if (request.job) {
       void runs.runJob(request.job);
+      return;
+    }
+    const q = request.prompt?.trim();
+    if (request.send && q && !busy && !offline) {
+      void runs.execute(docsAgain(q, "", !!docId));
       return;
     }
     if (request.prompt !== undefined) setPrompt(request.prompt);
@@ -154,26 +175,10 @@ export function ClaudeDock({
     const q = text.trim();
     // ponytail: on a test or the project an empty box still runs — the scope and the house rules are the request
     // (Xray Editor); a question to the documents needs words
-    if ((!q && docsMode) || runs.busy) return;
+    if ((!q && docsMode) || busy) return;
     const n = note.trim();
     const a: Again = docsMode
-      ? {
-          mode: "docs",
-          text: q,
-          model,
-          effort,
-          contexts: runIds(ctx),
-          note:
-            [
-              sub === "doc" && docId
-                ? `The question is about the document ${docId}: answer from docs/${docId}/doc.md first.`
-                : "",
-              n,
-            ]
-              .filter(Boolean)
-              .join("\n") || undefined,
-          label: sub === "doc" && docId ? docId : undefined,
-        }
+      ? docsAgain(q, n, sub === "doc" && !!docId)
       : {
           mode: "test",
           text: q,
@@ -242,7 +247,7 @@ export function ClaudeDock({
         actionsList={
           <DockActions
             actions={actions}
-            busy={runs.busy}
+            busy={busy}
             choices={choices}
             contexts={cfg?.contexts}
             onRun={(a, p) => void runs.runAction(a, p)}
@@ -264,7 +269,13 @@ export function ClaudeDock({
             effort={effort}
             running={runs.busy ? elapsed : null}
             unavailable={
-              offline ? (status?.installed ? "Claude is not signed in" : "Claude is not connected") : undefined
+              offline
+                ? status?.installed
+                  ? "Claude is not signed in"
+                  : "Claude is not connected"
+                : busy && !runs.busy
+                  ? "Claude is working on another run — wait for it to finish"
+                  : undefined
             }
             onModel={setModel}
             onEffort={setEffort}
@@ -274,23 +285,6 @@ export function ClaudeDock({
             focusKey={focusAsk}
           />
         </div>
-      )}
-      {runs.refused && (
-        <Modal
-          title="Revert anyway?"
-          size="sm"
-          subtitle="The test changed after the Claude run."
-          confirm={{
-            verb: "Revert anyway",
-            danger: true,
-            icon: null,
-            onConfirm: () => (runs.refused ? runs.revert(runs.refused.turn, true) : undefined),
-          }}
-          consequences={[["", "Reverting puts back the version from before Claude and drops the later edits too."]]}
-          onClose={runs.keepAsIs}
-        >
-          {runs.refused.detail}
-        </Modal>
       )}
     </aside>
   );

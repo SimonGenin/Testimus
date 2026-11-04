@@ -59,7 +59,7 @@ export const docRef = (id: string, title: string, sections?: number, over: Parti
     code: `C-${id}`,
     title,
     status: "validated",
-    converted: sections ? { with: "", at: "", warnings: [], stats: { sections } } : undefined,
+    converted: { with: "", at, warnings: [], ...(sections ? { stats: { sections } } : {}) },
     ...over,
   }) as unknown as DocRef;
 

@@ -313,7 +313,7 @@ describe("Settings › Models", () => {
     expect(screen.getByRole("status", { name: "Indexing the documents" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Change…" })).toBeDisabled();
     openCatalog();
-    expect(await screen.findByRole("status", { name: "Downloading big" })).toBeInTheDocument();
+    expect(await screen.findByRole("status", { name: "Downloading M big" })).toBeInTheDocument();
     await emit({ jobId: up, at: "", type: "progress", message: "step 1", done: 1, total: 4 });
     expect(await screen.findByText("Installing Balanced · 25 %")).toBeInTheDocument();
     await srv.end(mv, "failed", { error: "disk full" });
@@ -337,10 +337,10 @@ describe("Settings › Models", () => {
     };
     mountSettings(<ModelsSection />);
     const copy = await screen.findByRole("status", { name: "Copying the models" });
-    fireEvent.click(within(copy).getByRole("button", { name: "Cancel: Copying the models" }));
-    expect(await screen.findByText("Could not cancel")).toBeInTheDocument();
+    fireEvent.click(within(copy).getByRole("button", { name: "Cancel" }));
+    expect(await screen.findByText("Could not cancel the job")).toBeInTheDocument();
     net.routes["jobs.cancel"] = () => ({ cancelled: true });
-    fireEvent.click(within(copy).getByRole("button", { name: "Cancel: Copying the models" }));
+    fireEvent.click(within(copy).getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(inputs("jobs.cancel")).toEqual([{ id: cp }, { id: cp }]));
     await srv.end(cp, "cancelled");
     await waitFor(() => expect(screen.queryByRole("status", { name: "Copying the models" })).toBeNull());
@@ -400,8 +400,8 @@ describe("Settings › Models", () => {
     const light = within(card("Light")).getByRole("button", { name: "Use this pack" });
     expect(light).toBeEnabled();
     fireEvent.click(light);
-    expect(await screen.findByRole("dialog", { name: "Use the Light pack" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    const plan = await screen.findByRole("dialog", { name: "Use the Light pack" });
+    fireEvent.click(within(plan).getByRole("button", { name: "Cancel" }));
     const dl = [...jobs.keys()].find((k) => k.startsWith("models-usePack")) as string;
     await srv.end(dl, "done", { result: {} });
     expect(await screen.findByText("Balanced pack downloaded")).toBeInTheDocument();
@@ -559,12 +559,16 @@ describe("Settings › Models › the catalog", () => {
     fireEvent.click(within(await waitFor(() => rowOf("M big"))).getByRole("button", { name: "Install" }));
     expect(screen.getByText("folder none need 900")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Apply with move" }));
+    const plan = await screen.findByRole("alertdialog", { name: "Download M big?" });
+    expect(plan).toHaveTextContent("900 MBto download");
+    expect(calls("models.pull")).toHaveLength(0);
+    fireEvent.click(within(plan).getByRole("button", { name: "Download 900 MB" }));
     expect(await screen.findByRole("status", { name: "Downloading M big" })).toBeInTheDocument();
     expect(screen.getByRole("status", { name: "Moving the models" })).toBeInTheDocument();
     expect(inputs("models.pull")).toEqual([{ model: "big" }]);
   });
 
-  it("an install refused for want of a folder asks for one; refused outright is said", async () => {
+  it("an install refused for want of a folder asks for one; refused outright is said in its plan", async () => {
     base({ catalog: [model("big")] });
     let refusal: Fail | null = new Fail("Choose where models are stored", { code: "models-dir-unset" });
     net.routes["models.pull"] = (i) => {
@@ -575,15 +579,22 @@ describe("Settings › Models › the catalog", () => {
     await screen.findByText("D:\\m");
     openCatalog();
     fireEvent.click(within(await waitFor(() => rowOf("M big"))).getByRole("button", { name: "Install" }));
+    const download = () => screen.findByRole("alertdialog", { name: "Download M big?" });
+    expect(await download()).toHaveTextContent("into D:\\m");
+    fireEvent.click(within(await download()).getByRole("button", { name: "Download 500 MB" }));
     expect(await screen.findByText("folder D:\\m need 500")).toBeInTheDocument();
+    expect(screen.queryByRole("alertdialog", { name: "Download M big?" })).toBeNull();
     refusal = null;
     fireEvent.click(screen.getByRole("button", { name: "Apply with copy" }));
+    fireEvent.click(within(await download()).getByRole("button", { name: "Download 500 MB" }));
     await waitFor(() => expect(calls("models.pull")).toHaveLength(2));
     expect(await screen.findByRole("status", { name: "Copying the models" })).toBeInTheDocument();
     refusal = new Fail("offline");
     for (const k of [...jobs.keys()]) await srv.end(k, "done");
     fireEvent.click(await waitFor(() => within(rowOf("M big")).getByRole("button", { name: "Install" })));
-    expect(await screen.findByText("Could not install M big")).toBeInTheDocument();
+    const plan = await download();
+    fireEvent.click(within(plan).getByRole("button", { name: "Download 500 MB" }));
+    expect(await within(plan).findByText("offline")).toBeInTheDocument();
   });
 
   it("uses a model that fits and reindexes, a reranker keeps the embedding", async () => {
@@ -607,11 +618,18 @@ describe("Settings › Models › the catalog", () => {
     openCatalog();
     expect(await waitFor(() => within(rowOf("M emb-s")).getByRole("button", { name: "In use" }))).toBeDisabled();
     fireEvent.click(within(rowOf("M rr")).getByRole("button", { name: "Use" }));
+    let plan = await screen.findByRole("alertdialog", { name: "Use M rr for this project?" });
+    expect(plan).toHaveTextContent("indexed again with it");
+    expect(inputs("models.use")).toEqual([{ reranker: "rr", dryRun: true }]);
+    fireEvent.click(within(plan).getByRole("button", { name: "Use M rr" }));
     expect(await screen.findByText("M rr in use for this project")).toBeInTheDocument();
     expect(inputs("models.use")).toEqual([{ reranker: "rr", dryRun: true }, { reranker: "rr" }]);
     expect(await screen.findByRole("status", { name: "Indexing the documents" })).toBeInTheDocument();
     reindex = false;
     fireEvent.click(within(rowOf("M emb-b")).getByRole("button", { name: "Use" }));
+    plan = await screen.findByRole("alertdialog", { name: "Use M emb-b for this project?" });
+    expect(plan).toHaveTextContent("Noindex to rebuild");
+    fireEvent.click(within(plan).getByRole("button", { name: "Use M emb-b" }));
     await waitFor(() => expect(inputs("models.use")[3]).toEqual({ embedding: "emb-b" }));
   });
 
@@ -632,7 +650,9 @@ describe("Settings › Models › the catalog", () => {
       throw new Fail("no");
     };
     fireEvent.click(within(rowOf("M emb-b")).getByRole("button", { name: "Use" }));
-    expect(await screen.findByText("Could not use M emb-b")).toBeInTheDocument();
+    const plan = await screen.findByRole("alertdialog", { name: "Use M emb-b for this project?" });
+    fireEvent.click(within(plan).getByRole("button", { name: "Use M emb-b" }));
+    expect(await within(plan).findByText("no")).toBeInTheDocument();
     expect(inputs("models.use").at(-1)).toEqual({ embedding: "emb-b" });
   });
 
@@ -675,6 +695,8 @@ describe("Settings › Models › the catalog", () => {
     expect(ask).toHaveTextContent(/runs partly on the CPU/);
     expect(within(ask).getByText("Lighter choice: M small.")).toBeInTheDocument();
     fireEvent.click(within(ask).getByRole("button", { name: "Choose a lighter one" }));
+    const download = await screen.findByRole("alertdialog", { name: "Download M small?" });
+    fireEvent.click(within(download).getByRole("button", { name: "Download 1000 MB" }));
     await waitFor(() => expect(inputs("models.pull")[0]).toEqual({ model: "small" }));
     expect(await screen.findByRole("status", { name: "Downloading M small" })).toBeInTheDocument();
     for (const k of [...jobs.keys()]) await srv.end(k, "done");
@@ -683,6 +705,8 @@ describe("Settings › Models › the catalog", () => {
     ask = await screen.findByRole("dialog", { name: "Use M tiny-bad anyway?" });
     expect(within(ask).getByRole("button", { name: "Choose a lighter one" })).toBeDisabled();
     fireEvent.click(within(ask).getByRole("button", { name: "Use anyway" }));
+    const plan = await screen.findByRole("alertdialog", { name: "Use M tiny-bad for this project?" });
+    fireEvent.click(within(plan).getByRole("button", { name: "Use M tiny-bad" }));
     expect(await screen.findByText("M tiny-bad in use for this project")).toBeInTheDocument();
     expect(inputs("models.use").filter((c) => !c.dryRun)).toEqual([{ embedding: "tiny-bad" }]);
   });
@@ -727,19 +751,22 @@ describe("Settings › Models › the catalog", () => {
     expect(within(dlg).getByText("Its files (2.0 GB) are deleted from D:\\models\\dl.")).toBeInTheDocument();
     fireEvent.click(within(dlg).getByRole("button", { name: "Cancel" }));
     fireEvent.click(within(rowOf("M dl")).getByRole("button", { name: "Remove" }));
-    fireEvent.click(screen.getByRole("button", { name: "Delete it" }));
+    dlg = screen.getByRole("alertdialog", { name: "Remove M dl?" });
+    expect(iconsIn(within(dlg).getByRole("button", { name: "Remove" }))).toEqual(["trash"]);
+    fireEvent.click(within(dlg).getByRole("button", { name: "Remove" }));
     expect(await screen.findByText("2.0 GB freed")).toBeInTheDocument();
     expect(inputs("models.remove")).toEqual([{ model: "dl" }]);
     fireEvent.click(within(rowOf("M fold")).getByRole("button", { name: "Remove" }));
     dlg = screen.getByRole("alertdialog", { name: "Remove M fold?" });
     expect(within(dlg).getByText(/the folder \\\\share\\fold stays on disk/)).toBeInTheDocument();
     removed = { removed: "registration", freedMB: 0 };
-    fireEvent.click(within(dlg).getByRole("button", { name: "Forget it" }));
+    fireEvent.click(within(dlg).getByRole("button", { name: "Remove" }));
     expect(await screen.findByText("Its folder stays on disk")).toBeInTheDocument();
     removed = new Fail("locked");
     fireEvent.click(await waitFor(() => within(rowOf("M fold")).getByRole("button", { name: "Remove" })));
-    fireEvent.click(screen.getByRole("button", { name: "Forget it" }));
-    expect(await screen.findByText("Could not remove M fold")).toBeInTheDocument();
+    dlg = screen.getByRole("alertdialog", { name: "Remove M fold?" });
+    fireEvent.click(within(dlg).getByRole("button", { name: "Remove" }));
+    expect(await within(dlg).findByText("locked")).toBeInTheDocument();
   });
 
   it("adds a model from a folder and reads the catalog again", async () => {
@@ -785,7 +812,7 @@ describe("Settings › Models › advice and the folder", () => {
     expect(inputs("models.dismissAdvice").at(-1)).toEqual({ id: "a1" });
   });
 
-  it("advice for a missing pack does nothing; a model advice reindexes or fails", async () => {
+  it("advice for a missing pack does nothing; a model advice is checked, planned, then reindexes or fails", async () => {
     base({
       advice: [
         { id: "x", direction: "upgrade", from: { pack: "light" }, to: { pack: "quality" }, reason: "r", quality: "q" },
@@ -809,32 +836,33 @@ describe("Settings › Models › advice and the folder", () => {
         },
       ],
     });
-    net.routes["models.use"] = () => {
+    net.routes["models.use"] = (i) => {
+      if (i.dryRun) return { fit: fitOf("fits"), reindex: true, indexJob: null, lighter: null };
       n++;
       if (n === 2) throw new Fail("nope");
-      return {
-        fit: fitOf("fits"),
-        reindex: n === 1,
-        indexJob: n === 1 ? srv.start({ kind: "rag-index" }) : null,
-        lighter: null,
-      };
+      return { fit: fitOf("fits"), reindex: true, indexJob: srv.start({ kind: "rag-index" }), lighter: null };
     };
     mountSettings(<ModelsSection />);
     fireEvent.click(await screen.findByRole("button", { name: "Apply" }));
-    expect(await screen.findByText("Advice applied")).toBeInTheDocument();
+    let plan = await screen.findByRole("alertdialog", { name: "Use e2 for this project?" });
+    expect(inputs("models.use")).toEqual([{ embedding: "e2", reranker: null, dryRun: true }]);
+    fireEvent.click(within(plan).getByRole("button", { name: "Use e2" }));
+    expect(await screen.findByText("e2 in use for this project")).toBeInTheDocument();
     expect(screen.getByText("Indexing again")).toBeInTheDocument();
-    expect(inputs("models.use")[0]).toEqual({ embedding: "e2", reranker: null });
+    expect(inputs("models.use")[1]).toEqual({ embedding: "e2", reranker: null });
     expect(await screen.findByRole("status", { name: "Indexing the documents" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Apply" }));
-    expect(await screen.findByText("Could not apply the advice")).toBeInTheDocument();
+    plan = await screen.findByRole("alertdialog", { name: "Use e2 for this project?" });
+    fireEvent.click(within(plan).getByRole("button", { name: "Use e2" }));
+    expect(await within(plan).findByText("nope")).toBeInTheDocument();
   });
 
-  it("Custom is in use when no pack is: Choose models opens the catalog; the folder can be changed", async () => {
+  it("Custom is in use when no pack is: Open the catalog opens it; the folder can be changed", async () => {
     base({ packs: [pack("light")], status: { embedding: "emb-s", reranker: null, activation: "machine" } });
     mountSettings(<ModelsSection />);
     const custom = await screen.findByRole("article", { name: "Custom pack" });
     await waitFor(() => expect(within(custom).getByText("In use")).toBeInTheDocument());
-    fireEvent.click(within(custom).getByRole("button", { name: "Choose models" }));
+    fireEvent.click(within(custom).getByRole("button", { name: "Open the catalog" }));
     expect(screen.getByRole("button", { name: "Model catalog" })).toHaveAttribute("aria-expanded", "true");
     expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Change…" }));
@@ -868,7 +896,7 @@ describe("Settings › Models › measuring a pack", () => {
       within(dialog()).getByText("Closing this window does not stop the measure: it goes on in Jobs."),
     ).toBeInTheDocument();
     const ev = [...jobs.keys()].find((k) => k.startsWith("models-measure")) as string;
-    await waitFor(() => expect(within(dialog()).getByRole("button", { name: "Cancel the measure" })).toBeEnabled());
+    await waitFor(() => expect(within(dialog()).getByRole("button", { name: "Cancel" })).toBeEnabled());
     await emit({ jobId: ev, at: "", type: "progress", message: "Behavior 2", done: 2, total: 4 });
     expect(await within(dialog()).findByText("Measuring · 50 %")).toBeInTheDocument();
     expect(within(dialog()).getByText("Behavior 2")).toBeInTheDocument();
@@ -880,7 +908,7 @@ describe("Settings › Models › measuring a pack", () => {
     fireEvent.click(measureOf("Light"));
     expect(dialog()).toBeInTheDocument();
     expect(calls("models.measure")).toHaveLength(1);
-    fireEvent.click(within(dialog()).getByRole("button", { name: "Cancel the measure" }));
+    fireEvent.click(within(dialog()).getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(inputs("jobs.cancel")).toEqual([{ id: ev }]));
     await srv.end(ev, "cancelled");
     expect(await within(dialog()).findByText("The measure was cancelled; no result was written.")).toBeInTheDocument();
@@ -910,7 +938,7 @@ describe("Settings › Models › measuring a pack", () => {
     fireEvent.click(within(dialog()).getByRole("button", { name: "Measure again" }));
     await waitFor(() => expect(calls("models.measure")).toHaveLength(2));
     expect(within(dialog()).getByRole("status", { name: "Measuring" })).toBeInTheDocument();
-    await waitFor(() => expect(within(dialog()).getByRole("button", { name: "Cancel the measure" })).toBeEnabled());
+    await waitFor(() => expect(within(dialog()).getByRole("button", { name: "Cancel" })).toBeEnabled());
     fireEvent.click(close());
     const ev2 = [...jobs.keys()].filter((k) => k.startsWith("models-measure"))[1];
     await srv.end(ev2, "done", { result: {} });
@@ -930,7 +958,7 @@ describe("Settings › Models › measuring a pack", () => {
     net.routes["models.measure"] = (i) => ({ jobId: srv.start({ kind: "models-measure", subject: String(i.pack) }) });
     fireEvent.click(within(dialog()).getByRole("button", { name: "Measure again" }));
     await waitFor(() => expect(calls("models.measure")).toHaveLength(2));
-    await waitFor(() => expect(within(dialog()).getByRole("button", { name: "Cancel the measure" })).toBeEnabled());
+    await waitFor(() => expect(within(dialog()).getByRole("button", { name: "Cancel" })).toBeEnabled());
     fireEvent.click(close());
     const ev = [...jobs.keys()].find((k) => k.startsWith("models-measure")) as string;
     await srv.end(ev, "failed", { error: "disk full" });

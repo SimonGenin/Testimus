@@ -170,6 +170,21 @@ const local1398 = ref({
   synced: true,
 });
 
+// the file behind a row: the delete reads it again to know what it would lose
+const fileOf = (summary: string) => ({
+  key: "LFRPS12-1398",
+  project: "LFRPS12",
+  summary,
+  folder: "/Traction",
+  labels: [],
+  description: "",
+  covers: [],
+  preconditions: [],
+  review: "draft",
+  steps: [{ fields: { Action: "Ouvrir" }, sources: [], images: [] }],
+  extra: {},
+});
+
 function list(props: Partial<Parameters<typeof TestList>[0]> = {}) {
   const refs = props.refs ?? [local1398];
   return render(
@@ -239,17 +254,18 @@ describe("Tests sidebar › tabs and tree", () => {
     routes["xray.search"] = () => ({ tests: [], total: 0 });
     routes["tests.create"] = () => ({ id: "local-new" });
     list({ activeId: "LFRPS12-1398" });
-    fireEvent.click(screen.getByRole("button", { name: "New test" }));
+    const create = () => screen.getAllByRole("button", { name: "New test" })[0];
+    fireEvent.click(create());
     await waitFor(() => expect(named("tests.create")[0]?.input.folder).toBe("/Traction"));
     toJira();
     fireEvent.click(await folder(/^Freinage/));
-    fireEvent.click(screen.getByRole("button", { name: "New test" }));
+    fireEvent.click(create());
     await waitFor(() => expect(named("tests.create")[1]?.input.folder).toBe("/Freinage"));
     search("frein");
-    fireEvent.click(screen.getByRole("button", { name: "New test" }));
+    fireEvent.click(create());
     await waitFor(() => expect(named("tests.create")[2]?.input.folder).toBe("/Freinage"));
     jira("frein");
-    fireEvent.click(screen.getByRole("button", { name: "New test" }));
+    fireEvent.click(create());
     await waitFor(() => expect(named("tests.create")[3]?.input.folder).toBe("/Traction"));
   });
 });
@@ -347,7 +363,7 @@ describe("Tests sidebar › the folder list", () => {
     expect(await screen.findByText("No tests in this folder")).toBeInTheDocument();
     expect(screen.getByText("/Vide is empty. Pick another folder, or create a test locally.")).toBeInTheDocument();
     expect(named("xray.search").some((c) => c.input.folder === "/Vide")).toBe(false);
-    fireEvent.click(screen.getByRole("button", { name: "New local test" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "New test" }).at(-1) as HTMLElement);
     await waitFor(() => expect(named("tests.create")[0]?.input.folder).toBe("/Vide"));
   });
 });
@@ -442,6 +458,7 @@ describe("Tests sidebar › search", () => {
 describe("Tests sidebar › local rows", () => {
   it("deletes a pushed, unchanged copy at once and says so", async () => {
     routes["tests.remove"] = () => ({ removed: true });
+    routes["tests.show"] = () => ({ test: fileOf("Disjoncteur ouvert"), remote: fileOf("Disjoncteur ouvert") });
     const onDeleted = vi.fn();
     list({ onDeleted });
     fireEvent.click(rowAction(await folder(/^Disjoncteur ouvert/), "Delete the local copy of LFRPS12-1398"));
@@ -452,10 +469,11 @@ describe("Tests sidebar › local rows", () => {
 
   it("asks first for the only copy or unpushed changes", async () => {
     routes["tests.remove"] = () => ({ removed: true });
+    routes["tests.show"] = () => ({ test: { ...fileOf("Brouillon"), key: undefined }, remote: null });
     const onDeleted = vi.fn();
     list({ refs: [ref({ id: "local-1", summary: "Brouillon" })], onDeleted });
     fireEvent.click(rowAction(await folder(/^Brouillon/), "Delete the local copy of Brouillon"));
-    const dialog = screen.getByRole("alertdialog", { name: "Delete the local copy?" });
+    const dialog = await screen.findByRole("alertdialog", { name: "Delete the local copy?" });
     expect(within(dialog).getByText(/never pushed, so this is the only copy/)).toBeInTheDocument();
     expect(named("tests.remove")).toHaveLength(0);
     fireEvent.click(within(dialog).getByRole("button", { name: "Delete" }));

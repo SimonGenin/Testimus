@@ -29,18 +29,15 @@ test("Ask a document streams an answer whose source chips open the passage", asy
   await expect(dialog).toBeHidden();
 });
 
-test("the palette puts a question in the dock, on the open document", async ({ page }) => {
+test("the palette asks a question in the dock, on the open document", async ({ page }) => {
   await boot(page, "#/documents/SOSIE_211_D401-1_3");
   await page.keyboard.press("Control+k");
-  const palette = page.getByRole("dialog", { name: "Search everywhere" });
+  const palette = page.getByRole("dialog", { name: "Search everything" });
   await palette.getByRole("combobox", { name: "Search" }).fill("quel est le menu du sectionneur");
   await palette.getByRole("option", { name: /Ask Claude: “quel est le menu du sectionneur”/ }).click();
   const dock = page.getByRole("complementary", { name: "Claude" });
   await expect(dock.getByRole("radio", { name: "This document" })).toHaveAttribute("aria-checked", "true");
-  await expect(dock.getByRole("textbox", { name: "Ask about SOSIE_211_D401-1_3" })).toHaveValue(
-    "quel est le menu du sectionneur",
-  );
-  await dock.getByRole("button", { name: "Ask", exact: true }).click();
+  await expect(dock.getByText("quel est le menu du sectionneur")).toBeVisible();
   await expect(dock.getByText(/Le menu contextuel d'un sectionneur dépend de son type/)).toBeVisible();
 });
 
@@ -71,14 +68,14 @@ test("On this test: Claude changes a step, the editor marks it, Revert puts it b
   await expect(main.getByText(/Claude changed 1 step/)).toHaveCount(0);
 });
 
-test("Revert all from the editor banner undoes a run", async ({ page }) => {
+test("Revert from the editor banner undoes a run", async ({ page }) => {
   await openTest(page, "LFRPS12-1420");
   const dock = await openDock(page);
   await dock.getByRole("button", { name: "Rephrase in house style" }).click();
   await dock.getByRole("button", { name: "Send" }).click();
   const main = page.getByRole("main");
   await expect(main.getByText(/Claude changed 1 step/)).toBeVisible({ timeout: 20_000 });
-  await main.getByRole("button", { name: "Revert all" }).click();
+  await main.getByRole("button", { name: "Revert", exact: true }).click();
   await expect.poll(action1).toBe(ORIGINAL);
   await expect(main.getByText(/Claude changed 1 step/)).toHaveCount(0);
 });

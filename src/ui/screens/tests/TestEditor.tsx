@@ -19,12 +19,13 @@ import { usePref } from "../../lib/prefs.ts";
 import { takeJump } from "../../lib/search.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
-import { DeleteTest } from "./DeleteTest.tsx";
-import { DownloadConfirm, RestoreConfirm, UndoConfirm } from "./editor/Confirms.tsx";
+import { type DeleteTarget, DeleteTest } from "./DeleteTest.tsx";
+import { RestoreConfirm, UndoConfirm } from "./editor/Confirms.tsx";
 import { EditorBanners } from "./editor/EditorBanners.tsx";
 import { EditorBar } from "./editor/EditorBar.tsx";
 import { EditorColumn } from "./editor/EditorColumn.tsx";
 import { EditorLoading } from "./editor/EditorLoading.tsx";
+import { JiraChanged } from "./editor/JiraChanged.tsx";
 import { PreconditionList } from "./editor/PreconditionList.tsx";
 import { StepList } from "./editor/StepList.tsx";
 import { type RemoteCheck, SummaryCard } from "./editor/SummaryCard.tsx";
@@ -34,6 +35,7 @@ import { useEditorActions } from "./editor/useEditorActions.ts";
 import { useStepUids } from "./editor/useStepUids.ts";
 import { type TestShow, useTestDocument } from "./editor/useTestDocument.ts";
 import { Lightbox } from "./Lightbox.tsx";
+import { claudeLock } from "./lock.ts";
 import { PushDialog } from "./PushDialog.tsx";
 import type { StepLayout } from "./StepCard.tsx";
 
@@ -63,9 +65,8 @@ const styles = stylex.create({
 type Mark = "changed" | "added";
 type Run = { run: { runId: string; changedSteps: Record<string, number[]> }; before?: number };
 export type Dialog =
-  | { kind: "download" }
   | { kind: "undo" }
-  | { kind: "delete" }
+  | { kind: "delete"; target: DeleteTarget }
   | { kind: "restore"; base: Step; gone: Gone | null; n: number }
   | { kind: "contexts" };
 
@@ -95,9 +96,11 @@ export function TestEditor({
   const client = useQueryClient();
   const jiraKey = app.info?.project.jiraOffline ? "" : (app.info?.project.jiraProject ?? "");
   const xray = app.xray ?? DEFAULT_LAYOUT;
-  // ponytail: any Claude run locks the editor (Xray Editor) — a project run may write this test.md too
+  // ponytail: any Claude run locks the editor (Xray Editor) — a project run may write this test.md too; the reason says
+  // whose run it is
   const busy = !!app.claudeRunning;
   const busyHere = app.claudeRunning === testId;
+  const locked = claudeLock(app.claudeRunning, testId, true);
   const uids = useStepUids();
   const [marks, setMarks] = useState<{ runId: string; byUid: Map<number, Mark> } | null>(null);
   const docKey = JSON.stringify(key("tests.show", { id: testId }));
@@ -150,7 +153,6 @@ export function TestEditor({
   const [lb, setLb] = useState<{ images: StepImage[]; index: number; step: number; column?: string } | null>(null);
   const [pushing, setPushing] = useState(false);
   const [dialog, setDialog] = useState<Dialog | null>(null);
-  const [busyDl, setBusyDl] = useState(false);
   const [checkOverride, setCheckOverride] = useState<RemoteCheck>(null);
   const [foldersAsked, setFoldersAsked] = useState(false);
   const [lastEdited, setLastEdited] = useState<number | "head">(-1);
@@ -236,9 +238,10 @@ export function TestEditor({
     return () => genRef.current === g;
   };
 
+  // ponytail: the gestures are disabled with the reason while Claude runs; a run that started since is still refused
   const refuseWhileClaude = () => {
-    if (!busy) return false;
-    toast({ tone: "neutral", title: "Wait for Claude to finish", detail: "This test is being edited right now." });
+    if (!locked) return false;
+    toast({ tone: "neutral", title: "Wait for Claude to finish", detail: locked });
     return true;
   };
 
@@ -252,12 +255,17 @@ export function TestEditor({
     refuseWhileClaude,
     setMarks,
     setDialog,
-    setBusyDl,
     setCheckOverride,
     setPushing,
     onOpen,
+    onDeleted: () => {
+      setDialog(null);
+      app.testsChanged();
+      app.navigate("tests");
+    },
     current: () => idRef.current,
   });
+  const busyDl = actions.downloading;
 
   if (doc.error)
     return (
@@ -295,7 +303,13 @@ export function TestEditor({
   );
   // ponytail: nothing local to send — the test matches its last sync, even if Jira changed since (Xray Editor)
   const canPush = !(!!remote && !!test.key && !dirty);
-  const pushDisabled = pushReason({ busy, jiraOff: !jiraKey, pushing, canPush, unsaved: doc.doc.status });
+  const pushDisabled = pushReason({ busy: locked, jiraOff: !jiraKey, pushing, canPush, unsaved: doc.doc.status });
+  // ponytail: Compare shows what is yours — the first step that differs from the last sync, else the test's head
+  const compare = () => {
+    const first = diff?.marks.findIndex((m) => !!m) ?? -1;
+    if (first >= 0) showStep(first);
+    else document.querySelector('[aria-label="Test"]')?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+  };
   const markOf = (s: Step) => marks?.byUid.get(uids.uidOf(s));
   const marked = marks ? test.steps.flatMap((s, i) => (markOf(s) ? [{ i, added: markOf(s) === "added" }] : [])) : null;
   const update = (fn: (t: Test) => Test) => {
@@ -335,9 +349,9 @@ export function TestEditor({
         folders={folders}
         status={doc.doc.status}
         activity={busyDl ? "Refreshing from Jira…" : undefined}
-        claude={busy}
+        claude={locked}
         pushDisabled={pushDisabled}
-        menu={testMenu({ test, remote, dirty, busyDl, actions })}
+        menu={testMenu({ test, remote, dirty, busyDl, locked, actions })}
         onFolders={() => {
           setFoldersAsked(true);
           if (foldersQ.isError) void foldersQ.refetch();
@@ -353,22 +367,34 @@ export function TestEditor({
         onWidth={setWidth}
         inert={busy}
         top={
-          <EditorBanners
-            busy={busy}
-            busyHere={busyHere}
-            marked={marked}
-            conflict={doc.doc.status === "conflict"}
-            revertConflict={actions.revertConflict}
-            onShowChanges={() => {
-              const first = test.steps.findIndex((s) => markOf(s));
-              if (first >= 0) showStep(first);
-            }}
-            onRevert={() => void actions.revertClaude()}
-            onForceRevert={() => void actions.revertClaude(true)}
-            onKeepRevert={() => actions.setRevertConflict(null)}
-            onReloadDisk={() => doc.doc.takeDisk()}
-            onKeepMine={() => void doc.doc.keepMine()}
-          />
+          <>
+            {check === "remote-changed" && !onBack && test.key && (
+              <JiraChanged
+                replacing={busyDl}
+                locked={locked}
+                keepOff={pushDisabled}
+                onCompare={compare}
+                onReplace={actions.askDownload}
+                onKeepMine={() => void actions.askPush()}
+              />
+            )}
+            <EditorBanners
+              busy={busy}
+              busyHere={busyHere}
+              marked={marked}
+              conflict={doc.doc.status === "conflict"}
+              revertConflict={actions.revertConflict}
+              onShowChanges={() => {
+                const first = test.steps.findIndex((s) => markOf(s));
+                if (first >= 0) showStep(first);
+              }}
+              onRevert={() => void actions.revertClaude()}
+              onForceRevert={() => void actions.revertClaude(true)}
+              onKeepRevert={() => actions.setRevertConflict(null)}
+              onReloadDisk={() => doc.doc.takeDisk()}
+              onKeepMine={() => void doc.doc.keepMine()}
+            />
+          </>
         }
       >
         <SummaryCard
@@ -381,7 +407,7 @@ export function TestEditor({
           saveState={lastEdited === "head" ? fieldSave : undefined}
           details={details}
           onDetails={setDetails}
-          onRemote={() => void actions.askDownload()}
+          onOpenKey={(k) => void actions.openInJira(k)}
           update={update}
         >
           <TestDetails
@@ -479,6 +505,10 @@ export function TestEditor({
           review={test.review}
           onClose={actions.pushClosed}
           onDone={actions.pushDone}
+          onCompare={() => {
+            actions.pushClosed();
+            compare();
+          }}
         />
       )}
       {lb && lb.images.length > 0 && (
@@ -492,17 +522,7 @@ export function TestEditor({
           onClose={() => setLb(null)}
         />
       )}
-      {dialog?.kind === "download" && test.key && (
-        <DownloadConfirm
-          testKey={test.key}
-          synced={!!remote}
-          loss={remote ? lossOf(test, remote) : undefined}
-          modifiedSteps={diff?.marks.flatMap((m, i) => (m === "modified" ? [i + 1] : [])) ?? []}
-          busy={busyDl}
-          onConfirm={actions.download}
-          onClose={() => setDialog(null)}
-        />
-      )}
+      {actions.replaceDialog}
       {dialog?.kind === "undo" && remote && (
         <UndoConfirm loss={lossOf(test, remote)} onConfirm={actions.undoLocal} onClose={() => setDialog(null)} />
       )}
@@ -527,14 +547,7 @@ export function TestEditor({
       )}
       {dialog?.kind === "delete" && (
         <DeleteTest
-          target={{
-            id: testId,
-            key: test.key,
-            summary: test.summary,
-            synced: !!remote,
-            dirty,
-            loss: remote && dirty ? lossOf(test, remote) : undefined,
-          }}
+          target={dialog.target}
           onClose={() => setDialog(null)}
           onDeleted={() => {
             setDialog(null);

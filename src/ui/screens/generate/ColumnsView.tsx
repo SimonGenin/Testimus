@@ -49,7 +49,7 @@ export function ColumnsView({ columns, onEdit }: { columns: StepColumn[]; onEdit
           {columns.length} · {filled} filled by Claude
         </span>
         <span {...stylex.props(styles.grow)} />
-        <Button size="sm" variant="claude-quiet" icon="claude" label="Define the columns" onClick={onEdit} />
+        <Button size="sm" variant="quiet" icon="settings" label="Define the columns" onClick={onEdit} />
       </div>
       {fresh > 0 && (
         <Banner tone="warning" compact>

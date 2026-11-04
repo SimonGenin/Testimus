@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { pickRun, runChoice } from "../../helpers/run-choice.ts";
 import "@testing-library/jest-dom/vitest";
-import { act, cleanup, fireEvent, render as rtlRender, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render as rtlRender, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setProject } from "../../../../src/ui/api.ts";
 import {
@@ -266,7 +266,7 @@ describe("Claude dock: asking the documents", () => {
     fireEvent.keyDown(screen.getByRole("complementary", { name: "Claude" }), { key: "Escape" });
     fireEvent.keyDown(screen.getByRole("complementary", { name: "Claude" }), { key: "a" });
     await waitFor(() => expect(callsOf("jobs.cancel")).toHaveLength(2));
-    expect(await screen.findByText("Could not cancel the run")).toBeInTheDocument();
+    expect(await screen.findByText("Could not cancel the job")).toBeInTheDocument();
     act(() => FakeES.emit(status(job({ id: "c9", status: "cancelled" }))));
     expect(await screen.findByText("Cancelled.")).toBeInTheDocument();
   });
@@ -340,7 +340,7 @@ describe("Claude dock: connection", () => {
       i.refresh ? { installed: true, signedIn: true } : { installed: false, signedIn: null };
     const { state } = mount();
     expect(await screen.findByText("Claude isn't installed on this PC yet")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Open system check" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open the system check" }));
     expect(state.navigate).toHaveBeenCalledWith("doctor");
     fireEvent.click(screen.getByRole("button", { name: "Check again" }));
     await waitFor(() => expect(screen.queryByText(/isn't installed/)).toBeNull());
@@ -482,7 +482,7 @@ describe("Claude dock: on a test", () => {
     expect(order).toEqual(["flush", "revert"]);
   });
 
-  it("asks before reverting a test edited after the run, and reports other revert errors", async () => {
+  it("says in the run's card that the test was edited after the run, as the editor does, and reports other revert errors", async () => {
     net.routes["claude.run"] = () => ({ ok: true, summary: "ok", runId: "run-x", changedSteps: [1] });
     let forced = false;
     net.routes["claude.revert"] = (i) => {
@@ -504,12 +504,13 @@ describe("Claude dock: on a test", () => {
     mount({}, { focus: focus() });
     ask("Go");
     fireEvent.click(await screen.findByRole("button", { name: /Revert/ }));
-    const ask2 = await screen.findByRole("alertdialog", { name: "Revert anyway?" });
-    expect(ask2.querySelector('[data-icon="alert-circle"]')).not.toBeNull();
-    expect(ask2.querySelector('[data-icon="undo"]')).toBeNull();
-    expect(screen.getByRole("button", { name: "Revert anyway" }).querySelector("svg")).toBeNull();
-    expect(ask2).toHaveTextContent("The test changed after the Claude run");
-    fireEvent.click(screen.getByRole("button", { name: "Revert anyway" }));
+    const banner = (await screen.findByText("Edited after the Claude run")).closest('[role="alert"]') as HTMLElement;
+    expect(banner).toHaveTextContent("The test changed after the Claude run");
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    fireEvent.click(within(banner).getByRole("button", { name: "Keep the test as it is" }));
+    expect(screen.queryByText("Edited after the Claude run")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /^Revert$/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Revert anyway" }));
     await waitFor(() => expect(forced).toBe(true));
     expect(await screen.findByText("0 tests restored.")).toBeInTheDocument();
     vi.stubGlobal("fetch", served);
@@ -655,5 +656,42 @@ describe("Claude dock: requests from the app", () => {
     };
     update({ request: jobReq(3) });
     expect(await screen.findByText("no such test")).toBeInTheDocument();
+  });
+});
+
+describe("Claude dock: one with the rest of the app", () => {
+  it("asks the palette's question at once, about the open document", async () => {
+    net.routes["chat.ask"] = () => ({ chatId: "c", ok: true, answer: "Le menu dépend du type." });
+    mount({ request: { mode: "docs", prompt: "Quel menu ?", send: true, nonce: 1 } }, onDoc);
+    await waitFor(() => expect(callsOf("chat.ask")).toHaveLength(1));
+    expect(callsOf("chat.ask")[0].input).toMatchObject({
+      question: "Quel menu ?",
+      note: "The question is about the document D: answer from docs/D/doc.md first.",
+    });
+    expect(await screen.findByText("Le menu dépend du type.")).toBeInTheDocument();
+  });
+
+  it("waits while Claude runs elsewhere: the box says so, and the palette's question is only put in it", async () => {
+    const { update } = mount({}, { ...onDoc, claudeRunning: "*project*" });
+    expect(screen.getAllByText("Claude is working on another run — wait for it to finish").length).toBeGreaterThan(0);
+    update({ request: { mode: "docs", prompt: "Quel menu ?", send: true, nonce: 2 } });
+    await waitFor(() => expect(box()).toHaveValue("Quel menu ?"));
+    expect(callsOf("chat.ask")).toHaveLength(0);
+  });
+
+  it("a run reverted from the editor or Review shows reverted in its card, and Claude hears of it next time", async () => {
+    net.routes["claude.run"] = () => ({ ok: true, summary: "ok", runId: "run-r", changedSteps: [1] });
+    const { update } = mount({}, { focus: focus() });
+    ask("Go");
+    expect(await screen.findByRole("button", { name: /^Revert$/ })).toBeInTheDocument();
+    update(
+      {},
+      { lastRun: { runId: "", reverted: "run-r", changedTests: ["local-1"], changedSteps: {}, nonce: Date.now() } },
+    );
+    expect(await screen.findByText("Reverted")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Revert$/ })).toBeNull();
+    ask("Again");
+    await waitFor(() => expect(callsOf("claude.run")).toHaveLength(2));
+    expect(callsOf("claude.run")[1].input.conversation).toContain("(the user reverted these changes)");
   });
 });

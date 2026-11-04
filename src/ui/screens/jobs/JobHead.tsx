@@ -61,7 +61,7 @@ export function JobHead({
           {subject && <span {...stylex.props(type.compact, styles.subject)}>{subject}</span>}
         </div>
         {running ? (
-          <Button icon="stop" label="Cancel" onClick={onCancel} />
+          <Button variant="quiet" icon="stop" label="Cancel" onClick={onCancel} />
         ) : (
           onAgain && <Button icon="refresh" label="Run again" onClick={onAgain} />
         )}

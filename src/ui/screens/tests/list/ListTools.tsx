@@ -31,6 +31,7 @@ export function ListTools({
   newFolder,
   canClone,
   pullBusy,
+  pullLock = false,
   canReveal,
   reveal,
   noProject = false,
@@ -49,8 +50,11 @@ export function ListTools({
   filter: string;
   /** where New test puts the test: the Jira folder picked, else the open test's folder */
   newFolder: string;
-  canClone: boolean;
+  /** false when Clone can go, else why not (no test open, Claude on it) */
+  canClone: false | string;
   pullBusy: boolean;
+  /** Claude's lock on the open test: Pull waits */
+  pullLock?: false | string;
   canReveal: boolean;
   /** the desktop window is there to reveal a file */
   reveal: boolean;
@@ -98,7 +102,7 @@ export function ListTools({
         {noProject ? (
           <Button size="sm" icon="plus" label="New test" disabled="Open a project first" onClick={onNew} />
         ) : (
-          <Tooltip label={`New local test in ${newFolder}`}>
+          <Tooltip label={`New test in ${newFolder}`}>
             <Button size="sm" icon="plus" label="New test" onClick={onNew} />
           </Tooltip>
         )}
@@ -108,7 +112,7 @@ export function ListTools({
           iconOnly
           icon="copy"
           label="Clone"
-          disabled={noProject ? "Open a project first" : canClone ? false : "Open a test to clone it"}
+          disabled={noProject ? "Open a project first" : canClone}
           onClick={onClone}
         />
         {jira && (
@@ -118,7 +122,7 @@ export function ListTools({
             iconOnly
             icon="download"
             label="Pull"
-            disabled={jiraOff ? "Connect the project to Jira first" : pullBusy}
+            disabled={jiraOff ? "Connect the project to Jira first" : pullLock || pullBusy}
             onClick={onPull}
           />
         )}

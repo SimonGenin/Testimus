@@ -1,4 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
+import { NoProject } from "../../components/shell/NoProject.tsx";
 import { Card } from "../../components/ui/Card.tsx";
 import { useApp } from "../../lib/app.ts";
 import { border, color, space } from "../../styles/tokens.stylex.ts";
@@ -48,6 +49,11 @@ export function ClaudeSection() {
           </div>
         </Card>
       </Anchor>
+      {!app.info && (
+        <Card padded={false}>
+          <NoProject text="The Claude dock, the quick asks and the default contexts are a project's: open one to set them." />
+        </Card>
+      )}
       {claude && (
         <>
           <Anchor id="claude-dock">

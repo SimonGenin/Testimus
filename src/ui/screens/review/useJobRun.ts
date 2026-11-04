@@ -4,7 +4,7 @@ import type { CommandInput, CommandName } from "../../../core/commands/index.ts"
 import type { Job } from "../../../core/types.ts";
 import { execute, useRead } from "../../lib/data/query.ts";
 
-type Ends = { done?: () => void; failed?: (error: string) => void };
+type Ends = { started?: (jobId: string) => void; done?: () => void; failed?: (error: string) => void };
 
 const jobOf = (r: unknown) =>
   r && typeof r === "object" && typeof (r as { jobId?: unknown }).jobId === "string"
@@ -34,8 +34,10 @@ export function useJobRun<N extends CommandName>(name: N) {
     try {
       const out = await execute(client, name, input, { invalidates: "none" });
       const id = jobOf(out);
-      if (id) setJobId(id);
-      else on.done?.();
+      if (id) {
+        setJobId(id);
+        on.started?.(id);
+      } else on.done?.();
     } catch (e) {
       on.failed?.(e instanceof Error ? e.message : String(e));
     } finally {

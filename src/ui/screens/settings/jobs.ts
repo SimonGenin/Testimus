@@ -38,10 +38,17 @@ export function useJob(
   };
 }
 
+// ponytail: the job of this kind still running in the open project (jobs.list, kept live by the event bridge) — a
+// card that remounts, or a page reloaded, finds its run again
+export function useRunning(kind: string, enabled = true): Job | undefined {
+  const running = useRead("jobs.list", { running: true }, { enabled });
+  return enabled ? running.data?.find((j) => j.kind === kind && j.status === "running") : undefined;
+}
+
 export function useCancel() {
   const client = useQueryClient();
   return (jobId: string) =>
     void execute(client, "jobs.cancel", { id: jobId }, { invalidates: [["jobs.show", { id: jobId }]] }).catch((e) =>
-      errorToast(e, "Could not cancel"),
+      errorToast(e, "Could not cancel the job"),
     );
 }

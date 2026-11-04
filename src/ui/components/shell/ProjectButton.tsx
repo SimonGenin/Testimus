@@ -1,5 +1,5 @@
 import { type ReactElement, useEffect, useState } from "react";
-import { useApp } from "../../lib/app.ts";
+import { type AppState, useApp } from "../../lib/app.ts";
 import { project, setProject } from "../../lib/data/client.ts";
 import { useCommand, useRead } from "../../lib/data/query.ts";
 import { baseName, desktop, pickFolder, reveal, showProject } from "../../lib/desktop.ts";
@@ -18,13 +18,28 @@ const asKnown = (v: unknown): Known[] =>
     typeof p === "string" ? [{ dir: p }] : p && typeof p === "object" && "dir" in p ? [p as Known] : [],
   );
 
+// ponytail: « Open a folder… » — the desktop's folder picker, then that folder becomes the open project (the rail and
+// the palette both); in a browser there is no picker, so First launch › Project asks for the folder
+export function useOpenFolder(app: Pick<AppState, "navigate" | "refreshInfo" | "testsChanged">): () => Promise<void> {
+  const open = useCommand("project.open", { invalidates: [["project.list"]] });
+  return async () => {
+    if (!desktop()) return app.navigate("setup", "project");
+    const dir = await pickFolder("Open a project folder");
+    if (!dir) return;
+    await open
+      .mutateAsync({ dir })
+      .then((r) => showProject(app, r.dir))
+      .catch((e) => errorToast(e, "Could not open the project"));
+  };
+}
+
 // ponytail: the project at the top of the rail — its initials and Jira key; its menu switches to a known project,
 // opens a folder (desktop) or a Jira key, starts a new one, shows the folder in Explorer (desktop)
 export function ProjectButton() {
   const app = useApp();
   const [byKey, setByKey] = useState(false);
   const list = useRead("project.list", {});
-  const open = useCommand("project.open", { invalidates: [["project.list"]] });
+  const browse = useOpenFolder(app);
   useEffect(() => {
     if (list.error) errorToast(list.error, "Could not list the projects");
   }, [list.error]);
@@ -33,14 +48,6 @@ export function ProjectButton() {
   const key = p?.jiraProject;
   const here = app.info?.dir ?? project();
   const known = asKnown(list.data);
-  const browse = async () => {
-    const dir = await pickFolder("Open a project folder");
-    if (!dir) return;
-    await open
-      .mutateAsync({ dir })
-      .then((r) => showProject(app, r.dir))
-      .catch((e) => errorToast(e, "Could not open the project"));
-  };
   const switchTo = (dir: string) => {
     setProject(dir);
     writePref("project", dir);

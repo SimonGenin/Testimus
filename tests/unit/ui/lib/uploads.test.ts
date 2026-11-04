@@ -124,9 +124,18 @@ describe("the rows are the project's jobs", () => {
       view(),
     );
     expect(rows).toEqual([
-      { key: "add", job: "add", name: "new.pdf", phase: "adding", pct: null, message: "Adding" },
-      { key: "cv", job: "convert", name: "SPEC", docId: "SPEC", phase: "converting", pct: null, message: "Converting" },
-      { key: "ix", job: "index", name: "All documents", phase: "indexing", pct: 25, message: "Embedding" },
+      { key: "add", jobId: "add", job: "add", name: "new.pdf", phase: "adding", pct: null, message: "Adding" },
+      {
+        key: "cv",
+        jobId: "cv",
+        job: "convert",
+        name: "SPEC",
+        docId: "SPEC",
+        phase: "converting",
+        pct: null,
+        message: "Converting",
+      },
+      { key: "ix", jobId: "ix", job: "index", name: "All documents", phase: "indexing", pct: 25, message: "Embedding" },
     ]);
   });
 

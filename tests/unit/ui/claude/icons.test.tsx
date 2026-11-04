@@ -2,15 +2,12 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { AskClaude } from "../../../../src/ui/components/claude/AskClaude.tsx";
 import { ContextPicker } from "../../../../src/ui/components/claude/ContextPicker.tsx";
 import { ContextsDialog } from "../../../../src/ui/components/claude/ContextsDialog.tsx";
 import { DockFolded } from "../../../../src/ui/components/claude/DockFolded.tsx";
 import { runBadges } from "../../../../src/ui/components/claude/turns.ts";
-import { AppContext } from "../../../../src/ui/lib/app.ts";
 import { setProject } from "../../../../src/ui/lib/data/client.ts";
 import { dataWrapper, fakeNet, net } from "../../helpers/ui-data.tsx";
-import { app } from "../../helpers/ui-desktop.tsx";
 
 beforeEach(() => {
   fakeNet();
@@ -53,16 +50,6 @@ describe("the dock's and the contexts' icons, as the design draws them", () => {
   it("the saved contexts of a run each lead with context", () => {
     render(<ContextPicker all={[ctx]} isOn={() => true} onToggle={() => {}} foot="" />);
     expect(iconOf(screen.getByText("Glossaire RATP"))).toBe("context");
-  });
-
-  it("Ask Claude's foot leads with info", () => {
-    render(
-      <AppContext.Provider value={app()}>
-        <AskClaude testId="local-1" step={2} />
-      </AppContext.Provider>,
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Ask Claude" }));
-    expect(iconOf(screen.getByText("Runs in the dock with this test's contexts"))).toBe("info");
   });
 
   it("the Contexts dialog: each context is a context; the copy names its project with folder and copies with copy", async () => {

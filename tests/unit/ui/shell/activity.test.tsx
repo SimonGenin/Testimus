@@ -95,10 +95,10 @@ describe("Activity", () => {
     expect(within(pop).getByText("Esc or a click outside closes this")).toBeInTheDocument();
     expect(within(list[2]).getByRole("progressbar")).not.toHaveAttribute("aria-valuenow");
     expect(list[0]).not.toHaveTextContent("Reading");
-    fireEvent.click(within(list[1]).getByRole("button", { name: "Cancel LFRPS12" }));
+    fireEvent.click(within(list[1]).getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(callsOf("jobs.cancel")[0].input).toEqual({ id: "a" }));
-    fireEvent.click(within(rows()[0]).getByRole("button", { name: "Cancel odd" }));
-    expect(await screen.findByText("Could not cancel")).toBeInTheDocument();
+    fireEvent.click(within(rows()[0]).getByRole("button", { name: "Cancel" }));
+    expect(await screen.findByText("Could not cancel the job")).toBeInTheDocument();
   });
 
   it("closes on Escape and when the last job ends", async () => {

@@ -13,7 +13,7 @@ test.describe("Claude not installed", () => {
     await expect(page.getByRole("main").getByRole("textbox", { name: "Summary" })).toBeEditable();
     await expect(page.getByRole("alert")).toHaveCount(0);
     await shoot(page, "dock-claude-absent");
-    await dock.getByRole("button", { name: "Open system check" }).click();
+    await dock.getByRole("button", { name: "Open the system check" }).click();
     await expect(page).toHaveURL(/#\/doctor$/);
   });
 });

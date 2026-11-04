@@ -4,7 +4,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SearchSection } from "../../../../src/ui/screens/settings/SearchSection.tsx";
 import { iconsIn } from "../../helpers/icons.ts";
-import { calls, Fail, fakeNet, info, inputs, mountSettings, net, reset } from "./helpers.tsx";
+import { calls, Fail, fakeJob, fakeNet, info, inputs, mountSettings, net, reset } from "./helpers.tsx";
 
 const status = (over: Record<string, unknown> = {}) => ({
   embedding: "qwen3-embedding-0.6b-onnx-q8",
@@ -93,7 +93,7 @@ describe("Settings › Search", () => {
         degraded: "No vectors for bge-m3-q8 yet: run rag index.",
         missing: ["qwen3-embedding-8b-q8"],
       });
-    mountSettings(<SearchSection />);
+    const { app } = mountSettings(<SearchSection />);
     expect(await screen.findByText(/Not set: the Light pack/)).toBeInTheDocument();
     expect(await screen.findByText("The Light pack (default)")).toBeInTheDocument();
     const degraded = screen.getByRole("alert");
@@ -102,6 +102,8 @@ describe("Settings › Search", () => {
     expect(within(degraded).getByRole("button", { name: "Reindex" })).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Reindex" })).toHaveLength(1);
     expect(screen.getByText("qwen3-embedding-8b-q8")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Models" }));
+    expect(app.navigate).toHaveBeenCalledWith("settings", "models");
     expect(screen.getByText("Words only")).toBeInTheDocument();
     expect(screen.getByText(/no vectors for the active model/)).toBeInTheDocument();
   });
@@ -172,7 +174,7 @@ describe("Settings › Search", () => {
     expect(await screen.findByText("ccc333ddd444 · 0.12 MB freed")).toBeInTheDocument();
   });
 
-  it("warns before dropping the active space and forces it; a cancel or a refusal drops nothing", async () => {
+  it("warns before dropping the active space and forces it; a cancel or a refusal drops nothing, said in the dialog", async () => {
     mountSettings(<SearchSection />);
     fireEvent.click(within(await row("aaa111bbb222")).getByRole("button", { name: "Drop space aaa111bbb222" }));
     let dlg = await screen.findByRole("alertdialog", { name: /Drop the Qwen3/ });
@@ -185,28 +187,55 @@ describe("Settings › Search", () => {
     fireEvent.click(screen.getByRole("button", { name: "Drop space aaa111bbb222" }));
     dlg = await screen.findByRole("alertdialog", { name: /Drop the Qwen3/ });
     fireEvent.click(within(dlg).getByRole("button", { name: "Drop 0.16 MB" }));
-    expect(await screen.findByText("Could not drop the vector space")).toBeInTheDocument();
+    expect(await within(dlg).findByText("Locked.")).toBeInTheDocument();
+    expect(screen.getByRole("alertdialog", { name: /Drop the Qwen3/ })).toBe(dlg);
     expect(inputs("rag.dropSpace")[0]).toEqual({ id: "aaa111bbb222", force: true });
   });
 
-  it("reindexes, showing the run, then reads the state again", async () => {
-    net.routes["rag.index"] = () => ({ jobId: "rag-index-00000001" });
-    net.routes["jobs.show"] = () => ({ job: { id: "rag-index-00000001", status: "running" } });
+  it("reindexes, showing the run with its progress and Cancel, then reads the state again", async () => {
+    const j = fakeJob({ id: "rag-index-00000001", kind: "rag-index" });
+    net.routes["rag.index"] = () => ({ jobId: j.id });
+    net.routes["jobs.cancel"] = () => ({ cancelled: true });
     mountSettings(<SearchSection />);
     fireEvent.click(await screen.findByRole("button", { name: "Reindex" }));
-    expect(await screen.findByText("Indexing…")).toBeInTheDocument();
+    const run = await screen.findByRole("status", { name: "Indexing the documents" });
     expect(screen.getByRole("button", { name: "Reindex" })).toBeDisabled();
+    await j.progress("Embedding", 1, 4);
+    expect(await within(run).findByText("Indexing the documents · 25 %")).toBeInTheDocument();
+    fireEvent.click(within(run).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(inputs("jobs.cancel")).toEqual([{ id: j.id }]));
     const before = calls("rag.status").length;
-    net.routes["jobs.show"] = () => ({ job: { id: "rag-index-00000001", status: "done", result: {} } });
-    await waitFor(() => expect(screen.queryByText("Indexing…")).toBeNull(), { timeout: 4000 });
+    await j.finish({ status: "done", result: {} });
+    await waitFor(() => expect(screen.queryByRole("status", { name: "Indexing the documents" })).toBeNull());
     await waitFor(() => expect(calls("rag.status").length).toBeGreaterThan(before));
+  });
+
+  it("a reindex that fails says so here, with the reason", async () => {
+    const j = fakeJob({ id: "rag-index-00000002", kind: "rag-index" });
+    net.routes["rag.index"] = () => ({ jobId: j.id });
+    mountSettings(<SearchSection />);
+    fireEvent.click(await screen.findByRole("button", { name: "Reindex" }));
+    await screen.findByRole("status", { name: "Indexing the documents" });
+    await j.finish({ status: "failed", error: "No space left" });
+    expect(await screen.findByText("Indexing the documents: stopped")).toBeInTheDocument();
+    expect(screen.getByText("No space left")).toBeInTheDocument();
+  });
+
+  it("a reindex already running when the page opens is shown", async () => {
+    net.routes["jobs.list"] = () => [
+      { id: "rag-index-00000003", kind: "rag-index", subject: "", status: "running", startedAt: "" },
+    ];
+    fakeJob({ id: "rag-index-00000003", kind: "rag-index" });
+    mountSettings(<SearchSection />);
+    expect(await screen.findByRole("status", { name: "Indexing the documents" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reindex" })).toBeDisabled();
   });
 
   it("shows an empty state without spaces and goes to Models", async () => {
     net.routes["rag.spaces"] = () => [];
     const { app } = mountSettings(<SearchSection />);
     expect(await screen.findByText(/None yet: the first index run/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Choose models…" }));
+    fireEvent.click(screen.getByRole("button", { name: "Go to Models" }));
     expect(app.navigate).toHaveBeenCalledWith("settings", "models");
   });
 });

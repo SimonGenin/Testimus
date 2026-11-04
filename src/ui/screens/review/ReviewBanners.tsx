@@ -6,6 +6,7 @@ import { Button } from "../../components/ui/Button.tsx";
 import { plural } from "../../lib/format.ts";
 import { space } from "../../styles/tokens.stylex.ts";
 import { useCancelClaudeRun } from "../tests/editor/EditorBanners.tsx";
+import { JiraChanged } from "../tests/editor/JiraChanged.tsx";
 
 export type Marks = { runId: string; steps: Set<number>; added: Set<number> };
 
@@ -20,6 +21,8 @@ const styles = stylex.create({
 
 export type BannersProps = {
   test: Test;
+  /** the test's folder id: « Cancel the run » stops the run on it */
+  testId?: string;
   sync: SyncState;
   checked: boolean;
   stale: boolean;
@@ -41,8 +44,8 @@ export type BannersProps = {
   onEditNote?: () => void;
 };
 
-function ClaudeFixing() {
-  const cancel = useCancelClaudeRun();
+function ClaudeFixing({ testId }: { testId?: string }) {
+  const cancel = useCancelClaudeRun(testId);
   return (
     <Banner tone="claude" icon="lock" title="Claude is fixing this test" actions={cancel}>
       Follow it in the Claude panel. It goes back through the check when Claude is done; Validate waits until then.
@@ -58,22 +61,15 @@ export function ReviewBanners(p: BannersProps) {
   return (
     <div {...stylex.props(styles.stack)}>
       {p.sync === "remote-changed" && (
-        <Banner
-          tone="warning"
-          title="Changed in Jira since your pull"
-          actions={
-            <>
-              <Button size="sm" label="Compare" onClick={p.onCompare} />
-              <Button size="sm" label="Take Jira's version" loading={p.pulling} onClick={p.onTakeJira} />
-              <Button size="sm" variant="quiet" label="Keep mine" onClick={p.onKeepMine} />
-            </>
-          }
-        >
-          Someone changed this test in Jira after your last pull. Choose which version to keep before you push: push is
-          refused until you choose — or until you push anyway and replace their change on purpose.
-        </Banner>
+        <JiraChanged
+          replacing={p.pulling}
+          locked={p.claudeRunning && "Claude is working on this test — wait for it to finish"}
+          onCompare={p.onCompare}
+          onReplace={p.onTakeJira}
+          onKeepMine={p.onKeepMine}
+        />
       )}
-      {p.claudeRunning && <ClaudeFixing />}
+      {p.claudeRunning && <ClaudeFixing testId={p.testId} />}
       {p.marks && !p.claudeRunning && (
         <Banner
           tone="claude"

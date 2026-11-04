@@ -48,47 +48,52 @@ function Confirm({
   );
 }
 
-export function DownloadConfirm({
+// ponytail: the one confirmation of replacing the local copy with Jira's version — the editor's Download, the list's
+// Pull and Review's choice all ask it, and only when something local would be lost
+export function ReplaceConfirm({
   testKey,
   synced,
   loss,
   modifiedSteps = [],
-  busy,
   onConfirm,
   onClose,
 }: {
   testKey: string;
   synced: boolean;
-  /** what the download throws away, against the last sync (none: the snapshot is missing) */
+  /** what the replacement throws away, against the last sync (none: the snapshot is missing) */
   loss?: Loss;
   /** the numbers of the modified steps */
   modifiedSteps?: number[];
-  busy: boolean;
-  onConfirm: () => void | Promise<void>;
+  onConfirm: () => Promise<void>;
   onClose: () => void;
 }) {
   const where = modifiedSteps.length ? ` (step${modifiedSteps.length > 1 ? "s" : ""} ${modifiedSteps.join(", ")})` : "";
   return (
     <Confirm
-      title="Download from Jira?"
-      verb="Overwrite local"
+      title={`Replace ${testKey} with Jira's version?`}
+      verb="Replace with Jira's version"
       danger
       icon="download"
-      busy={busy}
       consequences={
         synced && loss
-          ? [
-              [loss.modified, `${steps(loss.modified, "modified")} ${loss.modified === 1 ? "is" : "are"} lost${where}`],
-              [loss.added + loss.deleted, "added or deleted steps"],
-            ]
+          ? (
+              [
+                [
+                  loss.modified,
+                  `${steps(loss.modified, "modified")} ${loss.modified === 1 ? "is" : "are"} lost${where}`,
+                ],
+                [loss.added, `${steps(loss.added, "added")} ${loss.added === 1 ? "is" : "are"} lost`],
+                [loss.deleted, `${steps(loss.deleted, "deleted")} ${loss.deleted === 1 ? "comes" : "come"} back`],
+              ] as [number, string][]
+            ).filter(([n]) => n > 0)
           : undefined
       }
       onConfirm={onConfirm}
       onClose={onClose}
     >
       <p {...stylex.props(styles.text)}>
-        <span {...stylex.props(type.code)}>{testKey}</span> has local changes. Downloading replaces the local copy with
-        the version in Jira.
+        <span {...stylex.props(type.code)}>{testKey}</span> has local changes. The local copy is replaced with the
+        version in Jira.
       </p>
       <p {...stylex.props(styles.text)}>
         {synced

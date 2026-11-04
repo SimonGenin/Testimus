@@ -12,8 +12,17 @@ const styles = stylex.create({
   word: { color: color.text },
 });
 
-// ponytail: a job's progress where its subject is (a pack card, a catalog row, under the folder), with Cancel
-export function OpLine({ op, cancellable = true }: { op: Op; cancellable?: boolean }) {
+// ponytail: a job's progress where its subject is (a pack card, a catalog row, under the folder), with Cancel — the
+// icon alone where the room is short (a catalog row), its label then the tooltip
+export function OpLine({
+  op,
+  cancellable = true,
+  compact = false,
+}: {
+  op: Op;
+  cancellable?: boolean;
+  compact?: boolean;
+}) {
   const cancel = useCancel();
   const { live } = useJob(op.jobId);
   return (
@@ -30,8 +39,8 @@ export function OpLine({ op, cancellable = true }: { op: Op; cancellable?: boole
           size="xs"
           variant="quiet"
           icon="stop"
-          iconOnly
-          label={`Cancel: ${op.label}`}
+          iconOnly={compact}
+          label="Cancel"
           onClick={() => cancel(op.jobId)}
         />
       )}

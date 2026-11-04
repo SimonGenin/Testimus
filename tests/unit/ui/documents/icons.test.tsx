@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DocBadges as SourceBadges } from "../../../../src/ui/components/sources/PassageView.tsx";
@@ -78,7 +79,7 @@ describe("the Documents icons, as the design draws them", () => {
     expect(iconOf(screen.getByRole("menuitem", { name: "Show in Explorer" }))).toBe("folder-open");
   });
 
-  it("work under way: an index keeps the document's icon; a failure offers Open Jobs with jobs", () => {
+  it("work under way: an index keeps the document's icon; a failure offers Reindex and Open in Jobs", () => {
     const u = {
       key: "k",
       name: "Traction",
@@ -87,16 +88,20 @@ describe("the Documents icons, as the design draws them", () => {
       pct: null,
       message: "out of memory",
       docId: "D1",
+      jobId: "ix-1",
     };
     const { container } = render(<ListItem {...uploadItem(u)} />);
     expect(iconOf(container)).toBe("documents");
     cleanup();
     render(
-      <AppContext.Provider value={app()}>
-        <UploadFailure u={u} />
-      </AppContext.Provider>,
+      <QueryClientProvider client={new QueryClient()}>
+        <AppContext.Provider value={app()}>
+          <UploadFailure u={u} />
+        </AppContext.Provider>
+      </QueryClientProvider>,
     );
-    expect(iconOf(screen.getByRole("button", { name: "Open Jobs" }))).toBe("jobs");
+    expect(iconOf(screen.getByRole("button", { name: "Open in Jobs" }))).toBe("jobs");
+    expect(iconOf(screen.getByRole("button", { name: "Reindex" }))).toBe("refresh");
   });
 
   it("a figure without its image shows the image icon; a source's status badge has the status icon", () => {

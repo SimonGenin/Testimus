@@ -66,6 +66,7 @@ export function ContextsDialog({ onClose, initialId }: { onClose: () => void; in
   const list = useContexts();
   const [sel, setSel] = useState<string | undefined>(undefined);
   const [copying, setCopying] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const known = list?.some((c) => c.id === sel);
   const id = known ? sel : undefined;
   const detailRead = useRead("contexts.show", { id: id ?? "" }, { enabled: !!id });
@@ -100,10 +101,11 @@ export function ContextsDialog({ onClose, initialId }: { onClose: () => void; in
     discardAutosave(key("contexts.show", { id: detail.id }));
     try {
       await write("contexts.remove", { id: detail.id });
-      setSel(undefined);
     } catch (e) {
-      errorToast(e, "Could not delete the context");
+      throw new Error(`Could not delete the context: ${e instanceof Error ? e.message : String(e)}`);
     }
+    setDeleting(false);
+    setSel(undefined);
   };
 
   const name = (c: ContextSummary) => (c.id === id && words.value ? words.value.name || c.id : c.name || c.id);
@@ -128,11 +130,30 @@ export function ContextsDialog({ onClose, initialId }: { onClose: () => void; in
       }
       actions={
         <>
-          {detail && <Button variant="quiet" icon="trash" label="Delete context" onClick={() => void remove()} />}
+          {detail && <Button variant="quiet" icon="trash" label="Delete context…" onClick={() => setDeleting(true)} />}
           <Button label="Close" onClick={onClose} />
         </>
       }
     >
+      {deleting && detail && (
+        <Modal
+          title="Delete the context?"
+          size="sm"
+          confirm={{ verb: "Delete the context", danger: true, onConfirm: remove }}
+          consequences={[
+            [
+              "",
+              detail.shared
+                ? "It is shared: it is deleted for every project, not only this one."
+                : "It is deleted from this project.",
+            ],
+            ["", "The tests and project defaults that named it stop taking it. This cannot be undone."],
+          ]}
+          onClose={() => setDeleting(false)}
+        >
+          {`« ${detail.name || detail.id} » — its notes, files and paths.`}
+        </Modal>
+      )}
       <div {...stylex.props(styles.body)}>
         <div {...stylex.props(styles.side)}>
           <div {...stylex.props(styles.sideActs)}>

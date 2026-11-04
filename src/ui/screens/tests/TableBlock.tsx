@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
-import type { Block, StepImage, Table } from "../../../core/types.ts";
+import type { Block, Source, StepImage, Table } from "../../../core/types.ts";
 import { Button } from "../../components/ui/Button.tsx";
 import { type } from "../../components/ui/type.ts";
 import { addCol, addRow, dropCol, dropRow, width } from "../../lib/table.ts";
@@ -101,6 +101,7 @@ export function TableBlock({
   onDropBlock,
   onRemove,
   onOpen,
+  onOpenSource,
 }: {
   table: Table;
   text: string;
@@ -119,6 +120,7 @@ export function TableBlock({
   onDropBlock: (at: number, moved: Moved) => void;
   onRemove: (block: Block) => void;
   onOpen: (file: string) => void;
+  onOpenSource?: (s: Source) => void;
 }) {
   const cols = width(table);
   const last = table.rows.length - 1;
@@ -170,6 +172,7 @@ export function TableBlock({
                           onDropBlock={(at, moved) => onDropBlock(c.at + at, moved)}
                           onRemove={(b) => onRemove({ ...b, at: c.at + b.at, end: c.at + b.end })}
                           onOpen={onOpen}
+                          onOpenSource={onOpenSource}
                         />
                       )}
                       {room > 0 && (

@@ -143,18 +143,19 @@ export function GoneStep({
   onRestore?: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  // ponytail: the folded line of a step is its first column, whatever that column is called (as StepCard's)
+  const first = columnsOf(xray, step)[0]?.name;
   return (
     <GoneFrame
       head={
         <>
           <Badge {...DIFF.deleted} />
           <span data-testid="step-line" {...stylex.props(type.compact, styles.ghost)}>
-            {firstLine(step.fields.Action ?? "")}
+            {firstLine(step.fields[first ?? ""] ?? "")}
           </span>
           <span {...stylex.props(styles.grow)} />
-          <Button
-            variant="quiet"
-            size="sm"
+          <Badge
+            tone="warning"
             icon="history"
             label={open ? "Hide Jira version" : "Jira version"}
             pressed={open}

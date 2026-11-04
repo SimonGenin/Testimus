@@ -266,7 +266,7 @@ export function Modal({
     if (inline) return;
     const p = panel.current;
     if (p && !p.contains(document.activeElement)) {
-      const first = confirm ? (confirm.danger ? cancel.current : verb.current) : null;
+      const first = confirm ? (confirm.danger || verb.current?.disabled ? cancel.current : verb.current) : null;
       (first ?? p).focus();
     }
     return () => {

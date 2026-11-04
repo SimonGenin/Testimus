@@ -103,7 +103,7 @@ export function AdditionalContext({
           <Button
             size="sm"
             variant="quiet"
-            label="Save as context…"
+            label="Save the note as a context…"
             disabled={disabled ? true : !note.trim() ? "Write a note first" : false}
             onClick={() => setDialog("save")}
           />

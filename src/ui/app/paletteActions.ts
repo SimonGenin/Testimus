@@ -50,7 +50,7 @@ export function paletteActions(navigate: (s: Screen) => void, toggleDock: () => 
 }
 
 // ponytail: a command run from the palette says what was done in words (its summary), with the command and a short
-// look at its answer under it; a job says it started, with Open to follow it
+// look at its answer under it (a job it started says so with jobToast)
 const glance = (r: unknown): string => {
   if (Array.isArray(r)) return plural(r.length, "item");
   if (!r || typeof r !== "object") return r === undefined || r === null ? "" : String(r);
@@ -61,15 +61,7 @@ const glance = (r: unknown): string => {
     .join(" · ");
 };
 
-export function commandToast(c: CommandInfo, result: unknown, navigate: (s: Screen) => void): ToastInput {
+export function commandToast(c: CommandInfo, result: unknown): ToastInput {
   const what = firstSentence(c.summary) || c.name;
-  const jobId = (result as { jobId?: string } | null)?.jobId;
-  if (jobId)
-    return {
-      tone: "success",
-      title: `${what} — started`,
-      detail: `${c.name} · Follow it in Jobs.`,
-      action: { label: "Open", run: () => navigate("jobs") },
-    };
   return { tone: "success", title: `${what} — done`, detail: [c.name, glance(result)].filter(Boolean).join(" · ") };
 }

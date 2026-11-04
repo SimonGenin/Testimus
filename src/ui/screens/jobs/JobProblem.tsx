@@ -1,11 +1,11 @@
 import * as stylex from "@stylexjs/stylex";
 import type { Job, JobEvent } from "../../../core/types.ts";
+import { ProblemPlace, problemOf } from "../../components/shell/ProblemPanel.tsx";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Disclosure } from "../../components/ui/Disclosure.tsx";
 import { Raw } from "../../components/ui/Raw.tsx";
 import { type } from "../../components/ui/type.ts";
-import { useApp } from "../../lib/app.ts";
 import { failedStep, problemText } from "../../lib/jobs.ts";
 import { space } from "../../styles/tokens.stylex.ts";
 
@@ -30,8 +30,9 @@ export function JobProblem({
   onRetry?: () => void;
   onOpen(id: string): void;
 }) {
-  const app = useApp();
   const p = problemText(job, events);
+  const jira = job.kind === "pull" || job.kind === "push" ? "Jira " : "";
+  const access = problemOf(`${jira}${job.error ?? ""} ${job.fix ?? ""}`).access;
   const step = failedStep(job);
   const steps = job.steps ?? [];
   return (
@@ -64,7 +65,7 @@ export function JobProblem({
                 onClick={onRetry}
               />
             )}
-            <Button size="sm" label="Open the system check" onClick={() => app.navigate("doctor")} />
+            <ProblemPlace access={access} />
           </span>
           <Disclosure
             summary="Technical details"

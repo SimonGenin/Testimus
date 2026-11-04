@@ -27,7 +27,10 @@ export function useDock(screen: Screen) {
     [open],
   );
   const runInDock = useCallback((job: DockJob) => open({ mode: "test", job }), [open]);
-  const askDocs = useCallback((prompt: string) => open({ mode: "docs", prompt }), [open]);
+  const askDocs = useCallback(
+    (prompt?: string, send?: boolean) => open({ mode: "docs", prompt, ...(send ? { send } : {}) }),
+    [open],
+  );
 
   const last = useRef<Screen | null>(null);
   useEffect(() => {

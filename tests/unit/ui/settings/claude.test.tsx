@@ -2,6 +2,7 @@
 import "@testing-library/jest-dom/vitest";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { clearDrafts } from "../../../../src/ui/lib/data/autosave.ts";
 import { exeLine } from "../../../../src/ui/screens/settings/ClaudeProgram.tsx";
 import { ClaudeSection } from "../../../../src/ui/screens/settings/ClaudeSection.tsx";
 import { iconsIn } from "../../helpers/icons.ts";
@@ -91,7 +92,7 @@ describe("Settings › Claude › Connection", () => {
     fireEvent.keyDown(exe, { key: "Enter" });
     expect(await screen.findByText(/spawn failed · Claude is optional/)).toBeInTheDocument();
     expect(inputs("system.set")[0]).toEqual({ claudeExe: "D:/claude.cmd" });
-    fireEvent.click(screen.getByRole("button", { name: "Open system check" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open the system check" }));
     expect(app.navigate).toHaveBeenCalledWith("doctor");
     net.routes["claude.status"] = () => ({ installed: true, signedIn: true });
     fireEvent.click(screen.getByRole("button", { name: "Check again" }));
@@ -224,6 +225,7 @@ describe("Settings › Claude › agents at once", () => {
     expect(await screen.findByText("Measuring the PC at rest")).toBeInTheDocument();
     await j.progress("4 agents: CPU 60 %");
     expect(await screen.findByText("4 agents: CPU 60 %")).toBeInTheDocument();
+    expect(iconsIn(screen.getByRole("button", { name: "Cancel" }))).toEqual(["stop"]);
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(inputs("jobs.cancel")).toEqual([{ id: j.id }]));
     settings = { ...settings, agents: { max: 10, measured } };
@@ -256,6 +258,27 @@ describe("Settings › Claude › agents at once", () => {
   it("is off without a project", () => {
     mountSettings(<ClaudeSection />, { info: null });
     expect(screen.getByRole("button", { name: "Test this PC's limits" })).toBeDisabled();
+  });
+
+  it("finds a test still running when the section opens again, and cannot start a second one", async () => {
+    const j = fakeJob({ id: "agents-0000000c", kind: "agents-test" });
+    net.routes["system.testAgents"] = () => ({ jobId: j.id });
+    const first = mountSettings(<ClaudeSection />);
+    const test = await screen.findByRole("button", { name: "Test this PC's limits" });
+    await waitFor(() => expect(test).toBeEnabled());
+    fireEvent.click(test);
+    await screen.findByText("Measuring the PC at rest");
+    first.unmount();
+    const again = mountSettings(<ClaudeSection />);
+    expect(await screen.findByText("Measuring the PC at rest")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Testing…" })).toBeDisabled();
+    again.unmount();
+    clearDrafts();
+    net.routes["jobs.list"] = () => [{ id: j.id, kind: "agents-test", subject: "", status: "running", startedAt: "" }];
+    mountSettings(<ClaudeSection />);
+    expect(await screen.findByText("Measuring the PC at rest")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Testing…" })).toBeDisabled();
+    expect(calls("system.testAgents")).toHaveLength(1);
   });
 });
 
@@ -324,10 +347,16 @@ describe("Settings › Claude › dock defaults, quick asks, default contexts", 
         },
       }),
     );
+    expect(iconsIn(screen.getByRole("button", { name: "Remove quick ask 1" }))).toEqual(["trash"]);
     fireEvent.click(screen.getByRole("button", { name: "Remove quick ask 1" }));
+    const sure = await screen.findByRole("alertdialog", { name: "Remove the quick ask « Same »?" });
+    expect(sure).toHaveTextContent("Its prompt is lost");
+    expect(calls("project.set")).toHaveLength(2);
+    fireEvent.click(within(sure).getByRole("button", { name: "Remove" }));
     await waitFor(() =>
       expect(inputs("project.set")[2]).toEqual({ claude: { presets: [{ label: "Other", prompt: "two" }] } }),
     );
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
     fireEvent.click(screen.getByRole("button", { name: "Add a quick ask" }));
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     fireEvent.click(screen.getByRole("button", { name: "Add a quick ask" }));

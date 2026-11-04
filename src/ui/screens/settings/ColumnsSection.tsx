@@ -5,6 +5,7 @@ import type { CommandInput } from "../../../core/commands/index.ts";
 import type { ColumnMode, ColumnShow, StepColumn } from "../../../core/types.ts";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
+import { Modal } from "../../components/ui/Modal.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { type } from "../../components/ui/type.ts";
 import { useApp } from "../../lib/app.ts";
@@ -22,6 +23,7 @@ const styles = stylex.create({
   list: { display: "flex", flexDirection: "column", gap: space.s5, margin: 0, padding: 0, listStyle: "none" },
   dragging: { opacity: 0.5 },
   read: { color: color.textMuted },
+  plain: { margin: 0 },
 });
 
 const READS: Prefix[] = [["project.info"], ["columns.list"], ["tests.folds"]];
@@ -37,6 +39,7 @@ export function ColumnsSection() {
   const info = useInfo();
   const [drag, setDrag] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [removing, setRemoving] = useState<StepColumn | null>(null);
   const columns = info.data?.columns ?? [];
   const fields = info.data?.xray.fields ?? [];
   const order = columns.map((c) => c.name);
@@ -74,25 +77,25 @@ export function ColumnsSection() {
   };
 
   const saveReference = (column: string, referenceSource: boolean) =>
-    void execute(client, "columns.save", { name: column, referenceSource }, { invalidates: READS })
-      .then(() =>
-        toast({
-          tone: "success",
-          title: referenceSource ? `${column} links its items to their sources` : `${column} is plain text again`,
-        }),
-      )
-      .catch((e) => errorToast(e, "Could not save the column"));
+    void execute(
+      client,
+      "columns.save",
+      { name: column, referenceSource },
+      {
+        invalidates: READS,
+        optimistic: patchColumns((cols) => cols.map((c) => (c.name === column ? { ...c, referenceSource } : c))),
+      },
+    ).catch((e) => errorToast(e, "Could not save the column"));
 
-  const remove = (column: string) =>
-    void execute(client, "columns.remove", { name: column }, { invalidates: READS })
-      .then(() =>
-        toast({
-          tone: "success",
-          title: `Column ${column} removed`,
-          detail: "What the tests hold in it stays in test.md.",
-        }),
-      )
-      .catch((e) => errorToast(e, "Could not remove the column"));
+  const remove = async (column: string) => {
+    await execute(client, "columns.remove", { name: column }, { invalidates: READS });
+    setRemoving(null);
+    toast({
+      tone: "success",
+      title: `Column ${column} removed`,
+      detail: "What the tests hold in it stays in test.md.",
+    });
+  };
 
   const descriptionOf = (c: StepColumn) => {
     const saveKey: Key = [project(), "project.info", { column: c.name }];
@@ -158,8 +161,8 @@ export function ColumnsSection() {
             <Button
               size="sm"
               variant="quiet"
-              label="Open Project"
-              onClick={() => app.navigate("settings", "project")}
+              label="Set the Jira key"
+              onClick={() => app.navigate("settings", "project-jira")}
             />
           }
         >
@@ -219,7 +222,7 @@ export function ColumnsSection() {
                   }
                   onReferenceSource={(on) => saveReference(c.name, on)}
                   onMove={(by) => move(c.name, i + by)}
-                  onRemove={c.origin === "local" ? () => remove(c.name) : undefined}
+                  onRemove={c.origin === "local" ? () => setRemoving(c) : undefined}
                 />
               </li>
             );
@@ -227,6 +230,20 @@ export function ColumnsSection() {
         </ul>
       )}
       <NewColumn reads={READS} />
+      {removing && (
+        <Modal
+          size="sm"
+          title={`Remove the column ${removing.name}?`}
+          confirm={{ verb: "Remove", danger: true, onConfirm: () => remove(removing.name) }}
+          onClose={() => setRemoving(null)}
+        >
+          <p {...stylex.props(styles.plain)}>
+            {removing.description.trim()
+              ? "What Claude is told to write in it is lost. What the tests hold in it stays in test.md."
+              : "What the tests hold in it stays in test.md."}
+          </p>
+        </Modal>
+      )}
     </Section>
   );
 }

@@ -107,8 +107,10 @@ export type RunHeadProps = {
   allFolded?: boolean;
   onCancel: () => void;
   onReview: () => void;
+  /** the run's job in Jobs */
+  onOpenJob?: () => void;
   onResume?: () => void;
-  /** start the same generation again (a run that stopped before its plan) */
+  /** run the failed job again with the input it kept (jobs.rerun) */
   onRetry?: () => void;
   onFoldAll?: (folded: boolean) => void;
 };
@@ -159,6 +161,7 @@ export function RunHead({
   allFolded = false,
   onCancel,
   onReview,
+  onOpenJob,
   onResume,
   onRetry,
   onFoldAll,
@@ -179,7 +182,12 @@ export function RunHead({
           over={
             <>
               <Icon name="claude" size="sm" />
-              <span>Claude is writing</span>·<span {...stylex.props(type.code)}>{job.id}</span>
+              <span>Claude is writing</span>·
+              {onOpenJob ? (
+                <Button variant="link" label={job.id} onClick={onOpenJob} />
+              ) : (
+                <span {...stylex.props(type.code)}>{job.id}</span>
+              )}
             </>
           }
           title={count ? `${plural(count, "test")} so far` : doing}
@@ -188,7 +196,7 @@ export function RunHead({
             <>
               <Timer seconds={Math.round((now - Date.parse(job.startedAt)) / 1000)} />
               {foldAll}
-              <Button icon="stop" label="Cancel" onClick={onCancel} />
+              <Button variant="quiet" icon="stop" label="Cancel" onClick={onCancel} />
             </>
           }
         />
@@ -233,7 +241,7 @@ export function RunHead({
           actions={
             <>
               {resume("sm") ||
-                (onRetry && <Button variant="claude" size="sm" icon="refresh" label="Try again" onClick={onRetry} />)}
+                (onRetry && <Button variant="claude" size="sm" icon="refresh" label="Run again" onClick={onRetry} />)}
               {review("sm")}
             </>
           }
@@ -262,7 +270,16 @@ export function RunHead({
   );
 }
 
-export function GenSummary({ result, checked }: { result: GenOutput; checked: string }) {
+export function GenSummary({
+  result,
+  checked,
+  onOpenJob,
+}: {
+  result: GenOutput;
+  checked: string;
+  /** the run in Jobs, where its changes are reverted */
+  onOpenJob?: () => void;
+}) {
   const skipped = result.skipped ?? [];
   return (
     <div {...stylex.props(styles.body)}>
@@ -299,7 +316,13 @@ export function GenSummary({ result, checked }: { result: GenOutput; checked: st
         </section>
       )}
       {result.changed.length > 0 && (
-        <Banner tone="warning" compact>
+        <Banner
+          tone="warning"
+          compact
+          actions={
+            onOpenJob && <Button size="sm" variant="quiet" icon="jobs" label="Open in Jobs" onClick={onOpenJob} />
+          }
+        >
           Claude also changed {plural(result.changed.length, "existing test")}: {result.changed.join(", ")} — revert it
           from the Claude panel or Jobs.
         </Banner>

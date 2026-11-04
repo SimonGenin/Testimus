@@ -7,10 +7,12 @@ import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
 import { ResizeHandle } from "../../components/ui/ResizeHandle.tsx";
 import { useApp } from "../../lib/app.ts";
 import { discardAutosave } from "../../lib/data/autosave.ts";
-import { key, read, useCommand, useRead } from "../../lib/data/query.ts";
+import { execute, key, read, useCommand, useRead } from "../../lib/data/query.ts";
 import { usePaneWidth } from "../../lib/panes.ts";
 import { errorToast } from "../../lib/toast.ts";
+import { useReindex } from "../../lib/uploads.ts";
 import { border, breakpoint, color } from "../../styles/tokens.stylex.ts";
+import { useCancel } from "../settings/jobs.ts";
 import { ReplaceTests } from "./ReplaceTests.tsx";
 import { RequestForm } from "./RequestForm.tsx";
 import { ResultPane } from "./ResultPane.tsx";
@@ -18,7 +20,17 @@ import { useGenerateForm } from "./useGenerateForm.ts";
 import { useGeneration } from "./useGeneration.ts";
 
 const FORM = { min: 320, max: 720, initial: 576 };
-const INDEXING = new Set(["rag-index", "docs.add", "docs.convert"]);
+// ponytail: the document work Generate waits for, by what runs
+const WORK: Record<string, "index" | "convert" | "add"> = {
+  "rag-index": "index",
+  "docs.convert": "convert",
+  "docs.add": "add",
+};
+const WAIT: Record<"index" | "convert" | "add", string> = {
+  index: "Wait for the index to finish",
+  convert: "Wait for the conversion to finish",
+  add: "Wait for the documents to be added",
+};
 
 const styles = stylex.create({
   screen: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", backgroundColor: color.canvas },
@@ -52,15 +64,15 @@ export function GenerateScreen() {
   const form = useGenerateForm(info.data, docs ?? undefined);
   const gen = useGeneration();
   const jobs = useRead("jobs.list", {});
-  const indexJob = ((jobs.data ?? []) as Job[]).find((j) => j.status === "running" && INDEXING.has(j.kind));
-  const indexing = !!indexJob;
+  const indexJob = ((jobs.data ?? []) as Job[]).find((j) => j.status === "running" && WORK[j.kind]);
+  const reindex = useReindex();
+  const work = indexJob ? WORK[indexJob.kind] : reindex.indexing ? "index" : null;
   const scopeInput = { docs: form.scope.docs, sections: form.scope.sections };
   const preview = useRead("gen.preview", scopeInput, { enabled: !!docs });
   const [ask, setAsk] = useState<{ refresh?: boolean; signIn?: boolean }>({});
   const { read: claude, status: known } = useClaudeStatus(ask);
   const start = useCommand("gen.tests", { invalidates: [["jobs.list"]] });
-  const reindex = useCommand("rag.index", { invalidates: [["jobs.list"]] });
-  const cancel = useCommand("jobs.cancel", { invalidates: [["jobs.list"], ["jobs.show"]] });
+  const cancel = useCancel();
   const [replacing, setReplacing] = useState<string[] | null>(null);
   const [fresh, setFresh] = useState(0);
 
@@ -69,16 +81,19 @@ export function GenerateScreen() {
   const nameOf = (id: string) => docs?.find((d) => d.id === id)?.code || id;
   const missing = (preview.data?.unindexed ?? []).map(nameOf);
   const stale = (preview.data?.stale ?? []).map(nameOf);
+  const noneConverted = !!docs?.length && !docs.some((d) => d.converted?.at);
   const blocked = info.isPending
     ? "Reading the project…"
     : form.empty
       ? docs && !docs.length
         ? "Add a document first"
-        : "Say what to test, or pick a document"
+        : noneConverted
+          ? "Convert a document first"
+          : "Say what to test, or pick a document"
       : offline
         ? "Claude is not connected"
-        : indexing
-          ? "Wait for the index to finish"
+        : work
+          ? WAIT[work]
           : missing.length
             ? "A document of the scope is not indexed"
             : null;
@@ -104,6 +119,22 @@ export function GenerateScreen() {
       }
     } catch (e) {
       errorToast(e, input.resume ? "Could not resume the generation" : "Could not start the generation");
+    }
+  };
+
+  // ponytail: « Run again » after a failed run is that job again, with the input it kept (jobs.rerun, as in Jobs) —
+  // the form stays as it is
+  const rerun = async () => {
+    if (!gen.jobId) return;
+    try {
+      const r = await execute(client, "jobs.rerun", { id: gen.jobId }, { invalidates: [["jobs.list"]] });
+      if (r?.jobId) {
+        setFresh((n) => n + 1);
+        startedHere.current = r.jobId;
+        gen.follow(r.jobId);
+      }
+    } catch (e) {
+      errorToast(e, "Could not run the generation again");
     }
   };
 
@@ -133,10 +164,11 @@ export function GenerateScreen() {
             gate={{
               missing,
               stale,
-              indexing,
+              work,
               progress: indexJob?.progress,
               onShowJob: indexJob ? () => app.navigate("jobs", indexJob.id) : undefined,
-              onReindex: () => reindex.mutateAsync({}).catch((e) => errorToast(e, "Could not reindex")),
+              onReindex: reindex.reindex,
+              failure: reindex.failure,
             }}
             hasJob={!!gen.job}
             running={gen.running}
@@ -160,10 +192,8 @@ export function GenerateScreen() {
             noDocs={!!docs && !docs.length}
             starting={start.isPending}
             onCheckClaude={() => (ask.refresh ? void claude.refetch() : setAsk({ refresh: true, signIn: true }))}
-            onCancel={() =>
-              gen.jobId && cancel.mutateAsync({ id: gen.jobId }).catch((e) => errorToast(e, "Could not cancel"))
-            }
-            onRetry={() => void generate()}
+            onCancel={() => gen.jobId && cancel(gen.jobId)}
+            onRetry={gen.job?.rerun ? () => void rerun() : undefined}
             onResume={(generation) =>
               void begin({ resume: generation, model: form.runModel, effort: form.runEffort } as Parameters<
                 typeof start.mutateAsync

@@ -3,21 +3,32 @@ import { Button } from "../../components/ui/Button.tsx";
 import { Progress } from "../../components/ui/Progress.tsx";
 import { plural } from "../../lib/format.ts";
 
+export type Work = "index" | "convert" | "add";
+
+const RUNS: Record<Work, { title: string; label: string }> = {
+  index: { title: "Indexing the documents", label: "Index" },
+  convert: { title: "Converting a document", label: "Conversion" },
+  add: { title: "Adding documents", label: "Adding" },
+};
+
+// ponytail: the index gate of the scope (SPEC §7), and the document work under way that Generate waits for, named by
+// what runs
 export function IndexNotice({
   missing,
   stale,
-  indexing,
+  work,
   progress,
   onShowJob,
   onReindex,
 }: {
   missing: string[];
   stale: string[];
-  indexing: boolean;
+  work: Work | null;
   progress?: { done: number; total: number };
   onShowJob?: () => void;
   onReindex: () => void;
 }) {
+  const indexing = work === "index";
   const reindex = (
     <Button
       size="sm"
@@ -37,16 +48,16 @@ export function IndexNotice({
       </Banner>
     );
   }
-  if (indexing) {
+  if (work) {
     const p = progress?.total ? progress : null;
     return (
       <Banner
         tone="info"
-        title="Indexing the documents"
-        actions={onShowJob && <Button size="sm" variant="quiet" label="Show the job" onClick={onShowJob} />}
+        title={RUNS[work].title}
+        actions={onShowJob && <Button size="sm" variant="quiet" icon="jobs" label="Open in Jobs" onClick={onShowJob} />}
       >
         <Progress
-          label="Index"
+          label={RUNS[work].label}
           value={p ? (p.done / p.total) * 100 : null}
           detail={`${p ? `${p.done} of ${p.total} · ` : ""}Generate waits for it to finish.`}
         />

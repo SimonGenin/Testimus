@@ -51,37 +51,34 @@ const show = (shown: Partial<Shown>, disabled = false) =>
   );
 
 describe("the saved contexts a document is read with", () => {
-  it("shows each one by its name, or its id while the names are not known", async () => {
+  it("shows each one by its name, or its id while the names are not known, each removable", async () => {
     show({ contexts: ["c-ops", "c-old"] });
-    expect(await screen.findByRole("button", { name: "Operator positions" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: "c-old" })).toBeInTheDocument();
+    expect(await screen.findByText("Operator positions")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove Operator positions" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove c-old" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Operator positions", pressed: true })).toBeNull();
   });
 
-  it("switching a context off leaves it out of the document", async () => {
+  it("removing a context leaves it out of the document", async () => {
     show({ contexts: ["c-ops", "c-sig"] });
-    fireEvent.click(await screen.findByRole("button", { name: "Operator positions" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Remove Operator positions" }));
     await waitFor(() => expect(callsOf("docs.set")).toHaveLength(1));
     expect(callsOf("docs.set")[0].input).toEqual({ id: "D-1", contexts: ["c-sig"] });
   });
 
-  it("« Use a saved context… » picks the document's contexts", async () => {
-    show({ contexts: [] });
-    fireEvent.click(screen.getByRole("button", { name: "Use a saved context…" }));
-    const dialog = screen.getByRole("dialog", { name: "Saved contexts" });
-    fireEvent.click(await within(dialog).findByRole("checkbox", { name: /Signalling glossary/ }));
-    fireEvent.click(within(dialog).getByRole("button", { name: "Use 1" }));
-    await waitFor(() => expect(callsOf("docs.set")[0]?.input).toEqual({ id: "D-1", contexts: ["c-sig"] }));
-    expect(screen.queryByRole("dialog", { name: "Saved contexts" })).toBeNull();
+  it("« + » adds a saved context the document does not have yet, as in Generate", async () => {
+    show({ contexts: ["c-ops"] });
+    fireEvent.click(screen.getByRole("button", { name: "Add context" }));
+    expect(screen.queryByRole("menuitem", { name: /Operator positions/ })).toBeNull();
+    fireEvent.click(await screen.findByRole("menuitem", { name: /Signalling glossary/ }));
+    await waitFor(() => expect(callsOf("docs.set")[0]?.input).toEqual({ id: "D-1", contexts: ["c-ops", "c-sig"] }));
   });
 
-  it("« Manage contexts… » swaps the picker for the contexts manager, which closes back to the document", async () => {
+  it("« Manage contexts… » opens the contexts manager, which closes back to the document", async () => {
     show({ contexts: [] });
-    fireEvent.click(screen.getByRole("button", { name: "Use a saved context…" }));
-    fireEvent.click(
-      within(screen.getByRole("dialog", { name: "Saved contexts" })).getByRole("button", { name: "Manage contexts…" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Add context" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Manage contexts…" }));
     const manager = await screen.findByRole("dialog", { name: "Contexts" });
-    expect(screen.queryByRole("dialog", { name: "Saved contexts" })).toBeNull();
     fireEvent.keyDown(manager, { key: "Escape" });
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Contexts" })).toBeNull());
     expect(callsOf("docs.set")).toHaveLength(0);
@@ -89,7 +86,8 @@ describe("the saved contexts a document is read with", () => {
 
   it("saves the note as a context: the document then takes it and its note is emptied", async () => {
     show({ context: "Les positions de l'opérateur", contexts: ["c-ops"] });
-    fireEvent.click(screen.getByRole("button", { name: "Save as context…" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add context" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Save the note as a context…" }));
     fireEvent.click(
       within(screen.getByRole("dialog", { name: "Save as context" })).getByRole("button", { name: "Save" }),
     );
@@ -97,13 +95,17 @@ describe("the saved contexts a document is read with", () => {
     expect(callsOf("docs.set")[0].input).toEqual({ id: "D-1", contexts: ["c-ops", "c-new"], context: "" });
   });
 
-  it("cannot save an empty note as a context, nor use contexts while disabled", () => {
+  it("cannot save an empty note as a context, nor change the contexts while disabled", async () => {
     show({ context: "  " });
-    expect(screen.getByRole("button", { name: "Save as context…" })).toBeDisabled();
-    expect(screen.getByText("Write a note first")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Add context" }));
+    expect(await screen.findByRole("menuitem", { name: "Save the note as a context…" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
     cleanup();
-    show({ context: "x" }, true);
-    expect(screen.getByRole("button", { name: "Use a saved context…" })).toBeDisabled();
+    show({ context: "x", contexts: ["c-ops"] }, true);
+    expect(screen.getByRole("button", { name: "Add context" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Remove c-ops" })).toBeDisabled();
   });
 
   it("says when the document could not take the contexts", async () => {
@@ -111,7 +113,7 @@ describe("the saved contexts a document is read with", () => {
       throw new Fail("doc.json is locked");
     };
     show({ contexts: ["c-ops"] });
-    fireEvent.click(await screen.findByRole("button", { name: "Operator positions" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Remove Operator positions" }));
     await waitFor(() => expect(titles).toContain("Could not save the document"));
   });
 });

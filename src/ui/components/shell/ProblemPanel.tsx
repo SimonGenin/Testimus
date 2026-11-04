@@ -31,6 +31,17 @@ export function problemOf(e: unknown): { title: string; detail: string; fix?: st
   };
 }
 
+// ponytail: where a failure is fixed — Settings › Access when Jira refused the access, the system check otherwise; the
+// same choice for a failed job (JobProblem) and a failed piece of work here
+export function ProblemPlace({ access }: { access: boolean }) {
+  const app = useApp();
+  return access ? (
+    <Button size="sm" label="Open Settings › Access" onClick={() => app.navigate("settings", "access")} />
+  ) : (
+    <Button size="sm" label="Open the system check" onClick={() => app.navigate("doctor")} />
+  );
+}
+
 // ponytail: a failure that stops a piece of work — what happened, what to do, where to look, and Retry
 export function ProblemPanel({
   error,
@@ -43,7 +54,6 @@ export function ProblemPanel({
   onRetry?: () => void;
   untouched?: string;
 }) {
-  const app = useApp();
   const p = problemOf(error);
   return (
     <div role="alert">
@@ -52,11 +62,7 @@ export function ProblemPanel({
         title={p.title}
         actions={
           <>
-            {p.access ? (
-              <Button size="sm" label="Open Settings › Access" onClick={() => app.navigate("settings", "access")} />
-            ) : (
-              <Button size="sm" label="Open the system check" onClick={() => app.navigate("doctor")} />
-            )}
+            <ProblemPlace access={p.access} />
             {onRetry && <Button size="sm" variant="quiet" label="Retry" onClick={onRetry} />}
           </>
         }

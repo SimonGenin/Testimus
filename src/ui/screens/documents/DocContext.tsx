@@ -3,18 +3,17 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import type { CommandOutput } from "../../../core/commands/index.ts";
 import { ContextsDialog } from "../../components/claude/ContextsDialog.tsx";
-import { ImportContexts } from "../../components/claude/ImportContexts.tsx";
 import { SaveContext } from "../../components/claude/SaveContext.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { ClaudeBlock } from "../../components/ui/ClaudeBlock.tsx";
+import { Menu, type MenuEntry } from "../../components/ui/Menu.tsx";
 import { type } from "../../components/ui/type.ts";
 import type { Save } from "../../lib/data/autosave.ts";
 import { execute, key, useRead } from "../../lib/data/query.ts";
 import { errorToast } from "../../lib/toast.ts";
-import { color, space } from "../../styles/tokens.stylex.ts";
+import { color } from "../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
-  acts: { display: "flex", flexWrap: "wrap", gap: space.s2 },
   hint: { margin: 0, color: color.textMuted },
 });
 
@@ -24,12 +23,12 @@ const versionOf = (mtime: number | null | undefined) =>
   mtime === undefined ? undefined : mtime === null ? "" : String(mtime);
 
 // ponytail: what the team says about a document (context.md, saved by itself against the version it was read at)
-// and the saved contexts Claude reads with it (doc.json contexts); a pending note belongs to the project it was typed in
-// (the key carries it)
+// and the saved contexts Claude reads with it (doc.json contexts: a chip removes one, « + » adds one, as in Generate);
+// a pending note belongs to the project it was typed in (the key carries it)
 export function DocContext({ id, shown, disabled }: { id: string; shown: Shown; disabled: boolean }) {
   const client = useQueryClient();
   const all = useRead("contexts.list", {});
-  const [dialog, setDialog] = useState<"import" | "save" | "manage" | null>(null);
+  const [dialog, setDialog] = useState<"save" | "manage" | null>(null);
   const [typed, setTyped] = useState<string | null>(null);
   const saveKey = key("docs.show", { id, brief: true });
   const ids = shown.contexts ?? [];
@@ -66,6 +65,23 @@ export function DocContext({ id, shown, disabled }: { id: string; shown: Shown; 
   };
 
   const names = all.data ?? [];
+  const add: MenuEntry[] = [
+    ...names
+      .filter((c) => !ids.includes(c.id))
+      .map((c) => ({
+        label: c.name || c.id,
+        icon: "context" as const,
+        hint: c.shared ? "shared" : undefined,
+        onSelect: () => void setContexts([...ids, c.id]),
+      })),
+    ...(names.length ? (["separator"] as MenuEntry[]) : []),
+    {
+      label: "Save the note as a context…",
+      disabled: note.trim() ? false : "Write a note first",
+      onSelect: () => setDialog("save"),
+    },
+    { label: "Manage contexts…", onSelect: () => setDialog("manage") },
+  ];
   return (
     <>
       <ClaudeBlock
@@ -79,44 +95,19 @@ export function DocContext({ id, shown, disabled }: { id: string; shown: Shown; 
         ariaLabel="Note for this document"
         placeholder="Anything Claude should know about this document…"
         disabled={disabled}
-        contexts={
-          ids.length
-            ? ids.map((c) => ({ id: c, label: names.find((n) => n.id === c)?.name ?? c, on: true }))
-            : undefined
+        contexts={ids.map((c) => ({ id: c, label: names.find((n) => n.id === c)?.name ?? c, on: true }))}
+        onRemoveContext={(c) => void setContexts(ids.filter((x) => x !== c))}
+        addContext={
+          <Menu
+            label="Add context"
+            entries={add}
+            trigger={<Button size="sm" variant="quiet" icon="plus" iconOnly label="Add context" disabled={disabled} />}
+          />
         }
-        onContext={(c, on) => {
-          if (!on) void setContexts(ids.filter((x) => x !== c));
-        }}
       />
       <p {...stylex.props(type.small, styles.hint)}>
         What the team knows about this document. Claude reads it in every run on this document.
       </p>
-      <div {...stylex.props(styles.acts)}>
-        <Button
-          size="sm"
-          variant="quiet"
-          icon="context"
-          label="Use a saved context…"
-          disabled={disabled}
-          onClick={() => setDialog("import")}
-        />
-        <Button
-          size="sm"
-          variant="quiet"
-          label="Save as context…"
-          disabled={disabled ? true : note.trim() ? false : "Write a note first"}
-          onClick={() => setDialog("save")}
-        />
-      </div>
-      {dialog === "import" && (
-        <ImportContexts
-          all={names}
-          picked={ids}
-          onUse={(next) => void setContexts(next)}
-          onManage={() => setDialog("manage")}
-          onClose={() => setDialog(null)}
-        />
-      )}
       {dialog === "save" && (
         <SaveContext
           note={note}

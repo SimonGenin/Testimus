@@ -40,8 +40,9 @@ export function BenchDialog({
         <>
           {running ? (
             <Button
+              variant="quiet"
               icon="stop"
-              label="Cancel the measure"
+              label="Cancel"
               disabled={!bench?.jobId}
               onClick={() => bench && cancel(bench.jobId)}
             />

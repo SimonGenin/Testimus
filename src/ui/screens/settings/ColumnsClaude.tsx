@@ -1,12 +1,13 @@
 import * as stylex from "@stylexjs/stylex";
 import { useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { CommandOutput } from "../../../core/commands/index.ts";
-import type { StepColumn } from "../../../core/types.ts";
+import type { JobEvent, StepColumn } from "../../../core/types.ts";
 import { toolLabel } from "../../components/claude/ClaudeDock.tsx";
 import { ContextsDialog } from "../../components/claude/ContextsDialog.tsx";
 import { DiagnosisText } from "../../components/claude/DiagnosisText.tsx";
 import { SaveContext } from "../../components/claude/SaveContext.tsx";
+import { claudeSaid, noteRun, useClaudeStatus } from "../../components/claude/useClaudeStatus.ts";
 import { Answer } from "../../components/ui/Answer.tsx";
 import { Badge, COLUMN, type Word } from "../../components/ui/Badge.tsx";
 import { Button } from "../../components/ui/Button.tsx";
@@ -16,6 +17,7 @@ import { Facts } from "../../components/ui/Facts.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { Menu, type MenuEntry } from "../../components/ui/Menu.tsx";
 import { type } from "../../components/ui/type.ts";
+import { useApp } from "../../lib/app.ts";
 import { useDraft } from "../../lib/data/autosave.ts";
 import { project } from "../../lib/data/client.ts";
 import { execute, type Key, useRead } from "../../lib/data/query.ts";
@@ -23,7 +25,7 @@ import { plural } from "../../lib/format.ts";
 import { useNow } from "../../lib/now.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 import { border, color, space } from "../../styles/tokens.stylex.ts";
-import { useCancel, useJob } from "./jobs.ts";
+import { useCancel, useJob, useRunning } from "./jobs.ts";
 import { Hint, Stack } from "./Section.tsx";
 
 const styles = stylex.create({
@@ -54,7 +56,7 @@ const styles = stylex.create({
 type Suggested = CommandOutput<"columns.suggest">;
 type Proposal = Suggested["proposals"][number];
 
-const said = (summary: string) => summary.replace(/```[\s\S]*?(```|$)/g, "").trim();
+const reply = (summary: string) => summary.replace(/```[\s\S]*?(```|$)/g, "").trim();
 
 function tagOf(p: Proposal): Word {
   if (p.kind === "new") return COLUMN["new-local"];
@@ -64,35 +66,21 @@ function tagOf(p: Proposal): Word {
 
 const draft = (f: string): Key => [project(), "settings.columns.claude", { f }];
 
-function Asking({ jobId, onAnswer }: { jobId: string; onAnswer: (r: Suggested | null) => void }) {
-  const [reading, setReading] = useState("Claude is reading the columns, the tests and the documents…");
-  useJob(
-    jobId,
-    (job) => {
-      if (job.status === "done") onAnswer(job.result as Suggested);
-      else {
-        if (job.status === "failed")
-          errorToast(new Error(job.error ?? "The run failed."), "Claude could not look at the columns");
-        onAnswer(null);
-      }
-    },
-    (e) => {
-      if (e.type === "claude" && e.event.type === "tool") setReading(toolLabel(e.event.name, e.event.input));
-    },
-  );
-  return (
-    <span role="status" {...stylex.props(type.small, styles.reading)}>
-      {reading}
-    </span>
-  );
-}
+type Answered = { text: string; proposals: Proposal[] };
 
-// ponytail: Claude proposes, nothing changes until a proposal is applied (columns.save, one per column)
+const READING = "Claude is reading the columns, the tests and the documents…";
+
+// ponytail: Claude proposes, nothing changes until a proposal is applied (columns.save, one per column); the run and
+// its answer are kept for the page (a paid run), so leaving the section and coming back finds them — a run still going
+// is found again in jobs.list, one that ended meanwhile is read from jobs.show
 export function ColumnsClaude({ columns }: { columns: StepColumn[] }) {
+  const app = useApp();
   const client = useQueryClient();
   const cancel = useCancel();
   const list = useRead("contexts.list", {});
   const all = list.data ?? [];
+  const { status } = useClaudeStatus();
+  const offline = !!status && (!status.installed || status.signedIn === false);
   const [ask, setAsk] = useDraft(draft("ask"));
   const [picked, setPicked] = useDraft(draft("contexts"), "[]");
   const ids = JSON.parse(picked) as string[];
@@ -100,10 +88,38 @@ export function ColumnsClaude({ columns }: { columns: StepColumn[] }) {
   const [dialog, setDialog] = useState<"save" | "manage" | null>(null);
   const [starting, setStarting] = useState(false);
   const [startedAt, setStartedAt] = useState(0);
-  const [jobId, setJobId] = useState<string | null>(null);
-  const [answer, setAnswer] = useState<{ text: string; proposals: Proposal[] } | null>(null);
+  const [kept, setJob, clearJob] = useDraft(draft("job"));
+  const [said, setSaid, clearSaid] = useDraft(draft("answer"));
+  const answer = said ? (JSON.parse(said) as Answered) : null;
+  const setAnswer = (next: Answered | null) => (next ? setSaid(JSON.stringify(next)) : clearSaid());
   const [saving, setSaving] = useState<string | null>(null);
+  const [reading, setReading] = useState(READING);
+  const ended = useRef(new Set<string>());
+  const found = useRunning("columns", !!app.info);
+  const jobId = kept || (found && !ended.current.has(found.id) ? found.id : null);
+  const shown = useRead("jobs.show", { id: jobId ?? "" }, { enabled: !!jobId });
+  const { job } = useJob(
+    jobId,
+    (j) => {
+      ended.current.add(j.id);
+      clearJob();
+      setReading(READING);
+      const r = j.result as Suggested | undefined;
+      noteRun(client, {
+        ok: j.status === "done" && !!r?.ok,
+        diagnosis: r?.diagnosis,
+        said: claudeSaid((shown.data?.events ?? []) as JobEvent[]),
+      });
+      if (j.status === "done" && r) answered(r);
+      else if (j.status === "failed")
+        errorToast(new Error(j.error ?? "The run failed."), "Claude could not look at the columns");
+    },
+    (e) => {
+      if (e.type === "claude" && e.event.type === "tool") setReading(toolLabel(e.event.name, e.event.input));
+    },
+  );
   const asking = starting || !!jobId;
+  const since = job?.startedAt && !Number.isNaN(Date.parse(job.startedAt)) ? Date.parse(job.startedAt) : startedAt;
   const now = useNow(1000, asking);
   const name = (id: string) => all.find((c) => c.id === id)?.name ?? id;
   const add: MenuEntry[] = [
@@ -119,8 +135,13 @@ export function ColumnsClaude({ columns }: { columns: StepColumn[] }) {
     setStartedAt(Date.now());
     setAnswer(null);
     try {
-      const r = await execute(client, "columns.suggest", { ask: ask.trim(), contexts: ids }, { invalidates: "none" });
-      setJobId(r.jobId);
+      const r = await execute(
+        client,
+        "columns.suggest",
+        { ask: ask.trim(), contexts: ids },
+        { invalidates: [["jobs.list"]] },
+      );
+      setJob(r.jobId);
     } catch (e) {
       errorToast(e, "Claude could not look at the columns");
     } finally {
@@ -128,17 +149,15 @@ export function ColumnsClaude({ columns }: { columns: StepColumn[] }) {
     }
   };
 
-  const answered = (r: Suggested | null) => {
-    setJobId(null);
-    if (!r) return;
+  function answered(r: Suggested) {
     setAnswer({
-      text: r.ok ? said(r.summary) : r.diagnosis?.detail || said(r.summary) || "Claude gave no proposal.",
+      text: r.ok ? reply(r.summary) : r.diagnosis?.detail || reply(r.summary) || "Claude gave no proposal.",
       proposals: r.proposals,
     });
-  };
+  }
 
   const drop = (names: string[]) =>
-    setAnswer((a) => a && { ...a, proposals: a.proposals.filter((p) => !names.includes(p.name)) });
+    answer && setAnswer({ ...answer, proposals: answer.proposals.filter((p) => !names.includes(p.name)) });
 
   const apply = async (list: Proposal[]) => {
     setSaving(list.length === 1 ? list[0].name : "*");
@@ -198,8 +217,11 @@ export function ColumnsClaude({ columns }: { columns: StepColumn[] }) {
             allowEmpty
             submitLabel={answer ? "Ask again" : "Ask Claude"}
             onSubmit={() => void suggest()}
-            running={asking ? Math.max(0, (now - startedAt) / 1000) : null}
+            running={asking ? Math.max(0, (now - since) / 1000) : null}
             onCancel={jobId ? () => cancel(jobId) : undefined}
+            unavailable={
+              offline ? (status?.installed ? "Claude is not signed in" : "Claude is not connected") : undefined
+            }
             contexts={ids.map((x) => ({ id: x, label: name(x), on: true }))}
             onContext={(x, on) => {
               if (!on) setIds(ids.filter((y) => y !== x));
@@ -224,7 +246,11 @@ export function ColumnsClaude({ columns }: { columns: StepColumn[] }) {
               onClick={() => setDialog("save")}
             />
           </div>
-          {jobId && <Asking jobId={jobId} onAnswer={answered} />}
+          {jobId && (
+            <span role="status" {...stylex.props(type.small, styles.reading)}>
+              {reading}
+            </span>
+          )}
         </Stack>
       </Card>
       {dialog === "save" && (

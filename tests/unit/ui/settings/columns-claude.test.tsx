@@ -178,3 +178,69 @@ describe("Settings › Smart columns › Ask Claude", () => {
     expect(await screen.findByText("The run broke.")).toBeInTheDocument();
   });
 });
+
+describe("Settings › Smart columns › Ask Claude, coming back", () => {
+  it("keeps the proposals when the section is left and opened again", async () => {
+    answers({ ok: true, summary: "Voilà.", proposals: PROPOSALS });
+    const first = mount();
+    fireEvent.click(ask());
+    const list = await screen.findByRole("list", { name: "Claude's proposals" });
+    fireEvent.click(
+      within(within(list).getByRole("listitem", { name: "Poste" })).getByRole("button", { name: "Dismiss" }),
+    );
+    first.unmount();
+    mount();
+    const again = await screen.findByRole("list", { name: "Claude's proposals" });
+    expect(within(again).getAllByRole("listitem")).toHaveLength(3);
+    expect(calls("columns.suggest")).toHaveLength(1);
+  });
+
+  it("finds its run again: still going (Cancel), or ended meanwhile (its proposals)", async () => {
+    const j = fakeJob({ id: "columns-c0000100", kind: "columns" });
+    net.routes["columns.suggest"] = () => ({ jobId: j.id });
+    net.routes["jobs.cancel"] = () => ({ cancelled: true });
+    const first = mount();
+    fireEvent.click(ask());
+    await screen.findByText(/Claude is reading the columns/);
+    first.unmount();
+    const second = mount();
+    expect(await screen.findByText(/Claude is reading the columns/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(inputs("jobs.cancel")).toEqual([{ id: j.id }]));
+    second.unmount();
+    await j.finish({ status: "done", result: { ok: true, summary: "Lu.", proposals: PROPOSALS.slice(3) } });
+    mount();
+    expect(await screen.findByRole("listitem", { name: "Poste" })).toBeInTheDocument();
+    expect(screen.queryByText(/Claude is reading the columns/)).toBeNull();
+  });
+
+  it("after a reload, a run still going is found in jobs.list", async () => {
+    fakeJob({ id: "columns-c0000101", kind: "columns" });
+    net.routes["jobs.list"] = () => [
+      { id: "columns-c0000101", kind: "columns", subject: "", status: "running", startedAt: "" },
+    ];
+    mount();
+    expect(await screen.findByText(/Claude is reading the columns/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
+  });
+
+  it("waits while Claude is not there, and a run that failed on the sign-in says so", async () => {
+    net.routes["claude.status"] = () => ({ installed: false, version: null, signedIn: null });
+    const first = mount();
+    expect((await screen.findAllByText("Claude is not connected")).length).toBeGreaterThan(0);
+    expect(ask()).toBeDisabled();
+    first.unmount();
+    net.routes["claude.status"] = () => ({ installed: true, version: "2.1.0", signedIn: null });
+    answers({
+      ok: false,
+      summary: "",
+      proposals: [],
+      diagnosis: { kind: "login", title: "x", detail: "Run claude and sign in." },
+    });
+    mount();
+    await waitFor(() => expect(ask()).toBeEnabled());
+    fireEvent.click(ask());
+    expect((await screen.findAllByText("Claude is not signed in")).length).toBeGreaterThan(0);
+    expect(ask()).toBeDisabled();
+  });
+});

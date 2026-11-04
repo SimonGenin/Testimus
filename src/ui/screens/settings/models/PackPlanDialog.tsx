@@ -22,6 +22,7 @@ export function PackPlanDialog({
   out,
   label,
   busy,
+  thenUse = false,
   onConfirm,
   onChangeFolder,
   onClose,
@@ -30,6 +31,8 @@ export function PackPlanDialog({
   out: UsePackOut;
   label: (id: string) => string;
   busy: boolean;
+  /** the downloads are followed by the switch, in the same job (First launch) */
+  thenUse?: boolean;
   onConfirm: () => void;
   onChangeFolder: () => void;
   onClose: () => void;
@@ -39,15 +42,25 @@ export function PackPlanDialog({
   const download = p.download.length > 0;
   return (
     <Modal
-      title={download ? `Download the ${pack.label} pack` : `Use the ${pack.label} pack`}
+      title={
+        download
+          ? thenUse
+            ? `Download and use the ${pack.label} pack`
+            : `Download the ${pack.label} pack`
+          : `Use the ${pack.label} pack`
+      }
       subtitle={
         download
-          ? "Onto this PC. The project keeps its current pack: use this one once it is downloaded."
+          ? thenUse
+            ? "Onto this PC, then for this project. Nothing changes for your colleagues."
+            : "Onto this PC. The project keeps its current pack: use this one once it is downloaded."
           : "For this project, on this PC. Nothing changes for your colleagues."
       }
       footNote={
         download
-          ? "You can choose another pack while it downloads."
+          ? thenUse
+            ? "It runs in Jobs: you can keep working meanwhile."
+            : "You can choose another pack while it downloads."
           : "The previous vectors are kept: switching back is quick."
       }
       busy={busy}
@@ -97,7 +110,7 @@ export function PackPlanDialog({
           {
             label: "Index",
             value: p.reindex
-              ? `${download ? "Once used, the" : "The"} documents are indexed again with the new model (a job; search keeps working on words meanwhile).`
+              ? `${download ? (thenUse ? "Once downloaded, the" : "Once used, the") : "The"} documents are indexed again with the new model (a job; search keeps working on words meanwhile).`
               : "Already indexed with these models: nothing to rebuild.",
           },
           { label: "Expected speed", value: p.expected },

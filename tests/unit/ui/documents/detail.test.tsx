@@ -219,10 +219,43 @@ describe("DocDetail", () => {
     fireEvent.click(screen.getByRole("button", { name: "Describe 2 figures" }));
     await waitFor(() => expect(named("docs.describeFigures").at(-1)?.input).toEqual({ docId: "D1", force: false }));
     expect(await screen.findByText("Claude describes 2 figures")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Open in Jobs" }).length).toBeGreaterThan(0);
     fireEvent.click(within(grid).getByRole("button", { name: "Plan" }));
     expect(
       within(screen.getByRole("complementary", { name: "Plan" })).getByRole("button", { name: "Describe again" }),
     ).toBeInTheDocument();
+  });
+
+  it("Describe waits for Claude when it is missing or signed out", async () => {
+    api.routes["claude.status"] = () => ({ installed: true, signedIn: false });
+    show("", { figures: [{ file: "figures/b.png", anchor: "fig:b", caption: "Coupe", description: "" }] });
+    await screen.findByText("Part §5.6");
+    fireEvent.click(screen.getByRole("tab", { name: /^Figures/ }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Describe 1 figure" })).toBeDisabled());
+    expect(screen.getByRole("button", { name: "Describe 1 figure" })).toHaveAccessibleDescription(
+      "Claude is not connected",
+    );
+    expect(screen.getByRole("button", { name: "Describe it" })).toBeDisabled();
+  });
+
+  it("a figure in the text shows in Figures, picked", async () => {
+    api.routes["docs.show"] = (i) =>
+      i.anchor === "§5.6"
+        ? { md: "![Coupe](figures/b.png) <!-- fig b -->" }
+        : i.anchor
+          ? { md: "" }
+          : shown({
+              figures: [
+                { file: "figures/a.png", anchor: "fig:a", caption: "Plan", description: "" },
+                { file: "figures/b.png", anchor: "fig:b", caption: "Coupe", description: "" },
+              ],
+            });
+    mountDocs(<DocDetail id="D1" anchor="" onAnchor={vi.fn()} onRemoved={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Show Coupe in Figures" }));
+    expect(screen.getByRole("tab", { name: /^Figures/ })).toHaveAttribute("aria-selected", "true");
+    const grid = screen.getByRole("list", { name: "Figures" });
+    expect(within(grid).getByRole("button", { name: "Coupe" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("complementary", { name: "Coupe" })).toBeInTheDocument();
   });
 
   it("the Figures view says what each filter leaves out; a tile is named by its caption, then its anchor", async () => {
@@ -327,18 +360,18 @@ describe("DocDetail", () => {
     fireEvent.blur(ctx);
     expect(named("docs.set")).toHaveLength(2);
     fireEvent.change(ctx, { target: { value: "unsaved note" } });
-    fireEvent.click(await screen.findByRole("button", { name: "Glossary" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Remove Glossary" }));
     await waitFor(() => expect(named("docs.set")).toHaveLength(4));
     expect(named("docs.set")[2]?.input).toEqual({ id: "D1", context: "unsaved note", ifMtime: 42 });
     expect(named("docs.set")[3]?.input).toEqual({ id: "D1", contexts: [] });
-    await waitFor(() => expect(screen.queryByRole("button", { name: "Glossary" })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Remove Glossary" })).toBeNull());
   });
 
   it("leaving a saved context out with the note untouched saves the list alone", async () => {
     api.routes["docs.set"] = (i) => ({ ...doc("D1"), ...(i as Partial<DocRef>), contextMtime: null });
     api.routes["contexts.list"] = () => [{ id: "glossary", name: "Glossary", shared: false }];
     show("", { contexts: ["glossary"] });
-    fireEvent.click(await screen.findByRole("button", { name: "Glossary" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Remove Glossary" }));
     await waitFor(() => expect(named("docs.set")[0]?.input).toEqual({ id: "D1", contexts: [] }));
     expect(named("docs.set")).toHaveLength(1);
   });
@@ -356,7 +389,7 @@ describe("DocDetail", () => {
     await waitFor(() => expect(named("docs.set").at(-1)?.input).toEqual({ id: "D1", context: "mine" }));
   });
 
-  it("⋯ › Delete asks, then removes the document; Cancel and a failure leave it", async () => {
+  it("⋯ › Delete asks, then removes the document; Cancel leaves it, a failure stays in the dialog", async () => {
     let fail = true;
     api.routes["docs.remove"] = (i) => ({
       removed: "D1",
@@ -379,12 +412,9 @@ describe("DocDetail", () => {
     fireEvent.click(screen.getByRole("menuitem", { name: "Delete this document…" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Delete" })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
-    expect(await screen.findByText("Could not delete the document")).toBeInTheDocument();
-    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    expect(await within(screen.getByRole("alertdialog")).findByText(/locked/)).toBeInTheDocument();
     expect(onRemoved).not.toHaveBeenCalled();
     fail = false;
-    more();
-    fireEvent.click(screen.getByRole("menuitem", { name: "Delete this document…" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Delete" })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(onRemoved).toHaveBeenCalled());

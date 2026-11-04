@@ -36,14 +36,6 @@ export function counts(checks: DoctorCheck[]): { look: Look; n: number }[] {
     .filter((x) => x.n > 0);
 }
 
-// ponytail: a run without the sign-in probe says « not checked » for it — the last real sign-in answer is shown instead
-export function merged(plain: DoctorCheck[], probed: DoctorCheck[] | undefined): DoctorCheck[] {
-  if (!probed) return plain;
-  return plain.map((c) =>
-    c.state === "skip" && c.id === "claudeLogin" ? (probed.find((p) => p.id === c.id) ?? c) : c,
-  );
-}
-
 // ponytail: a path inside a check's words (« D:\models — 640 GB free », « 21 GB free at /home/x ») — a token that starts
 // with a drive, a share, ~/ or / after a space, its last stop or comma left out
 const PATH = /(^|\s)((?:[A-Za-z]:[\\/]|\\\\|~\/|\/)\S+?)(?=[.,;:)]?(?:\s|$))/g;

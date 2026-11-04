@@ -5,8 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppState, ClaudeRun } from "../../../../src/ui/lib/app.ts";
 import { apply } from "../../../../src/ui/lib/data/events.ts";
 import { ReviewScreen } from "../../../../src/ui/screens/review/ReviewScreen.tsx";
+import { openInEditor } from "../../../../src/ui/screens/review/useReview.ts";
 import { choose, openList } from "../../helpers/select.ts";
-import { clearToasts, fakeServer, item, mountReview, named, net, refused, reviewRoutes } from "./helpers.tsx";
+import { clearToasts, fakeServer, item, mountReview, named, net, refused, reviewRoutes, testOf } from "./helpers.tsx";
 
 vi.mock("../../../../src/ui/screens/tests/TestEditor.tsx", () => ({
   TestEditor: ({
@@ -234,7 +235,7 @@ describe("Review screen", () => {
     expect(await screen.findByText("Nothing to review")).toBeInTheDocument();
     expect(position()).toHaveTextContent("0");
     expect(screen.queryByRole("button", { name: /^Validate/ })).toBeNull();
-    expect(screen.queryByRole("button", { name: "To fix" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^To fix/ })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Generate tests" }));
     expect(a.navigate).toHaveBeenCalledWith("generate");
     key("j");
@@ -261,6 +262,20 @@ describe("Review screen", () => {
     expect(screen.getByText(/2 tests validated/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Open the tests" }));
     expect(a.navigate).toHaveBeenCalledWith("tests");
+  });
+
+  it("filters that leave nothing: the main column says what the queue says, and clears them too", async () => {
+    reviewRoutes({ queue: [] });
+    net.routes["review.queue"] = (i) =>
+      i.withFindings ? { tests: [], counts: { checked: 0, toFix: 0, draft: 0, unchecked: 0 } } : null;
+    show({ route: { screen: "review" } });
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Only with findings" }));
+    const main = screen.getByRole("region", { name: "Test under review" });
+    expect(await within(main).findByText("No test matches these filters")).toBeInTheDocument();
+    expect(within(queue()).getByText("No test matches these filters")).toBeInTheDocument();
+    expect(within(main).queryByText("Nothing to review")).toBeNull();
+    fireEvent.click(within(main).getByRole("button", { name: "Clear the filters" }));
+    await waitFor(() => expect(screen.getByRole("checkbox", { name: "Only with findings" })).not.toBeChecked());
   });
 
   it("sends the queue filters, folder and findings switch", async () => {
@@ -401,7 +416,6 @@ describe("Review screen", () => {
       },
       findings: [{ step: 1, kind: "source-missing", severity: "info", message: "n", sources: [] }],
     });
-    const open = vi.spyOn(window, "open").mockImplementation(() => null);
     const { app: a } = show();
     await screen.findByRole("heading", { name: "Summary K-1" });
     fireEvent.click(screen.getByRole("button", { name: "Fold all" }));
@@ -415,9 +429,12 @@ describe("Review screen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Fold step 1" }));
     fireEvent.click(screen.getByRole("button", { name: "Expand step 1" }));
     fireEvent.click(screen.getByRole("button", { name: "Open a.png" }));
-    expect(open).toHaveBeenCalledWith("/files/tests/K-1/a.png", "_blank");
+    const box = await screen.findByRole("dialog", { name: "a.png" });
+    expect(within(box).getByRole("img", { name: "a.png" })).toHaveAttribute("src", "/files/tests/K-1/a.png");
+    fireEvent.click(within(box).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "a.png" })).toBeNull());
     fireEvent.click(screen.getByRole("button", { name: "Open in document" }));
-    expect(a.navigate).toHaveBeenCalledWith("documents", 'D#§2 "q2" from K-1 step 2');
+    expect(a.navigate).toHaveBeenCalledWith("documents", 'D#§2 "q2" from review K-1 step 2');
   });
 
   it("evidence picks: a step source keeps its step, another read one is labelled", async () => {
@@ -467,10 +484,12 @@ describe("Review screen", () => {
     net.routes["claude.status"] = () => ({ installed: false, signedIn: null });
     const { app: a } = show();
     await screen.findByRole("heading", { name: "Summary K-1" });
-    fireEvent.click(screen.getByRole("button", { name: "To fix", pressed: true }));
+    fireEvent.click(screen.getByRole("button", { name: /^To fix/, pressed: true }));
     const dlg = dialog();
     expect(within(dlg).getByLabelText(/Note for the author/)).toHaveValue("earlier note");
     expect(within(dlg).getByRole("button", { name: "Ask Claude to fix it" })).toBeDisabled();
+    fireEvent.click(within(dlg).getByRole("button", { name: "Open the system check" }));
+    expect(a.navigate).toHaveBeenCalledWith("doctor");
     key("v");
     expect(named("review.set")).toHaveLength(0);
     fireEvent.click(within(dlg).getByRole("button", { name: /Mark To fix/ }));
@@ -487,8 +506,8 @@ describe("Review screen", () => {
     await openFix();
     fireEvent.click(within(dialog()).getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("dialog", { name: "What needs fixing?" })).toBeNull();
-    fireEvent.click(await screen.findByRole("button", { name: "To fix", pressed: false }));
-    fireEvent.click(await screen.findByRole("button", { name: "To fix", pressed: true }));
+    fireEvent.click(await screen.findByRole("button", { name: /^To fix/, pressed: false }));
+    fireEvent.click(await screen.findByRole("button", { name: /^To fix/, pressed: true }));
     expect(screen.queryByRole("dialog", { name: "What needs fixing?" })).toBeNull();
     net.routes["review.set"] = () => refused("bad");
     await openFix();
@@ -561,7 +580,7 @@ describe("Review screen", () => {
     await screen.findByRole("heading", { name: "Summary K-1" });
     expect(screen.getByText("Claude is fixing this test")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Validate(?!d)/ })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "To fix" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^To fix/ })).toBeDisabled();
     const done = { runId: "r", changedTests: [], changedSteps: {}, nonce: 1, testId: "K-1", review: "to-fix" };
     rerender(<ReviewScreen />, { claudeRunning: null, lastRun: { ...done, message: "Two errors left" } });
     expect(await screen.findByRole("status", { name: "Claude's fix" })).toHaveTextContent("Two errors left");
@@ -613,30 +632,73 @@ describe("Review screen", () => {
     expect(within(dialog()).getByLabelText(/Note for the author/)).toHaveValue("Step 2 is vague");
   });
 
-  it("a test changed in Jira: compare, take Jira's version (or fail), keep mine through the push", async () => {
+  it("a test changed in Jira: compare in the editor, replace with Jira's version (or fail), keep mine through the push", async () => {
     reviewRoutes({ sync: "remote-changed" });
     net.routes["xray.pull"] = () => ({});
     const { app: a } = show();
     await screen.findByRole("heading", { name: "Summary K-1" });
     fireEvent.click(screen.getByRole("button", { name: "Compare" }));
-    expect(a.navigate).toHaveBeenCalledWith("tests", "K-1");
-    fireEvent.click(screen.getByRole("button", { name: "Take Jira's version" }));
-    expect(await screen.findByText("Jira's version taken")).toBeInTheDocument();
+    expect(await screen.findByText("Editor for K-1")).toBeInTheDocument();
+    expect(a.navigate).not.toHaveBeenCalledWith("tests", "K-1");
+    fireEvent.click(screen.getByRole("button", { name: "Back to review" }));
+    await screen.findByRole("heading", { name: "Summary K-1" });
+    fireEvent.click(screen.getByRole("button", { name: "Replace with Jira's version" }));
+    expect(await screen.findByText("K-1 replaced with Jira's version")).toBeInTheDocument();
     expect(named("xray.pull")[0].input).toEqual({ key: "K-1", overwrite: true });
     net.routes["xray.pull"] = () => refused("Jira is unreachable");
-    fireEvent.click(screen.getByRole("button", { name: "Take Jira's version" }));
+    fireEvent.click(screen.getByRole("button", { name: "Replace with Jira's version" }));
     expect(await screen.findByText("Could not pull K-1")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Keep mine" }));
     const push = screen.getByRole("dialog", { name: "Push stub" });
     key("j");
     expect(a.navigate).not.toHaveBeenCalledWith("review", "K-2");
     fireEvent.click(within(push).getByRole("button", { name: "Push compare" }));
-    expect(a.navigate).toHaveBeenCalledTimes(2);
-    fireEvent.click(within(push).getByRole("button", { name: "Push close" }));
+    expect(screen.queryByRole("dialog", { name: "Push stub" })).toBeNull();
+    expect(await screen.findByText("Editor for K-1")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Back to review" }));
+    await screen.findByRole("heading", { name: "Summary K-1" });
+    fireEvent.click(screen.getByRole("button", { name: "Keep mine" }));
+    fireEvent.click(screen.getByRole("button", { name: "Push close" }));
     expect(screen.queryByRole("dialog", { name: "Push stub" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Keep mine" }));
     fireEvent.click(screen.getByRole("button", { name: "Push done" }));
     expect(screen.queryByRole("dialog", { name: "Push stub" })).toBeNull();
+  });
+
+  it("« Open in the editor » of a test still in review lands in Review's editor, once", async () => {
+    reviewRoutes();
+    const navigate = vi.fn();
+    openInEditor(navigate, "K-1", true);
+    expect(navigate).toHaveBeenCalledWith("review", "K-1");
+    show();
+    expect(await screen.findByText("Editor for K-1")).toBeInTheDocument();
+    cleanup();
+    show();
+    expect(await screen.findByRole("heading", { name: "Summary K-1" })).toBeInTheDocument();
+    openInEditor(navigate, "K-9", false);
+    expect(navigate).toHaveBeenLastCalledWith("tests", "K-9");
+  });
+
+  it("asks before replacing local changes with Jira's version, and waits while Claude works on the test", async () => {
+    reviewRoutes({ sync: "remote-changed" });
+    const shown = net.routes["tests.show"];
+    net.routes["tests.show"] = (i) => ({
+      ...(shown(i) as object),
+      remote: testOf(String(i.id), { summary: "Their summary" }),
+    });
+    net.routes["xray.pull"] = () => ({});
+    show();
+    await screen.findByRole("heading", { name: "Summary K-1" });
+    fireEvent.click(screen.getByRole("button", { name: "Replace with Jira's version" }));
+    const ask = await screen.findByRole("alertdialog", { name: "Replace K-1 with Jira's version?" });
+    expect(named("xray.pull")).toHaveLength(0);
+    fireEvent.click(within(ask).getByRole("button", { name: "Replace with Jira's version" }));
+    expect(await screen.findByText("K-1 replaced with Jira's version")).toBeInTheDocument();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    cleanup();
+    show({ claudeRunning: "K-1" });
+    await screen.findByRole("heading", { name: "Summary K-1" });
+    expect(screen.getByRole("button", { name: "Replace with Jira's version" })).toBeDisabled();
   });
 
   it("a long job's end comes from jobs.show: the pull runs until its job is done", async () => {
@@ -657,9 +719,9 @@ describe("Review screen", () => {
     });
     const { client } = show();
     await screen.findByRole("heading", { name: "Summary K-1" });
-    fireEvent.click(screen.getByRole("button", { name: "Take Jira's version" }));
-    await waitFor(() => expect(named("jobs.show")).toHaveLength(1));
-    expect(screen.getByRole("button", { name: "Take Jira's version" })).toHaveAttribute("aria-busy", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Replace with Jira's version" }));
+    await waitFor(() => expect(named("jobs.show").length).toBeGreaterThan(0));
+    expect(screen.getByRole("button", { name: "Replace with Jira's version" })).toHaveAttribute("aria-busy", "true");
     status = "done";
     act(() =>
       apply(client, {
@@ -669,9 +731,11 @@ describe("Review screen", () => {
         job: { id: "job-1", kind: "pull", subject: "K-1", status: "done", startedAt: "" },
       }),
     );
-    expect(await screen.findByText("Jira's version taken")).toBeInTheDocument();
+    expect(
+      await screen.findByText("K-1 replaced with Jira's version", undefined, { timeout: 4000 }),
+    ).toBeInTheDocument();
     status = "failed";
-    fireEvent.click(screen.getByRole("button", { name: "Take Jira's version" }));
+    fireEvent.click(screen.getByRole("button", { name: "Replace with Jira's version" }));
     await waitFor(() => expect(named("xray.pull")).toHaveLength(2));
     act(() =>
       apply(client, {
@@ -681,7 +745,7 @@ describe("Review screen", () => {
         job: { id: "job-2", kind: "pull", subject: "K-1", status: "failed", startedAt: "", error: "Jira said no" },
       }),
     );
-    expect(await screen.findByText("Could not pull K-1")).toBeInTheDocument();
+    expect(await screen.findByText("Could not pull K-1", undefined, { timeout: 4000 })).toBeInTheDocument();
     expect(screen.getByText("Jira said no")).toBeInTheDocument();
   });
 
@@ -689,7 +753,7 @@ describe("Review screen", () => {
     reviewRoutes({ queue: [item("L-1")], sync: "remote-changed" });
     show({ route: { screen: "review", arg: "L-1" } });
     await screen.findByRole("heading", { name: "Summary L-1" });
-    fireEvent.click(screen.getByRole("button", { name: "Take Jira's version" }));
+    fireEvent.click(screen.getByRole("button", { name: "Replace with Jira's version" }));
     await act(async () => {});
     expect(named("xray.pull")).toHaveLength(0);
   });
@@ -761,11 +825,11 @@ describe("Review screen", () => {
     net.routes["check.run"] = () => ({ tests: [], totals: {}, failed: [] });
     show();
     await screen.findByRole("heading", { name: "Summary K-1" });
-    const notice = await within(queue()).findByText("2 tests not checked yet.");
-    fireEvent.click(within(notice.closest("[role=status]") as HTMLElement).getByRole("button", { name: "Check" }));
+    const notice = await within(queue()).findByText("3 tests not checked yet, or changed since their check.");
+    fireEvent.click(within(notice.closest("[role=status]") as HTMLElement).getByRole("button", { name: "Check all" }));
     await waitFor(() => expect(named("check.run")).toHaveLength(1));
-    expect(named("check.run")[0].input).toEqual({ ids: ["K-1", "K-2"] });
-    fireEvent.click(within(queue()).getByRole("button", { name: "Check all" }));
+    expect(named("check.run")[0].input).toEqual({ ids: ["K-1", "K-2", "L-3"] });
+    fireEvent.click(within(queue()).getAllByRole("button", { name: "Check all" })[0]);
     await waitFor(() => expect(named("check.run")).toHaveLength(2));
     expect(named("check.run")[1].input).toEqual({ ids: ["K-1", "K-2", "L-3"] });
     const under = screen.getByRole("region", { name: "Test under review" });
@@ -778,10 +842,23 @@ describe("Review screen", () => {
     show();
     await screen.findByRole("heading", { name: "Summary K-1" });
     expect(screen.queryByText(/not checked yet/)).toBeNull();
+    expect(within(queue()).getAllByRole("button", { name: "Check all" })).toHaveLength(1);
     expect(within(queue()).getByRole("button", { name: "Check all" })).toBeDisabled();
     fireEvent.click(await screen.findByRole("button", { name: "Check again" }));
     expect(await screen.findByText("Could not check the test")).toBeInTheDocument();
     expect(named("check.run").at(-1)?.input).toEqual({ ids: ["K-1"] });
+  });
+
+  it("a check that runs as a job says it started, with « Open in Jobs » to that job", async () => {
+    reviewRoutes({ queue: [item("K-1", { unchecked: true })] });
+    net.routes["check.run"] = () => ({ jobId: "check-0000000c" });
+    net.routes["jobs.show"] = () => ({ job: { id: "check-0000000c", kind: "check", status: "running" }, events: [] });
+    const { app: a } = show();
+    await screen.findByRole("heading", { name: "Summary K-1" });
+    fireEvent.click(within(queue()).getAllByRole("button", { name: "Check all" })[0]);
+    await waitFor(() => expect(toast("Checking 1 test")).toBeInTheDocument());
+    fireEvent.click(within(toast("Checking 1 test")).getByRole("button", { name: "Open in Jobs" }));
+    expect(a.navigate).toHaveBeenCalledWith("jobs", "check-0000000c");
   });
 
   it("a fresh, checked test has no Check button", async () => {

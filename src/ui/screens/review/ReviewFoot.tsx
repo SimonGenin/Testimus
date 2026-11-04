@@ -72,9 +72,6 @@ export function ReviewFoot({ errors, stale, off, fixOpen, marked = false, onToFi
         <span {...stylex.props(styles.keyGroup)}>
           <Kbd>↑</Kbd> <Kbd>↓</Kbd> step
         </span>
-        <span {...stylex.props(styles.keyGroup)}>
-          <Kbd>F</Kbd> to fix
-        </span>
       </span>
       <span {...stylex.props(styles.grow)} />
       {errors > 0 && (
@@ -89,7 +86,14 @@ export function ReviewFoot({ errors, stale, off, fixOpen, marked = false, onToFi
         </span>
       )}
       <span {...stylex.props(styles.action)}>
-        <Button icon="to-fix" label="To fix" pressed={fixOpen || marked} disabled={off} onClick={onToFix} />
+        <Button
+          icon="to-fix"
+          label="To fix"
+          shortcut="F"
+          pressed={fixOpen || marked}
+          disabled={off}
+          onClick={onToFix}
+        />
       </span>
       <span {...stylex.props(styles.action)}>
         <Button

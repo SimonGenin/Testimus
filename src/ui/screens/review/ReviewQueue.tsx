@@ -5,7 +5,6 @@ import { Badge, ReviewBadge } from "../../components/ui/Badge.tsx";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Checkbox } from "../../components/ui/Checkbox.tsx";
-import { EmptyState } from "../../components/ui/EmptyState.tsx";
 import { List } from "../../components/ui/List.tsx";
 import { Pane } from "../../components/ui/Pane.tsx";
 import { Segmented } from "../../components/ui/Segmented.tsx";
@@ -14,6 +13,7 @@ import { type } from "../../components/ui/type.ts";
 import { plural } from "../../lib/format.ts";
 import { border, color, container, shadow, size, space, z } from "../../styles/tokens.stylex.ts";
 import type { QueueGroup } from "./queueGroups.ts";
+import { FilteredEmpty } from "./ReviewEmpty.tsx";
 
 export type QueueItem = {
   id: string;
@@ -248,19 +248,7 @@ export function ReviewQueue(p: ReviewQueueProps) {
               !narrowed ? (
                 <p {...stylex.props(type.small, styles.none)}>The queue is empty.</p>
               ) : (
-                <EmptyState
-                  compact
-                  icon={p.filter === "validated" ? "validated" : "filter"}
-                  title={onlyValidated ? "No generated test validated yet" : "No test matches these filters"}
-                  text={
-                    onlyValidated
-                      ? "A generated test stays readable here once validated, and also appears in Tests."
-                      : undefined
-                  }
-                  actions={
-                    p.onClearFilters && <Button size="sm" label="Clear the filters" onClick={p.onClearFilters} />
-                  }
-                />
+                <FilteredEmpty compact onlyValidated={onlyValidated} onClear={p.onClearFilters} />
               )
             }
           />

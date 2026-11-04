@@ -8,6 +8,7 @@ import { type } from "../../components/ui/type.ts";
 import { baseName } from "../../lib/desktop.ts";
 import { owns, settled, type Upload } from "../../lib/uploads.ts";
 import { border, color, size, space } from "../../styles/tokens.stylex.ts";
+import { useCancel } from "../settings/jobs.ts";
 import { DocBadges } from "./badges.tsx";
 import { UploadFailure, uploadItem } from "./UploadItem.tsx";
 
@@ -68,6 +69,7 @@ export function DocList({
   head?: boolean;
   onOpen: (id: string) => void;
 }) {
+  const cancel = useCancel();
   const uploads = all.map((u) => {
     const d = u.job === "convert" ? docs?.find((x) => x.id === u.docId) : undefined;
     return d ? { ...u, name: baseName(d.source.name || d.source.file) || d.id } : u;
@@ -99,7 +101,7 @@ export function DocList({
           items={items}
           getKey={(i) => i.key}
           renderItem={(i) =>
-            i.upload && (!i.doc || !settled(i.upload)) ? uploadItem(i.upload) : docItem(i.doc as DocRef)
+            i.upload && (!i.doc || !settled(i.upload)) ? uploadItem(i.upload, cancel) : docItem(i.doc as DocRef)
           }
           selected={activeId || null}
           onSelect={pick}

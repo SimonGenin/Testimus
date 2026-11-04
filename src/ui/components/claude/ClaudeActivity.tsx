@@ -228,7 +228,7 @@ function PhaseBody({ phase: p, live, names }: { phase: Phase; live: boolean; nam
 }
 
 // ponytail: « What Claude did » — a Claude run folded into phases (got ready, read, planned, wrote, checked), each
-// with what it read and where, what it wrote and the check's verdicts; the raw log on demand
+// with what it read and where, what it wrote and the check's verdicts; the raw output on demand
 export function ClaudeActivity({
   events,
   running,
@@ -288,7 +288,7 @@ export function ClaudeActivity({
               variant="quiet"
               size="sm"
               icon="terminal"
-              label={rawOpen ? "Hide the raw log" : "Raw log"}
+              label={rawOpen ? "Hide raw output" : "Show raw output"}
               expanded={rawOpen}
               onClick={() => {
                 setShown(true);
@@ -306,11 +306,11 @@ export function ClaudeActivity({
         {phases.length > 0 && <Timeline label="Phases" tone="claude" items={items} />}
         <Disclosure
           quiet
-          summary={`${raw ? "Hide" : "Show"} the raw log (${plural(events.length, "event")})`}
+          summary={`${raw ? "Hide" : "Show"} raw output (${plural(events.length, "event")})`}
           open={raw}
           onOpenChange={setRaw}
         >
-          <JobLog events={events} label="Raw log" />
+          <JobLog events={events} label="Raw output" />
         </Disclosure>
       </Disclosure>
     </Card>

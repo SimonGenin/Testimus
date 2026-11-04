@@ -8,8 +8,7 @@ import { Icon } from "../../components/ui/Icon.tsx";
 import { Progress } from "../../components/ui/Progress.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { type } from "../../components/ui/type.ts";
-import { useApp } from "../../lib/app.ts";
-import { plural } from "../../lib/format.ts";
+import { type Screen, useApp } from "../../lib/app.ts";
 import { type JobNode, kindLabel, percent, resultLine, subjectLabel } from "../../lib/jobs.ts";
 import { border, color, space } from "../../styles/tokens.stylex.ts";
 import { JobCards } from "./JobCard.tsx";
@@ -72,6 +71,50 @@ const CLI: Record<string, string> = {
   "actions.triage": "testimus actions triage",
 };
 
+type Result = Record<string, unknown>;
+const ids = (v: unknown, key?: string): string[] =>
+  Array.isArray(v)
+    ? v.map((x) => (key ? (x as Record<string, unknown>)?.[key] : x)).filter((x) => typeof x === "string")
+    : [];
+const one = (v: unknown): string[] => (typeof v === "string" && v ? [v] : []);
+
+// ponytail: where a finished job's result is, by kind — the tests it wrote, checked, fixed or pulled, the documents it
+// added, converted or described; the first one opens
+const RESULTS: Record<string, { screen: Screen; one: string; many: string; of: (r: Result, job: Job) => string[] }> = {
+  generate: { screen: "review", one: "Review this test", many: "Review these tests", of: (r) => ids(r.tests) },
+  check: { screen: "review", one: "Review this test", many: "Review these tests", of: (r) => ids(r.tests, "id") },
+  fix: { screen: "review", one: "Review this test", many: "Review these tests", of: (_r, j) => one(j.subject) },
+  pull: { screen: "tests", one: "Open the test", many: "Open the tests", of: (r) => ids(r.pulled) },
+  "docs.add": {
+    screen: "documents",
+    one: "Open the document",
+    many: "Open the documents",
+    of: (r) => [...one(r.id), ...ids(r.added, "id")],
+  },
+  "docs.convert": { screen: "documents", one: "Open the document", many: "Open the documents", of: (r) => one(r.id) },
+  "describe-figures": {
+    screen: "documents",
+    one: "Open the document",
+    many: "Open the documents",
+    of: (r) => ids(r.docs, "docId"),
+  },
+};
+
+function resultLink(job: Job): { label: string; screen: Screen; ids: string[] } | null {
+  const k = RESULTS[job.kind];
+  const list = k ? k.of((job.result ?? {}) as Result, job) : [];
+  return k && list.length ? { label: list.length === 1 ? k.one : k.many, screen: k.screen, ids: list } : null;
+}
+
+// ponytail: a changed file that is a test's or a document's opens it
+function placeOfPath(path: string): { label: string; screen: Screen; id: string } | null {
+  const m = /^(tests|docs)\/([^/]+)\//.exec(path.replace(/\\/g, "/"));
+  if (!m) return null;
+  return m[1] === "tests"
+    ? { label: `Open ${m[2]} in Tests`, screen: "tests", id: m[2] }
+    : { label: `Open ${m[2]} in Documents`, screen: "documents", id: m[2] };
+}
+
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section aria-label={title} {...stylex.props(styles.sect)}>
@@ -106,7 +149,7 @@ export function JobDetail({
   const app = useApp();
   const { job, events, cancel, again } = useJobDetail(node.job, onOpen);
   const [showLog, setShowLog] = useState(false);
-  const r = (job.result ?? {}) as { tests?: string[] };
+  const link = job.status === "done" ? resultLink(job) : null;
   const claude =
     events.some((e) => e.type === "claude") || (job.processes ?? []).some((p) => p.label.startsWith("Claude"));
   const changed = [...new Set(events.flatMap((e) => (e.type === "changed" ? e.paths : [])))];
@@ -143,20 +186,21 @@ export function JobDetail({
         </div>
       )}
 
-      {job.status === "done" && job.kind === "generate" && !!r.tests?.length && (
+      {job.status === "done" && (link || resultLine(job).includes(" · ")) && (
         <div {...stylex.props(styles.result)}>
-          <Button
-            variant="primary"
-            iconAfter="arrow-right"
-            label="Review these tests"
-            onClick={() => app.navigate("review", r.tests?.[0])}
-          />
-          <span {...stylex.props(type.compact, styles.muted)}>{plural(r.tests.length, "test")} written</span>
-        </div>
-      )}
-      {job.status === "done" && job.kind !== "generate" && resultLine(job).includes(" · ") && (
-        <div {...stylex.props(styles.result)}>
-          <span {...stylex.props(type.compact, styles.muted)}>{resultLine(job).split(" · ").slice(1).join(" · ")}</span>
+          {link && (
+            <Button
+              variant="primary"
+              iconAfter="arrow-right"
+              label={link.label}
+              onClick={() => app.navigate(link.screen, link.ids[0])}
+            />
+          )}
+          {resultLine(job).includes(" · ") && (
+            <span {...stylex.props(type.compact, styles.muted)}>
+              {resultLine(job).split(" · ").slice(1).join(" · ")}
+            </span>
+          )}
         </div>
       )}
 
@@ -213,6 +257,19 @@ export function JobDetail({
                   {p}
                 </span>
                 <span {...stylex.props(type.small, styles.how)}>{how.get(p) ?? "modified"}</span>
+                {how.get(p) !== "deleted" && placeOfPath(p) && (
+                  <Button
+                    size="xs"
+                    variant="quiet"
+                    iconOnly
+                    icon="arrow-right"
+                    label={placeOfPath(p)?.label ?? ""}
+                    onClick={() => {
+                      const at = placeOfPath(p);
+                      if (at) app.navigate(at.screen, at.id);
+                    }}
+                  />
+                )}
               </li>
             ))}
           </ul>

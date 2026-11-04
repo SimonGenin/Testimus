@@ -1,10 +1,11 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ClaudeAction, ClaudeEvent, Effort, JobEvent } from "../../../core/types.ts";
 import type { AppState } from "../../lib/app.ts";
 import { ApiError } from "../../lib/data/client.ts";
 import { invalidate, type Prefix, useCommand } from "../../lib/data/query.ts";
-import { message, plural } from "../../lib/format.ts";
+import { message } from "../../lib/format.ts";
+import { editedAfterRun, revertDone } from "../../lib/revert.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 import { sourcesOf } from "./AnswerText.tsx";
 import {
@@ -30,7 +31,7 @@ const TESTS: Prefix[] = [["tests.show"]];
 const BUSY = {
   tone: "neutral" as const,
   title: "Claude is busy",
-  detail: "Wait for the current run, or cancel it (Esc).",
+  detail: "Wait for the current run to finish, or cancel it in the Claude panel.",
 };
 let seq = 0;
 
@@ -48,6 +49,20 @@ export function useDockRuns(app: AppState) {
   const [chatId, setChatId] = useState<string | undefined>(undefined);
   const [refused, setRefused] = useState<{ turn: Turn; detail: string } | null>(null);
   const cfg = app.info?.project.claude;
+  // ponytail: a Claude job started anywhere (the dock, Generate, the CLI) keeps the dock from starting another
+  const locked = busy || !!app.claudeRunning;
+
+  // ponytail: a run reverted from the editor or Review is reverted here too — its card says so, and so does the next
+  // request to Claude
+  const reverted = app.lastRun?.reverted;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a revert is taken once, by its nonce
+  useEffect(() => {
+    if (!reverted) return;
+    setTurns((all) =>
+      all.map((t) => (t.run?.runId === reverted && !t.run.reverted ? { ...t, run: { ...t.run, reverted: true } } : t)),
+    );
+    setRefused((r) => (r?.turn.run?.runId === reverted ? null : r));
+  }, [app.lastRun?.nonce]);
 
   const patch = (id: number, fn: (t: Turn) => Turn) => setTurns((all) => all.map((t) => (t.id === id ? fn(t) : t)));
 
@@ -120,6 +135,7 @@ export function useDockRuns(app: AppState) {
                 tests: changedTests.length,
                 ...(r.changedFiles ? { files: r.changedFiles.length } : {}),
                 review: t.action ? undefined : r.review,
+                ...(name === "review.fix" ? { fix: true } : {}),
               }
             : undefined,
       }));
@@ -165,7 +181,7 @@ export function useDockRuns(app: AppState) {
     );
 
   const runJob = async (j: DockJob) => {
-    if (busy) {
+    if (locked) {
       toast(BUSY);
       return;
     }
@@ -186,7 +202,7 @@ export function useDockRuns(app: AppState) {
   // ponytail: an action runs from its card in the Actions tab with the model and effort chosen on it — the run is
   // shown there under the cards, never in the other tabs
   const runAction = async (a: ClaudeAction, used: { model: string; effort: Effort }) => {
-    if (busy) {
+    if (locked) {
       toast(BUSY);
       return;
     }
@@ -210,7 +226,7 @@ export function useDockRuns(app: AppState) {
   };
 
   const execute = async (a: Again) => {
-    if (busy) return;
+    if (locked) return;
     const t0 = Date.now();
     const tid = a.scope && "testId" in a.scope ? a.scope.testId : undefined;
     const conversation = transcript(turns, a.mode === "docs" && !!chatId);
@@ -296,7 +312,7 @@ export function useDockRuns(app: AppState) {
   };
 
   const cancel = () => {
-    if (job.jobId) cancelJob.mutate({ id: job.jobId }, { onError: (e) => errorToast(e, "Could not cancel the run") });
+    if (job.jobId) cancelJob.mutate({ id: job.jobId }, { onError: (e) => errorToast(e, "Could not cancel the job") });
   };
 
   const revert = async (t: Turn, force = false) => {
@@ -308,14 +324,9 @@ export function useDockRuns(app: AppState) {
         files?: string[];
       };
       patch(t.id, (x) => ({ ...x, run: x.run && { ...x.run, reverted: true } }));
-      app.setLastRun({ runId: "", changedTests: r.reverted ?? [], changedSteps: {}, nonce: Date.now() });
-      toast({
-        tone: "neutral",
-        title: "Claude's changes reverted",
-        detail: `${plural(r.reverted?.length ?? 0, "test")}${r.files?.length ? ` and ${plural(r.files.length, "file")}` : ""} restored.`,
-      });
+      revertDone(app, t.run.runId, { reverted: r.reverted ?? [], files: r.files });
     } catch (e) {
-      if (!force && e instanceof ApiError && e.code === "edited-after-run") setRefused({ turn: t, detail: message(e) });
+      if (!force && editedAfterRun(e)) setRefused({ turn: t, detail: message(e) });
       else errorToast(e, "Could not revert Claude's changes");
     }
   };
@@ -325,6 +336,7 @@ export function useDockRuns(app: AppState) {
   return {
     turns,
     busy,
+    locked,
     started,
     last,
     jobId: job.jobId,

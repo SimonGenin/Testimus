@@ -1,16 +1,20 @@
 import * as stylex from "@stylexjs/stylex";
-import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import type { FigureEntry } from "../../../core/types.ts";
+import { noteRun } from "../../components/claude/useClaudeStatus.ts";
 import { Button } from "../../components/ui/Button.tsx";
 import { Card } from "../../components/ui/Card.tsx";
 import { EmptyState } from "../../components/ui/EmptyState.tsx";
 import { Segmented } from "../../components/ui/Segmented.tsx";
 import { type } from "../../components/ui/type.ts";
+import { useApp } from "../../lib/app.ts";
 import { useCommand } from "../../lib/data/query.ts";
 import { useProjectJobs } from "../../lib/projectJobs.ts";
-import { errorToast, toast } from "../../lib/toast.ts";
+import { errorToast, jobToast } from "../../lib/toast.ts";
 import { importClaude } from "../../lib/uploads.ts";
 import { color, container, size, space } from "../../styles/tokens.stylex.ts";
+import { useClaudeOffline } from "./ConvertDoc.tsx";
 import { DescribedBadge, FigureDetail, FigureImage, isDescribed } from "./FigureDetail.tsx";
 
 const styles = stylex.create({
@@ -68,18 +72,36 @@ const EMPTY: Record<Which, { title: string; text: string }> = {
 export function DocFigures({
   docId,
   figures,
+  focus,
   onOpen,
 }: {
   docId: string;
   figures: FigureEntry[];
+  /** the figure shown picked (« Show in Figures » from the text: fig:12) */
+  focus?: string;
   onOpen: (anchor: string) => void;
 }) {
+  const app = useApp();
+  const client = useQueryClient();
+  const offline = useClaudeOffline();
   const [which, setWhich] = useState<Which>("all");
-  const [picked, setPicked] = useState<string | null>(null);
+  const [picked, setPicked] = useState<string | null>(focus ?? null);
   const [started, setStarted] = useState<string>();
   const describe = useCommand("docs.describeFigures", { invalidates: [["jobs.list"]] });
   const jobs = useProjectJobs([started]);
   const running = jobs.some((j) => j.kind === "describe-figures" && j.subject === docId && j.status === "running");
+  const ended = jobs.find((j) => j.id === started && j.status !== "running");
+  useEffect(() => {
+    if (!ended) return;
+    setStarted(undefined);
+    const diagnosis = (ended.result as { diagnosis?: { kind: string } } | undefined)?.diagnosis;
+    noteRun(client, { ok: ended.status === "done" && !diagnosis, diagnosis });
+  }, [ended, client]);
+  useEffect(() => {
+    if (!focus) return;
+    setWhich("all");
+    setPicked(focus);
+  }, [focus]);
   const described = figures.filter(isDescribed);
   const bare = figures.filter((f) => f.file && !isDescribed(f));
   const shown = which === "all" ? figures : which === "described" ? described : figures.filter((f) => !isDescribed(f));
@@ -92,11 +114,12 @@ export function DocFigures({
         onSuccess: (out) => {
           const jobId = (out as { jobId?: string }).jobId;
           setStarted(jobId);
-          toast({
-            tone: "neutral",
-            title: anchors ? "Claude reads the figure again" : `Claude describes ${bare.length} figures`,
-            detail: "It runs in Jobs; the descriptions appear here as they are written.",
-          });
+          jobToast(
+            anchors ? "Claude reads the figure again" : `Claude describes ${bare.length} figures`,
+            jobId,
+            app.navigate,
+            "It runs in Jobs; the descriptions appear here as they are written.",
+          );
         },
         onError: (e) => errorToast(e, "Could not ask Claude to describe the figures"),
       },
@@ -129,6 +152,7 @@ export function DocFigures({
                 running ? "Claude is describing…" : `Describe ${bare.length} figure${bare.length === 1 ? "" : "s"}`
               }
               loading={busy}
+              disabled={offline}
               onClick={() => ask()}
             />
           )}
@@ -163,6 +187,7 @@ export function DocFigures({
               docId={docId}
               figure={current}
               busy={busy}
+              offline={offline}
               onOpen={onOpen}
               onDescribe={() => ask([current.anchor])}
             />
