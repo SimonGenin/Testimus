@@ -219,7 +219,7 @@ export function ColumnsClaude({ columns }: { columns: StepColumn[] }) {
             <Button
               variant="claude"
               size="sm"
-              icon="claude"
+              icon="send"
               label={asking ? "Claude is looking…" : answer ? "Ask again" : "Ask Claude"}
               disabled={asking}
               onClick={() => void suggest()}

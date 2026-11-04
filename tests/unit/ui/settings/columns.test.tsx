@@ -3,6 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ColumnsSection } from "../../../../src/ui/screens/settings/ColumnsSection.tsx";
+import { iconsIn } from "../../helpers/icon-names.tsx";
 import { calls, column, Fail, fakeNet, hold, info, inputs, label, mountSettings, net, reset } from "./helpers.tsx";
 
 vi.mock("../../../../src/ui/screens/settings/ColumnsClaude.tsx", () => ({
@@ -67,13 +68,19 @@ describe("Settings › Smart columns: a field Xray requires or has switched off 
     mountSettings(<ColumnsSection />);
     await screen.findByRole("list", { name: "Smart columns" });
     expect(card("Exigence")).toHaveTextContent("Xray");
-    expect(card("Exigence")).toHaveTextContent("required");
+    expect(card("Exigence")).toHaveTextContent("Required");
     expect(card("Expected Result")).toHaveTextContent("Xray · standard");
-    expect(card("Expected Result")).toHaveTextContent("required");
-    expect(card("Ancienne")).toHaveTextContent("off in Xray");
-    expect(card("Ancienne")).not.toHaveTextContent("required");
-    expect(card("Action")).not.toHaveTextContent("required");
-    expect(card("Action")).not.toHaveTextContent("off in Xray");
+    expect(card("Expected Result")).toHaveTextContent("Required");
+    expect(card("Ancienne")).toHaveTextContent("Off in Xray");
+    expect(card("Ancienne")).not.toHaveTextContent("Required");
+    expect(card("Action")).not.toHaveTextContent("Required");
+    expect(card("Action")).not.toHaveTextContent("Off in Xray");
+    expect(iconsIn(within(card("Exigence")).getByText("Required")), "audit icons 104").toEqual(["alert-circle"]);
+    expect(iconsIn(within(card("Ancienne")).getByText("Off in Xray"))).toEqual(["eye-off"]);
+    expect(iconsIn(within(card("Expected Result")).getByText("Xray · standard"))).toEqual([]);
+    const off = within(card("Ancienne")).getByText(/^Switched off in Xray/);
+    expect(iconsIn(off), "audit icons 106").toEqual(["info"]);
+    expect(within(card("Exigence")).queryByText(/^Switched off in Xray/)).toBeNull();
   });
 
   it("folds a field switched off in Xray as « when filled » until it is set open", async () => {
@@ -109,6 +116,18 @@ describe("Settings › Smart columns", () => {
     { id: "cf2", name: "Note", type: "", builtin: false },
   ];
 
+  it("marks a local column with a file and says it is never pushed (audit icons 104, 106)", async () => {
+    project = info(
+      {},
+      { columns: [column("Action"), column("Poste", { origin: "local", builtin: false })], fields, fetchedAt: "" },
+    );
+    mountSettings(<ColumnsSection />);
+    await screen.findByRole("list", { name: "Smart columns" });
+    expect(iconsIn(within(card("Poste")).getByText("Local only"))).toEqual(["file"]);
+    expect(iconsIn(within(card("Poste")).getByText(/^Kept in test\.md and never pushed/))).toEqual(["info"]);
+    expect(within(card("Action")).queryByText(/^Kept in test\.md/)).toBeNull();
+  });
+
   it("shows each column with its origin, folding, hidden flag, and moves them", async () => {
     project = info({}, { columns, fields, fetchedAt: "2026-11-01T10:00:00Z" });
     mountSettings(<ColumnsSection />);
@@ -116,6 +135,12 @@ describe("Settings › Smart columns", () => {
     expect(rows[0]).toHaveTextContent("Xray · standard");
     expect(rows[2]).toHaveTextContent("New in Xray");
     expect(rows[4]).toHaveTextContent("No longer in Xray");
+    expect(iconsIn(within(rows[2]).getByText("New in Xray")), "audit icons 104").toEqual(["alert-triangle"]);
+    expect(iconsIn(within(rows[4]).getByText("No longer in Xray"))).toEqual(["alert-triangle"]);
+    const fresh = within(rows[2])
+      .getByText(/^New in Xray: describe it/)
+      .closest('[role="alert"]');
+    expect(iconsIn(fresh), "audit icons 105: a compact warning banner").toEqual(["alert-triangle"]);
     expect(screen.getByText("New in Xray, not described yet: Exigence")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Describe it" }));
     expect(screen.getByRole("textbox", { name: /^What Claude writes in Exigence/ })).toHaveFocus();

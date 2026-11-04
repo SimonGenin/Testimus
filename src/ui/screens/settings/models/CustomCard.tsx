@@ -46,7 +46,7 @@ export function CustomCard({
             {active && <Badge label="In use" tone="success" icon="check" size="sm" />}
           </span>
         }
-        footer={<Button size="sm" label="Choose models" onClick={onChoose} />}
+        footer={<Button size="sm" icon="list" label="Choose models" onClick={onChoose} />}
       >
         <div {...stylex.props(styles.body)}>
           <Hint>Pick the embedding and the reranker yourself, among the models on this PC.</Hint>

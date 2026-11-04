@@ -8,6 +8,7 @@ import { setProject } from "../../../../src/ui/lib/data/client.ts";
 import { applyJobEvent } from "../../../../src/ui/lib/data/events.ts";
 import { readPref } from "../../../../src/ui/lib/prefs.ts";
 import { JobState, JobsScreen } from "../../../../src/ui/screens/jobs/JobsScreen.tsx";
+import { iconsIn } from "../../helpers/icon-names.tsx";
 import {
   callsOf,
   deferred,
@@ -415,5 +416,72 @@ describe("Jobs screen", () => {
     expect(screen.getByText(/Running · 0:03/)).toBeInTheDocument();
     expect(screen.getByText("Running")).toBeInTheDocument();
     expect(screen.getByText("Cancelled")).toBeInTheDocument();
+  });
+});
+
+describe("Jobs › the design's icons (audit icons 86–92)", () => {
+  it("draws each kind with the design's icon: a check, a model download, a measure, a Jira pull", async () => {
+    const end = "2026-11-02T10:01:00Z";
+    server = [
+      job({ id: "c1", kind: "check", status: "done", endedAt: end }),
+      job({ id: "m1", kind: "models-pull", subject: "bge-m3", status: "done", endedAt: end }),
+      job({ id: "m2", kind: "models-measure", subject: "light", status: "done", endedAt: end }),
+      job({ id: "p1", kind: "pull", subject: "LFRPS12-1", status: "done", endedAt: end }),
+    ];
+    jobsScreen();
+    await waitFor(() => expect(rows()).toHaveLength(4));
+    expect(iconsIn(rowOf("Check tests"))[0]).toBe("check-circle");
+    expect(iconsIn(rowOf("Download model"))[0]).toBe("drive");
+    expect(iconsIn(rowOf("Measure a search pack"))[0]).toBe("cpu");
+    expect(iconsIn(rowOf("LFRPS12-1"))[0]).toBe("download");
+  });
+
+  it("cancels a running job from its row with a stop button, without opening it", async () => {
+    server = [job({ id: "g1" }), job({ id: "d1", kind: "check", status: "done", endedAt: "2026-11-02T10:01:00Z" })];
+    net.routes["jobs.cancel"] = () => null;
+    const { state } = jobsScreen({ route: { screen: "jobs", arg: "d1" } });
+    await waitFor(() => expect(rows()).toHaveLength(2));
+    fireEvent.pointerEnter(rowOf("Check tests"));
+    expect(within(rowOf("Check tests")).queryByRole("button", { name: /^Cancel/ })).toBeNull();
+    const running = rowOf("Generate tests");
+    fireEvent.pointerEnter(running);
+    const stop = within(running).getByRole("button", { name: "Cancel Generate tests" });
+    expect(iconsIn(stop)).toEqual(["stop"]);
+    fireEvent.click(stop);
+    await waitFor(() => expect(callsOf("jobs.cancel")[0]?.input).toEqual({ id: "g1" }));
+    expect(state.navigate).not.toHaveBeenCalledWith("jobs", "g1");
+  });
+
+  it("marks each changed file, every process of a step with the terminal, and unfolds the log with a chevron", async () => {
+    server = [
+      job({
+        id: "g1",
+        status: "done",
+        endedAt: "2026-11-02T10:01:00Z",
+        steps: [{ id: "read", label: "Read the sources", status: "done" }],
+        processes: [
+          {
+            id: "p1",
+            label: "Claude · read and write",
+            command: "claude -p",
+            step: "read",
+            startedAt: "2026-11-02T10:00:01Z",
+            endedAt: "2026-11-02T10:00:04Z",
+            exit: 0,
+          },
+        ],
+      }),
+    ];
+    net.routes["jobs.show"] = () => ({
+      job: null,
+      events: [{ jobId: "g1", at: "", type: "changed", paths: ["tests/local-1/test.md", "tests/local-2/test.md"] }],
+    });
+    jobsScreen({ route: { screen: "jobs", arg: "g1" } });
+    const side = await waitFor(() => detail("Generate tests job"));
+    const files = await within(side).findByRole("region", { name: "Files changed · 2" });
+    for (const li of within(files).getAllByRole("listitem")) expect(iconsIn(li)).toEqual(["file"]);
+    const procs = within(side).getByRole("list", { name: "Processes of Read the sources" });
+    expect(iconsIn(within(procs).getByRole("listitem"))).toEqual(["terminal"]);
+    expect(iconsIn(within(side).getByRole("button", { name: "Show the full log" }))).toEqual(["chevron-right"]);
   });
 });

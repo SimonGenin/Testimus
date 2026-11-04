@@ -48,7 +48,7 @@ export const FIT: Record<FitVerdict, { tone: BadgeTone; icon: IconName; word: st
   fits: { tone: "success", icon: "check-circle", word: "Fits" },
   tight: { tone: "warning", icon: "alert-triangle", word: "Tight" },
   "gpu-too-small": { tone: "warning", icon: "cpu", word: "Partly on the processor" },
-  "ram-too-small": { tone: "danger", icon: "x-circle", word: "RAM too small" },
+  "ram-too-small": { tone: "danger", icon: "alert-circle", word: "RAM too small" },
   unknown: { tone: "info", icon: "info", word: "Not measured" },
   untested: { tone: "warning", icon: "circle-dashed", word: "Untested here" },
   unsupported: { tone: "neutral", icon: "x-circle", word: "Not supported here" },

@@ -152,7 +152,7 @@ export function ModelsSection() {
         <Banner
           tone="danger"
           title="The models could not be read"
-          actions={<Button size="sm" label="Try again" onClick={retry} />}
+          actions={<Button size="sm" icon="refresh" label="Try again" onClick={retry} />}
         >
           <span>{failed.message}</span>
         </Banner>

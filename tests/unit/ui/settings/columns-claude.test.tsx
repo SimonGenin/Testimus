@@ -4,6 +4,7 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { StepColumn } from "../../../../src/core/types.ts";
 import { ColumnsClaude } from "../../../../src/ui/screens/settings/ColumnsClaude.tsx";
+import { iconsIn } from "../../helpers/icon-names.tsx";
 import { calls, DIR, emit, Fail, fakeJob, fakeNet, info, inputs, mountSettings, net, reset } from "./helpers.tsx";
 
 beforeEach(() => {
@@ -63,6 +64,7 @@ describe("Settings › Smart columns › Ask Claude", () => {
     fireEvent.change(screen.getByPlaceholderText(/What the columns should hold/), {
       target: { value: "  le poste  " },
     });
+    expect(iconsIn(ask()), "audit icons 107: the send of a Claude block").toEqual(["send"]);
     fireEvent.click(ask());
     expect(await screen.findByText(/Claude is reading the columns/)).toBeInTheDocument();
     await waitFor(() => expect(calls("jobs.show")).toHaveLength(1));

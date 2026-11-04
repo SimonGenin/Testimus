@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Fit, Job } from "../../../../src/core/types.ts";
 import { ModelsSection } from "../../../../src/ui/screens/settings/ModelsSection.tsx";
 import type { CatalogRow, Installed, PackRow } from "../../../../src/ui/screens/settings/models/data.ts";
+import { iconsIn } from "../../helpers/icon-names.tsx";
 import { calls, emit, Fail, fakeNet, inputs, job, mountSettings, net, reset, status } from "./helpers.tsx";
 
 vi.mock("../../../../src/ui/screens/settings/models/FolderDialog.tsx", () => ({
@@ -232,6 +233,7 @@ describe("Settings › Models", () => {
     expect(screen.getByText("catalog.json is damaged")).toBeInTheDocument();
     expect(screen.queryByRole("article", { name: "Light pack" })).toBeNull();
     base();
+    expect(iconsIn(screen.getByRole("button", { name: "Try again" })), "audit icons 110").toEqual(["refresh"]);
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     await waitFor(() => expect(screen.queryByText("The models could not be read")).toBeNull());
     expect(await screen.findByRole("article", { name: "Light pack" })).toBeInTheDocument();

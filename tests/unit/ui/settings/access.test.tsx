@@ -11,6 +11,7 @@ import {
   siteRoot,
   xrayWords,
 } from "../../../../src/ui/screens/settings/ConnectAtlassian.tsx";
+import { iconsIn } from "../../helpers/icon-names.tsx";
 import { fakeDesktop } from "../../helpers/ui-desktop.tsx";
 import { calls, Fail, fakeNet, hold, inputs, label, mountSettings, net, reset } from "./helpers.tsx";
 
@@ -128,9 +129,15 @@ describe("ConnectAtlassian", () => {
     expect(field("API token")).toHaveAttribute("type", "text");
     expect(field("Client secret")).toHaveAttribute("type", "text");
     fireEvent.click(screen.getByRole("button", { name: "Hide secrets" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save and test the connection" }));
+    const save = screen.getByRole("button", { name: "Save and test the connection" });
+    expect(iconsIn(save), "audit icons 113").toEqual(["plug"]);
+    expect(iconsIn(screen.getByText(/^Settings → Apps → Xray/).parentElement)[0], "audit icons 114").toBe("settings");
+    fireEvent.click(save);
     expect(await screen.findByText("Connected as me@beta")).toBeInTheDocument();
     expect(screen.getByText(/Xray refused this Client ID/)).toBeInTheDocument();
+    const said = screen.getByText("Connected as me@beta").closest('[role="status"]');
+    expect(iconsIn(within(said as HTMLElement).getByText("Connected"))).toEqual(["check-circle"]);
+    expect(iconsIn(within(said as HTMLElement).getByText("Failed")), "audit icons 115").toEqual(["x-circle"]);
     expect(inputs("system.setCredentials")[0]).toEqual({
       site: "https://beta.atlassian.net",
       email: "me@beta",
@@ -287,6 +294,7 @@ describe("Settings › Access", () => {
       verdict(creds({ exists: false }, { invalid: true, problem: "not valid JSON" }));
     mountSettings(<AccessSection />);
     expect(await screen.findByText("Missing")).toBeInTheDocument();
+    expect(iconsIn(screen.getByText("Missing")), "audit icons 116").toEqual(["circle-dashed"]);
     expect(screen.getByText("Invalid — not valid JSON")).toBeInTheDocument();
     reset();
     fakeNet();

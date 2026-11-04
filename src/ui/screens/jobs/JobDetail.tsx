@@ -3,6 +3,7 @@ import { type ReactNode, useState } from "react";
 import type { Job } from "../../../core/types.ts";
 import { askedOf, ClaudeActivity } from "../../components/claude/ClaudeActivity.tsx";
 import { Button } from "../../components/ui/Button.tsx";
+import { Icon } from "../../components/ui/Icon.tsx";
 import { Progress } from "../../components/ui/Progress.tsx";
 import { useApp } from "../../lib/app.ts";
 import { plural } from "../../lib/format.ts";
@@ -41,9 +42,14 @@ const styles = stylex.create({
     fontWeight: fontWeight.semibold,
     color: color.textMuted,
   },
-  files: {
-    margin: 0,
-    paddingInlineStart: space.s5,
+  files: { listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: space.s2 },
+  file: { display: "flex", alignItems: "center", gap: space.s3, minWidth: 0 },
+  fileIcon: { flex: "none", display: "inline-flex", color: color.textSubtle },
+  path: {
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
     fontFamily: fontFamily.mono,
     fontSize: fontSize.code,
     lineHeight: lineHeight.code,
@@ -184,7 +190,14 @@ export function JobDetail({
         <Section title={`Files changed · ${changed.length}`}>
           <ul {...stylex.props(styles.files)}>
             {changed.map((p) => (
-              <li key={p}>{p}</li>
+              <li key={p} {...stylex.props(styles.file)}>
+                <span {...stylex.props(styles.fileIcon)}>
+                  <Icon name="file" size="sm" />
+                </span>
+                <span title={p} {...stylex.props(styles.path)}>
+                  {p}
+                </span>
+              </li>
             ))}
           </ul>
         </Section>
@@ -195,7 +208,7 @@ export function JobDetail({
           <Button
             variant="quiet"
             size="sm"
-            icon="terminal"
+            icon="chevron-right"
             label="Show the full log"
             onClick={() => setShowLog(true)}
           />

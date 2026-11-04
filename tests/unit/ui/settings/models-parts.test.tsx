@@ -25,6 +25,7 @@ import { ModelsTable } from "../../../../src/ui/screens/settings/models/ModelsTa
 import { OpLine } from "../../../../src/ui/screens/settings/models/OpLine.tsx";
 import { PackCard } from "../../../../src/ui/screens/settings/models/PackCard.tsx";
 import { PackPlanDialog } from "../../../../src/ui/screens/settings/models/PackPlanDialog.tsx";
+import { iconsIn } from "../../helpers/icon-names.tsx";
 import { fakeDesktop } from "../../helpers/ui-desktop.tsx";
 import { calls, Fail, fakeJob, fakeNet, hold, inputs, label, mountSettings, net, reset } from "./helpers.tsx";
 
@@ -231,6 +232,7 @@ describe("small model widgets", () => {
     expect(screen.getByText("no reranker")).toBeInTheDocument();
     rerender(<CustomCard active={false} embedding="e" reranker={null} label={(x) => x} onChoose={onChoose} />);
     expect(screen.getByText("Not chosen")).toBeInTheDocument();
+    expect(iconsIn(screen.getByRole("button", { name: "Choose models" })), "audit icons 111").toEqual(["list"]);
     fireEvent.click(screen.getByRole("button", { name: "Choose models" }));
     expect(onChoose).toHaveBeenCalled();
   });
@@ -240,6 +242,7 @@ describe("small model widgets", () => {
     const { rerender } = render(<FitConfirm {...props} fit={fitOf("ram-too-small", "No RAM")} />);
     expect(screen.getByRole("dialog", { name: "Big cannot run on this PC" })).toBeInTheDocument();
     expect(screen.getByText("RAM too small")).toBeInTheDocument();
+    expect(iconsIn(screen.getByText("RAM too small")), "audit icons 101").toEqual(["alert-circle"]);
     expect(screen.queryByRole("button", { name: "Use anyway" })).toBeNull();
     expect(screen.getByRole("button", { name: "Choose a lighter one" })).toBeDisabled();
     rerender(
@@ -357,6 +360,7 @@ describe("small model widgets", () => {
     expect(screen.getByText(/nothing to rebuild/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Change…" }));
     expect(onChangeFolder).toHaveBeenCalled();
+    expect(iconsIn(screen.getByRole("button", { name: "Download 2.0 GB" })), "audit icons 112").toEqual(["download"]);
     fireEvent.click(screen.getByRole("button", { name: "Download 2.0 GB" }));
     expect(onConfirm).toHaveBeenCalled();
     rerender(
@@ -372,6 +376,19 @@ describe("small model widgets", () => {
     );
     expect(screen.getByRole("dialog", { name: "Use the Balanced pack" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Use Balanced" })).toHaveAttribute("aria-busy", "true");
+    onConfirm.mockClear();
+    rerender(
+      <PackPlanDialog
+        pack={pack("balanced")}
+        out={{ ...out, plan: { ...out.plan, download: [], dir: "D:\\m", reindex: true } }}
+        label={(x) => x}
+        busy={false}
+        onConfirm={onConfirm}
+        onChangeFolder={onChangeFolder}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(iconsIn(screen.getByRole("button", { name: "Use Balanced" }))).toEqual(["check"]);
     expect(screen.getByText(/The documents are indexed again/)).toBeInTheDocument();
   });
 

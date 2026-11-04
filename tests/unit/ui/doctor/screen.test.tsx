@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DoctorCheck } from "../../../../src/core/types.ts";
 import { setProject } from "../../../../src/ui/lib/data/client.ts";
 import { DoctorScreen } from "../../../../src/ui/screens/doctor/DoctorScreen.tsx";
+import { iconsIn } from "../../helpers/icon-names.tsx";
 import { callsOf, Fail, FakeES, fakeEvents, fakeNet, job, net, status, withApp } from "../../helpers/ui-data.tsx";
 import { fakeDesktop, noDesktop } from "../../helpers/ui-desktop.tsx";
 
@@ -181,6 +182,28 @@ describe("System check screen", () => {
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("draws each fix with the icon of what it does: a download, a folder, an index (audit icons 95–97)", async () => {
+    const fix = (id: string, label: string, command: string) =>
+      c({ id, label: id, state: "warn", action: { label, command } });
+    net.routes["system.doctor"] = () =>
+      answer([
+        fix("llamacpp", "Download llama.cpp", "models.pullRuntime"),
+        fix("model.embedding", "Download Qwen3 Embedding 0.6B", "models.pull"),
+        fix("models.dir", "Choose the models folder…", "models.setDir"),
+        fix("index.space", "Index now", "rag.index"),
+        fix("model.fit", "Choose a lighter pack", "models.usePack"),
+        fix("jira", "Connect Atlassian", "system.setCredentials"),
+      ]);
+    withApp(<DoctorScreen />);
+    const icons = async (name: string) => iconsIn(await screen.findByRole("button", { name }));
+    expect(await icons("Download llama.cpp")).toEqual(["download"]);
+    expect(await icons("Download Qwen3 Embedding 0.6B")).toEqual(["download"]);
+    expect(await icons("Choose the models folder…")).toEqual(["folder"]);
+    expect(await icons("Index now")).toEqual(["refresh"]);
+    expect(await icons("Choose a lighter pack")).toEqual([]);
+    expect(await icons("Connect Atlassian")).toEqual([]);
   });
 
   it("follows a fix that is a job until it ends, then checks again", async () => {

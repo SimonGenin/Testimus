@@ -51,10 +51,12 @@ export const CLAUDE_KINDS = ["claude", "actions.triage", "fix", "chat", "columns
 export function kindIcon(kind: string): IconName {
   if (kind.startsWith("docs.") || kind === "describe-figures") return "documents";
   if (kind === "generate") return "generate";
-  if (kind === "check") return "review";
+  if (kind === "check") return "check-circle";
   if (kind === "rag-index" || kind === "search-index" || kind === "rag-eval") return "search";
   if (kind === "push") return "push";
-  if (kind === "pull" || kind.startsWith("models-") || kind === "pullModel") return "download";
+  if (kind === "pull") return "download";
+  if (kind === "models-measure") return "cpu";
+  if (kind.startsWith("models-") || kind === "pullModel") return "drive";
   if (kind === "process") return "terminal";
   if (CLAUDE_KINDS.includes(kind)) return "claude";
   return "jobs";

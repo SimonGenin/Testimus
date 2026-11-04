@@ -1,4 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
+import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import type { Job } from "../../../core/types.ts";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
@@ -9,7 +10,7 @@ import { List } from "../../components/ui/List.tsx";
 import { Modal } from "../../components/ui/Modal.tsx";
 import { ResizeHandle } from "../../components/ui/ResizeHandle.tsx";
 import { useApp } from "../../lib/app.ts";
-import { key, useCommand } from "../../lib/data/query.ts";
+import { execute, key, useCommand } from "../../lib/data/query.ts";
 import { plural } from "../../lib/format.ts";
 import { usePaneWidth } from "../../lib/panes.ts";
 import { errorToast } from "../../lib/toast.ts";
@@ -43,6 +44,7 @@ const SIDE = { min: 360, max: 820, initial: 600 };
 
 export function JobsScreen() {
   const app = useApp();
+  const client = useQueryClient();
   const j = useJobs();
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [clearing, setClearing] = useState(false);
@@ -67,6 +69,10 @@ export function JobsScreen() {
     isOpen: (n) => open[n.job.id] ?? openByDefault(n, activeId),
     toggle: (id, v) => setOpen((o) => ({ ...o, [id]: v })),
     pick: (id) => app.navigate("jobs", id),
+    cancel: (id) =>
+      void execute(client, "jobs.cancel", { id }, { invalidates: "none" }).catch((e) =>
+        errorToast(e, "Could not cancel the job"),
+      ),
   };
 
   const doClear = async () => {

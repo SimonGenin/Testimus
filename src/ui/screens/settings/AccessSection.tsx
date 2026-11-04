@@ -45,7 +45,7 @@ export function fileState(f: FileState): "found" | "missing" | "invalid" {
 
 const WORD = {
   found: { label: "Found · valid", tone: "success", icon: "check-circle" },
-  missing: { label: "Missing", tone: "warning", icon: "alert-triangle" },
+  missing: { label: "Missing", tone: "neutral", icon: "circle-dashed" },
   invalid: { label: "Invalid", tone: "danger", icon: "x-circle" },
 } as const;
 

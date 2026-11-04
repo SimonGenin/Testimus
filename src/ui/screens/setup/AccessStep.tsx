@@ -19,7 +19,7 @@ export function AccessStep({ onContinue, onSkip }: { onContinue: () => void; onS
           <Button variant="quiet" label="Skip for now" onClick={onSkip} />
           <Button
             variant={okAll || found ? "primary" : "secondary"}
-            iconAfter="arrow-right"
+            iconAfter="chevron-right"
             label="Continue"
             onClick={onContinue}
           />

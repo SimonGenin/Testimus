@@ -3,6 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SearchSection } from "../../../../src/ui/screens/settings/SearchSection.tsx";
+import { iconsIn } from "../../helpers/icon-names.tsx";
 import { calls, Fail, fakeNet, info, inputs, mountSettings, net, reset } from "./helpers.tsx";
 
 const status = (over: Record<string, unknown> = {}) => ({
@@ -127,6 +128,17 @@ describe("Settings › Search", () => {
     expect(await screen.findByText(/None yet: the first index run/)).toBeInTheDocument();
   });
 
+  it("a project without a document has an empty index, nothing to reindex (audit icons 109)", async () => {
+    net.routes["rag.status"] = () => status({ exists: false, docs: [], chunks: 0 });
+    net.routes["rag.spaces"] = () => [];
+    mountSettings(<SearchSection />);
+    const empty = await screen.findByText("Empty");
+    expect(iconsIn(empty)).toEqual(["circle-dashed"]);
+    expect(screen.getByText("No document yet — nothing to index.")).toBeInTheDocument();
+    expect(screen.queryByText("No index yet")).toBeNull();
+    expect(screen.getByRole("button", { name: "Reindex" })).toBeDisabled();
+  });
+
   it("shows why the state could not be read", async () => {
     delete net.routes["rag.status"];
     net.routes["rag.spaces"] = () => [];
@@ -140,6 +152,7 @@ describe("Settings › Search", () => {
     mountSettings(<SearchSection />);
     const active = await row("aaa111bbb222");
     expect(within(active).getByText("In use here")).toBeInTheDocument();
+    expect(iconsIn(within(active).getByText("In use here")), "audit icons 108").toEqual(["target"]);
     expect(within(active).getByText("Complete")).toBeInTheDocument();
     const old = await row("ccc333ddd444");
     expect(within(old).getByText("Incomplete")).toBeInTheDocument();
