@@ -8,3 +8,4 @@ export const stripMarker = stylex.defineMarker();
 export const blockMarker = stylex.defineMarker();
 export const tableMarker = stylex.defineMarker();
 export const hintMarker = stylex.defineMarker();
+export const fieldMarker = stylex.defineMarker();

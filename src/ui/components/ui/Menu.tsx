@@ -159,6 +159,8 @@ export type MenuItem = {
   checked?: boolean;
   /** red, last, behind its own separator, and it always confirms */
   danger?: boolean;
+  /** a check among several (contexts for a run): ticking it keeps the menu open for the next one */
+  keepOpen?: boolean;
   /** true, or the reason (« Only while the test differs from Jira »), shown as a tooltip; the item stays visible */
   disabled?: boolean | string;
   onSelect: () => void;
@@ -307,7 +309,7 @@ export function Menu({
         onMouseEnter={(e) => e.currentTarget.focus()}
         onClick={() => {
           if (off) return;
-          close();
+          if (!item.keepOpen) close();
           item.onSelect();
         }}
         {...stylex.props(

@@ -83,6 +83,20 @@ export const section: KitSection = {
           getKey={(r) => String(r.n)}
         />
       </Cell>
+      <Cell label="middle (cells centred on the row: a check's state, result and fix)" wide column>
+        <Table
+          label="Middle"
+          middle
+          columns={[
+            { key: "what", label: "What" },
+            { key: "result", label: "Result" },
+          ]}
+          rows={[
+            { what: "Claude Code", result: "Found on PATH — C:\\Users\\me\\.local\\bin\\claude.exe, version 2.1.0" },
+          ]}
+          getKey={(r) => r.what}
+        />
+      </Cell>
       <Cell label="loading (skeleton rows)" wide column>
         <Table label="Loading" columns={COLUMNS} rows={[]} getKey={(r) => r.id} loading />
       </Cell>

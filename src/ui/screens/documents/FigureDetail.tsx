@@ -31,7 +31,6 @@ const styles = stylex.create({
   small: { margin: 0, color: color.textMuted },
   labels: { color: color.text },
   acts: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s3 },
-  flush: { display: "inline-flex", marginInlineStart: `calc(-1 * ${space.s2})` },
 });
 
 export const isDescribed = (f: FigureEntry) => !!f.description.trim();
@@ -96,11 +95,7 @@ export function FigureDetail({
             },
             !!section && {
               label: "Section",
-              value: (
-                <span {...stylex.props(styles.flush)}>
-                  <Button size="xs" variant="quiet" label={sectionLabel(section)} onClick={() => onOpen(section)} />
-                </span>
-              ),
+              value: <Button variant="link" label={sectionLabel(section)} onClick={() => onOpen(section)} />,
             },
             !!figure.kind && { label: "Kind", value: figure.kind },
           ]}

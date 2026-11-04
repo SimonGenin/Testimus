@@ -73,6 +73,9 @@ export const section: KitSection = {
           debugState={{ value: "jira", state: "focus" }}
         />
       </Cell>
+      <Cell label="inline (in a head that draws its own line: the document's Text · Figures)" wide column>
+        <Tabs label="Inline" size="sm" inline value="local" tabs={LIST} onChange={() => {}} />
+      </Cell>
       <Cell label="steps · first, middle, last" wide column>
         <Steps at="access" />
         <Steps at="project" />

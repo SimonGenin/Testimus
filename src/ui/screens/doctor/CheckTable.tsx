@@ -74,6 +74,7 @@ export function CheckTable({
     <section aria-label={title} {...stylex.props(styles.section)}>
       <h2 {...stylex.props(type.titleSm, styles.title)}>{title}</h2>
       <Table<DoctorCheck>
+        middle
         label={title}
         rows={checks}
         loading={loading}

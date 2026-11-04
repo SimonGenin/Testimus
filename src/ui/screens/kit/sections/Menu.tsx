@@ -22,7 +22,7 @@ const sort: MenuEntry[] = [
   { label: "Key", checked: false, onSelect: () => {} },
   { label: "Title", checked: false, onSelect: () => {} },
   { group: "Show" },
-  { label: "Only To fix", checked: false, onSelect: () => {} },
+  { label: "Only To fix", checked: false, keepOpen: true, onSelect: () => {} },
   { note: "Tests without a key come last." },
 ];
 
@@ -77,7 +77,7 @@ export const section: KitSection = {
           debugActive="Delete local copy"
         />
       </Cell>
-      <Cell label="choices: groups · checked · note" wide column>
+      <Cell label="choices: groups · checked (keepOpen: ticking several in a row) · note" wide column>
         <Menu
           trigger={<Button variant="quiet" label="Sort" iconAfter="chevron-down" />}
           label="Sort and show"

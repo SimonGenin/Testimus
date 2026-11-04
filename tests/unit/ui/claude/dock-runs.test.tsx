@@ -174,7 +174,6 @@ describe("dock contexts", () => {
     expect(pick).toHaveAttribute("aria-checked", "false");
     fireEvent.click(pick);
     expect(chip).toHaveAttribute("aria-pressed", "true");
-    fireEvent.click(screen.getByRole("button", { name: "Add context" }));
     expect(screen.getByRole("menuitemcheckbox", { name: /Glossaire/ })).toHaveAttribute("aria-checked", "true");
     fireEvent.click(screen.getByRole("menuitem", { name: "Add a note for this run" }));
     fireEvent.change(screen.getByRole("textbox", { name: "Note for this run" }), { target: { value: " PCC " } });

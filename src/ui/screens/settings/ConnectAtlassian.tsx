@@ -153,7 +153,6 @@ export function ConnectAtlassian({
   const [token, setToken, clearToken] = useDraft(draft("token"), kept.token);
   const [clientId, setClientId, clearClientId] = useDraft(draft("clientId"), kept.clientId);
   const [secret, setSecret, clearSecret] = useDraft(draft("secret"), kept.clientSecret);
-  const [shown, setShown] = useState(false);
   const [busy, setBusy] = useState(false);
   const [words, setWords] = useState<{ jira: Word; xray: Word } | null>(null);
   const [error, setError] = useState("");
@@ -220,7 +219,6 @@ export function ConnectAtlassian({
     );
   if (!status || secrets.isPending) return <Skeleton lines={5} />;
 
-  const kind = shown ? "text" : "password";
   const dir = dirOf(status.jira.file);
   return (
     <form
@@ -285,7 +283,7 @@ export function ConnectAtlassian({
           <Text
             id="setup-token"
             label="API token"
-            type={kind}
+            type="password"
             value={token}
             onChange={touched(setToken)}
             spellCheck={false}
@@ -326,7 +324,7 @@ export function ConnectAtlassian({
             <Text
               id="setup-secret"
               label="Client secret"
-              type={kind}
+              type="password"
               value={secret}
               onChange={touched(setSecret)}
               spellCheck={false}
@@ -343,14 +341,6 @@ export function ConnectAtlassian({
           icon="plug"
           label={busy ? "Testing…" : "Save and test the connection"}
           loading={busy}
-        />
-        <Button
-          size="sm"
-          variant="quiet"
-          icon={shown ? "eye-off" : "eye"}
-          label={shown ? "Hide secrets" : "Show secrets"}
-          pressed={shown}
-          onClick={() => setShown(!shown)}
         />
         <span {...stylex.props(styles.spacer)} />
         {desktop() ? (

@@ -91,6 +91,21 @@ const styles = stylex.create({
     fontWeight: fontWeight.regular,
   },
   fieldHover: { backgroundColor: color.surfaceHover, color: color.textMuted },
+  link: {
+    height: "auto",
+    paddingInline: 0,
+    borderColor: "transparent",
+    borderRadius: radius.r1,
+    backgroundColor: { default: "transparent", ":hover": "transparent", ":active": "transparent" },
+    color: color.textLink,
+    fontWeight: "inherit",
+    fontSize: "inherit",
+    lineHeight: "inherit",
+    textDecorationLine: { default: "none", ":hover": "underline" },
+    textUnderlineOffset: space.s1,
+    boxShadow: "none",
+  },
+  linkHover: { textDecorationLine: "underline" },
   kbdEnd: { marginInlineStart: "auto", marginInlineEnd: 0 },
   xs: {
     height: size.controlXs,
@@ -134,12 +149,13 @@ const styles = stylex.create({
   hiddenInput: { display: "none" },
 });
 
-export type ButtonVariant = "primary" | "secondary" | "quiet" | "danger" | "claude" | "claude-quiet" | "field";
+export type ButtonVariant = "primary" | "secondary" | "quiet" | "danger" | "claude" | "claude-quiet" | "field" | "link";
 
 export type ButtonProps = {
   /** primary: the screen region's one action · secondary (default) · quiet: toolbars and rows · danger: the confirm
    * of a destructive dialog only · claude / claude-quiet: starts a Claude run · field: a sunken pill that opens a
-   * search (the top bar's palette, Ctrl K): words on the left, its shortcut at the right end */
+   * search (the top bar's palette, Ctrl K): words on the left, its shortcut at the right end · link: a place to go
+   * inside a sentence or a value (« § 5.6 », « Review them first »), in the link colour, at the size of the text around */
   variant?: ButtonVariant;
   /** xs 24 px (icon-only row actions) · sm 28 px (cards, rows, toasts, the dock's footer) · md 32 px · lg 40 px */
   size?: "xs" | "sm" | "md" | "lg";
@@ -186,6 +202,7 @@ const VARIANT = {
   claude: styles.claude,
   "claude-quiet": styles.claudeQuiet,
   field: styles.field,
+  link: styles.link,
 } as const;
 
 const SQUARE = { xs: styles.squareXs, sm: styles.squareSm, md: styles.squareMd, lg: styles.squareLg } as const;
@@ -199,6 +216,7 @@ const FORCED = {
     claude: styles.claudeHover,
     "claude-quiet": styles.claudeQuietHover,
     field: styles.fieldHover,
+    link: styles.linkHover,
   },
   pressed: {
     primary: styles.primaryPressed,
@@ -208,6 +226,7 @@ const FORCED = {
     claude: styles.claudeHover,
     "claude-quiet": styles.claudeQuietHover,
     field: styles.fieldHover,
+    link: styles.linkHover,
   },
 } as const;
 
@@ -240,7 +259,7 @@ export function Button({
   debugState,
 }: ButtonProps) {
   const off = disabled !== false;
-  const quietish = variant === "quiet" || variant === "claude-quiet" || variant === "field";
+  const quietish = variant === "quiet" || variant === "claude-quiet" || variant === "field" || variant === "link";
   const filled = variant === "primary" || variant === "danger" || variant === "claude";
   const fileInput = useRef<HTMLInputElement | null>(null);
   const button = (
@@ -264,6 +283,7 @@ export function Button({
         styles.base,
         VARIANT[variant],
         styles[s],
+        variant === "link" && styles.link,
         filled && styles.filled,
         quietish && styles.flat,
         iconOnly && styles.square,

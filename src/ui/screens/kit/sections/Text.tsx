@@ -138,6 +138,12 @@ export const section: KitSection = {
       <Cell label="Not saved — Retry" column>
         <Text label="Notes" value="Kept while it fails" autosave={state("error", "disk full")} onChange={() => {}} />
       </Cell>
+      <Cell label="password: Show / Hide in the field" column>
+        <Text label="API token" type="password" value="ATATT3xFfGF0" onChange={() => {}} />
+      </Cell>
+      <Cell label="search: the kit's own clear, and Escape" column>
+        <Text ariaLabel="Filter" type="search" icon="filter" value="disjoncteur" onChange={() => {}} />
+      </Cell>
       <Cell label="Changed on disk" column>
         <Text label="Project notes" multiline value="Mine" autosave={state("conflict")} onChange={() => {}} />
       </Cell>

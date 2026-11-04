@@ -10,7 +10,7 @@ import { AppContext } from "../../lib/app.ts";
 import { blocksOf } from "../../lib/blocks.ts";
 import { NEW_TABLE } from "../../lib/table.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
-import { blockMarker } from "./markers.stylex.ts";
+import { blockMarker, fieldMarker } from "./markers.stylex.ts";
 import { BlockInsert } from "./step/BlockInsert.tsx";
 import { ExternBlock, ImageBlock } from "./step/ImageBlock.tsx";
 import { MOVE, type Moved } from "./step/moved.ts";
@@ -121,10 +121,11 @@ export function FieldBlocks({
     if (i >= 0) document.getElementById(id(i))?.focus();
   });
 
-  const insert = (at: number, empty = false) =>
+  const insert = (at: number, empty = false, edge?: "first" | "last") =>
     readOnly ? null : (
       <BlockInsert
         empty={empty}
+        edge={edge}
         table={!nested}
         onText={() => {
           focusDraft.current = true;
@@ -154,7 +155,7 @@ export function FieldBlocks({
     <div
       data-testid="blocks"
       data-empty={!items.length || undefined}
-      {...stylex.props(styles.blocks)}
+      {...stylex.props(fieldMarker, styles.blocks)}
       onDragOver={(e) => !readOnly && takes(e) && e.preventDefault()}
       onDrop={(e) => {
         if (readOnly || !takes(e)) return;
@@ -165,7 +166,7 @@ export function FieldBlocks({
       }}
     >
       {readOnly && !items.length && <p {...stylex.props(styles.ro)}>—</p>}
-      {items.length ? insert(0) : insert(0, true)}
+      {items.length ? insert(0, false, "first") : insert(0, true)}
       {items.map((b, i) => (
         <Fragment key={i}>
           <div
@@ -273,7 +274,7 @@ export function FieldBlocks({
               </div>
             )}
           </div>
-          {insert(b.draft ? b.at : b.end)}
+          {insert(b.draft ? b.at : b.end, false, i === items.length - 1 ? "last" : undefined)}
         </Fragment>
       ))}
     </div>

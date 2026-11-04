@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Button } from "../../../components/ui/Button.tsx";
 import { type } from "../../../components/ui/type.ts";
 import { border, color, radius, shadow, size, space } from "../../../styles/tokens.stylex.ts";
-import { stripMarker } from "../markers.stylex.ts";
+import { fieldMarker, stripMarker } from "../markers.stylex.ts";
 import { MOVE, type Moved } from "./moved.ts";
 
 const styles = stylex.create({
@@ -14,9 +14,23 @@ const styles = stylex.create({
     minWidth: 0,
     position: "relative",
     zIndex: { default: "auto", ":hover": 1, ":focus-within": 1 },
-    marginBlock: `calc(-1 * ${space.s2})`,
+    marginBlock: `calc(-1 * ${space.s3})`,
   },
   frameEmpty: { marginBlock: 0 },
+  // ponytail: the strips at a field's edges lie inside the field, over its first or last block's edge, and only take
+  // the pointer while the field is hovered — so the strips of two fields 4 px apart never meet, and text is clicked
+  // freely the rest of the time
+  frameEdge: {
+    zIndex: 1,
+    pointerEvents: {
+      default: "none",
+      [stylex.when.ancestor(":hover", fieldMarker)]: "auto",
+      ":focus-within": "auto",
+    },
+  },
+  frameFirst: { marginBlockStart: 0, marginBlockEnd: `calc(-1 * ${space.s3})` },
+  frameLast: { marginBlockStart: `calc(-1 * ${space.s3})`, marginBlockEnd: 0 },
+  stripEdge: { height: space.s3 },
   strip: {
     position: "relative",
     height: space.s5,
@@ -82,6 +96,7 @@ const takes = (e: React.DragEvent) => ["Files", MOVE].some((t) => e.dataTransfer
 // focus and takes a dropped picture, file or block where it is
 export function BlockInsert({
   empty,
+  edge,
   table,
   onText,
   onImage,
@@ -89,6 +104,8 @@ export function BlockInsert({
   onDrop,
 }: {
   empty?: boolean;
+  /** the strip before a field's first block or after its last one */
+  edge?: "first" | "last";
   table: boolean;
   onText: () => void;
   onImage: (files: File[]) => void;
@@ -101,7 +118,14 @@ export function BlockInsert({
       aria-label="Insert a block"
       data-testid="block-insert"
       data-over={over || undefined}
-      {...stylex.props(stripMarker, styles.frame, empty && styles.frameEmpty)}
+      {...stylex.props(
+        stripMarker,
+        styles.frame,
+        edge && styles.frameEdge,
+        edge === "first" && styles.frameFirst,
+        edge === "last" && styles.frameLast,
+        empty && styles.frameEmpty,
+      )}
       onDragOver={(e) => {
         if (!takes(e)) return;
         e.preventDefault();
@@ -122,7 +146,7 @@ export function BlockInsert({
         else onDrop({ files: Array.from(e.dataTransfer.files) });
       }}
     >
-      <div {...stylex.props(styles.strip, empty && [type.small, styles.empty])}>
+      <div {...stylex.props(styles.strip, edge && styles.stripEdge, empty && [type.small, styles.empty])}>
         <span aria-hidden="true" {...stylex.props(styles.line, over && styles.over)} />
         {empty && <span {...stylex.props(styles.hint)}>Empty — type, paste an image or add a table</span>}
         <span {...stylex.props(styles.btns)} onMouseDown={(e) => e.preventDefault()}>

@@ -32,15 +32,12 @@ export function ReplaceTests({
           `${count === 1 ? "test" : "tests"} deleted for good with ${count === 1 ? "its" : "their"} screenshots: ${ids.join(", ")} — never pushed to Jira`,
         ],
       ]}
-      footNote={
-        <Button size="sm" variant="quiet" iconAfter="arrow-right" label="Validate in Review first" onClick={onReview} />
-      }
       onClose={onClose}
     >
       <p {...stylex.props(type.body, styles.p)}>
         To generate, Testimus first deletes the {plural(count, "test")} Claude wrote that {count === 1 ? "is" : "are"}{" "}
-        not validated yet (draft, checked or to fix). Validated tests and tests already in Jira are kept. To keep one,
-        validate it first.
+        not validated yet (draft, checked or to fix). Validated tests and tests already in Jira are kept. To keep one,{" "}
+        <Button variant="link" label="validate it in Review first" onClick={onReview} />.
       </p>
     </Modal>
   );

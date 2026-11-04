@@ -158,12 +158,12 @@ export function StepHead({
   return (
     <>
       {jira && (
-        <Chip
+        <Badge
           tone="warning"
           icon="history"
           label={jira.open ? "Hide Jira version" : "Jira version"}
           pressed={jira.open}
-          onToggle={jira.toggle}
+          onClick={jira.toggle}
         />
       )}
       <span {...stylex.props(styles.grow)} />

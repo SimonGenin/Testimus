@@ -329,7 +329,7 @@ describe("Generate screen", () => {
     expect(named("gen.tests")).toHaveLength(0);
     expect(named("gen.preview")[0].input).toEqual({ docs: ["D1"], sections: [] });
     fireEvent.click(go());
-    fireEvent.click(await screen.findByRole("button", { name: "Validate in Review first" }));
+    fireEvent.click(await screen.findByRole("button", { name: "validate it in Review first" }));
     expect(a.navigate).toHaveBeenCalledWith("review", "local-aaaaaaaa");
     fireEvent.click(go());
     fireEvent.click(await screen.findByRole("button", { name: "Delete and generate" }));

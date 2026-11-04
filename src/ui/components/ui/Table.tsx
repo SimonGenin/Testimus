@@ -56,6 +56,7 @@ const styles = stylex.create({
     verticalAlign: "top",
   },
   lastRow: { borderBottomWidth: 0 },
+  middle: { verticalAlign: "middle" },
   denseTh: { paddingInline: space.s3 },
   denseTd: { paddingBlock: space.s2, paddingInline: space.s3 },
   gridCell: { borderInlineEndStyle: "solid", borderInlineEndWidth: border.width, borderInlineEndColor: color.border },
@@ -122,6 +123,8 @@ export type TableProps<R> = {
   dense?: boolean;
   /** cell borders (the step's table block) */
   grid?: boolean;
+  /** cells centred on the row's height (a check's state, its result and its fix side by side), not on their top */
+  middle?: boolean;
   /** the open row */
   selected?: string | null;
   /** the rows open something: the first cell is a button (keyboard), the whole row takes the click */
@@ -151,6 +154,7 @@ export function Table<R>({
   getKey,
   dense = false,
   grid = false,
+  middle = false,
   selected,
   onRowSelect,
   sort,
@@ -166,6 +170,7 @@ export function Table<R>({
       td ? styles.td : styles.th,
       dense && (td ? styles.denseTd : styles.denseTh),
       grid && styles.gridCell,
+      middle && td && styles.middle,
       i === last && styles.lastCell,
       columns[i].numeric && styles.num,
       lastRow && styles.lastRow,

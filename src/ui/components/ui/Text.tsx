@@ -1,5 +1,14 @@
 import * as stylex from "@stylexjs/stylex";
-import { type KeyboardEvent, type ReactNode, type Ref, useEffect, useId, useLayoutEffect, useRef } from "react";
+import {
+  type KeyboardEvent,
+  type ReactNode,
+  type Ref,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { type AutosaveStatus, type Save, useAutosave, useDraft } from "../../lib/data/autosave.ts";
 import type { Key } from "../../lib/data/query.ts";
 import {
@@ -286,10 +295,22 @@ function TextField(p: TextProps) {
   // ponytail: a search field is a text input with the kit's own clear button (and Escape), never the browser's cross
   const search = p.type === "search" && !multiline;
   const clearable = search && !!p.value && !p.disabled && !locked && !!p.onChange;
+  // ponytail: a secret field shows what was typed on demand, in the field itself (SYSTEM.md Text: Show/Hide)
+  const secret = p.type === "password" && !multiline;
+  const [shown, setShown] = useState(false);
   const trailing =
     p.trailing ||
     (clearable && (
       <Button size="xs" variant="quiet" iconOnly icon="close" label="Clear" onClick={() => p.onChange?.("")} />
+    )) ||
+    (secret && !p.disabled && (
+      <Button
+        size="xs"
+        variant="quiet"
+        label={shown ? "Hide" : "Show"}
+        pressed={shown}
+        onClick={() => setShown((v) => !v)}
+      />
     ));
   const hintId = p.hint ? `${id}-hint` : undefined;
   const errorId = p.error ? `${id}-error` : undefined;
@@ -378,7 +399,7 @@ function TextField(p: TextProps) {
           <input
             {...common}
             ref={setRef}
-            type={search ? "text" : (p.type ?? "text")}
+            type={search || (secret && shown) ? "text" : (p.type ?? "text")}
             onChange={(e) => p.onChange?.(e.target.value)}
             {...stylex.props(styles.value, p.leading !== undefined && styles.wrapsValue)}
           />

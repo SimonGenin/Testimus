@@ -60,6 +60,7 @@ export function BenchDialog({
         </p>
         <Hint>Your project's documents are not used: the same test on every PC makes the packs comparable.</Hint>
         <Facts
+          divided
           items={[
             !!pack.embedding && {
               label: "Models",

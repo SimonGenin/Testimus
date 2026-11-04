@@ -1312,7 +1312,8 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
   over their extent, the chapters named in a grid that follows their length). No list or box of the browser shows
   (2026-11-04): a `Select` is a select-only combobox whose open list is the kit's `Menu` (a listbox, the chosen option
   checked and focused, arrows, type-ahead, Escape), never the platform's list (guard G2); a search field (`Text`
-  `type="search"`) clears with the kit's own button or Escape, never the browser's cross; a framed box a screen would
+  `type="search"`) clears with the kit's own button or Escape, never the browser's cross, and a secret field
+  (`type="password"`) has its own Show / Hide; a framed box a screen would
   draw (a finding, a figure's tile and detail, a test being written) is a `Card`, and the frames left outside the kit
   may only shrink (guard G2); the badge
   vocabularies (review, severity, sync, diff, columns, document status, health, Jira status) all live with `Badge`,

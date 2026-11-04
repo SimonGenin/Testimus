@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { border, color, radius, size, space } from "../../styles/tokens.stylex.ts";
+import { border, color, focus, radius, size, space } from "../../styles/tokens.stylex.ts";
 import { Icon, type IconName } from "./Icon.tsx";
 import { Spinner } from "./Spinner.tsx";
 import { Tooltip } from "./Tooltip.tsx";
@@ -29,6 +29,16 @@ const styles = stylex.create({
   claude: { color: color.claudeText, backgroundColor: color.claudeSubtle },
   accent: { color: color.accentText, backgroundColor: color.accentSubtle },
   outline: { backgroundColor: "transparent", boxShadow: `inset 0 0 0 ${border.width} currentColor` },
+  ring: { boxShadow: `inset 0 0 0 ${border.width} currentColor` },
+  button: {
+    margin: 0,
+    borderWidth: 0,
+    fontFamily: "inherit",
+    cursor: "pointer",
+    filter: { default: null, ":hover": "brightness(0.92)" },
+    outline: { default: "none", ":focus-visible": `${border.widthStrong} solid ${color.focusRing}` },
+    outlineOffset: focus.offset,
+  },
   sm: { height: size.badgeSm, paddingInline: space.s3 },
   count: {
     justifyContent: "center",
@@ -142,6 +152,10 @@ export type BadgeProps = {
   busy?: boolean;
   /** more words on hover and focus */
   tooltip?: string;
+  /** a state you can open (« Jira version »: the step as Jira has it): the badge is a button, drawn outline */
+  onClick?: () => void;
+  /** with onClick: what it opens is shown (aria-pressed) */
+  pressed?: boolean;
 };
 
 // ponytail: a short state attached to a thing — the review state, a finding's severity, a sync state, a diff mark, a
@@ -157,9 +171,30 @@ export function Badge({
   dot = false,
   busy = false,
   tooltip,
+  onClick,
+  pressed,
 }: BadgeProps) {
   const badge = dot ? (
     <span role="img" aria-label={label} {...stylex.props(styles.badge, styles.dot, DOT[tone], ink && INK_DOT[ink])} />
+  ) : onClick ? (
+    <button
+      type="button"
+      aria-pressed={pressed}
+      onClick={onClick}
+      {...stylex.props(
+        s === "sm" ? type.caption : type.small,
+        type.medium,
+        styles.badge,
+        styles.button,
+        styles[tone],
+        !icon && styles.noIcon,
+        pressed ? styles.ring : styles.outline,
+        s === "sm" && styles.sm,
+      )}
+    >
+      {icon && <Icon name={icon} size="sm" />}
+      {label}
+    </button>
   ) : (
     <span
       aria-busy={busy || undefined}

@@ -125,10 +125,15 @@ describe("ConnectAtlassian", () => {
     fireEvent.change(field("Client ID"), { target: { value: " cid " } });
     fireEvent.change(field("Client secret"), { target: { value: " sec " } });
     expect(field("API token")).toHaveAttribute("type", "password");
-    fireEvent.click(screen.getByRole("button", { name: "Show secrets" }));
+    const toggle = (name: string, word: string) =>
+      within(field(name).parentElement as HTMLElement).getByRole("button", { name: word });
+    fireEvent.click(toggle("API token", "Show"));
     expect(field("API token")).toHaveAttribute("type", "text");
+    expect(field("Client secret")).toHaveAttribute("type", "password");
+    fireEvent.click(toggle("Client secret", "Show"));
     expect(field("Client secret")).toHaveAttribute("type", "text");
-    fireEvent.click(screen.getByRole("button", { name: "Hide secrets" }));
+    fireEvent.click(toggle("API token", "Hide"));
+    expect(field("API token")).toHaveAttribute("type", "password");
     const save = screen.getByRole("button", { name: "Save and test the connection" });
     expect(iconsIn(save), "audit icons 113").toEqual(["plug"]);
     expect(iconsIn(screen.getByText(/^Settings → Apps → Xray/).parentElement)[0], "audit icons 114").toBe("settings");

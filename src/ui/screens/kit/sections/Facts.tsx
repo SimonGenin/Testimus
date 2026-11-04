@@ -38,6 +38,16 @@ export const section: KitSection = {
           ]}
         />
       </Cell>
+      <Cell label="divided (a plan, a measure)" column>
+        <Facts
+          divided
+          items={[
+            { label: "Download", value: "1.1 GB" },
+            { label: "Folder", value: "D:\\Testimus\\models" },
+            { label: "Then", value: "Index again: about 4 min" },
+          ]}
+        />
+      </Cell>
     </States>
   ),
 };

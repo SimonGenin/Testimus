@@ -92,6 +92,12 @@ export const section: KitSection = {
           debugState="hover"
         />
       </Cell>
+      <Cell label="link (inside a sentence or a value)" wide>
+        <span>
+          Validated tests are kept. To keep one, <Button variant="link" label="validate it in Review first" />.
+        </span>
+        <Button variant="link" label="§ 5.6" debugState="hover" />
+      </Cell>
       <Cell label="block" wide>
         <Button variant="primary" size="lg" label="Open the project" block />
       </Cell>

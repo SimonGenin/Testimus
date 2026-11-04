@@ -66,6 +66,7 @@ export function PackPlanDialog({
       }
     >
       <Facts
+        divided
         items={[
           { label: "Models", value: <Models embedding={out.embedding} reranker={out.reranker} label={label} /> },
           {

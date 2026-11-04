@@ -125,6 +125,10 @@ export const section: KitSection = {
         <Badge label="Running" tone="info" busy />
         <Badge label="Indexing…" tone="claude" busy size="sm" />
       </Cell>
+      <Cell label="onClick: a state you can open (Jira version) · pressed">
+        <Badge tone="warning" icon="history" label="Jira version" onClick={() => {}} />
+        <Badge tone="warning" icon="history" label="Hide Jira version" pressed onClick={() => {}} />
+      </Cell>
       <Cell label="tooltip (hover)">
         <Badge {...SYNC["in-sync"]} tooltip="Same as Jira since the last pull, 09:15" />
       </Cell>

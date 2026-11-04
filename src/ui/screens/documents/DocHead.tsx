@@ -30,7 +30,13 @@ const styles = stylex.create({
   title: { margin: 0, color: color.text },
   code: { color: color.textMuted },
   facts: { color: color.textMuted },
-  acts: { display: "flex", alignItems: "center", gap: space.s3 },
+  acts: {
+    display: "flex",
+    alignItems: "center",
+    gap: space.s3,
+    alignSelf: "stretch",
+    marginBlock: `calc(-1 * ${space.s2})`,
+  },
   dotWrap: { position: "relative", display: "inline-flex" },
   dot: { position: "absolute", top: space.s1, right: space.s1, display: "inline-flex", pointerEvents: "none" },
 });
@@ -133,6 +139,7 @@ export function DocHead({
           <Tabs
             label="Document views"
             size="sm"
+            inline
             value={view}
             onChange={onView}
             tabs={[

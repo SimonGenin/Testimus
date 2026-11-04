@@ -29,6 +29,7 @@ const styles = stylex.create({
     scrollbarWidth: "none",
   },
   tabsSm: { gap: space.s4, paddingInline: space.s4 },
+  inline: { paddingInline: 0, borderBottomWidth: 0, alignSelf: "stretch", alignItems: "flex-end" },
   tab: {
     position: "relative",
     display: "inline-flex",
@@ -130,6 +131,9 @@ export type TabsProps<V extends string> = {
   size?: "sm" | "md";
   /** equal widths */
   fill?: boolean;
+  /** inside a head that draws its own hairline (a document's head): no line of its own, no inline padding, the active
+   * bar sitting on the head's line */
+  inline?: boolean;
   /** the panels' id prefix: tab « x » controls the element `${panelId}-x` (see TabPanel) */
   panelId?: string;
   /** the catalogue only: a tab shown hovered or focused */
@@ -148,6 +152,7 @@ export function Tabs<V extends string>({
   variant = "tabs",
   size: s = "md",
   fill = false,
+  inline = false,
   panelId,
   debugState,
 }: TabsProps<V>) {
@@ -199,7 +204,11 @@ export function Tabs<V extends string>({
     refs.current.get(tabs[to].value)?.focus();
   };
   return (
-    <div role="tablist" aria-label={label} {...stylex.props(styles.tabs, s === "sm" && styles.tabsSm)}>
+    <div
+      role="tablist"
+      aria-label={label}
+      {...stylex.props(styles.tabs, s === "sm" && styles.tabsSm, inline && styles.inline)}
+    >
       {tabs.map((t, i) => {
         const on = t.value === value;
         const tab = (

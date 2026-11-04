@@ -108,6 +108,7 @@ export function DockComposer({
                     icon: "context" as const,
                     hint: c.shared ? "shared" : "this project",
                     checked: included(contexts, c.id),
+                    keepOpen: true,
                     onSelect: () => toggle(c.id, !included(contexts, c.id)),
                   }))
                 : [{ note: "No saved context yet — write a note and save it as a context." }]),
