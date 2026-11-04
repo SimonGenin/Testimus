@@ -120,7 +120,13 @@ const event = z.discriminatedUnion("type", [
   }),
   z.object({ ...base, type: z.literal("steps"), steps: z.array(step).describe("The job's steps, declared") }),
   z.object({ ...base, type: z.literal("process"), process: proc.describe("A program started or ended") }),
-  z.object({ ...base, type: z.literal("changed"), paths: z.array(z.string()).describe("Project files it changed") }),
+  z.object({
+    ...base,
+    type: z.literal("changed"),
+    paths: z.array(z.string()).describe("Project files it changed"),
+    added: z.array(z.string()).optional().describe("Those of the paths it created"),
+    removed: z.array(z.string()).optional().describe("Those of the paths it deleted"),
+  }),
   z.object({ ...base, type: z.literal("notice"), message: z.string().describe("A notice for every page") }),
 ]);
 

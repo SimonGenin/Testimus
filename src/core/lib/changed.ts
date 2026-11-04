@@ -42,3 +42,9 @@ export function changedPaths(before: Stamp, after: Stamp): string[] {
   for (const rel of before.keys()) if (!after.has(rel)) out.add(rel);
   return [...out].sort();
 }
+
+// ponytail: which changed paths are new and which are gone; the others were modified
+export const addedRemoved = (before: Stamp, after: Stamp, paths: string[]) => ({
+  added: paths.filter((p) => !before.has(p)),
+  removed: paths.filter((p) => !after.has(p)),
+});

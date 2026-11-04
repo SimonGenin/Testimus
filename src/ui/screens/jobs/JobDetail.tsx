@@ -45,6 +45,7 @@ const styles = stylex.create({
   files: { listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: space.s2 },
   file: { display: "flex", alignItems: "center", gap: space.s3, minWidth: 0 },
   fileIcon: { flex: "none", display: "inline-flex", color: color.textSubtle },
+  how: { flex: "none", fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textSubtle },
   path: {
     minWidth: 0,
     overflow: "hidden",
@@ -104,6 +105,12 @@ export function JobDetail({
   const claude =
     events.some((e) => e.type === "claude") || (job.processes ?? []).some((p) => p.label.startsWith("Claude"));
   const changed = [...new Set(events.flatMap((e) => (e.type === "changed" ? e.paths : [])))];
+  const how = new Map<string, "added" | "deleted">();
+  for (const e of events)
+    if (e.type === "changed") {
+      for (const p of e.added ?? []) how.set(p, "added");
+      for (const p of e.removed ?? []) how.set(p, "deleted");
+    }
   const { model, effort } = askedOf(job, app.info?.project.claude);
   const carried = new Set((job.steps ?? []).map((s) => s.jobId).filter(Boolean));
   const inside = node.children.filter((n) => !carried.has(n.job.id)).map((n) => n.job);
@@ -192,11 +199,15 @@ export function JobDetail({
             {changed.map((p) => (
               <li key={p} {...stylex.props(styles.file)}>
                 <span {...stylex.props(styles.fileIcon)}>
-                  <Icon name="file" size="sm" />
+                  <Icon
+                    name={how.get(p) === "added" ? "plus" : how.get(p) === "deleted" ? "trash" : "file"}
+                    size="sm"
+                  />
                 </span>
                 <span title={p} {...stylex.props(styles.path)}>
                   {p}
                 </span>
+                <span {...stylex.props(styles.how)}>{how.get(p) ?? "modified"}</span>
               </li>
             ))}
           </ul>

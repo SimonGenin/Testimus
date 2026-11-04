@@ -136,7 +136,9 @@ update it when a decision changes, in the same change as the code.
   project's `CLAUDE.md` included, its index and the app's bookkeeping under `.testimus/` left out (but proposed actions). A
   `UserError` may carry a stable `code` a page branches on; `conflict` (the file moved on disk since it was read) is HTTP 409.
 - **Long work is a job**: `generate`, `check` over a batch, `rag.index`, `xray.pull` of a folder.
-  A job has an id, progress, a cancel, and a log under `<project>/.testimus/jobs/<id>.jsonl`.
+  A job has an id, progress, a cancel, and a log under `<project>/.testimus/jobs/<id>.jsonl`. Before it ends it says
+  which project files it left changed (`changed`: the paths, and those it added and removed), so Jobs shows each one
+  added, modified or deleted.
 - **Stopping is clean.** On stdin closing (`--exit-with-stdin`), SIGINT, SIGTERM, SIGBREAK or SIGHUP
   (console closed), `serve` answers 503 to any new request, cancels every running job (each ends
   `cancelled` in its `.testimus/jobs/<id>.jsonl`; a job still busy after 5 s is logged `cancelled`
