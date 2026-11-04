@@ -5,7 +5,6 @@ import type { ColumnModes, Folder, LocalTestRef, Precondition, Step, StepImage, 
 import { ContextsDialog } from "../../components/claude/ContextsDialog.tsx";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
-import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { useApp } from "../../lib/app.ts";
 import { columnsOf, projectModes } from "../../lib/columns.ts";
 import { pendingAutosaves } from "../../lib/data/autosave.ts";
@@ -25,6 +24,7 @@ import { DownloadConfirm, RestoreConfirm, UndoConfirm } from "./editor/Confirms.
 import { EditorBanners } from "./editor/EditorBanners.tsx";
 import { EditorBar } from "./editor/EditorBar.tsx";
 import { EditorColumn } from "./editor/EditorColumn.tsx";
+import { EditorLoading } from "./editor/EditorLoading.tsx";
 import { PreconditionList } from "./editor/PreconditionList.tsx";
 import { StepList } from "./editor/StepList.tsx";
 import { type RemoteCheck, SummaryCard } from "./editor/SummaryCard.tsx";
@@ -271,18 +271,7 @@ export function TestEditor({
       </div>
     );
 
-  if (!test || !data)
-    return (
-      <div role="status" aria-busy="true" aria-label="Loading the test" {...stylex.props(styles.editor)}>
-        {lead}
-        <div {...stylex.props(styles.empty)}>
-          <Skeleton kind="title" width="70%" />
-          <Skeleton lines={2} />
-          <Skeleton kind="block" />
-          <Skeleton kind="block" />
-        </div>
-      </div>
-    );
+  if (!test || !data) return <EditorLoading lead={lead} />;
 
   uids.carry(test.steps);
   const url = (file: string) => fileUrl(`tests/${testId}/${file}`);
