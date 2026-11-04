@@ -618,9 +618,12 @@ describe("TestEditor › steps", () => {
     expect(toasts.at(-1)?.title).toBe("Too late to undo");
   });
 
-  it("offers a first step on an empty test", async () => {
-    shown = makeTest({ steps: [] });
-    editor();
+  it("offers a first step on an empty test, or Claude's draft of the steps; a new test's summary takes the focus", async () => {
+    shown = makeTest({ key: undefined, summary: "New test", steps: [] });
+    const { state } = editor();
+    await waitFor(() => expect(screen.getByRole("textbox", { name: "Summary" })).toHaveFocus());
+    fireEvent.click(await screen.findByRole("button", { name: "Ask Claude to draft them" }));
+    expect(state.askClaude).toHaveBeenCalledWith("test", expect.stringMatching(/^Draft the steps of this test/));
     fireEvent.click(await screen.findByRole("button", { name: "Add first step" }));
     expect(screen.getAllByRole("article")).toHaveLength(1);
   });

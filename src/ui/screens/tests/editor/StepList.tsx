@@ -77,6 +77,7 @@ export function StepList({
   onDelete,
   onReorder,
   onAsk,
+  onDraft,
   onRestore,
   onOpenImage,
   onOpenSource,
@@ -113,6 +114,8 @@ export function StepList({
   onDelete: (i: number) => void;
   onReorder: (from: number, to: number) => void;
   onAsk: (i: number) => void;
+  /** a test without steps: Claude drafts them from its description and sources */
+  onDraft?: () => void;
   onRestore: (base: Step, gone: Gone | null, n: number) => void;
   onOpenImage: (file: string, images: StepImage[], step: number, column?: string) => void;
   /** a source of a step opened, with the step it backs and that step's sources (‹ › in the dialog) */
@@ -228,10 +231,15 @@ export function StepList({
         <EmptyState
           icon="tests"
           title="This test has no steps yet."
-          text="A step is Action, Data and Expected Result, plus any screenshots you paste in."
+          text="Write the first one, or ask Claude to draft the steps from the test's description and sources."
           actions={
             readOnly ? undefined : (
-              <Button variant="primary" icon="plus" label="Add first step" onClick={() => onInsert(0)} />
+              <>
+                <Button variant="primary" icon="plus" label="Add first step" onClick={() => onInsert(0)} />
+                {onDraft && (
+                  <Button variant="claude-quiet" icon="claude" label="Ask Claude to draft them" onClick={onDraft} />
+                )}
+              </>
             )
           }
         />

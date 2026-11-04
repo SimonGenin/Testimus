@@ -455,6 +455,9 @@ export function TestEditor({
             setFocus({ testId, key: test.key, summary: test.summary, step: i + 1 });
             app.askClaude("step");
           }}
+          onDraft={() =>
+            app.askClaude("test", "Draft the steps of this test from its description and the documents it cites.")
+          }
           onRestore={(base, gone, n) => !refuseWhileClaude() && setDialog({ kind: "restore", base, gone, n })}
           onOpenImage={(file, images, step, column) =>
             setLb({
