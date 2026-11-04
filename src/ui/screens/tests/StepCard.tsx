@@ -196,6 +196,7 @@ export function StepCard({
         url={url}
         stepNumber={n}
         readOnly={readOnly}
+        lockedBy={readOnly ? "claude" : undefined}
         saveState={save}
         onText={(at, end, v) => {
           touch();

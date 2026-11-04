@@ -65,6 +65,7 @@ export function FieldBlocks({
   url,
   stepNumber,
   readOnly,
+  lockedBy,
   nested,
   saveState,
   onText,
@@ -82,6 +83,8 @@ export function FieldBlocks({
   url: (file: string) => string;
   stepNumber: number;
   readOnly?: boolean;
+  /** read-only because a Claude run holds the test: the text shows Claude's lock */
+  lockedBy?: "claude";
   nested?: boolean;
   /** the save state of the test, shown on the text block last edited here */
   saveState?: SaveState;
@@ -187,7 +190,8 @@ export function FieldBlocks({
                     appearance="inline"
                     ariaLabel={where}
                     value={b.text}
-                    readOnly={readOnly}
+                    readOnly={readOnly && !lockedBy}
+                    lockedBy={lockedBy}
                     autosave={edited === i ? saveState : undefined}
                     onChange={(v) => {
                       setEdited(i);
@@ -240,6 +244,7 @@ export function FieldBlocks({
                   label={label}
                   stepNumber={stepNumber}
                   readOnly={readOnly}
+                  lockedBy={lockedBy}
                   grip={readOnly ? undefined : <Grip />}
                   onText={onText}
                   onAddFiles={onAddFiles}

@@ -351,23 +351,29 @@ export function TestEditor({
         onPush={() => void actions.askPush()}
         onBack={onBack}
       />
-      <EditorColumn width={width} onWidth={setWidth} inert={busy}>
-        <EditorBanners
-          busy={busy}
-          busyHere={busyHere}
-          marked={marked}
-          conflict={doc.doc.status === "conflict"}
-          revertConflict={actions.revertConflict}
-          onShowChanges={() => {
-            const first = test.steps.findIndex((s) => markOf(s));
-            if (first >= 0) showStep(first);
-          }}
-          onRevert={() => void actions.revertClaude()}
-          onForceRevert={() => void actions.revertClaude(true)}
-          onKeepRevert={() => actions.setRevertConflict(null)}
-          onReloadDisk={() => doc.doc.takeDisk()}
-          onKeepMine={() => void doc.doc.keepMine()}
-        />
+      <EditorColumn
+        width={width}
+        onWidth={setWidth}
+        inert={busy}
+        top={
+          <EditorBanners
+            busy={busy}
+            busyHere={busyHere}
+            marked={marked}
+            conflict={doc.doc.status === "conflict"}
+            revertConflict={actions.revertConflict}
+            onShowChanges={() => {
+              const first = test.steps.findIndex((s) => markOf(s));
+              if (first >= 0) showStep(first);
+            }}
+            onRevert={() => void actions.revertClaude()}
+            onForceRevert={() => void actions.revertClaude(true)}
+            onKeepRevert={() => actions.setRevertConflict(null)}
+            onReloadDisk={() => doc.doc.takeDisk()}
+            onKeepMine={() => void doc.doc.keepMine()}
+          />
+        }
+      >
         <SummaryCard
           test={test}
           sync={sync}

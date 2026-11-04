@@ -1,7 +1,38 @@
 import { RevertConflict } from "../../../components/claude/RevertConflict.tsx";
+import { useRunningJobs } from "../../../components/shell/Activity.tsx";
 import { Banner } from "../../../components/ui/Banner.tsx";
 import { Button } from "../../../components/ui/Button.tsx";
+import { useCommand } from "../../../lib/data/query.ts";
 import { plural } from "../../../lib/format.ts";
+import { errorToast } from "../../../lib/toast.ts";
+
+// the jobs in which Claude edits tests (useClaudeLock): the one the banner can stop
+const EDITS = new Set(["claude", "fix"]);
+
+function ClaudeWorking({ here }: { here: boolean }) {
+  const job = useRunningJobs().find((j) => EDITS.has(j.kind));
+  const cancel = useCommand("jobs.cancel", { invalidates: "none" });
+  return (
+    <Banner
+      tone="claude"
+      icon="lock"
+      title={here ? "Claude is working on this test" : "Claude is working"}
+      actions={
+        job && (
+          <Button
+            size="sm"
+            icon="stop"
+            label="Cancel the run"
+            loading={cancel.isPending}
+            onClick={() => cancel.mutate({ id: job.id }, { onError: (e) => errorToast(e, "Could not cancel the run") })}
+          />
+        )
+      }
+    >
+      Editing is paused until it finishes. Every change can be reverted.
+    </Banner>
+  );
+}
 
 export type ClaudeMarked = { i: number; added: boolean }[];
 
@@ -49,11 +80,7 @@ export function EditorBanners({
           Another program wrote this test while you were editing it.
         </Banner>
       )}
-      {busy && (
-        <Banner tone="claude" icon="claude">
-          {busyHere ? "Claude is working on this test." : "Claude is working."} Editing is paused until it finishes.
-        </Banner>
-      )}
+      {busy && <ClaudeWorking here={busyHere} />}
       {marked && (
         <Banner
           tone="claude"

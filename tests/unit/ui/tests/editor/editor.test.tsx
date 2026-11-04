@@ -665,7 +665,7 @@ describe("TestEditor › steps", () => {
     fireEvent.dragStart(cards()[0], { dataTransfer: { setData: vi.fn(), types: [] } });
     dragTo(cards()[2], "dragOver", 180);
     dragTo(cards()[2], "dragOver", 190);
-    expect(document.querySelector('[data-testid="editor-column"] > [data-testid="dropline"]')).not.toBeNull();
+    expect(document.querySelector('[data-testid="editor-held"] > [data-testid="dropline"]')).not.toBeNull();
     dragTo(cards()[1], "dragOver", 120);
     expect(cards()[1].parentElement?.querySelector('[data-testid="dropline"]')).not.toBeNull();
     dragTo(cards()[2], "dragOver", 180);
@@ -767,7 +767,8 @@ describe("TestEditor › Claude", () => {
   it("any Claude run locks the editor, also one on another test or on the whole project", async () => {
     for (const running of ["t2", "*project*"]) {
       editor({ claudeRunning: running });
-      expect(await screen.findByText(/^Claude is working\./)).toBeInTheDocument();
+      expect(await screen.findByText("Claude is working")).toBeInTheDocument();
+      expect(screen.getByText(/Editing is paused until it finishes/)).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Push to Jira" })).toBeDisabled();
       cleanup();
     }
@@ -1737,11 +1738,18 @@ describe("TestEditor › parity", () => {
   });
 
   it("makes the steps inert while Claude works on the test, and live again after", async () => {
+    server.routes["jobs.list"] = () => [{ id: "job-c", kind: "claude", status: "running", label: "Claude" }];
+    server.routes["jobs.cancel"] = () => ({ id: "job-c" });
     const { again } = editor({ claudeRunning: "t1" });
     await ready();
-    expect(screen.getByTestId("editor-column").parentElement).toHaveAttribute("inert");
+    expect(screen.getByTestId("editor-held")).toHaveAttribute("inert");
+    expect(screen.getAllByText("Read-only — Claude is editing", { exact: false }).length).toBeGreaterThan(0);
+    fireEvent.click(await screen.findByRole("button", { name: "Cancel the run" }));
+    await waitFor(() => expect(callsTo("jobs.cancel")[0]?.input).toEqual({ id: "job-c" }));
+    expect(screen.getAllByRole("article", { hidden: true })[0].closest("[inert]")).not.toBeNull();
+    expect(screen.getByText("Claude is working on this test").closest("[inert]")).toBeNull();
     again({ claudeRunning: null });
-    await waitFor(() => expect(screen.getByTestId("editor-column").parentElement).not.toHaveAttribute("inert"));
+    await waitFor(() => expect(screen.getByTestId("editor-held")).not.toHaveAttribute("inert"));
   });
 
   it("opens with the details hidden when that was the last choice", async () => {

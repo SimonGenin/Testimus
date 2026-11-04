@@ -52,6 +52,7 @@ export function TableBlock({
   label,
   stepNumber,
   readOnly,
+  lockedBy,
   grip,
   onText,
   onAddFiles,
@@ -69,6 +70,7 @@ export function TableBlock({
   label: string;
   stepNumber: number;
   readOnly?: boolean;
+  lockedBy?: "claude";
   grip?: ReactNode;
   onText: (at: number, end: number, value: string) => void;
   onAddFiles: (at: number, files: File[]) => void;
@@ -125,6 +127,7 @@ export function TableBlock({
                           url={url}
                           stepNumber={stepNumber}
                           readOnly={readOnly}
+                          lockedBy={lockedBy}
                           onText={(at, end, v) => onText(c.at + at, c.at + end, v)}
                           onAddFiles={(at, files) => onAddFiles(c.at + at, files)}
                           onFieldText={(next) => onFieldText(text.slice(0, c.at) + next + text.slice(c.end))}

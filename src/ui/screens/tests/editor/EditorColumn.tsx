@@ -28,6 +28,7 @@ const styles = stylex.create({
     bottom: 0,
     display: { default: "flex", [breakpoint.narrow]: "none" },
   },
+  held: { display: "contents" },
   left: { left: 0 },
   right: { right: 0 },
 });
@@ -39,11 +40,14 @@ export function EditorColumn({
   width,
   onWidth,
   inert,
+  top,
   children,
 }: {
   width: number | null;
   onWidth: (px: number | null) => void;
   inert?: boolean;
+  /** above the content and never inert: the notices, whose buttons act while the rest waits */
+  top?: ReactNode;
   children: ReactNode;
 }) {
   const half = (width ?? DEFAULT) / 2;
@@ -63,11 +67,14 @@ export function EditorColumn({
     </span>
   );
   return (
-    <div {...stylex.props(styles.scroll)} inert={inert}>
+    <div {...stylex.props(styles.scroll)}>
       <div data-testid="editor-column" {...stylex.props(styles.col)} style={width ? { maxWidth: width } : undefined}>
         {handle("left")}
         {handle("right")}
-        {children}
+        {top}
+        <div data-testid="editor-held" inert={inert} {...stylex.props(styles.held)}>
+          {children}
+        </div>
       </div>
     </div>
   );
