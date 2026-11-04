@@ -39,6 +39,25 @@ describe("npm run screens: the catalog (GOAL-V3 proof 5, audit M-X1)", () => {
       expect(ids).toContain(id);
   });
 
+  it("lets a shot excuse only the failed request it causes on purpose, with its reason", () => {
+    const excused = scenarios.flatMap((s) => s.shots.filter((sh) => sh.expectErrors).map((sh) => `${s.id}/${sh.id}`));
+    expect(excused.sort()).toEqual([
+      "fixture/error-document",
+      "fixture/error-models",
+      "fixture/tests-bad-id",
+      "fixture/toast-error",
+    ]);
+    for (const s of scenarios)
+      for (const sh of s.shots.filter((x) => x.expectErrors)) {
+        const want = sh.expectErrors as { pattern: RegExp; why: string };
+        expect(want.why.length, `${s.id}/${sh.id}`).toBeGreaterThan(20);
+        expect(want.pattern.test("Failed to load resource: the server responded with a status of 500 (x)")).toBe(
+          want.pattern.source.includes("500"),
+        );
+        expect(want.pattern.test("TypeError: Cannot read properties of undefined"), `${s.id}/${sh.id}`).toBe(false);
+      }
+  });
+
   it("gives every shot a unique scenario/shot id, a note and a way to reach it", () => {
     const all = scenarios.flatMap((s) => s.shots.map((shot) => `${s.id}/${shot.id}`));
     expect(new Set(all).size).toBe(all.length);

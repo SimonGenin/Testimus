@@ -1,4 +1,4 @@
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { parse } from "node:path";
 import { env } from "../env.ts";
 import type { GpuInfo, LoadedModel, MachineProfile } from "../types.ts";
@@ -20,7 +20,10 @@ function gpu(name: string, totalMB: number | null, usedMB: number | null, source
   };
 }
 
+// ponytail: drives the core on this host can write to — Windows drive letters there, the home folder elsewhere (as
+// models.hardware reads them): a C:\ offered on a Mac is a folder the core refuses
 function drives(): MachineProfile["drives"] {
+  if (process.platform !== "win32") return [{ root: homedir(), freeMB: 640 * GB, totalMB: 1863 * GB }];
   const roots = new Set(["C:\\", "D:\\", parse(tmpdir()).root.toUpperCase()]);
   return [...roots].sort().map((root) => ({
     root,

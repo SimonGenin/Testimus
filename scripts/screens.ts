@@ -100,6 +100,8 @@ type Entry = {
   hash: string;
   files: { size: Size; theme: Theme; part: number; file: string }[];
   errors: string[];
+  // the console lines the shot causes on purpose (Shot.expectErrors), kept apart from the errors
+  expected?: { why: string; lines: string[] };
 };
 const manifest: Entry[] = [];
 const failures: string[] = [];
@@ -244,7 +246,14 @@ async function runShot(browser: Browser, server: Server, sc: Scenario, sh: Shot)
   };
   page.on("pageerror", (e) => entry.errors.push(e.message));
   page.on("console", (m) => {
-    if (m.type() === "error") entry.errors.push(m.text());
+    if (m.type() !== "error") return;
+    const want = sh.expectErrors;
+    if (!want || !want.pattern.test(m.text())) {
+      entry.errors.push(m.text());
+      return;
+    }
+    entry.expected = entry.expected ?? { why: want.why, lines: [] };
+    entry.expected.lines.push(m.text());
   });
   // ponytail: a window with no testimus.* key asks the server for its mirrored prefs and may reload mid-shot
   await page.addInitScript((setup) => {

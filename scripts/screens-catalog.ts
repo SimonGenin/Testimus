@@ -24,7 +24,14 @@ export type Shot = {
   sizes?: string[];
   scroll?: boolean;
   settle?: number;
+  // ponytail: a shot that makes the API fail on purpose names the failed request the browser logs, and why
+  expectErrors?: { pattern: RegExp; why: string };
 };
+
+const failedWith = (status: number, why: string) => ({
+  pattern: new RegExp(`^Failed to load resource: the server responded with a status of ${status} `),
+  why,
+});
 
 export type Scenario = {
   id: string;
@@ -378,7 +385,12 @@ function fixtureShots(): Shot[] {
       hash: "#/tests",
       prep: (p) => p.getByRole("textbox", { name: "Filter tests" }).fill("zzzqqq"),
     },
-    { id: "tests-bad-id", note: "A test that cannot be opened", hash: "#/tests/LFRPS12-0" },
+    {
+      id: "tests-bad-id",
+      note: "A test that cannot be opened",
+      hash: "#/tests/LFRPS12-0",
+      expectErrors: failedWith(400, "the shot opens a test id the project does not have: tests.show refuses it (400)"),
+    },
     {
       id: "tests-editor",
       note: "Editor, a test with a modified step, a figure and preconditions",
@@ -541,6 +553,7 @@ function fixtureShots(): Shot[] {
     {
       id: "toast-error",
       note: "An error toast",
+      expectErrors: failedWith(500, "the shot makes docs.list fail (500) to show the error toast"),
       hash: "#/tests",
       prep: async (p) => {
         await fail(p, "**/api/docs/list");
@@ -695,6 +708,7 @@ function fixtureShots(): Shot[] {
     {
       id: "error-document",
       note: "A document that cannot be opened",
+      expectErrors: failedWith(500, "the shot makes docs.show fail (500) to show the document's error state"),
       hash: "#/tests",
       prep: async (p) => {
         await fail(p, "**/api/docs/show");
@@ -705,6 +719,7 @@ function fixtureShots(): Shot[] {
     {
       id: "error-models",
       note: "Models that cannot be read",
+      expectErrors: failedWith(500, "the shot makes every models.* read fail (500) to show the error state"),
       hash: "#/tests",
       prep: async (p) => {
         await fail(p, "**/api/models/**");

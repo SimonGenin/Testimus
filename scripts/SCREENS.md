@@ -112,6 +112,10 @@ dist/screens/
   `scripts/screens.ts`).
 - **`errors`** : les erreurs de console et les exceptions de la page pendant la capture. Une capture avec des
   erreurs reste valable, mais c'est un défaut à regarder.
+- **`expected`** : seulement pour une capture qui fait échouer l'API exprès (un 500 forcé, un id inconnu). Elle
+  déclare `expectErrors: { pattern, why }` dans le catalogue ; la ligne « Failed to load resource » que le navigateur
+  écrit alors va ici, avec la raison, et non dans `errors`. Toute autre erreur reste dans `errors`. Le test
+  `tests/unit/scripts/screens-catalog.test.ts` limite ces déclarations aux captures d'erreur connues.
 
 ## Ajouter une capture
 
