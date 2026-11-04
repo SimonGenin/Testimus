@@ -1170,7 +1170,9 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
     the step column, the Generate picker, and whether Xray has the column (if not: how to add it, « Check Xray again »
     = xray.fields). « Track these ids » = traces.save.
   - **Jobs** — list (kind, subject, progress, duration, result) and detail (live log from jobs.show + events, Cancel);
-    a job in which Claude ran shows « What Claude did » instead of the plain log.
+    a job in which Claude ran shows « What Claude did » instead of the plain log. « Run again » = `jobs.rerun`: the
+    same command with the input the job kept (not kept when large or secret), the new job caused by the old one
+    (`retry`).
   - **What Claude did** (one component, every Claude job) — the run's events folded into phases (got ready, read,
     plan, write, check, end; a write after a check is « Edited … after the check »), each with its time and what it
     did: the skills followed; per document read, a bar of its lines with the pages read, its chapters, and a dot per

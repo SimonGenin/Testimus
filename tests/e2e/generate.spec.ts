@@ -16,7 +16,7 @@ test("a request runs live, the tests land, and « Review these tests » opens th
   await expect(request.getByRole("button", { name: "Generate" })).toBeDisabled();
   await request.getByRole("button", { name: "Select all" }).click();
   await expect(request.getByRole("list", { name: "Smart columns" }).getByText("Exigence")).toBeVisible();
-  await expect(result.getByRole("heading", { name: "Tests appear here as Claude writes them" })).toBeVisible();
+  await expect(result.getByText("Tests appear here as Claude writes them")).toBeVisible();
   await shoot(page, "generate");
 
   await request.getByRole("button", { name: "Only some sections…" }).first().click();
@@ -33,7 +33,7 @@ test("a request runs live, the tests land, and « Review these tests » opens th
     .getByRole("textbox", { name: "What should be tested?" })
     .fill("Le menu contextuel du sectionneur sur la vue de traction");
   await request.getByRole("button", { name: "Generate" }).click();
-  const replace = page.getByRole("dialog", { name: "Replace the tests not validated yet?" });
+  const replace = page.getByRole("alertdialog", { name: "Replace the tests not validated yet?" });
   await expect(replace).toContainText("deletes the 1 test Claude wrote that is not validated yet");
   await shoot(page, "generate-replace");
   await replace.getByRole("button", { name: "Delete and generate" }).click();
@@ -63,7 +63,7 @@ test("a landed test opens for review with its findings", async ({ page }) => {
   const result = page.getByRole("region", { name: "Result" });
   await request.getByRole("textbox", { name: "What should be tested?" }).fill("Le sectionneur avec TK");
   await request.getByRole("button", { name: /^Generate/ }).click();
-  await page.getByRole("dialog").getByRole("button", { name: "Delete and generate" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Delete and generate" }).click();
   await expect(result.getByRole("heading", { name: "2 tests written", exact: true })).toBeVisible({ timeout: 20_000 });
   await result
     .getByRole("region", { name: /^Sectionneur avec TK/ })

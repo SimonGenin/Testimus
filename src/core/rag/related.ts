@@ -7,9 +7,6 @@ import { edgesOf, indexedContents, withIndex } from "./db.ts";
 import { docEdges } from "./graph.ts";
 import { corpusKey, projectDocs } from "./indexer.ts";
 
-// ponytail: kept for claude/ledger.ts and lib/check.ts until they import it from rag/anchors.ts (core-rag BESOIN)
-export { normalizeRef };
-
 type Neighbour = {
   ref: string;
   kind: EdgeKind;
