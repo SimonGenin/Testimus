@@ -197,7 +197,9 @@ describe("ContextsDialog", () => {
     const sent = vi
       .mocked(fetch)
       .mock.calls.filter(([u]) => String(u).includes("/contexts/set"))
-      .map(([, init]) => decodeURIComponent((init?.headers as Record<string, string>)["X-Testimus-Project"] ?? ""));
+      .map(([, init]) =>
+        decodeURIComponent(((init?.headers ?? {}) as Record<string, string>)["X-Testimus-Project"] ?? ""),
+      );
     expect(sent).toEqual(["C:\\p"]);
   });
 

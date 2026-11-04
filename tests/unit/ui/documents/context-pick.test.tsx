@@ -121,7 +121,9 @@ const sentTo = (path: string) =>
   vi
     .mocked(fetch)
     .mock.calls.filter(([u]) => String(u).includes(path))
-    .map(([, init]) => decodeURIComponent((init?.headers as Record<string, string>)["X-Testimus-Project"] ?? ""));
+    .map(([, init]) =>
+      decodeURIComponent(((init?.headers ?? {}) as Record<string, string>)["X-Testimus-Project"] ?? ""),
+    );
 
 describe("the note of a document", () => {
   it("typed in one project is written to that project, never to the next one", async () => {
