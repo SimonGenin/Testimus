@@ -1,4 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CredsStatus, LocalTestRef } from "../../../core/types.ts";
 import { Button } from "../../components/ui/Button.tsx";
@@ -7,7 +8,7 @@ import { Modal } from "../../components/ui/Modal.tsx";
 import { ResizeHandle } from "../../components/ui/ResizeHandle.tsx";
 import { useApp } from "../../lib/app.ts";
 import { project } from "../../lib/data/client.ts";
-import { useRead } from "../../lib/data/query.ts";
+import { execute, useRead } from "../../lib/data/query.ts";
 import { usePaneWidth } from "../../lib/panes.ts";
 import { errorToast } from "../../lib/toast.ts";
 import { border, color, fontSize, fontWeight, lineHeight, size, space } from "../../styles/tokens.stylex.ts";
@@ -43,8 +44,10 @@ const styles = stylex.create({
     overflow: "auto",
     display: "flex",
     justifyContent: "center",
+    alignItems: "center",
     padding: space.s7,
   },
+  top: { alignItems: "flex-start" },
   connect: { width: "100%", maxWidth: size.modalMd, display: "flex", flexDirection: "column", gap: space.s4 },
   title: { margin: 0, fontSize: fontSize.title, lineHeight: lineHeight.title, fontWeight: fontWeight.semibold },
 });
@@ -139,6 +142,22 @@ export function TestsScreen() {
     navigate("tests", id);
   };
 
+  const client = useQueryClient();
+  const newTest = async () => {
+    try {
+      const r = (await execute(
+        client,
+        "tests.create",
+        { folder: "/", summary: "New test" },
+        { invalidates: [["tests.list"], ["project.info"]] },
+      )) as { id: string };
+      await reload();
+      open(r.id);
+    } catch (e) {
+      errorToast(e, "Could not create the test");
+    }
+  };
+
   const list = (
     <TestList
       key={dir ?? ""}
@@ -215,13 +234,23 @@ export function TestsScreen() {
         ) : (
           <>
             {lead}
-            <div {...stylex.props(styles.pane)}>
+            <div {...stylex.props(styles.pane, has && access === false && styles.top)}>
               {!has ? (
                 <EmptyState
-                  icon="tests"
+                  icon="folder"
                   title="No project open"
-                  text="Open a project folder, or make a new one, to see its tests."
-                  actions={<Button variant="primary" label="Open a project" onClick={() => navigate("setup")} />}
+                  text="Tests live in a project folder, next to the documents they come from. Open one, or start a new project."
+                  actions={
+                    <>
+                      <Button
+                        variant="primary"
+                        icon="folder-open"
+                        label="Open a project"
+                        onClick={() => navigate("setup")}
+                      />
+                      <Button icon="plus" label="New project" onClick={() => navigate("setup", "project")} />
+                    </>
+                  }
                 />
               ) : access === false ? (
                 <div {...stylex.props(styles.connect)}>
@@ -231,15 +260,33 @@ export function TestsScreen() {
                     onStatus={() => void credsQ.refetch()}
                   />
                 </div>
+              ) : listQ.isSuccess && !refs.length ? (
+                <EmptyState
+                  icon="tests"
+                  title="No test yet"
+                  text="Generate tests from a document, or write one by hand."
+                  actions={
+                    <>
+                      <Button
+                        variant="primary"
+                        icon="generate"
+                        label="Generate tests"
+                        onClick={() => navigate("generate")}
+                      />
+                      <Button icon="plus" label="New test" onClick={() => void newTest()} />
+                    </>
+                  }
+                />
               ) : (
                 <EmptyState
                   icon="tests"
-                  title={narrow ? "No test open" : "Pick a test on the left"}
+                  title="No test open"
                   text={
                     narrow
                       ? "Open the test list to pick one; a Jira test is pulled the first time you open it."
-                      : "Local tests open straight from the project folder; a Jira test is pulled the first time you open it."
+                      : "Pick one on the left, or start a new one. A Jira test is pulled the first time you open it."
                   }
+                  actions={<Button icon="plus" label="New test" onClick={() => void newTest()} />}
                 />
               )}
             </div>

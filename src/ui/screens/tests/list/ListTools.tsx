@@ -29,6 +29,7 @@ export function ListTools({
   pullBusy,
   canReveal,
   reveal,
+  noProject = false,
   onSearch,
   onFilter,
   onFilterEnter,
@@ -48,6 +49,8 @@ export function ListTools({
   canReveal: boolean;
   /** the desktop window is there to reveal a file */
   reveal: boolean;
+  /** no project is open: nothing to filter, nowhere to create */
+  noProject?: boolean;
   onSearch: (v: string) => void;
   onFilter: (v: string) => void;
   onFilterEnter: () => void;
@@ -75,6 +78,19 @@ export function ListTools({
         ariaLabel="Filter tests"
         placeholder={local ? "Filter tests: words, steps, review:to-fix…" : "Filter folders and listed tests"}
         value={filter}
+        disabled={noProject}
+        trailing={
+          filter && (
+            <Button
+              size="xs"
+              variant="quiet"
+              iconOnly
+              icon="close"
+              label="Empty the filter"
+              onClick={() => onFilter("")}
+            />
+          )
+        }
         onChange={onFilter}
         onKeyDown={(e) => {
           if (e.key === "Enter") {
@@ -84,16 +100,20 @@ export function ListTools({
         }}
       />
       <div {...stylex.props(styles.row)}>
-        <Tooltip label={`New local test in ${newFolder}`}>
-          <Button size="sm" icon="plus" label="New test" onClick={onNew} />
-        </Tooltip>
+        {noProject ? (
+          <Button size="sm" icon="plus" label="New test" disabled="Open a project first" onClick={onNew} />
+        ) : (
+          <Tooltip label={`New local test in ${newFolder}`}>
+            <Button size="sm" icon="plus" label="New test" onClick={onNew} />
+          </Tooltip>
+        )}
         <Button
           size="sm"
           variant="quiet"
           iconOnly
           icon="copy"
           label="Clone"
-          disabled={canClone ? false : "Open a test to clone it"}
+          disabled={noProject ? "Open a project first" : canClone ? false : "Open a test to clone it"}
           onClick={onClone}
         />
         {jira && (

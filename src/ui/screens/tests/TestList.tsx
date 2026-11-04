@@ -240,6 +240,8 @@ export function TestList({
   };
 
   const local = () => {
+    if (!project())
+      return <EmptyState icon="folder" compact title="No project open" text="Open a project to see its tests." />;
     if (loading && !refs.length)
       return (
         <div role="status" aria-label="Loading tests">
@@ -328,6 +330,7 @@ export function TestList({
           pullBusy={!!active?.key && busy.includes(active.key)}
           canReveal={!!activeId && !!project()}
           reveal={!!desktop()}
+          noProject={!project()}
           onSearch={v.setSearch}
           onFilter={v.setFilter}
           onFilterEnter={() => needle && jiraOn && v.setSearch(needle)}
