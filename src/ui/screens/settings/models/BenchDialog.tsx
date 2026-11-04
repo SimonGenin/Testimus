@@ -33,18 +33,16 @@ export function BenchDialog({
       footNote={running ? "Closing this window does not stop the measure." : undefined}
       onClose={onClose}
       actions={
-        <>
-          {running ? (
-            <Button
-              variant="quiet"
-              label="Cancel the measure"
-              disabled={!bench?.jobId}
-              onClick={() => bench && cancel(bench.jobId)}
-            />
-          ) : (
-            <Button variant="quiet" label="Measure again" onClick={onAgain} />
-          )}
-        </>
+        running ? (
+          <Button
+            variant="quiet"
+            label="Cancel the measure"
+            disabled={!bench?.jobId}
+            onClick={() => bench && cancel(bench.jobId)}
+          />
+        ) : (
+          <Button variant="quiet" label="Measure again" onClick={onAgain} />
+        )
       }
     >
       <Stack>
@@ -63,19 +61,17 @@ export function BenchDialog({
         )}
         {bench?.status === "done" && (
           <Banner tone="success" title="Measured">
-            <span role="status">
+            <span>
               Speed: {pack.speed ?? "Not measured on this PC yet"} · Quality: {pack.quality}
             </span>
           </Banner>
         )}
         {bench?.status === "cancelled" && (
-          <Banner tone="neutral">
-            <span role="status">The measure was cancelled; no result was written.</span>
-          </Banner>
+          <Banner tone="neutral">The measure was cancelled; no result was written.</Banner>
         )}
         {bench?.status === "failed" && (
           <Banner tone="danger" title="The measure stopped">
-            <span role="alert">{bench.error}</span>
+            {bench.error}
           </Banner>
         )}
       </Stack>

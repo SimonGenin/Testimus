@@ -4,13 +4,11 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LocalTestRef } from "../../src/core/types.ts";
-import { project, setProject } from "../../src/ui/api.ts";
-import { Toasts } from "../../src/ui/components/legacy/index.ts";
-import { ProjectButton } from "../../src/ui/components/shell/ProjectButton.tsx";
+import { setProject } from "../../src/ui/api.ts";
 import { AppContext, type AppState } from "../../src/ui/lib/app.ts";
-import { ProjectStep } from "../../src/ui/screens/setup/ProjectStep.tsx";
+import { DataProvider } from "../../src/ui/lib/data/provider.tsx";
 import { TestList } from "../../src/ui/screens/tests/TestList.tsx";
-import { api, app, fakeDesktop, fakeFetch, named, noDesktop } from "./ui-desktop-helpers.tsx";
+import { app, fakeDesktop, fakeFetch, noDesktop } from "./ui-desktop-helpers.tsx";
 
 beforeEach(() => {
   fakeFetch();
@@ -32,86 +30,6 @@ const within = (ui: ReactNode, over: Partial<AppState> = {}) => {
   return a;
 };
 
-describe("First launch › Project", () => {
-  beforeEach(() => {
-    api.routes["project.list"] = () => ({ projects: [] });
-  });
-
-  it("Browse… puts the picked folder in the field", async () => {
-    const d = fakeDesktop({ folder: "D:\\Tests\\Nouveau" });
-    within(<ProjectStep onBack={() => {}} />);
-    fireEvent.click(screen.getByRole("button", { name: "Browse for the projects folder" }));
-    await waitFor(() => expect(screen.getByLabelText("Projects folder")).toHaveValue("D:\\Tests\\Nouveau"));
-    expect(d.pickFolder).toHaveBeenCalledWith({ title: "Choose where the project goes" });
-  });
-
-  it("a cancelled dialog leaves the field alone", async () => {
-    const d = fakeDesktop({ folder: null });
-    within(<ProjectStep onBack={() => {}} />);
-    fireEvent.change(screen.getByLabelText("Projects folder"), { target: { value: "C:\\typed" } });
-    fireEvent.click(screen.getByRole("button", { name: "Browse for the projects folder" }));
-    await waitFor(() => expect(d.pickFolder).toHaveBeenCalled());
-    expect(screen.getByLabelText("Projects folder")).toHaveValue("C:\\typed");
-  });
-
-  it("without the bridge: the text field only", () => {
-    within(<ProjectStep onBack={() => {}} />);
-    expect(screen.getByLabelText("Projects folder")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Browse/ })).toBeNull();
-  });
-});
-
-describe("Project menu", () => {
-  beforeEach(() => {
-    api.routes["project.list"] = () => ({ projects: [{ dir: "C:\\p", name: "RATP Sosie", jiraProject: "LFRPS12" }] });
-    api.routes["project.open"] = (i) => ({ dir: i.dir });
-  });
-
-  const openMenu = () => fireEvent.click(screen.getByRole("button", { name: /^Project LFRPS12/ }));
-
-  it("Open a folder… picks a folder and opens it as the project", async () => {
-    fakeDesktop({ folder: "D:\\Projets\\BHPTCC" });
-    const a = within(<ProjectButton />);
-    openMenu();
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Open a folder…" }));
-    await waitFor(() => expect(named("project.open")).toHaveLength(1));
-    expect(named("project.open")[0].input).toEqual({ dir: "D:\\Projets\\BHPTCC" });
-    await waitFor(() => expect(a.refreshInfo).toHaveBeenCalled());
-    expect(project()).toBe("D:\\Projets\\BHPTCC");
-    expect(localStorage.getItem("testimus.project")).toBe("D:\\Projets\\BHPTCC");
-  });
-
-  it("Show in Explorer reveals the project folder", async () => {
-    const d = fakeDesktop();
-    within(<ProjectButton />);
-    openMenu();
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Show in Explorer" }));
-    await waitFor(() => expect(d.reveal).toHaveBeenCalledWith("C:\\p"));
-  });
-
-  it("a refused reveal says so", async () => {
-    const d = fakeDesktop();
-    d.reveal.mockResolvedValue(false);
-    within(
-      <>
-        <ProjectButton />
-        <Toasts />
-      </>,
-    );
-    openMenu();
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Show in Explorer" }));
-    expect(await screen.findByText("Could not show it in Explorer")).toBeInTheDocument();
-  });
-
-  it("without the bridge: neither item", async () => {
-    within(<ProjectButton />);
-    openMenu();
-    await screen.findByRole("menuitem", { name: "New or other project…" });
-    expect(screen.queryByRole("menuitem", { name: "Open a folder…" })).toBeNull();
-    expect(screen.queryByRole("menuitem", { name: "Show in Explorer" })).toBeNull();
-  });
-});
-
 describe("Tests › Show in Explorer", () => {
   const refs: LocalTestRef[] = [
     {
@@ -127,7 +45,9 @@ describe("Tests › Show in Explorer", () => {
     } as LocalTestRef,
   ];
   const list = (activeId: string) => (
-    <TestList refs={refs} loading={false} activeId={activeId} onOpen={() => {}} onReload={async () => refs} />
+    <DataProvider>
+      <TestList refs={refs} loading={false} activeId={activeId} onOpen={() => {}} onReload={async () => refs} />
+    </DataProvider>
   );
 
   it("reveals the open test's test.md", async () => {

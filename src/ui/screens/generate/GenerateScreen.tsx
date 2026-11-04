@@ -1,422 +1,183 @@
-import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
-import type { CheckFile, DocRef, Effort, Job, LocalTestRef, StepColumn, Test } from "../../../core/types.ts";
-import { call } from "../../api.ts";
-import { AdditionalContext } from "../../components/claude/AdditionalContext.tsx";
-import { ClaudeActivity } from "../../components/claude/ClaudeActivity.tsx";
-import { type ClaudeStatus, ConnectClaude } from "../../components/claude/ConnectClaude.tsx";
-import { cap, EFFORTS, ModelPicker } from "../../components/claude/ModelPicker.tsx";
-import { Button, DragEdge, Icon } from "../../components/legacy/index.ts";
-import { useJob } from "../../components/shell/JobLog.tsx";
+import * as stylex from "@stylexjs/stylex";
+import { useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import type { DocRef, Job, StepColumn } from "../../../core/types.ts";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
-import { activityOf, DOING } from "../../lib/activity.ts";
+import { ResizeHandle } from "../../components/ui/ResizeHandle.tsx";
 import { useApp } from "../../lib/app.ts";
-import { useDraft } from "../../lib/drafts.ts";
-import { discardEditor } from "../../lib/editorBus.ts";
-import { plural } from "../../lib/format.ts";
-import { type DocScope, scopeOf } from "../../lib/scope.ts";
-import { useSideWidth } from "../../lib/sideWidth.ts";
+import { discardAutosave } from "../../lib/data/autosave.ts";
+import { key, read, useCommand, useRead } from "../../lib/data/query.ts";
+import { usePref } from "../../lib/prefs.ts";
 import { errorToast } from "../../lib/toast.ts";
-import { reindexAll, settled, useUploads } from "../../lib/uploads.ts";
-import { ColumnsView } from "./ColumnsView.tsx";
-import { DocScopePicker } from "./DocScopePicker.tsx";
-import {
-  checkLine,
-  GenCard,
-  type GenOutput,
-  GenSummary,
-  type Landed,
-  landedIds,
-  passagesRead,
-  RunHead,
-} from "./GenResult.tsx";
-import { IndexNotice } from "./IndexNotice.tsx";
+import { border, breakpoint, color } from "../../styles/tokens.stylex.ts";
 import { ReplaceTests } from "./ReplaceTests.tsx";
+import { RequestForm } from "./RequestForm.tsx";
+import { ResultPane } from "./ResultPane.tsx";
+import { useGenerateForm } from "./useGenerateForm.ts";
+import { useGeneration } from "./useGeneration.ts";
 
-// ponytail: the model and effort chosen here stay for the next generation until the app is closed; the project
-// defaults change only from Settings
-let chosen: { model: string; effort: Effort } | null = null;
+const FORM = { min: 320, max: 720, initial: 480 };
+const INDEXING = new Set(["rag-index", "docs.add", "docs.convert"]);
+
+const styles = stylex.create({
+  screen: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", backgroundColor: color.canvas },
+  panes: {
+    flex: 1,
+    minHeight: 0,
+    display: "flex",
+    flexDirection: { default: "row", [breakpoint.narrow]: "column" },
+    overflow: { default: "hidden", [breakpoint.narrow]: "auto" },
+  },
+  form: (width: string) => ({
+    flexShrink: 0,
+    width: { default: width, [breakpoint.narrow]: "auto" },
+    minHeight: 0,
+    borderRightStyle: "solid",
+    borderRightWidth: { default: border.width, [breakpoint.narrow]: 0 },
+    borderRightColor: color.border,
+  }),
+  handle: { display: { default: "flex", [breakpoint.narrow]: "none" } },
+  result: { flex: 1, minWidth: 0, minHeight: 0, overflow: "auto" },
+});
 
 export function GenerateScreen() {
   const app = useApp();
-  const [formW, formEdge] = useSideWidth("testimus.genFormWidth", 320, 720, "before");
-  const cfg = app.info?.project;
-  const columns = (app.info?.columns ?? []) as StepColumn[];
-  const [request, setRequest] = useDraft("generate.request", "");
-  const [docs, setDocs] = useState<DocRef[] | null>(null);
-  const [scopes, setScopes] = useDraft<Record<string, DocScope>>("generate.scopes", {});
-  const [contexts, setContexts] = useDraft<string[] | null>("generate.contexts", null);
-  const [model, setModel] = useState(chosen?.model ?? "");
-  const [effort, setEffort] = useState<Effort | "">(chosen?.effort ?? "");
-  const [jobId, setJobId] = useState<string | null>(null);
-  const [starting, setStarting] = useState(false);
+  const client = useQueryClient();
+  const [width, setWidth] = usePref("genFormWidth");
+  const [drag, setDrag] = useState<number | null>(null);
+  const info = useRead("project.info", {});
+  const docsRead = useRead("docs.list", {});
+  const docs = (docsRead.data ?? null) as DocRef[] | null;
+  const form = useGenerateForm(info.data, docs ?? undefined);
+  const gen = useGeneration();
+  const jobs = useRead("jobs.list", {});
+  const indexing = ((jobs.data ?? []) as Job[]).some((j) => j.status === "running" && INDEXING.has(j.kind));
+  const scopeInput = { docs: form.scope.docs, sections: form.scope.sections };
+  const preview = useRead("gen.preview", scopeInput, { enabled: !!docs });
+  const [ask, setAsk] = useState<{ refresh?: boolean; signIn?: boolean }>({});
+  const claude = useRead("claude.status", ask);
+  const start = useCommand("gen.tests", { invalidates: [["jobs.list"]] });
+  const reindex = useCommand("rag.index", { invalidates: [["jobs.list"]] });
+  const cancel = useCommand("jobs.cancel", { invalidates: [["jobs.list"], ["jobs.show"]] });
   const [replacing, setReplacing] = useState<string[] | null>(null);
-  const [status, setStatus] = useState<ClaudeStatus | null>(null);
-  const [checkingClaude, setCheckingClaude] = useState(false);
-  const [landed, setLanded] = useState<Record<string, Landed>>({});
-  // ponytail: « Fold all » also folds the tests still to come; flip holds the cards toggled by hand since
-  const [fold, setFold] = useState<{ all: boolean; flip: Set<string> }>({ all: false, flip: new Set() });
-  const [now, setNow] = useState(Date.now());
-  const chained = useRef<string | null>(null);
-  const uploads = useUploads();
+  const [fresh, setFresh] = useState(0);
 
-  const gen = useJob(jobId);
-  const job: Job | null = gen.job;
-  const result = job?.status === "done" ? ((job.result ?? null) as GenOutput | null) : null;
-  const stopped = job && job.status !== "running" ? ((job.result ?? null) as GenOutput | null) : null;
-  const ids = landedIds(gen.events, result);
-  const read = passagesRead(gen.events);
-  const running = job?.status === "running";
-  const doing = DOING[activityOf(gen.events).at(-1)?.kind ?? "prepare"];
-  const runModel = model || cfg?.claude.model || "opus";
-  const runEffort: Effort = effort || cfg?.claude.effort || "high";
-  const ctxIds = contexts ?? cfg?.claude.contexts ?? [];
-  const isOpen = (id: string) => fold.all === fold.flip.has(id);
-  const toggle = (id: string) =>
-    setFold((cur) => {
-      const flip = new Set(cur.flip);
-      if (!flip.delete(id)) flip.add(id);
-      return { all: cur.all, flip };
-    });
+  const status = claude.data ?? null;
+  const offline = !!status && (!status.installed || status.signedIn === false);
+  const nameOf = (id: string) => docs?.find((d) => d.id === id)?.code || id;
+  const missing = (preview.data?.unindexed ?? []).map(nameOf);
+  const stale = (preview.data?.stale ?? []).map(nameOf);
+  const blocked = info.isPending
+    ? "Reading the project…"
+    : form.empty
+      ? docs && !docs.length
+        ? "Add a document first"
+        : "Say what to test, or pick a document"
+      : offline
+        ? "Claude is not connected"
+        : indexing
+          ? "Wait for the index to finish"
+          : missing.length
+            ? "A document of the scope is not indexed"
+            : null;
 
-  const claudeCheck = useCallback((refresh = false) => {
-    setCheckingClaude(refresh);
-    return call<ClaudeStatus>("claude.status", refresh ? { refresh: true, signIn: true } : {})
-      .then(setStatus)
-      .catch(() => {})
-      .finally(() => setCheckingClaude(false));
-  }, []);
-
-  const loadDocs = useCallback(() => {
-    call<DocRef[]>("docs.list", {})
-      .then((r) => setDocs(r ?? []))
-      .catch(() => setDocs([]));
-  }, []);
-
-  useEffect(() => {
-    void claudeCheck();
-    loadDocs();
-    call<Job[]>("jobs.list", {})
-      .then((jobs) => {
-        const last = (jobs ?? []).find((j) => j.kind === "generate");
-        if (last) {
-          chained.current = last.id;
-          setJobId(last.id);
-        }
-      })
-      .catch(() => {});
-  }, [claudeCheck, loadDocs]);
-
-  useEffect(() => {
-    if (!running) return;
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, [running]);
-
-  const refresh = useCallback(async (want: string[], all: boolean) => {
-    if (!want.length) return;
-    const refs = await call<LocalTestRef[]>("tests.list", {}).catch(() => [] as LocalTestRef[]);
-    // ponytail: a test Claude is still writing is not on disk yet — only the ones tests.list sees are opened
-    const there = want.filter((id) => refs.some((r) => r.id === id));
-    const shows = await Promise.all(
-      there.map((id) =>
-        call<{ test: Test; check?: CheckFile | null }>("tests.show", { id })
-          .then((r) => [id, r.test, r.check] as const)
-          .catch(() => [id, undefined, undefined] as const),
-      ),
-    );
-    setLanded((cur) => {
-      const next = { ...cur };
-      for (const [id, test, check] of shows)
-        if (test || all)
-          next[id] = {
-            id,
-            test: test ?? cur[id]?.test,
-            ref: refs.find((r) => r.id === id),
-            check: test ? check : cur[id]?.check,
-          };
-      return next;
-    });
-  }, []);
-
-  const idsKey = ids.join(",");
-  // biome-ignore lint/correctness/useExhaustiveDependencies: ids are compared by their joined key
-  useEffect(() => {
-    const done = running ? ids.slice(0, -1) : ids;
-    const want = done.filter((id) => !landed[id]?.test);
-    void refresh(want, !running);
-  }, [idsKey, running]);
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: run once when this screen's generation ends
-  useEffect(() => {
-    if (job?.status !== "done" || !(result?.tests.length || result?.discarded?.length) || chained.current === job.id)
-      return;
-    chained.current = job.id;
-    void refresh(result.tests, true);
-    app.testsChanged();
-    app.refreshInfo();
-  }, [job?.status, job?.id]);
-
-  const scope = scopeOf(
-    scopes,
-    (docs ?? []).map((d) => d.id),
-  );
-  const empty = !request.trim() && !scope.docs.length && !scope.sections.length;
-  // ponytail: the same scope gen.tests checks — the documents and sections picked, or every document for words alone
-  const picked = new Set([...scope.docs, ...scope.sections.map((s) => s.split("#")[0])]);
-  const searched = (docs ?? []).filter((d) => d.converted?.at && (!picked.size || picked.has(d.id)));
-  const unindexed = searched.filter((d) => d.indexed === "missing");
-  const outdated = searched.filter((d) => d.indexed === "stale");
-  const indexing = uploads.some((u) => !settled(u) && (u.job === "index" || u.phase === "indexing"));
-  const wasIndexing = useRef(indexing);
-  useEffect(() => {
-    if (wasIndexing.current && !indexing) loadDocs();
-    wasIndexing.current = indexing;
-  }, [indexing, loadDocs]);
-
-  const pickModel = (m: string) => {
-    setModel(m);
-    chosen = { model: m, effort: runEffort };
-  };
-  const pickEffort = (e: Effort) => {
-    setEffort(e);
-    chosen = { model: runModel, effort: e };
-  };
-  const resetRun = () => {
-    chosen = null;
-    setModel("");
-    setEffort("");
-  };
-
-  const generate = async (replace: string[] = []) => {
-    if (empty) return;
-    setStarting(true);
+  const begin = async (input: Parameters<typeof start.mutateAsync>[0], replaced: string[] = []) => {
     try {
-      const r = await call<{ jobId?: string }>("gen.tests", {
-        request: request.trim(),
-        ...(scope.docs.length ? { docs: scope.docs } : {}),
-        ...(scope.sections.length ? { sections: scope.sections } : {}),
-        contexts: ctxIds,
-        model: runModel,
-        effort: runEffort,
-        ...(replace.length ? { discard: true } : {}),
-      });
-      for (const id of replace) discardEditor(id);
-      if (replace.length) app.testsChanged();
+      const r = await start.mutateAsync(input);
+      for (const id of replaced) discardAutosave(key("tests.show", { id }));
       if (r?.jobId) {
-        chained.current = null;
-        setLanded({});
-        setFold({ all: false, flip: new Set() });
-        setJobId(r.jobId);
+        setFresh((n) => n + 1);
+        gen.follow(r.jobId);
       }
     } catch (e) {
-      errorToast(e, "Could not start the generation");
-    } finally {
-      setStarting(false);
-    }
-  };
-
-  const resume = async (generation: string) => {
-    setStarting(true);
-    try {
-      const r = await call<{ jobId?: string }>("gen.tests", { resume: generation, model: runModel, effort: runEffort });
-      if (r?.jobId) {
-        chained.current = null;
-        setLanded({});
-        setJobId(r.jobId);
-      }
-    } catch (e) {
-      errorToast(e, "Could not resume the generation");
-    } finally {
-      setStarting(false);
+      errorToast(e, input.resume ? "Could not resume the generation" : "Could not start the generation");
     }
   };
 
   // ponytail: a new generation replaces Claude's tests still waiting in review — gen.preview says which
-  const askThenGenerate = async () => {
-    if (empty) return;
-    const ids = await call<{ replaces: string[] }>("gen.preview", { docs: scope.docs, sections: scope.sections })
-      .then((r) => r?.replaces ?? [])
-      .catch(() => [] as string[]);
-    if (ids.length) setReplacing(ids);
-    else void generate();
+  const generate = async () => {
+    if (blocked || gen.running || start.isPending) return;
+    const replaces =
+      preview.data?.replaces ??
+      (await read(client, "gen.preview", scopeInput)
+        .then((r) => r.replaces)
+        .catch(() => [] as string[]));
+    if (replaces.length) setReplacing(replaces);
+    else void begin(form.input());
   };
 
-  const cancel = () => jobId && call("jobs.cancel", { id: jobId }).catch((e) => errorToast(e, "Could not cancel"));
-  const offline = !!status && (!status.installed || status.signedIn === false);
-  const checkText = result ? checkLine(result.tests, result.checks) : "";
-  const checkOf = (id: string) => result?.checks?.find((c) => c.id === id);
-  const narrowed = Object.values(scopes).filter(Array.isArray).length;
-  const inScope = scope.docs.length + new Set(scope.sections.map((s) => s.split("#")[0])).size;
-  const isDefault = !model && !effort;
-
+  const columns = (info.data?.columns ?? []) as StepColumn[];
+  const formWidth = drag ?? width ?? FORM.initial;
   return (
-    <div className="screen">
-      <ScreenHeader title="Generate" meta="Claude writes tests from the documents, with a source for every claim" />
-      <div className="gen" style={formW ? ({ "--genform-size": `${formW}px` } as CSSProperties) : undefined}>
-        <section className="gen-form" aria-label="Request">
-          <div className="gen-block">
-            <label htmlFor="gen-request" className="h gen-label">
-              What should be tested?
-            </label>
-            <AdditionalContext
-              id="gen-request"
-              labelled
-              placeholder="A feature, a screen, an operator procedure… in your own words"
-              ids={ctxIds}
-              note={request}
-              onIds={setContexts}
-              onNote={setRequest}
-            />
-            <span className="muted gen-hint">Optional: empty means test what the documents below specify.</span>
-          </div>
-
-          <div className="gen-block">
-            <span className="h gen-label">Documents</span>
-            <DocScopePicker docs={docs} scopes={scopes} onChange={setScopes} />
-          </div>
-
-          <ColumnsView columns={columns} onEdit={() => app.navigate("settings", "columns")} />
-
-          <div className="gen-block gen-run">
-            <span className="h gen-label">Run</span>
-            <div className="gen-run-pick">
-              <label className="gen-run-field">
-                <span className="label">Model</span>
-                <ModelPicker value={runModel} className="field select" onChange={pickModel} />
-              </label>
-              <label className="gen-run-field">
-                <span className="label">Effort</span>
-                <select
-                  className="field select"
-                  value={runEffort}
-                  onChange={(e) => pickEffort(e.target.value as Effort)}
-                >
-                  {EFFORTS.map((x) => (
-                    <option key={x} value={x}>
-                      {cap(x)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <span className="muted gen-hint">
-              Project default: {cap(cfg?.claude.model ?? "opus")} / {cfg?.claude.effort ?? "high"}
-              {!isDefault && (
-                <>
-                  {" · "}
-                  <button type="button" className="linkbtn" onClick={resetRun}>
-                    Reset
-                  </button>
-                </>
-              )}
-            </span>
-            <ul className="gen-recap muted">
-              <li>
-                {plural(inScope, "document")} in scope
-                {narrowed ? ` · ${narrowed} narrowed to sections` : ""}
-              </li>
-              <li>
-                {plural(columns.length, "column")} · {columns.filter((c) => c.description).length} filled by Claude
-              </li>
-              {ctxIds.length > 0 && <li>{plural(ctxIds.length, "saved context")}</li>}
-            </ul>
-            <IndexNotice
-              missing={unindexed}
-              stale={outdated}
-              indexing={indexing}
-              onReindex={() => void reindexAll(loadDocs)}
-            />
-            <div className="gen-go">
-              <Button
-                tone={job ? "secondary" : "primary"}
-                icon="generate"
-                disabled={empty || running || starting || offline || unindexed.length > 0 || indexing}
-                onClick={() => void askThenGenerate()}
-              >
-                {job ? "Generate again" : "Generate"}
-              </Button>
-            </div>
-            <span className="muted gen-hint">
-              Tests are created on this PC as drafts. Claude suggests an Xray folder; change it in the test before you
-              push.
-            </span>
-          </div>
-        </section>
-
-        <DragEdge className="side-edge" label="Resize the request panel" {...formEdge} />
-        <section className="gen-result" aria-label="Result">
-          {offline && status ? (
-            <div className="card gen-offline">
-              <ConnectClaude
-                status={status}
-                checking={checkingClaude}
-                onCheck={() => void claudeCheck(true)}
-                onDoctor={() => app.navigate("doctor")}
-              />
-            </div>
-          ) : !jobId ? (
-            <div className="empty">
-              <Icon name="generate" size={40} />
-              <h2 className="h">Tests appear here as Claude writes them</h2>
-              <p>
-                Pick the documents (all of them by default), say what to test if you want, and generate. Every expected
-                result gets a source; what cannot be sourced is reported instead of invented.
-              </p>
-            </div>
-          ) : (
-            <>
-              <div className="card gen-summary">
-                <RunHead
-                  job={job}
-                  now={now}
-                  result={result}
-                  read={read}
-                  count={ids.length}
-                  doing={doing}
-                  left={starting || offline ? 0 : (stopped?.remaining ?? 0)}
-                  onCancel={() => void cancel()}
-                  onReview={() => app.navigate("review", ids[0])}
-                  onResume={() => stopped?.generation && void resume(stopped.generation)}
-                  allFolded={ids.every((id) => !isOpen(id))}
-                  onFoldAll={(all) => setFold({ all, flip: new Set() })}
-                />
-                {result && <GenSummary result={result} checked={checkText} />}
-                {job?.status === "failed" && <p>{job.error}</p>}
-                {result?.diagnosis && <p className="muted">{result.diagnosis.detail}</p>}
-              </div>
-              {ids.length > 0 && (
-                <section className="card gen-cards" aria-label="Tests written" aria-live="polite">
-                  {ids.map((id, i) => (
-                    <GenCard
-                      key={id}
-                      item={landed[id] ?? { id }}
-                      check={checkOf(id)}
-                      writing={running && i === ids.length - 1}
-                      checking={running && i < ids.length - 1}
-                      xray={app.xray}
-                      open={isOpen(id)}
-                      onToggle={() => toggle(id)}
-                      onOpen={() => app.navigate("review", id)}
-                      onSource={app.openSource}
-                    />
-                  ))}
-                </section>
-              )}
-              <ClaudeActivity events={gen.events} running={running} now={now} />
-            </>
-          )}
+    <div {...stylex.props(styles.screen)}>
+      <ScreenHeader title="Generate" />
+      <div {...stylex.props(styles.panes)}>
+        <div {...stylex.props(styles.form(`${formWidth}px`))}>
+          <RequestForm
+            form={form}
+            docs={docs}
+            columns={columns}
+            folders={info.data?.project.folders ?? []}
+            gate={{
+              missing,
+              stale,
+              indexing,
+              onReindex: () => reindex.mutateAsync({}).catch((e) => errorToast(e, "Could not reindex")),
+            }}
+            hasJob={!!gen.job}
+            running={gen.running}
+            starting={start.isPending}
+            blocked={blocked}
+            unavailable={offline ? "Claude is not connected" : undefined}
+            onGenerate={() => void generate()}
+            onColumns={() => app.navigate("settings", "columns")}
+            onAddDocuments={() => app.navigate("documents")}
+          />
+        </div>
+        <span {...stylex.props(styles.handle)}>
+          <ResizeHandle
+            label="Resize the request panel"
+            value={formWidth}
+            min={FORM.min}
+            max={FORM.max}
+            defaultValue={FORM.initial}
+            onChange={setDrag}
+            onCommit={(px) => {
+              setDrag(null);
+              setWidth(px);
+            }}
+          />
+        </span>
+        <section aria-label="Result" {...stylex.props(styles.result)}>
+          <ResultPane
+            key={fresh}
+            gen={gen}
+            status={offline ? status : null}
+            checking={claude.isFetching && !!ask.refresh}
+            noDocs={!!docs && !docs.length}
+            starting={start.isPending}
+            onCheckClaude={() => (ask.refresh ? void claude.refetch() : setAsk({ refresh: true, signIn: true }))}
+            onCancel={() =>
+              gen.jobId && cancel.mutateAsync({ id: gen.jobId }).catch((e) => errorToast(e, "Could not cancel"))
+            }
+            onResume={(generation) =>
+              void begin({ resume: generation, model: form.runModel, effort: form.runEffort } as Parameters<
+                typeof start.mutateAsync
+              >[0])
+            }
+          />
         </section>
       </div>
       {replacing && (
         <ReplaceTests
-          count={replacing.length}
+          ids={replacing}
           onReview={() => {
             setReplacing(null);
             app.navigate("review", replacing[0]);
           }}
           onConfirm={() => {
             setReplacing(null);
-            void generate(replacing);
+            void begin({ ...form.input(), discard: true }, replacing);
           }}
           onClose={() => setReplacing(null)}
         />

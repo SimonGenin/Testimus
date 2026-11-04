@@ -9,20 +9,20 @@ const styles = stylex.create({
     boxSizing: "border-box",
     display: "inline-flex",
     alignItems: "center",
-    gap: space.s1,
+    gap: space.s2,
     flexShrink: 0,
-    height: size.controlXs,
+    height: size.badge,
     paddingBlock: 0,
-    paddingInlineStart: space.s2,
-    paddingInlineEnd: space.s3,
-    borderRadius: radius.r1,
+    paddingInlineStart: space.s3,
+    paddingInlineEnd: space.pill,
+    borderRadius: radius.full,
     fontSize: fontSize.small,
     lineHeight: lineHeight.small,
     fontWeight: fontWeight.medium,
     whiteSpace: "nowrap",
     verticalAlign: "middle",
   },
-  noIcon: { paddingInline: space.s3 },
+  noIcon: { paddingInline: space.pill },
   neutral: { color: color.neutral, backgroundColor: color.neutralSubtle },
   info: { color: color.info, backgroundColor: color.infoSubtle },
   success: { color: color.success, backgroundColor: color.successSubtle },
@@ -32,8 +32,8 @@ const styles = stylex.create({
   accent: { color: color.accentText, backgroundColor: color.accentSubtle },
   outline: { backgroundColor: "transparent", boxShadow: `inset 0 0 0 ${border.width} currentColor` },
   sm: {
-    height: size.iconMd,
-    paddingInline: space.s2,
+    height: size.badgeSm,
+    paddingInline: space.s3,
     fontSize: fontSize.caption,
     lineHeight: lineHeight.caption,
   },
@@ -41,14 +41,14 @@ const styles = stylex.create({
     justifyContent: "center",
     minWidth: size.kbd,
     height: size.kbd,
-    paddingInline: space.s2,
+    paddingInline: space.snug,
     borderRadius: radius.full,
     fontVariantNumeric: "tabular-nums",
   },
   countSm: { minWidth: size.iconMd, height: size.iconMd, fontSize: fontSize.caption, lineHeight: lineHeight.caption },
   dot: {
-    width: space.s3,
-    height: space.s3,
+    width: size.dot,
+    height: size.dot,
     paddingBlock: 0,
     paddingInlineStart: 0,
     paddingInlineEnd: 0,
@@ -85,7 +85,7 @@ export type BadgeProps = {
   icon?: IconName;
   /** a state that is a link or a reference (« Jira version ») */
   outline?: boolean;
-  /** md 20 px (default) · sm 16 px, in dense meta lines and tab counts */
+  /** md 22 px (default) · sm 18 px, in dense meta lines and tab counts */
   size?: "sm" | "md";
   /** a number pill */
   count?: boolean;

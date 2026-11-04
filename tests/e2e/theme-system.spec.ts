@@ -3,9 +3,9 @@ import { boot, expect, mockServer, setTheme, test } from "./helpers.ts";
 
 mockServer(4393);
 
-// ponytail: the page's canvas is the design token color.canvas (tokens.stylex.ts): #f4f3ef light, #121211 dark
-const LIGHT = "rgb(244, 243, 239)";
-const DARK = "rgb(18, 18, 17)";
+// ponytail: the page's canvas is the design token color.canvas (tokens.stylex.ts): #f7f7f8 light, #0e0e10 dark
+const LIGHT = "rgb(247, 247, 248)";
+const DARK = "rgb(14, 14, 16)";
 const bg = (page: Page) => page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor);
 
 test("the System theme follows the OS colour scheme", async ({ page }) => {

@@ -118,6 +118,7 @@ function subjectOf(c: Command, input: unknown): string {
 export async function invoke(name: string, raw: unknown, opts: InvokeOpts): Promise<unknown> {
   const c = find(name);
   const input = parseInput(c, raw);
+  const nested: NonNullable<Ctx["invoke"]> = (n, i, o) => invoke(n, i, { project: opts.project, ...o });
   if (!c.global && !opts.project)
     throw new UserError("No project is open.", "Open or create a project first (testimus project init <dir>).");
   if (c.job) {
@@ -129,7 +130,7 @@ export async function invoke(name: string, raw: unknown, opts: InvokeOpts): Prom
       c.job,
       subjectOf(c, input),
       opts.project,
-      (ctx) => c.run(ctx, input as never),
+      (ctx) => c.run({ ...ctx, invoke: nested }, input as never),
       opts.signal,
       { cause, rerun },
     );
@@ -142,6 +143,7 @@ export async function invoke(name: string, raw: unknown, opts: InvokeOpts): Prom
     progress: (p) => opts.onProgress?.(p),
     log: (level, message) => opts.onLog?.(level, message),
     claude: (e) => opts.onClaude?.(e),
+    invoke: nested,
   };
   return await c.run(ctx, input as never);
 }

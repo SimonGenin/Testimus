@@ -27,8 +27,6 @@ export type DescribeChunks = (
   run?: ClaudeRun,
 ) => Promise<string[]>;
 
-export const hooks: { describeChunks: DescribeChunks | null } = { describeChunks: null };
-
 export const MAX_TOKENS = 800;
 
 const HEADING = /^#{1,6}\s+(.*)$/;

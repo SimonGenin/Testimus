@@ -198,7 +198,10 @@ describe("gen.bench — its hooks, the ledger, fake runs", () => {
       expect(activeChoice(dir)).toEqual({ pack: "light" });
       benchHooks.activate(dir, null);
       expect(activeChoice(dir)).toBeNull();
-      await benchHooks.prepare(dir, quietCtx(dir));
+      await benchHooks.prepare(dir, {
+        ...quietCtx(dir),
+        invoke: (n, i, o) => invoke(n, i, { project: dir, ...o }),
+      });
       expect(existsSync(indexFile(dir))).toBe(true);
     }, 30000);
   });
@@ -217,7 +220,9 @@ describe("gen.bench — its hooks, the ledger, fake runs", () => {
   });
 
   describe("runBench with fake runs", () => {
+    let fake: (name: string, input: unknown) => Promise<unknown>;
     beforeEach(() => {
+      fake = async () => ({});
       benchHooks.prepare = async () => {};
       benchHooks.activate = () => {};
     });
@@ -230,7 +235,7 @@ describe("gen.bench — its hooks, the ledger, fake runs", () => {
       benchHooks.activate = (_p, c) => {
         activated.push(c);
       };
-      benchHooks.invoke = async (name, input) => {
+      fake = async (name, input) => {
         calls.push({ name, input: input as Record<string, unknown> });
         if (name === "claude.revert") throw "locked";
         const gen = join(dir, ".testimus", "gen");
@@ -238,14 +243,18 @@ describe("gen.bench — its hooks, the ledger, fake runs", () => {
         writeJson(join(gen, "run1.json"), { runId: "run1", consulted: ["SOSIE_211_D401-1_3#§5.6.6", 3] });
         return { runId: "run1", generation: "run1", ok: true, tests: ["T-1"], durationMs: 5 };
       };
-      const r = await runBench(dir, quietCtx(dir), {
-        set: validatedSet(),
-        behaviors: ["b1"],
-        configs: [{ embedding: "bge-m3", reranker: null }],
-        runs: 1,
-        model: "opus",
-        effort: "low",
-      });
+      const r = await runBench(
+        dir,
+        { ...quietCtx(dir), invoke: (n, i) => fake(n, i) },
+        {
+          set: validatedSet(),
+          behaviors: ["b1"],
+          configs: [{ embedding: "bge-m3", reranker: null }],
+          runs: 1,
+          model: "opus",
+          effort: "low",
+        },
+      );
       expect(calls[0]).toMatchObject({ name: "gen.tests", input: { model: "opus", effort: "low", check: true } });
       expect(r.rows[0]).toMatchObject({ ok: true, agenticRecall: 1, consulted: 1, tests: 1 });
       expect(r.rows[0].costUsd).toBeUndefined();
@@ -258,18 +267,22 @@ describe("gen.bench — its hooks, the ledger, fake runs", () => {
     it("a run that throws a non-Error, a revert that throws an Error, a missing ledger", async () => {
       let n = 0;
       benchHooks.current = () => null;
-      benchHooks.invoke = async (name) => {
+      fake = async (name) => {
         if (name === "claude.revert") throw new Error("busy");
         if (++n === 1) throw "exploded";
         if (n === 2) throw new Error("gen failed");
         return { runId: "nope", ok: true, tests: ["T-2"], durationMs: 1, costUsd: 0.5 };
       };
-      const r = await runBench(dir, quietCtx(dir), {
-        set: validatedSet(),
-        behaviors: ["b1"],
-        configs: [{ pack: "light" }],
-        runs: 3,
-      });
+      const r = await runBench(
+        dir,
+        { ...quietCtx(dir), invoke: (n, i) => fake(n, i) },
+        {
+          set: validatedSet(),
+          behaviors: ["b1"],
+          configs: [{ pack: "light" }],
+          runs: 3,
+        },
+      );
       expect(r.rows[0]).toMatchObject({ ok: false, error: "exploded" });
       expect(r.rows[1]).toMatchObject({ ok: false, error: "gen failed" });
       expect(r.rows[2]).toMatchObject({ ok: true, agenticRecall: null, costUsd: 0.5 });
@@ -288,27 +301,35 @@ describe("gen.bench — its hooks, the ledger, fake runs", () => {
           runs: 1,
         }),
       ).rejects.toThrow(/Benchmark cancelled/);
-      const r = await runBench(dir, quietCtx(dir), {
-        set: validatedSet(),
-        behaviors: ["b1"],
-        configs: [{ pack: "light" }],
-        runs: 0,
-      });
+      const r = await runBench(
+        dir,
+        { ...quietCtx(dir), invoke: (n, i) => fake(n, i) },
+        {
+          set: validatedSet(),
+          behaviors: ["b1"],
+          configs: [{ pack: "light" }],
+          runs: 0,
+        },
+      );
       expect(r.summary[0]).toMatchObject({ runs: 0, agenticRecall: null, tests: 0 });
     });
 
     it("a test kept on request is not reverted; the default set of the project is used", async () => {
-      benchHooks.invoke = async (name) => {
+      fake = async (name) => {
         calls.push({ name, input: {} });
         return { runId: "r", ok: false, tests: [], durationMs: 1 };
       };
-      const r = await runBench(dir, quietCtx(dir), {
-        behaviors: ["sectionneur-sans-tk-menu"],
-        configs: [{ pack: "light" }],
-        runs: 1,
-        keep: true,
-        check: false,
-      });
+      const r = await runBench(
+        dir,
+        { ...quietCtx(dir), invoke: (n, i) => fake(n, i) },
+        {
+          behaviors: ["sectionneur-sans-tk-menu"],
+          configs: [{ pack: "light" }],
+          runs: 1,
+          keep: true,
+          check: false,
+        },
+      );
       expect(calls.map((c) => c.name)).toEqual(["gen.tests"]);
       expect(r.provisional).toBe(true);
     });

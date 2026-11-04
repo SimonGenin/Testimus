@@ -231,7 +231,7 @@ export function FolderDialog({
         )}
         {refused ? (
           <Banner tone="danger" title="Refused">
-            <span role="alert">
+            <span>
               {refused.message}
               {refused.fix ? ` ${refused.fix}` : ""}
             </span>

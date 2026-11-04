@@ -142,7 +142,7 @@ export function ModelsSection() {
           title="The models could not be read"
           actions={<Button size="sm" label="Try again" onClick={retry} />}
         >
-          <span role="alert">{failed.message}</span>
+          <span>{failed.message}</span>
         </Banner>
       ) : (
         <>

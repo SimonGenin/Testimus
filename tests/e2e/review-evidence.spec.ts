@@ -20,18 +20,18 @@ test("a generated test shows the sources it read; a misplaced quote is not highl
   await expect(under.getByRole("heading", { level: 2 })).toHaveText(/^Sectionneur avec TK/);
 
   const step2 = under.getByRole("article", { name: "Step 2", exact: true });
-  await step2.getByRole("button", { name: /^SOSIE_211_D401-1_3 §5\.6\.7 « les points/ }).click();
+  await step2.getByRole("button", { name: /^SOSIE_211_D401-1_3 §5\.6\.7 “les points/ }).click();
   const panel = page.getByRole("complementary", { name: "Source passage" });
   await expect(panel.getByRole("status").filter({ hasText: "Quote not at this anchor" })).toBeVisible();
   await expect(panel.locator("mark")).toHaveCount(0);
 
-  const evidence = page.getByRole("region", { name: "Sources read" });
-  const head = evidence.getByRole("button", { name: /^Sources read/ });
+  const head = panel.getByRole("button", { name: /^Sources read/ });
   await expect(head).toHaveAttribute("aria-expanded", "false");
-  await expect(head).toContainText("2 read");
+  await expect(panel.getByText("2 read", { exact: true })).toBeVisible();
   await head.click();
+  const evidence = panel.getByRole("region", { name: "Sources read" });
   await expect(evidence.getByText("Read by the generation (2)")).toBeVisible();
-  const read = evidence.getByRole("button", { name: /SOSIE_211_D401-1_3#§5\.6\.6/ });
+  const read = evidence.getByRole("option", { name: /SOSIE_211_D401-1_3#§5\.6\.6/ });
   await expect(read).toBeVisible();
   await expect(evidence).toContainText("Cited");
   await shoot(page, "review-evidence-e2e");

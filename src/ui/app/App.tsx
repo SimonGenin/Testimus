@@ -1,53 +1,90 @@
-import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ColumnLayout, CredsStatus, Job, SearchMatch, Source, XrayJson } from "../../core/types.ts";
-import { ApiError, type CommandInfo, call, commands, events, project, setProject } from "../api.ts";
-import { ClaudeDock, type DockJob, type DockRequest } from "../components/claude/ClaudeDock.tsx";
-import { CONTEXTS_EVENT } from "../components/claude/ContextsDialog.tsx";
-import { DragEdge, Toasts } from "../components/legacy/index.ts";
-import { CommandForm, hasInput } from "../components/shell/CommandForm.tsx";
+import * as stylex from "@stylexjs/stylex";
+import { useQueryClient } from "@tanstack/react-query";
+import { type CSSProperties, useCallback, useEffect, useMemo, useState } from "react";
+import type { CommandName } from "../../core/commands/index.ts";
+import type { SearchMatch, Source } from "../../core/types.ts";
+import { ClaudeDock } from "../components/claude/ClaudeDock.tsx";
+import { useRunningJobs } from "../components/shell/Activity.tsx";
+import { CommandForm } from "../components/shell/CommandForm.tsx";
 import { DesktopBridge } from "../components/shell/DesktopBridge.tsx";
-import { Palette, type PaletteAction } from "../components/shell/Palette.tsx";
-import { NAV, Rail } from "../components/shell/Rail.tsx";
+import { Palette } from "../components/shell/Palette.tsx";
+import { hasInput } from "../components/shell/paletteEntries.tsx";
+import { Rail } from "../components/shell/Rail.tsx";
+import { ServerLost } from "../components/shell/ServerLost.tsx";
+import { TopBar, TopBarContext, useTopBarSlots } from "../components/shell/TopBar.tsx";
 import { PassageDialog } from "../components/sources/PassageDialog.tsx";
 import { docLink } from "../components/sources/PassageView.tsx";
-import { actionsChanged } from "../lib/actions.ts";
-import { AppContext, type AppState, type ClaudeRun, type Focus, type ProjectInfo, type Screen } from "../lib/app.ts";
-import { touches, useChanged } from "../lib/changed.ts";
-import { DEFAULT_LAYOUT } from "../lib/fields.ts";
-import { mirrorPrefs, restorePrefs } from "../lib/prefsMirror.ts";
+import { ResizeHandle } from "../components/ui/ResizeHandle.tsx";
+import { Toaster } from "../components/ui/Toast.tsx";
+import { AppContext, type AppState, type ClaudeRun, type Focus } from "../lib/app.ts";
+import type { CommandInfo } from "../lib/data/client.ts";
+import { execute } from "../lib/data/query.ts";
+import { usePref } from "../lib/prefs.ts";
 import { jumpTo, rememberHit } from "../lib/search.ts";
-import { useSideWidth } from "../lib/sideWidth.ts";
-import { readSession, readString, setThemeEverywhere, writePref, writeSession } from "../lib/theme.ts";
 import { errorToast, toast } from "../lib/toast.ts";
-import { DoctorScreen } from "../screens/doctor/DoctorScreen.tsx";
-import { DocumentsScreen } from "../screens/documents/DocumentsScreen.tsx";
-import { GenerateScreen } from "../screens/generate/GenerateScreen.tsx";
-import { JobsScreen } from "../screens/jobs/JobsScreen.tsx";
-import { KitScreen } from "../screens/kit/KitScreen.tsx";
-import { ReviewScreen } from "../screens/review/ReviewScreen.tsx";
-import { SettingsScreen } from "../screens/settings/SettingsScreen.tsx";
-import { FirstRunScreen } from "../screens/setup/FirstRunScreen.tsx";
-import { TestsScreen } from "../screens/tests/TestsScreen.tsx";
+import { border, breakpoint, color, radius, shadow, size, space } from "../styles/tokens.stylex.ts";
+import { paletteActions } from "./paletteActions.ts";
+import { parseRoute, TITLES, useRoute } from "./routes.ts";
+import { Screens } from "./Screens.tsx";
+import { useDock } from "./useDock.ts";
+import { useProject } from "./useProject.ts";
+import { useShellEvents } from "./useShellEvents.ts";
 
-const SCREENS: Screen[] = ["documents", "generate", "tests", "review", "jobs", "settings", "doctor", "setup", "kit"];
+export { parseRoute };
 
-export function parseRoute(hash: string): { screen: Screen; arg?: string } {
-  const [screen, ...rest] = hash.replace(/^#\/?/, "").split("/");
-  const s = SCREENS.includes(screen as Screen) ? (screen as Screen) : "tests";
-  const arg = rest.length ? decodeURIComponent(rest.join("/")) : undefined;
-  return { screen: s, arg };
-}
+const DOCK = { min: 300, max: 720, start: 420 };
 
-// ponytail: the core decides whether Claude looks at a failed job (actions.triageFailed): the page only tells it
-function triageFailed(job: Job): void {
-  call("actions.triageFailed", { jobId: job.id }).catch(() => {});
-}
+const styles = stylex.create({
+  app: {
+    position: "relative",
+    display: "flex",
+    width: "100vw",
+    height: "100vh",
+    overflow: "hidden",
+    backgroundColor: color.canvas,
+  },
+  frame: {
+    flex: 1,
+    minWidth: 0,
+    display: "flex",
+    flexDirection: "column",
+    marginBlock: space.s2,
+    borderWidth: border.width,
+    borderStyle: "solid",
+    borderColor: color.border,
+    borderStartStartRadius: radius.r3,
+    borderEndStartRadius: radius.r3,
+    backgroundColor: color.surface,
+    overflow: "hidden",
+  },
+  frameOpen: { borderRadius: radius.r3, marginInlineEnd: { default: 0, [breakpoint.dock]: space.s2 } },
+  screen: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", position: "relative" },
+  dock: { flex: "none", display: "flex", width: size.dockFolded, zIndex: 1 },
+  dockOpen: {
+    width: "var(--dock-size)",
+    marginBlock: space.s2,
+    marginInline: space.s2,
+    borderWidth: border.width,
+    borderStyle: "solid",
+    borderColor: color.border,
+    borderRadius: radius.r3,
+    backgroundColor: color.surface,
+    overflow: "hidden",
+    position: { default: "relative", [breakpoint.dock]: "absolute" },
+    insetBlock: { default: null, [breakpoint.dock]: 0 },
+    insetInlineEnd: { default: null, [breakpoint.dock]: 0 },
+    maxWidth: `calc(100vw - ${size.rail} - ${space.s7})`,
+    boxShadow: { default: null, [breakpoint.dock]: shadow.s3 },
+  },
+  edge: { display: { default: "flex", [breakpoint.dock]: "none" } },
+});
 
+// ponytail: the shell — the rail, the top bar and the screen in their frame, the Claude dock, the palette, the
+// layers above (a command's form, a source, the toasts); what the screens share is in AppContext
 export function App() {
-  const [info, setInfo] = useState<ProjectInfo | null>(null);
-  const [xray, setXray] = useState<ColumnLayout>(DEFAULT_LAYOUT);
-  const [cmds, setCmds] = useState<CommandInfo[]>([]);
-  const [route, setRoute] = useState(() => parseRoute(window.location.hash));
+  const client = useQueryClient();
+  const [route, navigate] = useRoute();
+  const p = useProject(navigate);
   const [focus, setFocus] = useState<Focus | null>(null);
   const [claudeRunning, setClaudeRunning] = useState<string | null>(null);
   const [lastRun, setLastRun] = useState<ClaudeRun | null>(null);
@@ -55,117 +92,37 @@ export function App() {
   const [source, setSource] = useState<Source | null>(null);
   const [palette, setPalette] = useState(false);
   const [form, setForm] = useState<CommandInfo | null>(null);
-  const [folded, setFolded] = useState(true);
-  const [dockW, dockEdge] = useSideWidth("testimus.dockWidth", 300, 720, "after");
-  const [dockReq, setDockReq] = useState<DockRequest | null>(null);
-  const [running, setRunning] = useState<Set<string>>(new Set());
-  const [booted, setBooted] = useState(false);
-  const userFold = useRef<boolean | null>(null);
+  const [dockWidth, setDockWidth] = usePref("dockWidth");
+  const [dragW, setDragW] = useState<number | null>(null);
+  const dock = useDock(route.screen);
+  const bar = useTopBarSlots();
+  const running = useRunningJobs();
 
-  const refreshInfo = useCallback(() => {
-    call<ProjectInfo>("project.info", {})
-      .then((r) => {
-        setInfo(r);
-        setXray({
-          ...(r?.xray?.fetchedAt ? { fetchedAt: r.xray.fetchedAt } : {}),
-          fields: r?.xray?.fields?.length ? r.xray.fields : DEFAULT_LAYOUT.fields,
-          columns: r?.columns?.length ? r.columns : DEFAULT_LAYOUT.columns,
-        });
-      })
-      .catch((e) => errorToast(e, "Could not read the project"));
-  }, []);
+  const testsChanged = useCallback(() => setTestsNonce((n) => n + 1), []);
+  const { refreshInfo, closeProject: close } = p;
+  const closeProject = useCallback(() => {
+    close();
+    testsChanged();
+  }, [close, testsChanged]);
+  const openPalette = useCallback(() => setPalette(true), []);
+  useShellEvents(testsChanged);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: once, at start (navigate is stable)
+  const toggleDock = dock.toggle;
   useEffect(() => {
-    let stopMirror = () => {};
-    commands()
-      .then(async (r) => {
-        if (await restorePrefs()) {
-          window.location.reload();
-          return;
-        }
-        stopMirror = mirrorPrefs();
-        const stored = readString("testimus.project");
-        setCmds(r.commands ?? []);
-        setProject(stored || r.project);
-        // ponytail: a project this window remembers but the server no longer knows (deleted, moved, forgotten) is
-        // dropped at start, not opened — every call made for it would be refused
-        const refused = (e: unknown) => e instanceof ApiError && e.status === 403;
-        if (stored && (await call("project.info", {}).then(() => false, refused))) {
-          writePref("testimus.project", "");
-          setProject(r.project);
-        }
-        const dir = project();
-        if (dir) refreshInfo();
-        setBooted(true);
-        const shown = readSession("testimus.setupShown");
-        if (shown || parseRoute(window.location.hash).screen === "setup") return;
-        const st = await call<{ status: CredsStatus }>("system.credentials", {}).catch(() => null);
-        const creds = !st || (st.status.jira.complete && st.status.xray.complete);
-        if (!dir || !creds) {
-          writeSession("testimus.setupShown", "1");
-          navigate("setup", creds ? "project" : undefined);
-        }
-      })
-      .catch((e) => errorToast(e, "Testimus is not answering"));
-    return () => stopMirror();
-  }, [refreshInfo]);
-
-  useEffect(() => {
-    call<Job[]>("jobs.list", { running: true })
-      .then((jobs) => setRunning(new Set((jobs ?? []).map((j) => j.id))))
-      .catch(() => {});
-    return events((e) => {
-      if (e.type !== "status") return;
-      setRunning((cur) => {
-        const next = new Set(cur);
-        if (e.job.status === "running") next.add(e.job.id);
-        else next.delete(e.job.id);
-        return next;
-      });
-      if (e.job.status === "failed") triageFailed(e.job);
-      if (e.job.kind === "check" && e.job.status === "done") {
-        const tests = ((e.job.result as { tests?: { errors: number; warnings: number }[] })?.tests ?? []).filter(
-          Boolean,
-        );
-        const n = tests.filter((t) => t.errors + t.warnings > 0).length;
-        toast({
-          kind: "ok",
-          title: `Check finished — ${tests.length} test${tests.length === 1 ? "" : "s"}, ${n} with findings`,
-          action:
-            parseRoute(window.location.hash).screen === "review"
-              ? undefined
-              : {
-                  label: "Open Review",
-                  run: () => {
-                    window.location.hash = "#/review";
-                  },
-                },
-        });
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      const k = e.key.toLowerCase();
+      if (k === "k") {
+        e.preventDefault();
+        setPalette((o) => !o);
+      } else if (k === "j") {
+        e.preventDefault();
+        toggleDock();
       }
-    });
-  }, []);
-
-  // ponytail: a project's step columns are read again from Xray each time it is opened (Xray Editor does) — quietly:
-  // offline, or without access yet, the copy in xray.json stays
-  const fieldsFor = useRef("");
-  const jiraKey = info?.project.jiraOffline ? "" : info?.project.jiraProject;
-  useEffect(() => {
-    const dir = info?.dir;
-    if (!dir || !jiraKey || fieldsFor.current === dir) return;
-    fieldsFor.current = dir;
-    call<XrayJson>("xray.refreshFields", {})
-      .then((x) => {
-        if (fieldsFor.current === dir && x?.fields?.length) refreshInfo();
-      })
-      .catch(() => {});
-  }, [info?.dir, jiraKey, refreshInfo]);
-
-  useEffect(() => {
-    const onHash = () => setRoute(parseRoute(window.location.hash));
-    window.addEventListener("hashchange", onHash);
-    return () => window.removeEventListener("hashchange", onHash);
-  }, []);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [toggleDock]);
 
   // ponytail: a file dropped beside a drop target would make the browser open it in place of the app
   useEffect(() => {
@@ -180,81 +137,10 @@ export function App() {
     };
   }, []);
 
-  const toggleDock = useCallback(() => {
-    setFolded((f) => {
-      userFold.current = !f;
-      return !f;
-    });
-  }, []);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
-      const k = e.key.toLowerCase();
-      if (k === "k") {
-        e.preventDefault();
-        setPalette((p) => !p);
-      } else if (k === "j") {
-        e.preventDefault();
-        toggleDock();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [toggleDock]);
-
-  const navigate = useCallback((screen: Screen, arg?: string) => {
-    const hash = `#/${screen}${arg ? `/${encodeURIComponent(arg)}` : ""}`;
-    if (window.location.hash !== hash) window.location.hash = hash;
-    setRoute({ screen, arg });
-  }, []);
-
-  const askClaude = useCallback((scope: "test" | "step", prompt?: string) => {
-    userFold.current = false;
-    setFolded(false);
-    setDockReq({ mode: "test", scope, prompt, nonce: Date.now() });
-  }, []);
-
-  const runInDock = useCallback((job: DockJob) => {
-    setFolded(false);
-    setDockReq({ mode: "test", job, nonce: Date.now() });
-  }, []);
-
-  // ponytail: Review needs its three columns, so the dock folds to its strip there and comes back after
-  const lastScreen = useRef<Screen | null>(null);
-  useEffect(() => {
-    const was = lastScreen.current;
-    lastScreen.current = route.screen;
-    if (route.screen === "review" && was !== "review") setFolded(true);
-    else if (was === "review" && route.screen !== "review") setFolded(userFold.current ?? true);
-  }, [route.screen]);
-
-  const testsChanged = useCallback(() => setTestsNonce((n) => n + 1), []);
-
-  const closeProject = useCallback(() => {
-    setProject(null);
-    writePref("testimus.project", "");
-    setInfo(null);
-    setXray(DEFAULT_LAYOUT);
-    testsChanged();
-  }, [testsChanged]);
-
-  useChanged([""], (paths) => {
-    refreshInfo();
-    if (touches(paths, ["tests/"]).length) testsChanged();
-    if (touches(paths, [".testimus/actions/"]).length) actionsChanged();
-    if (
-      touches(paths, ["contexts/", "project.json"]).length ||
-      paths.some((p) => p.endsWith("/local.json") || p.endsWith("/doc.json"))
-    )
-      window.dispatchEvent(new Event(CONTEXTS_EVENT));
-  });
-  const openPalette = useCallback(() => setPalette(true), []);
-
   const app: AppState = useMemo(
     () => ({
-      info,
-      xray,
+      info: p.info,
+      xray: p.xray,
       route,
       focus,
       claudeRunning,
@@ -268,13 +154,13 @@ export function App() {
       refreshInfo,
       closeProject,
       openSource: setSource,
-      askClaude,
-      runInDock,
+      askClaude: dock.askClaude,
+      runInDock: dock.runInDock,
       openPalette,
     }),
     [
-      info,
-      xray,
+      p.info,
+      p.xray,
       route,
       focus,
       claudeRunning,
@@ -284,8 +170,8 @@ export function App() {
       testsChanged,
       refreshInfo,
       closeProject,
-      askClaude,
-      runInDock,
+      dock.askClaude,
+      dock.runInDock,
       openPalette,
     ],
   );
@@ -296,7 +182,7 @@ export function App() {
         setForm(c);
         return;
       }
-      call<unknown>(c.name, {})
+      execute(client, c.name as CommandName, {} as never, { invalidates: c.mutates ? "project" : "none" })
         .then((r) => {
           const jobId = (r as { jobId?: string } | null)?.jobId;
           toast({
@@ -304,33 +190,14 @@ export function App() {
             title: jobId ? `${c.name} started` : `${c.name} done`,
             detail: jobId ? "Follow it in Jobs." : undefined,
           });
-          if (c.mutates) {
-            refreshInfo();
-            testsChanged();
-          }
+          if (c.mutates) testsChanged();
         })
         .catch((e) => errorToast(e, `${c.name} failed`));
     },
-    [refreshInfo, testsChanged],
+    [client, testsChanged],
   );
 
-  const actions: PaletteAction[] = useMemo(
-    () => [
-      ...NAV.map((n) => ({ id: `go-${n.id}`, label: `Go to ${n.label}`, icon: n.icon, run: () => navigate(n.id) })),
-      { id: "go-settings", label: "Go to Settings", icon: "settings" as const, run: () => navigate("settings") },
-      { id: "go-doctor", label: "Open the system check", icon: "info" as const, run: () => navigate("doctor") },
-      { id: "dock", label: "Show or hide Claude", icon: "claude" as const, hint: "Ctrl J", run: toggleDock },
-      {
-        id: "theme-system",
-        label: "Theme: follow the system",
-        icon: "system" as const,
-        run: () => setThemeEverywhere("system"),
-      },
-      { id: "theme-light", label: "Theme: light", icon: "sun" as const, run: () => setThemeEverywhere("light") },
-      { id: "theme-dark", label: "Theme: dark", icon: "moon" as const, run: () => setThemeEverywhere("dark") },
-    ],
-    [navigate, toggleDock],
-  );
+  const actions = useMemo(() => paletteActions(navigate, toggleDock), [navigate, toggleDock]);
 
   const openHit = useCallback(
     (h: SearchMatch) => {
@@ -344,52 +211,55 @@ export function App() {
     [navigate],
   );
 
-  const counts: Partial<Record<Screen, number>> = {
-    review: info?.counts?.awaiting,
-    jobs: running.size,
-  };
+  const counts = { review: p.info?.counts?.awaiting, jobs: running.length };
+  const shownDock = dragW ?? dockWidth ?? DOCK.start;
 
   return (
     <AppContext.Provider value={app}>
       {route.screen === "setup" ? (
-        <FirstRunScreen />
+        p.booted && <Screens screen="setup" />
       ) : (
-        <div className="shell" style={dockW ? ({ "--dock-size": `${dockW}px` } as CSSProperties) : undefined}>
-          <Rail counts={counts} />
-          <div className="main">
-            {route.screen === "tests" ? (
-              <TestsScreen />
-            ) : route.screen === "documents" ? (
-              <DocumentsScreen />
-            ) : route.screen === "generate" ? (
-              <GenerateScreen />
-            ) : route.screen === "review" ? (
-              <ReviewScreen />
-            ) : route.screen === "jobs" ? (
-              <JobsScreen />
-            ) : route.screen === "doctor" ? (
-              <DoctorScreen />
-            ) : route.screen === "kit" ? (
-              <KitScreen />
-            ) : (
-              <SettingsScreen />
-            )}
+        <div {...stylex.props(styles.app)}>
+          <Rail counts={counts} kit={p.mock} />
+          <div key={p.dir ?? ""} {...stylex.props(styles.frame, !dock.folded && styles.frameOpen)}>
+            <TopBarContext.Provider value={bar.value}>
+              <TopBar title={TITLES[route.screen]} onPalette={openPalette} slots={bar} />
+              <ServerLost />
+              <div {...stylex.props(styles.screen)}>{p.booted && <Screens screen={route.screen} />}</div>
+            </TopBarContext.Provider>
           </div>
-          {!folded && <DragEdge className="side-edge dock-edge" label="Resize the Claude panel" {...dockEdge} />}
-          <ClaudeDock folded={folded} request={dockReq} onFold={toggleDock} />
+          {!dock.folded && (
+            <span {...stylex.props(styles.edge)}>
+              <ResizeHandle
+                label="Resize the Claude panel"
+                side="left"
+                value={shownDock}
+                min={DOCK.min}
+                max={DOCK.max}
+                defaultValue={DOCK.start}
+                onChange={setDragW}
+                onCommit={(w) => {
+                  setDockWidth(w);
+                  setDragW(null);
+                }}
+              />
+            </span>
+          )}
+          <div
+            {...stylex.props(styles.dock, !dock.folded && styles.dockOpen)}
+            style={dock.folded ? undefined : ({ "--dock-size": `${shownDock}px` } as CSSProperties)}
+          >
+            <ClaudeDock folded={dock.folded} request={dock.request} onFold={toggleDock} />
+          </div>
         </div>
       )}
       {palette && (
         <Palette
-          commands={cmds}
+          commands={p.commands}
           actions={actions}
           onCommand={runCommand}
-          onHit={info ? openHit : undefined}
-          onAsk={(q) => {
-            userFold.current = false;
-            setFolded(false);
-            setDockReq({ mode: "docs", prompt: q, nonce: Date.now() });
-          }}
+          onHit={p.info ? openHit : undefined}
+          onAsk={dock.askDocs}
           onClose={() => setPalette(false)}
         />
       )}
@@ -404,8 +274,8 @@ export function App() {
           }}
         />
       )}
-      <Toasts />
-      <DesktopBridge booted={booted} />
+      <Toaster />
+      <DesktopBridge booted={p.booted} />
     </AppContext.Provider>
   );
 }

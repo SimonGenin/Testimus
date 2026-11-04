@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import type { ColumnMode, StepColumn, XrayField } from "../../../core/types.ts";
-import { Badge, type BadgeTone } from "../../components/ui/Badge.tsx";
+import { Badge } from "../../components/ui/Badge.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Card } from "../../components/ui/Card.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
@@ -26,11 +26,6 @@ const MODES: { value: ColumnMode; label: string }[] = [
   { value: "filled", label: "When filled" },
   { value: "collapsed", label: "Collapsed" },
 ];
-
-const tagOf = (c: StepColumn): { label: string; tone: BadgeTone } => {
-  const t = columnTag(c);
-  return { label: t.label, tone: t.tone === "warn" ? "warning" : "neutral" };
-};
 
 export type ColumnCardProps = {
   column: StepColumn;
@@ -61,7 +56,7 @@ export function ColumnCard({
   onMove,
   onRemove,
 }: ColumnCardProps) {
-  const tag = tagOf(c);
+  const tag = columnTag(c);
   const always = c.name === "Action" || c.name === "Expected Result";
   const id = `settings-column-${c.name.replace(/\W+/g, "-")}`;
   return (

@@ -10,6 +10,7 @@ import {
   fontWeight,
   lineHeight,
   radius,
+  shadow,
   size,
   space,
 } from "../../styles/tokens.stylex.ts";
@@ -24,15 +25,15 @@ const styles = stylex.create({
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: space.s2,
+    gap: space.snug,
     flexShrink: 0,
     height: size.controlMd,
     margin: 0,
     paddingBlock: 0,
-    paddingInline: space.s4,
+    paddingInline: space.button,
     borderStyle: "solid",
     borderWidth: border.width,
-    borderColor: color.borderControl,
+    borderColor: color.borderField,
     borderRadius: radius.r2,
     backgroundColor: { default: color.surface, ":hover": color.surfaceHover, ":active": color.surfacePressed },
     color: color.text,
@@ -46,9 +47,12 @@ const styles = stylex.create({
     transitionProperty: "background-color, border-color",
     transitionDuration: duration.instant,
     transitionTimingFunction: easing.standard,
+    boxShadow: shadow.s0,
     outline: { default: "none", ":focus-visible": `${border.widthStrong} solid ${color.focusRing}` },
     outlineOffset: focus.offset,
   },
+  filled: { boxShadow: `${shadow.s0}, inset 0 1px 0 ${color.sheen}` },
+  flat: { boxShadow: "none" },
   primary: {
     backgroundColor: { default: color.accent, ":hover": color.accentHover, ":active": color.accentPressed },
     borderColor: { default: color.accent, ":hover": color.accentHover, ":active": color.accentPressed },
@@ -97,6 +101,7 @@ const styles = stylex.create({
     borderColor: "transparent",
     color: color.textDisabled,
     filter: null,
+    boxShadow: "none",
     cursor: "not-allowed",
   },
   disabledQuiet: { backgroundColor: "transparent" },
@@ -122,7 +127,7 @@ export type ButtonProps = {
   /** primary: the screen region's one action · secondary (default) · quiet: toolbars and rows · danger: the confirm
    * of a destructive dialog only · claude / claude-quiet: starts a Claude run */
   variant?: ButtonVariant;
-  /** xs 20 px (icon-only row actions) · sm 24 px (cards, rows, toasts, the dock's footer) · md 28 px · lg 36 px */
+  /** xs 24 px (icon-only row actions) · sm 28 px (cards, rows, toasts, the dock's footer) · md 32 px · lg 40 px */
   size?: "xs" | "sm" | "md" | "lg";
   /** a verb in sentence case (« Push to Jira »); with iconOnly it becomes the accessible name and the tooltip */
   label: string;
@@ -216,6 +221,7 @@ export function Button({
 }: ButtonProps) {
   const off = disabled !== false;
   const quietish = variant === "quiet" || variant === "claude-quiet";
+  const filled = variant === "primary" || variant === "danger" || variant === "claude";
   const fileInput = useRef<HTMLInputElement | null>(null);
   const button = (
     <button
@@ -238,6 +244,8 @@ export function Button({
         styles.base,
         VARIANT[variant],
         styles[s],
+        filled && styles.filled,
+        quietish && styles.flat,
         iconOnly && styles.square,
         iconOnly && SQUARE[s],
         block && styles.block,
@@ -257,7 +265,7 @@ export function Button({
       )}
       {!iconOnly && shortcut && (
         <span {...stylex.props(styles.kbd)}>
-          <Kbd onFill={variant !== "secondary" && !quietish}>{shortcut}</Kbd>
+          <Kbd onFill>{shortcut}</Kbd>
         </span>
       )}
     </button>

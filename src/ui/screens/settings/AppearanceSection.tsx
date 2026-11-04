@@ -6,7 +6,7 @@ import { Segmented } from "../../components/ui/Segmented.tsx";
 import { Switch } from "../../components/ui/Switch.tsx";
 import { desktop, setAlwaysOnTop } from "../../lib/desktop.ts";
 import { usePref } from "../../lib/prefs.ts";
-import { setThemeEverywhere, type Theme } from "../../lib/theme.ts";
+import { type Theme, useTheme } from "../../lib/theme.ts";
 import { space } from "../../styles/tokens.stylex.ts";
 import { useSetting, useSettings } from "./machine.ts";
 import { Grid, Hint, Section, Stack } from "./Section.tsx";
@@ -19,9 +19,9 @@ const styles = stylex.create({
 // ponytail: theme, layout and the window are this browser profile's (lib/prefs, mirrored to settings.json by the
 // desktop app); model downloads are this PC's setting (system.set)
 export function AppearanceSection() {
-  const [theme, setTheme] = usePref("theme");
+  const [theme, setTheme] = useTheme();
   const [layout, setLayout] = usePref("stepLayout");
-  const [onTop, setOnTop] = usePref("alwaysOnTop");
+  const [onTop] = usePref("alwaysOnTop");
   const settings = useSettings();
   const setting = useSetting();
   return (
@@ -32,11 +32,8 @@ export function AppearanceSection() {
             <div {...stylex.props(styles.field)}>
               <Segmented<Theme>
                 label="Theme"
-                value={theme as Theme}
-                onChange={(t) => {
-                  setTheme(t);
-                  setThemeEverywhere(t);
-                }}
+                value={theme}
+                onChange={setTheme}
                 options={[
                   { value: "system", label: "System", icon: "monitor" },
                   { value: "light", label: "Light", icon: "sun" },
@@ -70,14 +67,7 @@ export function AppearanceSection() {
           }
         >
           <Stack>
-            <Switch
-              label="Always on top"
-              on={onTop}
-              onChange={(on) => {
-                void setAlwaysOnTop(on);
-                setOnTop(on);
-              }}
-            />
+            <Switch label="Always on top" on={onTop} onChange={(on) => void setAlwaysOnTop(on)} />
             <Hint>
               Keeps Testimus above Jira while you work beside it. Also from the pin in the Claude dock. Zoom with Ctrl+=
               · Ctrl+− · Ctrl+0.

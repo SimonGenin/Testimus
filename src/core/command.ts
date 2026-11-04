@@ -14,6 +14,13 @@ export type Ctx = {
   // one before it; outside a job they do nothing
   steps?(list: { id: string; label: string }[]): void;
   step?(id: string, label?: string): void;
+  // ponytail: another command of the registry in the same project, waited for — set by the registry's invoke, so a
+  // command's code never imports the registry
+  invoke?(
+    name: string,
+    input: unknown,
+    opts?: { signal?: AbortSignal; cause?: JobCause; wait?: boolean },
+  ): Promise<unknown>;
 };
 
 export type Command<I extends z.ZodType = z.ZodType, O extends z.ZodType = z.ZodType> = {

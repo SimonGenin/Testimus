@@ -365,7 +365,7 @@ export function ConnectAtlassian({
       </div>
 
       {(words || error) && (
-        <div role="status" {...stylex.props(styles.checks)}>
+        <div {...stylex.props(styles.checks)}>
           {error && (
             <Banner tone="danger" compact>
               {error}

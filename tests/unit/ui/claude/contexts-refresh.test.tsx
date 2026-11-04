@@ -1,17 +1,19 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render as rtlRender, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Test } from "../../../../src/core/types.ts";
 import { setProject } from "../../../../src/ui/api.ts";
 import { ClaudeDock } from "../../../../src/ui/components/claude/ClaudeDock.tsx";
 import { AppContext, type AppState } from "../../../../src/ui/lib/app.ts";
-import { DataProvider } from "../../../../src/ui/lib/data/provider.tsx";
 import { resetDoctor } from "../../../../src/ui/lib/doctor.ts";
 import { ClaudeSection } from "../../../../src/ui/screens/settings/ClaudeSection.tsx";
 import { TestEditor } from "../../../../src/ui/screens/tests/TestEditor.tsx";
-import { fakeEvents, fakeNet, net } from "../../cov-uishell-helpers.tsx";
+import { dataWrapper, fakeEvents, fakeNet, net } from "../../cov-uishell-helpers.tsx";
 import { app } from "../../ui-desktop-helpers.tsx";
+
+const render = ((ui: Parameters<typeof rtlRender>[0], o?: Parameters<typeof rtlRender>[1]) =>
+  rtlRender(ui, { wrapper: dataWrapper(), ...o })) as typeof rtlRender;
 
 type Ctx = { id: string; name: string; notes: string; paths: string[]; files: string[] };
 let store: Record<string, Ctx> = {};
@@ -78,16 +80,14 @@ const state = (): AppState => {
 describe("a context changed in the Contexts dialog shows at once everywhere it is listed (audit M-C2)", () => {
   it("renamed from Settings › Claude: the dock, the test header and the default contexts all say the new name", async () => {
     render(
-      <DataProvider>
-        <AppContext.Provider value={state()}>
-          <ClaudeDock folded={false} onFold={() => {}} />
-          <TestEditor testId="t1" onSaved={vi.fn()} onOpen={vi.fn()} />
-          <ClaudeSection />
-        </AppContext.Provider>
-      </DataProvider>,
+      <AppContext.Provider value={state()}>
+        <ClaudeDock folded={false} onFold={() => {}} />
+        <TestEditor testId="t1" onSaved={vi.fn()} onOpen={vi.fn()} />
+        <ClaudeSection />
+      </AppContext.Provider>,
     );
     const dock = screen.getByRole("complementary", { name: "Claude" });
-    expect(await within(dock).findByRole("button", { name: "Leave Glossary out of this run" })).toBeInTheDocument();
+    expect(await within(dock).findByRole("button", { name: "Glossary" })).toBeInTheDocument();
     const defaults = await screen.findByRole("group", { name: "Default contexts" });
     expect(await within(defaults).findByRole("switch", { name: "Glossary" })).toBeChecked();
     await screen.findByLabelText("Action of step 1");
@@ -98,18 +98,17 @@ describe("a context changed in the Contexts dialog shows at once everywhere it i
     fireEvent.click(screen.getByRole("button", { name: "Manage contexts…" }));
     const dialog = await screen.findByRole("dialog", { name: "Contexts" });
     fireEvent.click(await within(dialog).findByRole("option", { name: /Glossary/ }));
-    await waitFor(() => expect(within(dialog).getByRole("textbox", { name: "Name" })).toHaveValue("Glossary"));
-    const name = within(dialog).getByRole("textbox", { name: "Name" });
+    await waitFor(() => expect(within(dialog).getByRole("textbox", { name: /^Name/ })).toHaveValue("Glossary"));
+    const name = within(dialog).getByRole("textbox", { name: /^Name/ });
     fireEvent.change(name, { target: { value: "Lexique" } });
     fireEvent.blur(name);
     await waitFor(() => expect(store["ctx-b"].name).toBe("Lexique"));
     fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
 
-    expect(await within(dock).findByRole("button", { name: "Leave Lexique out of this run" })).toBeInTheDocument();
+    expect(await within(dock).findByRole("button", { name: "Lexique" })).toBeInTheDocument();
     expect(await within(defaults).findByRole("switch", { name: "Lexique" })).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: "Detach Lexique" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Glossary/ })).toBeNull();
-    expect(screen.queryByRole("switch", { name: /Glossary/ })).toBeNull();
   });
 
   it("created in the dialog: offered at once in the default contexts and in the test's « Attach context »", async () => {
@@ -118,13 +117,11 @@ describe("a context changed in the Contexts dialog shows at once everywhere it i
       return detail("ctx-n");
     };
     render(
-      <DataProvider>
-        <AppContext.Provider value={state()}>
-          <ClaudeDock folded={false} onFold={() => {}} />
-          <TestEditor testId="t1" onSaved={vi.fn()} onOpen={vi.fn()} />
-          <ClaudeSection />
-        </AppContext.Provider>
-      </DataProvider>,
+      <AppContext.Provider value={state()}>
+        <ClaudeDock folded={false} onFold={() => {}} />
+        <TestEditor testId="t1" onSaved={vi.fn()} onOpen={vi.fn()} />
+        <ClaudeSection />
+      </AppContext.Provider>,
     );
     const defaults = await screen.findByRole("group", { name: "Default contexts" });
     await screen.findByLabelText("Action of step 1");

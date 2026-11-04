@@ -1,0 +1,169 @@
+import * as stylex from "@stylexjs/stylex";
+import type { DocRef, StepColumn } from "../../../core/types.ts";
+import { Button } from "../../components/ui/Button.tsx";
+import { Icon } from "../../components/ui/Icon.tsx";
+import { Menu } from "../../components/ui/Menu.tsx";
+import { Text } from "../../components/ui/Text.tsx";
+import { plural } from "../../lib/format.ts";
+import { border, color, fontSize, fontWeight, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { ColumnsView } from "./ColumnsView.tsx";
+import { DocScopePicker } from "./DocScopePicker.tsx";
+import { IndexNotice } from "./IndexNotice.tsx";
+import { RequestBlock } from "./RequestBlock.tsx";
+import type { GenerateForm } from "./useGenerateForm.ts";
+
+const styles = stylex.create({
+  form: { display: "flex", flexDirection: "column", minHeight: 0, height: "100%", backgroundColor: color.surface },
+  scroll: {
+    flex: 1,
+    minHeight: 0,
+    overflow: "auto",
+    display: "flex",
+    flexDirection: "column",
+    gap: space.s7,
+    padding: space.s6,
+  },
+  block: { display: "flex", flexDirection: "column", gap: space.s3 },
+  label: {
+    margin: 0,
+    fontSize: fontSize.titleSm,
+    lineHeight: lineHeight.titleSm,
+    fontWeight: fontWeight.semibold,
+    color: color.text,
+  },
+  foot: {
+    display: "flex",
+    alignItems: "center",
+    gap: space.s4,
+    paddingBlock: space.s3,
+    paddingInline: space.s4,
+    borderTopStyle: "solid",
+    borderTopWidth: border.width,
+    borderTopColor: color.border,
+    backgroundColor: color.surface,
+  },
+  recap: {
+    flex: 1,
+    minWidth: 0,
+    display: "flex",
+    flexDirection: "column",
+    gap: space.s1,
+    fontSize: fontSize.small,
+    lineHeight: lineHeight.small,
+    color: color.textMuted,
+  },
+  reason: { display: "inline-flex", alignItems: "center", gap: space.s1, color: color.text },
+});
+
+export type Gate = { missing: string[]; stale: string[]; indexing: boolean; onReindex: () => void };
+
+export function RequestForm({
+  form,
+  docs,
+  columns,
+  folders,
+  gate,
+  hasJob,
+  running,
+  starting,
+  blocked,
+  unavailable,
+  onGenerate,
+  onColumns,
+  onAddDocuments,
+}: {
+  form: GenerateForm;
+  docs: DocRef[] | null;
+  columns: StepColumn[];
+  folders: string[];
+  gate: Gate;
+  hasJob: boolean;
+  running: boolean;
+  starting: boolean;
+  blocked: string | null;
+  unavailable?: string;
+  onGenerate: () => void;
+  onColumns: () => void;
+  onAddDocuments: () => void;
+}) {
+  const scopes = form.scopes;
+  const narrowed = Object.values(scopes).filter(Array.isArray).length;
+  const inScope = form.scope.docs.length + new Set(form.scope.sections.map((s) => s.split("#")[0])).size;
+  const folder = form.folder.trim();
+  return (
+    <section aria-label="Request" {...stylex.props(styles.form)}>
+      <div {...stylex.props(styles.scroll)}>
+        <IndexNotice {...gate} />
+        <div {...stylex.props(styles.block)}>
+          <label htmlFor="gen-request" {...stylex.props(styles.label)}>
+            What should be tested?
+          </label>
+          <RequestBlock form={form} readOnly={running} unavailable={unavailable} onGenerate={onGenerate} />
+        </div>
+        <div {...stylex.props(styles.block)}>
+          <h2 {...stylex.props(styles.label)}>Documents</h2>
+          <DocScopePicker
+            docs={docs}
+            scopes={scopes}
+            indexing={gate.indexing}
+            onChange={form.setScopes}
+            onAddDocuments={onAddDocuments}
+          />
+        </div>
+        <ColumnsView columns={columns} onEdit={onColumns} />
+        <Text
+          label="Xray folder"
+          placeholder="Empty: Claude suggests one per test"
+          hint="You can change it in each test before you push."
+          value={form.folder}
+          onChange={form.setFolder}
+          readOnly={running}
+          trailing={
+            folders.length > 0 && (
+              <Menu
+                label="Xray folders"
+                align="end"
+                entries={folders.map((f) => ({
+                  label: f,
+                  icon: "folder" as const,
+                  checked: f === folder,
+                  onSelect: () => form.setFolder(f),
+                }))}
+                trigger={<Button size="sm" variant="quiet" label="Choose…" disabled={running} />}
+              />
+            )
+          }
+        />
+      </div>
+      <div {...stylex.props(styles.foot)}>
+        <div {...stylex.props(styles.recap)}>
+          <span>
+            {plural(inScope, "document")} in scope
+            {narrowed ? ` · ${narrowed} narrowed to sections` : ""}
+            {form.ctxIds.length > 0 ? ` · ${plural(form.ctxIds.length, "saved context")}` : ""}
+          </span>
+          <span>
+            {folder
+              ? `Tests land on this PC as drafts in ${folder}.`
+              : "Tests land on this PC as drafts; Claude suggests a folder per test."}
+          </span>
+          {blocked && !running && !starting && (
+            <span {...stylex.props(styles.reason)}>
+              <Icon name="info" size="sm" />
+              {blocked}
+            </span>
+          )}
+        </div>
+        <Button
+          variant={hasJob ? "secondary" : "primary"}
+          icon="generate"
+          label={running ? "Claude is writing…" : hasJob ? "Generate again" : "Generate"}
+          shortcut={running ? undefined : "Ctrl+Enter"}
+          loading={running || starting}
+          disabled={running || starting || (blocked ?? false)}
+          onClick={onGenerate}
+        />
+      </div>
+    </section>
+  );
+}

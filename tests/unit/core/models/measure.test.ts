@@ -15,8 +15,9 @@ import {
   refdocText,
 } from "../../../../src/core/lib/models-quality.ts";
 import { mockMachine } from "../../../../src/core/mock/machine.ts";
-import { hooks, parseSections } from "../../../../src/core/rag/chunk.ts";
-import { type EvalReport, readBehaviors } from "../../../../src/core/rag/eval.ts";
+import { parseSections } from "../../../../src/core/rag/chunk.ts";
+import type { EvalReport } from "../../../../src/core/rag/eval.ts";
+import { readBehaviors } from "../../../../src/core/rag/eval-set.ts";
 import { measureRefdoc, publishedMeasure, REFDOC, refdocDir, refdocSource } from "../../../../src/core/rag/refdoc.ts";
 import type { PackMeasure } from "../../../../src/core/types.ts";
 import { call } from "../registry.ts";
@@ -25,7 +26,6 @@ const realMock = env.mock;
 
 beforeEach(() => {
   env.mock = true;
-  hooks.describeChunks = null;
   pinMachineProfile(mockMachine("dev"));
 });
 

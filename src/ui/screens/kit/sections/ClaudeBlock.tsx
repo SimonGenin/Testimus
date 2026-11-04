@@ -1,5 +1,12 @@
+import * as stylex from "@stylexjs/stylex";
 import { ClaudeBlock } from "../../../components/ui/ClaudeBlock.tsx";
+import { size, space } from "../../../styles/tokens.stylex.ts";
 import { Cell, type KitSection, States } from "../kit.tsx";
+
+const styles = stylex.create({
+  dock: { width: `calc(${size.dock} - 2 * ${space.s3})`, maxWidth: "100%" },
+  narrow: { width: `calc(${size.dock} - ${space.s10} - 2 * ${space.s3})`, maxWidth: "100%" },
+});
 
 const model = {
   value: "opus",
@@ -51,6 +58,22 @@ export const section: KitSection = {
           allowEmpty
           onSubmit={() => {}}
         />
+      </Cell>
+      <Cell label="the dock's width (424 px, then 360 px): the key hint folds, Send stays whole" wide column>
+        {[styles.dock, styles.narrow].map((w, i) => (
+          <div key={String(i)} {...stylex.props(w)}>
+            <ClaudeBlock
+              ariaLabel={`dock width ${i}`}
+              value=""
+              placeholder="Ask Claude"
+              scope="Whole project"
+              model={model}
+              effort={effort}
+              allowEmpty
+              onSubmit={() => {}}
+            />
+          </div>
+        ))}
       </Cell>
       <Cell label="typing · focus" wide column>
         <ClaudeBlock

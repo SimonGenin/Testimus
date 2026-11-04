@@ -39,9 +39,6 @@ export const APP_VERSION = (
   JSON.parse(readFileSync(new URL("../../../package.json", import.meta.url), "utf8")) as { version: string }
 ).version;
 
-// ponytail: kept for tests/unit/models-refdoc.test.ts until it imports eval-set.ts (core-rag BESOIN)
-export { readBehaviors };
-
 const POLICIES = ["search", "search+graph"] as const;
 export type PolicyName = (typeof POLICIES)[number];
 const MENTIONS_PAGES = 10;

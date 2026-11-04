@@ -2,78 +2,550 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { reindexAll } from "../../../../src/ui/lib/uploads.ts";
+import type { DocRef, Job, LocalTestRef } from "../../../../src/core/types.ts";
+import { setProject } from "../../../../src/ui/lib/data/client.ts";
 import { GenerateScreen } from "../../../../src/ui/screens/generate/GenerateScreen.tsx";
-import { clearToasts, mount } from "../../cov-uiscreens-helpers.tsx";
-import { callsOf, deferred, fakeEvents, fakeNet, net } from "../../cov-uishell-helpers.tsx";
+import { clearToasts } from "../../cov-uiscreens-helpers.tsx";
+import { api, FakeEventSource, named, xray } from "../../ui-desktop-helpers.tsx";
+import { at, job, output, ref, test } from "./fixtures.ts";
+import { emit, freshPage, mountData } from "./harness.tsx";
 
-beforeEach(() => {
-  fakeNet();
-  fakeEvents();
-  net.routes["claude.status"] = () => ({ installed: true, signedIn: true });
-  net.routes["jobs.list"] = () => [];
-  net.routes["contexts.list"] = () => [];
-  net.routes["docs.show"] = () => ({ toc: [] });
-});
+beforeEach(freshPage);
 
 afterEach(() => {
   cleanup();
   clearToasts();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
-const at = "2026-11-02T10:00:00.000Z";
+const project = (
+  claude: Record<string, unknown> | null = { model: "sonnet", effort: "medium" },
+  folders: string[] = [],
+) => ({
+  dir: "C:\\p",
+  project: {
+    name: "RATP Sosie",
+    jiraProject: "LFRPS12",
+    language: "fr",
+    labelPrefix: "testimus-",
+    folders,
+    rag: {},
+    claude: claude ? { presets: [], contexts: [], ...claude } : undefined,
+  },
+  xray,
+  columns: [],
+});
+
+const docOf = (id: string, title: string, indexed = "fresh"): DocRef =>
+  ({
+    id,
+    code: id,
+    title,
+    status: "validated",
+    converted: { with: "", at, warnings: [] },
+    indexed,
+  }) as unknown as DocRef;
+
+// ponytail: the fake gen.preview applies the core's rule to the fake documents: the scope, or every converted one
+const preview =
+  (docs: () => DocRef[], replaces: () => string[] = () => []) =>
+  (i: Record<string, unknown>) => {
+    const scope = new Set([
+      ...((i.docs as string[]) ?? []),
+      ...((i.sections as string[]) ?? []).map((s) => s.split("#")[0]),
+    ]);
+    const searched = docs().filter((d) => d.converted?.at && (!scope.size || scope.has(d.id)));
+    return {
+      replaces: replaces(),
+      searched: searched.map((d) => d.id),
+      unindexed: searched.filter((d) => d.indexed === "missing").map((d) => d.id),
+      stale: searched.filter((d) => d.indexed === "stale").map((d) => d.id),
+    };
+  };
+
+const base = (info: ReturnType<typeof project> | null = project()) => {
+  const docs = [{ id: "D1", code: "C1", title: "Traction", status: "validated" } as unknown as DocRef];
+  api.routes["project.info"] = () => info;
+  api.routes["claude.status"] = () => ({ installed: true, signedIn: true });
+  api.routes["jobs.list"] = () => [];
+  api.routes["contexts.list"] = () => [];
+  api.routes["docs.list"] = () => docs;
+  api.routes["docs.show"] = () => ({ toc: [{ anchor: "§1", title: "Intro", level: 1 }] });
+  api.routes["gen.preview"] = preview(() => docs);
+};
+
+const go = (name: RegExp | string = /^Generate/) => screen.getByRole("button", { name });
+
+describe("Generate screen", () => {
+  it("opens on the last generation, already done, with its log", async () => {
+    base(project({ model: "claude-x", effort: "medium" }));
+    api.routes["jobs.list"] = () => [{ id: "other", kind: "rag-index" }, job({ id: "g0", status: "done" })];
+    api.routes["jobs.show"] = () => ({
+      job: job({
+        id: "g0",
+        status: "done",
+        endedAt: at,
+        result: output({ tests: ["local-aaaaaaaa"], diagnosis: { kind: "k", title: "t", detail: "It hit the limit" } }),
+      }),
+      events: [{ jobId: "g0", at, type: "progress", message: "Writing local-aaaaaaaa" }],
+    });
+    api.routes["tests.list"] = () => [ref("local-aaaaaaaa")];
+    api.routes["tests.show"] = () => ({ test: test("Premier") });
+    const { app: a } = mountData(<GenerateScreen />);
+    expect(await screen.findByRole("region", { name: "Premier" })).toBeInTheDocument();
+    expect(screen.getByText("It hit the limit")).toBeInTheDocument();
+    expect(screen.getByLabelText("Model")).toHaveDisplayValue("Project default · Claude-x");
+    expect(screen.getByLabelText("Effort")).toHaveDisplayValue("Project default · medium");
+    expect(go(/^Generate again/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Open in Review" }));
+    expect(a.navigate).toHaveBeenCalledWith("review", "local-aaaaaaaa");
+    fireEvent.click(screen.getByRole("button", { name: "Open in the editor" }));
+    expect(a.navigate).toHaveBeenCalledWith("tests", "local-aaaaaaaa");
+    fireEvent.click(screen.getByRole("button", { name: /Review these tests/ }));
+    expect(a.navigate).toHaveBeenCalledTimes(3);
+    expect(screen.getByRole("region", { name: "What Claude did" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Show the raw log (1 event)" }));
+    expect(screen.getByRole("log", { name: "Raw log" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Hide the raw log (1 event)" }));
+    expect(screen.queryByRole("log")).toBeNull();
+  });
+
+  it("shows a failed run with its error and nothing written", async () => {
+    base(project(null));
+    api.routes["jobs.list"] = () => null;
+    mountData(<GenerateScreen />);
+    expect(await screen.findByText("Tests appear here as Claude writes them")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText("Model")).toHaveDisplayValue("Project default · Opus"));
+    expect(screen.getByLabelText("Effort")).toHaveDisplayValue("Project default · high");
+    cleanup();
+    api.routes["jobs.list"] = () => [job({ id: "g1", status: "failed" })];
+    api.routes["jobs.show"] = () => ({ job: job({ id: "g1", status: "failed", error: "Claude crashed" }), events: [] });
+    mountData(<GenerateScreen />);
+    expect(await screen.findByText("Claude crashed")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show the raw log (0 events)" })).toBeInTheDocument();
+    cleanup();
+    api.routes["jobs.list"] = () => [job({ id: "g2", status: "done" })];
+    api.routes["jobs.show"] = () => ({ job: job({ id: "g2", status: "done", endedAt: at }), events: [] });
+    mountData(<GenerateScreen />);
+    expect(await screen.findByText("0 tests written")).toBeInTheDocument();
+  });
+
+  it("with no document, says Generate needs one and leads to Documents", async () => {
+    base();
+    api.routes["docs.list"] = () => [];
+    const { app: a } = mountData(<GenerateScreen />);
+    expect(await screen.findByText("Generate needs a document")).toBeInTheDocument();
+    expect(go()).toBeDisabled();
+    expect(go()).toHaveAccessibleDescription("Add a document first");
+    fireEvent.click(screen.getByRole("button", { name: "Go to Documents" }));
+    expect(a.navigate).toHaveBeenCalledWith("documents");
+  });
+
+  it("asks to connect Claude when it is missing, and checks again", async () => {
+    base();
+    api.routes["claude.status"] = (i) =>
+      i.refresh ? { installed: true, signedIn: false } : { installed: false, signedIn: null };
+    const { app: a } = mountData(<GenerateScreen />);
+    expect(await screen.findByText("Claude isn't installed on this PC yet")).toBeInTheDocument();
+    expect(go()).toBeDisabled();
+    expect(screen.getAllByText("Claude is not connected").length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("button", { name: "Check again" }));
+    expect(await screen.findByText("Claude isn't signed in on this PC yet")).toBeInTheDocument();
+    expect(named("claude.status").at(-1)?.input).toEqual({ refresh: true, signIn: true });
+    fireEvent.click(screen.getByRole("button", { name: "Check again" }));
+    await waitFor(() => expect(named("claude.status").filter((c) => c.input.refresh)).toHaveLength(2));
+    fireEvent.click(screen.getByRole("button", { name: "Open system check" }));
+    expect(a.navigate).toHaveBeenCalledWith("doctor");
+  });
+
+  it("refuses a scope that is not indexed, warns when it is out of date, and reindexes from here", async () => {
+    base();
+    let built = false;
+    const docs = () => [
+      docOf("D1", "Traction", built ? "fresh" : "missing"),
+      docOf("D2", "Signaux", "stale"),
+      { id: "D3", code: "D3", title: "Brouillon", indexed: "missing" } as unknown as DocRef,
+    ];
+    api.routes["docs.list"] = docs;
+    api.routes["gen.preview"] = preview(docs);
+    api.routes["rag.index"] = () => {
+      built = true;
+      return { jobId: "ix" };
+    };
+    mountData(<GenerateScreen />);
+    expect(await screen.findByText("Index not ready")).toBeInTheDocument();
+    expect(screen.getByText(/1 document in scope is not indexed: D1\. Search cannot find it/)).toBeInTheDocument();
+    expect(go()).toBeDisabled();
+    expect(go()).toHaveAccessibleDescription("A document of the scope is not indexed");
+    fireEvent.click(screen.getByRole("button", { name: "Reindex" }));
+    await waitFor(() => expect(named("rag.index")).toHaveLength(1));
+    emit({ jobId: "ix", at, type: "status", job: job({ id: "ix", kind: "rag-index", status: "done", endedAt: at }) });
+    expect(await screen.findByText("Index not up to date")).toBeInTheDocument();
+    expect(screen.queryByText("Index not ready")).toBeNull();
+    expect(screen.getByText(/D2 changed since the last index/)).toBeInTheDocument();
+    expect(go()).toBeEnabled();
+    fireEvent.click(screen.getByRole("checkbox", { name: /Signaux/ }));
+    await waitFor(() => expect(screen.queryByText("Index not up to date")).toBeNull());
+  });
+
+  it("a reindex that cannot start says so", async () => {
+    base();
+    const docs = () => [docOf("D1", "Traction", "stale")];
+    api.routes["docs.list"] = docs;
+    api.routes["gen.preview"] = preview(docs);
+    mountData(<GenerateScreen />);
+    fireEvent.click(await screen.findByRole("button", { name: "Reindex" }));
+    expect(await screen.findByText("Could not reindex")).toBeInTheDocument();
+  });
+
+  it("an unreadable Claude status does not block generating", async () => {
+    base();
+    delete api.routes["claude.status"];
+    mountData(<GenerateScreen />);
+    await waitFor(() => expect(named("claude.status")).toHaveLength(1));
+    fireEvent.change(screen.getByLabelText("What should be tested?"), { target: { value: "x" } });
+    await waitFor(() => expect(go()).toBeEnabled());
+  });
+
+  it("sends the scope, the contexts, the folder, the model; reports a refused start and ignores an answer without a job", async () => {
+    base(project({ model: "sonnet", effort: "medium", contexts: ["g"] }, ["/Traction/Sectionneurs", "/Signalisation"]));
+    api.routes["contexts.list"] = () => [
+      { id: "g", name: "Glossaire", paths: [], files: [], hasNotes: true },
+      { id: "h", name: "Habilitations", paths: [], files: [], hasNotes: true },
+    ];
+    mountData(<GenerateScreen />);
+    await screen.findByText("Traction");
+    await waitFor(() => expect(go()).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Select none" }));
+    expect(go()).toBeDisabled();
+    expect(go()).toHaveAccessibleDescription("Say what to test, or pick a document");
+    fireEvent.click(screen.getByRole("button", { name: "Only some sections…" }));
+    fireEvent.click(await screen.findByRole("checkbox", { name: /Intro/ }));
+    expect(go()).toBeEnabled();
+    fireEvent.change(screen.getByLabelText("What should be tested?"), { target: { value: " PCC " } });
+    expect(await screen.findByRole("button", { name: "Glossaire", pressed: true })).toBeInTheDocument();
+    expect(screen.getByText(/1 saved context/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Add context" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: /Habilitations/ }));
+    expect(await screen.findByText(/2 saved contexts/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Habilitations", pressed: true }));
+    expect(screen.getByRole("button", { name: "Habilitations", pressed: false })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Model"), { target: { value: "opus" } });
+    fireEvent.change(screen.getByLabelText("Effort"), { target: { value: "max" } });
+    fireEvent.click(screen.getByRole("button", { name: "Choose…" }));
+    fireEvent.click(
+      await screen
+        .findByRole("menuitemcheckbox", { name: /\/Signalisation/ })
+        .catch(() => screen.findByRole("menuitem", { name: /\/Signalisation/ })),
+    );
+    expect(screen.getByLabelText("Xray folder")).toHaveValue("/Signalisation");
+    expect(screen.getByText("Tests land on this PC as drafts in /Signalisation.")).toBeInTheDocument();
+    fireEvent.click(go());
+    expect(await screen.findByText("Could not start the generation")).toBeInTheDocument();
+    expect(named("gen.tests")[0].input).toEqual({
+      request: "PCC",
+      sections: ["D1#§1"],
+      contexts: ["g"],
+      folder: "/Signalisation",
+      model: "opus",
+      effort: "max",
+    });
+    api.routes["gen.tests"] = () => ({});
+    fireEvent.click(go());
+    await waitFor(() => expect(named("gen.tests")).toHaveLength(2));
+    expect(screen.getByText("Tests appear here as Claude writes them")).toBeInTheDocument();
+    cleanup();
+    mountData(<GenerateScreen />);
+    expect(await screen.findByText("Traction")).toBeInTheDocument();
+    expect(screen.getByLabelText("Model")).toHaveValue("opus");
+    expect(screen.getByLabelText("Effort")).toHaveValue("max");
+    expect(screen.getByLabelText("What should be tested?")).toHaveValue(" PCC ");
+    fireEvent.change(screen.getByLabelText("Model"), { target: { value: "" } });
+    fireEvent.change(screen.getByLabelText("Effort"), { target: { value: "" } });
+    expect(screen.getByLabelText("Model")).toHaveDisplayValue("Project default · Sonnet");
+    expect(screen.getByLabelText("Effort")).toHaveDisplayValue("Project default · medium");
+  });
+
+  it("takes a model the list does not know, typed in, once it is valid", async () => {
+    base();
+    api.routes["gen.tests"] = () => ({});
+    mountData(<GenerateScreen />);
+    await screen.findByText("Traction");
+    fireEvent.change(screen.getByLabelText("Model"), { target: { value: "custom" } });
+    const typed = screen.getByLabelText("Custom model");
+    fireEvent.change(typed, { target: { value: "bad model" } });
+    fireEvent.blur(typed);
+    expect(screen.getByLabelText("Custom model")).toBeInTheDocument();
+    fireEvent.change(typed, { target: { value: "claude-opus-4-1" } });
+    fireEvent.keyDown(typed, { key: "Enter" });
+    expect(screen.queryByLabelText("Custom model")).toBeNull();
+    expect(screen.getByLabelText("Model")).toHaveDisplayValue("Claude-opus-4-1");
+    fireEvent.click(go());
+    await waitFor(() => expect(named("gen.tests")).toHaveLength(1));
+    expect(named("gen.tests")[0].input.model).toBe("claude-opus-4-1");
+  });
+
+  it("Ctrl+Enter in the request generates", async () => {
+    base();
+    api.routes["gen.tests"] = () => ({});
+    mountData(<GenerateScreen />);
+    await screen.findByText("Traction");
+    const box = screen.getByLabelText("What should be tested?");
+    fireEvent.change(box, { target: { value: "Le sectionneur" } });
+    await waitFor(() => expect(go()).toBeEnabled());
+    fireEvent.keyDown(box, { key: "Enter", ctrlKey: true });
+    await waitFor(() => expect(named("gen.tests")).toHaveLength(1));
+    expect(named("gen.tests")[0].input.request).toBe("Le sectionneur");
+  });
+
+  it("asks before replacing Claude's tests not validated yet: cancel, review, or delete and generate", async () => {
+    base();
+    api.routes["gen.tests"] = () => ({ jobId: "j2" });
+    api.routes["jobs.show"] = () => ({
+      job: job({ id: "j2", status: "done", endedAt: at, result: output({ discarded: ["local-aaaaaaaa"] }) }),
+      events: [],
+    });
+    api.routes["gen.preview"] = () => ({ replaces: ["local-aaaaaaaa"], searched: ["D1"], unindexed: [], stale: [] });
+    const { app: a } = mountData(<GenerateScreen />);
+    await screen.findByText("Traction");
+    await waitFor(() => expect(go()).toBeEnabled());
+    fireEvent.click(go());
+    const dialog = await screen.findByRole("alertdialog", { name: "Replace the tests not validated yet?" });
+    expect(dialog).toHaveTextContent("deletes the 1 test Claude wrote that is not validated yet");
+    expect(dialog).toHaveTextContent("test deleted for good with its screenshots");
+    expect(dialog).toHaveTextContent("local-aaaaaaaa");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    expect(named("gen.tests")).toHaveLength(0);
+    expect(named("gen.preview")[0].input).toEqual({ docs: ["D1"], sections: [] });
+    fireEvent.click(go());
+    fireEvent.click(await screen.findByRole("button", { name: "Review" }));
+    expect(a.navigate).toHaveBeenCalledWith("review", "local-aaaaaaaa");
+    fireEvent.click(go());
+    fireEvent.click(await screen.findByRole("button", { name: "Delete and generate" }));
+    await waitFor(() => expect(named("gen.tests")).toHaveLength(1));
+    expect(named("gen.tests")[0].input).toMatchObject({ docs: ["D1"], discard: true });
+    expect(await screen.findByText("1 test not validated yet was deleted before this run.")).toBeInTheDocument();
+  });
+
+  it("follows a run: ticks the clock, opens what landed, cancels, then ends", async () => {
+    base();
+    api.routes["gen.tests"] = () => ({ jobId: "j1" });
+    api.routes["jobs.show"] = () => ({ job: job(), events: [] });
+    let refs: LocalTestRef[] = [];
+    api.routes["tests.list"] = () => refs;
+    api.routes["tests.show"] = (i) => {
+      if (i.id === "local-bbbbbbbb") throw new Error("gone");
+      return { test: test("First") };
+    };
+    mountData(<GenerateScreen />);
+    fireEvent.change(screen.getByLabelText("What should be tested?"), { target: { value: " Les sectionneurs " } });
+    await waitFor(() => expect(go()).toBeEnabled());
+    fireEvent.click(go());
+    expect(await screen.findByRole("heading", { name: "Getting ready" })).toBeInTheDocument();
+    expect(screen.getByText("Claude is starting.")).toBeInTheDocument();
+    expect(screen.getByLabelText("What should be tested?")).toHaveAttribute("readonly");
+    await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
+    await new Promise((r) => setTimeout(r, 1100));
+    refs = [ref("local-aaaaaaaa"), ref("local-bbbbbbbb")];
+    emit({ jobId: "j1", at, type: "progress", message: "Writing local-aaaaaaaa" });
+    emit({ jobId: "j1", at, type: "progress", message: "Writing local-bbbbbbbb" });
+    emit({ jobId: "j1", at, type: "progress", message: "Writing local-cccccccc" });
+    expect(await screen.findByRole("region", { name: "First" })).toBeInTheDocument();
+    expect(screen.getByRole("status", { name: "Claude is writing a test" })).toBeInTheDocument();
+    expect(screen.getAllByText("Checking…").length).toBeGreaterThan(0);
+    expect(go(/^Claude is writing/)).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(await screen.findByText("Could not cancel")).toBeInTheDocument();
+    api.routes["jobs.cancel"] = () => ({});
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(named("jobs.cancel")).toHaveLength(2));
+    expect(named("jobs.cancel")[1].input).toEqual({ id: "j1" });
+    delete api.routes["tests.list"];
+    const done = job({
+      status: "done",
+      endedAt: at,
+      result: output({ tests: ["local-aaaaaaaa", "local-bbbbbbbb", "local-cccccccc"] }),
+    });
+    api.routes["jobs.show"] = () => ({ job: done, events: [] });
+    emit({ jobId: "j1", at, type: "status", job: done });
+    expect(await screen.findByText("3 tests written")).toBeInTheDocument();
+    expect(screen.getAllByRole("status", { name: "Loading a test" }).length).toBeGreaterThan(0);
+    expect(go(/^Generate again/)).toBeEnabled();
+  });
+
+  it("resumes a stopped plan with the model and effort of this run", async () => {
+    base();
+    api.routes["jobs.list"] = () => [job({ id: "g3", status: "cancelled" })];
+    api.routes["jobs.show"] = () => ({
+      job: job({
+        id: "g3",
+        status: "cancelled",
+        endedAt: at,
+        result: output({ generation: "gen-1", remaining: 2 }),
+      }),
+      events: [],
+    });
+    mountData(<GenerateScreen />);
+    fireEvent.click(await screen.findByRole("button", { name: "Resume · 2 tests left" }));
+    expect(await screen.findByText("Could not resume the generation")).toBeInTheDocument();
+    expect(named("gen.tests")[0].input).toEqual({ resume: "gen-1", model: "sonnet", effort: "medium" });
+    api.routes["gen.tests"] = () => ({ jobId: "g4" });
+    api.routes["jobs.show"] = (i) => ({ job: job({ id: String(i.id) }), events: [] });
+    fireEvent.click(screen.getByRole("button", { name: "Resume · 2 tests left" }));
+    expect(await screen.findByRole("heading", { name: "Getting ready" })).toBeInTheDocument();
+  });
+
+  it("folds every test, the ones still to come too, and unfolds one by hand", async () => {
+    base();
+    api.routes["jobs.list"] = () => [job({ id: "g0", status: "done" })];
+    api.routes["jobs.show"] = () => ({
+      job: job({
+        id: "g0",
+        status: "done",
+        endedAt: at,
+        result: output({ tests: ["local-aaaaaaaa", "local-bbbbbbbb"] }),
+      }),
+      events: [],
+    });
+    api.routes["tests.list"] = () => [ref("local-aaaaaaaa"), ref("local-bbbbbbbb")];
+    api.routes["tests.show"] = (i) => ({
+      test: test(i.id === "local-aaaaaaaa" ? "Un" : "Deux", [{ Action: `do ${i.id}` }]),
+    });
+    mountData(<GenerateScreen />);
+    expect(await screen.findByText("do local-aaaaaaaa")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Fold all" }));
+    expect(screen.queryByText("do local-aaaaaaaa")).toBeNull();
+    expect(screen.queryByText("do local-bbbbbbbb")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Deux" }));
+    expect(screen.getByText("do local-bbbbbbbb")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Fold all" }));
+    fireEvent.click(screen.getByRole("button", { name: "Unfold all" }));
+    expect(screen.getByText("do local-aaaaaaaa")).toBeInTheDocument();
+  });
+});
 
 describe("Generate while an index runs (audit M-G1)", () => {
+  const indexJob = (status: Job["status"]) =>
+    job({ id: "ix", kind: "rag-index", status, endedAt: status === "running" ? undefined : at });
+
   it("is disabled while the index it started runs, says Indexing…, and comes back with the documents read again", async () => {
+    base();
     let built = false;
-    net.routes["docs.list"] = () => [
-      {
-        id: "D1",
-        code: "D1",
-        title: "Traction",
-        converted: { with: "", at, warnings: [] },
-        indexed: built ? "fresh" : "stale",
-      },
-    ];
-    const gate = deferred<unknown>();
-    net.routes["rag.index"] = async () => {
-      await gate.promise;
-      built = true;
-      return { chunks: 3 };
+    let running = false;
+    const docs = () => [docOf("D1", "Traction", built ? "fresh" : "stale")];
+    api.routes["docs.list"] = docs;
+    api.routes["gen.preview"] = preview(docs);
+    api.routes["jobs.list"] = () => (running ? [indexJob("running")] : []);
+    api.routes["rag.index"] = () => {
+      running = true;
+      return { jobId: "ix" };
     };
-    mount(<GenerateScreen />);
-    const notice = await screen.findByRole("status");
-    expect(notice).toHaveTextContent("Index not up to date");
-    const go = screen.getByRole("button", { name: "Generate" });
-    await waitFor(() => expect(go).toBeEnabled());
-    fireEvent.click(within(notice).getByRole("button", { name: "Reindex" }));
-    await waitFor(() => expect(go).toBeDisabled());
-    expect(within(screen.getByRole("status")).getByText(/Indexing…/)).toBeInTheDocument();
-    expect(callsOf("rag.index")).toHaveLength(1);
-    const listed = callsOf("docs.list").length;
-    gate.resolve(null);
-    await waitFor(() => expect(screen.getByRole("button", { name: "Generate" })).toBeEnabled());
-    await waitFor(() => expect(callsOf("docs.list").length).toBeGreaterThan(listed));
+    mountData(<GenerateScreen />);
+    expect(await screen.findByText("Index not up to date")).toBeInTheDocument();
+    await waitFor(() => expect(go()).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Reindex" }));
+    await waitFor(() => expect(go()).toBeDisabled());
+    expect(go()).toHaveAccessibleDescription("Wait for the index to finish");
+    expect(screen.getAllByText(/Indexing…/).length).toBeGreaterThan(0);
+    expect(named("rag.index")).toHaveLength(1);
+    const listed = named("docs.list").length;
+    built = true;
+    running = false;
+    emit({ jobId: "ix", at, type: "status", job: indexJob("done") });
+    await waitFor(() => expect(go()).toBeEnabled());
+    await waitFor(() => expect(named("docs.list").length).toBeGreaterThan(listed));
     await waitFor(() => expect(screen.queryByText("Index not up to date")).toBeNull());
   });
 
   it("is disabled too while an index started from another screen runs", async () => {
-    net.routes["docs.list"] = () => [
-      { id: "D1", code: "D1", title: "Traction", converted: { with: "", at, warnings: [] }, indexed: "fresh" },
-    ];
-    const gate = deferred<unknown>();
-    net.routes["rag.index"] = async () => {
-      await gate.promise;
-      return { chunks: 3 };
-    };
-    const started = reindexAll(() => {});
-    mount(<GenerateScreen />);
+    base();
+    let running = true;
+    api.routes["docs.list"] = () => [docOf("D1", "Traction")];
+    api.routes["jobs.list"] = () => (running ? [indexJob("running")] : []);
+    mountData(<GenerateScreen />);
     await screen.findByText("Traction");
     fireEvent.change(screen.getByLabelText("What should be tested?"), { target: { value: "x" } });
-    expect(screen.getByRole("button", { name: "Generate" })).toBeDisabled();
-    gate.resolve(null);
-    await started;
-    await waitFor(() => expect(screen.getByRole("button", { name: "Generate" })).toBeEnabled());
+    await waitFor(() => expect(go()).toBeDisabled());
+    running = false;
+    emit({ jobId: "ix", at, type: "status", job: indexJob("done") });
+    await waitFor(() => expect(go()).toBeEnabled());
+  });
+});
+
+describe("Generate › the tests land from the job events (was ui-screens)", () => {
+  it("shows the tests as they land from the job events", async () => {
+    setProject("/landing");
+    base();
+    const written: string[] = [];
+    api.routes["docs.list"] = () => [];
+    api.routes["gen.tests"] = () => ({ jobId: "job-gen" });
+    api.routes["jobs.show"] = () => ({
+      job: { id: "job-gen", kind: "generate", subject: "x", status: "running", startedAt: new Date().toISOString() },
+      events: [],
+    });
+    api.routes["tests.list"] = () => written.map((id) => ref(id, { stepCount: 2 }));
+    api.routes["tests.show"] = (i) => ({
+      id: i.id,
+      test: test(i.id === "local-aaaaaaaa" ? "Premier test" : "Second test"),
+    });
+    mountData(<GenerateScreen />);
+    fireEvent.change(screen.getByLabelText("What should be tested?"), { target: { value: "Les sectionneurs" } });
+    await waitFor(() => expect(go()).toBeEnabled());
+    fireEvent.click(go());
+    await waitFor(() => expect(named("gen.tests")).toHaveLength(1));
+    expect(named("gen.tests")[0].input).toMatchObject({
+      request: "Les sectionneurs",
+      model: "sonnet",
+      effort: "medium",
+    });
+    await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
+    await screen.findByRole("heading", { name: "Getting ready" });
+
+    const now = new Date().toISOString();
+    emit({ jobId: "job-gen", at: now, type: "progress", message: "Writing local-aaaaaaaa (1)" });
+    expect(await screen.findByLabelText("Claude is writing a test")).toBeInTheDocument();
+    written.push("local-aaaaaaaa");
+    emit({ jobId: "job-gen", at: now, type: "changed", paths: ["tests/local-aaaaaaaa/test.md"] });
+    emit({ jobId: "job-gen", at: now, type: "progress", message: "Writing local-bbbbbbbb (2)" });
+    expect(await screen.findByRole("region", { name: "Premier test" })).toBeInTheDocument();
+    expect(named("tests.show").map((c) => c.input.id)).not.toContain("local-bbbbbbbb");
+
+    written.push("local-bbbbbbbb");
+    emit({ jobId: "job-gen", at: now, type: "changed", paths: ["tests/local-bbbbbbbb/test.md"] });
+    const done = {
+      id: "job-gen",
+      kind: "generate",
+      subject: "x",
+      status: "done",
+      startedAt: now,
+      endedAt: now,
+      result: {
+        runId: "r1",
+        ok: true,
+        summary: "",
+        tests: ["local-aaaaaaaa", "local-bbbbbbbb"],
+        checks: [
+          { id: "local-aaaaaaaa", ok: true, review: "checked", errors: 0, warnings: 0 },
+          { id: "local-bbbbbbbb", ok: false, review: "draft", errors: 2, warnings: 1 },
+        ],
+        changed: [],
+        skipped: [{ item: "Alarme de sectionneur", why: "no passage describes the alarm" }],
+        reportFound: true,
+        durationMs: 1000,
+      },
+    } as Job;
+    api.routes["jobs.show"] = () => ({ job: done, events: [] });
+    emit({ jobId: "job-gen", at: now, type: "status", job: done });
+    expect(await screen.findByRole("region", { name: "Second test" })).toBeInTheDocument();
+    expect(screen.getByText("2 tests written")).toBeInTheDocument();
+    expect(screen.getByText(/no passage describes the alarm/)).toBeInTheDocument();
+    expect(screen.getByText(/All 2 tests went through the check: 1 has findings/)).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Second test" })).getByText("2 errors")).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("region", { name: "Premier test" })).getAllByText("No findings").length,
+    ).toBeGreaterThan(0);
+    expect(named("check.run")).toHaveLength(0);
   });
 });

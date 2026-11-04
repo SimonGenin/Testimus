@@ -81,7 +81,7 @@ describe("Settings screen", () => {
 
   it("shows the version beside the title, and says changes save as they are made", () => {
     mountSettings(<SettingsScreen />, { route: { screen: "settings" } });
-    expect(screen.getByRole("heading", { level: 1, name: "Settings" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: /^Settings/ })).toBeInTheDocument();
     expect(screen.getByText(`v${__VERSION__}`)).toBeInTheDocument();
     expect(screen.getByText("Changes save as you make them")).toBeInTheDocument();
   });

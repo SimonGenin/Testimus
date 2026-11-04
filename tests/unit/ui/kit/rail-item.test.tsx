@@ -129,3 +129,21 @@ describe("Chip removeLabel", () => {
     expect(onRemove).toHaveBeenCalled();
   });
 });
+
+describe("Modal confirm disabled", () => {
+  it("keeps the verb waiting while Cancel stays", async () => {
+    const { Modal } = await import("../../../../src/ui/components/ui/Modal.tsx");
+    const onConfirm = vi.fn();
+    render(
+      <Modal
+        title="Delete the document?"
+        onClose={() => {}}
+        confirm={{ verb: "Delete", danger: true, onConfirm, disabled: "Reading the plan" }}
+      >
+        Its folder and its index rows go.
+      </Modal>,
+    );
+    expect(screen.getByRole("button", { name: "Delete" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeEnabled();
+  });
+});

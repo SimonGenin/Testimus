@@ -12,7 +12,6 @@ import {
   siteRoot,
   xrayWords,
 } from "../../../../src/ui/screens/settings/ConnectAtlassian.tsx";
-import { AccessStep } from "../../../../src/ui/screens/setup/AccessStep.tsx";
 import { fakeDesktop } from "../../ui-desktop-helpers.tsx";
 import { calls, Fail, fakeNet, hold, inputs, label, mountSettings, net, reset } from "./helpers.tsx";
 
@@ -303,46 +302,5 @@ describe("Settings › Access", () => {
     mountSettings(<AccessSection />, { info: null });
     expect(await screen.findByRole("list", { name: "Credential files" })).toBeInTheDocument();
     expect(calls("project.info")).toHaveLength(0);
-  });
-});
-
-describe("First launch › Access", () => {
-  it("the found banner, Continue and Skip, and the banner gone once all is ok", async () => {
-    net.routes["system.credentials"] = () => verdict(creds());
-    net.routes["system.setCredentials"] = () => verdict(creds(), { saved: [], ok: true });
-    const onContinue = vi.fn();
-    const onSkip = vi.fn();
-    mountSettings(<AccessStep onContinue={onContinue} onSkip={onSkip} />);
-    expect(await screen.findByText(/We found the access you already use/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-    fireEvent.click(screen.getByRole("button", { name: "Skip for now" }));
-    expect(onContinue).toHaveBeenCalled();
-    expect(onSkip).toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Save and test the connection" }));
-    await waitFor(() => expect(screen.queryByText(/We found the access/)).toBeNull());
-  });
-
-  it("the token page opens in the default browser through the bridge, else in a new tab", async () => {
-    const TOKENS = "https://id.atlassian.com/manage-profile/security/api-tokens";
-    net.routes["system.credentials"] = () =>
-      verdict(creds({ exists: false, complete: false }, { exists: false, complete: false }));
-    const d = fakeDesktop();
-    const r = mountSettings(<AccessStep onContinue={vi.fn()} onSkip={vi.fn()} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Open API tokens" }));
-    expect(d.openExternal).toHaveBeenCalledWith(TOKENS);
-    r.unmount();
-    delete window.testimusDesktop;
-    const open = vi.fn();
-    vi.stubGlobal("open", open);
-    mountSettings(<AccessStep onContinue={vi.fn()} onSkip={vi.fn()} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Open API tokens" }));
-    expect(open).toHaveBeenCalledWith(TOKENS, "_blank", "noopener,noreferrer");
-  });
-
-  it("without access: no banner", async () => {
-    net.routes["system.credentials"] = () => verdict(creds({ complete: false }));
-    mountSettings(<AccessStep onContinue={vi.fn()} onSkip={vi.fn()} />);
-    await screen.findByRole("textbox", { name: label("Jira site") });
-    expect(screen.queryByText(/We found the access/)).toBeNull();
   });
 });

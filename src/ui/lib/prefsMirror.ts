@@ -1,45 +1,30 @@
-import { call } from "../api.ts";
+import type { QueryClient } from "@tanstack/react-query";
+import { execute, read } from "./data/query.ts";
 import { desktop } from "./desktop.ts";
-
-const OURS = /^testimus\./;
-
-const snapshot = (): Record<string, string> => {
-  const out: Record<string, string> = {};
-  try {
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k && OURS.test(k)) out[k] = localStorage.getItem(k) ?? "";
-    }
-  } catch {}
-  return out;
-};
+import { restorePrefs as putBack, savedPrefs } from "./prefs.ts";
 
 // ponytail: in the desktop app the page's origin follows the core's port — when that port had to change, the new
-// origin starts with an empty localStorage; the copy kept in settings.json is put back (Xray Editor keeps these
+// origin starts with an empty storage; the copy kept in settings.json is put back (Xray Editor keeps these
 // preferences in its settings file). True when something was put back, so the caller reloads once.
-export async function restorePrefs(): Promise<boolean> {
-  if (!desktop() || Object.keys(snapshot()).length) return false;
-  const s = await call<{ ui?: Record<string, string> }>("system.settings", {}).catch(() => null);
-  const saved = Object.entries(s?.ui ?? {}).filter(([k]) => OURS.test(k));
-  if (!saved.length) return false;
-  try {
-    for (const [k, v] of saved) localStorage.setItem(k, v);
-  } catch {
-    return false;
-  }
-  return true;
+export async function restorePrefs(client: QueryClient): Promise<boolean> {
+  if (!desktop() || Object.keys(savedPrefs()).length) return false;
+  const s = await read(client, "system.settings", {}).catch(() => null);
+  const ui = (s as { ui?: Record<string, string> } | null)?.ui ?? {};
+  if (!Object.keys(ui).length) return false;
+  putBack(ui);
+  return Object.keys(savedPrefs()).length > 0;
 }
 
 // ponytail: and every change is copied there, a few seconds later or when the window hides
-export function mirrorPrefs(everyMs = 5000): () => void {
+export function mirrorPrefs(client: QueryClient, everyMs = 5000): () => void {
   if (!desktop()) return () => {};
-  let sent = JSON.stringify(snapshot());
+  let sent = JSON.stringify(savedPrefs());
   const push = () => {
-    const now = snapshot();
+    const now = savedPrefs();
     const json = JSON.stringify(now);
     if (json === sent) return;
     sent = json;
-    void call("system.set", { ui: now }).catch(() => {});
+    void execute(client, "system.set", { ui: now }, { invalidates: [["system.settings"]] }).catch(() => {});
   };
   const timer = setInterval(push, everyMs);
   const onHide = () => document.visibilityState === "hidden" && push();

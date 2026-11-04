@@ -55,8 +55,10 @@ async function tap(page: Page | Locator, name: string | RegExp): Promise<void> {
   await el.click();
 }
 
-const dialog = (page: Page, name?: string | RegExp) =>
-  (name ? page.getByRole("dialog", { name }) : page.getByRole("dialog")).first().waitFor({ timeout: T });
+// ponytail: a kit confirmation is an alertdialog
+const modal = (page: Page | Locator, name?: string | RegExp) =>
+  page.getByRole("dialog", name ? { name } : {}).or(page.getByRole("alertdialog", name ? { name } : {}));
+const dialog = (page: Page, name?: string | RegExp) => modal(page, name).first().waitFor({ timeout: T });
 
 const see = (page: Page, text: string | RegExp) => page.getByText(text).first().waitFor({ timeout: T });
 
@@ -72,14 +74,14 @@ async function palette(page: Page, query?: string): Promise<void> {
 async function dock(page: Page): Promise<Locator> {
   const d = page.getByRole("complementary", { name: "Claude" });
   await tap(d, "Open Claude");
-  await d.getByRole("heading", { name: "Ask Claude" }).waitFor({ timeout: T });
+  await d.getByRole("heading", { name: "Claude", exact: true }).waitFor({ timeout: T });
   return d;
 }
 
 async function ask(page: Page, question: string): Promise<void> {
   const d = await dock(page);
   await d.getByRole("textbox").first().fill(question);
-  await tap(d, "Send");
+  await tap(d, /^(Send|Ask)$/);
   await page.waitForTimeout(2500);
 }
 
@@ -90,7 +92,7 @@ async function validate(s: Server, id: string): Promise<void> {
 async function openGenerated(page: Page): Promise<void> {
   await page
     .getByRole("complementary", { name: "Review queue" })
-    .getByRole("button", { name: /Sectionneur avec TK/ })
+    .getByRole("option", { name: /Sectionneur avec TK/ })
     .first()
     .click({ timeout: T });
   await page.waitForTimeout(500);
@@ -100,7 +102,7 @@ async function openGenerated(page: Page): Promise<void> {
 async function generate(page: Page): Promise<void> {
   await page.getByRole("textbox", { name: "What should be tested?" }).fill("Le sectionneur avec TK");
   await tap(page.getByRole("region", { name: "Request" }), /^Generate/);
-  const replace = page.getByRole("dialog");
+  const replace = modal(page).first();
   await replace.or(page.getByText("Claude is writing")).first().waitFor({ timeout: T });
   if (await replace.isVisible()) await tap(replace, /^Delete and generate/);
 }
@@ -253,7 +255,7 @@ function fixtureShots(): Shot[] {
           const dt = new DataTransfer();
           dt.items.add(new File(["x"], "spec.docx"));
           document
-            .querySelector(".docs-screen")
+            .querySelector('[data-testid="documents-screen"]')
             ?.dispatchEvent(new DragEvent("dragover", { dataTransfer: dt, bubbles: true }));
         });
       },
@@ -303,13 +305,13 @@ function fixtureShots(): Shot[] {
       id: "review-sort-menu",
       note: "Sort the queue menu",
       hash: "#/review",
-      prep: (p) => p.locator(".queue-menu").nth(0).click({ timeout: T }),
+      prep: (p) => p.getByRole("combobox", { name: "Sort the queue" }).focus({ timeout: T }),
     },
     {
       id: "review-folder-menu",
       note: "Filter by folder menu",
       hash: "#/review",
-      prep: (p) => p.locator(".queue-menu").nth(1).click({ timeout: T }),
+      prep: (p) => p.getByRole("combobox", { name: "Filter by folder" }).focus({ timeout: T }),
     },
     {
       id: "review-to-fix-dialog",
@@ -317,7 +319,7 @@ function fixtureShots(): Shot[] {
       hash: `#/review/${T1420}`,
       prep: async (p) => {
         await tap(p.getByRole("region", { name: "Test under review" }), /^To fix/);
-        await dialog(p, "Mark as To fix");
+        await dialog(p, "What needs fixing?");
       },
     },
     {
@@ -326,8 +328,8 @@ function fixtureShots(): Shot[] {
       hash: `#/review/${T1420}`,
       prep: async (p) => {
         await tap(p.getByRole("region", { name: "Test under review" }), /^To fix/);
-        await dialog(p, "Mark as To fix");
-        await tap(p.getByRole("dialog"), /^Mark To fix/);
+        await dialog(p, "What needs fixing?");
+        await tap(modal(p).first(), /^Mark To fix/);
       },
     },
     {
@@ -443,7 +445,7 @@ function fixtureShots(): Shot[] {
           .getByRole("button", { name: /^SOSIE_211_D401-1_3 §5\.6\.6/ })
           .first()
           .click({ timeout: T });
-        await dialog(p, /^Source /);
+        await dialog(p);
       },
     },
     {
@@ -568,7 +570,7 @@ function fixtureShots(): Shot[] {
       hash: "#/documents",
       prep: async (p) => {
         const d = await dock(p);
-        await tap(d, "Import saved");
+        await tap(d, "Add context");
         await dialog(p);
       },
     },
@@ -729,7 +731,7 @@ function fixtureShots(): Shot[] {
           .getByRole("button", { name: /^SOSIE_211_D401-1_3 §5\.6\.6/ })
           .first()
           .click({ timeout: T });
-        await tap(p.getByRole("region", { name: "Sources read" }), /^Sources read/);
+        await tap(p.getByRole("complementary", { name: "Source passage" }), /^Sources read/);
       },
     },
     { id: "review-after-generate", note: "Review of a freshly generated test", hash: "#/review", prep: openGenerated },
@@ -878,7 +880,7 @@ function slowShots(): Shot[] {
       prep: async (p) => {
         const d = await dock(p);
         await d.getByRole("textbox").first().fill("Résume le §5.6.6");
-        await tap(d, "Send");
+        await tap(d, /^(Send|Ask)$/);
         await p.waitForTimeout(1500);
       },
     },

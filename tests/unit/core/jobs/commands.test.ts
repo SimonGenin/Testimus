@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { UserError } from "../../../../src/core/command.ts";
 import { startJob, waitJob } from "../../../../src/core/jobs.ts";
-import { call } from "../registry.ts";
+import { call, fixtureCopy } from "../registry.ts";
 
 type Listed = { id: string; status: string };
 
@@ -107,5 +107,35 @@ describe("jobs.show and jobs.cancel through the registry, each output against it
     await r.done.catch(() => {});
     expect(await call("jobs.cancel", { id: r.job.id }, p)).toEqual({ cancelled: false });
     expect((await call<{ job: { status: string } }>("jobs.show", { id: r.job.id }, p)).job.status).toBe("cancelled");
+  });
+});
+
+describe("jobs.rerun through the registry", () => {
+  it("runs a finished job again with its input, the new job saying it retries the old one", async () => {
+    const p = fixtureCopy("jobs-rerun");
+    const first = startJob("search-index", "tests", p, async () => ({}), undefined, {
+      rerun: { name: "search.index", input: {} },
+    });
+    await first.done;
+    const { jobId } = await call<{ jobId: string }>("jobs.rerun", { id: first.job.id }, p);
+    expect(jobId).not.toBe(first.job.id);
+    await waitJob(jobId).catch(() => {});
+    const shown = await call<{ job: { kind: string; cause?: unknown } }>("jobs.show", { id: jobId }, p);
+    expect(shown.job).toMatchObject({ kind: "search-index", cause: { jobId: first.job.id, why: "retry" } });
+  });
+
+  it("refuses an unknown job, a running one and one without its input kept", async () => {
+    const p = project();
+    await expect(call("jobs.rerun", { id: "nope" }, p)).rejects.toThrow(/No job nope/);
+    let release = () => {};
+    const running = startJob("k", "running", p, () => new Promise((r) => (release = () => r({}))), undefined, {
+      rerun: { name: "search.index", input: {} },
+    });
+    await expect(call("jobs.rerun", { id: running.job.id }, p)).rejects.toThrow(/still running/);
+    release();
+    await running.done;
+    const bare = startJob("k", "no input", p, async () => ({}));
+    await bare.done;
+    await expect(call("jobs.rerun", { id: bare.job.id }, p)).rejects.toMatchObject({ fix: /too large or secret/ });
   });
 });

@@ -1,8 +1,11 @@
 import { useState } from "react";
-import { cx } from "../../lib/format.ts";
-import { Button, Modal } from "../legacy/index.ts";
-import { type ContextSummary, contextLine } from "./ContextsDialog.tsx";
+import { Button } from "../ui/Button.tsx";
+import { Modal } from "../ui/Modal.tsx";
+import { ContextPicker } from "./ContextPicker.tsx";
+import type { ContextSummary } from "./contexts.ts";
 
+// ponytail: the saved contexts a whole list takes (a document's contexts), ticked then used at once — the dock's own
+// picker applies each tick to its run instead
 export function ImportContexts({
   all,
   picked,
@@ -17,69 +20,34 @@ export function ImportContexts({
   onClose: () => void;
 }) {
   const [on, setOn] = useState<string[]>(picked);
-  const [find, setFind] = useState("");
-  const q = find.trim().toLowerCase();
-  const shown = all.filter((c) => !q || c.name.toLowerCase().includes(q));
-  const flip = (id: string) => setOn((l) => (l.includes(id) ? l.filter((x) => x !== id) : [...l, id]));
   return (
     <Modal
-      label="Saved contexts"
       title="Saved contexts"
-      subtitle="Reference material Claude reads before this run: notes, files, folders."
-      width={520}
-      className="ctximport"
+      icon="context"
+      size="sm"
+      subtitle="Reference material Claude reads: notes, files, folders."
       onClose={onClose}
-      foot={
+      actions={
         <>
-          <Button tone="quiet" onClick={onManage}>
-            Manage contexts…
-          </Button>
-          <span className="spacer" />
-          <Button tone="quiet" onClick={onClose}>
-            Cancel
-          </Button>
+          <Button variant="quiet" label="Manage contexts…" onClick={onManage} />
+          <Button variant="quiet" label="Cancel" onClick={onClose} />
           <Button
-            tone="primary"
+            variant="primary"
+            label={on.length ? `Use ${on.length}` : "Use none"}
             onClick={() => {
               onUse(on);
               onClose();
             }}
-          >
-            {on.length ? `Use ${on.length}` : "Use none"}
-          </Button>
+          />
         </>
       }
     >
-      {all.length > 6 && (
-        <input
-          type="search"
-          className="field"
-          aria-label="Search contexts"
-          placeholder="Search by name"
-          value={find}
-          onChange={(e) => setFind(e.target.value)}
-        />
-      )}
-      {!all.length ? (
-        <p className="muted">No saved context yet — write a note and « Save as context… », or Manage contexts.</p>
-      ) : (
-        <ul className="ctximport-list" aria-label="Saved contexts">
-          {shown.map((c) => (
-            <li key={c.id}>
-              <label className={cx("ctximport-row", on.includes(c.id) && "is-on")}>
-                <input type="checkbox" checked={on.includes(c.id)} onChange={() => flip(c.id)} />
-                <span className="ctximport-text">
-                  <span className="ctximport-name">
-                    {c.name}
-                    {c.shared && <span className="tagpill">shared</span>}
-                  </span>
-                  <span className="muted">{contextLine(c)}</span>
-                </span>
-              </label>
-            </li>
-          ))}
-        </ul>
-      )}
+      <ContextPicker
+        all={all}
+        isOn={(id) => on.includes(id)}
+        onToggle={(id, yes) => setOn((l) => (yes ? [...l, id] : l.filter((x) => x !== id)))}
+        foot="Ticked contexts are read with this document."
+      />
     </Modal>
   );
 }

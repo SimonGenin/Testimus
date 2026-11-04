@@ -6,6 +6,7 @@ import { Rail } from "../../../../src/ui/components/shell/Rail.tsx";
 import { resetDoctor } from "../../../../src/ui/lib/doctor.ts";
 import { FirstRunScreen } from "../../../../src/ui/screens/setup/FirstRunScreen.tsx";
 import { fakeEvents, fakeNet, net, withApp } from "../../cov-uishell-helpers.tsx";
+import { withData } from "./helpers.tsx";
 
 beforeEach(() => {
   fakeNet();
@@ -22,7 +23,7 @@ afterEach(() => {
 
 describe("the app logo (SPEC §13 « The app logo », audit M-J1)", () => {
   it("sits at the top of the main navigation, named Testimus", () => {
-    withApp(<Rail counts={{}} />, { route: { screen: "tests" } });
+    withData(<Rail counts={{}} />, { route: { screen: "tests" } });
     const nav = screen.getByRole("navigation", { name: "Main" });
     const logo = within(nav).getByRole("img", { name: "Testimus" });
     expect(logo).toHaveAttribute("src", "/logo.png");

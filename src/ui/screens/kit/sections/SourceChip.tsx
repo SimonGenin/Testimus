@@ -8,8 +8,8 @@ export const section: KitSection = {
   family: "Inputs",
   file: "SourceChip.tsx",
   summary:
-    "A claim's source: the mono reference and the quote in the reading face, with the mechanical check's verdict; opens the passage. The caller formats the reference (docId#anchor).",
-  note: "Not a Chip option: a source is two runs in two faces with a verdict, and it opens a passage, where a Chip is one string you press or remove.",
+    "A claim's source: a sunken pill with the mono reference and the muted quote (the interface face: the serif is for whole passages), with the mechanical check's verdict; opens the passage. The caller formats the reference (docId#anchor).",
+  note: "Not a Chip option: a source is two runs (the mono reference, the quote) with a verdict, and it opens a passage, where a Chip is one string you press or remove.",
   states: () => (
     <States>
       <Cell label="ok · figure" column>

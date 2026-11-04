@@ -115,13 +115,7 @@ export function QuickAsks({ presets }: { presets: Preset[] }) {
     >
       <Stack>
         {presets.map((p, i) => (
-          <QuickAsk
-            // biome-ignore lint/suspicious/noArrayIndexKey: a quick ask has no id but its place in project.json
-            key={i}
-            preset={p}
-            at={i}
-            onRemove={() => void change(now().filter((_, k) => k !== i))}
-          />
+          <QuickAsk key={i} preset={p} at={i} onRemove={() => void change(now().filter((_, k) => k !== i))} />
         ))}
         {!presets.length && !adding && <Hint>No quick ask yet.</Hint>}
         {adding && (

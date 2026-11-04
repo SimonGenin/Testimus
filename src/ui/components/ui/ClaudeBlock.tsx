@@ -4,11 +4,14 @@ import { useDraft } from "../../lib/data/autosave.ts";
 import {
   border,
   color,
+  container,
+  focus,
   fontFamily,
   fontSize,
   fontWeight,
   lineHeight,
   radius,
+  shadow,
   size,
   space,
 } from "../../styles/tokens.stylex.ts";
@@ -20,6 +23,8 @@ import { Select, type SelectOption } from "./Select.tsx";
 import { Spinner } from "./Spinner.tsx";
 import { Text, type TextProps } from "./Text.tsx";
 
+const FOCUS = `0 0 0 ${border.width} ${color.claude}, 0 0 0 ${focus.halo} color-mix(in srgb, ${color.claude} 16%, transparent)`;
+
 const styles = stylex.create({
   frame: {
     boxSizing: "border-box",
@@ -27,17 +32,17 @@ const styles = stylex.create({
     flexDirection: "column",
     borderStyle: "solid",
     borderWidth: border.width,
-    borderColor: { default: color.borderControl, ":focus-within": color.claude },
-    boxShadow: { default: null, ":focus-within": `0 0 0 ${border.width} ${color.claude}` },
-    borderRadius: radius.r3,
+    borderColor: { default: color.borderField, ":focus-within": color.claude },
+    boxShadow: { default: shadow.s1, ":focus-within": FOCUS },
+    borderRadius: radius.r4,
     backgroundColor: color.surface,
     overflow: "hidden",
   },
   plain: { borderRadius: radius.r2 },
-  frameless: { borderWidth: 0, borderRadius: 0, boxShadow: { default: null, ":focus-within": null } },
+  frameless: { borderWidth: 0, borderRadius: 0, boxShadow: "none" },
   running: { borderColor: color.claudeBorder },
-  disabled: { backgroundColor: color.surfaceSunken, borderColor: color.border },
-  forceFocus: { borderColor: color.claude, boxShadow: `0 0 0 ${border.width} ${color.claude}` },
+  disabled: { backgroundColor: color.surfaceSunken, borderColor: color.border, boxShadow: "none" },
+  forceFocus: { borderColor: color.claude, boxShadow: FOCUS },
   row: {
     display: "flex",
     flexWrap: "wrap",
@@ -53,24 +58,25 @@ const styles = stylex.create({
     marginInlineEnd: space.s1,
   },
   foot: {
+    containerType: "inline-size",
     display: "flex",
     alignItems: "center",
     gap: space.s2,
     minHeight: size.controlLg,
     paddingBlock: space.s2,
-    paddingInlineStart: space.s3,
+    paddingInlineStart: space.s4,
     paddingInlineEnd: space.s2,
-    borderTopStyle: "solid",
-    borderTopWidth: border.width,
-    borderTopColor: color.border,
-    backgroundColor: color.surface,
+    backgroundColor: "transparent",
   },
   footRunning: { backgroundColor: color.claudeSubtle },
-  grow: { flex: 1 },
+  grow: { flex: 1, minWidth: 0 },
+  keep: { flex: "none", display: "inline-flex" },
   scope: {
     display: "inline-flex",
     alignItems: "center",
+    flex: "0 1 auto",
     gap: space.s2,
+    minWidth: 0,
     marginInlineEnd: space.s2,
     whiteSpace: "nowrap",
     fontSize: fontSize.small,
@@ -78,14 +84,19 @@ const styles = stylex.create({
     fontWeight: fontWeight.medium,
     color: color.claudeText,
   },
+  clip: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" },
   hint: {
     display: "inline-flex",
     alignItems: "center",
+    flex: "0 1 auto",
     gap: space.s2,
+    minWidth: 0,
     fontSize: fontSize.small,
     color: color.textSubtle,
     whiteSpace: "nowrap",
   },
+  foldable: { display: { default: "inline-flex", [container.paneCompact]: "none" } },
+  foldableWords: { display: { default: "inline", [container.paneCompact]: "none" } },
   timer: {
     whiteSpace: "nowrap",
     fontVariantNumeric: "tabular-nums",
@@ -223,6 +234,7 @@ export function ClaudeBlock(props: ClaudeBlockProps) {
                 size="sm"
                 variant="quiet"
                 icon="plus"
+                iconOnly
                 label="Add context"
                 disabled={busy}
                 onClick={onAddContext}
@@ -266,67 +278,77 @@ export function ClaudeBlock(props: ClaudeBlockProps) {
         <div {...stylex.props(styles.foot, busy && styles.footRunning)}>
           {scope && (
             <span {...stylex.props(styles.scope)}>
-              <Icon name="claude" size="sm" />
-              {scope}
+              <Icon name="target" size="sm" />
+              <span {...stylex.props(styles.clip)}>{scope}</span>
             </span>
           )}
           {model && (
-            <Select
-              label="Model"
-              appearance="quiet"
-              size="sm"
-              value={model.value}
-              options={model.options}
-              onChange={model.onChange}
-              disabled={busy}
-            />
+            <span {...stylex.props(styles.keep)}>
+              <Select
+                label="Model"
+                appearance="quiet"
+                size="sm"
+                value={model.value}
+                options={model.options}
+                onChange={model.onChange}
+                disabled={busy}
+              />
+            </span>
           )}
           {effort && (
-            <Select
-              label="Effort"
-              appearance="quiet"
-              size="sm"
-              value={effort.value}
-              options={effort.options}
-              onChange={effort.onChange}
-              disabled={busy}
-            />
+            <span {...stylex.props(styles.keep)}>
+              <Select
+                label="Effort"
+                appearance="quiet"
+                size="sm"
+                value={effort.value}
+                options={effort.options}
+                onChange={effort.onChange}
+                disabled={busy}
+              />
+            </span>
           )}
           <span {...stylex.props(styles.grow)} />
           {busy ? (
             <>
               <span {...stylex.props(styles.hint)}>
                 <Spinner size="sm" />
-                Claude is working
+                <span {...stylex.props(styles.clip, styles.foldableWords)}>Claude is working</span>
               </span>
               <span {...stylex.props(styles.timer)}>{elapsed(running)}</span>
-              {onCancel && <Button size="sm" variant="quiet" label="Cancel" onClick={onCancel} />}
+              {onCancel && (
+                <span {...stylex.props(styles.keep)}>
+                  <Button size="sm" icon="stop" label="Cancel" onClick={onCancel} />
+                </span>
+              )}
             </>
           ) : submit === "none" ? (
-            off && <span {...stylex.props(styles.hint)}>{unavailable}</span>
+            off && (
+              <span {...stylex.props(styles.hint)}>
+                <span {...stylex.props(styles.clip)}>{unavailable}</span>
+              </span>
+            )
           ) : (
             <>
-              <span {...stylex.props(styles.hint)}>
-                {off ? (
-                  unavailable
-                ) : submit === "enter" ? (
-                  <>
-                    <Kbd>Enter</Kbd> to send
-                  </>
-                ) : (
-                  <>
-                    <Kbd>Ctrl Enter</Kbd> to send
-                  </>
-                )}
+              {off ? (
+                <span {...stylex.props(styles.hint)}>
+                  <span {...stylex.props(styles.clip)}>{unavailable}</span>
+                </span>
+              ) : (
+                <span {...stylex.props(styles.hint, styles.foldable)}>
+                  <Kbd>{submit === "enter" ? "Enter" : "Ctrl Enter"}</Kbd> to send
+                </span>
+              )}
+              <span {...stylex.props(styles.keep)}>
+                <Button
+                  size="sm"
+                  variant="claude"
+                  icon="send"
+                  label={submitLabel}
+                  disabled={off ? unavailable : !allowEmpty && !value.trim()}
+                  onClick={send}
+                />
               </span>
-              <Button
-                size="sm"
-                variant="claude"
-                icon="send"
-                label={submitLabel}
-                disabled={off ? unavailable : !allowEmpty && !value.trim()}
-                onClick={send}
-              />
             </>
           )}
         </div>
