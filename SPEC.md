@@ -1257,8 +1257,10 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
   timings journal and the choice. `TESTIMUS_MOCK_INDEX=bm25` builds the starting index without vectors (search on words
   only until Reindex). `TESTIMUS_MOCK_DOWNLOAD_MS` (2500) paces fake downloads and pulls. A generation request about
   « avec TK » reads only §5.6.6 and cites one quote under the wrong section (the Review's evidence states).
-- Narrow widths (from 1080 px, e.g. a laptop at 150 %): with the Claude dock open in Review the queue
-  folds to a strip (previous / next) and then the source panel hides, so the test keeps ≥ 420 px; a
+- Narrow widths (from 760 px, e.g. a laptop at 150 %): Review folds on its own width — under 1020 px the queue folds
+  to a strip (previous / next), under 760 px the source panel hides too, so the test keeps ≥ 420 px. The Claude dock
+  open beside a screen takes its width (Review at 1440 px with the dock open folds its queue); below 1300 px of window
+  the open dock floats over the screen instead (design SYSTEM.md); a
   document added but not indexed shows « Indexing failed » with Reindex under its row; finished add rows
   are shown once (the job stays in Jobs). « Added by Claude » marks only steps beyond the step count
   before the run; any other change is « Changed by Claude ».
@@ -1296,7 +1298,7 @@ imports `src/core/`, and anything that reads or changes a project goes through `
   the core's stdin, waits up to 10 s, then kills the core's process tree.
 - Window: size, position, maximized state, zoom and core port in `%APPDATA%\Testimus\window.json`, brought back onto
   a visible display; minimum 520 × 600 (to sit beside Jira: the test list becomes a drawer, headers and side panes
-  wrap or stack below 760 px, the open Claude dock floats over the screen); title follows `document.title`; menu bar hidden, edit shortcuts (Ctrl+C/V/X/Z/A) and zoom (Ctrl+= /
+  wrap or stack below 760 px; the open Claude dock floats over the screen below 1300 px); title follows `document.title`; menu bar hidden, edit shortcuts (Ctrl+C/V/X/Z/A) and zoom (Ctrl+= /
   Ctrl+− / Ctrl+0) kept; browser profile in `%APPDATA%\Testimus\desktop\` (theme and last project are not shared
   with the browser mode).
 - Locked down: `contextIsolation`, no Node, `sandbox`, `webSecurity`, no `webview`, no spellcheck. Navigation off
