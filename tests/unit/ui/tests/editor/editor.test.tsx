@@ -618,9 +618,12 @@ describe("TestEditor › steps", () => {
     expect(toasts.at(-1)?.title).toBe("Too late to undo");
   });
 
-  it("offers a first step on an empty test", async () => {
-    shown = makeTest({ steps: [] });
-    editor();
+  it("offers a first step on an empty test, or Claude's draft of the steps; a new test's summary takes the focus", async () => {
+    shown = makeTest({ key: undefined, summary: "New test", steps: [] });
+    const { state } = editor();
+    await waitFor(() => expect(screen.getByRole("textbox", { name: "Summary" })).toHaveFocus());
+    fireEvent.click(await screen.findByRole("button", { name: "Ask Claude to draft them" }));
+    expect(state.askClaude).toHaveBeenCalledWith("test", expect.stringMatching(/^Draft the steps of this test/));
     fireEvent.click(await screen.findByRole("button", { name: "Add first step" }));
     expect(screen.getAllByRole("article")).toHaveLength(1);
   });
@@ -665,7 +668,7 @@ describe("TestEditor › steps", () => {
     fireEvent.dragStart(cards()[0], { dataTransfer: { setData: vi.fn(), types: [] } });
     dragTo(cards()[2], "dragOver", 180);
     dragTo(cards()[2], "dragOver", 190);
-    expect(document.querySelector('[data-testid="editor-column"] > [data-testid="dropline"]')).not.toBeNull();
+    expect(document.querySelector('[data-testid="editor-held"] > [data-testid="dropline"]')).not.toBeNull();
     dragTo(cards()[1], "dragOver", 120);
     expect(cards()[1].parentElement?.querySelector('[data-testid="dropline"]')).not.toBeNull();
     dragTo(cards()[2], "dragOver", 180);
@@ -683,6 +686,16 @@ describe("TestEditor › steps", () => {
     fireEvent.dragEnd(cards()[0]);
     dragTo(cards()[1], "dragOver", 120);
     expect(document.querySelector('[data-testid="dropline"]')).toBeNull();
+  });
+
+  it("opens a step's source with the test, the step and that step's sources", async () => {
+    const a = { docId: "D", anchor: "§1", quote: "one" };
+    const b = { docId: "D", anchor: "§2", quote: "two" };
+    shown = makeTest({ steps: [step("One"), step("Two", { sources: [a, b] })] });
+    const { state } = editor();
+    await ready();
+    fireEvent.click(within(screen.getByRole("article", { name: "Step 2" })).getByRole("button", { name: /D §2/ }));
+    expect(state.openSource).toHaveBeenCalledWith(b, { test: "LFRPS12-7", step: 2, sources: [a, b] });
   });
 
   it("opens a step's screenshots in the lightbox and moves through them", async () => {
@@ -767,7 +780,8 @@ describe("TestEditor › Claude", () => {
   it("any Claude run locks the editor, also one on another test or on the whole project", async () => {
     for (const running of ["t2", "*project*"]) {
       editor({ claudeRunning: running });
-      expect(await screen.findByText(/^Claude is working\./)).toBeInTheDocument();
+      expect(await screen.findByText("Claude is working")).toBeInTheDocument();
+      expect(screen.getByText(/Editing is paused until it finishes/)).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Push to Jira" })).toBeDisabled();
       cleanup();
     }
@@ -978,7 +992,7 @@ describe("TestEditor › Jira", () => {
     await ready();
     fireEvent.click(screen.getByRole("button", { name: "More actions for this test" }));
     expect(screen.queryByRole("menuitem", { name: "Download from Jira" })).toBeNull();
-    expect(screen.queryByRole("menuitem", { name: "Open in Jira ↗" })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: "Open in Jira" })).toBeNull();
   });
 
   it("opens the test in Jira", async () => {
@@ -987,7 +1001,7 @@ describe("TestEditor › Jira", () => {
     vi.stubGlobal("open", open);
     editor();
     await ready();
-    await menuItem("Open in Jira ↗");
+    await menuItem("Open in Jira");
     await waitFor(() => expect(open).toHaveBeenCalledWith("https://jira/LFRPS12-7", "_blank", "noopener"));
   });
 
@@ -997,23 +1011,30 @@ describe("TestEditor › Jira", () => {
     server.routes["tests.restore"] = () => ({ id: "t1", sync: "synced" });
     const { onSaved } = editor();
     await ready();
+    fireEvent.click(screen.getByRole("button", { name: "More actions for this test" }));
+    expect(await screen.findByRole("menuitem", { name: /^Undo local changes/ })).toHaveTextContent("3 changed steps");
+    expect(screen.getByRole("menuitem", { name: /^Clone/ })).toHaveTextContent("saves first");
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
     await menuItem("Undo local changes");
     const dlg = await screen.findByRole("alertdialog", { name: "Undo every local change?" });
-    expect(within(dlg).getByText(/1 modified · 1 added · 1 deleted/)).toBeInTheDocument();
+    const lost = within(dlg)
+      .getAllByRole("listitem")
+      .map((li) => li.textContent);
+    expect(lost).toEqual(["1modified step", "1added step", "1deleted step"]);
     fireEvent.click(within(dlg).getByRole("button", { name: "Cancel" }));
     await menuItem("Undo local changes");
-    fireEvent.click(await screen.findByRole("button", { name: "Undo local changes" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Undo changes" }));
     await waitFor(() => expect(toasts.at(-1)?.title).toBe("Restored the Jira version"));
     expect(onSaved).toHaveBeenCalledWith({ id: "t1", sync: "synced" });
     server.routes["tests.restore"] = () => undefined;
     await menuItem("Undo local changes");
-    fireEvent.click(await screen.findByRole("button", { name: "Undo local changes" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Undo changes" }));
     await waitFor(() => expect(toasts.filter((t) => t.title === "Restored the Jira version")).toHaveLength(2));
     server.routes["tests.restore"] = () => {
       throw new Fail("no snapshot");
     };
     await menuItem("Undo local changes");
-    fireEvent.click(await screen.findByRole("button", { name: "Undo local changes" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Undo changes" }));
     await waitFor(() => expect(errors.at(-1)?.title).toBe("Could not undo the local changes"));
   });
 
@@ -1122,9 +1143,9 @@ describe("TestEditor › menu and settings", () => {
     await ready();
     await menuItem("Delete local copy");
     const dlg = await screen.findByRole("alertdialog", { name: "Delete the local copy?" });
-    expect(within(dlg).getByText(/nothing — the Jira test is left untouched/)).toBeInTheDocument();
+    expect(within(dlg).getByText(/Nothing is lost — the Jira test is left untouched/)).toBeInTheDocument();
     expect(callsTo("tests.remove")).toHaveLength(0);
-    fireEvent.click(within(dlg).getByRole("button", { name: "Delete local copy" }));
+    fireEvent.click(within(dlg).getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(state.navigate).toHaveBeenCalledWith("tests"));
     expect(state.testsChanged).toHaveBeenCalled();
   });
@@ -1139,7 +1160,7 @@ describe("TestEditor › menu and settings", () => {
     await ready();
     await menuItem("Delete local copy");
     const dlg = await screen.findByRole("alertdialog", { name: "Delete the local copy?" });
-    fireEvent.click(within(dlg).getByRole("button", { name: "Delete local copy" }));
+    fireEvent.click(within(dlg).getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(errors.at(-1)?.title).toBe("Could not delete the local copy"));
     expect(state.navigate).not.toHaveBeenCalled();
   });
@@ -1152,7 +1173,10 @@ describe("TestEditor › menu and settings", () => {
     const dlg = await screen.findByRole("alertdialog", { name: "Delete the local copy?" });
     fireEvent.click(within(dlg).getByRole("button", { name: "Cancel" }));
     await menuItem("Delete local copy");
-    fireEvent.click(await screen.findByRole("button", { name: "Delete local copy" }));
+    expect(within(await screen.findByRole("alertdialog")).getByRole("listitem")).toHaveTextContent(
+      "1test never pushed: this is its only copy",
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
     await waitFor(() => expect(state.navigate).toHaveBeenCalledWith("tests"));
   });
 
@@ -1216,17 +1240,17 @@ describe("TestEditor › menu and settings", () => {
     await ready();
     fireEvent.click(screen.getByRole("button", { name: "Columns" }));
     fireEvent.click(
-      within(screen.getByRole("radiogroup", { name: "Data column" })).getByRole("radio", { name: "collapsed" }),
+      within(screen.getByRole("radiogroup", { name: "Data column" })).getByRole("radio", { name: "Collapsed" }),
     );
     await waitFor(() => expect(state.refreshInfo).toHaveBeenCalled());
     expect(callsTo("columns.setModes")[0].input).toEqual({
       modes: { Action: "open", Data: "collapsed", "Expected Result": "open" },
     });
-    fireEvent.click(screen.getByRole("radio", { name: "this test" }));
+    fireEvent.click(screen.getByRole("radio", { name: "This test" }));
     fireEvent.click(
-      within(screen.getByRole("radiogroup", { name: "Data column" })).getByRole("radio", { name: "when filled" }),
+      within(screen.getByRole("radiogroup", { name: "Data column" })).getByRole("radio", { name: "When filled" }),
     );
-    await waitFor(() => expect(screen.getByRole("button", { name: "use project's" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Use the project's" })).toBeInTheDocument());
     expect(callsTo("tests.setFolds")[0].input).toEqual({ id: "t1", modes: { Data: "filled" } });
   });
 
@@ -1241,12 +1265,12 @@ describe("TestEditor › menu and settings", () => {
     await ready();
     fireEvent.click(screen.getByRole("button", { name: "Columns" }));
     fireEvent.click(
-      within(screen.getByRole("radiogroup", { name: "Data column" })).getByRole("radio", { name: "collapsed" }),
+      within(screen.getByRole("radiogroup", { name: "Data column" })).getByRole("radio", { name: "Collapsed" }),
     );
     await waitFor(() => expect(errors.at(-1)?.title).toBe("Could not save the column settings"));
-    fireEvent.click(screen.getByRole("radio", { name: "this test" }));
+    fireEvent.click(screen.getByRole("radio", { name: "This test" }));
     fireEvent.click(
-      within(screen.getByRole("radiogroup", { name: "Data column" })).getByRole("radio", { name: "collapsed" }),
+      within(screen.getByRole("radiogroup", { name: "Data column" })).getByRole("radio", { name: "Collapsed" }),
     );
     await waitFor(() => expect(errors.at(-1)?.title).toBe("Could not save the column settings of this test"));
   });
@@ -1285,10 +1309,10 @@ describe("TestEditor › push", () => {
     const { state } = editor();
     fireEvent.change(await screen.findByLabelText("Description"), { target: { value: "before push" } });
     fireEvent.click(screen.getByRole("button", { name: "Push to Jira" }));
-    expect(await screen.findByRole("dialog", { name: "Push plan" })).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: /^Push .* to Jira\?$/ })).toBeInTheDocument();
     expect(callsTo("tests.save")).toHaveLength(1);
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-    expect(screen.queryByRole("dialog", { name: "Push plan" })).toBeNull();
+    expect(screen.queryByRole("dialog", { name: /^Push .* to Jira\?$/ })).toBeNull();
     await waitFor(() => expect(state.testsChanged).toHaveBeenCalled());
     server.routes["tests.show"] = () => {
       throw new Fail("x");
@@ -1390,7 +1414,7 @@ describe("TestEditor › a gesture over an edit that could not be saved (review 
     fireEvent.click(screen.getByRole("button", { name: "Push to Jira" }));
     await waitFor(() => expect(errors.at(-1)?.title).toBe("Not pushed"));
     expect(String((errors.at(-1)?.e as Error | undefined)?.message)).toMatch(/not saved.*disk full/);
-    expect(screen.queryByRole("dialog", { name: "Push plan" })).toBeNull();
+    expect(screen.queryByRole("dialog", { name: /^Push .* to Jira\?$/ })).toBeNull();
     expect(callsTo("xray.plan")).toHaveLength(0);
     const push = screen.getByRole("button", { name: "Push to Jira" });
     expect(push).toBeDisabled();
@@ -1665,7 +1689,7 @@ describe("TestEditor › parity", () => {
     const push = screen.getByRole("button", { name: "Push to Jira" });
     expect(push).toBeEnabled();
     fireEvent.click(push);
-    await screen.findByRole("dialog", { name: "Push plan" });
+    await screen.findByRole("dialog", { name: /^Push .* to Jira\?$/ });
     const held = screen.getByRole("button", { name: "Push to Jira", hidden: true });
     expect(held).toBeDisabled();
     expect(held).toHaveAccessibleDescription("The push plan is open");
@@ -1682,7 +1706,7 @@ describe("TestEditor › parity", () => {
     await menuItem("Undo local changes");
     const dlg = await screen.findByRole("alertdialog", { name: "Undo every local change?" });
     again({ claudeRunning: "t1" });
-    fireEvent.click(within(dlg).getByRole("button", { name: "Undo local changes" }));
+    fireEvent.click(within(dlg).getByRole("button", { name: "Undo changes" }));
     expect(toasts.at(-1)?.title).toBe("Wait for Claude to finish");
     await new Promise((r) => setTimeout(r, 20));
     expect(callsTo("tests.restore")).toHaveLength(0);
@@ -1723,7 +1747,7 @@ describe("TestEditor › parity", () => {
     expect(screen.getByText("Claude changed 1 step")).toBeInTheDocument();
     shown = makeTest({ steps: [step("One", { id: "1" }), step("Two", { id: "2" })] });
     await menuItem("Undo local changes");
-    fireEvent.click(await screen.findByRole("button", { name: "Undo local changes" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Undo changes" }));
     await waitFor(() => expect(toasts.at(-1)?.title).toBe("Restored the Jira version"));
     expect(callsTo("tests.restore")).toHaveLength(1);
     expect(screen.queryByText("Changed by Claude")).toBeNull();
@@ -1731,11 +1755,18 @@ describe("TestEditor › parity", () => {
   });
 
   it("makes the steps inert while Claude works on the test, and live again after", async () => {
+    server.routes["jobs.list"] = () => [{ id: "job-c", kind: "claude", status: "running", label: "Claude" }];
+    server.routes["jobs.cancel"] = () => ({ id: "job-c" });
     const { again } = editor({ claudeRunning: "t1" });
     await ready();
-    expect(screen.getByTestId("editor-column").parentElement).toHaveAttribute("inert");
+    expect(screen.getByTestId("editor-held")).toHaveAttribute("inert");
+    expect(screen.getAllByText("Read-only — Claude is editing", { exact: false }).length).toBeGreaterThan(0);
+    fireEvent.click(await screen.findByRole("button", { name: "Cancel the run" }));
+    await waitFor(() => expect(callsTo("jobs.cancel")[0]?.input).toEqual({ id: "job-c" }));
+    expect(screen.getAllByRole("article", { hidden: true })[0].closest("[inert]")).not.toBeNull();
+    expect(screen.getByText("Claude is working on this test").closest("[inert]")).toBeNull();
     again({ claudeRunning: null });
-    await waitFor(() => expect(screen.getByTestId("editor-column").parentElement).not.toHaveAttribute("inert"));
+    await waitFor(() => expect(screen.getByTestId("editor-held")).not.toHaveAttribute("inert"));
   });
 
   it("opens with the details hidden when that was the last choice", async () => {
@@ -1843,7 +1874,7 @@ describe("TestEditor › late callbacks after the same test reloads (PARITY #3, 
     const deleted = lastToast("Step 2 deleted");
     shown = makeTest({ steps: [step("One", { id: "1" }), step("Two", { id: "2" })] });
     await menuItem("Undo local changes");
-    fireEvent.click(await screen.findByRole("button", { name: "Undo local changes" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Undo changes" }));
     await waitFor(() => expect(toasts.at(-1)?.title).toBe("Restored the Jira version"));
     expect(actions()).toEqual(["One", "Two"]);
     const saves = callsTo("tests.save").length;
@@ -1885,9 +1916,9 @@ describe("TestEditor › header and columns (PARITY #5, #47, #87)", () => {
     expect(fold(2)).toHaveAttribute("aria-pressed", "false");
     fireEvent.click(screen.getByRole("button", { name: "Columns" }));
     const row = screen.getByRole("radiogroup", { name: "Retired column" });
-    expect(row.parentElement).toHaveTextContent("off in Xray");
-    expect(within(row).getByRole("radio", { name: "when filled" })).toHaveAttribute("aria-checked", "true");
-    fireEvent.click(within(row).getByRole("radio", { name: "open" }));
+    expect(row.parentElement).toHaveTextContent("Off in Xray · kept, folded unless filled");
+    expect(within(row).getByRole("radio", { name: "When filled" })).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(within(row).getByRole("radio", { name: "Open" }));
     await waitFor(() => expect(state.refreshInfo).toHaveBeenCalled());
     expect(callsTo("columns.setModes")[0].input).toEqual({
       modes: { Action: "open", Data: "open", "Expected Result": "open", Retired: "open" },

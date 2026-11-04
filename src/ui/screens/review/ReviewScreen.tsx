@@ -179,8 +179,6 @@ export function ReviewScreen() {
           {view.editing && data ? (
             <ReviewEdit
               id={data.id}
-              testKey={data.test.key}
-              onAsk={() => app.askClaude("test")}
               onBack={() => void act.flush(data.id).then(() => view.patch({ editing: false }))}
               onOpen={(id) => app.navigate("tests", id)}
             />
@@ -220,7 +218,7 @@ export function ReviewScreen() {
               onFold={view.fold}
               onFoldAll={(f) => view.foldAll(f, data.test.steps.length)}
               onSelect={(source, step) => {
-                const same = sel && refKey(source) === selKey && sel.step === step;
+                const same = sel && refKey(source) === selKey && sel.step === step && sel.source.quote === source.quote;
                 view.patch({ sel: same ? null : { source, step }, ...(step ? { activeStep: step - 1 } : {}) });
               }}
               onOpenImage={(file) => window.open(fileUrl(`tests/${data.id}/${file}`), "_blank")}
@@ -240,18 +238,19 @@ export function ReviewScreen() {
               onEditNote={() => view.patch({ fixOpen: true })}
             />
           )}
-          {!view.editing && (
+          {!view.editing && activeId && (
             <ReviewFoot
               errors={findings.filter((f) => f.severity === "error").length}
               stale={!!data?.stale}
               off={!data || acts.busy || (running && "Claude is working on this test — wait for it to finish")}
               fixOpen={view.fixOpen}
+              marked={data?.test.review === "to-fix"}
               onToFix={() => view.patch({ fixOpen: !view.fixOpen })}
               onValidate={acts.validate}
             />
           )}
         </section>
-        {!view.editing && sel && (
+        {sel && (
           <>
             <div {...stylex.props(styles.sourceEdge)}>
               <ResizeHandle label="Resize the source panel" {...sourceW.handle} side="left" />
@@ -265,7 +264,14 @@ export function ReviewScreen() {
               misplaced={notAtAnchor(findings, selKey, sel.step)}
               width={sourceW.moved ? sourceW.width : undefined}
               onClose={() => view.patch({ sel: null })}
-              onOpenDoc={(docId, anchor, quote) => app.navigate("documents", docLink(docId, anchor, quote))}
+              onOpenDoc={(docId, anchor, quote) =>
+                app.navigate(
+                  "documents",
+                  data
+                    ? `${docId}#${anchor} "${quote.trim()}" from ${data.id}${sel.step ? ` step ${sel.step}` : ""}`
+                    : docLink(docId, anchor, quote),
+                )
+              }
               onPick={pick}
               onStep={(by) => {
                 const next = placed[Math.max(0, selIndex) + by];

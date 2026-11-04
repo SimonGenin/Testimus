@@ -75,13 +75,13 @@ test("the Columns popover folds Data for this test only", async ({ page }) => {
   await openTest(page, "LFRPS12-1420");
   await main(page).getByRole("button", { name: "Columns" }).click();
   const pop = page.getByRole("dialog", { name: "Step columns" });
-  await pop.getByRole("radio", { name: "this test" }).click();
-  await pop.getByRole("radiogroup", { name: "Data column" }).getByRole("radio", { name: "collapsed" }).click();
+  await pop.getByRole("radio", { name: "This test" }).click();
+  await pop.getByRole("radiogroup", { name: "Data column" }).getByRole("radio", { name: "Collapsed" }).click();
   await expect
     .poll(async () => (await api<{ own: unknown }>(url, "tests.folds", { id: "LFRPS12-1420" })).own)
     .toEqual({ Data: "collapsed" });
   await expect(main(page).getByRole("textbox", { name: /^Data of step/ })).toHaveCount(0);
-  await pop.getByRole("button", { name: "use project's" }).click();
+  await pop.getByRole("button", { name: "Use the project's" }).click();
   await expect
     .poll(async () => (await api<{ own: unknown }>(url, "tests.folds", { id: "LFRPS12-1420" })).own)
     .toBeNull();
@@ -93,8 +93,12 @@ test("Undo local changes counts what is lost and rewinds to the last sync", asyn
   await expect.poll(async () => (await show("LFRPS12-1420")).sync).toBe("modified");
   await more(page, "Undo local changes");
   const d = page.getByRole("alertdialog", { name: "Undo every local change?" });
-  await expect(d.getByText(/modified · \d+ added · \d+ deleted step\(s\)/)).toBeVisible();
-  await d.getByRole("button", { name: "Undo local changes" }).click();
+  await expect(d.getByRole("listitem")).toHaveText([
+    /^\d+modified steps?$/,
+    /^\d+added steps?$/,
+    /^\d+deleted steps?$/,
+  ]);
+  await d.getByRole("button", { name: "Undo changes" }).click();
   await expect.poll(async () => (await show("LFRPS12-1420")).sync).toBe("synced");
   // ponytail: Jira's version of a generated test was never validated here — it goes back to Review
   await expect(page).toHaveURL(/#\/review\/LFRPS12-1420$/);
@@ -106,7 +110,7 @@ test("Undo local changes counts what is lost and rewinds to the last sync", asyn
 test("Open in Jira opens the issue page", async ({ page }) => {
   await openTest(page, "LFRPS12-1420");
   const popup = page.waitForEvent("popup");
-  await more(page, "Open in Jira ↗");
+  await more(page, "Open in Jira");
   expect((await popup).url()).toContain("/browse/LFRPS12-1420");
 });
 
@@ -115,7 +119,8 @@ test("Delete local copy asks for a never-pushed test and closes the editor", asy
   await more(page, "Delete local copy");
   const d = page.getByRole("alertdialog", { name: "Delete the local copy?" });
   await expect(d.getByText(/never pushed, so this is the only copy/)).toBeVisible();
-  await d.getByRole("button", { name: "Delete local copy" }).click();
+  await expect(d.getByRole("listitem")).toHaveText("1test never pushed: this is its only copy");
+  await d.getByRole("button", { name: "Delete", exact: true }).click();
   await expect(page).toHaveURL(/#\/tests$/);
   await expect
     .poll(async () => (await api<{ id: string }[]>(url, "tests.list", {})).map((t) => t.id))

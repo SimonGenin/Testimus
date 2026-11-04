@@ -103,7 +103,8 @@ const screenOf = (over: Partial<AppState> = {}) => {
 describe("TestsScreen", () => {
   it("lists the tests and says no test is open", async () => {
     const { state } = screenOf();
-    expect(screen.getByText("Pick a test on the left")).toBeInTheDocument();
+    expect(await screen.findByText("No test open")).toBeInTheDocument();
+    expect(within(screen.getByRole("main")).getByRole("button", { name: "New test" })).toBeInTheDocument();
     fireEvent.click(await row(/^Test t1/));
     expect(state.navigate).toHaveBeenCalledWith("tests", "t1");
   });
@@ -136,9 +137,15 @@ describe("TestsScreen", () => {
 
   it("treats a non-list answer as empty, a failure as a toast, and ignores another screen's arg", async () => {
     server.routes["tests.list"] = () => ({ nope: true });
-    screenOf({ route: { screen: "documents", arg: "t1" } as AppState["route"] });
-    expect(await screen.findByText(/No test yet/)).toBeInTheDocument();
-    expect(screen.getByText("Pick a test on the left")).toBeInTheDocument();
+    const { state } = screenOf({ route: { screen: "documents", arg: "t1" } as AppState["route"] });
+    expect(await screen.findAllByText(/No test yet/)).toHaveLength(2);
+    const main = screen.getByRole("main");
+    fireEvent.click(within(main).getByRole("button", { name: "Generate tests" }));
+    expect(state.navigate).toHaveBeenCalledWith("generate");
+    server.routes["tests.create"] = () => ({ id: "t9" });
+    fireEvent.click(within(main).getByRole("button", { name: "New test" }));
+    await waitFor(() => expect(state.navigate).toHaveBeenCalledWith("tests", "t9"));
+    expect(callsTo("tests.create")[0].input).toEqual({ folder: "/", summary: "New test" });
     cleanup();
     server.routes["tests.list"] = () => {
       throw new Fail("no project");
@@ -149,9 +156,15 @@ describe("TestsScreen", () => {
 
   it("asks for nothing and says nothing while no project is open", async () => {
     setProject(null);
-    screenOf();
-    expect(await screen.findByText(/No test yet/)).toBeInTheDocument();
-    expect(screen.getByText("No project open")).toBeInTheDocument();
+    const { state } = screenOf();
+    expect(await screen.findAllByText("No project open")).toHaveLength(2);
+    expect(screen.queryByText(/No test yet/)).toBeNull();
+    expect(screen.getByRole("textbox", { name: "Filter tests" })).toBeDisabled();
+    expect(
+      within(screen.getByRole("complementary", { name: "Tests" })).getByRole("button", { name: "New test" }),
+    ).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "New project" }));
+    expect(state.navigate).toHaveBeenCalledWith("setup", "project");
     expect(callsTo("tests.list")).toHaveLength(0);
     expect(errors).toEqual([]);
   });

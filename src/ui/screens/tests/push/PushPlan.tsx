@@ -51,13 +51,8 @@ export function PushPlan({
   const word = (REVIEW as Record<string, { label: string }>)[review]?.label ?? review;
   return (
     <Modal
-      title="Push plan"
-      subtitle={
-        <>
-          Push <span {...stylex.props(styles.mono)}>{testKey ?? "this test"}</span> to Jira
-          {summary ? ` — ${summary}` : ""}
-        </>
-      }
+      title={`Push ${testKey ?? "this test"} to Jira?`}
+      subtitle={summary || undefined}
       icon="push"
       footNote={
         <>
@@ -66,7 +61,7 @@ export function PushPlan({
       }
       actions={
         <>
-          <Button variant="quiet" label="Cancel" onClick={onClose} />
+          <Button label="Cancel" onClick={onClose} />
           <Button
             variant="primary"
             icon="push"
@@ -121,7 +116,7 @@ export function PushPlan({
             ))}
             <span {...stylex.props(styles.what)}>What will happen · {plural(ops.length, "operation")}</span>
             {ops.length ? (
-              <OpsTable ops={ops} />
+              <OpsTable ops={ops} state={() => null} />
             ) : (
               <EmptyState icon="check-circle" title="Nothing to push: Jira already has this version." compact />
             )}

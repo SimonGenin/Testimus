@@ -458,7 +458,7 @@ describe("Tests sidebar › local rows", () => {
     const dialog = screen.getByRole("alertdialog", { name: "Delete the local copy?" });
     expect(within(dialog).getByText(/never pushed, so this is the only copy/)).toBeInTheDocument();
     expect(named("tests.remove")).toHaveLength(0);
-    fireEvent.click(within(dialog).getByRole("button", { name: "Delete local copy" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(onDeleted).toHaveBeenCalledWith("local-1"));
   });
 });
@@ -623,7 +623,7 @@ describe("Tests screen › pull queue", () => {
     finish("job-3", null, "failed", "again");
     fireEvent.click(await within(main).findByRole("button", { name: "Back" }));
     expect(nav).toHaveBeenLastCalledWith("tests", undefined);
-    expect(within(main).getByText("Pick a test on the left")).toBeInTheDocument();
+    expect(within(main).getByText("No test yet")).toBeInTheDocument();
   });
 
   it("cancels a pull, and a project switch abandons every pull and closes the test", async () => {
@@ -718,7 +718,7 @@ describe("Tests screen › layout", () => {
     first.unmount();
     routes["system.credentials"] = routes["system.setCredentials"] = () => creds(true);
     render(<Harness />);
-    expect(await screen.findByText("Pick a test on the left")).toBeInTheDocument();
+    expect(await screen.findByText("No test open")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Connect to Jira and Xray" })).toBeNull();
   });
 });

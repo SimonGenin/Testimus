@@ -135,7 +135,7 @@ test("a step is moved, added and removed", async ({ page }) => {
 test("the push plan shows its warning, then the push runs and lands", async ({ page }) => {
   await openTest(page, "LFRPS12-1420");
   await main(page).getByRole("button", { name: "Push to Jira" }).click();
-  const plan = page.getByRole("dialog", { name: "Push plan" });
+  const plan = page.getByRole("dialog", { name: /^Push .* to Jira\?$/ });
   await expect(plan).toBeVisible();
   await expect(plan.getByText(/What will happen · \d+ operations?/)).toBeVisible();
   await expect(plan.getByRole("note").filter({ hasText: "not Validated" })).toHaveCount(0);

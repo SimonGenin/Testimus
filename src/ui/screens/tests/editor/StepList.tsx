@@ -6,6 +6,7 @@ import { Button } from "../../../components/ui/Button.tsx";
 import { EmptyState } from "../../../components/ui/EmptyState.tsx";
 import { Segmented } from "../../../components/ui/Segmented.tsx";
 import type { SaveState } from "../../../components/ui/Text.tsx";
+import type { SourceFrom } from "../../../lib/app.ts";
 import type { Column } from "../../../lib/columns.ts";
 import type { Gone, StepMark } from "../../../lib/diff.ts";
 import { border, color, fontSize, fontWeight, lineHeight, radius, space } from "../../../styles/tokens.stylex.ts";
@@ -76,6 +77,7 @@ export function StepList({
   onDelete,
   onReorder,
   onAsk,
+  onDraft,
   onRestore,
   onOpenImage,
   onOpenSource,
@@ -112,9 +114,12 @@ export function StepList({
   onDelete: (i: number) => void;
   onReorder: (from: number, to: number) => void;
   onAsk: (i: number) => void;
+  /** a test without steps: Claude drafts them from its description and sources */
+  onDraft?: () => void;
   onRestore: (base: Step, gone: Gone | null, n: number) => void;
-  onOpenImage: (file: string, images: StepImage[], step: number) => void;
-  onOpenSource: (s: Source) => void;
+  onOpenImage: (file: string, images: StepImage[], step: number, column?: string) => void;
+  /** a source of a step opened, with the step it backs and that step's sources (‹ › in the dialog) */
+  onOpenSource: (s: Source, from?: SourceFrom) => void;
   onImageGone: (file: string) => void;
 }) {
   const [drag, setDrag] = useState(-1);
@@ -195,8 +200,8 @@ export function StepList({
               onDelete={() => onDelete(i)}
               onAsk={() => onAsk(i)}
               onRestore={(b) => onRestore(b, null, i + 1)}
-              onOpenImage={(file, images) => onOpenImage(file, images, i + 1)}
-              onOpenSource={onOpenSource}
+              onOpenImage={(file, images, column) => onOpenImage(file, images, i + 1, column)}
+              onOpenSource={(src) => onOpenSource(src, { test: test.key ?? testId, step: i + 1, sources: s.sources })}
               onDragStart={() => setDrag(i)}
               onDragOver={(e) => {
                 if (drag < 0) return;
@@ -226,10 +231,15 @@ export function StepList({
         <EmptyState
           icon="tests"
           title="This test has no steps yet."
-          text="A step is Action, Data and Expected Result, plus any screenshots you paste in."
+          text="Write the first one, or ask Claude to draft the steps from the test's description and sources."
           actions={
             readOnly ? undefined : (
-              <Button variant="primary" icon="plus" label="Add first step" onClick={() => onInsert(0)} />
+              <>
+                <Button variant="primary" icon="plus" label="Add first step" onClick={() => onInsert(0)} />
+                {onDraft && (
+                  <Button variant="claude-quiet" icon="claude" label="Ask Claude to draft them" onClick={onDraft} />
+                )}
+              </>
             )
           }
         />

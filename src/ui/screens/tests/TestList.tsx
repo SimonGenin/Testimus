@@ -240,6 +240,8 @@ export function TestList({
   };
 
   const local = () => {
+    if (!project())
+      return <EmptyState icon="folder" compact title="No project open" text="Open a project to see its tests." />;
     if (loading && !refs.length)
       return (
         <div role="status" aria-label="Loading tests">
@@ -317,9 +319,10 @@ export function TestList({
         />
         <span {...stylex.props(styles.grow)} />
       </div>
-      {(v.tab === "local" || jiraOn) && (
+      {
         <ListTools
-          jira={jiraOn}
+          jira={jiraOn || v.tab === "jira"}
+          jiraOff={!jiraOn}
           local={v.tab === "local"}
           search={v.search}
           filter={v.filter}
@@ -328,6 +331,7 @@ export function TestList({
           pullBusy={!!active?.key && busy.includes(active.key)}
           canReveal={!!activeId && !!project()}
           reveal={!!desktop()}
+          noProject={!project()}
           onSearch={v.setSearch}
           onFilter={v.setFilter}
           onFilterEnter={() => needle && jiraOn && v.setSearch(needle)}
@@ -339,7 +343,7 @@ export function TestList({
             if (dir && activeId) void reveal(pathJoin(dir, "tests", activeId, "test.md"));
           }}
         />
-      )}
+      }
       <div {...stylex.props(styles.body)}>
         {v.tab === "local" ? (
           <>

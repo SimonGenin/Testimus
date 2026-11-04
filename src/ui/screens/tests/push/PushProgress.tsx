@@ -4,18 +4,20 @@ import { Banner } from "../../../components/ui/Banner.tsx";
 import { Button } from "../../../components/ui/Button.tsx";
 import { Modal } from "../../../components/ui/Modal.tsx";
 import { Progress } from "../../../components/ui/Progress.tsx";
-import { space } from "../../../styles/tokens.stylex.ts";
+import { fontFamily, fontSize, space } from "../../../styles/tokens.stylex.ts";
 import type { Failure, PushResult } from "../PushDialog.tsx";
 import { type OpState, OpsTable } from "./OpsTable.tsx";
 
 const styles = stylex.create({
   body: { display: "flex", flexDirection: "column", gap: space.s3 },
-  text: { margin: 0 },
+  mono: { fontFamily: fontFamily.mono, fontSize: fontSize.code },
 });
 
 // the push at work, op by op; stopped, it says where and why and resumes from that operation
 export function PushProgress({
   name,
+  reference,
+  summary,
   ops,
   running,
   done,
@@ -26,6 +28,9 @@ export function PushProgress({
   onResume,
 }: {
   name: string;
+  /** the test's key, or its local id, under the title */
+  reference: string;
+  summary?: string;
   ops: PlanOp[];
   running: boolean;
   done: number;
@@ -57,17 +62,29 @@ export function PushProgress({
   const detail = `${counts.done} done${counts.failed ? ` · ${counts.failed} failed` : ""} · ${counts.left} not started${
     from > 0 && running ? ` · resumed at ${from + 1}` : ""
   }`;
+  // ponytail: Jira's refusal sits under the operation it stopped at; with no operation to hold it, it heads the body
+  const placed = !running && !!failure && failedAt >= 0 && failedAt < ops.length;
   return (
     <Modal
       title={running ? `Pushing ${name} to Jira` : `Push stopped at operation ${failedAt + 1} of ${ops.length}`}
-      icon="push"
+      subtitle={
+        <>
+          {summary}
+          {summary ? " · " : ""}
+          <span {...stylex.props(styles.mono)}>{reference}</span>
+        </>
+      }
+      icon={running ? "push" : "alert-circle"}
       busy={running}
       actions={
-        running ? undefined : (
+        running ? (
+          <Button variant="primary" icon="push" label="Push to Jira" loading />
+        ) : (
           <>
             <Button label="Close" onClick={onClose} />
             <Button
               variant="primary"
+              icon="play"
               label={`Resume from operation ${failedAt + 1}`}
               onClick={() => onResume(Math.max(failedAt, 0))}
             />
@@ -82,15 +99,17 @@ export function PushProgress({
           value={ops.length ? (counts.done / ops.length) * 100 : 0}
           detail={detail}
         />
-        {!running && failure && (
-          <Banner tone="danger" title={failure.message}>
-            <p {...stylex.props(styles.text)}>
-              <strong>What to do:</strong>{" "}
-              {failure.fix ?? "fix what Jira refused, then resume. What is already in Jira stays there."}
-            </p>
+        {!running && failure && !placed && (
+          <Banner tone="danger" compact>
+            {failure.message}
           </Banner>
         )}
-        <OpsTable ops={ops} state={state} />
+        <OpsTable ops={ops} state={state} error={(i) => (placed && i === failedAt ? failure?.message : undefined)} />
+        {!running && failure && (
+          <Banner tone="warning" title="What to do">
+            {failure.fix ?? "Fix what Jira refused, then resume. What is already in Jira stays there."}
+          </Banner>
+        )}
       </div>
     </Modal>
   );

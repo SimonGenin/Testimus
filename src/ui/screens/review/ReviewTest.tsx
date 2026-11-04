@@ -172,6 +172,7 @@ export function ReviewTest(p: ReviewTestProps) {
                 stale={stale}
                 folded={p.folded.has(i) && p.activeStep !== i}
                 active={p.activeStep === i}
+                holdsSelection={!!p.selected && p.selectedStep === n}
                 claude={!!p.marks?.steps.has(n)}
                 added={!!p.marks?.added.has(n)}
                 selected={p.selected}

@@ -5,7 +5,6 @@ import type { ColumnModes, Folder, LocalTestRef, Precondition, Step, StepImage, 
 import { ContextsDialog } from "../../components/claude/ContextsDialog.tsx";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
-import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { useApp } from "../../lib/app.ts";
 import { columnsOf, projectModes } from "../../lib/columns.ts";
 import { pendingAutosaves } from "../../lib/data/autosave.ts";
@@ -25,6 +24,7 @@ import { DownloadConfirm, RestoreConfirm, UndoConfirm } from "./editor/Confirms.
 import { EditorBanners } from "./editor/EditorBanners.tsx";
 import { EditorBar } from "./editor/EditorBar.tsx";
 import { EditorColumn } from "./editor/EditorColumn.tsx";
+import { EditorLoading } from "./editor/EditorLoading.tsx";
 import { PreconditionList } from "./editor/PreconditionList.tsx";
 import { StepList } from "./editor/StepList.tsx";
 import { type RemoteCheck, SummaryCard } from "./editor/SummaryCard.tsx";
@@ -72,12 +72,15 @@ export function TestEditor({
   onSaved,
   onOpen,
   lead,
+  onBack,
 }: {
   testId: string;
   onSaved: (ref: Partial<LocalTestRef> & { id: string }) => void;
   onOpen: (id: string) => void;
   /** before the key in the bar (the list toggle of a narrow window) */
   lead?: React.ReactNode;
+  /** opened from Review: the bar leads back there instead of offering folder, push and ⋯ */
+  onBack?: () => void;
 }) {
   const app = useApp();
   const client = useQueryClient();
@@ -135,7 +138,7 @@ export function TestEditor({
   const [width, setWidth] = usePref("editorWidth");
   const [focus, setFocusStep] = useState(-1);
   const [folded, setFolded] = useState<Set<number>>(new Set());
-  const [lb, setLb] = useState<{ images: StepImage[]; index: number; step: number } | null>(null);
+  const [lb, setLb] = useState<{ images: StepImage[]; index: number; step: number; column?: string } | null>(null);
   const [pushing, setPushing] = useState(false);
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const [busyDl, setBusyDl] = useState(false);
@@ -255,7 +258,12 @@ export function TestEditor({
           <Banner
             tone="danger"
             title="This test could not be opened"
-            actions={<Button size="sm" label="Try again" onClick={() => void doc.recheck().catch(() => {})} />}
+            actions={
+              <>
+                <Button size="sm" label="Try again" onClick={() => void doc.recheck().catch(() => {})} />
+                {onBack && <Button size="sm" icon="arrow-left" label="Back to review" onClick={onBack} />}
+              </>
+            }
           >
             {message(doc.error)}
           </Banner>
@@ -263,18 +271,7 @@ export function TestEditor({
       </div>
     );
 
-  if (!test || !data)
-    return (
-      <div role="status" aria-busy="true" aria-label="Loading the test" {...stylex.props(styles.editor)}>
-        {lead}
-        <div {...stylex.props(styles.empty)}>
-          <Skeleton kind="title" width="70%" />
-          <Skeleton lines={2} />
-          <Skeleton kind="block" />
-          <Skeleton kind="block" />
-        </div>
-      </div>
-    );
+  if (!test || !data) return <EditorLoading lead={lead} />;
 
   uids.carry(test.steps);
   const url = (file: string) => fileUrl(`tests/${testId}/${file}`);
@@ -341,24 +338,31 @@ export function TestEditor({
         onRetry={() => void doc.doc.retry()}
         onAsk={() => app.askClaude("test")}
         onPush={() => void actions.askPush()}
+        onBack={onBack}
       />
-      <EditorColumn width={width} onWidth={setWidth} inert={busy}>
-        <EditorBanners
-          busy={busy}
-          busyHere={busyHere}
-          marked={marked}
-          conflict={doc.doc.status === "conflict"}
-          revertConflict={actions.revertConflict}
-          onShowChanges={() => {
-            const first = test.steps.findIndex((s) => markOf(s));
-            if (first >= 0) showStep(first);
-          }}
-          onRevert={() => void actions.revertClaude()}
-          onForceRevert={() => void actions.revertClaude(true)}
-          onKeepRevert={() => actions.setRevertConflict(null)}
-          onReloadDisk={() => doc.doc.takeDisk()}
-          onKeepMine={() => void doc.doc.keepMine()}
-        />
+      <EditorColumn
+        width={width}
+        onWidth={setWidth}
+        inert={busy}
+        top={
+          <EditorBanners
+            busy={busy}
+            busyHere={busyHere}
+            marked={marked}
+            conflict={doc.doc.status === "conflict"}
+            revertConflict={actions.revertConflict}
+            onShowChanges={() => {
+              const first = test.steps.findIndex((s) => markOf(s));
+              if (first >= 0) showStep(first);
+            }}
+            onRevert={() => void actions.revertClaude()}
+            onForceRevert={() => void actions.revertClaude(true)}
+            onKeepRevert={() => actions.setRevertConflict(null)}
+            onReloadDisk={() => doc.doc.takeDisk()}
+            onKeepMine={() => void doc.doc.keepMine()}
+          />
+        }
+      >
         <SummaryCard
           test={test}
           sync={sync}
@@ -440,11 +444,15 @@ export function TestEditor({
             setFocus({ testId, key: test.key, summary: test.summary, step: i + 1 });
             app.askClaude("step");
           }}
+          onDraft={() =>
+            app.askClaude("test", "Draft the steps of this test from its description and the documents it cites.")
+          }
           onRestore={(base, gone, n) => !refuseWhileClaude() && setDialog({ kind: "restore", base, gone, n })}
-          onOpenImage={(file, images, step) =>
+          onOpenImage={(file, images, step, column) =>
             setLb({
               images,
               step,
+              column,
               index: Math.max(
                 0,
                 images.findIndex((im) => im.file === file),
@@ -471,6 +479,7 @@ export function TestEditor({
           urls={lb.images.map((im) => url(im.file))}
           index={Math.min(lb.index, lb.images.length - 1)}
           step={lb.step}
+          column={lb.column}
           onIndex={(index) => setLb({ ...lb, index })}
           onClose={() => setLb(null)}
         />
@@ -479,6 +488,8 @@ export function TestEditor({
         <DownloadConfirm
           testKey={test.key}
           synced={!!remote}
+          loss={remote ? lossOf(test, remote) : undefined}
+          modifiedSteps={diff?.marks.flatMap((m, i) => (m === "modified" ? [i + 1] : [])) ?? []}
           busy={busyDl}
           onConfirm={actions.download}
           onClose={() => setDialog(null)}
@@ -508,7 +519,14 @@ export function TestEditor({
       )}
       {dialog?.kind === "delete" && (
         <DeleteTest
-          target={{ id: testId, key: test.key, summary: test.summary, synced: !!remote, dirty }}
+          target={{
+            id: testId,
+            key: test.key,
+            summary: test.summary,
+            synced: !!remote,
+            dirty,
+            loss: remote && dirty ? lossOf(test, remote) : undefined,
+          }}
           onClose={() => setDialog(null)}
           onDeleted={() => {
             setDialog(null);

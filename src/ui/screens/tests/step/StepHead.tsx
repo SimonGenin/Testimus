@@ -159,13 +159,12 @@ export function StepHead({
       <StepNumber n={n} marks={marks} />
       <MarkBadges marks={marks} />
       {jira && (
-        <Button
-          variant="quiet"
-          size="sm"
+        <Chip
+          tone="warning"
           icon="history"
           label={jira.open ? "Hide Jira version" : "Jira version"}
           pressed={jira.open}
-          onClick={jira.toggle}
+          onToggle={jira.toggle}
         />
       )}
       <span {...stylex.props(styles.grow)} />

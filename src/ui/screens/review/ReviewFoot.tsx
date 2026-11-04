@@ -51,12 +51,14 @@ export type ReviewFootProps = {
   /** true, or why the decisions are off (Claude works on the test) */
   off: boolean | string;
   fixOpen: boolean;
+  /** the test is To fix already: the button reads pressed */
+  marked?: boolean;
   onToFix: () => void;
   onValidate: () => void;
 };
 
 // ponytail: the reviewer's two decisions and the keys that make them; Validate is allowed with open errors
-export function ReviewFoot({ errors, stale, off, fixOpen, onToFix, onValidate }: ReviewFootProps) {
+export function ReviewFoot({ errors, stale, off, fixOpen, marked = false, onToFix, onValidate }: ReviewFootProps) {
   const still = `${plural(errors, "error")} still open${stale ? " · out of date" : ""}`;
   return (
     <div {...stylex.props(styles.foot)}>
@@ -73,7 +75,7 @@ export function ReviewFoot({ errors, stale, off, fixOpen, onToFix, onValidate }:
           </span>
         </Tooltip>
       )}
-      <Button icon="to-fix" label="To fix" pressed={fixOpen} disabled={off} onClick={onToFix} />
+      <Button icon="to-fix" label="To fix" pressed={fixOpen || marked} disabled={off} onClick={onToFix} />
       <Button
         variant="primary"
         icon="validated"

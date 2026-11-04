@@ -80,7 +80,7 @@ describe("PushDialog › plan", () => {
     h.plan = () => gate.promise;
     dialog({ testKey: undefined });
     expect(screen.getByRole("status", { name: "Building the push plan" })).toBeInTheDocument();
-    expect(screen.getByText("this test")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Push this test to Jira?" })).toBeInTheDocument();
     expect(screen.getByText("testimus xray push t1")).toBeInTheDocument();
     gate.resolve(plan({ ops: [...plan().ops, { kind: "weird" as never, label: "Unknown kind" }] }));
     expect(await screen.findByText("What will happen · 4 operations")).toBeInTheDocument();
@@ -142,7 +142,7 @@ describe("PushDialog › plan", () => {
     };
     dialog();
     expect(await screen.findByText("offline")).toBeInTheDocument();
-    expect(screen.queryByText("What to do:")).toBeNull();
+    expect(screen.queryByText("What to do")).toBeNull();
   });
 
   it("ignores a plan or an error that lands after it closed", async () => {
@@ -245,7 +245,7 @@ describe("PushDialog › running", () => {
     await confirm();
     expect(await screen.findByText("Push stopped at operation 2 of 3")).toBeInTheDocument();
     expect(screen.getByText("413 Too large")).toBeInTheDocument();
-    expect(screen.getByText(/fix what Jira refused/)).toBeInTheDocument();
+    expect(screen.getByText(/Fix what Jira refused/)).toBeInTheDocument();
     expect(screen.getByText(/1 done · 1 failed · 1 not started/)).toBeInTheDocument();
     const resume = deferred<unknown>();
     h.push = () => resume.promise;

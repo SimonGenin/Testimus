@@ -322,7 +322,7 @@ describe("TestList › delete", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("alertdialog")).toBeNull();
     fireEvent.click(rowAction(localRow(/^Untitled/), "Delete the local copy of t-z"));
-    fireEvent.click(screen.getByRole("button", { name: "Delete local copy" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(onDeleted).toHaveBeenCalledWith("t-z"));
     expect(screen.queryByRole("alertdialog")).toBeNull();
   });
@@ -458,8 +458,10 @@ describe("TestList › Jira connection", () => {
     search("Alpha");
     expect(screen.queryByText(/Search Jira for/)).toBeNull();
     toJira();
-    expect(screen.getByRole("heading", { name: "Connect to Jira" })).toBeInTheDocument();
-    expect(screen.queryByLabelText("Filter tests")).toBeNull();
+    expect(screen.getByRole("heading", { name: "Connect this project to Jira" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Search Jira")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Pull" })).toBeDisabled();
+    expect(screen.getByLabelText("Filter tests")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Connect" })).toBeDisabled();
     await new Promise((r) => setTimeout(r, 10));
     expect(callsTo("xray.folders")).toHaveLength(0);

@@ -106,6 +106,8 @@ export function PushDialog({
     return (
       <PushProgress
         name={testKey ?? "this test"}
+        reference={testKey ?? testId}
+        summary={summary}
         ops={plan?.ops ?? []}
         running={phase === "running"}
         done={done}

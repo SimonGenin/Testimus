@@ -44,6 +44,9 @@ test("findings sit on their steps and a source shows its passage with the quote 
   await expect(step5.getByRole("note").filter({ hasText: "Not simulated" })).toBeVisible();
   await expect(under(page).getByRole("note").filter({ hasText: "Negative missing" })).toBeVisible();
   await expect(under(page).getByRole("article", { name: "Step 1", exact: true })).toContainText("No findings");
+  await expect(page.getByRole("complementary", { name: "Source passage" })).toContainText(
+    "Finding on step 2 · Unsupported",
+  );
 
   await step2.getByRole("button", { name: /^SOSIE_211_D401-1_3 §5\.6\.6 “Selon le type/ }).click();
   const panel = page.getByRole("complementary", { name: "Source passage" });

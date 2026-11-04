@@ -3,11 +3,19 @@ import type { PlanOp, PushOpResult } from "../../../../core/types.ts";
 import { Badge } from "../../../components/ui/Badge.tsx";
 import { Icon, type IconName } from "../../../components/ui/Icon.tsx";
 import { Table } from "../../../components/ui/Table.tsx";
-import { color, space } from "../../../styles/tokens.stylex.ts";
+import { color, fontSize, lineHeight, space } from "../../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
   op: { display: "inline-flex", alignItems: "center", gap: space.s2 },
   icon: { display: "inline-flex", color: color.textMuted },
+  cell: { display: "flex", flexDirection: "column", gap: space.s1 },
+  error: {
+    paddingInlineStart: `calc(${space.s2} + ${space.s4})`,
+    fontSize: fontSize.small,
+    lineHeight: lineHeight.small,
+    color: color.danger,
+    overflowWrap: "anywhere",
+  },
 });
 
 const OP_ICON: Record<PlanOp["kind"], IconName> = {
@@ -23,17 +31,30 @@ const OP_ICON: Record<PlanOp["kind"], IconName> = {
 
 export type OpState = PushOpResult["status"] | "running";
 
-const STATE: Record<OpState, { label: string; tone: "success" | "danger" | "info" | "neutral"; busy?: boolean }> = {
-  done: { label: "Done", tone: "success" },
-  failed: { label: "Failed", tone: "danger" },
+const STATE: Record<
+  OpState,
+  { label: string; tone: "success" | "danger" | "info" | "neutral"; icon?: IconName; busy?: boolean }
+> = {
+  done: { label: "Done", tone: "success", icon: "check-circle" },
+  failed: { label: "Failed", tone: "danger", icon: "x-circle" },
   running: { label: "Running", tone: "info", busy: true },
-  "not-started": { label: "Not started", tone: "neutral" },
+  "not-started": { label: "Not started", tone: "neutral", icon: "circle-dashed" },
 };
 
 type Row = { n: number; op: PlanOp };
 
 // the operations of a push, in order: what each does, and while it runs where each one is
-export function OpsTable({ ops, state }: { ops: PlanOp[]; state?: (i: number) => OpState }) {
+export function OpsTable({
+  ops,
+  state,
+  error,
+}: {
+  ops: PlanOp[];
+  /** each operation's state; null: the column is there, still empty (the plan before the push) */
+  state?: (i: number) => OpState | null;
+  /** what Jira said of the operation it refused */
+  error?: (i: number) => string | undefined;
+}) {
   return (
     <Table<Row>
       label="Operations"
@@ -45,14 +66,20 @@ export function OpsTable({ ops, state }: { ops: PlanOp[]; state?: (i: number) =>
         {
           key: "op",
           label: "Operation",
-          render: (r) => (
-            <span {...stylex.props(styles.op)}>
-              <span {...stylex.props(styles.icon)}>
-                <Icon name={OP_ICON[r.op.kind] ?? "chevron-right"} size="sm" />
+          render: (r) => {
+            const why = error?.(r.n - 1);
+            return (
+              <span {...stylex.props(styles.cell)}>
+                <span {...stylex.props(styles.op)}>
+                  <span {...stylex.props(styles.icon)}>
+                    <Icon name={OP_ICON[r.op.kind] ?? "chevron-right"} size="sm" />
+                  </span>
+                  {r.op.label}
+                </span>
+                {why && <span {...stylex.props(styles.error)}>{why}</span>}
               </span>
-              {r.op.label}
-            </span>
-          ),
+            );
+          },
         },
         ...(state
           ? [
@@ -61,8 +88,10 @@ export function OpsTable({ ops, state }: { ops: PlanOp[]; state?: (i: number) =>
                 label: "State",
                 width: "22%",
                 render: (r: Row) => {
-                  const s = STATE[state(r.n - 1)];
-                  return <Badge label={s.label} tone={s.tone} busy={s.busy} size="sm" />;
+                  const at = state(r.n - 1);
+                  if (!at) return null;
+                  const s = STATE[at];
+                  return <Badge label={s.label} tone={s.tone} icon={s.icon} busy={s.busy} size="sm" />;
                 },
               },
             ]

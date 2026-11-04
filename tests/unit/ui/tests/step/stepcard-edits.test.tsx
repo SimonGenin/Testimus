@@ -387,7 +387,7 @@ describe("StepCard block moves", () => {
     fireEvent.click(loose);
     expect(onOpenImage).toHaveBeenCalledWith("images/loose.png", step.images);
     fireEvent.click(screen.getByRole("img", { name: "a.png" }));
-    expect(onOpenImage).toHaveBeenLastCalledWith("images/a.png", step.images);
+    expect(onOpenImage).toHaveBeenLastCalledWith("images/a.png", step.images, "Action");
     fireEvent.click(screen.getByRole("button", { name: "Detach loose.png from step 2" }));
     expect(apply().images).toEqual([img]);
     const t = toasts.at(-1) as T;

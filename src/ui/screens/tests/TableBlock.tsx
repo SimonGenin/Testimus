@@ -5,6 +5,7 @@ import { Button } from "../../components/ui/Button.tsx";
 import { addCol, addRow, dropCol, dropRow, width } from "../../lib/table.ts";
 import { border, color, fontSize, fontWeight, lineHeight, radius, space } from "../../styles/tokens.stylex.ts";
 import { FieldBlocks } from "./FieldBlocks.tsx";
+import { tableMarker } from "./markers.stylex.ts";
 import type { Moved } from "./step/moved.ts";
 
 const styles = stylex.create({
@@ -38,6 +39,13 @@ const styles = stylex.create({
   grips: { boxSizing: "border-box", borderWidth: 0, paddingBlock: space.s1, textAlign: "end" },
   gripCol: { boxSizing: "border-box", width: space.s7, borderWidth: 0, verticalAlign: "middle", textAlign: "center" },
   tools: { display: "flex", alignItems: "center", gap: space.s1 },
+  atRest: {
+    opacity: {
+      default: 0,
+      [stylex.when.ancestor(":hover", tableMarker)]: 1,
+      [stylex.when.ancestor(":focus-within", tableMarker)]: 1,
+    },
+  },
 });
 
 // ponytail: no model behind the table — the cells are slices of the field string, so every edit here,
@@ -52,6 +60,7 @@ export function TableBlock({
   label,
   stepNumber,
   readOnly,
+  lockedBy,
   grip,
   onText,
   onAddFiles,
@@ -69,6 +78,7 @@ export function TableBlock({
   label: string;
   stepNumber: number;
   readOnly?: boolean;
+  lockedBy?: "claude";
   grip?: ReactNode;
   onText: (at: number, end: number, value: string) => void;
   onAddFiles: (at: number, files: File[]) => void;
@@ -79,10 +89,12 @@ export function TableBlock({
 }) {
   const cols = width(table);
   const x = (title: string, run: () => void) => (
-    <Button variant="quiet" size="xs" iconOnly icon="close" label={title} onClick={run} />
+    <span {...stylex.props(styles.atRest)}>
+      <Button variant="quiet" size="xs" iconOnly icon="close" label={title} onClick={run} />
+    </span>
   );
   return (
-    <div {...stylex.props(styles.block)}>
+    <div {...stylex.props(styles.block, tableMarker)}>
       <div {...stylex.props(styles.wrap)}>
         <table {...stylex.props(styles.table)}>
           {!readOnly && (
@@ -125,6 +137,7 @@ export function TableBlock({
                           url={url}
                           stepNumber={stepNumber}
                           readOnly={readOnly}
+                          lockedBy={lockedBy}
                           onText={(at, end, v) => onText(c.at + at, c.at + end, v)}
                           onAddFiles={(at, files) => onAddFiles(c.at + at, files)}
                           onFieldText={(next) => onFieldText(text.slice(0, c.at) + next + text.slice(c.end))}
@@ -142,7 +155,7 @@ export function TableBlock({
         </table>
       </div>
       {!readOnly && (
-        <div {...stylex.props(styles.tools)}>
+        <div {...stylex.props(styles.tools, styles.atRest)}>
           {grip}
           <Button
             variant="quiet"

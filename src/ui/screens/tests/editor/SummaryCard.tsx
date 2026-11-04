@@ -75,6 +75,7 @@ export function SummaryCard({
           ariaLabel="Summary"
           value={test.summary}
           readOnly={readOnly}
+          autoFocus={!test.key && test.summary === "New test"}
           autosave={saveState}
           onKeyDown={(e) => {
             if (e.key === "Enter") e.preventDefault();

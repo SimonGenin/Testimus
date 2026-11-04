@@ -8,9 +8,22 @@ import { ReviewScreen } from "../../../../src/ui/screens/review/ReviewScreen.tsx
 import { clearToasts, fakeServer, item, mountReview, named, net, refused, reviewRoutes } from "./helpers.tsx";
 
 vi.mock("../../../../src/ui/screens/tests/TestEditor.tsx", () => ({
-  TestEditor: ({ testId, onOpen, onSaved }: { testId: string; onOpen: (id: string) => void; onSaved: () => void }) => (
+  TestEditor: ({
+    testId,
+    onOpen,
+    onSaved,
+    onBack,
+  }: {
+    testId: string;
+    onOpen: (id: string) => void;
+    onSaved: () => void;
+    onBack?: () => void;
+  }) => (
     <div>
       <span>Editor for {testId}</span>
+      <button type="button" onClick={onBack}>
+        Back to review
+      </button>
       <button type="button" onClick={() => onOpen("OTHER")}>
         Open other
       </button>
@@ -126,6 +139,8 @@ describe("Review screen", () => {
     });
     show();
     await screen.findByRole("heading", { name: "Summary K-1" });
+    expect(await screen.findByText("Whole-test finding · Source missing")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Close the source panel" }));
     expect(screen.queryByRole("complementary", { name: "Source passage" })).toBeNull();
     fireEvent.click(screen.getAllByRole("button", { name: /W §0/ })[0]);
     expect(await screen.findByText("Source of the whole-test finding")).toBeInTheDocument();
@@ -175,6 +190,8 @@ describe("Review screen", () => {
     const { app: a } = show({ route: { screen: "review" } });
     expect(await screen.findByText("Nothing to review")).toBeInTheDocument();
     expect(position()).toHaveTextContent("0");
+    expect(screen.queryByRole("button", { name: /^Validate/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "To fix" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Generate tests" }));
     expect(a.navigate).toHaveBeenCalledWith("generate");
     key("j");
@@ -307,7 +324,7 @@ describe("Review screen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Open a.png" }));
     expect(open).toHaveBeenCalledWith("/files/tests/K-1/a.png", "_blank");
     fireEvent.click(screen.getByRole("button", { name: "Open in document" }));
-    expect(a.navigate).toHaveBeenCalledWith("documents", 'D#§2 "q2"');
+    expect(a.navigate).toHaveBeenCalledWith("documents", 'D#§2 "q2" from K-1 step 2');
   });
 
   it("evidence picks: a step source keeps its step, another read one is labelled", async () => {
@@ -357,7 +374,7 @@ describe("Review screen", () => {
     net.routes["claude.status"] = () => ({ installed: false, signedIn: null });
     const { app: a } = show();
     await screen.findByRole("heading", { name: "Summary K-1" });
-    fireEvent.click(screen.getByRole("button", { name: "To fix", pressed: false }));
+    fireEvent.click(screen.getByRole("button", { name: "To fix", pressed: true }));
     const dlg = dialog();
     expect(within(dlg).getByLabelText(/Note for the author/)).toHaveValue("earlier note");
     expect(within(dlg).getByRole("button", { name: "Ask Claude to fix it" })).toBeDisabled();
@@ -401,8 +418,7 @@ describe("Review screen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Saved" }));
     fireEvent.click(screen.getByRole("button", { name: "Open other" }));
     expect(a.navigate).toHaveBeenCalledWith("tests", "OTHER");
-    fireEvent.click(screen.getByRole("button", { name: "Ask Claude" }));
-    expect(a.askClaude).toHaveBeenCalledWith("test");
+    expect(screen.queryByRole("button", { name: "Ask Claude" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Back to review" }));
     expect(await screen.findByRole("heading", { name: "Summary K-1" })).toBeInTheDocument();
   });
@@ -612,6 +628,8 @@ describe("Review screen", () => {
     const { app: a } = show({ route: { screen: "review", arg: "L-1" } });
     await screen.findByRole("heading", { name: "Summary L-1" });
     expect(screen.queryByText(/not checked yet/)).toBeNull();
+    expect(await screen.findByText("Whole-test finding · Source missing")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Close the source panel" }));
     fireEvent.click(screen.getAllByRole("button", { name: /W §0/ })[0]);
     expect(await screen.findByText("Source of the whole-test finding")).toBeInTheDocument();
     expect(within(step(1)).getByRole("button", { name: "Expand step 1" })).toBeInTheDocument();

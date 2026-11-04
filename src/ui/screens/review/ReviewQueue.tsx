@@ -105,9 +105,7 @@ function Counts({ item }: { item: QueueItem }) {
       />,
     );
   if (item.infos)
-    out.push(
-      <Badge key="i" size="sm" tone={quiet ? "neutral" : "info"} icon="info" label={plural(item.infos, "note")} />,
-    );
+    out.push(<Badge key="i" size="sm" tone={quiet ? "neutral" : "info"} icon="info" label={`${item.infos} info`} />);
   if (!out.length && !item.stale)
     out.push(<Badge key="ok" size="sm" tone="success" icon="check" label="No findings" />);
   if (item.stale) out.push(<Badge key="s" size="sm" icon="history" label="Changed since its check" />);
@@ -164,6 +162,7 @@ export function ReviewQueue(p: ReviewQueueProps) {
       <div {...stylex.props(styles.tools)}>
         <Segmented
           size="sm"
+          fill
           label="Filter by review state"
           value={p.filter}
           onChange={p.onFilter}
