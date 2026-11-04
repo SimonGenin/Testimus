@@ -110,7 +110,7 @@ test("Undo local changes counts what is lost and rewinds to the last sync", asyn
 test("Open in Jira opens the issue page", async ({ page }) => {
   await openTest(page, "LFRPS12-1420");
   const popup = page.waitForEvent("popup");
-  await more(page, "Open in Jira ↗");
+  await more(page, "Open in Jira");
   expect((await popup).url()).toContain("/browse/LFRPS12-1420");
 });
 

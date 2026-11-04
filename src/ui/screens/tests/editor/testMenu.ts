@@ -1,6 +1,7 @@
 import type { Test } from "../../../../core/types.ts";
 import type { MenuEntry } from "../../../components/ui/Menu.tsx";
 import type { AutosaveStatus } from "../../../lib/data/autosave.ts";
+import { lossOf } from "../../../lib/diff.ts";
 import type { EditorActions } from "./useEditorActions.ts";
 
 // why Push to Jira is off, or false — Claude first, then an edit that is not written, then Jira, then the open plan,
@@ -37,6 +38,8 @@ export function testMenu({
   actions: EditorActions;
 }): MenuEntry[] {
   const key = test.key;
+  const loss = remote && dirty ? lossOf(test, remote) : null;
+  const steps = loss ? loss.modified + loss.added + loss.deleted : 0;
   return [
     { label: "Clone", icon: "copy", hint: "saves first", onSelect: () => void actions.clone() },
     ...(key
@@ -44,7 +47,7 @@ export function testMenu({
           {
             label: "Download from Jira",
             icon: "download" as const,
-            description: "Fetch what Jira has right now and overwrite the local file",
+            hint: dirty ? "overwrites local" : undefined,
             disabled: busyDl ? "Refreshing from Jira…" : false,
             onSelect: () => void actions.askDownload(),
           },
@@ -55,7 +58,7 @@ export function testMenu({
           {
             label: "Undo local changes",
             icon: "undo" as const,
-            description: "Back to the last synced version, from the local snapshot — no network, nothing pushed",
+            hint: steps ? `${steps} changed step${steps === 1 ? "" : "s"}` : undefined,
             disabled: dirty ? false : "Only while the test differs from Jira",
             onSelect: () => actions.askUndo(),
           },
@@ -64,9 +67,8 @@ export function testMenu({
     ...(key
       ? [
           {
-            label: "Open in Jira ↗",
+            label: "Open in Jira",
             icon: "external" as const,
-            description: `Open ${key} in the browser`,
             onSelect: () => void actions.openInJira(key),
           },
         ]

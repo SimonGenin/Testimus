@@ -989,7 +989,7 @@ describe("TestEditor › Jira", () => {
     await ready();
     fireEvent.click(screen.getByRole("button", { name: "More actions for this test" }));
     expect(screen.queryByRole("menuitem", { name: "Download from Jira" })).toBeNull();
-    expect(screen.queryByRole("menuitem", { name: "Open in Jira ↗" })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: "Open in Jira" })).toBeNull();
   });
 
   it("opens the test in Jira", async () => {
@@ -998,7 +998,7 @@ describe("TestEditor › Jira", () => {
     vi.stubGlobal("open", open);
     editor();
     await ready();
-    await menuItem("Open in Jira ↗");
+    await menuItem("Open in Jira");
     await waitFor(() => expect(open).toHaveBeenCalledWith("https://jira/LFRPS12-7", "_blank", "noopener"));
   });
 
@@ -1008,6 +1008,10 @@ describe("TestEditor › Jira", () => {
     server.routes["tests.restore"] = () => ({ id: "t1", sync: "synced" });
     const { onSaved } = editor();
     await ready();
+    fireEvent.click(screen.getByRole("button", { name: "More actions for this test" }));
+    expect(await screen.findByRole("menuitem", { name: /^Undo local changes/ })).toHaveTextContent("3 changed steps");
+    expect(screen.getByRole("menuitem", { name: /^Clone/ })).toHaveTextContent("saves first");
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
     await menuItem("Undo local changes");
     const dlg = await screen.findByRole("alertdialog", { name: "Undo every local change?" });
     const lost = within(dlg)
