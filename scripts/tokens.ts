@@ -30,6 +30,7 @@ const FAMILIES: [prefix: string, name: string][] = [
   ["font-weight-", "fontWeight"],
   ["font-size-", "fontSize"],
   ["line-height-", "lineHeight"],
+  ["letter-spacing-", "letterSpacing"],
   ["duration-", "duration"],
   ["easing-", "easing"],
   ["z-", "z"],

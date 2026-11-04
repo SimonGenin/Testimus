@@ -17,7 +17,7 @@ async function open(page: Page, width: number, dock: boolean): Promise<void> {
   if (dock) await openDock(page);
   await under(page)
     .getByRole("article", { name: "Step 2", exact: true })
-    .getByRole("button", { name: /^SOSIE_211_D401-1_3 §5\.6\.6 « Selon le type/ })
+    .getByRole("button", { name: /^SOSIE_211_D401-1_3 §5\.6\.6 “Selon le type/ })
     .click();
   await expect(source(page)).toBeAttached();
 }

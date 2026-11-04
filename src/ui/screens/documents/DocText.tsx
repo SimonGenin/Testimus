@@ -1,6 +1,83 @@
+import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
-import { fileUrl } from "../../api.ts";
-import { Chip } from "../../components/legacy/index.ts";
+import { Button } from "../../components/ui/Button.tsx";
+import { fileUrl } from "../../lib/data/client.ts";
+import {
+  border,
+  color,
+  fontFamily,
+  fontSize,
+  fontWeight,
+  lineHeight,
+  radius,
+  size,
+  space,
+} from "../../styles/tokens.stylex.ts";
+
+const styles = stylex.create({
+  text: {
+    display: "flex",
+    flexDirection: "column",
+    gap: space.s4,
+    maxWidth: `calc(${size.reading} + ${size.thumb})`,
+    fontFamily: fontFamily.reading,
+    fontSize: fontSize.reading,
+    lineHeight: lineHeight.reading,
+    color: color.text,
+  },
+  row: {
+    display: "grid",
+    gridTemplateColumns: `${size.thumb} minmax(0, 1fr)`,
+    columnGap: space.s5,
+    alignItems: "baseline",
+    margin: 0,
+  },
+  gutter: {
+    justifySelf: "end",
+    fontFamily: fontFamily.mono,
+    fontSize: fontSize.code,
+    lineHeight: lineHeight.code,
+    fontWeight: fontWeight.regular,
+    color: color.textSubtle,
+    whiteSpace: "nowrap",
+  },
+  block: { minWidth: 0 },
+  figRow: { alignItems: "start" },
+  heading: {
+    fontSize: fontSize.readingHeading,
+    lineHeight: lineHeight.readingHeading,
+    fontWeight: fontWeight.semibold,
+    marginTop: space.s4,
+  },
+  para: { margin: 0 },
+  focus: { backgroundColor: color.highlight, color: color.highlightText, borderRadius: radius.r1 },
+  figure: { margin: 0, display: "flex", flexDirection: "column", gap: space.s2, alignItems: "flex-start" },
+  img: {
+    maxWidth: "100%",
+    borderStyle: "solid",
+    borderWidth: border.width,
+    borderColor: color.border,
+    borderRadius: radius.r2,
+    backgroundColor: color.surface,
+  },
+  caption: {
+    fontFamily: fontFamily.reading,
+    fontStyle: "italic",
+    fontSize: fontSize.small,
+    lineHeight: lineHeight.small,
+    color: color.textMuted,
+  },
+  table: {
+    margin: 0,
+    overflowX: "auto",
+    fontFamily: fontFamily.mono,
+    fontSize: fontSize.code,
+    lineHeight: lineHeight.code,
+    color: color.text,
+  },
+  tableRow: { display: "block", whiteSpace: "pre" },
+  empty: { color: color.textMuted, fontFamily: fontFamily.ui, fontSize: fontSize.body },
+});
 
 const clean = (s: string) => s.replace(/<!--[\s\S]*?-->/g, "").trim();
 const squeeze = (s: string) => s.replace(/\*/g, "").replace(/\s+/g, " ").trim().toLowerCase();
@@ -12,7 +89,8 @@ const isTable = (b: string) => /^\|/.test(b);
 const IMG = /!\[((?:\\.|[^\]\\])*)\]\(([^)\s]+)[^)]*\)(?:\s*<!--\s*fig\s+([\w-]+)\s*-->)?/g;
 const unbracket = (s: string) => s.replace(/\\([[\]\\])/g, "$1");
 
-type Piece = { text: string } | { alt: string; src: string; fig?: string };
+type Picture = { alt: string; src: string; fig?: string };
+type Piece = { text: string } | Picture;
 
 function pieces(raw: string): Piece[] {
   const out: Piece[] = [];
@@ -64,6 +142,9 @@ function inline(text: string): ReactNode[] {
   return out;
 }
 
+const focusMark = (hot: boolean) => (hot ? { "data-focus": "" } : {});
+
+// ponytail: a part of doc.md as React elements (never raw HTML), in the reading font, its anchors in a gutter
 export function DocText({
   docId,
   md,
@@ -77,60 +158,86 @@ export function DocText({
 }) {
   const raws = md.split(/\n{2,}/).filter((b) => clean(b));
   const hotKey = hotOf(raws.map(clean), focus);
-  const figure = (p: { alt: string; src: string; fig?: string }, key: number, hot: boolean) => (
-    <figure key={key} className={hot ? "passage-fig is-focus" : "passage-fig"}>
-      <img src={fileUrl(`docs/${docId}/${p.src}`)} alt={p.alt} />
-      <figcaption className="muted">
-        {p.fig ? (
-          <button type="button" className="linkbtn" onClick={() => onFigure(`fig:${p.fig}`)}>
-            {p.alt}
-          </button>
-        ) : (
-          p.alt
-        )}
+  const picture = (p: Picture, key: number, hot: boolean) => (
+    <figure key={key} {...focusMark(hot)} {...stylex.props(styles.figure, hot && styles.focus)}>
+      <img src={fileUrl(`docs/${docId}/${p.src}`)} alt={p.alt} {...stylex.props(styles.img)} />
+      <figcaption {...stylex.props(styles.caption)}>
+        {p.fig ? <Button size="sm" variant="quiet" label={p.alt} onClick={() => onFigure(`fig:${p.fig}`)} /> : p.alt}
       </figcaption>
     </figure>
   );
   return (
-    <div className="doctext">
+    <div data-testid="doc-text" {...stylex.props(styles.text)}>
       {raws.map((raw, i) => {
         const b = clean(raw);
         const hot = hotKey === `${i}`;
         const head = b.match(/^(#{1,6})\s+(.*)$/);
-        if (head && !b.includes("\n"))
+        if (head && !b.includes("\n")) {
+          const numbered = head[2].match(/^(\d+(?:\.\d+)*)\s+(.*)$/);
           return (
-            <h4 key={i} className={hot ? "h doctext-h is-focus" : "h doctext-h"} data-level={head[1].length}>
-              {head[2]}
+            <h4
+              key={i}
+              data-level={head[1].length}
+              {...focusMark(hot)}
+              {...stylex.props(styles.row, styles.heading, hot && styles.focus)}
+            >
+              <span {...stylex.props(styles.gutter)}>
+                {numbered && (
+                  <>
+                    <span aria-hidden="true">§ </span>
+                    {numbered[1]}
+                  </>
+                )}
+              </span>{" "}
+              <span {...stylex.props(styles.block)}>{numbered ? numbered[2] : head[2]}</span>
             </h4>
           );
-        const parts = isTable(b) ? [] : pieces(raw);
-        const only = parts.length === 1 ? parts[0] : null;
-        if (only && "src" in only) return figure(only, i, hot);
+        }
         if (isTable(b))
           return (
-            <pre key={i} className="doctext-table">
-              {b.split("\n").map((row, j) => (
-                <span key={j} className={hotKey === `${i}:${j}` ? "doctext-row is-focus" : "doctext-row"}>
-                  {row}
-                </span>
-              ))}
-            </pre>
+            <div key={i} {...stylex.props(styles.row)}>
+              <span {...stylex.props(styles.gutter)} />
+              <pre {...stylex.props(styles.table)}>
+                {b.split("\n").map((line, j) => {
+                  const on = hotKey === `${i}:${j}`;
+                  return (
+                    <span key={j} {...focusMark(on)} {...stylex.props(styles.tableRow, on && styles.focus)}>
+                      {line}
+                    </span>
+                  );
+                })}
+              </pre>
+            </div>
+          );
+        const parts = pieces(raw);
+        const only = parts.length === 1 ? parts[0] : null;
+        if (only && "src" in only)
+          return (
+            <div key={i} {...stylex.props(styles.row, styles.figRow)}>
+              <span aria-hidden="true" {...stylex.props(styles.gutter)}>
+                {only.fig ? `fig ${only.fig}` : ""}
+              </span>
+              {picture(only, i, hot)}
+            </div>
           );
         return (
-          <div key={i} className={hot ? "doctext-p is-focus" : "doctext-p"}>
-            {parts.map((p, j) => ("src" in p ? figure(p, j, false) : <p key={j}>{inline(p.text)}</p>))}
+          <div key={i} {...stylex.props(styles.row)}>
+            <span {...stylex.props(styles.gutter)} />
+            <div {...focusMark(hot)} {...stylex.props(styles.block, hot && styles.focus)}>
+              {parts.map((p, j) =>
+                "src" in p ? (
+                  picture(p, j, false)
+                ) : (
+                  <p key={j} {...stylex.props(styles.para)}>
+                    {inline(p.text)}
+                  </p>
+                ),
+              )}
+            </div>
           </div>
         );
       })}
-      {!raws.length && <p className="muted">This part of the document is empty.</p>}
+      {!raws.length && <p {...stylex.props(styles.empty)}>This part of the document is empty.</p>}
     </div>
-  );
-}
-
-export function FigureChip({ caption, onClick }: { caption: string; onClick: () => void }) {
-  return (
-    <Chip icon="image" onClick={onClick}>
-      {caption}
-    </Chip>
   );
 }

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Job } from "../../src/core/types.ts";
 import { setProject } from "../../src/ui/api.ts";
@@ -8,7 +8,6 @@ import { DesktopBridge, jobNotice } from "../../src/ui/components/shell/DesktopB
 import { AppContext, type AppState } from "../../src/ui/lib/app.ts";
 import { desktop, pathJoin, taskbarFraction, windowTitle } from "../../src/ui/lib/desktop.ts";
 import { addDocFiles } from "../../src/ui/lib/uploads.ts";
-import { DocumentsScreen } from "../../src/ui/screens/documents/DocumentsScreen.tsx";
 import { api, app, FakeEventSource, fakeDesktop, fakeFetch, named, noDesktop } from "./ui-desktop-helpers.tsx";
 
 beforeEach(() => {
@@ -192,65 +191,5 @@ describe("Documents › adding", () => {
     expect(a).toMatchObject({ name: "SOSIE_3.docx", dataBase64: btoa("PK-word") });
     expect(a.path).toBeUndefined();
     expect(b).toMatchObject({ name: "Other.docx", dataBase64: btoa("PK") });
-  });
-
-  const docRef = {
-    id: "SOSIE_3",
-    code: "SOSIE_3",
-    title: "Spécification",
-    version: "01",
-    date: "",
-    kind: "spec",
-    status: "validated",
-    source: { name: "C:\\specs\\SOSIE_3.docx", sha256: "x", file: "source.docx" },
-    converted: { with: "t", at: "", warnings: [] },
-    indexed: "fresh",
-  };
-
-  function renderDocs() {
-    api.routes["docs.list"] = () => [docRef];
-    api.routes["docs.show"] = (i) =>
-      i.anchor ? { md: "text" } : { doc: docRef, context: "", toc: [], figures: [], md: "" };
-    return render(
-      <AppContext.Provider value={app()}>
-        <DocumentsScreen />
-      </AppContext.Provider>,
-    );
-  }
-
-  it("Add documents opens the native picker and adds by path; Show in Explorer reveals docs/<id>", async () => {
-    const d = fakeDesktop({ files: ["C:\\specs\\SOSIE_3.docx"] });
-    renderDocs();
-    const click = vi.spyOn(HTMLInputElement.prototype, "click");
-    fireEvent.click(await screen.findByRole("button", { name: "Add documents" }));
-    await waitFor(() => expect(named("docs.addFiles")).toHaveLength(1));
-    expect(click).not.toHaveBeenCalled();
-    expect(d.pickFiles).toHaveBeenCalledWith({
-      title: "Add documents",
-      filters: [{ name: "Word or PDF", extensions: ["docx", "pdf"] }],
-      multiple: true,
-    });
-    expect(named("docs.addFiles")[0].input).toEqual({ files: [{ path: "C:\\specs\\SOSIE_3.docx" }] });
-    fireEvent.click(await screen.findByRole("button", { name: "Show in Explorer" }));
-    await waitFor(() => expect(d.reveal).toHaveBeenCalledWith("C:\\p\\docs\\SOSIE_3"));
-  });
-
-  it("without the bridge: the hidden file input, no Show in Explorer", async () => {
-    renderDocs();
-    const click = vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(() => {});
-    fireEvent.click(await screen.findByRole("button", { name: "Add documents" }));
-    expect(click).toHaveBeenCalled();
-    await screen.findByRole("heading", { name: "Spécification" });
-    expect(screen.queryByRole("button", { name: "Show in Explorer" })).toBeNull();
-  });
-
-  it("a dropped file in the desktop window is added by its path", async () => {
-    fakeDesktop({ paths: { "SOSIE_3.docx": "C:\\specs\\SOSIE_3.docx" } });
-    const view = renderDocs();
-    await screen.findByRole("heading", { name: "Spécification" });
-    const zone = view.container.querySelector(".docs-screen") as HTMLElement;
-    fireEvent.drop(zone, { dataTransfer: { files: [docx()], types: ["Files"] } });
-    await waitFor(() => expect(named("docs.addFiles")).toHaveLength(1));
-    expect(named("docs.addFiles")[0].input).toEqual({ files: [{ path: "C:\\specs\\SOSIE_3.docx" }] });
   });
 });

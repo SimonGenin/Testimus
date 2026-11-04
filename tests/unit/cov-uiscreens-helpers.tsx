@@ -4,6 +4,7 @@ import { vi } from "vitest";
 import { Toasts } from "../../src/ui/components/legacy/index.ts";
 import { AppContext, type AppState } from "../../src/ui/lib/app.ts";
 import { closeToast, useToasts } from "../../src/ui/lib/toast.ts";
+import { dataWrapper } from "./cov-uishell-helpers.tsx";
 import { app } from "./ui-desktop-helpers.tsx";
 
 configure({ asyncUtilTimeout: 4000 });
@@ -15,6 +16,7 @@ export function mount(ui: ReactNode, over: Partial<AppState> = {}) {
       {ui}
       <Toasts />
     </AppContext.Provider>,
+    { wrapper: dataWrapper() },
   );
   const rerender = (next: ReactNode, more: Partial<AppState> = {}) => {
     Object.assign(a, more);

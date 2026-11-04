@@ -1,13 +1,23 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { project, setProject } from "../../src/ui/api.ts";
 import { App, parseRoute } from "../../src/ui/app/App.tsx";
 import type { DockRequest } from "../../src/ui/components/claude/ClaudeDock.tsx";
 import { resetDoctor } from "../../src/ui/lib/doctor.ts";
 import { closeToast, useToasts } from "../../src/ui/lib/toast.ts";
-import { callsOf, Fail, FakeES, fakeEvents, fakeNet, job, net, status } from "./cov-uishell-helpers.tsx";
+import {
+  callsOf,
+  Fail,
+  FakeES,
+  fakeEvents,
+  fakeNet,
+  job,
+  net,
+  renderWithData,
+  status,
+} from "./cov-uishell-helpers.tsx";
 import { app as appState, xray } from "./ui-desktop-helpers.tsx";
 
 vi.mock("../../src/ui/screens/tests/TestsScreen.tsx", async () => ({
@@ -97,7 +107,7 @@ afterEach(() => {
 });
 
 const mount = () =>
-  render(
+  renderWithData(
     <>
       <App />
       <Probe />
@@ -347,9 +357,9 @@ describe("App routing and layout", () => {
     };
     mount();
     fireEvent.click(await screen.findByRole("button", { name: "source from Tests screen" }));
-    expect(await screen.findByRole("dialog", { name: "Source D §1" })).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "D §1" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
-    expect(screen.queryByRole("dialog", { name: "Source D §1" })).toBeNull();
+    expect(screen.queryByRole("dialog", { name: "D §1" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "source from Tests screen" }));
     fireEvent.click(await screen.findByRole("button", { name: /Open in document/ }));
     await hashIs(`#/documents/${encodeURIComponent('D#§1 "q"')}`);
