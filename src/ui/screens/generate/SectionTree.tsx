@@ -1,10 +1,62 @@
-import { useEffect, useMemo, useState } from "react";
-import { call } from "../../api.ts";
-import { Icon, Skeleton } from "../../components/legacy/index.ts";
-import { cx } from "../../lib/format.ts";
+import * as stylex from "@stylexjs/stylex";
+import { useMemo, useState } from "react";
+import { Button } from "../../components/ui/Button.tsx";
+import { Checkbox } from "../../components/ui/Checkbox.tsx";
+import { Popover } from "../../components/ui/Popover.tsx";
+import { Skeleton } from "../../components/ui/Skeleton.tsx";
+import { useRead } from "../../lib/data/query.ts";
 import { flip, ownText, parents, type TocEntry, tick } from "../../lib/scope.ts";
+import { border, color, fontSize, lineHeight, size, space } from "../../styles/tokens.stylex.ts";
+
+const styles = stylex.create({
+  tree: {
+    listStyle: "none",
+    margin: 0,
+    paddingBlock: space.s2,
+    paddingInline: space.s3,
+    display: "flex",
+    flexDirection: "column",
+    gap: space.s1,
+    borderTopStyle: "solid",
+    borderTopWidth: border.width,
+    borderTopColor: color.border,
+    backgroundColor: color.surfaceSunken,
+  },
+  row: { display: "flex", alignItems: "center", gap: space.s2, minHeight: size.row },
+  twisty: { width: size.controlSm, flexShrink: 0 },
+  label: { flex: 1, minWidth: 0 },
+  text: {
+    display: "flex",
+    flexDirection: "column",
+    gap: space.s3,
+    maxWidth: size.reading,
+    fontSize: fontSize.compact,
+    lineHeight: lineHeight.compact,
+    color: color.text,
+  },
+  para: { margin: 0 },
+  muted: { margin: 0, fontSize: fontSize.compact, color: color.textSubtle },
+  empty: { margin: 0, padding: space.s3, fontSize: fontSize.compact, color: color.textSubtle },
+});
 
 const number = (a: string) => (a.startsWith("§") ? a.slice(1) : "");
+
+function SectionText({ docId, anchor }: { docId: string; anchor: string }) {
+  const r = useRead("docs.show", { id: docId, anchor });
+  if (r.isPending) return <Skeleton lines={3} />;
+  if (r.isError) return <p {...stylex.props(styles.muted)}>Could not read this section — try again.</p>;
+  const paras = ownText((r.data as { md?: string } | null)?.md ?? "");
+  if (!paras.length) return <p {...stylex.props(styles.muted)}>No text under this heading — only sub-sections.</p>;
+  return (
+    <div {...stylex.props(styles.text)}>
+      {paras.map((p, k) => (
+        <p key={k} {...stylex.props(styles.para)}>
+          {p}
+        </p>
+      ))}
+    </div>
+  );
+}
 
 export function SectionTree({
   docId,
@@ -15,24 +67,18 @@ export function SectionTree({
   picked: string[];
   onChange: (anchors: string[]) => void;
 }) {
-  const [toc, setToc] = useState<TocEntry[] | null>(null);
+  const r = useRead("docs.show", { id: docId });
+  const toc = r.isPending ? null : ((r.data as { toc?: TocEntry[] } | null)?.toc ?? []);
   const [open, setOpen] = useState<Set<number>>(new Set());
-  const [text, setText] = useState<Record<string, string[] | "loading" | "error">>({});
-  useEffect(() => {
-    call<{ toc: TocEntry[] }>("docs.show", { id: docId })
-      .then((r) => setToc(r?.toc ?? []))
-      .catch(() => setToc([]));
-  }, [docId]);
   const up = useMemo(() => (toc ? parents(toc) : []), [toc]);
 
   if (!toc)
     return (
-      <div className="stree" aria-busy="true">
-        <Skeleton w="60%" h={14} />
-        <Skeleton w="45%" h={14} />
+      <div aria-busy="true" {...stylex.props(styles.tree)}>
+        <Skeleton lines={2} />
       </div>
     );
-  if (!toc.length) return <p className="muted stree-empty">This document has no headings to pick from.</p>;
+  if (!toc.length) return <p {...stylex.props(styles.empty)}>This document has no headings to pick from.</p>;
 
   const hasKids = (i: number) => up.some((p) => p === i);
   const shown = (i: number) => {
@@ -46,81 +92,47 @@ export function SectionTree({
       else n.add(i);
       return n;
     });
-  const read = (anchor: string) => {
-    if (text[anchor]) {
-      const { [anchor]: _, ...rest } = text;
-      setText(rest);
-      return;
-    }
-    setText((t) => ({ ...t, [anchor]: "loading" }));
-    call<{ md: string }>("docs.show", { id: docId, anchor })
-      .then((r) => setText((t) => ({ ...t, [anchor]: ownText(r?.md ?? "") })))
-      .catch(() => setText((t) => ({ ...t, [anchor]: "error" })));
-  };
-
   const base = Math.min(...toc.map((t) => t.level));
   return (
-    <ul className="stree" aria-label="Sections">
+    <ul aria-label="Sections" {...stylex.props(styles.tree)}>
       {toc.map((t, i) => {
         if (!shown(i)) return null;
         const state = tick(toc, up, picked, i);
-        const body = text[t.anchor];
+        const n = number(t.anchor);
         return (
-          <li key={t.anchor} style={{ paddingLeft: (t.level - base) * 22 }}>
-            <div className="stree-row">
-              {hasKids(i) ? (
-                <button
-                  type="button"
-                  className="stree-tw"
-                  aria-expanded={open.has(i)}
-                  aria-label={`${open.has(i) ? "Fold" : "Unfold"} ${t.title}`}
+          <li
+            key={t.anchor}
+            {...stylex.props(styles.row)}
+            style={{ paddingInlineStart: `calc(${size.iconLg} * ${t.level - base})` }}
+          >
+            <span {...stylex.props(styles.twisty)}>
+              {hasKids(i) && (
+                <Button
+                  variant="quiet"
+                  size="sm"
+                  iconOnly
+                  icon={open.has(i) ? "chevron-down" : "chevron-right"}
+                  label={`${open.has(i) ? "Fold" : "Unfold"} ${t.title}`}
+                  expanded={open.has(i)}
                   onClick={() => toggle(i)}
-                >
-                  <Icon name={open.has(i) ? "down" : "right"} />
-                </button>
-              ) : (
-                <span className="stree-tw" aria-hidden="true" />
-              )}
-              <label className="stree-label">
-                <input
-                  type="checkbox"
-                  checked={state === "on"}
-                  ref={(el) => {
-                    if (el) el.indeterminate = state === "mixed";
-                  }}
-                  onChange={() => onChange(flip(toc, up, picked, i))}
                 />
-                {number(t.anchor) && <span className="mono stree-num">{number(t.anchor)}</span>}
-                <span className={cx(state === "on" && "stree-on")}>{t.title}</span>
-              </label>
-              <button
-                type="button"
-                className="linkbtn stree-read"
-                aria-expanded={!!body}
-                onClick={() => read(t.anchor)}
-              >
-                {body ? "Hide text" : "Text"}
-              </button>
-            </div>
-            {body === "loading" && (
-              <div className="stree-text">
-                <Skeleton w="80%" h={12} />
-              </div>
-            )}
-            {body === "error" && (
-              <div className="stree-text">
-                <p className="muted">Could not read this section — try again.</p>
-              </div>
-            )}
-            {Array.isArray(body) && (
-              <div className="stree-text">
-                {body.length ? (
-                  body.map((p, k) => <p key={k}>{p}</p>)
-                ) : (
-                  <p className="muted">No text under this heading — only sub-sections.</p>
-                )}
-              </div>
-            )}
+              )}
+            </span>
+            <span {...stylex.props(styles.label)}>
+              <Checkbox
+                checked={state === "on" ? true : state === "mixed" ? "mixed" : false}
+                label={n ? `${n} ${t.title}` : t.title}
+                onChange={() => onChange(flip(toc, up, picked, i))}
+              />
+            </span>
+            <Popover
+              title={n ? `${n} ${t.title}` : t.title}
+              icon="section"
+              width="md"
+              trigger={<Button variant="quiet" size="sm" iconOnly icon="eye" label="Text" />}
+            >
+              <SectionText docId={docId} anchor={t.anchor} />
+            </Popover>
           </li>
         );
       })}
