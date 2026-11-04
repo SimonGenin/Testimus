@@ -80,6 +80,7 @@ beforeEach(() => {
   errors.length = 0;
   cancels.length = 0;
   localStorage.clear();
+  setProject("C:\\p");
   watchPull("");
 });
 
@@ -184,7 +185,7 @@ describe("pulls", () => {
     act(() => cancelPull(h.result.current[0]));
     expect(cancels).toEqual([]);
     act(() => runOf("K-6").onStart?.("boom"));
-    await waitFor(() => expect(cancels).toEqual([{ id: "boom", project: undefined }]));
+    await waitFor(() => expect(cancels).toEqual([{ id: "boom", project: encodeURIComponent("C:\\p") }]));
     await act(async () => runOf("K-6").done.reject(new Error("cancelled")));
     expect(errors).toEqual([]);
   });
