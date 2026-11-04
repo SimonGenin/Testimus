@@ -107,11 +107,16 @@ export function DocHead({
           },
         ]
       : []),
+    {
+      label: "Copy the document id",
+      icon: "copy",
+      onSelect: () => void navigator.clipboard?.writeText(doc.id).catch(() => {}),
+    },
   ];
   const entries: MenuEntry[] = [
     ...before,
-    ...(before.length ? ["separator" as const] : []),
-    { label: "Delete", icon: "trash", danger: true, onSelect: onDelete },
+    "separator",
+    { label: "Delete this document…", icon: "trash", danger: true, onSelect: onDelete },
   ];
   return (
     <header {...stylex.props(styles.head)}>
@@ -147,7 +152,7 @@ export function DocHead({
         </span>
       </div>
       <div {...stylex.props(styles.acts)}>
-        {reading && figures > 0 && (
+        {reading && (
           <Tabs
             label="Document views"
             size="sm"

@@ -48,7 +48,7 @@ const styles = stylex.create({
     color: color.text,
   },
   desc: { fontSize: fontSize.compact, lineHeight: lineHeight.compact, color: color.textMuted },
-  none: { fontSize: fontSize.compact, lineHeight: lineHeight.compact, color: color.textSubtle, fontStyle: "italic" },
+  none: { fontSize: fontSize.compact, lineHeight: lineHeight.compact, color: color.textSubtle },
 });
 
 export function columnTag(c: StepColumn): { label: string; tone: BadgeTone } {
@@ -73,8 +73,8 @@ export function ColumnsView({ columns, onEdit }: { columns: StepColumn[]; onEdit
         <span {...stylex.props(styles.grow)} />
         <Button
           size="sm"
-          variant={fresh ? "primary" : "quiet"}
-          icon="columns"
+          variant={fresh ? "claude-quiet" : "quiet"}
+          icon={fresh ? "claude" : "columns"}
           label={fresh ? "Define the columns" : "Edit in Settings"}
           onClick={onEdit}
         />

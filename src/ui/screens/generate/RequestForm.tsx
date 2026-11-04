@@ -112,7 +112,7 @@ export function RequestForm({
             onAddDocuments={onAddDocuments}
           />
         </div>
-        <ColumnsView columns={columns} onEdit={onColumns} />
+        {docs && docs.length > 0 && <ColumnsView columns={columns} onEdit={onColumns} />}
         <Text
           label="Xray folder"
           placeholder="Empty: Claude suggests one per test"

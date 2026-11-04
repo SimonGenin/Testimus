@@ -4,8 +4,9 @@ import type { Job, JobEvent } from "../../../core/types.ts";
 import { Badge } from "../../components/ui/Badge.tsx";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
-import { Disclosure } from "../../components/ui/Disclosure.tsx";
+import { Icon } from "../../components/ui/Icon.tsx";
 import { Progress } from "../../components/ui/Progress.tsx";
+import { Spinner } from "../../components/ui/Spinner.tsx";
 import { plural } from "../../lib/format.ts";
 import { duration } from "../../lib/jobs.ts";
 import { color, fontFamily, fontSize, fontWeight, lineHeight, space } from "../../styles/tokens.stylex.ts";
@@ -31,6 +32,23 @@ export type GenOutput = {
 const styles = stylex.create({
   head: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s3 },
   titles: { display: "flex", flexDirection: "column", gap: space.s1, minWidth: 0, flex: 1 },
+  over: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: space.s2,
+    fontSize: fontSize.small,
+    lineHeight: lineHeight.small,
+    fontWeight: fontWeight.medium,
+    color: color.claudeText,
+  },
+  spin: { display: "inline-flex", alignSelf: "flex-start", marginTop: space.s2, color: color.claude },
+  jobId: { fontFamily: fontFamily.mono, fontSize: fontSize.code },
+  clock: {
+    fontFamily: fontFamily.mono,
+    fontSize: fontSize.code,
+    color: color.claudeText,
+    fontVariantNumeric: "tabular-nums",
+  },
   title: {
     margin: 0,
     fontSize: fontSize.title,
@@ -43,15 +61,29 @@ const styles = stylex.create({
   body: { display: "flex", flexDirection: "column", gap: space.s3 },
   line: { margin: 0, fontSize: fontSize.body, lineHeight: lineHeight.body, color: color.text },
   muted: { margin: 0, fontSize: fontSize.compact, lineHeight: lineHeight.compact, color: color.textMuted },
-  skipped: {
-    boxSizing: "border-box",
+  cov: { display: "flex", flexDirection: "column", gap: space.s2 },
+  caption: {
     margin: 0,
-    paddingInlineStart: space.s5,
+    fontSize: fontSize.caption,
+    lineHeight: lineHeight.caption,
+    fontWeight: fontWeight.medium,
+    color: color.textMuted,
+  },
+  skipped: {
+    margin: 0,
+    padding: 0,
+    listStyle: "none",
     display: "flex",
     flexDirection: "column",
     gap: space.s2,
+    fontSize: fontSize.compact,
+    lineHeight: lineHeight.compact,
   },
-  item: { fontFamily: fontFamily.mono, fontSize: fontSize.code },
+  no: { display: "flex", alignItems: "flex-start", gap: space.s2, minWidth: 0 },
+  noIcon: { display: "inline-flex", flex: "none", marginTop: space.s1, color: color.warning },
+  noBody: { display: "flex", flexDirection: "column", gap: space.s1, minWidth: 0 },
+  why: { color: color.textMuted },
+  item: { fontFamily: fontFamily.mono, fontSize: fontSize.code, overflowWrap: "anywhere" },
 });
 
 const writingOf = (m: string) => m.match(/Writing (local-[0-9a-f]{8})/i)?.[1]?.toLowerCase();
@@ -104,11 +136,13 @@ export type RunHeadProps = {
 
 function Head({
   badge,
+  over,
   title,
   meta,
   actions,
 }: {
   badge: ReactNode;
+  over?: ReactNode;
   title?: string;
   meta?: string;
   actions: ReactNode;
@@ -118,6 +152,7 @@ function Head({
       {badge}
       {(title || meta) && (
         <div {...stylex.props(styles.titles)}>
+          {over && <span {...stylex.props(styles.over)}>{over}</span>}
           {title && <h2 {...stylex.props(styles.title)}>{title}</h2>}
           {meta && <span {...stylex.props(styles.meta)}>{meta}</span>}
         </div>
@@ -155,11 +190,24 @@ export function RunHead({
     return (
       <div {...stylex.props(styles.body)}>
         <Head
-          badge={<Badge tone="claude" busy label="Claude is writing" />}
+          badge={
+            <span {...stylex.props(styles.spin)}>
+              <Spinner />
+            </span>
+          }
+          over={
+            <>
+              <Icon name="claude" size="sm" />
+              <span>Claude is writing</span>·<span {...stylex.props(styles.jobId)}>{job.id}</span>
+            </>
+          }
           title={count ? `${plural(count, "test")} so far` : doing}
-          meta={`${duration(job, now)} · ${plural(read, "passage")} read`}
+          meta={`${plural(read, "passage")} read`}
           actions={
             <>
+              <span role="timer" aria-label="Time since it started" {...stylex.props(styles.clock)}>
+                {duration(job, now)}
+              </span>
               {foldAll}
               <Button size="sm" icon="stop" label="Cancel" onClick={onCancel} />
             </>
@@ -235,15 +283,24 @@ export function GenSummary({ result, checked }: { result: GenOutput; checked: st
         </p>
       )}
       {skipped.length > 0 && (
-        <Disclosure summary="Skipped" meta={plural(skipped.length, "item")} defaultOpen>
+        <section aria-labelledby="gen-not-covered" {...stylex.props(styles.cov)}>
+          <h3 id="gen-not-covered" {...stylex.props(styles.caption)}>
+            Not covered · {skipped.length} — and why
+          </h3>
           <ul {...stylex.props(styles.skipped)}>
             {skipped.map((u) => (
-              <li key={u.item} {...stylex.props(styles.line)}>
-                <span {...stylex.props(styles.item)}>{u.item}</span> — {u.why}
+              <li key={u.item} {...stylex.props(styles.no)}>
+                <span {...stylex.props(styles.noIcon)}>
+                  <Icon name="alert-triangle" size="sm" />
+                </span>
+                <span {...stylex.props(styles.noBody)}>
+                  <span {...stylex.props(styles.item)}>{u.item}</span>
+                  <span {...stylex.props(styles.why)}>{u.why}</span>
+                </span>
               </li>
             ))}
           </ul>
-        </Disclosure>
+        </section>
       )}
       {result.changed.length > 0 && (
         <Banner tone="warning" compact>
