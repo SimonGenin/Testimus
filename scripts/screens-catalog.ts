@@ -620,7 +620,7 @@ function fixtureShots(): Shot[] {
       hash: "#/settings/models",
       prep: async (p) => {
         await tap(p, /^(Change|Choose)…/);
-        await dialog(p, "Models folder");
+        await dialog(p, /models folder|Where should models be stored/i);
       },
     },
     {
@@ -1167,7 +1167,7 @@ export function SCENARIOS(essai: string): Scenario[] {
               .getByRole("button", { name: /^(Download|Use)/ })
               .first();
             if (await go.isVisible().catch(() => false)) await go.click();
-            await dialog(p, "Models folder");
+            await dialog(p, /models folder|Where should models be stored/i);
           },
         },
       ],

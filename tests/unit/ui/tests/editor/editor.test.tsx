@@ -1400,9 +1400,16 @@ describe("TestEditor › a gesture over an edit that could not be saved (review 
   it("a change on disk under the edit keeps Push off and says so", async () => {
     show = { sync: "modified", mtime: 1 };
     const { again } = editor();
-    await typed();
+    await screen.findByLabelText("Description");
+    // ponytail: the disk moves on before the edit, and a save sent over an older version is a conflict, as in the
+    // core — so whether the 400 ms save or the reload on focus comes first, the edit meets the change on disk
     show = { sync: "modified", mtime: 9 };
     shown = makeTest({ description: "theirs" });
+    server.routes["tests.save"] = (input) => {
+      if (input.ifMtime !== show.mtime) throw new Fail("test.md changed on disk.", undefined, 409, "conflict");
+      return { id: input.id, sync: "modified", mtime: show.mtime };
+    };
+    await typed();
     focusWindow();
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Push to Jira" })).toHaveAccessibleDescription(/changed on disk/),
