@@ -103,6 +103,7 @@ export function DockLog({
     <div ref={scroller} aria-live="polite" {...stylex.props(styles.body)}>
       {offline && status ? (
         <ConnectClaude
+          look="dock"
           status={status}
           checking={checking}
           onCheck={onCheck}

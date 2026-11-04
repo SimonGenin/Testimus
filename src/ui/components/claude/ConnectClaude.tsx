@@ -12,6 +12,7 @@ import {
 } from "../../styles/tokens.stylex.ts";
 import { Badge } from "../ui/Badge.tsx";
 import { Button } from "../ui/Button.tsx";
+import { Icon } from "../ui/Icon.tsx";
 
 export type ClaudeStatus = {
   installed: boolean;
@@ -25,6 +26,14 @@ export type ClaudeStatus = {
 
 const styles = stylex.create({
   panel: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: space.s4 },
+  framed: {
+    alignSelf: "stretch",
+    gap: space.s3,
+    paddingBlock: space.s4,
+    paddingInline: space.s4,
+    borderRadius: radius.r3,
+    backgroundColor: color.surfaceSunken,
+  },
   title: {
     margin: 0,
     fontSize: fontSize.title,
@@ -32,7 +41,16 @@ const styles = stylex.create({
     fontWeight: fontWeight.semibold,
     color: color.text,
   },
+  titleSm: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: space.s2,
+    fontSize: fontSize.titleSm,
+    lineHeight: lineHeight.titleSm,
+  },
+  mark: { display: "inline-flex", color: color.claudeText },
   text: { margin: 0, fontSize: fontSize.body, lineHeight: lineHeight.body, color: color.textMuted },
+  strong: { fontWeight: fontWeight.semibold, color: color.text },
   steps: {
     listStyle: "none",
     margin: 0,
@@ -41,30 +59,25 @@ const styles = stylex.create({
     flexDirection: "column",
     gap: space.s4,
     alignSelf: "stretch",
-    counterReset: "step",
   },
-  step: {
-    display: "grid",
-    gridTemplateColumns: `${size.controlSm} 1fr`,
-    columnGap: space.s3,
-    rowGap: space.s2,
-    counterIncrement: "step",
-    "::before": {
-      content: "counter(step)",
-      gridRow: "1 / span 3",
-      display: "inline-flex",
-      alignItems: "center",
-      justifyContent: "center",
-      width: size.controlSm,
-      height: size.controlSm,
-      borderRadius: radius.full,
-      backgroundColor: color.surfaceSunken,
-      fontSize: fontSize.small,
-      fontWeight: fontWeight.semibold,
-      color: color.textMuted,
-    },
+  stepsTight: { gap: space.s3 },
+  step: { display: "grid", gridTemplateColumns: "1fr", rowGap: space.s2 },
+  stepNumbered: { gridTemplateColumns: `${size.controlSm} 1fr`, columnGap: space.s3 },
+  num: {
+    gridRow: "1 / span 3",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: size.controlSm,
+    height: size.controlSm,
+    borderRadius: radius.full,
+    backgroundColor: color.surfaceSunken,
+    fontSize: fontSize.small,
+    fontWeight: fontWeight.semibold,
+    color: color.textMuted,
   },
   stepTitle: { fontSize: fontSize.body, lineHeight: lineHeight.body, fontWeight: fontWeight.semibold },
+  stepTitlePlain: { fontWeight: fontWeight.medium },
   cmd: { display: "flex", alignItems: "flex-start", gap: space.s2, minWidth: 0 },
   code: {
     flex: 1,
@@ -78,6 +91,7 @@ const styles = stylex.create({
     lineHeight: lineHeight.code,
     overflowWrap: "anywhere",
   },
+  codeOnSunken: { backgroundColor: color.surface },
   hint: { fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textSubtle },
   sawLabel: { fontSize: fontSize.small, fontWeight: fontWeight.semibold, color: color.textMuted },
   saw: {
@@ -91,6 +105,15 @@ const styles = stylex.create({
     fontSize: fontSize.code,
     lineHeight: lineHeight.code,
     color: color.textMuted,
+    whiteSpace: "pre-wrap",
+    overflowWrap: "anywhere",
+  },
+  sawLine: {
+    margin: 0,
+    fontFamily: fontFamily.mono,
+    fontSize: fontSize.small,
+    lineHeight: lineHeight.small,
+    color: color.textSubtle,
     whiteSpace: "pre-wrap",
     overflowWrap: "anywhere",
   },
@@ -117,37 +140,53 @@ const copy = (cmd: string) =>
     .then(() => toast({ kind: "info", title: "Command copied", detail: cmd }))
     .catch((e) => errorToast(e, "Could not copy the command"));
 
+// ponytail: how to connect Claude, drawn three ways by the design — `card` on a screen (Generate: a title with the
+// Claude mark, numbered words, the probe's answer on one line), `dock` (a badge, numbered rounds, « What Testimus
+// saw »), `panel` in Settings (a sunken box under the program field, which already says what the probe answered)
 export function ConnectClaude({
   status,
   checking,
   onCheck,
   onDoctor,
   onSetPath,
+  look = "card",
 }: {
   status: ClaudeStatus;
   checking: boolean;
   onCheck: () => void;
   onDoctor?: () => void;
   onSetPath?: () => void;
+  look?: "card" | "dock" | "panel";
 }) {
   const installed = status.installed;
   const steps = status.connect?.length ? status.connect : installed ? LOGIN : INSTALL;
+  const dock = look === "dock";
+  const panel = look === "panel";
   return (
-    <div {...stylex.props(styles.panel)}>
-      <Badge tone="danger" icon="plug" label={installed ? "Signed out" : "Not connected"} />
-      <h3 {...stylex.props(styles.title)}>
+    <div {...stylex.props(styles.panel, panel && styles.framed)}>
+      {dock && <Badge tone="danger" icon="plug" label={installed ? "Signed out" : "Not connected"} />}
+      <h3 {...stylex.props(styles.title, !dock && styles.titleSm)}>
+        {look === "card" && (
+          <span {...stylex.props(styles.mark)}>
+            <Icon name="claude" />
+          </span>
+        )}
         {installed ? "Claude isn't signed in on this PC yet" : "Claude isn't installed on this PC yet"}
       </h3>
       <p {...stylex.props(styles.text)}>
-        Claude is optional — everything else works without it. Writing, checking and asking the documents need it.
-        Everything else — editing, review, push — works now.
+        <span {...stylex.props(!dock && styles.strong)}>Claude is optional — everything else works without it.</span>{" "}
+        Writing, checking and asking the documents need it; editing, review and push work now.
       </p>
-      <ol {...stylex.props(styles.steps)}>
-        {steps.map((s) => (
-          <li key={s.cmd} {...stylex.props(styles.step)}>
-            <span {...stylex.props(styles.stepTitle)}>{s.title}</span>
+      <ol {...stylex.props(styles.steps, !dock && styles.stepsTight)}>
+        {steps.map((s, i) => (
+          <li key={s.cmd} {...stylex.props(styles.step, dock && styles.stepNumbered)}>
+            {dock && <span {...stylex.props(styles.num)}>{i + 1}</span>}
+            <span {...stylex.props(styles.stepTitle, !dock && styles.stepTitlePlain)}>
+              {!dock && <span>{i + 1} · </span>}
+              {s.title}
+            </span>
             <span {...stylex.props(styles.cmd)}>
-              <code {...stylex.props(styles.code)}>{s.cmd}</code>
+              <code {...stylex.props(styles.code, panel && styles.codeOnSunken)}>{s.cmd}</code>
               <Button
                 size="sm"
                 variant="quiet"
@@ -165,22 +204,27 @@ export function ConnectClaude({
           </li>
         ))}
       </ol>
-      {status.detail && (
-        <>
-          <span {...stylex.props(styles.sawLabel)}>What Testimus saw</span>
-          <pre {...stylex.props(styles.saw)}>{status.detail}</pre>
-        </>
-      )}
+      {status.detail &&
+        (dock ? (
+          <>
+            <span {...stylex.props(styles.sawLabel)}>What Testimus saw</span>
+            <pre {...stylex.props(styles.saw)}>{status.detail}</pre>
+          </>
+        ) : (
+          !panel && <pre {...stylex.props(styles.sawLine)}>{status.detail}</pre>
+        ))}
       <div {...stylex.props(styles.foot)}>
         <Button
-          variant="primary"
+          variant={look === "card" ? "secondary" : "primary"}
           size="sm"
           icon="refresh"
           label={checking ? "Checking…" : "Check again"}
           disabled={checking}
           onClick={onCheck}
         />
-        {onSetPath && <Button size="sm" label="Set the path myself…" onClick={onSetPath} />}
+        {onSetPath && (
+          <Button size="sm" variant={dock ? "secondary" : "quiet"} label="Set the path myself…" onClick={onSetPath} />
+        )}
         {onDoctor && <Button size="sm" variant="quiet" icon="doctor" label="Open system check" onClick={onDoctor} />}
       </div>
     </div>
