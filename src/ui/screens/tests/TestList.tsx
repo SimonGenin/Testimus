@@ -1,80 +1,47 @@
+import * as stylex from "@stylexjs/stylex";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import {
-  awaitsReview,
-  type Folder,
-  type LocalTestRef,
-  type RemoteTestRef,
-  type SearchMatch,
-} from "../../../core/types.ts";
-import { call, project, run } from "../../api.ts";
-import {
-  Button,
-  GeneratedBadge,
-  Icon,
-  IconButton,
-  Marked,
-  ReviewBadge,
-  Skeleton,
-  SyncBadge,
-} from "../../components/legacy/index.ts";
-import { Activity } from "../../components/shell/Activity.tsx";
+import type { Folder, LocalTestRef, RemoteTestRef } from "../../../core/types.ts";
+import { Banner } from "../../components/ui/Banner.tsx";
+import { Button } from "../../components/ui/Button.tsx";
+import { EmptyState } from "../../components/ui/EmptyState.tsx";
+import { List } from "../../components/ui/List.tsx";
+import { Modal } from "../../components/ui/Modal.tsx";
 import { useApp } from "../../lib/app.ts";
+import { project, run } from "../../lib/data/client.ts";
+import { execute, useRead } from "../../lib/data/query.ts";
 import { desktop, pathJoin, reveal } from "../../lib/desktop.ts";
-import { draftOf, keepDraft, useDraft } from "../../lib/drafts.ts";
-import { cx, plural } from "../../lib/format.ts";
-import { track } from "../../lib/localActivity.ts";
+import { message, plural } from "../../lib/format.ts";
 import { jumpTo, useSearch } from "../../lib/search.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
+import { border, color, space } from "../../styles/tokens.stylex.ts";
 import { type DeleteTarget, DeleteTest, deleteTest, needsAsking } from "./DeleteTest.tsx";
 import { JiraConnect } from "./JiraConnect.tsx";
 import { JiraTab } from "./JiraTab.tsx";
-import { type ListTab, TestsTabs } from "./TestsTabs.tsx";
+import { FoundList } from "./list/FoundList.tsx";
+import { ListTools } from "./list/ListTools.tsx";
+import { LocalTree } from "./list/LocalTree.tsx";
+import { ancestors, isKeyQuery, type Listed, localTree, matches } from "./list/tree.ts";
+import { useListView } from "./list/useListView.ts";
+import { TestsTabs } from "./TestsTabs.tsx";
 
-type Node = { name: string; path: string; tests: LocalTestRef[]; folders: Node[]; total: number };
+export { isKeyQuery, localTree };
 
-export function localTree(refs: LocalTestRef[]): Node {
-  const root: Node = { name: "/", path: "/", tests: [], folders: [], total: 0 };
-  for (const r of refs) {
-    let at = root;
-    root.total++;
-    let path = "";
-    for (const part of (r.folder || "/").split("/").filter(Boolean)) {
-      path += `/${part}`;
-      let next = at.folders.find((f) => f.path === path);
-      if (!next) {
-        next = { name: part, path, tests: [], folders: [], total: 0 };
-        at.folders.push(next);
-      }
-      next.total++;
-      at = next;
-    }
-    at.tests.push(r);
-  }
-  const sort = (n: Node) => {
-    n.folders.sort((a, b) => a.name.localeCompare(b.name));
-    n.tests.sort((a, b) => a.summary.localeCompare(b.summary));
-    n.folders.forEach(sort);
-  };
-  sort(root);
-  return root;
-}
-
-const matches = (r: LocalTestRef, q: string) =>
-  !q || `${r.key ?? ""} ${r.summary} ${r.id}`.toLowerCase().includes(q.toLowerCase());
-
-// ponytail: an issue key or its bare number is a question only Jira answers (xray.search completes the number)
-export const isKeyQuery = (q: string) => /^([A-Za-z][A-Za-z0-9]*-)?[0-9]+$/.test(q.trim());
-
-const ancestors = (path: string) => {
-  const out = ["/"];
-  let at = "";
-  for (const part of path.split("/").filter(Boolean)) {
-    at += `/${part}`;
-    out.push(at);
-  }
-  return out;
-};
+const styles = stylex.create({
+  side: { display: "flex", flexDirection: "column", minHeight: 0, height: "100%", backgroundColor: color.surface },
+  head: { display: "flex", alignItems: "center", gap: space.s2, paddingInline: space.s3, paddingTop: space.s2 },
+  grow: { flex: 1 },
+  body: { flex: 1, minHeight: 0, overflow: "auto", display: "flex", flexDirection: "column", gap: space.s2 },
+  conn: {
+    display: "flex",
+    alignItems: "center",
+    gap: space.s2,
+    paddingInline: space.s3,
+    borderBottomStyle: "solid",
+    borderBottomWidth: border.width,
+    borderBottomColor: color.border,
+  },
+});
 
 type PullResult = {
   pulled: string[];
@@ -82,18 +49,8 @@ type PullResult = {
   failed: { key: string; error: string }[];
 };
 
-const listSkeleton = (
-  <div className="tlist" role="status" aria-busy="true" aria-label="Loading tests">
-    {[60, 55, 65, 50].map((w) => (
-      <div key={w} className="sk-row">
-        <Skeleton w={`${w}%`} h={10} />
-        <Skeleton w="92%" h={12} />
-        <Skeleton w="48%" h={18} r={9} />
-      </div>
-    ))}
-  </div>
-);
-
+// ponytail: the left side of Tests — the local tests (tree or what the filter found) and Jira's tests (folders, slices,
+// search); creating, cloning, pulling and deleting from here
 export function TestList({
   refs,
   loading,
@@ -103,18 +60,17 @@ export function TestList({
   pulling = [],
   onPull,
   onDeleted,
-  open = false,
   onCloseDrawer,
 }: {
   refs: LocalTestRef[];
   loading: boolean;
   activeId: string;
   onOpen: (id: string) => void;
-  onReload: () => Promise<LocalTestRef[]>;
+  onReload: () => Promise<unknown>;
   pulling?: string[];
   onPull?: (key: string, summary: string) => void;
   onDeleted?: (id: string) => void;
-  open?: boolean;
+  /** in the drawer of a narrow window: how to close it */
   onCloseDrawer?: () => void;
 }) {
   const app = useApp();
@@ -122,29 +78,24 @@ export function TestList({
   const p = app.info?.project;
   const jiraOn = !!p?.jiraProject && !p.jiraOffline;
   // ponytail: what the Jira side was loaded for — a new key, a reconnect or a disconnect starts it again
-  const jira = jiraOn ? `${app.info?.dir}|${p.jiraProject}` : "";
-  const [tab, setTab] = useDraft<ListTab>("tests.list.tab", "local");
-  const [q, setQ] = useDraft("tests.list.filter", "");
-  const [search, setSearch] = useDraft("tests.list.search", "");
-  const [shut, setShut] = useDraft<Set<string>>("tests.list.shut", () => new Set());
-  const [tree, setTree] = useState<Folder | null>(null);
-  const [treeError, setTreeError] = useState("");
-  const [expanded, setExpanded] = useDraft<Set<string>>("tests.list.expanded", () => new Set(["/"]));
-  const [folder, setFolder] = useDraft("tests.list.folder", "/");
+  const jiraFor = jiraOn ? `${app.info?.dir}|${p.jiraProject}` : "";
+  const v = useListView();
+  const treeQ = useRead("xray.folders", {}, { enabled: jiraOn });
+  const tree = jiraOn ? ((treeQ.data as Folder | undefined) ?? null) : null;
+  const treeError = jiraOn && treeQ.error ? message(treeQ.error) : "";
   const [busy, setBusy] = useState<string[]>([]);
   const [doomed, setDoomed] = useState<DeleteTarget | null>(null);
+  const [overwrite, setOverwrite] = useState<LocalTestRef | null>(null);
   const active = refs.find((r) => r.id === activeId);
-  // ponytail: two boxes, as in Xray Editor — « Search Jira » (any text jumps to the Jira tab and asks Jira) and
-  // « Filter tests » (narrows what is listed: local tests, Jira folders, the loaded Jira rows)
-  const query = search.trim();
-  const needle = q.trim();
+  const query = v.search.trim();
+  const needle = v.filter.trim();
 
-  const listed = useMemo(() => refs.filter((r) => !awaitsReview(r)), [refs]);
+  const listed = useMemo(() => refs.filter((r) => !(r as Listed).awaiting), [refs]);
   const waiting = refs.length - listed.length;
-  const shown = useMemo(() => localTree(listed.filter((r) => matches(r, q))), [listed, q]);
-  // ponytail: the local filter is search.all on the tests — steps, sources, filters (review:…) and
-  // meaning; the plain text match above shows until it answers, or when it cannot
-  const smart = useSearch(tab === "local" ? needle : "", { in: ["test"], k: 300 });
+  const shown = useMemo(() => localTree(listed.filter((r) => matches(r, v.filter))), [listed, v.filter]);
+  // ponytail: the local filter is search.all on the tests — steps, sources, filters (review:…) and meaning; the plain
+  // text match above shows until it answers, or when it cannot
+  const smart = useSearch(v.tab === "local" ? needle : "", { in: ["test"], k: 300 });
   const ranked = useMemo(() => {
     if (!smart.result) return null;
     const byId = new Map(listed.map((r) => [r.id, r]));
@@ -155,32 +106,21 @@ export function TestList({
   }, [smart.result, listed]);
 
   // ponytail: runs when the connection changes, not when the screen comes back
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the drafts' setters are stable
   useEffect(() => {
-    if (draftOf("tests.list.jira") === jira) return;
-    keepDraft("tests.list.jira", jira);
-    setTree(null);
-    setTreeError("");
-    setFolder("/");
-    setSearch("");
-  }, [jira]);
+    if (v.jira === jiraFor) return;
+    v.setJira(jiraFor);
+    v.setFolder("/");
+    v.setSearch("");
+  }, [jiraFor]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the drafts' setters are stable
   useEffect(() => {
-    if (!jira || tree || treeError) return;
-    let dead = false;
-    track("jira", "Loading the Jira folders", call<Folder>("xray.folders", {}))
-      .then((t) => !dead && setTree(t))
-      .catch((e) => !dead && setTreeError(e instanceof Error ? e.message : String(e)));
-    return () => {
-      dead = true;
-    };
-  }, [jira, tree, treeError]);
-
-  useEffect(() => {
-    if (query) setTab("jira");
+    if (query) v.setTab("jira");
   }, [query]);
 
   const pull = async (input: { key?: string; folder?: string; overwrite?: boolean }, label: string) => {
-    setBusy((p) => [...p, label]);
+    setBusy((b) => [...b, label]);
     try {
       const r = await run<PullResult>("xray.pull", input);
       await onReload();
@@ -193,7 +133,7 @@ export function TestList({
     } catch (e) {
       errorToast(e, `Could not pull ${label}`);
     } finally {
-      setBusy((p) => p.filter((x) => x !== label));
+      setBusy((b) => b.filter((x) => x !== label));
     }
   };
 
@@ -205,26 +145,31 @@ export function TestList({
   };
 
   const pickFolder = (path: string) => {
-    setFolder(path);
+    v.setFolder(path);
     if (query || needle) {
-      setSearch("");
-      setQ("");
-      setExpanded((s) => new Set([...s, ...ancestors(path)]));
+      v.setSearch("");
+      v.setFilter("");
+      v.setExpanded((s) => new Set([...s, ...ancestors(path)]));
       return;
     }
-    setExpanded((s) => {
-      const next = new Set(s);
-      if (next.has(path) && path === folder) next.delete(path);
-      else next.add(path);
-      return next;
+    v.setExpanded((s) => {
+      if (s.has(path) && path === v.folder) s.delete(path);
+      else s.add(path);
+      return s;
     });
   };
 
-  const newFolder = tab === "jira" && !query ? folder : (active?.folder ?? "/");
-
+  const newFolder = v.tab === "jira" && !query ? v.folder : (active?.folder ?? "/");
   const create = async () => {
     try {
-      const r = await call<{ id: string }>("tests.create", { folder: newFolder, summary: "New test" });
+      const r = (await execute(
+        client,
+        "tests.create",
+        { folder: newFolder, summary: "New test" },
+        {
+          invalidates: [["tests.list"], ["project.info"]],
+        },
+      )) as { id: string };
       await onReload();
       onOpen(r.id);
     } catch (e) {
@@ -235,7 +180,15 @@ export function TestList({
   const clone = async () => {
     if (!activeId) return;
     try {
-      const r = await call<{ id: string }>("tests.clone", { id: activeId });
+      const r = (await execute(
+        client,
+        "tests.clone",
+        { id: activeId },
+        {
+          invalidates: [["tests.list"], ["project.info"]],
+          flushFirst: [["tests.show", { id: activeId }]],
+        },
+      )) as { id: string };
       await onReload();
       onOpen(r.id);
     } catch (e) {
@@ -244,13 +197,11 @@ export function TestList({
   };
 
   const pullActive = () => {
-    if (active?.key) {
-      if (active.dirty && !window.confirm(`${active.key} has local changes. Replace them with Jira's version?`)) return;
-      void pull({ key: active.key, overwrite: active.dirty }, active.key);
-    } else {
-      setTab("jira");
+    if (!active?.key) {
+      v.setTab("jira");
       toast({ kind: "info", title: "Pick a folder or a test in Jira", detail: "This test has never been pushed." });
-    }
+    } else if (active.dirty) setOverwrite(active);
+    else void pull({ key: active.key }, active.key);
   };
 
   const deleted = (id: string) => {
@@ -266,7 +217,7 @@ export function TestList({
 
   const disconnect = async () => {
     try {
-      await call("xray.disconnect", {});
+      await execute(client, "xray.disconnect", {}, { invalidates: [["project.info"], ["xray.folders"]] });
       app.refreshInfo();
       toast({
         kind: "info",
@@ -278,283 +229,144 @@ export function TestList({
     }
   };
 
-  const localNode = (n: Node, depth: number) => {
-    const isOpen = !shut.has(n.path) || !!q;
-    return (
-      <div key={n.path}>
-        {n.path !== "/" && (
-          <button
-            type="button"
-            className="tree"
-            style={{ paddingLeft: 12 + (depth - 1) * 16 }}
-            aria-expanded={isOpen}
-            onClick={() =>
-              setShut((s) => {
-                const next = new Set(s);
-                if (next.has(n.path)) next.delete(n.path);
-                else next.add(n.path);
-                return next;
-              })
-            }
-          >
-            <Icon name={isOpen ? "down" : "right"} />
-            <Icon name="folder" />
-            <span className="tree-name">{n.name}</span>
-            <span className="muted">{n.total}</span>
-          </button>
-        )}
-        {isOpen && (
-          <>
-            {n.folders.map((f) => localNode(f, depth + 1))}
-            {n.tests.map((r) => (
-              <div key={r.id} className="trow-wrap">
-                <button
-                  type="button"
-                  className={cx("trow", r.id === activeId && "trow-on")}
-                  style={{ paddingLeft: 30 + depth * 16 }}
-                  aria-current={r.id === activeId || undefined}
-                  onClick={() => onOpen(r.id)}
-                >
-                  <span className="trow-title">{r.summary || "Untitled"}</span>
-                  <span className="trow-meta">
-                    <span className="mono muted">{r.key ?? "no key"}</span>
-                    {r.generated && <GeneratedBadge edited={r.edited} small />}
-                    <ReviewBadge review={r.review} small />
-                    <SyncBadge sync={r.sync} small />
-                  </span>
-                </button>
-                <IconButton
-                  icon="close"
-                  className="trow-del"
-                  label={`Delete the local copy of ${r.key ?? (r.summary || r.id)}`}
-                  title="Delete the local copy"
-                  onClick={() => askDelete(r)}
-                />
-              </div>
-            ))}
-          </>
-        )}
-      </div>
+  const local = () => {
+    if (loading && !refs.length)
+      return (
+        <div role="status" aria-label="Loading tests">
+          <List label="Local tests" items={[]} getKey={String} renderItem={() => ({ title: "" })} loading={4} />
+        </div>
+      );
+    if (!listed.length)
+      return waiting ? (
+        <EmptyState
+          icon="review"
+          compact
+          title="Nothing here yet"
+          text={`${plural(waiting, "generated test")} waiting for review. Create one, or pull from Jira.`}
+          actions={<Button size="sm" icon="review" label="Review them" onClick={() => app.navigate("review")} />}
+        />
+      ) : (
+        <EmptyState
+          icon="tests"
+          compact
+          title="No test yet"
+          text="Create one, pull from Jira, or generate them from the documents."
+        />
+      );
+    const none = (
+      <EmptyState
+        icon="search"
+        compact
+        title={`No local test matches “${v.filter}”.`}
+        actions={<Button size="sm" label="Clear the filter" onClick={() => v.setFilter("")} />}
+      />
     );
-  };
-
-  const foundRow = ({ hit, ref: r }: { hit: SearchMatch; ref: LocalTestRef }) => (
-    <div key={r.id} className="trow-wrap">
-      <button
-        type="button"
-        className={cx("trow trow-hit", r.id === activeId && "trow-on")}
-        aria-current={r.id === activeId || undefined}
-        onClick={() => {
-          jumpTo(r.id, hit.step);
-          onOpen(r.id);
-        }}
-      >
-        <span className="trow-title">
-          <Marked text={hit.title} marks={hit.titleMarks} />
-        </span>
-        {hit.snippet !== undefined ? (
-          <span className="trow-snip">
-            {hit.where && <span className="hit-where">{hit.where}</span>}
-            <Marked text={hit.snippet} marks={hit.marks} />
-          </span>
-        ) : (
-          <span className="trow-snip">{r.folder || "/"}</span>
-        )}
-        <span className="trow-meta">
-          <span className="mono muted">{r.key ?? "no key"}</span>
-          {r.generated && <GeneratedBadge edited={r.edited} small />}
-          <ReviewBadge review={r.review} small />
-          <SyncBadge sync={r.sync} small />
-        </span>
-      </button>
-    </div>
-  );
-
-  const foundList = (found: { hit: SearchMatch; ref: LocalTestRef }[]) => {
-    const words = found.filter((f) => f.hit.why !== "meaning");
-    const near = found.filter((f) => f.hit.why === "meaning");
+    if (needle && ranked)
+      return ranked.length ? (
+        <FoundList
+          found={ranked}
+          searching={smart.loading}
+          activeId={activeId}
+          onOpen={({ hit, ref }) => {
+            jumpTo(ref.id, hit.step);
+            onOpen(ref.id);
+          }}
+        />
+      ) : (
+        none
+      );
+    if (!shown.total) return none;
     return (
-      <div className="tfound">
-        <p className="muted tfound-head">
-          {plural(words.length, "test")}
-          {smart.loading ? " · searching by meaning…" : ""}
-        </p>
-        {words.map(foundRow)}
-        {near.length > 0 && (
-          <>
-            <p className="muted tfound-head" title="Found by their meaning, not by their words">
-              Similar by meaning
-            </p>
-            {near.map(foundRow)}
-          </>
-        )}
-      </div>
+      <LocalTree
+        root={shown}
+        shut={v.shut}
+        forceOpen={!!v.filter}
+        activeId={activeId}
+        onOpen={onOpen}
+        onToggle={(path) =>
+          v.setShut((s) => {
+            if (s.has(path)) s.delete(path);
+            else s.add(path);
+            return s;
+          })
+        }
+        onDelete={askDelete}
+      />
     );
   };
 
   return (
-    <aside className={cx("tside", open && "is-open")} aria-label="Tests">
-      <div className="tside-head">
+    <aside aria-label="Tests" {...stylex.props(styles.side)}>
+      <div {...stylex.props(styles.head)}>
         <TestsTabs
-          value={tab}
-          onPick={setTab}
+          value={v.tab}
+          onPick={v.setTab}
           local={listed.length}
-          jira={
-            !jiraOn ? (
-              p?.jiraOffline && <span className="tab-count">off</span>
-            ) : tree ? (
-              <span className="tab-count">{tree.totalCount}</span>
-            ) : treeError ? null : (
-              <Skeleton className="tab-count" w={18} h={8} />
-            )
-          }
+          jira={tree?.totalCount}
+          jiraOff={!!p?.jiraOffline}
         />
-        <span className="spacer" />
-        <Activity />
-        <IconButton icon="close" className="tside-close" label="Close list" onClick={onCloseDrawer} />
+        <span {...stylex.props(styles.grow)} />
+        {onCloseDrawer && (
+          <Button variant="quiet" size="sm" iconOnly icon="close" label="Close list" onClick={onCloseDrawer} />
+        )}
       </div>
-      {(tab === "local" || jiraOn) && (
-        <div className="tside-tools">
-          {jiraOn && (
-            <>
-              <label htmlFor="tjira" className="sr">
-                Search Jira
-              </label>
-              <input
-                id="tjira"
-                type="search"
-                className="field tside-search"
-                placeholder="Search Jira tests, or an issue key…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </>
-          )}
-          <label htmlFor="tsearch" className="sr">
-            Filter tests
-          </label>
-          <input
-            id="tsearch"
-            className="field tside-search"
-            placeholder={
-              tab === "local" ? "Search the tests: words, steps, review:to-fix…" : "Filter folders and listed tests"
-            }
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            onKeyDown={(e) => {
-              // ponytail: Enter sends the filter to Jira as a search (a shortcut to the box above)
-              if (e.key === "Enter" && needle && jiraOn) {
-                e.preventDefault();
-                setSearch(needle);
-              }
-            }}
-          />
-          <div className="tside-actions">
-            <Button size="sm" icon="plus" title={`New local test in ${newFolder}`} onClick={() => void create()}>
-              New test
-            </Button>
-            <Button size="sm" tone="quiet" icon="clone" disabled={!activeId} onClick={() => void clone()}>
-              Clone
-            </Button>
-            {jiraOn && (
-              <Button
-                size="sm"
-                tone="quiet"
-                icon="pull"
-                disabled={!!active?.key && busy.includes(active.key)}
-                onClick={pullActive}
-              >
-                Pull
-              </Button>
-            )}
-            {desktop() && (
-              <IconButton
-                icon="external"
-                label="Show the test in Explorer"
-                disabled={!activeId || !project()}
-                onClick={() => {
-                  const dir = project();
-                  if (dir && activeId) void reveal(pathJoin(dir, "tests", activeId, "test.md"));
-                }}
-              />
-            )}
-          </div>
-        </div>
+      {(v.tab === "local" || jiraOn) && (
+        <ListTools
+          jira={jiraOn}
+          local={v.tab === "local"}
+          search={v.search}
+          filter={v.filter}
+          newFolder={newFolder}
+          canClone={!!activeId}
+          pullBusy={!!active?.key && busy.includes(active.key)}
+          canReveal={!!activeId && !!project()}
+          reveal={!!desktop()}
+          onSearch={v.setSearch}
+          onFilter={v.setFilter}
+          onFilterEnter={() => needle && jiraOn && v.setSearch(needle)}
+          onNew={() => void create()}
+          onClone={() => void clone()}
+          onPull={pullActive}
+          onReveal={() => {
+            const dir = project();
+            if (dir && activeId) void reveal(pathJoin(dir, "tests", activeId, "test.md"));
+          }}
+        />
       )}
-      <div className="tside-list">
-        {tab === "local" ? (
+      <div {...stylex.props(styles.body)}>
+        {v.tab === "local" ? (
           <>
             {needle && jiraOn && (
-              <button type="button" className="tside-jira" onClick={() => setSearch(needle)}>
-                <Icon name="search" />
-                <span>Search Jira for “{needle}”</span>
-              </button>
+              <Button
+                variant="quiet"
+                icon="search"
+                block
+                label={`Search Jira for “${needle}”`}
+                onClick={() => v.setSearch(needle)}
+              />
             )}
-            {loading && !refs.length ? (
-              listSkeleton
-            ) : listed.length ? (
-              needle && ranked ? (
-                ranked.length ? (
-                  foundList(ranked)
-                ) : (
-                  <p className="muted tside-empty">No local test matches “{q}”.</p>
-                )
-              ) : shown.total ? (
-                localNode(shown, 0)
-              ) : (
-                <p className="muted tside-empty">No local test matches “{q}”.</p>
-              )
-            ) : (
-              <div className="tside-empty">
-                {waiting ? (
-                  <>
-                    <p className="muted">
-                      Nothing here yet: {plural(waiting, "generated test")} waiting for review. Create one, or pull from
-                      Jira.
-                    </p>
-                    <Button size="sm" icon="review" onClick={() => app.navigate("review")}>
-                      Review them
-                    </Button>
-                  </>
-                ) : (
-                  <p className="muted">
-                    No tests yet. Create one, pull from Jira, or generate them from the documents.
-                  </p>
-                )}
-              </div>
-            )}
+            {local()}
           </>
         ) : !jiraOn || treeError ? (
-          <JiraConnect
-            key={jira}
-            error={treeError}
-            onConnected={() => {
-              setTree(null);
-              setTreeError("");
-            }}
-          />
+          <JiraConnect key={jiraFor} error={treeError} onConnected={() => void treeQ.refetch()} />
         ) : (
           <>
-            <div className="jconn">
-              <Icon name="synced" />
-              <span>
-                Connected to <span className="mono">{p?.jiraProject}</span>
-              </span>
-              <Button
-                size="sm"
-                tone="quiet"
-                title="Work locally only: nothing reads or writes Jira until you reconnect"
-                onClick={() => void disconnect()}
+            <div {...stylex.props(styles.conn)}>
+              <Banner
+                tone="success"
+                icon="check"
+                compact
+                actions={<Button size="sm" variant="quiet" label="Disconnect" onClick={() => void disconnect()} />}
               >
-                Disconnect
-              </Button>
+                Connected to {p?.jiraProject}
+              </Banner>
             </div>
             <JiraTab
               tree={tree}
               query={query}
               filter={needle}
-              folder={folder}
-              expanded={expanded}
+              folder={v.folder}
+              expanded={v.expanded}
               refs={refs}
               activeId={activeId}
               pulling={[...pulling, ...busy]}
@@ -568,6 +380,24 @@ export function TestList({
         )}
       </div>
       {doomed && <DeleteTest target={doomed} onClose={() => setDoomed(null)} onDeleted={() => deleted(doomed.id)} />}
+      {overwrite?.key && (
+        <Modal
+          title={`Replace ${overwrite.key} with Jira's version?`}
+          size="sm"
+          confirm={{
+            verb: "Pull and replace",
+            danger: true,
+            onConfirm: () => {
+              const key = overwrite.key as string;
+              setOverwrite(null);
+              void pull({ key, overwrite: true }, key);
+            },
+          }}
+          onClose={() => setOverwrite(null)}
+        >
+          {overwrite.key} has local changes. Pulling replaces them with what Jira has.
+        </Modal>
+      )}
     </aside>
   );
 }

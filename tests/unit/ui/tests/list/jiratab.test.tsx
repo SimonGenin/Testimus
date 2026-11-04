@@ -1,15 +1,27 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Folder, LocalTestRef, RemoteTestRef } from "../../src/core/types.ts";
-import { findFolder, folderName, JiraTab, statusTone } from "../../src/ui/screens/tests/JiraTab.tsx";
-import { callsTo, deferred, Fail, server, stubServer } from "./cov-uitests-helpers.ts";
+import type { Folder, LocalTestRef, RemoteTestRef } from "../../../../../src/core/types.ts";
+import { findFolder, folderName, JiraTab, statusTone } from "../../../../../src/ui/screens/tests/JiraTab.tsx";
+import { callsTo, deferred, Fail, server, stubServer } from "../../../cov-uitests-helpers.ts";
+import { testClient, WithData } from "../data-helpers.tsx";
+
+const folderRow = (name: RegExp) => screen.getByRole("treeitem", { name });
+const testRow = (name: RegExp) => screen.getByRole("option", { name });
+const tipIn = (row: HTMLElement) =>
+  within(row)
+    .queryAllByRole("tooltip")
+    .map((t) => t.textContent);
+const rowAction = (row: HTMLElement, name: string) => {
+  fireEvent.focus(row);
+  return within(row).queryByRole("button", { name });
+};
 
 const errors: { title?: string }[] = [];
-vi.mock("../../src/ui/lib/toast.ts", async (importOriginal) => {
-  const real = await importOriginal<typeof import("../../src/ui/lib/toast.ts")>();
+vi.mock("../../../../../src/ui/lib/toast.ts", async (importOriginal) => {
+  const real = await importOriginal<typeof import("../../../../../src/ui/lib/toast.ts")>();
   return { ...real, errorToast: vi.fn((_e: unknown, title?: string) => errors.push({ title })) };
 });
 
@@ -85,8 +97,14 @@ const tab = (over: Partial<Props> = {}) => {
     ...h,
     ...over,
   };
-  const r = render(<JiraTab {...props} />);
-  return { ...r, ...h, props, again: (o: Partial<Props>) => r.rerender(<JiraTab {...props} {...o} />) };
+  const client = testClient();
+  const view = (p: Props) => (
+    <WithData client={client}>
+      <JiraTab {...p} />
+    </WithData>
+  );
+  const r = render(view(props));
+  return { ...r, ...h, props, again: (o: Partial<Props>) => r.rerender(view({ ...props, ...o })) };
 };
 
 beforeEach(() => {
@@ -103,8 +121,8 @@ afterEach(() => {
 
 describe("JiraTab helpers", () => {
   it("tones statuses, names the root and finds folders", () => {
-    expect(statusTone("Done")).toBe("ok");
-    expect(statusTone("In Progress")).toBe("warn");
+    expect(statusTone("Done")).toBe("success");
+    expect(statusTone("In Progress")).toBe("warning");
     expect(statusTone("To Do")).toBe("neutral");
     expect(folderName("/")).toBe("Test Repository");
     expect(folderName("/Lot")).toBe("/Lot");
@@ -124,31 +142,31 @@ describe("JiraTab tree", () => {
   it("draws the open folders with their counts, picks one and pulls one", async () => {
     server.routes["xray.search"] = () => ({ tests: [], total: 0 });
     const { onPickFolder, onPullFolder, again } = tab({ busyFolders: ["/Lot"] });
-    const root = screen.getByRole("button", { name: /^Test Repository/ });
+    const root = folderRow(/^Test Repository/);
     expect(root).toHaveAttribute("aria-expanded", "true");
-    expect(root).toHaveAttribute("aria-current", "true");
+    expect(root).toHaveAttribute("aria-selected", "true");
     expect(root).toHaveTextContent("2/5");
-    const lot = screen.getByRole("button", { name: /^Lot/ });
+    const lot = folderRow(/^Lot/);
     expect(lot).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByRole("button", { name: /^Sub/ })).toBeNull();
-    expect(screen.getByRole("button", { name: /^Empty/ })).not.toHaveAttribute("aria-expanded");
-    expect(screen.queryByRole("button", { name: "Pull every test of /Empty" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Pull every test of /Lot" })).toBeDisabled();
+    expect(screen.queryByRole("treeitem", { name: /^Sub/ })).toBeNull();
+    expect(folderRow(/^Empty/)).not.toHaveAttribute("aria-expanded");
+    expect(rowAction(folderRow(/^Empty/), "Pull every test of /Empty")).toBeNull();
+    expect(rowAction(lot, "Pull every test of /Lot")).toBeDisabled();
     fireEvent.click(lot);
     expect(onPickFolder).toHaveBeenCalledWith("/Lot");
-    fireEvent.click(screen.getByRole("button", { name: "Pull every test of Test Repository" }));
+    fireEvent.click(rowAction(folderRow(/^Test Repository/), "Pull every test of Test Repository") as HTMLElement);
     expect(onPullFolder).toHaveBeenCalledWith("/");
     again({ expanded: new Set(["/", "/Lot"]), folder: "/Lot/Sub" });
-    expect(screen.getByRole("button", { name: /^Sub/ })).toHaveTextContent("2");
+    expect(folderRow(/^Sub/)).toHaveTextContent("2");
     await waitFor(() => expect(callsTo("xray.search").length).toBeGreaterThan(0));
   });
 
   it("filters folders by name with the filter box, flat and without the root (a Jira search leaves them alone)", () => {
     server.routes["xray.search"] = () => new Promise(() => {});
     tab({ filter: "sub" });
-    expect(screen.getByRole("button", { name: /^Sub/ })).toHaveAttribute("title", "/Lot/Sub");
-    expect(screen.queryByRole("button", { name: /^Test Repository/ })).toBeNull();
-    expect(screen.queryByRole("button", { name: /^Lot/ })).toBeNull();
+    expect(tipIn(folderRow(/^Sub/))).toContain("/Lot/Sub");
+    expect(screen.queryByRole("treeitem", { name: /^Test Repository/ })).toBeNull();
+    expect(screen.queryByRole("treeitem", { name: /^Lot/ })).toBeNull();
   });
 });
 
@@ -164,16 +182,16 @@ describe("JiraTab list", () => {
     });
     const { onOpenRemote } = tab({ activeId: "t1", pulling: ["K-2"] });
     expect(screen.getByRole("status", { name: "Loading tests in Test Repository" })).toBeInTheDocument();
-    const one = await screen.findByRole("button", { name: /Summary K-1/ });
+    const one = await screen.findByRole("option", { name: /Summary K-1/ });
     expect(callsTo("xray.search")[0].input).toEqual({ folder: "/", page: 0 });
-    expect(one).toHaveAttribute("aria-current", "true");
+    expect(one).toHaveAttribute("aria-selected", "true");
     expect(one).toHaveTextContent("Modified");
-    expect(one).not.toHaveAttribute("title");
-    const two = screen.getByRole("button", { name: /Summary K-2/ });
-    expect(two).toHaveAttribute("title", "Being pulled now");
-    expect(two).toHaveTextContent("pulling…");
-    const three = screen.getByRole("button", { name: /Summary K-3/ });
-    expect(three).toHaveAttribute("title", "Not pulled yet — opening it downloads it into the project");
+    expect(tipIn(one)).not.toContain("Not pulled yet — opening it downloads it into the project");
+    const two = testRow(/Summary K-2/);
+    expect(tipIn(two)).toContain("Being pulled now");
+    expect(two).toHaveTextContent("Pulling…");
+    const three = testRow(/Summary K-3/);
+    expect(tipIn(three)).toContain("Not pulled yet — opening it downloads it into the project");
     expect(three).toHaveTextContent("1 step");
     expect(screen.getByText("3 of 3")).toBeInTheDocument();
     fireEvent.click(three);
@@ -183,29 +201,28 @@ describe("JiraTab list", () => {
   it("marks a remote row open by its key while it is being pulled", async () => {
     server.routes["xray.search"] = () => ({ tests: [remote("K-9")] });
     tab({ activeId: "K-9", refs: [] });
-    expect(await screen.findByRole("button", { name: /Summary K-9/ })).toHaveAttribute("aria-current", "true");
+    expect(await screen.findByRole("option", { name: /Summary K-9/ })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByText("1 of 1")).toBeInTheDocument();
   });
 
   it("shows a test changed in Jira as one row carrying its Changed in Jira badge", async () => {
     server.routes["xray.search"] = () => ({ tests: [remote("K-1"), remote("K-2")], total: 2 });
     tab({ refs: [{ ...local, sync: "remote-changed", dirty: false }] });
-    const row = await screen.findByRole("button", { name: /Summary K-1/ });
+    const row = await screen.findByRole("option", { name: /Summary K-1/ });
     expect(row).toHaveTextContent("Summary K-1");
     expect(row).toHaveTextContent("K-1");
     const badge = screen.getByText("Changed in Jira");
     expect(row).toContainElement(badge);
-    expect(badge).toHaveClass("b-warn");
-    expect(badge).toHaveAttribute("title", "Changed in Jira since your pull");
+    expect(tipIn(row)).toContain("Changed in Jira since your pull");
     expect(screen.getAllByText("Changed in Jira")).toHaveLength(1);
-    expect(screen.getByRole("button", { name: /Summary K-2/ })).not.toHaveTextContent("Changed in Jira");
+    expect(testRow(/Summary K-2/)).not.toHaveTextContent("Changed in Jira");
   });
 
   it("never asks for an empty folder and offers a new local test", () => {
     const { onNew } = tab({ folder: "/Empty" });
     expect(screen.getByText("No tests in this folder")).toBeInTheDocument();
     expect(screen.getByText("/Empty is empty. Pick another folder, or create a test locally.")).toBeInTheDocument();
-    expect(document.querySelector(".jlist-range")).toHaveTextContent("0");
+    expect(screen.getByTestId("jira-range")).toHaveTextContent("0");
     fireEvent.click(screen.getByRole("button", { name: "New local test" }));
     expect(onNew).toHaveBeenCalled();
     expect(callsTo("xray.search")).toHaveLength(0);
@@ -297,7 +314,7 @@ describe("JiraTab list", () => {
     const { again } = tab({ tree: null, query: "nine" });
     expect(screen.getByRole("status", { name: "Searching Jira for nine" })).toBeInTheDocument();
     expect(screen.getByText("search “nine”")).toBeInTheDocument();
-    expect(await screen.findByRole("button", { name: /Summary K-9/ }, { timeout: 2000 })).toBeInTheDocument();
+    expect(await screen.findByRole("option", { name: /Summary K-9/ }, { timeout: 2000 })).toBeInTheDocument();
     expect(screen.getByText("1 found")).toBeInTheDocument();
     expect(callsTo("xray.search")[0].input).toEqual({ text: "nine" });
     again({ tree: null, query: "zzz" });

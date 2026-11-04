@@ -1,69 +1,50 @@
+import * as stylex from "@stylexjs/stylex";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import type { Folder, LocalTestRef, RemoteTestRef } from "../../../core/types.ts";
-import { call, project } from "../../api.ts";
-import { Badge, type BadgeTone, Button, Icon, IconButton, Skeleton, SyncBadge } from "../../components/legacy/index.ts";
-import { cx, plural } from "../../lib/format.ts";
-import { track } from "../../lib/localActivity.ts";
+import { Badge } from "../../components/ui/Badge.tsx";
+import { Button } from "../../components/ui/Button.tsx";
+import { EmptyState } from "../../components/ui/EmptyState.tsx";
+import { Icon } from "../../components/ui/Icon.tsx";
+import { List } from "../../components/ui/List.tsx";
+import { Skeleton } from "../../components/ui/Skeleton.tsx";
+import { project } from "../../lib/data/client.ts";
+import { read } from "../../lib/data/query.ts";
+import { plural } from "../../lib/format.ts";
 import { errorToast } from "../../lib/toast.ts";
+import { border, color, fontFamily, fontSize, fontWeight, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { KeyText, SYNC_OF, SYNC_TIP } from "./list/rows.tsx";
+import { findFolder, flattenFolders, folderName, statusTone } from "./list/tree.ts";
+
+export { findFolder, folderName, statusTone };
 
 export const PAGE = 100;
 
-// ponytail: the loading states are the lists' own rhythm at the real sizes, so nothing moves when rows land
-const TREE_SK = [96, 62, 84, 108, 72];
-const ROW_SK = ["100%", "82%", "94%", "76%", "88%", "70%"];
+const styles = stylex.create({
+  head: {
+    display: "flex",
+    alignItems: "baseline",
+    gap: space.s3,
+    paddingBlock: space.s2,
+    paddingInline: space.s3,
+    borderTopStyle: "solid",
+    borderTopWidth: border.width,
+    borderTopColor: color.border,
+    fontSize: fontSize.small,
+    lineHeight: lineHeight.small,
+  },
+  path: { flex: 1, minWidth: 0, fontWeight: fontWeight.medium, overflow: "hidden", textOverflow: "ellipsis" },
+  mono: { fontFamily: fontFamily.mono },
+  range: { color: color.textMuted },
+  meta: { display: "inline-flex", alignItems: "center", flexWrap: "wrap", gap: space.s2 },
+  count: { fontFamily: fontFamily.mono, fontSize: fontSize.code, color: color.textMuted },
+  end: { alignSelf: "center", paddingBlock: space.s2, fontSize: fontSize.small, color: color.textSubtle },
+});
 
-export const treeSkeleton = (
-  <div className="jtree sk-fade" role="status" aria-label="Loading folders">
-    {TREE_SK.map((w, i) => (
-      <div key={w} className="sk-tree" style={{ paddingLeft: 12 + (i ? 16 : 0) }}>
-        <Skeleton w={12} h={9} />
-        <Skeleton w={w} h={11} />
-        <Skeleton w={i ? 20 : 26} h={9} style={{ marginLeft: "auto" }} />
-      </div>
-    ))}
-  </div>
-);
+type Slice = { tests: RemoteTestRef[]; total: number };
 
-export const rowSkeleton = (n: number, label: string) => (
-  <div className="sk-fade" role="status" aria-busy="true" aria-label={label}>
-    {ROW_SK.slice(0, n).map((w) => (
-      <div key={w} className="sk-trow">
-        <Skeleton w={w} h={12} />
-        <span className="sk-trow-meta">
-          <Skeleton w={84} h={9} />
-          <Skeleton w={40} h={14} r={7} />
-          <Skeleton w={34} h={9} style={{ marginLeft: "auto" }} />
-        </span>
-      </div>
-    ))}
-  </div>
-);
-
-export const statusTone = (s: string): BadgeTone =>
-  /done|ready|closed|pass/i.test(s) ? "ok" : /review|progress|block/i.test(s) ? "warn" : "neutral";
-
-export const folderName = (path: string) => (path === "/" ? "Test Repository" : path);
-
-type Row = { folder: Folder; depth: number };
-
-const flatten = (f: Folder, open: (path: string) => boolean, depth = 0, out: Row[] = []): Row[] => {
-  out.push({ folder: f, depth });
-  if (open(f.path)) for (const c of f.folders) flatten(c, open, depth + 1, out);
-  return out;
-};
-
-export const findFolder = (f: Folder | null, path: string): Folder | null => {
-  if (!f) return null;
-  if (f.path === path) return f;
-  for (const c of f.folders) {
-    const hit = findFolder(c, path);
-    if (hit) return hit;
-  }
-  return null;
-};
-
-type List = { tests: RemoteTestRef[]; total: number };
-
+// ponytail: Jira's side of the list — the project's Xray folder tree, then the tests of the folder picked (slices of
+// 100, the next asked when the end of the list shows) or of a Jira search; a test not pulled yet is pulled when opened
 export function JiraTab({
   tree,
   query,
@@ -93,16 +74,15 @@ export function JiraTab({
   onPullFolder: (path: string) => void;
   onNew: () => void;
 }) {
-  const [list, setList] = useState<List>({ tests: [], total: 0 });
+  const client = useQueryClient();
+  const [list, setList] = useState<Slice>({ tests: [], total: 0 });
   const [loading, setLoading] = useState(true);
-  const sentinel = useRef<HTMLDivElement | null>(null);
-  // ponytail: what the accumulated list already holds — a ref, because the sentinel fires from an
-  // IntersectionObserver callback, outside render, and two intersections must not ask for one slice twice
+  // ponytail: what the accumulated list already holds — a ref, because the end of the list fires outside render, and
+  // two calls must not ask for one slice twice
   const at = useRef({ key: "", page: 0, busy: false, total: 0 });
   const listKey = `${project() ?? ""}|${folder}|${query}`;
   const empty = !query && findFolder(tree, folder)?.testsCount === 0;
-  // ponytail: a folder is listed once the tree says how many tests it holds directly — an empty one is
-  // never asked for
+  // ponytail: a folder is listed once the tree says how many tests it holds directly — an empty one is never asked for
   const ready = !!query || !!tree;
 
   const loadSlice = (key: string, page: number) => {
@@ -112,15 +92,12 @@ export function JiraTab({
     const mine = () => at.current.key === key && at.current.page === page;
     setLoading(true);
     const input = query ? { text: query } : { folder, page };
-    track(
-      "jira",
-      query ? `Searching Jira for “${query}”` : `Loading ${folderName(folder)}`,
-      call<List>("xray.search", input),
-    )
+    read(client, "xray.search", input)
       .then((r) => {
         if (!mine()) return;
-        const tests = r?.tests ?? [];
-        const total = query ? tests.length : (r?.total ?? tests.length);
+        const s = r as Slice | null;
+        const tests = s?.tests ?? [];
+        const total = query ? tests.length : (s?.total ?? tests.length);
         at.current.total = total;
         setList((prev) => (page ? { tests: [...prev.tests, ...tests], total } : { tests, total }));
       })
@@ -128,7 +105,7 @@ export function JiraTab({
         if (!mine()) return;
         if (!page) setList({ tests: [], total: 0 });
         errorToast(e, query ? "Jira search failed" : `Could not list ${folderName(folder)}`);
-        // ponytail: a slice that failed is asked for again on the next intersection, not skipped
+        // ponytail: a slice that failed is asked for again the next time the end shows, not skipped
         at.current = { ...at.current, page: Math.max(0, page - 1), busy: false };
         setLoading(false);
       })
@@ -155,27 +132,13 @@ export function JiraTab({
     return () => clearTimeout(t);
   }, [listKey, empty, ready]);
 
-  // ponytail: the sentinel's own visibility is the trigger — no scroll handler, and re-observing after
-  // every append chain-loads while it is still on screen
-  // biome-ignore lint/correctness/useExhaustiveDependencies: re-observe after every slice
-  useEffect(() => {
-    const el = sentinel.current;
-    if (!el || typeof IntersectionObserver === "undefined") return;
-    const io = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) loadSlice(listKey, at.current.page + 1);
-      },
-      { rootMargin: "240px" },
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, [listKey, list.tests.length]);
-
   const needle = filter.toLowerCase();
   const rows = tree
     ? needle
-      ? flatten(tree, () => true).filter((r) => r.folder.path !== "/" && r.folder.name.toLowerCase().includes(needle))
-      : flatten(tree, (p) => expanded.has(p))
+      ? flattenFolders(tree, () => true).filter(
+          (r) => r.folder.path !== "/" && r.folder.name.toLowerCase().includes(needle),
+        )
+      : flattenFolders(tree, (p) => expanded.has(p))
     : [];
   const shownTests = needle
     ? list.tests.filter((t) => t.summary.toLowerCase().includes(needle) || t.key.toLowerCase().includes(needle))
@@ -184,122 +147,132 @@ export function JiraTab({
   const filling = !query && list.tests.length > 0 && list.tests.length < list.total;
   const complete = !query && list.total > PAGE && list.tests.length >= list.total;
   const byKey = new Map(refs.filter((r) => r.key).map((r) => [r.key as string, r]));
-
-  const remoteRow = (t: RemoteTestRef) => {
-    const local = byKey.get(t.key);
-    const busyRow = pulling.includes(t.key);
-    return (
-      <button
-        key={t.key}
-        type="button"
-        className={cx("trow jrow", (local?.id === activeId || t.key === activeId) && "trow-on")}
-        title={
-          local ? undefined : busyRow ? "Being pulled now" : "Not pulled yet — opening it downloads it into the project"
-        }
-        aria-current={local?.id === activeId || t.key === activeId || undefined}
-        onClick={() => onOpenRemote(t)}
-      >
-        <span className="trow-title">{t.summary}</span>
-        <span className="trow-meta">
-          <span className="mono muted">{t.key}</span>
-          {t.status && (
-            <Badge small tone={statusTone(t.status)} className="jrow-status">
-              {t.status}
-            </Badge>
-          )}
-          {local && <SyncBadge sync={local.sync} small />}
-          <span className="jrow-steps mono">{busyRow ? "pulling…" : plural(t.stepCount, "step")}</span>
-        </span>
-      </button>
-    );
-  };
+  const open = shownTests.find((t) => byKey.get(t.key)?.id === activeId || t.key === activeId)?.key ?? null;
+  const byTestKey = new Map(shownTests.map((t) => [t.key, t]));
 
   return (
     <>
-      {!tree ? (
-        !query && treeSkeleton
-      ) : (
-        <div className="jtree">
-          {rows.map(({ folder: f, depth }) => {
-            const isOpen = expanded.has(f.path);
-            return (
-              <div key={f.path} className="tree-line">
-                <button
-                  type="button"
-                  className={cx("tree jfolder", f.path === folder && !query && "jfolder-on")}
-                  style={{ paddingLeft: 12 + (needle ? 0 : depth) * 16 }}
-                  aria-expanded={f.folders.length && !needle ? isOpen : undefined}
-                  aria-current={(f.path === folder && !query) || undefined}
-                  title={needle ? f.path : undefined}
-                  onClick={() => onPickFolder(f.path)}
+      {!query && (
+        <div role={!tree ? "status" : undefined} aria-label={!tree ? "Loading folders" : undefined}>
+          <List<(typeof rows)[number]>
+            label="Jira folders"
+            tree
+            loading={!tree ? 5 : false}
+            items={rows}
+            selected={query ? null : folder}
+            getKey={(r) => r.folder.path}
+            onSelect={onPickFolder}
+            onToggle={onPickFolder}
+            renderItem={({ folder: f, depth }) => ({
+              title: f.path === "/" ? "Test Repository" : f.name,
+              tooltip: needle ? f.path : undefined,
+              depth: needle ? 0 : depth,
+              expanded: f.folders.length && !needle ? expanded.has(f.path) : null,
+              lead: <Icon name="folder" size="sm" />,
+              trail: (
+                <span
+                  {...stylex.props(styles.count)}
+                  title={`${f.testsCount} directly in this folder, ${f.totalCount} including sub-folders`}
                 >
-                  <span className="jfolder-twisty">
-                    {f.folders.length > 0 && !needle && <Icon name={isOpen ? "down" : "right"} />}
-                  </span>
-                  <Icon name="folder" />
-                  <span className={cx("tree-name", f.path === "/" && "jfolder-root")}>
-                    {f.path === "/" ? "Test Repository" : f.name}
-                  </span>
-                  <span
-                    className="jfolder-count mono"
-                    title={`${f.testsCount} directly in this folder, ${f.totalCount} including sub-folders`}
-                  >
-                    {f.testsCount === f.totalCount ? f.totalCount : `${f.testsCount}/${f.totalCount}`}
-                  </span>
-                </button>
-                {f.totalCount > 0 && (
-                  <IconButton
-                    icon="pull"
+                  {f.testsCount === f.totalCount ? f.totalCount : `${f.testsCount}/${f.totalCount}`}
+                </span>
+              ),
+              actions:
+                f.totalCount > 0 ? (
+                  <Button
+                    variant="quiet"
+                    size="xs"
+                    iconOnly
+                    icon="download"
                     label={`Pull every test of ${folderName(f.path)}`}
                     disabled={busyFolders.includes(f.path)}
                     onClick={() => onPullFolder(f.path)}
                   />
-                )}
-              </div>
-            );
-          })}
+                ) : undefined,
+            })}
+          />
         </div>
       )}
       {ready && (
-        <div className="jlist">
-          <div className="jlist-head">
-            <span className={cx("jlist-path", !query && folder === "/" ? "jlist-root" : "mono")}>
+        <>
+          <div {...stylex.props(styles.head)}>
+            <span {...stylex.props(styles.path, !(!query && folder === "/") && styles.mono)}>
               {query ? `search “${query}”` : folderName(folder)}
             </span>
-            {busy ? (
-              <Skeleton w={54} h={9} />
-            ) : (
-              <span className="jlist-range">
+            {!busy && (
+              <span data-testid="jira-range" {...stylex.props(styles.range)}>
                 {query ? `${list.tests.length} found` : list.total ? `${list.tests.length} of ${list.total}` : "0"}
               </span>
             )}
           </div>
-          {busy ? (
-            rowSkeleton(6, query ? `Searching Jira for ${query}` : `Loading tests in ${folderName(folder)}`)
-          ) : shownTests.length ? (
-            shownTests.map(remoteRow)
-          ) : list.tests.length ? (
-            <p className="muted tside-empty">No listed test matches “{filter}”.</p>
-          ) : query ? (
-            <p className="muted tside-empty">Nothing in Jira matches “{query}”.</p>
-          ) : (
-            <div className="tside-empty jempty">
-              <p className="jempty-title">No tests in this folder</p>
-              <p className="muted">{folderName(folder)} is empty. Pick another folder, or create a test locally.</p>
-              <Button size="sm" icon="plus" onClick={onNew}>
-                New local test
-              </Button>
+          <div
+            role={busy ? "status" : undefined}
+            aria-label={
+              busy ? (query ? `Searching Jira for ${query}` : `Loading tests in ${folderName(folder)}`) : undefined
+            }
+          >
+            <List<RemoteTestRef>
+              label={query ? `Jira tests found for ${query}` : `Jira tests in ${folderName(folder)}`}
+              items={shownTests}
+              loading={busy ? 6 : false}
+              getKey={(t) => t.key}
+              selected={open}
+              density="two-line"
+              onEndReached={
+                !query && list.tests.length < list.total ? () => loadSlice(listKey, at.current.page + 1) : undefined
+              }
+              onSelect={(k) => {
+                const t = byTestKey.get(k);
+                if (t) onOpenRemote(t);
+              }}
+              empty={
+                list.tests.length ? (
+                  <EmptyState icon="search" compact title={`No listed test matches “${filter}”.`} />
+                ) : query ? (
+                  <EmptyState icon="search" compact title={`Nothing in Jira matches “${query}”.`} />
+                ) : (
+                  <EmptyState
+                    icon="folder"
+                    compact
+                    title="No tests in this folder"
+                    text={`${folderName(folder)} is empty. Pick another folder, or create a test locally.`}
+                    actions={<Button size="sm" icon="plus" label="New local test" onClick={onNew} />}
+                  />
+                )
+              }
+              renderItem={(t) => {
+                const local = byKey.get(t.key);
+                const busyRow = pulling.includes(t.key);
+                return {
+                  title: t.summary,
+                  tooltip: local
+                    ? t.summary
+                    : busyRow
+                      ? "Being pulled now"
+                      : "Not pulled yet — opening it downloads it into the project",
+                  meta: (
+                    <span {...stylex.props(styles.meta)}>
+                      <KeyText text={t.key} />
+                      {t.status && <Badge label={t.status} tone={statusTone(t.status)} size="sm" />}
+                      {local ? (
+                        <Badge {...SYNC_OF[local.sync]} tooltip={SYNC_TIP[local.sync]} size="sm" />
+                      ) : (
+                        <Badge label={busyRow ? "Pulling…" : "Not pulled"} size="sm" busy={busyRow} />
+                      )}
+                      <span {...stylex.props(styles.count)}>{plural(t.stepCount, "step")}</span>
+                    </span>
+                  ),
+                };
+              }}
+            />
+          </div>
+          {filling && (
+            <div role="status" aria-label={`Loading more tests in ${folderName(folder)}`}>
+              <Skeleton kind="row" />
             </div>
           )}
-          {filling && <div ref={sentinel}>{rowSkeleton(2, `Loading more tests in ${folderName(folder)}`)}</div>}
-          {complete && (
-            <div className="jlist-end">
-              <span />
-              all {list.total} loaded
-              <span />
-            </div>
-          )}
-        </div>
+          {complete && <span {...stylex.props(styles.end)}>all {list.total} loaded</span>}
+        </>
       )}
     </>
   );

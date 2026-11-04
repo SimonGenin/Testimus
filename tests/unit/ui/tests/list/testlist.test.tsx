@@ -1,19 +1,20 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Folder, LocalTestRef, RemoteTestRef } from "../../src/core/types.ts";
-import { setProject } from "../../src/ui/api.ts";
-import { AppContext, type AppState } from "../../src/ui/lib/app.ts";
-import { isKeyQuery, localTree, TestList } from "../../src/ui/screens/tests/TestList.tsx";
-import { callsTo, deferred, Fail, server, stubServer } from "./cov-uitests-helpers.ts";
-import { app } from "./ui-desktop-helpers.tsx";
+import type { Folder, LocalTestRef, RemoteTestRef } from "../../../../../src/core/types.ts";
+import { setProject } from "../../../../../src/ui/api.ts";
+import { AppContext, type AppState } from "../../../../../src/ui/lib/app.ts";
+import { isKeyQuery, localTree, TestList } from "../../../../../src/ui/screens/tests/TestList.tsx";
+import { callsTo, deferred, Fail, server, stubServer } from "../../../cov-uitests-helpers.ts";
+import { app } from "../../../ui-desktop-helpers.tsx";
+import { testClient, WithData } from "../data-helpers.tsx";
 
 const toasts: { kind: string; title: string; detail?: string }[] = [];
 const errors: { e: unknown; title?: string }[] = [];
-vi.mock("../../src/ui/lib/toast.ts", async (importOriginal) => {
-  const real = await importOriginal<typeof import("../../src/ui/lib/toast.ts")>();
+vi.mock("../../../../../src/ui/lib/toast.ts", async (importOriginal) => {
+  const real = await importOriginal<typeof import("../../../../../src/ui/lib/toast.ts")>();
   return {
     ...real,
     toast: vi.fn((t: (typeof toasts)[number]) => toasts.push(t)),
@@ -81,21 +82,40 @@ const list = (o: Partial<Props> & { reload?: LocalTestRef[]; jira?: Jira } = {})
   const onOpen = vi.fn();
   const onReload = vi.fn(async () => o.reload ?? o.refs ?? refs);
   const state = stateOf(o.jira);
+  const client = testClient();
   const tree = (s: AppState) => (
-    <AppContext.Provider value={s}>
-      <TestList refs={refs} loading={false} activeId="" onOpen={onOpen} onReload={onReload} {...o} />
-    </AppContext.Provider>
+    <WithData client={client}>
+      <AppContext.Provider value={s}>
+        <TestList refs={refs} loading={false} activeId="" onOpen={onOpen} onReload={onReload} {...o} />
+      </AppContext.Provider>
+    </WithData>
   );
   const r = render(tree(state));
   return { ...r, onOpen, onReload, state, again: (jira: Jira) => r.rerender(tree(stateOf(jira))) };
 };
 
 const toJira = () => fireEvent.click(screen.getByRole("tab", { name: /Jira/ }));
+const item = (name: string | RegExp) => screen.getByRole("treeitem", { name });
+const rowAction = (row: HTMLElement, name: string) => {
+  fireEvent.focus(row);
+  return within(row).getByRole("button", { name });
+};
+const localRow = (name: string | RegExp) =>
+  screen
+    .getAllByRole("treeitem")
+    .find((r) =>
+      typeof name === "string" ? r.textContent?.startsWith(name) : name.test(r.textContent ?? ""),
+    ) as HTMLElement;
+const tipOf = (el: HTMLElement) => el.closest("span")?.querySelector('[role="tooltip"]')?.textContent;
 const search = (v: string) => fireEvent.change(screen.getByLabelText("Filter tests"), { target: { value: v } });
 const jira = (v: string) => fireEvent.change(screen.getByLabelText("Search Jira"), { target: { value: v } });
 
+let seq = 0;
+
 beforeEach(() => {
   stubServer();
+  // ponytail: the list's view (tab, boxes, folds) is kept per project for the page's life — each case its own project
+  setProject(`C:\\list-${++seq}`);
   server.routes["xray.folders"] = () => tree;
   server.routes["xray.search"] = () => ({ tests: [], total: 0 });
   server.routes["jobs.list"] = () => [];
@@ -127,13 +147,13 @@ describe("TestList helpers", () => {
     const mixed = [
       ref({ id: "hand", summary: "Hand draft" }),
       ref({ id: "gen-ok", summary: "Generated validated", generated: true, review: "validated" }),
-      ref({ id: "gen-wait", summary: "Generated checked", generated: true, review: "checked" }),
+      { ...ref({ id: "gen-wait", summary: "Generated checked", generated: true, review: "checked" }), awaiting: true },
     ];
     list({ refs: mixed });
-    expect(screen.getByRole("button", { name: /^Hand draft/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^Generated validated/ })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Generated checked/ })).toBeNull();
-    expect(screen.getByRole("tab", { name: "Local 2" })).toHaveAttribute("aria-selected", "true");
+    expect(item(/^Hand draft/)).toBeInTheDocument();
+    expect(item(/^Generated validated/)).toBeInTheDocument();
+    expect(screen.queryByRole("treeitem", { name: /Generated checked/ })).toBeNull();
+    expect(screen.getByRole("tab", { name: /^Local ?2$/ })).toHaveAttribute("aria-selected", "true");
     expect(screen.queryByRole("tab", { name: /Review/ })).toBeNull();
     cleanup();
     const { state: s2 } = list({ refs: [mixed[2]] });
@@ -155,27 +175,26 @@ describe("TestList › local", () => {
     expect(screen.getByRole("status", { name: "Loading tests" })).toBeInTheDocument();
     cleanup();
     list({ refs: [] });
-    expect(screen.getByText(/No tests yet/)).toBeInTheDocument();
-    expect(await screen.findByRole("tab", { name: "Jira 3" })).toBeInTheDocument();
+    expect(screen.getByText(/No test yet/)).toBeInTheDocument();
+    expect(await screen.findByRole("tab", { name: /^Jira ?3$/ })).toBeInTheDocument();
   });
 
   it("draws the tree, opens a test, folds a folder and filters", () => {
     const { onOpen } = list({ activeId: "t-a", loading: true });
-    expect(screen.getByRole("tab", { name: "Local 4" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^Alpha/ })).toHaveAttribute("aria-current", "true");
-    expect(screen.getByRole("button", { name: /^Untitled/ })).toHaveTextContent("no key");
-    fireEvent.click(screen.getByRole("button", { name: /^Bravo/ }));
+    expect(screen.getByRole("tab", { name: /^Local ?4$/ })).toBeInTheDocument();
+    expect(item(/^Alpha/)).toHaveAttribute("aria-selected", "true");
+    expect(item(/^Untitled/)).toHaveTextContent("no key");
+    fireEvent.click(item(/^Bravo/));
     expect(onOpen).toHaveBeenCalledWith("t-b");
-    const lot = screen.getByRole("button", { name: /^Lot/ });
-    fireEvent.click(lot);
-    expect(lot).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByRole("button", { name: /^Alpha/ })).toBeNull();
+    fireEvent.click(item(/^Lot/));
+    expect(item(/^Lot/)).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("treeitem", { name: /^Alpha/ })).toBeNull();
     search("bravo");
-    expect(screen.getByRole("button", { name: /^Bravo/ })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^Charlie/ })).toBeNull();
+    expect(item(/^Bravo/)).toBeInTheDocument();
+    expect(screen.queryByRole("treeitem", { name: /^Charlie/ })).toBeNull();
     search("");
-    fireEvent.click(screen.getByRole("button", { name: /^Lot/ }));
-    expect(screen.getByRole("button", { name: /^Alpha/ })).toBeInTheDocument();
+    fireEvent.click(item(/^Lot/));
+    expect(item(/^Alpha/)).toBeInTheDocument();
     search("nothing");
     expect(screen.getByText("No local test matches “nothing”.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Search Jira for “nothing”" }));
@@ -193,7 +212,7 @@ describe("TestList › local", () => {
     server.routes["tests.create"] = () => ({ id: "t-new" });
     const { onOpen, onReload } = list({ activeId: "t-a" });
     const create = screen.getByRole("button", { name: "New test" });
-    expect(create).toHaveAttribute("title", "New local test in /Lot");
+    expect(tipOf(create)).toBe("New local test in /Lot");
     fireEvent.click(create);
     await waitFor(() => expect(onOpen).toHaveBeenCalledWith("t-new"));
     expect(onReload).toHaveBeenCalled();
@@ -233,15 +252,14 @@ describe("TestList › local", () => {
   it("pulls the open test, asking first when it has local changes", async () => {
     const gate = deferred<unknown>();
     server.routes["xray.pull"] = () => gate.promise;
-    const confirm = vi.fn(() => false);
-    vi.stubGlobal("confirm", confirm);
     const dirty = refs.map((r) => (r.id === "t-b" ? { ...r, dirty: true } : r));
     const { onReload } = list({ refs: dirty, activeId: "t-b" });
     fireEvent.click(screen.getByRole("button", { name: "Pull" }));
-    expect(confirm).toHaveBeenCalled();
+    const ask = screen.getByRole("alertdialog", { name: "Replace LFRPS12-2 with Jira's version?" });
+    fireEvent.click(within(ask).getByRole("button", { name: "Cancel" }));
     expect(callsTo("xray.pull")).toHaveLength(0);
-    confirm.mockReturnValue(true);
     fireEvent.click(screen.getByRole("button", { name: "Pull" }));
+    fireEvent.click(screen.getByRole("button", { name: "Pull and replace" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Pull" })).toBeDisabled());
     gate.resolve({ pulled: ["LFRPS12-2"], skipped: [], failed: [] });
     await waitFor(() => expect(onReload).toHaveBeenCalled());
@@ -260,6 +278,7 @@ describe("TestList › local", () => {
   it("disables Show in Explorer without a project, and reveals the test.md with one", () => {
     const reveal = vi.fn(async () => true);
     window.testimusDesktop = { reveal } as never;
+    setProject(null);
     list({ activeId: "t-a" });
     expect(screen.getByRole("button", { name: "Show the test in Explorer" })).toBeDisabled();
     cleanup();
@@ -271,8 +290,7 @@ describe("TestList › local", () => {
 
   it("closes the drawer", () => {
     const onCloseDrawer = vi.fn();
-    const { container } = list({ open: true, onCloseDrawer });
-    expect(container.querySelector(".tside")).toHaveClass("is-open");
+    list({ onCloseDrawer });
     fireEvent.click(screen.getByRole("button", { name: "Close list" }));
     expect(onCloseDrawer).toHaveBeenCalled();
   });
@@ -283,7 +301,7 @@ describe("TestList › delete", () => {
     server.routes["tests.remove"] = () => ({});
     const onDeleted = vi.fn();
     list({ onDeleted });
-    fireEvent.click(screen.getByRole("button", { name: "Delete the local copy of LFRPS12-2" }));
+    fireEvent.click(rowAction(localRow(/^Bravo/), "Delete the local copy of LFRPS12-2"));
     await waitFor(() => expect(onDeleted).toHaveBeenCalledWith("t-b"));
     expect(screen.queryByRole("dialog")).toBeNull();
   });
@@ -291,13 +309,13 @@ describe("TestList › delete", () => {
   it("reloads after a delete when nobody listens, and does nothing when it failed", async () => {
     server.routes["tests.remove"] = () => ({});
     const { onReload } = list();
-    fireEvent.click(screen.getByRole("button", { name: "Delete the local copy of LFRPS12-2" }));
+    fireEvent.click(rowAction(localRow(/^Bravo/), "Delete the local copy of LFRPS12-2"));
     await waitFor(() => expect(onReload).toHaveBeenCalled());
     server.routes["tests.remove"] = () => {
       throw new Fail("locked");
     };
     onReload.mockClear();
-    fireEvent.click(screen.getByRole("button", { name: "Delete the local copy of LFRPS12-2" }));
+    fireEvent.click(rowAction(localRow(/^Bravo/), "Delete the local copy of LFRPS12-2"));
     await waitFor(() => expect(errors.at(-1)?.title).toBe("Could not delete the local copy"));
     expect(onReload).not.toHaveBeenCalled();
   });
@@ -306,14 +324,14 @@ describe("TestList › delete", () => {
     server.routes["tests.remove"] = () => ({});
     const onDeleted = vi.fn();
     list({ onDeleted });
-    fireEvent.click(screen.getByRole("button", { name: "Delete the local copy of Alpha" }));
-    expect(screen.getByRole("dialog", { name: "Delete the local copy?" })).toBeInTheDocument();
+    fireEvent.click(rowAction(localRow(/^Alpha/), "Delete the local copy of Alpha"));
+    expect(screen.getByRole("alertdialog", { name: "Delete the local copy?" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-    expect(screen.queryByRole("dialog")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Delete the local copy of t-z" }));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    fireEvent.click(rowAction(localRow(/^Untitled/), "Delete the local copy of t-z"));
     fireEvent.click(screen.getByRole("button", { name: "Delete local copy" }));
     await waitFor(() => expect(onDeleted).toHaveBeenCalledWith("t-z"));
-    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
   });
 });
 
@@ -354,16 +372,15 @@ describe("TestList › Jira", () => {
     server.routes["tests.create"] = () => ({ id: "t-new" });
     const { onOpen } = list();
     toJira();
-    const lot = await screen.findByRole("button", { name: /^Lot/ });
-    fireEvent.click(lot);
-    expect(lot).toHaveAttribute("aria-expanded", "true");
-    expect(lot).toHaveAttribute("aria-current", "true");
-    expect(screen.getByRole("button", { name: "New test" })).toHaveAttribute("title", "New local test in /Lot");
-    fireEvent.click(lot);
-    expect(lot).toHaveAttribute("aria-expanded", "false");
-    fireEvent.click(screen.getByRole("button", { name: /^Test Repository/ }));
-    fireEvent.click(lot);
-    expect(lot).toHaveAttribute("aria-expanded", "true");
+    fireEvent.click(await screen.findByRole("treeitem", { name: /^Lot/ }));
+    expect(item(/^Lot/)).toHaveAttribute("aria-expanded", "true");
+    expect(item(/^Lot/)).toHaveAttribute("aria-selected", "true");
+    expect(tipOf(screen.getByRole("button", { name: "New test" }))).toBe("New local test in /Lot");
+    fireEvent.click(item(/^Lot/));
+    expect(item(/^Lot/)).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(item(/^Test Repository/));
+    fireEvent.click(item(/^Lot/));
+    expect(item(/^Lot/)).toHaveAttribute("aria-expanded", "true");
     fireEvent.click(await screen.findByRole("button", { name: "New local test" }));
     await waitFor(() => expect(callsTo("tests.create")).toHaveLength(1));
     expect(callsTo("tests.create")[0].input).toEqual({ folder: "/Lot", summary: "New test" });
@@ -374,11 +391,10 @@ describe("TestList › Jira", () => {
     list();
     toJira();
     search("deep");
-    const deep = await screen.findByRole("button", { name: /^Deep/ });
-    fireEvent.click(deep);
+    fireEvent.click(await screen.findByRole("treeitem", { name: /^Deep/ }));
     expect(screen.getByLabelText("Filter tests")).toHaveValue("");
-    expect(screen.getByRole("button", { name: /^Lot/ })).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByRole("button", { name: /^Deep/ })).toHaveAttribute("aria-current", "true");
+    expect(item(/^Lot/)).toHaveAttribute("aria-expanded", "true");
+    expect(item(/^Deep/)).toHaveAttribute("aria-selected", "true");
   });
 
   it("opens a local copy, hands a new key to the pull queue, or pulls it itself", async () => {
@@ -389,17 +405,17 @@ describe("TestList › Jira", () => {
     const onPull = vi.fn();
     const { onOpen } = list({ onPull, pulling: ["LFRPS12-9"] });
     toJira();
-    fireEvent.click(await screen.findByRole("button", { name: /^Bravo remote/ }));
+    fireEvent.click(await screen.findByRole("option", { name: /^Bravo remote/ }));
     expect(onOpen).toHaveBeenCalledWith("t-b");
-    const nine = screen.getByRole("button", { name: /^Nine/ });
-    expect(nine).toHaveTextContent("pulling…");
+    const nine = screen.getByRole("option", { name: /^Nine/ });
+    expect(nine).toHaveTextContent("Pulling…");
     fireEvent.click(nine);
     expect(onPull).toHaveBeenCalledWith("LFRPS12-9", "Nine");
     cleanup();
     server.routes["xray.pull"] = () => ({ pulled: ["LFRPS12-9"] });
     const own = list();
     toJira();
-    fireEvent.click(await screen.findByRole("button", { name: /^Nine/ }));
+    fireEvent.click(await screen.findByRole("option", { name: /^Nine/ }));
     await waitFor(() => expect(own.onReload).toHaveBeenCalled());
     expect(callsTo("xray.pull")[0].input).toEqual({ key: "LFRPS12-9" });
     expect(own.onOpen).not.toHaveBeenCalled();
@@ -410,7 +426,7 @@ describe("TestList › Jira", () => {
     server.routes["xray.pull"] = () => gate.promise;
     list();
     toJira();
-    const pullLot = await screen.findByRole("button", { name: "Pull every test of /Lot" });
+    const pullLot = rowAction(await screen.findByRole("treeitem", { name: /^Lot/ }), "Pull every test of /Lot");
     fireEvent.click(pullLot);
     await waitFor(() => expect(pullLot).toBeDisabled());
     gate.resolve({
@@ -430,13 +446,13 @@ describe("TestList › Jira", () => {
     server.routes["xray.pull"] = () => undefined;
     const { onReload } = list();
     toJira();
-    fireEvent.click(await screen.findByRole("button", { name: "Pull every test of /Lot" }));
+    fireEvent.click(rowAction(await screen.findByRole("treeitem", { name: /^Lot/ }), "Pull every test of /Lot"));
     await waitFor(() => expect(onReload).toHaveBeenCalled());
     expect(toasts).toEqual([]);
     server.routes["xray.pull"] = () => {
       throw new Fail("Jira down");
     };
-    fireEvent.click(screen.getByRole("button", { name: "Pull every test of /Lot" }));
+    fireEvent.click(rowAction(item(/^Lot/), "Pull every test of /Lot"));
     await waitFor(() => expect(errors.at(-1)?.title).toBe("Could not pull /Lot"));
   });
 });
@@ -476,8 +492,8 @@ describe("TestList › Jira connection", () => {
     await waitFor(() => expect(state.refreshInfo).toHaveBeenCalled());
     expect(callsTo("xray.connect").at(-1)?.input).toEqual({ key: "LFRPS12" });
     again({ jiraProject: "LFRPS12" });
-    expect(await screen.findByText("Connected to")).toBeInTheDocument();
-    expect(await screen.findByRole("button", { name: /^Lot/ })).toBeInTheDocument();
+    expect(await screen.findByText(/Connected to/)).toBeInTheDocument();
+    expect(await screen.findByRole("treeitem", { name: /^Lot/ })).toBeInTheDocument();
   });
 
   it("offers the Jira access setup when the credentials are missing", async () => {
