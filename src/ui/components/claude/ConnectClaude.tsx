@@ -185,7 +185,8 @@ export function ConnectClaude({
       </h3>
       <p {...stylex.props(styles.text)}>
         <span {...stylex.props(!dock && styles.strong)}>Claude is optional — everything else works without it.</span>{" "}
-        Writing, checking and asking the documents need it; editing, review and push work now.
+        {look === "card" ? "Writing tests, checking them" : "Writing, checking"} and asking the documents need it;
+        editing, review and push work now.
       </p>
       <ol {...stylex.props(styles.steps, !dock && styles.stepsTight)}>
         {steps.map((s, i) => (
@@ -237,7 +238,15 @@ export function ConnectClaude({
         {onSetPath && (
           <Button size="sm" variant={dock ? "secondary" : "quiet"} label="Set the path myself…" onClick={onSetPath} />
         )}
-        {onDoctor && <Button size="sm" variant="quiet" icon="doctor" label="Open system check" onClick={onDoctor} />}
+        {onDoctor && (
+          <Button
+            size="sm"
+            variant="quiet"
+            icon={look === "card" ? undefined : "doctor"}
+            label="Open system check"
+            onClick={onDoctor}
+          />
+        )}
       </div>
     </div>
   );
