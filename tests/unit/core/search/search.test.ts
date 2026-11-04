@@ -8,7 +8,7 @@ import { env } from "../../../../src/core/env.ts";
 import { indexProject } from "../../../../src/core/rag/indexer.ts";
 import { foldKeep } from "../../../../src/core/rag/stem-fr.ts";
 import { marksIn, searchAll } from "../../../../src/core/search/all.ts";
-import { compile, corpus, distance, field, search, snippet } from "../../../../src/core/search/match.ts";
+import { compile, corpus, distance, field, imageless, search, snippet } from "../../../../src/core/search/match.ts";
 import { parseQuery } from "../../../../src/core/search/query.ts";
 import { embedTests, embedText, vectorsFile } from "../../../../src/core/search/vectors.ts";
 
@@ -105,6 +105,21 @@ describe("matching", () => {
     const [[a, b]] = s.marks;
     expect(s.text.slice(a, b)).toBe("cible");
     expect(snippet("court", [[0, 5]])).toEqual({ text: "court", marks: [[0, 5]] });
+  });
+
+  it("reads a markdown image as its words, so a result never shows the markup (design-gaps point 51)", () => {
+    expect(imageless('Le symbole du sectionneur. ![](images/fig-40.png "width=320"){width=320} Fin.')).toBe(
+      "Le symbole du sectionneur.  Fin.",
+    );
+    expect(imageless("![Figure 40 – Représentation](images/fig-40.png) suite")).toBe(
+      "Figure 40 – Représentation suite",
+    );
+  });
+
+  it("finds a test without its image markup in the snippet", async () => {
+    const r = await searchAll(dir, { query: "symbole sectionneur", in: ["test"], meaning: false });
+    expect(r.hits.length).toBeGreaterThan(0);
+    for (const h of r.hits) expect(h.snippet ?? "").not.toMatch(/!\[|\]\(|images\//);
   });
 
   it("marks a query inside any text", () => {

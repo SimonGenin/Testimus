@@ -7,10 +7,10 @@ import { RailItem } from "../ui/RailItem.tsx";
 
 const LOOK: Record<CheckState | "unknown", { label: string; tone: BadgeTone }> = {
   ok: { label: "All good", tone: "success" },
-  warn: { label: "Check", tone: "warning" },
-  fail: { label: "Needs you", tone: "danger" },
+  warn: { label: "To do", tone: "warning" },
+  fail: { label: "Failed", tone: "danger" },
   skip: { label: "Not checked", tone: "neutral" },
-  unknown: { label: "Checking", tone: "neutral" },
+  unknown: { label: "Not checked", tone: "neutral" },
 };
 
 const checksOf = (v: unknown): DoctorCheck[] =>

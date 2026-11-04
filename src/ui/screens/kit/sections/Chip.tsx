@@ -7,6 +7,7 @@ export const section: KitSection = {
   file: "Chip.tsx",
   summary:
     "A small value you press or remove: a toggle (quick asks, a run's contexts, filters) or a value in a set (labels, covers, preconditions). Never a status (a Badge), never a main action (a Button).",
+  guidelines: [],
   states: () => (
     <States>
       <Cell label="toggle off · on · hover">

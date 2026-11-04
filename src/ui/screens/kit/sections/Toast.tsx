@@ -10,6 +10,7 @@ export const section: KitSection = {
   summary:
     "The result of something that happened away from the eyes: a pull landed, a reload from disk, a delete with Undo. toast({ … }) from anywhere; Toaster stacks them bottom right, three at most, the newest at the bottom. Never for a save (Text shows it), never the only trace of an error that blocks work (that is a Banner).",
   note: "A danger toast is an alert and stays until dismissed; the others are a status and leave after 6 s (or `seconds`). An action closes its toast; its time limit counts down in its label. onExpire runs when a toast leaves without its action (an Undo commits there).",
+  guidelines: [],
   states: () => (
     <States>
       <Cell label="the stack: success · neutral + Undo · warning · danger + Retry · claude" wide column>

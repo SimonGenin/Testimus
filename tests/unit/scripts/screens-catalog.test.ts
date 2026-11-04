@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { SCENARIOS } from "../../../scripts/screens-catalog.ts";
+import { kitSectionNames, SCENARIOS } from "../../../scripts/screens-catalog.ts";
 import { MOCK_MACHINES } from "../../../src/core/mock/machine.ts";
 import { MOCK_ADVICE } from "../../../src/core/mock/models.ts";
+import type { KitSection } from "../../../src/ui/screens/kit/kit.tsx";
 
 const ESSAI = "/tmp/essai-project";
 const SCREENS = ["documents", "generate", "tests", "review", "jobs", "settings", "doctor", "setup", "kit"];
@@ -80,6 +81,20 @@ describe("npm run screens: the catalog (GOAL-V3 proof 5, audit M-X1)", () => {
         }
         for (const size of shot.sizes ?? []) expect(SIZES, where).toContain(size);
       }
+  });
+
+  it("shoots every kit page by the name its section declares (design-gaps point 2: Icon and Banner were empty)", () => {
+    const declared = Object.values(
+      import.meta.glob<KitSection>("../../../src/ui/screens/kit/sections/*.tsx", { eager: true, import: "section" }),
+    )
+      .map((s) => s.name)
+      .sort();
+    expect(kitSectionNames().sort()).toEqual(declared);
+    const kit = scenarios.find((s) => s.id === "kit");
+    const hashes = (kit?.shots ?? []).map((s) => s.hash);
+    for (const name of declared) expect(hashes, name).toContain(`#/kit/${name}`);
+    expect(hashes).toContain("#/kit/Icon");
+    expect(hashes).toContain("#/kit/Banner");
   });
 
   it("starts each scenario's server with mock settings the sandbox knows", () => {

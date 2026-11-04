@@ -8,7 +8,7 @@ import { useRunningJobs } from "../components/shell/Activity.tsx";
 import { CommandForm } from "../components/shell/CommandForm.tsx";
 import { DesktopBridge } from "../components/shell/DesktopBridge.tsx";
 import { Palette } from "../components/shell/Palette.tsx";
-import { hasInput } from "../components/shell/paletteEntries.tsx";
+import { firstSentence, hasInput } from "../components/shell/paletteEntries.tsx";
 import { Rail } from "../components/shell/Rail.tsx";
 import { ServerLost } from "../components/shell/ServerLost.tsx";
 import { TopBar, TopBarContext, useTopBarSlots } from "../components/shell/TopBar.tsx";
@@ -16,15 +16,16 @@ import { PassageDialog } from "../components/sources/PassageDialog.tsx";
 import { docLink } from "../components/sources/PassageView.tsx";
 import { ResizeHandle } from "../components/ui/ResizeHandle.tsx";
 import { Toaster } from "../components/ui/Toast.tsx";
-import { AppContext, type AppState, type ClaudeRun, type Focus } from "../lib/app.ts";
+import { AppContext, type AppState, type ClaudeRun, type Focus, type SourceFrom } from "../lib/app.ts";
 import type { CommandInfo } from "../lib/data/client.ts";
 import { execute } from "../lib/data/query.ts";
 import { usePaneWidth } from "../lib/panes.ts";
 import { jumpTo, rememberHit } from "../lib/search.ts";
 import { errorToast, toast } from "../lib/toast.ts";
 import { border, breakpoint, color, radius, shadow, size, space } from "../styles/tokens.stylex.ts";
-import { paletteActions } from "./paletteActions.ts";
+import { commandToast, paletteActions } from "./paletteActions.ts";
 import { parseRoute, TITLES, useRoute } from "./routes.ts";
+import { ScreenGuard } from "./ScreenGuard.tsx";
 import { Screens } from "./Screens.tsx";
 import { useClaudeLock } from "./useClaudeLock.ts";
 import { useDock } from "./useDock.ts";
@@ -90,7 +91,7 @@ export function App() {
   const [focus, setFocus] = useState<Focus | null>(null);
   const [lastRun, setLastRun] = useState<ClaudeRun | null>(null);
   const [testsNonce, setTestsNonce] = useState(0);
-  const [source, setSource] = useState<Source | null>(null);
+  const [source, setSource] = useState<{ source: Source; from?: SourceFrom } | null>(null);
   const [palette, setPalette] = useState(false);
   const [form, setForm] = useState<CommandInfo | null>(null);
   const dockPane = usePaneWidth("dockWidth", DOCK);
@@ -154,7 +155,7 @@ export function App() {
       testsChanged,
       refreshInfo,
       closeProject,
-      openSource: setSource,
+      openSource: (s: Source, from?: SourceFrom) => setSource({ source: s, from }),
       askClaude: dock.askClaude,
       runInDock: dock.runInDock,
       openPalette,
@@ -186,17 +187,12 @@ export function App() {
       }
       execute(client, c.name as CommandName, {} as never, { invalidates: c.mutates ? "project" : "none" })
         .then((r) => {
-          const jobId = (r as { jobId?: string } | null)?.jobId;
-          toast({
-            kind: "ok",
-            title: jobId ? `${c.name} started` : `${c.name} done`,
-            detail: jobId ? "Follow it in Jobs." : undefined,
-          });
+          toast(commandToast(c, r, navigate));
           if (c.mutates) testsChanged();
         })
-        .catch((e) => errorToast(e, `${c.name} failed`));
+        .catch((e) => errorToast(e, `${firstSentence(c.summary) || c.name} — failed`));
     },
-    [client, testsChanged],
+    [client, testsChanged, navigate],
   );
 
   const actions = useMemo(() => paletteActions(navigate, toggleDock), [navigate, toggleDock]);
@@ -226,7 +222,13 @@ export function App() {
             <TopBarContext.Provider value={bar.value}>
               <TopBar title={TITLES[route.screen]} onPalette={openPalette} slots={bar} />
               <ServerLost />
-              <div {...stylex.props(styles.screen)}>{p.booted && <Screens screen={route.screen} />}</div>
+              <div {...stylex.props(styles.screen)}>
+                {p.booted && (
+                  <ScreenGuard route={`${route.screen}/${route.arg ?? ""}`}>
+                    <Screens screen={route.screen} />
+                  </ScreenGuard>
+                )}
+              </div>
             </TopBarContext.Provider>
           </div>
           {!dock.folded && (
@@ -252,14 +254,25 @@ export function App() {
           onClose={() => setPalette(false)}
         />
       )}
-      {form && <CommandForm command={form} onClose={() => setForm(null)} onJob={() => navigate("jobs")} />}
+      {form && (
+        <CommandForm
+          command={form}
+          onClose={() => setForm(null)}
+          onBack={() => {
+            setForm(null);
+            setPalette(true);
+          }}
+          onJob={() => navigate("jobs")}
+        />
+      )}
       {source && (
         <PassageDialog
-          source={source}
+          source={source.source}
+          from={source.from}
           onClose={() => setSource(null)}
-          onOpenDoc={(docId, anchor, quote) => {
+          onOpenDoc={(docId, anchor, quote, cited) => {
             setSource(null);
-            navigate("documents", docLink(docId, anchor, quote));
+            navigate("documents", docLink(docId, anchor, quote, cited));
           }}
         />
       )}

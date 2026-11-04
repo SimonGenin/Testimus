@@ -8,6 +8,7 @@ export const section: KitSection = {
   summary:
     "A 4 px bar for a job with a known amount of work (index, downloads, pulls); indeterminate when the end is unknown. The words under it say what and how much.",
   note: "Added to the N2 list on purpose: nine bars were drawn by hand under five names, and only five said they were a progress bar.",
+  guidelines: [],
   states: () => (
     <States>
       <Cell label="0 · partial · done" column>

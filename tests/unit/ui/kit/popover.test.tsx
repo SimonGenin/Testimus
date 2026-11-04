@@ -144,4 +144,31 @@ describe("Popover", () => {
     expect(onClick).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("dialog", { name: "Flush" })).toBeInTheDocument();
   });
+
+  it("without a head is still named by its title, and Escape still closes it", async () => {
+    const user = userEvent.setup();
+    render(<Ask head={false} title="Add context" />);
+    await user.click(screen.getByRole("button", { name: "Ask Claude" }));
+    const dialog = screen.getByRole("dialog", { name: "Add context" });
+    expect(dialog.querySelector("h2")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Close" })).toBeNull();
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByRole("button", { name: "Ask Claude" })).toHaveFocus();
+  });
+
+  it("at the window's right edge, a start popover slides back in instead of jumping to the trigger's other edge", async () => {
+    const user = userEvent.setup();
+    const box = (left: number) =>
+      ({ top: 100, bottom: 128, left, right: left + 28, width: 28, height: 28, x: left, y: 100 }) as DOMRect;
+    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(200);
+    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(440);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(() => box(window.innerWidth - 300));
+    render(<Ask align="start" />);
+    await user.click(screen.getByRole("button", { name: "Ask Claude" }));
+    const dialog = screen.getByRole("dialog", { name: "Ask Claude · Step 2" });
+    expect(dialog.style.left).toBe(`${window.innerWidth - 440 - 8}px`);
+    expect(dialog.style.right).toBe("");
+    vi.restoreAllMocks();
+  });
 });

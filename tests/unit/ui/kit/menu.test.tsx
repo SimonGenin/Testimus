@@ -279,6 +279,24 @@ describe("Menu", () => {
     expect(screen.getByRole("menu").style.right).toBe(`${window.innerWidth - 428}px`);
   });
 
+  it("beside: opens at the trigger's right, level with it, and stays inside the window (design-gaps point 56)", async () => {
+    const user = userEvent.setup();
+    const at = { top: 60 };
+    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(200);
+    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(240);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
+      () =>
+        ({ top: at.top, bottom: at.top + 40, left: 8, right: 64, width: 56, height: 40, x: 8, y: at.top }) as DOMRect,
+    );
+    render(<Menu trigger={trigger} entries={more()} align="beside" />);
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    expect(screen.getByRole("menu").style.top).toBe("60px");
+    expect(screen.getByRole("menu").style.left).toBe("64px");
+    at.top = window.innerHeight - 50;
+    fireEvent(window, new Event("resize"));
+    expect(screen.getByRole("menu").style.top).toBe(`${window.innerHeight - 200 - 8}px`);
+  });
+
   it("follows the pointer: hovering an item focuses it", async () => {
     const user = userEvent.setup();
     render(<Menu trigger={trigger} entries={more()} />);

@@ -13,7 +13,8 @@ export const KIND: Record<SearchKind, { label: string; one: string; icon: IconNa
 };
 
 const styles = stylex.create({
-  where: { color: color.text, fontWeight: fontWeight.medium, marginInlineEnd: space.s3 },
+  where: { flex: "none", color: color.text, fontWeight: fontWeight.medium, marginInlineEnd: space.s3 },
+  cut: { flex: "1 1 0", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   snippet: { fontFamily: fontFamily.reading },
   side: { display: "inline-flex", alignItems: "center", gap: space.s2 },
   key: {
@@ -25,13 +26,14 @@ const styles = stylex.create({
   },
 });
 
-// ponytail: one search result as a row — its title with the words found, where they are, and what it is
+// ponytail: one search result as a row — its title with the words found, where they are (one line, cut with an
+// ellipsis), and what it is
 export function hitRow(hit: SearchMatch): ListItemProps {
   const second =
     hit.snippet !== undefined ? (
       <>
         {hit.where && <span {...stylex.props(styles.where)}>{hit.where}</span>}
-        <span {...stylex.props(hit.kind === "passage" && styles.snippet)}>
+        <span {...stylex.props(styles.cut, hit.kind === "passage" && styles.snippet)}>
           <Marked text={hit.snippet} marks={hit.marks} />
         </span>
       </>

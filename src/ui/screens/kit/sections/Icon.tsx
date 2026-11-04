@@ -10,6 +10,7 @@ export const section: KitSection = {
   file: "Icon.tsx",
   summary:
     "Testimus's own SVG set (design/icons), as data: 16 px grid, 1.5 stroke, currentColor. sm 14 px in badges and chips, md 16 px in buttons and rows, lg 20 px in the rail. With them, the spinner and the keys.",
+  guidelines: [],
   states: () => (
     <States>
       <Cell label="sizes sm · md · lg">

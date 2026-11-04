@@ -7,11 +7,11 @@ mockServer(4398);
 test("the kit lists every component by family, and filters by name", async ({ page }) => {
   await boot(page, "#/kit");
   const nav = page.getByRole("navigation", { name: "Components" });
-  await expect(nav.getByRole("option", { name: "Button" })).toBeVisible();
-  await expect(nav.getByRole("group", { name: "Claude" }).getByRole("option", { name: "ClaudeBlock" })).toBeVisible();
+  await expect(nav.getByRole("option", { name: /^Button/ })).toBeVisible();
+  await expect(nav.getByRole("group", { name: "Claude" }).getByRole("option", { name: /^ClaudeBlock/ })).toBeVisible();
   await page.getByRole("textbox", { name: "Filter components" }).fill("cla");
-  await expect(nav.getByRole("option", { name: "ClaudeBlock" })).toBeVisible();
-  await expect(nav.getByRole("option", { name: "Button" })).toHaveCount(0);
+  await expect(nav.getByRole("option", { name: /^ClaudeBlock/ })).toBeVisible();
+  await expect(nav.getByRole("option", { name: /^Button/ })).toHaveCount(0);
   await expect(nav).toContainText(/1 of \d+ components match/);
   await page.getByRole("textbox", { name: "Filter components" }).fill("zzz");
   await expect(nav).toContainText("No component named « zzz »");
@@ -23,11 +23,16 @@ test("each component page shows its props and every state, light and dark, style
   await boot(page, "#/kit");
   await setTheme(page, "light");
   mkdirSync(join(SCREENS_DIR, "kit"), { recursive: true });
-  const names = await page.getByRole("navigation", { name: "Components" }).getByRole("option").allInnerTexts();
-  expect(names.length).toBeGreaterThanOrEqual(7);
-  for (const name of names) {
-    await page.getByRole("navigation", { name: "Components" }).getByRole("option", { name, exact: true }).click();
-    await expect(page.getByRole("heading", { level: 1, name, exact: true })).toBeVisible();
+  const rows = page.getByRole("navigation", { name: "Components" }).getByRole("option");
+  const count = await rows.count();
+  expect(count).toBeGreaterThanOrEqual(7);
+  for (let i = 0; i < count; i++) {
+    await rows.nth(i).click();
+    const name =
+      (await page.getByRole("main", { name: "Component" }).getByRole("heading", { level: 1 }).textContent())?.trim() ??
+      "";
+    expect((await rows.nth(i).textContent())?.startsWith(name)).toBe(true);
+    await expect(page.getByRole("banner").getByRole("heading", { level: 1 })).toContainText(name);
     await expect(page).toHaveURL(new RegExp(`#/kit/${name}$`));
     const props = page.getByRole("region", { name: "Props" });
     await expect(props.locator("span").first()).toBeVisible();

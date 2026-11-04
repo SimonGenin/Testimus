@@ -52,7 +52,7 @@ describe("shell remaining paths", () => {
         onClose={() => {}}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Run" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Run/ }));
     expect(await screen.findByRole("alert")).toBeInTheDocument();
     expect(callsOf("a.b")).toHaveLength(0);
   });

@@ -2,6 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import { type ReactNode, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { color, fontSize, fontWeight, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { Icon } from "../ui/Icon.tsx";
 import { useTopBar } from "./TopBar.tsx";
 
 const styles = stylex.create({
@@ -15,6 +16,16 @@ const styles = stylex.create({
     lineHeight: lineHeight.titleSm,
     fontWeight: fontWeight.semibold,
   },
+  crumb: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: space.s2,
+    minWidth: 0,
+    overflow: "hidden",
+    color: color.textMuted,
+    fontWeight: fontWeight.regular,
+  },
+  crumbText: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" },
   meta: {
     minWidth: 0,
     overflow: "hidden",
@@ -26,15 +37,19 @@ const styles = stylex.create({
   },
 });
 
-// ponytail: a screen's part of the top bar — its title (with a badge and a short state line) and its actions, put
-// in the shell's bar; outside the shell (a screen tested alone) it draws them in place
+// ponytail: a screen's part of the top bar — its title, the trail under it (« Documents › SOSIE_211 · Traction »,
+// « Kit › Modal »), a badge and a short state line, and its actions, put in the shell's bar; outside the shell (a
+// screen tested alone) it draws them in place
 export function ScreenHeader({
   title,
+  crumbs = [],
   badge,
   meta,
   children,
 }: {
   title: string;
+  /** where in the screen: the open document, the kit component; each after a chevron, cut with an ellipsis */
+  crumbs?: string[];
   badge?: ReactNode;
   meta?: string;
   children?: ReactNode;
@@ -49,6 +64,12 @@ export function ScreenHeader({
   const head = (
     <>
       {title}
+      {crumbs.map((c) => (
+        <span key={c} title={c} {...stylex.props(styles.crumb)}>
+          <Icon name="chevron-right" size="sm" />
+          <span {...stylex.props(styles.crumbText)}>{c}</span>
+        </span>
+      ))}
       {badge}
       {meta && (
         <span title={meta} {...stylex.props(styles.meta)}>

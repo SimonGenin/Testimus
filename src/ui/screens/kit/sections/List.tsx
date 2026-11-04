@@ -167,6 +167,24 @@ export const section: KitSection = {
   file: "List.tsx",
   summary:
     "Every vertical list of things you pick from: tests, Jira folders, documents, the review queue, jobs, contexts, palette results. One tab stop; the arrows move, Enter or a click picks — or, driven by a field (activeDescendant), the focus stays in the field and the list follows it. Status is a badge in the row, never a coloured row.",
+  guidelines: [
+    {
+      head: "Anatomy of an item",
+      text: "Optional indent and twisty (tree) · lead (icon, status icon, checkbox) · body: title line (with inline badges) and an optional meta line (mono key, folder, time) · actions shown on hover or focus (icon buttons, `xs`) · trail (count, time, chevron).",
+    },
+    {
+      head: "Options",
+      text: "`one-line` 36 px · `two-line` 56 px · `tree` (indent 16 px per level, twisty) · `divided` (full-width rows with a hairline, for tables of jobs and settings) · group heads (sticky caption with a count) · a « x of y » head and an « all N loaded » foot for paged lists.",
+    },
+    {
+      head: "States",
+      text: "default · hover · selected (`color-surface-selected` + medium title; the list keeps one) · focus (inset ring; arrow keys move it, Enter opens) · disabled · danger (a destructive row, e.g. a failed job is not this: it uses a badge) · loading (skeleton rows, never stale rows) · empty (an Empty state inside the list's frame).",
+    },
+    {
+      head: "Rules",
+      text: "Status is a badge (icon + word) in the title or meta line, never a coloured row or a coloured left edge. Row actions never move the layout (they replace the trail). Long titles end with an ellipsis; the full title is the tooltip. A list never paginates with buttons: it loads the next slice near the end.",
+    },
+  ],
   states: () => (
     <States>
       <Cell label="two-line · group · selected, hover (actions), focus, disabled" wide column>

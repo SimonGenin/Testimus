@@ -25,6 +25,7 @@ import {
   space,
   z,
 } from "../../styles/tokens.stylex.ts";
+import { Badge } from "./Badge.tsx";
 import { Button, type ButtonProps } from "./Button.tsx";
 import { Icon, type IconName } from "./Icon.tsx";
 import { focusables, useAnchor } from "./layer.ts";
@@ -115,6 +116,8 @@ export type PopoverProps = {
   /** in the head, beside the icon and the close button; it names the dialog (« Ask Claude · Step 2 ») */
   title: string;
   icon?: IconName;
+  /** a count pill after the title (« Running 3 ») */
+  count?: number;
   /** the content: a ClaudeBlock, a List, a Segmented choice, a small form */
   children: ReactNode;
   /** words under the content (« Runs in the dock with this test's contexts ») */
@@ -128,18 +131,23 @@ export type PopoverProps = {
   width?: "auto" | "sm" | "md";
   /** the content edge to edge (a ClaudeBlock, a List), not padded */
   flush?: boolean;
+  /** false: no head (title and close button) — the title still names the dialog; for a picker inside a pane (the
+   * dock's « Add context »), where Escape and a press outside close it */
+  head?: boolean;
   /** the catalogue only: drawn open in place */
   debugState?: "open";
 };
 
 // ponytail: an anchored layer that is not a menu (SYSTEM.md Popover, audit design §2.1) — a non-modal dialog with free
 // content: the focus goes into it, Tab moves through its fields, Escape or the close button shut it and give the focus
-// back to the trigger, a press outside or the focus leaving shut it too. It shares the anchoring of layer.ts with Menu
-// but not Menu's keyboard (roving focus over items), which would break the fields inside
+// back to the trigger, a press outside or the focus leaving shut it too; at the window's edge it slides back in. It
+// shares the anchoring of layer.ts with Menu but not Menu's keyboard (roving focus over items), which would break the
+// fields inside
 export function Popover({
   trigger,
   title,
   icon,
+  count,
   children,
   foot,
   open: controlled,
@@ -147,6 +155,7 @@ export function Popover({
   align = "end",
   width = "auto",
   flush = false,
+  head = true,
   debugState,
 }: PopoverProps) {
   const id = useId();
@@ -162,7 +171,7 @@ export function Popover({
     if (controlled === undefined) setOwn(v);
     onOpenChange?.(v);
   };
-  const placed = useAnchor({ open, anchor: wrap, layer, align, onDismiss: () => set(false) });
+  const placed = useAnchor({ open, anchor: wrap, layer, align, slide: true, onDismiss: () => set(false) });
 
   useEffect(() => {
     if (!open || !layer.current) return;
@@ -206,7 +215,8 @@ export function Popover({
           ref={layer}
           id={id}
           role="dialog"
-          aria-labelledby={titleId}
+          aria-labelledby={head ? titleId : undefined}
+          aria-label={head ? undefined : title}
           tabIndex={-1}
           onKeyDown={onKey}
           onBlur={onBlur}
@@ -218,17 +228,25 @@ export function Popover({
             !inline && (placed.up ? styles.up : styles.down),
           )}
         >
-          <div {...stylex.props(styles.head)}>
-            {icon && (
-              <span {...stylex.props(styles.icon, icon === "claude" && styles.iconClaude)}>
-                <Icon name={icon} />
-              </span>
-            )}
-            <h2 id={titleId} {...stylex.props(styles.title)}>
-              {title}
-            </h2>
-            <Button variant="quiet" size="xs" iconOnly icon="close" label="Close" onClick={close} />
-          </div>
+          {head && (
+            <div {...stylex.props(styles.head)}>
+              {icon && (
+                <span {...stylex.props(styles.icon, icon === "claude" && styles.iconClaude)}>
+                  <Icon name={icon} />
+                </span>
+              )}
+              <h2 id={titleId} {...stylex.props(styles.title)}>
+                {title}
+                {count !== undefined && (
+                  <>
+                    {" "}
+                    <Badge label={String(count)} count size="sm" />
+                  </>
+                )}
+              </h2>
+              <Button variant="quiet" size="xs" iconOnly icon="close" label="Close" onClick={close} />
+            </div>
+          )}
           <div data-popover-body {...stylex.props(styles.body, flush && styles.flush)}>
             {children}
           </div>
