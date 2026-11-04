@@ -47,7 +47,7 @@
           }
         },
         "noRestrictedElements": {
-          "level": "info",
+          "level": "error",
           "options": {
             "elements": {
               "button": "<button> outside the kit: use the kit in src/ui/components/ui (GOAL-V3 N2)",
@@ -69,13 +69,7 @@
   },
   "overrides": [
     {
-      "includes": [
-        "src/ui/components/ui/**",
-        "src/ui/components/legacy/**",
-        "tests/**",
-        "scripts/**",
-        "src/desktop/**"
-      ],
+      "includes": ["src/ui/components/ui/**", "tests/**", "scripts/**", "src/desktop/**"],
       "linter": {
         "rules": {
           "correctness": {

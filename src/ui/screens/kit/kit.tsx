@@ -39,6 +39,7 @@ const styles = stylex.create({
   cell: { display: "flex", flexDirection: "column", gap: space.s2, minWidth: 0, margin: 0 },
   label: { fontFamily: fontFamily.mono, fontSize: fontSize.code, lineHeight: lineHeight.code, color: color.textMuted },
   stage: {
+    boxSizing: "border-box",
     display: "flex",
     alignItems: "center",
     flexWrap: "wrap",

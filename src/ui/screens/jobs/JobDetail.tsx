@@ -17,6 +17,7 @@ import { useJobDetail } from "./useJobDetail.ts";
 
 const styles = stylex.create({
   pane: {
+    boxSizing: "border-box",
     flex: 1,
     minWidth: 0,
     overflowY: "auto",

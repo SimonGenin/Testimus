@@ -5,7 +5,14 @@ import { Tooltip } from "../../../components/ui/Tooltip.tsx";
 import { space } from "../../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
-  tools: { display: "flex", flexDirection: "column", gap: space.s2, paddingInline: space.s3, paddingBottom: space.s2 },
+  tools: {
+    boxSizing: "border-box",
+    display: "flex",
+    flexDirection: "column",
+    gap: space.s2,
+    paddingInline: space.s3,
+    paddingBottom: space.s2,
+  },
   row: { display: "flex", alignItems: "center", gap: space.s1 },
   grow: { flex: 1 },
 });

@@ -26,7 +26,13 @@ const styles = stylex.create({
     color: color.claudeText,
     marginInlineStart: space.s1,
   },
-  plan: { margin: 0, paddingInlineStart: space.s5, fontSize: fontSize.small, lineHeight: lineHeight.small },
+  plan: {
+    boxSizing: "border-box",
+    margin: 0,
+    paddingInlineStart: space.s5,
+    fontSize: fontSize.small,
+    lineHeight: lineHeight.small,
+  },
   verdicts: {
     listStyle: "none",
     margin: 0,

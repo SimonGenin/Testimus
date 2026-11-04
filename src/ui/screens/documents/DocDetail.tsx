@@ -26,11 +26,12 @@ import { RemoveDoc } from "./RemoveDoc.tsx";
 const fadeIn = stylex.keyframes({ from: { opacity: 0 }, to: { opacity: 1 } });
 
 const styles = stylex.create({
-  doc: { flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" },
+  doc: { boxSizing: "border-box", flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" },
   opened: { animationName: fadeIn, animationDuration: duration.slow, animationTimingFunction: easing.enter },
   alone: { display: "flex", flexDirection: "column", gap: space.s4, padding: space.s5 },
   body: { flex: 1, minHeight: 0, display: "flex", minWidth: 0 },
   toc: {
+    boxSizing: "border-box",
     flex: "none",
     display: "flex",
     minHeight: 0,
@@ -40,6 +41,7 @@ const styles = stylex.create({
     borderRightColor: color.border,
   },
   side: {
+    boxSizing: "border-box",
     flex: "none",
     display: "flex",
     minHeight: 0,

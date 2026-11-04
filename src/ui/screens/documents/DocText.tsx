@@ -76,7 +76,7 @@ const styles = stylex.create({
     color: color.text,
   },
   tableRow: { display: "block", whiteSpace: "pre" },
-  empty: { color: color.textMuted, fontFamily: fontFamily.ui, fontSize: fontSize.body },
+  empty: { margin: 0, color: color.textMuted, fontFamily: fontFamily.ui, fontSize: fontSize.body },
 });
 
 const clean = (s: string) => s.replace(/<!--[\s\S]*?-->/g, "").trim();

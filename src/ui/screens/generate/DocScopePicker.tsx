@@ -12,6 +12,7 @@ import { SectionTree } from "./SectionTree.tsx";
 
 const styles = stylex.create({
   frame: {
+    boxSizing: "border-box",
     borderStyle: "solid",
     borderWidth: border.width,
     borderColor: color.border,
@@ -20,6 +21,7 @@ const styles = stylex.create({
     overflow: "hidden",
   },
   head: {
+    boxSizing: "border-box",
     display: "flex",
     alignItems: "center",
     gap: space.s2,
@@ -36,11 +38,13 @@ const styles = stylex.create({
   grow: { flex: 1 },
   list: { listStyle: "none", margin: 0, padding: 0 },
   doc: {
+    boxSizing: "border-box",
     borderBottomStyle: "solid",
     borderBottomWidth: { default: border.width, ":last-child": 0 },
     borderBottomColor: color.border,
   },
   row: {
+    boxSizing: "border-box",
     display: "flex",
     alignItems: "flex-start",
     gap: space.s3,

@@ -8,6 +8,7 @@ import { kindLabel, refKey } from "./sources.ts";
 
 const styles = stylex.create({
   card: {
+    boxSizing: "border-box",
     display: "flex",
     flexDirection: "column",
     gap: space.s2,

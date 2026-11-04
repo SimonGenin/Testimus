@@ -47,6 +47,7 @@ const styles = stylex.create({
     whiteSpace: "nowrap",
   },
   td: {
+    boxSizing: "border-box",
     paddingBlock: space.s4,
     paddingInline: space.s4,
     borderBottomStyle: "solid",

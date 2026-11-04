@@ -5,6 +5,7 @@ const spin = stylex.keyframes({ to: { transform: "rotate(360deg)" } });
 
 const styles = stylex.create({
   spinner: {
+    boxSizing: "border-box",
     flex: "none",
     display: "inline-block",
     borderRadius: radius.full,

@@ -12,6 +12,7 @@ import { UploadFailure, uploadItem } from "./UploadItem.tsx";
 const styles = stylex.create({
   pane: { display: "flex", flexDirection: "column", minHeight: 0, minWidth: 0, flex: 1 },
   head: {
+    boxSizing: "border-box",
     display: "flex",
     alignItems: "center",
     gap: space.s3,
@@ -22,7 +23,7 @@ const styles = stylex.create({
     fontWeight: fontWeight.semibold,
     color: color.text,
   },
-  body: { flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: space.s3 },
+  body: { boxSizing: "border-box", flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: space.s3 },
   lines: { display: "flex", flexDirection: "column", gap: space.s1, minWidth: 0 },
   mono: { fontFamily: fontFamily.mono, overflow: "hidden", textOverflow: "ellipsis" },
   badges: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s2 },

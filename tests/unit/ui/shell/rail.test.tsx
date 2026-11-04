@@ -11,7 +11,6 @@ import { ThemeToggle } from "../../../../src/ui/components/shell/ThemeToggle.tsx
 import { TopBar, TopBarContext, useTopBarSlots } from "../../../../src/ui/components/shell/TopBar.tsx";
 import { DataProvider } from "../../../../src/ui/lib/data/provider.tsx";
 import { useRead } from "../../../../src/ui/lib/data/query.ts";
-import { resetDoctor } from "../../../../src/ui/lib/doctor.ts";
 import { setThemeEverywhere } from "../../../../src/ui/lib/theme.ts";
 import { deferred, fakeEvents, fakeNet, net } from "../../cov-uishell-helpers.tsx";
 import { noDesktop } from "../../ui-desktop-helpers.tsx";
@@ -51,8 +50,6 @@ function Shell({ children }: { children?: ReactNode }) {
 }
 
 describe("Rail, system status, theme and headers", () => {
-  beforeEach(() => resetDoctor());
-
   it("navigates from the rail and shows counts and the current screen", async () => {
     net.routes["system.doctor"] = () => [{ id: "node", label: "Node", state: "fail", detail: "" }];
     net.routes["project.list"] = () => [];

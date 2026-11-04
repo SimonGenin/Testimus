@@ -20,6 +20,7 @@ import {
 
 const styles = stylex.create({
   head: {
+    boxSizing: "border-box",
     display: "flex",
     alignItems: "center",
     flexWrap: "wrap",

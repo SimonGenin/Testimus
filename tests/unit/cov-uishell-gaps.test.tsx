@@ -8,19 +8,13 @@ import { CommandForm } from "../../src/ui/components/shell/CommandForm.tsx";
 import { useJob } from "../../src/ui/components/shell/JobLog.tsx";
 import { ProjectButton } from "../../src/ui/components/shell/ProjectButton.tsx";
 import { baseName } from "../../src/ui/lib/desktop.ts";
-import { useDoctor } from "../../src/ui/lib/doctor.ts";
 import { useToasts } from "../../src/ui/lib/toast.ts";
 import { callsOf, fakeEvents, fakeNet, net } from "./cov-uishell-helpers.tsx";
 import { withData } from "./ui/shell/helpers.tsx";
 
 function Stores() {
-  const d = useDoctor();
   const t = useToasts();
-  return (
-    <p>
-      {d.checks.length}/{t.length}
-    </p>
-  );
+  return <p>{t.length}</p>;
 }
 
 function P() {
@@ -52,7 +46,7 @@ describe("small remaining paths", () => {
   });
 
   it("serves the stores' snapshots on the server too", () => {
-    expect(renderToString(<Stores />)).toBe("<p>0<!-- -->/<!-- -->0</p>");
+    expect(renderToString(<Stores />)).toBe("<p>0</p>");
   });
 });
 

@@ -25,6 +25,7 @@ const styles = stylex.create({
   muted: { color: color.textMuted },
   grow: { flex: 1 },
   stage: {
+    boxSizing: "border-box",
     position: "relative",
     flex: 1,
     minHeight: 0,
@@ -45,6 +46,7 @@ const styles = stylex.create({
   },
   pic: { maxWidth: "100%", maxHeight: "100%", cursor: "grab", userSelect: "none", touchAction: "none" },
   foot: {
+    boxSizing: "border-box",
     display: "flex",
     alignItems: "center",
     gap: space.s4,

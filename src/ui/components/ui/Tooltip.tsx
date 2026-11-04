@@ -8,6 +8,7 @@ const SHOW_AFTER_MS = 500;
 const styles = stylex.create({
   anchor: { position: "relative", display: "inline-flex", maxWidth: "100%", minWidth: 0 },
   bubble: {
+    boxSizing: "border-box",
     position: "absolute",
     zIndex: z.tooltip,
     display: "inline-flex",

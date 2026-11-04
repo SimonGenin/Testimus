@@ -17,6 +17,7 @@ const styles = stylex.create({
     gap: space.s5,
   },
   rule: {
+    boxSizing: "border-box",
     height: 0,
     margin: 0,
     borderWidth: 0,

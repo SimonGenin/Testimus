@@ -34,6 +34,7 @@ const SOURCES = import.meta.glob<string>("../../components/ui/*.tsx", {
 const sourceOf = (file: string) => SOURCES[`../../components/ui/${file}`] ?? "";
 
 const styles = stylex.create({
+  plain: { margin: 0 },
   screen: {
     boxSizing: "border-box",
     display: "grid",
@@ -44,6 +45,7 @@ const styles = stylex.create({
     color: color.text,
   },
   nav: {
+    boxSizing: "border-box",
     display: "flex",
     flexDirection: "column",
     gap: space.s3,
@@ -66,7 +68,12 @@ const styles = stylex.create({
     fontWeight: fontWeight.medium,
     color: color.textMuted,
   },
-  main: { minHeight: 0, overflowY: "auto", padding: { default: space.s7, [breakpoint.sm]: space.s4 } },
+  main: {
+    boxSizing: "border-box",
+    minHeight: 0,
+    overflowY: "auto",
+    padding: { default: space.s7, [breakpoint.sm]: space.s4 },
+  },
   head: { display: "flex", flexDirection: "column", gap: space.s2, marginBottom: space.s5 },
   title: { margin: 0, fontSize: fontSize.titleLg, lineHeight: lineHeight.titleLg, fontWeight: fontWeight.semibold },
   meta: { fontFamily: fontFamily.mono, fontSize: fontSize.code, color: color.textMuted },
@@ -106,6 +113,7 @@ const styles = stylex.create({
   propDoc: { color: color.textMuted },
   previews: { display: "flex", flexDirection: "column", gap: space.s4 },
   theme: {
+    boxSizing: "border-box",
     display: "flex",
     flexDirection: "column",
     gap: space.s3,
@@ -210,7 +218,7 @@ export function KitScreen() {
         />
       </nav>
       <main aria-label="Component" {...stylex.props(styles.main)}>
-        {section ? <Page section={section} /> : <p>Choose a component.</p>}
+        {section ? <Page section={section} /> : <p {...stylex.props(styles.plain)}>Choose a component.</p>}
       </main>
     </div>
   );

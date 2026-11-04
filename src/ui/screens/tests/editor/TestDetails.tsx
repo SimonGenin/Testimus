@@ -7,6 +7,7 @@ import { border, breakpoint, color, fontSize, fontWeight, lineHeight, space } fr
 
 const styles = stylex.create({
   grid: {
+    boxSizing: "border-box",
     display: "grid",
     gridTemplateColumns: { default: "repeat(2, minmax(0, 1fr))", [breakpoint.narrow]: "minmax(0, 1fr)" },
     gap: space.s4,

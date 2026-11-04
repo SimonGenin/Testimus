@@ -4,6 +4,7 @@ import { border, color, container, fontSize, lineHeight, size, space } from "../
 
 const styles = stylex.create({
   strip: {
+    boxSizing: "border-box",
     display: { default: "none", [container.reviewQueue]: "flex" },
     flex: "none",
     flexDirection: "column",

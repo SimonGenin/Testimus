@@ -9,6 +9,7 @@ import { border, color, radius, shadow, space } from "../../../styles/tokens.sty
 
 const styles = stylex.create({
   card: {
+    boxSizing: "border-box",
     display: "flex",
     flexDirection: "column",
     gap: space.s3,

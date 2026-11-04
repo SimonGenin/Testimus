@@ -5,7 +5,7 @@ import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Folder, Job, JobEvent, LocalTestRef, RemoteTestRef } from "../../../../../src/core/types.ts";
 import { setProject } from "../../../../../src/ui/api.ts";
-import { Toasts } from "../../../../../src/ui/components/legacy/index.ts";
+import { Toaster } from "../../../../../src/ui/components/ui/Toast.tsx";
 import { AppContext, type AppState } from "../../../../../src/ui/lib/app.ts";
 import { closeToast, toast } from "../../../../../src/ui/lib/toast.ts";
 import { abandonPulls } from "../../../../../src/ui/screens/tests/pulls.ts";
@@ -509,7 +509,7 @@ function Harness() {
     <WithData client={client}>
       <AppContext.Provider value={appState(route, navigate, dir)}>
         <TestsScreen />
-        <Toasts />
+        <Toaster />
       </AppContext.Provider>
     </WithData>
   );

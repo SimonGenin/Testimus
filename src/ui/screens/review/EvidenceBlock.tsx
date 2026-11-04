@@ -16,6 +16,7 @@ export type Evidence = {
 
 const styles = stylex.create({
   wrap: {
+    boxSizing: "border-box",
     borderTopWidth: border.width,
     borderTopStyle: "solid",
     borderTopColor: color.border,

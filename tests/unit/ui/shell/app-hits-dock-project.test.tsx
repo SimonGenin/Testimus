@@ -7,7 +7,6 @@ import { project } from "../../../../src/ui/api.ts";
 import { App, parseRoute } from "../../../../src/ui/app/App.tsx";
 import type { DockRequest } from "../../../../src/ui/components/claude/ClaudeDock.tsx";
 import { DataProvider } from "../../../../src/ui/lib/data/provider.tsx";
-import { resetDoctor } from "../../../../src/ui/lib/doctor.ts";
 import { closeToast, useToasts } from "../../../../src/ui/lib/toast.ts";
 import { callsOf, fakeEvents, fakeNet, net } from "../../cov-uishell-helpers.tsx";
 import { app as appState } from "../../ui-desktop-helpers.tsx";
@@ -69,7 +68,6 @@ let hits: SearchMatch[] = [];
 beforeEach(() => {
   fakeNet();
   fakeEvents();
-  resetDoctor();
   window.location.hash = "";
   Object.defineProperty(window, "innerWidth", { value: 1600, configurable: true, writable: true });
   net.api = () => ({ project: "C:\\p", mock: false, commands: [] });

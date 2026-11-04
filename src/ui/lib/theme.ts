@@ -17,6 +17,7 @@ export const readTheme = (): Theme => readNamed("theme") as Theme;
 
 const page = stylex.create({
   root: {
+    height: "100%",
     backgroundColor: color.canvas,
     color: color.text,
     colorScheme: color.scheme,

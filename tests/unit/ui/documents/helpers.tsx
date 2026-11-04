@@ -2,7 +2,7 @@ import { act, configure, render } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { vi } from "vitest";
 import type { DocRef, JobEvent } from "../../../../src/core/types.ts";
-import { Toasts } from "../../../../src/ui/components/legacy/index.ts";
+import { Toaster } from "../../../../src/ui/components/ui/Toast.tsx";
 import { AppContext, type AppState } from "../../../../src/ui/lib/app.ts";
 import { DataProvider } from "../../../../src/ui/lib/data/provider.tsx";
 import { createQueryClient } from "../../../../src/ui/lib/data/query.ts";
@@ -38,7 +38,7 @@ export function mountDocs(ui: ReactNode, over: Partial<AppState> = {}) {
     <DataProvider client={client}>
       <AppContext.Provider value={a}>
         {ui}
-        <Toasts />
+        <Toaster />
       </AppContext.Provider>
     </DataProvider>,
   );

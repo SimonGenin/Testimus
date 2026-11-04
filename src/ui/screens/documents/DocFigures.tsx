@@ -10,7 +10,7 @@ import { border, color, fontFamily, fontSize, lineHeight, radius, size, space } 
 
 const styles = stylex.create({
   box: { flex: 1, minHeight: 0, overflowY: "auto", backgroundColor: color.surface },
-  inner: { display: "flex", flexDirection: "column", gap: space.s5, padding: space.s5 },
+  inner: { boxSizing: "border-box", display: "flex", flexDirection: "column", gap: space.s5, padding: space.s5 },
   bar: {
     display: "flex",
     alignItems: "center",
@@ -29,6 +29,7 @@ const styles = stylex.create({
     listStyle: "none",
   },
   tile: {
+    boxSizing: "border-box",
     display: "flex",
     flexDirection: "column",
     gap: space.s2,

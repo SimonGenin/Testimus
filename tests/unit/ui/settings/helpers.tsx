@@ -2,7 +2,7 @@ import { act, cleanup, configure, render } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { vi } from "vitest";
 import type { Job, JobEvent } from "../../../../src/core/types.ts";
-import { Toasts } from "../../../../src/ui/components/legacy/index.ts";
+import { Toaster } from "../../../../src/ui/components/ui/Toast.tsx";
 import { AppContext, type AppState } from "../../../../src/ui/lib/app.ts";
 import { clearDrafts } from "../../../../src/ui/lib/data/autosave.ts";
 import { setProject } from "../../../../src/ui/lib/data/client.ts";
@@ -181,7 +181,7 @@ export function mountSettings(ui: ReactNode, over: Partial<AppState> = {}) {
     <DataProvider client={client}>
       <AppContext.Provider value={state}>
         {node}
-        <Toasts />
+        <Toaster />
       </AppContext.Provider>
     </DataProvider>
   );

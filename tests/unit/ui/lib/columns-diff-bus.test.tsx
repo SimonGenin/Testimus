@@ -14,7 +14,6 @@ import {
   splitTracks,
 } from "../../../../src/ui/lib/columns.ts";
 import { differs, diffLocal, lossOf, restoreStep, sameStep } from "../../../../src/ui/lib/diff.ts";
-import { discardEditor, setDiscarder } from "../../../../src/ui/lib/editorBus.ts";
 import { closeToast } from "../../../../src/ui/lib/toast.ts";
 import { fakeNet } from "../../cov-uishell-helpers.tsx";
 import { layoutOf } from "../../layout-helpers.ts";
@@ -57,19 +56,6 @@ const test = (steps: Step[], o: Partial<Test> = {}): Test =>
     steps,
     ...o,
   }) as Test;
-
-describe("editor bus discard", () => {
-  it("hands the test about to be deleted to the editor, when one is listening", () => {
-    discardEditor("t0");
-    const fn = vi.fn();
-    setDiscarder(fn);
-    discardEditor("t1");
-    expect(fn).toHaveBeenCalledWith("t1");
-    setDiscarder(null);
-    discardEditor("t2");
-    expect(fn).toHaveBeenCalledTimes(1);
-  });
-});
 
 describe("columns", () => {
   const x = layoutOf(

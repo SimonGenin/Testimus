@@ -15,6 +15,7 @@ import { firstLine } from "./step/stepText.ts";
 
 const styles = stylex.create({
   was: {
+    boxSizing: "border-box",
     marginInline: space.s4,
     marginBottom: space.s3,
     borderStyle: "solid",
@@ -24,6 +25,7 @@ const styles = stylex.create({
     backgroundColor: color.surfaceSunken,
   },
   head: {
+    boxSizing: "border-box",
     display: "flex",
     alignItems: "center",
     gap: space.s3,
@@ -44,7 +46,7 @@ const styles = stylex.create({
     color: color.warning,
   },
   grow: { flex: 1 },
-  body: { paddingBlock: space.s2, paddingInline: space.s4 },
+  body: { boxSizing: "border-box", paddingBlock: space.s2, paddingInline: space.s4 },
   gone: { borderStyle: "dashed", borderColor: color.dangerBorder, backgroundColor: "transparent", boxShadow: "none" },
   ghost: {
     minWidth: 0,

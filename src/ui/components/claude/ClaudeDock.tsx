@@ -68,6 +68,7 @@ const styles = stylex.create({
     borderRadius: { default: null, [breakpoint.narrow]: radius.r4 },
   },
   head: {
+    boxSizing: "border-box",
     flex: "none",
     display: "flex",
     alignItems: "center",
@@ -90,6 +91,7 @@ const styles = stylex.create({
   },
   grow: { flex: 1 },
   foot: {
+    boxSizing: "border-box",
     flex: "none",
     padding: space.s3,
     borderTopStyle: "solid",

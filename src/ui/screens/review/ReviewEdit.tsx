@@ -14,6 +14,7 @@ import { TestEditor } from "../tests/TestEditor.tsx";
 
 const styles = stylex.create({
   bar: {
+    boxSizing: "border-box",
     flex: "none",
     display: "flex",
     alignItems: "center",

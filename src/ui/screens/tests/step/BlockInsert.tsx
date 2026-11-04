@@ -32,6 +32,7 @@ const styles = stylex.create({
     lineHeight: lineHeight.small,
   },
   line: {
+    boxSizing: "border-box",
     position: "absolute",
     insetInline: space.s3,
     top: "50%",

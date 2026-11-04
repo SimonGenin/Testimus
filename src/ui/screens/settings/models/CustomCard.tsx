@@ -11,6 +11,7 @@ const styles = stylex.create({
   head: { display: "inline-flex", alignItems: "center", gap: space.s2 },
   body: { display: "flex", flexDirection: "column", gap: space.s3 },
   variant: {
+    boxSizing: "border-box",
     display: "flex",
     flexDirection: "column",
     gap: space.s2,

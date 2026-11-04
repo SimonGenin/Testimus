@@ -39,8 +39,9 @@ const styles = stylex.create({
   claude: { borderColor: color.claudeBorder },
   unreadable: { borderColor: color.dangerBorder, boxShadow: `0 0 0 ${border.width} ${color.dangerBorder}` },
   dragging: { opacity: 0.5 },
-  body: { paddingInlineStart: space.s4, paddingInlineEnd: space.s5, paddingBottom: space.s3 },
+  body: { boxSizing: "border-box", paddingInlineStart: space.s4, paddingInlineEnd: space.s5, paddingBottom: space.s3 },
   sources: {
+    boxSizing: "border-box",
     display: "flex",
     alignItems: "flex-start",
     flexWrap: "wrap",

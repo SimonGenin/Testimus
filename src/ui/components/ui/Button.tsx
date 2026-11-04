@@ -22,6 +22,7 @@ import { Tooltip } from "./Tooltip.tsx";
 const styles = stylex.create({
   base: {
     boxSizing: "border-box",
+    fontStyle: "inherit",
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",

@@ -4,7 +4,6 @@ import { cleanup, fireEvent, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ColumnLayout, Source, Step } from "../../src/core/types.ts";
 import { setProject } from "../../src/ui/api.ts";
-import { resetDoctor } from "../../src/ui/lib/doctor.ts";
 import { ReviewStep } from "../../src/ui/screens/review/ReviewStep.tsx";
 import { StepCard } from "../../src/ui/screens/tests/StepCard.tsx";
 import { clearToasts } from "./cov-uiscreens-helpers.tsx";
@@ -14,7 +13,6 @@ import { fakeFetch, noDesktop } from "./ui-desktop-helpers.tsx";
 
 beforeEach(() => {
   fakeFetch();
-  resetDoctor();
 });
 
 afterEach(() => {

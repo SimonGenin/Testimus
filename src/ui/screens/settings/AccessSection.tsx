@@ -4,7 +4,6 @@ import { Badge } from "../../components/ui/Badge.tsx";
 import { Card } from "../../components/ui/Card.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { useRead } from "../../lib/data/query.ts";
-import { useDoctor } from "../../lib/doctor.ts";
 import { border, color, fontFamily, fontSize, fontWeight, lineHeight, space } from "../../styles/tokens.stylex.ts";
 import { ConnectAtlassian } from "./ConnectAtlassian.tsx";
 import { Section } from "./Section.tsx";
@@ -12,6 +11,7 @@ import { Section } from "./Section.tsx";
 const styles = stylex.create({
   rows: { display: "flex", flexDirection: "column", margin: 0, padding: 0, listStyle: "none" },
   row: {
+    boxSizing: "border-box",
     display: "flex",
     alignItems: "flex-start",
     gap: space.s3,
@@ -50,9 +50,9 @@ const WORD = {
 } as const;
 
 function FileRow({ id, name, file }: { id: "jira" | "xray"; name: string; file: FileState }) {
-  const doctor = useDoctor();
+  const doctor = useRead("system.doctor", {});
   const s = fileState(file);
-  const c = doctor.checks.find((x) => x.id === id);
+  const c = doctor.data?.checks?.find((x) => x.id === id);
   const w = WORD[s];
   return (
     <li aria-label={name} {...stylex.props(styles.row)}>

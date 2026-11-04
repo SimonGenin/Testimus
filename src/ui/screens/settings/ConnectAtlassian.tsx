@@ -8,9 +8,8 @@ import { Button } from "../../components/ui/Button.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { Text } from "../../components/ui/Text.tsx";
 import { useDraft } from "../../lib/data/autosave.ts";
-import { execute, type Key, useRead } from "../../lib/data/query.ts";
+import { execute, invalidate, type Key, read, useRead } from "../../lib/data/query.ts";
 import { desktop, openExternal, reveal } from "../../lib/desktop.ts";
-import { runDoctor } from "../../lib/doctor.ts";
 import { message } from "../../lib/format.ts";
 import {
   color,
@@ -43,6 +42,7 @@ const styles = stylex.create({
   col: { display: "flex", flexDirection: "column", gap: space.s3, flex: 1, minWidth: 0 },
   title: { margin: 0, fontSize: fontSize.body, lineHeight: lineHeight.body, fontWeight: fontWeight.semibold },
   how: {
+    boxSizing: "border-box",
     display: "flex",
     flexDirection: "column",
     gap: space.s2,
@@ -202,7 +202,7 @@ export function ConnectAtlassian({
         xray: xrayWords(r.checks.find((c) => c.id === "xray")),
       });
       onResult?.(r);
-      if (r.saved.length) void runDoctor();
+      if (r.saved.length) void invalidate(client, [["system.doctor"]]).then(() => read(client, "system.doctor", {}));
     } catch (e) {
       setError(message(e));
     } finally {

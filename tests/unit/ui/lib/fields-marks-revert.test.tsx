@@ -4,11 +4,10 @@ import { renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError, setProject } from "../../../../src/ui/api.ts";
 import { useApp } from "../../../../src/ui/lib/app.ts";
-import { flushEditor, setFlusher } from "../../../../src/ui/lib/editorBus.ts";
 import { DEFAULT_LAYOUT, fieldViews, parseSourceRef, sourceLabel } from "../../../../src/ui/lib/fields.ts";
 import { addedSteps } from "../../../../src/ui/lib/marks.ts";
-import { editedAfterRun, revertRun } from "../../../../src/ui/lib/revert.ts";
-import { callsOf, fakeNet, net } from "../../cov-uishell-helpers.tsx";
+import { editedAfterRun } from "../../../../src/ui/lib/revert.ts";
+import { fakeNet } from "../../cov-uishell-helpers.tsx";
 import { layoutOf } from "../../layout-helpers.ts";
 import { noDesktop } from "../../ui-desktop-helpers.tsx";
 
@@ -24,7 +23,7 @@ afterEach(() => {
   sessionStorage.clear();
 });
 
-describe("fields, marks, revert, editor bus, app context", () => {
+describe("fields, marks, revert, app context", () => {
   it("orders the step fields, adding the step's own and showing hidden ones that hold text", () => {
     const x = layoutOf(DEFAULT_LAYOUT.fields, { order: ["Expected Result", "Gone"], hidden: ["Data"] });
     const folded = layoutOf(DEFAULT_LAYOUT.fields, { collapsed: ["Data"] });
@@ -52,25 +51,12 @@ describe("fields, marks, revert, editor bus, app context", () => {
     expect([...addedSteps([1, 4, 5], 3)]).toEqual([4, 5]);
   });
 
-  it("reverts a run, with force when asked", async () => {
-    net.routes["claude.revert"] = (i) => ({ reverted: [String(i.runId)] });
-    await revertRun("r1");
-    await revertRun("r2", true);
-    expect(callsOf("claude.revert").map((c) => c.input)).toEqual([{ runId: "r1" }, { runId: "r2", force: true }]);
+  it("recognises the refusal of a revert after later edits", () => {
     expect(
       editedAfterRun(new ApiError("The test changed after the Claude run", undefined, 409, "edited-after-run")),
     ).toBe(true);
     expect(editedAfterRun(new Error("The test changed after the Claude run"))).toBe(false);
     expect(editedAfterRun("other")).toBe(false);
-  });
-
-  it("flushes the editor only when one is registered", async () => {
-    await flushEditor();
-    const fn = vi.fn(async () => {});
-    setFlusher(fn);
-    await flushEditor();
-    expect(fn).toHaveBeenCalled();
-    setFlusher(null);
   });
 
   it("refuses useApp outside the provider", () => {

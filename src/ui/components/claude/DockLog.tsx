@@ -13,6 +13,7 @@ import type { useDockRuns } from "./useDockRuns.ts";
 
 const styles = stylex.create({
   body: {
+    boxSizing: "border-box",
     flex: 1,
     minHeight: 0,
     overflowY: "auto",

@@ -127,6 +127,7 @@ const styles = stylex.create({
   closeDrawer: { marginTop: 0, marginInlineEnd: 0 },
   form: { display: "flex", flexDirection: "column", flex: 1, minHeight: 0 },
   body: {
+    boxSizing: "border-box",
     flex: 1,
     minHeight: 0,
     overflow: "auto",

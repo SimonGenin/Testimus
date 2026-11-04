@@ -258,30 +258,3 @@ export function logByStep(events: JobEvent[], steps: JobStep[] = []): { step?: J
   }
   return parts;
 }
-
-// ponytail: the list follows the event stream — a status replaces or adds a job, the others patch it in place
-export function applyEvent(jobs: Job[], e: JobEvent): Job[] {
-  if (e.type === "status") {
-    const i = jobs.findIndex((j) => j.id === e.job.id);
-    return i < 0 ? [e.job, ...jobs] : jobs.map((j) => (j.id === e.job.id ? e.job : j));
-  }
-  const patch = (f: (j: Job) => Job) => jobs.map((j) => (j.id === e.jobId ? f(j) : j));
-  if (e.type === "progress")
-    return patch((j) => ({
-      ...j,
-      message: e.message,
-      progress: e.total !== undefined ? { done: e.done ?? 0, total: e.total } : j.progress,
-      steps: j.steps?.map((s) =>
-        s.id === e.step
-          ? { ...s, message: e.message, ...(e.total !== undefined ? { done: e.done ?? 0, total: e.total } : {}) }
-          : s,
-      ),
-    }));
-  if (e.type === "steps") return patch((j) => ({ ...j, steps: e.steps }));
-  if (e.type === "process")
-    return patch((j) => ({
-      ...j,
-      processes: [...(j.processes ?? []).filter((p) => p.id !== e.process.id), e.process],
-    }));
-  return jobs;
-}

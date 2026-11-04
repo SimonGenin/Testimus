@@ -2,7 +2,6 @@
 import "@testing-library/jest-dom/vitest";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { resetDoctor } from "../../../../src/ui/lib/doctor.ts";
 import { SettingsScreen } from "../../../../src/ui/screens/settings/SettingsScreen.tsx";
 import { calls, fakeNet, info, mountSettings, net, reset } from "./helpers.tsx";
 
@@ -15,7 +14,6 @@ const real = Element.prototype.scrollIntoView;
 
 beforeEach(() => {
   fakeNet();
-  resetDoctor();
   net.routes["project.info"] = () => info();
   net.routes["project.notes"] = () => ({ file: "C:\\p\\CLAUDE.md", text: "", mtime: 1 });
   net.routes["system.settings"] = () => ({ claude: { exe: "" }, models: { allowRemote: true }, projects: [] });

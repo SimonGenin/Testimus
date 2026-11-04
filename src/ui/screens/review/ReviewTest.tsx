@@ -31,6 +31,7 @@ const SYNC_WORD: Record<SyncState, (typeof SYNC)[keyof typeof SYNC]> = {
 
 const styles = stylex.create({
   head: {
+    boxSizing: "border-box",
     flex: "none",
     display: "flex",
     alignItems: "center",
@@ -58,6 +59,7 @@ const styles = stylex.create({
   grow: { flex: 1, minWidth: 0 },
   body: { flex: 1, minHeight: 0, overflowY: "auto" },
   col: {
+    boxSizing: "border-box",
     width: "100%",
     maxWidth: `calc(${size.reading} + ${space.s11} * 2)`,
     marginInline: "auto",

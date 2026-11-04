@@ -18,6 +18,7 @@ const styles = stylex.create({
   count: { fontSize: fontSize.small, color: color.textSubtle },
   grow: { flex: 1 },
   list: {
+    boxSizing: "border-box",
     listStyle: "none",
     margin: 0,
     padding: 0,
@@ -28,6 +29,7 @@ const styles = stylex.create({
     backgroundColor: color.surface,
   },
   item: {
+    boxSizing: "border-box",
     display: "flex",
     flexDirection: "column",
     gap: space.s1,

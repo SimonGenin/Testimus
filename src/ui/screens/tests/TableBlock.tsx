@@ -10,6 +10,7 @@ import type { Moved } from "./step/moved.ts";
 const styles = stylex.create({
   block: { display: "flex", flexDirection: "column", gap: space.s2, marginBlock: space.s1, minWidth: 0 },
   wrap: {
+    boxSizing: "border-box",
     overflowX: "auto",
     borderStyle: "solid",
     borderWidth: border.width,
@@ -18,6 +19,7 @@ const styles = stylex.create({
   },
   table: { width: "100%", borderCollapse: "collapse", tableLayout: "fixed" },
   cell: {
+    boxSizing: "border-box",
     verticalAlign: "top",
     paddingBlock: 0,
     paddingInline: space.s1,
@@ -33,8 +35,8 @@ const styles = stylex.create({
     lineHeight: lineHeight.small,
     fontWeight: fontWeight.semibold,
   },
-  grips: { borderWidth: 0, paddingBlock: space.s1, textAlign: "end" },
-  gripCol: { width: space.s7, borderWidth: 0, verticalAlign: "middle", textAlign: "center" },
+  grips: { boxSizing: "border-box", borderWidth: 0, paddingBlock: space.s1, textAlign: "end" },
+  gripCol: { boxSizing: "border-box", width: space.s7, borderWidth: 0, verticalAlign: "middle", textAlign: "center" },
   tools: { display: "flex", alignItems: "center", gap: space.s1 },
 });
 

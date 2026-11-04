@@ -10,6 +10,7 @@ import { into } from "./scroll.ts";
 const styles = stylex.create({
   box: { flex: 1, minHeight: 0, overflowY: "auto", backgroundColor: color.surface },
   inner: {
+    boxSizing: "border-box",
     display: "flex",
     flexDirection: "column",
     gap: space.s5,

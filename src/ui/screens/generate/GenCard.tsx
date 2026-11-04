@@ -40,6 +40,7 @@ const styles = stylex.create({
   badges: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s2 },
   body: { display: "flex", flexDirection: "column", gap: space.s3 },
   finding: {
+    boxSizing: "border-box",
     display: "flex",
     flexDirection: "column",
     gap: space.s2,

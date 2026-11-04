@@ -58,6 +58,7 @@ const styles = stylex.create({
   },
   actions: { display: "flex", alignItems: "center", gap: space.s2, marginInlineStart: "auto" },
   body: {
+    boxSizing: "border-box",
     display: "flex",
     flexDirection: "column",
     gap: space.s4,
@@ -69,6 +70,7 @@ const styles = stylex.create({
   bodyAlone: { paddingBlockStart: space.s6 },
   flush: { padding: 0, gap: 0 },
   foot: {
+    boxSizing: "border-box",
     display: "flex",
     alignItems: "center",
     gap: space.s3,

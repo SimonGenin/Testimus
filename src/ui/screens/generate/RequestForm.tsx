@@ -15,6 +15,7 @@ import type { GenerateForm } from "./useGenerateForm.ts";
 const styles = stylex.create({
   form: { display: "flex", flexDirection: "column", minHeight: 0, height: "100%", backgroundColor: color.surface },
   scroll: {
+    boxSizing: "border-box",
     flex: 1,
     minHeight: 0,
     overflow: "auto",
@@ -32,6 +33,7 @@ const styles = stylex.create({
     color: color.text,
   },
   foot: {
+    boxSizing: "border-box",
     display: "flex",
     alignItems: "center",
     gap: space.s4,

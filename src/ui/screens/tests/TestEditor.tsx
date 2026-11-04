@@ -48,7 +48,7 @@ const styles = stylex.create({
     flexDirection: "column",
     backgroundColor: color.canvas,
   },
-  empty: { padding: space.s7, display: "flex", flexDirection: "column", gap: space.s4 },
+  empty: { boxSizing: "border-box", padding: space.s7, display: "flex", flexDirection: "column", gap: space.s4 },
 });
 
 type Mark = "changed" | "added";

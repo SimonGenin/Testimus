@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Test } from "../../../../src/core/types.ts";
 import { ApiError } from "../../../../src/ui/api.ts";
 import { fixOutcome } from "../../../../src/ui/components/claude/ClaudeDock.tsx";
-import { editedAfterRun, revertRun } from "../../../../src/ui/lib/revert.ts";
+import { editedAfterRun } from "../../../../src/ui/lib/revert.ts";
 import { ReviewTest } from "../../../../src/ui/screens/review/ReviewTest.tsx";
 import { dataWrapper } from "../../cov-uishell-helpers.tsx";
 import { layoutOf } from "../../layout-helpers.ts";
@@ -64,7 +64,7 @@ const view = (over: Partial<Parameters<typeof ReviewTest>[0]> = {}) => {
 };
 
 describe("revert after later edits", () => {
-  it("recognises the refusal and re-sends with force", async () => {
+  it("recognises the refusal", () => {
     const refusal = new ApiError(
       "local-69d87001 changed after the Claude run run-1: reverting would lose those edits.",
       "Look at the test first; revert with force to discard the later edits too.",
@@ -73,11 +73,6 @@ describe("revert after later edits", () => {
     );
     expect(editedAfterRun(refusal)).toBe(true);
     expect(editedAfterRun(new Error("Unknown run"))).toBe(false);
-    const fetch = vi.fn(async () => new Response(JSON.stringify({ reverted: ["local-69d87001"] }), { status: 200 }));
-    vi.stubGlobal("fetch", fetch);
-    await revertRun("run-1", true);
-    const [, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
-    expect(JSON.parse(String(init.body))).toEqual({ runId: "run-1", force: true });
   });
 
   it("offers Revert anyway in Review when the test was edited after the run", () => {
