@@ -147,7 +147,7 @@ export type ButtonProps = {
   disabled?: boolean | string;
   /** full width of its container */
   block?: boolean;
-  /** a toggle's state (aria-pressed) */
+  /** a toggle's state (aria-pressed), drawn pressed while on */
   pressed?: boolean;
   /** a fold's trigger (« Show details »): aria-expanded, with a chevron after the label */
   expanded?: boolean;
@@ -251,6 +251,7 @@ export function Button({
         iconOnly && SQUARE[s],
         block && styles.block,
         loading && styles.loading,
+        !off && pressed && FORCED.pressed[variant],
         !off && (debugState === "hover" || debugState === "pressed") && FORCED[debugState][variant],
         debugState === "focus" && styles.focusRing,
         off && styles.disabled,
