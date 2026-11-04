@@ -284,10 +284,11 @@ describe("Review screen", () => {
     const { app: a } = show({ route: { screen: "review", arg: "L-3" } });
     await screen.findByRole("heading", { name: "Summary L-3" });
     const latest = await within(queue()).findByRole("group", { name: /^Generated 31 Oct/ });
-    expect(within(latest).getAllByRole("option").map((o) => o.textContent)).toEqual([
-      expect.stringContaining("Summary K-2"),
-      expect.stringContaining("Summary L-3"),
-    ]);
+    expect(
+      within(latest)
+        .getAllByRole("option")
+        .map((o) => o.textContent),
+    ).toEqual([expect.stringContaining("Summary K-2"), expect.stringContaining("Summary L-3")]);
     const earlier = within(queue()).getByRole("group", { name: "Earlier" });
     expect(within(earlier).getAllByRole("option")).toHaveLength(1);
     expect(within(earlier).getByText("Summary K-1")).toBeInTheDocument();
