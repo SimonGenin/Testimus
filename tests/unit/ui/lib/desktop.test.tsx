@@ -2,19 +2,19 @@
 import "@testing-library/jest-dom/vitest";
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setProject } from "../../../../src/ui/api.ts";
+import { project, setProject } from "../../../../src/ui/api.ts";
 import {
   openExternal,
-  openProject,
   pathOf,
   pickFiles,
   pickFolder,
   reveal,
+  showProject,
   taskbarFraction,
   tracked,
 } from "../../../../src/ui/lib/desktop.ts";
 import { closeToast, useToasts } from "../../../../src/ui/lib/toast.ts";
-import { fakeNet, net } from "../../helpers/ui-data.tsx";
+import { fakeNet } from "../../helpers/ui-data.tsx";
 import { fakeDesktop, noDesktop } from "../../helpers/ui-desktop.tsx";
 
 beforeEach(() => fakeNet());
@@ -69,11 +69,11 @@ describe("desktop helpers", () => {
     expect(pathOf(new File([], "a.docx"))).toBe("C:a.docx");
   });
 
-  it("opens a project and remembers it", async () => {
-    net.routes["project.open"] = (i) => ({ dir: `${i.dir}\\` });
+  it("follows a project the core opened and remembers it", () => {
     const refreshInfo = vi.fn();
     const testsChanged = vi.fn();
-    expect(await openProject({ refreshInfo, testsChanged }, "C:\\p")).toBe("C:\\p\\");
+    expect(showProject({ refreshInfo, testsChanged }, "C:\\p\\")).toBe("C:\\p\\");
+    expect(project()).toBe("C:\\p\\");
     expect(localStorage.getItem("testimus.project")).toBe("C:\\p\\");
     expect(refreshInfo).toHaveBeenCalled();
     expect(testsChanged).toHaveBeenCalled();
