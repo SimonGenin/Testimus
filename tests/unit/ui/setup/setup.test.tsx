@@ -87,7 +87,8 @@ describe("First launch screen", () => {
 
   it("asks no project command on the pack step without a project", async () => {
     withApp(<FirstRunScreen />, { info: null, route: { screen: "setup", arg: "pack" } });
-    expect(screen.getByText(/Open or create a project first/)).toBeInTheDocument();
+    expect(screen.getByText("Open a project first")).toBeInTheDocument();
+    expect(screen.getByText("The pack is chosen per project, on this PC.")).toBeInTheDocument();
     await new Promise((r) => setTimeout(r, 50));
     expect(net.calls.filter((c) => c.name.startsWith("models."))).toEqual([]);
   });
@@ -174,6 +175,7 @@ describe("First launch › Project", () => {
     net.routes["project.open"] = (i) => ({ dir: i.dir });
     const { state } = withApp(<ProjectStep onBack={vi.fn()} />);
     const items = within(await list()).getAllByRole("listitem");
+    expect(screen.getByRole("heading", { name: "Or start a new project" })).toBeInTheDocument();
     expect(within(items[0]).getByRole("button", { name: "Open again" })).toBeInTheDocument();
     expect(within(items[1]).getAllByText("C:/other")).toHaveLength(2);
     expect(within(items[1]).getByText("BHP")).toBeInTheDocument();
@@ -298,7 +300,8 @@ describe("First launch › Project", () => {
     const create = screen.getByRole("button", { name: "Create the project" });
     expect(create).toBeDisabled();
     expect(screen.getByText(/gets its own folder in it/)).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Jira project"), { target: { value: " lfr " } });
+    expect(screen.getByRole("heading", { name: "New project" })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Jira project key"), { target: { value: " lfr " } });
     fireEvent.change(screen.getByLabelText("Name"), { target: { value: " RATP: Sosie. " } });
     fireEvent.change(screen.getByLabelText("Language of the tests"), { target: { value: "en" } });
     expect(screen.getByText(/D:\\Testimus\\Projects\\RATP Sosie$/)).toBeInTheDocument();
@@ -322,7 +325,7 @@ describe("First launch › Project", () => {
   it("without a name the folder is the Jira key; a typed projects folder wins; a failed creation says why", async () => {
     withApp(<ProjectStep onBack={vi.fn()} />);
     fireEvent.change(screen.getByLabelText("Projects folder"), { target: { value: " E:\\Mine\\ " } });
-    fireEvent.change(screen.getByLabelText("Jira project"), { target: { value: "bhptcc" } });
+    fireEvent.change(screen.getByLabelText("Jira project key"), { target: { value: "bhptcc" } });
     fireEvent.click(screen.getByRole("button", { name: "Create the project" }));
     expect(await screen.findByText("Unknown command project.init")).toBeInTheDocument();
     expect(callsOf("project.init")[0].input).toEqual({

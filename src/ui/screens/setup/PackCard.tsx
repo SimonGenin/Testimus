@@ -1,10 +1,10 @@
 import * as stylex from "@stylexjs/stylex";
 import type { FitVerdict } from "../../../core/types.ts";
-import { Badge, type BadgeTone } from "../../components/ui/Badge.tsx";
+import { Badge } from "../../components/ui/Badge.tsx";
 import { Card } from "../../components/ui/Card.tsx";
-import type { IconName } from "../../components/ui/Icon.tsx";
 import { color, fontSize, lineHeight, space } from "../../styles/tokens.stylex.ts";
 import { FIT, type PackRow, size } from "../settings/models/data.ts";
+import { PROCESSOR_ONLY } from "../settings/models/FitChip.tsx";
 
 const styles = stylex.create({
   title: { display: "inline-flex", flexWrap: "wrap", alignItems: "center", gap: space.s2 },
@@ -15,20 +15,11 @@ const styles = stylex.create({
   warn: { color: color.warning, fontSize: fontSize.small, lineHeight: lineHeight.small },
 });
 
-const TONE: Record<string, BadgeTone> = { ok: "success", warn: "warning", err: "danger", info: "info" };
-const ICON: Record<string, IconName> = {
-  ok: "check-circle",
-  warn: "alert-triangle",
-  err: "x-circle",
-  info: "info",
-};
-
-export const PROCESSOR_ONLY = "Made for a GPU: here it runs on the processor, several times slower.";
 const UNTESTED = "Never run on this system yet: Testimus tries it after the download and refuses it if it fails.";
 
 function fitBadge(verdict: FitVerdict, message: string) {
   const f = FIT[verdict];
-  return <Badge label={f.word} tone={TONE[f.tone] ?? "neutral"} icon={ICON[f.tone]} size="sm" tooltip={message} />;
+  return <Badge label={f.word} tone={f.tone} icon={f.icon} size="sm" tooltip={message} />;
 }
 
 export function PackCard({

@@ -1,6 +1,8 @@
 import * as stylex from "@stylexjs/stylex";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
+import { Card } from "../../components/ui/Card.tsx";
+import { EmptyState } from "../../components/ui/EmptyState.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { useApp } from "../../lib/app.ts";
 import { border, color, fontSize, lineHeight, radius, space } from "../../styles/tokens.stylex.ts";
@@ -64,12 +66,16 @@ export function PackStep({ onBack }: { onBack: () => void }) {
 
   if (!app.info)
     return (
-      <StepCard
-        id="pack-h"
-        title={TITLE}
-        lead="Open or create a project first: the pack is chosen per project, on this PC."
-        back={<Button icon="chevron-left" label="Back to Project" onClick={onBack} />}
-      />
+      <StepCard id="pack-h" title={TITLE}>
+        <Card>
+          <EmptyState
+            icon="folder"
+            title="Open a project first"
+            text="The pack is chosen per project, on this PC."
+            actions={<Button icon="chevron-left" label="Back to Project" onClick={onBack} />}
+          />
+        </Card>
+      </StepCard>
     );
 
   return (
