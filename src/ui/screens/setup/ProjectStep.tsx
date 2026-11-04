@@ -40,7 +40,12 @@ export function ProjectStep({ onBack, onOpened }: { onBack: () => void; onOpened
       lead="A project is a folder: the documents, the tests and what Claude needs. Share it by sharing the folder."
       back={<Button variant="quiet" icon="chevron-left" label="Back" onClick={onBack} />}
       actions={
-        <Button variant="primary" label="Create the project" disabled={!f.dir || p.busy} onClick={() => void create()} />
+        <Button
+          variant="primary"
+          label="Create the project"
+          disabled={!f.dir || p.busy}
+          onClick={() => void create()}
+        />
       }
     >
       {!p.known ? (

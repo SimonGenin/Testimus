@@ -14,7 +14,9 @@ type List = { projects?: Known[]; root?: string; last?: string };
 const dropping = (dir: string) => (client: QueryClient) => {
   const k = key("project.list", {});
   const before = client.getQueryData<List>(k);
-  client.setQueryData<List | null>(k, (l) => (l?.projects ? { ...l, projects: l.projects.filter((p) => p.dir !== dir) } : l));
+  client.setQueryData<List | null>(k, (l) =>
+    l?.projects ? { ...l, projects: l.projects.filter((p) => p.dir !== dir) } : l,
+  );
   return () => client.setQueryData(k, before);
 };
 
@@ -66,13 +68,21 @@ export function useProjects(onOpened?: () => void) {
   };
 
   const hide = (k: Known) =>
-    execute(client, "project.forget", { dir: k.dir }, { invalidates: [["project.list"]], optimistic: dropping(k.dir) }).catch(
-      (e) => errorToast(e, "Could not hide the project"),
-    );
+    execute(
+      client,
+      "project.forget",
+      { dir: k.dir },
+      { invalidates: [["project.list"]], optimistic: dropping(k.dir) },
+    ).catch((e) => errorToast(e, "Could not hide the project"));
 
   const remove = async (k: Known, gone: boolean): Promise<boolean> => {
     try {
-      await execute(client, "project.delete", { dir: k.dir }, { invalidates: [["project.list"]], optimistic: dropping(k.dir) });
+      await execute(
+        client,
+        "project.delete",
+        { dir: k.dir },
+        { invalidates: [["project.list"]], optimistic: dropping(k.dir) },
+      );
       if (k.dir === app.info?.dir) app.closeProject();
       toast(
         gone

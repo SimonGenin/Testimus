@@ -45,7 +45,9 @@ export function KnownProjects({
 }) {
   const [del, setDel] = useState<Known | null>(null);
   const entries = (k: Known): MenuEntry[] => [
-    ...(desktop() && k.exists ? [{ label: "Show in Explorer", icon: "folder-open" as const, onSelect: () => void reveal(k.dir) }] : []),
+    ...(desktop() && k.exists
+      ? [{ label: "Show in Explorer", icon: "folder-open" as const, onSelect: () => void reveal(k.dir) }]
+      : []),
     { label: "Don't show", icon: "eye-off", hint: "forget it", onSelect: () => onHide(k) },
     "separator",
     {
@@ -89,7 +91,9 @@ export function KnownProjects({
                 align="end"
                 label={`More actions for ${labelOf(k)}`}
                 entries={entries(k)}
-                trigger={<Button variant="quiet" size="sm" icon="more" iconOnly label={`More actions for ${labelOf(k)}`} />}
+                trigger={
+                  <Button variant="quiet" size="sm" icon="more" iconOnly label={`More actions for ${labelOf(k)}`} />
+                }
               />
             </span>
           ),

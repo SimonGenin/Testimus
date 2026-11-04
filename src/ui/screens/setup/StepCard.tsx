@@ -1,14 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
 import { Card } from "../../components/ui/Card.tsx";
-import {
-  color,
-  fontSize,
-  fontWeight,
-  letterSpacing,
-  lineHeight,
-  space,
-} from "../../styles/tokens.stylex.ts";
+import { color, fontSize, fontWeight, letterSpacing, lineHeight, space } from "../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
   body: { display: "flex", flexDirection: "column", gap: space.s6, padding: space.s5 },

@@ -48,7 +48,7 @@ export function useNewProject(root: string) {
     if (!root || seeded.current) return;
     seeded.current = true;
     if (!where) setWhere(root);
-  }, [root, where, setWhere]);
+  }, [root, where]);
   const dir = projectFolder(where, name.trim() || key.trim().toUpperCase());
   const input: NewProjectInput = {
     dir,

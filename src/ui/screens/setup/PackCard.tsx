@@ -63,17 +63,14 @@ export function PackCard({
       radio={{ name: "pack", value: p.id, checked: chosen, onSelect: onChoose, disabled: !p.available }}
       title={
         <span {...stylex.props(styles.title)}>
-          {p.label}
-          {p.active && <Badge label="In use" tone="success" icon="check" size="sm" />}
+          {p.label} {p.active && <Badge label="In use" tone="success" icon="check" size="sm" />}
           {suggested && <Badge label="Suggested for this PC" tone="accent" icon="target" outline size="sm" />}
         </span>
       }
       actions={
         analysed && p.fit ? (
           <span {...stylex.props(styles.badges)}>
-            {p.processorOnly && (
-              <Badge label="Processor only" tone="warning" icon="cpu" size="sm" tooltip={PROCESSOR_ONLY} />
-            )}
+            {p.processorOnly && <Badge label="Processor only" tone="warning" icon="cpu" size="sm" />}
             {fitBadge(p.fit.verdict, p.fit.message)}
           </span>
         ) : undefined
