@@ -1,40 +1,37 @@
 import { useState } from "react";
 import type { CredsStatus } from "../../../core/types.ts";
-import { Button, Icon } from "../../components/legacy/index.ts";
+import { Banner } from "../../components/ui/Banner.tsx";
+import { Button } from "../../components/ui/Button.tsx";
 import { ConnectAtlassian } from "../settings/ConnectAtlassian.tsx";
+import { StepCard } from "./StepCard.tsx";
 
 export function AccessStep({ onContinue, onSkip }: { onContinue: () => void; onSkip: () => void }) {
   const [status, setStatus] = useState<CredsStatus | null>(null);
   const [okAll, setOkAll] = useState(false);
   const found = !!status?.jira.complete && !!status?.xray.complete;
   return (
-    <div className="setup-form">
-      <h1 className="h setup-title">Connect to Jira and Xray</h1>
-      <p className="muted">
-        Testimus reads and writes your tests through your own accounts. Nothing is sent anywhere else.
-      </p>
+    <StepCard
+      id="access-h"
+      title="Connect to Jira and Xray"
+      lead="Testimus reads and writes your tests through your own accounts. Nothing is sent anywhere else. Saved in your user folder, shared with your other Atlassian tools; you can change them later in Settings › Access."
+      actions={
+        <>
+          <Button variant="quiet" label="Skip for now" onClick={onSkip} />
+          <Button
+            variant={okAll || found ? "primary" : "secondary"}
+            iconAfter="arrow-right"
+            label="Continue"
+            onClick={onContinue}
+          />
+        </>
+      }
+    >
       {found && !okAll && (
-        <div className="setup-found" role="status">
-          <Icon name="info" />
-          <p>
-            We found the access you already use with Xray Editor. The fields are filled in: just test the connection.
-          </p>
-        </div>
+        <Banner tone="info">
+          We found the access you already use with Xray Editor. The fields are filled in: just test the connection.
+        </Banner>
       )}
       <ConnectAtlassian onStatus={setStatus} onResult={(r) => setOkAll(r.ok)} />
-      <div className="setup-actions">
-        <span className="spacer" />
-        <Button tone="quiet" onClick={onSkip}>
-          Skip for now
-        </Button>
-        <Button tone={okAll || found ? "primary" : "secondary"} icon="right" onClick={onContinue}>
-          Continue
-        </Button>
-      </div>
-      <p className="muted">
-        Saved in your user folder, shared with your other Atlassian tools. You can change them later in Settings ›
-        Access.
-      </p>
-    </div>
+    </StepCard>
   );
 }
