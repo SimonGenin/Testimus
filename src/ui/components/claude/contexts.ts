@@ -14,10 +14,6 @@ export type ContextSummary = {
 };
 export type ContextDetail = ContextSummary & { notes: string; mtime?: number };
 
-// ponytail: screens not on the data layer yet re-read their context lists on this event; it goes once they read
-// contexts.* through useRead (the invalidation below reaches them)
-export const CONTEXTS_EVENT = "testimus:contexts";
-
 export const CONTEXT_READS: Prefix[] = [
   ["contexts.list"],
   ["contexts.ofTest"],
@@ -47,7 +43,6 @@ export function useContextWrite() {
       const out = (await execute(client, name, input, { invalidates: CONTEXT_READS })) as unknown;
       const d = out && typeof out === "object" && "id" in out ? (out as ContextDetail) : null;
       if (d && "notes" in d) client.setQueryData(key("contexts.show", { id: d.id }), d);
-      window.dispatchEvent(new Event(CONTEXTS_EVENT));
       return d;
     },
     [client],

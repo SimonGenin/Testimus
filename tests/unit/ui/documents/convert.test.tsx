@@ -8,7 +8,7 @@ import { ClaudeChoice } from "../../../../src/ui/screens/documents/ConvertDoc.ts
 import { DocumentsScreen } from "../../../../src/ui/screens/documents/DocumentsScreen.tsx";
 import { api, FakeEventSource, fakeFetch, named, noDesktop } from "../../helpers/ui-desktop.tsx";
 import { clearToasts } from "../../helpers/ui-screens.tsx";
-import { at, doc, emit, mountDocs, refuse } from "./helpers.tsx";
+import { at, doc, emit, mountDocs, refuse, startsJob } from "./helpers.tsx";
 
 beforeEach(() => {
   fakeFetch();
@@ -45,7 +45,7 @@ describe("Converting a document", () => {
       i.anchor ? { md: "x" } : { doc: fresh(), context: "", toc: [], figures: [], md: "" };
     api.routes["contexts.list"] = () => [];
     let fail = true;
-    api.routes["docs.convert"] = () => ({ jobId: "conv-2" });
+    api.routes["docs.convert"] = startsJob("conv-2", "docs.convert");
     refuse("docs.convert", () => fail, { error: "source missing" });
     api.routes["jobs.show"] = running;
     const { app: a } = mountDocs(<DocumentsScreen />, { route: { screen: "documents", arg: "NEW2" } });
@@ -81,6 +81,15 @@ describe("Converting a document", () => {
     expect(within(side).queryByRole("region", { name: "Convert and index" })).toBeNull();
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
     converted = true;
+    emit({
+      jobId: "conv-2",
+      at,
+      type: "steps",
+      steps: [
+        { id: "convert", label: "Convert to text", status: "done" },
+        { id: "index", label: "Update the search index", status: "running" },
+      ],
+    });
     emit({ jobId: "conv-2", at, type: "progress", message: "Waiting for the other conversions", step: "index" });
     expect(await within(listOf()).findByRole("progressbar", { name: "Indexing" })).toBeInTheDocument();
     emit({ jobId: "conv-2", at, type: "progress", message: "m", done: 3, total: 4, step: "index" });
@@ -92,7 +101,7 @@ describe("Converting a document", () => {
       job: {
         id: "conv-2",
         kind: "docs.convert",
-        subject: "",
+        subject: "NEW2",
         status: "done",
         startedAt: at,
         result: { id: "NEW2", index: { error: "model missing" } },
@@ -144,7 +153,7 @@ describe("Converting a document", () => {
             md: "",
           };
     api.routes["contexts.list"] = () => [];
-    api.routes["docs.convert"] = () => ({ jobId: "conv-5" });
+    api.routes["docs.convert"] = startsJob("conv-5", "docs.convert", "", { message: "Converting source.docx" });
     api.routes["jobs.show"] = (i) => ({
       job: { id: i.id, kind: "x", subject: "", status: "running", startedAt: at, message: "Converting source.docx" },
     });
@@ -185,6 +194,15 @@ describe("Converting a document", () => {
     emit({ jobId: "", at, type: "changed", paths: ["docs/NEW3/doc.json"] });
     await waitFor(() => expect(named("docs.list").length).toBeGreaterThan(lists));
     await act(() => new Promise((r) => setTimeout(r, 20)));
+    emit({
+      jobId: "conv-5",
+      at,
+      type: "steps",
+      steps: [
+        { id: "convert", label: "Convert to text", status: "done" },
+        { id: "index", label: "Update the search index", status: "running" },
+      ],
+    });
     emit({ jobId: "conv-5", at, type: "progress", message: "Waiting for the other conversions", step: "index" });
     side = await screen.findByRole("region", { name: "C-NEW3 details" });
     const again = await within(side).findByRole("region", { name: "Reading the document" });
@@ -201,7 +219,7 @@ describe("Converting a document", () => {
       job: {
         id: "conv-5",
         kind: "docs.convert",
-        subject: "",
+        subject: "NEW3",
         status: "done",
         startedAt: at,
         result: { id: "NEW3", index: { chunks: 3 } },
@@ -220,7 +238,7 @@ describe("Converting a document", () => {
     api.routes["docs.show"] = (i) =>
       i.anchor ? { md: "x" } : { doc: doc("D1"), context: "", toc: [], figures: [], md: "" };
     api.routes["contexts.list"] = () => [];
-    api.routes["docs.convert"] = () => ({ jobId: "conv-4" });
+    api.routes["docs.convert"] = startsJob("conv-4", "docs.convert");
     api.routes["jobs.show"] = running;
     mountDocs(<DocumentsScreen />);
     const side = await screen.findByRole("region", { name: "C-D1 details" });
@@ -254,7 +272,7 @@ describe("Converting a document", () => {
       jobId: "conv-4",
       at,
       type: "status",
-      job: { id: "conv-4", kind: "docs.convert", subject: "", status: "failed", startedAt: at, error: "stopped" },
+      job: { id: "conv-4", kind: "docs.convert", subject: "D1", status: "failed", startedAt: at, error: "stopped" },
     });
     await waitFor(() => expect(within(side).queryByRole("progressbar", { name: "Converting" })).toBeNull());
   });
@@ -282,7 +300,7 @@ describe("Convert again with Claude's study", () => {
     api.routes["docs.list"] = () => [DOC];
     api.routes["docs.show"] = (i) => (i.anchor ? { md: "x" } : { doc: DOC, context: "", toc: [], figures: [], md: "" });
     api.routes["contexts.list"] = () => [];
-    api.routes["docs.convert"] = () => ({ jobId: "conv-9" });
+    api.routes["docs.convert"] = startsJob("conv-9", "docs.convert");
     api.routes["jobs.show"] = running;
   };
 
@@ -310,7 +328,14 @@ describe("Convert again with Claude's study", () => {
       jobId: "conv-9",
       at,
       type: "status",
-      job: { id: "conv-9", kind: "docs.convert", subject: "", status: "done", startedAt: at, result: { id: DOC.id } },
+      job: {
+        id: "conv-9",
+        kind: "docs.convert",
+        subject: DOC.id,
+        status: "done",
+        startedAt: at,
+        result: { id: DOC.id },
+      },
     });
     await waitFor(() => expect(screen.queryByRole("region", { name: "Reading the document" })).toBeNull());
   });

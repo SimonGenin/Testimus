@@ -2,6 +2,7 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render as rtlRender, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { writtenTests } from "../../../../src/core/claude/stream.ts";
 import type { Job, JobEvent } from "../../../../src/core/types.ts";
 import { ClaudeActivity as GenActivity } from "../../../../src/ui/components/claude/ClaudeActivity.tsx";
 import { activityOf, gist, lasted, linesRead, outlineOf } from "../../../../src/ui/lib/activity.ts";
@@ -204,6 +205,18 @@ describe("activityOf", () => {
     expect(lasted("2026-01-01T00:00:00Z", "2026-01-01T00:06:05Z")).toBe("6 min 05 s");
     expect(lasted("2026-01-01T00:00:00Z", "2026-01-01T01:02:00Z")).toBe("1 h 02 min");
     expect(lasted("2026-01-01T00:00:10Z", "2026-01-01T00:00:00Z")).toBe("0 s");
+  });
+
+  it("counts a Jira test written with a file tool as written, by the same rule as the core", () => {
+    sec = 0;
+    const path = "D:\\P\\tests\\LFRPS12-1420\\test.md";
+    const p = activityOf([page(1, 50), tool("Read", { file_path: path }), tool("Edit", { file_path: path })]);
+    expect(p.map((x) => x.kind)).toEqual(["read", "write"]);
+    expect(p[0].acts.map((a) => a.text)).toContain("Opened LFRPS12-1420");
+    expect(p[1].written).toEqual([{ id: "LFRPS12-1420", summary: "", saves: 1 }]);
+    expect(p[1].acts.map((a) => a.text)).toEqual(["Wrote LFRPS12-1420"]);
+    const core = writtenTests([{ name: "Edit", input: { file_path: path } }]);
+    expect(core).toEqual(p[1].written.map((w) => w.id));
   });
 
   it("lands the tests saved through tests_save even without a Writing progress", () => {

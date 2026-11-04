@@ -3,8 +3,9 @@ import "@testing-library/jest-dom/vitest";
 import { act, cleanup, fireEvent, render as rtlRender, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setProject } from "../../../../src/ui/api.ts";
-import { CONTEXTS_EVENT, ContextsDialog, contextLine } from "../../../../src/ui/components/claude/ContextsDialog.tsx";
+import { ContextsDialog, contextLine } from "../../../../src/ui/components/claude/ContextsDialog.tsx";
 import { Toaster } from "../../../../src/ui/components/ui/Toast.tsx";
+import { useRead } from "../../../../src/ui/lib/data/query.ts";
 import { closeToast, useToasts } from "../../../../src/ui/lib/toast.ts";
 import { callsOf, dataWrapper, Fail, fakeNet, net } from "../../helpers/ui-data.tsx";
 import { fakeDesktop, noDesktop } from "../../helpers/ui-desktop.tsx";
@@ -15,6 +16,7 @@ const render = ((ui: Parameters<typeof rtlRender>[0], o?: Parameters<typeof rtlR
 let ids: number[] = [];
 function Probe() {
   ids = useToasts().map((t) => t.id);
+  useRead("contexts.ofProject", {});
   return <Toaster />;
 }
 
@@ -37,6 +39,7 @@ function backend(initial: Ctx[]) {
   store = initial.map((c) => ({ ...c }));
   fail = new Set();
   n = 0;
+  net.routes["contexts.ofProject"] = () => ({ effective: [] });
   net.routes["contexts.list"] = () => {
     guard("contexts.list");
     return store.map(summary);
@@ -81,13 +84,12 @@ function backend(initial: Ctx[]) {
 const glossary: Ctx = { id: "glossary", name: "Glossaire", notes: "SOSIE = ...", paths: ["D:\\Specs"], files: [] };
 const empty: Ctx = { id: "bare", name: "", notes: "", paths: [], files: ["plan.pdf"] };
 
-let changes = 0;
-const onChanged = () => changes++;
+// ponytail: a reader of the contexts outside the dialog (the dock, Settings › Claude, a test header) reads again after
+// each change
+const changes = () => callsOf("contexts.ofProject").length - 1;
 
 beforeEach(() => {
   fakeNet();
-  changes = 0;
-  window.addEventListener(CONTEXTS_EVENT, onChanged);
 });
 
 afterEach(() => {
@@ -95,7 +97,6 @@ afterEach(() => {
     for (const id of ids) closeToast(id, true);
   });
   cleanup();
-  window.removeEventListener(CONTEXTS_EVENT, onChanged);
   vi.unstubAllGlobals();
   noDesktop();
   setProject(null);
@@ -132,7 +133,7 @@ describe("ContextsDialog", () => {
     expect(await screen.findByText("contexts/new-1/")).toBeInTheDocument();
     expect(option(/new-1/)).toHaveAttribute("aria-selected", "true");
     expect(option(/new-1/)).toHaveTextContent("empty");
-    expect(changes).toBe(1);
+    await waitFor(() => expect(changes()).toBe(1));
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(close).toHaveBeenCalled();
   });
@@ -159,7 +160,7 @@ describe("ContextsDialog", () => {
     expect(option(/Lexique/)).toBeInTheDocument();
     await waitFor(() => expect(callsOf("contexts.set")).toHaveLength(1));
     expect(callsOf("contexts.set")[0].input).toEqual({ id: "glossary", name: "Lexique", notes: "SOSIE = ..." });
-    await waitFor(() => expect(changes).toBe(1));
+    await waitFor(() => expect(changes()).toBe(1));
     fireEvent.change(notesBox(), { target: { value: "Nouvelles notes" } });
     fireEvent.blur(notesBox());
     await waitFor(() => expect(callsOf("contexts.set")).toHaveLength(2));
@@ -182,6 +183,24 @@ describe("ContextsDialog", () => {
     fireEvent.change(notesBox(), { target: { value: "dernier mot" } });
     unmount();
     await waitFor(() => expect(store[0].notes).toBe("dernier mot"));
+  });
+
+  it("writes text typed in one project to that project, never to the next one", async () => {
+    setProject("C:\\p");
+    backend([glossary]);
+    const { unmount } = mount();
+    await waitFor(() => expect(nameBox()).toHaveValue("Glossaire"));
+    fireEvent.change(notesBox(), { target: { value: "pour p" } });
+    setProject("C:\\other");
+    unmount();
+    await waitFor(() => expect(store[0].notes).toBe("pour p"));
+    const sent = vi
+      .mocked(fetch)
+      .mock.calls.filter(([u]) => String(u).includes("/contexts/set"))
+      .map(([, init]) =>
+        decodeURIComponent(((init?.headers ?? {}) as Record<string, string>)["X-Testimus-Project"] ?? ""),
+      );
+    expect(sent).toEqual(["C:\\p"]);
   });
 
   it("adds and removes paths, keeping the typed name and notes", async () => {

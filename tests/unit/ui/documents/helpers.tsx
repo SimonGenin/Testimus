@@ -1,9 +1,10 @@
 import { act, configure, render } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { vi } from "vitest";
-import type { DocRef, JobEvent } from "../../../../src/core/types.ts";
+import type { DocRef, Job, JobEvent } from "../../../../src/core/types.ts";
 import { Toaster } from "../../../../src/ui/components/ui/Toast.tsx";
 import { AppContext, type AppState } from "../../../../src/ui/lib/app.ts";
+import { applyJobEvent } from "../../../../src/ui/lib/data/events.ts";
 import { DataProvider } from "../../../../src/ui/lib/data/provider.tsx";
 import { createQueryClient } from "../../../../src/ui/lib/data/query.ts";
 import { api, app, FakeEventSource } from "../../helpers/ui-desktop.tsx";
@@ -26,11 +27,35 @@ export const doc = (id: string, over: Partial<DocRef> = {}): DocRef => ({
   ...over,
 });
 
-export const emit = (e: JobEvent) => act(() => FakeEventSource.last?.emit(e));
+// ponytail: the project's jobs as the server keeps them — a route made by startsJob lists its job, every event a test
+// emits updates it (jobs.list answers with it)
+export const served: { jobs: Job[] } = { jobs: [] };
+
+export const emit = (e: JobEvent) => {
+  served.jobs = applyJobEvent(served.jobs, e);
+  act(() => FakeEventSource.last?.emit(e));
+};
+
+export const startsJob =
+  (id: string, kind: string, subject = "", over: Partial<Job> = {}) =>
+  (input: Record<string, unknown>) => {
+    const job: Job = {
+      id,
+      kind,
+      subject: subject || String(input.id ?? ""),
+      status: "running",
+      startedAt: at,
+      ...over,
+    };
+    served.jobs = applyJobEvent(served.jobs, { jobId: id, at, type: "status", job });
+    return { jobId: id };
+  };
 
 // ponytail: a screen of the zone with what the app gives it — the data layer (one SSE, no retries), the app state
 // and the toasts
 export function mountDocs(ui: ReactNode, over: Partial<AppState> = {}) {
+  served.jobs = [];
+  api.routes["jobs.list"] ??= () => served.jobs;
   const a = app(over);
   const client = createQueryClient();
   client.setDefaultOptions({ queries: { ...client.getDefaultOptions().queries, retry: false } });

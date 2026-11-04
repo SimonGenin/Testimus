@@ -23,7 +23,7 @@ import { ClaudeBlock } from "../ui/ClaudeBlock.tsx";
 import { Icon } from "../ui/Icon.tsx";
 import { Switch } from "../ui/Switch.tsx";
 import { Text } from "../ui/Text.tsx";
-import { CONTEXT_READS, CONTEXTS_EVENT, type ContextDetail, useContextWrite } from "./contexts.ts";
+import { CONTEXT_READS, type ContextDetail, useContextWrite } from "./contexts.ts";
 
 type Words = { name: string; notes: string };
 
@@ -58,11 +58,13 @@ const styles = stylex.create({
 });
 
 // ponytail: name and notes are one entry of the autosave (one contexts.set for both, 400 ms after the last key, on
-// blur, on switching and on closing); paths, files and sharing are one gesture each and go straight to disk
+// blur, on switching and on closing); paths, files and sharing are one gesture each and go straight to disk; a pending
+// text belongs to the project it was typed in (the key carries it)
 function useWords(id: string, detail: ContextDetail | undefined): Autosave<Words> {
   const client = useQueryClient();
+  const saveKey = key("contexts.show", { id });
   return useAutosave<Words>({
-    key: key("contexts.show", { id }),
+    key: saveKey,
     value: detail ? { name: detail.name, notes: detail.notes } : undefined,
     base: detail?.mtime === undefined ? undefined : String(detail.mtime),
     save: async (v, base) => {
@@ -72,9 +74,9 @@ function useWords(id: string, detail: ContextDetail | undefined): Autosave<Words
           "contexts.set",
           { id, name: v.name, notes: v.notes, ...(base ? { ifMtime: Number(base) } : {}) },
           { invalidates: CONTEXT_READS },
+          saveKey[0],
         )) as unknown as ContextDetail;
-        client.setQueryData(key("contexts.show", { id }), { ...d, name: v.name, notes: v.notes });
-        window.dispatchEvent(new Event(CONTEXTS_EVENT));
+        client.setQueryData(saveKey, { ...d, name: v.name, notes: v.notes });
         return d.mtime === undefined ? undefined : String(d.mtime);
       } catch (e) {
         if (!(e instanceof ApiError && e.code === "conflict")) errorToast(e, "Could not save the context");

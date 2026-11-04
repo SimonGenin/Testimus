@@ -210,6 +210,37 @@ describe("TestsScreen", () => {
     await waitFor(() => expect(state.navigate).toHaveBeenCalledWith("tests", "t9"));
   });
 
+  it("after a reload, shows the pull its job says is still running, with its stage", async () => {
+    const job = {
+      id: "pull-9",
+      kind: "pull",
+      subject: "K-9",
+      status: "running",
+      startedAt: new Date().toISOString(),
+      message: "K-9: image 2 of 3",
+    };
+    server.routes["jobs.list"] = () => [job];
+    server.routes["jobs.show"] = () => ({
+      job,
+      events: [
+        {
+          jobId: "pull-9",
+          at: job.startedAt,
+          type: "progress",
+          message: "K-9: read",
+          pull: { key: "K-9", phase: "images", done: 2, total: 3 },
+        },
+      ],
+    });
+    screenOf({ route: { screen: "tests", arg: "K-9" } });
+    expect(await screen.findByRole("heading", { name: /^Pulling K-9/ })).toBeInTheDocument();
+    expect(screen.getByRole("status", { name: "Pull progress" })).toHaveTextContent("image 2 of 3");
+    expect(await screen.findByRole("progressbar", { name: "Images downloaded" })).toHaveAttribute(
+      "aria-valuenow",
+      "67",
+    );
+  });
+
   it("does not move when the pulled test is not the one on screen", async () => {
     server.routes["xray.pull"] = () => ({ pulled: ["K-8"] });
     const { state } = screenOf();

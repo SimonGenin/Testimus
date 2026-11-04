@@ -1,61 +1,148 @@
 import { useSyncExternalStore } from "react";
-import type { ClaudeRun, DocRef, JobEvent } from "../../core/types.ts";
-import { run } from "../api.ts";
+import type { ClaudeRun, DocRef, Job } from "../../core/types.ts";
+import { ApiError, project, run } from "./data/client.ts";
 import { baseName, pathOf } from "./desktop.ts";
 import { message } from "./format.ts";
+import { useNow } from "./now.ts";
+import { useProjectJobs } from "./projectJobs.ts";
 import { toast } from "./toast.ts";
 
 export type Upload = {
-  key: number;
+  key: string;
   name: string;
   job: "add" | "convert" | "index";
   phase: "reading" | "adding" | "converting" | "indexing" | "done" | "failed" | "index-failed";
   pct: number | null;
   message: string;
-  at: number;
   docId?: string;
   error?: unknown;
 };
 
-let items: Upload[] = [];
+type Local = Upload & { project: string | null; jobId?: string };
+
+const SHOWN_DONE_MS = 4000;
+const KIND: Record<string, Upload["job"]> = { "docs.add": "add", "docs.convert": "convert", "rag-index": "index" };
+const NOW: Record<Upload["job"], string> = { add: "Adding", convert: "Converting", index: "Indexing" };
+
+// ponytail: what the page shows of the project's adds, conversions and index runs is their jobs (jobs.list, kept live
+// by the event stream); the page keeps only what has no job yet — a file it is still reading, a call refused before its
+// job started — and which ended jobs the reader no longer wants to see: those ended before the screen opened, and those
+// dismissed
+const view = { local: [] as Local[], since: Date.now(), dismissed: new Set<string>(), version: 0 };
 let seq = 0;
 const listeners = new Set<() => void>();
 const emit = () => {
+  view.version++;
   for (const l of listeners) l();
 };
-const patch = (key: number, p: Partial<Upload>) => {
-  items = items.map((u) => (u.key === key ? { ...u, ...p } : u));
+const patchLocal = (key: string, p: Partial<Local>) => {
+  view.local = view.local.map((u) => (u.key === key ? { ...u, ...p } : u));
   emit();
 };
+const dropLocal = (key: string) => {
+  view.local = view.local.filter((u) => u.key !== key);
+  emit();
+};
+const addLocal = (row: Omit<Local, "key" | "project" | "pct">): string => {
+  const key = `local-${++seq}`;
+  view.local = [...view.local, { ...row, key, project: project(), pct: null }];
+  emit();
+  return key;
+};
 
-export function useUploads(): Upload[] {
-  return useSyncExternalStore(
-    (fn) => {
-      listeners.add(fn);
-      return () => listeners.delete(fn);
-    },
-    () => items,
-    () => items,
-  );
-}
+export const settled = (u: Upload) => u.phase === "done" || u.phase === "failed" || u.phase === "index-failed";
 
-export function dismissUpload(key: number): void {
-  items = items.filter((u) => u.key !== key);
+export function dismissUpload(key: string): void {
+  view.dismissed.add(key);
+  view.local = view.local.filter((u) => u.key !== key);
   emit();
 }
 
-export const settled = (u: Upload) => u.phase === "done" || u.phase === "failed" || u.phase === "index-failed";
+// ponytail: a finished or failed row is shown once — leaving the screen forgets it; the job stays in Jobs
+export function forgetSettled(): void {
+  view.since = Date.now();
+  view.local = view.local.filter((u) => !settled(u));
+  emit();
+}
 
 // ponytail: the list can show a document whose add has not returned its id yet — the file name ties them
 export const owns = (u: Upload, d: DocRef) =>
   !settled(u) &&
   (u.docId ? u.docId === d.id : u.job === "add" && baseName(d.source.name).toLowerCase() === u.name.toLowerCase());
 
-// ponytail: a finished or failed row is shown once — leaving the screen forgets it; the job stays in Jobs
-export function forgetSettled(): void {
-  if (!items.some(settled)) return;
-  items = items.filter((u) => !settled(u));
-  emit();
+type Added = { added: { id: string }[]; rejected: { name: string; why: string; code: string }[] };
+
+const percent = (j: Job) => (j.progress?.total ? Math.round(((j.progress.done ?? 0) / j.progress.total) * 100) : null);
+
+function rowsOf(j: Job, now: number): Upload[] {
+  const kind = KIND[j.kind];
+  const base = { key: j.id, job: kind, pct: percent(j), message: j.message ?? NOW[kind] };
+  const docId = kind === "convert" ? j.subject : undefined;
+  const name = kind === "index" ? "All documents" : j.subject;
+  const row = { ...base, name, ...(docId ? { docId } : {}) };
+  const recent = !!j.endedAt && now - Date.parse(j.endedAt) < SHOWN_DONE_MS;
+  if (j.status === "running") {
+    const indexing = kind === "index" || j.steps?.some((s) => s.id === "index" && s.status === "running");
+    return [{ ...row, phase: kind === "add" ? "adding" : indexing ? "indexing" : "converting" }];
+  }
+  if (j.status === "done") {
+    if (kind === "add")
+      return ((j.result as Added | undefined)?.rejected ?? [])
+        .filter((x) => x.code !== "not-a-document")
+        .map((x) => ({ ...base, key: `${j.id}:${x.name}`, name: x.name, phase: "failed", message: x.why }));
+    const indexError = (j.result as { index?: { error?: string } } | undefined)?.index?.error;
+    if (indexError) return [{ ...row, phase: "index-failed", message: indexError, pct: null }];
+    if (!recent) return [];
+    return [
+      { ...row, phase: "done", pct: 100, message: kind === "index" ? "Index up to date" : "Converted and indexed" },
+    ];
+  }
+  const why = j.error || (j.status === "cancelled" ? "Cancelled." : "The job failed.");
+  return [
+    {
+      ...row,
+      phase: kind === "index" ? "index-failed" : "failed",
+      message: why,
+      pct: null,
+      error: new ApiError(why, j.fix, 0, j.code),
+    },
+  ];
+}
+
+// ponytail: the rows of the jobs, oldest first, then what has no job yet; a row ended before `since` or dismissed is not
+// shown, a done conversion or index run says so for a few seconds
+export function uploadsOf(
+  jobs: Job[],
+  local: Local[],
+  o: { since: number; dismissed: Set<string>; now: number; project: string | null },
+): Upload[] {
+  const known = new Set(jobs.map((j) => j.id));
+  const fromJobs = [...jobs]
+    .filter((j) => KIND[j.kind] && !j.parentId && !(j.endedAt && Date.parse(j.endedAt) < o.since))
+    .sort((a, b) => a.startedAt.localeCompare(b.startedAt))
+    .flatMap((j) => rowsOf(j, o.now));
+  const waiting = local.filter((u) => u.project === o.project && !(u.jobId && known.has(u.jobId)));
+  return [...fromJobs, ...waiting.map(({ project: _p, jobId: _j, ...u }) => u)].filter((u) => !o.dismissed.has(u.key));
+}
+
+export function useUploads(): Upload[] {
+  useSyncExternalStore(
+    (fn) => {
+      listeners.add(fn);
+      return () => listeners.delete(fn);
+    },
+    () => view.version,
+    () => view.version,
+  );
+  const list = useProjectJobs(view.local.map((u) => u.jobId));
+  const fresh = list.some((j) => KIND[j.kind] && j.endedAt && Date.now() - Date.parse(j.endedAt) < SHOWN_DONE_MS);
+  const now = useNow(1000, fresh);
+  return uploadsOf(list, view.local, {
+    since: view.since,
+    dismissed: view.dismissed,
+    now: Math.max(now, Date.now()),
+    project: project(),
+  });
 }
 
 export const readBase64 = (file: Blob) =>
@@ -66,12 +153,6 @@ export const readBase64 = (file: Blob) =>
     r.readAsDataURL(file);
   });
 
-const progressOf = (key: number, phase: Upload["phase"]) => (e: JobEvent) => {
-  if (e.type !== "progress") return;
-  const pct = e.total ? Math.round(((e.done ?? 0) / e.total) * 100) : null;
-  patch(key, { phase, message: e.message, pct });
-};
-
 // ponytail: the model and effort picked on the Documents screen stay for every add and reindex until the app is
 // closed; unpicked, the core keeps its defaults (project model / low for figures, haiku / low for headers)
 let claude: ClaudeRun = {};
@@ -80,48 +161,32 @@ export const setImportClaude = (next: ClaudeRun) => {
   claude = next;
 };
 
-const conversions = new Set<Promise<unknown>>();
-let indexing: Promise<unknown> | null = null;
-let waiting: { keys: number[]; done: Promise<unknown> } | null = null;
-
-function startIndex(keys: number[], note?: string, after?: string): Promise<unknown> {
-  const onEvent = (e: JobEvent) => {
-    for (const k of keys) progressOf(k, "indexing")(e);
-  };
-  const cause = after ? { jobId: after, why: "follow-up" as const } : undefined;
-  indexing = run("rag.index", { ...claude, ...(note ? { note } : {}) }, onEvent, undefined, cause).finally(() => {
-    indexing = null;
-  });
-  return indexing;
+// ponytail: a local row stands for a job until the list shows it; a failure before the job started stays on it, a
+// failure after is the job's own row
+async function tracked<T>(
+  row: Omit<Local, "key" | "project" | "pct">,
+  start: (onStart: (jobId: string) => void) => Promise<T>,
+): Promise<{ ok: true; value: T } | { ok: false }> {
+  const key = addLocal(row);
+  let started = false;
+  try {
+    const value = await start((jobId) => {
+      started = true;
+      patchLocal(key, { jobId });
+    });
+    dropLocal(key);
+    return { ok: true, value };
+  } catch (e) {
+    if (started) dropLocal(key);
+    else patchLocal(key, { phase: row.job === "index" ? "index-failed" : "failed", message: message(e), error: e });
+    return { ok: false };
+  }
 }
 
-// ponytail: an index run reads every document when it starts, so it never starts while a conversion is still
-// writing one, nor joins a run that read it too early: it waits for both, and the requests made meanwhile share it
-async function reindex(key: number, note?: string, after?: string): Promise<void> {
-  const ready = !indexing && !conversions.size;
-  patch(key, {
-    phase: "indexing",
-    pct: null,
-    message: ready ? "Indexing" : conversions.size ? "Waiting for the other conversions" : "Waiting for the index run",
-  });
-  if (waiting) {
-    waiting.keys.push(key);
-    await waiting.done;
-    return;
-  }
-  if (ready) {
-    await startIndex([key], note, after);
-    return;
-  }
-  const keys = [key];
-  const done = (async () => {
-    while (indexing || conversions.size) await Promise.allSettled([indexing, ...conversions]);
-    waiting = null;
-    return startIndex(keys, note, after);
-  })();
-  waiting = { keys, done };
-  await done;
-}
+// ponytail: the page that asked is told only while it still shows the project it asked in
+const sameProject = (p: string | null, fn: () => void) => {
+  if (project() === p) fn();
+};
 
 export type JobContext = { note?: string; contexts?: string[] };
 
@@ -133,42 +198,20 @@ export async function convertDoc(
   job: JobContext & { describeFigures?: boolean; study?: boolean },
   onDone: () => void,
 ): Promise<void> {
-  const key = ++seq;
-  items = [
-    ...items,
-    { key, name, job: "convert", docId: id, at: Date.now(), phase: "converting", pct: null, message: "Converting" },
-  ];
-  emit();
+  const p = project();
   const extra = { ...(job.note?.trim() ? { note: job.note.trim() } : {}), contexts: job.contexts ?? [] };
-  const onEvent = (e: JobEvent) =>
-    progressOf(key, e.type === "progress" && e.step === "index" ? "indexing" : "converting")(e);
-  let doc: { id: string; index?: { error?: string } };
-  try {
-    const converting = run<{ id: string; index?: { error?: string } }>(
-      "docs.convert",
-      {
-        id,
-        ...claude,
-        ...extra,
-        ...(job.describeFigures !== undefined && { describeFigures: job.describeFigures }),
-        ...(job.study ? { study: true } : { triage: true }),
-        index: true,
-      },
-      onEvent,
-    ).finally(() => conversions.delete(converting));
-    conversions.add(converting);
-    doc = await converting;
-  } catch (e) {
-    patch(key, { phase: "failed", message: message(e), error: e });
-    onDone();
-    return;
-  }
-  if (doc?.index?.error) patch(key, { phase: "index-failed", message: doc.index.error });
-  else {
-    patch(key, { phase: "done", message: "Converted and indexed", pct: 100 });
-    setTimeout(() => dismissUpload(key), 4000);
-  }
-  onDone();
+  const input = {
+    id,
+    ...claude,
+    ...extra,
+    ...(job.describeFigures !== undefined && { describeFigures: job.describeFigures }),
+    ...(job.study ? { study: true } : { triage: true }),
+    index: true,
+  };
+  await tracked({ name, job: "convert", docId: id, phase: "converting", message: "Converting" }, (onStart) =>
+    run("docs.convert", input, undefined, onStart),
+  );
+  sameProject(p, onDone);
 }
 
 type Picked = { name: string; path: string; file?: File };
@@ -185,78 +228,55 @@ export const addDocPaths = (paths: string[], onDone: (docId?: string) => void) =
     onDone,
   );
 
+export const addDocPath = (path: string, onDone: (docId?: string) => void): Promise<void> =>
+  addDocs([{ name: path.split(/[\\/]/).pop() || path, path }], onDone);
+
 async function sourceOf(p: Picked): Promise<{ path: string } | { name: string; dataBase64: string }> {
   if (p.path) return { path: p.path };
   if (!p.file) throw new Error(`${p.name} could not be read.`);
   return { name: p.name, dataBase64: await readBase64(p.file) };
 }
 
-type Added = { added: { id: string }[]; rejected: { name: string; why: string; code: string }[] };
-
 // ponytail: adding only copies the files — the core pairs a .docx with its .pdf and refuses what is not a document;
 // the team sets status, amends and context, then converts each on purpose
 async function addDocs(picked: Picked[], onDone: (docId?: string) => void): Promise<void> {
-  const rows = picked.map((f) => {
-    const key = ++seq;
-    const row: Upload = f.path
-      ? { key, name: f.name, job: "add", at: Date.now(), phase: "adding", pct: null, message: "Adding" }
-      : { key, name: f.name, job: "add", at: Date.now(), phase: "reading", pct: null, message: "Reading the file" };
-    return row;
-  });
-  items = [...items, ...rows];
-  emit();
+  const p = project();
   const files: Awaited<ReturnType<typeof sourceOf>>[] = [];
-  const sent: Upload[] = [];
-  for (const [i, f] of picked.entries())
+  const names: string[] = [];
+  for (const f of picked) {
+    const key = f.path ? "" : addLocal({ name: f.name, job: "add", phase: "reading", message: "Reading the file" });
     try {
       files.push(await sourceOf(f));
-      sent.push(rows[i]);
+      names.push(f.name);
+      if (key) dropLocal(key);
     } catch (e) {
-      patch(rows[i].key, { phase: "failed", message: message(e), error: e });
+      patchLocal(key, { phase: "failed", message: message(e), error: e });
     }
-  if (!files.length) return;
-  for (const r of sent) patch(r.key, { phase: "adding", message: "Adding", pct: null });
-  try {
-    const r = await run<Added>("docs.addFiles", { files }, (e) => {
-      for (const u of sent) progressOf(u.key, "adding")(e);
-    });
-    const refused = r.rejected.filter((x) => x.code === "not-a-document");
-    if (refused.length)
-      toast({
-        kind: "error",
-        title: "Only Word (.docx) and PDF files can be added",
-        detail: refused.map((x) => x.name).join(", "),
-      });
-    for (const u of sent) {
-      const failed = r.rejected.find((x) => x.name === u.name && x.code !== "not-a-document");
-      if (failed) patch(u.key, { phase: "failed", message: failed.why });
-      else dismissUpload(u.key);
-    }
-    for (const d of r.added) onDone(d.id);
-    if (!r.added.length) onDone();
-  } catch (e) {
-    for (const u of sent) patch(u.key, { phase: "failed", message: message(e), error: e });
-    onDone();
   }
+  if (!files.length) return;
+  const name = names.length === 1 ? names[0] : `${names.length} files`;
+  const r = await tracked({ name, job: "add", phase: "adding", message: "Adding" }, (onStart) =>
+    run<Added>("docs.addFiles", { files }, undefined, onStart),
+  );
+  if (!r.ok) return sameProject(p, onDone);
+  const refused = r.value.rejected.filter((x) => x.code === "not-a-document");
+  if (refused.length)
+    toast({
+      kind: "error",
+      title: "Only Word (.docx) and PDF files can be added",
+      detail: refused.map((x) => x.name).join(", "),
+    });
+  sameProject(p, () => {
+    for (const d of r.value.added) onDone(d.id);
+    if (!r.value.added.length) onDone();
+  });
 }
 
-export const addDocPath = (path: string, onDone: (docId?: string) => void): Promise<void> =>
-  addDocs([{ name: path.split(/[\\/]/).pop() || path, path }], onDone);
-
+// ponytail: the core waits for the conversions under way and for an index run already started (rag.index)
 export async function reindexAll(onDone: () => void): Promise<void> {
-  const key = ++seq;
-  items = [
-    ...items,
-    { key, name: "All documents", job: "index", at: Date.now(), phase: "indexing", pct: null, message: "Indexing" },
-  ];
-  emit();
-  try {
-    await reindex(key);
-    patch(key, { phase: "done", message: "Index up to date", pct: 100 });
-    setTimeout(() => dismissUpload(key), 4000);
-  } catch (e) {
-    patch(key, { phase: "index-failed", message: message(e), error: e });
-  } finally {
-    onDone();
-  }
+  const p = project();
+  await tracked({ name: "All documents", job: "index", phase: "indexing", message: "Indexing" }, (onStart) =>
+    run("rag.index", claude, undefined, onStart),
+  );
+  sameProject(p, onDone);
 }

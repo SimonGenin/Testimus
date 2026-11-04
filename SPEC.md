@@ -1022,8 +1022,8 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
     one of its contexts: `contexts.copy`); a shared context reads « shared · … » in the list; the editor: « Shared with
     every project » (`contexts.share`; the footer then reads « shared library · <id>/ »), Name and Notes (saved 400 ms after the last
     key, on blur, on switch and on close), Paths (typed + Add, « Browse folder… » in the desktop app, ✕; absolute
-    only), Files (uploaded through `contexts.addFile`, ✕), Delete context (one click, as in Xray Editor; « Deleted for every project » as its tooltip on a shared one). Every change fires the
-    window event `testimus:contexts`, on which the dock, Settings › Claude and the test header reload.
+    only), Files (uploaded through `contexts.addFile`, ✕), Delete context (one click, as in Xray Editor; « Deleted for every project » as its tooltip on a shared one). Every
+    write invalidates the reads of the contexts (`contexts.list`, `contexts.ofTest`, `contexts.ofProject`, `project.info`), so the dock, Settings › Claude and the test header read them again; a change on disk (`contexts/`, `project.json`, a test's `local.json`) does the same through the event stream.
   - **Settings additions** (parity with Xray Editor §2, §8): a version pill `v<version>` beside the title; Settings ›
     Claude is four cards — Connection to Claude, Claude dock, Quick asks, Contexts (the last three need a project;
     `#/settings/claude-dock`, `-quickasks`, `-contexts` scroll to them). The connection card holds the Claude program field (Browse in the desktop app; Check saves it then runs `claude.status

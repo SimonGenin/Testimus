@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render, screen, within } from "@testing-librar
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Button } from "../../../../src/ui/components/ui/Button.tsx";
 import { EmptyState } from "../../../../src/ui/components/ui/EmptyState.tsx";
-import { List, type ListProps } from "../../../../src/ui/components/ui/List.tsx";
+import { List, type ListProps, optionId } from "../../../../src/ui/components/ui/List.tsx";
 import { ListItem } from "../../../../src/ui/components/ui/ListItem.tsx";
 
 afterEach(cleanup);
@@ -186,6 +186,67 @@ describe("List", () => {
       "Sectionneur avec TKLFRPS12-1421",
       "Sectionneur sans TKLFRPS12-1420",
     ]);
+  });
+
+  it("gives a group head an action the reader can reach, and a group without a head", () => {
+    const more = vi.fn();
+    render(
+      <Tests
+        groups={[
+          {
+            label: "Sectionneurs",
+            meta: "9",
+            keys: ["a", "b"],
+            action: <Button size="xs" label="All 9" onClick={more} />,
+          },
+          { label: "Claude", head: false, keys: ["d"] },
+        ]}
+      />,
+    );
+    const [first, second] = screen.getAllByRole("group");
+    fireEvent.click(within(first).getByRole("button", { name: "All 9" }));
+    expect(more).toHaveBeenCalled();
+    expect(first).toHaveTextContent("SectionneursAll 99");
+    expect(second).toHaveAttribute("aria-label", "Claude");
+    expect(second.textContent).toBe("Signalisation");
+  });
+
+  it("leaves the focus in the field that drives it: the active row is named by its id, the pointer makes a row active", () => {
+    const onActive = vi.fn();
+    const onSelect = vi.fn();
+    const { rerender } = render(
+      <>
+        <input aria-label="Search" />
+        <Tests selected="b" onSelect={onSelect} activeDescendant={{ id: "res", onActive }} />
+      </>,
+    );
+    const box = screen.getByRole("listbox", { name: "Tests" });
+    expect(box).toHaveAttribute("id", "res");
+    const [a, b] = screen.getAllByRole("option");
+    expect(b).toHaveAttribute("id", optionId("res", "b"));
+    expect(b).toHaveAttribute("aria-selected", "true");
+    expect(screen.getAllByRole("option").every((o) => !o.hasAttribute("tabindex"))).toBe(true);
+    screen.getByRole("textbox", { name: "Search" }).focus();
+    fireEvent.mouseEnter(a);
+    expect(onActive).toHaveBeenCalledWith("a");
+    fireEvent.click(a);
+    expect(onSelect).toHaveBeenCalledWith("a");
+    expect(screen.getByRole("textbox", { name: "Search" })).toHaveFocus();
+    const seen: string[] = [];
+    Element.prototype.scrollIntoView = function (this: Element) {
+      seen.push(this.id);
+    };
+    try {
+      rerender(
+        <>
+          <input aria-label="Search" />
+          <Tests selected="d" onSelect={onSelect} activeDescendant={{ id: "res", onActive }} />
+        </>,
+      );
+      expect(seen).toEqual([optionId("res", "d")]);
+    } finally {
+      delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+    }
   });
 
   it("while loading shows skeleton rows and never the old rows; with nothing, the empty state in its frame", () => {

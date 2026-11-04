@@ -68,6 +68,25 @@ describe("Kit catalogue", () => {
     expect(within(props).getByText("variant?")).toBeVisible();
   });
 
+  it("shows the List driven by a field: the focus stays in the field, the arrows move the active row", () => {
+    render(<KitScreen />);
+    fireEvent.click(within(nav()).getByRole("option", { name: "List" }));
+    expect(within(screen.getByRole("region", { name: "Props" })).getByText("activeDescendant?")).toBeVisible();
+    const light = screen.getByRole("region", { name: "List, Light" });
+    const cell = within(light).getByRole("figure", { name: /^activeDescendant/ });
+    const field = within(cell).getByRole("combobox", { name: "Search" });
+    const results = within(cell).getByRole("listbox", { name: "Results" });
+    expect(field).toHaveAttribute("aria-controls", results.id);
+    expect(field.getAttribute("aria-activedescendant")).toBe(
+      within(results).getByRole("option", { name: /Sectionneur sans TK/ }).id,
+    );
+    field.focus();
+    fireEvent.keyDown(field, { key: "ArrowDown" });
+    expect(field).toHaveFocus();
+    expect(within(results).getByRole("option", { name: /Ask Claude/ })).toHaveAttribute("aria-selected", "true");
+    expect(within(results).getByRole("button", { name: "All 9 tests" })).toBeInTheDocument();
+  });
+
   it("filters the list by name, says how many match, and says when none does", () => {
     render(<KitScreen />);
     const all = options().length;

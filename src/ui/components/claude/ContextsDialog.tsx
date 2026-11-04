@@ -14,7 +14,7 @@ import { ContextEditor, useWords } from "./ContextEditor.tsx";
 import { CopyContext } from "./CopyContext.tsx";
 import { type ContextDetail, type ContextSummary, contextLine, useContexts, useContextWrite } from "./contexts.ts";
 
-export { CONTEXTS_EVENT, type ContextSummary, contextLine } from "./contexts.ts";
+export { type ContextSummary, contextLine } from "./contexts.ts";
 
 const styles = stylex.create({
   body: {

@@ -16,7 +16,6 @@ import { callsTo, deferred, Fail, server, stubServer } from "../../../helpers/ui
 import { testClient, WithData } from "../data-helpers.tsx";
 
 vi.mock("../../../../../src/ui/components/claude/ContextsDialog.tsx", () => ({
-  CONTEXTS_EVENT: "testimus:contexts",
   ContextsDialog: ({ onClose }: { onClose: () => void }) => (
     <div role="dialog" aria-label="Contexts">
       <button type="button" onClick={onClose}>
@@ -1196,7 +1195,6 @@ describe("TestEditor › menu and settings", () => {
     };
     fireEvent.click(screen.getByRole("button", { name: "Manage contexts…" }));
     fireEvent.click(screen.getByRole("button", { name: "close contexts" }));
-    act(() => void window.dispatchEvent(new Event("testimus:contexts")));
     await new Promise((r) => setTimeout(r, 20));
     expect(errors).toEqual([]);
   });

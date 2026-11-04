@@ -8,7 +8,6 @@ import { fakeDesktop } from "../../helpers/ui-desktop.tsx";
 import { calls, Fail, fakeJob, fakeNet, info, inputs, label, mountSettings, net, reset } from "./helpers.tsx";
 
 vi.mock("../../../../src/ui/components/claude/ContextsDialog.tsx", () => ({
-  CONTEXTS_EVENT: "testimus:contexts",
   ContextsDialog: ({ onClose }: { onClose: () => void }) => (
     <div role="dialog" aria-label="Contexts stub">
       <button type="button" onClick={onClose}>

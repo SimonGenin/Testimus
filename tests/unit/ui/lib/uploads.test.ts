@@ -1,20 +1,23 @@
 // @vitest-environment jsdom
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { DocRef, JobEvent } from "../../../../src/core/types.ts";
+import type { DocRef, Job } from "../../../../src/core/types.ts";
+import { ApiError, setProject } from "../../../../src/ui/lib/data/client.ts";
+import { callsOf, dataWrapper, FakeES, fakeEvents, fakeNet, net, status } from "../../helpers/ui-data.tsx";
 
 const runs: { name: string; input: Record<string, unknown> }[] = [];
-let handlers: Record<string, (input: Record<string, unknown>, onEvent?: (e: JobEvent) => void) => unknown> = {};
+type Handler = (input: Record<string, unknown>, onStart: (id: string) => void) => unknown;
+let handlers: Record<string, Handler> = {};
 
-vi.mock("../../../../src/ui/api.ts", async (importOriginal) => {
-  const real = await importOriginal<typeof import("../../../../src/ui/api.ts")>();
+vi.mock("../../../../src/ui/lib/data/client.ts", async (importOriginal) => {
+  const real = await importOriginal<typeof import("../../../../src/ui/lib/data/client.ts")>();
   return {
     ...real,
-    run: vi.fn(async (name: string, input: Record<string, unknown>, onEvent?: (e: JobEvent) => void) => {
+    run: vi.fn(async (name: string, input: Record<string, unknown>, _on: unknown, onStart?: (id: string) => void) => {
       runs.push({ name, input });
       const h = handlers[name];
       if (!h) throw new Error(`no handler ${name}`);
-      return await h(input, onEvent);
+      return await h(input, (id) => onStart?.(id));
     }),
   };
 });
@@ -38,35 +41,48 @@ const {
   reindexAll,
   setImportClaude,
   settled,
+  uploadsOf,
   useUploads,
 } = await import("../../../../src/ui/lib/uploads.ts");
 
-const progress = (message: string, done?: number, total?: number): JobEvent => ({
-  jobId: "j",
-  at: "",
-  type: "progress",
-  message,
-  done,
-  total,
+const T0 = Date.parse("2026-11-04T10:00:00.000Z");
+const iso = (ms: number) => new Date(T0 + ms).toISOString();
+const job = (o: Partial<Job>): Job => ({
+  id: "j",
+  kind: "docs.convert",
+  subject: "A",
+  status: "running",
+  startedAt: iso(0),
+  ...o,
+});
+const view = (now = T0 + 10_000, more: Partial<Parameters<typeof uploadsOf>[2]> = {}) => ({
+  since: T0 - 1,
+  dismissed: new Set<string>(),
+  now,
+  project: "C:\\p",
+  ...more,
 });
 
-const current = () => renderHook(() => useUploads());
+let jobs: Job[] = [];
+const current = () => renderHook(() => useUploads(), { wrapper: dataWrapper() });
 
 beforeEach(() => {
+  fakeNet();
+  fakeEvents();
+  setProject("C:\\p");
+  jobs = [];
+  net.routes["jobs.list"] = () => jobs;
   runs.length = 0;
   toasts.length = 0;
   handlers = {
-    "docs.addFiles": (input, on) => {
-      on?.({ jobId: "j", at: "", type: "log", level: "info", message: "ignored" });
-      on?.(progress("Converting page 1", 1, 4));
-      on?.(progress("Converting", undefined, 0));
+    "docs.addFiles": (input) => {
       const files = input.files as { name?: string; path?: string }[];
       const name = (f: { name?: string; path?: string }) => f.name ?? String(f.path).split(/[\\/]/).pop() ?? "";
-      const doc = (f: { name?: string; path?: string }) => /\.(docx|pdf)$/i.test(name(f));
+      const isDoc = (f: { name?: string; path?: string }) => /\.(docx|pdf)$/i.test(name(f));
       return {
-        added: files.filter(doc).map((f) => ({ id: name(f) })),
+        added: files.filter(isDoc).map((f) => ({ id: name(f) })),
         rejected: files
-          .filter((f) => !doc(f))
+          .filter((f) => !isDoc(f))
           .map((f) => ({
             name: name(f),
             why: "Only Word (.docx) and PDF files can be added.",
@@ -74,24 +90,166 @@ beforeEach(() => {
           })),
       };
     },
-    "docs.convert": (input, on) => {
-      on?.(progress("Converting page 1", 1, 4));
-      return { id: input.id, converted: { with: "", at: "", warnings: [] } };
-    },
-    "rag.index": (_input, on) => {
-      on?.(progress("Embedding", undefined, 2));
-      return { chunks: 1 };
-    },
+    "docs.convert": (input) => ({ id: input.id, converted: { with: "", at: "", warnings: [] } }),
+    "rag.index": () => ({ chunks: 1 }),
   };
   act(() => forgetSettled());
 });
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllGlobals();
+  setProject(null);
   delete window.testimusDesktop;
 });
 
-describe("uploads", () => {
+describe("the rows are the project's jobs", () => {
+  it("shows an add, a conversion and an index run as they go, oldest first, and leaves other jobs and child jobs out", () => {
+    const rows = uploadsOf(
+      [
+        job({
+          id: "ix",
+          kind: "rag-index",
+          subject: "index",
+          startedAt: iso(3),
+          message: "Embedding",
+          progress: { done: 1, total: 4 },
+        }),
+        job({ id: "child", kind: "rag-index", parentId: "cv", startedAt: iso(2) }),
+        job({ id: "gen", kind: "generate", startedAt: iso(2) }),
+        job({ id: "cv", subject: "SPEC", startedAt: iso(1) }),
+        job({ id: "add", kind: "docs.add", subject: "new.pdf", startedAt: iso(0) }),
+      ],
+      [],
+      view(),
+    );
+    expect(rows).toEqual([
+      { key: "add", job: "add", name: "new.pdf", phase: "adding", pct: null, message: "Adding" },
+      { key: "cv", job: "convert", name: "SPEC", docId: "SPEC", phase: "converting", pct: null, message: "Converting" },
+      { key: "ix", job: "index", name: "All documents", phase: "indexing", pct: 25, message: "Embedding" },
+    ]);
+  });
+
+  it("shows the index step of a conversion as indexing", () => {
+    const steps = [
+      { id: "convert", label: "Convert", status: "done" as const },
+      { id: "index", label: "Index", status: "running" as const },
+    ];
+    const [row] = uploadsOf([job({ steps, message: "Waiting for the other conversions" })], [], view());
+    expect(row).toMatchObject({ phase: "indexing", message: "Waiting for the other conversions" });
+  });
+
+  it("says a finished conversion or index run for a few seconds, and an index failure until it is dismissed", () => {
+    const done = [
+      job({ id: "cv", status: "done", endedAt: iso(1000), result: { id: "A", index: { chunks: 3 } } }),
+      job({ id: "ix", kind: "rag-index", status: "done", endedAt: iso(1000), startedAt: iso(1) }),
+      job({
+        id: "bad",
+        subject: "B",
+        status: "done",
+        endedAt: iso(1000),
+        startedAt: iso(2),
+        result: { index: { error: "model missing" } },
+      }),
+    ];
+    expect(uploadsOf(done, [], view(T0 + 2000)).map((u) => [u.key, u.phase, u.message, u.pct])).toEqual([
+      ["cv", "done", "Converted and indexed", 100],
+      ["ix", "done", "Index up to date", 100],
+      ["bad", "index-failed", "model missing", null],
+    ]);
+    expect(uploadsOf(done, [], view(T0 + 6000)).map((u) => u.key)).toEqual(["bad"]);
+    expect(uploadsOf(done, [], view(T0 + 2000, { dismissed: new Set(["bad", "cv"]) })).map((u) => u.key)).toEqual([
+      "ix",
+    ]);
+  });
+
+  it("gives a failed or cancelled job its error and fix, and the files the core refused to copy their reason", () => {
+    const rows = uploadsOf(
+      [
+        job({ id: "cv", status: "failed", endedAt: iso(5), error: "source missing", fix: "Add it again" }),
+        job({ id: "ix", kind: "rag-index", status: "cancelled", endedAt: iso(5), startedAt: iso(1) }),
+        job({
+          id: "add",
+          kind: "docs.add",
+          subject: "2 files",
+          status: "done",
+          endedAt: iso(5),
+          startedAt: iso(2),
+          result: {
+            added: [],
+            rejected: [
+              { name: "Twice.docx", why: "Document TWICE already exists.", code: "failed" },
+              { name: "notes.txt", why: "not a document", code: "not-a-document" },
+            ],
+          },
+        }),
+      ],
+      [],
+      view(),
+    );
+    expect(rows.map((u) => [u.key, u.name, u.phase, u.message])).toEqual([
+      ["cv", "A", "failed", "source missing"],
+      ["ix", "All documents", "index-failed", "Cancelled."],
+      ["add:Twice.docx", "Twice.docx", "failed", "Document TWICE already exists."],
+    ]);
+    expect(rows[0].error).toBeInstanceOf(ApiError);
+    expect((rows[0].error as ApiError).fix).toBe("Add it again");
+  });
+
+  it("forgets what ended before the screen opened, and shows the page's own rows of this project until the list has their job", () => {
+    const ended = job({ id: "old", status: "failed", endedAt: iso(5), error: "x" });
+    expect(uploadsOf([ended], [], view(T0 + 10, { since: T0 + 6 }))).toEqual([]);
+    const local = [
+      {
+        key: "local-1",
+        name: "a.docx",
+        job: "add" as const,
+        phase: "reading" as const,
+        pct: null,
+        message: "Reading",
+        project: "C:\\p",
+      },
+      {
+        key: "local-2",
+        name: "b.docx",
+        job: "add" as const,
+        phase: "adding" as const,
+        pct: null,
+        message: "Adding",
+        project: "C:\\other",
+      },
+      {
+        key: "local-3",
+        name: "SPEC",
+        job: "convert" as const,
+        phase: "converting" as const,
+        pct: null,
+        message: "Converting",
+        project: "C:\\p",
+        jobId: "cv",
+      },
+    ];
+    expect(uploadsOf([], local, view()).map((u) => u.key)).toEqual(["local-1", "local-3"]);
+    expect(uploadsOf([job({ id: "cv", subject: "SPEC" })], local, view()).map((u) => u.key)).toEqual(["cv", "local-1"]);
+    expect(uploadsOf([], local, view()).every((u) => !("project" in u) && !("jobId" in u))).toBe(true);
+  });
+
+  it("reads the rows back from the jobs after a reload, and follows them live", async () => {
+    jobs = [job({ id: "cv", subject: "SPEC", startedAt: new Date().toISOString(), message: "Converting page 1" })];
+    const h = current();
+    await waitFor(() => expect(h.result.current).toMatchObject([{ key: "cv", phase: "converting" }]));
+    act(() => FakeES.emit({ jobId: "cv", at: "", type: "progress", message: "Converting page 2", done: 2, total: 4 }));
+    await waitFor(() => expect(h.result.current[0]).toMatchObject({ message: "Converting page 2", pct: 50 }));
+    const end = { ...jobs[0], status: "failed" as const, endedAt: new Date().toISOString(), error: "broke" };
+    jobs = [end];
+    act(() => FakeES.emit(status(end)));
+    await waitFor(() => expect(h.result.current[0]).toMatchObject({ phase: "failed", message: "broke" }));
+    act(() => dismissUpload("cv"));
+    expect(h.result.current).toEqual([]);
+  });
+});
+
+describe("what the page starts", () => {
   it("rejects what is not Word or PDF and only copies the rest from base64, without converting", async () => {
     const h = current();
     const onDone = vi.fn();
@@ -105,14 +263,35 @@ describe("uploads", () => {
       ],
     });
     expect(onDone).toHaveBeenCalledExactlyOnceWith("A.docx");
-    expect(h.result.current.some((u) => u.name === "A.docx" || u.name === "notes.txt")).toBe(false);
+    expect(h.result.current).toEqual([]);
   });
 
-  it("converts, triages and indexes a document in one job with the context of this job, and forgets the row after a while", async () => {
-    vi.useFakeTimers();
+  it("shows a row for the add from the moment it is asked, until the list has its job", async () => {
+    let release: (v: unknown) => void = () => {};
+    let start: (id: string) => void = () => {};
+    handlers["docs.addFiles"] = (_i, onStart) =>
+      new Promise((r) => {
+        start = onStart;
+        release = r;
+      });
+    const h = current();
+    const pending = addDocPath("C:\\d\\G.docx", () => {});
+    await waitFor(() => expect(h.result.current).toMatchObject([{ name: "G.docx", phase: "adding", job: "add" }]));
+    jobs = [job({ id: "add-1", kind: "docs.add", subject: "G.docx", message: "Copying" })];
+    const reads = callsOf("jobs.list").length;
+    act(() => start("add-1"));
+    await waitFor(() => expect(callsOf("jobs.list").length).toBeGreaterThan(reads));
+    await waitFor(() => expect(h.result.current).toMatchObject([{ key: "add-1", message: "Copying" }]));
+    expect(h.result.current).toHaveLength(1);
+    await act(async () => {
+      release({ added: [{ id: "G" }], rejected: [] });
+      await pending;
+    });
+  });
+
+  it("converts, triages and indexes a document in one job with the context of this job", async () => {
     setImportClaude({ model: "sonnet", effort: "medium" });
     try {
-      const h = current();
       const onDone = vi.fn();
       await act(() => convertDoc("A", "A.docx", { note: " the 2024 edition ", contexts: ["glossary"] }, onDone));
       expect(runs).toEqual([
@@ -130,19 +309,14 @@ describe("uploads", () => {
         },
       ]);
       expect(onDone).toHaveBeenCalledTimes(1);
-      const row = h.result.current.find((u) => u.docId === "A");
-      expect(row).toMatchObject({ job: "convert", phase: "done", message: "Converted and indexed", pct: 100 });
-      expect(settled(row as never)).toBe(true);
-      act(() => vi.advanceTimersByTime(4000));
-      expect(h.result.current.some((u) => u.docId === "A")).toBe(false);
     } finally {
       setImportClaude({});
     }
   });
 
-  it("marks a conversion failed and does not index", async () => {
+  it("marks a conversion refused before its job failed, and leaves a failure after it to the job's row", async () => {
     handlers["docs.convert"] = () => {
-      throw new Error("not a docx");
+      throw new ApiError("not a docx", "Add the Word file");
     };
     const h = current();
     const onDone = vi.fn();
@@ -150,17 +324,21 @@ describe("uploads", () => {
     expect(h.result.current.find((u) => u.docId === "Broken")).toMatchObject({
       phase: "failed",
       message: "not a docx",
+      name: "Broken.docx",
     });
-    expect(runs.map((r) => r.name)).toEqual(["docs.convert"]);
     expect(onDone).toHaveBeenCalledTimes(1);
+    handlers["docs.convert"] = (_i, onStart) => {
+      onStart("cv-9");
+      throw new Error("the job failed");
+    };
+    await act(() => convertDoc("Late", "Late.docx", {}, () => {}));
+    expect(h.result.current.some((u) => u.docId === "Late")).toBe(false);
   });
 
   it("sends a Word file and its PDF together, both by path, for the core to pair", async () => {
     window.testimusDesktop = { pathOf: (f: File) => `C:\\d\\${f.name}` } as never;
     await act(() => addDocFiles([new File(["%"], "spec.PDF"), new File(["PK"], "Spec.docx")], () => {}));
-    expect(runs.filter((r) => r.name === "docs.addFiles").map((r) => r.input)).toEqual([
-      { files: [{ path: "C:\\d\\spec.PDF" }, { path: "C:\\d\\Spec.docx" }] },
-    ]);
+    expect(runs.map((r) => r.input)).toEqual([{ files: [{ path: "C:\\d\\spec.PDF" }, { path: "C:\\d\\Spec.docx" }] }]);
   });
 
   it("keeps the Claude model and effort picked for conversions, and does not send them to the copy", async () => {
@@ -175,64 +353,26 @@ describe("uploads", () => {
   });
 
   it("sends the files picked by path, and toasts what the core refused as not a document", async () => {
-    const h = current();
     await act(() => addDocPaths(["C:\\d\\Only.pdf", "C:\\d\\other.png"], () => {}));
     expect(runs[0]).toEqual({
       name: "docs.addFiles",
       input: { files: [{ path: "C:\\d\\Only.pdf" }, { path: "C:\\d\\other.png" }] },
     });
     expect(toasts[0]).toMatchObject({ kind: "error", detail: "other.png" });
-    expect(h.result.current.some((u) => u.name === "other.png")).toBe(false);
   });
 
-  it("marks the row of a document the core could not copy failed, with its reason", async () => {
-    handlers["docs.addFiles"] = () => ({
-      added: [],
-      rejected: [{ name: "Twice.docx", why: "Document TWICE already exists.", code: "failed" }],
-    });
-    const h = current();
-    const onDone = vi.fn();
-    await act(() => addDocPath("C:\\d\\Twice.docx", onDone));
-    expect(h.result.current.find((u) => u.name === "Twice.docx")).toMatchObject({
-      phase: "failed",
-      message: "Document TWICE already exists.",
-    });
-    expect(toasts).toEqual([]);
-    expect(onDone).toHaveBeenCalledExactlyOnceWith();
-  });
-
-  it("marks a row failed when the copy fails", async () => {
-    handlers["docs.addFiles"] = () => {
-      throw new Error("not a docx");
-    };
-    const h = current();
-    const onDone = vi.fn();
-    await act(() => addDocPath("C:/d/Broken.docx", onDone));
-    expect(h.result.current.find((u) => u.name === "Broken.docx")).toMatchObject({
-      phase: "failed",
-      message: "not a docx",
-    });
-    expect(onDone).toHaveBeenCalledTimes(1);
-    expect(runs.map((r) => r.name)).toEqual(["docs.addFiles"]);
-  });
-
-  it("names a path without separators by itself", async () => {
+  it("marks a row failed when the copy is refused before its job, named by itself when it has no separator", async () => {
     handlers["docs.addFiles"] = () => {
       throw new Error("not found");
     };
     const h = current();
-    await act(() => addDocPath("Plain.docx", () => {}));
-    expect(h.result.current.some((u) => u.name === "Plain.docx")).toBe(true);
-  });
-
-  it("marks a row index-failed when the index run that followed the conversion failed", async () => {
-    handlers["docs.convert"] = (input) => ({ id: input.id, index: { error: "model missing" } });
-    const h = current();
-    await act(() => convertDoc("B", "B.docx", {}, () => {}));
-    expect(h.result.current.find((u) => u.name === "B.docx")).toMatchObject({
-      phase: "index-failed",
-      message: "model missing",
+    const onDone = vi.fn();
+    await act(() => addDocPath("Plain.docx", onDone));
+    expect(h.result.current.find((u) => u.name === "Plain.docx")).toMatchObject({
+      phase: "failed",
+      message: "not found",
     });
+    expect(onDone).toHaveBeenCalledTimes(1);
   });
 
   it("marks a row failed when the file cannot be read", async () => {
@@ -248,124 +388,77 @@ describe("uploads", () => {
     );
     const h = current();
     await act(() => addDocFiles([new File(["x"], "C.docx")], () => {}));
-    vi.unstubAllGlobals();
     expect(h.result.current.find((u) => u.name === "C.docx")).toMatchObject({
       phase: "failed",
       message: "The file could not be read.",
     });
+    expect(runs).toEqual([]);
   });
 
-  it("shows the index step of a conversion as indexing", async () => {
-    let release: () => void = () => {};
-    handlers["docs.convert"] = (input, on) =>
-      new Promise((r) => {
-        on?.({ ...progress("Waiting for the other conversions"), step: "index" } as JobEvent);
-        release = () => r({ id: input.id, index: { chunks: 3 } });
-      });
-    const h = current();
-    const pending = convertDoc("I", "I.docx", {}, () => {});
-    await vi.waitFor(() =>
-      expect(h.result.current.find((u) => u.docId === "I")).toMatchObject({
-        phase: "indexing",
-        message: "Waiting for the other conversions",
-      }),
-    );
-    await act(async () => {
-      release();
-      await pending;
-    });
-    expect(h.result.current.find((u) => u.docId === "I")).toMatchObject({ phase: "done" });
-  });
-
-  it("reindexes everything only once the conversions in flight have ended", async () => {
+  it("asks the core for an index run at once — the core waits for the conversions and for a run under way", async () => {
+    setImportClaude({ model: "haiku" });
     let end: () => void = () => {};
     handlers["docs.convert"] = (input) => new Promise((r) => (end = () => r({ id: input.id })));
-    const h = current();
-    const converting = convertDoc("E", "E.docx", {}, () => {});
-    await vi.waitFor(() => expect(runs.map((r) => r.name)).toEqual(["docs.convert"]));
-    const all = reindexAll(() => {});
-    await vi.waitFor(() =>
-      expect(h.result.current.find((u) => u.name === "All documents")?.message).toBe(
-        "Waiting for the other conversions",
-      ),
-    );
-    expect(runs.filter((r) => r.name === "rag.index")).toHaveLength(0);
-    await act(async () => {
+    try {
+      const converting = convertDoc("E", "E.docx", {}, () => {});
+      await act(() => Promise.all([reindexAll(() => {}), reindexAll(() => {})]));
+      expect(runs.map((r) => r.name)).toEqual(["docs.convert", "rag.index", "rag.index"]);
+      expect(runs[1].input).toEqual({ model: "haiku" });
       end();
-      await Promise.all([converting, all]);
-    });
-    expect(runs.filter((r) => r.name === "rag.index")).toHaveLength(1);
-    expect(h.result.current.find((u) => u.name === "All documents")).toMatchObject({ phase: "done" });
+      await act(() => converting);
+    } finally {
+      setImportClaude({});
+    }
   });
 
-  it("does not join an index run already started: one more run follows it", async () => {
-    const releases: (() => void)[] = [];
-    handlers["rag.index"] = (_input, on) =>
-      new Promise((r) => {
-        releases.push(() => r({ chunks: 1 }));
-        on?.(progress("Embedding", 1, 2));
-      });
-    const all = reindexAll(() => {});
-    await vi.waitFor(() => expect(releases).toHaveLength(1));
-    const again = reindexAll(() => {});
-    await act(async () => {
-      releases[0]();
-      await all;
-    });
-    await vi.waitFor(() => expect(releases).toHaveLength(2));
-    await act(async () => {
-      releases[1]();
-      await again;
-    });
-    expect(runs.filter((r) => r.name === "rag.index")).toHaveLength(2);
-  });
-
-  it("reindexes everything and forgets the row after a while", async () => {
-    vi.useFakeTimers();
-    const h = current();
-    const onDone = vi.fn();
-    await act(() => reindexAll(onDone));
-    expect(onDone).toHaveBeenCalled();
-    expect(h.result.current.find((u) => u.name === "All documents")).toMatchObject({ phase: "done", pct: 100 });
-    act(() => vi.advanceTimersByTime(4000));
-    expect(h.result.current.some((u) => u.name === "All documents")).toBe(false);
-  });
-
-  it("reports a failed reindex", async () => {
+  it("reports an index run refused before its job, with its fix", async () => {
     handlers["rag.index"] = () => {
-      throw new Error("busy");
+      throw new ApiError("No model", "Install a pack");
     };
     const h = current();
     const onDone = vi.fn();
     await act(() => reindexAll(onDone));
     expect(onDone).toHaveBeenCalled();
-    expect(h.result.current.find((u) => u.name === "All documents")).toMatchObject({ phase: "index-failed" });
+    const row = h.result.current.find((u) => u.name === "All documents");
+    expect(row).toMatchObject({ phase: "index-failed", message: "No model" });
+    expect((row?.error as ApiError | undefined)?.fix).toBe("Install a pack");
   });
 
-  it("dismisses one row and forgets settled rows only when there are some", async () => {
-    let release: () => void = () => {};
-    handlers["docs.addFiles"] = () => new Promise((r) => (release = () => r({ added: [{ id: "G" }], rejected: [] })));
-    const h = current();
-    const pending = addDocPath("C:\\d\\G.docx", () => {});
-    await vi.waitFor(() => expect(h.result.current.some((u) => u.name === "G.docx")).toBe(true));
-    const before = h.result.current;
-    act(() => forgetSettled());
-    expect(h.result.current).toBe(before);
-    const key = h.result.current[0].key;
-    act(() => dismissUpload(key));
-    expect(h.result.current).toEqual([]);
+  it("tells the page that asked only while it still shows that project", async () => {
+    let release: (v: unknown) => void = () => {};
+    handlers["docs.addFiles"] = () => new Promise((r) => (release = r));
+    const onDone = vi.fn();
+    const pending = addDocPath("C:\\d\\A.docx", onDone);
+    await waitFor(() => expect(runs).toHaveLength(1));
+    setProject("C:\\other");
     await act(async () => {
-      release();
+      release({ added: [{ id: "A" }], rejected: [] });
       await pending;
     });
+    expect(onDone).not.toHaveBeenCalled();
+    const h = current();
+    expect(h.result.current).toEqual([]);
+  });
+
+  it("dismisses one row, and forgets the settled rows when the screen is left", async () => {
+    handlers["docs.addFiles"] = () => {
+      throw new Error("x");
+    };
+    const h = current();
+    await act(() => addDocPath("C:\\d\\one.docx", () => {}));
+    await act(() => addDocPath("C:\\d\\two.docx", () => {}));
+    expect(h.result.current.map((u) => u.name)).toEqual(["one.docx", "two.docx"]);
+    act(() => dismissUpload(h.result.current[0].key));
+    expect(h.result.current.map((u) => u.name)).toEqual(["two.docx"]);
+    act(() => forgetSettled());
+    expect(h.result.current).toEqual([]);
   });
 
   it("ties a listed document to the upload still adding it", () => {
     const u = {
-      key: 1,
+      key: "1",
       name: "Spec (3).docx",
       job: "add" as const,
-      at: 1000,
       phase: "adding" as const,
       pct: null,
       message: "",
@@ -379,9 +472,10 @@ describe("uploads", () => {
     expect(owns({ ...u, docId: "SPEC_3_" }, d("C:\\elsewhere.docx"))).toBe(true);
     expect(owns({ ...u, docId: "SPEC_3_" }, d("C:\\in\\Spec (3).docx", "OTHER"))).toBe(false);
     expect(owns({ ...u, phase: "failed" }, d("C:\\in\\Spec (3).docx"))).toBe(false);
+    expect(settled({ ...u, phase: "index-failed" })).toBe(true);
   });
 
-  it("reads base64 and fails with a default message", async () => {
+  it("reads base64", async () => {
     expect(await readBase64(new Blob(["ok"]))).toBe("b2s=");
   });
 });

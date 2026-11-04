@@ -23,7 +23,8 @@ const versionOf = (mtime: number | null | undefined) =>
   mtime === undefined ? undefined : mtime === null ? "" : String(mtime);
 
 // ponytail: what the team says about a document (context.md, saved by itself against the version it was read at)
-// and the saved contexts Claude reads with it (doc.json contexts)
+// and the saved contexts Claude reads with it (doc.json contexts); a pending note belongs to the project it was typed in
+// (the key carries it)
 export function DocContext({ id, shown, disabled }: { id: string; shown: Shown; disabled: boolean }) {
   const client = useQueryClient();
   const all = useRead("contexts.list", {});
@@ -42,6 +43,7 @@ export function DocContext({ id, shown, disabled }: { id: string; shown: Shown; 
       "docs.set",
       { id, context, ...(base === undefined ? {} : { ifMtime: base === "" ? null : Number(base) }) },
       { invalidates: "none" },
+      saveKey[0],
     );
     patch({ context, contextMtime: out.contextMtime });
     return versionOf(out.contextMtime);

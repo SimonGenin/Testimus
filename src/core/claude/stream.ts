@@ -1,3 +1,4 @@
+import { FILE_WRITE_TOOLS, testInPath } from "../../shared/tests.ts";
 import type { ClaudeEvent, Tokens } from "../types.ts";
 
 function short(v: unknown): string {
@@ -117,17 +118,15 @@ export function toolCalls(stdout: string): ToolCall[] {
   return calls;
 }
 
-const TEST_IN_PATH = /(?:^|[\\/])tests[\\/]+([^\\/]+)[\\/]/;
-
 // ponytail: a test is the run's own when a call of the run wrote it — a file tool on its path, a tests_*
 // tool with its id, or the id tests_create / tests_clone answered
 export function writtenTests(calls: ToolCall[]): string[] {
   const out = new Set<string>();
   for (const c of calls) {
     if (c.error) continue;
-    if (/^(Write|Edit|MultiEdit|NotebookEdit)$/.test(c.name)) {
+    if (FILE_WRITE_TOOLS.test(c.name)) {
       const p = c.input.file_path ?? c.input.notebook_path;
-      const id = typeof p === "string" ? p.match(TEST_IN_PATH)?.[1] : undefined;
+      const id = typeof p === "string" ? testInPath(p) : undefined;
       if (id) out.add(id);
     }
     if (/(^|_)tests_(edit|save|addImage|removeImage|create|clone)$/.test(c.name)) {

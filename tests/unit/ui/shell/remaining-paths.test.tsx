@@ -1,11 +1,10 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { call, setProject } from "../../../../src/ui/api.ts";
 import { CommandForm } from "../../../../src/ui/components/shell/CommandForm.tsx";
-import { useJob } from "../../../../src/ui/components/shell/JobLog.tsx";
 import { ProjectButton } from "../../../../src/ui/components/shell/ProjectButton.tsx";
 import { baseName } from "../../../../src/ui/lib/desktop.ts";
 import { useToasts } from "../../../../src/ui/lib/toast.ts";
@@ -15,11 +14,6 @@ import { withData } from "./helpers.tsx";
 function Stores() {
   const t = useToasts();
   return <p>{t.length}</p>;
-}
-
-function P() {
-  const r = useJob("j1");
-  return <span data-testid="n">{r.events.length}</span>;
 }
 
 beforeEach(() => {
@@ -61,13 +55,6 @@ describe("shell remaining paths", () => {
     fireEvent.click(screen.getByRole("button", { name: "Run" }));
     expect(await screen.findByRole("alert")).toBeInTheDocument();
     expect(callsOf("a.b")).toHaveLength(0);
-  });
-
-  it("reads a job back that has no log yet", async () => {
-    net.routes["jobs.show"] = () => null;
-    render(<P />);
-    await waitFor(() => expect(callsOf("jobs.show")).toHaveLength(1));
-    expect(screen.getByTestId("n")).toHaveTextContent("0");
   });
 
   it("accepts a project list it does not understand", async () => {

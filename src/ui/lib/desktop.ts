@@ -1,6 +1,6 @@
 import type { Job } from "../../core/types.ts";
 import type { FileFilter, TestimusDesktop } from "../../desktop/bridge-types.ts";
-import { call, setProject } from "../api.ts";
+import { setProject } from "../api.ts";
 import type { AppState } from "./app.ts";
 import { readPref, writePref } from "./prefs.ts";
 import { errorToast, toast } from "./toast.ts";
@@ -83,11 +83,6 @@ export async function setAlwaysOnTop(on: boolean): Promise<boolean> {
 // ponytail: the window forgets it between runs — the page that remembers it puts it back at start
 export function restoreAlwaysOnTop(): void {
   if (desktop() && readAlwaysOnTop()) void setAlwaysOnTop(true);
-}
-
-export async function openProject(app: Pick<AppState, "refreshInfo" | "testsChanged">, dir: string): Promise<string> {
-  const r = await call<{ dir: string }>("project.open", { dir });
-  return showProject(app, r.dir);
 }
 
 // ponytail: project.init and project.openKey already made the project the current one — the page only follows
