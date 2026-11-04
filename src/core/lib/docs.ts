@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { UserError } from "../command.ts";
 import { parseAnchor } from "../rag/anchors.ts";
 import { docContent, readState } from "../rag/indexer.ts";
@@ -19,7 +19,11 @@ export function docDir(project: string, id: string): string {
 export function readDoc(project: string, id: string): DocJson {
   const file = join(docDir(project, id), "doc.json");
   if (!existsSync(file)) throw new UserError(`No document ${id}.`, "testimus docs list shows the project's documents.");
-  return { ...(JSON.parse(readFileSync(file, "utf8").replace(/^\uFEFF/, "")) as DocJson), id };
+  const doc = { ...(JSON.parse(readFileSync(file, "utf8").replace(/^\uFEFF/, "")) as DocJson), id };
+  // ponytail: a doc.json written before the source had a name kept its path (`source.path`): the name is its file
+  const legacy = doc.source as DocJson["source"] & { path?: string };
+  if (legacy && !legacy.name) doc.source = { ...legacy, name: basename(legacy.path ?? legacy.file ?? "") };
+  return doc;
 }
 
 export function writeDoc(project: string, doc: DocJson): void {
