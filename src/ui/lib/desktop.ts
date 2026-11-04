@@ -8,7 +8,7 @@ import { errorToast, toast } from "./toast.ts";
 export const desktop = (): TestimusDesktop | null =>
   typeof window === "undefined" ? null : (window.testimusDesktop ?? null);
 
-export const baseName = (path: string) => path.split(/[\\/]/).filter(Boolean).pop() ?? path;
+export const baseName = (path: string | undefined) => (path ?? "").split(/[\\/]/).filter(Boolean).pop() ?? path ?? "";
 
 export const onWindows = () => typeof navigator === "undefined" || /Windows|win32/i.test(navigator.userAgent);
 

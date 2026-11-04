@@ -67,7 +67,7 @@ export function DocList({
 }) {
   const uploads = all.map((u) => {
     const d = u.job === "convert" ? docs?.find((x) => x.id === u.docId) : undefined;
-    return d ? { ...u, name: baseName(d.source.name) || d.id } : u;
+    return d ? { ...u, name: baseName(d.source.name || d.source.file) || d.id } : u;
   });
   const listed = (u: Upload) => !!docs?.some((d) => (u.docId ? d.id === u.docId : owns(u, d)));
   const items: Item[] = [

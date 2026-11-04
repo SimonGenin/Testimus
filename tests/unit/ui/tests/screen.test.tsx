@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LocalTestRef } from "../../../../src/core/types.ts";
 import { setProject } from "../../../../src/ui/api.ts";
 import { AppContext, type AppState } from "../../../../src/ui/lib/app.ts";
+import { draftOf, keepDraft } from "../../../../src/ui/lib/drafts.ts";
 import { abandonPulls, startPull } from "../../../../src/ui/screens/tests/pulls.ts";
 import { TestsScreen } from "../../../../src/ui/screens/tests/TestsScreen.tsx";
 import { app } from "../../helpers/ui-desktop.tsx";
@@ -133,6 +134,14 @@ describe("TestsScreen", () => {
     again({ route: { screen: "tests", arg: "g2" } });
     await waitFor(() => expect(callsTo("tests.list")).toHaveLength(1));
     expect(state.navigate).not.toHaveBeenCalledWith("review", "g2");
+  });
+
+  it("forgets a test it sent to Review, so the rail's Tests opens the list and not Review again", async () => {
+    refs = [{ ...ref("g1", { generated: true, review: "to-fix" }), awaiting: true } as LocalTestRef];
+    keepDraft("route.tests", "g1");
+    const { state } = screenOf({ route: { screen: "tests", arg: "g1" } });
+    await waitFor(() => expect(state.navigate).toHaveBeenCalledWith("review", "g1"));
+    expect(draftOf("route.tests")).toBeUndefined();
   });
 
   it("treats a non-list answer as empty, a failure as a toast, and ignores another screen's arg", async () => {

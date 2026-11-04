@@ -127,7 +127,7 @@ export function ConvertDoc({
   const [study, setStudy] = useState(false);
   const settled = doc.conversion ? optionsOf(doc.conversion) : "";
   const go = () => {
-    void convertDoc(doc.id, baseName(doc.source.name), { describeFigures: figures, study }, () => {
+    void convertDoc(doc.id, baseName(doc.source.name || doc.source.file), { describeFigures: figures, study }, () => {
       void invalidate(client, [["docs.list"], ["docs.show", { id: doc.id }], ["rag.status"]]);
       app.refreshInfo();
     });
