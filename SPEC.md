@@ -1302,11 +1302,14 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
   inline in a step, bare), with its save state, Claude's lock and its autosave; `ClaudeBlock` is every place Claude is
   asked (contexts, quick asks, model and effort, scope, the run and its cancel) and is built on `Text`. The pieces of
   the design that are not controls are in the kit too (2026-11-04, design-system pass): `type.ts` (the text styles,
-  caption … display, with the titles' letter spacing — a screen composes them and never sets a font size, weight,
-  line height or letter spacing itself), `Field` (a labelled control's frame, also Text's and Select's), `SaveState`
+  caption … display, with the titles' letter spacing, and the face alone — a screen composes them and never sets a
+  font size, weight, line height, letter spacing or face itself: guard G1), `Field` (a labelled control's frame, also Text's and Select's), `SaveState`
   (Edited · saves in a moment, Saving…, Saved, Not saved, Changed on disk, Claude is editing), `Answer` and `Ask`
   (Claude's reply and the request), `Passage` (a part of a specification in the reading face), `Raw` (raw output and
-  logs), `Facts` (name and value), `Timer`, `Pane` (a screen's pane: head, body, foot), `Tile` and `Logo`; the badge
+  logs), `Facts` (name and value), `Timer`, `Pane` (a screen's pane: head, body, foot), `Tile`, `Logo`, `GroupSelect`
+  (model and effort as one quiet select « opus · high », its list a Menu with a Model and an Effort group) and
+  `ReadMap` (where Claude read in a document: a bar cut by chapter, the lines read, the sections opened from the index
+  over their extent, the chapters named in a grid that follows their length); the badge
   vocabularies (review, severity, sync, diff, columns, document status, health, Jira status) all live with `Badge`,
   the review, severity and diff words in their own colour aliases of `tokens.css`. Styles are
   StyleX in the component's file, values only from `src/ui/styles/tokens.stylex.ts` (generated from

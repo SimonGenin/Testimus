@@ -126,8 +126,10 @@ tests/unit/          vitest, by area (core/<zone>/, ui/<zone>/, shared/, desktop
   `src/ui/lib/data/` (keys `[project, command, input]`, typed by the registry's `CommandMap`; the page imports only
   types from `src/core/`); the one SSE stream keeps the cache true (`changed` paths, job events). No `fetch`,
   `EventSource` or browser storage elsewhere (`lib/prefs.ts` holds the presentation preferences). Every control is a
-  kit component (`components/ui/`); a screen assembles them. Styles are StyleX in the component's own file, values
-  only from `tokens.stylex.ts`: no `.css` but the fonts, no literal colour or px size, no constant inline style.
+  kit component (`components/ui/`), and so is every drawn piece of the design (an answer, a passage, a raw block, a
+  pane…); a screen assembles them. Styles are StyleX in the component's own file, values only from
+  `tokens.stylex.ts`, text only through the kit's `type.ts`: no `.css` but the fonts, no literal colour or px size, no
+  constant inline style, no font size, weight, line height or face outside the kit.
   `tests/unit/guards/` fails `npm test` on each of these, and Biome refuses a bare control outside the kit.
 - **Files are the state.** A project folder is a Claude Code project (SPEC §3). `test.md`,
   `doc.json`, `context.md`, `project.json`, `columns.json` are the truth (`xray.json` is Xray's step schema, fetched); `index/`, `.testimus/`,
