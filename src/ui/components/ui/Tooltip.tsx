@@ -2,6 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import { cloneElement, type ReactElement, useEffect, useId, useRef, useState } from "react";
 import { color, fontSize, lineHeight, radius, shadow, size, space, z } from "../../styles/tokens.stylex.ts";
 import { Kbd } from "./Kbd.tsx";
+import { keyboardFocus } from "./layer.ts";
 
 const SHOW_AFTER_MS = 500;
 
@@ -45,26 +46,6 @@ export type TooltipProps = {
   children: ReactElement<{ "aria-describedby"?: string; "aria-expanded"?: boolean | "true" | "false" }>;
 };
 
-// ponytail: what the person used last, as :focus-visible knows it — a focus given back by a click (a menu that closes on
-// its item and opens a confirmation) is not a keyboard focus and shows no tooltip
-let lastInput: "keyboard" | "pointer" = "keyboard";
-if (typeof document !== "undefined") {
-  document.addEventListener(
-    "keydown",
-    () => {
-      lastInput = "keyboard";
-    },
-    true,
-  );
-  document.addEventListener(
-    "pointerdown",
-    () => {
-      lastInput = "pointer";
-    },
-    true,
-  );
-}
-
 // ponytail: shown on hover after 500 ms and at once on keyboard focus, hidden on Escape and while the control's own
 // layer (a menu, a popover) is open; never interactive and never the only place for what is needed to act (SYSTEM.md)
 export function Tooltip({ label, shortcut, side = "top", children }: TooltipProps) {
@@ -86,7 +67,7 @@ export function Tooltip({ label, shortcut, side = "top", children }: TooltipProp
       }}
       onMouseLeave={hide}
       onFocus={() => {
-        if (lastInput === "keyboard") setOpen(true);
+        if (keyboardFocus()) setOpen(true);
       }}
       onBlur={hide}
       onKeyDown={(e) => {

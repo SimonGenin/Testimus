@@ -10,6 +10,28 @@ const FOCUSABLE = [
   '[contenteditable="true"]',
 ].join(",");
 
+// ponytail: what the person used last, as :focus-visible knows it — a focus that follows a click (a menu that closes on
+// its item, a row the screen selects for you) is not a keyboard focus: no tooltip, no focus ring on it
+let lastInput: "keyboard" | "pointer" = "keyboard";
+if (typeof document !== "undefined") {
+  document.addEventListener(
+    "keydown",
+    () => {
+      lastInput = "keyboard";
+    },
+    true,
+  );
+  document.addEventListener(
+    "pointerdown",
+    () => {
+      lastInput = "pointer";
+    },
+    true,
+  );
+}
+
+export const keyboardFocus = () => lastInput === "keyboard";
+
 // ponytail: what Tab can reach inside a layer, in document order (the modal's trap, a popover's first field)
 export function focusables(root: HTMLElement): HTMLElement[] {
   return [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) => !el.closest("[inert]"));
