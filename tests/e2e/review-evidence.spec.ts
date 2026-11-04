@@ -8,7 +8,7 @@ test("a generated test shows the sources it read; a misplaced quote is not highl
   const result = page.getByRole("region", { name: "Result" });
   await request.getByRole("textbox", { name: "What should be tested?" }).fill("Le sectionneur avec TK");
   await request.getByRole("button", { name: /^Generate/ }).click();
-  await page.getByRole("dialog").getByRole("button", { name: "Delete and generate" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Delete and generate" }).click();
   await expect(result.getByRole("heading", { name: "2 tests written", exact: true })).toBeVisible({ timeout: 20_000 });
   await result
     .getByRole("region", { name: /^Sectionneur avec TK/ })

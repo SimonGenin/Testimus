@@ -1,12 +1,11 @@
 import * as stylex from "@stylexjs/stylex";
-import type { LocalTestRef, SearchMark, SyncState } from "../../../../core/types.ts";
+import type { LocalTestRef, SyncState } from "../../../../core/types.ts";
 import { Badge, REVIEW, SYNC } from "../../../components/ui/Badge.tsx";
-import { color, fontFamily, fontSize, radius, space } from "../../../styles/tokens.stylex.ts";
+import { color, fontFamily, fontSize, space } from "../../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
   meta: { display: "inline-flex", alignItems: "center", flexWrap: "wrap", gap: space.s2, minWidth: 0 },
   key: { fontFamily: fontFamily.mono, fontSize: fontSize.code, color: color.textMuted },
-  mark: { backgroundColor: color.highlight, color: color.highlightText, borderRadius: radius.r1 },
   where: { color: color.textSubtle, marginInlineEnd: space.s1 },
 });
 
@@ -40,25 +39,6 @@ export function TestMeta({ r }: { r: LocalTestRef }) {
 
 export function KeyText({ text }: { text: string }) {
   return <span {...stylex.props(styles.key)}>{text}</span>;
-}
-
-// ponytail: the words a search matched, highlighted in the text it returned (offsets from search.all)
-export function Marked({ text, marks }: { text: string; marks: SearchMark[] }) {
-  if (!marks.length) return <>{text}</>;
-  const parts = [];
-  let at = 0;
-  for (const [a, b] of marks) {
-    if (a < at || b > text.length) continue;
-    if (a > at) parts.push(text.slice(at, a));
-    parts.push(
-      <mark key={a} {...stylex.props(styles.mark)}>
-        {text.slice(a, b)}
-      </mark>,
-    );
-    at = b;
-  }
-  parts.push(text.slice(at));
-  return <>{parts}</>;
 }
 
 export function Where({ text }: { text: string }) {

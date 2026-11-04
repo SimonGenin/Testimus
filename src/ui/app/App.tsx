@@ -19,7 +19,7 @@ import { Toaster } from "../components/ui/Toast.tsx";
 import { AppContext, type AppState, type ClaudeRun, type Focus } from "../lib/app.ts";
 import type { CommandInfo } from "../lib/data/client.ts";
 import { execute } from "../lib/data/query.ts";
-import { usePref } from "../lib/prefs.ts";
+import { usePaneWidth } from "../lib/panes.ts";
 import { jumpTo, rememberHit } from "../lib/search.ts";
 import { errorToast, toast } from "../lib/toast.ts";
 import { border, breakpoint, color, radius, shadow, size, space } from "../styles/tokens.stylex.ts";
@@ -32,7 +32,7 @@ import { useShellEvents } from "./useShellEvents.ts";
 
 export { parseRoute };
 
-const DOCK = { min: 300, max: 720, start: 420 };
+const DOCK = { min: 300, max: 720, initial: 420 };
 
 const styles = stylex.create({
   app: {
@@ -92,8 +92,7 @@ export function App() {
   const [source, setSource] = useState<Source | null>(null);
   const [palette, setPalette] = useState(false);
   const [form, setForm] = useState<CommandInfo | null>(null);
-  const [dockWidth, setDockWidth] = usePref("dockWidth");
-  const [dragW, setDragW] = useState<number | null>(null);
+  const dockPane = usePaneWidth("dockWidth", DOCK);
   const dock = useDock(route.screen);
   const bar = useTopBarSlots();
   const running = useRunningJobs();
@@ -212,7 +211,6 @@ export function App() {
   );
 
   const counts = { review: p.info?.counts?.awaiting, jobs: running.length };
-  const shownDock = dragW ?? dockWidth ?? DOCK.start;
 
   return (
     <AppContext.Provider value={app}>
@@ -230,24 +228,12 @@ export function App() {
           </div>
           {!dock.folded && (
             <span {...stylex.props(styles.edge)}>
-              <ResizeHandle
-                label="Resize the Claude panel"
-                side="left"
-                value={shownDock}
-                min={DOCK.min}
-                max={DOCK.max}
-                defaultValue={DOCK.start}
-                onChange={setDragW}
-                onCommit={(w) => {
-                  setDockWidth(w);
-                  setDragW(null);
-                }}
-              />
+              <ResizeHandle label="Resize the Claude panel" side="left" {...dockPane.handle} />
             </span>
           )}
           <div
             {...stylex.props(styles.dock, !dock.folded && styles.dockOpen)}
-            style={dock.folded ? undefined : ({ "--dock-size": `${shownDock}px` } as CSSProperties)}
+            style={dock.folded ? undefined : ({ "--dock-size": `${dockPane.width}px` } as CSSProperties)}
           >
             <ClaudeDock folded={dock.folded} request={dock.request} onFold={toggleDock} />
           </div>

@@ -8,7 +8,7 @@ import { ResizeHandle } from "../../components/ui/ResizeHandle.tsx";
 import { useApp } from "../../lib/app.ts";
 import { project } from "../../lib/data/client.ts";
 import { useRead } from "../../lib/data/query.ts";
-import { usePref } from "../../lib/prefs.ts";
+import { usePaneWidth } from "../../lib/panes.ts";
 import { errorToast } from "../../lib/toast.ts";
 import { border, color, fontSize, fontWeight, lineHeight, size, space } from "../../styles/tokens.stylex.ts";
 import { ConnectAtlassian } from "../settings/ConnectAtlassian.tsx";
@@ -19,9 +19,7 @@ import { TestEditor } from "./TestEditor.tsx";
 import { TestList } from "./TestList.tsx";
 
 export const NARROW = 900;
-export const SIDEBAR_MIN = 240;
-export const SIDEBAR_MAX = 480;
-const SIDEBAR_DEFAULT = 300;
+const SIDEBAR = { min: 240, max: 480, initial: 300 };
 
 const styles = stylex.create({
   screen: { display: "flex", flex: 1, minWidth: 0, minHeight: 0, height: "100%", backgroundColor: color.canvas },
@@ -62,7 +60,7 @@ export function TestsScreen() {
   const has = !!project();
   const listQ = useRead("tests.list", {}, { enabled: has });
   const refs = (Array.isArray(listQ.data) ? listQ.data : []) as LocalTestRef[];
-  const [width, setWidth] = usePref("sidebarWidth");
+  const side = usePaneWidth("sidebarWidth", SIDEBAR);
   const narrow = useNarrow();
   const [drawer, setDrawer] = useState(false);
   const pulls = usePulls();
@@ -165,23 +163,14 @@ export function TestsScreen() {
       onClick={() => setDrawer((d) => !d)}
     />
   ) : undefined;
-  const shown = width ?? SIDEBAR_DEFAULT;
 
   return (
     <div {...stylex.props(styles.screen)}>
       {!narrow && (
-        <div {...stylex.props(styles.side)} style={{ width: shown }}>
+        <div {...stylex.props(styles.side)} style={{ width: side.width }}>
           {list}
           <span {...stylex.props(styles.edge)}>
-            <ResizeHandle
-              label="Resize the test list"
-              value={shown}
-              min={SIDEBAR_MIN}
-              max={SIDEBAR_MAX}
-              defaultValue={SIDEBAR_DEFAULT}
-              onChange={setWidth}
-              onCommit={(px) => setWidth(px === SIDEBAR_DEFAULT ? null : px)}
-            />
+            <ResizeHandle label="Resize the test list" {...side.handle} />
           </span>
         </div>
       )}

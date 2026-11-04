@@ -73,6 +73,7 @@ const EXTRA: Record<string, Record<string, string>> = {
   },
   radius: {
     check: "5px", // kit.css .check__box
+    mark: "2px", // kit.css .passage__body mark (the quoted words of a source passage)
   },
   focus: {
     halo: "4px", // kit.css .text / .select / .chipfield / .cblock focus: the soft halo around a field's accent edge

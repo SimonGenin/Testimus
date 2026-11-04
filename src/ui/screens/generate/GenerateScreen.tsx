@@ -7,7 +7,7 @@ import { ResizeHandle } from "../../components/ui/ResizeHandle.tsx";
 import { useApp } from "../../lib/app.ts";
 import { discardAutosave } from "../../lib/data/autosave.ts";
 import { key, read, useCommand, useRead } from "../../lib/data/query.ts";
-import { usePref } from "../../lib/prefs.ts";
+import { usePaneWidth } from "../../lib/panes.ts";
 import { errorToast } from "../../lib/toast.ts";
 import { border, breakpoint, color } from "../../styles/tokens.stylex.ts";
 import { ReplaceTests } from "./ReplaceTests.tsx";
@@ -43,8 +43,7 @@ const styles = stylex.create({
 export function GenerateScreen() {
   const app = useApp();
   const client = useQueryClient();
-  const [width, setWidth] = usePref("genFormWidth");
-  const [drag, setDrag] = useState<number | null>(null);
+  const formPane = usePaneWidth("genFormWidth", FORM);
   const info = useRead("project.info", {});
   const docsRead = useRead("docs.list", {});
   const docs = (docsRead.data ?? null) as DocRef[] | null;
@@ -107,12 +106,11 @@ export function GenerateScreen() {
   };
 
   const columns = (info.data?.columns ?? []) as StepColumn[];
-  const formWidth = drag ?? width ?? FORM.initial;
   return (
     <div {...stylex.props(styles.screen)}>
       <ScreenHeader title="Generate" />
       <div {...stylex.props(styles.panes)}>
-        <div {...stylex.props(styles.form(`${formWidth}px`))}>
+        <div {...stylex.props(styles.form(`${formPane.width}px`))}>
           <RequestForm
             form={form}
             docs={docs}
@@ -135,18 +133,7 @@ export function GenerateScreen() {
           />
         </div>
         <span {...stylex.props(styles.handle)}>
-          <ResizeHandle
-            label="Resize the request panel"
-            value={formWidth}
-            min={FORM.min}
-            max={FORM.max}
-            defaultValue={FORM.initial}
-            onChange={setDrag}
-            onCommit={(px) => {
-              setDrag(null);
-              setWidth(px);
-            }}
-          />
+          <ResizeHandle label="Resize the request panel" {...formPane.handle} />
         </span>
         <section aria-label="Result" {...stylex.props(styles.result)}>
           <ResultPane

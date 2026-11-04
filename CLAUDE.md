@@ -7,9 +7,12 @@ the reading and writing. **SPEC.md is the behavioral contract** — read it firs
 change when behavior changes. ROADMAP.md says what is built and what comes next. LINKS.md says where
 every reused piece lives on this PC. SPEC-RAG.md (RAG v2) and SPEC-ELECTRON.md (desktop shell) are
 built and kept as design records (findings, measurements, reasons); SPEC.md wins where they differ.
-GOAL.md and GOAL-V2.md are the briefs of the two one-pass builds — history, not instructions.
+GOAL.md, GOAL-V2.md and GOAL-V3.md are the briefs of the one-pass builds and of the clean-up — history, not
+instructions. `design/` is the design system (tokens, kit, screens), owned by the design sessions: read it, never
+write it; `node scripts/tokens.ts` brings its tokens in.
 
-Status: **v1 + v2 built** — ROADMAP phases 1–4, RAG v2 R1–R9, desktop E1–E4. Open: R10 (benchmark on
+Status: **v1 + v2 built, v3 clean-up done** — ROADMAP phases 1–4, RAG v2 R1–R9, desktop E1–E4, v3 (one kit,
+StyleX, one data layer, every gesture a command). Open: R10 (benchmark on
 the RATP corpus), R11 (optional), E0 (signing on a tester's PC), E5. `testimus help` lists every command.
 
 ## Commands
@@ -19,6 +22,9 @@ npm run build                      # tsc (TS 7, type check only) + vite build �
 npm run check                      # biome: lint + format (npm run format fixes)
 npm test                           # vitest, tests/unit (Claude, Jira and the network are faked)
 npx playwright test                # e2e (msedge) against fresh `serve --mock` servers, + tests/e2e/desktop/ (Electron); screens in tests/screens/
+npm run screens [-- --out <dir>] [-- --only <scenario>]  # the screens catalogue (scripts/screens-catalog.ts), every shot in light and dark
+node tests/unit/guards/report.ts [--detail]          # the architecture guards and what each finds (npm test fails above 0)
+node scripts/tokens.ts             # design/tokens.css → src/ui/styles/tokens.stylex.ts (then biome format)
 node src/faces/cli.ts <group> <verb> [--flags] [--json] [--project <dir>]   # Node runs the .ts directly
 node src/faces/cli.ts help [group.verb]              # the catalog / one command's flags
 node src/faces/cli.ts project set --rag.describe-figures=false   # one key of an object input, no JSON
@@ -49,36 +55,55 @@ Write/Edit, never bash heredocs (they mangle `\\` in regex literals on this mach
 ## Layout
 
 ```
-src/core/command.ts  command(), Ctx, UserError — the shape of every command
-src/core/commands/   one file per command group (index.ts = the registry); zod in/out + run(ctx, input)
+src/core/command.ts  command(), Ctx (ctx.invoke runs another command), UserError (fix, code) — the shape of every command
+src/core/commands/   one file per command group (index.ts = the registry and its types CommandMap/CommandInput/
+                     CommandOutput); zod in/out + run(ctx, input)
 src/core/env.ts      the one seam: http, home/data dirs, spawnClaude — tests and --mock swap it
-src/core/jobs.ts     long work: progress, cancel, .testimus/jobs/<id>.jsonl, SSE
-src/core/types.ts    shared types
+src/core/jobs.ts     long work: progress, steps, processes, cancel, rerun, .testimus/jobs/<id>.jsonl, SSE
+src/core/watch.ts    one recursive watch per open project → `changed` events (the page reads again what changed)
+src/core/types.ts    shared types; schemas.ts the zod pieces several groups share
 src/core/shell.ts    which shell runs the core (TESTIMUS_SHELL), loopback NO_PROXY, clean shutdown
-src/core/lib/        testfile, table, adf, store, jira, sync (ported from Xray Editor), check,
-                     docs, creds, project, doctor, hash, zip; models-* (catalog, packs, hardware, fit,
-                     download, install, registry, resolve, perf, advice, quality, store, dir)
-src/core/rag/        convert* (docx/pdf/html/png → doc.md + figures), chunk, embed, models (profiles),
-                     db, indexer, search/ (lexical, vector, hybrid, passage), runtimes/ (transformers,
-                     llamacpp, llama-server), graph, related, mentions, glossary,
-                     stem-fr, fingerprint, activation (vector spaces), eval, bench, compare;
+src/core/lib/        testfile, test-blocks, test-edit, table, adf, store, check, review, columns, contexts, actions,
+                     agents, atomic, changed, creds, project (+ project-info, project-init), doctor (+ doctor-row,
+                     doctor-models), hash, zip; docs (+ docs-convert, docs-index: one index run at a time, after the
+                     conversions; docs-pipeline: add → convert → index); jira/ (http, read, steps, labels, push) and
+                     sync/ (connect, pull, push), ported from Xray Editor; models-* (catalog, packs, hardware, fit,
+                     download, install*, registry, resolve, perf, advice, quality, store, dir, use)
+src/core/rag/        convert* (docx/pdf/html/png → doc.md + figures), pdf-tags-*, anchors (the one reading of an
+                     anchor), chunk, embed, db, indexer, search/ (lexical, vector, hybrid, passage), runtimes/
+                     (transformers, llamacpp, llama-server), graph, related, mentions, glossary, stem-fr, fingerprint,
+                     activation (vector spaces), eval (+ eval-set, eval-score), bench, compare, refdoc, schemas;
                      inspect (docs.inspect: the profile of an original), pdf (pages drawn: figures, docs.page)
 src/core/search/     search.all (Ctrl K, the tests list): query (filters), match (accents, French
                      stems, prefixes, typos, codes), tests corpus, vectors (index/tests-vectors.json), all
-src/core/claude/     run (claude -p, per-kind tool access), stream, snapshot/revert, diagnose, status,
-                     chat, generate, check, fix, figures, headers, prompt, ledger (evidence ledger),
-                     study (a document studied before its conversion, checked against its pages after)
-src/core/mock/       --mock: fixture Jira (jira.ts), scripted Claude (claude*.ts), fake machine and
+src/core/claude/     run (claude -p), access (per-kind tool access), stream, snapshot/revert, diagnose, status,
+                     chat, generate (+ gen-prompt, gen-reply), check, fix, review, columns, actions, figures, headers,
+                     prompt, limits, ledger (evidence ledger), schemas (model, effort, note), study (a document
+                     studied before its conversion, checked against its pages after)
+src/core/mock/       --mock: fixture Jira (jira.ts, jira/), scripted Claude (claude*.ts), fake machine and
                      models, sandbox setup
+src/shared/          Node only, used by the core and the desktop shell: run/work.ts (sleep, timeout, retry,
+                     semaphore, scope, every, debounce), run/process.ts (start, run, kill the tree, live children,
+                     exit with the parent), loopback, table
 src/faces/           cli.ts, mcp.ts, http.ts — thin adapters over the registry, no domain logic
 src/desktop/         Electron shell: main, preload, bridge (+ bridge-types), core spawn, window, log,
                      pages/ (splash, error); bundled by scripts/desktop.ts
 models/catalog.json  the model catalog (packs and variants)
-src/ui/              React app (app/, components/{ui,shell,claude,sources}, screens/, lib/, styles/ —
-                     tokens.css holds the design tokens); talks to /api only
+src/ui/              React app; talks to /api only:
+  app/               routes, shell, project boot, dock, palette actions
+  components/ui/     the kit — one component per control (Button, Text, ClaudeBlock, Select, Modal, Menu, Toast…),
+                     StyleX, tokens only; the only place that renders a bare <button>/<input>/<select>/<textarea>
+  components/        claude/, shell/, sources/ — composites shared by several screens
+  screens/<screen>/  one folder per screen; screens/kit/ is the catalogue (#/kit under --mock)
+  lib/data/          the data layer (TanStack Query): client (call, the HTTP seam), query (useRead, useCommand,
+                     execute, keys [project, command, input]), events (one SSE stream → cache), autosave, provider
+  lib/prefs.ts       the presentation preferences (typed, localStorage); lib/theme.ts the theme on <html>
+  styles/            tokens.stylex.ts (generated from design/tokens.css by scripts/tokens.ts) and fonts.css
 templates/project/   copied into every project folder by `project init` (CLAUDE.md, .mcp.json, skills)
-scripts/             release.ts, desktop.ts, install.ps1, testimus.cmd, testimus.ico
-tests/unit/          vitest (desktop/ for the shell); tests/e2e/ playwright (desktop/ drives Electron);
+scripts/             release.ts, desktop.ts, install.ps1, testimus.cmd, testimus.ico; tokens.ts and icons.ts
+                     (design → tokens.stylex.ts, icons.ts); screens.ts + screens-catalog.ts (npm run screens)
+tests/unit/          vitest, by area (core/<zone>/, ui/<zone>/, shared/, desktop/), guards/ (the ratchet tests of
+                     the architecture rules); tests/e2e/ playwright (desktop/ drives Electron; kit.spec the catalogue);
                      tests/fixtures/ the LFRPS12 sample project, docx, evidence, rag, snowball-fr
 ```
 
@@ -94,6 +119,13 @@ tests/unit/          vitest (desktop/ for the shell); tests/e2e/ playwright (des
 - **The desktop shell is not a fourth face.** `src/desktop/` never imports `src/core/` (it may import `src/shared/`); it starts
   `serve` and talks to `/api`. Its bridge (`window.testimusDesktop`) carries presentation only
   (pickers, paths, reveal, progress, notifications) and every screen must work without it (browser mode).
+- **The page has one data layer and one kit.** A read is `useRead`, an action `useCommand` / `execute` of
+  `src/ui/lib/data/` (keys `[project, command, input]`, typed by the registry's `CommandMap`; the page imports only
+  types from `src/core/`); the one SSE stream keeps the cache true (`changed` paths, job events). No `fetch`,
+  `EventSource` or browser storage elsewhere (`lib/prefs.ts` holds the presentation preferences). Every control is a
+  kit component (`components/ui/`); a screen assembles them. Styles are StyleX in the component's own file, values
+  only from `tokens.stylex.ts`: no `.css` but the fonts, no literal colour or px size, no constant inline style.
+  `tests/unit/guards/` fails `npm test` on each of these, and Biome refuses a bare control outside the kit.
 - **Files are the state.** A project folder is a Claude Code project (SPEC §3). `test.md`,
   `doc.json`, `context.md`, `project.json`, `columns.json` are the truth (`xray.json` is Xray's step schema, fetched); `index/`, `.testimus/`,
   `check.json`, `.remote.md` are derived or managed and can be rebuilt or compared, never hand-edited.
@@ -118,8 +150,8 @@ tests/unit/          vitest (desktop/ for the shell); tests/e2e/ playwright (des
 ## Conventions
 
 - Xray Editor's: ponytail style inside a file (no speculative abstraction, no interface with one
-  implementation, stdlib first), but one component per file, one area per folder, one CSS sheet per
-  area. No code comments except deliberate `// ponytail:` markers. Tests in `tests/`, never beside
+  implementation, stdlib first), but one component per file, one area per folder, its styles in its own file
+  (StyleX). No code comments except deliberate `// ponytail:` markers. Tests in `tests/`, never beside
   the code.
 - Identifiers and UI text in English (UI language is an open decision, SPEC §16). Generated tests are
   in the project's language (`project.json.language`, default `fr`).

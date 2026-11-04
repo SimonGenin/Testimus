@@ -145,6 +145,29 @@ projects do not have. A pack is now measured on a document Testimus ships (SPEC 
 - [ ] M5 Measure Performance, Balanced and Quality on the dev PC (DirectML and llama.cpp variants need Windows):
       `node scripts/refdoc.ts`
 
+## v3 — nettoyage (GOAL-V3.md, branch `grand-nettoyage`, 2026-11-04)
+
+The code rewritten clean, behavior kept (PARITY.md, each row with the test that proves it); report in
+`.build/v3/REPORT.md`.
+
+- [x] N1 Every gesture is a command: typed registry (`CommandMap`), no unknown command name in the page, no fetch or
+      storage outside `lib/data/` and `lib/prefs.ts`, the HTTP face serves the registry only; `jobs.rerun`, `ctx.invoke`
+- [x] N2 One kit (`src/ui/components/ui/`): one component per control, `Text` and `ClaudeBlock` built on it, every
+      screen on it; the old kit and every bare control outside it gone (Biome refuses them)
+- [x] N3 One data layer (TanStack Query v5): keys `[project, command, input]`, one SSE stream that keeps the cache true
+      (file `changed` events from a per-project watcher, job events), autosave as a mutation (400 ms or blur, one save
+      in flight, conflict by mtime, drafts)
+- [x] N4 StyleX only, tokens only (`tokens.stylex.ts` generated from `design/tokens.css`, revised design of
+      2026-11-04: Inter, Source Serif 4, JetBrains Mono); no CSS file but the fonts; core modules split by
+      responsibility (jira/, sync/, docs-*, models-*, eval-*, gen-*)
+- [x] N5 `#/kit`: every component in each of its states, light and dark, captured by `tests/e2e/kit.spec.ts`
+- [x] N6 Tests by behavior and by area, coverage not lower in any folder, ≥ 90 % in core, shared, the kit and the data
+      layer
+- [x] N7 `src/shared/run/` the one place for processes, waits and cleanup (the whole tree killed on cancel and exit)
+- [x] Guards (`tests/unit/guards/`) blocking at zero
+- [ ] Live read-only Jira check (`xray.pull` of an LFRPS12 test) on the Windows PC — this Mac has no Atlassian
+      credentials
+
 ## Later
 
 - Execution support: test sheets for testers, screenshots from R4 runs, NOK → bug draft

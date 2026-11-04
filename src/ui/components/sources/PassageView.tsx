@@ -2,20 +2,11 @@ import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
 import type { Passage } from "../../../core/types.ts";
 import { fileUrl } from "../../lib/data/client.ts";
-import {
-  color,
-  fontFamily,
-  fontSize,
-  fontWeight,
-  lineHeight,
-  radius,
-  size,
-  space,
-} from "../../styles/tokens.stylex.ts";
+import { color, fontFamily, fontSize, fontWeight, lineHeight, size, space } from "../../styles/tokens.stylex.ts";
 import { Badge, type BadgeTone } from "../ui/Badge.tsx";
+import { Marked } from "../ui/Marked.tsx";
 
 const styles = stylex.create({
-  mark: { backgroundColor: color.highlight, color: color.highlightText, borderRadius: radius.r1 },
   path: { fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textSubtle },
   title: {
     margin: 0,
@@ -103,9 +94,7 @@ export function highlight(md: string, quote: string): ReactNode[] {
       const key = out.length;
       let node: ReactNode =
         hit && cuts[c] >= hit[0] && cuts[c + 1] <= hit[1] ? (
-          <mark key={`m${key}`} data-hl="" {...stylex.props(styles.mark)}>
-            {piece}
-          </mark>
+          <Marked key={`m${key}`} text={piece} marks={[[0, piece.length]]} look="quote" />
         ) : (
           piece
         );

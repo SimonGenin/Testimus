@@ -115,6 +115,7 @@ export const radius = stylex.defineVars({
   r4: "16px",
   full: "999px",
   check: "5px",
+  mark: "2px",
 });
 
 export const size = stylex.defineVars({
