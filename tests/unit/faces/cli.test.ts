@@ -248,6 +248,12 @@ describe("CLI face", () => {
     expect(res.input).toMatchObject({ any: "not-json", flag: false, dryRun: true });
   });
 
+  it("takes « --flag false » as the switch set to false, not as a positional", async () => {
+    const r = await run(["fake.run", "--json", "alice", "--flag", "false", "--dry-run", "true"]);
+    const res = JSON.parse(r.out) as { input: Record<string, unknown> };
+    expect(res.input).toMatchObject({ name: "alice", flag: false, dryRun: true });
+  });
+
   it("writes nested keys from dotted flags without JSON", async () => {
     const r = await run([
       "fake.run",

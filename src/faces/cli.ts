@@ -56,9 +56,18 @@ function inputFrom(
     declared[flag] = b instanceof z.ZodArray ? { ...spec, multiple: true } : spec;
     if (flag !== k) declared[k] = declared[flag];
   }
+  // ponytail: `--semantic false` is the switch set to false, not a switch and a positional « false »
+  const args: string[] = [];
+  for (let i = 0; i < argv.length; i++) {
+    const [a, next] = [argv[i], argv[i + 1]];
+    const switchValue =
+      a.startsWith("--") && declared[a.slice(2)]?.type === "boolean" && /^(true|false)$/.test(next ?? "");
+    args.push(switchValue ? `${a}=${next}` : a);
+    if (switchValue) i++;
+  }
   const { values, positionals, tokens } = parseArgs({
     options: declared,
-    args: argv,
+    args,
     strict: false,
     allowPositionals: true,
     tokens: true,
