@@ -131,13 +131,27 @@ describe("DocDetail", () => {
     expect(screen.getByRole("button", { name: "Next section" })).toBeDisabled();
   });
 
-  it("the Figures view lists the figures, filters them, and opens one in the text", async () => {
-    const { onAnchor } = show("", {
-      figures: [
-        { file: "figures/f.png", anchor: "fig:fig-1", caption: "Vue", description: "Une vue de traction" },
-        { file: "", anchor: "fig:fig-2", caption: "", description: " " },
-      ],
-    });
+  it("the Figures view lists the figures, filters them, details the picked one and opens it in the text", async () => {
+    api.routes["docs.show"] = (i) =>
+      i.anchor === "fig:fig-1"
+        ? { md: "", section: "§5.6" }
+        : i.anchor
+          ? { md: `Part ${i.anchor}` }
+          : shown({
+              figures: [
+                {
+                  file: "figures/f.png",
+                  anchor: "fig:fig-1",
+                  caption: "Vue",
+                  description: "Une vue de traction",
+                  labels: ["S 12", "Ouvrir"],
+                  kind: "screen",
+                },
+                { file: "", anchor: "fig:fig-2", caption: "", description: " " },
+              ],
+            });
+    const onAnchor = vi.fn();
+    mountDocs(<DocDetail id="D1" anchor="" onAnchor={onAnchor} onRemoved={vi.fn()} />);
     await screen.findByText("Part §5.6");
     const views = screen.getByRole("tablist", { name: "Document views" });
     expect(within(views).getByRole("tab", { name: "Text" })).toHaveAttribute("aria-selected", "true");
@@ -148,29 +162,70 @@ describe("DocDetail", () => {
     const figs = () => within(grid()).queryAllByRole("button");
     expect(figs()).toHaveLength(2);
     const tiles = within(grid()).getAllByRole("listitem");
-    const tip = (tile: HTMLElement) => within(tile).getByRole("tooltip", { hidden: true }).textContent;
     const name = (tile: HTMLElement) => within(tile).getByRole("button").textContent;
     expect(name(tiles[0])).toBe("Vue");
     expect(tiles[0]).toHaveTextContent("fig:fig-1");
-    expect(tip(tiles[0])).toBe("Une vue de traction");
+    expect(tiles[0]).toHaveTextContent("screen");
+    expect(tiles[0]).toHaveTextContent("Described");
     expect(tiles[0].querySelector("img")).toHaveAttribute("src", "/files/docs/D1/figures/f.png");
     expect(name(tiles[1])).toBe("fig:fig-2");
-    expect(tip(tiles[1])).toBe("fig:fig-2");
+    expect(tiles[1]).toHaveTextContent("Not described");
     expect(tiles[1].querySelector("img")).toBeNull();
+    expect(within(tiles[0]).getByRole("button")).toHaveAttribute("aria-pressed", "true");
+    const detail = screen.getByRole("complementary", { name: "Vue" });
+    expect(detail).toHaveTextContent("D1#fig:fig-1");
+    expect(detail).toHaveTextContent("Une vue de traction");
+    expect(detail).toHaveTextContent("Text in the picture: S 12 · Ouvrir");
+    expect(detail).toHaveTextContent("Description only — the caption is what a source can quote");
+    fireEvent.click(await within(detail).findByRole("button", { name: "§ 5.6" }));
+    expect(onAnchor).toHaveBeenLastCalledWith("§5.6");
+    fireEvent.click(within(views).getByRole("tab", { name: /^Figures/ }));
     const which = screen.getByRole("radiogroup", { name: "Which figures" });
     expect(within(which).getByRole("radio", { name: /^All/ })).toHaveTextContent("All 2");
     fireEvent.click(within(which).getByRole("radio", { name: /^Described/ }));
     expect(figs().map((b) => b.textContent)).toEqual(["Vue"]);
     fireEvent.click(within(which).getByRole("radio", { name: /^Not described/ }));
     expect(figs().map((b) => b.textContent)).toEqual(["fig:fig-2"]);
-    expect(screen.queryByText("No figure here.")).toBeNull();
-    fireEvent.click(figs()[0]);
+    const bare = screen.getByRole("complementary", { name: "fig:fig-2" });
+    expect(bare).toHaveTextContent("The conversion kept no picture for this figure");
+    expect(within(bare).queryByRole("button", { name: /^Describe/ })).toBeNull();
+    fireEvent.click(within(bare).getByRole("button", { name: "Show in the text" }));
     expect(onAnchor).toHaveBeenLastCalledWith("fig:fig-2");
     expect(within(views).getByRole("tab", { name: "Text" })).toHaveAttribute("aria-selected", "true");
     expect(await screen.findByText("Part §5.6")).toBeInTheDocument();
   });
 
-  it("the Figures view says when a filter leaves no figure; a tile is named by its caption, then its anchor", async () => {
+  it("a tile picks its figure; Describe asks Claude for the figures not described, Describe again for one", async () => {
+    api.routes["docs.describeFigures"] = () => ({ jobId: "describe-figures-1234abcd" });
+    show("", {
+      figures: [
+        { file: "figures/a.png", anchor: "fig:a", caption: "Plan", description: "Un plan" },
+        { file: "figures/b.png", anchor: "fig:b", caption: "Coupe", description: "" },
+        { file: "figures/c.png", anchor: "fig:c", caption: "Vue", description: "" },
+      ],
+    });
+    await screen.findByText("Part §5.6");
+    fireEvent.click(screen.getByRole("tab", { name: /^Figures/ }));
+    const grid = screen.getByRole("list", { name: "Figures" });
+    fireEvent.click(within(grid).getByRole("button", { name: "Coupe" }));
+    expect(within(grid).getByRole("button", { name: "Coupe" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(grid).getByRole("button", { name: "Plan" })).toHaveAttribute("aria-pressed", "false");
+    const detail = screen.getByRole("complementary", { name: "Coupe" });
+    expect(detail).toHaveTextContent("Claude has not read this picture yet");
+    fireEvent.click(within(detail).getByRole("button", { name: "Describe it" }));
+    await waitFor(() =>
+      expect(named("docs.describeFigures").at(-1)?.input).toEqual({ docId: "D1", force: false, anchors: ["fig:b"] }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Describe 2 figures" }));
+    await waitFor(() => expect(named("docs.describeFigures").at(-1)?.input).toEqual({ docId: "D1", force: false }));
+    expect(await screen.findByText("Claude describes 2 figures")).toBeInTheDocument();
+    fireEvent.click(within(grid).getByRole("button", { name: "Plan" }));
+    expect(
+      within(screen.getByRole("complementary", { name: "Plan" })).getByRole("button", { name: "Describe again" }),
+    ).toBeInTheDocument();
+  });
+
+  it("the Figures view says what each filter leaves out; a tile is named by its caption, then its anchor", async () => {
     show("", {
       figures: [
         { file: "", anchor: "fig:a", caption: "Plan", description: "" },
@@ -185,16 +240,27 @@ describe("DocDetail", () => {
         .getAllByRole("button")
         .map((b) => b.textContent),
     ).toEqual(["Plan", "fig:b"]);
+    expect(screen.queryByRole("button", { name: /^Describe \d/ })).toBeNull();
     fireEvent.click(screen.getByRole("radio", { name: /^Described/ }));
     expect(screen.queryByRole("list", { name: "Figures" })).toBeNull();
-    expect(screen.getByText("No figure here.")).toBeInTheDocument();
+    expect(screen.getByText("No figure is described yet")).toBeInTheDocument();
+    cleanup();
+    show("", { figures: [{ file: "", anchor: "fig:a", caption: "Plan", description: "Un plan" }] });
+    await screen.findByText("Part §5.6");
+    fireEvent.click(screen.getByRole("tab", { name: /^Figures/ }));
+    fireEvent.click(screen.getByRole("radio", { name: /^Not described/ }));
+    expect(screen.getByText("Every figure is described")).toBeInTheDocument();
+    expect(screen.getByText(/« Describe again » on a figure asks for a new reading/)).toBeInTheDocument();
   });
 
-  it("a document without figures has no Figures view", async () => {
+  it("a document without figures still has its Figures view, which says there is none", async () => {
     show("", { figures: [] });
     await screen.findByText("Part §5.6");
-    expect(screen.queryByRole("tablist", { name: "Document views" })).toBeNull();
+    const views = screen.getByRole("tablist", { name: "Document views" });
+    expect(within(views).getByRole("tab", { name: /^Figures/ })).toHaveTextContent("Figures0");
     expect(screen.getByText(/· 0 figures/)).toBeInTheDocument();
+    fireEvent.click(within(views).getByRole("tab", { name: /^Figures/ }));
+    expect(screen.getByText("No figure in this document")).toBeInTheDocument();
   });
 
   it("falls back on the first section, and on nothing", async () => {
@@ -303,14 +369,14 @@ describe("DocDetail", () => {
     const { onRemoved } = show();
     await screen.findByRole("heading", { name: "Title D1" });
     more();
-    fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
-    expect(screen.getByRole("alertdialog", { name: "Delete this document?" })).toHaveTextContent(/from the index/);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete this document…" }));
     expect(await screen.findByText("No test cites it.")).toBeInTheDocument();
+    expect(screen.getByRole("alertdialog", { name: "Delete this document?" })).toHaveTextContent(/from the index/);
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(named("docs.remove").map((c) => c.input)).toEqual([{ id: "D1", dryRun: true }]);
     more();
-    fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete this document…" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Delete" })).not.toHaveAttribute("aria-busy"));
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     expect(await screen.findByText("Could not delete the document")).toBeInTheDocument();
@@ -318,7 +384,7 @@ describe("DocDetail", () => {
     expect(onRemoved).not.toHaveBeenCalled();
     fail = false;
     more();
-    fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete this document…" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Delete" })).not.toHaveAttribute("aria-busy"));
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(onRemoved).toHaveBeenCalled());
@@ -334,16 +400,26 @@ describe("DocDetail", () => {
       folder: "docs/D1",
       unlinked: ["D2"],
       citedBy: cited,
+      passages: 6,
       dryRun: !!i.dryRun,
     });
     const { onRemoved } = show();
     await screen.findByRole("heading", { name: "Title D1" });
     more();
-    fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete this document…" }));
     expect(screen.getByRole("button", { name: "Delete" })).toHaveAttribute("aria-busy", "true");
     const list = await screen.findByRole("list", { name: "Tests that cite this document" });
     const dialog = screen.getByRole("alertdialog", { name: "Delete this document?" });
-    expect(dialog).toHaveTextContent("10 tests cite it, 1 of them validated");
+    const row = (text: RegExp) => within(dialog).getByText(text).closest("li");
+    expect(row(/^tests cite it, 1 of them validated: they stay as they are/)).toHaveTextContent(/^10\s*tests cite/);
+    expect(row(/^passages removed from the index, in every vector space$/)).toHaveTextContent(/^6\s*passages/);
+    expect(row(/^folder deleted: the copy of x\.pdf, doc\.md, 0 figures and its Claude context$/)).toHaveTextContent(
+      /^1\s*folder/,
+    );
+    expect(dialog).toHaveTextContent("C-D1 · Title D1 · 01.01");
+    expect(dialog).toHaveTextContent(
+      "This cannot be undone: to get it back, add x.pdf again (status and context start over).",
+    );
     expect(within(list).getAllByRole("listitem")).toHaveLength(8);
     expect(within(list).getByText("T-1")).toBeInTheDocument();
     expect(dialog).toHaveTextContent("and 2 more");
@@ -364,7 +440,7 @@ describe("DocDetail", () => {
     const { onRemoved } = show();
     await screen.findByRole("heading", { name: "Title D1" });
     more();
-    fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete this document…" }));
     expect(await screen.findByText(/could not be listed: tests unreadable/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(onRemoved).toHaveBeenCalled());
@@ -382,9 +458,20 @@ describe("DocDetail", () => {
     show();
     await screen.findByRole("heading", { name: "Title D1" });
     more();
-    fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete this document…" }));
     const dialog = await screen.findByRole("alertdialog", { name: "Delete this document?" });
-    await waitFor(() => expect(dialog).toHaveTextContent("1 test cites it."));
+    await waitFor(() =>
+      expect(
+        within(dialog)
+          .getByText(/^test cites it: they stay/)
+          .closest("li"),
+      ).toHaveTextContent(/^1\s*test/),
+    );
+    expect(
+      within(dialog)
+        .getByText(/^passages removed/)
+        .closest("li"),
+    ).toHaveTextContent(/^0\s*passages/);
     expect(dialog).toHaveTextContent("These documents amend it and will no longer name it: D2, D3");
   });
 

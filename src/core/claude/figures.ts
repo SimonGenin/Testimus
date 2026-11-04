@@ -119,7 +119,7 @@ export async function describeFigures(
   project: string,
   docId: string,
   ctx: Ctx,
-  opts: { force?: boolean } & JobRun = {},
+  opts: { force?: boolean; anchors?: string[] } & JobRun = {},
 ): Promise<DescribeResult> {
   const dir = join(project, "docs", docId);
   if (!/^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(docId) || !existsSync(join(dir, "doc.md")))
@@ -130,7 +130,7 @@ export async function describeFigures(
   const sections = parseSections(md);
   const all = docFigures(md, entries);
   const todo: FigureTodo[] = all
-    .filter((f) => f.file && (opts.force || !f.description.trim()))
+    .filter((f) => f.file && (opts.anchors ? opts.anchors.includes(f.anchor) : opts.force || !f.description.trim()))
     .map((f) => ({
       anchor: f.anchor,
       file: f.file,

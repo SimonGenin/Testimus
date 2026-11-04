@@ -16,7 +16,7 @@ import { ResultPane } from "./ResultPane.tsx";
 import { useGenerateForm } from "./useGenerateForm.ts";
 import { useGeneration } from "./useGeneration.ts";
 
-const FORM = { min: 320, max: 720, initial: 480 };
+const FORM = { min: 320, max: 720, initial: 576 };
 const INDEXING = new Set(["rag-index", "docs.add", "docs.convert"]);
 
 const styles = stylex.create({

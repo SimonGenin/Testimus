@@ -57,7 +57,7 @@ describe("Documents screen", () => {
     expect(within(listOf()).queryByRole("columnheader", { name: "Binding" })).toBeNull();
     expect(within(listOf()).getByText("Not indexed")).toBeInTheDocument();
     expect(within(row("Title D2")).getByText("2")).toBeInTheDocument();
-    expect(screen.getByText("No vectors yet")).toBeInTheDocument();
+    expect(screen.getByText(/so search matches words, not meaning\. Choose a search pack/)).toBeInTheDocument();
     expect(screen.getByText(/^2 documents/)).toBeInTheDocument();
     expect(rows()[1]).toHaveAttribute("aria-selected", "true");
     await waitFor(() =>
@@ -132,7 +132,7 @@ describe("Documents screen", () => {
     expect(await screen.findByText("Troisième.")).toBeInTheDocument();
     expect(named("docs.show").find((c) => c.input.anchor)?.input).toEqual({ id: "D1", anchor: "§1" });
     expect(document.querySelectorAll("[data-focus]")).toHaveLength(1);
-    expect(document.querySelector("[data-focus]")).toHaveTextContent("La deuxième ligne, citée.");
+    expect(document.querySelector("[data-focus]")?.textContent).toBe("La deuxième ligne,\ncitée");
     const part = document.querySelector('[data-testid="doc-part"]') as HTMLElement;
     expect(tops.get(part)).toBe(310);
     expect(tops.get(document.querySelector('[data-testid="doc-toc"]') as HTMLElement)).toBe(70);
@@ -142,6 +142,38 @@ describe("Documents screen", () => {
     expect(tops.get(part)).toBe(620);
     fireEvent.wheel(window);
     expect(watch.disconnect).toHaveBeenCalled();
+  });
+
+  it("a quote opened from a test says which test cited it, goes back to it, and Clear forgets the mark", async () => {
+    api.routes["docs.list"] = () => [doc("D1")];
+    api.routes["rag.status"] = status();
+    api.routes["docs.show"] = (i) =>
+      i.anchor
+        ? { md: "## 1 One\n\nUne ligne citée ici." }
+        : { doc: doc("D1"), context: "", toc: [{ anchor: "§1", title: "One", level: 1 }], figures: [], md: "" };
+    const back = vi.spyOn(window.history, "back").mockImplementation(() => {});
+    const open = (arg: string) => mountDocs(<DocumentsScreen />, { route: { screen: "documents", arg } }).app;
+    let a = open(`${docLink("D1", "§1", "ligne citée")} from LFRPS12-1420 step 2`);
+    const bar = await screen.findByText(/The quote cited by/);
+    expect(bar.closest('[role="status"], [role="alert"], div')).toHaveTextContent(
+      "The quote cited by LFRPS12-1420 · step 2, under § 1",
+    );
+    await waitFor(() => expect(document.querySelector("[data-focus]")?.textContent).toBe("ligne citée"));
+    expect(document.querySelector("[data-target]")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Back to the test" }));
+    expect(a.navigate).toHaveBeenCalledWith("tests", "LFRPS12-1420");
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+    expect(a.navigate).toHaveBeenCalledWith("documents", "D1#§1");
+    cleanup();
+    a = open(docLink("D1", "§1", "ligne citée"));
+    expect(await screen.findByText(/The quoted passage/)).toHaveTextContent("The quoted passage, under § 1");
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(back).toHaveBeenCalled();
+    cleanup();
+    open("D1#§1");
+    await screen.findByText("Une ligne citée ici.");
+    expect(screen.queryByText(/The quote/)).toBeNull();
+    expect(document.querySelector("[data-target]")).toHaveTextContent("§ 1 One");
   });
 
   it("a link to a figure marks the section that holds it in the contents", async () => {
@@ -183,7 +215,7 @@ describe("Documents screen", () => {
     detail();
     const { app: a } = mountDocs(<DocumentsScreen />, { route: { screen: "documents", arg: "D1" } });
     fireEvent.click(await screen.findByRole("button", { name: "More actions for this document" }));
-    fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete this document…" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Delete" })).not.toHaveAttribute("aria-busy"));
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(a.navigate).toHaveBeenCalledWith("documents"));
@@ -206,6 +238,61 @@ describe("Documents screen", () => {
     delete api.routes["docs.list"];
     mountDocs(<DocumentsScreen />);
     expect(await screen.findByText("Could not list the documents")).toBeInTheDocument();
+    expect(screen.queryByText("No document yet")).toBeNull();
+    expect(screen.queryByText(/^\d+ documents?$/)).toBeNull();
+    api.routes["docs.list"] = () => [doc("D1")];
+    detail();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByText("Title D1")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText("Could not list the documents")).toBeNull());
+  });
+
+  it("while the list loads: the shape of a document, no count yet", async () => {
+    let answer: () => void = () => {};
+    const held = new Promise<void>((r) => (answer = r));
+    const f = globalThis.fetch;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (String(url).startsWith("/api/docs/list")) await held;
+        return f(url, init);
+      }),
+    );
+    api.routes["docs.list"] = () => [doc("D1")];
+    mountDocs(<DocumentsScreen />);
+    const loading = await screen.findByRole("region", { name: "Loading the documents" });
+    expect(loading).toHaveAttribute("aria-busy", "true");
+    expect(screen.queryByText(/\d documents?/)).toBeNull();
+    detail();
+    answer();
+    expect(await screen.findByText("1 document")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Loading the documents" })).toBeNull();
+  });
+
+  it("says why search matches words only, in plain words", async () => {
+    api.routes["docs.list"] = () => [];
+    const why = async (over: Record<string, unknown>) => {
+      api.routes["rag.status"] = status({ degraded: "raw", ...over });
+      mountDocs(<DocumentsScreen />);
+      const text = (await screen.findByText(/so search matches words, not meaning/)).textContent;
+      cleanup();
+      return text?.split(",")[0];
+    };
+    expect(await why({ embedding: "bge-m3-q8", space: null })).toBe("This PC has no vectors for bge-m3-q8 yet");
+    expect(await why({ embedding: "bge-m3-q8", space: { complete: false } })).toBe(
+      "The vectors of bge-m3-q8 on this PC are incomplete",
+    );
+    expect(await why({ embedding: "none", space: null })).toBe("This PC has no search pack yet");
+  });
+
+  it("an empty project offers to add documents or a path", async () => {
+    api.routes["docs.list"] = () => [];
+    mountDocs(<DocumentsScreen />);
+    await screen.findByText("No document yet");
+    expect(screen.getByText(/\.docx \(preferred\) or \.pdf/)).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Add documents" })).toHaveLength(2);
+    fireEvent.click(screen.getAllByRole("button", { name: "Add from a path…" })[1]);
+    expect(pathDialog()).toBeInTheDocument();
   });
 
   it("reloads when the index job ends, not for others", async () => {
@@ -252,6 +339,7 @@ describe("Documents screen", () => {
     expect(veil(container)).toBeNull();
     fireEvent.dragOver(z, { dataTransfer: { types: ["Files"] } });
     expect(veil(container)).not.toBeNull();
+    expect(veil(container)).toHaveTextContent(/Drop Word or PDF files to add them\.docx is preferred/);
     fireEvent.dragLeave(listOf());
     expect(veil(container)).not.toBeNull();
     fireEvent.dragLeave(z);
@@ -341,6 +429,15 @@ describe("Documents screen", () => {
     expect(within(r).queryByRole("progressbar")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Dismiss spec.docx" }));
     expect(within(listOf()).queryAllByText("spec.docx")).toHaveLength(0);
+    addFromPath();
+    fireEvent.change(screen.getByLabelText("Path of the file"), { target: { value: "C:\\d\\spec.docx" } });
+    fireEvent.change(screen.getByLabelText("Its PDF rendering (optional)"), { target: { value: "C:\\p\\spec.pdf" } });
+    fireEvent.click(within(pathDialog()).getByRole("button", { name: "Add" }));
+    await waitFor(() =>
+      expect(named("docs.addFiles")[1]?.input).toEqual({
+        files: [{ path: "C:\\d\\spec.docx" }, { path: "C:\\p\\spec.pdf" }],
+      }),
+    );
   });
 
   it("adding a document only copies it, then opens it: no conversion, no index", async () => {
@@ -394,7 +491,7 @@ describe("Documents screen", () => {
     };
     const { app: a, unmount } = mountDocs(<DocumentsScreen />, { route: { screen: "documents" } });
     await screen.findByText("No document yet");
-    addFromPath();
+    fireEvent.click(screen.getAllByRole("button", { name: "Add from a path…" })[1]);
     fireEvent.change(screen.getByLabelText("Path of the file"), {
       target: { value: "C:/docs/SOSIE_211_D401-1_5.docx" },
     });

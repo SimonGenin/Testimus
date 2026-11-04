@@ -966,7 +966,7 @@ stops at the first failure), plus:
 Group | Verbs (all with `--json`; mutating ones marked *)
 ---|---
 `project` | `init`* (makes the folder a project and the current one; gives its name and Jira key), `openKey`* (open or create by Jira key; the current one), `info` (project.json + xray.json + the step columns in order with their modes + counts for the rail, all typed), `list`, `notes` (the project's CLAUDE.md, with its `mtime`), `setNotes`* (`ifMtime`: refused with code `conflict` when CLAUDE.md moved on disk), `set`* (patch project.json: names, language, label prefix, folders, rag keys incl. reference, queryTask, passageMaxChars, retrieval merged key by key; glossary; Claude defaults; gives project.json back), `open`* (last project), `forget`*, `delete`*
-`docs` | `add`* (job: copy + convert one document; a path, or an upload as base64), `addFiles`* (job: the files dropped or picked together, a .docx paired with its .pdf, copied only), `convert`* (job: convert, figures, re-check of the citing tests, triage, and with `index` the search index), `inspect` (profile of the originals), `page` (a page of the PDF copy as a PNG under .testimus/pages), `list` (with index freshness), `show` (+ `contextMtime`), `set`* (status, amends, context with `ifMtime`…), `describeFigures`* (job, Claude), `remove`* (`--dry-run`)
+`docs` | `add`* (job: copy + convert one document; a path, or an upload as base64), `addFiles`* (job: the files dropped or picked together, a .docx paired with its .pdf, copied only), `convert`* (job: convert, figures, re-check of the citing tests, triage, and with `index` the search index), `inspect` (profile of the originals), `page` (a page of the PDF copy as a PNG under .testimus/pages), `list` (with index freshness), `show` (+ `contextMtime`), `set`* (status, amends, context with `ifMtime`…), `describeFigures`* (job, Claude; the figures not described yet, `--force` all, `anchors` only those, described again), `remove`* (`--dry-run`; says the passages it takes out of the index)
 `rag` | `index`* (job; one run at a time per index), `search` (mode hybrid · bm25 · vector; `expand`), `passage` (docId#anchor → text + figures, centred on `around`, capped; code `doc-gone` for a missing document), `figure`, `mentions` (every passage holding a term, no model), `related` (graph neighbours, no model), `eval`* (job, L1; updates the index, writes its report), `compare` (reports → intervals), `status` (active model, space, freshness per document), `spaces`, `dropSpace`*
 `search` | `all` (Ctrl K: tests, documents, passages, by words and by meaning), `index`* (job: embeds the tests for search by meaning)
 `chat` | `ask`* (job, streamed; writes the conversation under `.testimus/chats/`), `list`, `show`
@@ -1169,29 +1169,29 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
     generation opened (cited ones marked) and the related sections it never opened, each opening in the panel; « not
     recorded » for a test without a ledger. A quote with a `quote-not-at-anchor` finding is not highlighted: the
     finding's message is shown above the passage.
-  - **Generate** — request, one picker per tracked kind (search by id or text over traces.find; requirements.csv text
-    for the requirement kind) — none when the project tracks nothing, with « Track ids… » instead —
-    sections (docs.show toc), folder; the index gate of §7 shown before the run (« Index not ready » with Reindex and
+  - **Generate** — request, documents and sections (docs.show toc), the smart columns Claude fills (their
+    descriptions, « Define the columns » when none is described), folder; the index gate of §7 shown before the run (« Index not ready » with Reindex and
     Generate disabled for a document of the scope not indexed, « Index not up to date » with Reindex for a stale one,
     Generate disabled while an index runs); gen.tests job shown live (passages read, tests landing as cards from « Writing
-    local-… » progress) and « What Claude did » (below); at the end check.run on the new tests, then the summary (written, requirements covered, not
+    local-… » progress) and « What Claude did » (below); at the end check.run on the new tests, then the summary (written, not
     covered + why) and « Review these tests ».
   - **Documents** — list (code · version, title, status, search state from docs.list.indexed, warnings);
-    drop or pick .docx/.pdf → docs.add job (by `file` path in the desktop app, `{ name, dataBase64 }` in the browser) — when the index has no vectors on this PC, a line « Search on words only » gives the reason and « Choose a search pack » then rag.index job; detail edits status
-    (Draft · Submitted · Validated), amends, context (docs.set); ⋯ ›
-    Delete (red) asks « Delete this document? » then docs.remove; shows the toc and the section text, each tracked kind's ids and the
-    figures as links. Above the list, « Tracked ids »: a chip per kind (count; a warning when its column is not in Xray),
-    « Track ids… » and « Coverage ».
-  - **Coverage** dialog (Documents, Generate, Settings › Tracked ids): per kind « N of M ids covered by K tests », a
-    bar, and Not covered / Covered / Not in the documents — each id with its document, section, line and the tests
-    and steps citing it (a click opens the test). « Generate tests for the N missing ids » opens Generate with them
-    picked. = traces.coverage.
-  - **Track ids** dialog (Documents, Generate, Settings): « What should Testimus pick out of the documents? » in words
-    (examples offered) → « Ask Claude » (traces.propose job, its reads shown) or « I know the pattern »; then a live
-    card — name, patterns (one per line, checked as typed), Xray step column (existing custom fields offered) — with
-    what the patterns find (ids, per document, first 12 with section and line), Claude's « why », and « What changes »:
-    the step column, the Generate picker, and whether Xray has the column (if not: how to add it, « Check Xray again »
-    = xray.fields). « Track these ids » = traces.save.
+    drop or pick .docx/.pdf, or « Add from a path… » (with its optional PDF rendering, of the same name) → docs.addFiles
+    job, which only copies (by `file` path in the desktop app, `{ name, dataBase64 }` in the browser) — when the index
+    has no vectors on this PC, a line « Search on words only » says why in plain words and « Choose a search pack » then
+    rag.index job; detail edits status (Draft · Submitted · Validated) and context (docs.set); shows the toc and the
+    section text (a linked heading or figure set apart; a quote marks only the quoted words, under a bar naming the test
+    that cited it when the link says so — `#/documents/<id>#<anchor> "<quote>" from <test> step <n>` — with « Back to
+    the test » and « Clear »). ⋯ › Convert again… (« Convert <code> again? »: figures, sections and warnings redone,
+    descriptions kept), Show in Explorer (desktop), Copy the document id, Delete this document… (« Delete this
+    document? »: the folder, the passages from docs.remove --dry-run, the citing tests; it cannot be undone). The
+    Figures view (always shown, « Figures 0 » too) is a grid in reading order filtered All / Described / Not described;
+    a tile picks a figure and the detail beside it shows the picture, its anchor, section and kind, Claude's reading
+    (description and visible text; never quotable), « Show in the text » and « Describe again »; « Describe N figures »
+    describes those not described yet — both docs.describeFigures jobs. A document whose files cannot be read says so
+    with Try again, Convert again, the app's raw words, Show in Explorer (desktop) and Open the system check.
+    (No tracked ids and no coverage: the concept went on 2026-11-03, `cd9d7a8` — a step column is a smart column
+    Claude fills from its description, and requirement coverage is computed outside the app, §16.)
   - **Jobs** — list (kind, subject, progress, duration, result) and detail (live log from jobs.show + events, Cancel);
     a job in which Claude ran shows « What Claude did » instead of the plain log. « Run again » = `jobs.rerun`: the
     same command with the input the job kept (not kept when large or secret), the new job caused by the old one
@@ -1223,9 +1223,7 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
     « Analyse
     again » measures anew, « Use <pack> » (dry run; the models-folder dialog when a download needs a folder; then
     `models.usePack`), « Skip for now ».
-  - **Settings** — Project, Step fields, Tracked ids, Claude, Search, Models, Access, Appearance. Every change saves at once.
-    - **Tracked ids**: each kind with its patterns, ids found, column and « In Xray / Not in Xray yet », Coverage,
-      Change (the dialog), Stop tracking (confirmation; values already in tests stay).
+  - **Settings** — Project, Smart columns, Claude, Search, Models, Access, Appearance. Every change saves at once.
     - **Search**: the team reference (`project.json.rag.reference`), the models used on this PC and where that choice
       comes from (`rag.status.activation`: this PC's choice · the team reference · the project's v1 model · the Light
       pack · none), the models chosen but missing here, « Search on words only » with `rag.status.degraded`'s reason, the
