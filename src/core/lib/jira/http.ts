@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { scope, semaphore, sleep } from "../../../shared/run/work.ts";
 import { env, type HttpReq, type HttpRes } from "../../env.ts";
 import { jobNotice, jobSignal, notice } from "../../jobs.ts";
@@ -48,8 +49,17 @@ export function retryAfter(headers: Record<string, string>, attempt: number): nu
   return Math.min(5 * 2 ** attempt, MAX_WAIT);
 }
 
+const commandSignal = new AsyncLocalStorage<AbortSignal>();
+
+// ponytail: a read that is not a job (xray.search typed letter by letter) hands its command's signal to every request
+// under it, so a page that gives up ends the fetch and the 429 wait, and its slot comes back at once
+export function withSignal<T>(signal: AbortSignal, work: () => Promise<T>): Promise<T> {
+  return commandSignal.run(signal, work);
+}
+
 export async function send(req: HttpReq): Promise<HttpRes> {
-  const signal = req.signal ?? jobSignal();
+  const all = [req.signal, commandSignal.getStore(), jobSignal()].filter((s): s is AbortSignal => !!s);
+  const signal = all.length > 1 ? AbortSignal.any(all) : all[0];
   return httpSlot(async () => {
     for (let attempt = 0; ; attempt++) {
       const res = await env.http({ ...req, signal });

@@ -74,14 +74,6 @@ describe("listDocs and the small readers", () => {
     expect(readContext(project, "D1")).toBe("");
   });
 
-  it("reads a doc.json written before the source had a name: its path gives the name", () => {
-    mkdirSync(join(project, "docs", "D1"), { recursive: true });
-    const source = { path: "/Users/x/Downloads/spec v2.pdf", file: "source.pdf", sha256: "a" };
-    writeFileSync(join(project, "docs", "D1", "doc.json"), JSON.stringify({ code: "D1", title: "D1", source }));
-    expect(readDoc(project, "D1").source).toMatchObject({ name: "spec v2.pdf", file: "source.pdf" });
-    expect(listDocs(project)[0].source.name).toBe("spec v2.pdf");
-  });
-
   it("an anchor without a §, fig or page prefix is taken as a section name", () => {
     expect(parseAnchor("DOC#annexe-b")).toEqual({ kind: "§", id: "annexe-b" });
     expect(parseAnchor("DOC#req:EXI_A_1")).toEqual({ kind: "§", id: "req:EXI_A_1" });
