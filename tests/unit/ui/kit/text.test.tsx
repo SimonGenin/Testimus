@@ -99,6 +99,7 @@ describe("Text", () => {
     await act(() => vi.advanceTimersByTimeAsync(400));
     expect(save).toHaveBeenCalledWith("disk!", "1");
     expect(screen.getByText("Saved")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Notes" })).toBe(f);
     fireEvent.change(f, { target: { value: "disk!!" } });
     expect(screen.queryByText("Edited")).toBeNull();
     await act(() => vi.advanceTimersByTimeAsync(1000));

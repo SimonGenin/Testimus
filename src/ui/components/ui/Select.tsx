@@ -9,6 +9,7 @@ const FOCUS = `0 0 0 ${border.width} ${color.focusRing}, 0 0 0 ${focus.halo} col
 const styles = stylex.create({
   wrap: { position: "relative", display: "inline-flex", alignItems: "center", minWidth: 0 },
   block: { display: "flex", width: "100%" },
+  labelled: { flexDirection: "column", alignItems: "stretch", gap: space.snug },
   label: { fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textMuted },
   select: {
     boxSizing: "border-box",
@@ -165,7 +166,7 @@ export function Select<V extends string>({
   const shown = typeof disabled === "string" ? <Tooltip label={disabled}>{field}</Tooltip> : field;
   if (!showLabel) return shown;
   return (
-    <span {...stylex.props(styles.wrap, block && styles.block)}>
+    <span {...stylex.props(styles.wrap, styles.labelled, block && styles.block)}>
       <label htmlFor={id} {...stylex.props(styles.label)}>
         {label}
       </label>

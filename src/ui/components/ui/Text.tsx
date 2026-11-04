@@ -410,10 +410,10 @@ function TextField(p: TextProps) {
   return (
     <div {...stylex.props(styles.field)}>
       {p.label && (
-        <label htmlFor={id} {...stylex.props(styles.label)}>
-          {p.label}
+        <div {...stylex.props(styles.label)}>
+          <label htmlFor={id}>{p.label}</label>
           <span {...stylex.props(styles.labelState)}>{word}</span>
-        </label>
+        </div>
       )}
       <div
         {...stylex.props(
