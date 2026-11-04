@@ -5,11 +5,12 @@ import { useApp } from "../../lib/app.ts";
 import { read, useRead } from "../../lib/data/query.ts";
 import { plural, relTime } from "../../lib/format.ts";
 import { errorToast } from "../../lib/toast.ts";
-import { color, fontSize, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 import { Button } from "../ui/Button.tsx";
 import { EmptyState } from "../ui/EmptyState.tsx";
 import { Icon } from "../ui/Icon.tsx";
 import { List } from "../ui/List.tsx";
+import { type } from "../ui/type.ts";
 import { ActionCard } from "./ActionCard.tsx";
 import { type ClaudeStatus, ConnectClaude } from "./ConnectClaude.tsx";
 import type { Sub, Tab } from "./DockScope.tsx";
@@ -28,14 +29,12 @@ const styles = stylex.create({
     gap: space.s4,
   },
   intro: { display: "flex", flexDirection: "column", gap: space.s4, paddingTop: space.s6 },
-  hint: { margin: 0, fontSize: fontSize.compact, lineHeight: lineHeight.compact, color: color.textMuted },
+  hint: { margin: 0, color: color.textMuted },
   bar: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     gap: space.s2,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
     color: color.textSubtle,
   },
 });
@@ -124,7 +123,7 @@ export function DockLog({
       ) : (
         <>
           {!onActions && asked > 0 && (
-            <div {...stylex.props(styles.bar)}>
+            <div {...stylex.props(type.small, styles.bar)}>
               <span>Conversation · {plural(asked, "request")}</span>
               <Button
                 size="sm"
@@ -142,7 +141,7 @@ export function DockLog({
               {sub === "project" ? (
                 <EmptyState icon="claude" title={PROJECT.title} text={PROJECT.text} />
               ) : (
-                <p {...stylex.props(styles.hint)}>{intro(sub, docId)}</p>
+                <p {...stylex.props(type.compact, styles.hint)}>{intro(sub, docId)}</p>
               )}
             </div>
           )}

@@ -3,13 +3,14 @@ import { useEffect, useState } from "react";
 import { discardAutosave } from "../../lib/data/autosave.ts";
 import { key, useRead } from "../../lib/data/query.ts";
 import { errorToast } from "../../lib/toast.ts";
-import { border, color, fontFamily, fontSize, size, space } from "../../styles/tokens.stylex.ts";
+import { border, color, fontFamily, size, space } from "../../styles/tokens.stylex.ts";
 import { Button } from "../ui/Button.tsx";
 import { EmptyState } from "../ui/EmptyState.tsx";
 import { Icon } from "../ui/Icon.tsx";
 import { List } from "../ui/List.tsx";
 import { Modal } from "../ui/Modal.tsx";
 import { Skeleton } from "../ui/Skeleton.tsx";
+import { type } from "../ui/type.ts";
 import { ContextEditor, useWords } from "./ContextEditor.tsx";
 import { CopyContext } from "./CopyContext.tsx";
 import { type ContextDetail, type ContextSummary, contextLine, useContexts, useContextWrite } from "./contexts.ts";
@@ -36,7 +37,7 @@ const styles = stylex.create({
   main: { paddingInlineStart: space.s6, minWidth: 0, minHeight: 0, overflowY: "auto" },
   centered: { display: "flex", alignItems: "center", justifyContent: "center" },
   path: { display: "inline-flex", alignItems: "center", gap: space.s2, fontFamily: fontFamily.mono },
-  muted: { fontSize: fontSize.small, color: color.textSubtle },
+  muted: { color: color.textSubtle },
 });
 
 // ponytail: the dialog that manages saved contexts — opened from Settings › Claude, a test's header and the dock
@@ -101,7 +102,7 @@ export function ContextsDialog({ onClose, initialId }: { onClose: () => void; in
           <span {...stylex.props(styles.path)}>
             <Icon name="folder" size="sm" />
             {detail.shared ? `shared library · ${detail.id}/` : `contexts/${detail.id}/`}
-            {detail.shared && <span {...stylex.props(styles.muted)}>· deleted for every project</span>}
+            {detail.shared && <span {...stylex.props(type.small, styles.muted)}>· deleted for every project</span>}
           </span>
         )
       }
@@ -120,7 +121,7 @@ export function ContextsDialog({ onClose, initialId }: { onClose: () => void; in
             items={rows}
             getKey={(c) => c.id}
             loading={list === undefined && !listRead.error}
-            empty={<span {...stylex.props(styles.muted)}>No context yet.</span>}
+            empty={<span {...stylex.props(type.small, styles.muted)}>No context yet.</span>}
             selected={detail?.id ?? null}
             onSelect={(k) => {
               if (k !== id) void words.flush().then(() => setSel(k));

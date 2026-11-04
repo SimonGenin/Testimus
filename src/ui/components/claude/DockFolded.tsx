@@ -1,8 +1,9 @@
 import * as stylex from "@stylexjs/stylex";
 import { plural } from "../../lib/format.ts";
-import { color, fontSize, fontWeight, lineHeight, size, space } from "../../styles/tokens.stylex.ts";
+import { color, size, space } from "../../styles/tokens.stylex.ts";
 import { Badge } from "../ui/Badge.tsx";
 import { Button } from "../ui/Button.tsx";
+import { type } from "../ui/type.ts";
 import type { Last } from "./useDockRuns.ts";
 
 const styles = stylex.create({
@@ -20,9 +21,6 @@ const styles = stylex.create({
   },
   label: {
     writingMode: "vertical-rl",
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
-    fontWeight: fontWeight.medium,
     color: color.textMuted,
     whiteSpace: "nowrap",
     maxHeight: size.dockStripLabel,
@@ -70,6 +68,8 @@ export function DockFolded({
       <span
         title={last && !running ? last.summary.replace(/[*_`]/g, "") : undefined}
         {...stylex.props(
+          type.small,
+          type.medium,
           styles.label,
           (running || (last?.ok && !offline)) && styles.claude,
           (offline || (last && !last.ok && !running)) && styles.danger,

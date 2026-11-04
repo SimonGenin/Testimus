@@ -202,6 +202,7 @@ describe("Documents screen folding", () => {
     const details = within(region).getByRole("button", { name: "Details" });
     expect(details).toHaveAttribute("aria-expanded", "false");
     expect(within(region).getByTestId("details-warned")).toHaveAttribute("title", "Conversion warnings");
+    expect(within(region).getByRole("img", { name: "Conversion warnings" })).toBeInTheDocument();
 
     fireEvent.click(details);
     expect(drawer("About this document")).not.toBeNull();

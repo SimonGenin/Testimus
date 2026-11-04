@@ -3,11 +3,12 @@ import type { SearchResult } from "../../../core/types.ts";
 import { useCommand } from "../../lib/data/query.ts";
 import { plural } from "../../lib/format.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
-import { border, breakpoint, color, fontSize, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { border, breakpoint, color, space } from "../../styles/tokens.stylex.ts";
 import { Badge } from "../ui/Badge.tsx";
 import { Button } from "../ui/Button.tsx";
 import { Chip } from "../ui/Chip.tsx";
 import { Kbd } from "../ui/Kbd.tsx";
+import { type } from "../ui/type.ts";
 
 const styles = stylex.create({
   foot: {
@@ -22,8 +23,6 @@ const styles = stylex.create({
     borderColor: color.border,
     backgroundColor: color.canvas,
     color: color.textMuted,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
   },
   keys: { display: "inline-flex", alignItems: "center", gap: space.s2 },
   tips: {
@@ -51,7 +50,7 @@ export function PaletteFoot({
   const index = useCommand("search.index", { invalidates: "none" });
   if (mode !== "search")
     return (
-      <div {...stylex.props(styles.foot)}>
+      <div {...stylex.props(type.small, styles.foot)}>
         <span {...stylex.props(styles.keys)}>
           {mode === "none" && <Kbd>↑↓</Kbd>}
           {mode === "none" && " move "}
@@ -68,7 +67,7 @@ export function PaletteFoot({
     );
   const unembedded = result?.meaning !== "unavailable" ? (result?.unembedded ?? 0) : 0;
   return (
-    <div {...stylex.props(styles.foot)}>
+    <div {...stylex.props(type.small, styles.foot)}>
       <span {...stylex.props(styles.keys)}>
         <Kbd>↑↓</Kbd> move <Kbd>Enter</Kbd> open <Kbd>Tab</Kbd> next kind
       </span>
@@ -85,7 +84,7 @@ export function PaletteFoot({
               {},
               {
                 onSuccess: () =>
-                  toast({ kind: "ok", title: "Indexing the tests by meaning", detail: "Follow it in Jobs." }),
+                  toast({ tone: "success", title: "Indexing the tests by meaning", detail: "Follow it in Jobs." }),
                 onError: (e) => errorToast(e, "Could not index the tests"),
               },
             )

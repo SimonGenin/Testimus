@@ -4,7 +4,7 @@ import type { Screen } from "../lib/app.ts";
 import type { CommandInfo } from "../lib/data/client.ts";
 import { plural } from "../lib/format.ts";
 import { setThemeEverywhere } from "../lib/theme.ts";
-import type { Toast } from "../lib/toast.ts";
+import type { ToastInput } from "../lib/toast.ts";
 
 // ponytail: what the palette offers besides the registry — the screens, the dock, the theme; without a project only
 // the screens that need none (Jobs, Settings, the system check)
@@ -61,19 +61,15 @@ const glance = (r: unknown): string => {
     .join(" · ");
 };
 
-export function commandToast(
-  c: CommandInfo,
-  result: unknown,
-  navigate: (s: Screen) => void,
-): Omit<Toast, "id" | "left"> {
+export function commandToast(c: CommandInfo, result: unknown, navigate: (s: Screen) => void): ToastInput {
   const what = firstSentence(c.summary) || c.name;
   const jobId = (result as { jobId?: string } | null)?.jobId;
   if (jobId)
     return {
-      kind: "ok",
+      tone: "success",
       title: `${what} — started`,
       detail: `${c.name} · Follow it in Jobs.`,
       action: { label: "Open", run: () => navigate("jobs") },
     };
-  return { kind: "ok", title: `${what} — done`, detail: [c.name, glance(result)].filter(Boolean).join(" · ") };
+  return { tone: "success", title: `${what} — done`, detail: [c.name, glance(result)].filter(Boolean).join(" · ") };
 }

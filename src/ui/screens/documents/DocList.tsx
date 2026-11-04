@@ -4,9 +4,10 @@ import { Badge } from "../../components/ui/Badge.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { List } from "../../components/ui/List.tsx";
 import type { ListItemProps } from "../../components/ui/ListItem.tsx";
+import { type } from "../../components/ui/type.ts";
 import { baseName } from "../../lib/desktop.ts";
 import { owns, settled, type Upload } from "../../lib/uploads.ts";
-import { color, fontFamily, fontSize, fontWeight, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { color, fontFamily, space } from "../../styles/tokens.stylex.ts";
 import { DocBadges } from "./badges.tsx";
 import { UploadFailure, uploadItem } from "./UploadItem.tsx";
 
@@ -19,9 +20,6 @@ const styles = stylex.create({
     gap: space.s3,
     paddingBlock: space.s4,
     paddingInline: space.s5,
-    fontSize: fontSize.titleSm,
-    lineHeight: lineHeight.titleSm,
-    fontWeight: fontWeight.semibold,
     color: color.text,
   },
   body: { boxSizing: "border-box", flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: space.s3 },
@@ -85,7 +83,7 @@ export function DocList({
   return (
     <section aria-label="Document list" {...stylex.props(styles.pane)}>
       {head && (
-        <div {...stylex.props(styles.head)}>
+        <div {...stylex.props(type.titleSm, styles.head)}>
           Documents
           {docs && <Badge count label={String(docs.length)} />}
         </div>

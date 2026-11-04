@@ -7,14 +7,15 @@ import { ImportContexts } from "../../components/claude/ImportContexts.tsx";
 import { SaveContext } from "../../components/claude/SaveContext.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { ClaudeBlock } from "../../components/ui/ClaudeBlock.tsx";
+import { type } from "../../components/ui/type.ts";
 import type { Save } from "../../lib/data/autosave.ts";
 import { execute, key, useRead } from "../../lib/data/query.ts";
 import { errorToast } from "../../lib/toast.ts";
-import { color, fontSize, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
   acts: { display: "flex", flexWrap: "wrap", gap: space.s2 },
-  hint: { margin: 0, fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textMuted },
+  hint: { margin: 0, color: color.textMuted },
 });
 
 type Shown = CommandOutput<"docs.show">;
@@ -87,7 +88,7 @@ export function DocContext({ id, shown, disabled }: { id: string; shown: Shown; 
           if (!on) void setContexts(ids.filter((x) => x !== c));
         }}
       />
-      <p {...stylex.props(styles.hint)}>
+      <p {...stylex.props(type.small, styles.hint)}>
         What the team knows about this document. Claude reads it in every run on this document.
       </p>
       <div {...stylex.props(styles.acts)}>

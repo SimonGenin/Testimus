@@ -3,9 +3,10 @@ import { useState } from "react";
 import { project } from "../../lib/data/client.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { errorToast } from "../../lib/toast.ts";
-import { color, fontSize, radius, space } from "../../styles/tokens.stylex.ts";
+import { color, radius, space } from "../../styles/tokens.stylex.ts";
 import { Button } from "../ui/Button.tsx";
 import { Select } from "../ui/Select.tsx";
+import { type } from "../ui/type.ts";
 import { useContextWrite } from "./contexts.ts";
 
 type Listed = { id: string; name: string };
@@ -22,7 +23,7 @@ const styles = stylex.create({
     borderRadius: radius.r3,
     backgroundColor: color.surfaceSunken,
   },
-  muted: { fontSize: fontSize.small, color: color.textSubtle },
+  muted: { color: color.textSubtle },
   acts: { display: "flex", justifyContent: "flex-end", gap: space.s2 },
 });
 
@@ -86,7 +87,7 @@ export function CopyContext({
           }}
         />
       ) : (
-        <span {...stylex.props(styles.muted)}>No other project opened yet</span>
+        <span {...stylex.props(type.small, styles.muted)}>No other project opened yet</span>
       )}
       {theirs &&
         (theirs.length ? (
@@ -99,7 +100,7 @@ export function CopyContext({
             onChange={setPick}
           />
         ) : (
-          <span {...stylex.props(styles.muted)}>That project has no context</span>
+          <span {...stylex.props(type.small, styles.muted)}>That project has no context</span>
         ))}
       <span {...stylex.props(styles.acts)}>
         <Button size="sm" variant="quiet" label="Cancel" onClick={() => setOpen(false)} />

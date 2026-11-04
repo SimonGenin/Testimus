@@ -28,7 +28,7 @@ export type Last = { seconds: number; summary: string; ok: boolean };
 
 const TESTS: Prefix[] = [["tests.show"]];
 const BUSY = {
-  kind: "info" as const,
+  tone: "neutral" as const,
   title: "Claude is busy",
   detail: "Wait for the current run, or cancel it (Esc).",
 };
@@ -310,7 +310,7 @@ export function useDockRuns(app: AppState) {
       patch(t.id, (x) => ({ ...x, run: x.run && { ...x.run, reverted: true } }));
       app.setLastRun({ runId: "", changedTests: r.reverted ?? [], changedSteps: {}, nonce: Date.now() });
       toast({
-        kind: "info",
+        tone: "neutral",
         title: "Claude's changes reverted",
         detail: `${plural(r.reverted?.length ?? 0, "test")}${r.files?.length ? ` and ${plural(r.files.length, "file")}` : ""} restored.`,
       });

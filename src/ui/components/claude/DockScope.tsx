@@ -1,9 +1,10 @@
 import * as stylex from "@stylexjs/stylex";
 import type { Focus } from "../../lib/app.ts";
-import { color, fontFamily, fontSize, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { color, fontFamily, space } from "../../styles/tokens.stylex.ts";
 import { Icon } from "../ui/Icon.tsx";
 import { Segmented } from "../ui/Segmented.tsx";
 import { Tabs } from "../ui/Tabs.tsx";
+import { type } from "../ui/type.ts";
 
 export type Tab = "docs" | "test" | "actions";
 export type Sub = "doc" | "all" | "step" | "test" | "project";
@@ -11,15 +12,8 @@ export type Sub = "doc" | "all" | "step" | "test" | "project";
 const styles = stylex.create({
   scope: { display: "flex", flexDirection: "column", gap: space.s3, paddingInline: space.s4, paddingTop: space.s2 },
   row: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: space.s3, minWidth: 0 },
-  line: {
-    display: "flex",
-    alignItems: "center",
-    gap: space.s2,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
-    color: color.textSubtle,
-  },
-  key: { fontFamily: fontFamily.mono, fontSize: fontSize.small, color: color.textMuted },
+  line: { display: "flex", alignItems: "center", gap: space.s2, color: color.textSubtle },
+  key: { fontFamily: fontFamily.mono, color: color.textMuted },
 });
 
 // ponytail: what the dock talks about — the documents, this test (a step, the test, the whole project) or the actions
@@ -81,7 +75,7 @@ export function DockScope({
               { value: "all", label: "All documents", disabled: running },
             ]}
           />
-          {docId && sub === "doc" && <span {...stylex.props(styles.key)}>{docId}</span>}
+          {docId && sub === "doc" && <span {...stylex.props(type.small, styles.key)}>{docId}</span>}
         </div>
       )}
       {tab === "test" &&
@@ -102,16 +96,16 @@ export function DockScope({
                 { value: "project", label: "Whole project", disabled: running },
               ]}
             />
-            <span {...stylex.props(styles.key)}>{focus.key ?? "local test"}</span>
+            <span {...stylex.props(type.small, styles.key)}>{focus.key ?? "local test"}</span>
           </div>
         ) : (
-          <span {...stylex.props(styles.line)}>
+          <span {...stylex.props(type.small, styles.line)}>
             <Icon name="target" size="sm" />
             Whole project · its tests, documents and contexts
           </span>
         ))}
       {tab === "actions" && (
-        <span {...stylex.props(styles.line)}>
+        <span {...stylex.props(type.small, styles.line)}>
           <Icon name="info" size="sm" />
           Fixes a run proposed for later · every change can be reverted
         </span>

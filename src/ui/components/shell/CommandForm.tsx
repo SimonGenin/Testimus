@@ -8,11 +8,12 @@ import { execute, useRead } from "../../lib/data/query.ts";
 import { message } from "../../lib/format.ts";
 import { toast } from "../../lib/toast.ts";
 import { PushDialog } from "../../screens/tests/PushDialog.tsx";
-import { border, color, fontFamily, fontSize, lineHeight, radius, space } from "../../styles/tokens.stylex.ts";
+import { fontFamily, space } from "../../styles/tokens.stylex.ts";
 import { Button } from "../ui/Button.tsx";
 import { Checkbox } from "../ui/Checkbox.tsx";
 import { Icon } from "../ui/Icon.tsx";
 import { Modal } from "../ui/Modal.tsx";
+import { Raw } from "../ui/Raw.tsx";
 import { Select } from "../ui/Select.tsx";
 import { Text } from "../ui/Text.tsx";
 
@@ -23,22 +24,7 @@ export { hasInput } from "./paletteEntries.tsx";
 const styles = stylex.create({
   fields: { display: "flex", flexDirection: "column", gap: space.s4 },
   mono: { fontFamily: fontFamily.mono },
-  result: {
-    margin: 0,
-    marginTop: space.s4,
-    padding: space.s4,
-    maxHeight: "40vh",
-    overflow: "auto",
-    borderWidth: border.width,
-    borderStyle: "solid",
-    borderColor: color.border,
-    borderRadius: radius.r2,
-    backgroundColor: color.surfaceSunken,
-    fontFamily: fontFamily.mono,
-    fontSize: fontSize.code,
-    lineHeight: lineHeight.code,
-    whiteSpace: "pre-wrap",
-  },
+  result: { marginTop: space.s4 },
 });
 
 // ponytail: Jira writes from the palette never go blind — a push opens the plan dialog
@@ -118,7 +104,7 @@ export function CommandForm({
       });
       const jobId = command.job ? (r as { jobId?: string } | null)?.jobId : undefined;
       if (jobId) {
-        toast({ kind: "info", title: `${command.name} started`, detail: "Follow it in Jobs." });
+        toast({ tone: "neutral", title: `${command.name} started`, detail: "Follow it in Jobs." });
         onJob?.(jobId);
         onClose();
         return;
@@ -260,9 +246,9 @@ export function CommandForm({
         })}
       </div>
       {result !== null && (
-        <pre data-testid="command-result" {...stylex.props(styles.result)}>
-          {result}
-        </pre>
+        <div data-testid="command-result" {...stylex.props(styles.result)}>
+          <Raw text={result} maxLines={16} label="Result" />
+        </div>
       )}
     </Modal>
   );

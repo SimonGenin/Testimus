@@ -51,7 +51,7 @@ export function DesktopBridge({ booted }: { booted: boolean }) {
         .current({ dir })
         .then((r) => showProject(latest.current, r.dir))
         .then((opened) => {
-          toast({ kind: "info", title: "Project opened", detail: opened });
+          toast({ tone: "neutral", title: "Project opened", detail: opened });
           if (latest.current.route.screen === "setup") latest.current.navigate("documents");
         })
         .catch((e) => errorToast(e, "Could not open the project"));

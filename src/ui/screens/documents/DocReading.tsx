@@ -5,20 +5,11 @@ import { Card } from "../../components/ui/Card.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { Timeline, type TimelineItem } from "../../components/ui/Timeline.tsx";
+import { type } from "../../components/ui/type.ts";
 import { fileUrl } from "../../lib/data/client.ts";
 import { invalidate, useRead } from "../../lib/data/query.ts";
 import type { Upload } from "../../lib/uploads.ts";
-import {
-  border,
-  color,
-  duration,
-  easing,
-  fontSize,
-  lineHeight,
-  radius,
-  size,
-  space,
-} from "../../styles/tokens.stylex.ts";
+import { border, color, duration, easing, radius, size, space } from "../../styles/tokens.stylex.ts";
 
 const appear = stylex.keyframes({
   from: { opacity: 0, transform: `translateY(${space.s2})` },
@@ -28,7 +19,7 @@ const appear = stylex.keyframes({
 const styles = stylex.create({
   wrap: { padding: space.s5, overflowY: "auto", flex: 1, minHeight: 0 },
   body: { display: "flex", flexDirection: "column", gap: space.s4 },
-  msg: { margin: 0, fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textMuted },
+  msg: { margin: 0, color: color.textMuted },
   toc: { display: "flex", flexDirection: "column", gap: space.s1, margin: 0, padding: 0, listStyle: "none" },
   sec: {
     position: "relative",
@@ -36,17 +27,15 @@ const styles = stylex.create({
     alignItems: "center",
     gap: space.s3,
     paddingBlock: space.s1,
-    fontSize: fontSize.compact,
-    lineHeight: lineHeight.compact,
     color: color.textMuted,
   },
   secNew: { animationName: appear, animationDuration: duration.slow, animationTimingFunction: easing.enter },
   secIndexed: { color: color.text },
   secNow: { color: color.accentText },
-  indent: (n: number) => ({ paddingLeft: `calc(${space.s5} * ${n})` }),
+  indent: (n: number) => ({ paddingLeft: `calc(${size.iconMd} * ${n})` }),
   title: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   mark: { display: "inline-flex", width: size.iconSm, color: color.success },
-  more: { fontSize: fontSize.small, color: color.textSubtle },
+  more: { color: color.textSubtle },
   figs: {
     display: "grid",
     gridTemplateColumns: `repeat(auto-fill, minmax(${size.controlLg}, ${size.row2}))`,
@@ -78,13 +67,7 @@ const styles = stylex.create({
     backgroundColor: color.surface,
     borderRadius: radius.full,
   },
-  figMore: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: fontSize.small,
-    color: color.textMuted,
-  },
+  figMore: { display: "flex", alignItems: "center", justifyContent: "center", color: color.textMuted },
   lock: { display: "flex", alignItems: "center", gap: space.s2 },
   sr: {
     position: "absolute",
@@ -163,7 +146,7 @@ export function DocReading({ docId, upload }: { docId: string; upload: Upload })
         <Card>
           <div {...stylex.props(styles.body)}>
             <Timeline label="Steps" items={steps} compact />
-            <p role="status" {...stylex.props(styles.msg)}>
+            <p role="status" {...stylex.props(type.small, styles.msg)}>
               {upload.message}
             </p>
             {known ? (
@@ -176,6 +159,7 @@ export function DocReading({ docId, upload }: { docId: string; upload: Upload })
                       data-state={state}
                       data-new={i >= before.sections ? "" : undefined}
                       {...stylex.props(
+                        type.compact,
                         styles.sec,
                         styles.indent(t.level - 1),
                         i >= before.sections && styles.secNew,
@@ -196,7 +180,7 @@ export function DocReading({ docId, upload }: { docId: string; upload: Upload })
                   );
                 })}
                 {sections.length > SECTIONS && (
-                  <li {...stylex.props(styles.more)}>and {sections.length - SECTIONS} more sections</li>
+                  <li {...stylex.props(type.small, styles.more)}>and {sections.length - SECTIONS} more sections</li>
                 )}
               </ol>
             ) : (
@@ -240,11 +224,11 @@ export function DocReading({ docId, upload }: { docId: string; upload: Upload })
                   );
                 })}
                 {figures.length > THUMBS && (
-                  <li {...stylex.props(styles.fig, styles.figMore)}>+{figures.length - THUMBS}</li>
+                  <li {...stylex.props(styles.fig, type.small, styles.figMore)}>+{figures.length - THUMBS}</li>
                 )}
               </ul>
             )}
-            <p {...stylex.props(styles.msg, styles.lock)}>
+            <p {...stylex.props(type.small, styles.msg, styles.lock)}>
               <Icon name="lock" size="sm" />
               The text and the figures open once the document is converted and indexed.
             </p>

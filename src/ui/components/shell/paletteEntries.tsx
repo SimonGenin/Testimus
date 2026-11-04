@@ -1,10 +1,11 @@
 import * as stylex from "@stylexjs/stylex";
 import type { CommandInfo } from "../../lib/data/client.ts";
-import { color, fontFamily, fontSize, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 import { Badge } from "../ui/Badge.tsx";
 import { Icon, type IconName } from "../ui/Icon.tsx";
 import { Kbd } from "../ui/Kbd.tsx";
 import type { ListItemProps } from "../ui/ListItem.tsx";
+import { type } from "../ui/type.ts";
 
 export type PaletteAction = {
   id: string;
@@ -37,13 +38,7 @@ const COMMAND_ICON: Record<string, IconName> = {
 
 const styles = stylex.create({
   side: { display: "inline-flex", alignItems: "center", gap: space.s2 },
-  hint: {
-    fontFamily: fontFamily.mono,
-    fontSize: fontSize.code,
-    lineHeight: lineHeight.code,
-    color: color.textMuted,
-    whiteSpace: "nowrap",
-  },
+  hint: { color: color.textMuted, whiteSpace: "nowrap" },
 });
 
 export const firstSentence = (s: string) => s.split(/(?<=[.:])\s|\s\(/)[0].replace(/[.:]$/, "");
@@ -69,7 +64,7 @@ function side(hint?: string, shortcut?: string, input?: boolean) {
   return (
     <span {...stylex.props(styles.side)}>
       {shortcut && <Kbd>{shortcut}</Kbd>}
-      {hint && <span {...stylex.props(styles.hint)}>{hint}</span>}
+      {hint && <span {...stylex.props(type.code, styles.hint)}>{hint}</span>}
       {input && <Badge label="needs input" icon="text" size="sm" />}
     </span>
   );

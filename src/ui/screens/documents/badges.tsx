@@ -1,6 +1,5 @@
 import type { DocRef } from "../../../core/types.ts";
-import { DOC_STATUS } from "../../components/sources/PassageView.tsx";
-import { Badge, type BadgeProps } from "../../components/ui/Badge.tsx";
+import { Badge, type BadgeProps, DOC_STATUS } from "../../components/ui/Badge.tsx";
 
 type Word = Pick<BadgeProps, "label" | "tone" | "icon">;
 
@@ -12,7 +11,8 @@ const INDEX: Record<DocRef["indexed"], Word> = {
 
 const NOT_CONVERTED: Word = { label: "Not converted", tone: "info", icon: "file" };
 
-export const statusWord = (s: string): Word => DOC_STATUS[s] ?? { label: s, tone: "neutral" };
+export const statusWord = (s: string): Word =>
+  DOC_STATUS[s as keyof typeof DOC_STATUS] ?? { label: s, tone: "neutral" };
 
 export const indexWord = (d: Pick<DocRef, "indexed" | "converted">): Word =>
   !d.converted?.at ? NOT_CONVERTED : (INDEX[d.indexed] ?? INDEX.missing);

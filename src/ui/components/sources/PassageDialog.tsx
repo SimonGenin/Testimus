@@ -5,11 +5,12 @@ import { useRead } from "../../lib/data/query.ts";
 import { goneText } from "../../lib/docGone.ts";
 import { sourceLabel } from "../../lib/fields.ts";
 import { message } from "../../lib/format.ts";
-import { color, fontFamily, fontSize, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { color, fontFamily, space } from "../../styles/tokens.stylex.ts";
 import { Banner } from "../ui/Banner.tsx";
 import { Button } from "../ui/Button.tsx";
 import { Modal } from "../ui/Modal.tsx";
 import { Skeleton } from "../ui/Skeleton.tsx";
+import { type } from "../ui/type.ts";
 import { DocBadges, PassageText } from "./PassageView.tsx";
 
 export { highlight } from "./PassageView.tsx";
@@ -18,19 +19,12 @@ const styles = stylex.create({
   plain: { margin: 0 },
   body: { display: "flex", flexDirection: "column", gap: space.s4 },
   sub: { display: "inline-flex", flexWrap: "wrap", alignItems: "center", gap: space.s2 },
-  mono: { fontFamily: fontFamily.mono, fontSize: fontSize.small },
-  quote: {
-    margin: 0,
-    fontFamily: fontFamily.reading,
-    fontSize: fontSize.reading,
-    lineHeight: lineHeight.reading,
-    color: color.textMuted,
-  },
+  mono: { fontFamily: fontFamily.mono },
+  quote: { margin: 0, color: color.textMuted },
   nav: {
     display: "inline-flex",
     alignItems: "center",
     gap: space.s1,
-    fontSize: fontSize.small,
     color: color.textMuted,
     fontVariantNumeric: "tabular-nums",
   },
@@ -70,14 +64,14 @@ export function PassageDialog({
   const docs = useRead("docs.list", {}, { enabled: !!read.error });
   const listed = docs.data as unknown as DocRef[] | undefined;
   const gone = !!read.error && !!listed && !listed.some((d) => d.id === source.docId || d.code === source.docId);
-  const quote = source.quote && <p {...stylex.props(styles.quote)}>« {source.quote} »</p>;
+  const quote = source.quote && <p {...stylex.props(type.reading, styles.quote)}>« {source.quote} »</p>;
   return (
     <Modal
       title={from?.step ? `Source of step ${from.step}` : sourceLabel(source)}
       icon="quote"
       subtitle={
         <span {...stylex.props(styles.sub)}>
-          <span {...stylex.props(styles.mono)}>{p?.doc.code ?? source.docId}</span>
+          <span {...stylex.props(type.small, styles.mono)}>{p?.doc.code ?? source.docId}</span>
           {p ? (
             <>
               <span>
@@ -86,14 +80,14 @@ export function PassageDialog({
               <DocBadges status={p.doc.status} />
             </>
           ) : (
-            <span {...stylex.props(styles.mono)}>· {source.anchor}</span>
+            <span {...stylex.props(type.small, styles.mono)}>· {source.anchor}</span>
           )}
         </span>
       }
       onClose={onClose}
       footNote={
         all.length > 1 && (
-          <span {...stylex.props(styles.nav)}>
+          <span {...stylex.props(type.small, styles.nav)}>
             <Button
               size="sm"
               variant="quiet"

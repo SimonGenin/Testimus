@@ -2,26 +2,19 @@ import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
 import type { Source } from "../../../core/types.ts";
 import { sourceLabel } from "../../lib/fields.ts";
-import { color, fontSize, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 import { SourceChip } from "../ui/SourceChip.tsx";
+import { type } from "../ui/type.ts";
 
 const blink = stylex.keyframes({ "0%, 49%": { opacity: 1 }, "50%, 100%": { opacity: 0 } });
 
 const styles = stylex.create({
-  answer: {
-    display: "flex",
-    flexDirection: "column",
-    gap: space.s3,
-    fontSize: fontSize.body,
-    lineHeight: lineHeight.body,
-    color: color.text,
-    overflowWrap: "anywhere",
-  },
+  answer: { display: "flex", flexDirection: "column", gap: space.s3, color: color.text, overflowWrap: "anywhere" },
   para: { margin: 0, whiteSpace: "pre-wrap" },
   caret: {
     display: "inline-block",
     width: space.s1,
-    height: lineHeight.small,
+    height: "1em",
     marginInlineStart: space.s1,
     verticalAlign: "text-bottom",
     backgroundColor: color.claude,
@@ -70,7 +63,7 @@ export function AnswerText({
 }) {
   const paras = text.split(/\n{2,}/);
   return (
-    <div {...stylex.props(styles.answer)}>
+    <div {...stylex.props(type.body, styles.answer)}>
       {paras.map((p, i) => {
         const bits = parseAnswer(p);
         const parts: ReactNode[] = bits.map((x, k) =>

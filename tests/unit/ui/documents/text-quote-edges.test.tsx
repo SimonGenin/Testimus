@@ -9,13 +9,15 @@ afterEach(() => {
 });
 
 const lit = (c: HTMLElement) => [...c.querySelectorAll("[data-focus]")];
+// the quoted words are a <mark> of the kit (Marked) inside the place the reader scrolls to
+const kind = (e: Element) => (e.querySelector("mark") ? "MARK" : e.tagName);
 
 describe("DocText, where the quote is lit", () => {
   it("marks a quote whose words the text spaces out, past a block of stars alone", () => {
     const md = ["***", "Le  frein agit\n sur l'essieu."].join("\n\n");
     const { container } = render(<DocText docId="D" md={md} focus="frein agit sur" onFigure={vi.fn()} />);
     expect(lit(container)).toHaveLength(1);
-    expect(lit(container)[0].tagName).toBe("MARK");
+    expect(kind(lit(container)[0])).toBe("MARK");
     expect(lit(container)[0].textContent).toBe("frein agit\n sur");
   });
 

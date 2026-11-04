@@ -8,10 +8,13 @@ import { Button } from "../../components/ui/Button.tsx";
 import { Disclosure } from "../../components/ui/Disclosure.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { Progress } from "../../components/ui/Progress.tsx";
+import { Raw } from "../../components/ui/Raw.tsx";
 import { Spinner } from "../../components/ui/Spinner.tsx";
+import { Timer } from "../../components/ui/Timer.tsx";
+import { type } from "../../components/ui/type.ts";
 import { plural } from "../../lib/format.ts";
 import { duration } from "../../lib/jobs.ts";
-import { color, fontFamily, fontSize, fontWeight, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 
 export type GenCheck = { id: string; ok: boolean; review: string; errors: number; warnings: number };
 
@@ -34,65 +37,22 @@ export type GenOutput = {
 const styles = stylex.create({
   head: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s3 },
   titles: { display: "flex", flexDirection: "column", gap: space.s1, minWidth: 0, flex: 1 },
-  over: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: space.s2,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
-    fontWeight: fontWeight.medium,
-    color: color.claudeText,
-  },
+  over: { display: "inline-flex", alignItems: "center", gap: space.s2, color: color.claudeText },
   spin: { display: "inline-flex", alignSelf: "flex-start", marginTop: space.s2, color: color.claude },
-  jobId: { fontFamily: fontFamily.mono, fontSize: fontSize.code },
-  clock: {
-    fontFamily: fontFamily.mono,
-    fontSize: fontSize.code,
-    color: color.claudeText,
-    fontVariantNumeric: "tabular-nums",
-  },
-  title: {
-    margin: 0,
-    fontSize: fontSize.title,
-    lineHeight: lineHeight.title,
-    fontWeight: fontWeight.semibold,
-    color: color.text,
-  },
-  meta: { fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textSubtle },
+  title: { margin: 0, color: color.text },
+  meta: { color: color.textSubtle },
   grow: { flex: 1 },
   body: { display: "flex", flexDirection: "column", gap: space.s3 },
-  line: { margin: 0, fontSize: fontSize.body, lineHeight: lineHeight.body, color: color.text },
-  muted: { margin: 0, fontSize: fontSize.compact, lineHeight: lineHeight.compact, color: color.textMuted },
+  line: { margin: 0, color: color.text },
+  muted: { margin: 0, color: color.textMuted },
   cov: { display: "flex", flexDirection: "column", gap: space.s2 },
-  caption: {
-    margin: 0,
-    fontSize: fontSize.caption,
-    lineHeight: lineHeight.caption,
-    fontWeight: fontWeight.medium,
-    color: color.textMuted,
-  },
-  skipped: {
-    margin: 0,
-    padding: 0,
-    listStyle: "none",
-    display: "flex",
-    flexDirection: "column",
-    gap: space.s2,
-    fontSize: fontSize.compact,
-    lineHeight: lineHeight.compact,
-  },
+  caption: { margin: 0, color: color.textMuted },
+  skipped: { margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: space.s2 },
   no: { display: "flex", alignItems: "flex-start", gap: space.s2, minWidth: 0 },
   noIcon: { display: "inline-flex", flex: "none", marginTop: space.s1, color: color.warning },
   noBody: { display: "flex", flexDirection: "column", gap: space.s1, minWidth: 0 },
   why: { color: color.textMuted },
-  item: { fontFamily: fontFamily.mono, fontSize: fontSize.code, overflowWrap: "anywhere" },
-  raw: {
-    margin: 0,
-    fontFamily: fontFamily.mono,
-    fontSize: fontSize.code,
-    color: color.textMuted,
-    overflowWrap: "anywhere",
-  },
+  item: { overflowWrap: "anywhere" },
   fold: { alignSelf: "flex-end" },
 });
 
@@ -168,9 +128,9 @@ function Head({
       {badge}
       {(title || meta) && (
         <div {...stylex.props(styles.titles)}>
-          {over && <span {...stylex.props(styles.over)}>{over}</span>}
-          {title && <h2 {...stylex.props(styles.title)}>{title}</h2>}
-          {meta && <span {...stylex.props(styles.meta)}>{meta}</span>}
+          {over && <span {...stylex.props(type.small, type.medium, styles.over)}>{over}</span>}
+          {title && <h2 {...stylex.props(type.title, styles.title)}>{title}</h2>}
+          {meta && <span {...stylex.props(type.small, styles.meta)}>{meta}</span>}
         </div>
       )}
       <span {...stylex.props(styles.grow)} />
@@ -215,16 +175,14 @@ export function RunHead({
           over={
             <>
               <Icon name="claude" size="sm" />
-              <span>Claude is writing</span>·<span {...stylex.props(styles.jobId)}>{job.id}</span>
+              <span>Claude is writing</span>·<span {...stylex.props(type.code)}>{job.id}</span>
             </>
           }
           title={count ? `${plural(count, "test")} so far` : doing}
           meta={`${plural(read, "passage")} read`}
           actions={
             <>
-              <span role="timer" aria-label="Time since it started" {...stylex.props(styles.clock)}>
-                {duration(job, now)}
-              </span>
+              <Timer seconds={Math.round((now - Date.parse(job.startedAt)) / 1000)} />
               {foldAll}
               <Button size="sm" icon="stop" label="Cancel" onClick={onCancel} />
             </>
@@ -285,7 +243,7 @@ export function RunHead({
         </Banner>
         {result?.diagnosis?.detail && job.error && (
           <Disclosure summary="Technical details" quiet>
-            <p {...stylex.props(styles.raw)}>{job.error}</p>
+            <Raw text={job.error} />
           </Disclosure>
         )}
         {foldAll && <span {...stylex.props(styles.fold)}>{foldAll}</span>}
@@ -309,31 +267,31 @@ export function GenSummary({ result, checked }: { result: GenOutput; checked: st
   const skipped = result.skipped ?? [];
   return (
     <div {...stylex.props(styles.body)}>
-      {checked && <p {...stylex.props(styles.line)}>{checked}</p>}
+      {checked && <p {...stylex.props(type.body, styles.line)}>{checked}</p>}
       {!!result.discarded?.length && (
-        <p {...stylex.props(styles.muted)}>
+        <p {...stylex.props(type.compact, styles.muted)}>
           {plural(result.discarded.length, "test")} not validated yet {result.discarded.length === 1 ? "was" : "were"}{" "}
           deleted before this run.
         </p>
       )}
       {!result.reportFound && result.ok && (
-        <p {...stylex.props(styles.muted)}>
+        <p {...stylex.props(type.compact, styles.muted)}>
           Claude did not say what it could not write a test for: read its reply in the log.
         </p>
       )}
       {skipped.length > 0 && (
         <section aria-labelledby="gen-not-covered" {...stylex.props(styles.cov)}>
-          <h3 id="gen-not-covered" {...stylex.props(styles.caption)}>
+          <h3 id="gen-not-covered" {...stylex.props(type.caption, styles.caption)}>
             Not covered · {skipped.length} — and why
           </h3>
-          <ul {...stylex.props(styles.skipped)}>
+          <ul {...stylex.props(type.compact, styles.skipped)}>
             {skipped.map((u) => (
               <li key={u.item} {...stylex.props(styles.no)}>
                 <span {...stylex.props(styles.noIcon)}>
                   <Icon name="alert-triangle" size="sm" />
                 </span>
                 <span {...stylex.props(styles.noBody)}>
-                  <span {...stylex.props(styles.item)}>{u.item}</span>
+                  <span {...stylex.props(type.code, styles.item)}>{u.item}</span>
                   <span {...stylex.props(styles.why)}>{u.why}</span>
                 </span>
               </li>

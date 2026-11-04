@@ -1,62 +1,32 @@
 import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
 import { Button } from "../../components/ui/Button.tsx";
+import { Marked } from "../../components/ui/Marked.tsx";
+import { type } from "../../components/ui/type.ts";
 import { fileUrl } from "../../lib/data/client.ts";
-import {
-  border,
-  color,
-  fontFamily,
-  fontSize,
-  fontWeight,
-  lineHeight,
-  radius,
-  size,
-  space,
-} from "../../styles/tokens.stylex.ts";
+import { border, color, fontFamily, radius, size, space } from "../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
   text: {
     display: "flex",
     flexDirection: "column",
     gap: space.s4,
-    maxWidth: `calc(${size.reading} + ${size.thumb})`,
-    fontFamily: fontFamily.reading,
-    fontSize: fontSize.reading,
-    lineHeight: lineHeight.reading,
+    maxWidth: `calc(${size.reading} + ${space.s11} + ${space.s8} + ${space.s5})`,
     color: color.text,
   },
   row: {
     display: "grid",
-    gridTemplateColumns: `${size.thumb} minmax(0, 1fr)`,
+    gridTemplateColumns: `calc(${space.s11} + ${space.s8}) minmax(0, 1fr)`,
     columnGap: space.s5,
     alignItems: "baseline",
     margin: 0,
   },
-  gutter: {
-    justifySelf: "end",
-    fontFamily: fontFamily.mono,
-    fontSize: fontSize.code,
-    lineHeight: lineHeight.code,
-    fontWeight: fontWeight.regular,
-    color: color.textSubtle,
-    whiteSpace: "nowrap",
-  },
+  gutter: { justifySelf: "end", color: color.textSubtle, whiteSpace: "nowrap" },
   block: { minWidth: 0 },
   figRow: { alignItems: "start" },
-  heading: {
-    fontSize: fontSize.readingHeading,
-    lineHeight: lineHeight.readingHeading,
-    fontWeight: fontWeight.semibold,
-    marginTop: space.s4,
-  },
+  heading: { marginTop: space.s4 },
   para: { margin: 0 },
   focus: { backgroundColor: color.highlight, color: color.highlightText, borderRadius: radius.r1 },
-  mark: {
-    backgroundColor: color.highlight,
-    color: color.highlightText,
-    borderRadius: radius.mark,
-    boxDecorationBreak: "clone",
-  },
   target: {
     backgroundColor: color.surfaceSelected,
     borderRadius: radius.r1,
@@ -77,22 +47,10 @@ const styles = stylex.create({
     borderRadius: radius.r2,
     backgroundColor: color.surface,
   },
-  caption: {
-    fontFamily: fontFamily.reading,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
-    color: color.textMuted,
-  },
-  table: {
-    margin: 0,
-    overflowX: "auto",
-    fontFamily: fontFamily.mono,
-    fontSize: fontSize.code,
-    lineHeight: lineHeight.code,
-    color: color.text,
-  },
+  caption: { fontFamily: fontFamily.reading, color: color.textMuted },
+  table: { margin: 0, overflowX: "auto", color: color.text },
   tableRow: { display: "block", whiteSpace: "pre" },
-  empty: { margin: 0, color: color.textMuted, fontFamily: fontFamily.ui, fontSize: fontSize.body },
+  empty: { margin: 0, color: color.textMuted, fontFamily: fontFamily.ui },
 });
 
 const clean = (s: string) => s.replace(/<!--[\s\S]*?-->/g, "").trim();
@@ -144,17 +102,20 @@ function hotOf(blocks: string[], focus?: string): string | null {
   return hot;
 }
 
-function inline(text: string): ReactNode[] {
+const plain = (s: string): ReactNode => s;
+const lit = (s: string, k: number): ReactNode => <Marked key={k} text={s} marks={[[0, s.length]]} look="quote" />;
+
+function inline(text: string, words: (s: string, k: number) => ReactNode = plain): ReactNode[] {
   const out: ReactNode[] = [];
   const re = /\*\*([^*]+)\*\*|\*([^*]+)\*/g;
   let last = 0;
   let k = 0;
   for (let m = re.exec(text); m; m = re.exec(text)) {
-    if (m.index > last) out.push(text.slice(last, m.index));
-    out.push(m[1] ? <strong key={k++}>{m[1]}</strong> : <em key={k++}>{m[2]}</em>);
+    if (m.index > last) out.push(words(text.slice(last, m.index), k++));
+    out.push(m[1] ? <strong key={k++}>{words(m[1], k++)}</strong> : <em key={k++}>{words(m[2], k++)}</em>);
     last = m.index + m[0].length;
   }
-  if (last < text.length) out.push(text.slice(last));
+  if (last < text.length) out.push(words(text.slice(last), k++));
   return out;
 }
 
@@ -189,9 +150,9 @@ function marked(text: string, quote: string | undefined): ReactNode[] | null {
   const [from, to] = span;
   return [
     ...inline(text.slice(0, from)),
-    <mark key="quote" data-focus="" {...stylex.props(styles.mark)}>
-      {inline(text.slice(from, to))}
-    </mark>,
+    <span key="quote" data-focus="">
+      {inline(text.slice(from, to), lit)}
+    </span>,
     ...inline(text.slice(to)),
   ];
 }
@@ -216,13 +177,13 @@ export function DocText({
   const picture = (p: Picture, key: number, hot: boolean) => (
     <figure key={key} {...focusMark(hot)} {...stylex.props(styles.figure, hot && styles.focus)}>
       <img src={fileUrl(`docs/${docId}/${p.src}`)} alt={p.alt} {...stylex.props(styles.img)} />
-      <figcaption {...stylex.props(styles.caption)}>
+      <figcaption {...stylex.props(type.small, styles.caption)}>
         {p.fig ? <Button size="sm" variant="quiet" label={p.alt} onClick={() => onFigure(`fig:${p.fig}`)} /> : p.alt}
       </figcaption>
     </figure>
   );
   return (
-    <div data-testid="doc-text" {...stylex.props(styles.text)}>
+    <div data-testid="doc-text" {...stylex.props(type.reading, styles.text)}>
       {raws.map((raw, i) => {
         const b = clean(raw);
         const hot = hotKey === `${i}`;
@@ -236,9 +197,9 @@ export function DocText({
               data-level={head[1].length}
               data-target={on || undefined}
               {...focusMark(hot)}
-              {...stylex.props(styles.row, styles.heading, hot && styles.focus)}
+              {...stylex.props(type.readingHeading, styles.row, styles.heading, hot && styles.focus)}
             >
-              <span {...stylex.props(styles.gutter, on && styles.targetGutter)}>
+              <span {...stylex.props(type.code, styles.gutter, on && styles.targetGutter)}>
                 {numbered && (
                   <>
                     <span aria-hidden="true">§ </span>
@@ -253,8 +214,8 @@ export function DocText({
         if (isTable(b))
           return (
             <div key={i} {...stylex.props(styles.row)}>
-              <span {...stylex.props(styles.gutter)} />
-              <pre {...stylex.props(styles.table)}>
+              <span {...stylex.props(type.code, styles.gutter)} />
+              <pre {...stylex.props(type.code, styles.table)}>
                 {b.split("\n").map((line, j) => {
                   const on = hotKey === `${i}:${j}`;
                   return (
@@ -272,7 +233,7 @@ export function DocText({
           const on = !!only.fig && target === `fig:${only.fig}`;
           return (
             <div key={i} data-target={on || undefined} {...stylex.props(styles.row, styles.figRow)}>
-              <span aria-hidden="true" {...stylex.props(styles.gutter, on && styles.targetGutter)}>
+              <span aria-hidden="true" {...stylex.props(type.code, styles.gutter, on && styles.targetGutter)}>
                 {only.fig ? `fig ${only.fig}` : ""}
               </span>
               <span {...stylex.props(styles.block, on && styles.target)}>{picture(only, i, hot)}</span>
@@ -288,7 +249,7 @@ export function DocText({
         });
         return (
           <div key={i} {...stylex.props(styles.row)}>
-            <span {...stylex.props(styles.gutter)} />
+            <span {...stylex.props(type.code, styles.gutter)} />
             <div {...focusMark(hot && !quoted)} {...stylex.props(styles.block, hot && !quoted && styles.focus)}>
               {parts.map((p, j) =>
                 "src" in p ? (
@@ -303,7 +264,7 @@ export function DocText({
           </div>
         );
       })}
-      {!raws.length && <p {...stylex.props(styles.empty)}>This part of the document is empty.</p>}
+      {!raws.length && <p {...stylex.props(type.body, styles.empty)}>This part of the document is empty.</p>}
     </div>
   );
 }

@@ -29,7 +29,7 @@ export function SaveContext({
     try {
       const c = await write("contexts.create", { name: name.trim(), shared, notes: note.trim() });
       if (!c) return;
-      toast({ kind: "ok", title: `Context « ${name.trim()} » saved` });
+      toast({ tone: "success", title: `Context « ${name.trim()} » saved` });
       onSaved(c.id);
       onClose();
     } catch (e) {

@@ -9,24 +9,19 @@ import { Checkbox } from "../../components/ui/Checkbox.tsx";
 import { GroupSelect } from "../../components/ui/GroupSelect.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { Modal } from "../../components/ui/Modal.tsx";
+import { type } from "../../components/ui/type.ts";
 import { useApp } from "../../lib/app.ts";
 import { invalidate } from "../../lib/data/query.ts";
 import { baseName } from "../../lib/desktop.ts";
 import { convertDoc, importClaude, setImportClaude } from "../../lib/uploads.ts";
-import { color, fontSize, fontWeight, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
   wrap: { padding: space.s5, overflowY: "auto", flex: 1, minHeight: 0 },
   body: { display: "flex", flexDirection: "column", gap: space.s4 },
-  text: { margin: 0, fontSize: fontSize.body, lineHeight: lineHeight.body, color: color.textMuted },
+  text: { margin: 0, color: color.textMuted },
   group: { display: "flex", flexDirection: "column", gap: space.s3 },
-  caption: {
-    margin: 0,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
-    fontWeight: fontWeight.semibold,
-    color: color.textMuted,
-  },
+  caption: { margin: 0, color: color.textMuted },
   run: { display: "flex", alignItems: "center", gap: space.s3, flexWrap: "wrap" },
   acts: { display: "flex", justifyContent: "flex-end", gap: space.s3 },
   note: { display: "inline-flex", alignItems: "center", gap: space.s2 },
@@ -92,7 +87,7 @@ function Options({
   const noFigures = again && doc.converted?.stats?.figures === 0;
   return (
     <div {...stylex.props(styles.group)}>
-      <h3 {...stylex.props(styles.caption)}>While converting</h3>
+      <h3 {...stylex.props(type.small, type.strong, styles.caption)}>While converting</h3>
       {!noFigures && (
         <Checkbox
           checked={figures}
@@ -186,7 +181,7 @@ export function ConvertDoc({
       >
         <div {...stylex.props(styles.body)}>
           {settled && (
-            <p title={doc.conversion?.notes} {...stylex.props(styles.text)}>
+            <p title={doc.conversion?.notes} {...stylex.props(type.body, styles.text)}>
               {settled}
             </p>
           )}
@@ -200,12 +195,12 @@ export function ConvertDoc({
       <section aria-label="Convert and index">
         <Card title="Not converted yet">
           <div {...stylex.props(styles.body)}>
-            <p {...stylex.props(styles.text)}>
+            <p {...stylex.props(type.body, styles.text)}>
               Set the status and the Claude context first if you know them: Claude reads them while it converts.
               Converting reads the file into text with anchors and figures, then search indexes it.
             </p>
             {settled && (
-              <p title={doc.conversion?.notes} {...stylex.props(styles.text)}>
+              <p title={doc.conversion?.notes} {...stylex.props(type.body, styles.text)}>
                 {settled}
               </p>
             )}

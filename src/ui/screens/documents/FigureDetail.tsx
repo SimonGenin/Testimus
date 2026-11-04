@@ -1,21 +1,14 @@
 import * as stylex from "@stylexjs/stylex";
 import type { FigureEntry } from "../../../core/types.ts";
+import { Answer } from "../../components/ui/Answer.tsx";
 import { Badge } from "../../components/ui/Badge.tsx";
-import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
+import { Facts } from "../../components/ui/Facts.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
+import { type } from "../../components/ui/type.ts";
 import { fileUrl } from "../../lib/data/client.ts";
 import { useRead } from "../../lib/data/query.ts";
-import {
-  border,
-  color,
-  fontFamily,
-  fontSize,
-  fontWeight,
-  lineHeight,
-  radius,
-  space,
-} from "../../styles/tokens.stylex.ts";
+import { border, color, radius, space } from "../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
   img: {
@@ -43,24 +36,11 @@ const styles = stylex.create({
     minWidth: 0,
   },
   figure: { margin: 0, display: "flex", flexDirection: "column", gap: space.s2 },
-  caption: { fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textMuted },
-  kv: {
-    display: "grid",
-    gridTemplateColumns: "auto minmax(0, 1fr)",
-    alignItems: "baseline",
-    columnGap: space.s5,
-    rowGap: space.s2,
-    margin: 0,
-    fontSize: fontSize.compact,
-    lineHeight: lineHeight.compact,
-  },
-  key: { color: color.textMuted },
-  value: { margin: 0, minWidth: 0, overflowWrap: "anywhere", color: color.text },
-  mono: { fontFamily: fontFamily.mono, fontSize: fontSize.code, lineHeight: lineHeight.code },
+  caption: { color: color.textMuted },
   reading: { display: "flex", flexDirection: "column", gap: space.s2 },
-  description: { margin: 0, fontSize: fontSize.compact, lineHeight: lineHeight.compact, color: color.text },
-  small: { margin: 0, fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textMuted },
-  labels: { fontWeight: fontWeight.medium, color: color.text },
+  description: { margin: 0, color: color.text },
+  small: { margin: 0, color: color.textMuted },
+  labels: { color: color.text },
   acts: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s3 },
 });
 
@@ -111,46 +91,43 @@ export function FigureDetail({
     <aside aria-label={name} {...stylex.props(styles.detail)}>
       <figure {...stylex.props(styles.figure)}>
         <FigureImage docId={docId} figure={figure} />
-        {figure.caption && <figcaption {...stylex.props(styles.caption)}>{figure.caption}</figcaption>}
+        {figure.caption && <figcaption {...stylex.props(type.small, styles.caption)}>{figure.caption}</figcaption>}
       </figure>
-      <dl {...stylex.props(styles.kv)}>
-        <dt {...stylex.props(styles.key)}>Anchor</dt>
-        <dd {...stylex.props(styles.value, styles.mono)}>
-          {docId}#{figure.anchor}
-        </dd>
-        {section && (
-          <>
-            <dt {...stylex.props(styles.key)}>Section</dt>
-            <dd {...stylex.props(styles.value)}>
-              <Button size="xs" variant="quiet" label={sectionLabel(section)} onClick={() => onOpen(section)} />
-            </dd>
-          </>
-        )}
-        {figure.kind && (
-          <>
-            <dt {...stylex.props(styles.key)}>Kind</dt>
-            <dd {...stylex.props(styles.value)}>{figure.kind}</dd>
-          </>
-        )}
-      </dl>
+      <Facts
+        items={[
+          {
+            label: "Anchor",
+            value: (
+              <span {...stylex.props(type.code)}>
+                {docId}#{figure.anchor}
+              </span>
+            ),
+          },
+          !!section && {
+            label: "Section",
+            value: <Button size="xs" variant="quiet" label={sectionLabel(section)} onClick={() => onOpen(section)} />,
+          },
+          !!figure.kind && { label: "Kind", value: figure.kind },
+        ]}
+      />
       {described ? (
-        <Banner tone="claude" icon="claude" title="Claude's reading">
+        <Answer title="Claude's reading" meta="Description only — the caption is what a source can quote">
           <span {...stylex.props(styles.reading)}>
-            <span {...stylex.props(styles.description)}>{figure.description}</span>
-            <span {...stylex.props(styles.small)}>
+            <span {...stylex.props(type.compact, styles.description)}>{figure.description}</span>
+            <span {...stylex.props(type.small, styles.small)}>
               {figure.labels?.length ? (
                 <>
-                  Text in the picture: <span {...stylex.props(styles.labels)}>{figure.labels.join(" · ")}</span>
+                  Text in the picture:{" "}
+                  <span {...stylex.props(type.medium, styles.labels)}>{figure.labels.join(" · ")}</span>
                 </>
               ) : (
                 "No text visible in the picture."
               )}
             </span>
-            <span {...stylex.props(styles.small)}>Description only — the caption is what a source can quote</span>
           </span>
-        </Banner>
+        </Answer>
       ) : (
-        <p {...stylex.props(styles.small)}>
+        <p {...stylex.props(type.small, styles.small)}>
           {figure.file
             ? "Claude has not read this picture yet: search finds it by its caption only."
             : "The conversion kept no picture for this figure: only its caption is in the text."}

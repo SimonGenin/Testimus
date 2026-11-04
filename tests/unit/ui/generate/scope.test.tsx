@@ -188,7 +188,7 @@ describe("Generate › smart columns", () => {
     expect(
       screen.getByText("New in Xray").closest("span")?.querySelector('[data-icon="alert-triangle"]'),
     ).not.toBeNull();
-    expect(screen.getByText("Local only").closest("span")?.querySelector('[data-icon="file"]')).not.toBeNull();
+    expect(screen.getByText("Local only").closest("span")?.querySelector('[data-icon="drive"]')).not.toBeNull();
     expect(screen.getByText("What the step checks")).toBeInTheDocument();
     expect(screen.getByText("5 · 3 filled by Claude")).toBeInTheDocument();
     expect(screen.getAllByText("No description — Claude leaves it empty.")).toHaveLength(2);

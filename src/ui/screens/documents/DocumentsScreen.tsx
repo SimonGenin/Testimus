@@ -8,12 +8,13 @@ import { EmptyState } from "../../components/ui/EmptyState.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { Modal } from "../../components/ui/Modal.tsx";
 import { ResizeHandle } from "../../components/ui/ResizeHandle.tsx";
+import { type } from "../../components/ui/type.ts";
 import { useApp } from "../../lib/app.ts";
 import { invalidate, useRead } from "../../lib/data/query.ts";
 import { desktop, pickFiles } from "../../lib/desktop.ts";
 import { message } from "../../lib/format.ts";
 import { addDocFiles, addDocPath, addDocPaths, forgetSettled, settled, useUploads } from "../../lib/uploads.ts";
-import { border, color, fontSize, fontWeight, lineHeight, radius, size, space, z } from "../../styles/tokens.stylex.ts";
+import { border, color, radius, size, space, z } from "../../styles/tokens.stylex.ts";
 import { AddPath } from "./AddPath.tsx";
 import { DocDetail } from "./DocDetail.tsx";
 import { DocList } from "./DocList.tsx";
@@ -82,18 +83,8 @@ const styles = stylex.create({
     backgroundColor: color.accentSubtle,
     color: color.accentText,
   },
-  veilTitle: {
-    fontSize: fontSize.title,
-    lineHeight: lineHeight.title,
-    fontWeight: fontWeight.semibold,
-    color: color.text,
-  },
-  veilText: {
-    maxWidth: size.reading,
-    fontSize: fontSize.compact,
-    lineHeight: lineHeight.compact,
-    color: color.textMuted,
-  },
+  veilTitle: { color: color.text },
+  veilText: { maxWidth: size.reading, color: color.textMuted },
 });
 
 const ACCEPT = ".docx,.pdf";
@@ -322,8 +313,8 @@ export function DocumentsScreen() {
           <span {...stylex.props(styles.veilMark)}>
             <Icon name="upload" size="lg" />
           </span>
-          <span {...stylex.props(styles.veilTitle)}>Drop Word or PDF files to add them</span>
-          <span {...stylex.props(styles.veilText)}>
+          <span {...stylex.props(type.title, styles.veilTitle)}>Drop Word or PDF files to add them</span>
+          <span {...stylex.props(type.compact, styles.veilText)}>
             .docx is preferred — structure and pictures stay intact; .pdf is the fallback. Each file is copied into the
             project, ready to convert.
           </span>

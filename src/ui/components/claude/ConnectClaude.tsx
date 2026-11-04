@@ -1,18 +1,11 @@
 import * as stylex from "@stylexjs/stylex";
 import { errorToast, toast } from "../../lib/toast.ts";
-import {
-  color,
-  fontFamily,
-  fontSize,
-  fontWeight,
-  lineHeight,
-  radius,
-  size,
-  space,
-} from "../../styles/tokens.stylex.ts";
+import { border, color, radius, size, space } from "../../styles/tokens.stylex.ts";
 import { Badge } from "../ui/Badge.tsx";
 import { Button } from "../ui/Button.tsx";
 import { Icon } from "../ui/Icon.tsx";
+import { Raw } from "../ui/Raw.tsx";
+import { type } from "../ui/type.ts";
 
 export type ClaudeStatus = {
   installed: boolean;
@@ -28,29 +21,17 @@ const styles = stylex.create({
   panel: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: space.s4 },
   framed: {
     alignSelf: "stretch",
-    gap: space.s3,
-    paddingBlock: space.s4,
-    paddingInline: space.s4,
+    gap: space.s4,
+    padding: space.s5,
+    borderStyle: "solid",
+    borderWidth: border.width,
+    borderColor: color.border,
     borderRadius: radius.r3,
-    backgroundColor: color.surfaceSunken,
   },
-  title: {
-    margin: 0,
-    fontSize: fontSize.title,
-    lineHeight: lineHeight.title,
-    fontWeight: fontWeight.semibold,
-    color: color.text,
-  },
-  titleSm: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: space.s2,
-    fontSize: fontSize.titleSm,
-    lineHeight: lineHeight.titleSm,
-  },
+  title: { display: "inline-flex", alignItems: "center", gap: space.s2, margin: 0, color: color.text },
   mark: { display: "inline-flex", color: color.claudeText },
-  text: { margin: 0, fontSize: fontSize.body, lineHeight: lineHeight.body, color: color.textMuted },
-  strong: { fontWeight: fontWeight.semibold, color: color.text },
+  text: { margin: 0, color: color.textMuted },
+  strong: { color: color.text },
   steps: {
     listStyle: "none",
     margin: 0,
@@ -72,51 +53,14 @@ const styles = stylex.create({
     height: size.controlSm,
     borderRadius: radius.full,
     backgroundColor: color.surfaceSunken,
-    fontSize: fontSize.small,
-    fontWeight: fontWeight.semibold,
     color: color.textMuted,
   },
-  stepTitle: { fontSize: fontSize.body, lineHeight: lineHeight.body, fontWeight: fontWeight.semibold },
-  stepTitlePlain: { fontWeight: fontWeight.medium },
+  stepPanel: { color: color.textMuted },
   cmd: { display: "flex", alignItems: "flex-start", gap: space.s2, minWidth: 0 },
-  code: {
-    flex: 1,
-    minWidth: 0,
-    paddingBlock: space.s3,
-    paddingInline: space.s4,
-    borderRadius: radius.r2,
-    backgroundColor: color.surfaceSunken,
-    fontFamily: fontFamily.mono,
-    fontSize: fontSize.code,
-    lineHeight: lineHeight.code,
-    overflowWrap: "anywhere",
-  },
-  codeOnSunken: { backgroundColor: color.surface },
-  hint: { fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textSubtle },
-  sawLabel: { fontSize: fontSize.small, fontWeight: fontWeight.semibold, color: color.textMuted },
-  saw: {
-    margin: 0,
-    alignSelf: "stretch",
-    paddingBlock: space.s3,
-    paddingInline: space.s4,
-    borderRadius: radius.r2,
-    backgroundColor: color.surfaceSunken,
-    fontFamily: fontFamily.mono,
-    fontSize: fontSize.code,
-    lineHeight: lineHeight.code,
-    color: color.textMuted,
-    whiteSpace: "pre-wrap",
-    overflowWrap: "anywhere",
-  },
-  sawLine: {
-    margin: 0,
-    fontFamily: fontFamily.mono,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
-    color: color.textSubtle,
-    whiteSpace: "pre-wrap",
-    overflowWrap: "anywhere",
-  },
+  cmdText: { flex: 1, minWidth: 0 },
+  hint: { color: color.textSubtle },
+  sawLine: { margin: 0, color: color.textSubtle, whiteSpace: "pre-wrap", overflowWrap: "anywhere" },
+  saw: { display: "flex", flexDirection: "column", gap: space.s2, alignSelf: "stretch" },
   foot: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s2 },
 });
 
@@ -143,7 +87,7 @@ const BACK = {
 const copy = (cmd: string) =>
   navigator.clipboard
     .writeText(cmd)
-    .then(() => toast({ kind: "info", title: "Command copied", detail: cmd }))
+    .then(() => toast({ tone: "neutral", title: "Command copied", detail: cmd }))
     .catch((e) => errorToast(e, "Could not copy the command"));
 
 // ponytail: how to connect Claude, drawn three ways by the design — `card` on a screen (Generate: a title with the
@@ -175,7 +119,7 @@ export function ConnectClaude({
   return (
     <div {...stylex.props(styles.panel, panel && styles.framed)}>
       {dock && <Badge tone="danger" icon="plug" label="Not connected" />}
-      <h3 {...stylex.props(styles.title, !dock && styles.titleSm)}>
+      <h3 {...stylex.props(dock ? type.title : type.titleSm, styles.title)}>
         {look === "card" && (
           <span {...stylex.props(styles.mark)}>
             <Icon name="claude" />
@@ -183,22 +127,26 @@ export function ConnectClaude({
         )}
         {installed ? "Claude is installed but not signed in" : "Claude isn't installed on this PC yet"}
       </h3>
-      <p {...stylex.props(styles.text)}>
-        <span {...stylex.props(!dock && styles.strong)}>Claude is optional — everything else works without it.</span>{" "}
+      <p {...stylex.props(dock ? type.body : type.compact, styles.text)}>
+        <span {...stylex.props(!dock && type.strong, !dock && styles.strong)}>
+          Claude is optional — everything else works without it.
+        </span>{" "}
         {look === "card" ? "Writing tests, checking them" : "Writing, checking"} and asking the documents need it;
         editing, review and push work now.
       </p>
       <ol {...stylex.props(styles.steps, !dock && styles.stepsTight)}>
         {steps.map((s, i) => (
           <li key={s.title} {...stylex.props(styles.step, dock && styles.stepNumbered)}>
-            {dock && <span {...stylex.props(styles.num)}>{i + 1}</span>}
-            <span {...stylex.props(styles.stepTitle, !dock && styles.stepTitlePlain)}>
+            {dock && <span {...stylex.props(type.small, type.strong, styles.num)}>{i + 1}</span>}
+            <span {...stylex.props(panel ? type.small : type.titleSm, panel && styles.stepPanel)}>
               {!dock && numbered && <span>{i + 1} · </span>}
               {s.title}
             </span>
             {s.cmd && (
               <span {...stylex.props(styles.cmd)}>
-                <code {...stylex.props(styles.code, panel && styles.codeOnSunken)}>{s.cmd}</code>
+                <span {...stylex.props(styles.cmdText)}>
+                  <Raw text={s.cmd} />
+                </span>
                 <Button
                   size="sm"
                   variant="quiet"
@@ -210,7 +158,7 @@ export function ConnectClaude({
               </span>
             )}
             {s.hint && (
-              <span data-testid="connect-hint" {...stylex.props(styles.hint)}>
+              <span data-testid="connect-hint" {...stylex.props(type.small, styles.hint)}>
                 {s.hint}
               </span>
             )}
@@ -219,12 +167,12 @@ export function ConnectClaude({
       </ol>
       {saw &&
         (dock ? (
-          <>
-            <span {...stylex.props(styles.sawLabel)}>What Testimus saw</span>
-            <pre {...stylex.props(styles.saw)}>{saw}</pre>
-          </>
+          <div {...stylex.props(styles.saw)}>
+            <span {...stylex.props(type.caption)}>What Testimus saw</span>
+            <Raw text={saw} />
+          </div>
         ) : (
-          !panel && <pre {...stylex.props(styles.sawLine)}>{saw}</pre>
+          !panel && <p {...stylex.props(type.code, styles.sawLine)}>{saw}</p>
         ))}
       <div {...stylex.props(styles.foot)}>
         <Button

@@ -3,7 +3,8 @@ import { useLayoutEffect, useRef } from "react";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
-import { color, fontFamily, fontSize, lineHeight, size, space } from "../../styles/tokens.stylex.ts";
+import { type } from "../../components/ui/type.ts";
+import { color, size, space } from "../../styles/tokens.stylex.ts";
 import { DocText } from "./DocText.tsx";
 import type { TocEntry } from "./DocToc.tsx";
 import { into } from "./scroll.ts";
@@ -17,18 +18,10 @@ const styles = stylex.create({
     gap: space.s5,
     paddingBlock: space.s5,
     paddingInline: space.s7,
-    maxWidth: `calc(${size.reading} + ${size.thumb} + ${space.s11})`,
+    maxWidth: `calc(${size.reading} + ${space.s11} + ${space.s8} + ${space.s5} + ${space.s7} + ${space.s7})`,
   },
-  nav: {
-    display: "flex",
-    alignItems: "center",
-    gap: space.s2,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
-    color: color.textMuted,
-  },
+  nav: { display: "flex", alignItems: "center", gap: space.s2, color: color.textMuted },
   where: { flex: 1, minWidth: 0 },
-  mono: { fontFamily: fontFamily.mono, fontSize: fontSize.code },
 });
 
 export type QuoteFrom = { test: string; step?: number };
@@ -61,7 +54,7 @@ function QuoteBar({
     >
       {from ? (
         <>
-          The quote cited by <span {...stylex.props(styles.mono)}>{from.test}</span>
+          The quote cited by <span {...stylex.props(type.code)}>{from.test}</span>
           {from.step ? ` · step ${from.step}` : ""}
         </>
       ) : (
@@ -69,7 +62,7 @@ function QuoteBar({
       )}
       {under && (
         <>
-          , under <span {...stylex.props(styles.mono)}>{sectionLabel(under)}</span>
+          , under <span {...stylex.props(type.code)}>{sectionLabel(under)}</span>
         </>
       )}
     </Banner>
@@ -132,7 +125,7 @@ export function DocPart({
     <div ref={box} data-testid="doc-part" {...stylex.props(styles.box)}>
       <div {...stylex.props(styles.inner)}>
         {focus && quote && <QuoteBar under={current} {...quote} />}
-        <div {...stylex.props(styles.nav)}>
+        <div {...stylex.props(type.small, styles.nav)}>
           <span {...stylex.props(styles.where)}>
             {chapter ? `${chapter.title} · ` : ""}
             {at >= 0 ? `section ${at + 1} of ${sections.length}` : ""}

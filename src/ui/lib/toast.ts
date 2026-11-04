@@ -3,9 +3,12 @@ import { dismissToast, toast as show, type ToastTone, useToasts as useLive } fro
 import { ApiError } from "./data/client.ts";
 import { message } from "./format.ts";
 
+type OldKind = "error" | "info" | "ok" | "claude";
+
 export type Toast = {
   id: number;
-  kind: "error" | "info" | "ok" | "claude";
+  /** the kit's tone, as Toast.tsx says it: neutral · success · warning · danger · claude */
+  tone: ToastTone;
   title: string;
   detail?: string;
   action?: { label: string; run: () => void };
@@ -13,18 +16,24 @@ export type Toast = {
   left: number;
 };
 
-const TONE: Record<Toast["kind"], ToastTone> = { error: "danger", info: "neutral", ok: "success", claude: "claude" };
-const KIND: Partial<Record<ToastTone, Toast["kind"]>> = { danger: "error", success: "ok", claude: "claude" };
+export type ToastInput = Omit<Toast, "id" | "left" | "tone"> & {
+  tone?: ToastTone;
+  /** ponytail: the old words (error, info, ok, claude), read until every screen says `tone` — then removed */
+  kind?: OldKind;
+  left?: number;
+};
 
-// ponytail: the screens' words for a toast (kind, detail, run) put on the kit's one store (Toast.tsx); a toast closed
-// with its action taken (undone) does not run its onExpire
+const OLD: Record<OldKind, ToastTone> = { error: "danger", info: "neutral", ok: "success", claude: "claude" };
+
+// ponytail: the kit's one toast store (Toast.tsx), with the screens' detail and run; a toast closed with its action
+// taken (undone) does not run its onExpire
 const undone = new Set<number>();
 
-export function toast(t: Omit<Toast, "id" | "left"> & { left?: number }): number {
+export function toast(t: ToastInput): number {
   let id = 0;
   const expire = t.onExpire;
   id = show({
-    tone: TONE[t.kind],
+    tone: t.tone ?? (t.kind ? OLD[t.kind] : "neutral"),
     title: t.title,
     text: t.detail,
     action: t.action && { label: t.action.label, onAction: t.action.run },
@@ -39,7 +48,7 @@ export function toast(t: Omit<Toast, "id" | "left"> & { left?: number }): number
 
 export const errorToast = (e: unknown, title = "Something went wrong") =>
   toast({
-    kind: "error",
+    tone: "danger",
     title,
     detail: e instanceof ApiError && e.fix ? `${e.message} — ${e.fix}` : message(e),
   });
@@ -56,7 +65,7 @@ export function useToasts(): Toast[] {
     () =>
       live.map((t) => ({
         id: t.id,
-        kind: KIND[t.tone ?? "neutral"] ?? "info",
+        tone: t.tone ?? "neutral",
         title: t.title,
         detail: t.text,
         action: t.action && { label: t.action.label, run: t.action.onAction },

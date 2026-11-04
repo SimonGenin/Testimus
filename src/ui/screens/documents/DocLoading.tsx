@@ -38,8 +38,8 @@ const styles = stylex.create({
     flexDirection: "column",
     gap: space.s7,
     paddingBlock: space.s7,
-    paddingInline: `calc(${space.s7} + ${size.thumb})`,
-    maxWidth: `calc(${size.reading} + ${size.thumb} + ${space.s11})`,
+    paddingInline: `calc(${space.s7} + ${space.s11} + ${space.s8} + ${space.s5})`,
+    maxWidth: `calc(${size.reading} + ${space.s11} + ${space.s8} + ${space.s5} + ${space.s7} + ${space.s7})`,
     backgroundColor: color.surface,
   },
   side: {

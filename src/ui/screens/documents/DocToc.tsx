@@ -1,8 +1,9 @@
 import * as stylex from "@stylexjs/stylex";
 import { useLayoutEffect, useRef } from "react";
 import { List } from "../../components/ui/List.tsx";
+import { type } from "../../components/ui/type.ts";
 import { plural } from "../../lib/format.ts";
-import { color, fontFamily, fontSize, fontWeight, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 import { into } from "./scroll.ts";
 
 const styles = stylex.create({
@@ -16,14 +17,11 @@ const styles = stylex.create({
     paddingTop: space.s4,
     paddingBottom: space.s2,
     paddingInline: space.s5,
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
-    fontWeight: fontWeight.semibold,
     color: color.textMuted,
   },
-  count: { fontWeight: fontWeight.regular, color: color.textSubtle },
+  count: { color: color.textSubtle },
   body: { boxSizing: "border-box", flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: space.s3 },
-  number: { fontFamily: fontFamily.mono, fontSize: fontSize.code, color: color.textSubtle },
+  number: { color: color.textSubtle },
 });
 
 export type TocEntry = { anchor: string; title: string; level: number };
@@ -52,8 +50,8 @@ export function DocToc({
   return (
     <nav aria-label="Sections" {...stylex.props(styles.pane)}>
       {head && (
-        <div {...stylex.props(styles.head)}>
-          Contents <span {...stylex.props(styles.count)}>{plural(sections.length, "section")}</span>
+        <div {...stylex.props(type.small, type.strong, styles.head)}>
+          Contents <span {...stylex.props(type.regular, styles.count)}>{plural(sections.length, "section")}</span>
         </div>
       )}
       <div ref={box} data-testid="doc-toc" {...stylex.props(styles.body)}>
@@ -67,7 +65,7 @@ export function DocToc({
             title: t.title,
             depth: Math.max(0, t.level - 1),
             lead: NUMBERED.test(t.anchor) ? (
-              <span {...stylex.props(styles.number)}>{t.anchor.slice(1)}</span>
+              <span {...stylex.props(type.code, styles.number)}>{t.anchor.slice(1)}</span>
             ) : undefined,
           })}
         />
