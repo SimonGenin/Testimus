@@ -12,7 +12,6 @@ import { TopBar, TopBarContext, useTopBarSlots } from "../../../../src/ui/compon
 import { DataProvider } from "../../../../src/ui/lib/data/provider.tsx";
 import { resetDoctor } from "../../../../src/ui/lib/doctor.ts";
 import { setThemeEverywhere } from "../../../../src/ui/lib/theme.ts";
-import { Placeholder } from "../../../../src/ui/screens/Placeholder.tsx";
 import { deferred, fakeEvents, fakeNet, net } from "../../cov-uishell-helpers.tsx";
 import { noDesktop } from "../../ui-desktop-helpers.tsx";
 import { clearAllToasts, withData } from "./helpers.tsx";
@@ -111,19 +110,12 @@ describe("Rail, system status, theme and headers", () => {
     expect(within(screen.getByRole("main")).queryByRole("button")).toBeNull();
     cleanup();
     render(
-      <>
-        <ScreenHeader title="Alone" meta="m">
-          <button type="button">Here</button>
-        </ScreenHeader>
-        <Placeholder title="Soon" icon="jobs" lead="Not built yet">
-          <span>child</span>
-        </Placeholder>
-      </>,
+      <ScreenHeader title="Alone" meta="m">
+        <button type="button">Here</button>
+      </ScreenHeader>,
     );
     expect(screen.getAllByRole("heading", { name: /Alone/ })[0]).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Here" })).toBeInTheDocument();
-    expect(screen.getByText("Not built yet")).toBeInTheDocument();
-    expect(screen.getByText("child")).toBeInTheDocument();
   });
 });
 

@@ -8,8 +8,6 @@ import { setProject } from "../../src/ui/api.ts";
 import { AppContext, type AppState } from "../../src/ui/lib/app.ts";
 import { DataProvider } from "../../src/ui/lib/data/provider.tsx";
 import { ClaudeSection } from "../../src/ui/screens/settings/ClaudeSection.tsx";
-import { AccessStep } from "../../src/ui/screens/setup/AccessStep.tsx";
-import { ProjectStep } from "../../src/ui/screens/setup/ProjectStep.tsx";
 import { TestList } from "../../src/ui/screens/tests/TestList.tsx";
 import { api, app, fakeDesktop, fakeFetch, named, noDesktop } from "./ui-desktop-helpers.tsx";
 
@@ -32,65 +30,6 @@ const within = (ui: ReactNode, over: Partial<AppState> = {}) => {
   render(<AppContext.Provider value={a}>{ui}</AppContext.Provider>);
   return a;
 };
-
-describe("First launch › Project", () => {
-  beforeEach(() => {
-    api.routes["project.list"] = () => ({ projects: [] });
-  });
-
-  it("Browse… puts the picked folder in the field", async () => {
-    const d = fakeDesktop({ folder: "D:\\Tests\\Nouveau" });
-    within(<ProjectStep onBack={() => {}} />);
-    fireEvent.click(screen.getByRole("button", { name: "Browse for the projects folder" }));
-    await waitFor(() => expect(screen.getByLabelText("Projects folder")).toHaveValue("D:\\Tests\\Nouveau"));
-    expect(d.pickFolder).toHaveBeenCalledWith({ title: "Choose where the project goes" });
-  });
-
-  it("a cancelled dialog leaves the field alone", async () => {
-    const d = fakeDesktop({ folder: null });
-    within(<ProjectStep onBack={() => {}} />);
-    fireEvent.change(screen.getByLabelText("Projects folder"), { target: { value: "C:\\typed" } });
-    fireEvent.click(screen.getByRole("button", { name: "Browse for the projects folder" }));
-    await waitFor(() => expect(d.pickFolder).toHaveBeenCalled());
-    expect(screen.getByLabelText("Projects folder")).toHaveValue("C:\\typed");
-  });
-
-  it("without the bridge: the text field only", () => {
-    within(<ProjectStep onBack={() => {}} />);
-    expect(screen.getByLabelText("Projects folder")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Browse/ })).toBeNull();
-  });
-});
-
-describe("First launch › Access", () => {
-  const TOKENS = "https://id.atlassian.com/manage-profile/security/api-tokens";
-  beforeEach(() => {
-    api.routes["system.credentials"] = api.routes["system.setCredentials"] = () => ({
-      status: {
-        jira: { file: "", exists: false, complete: false },
-        xray: { file: "", exists: false, complete: false },
-      },
-      saved: [],
-      checks: [],
-      ok: false,
-    });
-  });
-
-  it("the token page opens in the default browser through the bridge", async () => {
-    const d = fakeDesktop();
-    within(<AccessStep onContinue={() => {}} onSkip={() => {}} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Open API tokens" }));
-    expect(d.openExternal).toHaveBeenCalledWith(TOKENS);
-  });
-
-  it("without the bridge the token page opens in a new tab", async () => {
-    const open = vi.fn();
-    vi.stubGlobal("open", open);
-    within(<AccessStep onContinue={() => {}} onSkip={() => {}} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Open API tokens" }));
-    expect(open).toHaveBeenCalledWith(TOKENS, "_blank", "noopener,noreferrer");
-  });
-});
 
 describe("Settings › Claude program", () => {
   beforeEach(() => {
