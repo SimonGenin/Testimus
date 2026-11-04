@@ -55,7 +55,7 @@ const PATHS: Rule[] = [
   ],
   [
     /^docs\/([^/]+)\/(doc\.md|figures|figures\.json)/,
-    (m) => [["docs.show", { id: m[1] }], ["rag.passage"], ["rag.figure"], ["docs.page"]],
+    (m) => [["docs.show", { id: m[1] }], ["rag.passage"], ["rag.figure"], ["docs.page"], ["docs.list"]],
   ],
   [/^docs\/([^/]+)\/context\.md$/, (m) => [["docs.show", { id: m[1] }]]],
   [/^docs\/([^/]+)(\/|$)/, () => [["docs.list"], ["rag.status"], ["project.info"], ["gen.preview"]]],
@@ -92,6 +92,7 @@ const KINDS: Rule[] = [
     ],
   ],
   [/^search-index$/, () => [["search.all"]]],
+  [/^docs\.(add|addFiles|convert)$|^docs-|^describe-figures$/, () => [["docs.list"], ["docs.show"], ["rag.status"]]],
   [/^generate$/, () => [["review.evidence"], ["review.queue"], ["gen.preview"]]],
   [
     /^models-/,

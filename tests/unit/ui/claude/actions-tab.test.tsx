@@ -1,14 +1,17 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render as rtlRender, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { setProject } from "../../src/ui/api.ts";
-import { ClaudeDock, type DockRequest } from "../../src/ui/components/claude/ClaudeDock.tsx";
-import type { Action } from "../../src/ui/lib/actions.ts";
-import { AppContext, type AppState } from "../../src/ui/lib/app.ts";
-import { callsOf, fakeEvents, fakeNet, net } from "./cov-uishell-helpers.tsx";
-import { app } from "./ui-desktop-helpers.tsx";
+import { setProject } from "../../../../src/ui/api.ts";
+import { ClaudeDock, type DockRequest } from "../../../../src/ui/components/claude/ClaudeDock.tsx";
+import type { Action } from "../../../../src/ui/lib/actions.ts";
+import { AppContext, type AppState } from "../../../../src/ui/lib/app.ts";
+import { callsOf, dataWrapper, fakeEvents, fakeNet, net } from "../../cov-uishell-helpers.tsx";
+import { app } from "../../ui-desktop-helpers.tsx";
+
+const render = ((ui: Parameters<typeof rtlRender>[0], o?: Parameters<typeof rtlRender>[1]) =>
+  rtlRender(ui, { wrapper: dataWrapper(), ...o })) as typeof rtlRender;
 
 const DOC = "SOSIE_211_D401-1_3";
 
@@ -54,7 +57,7 @@ function dock(request: DockRequest | null, over: Partial<AppState> = {}) {
   return { state, r };
 }
 
-const actionsTab = () => screen.getByRole("button", { name: /^Actions/ });
+const actionsTab = () => screen.getByRole("tab", { name: /^Actions/ });
 
 describe("Ask Claude: the Actions tab", () => {
   it("holds every open action as a card, with the suggested model and effort, then runs and reverts it", async () => {
@@ -93,6 +96,8 @@ describe("Ask Claude: the Actions tab", () => {
     const card = await screen.findByRole("region", { name: "Claude action: Recover 23 figures from the PDF" });
     expect(card).toHaveTextContent(`${DOC} · whole document`);
     expect(card).toHaveTextContent("caption without a picture");
+    expect(card).not.toHaveTextContent("Find the PDF");
+    fireEvent.click(within(card).getByRole("button", { name: "Show" }));
     expect(card).toHaveTextContent("Find the PDF");
     expect(card).toHaveTextContent("Every Testimus command · read and edit the project files");
     expect(card).toHaveTextContent("Suggested for this task: Opus · xhigh.");
@@ -103,17 +108,16 @@ describe("Ask Claude: the Actions tab", () => {
     const effort = within(card).getByRole("combobox", { name: "Effort" });
     expect(effort).toHaveValue("xhigh");
     fireEvent.change(effort, { target: { value: "max" } });
-    fireEvent.click(within(card).getByRole("button", { name: "Run action" }));
+    fireEvent.click(within(card).getByRole("button", { name: "Run" }));
     await waitFor(() => expect(callsOf("actions.run")).toHaveLength(1));
     expect(callsOf("actions.run")[0].input).toMatchObject({ id: "act-1", model: "opus", effort: "max" });
     expect(await screen.findByText("2 files changed")).toBeInTheDocument();
     expect(screen.getByText("21 of the 23 figures are back.")).toBeInTheDocument();
-    expect(state.refreshInfo).toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Show changes" }));
     expect(state.navigate).toHaveBeenCalledWith("documents", DOC);
     fireEvent.click(screen.getByRole("button", { name: /^Revert$/ }));
     expect(await screen.findByText("Reverted")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Project" }));
+    fireEvent.click(screen.getByRole("tab", { name: /On the project/ }));
     expect(screen.queryByText("21 of the 23 figures are back.")).toBeNull();
   });
 
@@ -126,7 +130,7 @@ describe("Ask Claude: the Actions tab", () => {
     dock(null);
     await waitFor(() => expect(actionsTab()).toHaveTextContent("2"));
     fireEvent.click(actionsTab());
-    expect(await screen.findAllByRole("button", { name: "Run action" })).toHaveLength(2);
+    expect(await screen.findAllByRole("button", { name: "Run" })).toHaveLength(2);
     fireEvent.click(screen.getAllByRole("button", { name: "Not now" })[0]);
     expect(screen.queryByRole("region", { name: /Recover 23 figures/ })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
@@ -138,13 +142,13 @@ describe("Ask Claude: the Actions tab", () => {
   it("says when there is none, and stays open while the focus moves", async () => {
     const { r, state } = dock(null);
     fireEvent.click(actionsTab());
-    expect(screen.getByText(/No Claude action/)).toBeInTheDocument();
+    expect(screen.getByText("No action proposed")).toBeInTheDocument();
     r.rerender(
       <AppContext.Provider value={{ ...state, route: { screen: "documents", arg: DOC } }}>
         <ClaudeDock folded={false} request={null} onFold={() => {}} />
       </AppContext.Provider>,
     );
-    expect(actionsTab()).toHaveAttribute("aria-pressed", "true");
+    expect(actionsTab()).toHaveAttribute("aria-selected", "true");
   });
 
   it("asks a document its questions, with the document named to Claude", async () => {

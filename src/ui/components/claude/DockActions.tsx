@@ -1,0 +1,88 @@
+import { useState } from "react";
+import type { ClaudeAction, Effort } from "../../../core/types.ts";
+import type { Action } from "../../lib/actions.ts";
+import { key, useCommand } from "../../lib/data/query.ts";
+import { errorToast } from "../../lib/toast.ts";
+import { EmptyState } from "../ui/EmptyState.tsx";
+import { ActionCard } from "./ActionCard.tsx";
+
+export type Pick = { model: string; effort: Effort };
+
+// ponytail: what the Actions tab keeps while the dock lives — the cards put aside (« Not now », back when the app
+// opens again) and the model and effort picked on each card
+export function useActionChoices(defaults: Pick) {
+  const [later, setLater] = useState<Set<string>>(new Set());
+  const [picks, setPicks] = useState<Record<string, Pick>>({});
+  const pickOf = (a: ClaudeAction) => picks[a.id] ?? a.suggest ?? defaults;
+  return {
+    later,
+    putAside: (id: string) => setLater((s) => new Set(s).add(id)),
+    pickOf,
+    setPick: (a: ClaudeAction, p: Partial<Pick>) => setPicks((all) => ({ ...all, [a.id]: { ...pickOf(a), ...p } })),
+  };
+}
+
+// ponytail: the Actions tab — every open action Claude proposed, as a card to run with its model and effort; Dismiss
+// for good
+export function DockActions({
+  actions,
+  busy,
+  choices,
+  contexts,
+  onRun,
+}: {
+  actions: Action[];
+  busy: boolean;
+  choices: ReturnType<typeof useActionChoices>;
+  contexts?: string[];
+  onRun: (a: ClaudeAction, pick: Pick) => void;
+}) {
+  const dismiss = useCommand("actions.dismiss", {
+    invalidates: [["actions.list"]],
+    optimistic: (c, input) => {
+      const k = key("actions.list", {});
+      const before = c.getQueryData<Action[]>(k);
+      c.setQueryData<Action[]>(
+        k,
+        before?.filter((a) => a.id !== input.id),
+      );
+      return () => c.setQueryData(k, before);
+    },
+  });
+  const shown = actions.filter((a) => !choices.later.has(a.id));
+  if (!shown.length)
+    return (
+      <EmptyState
+        icon="list"
+        compact
+        title={actions.length ? "Every action is put aside" : "No action proposed"}
+        text={
+          actions.length
+            ? "They come back when the app is opened again."
+            : "When a run sees a problem it can fix, it proposes it here."
+        }
+      />
+    );
+  return (
+    <>
+      {shown.map((a) => (
+        <ActionCard
+          key={a.id}
+          action={a}
+          ready
+          busy={busy}
+          model={choices.pickOf(a).model}
+          effort={choices.pickOf(a).effort}
+          contexts={contexts}
+          onModel={(m) => choices.setPick(a, { model: m })}
+          onEffort={(e) => choices.setPick(a, { effort: e })}
+          onRun={() => onRun(a, choices.pickOf(a))}
+          onLater={() => choices.putAside(a.id)}
+          onDismiss={() =>
+            dismiss.mutate({ id: a.id }, { onError: (e) => errorToast(e, "Could not dismiss the action") })
+          }
+        />
+      ))}
+    </>
+  );
+}

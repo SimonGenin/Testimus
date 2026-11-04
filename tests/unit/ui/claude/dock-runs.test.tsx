@@ -1,13 +1,16 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render as rtlRender, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setProject } from "../../src/ui/api.ts";
-import { ClaudeDock, type DockRequest, metaLine } from "../../src/ui/components/claude/ClaudeDock.tsx";
-import { ContextsDialog } from "../../src/ui/components/claude/ContextsDialog.tsx";
-import { AppContext, type AppState, type Focus } from "../../src/ui/lib/app.ts";
-import { callsOf, deferred, fakeEvents, fakeNet, net } from "./cov-uishell-helpers.tsx";
-import { app } from "./ui-desktop-helpers.tsx";
+import { setProject } from "../../../../src/ui/api.ts";
+import { ClaudeDock, type DockRequest, metaLine } from "../../../../src/ui/components/claude/ClaudeDock.tsx";
+import { ContextsDialog } from "../../../../src/ui/components/claude/ContextsDialog.tsx";
+import { AppContext, type AppState, type Focus } from "../../../../src/ui/lib/app.ts";
+import { callsOf, dataWrapper, deferred, fakeEvents, fakeNet, net } from "../../cov-uishell-helpers.tsx";
+import { app } from "../../ui-desktop-helpers.tsx";
+
+const render = ((ui: Parameters<typeof rtlRender>[0], o?: Parameters<typeof rtlRender>[1]) =>
+  rtlRender(ui, { wrapper: dataWrapper(), ...o })) as typeof rtlRender;
 
 beforeEach(() => {
   fakeNet();
@@ -93,7 +96,7 @@ describe("dock run details", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Show raw output" }));
     expect(screen.getByText("(no output)")).toBeInTheDocument();
     update({ folded: true });
-    expect(screen.getByText("Last run").parentElement).toHaveClass("dock-last-bad");
+    expect(screen.getByText(/^Last run · .* · failed$/)).toBeInTheDocument();
   });
 
   it("runs on the whole project and shows the changes on the first changed test", async () => {
@@ -126,6 +129,34 @@ describe("dock run details", () => {
     );
     expect(await screen.findByText("ok")).toBeInTheDocument();
   });
+
+  it("shows a run asked from a step's popover as its request under its scope, with the model it was asked with", async () => {
+    net.routes["claude.run"] = () => ({ ok: true, summary: "done", durationMs: 1000 });
+    mount(
+      {
+        request: {
+          mode: "test",
+          nonce: 1,
+          job: {
+            name: "claude.run",
+            input: {
+              scope: { kind: "step", testId: "local-1", step: 2 },
+              prompt: "Cite §5.6",
+              model: "haiku",
+              effort: "low",
+            },
+            label: "Step 2",
+            text: "Cite §5.6",
+            testId: "local-1",
+          },
+        },
+      },
+      { focus: focus() },
+    );
+    expect(await screen.findByText("done")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Request · Step 2" })).toHaveTextContent("Cite §5.6");
+    expect(screen.getByText(/haiku \/ low/)).toBeInTheDocument();
+  });
 });
 
 describe("dock contexts", () => {
@@ -134,13 +165,14 @@ describe("dock contexts", () => {
     net.routes["contexts.ofTest"] = () => ({ effective: ["g", "orphan"] });
     net.routes["claude.run"] = () => ({ ok: true, summary: "ok" });
     mount({}, { focus: focus() });
-    fireEvent.click(await screen.findByRole("button", { name: "Leave Glossaire out of this run" }));
-    expect(screen.queryByRole("button", { name: "Leave Glossaire out of this run" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Import saved" }));
+    const chip = await screen.findByRole("button", { name: "Glossaire" });
+    expect(chip).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(chip);
+    expect(chip).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(screen.getByRole("button", { name: "Add context" }));
     fireEvent.click(screen.getByRole("checkbox", { name: /Glossaire/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Use 1" }));
-    expect(screen.getByRole("button", { name: "Leave Glossaire out of this run" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Add a note" }));
+    expect(chip).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Add a note for this run" }));
     fireEvent.change(screen.getByRole("textbox", { name: "Note for this run" }), { target: { value: " PCC " } });
     ask("Go");
     await waitFor(() => expect(callsOf("claude.run")).toHaveLength(1));
@@ -175,6 +207,6 @@ describe("ContextsDialog: an answer for a context left meanwhile", () => {
     fireEvent.click(screen.getByRole("option", { name: /B/ }));
     await waitFor(() => expect(screen.getByRole("option", { name: /B/ })).toHaveAttribute("aria-selected", "true"));
     await act(async () => gate.resolve(null));
-    expect(screen.getByLabelText("Name")).toHaveValue("B");
+    expect(screen.getByLabelText(/^Name/)).toHaveValue("B");
   });
 });

@@ -36,8 +36,8 @@ test("each component page shows its props and every state, light and dark, style
     await expect(light).toBeVisible();
     await expect(dark).toBeVisible();
     const bg = (r: typeof light) => r.evaluate((el) => getComputedStyle(el).backgroundColor);
-    expect(await bg(light)).toBe("rgb(244, 243, 239)");
-    expect(await bg(dark)).toBe("rgb(18, 18, 17)");
+    expect(await bg(light)).toBe("rgb(247, 247, 248)");
+    expect(await bg(dark)).toBe("rgb(14, 14, 16)");
     await page.evaluate(() => document.fonts.ready);
     await page.screenshot({ path: join(SCREENS_DIR, "kit", `${name}.png`), animations: "disabled" });
   }
@@ -50,12 +50,12 @@ test("the page follows the explicit theme and the system one", async ({ page }) 
   await expect(primary).toBeVisible();
   const canvas = () => page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor);
   await setTheme(page, "light");
-  expect(await canvas()).toBe("rgb(244, 243, 239)");
+  expect(await canvas()).toBe("rgb(247, 247, 248)");
   await setTheme(page, "dark");
-  await expect.poll(canvas).toBe("rgb(18, 18, 17)");
+  await expect.poll(canvas).toBe("rgb(14, 14, 16)");
   await setTheme(page, "system");
   await page.emulateMedia({ colorScheme: "dark" });
-  await expect.poll(canvas).toBe("rgb(18, 18, 17)");
+  await expect.poll(canvas).toBe("rgb(14, 14, 16)");
   await page.emulateMedia({ colorScheme: "light" });
-  await expect.poll(canvas).toBe("rgb(244, 243, 239)");
+  await expect.poll(canvas).toBe("rgb(247, 247, 248)");
 });

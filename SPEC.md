@@ -69,7 +69,7 @@ update it when a decision changes, in the same change as the code.
   - **Vite 8** (Rolldown) builds the UI; for the release, Rolldown also bundles the core into one
     file, with the native parts (`sqlite-vec`, ONNX runtime) kept outside (§14).
   - `vitest` 5 (current major at build time), `@playwright/test`.
-- Fonts (Lexend, Source Sans 3, JetBrains Mono) come from `@fontsource-variable/*` and are bundled into
+- Fonts (Inter, Source Serif 4, JetBrains Mono) come from `@fontsource-variable/*` and are bundled into
   the UI: the app works offline and behind a proxy that blocks Google Fonts.
   - **Biome** 2: lint and format in one tool, one config, run by `npm run check`. (Oxfmt is faster
     but still beta.)
@@ -1264,10 +1264,14 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
 - Shell: Ctrl+K command palette (every registry command by name; a command with input gets a form from its schema), Ctrl+J folds the Claude dock (folded at start and in Review; the user's choice holds until the next start), theme system / light / dark from the rail, step layout and last project remembered per browser; Revert undoes a whole Claude run. The page title is « Testimus — <project name> » (« Testimus » with no project); the desktop window takes it.
 - The app logo (`src/ui/public/logo.png`, `favicon.png`; `scripts/testimus.ico` for the Start-menu shortcut)
   sits on a light tile at the top of the rail and on the first-launch screen.
-- Look and feel: the design « Testimus — UI draft » (Transurb tokens: teal #00a59a reserved for the
-  screen's primary action, ink #0d1111, Lexend / Source Sans 3 / JetBrains Mono), light and dark themes
-  from tokens on `:root`, a state always icon + word. Xray Editor's components are ported for their
-  behavior and dressed to the design. UI text in English (§16).
+- Look and feel: the design in `design/` (`SYSTEM.md`, `tokens.css`, the mockups of `design/screens/`; revised
+  2026-11-04 for a modern, airy look): clean neutral grounds (near-white canvas, white panes, a rounded white frame
+  inset from the window), one ink-blue accent (#3e63dd) for the screen's primary action, the selection and the focus,
+  Claude in violet and nothing else in violet, Inter for the interface, Source Serif 4 for text quoted from a
+  specification, JetBrains Mono for keys and anchors, soft radii (8 px controls, 12 px cards, 16 px frame and modals),
+  light hairlines and faint layered shadows, 32 px controls, 36 px rows and generous spacing; light and dark themes
+  are the same token names, a state always icon + word, every pair checked at WCAG AA. Xray Editor's components are
+  ported for their behavior and dressed to the design. UI text in English (§16).
 
 ### Desktop shell
 

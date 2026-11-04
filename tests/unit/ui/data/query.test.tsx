@@ -133,6 +133,7 @@ describe("the event tables", () => {
   it("map a changed path to the reads that show it", () => {
     expect(keysOfPaths(["tests/T1/test.md"])).toContainEqual(["tests.show", { id: "T1" }]);
     expect(keysOfPaths(["docs/D1/doc.json"])).toContainEqual(["docs.show", { id: "D1" }]);
+    expect(keysOfPaths(["docs/D1/doc.md"])).toContainEqual(["docs.list"]);
     expect(keysOfPaths(["CLAUDE.md"])).toEqual([["project.notes"]]);
     expect(keysOfPaths(["contexts/c1/context.md"])).toContainEqual(["contexts.list"]);
     expect(keysOfPaths(["somewhere/else.txt"])).toEqual([]);
@@ -141,6 +142,8 @@ describe("the event tables", () => {
   it("map a finished job's kind to what it changed outside the files", () => {
     expect(keysOfKind("rag-index")).toContainEqual(["rag.status"]);
     expect(keysOfKind("models-pull")).toContainEqual(["models.list"]);
+    expect(keysOfKind("docs.convert")).toContainEqual(["docs.list"]);
+    expect(keysOfKind("describe-figures")).toContainEqual(["docs.show"]);
     expect(keysOfKind("unknown")).toEqual([]);
   });
 });
