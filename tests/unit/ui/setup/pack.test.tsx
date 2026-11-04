@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Badge } from "../../../../src/ui/components/ui/Badge.tsx";
 import { FirstRunScreen } from "../../../../src/ui/screens/setup/FirstRunScreen.tsx";
 import { PackStep } from "../../../../src/ui/screens/setup/PackStep.tsx";
-import { iconsIn } from "../../helpers/icon-names.tsx";
+import { iconsIn } from "../../helpers/icons.ts";
 import { callsOf, fakeEvents, fakeNet, net, withApp } from "../../helpers/ui-data.tsx";
 
 const toasts = vi.hoisted(() => ({ toast: vi.fn(), errorToast: vi.fn() }));

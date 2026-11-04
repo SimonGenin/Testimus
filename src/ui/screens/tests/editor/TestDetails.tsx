@@ -83,6 +83,7 @@ export function TestDetails({
           showLabel
           appearance="inline"
           mono
+          icon="plus"
           placeholder={test.preconditions.length ? "Attach another…" : "Attach a precondition…"}
           values={test.preconditions}
           choices={pre.map((p) => ({ value: p.key, label: p.key }))}
@@ -99,6 +100,8 @@ export function TestDetails({
           label="Claude contexts"
           showLabel
           appearance="inline"
+          icon="plus"
+          chip={{ icon: "context", tone: "claude" }}
           placeholder={eff.length ? "Attach another…" : "Attach a context…"}
           values={eff}
           choices={contexts.map((c) => ({ value: c.id, label: c.name }))}

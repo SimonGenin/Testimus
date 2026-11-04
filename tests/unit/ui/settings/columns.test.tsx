@@ -3,7 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ColumnsSection } from "../../../../src/ui/screens/settings/ColumnsSection.tsx";
-import { iconsIn } from "../../helpers/icon-names.tsx";
+import { iconsIn } from "../../helpers/icons.ts";
 import { calls, column, Fail, fakeNet, hold, info, inputs, label, mountSettings, net, reset } from "./helpers.tsx";
 
 vi.mock("../../../../src/ui/screens/settings/ColumnsClaude.tsx", () => ({

@@ -45,7 +45,9 @@ test("with the dock open beside it at 1440 px the queue folds into a previous / 
   await expect(under(page).getByRole("heading", { level: 2 })).toHaveText(SUMMARY_1420);
 });
 
-test("« Show the queue » of the strip lays the queue over the test; opening a test folds it again", async ({ page }) => {
+test("« Show the queue » of the strip lays the queue over the test; opening a test folds it again", async ({
+  page,
+}) => {
   await open(page, 1440, true);
   await expect(queue(page)).toBeHidden();
   const before = await widthOf(page);

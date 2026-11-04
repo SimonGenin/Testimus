@@ -100,7 +100,7 @@ describe("the shell's icons, as the design draws them", () => {
     expect(dialog.querySelector('[data-icon="key"]')).not.toBeNull();
   });
 
-  it("activity: a generation is Claude's spark, an index layers, a Jira read a spinner; « N running » turns", async () => {
+  it("activity: the Jobs screen's icons (generate, an index layers), a Jira read a spinner; « N running » turns", async () => {
     const load = deferred();
     net.routes["xray.folders"] = () => load.promise;
     net.routes["jobs.list"] = () => [
@@ -120,7 +120,8 @@ describe("the shell's icons, as the design draws them", () => {
     const byText = (t: string) => rows.find((r) => r.textContent?.includes(t));
     expect(iconOf(byText("Loading the Jira folders"))).toBeUndefined();
     expect(byText("Loading the Jira folders")?.querySelector('span[aria-hidden="true"]')).not.toBeNull();
-    expect(iconOf(byText("Le sectionneur"))).toBe("claude");
+    expect(iconOf(byText("Le sectionneur"))).toBe("generate");
+    expect(byText("Le sectionneur")).toHaveAttribute("data-kind", "claude");
     expect(iconOf(byText("SOSIE_211_D401-1_4"))).toBe("layers");
   });
 

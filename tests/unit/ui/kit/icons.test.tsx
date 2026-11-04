@@ -5,11 +5,41 @@ import { afterEach, describe, expect, it } from "vitest";
 import { Badge, DIFF, SYNC } from "../../../../src/ui/components/ui/Badge.tsx";
 import { Button } from "../../../../src/ui/components/ui/Button.tsx";
 import { Checkbox } from "../../../../src/ui/components/ui/Checkbox.tsx";
+import { ChipField } from "../../../../src/ui/components/ui/ChipField.tsx";
 import { Disclosure } from "../../../../src/ui/components/ui/Disclosure.tsx";
 import { Icon } from "../../../../src/ui/components/ui/Icon.tsx";
 import { Modal } from "../../../../src/ui/components/ui/Modal.tsx";
+import { Select } from "../../../../src/ui/components/ui/Select.tsx";
 
 afterEach(cleanup);
+
+describe("the kit's fields carry the design's icons", () => {
+  it("a chip field: plus before the box, each chip its icon in Claude's tone; a select shows its icon beside a prefix", () => {
+    const { container } = render(
+      <>
+        <ChipField
+          label="Claude contexts"
+          values={["gloss"]}
+          choices={[{ value: "gloss", label: "Glossaire RATP" }]}
+          onChange={() => {}}
+          icon="plus"
+          chip={{ icon: "context", tone: "claude" }}
+        />
+        <Select
+          label="Sort"
+          prefix="Sort"
+          icon="sort"
+          value="a"
+          options={[{ value: "a", label: "Oldest" }]}
+          onChange={() => {}}
+        />
+      </>,
+    );
+    expect(screen.getByText("Glossaire RATP").parentElement?.querySelector('[data-icon="context"]')).not.toBeNull();
+    expect(container.querySelector('[data-icon="plus"]')).not.toBeNull();
+    expect(screen.getByText("Sort").querySelector('[data-icon="sort"]')).not.toBeNull();
+  });
+});
 
 const iconOf = (el: Element | null) => el?.querySelector("[data-icon]")?.getAttribute("data-icon");
 

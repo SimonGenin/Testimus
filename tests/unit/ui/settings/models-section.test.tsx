@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Fit, Job } from "../../../../src/core/types.ts";
 import { ModelsSection } from "../../../../src/ui/screens/settings/ModelsSection.tsx";
 import type { CatalogRow, Installed, PackRow } from "../../../../src/ui/screens/settings/models/data.ts";
-import { iconsIn } from "../../helpers/icon-names.tsx";
+import { iconsIn } from "../../helpers/icons.ts";
 import { calls, emit, Fail, fakeNet, inputs, job, mountSettings, net, reset, status } from "./helpers.tsx";
 
 vi.mock("../../../../src/ui/screens/settings/models/FolderDialog.tsx", () => ({

@@ -59,7 +59,15 @@ const styles = stylex.create({
     color: color.textMuted,
     pointerEvents: "none",
   },
-  prefix: { paddingInlineStart: space.s4, color: color.textMuted, fontSize: fontSize.compact, whiteSpace: "nowrap" },
+  prefix: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: space.s2,
+    paddingInlineStart: space.s4,
+    color: color.textMuted,
+    fontSize: fontSize.compact,
+    whiteSpace: "nowrap",
+  },
   chevron: {
     position: "absolute",
     insetInlineEnd: space.s3,
@@ -87,6 +95,7 @@ export type SelectProps<V extends string> = {
   size?: "sm" | "md";
   /** a word before the value (« Sort », « Folder ») */
   prefix?: string;
+  /** before the value, or before the prefix when there is one (« Sort »: sort) */
   icon?: IconName;
   /** shown while nothing is chosen (« Choose a folder… ») */
   placeholder?: string;
@@ -122,6 +131,7 @@ export function Select<V extends string>({
     <span {...stylex.props(styles.wrap, block && styles.block)}>
       {prefix && (
         <span aria-hidden="true" {...stylex.props(styles.prefix)}>
+          {icon && <Icon name={icon} />}
           {prefix}
         </span>
       )}

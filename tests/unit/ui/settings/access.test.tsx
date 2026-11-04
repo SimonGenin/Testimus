@@ -11,7 +11,7 @@ import {
   siteRoot,
   xrayWords,
 } from "../../../../src/ui/screens/settings/ConnectAtlassian.tsx";
-import { iconsIn } from "../../helpers/icon-names.tsx";
+import { iconsIn } from "../../helpers/icons.ts";
 import { fakeDesktop } from "../../helpers/ui-desktop.tsx";
 import { calls, Fail, fakeNet, hold, inputs, label, mountSettings, net, reset } from "./helpers.tsx";
 

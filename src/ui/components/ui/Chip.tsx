@@ -122,7 +122,7 @@ export function Chip({
 }: ChipProps) {
   const toggle = onToggle !== undefined;
   const pressable = toggle || onClick !== undefined;
-  const on = toggle && pressed === true;
+  const on = toggle ? pressed === true : tone === "claude";
   const look = stylex.props(
     styles.chip,
     !pressable && styles.still,

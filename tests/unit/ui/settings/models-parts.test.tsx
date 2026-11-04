@@ -25,7 +25,7 @@ import { ModelsTable } from "../../../../src/ui/screens/settings/models/ModelsTa
 import { OpLine } from "../../../../src/ui/screens/settings/models/OpLine.tsx";
 import { PackCard } from "../../../../src/ui/screens/settings/models/PackCard.tsx";
 import { PackPlanDialog } from "../../../../src/ui/screens/settings/models/PackPlanDialog.tsx";
-import { iconsIn } from "../../helpers/icon-names.tsx";
+import { iconsIn } from "../../helpers/icons.ts";
 import { fakeDesktop } from "../../helpers/ui-desktop.tsx";
 import { calls, Fail, fakeJob, fakeNet, hold, inputs, label, mountSettings, net, reset } from "./helpers.tsx";
 

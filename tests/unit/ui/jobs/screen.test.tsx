@@ -8,7 +8,7 @@ import { setProject } from "../../../../src/ui/lib/data/client.ts";
 import { applyJobEvent } from "../../../../src/ui/lib/data/events.ts";
 import { readPref } from "../../../../src/ui/lib/prefs.ts";
 import { JobState, JobsScreen } from "../../../../src/ui/screens/jobs/JobsScreen.tsx";
-import { iconsIn } from "../../helpers/icon-names.tsx";
+import { iconsIn } from "../../helpers/icons.ts";
 import {
   callsOf,
   deferred,

@@ -2,6 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import { type ReactNode, useState } from "react";
 import { useJobEvents } from "../../lib/data/events.ts";
 import { kindLabel } from "../../lib/jobs.ts";
+import { kindIcon } from "../../screens/jobs/kinds.ts";
 import { border, color, fontFamily, fontSize, lineHeight, radius, size, space } from "../../styles/tokens.stylex.ts";
 import { Icon, type IconName } from "../ui/Icon.tsx";
 import { Progress } from "../ui/Progress.tsx";
@@ -18,28 +19,27 @@ export type ActivityItem = {
 
 type Tone = "doc" | "claude" | "plain";
 
-const KIND: Record<string, [IconName, Tone]> = {
-  "docs.add": ["documents", "doc"],
-  "docs.convert": ["documents", "doc"],
-  "rag-index": ["layers", "doc"],
-  "describe-figures": ["image", "claude"],
-  generate: ["claude", "claude"],
-  fix: ["claude", "claude"],
-  check: ["claude", "claude"],
-  columns: ["claude", "claude"],
-  claude: ["claude", "claude"],
-  chat: ["claude", "claude"],
-  "actions.triage": ["claude", "claude"],
-  "gen-bench": ["claude", "claude"],
-  "rag-eval": ["search", "plain"],
-  "models-measure": ["search", "plain"],
-  pull: ["download", "plain"],
-  push: ["push", "plain"],
-  jira: ["spinner", "plain"],
+// ponytail: the icon is the Jobs screen's (one table, kindIcon); here only the tile's tint — and work the page waits
+// on, not a job, turns
+const TONE: Record<string, Tone> = {
+  "docs.add": "doc",
+  "docs.convert": "doc",
+  "rag-index": "doc",
+  "describe-figures": "claude",
+  generate: "claude",
+  fix: "claude",
+  check: "claude",
+  columns: "claude",
+  claude: "claude",
+  chat: "claude",
+  "actions.triage": "claude",
+  "gen-bench": "claude",
 };
 
-export const kindOf = (kind: string): [IconName, Tone] =>
-  KIND[kind] ?? (kind.startsWith("models") ? ["download", "plain"] : ["jobs", "plain"]);
+const kindOf = (kind: string): [IconName, Tone] => [
+  kind === "jira" ? "spinner" : kindIcon(kind),
+  TONE[kind] ?? "plain",
+];
 
 export function elapsed(startedAt: string, now: number): string {
   const s = Math.max(0, Math.round((now - Date.parse(startedAt)) / 1000));

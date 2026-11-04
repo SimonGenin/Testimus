@@ -3,7 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SearchSection } from "../../../../src/ui/screens/settings/SearchSection.tsx";
-import { iconsIn } from "../../helpers/icon-names.tsx";
+import { iconsIn } from "../../helpers/icons.ts";
 import { calls, Fail, fakeNet, info, inputs, mountSettings, net, reset } from "./helpers.tsx";
 
 const status = (over: Record<string, unknown> = {}) => ({

@@ -52,7 +52,8 @@ export function kindIcon(kind: string): IconName {
   if (kind.startsWith("docs.") || kind === "describe-figures") return "documents";
   if (kind === "generate") return "generate";
   if (kind === "check") return "check-circle";
-  if (kind === "rag-index" || kind === "search-index" || kind === "rag-eval") return "search";
+  if (kind === "rag-index" || kind === "search-index") return "layers";
+  if (kind === "rag-eval") return "search";
   if (kind === "push") return "push";
   if (kind === "pull") return "download";
   if (kind === "models-measure") return "cpu";

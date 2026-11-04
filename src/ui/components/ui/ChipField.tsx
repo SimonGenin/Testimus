@@ -2,10 +2,12 @@ import * as stylex from "@stylexjs/stylex";
 import { type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { color, fontSize, lineHeight, radius, shadow, size, space, z } from "../../styles/tokens.stylex.ts";
 import { Chip } from "./Chip.tsx";
+import { Icon, type IconName } from "./Icon.tsx";
 import { Text } from "./Text.tsx";
 
 const styles = stylex.create({
   anchor: { position: "relative", minWidth: 0 },
+  lead: { display: "inline-flex", flex: "none", color: color.textSubtle },
   list: {
     boxSizing: "border-box",
     position: "absolute",
@@ -60,6 +62,10 @@ export type ChipFieldProps = {
   choices?: ChipChoice[];
   /** keys and ids */
   mono?: boolean;
+  /** before the box, after the chips: what typing does (« Attach a context… »: plus) */
+  icon?: IconName;
+  /** what each chip is: its icon, and claude for what Claude reads (a test's contexts) */
+  chip?: { icon?: IconName; tone?: "claude" };
   /** boxed (forms, dialogs) · inline (the test editor: no edge until hovered or focused) */
   appearance?: "boxed" | "inline";
   /** at the end of the field (a Browse… button) */
@@ -83,6 +89,8 @@ export function ChipField({
   suggest,
   choices,
   mono = false,
+  icon,
+  chip,
   appearance = "boxed",
   trailing,
   disabled = false,
@@ -157,6 +165,8 @@ export function ChipField({
       key={v}
       label={labelOf(v)}
       mono={mono}
+      icon={chip?.icon}
+      tone={chip?.tone}
       inField
       disabled={disabled}
       onRemove={editable && !disabled ? () => onChange(values.filter((x) => x !== v)) : undefined}
@@ -178,7 +188,18 @@ export function ChipField({
           if (!choices && /[,;]$/.test(v)) commit(v);
           else setQuery(v);
         }}
-        leading={chips}
+        leading={
+          icon && editable ? (
+            <>
+              {chips}
+              <span {...stylex.props(styles.lead)}>
+                <Icon name={icon} size="sm" />
+              </span>
+            </>
+          ) : (
+            chips
+          )
+        }
         trailing={trailing}
         combobox={
           listed
