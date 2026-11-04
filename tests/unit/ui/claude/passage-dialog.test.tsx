@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Passage } from "../../../../src/core/types.ts";
 import { setProject } from "../../../../src/ui/api.ts";
 import { PassageDialog } from "../../../../src/ui/components/sources/PassageDialog.tsx";
+import { docLink } from "../../../../src/ui/components/sources/PassageView.tsx";
 import { closeToast } from "../../../../src/ui/lib/toast.ts";
 import { callsOf, dataWrapper, deferred, Fail, fakeEvents, fakeNet, net } from "../../helpers/ui-data.tsx";
 
@@ -52,16 +53,50 @@ describe("Passage dialog", () => {
       <PassageDialog source={{ docId: "D", anchor: "§1", quote: "Propriétés" }} onClose={close} onOpenDoc={open} />,
     );
     expect(screen.getByRole("status", { name: "Loading the passage" })).toBeInTheDocument();
-    expect(screen.getByRole("dialog", { name: "D §1" })).toHaveTextContent("D · §1");
+    expect(screen.getByRole("dialog", { name: "D §1" })).toHaveTextContent(/D\s*· §1/);
     expect(screen.getByRole("region", { name: "Source D §1" })).toBeInTheDocument();
     await act(async () => gate.resolve(null));
-    expect(await screen.findByText("Spécification")).toBeInTheDocument();
-    expect(screen.getByText("SOSIE_211 · v3 · §1")).toBeInTheDocument();
+    expect(await screen.findByText(/· Spécification · v3 ·/)).toBeInTheDocument();
+    expect(screen.getByText("SOSIE_211")).toBeInTheDocument();
+    expect(screen.getByText("Validated")).toBeInTheDocument();
+    expect(screen.queryByText(/of \d+ sources/)).toBeNull();
     expect(callsOf("rag.passage")[0].input).toEqual({ ref: "D#§1" });
     fireEvent.click(screen.getByRole("button", { name: /Open in document/ }));
     expect(open).toHaveBeenCalledWith("D", "§1", "Propriétés");
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(close).toHaveBeenCalled();
+  });
+
+  it("from a step: « Source of step n » and ‹ › through the step's sources", async () => {
+    net.routes["rag.passage"] = (i) => {
+      const ref = (i as { ref: string }).ref;
+      return { ...passage, anchor: ref.split("#")[1], title: `Titre ${ref}` };
+    };
+    const a = { docId: "D", anchor: "§1", quote: "Propriétés" };
+    const b = { docId: "D", anchor: "§2", quote: "" };
+    const open = vi.fn();
+    render(
+      <PassageDialog
+        source={b}
+        from={{ test: "LFRPS12-1420", step: 3, sources: [a, b] }}
+        onClose={() => {}}
+        onOpenDoc={open}
+      />,
+    );
+    expect(screen.getByRole("dialog", { name: "Source of step 3" })).toBeInTheDocument();
+    expect(screen.getByText("2 of 2 sources")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next source" })).toBeDisabled();
+    expect(await screen.findByRole("heading", { name: "§ 2 Titre D#§2" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Previous source" }));
+    expect(screen.getByText("1 of 2 sources")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "§ 1 Titre D#§1" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Previous source" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: /Open in document/ }));
+    expect(open).toHaveBeenCalledWith("D", "§1", "Propriétés", { test: "LFRPS12-1420", step: 3 });
+    expect(docLink("D", "§1", "Propriétés", { test: "LFRPS12-1420", step: 3 })).toBe(
+      'D#§1 "Propriétés" from LFRPS12-1420 step 3',
+    );
+    expect(docLink("D", "§1", "", { test: "LFRPS12-1420" })).toBe("D#§1");
   });
 
   it("says why the passage cannot be shown, with the quote, and needs no document button", async () => {

@@ -37,6 +37,24 @@ const styles = stylex.create({
     overflow: "hidden",
   },
   chapter: { position: "absolute", top: 0, bottom: 0, width: border.width, backgroundColor: color.borderStrong },
+  marks: {
+    position: "relative",
+    height: lineHeight.caption,
+    overflow: "hidden",
+    fontFamily: fontFamily.mono,
+    fontSize: fontSize.caption,
+    lineHeight: lineHeight.caption,
+    color: color.textSubtle,
+  },
+  mark: {
+    position: "absolute",
+    top: 0,
+    paddingInlineStart: space.s1,
+    borderInlineStartStyle: "solid",
+    borderInlineStartWidth: border.width,
+    borderInlineStartColor: color.border,
+    whiteSpace: "nowrap",
+  },
   page: { position: "absolute", top: 0, bottom: 0, backgroundColor: color.claudeBorder },
   latest: { backgroundColor: color.claude },
   legend: {
@@ -61,7 +79,7 @@ const styles = stylex.create({
     lineHeight: lineHeight.small,
     color: color.textMuted,
   },
-  query: { fontFamily: fontFamily.reading, fontStyle: "italic", color: color.text },
+  query: { fontFamily: fontFamily.reading, color: color.text },
   muted: { color: color.textSubtle },
   lookups: {
     display: "grid",
@@ -106,6 +124,20 @@ function readLine(spans: Span[], total: number | undefined): string {
   return `${parts.join("; ")}.`;
 }
 
+// the labels under the reading bar: the chapters and the sections opened from the index, by line
+export function sectionMarks(
+  outline: Outline | null | undefined,
+  pins: { anchor: string; line: number }[],
+): { anchor: string; line: number }[] {
+  const chapters = outline
+    ? [...outline.anchors].flatMap(([anchor, at]) =>
+        anchor.startsWith("§") && outline.chapters.includes(at.line) ? [{ anchor, line: at.line }] : [],
+      )
+    : [];
+  const all = [...chapters, ...pins.map((p) => ({ anchor: p.anchor, line: p.line }))];
+  return all.filter((m, i) => all.findIndex((x) => x.anchor === m.anchor) === i).sort((a, b) => a.line - b.line);
+}
+
 // ponytail: where in the document Claude read — the pages it read on a bar the document's length, the sections it
 // opened from the index as pins
 export function DocMap({ doc, spans, hits, live }: { doc: string; spans: Span[]; hits: Lookup[]; live: boolean }) {
@@ -118,6 +150,7 @@ export function DocMap({ doc, spans, hits, live }: { doc: string; spans: Span[];
   });
   const end = Math.max(outline?.total ?? 0, linesRead(spans).last, ...pins.map((p) => p.line));
   const pct = (n: number) => `${(n / end) * 100}%`;
+  const marks = sectionMarks(outline, pins);
   return (
     <div {...stylex.props(styles.map)}>
       {end > 0 && (
@@ -156,6 +189,15 @@ export function DocMap({ doc, spans, hits, live }: { doc: string; spans: Span[];
               );
             })}
           </div>
+          {marks.length > 0 && (
+            <div aria-hidden="true" data-testid="readbar-marks" {...stylex.props(styles.marks)}>
+              {marks.map((m) => (
+                <span key={m.anchor} style={{ left: pct(m.line - 1) }} {...stylex.props(styles.mark)}>
+                  {m.anchor}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       )}
       <p {...stylex.props(styles.legend)}>

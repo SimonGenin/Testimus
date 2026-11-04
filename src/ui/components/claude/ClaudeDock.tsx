@@ -19,7 +19,6 @@ import {
   space,
   z,
 } from "../../styles/tokens.stylex.ts";
-import { Badge } from "../ui/Badge.tsx";
 import { Button } from "../ui/Button.tsx";
 import { Icon } from "../ui/Icon.tsx";
 import { Modal } from "../ui/Modal.tsx";
@@ -240,14 +239,6 @@ export function ClaudeDock({
           <Icon name="claude" />
           Claude
         </h2>
-        {notInstalled && (
-          <Badge
-            tone="warning"
-            size="sm"
-            label="not connected"
-            tooltip="Claude is optional — everything else works without it"
-          />
-        )}
         <span {...stylex.props(styles.grow)} />
         <OnTopToggle />
         <Button variant="quiet" size="sm" icon="panel-right" iconOnly label="Fold the dock (Ctrl+J)" onClick={onFold} />

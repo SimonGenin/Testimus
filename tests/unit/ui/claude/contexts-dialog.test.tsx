@@ -129,7 +129,14 @@ describe("ContextsDialog", () => {
     backend([]);
     const { close } = mount();
     expect(await screen.findByText("No context yet")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /New context/ }));
+    expect(screen.getByText("No context yet.")).toBeInTheDocument();
+    const copies = screen.getAllByRole("button", { name: "Copy from another project…" });
+    expect(copies).toHaveLength(2);
+    fireEvent.click(copies[1]);
+    fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
+    const news = screen.getAllByRole("button", { name: /New context/ });
+    expect(news).toHaveLength(2);
+    fireEvent.click(news[1]);
     expect(await screen.findByText("contexts/new-1/")).toBeInTheDocument();
     expect(option(/new-1/)).toHaveAttribute("aria-selected", "true");
     expect(option(/new-1/)).toHaveTextContent("empty");

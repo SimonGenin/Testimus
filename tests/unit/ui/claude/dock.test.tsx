@@ -112,7 +112,7 @@ describe("Claude dock: asking the documents", () => {
     net.routes["chat.ask"] = () => ({ jobId: "c1" });
     net.routes["jobs.show"] = () => ({ job: job({ id: "c1", kind: "chat" }) });
     const { state } = mount({}, onDoc);
-    expect(screen.getByText("Ask anything about D")).toBeInTheDocument();
+    expect(screen.getByText(/Claude answers from D and cites the passages it used/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Ask/ })).toBeDisabled();
     ask("Quel menu ?");
     await waitFor(() => expect(callsOf("chat.ask")).toHaveLength(1));
@@ -157,6 +157,7 @@ describe("Claude dock: asking the documents", () => {
     );
     await waitFor(() => expect(screen.getByRole("button", { name: /Ask/ })).toBeInTheDocument());
     const chips = screen.getAllByRole("button", { name: /D §5.6/ });
+    expect(chips).toHaveLength(1);
     fireEvent.click(chips[chips.length - 1]);
     expect(state.openSource).toHaveBeenCalledWith({ docId: "D", anchor: "§5.6", quote: "ne propose que" });
     net.routes["chat.ask"] = () => ({ chatId: undefined, answer: "" });
@@ -167,6 +168,39 @@ describe("Claude dock: asking the documents", () => {
     ask("Encore ?");
     await waitFor(() => expect(callsOf("chat.ask")).toHaveLength(3));
     expect(callsOf("chat.ask")[2].input.chatId).toBe("chat-1");
+  });
+
+  it("lists the earlier conversations, opens one as it was said and continues it", async () => {
+    net.routes["chat.list"] = () => [
+      {
+        id: "chat-old",
+        title: "Quelles commandes propose un disjoncteur ?",
+        updatedAt: "2026-11-03T10:00:00Z",
+        turns: 2,
+      },
+    ];
+    net.routes["chat.show"] = () => ({
+      id: "chat-old",
+      title: "Quelles commandes propose un disjoncteur ?",
+      updatedAt: "2026-11-03T10:00:00Z",
+      turns: [
+        { role: "user", text: "Quelles commandes propose un disjoncteur ?", at: "" },
+        { role: "assistant", text: 'Ouvrir et fermer D#§5.6.7 "Ouvrir, Fermer"', at: "" },
+      ],
+    });
+    net.routes["chat.ask"] = () => ({ chatId: "chat-old", ok: true, answer: "Oui.", raw: "claude said Oui." });
+    mount({}, onDoc);
+    expect(await screen.findByText("Earlier conversations")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("option", { name: /Quelles commandes propose un disjoncteur/ }));
+    await waitFor(() => expect(callsOf("chat.show")[0]?.input).toEqual({ chatId: "chat-old" }));
+    expect(await screen.findByText(/Ouvrir et fermer/)).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /D §5.6.7/ })).toHaveLength(1);
+    expect(screen.queryByText("Earlier conversations")).toBeNull();
+    ask("Et le sectionneur ?");
+    await waitFor(() => expect(callsOf("chat.ask")).toHaveLength(1));
+    expect(callsOf("chat.ask")[0].input.chatId).toBe("chat-old");
+    fireEvent.click(await screen.findByRole("button", { name: "Show raw output" }));
+    expect(screen.getByText("claude said Oui.")).toBeInTheDocument();
   });
 
   it("shows why Claude could not answer and checks the sign-in again", async () => {
@@ -306,7 +340,8 @@ describe("Claude dock: on a test", () => {
       effort: "medium",
     });
     expect(flushed).toHaveBeenCalledWith([["tests.show"]], null);
-    expect(await screen.findByText("2 steps changed · check queued")).toBeInTheDocument();
+    expect(await screen.findByText("2 steps changed")).toBeInTheDocument();
+    expect(screen.getByText("Check queued")).toBeInTheDocument();
     expect(state.setClaudeRunning).toHaveBeenCalledWith("local-1");
     expect(state.setClaudeRunning).toHaveBeenLastCalledWith(null);
     expect(state.setLastRun).toHaveBeenCalledWith(
@@ -337,7 +372,8 @@ describe("Claude dock: on a test", () => {
       review: "checked",
     });
     ask("Fix");
-    expect(await screen.findByText("1 step changed in 2 tests · checked again")).toBeInTheDocument();
+    expect(await screen.findByText("1 step changed in 2 tests")).toBeInTheDocument();
+    expect(screen.getByText("Checked again")).toBeInTheDocument();
     net.routes["claude.run"] = () => ({
       ok: true,
       summary: "Tried",
@@ -348,8 +384,8 @@ describe("Claude dock: on a test", () => {
     });
     ask("Fix again");
     expect(await screen.findByText("Step 4 still has no source")).toBeInTheDocument();
-    expect(screen.getByText("Still To fix")).toBeInTheDocument();
-    expect(screen.getByText("1 step changed · still To fix")).toBeInTheDocument();
+    expect(screen.getAllByText("Still To fix")).toHaveLength(2);
+    expect(screen.getByText("1 step changed")).toBeInTheDocument();
   });
 
   it("shows why a run did not finish, with no run card", async () => {
@@ -374,6 +410,7 @@ describe("Claude dock: on a test", () => {
     expect(await screen.findByText("Nothing to do")).toBeInTheDocument();
     expect(screen.getByText("Claude cannot connect")).toBeInTheDocument();
     expect(screen.getByText(/^0 steps changed/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show changes" })).toBeDisabled();
     expect(screen.getByRole("button", { name: /^Revert$/ })).toBeInTheDocument();
   });
 
@@ -561,7 +598,8 @@ describe("Claude dock: requests from the app", () => {
     update({ request: jobReq(2) });
     expect(await screen.findByText("Claude is busy")).toBeInTheDocument();
     await act(async () => finish({ ok: true, summary: "Fixed", runId: "f1", changedSteps: [1], review: "checked" }));
-    expect(await screen.findByText("1 step changed · checked again")).toBeInTheDocument();
+    expect(await screen.findByText("1 step changed")).toBeInTheDocument();
+    expect(screen.getByText("Checked again")).toBeInTheDocument();
     net.routes["review.fix"] = () => {
       throw new Fail("no such test");
     };

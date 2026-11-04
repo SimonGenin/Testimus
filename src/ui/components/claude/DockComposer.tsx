@@ -140,7 +140,7 @@ export function DockComposer({
         quickAsks={mode === "test" ? quickAsks : undefined}
         model={{ value: choice.selected, options: choice.options, onChange: choice.pick }}
         effort={{ value: effort, options: effortOptions, onChange: (e) => onEffort(e as Effort) }}
-        scope={scope}
+        scope={mode === "test" ? scope : undefined}
         allowEmpty={mode === "test"}
         submitLabel={mode === "docs" ? "Ask" : "Send"}
         running={running}

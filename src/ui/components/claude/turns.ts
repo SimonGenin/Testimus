@@ -8,6 +8,8 @@ import type {
   Tokens,
 } from "../../../core/types.ts";
 import { plural } from "../../lib/format.ts";
+import type { BadgeTone } from "../ui/Badge.tsx";
+import type { IconName } from "../ui/Icon.tsx";
 
 export type Mode = "docs" | "test";
 
@@ -73,6 +75,7 @@ export type ChatResult = {
   diagnosis?: Diagnosis;
   tokens?: Tokens;
   sessionId?: string;
+  raw?: string;
 };
 
 // ponytail: a run with no test (the whole project) still marks Claude as running, so every editor locks
@@ -85,7 +88,7 @@ export function fixOutcome(r: { review?: string; message?: string }): { word: st
   return { word: "still To fix", note: r.message || "The test did not go back to Checked." };
 }
 
-const kilo = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : String(n));
+export const kilo = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : String(n));
 
 export function metaLine(m: Meta): string {
   return [
@@ -143,16 +146,34 @@ export function transcript(turns: Turn[], skipChat = false): string {
 export const docOfRoute = (r: { screen: string; arg?: string }): string | null =>
   r.screen === "documents" && r.arg ? r.arg.split("#")[0] || null : null;
 
-// the run card's title: what changed, or that it was reverted
-export function runTitle(run: RunCard, action: boolean): string {
-  if (run.reverted) return "Reverted";
+export const changed = (run: RunCard) => run.steps > 0 || (run.files ?? 0) > 0;
+
+export type RunBadge = { label: string; tone: BadgeTone; icon: IconName };
+
+const OUTCOME: Record<string, Omit<RunBadge, "label">> = {
+  "check queued": { tone: "info", icon: "clock" },
+  "checked again": { tone: "success", icon: "check-circle" },
+  "still To fix": { tone: "warning", icon: "to-fix" },
+};
+
+// the run card's badges: what changed, then what became of the test's check — or that it was reverted
+export function runBadges(run: RunCard, action: boolean): RunBadge[] {
+  if (run.reverted) return [{ label: "Reverted", tone: "neutral", icon: "undo" }];
   if (action) {
     const what = [run.files ? plural(run.files, "file") : "", run.steps ? plural(run.steps, "step") : ""]
       .filter(Boolean)
       .join(" and ");
-    return `${what || "Nothing"} changed`;
+    return [{ label: `${what || "Nothing"} changed`, tone: "neutral", icon: "check" }];
   }
-  return `${plural(run.steps, "step")} changed${run.tests > 1 ? ` in ${run.tests} tests` : ""} · ${fixOutcome(run).word}`;
+  const word = fixOutcome(run).word;
+  return [
+    {
+      label: `${plural(run.steps, "step")} changed${run.tests > 1 ? ` in ${run.tests} tests` : ""}`,
+      tone: "neutral",
+      icon: "check",
+    },
+    { label: word[0].toUpperCase() + word.slice(1), ...OUTCOME[word] },
+  ];
 }
 
 // a run's changed steps, as one list per test (a run on one test may report a bare list)

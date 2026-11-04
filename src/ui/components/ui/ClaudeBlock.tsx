@@ -71,6 +71,7 @@ const styles = stylex.create({
     backgroundColor: "transparent",
   },
   footRunning: { backgroundColor: color.claudeSubtle },
+  footWrap: { flexWrap: "wrap" },
   grow: { flex: 1, minWidth: 0 },
   keep: { flex: "none", display: "inline-flex" },
   scope: {
@@ -97,7 +98,7 @@ const styles = stylex.create({
     color: color.textSubtle,
     whiteSpace: "nowrap",
   },
-  foldable: { display: { default: "inline-flex", [container.paneCompact]: "none" } },
+  whole: { flex: "none" },
   foldableWords: { display: { default: "inline", [container.paneCompact]: "none" } },
   timer: {
     whiteSpace: "nowrap",
@@ -244,7 +245,7 @@ export function ClaudeBlock(props: ClaudeBlockProps) {
             ))}
         </div>
       )}
-      {quickAsks && quickAsks.length > 0 && (
+      {quickAsks && quickAsks.length > 0 && !off && (
         <div {...stylex.props(styles.row)}>
           {quickAsks.map((q, i) => (
             <Chip
@@ -277,14 +278,14 @@ export function ClaudeBlock(props: ClaudeBlockProps) {
       />
       {children}
       {!autosave && (
-        <div {...stylex.props(styles.foot, busy && styles.footRunning)}>
-          {scope && (
-            <span {...stylex.props(styles.scope)}>
+        <div {...stylex.props(styles.foot, busy && styles.footRunning, off && styles.footWrap)}>
+          {scope && !busy && (
+            <span {...stylex.props(styles.scope, off && styles.whole)}>
               <Icon name="target" size="sm" />
               <span {...stylex.props(styles.clip)}>{scope}</span>
             </span>
           )}
-          {model && (
+          {model && !busy && (
             <span {...stylex.props(styles.keep)}>
               <Select
                 label="Model"
@@ -293,11 +294,11 @@ export function ClaudeBlock(props: ClaudeBlockProps) {
                 value={model.value}
                 options={model.options}
                 onChange={model.onChange}
-                disabled={busy}
+                disabled={off ? unavailable : false}
               />
             </span>
           )}
-          {effort && (
+          {effort && !busy && (
             <span {...stylex.props(styles.keep)}>
               <Select
                 label="Effort"
@@ -306,18 +307,18 @@ export function ClaudeBlock(props: ClaudeBlockProps) {
                 value={effort.value}
                 options={effort.options}
                 onChange={effort.onChange}
-                disabled={busy}
+                disabled={off ? unavailable : false}
               />
             </span>
           )}
           <span {...stylex.props(styles.grow)} />
           {busy ? (
             <>
-              <span {...stylex.props(styles.hint)}>
+              <span {...stylex.props(styles.hint, styles.whole)}>
                 <Spinner size="sm" />
-                <span {...stylex.props(styles.clip, styles.foldableWords)}>Claude is working</span>
+                <span>Claude is working</span>
+                <span {...stylex.props(styles.timer)}>{elapsed(running)}</span>
               </span>
-              <span {...stylex.props(styles.timer)}>{elapsed(running)}</span>
               {onCancel && (
                 <span {...stylex.props(styles.keep)}>
                   <Button size="sm" icon="stop" label="Cancel" onClick={onCancel} />
@@ -325,20 +326,15 @@ export function ClaudeBlock(props: ClaudeBlockProps) {
               )}
             </>
           ) : submit === "none" ? (
-            off && (
-              <span {...stylex.props(styles.hint)}>
-                <span {...stylex.props(styles.clip)}>{unavailable}</span>
-              </span>
-            )
+            off && <span {...stylex.props(styles.hint, styles.whole)}>{unavailable}</span>
           ) : (
             <>
               {off ? (
-                <span {...stylex.props(styles.hint)}>
-                  <span {...stylex.props(styles.clip)}>{unavailable}</span>
-                </span>
+                <span {...stylex.props(styles.hint, styles.whole)}>{unavailable}</span>
               ) : (
-                <span {...stylex.props(styles.hint, styles.foldable)}>
-                  <Kbd>{submit === "enter" ? "Enter" : "Ctrl Enter"}</Kbd> to send
+                <span {...stylex.props(styles.hint, styles.keep)}>
+                  <Kbd>{submit === "enter" ? "Enter" : "Ctrl+Enter"}</Kbd>
+                  <span {...stylex.props(styles.foldableWords)}>to send</span>
                 </span>
               )}
               <span {...stylex.props(styles.keep)}>

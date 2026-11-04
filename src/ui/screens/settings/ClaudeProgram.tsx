@@ -17,11 +17,11 @@ import { Stack } from "./Section.tsx";
 
 const styles = stylex.create({
   row: { display: "flex", alignItems: "center", gap: space.s3, flexWrap: "wrap" },
+  state: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: space.s2 },
   line: {
     minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
+    maxWidth: "100%",
+    overflowWrap: "anywhere",
     fontFamily: fontFamily.mono,
     fontSize: fontSize.code,
     lineHeight: lineHeight.code,
@@ -34,7 +34,7 @@ export type ClaudeStatus = CommandOutput<"claude.status">;
 export function exeLine(s: ClaudeStatus): string {
   return s.installed
     ? `✓ ${s.version ?? "Claude Code"} · found`
-    : `✕ ${(s.detail || "claude did not answer").split("\n")[0].slice(0, 160)} · not found · Claude is optional`;
+    : `${(s.detail || "claude did not answer").split("\n")[0].slice(0, 160)} · Claude is optional`;
 }
 
 // ponytail: the path is saved when the field is left (or the screen goes), not while typing — each new path makes
@@ -111,30 +111,31 @@ export function ClaudeProgram() {
       />
       <div {...stylex.props(styles.row)}>
         <Button size="sm" icon="refresh" label="Check" loading={checking} onClick={() => void check()} />
-        {checking ? (
+        {checking && (
           <span role="status" {...stylex.props(styles.line)}>
             Running claude --version…
           </span>
-        ) : (
-          st && (
-            <>
-              <Badge
-                label={st.installed ? "Found" : "Not found"}
-                tone={st.installed ? "success" : "warning"}
-                icon={st.installed ? "check-circle" : "alert-triangle"}
-              />
-              <span role="status" title={st.detail} {...stylex.props(styles.line)}>
-                {exeLine(st)}
-              </span>
-            </>
-          )
         )}
       </div>
+      {st && !checking && (
+        <div {...stylex.props(styles.state)}>
+          <Badge
+            label={st.installed ? "Found" : "Not found"}
+            tone={st.installed ? "success" : "danger"}
+            icon={st.installed ? "check-circle" : "x-circle"}
+          />
+          <span role="status" title={st.detail} {...stylex.props(styles.line)}>
+            {exeLine(st)}
+          </span>
+        </div>
+      )}
       {st && !checking && !st.installed && (
         <ConnectClaude
+          look="panel"
           status={st}
           checking={false}
           onCheck={() => void check()}
+          onSetPath={() => document.getElementById("settings-claude-exe")?.focus()}
           onDoctor={() => app.navigate("doctor")}
         />
       )}

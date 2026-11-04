@@ -17,7 +17,7 @@ import { Icon } from "../ui/Icon.tsx";
 import { SourceChip } from "../ui/SourceChip.tsx";
 import { Spinner } from "../ui/Spinner.tsx";
 import { AnswerText } from "./AnswerText.tsx";
-import { type Again, metaLine, type RunCard, runTitle, type Turn } from "./turns.ts";
+import { type Again, changed, metaLine, type RunCard, runBadges, type Turn } from "./turns.ts";
 
 const styles = stylex.create({
   ask: { display: "flex", flexDirection: "column", alignItems: "flex-end", gap: space.s1 },
@@ -152,7 +152,7 @@ export function AnswerTurn({ turn: t, actions: a }: { turn: Turn; actions: TurnA
             <Icon name={t.trouble ? "alert-circle" : "claude"} size="sm" />
             {t.trouble ? "The run failed" : "Claude"}
           </span>
-          {words && <AnswerText text={t.text} running={t.running} onOpenSource={a.onOpenSource} />}
+          {words && <AnswerText text={t.text} running={t.running} listed={t.sources} onOpenSource={a.onOpenSource} />}
           {t.trouble && (
             <div role="status" {...stylex.props(styles.trouble)}>
               <strong {...stylex.props(styles.troubleTitle)}>{t.trouble.title}</strong>
@@ -180,7 +180,9 @@ export function AnswerTurn({ turn: t, actions: a }: { turn: Turn; actions: TurnA
           )}
           {t.run && (
             <div {...stylex.props(styles.badges)}>
-              <Badge tone={t.run.reverted ? "neutral" : "claude"} icon="claude" label={runTitle(t.run, !!t.action)} />
+              {runBadges(t.run, !!t.action).map((b) => (
+                <Badge key={b.label} tone={b.tone} icon={b.icon} label={b.label} />
+              ))}
             </div>
           )}
           {t.meta && !t.running && <span {...stylex.props(styles.meta)}>{metaLine(t.meta)}</span>}
@@ -197,7 +199,13 @@ export function AnswerTurn({ turn: t, actions: a }: { turn: Turn; actions: TurnA
               )}
               {t.run && !t.run.reverted && (
                 <>
-                  <Button size="sm" icon="eye" label="Show changes" onClick={() => t.run && a.onShowChanges(t.run)} />
+                  <Button
+                    size="sm"
+                    icon="eye"
+                    label="Show changes"
+                    disabled={changed(t.run) ? false : "Nothing changed"}
+                    onClick={() => t.run && a.onShowChanges(t.run)}
+                  />
                   <Button size="sm" icon="undo" label="Revert" onClick={() => a.onRevert(t)} />
                 </>
               )}

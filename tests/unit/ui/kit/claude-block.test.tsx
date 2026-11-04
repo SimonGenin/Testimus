@@ -221,3 +221,39 @@ describe("ClaudeBlock submit none", () => {
     expect(onSubmit).toHaveBeenCalled();
   });
 });
+
+describe("ClaudeBlock foot (design: dock, dock running, dock offline)", () => {
+  const full = {
+    ariaLabel: "Prompt",
+    value: "x",
+    scope: "Whole project",
+    quickAsks: [{ label: "Shorten", prompt: "Make it short." }],
+    model: { ...models, onChange: () => {} },
+    effort: { ...efforts, onChange: () => {} },
+    onSubmit: () => {},
+  };
+
+  it("shows the Ctrl+Enter key beside Send", () => {
+    render(<ClaudeBlock {...full} />);
+    expect(screen.getByText("Ctrl+Enter").tagName).toBe("KBD");
+  });
+
+  it("while Claude works, the foot says so and drops the scope and the choices", () => {
+    render(<ClaudeBlock {...full} running={12} onCancel={() => {}} />);
+    expect(screen.getByText("Claude is working")).toBeVisible();
+    expect(screen.getByText("0:12")).toBeInTheDocument();
+    expect(screen.queryByText("Whole project")).toBeNull();
+    expect(screen.queryByRole("combobox", { name: "Model" })).toBeNull();
+    expect(screen.queryByRole("combobox", { name: "Effort" })).toBeNull();
+  });
+
+  it("without Claude, keeps the scope and greyed choices, says why in full and hides the quick asks", () => {
+    render(<ClaudeBlock {...full} unavailable="Claude is not connected" />);
+    expect(screen.getByText("Whole project")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Model" })).toBeDisabled();
+    expect(screen.getByRole("combobox", { name: "Effort" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Shorten" })).toBeNull();
+    expect(screen.getAllByText("Claude is not connected")[0]).toBeInTheDocument();
+    expect(screen.queryByText("Ctrl+Enter")).toBeNull();
+  });
+});
