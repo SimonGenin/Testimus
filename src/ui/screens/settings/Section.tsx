@@ -26,6 +26,8 @@ const styles = stylex.create({
   },
   stack: { display: "flex", flexDirection: "column", gap: space.s4 },
   hint: { margin: 0, fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textMuted },
+  field: { display: "flex", flexDirection: "column", gap: space.s2, minWidth: 0 },
+  label: { fontSize: fontSize.compact, lineHeight: lineHeight.compact, fontWeight: fontWeight.medium },
 });
 
 // ponytail: a settings page — its title and what it is for, then its cards; the cards a route points at
@@ -76,6 +78,29 @@ export function Grid({ children }: { children: ReactNode }) {
 
 export function Stack({ children }: { children: ReactNode }) {
   return <div {...stylex.props(styles.stack)}>{children}</div>;
+}
+
+// ponytail: a control with its name above and a hint under (a Select, the model picker), laid out as the kit's Text
+export function Labelled({
+  id,
+  label,
+  hint,
+  children,
+}: {
+  id: string;
+  label: string;
+  hint?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div {...stylex.props(styles.field)}>
+      <label htmlFor={id} {...stylex.props(styles.label)}>
+        {label}
+      </label>
+      {children}
+      {hint && <p {...stylex.props(styles.hint)}>{hint}</p>}
+    </div>
+  );
 }
 
 export function Hint({ children }: { children: ReactNode }) {

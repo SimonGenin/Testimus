@@ -31,8 +31,8 @@ const styles = stylex.create({
     borderRightWidth: border.width,
     borderRightColor: color.border,
   },
-  navWidth: (px: number) => ({ width: px }),
-  navFold: { width: { [breakpoint.sm]: `calc(${size.sidebar} * 3 / 5)` } },
+  navWidth: (px: number) => ({ width: `${px}px` }),
+  navFold: { maxWidth: { default: "none", [breakpoint.sm]: `calc(${size.sidebar} * 3 / 5)` } },
   body: { flex: 1, minWidth: 0, overflowY: "auto", backgroundColor: color.canvas },
   wait: { paddingBlock: space.s7, paddingInline: space.s9 },
   saved: {

@@ -125,13 +125,8 @@ export function ColumnCard({
             }))}
             onChange={onMode}
           />
-          <Switch label="Hidden" hint="Unless a step holds text in it" on={c.mode === "hidden"} onChange={onHidden} />
-          <Switch
-            label="Reference source"
-            hint="Each item links to the passage it comes from"
-            on={!!c.referenceSource}
-            onChange={onReferenceSource}
-          />
+          <Switch label="Hidden" on={c.mode === "hidden"} onChange={onHidden} />
+          <Switch label="Reference source" on={!!c.referenceSource} onChange={onReferenceSource} />
         </div>
         <Text
           id={id}

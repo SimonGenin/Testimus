@@ -12,7 +12,7 @@ import { execute, key, useRead } from "../../lib/data/query.ts";
 import { desktop, reveal } from "../../lib/desktop.ts";
 import { color, fontFamily, fontSize, fontWeight, lineHeight, space } from "../../styles/tokens.stylex.ts";
 import { useInfo, useProjectField, useSetProject } from "./project.ts";
-import { Grid, Hint, Section, Stack } from "./Section.tsx";
+import { Grid, Hint, Labelled, Section, Stack } from "./Section.tsx";
 
 const styles = stylex.create({
   label: { fontSize: fontSize.compact, lineHeight: lineHeight.compact, fontWeight: fontWeight.medium },
@@ -114,13 +114,16 @@ export function ProjectSection() {
             <Grid>
               <Text label="Name" value={p.name ?? ""} {...name} />
               <Text label="Jira project key" value={p.jiraProject ?? ""} hint="Upper-cased as you save." {...jira} />
-              <Select
-                label="Language of the tests"
-                showLabel
-                value={p.language}
-                options={languages}
-                onChange={(language) => void setProject({ language }, "the language")}
-              />
+              <Labelled id="set-language" label="Language of the tests" hint="Generated tests are written in it.">
+                <Select
+                  id="set-language"
+                  label="Language of the tests"
+                  block
+                  value={p.language}
+                  options={languages}
+                  onChange={(language) => void setProject({ language }, "the language")}
+                />
+              </Labelled>
               <Text
                 label="Review label prefix"
                 value={p.labelPrefix ?? "testimus-"}
