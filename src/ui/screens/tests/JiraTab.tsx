@@ -180,7 +180,9 @@ export function JiraTab({
               tooltip: needle ? f.path : undefined,
               depth: needle ? 0 : depth,
               expanded: f.folders.length && !needle ? expanded.has(f.path) : null,
-              lead: <Icon name="folder" size="sm" />,
+              lead: (
+                <Icon name={f.folders.length && !needle && expanded.has(f.path) ? "folder-open" : "folder"} size="sm" />
+              ),
               trail: (
                 <span
                   {...stylex.props(styles.count)}

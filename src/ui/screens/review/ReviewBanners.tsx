@@ -5,6 +5,7 @@ import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { plural } from "../../lib/format.ts";
 import { space } from "../../styles/tokens.stylex.ts";
+import { useCancelClaudeRun } from "../tests/editor/EditorBanners.tsx";
 
 export type Marks = { runId: string; steps: Set<number>; added: Set<number> };
 
@@ -40,6 +41,15 @@ export type BannersProps = {
   onEditNote?: () => void;
 };
 
+function ClaudeFixing() {
+  const cancel = useCancelClaudeRun();
+  return (
+    <Banner tone="claude" icon="lock" title="Claude is fixing this test" actions={cancel}>
+      Follow it in the Claude panel. It goes back through the check when Claude is done; Validate waits until then.
+    </Banner>
+  );
+}
+
 // ponytail: what is true of the test under review now, each in its own notice: Jira changed it, Claude works on it or
 // changed it, the check has not run or is out of date, it is marked To fix
 export function ReviewBanners(p: BannersProps) {
@@ -63,11 +73,7 @@ export function ReviewBanners(p: BannersProps) {
           refused until you choose — or until you push anyway and replace their change on purpose.
         </Banner>
       )}
-      {p.claudeRunning && (
-        <Banner tone="claude" title="Claude is fixing this test">
-          Follow it in the Claude panel. It goes back through the check when Claude is done; Validate waits until then.
-        </Banner>
-      )}
+      {p.claudeRunning && <ClaudeFixing />}
       {p.marks && !p.claudeRunning && (
         <Banner
           tone="claude"
@@ -101,7 +107,7 @@ export function ReviewBanners(p: BannersProps) {
           actions={
             <Button
               size="sm"
-              icon="eye"
+              icon={p.checked ? "refresh" : "review"}
               label={p.checked ? "Check again" : "Check"}
               loading={p.checking}
               onClick={p.onCheck}

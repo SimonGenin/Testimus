@@ -38,6 +38,14 @@ const styles = stylex.create({
     paddingTop: space.s2,
   },
   grow: { flex: 1 },
+  note: {
+    margin: 0,
+    paddingBlock: space.s3,
+    paddingInline: space.s5,
+    fontSize: fontSize.small,
+    lineHeight: lineHeight.small,
+    color: color.textMuted,
+  },
   body: { flex: 1, minHeight: 0, overflow: "auto", display: "flex", flexDirection: "column", gap: space.s2 },
   conn: {
     boxSizing: "border-box",
@@ -240,8 +248,7 @@ export function TestList({
   };
 
   const local = () => {
-    if (!project())
-      return <EmptyState icon="folder" compact title="No project open" text="Open a project to see its tests." />;
+    if (!project()) return <p {...stylex.props(styles.note)}>No project open.</p>;
     if (loading && !refs.length)
       return (
         <div role="status" aria-label="Loading tests">
@@ -255,7 +262,7 @@ export function TestList({
           compact
           title="Nothing here yet"
           text={`${plural(waiting, "generated test")} waiting for review. Create one, or pull from Jira.`}
-          actions={<Button size="sm" icon="review" label="Review them" onClick={() => app.navigate("review")} />}
+          actions={<Button size="sm" label="Review them" onClick={() => app.navigate("review")} />}
         />
       ) : (
         <EmptyState
@@ -267,7 +274,7 @@ export function TestList({
       );
     const none = (
       <EmptyState
-        icon="search"
+        icon="filter"
         compact
         title={`No local test matches “${v.filter}”.`}
         actions={<Button size="sm" label="Clear the filter" onClick={() => v.setFilter("")} />}

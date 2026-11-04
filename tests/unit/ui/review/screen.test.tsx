@@ -313,6 +313,24 @@ describe("Review screen", () => {
     input.remove();
   });
 
+  it("« Show the queue » of the strip lays the queue over the test until a test is opened from it", async () => {
+    reviewRoutes();
+    const { app: a } = show({ route: { screen: "review", arg: "K-2" } });
+    await screen.findByRole("heading", { name: "Summary K-2" });
+    await waitFor(() => expect(position()).toHaveTextContent("2 / 3"));
+    const toggle = screen.getByRole("button", { name: "Show the queue" });
+    const plain = queue().className;
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-pressed", "true");
+    expect(queue().className).not.toBe(plain);
+    fireEvent.click(
+      within(within(queue()).getByRole("listbox", { name: "Tests to review" })).getAllByRole("option")[0],
+    );
+    expect(a.navigate).toHaveBeenLastCalledWith("review", "K-1");
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+    expect(queue().className).toBe(plain);
+  });
+
   it("groups the latest generation's tests first, then Earlier, and J/K walk the order shown", async () => {
     reviewRoutes({
       queue: [

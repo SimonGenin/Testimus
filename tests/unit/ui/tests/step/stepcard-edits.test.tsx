@@ -7,6 +7,7 @@ import type { Step, StepImage } from "../../../../../src/core/types.ts";
 import { MOVE } from "../../../../../src/ui/screens/tests/FieldBlocks.tsx";
 import { StepCard } from "../../../../../src/ui/screens/tests/StepCard.tsx";
 import { cut, put } from "../../../../../src/ui/screens/tests/step/stepText.ts";
+import { iconOf } from "../../../helpers/icons.ts";
 import { layoutOf, prefsOf } from "../../../helpers/layout.ts";
 
 type T = { title: string; detail?: string; onExpire?: () => void; action?: { run: () => void } };
@@ -379,7 +380,11 @@ describe("StepCard block moves", () => {
     const onImageGone = vi.fn();
     let alive = true;
     const { apply } = card(step, { onOpenImage, onImageGone, alive: () => () => alive });
-    expect(screen.getByText("1 attachment not embedded — drag into a field")).toBeInTheDocument();
+    expect(screen.getByText("1 attachment — drag into a field")).toBeInTheDocument();
+    expect(iconOf(screen.getByText("Not embedded"))).toBe("attach");
+    expect(iconOf(screen.getByRole("button", { name: "Open loose.png in the viewer" }))).toBe("zoom-in");
+    fireEvent.click(screen.getByRole("button", { name: "Open loose.png in the viewer" }));
+    expect(onOpenImage).toHaveBeenLastCalledWith("images/loose.png", step.images);
     const loose = screen.getByRole("img", { name: "loose.png" });
     const ev = dt();
     fireEvent.dragStart(loose, ev);
@@ -402,8 +407,9 @@ describe("StepCard block moves", () => {
     expect(onImageGone).toHaveBeenCalledTimes(2);
     cleanup();
     card({ ...step, fields: {}, images: [img, { file: "images/b.png" }] }, { readOnly: true });
-    expect(screen.getByText("2 attachments not embedded — drag into a field")).toBeInTheDocument();
+    expect(screen.getByText("2 attachments — drag into a field")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Detach/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /in the viewer$/ })).toBeNull();
     fireEvent.click(screen.getByRole("img", { name: "b.png" }));
   });
 });
