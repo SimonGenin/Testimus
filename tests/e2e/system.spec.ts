@@ -23,7 +23,7 @@ test("first launch finds the existing access, tests it, then moves to the projec
 test("the system check lists every check with its state", async ({ page }) => {
   await boot(page, "#/doctor");
   await expect(page.getByRole("heading", { level: 1, name: "System check" })).toBeVisible();
-  const checks = page.getByRole("list", { name: "Checks" }).getByRole("listitem");
+  const checks = page.getByRole("region", { name: "Checks" }).getByRole("row");
   await expect(checks.filter({ hasText: "Node runtime" })).toContainText("OK");
   await expect(checks.filter({ hasText: "Claude Code CLI" })).toContainText("OK");
   await expect(checks.filter({ hasText: "Jira reachable" })).toContainText("OK");

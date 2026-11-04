@@ -1,6 +1,13 @@
+import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
-import { Icon, type IconName } from "../components/legacy/index.ts";
 import { ScreenHeader } from "../components/shell/ScreenHeader.tsx";
+import { EmptyState } from "../components/ui/EmptyState.tsx";
+import type { IconName } from "../components/ui/Icon.tsx";
+
+const styles = stylex.create({
+  screen: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column" },
+  center: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center" },
+});
 
 export function Placeholder({
   title,
@@ -14,13 +21,10 @@ export function Placeholder({
   children?: ReactNode;
 }) {
   return (
-    <div className="screen">
+    <div {...stylex.props(styles.screen)}>
       <ScreenHeader title={title} />
-      <div className="placeholder">
-        <Icon name={icon} size={40} />
-        <h2 className="h">{title}</h2>
-        <p className="muted">{lead}</p>
-        {children}
+      <div {...stylex.props(styles.center)}>
+        <EmptyState icon={icon} title={title} text={lead} actions={children} />
       </div>
     </div>
   );
