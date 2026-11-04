@@ -1,4 +1,5 @@
 import type { ClaudeEvent, JobEvent } from "../../core/types.ts";
+import { FILE_WRITE_TOOLS, testInPath } from "../../shared/tests.ts";
 import { resultLine } from "./jobs.ts";
 
 export type PhaseKind = "prepare" | "read" | "plan" | "write" | "check" | "end";
@@ -52,7 +53,7 @@ function argsOf(input: string): Record<string, unknown> {
 const str = (v: unknown) => (typeof v === "string" ? v : "");
 const num = (v: unknown) => (typeof v === "number" ? v : null);
 const docOf = (p: string) => p.match(/docs[\\/]+([^\\/]+)[\\/]+[^\\/]+$/)?.[1] ?? "";
-const testOf = (p: string) => p.match(/tests[\\/]+(local-[0-9a-f]{8})[\\/]/i)?.[1]?.toLowerCase() ?? "";
+const testOf = (p: string) => testInPath(p) ?? "";
 const tail = (p: string) => p.split(/[\\/]/).slice(-2).join("/");
 const quoted = (s: string) => `“${s.length > 60 ? `${s.slice(0, 57)}…` : s}”`;
 
@@ -73,7 +74,7 @@ const lookup = (kind: Lookup["kind"], text: string, doc = "", anchor = ""): Look
 function stepOf(e: Extract<ClaudeEvent, { type: "tool" }>): Step {
   const a = argsOf(e.input);
   const name = e.name.replace(/^mcp__testimus__/, "");
-  const path = str(a.file_path) || str(a.path);
+  const path = str(a.file_path) || str(a.notebook_path) || str(a.path);
   if (name === "Skill")
     return { kind: "prepare", skill: str(a.skill), text: `Opened the ${str(a.skill) || "skill"} instructions` };
   if (name === "Read" && /doc\.md$/.test(path)) {
@@ -104,11 +105,11 @@ function stepOf(e: Extract<ClaudeEvent, { type: "tool" }>): Step {
     };
   if (name === "Grep") return { kind: "aside", text: `Searched the files for ${quoted(str(a.pattern))}` };
   if (name === "Glob") return { kind: "aside", text: `Listed ${str(a.pattern)}` };
-  if (/^(Write|Edit|MultiEdit)$/.test(name) && testOf(path)) {
+  if (FILE_WRITE_TOOLS.test(name) && testOf(path)) {
     const id = testOf(path);
     return { kind: "write", write: { id, summary: "" }, text: `Wrote ${id}` };
   }
-  if (/^(Write|Edit|MultiEdit)$/.test(name)) return { kind: "aside", text: `Edited ${tail(path)}` };
+  if (FILE_WRITE_TOOLS.test(name)) return { kind: "aside", text: `Edited ${tail(path)}` };
   if (name === "rag_search")
     return {
       kind: "read",
