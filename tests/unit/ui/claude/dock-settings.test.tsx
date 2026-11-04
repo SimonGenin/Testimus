@@ -448,8 +448,6 @@ describe("contexts dialog", () => {
       return { id: i.id, removed: true };
     };
     const onClose = vi.fn();
-    const changed = vi.fn();
-    window.addEventListener("testimus:contexts", changed);
     render(<ContextsDialog onClose={onClose} initialId="ctx-a" />);
     await waitFor(() =>
       expect(screen.getByRole("option", { name: /House style/ })).toHaveAttribute("aria-selected", "true"),
@@ -494,10 +492,9 @@ describe("contexts dialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "Delete context" }));
     await waitFor(() => expect(callsOf("contexts.remove")).toHaveLength(1));
     await waitFor(() => expect(screen.getByRole("option", { name: /Style/ })).toHaveAttribute("aria-selected", "true"));
-    expect(changed).toHaveBeenCalled();
+    expect(callsOf("contexts.list").length).toBeGreaterThan(1);
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(onClose).toHaveBeenCalled();
-    window.removeEventListener("testimus:contexts", changed);
   });
 
   it("flushes typed notes when it closes, and browses a folder in the desktop app", async () => {

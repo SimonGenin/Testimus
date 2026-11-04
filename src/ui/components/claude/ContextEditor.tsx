@@ -23,7 +23,7 @@ import { ClaudeBlock } from "../ui/ClaudeBlock.tsx";
 import { Icon } from "../ui/Icon.tsx";
 import { Switch } from "../ui/Switch.tsx";
 import { Text } from "../ui/Text.tsx";
-import { CONTEXT_READS, CONTEXTS_EVENT, type ContextDetail, useContextWrite } from "./contexts.ts";
+import { CONTEXT_READS, type ContextDetail, useContextWrite } from "./contexts.ts";
 
 type Words = { name: string; notes: string };
 
@@ -74,7 +74,6 @@ function useWords(id: string, detail: ContextDetail | undefined): Autosave<Words
           { invalidates: CONTEXT_READS },
         )) as unknown as ContextDetail;
         client.setQueryData(key("contexts.show", { id }), { ...d, name: v.name, notes: v.notes });
-        window.dispatchEvent(new Event(CONTEXTS_EVENT));
         return d.mtime === undefined ? undefined : String(d.mtime);
       } catch (e) {
         if (!(e instanceof ApiError && e.code === "conflict")) errorToast(e, "Could not save the context");

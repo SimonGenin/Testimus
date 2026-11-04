@@ -3,7 +3,6 @@ import "@testing-library/jest-dom/vitest";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../../src/ui/app/App.tsx";
-import { CONTEXTS_EVENT } from "../../../../src/ui/components/claude/ContextsDialog.tsx";
 import { setProject } from "../../../../src/ui/lib/data/client.ts";
 import { keysOfPaths } from "../../../../src/ui/lib/data/events.ts";
 import { DataProvider } from "../../../../src/ui/lib/data/provider.tsx";
@@ -65,22 +64,21 @@ describe("App, when a job changed project files", () => {
     expect(screen.getByLabelText("tests nonce")).toHaveTextContent("1");
   });
 
-  it("tells the action lists and the context lists to read again when theirs changed", async () => {
-    await boot();
-    const ctxs = vi.fn();
-    window.addEventListener(CONTEXTS_EVENT, ctxs);
-    try {
-      changed(["docs/D1/doc.md"]);
-      expect(keysOfPaths(["docs/D1/doc.md"])).not.toContainEqual(["actions.list"]);
-      expect(ctxs).not.toHaveBeenCalled();
-      changed([".testimus/actions/act-1.json"]);
-      expect(keysOfPaths([".testimus/actions/act-1.json"])).toEqual([["actions.list"], ["actions.show"]]);
-      changed(["contexts/glossary/context.md"]);
-      changed(["project.json"]);
-      changed(["tests/local-1/local.json"]);
-      expect(ctxs).toHaveBeenCalledTimes(3);
-    } finally {
-      window.removeEventListener(CONTEXTS_EVENT, ctxs);
-    }
+  it("tells the action lists and the context lists to read again when theirs changed", () => {
+    const contexts = (paths: string[]) =>
+      keysOfPaths(paths)
+        .map((k) => k[0])
+        .filter((n) => n.startsWith("contexts."));
+    expect(keysOfPaths(["docs/D1/doc.md"])).not.toContainEqual(["actions.list"]);
+    expect(contexts(["docs/D1/doc.md"])).toEqual([]);
+    expect(keysOfPaths([".testimus/actions/act-1.json"])).toEqual([["actions.list"], ["actions.show"]]);
+    expect(contexts(["contexts/glossary/context.md"])).toEqual([
+      "contexts.list",
+      "contexts.show",
+      "contexts.ofTest",
+      "contexts.ofProject",
+    ]);
+    expect(contexts(["project.json"])).toEqual(["contexts.ofProject", "contexts.ofTest"]);
+    expect(contexts(["tests/local-1/local.json"])).toEqual(["contexts.ofTest"]);
   });
 });
