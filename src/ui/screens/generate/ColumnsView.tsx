@@ -4,9 +4,8 @@ import { Badge, COLUMN, type Word } from "../../components/ui/Badge.tsx";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Card } from "../../components/ui/Card.tsx";
-import { List } from "../../components/ui/List.tsx";
 import { type } from "../../components/ui/type.ts";
-import { color, space } from "../../styles/tokens.stylex.ts";
+import { border, color, space } from "../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
   block: { display: "flex", flexDirection: "column", gap: space.s3 },
@@ -14,6 +13,18 @@ const styles = stylex.create({
   title: { margin: 0, color: color.text },
   count: { color: color.textSubtle },
   grow: { flex: 1 },
+  list: { listStyle: "none", margin: 0, padding: 0 },
+  item: {
+    display: "flex",
+    flexDirection: "column",
+    gap: space.s1,
+    paddingBlock: space.s3,
+    paddingInline: space.s4,
+    borderBottomStyle: "solid",
+    borderBottomWidth: { default: border.width, ":last-child": 0 },
+    borderBottomColor: color.border,
+  },
+  name: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s2, color: color.text },
   desc: { color: color.textMuted },
   none: { color: color.textSubtle },
 });
@@ -47,22 +58,21 @@ export function ColumnsView({ columns, onEdit }: { columns: StepColumn[]; onEdit
         </Banner>
       )}
       <Card padded={false}>
-        <List
-          label="Smart columns"
-          selection="none"
-          divided
-          items={columns}
-          getKey={(c) => c.name}
-          renderItem={(c) => ({
-            title: <span {...stylex.props(type.strong)}>{c.name}</span>,
-            badges: <Badge size="sm" {...columnTag(c)} />,
-            meta: c.description ? (
-              <span {...stylex.props(styles.desc)}>{c.description}</span>
-            ) : (
-              <span {...stylex.props(styles.none)}>No description — Claude leaves it empty.</span>
-            ),
-          })}
-        />
+        <ol aria-label="Smart columns" {...stylex.props(styles.list)}>
+          {columns.map((c) => (
+            <li key={c.name} {...stylex.props(type.compact, styles.item)}>
+              <span {...stylex.props(type.strong, styles.name)}>
+                {c.name}
+                <Badge size="sm" {...columnTag(c)} />
+              </span>
+              {c.description ? (
+                <span {...stylex.props(styles.desc)}>{c.description}</span>
+              ) : (
+                <span {...stylex.props(styles.none)}>No description — Claude leaves it empty.</span>
+              )}
+            </li>
+          ))}
+        </ol>
       </Card>
     </section>
   );
