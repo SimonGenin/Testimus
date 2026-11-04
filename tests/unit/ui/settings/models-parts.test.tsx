@@ -369,7 +369,9 @@ describe("small model widgets", () => {
     );
     const table = screen.getByRole("table", { name: "Model catalog" });
     expect(within(table).getByText("40 ms")).toBeInTheDocument();
-    expect(within(table).getByText(/Reranker · light/)).toBeInTheDocument();
+    expect(within(table).getByText(/reranker · light/)).toBeInTheDocument();
+    expect(within(table).getByRole("columnheader", { name: "Fit here" })).toBeInTheDocument();
+    expect(within(table).getByTitle("\\\\s\\a")).toHaveTextContent("\\\\s\\a");
     const a = within(table).getByRole("row", { name: /Label a/ });
     fireEvent.click(within(a).getByRole("button", { name: "Verify" }));
     expect(onVerify).toHaveBeenCalled();
