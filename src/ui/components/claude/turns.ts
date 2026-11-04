@@ -88,7 +88,7 @@ export function fixOutcome(r: { review?: string; message?: string }): { word: st
   return { word: "still To fix", note: r.message || "The test did not go back to Checked." };
 }
 
-const kilo = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : String(n));
+export const kilo = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : String(n));
 
 export function metaLine(m: Meta): string {
   return [
