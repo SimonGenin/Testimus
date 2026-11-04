@@ -270,6 +270,36 @@ describe("Documents screen", () => {
     expect(screen.queryByText(/Adding spec.docx stopped/)).toBeNull();
   });
 
+  it("a file still being added in another project is not listed in this one, and that project is not told", async () => {
+    api.routes["docs.list"] = () => [doc("D1")];
+    detail();
+    const f = globalThis.fetch;
+    let answer: (r: Response) => void = () => {};
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string, init?: RequestInit) =>
+        String(url).includes("/docs/addFiles") ? new Promise<Response>((r) => (answer = r)) : f(url, init),
+      ),
+    );
+    setProject("C:\\A");
+    const first = mountDocs(<DocumentsScreen />);
+    await screen.findByText("Title D1");
+    addFromPath();
+    fireEvent.change(screen.getByLabelText("Path of the file"), { target: { value: "C:\\d\\spec.docx" } });
+    fireEvent.click(within(pathDialog()).getByRole("button", { name: "Add" }));
+    expect((await within(listOf()).findAllByText("spec.docx")).length).toBeGreaterThan(0);
+    expect(screen.getByText(/1 in progress/)).toBeInTheDocument();
+    first.unmount();
+    setProject("C:\\B");
+    const { app: b } = mountDocs(<DocumentsScreen />);
+    await screen.findByText("Title D1");
+    expect(within(listOf()).queryAllByText("spec.docx")).toHaveLength(0);
+    expect(screen.queryByText(/in progress/)).toBeNull();
+    await act(async () => answer(new Response(JSON.stringify({ added: [{ id: "SPEC" }], rejected: [] }))));
+    await act(() => new Promise((r) => setTimeout(r, 20)));
+    expect(b.navigate).not.toHaveBeenCalledWith("documents", "SPEC");
+  });
+
   it("Add documents opens the file picker of the browser", async () => {
     api.routes["docs.list"] = () => [doc("D1")];
     detail();

@@ -124,7 +124,7 @@ export function DocReading({ docId, upload }: { docId: string; upload: Upload })
   useEffect(() => {
     if (step === "index" && known) return;
     void invalidate(client, [["docs.show", { id: docId, brief: true }]]);
-  }, [docId, upload.message, upload.phase]);
+  }, [docId, upload.message, upload.phase, upload.pct]);
 
   const seen = useRef({ sections: 0, figures: 0 });
   const before = seen.current;

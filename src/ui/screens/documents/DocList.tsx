@@ -4,6 +4,7 @@ import { Badge } from "../../components/ui/Badge.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { List } from "../../components/ui/List.tsx";
 import type { ListItemProps } from "../../components/ui/ListItem.tsx";
+import { baseName } from "../../lib/desktop.ts";
 import { owns, settled, type Upload } from "../../lib/uploads.ts";
 import { color, fontFamily, fontSize, fontWeight, lineHeight, space } from "../../styles/tokens.stylex.ts";
 import { DocBadges } from "./badges.tsx";
@@ -49,10 +50,11 @@ function docItem(d: DocRef): ListItemProps {
   };
 }
 
-// ponytail: the documents and the files being added or converted, as one list; what failed is said under it
+// ponytail: the documents and the files being added or converted, as one list; what failed is said under it — a
+// conversion is named by its document's file
 export function DocList({
   docs,
-  uploads,
+  uploads: all,
   activeId,
   head = true,
   onOpen,
@@ -63,6 +65,10 @@ export function DocList({
   head?: boolean;
   onOpen: (id: string) => void;
 }) {
+  const uploads = all.map((u) => {
+    const d = u.job === "convert" ? docs?.find((x) => x.id === u.docId) : undefined;
+    return d ? { ...u, name: baseName(d.source.name) || d.id } : u;
+  });
   const listed = (u: Upload) => !!docs?.some((d) => (u.docId ? d.id === u.docId : owns(u, d)));
   const items: Item[] = [
     ...(docs ?? []).map((d) => ({ key: d.id, doc: d, upload: uploads.find((u) => owns(u, d)) })),
