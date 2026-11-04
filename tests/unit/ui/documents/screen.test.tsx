@@ -88,6 +88,15 @@ describe("Documents screen", () => {
     expect(within(listOf()).getByText("Indexed").closest("span")?.querySelector("svg")).not.toBeNull();
   });
 
+  it("shows a document whose doc.json names no source file, by the file it keeps", async () => {
+    const bare = doc("D1", { converted: undefined, source: { file: "source.pdf", sha256: "" } as DocRef["source"] });
+    api.routes["docs.list"] = () => [bare];
+    api.routes["rag.status"] = status();
+    api.routes["docs.show"] = () => ({ doc: bare, context: "", toc: [], figures: [], md: "" });
+    mountDocs(<DocumentsScreen />, { route: { screen: "documents", arg: "D1" } });
+    expect(await screen.findByText(/not converted · source\.pdf$/)).toBeInTheDocument();
+  });
+
   it("goes to an anchor through the detail and shows the first document on other routes", async () => {
     api.routes["docs.list"] = () => [doc("D1")];
     api.routes["rag.status"] = status();

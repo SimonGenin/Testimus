@@ -7,6 +7,7 @@ import { EmptyState } from "../../components/ui/EmptyState.tsx";
 import { Modal } from "../../components/ui/Modal.tsx";
 import { ResizeHandle } from "../../components/ui/ResizeHandle.tsx";
 import { useApp } from "../../lib/app.ts";
+import { keepDraft } from "../../lib/drafts.ts";
 import { project } from "../../lib/data/client.ts";
 import { execute, useRead } from "../../lib/data/query.ts";
 import { usePaneWidth } from "../../lib/panes.ts";
@@ -127,10 +128,13 @@ export function TestsScreen() {
     [reload, navigate],
   );
 
-  // ponytail: only validated tests live in Tests — a generated test still in review opens in Review
+  // ponytail: only validated tests live in Tests — a generated test still in review opens in Review, and Tests forgets
+  // it (else the rail, which reopens what was open on a screen, would send every visit of Tests back to Review)
   useEffect(() => {
     const ref = refs.find((r) => r.id === activeId);
-    if ((ref as Listed | undefined)?.awaiting) navigate("review", activeId);
+    if (!(ref as Listed | undefined)?.awaiting) return;
+    keepDraft("route.tests", undefined);
+    navigate("review", activeId);
   }, [refs, activeId, navigate]);
 
   useEffect(() => {

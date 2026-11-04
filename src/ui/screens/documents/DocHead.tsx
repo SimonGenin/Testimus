@@ -145,10 +145,10 @@ export function DocHead({
         </div>
         <span {...stylex.props(styles.facts)}>
           {running
-            ? `Converting from ${from} · ${baseName(doc.source.name)}`
+            ? `Converting from ${from} · ${baseName(doc.source.name || doc.source.file)}`
             : converted
               ? `Converted from ${from} · ${plural(sections, "section")} · ${plural(figures, "figure")}`
-              : `${from} file, not converted · ${baseName(doc.source.name)}`}
+              : `${from} file, not converted · ${baseName(doc.source.name || doc.source.file)}`}
         </span>
       </div>
       <div {...stylex.props(styles.acts)}>
