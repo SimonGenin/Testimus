@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { Locator, Page } from "@playwright/test";
@@ -193,12 +193,21 @@ const T1398 = "LFRPS12-1398";
 const TLOCAL = "local-3f9a12c0";
 
 // ponytail: the #/kit catalogue (served under --mock), one shot per component: its page shows light and dark side by
-// side, so one size is enough
-function kitShots(): Shot[] {
-  return readdirSync(join(ROOT, "src", "ui", "screens", "kit", "sections"))
+// side, so one size is enough. The page is reached by the name the section declares, never by its file's name
+export function kitSectionNames(): string[] {
+  const dir = join(ROOT, "src", "ui", "screens", "kit", "sections");
+  return readdirSync(dir)
     .filter((f) => f.endsWith(".tsx"))
-    .map((f) => f.replace(/\.tsx$/, ""))
-    .map((name) => ({ id: `kit-${name.toLowerCase()}`, note: `Kit › ${name}`, hash: `#/kit/${name}`, sizes: ["lg"] }));
+    .map((f) => /\bname:\s*"([^"]+)"/.exec(readFileSync(join(dir, f), "utf8"))?.[1] ?? f.replace(/\.tsx$/, ""));
+}
+
+function kitShots(): Shot[] {
+  return kitSectionNames().map((name) => ({
+    id: `kit-${name.toLowerCase()}`,
+    note: `Kit › ${name}`,
+    hash: `#/kit/${name}`,
+    sizes: ["lg"],
+  }));
 }
 
 function fixtureShots(): Shot[] {

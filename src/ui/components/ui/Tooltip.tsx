@@ -42,16 +42,37 @@ export type TooltipProps = {
   shortcut?: string;
   side?: "top" | "bottom" | "left" | "right";
   /** the control it describes (its accessible description becomes the tooltip) */
-  children: ReactElement<{ "aria-describedby"?: string }>;
+  children: ReactElement<{ "aria-describedby"?: string; "aria-expanded"?: boolean | "true" | "false" }>;
 };
 
-// ponytail: shown on hover after 500 ms and at once on keyboard focus, hidden on Escape; never interactive and never the
-// only place for what is needed to act (SYSTEM.md)
+// ponytail: what the person used last, as :focus-visible knows it — a focus given back by a click (a menu that closes on
+// its item and opens a confirmation) is not a keyboard focus and shows no tooltip
+let lastInput: "keyboard" | "pointer" = "keyboard";
+if (typeof document !== "undefined") {
+  document.addEventListener(
+    "keydown",
+    () => {
+      lastInput = "keyboard";
+    },
+    true,
+  );
+  document.addEventListener(
+    "pointerdown",
+    () => {
+      lastInput = "pointer";
+    },
+    true,
+  );
+}
+
+// ponytail: shown on hover after 500 ms and at once on keyboard focus, hidden on Escape and while the control's own
+// layer (a menu, a popover) is open; never interactive and never the only place for what is needed to act (SYSTEM.md)
 export function Tooltip({ label, shortcut, side = "top", children }: TooltipProps) {
   const id = useId();
   const [open, setOpen] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
+  const expanded = children.props["aria-expanded"] === true || children.props["aria-expanded"] === "true";
   const hide = () => {
     clearTimeout(timer.current);
     setOpen(false);
@@ -64,14 +85,16 @@ export function Tooltip({ label, shortcut, side = "top", children }: TooltipProp
         timer.current = setTimeout(() => setOpen(true), SHOW_AFTER_MS);
       }}
       onMouseLeave={hide}
-      onFocus={() => setOpen(true)}
+      onFocus={() => {
+        if (lastInput === "keyboard") setOpen(true);
+      }}
       onBlur={hide}
       onKeyDown={(e) => {
         if (e.key === "Escape") hide();
       }}
     >
       {cloneElement(children, { "aria-describedby": id })}
-      <span role="tooltip" id={id} {...stylex.props(styles.bubble, styles[side], !open && styles.closed)}>
+      <span role="tooltip" id={id} {...stylex.props(styles.bubble, styles[side], (!open || expanded) && styles.closed)}>
         {label}
         {shortcut && <Kbd onFill>{shortcut}</Kbd>}
       </span>

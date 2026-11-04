@@ -159,6 +159,8 @@ describe("Modal", () => {
     const items = screen.getAllByRole("listitem");
     expect(items.map((li) => li.textContent)).toEqual(["2modified steps are lost", "1added step is lost"]);
     const del = screen.getByRole("button", { name: "Delete" });
+    expect(del.querySelector("svg"), "the danger verb carries its trash (design-gaps point 17)").not.toBeNull();
+    expect(screen.getByRole("button", { name: "Cancel" }).querySelector("svg")).toBeNull();
     await user.click(del);
     expect(onConfirm).toHaveBeenCalledTimes(1);
     await user.click(screen.getByRole("button", { name: "Cancel" }));
@@ -169,6 +171,13 @@ describe("Modal", () => {
       </Modal>,
     );
     expect(cls(screen.getByRole("button", { name: "Overwrite local" }))).not.toBe(cls(del));
+    expect(screen.getByRole("button", { name: "Overwrite local" }).querySelector("svg")).toBeNull();
+    render(
+      <Modal title="Undo?" confirm={{ verb: "Undo", icon: "undo", onConfirm: () => {} }} onClose={() => {}}>
+        x
+      </Modal>,
+    );
+    expect(screen.getByRole("button", { name: "Undo" }).querySelector("svg")).not.toBeNull();
   });
 
   it("a plain confirmation puts the focus on its verb; an async one is busy while it runs, then shows its failure", async () => {

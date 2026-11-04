@@ -195,7 +195,10 @@ export type ModalProps = {
    * something is lost — the one place a danger button lives */
   confirm?: {
     verb: string;
+    /** red verb carrying the trash, focus on Cancel */
     danger?: boolean;
+    /** the verb's icon when it is not a danger (a danger verb always carries the trash): undo, download… */
+    icon?: IconName;
     onConfirm: () => void | Promise<void>;
     /** the verb waits (true, or the reason) — a plan still being read; Cancel stays */
     disabled?: boolean | string;
@@ -385,6 +388,7 @@ export function Modal({
             <Button
               ref={verb}
               variant={confirm.danger ? "danger" : "primary"}
+              icon={confirm.danger ? "trash" : confirm.icon}
               label={confirm.verb}
               loading={working}
               disabled={confirm.disabled}

@@ -1,12 +1,15 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { createRef } from "react";
+import userEvent from "@testing-library/user-event";
+import { createRef, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Banner } from "../../../../src/ui/components/ui/Banner.tsx";
 import { Button, type ButtonVariant } from "../../../../src/ui/components/ui/Button.tsx";
 import { Icon } from "../../../../src/ui/components/ui/Icon.tsx";
 import { Kbd } from "../../../../src/ui/components/ui/Kbd.tsx";
+import { Menu } from "../../../../src/ui/components/ui/Menu.tsx";
+import { Modal } from "../../../../src/ui/components/ui/Modal.tsx";
 import { Spinner } from "../../../../src/ui/components/ui/Spinner.tsx";
 import { Tooltip } from "../../../../src/ui/components/ui/Tooltip.tsx";
 
@@ -140,6 +143,13 @@ describe("Tooltip", () => {
     expect(cls(tip)).not.toBe(hiddenClass);
     fireEvent.keyDown(anchor, { key: "Escape" });
     expect(cls(tip)).toBe(hiddenClass);
+    fireEvent.blur(screen.getByRole("button", { name: "Jira" }));
+    fireEvent.pointerDown(document.body);
+    fireEvent.focus(screen.getByRole("button", { name: "Jira" }));
+    expect(cls(tip)).toBe(hiddenClass);
+    fireEvent.keyDown(document.body, { key: "Tab" });
+    fireEvent.focus(screen.getByRole("button", { name: "Jira" }));
+    expect(cls(tip)).not.toBe(hiddenClass);
     for (const side of ["bottom", "left", "right"] as const) {
       render(
         <Tooltip label={side} side={side}>
@@ -148,6 +158,44 @@ describe("Tooltip", () => {
       );
       expect(screen.getByRole("button", { name: `b-${side}` })).toHaveAccessibleDescription(side);
     }
+  });
+});
+
+function Host() {
+  const [confirm, setConfirm] = useState(false);
+  return (
+    <>
+      <Menu
+        trigger={<Button variant="quiet" iconOnly icon="more" label="More actions for this document" />}
+        entries={[{ label: "Delete this document…", danger: true, onSelect: () => setConfirm(true) }]}
+      />
+      {confirm && (
+        <Modal
+          title="Delete?"
+          size="sm"
+          confirm={{ verb: "Delete", danger: true, onConfirm: () => {} }}
+          onClose={() => setConfirm(false)}
+        >
+          x
+        </Modal>
+      )}
+    </>
+  );
+}
+
+describe("Tooltip on a menu's trigger (design-gaps point 66)", () => {
+  it("stays hidden while the menu is open and when a clicked item gives the focus back to open a confirmation", async () => {
+    const user = userEvent.setup();
+    render(<Host />);
+    const more = screen.getByRole("button", { name: "More actions for this document" });
+    const tip = screen.getByRole("tooltip", { hidden: true });
+    const hiddenClass = cls(tip);
+    await user.click(more);
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+    expect(cls(tip)).toBe(hiddenClass);
+    await user.click(screen.getByRole("menuitem", { name: "Delete this document…" }));
+    expect(screen.getByRole("alertdialog", { name: "Delete?" })).toBeInTheDocument();
+    expect(cls(tip)).toBe(hiddenClass);
   });
 });
 
