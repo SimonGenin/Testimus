@@ -1,9 +1,23 @@
-import { useEffect, useState } from "react";
-import type { AgentsMeasure, Settings } from "../../../core/types.ts";
-import { call, run } from "../../api.ts";
-import { Button } from "../../components/legacy/index.ts";
+import * as stylex from "@stylexjs/stylex";
+import { useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import type { AgentsMeasure } from "../../../core/types.ts";
+import { Button } from "../../components/ui/Button.tsx";
+import { Switch } from "../../components/ui/Switch.tsx";
+import { Text } from "../../components/ui/Text.tsx";
 import { useApp } from "../../lib/app.ts";
+import { execute, type Key } from "../../lib/data/query.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
+import { size, space } from "../../styles/tokens.stylex.ts";
+import { useCancel, useJob } from "./jobs.ts";
+import { useSetSettings, useSetting, useSettings } from "./machine.ts";
+import { Hint, Stack } from "./Section.tsx";
+
+const styles = stylex.create({
+  row: { display: "flex", alignItems: "flex-end", gap: space.s5, flexWrap: "wrap" },
+  max: { width: `calc(${size.controlLg} * 4)` },
+  push: { marginLeft: "auto" },
+});
 
 const DEFAULT = 5;
 const CAP = 32;
@@ -13,109 +27,112 @@ type Tested = AgentsMeasure & { applied: boolean };
 export const measureLine = (m: AgentsMeasure) =>
   `${m.limit} agent${m.limit > 1 ? "s" : ""} on ${new Date(m.at).toLocaleDateString("en-GB")} — ${m.reason}`;
 
-export function AgentsField({ s, setS }: { s: Settings | null; setS: (s: Settings) => void }) {
-  const app = useApp();
-  const [max, setMax] = useState("");
-  const [testing, setTesting] = useState<string | null>(null);
-  const [jobId, setJobId] = useState<string | null>(null);
-  const saved = s ? (s.agents?.max ?? DEFAULT) : null;
-  useEffect(() => {
-    if (saved !== null) setMax(String(saved));
-  }, [saved]);
+const MAX_KEY: Key = [null, "system.settings", { field: "agentsMax" }];
 
-  const save = async (patch: Record<string, unknown>) => {
-    const r = await call<Settings>("system.set", patch).catch((e) => {
-      errorToast(e, "Could not save the settings");
-      return null;
-    });
-    if (r) {
-      setS(r);
-      setMax(String(r.agents?.max ?? DEFAULT));
-    }
-  };
-  const commit = () => {
-    const n = Math.round(Number(max));
-    if (!Number.isFinite(n) || n < 1 || n > CAP) return setMax(String(s?.agents?.max ?? DEFAULT));
-    if (n !== (s?.agents?.max ?? DEFAULT)) void save({ agentsMax: n });
-  };
-  const test = async () => {
-    setTesting("Measuring the PC at rest");
-    try {
-      const r = await run<Tested>(
-        "system.testAgents",
-        {},
-        (e) => e.type === "progress" && setTesting(e.message),
-        setJobId,
-      );
+const valid = (typed: string) => {
+  const n = Math.round(Number(typed));
+  return typed.trim() !== "" && Number.isFinite(n) && n >= 1 && n <= CAP ? n : null;
+};
+
+function AgentsTest({ jobId, onEnd }: { jobId: string; onEnd: () => void }) {
+  const cancel = useCancel();
+  const { live } = useJob(jobId, (job) => {
+    onEnd();
+    if (job.status === "done") {
+      const r = job.result as Tested;
       toast({
         kind: "ok",
         title: r.applied ? `Maximum set to ${r.limit} agents` : `This PC holds ${r.limit} agents`,
         detail: r.reason,
       });
-      setS(await call<Settings>("system.settings", {}));
+    } else if (job.status === "failed")
+      errorToast(new Error(job.error ?? "The test failed."), "The test of this PC's limits stopped");
+  });
+  return (
+    <div {...stylex.props(styles.row)}>
+      <Hint>
+        <span role="status">{live.message === "Starting" ? "Measuring the PC at rest" : live.message}</span>
+      </Hint>
+      <Button size="sm" variant="quiet" label="Cancel" onClick={() => cancel(jobId)} />
+    </div>
+  );
+}
+
+// ponytail: the most Claude runs at once — typed, saved when the field is left; the test is a job (system.testAgents)
+// whose end the event bridge reports, settings.json re-read with it
+export function AgentsField() {
+  const app = useApp();
+  const client = useQueryClient();
+  const settings = useSettings();
+  const setSettings = useSetSettings();
+  const setting = useSetting();
+  const [starting, setStarting] = useState(false);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [typed, setTyped] = useState<string | null>(null);
+  const s = settings.data;
+  const saved = s?.agents?.max ?? DEFAULT;
+
+  const test = async () => {
+    setStarting(true);
+    try {
+      const { jobId: id } = await execute(client, "system.testAgents", {}, { invalidates: "none" });
+      setJobId(id);
     } catch (e) {
       errorToast(e, "The test of this PC's limits stopped");
     } finally {
-      setTesting(null);
-      setJobId(null);
+      setStarting(false);
     }
   };
-  const measured = s?.agents?.measured;
 
+  const measured = s?.agents?.measured;
+  const testing = starting || !!jobId;
   return (
-    <div className="formfield agents">
-      <span className="label" id="set-agents-label">
-        Agents at the same time
-      </span>
-      <div className="pickrow agents-row">
-        <input
-          id="set-agents-max"
-          className="field agents-max"
-          type="number"
-          min={1}
-          max={CAP}
-          aria-labelledby="set-agents-label"
-          disabled={!s}
-          value={max}
-          onChange={(e) => setMax(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => e.key === "Enter" && commit()}
-        />
-        <label className="agents-adapt">
-          <input
-            type="checkbox"
-            checked={s?.agents?.adaptive ?? true}
+    <Stack>
+      <div {...stylex.props(styles.row)}>
+        <div {...stylex.props(styles.max)}>
+          <Text
+            id="settings-claude-agents"
+            label="Agents at once"
+            value={String(saved)}
+            saveKey={MAX_KEY}
+            delay="blur"
             disabled={!s}
-            onChange={(e) => void save({ agentsAdaptive: e.target.checked })}
-          />{" "}
-          Adapt to the PC's load
-        </label>
-        <Button size="sm" disabled={!!testing || !app.info} onClick={() => void test()}>
-          {testing ? "Testing…" : "Test this PC's limits"}
-        </Button>
-        {testing && (
+            onChange={setTyped}
+            error={typed !== null && valid(typed) === null ? `A number from 1 to ${CAP}` : undefined}
+            save={async (value) => {
+              const n = valid(value);
+              if (n === null) throw new Error(`A number from 1 to ${CAP}`);
+              if (n !== saved) await setSettings({ agentsMax: n });
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") (e.target as HTMLElement).blur();
+            }}
+          />
+        </div>
+        <Switch
+          label="Adapt to the PC's load"
+          on={s?.agents?.adaptive ?? true}
+          disabled={!s}
+          onChange={(on) => void setting({ agentsAdaptive: on })}
+        />
+        <div {...stylex.props(styles.push)}>
           <Button
-            tone="quiet"
             size="sm"
-            disabled={!jobId}
-            onClick={() => jobId && call("jobs.cancel", { id: jobId }).catch((e) => errorToast(e, "Could not cancel"))}
-          >
-            Cancel
-          </Button>
-        )}
+            icon="cpu"
+            label={testing ? "Testing…" : "Test this PC's limits"}
+            disabled={testing || !app.info}
+            onClick={() => void test()}
+          />
+        </div>
       </div>
-      {testing && (
-        <span className="muted" role="status">
-          {testing}
-        </span>
-      )}
-      <span className="muted">
+      {jobId && <AgentsTest jobId={jobId} onEnd={() => setJobId(null)} />}
+      <Hint>
         The most Claude runs a generation or a check starts at once. Adapting, Testimus starts with 2 and adds one while
-        the CPU and the memory have room; while the PC is busy it starts none, and lets one finish without a successor
-        when it struggles. The test starts the project's search server again and again, as each agent does, until the
-        CPU, the memory or the search time says stop — a few minutes, no Claude credit spent.
-      </span>
-      {measured && <span className="muted agents-measured">Last test: {measureLine(measured)}</span>}
-    </div>
+        the processor and the memory have room; while the PC is busy it starts none, and lets one finish without a
+        successor when it struggles. The test starts the project's search server again and again, as each agent does,
+        until the processor, the memory or the search time says stop — a few minutes, no Claude credit spent.
+      </Hint>
+      {measured && <Hint>Last test: {measureLine(measured)}</Hint>}
+    </Stack>
   );
 }

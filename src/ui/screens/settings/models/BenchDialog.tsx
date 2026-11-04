@@ -1,116 +1,84 @@
-import { Button, Icon, Modal } from "../../../components/legacy/index.ts";
+import { Banner } from "../../../components/ui/Banner.tsx";
+import { Button } from "../../../components/ui/Button.tsx";
+import { Modal } from "../../../components/ui/Modal.tsx";
+import { useCancel } from "../jobs.ts";
+import { Hint, Stack } from "../Section.tsx";
 import type { PackRow } from "./data.ts";
 import { OpLine } from "./OpLine.tsx";
+import { Models } from "./PackCard.tsx";
 
-export type Bench = {
-  jobId: string;
-  status: "running" | "done" | "failed" | "cancelled";
-  message: string;
-  pct: number | null;
-  error?: string;
-};
+export type Bench = { jobId: string; status: "running" | "done" | "failed" | "cancelled"; error?: string };
 
+// ponytail: the same reference document on every PC makes the packs comparable; closing the dialog leaves the
+// measure running (its card says so)
 export function BenchDialog({
   pack,
   bench,
   label,
-  onCancel,
   onAgain,
   onClose,
 }: {
   pack: PackRow;
   bench: Bench | undefined;
   label: (id: string) => string;
-  onCancel: (jobId: string) => void;
   onAgain: () => void;
   onClose: () => void;
 }) {
+  const cancel = useCancel();
   const running = !bench || bench.status === "running";
   return (
     <Modal
-      label={`Measure the ${pack.label} pack`}
       title={`Measure the ${pack.label} pack`}
       subtitle="On Testimus's reference document, on this PC."
-      width={560}
+      footNote={running ? "Closing this window does not stop the measure." : undefined}
       onClose={onClose}
-      foot={
+      actions={
         <>
-          <span className="muted foot-hint">{running ? "Closing this window does not stop the measure." : ""}</span>
-          <span className="spacer" />
           {running ? (
-            <Button tone="quiet" disabled={!bench?.jobId} onClick={() => bench && onCancel(bench.jobId)}>
-              Cancel the measure
-            </Button>
+            <Button
+              variant="quiet"
+              label="Cancel the measure"
+              disabled={!bench?.jobId}
+              onClick={() => bench && cancel(bench.jobId)}
+            />
           ) : (
-            <Button tone="quiet" onClick={onAgain}>
-              Measure again
-            </Button>
+            <Button variant="quiet" label="Measure again" onClick={onAgain} />
           )}
-          <Button tone="primary" onClick={onClose}>
-            Close
-          </Button>
         </>
       }
     >
-      <p className="bench-intro">
-        Testimus ships a reference document: the Syntec collective agreement, 90 articles, with 100 questions whose
-        answering article is known. It searches that document with these models and counts how often the right article
-        comes first, and how often it is in the top 5. The search times become this PC's speed for the pack.
-      </p>
-      <p className="muted bench-intro">
-        Your project's documents are not used: the same test on every PC makes the packs comparable.
-      </p>
-      <div className="plan-row">
-        <span className="label">Models</span>
-        <span>
-          {pack.embedding ? label(pack.embedding) : "—"}
-          <span className="muted"> + </span>
-          {pack.reranker ? label(pack.reranker) : <span className="muted">no reranker</span>}
-        </span>
-      </div>
-      {running && (
-        <div className="bench-state">
-          <OpLine
-            op={{
-              key: pack.id,
-              jobId: bench?.jobId ?? "",
-              label: "Measuring",
-              message: bench?.message ?? "Starting",
-              pct: bench?.pct ?? null,
-            }}
-          />
-        </div>
-      )}
-      {bench?.status === "done" && (
-        <>
-          <p className="sev s-ok bench-state" role="status">
-            <Icon name="check" />
-            Measured
-          </p>
-          <div className="plan-row">
-            <span className="label">Speed</span>
-            <span>{pack.speed ?? "Not measured on this PC yet"}</span>
-          </div>
-          <div className="plan-row">
-            <span className="label">Quality</span>
-            <span>{pack.quality}</span>
-          </div>
-        </>
-      )}
-      {bench?.status === "cancelled" && (
-        <p className="muted bench-state" role="status">
-          The measure was cancelled; no result was written.
+      <Stack>
+        <p>
+          Testimus ships a reference document: the Syntec collective agreement, 90 articles, with 100 questions whose
+          answering article is known. It searches that document with these models and counts how often the right article
+          comes first, and how often it is in the top 5. The search times become this PC's speed for the pack.
         </p>
-      )}
-      {bench?.status === "failed" && (
-        <div className="problem bench-state" role="alert">
-          <span className="sev s-err">
-            <Icon name="error" />
-            The measure stopped
-          </span>
-          <p>{bench.error}</p>
-        </div>
-      )}
+        <Hint>Your project's documents are not used: the same test on every PC makes the packs comparable.</Hint>
+        {pack.embedding && <Models embedding={pack.embedding} reranker={pack.reranker} label={label} />}
+        {running && (
+          <OpLine
+            op={{ key: pack.id, jobId: bench?.jobId ?? "", label: "Measuring", kind: "models-measure" }}
+            cancellable={false}
+          />
+        )}
+        {bench?.status === "done" && (
+          <Banner tone="success" title="Measured">
+            <span role="status">
+              Speed: {pack.speed ?? "Not measured on this PC yet"} · Quality: {pack.quality}
+            </span>
+          </Banner>
+        )}
+        {bench?.status === "cancelled" && (
+          <Banner tone="neutral">
+            <span role="status">The measure was cancelled; no result was written.</span>
+          </Banner>
+        )}
+        {bench?.status === "failed" && (
+          <Banner tone="danger" title="The measure stopped">
+            <span role="alert">{bench.error}</span>
+          </Banner>
+        )}
+      </Stack>
     </Modal>
   );
 }

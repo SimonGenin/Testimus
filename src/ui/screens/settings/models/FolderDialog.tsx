@@ -1,18 +1,53 @@
+import * as stylex from "@stylexjs/stylex";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { ApiError, call, waitJob } from "../../../api.ts";
-import { Button, Icon, Modal, Segmented, Skeleton } from "../../../components/legacy/index.ts";
+import { Banner } from "../../../components/ui/Banner.tsx";
+import { Button } from "../../../components/ui/Button.tsx";
+import { Card } from "../../../components/ui/Card.tsx";
+import { Modal } from "../../../components/ui/Modal.tsx";
+import { Progress } from "../../../components/ui/Progress.tsx";
+import { RadioGroup } from "../../../components/ui/RadioGroup.tsx";
+import { Skeleton } from "../../../components/ui/Skeleton.tsx";
+import { Text } from "../../../components/ui/Text.tsx";
+import { ApiError } from "../../../lib/data/client.ts";
+import { execute, useRead } from "../../../lib/data/query.ts";
 import { absolutePath, examplePath } from "../../../lib/desktop.ts";
-import { cx, message } from "../../../lib/format.ts";
-import type { Hardware, SetDirOut } from "./data.ts";
+import { message } from "../../../lib/format.ts";
+import { size as sizes, space } from "../../../styles/tokens.stylex.ts";
+import { useJob } from "../jobs.ts";
+import { Hint, Stack } from "../Section.tsx";
+import type { SetDirOut } from "./data.ts";
 import { bestDrive, defaultFolder, folderPicker, onDrive, size } from "./data.ts";
+
+const styles = stylex.create({
+  drives: {
+    display: "grid",
+    gridTemplateColumns: `repeat(auto-fill, minmax(calc(${sizes.sidebar} * 2 / 3), 1fr))`,
+    gap: space.s3,
+  },
+});
 
 type Choice = "move" | "keep" | "copy";
 
-const CHOICES: { value: Choice; label: string; title: string }[] = [
-  { value: "move", label: "Move", title: "Move the downloaded models there; the old copy is deleted once checked" },
-  { value: "keep", label: "Keep where they are", title: "Nothing moves; only new downloads go to the new folder" },
-  { value: "copy", label: "Copy", title: "Copy them there and keep the old copy" },
+const CHOICES: { value: Choice; label: string; hint: string }[] = [
+  { value: "move", label: "Move", hint: "Move the downloaded models there; the old copy is deleted once checked" },
+  { value: "keep", label: "Keep where they are", hint: "Nothing moves; only new downloads go to the new folder" },
+  { value: "copy", label: "Copy", hint: "Copy them there and keep the old copy" },
 ];
+
+type Refusal = { message: string; fix?: string };
+
+const refusalOf = (e: unknown): Refusal => ({ message: message(e), fix: e instanceof ApiError ? e.fix : undefined });
+
+// ponytail: the folder is saved by a job (models.setDir); a move or a copy is followed by the page, a plain choice is
+// waited for here so the next step (a download) finds the folder set
+function Saving({ jobId, onDone, onFail }: { jobId: string; onDone: () => void; onFail: (r: Refusal) => void }) {
+  useJob(jobId, (job) => {
+    if (job.status === "done") onDone();
+    else onFail({ message: job.error ?? "The folder could not be saved.", fix: job.fix });
+  });
+  return null;
+}
 
 export function FolderDialog({
   current,
@@ -25,211 +60,200 @@ export function FolderDialog({
   onApplied: (dir: string, jobId: string | null, action: SetDirOut["action"]) => void;
   onClose: () => void;
 }) {
-  const [hw, setHw] = useState<Hardware | null>(null);
-  const [hwError, setHwError] = useState("");
+  const client = useQueryClient();
+  const hw = useRead("models.hardware", {});
   const [dir, setDir] = useState("");
   const [typed, setTyped] = useState(false);
   const [choice, setChoice] = useState<Choice>("move");
-  const [plan, setPlan] = useState<SetDirOut | null>(null);
-  const [refusal, setRefusal] = useState<{ message: string; fix?: string } | null>(null);
+  const [asked, setAsked] = useState("");
+  const [refusal, setRefusal] = useState<Refusal | null>(null);
   const [busy, setBusy] = useState(false);
+  const [saving, setSaving] = useState<{ jobId: string; dir: string; action: SetDirOut["action"] } | null>(null);
   const pick = folderPicker();
   const changing = !!current;
+  const drives = hw.data?.drives ?? [];
 
   useEffect(() => {
-    call<Hardware>("models.hardware", {})
-      .then((h) => {
-        setHw(h);
-        const best = bestDrive(h.drives ?? [], needMB);
-        if (best) setDir((d) => d || defaultFolder(best));
-      })
-      .catch((e) => setHwError(message(e)));
-  }, [needMB]);
+    const best = hw.data ? bestDrive(hw.data.drives ?? [], needMB) : null;
+    if (best) setDir((d) => d || defaultFolder(best));
+  }, [hw.data, needMB]);
 
+  // ponytail: the plan is asked once the typing pauses
   useEffect(() => {
-    setPlan(null);
-    setRefusal(null);
-    const d = dir.trim();
-    if (!absolutePath(d)) return;
-    let dead = false;
-    const t = setTimeout(() => {
-      call<SetDirOut>("models.planDir", { dir: d, ...(changing ? { [choice]: true } : {}) })
-        .then((r) => !dead && setPlan(r))
-        .catch((e) => !dead && setRefusal({ message: message(e), fix: e instanceof ApiError ? e.fix : undefined }));
-    }, 250);
-    return () => {
-      dead = true;
-      clearTimeout(t);
-    };
-  }, [dir, choice, changing]);
+    const t = setTimeout(() => setAsked(dir.trim()), 250);
+    return () => clearTimeout(t);
+  }, [dir]);
+
+  const how = changing ? { [choice]: true } : {};
+  const ready = absolutePath(asked) && asked === dir.trim();
+  const planned = useRead("models.planDir", { dir: asked, ...how }, { enabled: absolutePath(asked) });
+  const plan = ready ? planned.data : undefined;
+  const refused = refusal ?? (ready && planned.isError ? refusalOf(planned.error) : null);
 
   const apply = async () => {
     setBusy(true);
+    setRefusal(null);
     try {
-      const { jobId } = await call<{ jobId: string }>("models.setDir", {
-        dir: dir.trim(),
-        ...(changing ? { [choice]: true } : {}),
-      });
+      const { jobId } = await execute(client, "models.setDir", { dir: dir.trim(), ...how }, { invalidates: "none" });
       const action = plan?.action ?? "set";
-      if (action === "move" || action === "copy") onApplied(plan?.dir ?? dir.trim(), jobId, action);
-      else onApplied((await waitJob<SetDirOut>(jobId)).dir, null, action);
+      if (action === "move" || action === "copy") {
+        setBusy(false);
+        onApplied(plan?.dir ?? dir.trim(), jobId, action);
+      } else setSaving({ jobId, dir: plan?.dir ?? dir.trim(), action });
     } catch (e) {
-      setRefusal({ message: message(e), fix: e instanceof ApiError ? e.fix : undefined });
-    } finally {
+      setRefusal(refusalOf(e));
       setBusy(false);
     }
   };
 
-  const drives = hw?.drives ?? [];
   const example = defaultFolder(drives[0]?.root ?? examplePath("D:\\", "/Users/you"));
   const moving = changing && choice !== "keep" && (plan?.installedMB ?? 0) > 0;
   return (
     <Modal
-      label="Models folder"
       title={changing ? "Change the models folder" : "Where should models be stored?"}
       subtitle={
-        changing ? (
-          <>
-            Now: <span className="mono">{current}</span>
-          </>
-        ) : (
-          "Models are big files. Pick a drive with room; this PC remembers the choice for every project."
-        )
+        changing
+          ? `Now: ${current}`
+          : "Models are big files. Pick a drive with room; this PC remembers the choice for every project."
       }
-      width={600}
+      footNote={
+        needMB > 0 ? `This download needs ${size(needMB)} (${size(needMB * 1.2)} free with the margin).` : undefined
+      }
+      busy={busy}
       onClose={onClose}
-      foot={
+      actions={
         <>
-          <span className="muted foot-hint">
-            {needMB > 0 ? `This download needs ${size(needMB)} (${size(needMB * 1.2)} free with the margin).` : ""}
-          </span>
-          <span className="spacer" />
-          <Button tone="quiet" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button tone="primary" disabled={!plan || busy} onClick={() => void apply()}>
-            {moving
-              ? `${choice === "move" ? "Move" : "Copy"} ${size(plan?.installedMB ?? 0)}`
-              : changing
-                ? "Use this folder"
-                : "Store models here"}
-          </Button>
+          <Button variant="quiet" label="Cancel" onClick={onClose} />
+          <Button
+            variant="primary"
+            label={
+              moving
+                ? `${choice === "move" ? "Move" : "Copy"} ${size(plan?.installedMB ?? 0)}`
+                : changing
+                  ? "Use this folder"
+                  : "Store models here"
+            }
+            loading={busy}
+            disabled={!plan}
+            onClick={() => void apply()}
+          />
         </>
       }
     >
-      <span className="label">Drives</span>
-      {hwError ? (
-        <p className="sev s-warn">
-          <Icon name="warning" />
-          The drives could not be read: {hwError}. Type a folder below.
-        </p>
-      ) : !hw ? (
-        <div className="drives">
-          <Skeleton h={44} />
-          <Skeleton h={44} />
-        </div>
-      ) : (
-        <fieldset className="drives" aria-label="Drives">
-          {drives.map((d) => {
-            const short = d.freeMB < needMB * 1.2;
-            const used = d.totalMB ? Math.round(((d.totalMB - d.freeMB) / d.totalMB) * 100) : 0;
-            const on = onDrive(dir.trim(), d.root);
-            return (
-              <label key={d.root} className={cx("drive", on && "drive-on", short && "drive-short")}>
-                <input
-                  type="radio"
-                  name="models-drive"
-                  className="sr"
-                  checked={on}
-                  disabled={short}
-                  aria-label={`${d.root} ${size(d.freeMB)} free`}
-                  onChange={() => {
-                    setTyped(false);
-                    setDir(defaultFolder(d.root));
-                  }}
-                />
-                <span className="mono drive-root">{d.root}</span>
-                <span className="prog drive-bar" aria-hidden="true">
-                  <span style={{ width: `${used}%` }} />
-                </span>
-                <span className="drive-free">
-                  {size(d.freeMB)} free <span className="muted">of {size(d.totalMB)}</span>
-                </span>
-                {short && <span className="sev s-warn drive-note">Not enough room</span>}
-              </label>
-            );
-          })}
-        </fieldset>
-      )}
-      <label className="label" htmlFor="models-dir">
-        Folder
-      </label>
-      <div className="dirpick">
-        <input
-          id="models-dir"
-          className="field mono"
-          value={dir}
-          placeholder={example}
-          onChange={(e) => {
-            setTyped(true);
-            setDir(e.target.value);
-          }}
-        />
-        {pick && (
-          <Button
-            onClick={() =>
-              void pick({ title: "Models folder", defaultPath: dir || undefined }).then((p) => {
-                if (p) {
-                  setTyped(true);
-                  setDir(p);
-                }
-              })
-            }
-          >
-            Browse…
-          </Button>
+      <Stack>
+        {saving && (
+          <Saving
+            jobId={saving.jobId}
+            onDone={() => {
+              setBusy(false);
+              onApplied(saving.dir, null, saving.action);
+            }}
+            onFail={(r) => {
+              setSaving(null);
+              setBusy(false);
+              setRefusal(r);
+            }}
+          />
         )}
-      </div>
-      {typed && !absolutePath(dir.trim()) && dir.trim() && (
-        <span className="muted">Type a full path, e.g. {example}.</span>
-      )}
-      {changing && (
-        <div className="formfield">
-          <span className="label">The models already downloaded</span>
-          <Segmented
+        {hw.isError ? (
+          <Banner tone="warning" compact>
+            The drives could not be read: {hw.error.message}. Type a folder below.
+          </Banner>
+        ) : !hw.data ? (
+          <Skeleton kind="block" />
+        ) : (
+          <div role="radiogroup" aria-label="Drives" {...stylex.props(styles.drives)}>
+            {drives.map((d) => {
+              const short = d.freeMB < needMB * 1.2;
+              const used = d.totalMB ? Math.round(((d.totalMB - d.freeMB) / d.totalMB) * 100) : 0;
+              return (
+                <Card
+                  key={d.root}
+                  title={`${d.root} ${size(d.freeMB)} free`}
+                  radio={{
+                    name: "models-drive",
+                    value: d.root,
+                    checked: onDrive(dir.trim(), d.root),
+                    disabled: short,
+                    onSelect: () => {
+                      setTyped(false);
+                      setDir(defaultFolder(d.root));
+                    },
+                  }}
+                >
+                  <Progress
+                    label={`${d.root} used`}
+                    value={used}
+                    detail={short ? "Not enough room" : `of ${size(d.totalMB)}`}
+                  />
+                </Card>
+              );
+            })}
+          </div>
+        )}
+        <Text
+          id="models-dir"
+          label="Folder"
+          value={dir}
+          spellCheck={false}
+          placeholder={example}
+          onChange={(v) => {
+            setTyped(true);
+            setRefusal(null);
+            setDir(v);
+          }}
+          hint={typed && dir.trim() && !absolutePath(dir.trim()) ? `Type a full path, e.g. ${example}.` : undefined}
+          trailing={
+            pick ? (
+              <Button
+                size="sm"
+                variant="quiet"
+                label="Browse…"
+                onClick={() =>
+                  void pick({ title: "Models folder", defaultPath: dir || undefined }).then((p) => {
+                    if (!p) return;
+                    setTyped(true);
+                    setDir(p);
+                  })
+                }
+              />
+            ) : undefined
+          }
+        />
+        {changing && (
+          <RadioGroup<Choice>
             label="The models already downloaded"
+            showLabel
             value={choice}
             onChange={setChoice}
-            options={CHOICES.map((c) => ({ value: c.value, label: c.label, title: c.title }))}
+            options={CHOICES.map((c) => ({ value: c.value, label: c.label, hint: c.hint }))}
           />
-          <span className="muted">{CHOICES.find((c) => c.value === choice)?.title}.</span>
-        </div>
-      )}
-      {refusal ? (
-        <div className="dir-refused" role="alert">
-          <span className="sev s-err">
-            <Icon name="error" />
-            Refused
-          </span>
-          <span>{refusal.message}</span>
-          {refusal.fix && <span className="muted">{refusal.fix}</span>}
-        </div>
-      ) : plan ? (
-        <div className="dir-plan" role="status">
-          <span className="sev s-ok">
-            <Icon name="check" />
-            {size(plan.drive.freeMB)} free on {plan.drive.root}
-          </span>
-          {changing && plan.installedMB > 0 && (
-            <span className="muted">
-              Downloaded so far: {size(plan.installedMB)} in {plan.files} file{plan.files === 1 ? "" : "s"}.{" "}
-              {choice === "keep"
-                ? "They stay where they are."
-                : `${choice === "move" ? "Moved" : "Copied"} in a job you can cancel; each file is checked.`}
+        )}
+        {refused ? (
+          <Banner tone="danger" title="Refused">
+            <span role="alert">
+              {refused.message}
+              {refused.fix ? ` ${refused.fix}` : ""}
             </span>
-          )}
-        </div>
-      ) : null}
+          </Banner>
+        ) : plan ? (
+          <div role="status">
+            <Stack>
+              <Hint>
+                {size(plan.drive.freeMB)} free on {plan.drive.root}
+              </Hint>
+              {changing && plan.installedMB > 0 && (
+                <Hint>
+                  Downloaded so far: {size(plan.installedMB)} in {plan.files} file{plan.files === 1 ? "" : "s"}.{" "}
+                  {choice === "keep"
+                    ? "They stay where they are."
+                    : `${choice === "move" ? "Moved" : "Copied"} in a job you can cancel; each file is checked.`}
+                </Hint>
+              )}
+            </Stack>
+          </div>
+        ) : null}
+      </Stack>
     </Modal>
   );
 }

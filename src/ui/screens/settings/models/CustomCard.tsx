@@ -1,5 +1,26 @@
-import { Badge, Button } from "../../../components/legacy/index.ts";
-import { cx } from "../../../lib/format.ts";
+import * as stylex from "@stylexjs/stylex";
+import { Badge } from "../../../components/ui/Badge.tsx";
+import { Button } from "../../../components/ui/Button.tsx";
+import { Card } from "../../../components/ui/Card.tsx";
+import { border, color, fontSize, lineHeight, space } from "../../../styles/tokens.stylex.ts";
+import { Hint } from "../Section.tsx";
+import { Models } from "./PackCard.tsx";
+
+const styles = stylex.create({
+  card: { display: "flex", flexDirection: "column", minWidth: 0 },
+  head: { display: "inline-flex", alignItems: "center", gap: space.s2 },
+  body: { display: "flex", flexDirection: "column", gap: space.s3 },
+  variant: {
+    display: "flex",
+    flexDirection: "column",
+    gap: space.s2,
+    paddingTop: space.s3,
+    borderTopStyle: "solid",
+    borderTopWidth: border.width,
+    borderTopColor: color.border,
+  },
+  small: { fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textMuted },
+});
 
 export function CustomCard({
   active,
@@ -15,34 +36,29 @@ export function CustomCard({
   onChoose: () => void;
 }) {
   return (
-    <article className={cx("card pack", active && "pack-on")} aria-label="Custom pack">
-      <div className="pack-head">
-        <h3 className="h pack-title">Custom</h3>
-        {active && (
-          <Badge tone="ok" icon="check" small>
-            In use
-          </Badge>
-        )}
-      </div>
-      <p className="muted pack-intent">Pick the embedding and the reranker yourself, among the models on this PC.</p>
-      <div className="pack-variant">
-        <span className="label">On this PC</span>
-        {active && embedding ? (
-          <span className="pack-models">
-            {label(embedding)}
-            <span className="muted"> + </span>
-            {reranker ? label(reranker) : <span className="muted">no reranker</span>}
+    <article aria-label="Custom pack" {...stylex.props(styles.card)}>
+      <Card
+        selected={active}
+        title={
+          <span {...stylex.props(styles.head)}>
+            Custom
+            {active && <Badge label="In use" tone="success" icon="check" size="sm" />}
           </span>
-        ) : (
-          <span className="muted">Not chosen</span>
-        )}
-      </div>
-      <span className="spacer" />
-      <div className="pack-foot">
-        <Button size="sm" onClick={onChoose}>
-          Choose models
-        </Button>
-      </div>
+        }
+        footer={<Button size="sm" label="Choose models" onClick={onChoose} />}
+      >
+        <div {...stylex.props(styles.body)}>
+          <Hint>Pick the embedding and the reranker yourself, among the models on this PC.</Hint>
+          <div {...stylex.props(styles.variant)}>
+            <span {...stylex.props(styles.small)}>On this PC</span>
+            {active && embedding ? (
+              <Models embedding={embedding} reranker={reranker} label={label} />
+            ) : (
+              <span {...stylex.props(styles.small)}>Not chosen</span>
+            )}
+          </div>
+        </div>
+      </Card>
     </article>
   );
 }

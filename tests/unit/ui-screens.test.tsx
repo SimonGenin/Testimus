@@ -9,7 +9,6 @@ import { resetDoctor } from "../../src/ui/lib/doctor.ts";
 import { DoctorScreen } from "../../src/ui/screens/doctor/DoctorScreen.tsx";
 import { GenerateScreen } from "../../src/ui/screens/generate/GenerateScreen.tsx";
 import { ReviewScreen } from "../../src/ui/screens/review/ReviewScreen.tsx";
-import { ColumnsSection } from "../../src/ui/screens/settings/ColumnsSection.tsx";
 import { layoutOf } from "./layout-helpers.ts";
 
 type Handler = (input: Record<string, unknown>) => unknown;
@@ -377,34 +376,5 @@ describe("System check", () => {
     expect(rows[1]).toHaveTextContent("What to do: Type claude, then /login.");
     fireEvent.click(screen.getByRole("button", { name: "Check Claude sign-in" }));
     await waitFor(() => expect(named("system.doctor").some((c) => c.input.claude === true)).toBe(true));
-  });
-});
-
-describe("Settings", () => {
-  it("saves the step column preferences through columns.setModes and columns.order", async () => {
-    routes["columns.setModes"] = () => [];
-    routes["columns.order"] = () => [];
-    const base = appState({ route: { screen: "settings" } });
-    const columns = ["Action", "Data", "Expected Result", "Exigence"].map((name) => ({
-      name,
-      origin: "xray",
-      builtin: name !== "Exigence",
-      status: "ok",
-      description: "",
-      mode: "open",
-    }));
-    const app = { ...base, info: { ...base.info, columns } } as AppState;
-    wrap(app, <ColumnsSection />);
-    fireEvent.click(screen.getByRole("checkbox", { name: "Exigence hidden" }));
-    await waitFor(() => expect(named("columns.setModes")).toHaveLength(1));
-    expect(named("columns.setModes")[0].input).toEqual({ modes: { Exigence: "hidden" } });
-    fireEvent.change(screen.getByRole("combobox", { name: "Data folding" }), { target: { value: "filled" } });
-    await waitFor(() => expect(named("columns.setModes")).toHaveLength(2));
-    expect(named("columns.setModes")[1].input).toEqual({ modes: { Data: "filled" } });
-    expect(screen.getByRole("combobox", { name: "Action folding" })).toBeDisabled();
-    fireEvent.click(screen.getByRole("button", { name: "Move Exigence up" }));
-    await waitFor(() => expect(named("columns.order")).toHaveLength(1));
-    expect(named("columns.order")[0].input).toEqual({ names: ["Action", "Data", "Exigence", "Expected Result"] });
-    expect(app.refreshInfo).toHaveBeenCalled();
   });
 });

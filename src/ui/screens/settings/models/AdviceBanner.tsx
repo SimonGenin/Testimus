@@ -1,6 +1,11 @@
-import { Button, Icon } from "../../../components/legacy/index.ts";
+import * as stylex from "@stylexjs/stylex";
+import { Banner } from "../../../components/ui/Banner.tsx";
+import { Button } from "../../../components/ui/Button.tsx";
+import { color } from "../../../styles/tokens.stylex.ts";
 import type { AdviceRow } from "./data.ts";
 import { choiceLabel } from "./data.ts";
+
+const styles = stylex.create({ muted: { color: color.textMuted } });
 
 export function AdviceBanner({
   advice,
@@ -17,26 +22,22 @@ export function AdviceBanner({
 }) {
   const up = advice.direction === "upgrade";
   return (
-    <section className={up ? "advice advice-up" : "advice advice-down"} aria-label="Advice">
-      <Icon name={up ? "info" : "warning"} size={20} />
-      <div className="advice-body">
-        <span className="advice-title">
-          {up ? "This PC can do more: " : "A lighter choice suits this PC: "}
-          switch to {choiceLabel(advice.to, label)}
-        </span>
-        <span>{advice.reason}</span>
-        <span className="muted">
+    <section aria-label="Advice">
+      <Banner
+        tone={up ? "info" : "warning"}
+        title={`${up ? "This PC can do more: " : "A lighter choice suits this PC: "}switch to ${choiceLabel(advice.to, label)}`}
+        actions={
+          <>
+            <Button size="sm" label="Apply" disabled={busy} onClick={onApply} />
+            <Button size="sm" variant="quiet" label="Dismiss" onClick={onDismiss} />
+          </>
+        }
+      >
+        {advice.reason}{" "}
+        <span {...stylex.props(styles.muted)}>
           Quality: {advice.quality} · now {choiceLabel(advice.from, label)}
         </span>
-      </div>
-      <div className="advice-actions">
-        <Button size="sm" disabled={busy} onClick={onApply}>
-          Apply
-        </Button>
-        <Button size="sm" tone="quiet" onClick={onDismiss}>
-          Dismiss
-        </Button>
-      </div>
+      </Banner>
     </section>
   );
 }

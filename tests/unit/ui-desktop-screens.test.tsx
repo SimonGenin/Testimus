@@ -8,8 +8,6 @@ import { project, setProject } from "../../src/ui/api.ts";
 import { Toasts } from "../../src/ui/components/legacy/index.ts";
 import { ProjectButton } from "../../src/ui/components/shell/ProjectButton.tsx";
 import { AppContext, type AppState } from "../../src/ui/lib/app.ts";
-import { ClaudeSection } from "../../src/ui/screens/settings/ClaudeSection.tsx";
-import { AccessStep } from "../../src/ui/screens/setup/AccessStep.tsx";
 import { ProjectStep } from "../../src/ui/screens/setup/ProjectStep.tsx";
 import { TestList } from "../../src/ui/screens/tests/TestList.tsx";
 import { api, app, fakeDesktop, fakeFetch, named, noDesktop } from "./ui-desktop-helpers.tsx";
@@ -111,68 +109,6 @@ describe("Project menu", () => {
     await screen.findByRole("menuitem", { name: "New or other project…" });
     expect(screen.queryByRole("menuitem", { name: "Open a folder…" })).toBeNull();
     expect(screen.queryByRole("menuitem", { name: "Show in Explorer" })).toBeNull();
-  });
-});
-
-describe("First launch › Access", () => {
-  const TOKENS = "https://id.atlassian.com/manage-profile/security/api-tokens";
-  beforeEach(() => {
-    api.routes["system.credentials"] = api.routes["system.setCredentials"] = () => ({
-      status: {
-        jira: { file: "", exists: false, complete: false },
-        xray: { file: "", exists: false, complete: false },
-      },
-      saved: [],
-      checks: [],
-      ok: false,
-    });
-  });
-
-  it("the token page opens in the default browser through the bridge", async () => {
-    const d = fakeDesktop();
-    within(<AccessStep onContinue={() => {}} onSkip={() => {}} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Open API tokens" }));
-    expect(d.openExternal).toHaveBeenCalledWith(TOKENS);
-  });
-
-  it("without the bridge the token page opens in a new tab", async () => {
-    const open = vi.fn();
-    vi.stubGlobal("open", open);
-    within(<AccessStep onContinue={() => {}} onSkip={() => {}} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Open API tokens" }));
-    expect(open).toHaveBeenCalledWith(TOKENS, "_blank", "noopener,noreferrer");
-  });
-});
-
-describe("Settings › Claude program", () => {
-  beforeEach(() => {
-    api.routes["system.settings"] = () => ({ claude: { exe: "" }, models: { allowRemote: true } });
-    api.routes["system.set"] = (i) => ({ claude: { exe: i.claudeExe ?? "" }, models: { allowRemote: true } });
-    api.routes["claude.status"] = () => ({ installed: true, version: "2.1.0", signedIn: null, exe: "claude" });
-  });
-
-  it("Browse… picks claude.exe and saves it", async () => {
-    const d = fakeDesktop({ files: ["C:\\Users\\me\\.local\\bin\\claude.exe"] });
-    within(<ClaudeSection />, { info: null });
-    const browse = screen.getByRole("button", { name: "Browse for the Claude program" });
-    await waitFor(() => expect(browse).toBeEnabled());
-    fireEvent.click(browse);
-    await waitFor(() => expect(named("system.set")).toHaveLength(1));
-    await waitFor(() => expect(named("claude.status").at(-1)?.input).toEqual({ refresh: true }));
-    expect(d.pickFiles).toHaveBeenCalledWith({
-      title: "Choose the Claude program",
-      filters: process.platform === "win32" ? [{ name: "Programs", extensions: ["exe", "cmd"] }] : [],
-      multiple: false,
-    });
-    expect(named("system.set")[0].input).toEqual({ claudeExe: "C:\\Users\\me\\.local\\bin\\claude.exe" });
-    expect(screen.getByLabelText("Claude program")).toHaveValue("C:\\Users\\me\\.local\\bin\\claude.exe");
-  });
-
-  it("without the bridge: the text field only", () => {
-    within(<ClaudeSection />, { info: null });
-    expect(screen.getByLabelText("Claude program")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Check" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Browse/ })).toBeNull();
   });
 });
 

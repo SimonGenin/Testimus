@@ -1,36 +1,18 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { StepColumn } from "../../src/core/types.ts";
-import { setProject } from "../../src/ui/api.ts";
-import { Toasts } from "../../src/ui/components/legacy/index.ts";
-import { closeToast, useToasts } from "../../src/ui/lib/toast.ts";
-import { ColumnsClaude } from "../../src/ui/screens/settings/ColumnsClaude.tsx";
-import { callsOf, Fail, FakeES, fakeEvents, fakeNet, job, net, status, withApp } from "./cov-uishell-helpers.tsx";
-
-let ids: number[] = [];
-function Probe() {
-  ids = useToasts().map((t) => t.id);
-  return <Toasts />;
-}
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import type { StepColumn } from "../../../../src/core/types.ts";
+import { ColumnsClaude } from "../../../../src/ui/screens/settings/ColumnsClaude.tsx";
+import { calls, DIR, emit, Fail, fakeJob, fakeNet, info, inputs, mountSettings, net, reset } from "./helpers.tsx";
 
 beforeEach(() => {
   fakeNet();
-  fakeEvents();
   net.routes["contexts.list"] = () => [];
+  net.routes["project.info"] = () => info();
 });
 
-afterEach(() => {
-  act(() => {
-    for (const id of ids) closeToast(id, true);
-  });
-  cleanup();
-  vi.unstubAllGlobals();
-  setProject(null);
-  localStorage.clear();
-  sessionStorage.clear();
-});
+afterEach(reset);
 
 const col = (o: Partial<StepColumn>): StepColumn => ({
   name: "Action",
@@ -62,53 +44,42 @@ const PROPOSALS = [
   { name: "Poste", kind: "new", builtin: false, current: null, description: "Le poste.", why: "§ 5.6" },
 ];
 
-function mount() {
-  return withApp(
-    <>
-      <ColumnsClaude columns={COLUMNS} />
-      <Probe />
-    </>,
-  );
+let n = 0;
+// ponytail: columns.suggest is a job; here it has already ended with this result when the page asks for it
+function answers(result: Record<string, unknown>) {
+  const id = `columns-${String(++n).padStart(8, "0")}`;
+  fakeJob({ id, kind: "columns", status: "done", result });
+  net.routes["columns.suggest"] = () => ({ jobId: id });
 }
 
-const ask = () => screen.getByRole("button", { name: /Ask Claude|Ask again/ });
+const mount = () => mountSettings(<ColumnsClaude columns={COLUMNS} />);
+const ask = () => screen.getByRole("button", { name: /Ask Claude|Ask again|Claude is looking/ });
 
-describe("ColumnsClaude", () => {
+describe("Settings › Smart columns › Ask Claude", () => {
   it("runs columns.suggest as a job, shows what Claude reads, then its proposals", async () => {
-    net.routes["columns.suggest"] = () => ({ jobId: "c1" });
-    net.routes["jobs.show"] = () => ({ job: job({ id: "c1", kind: "columns" }) });
-    net.routes["jobs.cancel"] = () => null;
+    const j = fakeJob({ id: "columns-c0000001", kind: "columns" });
+    net.routes["columns.suggest"] = () => ({ jobId: j.id });
     mount();
     fireEvent.change(screen.getByPlaceholderText(/What the columns should hold/), {
       target: { value: "  le poste  " },
     });
     fireEvent.click(ask());
     expect(await screen.findByText(/Claude is reading the columns/)).toBeInTheDocument();
-    await waitFor(() => expect(callsOf("jobs.show")).toHaveLength(1));
-    expect(callsOf("columns.suggest")[0].input).toEqual({ ask: "le poste", contexts: [] });
-    act(() =>
-      FakeES.emit({
-        jobId: "c1",
-        at: "",
-        type: "claude",
-        event: { type: "tool", name: "mcp__testimus__rag_search", input: '{"query":"poste"}' },
-      }),
-    );
+    await waitFor(() => expect(calls("jobs.show")).toHaveLength(1));
+    expect(inputs("columns.suggest")[0]).toEqual({ ask: "le poste", contexts: [] });
+    await emit({
+      jobId: j.id,
+      at: "",
+      type: "claude",
+      event: { type: "tool", name: "mcp__testimus__rag_search", input: '{"query":"poste"}' },
+    } as never);
     expect(screen.getByText(/Searched the documents for “poste”/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-    await waitFor(() => expect(callsOf("jobs.cancel")[0].input).toEqual({ id: "c1" }));
-    act(() =>
-      FakeES.emit(
-        status(
-          job({
-            id: "c1",
-            kind: "columns",
-            status: "done",
-            result: { ok: true, summary: "J'ai lu les tests.\n\n```columns\n{}\n```", proposals: PROPOSALS },
-          }),
-        ),
-      ),
-    );
+    await waitFor(() => expect(inputs("jobs.cancel")[0]).toEqual({ id: j.id }));
+    await j.finish({
+      status: "done",
+      result: { ok: true, summary: "J'ai lu les tests.\n\n```columns\n{}\n```", proposals: PROPOSALS },
+    });
     expect(await screen.findByText("J'ai lu les tests.")).toBeInTheDocument();
     const list = screen.getByRole("list", { name: "Claude's proposals" });
     expect(within(list).getAllByRole("listitem")).toHaveLength(4);
@@ -123,33 +94,36 @@ describe("ColumnsClaude", () => {
   });
 
   it("applies one proposal, then all the others, through columns.save", async () => {
-    net.routes["columns.suggest"] = () => ({ ok: true, summary: "Voilà.", proposals: PROPOSALS });
+    answers({ ok: true, summary: "Voilà.", proposals: PROPOSALS });
     net.routes["columns.save"] = () => [];
-    const { state } = mount();
+    const { client } = mount();
+    client.setQueryData([DIR, "project.info"], info());
     fireEvent.click(ask());
     const list = await screen.findByRole("list", { name: "Claude's proposals" });
-    const poste = within(list).getByText("Poste").closest("li") as HTMLElement;
-    fireEvent.click(within(poste).getByRole("button", { name: "Add the column" }));
+    fireEvent.click(
+      within(within(list).getByRole("listitem", { name: "Poste" })).getByRole("button", { name: "Add the column" }),
+    );
     await waitFor(() => expect(within(list).getAllByRole("listitem")).toHaveLength(3));
-    expect(callsOf("columns.save")[0].input).toEqual({ name: "Poste", description: "Le poste." });
+    expect(inputs("columns.save")[0]).toEqual({ name: "Poste", description: "Le poste." });
     expect(await screen.findByText("Poste: added")).toBeInTheDocument();
-    expect(state.refreshInfo).toHaveBeenCalled();
+    expect(client.getQueryState([DIR, "project.info"])?.isInvalidated).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "Apply all 3" }));
-    await waitFor(() => expect(callsOf("columns.save")).toHaveLength(4));
+    await waitFor(() => expect(calls("columns.save")).toHaveLength(4));
     expect(await screen.findByText("3 columns updated")).toBeInTheDocument();
     expect(screen.queryByRole("list", { name: "Claude's proposals" })).toBeNull();
   });
 
   it("dismisses proposals, and says when a save fails", async () => {
-    net.routes["columns.suggest"] = () => ({ ok: true, summary: "", proposals: PROPOSALS.slice(0, 2) });
+    answers({ ok: true, summary: "", proposals: PROPOSALS.slice(0, 2) });
     net.routes["columns.save"] = () => {
       throw new Fail("Disk full");
     };
     mount();
     fireEvent.click(ask());
     const list = await screen.findByRole("list", { name: "Claude's proposals" });
-    const first = within(list).getByText("Expected Result").closest("li") as HTMLElement;
-    fireEvent.click(within(first).getByRole("button", { name: "Dismiss" }));
+    fireEvent.click(
+      within(within(list).getByRole("listitem", { name: "Expected Result" })).getByRole("button", { name: "Dismiss" }),
+    );
     expect(within(list).getAllByRole("listitem")).toHaveLength(1);
     expect(screen.queryByRole("button", { name: /Apply all/ })).toBeNull();
     fireEvent.click(within(list).getByRole("button", { name: "Apply" }));
@@ -158,7 +132,7 @@ describe("ColumnsClaude", () => {
   });
 
   it("drops a proposal the columns already hold, and dismisses the whole answer", async () => {
-    net.routes["columns.suggest"] = () => ({
+    answers({
       ok: true,
       summary: "",
       proposals: [{ ...PROPOSALS[0], description: "Ce que voit l'opérateur." }, PROPOSALS[1], PROPOSALS[3]],
@@ -172,20 +146,20 @@ describe("ColumnsClaude", () => {
   });
 
   it("says when nothing is proposed, when the run failed, and when it broke", async () => {
-    net.routes["columns.suggest"] = () => ({ ok: true, summary: "Rien à changer.", proposals: [] });
+    answers({ ok: true, summary: "Rien à changer.", proposals: [] });
     mount();
     fireEvent.click(ask());
     expect(await screen.findByText("No change proposed.")).toBeInTheDocument();
     expect(screen.getByText("Rien à changer.")).toBeInTheDocument();
-    net.routes["columns.suggest"] = () => ({
+    answers({
       ok: false,
       summary: "",
       proposals: [],
-      diagnosis: { detail: "Claude is not signed in." },
+      diagnosis: { kind: "login", title: "x", detail: "Claude is not signed in." },
     });
     fireEvent.click(ask());
     expect(await screen.findByText("Claude is not signed in.")).toBeInTheDocument();
-    net.routes["columns.suggest"] = () => ({ ok: false, summary: "", proposals: [] });
+    answers({ ok: false, summary: "", proposals: [] });
     fireEvent.click(ask());
     expect(await screen.findByText("Claude gave no proposal.")).toBeInTheDocument();
     net.routes["columns.suggest"] = () => {
@@ -193,5 +167,11 @@ describe("ColumnsClaude", () => {
     };
     fireEvent.click(ask());
     expect(await screen.findByText("Claude could not look at the columns")).toBeInTheDocument();
+    const j = fakeJob({ id: "columns-c0000099", kind: "columns" });
+    net.routes["columns.suggest"] = () => ({ jobId: j.id });
+    fireEvent.click(ask());
+    await screen.findByText(/Claude is reading the columns/);
+    await act(() => j.finish({ status: "failed", error: "The run broke." }));
+    expect(await screen.findByText("The run broke.")).toBeInTheDocument();
   });
 });

@@ -15,7 +15,7 @@ async function top(target: Locator) {
 }
 
 async function typeFolder(dialog: Locator, dir: string) {
-  const field = dialog.getByRole("textbox", { name: "Folder" });
+  const field = dialog.getByRole("textbox", { name: /^Folder/ });
   await expect(field).toHaveValue(/\S/);
   await field.fill(dir);
   await expect(field).toHaveValue(dir);
@@ -58,7 +58,10 @@ test.describe("default PC: a 16 GB GPU, a models folder", () => {
 
   test("Use this pack shows the plan, downloads in a job, then Use takes over", async ({ page }) => {
     const models = await openModels(page);
-    await models.getByRole("button", { name: "Use the Performance pack" }).click();
+    await models
+      .getByRole("article", { name: "Performance pack" })
+      .getByRole("button", { name: "Use this pack" })
+      .click();
     const plan = page.getByRole("dialog", { name: "Download the Performance pack" });
     await expect(plan).toContainText("Qwen3 Embedding 0.6B (16-bit, DirectML)");
     await expect(plan).toContainText(join(await sandbox(url), "models"));
@@ -67,11 +70,13 @@ test.describe("default PC: a 16 GB GPU, a models folder", () => {
     await expect(plan).toBeHidden();
     const card = models.getByRole("article", { name: "Performance pack" });
     await expect(card.getByRole("status", { name: "Downloading Performance" })).toBeVisible();
-    await expect(models.getByRole("button", { name: "Use the Balanced pack" })).toBeEnabled();
+    await expect(
+      models.getByRole("article", { name: "Balanced pack" }).getByRole("button", { name: "Use this pack" }),
+    ).toBeEnabled();
     await shoot(page, "models-download-e2e");
     await expect(card).toContainText("Installed", { timeout: 30_000 });
     await expect(card).not.toContainText("In use");
-    await card.getByRole("button", { name: "Use the Performance pack" }).click();
+    await card.getByRole("button", { name: "Use this pack" }).click();
     await page
       .getByRole("dialog", { name: "Use the Performance pack" })
       .getByRole("button", { name: "Use Performance" })
@@ -91,9 +96,9 @@ test.describe("default PC: a 16 GB GPU, a models folder", () => {
     await expect(table.getByRole("row", { name: "Qwen3 Reranker 4B (8-bit, GGUF)" })).toContainText("Install");
     await top(table.getByRole("row", { name: "BGE-M3 (8-bit, CPU)" }));
     await shoot(page, "models-table-e2e");
-    await table.getByRole("button", { name: "Install Qwen3 Reranker 4B (8-bit, GGUF)" }).click();
     const row = table.getByRole("row", { name: "Qwen3 Reranker 4B (8-bit, GGUF)" });
-    await expect(row.getByRole("button", { name: "Verify Qwen3 Reranker 4B (8-bit, GGUF)" })).toBeVisible({
+    await row.getByRole("button", { name: "Install" }).click();
+    await expect(row.getByRole("button", { name: "Verify" })).toBeVisible({
       timeout: 30_000,
     });
   });
@@ -110,7 +115,7 @@ test.describe("a 4 GB GPU", () => {
     const balancedCard = models.getByRole("article", { name: "Balanced pack" });
     await expect(balancedCard).toContainText("its second choice");
     await expect(balancedCard.getByRole("list", { name: "Skipped variants" })).toContainText("4.0 GB on the GPU");
-    await quality.getByRole("button", { name: "Use the Quality pack" }).click();
+    await quality.getByRole("button", { name: "Use this pack" }).click();
     const ask = page.getByRole("dialog", { name: "Will The Quality pack fit?" });
     await expect(ask).toContainText("may not fit this PC");
     await expect(ask).toContainText("Your GPU has 4.0 GB");
@@ -120,7 +125,7 @@ test.describe("a 4 GB GPU", () => {
     await expect(balanced).toContainText("Qwen3 Embedding 0.6B (8-bit, GGUF)");
     await balanced.getByRole("button", { name: "Cancel" }).click();
     await expect(balanced).toBeHidden();
-    await quality.getByRole("button", { name: "Use the Quality pack" }).click();
+    await quality.getByRole("button", { name: "Use this pack" }).click();
     await ask.getByRole("button", { name: "Use anyway" }).click();
     await expect(page.getByRole("dialog", { name: "Download the Quality pack" })).toBeVisible();
   });
@@ -137,7 +142,10 @@ test.describe("no GPU and 6 GB of memory", () => {
     await expect(quality.getByRole("list", { name: "Skipped variants" })).toContainText("ram-too-small");
     await models.getByRole("button", { name: "Model catalog" }).click();
     const table = models.getByRole("table", { name: "Model catalog" });
-    await table.getByRole("button", { name: "Use Qwen3 Embedding 8B (4-bit) for this project" }).click();
+    await table
+      .getByRole("row", { name: "Qwen3 Embedding 8B (4-bit)" })
+      .getByRole("button", { name: "Use", exact: true })
+      .click();
     const ask = page.getByRole("dialog", { name: /^Will Qwen3 Embedding 8B .* fit\?$/ });
     await expect(ask).toContainText("cannot run on this PC");
     await expect(ask.getByRole("button", { name: "Use anyway" })).toHaveCount(0);
@@ -153,9 +161,11 @@ test.describe("first download, no models folder chosen", () => {
     const root = await sandbox(url);
     const models = await openModels(page);
     await expect(models).toContainText("not chosen yet");
-    await models.getByRole("button", { name: "Use the Performance pack" }).click();
-    const where = page.getByRole("dialog", { name: "Models folder" });
-    await expect(where).toContainText("Where should models be stored?");
+    await models
+      .getByRole("article", { name: "Performance pack" })
+      .getByRole("button", { name: "Use this pack" })
+      .click();
+    const where = page.getByRole("dialog", { name: "Where should models be stored?" });
     await typeFolder(where, join(root, "first-models"));
     await expect(where.getByRole("status")).toContainText("free on");
     await shoot(page, "models-folder-first-e2e");
@@ -165,7 +175,7 @@ test.describe("first download, no models folder chosen", () => {
     await plan.getByRole("button", { name: /^Download \S+ [MG]B$/ }).click();
     const card = models.getByRole("article", { name: "Performance pack" });
     await expect(card).toContainText("Installed", { timeout: 30_000 });
-    await card.getByRole("button", { name: "Use the Performance pack" }).click();
+    await card.getByRole("button", { name: "Use this pack" }).click();
     await page
       .getByRole("dialog", { name: "Use the Performance pack" })
       .getByRole("button", { name: "Use Performance" })
@@ -173,15 +183,14 @@ test.describe("first download, no models folder chosen", () => {
     await expect(card).toContainText("In use", { timeout: 30_000 });
 
     await models.getByRole("button", { name: "Change…" }).first().click();
-    const change = page.getByRole("dialog", { name: "Models folder" });
-    await expect(change).toContainText("Change the models folder");
+    const change = page.getByRole("dialog", { name: "Change the models folder" });
     const moved = join(root, "moved-models");
     await typeFolder(change, moved);
-    const seg = change.getByRole("group", { name: "The models already downloaded" });
-    await seg.getByRole("button", { name: "Keep where they are" }).click();
+    const how = change.getByRole("radiogroup", { name: "The models already downloaded" });
+    await how.getByRole("radio", { name: /^Keep where they are/ }).click();
     await expect(change).toContainText("They stay where they are");
-    await seg.getByRole("button", { name: "Copy" }).click();
-    await seg.getByRole("button", { name: "Move" }).click();
+    await how.getByRole("radio", { name: /^Copy/ }).click();
+    await how.getByRole("radio", { name: /^Move/ }).click();
     await expect(change.getByRole("button", { name: /^Move \d/ })).toBeEnabled();
     await shoot(page, "models-folder-change-e2e");
     await change.getByRole("button", { name: /^Move \d/ }).click();

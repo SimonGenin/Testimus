@@ -1,11 +1,7 @@
-import { Badge } from "../../../components/legacy/index.ts";
+import { Badge } from "../../../components/ui/Badge.tsx";
 import { type ModelState, STATE } from "./data.ts";
 
 export function StateChip({ state }: { state: ModelState }) {
   const l = STATE[state];
-  return (
-    <Badge tone={l.tone} icon={l.icon} small>
-      {l.word}
-    </Badge>
-  );
+  return <Badge label={l.word} tone={l.tone} icon={l.icon} size="sm" />;
 }
