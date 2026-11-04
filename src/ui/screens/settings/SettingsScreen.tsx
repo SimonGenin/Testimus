@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { type ComponentType, useEffect, useRef, useState } from "react";
+import { type ComponentType, useEffect, useRef } from "react";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
 import { Badge } from "../../components/ui/Badge.tsx";
 import type { IconName } from "../../components/ui/Icon.tsx";
@@ -7,7 +7,7 @@ import { Icon } from "../../components/ui/Icon.tsx";
 import { List } from "../../components/ui/List.tsx";
 import { ResizeHandle } from "../../components/ui/ResizeHandle.tsx";
 import { useApp } from "../../lib/app.ts";
-import { usePref } from "../../lib/prefs.ts";
+import { usePaneWidth } from "../../lib/panes.ts";
 import { border, breakpoint, color, fontSize, lineHeight, size, space } from "../../styles/tokens.stylex.ts";
 import { AccessSection } from "./AccessSection.tsx";
 import { AppearanceSection } from "./AppearanceSection.tsx";
@@ -66,14 +66,13 @@ const CLAUDE_CARDS = [
 
 type Entry = { id: string; label: string; icon?: IconName; depth: number };
 
-const NAV_DEFAULT = 225;
+const NAV = { min: 160, max: 360, initial: 225 };
 
 // ponytail: one page per section; #/settings/<section>[-<card>] opens the section and scrolls to the card (a field id
 // is focused); Claude's cards are listed under it while it is open
 export function SettingsScreen() {
   const app = useApp();
-  const [kept, keep] = usePref("settingsNavWidth");
-  const [drag, setDrag] = useState<number | null>(null);
+  const nav = usePaneWidth("settingsNavWidth", NAV);
   const arg = app.route.screen === "settings" ? (app.route.arg ?? "") : "";
   const section = SECTIONS.find((s) => s.id === arg.split("-")[0]) ?? SECTIONS[0];
   const Page = section.page;
@@ -106,7 +105,6 @@ export function SettingsScreen() {
   );
   const current =
     section.id !== "claude" ? section.id : (CLAUDE_CARDS.find((c) => c.id === arg)?.id ?? "claude-connection");
-  const width = drag ?? kept ?? NAV_DEFAULT;
   return (
     <div {...stylex.props(styles.screen)}>
       <ScreenHeader
@@ -115,7 +113,7 @@ export function SettingsScreen() {
         meta="Changes save as you make them"
       />
       <div {...stylex.props(styles.frame)}>
-        <nav aria-label="Settings sections" {...stylex.props(styles.nav, styles.navWidth(width), styles.navFold)}>
+        <nav aria-label="Settings sections" {...stylex.props(styles.nav, styles.navWidth(nav.width), styles.navFold)}>
           <List
             label="Settings sections"
             items={entries}
@@ -129,18 +127,7 @@ export function SettingsScreen() {
             })}
           />
         </nav>
-        <ResizeHandle
-          label="Resize the section list"
-          value={width}
-          min={160}
-          max={360}
-          defaultValue={NAV_DEFAULT}
-          onChange={setDrag}
-          onCommit={(px) => {
-            keep(px === NAV_DEFAULT ? null : px);
-            setDrag(null);
-          }}
-        />
+        <ResizeHandle label="Resize the section list" {...nav.handle} />
         <div ref={body} key={section.id} {...stylex.props(styles.body)}>
           {!hasProject && section.needsProject ? (
             <div {...stylex.props(styles.wait)}>

@@ -1,9 +1,10 @@
 import * as stylex from "@stylexjs/stylex";
 import type { LocalTestRef, SearchMatch } from "../../../../core/types.ts";
 import { List } from "../../../components/ui/List.tsx";
+import { Marked } from "../../../components/ui/Marked.tsx";
 import { plural } from "../../../lib/format.ts";
 import { color, fontSize, space } from "../../../styles/tokens.stylex.ts";
-import { Marked, TestMeta, Where } from "./rows.tsx";
+import { TestMeta, Where } from "./rows.tsx";
 
 const styles = stylex.create({
   snip: { display: "flex", flexDirection: "column", gap: space.s1, minWidth: 0 },

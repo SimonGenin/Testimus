@@ -11,7 +11,7 @@ import { ResizeHandle } from "../../components/ui/ResizeHandle.tsx";
 import { useApp } from "../../lib/app.ts";
 import { key, useCommand } from "../../lib/data/query.ts";
 import { plural } from "../../lib/format.ts";
-import { usePref } from "../../lib/prefs.ts";
+import { usePaneWidth } from "../../lib/panes.ts";
 import { errorToast } from "../../lib/toast.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 import { JobDetail } from "./JobDetail.tsx";
@@ -46,8 +46,7 @@ export function JobsScreen() {
   const j = useJobs();
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [clearing, setClearing] = useState(false);
-  const [kept, keep] = usePref("jobsSideWidth");
-  const [drag, setDrag] = useState<number | null>(null);
+  const side = usePaneWidth("jobsSideWidth", SIDE);
   const routeId = app.route.screen === "jobs" ? (app.route.arg ?? "") : "";
   const clear = useCommand("jobs.clear", {
     invalidates: [["jobs.list"]],
@@ -81,7 +80,6 @@ export function JobsScreen() {
     }
   };
 
-  const width = drag ?? kept ?? SIDE.initial;
   return (
     <div {...stylex.props(styles.screen)}>
       <ScreenHeader title="Jobs" />
@@ -138,20 +136,8 @@ export function JobsScreen() {
         </section>
         {active && (
           <>
-            <ResizeHandle
-              label="Resize the job details"
-              side="left"
-              value={width}
-              min={SIDE.min}
-              max={SIDE.max}
-              defaultValue={SIDE.initial}
-              onChange={setDrag}
-              onCommit={(px) => {
-                keep(px === SIDE.initial ? null : px);
-                setDrag(null);
-              }}
-            />
-            <div {...stylex.props(styles.side)} style={{ width }}>
+            <ResizeHandle label="Resize the job details" side="left" {...side.handle} />
+            <div {...stylex.props(styles.side)} style={{ width: side.width }}>
               <JobDetail node={active} byId={j.byId} now={j.now} onOpen={ctx.pick} />
             </div>
           </>

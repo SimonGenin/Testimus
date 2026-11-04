@@ -31,10 +31,10 @@ test("a wide Review shows the queue, the test and the source passage side by sid
   await expect(source(page)).toBeVisible();
 });
 
-test("with the dock open at 1280 px the queue folds into a previous / next strip, the source stays", async ({
+test("with the dock open beside it at 1440 px the queue folds into a previous / next strip, the source stays", async ({
   page,
 }) => {
-  await open(page, 1280, true);
+  await open(page, 1440, true);
   await expect(queue(page)).toBeHidden();
   await expect(strip(page)).toBeVisible();
   await expect(source(page)).toBeVisible();
@@ -45,12 +45,20 @@ test("with the dock open at 1280 px the queue folds into a previous / next strip
   await expect(under(page).getByRole("heading", { level: 2 })).toHaveText(SUMMARY_1420);
 });
 
-test("with the dock open at 1080 px the source panel hides too, and the test keeps 420 px or more", async ({
+test("below 1300 px the open dock floats over Review, which keeps its own panes", async ({ page }) => {
+  await open(page, 1280, true);
+  await expect(queue(page)).toBeVisible();
+  await expect(source(page)).toBeVisible();
+});
+
+test("on a narrow window the queue folds, then the source panel hides, and the test keeps 420 px or more", async ({
   page,
 }) => {
-  await open(page, 1080, true);
+  await open(page, 1000, false);
   await expect(queue(page)).toBeHidden();
   await expect(strip(page)).toBeVisible();
+  await expect(source(page)).toBeVisible();
+  await page.setViewportSize({ width: 760, height: 900 });
   await expect(source(page)).toBeHidden();
   expect(await widthOf(page)).toBeGreaterThanOrEqual(420);
 });

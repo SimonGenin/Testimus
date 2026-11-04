@@ -50,7 +50,7 @@ async function darkTheme(page: Page): Promise<void> {
   await page.waitForURL(/#\/setup/, { timeout: 30_000 });
   await page.goto(`${new URL(page.url()).origin}/#/settings/appearance`);
   await expect(page.getByRole("heading", { level: 1, name: "Settings" })).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByRole("region", { name: "Appearance" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Appearance" }).first()).toBeVisible();
   const toggle = page.getByRole("button", { name: /^Theme: / });
   for (let i = 0; i < 3; i++) {
     if ((await toggle.getAttribute("aria-label"))?.startsWith("Theme: Dark.")) break;

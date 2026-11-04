@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Chip } from "../../../../src/ui/components/ui/Chip.tsx";
 import { Select } from "../../../../src/ui/components/ui/Select.tsx";
 import { type SaveState, Text } from "../../../../src/ui/components/ui/Text.tsx";
-import { discardAutosave, pendingAutosaves } from "../../../../src/ui/lib/data/autosave.ts";
+import { clearDrafts } from "../../../../src/ui/lib/data/autosave.ts";
 import { ApiError } from "../../../../src/ui/lib/data/client.ts";
 import { createQueryClient, type Key } from "../../../../src/ui/lib/data/query.ts";
 
@@ -23,7 +23,7 @@ const box = (el: HTMLElement) => el.parentElement as HTMLElement;
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => {
   cleanup();
-  for (const key of pendingAutosaves()) discardAutosave(key);
+  clearDrafts();
   vi.useRealTimers();
 });
 
@@ -203,6 +203,45 @@ describe("Text", () => {
     expect(onFocus).toHaveBeenCalled();
     expect(ref.current).toBe(f);
     expect(f).toHaveAttribute("type", "password");
+  });
+
+  it("a growing field fits its text again when its width changes, not when only its height does", () => {
+    const watched: { cb: ResizeObserverCallback; el?: Element; off: boolean }[] = [];
+    class FakeRO {
+      w: (typeof watched)[number];
+      constructor(cb: ResizeObserverCallback) {
+        this.w = { cb, off: false };
+        watched.push(this.w);
+      }
+      observe(el: Element) {
+        this.w.el = el;
+      }
+      disconnect() {
+        this.w.off = true;
+      }
+      unobserve() {}
+    }
+    vi.stubGlobal("ResizeObserver", FakeRO);
+    const { unmount } = render(<Text ariaLabel="Expected" multiline value="Le poste affiche un long message" />);
+    const area = screen.getByRole("textbox", { name: "Expected" }) as HTMLTextAreaElement;
+    let tall = 48;
+    Object.defineProperty(area, "scrollHeight", { configurable: true, get: () => tall });
+    const w = watched.find((x) => x.el === area);
+    expect(w).toBeDefined();
+    const resize = (width: number) =>
+      act(() =>
+        w?.cb([{ target: area, contentRect: { width } } as unknown as ResizeObserverEntry], {} as ResizeObserver),
+      );
+    resize(200);
+    expect(area.style.height).toBe("48px");
+    tall = 96;
+    resize(200);
+    expect(area.style.height).toBe("48px");
+    resize(120);
+    expect(area.style.height).toBe("96px");
+    unmount();
+    expect(w?.off).toBe(true);
+    vi.unstubAllGlobals();
   });
 
   it("refuses to save without the read it saves", () => {

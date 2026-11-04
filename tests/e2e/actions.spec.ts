@@ -71,7 +71,9 @@ test("a step's action is a card in the Actions tab, not on its Review row, and i
     effort: "medium",
   });
   await boot(page, "#/review");
-  await expect(page.locator(".qrow-wrap").filter({ hasText: "LFRPS12-1420" })).toBeVisible();
+  await expect(
+    page.getByRole("complementary", { name: "Review queue" }).getByRole("option").filter({ hasText: "LFRPS12-1420" }),
+  ).toBeVisible();
   await expect(page.getByRole("button", { name: "Make step 2 say what the menu shows" })).toHaveCount(0);
 
   await boot(page, "#/tests");

@@ -24,9 +24,11 @@ const styles = stylex.create({
 function Split({
   orientation = "vertical",
   debugState,
+  quiet,
 }: {
   orientation?: ResizeHandleProps["orientation"];
   debugState?: ResizeHandleProps["debugState"];
+  quiet?: boolean;
 }): ReactNode {
   const [px, setPx] = useState(orientation === "horizontal" ? 64 : 120);
   const row = orientation === "horizontal";
@@ -44,6 +46,7 @@ function Split({
         defaultValue={row ? 64 : 120}
         onChange={setPx}
         debugState={debugState}
+        quiet={quiet}
       />
       <div {...stylex.props(styles.rest)}>Drag, double-click, or focus and use the arrows</div>
     </div>
@@ -55,7 +58,7 @@ export const section: KitSection = {
   family: "Layout",
   file: "ResizeHandle.tsx",
   summary:
-    "The edge of a resizable pane: a hairline that becomes a 2 px accent bar on hover, drag and keyboard focus. ←/→ move it by 16 px, Home resets, End is the largest, a double-click resets. The caller remembers the width in lib/prefs.",
+    "The edge of a resizable pane: a hairline that becomes a 2 px accent bar on hover, drag and keyboard focus. ←/→ move it by 16 px, Home resets, End is the largest, a double-click resets. Quiet draws no line until hovered, focused or dragged. The caller keeps the width with usePaneWidth (lib/panes).",
   states: () => (
     <States>
       <Cell label="rest" column>
@@ -69,6 +72,12 @@ export const section: KitSection = {
       </Cell>
       <Cell label="horizontal (resizes a height)" column>
         <Split orientation="horizontal" />
+      </Cell>
+      <Cell label="quiet: no line at rest (the editor column)" column>
+        <Split quiet />
+      </Cell>
+      <Cell label="quiet · hover" column>
+        <Split quiet debugState="hover" />
       </Cell>
     </States>
   ),
