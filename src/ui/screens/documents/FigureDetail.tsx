@@ -129,10 +129,6 @@ export function FigureDetail({
             <dd {...stylex.props(styles.value)}>{figure.kind}</dd>
           </>
         )}
-        <dt {...stylex.props(styles.key)}>State</dt>
-        <dd {...stylex.props(styles.value)}>
-          <DescribedBadge figure={figure} />
-        </dd>
       </dl>
       {described ? (
         <Banner tone="claude" icon="claude" title="Claude's reading">
