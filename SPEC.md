@@ -1041,7 +1041,7 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
   - **Tests — sidebar** (parity with Xray Editor §8, 2026-11-02). Tabs **Local N** and **Jira N** (`tree.totalCount`,
     a skeleton bar while the tree loads); the tree (`xray.folders`) loads when the sidebar mounts. Keyed by the open
     project: a switch drops the caches, ignores answers asked by the old project, cancels its pulls and closes the open
-    test. Tools: recent toggle (clock, `testimus.showRecent`, default shown), **New test** (into the selected Jira
+    test. Tools: **New test** (into the selected Jira
     folder when the Jira tab shows with no query, else the open test's folder, else `/`), Clone, Pull, Show in Explorer
     (desktop). Search: on Local it filters, and offers « Search Jira for “q” »; an issue key or a bare number switches
     to Jira by itself (`xray.search` completes the number with the project key); on Jira it runs `xray.search {text}`
@@ -1052,8 +1052,8 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
     dropped), `all N loaded` at the end; an empty folder says so with a New local test button. Jira row: summary, key,
     status pill (green done/ready/closed/pass, amber review/progress/block), the local sync badge, `N steps`, title
     « Not pulled yet — opening it downloads it into the project ». Local row: a ✕ on hover or focus deletes the local
-    copy — at once when pushed and unchanged, else after the « Delete the local copy? » dialog. Recent: this project's
-    tests opened in the last 7 days (at most 6, relative time). **Pull queue**: a click on a row with no local copy
+    copy — at once when pushed and unchanged, else after the « Delete the local copy? » dialog (the tests opened lately
+    are the palette's « Recent », per project; the sidebar has no recent list since 2026-11-03). **Pull queue**: a click on a row with no local copy
     starts its own `xray.pull` (the core runs 3 at a time) and shows at once the pulling pane (key, summary, spinner, the
     job's progress line or « contacting Jira… » / « waiting for a free slot… », Cancel, « N more pulling in the
     background »); the pane follows the last row clicked; a pull that lands unwatched only refreshes the list, an
@@ -1304,7 +1304,7 @@ imports `src/core/`, and anything that reads or changes a project goes through `
 
 - `Testimus.exe` (Electron, `src/desktop/`) starts the core as `node serve --port <last port | 0> [--port-fallback]
   --no-open --ready-json --exit-with-stdin` (the port of the previous run, kept in `window.json`, so the page keeps its
-  origin and its localStorage — theme, widths, recent tests, always on top — across restarts) (release: `node\node.exe app\testimus.mjs` beside the exe; development: `node
+  origin and its localStorage — theme, widths, the palette's recent hits, always on top — across restarts) (release: `node\node.exe app\testimus.mjs` beside the exe; development: `node
   src/faces/cli.ts` with the `node` found on the PATH or `TESTIMUS_NODE`), with `TESTIMUS_SHELL=desktop/<version>`
   (and, in a release, `NODE_USE_ENV_PROXY=1` and `TESTIMUS_HOME_BIN`). The window opens at once on a splash page
   and switches to the core URL on the ready line. No ready line within 30 s, or the core exits: an error page with
