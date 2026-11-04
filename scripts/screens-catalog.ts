@@ -494,7 +494,7 @@ function fixtureShots(): Shot[] {
         note: `Search everywhere › ${tab}`,
         hash: "#/tests",
         prep: async (p) => {
-          await palette(p, tab === "Commands" ? "docs" : "sectionneur");
+          await palette(p, tab === "Commands" ? "docs" : tab === "Documents" ? "Traction" : "sectionneur");
           await p
             .getByRole("tablist", { name: "Search in" })
             .getByRole("tab", { name: new RegExp(`^${tab}`) })

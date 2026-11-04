@@ -3,10 +3,11 @@ import { z } from "zod";
 import { claudeHeaders } from "../claude/headers.ts";
 import { EFFORT, MODEL, NOTE } from "../claude/schemas.ts";
 import { command, projectOf, UserError } from "../command.ts";
+import { docsFreshness, indexAfterConversions } from "../lib/docs-index.ts";
 import { activeModels } from "../rag/activation.ts";
 import { chunkCount, dropSpace, getMeta, listSpaces, vectorCount, withIndex } from "../rag/db.ts";
 import { dimsOf, spaceOf } from "../rag/fingerprint.ts";
-import { indexProject, projectDocs, readState } from "../rag/indexer.ts";
+import { indexProject, readState } from "../rag/indexer.ts";
 import type { VectorSpace } from "../types.ts";
 
 const space = z.object({
@@ -64,8 +65,16 @@ export const commands = [
     job: "rag-index",
     subject: () => "index",
     run: (ctx, { force, model, effort, note }) => {
+      const project = projectOf(ctx);
       const claude = { model, effort, note };
-      return indexProject(projectOf(ctx), ctx, { force, claude, describe: claudeHeaders });
+      return indexAfterConversions(
+        project,
+        () => indexProject(project, ctx, { force, claude, describe: claudeHeaders }),
+        {
+          signal: ctx.signal,
+          waiting: (message) => ctx.progress({ message }),
+        },
+      );
     },
   }),
   command({
@@ -142,13 +151,7 @@ export const commands = [
         degraded,
         chunks: found?.chunks ?? 0,
         builtAt: state?.builtAt ?? null,
-        docs: projectDocs(project).map(({ doc, content }) => {
-          const known = state?.docs[doc.id];
-          const same = known === content;
-          const indexed: "fresh" | "stale" | "missing" =
-            known === undefined ? "missing" : same && (profileMatches || !m) ? "fresh" : "stale";
-          return { docId: doc.id, indexed };
-        }),
+        docs: (await docsFreshness(project)).map((d) => ({ docId: d.id, indexed: d.indexed })),
       };
     },
   }),

@@ -1,11 +1,6 @@
-@import "@fontsource-variable/lexend";
-@import "@fontsource-variable/source-sans-3";
-@import "@fontsource-variable/source-sans-3/wght-italic.css";
-@import "@fontsource-variable/jetbrains-mono";
-
 :root {
-  --font-head: "Lexend Variable", Lexend, system-ui, sans-serif;
-  --font-body: "Source Sans 3 Variable", "Source Sans 3", system-ui, sans-serif;
+  --font-head: "Inter Variable", "Inter", system-ui, sans-serif;
+  --font-body: "Inter Variable", "Inter", system-ui, sans-serif;
   --font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
 
   --rail-w: 92px;

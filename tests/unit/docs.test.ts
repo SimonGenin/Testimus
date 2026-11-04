@@ -6,9 +6,10 @@ import { docRunLines } from "../../src/core/claude/prompt.ts";
 import { quietCtx } from "../../src/core/command.ts";
 import { commands } from "../../src/core/commands/docs.ts";
 import { isStale, recheckMechanical, recordSemantic, testsCiting } from "../../src/core/lib/check.ts";
-import { headingAt, normalizeAnchor, sectionOf } from "../../src/core/lib/docs.ts";
+import { headingAt, sectionOf } from "../../src/core/lib/docs.ts";
 import { sha256 } from "../../src/core/lib/hash.ts";
 import { readCheck } from "../../src/core/lib/store.ts";
+import { parseAnchor } from "../../src/core/rag/anchors.ts";
 import { docContent } from "../../src/core/rag/indexer.ts";
 import type { DocJson, DocRef, FigureEntry } from "../../src/core/types.ts";
 import { sampleDocx } from "../fixtures/docx/sample.ts";
@@ -321,12 +322,12 @@ describe("docs commands", () => {
 
 describe("anchors", () => {
   it("normalizes the anchor spellings sources use", () => {
-    expect(normalizeAnchor("§5.6.6")).toEqual({ kind: "§", id: "5.6.6" });
-    expect(normalizeAnchor("5.6.6")).toEqual({ kind: "§", id: "5.6.6" });
-    expect(normalizeAnchor("DOC#fig:40")).toEqual({ kind: "fig", id: "40" });
-    expect(normalizeAnchor("EXI_A_1")).toEqual({ kind: "§", id: "EXI_A_1" });
-    expect(normalizeAnchor("fig 40")).toEqual({ kind: "fig", id: "40" });
-    expect(normalizeAnchor("page:3")).toEqual({ kind: "page", id: "3" });
+    expect(parseAnchor("§5.6.6")).toEqual({ kind: "§", id: "5.6.6" });
+    expect(parseAnchor("5.6.6")).toEqual({ kind: "§", id: "5.6.6" });
+    expect(parseAnchor("DOC#fig:40")).toEqual({ kind: "fig", id: "40" });
+    expect(parseAnchor("EXI_A_1")).toEqual({ kind: "§", id: "EXI_A_1" });
+    expect(parseAnchor("fig 40")).toEqual({ kind: "fig", id: "40" });
+    expect(parseAnchor("page:3")).toEqual({ kind: "page", id: "3" });
   });
 
   it("cuts a page out of a PDF conversion", () => {

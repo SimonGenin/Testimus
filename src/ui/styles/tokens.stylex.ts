@@ -164,7 +164,7 @@ export const size = stylex.defineVars({
   railItem: "60px",
   figurePreview: "140px",
   dockStripLabel: "360px",
-  stepLabel: "110px",
+  stepLabel: "192px",
   thumb: "96px",
   thumbLarge: "160px",
 });
