@@ -19,7 +19,6 @@ export function DockDefaults({ claude }: { claude: ProjectJson["claude"] }) {
           >
             <ModelPicker
               id="set-model"
-              className=""
               value={claude.model}
               onChange={(model) => void setProject({ claude: { model } }, "the model")}
             />

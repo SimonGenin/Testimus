@@ -87,7 +87,6 @@ export function ModelPicker({
   appearance?: "boxed" | "quiet";
   /** named by a label outside (`<label htmlFor>`) */
   id?: string;
-  className?: string;
 }) {
   const choice = useModelChoice(value, onChange);
   return (

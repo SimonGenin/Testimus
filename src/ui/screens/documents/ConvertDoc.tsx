@@ -53,7 +53,7 @@ export function ClaudeChoice() {
   };
   return (
     <div {...stylex.props(styles.run)}>
-      <ModelPicker value={model} className="" onChange={(m) => pick({ model: m, effort })} />
+      <ModelPicker value={model} onChange={(m) => pick({ model: m, effort })} />
       <Select
         label="Effort"
         size="sm"

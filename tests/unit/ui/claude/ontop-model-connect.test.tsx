@@ -105,7 +105,7 @@ describe("always on top", () => {
 describe("ModelPicker", () => {
   it("picks a listed model, or a typed one handed over on Enter or blur only", () => {
     const change = vi.fn();
-    const { rerender } = render(<ModelPicker value="sonnet" className="c" onChange={change} />);
+    const { rerender } = render(<ModelPicker value="sonnet" onChange={change} />);
     const select = screen.getByRole("combobox", { name: "Model" });
     expect(screen.getByRole("option", { name: "fable" })).toBeInTheDocument();
     fireEvent.change(select, { target: { value: "opus" } });
@@ -123,13 +123,13 @@ describe("ModelPicker", () => {
     expect(change).toHaveBeenCalledTimes(1);
     fireEvent.keyDown(box, { key: "Enter" });
     expect(change).toHaveBeenLastCalledWith("claude-x-1[1m]");
-    rerender(<ModelPicker value="claude-x-1[1m]" className="c" onChange={change} />);
+    rerender(<ModelPicker value="claude-x-1[1m]" onChange={change} />);
     fireEvent.blur(screen.getByRole("textbox", { name: "Custom model" }));
     expect(change).toHaveBeenCalledTimes(2);
-    rerender(<ModelPicker value="haiku" className="c" onChange={change} />);
+    rerender(<ModelPicker value="haiku" onChange={change} />);
     expect(screen.queryByRole("textbox", { name: "Custom model" })).toBeNull();
     expect(screen.getByRole("combobox", { name: "Model" })).toHaveValue("haiku");
-    rerender(<ModelPicker value="other-1" className="c" onChange={change} />);
+    rerender(<ModelPicker value="other-1" onChange={change} />);
     expect(screen.getByRole("textbox", { name: "Custom model" })).toHaveValue("other-1");
   });
 
@@ -137,7 +137,7 @@ describe("ModelPicker", () => {
     render(
       <>
         <label htmlFor="m">Default model</label>
-        <ModelPicker id="m" value="mine" className="c" onChange={() => {}} />
+        <ModelPicker id="m" value="mine" onChange={() => {}} />
       </>,
     );
     expect(screen.getByLabelText("Default model")).toHaveValue("custom");
