@@ -31,11 +31,12 @@ const styles = stylex.create({
     minHeight: 0,
     display: "flex",
     flexDirection: "column",
+    containerType: "inline-size",
     backgroundColor: color.surface,
   },
   scroll: { flex: 1, minHeight: 0, overflowY: "auto", padding: space.s2 },
   notice: { padding: space.s4 },
-  side: { flexShrink: 0, minHeight: 0, display: "flex" },
+  side: { flexShrink: 0, minHeight: 0, maxWidth: "55%", display: "flex" },
 });
 
 const SIDE = { min: 360, max: 820, initial: 600 };

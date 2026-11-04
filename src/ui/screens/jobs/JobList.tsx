@@ -22,12 +22,22 @@ import {
   subjectLabel,
   subtree,
 } from "../../lib/jobs.ts";
-import { color, fontFamily, fontSize, fontWeight, lineHeight, size, space } from "../../styles/tokens.stylex.ts";
+import {
+  color,
+  container,
+  fontFamily,
+  fontSize,
+  fontWeight,
+  lineHeight,
+  size,
+  space,
+} from "../../styles/tokens.stylex.ts";
 import { JobState, KindTile } from "./JobState.tsx";
 
 const styles = stylex.create({
   trail: { display: "flex", alignItems: "center", gap: space.s4 },
   prog: {
+    display: { default: "block", [container.paneCompact]: "none" },
     width: size.thumb,
     color: color.textMuted,
     fontSize: fontSize.small,
@@ -45,6 +55,7 @@ const styles = stylex.create({
     lineHeight: lineHeight.small,
   },
   mono: { fontFamily: fontFamily.mono, color: color.text },
+  at: { display: { default: "inline", [container.paneCompact]: "none" } },
   meta: { display: "inline-flex", flexWrap: "wrap", columnGap: space.s2 },
   cause: { fontWeight: fontWeight.medium, color: color.text },
   times: { color: color.textMuted, fontWeight: fontWeight.regular, marginInlineStart: space.s1 },
@@ -137,7 +148,7 @@ function trail(prog: ReactNode, state: ReactNode, time: string, at?: string): Re
       {state}
       <span {...stylex.props(styles.time)}>
         <span {...stylex.props(styles.mono)}>{time}</span>
-        {at && <span>{at}</span>}
+        {at && <span {...stylex.props(styles.at)}>{at}</span>}
       </span>
     </span>
   );
