@@ -36,7 +36,13 @@ const styles = stylex.create({
     fontWeight: fontWeight.medium,
   },
   root: { fontFamily: fontFamily.mono },
-  free: { color: color.textMuted, fontSize: fontSize.small, lineHeight: lineHeight.small, whiteSpace: "nowrap" },
+  free: {
+    marginInlineStart: space.s3,
+    color: color.textMuted,
+    fontSize: fontSize.small,
+    lineHeight: lineHeight.small,
+    whiteSpace: "nowrap",
+  },
   drives: {
     display: "grid",
     gridTemplateColumns: `repeat(auto-fill, minmax(calc(${sizes.sidebar} * 2 / 3), 1fr))`,
