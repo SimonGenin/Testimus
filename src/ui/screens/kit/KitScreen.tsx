@@ -39,6 +39,7 @@ const styles = stylex.create({
     backgroundColor: color.surface,
   },
   count: { fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textSubtle },
+  line: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   main: {
     boxSizing: "border-box",
     minHeight: 0,
@@ -48,7 +49,7 @@ const styles = stylex.create({
 });
 
 // ponytail: the nav's second line — what the component is, its summary's first sentence
-const lineOf = (s: KitSection) => s.summary.split(/(?<=[.:;])\s/)[0].replace(/[.:;]$/, "");
+const lineOf = (s: KitSection) => s.summary.split(/(?<=[.:;])\s|\s\(/)[0].replace(/[.:;]$/, "");
 
 // ponytail: the kit catalogue (N5) — every component of components/ui in each of its states and options, light and dark;
 // it is where a component is changed from, and Playwright shoots it into tests/screens/kit/
@@ -89,7 +90,11 @@ export function KitScreen() {
             meta: String(shown.filter((x) => x.family === family).length),
             keys: shown.filter((x) => x.family === family).map((x) => x.name),
           })).filter((g) => g.keys.length > 0)}
-          renderItem={(x) => ({ title: x.name, meta: lineOf(x), tooltip: x.summary })}
+          renderItem={(x) => ({
+            title: x.name,
+            meta: <span {...stylex.props(styles.line)}>{lineOf(x)}</span>,
+            tooltip: x.summary,
+          })}
           empty={
             <EmptyState
               compact

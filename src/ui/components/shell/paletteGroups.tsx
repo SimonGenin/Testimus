@@ -2,7 +2,7 @@ import type { DocJson, SearchKind, SearchMatch, SearchResult } from "../../../co
 import type { CommandInfo } from "../../lib/data/client.ts";
 import { plural } from "../../lib/format.ts";
 import { recentHits } from "../../lib/search.ts";
-import { Icon } from "../ui/Icon.tsx";
+import { Icon, type IconName } from "../ui/Icon.tsx";
 import type { ListItemProps } from "../ui/ListItem.tsx";
 import { type Entry, featuredFirst, filterEntries } from "./paletteEntries.tsx";
 import { hitRow, KIND } from "./SearchHit.tsx";
@@ -12,7 +12,13 @@ export type Row = { id: string; run: () => void; props: ListItemProps; off?: boo
 export type Group = { id: string; title: string; meta?: string; more?: { label: string; scope: Scope }; rows: Row[] };
 
 const PER_GROUP = 6;
-const PROJECT_COMMANDS = ["project.open", "project.openKey", "project.init"];
+// ponytail: with no project open, the ways to get one — named as the person would ask, in this order
+const PROJECT: Record<string, { label: string; icon: IconName }> = {
+  "project.open": { label: "Open a folder as a project…", icon: "folder-open" },
+  "project.openKey": { label: "Open a project by its Jira key", icon: "key" },
+  "project.init": { label: "Create a project…", icon: "plus" },
+};
+const PROJECT_COMMANDS = Object.keys(PROJECT);
 const fold = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().trim();
 
 export const SCOPE_K = { all: PER_GROUP, kind: 40 };
@@ -83,9 +89,12 @@ export function paletteGroups({
   };
   if (projectIds.length) {
     const own = filterEntries(
-      entries.filter((e) => projectIds.includes(e.id)),
+      projectIds.flatMap((id) => entries.filter((e) => e.id === id)),
       q,
-    );
+    ).map((e) => ({
+      ...e,
+      row: { ...e.row, title: PROJECT[e.id].label, lead: <Icon name={PROJECT[e.id].icon} /> },
+    }));
     if (own.length) groups.push({ id: "project", title: "Project", rows: own.map(entryRow) });
   }
   if (!q) {

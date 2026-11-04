@@ -189,7 +189,11 @@ describe("command palette", () => {
     expect(screen.queryByRole("tab")).toBeNull();
     const groups = screen.getAllByRole("group").map((g) => g.getAttribute("aria-label"));
     expect(groups[0]).toBe("Project");
-    expect(within(screen.getByRole("group", { name: "Project" })).getAllByRole("option")).toHaveLength(3);
+    expect(
+      within(screen.getByRole("group", { name: "Project" }))
+        .getAllByRole("option")
+        .map((o) => o.textContent?.split(/project\.\w+/)[0]),
+    ).toEqual(["Open a folder as a project…", "Open a project by its Jira key", "Create a project…"]);
     expect(screen.getByText(/No project is open: only commands are listed/)).toBeInTheDocument();
     expect(screen.getByText("Commands only")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Open a project…" }));
