@@ -20,6 +20,7 @@ const styles = stylex.create({
   body: {
     display: "grid",
     gridTemplateColumns: `${size.sidebar} minmax(0, 1fr)`,
+    height: "64vh",
     minHeight: size.modalSm,
   },
   side: {
@@ -32,7 +33,8 @@ const styles = stylex.create({
     borderInlineEndColor: color.border,
     minWidth: 0,
   },
-  main: { paddingInlineStart: space.s6, minWidth: 0 },
+  main: { paddingInlineStart: space.s6, minWidth: 0, minHeight: 0, overflowY: "auto" },
+  centered: { display: "flex", alignItems: "center", justifyContent: "center" },
   path: { display: "inline-flex", alignItems: "center", gap: space.s2, fontFamily: fontFamily.mono },
   muted: { fontSize: fontSize.small, color: color.textSubtle },
 });
@@ -43,6 +45,7 @@ export function ContextsDialog({ onClose, initialId }: { onClose: () => void; in
   const listRead = useRead("contexts.list", {});
   const list = useContexts();
   const [sel, setSel] = useState<string | undefined>(undefined);
+  const [copying, setCopying] = useState(false);
   const known = list?.some((c) => c.id === sel);
   const id = known ? sel : undefined;
   const detailRead = useRead("contexts.show", { id: id ?? "" }, { enabled: !!id });
@@ -107,12 +110,17 @@ export function ContextsDialog({ onClose, initialId }: { onClose: () => void; in
       <div {...stylex.props(styles.body)}>
         <div {...stylex.props(styles.side)}>
           <Button block icon="plus" label="New context" onClick={() => void create()} />
-          <CopyContext onCopied={(c) => void words.flush().then(() => setSel(c))} />
+          <CopyContext
+            open={copying}
+            onOpenChange={setCopying}
+            onCopied={(c) => void words.flush().then(() => setSel(c))}
+          />
           <List
             label="Contexts"
             items={rows}
             getKey={(c) => c.id}
             loading={list === undefined && !listRead.error}
+            empty={<span {...stylex.props(styles.muted)}>No context yet.</span>}
             selected={detail?.id ?? null}
             onSelect={(k) => {
               if (k !== id) void words.flush().then(() => setSel(k));
@@ -124,7 +132,7 @@ export function ContextsDialog({ onClose, initialId }: { onClose: () => void; in
             })}
           />
         </div>
-        <div {...stylex.props(styles.main)}>
+        <div {...stylex.props(styles.main, !detail && !id && styles.centered)}>
           {detail ? (
             <ContextEditor key={detail.id} detail={detail} words={words} />
           ) : id && !detailRead.error ? (
@@ -133,8 +141,13 @@ export function ContextsDialog({ onClose, initialId }: { onClose: () => void; in
             <EmptyState
               icon="context"
               title="No context yet"
-              text="A context is a bundle of notes, files and paths Claude reads before it works on a test."
-              compact
+              text="A context is a bundle of notes, files and folders Claude reads before it works on a test — a glossary, house rules, the screens of the system under test."
+              actions={
+                <>
+                  <Button variant="primary" icon="plus" label="New context" onClick={() => void create()} />
+                  <Button label="Copy from another project…" onClick={() => setCopying(true)} />
+                </>
+              }
             />
           ) : null}
         </div>

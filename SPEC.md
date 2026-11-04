@@ -1013,7 +1013,7 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
     beside Cancel; the folded dock shows « Last run: N s — <first line of the summary> ». On a test or the project the
     dock shows the last run only (Xray Editor's result card): the request stays in the box, every run with a snapshot
     gets its card (« 0 steps changed » too, with Revert), and the card goes when another test is opened; « Ask the
-    documents » stays a conversation. A failed run offers Retry (same prompt, scope, contexts,
+    documents » stays a conversation; with nothing asked yet the Documents tab lists the five latest « Earlier conversations » (`chat.list`), one opens as it was said (`chat.show`) and the next question continues it. A run's card shows « N steps changed » and the check's outcome as badges, Show changes off when nothing changed. A failed run offers Retry (same prompt, scope, contexts,
     model, effort), Show / Hide raw output and Open Settings. Not connected: « Claude is optional — everything else
     works without it », « Set the path myself… » (Settings at the Claude program field), and a « not connected » chip
     on the folded dock. In the desktop app a pin toggle (« Always on top ») sits in the dock header.

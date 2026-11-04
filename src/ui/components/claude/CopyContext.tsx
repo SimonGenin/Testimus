@@ -27,10 +27,24 @@ const styles = stylex.create({
 });
 
 // ponytail: contexts live in each project folder; this brings one over from another project in two picks
-export function CopyContext({ onCopied }: { onCopied: (id: string) => void }) {
+export function CopyContext({
+  onCopied,
+  open: controlled,
+  onOpenChange,
+}: {
+  onCopied: (id: string) => void;
+  /** controlled by the owner (the dialog's empty state opens it too) */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}) {
   const here = project() ?? "";
   const write = useContextWrite();
-  const [open, setOpen] = useState(false);
+  const [own, setOwn] = useState(false);
+  const open = controlled ?? own;
+  const setOpen = (v: boolean) => {
+    setOwn(v);
+    onOpenChange?.(v);
+  };
   const [from, setFrom] = useState("");
   const [pick, setPick] = useState("");
   const listed = useRead("project.list", {}, { enabled: open });
