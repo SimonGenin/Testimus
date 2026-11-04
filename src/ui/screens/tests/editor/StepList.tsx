@@ -113,7 +113,7 @@ export function StepList({
   onReorder: (from: number, to: number) => void;
   onAsk: (i: number) => void;
   onRestore: (base: Step, gone: Gone | null, n: number) => void;
-  onOpenImage: (file: string, images: StepImage[], step: number) => void;
+  onOpenImage: (file: string, images: StepImage[], step: number, column?: string) => void;
   onOpenSource: (s: Source) => void;
   onImageGone: (file: string) => void;
 }) {
@@ -195,7 +195,7 @@ export function StepList({
               onDelete={() => onDelete(i)}
               onAsk={() => onAsk(i)}
               onRestore={(b) => onRestore(b, null, i + 1)}
-              onOpenImage={(file, images) => onOpenImage(file, images, i + 1)}
+              onOpenImage={(file, images, column) => onOpenImage(file, images, i + 1, column)}
               onOpenSource={onOpenSource}
               onDragStart={() => setDrag(i)}
               onDragOver={(e) => {

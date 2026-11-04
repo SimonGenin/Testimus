@@ -30,7 +30,7 @@ const box = (over: { index?: number; names?: string[] } = {}) => {
   return { ...r, onIndex, onClose, pic: () => screen.getByRole("img") as HTMLImageElement };
 };
 
-const zoomText = () => screen.getByText(/^\d+%$/).textContent;
+const zoomText = () => screen.getByText(/^\d+ %$/).textContent;
 const key = (k: string) => fireEvent.keyDown(screen.getByRole("img"), { key: k });
 
 describe("Lightbox", () => {
@@ -38,9 +38,30 @@ describe("Lightbox", () => {
     const { pic } = box({ index: 1 });
     expect(screen.getByRole("dialog", { name: "Screenshot b.png" })).toBeInTheDocument();
     expect(pic()).toHaveAttribute("src", "/files/b.png");
-    expect(screen.getByText("step 4")).toBeInTheDocument();
+    expect(screen.getByText("Step 4")).toBeInTheDocument();
     expect(screen.getByText("2 of 3")).toBeInTheDocument();
-    expect(zoomText()).toBe("100%");
+    expect(zoomText()).toBe("100 %");
+  });
+
+  it("says where the picture sits and its size once loaded, in the head; the foot says the keys", () => {
+    render(
+      <Lightbox
+        names={["fig.png"]}
+        urls={["/fig"]}
+        index={0}
+        step={1}
+        column="Expected Result"
+        onIndex={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    const pic = screen.getByRole("img") as HTMLImageElement;
+    Object.defineProperty(pic, "naturalWidth", { value: 320 });
+    Object.defineProperty(pic, "naturalHeight", { value: 160 });
+    fireEvent.load(pic);
+    expect(screen.getByText("Step 1 · Expected Result · 320 × 160")).toBeInTheDocument();
+    expect(screen.getByText(/0 or double-click fits · Esc closes/)).toBeInTheDocument();
+    expect(screen.getByText("1 of 1")).toBeInTheDocument();
   });
 
   it("moves with the arrows, wrapping around, and closes on Escape", () => {
@@ -62,19 +83,19 @@ describe("Lightbox", () => {
   it("zooms with the buttons and the keys and resets to fit", () => {
     box();
     fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
-    expect(zoomText()).toBe("125%");
+    expect(zoomText()).toBe("125 %");
     fireEvent.click(screen.getByRole("button", { name: "Zoom out" }));
-    expect(zoomText()).toBe("100%");
+    expect(zoomText()).toBe("100 %");
     key("+");
     key("=");
-    expect(zoomText()).toBe("156%");
+    expect(zoomText()).toBe("156 %");
     key("-");
-    expect(zoomText()).toBe("125%");
+    expect(zoomText()).toBe("125 %");
     key("0");
-    expect(zoomText()).toBe("100%");
+    expect(zoomText()).toBe("100 %");
     fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
-    fireEvent.click(screen.getByRole("button", { name: "Reset zoom" }));
-    expect(zoomText()).toBe("100%");
+    fireEvent.click(screen.getByRole("button", { name: /^Fit/ }));
+    expect(zoomText()).toBe("100 %");
   });
 
   it("zooms around the pointer with the wheel and pans by dragging", () => {
@@ -89,7 +110,7 @@ describe("Lightbox", () => {
     const wheel = new WheelEvent("wheel", { deltaY: -400 * Math.log(2), clientX: 150, clientY: 50, cancelable: true });
     act(() => void stage.dispatchEvent(wheel));
     expect(wheel.defaultPrevented).toBe(true);
-    expect(zoomText()).toBe("200%");
+    expect(zoomText()).toBe("200 %");
     expect(pic().style.transform).toBe("translate(-50px, 0px) scale(2)");
     fireEvent.pointerMove(pic(), { clientX: 10, clientY: 10 });
     expect(pic().style.transform).toBe("translate(-50px, 0px) scale(2)");
@@ -104,7 +125,7 @@ describe("Lightbox", () => {
     fireEvent.pointerMove(pic(), { clientX: 90, clientY: 90 });
     expect(pic().style.transform).toBe("translate(-30px, 5px) scale(2)");
     fireEvent.doubleClick(pic());
-    expect(zoomText()).toBe("100%");
+    expect(zoomText()).toBe("100 %");
   });
 
   it("resets the view when the picture changes", () => {
@@ -120,14 +141,14 @@ describe("Lightbox", () => {
         onClose={onClose}
       />,
     );
-    expect(zoomText()).toBe("100%");
+    expect(zoomText()).toBe("100 %");
   });
 
   it("closes on a click outside the picture and its bars only", () => {
     const { onClose, pic } = box({ names: ["only.png"] });
-    expect(screen.queryByRole("button", { name: "Next image" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Next image" })).toBeDisabled();
     fireEvent.mouseDown(pic());
-    fireEvent.mouseDown(screen.getByText("step 4"));
+    fireEvent.mouseDown(screen.getByText("Step 4"));
     expect(onClose).not.toHaveBeenCalled();
     fireEvent.mouseDown(screen.getByRole("dialog").parentElement as HTMLElement);
     expect(onClose).toHaveBeenCalledTimes(1);

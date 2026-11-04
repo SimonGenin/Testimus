@@ -134,7 +134,7 @@ export function StepCard({
   onDelete?: () => void;
   onAsk?: () => void;
   onRestore?: (before: Step) => void;
-  onOpenImage?: (file: string, images: StepImage[]) => void;
+  onOpenImage?: (file: string, images: StepImage[], column?: string) => void;
   onOpenSource?: (s: Source) => void;
   onDragStart?: () => void;
   onDragOver?: (e: React.DragEvent) => void;
@@ -206,7 +206,7 @@ export function StepCard({
         onFieldText={(next) => edits.setWhole(c.name, next)}
         onDropBlock={(at, moved) => edits.dropBlock(c.name, at, moved)}
         onRemove={(b) => edits.removeBlock(c.name, b)}
-        onOpen={(file) => onOpenImage?.(file, step.images)}
+        onOpen={(file) => onOpenImage?.(file, step.images, c.name)}
       />
     );
   };

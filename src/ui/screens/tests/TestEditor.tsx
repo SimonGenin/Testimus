@@ -138,7 +138,7 @@ export function TestEditor({
   const [width, setWidth] = usePref("editorWidth");
   const [focus, setFocusStep] = useState(-1);
   const [folded, setFolded] = useState<Set<number>>(new Set());
-  const [lb, setLb] = useState<{ images: StepImage[]; index: number; step: number } | null>(null);
+  const [lb, setLb] = useState<{ images: StepImage[]; index: number; step: number; column?: string } | null>(null);
   const [pushing, setPushing] = useState(false);
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const [busyDl, setBusyDl] = useState(false);
@@ -456,10 +456,11 @@ export function TestEditor({
             app.askClaude("step");
           }}
           onRestore={(base, gone, n) => !refuseWhileClaude() && setDialog({ kind: "restore", base, gone, n })}
-          onOpenImage={(file, images, step) =>
+          onOpenImage={(file, images, step, column) =>
             setLb({
               images,
               step,
+              column,
               index: Math.max(
                 0,
                 images.findIndex((im) => im.file === file),
@@ -486,6 +487,7 @@ export function TestEditor({
           urls={lb.images.map((im) => url(im.file))}
           index={Math.min(lb.index, lb.images.length - 1)}
           step={lb.step}
+          column={lb.column}
           onIndex={(index) => setLb({ ...lb, index })}
           onClose={() => setLb(null)}
         />
