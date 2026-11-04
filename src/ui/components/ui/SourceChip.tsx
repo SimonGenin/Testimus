@@ -14,12 +14,12 @@ const styles = stylex.create({
     height: size.chip,
     margin: 0,
     paddingBlock: 0,
-    paddingInlineStart: space.s2,
-    paddingInlineEnd: space.s3,
+    paddingInlineStart: space.pill,
+    paddingInlineEnd: space.s4,
     borderStyle: "solid",
     borderWidth: border.width,
-    borderColor: color.border,
-    borderRadius: radius.r1,
+    borderColor: "transparent",
+    borderRadius: radius.full,
     backgroundColor: color.surfaceSunken,
     color: color.text,
     fontFamily: "inherit",
@@ -34,7 +34,7 @@ const styles = stylex.create({
     outline: { default: "none", ":focus-visible": `${border.widthStrong} solid ${color.focusRing}` },
     outlineOffset: border.width,
   },
-  compact: { paddingInlineEnd: space.s2 },
+  compact: { paddingInlineEnd: space.pill },
   icon: { display: "inline-flex", color: color.textMuted },
   ref: {
     flexShrink: 0,
@@ -49,11 +49,12 @@ const styles = stylex.create({
     minWidth: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
-    fontFamily: fontFamily.reading,
-    fontStyle: "italic",
     color: color.textMuted,
   },
-  on: { backgroundColor: color.accentSubtle, borderColor: color.accent },
+  on: {
+    backgroundColor: color.accentSubtle,
+    borderColor: `color-mix(in srgb, ${color.accent} 55%, transparent)`,
+  },
   notFound: { backgroundColor: color.dangerSubtle, borderColor: color.dangerBorder },
   notFoundText: { color: color.danger },
   notAtAnchor: { backgroundColor: color.warningSubtle, borderColor: color.warningBorder },
@@ -76,7 +77,7 @@ const STATE: Record<Exclude<SourceState, "ok">, { icon: IconName; word: string; 
 export type SourceChipProps = {
   /** where the claim comes from, formatted by the caller (« §5.6.6 », « fig:40 », « D401 §5.6.6 ») */
   reference: string;
-  /** the passage's words, in the reading face; left out of a compact chip */
+  /** the passage's words (in the interface face: the serif is for whole passages); left out of a compact chip */
   quote?: string;
   /** opens the passage; without it the chip is only read */
   onOpen?: () => void;
@@ -92,7 +93,7 @@ export type SourceChipProps = {
   debugState?: "hover" | "focus";
 };
 
-// ponytail: not a Chip option — a source is two runs in two faces (the mono reference, the quote in the reading face)
+// ponytail: not a Chip option — a source is two runs (the mono reference in the link colour, the muted quote)
 // with the check's verdict, and it opens a passage; a Chip is one string you press or remove (catalogue note)
 export function SourceChip({
   reference,

@@ -16,6 +16,7 @@ import {
   lightTheme,
   lineHeight,
   radius,
+  shadow,
   size,
   space,
 } from "../../styles/tokens.stylex.ts";
@@ -83,9 +84,10 @@ const styles = stylex.create({
     padding: space.s5,
     borderStyle: "solid",
     borderWidth: border.width,
-    borderColor: color.borderStrong,
+    borderColor: color.border,
     borderRadius: radius.r3,
     backgroundColor: color.surface,
+    boxShadow: shadow.s1,
   },
   cardTitle: { margin: 0, fontSize: fontSize.titleSm, lineHeight: lineHeight.titleSm, fontWeight: fontWeight.semibold },
   prop: {

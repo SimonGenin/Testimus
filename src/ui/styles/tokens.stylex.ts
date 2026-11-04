@@ -68,6 +68,7 @@ export const color = stylex.defineVars({
   diffClaude: { default: "#7044d6", [DARK]: "#b9a1f7" },
   scheme: { default: "light", [DARK]: "dark" },
   logoTile: "#ffffff",
+  sheen: "rgba(255, 255, 255, 0.12)",
 });
 
 export const shadow = stylex.defineVars({
@@ -101,6 +102,10 @@ export const space = stylex.defineVars({
   s9: "48px",
   s10: "64px",
   s11: "96px",
+  snug: "6px",
+  pill: "10px",
+  button: "14px",
+  inset: "3px",
 });
 
 export const radius = stylex.defineVars({
@@ -109,6 +114,7 @@ export const radius = stylex.defineVars({
   r3: "12px",
   r4: "16px",
   full: "999px",
+  check: "5px",
 });
 
 export const size = stylex.defineVars({
@@ -132,20 +138,30 @@ export const size = stylex.defineVars({
   modalLg: "980px",
   palette: "640px",
   logo: "32px",
-  kbd: "18px",
+  kbd: "20px",
   tooltipMax: "280px",
-  chip: "22px",
+  chip: "26px",
   resizeHit: "9px",
-  knob: "10px",
-  tableHead: "30px",
+  knob: "12px",
+  switchWidth: "32px",
+  switchHeight: "18px",
+  badge: "22px",
+  badgeSm: "18px",
+  dot: "8px",
+  statusDot: "10px",
+  skeletonLine: "10px",
+  tab: "44px",
+  cardHead: "48px",
+  scrimBlur: "2px",
+  tableHead: "36px",
   menuMin: "200px",
   menuMax: "320px",
   toast: "380px",
   emptyMax: "420px",
   chipInputMin: "80px",
-  paletteButton: "260px",
-  paletteButtonCompact: "200px",
-  railItem: "56px",
+  paletteButton: "280px",
+  paletteButtonCompact: "240px",
+  railItem: "60px",
   figurePreview: "140px",
   dockStripLabel: "360px",
   stepLabel: "110px",
@@ -160,6 +176,7 @@ export const border = stylex.defineVars({
 
 export const focus = stylex.defineVars({
   offset: "2px",
+  halo: "4px",
 });
 
 export const fontWeight = stylex.defineVars({
@@ -210,6 +227,7 @@ export const fontSize = stylex.defineVars({
   readingHeading: "18px",
   code: "12px",
   micro: "10px",
+  rail: "11px",
 });
 
 export const lineHeight = stylex.defineVars({
@@ -225,7 +243,7 @@ export const lineHeight = stylex.defineVars({
   readingHeading: "26px",
   code: "18px",
   micro: "12px",
-  railLabel: "13px",
+  railLabel: "14px",
 });
 
 export const letterSpacing = stylex.defineVars({

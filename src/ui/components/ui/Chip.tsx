@@ -12,10 +12,10 @@ const styles = stylex.create({
     height: size.controlSm,
     margin: 0,
     paddingBlock: 0,
-    paddingInline: space.s3,
+    paddingInline: space.s4,
     borderStyle: "solid",
     borderWidth: border.width,
-    borderColor: color.borderStrong,
+    borderColor: color.borderField,
     borderRadius: radius.full,
     backgroundColor: { default: color.surface, ":hover": color.surfaceHover },
     color: color.text,
@@ -30,13 +30,22 @@ const styles = stylex.create({
   still: { cursor: "default", backgroundColor: color.surface },
   label: { overflow: "hidden", textOverflow: "ellipsis" },
   icon: { display: "inline-flex", color: color.textMuted },
-  on: { backgroundColor: color.accentSubtle, borderColor: color.accent, color: color.accentText },
+  on: {
+    backgroundColor: color.accentSubtle,
+    borderColor: `color-mix(in srgb, ${color.accent} 55%, transparent)`,
+    color: color.accentText,
+  },
   onIcon: { color: color.accentText },
   claudeOn: { backgroundColor: color.claudeSubtle, borderColor: color.claudeBorder, color: color.claudeText },
   claudeIcon: { color: color.claudeText },
-  off: { color: color.textSubtle, textDecoration: "line-through", borderStyle: "dashed" },
+  off: {
+    color: color.textSubtle,
+    textDecoration: "line-through",
+    borderColor: color.border,
+    backgroundColor: "transparent",
+  },
   mono: { fontFamily: fontFamily.mono, fontSize: fontSize.code },
-  square: { borderRadius: radius.r1, height: size.chip, paddingInline: space.s2 },
+  square: { borderRadius: radius.r1, height: size.controlXs, paddingInline: space.s2 },
   disabled: { cursor: "not-allowed", color: color.textDisabled, backgroundColor: color.surfaceSunken },
   remove: {
     display: "inline-flex",
@@ -52,10 +61,11 @@ const styles = stylex.create({
   },
   forceHover: { backgroundColor: color.surfaceHover },
   inField: {
-    height: size.chip,
-    borderRadius: radius.r1,
-    backgroundColor: color.surfaceSunken,
-    borderColor: color.border,
+    height: size.controlXs,
+    paddingInline: space.s3,
+    borderRadius: radius.full,
+    backgroundColor: color.neutralSubtle,
+    borderColor: "transparent",
   },
   dot: { color: color.accent, fontSize: fontSize.small, lineHeight: 1 },
 });
@@ -77,7 +87,7 @@ export type ChipProps = {
   mono?: boolean;
   /** inside a field */
   square?: boolean;
-  /** a value inside a chip field (sunken, square, 22 px) */
+  /** a value inside a chip field (a 24 px neutral pill without an edge) */
   inField?: boolean;
   /** a chip that opens or does something without being a toggle (a folded column « Data ● ») */
   onClick?: () => void;

@@ -14,7 +14,7 @@ const styles = stylex.create({
   bar: {
     display: "block",
     flexShrink: 0,
-    height: size.knob,
+    height: size.skeletonLine,
     borderRadius: radius.r1,
     backgroundImage: `linear-gradient(90deg, ${color.surfaceSunken} 0%, ${color.surfaceHover} 50%, ${color.surfaceSunken} 100%)`,
     backgroundSize: "200% 100%",
@@ -25,7 +25,7 @@ const styles = stylex.create({
   },
   text: { marginBlock: space.s2 },
   title: { height: size.iconSm },
-  block: { height: space.s11, borderRadius: radius.r3 },
+  block: { height: space.s10, borderRadius: radius.r3 },
   circle: { width: size.iconMd, height: size.iconMd, borderRadius: radius.full },
   w70: { width: "70%" },
   w60: { width: "60%" },
