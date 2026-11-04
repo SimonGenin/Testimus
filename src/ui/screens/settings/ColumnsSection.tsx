@@ -10,7 +10,7 @@ import { project } from "../../lib/data/client.ts";
 import { execute, type Key, key, type Prefix } from "../../lib/data/query.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 import { color, fontSize, lineHeight, space } from "../../styles/tokens.stylex.ts";
-import { ColumnCard } from "./ColumnCard.tsx";
+import { ColumnCard, columnFieldId } from "./ColumnCard.tsx";
 import { ColumnsClaude } from "./ColumnsClaude.tsx";
 import { NewColumn } from "./NewColumn.tsx";
 import { type Info, useInfo } from "./project.ts";
@@ -112,6 +112,11 @@ export function ColumnsSection() {
 
   const fetchedAt = info.data?.xray.fetchedAt;
   const fresh = columns.filter((c) => c.status === "new").map((c) => c.name);
+  const focusColumn = (name: string) => {
+    const field = document.getElementById(columnFieldId(name));
+    field?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+    field?.focus();
+  };
   const gone = columns.filter((c) => c.status === "gone").map((c) => c.name);
   const fieldOf = (c: StepColumn) => fields.find((f) => (c.id ? f.id === c.id : f.name === c.name));
   return (
@@ -135,7 +140,15 @@ export function ColumnsSection() {
       }
     >
       {(fresh.length > 0 || gone.length > 0) && (
-        <Banner tone="warning" title={fresh.length ? `New in Xray, not described yet: ${fresh.join(", ")}` : undefined}>
+        <Banner
+          tone="warning"
+          title={fresh.length ? `New in Xray, not described yet: ${fresh.join(", ")}` : undefined}
+          actions={
+            fresh.length > 0 ? (
+              <Button size="sm" label="Describe it" onClick={() => focusColumn(fresh[0])} />
+            ) : undefined
+          }
+        >
           {fresh.length > 0 && "Claude never fills a column without a description. "}
           {gone.length > 0 && `No longer in Xray, kept as local columns: ${gone.join(", ")}.`}
         </Banner>

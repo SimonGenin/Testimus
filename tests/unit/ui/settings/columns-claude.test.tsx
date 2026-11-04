@@ -88,6 +88,7 @@ describe("Settings › Smart columns › Ask Claude", () => {
     expect(within(list).getByText("Xray · standard")).toBeInTheDocument();
     expect(within(list).getByText("Xray")).toBeInTheDocument();
     expect(within(list).getByText("empty — Claude never fills it")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Claude's proposals" })).toContainElement(list);
     expect(within(list).getByText("empty — Claude stops filling it")).toBeInTheDocument();
     expect(within(list).getByText("LFRPS12-1420 le fait.")).toBeInTheDocument();
     expect(ask()).toHaveTextContent("Ask again");
@@ -141,7 +142,7 @@ describe("Settings › Smart columns › Ask Claude", () => {
     fireEvent.click(ask());
     const list = await screen.findByRole("list", { name: "Claude's proposals" });
     expect(within(list).getAllByRole("listitem")).toHaveLength(2);
-    fireEvent.click(screen.getAllByRole("button", { name: "Dismiss" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss all" }));
     expect(screen.queryByRole("list", { name: "Claude's proposals" })).toBeNull();
   });
 
