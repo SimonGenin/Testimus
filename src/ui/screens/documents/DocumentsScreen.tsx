@@ -328,7 +328,12 @@ export function DocumentsScreen() {
           </span>
         </div>
       )}
-      {askPath && <AddPath onAdd={(p) => void addDocPath(p, added)} onClose={() => setAskPath(false)} />}
+      {askPath && (
+        <AddPath
+          onAdd={(p, pdf) => void (pdf ? addDocPaths([p, pdf], added) : addDocPath(p, added))}
+          onClose={() => setAskPath(false)}
+        />
+      )}
     </div>
   );
 }

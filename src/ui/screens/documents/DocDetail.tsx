@@ -251,7 +251,14 @@ export function DocDetail({
           </Modal>
         )}
       </div>
-      {again && <ConvertDoc doc={d} again onClose={() => setAgain(false)} />}
+      {again && (
+        <ConvertDoc
+          doc={d}
+          again
+          described={shown.figures.filter((f) => f.description.trim()).length}
+          onClose={() => setAgain(false)}
+        />
+      )}
       {ask && <RemoveDoc doc={d} onClose={() => setAsk(false)} onRemoved={onRemoved} />}
     </section>
   );

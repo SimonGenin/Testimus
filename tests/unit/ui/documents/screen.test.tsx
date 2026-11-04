@@ -429,6 +429,15 @@ describe("Documents screen", () => {
     expect(within(r).queryByRole("progressbar")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Dismiss spec.docx" }));
     expect(within(listOf()).queryAllByText("spec.docx")).toHaveLength(0);
+    addFromPath();
+    fireEvent.change(screen.getByLabelText("Path of the file"), { target: { value: "C:\\d\\spec.docx" } });
+    fireEvent.change(screen.getByLabelText("Its PDF rendering (optional)"), { target: { value: "C:\\p\\spec.pdf" } });
+    fireEvent.click(within(pathDialog()).getByRole("button", { name: "Add" }));
+    await waitFor(() =>
+      expect(named("docs.addFiles")[1]?.input).toEqual({
+        files: [{ path: "C:\\d\\spec.docx" }, { path: "C:\\p\\spec.pdf" }],
+      }),
+    );
   });
 
   it("adding a document only copies it, then opens it: no conversion, no index", async () => {
