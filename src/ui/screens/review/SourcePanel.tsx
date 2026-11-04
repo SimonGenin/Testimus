@@ -86,7 +86,7 @@ const styles = stylex.create({
     fontSize: fontSize.reading,
     lineHeight: lineHeight.reading,
   },
-  quote: { margin: 0, fontFamily: fontFamily.reading, fontStyle: "italic", color: color.textMuted },
+  quote: { margin: 0, fontFamily: fontFamily.reading, color: color.textMuted },
   foot: {
     boxSizing: "border-box",
     flex: "none",
@@ -140,12 +140,12 @@ export function SourcePanel(p: SourcePanelProps) {
           {passage && <h3 {...stylex.props(styles.docTitle)}>{passage.doc.title}</h3>}
           {passage && <DocBadges status={passage.doc.status} />}
         </div>
-        <span {...stylex.props(styles.ref)}>{ref}</span>
         {p.misplaced && (
-          <Banner tone="neutral" icon="alert-triangle" title="Quote not at this anchor">
+          <Banner tone="warning" title="The quote is not at this anchor">
             {p.misplaced.message} Not highlighted: the passage below does not hold the quote.
           </Banner>
         )}
+        <span {...stylex.props(styles.ref)}>{ref}</span>
         {gone ? (
           <>
             <Banner tone="neutral" icon="x-circle" title="Document deleted">

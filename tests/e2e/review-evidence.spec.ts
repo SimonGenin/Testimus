@@ -22,7 +22,7 @@ test("a generated test shows the sources it read; a misplaced quote is not highl
   const step2 = under.getByRole("article", { name: "Step 2", exact: true });
   await step2.getByRole("button", { name: /^SOSIE_211_D401-1_3 §5\.6\.7 “les points/ }).click();
   const panel = page.getByRole("complementary", { name: "Source passage" });
-  await expect(panel.getByRole("status").filter({ hasText: "Quote not at this anchor" })).toBeVisible();
+  await expect(panel.getByRole("alert").filter({ hasText: "The quote is not at this anchor" })).toBeVisible();
   await expect(panel.locator("mark")).toHaveCount(0);
 
   const head = panel.getByRole("button", { name: /^Sources read/ });

@@ -3,6 +3,7 @@ import type { Source } from "../../../core/types.ts";
 import type { ClaudeRun } from "../../lib/app.ts";
 import { addedSteps } from "../../lib/marks.ts";
 import type { Marks } from "./ReviewBanners.tsx";
+import { firstFinding } from "./sources.ts";
 import type { Loaded } from "./useReview.ts";
 
 export type Selection = { source: Source; step: number | null; label?: string } | null;
@@ -39,7 +40,12 @@ export function useReviewView(activeId: string, data: Loaded | null, lastRun: Cl
   if (data && data.id === activeId && v.folded === null) {
     const fs = data.check?.findings ?? [];
     const quiet = data.test.steps.map((_, i) => i).filter((i) => !fs.some((f) => f.step === i + 1));
-    v = { ...v, folded: new Set(data.check ? quiet : []) };
+    const first = firstFinding(data.test, data.check);
+    v = {
+      ...v,
+      folded: new Set(data.check ? quiet : []),
+      ...(first && !v.sel ? { sel: first, activeStep: first.step ? first.step - 1 : v.activeStep } : {}),
+    };
     setView(v);
   }
   const patch = (p: Partial<View>) => setView((cur) => ({ ...cur, ...p }));

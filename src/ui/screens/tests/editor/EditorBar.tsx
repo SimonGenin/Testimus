@@ -1,5 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
+import { Badge } from "../../../components/ui/Badge.tsx";
 import { Button } from "../../../components/ui/Button.tsx";
 import { Menu, type MenuEntry } from "../../../components/ui/Menu.tsx";
 import type { AutosaveStatus } from "../../../lib/data/autosave.ts";
@@ -64,6 +65,7 @@ export function EditorBar({
   onRetry,
   onAsk,
   onPush,
+  onBack,
 }: {
   lead?: ReactNode;
   testKey?: string;
@@ -80,7 +82,23 @@ export function EditorBar({
   onRetry: () => void;
   onAsk: () => void;
   onPush: () => void;
+  /** Review › Edit: the bar says « Editing » and leads back to the review, without folder, push or ⋯ */
+  onBack?: () => void;
 }) {
+  if (onBack)
+    return (
+      <div role="toolbar" aria-label="Editing in Review" {...stylex.props(styles.bar)}>
+        {lead}
+        <span data-testid="test-key" {...stylex.props(styles.key, !testKey && styles.local)}>
+          {testKey ?? "local"}
+        </span>
+        <Badge tone="info" icon="text" label="Editing" />
+        <SaveStatus status={status} activity={activity} claude={claude} onRetry={onRetry} />
+        <span {...stylex.props(styles.grow)} />
+        <Button size="sm" variant="claude-quiet" icon="claude" label="Ask Claude" onClick={onAsk} />
+        <Button size="sm" variant="primary" icon="arrow-left" label="Back to review" onClick={onBack} />
+      </div>
+    );
   return (
     <div {...stylex.props(styles.bar)}>
       {lead}

@@ -213,6 +213,22 @@ describe("the editor's head", () => {
     expect(select).toHaveBeenCalled();
   });
 
+  it("in Review › Edit: one bar with the key, « Editing », the save state, Ask Claude and Back to review", () => {
+    const onBack = vi.fn();
+    const { onAsk } = header({ bar: { onBack, status: "saved" } });
+    const bar = screen.getByRole("toolbar", { name: "Editing in Review" });
+    expect(within(bar).getByTestId("test-key")).toHaveTextContent("LFRPS12-7");
+    expect(within(bar).getByText("Editing")).toBeInTheDocument();
+    expect(within(bar).getByText("Saved")).toBeInTheDocument();
+    expect(within(bar).queryByRole("button", { name: "Push to Jira" })).toBeNull();
+    expect(within(bar).queryByRole("button", { name: "More actions for this test" })).toBeNull();
+    expect(screen.queryByTestId("folder")).toBeNull();
+    fireEvent.click(within(bar).getByRole("button", { name: "Ask Claude" }));
+    expect(onAsk).toHaveBeenCalled();
+    fireEvent.click(within(bar).getByRole("button", { name: "Back to review" }));
+    expect(onBack).toHaveBeenCalled();
+  });
+
   it("disables push when in sync", () => {
     const reason = pushReason({ busy: false, jiraOff: false, pushing: false, canPush: false });
     header({ bar: { pushDisabled: reason } });

@@ -150,6 +150,8 @@ export type ReviewStepProps = {
   stale: boolean;
   folded: boolean;
   active: boolean;
+  /** the open source belongs to this step: its chip or finding carries the mark, not the card */
+  holdsSelection?: boolean;
   /** Claude's last run changed this step (added: it wrote it) */
   claude?: boolean;
   added?: boolean;
@@ -171,7 +173,7 @@ export function ReviewStep(p: ReviewStepProps) {
   );
   const pick = (s: Source) => p.onSelect(s, n);
   const mark = p.claude && <Badge size="sm" {...DIFF.claude} label={p.added ? "Added by Claude" : DIFF.claude.label} />;
-  const look = stylex.props(styles.card, p.active && styles.active, p.claude && styles.claude);
+  const look = stylex.props(styles.card, p.active && !p.holdsSelection && styles.active, p.claude && styles.claude);
   const num = <span {...stylex.props(styles.num, p.claude && styles.numClaude)}>{n}</span>;
 
   if (p.folded) {
@@ -205,7 +207,6 @@ export function ReviewStep(p: ReviewStepProps) {
         {num}
         {mark}
         <span {...stylex.props(styles.grow)} />
-        {findings.length > 0 && <Summary findings={findings} stale={stale} />}
         <Button
           size="sm"
           variant="quiet"

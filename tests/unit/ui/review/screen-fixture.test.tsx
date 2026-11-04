@@ -123,10 +123,14 @@ describe("Review screen on the sample project", () => {
     const step2 = await screen.findByRole("article", { name: "Step 2" });
     expect(within(step2).getByRole("note", { name: "Error · Contradicted" })).toBeInTheDocument();
     expect(screen.getByText("Whole test")).toBeInTheDocument();
-    expect(named("rag.passage")).toHaveLength(0);
-    fireEvent.click(within(step2).getAllByRole("button", { name: /§5\.6\.6/ })[0]);
+    expect(await screen.findByText("Finding on step 2 · Contradicted")).toBeInTheDocument();
     await waitFor(() => expect(named("rag.passage").length).toBeGreaterThan(0));
-    expect(named("rag.passage")[0].input.ref).toMatch(/^SOSIE_211_D401-1_3#/);
+    expect(named("rag.passage")[0].input.ref).toBe("SOSIE_211_D401-1_3#§5.6.6");
+    expect(step2).toHaveAttribute("aria-current", "step");
+    fireEvent.click(screen.getByRole("button", { name: "Close the source panel" }));
+    expect(screen.queryByRole("complementary", { name: "Source passage" })).toBeNull();
+    fireEvent.click(within(step2).getAllByRole("button", { name: /§5\.6\.6/ })[0]);
+    expect(await screen.findByText("Source of step 2")).toBeInTheDocument();
     expect(screen.getByRole("tooltip", { hidden: true, name: "1 error still open" })).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: "v" });
@@ -144,7 +148,15 @@ describe("Review screen on the sample project", () => {
       return screen.getByRole("dialog", { name: "What needs fixing?" });
     });
     expect(screen.getByRole("button", { name: /^Validate(?!d)/ })).toBeDisabled();
-    fireEvent.click(within(dialog).getByRole("button", { name: "Ask Claude to fix it" }));
+    expect(within(dialog).getByRole("button", { name: "Ask Claude to fix it" })).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: "Ask Claude to fix it" })).toHaveAccessibleDescription(
+      /Write the note first/,
+    );
+    expect(within(dialog).getByLabelText(/Note for the author/)).toHaveAttribute(
+      "placeholder",
+      "Say what is wrong, and what the test should check instead…",
+    );
+    fireEvent.click(within(dialog).getByRole("button", { name: /Mark To fix/ }));
     expect(within(dialog).getByLabelText(/Note for the author/)).toHaveAccessibleDescription(/note is required/);
     expect(app.runInDock).not.toHaveBeenCalled();
 

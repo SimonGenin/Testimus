@@ -152,7 +152,7 @@ describe("Review › the source panel", () => {
     const r = panel({ misplaced: finding });
     await screen.findByText(/Le sectionneur est ouvert/);
     expect(r.container.querySelector("mark")).toBeNull();
-    expect(screen.getByText("Quote not at this anchor")).toBeInTheDocument();
+    expect(screen.getByText("The quote is not at this anchor")).toBeInTheDocument();
     expect(screen.getByText(/it is under §5.3/)).toBeInTheDocument();
   });
 

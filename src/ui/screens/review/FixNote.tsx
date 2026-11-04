@@ -65,7 +65,11 @@ export function FixNote({ id, initial, subtitle, claudeReady, onCancel, onSubmit
             variant="claude-quiet"
             icon="claude"
             label="Ask Claude to fix it"
-            disabled={!claudeReady && "Claude is not available on this PC right now — the note is kept for later"}
+            disabled={
+              !claudeReady
+                ? "Claude is not available on this PC right now — the note is kept for later"
+                : empty && "Write the note first: Claude fixes the test from it"
+            }
             onClick={() => submit(true)}
           />
           <Button
@@ -98,6 +102,7 @@ export function FixNote({ id, initial, subtitle, claudeReady, onCancel, onSubmit
           value={note}
           onChange={setNote}
           autoFocus
+          placeholder="Say what is wrong, and what the test should check instead…"
           error={tried && empty ? "Say what is wrong: the note is required." : undefined}
           trailing={note && note !== initial ? <span {...stylex.props(styles.kept)}>Draft kept</span> : undefined}
         />

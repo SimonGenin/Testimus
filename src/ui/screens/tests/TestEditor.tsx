@@ -72,12 +72,15 @@ export function TestEditor({
   onSaved,
   onOpen,
   lead,
+  onBack,
 }: {
   testId: string;
   onSaved: (ref: Partial<LocalTestRef> & { id: string }) => void;
   onOpen: (id: string) => void;
   /** before the key in the bar (the list toggle of a narrow window) */
   lead?: React.ReactNode;
+  /** opened from Review: the bar leads back there instead of offering folder, push and ⋯ */
+  onBack?: () => void;
 }) {
   const app = useApp();
   const client = useQueryClient();
@@ -255,7 +258,12 @@ export function TestEditor({
           <Banner
             tone="danger"
             title="This test could not be opened"
-            actions={<Button size="sm" label="Try again" onClick={() => void doc.recheck().catch(() => {})} />}
+            actions={
+              <>
+                <Button size="sm" label="Try again" onClick={() => void doc.recheck().catch(() => {})} />
+                {onBack && <Button size="sm" icon="arrow-left" label="Back to review" onClick={onBack} />}
+              </>
+            }
           >
             {message(doc.error)}
           </Banner>
@@ -341,6 +349,7 @@ export function TestEditor({
         onRetry={() => void doc.doc.retry()}
         onAsk={() => app.askClaude("test")}
         onPush={() => void actions.askPush()}
+        onBack={onBack}
       />
       <EditorColumn width={width} onWidth={setWidth} inert={busy}>
         <EditorBanners

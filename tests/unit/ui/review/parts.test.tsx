@@ -154,7 +154,7 @@ describe("ReviewQueue", () => {
     const rows = within(screen.getByRole("listbox", { name: "Tests to review" })).getAllByRole("option");
     expect(rows[0]).toHaveTextContent("1 error");
     expect(rows[0]).toHaveTextContent("2 warnings");
-    expect(rows[0]).toHaveTextContent("3 notes");
+    expect(rows[0]).toHaveTextContent("3 info");
     expect(within(rows[0]).getByRole("tooltip", { hidden: true })).toHaveTextContent("K-1 — a — /F");
     expect(rows[1]).toHaveTextContent("Untitled test");
     expect(rows[1]).toHaveTextContent("Changed since its check");
@@ -211,7 +211,7 @@ describe("ReviewQueue", () => {
 
 describe("ReviewStep", () => {
   it("findingSummary counts by severity", () => {
-    expect(findingSummary([finding({ severity: "info" })])).toEqual({ tone: "info", text: "1 note" });
+    expect(findingSummary([finding({ severity: "info" })])).toEqual({ tone: "info", text: "1 info" });
     expect(findingSummary([])).toEqual({ tone: "ok", text: "No findings" });
     expect(findingSummary([finding()])).toEqual({ tone: "warning", text: "1 warning" });
     expect(findingSummary([finding({ severity: "error" }), finding()])).toEqual({ tone: "error", text: "1 error" });
@@ -252,7 +252,7 @@ describe("ReviewStep", () => {
     const { rerender } = render(<ReviewStep {...p} />);
     expect(screen.getByText("Line one")).toBeInTheDocument();
     expect(screen.getByText("Added by Claude")).toBeInTheDocument();
-    expect(screen.getByText("1 note")).toBeInTheDocument();
+    expect(screen.getByText("1 info")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Expand step 2" }));
     expect(p.onFold).toHaveBeenCalledWith(false);
     fireEvent.click(screen.getByText("Line one"));
@@ -281,6 +281,7 @@ describe("ReviewStep", () => {
     expect(art).toHaveAttribute("aria-current", "step");
     expect(within(art).getByText("Changed by Claude")).toBeInTheDocument();
     expect(within(art).getByText("Folded · empty")).toBeInTheDocument();
+    expect(within(art).queryByText("2 warnings")).toBeNull();
     expect(art.querySelector('[data-field="Expected Result"]')).toBeNull();
     expect(art.querySelector('[data-field="Exigence"]')).toHaveTextContent("EXI_1, EXI_2, EXI_3");
     expect(within(art.querySelector('[data-field="Exigence"]') as HTMLElement).queryByRole("button")).toBeNull();
