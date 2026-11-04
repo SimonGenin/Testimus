@@ -132,7 +132,7 @@ describe("Documents screen", () => {
     expect(await screen.findByText("Troisième.")).toBeInTheDocument();
     expect(named("docs.show").find((c) => c.input.anchor)?.input).toEqual({ id: "D1", anchor: "§1" });
     expect(document.querySelectorAll("[data-focus]")).toHaveLength(1);
-    expect(document.querySelector("[data-focus]")).toHaveTextContent("La deuxième ligne, citée.");
+    expect(document.querySelector("[data-focus]")?.textContent).toBe("La deuxième ligne,\ncitée");
     const part = document.querySelector('[data-testid="doc-part"]') as HTMLElement;
     expect(tops.get(part)).toBe(310);
     expect(tops.get(document.querySelector('[data-testid="doc-toc"]') as HTMLElement)).toBe(70);
@@ -142,6 +142,38 @@ describe("Documents screen", () => {
     expect(tops.get(part)).toBe(620);
     fireEvent.wheel(window);
     expect(watch.disconnect).toHaveBeenCalled();
+  });
+
+  it("a quote opened from a test says which test cited it, goes back to it, and Clear forgets the mark", async () => {
+    api.routes["docs.list"] = () => [doc("D1")];
+    api.routes["rag.status"] = status();
+    api.routes["docs.show"] = (i) =>
+      i.anchor
+        ? { md: "## 1 One\n\nUne ligne citée ici." }
+        : { doc: doc("D1"), context: "", toc: [{ anchor: "§1", title: "One", level: 1 }], figures: [], md: "" };
+    const back = vi.spyOn(window.history, "back").mockImplementation(() => {});
+    const open = (arg: string) => mountDocs(<DocumentsScreen />, { route: { screen: "documents", arg } }).app;
+    let a = open(`${docLink("D1", "§1", "ligne citée")} from LFRPS12-1420 step 2`);
+    const bar = await screen.findByText(/The quote cited by/);
+    expect(bar.closest('[role="status"], [role="alert"], div')).toHaveTextContent(
+      "The quote cited by LFRPS12-1420 · step 2, under § 1",
+    );
+    await waitFor(() => expect(document.querySelector("[data-focus]")?.textContent).toBe("ligne citée"));
+    expect(document.querySelector("[data-target]")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Back to the test" }));
+    expect(a.navigate).toHaveBeenCalledWith("tests", "LFRPS12-1420");
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+    expect(a.navigate).toHaveBeenCalledWith("documents", "D1#§1");
+    cleanup();
+    a = open(docLink("D1", "§1", "ligne citée"));
+    expect(await screen.findByText(/The quoted passage/)).toHaveTextContent("The quoted passage, under § 1");
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(back).toHaveBeenCalled();
+    cleanup();
+    open("D1#§1");
+    await screen.findByText("Une ligne citée ici.");
+    expect(screen.queryByText(/The quote/)).toBeNull();
+    expect(document.querySelector("[data-target]")).toHaveTextContent("§ 1 One");
   });
 
   it("a link to a figure marks the section that holds it in the contents", async () => {

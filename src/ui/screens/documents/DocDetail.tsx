@@ -15,7 +15,7 @@ import { ConvertDoc } from "./ConvertDoc.tsx";
 import { DocFigures } from "./DocFigures.tsx";
 import { DocHead, type View } from "./DocHead.tsx";
 import { DocLoading } from "./DocLoading.tsx";
-import { DocPart } from "./DocPart.tsx";
+import { DocPart, type QuoteFrom } from "./DocPart.tsx";
 import { DocReading } from "./DocReading.tsx";
 import { DocSide } from "./DocSide.tsx";
 import { DocToc } from "./DocToc.tsx";
@@ -63,6 +63,9 @@ export function DocDetail({
   id,
   anchor,
   quote = "",
+  from,
+  onClearQuote,
+  onBack,
   fold = "wide",
   panes,
   listOpen = false,
@@ -73,6 +76,9 @@ export function DocDetail({
   id: string;
   anchor: string;
   quote?: string;
+  from?: QuoteFrom;
+  onClearQuote?: () => void;
+  onBack?: () => void;
   fold?: Fold;
   panes?: Record<"toc" | "side", Pane>;
   listOpen?: boolean;
@@ -227,6 +233,8 @@ export function DocDetail({
               md={part.isError ? message(part.error) : (part.data?.md ?? "")}
               loading={!part.data && !part.isError}
               focus={quote || undefined}
+              target={anchor && !quote ? anchor : undefined}
+              quote={onClearQuote && onBack ? { from, onBack, onClear: onClearQuote } : undefined}
               onGo={go}
             />
           )}

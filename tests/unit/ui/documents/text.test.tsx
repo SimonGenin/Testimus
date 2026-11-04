@@ -40,7 +40,9 @@ describe("DocText", () => {
     expect(screen.getByText("sectionneur", { selector: "strong" })).toBeInTheDocument();
     expect(screen.getByText("ouvert", { selector: "em" })).toBeInTheDocument();
     expect(marked(container)).toHaveLength(1);
-    expect(marked(container)[0]).toHaveTextContent("Selon le type de sectionneur");
+    expect(marked(container)[0].tagName).toBe("MARK");
+    expect(marked(container)[0].textContent).toBe("Selon le type");
+    expect(marked(container)[0].parentElement).toHaveTextContent("Selon le type de sectionneur, le menu diffère");
   });
 
   it("puts a numbered heading's anchor and a figure's key in the gutter", () => {
@@ -68,10 +70,40 @@ describe("DocText", () => {
       return on;
     };
     expect(hot("Appel de la fonction serveur.")).toEqual(["SPAN|| Valider | Appel de la fonction serveur. |"]);
-    expect(hot("coupée ici et continuée là")).toEqual(["DIV|Une phrase coupée\nici et"]);
+    expect(hot("coupée ici et continuée là")).toEqual(["MARK|coupée\nici et"]);
+    expect(hot("phrase coupée")).toEqual(["MARK|phrase coupée"]);
     expect(hot("Boutons")).toEqual(["H4|§ 8.1 Boutons"]);
     expect(hot("Figure 2 – Vue")[0]).toMatch(/^FIGURE\|/);
     expect(hot(`${"x".repeat(60)} absent`)).toEqual([]);
+  });
+
+  it("marks only the quoted words, across bold, and nothing in italic", () => {
+    const { container } = render(
+      <DocText
+        docId="D"
+        md={"Avant. La **deuxième** ligne,\ncitée. Après."}
+        focus=" la deuxième ligne, citée "
+        onFigure={vi.fn()}
+      />,
+    );
+    const m = marked(container);
+    expect(m.map((e) => e.textContent)).toEqual(["La deuxième ligne,\ncitée"]);
+    expect(m[0].querySelector("strong")).toHaveTextContent("deuxième");
+    expect(container.querySelector("p")).toHaveTextContent("Avant. La deuxième ligne, citée. Après.");
+  });
+
+  it("sets the linked heading or figure apart, nothing else", () => {
+    const md = "## 5.6 Objets\n\n## 5.6.6 Sectionneur (S)\n\n![Figure 40](figures/f.png) <!-- fig 40 -->\n\nTexte.";
+    const on = (target: string) => {
+      const { container, unmount } = render(<DocText docId="D" md={md} target={target} onFigure={vi.fn()} />);
+      const t = [...container.querySelectorAll("[data-target]")].map((e) => e.textContent);
+      unmount();
+      return t;
+    };
+    expect(on("§5.6.6")).toEqual(["§ 5.6.6 Sectionneur (S)"]);
+    expect(on("fig:40")).toEqual(["fig 40Figure 40"]);
+    expect(on("§9")).toEqual([]);
+    expect(on("")).toEqual([]);
   });
 
   it("says when the part is empty; no focus without one", () => {

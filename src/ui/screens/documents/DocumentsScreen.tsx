@@ -98,16 +98,20 @@ const styles = stylex.create({
 
 const ACCEPT = ".docx,.pdf";
 
-// ponytail: #/documents/<id>#<anchor> "<quote>" — the document, the place in it and the line to mark
+// ponytail: #/documents/<id>#<anchor> "<quote>" from <test> step <n> — the document, the place in it, the line to mark
+// and the test that cited it (the last part is optional)
 function target(arg: string) {
   const hash = arg.indexOf("#");
   const routeId = hash < 0 ? arg : arg.slice(0, hash);
   const at = hash < 0 ? "" : arg.slice(hash + 1);
   const cut = at.indexOf(' "');
+  const rest = cut < 0 ? "" : at.slice(cut + 2);
+  const m = /^([\s\S]*)" from (\S+)(?: step (\d+))?$/.exec(rest);
   return {
     routeId,
     anchor: cut < 0 ? at : at.slice(0, cut),
-    quote: cut < 0 ? "" : at.slice(cut + 2).replace(/"$/, ""),
+    quote: m ? m[1] : rest.replace(/"$/, ""),
+    from: m ? { test: m[2], ...(m[3] && { step: Number(m[3]) }) } : undefined,
   };
 }
 
@@ -137,7 +141,7 @@ export function DocumentsScreen() {
 
   const docs = list.data ? (Array.isArray(list.data) ? list.data : []) : list.isError ? [] : undefined;
   const wordsOnly = rag.data?.exists && rag.data.degraded ? wordsOnlyWhy(rag.data) : null;
-  const { routeId, anchor, quote } = target(app.route.screen === "documents" ? (app.route.arg ?? "") : "");
+  const { routeId, anchor, quote, from } = target(app.route.screen === "documents" ? (app.route.arg ?? "") : "");
   const activeId = routeId || docs?.[0]?.id || "";
   const active = activeId ? docs?.find((d) => d.id === activeId) : undefined;
   const busy = uploads.filter((u) => !settled(u)).length;
@@ -284,6 +288,9 @@ export function DocumentsScreen() {
               id={activeId}
               anchor={anchor}
               quote={quote}
+              from={from}
+              onClearQuote={() => app.navigate("documents", `${activeId}#${anchor}`)}
+              onBack={() => (from ? app.navigate("tests", from.test) : window.history.back())}
               fold={fold}
               panes={panes}
               listOpen={listOpen}
