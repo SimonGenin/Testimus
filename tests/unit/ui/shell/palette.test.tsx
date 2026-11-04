@@ -166,7 +166,7 @@ describe("command palette", () => {
     withData(<Palette commands={commands} actions={[]} onCommand={() => {}} onClose={onClose} />);
     const input = screen.getByRole("combobox");
     fireEvent.change(input, { target: { value: "zzz" } });
-    expect(screen.getByText("Nothing matches “zzz”.")).toBeInTheDocument();
+    expect(screen.getByText("Nothing matches “zzz”")).toBeInTheDocument();
     fireEvent.keyDown(input, { key: "Enter" });
     expect(onClose).not.toHaveBeenCalled();
     fireEvent.mouseDown(screen.getByRole("dialog"));
@@ -175,6 +175,54 @@ describe("command palette", () => {
     expect(input).toHaveValue("");
     fireEvent.mouseDown(screen.getByRole("dialog").parentElement as HTMLElement);
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("without a project: commands only, its Project group first, a banner to open one and its own foot", () => {
+    const onCommand = vi.fn();
+    const all = [
+      ...commands,
+      cmd("project.open", "Open a folder as a project", { dir: { type: "string" } }),
+      cmd("project.openKey", "Open a project by its Jira key", { key: { type: "string" } }),
+      cmd("project.init", "Create a project", { dir: { type: "string" } }),
+    ];
+    withData(<Palette commands={all} actions={[]} onCommand={onCommand} onClose={() => {}} />);
+    expect(screen.queryByRole("tab")).toBeNull();
+    const groups = screen.getAllByRole("group").map((g) => g.getAttribute("aria-label"));
+    expect(groups[0]).toBe("Project");
+    expect(within(screen.getByRole("group", { name: "Project" })).getAllByRole("option")).toHaveLength(3);
+    expect(screen.getByText(/No project is open: only commands are listed/)).toBeInTheDocument();
+    expect(screen.getByText("Commands only")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Open a project…" }));
+    expect(onCommand).toHaveBeenCalledWith(expect.objectContaining({ name: "project.open" }));
+  });
+
+  it("says nothing matches above the Ask Claude row, and marks the active row with Enter", () => {
+    withData(<Palette commands={commands} actions={[]} onCommand={() => {}} onAsk={() => {}} onClose={() => {}} />);
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "zzz" } });
+    expect(screen.getByText("Nothing matches “zzz”")).toBeInTheDocument();
+    const ask = screen.getByRole("option", { name: /Ask Claude/ });
+    expect(ask.querySelector("kbd")).toHaveTextContent("Enter");
+  });
+
+  it("lists the useful commands first when nothing is typed, then every other one in the registry's order", () => {
+    const all = [
+      cmd("actions.list", "List the Claude actions"),
+      ...commands,
+      cmd("system.doctor", "Run the system check"),
+    ];
+    withData(<Palette commands={all} actions={[]} onCommand={() => {}} onClose={() => {}} />);
+    const names = within(screen.getByRole("group", { name: "Commands" }))
+      .getAllByRole("option")
+      .map((o) => o.textContent ?? "");
+    expect(names[0]).toMatch(/xray\.push/);
+    expect(names[1]).toMatch(/system\.doctor/);
+    expect(names.slice(2).join(" ")).toMatch(/actions\.list.*xray\.pull.*tests\.list.*system\.version/);
+  });
+
+  it("in the Commands tab, the foot says a Jira write shows its plan first", () => {
+    withData(<Palette commands={commands} actions={[]} onCommand={() => {}} onHit={() => {}} onClose={() => {}} />);
+    fireEvent.click(screen.getByRole("tab", { name: /^Commands/ }));
+    expect(screen.getByText("A Jira write always shows its plan first")).toBeInTheDocument();
   });
 
   it("picks the ask entry with Enter when it is the only one", () => {
@@ -236,7 +284,7 @@ describe("search palette", () => {
     expect(screen.getByRole("option", { name: /Disjoncteur/ })).toBeInTheDocument();
     fireEvent.change(screen.getByRole("combobox"), { target: { value: "zzz" } });
     await waitFor(() => expect(callsOf("search.all").map((c) => c.input.meaning)).toEqual([false, true]));
-    expect(await screen.findByText("Nothing matches “zzz”.")).toBeInTheDocument();
+    expect(await screen.findByText("Nothing matches “zzz”")).toBeInTheDocument();
     expect(await screen.findByText("Words + meaning")).toBeInTheDocument();
   });
 
@@ -246,6 +294,53 @@ describe("search palette", () => {
     fireEvent.change(screen.getByRole("combobox"), { target: { value: "frein" } });
     expect(await screen.findByText("Words only")).toBeInTheDocument();
     expect(screen.queryByText("≈ meaning")).toBeNull();
+  });
+
+  it("says words only before any search when the PC has no search pack, with the way to choose one", async () => {
+    net.routes["rag.status"] = () => ({ degraded: "No embedding model", activation: "none", chunks: 4 });
+    net.routes["search.all"] = () => result([hit({})]);
+    withData(<Palette commands={[]} actions={[]} onCommand={() => {}} onHit={() => {}} onClose={() => {}} />);
+    expect(await screen.findByText("Words only")).toBeInTheDocument();
+    expect(screen.queryByText("Search on words only")).toBeNull();
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "frein" } });
+    expect(await screen.findByText("Search on words only")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Choose a search pack" })).toBeInTheDocument();
+  });
+
+  it("shows « Words + meaning » with nothing typed when the vectors are there", async () => {
+    net.routes["rag.status"] = () => ({ degraded: null, activation: "machine", chunks: 4 });
+    withData(<Palette commands={[]} actions={[]} onCommand={() => {}} onHit={() => {}} onClose={() => {}} />);
+    expect(await screen.findByText("Words + meaning")).toBeInTheDocument();
+    expect(screen.getByRole("combobox").parentElement?.parentElement).toHaveTextContent("Ctrl K");
+  });
+
+  it("keeps the other kinds' counts in a kind's tab, and greys the documents that do not match", async () => {
+    net.routes["search.all"] = (i) =>
+      (i.in as string[] | undefined)?.[0] === "document"
+        ? result([hit({ kind: "document", id: "D-1", title: "Traction" })], { totals: { document: 1 } })
+        : result([hit({ id: "T-1" }), hit({ id: "T-2" }), hit({ kind: "document", id: "D-1", title: "Traction" })], {
+            totals: { test: 2, document: 1, passage: 0 },
+          });
+    net.routes["docs.list"] = () => [
+      {
+        id: "D-1",
+        title: "Traction",
+        version: "01.01",
+        status: "validated",
+        converted: { stats: { sections: 6, figures: 1, chars: 9 } },
+      },
+      { id: "D-2", title: "Signalisation", version: "01.01", status: "submitted" },
+    ];
+    withData(<Palette commands={[]} actions={[]} onCommand={() => {}} onHit={() => {}} onClose={() => {}} />);
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "traction" } });
+    await screen.findByRole("option", { name: /Traction/ });
+    fireEvent.click(screen.getByRole("tab", { name: /^Documents/ }));
+    expect(await screen.findByRole("group", { name: "Not matching" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /^Tests/ })).toHaveTextContent("2");
+    expect(screen.getByRole("option", { name: /Signalisation/ })).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("option", { name: /Traction/ })).toHaveTextContent(
+      "version 01.01 · Validated · 6 sections · 1 figure",
+    );
   });
 
   it("hands a step to the editor once, for that test only", () => {

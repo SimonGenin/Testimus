@@ -4,6 +4,7 @@ import { useCommand } from "../../lib/data/query.ts";
 import { plural } from "../../lib/format.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 import { border, breakpoint, color, fontSize, lineHeight, space } from "../../styles/tokens.stylex.ts";
+import { Badge } from "../ui/Badge.tsx";
 import { Button } from "../ui/Button.tsx";
 import { Chip } from "../ui/Chip.tsx";
 import { Kbd } from "../ui/Kbd.tsx";
@@ -36,9 +37,35 @@ const styles = stylex.create({
 
 const NARROW = ['"exact"', "-word", "review:to-fix", "label:", "folder:"];
 
-// ponytail: the keys, the filters search.all understands, and what the meaning pass says about the tests
-export function PaletteFoot({ result, searchingDeep }: { result: SearchResult | null; searchingDeep: boolean }) {
+// ponytail: the keys and what the list is — a search (the filters search.all understands, what the meaning pass says
+// about the tests), the commands (a Jira write shows its plan first), or the commands alone, with no project open
+export function PaletteFoot({
+  mode = "search",
+  result,
+  searchingDeep,
+}: {
+  mode?: "search" | "commands" | "none";
+  result: SearchResult | null;
+  searchingDeep: boolean;
+}) {
   const index = useCommand("search.index", { invalidates: "none" });
+  if (mode !== "search")
+    return (
+      <div {...stylex.props(styles.foot)}>
+        <span {...stylex.props(styles.keys)}>
+          {mode === "none" && <Kbd>↑↓</Kbd>}
+          {mode === "none" && " move "}
+          <Kbd>Enter</Kbd> {mode === "none" ? "run" : "open the form"} <Kbd>Esc</Kbd> close
+        </span>
+        <span {...stylex.props(styles.tips)}>
+          {mode === "none" ? (
+            <Badge label="Commands only" icon="terminal" size="sm" />
+          ) : (
+            "A Jira write always shows its plan first"
+          )}
+        </span>
+      </div>
+    );
   const unembedded = result?.meaning !== "unavailable" ? (result?.unembedded ?? 0) : 0;
   return (
     <div {...stylex.props(styles.foot)}>

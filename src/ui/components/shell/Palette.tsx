@@ -1,35 +1,29 @@
 import * as stylex from "@stylexjs/stylex";
-import { type KeyboardEvent, useId, useMemo, useState } from "react";
-import type { SearchKind, SearchMatch } from "../../../core/types.ts";
+import { type KeyboardEvent, useContext, useId, useMemo, useRef, useState } from "react";
+import type { SearchMatch } from "../../../core/types.ts";
+import { AppContext } from "../../lib/app.ts";
 import type { CommandInfo } from "../../lib/data/client.ts";
-import { plural } from "../../lib/format.ts";
-import { recentHits, useSearch } from "../../lib/search.ts";
+import { useRead } from "../../lib/data/query.ts";
+import { useSearch } from "../../lib/search.ts";
 import { border, color, size, space } from "../../styles/tokens.stylex.ts";
 import { Badge } from "../ui/Badge.tsx";
+import { Banner } from "../ui/Banner.tsx";
 import { Button } from "../ui/Button.tsx";
 import { EmptyState } from "../ui/EmptyState.tsx";
 import { Icon } from "../ui/Icon.tsx";
+import { Kbd } from "../ui/Kbd.tsx";
 import { List, optionId } from "../ui/List.tsx";
-import type { ListItemProps } from "../ui/ListItem.tsx";
 import { Modal } from "../ui/Modal.tsx";
 import { Skeleton } from "../ui/Skeleton.tsx";
 import { Spinner } from "../ui/Spinner.tsx";
 import { type Tab, Tabs } from "../ui/Tabs.tsx";
 import { Text } from "../ui/Text.tsx";
 import { PaletteFoot } from "./PaletteFoot.tsx";
-import { type Entry, entriesOf, filterEntries, type PaletteAction } from "./paletteEntries.tsx";
-import { hitRow, KIND } from "./SearchHit.tsx";
+import { entriesOf, filterEntries, type PaletteAction } from "./paletteEntries.tsx";
+import { type Group, paletteGroups, type Row, SCOPE_K, type Scope } from "./paletteGroups.tsx";
 
 export type { PaletteAction } from "./paletteEntries.tsx";
 export { filterEntries, firstSentence } from "./paletteEntries.tsx";
-
-type Scope = "all" | SearchKind | "commands";
-type Row = { id: string; run: () => void; props: ListItemProps };
-type Group = { id: string; title: string; meta?: string; more?: { label: string; scope: Scope }; rows: Row[] };
-
-const PER_GROUP = 6;
-const PER_SCOPE = 40;
-const fold = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().trim();
 
 const styles = stylex.create({
   head: { padding: space.s3, borderBottomWidth: border.width, borderBottomStyle: "solid", borderColor: color.border },
@@ -42,10 +36,12 @@ const styles = stylex.create({
     borderBottomStyle: "solid",
     borderColor: color.border,
   },
+  note: { paddingTop: space.s3, paddingInline: space.s4 },
   grow: { flex: 1, minWidth: 0 },
   list: { boxSizing: "border-box", maxHeight: "60vh", overflowY: "auto" },
   loading: { display: "flex", flexDirection: "column", gap: space.s3, padding: space.s4 },
   clear: { display: "inline-flex", alignItems: "center", minHeight: size.controlSm },
+  enter: { display: "inline-flex", alignItems: "center", gap: space.s2 },
 });
 
 const SCOPES: { id: Scope; label: string }[] = [
@@ -58,7 +54,7 @@ const SCOPES: { id: Scope; label: string }[] = [
 
 // ponytail: one box for everything — the project's tests, documents and passages (search.all, words first then
 // meaning), the screens, the shell's toggles and every command; a command whose name starts with what is typed
-// comes first
+// comes first. Without a project it lists the commands only, and how to open one
 export function Palette({
   commands,
   actions,
@@ -75,61 +71,29 @@ export function Palette({
   onClose: () => void;
 }) {
   const id = useId();
+  const app = useContext(AppContext);
   const [query, setQuery] = useState("");
   const [scope, setScope] = useState<Scope>("all");
   const [at, setAt] = useState(0);
   const entries = useMemo(() => entriesOf(actions, commands, onCommand), [actions, commands, onCommand]);
+  const noProject = !onHit;
   const q = query.trim();
-  const searching = !!onHit && scope !== "commands";
+  const searching = !noProject && scope !== "commands";
   const kinds = scope === "all" || scope === "commands" ? undefined : [scope];
-  const s = useSearch(q, { in: kinds, k: scope === "all" ? PER_GROUP : PER_SCOPE, enabled: searching });
+  const s = useSearch(q, { in: kinds, k: scope === "all" ? SCOPE_K.all : SCOPE_K.kind, enabled: searching });
   const result = searching ? s.result : null;
+  const rag = useRead("rag.status", {}, { enabled: !noProject });
+  const docs = useRead("docs.list", {}, { enabled: !noProject && scope === "document" }).data;
+  const allTotals = useRef<{ q: string; totals: Partial<Record<Scope, number>> }>({ q: "", totals: {} });
+  if (scope === "all" && result) allTotals.current = { q, totals: result.totals };
 
   const pickScope = (next: Scope) => {
     setScope(next);
     setAt(0);
   };
-  const entryRow = (e: Entry): Row => ({ id: `cmd:${e.id}`, run: e.run, props: e.row });
-  const hitOf = (h: SearchMatch): Row => ({ id: `${h.kind}:${h.id}`, run: () => onHit?.(h), props: hitRow(h) });
 
-  const groups: Group[] = [];
-  const matched = scope === "all" || scope === "commands" ? filterEntries(entries, q) : [];
-  const strong = !!q && matched.some((e) => fold(e.label).startsWith(fold(q)) || e.id === q);
-  const entryGroups = (cap: number) => {
-    for (const g of ["Go to", "App", "Commands"] as const) {
-      const rows = matched.filter((e) => e.group === g).slice(0, cap);
-      if (rows.length)
-        groups.push({
-          id: g,
-          title: g,
-          meta: g === "Commands" && !q ? "every command of the app" : undefined,
-          rows: rows.map(entryRow),
-        });
-    }
-  };
-  if (!q) {
-    const recent = searching ? recentHits() : [];
-    if (recent.length) groups.push({ id: "recent", title: "Recent", rows: recent.map(hitOf) });
-    entryGroups(60);
-  } else {
-    if (strong || scope === "commands") entryGroups(scope === "commands" ? 60 : PER_GROUP);
-    for (const kind of result?.order ?? []) {
-      const hits = result?.hits.filter((h) => h.kind === kind) ?? [];
-      if (!hits.length) continue;
-      const total = result?.totals[kind] ?? hits.length;
-      groups.push({
-        id: kind,
-        title: KIND[kind].label,
-        meta: String(total),
-        more:
-          scope === "all" && total > hits.length
-            ? { label: `All ${plural(total, KIND[kind].one)}`, scope: kind }
-            : undefined,
-        rows: hits.map(hitOf),
-      });
-    }
-    if (!strong && scope === "all") entryGroups(5);
-  }
+  const groups: Group[] = paletteGroups({ q, scope, entries, commands, result, docs, searching, noProject, onHit });
+  const nothing = !!q && groups.length === 0;
   const ask = q && onAsk ? q : "";
   if (ask)
     groups.push({
@@ -144,7 +108,8 @@ export function Palette({
       ],
     });
 
-  const rows = groups.flatMap((g) => g.rows);
+  const items = groups.flatMap((g) => g.rows);
+  const rows = items.filter((r) => !r.off);
   const total = rows.length;
   const cur = Math.min(at, Math.max(0, total - 1));
   const listId = `${id}-list`;
@@ -155,12 +120,13 @@ export function Palette({
     r.run();
   };
 
+  const kept = allTotals.current.q === q ? allTotals.current.totals : {};
   const counts: Partial<Record<Scope, number>> = q
-    ? { ...result?.totals, commands: filterEntries(entries, q).length }
+    ? { ...kept, ...result?.totals, commands: filterEntries(entries, q).length }
     : { test: 0, document: 0, passage: 0 };
-  const tabs: Tab<Scope>[] = SCOPES.filter((x) => onHit || x.id === "all" || x.id === "commands").map((x) => {
+  const tabs: Tab<Scope>[] = SCOPES.filter((x) => !noProject || x.id === "all" || x.id === "commands").map((x) => {
     const n = counts[x.id];
-    const known = !q || !!result || x.id === "commands";
+    const known = !q || !!result || x.id === "commands" || n !== undefined;
     return {
       value: x.id,
       label: x.label,
@@ -190,7 +156,59 @@ export function Palette({
     }
   };
 
+  const status = rag.data;
+  const wordsOnly =
+    result?.meaning === "unavailable" ||
+    (!!status && !!status.degraded && (status.activation === "none" || status.chunks > 0));
+  const noPack = status?.activation === "none";
+  const openSearchSettings = () => {
+    onClose();
+    app?.navigate("settings", "search");
+  };
+  const openFolder = commands.find((c) => c.name === "project.open");
+  const current = rows[cur]?.id;
   const waiting = searching && !!q && s.loading && !result;
+  const list = (
+    <List
+      label="Results"
+      items={items}
+      getKey={(r: Row) => r.id}
+      renderItem={(r) =>
+        r.id === current
+          ? {
+              ...r.props,
+              trail: (
+                <span {...stylex.props(styles.enter)}>
+                  {r.props.trail}
+                  <Kbd>Enter</Kbd>
+                </span>
+              ),
+            }
+          : r.props
+      }
+      selected={current ?? null}
+      onSelect={(k) => pick(rows.findIndex((r) => r.id === k))}
+      groups={groups.map((g) => ({
+        label: g.title || "Claude",
+        head: !!g.title,
+        meta: g.meta,
+        keys: g.rows.map((r) => r.id),
+        action: g.more && (
+          <Button variant="quiet" size="xs" label={g.more.label} onClick={() => g.more && pickScope(g.more.scope)} />
+        ),
+      }))}
+      activeDescendant={{
+        id: listId,
+        onActive: (k) =>
+          setAt(
+            Math.max(
+              0,
+              rows.findIndex((r) => r.id === k),
+            ),
+          ),
+      }}
+    />
+  );
   return (
     <Modal title="Search everywhere" frameless size="lg" onClose={onClose}>
       <div {...stylex.props(styles.head)}>
@@ -202,7 +220,7 @@ export function Palette({
           }}
           ariaLabel="Search"
           icon="search"
-          placeholder={onHit ? "Search tests, documents, passages — or run a command" : "Run a command"}
+          placeholder={noProject ? "Run a command" : "Search tests, documents, passages — or run a command"}
           autoFocus
           spellCheck={false}
           combobox={{
@@ -218,19 +236,71 @@ export function Palette({
               <span {...stylex.props(styles.clear)}>
                 <Button variant="quiet" size="xs" iconOnly icon="close" label="Clear" onClick={() => setQuery("")} />
               </span>
-            ) : undefined
+            ) : (
+              <Kbd>Ctrl K</Kbd>
+            )
           }
         />
       </div>
-      {onHit && (
+      {!noProject && (
         <div {...stylex.props(styles.kinds)}>
           <span {...stylex.props(styles.grow)}>
             <Tabs label="Search in" size="sm" value={scope} tabs={tabs} onChange={pickScope} />
           </span>
-          {q && result?.meaning === "on" && s.deep && <Badge label="Words + meaning" icon="search" size="sm" />}
-          {q && result?.meaning === "unavailable" && (
-            <Badge label="Words only" size="sm" tooltip={result.notes.join(" ") || undefined} />
+          {wordsOnly ? (
+            <Badge
+              label="Words only"
+              tone="warning"
+              icon="alert-triangle"
+              size="sm"
+              tooltip={result?.notes.join(" ") || status?.degraded || undefined}
+            />
+          ) : (
+            <Badge label="Words + meaning" icon="search" size="sm" tooltip="How passages are found" />
           )}
+        </div>
+      )}
+      {noProject && (
+        <div {...stylex.props(styles.note)}>
+          <Banner
+            tone="neutral"
+            compact
+            actions={
+              openFolder && (
+                <Button
+                  size="sm"
+                  icon="folder-open"
+                  label="Open a project…"
+                  onClick={() => {
+                    onClose();
+                    onCommand(openFolder);
+                  }}
+                />
+              )
+            }
+          >
+            No project is open: only commands are listed. Open a project to search its tests and documents.
+          </Banner>
+        </div>
+      )}
+      {!noProject && wordsOnly && q && (
+        <div {...stylex.props(styles.note)}>
+          <Banner
+            tone="info"
+            compact
+            title="Search on words only"
+            actions={
+              <Button
+                size="sm"
+                label={noPack ? "Choose a search pack" : "Open Settings › Search"}
+                onClick={openSearchSettings}
+              />
+            }
+          >
+            {noPack
+              ? "No search pack is installed on this PC, so passages are found by their words, not their meaning."
+              : "The passages have no vectors for this PC's search pack yet, so they are found by their words. Settings › Search builds them."}
+          </Banner>
         </div>
       )}
       {waiting ? (
@@ -239,41 +309,27 @@ export function Palette({
           <Skeleton kind="row" />
           <Skeleton kind="row" />
         </div>
-      ) : total ? (
-        <div {...stylex.props(styles.list)}>
-          <List
-            label="Results"
-            items={rows}
-            getKey={(r) => r.id}
-            renderItem={(r) => r.props}
-            selected={rows[cur]?.id ?? null}
-            onSelect={(k) => pick(rows.findIndex((r) => r.id === k))}
-            groups={groups.map((g) => ({
-              label: g.title || "Claude",
-              head: !!g.title,
-              meta: g.meta,
-              keys: g.rows.map((r) => r.id),
-              action: g.more && (
-                <Button
-                  variant="quiet"
-                  size="xs"
-                  label={g.more.label}
-                  onClick={() => g.more && pickScope(g.more.scope)}
-                />
-              ),
-            }))}
-            activeDescendant={{ id: listId, onActive: (k) => setAt(rows.findIndex((r) => r.id === k)) }}
-          />
-        </div>
       ) : (
-        <EmptyState
-          compact
-          icon="search"
-          title={q ? `Nothing matches “${q}”.` : "Type to search."}
-          text={q ? "Try fewer words, a key (LFRPS12-1420), or another kind." : undefined}
-        />
+        <div {...stylex.props(styles.list)}>
+          {(nothing || !items.length) && (
+            <EmptyState
+              icon="search"
+              title={q ? `Nothing matches “${q}”` : "Type to search."}
+              text={
+                q
+                  ? "No test, document, passage or command has these words, and nothing close in meaning was found. Try fewer words, or ask Claude to look through the documents."
+                  : undefined
+              }
+            />
+          )}
+          {items.length > 0 && list}
+        </div>
       )}
-      {onHit && <PaletteFoot result={q ? result : null} searchingDeep={s.loading && !!result} />}
+      <PaletteFoot
+        mode={noProject ? "none" : scope === "commands" ? "commands" : "search"}
+        result={q ? result : null}
+        searchingDeep={s.loading && !!result}
+      />
     </Modal>
   );
 }

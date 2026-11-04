@@ -194,6 +194,11 @@ export function merge(marks: Mark[]): Mark[] {
 }
 
 // ponytail: a window of the text around its first mark, cut on spaces, with the marks moved into it
+// ponytail: an image in markdown (« ![Figure 40 – …](images/fig-40.png){width=320} ») reads as its words — what a
+// search result shows and matches is text, never the markup of a picture
+export const imageless = (text: string): string =>
+  text.replace(/!\[([^\]]*)\]\([^)]*\)(\{[^}]*\})?/g, (_, alt: string) => alt.trim());
+
 export function snippet(text: string, marks: Mark[], size = 160): { text: string; marks: Mark[] } {
   const flat = text.replace(/\s/g, " ");
   if (flat.length <= size) return { text: flat, marks };

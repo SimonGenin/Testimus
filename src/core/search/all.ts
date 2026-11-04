@@ -19,6 +19,7 @@ import {
   corpus,
   type Doc,
   field,
+  imageless,
   isCode,
   merge,
   type Scored,
@@ -217,7 +218,8 @@ async function findPassages(project: string, q: Query, k: number, meaning: boole
   const hits = found
     .filter((h) => !excluded(h.text))
     .map((h): SearchMatch => {
-      const cut = snippet(h.text, marksIn(h.text, q), 200);
+      const text = imageless(h.text);
+      const cut = snippet(text, marksIn(text, q), 200);
       const rest = h.header.split(" — ").slice(1).join(" — ");
       const title =
         (h.path && rest.startsWith(h.path)

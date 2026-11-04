@@ -205,6 +205,9 @@ export type ModalProps = {
   };
   /** what will happen, with numbers: [[2, "modified steps are lost"], [1, "added step is lost"]] */
   consequences?: [number | string, string][];
+  /** where the numbers sit: end (default) after the body's words (« The test goes back to its Jira version… », then
+   * the counts) · start before them, when the words are a note on the counts (« This cannot be undone… ») */
+  consequencesAt?: "start" | "end";
   /** words on the left of the foot (« Saved in ~/.atlassian », « Same as testimus xray push 12 ») */
   footNote?: ReactNode;
   /** buttons on the right of the foot, the primary last */
@@ -239,6 +242,7 @@ export function Modal({
   size: s = "md",
   confirm,
   consequences,
+  consequencesAt = "end",
   footNote,
   actions,
   busy = false,
@@ -364,7 +368,7 @@ export function Modal({
           {shownError}
         </Banner>
       )}
-      {children}
+      {consequencesAt === "end" && children}
       {consequences && consequences.length > 0 && (
         <ul {...stylex.props(styles.consequences)}>
           {consequences.map(([n, what]) => (
@@ -375,6 +379,7 @@ export function Modal({
           ))}
         </ul>
       )}
+      {consequencesAt === "start" && children}
     </div>
   );
 

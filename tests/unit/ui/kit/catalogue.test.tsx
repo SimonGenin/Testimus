@@ -116,7 +116,9 @@ describe("Kit catalogue", () => {
   it("shows the List driven by a field: the focus stays in the field, the arrows move the active row", () => {
     render(<KitScreen />);
     fireEvent.click(option("List"));
-    expect(within(screen.getByRole("region", { name: "Props" })).getByText("activeDescendant", { selector: "span" })).toBeVisible();
+    expect(
+      within(screen.getByRole("region", { name: "Props" })).getByText("activeDescendant", { selector: "span" }),
+    ).toBeVisible();
     const light = screen.getByRole("region", { name: "List, Light" });
     const cell = within(light).getByRole("figure", { name: /^activeDescendant/ });
     const field = within(cell).getByRole("combobox", { name: "Search" });
