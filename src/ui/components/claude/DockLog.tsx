@@ -1,10 +1,15 @@
 import * as stylex from "@stylexjs/stylex";
+import { useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useEffect, useRef } from "react";
 import { useApp } from "../../lib/app.ts";
-import { plural } from "../../lib/format.ts";
+import { read, useRead } from "../../lib/data/query.ts";
+import { plural, relTime } from "../../lib/format.ts";
+import { errorToast } from "../../lib/toast.ts";
 import { color, fontSize, lineHeight, space } from "../../styles/tokens.stylex.ts";
 import { Button } from "../ui/Button.tsx";
 import { EmptyState } from "../ui/EmptyState.tsx";
+import { Icon } from "../ui/Icon.tsx";
+import { List } from "../ui/List.tsx";
 import { ActionCard } from "./ActionCard.tsx";
 import { type ClaudeStatus, ConnectClaude } from "./ConnectClaude.tsx";
 import type { Sub, Tab } from "./DockScope.tsx";
@@ -22,6 +27,8 @@ const styles = stylex.create({
     flexDirection: "column",
     gap: space.s4,
   },
+  intro: { display: "flex", flexDirection: "column", gap: space.s4, paddingTop: space.s6 },
+  hint: { margin: 0, fontSize: fontSize.compact, lineHeight: lineHeight.compact, color: color.textMuted },
   bar: {
     display: "flex",
     alignItems: "center",
@@ -33,22 +40,19 @@ const styles = stylex.create({
   },
 });
 
-const EMPTY: Record<Sub, { title: string; text: string }> = {
-  doc: { title: "Ask anything about this document", text: "Answers come with the passages they rely on." },
-  all: { title: "Ask the documents", text: "Answers come with the passages they rely on." },
-  project: {
-    title: "Ask about the project",
-    text: "Ask anything about the project, or tell Claude what to do with its tests. Every change can be reverted.",
-  },
-  test: {
-    title: "Ask about this test",
-    text: "Claude edits this test in place. The editor reads the file back after the run, and Revert undoes the whole run.",
-  },
-  step: {
-    title: "Ask about this step",
-    text: "Claude edits this step in place. The editor reads the file back after the run, and Revert undoes the whole run.",
-  },
+const PROJECT = {
+  title: "Ask about the project",
+  text: "Ask anything about the project, or tell Claude what to do with its tests. Every change can be reverted.",
 };
+
+const intro = (sub: Sub, docId: string | null) =>
+  sub === "doc" || sub === "all"
+    ? `Ask the documents a question. Claude answers from ${sub === "doc" && docId ? docId : "the project's documents"} and cites the passages it used; a click on a source opens it.`
+    : `Claude edits this ${sub === "step" ? "step" : "test"} in place. The editor reads the file back after the run, and Revert undoes the whole run.`;
+
+const EARLIER = 5;
+
+type ChatSummary = { id: string; title: string; updatedAt: string; turns: number };
 
 // ponytail: the dock's conversation — what was asked and what Claude did, the action runs under the Actions tab,
 // the connect panel when Claude is not there
@@ -74,6 +78,7 @@ export function DockLog({
   actionsList: ReactNode;
 }) {
   const app = useApp();
+  const client = useQueryClient();
   const scroller = useRef<HTMLDivElement>(null);
   const onActions = tab === "actions";
   const visible = runs.turns.filter((t) => !!t.action === onActions);
@@ -94,15 +99,22 @@ export function DockLog({
     onSettings: () => app.navigate("settings", "claude"),
   };
   const asked = visible.filter((t) => t.role === "user").length;
-  const empty =
-    sub === "doc" && docId
-      ? { ...EMPTY.doc, title: `Ask anything about ${docId}` }
-      : EMPTY[sub === "doc" ? "all" : sub];
+  const docs = tab === "docs";
+  const chats = useRead("chat.list", {}, { enabled: docs && !visible.length && !offline && !!app.info });
+  const earlier = ((chats.data as ChatSummary[] | undefined) ?? []).slice(0, EARLIER);
+  const open = async (id: string) => {
+    try {
+      runs.resume((await read(client, "chat.show", { chatId: id })) as Parameters<typeof runs.resume>[0]);
+    } catch (e) {
+      errorToast(e, "Could not open the conversation");
+    }
+  };
 
   return (
     <div ref={scroller} aria-live="polite" {...stylex.props(styles.body)}>
       {offline && status ? (
         <ConnectClaude
+          look="dock"
           status={status}
           checking={checking}
           onCheck={onCheck}
@@ -125,7 +137,30 @@ export function DockLog({
             </div>
           )}
           {onActions && actionsList}
-          {!onActions && !visible.length && <EmptyState icon="claude" title={empty.title} text={empty.text} compact />}
+          {!onActions && !visible.length && (
+            <div {...stylex.props(styles.intro)}>
+              {sub === "project" ? (
+                <EmptyState icon="claude" title={PROJECT.title} text={PROJECT.text} />
+              ) : (
+                <p {...stylex.props(styles.hint)}>{intro(sub, docId)}</p>
+              )}
+            </div>
+          )}
+          {docs && !visible.length && earlier.length > 0 && (
+            <List
+              label="Earlier conversations"
+              items={earlier}
+              getKey={(c) => c.id}
+              groups={[{ label: "Earlier conversations", keys: earlier.map((c) => c.id) }]}
+              onSelect={(id) => void open(id)}
+              renderItem={(c) => ({
+                title: c.title,
+                tooltip: c.title,
+                lead: <Icon name="history" />,
+                trail: relTime(Date.parse(c.updatedAt)),
+              })}
+            />
+          )}
           {visible.map((t) =>
             t.role === "user" ? (
               <UserTurn key={t.id} turn={t} />

@@ -61,7 +61,7 @@ describe("Settings › Claude › Connection", () => {
     expect(exeLine(s({ installed: true, version: "2.1.0", signedIn: true }))).toBe("✓ 2.1.0 · found");
     expect(exeLine(s({ installed: true, signedIn: null }))).toBe("✓ Claude Code · found");
     expect(exeLine(s({ installed: false, signedIn: false, detail: "spawn ENOENT\nmore" }))).toBe(
-      "✕ spawn ENOENT · not found · Claude is optional",
+      "spawn ENOENT · Claude is optional",
     );
     expect(exeLine(s({ installed: false, signedIn: false }))).toMatch(/claude did not answer/);
   });
@@ -86,7 +86,7 @@ describe("Settings › Claude › Connection", () => {
     await new Promise((r) => setTimeout(r, 450));
     expect(calls("system.set")).toHaveLength(0);
     fireEvent.keyDown(exe, { key: "Enter" });
-    expect(await screen.findByText(/spawn failed · not found/)).toBeInTheDocument();
+    expect(await screen.findByText(/spawn failed · Claude is optional/)).toBeInTheDocument();
     expect(inputs("system.set")[0]).toEqual({ claudeExe: "D:/claude.cmd" });
     fireEvent.click(screen.getByRole("button", { name: "Open system check" }));
     expect(app.navigate).toHaveBeenCalledWith("doctor");
@@ -130,7 +130,7 @@ describe("Settings › Claude › Connection", () => {
     await waitFor(() => expect(calls("system.settings")).toHaveLength(1));
     fireEvent.change(exeField(), { target: { value: "C:\\x\\claude.cmd" } });
     fireEvent.click(screen.getByRole("button", { name: "Check" }));
-    expect(await screen.findByText("✕ spawn ENOENT · not found · Claude is optional")).toBeInTheDocument();
+    expect(await screen.findByText("spawn ENOENT · Claude is optional")).toBeInTheDocument();
     expect(inputs("system.set")[0]).toEqual({ claudeExe: "C:\\x\\claude.cmd" });
     expect(screen.getByText("Not found")).toBeInTheDocument();
     expect(screen.getByText("Claude isn't installed on this PC yet")).toBeInTheDocument();

@@ -161,4 +161,21 @@ describe("ConnectClaude, the optional buttons", () => {
     expect(setPath).toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: "Open system check" })).toBeNull();
   });
+
+  it("says Claude is absent once per look: the dock's badge and « What Testimus saw », a card's one line, Settings' none", () => {
+    const status = { installed: false, signedIn: null, detail: "spawn claude ENOENT" };
+    const { rerender } = render(<ConnectClaude look="dock" status={status} checking={false} onCheck={() => {}} />);
+    expect(screen.getByText("Not connected")).toBeInTheDocument();
+    expect(screen.getByText("What Testimus saw")).toBeInTheDocument();
+    expect(screen.getByText("spawn claude ENOENT")).toBeInTheDocument();
+    rerender(<ConnectClaude status={status} checking={false} onCheck={() => {}} />);
+    expect(screen.queryByText("Not connected")).toBeNull();
+    expect(screen.queryByText("What Testimus saw")).toBeNull();
+    expect(screen.getByText("spawn claude ENOENT")).toBeInTheDocument();
+    expect(screen.getByText("Install Claude Code")).toBeInTheDocument();
+    rerender(<ConnectClaude look="panel" status={status} checking={false} onCheck={() => {}} />);
+    expect(screen.queryByText("Not connected")).toBeNull();
+    expect(screen.queryByText("spawn claude ENOENT")).toBeNull();
+    expect(screen.getByRole("heading", { name: "Claude isn't installed on this PC yet" })).toBeInTheDocument();
+  });
 });

@@ -13,6 +13,7 @@ const CUSTOM = "custom";
 
 const styles = stylex.create({
   row: { display: "inline-flex", alignItems: "center", gap: space.s2, minWidth: 0 },
+  block: { display: "flex", width: "100%" },
   custom: { width: size.menuMin },
 });
 
@@ -78,6 +79,7 @@ export function ModelPicker({
   label = "Model",
   size: s = "sm",
   appearance = "quiet",
+  block = false,
   id,
 }: {
   value: string;
@@ -85,17 +87,20 @@ export function ModelPicker({
   label?: string;
   size?: "sm" | "md";
   appearance?: "boxed" | "quiet";
+  /** fills its row, like the fields beside it (Settings › Claude dock) */
+  block?: boolean;
   /** named by a label outside (`<label htmlFor>`) */
   id?: string;
 }) {
   const choice = useModelChoice(value, onChange);
   return (
-    <span {...stylex.props(styles.row)}>
+    <span {...stylex.props(styles.row, block && styles.block)}>
       <Select
         id={id}
         label={label}
         size={s}
         appearance={appearance}
+        block={block}
         value={choice.selected}
         options={choice.options}
         onChange={choice.pick}

@@ -6,6 +6,7 @@ import { ApiError } from "../../lib/data/client.ts";
 import { invalidate, type Prefix, useCommand } from "../../lib/data/query.ts";
 import { message, plural } from "../../lib/format.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
+import { sourcesOf } from "./AnswerText.tsx";
 import {
   type Again,
   type ChatResult,
@@ -237,6 +238,7 @@ export function useDockRuns(app: AppState) {
           sources: r.sources ?? [],
           trouble: ok ? undefined : (r.diagnosis ?? { title: "Claude could not answer", detail: "" }),
           meta: { durationMs, tokens: r.tokens, sessionId: r.sessionId, model: a.model, effort: a.effort },
+          raw: typeof r.raw === "string" ? r.raw : t.raw,
           again: ok ? undefined : a,
         }));
         setLast({ seconds: durationMs / 1000, summary: (r.answer ?? "").split("\n")[0], ok });
@@ -269,6 +271,23 @@ export function useDockRuns(app: AppState) {
   const clear = () => {
     setTurns([]);
     setChatId(undefined);
+    setLast(null);
+  };
+
+  // ponytail: an earlier conversation with the documents comes back as it was said, and the next question continues it
+  const resume = (chat: { id: string; turns: { role: "user" | "assistant"; text: string }[] }) => {
+    if (busy) return;
+    setTurns(
+      chat.turns.map((x) => ({
+        id: ++seq,
+        role: x.role,
+        kind: "chat" as const,
+        text: x.text,
+        tools: [],
+        ...(x.role === "assistant" ? { sources: sourcesOf(x.text) } : {}),
+      })),
+    );
+    setChatId(chat.id);
     setLast(null);
   };
 
@@ -311,6 +330,7 @@ export function useDockRuns(app: AppState) {
     runJob,
     runAction,
     clear,
+    resume,
     cancel,
     revert,
     toggleRaw,

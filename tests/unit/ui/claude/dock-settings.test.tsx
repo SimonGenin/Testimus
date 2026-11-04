@@ -374,7 +374,7 @@ describe("dock: run details and failures", () => {
     });
     const state = app();
     const r = render(wrap(state, <ClaudeDock folded={false} onFold={() => {}} />));
-    expect(await screen.findByText("Claude is optional — everything else works without it")).toBeInTheDocument();
+    expect(await screen.findByText(/^Claude is optional — everything else works without it/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Set the path myself…" }));
     expect(state.navigate).toHaveBeenCalledWith("settings", "claude-exe");
     r.rerender(wrap(state, <ClaudeDock folded onFold={() => {}} />));
@@ -405,8 +405,9 @@ describe("dock: run details and failures", () => {
       detail: "spawn claude ENOENT",
     });
     render(wrap(app({ info: null }), <ClaudeSection />));
-    const heading = await screen.findByText("Claude isn't installed on this PC yet");
-    expect(within(heading.parentElement as HTMLElement).getByText("spawn claude ENOENT")).toBeInTheDocument();
+    await screen.findByText("Claude isn't installed on this PC yet");
+    expect(screen.getByRole("status")).toHaveTextContent("spawn claude ENOENT · Claude is optional");
+    expect(screen.getByText("Not found")).toBeInTheDocument();
   });
 
   it("meta line words", () => {
