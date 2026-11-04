@@ -72,6 +72,7 @@ export function FitConfirm({
       icon="alert-triangle"
       title={fitTitle(name, short, fit, processorOnly)}
       consequences={fitNumbers(fit)}
+      consequencesAt="start"
       onClose={onClose}
       actions={
         <>
