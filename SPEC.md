@@ -1169,29 +1169,18 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
     generation opened (cited ones marked) and the related sections it never opened, each opening in the panel; « not
     recorded » for a test without a ledger. A quote with a `quote-not-at-anchor` finding is not highlighted: the
     finding's message is shown above the passage.
-  - **Generate** — request, one picker per tracked kind (search by id or text over traces.find; requirements.csv text
-    for the requirement kind) — none when the project tracks nothing, with « Track ids… » instead —
-    sections (docs.show toc), folder; the index gate of §7 shown before the run (« Index not ready » with Reindex and
+  - **Generate** — request, documents and sections (docs.show toc), the smart columns Claude fills (their
+    descriptions, « Define the columns » when none is described), folder; the index gate of §7 shown before the run (« Index not ready » with Reindex and
     Generate disabled for a document of the scope not indexed, « Index not up to date » with Reindex for a stale one,
     Generate disabled while an index runs); gen.tests job shown live (passages read, tests landing as cards from « Writing
-    local-… » progress) and « What Claude did » (below); at the end check.run on the new tests, then the summary (written, requirements covered, not
+    local-… » progress) and « What Claude did » (below); at the end check.run on the new tests, then the summary (written, not
     covered + why) and « Review these tests ».
   - **Documents** — list (code · version, title, status, search state from docs.list.indexed, warnings);
     drop or pick .docx/.pdf → docs.add job (by `file` path in the desktop app, `{ name, dataBase64 }` in the browser) — when the index has no vectors on this PC, a line « Search on words only » gives the reason and « Choose a search pack » then rag.index job; detail edits status
     (Draft · Submitted · Validated), amends, context (docs.set); ⋯ ›
-    Delete (red) asks « Delete this document? » then docs.remove; shows the toc and the section text, each tracked kind's ids and the
-    figures as links. Above the list, « Tracked ids »: a chip per kind (count; a warning when its column is not in Xray),
-    « Track ids… » and « Coverage ».
-  - **Coverage** dialog (Documents, Generate, Settings › Tracked ids): per kind « N of M ids covered by K tests », a
-    bar, and Not covered / Covered / Not in the documents — each id with its document, section, line and the tests
-    and steps citing it (a click opens the test). « Generate tests for the N missing ids » opens Generate with them
-    picked. = traces.coverage.
-  - **Track ids** dialog (Documents, Generate, Settings): « What should Testimus pick out of the documents? » in words
-    (examples offered) → « Ask Claude » (traces.propose job, its reads shown) or « I know the pattern »; then a live
-    card — name, patterns (one per line, checked as typed), Xray step column (existing custom fields offered) — with
-    what the patterns find (ids, per document, first 12 with section and line), Claude's « why », and « What changes »:
-    the step column, the Generate picker, and whether Xray has the column (if not: how to add it, « Check Xray again »
-    = xray.fields). « Track these ids » = traces.save.
+    Delete (red) asks « Delete this document? » then docs.remove; shows the toc and the section text with its
+    figures as links. (No tracked ids and no coverage: the concept went on 2026-11-03, `cd9d7a8` — a step column is a
+    smart column Claude fills from its description, and requirement coverage is computed outside the app, §16.)
   - **Jobs** — list (kind, subject, progress, duration, result) and detail (live log from jobs.show + events, Cancel);
     a job in which Claude ran shows « What Claude did » instead of the plain log. « Run again » = `jobs.rerun`: the
     same command with the input the job kept (not kept when large or secret), the new job caused by the old one
@@ -1223,9 +1212,7 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
     « Analyse
     again » measures anew, « Use <pack> » (dry run; the models-folder dialog when a download needs a folder; then
     `models.usePack`), « Skip for now ».
-  - **Settings** — Project, Step fields, Tracked ids, Claude, Search, Models, Access, Appearance. Every change saves at once.
-    - **Tracked ids**: each kind with its patterns, ids found, column and « In Xray / Not in Xray yet », Coverage,
-      Change (the dialog), Stop tracking (confirmation; values already in tests stay).
+  - **Settings** — Project, Smart columns, Claude, Search, Models, Access, Appearance. Every change saves at once.
     - **Search**: the team reference (`project.json.rag.reference`), the models used on this PC and where that choice
       comes from (`rag.status.activation`: this PC's choice · the team reference · the project's v1 model · the Light
       pack · none), the models chosen but missing here, « Search on words only » with `rag.status.degraded`'s reason, the
