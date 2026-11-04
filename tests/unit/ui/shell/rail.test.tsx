@@ -10,6 +10,7 @@ import { SystemStatus } from "../../../../src/ui/components/shell/SystemStatus.t
 import { ThemeToggle } from "../../../../src/ui/components/shell/ThemeToggle.tsx";
 import { TopBar, TopBarContext, useTopBarSlots } from "../../../../src/ui/components/shell/TopBar.tsx";
 import { DataProvider } from "../../../../src/ui/lib/data/provider.tsx";
+import { useRead } from "../../../../src/ui/lib/data/query.ts";
 import { resetDoctor } from "../../../../src/ui/lib/doctor.ts";
 import { setThemeEverywhere } from "../../../../src/ui/lib/theme.ts";
 import { deferred, fakeEvents, fakeNet, net } from "../../cov-uishell-helpers.tsx";
@@ -33,6 +34,11 @@ afterEach(() => {
 });
 
 const onPalette = vi.fn();
+
+function Probe() {
+  useRead("system.doctor", { claude: true });
+  return null;
+}
 
 function Shell({ children }: { children?: ReactNode }) {
   const slots = useTopBarSlots();
@@ -76,10 +82,30 @@ describe("Rail, system status, theme and headers", () => {
       await gate.promise;
       return [{ id: "a", label: "A", state: "warn", detail: "" }];
     };
-    render(<SystemStatus onOpen={() => {}} />);
+    withData(<SystemStatus onOpen={() => {}} />);
     expect(screen.getByRole("button", { name: /System: Checking/ })).not.toHaveAttribute("aria-current");
     await act(async () => gate.resolve(null));
     expect(await screen.findByRole("button", { name: /System: Check\./ })).toHaveTextContent("Check");
+  });
+
+  it("takes the Claude sign-in probe of the System check in place of its « not checked » row", async () => {
+    net.routes["system.doctor"] = (i) =>
+      i.claude
+        ? [{ id: "claudeLogin", label: "Claude", state: "fail", detail: "signed out" }]
+        : [
+            { id: "node", label: "Node", state: "ok", detail: "" },
+            { id: "claudeLogin", label: "Claude", state: "skip", detail: "" },
+          ];
+    withData(<SystemStatus onOpen={() => {}} />);
+    expect(await screen.findByRole("button", { name: /System: All good/ })).toBeInTheDocument();
+    cleanup();
+    withData(
+      <>
+        <Probe />
+        <SystemStatus onOpen={() => {}} />
+      </>,
+    );
+    expect(await screen.findByRole("button", { name: /System: Needs you/ })).toBeInTheDocument();
   });
 
   it("follows a theme set elsewhere", () => {

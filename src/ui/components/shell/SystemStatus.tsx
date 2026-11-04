@@ -1,6 +1,7 @@
-import { useEffect } from "react";
-import type { CheckState } from "../../../core/types.ts";
-import { runDoctor, useDoctor, worst } from "../../lib/doctor.ts";
+import { useQuery } from "@tanstack/react-query";
+import type { CheckState, DoctorCheck } from "../../../core/types.ts";
+import { key, useRead } from "../../lib/data/query.ts";
+import { worst } from "../../lib/doctor.ts";
 import type { BadgeTone } from "../ui/Badge.tsx";
 import { RailItem } from "../ui/RailItem.tsx";
 
@@ -12,13 +13,17 @@ const LOOK: Record<CheckState | "unknown", { label: string; tone: BadgeTone }> =
   unknown: { label: "Checking", tone: "neutral" },
 };
 
-// ponytail: the system's state at the foot of the rail — the worst row of the last check, a click opens the check
+const checksOf = (v: unknown): DoctorCheck[] =>
+  Array.isArray(v) ? v : ((v as { checks?: DoctorCheck[] } | undefined)?.checks ?? []);
+
+// ponytail: the system's state at the foot of the rail — the worst row of the last check (the same read as the System
+// check screen; a Claude sign-in probe made there replaces its « not checked » row), a click opens the check
 export function SystemStatus({ current, onOpen }: { current?: boolean; onOpen: () => void }) {
-  const doctor = useDoctor();
-  useEffect(() => {
-    void runDoctor();
-  }, []);
-  const state: CheckState | "unknown" = doctor.at ? worst(doctor.checks) : "unknown";
+  const plain = useRead("system.doctor", {});
+  const probe = useQuery<unknown>({ queryKey: key("system.doctor", { claude: true }), enabled: false });
+  const probed = checksOf(probe.data);
+  const checks = checksOf(plain.data).map((c) => (c.state === "skip" ? (probed.find((p) => p.id === c.id) ?? c) : c));
+  const state: CheckState | "unknown" = plain.data ? worst(checks) : "unknown";
   const l = LOOK[state];
   return (
     <RailItem
