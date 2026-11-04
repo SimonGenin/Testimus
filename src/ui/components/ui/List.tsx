@@ -73,8 +73,9 @@ export type ListProps<T> = {
   density?: "one-line" | "two-line";
   /** full-width rows with a hairline (jobs, settings) */
   divided?: boolean;
-  /** sticky heads with a count; rows show in the groups' order */
-  groups?: { label: string; meta?: string; keys: string[] }[];
+  /** sticky heads with a count; rows show in the groups' order; action: a control in the head (« All 9 tests »);
+   head false: no head, the label only names the group */
+  groups?: { label: string; meta?: string; keys: string[]; action?: ReactNode; head?: boolean }[];
   /** skeleton rows in place of the rows (true: 3) — never the old rows */
   loading?: boolean | number;
   /** shown inside the list's frame when there is no row (an EmptyState) */
@@ -82,7 +83,13 @@ export type ListProps<T> = {
   /** paged lists: called near the end; with total, « x of y » on top until « All N loaded » */
   onEndReached?: () => void;
   total?: number;
+  /** the focus stays in a field that drives the list (a combobox, the palette): no row takes the focus, `selected` is
+   the active row, the field names it with aria-activedescendant={optionId(id, key)} and aria-controls={id}, the pointer
+   over a row makes it the active one, and the active row is scrolled into view */
+  activeDescendant?: { id: string; onActive: (key: string) => void };
 };
+
+export const optionId = (listId: string, key: string) => `${listId}-${encodeURIComponent(key)}`;
 
 type Row<T> = { key: string; item: T; props: ListItemProps; group?: number };
 
@@ -105,6 +112,7 @@ export function List<T>({
   empty,
   onEndReached,
   total,
+  activeDescendant: ad,
 }: ListProps<T>) {
   const refs = useRef(new Map<string, HTMLLIElement>());
   const end = useRef<HTMLLIElement>(null);
@@ -130,6 +138,11 @@ export function List<T>({
     io.observe(el);
     return () => io.disconnect();
   }, [onEndReached]);
+
+  const pointed = !!ad;
+  useEffect(() => {
+    if (pointed && selected) refs.current.get(selected)?.scrollIntoView?.({ block: "nearest" });
+  }, [pointed, selected]);
 
   const go = (key: string | undefined) => {
     if (key === undefined) return;
@@ -177,13 +190,15 @@ export function List<T>({
     <ListItem
       key={r.key}
       {...r.props}
+      id={ad ? optionId(ad.id, r.key) : r.props.id}
       ref={(el: HTMLLIElement | null) => {
         if (el) refs.current.set(r.key, el);
         else refs.current.delete(r.key);
       }}
       role={pick ? (tree ? "treeitem" : "option") : undefined}
       selected={pick && r.key === selected}
-      tabbable={pick && r.key === tabStop}
+      tabbable={pick && !ad && r.key === tabStop}
+      focusable={!ad}
       twoLine={density === "two-line"}
       divided={divided}
       onActivate={() => {
@@ -192,12 +207,14 @@ export function List<T>({
       }}
       onToggle={() => onToggle?.(r.key)}
       onFocusRow={() => setFocusKey(r.key)}
+      onHover={ad ? () => ad.onActive(r.key) : undefined}
       onKeyDown={(e) => key(e, r)}
     />
   );
   const paged = total !== undefined;
   return (
     <ul
+      id={ad?.id}
       role={pick ? (tree ? "tree" : "listbox") : undefined}
       aria-label={label}
       aria-busy={busy || undefined}
@@ -221,10 +238,17 @@ export function List<T>({
               return (
                 <li key={g.label} role="presentation" {...stylex.props(styles.group)}>
                   <ul role={pick ? "group" : undefined} aria-label={g.label} {...stylex.props(styles.group)}>
-                    <li role="presentation" aria-hidden="true" {...stylex.props(styles.head)}>
-                      {g.label}
-                      {g.meta && <span {...stylex.props(styles.headMeta)}>{g.meta}</span>}
-                    </li>
+                    {g.head !== false && (
+                      <li role="presentation" {...stylex.props(styles.head)}>
+                        <span aria-hidden="true">{g.label}</span>
+                        {g.action}
+                        {g.meta && (
+                          <span aria-hidden="true" {...stylex.props(styles.headMeta)}>
+                            {g.meta}
+                          </span>
+                        )}
+                      </li>
+                    )}
                     {inGroup.map(item)}
                   </ul>
                 </li>

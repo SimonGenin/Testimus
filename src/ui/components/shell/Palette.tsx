@@ -4,12 +4,13 @@ import type { SearchKind, SearchMatch } from "../../../core/types.ts";
 import type { CommandInfo } from "../../lib/data/client.ts";
 import { plural } from "../../lib/format.ts";
 import { recentHits, useSearch } from "../../lib/search.ts";
-import { border, color, fontSize, fontWeight, lineHeight, size, space } from "../../styles/tokens.stylex.ts";
+import { border, color, size, space } from "../../styles/tokens.stylex.ts";
 import { Badge } from "../ui/Badge.tsx";
 import { Button } from "../ui/Button.tsx";
 import { EmptyState } from "../ui/EmptyState.tsx";
 import { Icon } from "../ui/Icon.tsx";
-import { ListItem, type ListItemProps } from "../ui/ListItem.tsx";
+import { List, optionId } from "../ui/List.tsx";
+import type { ListItemProps } from "../ui/ListItem.tsx";
 import { Modal } from "../ui/Modal.tsx";
 import { Skeleton } from "../ui/Skeleton.tsx";
 import { Spinner } from "../ui/Spinner.tsx";
@@ -42,27 +43,7 @@ const styles = stylex.create({
     borderColor: color.border,
   },
   grow: { flex: 1, minWidth: 0 },
-  list: {
-    boxSizing: "border-box",
-    margin: 0,
-    padding: space.s2,
-    listStyle: "none",
-    maxHeight: "60vh",
-    overflowY: "auto",
-  },
-  group: { margin: 0, padding: 0, listStyle: "none" },
-  groupHead: {
-    display: "flex",
-    alignItems: "center",
-    gap: space.s3,
-    paddingBlock: space.s3,
-    paddingInline: space.s3,
-    color: color.textMuted,
-    fontSize: fontSize.caption,
-    lineHeight: lineHeight.caption,
-    fontWeight: fontWeight.semibold,
-  },
-  groupMeta: { marginInlineStart: "auto", color: color.textSubtle, fontWeight: fontWeight.regular },
+  list: { boxSizing: "border-box", maxHeight: "60vh", overflowY: "auto" },
   loading: { display: "flex", flexDirection: "column", gap: space.s3, padding: space.s4 },
   clear: { display: "inline-flex", alignItems: "center", minHeight: size.controlSm },
 });
@@ -166,7 +147,7 @@ export function Palette({
   const rows = groups.flatMap((g) => g.rows);
   const total = rows.length;
   const cur = Math.min(at, Math.max(0, total - 1));
-  const optionId = (i: number) => `${id}-o${i}`;
+  const listId = `${id}-list`;
   const pick = (i: number) => {
     const r = rows[i];
     if (!r) return;
@@ -210,7 +191,6 @@ export function Palette({
   };
 
   const waiting = searching && !!q && s.loading && !result;
-  let n = -1;
   return (
     <Modal title="Search everywhere" frameless size="lg" onClose={onClose}>
       <div {...stylex.props(styles.head)}>
@@ -225,7 +205,11 @@ export function Palette({
           placeholder={onHit ? "Search tests, documents, passages — or run a command" : "Run a command"}
           autoFocus
           spellCheck={false}
-          combobox={{ expanded: true, controls: `${id}-list`, activeDescendant: total ? optionId(cur) : undefined }}
+          combobox={{
+            expanded: true,
+            controls: listId,
+            activeDescendant: total ? optionId(listId, rows[cur].id) : undefined,
+          }}
           onKeyDown={onKeyDown}
           trailing={
             searching && q && s.loading ? (
@@ -256,47 +240,31 @@ export function Palette({
           <Skeleton kind="row" />
         </div>
       ) : total ? (
-        <ul id={`${id}-list`} {...{ role: "listbox" }} aria-label="Results" {...stylex.props(styles.list)}>
-          {groups.map((g) => (
-            <li key={g.id} role="presentation">
-              {g.title && (
-                <div {...stylex.props(styles.groupHead)}>
-                  <span>{g.title}</span>
-                  {g.more && (
-                    <Button
-                      variant="quiet"
-                      size="xs"
-                      label={g.more.label}
-                      onClick={() => g.more && pickScope(g.more.scope)}
-                    />
-                  )}
-                  {g.meta && <span {...stylex.props(styles.groupMeta)}>{g.meta}</span>}
-                </div>
-              )}
-              <ul {...{ role: "group" }} aria-label={g.title || "Claude"} {...stylex.props(styles.group)}>
-                {g.rows.map((r) => {
-                  n++;
-                  const i = n;
-                  return (
-                    <ListItem
-                      key={r.id}
-                      {...r.props}
-                      role="option"
-                      id={optionId(i)}
-                      selected={i === cur}
-                      onActivate={() => pick(i)}
-                      ref={(el) => {
-                        if (!el) return;
-                        if (i === cur) el.scrollIntoView?.({ block: "nearest" });
-                        el.onmouseenter = () => setAt(i);
-                      }}
-                    />
-                  );
-                })}
-              </ul>
-            </li>
-          ))}
-        </ul>
+        <div {...stylex.props(styles.list)}>
+          <List
+            label="Results"
+            items={rows}
+            getKey={(r) => r.id}
+            renderItem={(r) => r.props}
+            selected={rows[cur]?.id ?? null}
+            onSelect={(k) => pick(rows.findIndex((r) => r.id === k))}
+            groups={groups.map((g) => ({
+              label: g.title || "Claude",
+              head: !!g.title,
+              meta: g.meta,
+              keys: g.rows.map((r) => r.id),
+              action: g.more && (
+                <Button
+                  variant="quiet"
+                  size="xs"
+                  label={g.more.label}
+                  onClick={() => g.more && pickScope(g.more.scope)}
+                />
+              ),
+            }))}
+            activeDescendant={{ id: listId, onActive: (k) => setAt(rows.findIndex((r) => r.id === k)) }}
+          />
+        </div>
       ) : (
         <EmptyState
           compact

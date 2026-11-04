@@ -109,11 +109,15 @@ export type ListRowProps = ListItemProps & {
   role?: "option" | "treeitem";
   selected?: boolean;
   tabbable?: boolean;
+  /** false: the row never takes the focus (a field keeps it and points at the row) */
+  focusable?: boolean;
   twoLine?: boolean;
   divided?: boolean;
   onActivate?: () => void;
   onToggle?: () => void;
   onFocusRow?: () => void;
+  /** the pointer came over the row */
+  onHover?: () => void;
   onKeyDown?: (e: KeyboardEvent<HTMLLIElement>) => void;
   ref?: Ref<HTMLLIElement>;
 };
@@ -137,11 +141,13 @@ export function ListItem({
   role,
   selected = false,
   tabbable = false,
+  focusable = true,
   twoLine = false,
   divided = false,
   onActivate,
   onToggle,
   onFocusRow,
+  onHover,
   onKeyDown,
   ref,
 }: ListRowProps) {
@@ -166,8 +172,9 @@ export function ListItem({
       ref={ref}
       role={role}
       {...aria}
-      tabIndex={interactive ? (tabbable ? 0 : -1) : undefined}
+      tabIndex={interactive && focusable ? (tabbable ? 0 : -1) : undefined}
       onPointerEnter={() => setHover(true)}
+      onMouseEnter={onHover}
       onPointerLeave={() => setHover(false)}
       onFocus={(e) => {
         setWithin(true);

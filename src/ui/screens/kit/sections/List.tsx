@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Badge, ReviewBadge, SYNC } from "../../../components/ui/Badge.tsx";
 import { Button } from "../../../components/ui/Button.tsx";
 import { EmptyState } from "../../../components/ui/EmptyState.tsx";
 import { Icon } from "../../../components/ui/Icon.tsx";
-import { List } from "../../../components/ui/List.tsx";
+import { List, optionId } from "../../../components/ui/List.tsx";
 import { Spinner } from "../../../components/ui/Spinner.tsx";
+import { Text } from "../../../components/ui/Text.tsx";
 import { Cell, type KitSection, States } from "../kit.tsx";
 
 const TESTS = [
@@ -108,12 +109,64 @@ function FolderTree() {
   );
 }
 
+const RESULTS = [
+  { id: "go:tests", group: "Go to", title: "Tests", lead: <Icon name="tests" /> },
+  { id: "go:docs", group: "Go to", title: "Documents", lead: <Icon name="documents" /> },
+  { id: "test:LFRPS12-1420", group: "Tests", title: "Sectionneur sans TK", lead: <Icon name="tests" /> },
+  { id: "ask", group: "", title: "Ask Claude: “sectionneur”", lead: <Icon name="claude" /> },
+];
+
+function DrivenList() {
+  const id = useId();
+  const [active, setActive] = useState(RESULTS[2].id);
+  const move = (by: number) => {
+    const i = RESULTS.findIndex((r) => r.id === active);
+    setActive(RESULTS[Math.min(RESULTS.length - 1, Math.max(0, i + by))].id);
+  };
+  return (
+    <>
+      <Text
+        value="sectionneur"
+        onChange={() => {}}
+        ariaLabel="Search"
+        icon="search"
+        combobox={{ expanded: true, controls: id, activeDescendant: optionId(id, active) }}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+            e.preventDefault();
+            move(e.key === "ArrowDown" ? 1 : -1);
+          }
+        }}
+      />
+      <List
+        label="Results"
+        items={RESULTS}
+        getKey={(r) => r.id}
+        renderItem={(r) => ({ title: r.title, lead: r.lead })}
+        selected={active}
+        onSelect={setActive}
+        activeDescendant={{ id, onActive: setActive }}
+        groups={[
+          { label: "Go to", keys: ["go:tests", "go:docs"] },
+          {
+            label: "Tests",
+            meta: "9",
+            keys: ["test:LFRPS12-1420"],
+            action: <Button variant="quiet" size="xs" label="All 9 tests" />,
+          },
+          { label: "Claude", head: false, keys: ["ask"] },
+        ]}
+      />
+    </>
+  );
+}
+
 export const section: KitSection = {
   name: "List",
   family: "Collections",
   file: "List.tsx",
   summary:
-    "Every vertical list of things you pick from: tests, Jira folders, documents, the review queue, jobs, contexts, palette results. One tab stop; the arrows move, Enter or a click picks. Status is a badge in the row, never a coloured row.",
+    "Every vertical list of things you pick from: tests, Jira folders, documents, the review queue, jobs, contexts, palette results. One tab stop; the arrows move, Enter or a click picks — or, driven by a field (activeDescendant), the focus stays in the field and the list follows it. Status is a badge in the row, never a coloured row.",
   states: () => (
     <States>
       <Cell label="two-line · group · selected, hover (actions), focus, disabled" wide column>
@@ -131,6 +184,13 @@ export const section: KitSection = {
           getKey={(j) => j.id}
           renderItem={(j) => ({ title: j.title, lead: j.icon, trail: j.trail, danger: j.danger })}
         />
+      </Cell>
+      <Cell
+        label="activeDescendant · the focus stays in the field (the palette) · group action · group without a head"
+        wide
+        column
+      >
+        <DrivenList />
       </Cell>
       <Cell label="loading (skeleton rows)" column>
         <List label="Loading tests" items={[]} getKey={String} renderItem={() => ({ title: "" })} loading />
