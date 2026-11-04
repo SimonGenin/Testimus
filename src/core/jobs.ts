@@ -6,7 +6,7 @@ import { isAlive } from "../shared/run/process.ts";
 import { sleep } from "../shared/run/work.ts";
 import { type Ctx, UserError } from "./command.ts";
 import { env } from "./env.ts";
-import { changedPaths, stampProject } from "./lib/changed.ts";
+import { addedRemoved, changedPaths, stampProject } from "./lib/changed.ts";
 import { withPerfScope } from "./lib/models-perf.ts";
 import type { Job, JobCause, JobEvent, JobProcess, JobStep } from "./types.ts";
 
@@ -260,8 +260,10 @@ export function startJob(
       }
       // ponytail: a job says which project files it left changed (a Claude run, a pull, a conversion) before it
       // ends, so every view showing one of them reads it again — whoever started the job
-      const paths = project && before ? changedPaths(before, stampProject(project)) : [];
-      if (paths.length) emit(l, { jobId: id, at: at(), type: "changed", paths });
+      const after = project && before ? stampProject(project) : null;
+      const paths = before && after ? changedPaths(before, after) : [];
+      if (before && after && paths.length)
+        emit(l, { jobId: id, at: at(), type: "changed", paths, ...addedRemoved(before, after, paths) });
       emit(l, { jobId: id, at: at(), type: "status", job: { ...job } });
     }
   })();

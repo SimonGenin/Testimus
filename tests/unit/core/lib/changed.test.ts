@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startJob, subscribe } from "../../../../src/core/jobs.ts";
-import { changedPaths, stampProject } from "../../../../src/core/lib/changed.ts";
+import { addedRemoved, changedPaths, stampProject } from "../../../../src/core/lib/changed.ts";
 import type { JobEvent } from "../../../../src/core/types.ts";
 
 let dir: string;
@@ -32,12 +32,18 @@ describe("what a job left changed in the project", () => {
     put("tests/local-3/test.md", "# three");
     rmSync(join(dir, "tests", "local-2"), { recursive: true });
     put("docs/D/figures/f1.png", "png");
-    expect(changedPaths(before, stampProject(dir))).toEqual([
+    const after = stampProject(dir);
+    const paths = changedPaths(before, after);
+    expect(paths).toEqual([
       "docs/D/figures/f1.png",
       "tests/local-1/test.md",
       "tests/local-2/test.md",
       "tests/local-3/test.md",
     ]);
+    expect(addedRemoved(before, after, paths)).toEqual({
+      added: ["docs/D/figures/f1.png", "tests/local-3/test.md"],
+      removed: ["tests/local-2/test.md"],
+    });
   });
 
   it("sees a rewrite of the same size by its time", () => {
@@ -83,7 +89,7 @@ describe("a job's changed event", () => {
       throw new Error("stopped half way");
     });
     expect(seen.map((e) => e.type)).toEqual(["status", "changed", "status"]);
-    expect(seen[1]).toMatchObject({ type: "changed", paths: ["tests/local-1/test.md"] });
+    expect(seen[1]).toMatchObject({ type: "changed", paths: ["tests/local-1/test.md"], added: [], removed: [] });
   });
 
   it("is not sent when nothing changed, nor for a job of no project", async () => {

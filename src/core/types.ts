@@ -694,7 +694,7 @@ export type JobEvent = (
   | { jobId: string; at: string; type: "claude"; event: ClaudeEvent; step?: string; process?: string }
   | { jobId: string; at: string; type: "steps"; steps: JobStep[] }
   | { jobId: string; at: string; type: "process"; process: JobProcess }
-  | { jobId: string; at: string; type: "changed"; paths: string[] }
+  | { jobId: string; at: string; type: "changed"; paths: string[]; added?: string[]; removed?: string[] }
   | { jobId: ""; at: string; type: "notice"; message: string }
 ) & { project?: string | null };
 

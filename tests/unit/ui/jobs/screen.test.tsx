@@ -452,7 +452,7 @@ describe("Jobs › the design's icons (audit icons 86–92)", () => {
     expect(state.navigate).not.toHaveBeenCalledWith("jobs", "g1");
   });
 
-  it("marks each changed file, every process of a step with the terminal, and unfolds the log with a chevron", async () => {
+  it("marks each changed file as added, modified or deleted, every process of a step with the terminal, and unfolds the log with a chevron", async () => {
     server = [
       job({
         id: "g1",
@@ -474,12 +474,26 @@ describe("Jobs › the design's icons (audit icons 86–92)", () => {
     ];
     net.routes["jobs.show"] = () => ({
       job: null,
-      events: [{ jobId: "g1", at: "", type: "changed", paths: ["tests/local-1/test.md", "tests/local-2/test.md"] }],
+      events: [
+        {
+          jobId: "g1",
+          at: "",
+          type: "changed",
+          paths: ["tests/local-1/test.md", "tests/local-2/test.md", "tests/local-3/test.md"],
+          added: ["tests/local-2/test.md"],
+          removed: ["tests/local-3/test.md"],
+        },
+      ],
     });
     jobsScreen({ route: { screen: "jobs", arg: "g1" } });
     const side = await waitFor(() => detail("Generate tests job"));
-    const files = await within(side).findByRole("region", { name: "Files changed · 2" });
-    for (const li of within(files).getAllByRole("listitem")) expect(iconsIn(li)).toEqual(["file"]);
+    const files = await within(side).findByRole("region", { name: "Files changed · 3" });
+    const rows = within(files).getAllByRole("listitem");
+    expect(rows.map((li) => [iconsIn(li), li.textContent])).toEqual([
+      [["file"], "tests/local-1/test.mdmodified"],
+      [["plus"], "tests/local-2/test.mdadded"],
+      [["trash"], "tests/local-3/test.mddeleted"],
+    ]);
     const procs = within(side).getByRole("list", { name: "Processes of Read the sources" });
     expect(iconsIn(within(procs).getByRole("listitem"))).toEqual(["terminal"]);
     expect(iconsIn(within(side).getByRole("button", { name: "Show the full log" }))).toEqual(["chevron-right"]);
