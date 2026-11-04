@@ -54,7 +54,7 @@ export function AppearanceSection() {
           </Grid>
           <span {...stylex.props(styles.kept)}>
             <Icon name="history" size="sm" />
-            <Hint>Theme, layout, widths and recent tests are kept on this PC across restarts.</Hint>
+            <Hint>Theme, layout, widths and the palette's recent hits are kept on this PC across restarts.</Hint>
           </span>
         </Stack>
       </Card>
