@@ -287,13 +287,6 @@ describe("TestList › local", () => {
     fireEvent.click(screen.getByRole("button", { name: "Show the test in Explorer" }));
     expect(reveal).toHaveBeenCalledWith("C:\\p\\tests\\t-a\\test.md");
   });
-
-  it("closes the drawer", () => {
-    const onCloseDrawer = vi.fn();
-    list({ onCloseDrawer });
-    fireEvent.click(screen.getByRole("button", { name: "Close list" }));
-    expect(onCloseDrawer).toHaveBeenCalled();
-  });
 });
 
 describe("TestList › delete", () => {

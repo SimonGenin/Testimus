@@ -8,7 +8,7 @@ const MAX = 4000;
 const DEFAULT = 1180;
 
 const styles = stylex.create({
-  scroll: { flex: 1, minHeight: 0, overflow: "auto" },
+  scroll: { flex: 1, minHeight: 0, overflow: "auto", isolation: "isolate" },
   col: {
     position: "relative",
     boxSizing: "border-box",

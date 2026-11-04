@@ -149,7 +149,6 @@ export function TestsScreen() {
         if (id === activeId) navigate("tests");
         void reload();
       }}
-      onCloseDrawer={narrow ? () => setDrawer(false) : undefined}
     />
   );
 
@@ -236,8 +235,12 @@ export function TestsScreen() {
               ) : (
                 <EmptyState
                   icon="tests"
-                  title="Pick a test on the left"
-                  text="Local tests open straight from the project folder; a Jira test is pulled the first time you open it."
+                  title={narrow ? "No test open" : "Pick a test on the left"}
+                  text={
+                    narrow
+                      ? "Open the test list to pick one; a Jira test is pulled the first time you open it."
+                      : "Local tests open straight from the project folder; a Jira test is pulled the first time you open it."
+                  }
                 />
               )}
             </div>

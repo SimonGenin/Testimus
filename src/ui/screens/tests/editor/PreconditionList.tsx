@@ -2,16 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import type { Precondition } from "../../../../core/types.ts";
 import { Chip } from "../../../components/ui/Chip.tsx";
 import { Icon } from "../../../components/ui/Icon.tsx";
-import {
-  border,
-  color,
-  fontFamily,
-  fontSize,
-  fontWeight,
-  lineHeight,
-  radius,
-  space,
-} from "../../../styles/tokens.stylex.ts";
+import { color, fontFamily, fontSize, fontWeight, lineHeight, radius, space } from "../../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
   panel: {
@@ -20,9 +11,6 @@ const styles = stylex.create({
     gap: space.s3,
     paddingBlock: space.s4,
     paddingInline: space.s5,
-    borderStyle: "dashed",
-    borderWidth: border.width,
-    borderColor: color.borderControl,
     borderRadius: radius.r3,
     backgroundColor: color.surfaceSunken,
   },

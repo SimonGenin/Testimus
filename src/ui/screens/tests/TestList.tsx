@@ -60,7 +60,6 @@ export function TestList({
   pulling = [],
   onPull,
   onDeleted,
-  onCloseDrawer,
 }: {
   refs: LocalTestRef[];
   loading: boolean;
@@ -71,7 +70,6 @@ export function TestList({
   onPull?: (key: string, summary: string) => void;
   onDeleted?: (id: string) => void;
   /** in the drawer of a narrow window: how to close it */
-  onCloseDrawer?: () => void;
 }) {
   const app = useApp();
   const client = useQueryClient();
@@ -306,9 +304,6 @@ export function TestList({
           jiraOff={!!p?.jiraOffline}
         />
         <span {...stylex.props(styles.grow)} />
-        {onCloseDrawer && (
-          <Button variant="quiet" size="sm" iconOnly icon="close" label="Close list" onClick={onCloseDrawer} />
-        )}
       </div>
       {(v.tab === "local" || jiraOn) && (
         <ListTools

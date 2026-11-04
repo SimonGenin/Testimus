@@ -181,7 +181,6 @@ function list(props: Partial<Parameters<typeof TestList>[0]> = {}) {
   );
 }
 
-const side = () => screen.getByRole("complementary", { name: "Tests" });
 const folder = (name: RegExp) => screen.findByRole("treeitem", { name });
 const opt = (name: RegExp) => screen.findByRole("option", { name });
 const tipIn = (row: HTMLElement) =>
@@ -680,7 +679,7 @@ describe("Tests screen › layout", () => {
     fireEvent.keyDown(drawer() as HTMLElement, { key: "Escape" });
     expect(drawer()).toBeNull();
     fireEvent.click(toggle());
-    fireEvent.click(within(side()).getByRole("button", { name: "Close list" }));
+    fireEvent.click(within(drawer() as HTMLElement).getByRole("button", { name: "Close" }));
     expect(drawer()).toBeNull();
     fireEvent.click(toggle());
     routes["tests.show"] = () => new Promise(() => {});

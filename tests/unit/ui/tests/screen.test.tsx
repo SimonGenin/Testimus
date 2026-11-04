@@ -325,7 +325,7 @@ describe("TestsScreen", () => {
     fireEvent.mouseDown(screen.getByRole("dialog", { name: "Tests" }).parentElement as HTMLElement);
     expect(toggle).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(toggle);
-    fireEvent.click(screen.getByRole("button", { name: "Close list" }));
+    fireEvent.click(within(screen.getByRole("dialog", { name: "Tests" })).getByRole("button", { name: "Close" }));
     expect(toggle).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(toggle);
     fireEvent.click(await row(/^Test t1/));

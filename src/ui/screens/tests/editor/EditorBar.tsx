@@ -3,7 +3,17 @@ import type { ReactNode } from "react";
 import { Button } from "../../../components/ui/Button.tsx";
 import { Menu, type MenuEntry } from "../../../components/ui/Menu.tsx";
 import type { AutosaveStatus } from "../../../lib/data/autosave.ts";
-import { border, color, fontFamily, fontSize, lineHeight, size, space, z } from "../../../styles/tokens.stylex.ts";
+import {
+  border,
+  breakpoint,
+  color,
+  fontFamily,
+  fontSize,
+  lineHeight,
+  size,
+  space,
+  z,
+} from "../../../styles/tokens.stylex.ts";
 import { FolderPicker } from "./FolderPicker.tsx";
 import { SaveStatus } from "./SaveStatus.tsx";
 
@@ -13,10 +23,12 @@ const styles = stylex.create({
     position: "relative",
     zIndex: z.sticky,
     display: "flex",
+    flexWrap: "wrap",
     alignItems: "center",
     gap: space.s3,
     minHeight: size.row2,
-    paddingInlineStart: space.s5,
+    paddingBlock: { default: 0, [breakpoint.narrow]: space.s2 },
+    paddingInlineStart: { default: space.s5, [breakpoint.narrow]: space.s3 },
     paddingInlineEnd: space.s4,
     backgroundColor: color.surface,
     borderBottomStyle: "solid",

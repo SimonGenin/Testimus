@@ -47,7 +47,7 @@ test("#/tests with no test open fits a 520 px window", async ({ page }) => {
   await boot(page, "#/tests");
   const main = page.getByRole("main");
   await expect(main).toBeInViewport();
-  await expect(main.getByRole("heading", { name: "No test open" })).toBeInViewport();
+  await expect(main.getByText("No test open", { exact: true })).toBeInViewport();
   await expect(page.getByRole("button", { name: "Show test list" })).toBeInViewport();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
 });
@@ -70,7 +70,7 @@ test("the split layout stacks Expected Result under Action below 760 px of card,
   await page.setViewportSize({ width: 1440, height: 960 });
   await openTest(page, "LFRPS12-1420");
   const main = page.getByRole("main");
-  await main.getByRole("button", { name: "Action | Expected" }).click();
+  await main.getByRole("radio", { name: "Action | Expected" }).click();
   const action = main.getByRole("textbox", { name: "Action of step 1" });
   const expected = main.getByRole("textbox", { name: "Expected Result of step 1" });
   const boxes = async () => {

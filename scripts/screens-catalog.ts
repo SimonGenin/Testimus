@@ -46,6 +46,7 @@ function any(page: Page | Locator, name: string | RegExp): Locator {
     .or(by("menuitemradio"))
     .or(by("link"))
     .or(by("option"))
+    .or(by("treeitem"))
     .first();
 }
 
@@ -910,7 +911,7 @@ function slowShots(): Shot[] {
         await tap(p, "Push to Jira");
         await dialog(p, "Push plan");
         await tap(p, "Confirm push");
-        await dialog(p, "Pushing to Jira");
+        await dialog(p, /^Pushing .* to Jira$/);
         await p.waitForTimeout(800);
       },
     },

@@ -62,7 +62,6 @@ export function TestDetails({
       <ChipField
         label="Labels"
         showLabel
-        appearance="inline"
         placeholder="Add a label…"
         values={test.labels}
         onChange={readOnly ? undefined : (labels) => update((t) => ({ ...t, labels }))}
@@ -70,7 +69,6 @@ export function TestDetails({
       <ChipField
         label="Covers"
         showLabel
-        appearance="inline"
         mono
         placeholder="Add an issue key…"
         values={test.covers}
