@@ -84,7 +84,7 @@ src/core/mock/       --mock: fixture Jira (jira.ts, jira/), scripted Claude (cla
                      models, sandbox setup
 src/shared/          Node only, used by the core and the desktop shell: run/work.ts (sleep, timeout, retry,
                      semaphore, scope, every, debounce), run/process.ts (start, run, kill the tree, live children,
-                     exit with the parent), loopback, table
+                     exit with the parent), loopback, table, tests (which test a file path touches)
 src/faces/           cli.ts, mcp.ts, http.ts — thin adapters over the registry, no domain logic
 src/desktop/         Electron shell: main, preload, bridge (+ bridge-types), core spawn, window, log,
                      pages/ (splash, error); bundled by scripts/desktop.ts
