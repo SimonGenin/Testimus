@@ -420,6 +420,10 @@ describe("DocDetail", () => {
     expect(dialog).toHaveTextContent(
       "This cannot be undone: to get it back, add x.pdf again (status and context start over).",
     );
+    const counts = row(/^passages removed/)?.parentElement as HTMLElement;
+    const follows = (a: Element, b: Element) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(follows(counts, list)).toBe(true);
+    expect(follows(list, within(dialog).getByText(/^This cannot be undone/))).toBe(true);
     expect(within(list).getAllByRole("listitem")).toHaveLength(8);
     expect(within(list).getByText("T-1")).toBeInTheDocument();
     expect(dialog).toHaveTextContent("and 2 more");

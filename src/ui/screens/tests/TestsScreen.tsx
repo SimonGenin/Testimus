@@ -9,6 +9,7 @@ import { ResizeHandle } from "../../components/ui/ResizeHandle.tsx";
 import { useApp } from "../../lib/app.ts";
 import { project } from "../../lib/data/client.ts";
 import { execute, useRead } from "../../lib/data/query.ts";
+import { keepDraft } from "../../lib/drafts.ts";
 import { usePaneWidth } from "../../lib/panes.ts";
 import { errorToast } from "../../lib/toast.ts";
 import { border, color, fontSize, fontWeight, lineHeight, size, space } from "../../styles/tokens.stylex.ts";
@@ -127,10 +128,13 @@ export function TestsScreen() {
     [reload, navigate],
   );
 
-  // ponytail: only validated tests live in Tests — a generated test still in review opens in Review
+  // ponytail: only validated tests live in Tests — a generated test still in review opens in Review, and Tests forgets
+  // it (else the rail, which reopens what was open on a screen, would send every visit of Tests back to Review)
   useEffect(() => {
     const ref = refs.find((r) => r.id === activeId);
-    if ((ref as Listed | undefined)?.awaiting) navigate("review", activeId);
+    if (!(ref as Listed | undefined)?.awaiting) return;
+    keepDraft("route.tests", undefined);
+    navigate("review", activeId);
   }, [refs, activeId, navigate]);
 
   useEffect(() => {
