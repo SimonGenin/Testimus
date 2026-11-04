@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DocRef, Job, LocalTestRef } from "../../../../src/core/types.ts";
 import { setProject } from "../../../../src/ui/lib/data/client.ts";
 import { GenerateScreen } from "../../../../src/ui/screens/generate/GenerateScreen.tsx";
+import { checkedRun, pickRun, runChoice } from "../../helpers/run-choice.ts";
 import { api, FakeEventSource, named, xray } from "../../helpers/ui-desktop.tsx";
 import { clearToasts } from "../../helpers/ui-screens.tsx";
 import { at, job, output, ref, test } from "./fixtures.ts";
@@ -95,8 +96,9 @@ describe("Generate screen", () => {
     const { app: a } = mountData(<GenerateScreen />);
     expect(await screen.findByRole("region", { name: "Premier" })).toBeInTheDocument();
     expect(screen.getByText("It hit the limit")).toBeInTheDocument();
-    expect(screen.getByLabelText("Model")).toHaveDisplayValue("Project default · Claude-x");
-    expect(screen.getByLabelText("Effort")).toHaveDisplayValue("Project default · medium");
+    expect(runChoice()).toHaveAccessibleName("Claude-x · medium");
+    expect(checkedRun("Model")).toBe("Project default · Claude-x");
+    expect(checkedRun("Effort")).toBe("Project default · medium");
     expect(go(/^Generate again/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Open in Review" }));
     expect(a.navigate).toHaveBeenCalledWith("review", "local-aaaaaaaa");
@@ -116,8 +118,8 @@ describe("Generate screen", () => {
     api.routes["jobs.list"] = () => null;
     mountData(<GenerateScreen />);
     expect(await screen.findByText("Tests appear here as Claude writes them")).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByLabelText("Model")).toHaveDisplayValue("Project default · Opus"));
-    expect(screen.getByLabelText("Effort")).toHaveDisplayValue("Project default · high");
+    await waitFor(() => expect(runChoice()).toHaveAccessibleName("Opus · high"));
+    expect(checkedRun("Model")).toBe("Project default · Opus");
     cleanup();
     api.routes["jobs.list"] = () => [job({ id: "g1", status: "failed" })];
     api.routes["jobs.show"] = () => ({ job: job({ id: "g1", status: "failed", error: "Claude crashed" }), events: [] });
@@ -232,8 +234,8 @@ describe("Generate screen", () => {
     expect(await screen.findByText(/2 saved contexts/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Habilitations", pressed: true }));
     expect(screen.getByRole("button", { name: "Habilitations", pressed: false })).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Model"), { target: { value: "opus" } });
-    fireEvent.change(screen.getByLabelText("Effort"), { target: { value: "max" } });
+    pickRun("Opus");
+    pickRun("Max");
     fireEvent.click(screen.getByRole("button", { name: "Choose…" }));
     fireEvent.click(
       await screen
@@ -259,13 +261,13 @@ describe("Generate screen", () => {
     cleanup();
     mountData(<GenerateScreen />);
     expect(await screen.findByText("Traction")).toBeInTheDocument();
-    expect(screen.getByLabelText("Model")).toHaveValue("opus");
-    expect(screen.getByLabelText("Effort")).toHaveValue("max");
+    expect(runChoice()).toHaveAccessibleName("Opus · max");
+    expect(checkedRun("Model")).toBe("Opus");
     expect(screen.getByLabelText("What should be tested?")).toHaveValue(" PCC ");
-    fireEvent.change(screen.getByLabelText("Model"), { target: { value: "" } });
-    fireEvent.change(screen.getByLabelText("Effort"), { target: { value: "" } });
-    expect(screen.getByLabelText("Model")).toHaveDisplayValue("Project default · Sonnet");
-    expect(screen.getByLabelText("Effort")).toHaveDisplayValue("Project default · medium");
+    pickRun("Project default · Sonnet");
+    pickRun("Project default · medium");
+    expect(runChoice()).toHaveAccessibleName("Sonnet · medium");
+    expect(checkedRun("Effort")).toBe("Project default · medium");
   });
 
   it("takes a model the list does not know, typed in, once it is valid", async () => {
@@ -273,7 +275,7 @@ describe("Generate screen", () => {
     api.routes["gen.tests"] = () => ({});
     mountData(<GenerateScreen />);
     await screen.findByText("Traction");
-    fireEvent.change(screen.getByLabelText("Model"), { target: { value: "custom" } });
+    pickRun("Custom…");
     const typed = screen.getByLabelText("Custom model");
     fireEvent.change(typed, { target: { value: "bad model" } });
     fireEvent.blur(typed);
@@ -281,7 +283,7 @@ describe("Generate screen", () => {
     fireEvent.change(typed, { target: { value: "claude-opus-4-1" } });
     fireEvent.keyDown(typed, { key: "Enter" });
     expect(screen.queryByLabelText("Custom model")).toBeNull();
-    expect(screen.getByLabelText("Model")).toHaveDisplayValue("Claude-opus-4-1");
+    expect(runChoice()).toHaveAccessibleName(/^Claude-opus-4-1 · /);
     fireEvent.click(go());
     await waitFor(() => expect(named("gen.tests")).toHaveLength(1));
     expect(named("gen.tests")[0].input.model).toBe("claude-opus-4-1");

@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { runChoice } from "../../helpers/run-choice.ts";
 import "@testing-library/jest-dom/vitest";
 import { act, cleanup, fireEvent, render as rtlRender, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -47,8 +48,7 @@ describe("dock remaining paths", () => {
         <ClaudeDock folded={false} onFold={() => {}} />
       </AppContext.Provider>,
     );
-    expect(screen.getByRole("combobox", { name: "Model" })).toHaveValue("opus");
-    expect(screen.getByRole("combobox", { name: "Effort" })).toHaveValue("high");
+    expect(runChoice()).toHaveAccessibleName("opus · high");
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "Q" } });
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
     await waitFor(() => expect(callsOf("claude.run")).toHaveLength(1));

@@ -17,9 +17,9 @@ import {
 } from "../../styles/tokens.stylex.ts";
 import { Button } from "./Button.tsx";
 import { Chip } from "./Chip.tsx";
+import { GroupSelect, type SelectGroup } from "./GroupSelect.tsx";
 import { Icon } from "./Icon.tsx";
 import { Kbd } from "./Kbd.tsx";
-import { Select, type SelectOption } from "./Select.tsx";
 import { Spinner } from "./Spinner.tsx";
 import { Text, type TextProps } from "./Text.tsx";
 
@@ -110,7 +110,7 @@ const styles = stylex.create({
   },
 });
 
-export type Choice = { value: string; options: SelectOption<string>[]; onChange: (value: string) => void };
+export type Choice = Omit<SelectGroup, "label">;
 export type RunChoice = { model?: string; effort?: string; contexts: string[] };
 
 export type ClaudeBlockProps = Omit<TextProps, "multiline" | "appearance" | "onKeyDown"> & {
@@ -286,28 +286,14 @@ export function ClaudeBlock(props: ClaudeBlockProps) {
               <span {...stylex.props(styles.clip)}>{scope}</span>
             </span>
           )}
-          {model && !busy && (
+          {(model || effort) && !busy && (
             <span {...stylex.props(styles.keep)}>
-              <Select
-                label="Model"
-                appearance="quiet"
-                size="sm"
-                value={model.value}
-                options={model.options}
-                onChange={model.onChange}
-                disabled={off ? unavailable : false}
-              />
-            </span>
-          )}
-          {effort && !busy && (
-            <span {...stylex.props(styles.keep)}>
-              <Select
-                label="Effort"
-                appearance="quiet"
-                size="sm"
-                value={effort.value}
-                options={effort.options}
-                onChange={effort.onChange}
+              <GroupSelect
+                label="Model and effort"
+                groups={[
+                  ...(model ? [{ label: "Model", ...model }] : []),
+                  ...(effort ? [{ label: "Effort", ...effort }] : []),
+                ]}
                 disabled={off ? unavailable : false}
               />
             </span>

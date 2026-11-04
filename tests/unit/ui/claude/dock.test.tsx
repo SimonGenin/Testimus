@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { pickRun, runChoice } from "../../helpers/run-choice.ts";
 import "@testing-library/jest-dom/vitest";
 import { act, cleanup, fireEvent, render as rtlRender, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -542,9 +543,10 @@ describe("Claude dock: on a test", () => {
       },
     );
     expect(screen.getByRole("textbox", { name: "Custom model" })).toHaveValue("my-model-1");
-    fireEvent.change(screen.getByRole("combobox", { name: "Model" }), { target: { value: "opus" } });
+    expect(runChoice()).toHaveAccessibleName("custom… · high");
+    pickRun("opus");
     expect(screen.queryByRole("textbox", { name: "Custom model" })).toBeNull();
-    fireEvent.change(screen.getByRole("combobox", { name: "Effort" }), { target: { value: "max" } });
+    pickRun("max");
     const chip = screen.getByRole("button", { name: "Add sources" });
     fireEvent.click(chip);
     expect(chip).toHaveAttribute("aria-pressed", "true");

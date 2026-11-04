@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { pickRun, runChoice } from "../../helpers/run-choice.ts";
 import "@testing-library/jest-dom/vitest";
 import { act, cleanup, fireEvent, render as rtlRender, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
@@ -303,20 +304,20 @@ describe("dock: scope, presets, contexts, models", () => {
   it("offers fable, opus, sonnet, haiku and a custom model", async () => {
     routes["claude.run"] = () => ({ ok: true, summary: "a", changedTests: [], raw: "" });
     render(wrap(app(), <ClaudeDock folded={false} onFold={() => {}} />));
-    const model = screen.getByRole("combobox", { name: "Model" });
+    fireEvent.click(runChoice());
     expect(
-      within(model)
-        .getAllByRole("option")
+      within(screen.getByRole("group", { name: "Model" }))
+        .getAllByRole("menuitemcheckbox")
         .map((o) => o.textContent),
     ).toEqual(["fable", "opus", "sonnet", "haiku", "custom…"]);
-    fireEvent.change(model, { target: { value: "custom" } });
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "custom…" }));
     const custom = screen.getByRole("textbox", { name: "Custom model" });
     fireEvent.change(custom, { target: { value: "claude-opus-4-1" } });
     fireEvent.blur(custom);
     send("Q");
     await waitFor(() => expect(callsOf("claude.run")).toHaveLength(1));
     expect(callsOf("claude.run")[0].input).toMatchObject({ model: "claude-opus-4-1" });
-    fireEvent.change(screen.getByRole("combobox", { name: "Model" }), { target: { value: "haiku" } });
+    pickRun("haiku");
     expect(screen.queryByRole("textbox", { name: "Custom model" })).toBeNull();
   });
 });

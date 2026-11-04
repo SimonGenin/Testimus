@@ -37,8 +37,7 @@ test("a problem Claude can fix becomes a card in the Actions tab only; it runs w
   await expect(card).toContainText("Find the PDF next to the .docx");
   await expect(card).toContainText("Every Testimus command");
   await expect(card).toContainText("Proposed by Haiku · low · during the import");
-  await expect(card.getByRole("combobox", { name: "Model" })).toHaveValue("opus");
-  await expect(card.getByRole("combobox", { name: "Effort" })).toHaveValue("high");
+  await expect(card.getByRole("button", { name: "opus · high" })).toBeVisible();
   await shoot(page, "action-card");
 
   await card.getByRole("button", { name: "Run", exact: true }).click();
@@ -83,8 +82,7 @@ test("a step's action is a card in the Actions tab, not on its Review row, and i
   await dock.getByRole("tab", { name: /^Actions/ }).click();
   const card = dock.getByRole("region", { name: "Claude action: Make step 2 say what the menu shows" });
   await card.getByRole("button", { name: "Show" }).click();
-  await expect(card.getByRole("combobox", { name: "Model" })).toHaveValue("sonnet");
-  await expect(card.getByRole("combobox", { name: "Effort" })).toHaveValue("medium");
+  await expect(card.getByRole("button", { name: "sonnet · medium" })).toBeVisible();
   await card.getByRole("button", { name: "Dismiss" }).click();
   await expect(card).toHaveCount(0);
   const again = await api<{ ignored?: boolean }>(url, "actions.propose", {

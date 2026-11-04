@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ClaudeBlock } from "../../../../src/ui/components/ui/ClaudeBlock.tsx";
 import { clearDrafts } from "../../../../src/ui/lib/data/autosave.ts";
 import { createQueryClient, type Key } from "../../../../src/ui/lib/data/query.ts";
+import { noRunChoice, pickRun, runChoice } from "../../helpers/run-choice.ts";
 
 const client = createQueryClient();
 const wrapper = ({ children }: { children: ReactNode }) => (
@@ -69,7 +70,8 @@ describe("ClaudeBlock", () => {
       contexts: ["glossaire"],
     });
     expect(box).toHaveValue("");
-    fireEvent.change(screen.getByRole("combobox", { name: "Model" }), { target: { value: "sonnet" } });
+    expect(runChoice()).toHaveAccessibleName("Opus · High");
+    pickRun("Sonnet");
     expect(onModel).toHaveBeenCalledWith("sonnet");
   });
 
@@ -216,7 +218,7 @@ describe("ClaudeBlock submit none", () => {
     );
     expect(screen.queryByRole("button", { name: "Send" })).toBeNull();
     expect(screen.queryByText("to send")).toBeNull();
-    expect(screen.getByRole("combobox", { name: "Model" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Opus" })).toHaveAttribute("aria-haspopup", "menu");
     fireEvent.keyDown(screen.getByRole("textbox", { name: "Request" }), { key: "Enter", ctrlKey: true });
     expect(onSubmit).toHaveBeenCalled();
   });
@@ -243,15 +245,13 @@ describe("ClaudeBlock foot (design: dock, dock running, dock offline)", () => {
     expect(screen.getByText("Claude is working")).toBeVisible();
     expect(screen.getByText("0:12")).toBeInTheDocument();
     expect(screen.queryByText("Whole project")).toBeNull();
-    expect(screen.queryByRole("combobox", { name: "Model" })).toBeNull();
-    expect(screen.queryByRole("combobox", { name: "Effort" })).toBeNull();
+    expect(noRunChoice()).toBeNull();
   });
 
   it("without Claude, keeps the scope and greyed choices, says why in full and hides the quick asks", () => {
     render(<ClaudeBlock {...full} unavailable="Claude is not connected" />);
     expect(screen.getByText("Whole project")).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "Model" })).toBeDisabled();
-    expect(screen.getByRole("combobox", { name: "Effort" })).toBeDisabled();
+    expect(runChoice()).toBeDisabled();
     expect(screen.queryByRole("button", { name: "Shorten" })).toBeNull();
     expect(screen.getAllByText("Claude is not connected")[0]).toBeInTheDocument();
     expect(screen.queryByText("Ctrl+Enter")).toBeNull();

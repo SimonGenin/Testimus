@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { pickRun } from "../../helpers/run-choice.ts";
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
@@ -36,7 +37,7 @@ describe("Ask Claude on a step or the test", () => {
     expect(pop).toHaveTextContent("Runs in the dock with this test's contexts");
     fireEvent.click(screen.getByRole("button", { name: "Negative path" }));
     expect(screen.getByRole("textbox", { name: "Ask Claude about step 2" })).toHaveValue("Add the negative path.");
-    fireEvent.change(screen.getByRole("combobox", { name: "Effort" }), { target: { value: "max" } });
+    pickRun("max");
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
     expect(state.runInDock).toHaveBeenCalledWith({
       name: "claude.run",

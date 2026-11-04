@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { pickRun, runChoice } from "../../helpers/run-choice.ts";
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render as rtlRender, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -104,10 +105,8 @@ describe("Ask Claude: the Actions tab", () => {
     expect(card).not.toHaveTextContent("push");
     expect(await within(card).findByText("Projet SOSIE")).toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: /Ask/ })).toBeNull();
-    expect(within(card).getByRole("combobox", { name: "Model" })).toHaveValue("opus");
-    const effort = within(card).getByRole("combobox", { name: "Effort" });
-    expect(effort).toHaveValue("xhigh");
-    fireEvent.change(effort, { target: { value: "max" } });
+    expect(runChoice(within(card))).toHaveAccessibleName("opus · xhigh");
+    pickRun("max", within(card));
     fireEvent.click(within(card).getByRole("button", { name: "Run" }));
     await waitFor(() => expect(callsOf("actions.run")).toHaveLength(1));
     expect(callsOf("actions.run")[0].input).toMatchObject({ id: "act-1", model: "opus", effort: "max" });

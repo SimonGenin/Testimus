@@ -2,13 +2,13 @@ import * as stylex from "@stylexjs/stylex";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import type { DocConversion, DocJson, Effort } from "../../../core/types.ts";
-import { EFFORTS, ModelPicker } from "../../components/claude/ModelPicker.tsx";
+import { CustomModel, effortOptions, useModelChoice } from "../../components/claude/ModelPicker.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Card } from "../../components/ui/Card.tsx";
 import { Checkbox } from "../../components/ui/Checkbox.tsx";
+import { GroupSelect } from "../../components/ui/GroupSelect.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { Modal } from "../../components/ui/Modal.tsx";
-import { Select } from "../../components/ui/Select.tsx";
 import { useApp } from "../../lib/app.ts";
 import { invalidate } from "../../lib/data/query.ts";
 import { baseName } from "../../lib/desktop.ts";
@@ -53,18 +53,23 @@ export function ClaudeChoice() {
     setImportClaude(next);
     setRun(next);
   };
+  const choice = useModelChoice(model, (m) => pick({ model: m, effort }));
   return (
     <div {...stylex.props(styles.run)}>
-      <ModelPicker value={model} onChange={(m) => pick({ model: m, effort })} />
-      <Select
-        label="Effort"
-        size="sm"
-        appearance="quiet"
-        prefix="Effort"
-        value={effort}
-        options={EFFORTS.map((x) => ({ value: x, label: x }))}
-        onChange={(x) => pick({ model, effort: x })}
+      <GroupSelect
+        label="Claude's model and effort"
+        prefix="Claude"
+        groups={[
+          { label: "Model", value: choice.selected, options: choice.options, onChange: choice.pick },
+          {
+            label: "Effort",
+            value: effort,
+            options: effortOptions,
+            onChange: (x) => pick({ model, effort: x as Effort }),
+          },
+        ]}
       />
+      <CustomModel choice={choice} />
     </div>
   );
 }

@@ -6,8 +6,8 @@ import { useRead } from "../../lib/data/query.ts";
 import { border, color, fontSize, fontWeight, lineHeight, radius, space } from "../../styles/tokens.stylex.ts";
 import { Badge } from "../ui/Badge.tsx";
 import { Button } from "../ui/Button.tsx";
+import { GroupSelect } from "../ui/GroupSelect.tsx";
 import { Icon } from "../ui/Icon.tsx";
-import { Select } from "../ui/Select.tsx";
 import { useContexts } from "./contexts.ts";
 import { CustomModel, cap, effortOptions, useModelChoice } from "./ModelPicker.tsx";
 
@@ -112,22 +112,12 @@ function Details({
         <dd {...stylex.props(styles.dd)}>{names === null ? "…" : names.length ? names.join(", ") : "None"}</dd>
       </dl>
       <div {...stylex.props(styles.picks)}>
-        <Select
-          label="Model"
-          size="sm"
-          appearance="quiet"
-          icon="cpu"
-          value={choice.selected}
-          options={choice.options}
-          onChange={choice.pick}
-        />
-        <Select
-          label="Effort"
-          size="sm"
-          appearance="quiet"
-          value={effort}
-          options={effortOptions}
-          onChange={onEffort}
+        <GroupSelect
+          label="Model and effort"
+          groups={[
+            { label: "Model", value: choice.selected, options: choice.options, onChange: choice.pick },
+            { label: "Effort", value: effort, options: effortOptions, onChange: (e) => onEffort(e as Effort) },
+          ]}
         />
         <CustomModel choice={choice} />
       </div>

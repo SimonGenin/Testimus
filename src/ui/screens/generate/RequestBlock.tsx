@@ -87,6 +87,7 @@ export function RequestBlock({
         }
         model={{
           value: modelValue,
+          shown: typing ? undefined : cap(form.model || form.defaultModel),
           options: [
             { value: "", label: `Project default · ${cap(form.defaultModel)}` },
             ...[...fallbackModel, ...MODELS, ...known].map((m) => ({ value: m, label: cap(m) })),
@@ -104,6 +105,7 @@ export function RequestBlock({
         }}
         effort={{
           value: form.effort,
+          shown: form.effort || form.defaultEffort,
           options: [
             { value: "", label: `Project default · ${form.defaultEffort}` },
             ...EFFORTS.map((e) => ({ value: e, label: cap(e) })),

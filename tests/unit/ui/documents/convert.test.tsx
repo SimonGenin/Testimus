@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { pickRun, runChoice } from "../../helpers/run-choice.ts";
 import "@testing-library/jest-dom/vitest";
 import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -392,19 +393,16 @@ describe("ClaudeChoice", () => {
 
   it("shows the project model at low effort, and keeps what is picked for the next conversions", () => {
     mountDocs(<ClaudeChoice />);
-    const effort = screen.getByRole("combobox", { name: "Effort" });
-    expect(screen.getByRole("combobox", { name: "Model" })).toHaveValue("sonnet");
-    expect(effort).toHaveValue("low");
-    fireEvent.change(screen.getByRole("combobox", { name: "Model" }), { target: { value: "opus" } });
-    fireEvent.change(effort, { target: { value: "high" } });
+    expect(runChoice()).toHaveAccessibleName("sonnet · low");
+    pickRun("opus");
+    pickRun("high");
     expect(importClaude()).toEqual({ model: "opus", effort: "high" });
     cleanup();
     mountDocs(<ClaudeChoice />, { info: undefined });
-    expect(screen.getByRole("combobox", { name: "Model" })).toHaveValue("opus");
-    expect(screen.getByRole("combobox", { name: "Effort" })).toHaveValue("high");
+    expect(runChoice()).toHaveAccessibleName("opus · high");
     setImportClaude({});
     cleanup();
     mountDocs(<ClaudeChoice />, { info: undefined });
-    expect(screen.getByRole("combobox", { name: "Model" })).toHaveValue("opus");
+    expect(runChoice()).toHaveAccessibleName("opus · low");
   });
 });
