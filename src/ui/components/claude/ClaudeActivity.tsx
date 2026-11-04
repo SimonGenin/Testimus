@@ -51,7 +51,6 @@ const styles = stylex.create({
     margin: 0,
     fontSize: fontSize.small,
     lineHeight: lineHeight.small,
-    fontStyle: "italic",
     color: color.claudeText,
   },
   toggles: { display: "flex", flexWrap: "wrap", gap: space.s2 },

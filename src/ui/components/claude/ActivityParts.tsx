@@ -61,7 +61,7 @@ const styles = stylex.create({
     lineHeight: lineHeight.small,
     color: color.textMuted,
   },
-  query: { fontFamily: fontFamily.reading, fontStyle: "italic", color: color.text },
+  query: { fontFamily: fontFamily.reading, color: color.text },
   muted: { color: color.textSubtle },
   lookups: {
     display: "grid",
