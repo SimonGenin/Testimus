@@ -26,8 +26,13 @@ export type KitSection = {
   summary: string;
   /** why it exists when it extends the N2 list (option, then wrapper, then new) */
   note?: string;
+  /** how to use it, under the preview (design/SYSTEM.md's rules for this component): anatomy, options, states, rules;
+   * `code` and **strong** are marked inline */
+  guidelines?: Guideline[];
   states: () => ReactNode;
 };
+
+export type Guideline = { head?: string; text?: string; items?: string[] };
 
 const styles = stylex.create({
   grid: {

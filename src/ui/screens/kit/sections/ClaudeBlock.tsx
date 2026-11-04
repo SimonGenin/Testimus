@@ -42,6 +42,32 @@ export const section: KitSection = {
   summary:
     "Every place where one writes to or for Claude: the Text component inside a frame that adds contexts, quick asks, model and effort, and send or autosave — never a second text box.",
   note: "Built on Text: a feature added to Text (a shortcut, a mention) works here at once. Attachments are not shown: no Claude run takes a file today.",
+  guidelines: [
+    {
+      head: "Anatomy",
+      text: "Optional *Context* row (toggle chips: the effective contexts of this run, each switchable off for this run only, + Add context) · optional *Quick asks* row (chips that put their prompt in the box; typing clears the pressed one) · the text · footer: scope (« Step 2 », « Whole test », « Whole project »), model, effort, then the submit area. No attachment: no Claude run takes a file today.",
+    },
+    {
+      head: "Options and where each combination is used",
+      text: "Where — contexts — quick asks — model · effort — scope — submit.",
+      items: [
+        "Dock, on a test, a step or the project — yes — yes — yes — yes — Ctrl+Enter → Send",
+        "Dock, ask the documents — yes — no — yes — no — Ctrl+Enter → Ask",
+        "« Ask Claude » popover on a test or a step — no (inherits) — yes — yes — no — Ctrl+Enter → Send",
+        "« To fix » note (Review) — no — no — no — no — autosave; the dialog's « Mark To fix » / « Ask Claude to fix it »",
+        "A context's notes (Contexts dialog) — no — no — no — no — autosave",
+        "A quick ask's prompt (Settings › Claude) — no — no — no — no — autosave",
+      ],
+    },
+    {
+      head: "States",
+      text: "empty (placeholder says what Claude can do here) · typing · focus (violet edge) · running (text read-only, footer violet: spinner, « Claude is working », seconds counter, Cancel) · disabled (Claude not connected: the reason in the footer, Send disabled — « Claude is optional — everything else works without it ») · autosave states from Text.",
+    },
+    {
+      head: "Rules",
+      text: "Enter is a new line, Ctrl+Enter sends (the hint is always visible). Model and effort default to the project's, the choice holds for this run. A run on a test or the project may start with an empty box. Violet is reserved for Claude; never use `claude` tones for anything Claude does not do.",
+    },
+  ],
   states: () => (
     <States>
       <Cell label="dock — on a test (empty)" wide column>

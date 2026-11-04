@@ -160,15 +160,18 @@ function serverFor(url: string): Server {
   return { url, api, waitJob };
 }
 
+// ponytail: a shot is light or dark the way the design draws it — the theme preference stays « System » (the rail says
+// so) and the window's colour scheme is light or dark; the storage event is how another window's change reaches the
+// page's preference and its <html>
 async function applyTheme(page: Page, theme: Theme): Promise<void> {
   await page.emulateMedia({ colorScheme: theme });
-  await page.evaluate((t) => {
-    document.documentElement.dataset.theme = t;
+  await page.evaluate(() => {
     try {
-      localStorage.setItem("testimus.theme", t);
+      localStorage.removeItem("testimus.theme");
     } catch {}
-    window.dispatchEvent(new CustomEvent("testimus:theme", { detail: t }));
-  }, theme);
+    window.dispatchEvent(new StorageEvent("storage", { key: "testimus.theme" }));
+    window.dispatchEvent(new CustomEvent("testimus:theme", { detail: "system" }));
+  });
 }
 
 // ponytail: the shell never scrolls the page, its panes do — the tallest overflowing pane is walked a screen at a

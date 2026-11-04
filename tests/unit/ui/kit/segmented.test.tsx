@@ -166,4 +166,22 @@ describe("Segmented", () => {
     expect(r("sm", "z")).not.toBe(r("md", "z"));
     expect(r("focus", "z")).not.toBe(r("md", "z"));
   });
+
+  it("fill takes its container's width, the options sharing it", () => {
+    const opts: SegmentedOption<"x" | "y">[] = [
+      { value: "x", label: "x" },
+      { value: "y", label: "y" },
+    ];
+    render(
+      <>
+        <Segmented label="plain" value="x" options={opts} onChange={() => {}} />
+        <Segmented label="full" fill value="x" options={opts} onChange={() => {}} />
+      </>,
+    );
+    const group = (n: string) => screen.getByRole("radiogroup", { name: n });
+    expect(cls(group("full"))).not.toBe(cls(group("plain")));
+    expect(cls(group("full").querySelector("[role=radio]") as Element)).not.toBe(
+      cls(group("plain").querySelector("[role=radio]") as Element),
+    );
+  });
 });

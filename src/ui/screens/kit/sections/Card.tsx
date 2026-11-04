@@ -51,6 +51,7 @@ export const section: KitSection = {
   summary:
     "A framed group with a head (title, actions), a body and a foot: settings sections, model packs, the push plan's operations, a finding, the step card. A state is a badge in the head, never a coloured edge; cards nest once at most.",
   note: "radio is the « radio card » the screens drew for packs and drives: the card stays a Card, the choice adds a native radio, the whole card picks it, and the arrows move between the cards of one name.",
+  guidelines: [],
   states: () => (
     <States>
       <Cell label="title · actions · body · foot" column>

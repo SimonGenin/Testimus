@@ -9,6 +9,7 @@ export const section: KitSection = {
   summary:
     "Fills a list or a pane that has nothing: a mark, what is missing, how to fill it, at most two buttons — the first is the way forward. No illustration, no joke.",
   note: "Added to the N2 list on purpose: every screen had its own empty pane (No document yet, No test yet, Nothing to review, No job yet).",
+  guidelines: [],
   states: () => (
     <States>
       <Cell label="with actions" wide column>

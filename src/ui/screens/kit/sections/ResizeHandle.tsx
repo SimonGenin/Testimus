@@ -59,6 +59,7 @@ export const section: KitSection = {
   file: "ResizeHandle.tsx",
   summary:
     "The edge of a resizable pane: a hairline that becomes a 2 px accent bar on hover, drag and keyboard focus. ←/→ move it by 16 px, Home resets, End is the largest, a double-click resets. Quiet draws no line until hovered, focused or dragged. The caller keeps the width with usePaneWidth (lib/panes).",
+  guidelines: [],
   states: () => (
     <States>
       <Cell label="rest" column>

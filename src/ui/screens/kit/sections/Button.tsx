@@ -9,6 +9,35 @@ export const section: KitSection = {
   file: "Button.tsx",
   summary:
     "The one button: every clickable action that is not a link, a chip, a tab or a menu item. At most one primary per region; danger only to confirm a destructive dialog; claude when Claude will act.",
+  guidelines: [
+    {
+      head: "Anatomy",
+      text: "Optional leading icon (16 px) or spinner · label (13 px medium) · optional count · optional trailing chevron · optional shortcut (`kbd`, a tinted pill). Height 32 px (`size-control-md`), 14 px side padding, radius `radius-2` (8 px).",
+    },
+    {
+      head: "Variants",
+      items: [
+        "`primary` — the one action the screen exists for (Push to Jira, Generate, Validate, Save and test). **At most one per screen region** (a pane, a dialog). Fill `color-accent`, label `color-on-accent`.",
+        "`secondary` (default) — every other action that deserves a box: Cancel, Show changes, Reindex. White ground, a light `color-border-field` edge and `shadow-0`; filled buttons add a 1 px inner highlight.",
+        "`quiet` — toolbar and row actions, secondary actions in dense places (Insert below, Hide details, Clone). No edge until hovered.",
+        "`danger` — only the confirm button of a destructive dialog (Delete, Overwrite local, Drop). A destructive *entry point* is a red menu item, never a red button on a screen.",
+        "`claude` / `claude-quiet` — an action that starts a Claude run (Send, Ask Claude, Ask Claude to fix it). Violet means « Claude will act ».",
+        "`iconOnly` — square; always has an accessible label shown as tooltip.",
+      ],
+    },
+    {
+      head: "Sizes",
+      text: "`sm` 28 px (inside cards, rows, toasts, the dock's footer) · `md` 32 px (default) · `lg` 40 px (first launch, empty states' main action) · `xs` 24 px for icon-only row actions.",
+    },
+    {
+      head: "States",
+      text: "default · hover · pressed · focus (2 px `color-focus-ring`, offset 2 px) · disabled (sunken fill, disabled text, no edge; the reason goes in a tooltip: « Claude is working — wait for it to finish ») · loading (spinner replaces the icon, label stays, `aria-busy`).",
+    },
+    {
+      head: "Rules",
+      text: "Labels are verbs in sentence case (« Push to Jira », not « Push »). A timed action shows its countdown in the label: « Undo · 5 s ». A shortcut is shown as `kbd` only on the primary action of a screen (Validate `V`). Never two primary buttons side by side; never a danger button outside a confirmation; never an icon-only button without a label.",
+    },
+  ],
   states: () => (
     <States>
       {VARIANTS.map((v) => (

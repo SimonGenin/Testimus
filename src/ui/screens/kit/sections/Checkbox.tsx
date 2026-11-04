@@ -11,6 +11,12 @@ export const section: KitSection = {
   file: "Checkbox.tsx",
   summary:
     "A yes/no submitted with a form or a filter (« Only with findings », « Shared with every project »); radio is its option for one of N inside a form (a RadioGroup). A setting that applies at once is a Switch.",
+  guidelines: [
+    {
+      head: "Anatomy",
+      text: "16 px box, label (13 px), optional hint below. **States.** off · on · mixed (a group partly on) · hover · focus · disabled. **Rules.** A setting that applies at once is a **Switch**, not a checkbox. Labels say what is true when ticked.",
+    },
+  ],
   states: () => (
     <States>
       <Cell label="off · on · mixed" column>

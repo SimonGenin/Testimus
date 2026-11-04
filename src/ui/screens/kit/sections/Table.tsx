@@ -56,6 +56,7 @@ export const section: KitSection = {
   file: "Table.tsx",
   summary:
     "Data with several comparable columns: vector spaces, the model catalogue, the push plan. Numbers right-aligned in tabular figures; the head stays on top. A list of things you open is a List, not a table.",
+  guidelines: [],
   states: () => (
     <States>
       <Cell label="sortable · selected row · hovered row (first cell opens it)" wide column>

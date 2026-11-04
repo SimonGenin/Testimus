@@ -52,6 +52,8 @@ const styles = stylex.create({
     lineHeight: lineHeight.small,
   },
   iconOnly: { paddingInline: space.s2 },
+  fill: { display: "flex", width: "100%" },
+  fillOption: { flex: 1, minWidth: 0 },
   on: {
     backgroundColor: color.surface,
     color: color.text,
@@ -85,6 +87,8 @@ export type SegmentedProps<V extends string> = {
   /** the group's accessible name (« Step layout ») */
   label: string;
   size?: "sm" | "md";
+  /** the whole width of its container, the options sharing it (a queue's filter atop its list) */
+  fill?: boolean;
   /** the catalogue only: the option shown hovered or focused */
   debugState?: ForcedOption<V>;
 };
@@ -99,6 +103,7 @@ export function Segmented<V extends string>({
   onChange,
   label,
   size: s = "md",
+  fill = false,
   debugState,
 }: SegmentedProps<V>) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -121,7 +126,12 @@ export function Segmented<V extends string>({
     choose(to);
   };
   return (
-    <div role="radiogroup" aria-label={label} onKeyDown={onKeyDown} {...stylex.props(styles.group)}>
+    <div
+      role="radiogroup"
+      aria-label={label}
+      onKeyDown={onKeyDown}
+      {...stylex.props(styles.group, fill && styles.fill)}
+    >
       {options.map((o, i) => {
         const on = o.value === value;
         const off = o.disabled !== undefined && o.disabled !== false;
@@ -144,6 +154,7 @@ export function Segmented<V extends string>({
               styles.option,
               s === "sm" && styles.sm,
               o.iconOnly && styles.iconOnly,
+              fill && styles.fillOption,
               forced === "hover" && styles.forceHover,
               forced === "focus" && styles.forceFocus,
               on && styles.on,

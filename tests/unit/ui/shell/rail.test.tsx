@@ -62,7 +62,7 @@ describe("Rail, system status, theme and headers", () => {
     expect(state.navigate).toHaveBeenCalledWith("tests", undefined);
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
     expect(state.navigate).toHaveBeenCalledWith("settings", undefined);
-    const sys = await screen.findByRole("button", { name: "System: Needs you. Open the system check" });
+    const sys = await screen.findByRole("button", { name: "System: Failed. Open the system check" });
     expect(sys).toHaveAttribute("aria-current", "page");
     fireEvent.click(sys);
     expect(state.navigate).toHaveBeenCalledWith("doctor", undefined);
@@ -73,16 +73,16 @@ describe("Rail, system status, theme and headers", () => {
     expect(screen.getByRole("button", { name: /Tests/ })).not.toHaveAttribute("aria-current");
   });
 
-  it("shows Checking until the first answer, then the worst state", async () => {
+  it("shows Not checked until the first answer, then the worst state", async () => {
     const gate = deferred();
     net.routes["system.doctor"] = async () => {
       await gate.promise;
       return [{ id: "a", label: "A", state: "warn", detail: "" }];
     };
     withData(<SystemStatus onOpen={() => {}} />);
-    expect(screen.getByRole("button", { name: /System: Checking/ })).not.toHaveAttribute("aria-current");
+    expect(screen.getByRole("button", { name: /System: Not checked/ })).not.toHaveAttribute("aria-current");
     await act(async () => gate.resolve(null));
-    expect(await screen.findByRole("button", { name: /System: Check\./ })).toHaveTextContent("Check");
+    expect(await screen.findByRole("button", { name: /System: To do\./ })).toHaveTextContent("To do");
   });
 
   it("takes the Claude sign-in probe of the System check in place of its « not checked » row", async () => {
@@ -102,7 +102,7 @@ describe("Rail, system status, theme and headers", () => {
         <SystemStatus onOpen={() => {}} />
       </>,
     );
-    expect(await screen.findByRole("button", { name: /System: Needs you/ })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /System: Failed/ })).toBeInTheDocument();
   });
 
   it("follows a theme set elsewhere", () => {
@@ -139,6 +139,18 @@ describe("Rail, system status, theme and headers", () => {
     );
     expect(screen.getAllByRole("heading", { name: /Alone/ })[0]).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Here" })).toBeInTheDocument();
+  });
+
+  it("puts the screen's trail after its title, each crumb after a chevron and named in full (design-gaps point 25)", () => {
+    withData(
+      <Shell>
+        <ScreenHeader title="Documents" crumbs={["SOSIE_211_D401-1_3 · Traction"]} meta="2 documents" />
+      </Shell>,
+    );
+    const h1 = within(screen.getByRole("banner")).getByRole("heading", { level: 1 });
+    expect(h1).toHaveTextContent("DocumentsSOSIE_211_D401-1_3 · Traction2 documents");
+    const crumb = within(h1).getByTitle("SOSIE_211_D401-1_3 · Traction");
+    expect(crumb.querySelector("svg")).not.toBeNull();
   });
 });
 

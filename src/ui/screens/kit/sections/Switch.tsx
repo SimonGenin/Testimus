@@ -9,6 +9,7 @@ export const section: KitSection = {
   file: "Switch.tsx",
   summary:
     "A setting that takes effect immediately (« Always on top », a smart column's « Claude fills it », a default context). Label on the right, describing the on state; never inside a form that has a Save button.",
+  guidelines: [],
   states: () => (
     <States>
       <Cell label="off · on" column>
