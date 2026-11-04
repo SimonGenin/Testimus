@@ -1223,17 +1223,17 @@ describe("TestEditor › menu and settings", () => {
     await ready();
     fireEvent.click(screen.getByRole("button", { name: "Columns" }));
     fireEvent.click(
-      within(screen.getByRole("radiogroup", { name: "Data column" })).getByRole("radio", { name: "collapsed" }),
+      within(screen.getByRole("radiogroup", { name: "Data column" })).getByRole("radio", { name: "Collapsed" }),
     );
     await waitFor(() => expect(state.refreshInfo).toHaveBeenCalled());
     expect(callsTo("columns.setModes")[0].input).toEqual({
       modes: { Action: "open", Data: "collapsed", "Expected Result": "open" },
     });
-    fireEvent.click(screen.getByRole("radio", { name: "this test" }));
+    fireEvent.click(screen.getByRole("radio", { name: "This test" }));
     fireEvent.click(
-      within(screen.getByRole("radiogroup", { name: "Data column" })).getByRole("radio", { name: "when filled" }),
+      within(screen.getByRole("radiogroup", { name: "Data column" })).getByRole("radio", { name: "When filled" }),
     );
-    await waitFor(() => expect(screen.getByRole("button", { name: "use project's" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Use the project's" })).toBeInTheDocument());
     expect(callsTo("tests.setFolds")[0].input).toEqual({ id: "t1", modes: { Data: "filled" } });
   });
 
@@ -1248,12 +1248,12 @@ describe("TestEditor › menu and settings", () => {
     await ready();
     fireEvent.click(screen.getByRole("button", { name: "Columns" }));
     fireEvent.click(
-      within(screen.getByRole("radiogroup", { name: "Data column" })).getByRole("radio", { name: "collapsed" }),
+      within(screen.getByRole("radiogroup", { name: "Data column" })).getByRole("radio", { name: "Collapsed" }),
     );
     await waitFor(() => expect(errors.at(-1)?.title).toBe("Could not save the column settings"));
-    fireEvent.click(screen.getByRole("radio", { name: "this test" }));
+    fireEvent.click(screen.getByRole("radio", { name: "This test" }));
     fireEvent.click(
-      within(screen.getByRole("radiogroup", { name: "Data column" })).getByRole("radio", { name: "collapsed" }),
+      within(screen.getByRole("radiogroup", { name: "Data column" })).getByRole("radio", { name: "Collapsed" }),
     );
     await waitFor(() => expect(errors.at(-1)?.title).toBe("Could not save the column settings of this test"));
   });
@@ -1292,10 +1292,10 @@ describe("TestEditor › push", () => {
     const { state } = editor();
     fireEvent.change(await screen.findByLabelText("Description"), { target: { value: "before push" } });
     fireEvent.click(screen.getByRole("button", { name: "Push to Jira" }));
-    expect(await screen.findByRole("dialog", { name: "Push plan" })).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: /^Push .* to Jira\?$/ })).toBeInTheDocument();
     expect(callsTo("tests.save")).toHaveLength(1);
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-    expect(screen.queryByRole("dialog", { name: "Push plan" })).toBeNull();
+    expect(screen.queryByRole("dialog", { name: /^Push .* to Jira\?$/ })).toBeNull();
     await waitFor(() => expect(state.testsChanged).toHaveBeenCalled());
     server.routes["tests.show"] = () => {
       throw new Fail("x");
@@ -1397,7 +1397,7 @@ describe("TestEditor › a gesture over an edit that could not be saved (review 
     fireEvent.click(screen.getByRole("button", { name: "Push to Jira" }));
     await waitFor(() => expect(errors.at(-1)?.title).toBe("Not pushed"));
     expect(String((errors.at(-1)?.e as Error | undefined)?.message)).toMatch(/not saved.*disk full/);
-    expect(screen.queryByRole("dialog", { name: "Push plan" })).toBeNull();
+    expect(screen.queryByRole("dialog", { name: /^Push .* to Jira\?$/ })).toBeNull();
     expect(callsTo("xray.plan")).toHaveLength(0);
     const push = screen.getByRole("button", { name: "Push to Jira" });
     expect(push).toBeDisabled();
@@ -1672,7 +1672,7 @@ describe("TestEditor › parity", () => {
     const push = screen.getByRole("button", { name: "Push to Jira" });
     expect(push).toBeEnabled();
     fireEvent.click(push);
-    await screen.findByRole("dialog", { name: "Push plan" });
+    await screen.findByRole("dialog", { name: /^Push .* to Jira\?$/ });
     const held = screen.getByRole("button", { name: "Push to Jira", hidden: true });
     expect(held).toBeDisabled();
     expect(held).toHaveAccessibleDescription("The push plan is open");
@@ -1899,9 +1899,9 @@ describe("TestEditor › header and columns (PARITY #5, #47, #87)", () => {
     expect(fold(2)).toHaveAttribute("aria-pressed", "false");
     fireEvent.click(screen.getByRole("button", { name: "Columns" }));
     const row = screen.getByRole("radiogroup", { name: "Retired column" });
-    expect(row.parentElement).toHaveTextContent("off in Xray");
-    expect(within(row).getByRole("radio", { name: "when filled" })).toHaveAttribute("aria-checked", "true");
-    fireEvent.click(within(row).getByRole("radio", { name: "open" }));
+    expect(row.parentElement).toHaveTextContent("Off in Xray · kept, folded unless filled");
+    expect(within(row).getByRole("radio", { name: "When filled" })).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(within(row).getByRole("radio", { name: "Open" }));
     await waitFor(() => expect(state.refreshInfo).toHaveBeenCalled());
     expect(callsTo("columns.setModes")[0].input).toEqual({
       modes: { Action: "open", Data: "open", "Expected Result": "open", Retired: "open" },
