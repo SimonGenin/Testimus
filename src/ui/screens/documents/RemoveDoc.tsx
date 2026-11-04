@@ -13,6 +13,7 @@ import { color, fontFamily, fontSize, lineHeight, space } from "../../styles/tok
 const styles = stylex.create({
   body: { display: "flex", flexDirection: "column", gap: space.s3 },
   muted: { margin: 0, fontSize: fontSize.small, lineHeight: lineHeight.small, color: color.textMuted },
+  note: { margin: 0, fontSize: fontSize.compact, lineHeight: lineHeight.compact, color: color.textMuted },
   mono: { fontFamily: fontFamily.mono, fontSize: fontSize.code },
   list: { display: "flex", flexDirection: "column", gap: space.s2, margin: 0, padding: 0, listStyle: "none" },
   test: {
@@ -91,6 +92,7 @@ export function RemoveDoc({ doc, onClose, onRemoved }: { doc: DocJson; onClose: 
       size="sm"
       confirm={{ verb: "Delete", danger: true, onConfirm: remove }}
       consequences={consequences}
+      consequencesAt="start"
       busy={plan.isPending}
       onClose={onClose}
     >
@@ -126,7 +128,7 @@ export function RemoveDoc({ doc, onClose, onRemoved }: { doc: DocJson; onClose: 
             <span {...stylex.props(styles.mono)}>{unlinked.join(", ")}</span>
           </p>
         )}
-        <p {...stylex.props(styles.muted)}>
+        <p {...stylex.props(styles.note)}>
           This cannot be undone: to get it back, add {source} again (status and context start over).
         </p>
       </div>
