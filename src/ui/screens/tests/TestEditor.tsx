@@ -8,11 +8,11 @@ import { Button } from "../../components/ui/Button.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { useApp } from "../../lib/app.ts";
 import { columnsOf, projectModes } from "../../lib/columns.ts";
-import { discardAutosave, flushAutosaves, pendingAutosaves } from "../../lib/data/autosave.ts";
+import { discardAutosave, pendingAutosaves } from "../../lib/data/autosave.ts";
 import { fileUrl } from "../../lib/data/client.ts";
 import { invalidate, key, useRead } from "../../lib/data/query.ts";
 import { differs, diffLocal, type Gone, lossOf, restoreStep } from "../../lib/diff.ts";
-import { setDiscarder, setFlusher } from "../../lib/editorBus.ts";
+import { setDiscarder } from "../../lib/editorBus.ts";
 import { DEFAULT_LAYOUT } from "../../lib/fields.ts";
 import { uploadImage } from "../../lib/files.ts";
 import { message } from "../../lib/format.ts";
@@ -202,15 +202,11 @@ export function TestEditor({
     return () => window.removeEventListener("focus", onFocusEvt);
   }, [busy, doc.recheck]);
 
-  // ponytail: a bridge until the dock, Review and Generate pass `flushFirst` / `discardAutosave` themselves (agents 22, 23,
-  // 25) — their `flushEditor()` and `discardEditor(id)` reach the data layer's autosave of the tests here
+  // ponytail: a bridge until Generate drops a replaced test's pending save with `discardAutosave` itself (agent 25) — its
+  // `discardEditor(id)` reaches the data layer's autosave of that test here
   useEffect(() => {
-    setFlusher(() => flushAutosaves([["tests.show"]]));
     setDiscarder((id) => discardAutosave(key("tests.show", { id })));
-    return () => {
-      setFlusher(null);
-      setDiscarder(null);
-    };
+    return () => setDiscarder(null);
   }, []);
 
   const { setFocus } = app;

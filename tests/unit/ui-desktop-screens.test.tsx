@@ -12,6 +12,7 @@ import { ClaudeSection } from "../../src/ui/screens/settings/ClaudeSection.tsx";
 import { AccessStep } from "../../src/ui/screens/setup/AccessStep.tsx";
 import { ProjectStep } from "../../src/ui/screens/setup/ProjectStep.tsx";
 import { TestList } from "../../src/ui/screens/tests/TestList.tsx";
+import { dataWrapper } from "./cov-uishell-helpers.tsx";
 import { api, app, fakeDesktop, fakeFetch, named, noDesktop } from "./ui-desktop-helpers.tsx";
 
 beforeEach(() => {
@@ -30,7 +31,7 @@ afterEach(() => {
 
 const within = (ui: ReactNode, over: Partial<AppState> = {}) => {
   const a = app(over);
-  render(<AppContext.Provider value={a}>{ui}</AppContext.Provider>);
+  render(<AppContext.Provider value={a}>{ui}</AppContext.Provider>, { wrapper: dataWrapper() });
   return a;
 };
 

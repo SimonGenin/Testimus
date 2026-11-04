@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CommandInfo } from "../../src/ui/api.ts";
 import { CommandForm, plannedFirst } from "../../src/ui/components/shell/CommandForm.tsx";
+import { dataWrapper } from "./cov-uishell-helpers.tsx";
 
 type Call = { name: string; input: Record<string, unknown> };
 let calls: Call[] = [];
@@ -62,7 +63,9 @@ describe("palette never writes to Jira blind", () => {
       id: "LFRPS12-1420",
       ops: [{ label: "Update the summary", status: "done" }],
     });
-    render(<CommandForm command={command("xray.push", { id: { type: "string" } })} onClose={() => {}} />);
+    render(<CommandForm command={command("xray.push", { id: { type: "string" } })} onClose={() => {}} />, {
+      wrapper: dataWrapper(),
+    });
     fireEvent.change(screen.getByLabelText("id (optional)"), { target: { value: "LFRPS12-1420" } });
     fireEvent.click(screen.getByRole("button", { name: "Run" }));
     const confirm = await screen.findByRole("button", { name: "Confirm push" });

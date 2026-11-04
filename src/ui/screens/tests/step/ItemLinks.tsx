@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import type { Source } from "../../../../core/types.ts";
-import type { ItemLink } from "../../../lib/fields.ts";
+import { SourceChip } from "../../../components/ui/SourceChip.tsx";
+import { type ItemLink, sourceLabel } from "../../../lib/fields.ts";
 import { color, fontFamily, fontSize, space } from "../../../styles/tokens.stylex.ts";
 import { StepSource } from "./StepSource.tsx";
 
@@ -11,7 +12,8 @@ const styles = stylex.create({
 });
 
 // ponytail: the items of a column that links its items to their sources (a requirement code and the passage it comes
-// from) — under the cell, each item with its sources; a source with no item is a plain source chip
+// from) — under the cell: an item with one source is one chip that opens it, an item with several shows them after it;
+// a source with no item is a plain source chip
 export function ItemLinks({
   column,
   links,
@@ -23,18 +25,30 @@ export function ItemLinks({
 }) {
   return (
     <div data-column={column} {...stylex.props(styles.links)}>
-      {links.map((l, i) =>
-        l.item ? (
+      {links.map((l, i) => {
+        if (!l.item) return l.sources.map((s, k) => <StepSource key={`${i}-${k}`} source={s} onOpen={onOpen} />);
+        if (l.sources.length === 1) {
+          const s = l.sources[0];
+          return (
+            <SourceChip
+              key={i}
+              compact
+              reference={`${l.item} · ${sourceLabel(s)}`}
+              quote={s.quote || undefined}
+              figure={s.anchor.startsWith("fig:")}
+              onOpen={onOpen && (() => onOpen(s))}
+            />
+          );
+        }
+        return (
           <span key={i} {...stylex.props(styles.group)}>
             <span {...stylex.props(styles.item)}>{l.item}</span>
             {l.sources.map((s, k) => (
               <StepSource key={k} source={s} compact onOpen={onOpen} />
             ))}
           </span>
-        ) : (
-          l.sources.map((s, k) => <StepSource key={`${i}-${k}`} source={s} onOpen={onOpen} />)
-        ),
-      )}
+        );
+      })}
     </div>
   );
 }

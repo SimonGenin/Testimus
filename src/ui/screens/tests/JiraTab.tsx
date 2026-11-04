@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import type { Folder, LocalTestRef, RemoteTestRef } from "../../../core/types.ts";
 import { Badge } from "../../components/ui/Badge.tsx";
 import { Button } from "../../components/ui/Button.tsx";
@@ -42,6 +42,17 @@ const styles = stylex.create({
 });
 
 type Slice = { tests: RemoteTestRef[]; total: number };
+
+// what is loading says so to a screen reader while it loads, and nothing once it is there
+function Busy({ label, children }: { label: string | null; children: ReactNode }) {
+  return label ? (
+    <div role="status" aria-label={label}>
+      {children}
+    </div>
+  ) : (
+    <>{children}</>
+  );
+}
 
 // ponytail: Jira's side of the list — the project's Xray folder tree, then the tests of the folder picked (slices of
 // 100, the next asked when the end of the list shows) or of a Jira search; a test not pulled yet is pulled when opened
@@ -153,7 +164,7 @@ export function JiraTab({
   return (
     <>
       {(tree || !query) && (
-        <div role={!tree ? "status" : undefined} aria-label={!tree ? "Loading folders" : undefined}>
+        <Busy label={!tree ? "Loading folders" : null}>
           <List<(typeof rows)[number]>
             label="Jira folders"
             tree
@@ -191,7 +202,7 @@ export function JiraTab({
                 ) : undefined,
             })}
           />
-        </div>
+        </Busy>
       )}
       {ready && (
         <>
@@ -205,11 +216,8 @@ export function JiraTab({
               </span>
             )}
           </div>
-          <div
-            role={busy ? "status" : undefined}
-            aria-label={
-              busy ? (query ? `Searching Jira for ${query}` : `Loading tests in ${folderName(folder)}`) : undefined
-            }
+          <Busy
+            label={busy ? (query ? `Searching Jira for ${query}` : `Loading tests in ${folderName(folder)}`) : null}
           >
             <List<RemoteTestRef>
               label={query ? `Jira tests found for ${query}` : `Jira tests in ${folderName(folder)}`}
@@ -265,7 +273,7 @@ export function JiraTab({
                 };
               }}
             />
-          </div>
+          </Busy>
           {filling && (
             <div role="status" aria-label={`Loading more tests in ${folderName(folder)}`}>
               <Skeleton kind="row" />

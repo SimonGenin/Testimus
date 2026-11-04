@@ -304,7 +304,7 @@ describe("Review screen", () => {
     await waitFor(() => expect(step(2)).not.toHaveAttribute("aria-current"));
     fireEvent.click(screen.getByRole("button", { name: "Fold step 1" }));
     fireEvent.click(screen.getByRole("button", { name: "Expand step 1" }));
-    fireEvent.click(screen.getByRole("img", { name: /a/ }).closest("button") as HTMLElement);
+    fireEvent.click(screen.getByRole("button", { name: "Open a.png" }));
     expect(open).toHaveBeenCalledWith("/files/tests/K-1/a.png", "_blank");
     fireEvent.click(screen.getByRole("button", { name: "Open in document" }));
     expect(a.navigate).toHaveBeenCalledWith("documents", 'D#§2 "q2"');
