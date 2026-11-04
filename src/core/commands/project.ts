@@ -191,8 +191,14 @@ export const commands = [
         .describe(
           "Folder where a new project folder is made (default: beside the last project, else the projects folder)",
         ),
+      dryRun: z
+        .boolean()
+        .optional()
+        .describe("Only say which folder would open, and whether it would be created; nothing is made or remembered"),
     }),
-    output: opened.extend({ created: z.boolean().describe("A new project folder was made") }),
+    output: opened.extend({
+      created: z.boolean().describe("A new project folder was made (with dryRun: would be made)"),
+    }),
     mutates: true,
     global: true,
     positional: ["key"],
@@ -212,9 +218,14 @@ export const commands = [
             : projectsRoot();
         dir = join(root, key);
         if (!isProject(dir)) {
+          if (input.dryRun) return { dir, name: key, jiraProject: key, created: true };
           initProject(dir, { jiraProject: key, name: key });
           created = true;
         }
+      }
+      if (input.dryRun) {
+        const p = readProject(dir);
+        return { dir, name: p.name, jiraProject: p.jiraProject, created: false };
       }
       rememberProject(dir);
       const p = readProject(dir);

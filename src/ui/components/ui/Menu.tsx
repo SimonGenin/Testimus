@@ -59,6 +59,7 @@ const styles = stylex.create({
     animationTimingFunction: easing.enter,
   },
   down: { marginTop: space.s2 },
+  beside: { marginInlineStart: space.s2 },
   up: { marginBottom: space.s2 },
   item: {
     boxSizing: "border-box",
@@ -171,8 +172,9 @@ export type MenuProps = {
   entries: MenuEntry[];
   /** the menu's accessible name (the trigger's label by default) */
   label?: string;
-  /** start: under the trigger's start edge (default) · end: under its end edge (a ⋯ at the right of a bar) */
-  align?: "start" | "end";
+  /** start: under the trigger's start edge (default) · end: under its end edge (a ⋯ at the right of a bar) · beside:
+   * at the trigger's right, level with it (the rail's project button) */
+  align?: "start" | "end" | "beside";
   /** the catalogue only: drawn open in place */
   debugState?: "open";
   /** the catalogue only: the item drawn as hovered */
@@ -355,7 +357,11 @@ export function Menu({ trigger, entries, label, align = "start", debugState, deb
           aria-label={label ?? trigger.props.label}
           onKeyDown={onListKey}
           style={inline ? undefined : placed.style}
-          {...stylex.props(styles.menu, !inline && styles.layer, !inline && (placed.up ? styles.up : styles.down))}
+          {...stylex.props(
+            styles.menu,
+            !inline && styles.layer,
+            !inline && (placed.beside ? styles.beside : placed.up ? styles.up : styles.down),
+          )}
         >
           {sections(entries).map((s, n) =>
             s.group === undefined ? (

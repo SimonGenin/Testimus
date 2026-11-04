@@ -54,7 +54,7 @@ export function ProjectButton() {
       ? known.map((k) => ({
           label: k.name || baseName(k.dir),
           icon: "folder" as const,
-          hint: k.jiraProject || k.dir,
+          hint: k.jiraProject || "no key",
           checked: k.dir === here,
           onSelect: () => switchTo(k.dir),
         }))
@@ -62,7 +62,7 @@ export function ProjectButton() {
     "separator",
     ...(d ? [{ label: "Open a folder…", icon: "folder-open" as const, onSelect: () => void browse() }] : []),
     { label: "Open by Jira key…", icon: "key", onSelect: () => setByKey(true) },
-    { label: "New or other project…", icon: "plus", onSelect: () => app.navigate("setup", "project") },
+    { label: "New project…", icon: "plus", onSelect: () => app.navigate("setup", "project") },
     ...(d && here
       ? ([
           "separator",
@@ -83,7 +83,7 @@ export function ProjectButton() {
   return (
     <>
       {byKey && <OpenByKey onClose={() => setByKey(false)} />}
-      <Menu label="Projects" trigger={trigger} entries={entries} />
+      <Menu label="Projects" align="beside" trigger={trigger} entries={entries} />
     </>
   );
 }

@@ -15,13 +15,14 @@ export function focusables(root: HTMLElement): HTMLElement[] {
   return [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) => !el.closest("[inert]"));
 }
 
-export type Anchored = { style: CSSProperties | undefined; up: boolean };
+export type Anchored = { style: CSSProperties | undefined; up: boolean; beside?: boolean };
 
 const GUTTER = 8;
 
 // ponytail: the shared mechanics of Menu and Popover — a layer in fixed position computed from its trigger's box
 // (so it leaves a narrow pane), below it or above when there is no room, its start or end edge on the trigger's (a
-// start layer that would leave the window jumps to the trigger's other edge, or with slide moves back just enough),
+// start layer that would leave the window jumps to the trigger's other edge, or with slide moves back just enough;
+// beside: right of the trigger, its top on the trigger's, for a trigger in the rail),
 // following scroll and resize, and closed by a press outside the trigger and the layer
 export function useAnchor({
   open,
@@ -34,7 +35,7 @@ export function useAnchor({
   open: boolean;
   anchor: RefObject<HTMLElement | null>;
   layer: RefObject<HTMLElement | null>;
-  align: "start" | "end";
+  align: "start" | "end" | "beside";
   slide?: boolean;
   onDismiss: () => void;
 }): Anchored {
@@ -49,6 +50,11 @@ export function useAnchor({
       if (!a || !l) return;
       const vw = window.innerWidth;
       const vh = window.innerHeight;
+      if (align === "beside") {
+        const top = Math.max(GUTTER, Math.min(a.top, vh - l.offsetHeight - GUTTER));
+        setPlaced({ up: false, beside: true, style: { top, left: a.right } });
+        return;
+      }
       const below = vh - a.bottom;
       const up = l.offsetHeight > below && a.top > below;
       let start = align === "start";
