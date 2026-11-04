@@ -11,6 +11,7 @@ import { Logo } from "../../../../src/ui/components/ui/Logo.tsx";
 import { Pane } from "../../../../src/ui/components/ui/Pane.tsx";
 import { Passage, quoteMarks } from "../../../../src/ui/components/ui/Passage.tsx";
 import { Raw } from "../../../../src/ui/components/ui/Raw.tsx";
+import { ReadMap } from "../../../../src/ui/components/ui/ReadMap.tsx";
 import { SaveState } from "../../../../src/ui/components/ui/SaveState.tsx";
 import { Tile } from "../../../../src/ui/components/ui/Tile.tsx";
 import { elapsed, Timer } from "../../../../src/ui/components/ui/Timer.tsx";
@@ -184,6 +185,69 @@ describe("Passage (audit n° 11, 26)", () => {
     expect(screen.getByRole("img", { name: "Figure 1" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Poste" })).toHaveAttribute("src", "/f.png");
     expect(screen.getByText("Figure 2", { selector: "figcaption" })).toBeInTheDocument();
+  });
+});
+
+describe("ReadMap", () => {
+  const chapters = [
+    { label: "Table of contents", line: 1 },
+    { label: "Queues", line: 9 },
+    { label: "Selecting a queue", line: 12 },
+    { label: "Sending a verification job", line: 14 },
+    { label: "Reference", line: 120 },
+  ];
+
+  it("names each chapter in its own share of the width, and leaves a narrow one unnamed rather than over the next", () => {
+    const { container } = render(<ReadMap total={200} chapters={chapters} />);
+    const grid = container.querySelector('[data-part="chapters"]') as HTMLElement;
+    expect(grid.style.gridTemplateColumns).toBe(
+      "minmax(0, 8fr) minmax(0, 3fr) minmax(0, 2fr) minmax(0, 106fr) minmax(0, 81fr)",
+    );
+    expect([...grid.children].map((c) => c.textContent)).toEqual([
+      "",
+      "",
+      "",
+      "Sending a verification job",
+      "Reference",
+    ]);
+    expect(container.querySelectorAll('[data-part="chapter"]')).toHaveLength(4);
+  });
+
+  it("draws a section opened from the index over its extent on the bar, and lists it in the legend", () => {
+    const { container } = render(
+      <ReadMap
+        total={200}
+        chapters={chapters}
+        opened={[{ label: "Sending a verification job", title: "§sending-a-verification-job", from: 14, to: 119 }]}
+        label="Where Claude read Guide"
+      />,
+    );
+    const bar = screen.getByRole("img", { name: /^Where Claude read Guide, 200 lines: sections opened/ });
+    const part = bar.querySelector('[data-part="opened"]') as HTMLElement;
+    expect(part.style.left).toBe("6.5%");
+    expect(part.style.width).toBe("53%");
+    expect(container.querySelectorAll('[data-part="read"]')).toHaveLength(0);
+    const legend = screen.getByText(/1 section opened from the index/).closest("li") as HTMLElement;
+    expect(within(legend).getByText("Sending a verification job")).toBeInTheDocument();
+  });
+
+  it("marks the last range of a live run, and says nothing yet while the length is not known", () => {
+    const { container, rerender } = render(
+      <ReadMap
+        total={30}
+        read={[
+          { from: 1, to: 8 },
+          { from: 9, to: 15 },
+        ]}
+        live
+      />,
+    );
+    expect([...container.querySelectorAll("[data-part]")].map((p) => p.getAttribute("data-part"))).toEqual([
+      "read",
+      "latest",
+    ]);
+    rerender(<ReadMap total={0} />);
+    expect(screen.getByRole("img")).toHaveAccessibleName("Where Claude read: nothing yet");
   });
 });
 

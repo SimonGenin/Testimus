@@ -3,53 +3,12 @@ import { Fragment, type ReactNode, useMemo } from "react";
 import { type Lookup, lines, linesRead, type Outline, outlineOf, type Phase, type Span } from "../../lib/activity.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { plural } from "../../lib/format.ts";
-import { border, color, fontFamily, radius, size, space } from "../../styles/tokens.stylex.ts";
+import { color, fontFamily, size, space } from "../../styles/tokens.stylex.ts";
 import { Icon, type IconName } from "../ui/Icon.tsx";
+import { ReadMap } from "../ui/ReadMap.tsx";
 import { type } from "../ui/type.ts";
 
 const styles = stylex.create({
-  map: { display: "flex", flexDirection: "column", gap: space.s2 },
-  track: { boxSizing: "border-box", position: "relative", paddingTop: space.s1 },
-  trackPins: { paddingTop: space.s4 },
-  pin: {
-    position: "absolute",
-    top: 0,
-    width: space.s3,
-    height: space.s3,
-    marginInlineStart: `calc(${space.s3} / -2)`,
-    borderRadius: radius.full,
-    backgroundColor: color.claude,
-  },
-  bar: {
-    position: "relative",
-    height: space.s3,
-    borderRadius: radius.r1,
-    backgroundColor: color.surfaceSunken,
-    overflow: "hidden",
-  },
-  chapter: { position: "absolute", top: 0, bottom: 0, width: border.width, backgroundColor: color.borderStrong },
-  marks: { position: "relative", height: "1lh", overflow: "hidden", color: color.textSubtle },
-  mark: {
-    position: "absolute",
-    top: 0,
-    paddingInlineStart: space.s1,
-    borderInlineStartStyle: "solid",
-    borderInlineStartWidth: border.width,
-    borderInlineStartColor: color.border,
-    whiteSpace: "nowrap",
-  },
-  page: { position: "absolute", top: 0, bottom: 0, backgroundColor: color.claudeBorder },
-  latest: { backgroundColor: color.claude },
-  legend: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: space.s4,
-    margin: 0,
-    color: color.textMuted,
-  },
-  legendItem: { display: "inline-flex", alignItems: "center", gap: space.s2 },
-  swatch: { width: space.s4, height: space.s3, borderRadius: radius.r1, backgroundColor: color.claudeBorder },
-  dot: { width: space.s3, height: space.s3, borderRadius: radius.full, backgroundColor: color.claude },
   search: {
     display: "flex",
     flexWrap: "wrap",
@@ -100,97 +59,46 @@ function readLine(spans: Span[], total: number | undefined): string {
   return `${parts.join("; ")}.`;
 }
 
-// the labels under the reading bar: the chapters and the sections opened from the index, by line
-export function sectionMarks(
-  outline: Outline | null | undefined,
-  pins: { anchor: string; line: number }[],
-): { anchor: string; line: number }[] {
-  const chapters = outline
-    ? [...outline.anchors].flatMap(([anchor, at]) =>
-        anchor.startsWith("§") && outline.chapters.includes(at.line) ? [{ anchor, line: at.line }] : [],
-      )
-    : [];
-  const all = [...chapters, ...pins.map((p) => ({ anchor: p.anchor, line: p.line }))];
-  return all.filter((m, i) => all.findIndex((x) => x.anchor === m.anchor) === i).sort((a, b) => a.line - b.line);
-}
+// ponytail: a chapter or a section is named by its number (« §5.6 ») when it has one, else by its heading — an anchor
+// made from the heading's words (« §sending-a-verification-job ») says less than the heading itself
+const nameOf = (anchor: string, title: string) => (/^§\d/.test(anchor) || !title ? anchor : title);
 
-// ponytail: where in the document Claude read — the pages it read on a bar the document's length, the sections it
-// opened from the index as pins
+// ponytail: where in the document Claude read — the kit's ReadMap over the document's outline: the lines it read, the
+// sections it opened from the index over their extent, the chapters under the bar
 export function DocMap({ doc, spans, hits, live }: { doc: string; spans: Span[]; hits: Lookup[]; live: boolean }) {
   const outline = useOutline(doc);
   const known = spans.filter((s): s is { from: number; to: number } => s.to !== null);
-  const anchors = unique(hits.map((h) => h.anchor));
-  const pins = anchors.flatMap((a) => {
-    const at = outline?.anchors.get(a);
-    return at ? [{ anchor: a, ...at }] : [];
+  const c = linesRead(spans);
+  const total = Math.max(outline?.total ?? 0, c.last);
+  const sections = outline
+    ? [...outline.anchors]
+        .filter(([a]) => a.startsWith("§"))
+        .map(([anchor, at]) => ({ anchor, ...at }))
+        .sort((a, b) => a.line - b.line)
+    : [];
+  const chapters = sections
+    .filter((x) => outline?.chapters.includes(x.line))
+    .map((x) => ({ label: nameOf(x.anchor, x.title), title: `${x.anchor} ${x.title}`.trim(), line: x.line }));
+  const opened = unique(hits.map((h) => h.anchor)).map((anchor) => {
+    const i = sections.findIndex((x) => x.anchor === anchor);
+    const at = outline?.anchors.get(anchor);
+    if (!at) return { label: anchor, from: 0, to: -1 };
+    const title = `${anchor} ${at.title}`.trim();
+    // ponytail: a section reaches the next heading; a figure is its one line
+    const to = i >= 0 ? (sections[i + 1]?.line ?? total + 1) - 1 : at.line;
+    return { label: nameOf(anchor, at.title), title, from: at.line, to };
   });
-  const end = Math.max(outline?.total ?? 0, linesRead(spans).last, ...pins.map((p) => p.line));
-  const pct = (n: number) => `${(n / end) * 100}%`;
-  const marks = sectionMarks(outline, pins);
+  const read = c.whole && !known.length && total ? [{ from: 1, to: total }] : known;
   return (
-    <div {...stylex.props(styles.map)}>
-      {end > 0 && (
-        <div {...stylex.props(styles.track, pins.length > 0 && styles.trackPins)}>
-          {pins.map((p) => (
-            <span
-              key={p.anchor}
-              data-testid="docmap-pin"
-              title={`${p.anchor} ${p.title} · line ${lines(p.line)}`.replace(/\s+·/, " ·")}
-              style={{ left: pct(p.line - 1) }}
-              {...stylex.props(styles.pin)}
-            />
-          ))}
-          <div
-            role="img"
-            aria-label={`Lines read: ${known.map((s) => `${s.from} to ${s.to}`).join(", ")}${outline?.total ? ` of ${outline.total}` : ""}`}
-            {...stylex.props(styles.bar)}
-          >
-            {outline?.chapters.slice(1).map((l) => (
-              <span
-                key={l}
-                data-testid="readbar-chapter"
-                style={{ left: pct(l - 1) }}
-                {...stylex.props(styles.chapter)}
-              />
-            ))}
-            {known.map((s, i) => {
-              const latest = live && i === known.length - 1;
-              return (
-                <span
-                  key={i}
-                  data-testid={latest ? "readbar-latest" : "readbar-page"}
-                  style={{ left: pct(s.from - 1), width: pct(s.to - s.from + 1) }}
-                  {...stylex.props(styles.page, latest && styles.latest)}
-                />
-              );
-            })}
-          </div>
-          {marks.length > 0 && (
-            <div aria-hidden="true" data-testid="readbar-marks" {...stylex.props(type.code, styles.marks)}>
-              {marks.map((m) => (
-                <span key={m.anchor} style={{ left: pct(m.line - 1) }} {...stylex.props(styles.mark)}>
-                  {m.anchor}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-      <p {...stylex.props(type.small, styles.legend)}>
-        {spans.length > 0 && (
-          <span {...stylex.props(styles.legendItem)}>
-            <i aria-hidden="true" {...stylex.props(styles.swatch)} />
-            {readLine(spans, outline?.total)}
-          </span>
-        )}
-        {anchors.length > 0 && (
-          <span {...stylex.props(styles.legendItem)}>
-            <i aria-hidden="true" {...stylex.props(styles.dot)} />
-            {plural(anchors.length, "section")} opened from the index
-          </span>
-        )}
-      </p>
-    </div>
+    <ReadMap
+      total={total}
+      chapters={chapters}
+      read={read}
+      opened={opened}
+      live={live}
+      summary={spans.length > 0 ? readLine(spans, outline?.total) : undefined}
+      label={`Where Claude read ${doc}`}
+    />
   );
 }
 

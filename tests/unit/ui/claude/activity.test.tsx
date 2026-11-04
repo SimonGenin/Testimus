@@ -1,10 +1,9 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render as rtlRender, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render as rtlRender, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { writtenTests } from "../../../../src/core/claude/stream.ts";
 import type { Job, JobEvent } from "../../../../src/core/types.ts";
-import { sectionMarks } from "../../../../src/ui/components/claude/ActivityParts.tsx";
 import { ClaudeActivity as GenActivity, runLine } from "../../../../src/ui/components/claude/ClaudeActivity.tsx";
 import { activityOf, gist, lasted, linesRead, outlineOf } from "../../../../src/ui/lib/activity.ts";
 import { landedIds } from "../../../../src/ui/screens/generate/GenResult.tsx";
@@ -242,7 +241,9 @@ describe("GenActivity", () => {
       await screen.findByText("Lines 1–2,379 of 4,000, in 4 pages, front to back; nothing read twice."),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("img", { name: "Lines read: 1 to 400, 400 to 1099, 1100 to 1899, 1900 to 2379 of 4000" }),
+      screen.getByRole("img", {
+        name: "Where Claude read SOSIE_4113_D401-1, 4000 lines: lines read: 1 to 400, 400 to 1099, 1100 to 1899, 1900 to 2379",
+      }),
     ).toBeInTheDocument();
     expect(named("docs.show")).toHaveLength(1);
     expect(screen.getByRole("heading", { name: "Planned 3 tests" })).toBeInTheDocument();
@@ -285,7 +286,7 @@ describe("GenActivity", () => {
     expect(
       screen.getByText("Lines 1–399, in 3 pages; 199 lines skipped; 100 lines read more than once."),
     ).toBeInTheDocument();
-    expect(screen.getAllByTestId("readbar-latest")).toHaveLength(1);
+    expect(container.querySelectorAll('[data-part="latest"]')).toHaveLength(1);
     rerender(<GenActivity events={events} running={true} now={Date.now()} />);
     expect(screen.getByRole("heading", { name: "Writing the steps: 1 of 2 done" })).toBeInTheDocument();
     expect(screen.getByText("Last written: “A”.")).toBeInTheDocument();
@@ -406,9 +407,15 @@ describe("what the index and the check add", () => {
     expect(screen.getByRole("region", { name: "Check run" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Read Q" })).toBeInTheDocument();
     expect(await screen.findByText("3 sections opened from the index")).toBeInTheDocument();
-    const pins = (await screen.findAllByTestId("docmap-pin")).map((p) => p.getAttribute("title"));
-    expect(pins).toEqual(["§2.1 Retrying failed jobs · line 6", "fig:12 Job lifecycle · line 4"]);
-    expect(screen.getAllByTestId("readbar-chapter")).toHaveLength(1);
+    const legend = screen.getByText("3 sections opened from the index").closest("li") as HTMLElement;
+    expect(within(legend).getByText("§2.1")).toBeInTheDocument();
+    expect(within(legend).getByText("fig:12")).toBeInTheDocument();
+    expect(within(legend).getByText("§9")).toBeInTheDocument();
+    const bar = screen.getByRole("img", { name: /^Where Claude read Q/ });
+    expect(bar).toHaveAccessibleName(/sections opened from the index: §2\.1, fig:12, §9$/);
+    // §2.1 spans its lines up to the next heading, the figure its own line; §9 is not in the document
+    await waitFor(() => expect(bar.querySelectorAll('[data-part="opened"]')).toHaveLength(2));
+    expect(bar.querySelectorAll('[data-part="chapter"]')).toHaveLength(1);
     expect(screen.getByText("and 1 more")).toBeInTheDocument();
     expect(screen.getByText("Retries are in chapter 2.")).toHaveAttribute("data-testid", "act-said");
     expect(screen.getByRole("heading", { name: "Checked the new tests" })).toBeInTheDocument();
@@ -442,14 +449,5 @@ describe("What Claude did: the head's line and the bar's section marks (design j
     expect(runLine([], "opus")).toBe("opus");
     render(<GenActivity events={[result]} running={false} now={Date.now()} model="sonnet" effort="medium" />);
     expect(screen.getByText(/sonnet · medium · 0:04/)).toBeInTheDocument();
-    const outline = outlineOf(
-      ["# 5 Traction <!-- §5 -->", "a", "## 5.6 Objets <!-- §5.6 -->", "b", "# 6 Suite <!-- §6 -->", "c"].join("\n"),
-    );
-    expect(sectionMarks(outline, [{ anchor: "§5.6", line: 3 }])).toEqual([
-      { anchor: "§5", line: 1 },
-      { anchor: "§5.6", line: 3 },
-      { anchor: "§6", line: 5 },
-    ]);
-    expect(sectionMarks(null, [])).toEqual([]);
   });
 });
