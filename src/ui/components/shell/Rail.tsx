@@ -13,8 +13,8 @@ import { ThemeToggle } from "./ThemeToggle.tsx";
 export const NAV: { id: Screen; label: string; icon: IconName }[] = [
   { id: "documents", label: "Documents", icon: "documents" },
   { id: "generate", label: "Generate", icon: "generate" },
-  { id: "tests", label: "Tests", icon: "tests" },
   { id: "review", label: "Review", icon: "review" },
+  { id: "tests", label: "Tests", icon: "tests" },
   { id: "jobs", label: "Jobs", icon: "jobs" },
 ];
 
