@@ -161,6 +161,7 @@ export function App() {
       openSource: (s: Source, from?: SourceFrom) => setSource({ source: s, from }),
       askClaude: dock.askClaude,
       runInDock: dock.runInDock,
+      askAbout: dock.askAbout,
       openPalette,
     }),
     [
@@ -178,6 +179,7 @@ export function App() {
       closeProject,
       dock.askClaude,
       dock.runInDock,
+      dock.askAbout,
       openPalette,
     ],
   );

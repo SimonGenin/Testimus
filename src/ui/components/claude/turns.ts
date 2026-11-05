@@ -1,4 +1,5 @@
 import type {
+  ChatProblem,
   ClaudeAction,
   ClaudeResult,
   ClaudeScope,
@@ -25,6 +26,8 @@ export type Again = {
   label?: string;
   model: string;
   effort: Effort;
+  /** a problem the app met: Claude is asked about it, in a conversation of its own */
+  problem?: ChatProblem;
 };
 
 export type RunCard = {

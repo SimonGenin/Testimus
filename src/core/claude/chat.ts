@@ -4,9 +4,10 @@ import { join } from "node:path";
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
 import { readJson, readProject, writeJson } from "../lib/project.ts";
-import type { ChatSession, ClaudeEvent, Diagnosis, Effort, Source, Tokens } from "../types.ts";
-import { chatPrompt, contextLines, readContexts } from "./prompt.ts";
-import { runClaude } from "./run.ts";
+import type { ChatProblem, ChatSession, ClaudeEvent, Diagnosis, Effort, Source, Tokens } from "../types.ts";
+import { proposeLines } from "./actions.ts";
+import { chatPrompt, contextLines, problemPrompt, readContexts } from "./prompt.ts";
+import { newRunId, runClaude } from "./run.ts";
 
 const chatsDir = (project: string) => join(project, ".testimus", "chats");
 const chatFile = (project: string, id: string) => join(chatsDir(project), `${id}.json`);
@@ -44,6 +45,9 @@ export function listChats(project: string): { id: string; title: string; updated
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
+const PROBLEM_EXAMPLES =
+  "« Index the documents again » when the index is missing or stale, « Convert the document again » when a conversion failed";
+
 export type AskOpts = {
   project: string;
   question: string;
@@ -53,6 +57,8 @@ export type AskOpts = {
   contexts?: string[];
   note?: string;
   conversation?: string;
+  /** a problem the app met: the conversation is about it, not the documents */
+  problem?: ChatProblem;
   signal?: AbortSignal;
   onEvent?(e: ClaudeEvent): void;
 };
@@ -80,15 +86,22 @@ export async function ask(o: AskOpts): Promise<AskResult> {
         turns: [],
         updatedAt: now(),
       };
+  if (o.problem) chat.problem = { where: o.problem.where.trim(), text: o.problem.text.trim() };
   chat.turns.push({ role: "user", text: o.question.trim(), at: now() });
   const context = contextLines(o.project, readContexts(o.project, o.contexts ?? []), o.note, o.conversation);
+  // ponytail: a problem is looked at like a triage — read only, and it may leave an action card behind
+  const runId = newRunId();
+  const problem = chat.problem;
   const run = (resume?: string) =>
     runClaude({
       project: o.project,
-      prompt: chatPrompt(o.question, p.language, context),
+      prompt: problem
+        ? problemPrompt(o.question, problem, p.language, proposeLines(runId, PROBLEM_EXAMPLES), context)
+        : chatPrompt(o.question, p.language, context),
       model: o.model || p.claude.model,
       effort: o.effort || p.claude.effort,
-      kind: "chat",
+      kind: problem ? "triage" : "chat",
+      ...(problem ? { runId, label: "ask" } : {}),
       contexts: o.contexts,
       resume,
       signal: o.signal,

@@ -102,6 +102,24 @@ registerMockScript(
     }),
 );
 
+const PROBLEM_ANSWER = [
+  "The check failed before reaching the service: the connection was refused or its certificate was not trusted. ",
+  "On a company network this is usually a proxy that re-signs HTTPS traffic with its own certificate.\n\n",
+  "1. Ask IT for the proxy's root certificate (a .pem file).\n",
+  "2. Set NODE_EXTRA_CA_CERTS to that file's path, then restart Testimus.\n",
+  "3. Run the system check again.",
+];
+
+registerMockScript(
+  (prompt) => prompt.startsWith("Testimus met the problem below."),
+  (spawn) =>
+    mockStream(spawn, {
+      tools: [{ name: "mcp__testimus__system_doctor", input: {} }],
+      texts: PROBLEM_ANSWER,
+      result: PROBLEM_ANSWER.join(""),
+    }),
+);
+
 function editTest(cwd: string, prompt: string): string | null {
   const id = prompt.match(/^Files: tests\/([^/]+)\/test\.md/m)?.[1];
   if (!id || !testExists(cwd, id)) return null;

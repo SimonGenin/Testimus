@@ -1,7 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import type { Effort } from "../../../core/types.ts";
+import type { ChatProblem, Effort } from "../../../core/types.ts";
 import type { Action } from "../../lib/actions.ts";
 import { useApp } from "../../lib/app.ts";
 import { useDraft } from "../../lib/data/autosave.ts";
@@ -34,8 +34,14 @@ export type DockRequest = {
   /** the prompt is asked at once (the palette's « Ask Claude »), not only put in the box */
   send?: boolean;
   job?: DockJob;
+  /** a problem the app met (« Ask Claude about this »): asked at once, in a conversation of its own */
+  problem?: ChatProblem;
+  /** how the problem's turn is named in the dock */
+  label?: string;
   nonce: number;
 };
+
+export const PROBLEM_QUESTION = "What causes this, and what can I do?";
 
 const styles = stylex.create({
   dock: {
@@ -144,9 +150,26 @@ export function ClaudeDock({
   useEffect(() => {
     if (!request || request.nonce === seen.current) return;
     seen.current = request.nonce;
-    where.ask(request.mode, request.scope);
+    // ponytail: a problem's conversation goes on in the Documents tab — the next question there continues it
+    if (request.problem) where.pickTab("docs");
+    else where.ask(request.mode, request.scope);
     if (request.job) {
       void runs.runJob(request.job);
+      return;
+    }
+    if (request.problem) {
+      const text = `${request.problem.text}\n\n${PROBLEM_QUESTION}`;
+      if (busy || offline) setPrompt(text);
+      else
+        void runs.execute({
+          mode: "docs",
+          text,
+          model,
+          effort,
+          contexts: runIds(ctx),
+          problem: request.problem,
+          label: request.label,
+        });
       return;
     }
     const q = request.prompt?.trim();

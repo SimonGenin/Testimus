@@ -104,6 +104,7 @@ export const app = (over: Partial<AppState> = {}): AppState => ({
   openSource: vi.fn(),
   askClaude: vi.fn(),
   runInDock: vi.fn(),
+  askAbout: vi.fn(),
   openPalette: vi.fn(),
   ...over,
 });

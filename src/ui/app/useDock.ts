@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { ChatProblem } from "../../core/types.ts";
 import type { DockJob, DockRequest } from "../components/claude/ClaudeDock.tsx";
 import type { Screen } from "../lib/app.ts";
 
@@ -31,6 +32,10 @@ export function useDock(screen: Screen) {
     (prompt?: string, send?: boolean) => open({ mode: "docs", prompt, ...(send ? { send } : {}) }),
     [open],
   );
+  const askAbout = useCallback(
+    (problem: ChatProblem, label?: string) => open({ mode: "docs", problem, ...(label ? { label } : {}) }),
+    [open],
+  );
 
   const last = useRef<Screen | null>(null);
   useEffect(() => {
@@ -40,5 +45,5 @@ export function useDock(screen: Screen) {
     else if (was === "review" && screen !== "review") setFolded(userFold.current ?? true);
   }, [screen]);
 
-  return { folded, request, toggle, askClaude, runInDock, askDocs };
+  return { folded, request, toggle, askClaude, runInDock, askDocs, askAbout };
 }

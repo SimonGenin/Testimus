@@ -5,7 +5,7 @@ import { writeAtomic } from "../lib/atomic.ts";
 import { findDoc, readContext, readDoc, writeDoc } from "../lib/docs.ts";
 import { readProject } from "../lib/project.ts";
 import { readLocal, testDir, writeLocal } from "../lib/store.ts";
-import type { ClaudeRun, ClaudeScope, Context } from "../types.ts";
+import type { ChatProblem, ClaudeRun, ClaudeScope, Context } from "../types.ts";
 
 export type JobRun = ClaudeRun & { note?: string; contexts?: string[] };
 
@@ -218,6 +218,31 @@ export function docRunLines(project: string, docId: string, run: JobRun = {}): s
     ...(team ? ["", "What the team knows about this document:", team] : []),
     ...contextLines(project, readContexts(project, docContexts(project, docId, run)), run.note),
   ];
+}
+
+// ponytail: a problem the app met is about the app, the machine or the network, not the specification — Claude may
+// use what it knows, looks without changing anything, and leaves a button behind only when the app's commands can fix it
+export function problemPrompt(
+  question: string,
+  problem: ChatProblem,
+  language: string,
+  propose: string[],
+  context: string[] = [],
+): string {
+  return [
+    "Testimus met the problem below. Explain plainly what most likely causes it and what the user can do about it.",
+    "This is about the app, the machine, the network or an account, not the specification: you may use what you know.",
+    "Look first when it helps (read only: the project files and the app's read-only mcp__testimus__ tools); do not change anything now.",
+    "When only the user can fix it (a setting, a certificate, the network, an account), give the steps, the most likely first.",
+    "",
+    `Problem (${problem.where}): ${problem.text.trim()}`,
+    ...propose,
+    `Answer in the language of the question (project language: ${language}).`,
+    ...context,
+    "",
+    `Question: ${question.trim()}`,
+    "",
+  ].join("\n");
 }
 
 export function chatPrompt(question: string, language: string, context: string[] = []): string {

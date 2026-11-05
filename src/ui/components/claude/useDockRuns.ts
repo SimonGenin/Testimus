@@ -230,7 +230,7 @@ export function useDockRuns(app: AppState) {
     if (locked) return;
     const t0 = Date.now();
     const tid = a.scope && "testId" in a.scope ? a.scope.testId : undefined;
-    const conversation = transcript(turns, a.mode === "docs" && !!chatId);
+    const conversation = transcript(turns, a.mode === "docs" && !!chatId && !a.problem);
     const answerId = start(a.mode === "test" ? "run" : "chat", a.text, a.label, a.mode === "test" ? tid : undefined);
     const extra = {
       ...(a.note ? { note: a.note } : {}),
@@ -242,7 +242,7 @@ export function useDockRuns(app: AppState) {
           "chat.ask",
           {
             question: a.text,
-            chatId,
+            ...(a.problem ? { problem: a.problem } : { chatId }),
             model: a.model || undefined,
             effort: a.effort,
             ...(a.contexts?.length ? { contexts: a.contexts } : {}),

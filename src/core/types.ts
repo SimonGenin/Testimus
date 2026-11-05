@@ -630,7 +630,17 @@ export type Diagnosis = {
   detail: string;
 };
 export type ChatTurn = { role: "user" | "assistant"; text: string; at: string };
-export type ChatSession = { id: string; sessionId?: string; title: string; turns: ChatTurn[]; updatedAt: string };
+/** a problem the app met (a failed check, an error): where it is, and what the app says about it */
+export type ChatProblem = { where: string; text: string };
+export type ChatSession = {
+  id: string;
+  sessionId?: string;
+  title: string;
+  turns: ChatTurn[];
+  updatedAt: string;
+  /** the conversation is about this problem, not the documents */
+  problem?: ChatProblem;
+};
 
 // Jobs (SPEC §2)
 

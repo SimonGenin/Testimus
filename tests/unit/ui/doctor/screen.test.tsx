@@ -315,4 +315,35 @@ describe("System check screen", () => {
     expect(row("Disk")).toHaveTextContent("21.0 GB free at /home/ana/p.");
     expect(mono("Node")).toEqual([]);
   });
+
+  it("an open check, not Claude's own, can be asked to Claude: the problem goes to the dock with Testimus's advice", async () => {
+    net.routes["system.doctor"] = () =>
+      answer([
+        c({ id: "jira", label: "Jira reachable", detail: "Simon on transurb" }),
+        c({
+          id: "xray",
+          label: "Xray reachable",
+          state: "fail",
+          detail: "fetch failed (UNABLE_TO_VERIFY_LEAF_SIGNATURE)",
+          fix: "Check the network or the proxy (HTTPS_PROXY).",
+        }),
+        c({ id: "claudeLogin", label: "Claude signed in", state: "fail", detail: "logged out" }),
+      ]);
+    const { state, rerenderWith } = withApp(<DoctorScreen />);
+    await screen.findByText("Xray reachable");
+    const ask = within(row("Xray reachable")).getByRole("button", { name: "Ask Claude about this" });
+    expect(screen.getAllByRole("button", { name: "Ask Claude about this" })).toHaveLength(1);
+    fireEvent.click(ask);
+    expect(state.askAbout).toHaveBeenCalledWith(
+      {
+        where: "check:xray",
+        text: "System check « Xray reachable »: fetch failed (UNABLE_TO_VERIFY_LEAF_SIGNATURE)\nTestimus says: Check the network or the proxy (HTTPS_PROXY).",
+      },
+      "Xray reachable",
+    );
+    rerenderWith({ info: null });
+    expect(screen.getByRole("button", { name: "Ask Claude about this" })).toHaveAccessibleDescription(
+      "Open a project to ask Claude",
+    );
+  });
 });

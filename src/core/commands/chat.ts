@@ -9,10 +9,16 @@ const SOURCE = z.object({
   quote: z.string().describe("The exact words quoted from doc.md"),
 });
 
+const PROBLEM = z.object({
+  where: z.string().min(1).max(200).describe("Where the app met it: check:<id>, job:<id>, doc:<id>, test:<id>…"),
+  text: z.string().min(1).max(4000).describe("What the app says about it: the error and its own advice"),
+});
+
 export const commands = [
   command({
     name: "chat.ask",
-    summary: 'Ask Claude a question about the project\'s documents; the answer cites docId#anchor "quote".',
+    summary:
+      'Ask Claude a question about the project\'s documents (the answer cites docId#anchor "quote"), or about a problem the app met (problem).',
     input: z.object({
       question: z.string().min(1).describe("The question, in any language."),
       chatId: z.string().optional().describe("Continue this conversation (from chat.list); omit to start one."),
@@ -21,6 +27,9 @@ export const commands = [
       contexts: CONTEXT_IDS.optional().describe("Saved context ids Claude reads first (default: none)."),
       note: NOTE,
       conversation: CONVERSATION,
+      problem: PROBLEM.optional().describe(
+        "A problem the app met (a failed check, an error): Claude explains its cause and what to do, may use what it knows beyond the documents, and may propose a Claude action; the conversation stays about it.",
+      ),
     }),
     output: z.object({
       chatId: z.string().describe("The conversation, to continue it"),
@@ -47,6 +56,7 @@ export const commands = [
         contexts: input.contexts,
         note: input.note,
         conversation: input.conversation,
+        problem: input.problem,
         signal: ctx.signal,
         onEvent: (e) => ctx.claude(e),
       });
@@ -87,6 +97,7 @@ export const commands = [
         )
         .describe("The questions and answers, in order"),
       updatedAt: z.string().describe("When it last changed"),
+      problem: PROBLEM.optional().describe("The problem the conversation is about, when it is not the documents"),
     }),
     mutates: false,
     positional: ["chatId"],

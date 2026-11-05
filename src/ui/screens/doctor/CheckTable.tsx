@@ -1,5 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import type { DoctorAction, DoctorCheck } from "../../../core/types.ts";
+import { AskAbout } from "../../components/claude/AskAbout.tsx";
 import { Badge, HEALTH } from "../../components/ui/Badge.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import type { IconName } from "../../components/ui/Icon.tsx";
@@ -15,7 +16,7 @@ const styles = stylex.create({
   result: { display: "flex", flexDirection: "column", gap: space.s1, color: color.textMuted, overflowWrap: "anywhere" },
   open: { color: color.text },
   todo: { color: color.text },
-  fix: { display: "flex", justifyContent: "flex-end", whiteSpace: "nowrap" },
+  fix: { display: "flex", alignItems: "center", justifyContent: "flex-end", gap: space.s2, whiteSpace: "nowrap" },
 });
 
 // ponytail: a fix's button says what it does by its command — a download, a folder to choose, an index to run again
@@ -27,6 +28,14 @@ const FIX_ICON: Record<string, IconName> = {
   "models.add": "folder",
   "rag.index": "refresh",
 };
+
+// ponytail: a problem Claude can look at — not Claude's own checks, which fail when Claude cannot answer
+const askable = (c: DoctorCheck) => isOpen(c.state) && !c.id.startsWith("claude");
+
+const problemOf = (c: DoctorCheck) => ({
+  where: `check:${c.id}`,
+  text: [`System check « ${c.label} »: ${c.detail}`, c.fix ? `Testimus says: ${c.fix}` : ""].filter(Boolean).join("\n"),
+});
 
 function Result({ check }: { check: DoctorCheck }) {
   const open = isOpen(check.state);
@@ -101,16 +110,19 @@ export function CheckTable({
             label: "Fix",
             width: "1%",
             render: (c) =>
-              c.action && (
+              (c.action || askable(c)) && (
                 <span {...stylex.props(styles.fix)}>
-                  <Button
-                    size="sm"
-                    icon={FIX_ICON[c.action.command]}
-                    label={c.action.label}
-                    loading={busy(c)}
-                    disabled={!busy(c) && blocked(c)}
-                    onClick={() => c.action && onAct(c, c.action)}
-                  />
+                  {askable(c) && <AskAbout problem={problemOf(c)} label={c.label} />}
+                  {c.action && (
+                    <Button
+                      size="sm"
+                      icon={FIX_ICON[c.action.command]}
+                      label={c.action.label}
+                      loading={busy(c)}
+                      disabled={!busy(c) && blocked(c)}
+                      onClick={() => c.action && onAct(c, c.action)}
+                    />
+                  )}
                 </span>
               ),
           },

@@ -122,6 +122,37 @@ describe("chat.ask", () => {
     expect(r).toMatchObject({ ok: true, sessionId: "new", answer: "Ok." });
   });
 
+  it("a problem is looked at read-only beyond the documents, may leave an action, and stays the conversation's subject", async () => {
+    const dir = copyFixture();
+    answers(
+      { text: "Un proxy d'entreprise remplace le certificat.", session: "p-1" },
+      { text: "Oui.", session: "p-1" },
+    );
+    const problem = {
+      where: "check:xray",
+      text: "Xray reachable and authenticated: fetch failed (UNABLE_TO_VERIFY_LEAF_SIGNATURE)",
+    };
+    const first = (await invoke(
+      "chat.ask",
+      { question: "What causes this, and what can I do?", problem },
+      { project: dir },
+    )) as { chatId: string; ok: boolean };
+    expect(first.ok).toBe(true);
+    const prompt = calls[0].stdin;
+    expect(prompt).toContain(`Problem (check:xray): ${problem.text}`);
+    expect(prompt).not.toContain("ask-docs");
+    expect(prompt).toContain("actions_propose");
+    expect(prompt).toMatch(/runId: "run-[^"]+"/);
+    expect(calls[0].args[calls[0].args.indexOf("--tools") + 1]).toBe("Read,Glob,Grep,Skill");
+    const mcp = calls[0].args[calls[0].args.indexOf("--allowedTools") + 1];
+    expect(mcp).toContain("mcp__testimus__actions_propose");
+
+    await invoke("chat.ask", { question: "Et sans proxy ?", chatId: first.chatId }, { project: dir });
+    expect(calls[1].stdin).toContain(`Problem (check:xray): ${problem.text}`);
+    const show = (await invoke("chat.show", { chatId: first.chatId }, { project: dir })) as { problem: unknown };
+    expect(show.problem).toEqual(problem);
+  });
+
   it("a failed answer is reported, not stored as the assistant's", async () => {
     const dir = copyFixture();
     answers({ text: "Claude usage limit reached. Your limit resets at 3pm.", session: "s", error: true });

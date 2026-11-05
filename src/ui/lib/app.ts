@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react";
-import type { ColumnLayout, ProjectJson, Review, Source, StepColumn, XrayJson } from "../../core/types.ts";
+import type { ChatProblem, ColumnLayout, ProjectJson, Review, Source, StepColumn, XrayJson } from "../../core/types.ts";
 
 export type Screen = "documents" | "generate" | "tests" | "review" | "jobs" | "settings" | "doctor" | "setup" | "kit";
 
@@ -52,6 +52,8 @@ export type AppState = {
   openSource: (s: Source, from?: SourceFrom) => void;
   askClaude: (scope: "test" | "step", prompt?: string) => void;
   runInDock: (job: { name: string; input: unknown; label: string; testId: string }) => void;
+  /** a problem the app met, asked to Claude in the dock: it explains the cause and may propose an action */
+  askAbout: (problem: ChatProblem, label?: string) => void;
   openPalette: () => void;
 };
 
