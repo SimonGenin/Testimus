@@ -21,7 +21,11 @@ const styles = stylex.create({
   bubble: {
     boxSizing: "border-box",
     position: "fixed",
+    inset: "auto",
     zIndex: z.tooltip,
+    margin: 0,
+    borderStyle: "none",
+    overflow: "visible",
     display: "inline-flex",
     alignItems: "center",
     gap: space.s3,
@@ -62,7 +66,10 @@ type Side = NonNullable<TooltipProps["side"]>;
 
 // ponytail: the bubble is placed in fixed position from its control's box — a scrolling frame around the control (a
 // table, a pane) neither clips it nor grows a scroll bar for it — centred on the control, on the other side when its
-// own has no room, and kept inside the window
+// own has no room, and kept inside the window; while shown it is a manual popover in the browser's top layer, so no
+// ancestor traps it — not a stacking context (a sticky head, the dock, a modal), nor a filter or a transform that would
+// make « fixed » relative to itself (the modal's blurred scrim, a button's hover). The attribute comes and goes with
+// the bubble: a page without the top layer (jsdom) keeps the plain fixed bubble rather than hiding it
 function place(want: Side, a: DOMRect, b: HTMLElement): { side: Side; style: CSSProperties } {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
@@ -105,6 +112,9 @@ export function Tooltip({ label, shortcut, side = "top", children, debugState }:
   const [at, setAt] = useState<{ side: Side; style: CSSProperties }>();
   useLayoutEffect(() => {
     if (!shown) return;
+    const b = bubble.current && "showPopover" in bubble.current ? bubble.current : undefined;
+    b?.setAttribute("popover", "manual");
+    b?.showPopover();
     const put = () => {
       const a = anchor.current?.getBoundingClientRect();
       if (a && bubble.current) setAt(place(side, a, bubble.current));
@@ -115,6 +125,8 @@ export function Tooltip({ label, shortcut, side = "top", children, debugState }:
     return () => {
       window.removeEventListener("resize", put);
       window.removeEventListener("scroll", put, true);
+      if (b?.isConnected) b.hidePopover();
+      b?.removeAttribute("popover");
     };
   }, [shown, side]);
   const hide = () => {

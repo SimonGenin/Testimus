@@ -165,6 +165,43 @@ describe("Tooltip", () => {
     }
   });
 
+  it("is a manual popover in the top layer while shown, so no ancestor's stacking context or filter traps it", () => {
+    const proto = HTMLElement.prototype as HTMLElement & { showPopover?: () => void; hidePopover?: () => void };
+    const had = { show: proto.showPopover, hide: proto.hidePopover };
+    const show = vi.fn();
+    const hide = vi.fn();
+    proto.showPopover = show;
+    proto.hidePopover = hide;
+    try {
+      vi.useFakeTimers();
+      const { unmount } = render(
+        <Tooltip label="Pin on top">
+          <button type="button">Pin</button>
+        </Tooltip>,
+      );
+      const tip = screen.getByRole("tooltip", { hidden: true });
+      expect(tip).not.toHaveAttribute("popover");
+      const anchor = screen.getByRole("button", { name: "Pin" }).parentElement as HTMLElement;
+      fireEvent.mouseEnter(anchor);
+      act(() => vi.advanceTimersByTime(500));
+      expect(show).toHaveBeenCalledTimes(1);
+      expect(show.mock.contexts[0]).toBe(tip);
+      expect(tip).toHaveAttribute("popover", "manual");
+      fireEvent.mouseLeave(anchor);
+      expect(hide).toHaveBeenCalledTimes(1);
+      expect(tip).not.toHaveAttribute("popover");
+      fireEvent.mouseEnter(anchor);
+      act(() => vi.advanceTimersByTime(500));
+      unmount();
+      expect(show).toHaveBeenCalledTimes(2);
+    } finally {
+      if (had.show) proto.showPopover = had.show;
+      else Reflect.deleteProperty(proto, "showPopover");
+      if (had.hide) proto.hidePopover = had.hide;
+      else Reflect.deleteProperty(proto, "hidePopover");
+    }
+  });
+
   it("is placed in the window from its control's box: no scrolling frame clips it, it flips when its side has no room", () => {
     const size = (el: HTMLElement) => (el.getAttribute("role") === "tooltip" ? { w: 120, h: 24 } : { w: 0, h: 0 });
     const w = vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(function (this: HTMLElement) {
