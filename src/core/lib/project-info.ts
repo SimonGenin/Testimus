@@ -5,7 +5,7 @@ import { awaitsReview, REVIEWS, type Review } from "../types.ts";
 import { stepColumns } from "./columns.ts";
 import { docIds } from "./docs.ts";
 import { readProject, readXray } from "./project.ts";
-import { testsDir } from "./store.ts";
+import { isGenerating, testsDir } from "./store.ts";
 import { parseTest } from "./testfile.ts";
 
 // ponytail: what the shell shows of the open project — its files and how many of each; test.md is read by the one
@@ -19,7 +19,7 @@ export function projectOverview(dir: string) {
   const root = testsDir(dir);
   const ids = existsSync(root)
     ? readdirSync(root, { withFileTypes: true })
-        .filter((e) => e.isDirectory())
+        .filter((e) => e.isDirectory() && !isGenerating(dir, e.name))
         .map((e) => e.name)
     : [];
   for (const id of ids) {

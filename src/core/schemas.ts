@@ -41,6 +41,10 @@ export const TEST_REF = z.object({
   mtime: z.number().describe("test.md modification time (ms, rounded): give it back as ifMtime to tests.save"),
   stepCount: z.number().describe("Number of steps"),
   findings: FINDING_COUNTS.optional().describe("What the last check found, when there was one"),
+  generating: z
+    .boolean()
+    .optional()
+    .describe("A running generation is still writing it: listed only with generating: true until it ends"),
 });
 
 export const SOURCE = z.object({

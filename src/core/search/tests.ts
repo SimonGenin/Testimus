@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { readXray } from "../lib/project.ts";
-import { findingCounts, readCheck, readRemote, syncState, testsDir } from "../lib/store.ts";
+import { findingCounts, isGenerating, readCheck, readRemote, syncState, testsDir } from "../lib/store.ts";
 import { parseTest, sameTestMd } from "../lib/testfile.ts";
 import { awaitsReview, type FindingCounts, type SyncState, type Test } from "../types.ts";
 import { type Corpus, corpus, type Doc, type Field, field, imageless } from "./match.ts";
@@ -84,6 +84,7 @@ export function testsCorpus(project: string): Corpus<TestDoc> {
   const ids = readdirSync(root, { withFileTypes: true })
     .filter((e) => e.isDirectory() && /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(e.name))
     .map((e) => e.name)
+    .filter((id) => !isGenerating(project, id))
     .sort((a, b) => a.localeCompare(b, "en", { numeric: true }));
   const docs = ids.map((id) => load(project, id, names, known)).filter((d): d is TestDoc => !!d);
   for (const id of [...known.keys()]) if (!ids.includes(id)) known.delete(id);

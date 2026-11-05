@@ -69,6 +69,7 @@ export type LocalTestRef = {
   mtime: number;
   stepCount: number;
   findings?: FindingCounts;
+  generating?: boolean;
 };
 
 export type CitingTest = { id: string; key?: string; summary: string; review: Review; steps: number };

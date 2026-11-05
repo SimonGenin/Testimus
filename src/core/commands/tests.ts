@@ -110,12 +110,18 @@ export const commands = [
       folder: z.string().optional().describe("Only tests in this Xray folder or below (e.g. /Traction)"),
       review: REVIEW.optional().describe("Only tests in this review state"),
       text: z.string().optional().describe("Only tests whose id, key or summary contains this text"),
+      generating: z
+        .boolean()
+        .optional()
+        .describe(
+          "Also list the tests a running generation is still writing (flagged generating) — Generate shows them as they land; nothing else does until the generation ends",
+        ),
     }),
     output: z.array(TEST_REF),
     mutates: false,
     async run(ctx, input) {
       const text = input.text?.toLowerCase();
-      return listLocalTests(projectOf(ctx))
+      return listLocalTests(projectOf(ctx), { generating: input.generating })
         .filter(
           (t) =>
             (input.folder === undefined || inFolder(t.folder, input.folder)) &&

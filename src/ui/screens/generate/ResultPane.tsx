@@ -73,7 +73,7 @@ export function ResultPane({
   const app = useApp();
   const [fold, setFold] = useState<Fold>({ all: true, flip: new Set() });
   const [now, setNow] = useState(Date.now());
-  const refs = useRead("tests.list", {}, { enabled: gen.ids.length > 0 });
+  const refs = useRead("tests.list", { generating: true }, { enabled: gen.ids.length > 0 });
   const { job, result, stopped, ids, running } = gen;
 
   useEffect(() => {

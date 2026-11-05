@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, renameSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
 import type {
@@ -42,6 +42,26 @@ export function testDir(project: string, id: string): string {
 export const testsDir = (project: string) => join(project, "tests");
 
 export const testExists = (project: string, id: string) => existsSync(join(testDir(project, id), "test.md"));
+
+// ponytail: a running generation's tests are not there for anyone until it ends — not in the tests, the review,
+// the search or a count. It holds every local test that appears after it started, except one made in this
+// process meanwhile (by hand, a copy); Claude writes from its own processes, so its tests are never let through
+const holds = new Map<string, Set<string>[]>();
+
+export function holdNewTests(project: string): () => void {
+  const key = resolve(project);
+  const dir = testsDir(project);
+  const known = new Set(existsSync(dir) ? readdirSync(dir) : []);
+  holds.set(key, [...(holds.get(key) ?? []), known]);
+  return () => {
+    const left = (holds.get(key) ?? []).filter((k) => k !== known);
+    if (left.length) holds.set(key, left);
+    else holds.delete(key);
+  };
+}
+
+export const isGenerating = (project: string, id: string) =>
+  /^local-[0-9a-f]{8}$/i.test(id) && !!holds.get(resolve(project))?.some((known) => !known.has(id));
 
 export function readCheck(project: string, id: string): CheckFile | null {
   const raw = read(join(testDir(project, id), "check.json"));
@@ -178,6 +198,7 @@ export function localTestRef(project: string, id: string): LocalTestRef | null {
     mtime: fileMtime(join(dir, "test.md")),
     stepCount: test.steps.length,
     ...(findings ? { findings } : {}),
+    ...(isGenerating(project, id) ? { generating: true } : {}),
   };
 }
 
@@ -187,11 +208,12 @@ export function inFolder(folder: string, under: string): boolean {
   return base === "" || folder === base || folder.startsWith(`${base}/`);
 }
 
-export function listLocalTests(project: string): LocalTestRef[] {
+export function listLocalTests(project: string, o: { generating?: boolean } = {}): LocalTestRef[] {
   const dir = testsDir(project);
   if (!existsSync(dir)) return [];
   return readdirSync(dir, { withFileTypes: true })
     .filter((e) => e.isDirectory() && /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(e.name))
+    .filter((e) => o.generating || !isGenerating(project, e.name))
     .map((e) => localTestRef(project, e.name))
     .filter((r): r is LocalTestRef => r !== null)
     .sort((a, b) => a.id.localeCompare(b.id, "en", { numeric: true }));
@@ -226,6 +248,7 @@ export function writeTest(project: string, id: string, test: Test, fieldOrder: r
 export function createLocalTest(project: string, test: Test, fieldOrder: readonly string[] = []): string {
   let id = newLocalId();
   while (existsSync(testDir(project, id))) id = newLocalId();
+  for (const known of holds.get(resolve(project)) ?? []) known.add(id);
   writeTest(project, id, test, fieldOrder);
   return id;
 }

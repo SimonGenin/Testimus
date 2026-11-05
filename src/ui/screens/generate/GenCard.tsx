@@ -54,7 +54,8 @@ export type GenCardProps = {
   onOpen: () => void;
 };
 
-// ponytail: Generate shows what was written — title, state, findings — and Review is where a test is read
+// ponytail: Generate shows what was written — title, state, findings — and Review is where a test is read, once
+// the generation has ended: until then the test is nowhere else
 export function GenCard({ item, check, writing, checking, onOpen }: GenCardProps) {
   if (!item.test)
     return (
@@ -80,7 +81,11 @@ export function GenCard({ item, check, writing, checking, onOpen }: GenCardProps
           </span>
         </span>
       }
-      actions={<Button size="sm" variant="quiet" iconAfter="arrow-right" label="Review" onClick={onOpen} />}
+      actions={
+        item.ref?.generating ? undefined : (
+          <Button size="sm" variant="quiet" iconAfter="arrow-right" label="Review" onClick={onOpen} />
+        )
+      }
     >
       <span {...stylex.props(styles.badges)}>
         <ReviewBadge state={review} size="sm" />

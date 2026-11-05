@@ -5,7 +5,15 @@ import { agentPool, agentsSetting, loadLine } from "../lib/agents.ts";
 import { loadCorpus, runMechanical } from "../lib/check.ts";
 import { fieldOrder } from "../lib/columns.ts";
 import { readProject } from "../lib/project.ts";
-import { listLocalTests, markGenerated, readTest, removeTest, testExists, writeTest } from "../lib/store.ts";
+import {
+  holdNewTests,
+  listLocalTests,
+  markGenerated,
+  readTest,
+  removeTest,
+  testExists,
+  writeTest,
+} from "../lib/store.ts";
 import { awaitsReview, type ClaudeEvent, type Diagnosis, type Tokens } from "../types.ts";
 import { checkTests } from "./check.ts";
 import { checkGenInput, type GenInput, genPrompt, indexGate, plannedInput } from "./gen-prompt.ts";
@@ -163,6 +171,15 @@ function readPrior(project: string, generation: string): Prior {
 }
 
 export async function generateTests(project: string, asked: GenInput, ctx: Ctx): Promise<GenResult> {
+  const release = holdNewTests(project);
+  try {
+    return await generate(project, asked, ctx);
+  } finally {
+    release();
+  }
+}
+
+async function generate(project: string, asked: GenInput, ctx: Ctx): Promise<GenResult> {
   const prior = asked.resume?.trim() ? readPrior(project, asked.resume.trim()) : null;
   const input = prior
     ? { ...prior.input, model: asked.model || prior.input.model, effort: asked.effort || prior.input.effort }
