@@ -211,7 +211,7 @@ function processItem(r: Extract<Row, { kind: "process" }>, c: ListCtx): ListItem
 }
 
 // ponytail: the jobs as a tree — running first, then a section per day; a job opens on what it ran (jobs inside,
-// processes, jobs started after it, repeats)
+// processes, jobs started after it, repeats); a click anywhere on a node picks it and folds or unfolds it
 export function JobList({ shown, c, empty }: { shown: JobNode[]; c: ListCtx; empty?: ReactNode }) {
   const rows: Row[] = [];
   const groups = sections(shown, c.now).map((s) => {
@@ -233,7 +233,9 @@ export function JobList({ shown, c, empty }: { shown: JobNode[]; c: ListCtx; emp
       renderItem={(r) => (r.kind === "job" ? jobItem(r, c) : processItem(r, c))}
       onSelect={(k) => {
         const r = byKey.get(k);
-        if (r) c.pick(r.kind === "job" ? r.node.job.id : r.job.id);
+        if (!r) return;
+        c.pick(r.kind === "job" ? r.node.job.id : r.job.id);
+        if (r.kind === "job" && kids(r.node) > 0) c.toggle(r.node.job.id, !c.isOpen(r.node));
       }}
       onToggle={(k) => {
         const r = byKey.get(k);

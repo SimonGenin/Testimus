@@ -363,6 +363,11 @@ describe("Jobs screen", () => {
     const checks = within(list()).queryAllByText("Check tests").length;
     fireEvent.keyDown(rowOf("Check tests×2"), { key: "ArrowRight" });
     expect(within(list()).getAllByText("Check tests")).toHaveLength(checks + 1);
+    fireEvent.click(within(rowOf("Add document")).getByText("Add document"));
+    expect(state.navigate).toHaveBeenCalledWith("jobs", "add-1");
+    await waitFor(() => expect(rowOf("Add document")).toHaveAttribute("aria-expanded", "true"));
+    fireEvent.click(within(rowOf("Add document")).getByText("Add document"));
+    await waitFor(() => expect(rowOf("Add document")).toHaveAttribute("aria-expanded", "false"));
 
     rerenderWith({ route: { screen: "jobs", arg: "rag-index-0000aaaa" } });
     const failed = await waitFor(() => detail("Index documents job"));

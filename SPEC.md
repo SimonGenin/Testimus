@@ -1230,7 +1230,7 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
     Open the system check and Delete this document….
     (No tracked ids and no coverage: the concept went on 2026-11-03, `cd9d7a8` — a step column is a smart column
     Claude fills from its description, and requirement coverage is computed outside the app, §16.)
-  - **Jobs** — list (kind, subject, progress, duration, result) and detail (live log from jobs.show + events, Cancel);
+  - **Jobs** — list (kind, subject, progress, duration, result; a click anywhere on a job that ran others picks it and folds or unfolds it) and detail (live log from jobs.show + events, Cancel);
     a finished job opens what it made (generate, check, fix → the tests in Review; pull → Tests; docs.add, docs.convert,
     describe-figures → Documents), and a changed file that is a test's or a document's opens it; a failure sends a
     Jira access refusal to Settings › Access, anything else to the system check;

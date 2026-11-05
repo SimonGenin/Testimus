@@ -44,6 +44,7 @@ const styles = stylex.create({
   danger: { color: color.danger },
   indent: { flex: "none", display: "inline-block" },
   twisty: { flex: "none", display: "inline-flex", width: size.iconMd, color: color.textSubtle, cursor: "pointer" },
+  twistyTwo: { alignSelf: "center" },
   lead: { flex: "none", display: "inline-flex", alignItems: "center", color: color.textMuted },
   leadTwo: { marginTop: border.width },
   leadDanger: { color: color.danger },
@@ -210,7 +211,7 @@ export function ListItem({
         <span {...stylex.props(styles.indent)} style={{ width: `calc(${size.iconMd} * ${depth})` }} />
       )}
       {expanded !== undefined && (
-        <span data-twisty="" aria-hidden="true" {...stylex.props(styles.twisty)}>
+        <span data-twisty="" aria-hidden="true" {...stylex.props(styles.twisty, two && styles.twistyTwo)}>
           {expanded !== null && <Icon name={expanded ? "chevron-down" : "chevron-right"} size="sm" />}
         </span>
       )}
