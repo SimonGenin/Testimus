@@ -18,7 +18,7 @@ import { useClaudeOffline } from "./ConvertDoc.tsx";
 import { DescribedBadge, FigureDetail, FigureImage, isDescribed, isPicture } from "./FigureDetail.tsx";
 
 const styles = stylex.create({
-  box: { flex: 1, minHeight: 0, overflowY: "auto", backgroundColor: color.surface },
+  box: { flex: 1, minHeight: 0, overflowY: "auto", backgroundColor: color.surface, containerType: "size" },
   inner: {
     boxSizing: "border-box",
     display: "flex",
@@ -47,6 +47,12 @@ const styles = stylex.create({
     margin: 0,
     padding: 0,
     listStyle: "none",
+  },
+  side: {
+    position: { default: "sticky", [container.paneCompact]: "static" },
+    top: space.s5,
+    maxHeight: { default: `calc(100cqb - ${space.s5} - ${space.s5})`, [container.paneCompact]: "none" },
+    overflowY: "auto",
   },
   name: { minWidth: 0, color: color.textMuted, overflowWrap: "anywhere" },
   meta: { display: "flex", alignItems: "center", gap: space.s3, color: color.textMuted },
@@ -184,14 +190,16 @@ export function DocFigures({
                 );
               })}
             </ul>
-            <FigureDetail
-              docId={docId}
-              figure={current}
-              busy={busy}
-              offline={offline}
-              onOpen={onOpen}
-              onDescribe={() => ask([current.anchor])}
-            />
+            <div {...stylex.props(styles.side)}>
+              <FigureDetail
+                docId={docId}
+                figure={current}
+                busy={busy}
+                offline={offline}
+                onOpen={onOpen}
+                onDescribe={() => ask([current.anchor])}
+              />
+            </div>
           </div>
         ) : (
           <EmptyState
