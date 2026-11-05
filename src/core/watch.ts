@@ -7,11 +7,12 @@ import { skipped } from "./lib/changed.ts";
 const watchers = new Map<string, FSWatcher>();
 
 // ponytail: one recursive watcher per project a page has used; a burst of writes (a save, a Claude run, a sync) becomes
-// one `changed` event 200 ms after the last of them, naming every path (relative, `/`)
-export function watchProject(project: string, settleMs = 200): void {
+// one `changed` event 200 ms after the last of them, naming every path (relative, `/`) — at most a second apart while
+// the writes go on (a pull of hundreds of tests, a long generation), so the pages follow it as it goes
+export function watchProject(project: string, settleMs = 200, maxMs = 1000): void {
   const dir = resolve(project);
   if (watchers.has(dir)) return;
-  const batch = debounce<string>(settleMs, (paths) => filesChanged(dir, [...new Set(paths)].sort()));
+  const batch = debounce<string>(settleMs, (paths) => filesChanged(dir, [...new Set(paths)].sort()), maxMs);
   let w: FSWatcher;
   try {
     w = watch(dir, { recursive: true, persistent: false }, (kind, name) => {

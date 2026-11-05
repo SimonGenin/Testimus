@@ -6,6 +6,7 @@ import { isCancelled, timeout } from "../../shared/run/work.ts";
 import { type Ctx, UserError } from "../command.ts";
 import { withProcess } from "../jobs.ts";
 import type { Settings } from "../types.ts";
+import { natural } from "./natural.ts";
 
 export type Release = { version: string; folder: string; notes: string; built: string };
 
@@ -53,7 +54,7 @@ export function compareVersions(a: string, b: string): number {
   if (x[3] === y[3]) return 0;
   if (!x[3]) return 1;
   if (!y[3]) return -1;
-  return x[3].localeCompare(y[3], "en", { numeric: true });
+  return natural(x[3], y[3]);
 }
 
 const readText = (file: string): string => {

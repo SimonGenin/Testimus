@@ -1,7 +1,10 @@
+import { join } from "node:path";
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
+import { fileMemo } from "../lib/file-memo.ts";
+import { natural } from "../lib/natural.ts";
 import { osUser, setReview } from "../lib/review.ts";
-import { listLocalTests, readTest, testExists } from "../lib/store.ts";
+import { listLocalTests, readTest, testDir, testExists } from "../lib/store.ts";
 import type { LocalTestRef, Review, Test } from "../types.ts";
 import { inFolder } from "./check.ts";
 import { readLedger } from "./ledger.ts";
@@ -49,8 +52,16 @@ export function decide(project: string, id: string, decision: "validate" | "to-f
   });
 }
 
+// ponytail: what the queue needs of a test beyond its row, read once per version of its test.md
+const said = fileMemo<{ reviewNote?: string; generatedBy?: string }>();
+const reviewOf = (project: string, id: string) =>
+  said(join(testDir(project, id), "test.md"), [join(testDir(project, id), "test.md")], () => {
+    const { reviewNote, generatedBy } = readTest(project, id).test;
+    return { reviewNote, generatedBy };
+  });
+
 function itemOf(project: string, t: LocalTestRef, when: (generation: string) => string | undefined): QueueItem {
-  const test = readTest(project, t.id).test;
+  const test = reviewOf(project, t.id);
   const note = t.review === "to-fix" ? test.reviewNote : undefined;
   const at = test.generatedBy ? when(test.generatedBy) : undefined;
   return {
@@ -72,7 +83,7 @@ function itemOf(project: string, t: LocalTestRef, when: (generation: string) => 
   };
 }
 
-const byId = (a: QueueItem, b: QueueItem) => a.id.localeCompare(b.id, "en", { numeric: true });
+const byId = (a: QueueItem, b: QueueItem) => natural(a.id, b.id);
 const byAnomalies = (a: QueueItem, b: QueueItem) => b.errors - a.errors || b.warnings - a.warnings;
 const byState = (a: QueueItem, b: QueueItem) => STATE_RANK[a.review] - STATE_RANK[b.review];
 const SORTS: Record<QueueSort, (a: QueueItem, b: QueueItem) => number> = {

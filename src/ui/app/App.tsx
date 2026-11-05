@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { useQueryClient } from "@tanstack/react-query";
-import { type CSSProperties, useCallback, useEffect, useMemo, useState } from "react";
+import { type CSSProperties, memo, useCallback, useEffect, useMemo, useState } from "react";
 import type { CommandName } from "../../core/commands/index.ts";
 import type { SearchMatch, Source } from "../../core/types.ts";
 import { ClaudeDock } from "../components/claude/ClaudeDock.tsx";
@@ -38,6 +38,14 @@ import { useShellEvents } from "./useShellEvents.ts";
 export { parseRoute };
 
 const DOCK = { min: 300, max: 720, initial: 440 };
+
+// ponytail: the dock and the rail redraw for what they read (the context, their props), not each time the shell does —
+// a drag of the dock's edge redraws the shell at every move
+const Dock = memo(ClaudeDock);
+const ShellRail = memo(Rail);
+
+const sameFocus = (a: Focus | null, b: Focus | null) =>
+  a === b || (!!a && !!b && a.testId === b.testId && a.key === b.key && a.summary === b.summary && a.step === b.step);
 
 const styles = stylex.create({
   app: {
@@ -96,7 +104,10 @@ export function App() {
   const client = useQueryClient();
   const [route, navigate] = useRoute();
   const p = useProject(navigate);
-  const [focus, setFocus] = useState<Focus | null>(null);
+  const [focus, keepFocus] = useState<Focus | null>(null);
+  // ponytail: the editor says where it is at each change of its test; the window hears it only when that place moves —
+  // a keystroke in a step is not a new focus for every screen
+  const setFocus = useCallback((f: Focus | null) => keepFocus((cur) => (sameFocus(cur, f) ? cur : f)), []);
   const [lastRun, setLastRun] = useState<ClaudeRun | null>(null);
   const [testsNonce, setTestsNonce] = useState(0);
   const [source, setSource] = useState<{ source: Source; from?: SourceFrom } | null>(null);
@@ -106,7 +117,7 @@ export function App() {
   const dockPane = usePaneWidth("dockWidth", DOCK);
   const dock = useDock(route.screen);
   const bar = useTopBarSlots();
-  const running = useRunningJobs();
+  const running = useRunningJobs({ quiet: true });
   const { claudeRunning, setClaudeRunning } = useClaudeLock(running);
 
   const testsChanged = useCallback(() => setTestsNonce((n) => n + 1), []);
@@ -179,6 +190,7 @@ export function App() {
       lastRun,
       testsNonce,
       navigate,
+      setFocus,
       setClaudeRunning,
       testsChanged,
       refreshInfo,
@@ -233,7 +245,8 @@ export function App() {
     [navigate],
   );
 
-  const counts = { review: p.info?.counts?.awaiting, jobs: running.length };
+  const awaiting = p.info?.counts?.awaiting;
+  const counts = useMemo(() => ({ review: awaiting, jobs: running.length }), [awaiting, running.length]);
 
   return (
     <AppContext.Provider value={app}>
@@ -241,7 +254,7 @@ export function App() {
         p.booted && <Screens screen="setup" />
       ) : (
         <div {...stylex.props(styles.app)}>
-          <Rail counts={counts} kit={p.mock} />
+          <ShellRail counts={counts} kit={p.mock} />
           <div key={p.dir ?? ""} {...stylex.props(styles.frame, styles.round, !dock.folded && styles.frameOpen)}>
             <TopBarContext.Provider value={bar.value}>
               <TopBar title={TITLES[route.screen]} onPalette={openPalette} slots={bar} />
@@ -264,7 +277,7 @@ export function App() {
             {...stylex.props(styles.dock, !dock.folded && styles.dockOpen)}
             style={dock.folded ? undefined : ({ "--dock-size": `${dockPane.width}px` } as CSSProperties)}
           >
-            <ClaudeDock folded={dock.folded} request={dock.request} onFold={toggleDock} />
+            <Dock folded={dock.folded} request={dock.request} onFold={toggleDock} />
           </div>
         </div>
       )}

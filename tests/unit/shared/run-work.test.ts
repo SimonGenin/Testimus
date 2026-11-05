@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   CancelledError,
+  debounce,
   every,
   isCancelled,
   retry,
@@ -386,5 +387,32 @@ describe("every", () => {
     await vi.advanceTimersByTimeAsync(350);
     expect(n).toBe(0);
     expect(vi.getTimerCount()).toBe(0);
+  });
+});
+
+describe("debounce", () => {
+  it("gathers a burst into one call after its last value", () => {
+    const calls: number[][] = [];
+    const d = debounce<number>(200, (b) => calls.push(b));
+    d.push(1);
+    vi.advanceTimersByTime(150);
+    d.push(2);
+    vi.advanceTimersByTime(150);
+    expect(calls).toEqual([]);
+    vi.advanceTimersByTime(60);
+    expect(calls).toEqual([[1, 2]]);
+  });
+
+  it("calls at most maxMs apart while the burst goes on, and forgets what a cancel drops", () => {
+    const calls: number[][] = [];
+    const d = debounce<number>(200, (b) => calls.push(b), 1000);
+    for (let i = 0; i < 12; i++) {
+      d.push(i);
+      vi.advanceTimersByTime(100);
+    }
+    expect(calls).toEqual([[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]]);
+    d.cancel();
+    vi.advanceTimersByTime(1000);
+    expect(calls).toHaveLength(1);
   });
 });

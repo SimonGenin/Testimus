@@ -1,5 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import { UserError } from "../command.ts";
+import { natural } from "../lib/natural.ts";
 import type { Edge, EdgeKind } from "../types.ts";
 import { normalizeRef } from "./anchors.ts";
 import { docFigures, markerLine, parseSections, sectionAt } from "./chunk.ts";
@@ -149,7 +150,7 @@ export function refInfo(project: string, ref: string): { title: string; path: st
   return infoOf(graphOf(project), normalizeRef(ref));
 }
 
-const naturalCompare = (a: string, b: string) => a.localeCompare(b, "en", { numeric: true });
+const naturalCompare = natural;
 
 export function related(project: string, input: { ref: string; depth?: number }): Related {
   const g = graphOf(project);

@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { natural } from "../lib/natural.ts";
 import { readXray } from "../lib/project.ts";
 import { findingCounts, isGenerating, readCheck, readRemote, syncState, testsDir } from "../lib/store.ts";
 import { parseTest, sameTestMd } from "../lib/testfile.ts";
@@ -85,7 +86,7 @@ export function testsCorpus(project: string): Corpus<TestDoc> {
     .filter((e) => e.isDirectory() && /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(e.name))
     .map((e) => e.name)
     .filter((id) => !isGenerating(project, id))
-    .sort((a, b) => a.localeCompare(b, "en", { numeric: true }));
+    .sort(natural);
   const docs = ids.map((id) => load(project, id, names, known)).filter((d): d is TestDoc => !!d);
   for (const id of [...known.keys()]) if (!ids.includes(id)) known.delete(id);
   const key = docs.map((d) => `${d.id}@${known.get(d.id)?.key}`).join("\n");

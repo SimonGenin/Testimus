@@ -12,6 +12,7 @@ import {
   PAGE,
   searchTests,
 } from "../lib/jira/read.ts";
+import { natural } from "../lib/natural.ts";
 import { readProject, readXray } from "../lib/project.ts";
 import { listLocalTests, localTestRef } from "../lib/store.ts";
 import { connectJira, disconnectJira, projectInfo, refreshFields } from "../lib/sync/connect.ts";
@@ -330,7 +331,7 @@ export const commands = [
           ctx.progress({ message: `${key} done`, done, total: unique.length });
         }),
       );
-      const byKey = (a: string, b: string) => a.localeCompare(b, "en", { numeric: true });
+      const byKey = natural;
       return {
         pulled: pulled.sort(byKey),
         skipped: skipped.sort((a, b) => byKey(a.key, b.key)),

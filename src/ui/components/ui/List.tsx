@@ -1,7 +1,8 @@
 import * as stylex from "@stylexjs/stylex";
-import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from "react";
+import { type KeyboardEvent, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { border, color, fontSize, fontWeight, lineHeight, size, space, z } from "../../styles/tokens.stylex.ts";
 import { ListItem, type ListItemProps } from "./ListItem.tsx";
+import { useRowWindow } from "./rowWindow.ts";
 import { Skeleton } from "./Skeleton.tsx";
 
 const LOADING_ROWS = 3;
@@ -91,7 +92,7 @@ export type ListProps<T> = {
 
 export const optionId = (listId: string, key: string) => `${listId}-${encodeURIComponent(key)}`;
 
-type Row<T> = { key: string; item: T; props: ListItemProps; group?: number };
+type Row<T> = { key: string; item: T; props: ListItemProps; group?: number; index: number };
 
 // ponytail: every vertical list of things you pick from — tests, folders, documents, the review queue, jobs, contexts;
 // one tab stop, the arrows move between rows (WAI listbox and tree, roving focus), Enter or a click picks one
@@ -118,16 +119,34 @@ export function List<T>({
   const end = useRef<HTMLLIElement>(null);
   const [focusKey, setFocusKey] = useState<string | null>(null);
   const byKey = new Map(items.map((it) => [getKey(it), it]));
-  const rows: Row<T>[] = groups
-    ? groups.flatMap((g, gi) =>
-        g.keys.flatMap((k) => {
-          const it = byKey.get(k);
-          return it === undefined ? [] : [{ key: k, item: it, props: renderItem(it), group: gi }];
-        }),
-      )
-    : items.map((it) => ({ key: getKey(it), item: it, props: renderItem(it) }));
+  const rows: Row<T>[] = (
+    groups
+      ? groups.flatMap((g, gi) =>
+          g.keys.flatMap((k) => {
+            const it = byKey.get(k);
+            return it === undefined ? [] : [{ key: k, item: it, group: gi }];
+          }),
+        )
+      : items.map((it) => ({ key: getKey(it), item: it }))
+  ).map((r, index) => ({ ...r, index, props: renderItem(r.item) }));
   const open = rows.filter((r) => !r.props.disabled);
   const tabStop = [focusKey, selected, open[0]?.key].find((k) => k != null && open.some((r) => r.key === k)) ?? null;
+  const frameRef = useRef<HTMLUListElement>(null);
+  const win = useRowWindow(
+    frameRef,
+    refs,
+    rows.map((r) => r.key),
+    [selected, focusKey, tabStop],
+  );
+  // ponytail: a row the arrows went to that was not drawn yet takes the focus once it is
+  const toFocus = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    const k = toFocus.current;
+    const el = k ? refs.current.get(k) : undefined;
+    if (!el) return;
+    toFocus.current = null;
+    el.focus();
+  });
 
   useEffect(() => {
     const el = end.current;
@@ -147,7 +166,9 @@ export function List<T>({
   const go = (key: string | undefined) => {
     if (key === undefined) return;
     setFocusKey(key);
-    refs.current.get(key)?.focus();
+    const el = refs.current.get(key);
+    if (el) el.focus();
+    else toFocus.current = key;
     if (key === open[open.length - 1]?.key) onEndReached?.();
   };
   const key = (e: KeyboardEvent<HTMLLIElement>, row: Row<T>) => {
@@ -211,9 +232,32 @@ export function List<T>({
       onKeyDown={(e) => key(e, r)}
     />
   );
+  // ponytail: the rows of a long list not drawn are one room each run of them, as high as they were
+  const draw = (list: Row<T>[]) => {
+    if (win.all) return list.map(item);
+    const out: ReactNode[] = [];
+    let gap = 0;
+    let from = "";
+    const room = () => {
+      if (gap > 0) out.push(<li key={`gap:${from}`} role="presentation" aria-hidden="true" style={{ height: gap }} />);
+      gap = 0;
+    };
+    for (const r of list) {
+      if (win.shown(r.index)) {
+        room();
+        out.push(item(r));
+      } else {
+        if (!gap) from = r.key;
+        gap += win.room(r.key);
+      }
+    }
+    room();
+    return out;
+  };
   const paged = total !== undefined;
   return (
     <ul
+      ref={frameRef}
       id={ad?.id}
       role={pick ? (tree ? "tree" : "listbox") : undefined}
       aria-label={label}
@@ -249,12 +293,12 @@ export function List<T>({
                         )}
                       </li>
                     )}
-                    {inGroup.map(item)}
+                    {draw(inGroup)}
                   </ul>
                 </li>
               );
             })
-          : rows.map(item)}
+          : draw(rows)}
       {paged && !busy && items.length >= total && onEndReached && (
         <li role="presentation" {...stylex.props(styles.more)}>
           All {total} loaded

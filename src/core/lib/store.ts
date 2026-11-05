@@ -16,7 +16,9 @@ import type {
   TestState,
 } from "../types.ts";
 import { copyDirAtomic, fileMtime, writeAtomic } from "./atomic.ts";
+import { fileMemo } from "./file-memo.ts";
 import { sha256 } from "./hash.ts";
+import { natural } from "./natural.ts";
 import { readJson, readXray, writeJson } from "./project.ts";
 import { mapRefs, outsideTest } from "./test-blocks.ts";
 import { parseTest, sameTestMd, serializeTest, testMdHash } from "./testfile.ts";
@@ -177,7 +179,23 @@ export function syncState(project: string, id: string, md: string, remoteMd: str
   return sameTestMd(md, remoteMd) ? "synced" : "modified";
 }
 
+// ponytail: a test's row is read again only when one of the files it is made of moved — listing hundreds of tests
+// (the list, the review queue, the counts, each change Claude makes) only stats them
+const TEST_FILES = ["test.md", ".remote.md", "check.json", ".state.json"];
+const refs = fileMemo<Omit<LocalTestRef, "generating"> | null>();
+
 export function localTestRef(project: string, id: string): LocalTestRef | null {
+  const dir = testDir(project, id);
+  const ref = refs(
+    dir,
+    TEST_FILES.map((f) => join(dir, f)),
+    () => readRef(project, id),
+  );
+  if (!ref) return null;
+  return { ...ref, ...(isGenerating(project, id) ? { generating: true } : {}) };
+}
+
+function readRef(project: string, id: string): Omit<LocalTestRef, "generating"> | null {
   const dir = testDir(project, id);
   const md = read(join(dir, "test.md"));
   if (md === null) return null;
@@ -201,7 +219,6 @@ export function localTestRef(project: string, id: string): LocalTestRef | null {
     mtime: fileMtime(join(dir, "test.md")),
     stepCount: test.steps.length,
     ...(findings ? { findings } : {}),
-    ...(isGenerating(project, id) ? { generating: true } : {}),
   };
 }
 
@@ -219,7 +236,7 @@ export function listLocalTests(project: string, o: { generating?: boolean } = {}
     .filter((e) => o.generating || !isGenerating(project, e.name))
     .map((e) => localTestRef(project, e.name))
     .filter((r): r is LocalTestRef => r !== null)
-    .sort((a, b) => a.id.localeCompare(b.id, "en", { numeric: true }));
+    .sort((a, b) => natural(a.id, b.id));
 }
 
 export function readTest(

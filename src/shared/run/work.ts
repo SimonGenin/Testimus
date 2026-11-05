@@ -173,27 +173,38 @@ export function every(ms: number, tick: () => unknown, signal?: AbortSignal): ()
   return stop;
 }
 
-// ponytail: a burst of values becomes one call `ms` after the last of them, with every value gathered
-export function debounce<T>(ms: number, fire: (batch: T[]) => unknown): { push(value: T): void; cancel(): void } {
+// ponytail: a burst of values becomes one call `ms` after the last of them, with every value gathered — or `maxMs`
+// after the first when the burst goes on
+export function debounce<T>(
+  ms: number,
+  fire: (batch: T[]) => unknown,
+  maxMs = Number.POSITIVE_INFINITY,
+): { push(value: T): void; cancel(): void } {
   let batch: T[] = [];
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let since = 0;
+  const flush = () => {
+    const out = batch;
+    batch = [];
+    since = 0;
+    try {
+      const r = fire(out);
+      if (r instanceof Promise) r.catch(() => {});
+    } catch {}
+  };
   return {
     push(value) {
       batch.push(value);
+      const now = Date.now();
+      if (!since) since = now;
       clearTimeout(timer);
-      timer = setTimeout(() => {
-        const out = batch;
-        batch = [];
-        try {
-          const r = fire(out);
-          if (r instanceof Promise) r.catch(() => {});
-        } catch {}
-      }, ms);
+      timer = setTimeout(flush, Math.max(0, Math.min(ms, since + maxMs - now)));
       timer.unref?.();
     },
     cancel() {
       clearTimeout(timer);
       batch = [];
+      since = 0;
     },
   };
 }

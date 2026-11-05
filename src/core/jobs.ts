@@ -7,6 +7,7 @@ import { sleep } from "../shared/run/work.ts";
 import { type Ctx, UserError } from "./command.ts";
 import { env } from "./env.ts";
 import { addedRemoved, changedPaths, stampProject } from "./lib/changed.ts";
+import { fileMemo } from "./lib/file-memo.ts";
 import { withPerfScope } from "./lib/models-perf.ts";
 import type { Job, JobCause, JobEvent, JobProcess, JobStep } from "./types.ts";
 
@@ -65,14 +66,24 @@ function logFile(project: string | null, id: string): string {
   return join(jobsDir(project), `${id}.jsonl`);
 }
 
+const made = new Set<string>();
+
 function emit(l: Live, e: JobEvent): void {
   e.project = l.project;
   l.events.push(e);
   if (l.events.length > 2000) l.events.splice(0, l.events.length - 2000);
-  try {
-    mkdirSync(jobsDir(l.project), { recursive: true });
-    appendFileSync(logFile(l.project, l.job.id), `${JSON.stringify(e)}\n`);
-  } catch {}
+  // ponytail: the folder is made once, not at every line of a long run — and again if it went away meanwhile
+  const dir = jobsDir(l.project);
+  const line = `${JSON.stringify(e)}\n`;
+  for (const fresh of [made.has(dir), false])
+    try {
+      if (!fresh) mkdirSync(dir, { recursive: true });
+      appendFileSync(logFile(l.project, l.job.id), line);
+      made.add(dir);
+      break;
+    } catch {
+      made.delete(dir);
+    }
   for (const fn of listeners) fn(e);
 }
 
@@ -302,9 +313,7 @@ function alive(pid?: number): boolean {
   return !!pid && pid !== process.pid && isAlive(pid);
 }
 
-function fromDisk(project: string | null, id: string): { job: Job; events: JobEvent[] } | null {
-  const file = logFile(project, id);
-  if (!existsSync(file)) return null;
+function readLog(file: string): JobEvent[] {
   const events: JobEvent[] = [];
   for (const line of readFileSync(file, "utf8").split("\n")) {
     if (!line.trim()) continue;
@@ -312,6 +321,14 @@ function fromDisk(project: string | null, id: string): { job: Job; events: JobEv
       events.push(JSON.parse(line));
     } catch {}
   }
+  return events;
+}
+
+// ponytail: a job as its log last said it — its status, steps and programs; the other lines (Claude's words, the
+// progress) are thousands in a long run and say nothing of it, so they are not parsed
+const SAYS_JOB = /"type":"(status|steps|process)"/;
+
+function jobOf(events: Iterable<JobEvent>): Job | null {
   let job: Job | null = null;
   for (const e of events) {
     if (e.type === "status") job = { ...e.job };
@@ -319,16 +336,45 @@ function fromDisk(project: string | null, id: string): { job: Job; events: JobEv
     else if (job && e.type === "process")
       job.processes = [...(job.processes ?? []).filter((p) => p.id !== e.process.id), e.process];
   }
-  if (!job) return null;
-  if (job.status === "running" && !live.has(id) && !alive(job.pid))
-    job = {
-      ...job,
-      status: "failed",
-      interrupted: true,
-      error: "Interrupted (the app stopped).",
-      steps: job.steps?.map((s) => (s.status === "running" ? { ...s, status: "failed" } : s)),
-    };
-  return { job, events };
+  return job;
+}
+
+function* summaryLines(file: string): Generator<JobEvent> {
+  for (const line of readFileSync(file, "utf8").split("\n")) {
+    if (!SAYS_JOB.test(line)) continue;
+    try {
+      yield JSON.parse(line);
+    } catch {}
+  }
+}
+
+const summaries = fileMemo<Job | null>();
+
+// ponytail: a job left « running » by a Testimus that is gone was interrupted
+function settled(id: string, job: Job): Job {
+  if (job.status !== "running" || live.has(id) || alive(job.pid)) return job;
+  return {
+    ...job,
+    status: "failed",
+    interrupted: true,
+    error: "Interrupted (the app stopped).",
+    steps: job.steps?.map((s) => (s.status === "running" ? { ...s, status: "failed" } : s)),
+  };
+}
+
+function fromDisk(project: string | null, id: string): { job: Job; events: JobEvent[] } | null {
+  const file = logFile(project, id);
+  if (!existsSync(file)) return null;
+  const events = readLog(file);
+  const job = jobOf(events);
+  return job ? { job: settled(id, job), events } : null;
+}
+
+// ponytail: the list reads each log once per version of it (a finished job's log never moves again)
+function summaryFromDisk(project: string | null, id: string): Job | null {
+  const file = logFile(project, id);
+  const job = summaries(file, [file], () => (existsSync(file) ? jobOf(summaryLines(file)) : null));
+  return job ? settled(id, job) : null;
 }
 
 export function listJobs(project: string | null): Job[] {
@@ -338,8 +384,8 @@ export function listJobs(project: string | null): Job[] {
     if (existsSync(dir))
       for (const f of readdirSync(dir)) {
         if (!f.endsWith(".jsonl")) continue;
-        const d = fromDisk(project, f.slice(0, -6));
-        if (d) out.set(d.job.id, d.job);
+        const j = summaryFromDisk(project, f.slice(0, -6));
+        if (j) out.set(j.id, { ...j });
       }
   }
   for (const l of live.values()) if (l.project === project || l.project === null) out.set(l.job.id, { ...l.job });

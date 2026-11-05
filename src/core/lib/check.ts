@@ -9,6 +9,7 @@ import type { CheckFile, CitingTest, DocJson, Finding, Step, Test } from "../typ
 import { stepColumns } from "./columns.ts";
 import { findDoc } from "./docs.ts";
 import { lotOfAnchor } from "./media.ts";
+import { natural } from "./natural.ts";
 import { writeJson } from "./project.ts";
 import { readCheck, readTest, testDir, testExists, testsDir } from "./store.ts";
 import { hasRawEmbed } from "./test-blocks.ts";
@@ -423,7 +424,7 @@ export function testsCiting(
     const steps = test.steps.filter((s) => s.sources.some((x) => names.has(x.docId) && only(x.anchor ?? ""))).length;
     if (steps) out.push({ id: e.name, key: test.key, summary: test.summary, review: test.review, steps });
   }
-  return out.sort((a, b) => a.id.localeCompare(b.id, "en", { numeric: true }));
+  return out.sort((a, b) => natural(a.id, b.id));
 }
 
 // ponytail: the test did not change, its documents did — the mechanical pass is redone, and the semantic

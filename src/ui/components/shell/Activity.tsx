@@ -29,11 +29,18 @@ const styles = stylex.create({
 
 const isRunning = (j: unknown): j is Job => !!j && typeof j === "object" && (j as Job).status === "running";
 
+// ponytail: the cache keeps each answer's unchanged parts as they were (structural sharing), so what is left of the jobs
+// without their moving parts stays the same list while they only move
+const stillOnly = (jobs: Job[]): Job[] =>
+  Array.isArray(jobs) ? jobs.map(({ message: _m, progress: _p, steps: _s, processes: _x, ...j }) => j) : jobs;
+
 // ponytail: the running jobs of the open project, as the cache of jobs.list holds them (the event bridge reads it
 // again on every start and end); a first read still in the air when a job ends is answered from before that end, so
 // a job the stream said ended stays out
-export function useRunningJobs(): Job[] {
-  const list = useRead("jobs.list", { running: true }, { enabled: !!project() });
+// quiet: which jobs run and what they are, not how far they are — a progress line, Claude's words or a step does not
+// draw again what only needs the list (the shell, the lock)
+export function useRunningJobs({ quiet = false }: { quiet?: boolean } = {}): Job[] {
+  const list = useRead("jobs.list", { running: true }, { enabled: !!project(), select: quiet ? stillOnly : undefined });
   const [ended, setEnded] = useState<ReadonlySet<string>>(() => new Set());
   useEffect(
     () =>

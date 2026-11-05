@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { Screen } from "../lib/app.ts";
 import { DoctorScreen } from "../screens/doctor/DoctorScreen.tsx";
 import { DocumentsScreen } from "../screens/documents/DocumentsScreen.tsx";
@@ -21,8 +22,9 @@ const SCREEN: Record<Screen, () => React.JSX.Element> = {
   setup: FirstRunScreen,
 };
 
-// ponytail: the routes — one screen per hash
-export function Screens({ screen }: { screen: Screen }) {
+// ponytail: the routes — one screen per hash; the shell drawing itself again (the dock resized, a job started) does not
+// draw the screen again, only what the screen reads does
+export const Screens = memo(function Screens({ screen }: { screen: Screen }) {
   const Shown = SCREEN[screen];
   return <Shown />;
-}
+});

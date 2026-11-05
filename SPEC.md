@@ -132,13 +132,19 @@ update it when a decision changes, in the same change as the code.
   spawns, kills or waits (a guard test, §15).
 - **Events name their project.** Every event of `/api/events` carries `project` (null: the machine's own work, a model
   download); a page follows only its own project. Besides the job events, a recursive watcher per project in use emits one
-  `changed` event per burst of writes (200 ms), naming the paths — an edit, a save, Claude Code in a terminal, a sync —, the
+  `changed` event per burst of writes (200 ms after the last, at most a second apart while the writes go on: a pull of
+  hundreds of tests or a long generation shows as it goes), naming the paths — an edit, a save, Claude Code in a terminal, a sync —, the
   project's `CLAUDE.md` included, its index and the app's bookkeeping under `.testimus/` left out (but proposed actions). A
   `UserError` may carry a stable `code` a page branches on; `conflict` (the file moved on disk since it was read) is HTTP 409.
 - **Long work is a job**: `generate`, `check` over a batch, `rag.index`, `xray.pull` of a folder.
   A job has an id, progress, a cancel, and a log under `<project>/.testimus/jobs/<id>.jsonl`. Before it ends it says
   which project files it left changed (`changed`: the paths, and those it added and removed), so Jobs shows each one
   added, modified or deleted.
+- **Reads scale with the project** (2026-11-05, performance pass). A test's row (`tests.list`, the review queue, the
+  counts of `project.info`) and a job's summary (`jobs.list`) are worked out once per version of the files they come
+  from — a version is a file's size, mtime and inode — so listing hundreds of tests or jobs only stats their files; the
+  files stay the truth. A job's summary reads only its log's status, steps and process lines, never Claude's words.
+  Ids and keys sort with one natural-order collator.
 - **Stopping is clean.** On stdin closing (`--exit-with-stdin`), SIGINT, SIGTERM, SIGBREAK or SIGHUP
   (console closed), `serve` answers 503 to any new request, cancels every running job (each ends
   `cancelled` in its `.testimus/jobs/<id>.jsonl`; a job still busy after 5 s is logged `cancelled`
@@ -1359,6 +1365,13 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
 - Shell: Ctrl+K command palette (every registry command by name; a command with input gets a form from its schema; without a project it lists the ways to open one first and goes only to Jobs, Settings and the system check), Ctrl+J folds the Claude dock (folded at start and in Review; the user's choice holds until the next start), theme system / light / dark from the rail, step layout and last project remembered per browser; Revert undoes a whole Claude run. The page title is « Testimus — <project name> » (« Testimus » with no project); the desktop window takes it.
 - The app logo (`src/ui/public/logo.png`, `favicon.png`; `scripts/testimus.ico` for the Start-menu shortcut)
   sits on a light tile at the top of the rail and on the first-launch screen.
+- Long lists stay light (2026-11-05, performance pass): a `List` of 150 rows or more (the local tests, Jira's tests, the
+  review queue, a document's sections, the jobs) draws only the rows within 1 500 px of what its scrolling frame shows,
+  and the picked, focused and tab-stop rows; the rows not drawn are blank room as high as they last were, so the scroll
+  bar stays put. The arrows, Home and End reach every row (the row gone to is drawn, then focused). The shell draws a
+  screen again only for what the screen reads: a job's progress, Claude's words streaming and a drag of the dock's edge
+  do not draw the screen again, and a keystroke in a step does not draw the shell again (the editor's place, its test
+  and step, did not move).
 - Built on one kit (GOAL-V3, 2026-11-04): every control is a component of `src/ui/components/ui/` (Button, Text,
   ClaudeBlock, Chip, SourceChip, ChipField, Select, Checkbox, RadioGroup, Switch, Segmented, Menu, Popover, Modal,
   Toast, Tooltip, Banner, Badge, List, ListItem, Tabs, Skeleton, ResizeHandle, Table, TableGrid, EmptyState, Progress, Card,
