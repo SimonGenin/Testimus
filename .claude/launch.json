@@ -3,9 +3,252 @@
   "configurations": [
     {
       "name": "testimus-mock",
-      "runtimeExecutable": "node",
-      "runtimeArgs": ["src/faces/cli.ts", "serve", "--mock", "--port", "4399", "--no-open"],
-      "port": 4399
+      "runtimeExecutable": "C:/Users/s.genin/AppData/Roaming/fnm/aliases/default/node.exe",
+      "runtimeArgs": [
+        "src/faces/cli.ts",
+        "serve",
+        "--mock",
+        "--port",
+        "4317",
+        "--no-open"
+      ],
+      "port": 4317
+    },
+    {
+      "name": "testimus-mock-gen",
+      "runtimeExecutable": "C:/Users/s.genin/AppData/Roaming/fnm/aliases/default/node.exe",
+      "runtimeArgs": [
+        "src/faces/cli.ts",
+        "serve",
+        "--mock",
+        "--port",
+        "4327",
+        "--no-open"
+      ],
+      "port": 4327
+    },
+    {
+      "name": "testimus-mock-jira",
+      "runtimeExecutable": "C:/Users/s.genin/AppData/Roaming/fnm/aliases/default/node.exe",
+      "runtimeArgs": [
+        "src/faces/cli.ts",
+        "serve",
+        "--mock",
+        "--port",
+        "4329",
+        "--no-open"
+      ],
+      "port": 4329,
+      "env": {
+        "TESTIMUS_MOCK_JIRA_MS": "700"
+      }
+    },
+    {
+      "name": "testimus-mock-docs",
+      "runtimeExecutable": "C:/Users/s.genin/AppData/Roaming/fnm/aliases/default/node.exe",
+      "runtimeArgs": [
+        "src/faces/cli.ts",
+        "serve",
+        "--mock",
+        "--port",
+        "4331",
+        "--no-open"
+      ],
+      "port": 4331
+    },
+    {
+      "name": "testimus-mock-ids",
+      "runtimeExecutable": "C:/Users/s.genin/AppData/Roaming/fnm/aliases/default/node.exe",
+      "runtimeArgs": [
+        "src/faces/cli.ts",
+        "serve",
+        "--mock",
+        "--port",
+        "4335",
+        "--no-open"
+      ],
+      "port": 4335
+    },
+    {
+      "name": "testimus-mock-activity",
+      "runtimeExecutable": "C:/Users/s.genin/AppData/Roaming/fnm/aliases/default/node.exe",
+      "runtimeArgs": [
+        "src/faces/cli.ts",
+        "serve",
+        "--mock",
+        "--port",
+        "4339",
+        "--no-open"
+      ],
+      "port": 4339
+    },
+    {
+      "name": "testimus-mock-packs",
+      "runtimeExecutable": "C:/Users/s.genin/AppData/Roaming/fnm/aliases/default/node.exe",
+      "runtimeArgs": [
+        "src/faces/cli.ts",
+        "serve",
+        "--mock",
+        "--port",
+        "4341",
+        "--no-open"
+      ],
+      "port": 4341
+    },
+    {
+      "name": "testimus-mock-docctx",
+      "runtimeExecutable": "C:/Users/s.genin/AppData/Roaming/fnm/aliases/default/node.exe",
+      "runtimeArgs": [
+        "src/faces/cli.ts",
+        "serve",
+        "--mock",
+        "--port",
+        "4343",
+        "--no-open"
+      ],
+      "port": 4343,
+      "env": {
+        "TESTIMUS_MOCK_CLAUDE_MS": "5000"
+      }
+    },
+    {
+      "name": "testimus-mock-drafts",
+      "runtimeExecutable": "C:/Users/s.genin/AppData/Roaming/fnm/aliases/default/node.exe",
+      "runtimeArgs": [
+        "src/faces/cli.ts",
+        "serve",
+        "--mock",
+        "--port",
+        "4345",
+        "--no-open"
+      ],
+      "port": 4345
+    },
+    {
+      "name": "testimus-mock-gencards",
+      "runtimeExecutable": "C:/Users/s.genin/AppData/Roaming/fnm/aliases/default/node.exe",
+      "runtimeArgs": [
+        "src/faces/cli.ts",
+        "serve",
+        "--mock",
+        "--port",
+        "4349",
+        "--no-open"
+      ],
+      "port": 4349
+    },
+    {
+      "name": "testimus-mock-doclayout",
+      "runtimeExecutable": "C:/Users/s.genin/AppData/Roaming/fnm/aliases/default/node.exe",
+      "runtimeArgs": [
+        "src/faces/cli.ts",
+        "serve",
+        "--mock",
+        "--port",
+        "4353",
+        "--no-open"
+      ],
+      "port": 4353
+    },
+    {
+      "name": "testimus-mock-figs",
+      "runtimeExecutable": "C:/Users/s.genin/AppData/Roaming/fnm/aliases/default/node.exe",
+      "runtimeArgs": [
+        "src/faces/cli.ts",
+        "serve",
+        "--mock",
+        "--port",
+        "4347",
+        "--no-open"
+      ],
+      "port": 4347
+    },
+    {
+      "name": "testimus-mock-projroot",
+      "runtimeExecutable": "C:/Users/s.genin/AppData/Roaming/fnm/aliases/default/node.exe",
+      "runtimeArgs": [
+        "src/faces/cli.ts",
+        "serve",
+        "--mock",
+        "--port",
+        "4361",
+        "--no-open"
+      ],
+      "port": 4361,
+      "url": "http://127.0.0.1:4361"
+    },
+    {
+      "name": "testimus-mock-search",
+      "runtimeExecutable": "C:/Users/s.genin/AppData/Roaming/fnm/aliases/default/node.exe",
+      "runtimeArgs": [
+        "D:/Projects/Testimus-search/src/faces/cli.ts",
+        "serve",
+        "--mock",
+        "--port",
+        "4357",
+        "--no-open"
+      ],
+      "port": 4357,
+      "url": "http://127.0.0.1:4357"
+    },
+    {
+      "name": "testimus-mock-resize",
+      "runtimeExecutable": "C:/Users/s.genin/AppData/Roaming/fnm/aliases/default/node.exe",
+      "runtimeArgs": [
+        "src/faces/cli.ts",
+        "serve",
+        "--mock",
+        "--port",
+        "4365",
+        "--no-open"
+      ],
+      "port": 4365,
+      "url": "http://127.0.0.1:4365"
+    },
+    {
+      "name": "testimus-mock-colclaude",
+      "runtimeExecutable": "C:/Users/s.genin/AppData/Roaming/fnm/aliases/default/node.exe",
+      "runtimeArgs": [
+        "src/faces/cli.ts",
+        "serve",
+        "--mock",
+        "--port",
+        "4371",
+        "--no-open"
+      ],
+      "port": 4371,
+      "url": "http://127.0.0.1:4371"
+    },
+    {
+      "name": "testimus-mock-agents",
+      "runtimeExecutable": "C:/Users/s.genin/AppData/Roaming/fnm/aliases/default/node.exe",
+      "runtimeArgs": ["src/faces/cli.ts", "serve", "--mock", "--port", "4375", "--no-open"],
+      "port": 4375,
+      "url": "http://127.0.0.1:4375"
+    },
+    {
+      "name": "testimus-mock-foldall",
+      "runtimeExecutable": "C:/Users/s.genin/AppData/Roaming/fnm/aliases/default/node.exe",
+      "runtimeArgs": ["src/faces/cli.ts", "serve", "--mock", "--port", "4377", "--no-open"],
+      "port": 4377,
+      "url": "http://127.0.0.1:4377",
+      "env": {
+        "TESTIMUS_MOCK_CLAUDE_MS": "4000"
+      }
+    },
+    {
+      "name": "testimus-mock-actpick",
+      "runtimeExecutable": "C:/Users/s.genin/AppData/Roaming/fnm/aliases/default/node.exe",
+      "runtimeArgs": ["src/faces/cli.ts", "serve", "--mock", "--port", "4379", "--no-open"],
+      "port": 4379,
+      "url": "http://127.0.0.1:4379"
+    },
+    {
+      "name": "testimus-mock-review",
+      "runtimeExecutable": "C:/Users/s.genin/AppData/Roaming/fnm/aliases/default/node.exe",
+      "runtimeArgs": ["src/faces/cli.ts", "serve", "--mock", "--port", "4381", "--no-open"],
+      "port": 4381,
+      "url": "http://127.0.0.1:4381"
     }
   ]
 }
