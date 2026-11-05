@@ -9,7 +9,7 @@ import { EmptyState } from "../../components/ui/EmptyState.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { type } from "../../components/ui/type.ts";
 import { plural } from "../../lib/format.ts";
-import type { DocScope } from "../../lib/scope.ts";
+import { type DocScope, type DocWork, type Unready, unready } from "../../lib/scope.ts";
 import { border, color, space } from "../../styles/tokens.stylex.ts";
 import { indexWord } from "../documents/badges.tsx";
 import { SectionTree } from "./SectionTree.tsx";
@@ -51,24 +51,32 @@ const styles = stylex.create({
 });
 
 const converted = (d: DocRef) => !!d.converted?.at;
-const NOT_CONVERTED = "Not converted: convert it in Documents first";
 
-// ponytail: the same words as the Documents list (badges.tsx), « Indexing… » while an index runs
-function IndexBadge({ doc, indexing }: { doc: DocRef; indexing: boolean }) {
-  if (indexing && converted(doc)) return <Badge tone="info" busy size="sm" label="Indexing…" />;
+// ponytail: why a document cannot be picked yet — the line under its name, and the checkbox's reason
+const WHY: Record<Unready, { what: string; reason: string }> = {
+  "not-converted": { what: "not converted yet", reason: "Not converted: convert it in Documents first" },
+  converting: { what: "being converted · available once indexed", reason: "Being converted: wait until it is indexed" },
+  indexing: { what: "being indexed · available when it is done", reason: "Being indexed: wait until it is done" },
+  "not-indexed": { what: "not indexed · reindex to use it", reason: "Not indexed: reindex to use it" },
+};
+
+// ponytail: the same words as the Documents list (badges.tsx), « Converting… » or « Indexing… » while that work runs
+function IndexBadge({ doc, why }: { doc: DocRef; why: Unready | null }) {
+  if (why === "converting") return <Badge tone="info" busy size="sm" label="Converting…" />;
+  if (why === "indexing") return <Badge tone="info" busy size="sm" label="Indexing…" />;
   return <Badge size="sm" {...indexWord(doc)} />;
 }
 
 export function DocScopePicker({
   docs,
   scopes,
-  indexing = false,
+  work = { converting: [], indexing: false },
   onChange,
   onAddDocuments,
 }: {
   docs: DocRef[] | null;
   scopes: Record<string, DocScope>;
-  indexing?: boolean;
+  work?: DocWork;
   onChange: (next: Record<string, DocScope>) => void;
   onAddDocuments?: () => void;
 }) {
@@ -97,7 +105,7 @@ export function DocScopePicker({
     );
   const set = (id: string, s: DocScope) => onChange({ ...scopes, [id]: s });
   const of = (id: string): DocScope => scopes[id] ?? "all";
-  const usable = docs.filter(converted);
+  const usable = docs.filter((d) => !unready(d, work));
   const inScope = usable.filter((d) => of(d.id) !== "none").length;
   const narrowed = usable.filter((d) => Array.isArray(of(d.id))).length;
   return (
@@ -121,7 +129,7 @@ export function DocScopePicker({
           onClick={() => onChange(Object.fromEntries(docs.map((d) => [d.id, "none"])))}
         />
       </div>
-      {!usable.length && (
+      {!docs.some(converted) && (
         <div {...stylex.props(styles.notice)}>
           <Banner
             tone="info"
@@ -137,12 +145,12 @@ export function DocScopePicker({
       )}
       <ul aria-label="Documents in scope" {...stylex.props(styles.list)}>
         {docs.map((d) => {
-          const ready = converted(d);
-          const s = ready ? of(d.id) : "none";
+          const why = unready(d, work);
+          const s = why ? "none" : of(d.id);
           const some = Array.isArray(s);
           const total = d.converted?.stats?.sections;
-          const what = !ready
-            ? "not converted yet"
+          const what = why
+            ? WHY[why].what
             : s === "all"
               ? `whole document${total ? ` · ${plural(total, "section")}` : ""}`
               : s === "none"
@@ -156,15 +164,15 @@ export function DocScopePicker({
                 <span {...stylex.props(styles.grow)}>
                   <Checkbox
                     checked={some ? "mixed" : s === "all"}
-                    disabled={ready ? false : NOT_CONVERTED}
+                    disabled={why ? WHY[why].reason : false}
                     label={d.title || d.code}
                     hint={`${d.code} · ${what}`}
                     onChange={(on) => set(d.id, on ? "all" : "none")}
                   />
                 </span>
                 <span {...stylex.props(styles.side)}>
-                  <IndexBadge doc={d} indexing={indexing} />
-                  {!ready ? null : some ? (
+                  <IndexBadge doc={d} why={why} />
+                  {why ? null : some ? (
                     <Button
                       size="sm"
                       variant="quiet"

@@ -213,7 +213,7 @@ describe("Generate screen", () => {
     expect(a.navigate).toHaveBeenCalledWith("doctor");
   });
 
-  it("refuses a scope that is not indexed, warns when it is out of date, and reindexes from here", async () => {
+  it("leaves a document not indexed out of the scope, warns when one is out of date, and reindexes from here", async () => {
     base();
     let built = false;
     const docs = () => [
@@ -228,15 +228,19 @@ describe("Generate screen", () => {
       return { jobId: "ix" };
     };
     mountData(<GenerateScreen />);
-    expect(await screen.findByText("Index not ready")).toBeInTheDocument();
-    expect(screen.getByText(/1 document in scope is not indexed: D1\. Search cannot find it/)).toBeInTheDocument();
-    expect(go()).toBeDisabled();
-    expect(go()).toHaveAccessibleDescription("A document of the scope is not indexed");
+    expect(await screen.findByText("Not indexed", { selector: "*:not(li *)" })).toBeInTheDocument();
+    expect(
+      screen.getByText(/D1 is not indexed: search cannot find it, so it stays out of the scope/),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /Traction/ })).toBeDisabled();
+    expect(screen.getByRole("checkbox", { name: /Traction/ })).not.toBeChecked();
+    await waitFor(() => expect(named("gen.preview").at(-1)?.input).toEqual({ docs: ["D2"], sections: [] }));
+    expect(go()).toBeEnabled();
     fireEvent.click(screen.getByRole("button", { name: "Reindex" }));
     await waitFor(() => expect(named("rag.index")).toHaveLength(1));
     emit({ jobId: "ix", at, type: "status", job: job({ id: "ix", kind: "rag-index", status: "done", endedAt: at }) });
     expect(await screen.findByText("Index not up to date")).toBeInTheDocument();
-    expect(screen.queryByText("Index not ready")).toBeNull();
+    await waitFor(() => expect(screen.getByRole("checkbox", { name: /Traction/ })).toBeChecked());
     expect(screen.getByText(/D2 changed since the last index/)).toBeInTheDocument();
     expect(go()).toBeEnabled();
     fireEvent.click(screen.getByRole("checkbox", { name: /Signaux/ }));

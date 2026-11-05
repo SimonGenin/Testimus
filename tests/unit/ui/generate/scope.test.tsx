@@ -4,7 +4,16 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DocRef } from "../../../../src/core/types.ts";
-import { type DocScope, flip, ownText, parents, scopeOf, tick } from "../../../../src/ui/lib/scope.ts";
+import {
+  type DocScope,
+  type DocWork,
+  flip,
+  ownText,
+  parents,
+  scopeOf,
+  tick,
+  unready,
+} from "../../../../src/ui/lib/scope.ts";
 import { ColumnsView } from "../../../../src/ui/screens/generate/ColumnsView.tsx";
 import { DocScopePicker } from "../../../../src/ui/screens/generate/DocScopePicker.tsx";
 import { api } from "../../helpers/ui-desktop.tsx";
@@ -53,13 +62,13 @@ describe("Generate › scope helpers", () => {
 function ScopeHost({
   initial = {} as Record<string, DocScope>,
   docs = [] as DocRef[] | null,
-  indexing = false,
+  work = { converting: [], indexing: false } as DocWork,
   onAdd = undefined as (() => void) | undefined,
 }) {
   const [v, setV] = useState(initial);
   return (
     <>
-      <DocScopePicker docs={docs} scopes={v} indexing={indexing} onChange={setV} onAddDocuments={onAdd} />
+      <DocScopePicker docs={docs} scopes={v} work={work} onChange={setV} onAddDocuments={onAdd} />
       <output data-testid="v">{JSON.stringify(v)}</output>
     </>
   );
@@ -139,7 +148,7 @@ describe("Generate › documents", () => {
     expect(screen.getAllByText(/C-D1/).length).toBeGreaterThan(0);
   });
 
-  it("each converted document says its index state", () => {
+  it("each converted document says its index state; one search cannot read is shown, never picked", () => {
     const converted = { converted: { with: "", at: "x", warnings: [] } } as Partial<DocRef>;
     const docs = [
       docRef("D1", "Fresh", undefined, { ...converted, indexed: "fresh" } as Partial<DocRef>),
@@ -149,16 +158,42 @@ describe("Generate › documents", () => {
     ];
     renderData(<ScopeHost docs={docs} />);
     const row = (t: string) => screen.getByRole("checkbox", { name: new RegExp(t) }).closest("li") as HTMLElement;
+    const box = (t: string) => screen.getByRole("checkbox", { name: new RegExp(t) });
     expect(within(row("Fresh")).getByText("Indexed")).toBeInTheDocument();
     expect(within(row("Missing")).getByText("Not indexed")).toBeInTheDocument();
+    expect(within(row("Missing")).getByText(/not indexed · reindex to use it/)).toBeInTheDocument();
     expect(within(row("Stale")).getByText("Not up to date")).toBeInTheDocument();
     expect(within(row("Raw")).getByText("Not converted")).toBeInTheDocument();
-    expect(screen.getByRole("checkbox", { name: /Raw/ })).toBeDisabled();
-    expect(screen.getByRole("checkbox", { name: /Raw/ })).not.toBeChecked();
-    expect(screen.getByText("3 of 4 documents")).toBeInTheDocument();
+    for (const t of ["Raw", "Missing"]) {
+      expect(box(t)).toBeDisabled();
+      expect(box(t)).not.toBeChecked();
+      expect(within(row(t)).queryByRole("button", { name: "Only some sections…" })).toBeNull();
+    }
+    expect(box("Stale")).toBeEnabled();
+    expect(screen.getByText("2 of 4 documents")).toBeInTheDocument();
     cleanup();
-    renderData(<ScopeHost docs={docs} indexing />);
-    expect(screen.getAllByText("Indexing…")).toHaveLength(3);
+    renderData(<ScopeHost docs={docs} work={{ converting: ["D1"], indexing: true }} initial={{ D1: ["§5"] }} />);
+    expect(within(row("Fresh")).getByText("Converting…")).toBeInTheDocument();
+    expect(within(row("Fresh")).getByText(/being converted · available once indexed/)).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Sections" })).toBeNull();
+    expect(screen.getAllByText("Indexing…")).toHaveLength(2);
+    expect(within(row("Stale")).getByText(/being indexed/)).toBeInTheDocument();
+    for (const t of ["Fresh", "Missing", "Stale"]) expect(box(t)).toBeDisabled();
+    expect(screen.getByText("0 of 4 documents")).toBeInTheDocument();
+  });
+
+  it("unready: converting first, then not converted, then the index state while an index runs or not", () => {
+    const d = (indexed: DocRef["indexed"], at?: string) =>
+      ({ id: "A", indexed, converted: at ? { at } : undefined }) as DocRef;
+    const idle = { converting: [], indexing: false };
+    const busy = { converting: [], indexing: true };
+    expect(unready(d("fresh", "x"), { converting: ["A"], indexing: false })).toBe("converting");
+    expect(unready(d("missing"), busy)).toBe("not-converted");
+    expect(unready(d("fresh", "x"), busy)).toBeNull();
+    expect(unready(d("stale", "x"), idle)).toBeNull();
+    expect(unready(d("stale", "x"), busy)).toBe("indexing");
+    expect(unready(d("missing", "x"), busy)).toBe("indexing");
+    expect(unready(d("missing", "x"), idle)).toBe("not-indexed");
   });
 });
 

@@ -3,7 +3,7 @@ import type { DocRef, Effort } from "../../../core/types.ts";
 import { useDraft } from "../../lib/data/autosave.ts";
 import { project } from "../../lib/data/client.ts";
 import type { Key } from "../../lib/data/query.ts";
-import { type DocScope, scopeOf } from "../../lib/scope.ts";
+import { type DocScope, type DocWork, scopeOf, unready } from "../../lib/scope.ts";
 
 type Info = CommandOutput<"project.info">;
 export type Chip = { id: string; on: boolean };
@@ -20,8 +20,8 @@ function parse<T>(raw: string, fallback: T): T {
 
 // ponytail: everything the request holds is an unsent draft — it outlives the screen for the page's life (the model and
 // effort picked here hold for the next generation until the app closes; the project defaults change in Settings); a
-// document not converted yet is never in scope (search cannot read it)
-export function useGenerateForm(info: Info | undefined, docs: DocRef[] | undefined) {
+// document search cannot read yet (not converted, not indexed, or being converted or indexed) is never in scope
+export function useGenerateForm(info: Info | undefined, docs: DocRef[] | undefined, work: DocWork) {
   const cfg = info?.project;
   const [request, setRequest] = useDraft(draft("request"));
   const [scopesRaw, setScopesRaw] = useDraft(draft("scopes"), "{}");
@@ -36,7 +36,7 @@ export function useGenerateForm(info: Info | undefined, docs: DocRef[] | undefin
   const ctxIds = chips.filter((c) => c.on).map((c) => c.id);
   const scope = scopeOf(
     scopes,
-    (docs ?? []).filter((d) => d.converted?.at).map((d) => d.id),
+    (docs ?? []).filter((d) => !unready(d, work)).map((d) => d.id),
   );
   const defaultModel = cfg?.claude?.model || "opus";
   const defaultEffort: Effort = cfg?.claude?.effort || "high";

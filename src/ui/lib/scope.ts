@@ -1,3 +1,5 @@
+import type { DocRef } from "../../core/types.ts";
+
 export type TocEntry = { anchor: string; title: string; level: number };
 
 // a document is in scope whole ("all"), not at all ("none"), or through the sections picked (a section
@@ -83,4 +85,18 @@ export function scopeOf(scopes: Record<string, DocScope>, ids: string[]): { docs
     else if (Array.isArray(s)) sections.push(...s.map((a) => `${id}#${a}`));
   }
   return { docs, sections };
+}
+
+// the document work under way: the documents a conversion is rewriting, and whether an index run is going on
+export type DocWork = { converting: string[]; indexing: boolean };
+export type Unready = "not-converted" | "converting" | "indexing" | "not-indexed";
+
+// ponytail: a document search cannot read yet is shown but never in scope — its choice is kept for when it is ready; a
+// stale one stays (search still finds its previous version) unless an index run is rewriting it
+export function unready(d: Pick<DocRef, "id" | "converted" | "indexed">, w: DocWork): Unready | null {
+  if (w.converting.includes(d.id)) return "converting";
+  if (!d.converted?.at) return "not-converted";
+  if (d.indexed === "fresh") return null;
+  if (w.indexing) return "indexing";
+  return d.indexed === "missing" ? "not-indexed" : null;
 }

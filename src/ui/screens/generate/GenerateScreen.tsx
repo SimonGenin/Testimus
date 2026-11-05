@@ -9,6 +9,7 @@ import { useApp } from "../../lib/app.ts";
 import { discardAutosave } from "../../lib/data/autosave.ts";
 import { execute, key, read, useCommand, useRead } from "../../lib/data/query.ts";
 import { usePaneWidth } from "../../lib/panes.ts";
+import { unready } from "../../lib/scope.ts";
 import { errorToast } from "../../lib/toast.ts";
 import { useReindex } from "../../lib/uploads.ts";
 import { border, breakpoint, color } from "../../styles/tokens.stylex.ts";
@@ -61,12 +62,17 @@ export function GenerateScreen() {
   const info = useRead("project.info", {});
   const docsRead = useRead("docs.list", {});
   const docs = (docsRead.data ?? null) as DocRef[] | null;
-  const form = useGenerateForm(info.data, docs ?? undefined);
-  const gen = useGeneration();
   const jobs = useRead("jobs.list", {});
-  const indexJob = ((jobs.data ?? []) as Job[]).find((j) => j.status === "running" && WORK[j.kind]);
+  const running = ((jobs.data ?? []) as Job[]).filter((j) => j.status === "running");
+  const indexJob = running.find((j) => WORK[j.kind]);
   const reindex = useReindex();
   const work = indexJob ? WORK[indexJob.kind] : reindex.indexing ? "index" : null;
+  const docWork = {
+    converting: running.filter((j) => j.kind === "docs.convert").map((j) => j.subject),
+    indexing: work !== null,
+  };
+  const form = useGenerateForm(info.data, docs ?? undefined, docWork);
+  const gen = useGeneration();
   const scopeInput = { docs: form.scope.docs, sections: form.scope.sections };
   const preview = useRead("gen.preview", scopeInput, { enabled: !!docs });
   const [ask, setAsk] = useState<{ refresh?: boolean; signIn?: boolean }>({});
@@ -79,23 +85,28 @@ export function GenerateScreen() {
   const status = known ?? null;
   const offline = !!status && (!status.installed || status.signedIn === false);
   const nameOf = (id: string) => docs?.find((d) => d.id === id)?.code || id;
-  const missing = (preview.data?.unindexed ?? []).map(nameOf);
+  // ponytail: a document not indexed is left out of the scope and said once; an empty scope still searches every
+  // document, so one not indexed blocks it even then
+  const unindexed = preview.data?.unindexed ?? [];
+  const out = (docs ?? []).filter((d) => unready(d, docWork) === "not-indexed").map((d) => d.id);
+  const missing = unindexed.filter((id) => !out.includes(id)).map(nameOf);
+  const leftOut = out.map(nameOf);
   const stale = (preview.data?.stale ?? []).map(nameOf);
   const noneConverted = !!docs?.length && !docs.some((d) => d.converted?.at);
   const blocked = info.isPending
     ? "Reading the project…"
-    : form.empty
-      ? docs && !docs.length
-        ? "Add a document first"
-        : noneConverted
-          ? "Convert a document first"
-          : "Say what to test, or pick a document"
-      : offline
-        ? "Claude is not connected"
-        : work
-          ? WAIT[work]
-          : missing.length
-            ? "A document of the scope is not indexed"
+    : work
+      ? WAIT[work]
+      : form.empty
+        ? docs && !docs.length
+          ? "Add a document first"
+          : noneConverted
+            ? "Convert a document first"
+            : "Say what to test, or pick a document"
+        : offline
+          ? "Claude is not connected"
+          : unindexed.length
+            ? "A document is not indexed: reindex first"
             : null;
 
   // ponytail: a generation started here that failed on Claude's sign-in shows the connect card, like the dock
@@ -163,8 +174,10 @@ export function GenerateScreen() {
             folders={info.data?.project.folders ?? []}
             gate={{
               missing,
+              leftOut,
               stale,
               work,
+              docWork,
               progress: indexJob?.progress,
               onShowJob: indexJob ? () => app.navigate("jobs", indexJob.id) : undefined,
               onReindex: reindex.reindex,

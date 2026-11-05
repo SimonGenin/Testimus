@@ -6,6 +6,7 @@ import { Menu } from "../../components/ui/Menu.tsx";
 import { Text } from "../../components/ui/Text.tsx";
 import { type } from "../../components/ui/type.ts";
 import { plural } from "../../lib/format.ts";
+import type { DocWork } from "../../lib/scope.ts";
 import type { Upload } from "../../lib/uploads.ts";
 import { border, color, size, space } from "../../styles/tokens.stylex.ts";
 import { UploadFailure } from "../documents/UploadItem.tsx";
@@ -49,10 +50,15 @@ const styles = stylex.create({
 });
 
 export type Gate = {
+  /** documents in scope search cannot find (gen.preview): Generate refuses them */
   missing: string[];
+  /** documents not indexed, so left out of the scope until they are */
+  leftOut: string[];
   stale: string[];
   /** the document work under way that Generate waits for */
   work: Work | null;
+  /** what that work is doing to the documents (which ones are being converted, whether an index runs) */
+  docWork: DocWork;
   /** the running job's progress, when it says */
   progress?: { done: number; total: number };
   onShowJob?: () => void;
@@ -114,7 +120,7 @@ export function RequestForm({
           <DocScopePicker
             docs={docs}
             scopes={scopes}
-            indexing={gate.work === "index" || gate.work === "convert"}
+            work={gate.docWork}
             onChange={form.setScopes}
             onAddDocuments={onAddDocuments}
           />
