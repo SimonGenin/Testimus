@@ -221,6 +221,7 @@ export type FigureEntry = {
   description: string;
   labels?: string[];
   kind?: "screen" | "diagram" | "symbol" | "table-image" | "photo";
+  table?: string;
 };
 export type DocRef = DocJson & { indexed: "fresh" | "stale" | "missing" };
 

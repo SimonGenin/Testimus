@@ -17,6 +17,7 @@ type DocFigure = {
   description: string;
   labels?: string[];
   kind?: FigureEntry["kind"];
+  table?: string;
 };
 
 export type DescribeChunks = (
@@ -95,28 +96,66 @@ export function docFigures(md: string, entries: FigureEntry[]): DocFigure[] {
   for (const m of md.matchAll(FIGURE_IMAGE))
     out.set(m[3], { n: m[3], anchor: `fig:${m[3]}`, file: m[2], caption: m[1], description: "" });
   // ponytail: a caption pasted without its picture keeps its marker on the caption paragraph (§4); it is still a
-  // figure, with no file, whose caption is the « Figure N – … » part of that paragraph
-  for (const line of lines(md)) {
+  // figure, with no file, whose caption is the « Figure N – … » part of that paragraph. A caption right under (or
+  // over) a table of the text captions that table: the figure is the table, there is no picture to miss or describe
+  const ls = lines(md);
+  ls.forEach((line, i) => {
     const m = line.match(/<!--\s*fig\s+(\S+?)\s*-->/);
-    if (!m || out.has(m[1])) continue;
+    if (!m || out.has(m[1])) return;
     const text = stripComments(line);
     const caption = text.match(/\b(?:Figure|Fig\.)\s*\S+\s*[–—:-][\s\S]*$/i)?.[0] ?? text;
-    out.set(m[1], { n: m[1], anchor: `fig:${m[1]}`, file: "", caption: caption.trim(), description: "" });
-  }
+    const table = tableBeside(ls, i);
+    out.set(m[1], {
+      n: m[1],
+      anchor: `fig:${m[1]}`,
+      file: "",
+      caption: caption.trim(),
+      description: "",
+      ...(table ? { table } : {}),
+    });
+  });
   for (const e of entries) {
     const n = e.anchor.replace(/^fig:/, "");
     const known = out.get(n);
+    const file = e.file || known?.file || "";
     out.set(n, {
       n,
       anchor: `fig:${n}`,
-      file: e.file || known?.file || "",
+      file,
       caption: e.caption || known?.caption || "",
       description: e.description,
       ...(e.labels?.length ? { labels: e.labels } : {}),
       ...(e.kind ? { kind: e.kind } : {}),
+      ...(!file && known?.table ? { table: known.table } : {}),
     });
   }
-  return [...out.values()];
+  const at = new Map(ls.flatMap((l, i) => [...l.matchAll(FIG)].map((m) => [m[1], i] as const)));
+  return [...out.values()].sort((a, b) => (at.get(a.n) ?? Infinity) - (at.get(b.n) ?? Infinity));
+}
+
+const isRow = (l: string | undefined) => !!l && /^\s*\|/.test(l);
+
+// ponytail: the table whose last row is just above the caption line (blank lines between), else whose first row is
+// just below it — its rows, as doc.md has them
+function tableBeside(ls: string[], i: number): string | undefined {
+  const near = (step: number) => {
+    let j = i + step;
+    while (ls[j] !== undefined && !ls[j].trim()) j += step;
+    return j;
+  };
+  let end = near(-1);
+  let start = end;
+  if (isRow(ls[end])) while (isRow(ls[start - 1])) start--;
+  else {
+    start = near(1);
+    end = start;
+    if (!isRow(ls[start])) return undefined;
+    while (isRow(ls[end + 1])) end++;
+  }
+  return ls
+    .slice(start, end + 1)
+    .map((l) => l.trim())
+    .join("\n");
 }
 
 function ids(text: string, re: RegExp): string[] {

@@ -10,6 +10,7 @@ import { type } from "../../components/ui/type.ts";
 import { fileUrl } from "../../lib/data/client.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { color, radius, space } from "../../styles/tokens.stylex.ts";
+import { FigureTable } from "./FigureTable.tsx";
 
 const styles = stylex.create({
   img: {
@@ -24,6 +25,7 @@ const styles = stylex.create({
     overflow: "hidden",
   },
   pic: { maxWidth: "100%", maxHeight: "100%", objectFit: "contain" },
+  tableTile: { alignItems: "flex-start", justifyContent: "flex-start", backgroundColor: color.surface },
   figure: { margin: 0, display: "flex", flexDirection: "column", gap: space.s2 },
   caption: { color: color.textMuted },
   reading: { display: "flex", flexDirection: "column", gap: space.s2 },
@@ -34,11 +36,15 @@ const styles = stylex.create({
 });
 
 export const isDescribed = (f: FigureEntry) => !!f.description.trim();
+/** a figure Claude could read: a picture, not a table of the text */
+export const isPicture = (f: FigureEntry) => !f.table;
 
 export function FigureImage({ docId, figure }: { docId: string; figure: FigureEntry }) {
   return (
-    <span {...stylex.props(styles.img)}>
-      {figure.file ? (
+    <span {...stylex.props(styles.img, !!figure.table && styles.tableTile)}>
+      {figure.table ? (
+        <FigureTable table={figure.table} label={figure.caption || figure.anchor} />
+      ) : figure.file ? (
         <img src={fileUrl(`docs/${docId}/${figure.file}`)} alt="" loading="lazy" {...stylex.props(styles.pic)} />
       ) : (
         <Icon name="image" size="lg" />
@@ -48,6 +54,7 @@ export function FigureImage({ docId, figure }: { docId: string; figure: FigureEn
 }
 
 export function DescribedBadge({ figure }: { figure: FigureEntry }) {
+  if (figure.table) return <Badge size="sm" icon="table" label="Table" />;
   return isDescribed(figure) ? (
     <Badge size="sm" tone="claude" icon="claude" label="Described" />
   ) : (
@@ -83,7 +90,11 @@ export function FigureDetail({
     <aside aria-label={name}>
       <Card density="compact">
         <figure {...stylex.props(styles.figure)}>
-          <FigureImage docId={docId} figure={figure} />
+          {figure.table ? (
+            <FigureTable table={figure.table} label={figure.caption || figure.anchor} />
+          ) : (
+            <FigureImage docId={docId} figure={figure} />
+          )}
           {figure.caption && <figcaption {...stylex.props(type.small, styles.caption)}>{figure.caption}</figcaption>}
         </figure>
         <Facts
@@ -101,6 +112,7 @@ export function FigureDetail({
               value: <Button variant="link" label={sectionLabel(section)} onClick={() => onOpen(section)} />,
             },
             !!figure.kind && { label: "Kind", value: figure.kind },
+            !!figure.table && { label: "Kind", value: "table in the text" },
           ]}
         />
         {described ? (
@@ -121,9 +133,11 @@ export function FigureDetail({
           </Answer>
         ) : (
           <p {...stylex.props(type.small, styles.small)}>
-            {figure.file
-              ? "Claude has not read this picture yet: search finds it by its caption only."
-              : "The conversion kept no picture for this figure: only its caption is in the text."}
+            {figure.table
+              ? "This figure is a table of the text, not a picture: its rows are searched and quoted like the rest of the text, so there is nothing for Claude to describe."
+              : figure.file
+                ? "Claude has not read this picture yet: search finds it by its caption only."
+                : "The conversion kept no picture for this figure: only its caption is in the text."}
           </p>
         )}
         <div {...stylex.props(styles.acts)}>

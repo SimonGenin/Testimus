@@ -36,6 +36,7 @@ import {
   runOf,
   withUploads,
 } from "../lib/docs-pipeline.ts";
+import { docFigures } from "../rag/chunk.ts";
 import { chunksOf, withIndex } from "../rag/db.ts";
 import { unindexDoc } from "../rag/indexer.ts";
 import { renderPage } from "../rag/pdf.ts";
@@ -194,6 +195,12 @@ const figure = z.object({
     .enum(["screen", "diagram", "symbol", "table-image", "photo"])
     .optional()
     .describe("What the picture is, as Claude judged it"),
+  table: z
+    .string()
+    .optional()
+    .describe(
+      "When the caption names a table of the text rather than a picture: that table's rows, as doc.md has them (file is empty, nothing to describe)",
+    ),
 });
 const id = z.string().describe("Document id (the folder name under docs/, e.g. SOSIE_211_D401-1_3)");
 const model = MODEL.optional().describe(
@@ -565,7 +572,11 @@ export const commands = [
           }),
         )
         .describe("The sections of doc.md, in order"),
-      figures: z.array(figure).describe("The figures with a picture (figures.json)"),
+      figures: z
+        .array(figure)
+        .describe(
+          "The figures of the text in reading order: figures.json, and the captions with no picture (a table, or a lost picture)",
+        ),
       md: z.string().describe("doc.md, or the asked part of it; empty with brief"),
       section: z
         .string()
@@ -596,7 +607,7 @@ export const commands = [
         contextMtime: contextMtime(project, input.id),
         contexts: docContexts(project, input.id),
         toc: tocOf(full),
-        figures: readFigures(project, input.id),
+        figures: docFigures(full, readFigures(project, input.id)).map(({ n: _, ...f }) => f),
         md: input.brief ? "" : md,
         ...(section ? { section } : {}),
       };

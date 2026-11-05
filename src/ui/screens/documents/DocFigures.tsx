@@ -15,7 +15,7 @@ import { errorToast, jobToast } from "../../lib/toast.ts";
 import { importClaude } from "../../lib/uploads.ts";
 import { color, container, size, space } from "../../styles/tokens.stylex.ts";
 import { useClaudeOffline } from "./ConvertDoc.tsx";
-import { DescribedBadge, FigureDetail, FigureImage, isDescribed } from "./FigureDetail.tsx";
+import { DescribedBadge, FigureDetail, FigureImage, isDescribed, isPicture } from "./FigureDetail.tsx";
 
 const styles = stylex.create({
   box: { flex: 1, minHeight: 0, overflowY: "auto", backgroundColor: color.surface },
@@ -104,7 +104,8 @@ export function DocFigures({
   }, [focus]);
   const described = figures.filter(isDescribed);
   const bare = figures.filter((f) => f.file && !isDescribed(f));
-  const shown = which === "all" ? figures : which === "described" ? described : figures.filter((f) => !isDescribed(f));
+  const undescribed = figures.filter((f) => isPicture(f) && !isDescribed(f));
+  const shown = which === "all" ? figures : which === "described" ? described : undescribed;
   const current = shown.find((f) => f.anchor === picked) ?? shown[0];
 
   const ask = (anchors?: string[]) =>
@@ -138,7 +139,7 @@ export function DocFigures({
             options={[
               { value: "all", label: "All", count: figures.length },
               { value: "described", label: "Described", count: described.length },
-              { value: "bare", label: "Not described", count: figures.length - described.length },
+              { value: "bare", label: "Not described", count: undescribed.length },
             ]}
           />
           <span>In reading order · open one to see it in the text</span>
