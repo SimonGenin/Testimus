@@ -45,8 +45,11 @@ const styles = stylex.create({
   grow: { flex: 1 },
 });
 
-// ponytail: « Fold all » also folds the tests still to come; flip holds the cards toggled by hand since
+// ponytail: « Fold all » folds everything the pane folds — the tests (the ones still to come too), what Claude did and
+// what was not covered; all starts folded; flip holds what was toggled by hand since
 type Fold = { all: boolean; flip: Set<string> };
+const ACTIVITY = "activity";
+const SKIPPED = "skipped";
 
 export function ResultPane({
   gen,
@@ -70,7 +73,7 @@ export function ResultPane({
   onRetry?: () => void;
 }) {
   const app = useApp();
-  const [fold, setFold] = useState<Fold>({ all: false, flip: new Set() });
+  const [fold, setFold] = useState<Fold>({ all: true, flip: new Set() });
   const [now, setNow] = useState(Date.now());
   const refs = useRead("tests.list", {}, { enabled: gen.ids.length > 0 });
   const { job, result, stopped, ids, running } = gen;
@@ -149,7 +152,7 @@ export function ResultPane({
           onOpenJob={job ? () => app.navigate("jobs", job.id) : undefined}
           onResume={() => stopped?.generation && onResume(stopped.generation)}
           onRetry={onRetry}
-          allFolded={ids.every((id) => !isOpen(id))}
+          allFolded={[...ids, ACTIVITY, ...(result?.skipped?.length ? [SKIPPED] : [])].every((id) => !isOpen(id))}
           onFoldAll={(all) => setFold({ all, flip: new Set() })}
         />
         {result && (
@@ -157,6 +160,8 @@ export function ResultPane({
             result={result}
             checked={checkLine(result.tests, result.checks)}
             onOpenJob={job ? () => app.navigate("jobs", job.id) : undefined}
+            open={isOpen(SKIPPED)}
+            onOpenChange={(o) => o !== isOpen(SKIPPED) && toggle(SKIPPED)}
           />
         )}
         {result?.diagnosis && job && !failedRun(job, result) && (
@@ -187,7 +192,15 @@ export function ResultPane({
   ));
   const asked = askedOf(job, app.info?.project.claude);
   const activity = (
-    <ClaudeActivity events={gen.events} running={running} now={now} model={asked.model} effort={asked.effort} />
+    <ClaudeActivity
+      events={gen.events}
+      running={running}
+      now={now}
+      model={asked.model}
+      effort={asked.effort}
+      open={isOpen(ACTIVITY)}
+      onOpenChange={(o) => o !== isOpen(ACTIVITY) && toggle(ACTIVITY)}
+    />
   );
   return (
     <div {...stylex.props(styles.pane)}>

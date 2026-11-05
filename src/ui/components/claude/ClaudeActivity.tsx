@@ -236,6 +236,8 @@ export function ClaudeActivity({
   label = "What Claude did",
   model,
   effort,
+  open,
+  onOpenChange,
 }: {
   events: JobEvent[];
   running: boolean;
@@ -244,8 +246,16 @@ export function ClaudeActivity({
   /** the run's model and effort, from the job's input: they open the head's line */
   model?: string;
   effort?: string;
+  /** controlled by the screen (Generate's « Fold all »); open at first otherwise */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
-  const [shown, setShown] = useState(true);
+  const [own, setOwn] = useState(true);
+  const shown = open ?? own;
+  const setShown = (v: boolean) => {
+    setOwn(v);
+    onOpenChange?.(v);
+  };
   const [raw, setRaw] = useState(false);
   const phases = activityOf(events);
   const head = runLine(events, model, effort);

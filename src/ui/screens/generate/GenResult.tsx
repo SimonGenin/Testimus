@@ -57,9 +57,6 @@ const styles = stylex.create({
 
 const ID = /^(?=.*[\d_])[\w.#-]+$/;
 
-// ponytail: a list longer than this starts folded, so the tests below stay in sight
-const SHORT = 5;
-
 const writingOf = (m: string) => m.match(/Writing (local-[0-9a-f]{8})/i)?.[1]?.toLowerCase();
 
 export function landedIds(events: JobEvent[], result?: GenOutput | null): string[] {
@@ -168,7 +165,7 @@ export function RunHead({
   onFoldAll,
 }: RunHeadProps) {
   if (!job) return null;
-  const foldAll = count > 0 && onFoldAll && (
+  const foldAll = onFoldAll && (
     <Button variant="quiet" label={allFolded ? "Unfold all" : "Fold all"} onClick={() => onFoldAll(!allFolded)} />
   );
   if (job.status === "running")
@@ -275,11 +272,16 @@ export function GenSummary({
   result,
   checked,
   onOpenJob,
+  open,
+  onOpenChange,
 }: {
   result: GenOutput;
   checked: string;
   /** the run in Jobs, where its changes are reverted */
   onOpenJob?: () => void;
+  /** the not-covered list, folded with the rest by the screen's « Fold all » */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const skipped = result.skipped ?? [];
   return (
@@ -297,7 +299,7 @@ export function GenSummary({
         </p>
       )}
       {skipped.length > 0 && (
-        <Disclosure summary={`Not covered · ${skipped.length} — and why`} defaultOpen={skipped.length <= SHORT}>
+        <Disclosure summary={`Not covered · ${skipped.length} — and why`} open={open} onOpenChange={onOpenChange}>
           <ul {...stylex.props(type.compact, styles.skipped)}>
             {skipped.map((u) => (
               <li key={u.item} {...stylex.props(styles.no)}>

@@ -298,7 +298,7 @@ describe("Generate › result helpers", () => {
     expect(onResume).toHaveBeenCalledTimes(1);
   });
 
-  it("RunHead: fold all and unfold all once a test is there", () => {
+  it("RunHead: fold all and unfold all, before any test too (what Claude did folds with the tests)", () => {
     const onFoldAll = vi.fn();
     const head = (count: number, allFolded: boolean, j = job()) => {
       cleanup();
@@ -318,7 +318,7 @@ describe("Generate › result helpers", () => {
       );
     };
     head(0, false);
-    expect(screen.queryByRole("button", { name: "Fold all" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Fold all" })).toBeInTheDocument();
     head(2, false);
     fireEvent.click(screen.getByRole("button", { name: "Fold all" }));
     expect(onFoldAll).toHaveBeenLastCalledWith(true);
@@ -338,6 +338,7 @@ describe("Generate › result helpers", () => {
           changed: ["T9", "T8"],
         })}
         checked="checked line"
+        open
       />,
     );
     expect(screen.getByText(/checked line/)).toBeInTheDocument();
@@ -352,13 +353,14 @@ describe("Generate › result helpers", () => {
     expect(screen.queryByRole("region", { name: /Not covered/ })).toBeNull();
   });
 
-  it("GenSummary: a long not-covered list starts folded and unfolds on its summary", () => {
-    const skipped = Array.from({ length: 6 }, (_, i) => ({ item: `Item ${i}`, why: "no passage" }));
-    render(<GenSummary result={output({ skipped })} checked="" />);
-    const fold = screen.getByRole("button", { name: "Not covered · 6 — and why" });
+  it("GenSummary: the not-covered list is folded as the screen says, and its summary asks to unfold it", () => {
+    const skipped = Array.from({ length: 2 }, (_, i) => ({ item: `Item ${i}`, why: "no passage" }));
+    const onOpenChange = vi.fn();
+    render(<GenSummary result={output({ skipped })} checked="" open={false} onOpenChange={onOpenChange} />);
+    const fold = screen.getByRole("button", { name: "Not covered · 2 — and why" });
     expect(fold).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByText("Item 0")).toBeNull();
     fireEvent.click(fold);
-    expect(within(screen.getByRole("region", { name: /Not covered/ })).getByText("Item 5")).toBeInTheDocument();
+    expect(onOpenChange).toHaveBeenLastCalledWith(true);
   });
 });
