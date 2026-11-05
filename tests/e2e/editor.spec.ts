@@ -27,19 +27,11 @@ test("LFRPS12-1420 opens with fields in xray.json order, Data folded, smart colu
   expect(order.every((i) => i >= 0)).toBe(true);
   expect([...order].sort((a, b) => a - b)).toEqual(order);
 
-  const data1 = one.getByRole("button", { name: "Data", exact: true });
-  await expect(data1).toHaveAttribute("aria-pressed", "false");
+  await expect(one.getByRole("button", { name: "Data", exact: true })).toHaveCount(0);
   await expect(one.getByRole("textbox", { name: "Data of step 1" })).toHaveCount(0);
   await expect(step(page, 3).getByRole("textbox", { name: "Data of step 3" })).toHaveValue(
     "Sectionneur S 12, position fermée.",
   );
-  await step(page, 3).getByRole("button", { name: "Data", exact: true }).click();
-  await expect(step(page, 3).getByRole("textbox", { name: "Data of step 3" })).toHaveCount(0);
-  await expect(step(page, 3).getByRole("button", { name: "Data", exact: true })).toHaveText("Data●");
-  await data1.click();
-  await expect(
-    one.locator('[data-field="Data"]').getByRole("button", { name: "Text", exact: true }).first(),
-  ).toBeAttached();
 
   await expect(one.getByRole("textbox", { name: "Exigence of step 1" })).toHaveValue("EXI_MOP_SPF_511_A_1650");
   await expect(step(page, 2).getByRole("textbox", { name: "Exigence of step 2" })).toHaveValue(

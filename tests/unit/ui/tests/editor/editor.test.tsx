@@ -1318,9 +1318,6 @@ describe("TestEditor › menu and settings", () => {
     editor({ xray: fullXray });
     await ready();
     await waitFor(() => expect(screen.queryByLabelText("Data of step 1")).toBeNull());
-    expect(
-      within(screen.getByRole("article", { name: "Step 1" })).getByRole("button", { name: "Data" }),
-    ).toHaveAttribute("aria-pressed", "false");
   });
 });
 
@@ -1657,35 +1654,6 @@ describe("TestEditor › Xray Editor edge cases", () => {
     expect(screen.getByDisplayValue("Other test")).toBeInTheDocument();
     expect(callsTo("tests.show").slice(shows)).toEqual([]);
   });
-
-  it("a step's own column fold moves with the step, by Alt+↓ or the move button", async () => {
-    vi.stubGlobal(
-      "requestAnimationFrame",
-      vi.fn((cb: FrameRequestCallback) => {
-        cb(0);
-        return 0;
-      }),
-    );
-    editor({ xray: fullXray });
-    await ready();
-    const data = (n: number) =>
-      within(screen.getByRole("article", { name: `Step ${n}` }))
-        .getByRole("button", { name: "Data" })
-        .getAttribute("aria-pressed");
-    const was = data(1);
-    fireEvent.click(within(screen.getByRole("article", { name: "Step 1" })).getByRole("button", { name: "Data" }));
-    const now = data(1);
-    expect(now).not.toBe(was);
-    expect(data(2)).toBe(was);
-    fireEvent.keyDown(screen.getByRole("article", { name: "Step 1" }), { key: "ArrowDown", altKey: true });
-    expect(actions()).toEqual(["Two", "One", "Three"]);
-    expect(data(1)).toBe(was);
-    expect(data(2)).toBe(now);
-    fireEvent.click(screen.getByRole("button", { name: "Move step 2 down" }));
-    expect(actions()).toEqual(["Two", "Three", "One"]);
-    expect(data(2)).toBe(was);
-    expect(data(3)).toBe(now);
-  });
 });
 
 describe("TestEditor › defaults", () => {
@@ -1949,11 +1917,7 @@ describe("TestEditor › header and columns (PARITY #5, #47, #87)", () => {
     const { state } = editor({ xray: offXray });
     await ready();
     expect(screen.getByLabelText("Retired of step 1")).toHaveValue("old value");
-    const fold = (n: number) =>
-      within(screen.getByRole("article", { name: `Step ${n}` })).getByRole("button", { name: "Retired" });
-    expect(fold(1)).toHaveAttribute("aria-pressed", "true");
     expect(screen.queryByLabelText("Retired of step 2")).toBeNull();
-    expect(fold(2)).toHaveAttribute("aria-pressed", "false");
     fireEvent.click(screen.getByRole("button", { name: "Columns" }));
     const row = screen.getByRole("radiogroup", { name: "Retired column" });
     expect(row.parentElement).toHaveTextContent("Off in Xray · kept, folded unless filled");

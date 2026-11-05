@@ -34,8 +34,8 @@ const what = (c: Column, mode: ColumnMode) =>
     ? "Off in Xray · kept, folded unless filled"
     : (MODES.find((m) => m.value === mode)?.title ?? "") + (c.kind === "line" ? " · one line" : "");
 
-// Which step columns fold, for this test or for every test of the project. The step card's own toggle
-// still opens or folds one step on top of this, for the session.
+// Which step columns fold, for this test or for every test of the project: the one place that decides it, a step
+// card has no toggle of its own.
 export function ColumnsMenu({
   columns,
   projectModes,
@@ -86,8 +86,8 @@ export function ColumnsMenu({
       trigger={<Button variant="quiet" size="sm" icon="columns" iconAfter="chevron-down" label="Columns" />}
       foot={
         scope === "test"
-          ? "Saved for this test only, beside its test.md (local.json) — never part of the test. Each step's own toggle folds one step for this session."
-          : "Saved in columns.json — every test of the project that does not choose its own. Each step's own toggle folds one step for this session."
+          ? "Saved for this test only, beside its test.md (local.json) — never part of the test."
+          : "Saved in columns.json — every test of the project that does not choose its own."
       }
     >
       <div {...stylex.props(styles.box)}>

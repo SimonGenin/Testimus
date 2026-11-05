@@ -40,8 +40,7 @@ export const projectModes = (x: ColumnLayout): ColumnModes => {
 // a column switched off in Xray folds away unless a step holds something (Xray Editor's default)
 export const defaultMode = (c: Pick<Column, "name" | "off">): ColumnMode => (c.off ? "filled" : "open");
 
-// ponytail: three layers, most specific first — the test's own choice, the project's, the default — and
-// the step's own toggle sits on top of the result, in the card, for the session only
+// ponytail: three layers, most specific first — the test's own choice, the project's, the default
 export const modeOf = (c: Pick<Column, "name" | "off">, project: ColumnModes, test: ColumnModes | null): ColumnMode =>
   !collapsible(c) ? "open" : (test?.[c.name] ?? project[c.name] ?? defaultMode(c));
 
@@ -51,11 +50,7 @@ export const openByDefault = (mode: ColumnMode, value: string) =>
 export const MODES: Array<{ value: ColumnMode; label: string; title: string }> = [
   { value: "open", label: "open", title: "Shown on every step" },
   { value: "filled", label: "when filled", title: "Shown only on a step where it holds something" },
-  {
-    value: "collapsed",
-    label: "collapsed",
-    title: "Folded on every step — its toggle shows a dot when it holds something",
-  },
+  { value: "collapsed", label: "collapsed", title: "Folded on every step" },
 ];
 
 // ponytail: the split layout gives each open column a track — a field 1fr, Expected 1.25fr while it is one of only

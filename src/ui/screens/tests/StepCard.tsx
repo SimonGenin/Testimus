@@ -7,7 +7,6 @@ import type { FieldAutosave } from "../../components/ui/Text.tsx";
 import { hasRawEmbed, leafBlocks } from "../../lib/blocks.ts";
 import {
   type Column,
-  collapsible,
   columnsOf,
   modeOf,
   projectModes as modesOf,
@@ -112,7 +111,6 @@ export function StepCard({
   onDragEnd?: () => void;
 }) {
   const [armed, setArmed] = useState(false);
-  const [folds, setFolds] = useState<Record<string, boolean>>({});
   const [wasOpen, setWasOpen] = useState(false);
   const [lastField, setLastField] = useState("");
   const n = index + 1;
@@ -120,7 +118,7 @@ export function StepCard({
   const val = (name: string) => step.fields[name] ?? "";
   const unreadable = hasRawEmbed(step);
   const pModes = projectModes ?? modesOf(xray);
-  const isOpen = (c: Column) => folds[c.name] ?? openByDefault(modeOf(c, pModes, testModes), val(c.name));
+  const isOpen = (c: Column) => openByDefault(modeOf(c, pModes, testModes), val(c.name));
   const shown = cols.filter(isOpen);
   const loose = stepSources(
     xray,
@@ -280,15 +278,6 @@ export function StepCard({
           index={index}
           count={count}
           jira={before ? { open: wasOpen, toggle: () => setWasOpen(!wasOpen) } : undefined}
-          folds={cols.filter(collapsible).map((c) => {
-            const open = isOpen(c);
-            return {
-              name: c.name,
-              open,
-              filled: val(c.name).trim() !== "",
-              toggle: () => setFolds((f) => ({ ...f, [c.name]: !open })),
-            };
-          })}
           readOnly={readOnly}
           onAsk={onAsk}
           onMove={onMove}

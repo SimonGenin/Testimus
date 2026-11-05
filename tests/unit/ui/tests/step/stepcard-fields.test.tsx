@@ -54,17 +54,10 @@ describe("StepCard", () => {
     expect(labels).toEqual(["Expected Result", "Action", "Exigence"]);
   });
 
-  it("folds a collapsed column, shows a dot when it holds something, and folds both ways", () => {
+  it("folds a collapsed column even when it holds something, with no toggle on the step", () => {
     card(xray);
     expect(screen.queryByLabelText("Data of step 2")).toBeNull();
-    const fold = within(screen.getByRole("article", { name: "Step 2" })).getByRole("button", { name: "Data" });
-    expect(fold).toHaveAttribute("aria-pressed", "false");
-    expect(fold).toHaveTextContent("Data●");
-    fireEvent.click(fold);
-    expect(screen.getByLabelText("Data of step 2")).toHaveValue("Sectionneur S 12, position fermée.");
-    expect(fold).toHaveAttribute("aria-pressed", "true");
-    fireEvent.click(fold);
-    expect(screen.queryByLabelText("Data of step 2")).toBeNull();
+    expect(within(screen.getByRole("article", { name: "Step 2" })).queryByRole("button", { name: "Data" })).toBeNull();
   });
 
   it("opens a « when filled » column only on a step that holds something", () => {

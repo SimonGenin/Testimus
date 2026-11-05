@@ -1,9 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { Badge, DIFF } from "../../../components/ui/Badge.tsx";
 import { Button } from "../../../components/ui/Button.tsx";
-import { Chip } from "../../../components/ui/Chip.tsx";
 import { Icon } from "../../../components/ui/Icon.tsx";
-import { Tooltip } from "../../../components/ui/Tooltip.tsx";
 import { type } from "../../../components/ui/type.ts";
 import type { StepMark } from "../../../lib/diff.ts";
 import { border, color, radius, size, space } from "../../../styles/tokens.stylex.ts";
@@ -53,7 +51,6 @@ const styles = stylex.create({
   },
   empty: { color: color.textSubtle },
   grow: { flex: 1 },
-  folds: { display: "inline-flex", alignItems: "center", flexWrap: "wrap", gap: space.s2 },
   tools: {
     display: "inline-flex",
     alignItems: "center",
@@ -67,8 +64,6 @@ const styles = stylex.create({
 });
 
 export type StepMarks = { claude?: boolean; added?: boolean; mark?: StepMark; unreadable?: boolean };
-
-export type Fold = { name: string; open: boolean; filled: boolean; toggle: () => void };
 
 export function StepNumber({ n, marks }: { n: number; marks: StepMarks }) {
   return (
@@ -128,14 +123,13 @@ export function GripSlot() {
   return <span aria-hidden="true" {...stylex.props(styles.slot)} />;
 }
 
-// the rest of an open step card's head, after its grip, number and marks (StepFrame): the Jira version toggle, the
-// column folds and the tools
+// the rest of an open step card's head, after its grip, number and marks (StepFrame): the Jira version toggle and the
+// tools — which columns a step shows is the Columns menu's, not the card's
 export function StepHead({
   n,
   index,
   count,
   jira,
-  folds,
   readOnly,
   onAsk,
   onMove,
@@ -147,7 +141,6 @@ export function StepHead({
   index: number;
   count: number;
   jira?: { open: boolean; toggle: () => void };
-  folds: Fold[];
   readOnly?: boolean;
   onAsk?: () => void;
   onMove?: (dir: -1 | 1) => void;
@@ -167,16 +160,6 @@ export function StepHead({
         />
       )}
       <span {...stylex.props(styles.grow)} />
-      <span {...stylex.props(styles.folds)}>
-        {folds.map((f) => (
-          <Tooltip
-            key={f.name}
-            label={!f.open && f.filled ? `This step has ${f.name}` : f.open ? `Fold ${f.name}` : `Show ${f.name}`}
-          >
-            <Chip label={f.name} pressed={f.open} dot={!f.open && f.filled} onToggle={f.toggle} />
-          </Tooltip>
-        ))}
-      </span>
       <span {...stylex.props(styles.tools)}>
         {!readOnly && (
           <>

@@ -82,10 +82,6 @@ const fieldNames = (container: HTMLElement) =>
     (e) => e.textContent,
   );
 
-const foldOf = (name: string) => within(screen.getByRole("article")).getByRole("button", { name });
-
-const tipOf = (el: HTMLElement) => el.closest("span")?.querySelector('[role="tooltip"]')?.textContent;
-
 describe("put and cut", () => {
   it("join with a blank line, or a single line break inside a table", () => {
     expect(put("ab", 1, "X")).toBe("a\n\nX\n\nb");
@@ -198,27 +194,17 @@ describe("StepCard editing", () => {
 });
 
 describe("StepCard columns", () => {
-  it("folds a column by its project mode and opens it per step", () => {
+  it("folds a column by its project mode, with no toggle of its own on the step", () => {
     const x = layoutOf(xray.fields, { ...prefsOf(xray), collapsed: ["Data"] });
     const { container } = card({ ...base, fields: { ...base.fields, Data: "S 12" } }, { xray: x });
     expect(fieldNames(container)).toEqual(["Action", "Expected Result"]);
-    const toggle = foldOf("Data");
-    expect(toggle).toHaveTextContent("Data●");
-    expect(tipOf(toggle)).toBe("This step has Data");
-    fireEvent.click(toggle);
-    expect(fieldNames(container)).toEqual(["Action", "Data", "Expected Result"]);
-    expect(tipOf(toggle)).toBe("Fold Data");
-    fireEvent.click(toggle);
-    expect(fieldNames(container)).toEqual(["Action", "Expected Result"]);
+    expect(within(screen.getByRole("article")).queryByRole("button", { name: "Data" })).toBeNull();
   });
 
   it("shows a when-filled column only on a step that holds it", () => {
     const x = layoutOf(xray.fields, { ...prefsOf(xray), filled: ["Data"] });
     const { container } = card(base, { xray: x });
     expect(fieldNames(container)).toEqual(["Action", "Expected Result"]);
-    const toggle = foldOf("Data");
-    expect(toggle).toHaveTextContent("Data");
-    expect(tipOf(toggle)).toBe("Show Data");
     cleanup();
     const filled = card({ ...base, fields: { ...base.fields, Data: "x" } }, { xray: x });
     expect(fieldNames(filled.container)).toEqual(["Action", "Data", "Expected Result"]);

@@ -113,7 +113,7 @@ export const IF_MTIME = z
 export const COLUMN_SHOW = z
   .enum(["open", "filled", "collapsed", "hidden"])
   .describe(
-    "open: on every step · filled: only on a step that holds something · collapsed: folded, its toggle shows a dot when it holds something · hidden: left out unless a step holds text in it",
+    "open: on every step · filled: only on a step that holds something · collapsed: folded on every step · hidden: left out unless a step holds text in it",
   );
 
 export const STEP_COLUMN = z.object({
