@@ -44,7 +44,12 @@ describe("claude.*", () => {
     );
     expect(r.ok).toBe(true);
     expect(r.changedTests).toEqual([TEST]);
+    expect(await call("claude.before", { testId: TEST }, P)).toMatchObject({
+      runId: r.runId,
+      test: { steps: expect.any(Array) },
+    });
     expect(await call("claude.revert", { runId: r.runId }, P)).toEqual({ reverted: [TEST], files: [] });
+    expect(await call("claude.before", { testId: TEST }, P)).toBeNull();
   });
 });
 

@@ -6,9 +6,10 @@ import { createQueryClient } from "../../../../src/ui/lib/data/query.ts";
 const names = (paths: string[]) => keysOfPaths(paths).map((k) => k[0]);
 
 describe("which reads a changed file refreshes", () => {
-  it("a test's remote copy refreshes the test, the list, its push plan and its Jira status", () => {
+  it("a test's remote copy refreshes the test, what Claude changed since, the list, its push plan and its Jira status", () => {
     expect(keysOfPaths(["tests/T-1/.remote.md"])).toEqual([
       ["tests.show", { id: "T-1" }],
+      ["claude.before", { testId: "T-1" }],
       ["tests.list"],
       ["xray.plan", { id: "T-1" }],
       ["xray.status", { id: "T-1" }],

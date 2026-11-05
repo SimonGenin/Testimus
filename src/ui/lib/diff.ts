@@ -1,3 +1,4 @@
+import type { CommandOutput } from "../../core/commands/index.ts";
 import type { Step, Test } from "../../core/types.ts";
 
 export type StepMark = "same" | "modified" | "new";
@@ -31,6 +32,57 @@ export function diffLocal(local: Step[], base: Step[]): { marks: StepMark[]; gon
     else gone.push({ at, step: b });
   }
   return { marks, gone };
+}
+
+/** the test before the Claude run that changed it, while that change stands (claude.before) */
+export type ClaudeBefore = NonNullable<CommandOutput<"claude.before">>;
+
+export type RunDiff = { marks: StepMark[]; was: (Step | undefined)[]; gone: Gone[] };
+
+// ponytail: before a Claude run a step may have no Xray id (generated, or new since the last sync), so the steps match
+// by content: the longest sequence of unchanged steps in order anchors the rest; between two anchors the steps pair by
+// position (modified, with the step they were), the local ones left over are new and the old ones left over gone
+export function diffRun(local: Step[], base: Step[]): RunDiff {
+  const same = (a: Step, b: Step) => (!a.id || !b.id || a.id === b.id) && sameStep(a, b);
+  const n = local.length;
+  const m = base.length;
+  const lcs = Array.from({ length: n + 1 }, () => new Array<number>(m + 1).fill(0));
+  for (let a = n - 1; a >= 0; a--)
+    for (let b = m - 1; b >= 0; b--)
+      lcs[a][b] = same(local[a], base[b]) ? lcs[a + 1][b + 1] + 1 : Math.max(lcs[a + 1][b], lcs[a][b + 1]);
+  const out: RunDiff = { marks: [], was: [], gone: [] };
+  let i = 0;
+  let j = 0;
+  const gap = (li: number, bj: number) => {
+    for (let k = 0; k < li - i; k++) {
+      const b = j + k < bj ? base[j + k] : undefined;
+      out.marks.push(b ? "modified" : "new");
+      out.was.push(b);
+    }
+    for (let k = j + (li - i); k < bj; k++) out.gone.push({ at: li - 1, step: base[k] });
+  };
+  let a = 0;
+  let b = 0;
+  while (a < n && b < m) {
+    if (same(local[a], base[b])) {
+      gap(a, b);
+      out.marks.push("same");
+      out.was.push(undefined);
+      i = ++a;
+      j = ++b;
+    } else if (lcs[a + 1][b] >= lcs[a][b + 1]) a++;
+    else b++;
+  }
+  gap(n, m);
+  return out;
+}
+
+// a step put back as it was before a Claude run: in its place (step n), or, deleted since, where it was
+export function restoreRunStep(local: Test, base: Step, gone: Gone | null, n: number): Test {
+  const steps = local.steps.slice();
+  if (gone) steps.splice(gone.at + 1, 0, structuredClone(base));
+  else steps[n - 1] = structuredClone(base);
+  return { ...local, steps };
 }
 
 export function restoreStep(local: Test, base: Step, gone: Gone | null): Test {

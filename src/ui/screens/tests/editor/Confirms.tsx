@@ -4,6 +4,7 @@ import { Banner } from "../../../components/ui/Banner.tsx";
 import type { IconName } from "../../../components/ui/Icon.tsx";
 import { Modal } from "../../../components/ui/Modal.tsx";
 import { type } from "../../../components/ui/type.ts";
+import type { WasFrom } from "../step/WasToggle.tsx";
 
 const styles = stylex.create({
   text: { margin: 0 },
@@ -136,12 +137,14 @@ export function UndoConfirm({
 }
 
 export function RestoreConfirm({
+  from = "jira",
   gone,
   n,
   missing,
   onConfirm,
   onClose,
 }: {
+  from?: WasFrom;
   gone: boolean;
   n: number;
   missing: number;
@@ -150,21 +153,31 @@ export function RestoreConfirm({
 }) {
   return (
     <Confirm
-      title={gone ? "Bring the deleted step back?" : `Restore step ${n} from Jira?`}
+      title={
+        gone
+          ? "Bring the deleted step back?"
+          : `Restore step ${n} ${from === "claude" ? "as before Claude" : "from Jira"}?`
+      }
       verb={gone ? "Bring the step back" : "Restore this step"}
       onConfirm={onConfirm}
       onClose={onClose}
     >
       {missing > 0 && (
         <Banner tone="warning" compact>
-          Screenshots no longer in the project: {missing} of them — the embed comes back, the picture only after a
-          Download from Jira.
+          Screenshots no longer in the project: {missing} of them —{" "}
+          {from === "claude"
+            ? "the embed comes back without its picture."
+            : "the embed comes back, the picture only after a Download from Jira."}
         </Banner>
       )}
       <p {...stylex.props(styles.text)}>
-        {gone
-          ? "The step comes back where it was deleted, as Jira had it at the last sync."
-          : "Its fields and screenshots are replaced by what Jira had at the last sync."}
+        {from === "claude"
+          ? gone
+            ? "The step comes back where it was deleted, as it was before Claude's run."
+            : "Its fields and screenshots are replaced by what they were before Claude's run."
+          : gone
+            ? "The step comes back where it was deleted, as Jira had it at the last sync."
+            : "Its fields and screenshots are replaced by what Jira had at the last sync."}
       </p>
     </Confirm>
   );

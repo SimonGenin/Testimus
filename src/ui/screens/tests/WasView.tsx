@@ -13,6 +13,7 @@ import type { StepLayout } from "./StepCard.tsx";
 import { FieldRow, StepFields } from "./step/StepFields.tsx";
 import { GoneFrame } from "./step/StepFrame.tsx";
 import { firstLine } from "./step/stepText.ts";
+import { WAS, type WasFrom, WasToggle } from "./step/WasToggle.tsx";
 
 const styles = stylex.create({
   was: {
@@ -25,6 +26,7 @@ const styles = stylex.create({
     borderRadius: radius.r2,
     backgroundColor: color.surfaceSunken,
   },
+  wasClaude: { borderColor: color.claudeBorder },
   head: {
     boxSizing: "border-box",
     display: "flex",
@@ -43,6 +45,7 @@ const styles = stylex.create({
     gap: space.s2,
     color: color.warning,
   },
+  titleClaude: { color: color.claudeText },
   grow: { flex: 1 },
   body: { boxSizing: "border-box", paddingBlock: space.s2, paddingInline: space.s4 },
   ghost: {
@@ -59,6 +62,7 @@ const none = () => {};
 // The snapshot of a step, drawn by the very same field blocks as the live card (same layout, same
 // screenshots) — only read-only: no insert strips, no grip, no ✕, and its images still open in the lightbox
 export function WasView({
+  from = "jira",
   step,
   xray,
   layout,
@@ -68,6 +72,7 @@ export function WasView({
   onOpenImage,
   onRestore,
 }: {
+  from?: WasFrom;
   step: Step;
   xray: ColumnLayout;
   layout: StepLayout;
@@ -81,11 +86,14 @@ export function WasView({
   const n = index + 1;
   const split = layout === "split";
   return (
-    <section aria-label={`Step ${n} as Jira has it`} {...stylex.props(styles.was)}>
+    <section
+      aria-label={`Step ${n} ${WAS[from].aria}`}
+      {...stylex.props(styles.was, from === "claude" && styles.wasClaude)}
+    >
       <div {...stylex.props(type.small, styles.head)}>
-        <span {...stylex.props(type.medium, styles.title)}>
+        <span {...stylex.props(type.medium, styles.title, from === "claude" && styles.titleClaude)}>
           <Icon name="history" size="sm" />
-          In Jira, last synced
+          {WAS[from].title}
         </span>
         <span {...stylex.props(styles.grow)} />
         {onRestore && <Button size="sm" icon="undo" label={restoreLabel} onClick={onRestore} />}
@@ -99,7 +107,7 @@ export function WasView({
                 {c.kind === "blocks" ? (
                   <FieldBlocks
                     readOnly
-                    idBase={`was${index}-${c.name.replace(/\W+/g, "")}`}
+                    idBase={`${from === "claude" ? "before" : "was"}${index}-${c.name.replace(/\W+/g, "")}`}
                     name={c.name}
                     label={c.name}
                     text={value}
@@ -125,9 +133,10 @@ export function WasView({
   );
 }
 
-// A step Jira still has and the local test no longer does: an unnumbered placeholder, kept only so the
-// deletion is visible and its Jira version still readable, and inert everywhere else
+// A step Jira still has (or the test had before Claude's run) and the local test no longer does: an unnumbered
+// placeholder, kept only so the deletion is visible and its earlier version still readable, and inert everywhere else
 export function GoneStep({
+  from = "jira",
   step,
   xray,
   layout,
@@ -135,6 +144,7 @@ export function GoneStep({
   onOpenImage,
   onRestore,
 }: {
+  from?: WasFrom;
   step: Step;
   xray: ColumnLayout;
   layout: StepLayout;
@@ -154,19 +164,14 @@ export function GoneStep({
             {firstLine(step.fields[first ?? ""] ?? "")}
           </span>
           <span {...stylex.props(styles.grow)} />
-          <Badge
-            tone="warning"
-            icon="history"
-            label={open ? "Hide Jira version" : "Jira version"}
-            pressed={open}
-            onClick={() => setOpen(!open)}
-          />
+          <WasToggle from={from} open={open} onToggle={() => setOpen(!open)} />
           {onRestore && <Button size="sm" icon="undo" label="Bring the step back" onClick={onRestore} />}
         </>
       }
     >
       {open && (
         <WasView
+          from={from}
           step={step}
           xray={xray}
           layout={layout}

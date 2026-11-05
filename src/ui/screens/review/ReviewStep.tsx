@@ -1,4 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
+import { useState } from "react";
 import type { ColumnLayout, Finding, Source, Step } from "../../../core/types.ts";
 import { Button } from "../../components/ui/Button.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
@@ -8,6 +9,8 @@ import { color, space } from "../../styles/tokens.stylex.ts";
 import { FieldBlocks } from "../tests/FieldBlocks.tsx";
 import { FieldRow } from "../tests/step/StepFields.tsx";
 import { StepFrame, StepSourcesRow } from "../tests/step/StepFrame.tsx";
+import { WasToggle } from "../tests/step/WasToggle.tsx";
+import { WasView } from "../tests/WasView.tsx";
 import { FindingCard } from "./FindingCard.tsx";
 import { Links, Summary } from "./StepSources.tsx";
 import { firstLine } from "./sources.ts";
@@ -63,6 +66,8 @@ export type ReviewStepProps = {
   /** Claude's last run changed this step (added: it wrote it) */
   claude?: boolean;
   added?: boolean;
+  /** the step as it was before the Claude run that changed it */
+  claudeBefore?: Step;
   /** the mark of the element that opened the source panel (sources.ts chipMark, findingMark) */
   selected: string;
   /** each finding's place in the check's findings (default: their order here) */
@@ -79,6 +84,7 @@ export type ReviewStepProps = {
 // and the findings the check put on it
 export function ReviewStep(p: ReviewStepProps) {
   const { n, step, xray, findings, stale, selected } = p;
+  const [wasOpen, setWasOpen] = useState(false);
   const views = fieldViews(xray, step);
   const loose = stepSources(
     xray,
@@ -119,6 +125,7 @@ export function ReviewStep(p: ReviewStepProps) {
       {...frame}
       head={
         <>
+          {p.claudeBefore && <WasToggle from="claude" open={wasOpen} onToggle={() => setWasOpen(!wasOpen)} />}
           <span {...stylex.props(styles.grow)} />
           <Button
             size="sm"
@@ -131,6 +138,18 @@ export function ReviewStep(p: ReviewStepProps) {
         </>
       }
     >
+      {wasOpen && p.claudeBefore && (
+        <WasView
+          from="claude"
+          step={p.claudeBefore}
+          xray={xray}
+          layout="stacked"
+          index={n - 1}
+          url={p.url}
+          restoreLabel="Restore this step"
+          onOpenImage={(file) => p.onOpenImage(file, n)}
+        />
+      )}
       <div {...stylex.props(styles.fields)}>
         {views.map((v) => {
           const value = step.fields[v.name] ?? "";

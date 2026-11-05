@@ -6,6 +6,7 @@ import { type } from "../../../components/ui/type.ts";
 import type { StepMark } from "../../../lib/diff.ts";
 import { border, color, radius, size, space } from "../../../styles/tokens.stylex.ts";
 import { stepMarker } from "../markers.stylex.ts";
+import { WasToggle } from "./WasToggle.tsx";
 
 const styles = stylex.create({
   grip: {
@@ -123,13 +124,14 @@ export function GripSlot() {
   return <span aria-hidden="true" {...stylex.props(styles.slot)} />;
 }
 
-// the rest of an open step card's head, after its grip, number and marks (StepFrame): the Jira version toggle and the
-// tools — which columns a step shows is the Columns menu's, not the card's
+// the rest of an open step card's head, after its grip, number and marks (StepFrame): the Jira version and Before Claude
+// toggles and the tools — which columns a step shows is the Columns menu's, not the card's
 export function StepHead({
   n,
   index,
   count,
   jira,
+  claudeWas,
   readOnly,
   onAsk,
   onMove,
@@ -141,6 +143,8 @@ export function StepHead({
   index: number;
   count: number;
   jira?: { open: boolean; toggle: () => void };
+  /** the step as it was before the Claude run that changed it */
+  claudeWas?: { open: boolean; toggle: () => void };
   readOnly?: boolean;
   onAsk?: () => void;
   onMove?: (dir: -1 | 1) => void;
@@ -150,15 +154,8 @@ export function StepHead({
 }) {
   return (
     <>
-      {jira && (
-        <Badge
-          tone="warning"
-          icon="history"
-          label={jira.open ? "Hide Jira version" : "Jira version"}
-          pressed={jira.open}
-          onClick={jira.toggle}
-        />
-      )}
+      {jira && <WasToggle from="jira" open={jira.open} onToggle={jira.toggle} />}
+      {claudeWas && <WasToggle from="claude" open={claudeWas.open} onToggle={claudeWas.toggle} />}
       <span {...stylex.props(styles.grow)} />
       <span {...stylex.props(styles.tools)}>
         {!readOnly && (

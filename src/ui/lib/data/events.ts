@@ -13,6 +13,7 @@ const PATHS: Rule[] = [
     (m) => [
       ["tests.show", { id: m[1] }],
       ["check.show", { id: m[1] }],
+      ["claude.before", { testId: m[1] }],
       ["tests.list"],
       ["review.queue"],
       ["xray.plan", { id: m[1] }],
@@ -23,7 +24,13 @@ const PATHS: Rule[] = [
   ],
   [
     /^tests\/([^/]+)\/\.remote\.md$/,
-    (m) => [["tests.show", { id: m[1] }], ["tests.list"], ["xray.plan", { id: m[1] }], ["xray.status", { id: m[1] }]],
+    (m) => [
+      ["tests.show", { id: m[1] }],
+      ["claude.before", { testId: m[1] }],
+      ["tests.list"],
+      ["xray.plan", { id: m[1] }],
+      ["xray.status", { id: m[1] }],
+    ],
   ],
   [
     /^tests\/([^/]+)\/check\.json$/,
@@ -189,7 +196,9 @@ export function apply(client: QueryClient, e: JobEvent, p: string | null = proje
     follow(client, e, p);
     if (e.type !== "status") return;
     const keys: Prefix[] = [["jobs.list"], ["jobs.show", { id: e.jobId }], ["project.info"]];
-    if (e.job.status !== "running") keys.push(...keysOfKind(e.job.kind));
+    // ponytail: a run's record (.testimus/runs, not watched) is finished after the test.md it wrote — any job may have
+    // been a Claude run
+    if (e.job.status !== "running") keys.push(...keysOfKind(e.job.kind), ["claude.before"]);
     void invalidate(client, keys, p);
   }
 }

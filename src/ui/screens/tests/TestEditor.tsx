@@ -10,7 +10,7 @@ import { columnsOf, projectModes } from "../../lib/columns.ts";
 import { pendingAutosaves } from "../../lib/data/autosave.ts";
 import { fileUrl } from "../../lib/data/client.ts";
 import { invalidate, key, useRead } from "../../lib/data/query.ts";
-import { differs, diffLocal, type Gone, lossOf, restoreStep } from "../../lib/diff.ts";
+import { differs, diffLocal, diffRun, type Gone, lossOf, restoreRunStep, restoreStep } from "../../lib/diff.ts";
 import { DEFAULT_LAYOUT } from "../../lib/fields.ts";
 import { uploadImage } from "../../lib/files.ts";
 import { message } from "../../lib/format.ts";
@@ -38,6 +38,7 @@ import { Lightbox } from "./Lightbox.tsx";
 import { claudeLock } from "./lock.ts";
 import { PushDialog } from "./PushDialog.tsx";
 import type { StepLayout } from "./StepCard.tsx";
+import type { WasFrom } from "./step/WasToggle.tsx";
 
 export type { TestShow };
 
@@ -67,7 +68,7 @@ type Run = { run: { runId: string; changedSteps: Record<string, number[]> }; bef
 export type Dialog =
   | { kind: "undo" }
   | { kind: "delete"; target: DeleteTarget }
-  | { kind: "restore"; base: Step; gone: Gone | null; n: number }
+  | { kind: "restore"; base: Step; gone: Gone | null; n: number; from: WasFrom }
   | { kind: "contexts" };
 
 const flatten = (f: Folder): string[] => [f.path, ...f.folders.flatMap(flatten)];
@@ -180,6 +181,7 @@ export function TestEditor({
   const testCols = ((colsQ.data as { own: ColumnModes | null } | undefined)?.own ?? null) as ColumnModes | null;
   const foldersQ = useRead("xray.folders", {}, { enabled: foldersAsked && !!jiraKey });
   const statusQ = useRead("xray.status", { id: testId }, { enabled: !!test?.key && !!remote && !checkOverride });
+  const claudeQ = useRead("claude.before", { testId });
 
   useEffect(() => {
     if (preQ.error) errorToast(preQ.error, "Could not load the preconditions from Jira");
@@ -294,6 +296,17 @@ export function TestEditor({
   const files = new Set(data.files ?? []);
   const dirty = remote ? differs(test, remote) : !test.key;
   const diff = remote && dirty ? diffLocal(test.steps, remote.steps) : null;
+  // ponytail: the test before the Claude run that changed it, while that change stands — each step it changed can be
+  // seen as it was, as Jira's version is; the steps are « Claude's » only while the test is as the run left it
+  const claudeRun = claudeQ.data ?? null;
+  const cdiff = claudeRun ? diffRun(test.steps, claudeRun.test.steps) : null;
+  const jiraGone = new Set((diff?.gone ?? []).flatMap((g) => (g.step.id ? [g.step.id] : [])));
+  const gone = [
+    ...(diff?.gone ?? []),
+    ...(cdiff?.gone ?? [])
+      .filter((g) => !g.step.id || !jiraGone.has(g.step.id))
+      .map((g) => ({ ...g, from: "claude" as const })),
+  ];
   const pModes = projectModes(xray);
   const linked = !!jiraKey && !!xray.fetchedAt;
   const cols = columnsOf(
@@ -438,7 +451,7 @@ export function TestEditor({
           projectModes={pModes}
           testModes={testCols}
           columns={cols}
-          gone={diff?.gone ?? []}
+          gone={gone}
           readOnly={busy}
           focus={focus}
           folded={folded}
@@ -447,10 +460,19 @@ export function TestEditor({
           uidOf={uids.uidOf}
           markOf={(s, i) => {
             const dm = diff?.marks[i];
+            const cm = cdiff?.marks[i];
+            const theirs = claudeRun?.untouched
+              ? cm === "new"
+                ? "added"
+                : cm === "modified"
+                  ? "changed"
+                  : undefined
+              : undefined;
             return {
-              claude: markOf(s),
+              claude: markOf(s) ?? theirs,
               diff: dm,
               before: dm === "modified" ? remote?.steps.find((b) => b.id === s.id) : undefined,
+              claudeBefore: cm === "modified" ? cdiff?.was[i] : undefined,
             };
           }}
           url={url}
@@ -481,7 +503,9 @@ export function TestEditor({
           onDraft={() =>
             app.askClaude("test", "Draft the steps of this test from its description and the documents it cites.")
           }
-          onRestore={(base, gone, n) => !refuseWhileClaude() && setDialog({ kind: "restore", base, gone, n })}
+          onRestore={(base, gone, n, from) =>
+            !refuseWhileClaude() && setDialog({ kind: "restore", base, gone, n, from })
+          }
           onOpenImage={(file, images, step, column) =>
             setLb({
               images,
@@ -528,6 +552,7 @@ export function TestEditor({
       )}
       {dialog?.kind === "restore" && (
         <RestoreConfirm
+          from={dialog.from}
           gone={!!dialog.gone}
           n={dialog.n}
           missing={restoreMissing}
@@ -536,11 +561,14 @@ export function TestEditor({
             const d = dialog;
             setDialog(null);
             if (refuseWhileClaude()) return;
-            update((t) => restoreStep(t, d.base, d.gone));
+            const claude = d.from === "claude";
+            update((t) => (claude ? restoreRunStep(t, d.base, d.gone, d.n) : restoreStep(t, d.base, d.gone)));
             toast({
               tone: "success",
-              title: d.gone ? "Deleted step restored" : `Step ${d.n} restored from Jira`,
-              detail: "From the last sync — nothing was downloaded.",
+              title: d.gone
+                ? "Deleted step restored"
+                : `Step ${d.n} restored ${claude ? "as before Claude" : "from Jira"}`,
+              detail: claude ? "As the test was before Claude's run." : "From the last sync — nothing was downloaded.",
             });
           }}
         />

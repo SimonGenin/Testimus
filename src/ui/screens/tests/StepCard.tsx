@@ -48,6 +48,7 @@ export function StepCard({
   added,
   mark,
   before,
+  claudeBefore,
   folded,
   dragging,
   focused,
@@ -65,6 +66,7 @@ export function StepCard({
   onDelete,
   onAsk,
   onRestore,
+  onRestoreClaude,
   onOpenImage,
   onOpenSource,
   onDragStart,
@@ -84,6 +86,8 @@ export function StepCard({
   added?: boolean;
   mark?: StepMark;
   before?: Step;
+  /** the step as it was before the Claude run that changed it */
+  claudeBefore?: Step;
   folded?: boolean;
   dragging?: boolean;
   // ponytail: the step last worked on keeps its ring while focus is elsewhere (the dock, a dialog), as in Xray Editor
@@ -103,6 +107,7 @@ export function StepCard({
   onDelete?: () => void;
   onAsk?: () => void;
   onRestore?: (before: Step) => void;
+  onRestoreClaude?: (before: Step) => void;
   onOpenImage?: (file: string, images: StepImage[], column?: string) => void;
   onOpenSource?: (s: Source) => void;
   onDragStart?: () => void;
@@ -112,6 +117,7 @@ export function StepCard({
 }) {
   const [armed, setArmed] = useState(false);
   const [wasOpen, setWasOpen] = useState(false);
+  const [claudeOpen, setClaudeOpen] = useState(false);
   const [lastField, setLastField] = useState("");
   const n = index + 1;
   const cols = columnsOf(xray, step, linked);
@@ -283,6 +289,7 @@ export function StepCard({
           index={index}
           count={count}
           jira={before ? { open: wasOpen, toggle: () => setWasOpen(!wasOpen) } : undefined}
+          claudeWas={claudeBefore ? { open: claudeOpen, toggle: () => setClaudeOpen(!claudeOpen) } : undefined}
           readOnly={readOnly}
           onAsk={onAsk}
           onMove={onMove}
@@ -302,6 +309,19 @@ export function StepCard({
           restoreLabel="Restore this step"
           onOpenImage={(file, images) => onOpenImage?.(file, images)}
           onRestore={readOnly || !onRestore ? undefined : () => onRestore(before)}
+        />
+      )}
+      {claudeOpen && claudeBefore && (
+        <WasView
+          from="claude"
+          step={claudeBefore}
+          xray={xray}
+          layout={layout}
+          index={index}
+          url={url}
+          restoreLabel="Restore this step"
+          onOpenImage={(file, images) => onOpenImage?.(file, images)}
+          onRestore={readOnly || !onRestoreClaude ? undefined : () => onRestoreClaude(claudeBefore)}
         />
       )}
       <div {...stylex.props(styles.body)}>

@@ -15,6 +15,7 @@ import { border, color, radius, space } from "../../../styles/tokens.stylex.ts";
 import { ColumnsMenu } from "../ColumnsMenu.tsx";
 import { StepCard, type StepLayout } from "../StepCard.tsx";
 import { cardFlush } from "../step/StepFrame.tsx";
+import type { WasFrom } from "../step/WasToggle.tsx";
 import { GoneStep } from "../WasView.tsx";
 
 const styles = stylex.create({
@@ -38,7 +39,15 @@ const styles = stylex.create({
   },
 });
 
-export type StepMarkOf = { claude?: "changed" | "added"; diff?: StepMark; before?: Step };
+export type StepMarkOf = {
+  claude?: "changed" | "added";
+  diff?: StepMark;
+  before?: Step;
+  /** the step as it was before the Claude run that changed it */
+  claudeBefore?: Step;
+};
+/** a step the test no longer has: Jira's (the last sync) or the test's before Claude's run */
+export type GoneOf = Gone & { from?: WasFrom };
 
 // ponytail: the steps of the open test — head (count, columns, layout), the cards in order with the deleted ones
 // where they were, the drop line while a step is dragged, and the way to add one
@@ -87,7 +96,7 @@ export function StepList({
   projectModes: ColumnModes;
   testModes: ColumnModes | null;
   columns: Column[];
-  gone: Gone[];
+  gone: GoneOf[];
   readOnly: boolean;
   focus: number;
   folded: Set<number>;
@@ -112,7 +121,7 @@ export function StepList({
   onAsk: (i: number) => void;
   /** a test without steps: Claude drafts them from its description and sources */
   onDraft?: () => void;
-  onRestore: (base: Step, gone: Gone | null, n: number) => void;
+  onRestore: (base: Step, gone: Gone | null, n: number, from: WasFrom) => void;
   onOpenImage: (file: string, images: StepImage[], step: number, column?: string) => void;
   /** a source of a step opened, with the step it backs and that step's sources (‹ › in the dialog) */
   onOpenSource: (s: Source, from?: SourceFrom) => void;
@@ -122,15 +131,16 @@ export function StepList({
   const [dropAt, setDropAt] = useState(-1);
   const goneAt = (i: number) => gone.filter((g) => g.at === i);
   const line = <div aria-hidden="true" data-testid="dropline" {...stylex.props(styles.drop)} />;
-  const goneCard = (g: Gone, k: number) => (
-    <div key={`gone:${g.step.id ?? k}`} {...stylex.props(styles.slot)}>
+  const goneCard = (g: GoneOf, k: number) => (
+    <div key={`gone:${g.from ?? "jira"}:${g.step.id ?? k}`} {...stylex.props(styles.slot)}>
       <GoneStep
+        from={g.from}
         step={g.step}
         xray={xray}
         layout={layout}
         url={url}
         onOpenImage={(file, images) => onOpenImage(file, images, 0)}
-        onRestore={readOnly ? undefined : () => onRestore(g.step, g, test.steps.length)}
+        onRestore={readOnly ? undefined : () => onRestore(g.step, g, test.steps.length, g.from ?? "jira")}
       />
     </div>
   );
@@ -179,6 +189,7 @@ export function StepList({
               added={m.claude === "added"}
               mark={m.diff === "same" ? undefined : m.diff}
               before={m.before}
+              claudeBefore={m.claudeBefore}
               folded={folded.has(uid)}
               dragging={drag === i}
               focused={focus === i && drag < 0}
@@ -195,7 +206,8 @@ export function StepList({
               onInsert={() => onInsert(i + 1)}
               onDelete={() => onDelete(i)}
               onAsk={() => onAsk(i)}
-              onRestore={(b) => onRestore(b, null, i + 1)}
+              onRestore={(b) => onRestore(b, null, i + 1, "jira")}
+              onRestoreClaude={(b) => onRestore(b, null, i + 1, "claude")}
               onOpenImage={(file, images, column) => onOpenImage(file, images, i + 1, column)}
               onOpenSource={(src) => onOpenSource(src, { test: test.key ?? testId, step: i + 1, sources: s.sources })}
               onDragStart={() => setDrag(i)}

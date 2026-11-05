@@ -8,6 +8,7 @@ import { Button } from "../../components/ui/Button.tsx";
 import { ResizeHandle } from "../../components/ui/ResizeHandle.tsx";
 import { type ClaudeRun, useApp } from "../../lib/app.ts";
 import { fileUrl } from "../../lib/data/client.ts";
+import { useRead } from "../../lib/data/query.ts";
 import { plural } from "../../lib/format.ts";
 import { usePaneWidth } from "../../lib/panes.ts";
 import { color, container, size, space } from "../../styles/tokens.stylex.ts";
@@ -65,6 +66,7 @@ export function ReviewScreen() {
   const open = (id: string | null) => (id ? app.navigate("review", id) : app.navigate("review"));
   const act = useDecisions(d.input, open, app.navigate);
   const view = useReviewView(activeId, data, app.lastRun);
+  const claudeQ = useRead("claude.before", { testId: activeId }, { enabled: !!activeId });
   // biome-ignore lint/correctness/useExhaustiveDependencies: taken once, when that test shows
   useEffect(() => {
     if (activeId && takeEditAsk(activeId)) view.patch({ editing: true });
@@ -236,6 +238,7 @@ export function ReviewScreen() {
               selected={sel?.mark ?? ""}
               selectedStep={sel ? sel.step : undefined}
               marks={view.marks}
+              claudeRun={data.id === activeId ? (claudeQ.data ?? null) : null}
               claudeRunning={running}
               claudeReady={d.claudeReady}
               url={(file) => fileUrl(`tests/${data.id}/${file}`)}

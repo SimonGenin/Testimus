@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from "node:f
 import { join, posix } from "node:path";
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
-import { writeAtomic } from "../lib/atomic.ts";
+import { fileMtime, writeAtomic } from "../lib/atomic.ts";
 import { testsCiting } from "../lib/check.ts";
 import { docIds, findDoc } from "../lib/docs.ts";
 import { sha256 } from "../lib/hash.ts";
@@ -235,6 +235,42 @@ export function markLeft(project: string, runId: string, ids: string[]): void {
   for (const id of ids) if (id in rec.after) rec.after[id] = hashOf(readMd(project, id));
   writeJson(runFile(project, runId), rec);
 }
+
+// ponytail: the latest Claude run that changed a test and still stands — finished, not reverted, newer than the test's
+// last sync (once a sync wrote .remote.md, the history is Jira's) — and the test.md it started from; a run that created
+// the test ends the search: nothing came before it. A run id starts with its second, so the folders are read newest
+// first, and the runs of one second by their exact start
+export function standingRun(project: string, id: string): { rec: RunRecord; md: string } | null {
+  const runs = join(project, ".testimus", "runs");
+  if (!validId(project, id) || !existsSync(runs)) return null;
+  const synced = fileMtime(join(testDir(project, id), ".remote.md"));
+  const names = readdirSync(runs)
+    .filter((n) => /^[\w-]+$/.test(n))
+    .sort()
+    .reverse();
+  const second = (n: string) => n.replace(/-[0-9a-f]+$/, "");
+  for (let i = 0; i < names.length; ) {
+    let j = i;
+    while (j < names.length && second(names[j]) === second(names[i])) j++;
+    const recs = names
+      .slice(i, j)
+      .map((n) => readJson<RunRecord | null>(runFile(project, n), null))
+      .filter((r): r is RunRecord => !!r?.before && typeof r.at === "string")
+      .sort((a, b) => b.at.localeCompare(a.at));
+    i = j;
+    for (const rec of recs) {
+      if (!(id in rec.before)) continue;
+      if (synced && Date.parse(rec.at) <= synced) return null;
+      if (!rec.after || rec.reverted || !rec.changedTests.includes(id)) continue;
+      const md = rec.before[id];
+      return md === null ? null : { rec, md };
+    }
+  }
+  return null;
+}
+
+export const leftAsIs = (project: string, rec: RunRecord, id: string) =>
+  !!rec.after && hashOf(readMd(project, id)) === rec.after[id];
 
 export type RevertOpts = { force?: boolean; ids?: string[] };
 

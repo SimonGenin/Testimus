@@ -5,8 +5,10 @@ import { Badge, ReviewBadge, SYNC } from "../../components/ui/Badge.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { type } from "../../components/ui/type.ts";
+import { type ClaudeBefore, diffRun } from "../../lib/diff.ts";
 import { plural } from "../../lib/format.ts";
 import { border, color, container, size, space } from "../../styles/tokens.stylex.ts";
+import { GoneStep } from "../tests/WasView.tsx";
 import { FindingCard } from "./FindingCard.tsx";
 import { type BannersProps, type Marks, ReviewBanners, when } from "./ReviewBanners.tsx";
 import { ReviewStep } from "./ReviewStep.tsx";
@@ -83,6 +85,8 @@ export type ReviewTestProps = Omit<BannersProps, "checked" | "claudeReady" | "te
   /** the step of the open source (null: a whole-test finding's) */
   selectedStep?: number | null;
   marks: Marks | null;
+  /** the test before the Claude run that changed it, while that change stands */
+  claudeRun?: ClaudeBefore | null;
   claudeRunning: boolean;
   claudeReady?: boolean;
   url: (file: string) => string;
@@ -110,6 +114,23 @@ export function ReviewTest(p: ReviewTestProps) {
   const whole = indexed.filter(({ f }) => !f.step || f.step > test.steps.length);
   const allFolded = test.steps.length > 0 && test.steps.every((_, i) => p.folded.has(i));
   const sync = SYNC_WORD[p.sync] ?? SYNC.local;
+  // ponytail: as in the editor — each step the last standing Claude run changed can be read as it was before it
+  const run = p.claudeRun ?? null;
+  const cdiff = run ? diffRun(test.steps, run.test.steps) : null;
+  const gone = (at: number) =>
+    (cdiff?.gone ?? [])
+      .filter((g) => g.at === at)
+      .map((g, k) => (
+        <GoneStep
+          key={`gone:${at}:${k}`}
+          from="claude"
+          step={g.step}
+          xray={p.xray}
+          layout="stacked"
+          url={p.url}
+          onOpenImage={() => {}}
+        />
+      ));
   return (
     <>
       <div {...stylex.props(styles.head)}>
@@ -160,10 +181,13 @@ export function ReviewTest(p: ReviewTestProps) {
               onSelect={(s) => p.onSelect(s, null, i)}
             />
           ))}
-          {test.steps.map((s, i) => {
+          {gone(-1)}
+          {test.steps.flatMap((s, i) => {
             const n = i + 1;
             const own = indexed.filter(({ f }) => f.step === n);
-            return (
+            const cm = cdiff?.marks[i];
+            const theirs = !!run?.untouched && (cm === "new" || cm === "modified");
+            return [
               <ReviewStep
                 key={s.id ?? i}
                 n={n}
@@ -175,15 +199,17 @@ export function ReviewTest(p: ReviewTestProps) {
                 folded={p.folded.has(i) && p.activeStep !== i}
                 active={p.activeStep === i}
                 holdsSelection={!!p.selected && p.selectedStep === n}
-                claude={!!p.marks?.steps.has(n)}
-                added={!!p.marks?.added.has(n)}
+                claude={!!p.marks?.steps.has(n) || theirs}
+                added={!!p.marks?.added.has(n) || (theirs && cm === "new")}
+                claudeBefore={cm === "modified" ? cdiff?.was[i] : undefined}
                 selected={p.selected}
                 url={p.url}
                 onFold={(f) => p.onFold(i, f)}
                 onSelect={p.onSelect}
                 onOpenImage={p.onOpenImage}
-              />
-            );
+              />,
+              ...gone(i),
+            ];
           })}
           {!test.steps.length && <p {...stylex.props(styles.none)}>This test has no steps yet.</p>}
         </div>

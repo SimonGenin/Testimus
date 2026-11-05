@@ -13,10 +13,12 @@ import {
   SCOPE,
   scopeLabel,
 } from "../claude/schemas.ts";
-import { readRun, revert } from "../claude/snapshot.ts";
+import { leftAsIs, readRun, revert, standingRun } from "../claude/snapshot.ts";
 import { CONNECT, checkSignedIn, claudeExe, claudeVersion } from "../claude/status.ts";
 import { command, projectOf } from "../command.ts";
-import { readProject } from "../lib/project.ts";
+import { readProject, readXray } from "../lib/project.ts";
+import { parseTest } from "../lib/testfile.ts";
+import { TEST, TEST_ID } from "../schemas.ts";
 
 const STATUS = z.object({
   installed: z.boolean().describe("claude --version answered"),
@@ -107,6 +109,45 @@ export const commands = [
       const project = projectOf(ctx);
       const reverted = revert(project, input.runId, { force: input.force === true });
       return { reverted, files: readRun(project, input.runId).revertedFiles ?? [] };
+    },
+  }),
+  command({
+    name: "claude.before",
+    summary:
+      "A test as it was before the latest Claude run that changed it, while that change stands (the run finished, was not reverted, and the test was not synced with Jira since); null when there is none.",
+    input: z.object({ testId: TEST_ID }),
+    output: z
+      .object({
+        runId: z.string().describe("The run, to revert it with claude.revert"),
+        at: z.string().describe("When the run started (ISO)"),
+        kind: z.string().optional().describe("What ran: the chat, a fix, an action…"),
+        label: z.string().optional().describe("The run's own title, when it has one"),
+        steps: z.array(z.number()).describe("The steps the run changed, by number, as it left the test"),
+        untouched: z
+          .boolean()
+          .describe("test.md is still as the run left it: every difference from `test` is the run's"),
+        test: TEST.describe("The test as test.md said it before the run"),
+      })
+      .nullable(),
+    mutates: false,
+    positional: ["testId"],
+    async run(ctx, input) {
+      const project = projectOf(ctx);
+      const found = standingRun(project, input.testId);
+      if (!found) return null;
+      const { rec, md } = found;
+      return {
+        runId: rec.runId,
+        at: rec.at,
+        ...(rec.kind ? { kind: rec.kind } : {}),
+        ...(rec.label ? { label: rec.label } : {}),
+        steps: rec.changedSteps[input.testId] ?? [],
+        untouched: leftAsIs(project, rec, input.testId),
+        test: parseTest(
+          md,
+          readXray(project).fields.map((f) => f.name),
+        ).test,
+      };
     },
   }),
   command({
