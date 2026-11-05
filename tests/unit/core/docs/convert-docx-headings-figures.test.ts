@@ -212,7 +212,6 @@ describe("convertDocx figures and warnings", () => {
       "2 embedded objects: only their preview picture survives",
       expect.stringMatching(/^mammoth: /),
       "2 Windows metafile pictures kept as is, not rendered to PNG: figure f6 (.emf), f7 (.wmf)",
-      "Figure 8: picture missing in the .docx, taken from the .pdf",
       "Figure 9, 10, 13: caption without a picture in the .docx (drawn shape, table or pasted text) and not found in the .pdf",
     ]);
     expect(c.figures.map((f) => [f.key, f.ext])).toEqual([

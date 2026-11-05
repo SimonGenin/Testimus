@@ -161,6 +161,25 @@ describe("conversion options", () => {
     expect(sameConversion({ reader: "tagged" }, {})).toBe(false);
   });
 
+  it("read the figures Claude drew from the pages, and count them as a change", () => {
+    const region = [0.1, 0.2, 0.9, 0.6];
+    expect(
+      conversionOf({
+        figures: [
+          { key: " 9 ", page: 3, region },
+          { key: "bad key", page: 3, region },
+          { key: "10", page: 0, region },
+          { key: "11", page: 2, region: [0, 0, 2, 1] },
+          { key: "12", page: 2 },
+        ],
+      }),
+    ).toEqual({ figures: [{ key: "9", page: 3, region }] });
+    expect(conversionOf({ figures: [{ key: "x" }] })).toEqual({});
+    const fig = { key: "9", page: 3, region: [0, 0, 1, 1] as [number, number, number, number] };
+    expect(sameConversion({ figures: [fig] }, {})).toBe(false);
+    expect(sameConversion({ figures: [fig] }, { figures: [fig] })).toBe(true);
+  });
+
   it("let a study and check run see the pages and the profile, propose actions, and change nothing", async () => {
     const { allow, deny } = await mcpAccess("study");
     expect(allow).toEqual(

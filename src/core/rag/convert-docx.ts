@@ -318,7 +318,6 @@ export async function convertDocx(buf: Uint8Array, opts: ConvertOpts): Promise<C
     return i >= 0 ? pdfPool!.splice(i, 1)[0] : undefined;
   };
   const figures: Figure[] = [];
-  const recovered: string[] = [];
   const missing: string[] = [];
   const metafiles: string[] = [];
 
@@ -369,9 +368,8 @@ export async function convertDocx(buf: Uint8Array, opts: ConvertOpts): Promise<C
   const decorate = (n: HNode, md: string): string => {
     const orphan = plan.orphans.get(n);
     if (!orphan) return md;
-    const pdf = fromPdf(orphan.caption);
+    const pdf = opts.crops?.get(orphan.key) ?? fromPdf(orphan.caption);
     if (pdf) {
-      recovered.push(orphan.key);
       figures.push({ ...pdf, key: orphan.key, caption: orphan.caption });
       return `${md}\n\n${imageLine(orphan.caption, `figures/fig-${orphan.key}.${pdf.ext}`, orphan.key)}`;
     }
@@ -394,8 +392,6 @@ export async function convertDocx(buf: Uint8Array, opts: ConvertOpts): Promise<C
     warnings.push(
       `${metafiles.length} Windows metafile picture${metafiles.length > 1 ? "s" : ""} kept as is, not rendered to PNG: figure ${metafiles.join(", ")}`,
     );
-  if (recovered.length)
-    warnings.push(`Figure ${recovered.join(", ")}: picture missing in the .docx, taken from the .pdf`);
   if (missing.length)
     warnings.push(
       `Figure ${missing.join(", ")}: caption without a picture in the .docx (drawn shape, table or pasted text)${pdfPool ? " and not found in the .pdf" : " — add the .pdf to recover them"}`,

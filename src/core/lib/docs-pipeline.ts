@@ -191,6 +191,11 @@ export async function inspect(project: string | null, input: { id?: string; file
   } as const;
 }
 
+// ponytail: a study or a check answers with the reading options; the figures drawn from the pages stay unless it
+// names them
+const keepFigures = (next: DocConversion, now?: DocConversion): DocConversion =>
+  next.figures || !now?.figures ? next : { ...next, figures: now.figures };
+
 // ponytail: with study, Claude looks at the original before converting (its choice is kept in doc.json, so every
 // reconversion gives the same result) and compares the result with the pages after; it may ask for one more
 // conversion with other options. A Claude run that fails never fails the conversion.
@@ -209,7 +214,7 @@ export function convertWith(
       try {
         const doc = readDoc(project, id);
         const r = await studyDoc(ctx, project, doc, await inspect(project, { id }, ctx.signal), claude);
-        if (r.conversion) setConversion(project, id, r.conversion);
+        if (r.conversion) setConversion(project, id, keepFigures(r.conversion, doc.conversion));
         else ctx.log("warn", `Claude's study of ${id} gave no options: ${r.summary.slice(0, 300)}`);
       } catch (e) {
         ctx.log("warn", `Claude did not study ${id}: ${message(e)}`);
@@ -219,8 +224,9 @@ export function convertWith(
     if (!o.study || !hasPdf()) return doc;
     try {
       const r = await checkConversion(ctx, project, doc, claude);
-      if (r.conversion && !sameConversion(r.conversion, doc.conversion)) {
-        setConversion(project, id, r.conversion);
+      const next = r.conversion && keepFigures(r.conversion, doc.conversion);
+      if (next && !sameConversion(next, doc.conversion)) {
+        setConversion(project, id, next);
         progress("Converting again with the options Claude chose");
         doc = await reconvertDoc(project, id, ctx.signal, progress);
       } else if (r.conversion?.notes && r.conversion.notes !== doc.conversion?.notes)

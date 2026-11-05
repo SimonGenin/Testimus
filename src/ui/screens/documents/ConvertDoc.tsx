@@ -41,6 +41,7 @@ function optionsOf(c: DocConversion): string {
     c.from && `the .${c.from} copy`,
     c.reader && (c.reader === "tagged" ? "the PDF tags" : "the page layout"),
     c.numbers?.length && `${c.numbers.length} heading number${c.numbers.length > 1 ? "s" : ""} read on the pages`,
+    c.figures?.length && `${c.figures.length} figure${c.figures.length > 1 ? "s" : ""} drawn from the PDF pages`,
   ].filter(Boolean);
   return parts.length ? `Converted from ${parts.join(", ")}.` : "";
 }

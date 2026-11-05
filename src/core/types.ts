@@ -216,6 +216,8 @@ export type DocConversion = {
   from?: "docx" | "pdf";
   reader?: "tagged" | "layout";
   numbers?: { number: string; title: string }[];
+  // figures the conversion finds no picture for, drawn from a region of a page of the PDF copy
+  figures?: { key: string; page: number; region: [number, number, number, number] }[];
   notes?: string;
 };
 export type FigureEntry = {

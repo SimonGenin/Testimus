@@ -3,9 +3,11 @@ import type { ReactNode } from "react";
 import type { CommandOutput } from "../../../core/commands/index.ts";
 import type { DocJson } from "../../../core/types.ts";
 import { Badge } from "../../components/ui/Badge.tsx";
+import { Button } from "../../components/ui/Button.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { Segmented } from "../../components/ui/Segmented.tsx";
 import { type } from "../../components/ui/type.ts";
+import { useApp } from "../../lib/app.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { baseName } from "../../lib/desktop.ts";
 import { plural } from "../../lib/format.ts";
@@ -32,6 +34,8 @@ const styles = stylex.create({
   warn: { display: "flex", gap: space.s2, alignItems: "flex-start", color: color.text },
   ok: { display: "flex", alignItems: "center", gap: space.s2 },
   warnIcon: { display: "inline-flex", color: color.warning, marginTop: space.s1 },
+  warnBody: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: space.s2, minWidth: 0 },
+  fix: { display: "flex" },
 });
 
 const STATUSES: DocJson["status"][] = ["draft", "submitted", "validated"];
@@ -64,6 +68,11 @@ export function DocSide({
   const warnings = running ? [] : (d.converted?.warnings ?? []);
   const from = d.source.file?.endsWith(".pdf") ? "PDF" : "Word";
   const ix = indexWord(ref ?? { indexed: "missing", converted: d.converted });
+  const app = useApp();
+  const actions = useRead("actions.list", { docId: d.id }).data ?? [];
+  // ponytail: the action Claude proposed for a warning quotes it as its problem — the button runs it in the dock
+  const fixOf = (w: string) =>
+    actions.find((a) => a.where === `doc:${d.id}` && a.state === "open" && a.problem.trim() === w.trim());
   return (
     <aside aria-label="Document settings" {...stylex.props(styles.side)}>
       <Section title="Status">
@@ -104,14 +113,37 @@ export function DocSide({
           )}
           {warnings.length > 0 && (
             <ul aria-label="Conversion warnings" {...stylex.props(styles.warns)}>
-              {warnings.map((w) => (
-                <li key={w} {...stylex.props(type.small, styles.warn)}>
-                  <span {...stylex.props(styles.warnIcon)}>
-                    <Icon name="alert-triangle" size="sm" />
-                  </span>
-                  <span>{w}</span>
-                </li>
-              ))}
+              {warnings.map((w) => {
+                const fix = fixOf(w);
+                return (
+                  <li key={w} {...stylex.props(type.small, styles.warn)}>
+                    <span {...stylex.props(styles.warnIcon)}>
+                      <Icon name="alert-triangle" size="sm" />
+                    </span>
+                    <span {...stylex.props(styles.warnBody)}>
+                      <span>{w}</span>
+                      {fix && (
+                        <span {...stylex.props(styles.fix)}>
+                          <Button
+                            size="sm"
+                            variant="claude-quiet"
+                            icon="claude"
+                            label={fix.title}
+                            onClick={() =>
+                              app.runInDock({
+                                name: "actions.run",
+                                input: { id: fix.id },
+                                label: fix.title,
+                                testId: "",
+                              })
+                            }
+                          />
+                        </span>
+                      )}
+                    </span>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </Section>

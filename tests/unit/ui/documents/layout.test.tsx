@@ -288,7 +288,7 @@ describe("Claude actions on documents", () => {
     ...o,
   });
 
-  it("stay in Ask Claude: neither the list nor the settings show them", async () => {
+  it("are not in the list; the one proposed for a conversion warning shows under it in the settings", async () => {
     listed({ converted: { with: "", at, warnings: ["2 comments dropped", "1 table split"] } });
     api.routes["actions.list"] = () => [action()];
     mountDocs(<DocumentsScreen />, { route: { screen: "documents", arg: "D1" } });
@@ -296,7 +296,7 @@ describe("Claude actions on documents", () => {
     const settings = await screen.findByRole("complementary", { name: "Document settings" });
     expect(await within(settings).findByText("2 comments dropped")).toBeInTheDocument();
     expect(within(list).queryByRole("button", { name: "Recover the figures" })).toBeNull();
-    expect(within(settings).queryByRole("button", { name: "Recover the figures" })).toBeNull();
+    expect(await within(settings).findByRole("button", { name: "Recover the figures" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Claude actions/ })).toBeNull();
   });
 });

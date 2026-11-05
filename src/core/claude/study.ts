@@ -27,6 +27,20 @@ export function conversionOf(v: unknown): DocConversion | null {
     });
     if (numbers.length) out.numbers = numbers;
   }
+  if (Array.isArray(o.figures)) {
+    const figures = o.figures.flatMap((e) => {
+      const x = e as { key?: unknown; page?: unknown; region?: unknown };
+      const r = x?.region;
+      const region =
+        Array.isArray(r) && r.length === 4 && r.every((v) => typeof v === "number" && v >= 0 && v <= 1)
+          ? (r as [number, number, number, number])
+          : null;
+      const key = typeof x?.key === "string" ? x.key.trim() : "";
+      const page = typeof x?.page === "number" && Number.isInteger(x.page) && x.page >= 1 ? x.page : 0;
+      return /^[\w.-]{1,40}$/.test(key) && page && region ? [{ key, page, region }] : [];
+    });
+    if (figures.length) out.figures = figures;
+  }
   if (typeof o.notes === "string" && o.notes.trim()) out.notes = o.notes.trim().slice(0, 2000);
   return out;
 }
@@ -43,7 +57,10 @@ export function parseConversion(text: string): DocConversion | null {
 }
 
 export const sameConversion = (a: DocConversion = {}, b: DocConversion = {}) =>
-  a.from === b.from && a.reader === b.reader && JSON.stringify(a.numbers ?? []) === JSON.stringify(b.numbers ?? []);
+  a.from === b.from &&
+  a.reader === b.reader &&
+  JSON.stringify(a.numbers ?? []) === JSON.stringify(b.numbers ?? []) &&
+  JSON.stringify(a.figures ?? []) === JSON.stringify(b.figures ?? []);
 
 const block = (example: DocConversion) => ["```" + CONVERSION_TAG, JSON.stringify(example), "```"];
 
@@ -98,7 +115,8 @@ export function checkPrompt(doc: DocJson, runId: string, extra: string[] = []): 
     "Compare against the pages, not against the counts alone: draw and Read at least three pages — a table of contents",
     "page, a page with a table, a page with a figure — and anything doc.md makes you doubt, before you answer.",
     "",
-    "If other options would convert it better (another copy, the other reader, heading numbers read on the pages),",
+    "If other options would convert it better (another copy, the other reader, heading numbers read on the pages,",
+    "a figure without picture that a page draws: figures [{ key, page, region }], the region checked with docs_page),",
     "reply with a block holding all the options — it replaces the current ones and Testimus converts once more:",
     ...block({ reader: "tagged", numbers: [{ number: "5.2.1", title: "…" }], notes: "…" }),
     ...proposeLines(

@@ -2,9 +2,10 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from "node:f
 import { basename, dirname, extname, join, resolve, sep } from "node:path";
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
-import { anchorsOf, type Converted, type ConvertOpts, guessFromName } from "../rag/convert.ts";
+import { anchorsOf, type Converted, type ConvertOpts, type Figure, guessFromName } from "../rag/convert.ts";
 import { convertDocx } from "../rag/convert-docx.ts";
 import { convertPdf, pdfFigures } from "../rag/convert-pdf.ts";
+import { renderPage } from "../rag/pdf.ts";
 import type { DocConversion, DocJson, DocKind, DocStats, FigureEntry } from "../types.ts";
 import { writeAtomic } from "./atomic.ts";
 import { docDir, isConverted, readDoc, writeDoc } from "./docs.ts";
@@ -202,6 +203,30 @@ export function setConversion(project: string, id: string, conversion: DocConver
   return next;
 }
 
+// ponytail: a figure the conversion finds no picture for is drawn from the region of the PDF page the conversion
+// options name (Claude looked at the page and chose it) — every reconversion draws it again
+async function cropsOf(pdf: string, figures: DocConversion["figures"] = []) {
+  const crops = new Map<string, Figure>();
+  const warnings: string[] = [];
+  if (!figures.length) return { crops, warnings };
+  if (!existsSync(pdf)) {
+    const keys = figures.map((f) => f.key).join(", ");
+    warnings.push(`Figure ${keys}: kept as a region of a PDF page, but the document has no PDF copy`);
+    return { crops, warnings };
+  }
+  const buf = readFileSync(pdf);
+  for (const f of figures)
+    try {
+      const { png } = await renderPage(buf, f.page, f.region);
+      crops.set(f.key, { key: f.key, caption: "", ext: "png", data: png });
+    } catch (e) {
+      warnings.push(
+        `Figure ${f.key}: page ${f.page} of the PDF could not be drawn (${e instanceof Error ? e.message : e})`,
+      );
+    }
+  return { crops, warnings };
+}
+
 export async function reconvertDoc(
   project: string,
   id: string,
@@ -217,14 +242,21 @@ export async function reconvertDoc(
   const o = doc.conversion ?? {};
   const file = convertedCopy(project, doc);
   progress(`Converting ${basename(file)}`);
+  const { crops, warnings } = await cropsOf(pdf, o.figures);
   const c = await convertSource(file, {
     code: doc.code,
     pdf: extname(file).toLowerCase() === ".docx" && existsSync(pdf) ? pdf : undefined,
     reader: o.reader,
     numbers: o.numbers,
+    crops,
     signal,
   });
   if (signal?.aborted) throw new Error("Cancelled.");
+  const used = new Set(c.figures.map((f) => f.data));
+  for (const [key, crop] of crops)
+    if (!used.has(crop.data))
+      warnings.push(`Figure ${key}: drawn from the PDF page, but no caption of that number lacks a picture — unused`);
+  c.warnings.push(...warnings);
   progress("Writing doc.md and figures");
   const { stats } = writeConverted(dir, c);
   // ponytail: a document added without conversion carries its file name as title until its first conversion

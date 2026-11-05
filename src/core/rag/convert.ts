@@ -22,6 +22,8 @@ export type ConvertOpts = {
   reader?: DocConversion["reader"];
   numbers?: DocConversion["numbers"];
   pdfFigures?: Figure[];
+  /** pictures drawn from the PDF pages (conversion figures), by figure key: a caption without a picture takes its own */
+  crops?: Map<string, Figure>;
   signal?: AbortSignal;
 };
 

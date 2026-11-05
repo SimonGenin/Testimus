@@ -66,12 +66,16 @@ checked nothing. Draw and `Read` at least three pages, and every page `doc.md` m
 
 Then act, in this order:
 
-- **Other options fix it** (the other copy, the other reader, numbers read on the pages): reply with a
+- **Other options fix it** (the other copy, the other reader, numbers read on the pages, a figure with no
+  picture that a page of the PDF draws — `figures: [{ key, page, region }]`, the key as in `fig:<key>`, the
+  region `[left, top, right, bottom]` in fractions of the page, drawn with `docs_page { id, page, region }`
+  and Read before you give it: the drawing whole, without its caption): reply with a
   ```` ```conversion ```` block holding all the options — it replaces the current ones and Testimus
   converts once more. Keep the options that were right.
 - **Something else could fix it** in a later run — the .docx saved beside the original is not attached
-  (`docs_inspect` gives its path as `twin`; `docs_convert { id, docx }` attaches it), a figure the
-  conversion lost but the .pdf shows: propose it with `actions_propose` (the request gives the runId).
+  (`docs_inspect` gives its path as `twin`; `docs_convert { id, docx }` attaches it): propose it with
+  `actions_propose` (the request gives the runId). A figure fixed later the same way: `docs_convert { id,
+  conversion }` with the current options (`docs_show`) and the `figures` entry added — the options are replaced.
 - **Nobody but the client can fix it** — a drawing flattened to text in the client's own files, a scan
   with no source: say it in your last line, propose nothing.
 

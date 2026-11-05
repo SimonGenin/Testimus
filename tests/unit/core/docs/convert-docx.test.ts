@@ -121,7 +121,23 @@ describe("convertDocx", () => {
       "Figure 41 – Représentation graphique disjoncteur\n\n![Figure 41 – Représentation graphique disjoncteur](figures/fig-41.png) <!-- fig 41 -->",
     );
     expect(c.figures.map((f) => f.key)).toEqual(["40", "41"]);
-    expect(c.warnings).toContain("Figure 41: picture missing in the .docx, taken from the .pdf");
+    expect(c.warnings.some((w) => w.includes("Figure 41"))).toBe(false);
+  });
+
+  it("takes the picture drawn from a PDF page for a caption without one, before the PDF figures", async () => {
+    const crop = { key: "41", caption: "", ext: "png", data: new Uint8Array([1, 2, 3]) };
+    const pdfFigure = {
+      key: "41",
+      caption: "Figure 41 - Représentation graphique disjoncteur",
+      ext: "png",
+      data: SAMPLE_PNG,
+    };
+    const c = await convertDocx(sampleDocx(), { code: "X", pdfFigures: [pdfFigure], crops: new Map([["41", crop]]) });
+    expect(c.md).toContain("](figures/fig-41.png) <!-- fig 41 -->");
+    const fig = c.figures.find((f) => f.key === "41");
+    expect(fig?.data).toBe(crop.data);
+    expect(fig?.caption).toMatch(/^Figure 41/);
+    expect(c.warnings.join("\n")).not.toMatch(/Figure 41:/);
   });
 
   it("refuses a file that is not a Word document", async () => {

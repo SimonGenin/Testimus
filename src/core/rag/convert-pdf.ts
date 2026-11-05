@@ -249,6 +249,10 @@ export async function convertPdf(buf: Uint8Array, opts: ConvertOpts): Promise<Co
   if (tagged) return tagged;
   const given = new Map((opts.numbers ?? []).map((e) => [titleKey(e.title), e.number]));
   const a = await analyse(buf, opts.signal);
+  for (const c of a.caps) {
+    const crop = opts.crops?.get(c.key);
+    if (crop) a.byCap.set(c, { x: 0, y: 0, w: 0, h: 0, png: crop.data });
+  }
   const sizes = a.pages.flatMap((p) => p.lines.map((l) => Math.round(l.size)));
   const freq = new Map<number, number>();
   for (const s of sizes) freq.set(s, (freq.get(s) ?? 0) + 1);

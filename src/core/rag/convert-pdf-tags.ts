@@ -117,6 +117,11 @@ export async function convertTaggedPdf(buf: Uint8Array, opts: ConvertOpts): Prom
     const decorate = (n: HNode, md: string): string => {
       const orphan = plan.orphans.get(n);
       if (!orphan) return md;
+      const crop = opts.crops?.get(orphan.key);
+      if (crop) {
+        figures.push({ ...crop, key: orphan.key, caption: orphan.caption });
+        return `${md}\n\n${imageLine(orphan.caption, `figures/fig-${orphan.key}.${crop.ext}`, orphan.key)}`;
+      }
       if (!besideTable.has(n)) missing.push(orphan.key);
       return `${md} <!-- fig ${orphan.key} -->`;
     };

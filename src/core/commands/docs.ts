@@ -72,6 +72,30 @@ const conversion = z
       .describe(
         "Heading numbers printed on the pages but missing from the PDF text, in reading order; a heading whose title matches gets the number",
       ),
+    figures: z
+      .array(
+        z.object({
+          key: z
+            .string()
+            .regex(/^[\w.-]{1,40}$/)
+            .describe("The figure's key, as in its anchor fig:<key> and in the warning (« Figure 9 » → 9)"),
+          page: z.coerce.number().int().min(1).describe("The page of the PDF copy that draws it, from 1"),
+          region: z
+            .tuple([
+              z.number().min(0).max(1),
+              z.number().min(0).max(1),
+              z.number().min(0).max(1),
+              z.number().min(0).max(1),
+            ])
+            .describe(
+              "The drawing on that page as [left, top, right, bottom], fractions of the page — check it with docs.page first",
+            ),
+        }),
+      )
+      .optional()
+      .describe(
+        "Figures the conversion finds no picture for (a caption alone, a shape drawn in Word), taken from a region of a page of the PDF copy; every reconversion draws them again",
+      ),
     notes: z
       .string()
       .optional()
@@ -415,7 +439,9 @@ export const commands = [
       ...after,
       conversion: conversion
         .optional()
-        .describe("Convert with these options, kept in doc.json for every later reconversion; {} clears them"),
+        .describe(
+          "Convert with these options, kept in doc.json for every later reconversion: they replace the current ones (docs.show gives them), {} clears them",
+        ),
     }),
     output: converted,
     mutates: true,

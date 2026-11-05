@@ -536,6 +536,41 @@ describe("DocDetail", () => {
     expect(dialog).toHaveTextContent("These documents amend it and will no longer name it: D2, D3");
   });
 
+  it("puts the Claude action proposed for a conversion warning under it, and runs it in the dock", async () => {
+    const action = (id: string, over: Record<string, unknown>) => ({
+      id,
+      title: `Fix ${id}`,
+      scope: { kind: "doc", docId: "D1" },
+      where: "doc:D1",
+      problem: "2 comments dropped",
+      why: "",
+      plan: [],
+      stamp: "",
+      proposedBy: { run: "import", model: "", effort: "", at },
+      state: "open",
+      at,
+      stale: false,
+      ...over,
+    });
+    api.routes["actions.list"] = (i) => {
+      expect(i).toEqual({ docId: "D1" });
+      return [
+        action("a1", { problem: "another warning" }),
+        action("a2", { state: "running" }),
+        action("a3", { where: "doc:D2" }),
+        action("a4", {}),
+      ];
+    };
+    const runInDock = vi.fn();
+    api.routes["docs.show"] = () => shown();
+    mountDocs(<DocDetail id="D1" anchor="" onAnchor={vi.fn()} onRemoved={vi.fn()} />, { runInDock });
+    const list = await screen.findByRole("list", { name: "Conversion warnings" });
+    const run = await within(list).findByRole("button", { name: "Fix a4" });
+    expect(within(list).getAllByRole("button")).toHaveLength(1);
+    fireEvent.click(run);
+    expect(runInDock).toHaveBeenCalledWith({ name: "actions.run", input: { id: "a4" }, label: "Fix a4", testId: "" });
+  });
+
   it("reports a failed save and shows Word documents without a date or amends", async () => {
     show("", { doc: doc("D1", { source: { name: "", sha256: "", file: "" } }) });
     await screen.findByRole("heading", { name: "Title D1" });
