@@ -37,7 +37,13 @@ export function focusables(root: HTMLElement): HTMLElement[] {
   return [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) => !el.closest("[inert]"));
 }
 
-export type Anchored = { style: CSSProperties | undefined; up: boolean; beside?: boolean };
+export type Anchored = {
+  style: CSSProperties | undefined;
+  up: boolean;
+  beside?: boolean;
+  /** the height left on its side of the trigger, inside the window (a long menu scrolls within it) */
+  room?: number;
+};
 
 const GUTTER = 8;
 
@@ -74,7 +80,7 @@ export function useAnchor({
       const vh = window.innerHeight;
       if (align === "beside") {
         const top = Math.max(GUTTER, Math.min(a.top, vh - l.offsetHeight - GUTTER));
-        setPlaced({ up: false, beside: true, style: { top, left: a.right } });
+        setPlaced({ up: false, beside: true, room: vh - 2 * GUTTER, style: { top, left: a.right } });
         return;
       }
       const below = vh - a.bottom;
@@ -89,6 +95,7 @@ export function useAnchor({
           : a.left;
       setPlaced({
         up,
+        room: (up ? a.top : below) - 2 * GUTTER,
         style: {
           top: up ? undefined : a.bottom,
           bottom: up ? vh - a.top : undefined,

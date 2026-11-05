@@ -304,4 +304,68 @@ describe("Menu", () => {
     await user.hover(screen.getByRole("menuitem", { name: /Open in Jira/ }));
     expect(screen.getByRole("menuitem", { name: /Open in Jira/ })).toHaveFocus();
   });
+
+  it("a long menu scrolls inside the room left in the window on its side of the trigger", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(200);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+      top: 100,
+      bottom: 140,
+      left: 8,
+      right: 64,
+      width: 56,
+      height: 40,
+      x: 8,
+      y: 100,
+    } as DOMRect);
+    render(<Menu trigger={trigger} entries={more()} />);
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    expect(screen.getByRole("menu").style.maxHeight).toContain(`${window.innerHeight - 140 - 16}px`);
+  });
+});
+
+describe("Menu with search", () => {
+  const projects = (on: (k: string) => void): MenuEntry[] =>
+    ["DS — Driving Simulator", "P226 — Metro Cairo", "TM3D — 3D Lead CatchUp", "CRM — Colas Rail Maintenance"].map(
+      (label) => ({ label, onSelect: () => on(label) }),
+    );
+  const pick = <Button label="Project" />;
+
+  it("opens on its field, filters by every word typed (accents and case aside), and Enter picks the first", async () => {
+    const user = userEvent.setup();
+    const on = vi.fn();
+    render(<Menu trigger={pick} entries={projects(on)} search="Type to filter…" />);
+    await user.click(screen.getByRole("button", { name: "Project" }));
+    const field = screen.getByRole("combobox", { name: "Filter Project" });
+    expect(field).toHaveFocus();
+    expect(field).toHaveAttribute("aria-controls", screen.getByRole("menu").id);
+    await user.keyboard("maintenance colas");
+    expect(screen.getAllByRole("menuitem").map((el) => el.textContent)).toEqual(["CRM — Colas Rail Maintenance"]);
+    await user.clear(field);
+    await user.keyboard("CAÏRO");
+    expect(screen.getAllByRole("menuitem").map((el) => el.textContent)).toEqual(["P226 — Metro Cairo"]);
+    await user.keyboard("{Enter}");
+    expect(on).toHaveBeenCalledWith("P226 — Metro Cairo");
+    expect(screen.queryByRole("menu")).toBeNull();
+  });
+
+  it("says when nothing matches, goes down into the items with the arrows, and typing there goes on in the field; Escape clears, then closes", async () => {
+    const user = userEvent.setup();
+    render(<Menu trigger={pick} entries={projects(() => {})} search="Type to filter…" />);
+    await user.click(screen.getByRole("button", { name: "Project" }));
+    await user.keyboard("zzz");
+    expect(screen.getByText("Nothing matches « zzz ».")).toBeInTheDocument();
+    await user.keyboard("{Backspace}{Backspace}{Backspace}{ArrowDown}");
+    expect(screen.getByRole("menuitem", { name: "DS — Driving Simulator" })).toHaveFocus();
+    await user.keyboard("t");
+    const field = screen.getByRole("combobox", { name: "Filter Project" });
+    expect(field).toHaveFocus();
+    expect(field).toHaveValue("t");
+    await user.keyboard("{Escape}");
+    expect(field).toHaveValue("");
+    await user.keyboard("t{Escape}{Escape}");
+    expect(screen.queryByRole("menu")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Project" }));
+    expect(screen.getByRole("combobox", { name: "Filter Project" })).toHaveValue("");
+  });
 });

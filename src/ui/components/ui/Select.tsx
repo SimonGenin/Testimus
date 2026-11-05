@@ -67,6 +67,8 @@ const styles = stylex.create({
   forceFocus: { borderColor: color.focusRing },
 });
 
+const SEARCH_FROM = 12;
+
 export type SelectOption<V extends string> = {
   value: V;
   label: string;
@@ -185,9 +187,9 @@ export function SelectTrigger(p: SelectTriggerProps) {
   );
 }
 
-// ponytail: one value from a short known list; the open list is the kit's Menu (SYSTEM.md Select: « a select never draws
-// its own list ») — more than about twelve values or free text is a Text with suggestions, two values a Segmented choice
-// or a Switch
+// ponytail: one value from a known list; the open list is the kit's Menu (SYSTEM.md Select: « a select never draws its own
+// list ») — beyond twelve values it opens with a field that filters them (the Jira projects of an account); free text is a
+// Text with suggestions, two values a Segmented choice or a Switch
 export function Select<V extends string>({
   id: givenId,
   value,
@@ -216,6 +218,7 @@ export function Select<V extends string>({
         label={label}
         listbox
         block={block}
+        search={options.length > SEARCH_FROM ? "Type to filter…" : undefined}
         debugState={debugState === "open" ? "open" : undefined}
         entries={options.map((o) => ({
           label: o.label,

@@ -75,6 +75,19 @@ describe("Select (audit n° 50, 52)", () => {
     expect(screen.getByRole("option", { name: "Haiku" })).toHaveAccessibleDescription("Fast.");
   });
 
+  it("beyond twelve options it opens with a field that filters them", () => {
+    const many = Array.from({ length: 13 }, (_, i) => ({ value: `p${i}`, label: `Project ${i}` }));
+    render(<Select label="Jira project" value={null} options={many} onChange={() => {}} />);
+    const list = openList(screen.getByRole("combobox", { name: "Jira project" }));
+    const field = screen.getByRole("combobox", { name: "Filter Jira project" });
+    fireEvent.change(field, { target: { value: "12" } });
+    expect(list.querySelectorAll('[role="option"]')).toHaveLength(1);
+    cleanup();
+    render(<Select label="Model" value="opus" options={options} onChange={() => {}} />);
+    openList(screen.getByRole("combobox", { name: "Model" }));
+    expect(screen.queryByRole("combobox", { name: "Filter Model" })).toBeNull();
+  });
+
   it("its shown label is the Field's, the same as a Text's", () => {
     render(<Select label="Model" showLabel value="opus" options={options} onChange={() => {}} />);
     const label = screen.getByText("Model", { selector: "label" });

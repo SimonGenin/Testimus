@@ -28,6 +28,7 @@ import type { ButtonProps } from "./Button.tsx";
 import { Icon, type IconName } from "./Icon.tsx";
 import { Kbd } from "./Kbd.tsx";
 import { useAnchor } from "./layer.ts";
+import { Text } from "./Text.tsx";
 import { Tooltip } from "./Tooltip.tsx";
 
 const appear = stylex.keyframes({ from: { opacity: 0 }, to: { opacity: 1 } });
@@ -43,6 +44,8 @@ const styles = stylex.create({
     flexDirection: "column",
     minWidth: size.menuMin,
     maxWidth: size.menuMax,
+    maxHeight: `calc(${size.controlMd} * 12 + 2 * ${space.snug})`,
+    overflowY: "auto",
     padding: space.snug,
     borderRadius: radius.r3,
     backgroundColor: color.surfaceRaised,
@@ -52,6 +55,9 @@ const styles = stylex.create({
     lineHeight: lineHeight.compact,
     outline: "none",
   },
+  searching: { overflowY: "hidden" },
+  search: { flex: "none", paddingBottom: space.s2 },
+  options: { display: "flex", flexDirection: "column", minHeight: 0, overflowY: "auto" },
   layer: {
     position: "fixed",
     zIndex: z.popover,
@@ -67,7 +73,7 @@ const styles = stylex.create({
     display: "flex",
     alignItems: "center",
     gap: space.s3,
-    flex: 1,
+    flex: "1 0 auto",
     width: "100%",
     minHeight: size.controlMd,
     margin: 0,
@@ -125,7 +131,7 @@ const styles = stylex.create({
     marginInline: `calc(-1 * ${space.s2})`,
     backgroundColor: color.border,
   },
-  group: { display: "flex", flexDirection: "column" },
+  group: { flex: "none", display: "flex", flexDirection: "column" },
   groupLabel: {
     paddingTop: space.s3,
     paddingInline: space.s3,
@@ -186,6 +192,8 @@ export type MenuProps = {
   listbox?: boolean;
   /** the trigger fills its row (a block Select) */
   block?: boolean;
+  /** a long list: a field above the items filters them by what is typed (its placeholder) */
+  search?: string;
 };
 
 type Section = { group?: string; entries: (MenuItem | "separator" | { note: string })[] };
@@ -201,6 +209,16 @@ const sections = (entries: MenuEntry[]): Section[] => {
 
 const TYPE_AHEAD_MS = 500;
 
+const fold = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+
+// ponytail: every word typed is found in the item's label or its second line, accents and case aside
+const matches = (item: MenuItem, query: string) => {
+  const text = fold(`${item.label} ${item.description ?? ""}`);
+  return fold(query.trim())
+    .split(/\s+/)
+    .every((w) => text.includes(w));
+};
+
 // ponytail: a short list of actions or choices on a trigger (SYSTEM.md Menu) — role menu, roving focus on its items
 // (arrows, Home/End, type-ahead), Enter or Space acts, Escape and Tab close it and give the focus back to the trigger
 export function Menu({
@@ -212,9 +230,12 @@ export function Menu({
   debugActive,
   listbox = false,
   block = false,
+  search,
 }: MenuProps) {
   const id = useId();
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const field = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
   const shown = open || debugState === "open";
   const inline = debugState === "open";
   const wrap = useRef<HTMLSpanElement>(null);
@@ -227,7 +248,10 @@ export function Menu({
     anchor: wrap,
     layer: list,
     align,
-    onDismiss: () => setOpen(false),
+    onDismiss: () => {
+      setOpen(false);
+      setQuery("");
+    },
   });
   const items = () => [...(list.current?.querySelectorAll<HTMLElement>('[role^="menuitem"],[role="option"]') ?? [])];
 
@@ -239,11 +263,14 @@ export function Menu({
     const chosen = all.find(
       (el) => el.getAttribute("aria-checked") === "true" || el.getAttribute("aria-selected") === "true",
     );
-    (startAt.current === "last" ? all.at(-1) : (chosen ?? all[0]))?.focus();
+    if (search === undefined) return (startAt.current === "last" ? all.at(-1) : (chosen ?? all[0]))?.focus();
+    field.current?.focus();
+    chosen?.scrollIntoView?.({ block: "nearest" });
   }, [open]);
 
   const close = () => {
     setOpen(false);
+    setQuery("");
     button.current?.focus();
   };
 
@@ -254,6 +281,24 @@ export function Menu({
       e.preventDefault();
       all[(n + all.length) % all.length]?.focus();
     };
+    if (search !== undefined && e.target === field.current) {
+      if (e.key === "ArrowDown") return go(0);
+      if (e.key === "ArrowUp") return go(-1);
+      if (e.key === "Enter") {
+        e.preventDefault();
+        return all.find((el) => el.getAttribute("aria-disabled") !== "true")?.click();
+      }
+      if (e.key !== "Escape" && e.key !== "Tab") return;
+    }
+    if (
+      search !== undefined &&
+      (e.key === "Backspace" || (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey))
+    ) {
+      // ponytail: typing on an item goes on in the field
+      e.preventDefault();
+      setQuery((q) => (e.key === "Backspace" ? q.slice(0, -1) : q + e.key));
+      return field.current?.focus();
+    }
     if (e.key === "ArrowDown") return go(i + 1);
     if (e.key === "ArrowUp") return go(i < 0 ? -1 : i - 1);
     if (e.key === "Home") return go(0);
@@ -362,6 +407,32 @@ export function Menu({
       row(e)
     );
 
+  const filtering = search !== undefined && query.trim() !== "";
+  const visible = filtering
+    ? entries.filter((e): e is MenuItem => typeof e === "object" && "label" in e && matches(e, query))
+    : entries;
+  const named = { id, role: listbox ? "listbox" : "menu", "aria-label": label ?? trigger.props.label };
+  const body =
+    filtering && visible.length === 0 ? (
+      <div role="presentation" {...stylex.props(styles.note)}>
+        Nothing matches « {query.trim()} ».
+      </div>
+    ) : (
+      sections(visible).map((s, n) =>
+        s.group === undefined ? (
+          s.entries.map((e, k) => entry(e, n * 1000 + k))
+        ) : (
+          // biome-ignore lint/a11y/useSemanticElements: a group of menu items is not a form's fieldset
+          <div key={`group-${s.group}`} role="group" aria-label={s.group} {...stylex.props(styles.group)}>
+            <div role="presentation" {...stylex.props(styles.groupLabel)}>
+              {s.group}
+            </div>
+            {s.entries.map((e, k) => entry(e, n * 1000 + k))}
+          </div>
+        ),
+      )
+    );
+
   return (
     <span
       ref={wrap}
@@ -380,40 +451,54 @@ export function Menu({
           trigger.props.onClick?.(e);
           if (inline) return;
           startAt.current = "first";
+          if (open) setQuery("");
           setOpen((v) => !v);
         },
       })}
       {shown && (
         <div
           ref={list}
-          id={id}
-          {...{ role: listbox ? "listbox" : "menu", "aria-label": label ?? trigger.props.label }}
+          {...(search === undefined ? named : {})}
           onKeyDown={onListKey}
           style={
             inline
               ? undefined
-              : listbox
-                ? { ...placed.style, minWidth: `max(${size.menuMin}, ${wrap.current?.offsetWidth ?? 0}px)` }
-                : placed.style
+              : {
+                  ...placed.style,
+                  ...(listbox ? { minWidth: `max(${size.menuMin}, ${wrap.current?.offsetWidth ?? 0}px)` } : {}),
+                  ...(placed.room === undefined
+                    ? {}
+                    : { maxHeight: `min(calc(${size.controlMd} * 12 + 2 * ${space.snug}), ${placed.room}px)` }),
+                }
           }
           {...stylex.props(
             styles.menu,
+            search !== undefined && styles.searching,
             !inline && styles.layer,
             !inline && (placed.beside ? styles.beside : placed.up ? styles.up : styles.down),
           )}
         >
-          {sections(entries).map((s, n) =>
-            s.group === undefined ? (
-              s.entries.map((e, k) => entry(e, n * 1000 + k))
-            ) : (
-              // biome-ignore lint/a11y/useSemanticElements: a group of menu items is not a form's fieldset
-              <div key={`group-${s.group}`} role="group" aria-label={s.group} {...stylex.props(styles.group)}>
-                <div role="presentation" {...stylex.props(styles.groupLabel)}>
-                  {s.group}
-                </div>
-                {s.entries.map((e, k) => entry(e, n * 1000 + k))}
+          {search === undefined ? (
+            body
+          ) : (
+            <>
+              <div {...stylex.props(styles.search)}>
+                <Text
+                  type="search"
+                  icon="search"
+                  ariaLabel={`Filter ${named["aria-label"] ?? ""}`.trim()}
+                  placeholder={search}
+                  value={query}
+                  onChange={setQuery}
+                  spellCheck={false}
+                  inputRef={field}
+                  combobox={{ expanded: true, controls: id, autocomplete: "list" }}
+                />
               </div>
-            ),
+              <div {...named} {...stylex.props(styles.options)}>
+                {body}
+              </div>
+            </>
           )}
         </div>
       )}
