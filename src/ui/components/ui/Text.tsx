@@ -163,6 +163,8 @@ export type TextProps = {
   /** a plain field keeps its unsent value under this key when the screen changes */
   draftKey?: Key;
   multiline?: boolean;
+  /** the lines a multiline field shows at least (it grows with its text beyond them) */
+  rows?: number;
   /** boxed (forms, dialogs, settings) · inline (the step editor: no edge until hovered or focused) · bare (inside a
    * frame that draws the edge: the Claude block) */
   appearance?: "boxed" | "inline" | "bare";
@@ -391,7 +393,7 @@ function TextField(p: TextProps) {
           <textarea
             {...common}
             ref={setRef}
-            rows={inline ? 1 : p.appearance === "bare" ? 2 : 3}
+            rows={p.rows ?? (inline ? 1 : p.appearance === "bare" ? 2 : 3)}
             onChange={(e) => p.onChange?.(e.target.value)}
             {...stylex.props(styles.value, styles.area)}
           />

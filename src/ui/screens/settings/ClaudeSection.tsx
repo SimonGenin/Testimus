@@ -9,7 +9,7 @@ import { DefaultContexts } from "./DefaultContexts.tsx";
 import { DockDefaults } from "./DockDefaults.tsx";
 import { useInfo } from "./project.ts";
 import { QuickAsks } from "./QuickAsks.tsx";
-import { Anchor, Section } from "./Section.tsx";
+import { Anchor, Column, Columns, Section } from "./Section.tsx";
 
 const styles = stylex.create({
   split: {
@@ -40,33 +40,41 @@ export function ClaudeSection() {
       title="Claude"
       intro="Claude writes and checks tests through Claude Code on this PC, with your own Claude account."
     >
-      <Anchor id="claude">
-        <Card title="Connection to Claude">
-          <div {...stylex.props(styles.split)}>
-            <ClaudeProgram />
-            <hr {...stylex.props(styles.rule)} />
-            <AgentsField />
-          </div>
-        </Card>
-      </Anchor>
-      {!app.info && (
-        <Card padded={false}>
-          <NoProject text="The Claude dock, the quick asks and the default contexts are a project's: open one to set them." />
-        </Card>
-      )}
-      {claude && (
-        <>
-          <Anchor id="claude-dock">
-            <DockDefaults claude={claude} />
+      <Columns>
+        <Column>
+          <Anchor id="claude">
+            <Card title="Connection to Claude">
+              <div {...stylex.props(styles.split)}>
+                <ClaudeProgram />
+                <hr {...stylex.props(styles.rule)} />
+                <AgentsField />
+              </div>
+            </Card>
           </Anchor>
-          <Anchor id="claude-quickasks">
-            <QuickAsks presets={claude.presets ?? []} />
-          </Anchor>
-          <Anchor id="claude-contexts">
-            <DefaultContexts chosen={claude.contexts ?? []} />
-          </Anchor>
-        </>
-      )}
+          {claude && (
+            <Anchor id="claude-dock">
+              <DockDefaults claude={claude} />
+            </Anchor>
+          )}
+        </Column>
+        {!app.info && (
+          <Column>
+            <Card padded={false}>
+              <NoProject text="The Claude dock, the quick asks and the default contexts are a project's: open one to set them." />
+            </Card>
+          </Column>
+        )}
+        {claude && (
+          <Column>
+            <Anchor id="claude-quickasks">
+              <QuickAsks presets={claude.presets ?? []} />
+            </Anchor>
+            <Anchor id="claude-contexts">
+              <DefaultContexts chosen={claude.contexts ?? []} />
+            </Anchor>
+          </Column>
+        )}
+      </Columns>
     </Section>
   );
 }

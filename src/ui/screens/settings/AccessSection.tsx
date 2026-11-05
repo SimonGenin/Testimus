@@ -8,7 +8,7 @@ import { type } from "../../components/ui/type.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 import { ConnectAtlassian } from "./ConnectAtlassian.tsx";
-import { Section } from "./Section.tsx";
+import { Column, Columns, Section } from "./Section.tsx";
 
 const styles = stylex.create({
   path: { color: color.textMuted },
@@ -73,40 +73,46 @@ export function AccessSection() {
       title="Access"
       intro="Testimus reads and writes your tests through your own Jira and Xray accounts. Nothing is sent anywhere else."
     >
-      {st && (
-        <Card
-          padded={false}
-          title={
-            <>
-              Credential files{" "}
-              <span {...stylex.props(type.small, type.regular, styles.sub)}>
-                shared with your other Atlassian tools
-              </span>
-            </>
-          }
-        >
-          <List
-            label="Credential files"
-            selection="none"
-            divided
-            items={rows}
-            getKey={(r) => r.id}
-            renderItem={(r) => ({
-              title: r.name,
-              lead: <Icon name="file" />,
-              meta: (
-                <span title={r.file.file} {...stylex.props(type.code, styles.path)}>
-                  {r.file.file}
-                </span>
-              ),
-              trail: <Verdict id={r.id} file={r.file} checks={checks} />,
-            })}
-          />
-        </Card>
-      )}
-      <Card title="Connect to Jira and Xray">
-        <ConnectAtlassian />
-      </Card>
+      <Columns>
+        {st && (
+          <Column>
+            <Card
+              padded={false}
+              title={
+                <>
+                  Credential files{" "}
+                  <span {...stylex.props(type.small, type.regular, styles.sub)}>
+                    shared with your other Atlassian tools
+                  </span>
+                </>
+              }
+            >
+              <List
+                label="Credential files"
+                selection="none"
+                divided
+                items={rows}
+                getKey={(r) => r.id}
+                renderItem={(r) => ({
+                  title: r.name,
+                  lead: <Icon name="file" />,
+                  meta: (
+                    <span title={r.file.file} {...stylex.props(type.code, styles.path)}>
+                      {r.file.file}
+                    </span>
+                  ),
+                  trail: <Verdict id={r.id} file={r.file} checks={checks} />,
+                })}
+              />
+            </Card>
+          </Column>
+        )}
+        <Column>
+          <Card title="Connect to Jira and Xray">
+            <ConnectAtlassian />
+          </Card>
+        </Column>
+      </Columns>
     </Section>
   );
 }

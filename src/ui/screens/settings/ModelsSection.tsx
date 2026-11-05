@@ -108,7 +108,6 @@ export function ModelsSection() {
     <Section
       id="models"
       title="Models"
-      wide
       intro="Search models run on this PC; documents never leave it. A pack picks the best models this PC can run; your colleagues choose their own."
     >
       {watchers}

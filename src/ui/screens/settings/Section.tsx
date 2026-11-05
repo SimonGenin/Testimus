@@ -9,47 +9,52 @@ const styles = stylex.create({
     display: "flex",
     flexDirection: "column",
     gap: space.s5,
-    maxWidth: size.reading,
+    width: "100%",
+    maxWidth: `calc(${size.reading} * 2)`,
     paddingBlock: space.s8,
     paddingInline: { default: space.s8, [breakpoint.sm]: space.s6, [breakpoint.narrow]: space.s5 },
   },
-  wide: { maxWidth: `calc(${size.reading} + ${size.sidebar} + 2 * ${space.s8})` },
   head: { display: "flex", alignItems: "flex-start", gap: space.s5, flexWrap: "wrap" },
   titles: { display: "flex", flexDirection: "column", gap: space.s2, flex: 1, minWidth: 0 },
   title: { margin: 0 },
-  intro: { margin: 0, color: color.textMuted },
+  intro: { margin: 0, maxWidth: size.reading, color: color.textMuted },
   actions: { display: "flex", alignItems: "center", gap: space.s3, flexWrap: "wrap" },
   anchor: { scrollMarginTop: space.s5 },
   grid: {
     display: "grid",
-    gridTemplateColumns: { default: "1fr 1fr", [breakpoint.narrow]: "1fr" },
+    gridTemplateColumns: `repeat(auto-fit, minmax(min(100%, max(calc(${size.sidebar} * 5 / 8), calc((100% - ${space.s5}) / 2))), 1fr))`,
     gap: space.s5,
     alignItems: "start",
   },
+  columns: {
+    display: "grid",
+    gridTemplateColumns: `repeat(auto-fit, minmax(min(100%, max(calc(${size.reading} * 3 / 4), calc((100% - ${space.s5}) / 2))), 1fr))`,
+    gap: space.s5,
+    alignItems: "start",
+  },
+  column: { display: "flex", flexDirection: "column", gap: space.s5, minWidth: 0 },
   stack: { display: "flex", flexDirection: "column", gap: space.s4 },
   loose: { gap: space.s6 },
   hint: { margin: 0, color: color.textMuted },
 });
 
 // ponytail: a settings page — its title and what it is for, then its cards; the cards a route points at
-// (#/settings/<section>-<card>) are Anchors
+// (#/settings/<section>-<card>) are Anchors. The page takes the width it is given, up to two reading widths
 export function Section({
   id,
   title,
   intro,
   actions,
-  wide = false,
   children,
 }: {
   id: string;
   title: string;
   intro?: ReactNode;
   actions?: ReactNode;
-  wide?: boolean;
   children: ReactNode;
 }) {
   return (
-    <section aria-labelledby={`s-${id}`} {...stylex.props(styles.page, wide && styles.wide)}>
+    <section aria-labelledby={`s-${id}`} {...stylex.props(styles.page)}>
       <div {...stylex.props(styles.head)}>
         <div {...stylex.props(styles.titles)}>
           <h2 id={`s-${id}`} {...stylex.props(type.titleLg, styles.title)}>
@@ -73,8 +78,19 @@ export function Anchor({ id, children }: { id: string; children: ReactNode }) {
   );
 }
 
+// ponytail: a card's fields two by two, one under the other once the card is too narrow for two
 export function Grid({ children }: { children: ReactNode }) {
   return <div {...stylex.props(styles.grid)}>{children}</div>;
+}
+
+// ponytail: a page's cards in two Columns side by side when the page has room for two of three quarters of a reading
+// width each; narrower, the second Column goes under the first. A lone Column takes the whole width
+export function Columns({ children }: { children: ReactNode }) {
+  return <div {...stylex.props(styles.columns)}>{children}</div>;
+}
+
+export function Column({ children }: { children: ReactNode }) {
+  return <div {...stylex.props(styles.column)}>{children}</div>;
 }
 
 // ponytail: a card's lines, 12 px apart; loose: the groups of a card (a field and its result, then another), 24 px

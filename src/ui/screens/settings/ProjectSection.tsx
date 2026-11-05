@@ -14,7 +14,7 @@ import { execute, key, useRead } from "../../lib/data/query.ts";
 import { desktop, reveal } from "../../lib/desktop.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 import { useInfo, useProjectField, useSetProject } from "./project.ts";
-import { Grid, Hint, Section, Stack } from "./Section.tsx";
+import { Column, Columns, Grid, Hint, Section, Stack } from "./Section.tsx";
 
 const styles = stylex.create({
   folder: { display: "flex", alignItems: "center", gap: space.s3, minWidth: 0 },
@@ -68,6 +68,7 @@ function ProjectNotes() {
       <Stack>
         <Text
           multiline
+          rows={8}
           label="Project notes"
           value={notes.data?.text ?? ""}
           save={save}
@@ -99,61 +100,69 @@ export function ProjectSection() {
       : LANGUAGES;
   return (
     <Section id="project" title="Project" intro="This project's identity in Jira and what Claude should know about it.">
-      <Card title="Project">
-        {!p ? (
-          <Skeleton lines={4} />
-        ) : (
-          <Stack>
-            <Grid>
-              <Text label="Name" value={p.name ?? ""} {...name} />
-              <Text
-                id="settings-project-jira"
-                label="Jira project key"
-                value={p.jiraProject ?? ""}
-                placeholder="e.g. LFRPS12"
-                hint="Upper-cased as you save."
-                {...jira}
-              />
-              <Select
-                id="set-language"
-                label="Language of the tests"
-                showLabel
-                hint="Generated tests are written in it."
-                block
-                value={p.language}
-                options={languages}
-                onChange={(language) => void setProject({ language }, "the language")}
-              />
-              <Text
-                label="Review label prefix"
-                value={p.labelPrefix ?? "testimus-"}
-                hint={`Pushed tests carry their review state as a label: ${shownPrefix}validated, ${shownPrefix}to-fix…`}
-                {...prefix}
-              />
-            </Grid>
-            <Field label="Project folder" hint="A project is a folder: share it by sharing the folder.">
-              <div {...stylex.props(styles.folder)}>
-                <span {...stylex.props(styles.icon)}>
-                  <Icon name="folder" />
-                </span>
-                <span {...stylex.props(type.code, styles.path)} title={dir}>
-                  {dir}
-                </span>
-                {desktop() && (
-                  <Button
-                    size="sm"
-                    variant="quiet"
-                    icon="folder-open"
-                    label="Show in Explorer"
-                    onClick={() => void reveal(dir)}
+      <Columns>
+        <Column>
+          <Card title="Project">
+            {!p ? (
+              <Skeleton lines={4} />
+            ) : (
+              <Stack>
+                <Grid>
+                  <Text label="Name" value={p.name ?? ""} {...name} />
+                  <Text
+                    id="settings-project-jira"
+                    label="Jira project key"
+                    value={p.jiraProject ?? ""}
+                    placeholder="e.g. LFRPS12"
+                    hint="Upper-cased as you save."
+                    {...jira}
                   />
-                )}
-              </div>
-            </Field>
-          </Stack>
+                  <Select
+                    id="set-language"
+                    label="Language of the tests"
+                    showLabel
+                    hint="Generated tests are written in it."
+                    block
+                    value={p.language}
+                    options={languages}
+                    onChange={(language) => void setProject({ language }, "the language")}
+                  />
+                  <Text
+                    label="Review label prefix"
+                    value={p.labelPrefix ?? "testimus-"}
+                    hint={`Pushed tests carry their review state as a label: ${shownPrefix}validated, ${shownPrefix}to-fix…`}
+                    {...prefix}
+                  />
+                </Grid>
+                <Field label="Project folder" hint="A project is a folder: share it by sharing the folder.">
+                  <div {...stylex.props(styles.folder)}>
+                    <span {...stylex.props(styles.icon)}>
+                      <Icon name="folder" />
+                    </span>
+                    <span {...stylex.props(type.code, styles.path)} title={dir}>
+                      {dir}
+                    </span>
+                    {desktop() && (
+                      <Button
+                        size="sm"
+                        variant="quiet"
+                        icon="folder-open"
+                        label="Show in Explorer"
+                        onClick={() => void reveal(dir)}
+                      />
+                    )}
+                  </div>
+                </Field>
+              </Stack>
+            )}
+          </Card>
+        </Column>
+        {p && (
+          <Column>
+            <ProjectNotes />
+          </Column>
         )}
-      </Card>
-      {p && <ProjectNotes />}
+      </Columns>
     </Section>
   );
 }
