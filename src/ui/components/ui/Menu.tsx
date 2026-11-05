@@ -326,7 +326,14 @@ export function Menu({
   };
 
   const onTriggerKey = (e: KeyboardEvent<HTMLSpanElement>) => {
-    if (open || inline || (e.key !== "ArrowDown" && e.key !== "ArrowUp")) return;
+    if (open || inline) return;
+    // ponytail: typing on the closed field of a long list opens it with what was typed in its filter
+    if (search !== undefined && e.key.length === 1 && e.key !== " " && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault();
+      setQuery(e.key);
+      return setOpen(true);
+    }
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
     e.preventDefault();
     startAt.current = e.key === "ArrowUp" ? "last" : "first";
     setOpen(true);

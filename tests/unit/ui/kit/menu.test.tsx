@@ -349,6 +349,17 @@ describe("Menu with search", () => {
     expect(screen.queryByRole("menu")).toBeNull();
   });
 
+  it("typing on the closed trigger opens it with what was typed in the filter", async () => {
+    const user = userEvent.setup();
+    render(<Menu trigger={pick} entries={projects(() => {})} search="Type to filter…" />);
+    screen.getByRole("button", { name: "Project" }).focus();
+    await user.keyboard("cai");
+    const field = screen.getByRole("combobox", { name: "Filter Project" });
+    expect(field).toHaveFocus();
+    expect(field).toHaveValue("cai");
+    expect(screen.getAllByRole("menuitem").map((el) => el.textContent)).toEqual(["P226 — Metro Cairo"]);
+  });
+
   it("says when nothing matches, goes down into the items with the arrows, and typing there goes on in the field; Escape clears, then closes", async () => {
     const user = userEvent.setup();
     render(<Menu trigger={pick} entries={projects(() => {})} search="Type to filter…" />);
