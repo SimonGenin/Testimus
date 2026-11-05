@@ -175,8 +175,13 @@ export function DocText({
 }) {
   const raws = md.split(/\n{2,}/).filter((b) => clean(b));
   const hotKey = hotOf(raws.map(clean), focus);
-  const picture = (p: Picture, key: number, hot: boolean) => (
-    <figure key={key} {...focusMark(hot)} {...stylex.props(styles.figure, hot && styles.focus)}>
+  const picture = (p: Picture, key: number, hot: boolean, on = false) => (
+    <figure
+      key={key}
+      data-target={on || undefined}
+      {...focusMark(hot)}
+      {...stylex.props(styles.figure, hot && styles.focus, on && styles.target)}
+    >
       <img src={fileUrl(`docs/${docId}/${p.src}`)} alt={p.alt} {...stylex.props(styles.img)} />
       <figcaption {...stylex.props(type.small, styles.caption)}>
         {p.alt && <span>{p.alt}</span>}
@@ -264,7 +269,7 @@ export function DocText({
             <div {...focusMark(hot && !quoted)} {...stylex.props(styles.block, hot && !quoted && styles.focus)}>
               {parts.map((p, j) =>
                 "src" in p ? (
-                  picture(p, j, false)
+                  picture(p, j, false, !!p.fig && target === `fig:${p.fig}`)
                 ) : (
                   <p key={j} {...stylex.props(styles.para)}>
                     {texts[j] ?? inline(p.text)}

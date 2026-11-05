@@ -112,7 +112,7 @@ export function DocPart({
   useLayoutEffect(() => {
     const b = box.current;
     if (!b || loading) return;
-    const hot = b.querySelector<HTMLElement>("[data-focus]");
+    const hot = b.querySelector<HTMLElement>("[data-focus], [data-target]");
     const go = () => {
       b.scrollTop = hot ? b.scrollTop + into(b, hot, true) : 0;
     };
@@ -127,7 +127,7 @@ export function DocPart({
     };
     for (const k of ACTS) window.addEventListener(k, stop, true);
     return stop;
-  }, [md, focus, current, loading]);
+  }, [md, focus, target, current, loading]);
 
   return (
     <div ref={box} data-testid="doc-part" {...stylex.props(styles.box)}>

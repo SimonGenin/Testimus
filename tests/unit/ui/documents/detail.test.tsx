@@ -195,6 +195,25 @@ describe("DocDetail", () => {
     expect(await screen.findByText("Part §5.6")).toBeInTheDocument();
   });
 
+  it("a figure anchor opens the whole section that holds it, its text and pictures, the figure set apart", async () => {
+    api.routes["docs.show"] = (i) => {
+      if (i.anchor === "fig:fig-2" && i.brief) return { ...shown(), section: "§5.6" };
+      if (i.anchor === "§5.6")
+        return {
+          md: "Avant la figure.\n\n![Plan](figures/a.png) <!-- fig fig-1 -->\n\n![Coupe](figures/b.png) <!-- fig fig-2 -->\n\nAprès la figure.",
+        };
+      if (i.anchor) return { md: `Part ${i.anchor}` };
+      return shown();
+    };
+    mountDocs(<DocDetail id="D1" anchor="fig:fig-2" onAnchor={vi.fn()} onRemoved={vi.fn()} />);
+    expect(await screen.findByText("Après la figure.")).toBeInTheDocument();
+    expect(screen.getByText("Avant la figure.")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Plan" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Coupe" }).closest("[data-target]")).not.toBeNull();
+    expect(screen.getByRole("img", { name: "Plan" }).closest("[data-target]")).toBeNull();
+    expect(named("docs.show").some((c) => c.input.anchor === "fig:fig-2" && !c.input.brief)).toBe(false);
+  });
+
   it("a tile picks its figure; Describe asks Claude for the figures not described, Describe again for one", async () => {
     api.routes["docs.describeFigures"] = () => ({ jobId: "describe-figures-1234abcd" });
     show("", {

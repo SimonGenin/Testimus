@@ -107,8 +107,11 @@ export function DocDetail({
   const converted = !!shown?.doc.converted?.at;
   const reading = !!shown && !running && converted;
   const target = anchor || sections.find((t) => t.level > 1)?.anchor || sections[0]?.anchor || "";
-  const part = useRead("docs.show", target ? { id, anchor: target } : { id }, {
-    enabled: reading && view === "text",
+  const fig = target.startsWith("fig:") ? target : "";
+  const holder = useRead("docs.show", { id, anchor: fig, brief: true }, { enabled: reading && !!fig });
+  const read = fig ? holder.data?.section || (holder.isFetched ? fig : "") : target;
+  const part = useRead("docs.show", read ? { id, anchor: read } : { id }, {
+    enabled: reading && view === "text" && (!fig || !!read),
     keepPrevious: true,
   });
 
