@@ -100,7 +100,18 @@ export type InvokeOpts = {
   onClaude?(e: ClaudeEvent): void;
 };
 
+// ponytail: a field the command does not have is refused, never dropped — a page built against an older registry once
+// asked usePack for its plan with dryRun and started the install instead
 export function parseInput(c: Command, raw: unknown): unknown {
+  const shape = (c.input as { shape?: Record<string, unknown> }).shape;
+  if (shape && raw && typeof raw === "object" && !Array.isArray(raw)) {
+    const unknown = Object.keys(raw).filter((k) => !(k in shape));
+    if (unknown.length)
+      throw new UserError(
+        `Invalid input for ${c.name} — unknown ${unknown.length === 1 ? "field" : "fields"}: ${unknown.join(", ")}`,
+        `testimus help ${c.name}`,
+      );
+  }
   const r = c.input.safeParse(raw ?? {});
   if (!r.success) {
     const msg = r.error.issues.map((i) => `${i.path.join(".") || "input"}: ${i.message}`).join("; ");

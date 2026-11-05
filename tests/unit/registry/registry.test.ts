@@ -34,6 +34,15 @@ describe("registry", () => {
     expect(await waitJob("nope")).toBeUndefined();
   });
 
+  it("refuses an input field the command does not have, before any job starts", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "testimus-reg-"));
+    await expect(invoke("models.usePack", { pack: "quality", dryRun: true }, { project: dir })).rejects.toThrow(
+      /models\.usePack.*dryRun/,
+    );
+    expect(await invoke("jobs.list", {}, { project: dir })).toEqual([]);
+    await expect(invoke("jobs.list", { bogus: 1 }, { project: dir })).rejects.toThrow(/bogus/);
+  });
+
   it("derives one MCP tool per command", () => {
     expect(toolName("rag.search")).toBe("rag_search");
     expect(buildServer(null)).toBeTruthy();
