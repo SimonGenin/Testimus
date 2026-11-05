@@ -26,8 +26,8 @@ import {
 } from "../../../../src/core/lib/doctor.ts";
 import { type ModelDeps, modelDeps, modelRows } from "../../../../src/core/lib/doctor-models.ts";
 import { diskCheck } from "../../../../src/core/lib/doctor-row.ts";
+import { pinMachineProfile } from "../../../../src/core/lib/machine/profile.ts";
 import { catalogEntry, registryFile } from "../../../../src/core/lib/models-catalog.ts";
-import { pinMachineProfile } from "../../../../src/core/lib/models-hardware.ts";
 import { readRegistry, writeRegistry } from "../../../../src/core/lib/models-registry.ts";
 import { DEFAULT_PROJECT, readSettings, writeProject, writeSettings } from "../../../../src/core/lib/project.ts";
 import type {

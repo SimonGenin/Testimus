@@ -10,8 +10,8 @@ import type {
   PerfLine,
   RagChoice,
 } from "../types.ts";
+import { fitOf } from "./fit/verdict.ts";
 import { catalog, catalogEntry } from "./models-catalog.ts";
-import { fitOf } from "./models-fit.ts";
 import { memoryFailures, type PerfStat, perfStats } from "./models-perf.ts";
 import { adviceQuality, evalReports, type Measured } from "./models-quality.ts";
 

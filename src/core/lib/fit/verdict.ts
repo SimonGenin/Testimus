@@ -1,47 +1,14 @@
 import { basename } from "node:path";
-import type { CatalogEntry, Fit, FitVerdict, LoadedModel, MachineProfile, PerfLine } from "../types.ts";
-import { catalogEntry } from "./models-catalog.ts";
-import { mainGpu, platformOf, systemName, systemOf } from "./models-hardware.ts";
-import { measuredMB, readPerf } from "./models-perf.ts";
+import type { CatalogEntry, Fit, FitVerdict, LoadedModel, MachineProfile, PerfLine } from "../../types.ts";
+import { platformOf, systemName } from "../machine/profile.ts";
+import { catalogEntry } from "../models-catalog.ts";
+import { needOf } from "./need.ts";
+import { deviceFor, gpuPool } from "./placement.ts";
+import { unsupportedOn, untestedOn } from "./support.ts";
 
 const ORDER: FitVerdict[] = ["fits", "unknown", "untested", "tight", "gpu-too-small", "ram-too-small", "unsupported"];
 
 export const gb = (mb: number): string => `${(mb / 1024).toFixed(1)} GB`;
-
-export function needOf(entry: CatalogEntry, lines?: PerfLine[]): { vram: number; ram: number } {
-  const measured = measuredMB(entry.id, lines);
-  const estimate = Math.round(entry.size.downloadMB * 1.2);
-  return {
-    vram: measured.vram ?? (entry.size.vramMB || estimate),
-    ram: measured.ram ?? (entry.size.ramMB || estimate),
-  };
-}
-
-// ponytail: llama.cpp is downloaded as its Windows x64 builds only (LLAMA_ASSETS) and DirectML is Windows' own; the
-// 16-bit DirectML variants exist for the GPU, so elsewhere their 8-bit processor twin is the one to run
-export function unsupportedOn(entry: CatalogEntry, machine: MachineProfile): string | null {
-  if (machine.onnx === null && entry.runtimes.includes("transformers"))
-    return "runs on onnxruntime, which does not load on this PC (see Settings › Doctor)";
-  if (platformOf(machine) === "win32") return null;
-  if (!entry.runtimes.includes("transformers")) return "runs on llama.cpp, which Testimus ships for Windows only";
-  if (entry.dtypeByDevice?.dml) return "is made for DirectML, which exists only on Windows";
-  return null;
-}
-
-// ponytail: the catalog is proven on Windows x64, the reference PC; elsewhere the runtime differs (onnxruntime 1.23.2 on
-// an Intel Mac) and a model counts as proven by the catalog's `provenOn` or by a load that succeeded on this PC
-export function untestedOn(entry: CatalogEntry, machine: MachineProfile, lines?: PerfLine[]): boolean {
-  const system = systemOf(machine);
-  if (system === "win32-x64" || entry.provenOn?.includes(system)) return false;
-  return !(lines ?? readPerf()).some((l) => l.op === "model.load" && l.model === entry.id && l.items > 0 && !l.oom);
-}
-
-export function deviceFor(entry: CatalogEntry, machine: MachineProfile): "gpu" | "cpu" {
-  if (!entry.devices.includes("gpu") || !mainGpu(machine)) return "cpu";
-  const gguf = entry.runtimes.includes("llamacpp");
-  if (!gguf && !entry.dtypeByDevice?.dml) return "cpu";
-  return "gpu";
-}
 
 // ponytail: a model already loaded for the pair being judged is not « other »: it would not unload itself
 function isOurs(l: LoadedModel, entries: CatalogEntry[]): boolean {
@@ -57,6 +24,8 @@ export function worst(a: FitVerdict, b: FitVerdict): FitVerdict {
   return ORDER.indexOf(a) >= ORDER.indexOf(b) ? a : b;
 }
 
+// Will these models run together on this PC? Each is placed (GPU or processor), its need taken from the most trusted
+// source (need.ts), and the sums held against what the PC has free, keeping a margin (`headroom`) for the rest
 export function fitOf(
   entries: CatalogEntry[],
   machine: MachineProfile,
@@ -67,15 +36,16 @@ export function fitOf(
   const need = entries.length > 1 ? "need" : "needs";
   const onGpu = items.filter((i) => i.device === "gpu");
   const onCpu = items.filter((i) => i.device === "cpu");
-  const ramNeed = onCpu.reduce((a, i) => a + i.need.ram, 0);
-  const ramAll = items.reduce((a, i) => a + i.need.ram, 0);
   const keep = 1 - opts.headroom;
-  const gpu = mainGpu(machine);
+  const pool = onGpu.length ? gpuPool(machine) : null;
+  const shared = !!pool?.shared;
   const ours = machine.loaded.filter((l) => isOurs(l, entries));
   const others = machine.loaded.filter((l) => !isOurs(l, entries));
   const vramNeed = Math.max(0, onGpu.reduce((a, i) => a + i.need.vram, 0) - ours.reduce((a, l) => a + l.vramMB, 0));
-  const vramTotal = onGpu.length ? (gpu?.vramTotalMB ?? null) : null;
-  const vramFree = vramTotal === null ? null : vramTotal - (gpu?.vramUsedMB ?? 0);
+  const ramNeed = onCpu.reduce((a, i) => a + i.need.ram, 0) + (shared ? vramNeed : 0);
+  const ramAll = items.reduce((a, i) => a + i.need.ram, 0);
+  const vramTotal = pool?.totalMB ?? null;
+  const vramFree = pool?.freeMB ?? null;
   const base = {
     device: onGpu.length ? ("gpu" as const) : ("cpu" as const),
     needMB: { vram: vramNeed, ram: ramNeed },
@@ -106,14 +76,15 @@ export function fitOf(
     message: proof ? `${proof} Memory: ${message[0].toLowerCase()}${message.slice(1)}` : message,
   });
 
+  const sharedNote = shared ? ` (${pool?.gpu.name} is integrated: it uses the PC's memory)` : "";
   if (ramNeed > machine.ramTotalMB)
     return done(
       "ram-too-small",
-      `${labels} ${need} about ${gb(ramNeed)} of memory; this PC has ${gb(machine.ramTotalMB)}. Choose a lighter one.`,
+      `${labels} ${need} about ${gb(ramNeed)} of memory${sharedNote}; this PC has ${gb(machine.ramTotalMB)}. Choose a lighter one.`,
     );
   let ramVerdict: FitVerdict = "fits";
   let ramMsg = "";
-  if (onCpu.length) {
+  if (onCpu.length || shared) {
     if (ramNeed <= machine.ramFreeMB * keep)
       ramMsg = `${need} about ${gb(ramNeed)} of memory, ${gb(machine.ramFreeMB)} free`;
     else {
@@ -121,20 +92,28 @@ export function fitOf(
       ramMsg = `${need} about ${gb(ramNeed)} of memory and this PC has ${gb(machine.ramFreeMB)} free (${gb(machine.ramFreeMB * keep)} usable with the ${Math.round(opts.headroom * 100)} % margin): close other programs`;
     }
   }
+  if (shared)
+    return done(
+      ramVerdict,
+      ramVerdict === "fits"
+        ? `Fits on ${pool?.gpu.name}, which shares the PC's memory: ${labels} ${ramMsg}.`
+        : `Tight on ${pool?.gpu.name}, which shares the PC's memory: ${labels} ${ramMsg}.`,
+    );
   if (!onGpu.length)
     return done(
       ramVerdict,
       ramVerdict === "fits"
-        ? `Fits on the processor${gpu ? "" : " (no GPU Testimus can use)"}: ${labels} ${ramMsg}.`
+        ? `Fits on the processor${gpuPool(machine) ? "" : " (no GPU Testimus can use)"}: ${labels} ${ramMsg}.`
         : `Tight: ${labels} ${ramMsg}.`,
     );
 
+  const gpu = pool?.gpu;
   if (vramTotal === null || vramFree === null)
     return done(
       ramVerdict === "tight" ? "tight" : "unknown",
       `Cannot check the memory of ${gpu?.name ?? "the GPU"}: try it; Testimus measures it on first use.${ramMsg ? ` On the processor side, ${ramMsg}.` : ""}`,
     );
-  const freeNote = gpu?.vramUsedMB === null ? " (free memory not measured on this GPU)" : "";
+  const freeNote = pool?.freeMeasured ? "" : " (free memory not measured on this GPU)";
   const gpuHas = `the GPU has ${gb(vramTotal)}, ${gb(vramFree)} free${freeNote}`;
   const has = `Your GPU has ${gb(vramTotal)}, ${gb(vramFree)} free${freeNote}.`;
   if (vramNeed > vramTotal) {

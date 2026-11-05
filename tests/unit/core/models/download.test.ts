@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, onTestFinished } from "vitest";
 import { quietCtx } from "../../../../src/core/command.ts";
 import { invoke } from "../../../../src/core/commands/index.ts";
+import { pinMachineProfile } from "../../../../src/core/lib/machine/profile.ts";
 import { registryFile } from "../../../../src/core/lib/models-catalog.ts";
 import {
   downloadDeps,
@@ -14,7 +15,6 @@ import {
   hfUrl,
   pullFiles,
 } from "../../../../src/core/lib/models-download.ts";
-import { pinMachineProfile } from "../../../../src/core/lib/models-hardware.ts";
 import { NO_DIR } from "../../../../src/core/lib/models-install.ts";
 import { pull } from "../../../../src/core/lib/models-install-pull.ts";
 import { readRegistry, writeRegistry } from "../../../../src/core/lib/models-registry.ts";

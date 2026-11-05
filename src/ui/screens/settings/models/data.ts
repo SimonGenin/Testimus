@@ -25,13 +25,15 @@ export function size(mb: number): string {
 
 const SYSTEM: Record<string, string> = { win32: "Windows", darwin: "macOS", linux: "Linux" };
 
-// ponytail: the same reading as the core's mainGpu and platformOf, kept here so the UI never imports node code
+// ponytail: models.hardware lists the GPUs in the order models are placed on them, so the first is the core's mainGpu
 export function machineSummary(hw: Hardware): string[] {
   const platform = hw.system?.platform ?? "win32";
-  const gpu = [...hw.gpus].sort((a, b) => (b.vramTotalMB ?? -1) - (a.vramTotalMB ?? -1))[0];
-  const vram = gpu?.vramTotalMB
-    ? `, ${size(gpu.vramTotalMB)}${gpu.vramUsedMB !== null ? ` (${size(gpu.vramTotalMB - gpu.vramUsedMB)} free)` : ""}`
-    : "";
+  const gpu = hw.gpus[0];
+  const vram = gpu?.integrated
+    ? ", integrated (uses the PC's memory)"
+    : gpu?.vramTotalMB
+      ? `, ${size(gpu.vramTotalMB)}${gpu.vramUsedMB !== null ? ` (${size(gpu.vramTotalMB - gpu.vramUsedMB)} free)` : ""}`
+      : "";
   return [
     `${SYSTEM[platform] ?? platform}${hw.system ? ` · ${hw.system.arch}` : ""}`,
     `${hw.cpu.model}, ${hw.cpu.threads} threads`,

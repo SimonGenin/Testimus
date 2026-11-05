@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { command, projectOf, UserError } from "../command.ts";
-import { machineProfile } from "../lib/models-hardware.ts";
+import { machineProfile } from "../lib/machine/profile.ts";
 import { packRows, suggestPack } from "../lib/models-packs.ts";
 import { readPerf } from "../lib/models-perf.ts";
 import { refdocScore, refdocText } from "../lib/models-quality.ts";

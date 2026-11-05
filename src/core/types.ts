@@ -326,6 +326,8 @@ export type ModelKind = "embedding" | "reranker";
 export type Device = "cpu" | "dml" | "webgpu" | "gpu";
 export type Dtype = "fp32" | "fp16" | "q8" | "int8" | "uint8" | "q4" | "q4f16" | "bnb4";
 export type HfFile = { path: string; sha256: string; size: number };
+// The shape of a GGUF model that sets its memory in llama.cpp, read from its header; ctx is the context it is run with
+export type GgufShape = { layers: number; kvHeads: number; keyLength: number; valueLength: number; ctx: number };
 export type CatalogEntry = {
   id: string;
   kind: ModelKind;
@@ -349,6 +351,7 @@ export type CatalogEntry = {
   docInstruction: string;
   rerankerKind?: "cross-encoder" | "yes-no-lm" | "http";
   size: { downloadMB: number; ramMB: number; vramMB: number };
+  gguf?: GgufShape;
   devices: ("gpu" | "cpu")[];
   provenOn?: string[];
   tier: "light" | "standard" | "quality";
@@ -438,7 +441,8 @@ export type GpuInfo = {
   driver?: string;
   vramTotalMB: number | null;
   vramUsedMB: number | null;
-  source: "nvidia-smi" | "wmi" | "registry";
+  source: "nvidia-smi" | "wmi" | "registry" | "llama.cpp";
+  integrated?: boolean;
 };
 export type DriveInfo = { root: string; freeMB: number; totalMB: number };
 export type LoadedModel = { name: string; sizeMB: number; vramMB: number; runtime: "llamacpp" };

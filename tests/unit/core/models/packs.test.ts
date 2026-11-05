@@ -4,9 +4,9 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { invoke } from "../../../../src/core/commands/index.ts";
 import { listJobs } from "../../../../src/core/jobs.ts";
+import { pinMachineProfile } from "../../../../src/core/lib/machine/profile.ts";
 import { catalogEntry, registryFile } from "../../../../src/core/lib/models-catalog.ts";
 import { downloadDeps } from "../../../../src/core/lib/models-download.ts";
-import { pinMachineProfile } from "../../../../src/core/lib/models-hardware.ts";
 import { packRows, suggestPack } from "../../../../src/core/lib/models-packs.ts";
 import { journalFile, recordPerf } from "../../../../src/core/lib/models-perf.ts";
 import { readRegistry, writeRegistry } from "../../../../src/core/lib/models-registry.ts";
@@ -42,7 +42,7 @@ const devPc: MachineProfile = {
 const cpuLaptop: MachineProfile = { ...devPc, gpus: [], ramTotalMB: 16000, ramFreeMB: 8000 };
 const amdPc: MachineProfile = {
   ...devPc,
-  gpus: [{ name: "AMD Radeon 780M", vendor: "amd", vramTotalMB: null, vramUsedMB: null, source: "wmi" }],
+  gpus: [{ name: "AMD Radeon RX 7600", vendor: "amd", vramTotalMB: null, vramUsedMB: null, source: "wmi" }],
 };
 
 const saved = { ...modelsDeps };

@@ -20,8 +20,8 @@ import { pipeline } from "node:stream/promises";
 import { UserError } from "../command.ts";
 import { listJobs } from "../jobs.ts";
 import type { ModelsRegistry } from "../types.ts";
+import { gb } from "./fit/verdict.ts";
 import { downloadDeps } from "./models-download.ts";
-import { gb } from "./models-fit.ts";
 import { readRegistry, runtimesDir, writeRegistry } from "./models-registry.ts";
 import { isProject, readSettings } from "./project.ts";
 

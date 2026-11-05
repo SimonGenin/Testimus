@@ -39,10 +39,12 @@ export type LlamaServer = {
   log: string[];
   sizeMB: number;
   onGpu: boolean;
+  vramMB?: number;
   catalogId?: string;
 };
 export type ServerStart = {
   exe: string;
+  build?: string;
   model: string;
   kind: ServerKind;
   catalogId?: string;
@@ -109,7 +111,40 @@ async function nvidiaUsedMB(): Promise<number | null> {
   return r.code !== 0 || !used.length ? null : used.reduce((a, b) => a + b, 0);
 }
 
-export function serverArgs(model: string, kind: ServerKind, port: number, apiKey: string): string[] {
+// ponytail: from this build on (the one Testimus downloads), llama.cpp places the layers itself: `-ngl auto` with --fit
+// (on by default) keeps what does not fit the free memory, less 1 GiB, on the processor instead of failing the load;
+// an older build registered by path may know neither, so it gets every layer as before
+export const AUTO_LAYERS_SINCE = 12032;
+
+export function autoLayers(build: string | undefined): boolean {
+  const n = Number(build?.match(/^b(\d+)$/i)?.[1]);
+  return Number.isFinite(n) && n >= AUTO_LAYERS_SINCE;
+}
+
+export type MemoryReport = { gpuMB: number; hostMB: number; layers?: { onGpu: number; total: number } };
+
+// What llama.cpp says it allocated while loading (llama.cpp b12032: load_tensors « offloaded 28/29 layers to GPU »,
+// then « <buffer> model / KV / compute / output buffer size = 604.15 MiB » per device): the memory a model really takes
+// on any GPU maker, where nvidia-smi sees NVIDIA only
+export function memoryReport(log: string): MemoryReport | null {
+  let gpuMB = 0;
+  let hostMB = 0;
+  let found = false;
+  for (const m of log.matchAll(/(\S+)\s+(?:model|KV|compute|output|rotation) buffer size\s*=\s*([\d.]+) MiB/g)) {
+    found = true;
+    if (/cpu|host/i.test(m[1])) hostMB += Number(m[2]);
+    else gpuMB += Number(m[2]);
+  }
+  const layers = log.match(/offloaded (\d+)\/(\d+) layers to GPU/);
+  if (!found && !layers) return null;
+  return {
+    gpuMB: Math.round(gpuMB),
+    hostMB: Math.round(hostMB),
+    ...(layers ? { layers: { onGpu: Number(layers[1]), total: Number(layers[2]) } } : {}),
+  };
+}
+
+export function serverArgs(model: string, kind: ServerKind, port: number, apiKey: string, build?: string): string[] {
   if (!apiKey) throw new UserError("llama-server is never started without an API key.");
   return [
     "-m",
@@ -118,7 +153,7 @@ export function serverArgs(model: string, kind: ServerKind, port: number, apiKey
       ? ["--reranking", "--pooling", "rank"]
       : ["--embedding", "--pooling", "last", "-ub", String(LLAMA_CTX)]),
     "-ngl",
-    "99",
+    autoLayers(build) ? "auto" : "99",
     "--host",
     "127.0.0.1",
     "--port",
@@ -165,7 +200,7 @@ function cancelled(model: string): UserError {
 async function start(o: ServerStart, id: string): Promise<LlamaServer> {
   const port = await serverIo.freePort();
   const apiKey = serverIo.randomKey();
-  const args = serverArgs(o.model, o.kind, port, apiKey);
+  const args = serverArgs(o.model, o.kind, port, apiKey, o.build);
   const target = currentOp();
   const tStart = serverIo.now();
   const vramBefore = o.perf && (o.onGpu ?? true) ? await serverIo.vramUsedMB().catch(() => null) : null;
@@ -190,9 +225,11 @@ async function start(o: ServerStart, id: string): Promise<LlamaServer> {
     onGpu: o.onGpu ?? true,
     ...(o.catalogId ? { catalogId: o.catalogId } : {}),
   };
+  const memory: string[] = [];
   s.proc.onOutput((t) => {
     s.log.push(t);
     if (s.log.length > 400) s.log.splice(0, s.log.length - 400);
+    if (/buffer size|layers to GPU/.test(t)) memory.push(t);
   });
   s.proc.exited.then((code) => {
     s.exitCode = code;
@@ -227,9 +264,17 @@ async function start(o: ServerStart, id: string): Promise<LlamaServer> {
   s.readyMs = serverIo.now() - t0;
   s.lastUsed = serverIo.now();
   running.set(id, s);
+  const report = s.onGpu ? memoryReport(memory.join("")) : null;
+  if (report) s.vramMB = report.gpuMB;
   if (o.perf) {
-    const vramAfter = vramBefore === null ? null : await serverIo.vramUsedMB().catch(() => null);
-    const vramMB = vramBefore !== null && vramAfter !== null ? Math.max(0, Math.round(vramAfter - vramBefore)) : null;
+    const vramAfter = vramBefore === null || report ? null : await serverIo.vramUsedMB().catch(() => null);
+    const vramMB = report
+      ? report.gpuMB
+      : vramBefore !== null && vramAfter !== null
+        ? Math.max(0, Math.round(vramAfter - vramBefore))
+        : null;
+    const partialOffload = report?.layers ? report.layers.onGpu < report.layers.total : undefined;
+    if (target && partialOffload !== undefined) target.partialOffload = partialOffload;
     recordPerf({
       at: env.now().toISOString(),
       op: "model.load",
@@ -239,6 +284,7 @@ async function start(o: ServerStart, id: string): Promise<LlamaServer> {
       ms: s.readyMs,
       loadMs: s.readyMs,
       ...(vramMB !== null ? { vramMB } : {}),
+      ...(partialOffload !== undefined ? { partialOffload } : {}),
     });
   }
   if (target) target.loadMs += serverIo.now() - tStart;
@@ -358,7 +404,7 @@ export function loadedServers(): LoadedModel[] {
   return liveServers().map((s) => ({
     name: s.catalogId ?? basename(s.model),
     sizeMB: s.sizeMB,
-    vramMB: s.onGpu ? s.sizeMB : 0,
+    vramMB: s.onGpu ? (s.vramMB ?? s.sizeMB) : 0,
     runtime: "llamacpp" as const,
   }));
 }

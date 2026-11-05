@@ -7,8 +7,8 @@ import { type ClaudeSpawn, env, type HttpReq } from "../../../../src/core/env.ts
 import { hideAuth, nodeCheck, proxyCheck, runDoctor } from "../../../../src/core/lib/doctor.ts";
 import { type ModelDeps, modelRows } from "../../../../src/core/lib/doctor-models.ts";
 import { diskCheck } from "../../../../src/core/lib/doctor-row.ts";
+import { pinMachineProfile } from "../../../../src/core/lib/machine/profile.ts";
 import { catalogEntry, registryFile } from "../../../../src/core/lib/models-catalog.ts";
-import { pinMachineProfile } from "../../../../src/core/lib/models-hardware.ts";
 import { journalFile, recordPerf } from "../../../../src/core/lib/models-perf.ts";
 import { readRegistry, writeRegistry } from "../../../../src/core/lib/models-registry.ts";
 import { isComplete, modelDir, modelRoots, onnxFile } from "../../../../src/core/lib/models-store.ts";

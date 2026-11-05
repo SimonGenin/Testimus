@@ -2,18 +2,15 @@ import { homedir } from "node:os";
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { env } from "../../../../src/core/env.ts";
+import { vendorOf } from "../../../../src/core/lib/machine/gpus.ts";
+import { type HardwareDeps, hardwareDeps } from "../../../../src/core/lib/machine/probes.ts";
 import {
-  type HardwareDeps,
-  hardwareDeps,
   knownMachine,
   machineProfile,
   measureMachine,
-  parseNvidiaSmi,
-  parseRegistryVram,
-  parseWmi,
   pinMachineProfile,
-  vendorOf,
-} from "../../../../src/core/lib/models-hardware.ts";
+} from "../../../../src/core/lib/machine/profile.ts";
+import { parseNvidiaSmi, parseRegistryVram, parseWmi } from "../../../../src/core/lib/machine/sources.ts";
 import type { MachineProfile } from "../../../../src/core/types.ts";
 
 const realNow = env.now;
@@ -74,8 +71,14 @@ describe("parsers", () => {
   it("nvidia-smi without memory figures gives null VRAM; a decimal registry size is read too", () => {
     expect(parseNvidiaSmi("RTX, 551, [N/A], [N/A]")[0]).toMatchObject({ vramTotalMB: null, vramUsedMB: null });
     const descs = "HKEY_X\\0000\n    DriverDesc    REG_SZ    Card\n";
-    const sizes = "HKEY_X\\0000\n    HardwareInformation.qwMemorySize    REG_QWORD    2097152\n";
-    expect(parseRegistryVram(sizes, descs).get("Card")).toBe(2);
+    const sizes = "HKEY_X\\0000\n    HardwareInformation.qwMemorySize    REG_QWORD    2147483648\n";
+    expect(parseRegistryVram(sizes, descs).get("Card")).toBe(2048);
+  });
+
+  it("a registry size under 64 MiB is a value in the wrong unit, dropped rather than trusted", () => {
+    const descs = "HKEY_X\\0000\n    DriverDesc    REG_SZ    Card\n";
+    const sizes = "HKEY_X\\0000\n    HardwareInformation.qwMemorySize    REG_QWORD    8192\n";
+    expect(parseRegistryVram(sizes, descs).has("Card")).toBe(false);
   });
 });
 

@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { command, UserError } from "../command.ts";
-import { fitOf } from "../lib/models-fit.ts";
-import { machineProfile } from "../lib/models-hardware.ts";
+import { fitOf } from "../lib/fit/verdict.ts";
+import { rankGpus } from "../lib/machine/gpus.ts";
+import { machineProfile } from "../lib/machine/profile.ts";
 import { perfStats, readPerf } from "../lib/models-perf.ts";
 import { budgets } from "../lib/models-registry.ts";
 import { entriesOf } from "../lib/models-use.ts";
@@ -34,18 +35,28 @@ export const commands = [
           threads: z.number().describe("Hardware threads"),
         })
         .describe("The processor"),
-      gpus: z.array(
-        z
-          .object({
-            name: z.string().describe("Adapter name"),
-            vendor: z.enum(["nvidia", "amd", "intel", "other"]).describe("Its maker"),
-            driver: z.string().optional().describe("Driver version"),
-            vramTotalMB: z.number().nullable().describe("GPU memory in MB (null = unknown)"),
-            vramUsedMB: z.number().nullable().describe("GPU memory in use in MB (null = unknown)"),
-            source: z.enum(["nvidia-smi", "wmi", "registry"]).describe("Where the figures come from"),
-          })
-          .describe("One graphics adapter"),
-      ),
+      gpus: z
+        .array(
+          z
+            .object({
+              name: z.string().describe("Adapter name"),
+              vendor: z.enum(["nvidia", "amd", "intel", "other"]).describe("Its maker"),
+              driver: z.string().optional().describe("Driver version"),
+              vramTotalMB: z.number().nullable().describe("GPU memory in MB (null = unknown)"),
+              vramUsedMB: z.number().nullable().describe("GPU memory in use in MB (null = unknown)"),
+              source: z
+                .enum(["nvidia-smi", "wmi", "registry", "llama.cpp"])
+                .describe("Where the figures come from (llama.cpp: the free memory the installed llama.cpp sees)"),
+              integrated: z
+                .boolean()
+                .optional()
+                .describe("An integrated GPU: it has no memory of its own and uses the PC's"),
+            })
+            .describe("One graphics adapter"),
+        )
+        .describe(
+          "The graphics adapters, in the order models are placed on them: the first usable one is where they run",
+        ),
       drives: z.array(
         z
           .object({
@@ -68,7 +79,10 @@ export const commands = [
     }),
     mutates: false,
     global: true,
-    run: async (_ctx, input) => machineProfile({ refresh: input.refresh }),
+    run: async (_ctx, input) => {
+      const p = await machineProfile({ refresh: input.refresh });
+      return { ...p, gpus: rankGpus(p.gpus) };
+    },
   }),
   command({
     name: "models.fit",

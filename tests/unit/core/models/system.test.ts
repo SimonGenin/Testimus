@@ -1,8 +1,8 @@
 import { rmSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { fitOf } from "../../../../src/core/lib/fit/verdict.ts";
+import { measureMachine, pinMachineProfile } from "../../../../src/core/lib/machine/profile.ts";
 import { catalogEntry, registryFile } from "../../../../src/core/lib/models-catalog.ts";
-import { fitOf } from "../../../../src/core/lib/models-fit.ts";
-import { measureMachine, pinMachineProfile } from "../../../../src/core/lib/models-hardware.ts";
 import { packRows, suggestPack } from "../../../../src/core/lib/models-packs.ts";
 import { journalFile, recordPerf } from "../../../../src/core/lib/models-perf.ts";
 import { mockMachine } from "../../../../src/core/mock/machine.ts";

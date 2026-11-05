@@ -67,8 +67,15 @@ src/core/lib/        testfile, test-blocks, test-edit, table, adf, store, check,
                      agents, atomic, changed, creds, project (+ project-info, project-init), doctor (+ doctor-row,
                      doctor-models), hash, zip; docs (+ docs-convert, docs-index: one index run at a time, after the
                      conversions; docs-pipeline: add → convert → index); jira/ (http, read, steps, labels, push) and
-                     sync/ (connect, pull, push), ported from Xray Editor; models-* (catalog, packs, hardware, fit,
-                     download, install*, registry, resolve, perf, advice, quality, store, dir, use)
+                     sync/ (connect, pull, push), ported from Xray Editor; models-* (catalog, packs, download,
+                     install*, registry, resolve, perf, advice, quality, store, dir, use);
+                     machine/ what this PC has, knowing no model: probes (the seam: nvidia-smi, WMI, registry,
+                     `llama-server --list-devices`, memory, drives), sources (their parsers), gpus (one list from every
+                     source; integrated vs discrete, usable or not — llmfit's rules, MIT), profile (measure, cache, main
+                     GPU); fit/ will a model run here: placement (the one GPU-or-processor decision; an integrated
+                     GPU's pool is the RAM), need (measured > GGUF shape at its context > catalog > download × 1.2),
+                     support (system, proven), verdict (fitOf). At load, llama.cpp places the layers itself (-ngl auto
+                     + --fit) and its memory report is what the perf journal records
 src/core/rag/        convert* (docx/pdf/html/png → doc.md + figures), pdf-tags-*, anchors (the one reading of an
                      anchor), chunk, embed, db, indexer, search/ (lexical, vector, hybrid, passage), runtimes/
                      (transformers, llamacpp, llama-server), graph, related, mentions, glossary, stem-fr, fingerprint,

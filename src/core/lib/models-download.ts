@@ -14,7 +14,7 @@ import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { UserError } from "../command.ts";
 import type { CatalogEntry, HfFile } from "../types.ts";
-import { gb } from "./models-fit.ts";
+import { gb } from "./fit/verdict.ts";
 import { modelDir, onnxFile } from "./models-store.ts";
 
 export type DownloadDeps = {

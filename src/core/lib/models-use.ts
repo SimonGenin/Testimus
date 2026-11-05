@@ -1,9 +1,9 @@
 import { type Ctx, UserError } from "../command.ts";
 import type { ActiveChoice, CatalogEntry, Fit, MachineProfile, PackVariant, RagChoice } from "../types.ts";
+import { fitOf } from "./fit/verdict.ts";
+import { machineProfile } from "./machine/profile.ts";
 import { advise, PACK_ORDER } from "./models-advice.ts";
 import { catalog, catalogEntry } from "./models-catalog.ts";
-import { fitOf } from "./models-fit.ts";
-import { machineProfile } from "./models-hardware.ts";
 import { NO_DIR, NO_DIR_CODE, needEntry, verify } from "./models-install.ts";
 import { pull } from "./models-install-pull.ts";
 import { type PackRow, planOf, type UsePlan } from "./models-packs.ts";

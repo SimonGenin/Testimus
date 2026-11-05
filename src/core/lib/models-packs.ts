@@ -1,9 +1,10 @@
 import { publishedMeasure, refdocDir } from "../rag/refdoc.ts";
 import type { ActiveChoice, CatalogEntry, Fit, MachineProfile, Pack, PackVariant, PerfLine } from "../types.ts";
+import { deviceFor, isGguf, onIntegratedGpu } from "./fit/placement.ts";
+import { fitOf } from "./fit/verdict.ts";
+import { machineProfile } from "./machine/profile.ts";
 import { PACK_ORDER } from "./models-advice.ts";
 import { catalog, catalogEntry } from "./models-catalog.ts";
-import { deviceFor, fitOf } from "./models-fit.ts";
-import { machineProfile } from "./models-hardware.ts";
 import { perfStats, variantSpeed } from "./models-perf.ts";
 import { evalReports, type Measured, NOT_MEASURED, packQuality, refdocQuality } from "./models-quality.ts";
 import { budgets, readRegistry } from "./models-registry.ts";
@@ -125,11 +126,14 @@ export function suggestPack(machine: MachineProfile | null, lines: PerfLine[] = 
     if (!p) continue;
     for (const [i, v] of p.variants.entries()) {
       const entries = entriesOf(v);
-      // ponytail: a reranker on the processor makes each query take seconds; it stays a choice, never the suggestion
-      const slowOnCpu = entries.some(
-        (e) => (!e.runtimes.includes("transformers") || e.kind === "reranker") && deviceFor(e, machine) === "cpu",
+      // ponytail: a reranker on the processor makes each query take seconds, and llama.cpp on an integrated GPU has the
+      // memory but a fraction of a discrete card's compute; both stay a choice, never the suggestion
+      const slow = entries.some(
+        (e) =>
+          ((!e.runtimes.includes("transformers") || e.kind === "reranker") && deviceFor(e, machine) === "cpu") ||
+          (isGguf(e) && onIntegratedGpu(e, machine)),
       );
-      if (!slowOnCpu && !processorFallback(p, i, machine) && fitsAlone(entries, machine, lines)) return p.id;
+      if (!slow && !processorFallback(p, i, machine) && fitsAlone(entries, machine, lines)) return p.id;
     }
   }
   return "light";

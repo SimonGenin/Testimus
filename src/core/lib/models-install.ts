@@ -11,14 +11,15 @@ import type {
   ModelsRegistry,
   ResolvedModel,
 } from "../types.ts";
+import { isGguf } from "./fit/placement.ts";
+import { fitOf } from "./fit/verdict.ts";
+import { machineProfile } from "./machine/profile.ts";
 import { catalog, catalogEntry, pack } from "./models-catalog.ts";
 import { inside, norm, pruneEmpty } from "./models-dir.ts";
 import { checkFile, filesFor } from "./models-download.ts";
-import { fitOf } from "./models-fit.ts";
-import { machineProfile } from "./models-hardware.ts";
 import { opSignal, perfStats, speedLine } from "./models-perf.ts";
 import { budgets, putInstall, readRegistry, updateRegistry } from "./models-registry.ts";
-import { isGguf, resolveInstalled } from "./models-resolve.ts";
+import { resolveInstalled } from "./models-resolve.ts";
 import { readSettings } from "./project.ts";
 
 const MB = 1024 * 1024;

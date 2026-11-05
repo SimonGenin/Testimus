@@ -12,10 +12,11 @@ import type {
   ResolvedModel,
   RuntimeId,
 } from "../types.ts";
+import { deviceFor, deviceOf, isGguf } from "./fit/placement.ts";
+import { fitOf, gb } from "./fit/verdict.ts";
+import { knownMachine, machineProfile } from "./machine/profile.ts";
 import { catalogEntry, pack } from "./models-catalog.ts";
 import { filesFor, filesPresent } from "./models-download.ts";
-import { deviceFor, fitOf, gb } from "./models-fit.ts";
-import { knownMachine, machineProfile, mainGpu } from "./models-hardware.ts";
 import { budgets, downloadsAllowed, modelsDir, readRegistry } from "./models-registry.ts";
 import { isComplete, modelDir, modelRoots } from "./models-store.ts";
 
@@ -39,16 +40,6 @@ export type ResolveDeps = {
   machine?: () => Promise<MachineProfile>;
   lines?: PerfLine[];
 };
-
-export function isGguf(entry: CatalogEntry): boolean {
-  return !entry.runtimes.includes("transformers");
-}
-
-export function deviceOf(entry: CatalogEntry, machine: MachineProfile | null): Device {
-  const gpu = machine ? mainGpu(machine) : null;
-  if (isGguf(entry)) return gpu && entry.devices.includes("gpu") ? "gpu" : "cpu";
-  return gpu && entry.dtypeByDevice?.dml ? "dml" : "cpu";
-}
 
 function dtypeOf(entry: CatalogEntry, device: Device) {
   return entry.dtypeByDevice?.[device] ?? entry.dtypeByDevice?.cpu;

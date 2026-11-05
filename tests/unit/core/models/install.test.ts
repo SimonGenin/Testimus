@@ -6,9 +6,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Ctx } from "../../../../src/core/command.ts";
 import { quietCtx } from "../../../../src/core/command.ts";
 import { env } from "../../../../src/core/env.ts";
+import { pinMachineProfile } from "../../../../src/core/lib/machine/profile.ts";
 import { registryFile } from "../../../../src/core/lib/models-catalog.ts";
 import { downloadDeps } from "../../../../src/core/lib/models-download.ts";
-import { pinMachineProfile } from "../../../../src/core/lib/models-hardware.ts";
 import {
   catalogView,
   installDeps,

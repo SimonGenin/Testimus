@@ -18,6 +18,7 @@ import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { inflateRawSync } from "node:zlib";
 import { UserError } from "../../command.ts";
+import { usableGpus } from "../../lib/machine/gpus.ts";
 import { registryFile } from "../../lib/models-catalog.ts";
 import { freeMB } from "../../lib/models-download.ts";
 import { addTokens, perfFields } from "../../lib/models-perf.ts";
@@ -71,7 +72,7 @@ export const LLAMA_ASSETS: Record<LlamaBackend, LlamaAsset[]> = {
 };
 
 export function chooseBackend(machine: MachineProfile): LlamaBackend {
-  const real = machine.gpus.filter((g) => !/basic (display|render)|remote display|virtual|hyper-v/i.test(g.name));
+  const real = usableGpus(machine.gpus);
   const cudaReady = real.some(
     (g) => g.vendor === "nvidia" && g.driver !== undefined && Number.parseFloat(g.driver) >= CUDA_MIN_DRIVER,
   );
@@ -295,9 +296,14 @@ export async function pullLlamaBuild(
 
 export const llamacppConfig: { build: LlamaRuntime | null } = { build: null };
 
-function llamaBuild(): LlamaRuntime {
+export function installedLlama(): LlamaRuntime | null {
   const b = llamacppConfig.build ?? readJson<Partial<ModelsRegistry>>(registryFile(), {}).llamacpp;
-  if (!b || !existsSync(b.exe))
+  return b && existsSync(b.exe) ? b : null;
+}
+
+function llamaBuild(): LlamaRuntime {
+  const b = installedLlama();
+  if (!b)
     throw new UserError(
       "llama.cpp is not installed on this PC.",
       "Run: testimus models pullRuntime (or register a folder holding llama-server.exe).",
@@ -316,6 +322,7 @@ function serverFor(m: ResolvedModel, kind: ServerKind): Promise<LlamaServer> {
   const onGpu = b.backend !== "cpu";
   return ensureServer({
     exe: b.exe,
+    build: b.build,
     model,
     kind,
     catalogId: m.entry.id,

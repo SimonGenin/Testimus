@@ -3,7 +3,7 @@ import { parse } from "node:path";
 import { env } from "../env.ts";
 import type { GpuInfo, LoadedModel, MachineProfile } from "../types.ts";
 
-export const MOCK_MACHINES = ["gpu16", "gpu-small", "cpu-only", "unknown", "dev", "mac", "mac-intel"] as const;
+export const MOCK_MACHINES = ["gpu16", "gpu-small", "cpu-only", "unknown", "dev", "mac", "mac-intel", "apu"] as const;
 export type MockMachine = (typeof MOCK_MACHINES)[number];
 
 const GB = 1024;
@@ -83,6 +83,15 @@ export function mockMachine(kind: MockMachine, loaded: LoadedModel[] = []): Mach
         ramFreeMB: 15 * GB,
         cpu: { model: "Intel(R) Core(TM) i9-9980HK CPU @ 2.40GHz", threads: 16 },
         gpus: [],
+      };
+    case "apu":
+      return {
+        ...base,
+        loaded: [],
+        ramTotalMB: 32 * GB,
+        ramFreeMB: 18 * GB,
+        cpu: { model: "AMD Ryzen 7 7840U w/ Radeon 780M Graphics", threads: 16 },
+        gpus: [{ ...gpu("AMD Radeon 780M Graphics", 512, null, "registry"), integrated: true }],
       };
     case "dev":
       return {

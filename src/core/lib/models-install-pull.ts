@@ -1,12 +1,13 @@
 import type { Ctx } from "../command.ts";
 import { UserError } from "../command.ts";
 import type { CatalogEntry, Dtype, InstallState } from "../types.ts";
+import { deviceOf, isGguf } from "./fit/placement.ts";
+import { machineProfile } from "./machine/profile.ts";
 import { applySetDir, planSetDir } from "./models-dir.ts";
 import { downloadDeps, pullFiles } from "./models-download.ts";
-import { machineProfile } from "./models-hardware.ts";
 import { bytesOf, NO_DIR, NO_DIR_CODE, needEntry } from "./models-install.ts";
 import { downloadsAllowed, putInstall, readRegistry } from "./models-registry.ts";
-import { deviceOf, isGguf, resolveInstalled } from "./models-resolve.ts";
+import { resolveInstalled } from "./models-resolve.ts";
 
 const MB = 1024 * 1024;
 

@@ -4,8 +4,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { quietCtx } from "../../../../src/core/command.ts";
 import { invoke } from "../../../../src/core/commands/index.ts";
 import { env } from "../../../../src/core/env.ts";
+import { pinMachineProfile } from "../../../../src/core/lib/machine/profile.ts";
 import { SHIPPED } from "../../../../src/core/lib/models-catalog.ts";
-import { pinMachineProfile } from "../../../../src/core/lib/models-hardware.ts";
 import { packRows } from "../../../../src/core/lib/models-packs.ts";
 import {
   evalReports,

@@ -2,8 +2,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { pinMachineProfile } from "../../../../src/core/lib/machine/profile.ts";
 import { catalog, catalogEntry, registryFile } from "../../../../src/core/lib/models-catalog.ts";
-import { pinMachineProfile } from "../../../../src/core/lib/models-hardware.ts";
 import { readRegistry, writeRegistry } from "../../../../src/core/lib/models-registry.ts";
 import { ggufPath, resolveChoice, resolveInstalled } from "../../../../src/core/lib/models-resolve.ts";
 import { readSettings, settingsFile, writeSettings } from "../../../../src/core/lib/project.ts";
@@ -34,7 +34,7 @@ function devPc(over: Partial<MachineProfile> = {}): MachineProfile {
 const cpuLaptop: MachineProfile = { ...devPc(), gpus: [], ramTotalMB: 16000, ramFreeMB: 8000 };
 const amdPc: MachineProfile = {
   ...devPc(),
-  gpus: [{ name: "AMD Radeon 780M", vendor: "amd", vramTotalMB: null, vramUsedMB: null, source: "wmi" }],
+  gpus: [{ name: "AMD Radeon RX 7600", vendor: "amd", vramTotalMB: null, vramUsedMB: null, source: "wmi" }],
 };
 
 let dir: string;

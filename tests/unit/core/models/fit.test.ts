@@ -2,17 +2,14 @@ import { rmSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { env } from "../../../../src/core/env.ts";
 import { type ModelDeps, modelRows } from "../../../../src/core/lib/doctor-models.ts";
+import { needOf } from "../../../../src/core/lib/fit/need.ts";
+import { deviceFor } from "../../../../src/core/lib/fit/placement.ts";
+import { fitOf } from "../../../../src/core/lib/fit/verdict.ts";
+import type { HardwareDeps } from "../../../../src/core/lib/machine/probes.ts";
+import { mainGpu, measureMachine } from "../../../../src/core/lib/machine/profile.ts";
+import { parseNvidiaSmi, parseRegistryVram, parseWmi } from "../../../../src/core/lib/machine/sources.ts";
 import { type AdviceInput, fitsVariant, packVariantThatFits } from "../../../../src/core/lib/models-advice.ts";
 import { catalog, catalogEntry, registryFile } from "../../../../src/core/lib/models-catalog.ts";
-import { deviceFor, fitOf, needOf } from "../../../../src/core/lib/models-fit.ts";
-import {
-  type HardwareDeps,
-  mainGpu,
-  measureMachine,
-  parseNvidiaSmi,
-  parseRegistryVram,
-  parseWmi,
-} from "../../../../src/core/lib/models-hardware.ts";
 import { packRows } from "../../../../src/core/lib/models-packs.ts";
 import {
   ensureServer,
@@ -132,11 +129,11 @@ describe("fit verdicts", () => {
 
   it("unknown when the GPU memory is not known (non-NVIDIA without a registry figure)", () => {
     const amd = devPc({
-      gpus: [{ name: "AMD Radeon 780M", vendor: "amd", vramTotalMB: null, vramUsedMB: null, source: "wmi" }],
+      gpus: [{ name: "AMD Radeon RX 7600", vendor: "amd", vramTotalMB: null, vramUsedMB: null, source: "wmi" }],
     });
     const f = fitOf([e("qwen3-embedding-4b-q4")], amd, H);
     expect(f.verdict).toBe("unknown");
-    expect(f.message).toMatch(/Cannot check the memory of AMD Radeon 780M: try it/);
+    expect(f.message).toMatch(/Cannot check the memory of AMD Radeon RX 7600: try it/);
   });
 
   it("CPU only: compares with free RAM and the margin", () => {
@@ -203,10 +200,10 @@ describe("machine profile", () => {
     };
     const p = await measureMachine(deps);
     if (process.platform === "win32") {
-      expect(p.gpus.map((g) => [g.name, g.vendor, g.vramTotalMB, g.source])).toEqual([
-        ["RTX 5080", "nvidia", 16303, "nvidia-smi"],
-        ["Intel(R) Graphics", "intel", null, "wmi"],
-        ["AMD Radeon", "amd", 8192, "registry"],
+      expect(p.gpus.map((g) => [g.name, g.vendor, g.vramTotalMB, g.source, g.integrated])).toEqual([
+        ["RTX 5080", "nvidia", 16303, "nvidia-smi", false],
+        ["AMD Radeon", "amd", 8192, "registry", false],
+        ["Intel(R) Graphics", "intel", null, "wmi", true],
       ]);
       expect(calls.sort()).toEqual(["nvidia-smi", "powershell.exe", "reg.exe", "reg.exe"]);
     }
