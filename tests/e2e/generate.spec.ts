@@ -50,8 +50,10 @@ test("a request runs live, the tests land, and « Review these tests » opens th
   await expect(result.getByRole("button", { name: "What Claude did" })).toHaveAttribute("aria-expanded", "false");
   await result.getByRole("button", { name: /^Not covered · \d+$/ }).click();
   await expect(result.getByText(/sectionneur avec TK/).first()).toBeVisible();
-  const landed = result.getByRole("button", { name: /^Sectionneur (sans|avec) TK/ });
+  const landed = result.getByRole("region", { name: /^Sectionneur (sans|avec) TK/ });
   await expect(landed).toHaveCount(2);
+  for (const card of await landed.all())
+    await expect(card.getByRole("button", { name: "Review", exact: true })).toBeVisible();
   await expect.poll(async () => (await api<unknown[]>(url, "tests.list")).length).toBe(before - 1 + 2);
   await expect(result.getByText("1 test not validated yet was deleted before this run.")).toBeVisible();
   await shoot(page, "generate-done");
