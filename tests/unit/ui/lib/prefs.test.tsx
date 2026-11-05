@@ -3,7 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setProject } from "../../../../src/ui/api.ts";
 import { readPref, writePref } from "../../../../src/ui/lib/prefs.ts";
-import { applyTheme, nextTheme, readTheme, setThemeEverywhere } from "../../../../src/ui/lib/theme.ts";
+import { applyTheme, readTheme, setThemeEverywhere } from "../../../../src/ui/lib/theme.ts";
 import { fakeNet } from "../../helpers/ui-data.tsx";
 import { noDesktop } from "../../helpers/ui-desktop.tsx";
 
@@ -20,7 +20,7 @@ afterEach(() => {
 });
 
 describe("theme and preferences", () => {
-  it("reads, applies and cycles the theme", () => {
+  it("reads and applies the theme", () => {
     expect(readTheme()).toBe("system");
     localStorage.setItem("testimus.theme", "purple");
     expect(readTheme()).toBe("system");
@@ -29,7 +29,6 @@ describe("theme and preferences", () => {
     expect(readTheme()).toBe("dark");
     applyTheme("system");
     expect(document.documentElement.dataset.theme).toBeUndefined();
-    expect(nextTheme("dark")).toBe("system");
     const seen = vi.fn();
     window.addEventListener("testimus:theme", (e) => seen((e as CustomEvent).detail));
     setThemeEverywhere("light");

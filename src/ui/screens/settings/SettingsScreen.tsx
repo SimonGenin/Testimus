@@ -11,6 +11,7 @@ import { ResizeHandle } from "../../components/ui/ResizeHandle.tsx";
 import { type } from "../../components/ui/type.ts";
 import { useApp } from "../../lib/app.ts";
 import { usePaneWidth } from "../../lib/panes.ts";
+import { APP_VERSION } from "../../lib/version.ts";
 import { border, breakpoint, color, size, space } from "../../styles/tokens.stylex.ts";
 import { AccessSection } from "./AccessSection.tsx";
 import { AppearanceSection } from "./AppearanceSection.tsx";
@@ -98,7 +99,7 @@ export function SettingsScreen() {
         badge={
           <>
             <span {...stylex.props(type.code)}>
-              <Badge label={`v${__VERSION__}`} outline />
+              <Badge label={APP_VERSION} outline />
             </span>
             <span {...stylex.props(type.small, styles.saved)}>
               <Icon name="check" size="sm" />

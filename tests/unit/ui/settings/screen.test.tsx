@@ -2,6 +2,7 @@
 import "@testing-library/jest-dom/vitest";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { versionLabel } from "../../../../src/ui/lib/version.ts";
 import { SettingsScreen } from "../../../../src/ui/screens/settings/SettingsScreen.tsx";
 import { iconsIn } from "../../helpers/icons.ts";
 import { calls, fakeNet, info, mountSettings, net, reset } from "./helpers.tsx";
@@ -91,7 +92,7 @@ describe("Settings screen", () => {
   it("shows the version beside the title, and says changes save as they are made", () => {
     mountSettings(<SettingsScreen />, { route: { screen: "settings" } });
     expect(screen.getByRole("heading", { level: 1, name: /^Settings/ })).toBeInTheDocument();
-    expect(screen.getByText(`v${__VERSION__}`)).toBeInTheDocument();
+    expect(screen.getByText(versionLabel(__VERSION__))).toBeInTheDocument();
     expect(screen.getByText("Changes save as you make them")).toBeInTheDocument();
     expect(iconsIn(screen.getByText("Changes save as you make them")), "audit icons 102").toEqual(["check"]);
   });

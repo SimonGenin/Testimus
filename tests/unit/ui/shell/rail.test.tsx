@@ -7,11 +7,10 @@ import { setProject } from "../../../../src/ui/api.ts";
 import { Rail } from "../../../../src/ui/components/shell/Rail.tsx";
 import { ScreenHeader } from "../../../../src/ui/components/shell/ScreenHeader.tsx";
 import { SystemStatus } from "../../../../src/ui/components/shell/SystemStatus.tsx";
-import { ThemeToggle } from "../../../../src/ui/components/shell/ThemeToggle.tsx";
 import { TopBar, TopBarContext, useTopBarSlots } from "../../../../src/ui/components/shell/TopBar.tsx";
 import { DataProvider } from "../../../../src/ui/lib/data/provider.tsx";
 import { useRead } from "../../../../src/ui/lib/data/query.ts";
-import { setThemeEverywhere } from "../../../../src/ui/lib/theme.ts";
+import { versionLabel } from "../../../../src/ui/lib/version.ts";
 import { deferred, fakeEvents, fakeNet, net } from "../../helpers/ui-data.tsx";
 import { noDesktop } from "../../helpers/ui-desktop.tsx";
 import { clearAllToasts, withData } from "./helpers.tsx";
@@ -105,10 +104,21 @@ describe("Rail, system status, theme and headers", () => {
     expect(await screen.findByRole("button", { name: /System: Failed/ })).toBeInTheDocument();
   });
 
-  it("follows a theme set elsewhere", () => {
-    render(<ThemeToggle />);
-    act(() => setThemeEverywhere("dark"));
-    expect(screen.getByRole("button", { name: "Theme: Dark. Switch to System" })).toBeInTheDocument();
+  it("has no theme switch, and shows the version under the system's state", () => {
+    net.routes["system.doctor"] = () => [];
+    net.routes["project.list"] = () => [];
+    withData(<Rail counts={{}} />);
+    expect(screen.queryByRole("button", { name: /Theme/ })).toBeNull();
+    const nav = screen.getByRole("navigation");
+    expect(nav.lastElementChild).toHaveTextContent(versionLabel(__VERSION__));
+    expect(nav.lastElementChild?.previousElementSibling).toHaveAccessibleName(/^System: /);
+  });
+
+  it("names the stage from the version: Alpha before 0.1.0, Beta before 1.0.0, then the number alone", () => {
+    expect(versionLabel("0.0.1")).toBe("Alpha 0.0.1");
+    expect(versionLabel("0.1.0")).toBe("Beta 0.1.0");
+    expect(versionLabel("0.12.3")).toBe("Beta 0.12.3");
+    expect(versionLabel("1.0.0")).toBe("1.0.0");
   });
 
   it("puts a screen's header in the top bar, and draws it in place outside the shell", () => {

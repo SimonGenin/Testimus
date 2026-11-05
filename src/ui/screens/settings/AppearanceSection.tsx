@@ -32,7 +32,7 @@ export function AppearanceSection() {
       <Card title="Appearance">
         <Stack>
           <Grid>
-            <Field label="Theme" hint="Also from the rail, at the bottom.">
+            <Field label="Theme">
               <Segmented<Theme>
                 label="Theme"
                 value={theme}

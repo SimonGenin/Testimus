@@ -2,13 +2,14 @@ import * as stylex from "@stylexjs/stylex";
 import { useEffect } from "react";
 import { type Screen, useApp } from "../../lib/app.ts";
 import { draftOf, keepDraft } from "../../lib/drafts.ts";
+import { APP_VERSION } from "../../lib/version.ts";
 import { color, size, space } from "../../styles/tokens.stylex.ts";
 import type { IconName } from "../ui/Icon.tsx";
 import { Logo } from "../ui/Logo.tsx";
 import { RailItem } from "../ui/RailItem.tsx";
+import { type } from "../ui/type.ts";
 import { ProjectButton } from "./ProjectButton.tsx";
 import { SystemStatus } from "./SystemStatus.tsx";
-import { ThemeToggle } from "./ThemeToggle.tsx";
 
 export const NAV: { id: Screen; label: string; icon: IconName }[] = [
   { id: "documents", label: "Documents", icon: "documents" },
@@ -34,10 +35,11 @@ const styles = stylex.create({
   logo: { flex: "none", display: "flex", marginBottom: space.s5 },
   gap: { flex: "none", height: space.s3 },
   spacer: { flex: 1 },
+  version: { flex: "none", color: color.textSubtle, textAlign: "center", whiteSpace: "nowrap" },
 });
 
-// ponytail: the main navigation — the project on top, the four work screens, then Jobs, Settings, the theme and the
-// system's state; coming back to a screen from the rail opens what was open there, its own entry clicked again goes
+// ponytail: the main navigation — the project on top, the four work screens, then Jobs, Settings, the system's state
+// and the version under it (the theme is chosen in Settings); coming back to a screen from the rail opens what was open there, its own entry clicked again goes
 // to its start
 export function Rail({ counts, kit = false }: { counts: Partial<Record<Screen, number>>; kit?: boolean }) {
   const app = useApp();
@@ -60,8 +62,10 @@ export function Rail({ counts, kit = false }: { counts: Partial<Record<Screen, n
       <span {...stylex.props(styles.spacer)} />
       {item("jobs", "Jobs", "jobs")}
       {item("settings", "Settings", "settings")}
-      <ThemeToggle />
       <SystemStatus current={at === "doctor"} onOpen={() => go("doctor")} />
+      <span title={`Testimus ${APP_VERSION}`} {...stylex.props(type.micro, styles.version)}>
+        {APP_VERSION}
+      </span>
     </nav>
   );
 }

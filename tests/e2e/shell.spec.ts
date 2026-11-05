@@ -85,18 +85,17 @@ test("the dock is folded at start, even on a wide window", async ({ page }) => {
   ).toBeVisible();
 });
 
-test("the theme toggle sets data-theme and survives a reload", async ({ page }) => {
-  await boot(page);
-  const toggle = page.getByRole("button", { name: /^Theme: / });
-  await expect(toggle).toHaveAttribute("aria-label", /^Theme: System\./);
-  await toggle.click();
+test("the theme is chosen in Settings › Appearance, not from the rail, and survives a reload", async ({ page }) => {
+  await boot(page, "#/settings/appearance");
+  await expect(page.getByRole("navigation", { name: "Main" }).getByRole("button", { name: /Theme/ })).toHaveCount(0);
+  const theme = page.getByRole("radiogroup", { name: "Theme" });
+  await theme.getByRole("radio", { name: "Light" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
-  await toggle.click();
+  await theme.getByRole("radio", { name: "Dark" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-  await expect(toggle).toHaveAttribute("aria-label", /^Theme: Dark\./);
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-  await expect(page.getByRole("button", { name: /^Theme: Dark\./ })).toBeVisible();
-  await page.getByRole("button", { name: /^Theme: / }).click();
+  await expect(page.getByRole("radiogroup", { name: "Theme" }).getByRole("radio", { name: "Dark" })).toBeChecked();
+  await page.getByRole("radiogroup", { name: "Theme" }).getByRole("radio", { name: "System" }).click();
   await expect(page.locator("html")).not.toHaveAttribute("data-theme", /./);
 });

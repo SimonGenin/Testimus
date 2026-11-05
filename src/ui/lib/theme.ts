@@ -60,10 +60,6 @@ export function followTheme(): () => void {
   };
 }
 
-export function nextTheme(t: Theme): Theme {
-  return THEMES[(THEMES.indexOf(t) + 1) % THEMES.length];
-}
-
 // ponytail: the testimus:theme event is for the screens that still listen to it (Settings › Appearance); the shell
 // follows the preference itself (useTheme)
 export function setThemeEverywhere(t: Theme): void {

@@ -136,17 +136,16 @@ export async function openTest(page: Page, key: string): Promise<void> {
   await expect(page.getByRole("main").getByRole("article", { name: "Step 1" })).toBeVisible();
 }
 
-const THEME_LABEL = { system: "System", light: "Light", dark: "Dark" } as const;
-export type Theme = keyof typeof THEME_LABEL;
+export type Theme = "system" | "light" | "dark";
 
+// ponytail: the theme preference written as another window of the profile would (Settings › Appearance is the only
+// control, and the screen under test stays where it is)
 export async function setTheme(page: Page, theme: Theme): Promise<void> {
-  const toggle = page.getByRole("button", { name: /^Theme: / });
-  for (let i = 0; i < 3; i++) {
-    const name = (await toggle.getAttribute("aria-label")) ?? "";
-    if (name.startsWith(`Theme: ${THEME_LABEL[theme]}.`)) break;
-    await toggle.click();
-  }
-  await expect(toggle).toHaveAttribute("aria-label", new RegExp(`^Theme: ${THEME_LABEL[theme]}\\.`));
+  await page.evaluate((t) => {
+    if (t === "system") localStorage.removeItem("testimus.theme");
+    else localStorage.setItem("testimus.theme", t);
+    window.dispatchEvent(new StorageEvent("storage", { key: "testimus.theme" }));
+  }, theme);
   if (theme === "system") await expect(page.locator("html")).not.toHaveAttribute("data-theme", /./);
   else await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
 }
