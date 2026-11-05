@@ -664,7 +664,7 @@ describe("Generate › the tests land from the job events (was ui-screens)", () 
         summary: "",
         tests: ["local-aaaaaaaa", "local-bbbbbbbb"],
         checks: [
-          { id: "local-aaaaaaaa", ok: true, review: "checked", errors: 0, warnings: 0 },
+          { id: "local-aaaaaaaa", ok: true, review: "draft", errors: 0, warnings: 0 },
           { id: "local-bbbbbbbb", ok: false, review: "draft", errors: 2, warnings: 1 },
         ],
         changed: [],

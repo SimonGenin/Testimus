@@ -140,7 +140,7 @@ describe("project.info / set / open / list", () => {
     expect(info.counts.docs).toBe(2);
     expect(info.counts.tests).toBe(3);
     expect(Object.values(info.counts.review).reduce((a, b) => a + b, 0)).toBe(3);
-    expect(info.counts.review.checked).toBeGreaterThanOrEqual(1);
+    expect(info.counts.review.draft).toBeGreaterThanOrEqual(1);
     expect(info.counts.jobsRunning).toBe(0);
   });
 

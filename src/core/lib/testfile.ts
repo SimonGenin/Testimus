@@ -1,4 +1,4 @@
-import { REVIEWS, type Review, type Source, type Step, type StepImage, type Test } from "../types.ts";
+import { LEGACY_DRAFT, REVIEWS, type Review, type Source, type Step, type StepImage, type Test } from "../types.ts";
 import { testHash } from "./hash.ts";
 import { outsideTest } from "./test-blocks.ts";
 
@@ -363,7 +363,7 @@ export function parseTest(md: string, fieldNames: readonly string[] = []): { tes
   let review: Review = "draft";
   const rv = get("review");
   if (REVIEWS.includes(rv as Review)) review = rv as Review;
-  else if (rv) {
+  else if (rv && rv !== LEGACY_DRAFT) {
     warnings.push(`Unknown review state "${rv}" — kept as written, read as draft`);
     extra[rawKey("review")] = raw.get("review") ?? `review: ${rv}`;
   }

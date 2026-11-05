@@ -12,7 +12,7 @@ const TESTS = [
   {
     key: "LFRPS12-1420",
     title: "Sectionneur sans TK — menu contextuel et propriétés",
-    review: "checked",
+    review: "draft",
     sync: "modified",
   },
   { key: "LFRPS12-1421", title: "Sectionneur avec TK — commande à distance", review: "validated", sync: "in-sync" },

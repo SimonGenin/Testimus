@@ -135,6 +135,7 @@ export function useDockRuns(app: AppState) {
                 tests: changedTests.length,
                 ...(r.changedFiles ? { files: r.changedFiles.length } : {}),
                 review: t.action ? undefined : r.review,
+                ...(!t.action && r.message ? { message: r.message } : {}),
                 ...(name === "review.fix" ? { fix: true } : {}),
               }
             : undefined,

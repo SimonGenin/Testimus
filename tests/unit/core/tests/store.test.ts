@@ -29,7 +29,7 @@ test("listLocalTests reads review, sync, step count and findings of the fixture"
   });
   expect(list[0].findings).toBeUndefined();
   expect(list[0].mtime).toBeGreaterThan(0);
-  expect(list[1]).toMatchObject({ review: "checked", sync: "modified", dirty: true, stepCount: 5 });
+  expect(list[1]).toMatchObject({ review: "draft", sync: "modified", dirty: true, stepCount: 5 });
   const md = readFileSync(join(P, "tests/LFRPS12-1420/test.md"), "utf8");
   expect(list[1].findings).toEqual({
     errors: 2,
@@ -51,7 +51,7 @@ test("a check.json is stale once the test body changes, not when only the frontm
     }),
   );
   expect(store.localTestRef(P, "LFRPS12-1420")?.findings).toEqual({ errors: 0, warnings: 0, infos: 1, stale: false });
-  writeFileSync(join(P, "tests/LFRPS12-1420/test.md"), md.replace("review: checked", "review: validated"));
+  writeFileSync(join(P, "tests/LFRPS12-1420/test.md"), md.replace("review: draft", "review: validated"));
   expect(store.localTestRef(P, "LFRPS12-1420")?.findings?.stale).toBe(false);
   writeFileSync(join(P, "tests/LFRPS12-1420/test.md"), md.replace("Choisir Propriétés.", "Choisir Fermer."));
   expect(store.localTestRef(P, "LFRPS12-1420")?.findings?.stale).toBe(true);

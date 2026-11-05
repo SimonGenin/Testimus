@@ -70,23 +70,17 @@ export async function fixTest(
     return { ...base, ok: false, review: readTest(project, id).test.review, check: readCheck(project, id) };
   ctx.progress({ message: `Re-checking ${id}`, done: 1, total: 2 });
   const c = await checkOne(ctx, project, id, opts.semantic);
-  if (c.ok && c.semantic && !ctx.signal.aborted) {
-    const after = setReview(project, id, { review: "checked" });
-    markLeft(project, r.runId, [id]);
-    ctx.progress({ message: `${id} fixed and re-checked`, done: 2, total: 2 });
-    return { ...base, ok: true, review: after.review, check: c.check };
-  }
-  // ponytail: checked only after a semantic re-check that finished (SPEC §9); a changed test that was
-  // checked or validated goes back to to-fix, anything else keeps its state
-  const cur = readTest(project, id).test.review;
-  const review =
-    r.changedTests.includes(id) && (cur === "checked" || cur === "validated")
-      ? setReview(project, id, { review: "to-fix" }).review
-      : cur;
+  // ponytail: a fixed test waits for the reviewer again, whatever its re-check found (SPEC §9); the re-check only
+  // says what is left
+  const review = setReview(project, id, { review: "draft" }).review;
   markLeft(project, r.runId, [id]);
+  if (c.ok && c.semantic && !ctx.signal.aborted) {
+    ctx.progress({ message: `${id} fixed and re-checked`, done: 2, total: 2 });
+    return { ...base, ok: true, review, check: c.check };
+  }
   const message = c.semantic
-    ? `Claude fixed ${id}, but the semantic re-check did not finish: it stays ${review}. Run check.run on it.`
-    : `Claude fixed ${id}; only the mechanical check ran, so it stays ${review}. Run check.run on it.`;
+    ? `Claude fixed ${id}, but the semantic re-check did not finish. Run check.run on it.`
+    : `Claude fixed ${id}; only the mechanical check ran. Run check.run on it.`;
   ctx.log("warn", message);
   ctx.progress({ message, done: 2, total: 2 });
   return { ...base, ok: true, review, check: c.check, message };

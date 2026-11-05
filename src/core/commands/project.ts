@@ -327,7 +327,7 @@ export const commands = [
       if (input.labelPrefix !== undefined && (!input.labelPrefix.trim() || /\s/.test(input.labelPrefix)))
         throw new UserError(
           `Not a label prefix: ${JSON.stringify(input.labelPrefix)}.`,
-          "Use a non-empty prefix without spaces, e.g. testimus- — an empty one would take the team labels draft, checked, to-fix, validated.",
+          "Use a non-empty prefix without spaces, e.g. testimus- — an empty one would take the team labels draft, to-fix, validated.",
         );
       const next: ProjectJson = {
         ...cur,

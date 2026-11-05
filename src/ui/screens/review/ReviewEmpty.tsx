@@ -68,7 +68,7 @@ export function ReviewEmpty({
         <EmptyState
           icon="review"
           title="Nothing to review"
-          text="Generated tests come here once written and checked. Once validated they stay readable here and appear in Tests."
+          text="Generated tests come here once written. Once validated they stay readable here and appear in Tests."
           actions={<Button variant="primary" icon="generate" label="Generate tests" onClick={onGenerate} />}
         />
       )}

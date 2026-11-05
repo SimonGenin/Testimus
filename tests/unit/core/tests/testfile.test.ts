@@ -33,7 +33,7 @@ const NASTY = [
 
 const SUMMARIES = ["R8-2506-MWS-TSR-Manage", "  padded  ", "[bracketed]", 'has "quotes"', '"fully quoted"', ""];
 const FOLDERS = ["/Release 8.0", "/", "  /odd  ", "/a # b"];
-const REVIEW = ["draft", "checked", "to-fix", "validated"] as const;
+const REVIEW = ["draft", "to-fix", "validated"] as const;
 
 const step3 = (action: string, data: string, result: string, rest: Partial<Step> = {}): Step => ({
   fields: { Action: action, Data: data, "Expected Result": result },
@@ -533,7 +533,7 @@ test("the three fixture tests and their snapshots parse clean and round-trip byt
 
 test("the fixture tests read as generic fields, sources and review state", () => {
   const { test: t } = parseTest(fixture("LFRPS12-1420"));
-  expect(t.review).toBe("checked");
+  expect(t.review).toBe("draft");
   expect(t.generatedBy).toBe("gen-tests-1a2b3c4d");
   expect(t.steps).toHaveLength(5);
   expect(Object.keys(t.steps[2].fields)).toEqual(["Action", "Data", "Expected Result", "Exigence"]);

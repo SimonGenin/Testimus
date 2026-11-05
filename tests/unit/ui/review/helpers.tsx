@@ -101,7 +101,7 @@ export const item = (id: string, over: Partial<QueueItem> = {}): QueueItem => ({
   id,
   summary: `Summary ${id}`,
   folder: "/F",
-  review: "checked",
+  review: "draft",
   unchecked: false,
   errors: 0,
   warnings: 0,
@@ -120,7 +120,7 @@ export const testOf = (id: string, over: Partial<Test> = {}): Test =>
     description: "",
     covers: [],
     preconditions: [],
-    review: "checked",
+    review: "draft",
     steps: [
       { fields: { Action: "One" }, sources: [], images: [] },
       { fields: { Action: "Two" }, sources: [{ docId: "D", anchor: "§2", quote: "q2" }], images: [] },
@@ -140,7 +140,7 @@ export type Setup = {
 
 export function reviewRoutes(s: Setup = {}) {
   let queue = s.queue ?? [item("K-1"), item("K-2"), item("L-3", { folder: "" })];
-  net.routes["review.queue"] = () => ({ tests: queue, counts: { checked: 2, toFix: 1, draft: 0, unchecked: 1 } });
+  net.routes["review.queue"] = () => ({ tests: queue, counts: { toFix: 1, draft: 2, unchecked: 1 } });
   net.routes["tests.show"] = (i) => ({
     id: i.id,
     test: testOf(String(i.id), s.tests?.[String(i.id)]),

@@ -86,9 +86,7 @@ export const RESULT = z.object({
   raw: z.string().describe("The end of what claude printed, for the log"),
 });
 
-export const REVIEW = z
-  .enum(REVIEWS as [Review, ...Review[]])
-  .describe("draft, checked, to-fix or validated (SPEC §9)");
+export const REVIEW = z.enum(REVIEWS as [Review, ...Review[]]).describe("draft, to-fix or validated (SPEC §9)");
 
 export const TEST_REF = z
   .string()

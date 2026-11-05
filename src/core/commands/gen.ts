@@ -40,7 +40,7 @@ export const commands = [
         .boolean()
         .default(true)
         .describe(
-          "Check the new tests in the same job: mechanical + check-test skill; a draft that passes becomes checked (default true); false = mechanical only",
+          "Check the new tests in the same job: mechanical + check-test skill, findings only (default true); false = mechanical only",
         ),
       discard: z
         .boolean()

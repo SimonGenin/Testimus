@@ -34,7 +34,7 @@
       "summary": "Sectionneur sans TK — menu contextuel et propriétés",
       "folder": "/Traction/Sectionneurs",
       "labels": [
-        "testimus-draft"
+        "testimus-checked"
       ],
       "description": "Vérifie le menu contextuel et la fenêtre Propriétés d'un sectionneur sans télécommande (TK) sur la vue de traction. Technique boîte noire : partition par type de sectionneur.",
       "preconditions": [

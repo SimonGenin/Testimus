@@ -65,7 +65,6 @@ const styles = stylex.create({
   dotClaude: { backgroundColor: color.claude },
   dotAccent: { backgroundColor: color.accent },
   statusDraft: { color: color.statusDraft },
-  statusChecked: { color: color.statusChecked },
   statusToFix: { color: color.statusToFix },
   statusValidated: { color: color.statusValidated },
   severityError: { color: color.severityError },
@@ -76,7 +75,6 @@ const styles = stylex.create({
   diffRemoved: { color: color.diffRemoved },
   diffClaude: { color: color.diffClaude },
   dotStatusDraft: { backgroundColor: color.statusDraft },
-  dotStatusChecked: { backgroundColor: color.statusChecked },
   dotStatusToFix: { backgroundColor: color.statusToFix },
   dotStatusValidated: { backgroundColor: color.statusValidated },
   dotSeverityError: { backgroundColor: color.severityError },
@@ -105,7 +103,6 @@ const DOT = {
 // changes that word everywhere
 export type Ink =
   | "statusDraft"
-  | "statusChecked"
   | "statusToFix"
   | "statusValidated"
   | "severityError"
@@ -118,7 +115,6 @@ export type Ink =
 
 const INK_DOT = {
   statusDraft: styles.dotStatusDraft,
-  statusChecked: styles.dotStatusChecked,
   statusToFix: styles.dotStatusToFix,
   statusValidated: styles.dotStatusValidated,
   severityError: styles.dotSeverityError,
@@ -133,7 +129,7 @@ const INK_DOT = {
 export type BadgeProps = {
   /** one or two words (« To fix », « In sync »), or the number of a count */
   label: string;
-  /** a meaning, never a look: neutral (Draft, Local) · info (Checked) · success (Validated, In sync) · warning (To
+  /** a meaning, never a look: neutral (Draft, Local) · info (an info finding) · success (Validated, In sync) · warning (To
    * fix, Modified) · danger (Conflict, Error) · claude (Changed by Claude, Generated) · accent (a selected tab's count) */
   tone?: BadgeTone;
   /** set by a fixed vocabulary (REVIEW, SEVERITY, DIFF), never by a screen: the word's own colour alias */
@@ -220,12 +216,11 @@ export function Badge({
 
 export type Word = { label: string; tone: BadgeTone; icon?: IconName; ink?: Ink };
 
-export type ReviewState = "draft" | "checked" | "to-fix" | "validated";
+export type ReviewState = "draft" | "to-fix" | "validated";
 export type Severity = "error" | "warning" | "info";
 
 export const REVIEW: Record<ReviewState, Word> = {
   draft: { label: "Draft", tone: "neutral", icon: "circle-dashed", ink: "statusDraft" },
-  checked: { label: "Checked", tone: "info", icon: "check-circle", ink: "statusChecked" },
   "to-fix": { label: "To fix", tone: "warning", icon: "to-fix", ink: "statusToFix" },
   validated: { label: "Validated", tone: "success", icon: "validated", ink: "statusValidated" },
 };

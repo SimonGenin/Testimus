@@ -24,7 +24,7 @@ export type Loaded = {
 
 const STATES: Record<QueueFilter, CommandInput<"review.queue">["state"]> = {
   all: undefined,
-  checked: ["checked"],
+  draft: ["draft"],
   "to-fix": ["to-fix"],
   validated: ["validated"],
 };

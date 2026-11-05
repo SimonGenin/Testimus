@@ -126,7 +126,7 @@ describe("TestsScreen", () => {
 
   it("sends a generated test still in review to Review, never a validated one", async () => {
     refs = [
-      { ...ref("g1", { generated: true, review: "checked" }), awaiting: true } as LocalTestRef,
+      { ...ref("g1", { generated: true, review: "draft" }), awaiting: true } as LocalTestRef,
       ref("g2", { generated: true, review: "validated" }),
     ];
     const { state, again } = screenOf({ route: { screen: "tests", arg: "g1" } });

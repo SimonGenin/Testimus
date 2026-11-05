@@ -226,10 +226,7 @@ describe("every xray command through the registry, its output checked against it
       { id: "LFRPS12-1420", dryRun: true },
       project,
     );
-    expect(dry.plan.ops.map((o) => o.label)).toEqual([
-      "Update labels (review label testimus-checked)",
-      "Update step 2",
-    ]);
+    expect(dry.plan.ops.map((o) => o.label)).toEqual(["Update labels (review label testimus-draft)", "Update step 2"]);
     expect(dry.ops.map((o) => o.status)).toEqual(["not-started", "not-started"]);
     await expect(call("xray.push", { id: "LFRPS12-1420" }, project)).rejects.toThrow(/no planHash given/);
     await expect(call("xray.push", { id: "LFRPS12-1420", planHash: "0000" }, project)).rejects.toThrow(
@@ -359,14 +356,11 @@ describe("xray commands", () => {
 
   it("xray.plan and a dry run write nothing, and give the same plan", async () => {
     const plan = await run("xray.plan", { id: "LFRPS12-1420" });
-    expect(plan.ops.map((o: any) => o.label)).toEqual([
-      "Update labels (review label testimus-checked)",
-      "Update step 2",
-    ]);
+    expect(plan.ops.map((o: any) => o.label)).toEqual(["Update labels (review label testimus-draft)", "Update step 2"]);
     const dry = await run("xray.push", { id: "LFRPS12-1420", dryRun: true });
     expect(dry.ops.map((o: any) => o.status)).toEqual(["not-started", "not-started"]);
     expect(dry.plan).toEqual(plan);
-    expect(mockJiraTest("LFRPS12-1420")!.labels).toEqual(["testimus-draft"]);
+    expect(mockJiraTest("LFRPS12-1420")!.labels).toEqual(["testimus-checked"]);
   });
 
   it("xray.push reports per-op results, stops at the failing op and resumes from it", async () => {

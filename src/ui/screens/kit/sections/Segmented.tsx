@@ -9,7 +9,7 @@ const THEME = [
 ];
 const FILTER = [
   { value: "all", label: "All", count: 12 },
-  { value: "checked", label: "Checked", count: 4 },
+  { value: "draft", label: "Draft", count: 4 },
   { value: "fix", label: "To fix", count: 3 },
 ];
 

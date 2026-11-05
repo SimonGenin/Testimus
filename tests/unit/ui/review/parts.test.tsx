@@ -116,7 +116,7 @@ describe("ReviewQueue", () => {
     id,
     summary: id,
     folder: "/F",
-    review: "checked",
+    review: "draft",
     unchecked: false,
     errors: 0,
     warnings: 0,
@@ -150,7 +150,7 @@ describe("ReviewQueue", () => {
         item("c"),
         item("d", { unchecked: true }),
       ],
-      counts: { checked: 1, toFix: 2, draft: 3, unchecked: 0, validated: 4 },
+      counts: { toFix: 2, draft: 4, unchecked: 0, validated: 4 },
       activeId: "b",
       folder: "/A",
     });
@@ -201,7 +201,7 @@ describe("ReviewQueue", () => {
     expect(onClearFilters).toHaveBeenCalledTimes(1);
     rerender(<ReviewQueue {...props({ folder: "/A", onClearFilters })} />);
     expect(screen.getByText("No test matches these filters")).toBeInTheDocument();
-    rerender(<ReviewQueue {...props({ filter: "checked", onClearFilters })} />);
+    rerender(<ReviewQueue {...props({ filter: "draft", onClearFilters })} />);
     expect(screen.getByText("No test matches these filters")).toBeInTheDocument();
     rerender(<ReviewQueue {...props({ filter: "validated", onClearFilters })} />);
     expect(screen.getByText("No generated test validated yet")).toBeInTheDocument();
@@ -335,7 +335,7 @@ describe("ReviewTest", () => {
       description: "",
       covers: [],
       preconditions: [],
-      review: "checked",
+      review: "draft",
       generatedBy: "claude",
       steps: [step({ Action: "a", Exigence: "EXI_MOP_1, EXI_MOP_2" }), step({ Action: "b" })],
       extra: {},
@@ -448,7 +448,7 @@ describe("ReviewTest", () => {
     expect(screen.queryByText(/Claude changed/)).toBeNull();
     expect(screen.getByRole("note", { name: "To fix note" })).toHaveTextContent(/^To fixn$/);
     rerender(<ReviewTest {...props({ marks })} />);
-    expect(screen.getByText(/Checked again after the change/)).toBeInTheDocument();
+    expect(screen.getByText(/back to Draft: review it again/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Fold all" }));
     rerender(<ReviewTest {...props({ marks, revertConflict: "x" })} />);
     fireEvent.click(screen.getByRole("button", { name: "Revert anyway" }));

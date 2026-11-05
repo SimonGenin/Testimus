@@ -86,8 +86,8 @@ describe("gen.tests checks what it wrote, inside its job", () => {
     expect(r.tests).toEqual([id]);
     expect(seen).toHaveLength(2);
     expect(seen[1].stdin).toContain(`Use the check-test skill on the test ${id}.`);
-    expect(r.checks).toEqual([expect.objectContaining({ id, ok: true, review: "checked" })]);
-    expect(readTest(dir, id).test.review).toBe("checked");
+    expect(r.checks).toEqual([expect.objectContaining({ id, ok: true, review: "draft" })]);
+    expect(readTest(dir, id).test.review).toBe("draft");
     expect(readCheck(dir, id)).not.toBeNull();
   });
 });

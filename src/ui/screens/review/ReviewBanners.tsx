@@ -76,8 +76,8 @@ export function ReviewBanners(p: BannersProps) {
           title={`Claude changed ${plural(p.marks.steps.size, "step")}`}
           actions={<Button size="sm" icon="undo" label="Revert" onClick={p.onRevert} />}
         >
-          {test.review === "checked"
-            ? "Checked again after the change."
+          {test.review === "draft"
+            ? "The test is back to Draft: review it again."
             : "The test goes back through the check; it stays To fix until you validate it."}
         </Banner>
       )}
@@ -90,7 +90,7 @@ export function ReviewBanners(p: BannersProps) {
       )}
       {p.fixMessage && !p.claudeRunning && (
         <div role="status" aria-label="Claude's fix">
-          <Banner tone="warning" title="Still To fix after Claude's fix">
+          <Banner tone="warning" title="Re-check incomplete after Claude's fix">
             {p.fixMessage}
           </Banner>
         </div>

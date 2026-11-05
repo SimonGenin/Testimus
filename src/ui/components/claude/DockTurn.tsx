@@ -157,7 +157,7 @@ export function AnswerTurn({ turn: t, actions: a }: { turn: Turn; actions: TurnA
           )}
           {t.note && (
             <div role="status" {...stylex.props(styles.trouble)}>
-              <strong {...stylex.props(type.strong, styles.troubleTitle)}>Still To fix</strong>
+              <strong {...stylex.props(type.strong, styles.troubleTitle)}>Re-check incomplete</strong>
               <p {...stylex.props(styles.troubleText)}>{t.note}</p>
             </div>
           )}

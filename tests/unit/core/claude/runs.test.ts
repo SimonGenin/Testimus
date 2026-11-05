@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ask, listChats, sourceRefs } from "../../../../src/core/claude/chat.ts";
-import { checkOne, checkTests, promoteChecked } from "../../../../src/core/claude/check.ts";
+import { checkOne, checkTests } from "../../../../src/core/claude/check.ts";
 import { describeFigures, figuresPrompt, parseFigures } from "../../../../src/core/claude/figures.ts";
 import { fixTest } from "../../../../src/core/claude/fix.ts";
 import { claudeHeaders, headersPrompt, parseHeaders, projectOfDoc } from "../../../../src/core/claude/headers.ts";
@@ -227,7 +227,6 @@ describe("check edges", () => {
     expect(r.ok).toBe(false);
     expect(r.summary).toMatch(/check_record was not called/);
     expect(logs.some((m) => m.includes("LFRPS12-1420 changed while LFRPS12-1420"))).toBe(true);
-    expect(promoteChecked(ctxOf(), dir, r)).toBe(r.review);
   });
 
   it("a failed run carries its diagnosis", async () => {
@@ -380,18 +379,18 @@ describe("fix edges", () => {
     answer({ code: 1, stdout: `${resultLine("Claude usage limit reached.", false)}\n` });
     const r = await fixTest(ctxOf(), dir, "LFRPS12-1420", { semantic: false });
     expect(seen[0].stdin).toContain("No reviewer's note: fix what the findings ask.");
-    expect(r).toMatchObject({ ok: false, review: "checked", changedSteps: [] });
+    expect(r).toMatchObject({ ok: false, review: "draft", changedSteps: [] });
     expect(r.diagnosis?.kind).toBe("limit");
   });
 
-  it("a fix that changes a validated test with only the mechanical re-check sends it back to to-fix", async () => {
+  it("a fix that changes a validated test sends it back to draft, saying only the mechanical check ran", async () => {
     answer(async (s) => {
       const f = join(s.cwd, "tests", "LFRPS12-1398", "test.md");
       writeFileSync(f, `${readFileSync(f, "utf8")}\n`);
       return { code: 0, stdout: `${resultLine("fixed")}\n`, stderr: "" };
     });
     const r = await fixTest(ctxOf(), dir, "LFRPS12-1398", { note: "x", semantic: false });
-    expect(r).toMatchObject({ ok: true, review: "to-fix" });
+    expect(r).toMatchObject({ ok: true, review: "draft" });
     expect(r.message).toMatch(/only the mechanical check ran/);
   });
 

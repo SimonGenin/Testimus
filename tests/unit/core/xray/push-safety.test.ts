@@ -64,7 +64,7 @@ describe("a cancel stops the push between operations", () => {
     expect(out.error).toBe("Push cancelled — operation 2 was not started.");
     expect(out.ops.map((o: any) => o.status)).toEqual(["done", "not-started"]);
     expect(writes().map((r) => r.method)).toEqual(["PUT"]);
-    expect(mockJiraTest("LFRPS12-1420")!.labels).toEqual(["testimus-checked"]);
+    expect(mockJiraTest("LFRPS12-1420")!.labels).toEqual(["testimus-draft"]);
 
     env.http = mockHttp;
     const resumed = await run("xray.push", { id: "LFRPS12-1420", planHash, from: 1 });
@@ -184,7 +184,7 @@ describe("the push runs the plan the user saw", () => {
 
   it("refuses when Jira changed the ops since the plan", async () => {
     const { planHash, ops } = await run("xray.plan", { id: "LFRPS12-1420" });
-    mockJiraTest("LFRPS12-1420")!.labels = ["testimus-checked"];
+    mockJiraTest("LFRPS12-1420")!.labels = ["testimus-draft"];
     const now = await run("xray.plan", { id: "LFRPS12-1420" });
     expect(now.ops.length).toBeLessThan(ops.length);
     await expect(run("xray.push", { id: "LFRPS12-1420", planHash })).rejects.toThrow("changed since you saw the plan");
@@ -215,14 +215,19 @@ describe("an unusable label prefix falls back to testimus-", () => {
     expect(labelPrefixOf("")).toBe("testimus-");
     expect(labelPrefixOf("qa team-")).toBe("testimus-");
     expect(labelPrefixOf("qa-")).toBe("qa-");
-    expect(reviewLabels(["draft", "validated", "x"], "checked", "")).toEqual([
+    expect(reviewLabels(["draft", "validated", "x"], "draft", "")).toEqual([
       "draft",
       "validated",
       "x",
-      "testimus-checked",
+      "testimus-draft",
     ]);
     expect(reviewOfLabels(["validated"], "")).toBeUndefined();
     expect(reviewOfLabels(["testimus-validated"], " ")).toBe("validated");
+  });
+
+  it("reads the retired testimus-checked label as draft and replaces it on push", () => {
+    expect(reviewOfLabels(["x", "testimus-checked"], "")).toBe("draft");
+    expect(reviewLabels(["x", "testimus-checked"], "to-fix", "")).toEqual(["x", "testimus-to-fix"]);
   });
 
   it("warns in the plan and labels with the default", async () => {
@@ -231,6 +236,6 @@ describe("an unusable label prefix falls back to testimus-", () => {
     expect(plan.warnings[0]).toBe(
       'The label prefix "" in project.json is empty or has a space — the review label uses testimus- instead (set a prefix without spaces in the project settings).',
     );
-    expect(plan.ops[0].label).toBe("Update labels (review label testimus-checked)");
+    expect(plan.ops[0].label).toBe("Update labels (review label testimus-draft)");
   });
 });

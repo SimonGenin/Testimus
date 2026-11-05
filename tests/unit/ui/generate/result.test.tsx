@@ -163,7 +163,7 @@ describe("Generate › result helpers", () => {
     expect(screen.getByText("To fix")).toBeInTheDocument();
     show({ check: { id: "x", ok: false, review: "draft", errors: 0, warnings: 1 } });
     expect(screen.getByText("1 warning")).toBeInTheDocument();
-    show({ check: { id: "x", ok: true, review: "checked", errors: 0, warnings: 0 } });
+    show({ check: { id: "x", ok: true, review: "draft", errors: 0, warnings: 0 } });
     expect(screen.getByText("No findings")).toBeInTheDocument();
     show({ checking: true });
     expect(screen.getByText("Checking…")).toBeInTheDocument();

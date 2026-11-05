@@ -40,6 +40,7 @@ import { docFigures } from "../rag/chunk.ts";
 import { chunksOf, withIndex } from "../rag/db.ts";
 import { unindexDoc } from "../rag/indexer.ts";
 import { renderPage } from "../rag/pdf.ts";
+import { REVIEW } from "../schemas.ts";
 import type { DocJson } from "../types.ts";
 
 const kind = z.enum(["spec", "minutes", "other"]);
@@ -242,7 +243,7 @@ const citedBy = z
       id: z.string().describe("Test id (its folder under tests/)"),
       key: z.string().optional().describe("Jira key, once the test is in Xray"),
       summary: z.string().describe("Test summary"),
-      review: z.enum(["draft", "checked", "to-fix", "validated"]).describe("Where the test is in the review"),
+      review: REVIEW.describe("Where the test is in the review"),
       steps: z.number().describe("Steps with a source that cites the document"),
     }),
   )

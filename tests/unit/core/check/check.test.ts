@@ -206,8 +206,8 @@ describe("check.json", () => {
 describe("review frontmatter", () => {
   it("patchReview changes only frontmatter lines, keeps the body bytes and the other keys", () => {
     const md = readFileSync(testFile("local-3f9a12c0"), "utf8");
-    const out = patchReview(md, { review: "checked" });
-    expect(out.replace("review: checked", "review: to-fix")).toBe(md);
+    const out = patchReview(md, { review: "draft" });
+    expect(out.replace("review: draft", "review: to-fix")).toBe(md);
     const v = patchReview(md, { review: "validated", note: null, by: "s.genin", at: "2026-11-02T10:00:00.000Z" });
     expect(v).toContain(
       "review: validated\nreviewed_by: s.genin\nreviewed_at: 2026-11-02T10:00:00.000Z\ngenerated_by:",

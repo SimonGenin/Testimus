@@ -115,12 +115,12 @@ test("the fixture's modified test plans its review label and the one step that c
     testId: "LFRPS12-1420",
     key: "LFRPS12-1420",
     ops: [
-      { label: "Update labels (review label testimus-checked)", kind: "label" },
+      { label: "Update labels (review label testimus-draft)", kind: "label" },
       { label: "Update step 2", kind: "update" },
     ],
-    warnings: ["This test is not validated (review: checked) — it goes to Jira labelled testimus-checked."],
+    warnings: ["This test is not validated (review: draft) — it goes to Jira labelled testimus-draft."],
     remoteChanged: false,
-    review: "checked",
+    review: "draft",
     planHash: push.hash,
   });
   expect(push.hash).toMatch(/^[0-9a-f]{16}$/);
@@ -135,7 +135,7 @@ test("the fixture's modified test plans its review label and the one step that c
     [1, "done"],
   ]);
   const jira = mockJiraTest("LFRPS12-1420")!;
-  expect(jira.labels).toEqual(["testimus-checked"]);
+  expect(jira.labels).toEqual(["testimus-draft"]);
   expect(jira.steps[1].result).toContain("Autoriser l'ouverture");
   expect(md("LFRPS12-1420")).toBe(fixtureMd("LFRPS12-1420", "test.md"));
   expect(localTestRef(project, "LFRPS12-1420")?.sync).toBe("synced");

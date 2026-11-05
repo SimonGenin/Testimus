@@ -98,7 +98,7 @@ describe("check commands", () => {
     expect(seen).toEqual([]);
   });
 
-  it("semantic pass: one read-only check-test run per test; the skill's findings land in check.json; draft becomes checked", async () => {
+  it("semantic pass: one read-only check-test run per test; the skill's findings land in check.json; the review state is left as it is", async () => {
     setReviewLine("local-3f9a12c0", "draft");
     fakeSkill((s, id) => {
       if (id === "LFRPS12-1420") recordSemantic(s.cwd, id, [wrongObject]);
@@ -120,19 +120,19 @@ describe("check commands", () => {
       "2:wrong-object:semantic",
       "5:source-missing:mechanical",
     ]);
-    expect(readTest(project, "local-3f9a12c0").test.review).toBe("checked");
-    expect(readTest(project, "LFRPS12-1420").test.review).toBe("checked");
+    expect(readTest(project, "local-3f9a12c0").test.review).toBe("draft");
+    expect(readTest(project, "LFRPS12-1420").test.review).toBe("draft");
     expect(progress.at(-1)).toMatchObject({ done: 2, total: 2 });
     expect(progress.map((p) => p.message).join("\n")).toContain("LFRPS12-1420: 1 error(s), 1 warning(s)");
   });
 
-  it("the previous semantic findings are dropped by a new run; to-fix and validated keep their state", async () => {
+  it("the previous semantic findings are dropped by a new run; every test keeps its review state", async () => {
     recordSemantic(project, "local-3f9a12c0", [{ ...wrongObject, step: 1 }]);
     fakeSkill(() => {});
     const out = await run("check.run", { all: true });
     expect(out.tests.map((t: any) => `${t.id}:${t.review}`)).toEqual([
       "LFRPS12-1398:validated",
-      "LFRPS12-1420:checked",
+      "LFRPS12-1420:draft",
       "local-3f9a12c0:to-fix",
     ]);
     expect(readCheck(project, "local-3f9a12c0")?.findings).toEqual([]);

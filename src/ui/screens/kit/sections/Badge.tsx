@@ -33,7 +33,7 @@ export const section: KitSection = {
       text: "(each has a meaning — never pick a tone for looks):",
       items: [
         "`neutral` Draft, Local, To Do (Jira status), Not checked",
-        "`info` Checked, an info finding, Checking…",
+        "`info` an info finding, Checking…",
         "`success` Validated, In sync, OK, new step",
         "`warning` To fix, Modified, Changed in Jira, a warning finding, Rate limited",
         "`danger` Conflict, Error, Failed, Deleted, Not fully read",
@@ -47,7 +47,7 @@ export const section: KitSection = {
     },
     {
       head: "Fixed vocabularies",
-      text: "Review: Draft · Checked · To fix · Validated. Severity: Error · Warning · Info. Sync: Checking… · In sync · Modified · Changed in Jira · Conflict · Local only. Diff: New · Modified · Deleted · Changed by Claude.",
+      text: "Review: Draft · To fix · Validated. Severity: Error · Warning · Info. Sync: Checking… · In sync · Modified · Changed in Jira · Conflict · Local only. Diff: New · Modified · Deleted · Changed by Claude.",
     },
     {
       head: "Vocabularies of the app",

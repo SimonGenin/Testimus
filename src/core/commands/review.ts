@@ -64,25 +64,24 @@ export const commands = [
   command({
     name: "review.queue",
     summary:
-      "The generated tests awaiting review — checked, to-fix, and draft (flagged unchecked when no check ran) — with their findings counts; filter by state (validated lists the generated tests already reviewed), folder, anomalies; sort. A test written by hand, pulled or imported never appears here.",
+      "The generated tests awaiting review — draft and to-fix (flagged unchecked when no check ran) — with their findings counts; filter by state (validated lists the generated tests already reviewed), folder, anomalies; sort. A test written by hand, pulled or imported never appears here.",
     input: z.object({
-      state: z.array(REVIEW).optional().describe("Only these review states (default: checked, to-fix, draft)"),
+      state: z.array(REVIEW).optional().describe("Only these review states (default: draft, to-fix)"),
       folder: z.string().optional().describe("Only this Xray folder and its subfolders"),
       withFindings: z.boolean().optional().describe("Only tests whose last check has an error or a warning"),
       sort: z
         .enum(["state", "anomalies", "folder", "recent"])
         .default("state")
         .describe(
-          "state = checked, then to-fix, then draft (most anomalies first within each); anomalies = errors then warnings; folder; recent = last edited first",
+          "state = draft, then to-fix (most anomalies first within each); anomalies = errors then warnings; folder; recent = last edited first",
         ),
     }),
     output: z.object({
       tests: z.array(queueItem).describe("The tests listed, in the order asked"),
       counts: z
         .object({
-          checked: z.number().describe("Generated tests checked, awaiting review"),
           toFix: z.number().describe("Generated tests to fix"),
-          draft: z.number().describe("Generated drafts"),
+          draft: z.number().describe("Generated drafts, awaiting the reviewer"),
           unchecked: z.number().describe("Awaiting tests no check ran on"),
           validated: z.number().describe("Generated tests already validated (not in the default list)"),
         })
@@ -97,7 +96,7 @@ export const commands = [
   command({
     name: "review.fix",
     summary:
-      "Ask Claude to fix a test (fix-test skill) from its To fix note and its findings, then re-check it; it goes back to checked, never straight to validated. With a note, the test is first marked To fix with that note (what review.set to-fix does). Returns the runId for Revert.",
+      "Ask Claude to fix a test (fix-test skill) from its To fix note and its findings, then re-check it; it goes back to draft for the reviewer, never straight to validated. With a note, the test is first marked To fix with that note (what review.set to-fix does). Returns the runId for Revert.",
     input: z.object({
       id: TEST_REF,
       note: z
@@ -119,7 +118,7 @@ export const commands = [
         .describe("Tests whose file changed (also when only the header did, so the editor reloads)"),
       review: REVIEW,
       check: CHECK_FILE.nullable().describe("The re-check, or the last check when the fix failed"),
-      message: z.string().optional().describe("Why the test did not go back to checked (re-check failed or skipped)"),
+      message: z.string().optional().describe("Why the re-check did not finish (failed, or the mechanical pass only)"),
       diagnosis: DIAGNOSIS.optional(),
     }),
     mutates: true,

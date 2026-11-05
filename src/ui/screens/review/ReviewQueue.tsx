@@ -32,8 +32,8 @@ export type QueueItem = {
   generatedBy?: string;
   generatedAt?: string;
 };
-export type QueueCounts = { checked: number; toFix: number; draft: number; unchecked: number; validated?: number };
-export type QueueFilter = "all" | "checked" | "to-fix" | "validated";
+export type QueueCounts = { toFix: number; draft: number; unchecked: number; validated?: number };
+export type QueueFilter = "all" | "draft" | "to-fix" | "validated";
 export type QueueSort = "anomalies" | "state" | "folder" | "recent";
 
 const SORTS: { value: QueueSort; label: string }[] = [
@@ -144,7 +144,7 @@ export type ReviewQueueProps = {
 };
 
 export function ReviewQueue(p: ReviewQueueProps) {
-  const all = p.counts ? p.counts.checked + p.counts.toFix + p.counts.draft : undefined;
+  const all = p.counts ? p.counts.toFix + p.counts.draft : undefined;
   const narrowed = p.filter !== "all" || !!p.folder || p.withFindings;
   const onlyValidated = p.filter === "validated" && !p.folder && !p.withFindings;
   return (
@@ -179,7 +179,7 @@ export function ReviewQueue(p: ReviewQueueProps) {
             onChange={p.onFilter}
             options={[
               { value: "all", label: "All", count: all },
-              { value: "checked", label: "Checked", count: p.counts?.checked },
+              { value: "draft", label: "Draft", count: p.counts?.draft },
               { value: "to-fix", label: "To fix", count: p.counts?.toFix },
               { value: "validated", label: "Validated", count: p.counts?.validated },
             ]}

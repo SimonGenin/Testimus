@@ -23,8 +23,11 @@ export type Block =
   | { kind: "table"; rows: Row[]; at: number; end: number }
   | { kind: "raw"; text: string; at: number; end: number };
 
-export type Review = "draft" | "checked" | "to-fix" | "validated";
-export const REVIEWS: readonly Review[] = ["draft", "checked", "to-fix", "validated"];
+export type Review = "draft" | "to-fix" | "validated";
+export const REVIEWS: readonly Review[] = ["draft", "to-fix", "validated"];
+// ponytail: `checked` was a fourth state (a draft whose semantic check finished); a file or a Jira label still holding
+// it is read as draft
+export const LEGACY_DRAFT = "checked";
 // ponytail: only what Claude generated waits for a reviewer; a test written by hand, pulled or imported is the team's own
 export const awaitsReview = (t: { review: Review; generated: boolean }) => t.generated && t.review !== "validated";
 

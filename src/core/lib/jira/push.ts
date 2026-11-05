@@ -2,7 +2,7 @@ import type { PlanOp, ProjectInfo, Test, XrayField } from "../../types.ts";
 import { textToAdf } from "../adf.ts";
 import { hasRawEmbed } from "../test-blocks.ts";
 import { gql, jiraFetch } from "./http.ts";
-import { labelPrefixOf, reviewLabels, reviewOfLabels } from "./labels.ts";
+import { labelPrefixOf, reviewLabels } from "./labels.ts";
 import { ISSUE_KEY, type PulledTest, preconditions, remoteSteps } from "./read.ts";
 import {
   attachmentInput,
@@ -257,7 +257,7 @@ export async function planPush(
     fields.description = textToAdf(local.description);
     changed.push("description");
   }
-  const reviewMoved = labelsChanged && reviewOfLabels(r.labels, prefix) !== local.review;
+  const reviewMoved = labelsChanged && !r.labels.includes(prefix + local.review);
   if (changed.length)
     ops.push({
       label: `Update ${changed.join(", ")}` + (reviewMoved ? ` (review label ${prefix}${local.review})` : ""),

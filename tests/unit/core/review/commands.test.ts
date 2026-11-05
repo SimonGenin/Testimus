@@ -79,7 +79,7 @@ describe("review.set", () => {
     await expect(run("review.set", { id: "LFRPS12-1420", decision: "to-fix", note: "  " })).rejects.toThrow(
       "needs a note",
     );
-    expect(readTest(project, "LFRPS12-1420").test.review).toBe("checked");
+    expect(readTest(project, "LFRPS12-1420").test.review).toBe("draft");
   });
 
   it("to-fix records the note, the reviewer and the time; the findings stay fresh", async () => {
@@ -114,9 +114,9 @@ describe("review.set", () => {
 });
 
 describe("review.queue", () => {
-  it("lists checked, to-fix and unchecked drafts, never validated; default order is by state", async () => {
+  it("lists drafts and to-fix tests, never validated; default order is by state", async () => {
     const out = await run("review.queue");
-    expect(out.tests.map((t: any) => `${t.id}:${t.review}`)).toEqual(["LFRPS12-1420:checked", "local-3f9a12c0:to-fix"]);
+    expect(out.tests.map((t: any) => `${t.id}:${t.review}`)).toEqual(["LFRPS12-1420:draft", "local-3f9a12c0:to-fix"]);
     expect(out.tests[0]).toMatchObject({
       errors: 2,
       warnings: 2,
@@ -128,14 +128,14 @@ describe("review.queue", () => {
       unchecked: true,
       note: "Le step 2 doit vérifier que seul Propriétés est proposé.",
     });
-    expect(out.counts).toEqual({ checked: 1, toFix: 1, draft: 0, unchecked: 1, validated: 0 });
+    expect(out.counts).toEqual({ toFix: 1, draft: 1, unchecked: 1, validated: 0 });
   });
 
   it("lists the generated tests already validated when asked, never a hand-made one", async () => {
     await run("review.set", { id: "LFRPS12-1420", decision: "validate" });
     const out = await run("review.queue", { state: ["validated"] });
     expect(out.tests.map((t: any) => `${t.id}:${t.review}`)).toEqual(["LFRPS12-1420:validated"]);
-    expect(out.counts).toMatchObject({ checked: 0, toFix: 1, validated: 1 });
+    expect(out.counts).toMatchObject({ draft: 0, toFix: 1, validated: 1 });
   });
 
   it("sorts by anomalies and filters by state, folder and findings", async () => {
@@ -162,11 +162,14 @@ describe("review.queue", () => {
       })),
     ]);
     const byState = await run("review.queue");
-    expect(byState.tests.map((t: any) => t.id)).toEqual(["LFRPS12-1420", "local-3f9a12c0", "local-00000001"]);
-    expect(byState.tests[2]).toMatchObject({ review: "draft", unchecked: true });
+    expect(byState.tests.map((t: any) => t.id)).toEqual(["LFRPS12-1420", "local-00000001", "local-3f9a12c0"]);
+    expect(byState.tests[1]).toMatchObject({ review: "draft", unchecked: true });
     const byAnomalies = await run("review.queue", { sort: "anomalies" });
     expect(byAnomalies.tests.map((t: any) => t.id)).toEqual(["local-3f9a12c0", "LFRPS12-1420", "local-00000001"]);
-    expect((await run("review.queue", { state: ["draft"] })).tests.map((t: any) => t.id)).toEqual(["local-00000001"]);
+    expect((await run("review.queue", { state: ["draft"] })).tests.map((t: any) => t.id)).toEqual([
+      "LFRPS12-1420",
+      "local-00000001",
+    ]);
     expect((await run("review.queue", { folder: "/Traction/Disjoncteurs" })).tests.map((t: any) => t.id)).toEqual([
       "local-00000001",
     ]);
@@ -223,10 +226,10 @@ describe("review.fix", () => {
     expect(fix.stdin).toContain("step 2 — vague-result (warning)");
     expect(fix.args[fix.args.indexOf("--tools") + 1]).toContain("Edit");
     expect(seen[1].stdin).toContain("Use the check-test skill on the test local-3f9a12c0.");
-    expect(out).toMatchObject({ ok: true, changedSteps: [2], review: "checked" });
+    expect(out).toMatchObject({ ok: true, changedSteps: [2], review: "draft" });
     expect(out.check.findings).toEqual([]);
     const t = readTest(project, "local-3f9a12c0").test;
-    expect(t.review).toBe("checked");
+    expect(t.review).toBe("draft");
     expect(t.steps[1].fields["Expected Result"]).toBe("Le menu contextuel ne propose que Propriétés.");
 
     revert(project, out.runId);
@@ -238,7 +241,7 @@ describe("review.fix", () => {
     env.spawnClaude = async () => ({ code: 1, stdout: "", stderr: "Credit balance is too low" });
     writeFileSync(
       testFile("LFRPS12-1420"),
-      readFileSync(testFile("LFRPS12-1420"), "utf8").replace("review: checked", "review: to-fix"),
+      readFileSync(testFile("LFRPS12-1420"), "utf8").replace("review: draft", "review: to-fix"),
     );
     const out = await run("review.fix", { id: "LFRPS12-1420", note: "Nommer les commandes au step 2" });
     expect(out).toMatchObject({ ok: false, review: "to-fix", changedSteps: [] });
@@ -253,7 +256,7 @@ describe("review.fix", () => {
       during ??= { review: t.review, note: t.reviewNote, by: t.reviewedBy };
       return { code: 1, stdout: "", stderr: "Credit balance is too low" };
     };
-    expect(readTest(project, "LFRPS12-1420").test.review).toBe("checked");
+    expect(readTest(project, "LFRPS12-1420").test.review).toBe("draft");
     const out = await run("review.fix", { id: "LFRPS12-1420", note: "  Nommer les commandes au step 2 " });
     expect(during).toEqual({ review: "to-fix", note: "Nommer les commandes au step 2", by: osUser() });
     expect(out).toMatchObject({ ok: false, review: "to-fix" });
@@ -267,7 +270,7 @@ describe("review.fix", () => {
   it("without a note, leaves the review state as it is", async () => {
     env.spawnClaude = async () => ({ code: 1, stdout: "", stderr: "Credit balance is too low" });
     const out = await run("review.fix", { id: "LFRPS12-1420" });
-    expect(out.review).toBe("checked");
+    expect(out.review).toBe("draft");
   });
 });
 
@@ -288,7 +291,7 @@ describe("--mock review loop (scripted check-test and fix-test)", () => {
     ]);
 
     const fixed = await run("review.fix", { id: "local-3f9a12c0" });
-    expect(fixed).toMatchObject({ ok: true, review: "checked", changedSteps: [2] });
+    expect(fixed).toMatchObject({ ok: true, review: "draft", changedSteps: [2] });
     expect(fixed.summary).toContain("step 2");
     expect(fixed.check.findings.filter((f: any) => f.severity !== "info")).toEqual([]);
 

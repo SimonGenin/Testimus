@@ -143,7 +143,7 @@ describe("searchAll", () => {
   it("finds a test by a step and says where", async () => {
     const r = await searchAll(dir, { query: "fenetre proprietes", meaning: false });
     const test = r.hits.find((h) => h.kind === "test");
-    expect(test).toMatchObject({ id: "LFRPS12-1420", review: "checked", why: "words" });
+    expect(test).toMatchObject({ id: "LFRPS12-1420", review: "draft", why: "words" });
     expect(r.meaning).toBe("off");
   });
 

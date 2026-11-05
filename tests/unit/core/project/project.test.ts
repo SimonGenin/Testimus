@@ -92,7 +92,7 @@ describe("projectOverview", () => {
     );
     const info = projectOverview(project);
     expect(info.counts.tests).toBe(5);
-    expect(info.counts.review.draft).toBe(2);
+    expect(info.counts.review.draft).toBe(3);
   });
 
   it("answers for a project without tests or docs folders", () => {

@@ -18,7 +18,7 @@ export const commands = [
       query: z
         .string()
         .describe(
-          'What to look for. Words match accents, French word forms, prefixes and typos; "exact phrase"; -word excludes; filters: in:tests|reqs|docs|passages, review:draft|checked|to-fix|validated, label:x, folder:x, sync:local|modified|synced, has:findings|sources|key|images|note, is:generated|awaiting|dirty, doc:x. A filter alone lists the tests it keeps.',
+          'What to look for. Words match accents, French word forms, prefixes and typos; "exact phrase"; -word excludes; filters: in:tests|reqs|docs|passages, review:draft|to-fix|validated, label:x, folder:x, sync:local|modified|synced, has:findings|sources|key|images|note, is:generated|awaiting|dirty, doc:x. A filter alone lists the tests it keeps.',
         ),
       in: z.array(kind).optional().describe("Only these kinds of results (the query's in: filters add to it)"),
       k: z.number().int().min(1).max(500).default(8).describe("At most this many results of each kind"),

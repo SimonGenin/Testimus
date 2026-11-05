@@ -25,7 +25,7 @@ test("the queue lists what awaits review and filters by state", async ({ page })
   await expect(items).toHaveCount(1);
   await expect(items.first()).toContainText(SUMMARY_LOCAL);
   await queue(page)
-    .getByRole("radio", { name: /^Checked 1/ })
+    .getByRole("radio", { name: /^Draft 1/ })
     .click();
   await expect(items).toHaveCount(1);
   await expect(items.first()).toContainText(SUMMARY_1420);
@@ -65,7 +65,7 @@ test("J and K move through the queue", async ({ page }) => {
   await expect(title).toHaveText(SUMMARY_1420);
 });
 
-test("To fix with a note asks Claude to fix it; the test comes back Checked, never Validated", async ({ page }) => {
+test("To fix with a note asks Claude to fix it; the test comes back Draft, never Validated", async ({ page }) => {
   await boot(page, "#/review");
   await expect(under(page).getByRole("heading", { level: 2 })).toHaveText(SUMMARY_1420);
   await under(page)
@@ -80,19 +80,9 @@ test("To fix with a note asks Claude to fix it; the test comes back Checked, nev
   await note.getByRole("button", { name: "Ask Claude to fix it" }).click();
   await expect(note).toBeHidden();
 
-  const seen = new Set<string>();
-  await expect
-    .poll(
-      async () => {
-        const r = await review("LFRPS12-1420");
-        seen.add(r);
-        return r;
-      },
-      { timeout: 30_000 },
-    )
-    .toBe("checked");
-  expect(seen.has("validated")).toBe(false);
   const dock = page.getByRole("complementary", { name: "Claude" });
+  await expect(dock.getByText(/^(Back to review|Re-check incomplete)$/).first()).toBeVisible({ timeout: 30_000 });
+  expect(await review("LFRPS12-1420")).toBe("draft");
   await expect(dock.getByText(/sectionneur avec TK/).first()).toBeVisible();
   await expect(page.getByRole("alert")).toHaveCount(0);
 });

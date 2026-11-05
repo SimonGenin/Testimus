@@ -36,6 +36,8 @@ export type RunCard = {
   files?: number;
   reverted?: boolean;
   review?: string;
+  /** why the fix's re-check did not finish */
+  message?: string;
   /** a review.fix run: its changes are shown in Review */
   fix?: boolean;
 };
@@ -87,11 +89,12 @@ export const PROJECT_RUN = "*project*";
 export const claudeOn = (claudeRunning: string | null, testId: string | null | undefined): boolean =>
   !!testId && (claudeRunning === testId || claudeRunning === PROJECT_RUN);
 
-// ponytail: review.fix re-checks in the same job — it says whether the test went back to checked, and why not
+// ponytail: review.fix re-checks in the same job — the fixed test goes back to Draft for review; the word says
+// whether its re-check finished, and why not
 export function fixOutcome(r: { review?: string; message?: string }): { word: string; note?: string } {
   if (!r.review) return { word: "check queued" };
-  if (r.review === "checked") return { word: "checked again" };
-  return { word: "still To fix", note: r.message || "The test did not go back to Checked." };
+  if (r.message) return { word: "re-check incomplete", note: r.message };
+  return { word: "back to review" };
 }
 
 export const kilo = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : String(n));
@@ -158,8 +161,8 @@ export type RunBadge = { label: string; tone: BadgeTone; icon: IconName };
 
 const OUTCOME: Record<string, Omit<RunBadge, "label">> = {
   "check queued": { tone: "info", icon: "clock" },
-  "checked again": { tone: "success", icon: "check-circle" },
-  "still To fix": { tone: "warning", icon: "to-fix" },
+  "back to review": { tone: "success", icon: "check-circle" },
+  "re-check incomplete": { tone: "warning", icon: "to-fix" },
 };
 
 // the run card's badges: what changed, then what became of the test's check — or that it was reverted

@@ -65,7 +65,7 @@ describe("which tests a filter keeps", () => {
   });
 
   it("is: generated, awaiting review, and changed since Jira", () => {
-    const made = doc({ generatedBy: "opus", review: "checked" });
+    const made = doc({ generatedBy: "opus", review: "draft" });
     expect(keep("is:generated", doc({}))).toBe(false);
     expect(keep("is:generated", made)).toBe(true);
     expect(keep("is:awaiting", made)).toBe(true);

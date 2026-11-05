@@ -170,7 +170,7 @@ describe("TestList helpers", () => {
     const mixed = [
       ref({ id: "hand", summary: "Hand draft" }),
       ref({ id: "gen-ok", summary: "Generated validated", generated: true, review: "validated" }),
-      { ...ref({ id: "gen-wait", summary: "Generated checked", generated: true, review: "checked" }), awaiting: true },
+      { ...ref({ id: "gen-wait", summary: "Generated checked", generated: true, review: "draft" }), awaiting: true },
     ];
     const { state } = list({ refs: mixed });
     expect(item(/^Hand draft/)).toBeInTheDocument();

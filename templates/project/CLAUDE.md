@@ -7,7 +7,7 @@ files. The work goes:
 1. **Documents** are added and converted to markdown with stable anchors, then indexed (locally).
 2. **Generation** writes new tests from the documents, every claim with its source (`review: draft`).
 3. **Check**: a mechanical pass (sources resolve, quotes are verbatim) then a semantic one (does the
-   passage say what the step claims?). A semantically checked test is `checked`.
+   passage say what the step claims?). The check writes findings; it never changes the review state.
 4. **Review**: a person validates the test (`validated`) or sends it back with a note (`to-fix`);
    a fix run corrects it from the note and the findings.
 5. **Xray sync**: tests are pulled from and pushed to Jira; the review state travels as a label.

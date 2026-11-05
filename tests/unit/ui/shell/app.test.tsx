@@ -73,7 +73,7 @@ beforeEach(() => {
     ],
   });
   net.routes["project.info"] = () =>
-    info({ counts: { docs: 1, tests: 2, review: { checked: 2, "to-fix": 1 }, awaiting: 3, jobsRunning: 0 } });
+    info({ counts: { docs: 1, tests: 2, review: { draft: 2, "to-fix": 1 }, awaiting: 3, jobsRunning: 0 } });
   net.routes["system.credentials"] = net.routes["system.setCredentials"] = () => ({
     status: { jira: { complete: true }, xray: { complete: true } },
   });

@@ -33,7 +33,7 @@ description: Correct one Xray test from a reviewer's "To fix" note and the test'
 - A finding you think is wrong: leave the step, explain why in the reply, citing the passage.
 - Do not touch `review`, `review_note`, `reviewed_by`, `reviewed_at` or `generated_by` in the
   frontmatter, and do not edit `check.json`: Testimus re-checks the test after your run and sets it
-  back to `checked` itself. Never `validated` — that is the reviewer's decision.
+  back to `draft` itself, for the reviewer. Never `validated` — that is the reviewer's decision.
 
 ## Reply
 

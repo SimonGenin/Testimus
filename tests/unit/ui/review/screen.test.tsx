@@ -255,7 +255,7 @@ describe("Review screen", () => {
     reviewRoutes({ queue: [] });
     net.routes["review.queue"] = () => ({
       tests: [],
-      counts: { checked: 0, toFix: 0, draft: 0, unchecked: 0, validated: 2 },
+      counts: { toFix: 0, draft: 0, unchecked: 0, validated: 2 },
     });
     const { app: a } = show({ route: { screen: "review" } });
     expect(await screen.findByText("All reviewed")).toBeInTheDocument();
@@ -267,7 +267,7 @@ describe("Review screen", () => {
   it("filters that leave nothing: the main column says what the queue says, and clears them too", async () => {
     reviewRoutes({ queue: [] });
     net.routes["review.queue"] = (i) =>
-      i.withFindings ? { tests: [], counts: { checked: 0, toFix: 0, draft: 0, unchecked: 0 } } : null;
+      i.withFindings ? { tests: [], counts: { toFix: 0, draft: 0, unchecked: 0 } } : null;
     show({ route: { screen: "review" } });
     fireEvent.click(await screen.findByRole("checkbox", { name: "Only with findings" }));
     const main = screen.getByRole("region", { name: "Test under review" });
@@ -575,20 +575,20 @@ describe("Review screen", () => {
   });
 
   it("while Claude fixes the test the decisions are off; its unfinished fix is explained", async () => {
-    reviewRoutes({ tests: { "K-1": { review: "to-fix" } } });
+    reviewRoutes({ tests: { "K-1": { review: "draft" } } });
     const { rerender } = show({ claudeRunning: "K-1" });
     await screen.findByRole("heading", { name: "Summary K-1" });
     expect(screen.getByText("Claude is fixing this test")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Validate(?!d)/ })).toBeDisabled();
     expect(screen.getByRole("button", { name: /^To fix/ })).toBeDisabled();
-    const done = { runId: "r", changedTests: [], changedSteps: {}, nonce: 1, testId: "K-1", review: "to-fix" };
-    rerender(<ReviewScreen />, { claudeRunning: null, lastRun: { ...done, message: "Two errors left" } });
-    expect(await screen.findByRole("status", { name: "Claude's fix" })).toHaveTextContent("Two errors left");
-    rerender(<ReviewScreen />, { lastRun: { ...done, nonce: 2 } });
-    expect(screen.getByRole("status", { name: "Claude's fix" })).toHaveTextContent(
-      "Claude's fix did not bring the test back to Checked.",
+    const done = { runId: "r", changedTests: [], changedSteps: {}, nonce: 1, testId: "K-1", review: "draft" };
+    rerender(<ReviewScreen />, { claudeRunning: null, lastRun: { ...done, message: "The re-check did not finish" } });
+    expect(await screen.findByRole("status", { name: "Claude's fix" })).toHaveTextContent(
+      "The re-check did not finish",
     );
-    rerender(<ReviewScreen />, { lastRun: { ...done, nonce: 3, review: "checked" } });
+    rerender(<ReviewScreen />, { lastRun: { ...done, nonce: 2 } });
+    expect(screen.queryByRole("status", { name: "Claude's fix" })).toBeNull();
+    rerender(<ReviewScreen />, { lastRun: { ...done, nonce: 3, review: "to-fix", message: "Old" } });
     expect(screen.queryByRole("status", { name: "Claude's fix" })).toBeNull();
   });
 
@@ -779,7 +779,7 @@ describe("Review screen", () => {
     });
     net.routes["review.queue"] = () => ({
       tests: [item("L-1"), item("L-2")],
-      counts: { checked: 1, toFix: 1, draft: 0, unchecked: 0 },
+      counts: { toFix: 1, draft: 1, unchecked: 0 },
     });
     net.routes["claude.status"] = () => ({ installed: false, signedIn: null });
     const { app: a } = show({ route: { screen: "review", arg: "L-1" } });

@@ -36,7 +36,7 @@ export function ReplaceTests({
     >
       <p {...stylex.props(type.body, styles.p)}>
         To generate, Testimus first deletes the {plural(count, "test")} Claude wrote that {count === 1 ? "is" : "are"}{" "}
-        not validated yet (draft, checked or to fix). Validated tests and tests already in Jira are kept. To keep one,{" "}
+        not validated yet (draft or to fix). Validated tests and tests already in Jira are kept. To keep one,{" "}
         <Button variant="link" label="validate it in Review first" onClick={onReview} />.
       </p>
     </Modal>

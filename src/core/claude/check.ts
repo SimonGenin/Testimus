@@ -2,7 +2,7 @@ import { type Ctx, UserError } from "../command.ts";
 import { agentPool, loadLine } from "../lib/agents.ts";
 import { type Corpus, loadCorpus, recordSemantic, runMechanical, semanticOf } from "../lib/check.ts";
 import { readProject } from "../lib/project.ts";
-import { readTestReview, setReview } from "../lib/review.ts";
+import { readTestReview } from "../lib/review.ts";
 import { listLocalTests, readCheck, testExists } from "../lib/store.ts";
 import type { CheckFile, Diagnosis, Finding, Review } from "../types.ts";
 import { proposeLines } from "./actions.ts";
@@ -165,13 +165,6 @@ export async function checkOne(
     runId: r.runId,
     ...(r.diagnosis ? { diagnosis: r.diagnosis } : {}),
   };
-}
-
-// ponytail: draft → checked only after a semantic pass that finished and recorded its findings (SPEC §9)
-export function promoteChecked(ctx: Ctx, project: string, r: TestCheck): Review {
-  if (r.ok && r.semantic && r.review === "draft" && !ctx.signal.aborted)
-    return setReview(project, r.id, { review: "checked" }).review;
-  return r.review;
 }
 
 export async function checkTests(ctx: Ctx, project: string, ids: string[], semantic: boolean): Promise<TestCheck[]> {

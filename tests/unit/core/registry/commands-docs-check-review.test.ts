@@ -169,7 +169,7 @@ describe("review commands", () => {
     cloneTest("local-0000000a", "to-fix");
     cloneTest("local-0000000b", "draft", "/Signalisation");
     cloneTest("local-0000000c", "draft", "/Signalisation");
-    cloneTest("local-0000000d", "checked", "/Traction/Sectionneurs");
+    cloneTest("local-0000000d", "draft", "/Traction/Sectionneurs");
     const t = new Date("2026-01-01T00:00:00Z");
     for (const id of ["local-0000000b", "local-0000000c"]) utimesSync(join(project, "tests", id, "test.md"), t, t);
   });
@@ -179,11 +179,11 @@ describe("review commands", () => {
       ((await run("review.queue", { sort })).tests as { id: string }[]).map((t) => t.id);
     expect(await ids("state")).toEqual([
       "LFRPS12-1420",
+      "local-0000000b",
+      "local-0000000c",
       "local-0000000d",
       "local-0000000a",
       LOCAL,
-      "local-0000000b",
-      "local-0000000c",
     ]);
     const byAnomalies = await ids("anomalies");
     expect(byAnomalies).toHaveLength(6);
@@ -213,7 +213,7 @@ describe("review commands", () => {
   it("filters the queue by state, folder and findings", async () => {
     const q = await run("review.queue", { state: ["draft"], folder: "/Signalisation/" });
     expect(q.tests.map((t: { id: string }) => t.id)).toEqual(["local-0000000b", "local-0000000c"]);
-    expect(q.counts).toMatchObject({ draft: 2, toFix: 2 });
+    expect(q.counts).toMatchObject({ draft: 4, toFix: 2 });
     const root = await run("review.queue", { folder: "/" });
     expect(root.tests).toHaveLength(6);
     const findings = await run("review.queue", { withFindings: true });

@@ -54,9 +54,7 @@ const styles = stylex.create({
 
 // ponytail: the message of Claude's last fix of this test, while the test is still in the state the fix left it in
 const fixMessage = (run: ClaudeRun | null, data: Loaded) =>
-  run?.testId === data.id && run.review && run.review !== "checked" && run.review === data.test.review
-    ? run.message || "Claude's fix did not bring the test back to Checked."
-    : undefined;
+  run?.testId === data.id && run.message && run.review === data.test.review ? run.message : undefined;
 
 export function ReviewScreen() {
   const app = useApp();

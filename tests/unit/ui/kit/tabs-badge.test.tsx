@@ -178,7 +178,7 @@ describe("Badge", () => {
   it("speaks the fixed vocabularies: review, severity, sync and diff", () => {
     render(
       <>
-        {(["draft", "checked", "to-fix", "validated"] as const).map((s) => (
+        {(["draft", "to-fix", "validated"] as const).map((s) => (
           <ReviewBadge key={s} state={s} />
         ))}
         {(["error", "warning", "info"] as const).map((s) => (

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { checkTests, promoteChecked, selectTests, semanticPlan } from "../claude/check.ts";
+import { checkTests, selectTests, semanticPlan } from "../claude/check.ts";
 import { CHECK_FILE, FINDING_KINDS, REVIEW, SEVERITY, TEST_REF } from "../claude/schemas.ts";
 import { command, projectOf, UserError } from "../command.ts";
 import { isStale, recordSemantic } from "../lib/check.ts";
@@ -24,7 +24,7 @@ export const commands = [
   command({
     name: "check.run",
     summary:
-      "Check tests: the mechanical pass (sources resolve, quotes found, empty or duplicated steps), then the check-test skill on each (3 in parallel); writes check.json. A draft test becomes checked.",
+      "Check tests: the mechanical pass (sources resolve, quotes found, empty or duplicated steps), then the check-test skill on each (3 in parallel); writes check.json. The check never changes a test's review state.",
     input: z.object({
       ids: z.array(z.string()).optional().describe("Test ids to check"),
       folder: z.string().optional().describe("Check every test of this Xray folder and its subfolders"),
@@ -67,17 +67,14 @@ export const commands = [
       const plan = await semanticPlan(input.semantic, ctx.signal);
       if (plan.why) ctx.log("info", plan.why);
       const results = await checkTests(ctx, project, ids, plan.semantic);
-      const tests = results.map((r) => {
-        const review = promoteChecked(ctx, project, r);
-        return {
-          id: r.id,
-          ok: r.ok,
-          review,
-          ...tally(r.check.findings),
-          ...(r.summary !== undefined ? { summary: r.summary } : {}),
-          ...(r.runId ? { runId: r.runId } : {}),
-        };
-      });
+      const tests = results.map((r) => ({
+        id: r.id,
+        ok: r.ok,
+        review: r.review,
+        ...tally(r.check.findings),
+        ...(r.summary !== undefined ? { summary: r.summary } : {}),
+        ...(r.runId ? { runId: r.runId } : {}),
+      }));
       return {
         tests,
         totals: tally(results.flatMap((r) => r.check.findings)),

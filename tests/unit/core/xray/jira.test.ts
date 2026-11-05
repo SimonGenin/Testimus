@@ -611,23 +611,21 @@ describe("planPush — review label", () => {
     });
     const local = localTest({
       key: "BHPTCC-2234",
-      review: "checked",
+      review: "to-fix",
       labels: ["bhp", "testimus-draft", "testimus-batch-3"],
       steps: [step({ id: "s1", action: "do" })],
     });
     const plan = await planPush(local, "BHPTCC-2234", remote, deps);
-    expect(plan.ops.map((o) => [o.label, o.kind])).toEqual([
-      ["Update labels (review label testimus-checked)", "label"],
-    ]);
+    expect(plan.ops.map((o) => [o.label, o.kind])).toEqual([["Update labels (review label testimus-to-fix)", "label"]]);
     expect(plan.warnings).toEqual([
-      "This test is not validated (review: checked) — it goes to Jira labelled testimus-checked.",
+      "This test is not validated (review: to-fix) — it goes to Jira labelled testimus-to-fix.",
     ]);
     await runAll(plan.ops);
-    expect(restCalls()[0].body).toEqual({ fields: { labels: ["bhp", "testimus-batch-3", "testimus-checked"] } });
+    expect(restCalls()[0].body).toEqual({ fields: { labels: ["bhp", "testimus-batch-3", "testimus-to-fix"] } });
   });
 
   it("honours the project's label prefix", () => {
-    const all: Review[] = ["draft", "checked", "to-fix", "validated"];
+    const all: Review[] = ["draft", "to-fix", "validated"];
     for (const r of all) expect(reviewLabels(["qa-draft", "x"], r, "qa-")).toEqual(["x", `qa-${r}`]);
   });
 

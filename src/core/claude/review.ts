@@ -28,8 +28,8 @@ export type QueueSort = "state" | "anomalies" | "folder" | "recent";
 
 export type QueueFilter = { state?: Review[]; folder?: string; withFindings?: boolean; sort: QueueSort };
 
-const AWAITING: Review[] = ["checked", "to-fix", "draft"];
-const STATE_RANK: Record<Review, number> = { checked: 0, "to-fix": 1, draft: 2, validated: 3 };
+const AWAITING: Review[] = ["draft", "to-fix"];
+const STATE_RANK: Record<Review, number> = { draft: 0, "to-fix": 1, validated: 2 };
 
 export function needTest(project: string, t: string): void {
   if (!testExists(project, t))
@@ -103,7 +103,6 @@ export function reviewQueue(project: string, f: QueueFilter) {
   return {
     tests,
     counts: {
-      checked: n("checked"),
       toFix: n("to-fix"),
       draft: n("draft"),
       unchecked: awaiting.filter((t) => t.unchecked).length,

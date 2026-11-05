@@ -92,18 +92,18 @@ describe("revert after later edits", () => {
 });
 
 describe("review.fix outcome", () => {
-  it("says checked again, or still To fix with the server's message", () => {
-    expect(fixOutcome({ review: "checked" })).toEqual({ word: "checked again" });
-    expect(fixOutcome({ review: "to-fix", message: "The re-check found 1 error." })).toEqual({
-      word: "still To fix",
-      note: "The re-check found 1 error.",
+  it("says back to review, or that the re-check did not finish with the server's message", () => {
+    expect(fixOutcome({ review: "draft" })).toEqual({ word: "back to review" });
+    expect(fixOutcome({ review: "draft", message: "The re-check did not finish." })).toEqual({
+      word: "re-check incomplete",
+      note: "The re-check did not finish.",
     });
     expect(fixOutcome({})).toEqual({ word: "check queued" });
   });
 
-  it("shows the message in Review when the fix left the test To fix", () => {
-    view({ fixMessage: "The re-check found 1 error: quote not found on step 1." });
-    expect(screen.getByText("Still To fix after Claude's fix")).toBeInTheDocument();
-    expect(screen.getByText("The re-check found 1 error: quote not found on step 1.")).toBeInTheDocument();
+  it("shows the message in Review when the fix's re-check did not finish", () => {
+    view({ fixMessage: "Claude fixed K-1, but the semantic re-check did not finish." });
+    expect(screen.getByText("Re-check incomplete after Claude's fix")).toBeInTheDocument();
+    expect(screen.getByText("Claude fixed K-1, but the semantic re-check did not finish.")).toBeInTheDocument();
   });
 });

@@ -15,7 +15,7 @@ describe("api client", () => {
     const fetch = vi.fn(async () => reply(200, [{ id: "LFRPS12-1420" }]));
     vi.stubGlobal("fetch", fetch);
     setProject("C:\\Projets\\RATP Sosie");
-    const r = await call("tests.list", { review: "checked" });
+    const r = await call("tests.list", { review: "draft" });
     expect(r).toEqual([{ id: "LFRPS12-1420" }]);
     const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe("/api/tests/list");
@@ -23,7 +23,7 @@ describe("api client", () => {
     expect((init.headers as Record<string, string>)["X-Testimus-Project"]).toBe(
       encodeURIComponent("C:\\Projets\\RATP Sosie"),
     );
-    expect(JSON.parse(String(init.body))).toEqual({ review: "checked" });
+    expect(JSON.parse(String(init.body))).toEqual({ review: "draft" });
   });
 
   it("throws ApiError with the fix on a 4xx", async () => {

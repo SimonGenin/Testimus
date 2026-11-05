@@ -91,7 +91,7 @@ describe("the action store", () => {
     const md = readFileSync(f, "utf8");
     writeFileSync(
       f,
-      `${md.replace("review: checked", "review: validated").replace("folder: /Traction", "folder: /T")}\n`,
+      `${md.replace("review: draft", "review: validated").replace("folder: /Traction", "folder: /T")}\n`,
     );
     expect(listActions(dir)).toHaveLength(1);
     writeFileSync(f, md.replace("Vérifie le menu", "Contrôle le menu"));

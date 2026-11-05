@@ -32,7 +32,7 @@ const roundTrip = (s: string) => serializeTest(parseTest(s).test);
 const BODY = "## Description\n\nd\n\n## Step 1\n\n### Action\n\na\n";
 
 describe("M3 — a fence with trailing whitespace or CRLF is the same fence everywhere", () => {
-  const spaced = `--- \nkey: LFRPS12-7\nproject: LFRPS12\nsummary: S\nlabels: []\nreview: checked\n---\t\n\n${BODY}`;
+  const spaced = `--- \nkey: LFRPS12-7\nproject: LFRPS12\nsummary: S\nlabels: []\nreview: draft\n---\t\n\n${BODY}`;
 
   test("the parser reads the frontmatter behind `--- ` fences", () => {
     expect(parseTest(spaced).test).toMatchObject({ key: "LFRPS12-7", project: "LFRPS12", summary: "S" });
@@ -210,7 +210,7 @@ describe("minor 2 — a frontmatter value that does not parse is kept as written
     expect(warnings).toEqual(['Unknown review state "approved" — kept as written, read as draft']);
     expect(t.review).toBe("draft");
     expect(roundTrip(src)).toBe(src);
-    expect(parseTest(patchReview(src, { review: "checked" })).test.review).toBe("checked");
+    expect(parseTest(patchReview(src, { review: "draft" })).test.review).toBe("draft");
     expect(serializeTest({ ...t, review: "to-fix" })).toContain("review: to-fix\n");
   });
 

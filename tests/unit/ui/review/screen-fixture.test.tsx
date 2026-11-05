@@ -26,7 +26,7 @@ const test1420: Test = {
   description: "",
   covers: [],
   preconditions: [],
-  review: "checked",
+  review: "draft",
   steps: [
     {
       fields: { Action: "Ouvrir la vue de traction.", "Expected Result": "La vue s'affiche." },
@@ -50,7 +50,7 @@ const queued = (id: string, over: Record<string, unknown>) => ({
   id,
   summary: test1420.summary,
   folder: "/Traction/Sectionneurs",
-  review: "checked",
+  review: "draft",
   unchecked: false,
   errors: 0,
   warnings: 0,
@@ -71,7 +71,7 @@ function routes() {
         mtime: 2,
       }),
     ],
-    counts: { checked: 1, toFix: 1, draft: 0, unchecked: 1 },
+    counts: { toFix: 1, draft: 1, unchecked: 1 },
   });
   net.routes["tests.show"] = (i) => ({ id: i.id, test: test1420, sync: "synced", edited: false });
   net.routes["check.show"] = (i) => ({

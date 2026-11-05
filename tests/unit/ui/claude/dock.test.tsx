@@ -98,9 +98,8 @@ describe("dock helpers", () => {
 
   it("says how a fix ended", () => {
     expect(fixOutcome({})).toEqual({ word: "check queued" });
-    expect(fixOutcome({ review: "checked" })).toEqual({ word: "checked again" });
-    expect(fixOutcome({ review: "to-fix" }).note).toBe("The test did not go back to Checked.");
-    expect(fixOutcome({ review: "to-fix", message: "Step 2 still has no source" }).note).toBe(
+    expect(fixOutcome({ review: "draft" })).toEqual({ word: "back to review" });
+    expect(fixOutcome({ review: "draft", message: "Step 2 still has no source" }).note).toBe(
       "Step 2 still has no source",
     );
   });
@@ -405,7 +404,7 @@ describe("Claude dock: on a test", () => {
     expect(callsOf("claude.run")[1].input.scope).toEqual({ kind: "test", testId: "local-1" });
   });
 
-  it("reports a review fix: checked again, still To fix, several tests", async () => {
+  it("reports a review fix: back to review, re-check incomplete, several tests", async () => {
     mount({}, { focus: focus() });
     expect(screen.getByText("local test")).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "Step" })).toBeDisabled();
@@ -415,22 +414,22 @@ describe("Claude dock: on a test", () => {
       runId: "r",
       changedTests: ["a", "b"],
       changedSteps: { a: [1], b: [] },
-      review: "checked",
+      review: "draft",
     });
     ask("Fix");
     expect(await screen.findByText("1 step changed in 2 tests")).toBeInTheDocument();
-    expect(screen.getByText("Checked again")).toBeInTheDocument();
+    expect(screen.getByText("Back to review")).toBeInTheDocument();
     net.routes["claude.run"] = () => ({
       ok: true,
       summary: "Tried",
       runId: "r2",
       changedSteps: { "local-1": [4] },
-      review: "to-fix",
+      review: "draft",
       message: "Step 4 still has no source",
     });
     ask("Fix again");
     expect(await screen.findByText("Step 4 still has no source")).toBeInTheDocument();
-    expect(screen.getAllByText("Still To fix")).toHaveLength(2);
+    expect(screen.getAllByText("Re-check incomplete")).toHaveLength(2);
     expect(screen.getByText("1 step changed")).toBeInTheDocument();
   });
 
@@ -648,9 +647,9 @@ describe("Claude dock: requests from the app", () => {
     await waitFor(() => expect(callsOf("review.fix")).toHaveLength(1));
     update({ request: jobReq(2) });
     expect(await screen.findByText("Claude is busy")).toBeInTheDocument();
-    await act(async () => finish({ ok: true, summary: "Fixed", runId: "f1", changedSteps: [1], review: "checked" }));
+    await act(async () => finish({ ok: true, summary: "Fixed", runId: "f1", changedSteps: [1], review: "draft" }));
     expect(await screen.findByText("1 step changed")).toBeInTheDocument();
-    expect(screen.getByText("Checked again")).toBeInTheDocument();
+    expect(screen.getByText("Back to review")).toBeInTheDocument();
     net.routes["review.fix"] = () => {
       throw new Fail("no such test");
     };

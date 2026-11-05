@@ -7,7 +7,7 @@ import { fieldOrder } from "../lib/columns.ts";
 import { readProject } from "../lib/project.ts";
 import { listLocalTests, markGenerated, readTest, removeTest, testExists, writeTest } from "../lib/store.ts";
 import { awaitsReview, type ClaudeEvent, type Diagnosis, type Tokens } from "../types.ts";
-import { checkTests, promoteChecked } from "./check.ts";
+import { checkTests } from "./check.ts";
 import { checkGenInput, type GenInput, genPrompt, indexGate, plannedInput } from "./gen-prompt.ts";
 import { type GenReport, parseGenReport, parsePlan, type Skipped, type TestPlan } from "./gen-reply.ts";
 import { ledgerOf, readLedger, type Searched, writeLedger } from "./ledger.ts";
@@ -275,7 +275,7 @@ export async function generateTests(project: string, asked: GenInput, ctx: Ctx):
       checks.push({
         id: r.id,
         ok: r.ok,
-        review: promoteChecked(ctx, project, r),
+        review: r.review,
         errors: n("error"),
         warnings: n("warning"),
       });

@@ -55,7 +55,7 @@ const banners = (over: Partial<BannersProps> = {}): BannersProps => ({
 
 const queue = (over: Partial<ReviewQueueProps> = {}): ReviewQueueProps => ({
   items: [item("a", { errors: 0, warnings: 0, infos: 0 })],
-  counts: { checked: 1, toFix: 0, draft: 0, unchecked: 0 },
+  counts: { toFix: 0, draft: 1, unchecked: 0 },
   activeId: "a",
   filter: "all",
   sort: "anomalies",
