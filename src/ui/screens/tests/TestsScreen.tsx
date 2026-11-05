@@ -12,11 +12,13 @@ import { project } from "../../lib/data/client.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { keepDraft } from "../../lib/drafts.ts";
 import { usePaneWidth } from "../../lib/panes.ts";
+import { usePref } from "../../lib/prefs.ts";
 import { errorToast } from "../../lib/toast.ts";
 import { border, color, size, space } from "../../styles/tokens.stylex.ts";
 import { ConnectAtlassian } from "../settings/ConnectAtlassian.tsx";
 import { useNewTest } from "./list/newTest.ts";
 import type { Listed } from "./list/tree.ts";
+import { useListView } from "./list/useListView.ts";
 import { PullPane } from "./PullPane.tsx";
 import { abandonPulls, cancelPull, onPullLanded, startPull, usePullStage, usePulls, watchPull } from "./pulls.ts";
 import { TestEditor } from "./TestEditor.tsx";
@@ -24,6 +26,8 @@ import { TestList } from "./TestList.tsx";
 
 export const NARROW = 900;
 const SIDEBAR = { min: 260, max: 480, initial: 320 };
+// ponytail: Jira's folders and tests side by side need about two lists' width
+const SIDEBAR_WIDE = { min: 480, max: 1200, initial: 640 };
 
 const styles = stylex.create({
   screen: { display: "flex", flex: 1, minWidth: 0, minHeight: 0, height: "100%", backgroundColor: color.canvas },
@@ -75,8 +79,14 @@ export function TestsScreen() {
   const has = !!project();
   const listQ = useRead("tests.list", {}, { enabled: has });
   const refs = (Array.isArray(listQ.data) ? listQ.data : []) as LocalTestRef[];
-  const side = usePaneWidth("sidebarWidth", SIDEBAR);
   const narrow = useNarrow();
+  const tab = useListView().tab;
+  const [jiraLayout] = usePref("jiraLayout");
+  const jiraOn = !!app.info?.project?.jiraProject && !app.info.project.jiraOffline;
+  const wide = !narrow && tab === "jira" && jiraOn && jiraLayout === "columns";
+  const slim = usePaneWidth("sidebarWidth", SIDEBAR);
+  const broad = usePaneWidth("sidebarWideWidth", SIDEBAR_WIDE);
+  const side = wide ? broad : slim;
   const [drawer, setDrawer] = useState(false);
   const pulls = usePulls();
   // ponytail: while Jira or Xray access is incomplete the empty pane is the connection form (Xray Editor shows its
@@ -159,6 +169,7 @@ export function TestsScreen() {
     <TestList
       key={dir ?? ""}
       refs={refs}
+      narrow={narrow}
       loading={has && listQ.isPending}
       activeId={activeId}
       onOpen={open}

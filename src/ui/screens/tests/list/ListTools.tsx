@@ -1,8 +1,10 @@
 import * as stylex from "@stylexjs/stylex";
 import { Button } from "../../../components/ui/Button.tsx";
+import { Segmented } from "../../../components/ui/Segmented.tsx";
 import { Text } from "../../../components/ui/Text.tsx";
 import { Tooltip } from "../../../components/ui/Tooltip.tsx";
 import { border, color, space } from "../../../styles/tokens.stylex.ts";
+import type { JiraLayout } from "../JiraTab.tsx";
 
 const styles = stylex.create({
   tools: {
@@ -22,7 +24,7 @@ const styles = stylex.create({
 });
 
 // the two boxes and the tools above the list, as in Xray Editor: « Search Jira » asks Jira, « Filter tests » narrows
-// what is listed (Enter sends it to Jira as a search); New test, Clone, Pull, Show in Explorer
+// what is listed (Enter sends it to Jira as a search); New test, Clone, Pull, Jira's layout, Show in Explorer
 export function ListTools({
   jira,
   local,
@@ -34,6 +36,8 @@ export function ListTools({
   pullLock = false,
   canReveal,
   reveal,
+  layout,
+  onLayout,
   noProject = false,
   jiraOff = false,
   onSearch,
@@ -58,6 +62,9 @@ export function ListTools({
   canReveal: boolean;
   /** the desktop window is there to reveal a file */
   reveal: boolean;
+  /** Jira's folders and tests side by side or one above the other — no switch when undefined */
+  layout?: JiraLayout;
+  onLayout?: (layout: JiraLayout) => void;
   /** no project is open: nothing to filter, nowhere to create */
   noProject?: boolean;
   /** the Jira tab of a project not connected to Jira: its search and Pull wait for the connection */
@@ -127,6 +134,18 @@ export function ListTools({
           />
         )}
         <span {...stylex.props(styles.grow)} />
+        {layout && onLayout && (
+          <Segmented<JiraLayout>
+            size="sm"
+            label="Folders and tests"
+            value={layout}
+            onChange={onLayout}
+            options={[
+              { value: "columns", label: "Side by side", icon: "layout-split", iconOnly: true },
+              { value: "rows", label: "One above the other", icon: "layout-stacked", iconOnly: true },
+            ]}
+          />
+        )}
         {reveal && (
           <Button
             size="sm"

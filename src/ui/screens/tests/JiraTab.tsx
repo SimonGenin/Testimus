@@ -7,11 +7,13 @@ import { Button } from "../../components/ui/Button.tsx";
 import { EmptyState } from "../../components/ui/EmptyState.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { List } from "../../components/ui/List.tsx";
+import { ResizeHandle } from "../../components/ui/ResizeHandle.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { type } from "../../components/ui/type.ts";
 import { project } from "../../lib/data/client.ts";
 import { read } from "../../lib/data/query.ts";
 import { plural } from "../../lib/format.ts";
+import { usePaneShare } from "../../lib/panes.ts";
 import { errorToast } from "../../lib/toast.ts";
 import { border, color, size, space } from "../../styles/tokens.stylex.ts";
 import { KeyText, SYNC_OF, SYNC_TIP } from "./list/rows.tsx";
@@ -21,7 +23,24 @@ export { findFolder, folderName };
 
 export const PAGE = 100;
 
+export type JiraLayout = "columns" | "rows";
+
 const styles = stylex.create({
+  split: { flex: 1, minHeight: 0, minWidth: 0, display: "flex" },
+  rows: { flexDirection: "column" },
+  pane: { display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 },
+  first: { flexGrow: 0, flexShrink: 0 },
+  rest: { flex: 1 },
+  scroll: {
+    flex: 1,
+    minHeight: 0,
+    overflow: "auto",
+    display: "flex",
+    flexDirection: "column",
+    gap: space.s2,
+    paddingBlock: space.s2,
+  },
+  flush: { borderBlockStartStyle: "none" },
   head: {
     boxSizing: "border-box",
     display: "flex",
@@ -54,9 +73,11 @@ function Busy({ label, children }: { label: string | null; children: ReactNode }
   );
 }
 
-// ponytail: Jira's side of the list — the project's Xray folder tree, then the tests of the folder picked (slices of
-// 100, the next asked when the end of the list shows) or of a Jira search; a test not pulled yet is pulled when opened
+// ponytail: Jira's side of the list — two panes, each scrolling on its own, side by side or one above the other: the
+// project's Xray folder tree, and the tests of the folder picked (slices of 100, the next asked when the end of the list
+// shows) or of a Jira search; a test not pulled yet is pulled when opened
 export function JiraTab({
+  layout = "columns",
   tree,
   query,
   filter = "",
@@ -71,6 +92,8 @@ export function JiraTab({
   onPullFolder,
   onNew,
 }: {
+  /** the two panes side by side (folders left) or one above the other (folders on top) */
+  layout?: JiraLayout;
   tree: Folder | null;
   query: string;
   filter?: string;
@@ -86,6 +109,8 @@ export function JiraTab({
   onNew: () => void;
 }) {
   const client = useQueryClient();
+  const rowsLayout = layout === "rows";
+  const split = usePaneShare(rowsLayout ? "jiraRowsShare" : "jiraColumnsShare", rowsLayout ? "height" : "width");
   const [list, setList] = useState<Slice>({ tests: [], total: 0 });
   const [loading, setLoading] = useState(true);
   // ponytail: what the accumulated list already holds — a ref, because the end of the list fires outside render, and
@@ -162,128 +187,143 @@ export function JiraTab({
   const byTestKey = new Map(shownTests.map((t) => [t.key, t]));
 
   return (
-    <>
-      {(tree || !query) && (
-        <Busy label={!tree ? "Loading folders" : null}>
-          <List<(typeof rows)[number]>
-            label="Jira folders"
-            tree
-            loading={!tree ? 5 : false}
-            items={rows}
-            selected={query ? null : folder}
-            getKey={(r) => r.folder.path}
-            onSelect={onPickFolder}
-            onToggle={onPickFolder}
-            renderItem={({ folder: f, depth }) => ({
-              title: f.path === "/" ? "Test Repository" : f.name,
-              tooltip: needle ? f.path : undefined,
-              depth: needle ? 0 : depth,
-              expanded: f.folders.length && !needle ? expanded.has(f.path) : null,
-              lead: (
-                <Icon name={f.folders.length && !needle && expanded.has(f.path) ? "folder-open" : "folder"} size="sm" />
-              ),
-              trail: (
-                <span
-                  {...stylex.props(type.code, styles.count)}
-                  title={`${f.testsCount} directly in this folder, ${f.totalCount} including sub-folders`}
-                >
-                  {f.testsCount === f.totalCount ? f.totalCount : `${f.testsCount}/${f.totalCount}`}
-                </span>
-              ),
-              actions:
-                f.totalCount > 0 ? (
-                  <Button
-                    variant="quiet"
-                    size="xs"
-                    iconOnly
-                    icon="download"
-                    label={`Pull every test of ${folderName(f.path)}`}
-                    disabled={busyFolders.includes(f.path)}
-                    onClick={() => onPullFolder(f.path)}
+    <div ref={split.frame} {...stylex.props(styles.split, rowsLayout && styles.rows)}>
+      <div {...stylex.props(styles.pane, styles.first)} style={{ flexBasis: `${split.share}%` }}>
+        <div {...stylex.props(type.small, styles.head)}>
+          <span {...stylex.props(styles.path)}>Folders</span>
+        </div>
+        <div data-testid="jira-folders" {...stylex.props(styles.scroll)}>
+          <Busy label={!tree ? "Loading folders" : null}>
+            <List<(typeof rows)[number]>
+              label="Jira folders"
+              tree
+              loading={!tree ? 5 : false}
+              items={rows}
+              selected={query ? null : folder}
+              getKey={(r) => r.folder.path}
+              onSelect={onPickFolder}
+              onToggle={onPickFolder}
+              renderItem={({ folder: f, depth }) => ({
+                title: f.path === "/" ? "Test Repository" : f.name,
+                tooltip: needle ? f.path : undefined,
+                depth: needle ? 0 : depth,
+                expanded: f.folders.length && !needle ? expanded.has(f.path) : null,
+                lead: (
+                  <Icon
+                    name={f.folders.length && !needle && expanded.has(f.path) ? "folder-open" : "folder"}
+                    size="sm"
                   />
-                ) : undefined,
-            })}
-          />
-        </Busy>
-      )}
-      {ready && (
-        <>
-          <div {...stylex.props(type.small, styles.head)}>
-            <span {...stylex.props(!(!query && folder === "/") && type.code, styles.path)}>
-              {query ? `search “${query}”` : folderName(folder)}
-            </span>
-            {!busy && (
-              <span data-testid="jira-range" {...stylex.props(styles.range)}>
-                {query ? `${list.tests.length} found` : list.total ? `${list.tests.length} of ${list.total}` : "0"}
-              </span>
-            )}
-          </div>
-          <Busy
-            label={busy ? (query ? `Searching Jira for ${query}` : `Loading tests in ${folderName(folder)}`) : null}
-          >
-            <List<RemoteTestRef>
-              label={query ? `Jira tests found for ${query}` : `Jira tests in ${folderName(folder)}`}
-              items={shownTests}
-              loading={busy ? 6 : false}
-              getKey={(t) => t.key}
-              selected={open}
-              density="two-line"
-              onEndReached={
-                !query && list.tests.length < list.total ? () => loadSlice(listKey, at.current.page + 1) : undefined
-              }
-              onSelect={(k) => {
-                const t = byTestKey.get(k);
-                if (t) onOpenRemote(t);
-              }}
-              empty={
-                list.tests.length ? (
-                  <EmptyState icon="search" compact title={`No listed test matches “${filter}”.`} />
-                ) : query ? (
-                  <EmptyState icon="search" compact title={`Nothing in Jira matches “${query}”.`} />
-                ) : (
-                  <EmptyState
-                    icon="folder"
-                    compact
-                    title="No tests in this folder"
-                    text={`${folderName(folder)} is empty. Pick another folder, or create a test locally.`}
-                    actions={<Button size="sm" icon="plus" label="New test" onClick={onNew} />}
-                  />
-                )
-              }
-              renderItem={(t) => {
-                const local = byKey.get(t.key);
-                const busyRow = pulling.includes(t.key);
-                return {
-                  title: t.summary,
-                  tooltip: local
-                    ? t.summary
-                    : busyRow
-                      ? "Being pulled now"
-                      : "Not pulled yet — opening it downloads it into the project",
-                  meta: (
-                    <span {...stylex.props(styles.meta)}>
-                      <KeyText text={t.key} />
-                      {t.status && <Badge {...jiraStatus(t.status)} size="sm" />}
-                      {local ? (
-                        <Badge {...SYNC_OF[local.sync]} tooltip={SYNC_TIP[local.sync]} size="sm" />
-                      ) : (
-                        <Badge label={busyRow ? "Pulling…" : "Not pulled"} size="sm" busy={busyRow} />
-                      )}
-                    </span>
-                  ),
-                  trail: plural(t.stepCount, "step"),
-                };
-              }}
+                ),
+                trail: (
+                  <span
+                    {...stylex.props(type.code, styles.count)}
+                    title={`${f.testsCount} directly in this folder, ${f.totalCount} including sub-folders`}
+                  >
+                    {f.testsCount === f.totalCount ? f.totalCount : `${f.testsCount}/${f.totalCount}`}
+                  </span>
+                ),
+                actions:
+                  f.totalCount > 0 ? (
+                    <Button
+                      variant="quiet"
+                      size="xs"
+                      iconOnly
+                      icon="download"
+                      label={`Pull every test of ${folderName(f.path)}`}
+                      disabled={busyFolders.includes(f.path)}
+                      onClick={() => onPullFolder(f.path)}
+                    />
+                  ) : undefined,
+              })}
             />
           </Busy>
+        </div>
+      </div>
+      <ResizeHandle
+        label={rowsLayout ? "Resize the folders and the tests" : "Resize the folders"}
+        orientation={rowsLayout ? "horizontal" : "vertical"}
+        {...split.handle}
+      />
+      <div {...stylex.props(styles.pane, styles.rest)}>
+        <div {...stylex.props(type.small, styles.head, rowsLayout && styles.flush)}>
+          <span {...stylex.props(!(!query && folder === "/") && type.code, styles.path)}>
+            {query ? `search “${query}”` : folderName(folder)}
+          </span>
+          {ready && !busy && (
+            <span data-testid="jira-range" {...stylex.props(styles.range)}>
+              {query ? `${list.tests.length} found` : list.total ? `${list.tests.length} of ${list.total}` : "0"}
+            </span>
+          )}
+        </div>
+        <div data-testid="jira-tests" {...stylex.props(styles.scroll)}>
+          {ready && (
+            <Busy
+              label={busy ? (query ? `Searching Jira for ${query}` : `Loading tests in ${folderName(folder)}`) : null}
+            >
+              <List<RemoteTestRef>
+                label={query ? `Jira tests found for ${query}` : `Jira tests in ${folderName(folder)}`}
+                items={shownTests}
+                loading={busy ? 6 : false}
+                getKey={(t) => t.key}
+                selected={open}
+                density="two-line"
+                onEndReached={
+                  !query && list.tests.length < list.total ? () => loadSlice(listKey, at.current.page + 1) : undefined
+                }
+                onSelect={(k) => {
+                  const t = byTestKey.get(k);
+                  if (t) onOpenRemote(t);
+                }}
+                empty={
+                  list.tests.length ? (
+                    <EmptyState icon="search" compact title={`No listed test matches “${filter}”.`} />
+                  ) : query ? (
+                    <EmptyState icon="search" compact title={`Nothing in Jira matches “${query}”.`} />
+                  ) : (
+                    <EmptyState
+                      icon="folder"
+                      compact
+                      title="No tests in this folder"
+                      text={`${folderName(folder)} is empty. Pick another folder, or create a test locally.`}
+                      actions={<Button size="sm" icon="plus" label="New test" onClick={onNew} />}
+                    />
+                  )
+                }
+                renderItem={(t) => {
+                  const local = byKey.get(t.key);
+                  const busyRow = pulling.includes(t.key);
+                  return {
+                    title: t.summary,
+                    tooltip: local
+                      ? t.summary
+                      : busyRow
+                        ? "Being pulled now"
+                        : "Not pulled yet — opening it downloads it into the project",
+                    meta: (
+                      <span {...stylex.props(styles.meta)}>
+                        <KeyText text={t.key} />
+                        {t.status && <Badge {...jiraStatus(t.status)} size="sm" />}
+                        {local ? (
+                          <Badge {...SYNC_OF[local.sync]} tooltip={SYNC_TIP[local.sync]} size="sm" />
+                        ) : (
+                          <Badge label={busyRow ? "Pulling…" : "Not pulled"} size="sm" busy={busyRow} />
+                        )}
+                      </span>
+                    ),
+                    trail: plural(t.stepCount, "step"),
+                  };
+                }}
+              />
+            </Busy>
+          )}
           {filling && (
             <div role="status" aria-label={`Loading more tests in ${folderName(folder)}`}>
               <Skeleton kind="row" />
             </div>
           )}
           {complete && <span {...stylex.props(type.small, styles.end)}>all {list.total} loaded</span>}
-        </>
-      )}
-    </>
+        </div>
+      </div>
+    </div>
   );
 }

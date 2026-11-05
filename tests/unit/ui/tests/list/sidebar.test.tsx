@@ -720,6 +720,64 @@ describe("Tests screen › layout", () => {
     expect(screen.queryByRole("button", { name: "Show test list" })).toBeNull();
   });
 
+  it("puts Jira's folders and tests side by side in a wider sidebar, or one above the other, and remembers it", () => {
+    render(<Harness />);
+    expect(listSide().style.width).toBe("320px");
+    expect(screen.queryByRole("radiogroup", { name: "Folders and tests" })).toBeNull();
+    toJira();
+    expect(listSide().style.width).toBe("640px");
+    expect(screen.getByRole("radio", { name: "Side by side" })).toBeChecked();
+    expect(screen.getByRole("separator", { name: "Resize the folders" })).toHaveAttribute(
+      "aria-orientation",
+      "vertical",
+    );
+    fireEvent.click(screen.getByRole("radio", { name: "One above the other" }));
+    expect(localStorage.getItem("testimus.jiraLayout")).toBe("rows");
+    expect(listSide().style.width).toBe("320px");
+    expect(screen.getByRole("separator", { name: "Resize the folders and the tests" })).toHaveAttribute(
+      "aria-orientation",
+      "horizontal",
+    );
+    fireEvent.click(screen.getByRole("radio", { name: "Side by side" }));
+    expect(localStorage.getItem("testimus.jiraLayout")).toBeNull();
+    fireEvent.click(screen.getByRole("tab", { name: /^Local/ }));
+    expect(listSide().style.width).toBe("320px");
+  });
+
+  it("splits Jira's panes by a share of the sidebar: dragged, kept, and back to half on double-click", () => {
+    const width = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "clientWidth");
+    Object.defineProperty(HTMLElement.prototype, "clientWidth", { configurable: true, get: () => 600 });
+    try {
+      render(<Harness />);
+      toJira();
+      const edge = screen.getByRole("separator", { name: "Resize the folders" });
+      const first = edge.previousElementSibling as HTMLElement;
+      expect(first.style.flexBasis).toBe("50%");
+      fireEvent.pointerDown(edge, { clientX: 0 });
+      fireEvent.pointerMove(edge, { clientX: 900 });
+      expect(first.style.flexBasis).toBe("80%");
+      fireEvent.pointerMove(edge, { clientX: 60 });
+      fireEvent.pointerUp(edge);
+      expect(first.style.flexBasis).toBe("60%");
+      expect(localStorage.getItem("testimus.jiraColumnsShare")).toBe("60");
+      fireEvent.doubleClick(edge);
+      expect(first.style.flexBasis).toBe("50%");
+      expect(localStorage.getItem("testimus.jiraColumnsShare")).toBeNull();
+    } finally {
+      if (width) Object.defineProperty(HTMLElement.prototype, "clientWidth", width);
+    }
+  });
+
+  it("keeps Jira's folders above the tests in the narrow window's drawer, with no switch", () => {
+    localStorage.setItem("testimus.jiraLayout", "columns");
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 800 });
+    render(<Harness />);
+    fireEvent.click(screen.getByRole("button", { name: "Show test list" }));
+    toJira();
+    expect(screen.queryByRole("radiogroup", { name: "Folders and tests" })).toBeNull();
+    expect(screen.getByRole("separator", { name: "Resize the folders and the tests" })).toBeInTheDocument();
+  });
+
   it("the empty pane is the Jira/Xray connection form while access is incomplete (Xray Editor's connect screen)", async () => {
     const creds = (complete: boolean) => ({
       status: {

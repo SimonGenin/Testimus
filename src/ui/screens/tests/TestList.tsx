@@ -13,12 +13,13 @@ import { project, run } from "../../lib/data/client.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { desktop, pathJoin, reveal } from "../../lib/desktop.ts";
 import { message, plural } from "../../lib/format.ts";
+import { usePref } from "../../lib/prefs.ts";
 import { jumpTo, useSearch } from "../../lib/search.ts";
 import { errorToast, jobToast, toast } from "../../lib/toast.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 import { type DeleteTarget, DeleteTest, deleteTarget, deleteTest, needsAsking } from "./DeleteTest.tsx";
 import { JiraConnect, useDisconnect } from "./JiraConnect.tsx";
-import { JiraTab } from "./JiraTab.tsx";
+import { type JiraLayout, JiraTab } from "./JiraTab.tsx";
 import { FoundList } from "./list/FoundList.tsx";
 import { ListTools } from "./list/ListTools.tsx";
 import { LocalTree } from "./list/LocalTree.tsx";
@@ -51,6 +52,7 @@ const styles = stylex.create({
     gap: space.s2,
     paddingTop: space.s2,
   },
+  panes: { overflow: "hidden" },
   waiting: { paddingInline: space.s3 },
   conn: {
     boxSizing: "border-box",
@@ -80,6 +82,7 @@ export function TestList({
   pulling = [],
   onPull,
   onDeleted,
+  narrow = false,
 }: {
   refs: LocalTestRef[];
   loading: boolean;
@@ -89,7 +92,8 @@ export function TestList({
   pulling?: string[];
   onPull?: (key: string, summary: string) => void;
   onDeleted?: (id: string) => void;
-  /** in the drawer of a narrow window: how to close it */
+  /** in the drawer of a narrow window: Jira's folders and tests are one above the other, whatever the preference */
+  narrow?: boolean;
 }) {
   const app = useApp();
   const client = useQueryClient();
@@ -98,9 +102,14 @@ export function TestList({
   // ponytail: what the Jira side was loaded for — a new key, a reconnect or a disconnect starts it again
   const jiraFor = jiraOn ? `${app.info?.dir}|${p.jiraProject}` : "";
   const v = useListView();
+  const [kept, setLayout] = usePref("jiraLayout");
+  const layout = kept as JiraLayout;
   const treeQ = useRead("xray.folders", {}, { enabled: jiraOn });
   const tree = jiraOn ? ((treeQ.data as Folder | undefined) ?? null) : null;
   const treeError = jiraOn && treeQ.error ? message(treeQ.error) : "";
+  // ponytail: Jira's folders and tests scroll in their own panes, so the list's body does not scroll around them
+  const jiraPanes = v.tab === "jira" && jiraOn && !treeError;
+  const jiraLayout: JiraLayout = narrow ? "rows" : layout;
   const [busy, setBusy] = useState<string[]>([]);
   const [doomed, setDoomed] = useState<DeleteTarget | null>(null);
   const replacing = useReplaceWithJira({ onReplaced: () => void onReload() });
@@ -309,6 +318,8 @@ export function TestList({
           pullLock={activeLock}
           canReveal={!!activeId && !!project()}
           reveal={!!desktop()}
+          layout={jiraPanes && !narrow ? layout : undefined}
+          onLayout={setLayout}
           noProject={!project()}
           onSearch={v.setSearch}
           onFilter={v.setFilter}
@@ -322,7 +333,7 @@ export function TestList({
           }}
         />
       }
-      <div {...stylex.props(styles.body)}>
+      <div {...stylex.props(styles.body, jiraPanes && styles.panes)}>
         {v.tab === "local" ? (
           <>
             {waiting > 0 && listed.length > 0 && (
@@ -358,6 +369,7 @@ export function TestList({
               <Button size="xs" variant="quiet" label="Disconnect" onClick={() => void disconnect()} />
             </div>
             <JiraTab
+              layout={jiraLayout}
               tree={tree}
               query={query}
               filter={needle}

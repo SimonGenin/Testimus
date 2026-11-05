@@ -29,6 +29,11 @@ function width(min: number, max: number): Pref<number | null> {
   };
 }
 
+// a pane's share of the frame it splits with another, in percent
+function share(): Pref<number | null> {
+  return width(20, 80);
+}
+
 function text(fallback: string): Pref<string> {
   return { fallback, parse: (r) => r, show: (v) => v };
 }
@@ -36,6 +41,7 @@ function text(fallback: string): Pref<string> {
 export const PREFS = {
   theme: oneOf(["system", "light", "dark"], "system"),
   stepLayout: oneOf(["stacked", "split"], "stacked"),
+  jiraLayout: oneOf(["columns", "rows"], "columns"),
   showDetails: flag(true),
   jobsGroup: flag(true),
   alwaysOnTop: flag(false),
@@ -43,6 +49,9 @@ export const PREFS = {
   setupShown: flag(false, true),
   dockWidth: width(300, 720),
   sidebarWidth: width(240, 480),
+  sidebarWideWidth: width(480, 1200),
+  jiraColumnsShare: share(),
+  jiraRowsShare: share(),
   editorWidth: width(560, 4000),
   docsListWidth: width(200, 420),
   docsTocWidth: width(180, 420),
