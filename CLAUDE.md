@@ -31,8 +31,8 @@ node src/faces/cli.ts project set --rag.describe-figures=false   # one key of an
 node src/faces/cli.ts serve [--mock] [--port 4317|0] [--project <dir>] [--no-open] [--ready-json] [--exit-with-stdin]   # UI + API (build the UI first); the last two are for the desktop shell
 node src/faces/cli.ts mcp [--project <dir>]          # MCP server on stdio (what claude -p calls back)
 npm run desktop [-- --mock] [-- --ui-dev]            # bundle src/desktop → dist/desktop and open the Electron window (desktop:build only bundles)
-npm run release                    # dist/testimus-<version>-win-x64/ (Testimus.exe Electron shell, portable Node 26, bundle, models, install.ps1)
-powershell -ExecutionPolicy Bypass -File dist\testimus-<v>-win-x64\install.ps1 [-Root <dir>] [-NoPath] [-NoShortcut] [-NoDesktop] [-NoSetup] [-InstallClaude] [-NoPrompt]
+npm run release [-- --notes "…"] [-- --publish [<dir>]] [-- --channel <dir>] [-- --publish-only]   # dist/testimus-<version>-win-x64/ (Testimus.exe Electron shell, portable Node 26, bundle, models, install.ps1, release.json); --publish copies it to the team folder (default: this PC's Settings › Updates folder; a mapped drive is recorded as \\server\share), where installed copies find it; --channel moves the team folder (the PCs installing this release look there next)
+powershell -ExecutionPolicy Bypass -File dist\testimus-<v>-win-x64\install.ps1 [-Root <dir>] [-NoPath] [-NoShortcut] [-NoDesktop] [-NoSetup] [-InstallClaude] [-NoPrompt] [-Keep <n>]
 ```
 
 Dev models: `TESTIMUS_MODELS=D:/Projects/Testimus/.models` (bge-m3, Qwen3-Embedding-0.6B, reranker,

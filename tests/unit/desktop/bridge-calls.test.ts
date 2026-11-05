@@ -93,6 +93,7 @@ const deps = {
   details: vi.fn(() => ({ message: "boom", lines: ["a"], logDir: "L" })),
   restart: vi.fn(),
   openLogs: vi.fn(),
+  relaunch: vi.fn(),
 };
 registerBridge(deps);
 
@@ -234,6 +235,11 @@ describe("bridge calls", () => {
     await expect(page("setAlwaysOnTop", "yes")).rejects.toThrow("setAlwaysOnTop takes true or false.");
     await expect(page("setAlwaysOnTop")).rejects.toThrow(/true or false/);
     expect(win?.setAlwaysOnTop).toHaveBeenCalledTimes(2);
+  });
+
+  it("relaunch hands the restart to the shell, which quits the way the window's close does", async () => {
+    expect(await page("relaunch")).toBe(true);
+    expect(deps.relaunch).toHaveBeenCalledTimes(1);
   });
 
   it("notify shows a notification only when the window is not focused", async () => {

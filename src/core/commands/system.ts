@@ -7,6 +7,7 @@ import { AGENTS_CAP, AGENTS_DEFAULT, clampAgents } from "../lib/agents.ts";
 import { credsStatus, saveCreds, savedSecrets } from "../lib/creds.ts";
 import { jiraCheck, runDoctor, xrayCheck } from "../lib/doctor.ts";
 import { readSettings, writeSettings } from "../lib/project.ts";
+import { readUpdates, update } from "../lib/updates.ts";
 import { indexFile } from "../rag/db.ts";
 import { shellOf } from "../shell.ts";
 import type { DoctorCheck, Settings } from "../types.ts";
@@ -97,6 +98,19 @@ const settingsOut = z.object({
     .record(z.string(), z.string())
     .optional()
     .describe("The page's own preferences (widths, layout…), kept here so a new page origin finds them"),
+  updates: z
+    .object({
+      from: z.string().optional().describe("The update folder; empty = the folder Testimus was installed from"),
+    })
+    .optional()
+    .describe("Where new versions are looked for"),
+});
+
+const release = z.object({
+  version: z.string().describe("Its version"),
+  folder: z.string().describe("The release folder (its install.ps1 installs it)"),
+  notes: z.string().describe("What is new, from its release.json; empty if none"),
+  built: z.string().describe("When it was built (ISO); empty if unknown"),
 });
 
 const verdict = {
@@ -320,6 +334,12 @@ export const commands = [
         .record(z.string(), z.string())
         .optional()
         .describe("The page's testimus.* preferences, replaced whole (the UI mirrors its localStorage here)."),
+      updatesFrom: z
+        .string()
+        .optional()
+        .describe(
+          "The folder new versions are looked for in (a team share, e.g. \\\\server\\tools\\Testimus); empty = the folder Testimus was installed from.",
+        ),
     }),
     output: settingsOut,
     mutates: true,
@@ -331,8 +351,57 @@ export const commands = [
       if (input.agentsMax !== undefined) s.agents = { ...s.agents, max: clampAgents(input.agentsMax) };
       if (input.agentsAdaptive !== undefined) s.agents = { ...s.agents, adaptive: input.agentsAdaptive };
       if (input.ui) s.ui = Object.fromEntries(Object.entries(input.ui).filter(([k]) => k.startsWith("testimus.")));
+      if (input.updatesFrom !== undefined) {
+        const from = input.updatesFrom.trim().replace(/^"(.*)"$/, "$1");
+        if (from) s.updates = { ...s.updates, from };
+        else delete s.updates;
+      }
       writeSettings(s);
       return s;
+    },
+  }),
+  command({
+    name: "system.updates",
+    summary:
+      "Is a newer Testimus in the update folder? Reads the folder (Settings › Updates, else the one Testimus was installed from) and never fails: a folder that cannot be read is told in `problem`.",
+    input: z.object({}),
+    output: z.object({
+      current: z.string().describe("The version running now"),
+      installed: z.boolean().describe("This is an installed copy (install.ps1), so it can update itself"),
+      pending: z.string().describe("A newer version already installed, waiting for a restart; empty if none"),
+      source: z.string().describe("The update folder read; empty if none"),
+      sourceFrom: z
+        .enum(["settings", "install", "none"])
+        .describe("settings: set by hand; install: the folder Testimus was installed from; none"),
+      reachable: z.boolean().describe("The folder could be read"),
+      problem: z.string().describe("Why no update can be offered (folder missing, unreadable, empty); empty if fine"),
+      latest: release.nullable().describe("The newest release in the folder"),
+      available: z.boolean().describe("The newest release is newer than what runs (and than what waits)"),
+    }),
+    mutates: false,
+    global: true,
+    async run() {
+      return readUpdates(pkg.version, readSettings());
+    },
+  }),
+  command({
+    name: "system.update",
+    summary:
+      "Installs the newest Testimus of the update folder (or the version given) next to this one with its install.ps1; the new version starts at the next launch (the desktop app offers Restart).",
+    input: z.object({
+      version: z.string().optional().describe("The version to install; default the newest in the folder"),
+    }),
+    output: z.object({
+      version: z.string().describe("The version installed, current from the next launch"),
+      from: z.string().describe("The release folder it came from"),
+      previous: z.string().describe("The version running now"),
+    }),
+    mutates: true,
+    global: true,
+    job: "update",
+    subject: (input) => (input.version ? `Testimus ${input.version}` : "Testimus"),
+    async run(ctx, input) {
+      return update(ctx, pkg.version, readSettings(), input.version);
     },
   }),
   command({

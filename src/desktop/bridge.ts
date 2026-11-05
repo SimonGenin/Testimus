@@ -59,6 +59,7 @@ export function checkArgs(name: string, args: unknown[]): Checked {
   const [a] = args;
   switch (name) {
     case "version":
+    case "relaunch":
     case "details":
     case "restart":
     case "openLogs":
@@ -137,6 +138,7 @@ export type BridgeDeps = {
   details(): { message: string; lines: string[]; logDir: string };
   restart(): void;
   openLogs(): void;
+  relaunch(): void;
 };
 
 function roleOf(event: IpcMainEvent | IpcMainInvokeEvent, deps: BridgeDeps): Role {
@@ -219,6 +221,10 @@ export function registerBridge(deps: BridgeDeps): void {
     setAlwaysOnTop(v, win) {
       win.setAlwaysOnTop(v as boolean);
       return win.isAlwaysOnTop();
+    },
+    relaunch() {
+      deps.relaunch();
+      return true;
     },
   };
   for (const name of BRIDGE_CALLS) handle(name, "bridge", calls[name]);

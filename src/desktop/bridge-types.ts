@@ -12,6 +12,7 @@ export type TestimusDesktop = {
   setProgress(fraction: number | null): Promise<void>;
   notify(o: { title: string; body: string }): Promise<boolean>;
   setAlwaysOnTop(on: boolean): Promise<boolean>;
+  relaunch(): Promise<boolean>;
   onOpenProject(cb: (dir: string) => void): () => void;
 };
 
@@ -30,6 +31,7 @@ export const BRIDGE_CALLS = [
   "setProgress",
   "notify",
   "setAlwaysOnTop",
+  "relaunch",
 ] as const;
 
 export const SHELL_CALLS = ["details", "restart", "openLogs"] as const;

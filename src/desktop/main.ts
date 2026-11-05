@@ -11,6 +11,7 @@ import {
   cancelJobs,
   coreEnv,
   coreLaunch,
+  currentExe,
   findNode,
   killTree,
   quitDecision,
@@ -67,6 +68,7 @@ let closing = false;
 let allowClose = false;
 let stopped: Promise<void> | null = null;
 let shutDown = false;
+let relaunching = false;
 
 app.setPath("userData", join(dataDir(), "desktop"));
 app.setAppUserModelId(APP_ID);
@@ -218,6 +220,7 @@ async function requestQuit(): Promise<void> {
         if (r.response !== 0) {
           log("shell", "quit: keep working");
           closing = false;
+          relaunching = false;
           return;
         }
         log("shell", "quit: cancel and quit");
@@ -230,6 +233,11 @@ async function requestQuit(): Promise<void> {
   saveState();
   win.hide();
   await shutdown();
+  if (relaunching) {
+    const exe = packaged ? currentExe(exeDir, process.execPath) : process.execPath;
+    log("shell", `relaunch: ${exe}`);
+    app.relaunch(packaged ? { execPath: exe, args: [] } : undefined);
+  }
   allowClose = true;
   win.close();
 }
@@ -313,6 +321,11 @@ async function start(): Promise<void> {
     openLogs: () => {
       mkdirSync(logDir(), { recursive: true });
       shell.openPath(logDir());
+    },
+    relaunch: () => {
+      if (closing) return;
+      relaunching = true;
+      requestQuit();
     },
   });
   win = createWindow();

@@ -92,7 +92,12 @@ Audit of everything Xray Editor lets a user see, do or edit, then the gaps close
 - [x] E3 Bridge in the UI: Browse, `pathOf` → `docs.add { file }`, pickers, taskbar progress, notifications, reveal, CSP
 - [x] E4 Release: pinned Electron + SHA-256, rename, icon, fuses, asar (integrity), locales, shortcuts, `Unblock-File` —
       proven in a fresh folder (no Windows Sandbox on the build PC; a clean account remains with E0)
-- E5 (optional, out of scope this round): updates from a team folder, proxy from Windows settings
+- [x] E5a Updates from the team folder (no path in the code: `--publish <dir>` or Settings › Updates; a mapped drive
+      recorded as `\\server\share`; `--channel` moves it): `npm run release -- --publish` (hidden
+      `.partial` copy, renamed whole; release.json counts the files and names the folder), `system.updates` /
+      `system.update` (the release's install.ps1, same options; a half copy refused; two versions kept), Settings ›
+      Updates, the « available » and « installed — restart » notices, desktop `relaunch` on the new version's exe
+- E5b (optional): proxy from Windows settings, Explorer « Open in Testimus »
 
 ## Smart columns — 2026-11-03
 

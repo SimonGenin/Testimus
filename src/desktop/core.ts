@@ -1,6 +1,6 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { request } from "node:http";
-import { delimiter, join, resolve } from "node:path";
+import { basename, delimiter, dirname, join, resolve } from "node:path";
 import { withLoopback } from "../shared/loopback.ts";
 import { killTree, type Proc, start } from "../shared/run/process.ts";
 import { sleep } from "../shared/run/work.ts";
@@ -11,6 +11,19 @@ export { killTree };
 export const READY_TIMEOUT_MS = 30_000;
 export const STOP_TIMEOUT_MS = 10_000;
 export const UI_DEV_PORT = 4318;
+
+// ponytail: an installed copy runs from <root>\<version>\Testimus.exe; after an update current.txt names the new
+// version, whose exe is the one to start again — anything missing (not installed, a half folder) restarts this one
+export function currentExe(exeDir: string, execPath: string, read = (f: string) => readFileSync(f, "utf8")): string {
+  try {
+    const root = dirname(exeDir);
+    const version = read(join(root, "current.txt")).replace(/^﻿/, "").trim();
+    const exe = join(root, version, basename(execPath));
+    return version && !/[\\/]|^\.\.?$/.test(version) && existsSync(exe) ? exe : execPath;
+  } catch {
+    return execPath;
+  }
+}
 
 export type Ready = { url: string; origin: string; pid?: number; version?: string };
 export type Launch = { command: string; args: string[]; cwd: string };

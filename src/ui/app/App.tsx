@@ -14,6 +14,7 @@ import { firstSentence, hasInput } from "../components/shell/paletteEntries.tsx"
 import { Rail } from "../components/shell/Rail.tsx";
 import { ServerLost } from "../components/shell/ServerLost.tsx";
 import { TopBar, TopBarContext, useTopBarSlots } from "../components/shell/TopBar.tsx";
+import { UpdateNotice } from "../components/shell/UpdateNotice.tsx";
 import { PassageDialog } from "../components/sources/PassageDialog.tsx";
 import { docLink } from "../components/sources/PassageView.tsx";
 import { ResizeHandle } from "../components/ui/ResizeHandle.tsx";
@@ -302,6 +303,7 @@ export function App() {
       )}
       <Toaster clearEnd={route.screen === "setup" || dock.folded ? undefined : `${dockPane.width}px`} />
       <DesktopBridge booted={p.booted} />
+      <UpdateNotice booted={p.booted} />
     </AppContext.Provider>
   );
 }

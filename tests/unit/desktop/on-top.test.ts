@@ -36,6 +36,7 @@ registerBridge({
   details: () => ({ message: "", lines: [], logDir: "" }),
   restart: () => {},
   openLogs: () => {},
+  relaunch: () => {},
 });
 const page = (...args: unknown[]) =>
   h.handle["testimus:setAlwaysOnTop"](

@@ -576,6 +576,7 @@ export type Settings = {
     dismissed?: Record<string, string>;
     fitAccepted?: Record<string, FitVerdict>;
   };
+  updates?: { from?: string };
 };
 
 // Claude runs (SPEC §11)

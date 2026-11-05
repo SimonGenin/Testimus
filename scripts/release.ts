@@ -266,6 +266,97 @@ function sizeOf(dir: string): { bytes: number; files: number } {
   return { bytes, files };
 }
 
+export type ReleaseManifest = { version: string; built: string; files: number; bytes: number; notes: string };
+
+// ponytail: written last, release.json is what install.ps1 checks a copy against (a release still being copied to the
+// shared folder is refused) and where Testimus reads a release's notes; it does not count itself
+export function writeManifest(out: string, version: string, notes: string, now = new Date()): ReleaseManifest {
+  const file = join(out, "release.json");
+  rmSync(file, { force: true });
+  const s = sizeOf(out);
+  const m = { version, built: now.toISOString(), files: s.files, bytes: s.bytes, notes: notes.trim() };
+  writeFileSync(file, `${JSON.stringify(m, null, 2)}\n`);
+  return m;
+}
+
+function driveRoot(letter: string): string {
+  const r = spawnSync(
+    "powershell.exe",
+    [
+      "-NoProfile",
+      "-NonInteractive",
+      "-Command",
+      `(Get-PSDrive -Name ${letter} -PSProvider FileSystem -ErrorAction SilentlyContinue).DisplayRoot`,
+    ],
+    { encoding: "utf8", windowsHide: true },
+  );
+  return (r.stdout ?? "").trim();
+}
+
+// ponytail: a drive letter is this PC's name for a share (S: here may be T: elsewhere): a folder on a mapped drive is
+// written as its \\server\share path, which every PC reads the same; a local or unmapped path stays as it is
+export function uncPath(path: string, rootOf: (letter: string) => string = driveRoot): string {
+  const m = /^([A-Za-z]):[\\/]/.exec(path);
+  if (!m) return path;
+  const root = rootOf(m[1].toUpperCase());
+  return root.startsWith("\\\\") ? `${root.replace(/\\+$/, "")}\\${path.slice(3).replace(/\//g, "\\")}` : path;
+}
+
+// ponytail: a release reaches the shared folder under a hidden .partial name and is renamed once whole, so no PC ever
+// sees half of it; a version already there is never replaced — a fix ships as a new version. The copy's release.json
+// names the folder PCs look in for the next one (`channel`, this folder unless a move says another): a PC that
+// installs it follows that, wherever the copy was taken from
+export function publishRelease(out: string, folder: string, channel = folder): string {
+  if (!existsSync(join(out, "release.json")))
+    throw new Error(`${out} has no release.json: build it with npm run release.`);
+  mkdirSync(folder, { recursive: true });
+  const target = join(folder, basename(out));
+  if (existsSync(target))
+    throw new Error(`${target} already exists: raise the version in package.json, rebuild, then publish.`);
+  const partial = join(folder, `.${basename(out)}.partial`);
+  rmSync(partial, { recursive: true, force: true });
+  cpSync(out, partial, { recursive: true });
+  const meta = join(partial, "release.json");
+  writeFileSync(meta, `${JSON.stringify({ ...JSON.parse(readFileSync(meta, "utf8")), channel }, null, 2)}\n`);
+  renameSync(partial, target);
+  return target;
+}
+
+export function releaseArgs(argv: string[]): {
+  reuseUi: boolean;
+  skipNode: boolean;
+  notes: string;
+  publish: boolean;
+  publishTo: string;
+  channel: string;
+  publishOnly: boolean;
+} {
+  const value = (flag: string) => {
+    const i = argv.indexOf(flag);
+    return i >= 0 && argv[i + 1] && !argv[i + 1].startsWith("--") ? argv[i + 1] : "";
+  };
+  return {
+    reuseUi: argv.includes("--reuse-ui"),
+    skipNode: argv.includes("--skip-node"),
+    notes: value("--notes"),
+    publish: argv.includes("--publish") || argv.includes("--publish-only"),
+    publishTo: value("--publish"),
+    channel: value("--channel"),
+    publishOnly: argv.includes("--publish-only"),
+  };
+}
+
+// ponytail: the folder is the one given, else this PC's Settings › Updates folder — the one place to change when the
+// team folder moves; nothing names it in the code
+export function publishFolder(given: string, settingsFrom: string | undefined): string {
+  const folder = given.trim() || settingsFrom?.trim() || "";
+  if (!folder)
+    throw new Error(
+      'No folder to publish to: npm run release -- --publish "<shared folder>", or set it in Settings › Updates.',
+    );
+  return folder;
+}
+
 const TAR = join(process.env.SystemRoot ?? "C:\\Windows", "System32", "tar.exe");
 
 function unzipOnce(zip: string, out: string, marker: string): string {
@@ -447,7 +538,10 @@ function readme(version: string, node: string, electron: string, models: string)
     "  Testimus (browser)  the same app in your default browser (testimus serve)",
     "then runs `testimus system setup` and `testimus system doctor`.",
     "Rerun a newer release to update, an older one to roll back.",
-    "Options: -NoDesktop (one shortcut, browser mode), -NoPath, -NoShortcut, -NoSetup, -NoPrompt, -Root <dir>.",
+    "Updates: Testimus looks for newer releases in the shared folder this one was published to (or the folder",
+    "set in Settings > Updates) and offers to install them; the two most recent versions are kept.",
+    "Options: -NoDesktop (one shortcut, browser mode), -NoPath, -NoShortcut, -NoSetup, -NoPrompt, -Root <dir>,",
+    "-Keep <n> (versions kept, default 2).",
     "",
     "Without installing: Testimus.exe (desktop app), testimus.cmd serve (browser mode), testimus.cmd help (CLI).",
     "",
@@ -462,7 +556,7 @@ function readme(version: string, node: string, electron: string, models: string)
   ].join("\r\n");
 }
 
-export async function release(opts: { reuseUi: boolean; skipNode: boolean }): Promise<string> {
+export async function release(opts: { reuseUi: boolean; skipNode: boolean; notes?: string }): Promise<string> {
   const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { version: string };
   const out = join(ROOT, "dist", `testimus-${pkg.version}-win-x64`);
   const app = join(out, "app");
@@ -543,12 +637,29 @@ export async function release(opts: { reuseUi: boolean; skipNode: boolean }): Pr
       `node ${part("node").toFixed(0)} MB, app ${part("app").toFixed(0)} MB, Electron shell ${shellMb} MB), ` +
       `Electron ${electron}, externals: ${packages.join(", ")}; ${((Date.now() - t0) / 1000).toFixed(0)} s\n`,
   );
+  writeManifest(out, pkg.version, opts.notes ?? "");
   return out;
 }
 
+// ponytail: npm run release [-- --notes "what is new"] [-- --publish [<shared folder>]] [-- --channel <new folder>];
+// --publish alone uses Settings › Updates; --publish-only publishes the release already built for package.json's
+// version; --channel (a move) sends the PCs that install this release to another folder for the next one
 if (import.meta.main) {
-  const args = process.argv.slice(2);
-  release({ reuseUi: args.includes("--reuse-ui"), skipNode: args.includes("--skip-node") }).catch((e) => {
+  const args = releaseArgs(process.argv.slice(2));
+  (async () => {
+    const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { version: string };
+    let folder = "";
+    if (args.publish) {
+      const { readSettings } = await import("../src/core/lib/project.ts");
+      folder = publishFolder(args.publishTo, readSettings().updates?.from);
+    }
+    const built = join(ROOT, "dist", `testimus-${pkg.version}-win-x64`);
+    const out = args.publishOnly ? built : await release(args);
+    if (args.publishOnly && args.notes) writeManifest(out, pkg.version, args.notes);
+    if (!folder) return;
+    const channel = uncPath(args.channel || folder);
+    process.stdout.write(`published to ${publishRelease(out, folder, channel)}; installs look in ${channel}\n`);
+  })().catch((e) => {
     process.stderr.write(`release failed: ${e instanceof Error ? e.message : String(e)}\n`);
     process.exitCode = 1;
   });

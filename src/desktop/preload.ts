@@ -32,6 +32,7 @@ if (role === "bridge") {
     setProgress: call("setProgress") as TestimusDesktop["setProgress"],
     notify: call("notify") as TestimusDesktop["notify"],
     setAlwaysOnTop: call("setAlwaysOnTop") as TestimusDesktop["setAlwaysOnTop"],
+    relaunch: call("relaunch") as TestimusDesktop["relaunch"],
     onOpenProject(cb) {
       if (typeof cb !== "function") return () => {};
       listeners.add(cb);

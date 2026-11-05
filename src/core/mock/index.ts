@@ -15,6 +15,7 @@ import "./claude-gen.ts";
 import "./claude-study.ts";
 import { mockHttp } from "./jira.ts";
 import { mockModelsOptions, seedChoice, setupModelsMock } from "./models.ts";
+import { setupUpdatesMock } from "./updates.ts";
 
 export function fixturesDir(): string {
   return fileURLToPath(new URL("../../../tests/fixtures/", import.meta.url));
@@ -86,6 +87,7 @@ export async function setupMock(): Promise<string | null> {
   env.http = mockHttp;
   env.spawnClaude = mockSpawnClaude;
   agentProbe.deps = () => mockProbeDeps();
+  setupUpdatesMock(root);
   writeJson(join(data, "settings.json"), { projects, lastProject: project, models: { allowRemote: false } });
   const models = mockModelsOptions();
   await setupModelsMock(root, project, models);

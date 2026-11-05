@@ -99,6 +99,7 @@ const KINDS: Rule[] = [
     ],
   ],
   [/^search-index$/, () => [["search.all"]]],
+  [/^update$/, () => [["system.updates"]]],
   [/^docs\.(add|addFiles|convert)$|^docs-|^describe-figures$/, () => [["docs.list"], ["docs.show"], ["rag.status"]]],
   [/^generate$/, () => [["review.evidence"], ["review.queue"], ["gen.preview"]]],
   [/^chat$/, () => [["chat.list"], ["chat.show"]]],

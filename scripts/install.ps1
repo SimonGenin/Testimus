@@ -4,11 +4,16 @@ Rerunning a newer release updates, an older one rolls back. Settings, credential
 projects live outside the versioned folder and are never touched.
 
   powershell -ExecutionPolicy Bypass -File install.ps1 [-Root <dir>] [-InstallClaude]
-             [-NoPath] [-NoShortcut] [-NoDesktop] [-ShortcutDir <dir>] [-NoSetup] [-NoPrompt]
+             [-NoPath] [-NoShortcut] [-NoDesktop] [-ShortcutDir <dir>] [-NoSetup] [-NoPrompt] [-Keep <n>]
 
 Start-menu shortcuts: "Testimus" runs the desktop app (Testimus.exe), "Testimus (browser)" runs
 testimus serve. -NoDesktop keeps one "Testimus" shortcut that runs testimus serve.
 -ShortcutDir puts the shortcuts in another folder than the Start menu (for trials).
+
+Updates: <Root>\install.json remembers the folder this release came from; Testimus looks for newer
+releases in that folder (or the one set in Settings > Updates) and runs their install.ps1 the same way.
+A copy that does not match the release's release.json (files, bytes) is refused and removed.
+-Keep is how many installed versions stay (default 2: the new one and the one before, for rollback).
 #>
 param(
   [string]$Root = (Join-Path $env:LOCALAPPDATA "Testimus"),
@@ -18,7 +23,8 @@ param(
   [switch]$NoDesktop,
   [string]$ShortcutDir = "",
   [switch]$NoSetup,
-  [switch]$NoPrompt
+  [switch]$NoPrompt,
+  [int]$Keep = 2
 )
 
 $ErrorActionPreference = "Stop"
@@ -41,17 +47,90 @@ $bin = Join-Path $Root "bin"
 
 # 1. copy the release to <Root>\<version>
 New-Item -ItemType Directory -Force -Path $Root, $bin | Out-Null
-if ([IO.Path]::GetFullPath($src).TrimEnd('\') -ne $dest.TrimEnd('\')) {
+$srcFull = [IO.Path]::GetFullPath($src).TrimEnd('\')
+$copied = $srcFull -ne $dest.TrimEnd('\')
+if ($copied) {
   Say "copying $version to $dest"
   & robocopy $src $dest /MIR /NFL /NDL /NJH /NJS /NP /R:2 /W:1 | Out-Null
   if ($LASTEXITCODE -ge 8) { throw "robocopy failed ($LASTEXITCODE) copying $src to $dest" }
 }
 $global:LASTEXITCODE = 0
+
+# a release still being copied to the shared folder is refused before it becomes current
+$metaFile = Join-Path $src "release.json"
+$meta = $null
+if (Test-Path -LiteralPath $metaFile) {
+  $meta = Get-Content -LiteralPath $metaFile -Raw | ConvertFrom-Json
+  if ($meta.files) {
+    $self = Join-Path $dest "release.json"
+    $got = @(Get-ChildItem -LiteralPath $dest -Recurse -File | Where-Object { $_.FullName -ne $self })
+    $bytes = ($got | Measure-Object -Property Length -Sum).Sum
+    if ($got.Count -ne [int64]$meta.files -or $bytes -ne [int64]$meta.bytes) {
+      if ($copied) { Remove-Item -LiteralPath $dest -Recurse -Force -ErrorAction SilentlyContinue }
+      throw "The release in $src is incomplete ($($got.Count) of $($meta.files) files): it is probably still being copied. Try again in a few minutes."
+    }
+  }
+}
+
 # a release copied from Teams or a browser download carries the Mark of the Web: drop it (per user, no admin)
 Get-ChildItem -LiteralPath $dest -Recurse -File | Unblock-File
 
 # 2. make it current and write the shim that follows current.txt
 [IO.File]::WriteAllText((Join-Path $Root "current.txt"), $version, [Text.Encoding]::ASCII)
+
+# where this release came from and how it was installed. Newer releases are looked for in the folder its
+# release.json names (set when it was published), else in its parent folder; a mapped drive (Z:\) is kept as its
+# \\server\share path, which every PC can read whatever letter it gives the share
+function UncOf($path) {
+  if ($path -match '^([A-Za-z]):\\') {
+    try {
+      $drive = Get-PSDrive -Name $Matches[1] -PSProvider FileSystem -ErrorAction Stop
+      if ($drive.DisplayRoot -and $drive.DisplayRoot.StartsWith('\\')) { return $drive.DisplayRoot.TrimEnd('\') + $path.Substring(2) }
+    } catch {}
+  }
+  return $path
+}
+$infoFile = Join-Path $Root "install.json"
+$channel = ""
+$from = ""
+if ($copied) {
+  $from = UncOf $srcFull
+  $channel = Split-Path -Parent $from
+  if (-not $channel) { $channel = $from }
+  if ($meta -and $meta.channel) { $channel = [string]$meta.channel }
+} elseif (Test-Path -LiteralPath $infoFile) {
+  try {
+    $old = Get-Content -LiteralPath $infoFile -Raw | ConvertFrom-Json
+    $from = [string]$old.from
+    $channel = [string]$old.channel
+  } catch {}
+}
+$info = [ordered]@{
+  version = $version
+  from = $from
+  channel = $channel
+  at = (Get-Date).ToString("o")
+  options = [ordered]@{ noPath = [bool]$NoPath; noShortcut = [bool]$NoShortcut; noDesktop = [bool]$NoDesktop; shortcutDir = $ShortcutDir }
+}
+[IO.File]::WriteAllText($infoFile, ($info | ConvertTo-Json -Depth 4), [Text.UTF8Encoding]::new($false))
+
+# older versions go, but the -Keep newest, the current one and any still running stay
+$installed = @(Get-ChildItem -LiteralPath $Root -Directory | Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName "app\package.json") } | ForEach-Object {
+  $v = $null
+  if ([version]::TryParse(($_.Name -replace '-.*$', ''), [ref]$v)) { [pscustomobject]@{ Dir = $_; Version = $v } }
+} | Sort-Object -Property Version -Descending)
+$running = @(Get-Process -ErrorAction SilentlyContinue | ForEach-Object { try { $_.Path } catch { $null } } | Where-Object { $_ })
+foreach ($old in ($installed | Select-Object -Skip ([Math]::Max($Keep, 1)))) {
+  $dir = $old.Dir.FullName
+  if ($old.Dir.Name -eq $version) { continue }
+  if ($running | Where-Object { $_.StartsWith("$dir\", [StringComparison]::OrdinalIgnoreCase) }) { continue }
+  try {
+    Remove-Item -LiteralPath $dir -Recurse -Force -ErrorAction Stop
+    Say "removed the old version $($old.Dir.Name)"
+  } catch {
+    Say "could not remove $dir (in use?): it stays"
+  }
+}
 $shim = @(
   '@echo off',
   'setlocal',

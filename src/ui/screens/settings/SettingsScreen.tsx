@@ -21,6 +21,7 @@ import { ModelsSection } from "./ModelsSection.tsx";
 import { ProjectSection } from "./ProjectSection.tsx";
 import { SearchSection } from "./SearchSection.tsx";
 import { Section } from "./Section.tsx";
+import { UpdatesSection } from "./UpdatesSection.tsx";
 
 const styles = stylex.create({
   screen: { display: "flex", flexDirection: "column", flex: 1, minHeight: 0, minWidth: 0 },
@@ -58,6 +59,7 @@ const SECTIONS: Page[] = [
   { id: "models", label: "Models", icon: "cpu", page: ModelsSection, needsProject: false },
   { id: "access", label: "Access", icon: "key", page: AccessSection, needsProject: false },
   { id: "appearance", label: "Appearance", icon: "sun", page: AppearanceSection, needsProject: false },
+  { id: "updates", label: "Updates", icon: "download", page: UpdatesSection, needsProject: false },
 ];
 
 const NAV = { min: 160, max: 360, initial: 240 };

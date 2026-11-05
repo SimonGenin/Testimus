@@ -40,6 +40,7 @@ export function fakeDesktop(o: { folder?: string | null; files?: string[]; paths
     openExternal: vi.fn(async () => true),
     setProgress: vi.fn(async () => {}),
     notify: vi.fn(async (_o: { title: string; body: string }) => true),
+    relaunch: vi.fn(async () => true),
     onOpenProject: vi.fn((cb: (dir: string) => void) => {
       d.open = cb;
       return () => {

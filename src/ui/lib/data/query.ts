@@ -23,6 +23,7 @@ const MACHINE = new Set<string>([
   "project.list",
   "system.secrets",
   "system.settings",
+  "system.updates",
   "system.version",
 ]);
 
