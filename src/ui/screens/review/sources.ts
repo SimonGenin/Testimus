@@ -16,7 +16,10 @@ export function findingSummary(fs: Finding[]): { tone: "error" | "warning" | "in
   return { tone: "ok", text: "No findings" };
 }
 
+const LABELS: Record<string, string> = { "column-unsourced": "Items without a source" };
+
 export const kindLabel = (k: string) => {
+  if (LABELS[k]) return LABELS[k];
   const s = k.replace(/-/g, " ");
   return s[0].toUpperCase() + s.slice(1);
 };

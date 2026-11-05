@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CheckFile, Test } from "../../../../src/core/types.ts";
-import { stepOpened } from "../../../../src/ui/screens/review/sources.ts";
+import { kindLabel, stepOpened } from "../../../../src/ui/screens/review/sources.ts";
 
 const test = (steps: Test["steps"]) => ({ steps }) as Test;
 const step = (sources: Test["steps"][number]["sources"] = []) => ({ fields: {}, sources, images: [] });
@@ -22,5 +22,12 @@ describe("the source panel following ↑/↓", () => {
     });
     expect(stepOpened(t, c, 3)).toBeNull();
     expect(stepOpened(t, null, 3)).toBeNull();
+  });
+});
+
+describe("a finding's title", () => {
+  it("reads its kind, and names the per-item sources for what it is", () => {
+    expect(kindLabel("quote-not-found")).toBe("Quote not found");
+    expect(kindLabel("column-unsourced")).toBe("Items without a source");
   });
 });

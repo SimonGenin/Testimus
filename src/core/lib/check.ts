@@ -31,6 +31,7 @@ const COMMENTS = /<!--[\s\S]*?-->/g;
 const ANCHORS = /<!--\s*(§|fig|page)\s*(\S+?)\s*-->/g;
 
 export const flat = (s: string) => s.replace(/\s+/g, " ").trim();
+const andList = (xs: string[]) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs.at(-1)}`);
 // ponytail: doc.md keeps Word's bold and italic as * and **, which a quote never carries
 export const plainText = (s: string) => flat(s.replace(COMMENTS, " ").replace(/\*/g, ""));
 
@@ -289,15 +290,20 @@ export function mechanicalFindings(test: Test, corpus: Corpus, linked: readonly 
           sources: [ref],
         });
     }
-    for (const name of linked)
-      if (cellOf(s, name).trim() && !s.sources.some((x) => x.column && sameName(x.column, name)))
-        add({
-          step,
-          kind: "column-unsourced",
-          severity: "warning",
-          message: `Step ${step}: ${name} links its items to their sources, and none has one: add a ### Sources line docId#anchor "exact quote" @${name} "<item>" for each.`,
-          sources: [],
-        });
+    const bare = linked.filter(
+      (name) => cellOf(s, name).trim() && !s.sources.some((x) => x.column && sameName(x.column, name)),
+    );
+    if (bare.length)
+      add({
+        step,
+        kind: "column-unsourced",
+        severity: "warning",
+        message:
+          bare.length === 1
+            ? `Step ${step}: ${bare[0]} is a Reference source column and none of its items has a source of its own. Give each item a Sources line ending in @${bare[0]} "<item>", or switch Reference source off for ${bare[0]} in Settings › Smart columns.`
+            : `Step ${step}: ${andList(bare)} are Reference source columns and none of their items has a source of its own. Give each item a Sources line ending in @<column> "<item>", or switch Reference source off for these columns in Settings › Smart columns.`,
+        sources: [],
+      });
     for (const src of s.sources)
       if (src.column && src.item && !flat(cellOf(s, src.column)).includes(flat(src.item)))
         add({

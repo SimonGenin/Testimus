@@ -163,6 +163,27 @@ describe("the check of a Reference source column", () => {
     );
   });
 
+  it("says once per step which columns lack their items' sources, in the reviewer's words", () => {
+    const s = step({ ...base, Exigence: "EXI_A_1650" }, [src(Q1, { column: "Exigence", item: "EXI_A_1650" })]);
+    const messages = (st: Step, linked: string[]) =>
+      mechanicalFindings(testOf([st]), loadCorpus(dir), linked)
+        .filter((f) => f.kind === "column-unsourced")
+        .map((f) => f.message);
+    expect(messages(s, ["Action", "Expected Result", "Exigence"])).toEqual([
+      'Step 1: Action and Expected Result are Reference source columns and none of their items has a source of its own. Give each item a Sources line ending in @<column> "<item>", or switch Reference source off for these columns in Settings › Smart columns.',
+    ]);
+    expect(messages(step({ ...base, Exigence: "EXI_A_1650" }, [src(Q1)]), ["Exigence"])).toEqual([
+      'Step 1: Exigence is a Reference source column and none of its items has a source of its own. Give each item a Sources line ending in @Exigence "<item>", or switch Reference source off for Exigence in Settings › Smart columns.',
+    ]);
+    expect(
+      messages(step({ Action: "a", "Expected Result": "b", Exigence: "c" }, []), [
+        "Action",
+        "Expected Result",
+        "Exigence",
+      ]),
+    ).toEqual([expect.stringMatching(/^Step 1: Action, Expected Result and Exigence are /)]);
+  });
+
   it("reports an item the cell does not hold, whatever the option", () => {
     const s = step({ ...base, Exigence: "EXI_A_1650" }, [
       src(Q1, { column: "Exigence", item: "EXI_A_1650" }),
