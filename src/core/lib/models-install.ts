@@ -37,7 +37,7 @@ export const installDeps = {
     }
   },
   findLlamaBuild: async (dir: string): Promise<LlamaRuntime | null> =>
-    (await import("../rag/runtimes/llamacpp.ts")).findLlamaBuild(dir),
+    (await import("../rag/runtimes/llamacpp.ts")).identifyLlamaBuild(dir),
 };
 
 export function needEntry(id: string): CatalogEntry {

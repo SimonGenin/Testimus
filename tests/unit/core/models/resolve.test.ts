@@ -140,19 +140,19 @@ describe("packs (§7.12)", () => {
   });
 
   it("Quality with less free GPU memory: variant 1 is skipped with the numbers, variant 2 keeps the 4B reranker", async () => {
-    const busy = devPc({ gpus: [{ ...devPc().gpus[0], vramUsedMB: 6000 }] } as Partial<MachineProfile>);
+    const busy = devPc({ gpus: [{ ...devPc().gpus[0], vramUsedMB: 3500 }] } as Partial<MachineProfile>);
     const r = await resolveChoice({ pack: "quality" }, "task", { machine: async () => busy });
     expect(r.variantIndex).toBe(1);
     expect(r.variant).toEqual({ embedding: "qwen3-embedding-4b-q4", reranker: "qwen3-reranker-4b-q8" });
     expect(r.skipped).toHaveLength(1);
     expect(r.skipped[0]).toMatch(
-      /Qwen3 Embedding 8B \(4-bit\) \+ Qwen3 Reranker 4B .*: 10\.3 GB needed, 8\.6 GB usable \(tight\)/,
+      /Qwen3 Embedding 8B \(4-bit\) \+ Qwen3 Reranker 4B .*: 11\.4 GB needed, 10\.6 GB usable \(tight\)/,
     );
     expect(r.fit?.verdict).toBe("fits");
   });
 
   it("a variant already on this PC that fits the free memory without the margin is kept over one to download", async () => {
-    const busy = devPc({ gpus: [{ ...devPc().gpus[0], vramUsedMB: 4800 }] } as Partial<MachineProfile>);
+    const busy = devPc({ gpus: [{ ...devPc().gpus[0], vramUsedMB: 3500 }] } as Partial<MachineProfile>);
     writeRegistry({ ...readRegistry(), dir });
     placeGguf(dir, "qwen3-embedding-8b-q4");
     const half = await resolveChoice({ pack: "quality" }, "task", { machine: async () => busy });
@@ -167,9 +167,11 @@ describe("packs (§7.12)", () => {
     expect(kept.missing).toEqual([]);
     expect(kept.skipped).toEqual([]);
 
+    // too full to hold it even without the margin: the variant on this PC gives way to the first one that fits
     const full = devPc({ gpus: [{ ...devPc().gpus[0], vramUsedMB: 6000 }] } as Partial<MachineProfile>);
     const over = await resolveChoice({ pack: "quality" }, "task", { machine: async () => full });
-    expect(over.variantIndex).toBe(1);
+    expect(over.variantIndex).toBe(2);
+    expect(over.fit?.verdict).toBe("fits");
 
     placeGguf(dir, "qwen3-embedding-4b-q4");
     const both = await resolveChoice({ pack: "quality" }, "task", { machine: async () => busy });

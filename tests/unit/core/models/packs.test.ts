@@ -108,10 +108,10 @@ describe("pack cards (models.packs)", () => {
         (catalogEntry("qwen3-reranker-4b-q8") as CatalogEntry).size.downloadMB,
     );
     expect(q.quality).toBe("quality not measured yet");
-    const busy: MachineProfile = { ...devPc, gpus: [{ ...devPc.gpus[0], vramUsedMB: 6000 }] };
+    const busy: MachineProfile = { ...devPc, gpus: [{ ...devPc.gpus[0], vramUsedMB: 3500 }] };
     const qb = (await packRows(null, "task", { machine: async () => busy }))[3];
     expect([qb.variant, qb.available]).toEqual([1, true]);
-    expect(qb.skipped[0]).toMatch(/10\.3 GB needed, 8\.6 GB usable/);
+    expect(qb.skipped[0]).toMatch(/11\.4 GB needed, 10\.6 GB usable/);
     expect(qb.downloadMB).toBe(
       (catalogEntry("qwen3-embedding-4b-q4") as CatalogEntry).size.downloadMB +
         (catalogEntry("qwen3-reranker-4b-q8") as CatalogEntry).size.downloadMB,

@@ -116,7 +116,7 @@ test.describe("a 4 GB GPU", () => {
     await expect(quality).toContainText("Partly on the processor");
     await expect(quality.getByRole("list", { name: "Skipped variants" })).toContainText("gpu-too-small");
     const balancedCard = models.getByRole("article", { name: "Balanced pack" });
-    await expect(balancedCard).toContainText("its second choice");
+    await expect(balancedCard).toContainText("its third choice");
     await expect(balancedCard.getByRole("list", { name: "Skipped variants" })).toContainText("4.0 GB on the GPU");
     await quality.getByRole("button", { name: "Use this pack" }).click();
     const ask = page.getByRole("dialog", { name: "Use the Quality pack anyway?" });
@@ -124,10 +124,11 @@ test.describe("a 4 GB GPU", () => {
     await expect(ask).toContainText("Your GPU has 4.0 GB");
     await shoot(page, "models-fit-gpu-e2e");
     await ask.getByRole("button", { name: "Choose a lighter one" }).click();
-    const balanced = page.getByRole("dialog", { name: /^(Use|Download) the Balanced pack$/ });
-    await expect(balanced).toContainText("Qwen3 Embedding 0.6B (8-bit, GGUF)");
-    await balanced.getByRole("button", { name: "Cancel" }).click();
-    await expect(balanced).toBeHidden();
+    // Balanced would run on the processor here (its two 0.6B GGUF take 3.6 GB): the lighter one offered is Performance
+    const lighter = page.getByRole("dialog", { name: /^(Use|Download) the Performance pack$/ });
+    await expect(lighter).toContainText("Qwen3 Embedding 0.6B (16-bit, DirectML)");
+    await lighter.getByRole("button", { name: "Cancel" }).click();
+    await expect(lighter).toBeHidden();
     await quality.getByRole("button", { name: "Use this pack" }).click();
     await ask.getByRole("button", { name: "Use anyway" }).click();
     await expect(page.getByRole("dialog", { name: "Download the Quality pack" })).toBeVisible();

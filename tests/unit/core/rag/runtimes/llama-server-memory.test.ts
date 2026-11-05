@@ -1,4 +1,6 @@
-import { rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { env, type HttpRes } from "../../../../../src/core/env.ts";
 import { journalFile, readPerf } from "../../../../../src/core/lib/models-perf.ts";
@@ -12,6 +14,7 @@ import {
   serverIo,
   stopAllServers,
 } from "../../../../../src/core/rag/runtimes/llama-server.ts";
+import { identifyLlamaBuild, llamaIo } from "../../../../../src/core/rag/runtimes/llamacpp.ts";
 
 // The lines llama.cpp b12032 prints while it loads a model (src/llama-model.cpp, llama-kv-cache.cpp, llama-context.cpp)
 const FULL = [
@@ -55,6 +58,51 @@ describe("who places the layers", () => {
     expect(ngl("b12032")).toBe("auto");
     expect(ngl("b4500")).toBe("99");
     expect(ngl()).toBe("99");
+    const verbose = (build?: string) => serverArgs("m.gguf", "rerank", 1, "k", build).includes("-lv");
+    expect(verbose("b12032")).toBe(true);
+    expect(verbose("b4500")).toBe(false);
+  });
+});
+
+describe("a build registered by path", () => {
+  it("is asked its number when its folder does not name it, so it also places its layers itself", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "llama-path-"));
+    writeFileSync(join(dir, "llama-server.exe"), "");
+    writeFileSync(join(dir, "ggml-cuda.dll"), "");
+    const real = llamaIo.version;
+    try {
+      llamaIo.version = async () => "version: 0.8.0-dev (build 12032, commit dde879bc4)\r\nbuilt with Clang 20.1.8\r\n";
+      expect(await identifyLlamaBuild(dir)).toMatchObject({ build: "b12032", backend: "cuda" });
+      llamaIo.version = async () => "unrecognized";
+      expect((await identifyLlamaBuild(dir))?.build).toBe("unknown");
+      llamaIo.version = async () => {
+        throw new Error("does not start");
+      };
+      expect((await identifyLlamaBuild(dir))?.build).toBe("unknown");
+      expect(await identifyLlamaBuild(join(dir, "nothing-here"))).toBeNull();
+    } finally {
+      llamaIo.version = real;
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("the real b12032 log", () => {
+  // Captured from llama-server b12032 (CUDA 13.4) loading Qwen3-Embedding-8B-Q4_K_M with -ngl auto -lv 4 on an RTX 5080
+  const REAL = [
+    "0.00.292.018 I common_params_fit_impl: projected to use 6054 MiB of device memory vs. 14955 MiB of free device memory",
+    "0.00.667.482 I load_tensors: offloading 35 repeating layers to GPU",
+    "0.00.667.482 I load_tensors: offloaded 37/37 layers to GPU",
+    "0.00.667.485 I load_tensors:   CPU_Mapped model buffer size =   485.99 MiB",
+    "0.00.667.486 I load_tensors:        CUDA0 model buffer size =  4454.48 MiB",
+    "0.02.303.805 I llama_context:  CUDA_Host  output buffer size =     2.38 MiB",
+    "0.02.316.548 I llama_kv_cache:      CUDA0 KV buffer size =  1152.00 MiB",
+    "0.02.339.496 I sched_reserve:      CUDA0 compute buffer size =   448.06 MiB",
+    "0.02.339.501 I sched_reserve:  CUDA_Host compute buffer size =   160.08 MiB",
+  ].join("\r\n");
+
+  it("reads it through its timestamps: 6055 MB on the GPU, as llama.cpp projected, every layer there", () => {
+    expect(memoryReport(REAL)).toEqual({ gpuMB: 6055, hostMB: 648, layers: { onGpu: 37, total: 37 } });
   });
 });
 
@@ -122,7 +170,7 @@ describe("a load measured by llama.cpp's own report", () => {
     expect(load?.partialOffload).toBe(true);
   });
 
-  it("without a report, falls back to the NVIDIA memory used before and after", async () => {
+  it("without a report, the NVIDIA memory used before and after is the model's share", async () => {
     let used = 1000;
     serverIo.vramUsedMB = async () => {
       used += 600;
@@ -132,6 +180,27 @@ describe("a load measured by llama.cpp's own report", () => {
     const load = readPerf().find((l) => l.op === "model.load");
     expect(load?.vramMB).toBe(600);
     expect(load?.partialOffload).toBeUndefined();
-    expect(loadedServers()[0].vramMB).toBe(4460);
+    expect(loadedServers()[0].vramMB).toBe(600);
+  });
+
+  it("nvidia-smi wins when it saw more (the CUDA context llama.cpp does not count)", async () => {
+    log = FULL;
+    let used = 1000;
+    serverIo.vramUsedMB = async () => {
+      used += 6405;
+      return used;
+    };
+    await ensureServer({ exe: "x.exe", build: "b12032", model: "D:/m/e8.gguf", kind: "embedding", perf, sizeMB: 4460 });
+    const load = readPerf().find((l) => l.op === "model.load");
+    expect(load?.vramMB).toBe(6405);
+    expect(load?.partialOffload).toBe(false);
+    expect(loadedServers()[0].vramMB).toBe(6405);
+  });
+
+  it("a server never loaded on the GPU holds none", async () => {
+    log = FULL;
+    await ensureServer({ exe: "x.exe", model: "D:/m/e8.gguf", kind: "rerank", perf, sizeMB: 600, onGpu: false });
+    expect(loadedServers()[0].vramMB).toBe(0);
+    expect(readPerf().find((l) => l.op === "model.load")?.vramMB).toBeUndefined();
   });
 });

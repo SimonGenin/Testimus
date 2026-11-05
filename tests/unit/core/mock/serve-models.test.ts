@@ -138,10 +138,16 @@ describe("serve --mock models", () => {
     let p = await packs();
     expect(p.find((x) => x.id === "quality")?.fit?.verdict).toBe("gpu-too-small");
     const balanced = p.find((x) => x.id === "balanced");
-    expect(balanced).toMatchObject({ variant: 1, embedding: "qwen3-embedding-0.6b-q8", fit: { verdict: "fits" } });
+    // the two 0.6B GGUF take 3.6 GB on a 4 GB card as measured on llama.cpp b12032: Balanced's processor variant
+    expect(balanced).toMatchObject({
+      variant: 2,
+      embedding: "qwen3-embedding-0.6b-onnx-q8",
+      fit: { verdict: "fits" },
+    });
     expect(balanced?.skipped[0]).toMatch(
-      /Qwen3 Embedding 4B \(4-bit\) .*: 4\.6 GB needed, 4\.0 GB on the GPU \(gpu-too-small\)/,
+      /Qwen3 Embedding 4B \(4-bit\) .*: 6\.1 GB needed, 4\.0 GB on the GPU \(gpu-too-small\)/,
     );
+    expect(balanced?.skipped[1]).toMatch(/Qwen3 Embedding 0\.6B .*: 3\.6 GB needed, 3\.2 GB usable \(tight\)/);
     await replay({ machine: "cpu-only" });
     p = await packs();
     const quality = p.find((x) => x.id === "quality");

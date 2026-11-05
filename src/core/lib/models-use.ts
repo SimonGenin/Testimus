@@ -127,9 +127,17 @@ export function lighterModel(entry: CatalogEntry, machine: MachineProfile): stri
   );
 }
 
-export function lighterPack(rows: Pick<PackRow, "id" | "available">[], id: string): string | null {
-  for (const p of PACK_ORDER.slice(PACK_ORDER.indexOf(id) + 1)) if (rows.find((x) => x.id === p)?.available) return p;
-  return null;
+// ponytail: the next lighter pack that fits as it is meant to run (a 4 GB card: Performance on DirectML rather than
+// Balanced on the processor), else the next one available at all
+export function lighterPack(
+  rows: Pick<PackRow, "id" | "available" | "fit" | "processorOnly">[],
+  id: string,
+): string | null {
+  const below = PACK_ORDER.slice(PACK_ORDER.indexOf(id) + 1).flatMap((p) => {
+    const row = rows.find((x) => x.id === p && x.available);
+    return row ? [row] : [];
+  });
+  return (below.find((r) => r.fit?.verdict === "fits" && !r.processorOnly) ?? below[0])?.id ?? null;
 }
 
 export type UseInput = { embedding?: string; reranker?: string | null; reference: boolean; dryRun: boolean };

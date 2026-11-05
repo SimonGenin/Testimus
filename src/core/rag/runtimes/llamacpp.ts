@@ -17,6 +17,7 @@ import { basename, dirname, join, normalize, sep } from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { inflateRawSync } from "node:zlib";
+import { run } from "../../../shared/run/process.ts";
 import { UserError } from "../../command.ts";
 import { usableGpus } from "../../lib/machine/gpus.ts";
 import { registryFile } from "../../lib/models-catalog.ts";
@@ -96,7 +97,21 @@ export function findLlamaBuild(dir: string): LlamaRuntime | null {
   return { exe, build, backend, via: "path" };
 }
 
+// ponytail: a folder that names no build is asked: `llama-server --version` prints « version: 0.8.0-dev (build 12032,
+// commit dde879bc4) » (b12032), so a recent build registered by path also places its layers itself
+export async function identifyLlamaBuild(dir: string): Promise<LlamaRuntime | null> {
+  const found = findLlamaBuild(dir);
+  if (found?.build !== "unknown") return found;
+  const r = await llamaIo.version(found.exe).catch(() => "");
+  const n = r.match(/\(build (\d+)/)?.[1];
+  return n ? { ...found, build: `b${n}` } : found;
+}
+
 export const llamaIo = {
+  async version(exe: string): Promise<string> {
+    const r = await run({ exe, args: ["--version"], timeoutMs: 20000 });
+    return `${r.stdout}${r.stderr}`;
+  },
   async download(
     url: string,
     file: string,

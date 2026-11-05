@@ -4,7 +4,8 @@ import { deviceFor, deviceOf, gpuPool, onIntegratedGpu } from "../../../../src/c
 import { fitOf } from "../../../../src/core/lib/fit/verdict.ts";
 import { catalogEntry } from "../../../../src/core/lib/models-catalog.ts";
 import { suggestPack } from "../../../../src/core/lib/models-packs.ts";
-import type { CatalogEntry, GpuInfo, MachineProfile, PerfLine } from "../../../../src/core/types.ts";
+import { lighterPack } from "../../../../src/core/lib/models-use.ts";
+import type { CatalogEntry, Fit, GpuInfo, MachineProfile, PerfLine } from "../../../../src/core/types.ts";
 
 const e = (id: string) => catalogEntry(id) as CatalogEntry;
 const H = { headroom: 0.15, lines: [] };
@@ -43,7 +44,7 @@ describe("a model on an integrated GPU takes the PC's memory", () => {
     const f = fitOf([e("qwen3-embedding-4b-q4"), e("qwen3-reranker-0.6b-q8")], apu(), H);
     expect(f.verdict).toBe("fits");
     expect(f.device).toBe("gpu");
-    expect(f.needMB.ram).toBe(3430 + 1300);
+    expect(f.needMB.ram).toBe(4377 + 1827);
     expect(f.message).toMatch(/^Fits on AMD Radeon 780M Graphics, which shares the PC's memory/);
   });
 
@@ -61,6 +62,37 @@ describe("a model on an integrated GPU takes the PC's memory", () => {
     expect(suggestPack(pc([gpu("NVIDIA GeForce RTX 4080", 16384, 1200)], { total: 64000, free: 40000 }))).toBe(
       "quality",
     );
+  });
+});
+
+describe("the lighter pack offered when one does not fit", () => {
+  const row = (id: string, verdict: Fit["verdict"] | null, processorOnly = false, available = true) => ({
+    id,
+    available,
+    processorOnly,
+    fit: verdict ? ({ verdict } as Fit) : null,
+  });
+
+  it("is the next one that fits as it is meant to run, before one that falls back to the processor", () => {
+    const rows = [
+      row("light", "fits"),
+      row("performance", "fits"),
+      row("balanced", "fits", true),
+      row("quality", "gpu-too-small"),
+    ];
+    expect(lighterPack(rows, "quality")).toBe("performance");
+    expect(lighterPack(rows, "balanced")).toBe("performance");
+  });
+
+  it("else the next one available, else none", () => {
+    const rows = [
+      row("light", "tight"),
+      row("performance", null, false, false),
+      row("balanced", "tight", true),
+      row("quality", "gpu-too-small"),
+    ];
+    expect(lighterPack(rows, "quality")).toBe("balanced");
+    expect(lighterPack(rows, "light")).toBeNull();
   });
 });
 
@@ -102,7 +134,7 @@ describe("what a model needs", () => {
       },
     ];
     expect(needOf(withShape, loaded).vram).toBe(5853);
-    expect(needOf(e("qwen3-embedding-8b-q4"), [])).toEqual({ vram: 5730, ram: 6230 });
+    expect(needOf(e("qwen3-embedding-8b-q4"), [])).toEqual({ vram: 6131, ram: 6703 });
     const bare = { ...e("qwen3-embedding-8b-q4"), size: { downloadMB: 1000, ramMB: 0, vramMB: 0 } };
     expect(needOf(bare, [])).toEqual({ vram: 1200, ram: 1200 });
   });

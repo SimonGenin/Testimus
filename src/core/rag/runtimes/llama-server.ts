@@ -152,8 +152,8 @@ export function serverArgs(model: string, kind: ServerKind, port: number, apiKey
     ...(kind === "rerank"
       ? ["--reranking", "--pooling", "rank"]
       : ["--embedding", "--pooling", "last", "-ub", String(LLAMA_CTX)]),
-    "-ngl",
-    autoLayers(build) ? "auto" : "99",
+    // ponytail: llama.cpp prints what it allocated (memoryReport) only from verbosity 4 on (b12032 defaults to 3)
+    ...(autoLayers(build) ? ["-ngl", "auto", "-lv", "4"] : ["-ngl", "99"]),
     "--host",
     "127.0.0.1",
     "--port",
@@ -264,15 +264,16 @@ async function start(o: ServerStart, id: string): Promise<LlamaServer> {
   s.readyMs = serverIo.now() - t0;
   s.lastUsed = serverIo.now();
   running.set(id, s);
+  // ponytail: nvidia-smi's before/after counts the CUDA context too (6405 MB where llama.cpp reports 6055 for Qwen3
+  // Embedding 8B on b12032) but sees NVIDIA only (≈ 0 for a model on the PC's other GPU): the larger of the two is the
+  // model's share; llama.cpp's report alone tells the layers left on the processor
   const report = s.onGpu ? memoryReport(memory.join("")) : null;
   if (report) s.vramMB = report.gpuMB;
   if (o.perf) {
-    const vramAfter = vramBefore === null || report ? null : await serverIo.vramUsedMB().catch(() => null);
-    const vramMB = report
-      ? report.gpuMB
-      : vramBefore !== null && vramAfter !== null
-        ? Math.max(0, Math.round(vramAfter - vramBefore))
-        : null;
+    const vramAfter = vramBefore === null ? null : await serverIo.vramUsedMB().catch(() => null);
+    const delta = vramBefore !== null && vramAfter !== null ? Math.max(0, Math.round(vramAfter - vramBefore)) : null;
+    const vramMB = delta === null && !report ? null : Math.max(delta ?? 0, report?.gpuMB ?? 0);
+    if (vramMB !== null && s.onGpu) s.vramMB = vramMB;
     const partialOffload = report?.layers ? report.layers.onGpu < report.layers.total : undefined;
     if (target && partialOffload !== undefined) target.partialOffload = partialOffload;
     recordPerf({

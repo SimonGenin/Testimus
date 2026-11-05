@@ -99,18 +99,21 @@ export function mergeGpus(s: GpuSources): GpuInfo[] {
   }
   for (const d of s.llama) {
     if (isVirtual(d.name)) continue;
+    // ponytail: for an integrated GPU Vulkan echoes the PC's RAM back as its memory (« Intel(R) Graphics (37037 MiB,
+    // 37037 MiB free) » on a 64 GB PC, llama.cpp b12032): its figures are never taken
+    const shared = isIntegrated(d.name);
     const g = matchName(d.name, gpus, (x) => x.name);
     if (!g) {
       gpus.push({
         name: d.name,
         vendor: vendorOf(d.name),
-        vramTotalMB: d.totalMB,
-        vramUsedMB: Math.max(0, d.totalMB - d.freeMB),
+        vramTotalMB: shared ? null : d.totalMB,
+        vramUsedMB: shared ? null : Math.max(0, d.totalMB - d.freeMB),
         source: "llama.cpp",
       });
       continue;
     }
-    if (g.source === "nvidia-smi" || g.vramUsedMB !== null) continue;
+    if (shared || g.source === "nvidia-smi" || g.vramUsedMB !== null) continue;
     g.vramTotalMB ??= d.totalMB;
     g.vramUsedMB = Math.max(0, g.vramTotalMB - d.freeMB);
     g.source = "llama.cpp";

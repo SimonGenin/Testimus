@@ -83,7 +83,7 @@ describe("llama-server load measurement", () => {
     });
     const [load] = readPerf();
     expect(load).toMatchObject({ op: "model.load", items: 1, vramMB: 700 });
-    expect(loadedServers()).toEqual([{ name: "cat-a", sizeMB: 0, vramMB: 0, runtime: "llamacpp" }]);
+    expect(loadedServers()).toEqual([{ name: "cat-a", sizeMB: 0, vramMB: 700, runtime: "llamacpp" }]);
     expect(s?.catalogId).toBe("cat-a");
   });
 

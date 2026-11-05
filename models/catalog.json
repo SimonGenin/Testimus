@@ -338,8 +338,8 @@
       "docInstruction": "",
       "size": {
         "downloadMB": 610,
-        "ramMB": 1730,
-        "vramMB": 1230
+        "ramMB": 1860,
+        "vramMB": 1873
       },
       "devices": [
         "gpu",
@@ -384,8 +384,8 @@
       "docInstruction": "",
       "size": {
         "downloadMB": 2381,
-        "ramMB": 3930,
-        "vramMB": 3430
+        "ramMB": 4285,
+        "vramMB": 4377
       },
       "devices": [
         "gpu",
@@ -431,8 +431,8 @@
       "docInstruction": "",
       "size": {
         "downloadMB": 4081,
-        "ramMB": 5100,
-        "vramMB": 4600
+        "ramMB": 6076,
+        "vramMB": 5861
       },
       "devices": [
         "gpu",
@@ -479,8 +479,8 @@
       "docInstruction": "",
       "size": {
         "downloadMB": 4460,
-        "ramMB": 6230,
-        "vramMB": 5730
+        "ramMB": 6703,
+        "vramMB": 6131
       },
       "devices": [
         "gpu",
@@ -527,8 +527,8 @@
       "docInstruction": "",
       "size": {
         "downloadMB": 7674,
-        "ramMB": 9600,
-        "vramMB": 9100
+        "ramMB": 10061,
+        "vramMB": 9564
       },
       "devices": [
         "gpu",
@@ -770,7 +770,7 @@
       "size": {
         "downloadMB": 610,
         "ramMB": 1800,
-        "vramMB": 1300
+        "vramMB": 1827
       },
       "devices": [
         "gpu",
@@ -809,8 +809,8 @@
       "rerankerKind": "http",
       "size": {
         "downloadMB": 4081,
-        "ramMB": 5300,
-        "vramMB": 4800
+        "ramMB": 5737,
+        "vramMB": 5593
       },
       "devices": [
         "gpu",
@@ -849,8 +849,8 @@
       "rerankerKind": "http",
       "size": {
         "downloadMB": 7674,
-        "ramMB": 9100,
-        "vramMB": 8600
+        "ramMB": 9605,
+        "vramMB": 9278
       },
       "devices": [
         "gpu",

@@ -127,6 +127,26 @@ describe("one list from every source", () => {
     ]);
   });
 
+  it("never takes an integrated GPU's figures from Vulkan: they are the PC's RAM echoed back", () => {
+    // `llama-server --list-devices` of the Vulkan build b12032 on a 64 GB PC with an RTX 5080 and a Core Ultra
+    const llama = parseLlamaDevices(
+      "Available devices:\r\n  Vulkan0: NVIDIA GeForce RTX 5080 (16193 MiB, 15400 MiB free)\r\n  Vulkan1: Intel(R) Graphics (37037 MiB, 37037 MiB free)\r\n",
+    );
+    expect(llama).toHaveLength(2);
+    const listed = mergeGpus({
+      nvidia: [gpu("NVIDIA GeForce RTX 5080", 16303, { vramUsedMB: 2038, source: "nvidia-smi" })],
+      wmi: [{ name: "NVIDIA GeForce RTX 5080" }, { name: "Intel(R) Graphics" }],
+      registry: new Map(),
+      llama,
+    });
+    expect(listed.map((g) => [g.name, g.vramTotalMB, g.vramUsedMB, g.source, g.integrated])).toEqual([
+      ["NVIDIA GeForce RTX 5080", 16303, 2038, "nvidia-smi", false],
+      ["Intel(R) Graphics", null, null, "wmi", true],
+    ]);
+    const alone = mergeGpus({ nvidia: [], wmi: [], registry: new Map(), llama: [llama[1]] });
+    expect(alone[0]).toMatchObject({ name: "Intel(R) Graphics", vramTotalMB: null, integrated: true });
+  });
+
   it("reads llama.cpp's device list, and nothing from a list without devices", () => {
     expect(
       parseLlamaDevices("Available devices:\n  CUDA0: NVIDIA GeForce RTX 5080 (16302 MiB, 14980 MiB free)\n"),

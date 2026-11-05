@@ -47,7 +47,7 @@ function devPc(over: Partial<MachineProfile> = {}): MachineProfile {
 describe("needs of a model", () => {
   it("measured on this PC first, then the catalog, then the file size × 1.2", () => {
     const q = e("qwen3-embedding-8b-q8");
-    expect(needOf(q, []).vram).toBe(9100);
+    expect(needOf(q, []).vram).toBe(9564);
     expect(
       needOf(q, [{ at: "2026-11-01T00:00:00Z", op: "model.load", model: q.id, items: 1, ms: 4000, vramMB: 9300 }]).vram,
     ).toBe(9300);
@@ -66,9 +66,9 @@ describe("fit verdicts", () => {
   it("fits, with the numbers", () => {
     const f = fitOf([e("qwen3-embedding-4b-q8"), e("qwen3-reranker-0.6b-q8")], devPc(), H);
     expect(f.verdict).toBe("fits");
-    expect(f.needMB.vram).toBe(4600 + 1300);
+    expect(f.needMB.vram).toBe(5861 + 1827);
     expect(f.freeMB.vram).toBe(16303 - 2490);
-    expect(f.message).toMatch(/Fits: .* need about 5\.8 GB; the GPU has 15\.9 GB, 13\.5 GB free/);
+    expect(f.message).toMatch(/Fits: .* need about 7\.5 GB; the GPU has 15\.9 GB, 13\.5 GB free/);
   });
 
   it("checks the embedding and the reranker together: Quality's first variant is tight on the dev PC", () => {
@@ -76,8 +76,8 @@ describe("fit verdicts", () => {
     expect(alone.verdict).toBe("fits");
     const pair = fitOf([e("qwen3-embedding-8b-q8"), e("qwen3-reranker-4b-q8")], devPc(), H);
     expect(pair.verdict).toBe("tight");
-    expect(pair.needMB.vram).toBe(13900);
-    expect(pair.message).toMatch(/13\.6 GB; the GPU has 15\.9 GB, 13\.5 GB free\. Other programs use 2\.4 GB/);
+    expect(pair.needMB.vram).toBe(9564 + 5593);
+    expect(pair.message).toMatch(/14\.8 GB; the GPU has 15\.9 GB, 13\.5 GB free\. Other programs use 2\.4 GB/);
     const quiet = fitOf(
       [e("qwen3-embedding-8b-q8"), e("qwen3-reranker-4b-q8")],
       devPc({ gpus: [{ ...devPc().gpus[0], vramUsedMB: 1000 }] }),
@@ -111,7 +111,7 @@ describe("fit verdicts", () => {
     const f = fitOf([e("qwen3-embedding-8b-q8")], small, H);
     expect(f.verdict).toBe("gpu-too-small");
     expect(f.message).toMatch(
-      /Your GPU has 8\.0 GB, 7\.5 GB free\. .* needs about 8.9 GB: it will run partly on the processor/,
+      /Your GPU has 8\.0 GB, 7\.5 GB free\. .* needs about 9\.3 GB: it will run partly on the processor/,
     );
   });
 
@@ -265,7 +265,7 @@ describe("Testimus' own llama.cpp servers are not « other loaded models » for 
     const same = fitOf([e("qwen3-embedding-4b-q8"), e("qwen3-reranker-0.6b-q8")], m, H);
     expect(same.verdict).toBe("fits");
     expect(same.unload).toEqual([]);
-    expect(same.needMB.vram).toBe(1300);
+    expect(same.needMB.vram).toBe(5861 + 1827 - 4600);
     const other = fitOf([e("qwen3-embedding-8b-q4")], m, H);
     expect(other.verdict).toBe("tight");
     expect(other.unload).toEqual(["qwen3-embedding-4b-q8"]);
