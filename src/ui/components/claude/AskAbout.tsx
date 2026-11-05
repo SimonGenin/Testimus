@@ -3,7 +3,7 @@ import { useApp } from "../../lib/app.ts";
 import { Button } from "../ui/Button.tsx";
 import { useClaudeStatus } from "./useClaudeStatus.ts";
 
-// ponytail: the Claude mark beside a problem the app met — it writes the problem in the dock and asks Claude about it;
+// ponytail: « Ask Claude » beside a problem the app met — it writes the problem in the dock and asks Claude about it;
 // Claude explains the cause and the steps, and leaves an action card when the app's own commands can fix it. Nothing
 // is proposed before Claude has looked: that is the difference with a Claude action
 export function AskAbout({
@@ -28,11 +28,10 @@ export function AskAbout({
         : false;
   return (
     <Button
-      variant="quiet"
+      variant="claude"
       size={size}
       icon="claude"
-      iconOnly
-      label="Ask Claude about this"
+      label="Ask Claude"
       disabled={why}
       onClick={() => app.askAbout(problem, label)}
     />

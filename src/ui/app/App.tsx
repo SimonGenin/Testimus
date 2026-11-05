@@ -24,7 +24,7 @@ import { execute } from "../lib/data/query.ts";
 import { usePaneWidth } from "../lib/panes.ts";
 import { jumpTo, rememberHit } from "../lib/search.ts";
 import { errorToast, jobToast, toast } from "../lib/toast.ts";
-import { border, breakpoint, color, radius, shadow, size, space } from "../styles/tokens.stylex.ts";
+import { border, breakpoint, color, radius, shadow, size, space, z } from "../styles/tokens.stylex.ts";
 import { commandToast, paletteActions } from "./paletteActions.ts";
 import { parseRoute, TITLES, useRoute } from "./routes.ts";
 import { ScreenGuard } from "./ScreenGuard.tsx";
@@ -65,7 +65,13 @@ const styles = stylex.create({
   },
   frameOpen: { borderRadius: radius.r4, marginInlineEnd: { default: 0, [breakpoint.dock]: space.s3 } },
   screen: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", position: "relative" },
-  dock: { boxSizing: "border-box", flex: "none", display: "flex", width: size.dockFolded, zIndex: 1 },
+  dock: {
+    boxSizing: "border-box",
+    flex: "none",
+    display: "flex",
+    width: size.dockFolded,
+    zIndex: `calc(${z.sticky} + 1)`,
+  },
   dockOpen: {
     width: "var(--dock-size)",
     margin: space.s3,

@@ -670,6 +670,21 @@ describe("Claude dock: one with the rest of the app", () => {
     expect(await screen.findByText("Le menu dépend du type.")).toBeInTheDocument();
   });
 
+  it("asks a problem under « On the project », even on a document, and the next request there is a project run that knows it", async () => {
+    net.routes["chat.ask"] = () => ({ chatId: "p", ok: true, answer: "Le proxy coupe le certificat." });
+    net.routes["claude.run"] = () => ({ ok: true, summary: "ok" });
+    const problem = { where: "check:xray", text: "System check « Xray reachable »: fetch failed" };
+    mount({ request: { mode: "docs", problem, label: "Xray reachable", nonce: 1 } }, onDoc);
+    expect(screen.getByRole("tab", { name: /On the project/ })).toHaveAttribute("aria-selected", "true");
+    await waitFor(() => expect(callsOf("chat.ask")).toHaveLength(1));
+    expect(callsOf("chat.ask")[0].input).toMatchObject({ problem });
+    expect(await screen.findByText("Le proxy coupe le certificat.")).toBeInTheDocument();
+    ask("Corrige-le");
+    await waitFor(() => expect(callsOf("claude.run")).toHaveLength(1));
+    expect(callsOf("claude.run")[0].input.scope).toEqual({ kind: "project" });
+    expect(callsOf("claude.run")[0].input.conversation).toContain("Le proxy coupe le certificat.");
+  });
+
   it("waits while Claude runs elsewhere: the box says so, and the palette's question is only put in it", async () => {
     const { update } = mount({}, { ...onDoc, claudeRunning: "*project*" });
     expect(screen.getAllByText("Claude is working on another run — wait for it to finish").length).toBeGreaterThan(0);

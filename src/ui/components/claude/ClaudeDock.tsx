@@ -149,8 +149,9 @@ export function ClaudeDock({
   useEffect(() => {
     if (!request || request.nonce === seen.current) return;
     seen.current = request.nonce;
-    // ponytail: a problem's conversation goes on in the Documents tab — the next question there continues it
-    if (request.problem) where.pickTab("docs");
+    // ponytail: a problem is about the project, not the documents — it is asked under « On the project », and the next
+    // request there is a project run that carries the diagnosis in its conversation
+    if (request.problem) where.ask("test", "project");
     else where.ask(request.mode, request.scope);
     if (request.job) {
       void runs.runJob(request.job);

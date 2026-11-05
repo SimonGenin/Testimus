@@ -331,8 +331,8 @@ describe("System check screen", () => {
       ]);
     const { state, rerenderWith } = withApp(<DoctorScreen />);
     await screen.findByText("Xray reachable");
-    const ask = within(row("Xray reachable")).getByRole("button", { name: "Ask Claude about this" });
-    expect(screen.getAllByRole("button", { name: "Ask Claude about this" })).toHaveLength(1);
+    const ask = within(row("Xray reachable")).getByRole("button", { name: "Ask Claude" });
+    expect(screen.getAllByRole("button", { name: "Ask Claude" })).toHaveLength(1);
     fireEvent.click(ask);
     expect(state.askAbout).toHaveBeenCalledWith(
       {
@@ -342,7 +342,7 @@ describe("System check screen", () => {
       "Xray reachable",
     );
     rerenderWith({ info: null });
-    expect(screen.getByRole("button", { name: "Ask Claude about this" })).toHaveAccessibleDescription(
+    expect(screen.getByRole("button", { name: "Ask Claude" })).toHaveAccessibleDescription(
       "Open a project to ask Claude",
     );
   });

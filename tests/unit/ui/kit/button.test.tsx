@@ -164,6 +164,41 @@ describe("Tooltip", () => {
       expect(screen.getByRole("button", { name: `b-${side}` })).toHaveAccessibleDescription(side);
     }
   });
+
+  it("is placed in the window from its control's box: no scrolling frame clips it, it flips when its side has no room", () => {
+    const size = (el: HTMLElement) => (el.getAttribute("role") === "tooltip" ? { w: 120, h: 24 } : { w: 0, h: 0 });
+    const w = vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(function (this: HTMLElement) {
+      return size(this).w;
+    });
+    const h = vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(function (this: HTMLElement) {
+      return size(this).h;
+    });
+    try {
+      const at = (label: string, box: { left: number; top: number }, side?: "top" | "right") => {
+        render(
+          <Tooltip label={label} side={side} debugState="open">
+            <button type="button">{label}</button>
+          </Tooltip>,
+        );
+        const anchor = screen.getByRole("button", { name: label }).parentElement as HTMLElement;
+        anchor.getBoundingClientRect = () =>
+          ({ ...box, width: 28, height: 28, right: box.left + 28, bottom: box.top + 28 }) as DOMRect;
+        act(() => window.dispatchEvent(new Event("resize")));
+        return (screen.getByRole("tooltip", { name: label }) as HTMLElement).style;
+      };
+      const mid = at("mid", { left: 400, top: 300 });
+      expect([mid.left, mid.bottom, mid.top]).toEqual(["354px", `${window.innerHeight - 300}px`, ""]);
+      const edge = at("edge", { left: window.innerWidth - 30, top: 300 });
+      expect(edge.left).toBe(`${window.innerWidth - 120 - 8}px`);
+      const high = at("high", { left: 400, top: 4 });
+      expect([high.top, high.bottom]).toEqual(["32px", ""]);
+      const right = at("right", { left: window.innerWidth - 30, top: 300 }, "right");
+      expect([right.right, right.left]).toEqual([`${30}px`, ""]);
+    } finally {
+      w.mockRestore();
+      h.mockRestore();
+    }
+  });
 });
 
 function Host() {
