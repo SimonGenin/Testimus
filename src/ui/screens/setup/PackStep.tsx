@@ -54,11 +54,11 @@ function Machine({ machine }: { machine: Hardware }) {
   );
 }
 
-const TITLE = "Choose how documents are searched";
+const TITLE = "How should documents be searched?";
 
-export function PackStep({ onBack }: { onBack: () => void }) {
+export function PackStep({ onBack, onDone }: { onBack: () => void; onDone?: () => void }) {
   const app = useApp();
-  const s = usePackStep(!!app.info);
+  const s = usePackStep(!!app.info, onDone);
   const a = s.actions;
 
   if (!app.info)
@@ -79,11 +79,16 @@ export function PackStep({ onBack }: { onBack: () => void }) {
     <StepCard
       id="pack-h"
       title={TITLE}
-      lead="Search runs on this PC and documents never leave it. Analyse the machine to see which packs it runs and the most it runs comfortably; you can change it any time in Settings › Models."
+      lead="Search finds the passages Claude cites. It runs on this PC and documents never leave it; better search means better sources, at the cost of a download. Change it any time in Settings › Models."
       back={<Button variant="quiet" size="lg" icon="chevron-left" label="Back" onClick={onBack} />}
       actions={
         <>
-          <Button variant="quiet" size="lg" label="Skip for now" onClick={s.done} />
+          <Button
+            variant="quiet"
+            size="lg"
+            label={s.active ? `Keep ${s.active.label} for now` : "Skip for now"}
+            onClick={s.done}
+          />
           <Button
             variant="primary"
             size="lg"
@@ -101,7 +106,7 @@ export function PackStep({ onBack }: { onBack: () => void }) {
         ) : (
           <p {...stylex.props(type.compact, styles.notYet)}>
             <Icon name="cpu" />
-            Not analysed yet: until then, no pack is said to fit.
+            {s.analysing ? "Reading this machine…" : "Not analysed yet: until then, no pack is said to fit."}
           </p>
         )}
         <Button

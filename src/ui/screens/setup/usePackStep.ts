@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useApp } from "../../lib/app.ts";
 import { invalidate, read, useRead } from "../../lib/data/query.ts";
 import { errorToast, jobToast } from "../../lib/toast.ts";
@@ -7,15 +7,16 @@ import { useModelActions } from "../settings/models/actions.ts";
 import type { CatalogRow, Hardware, PackRow } from "../settings/models/data.ts";
 import { suggestPack } from "../settings/models/data.ts";
 
-// ponytail: the Search pack step — the packs of the project on this PC, the machine read only when asked (no pack is
-// said to fit before), then « Use » goes the way Settings › Models goes: does it fit (FitConfirm), a models folder
-// when a download has nowhere to go, the plan (PackPlanDialog), and the job — downloaded and used at once; the page
-// says it started and moves on to the documents
-export function usePackStep(hasProject: boolean) {
+// ponytail: the Search pack step — the packs of the project on this PC, the machine read on arrival (no pack is said to
+// fit before) and the suggested pack picked, then « Use » goes the way Settings › Models goes: does it fit
+// (FitConfirm), a models folder when a download has nowhere to go, the plan (PackPlanDialog), and the job — downloaded
+// and used at once; the page says it started and moves on
+export function usePackStep(hasProject: boolean, onDone?: () => void) {
   const app = useApp();
   const client = useQueryClient();
   const packsRead = useRead("models.packs", {}, { enabled: hasProject });
-  const catalog = (useRead("models.catalog", {}, { enabled: hasProject }).data ?? []) as CatalogRow[];
+  const catalogRead = useRead("models.catalog", {}, { enabled: hasProject });
+  const catalog = (catalogRead.data ?? []) as CatalogRow[];
   const packs = packsRead.isPending ? null : ((packsRead.data ?? []) as PackRow[]);
   const [chosen, setChosen] = useState("");
   const [machine, setMachine] = useState<Hardware | null>(null);
@@ -39,8 +40,16 @@ export function usePackStep(hasProject: boolean) {
     }
   };
 
+  const asked = useRef(false);
+  useEffect(() => {
+    if (asked.current || !packs || !catalogRead.data) return;
+    asked.current = true;
+    void analyse();
+  });
+
   const pack = packs?.find((p) => p.id === chosen);
-  const done = () => app.navigate("documents");
+  const active = packs?.find((p) => p.active);
+  const done = () => (onDone ? onDone() : app.navigate("documents"));
   const a = useModelActions({
     packs: packs ?? undefined,
     catalog,
@@ -69,6 +78,7 @@ export function usePackStep(hasProject: boolean) {
     chosen,
     setChosen,
     pack,
+    active,
     machine,
     suggested,
     analysing,

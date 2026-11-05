@@ -34,7 +34,11 @@ test("#/review fits a 520 px window", async ({ page }) => {
 
 test("#/setup, the first-run screen, fits a 520 px window", async ({ page }) => {
   await page.goto("/#/setup");
+  await expect(page.getByRole("heading", { level: 1, name: "Welcome to Testimus" })).toBeInViewport();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+  await page.goto("/#/setup/access");
   await expect(page.getByRole("heading", { level: 1, name: "Connect to Jira and Xray" })).toBeInViewport();
+  await page.getByRole("button", { name: "Change the access" }).click();
   await expect(page.getByRole("textbox", { name: "Jira site" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
   const save = page.getByRole("button", { name: "Save and test the connection" });

@@ -836,24 +836,23 @@ function emptyShots(): Shot[] {
 function noneShots(): Shot[] {
   const setup = (id: string, note: string, hash: string): Shot => ({ id, note, hash, setup: true, ready: heading1 });
   return [
-    setup("setup-access", "First run › Connect to Jira and Xray", "#/setup"),
+    setup("setup-welcome", "First run › Welcome, how you will work and the theme", "#/setup"),
+    setup("setup-claude", "First run › Claude found and its sign-in proved", "#/setup/claude"),
+    setup("setup-access", "First run › Jira and Xray, the access found tested on arrival", "#/setup/access"),
     {
-      id: "setup-access-tested",
-      note: "First run › access tested",
-      hash: "#/setup",
+      id: "setup-access-form",
+      note: "First run › the access form, unfolded",
+      hash: "#/setup/access",
       setup: true,
       ready: heading1,
       prep: async (p) => {
-        await tap(p, "Save and test the connection");
-        await p
-          .getByRole("status")
-          .filter({ hasText: /Connected as/ })
-          .first()
-          .waitFor({ timeout: T });
+        await tap(p, "Change the access");
+        await p.getByRole("textbox", { name: "Jira site" }).waitFor({ timeout: T });
       },
     },
     setup("setup-project", "First run › Choose a project", "#/setup/project"),
     setup("setup-pack-no-project", "First run › Search pack, no project yet", "#/setup/pack"),
+    setup("setup-ready", "First run › Ready, what is set and what was left for later", "#/setup/ready"),
     { id: "tests", note: "Tests with no project", hash: "#/tests" },
     { id: "settings-project", note: "Settings with no project", hash: "#/settings/project" },
     { id: "settings-access", note: "Settings › Access with no project", hash: "#/settings/access" },

@@ -195,6 +195,18 @@ describe("Generate screen", () => {
     expect(screen.queryByRole("region", { name: "Smart columns" })).toBeNull();
   });
 
+  it("says Xray folder for a project on Jira, Folder for one without", async () => {
+    base();
+    api.routes["docs.list"] = () => [];
+    mountData(<GenerateScreen />);
+    expect(await screen.findByLabelText("Xray folder")).toBeInTheDocument();
+    cleanup();
+    const local = project();
+    mountData(<GenerateScreen />, { info: { ...local, project: { ...local.project, jiraProject: "" } } as never });
+    expect(await screen.findByLabelText("Folder")).toBeInTheDocument();
+    expect(screen.getByText("You can change it in each test.")).toBeInTheDocument();
+  });
+
   it("asks to connect Claude when it is missing, and checks again", async () => {
     base();
     api.routes["claude.status"] = (i) =>

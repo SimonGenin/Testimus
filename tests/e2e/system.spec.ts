@@ -2,19 +2,30 @@ import { api, boot, expect, mockServer, openTest, shoot, test } from "./helpers.
 
 const { url } = mockServer(4352);
 
-test("first launch finds the existing access, tests it, then moves to the project step", async ({ page }) => {
+test("first launch: welcome, Claude, the access found tested on arrival, then the project step", async ({ page }) => {
   await page.goto("/#/setup");
+  await expect(page.getByRole("heading", { level: 1, name: "Welcome to Testimus" })).toBeVisible();
+  await expect(page.getByRole("radio", { name: /With Jira and Xray/ })).toBeChecked();
+  await expect(page.getByRole("radiogroup", { name: "Theme" }).getByRole("radio", { name: "System" })).toBeChecked();
+  await shoot(page, "first-run");
+  await page.getByRole("button", { name: "Start" }).click();
+  await expect(page).toHaveURL(/#\/setup\/claude$/);
+  await expect(page.getByText("Claude Code is installed")).toBeVisible();
+  await expect(page.getByText("Signed in", { exact: true })).toBeVisible({ timeout: 15_000 });
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page).toHaveURL(/#\/setup\/access$/);
   await expect(page.getByRole("heading", { level: 1, name: "Connect to Jira and Xray" })).toBeVisible();
+  await expect(page.getByText("Access already saved on this PC was found and tested.")).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: /Connected as/ })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Key accepted" })).toBeVisible();
+  await page.getByRole("button", { name: "Change the access" }).click();
   await expect(page.getByRole("textbox", { name: "Jira site" })).toHaveValue(/^https:\/\/mock\.atlassian\.net/);
   await expect(page.getByRole("textbox", { name: "Email" })).toHaveValue("tester@example.com");
   await expect(page.getByRole("button", { name: "Open API tokens" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Open Jira apps" })).toBeVisible();
-  await shoot(page, "first-run");
-  await page.getByRole("button", { name: "Save and test the connection" }).click();
-  await expect(page.getByRole("status").filter({ hasText: /Connected as/ })).toBeVisible();
-  await expect(page.getByRole("status").filter({ hasText: "Key accepted" })).toBeVisible();
   await page.getByRole("button", { name: "Continue" }).click();
   await expect(page).toHaveURL(/#\/setup\/project$/);
+  await expect(page.getByRole("combobox", { name: "Jira project" })).toBeVisible();
   await shoot(page, "first-run-project");
   await page.getByRole("button", { name: "Back to the app" }).click();
   await expect(page.getByRole("navigation", { name: "Main" })).toBeVisible();

@@ -86,15 +86,14 @@ describe("First launch › Search pack", () => {
     });
     withApp(<PackStep onBack={vi.fn()} />);
     await screen.findByRole("radiogroup", { name: "Search packs" });
-    fireEvent.click(screen.getByRole("button", { name: "Analyse my machine" }));
     expect(await screen.findByText("RTX, 8.0 GB (7.0 GB free)")).toBeInTheDocument();
     expect(screen.getByText("Windows")).toBeInTheDocument();
     expect(radio("Performance")).toBeChecked();
     expect(card("Performance")).toHaveTextContent("Suggested for this PC");
     expect(screen.getByText("Not available on this PC: needs a GPU")).toBeInTheDocument();
     expect(screen.getByText("Not available on this PC")).toBeInTheDocument();
-    expect(screen.getByText("Embed One + r1 · 2.0 GB to download")).toBeInTheDocument();
-    expect(screen.getByText("Embed One · nothing to download")).toBeInTheDocument();
+    expect(card("Performance")).toHaveTextContent("2.0 GB to download · Embed One + r1");
+    expect(card("Light")).toHaveTextContent("Nothing to download · Embed One");
     expect(card("Light")).toHaveTextContent("In use");
     expect(radio("Quality")).toBeDisabled();
     fireEvent.click(radio("Light"));
@@ -236,7 +235,7 @@ const show = (withProject = true) =>
   });
 
 describe("First launch › Search pack, as the third step", () => {
-  it("no verdict until the machine is analysed, then the heaviest pack that fits without a GGUF on the CPU", async () => {
+  it("reads the machine on arrival, then picks the heaviest pack that fits without a GGUF on the CPU", async () => {
     base({
       system: { platform: "darwin", arch: "arm64" },
       ramTotalMB: 32768,
@@ -246,16 +245,8 @@ describe("First launch › Search pack, as the third step", () => {
       gpus: [],
     });
     const { state } = show();
-    expect(screen.getByRole("button", { name: /Search pack/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Search/ })).toBeInTheDocument();
     await screen.findByRole("radiogroup", { name: "Search packs" });
-    const perf = radio("Performance");
-    expect(perf).not.toBeChecked();
-    expect(screen.queryByText("Fits")).toBeNull();
-    expect(screen.queryByText("Suggested for this PC")).toBeNull();
-    expect(screen.getByText(/Not analysed yet/)).toBeInTheDocument();
-    expect(iconsIn(screen.getByText(/Not analysed yet/)), "audit icons 100").toEqual(["cpu"]);
-    expect(iconsIn(screen.getByRole("button", { name: "Analyse my machine" })), "audit icons 99").toEqual(["cpu"]);
-    fireEvent.click(screen.getByRole("button", { name: "Analyse my machine" }));
     await waitFor(() => expect(radio("Performance")).toBeChecked());
     expect(iconsIn(screen.getByRole("button", { name: "Analyse again" }))).toEqual(["refresh"]);
     expect(callsOf("models.hardware").map((c) => c.input)).toEqual([{ refresh: true }]);
@@ -279,14 +270,13 @@ describe("First launch › Search pack, as the third step", () => {
         ["models.usePack", { pack: "performance", downloadOnly: false }],
       ]),
     );
-    await waitFor(() => expect(state.navigate).toHaveBeenCalledWith("documents"));
+    await waitFor(() => expect(state.navigate).toHaveBeenCalledWith("setup", "ready"));
   });
 
   it("reads the machine again on Analyse again", async () => {
     base({ ramTotalMB: 8192, ramFreeMB: 4096, cpu: { model: "Core", threads: 4 }, drives: [], gpus: [] });
     show();
     await screen.findByRole("radiogroup", { name: "Search packs" });
-    fireEvent.click(screen.getByRole("button", { name: "Analyse my machine" }));
     fireEvent.click(await screen.findByRole("button", { name: "Analyse again" }));
     await waitFor(() => expect(callsOf("models.hardware")).toHaveLength(2));
   });
@@ -315,7 +305,6 @@ describe("First launch › Search pack, as the third step", () => {
     ];
     show();
     await screen.findByRole("radiogroup", { name: "Search packs" });
-    fireEvent.click(screen.getByRole("button", { name: "Analyse my machine" }));
     await waitFor(() => expect(radio("Light")).toBeChecked());
     expect(screen.getAllByText("Processor only")).toHaveLength(1);
     expect(screen.getByText(/Made for a GPU: here it runs on the processor, several times slower/)).toBeInTheDocument();
@@ -340,13 +329,15 @@ describe("First launch › Search pack, as the third step", () => {
     };
     const { state } = show();
     await screen.findByRole("radiogroup", { name: "Search packs" });
-    fireEvent.click(screen.getByRole("button", { name: "Analyse my machine" }));
     await waitFor(() => expect(errors()).toContain("Could not analyse this machine"));
     await waitFor(() => expect(screen.getByRole("button", { name: "Analyse my machine" })).toBeEnabled());
+    expect(screen.getByText(/Not analysed yet/)).toBeInTheDocument();
+    expect(iconsIn(screen.getByText(/Not analysed yet/)), "audit icons 100").toEqual(["cpu"]);
+    expect(iconsIn(screen.getByRole("button", { name: "Analyse my machine" })), "audit icons 99").toEqual(["cpu"]);
     expect(radio("Light")).not.toBeChecked();
     expect(screen.getByRole("button", { name: "Use this pack" })).toBeDisabled();
-    fireEvent.click(screen.getByRole("button", { name: "Skip for now" }));
-    expect(state.navigate).toHaveBeenCalledWith("documents");
+    fireEvent.click(screen.getByRole("button", { name: /for now$/ }));
+    expect(state.navigate).toHaveBeenCalledWith("setup", "ready");
     expect(callsOf("models.usePack")).toHaveLength(0);
   });
 

@@ -574,6 +574,8 @@ export type Settings = {
   claude: { exe: string };
   models: { allowRemote: boolean };
   agents?: { max?: number; adaptive?: boolean; measured?: AgentsMeasure };
+  /** a service the user chose to work without: the system check says « not used », not « failed » */
+  atlassian?: { skipJira?: boolean; skipXray?: boolean };
   ui?: Record<string, string>;
   rag?: {
     byProject?: Record<string, ActiveChoice>;

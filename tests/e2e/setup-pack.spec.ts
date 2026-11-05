@@ -9,13 +9,12 @@ test.describe("a 16 GB GPU", () => {
   test("the project step leads to the pack step, which suggests the heaviest pack that fits", async ({ page }) => {
     await page.goto("/#/setup/project");
     const steps = page.getByRole("list", { name: "Setup steps" });
-    await steps.getByRole("button", { name: /Search pack/ }).click();
+    await steps.getByRole("button", { name: /Search/ }).click();
     await expect(page).toHaveURL(/#\/setup\/pack$/);
-    await expect(page.getByRole("heading", { level: 1, name: "Choose how documents are searched" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "How should documents be searched?" })).toBeVisible();
     const packs = page.getByRole("radiogroup", { name: "Search packs" });
     const quality = packs.getByRole("radio", { name: /^Quality\b/ });
     await expect(quality).toBeEnabled();
-    await page.getByRole("button", { name: "Analyse my machine" }).click();
     await expect(quality).toBeChecked();
     await expect(packs.locator("label").filter({ has: page.getByRole("radio", { name: /^Quality\b/ }) })).toContainText(
       "Suggested for this PC",
@@ -26,7 +25,8 @@ test.describe("a 16 GB GPU", () => {
     await page.getByRole("button", { name: "Use Quality" }).click();
     const plan = page.getByRole("dialog", { name: /^(Download and use|Use) the Quality pack$/ });
     await plan.getByRole("button", { name: /^(Download |Use Quality)/ }).click();
-    await expect(page).toHaveURL(/#\/documents/);
+    await expect(page).toHaveURL(/#\/setup\/ready$/);
+    await expect(page.getByRole("list", { name: "Setup summary" })).toContainText("Search");
     await expect
       .poll(async () => (await api<Pack[]>(url, "models.packs")).find((p) => p.id === "quality")?.active, {
         timeout: 30_000,
@@ -34,11 +34,11 @@ test.describe("a 16 GB GPU", () => {
       .toBe(true);
   });
 
-  test("Skip for now leaves the choice as it is", async ({ page }) => {
+  test("Keep … for now leaves the choice as it is", async ({ page }) => {
     await page.goto("/#/setup/pack");
     await page.getByRole("radio", { name: /^Light\b/ }).check();
-    await page.getByRole("button", { name: "Skip for now" }).click();
-    await expect(page).toHaveURL(/#\/documents/);
+    await page.getByRole("button", { name: /for now$/ }).click();
+    await expect(page).toHaveURL(/#\/setup\/ready$/);
   });
 });
 
@@ -50,7 +50,6 @@ test.describe("no GPU, 6 GB, no models folder yet", () => {
     await page.goto("/#/setup/pack");
     const packs = page.getByRole("radiogroup", { name: "Search packs" });
     await expect(packs.getByRole("radio", { name: /^Light\b/ })).toBeEnabled();
-    await page.getByRole("button", { name: "Analyse my machine" }).click();
     await expect(packs.getByRole("radio", { name: /^Light\b/ })).toBeChecked();
     await expect(packs.getByRole("radio", { name: /^Quality\b/ })).toBeEnabled();
     for (const heavier of ["Quality", "Performance"])
@@ -75,7 +74,7 @@ test.describe("no GPU, 6 GB, no models folder yet", () => {
     await where.getByRole("button", { name: "Store models here" }).click();
     const plan = page.getByRole("dialog", { name: "Download and use the Performance pack" });
     await plan.getByRole("button", { name: /^Download / }).click();
-    await expect(page).toHaveURL(/#\/documents/);
+    await expect(page).toHaveURL(/#\/setup\/ready$/);
     await expect
       .poll(async () => (await api<Pack[]>(url, "models.packs")).find((p) => p.id === "performance")?.active, {
         timeout: 30_000,

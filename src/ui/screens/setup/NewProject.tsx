@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "../../components/ui/Button.tsx";
 import { Select } from "../../components/ui/Select.tsx";
 import { Text } from "../../components/ui/Text.tsx";
@@ -58,30 +58,64 @@ export function useNewProject(root: string) {
   return { where, setWhere, key, setKey, name, setName, language, setLanguage, dir, input, clear };
 }
 
+export type JiraChoice =
+  /** Jira is left out on this PC: no field */
+  | { kind: "off" }
+  /** the projects Jira lists for this account, picked from */
+  | { kind: "list"; projects: { key: string; name: string }[] }
+  /** no list (no access yet, or Jira did not answer): the key typed */
+  | { kind: "typed" };
+
 export function NewProject({
   f,
   busy,
   first,
+  jira,
 }: {
   f: ReturnType<typeof useNewProject>;
   busy: boolean;
   /** no project is known yet: the section is the only way on */
   first: boolean;
+  jira: JiraChoice;
 }) {
+  const picked = jira.kind === "list" ? jira.projects.find((p) => p.key === f.key.trim().toUpperCase()) : undefined;
+  const [none, setNone] = useState(false);
   return (
     <section aria-labelledby="new-project" {...stylex.props(styles.set)}>
       <h2 id="new-project" {...stylex.props(type.titleSm, styles.title)}>
         {first ? "New project" : "Or start a new project"}
       </h2>
       <div {...stylex.props(styles.pair)}>
-        <Text
-          id="proj-key"
-          label="Jira project key"
-          hint="Optional: a project without a key never asks Jira."
-          placeholder="e.g. LFRPS12"
-          value={f.key}
-          onChange={f.setKey}
-        />
+        {jira.kind === "list" ? (
+          <Select
+            id="proj-jira"
+            label="Jira project"
+            showLabel
+            block
+            placeholder="Pick the Jira project"
+            hint="Its tests and step columns come with it."
+            value={picked?.key ?? (none ? "" : null)}
+            onChange={(k) => {
+              setNone(k === "");
+              const p = jira.projects.find((x) => x.key === k);
+              f.setKey(k);
+              if (p && (!f.name.trim() || jira.projects.some((x) => x.name === f.name.trim()))) f.setName(p.name);
+            }}
+            options={[
+              { value: "", label: "No Jira project" },
+              ...jira.projects.map((p) => ({ value: p.key, label: `${p.key} — ${p.name}` })),
+            ]}
+          />
+        ) : jira.kind === "typed" ? (
+          <Text
+            id="proj-key"
+            label="Jira project key"
+            hint="Optional: a project without a key never asks Jira."
+            placeholder="e.g. LFRPS12"
+            value={f.key}
+            onChange={f.setKey}
+          />
+        ) : null}
         <Text id="proj-name" label="Name" placeholder="e.g. RATP Sosie" value={f.name} onChange={f.setName} />
       </div>
       <div {...stylex.props(styles.pair)}>

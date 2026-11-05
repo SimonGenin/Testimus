@@ -14,6 +14,7 @@ import { useDraft } from "../../lib/data/autosave.ts";
 import { execute, invalidate, type Key, read, useRead } from "../../lib/data/query.ts";
 import { desktop, openExternal, reveal } from "../../lib/desktop.ts";
 import { message } from "../../lib/format.ts";
+import { errorToast, toast } from "../../lib/toast.ts";
 import { color, radius, size, space } from "../../styles/tokens.stylex.ts";
 import { Grid, Hint } from "./Section.tsx";
 
@@ -126,6 +127,27 @@ const open = (url: string) => {
 };
 
 const dirOf = (file: string) => file.replace(/[\\/][^\\/]+$/, "");
+
+// ponytail: an Xray key is made by a Jira admin — the person sends this, with the exact way to the page
+export function adminRequest(email: string, site: string): string {
+  return [
+    "Hello,",
+    "",
+    `Could you create an Xray API key for my Jira user${email ? ` (${email})` : ""}${site ? ` on ${site}` : ""}?`,
+    "In Jira: Settings → Apps → Xray → API Keys → Create API Key, for my user.",
+    "Then send me the Client ID and the Client secret — the secret is shown only once.",
+    "",
+    "Thank you!",
+  ].join("\n");
+}
+
+const copyRequest = (text: string) =>
+  navigator.clipboard
+    .writeText(text)
+    .then(() =>
+      toast({ tone: "neutral", title: "Request copied", detail: "Paste it in a message to your Jira admin." }),
+    )
+    .catch((e) => errorToast(e, "Could not copy the request"));
 
 const draft = (f: string): Key => [null, "atlassian", { f }];
 
@@ -317,7 +339,15 @@ export function ConnectAtlassian({
               )}
             </li>
             <li>Copy the Client ID and the Client secret below — the secret is shown only once.</li>
-            <li>Only a Jira admin sees that page: if you are not one, ask yours for a key made for your user.</li>
+            <li>
+              Only a Jira admin sees that page: if you are not one, ask yours for a key made for your user{" "}
+              <Button
+                size="sm"
+                icon="copy"
+                label="Copy a request for my admin"
+                onClick={() => void copyRequest(adminRequest(email.trim(), base))}
+              />
+            </li>
           </ol>
           <Grid>
             <Text

@@ -94,6 +94,13 @@ const settingsOut = z.object({
     })
     .optional()
     .describe(`Claude runs at the same time: max (default ${AGENTS_DEFAULT}), adaptive (default true)`),
+  atlassian: z
+    .object({
+      skipJira: z.boolean().optional().describe("The user works without Jira on this PC: its check says not used"),
+      skipXray: z.boolean().optional().describe("The user works without Xray on this PC: its check says not used"),
+    })
+    .optional()
+    .describe("Jira or Xray left out on purpose (first launch); cleared once its connection works"),
   ui: z
     .record(z.string(), z.string())
     .optional()
@@ -158,6 +165,17 @@ const XRAY = /^https:\/\/([a-z0-9-]+\.)*getxray\.app\/?$/i;
 async function checksFor(jira: boolean, xray: boolean): Promise<DoctorCheck[]> {
   const r = await Promise.all([jira ? jiraCheck() : null, xray ? xrayCheck() : null]);
   return r.filter((c) => c !== null);
+}
+
+// ponytail: a service left out at the first launch is used again as soon as its connection works
+function clearSkips(checks: DoctorCheck[]): void {
+  const s = readSettings();
+  const works = (id: string) => checks.some((c) => c.id === id && c.state === "ok");
+  const a = { ...s.atlassian };
+  if (a.skipJira && works("jira")) delete a.skipJira;
+  if (a.skipXray && works("xray")) delete a.skipXray;
+  if (a.skipJira === s.atlassian?.skipJira && a.skipXray === s.atlassian?.skipXray) return;
+  writeSettings({ ...s, atlassian: a });
 }
 
 const verdictOf = (checks: DoctorCheck[]) => {
@@ -274,7 +292,9 @@ export const commands = [
       const saved = [...Object.keys(jira), ...Object.keys(xray)];
       if (saved.length) saveCreds(jira, xray);
       const st = credsStatus();
-      return { ...verdictOf(await checksFor(st.jira.exists, st.xray.exists)), saved };
+      const checks = await checksFor(st.jira.exists, st.xray.exists);
+      clearSkips(checks);
+      return { ...verdictOf(checks), saved };
     },
   }),
   command({
@@ -330,6 +350,14 @@ export const commands = [
         .boolean()
         .optional()
         .describe("Start with 2 runs and add one while the CPU and memory have room; start none while the PC is busy."),
+      skipJira: z
+        .boolean()
+        .optional()
+        .describe("Work without Jira on this PC: the system check says « not used » instead of failing."),
+      skipXray: z
+        .boolean()
+        .optional()
+        .describe("Work without Xray (tests are read, not pushed): its check says « not used » instead of failing."),
       ui: z
         .record(z.string(), z.string())
         .optional()
@@ -350,6 +378,8 @@ export const commands = [
       if (input.allowRemote !== undefined) s.models = { ...s.models, allowRemote: input.allowRemote };
       if (input.agentsMax !== undefined) s.agents = { ...s.agents, max: clampAgents(input.agentsMax) };
       if (input.agentsAdaptive !== undefined) s.agents = { ...s.agents, adaptive: input.agentsAdaptive };
+      if (input.skipJira !== undefined) s.atlassian = { ...s.atlassian, skipJira: input.skipJira };
+      if (input.skipXray !== undefined) s.atlassian = { ...s.atlassian, skipXray: input.skipXray };
       if (input.ui) s.ui = Object.fromEntries(Object.entries(input.ui).filter(([k]) => k.startsWith("testimus.")));
       if (input.updatesFrom !== undefined) {
         const from = input.updatesFrom.trim().replace(/^"(.*)"$/, "$1");

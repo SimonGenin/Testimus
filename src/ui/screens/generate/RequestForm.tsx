@@ -5,6 +5,7 @@ import { Icon } from "../../components/ui/Icon.tsx";
 import { Menu } from "../../components/ui/Menu.tsx";
 import { Text } from "../../components/ui/Text.tsx";
 import { type } from "../../components/ui/type.ts";
+import { useApp } from "../../lib/app.ts";
 import { plural } from "../../lib/format.ts";
 import type { DocWork } from "../../lib/scope.ts";
 import type { Upload } from "../../lib/uploads.ts";
@@ -100,6 +101,8 @@ export function RequestForm({
   const narrowed = Object.values(scopes).filter(Array.isArray).length;
   const inScope = form.scope.docs.length + new Set(form.scope.sections.map((s) => s.split("#")[0])).size;
   const folder = form.folder.trim();
+  const p = useApp().info?.project;
+  const jira = !!p?.jiraProject && !p.jiraOffline;
   return (
     <section aria-label="Request" {...stylex.props(styles.form)}>
       <div {...stylex.props(styles.scroll)}>
@@ -127,9 +130,9 @@ export function RequestForm({
         </div>
         {docs && docs.length > 0 && <ColumnsView columns={columns} onEdit={onColumns} />}
         <Text
-          label="Xray folder"
+          label={jira ? "Xray folder" : "Folder"}
           placeholder="Empty: Claude suggests one per test"
-          hint="You can change it in each test before you push."
+          hint={jira ? "You can change it in each test before you push." : "You can change it in each test."}
           value={form.folder}
           onChange={form.setFolder}
           readOnly={running}

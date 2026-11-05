@@ -38,11 +38,12 @@ export function PackCard({
   label: (id: string) => string;
   onChoose: (id: string) => void;
 }) {
+  const names = p.embedding ? `${label(p.embedding)}${p.reranker ? ` + ${label(p.reranker)}` : ""}` : "";
   const models =
     p.available && p.embedding
-      ? `${label(p.embedding)}${p.reranker ? ` + ${label(p.reranker)}` : ""} · ${
-          p.downloadMB ? `${size(p.downloadMB)} to download` : "nothing to download"
-        }`
+      ? p.downloadMB
+        ? `${size(p.downloadMB)} to download`
+        : "Nothing to download"
       : p.fit?.verdict === "unsupported"
         ? p.fit.message
         : `Not available on this PC${p.skipped[0] ? `: ${p.skipped[0]}` : ""}`;
@@ -71,7 +72,10 @@ export function PackCard({
     >
       <span {...stylex.props(styles.body)}>
         <span {...stylex.props(type.compact, styles.intent)}>{p.intent}</span>
-        <span {...stylex.props(type.small, styles.models)}>{models}</span>
+        <span {...stylex.props(type.small, styles.models)}>
+          {models}
+          {p.available && names && <span {...stylex.props(styles.note)}> · {names}</span>}
+        </span>
         {note && <span {...stylex.props(type.small, styles.note)}>{note}</span>}
       </span>
     </Card>

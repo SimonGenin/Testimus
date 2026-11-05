@@ -57,11 +57,19 @@ export function useProject(navigate: (screen: Screen, arg?: string) => void) {
       setDir(here);
       setBooted(true);
       if (readPref("setupShown") || parseRoute(window.location.hash).screen === "setup") return;
-      const st = (await read(client, "system.credentials", {}).catch(() => null)) as { status: CredsStatus } | null;
-      const creds = !st?.status || (st.status.jira.complete && st.status.xray.complete);
+      const [st, settings, list] = await Promise.all([
+        read(client, "system.credentials", {}).catch(() => null) as Promise<{ status: CredsStatus } | null>,
+        read(client, "system.settings", {}).catch(() => null),
+        here ? null : read(client, "project.list", {}, null).catch(() => null),
+      ]);
+      const skip = settings?.atlassian ?? {};
+      const jira = skip.skipJira || !st?.status || st.status.jira.complete;
+      const xray = skip.skipJira || skip.skipXray || !st?.status || st.status.xray.complete;
+      const creds = jira && xray;
+      const known = !!list?.projects?.length;
       if (!here || !creds) {
         writePref("setupShown", true);
-        navigate("setup", creds ? "project" : undefined);
+        navigate("setup", here ? "access" : known && creds ? "project" : undefined);
       }
     })();
     return () => stop();

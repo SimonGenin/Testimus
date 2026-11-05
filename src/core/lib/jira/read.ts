@@ -50,6 +50,23 @@ const GET_PRECONDITIONS = `query($projectId:String,$jql:String,$limit:Int!,$star
   }
 }`;
 
+// ponytail: the Jira projects this account sees, by name, a page of 100 at a time (the first launch picks one from them)
+export async function listProjects(cap = 1000): Promise<{ key: string; name: string }[]> {
+  const out: { key: string; name: string }[] = [];
+  while (out.length < cap) {
+    const p = await jiraFetch(
+      "GET",
+      `/rest/api/3/project/search?startAt=${out.length}&maxResults=100&orderBy=name`,
+      undefined,
+      "projects",
+    );
+    const values: Array<{ key: string; name?: string }> = p.values ?? [];
+    for (const v of values) out.push({ key: v.key, name: v.name ?? v.key });
+    if (p.isLast !== false || !values.length) break;
+  }
+  return out;
+}
+
 export async function getProjectInfo(key: string): Promise<ProjectInfo> {
   const p = await jiraFetch("GET", `/rest/api/3/project/${encodeURIComponent(key)}`, undefined, `project ${key}`);
   const types: Array<{ id: string; name: string }> = p.issueTypes ?? [];

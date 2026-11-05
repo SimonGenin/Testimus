@@ -160,6 +160,7 @@ describe("App boot", () => {
   it("drops a remembered project the server no longer knows and sends a first run to Setup", async () => {
     localStorage.setItem("testimus.project", "D:\\gone");
     net.api = () => ({ project: null, mock: false });
+    net.routes["project.list"] = () => ({ projects: [{ dir: "D:\\other" }] });
     net.routes["project.info"] = () => {
       if (project() === "D:\\gone") throw new Fail("Not a known Testimus project.", 403);
       return info();
@@ -207,8 +208,9 @@ describe("App boot", () => {
     expect(await screen.findByText("Testimus is not answering")).toBeInTheDocument();
   });
 
-  it("sends a first run to Setup: the project step without a project, the access step without credentials", async () => {
+  it("sends to Setup: the project step without a project, the access step without credentials, the welcome first", async () => {
     net.api = () => ({ project: null, mock: false });
+    net.routes["project.list"] = () => ({ projects: [{ dir: "D:\\other" }] });
     const a = mount();
     await hashIs("#/setup/project");
     expect(await screen.findByRole("region", { name: "Setup screen" })).toBeInTheDocument();
@@ -220,8 +222,36 @@ describe("App boot", () => {
     net.routes["system.credentials"] = net.routes["system.setCredentials"] = () => ({
       status: { jira: { complete: true }, xray: { complete: false } },
     });
-    mount();
+    const b = mount();
+    await hashIs("#/setup/access");
+    b.unmount();
+    sessionStorage.clear();
+    window.location.hash = "";
+    net.api = () => ({ project: null, commands: [] });
+    net.routes["project.list"] = () => ({ projects: [] });
+    const c = mount();
     await hashIs("#/setup");
+    c.unmount();
+    sessionStorage.clear();
+    window.location.hash = "";
+    net.api = () => ({ project: "C:\\p", commands: [] });
+    net.routes["system.settings"] = () => ({ atlassian: { skipXray: true } });
+    mount();
+    await waitFor(() => expect(callsOf("system.settings").length).toBeGreaterThan(0));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(window.location.hash).toBe("");
+  });
+
+  it("a PC that works without Jira is not sent to Setup for it", async () => {
+    net.api = () => ({ project: "C:\\p", commands: [] });
+    net.routes["system.credentials"] = () => ({
+      status: { jira: { complete: false }, xray: { complete: false } },
+    });
+    net.routes["system.settings"] = () => ({ atlassian: { skipJira: true } });
+    mount();
+    await waitFor(() => expect(callsOf("system.settings").length).toBeGreaterThan(0));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(window.location.hash).toBe("");
   });
 
   it("does not send to Setup twice in a session, nor when already there, and survives a failed setup read", async () => {

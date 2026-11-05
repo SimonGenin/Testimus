@@ -10,6 +10,7 @@ import { jiraCreds, xrayCreds } from "./creds.ts";
 import { type ModelDeps, modelDeps, modelRows } from "./doctor-models.ts";
 import { diskCheck, message, row } from "./doctor-row.ts";
 import { getMyself, resetAuth, xrayJwt } from "./jira/http.ts";
+import { readSettings } from "./project.ts";
 
 export type DoctorOpts = {
   project: string | null;
@@ -214,8 +215,16 @@ export function proxyCheck(vars: NodeJS.ProcessEnv = process.env): DoctorCheck {
   );
 }
 
+// ponytail: a service the user chose to work without (first launch: « On this PC only », « Continue with Jira only ») is
+// not a failure — its row says it is not used, until its connection works
+export function unused(c: DoctorCheck, skip: boolean | undefined, what: string): DoctorCheck {
+  if (!skip || c.state === "ok") return c;
+  return row(c.id, c.label, "skip", `not used: ${what}`, "Connect it in Settings › Access when you need it.", SETUP);
+}
+
 export async function runDoctor(opts: DoctorOpts): Promise<DoctorCheck[]> {
   const t = opts.timeoutMs ?? 8000;
+  const skip = readSettings().atlassian ?? {};
   const login: Promise<DoctorCheck> = opts.claude
     ? claudeLoginCheck(Math.max(t, 60000))
     : Promise.resolve(
@@ -235,8 +244,10 @@ export async function runDoctor(opts: DoctorOpts): Promise<DoctorCheck[]> {
     row("face", "Face", "ok", shellOf().label),
     claudeVersionCheck(Math.max(t, 15000)),
     login,
-    jiraCheck(),
-    xrayCheck(),
+    jiraCheck().then((c) => unused(c, skip.skipJira, "you chose to work without Jira")),
+    xrayCheck().then((c) =>
+      unused(c, skip.skipJira || skip.skipXray, "you chose to work without Xray — tests are read, not pushed"),
+    ),
     modelRows(opts.project, opts.models ?? modelDeps),
     opts.project
       ? diskCheck("disk.index", "Disk space for the index", opts.project, 1)

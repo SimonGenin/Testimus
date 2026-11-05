@@ -7,6 +7,7 @@ import {
   getFolderTree,
   ISSUE_KEY,
   listPreconditions,
+  listProjects,
   listTests,
   PAGE,
   searchTests,
@@ -115,6 +116,23 @@ export const commands = [
     mutates: true,
     async run(ctx) {
       return withSignal(ctx.signal, () => refreshFields(projectOf(ctx)));
+    },
+  }),
+
+  command({
+    name: "xray.projects",
+    summary: "The Jira projects your account sees (key and name, by name) — to pick the one a new project follows.",
+    input: z.object({}),
+    output: z.array(
+      z.object({
+        key: z.string().describe("Jira project key, e.g. LFRPS12"),
+        name: z.string().describe("The project's name in Jira"),
+      }),
+    ),
+    mutates: false,
+    global: true,
+    async run(ctx) {
+      return withSignal(ctx.signal, () => listProjects());
     },
   }),
 

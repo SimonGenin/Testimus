@@ -45,42 +45,101 @@ const status = (jira: Record<string, unknown> = {}, xray: Record<string, unknown
 
 const steps = () => screen.getByRole("list", { name: "Setup steps" });
 
+const check = (id: "jira" | "xray", state: "ok" | "fail" = "ok", detail?: string) => ({
+  id,
+  label: id,
+  state,
+  detail: detail ?? (id === "jira" ? "Me Myself on acme.atlassian.net" : "authenticated on xray.cloud.getxray.app"),
+});
+
+const access = (checks: ReturnType<typeof check>[], st = status()) => {
+  net.routes["system.credentials"] = (i) => (i.check ? { status: st, checks, ok: false } : { status: st });
+};
+
+const settingsWith = (atlassian: Record<string, boolean> = {}) => {
+  let s = { projects: [], lastProject: "", claude: { exe: "" }, models: { allowRemote: true }, atlassian };
+  net.routes["system.settings"] = () => s;
+  net.routes["system.set"] = (i) => {
+    const { skipJira, skipXray } = i as { skipJira?: boolean; skipXray?: boolean };
+    s = {
+      ...s,
+      atlassian: {
+        ...s.atlassian,
+        ...(skipJira === undefined ? {} : { skipJira }),
+        ...(skipXray === undefined ? {} : { skipXray }),
+      },
+    };
+    return s;
+  };
+};
+
+const nothingSaved = () => status({ exists: false, complete: false }, { exists: false, complete: false });
+
 describe("First launch screen", () => {
   it("walks the steps and goes back to the app", () => {
-    net.routes["system.credentials"] = net.routes["system.setCredentials"] = () => ({ status: status() });
+    settingsWith();
     const { state } = withApp(<FirstRunScreen />, { route: { screen: "setup" } });
     const pills = within(steps()).getAllByRole("listitem");
+    expect(pills.map((p) => p.textContent?.replace(/^\d/, ""))).toEqual([
+      "Welcome",
+      "Claude",
+      "Jira & Xray",
+      "Project",
+      "Search",
+    ]);
     expect(pills[0]).toHaveAttribute("aria-current", "step");
-    fireEvent.click(within(pills[2]).getByRole("button", { name: /Search pack/ }));
+    expect(screen.getByRole("heading", { level: 1, name: "Welcome to Testimus" })).toBeInTheDocument();
+    fireEvent.click(within(pills[4]).getByRole("button", { name: /Search/ }));
     expect(state.navigate).toHaveBeenCalledWith("setup", "pack");
-    fireEvent.click(within(pills[0]).getByRole("button", { name: /Access/ }));
+    fireEvent.click(within(pills[2]).getByRole("button", { name: /Jira & Xray/ }));
+    expect(state.navigate).toHaveBeenCalledWith("setup", "access");
+    fireEvent.click(within(pills[0]).getByRole("button", { name: /Welcome/ }));
     expect(state.navigate).toHaveBeenCalledWith("setup", undefined);
     fireEvent.click(screen.getByRole("button", { name: "Back to the app" }));
     expect(state.navigate).toHaveBeenCalledWith("documents");
   });
 
-  it("on the project step: back goes to Access, opening goes to the pack", async () => {
+  it("on the project step: back goes to Jira & Xray, opening goes to the search step", async () => {
+    settingsWith();
     projects = [{ dir: "C:/q", name: "Q", jiraProject: "Q1", exists: true }];
     net.routes["project.open"] = (i) => ({ dir: i.dir });
     const { state } = withApp(<FirstRunScreen />, { info: null, route: { screen: "setup", arg: "project" } });
     expect(screen.queryByRole("button", { name: "Back to the app" })).toBeNull();
     const pills = within(steps()).getAllByRole("listitem");
-    expect(pills[1]).toHaveAttribute("aria-current", "step");
+    expect(pills[3]).toHaveAttribute("aria-current", "step");
     expect(within(pills[0]).getByRole("img", { name: "Done" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Back" }));
-    expect(state.navigate).toHaveBeenCalledWith("setup", undefined);
+    expect(state.navigate).toHaveBeenCalledWith("setup", "access");
     fireEvent.click(await screen.findByRole("button", { name: "Open" }));
     await waitFor(() => expect(state.navigate).toHaveBeenCalledWith("setup", "pack"));
   });
 
-  it("on the access step, Continue and Skip go to the project", async () => {
-    net.routes["system.credentials"] = net.routes["system.setCredentials"] = () => ({ status: status() });
-    const { state } = withApp(<FirstRunScreen />, { route: { screen: "setup" } });
-    await waitFor(() => expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled());
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-    fireEvent.click(screen.getByRole("button", { name: "Skip for now" }));
-    expect(state.navigate).toHaveBeenNthCalledWith(1, "setup", "project");
-    expect(state.navigate).toHaveBeenNthCalledWith(2, "setup", "project");
+  it("with Jira left out, the Claude step and the project step skip Jira & Xray", async () => {
+    settingsWith({ skipJira: true });
+    net.routes["claude.status"] = () => ({ installed: false, signedIn: false, detail: "claude: not found" });
+    const { state } = withApp(<FirstRunScreen />, { info: null, route: { screen: "setup", arg: "claude" } });
+    await screen.findByText("Claude Code is not installed");
+    await waitFor(() => expect(callsOf("system.settings").length).toBeGreaterThan(0));
+    await new Promise((r) => setTimeout(r, 0));
+    fireEvent.click(screen.getByRole("button", { name: "Continue without Claude" }));
+    expect(state.navigate).toHaveBeenCalledWith("setup", "project");
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(state.navigate).toHaveBeenCalledWith("setup", undefined);
+    cleanup();
+    const again = withApp(<FirstRunScreen />, { info: null, route: { screen: "setup", arg: "project" } });
+    await waitFor(() => expect(callsOf("system.settings").length).toBeGreaterThan(1));
+    await new Promise((r) => setTimeout(r, 0));
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(again.state.navigate).toHaveBeenCalledWith("setup", "claude");
+  });
+
+  it("the ready step has no step bar and opens the app", () => {
+    settingsWith();
+    const { state } = withApp(<FirstRunScreen />, { info: null, route: { screen: "setup", arg: "ready" } });
+    expect(screen.queryByRole("list", { name: "Setup steps" })).toBeNull();
+    expect(screen.getByRole("heading", { level: 1, name: "Testimus is ready" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Open the app" }));
+    expect(state.navigate).toHaveBeenCalledWith("tests");
   });
 
   it("on the pack step, Back goes to the project", () => {
@@ -99,62 +158,115 @@ describe("First launch screen", () => {
 });
 
 describe("First launch › Access", () => {
-  it("the found banner, Continue and Skip, and the banner gone once all is ok", async () => {
-    let n = 0;
-    net.routes["system.credentials"] = net.routes["system.setCredentials"] = () =>
-      n++ === 0 ? { status: status() } : { status: status(), saved: [], ok: true, checks: [] };
+  it("access saved on this PC is tested on arrival: two green rows, the form folded, Continue", async () => {
+    settingsWith();
+    access([check("jira"), check("xray")]);
     const onContinue = vi.fn();
-    const onSkip = vi.fn();
-    withApp(<AccessStep onContinue={onContinue} onSkip={onSkip} />);
-    expect(await screen.findByText(/We found the access you already use/)).toBeInTheDocument();
+    withApp(<AccessStep onBack={vi.fn()} onContinue={onContinue} />);
+    expect(await screen.findByText("Access already saved on this PC was found and tested.")).toBeInTheDocument();
+    expect(callsOf("system.credentials").map((c) => c.input)).toEqual([{}, { check: true }]);
+    expect(screen.getByText("Connected as Me Myself")).toBeInTheDocument();
+    expect(screen.getByText("Key accepted")).toBeInTheDocument();
+    expect(screen.getAllByText("Connected")).toHaveLength(2);
+    expect(screen.queryByLabelText("Jira site")).toBeNull();
+    expect(screen.getByRole("button", { name: "Change the access" })).toHaveAttribute("aria-expanded", "false");
     expect(screen.getByRole("button", { name: "Continue" }).className).toMatch(/primary/);
-    expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-    fireEvent.click(screen.getByRole("button", { name: "Skip for now" }));
-    expect(onContinue).toHaveBeenCalled();
-    expect(onSkip).toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Save and test the connection" }));
-    await waitFor(() => expect(screen.queryByText(/We found the access/)).toBeNull());
+    await waitFor(() => expect(onContinue).toHaveBeenCalled());
+    expect(callsOf("system.set")).toHaveLength(0);
   });
 
-  it("without access: no banner, a secondary Continue", async () => {
-    net.routes["system.credentials"] = net.routes["system.setCredentials"] = () => ({
-      status: status({ complete: false }),
-    });
+  it("Jira without an Xray key: Continue with Jira only leaves Xray out", async () => {
+    settingsWith();
+    access([check("jira"), check("xray", "fail", "Missing ~/.atlassian/xray_credentials.json.")]);
+    const onContinue = vi.fn();
+    withApp(<AccessStep onBack={vi.fn()} onContinue={onContinue} />);
+    expect(await screen.findByText("Not set")).toBeInTheDocument();
+    expect(screen.getByText("Without Xray: tests are read, not pushed.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Continue with Jira only" }));
+    await waitFor(() => expect(onContinue).toHaveBeenCalled());
+    expect(callsOf("system.set").map((c) => c.input)).toEqual([{ skipJira: false, skipXray: true }]);
+  });
+
+  it("without access: the form open, Continue disabled, and Work without Jira", async () => {
+    settingsWith();
+    access([], nothingSaved());
     net.routes["system.secrets"] = () => ({});
-    withApp(<AccessStep onContinue={vi.fn()} onSkip={vi.fn()} />);
-    await screen.findByLabelText("Jira site");
-    expect(screen.queryByText(/We found the access/)).toBeNull();
-    expect(screen.getByRole("button", { name: "Continue" }).className).not.toMatch(/primary/);
+    const onContinue = vi.fn();
+    withApp(<AccessStep onBack={vi.fn()} onContinue={onContinue} />);
+    expect(await screen.findByLabelText("Jira site")).toBeInTheDocument();
+    expect(callsOf("system.credentials").map((c) => c.input)).toEqual([{}]);
+    expect(screen.queryByText(/already saved/)).toBeNull();
+    expect(screen.getAllByText("Not set")).toHaveLength(2);
     expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Continue" })).toHaveAccessibleDescription(
-      "Save and test the connection first — or skip for now",
+      "Connect Jira first — or work without it",
     );
-    expect(screen.getByRole("button", { name: "Skip for now" })).toBeEnabled();
     expect(iconsIn(screen.getByRole("button", { name: "Continue" })), "audit icons 98").toEqual(["chevron-right"]);
+    fireEvent.click(screen.getByRole("button", { name: "Work without Jira" }));
+    await waitFor(() => expect(onContinue).toHaveBeenCalled());
+    expect(callsOf("system.set").map((c) => c.input)).toEqual([{ skipJira: true }]);
+  });
+
+  it("Jira left out shows both rows as not used", async () => {
+    settingsWith({ skipJira: true });
+    access([], nothingSaved());
+    net.routes["system.secrets"] = () => ({});
+    withApp(<AccessStep onBack={vi.fn()} onContinue={vi.fn()} />);
+    expect(await screen.findByText("Left out: you chose to work without Jira.")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getAllByText("Not used")).toHaveLength(2));
+  });
+
+  it("a connection saved in the form turns the rows green", async () => {
+    settingsWith();
+    access([], nothingSaved());
+    net.routes["system.secrets"] = () => ({});
+    net.routes["system.doctor"] = () => ({ ok: true, checks: [] });
+    net.routes["system.setCredentials"] = () => ({
+      status: status(),
+      saved: ["baseUrl", "email", "token"],
+      checks: [check("jira"), check("xray")],
+      ok: true,
+    });
+    withApp(<AccessStep onBack={vi.fn()} onContinue={vi.fn()} />);
+    fireEvent.change(await screen.findByLabelText("Jira site"), { target: { value: "acme" } });
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "me@a" } });
+    fireEvent.change(screen.getByLabelText("API token"), { target: { value: "t" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save and test the connection" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled());
+    expect(screen.getAllByText("Connected").length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("copies a request for the Jira admin", async () => {
+    settingsWith();
+    access([], nothingSaved());
+    net.routes["system.secrets"] = () => ({});
+    const writeText = vi.fn((_: string) => Promise.resolve());
+    vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
+    withApp(<AccessStep onBack={vi.fn()} onContinue={vi.fn()} />);
+    fireEvent.change(await screen.findByLabelText("Email"), { target: { value: "me@acme.com" } });
+    fireEvent.change(screen.getByLabelText("Jira site"), { target: { value: "acme" } });
+    fireEvent.click(screen.getByRole("button", { name: "Copy a request for my admin" }));
+    await waitFor(() => expect(titles()).toContain("Request copied"));
+    const text = writeText.mock.calls[0][0];
+    expect(text).toContain("for my Jira user (me@acme.com) on https://acme.atlassian.net?");
+    expect(text).toContain("Settings → Apps → Xray → API Keys → Create API Key");
   });
 
   it("the token page opens in the default browser through the bridge, or in a new tab", async () => {
     const TOKENS = "https://id.atlassian.com/manage-profile/security/api-tokens";
-    net.routes["system.credentials"] = net.routes["system.setCredentials"] = () => ({
-      status: {
-        jira: { file: "", exists: false, complete: false },
-        xray: { file: "", exists: false, complete: false },
-      },
-      saved: [],
-      checks: [],
-      ok: false,
-    });
+    settingsWith();
+    access([], nothingSaved());
     net.routes["system.secrets"] = () => ({});
     const d = fakeDesktop();
-    withApp(<AccessStep onContinue={() => {}} onSkip={() => {}} />);
+    withApp(<AccessStep onBack={() => {}} onContinue={() => {}} />);
     fireEvent.click(await screen.findByRole("button", { name: "Open API tokens" }));
     expect(d.openExternal).toHaveBeenCalledWith(TOKENS);
     cleanup();
     noDesktop();
     const open = vi.fn();
     vi.stubGlobal("open", open);
-    withApp(<AccessStep onContinue={() => {}} onSkip={() => {}} />);
+    withApp(<AccessStep onBack={() => {}} onContinue={() => {}} />);
     fireEvent.click(await screen.findByRole("button", { name: "Open API tokens" }));
     expect(open).toHaveBeenCalledWith(TOKENS, "_blank", "noopener,noreferrer");
   });
@@ -405,10 +517,17 @@ describe("First launch › Project", () => {
     await waitFor(() => expect(d.reveal).toHaveBeenCalledWith("C:\\p"));
   });
 
-  it("without the bridge: the text field only", () => {
-    withApp(<ProjectStep onBack={() => {}} />);
+  it("without the bridge: text fields only, and a shared folder opened by its path", async () => {
+    net.routes["project.open"] = (i) => ({ dir: i.dir });
+    const { state } = withApp(<ProjectStep onBack={() => {}} />);
     expect(screen.getByLabelText("Projects folder")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Browse/ })).toBeNull();
-    expect(screen.queryByRole("button", { name: /Open a project folder/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Open a project folder…" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Open a project folder shared with you" }));
+    expect(screen.getByRole("button", { name: "Open" })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Project folder"), { target: { value: " \\\\srv\\share\\RATP " } });
+    fireEvent.click(screen.getByRole("button", { name: "Open" }));
+    await waitFor(() => expect(callsOf("project.open")[0]?.input).toEqual({ dir: "\\\\srv\\share\\RATP" }));
+    await waitFor(() => expect(state.navigate).toHaveBeenCalledWith("documents"));
   });
 });

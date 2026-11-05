@@ -49,13 +49,16 @@ async function activeOf(project: string | null) {
   };
 }
 
+// ponytail: a project with no document has nothing to index — not a to-do on the system check
+export const NOTHING_YET = "no document in the project yet";
+
 export const modelDeps: ModelDeps = {
   machine: () => machineProfile(),
   active: activeOf,
   space: async (project) => {
     const { invoke } = await import("../commands/index.ts");
-    const st = (await invoke("rag.status", {}, { project })) as { degraded: string | null };
-    return st.degraded;
+    const st = (await invoke("rag.status", {}, { project })) as { degraded: string | null; chunks?: number };
+    return st.degraded && st.chunks === 0 ? NOTHING_YET : st.degraded;
   },
 };
 
@@ -232,12 +235,14 @@ export async function modelRows(project: string | null, deps: ModelDeps = modelD
   if (project) {
     const degraded = await deps.space(project).catch((e: unknown) => (e instanceof Error ? e.message : String(e)));
     rows.push(
-      degraded
-        ? row("index.space", "Vectors of the active model", "warn", degraded, "testimus rag index", {
-            label: "Index now",
-            command: "rag.index",
-          })
-        : row("index.space", "Vectors of the active model", "ok", "complete"),
+      degraded === NOTHING_YET
+        ? row("index.space", "Vectors of the active model", "skip", NOTHING_YET)
+        : degraded
+          ? row("index.space", "Vectors of the active model", "warn", degraded, "testimus rag index", {
+              label: "Index now",
+              command: "rag.index",
+            })
+          : row("index.space", "Vectors of the active model", "ok", "complete"),
     );
   } else rows.push(row("index.space", "Vectors of the active model", "skip", "no project open"));
   const usesLlama = [active.embedding, active.reranker].some((m) => m?.runtime === "llamacpp");

@@ -140,6 +140,8 @@ export async function mockHttp(req: HttpReq): Promise<HttpRes> {
   }
 
   if (path === "/rest/api/3/myself") return json(MOCK_ME);
+  if (path === "/rest/api/3/project/search")
+    return json({ isLast: true, values: [{ id: MOCK_PROJECT.id, key: MOCK_PROJECT.key, name: MOCK_PROJECT.name }] });
   const proj = /^\/rest\/api\/3\/project\/([^/]+)$/.exec(path);
   if (proj) {
     if (proj[1] !== MOCK_PROJECT.key && proj[1] !== MOCK_PROJECT.id) return notFound(`Project ${proj[1]}`);
