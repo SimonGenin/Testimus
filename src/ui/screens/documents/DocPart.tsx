@@ -1,11 +1,11 @@
 import * as stylex from "@stylexjs/stylex";
 import { useLayoutEffect, useRef } from "react";
+import { DocText } from "../../components/sources/DocText.tsx";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { type } from "../../components/ui/type.ts";
 import { color, size, space } from "../../styles/tokens.stylex.ts";
-import { DocText } from "./DocText.tsx";
 import type { TocEntry } from "./DocToc.tsx";
 import { into } from "./scroll.ts";
 

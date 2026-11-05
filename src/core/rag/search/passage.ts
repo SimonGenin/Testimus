@@ -160,7 +160,7 @@ export function passage(project: string, ref: string, around?: string): PassageV
       path: s?.path ?? "",
       title: f.caption,
       text: [f.caption, f.description].filter(Boolean).join("\n"),
-      figures: [entry(f)],
+      figures: [{ ...entry(f), ...(f.table ? { table: f.table } : {}) }],
       doc: docInfo,
     };
   }

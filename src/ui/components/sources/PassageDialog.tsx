@@ -13,8 +13,6 @@ import { Skeleton } from "../ui/Skeleton.tsx";
 import { type } from "../ui/type.ts";
 import { DocBadges, PassageText } from "./PassageView.tsx";
 
-export { highlight } from "./PassageView.tsx";
-
 const styles = stylex.create({
   plain: { margin: 0 },
   body: { display: "flex", flexDirection: "column", gap: space.s4 },

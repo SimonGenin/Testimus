@@ -10,6 +10,10 @@ const figureEntry = z
     anchor: z.string().describe("fig:<n>"),
     caption: z.string().describe("The figure's caption as the document writes it"),
     description: z.string().describe("What the figure shows, written at conversion"),
+    table: z
+      .string()
+      .optional()
+      .describe("A figure read by its anchor that captions a table of the text: that table, as doc.md writes it"),
   })
   .describe("A figure of the passage");
 

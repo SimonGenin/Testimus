@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
+import { cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { setProject } from "../../../../src/ui/api.ts";
 import { parseAnswer } from "../../../../src/ui/components/claude/AnswerText.tsx";
-import { highlight } from "../../../../src/ui/components/sources/PassageDialog.tsx";
+import { DocText } from "../../../../src/ui/components/sources/DocText.tsx";
 
 afterEach(() => {
+  cleanup();
   vi.unstubAllGlobals();
   setProject(null);
 });
@@ -20,9 +22,10 @@ describe("source references in Claude's text", () => {
   });
 
   it("highlights a quote whatever its whitespace", () => {
-    const out = highlight("Selon le type de\n sectionneur, le menu diffère.", "type de sectionneur");
-    expect(out).toHaveLength(3);
-    expect(out[0]).toBe("Selon le ");
-    expect(out[2]).toBe(", le menu diffère.");
+    const { container } = render(
+      <DocText docId="D" md={"Selon le type de\n sectionneur, le menu diffère."} focus="type de sectionneur" />,
+    );
+    expect(container.querySelector("[data-focus]")?.textContent).toBe("type de\n sectionneur");
+    expect(container.textContent).toBe("Selon le type de\n sectionneur, le menu diffère.");
   });
 });

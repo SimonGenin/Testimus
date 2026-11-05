@@ -2,8 +2,8 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { DocText } from "../../../../src/ui/components/sources/DocText.tsx";
 import { setProject } from "../../../../src/ui/lib/data/client.ts";
-import { DocText } from "../../../../src/ui/screens/documents/DocText.tsx";
 
 afterEach(() => {
   cleanup();

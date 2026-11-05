@@ -211,6 +211,17 @@ describe("passages — less common inputs", () => {
       expect(() => passage(dir, "P#fig:99")).toThrow(/has no anchor fig:99/);
     });
 
+    it("a figure that captions a table of the text, read by its anchor, carries that table; a section's figures do not", () => {
+      const table = "| État | Couleur |\n| --- | --- |\n| Libre | Vert |";
+      addDoc("T", `## 1 Couleurs <!-- § 1 -->\n\n${table}\n\nFigure 2 – Couleurs des états <!-- fig 2 -->\n`);
+      expect(passage(dir, "T#fig:2").figures).toEqual([
+        { file: "", anchor: "fig:2", caption: "Figure 2 – Couleurs des états", description: "", table },
+      ]);
+      const section = passage(dir, "T#§1");
+      expect(section.text).toContain(table);
+      expect(section.figures[0]).not.toHaveProperty("table");
+    });
+
     it("an old requirement marker is an ordinary comment, never an anchor", () => {
       expect(passage(dir, "P#§1").text).toBe("Le texte cite EXI_INLINE_1 dans une phrase.");
       expect(() => passage(dir, "P#req:EXI_INLINE_1")).toThrow(/has no anchor/);

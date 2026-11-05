@@ -1,5 +1,5 @@
 import { Fragment } from "react";
-import { Table, type TableColumn } from "../../components/ui/Table.tsx";
+import { Table, type TableColumn } from "../ui/Table.tsx";
 
 type Row = { key: string; cells: string[] };
 

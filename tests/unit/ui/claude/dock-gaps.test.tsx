@@ -7,7 +7,8 @@ import type { Passage } from "../../../../src/core/types.ts";
 import { setProject } from "../../../../src/ui/api.ts";
 import { AnswerText, parseAnswer } from "../../../../src/ui/components/claude/AnswerText.tsx";
 import { ClaudeDock } from "../../../../src/ui/components/claude/ClaudeDock.tsx";
-import { DocBadges, emphasisRuns, highlight, PassageText } from "../../../../src/ui/components/sources/PassageView.tsx";
+import { emphasisRuns } from "../../../../src/ui/components/sources/DocText.tsx";
+import { DocBadges, PassageText } from "../../../../src/ui/components/sources/PassageView.tsx";
 import { AppContext } from "../../../../src/ui/lib/app.ts";
 import { callsOf, dataWrapper, deferred, fakeEvents, fakeNet, net } from "../../helpers/ui-data.tsx";
 import { app } from "../../helpers/ui-desktop.tsx";
@@ -74,11 +75,10 @@ describe("passage view remaining paths", () => {
     doc: { code: "C", title: "T", version: "1", status: "draft" },
   };
 
-  it("keeps a lone star, names unknown statuses, and shows figures", () => {
+  it("keeps a lone star, names unknown statuses, and shows figures where the text has them", () => {
     expect(emphasisRuns("a * b")).toEqual([{ text: "a * b", strong: false, em: false }]);
     expect(emphasisRuns("a *b")).toEqual([{ text: "a *b", strong: false, em: false }]);
     expect(emphasisRuns("ab*")).toEqual([{ text: "ab*", strong: false, em: false }]);
-    expect(highlight("rien ici", "absent").join("")).toBe("rien ici");
     render(
       <>
         <DocBadges status="archived" />
@@ -88,8 +88,9 @@ describe("passage view remaining paths", () => {
       </>,
     );
     expect(screen.getByText("archived")).toBeInTheDocument();
-    expect(screen.getAllByRole("img", { name: "figures/f1.png" })).toHaveLength(3);
-    expect(screen.getAllByRole("img", { name: "Le menu" })[0]).toHaveAttribute("src", "/files/docs/D/figures/f2.png");
+    expect(screen.getAllByRole("img", { name: "fig" })).toHaveLength(2);
+    expect(screen.getAllByRole("img", { name: "fig" })[0]).toHaveAttribute("src", "/files/docs/D/x.png");
+    expect(document.querySelectorAll('img[src="/files/docs/D/figures/f1.png"]')).toHaveLength(1);
     expect(screen.getAllByRole("heading").map((h) => h.textContent)).toEqual([
       "§ 5.6 Menus",
       "Sans numéro",

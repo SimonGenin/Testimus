@@ -59,7 +59,9 @@ export type PassageProps = {
   /** the level of the title in the page's outline (default 3) */
   level?: 2 | 3 | 4;
   /** the paragraphs, as the document says them: a string, or a node a screen built (emphasis, its own marks) */
-  paragraphs: ReactNode[];
+  paragraphs?: ReactNode[];
+  /** the body drawn by the screen instead of paragraphs and figures (a part of doc.md with its tables and pictures) */
+  children?: ReactNode;
   /** the words a source quotes: found in the string paragraphs (case and spaces aside) and highlighted */
   quote?: string;
   /** with a quote: the paragraphs that do not hold it are muted, so the cited one stands out */
@@ -99,7 +101,8 @@ export function Passage({
   heading,
   anchor,
   level = 3,
-  paragraphs,
+  paragraphs = [],
+  children,
   quote,
   dim = false,
   figures = [],
@@ -132,6 +135,7 @@ export function Passage({
             </p>
           );
         })}
+        {children}
         {figures.map((f, i) => (
           <figure key={`${i}-${f.caption}`} {...stylex.props(styles.figure)}>
             {f.src ? (

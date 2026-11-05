@@ -1,10 +1,10 @@
 import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
-import { Button } from "../../components/ui/Button.tsx";
-import { Marked } from "../../components/ui/Marked.tsx";
-import { type } from "../../components/ui/type.ts";
 import { fileUrl } from "../../lib/data/client.ts";
 import { border, color, radius, size, space } from "../../styles/tokens.stylex.ts";
+import { Button } from "../ui/Button.tsx";
+import { Marked } from "../ui/Marked.tsx";
+import { type } from "../ui/type.ts";
 import { FigureTable } from "./FigureTable.tsx";
 
 const styles = stylex.create({
@@ -22,7 +22,9 @@ const styles = stylex.create({
     alignItems: "baseline",
     margin: 0,
   },
+  bare: { display: "block" },
   gutter: { justifySelf: "end", color: color.textSubtle, whiteSpace: "nowrap" },
+  number: { marginInlineEnd: space.s3, color: color.textSubtle },
   block: { minWidth: 0 },
   figRow: { alignItems: "start" },
   heading: { marginTop: space.s4 },
@@ -109,22 +111,58 @@ function hotOf(blocks: string[], focus?: string): string | null {
   return hot;
 }
 
-const plain = (s: string): ReactNode => s;
-const lit = (s: string, k: number): ReactNode => <Marked key={k} text={s} marks={[[0, s.length]]} look="quote" />;
+type Run = { text: string; strong: boolean; em: boolean };
 
-function inline(text: string, words: (s: string, k: number) => ReactNode = plain): ReactNode[] {
-  const out: ReactNode[] = [];
-  const re = /\*\*([^*]+)\*\*|\*([^*]+)\*/g;
-  let last = 0;
-  let k = 0;
-  for (let m = re.exec(text); m; m = re.exec(text)) {
-    if (m.index > last) out.push(words(text.slice(last, m.index), k++));
-    out.push(m[1] ? <strong key={k++}>{words(m[1], k++)}</strong> : <em key={k++}>{words(m[2], k++)}</em>);
-    last = m.index + m[0].length;
+// ponytail: doc.md keeps Word bold/italic as **…** and *…* (converter rule); a lone * followed by a space stays a
+// literal star
+export function emphasisRuns(md: string): Run[] {
+  const out: Run[] = [];
+  let strong = false;
+  let em = false;
+  let buf = "";
+  const flush = () => {
+    if (buf) out.push({ text: buf, strong, em });
+    buf = "";
+  };
+  for (let k = 0; k < md.length; k++) {
+    if (md.startsWith("**", k) && (strong || md.indexOf("**", k + 2) > 0)) {
+      flush();
+      strong = !strong;
+      k++;
+    } else if (md[k] === "*" && (em || (/\S/.test(md[k + 1] ?? "") && md.indexOf("*", k + 1) > 0))) {
+      flush();
+      em = !em;
+    } else buf += md[k];
   }
-  if (last < text.length) out.push(words(text.slice(last), k++));
+  flush();
   return out;
 }
+
+// ponytail: the runs between two offsets of their plain text, each in its bold and italic, the quoted ones marked
+function slice(runs: Run[], from: number, to: number, quoted: boolean, tag = ""): ReactNode[] {
+  const out: ReactNode[] = [];
+  let at = 0;
+  for (const r of runs) {
+    const a = Math.max(from, at);
+    const b = Math.min(to, at + r.text.length);
+    if (a < b) {
+      const piece = r.text.slice(a - at, b - at);
+      const k = `${tag}${out.length}`;
+      let node: ReactNode = quoted ? (
+        <Marked key={`m${k}`} text={piece} marks={[[0, piece.length]]} look="quote" />
+      ) : (
+        piece
+      );
+      if (r.em) node = <em key={`e${k}`}>{node}</em>;
+      if (r.strong) node = <strong key={`s${k}`}>{node}</strong>;
+      out.push(node);
+    }
+    at += r.text.length;
+  }
+  return out;
+}
+
+const inline = (text: string) => slice(emphasisRuns(text), 0, Infinity, false);
 
 const focusMark = (hot: boolean) => (hot ? { "data-focus": "" } : {});
 
@@ -151,25 +189,30 @@ function quoteIn(text: string, quote: string): [number, number] | null {
   return null;
 }
 
+// ponytail: the quote is found on the paragraph's plain text (its emphasis read), so it may start or end inside bold
 function marked(text: string, quote: string | undefined): ReactNode[] | null {
-  const span = quote ? quoteIn(text, quote) : null;
+  const runs = emphasisRuns(text);
+  const span = quote ? quoteIn(runs.map((r) => r.text).join(""), quote) : null;
   if (!span) return null;
   const [from, to] = span;
   return [
-    ...inline(text.slice(0, from)),
+    ...slice(runs, 0, from, false),
     <span key="quote" data-focus="">
-      {inline(text.slice(from, to), lit)}
+      {slice(runs, from, to, true)}
     </span>,
-    ...inline(text.slice(to)),
+    ...slice(runs, to, Infinity, false, "after"),
   ];
 }
 
-// ponytail: a part of doc.md as React elements (never raw HTML), in the reading font, its anchors in a gutter
+// ponytail: a part of doc.md as React elements (never raw HTML), in the reading font — headings, paragraphs, tables and
+// pictures where the document has them; the reader puts its anchors in a gutter, a passage (a source opened beside a
+// test) has no room for one and writes a heading's number before it
 export function DocText({
   docId,
   md,
   focus,
   target,
+  gutter = true,
   onFigure,
 }: {
   docId: string;
@@ -177,8 +220,18 @@ export function DocText({
   focus?: string;
   /** the anchor a link opened (§5.6.6, fig:40): its heading or figure is set apart, its key lit in the gutter */
   target?: string;
-  onFigure: (anchor: string) => void;
+  /** false: no gutter, a heading's number written before its title */
+  gutter?: boolean;
+  /** with it, a figure's caption offers « Show in Figures » */
+  onFigure?: (anchor: string) => void;
 }) {
+  const row = gutter ? styles.row : styles.bare;
+  const side = (mark: ReactNode, on = false, hidden = false) =>
+    gutter && (
+      <span aria-hidden={hidden || undefined} {...stylex.props(type.code, styles.gutter, on && styles.targetGutter)}>
+        {mark}
+      </span>
+    );
   const raws = md.split(/\n{2,}/).filter((b) => clean(b));
   const hotKey = hotOf(raws.map(clean), focus);
   const picture = (p: Picture, key: number, hot: boolean, on = false) => (
@@ -191,7 +244,7 @@ export function DocText({
       <img src={fileUrl(`docs/${docId}/${p.src}`)} alt={p.alt} {...stylex.props(styles.img)} />
       <figcaption {...stylex.props(type.small, styles.caption)}>
         {p.alt && <span>{p.alt}</span>}
-        {p.fig && (
+        {p.fig && onFigure && (
           <Button
             size="xs"
             variant="quiet"
@@ -219,17 +272,26 @@ export function DocText({
               data-level={head[1].length}
               data-target={on || undefined}
               {...focusMark(hot)}
-              {...stylex.props(type.readingHeading, styles.row, styles.heading, hot && styles.focus)}
+              {...stylex.props(type.readingHeading, row, styles.heading, hot && styles.focus)}
             >
-              <span {...stylex.props(type.code, styles.gutter, on && styles.targetGutter)}>
-                {numbered && (
+              {side(
+                numbered && (
                   <>
                     <span aria-hidden="true">§ </span>
                     {numbered[1]}
                   </>
+                ),
+                on,
+              )}
+              {gutter && " "}
+              <span {...stylex.props(styles.block, on && styles.target)}>
+                {!gutter && numbered && (
+                  <>
+                    <span {...stylex.props(type.code, styles.number)}>§ {numbered[1]}</span>{" "}
+                  </>
                 )}
-              </span>{" "}
-              <span {...stylex.props(styles.block, on && styles.target)}>{numbered ? numbered[2] : head[2]}</span>
+                {numbered ? numbered[2] : head[2]}
+              </span>
             </h4>
           );
         }
@@ -237,8 +299,8 @@ export function DocText({
           const lit = hotKey?.startsWith(`${i}:`) ? Number(hotKey.slice(`${i}:`.length)) : null;
           const inHead = lit !== null && !isRow(b.split("\n"), lit);
           return (
-            <div key={i} {...stylex.props(styles.row)}>
-              <span {...stylex.props(type.code, styles.gutter)} />
+            <div key={i} {...stylex.props(row)}>
+              {side(null)}
               <div {...focusMark(inHead)} {...stylex.props(styles.block, inHead && styles.focus)}>
                 <FigureTable table={b} label={captionOf(raws[i + 1]) ?? "Table"} lit={inHead ? null : lit} />
               </div>
@@ -250,10 +312,8 @@ export function DocText({
         if (only && "src" in only) {
           const on = !!only.fig && target === `fig:${only.fig}`;
           return (
-            <div key={i} data-target={on || undefined} {...stylex.props(styles.row, styles.figRow)}>
-              <span aria-hidden="true" {...stylex.props(type.code, styles.gutter, on && styles.targetGutter)}>
-                {only.fig ? `fig ${only.fig}` : ""}
-              </span>
+            <div key={i} data-target={on || undefined} {...stylex.props(row, gutter && styles.figRow)}>
+              {side(only.fig ? `fig ${only.fig}` : "", on, true)}
               <span {...stylex.props(styles.block, on && styles.target)}>{picture(only, i, hot)}</span>
             </div>
           );
@@ -266,8 +326,8 @@ export function DocText({
           return m;
         });
         return (
-          <div key={i} {...stylex.props(styles.row)}>
-            <span {...stylex.props(type.code, styles.gutter)} />
+          <div key={i} {...stylex.props(row)}>
+            {side(null)}
             <div {...focusMark(hot && !quoted)} {...stylex.props(styles.block, hot && !quoted && styles.focus)}>
               {parts.map((p, j) =>
                 "src" in p ? (

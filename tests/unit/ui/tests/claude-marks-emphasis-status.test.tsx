@@ -3,7 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Step } from "../../../../src/core/types.ts";
-import { emphasisRuns, highlight } from "../../../../src/ui/components/sources/PassageView.tsx";
+import { DocText, emphasisRuns } from "../../../../src/ui/components/sources/DocText.tsx";
 import { worst } from "../../../../src/ui/lib/doctor.ts";
 import { addedSteps } from "../../../../src/ui/lib/marks.ts";
 import { StepCard } from "../../../../src/ui/screens/tests/StepCard.tsx";
@@ -61,7 +61,11 @@ describe("passage emphasis", () => {
 
   it("renders emphasis without the stars and highlights a quote across it", () => {
     const { container } = render(
-      <p>{highlight("**EXI_MOP_SPF_511_A_1650** : Le sectionneur *est* représenté.", "1650 : le sectionneur est")}</p>,
+      <DocText
+        docId="D"
+        md="**EXI_MOP_SPF_511_A_1650** : Le sectionneur *est* représenté."
+        focus="1650 : le sectionneur est"
+      />,
     );
     expect(container.textContent).toBe("EXI_MOP_SPF_511_A_1650 : Le sectionneur est représenté.");
     const text = (sel: string) =>

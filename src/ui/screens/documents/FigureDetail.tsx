@@ -1,5 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import type { FigureEntry } from "../../../core/types.ts";
+import { FigureTable } from "../../components/sources/FigureTable.tsx";
 import { Answer } from "../../components/ui/Answer.tsx";
 import { Badge } from "../../components/ui/Badge.tsx";
 import { Button } from "../../components/ui/Button.tsx";
@@ -10,7 +11,6 @@ import { type } from "../../components/ui/type.ts";
 import { fileUrl } from "../../lib/data/client.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { color, radius, space } from "../../styles/tokens.stylex.ts";
-import { FigureTable } from "./FigureTable.tsx";
 
 const styles = stylex.create({
   img: {
