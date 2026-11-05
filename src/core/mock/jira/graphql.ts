@@ -210,8 +210,19 @@ export function graphql(query: string, v: Record<string, any>): HttpRes {
       return json({ data: { removeTestStep: "ok" } });
     }
     if (has("updateTestFolder")) {
-      byIssueId(v.issueId).folder = v.folderPath;
+      const path = String(v.folderPath || "/");
+      if (path !== "/" && !folderNodeExists(path)) return gqlError(`Could not find Test Repository folder '${path}'.`);
+      byIssueId(v.issueId).folder = path;
       return json({ data: { updateTestFolder: "ok" } });
+    }
+    if (has("createFolder")) {
+      const path = String(v.path || "");
+      const parent = path.slice(0, path.lastIndexOf("/")) || "/";
+      if (folderNodeExists(path)) return gqlError(`Folder '${path}' already exists.`);
+      if (parent !== "/" && !folderNodeExists(parent))
+        return gqlError(`Could not find Test Repository folder '${parent}'.`);
+      s.folders.push(path);
+      return json({ data: { createFolder: { folder: { path }, warnings: [] } } });
     }
     if (has("addPreconditionsToTest")) {
       const t = byIssueId(v.issueId);

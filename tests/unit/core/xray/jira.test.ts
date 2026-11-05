@@ -30,7 +30,9 @@ let graph: (query: string, vars: any) => unknown = () => ({});
 let gqlStatus: number[] = [];
 
 const json = (body: unknown, status = 200): HttpRes => ({ status, headers: {}, text: JSON.stringify(body) });
-const gql = (n = 0) => calls.filter((c) => c.url.endsWith("/graphql"))[n];
+// ponytail: a push looks its folder up before filing a test; every folder exists here, and the look-ups are not counted
+const folderCheck = (query = "") => /\bgetFolder\([^)]*\)\{ path \}/.test(query);
+const gql = (n = 0) => calls.filter((c) => c.url.endsWith("/graphql") && !folderCheck(c.body?.query))[n];
 const restCalls = () => calls.filter((c) => c.url.startsWith(JIRA));
 const b64 = (s: string) => Buffer.from(s).toString("base64");
 
@@ -61,9 +63,10 @@ beforeEach(() => {
     });
     if (req.url.includes("/api/v2/authenticate")) return { status: 200, headers: {}, text: JSON.stringify("jwt-1") };
     if (req.url.endsWith("/graphql")) {
+      const body = JSON.parse(req.body ?? "{}");
+      if (folderCheck(body.query)) return json({ data: { getFolder: { path: body.variables.path } } });
       const status = gqlStatus.shift() ?? 200;
       if (status !== 200) return { status, headers: {}, text: "nope" };
-      const body = JSON.parse(req.body ?? "{}");
       return json({ data: graph(body.query, body.variables) });
     }
     if (req.binary) return { status: 200, headers: {}, bytes: new TextEncoder().encode("PNGDATA") };

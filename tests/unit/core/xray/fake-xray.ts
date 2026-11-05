@@ -10,18 +10,22 @@ export const XRAY = "https://xray.cloud.getxray.app";
 export type Call = { method: string; url: string; headers: Record<string, string>; body: any };
 
 // ponytail: a Jira + Xray that records every request; a test answers by setting route (any request), graph (the
-// data of a GraphQL answer) or the authentication answer
+// data of a GraphQL answer) or the authentication answer; every Xray folder exists but the missing ones, and the
+// look-up a push makes before filing a test is left out of gqlCalls (folderChecks lists them)
 export const fake = {
   calls: [] as Call[],
   route: (() => undefined) as (req: HttpReq, body: any) => HttpRes | undefined,
   graph: (() => ({})) as (query: string, vars: any) => unknown,
   authText: '"jwt-1"' as string | undefined,
   authStatus: 200,
+  missingFolders: [] as string[],
 };
 
 export const ok = (body: unknown, status = 200): HttpRes => ({ status, headers: {}, text: JSON.stringify(body) });
 export const status = (s: number, text?: string): HttpRes => ({ status: s, headers: { "retry-after": "0" }, text });
-export const gqlCalls = () => fake.calls.filter((c) => c.url.endsWith("/graphql"));
+const folderCheck = (c: Call) => /\bgetFolder\([^)]*\)\{ path \}/.test(c.body?.query ?? "");
+export const gqlCalls = () => fake.calls.filter((c) => c.url.endsWith("/graphql") && !folderCheck(c));
+export const folderChecks = () => fake.calls.filter((c) => c.url.endsWith("/graphql") && folderCheck(c));
 
 export function writeCreds(jira: unknown = { baseUrl: JIRA, email: "me@x.com", token: "tok" }) {
   const dir = join(env.homeDir(), ".atlassian");
@@ -42,6 +46,7 @@ export function fakeXray(): void {
     fake.graph = () => ({});
     fake.authText = '"jwt-1"';
     fake.authStatus = 200;
+    fake.missingFolders = [];
     resetAuth();
     writeCreds();
     env.http = async (req: HttpReq): Promise<HttpRes> => {
@@ -51,7 +56,14 @@ export function fakeXray(): void {
       if (r) return r;
       if (req.url.includes("/api/v2/authenticate"))
         return { status: fake.authStatus, headers: {}, text: fake.authText };
-      if (req.url.endsWith("/graphql")) return ok({ data: fake.graph(body.query, body.variables) });
+      if (req.url.endsWith("/graphql")) {
+        const data = (fake.graph(body.query, body.variables) ?? {}) as Record<string, unknown>;
+        if (folderCheck({ body } as Call) && !("getFolder" in data)) {
+          const path = body.variables.path;
+          data.getFolder = fake.missingFolders.includes(path) ? null : { path };
+        }
+        return ok({ data });
+      }
       return ok({});
     };
   });

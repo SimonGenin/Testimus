@@ -3,7 +3,7 @@ import { planPush } from "../../../../src/core/lib/jira/push.ts";
 import type { PulledTest } from "../../../../src/core/lib/jira/read.ts";
 import type { Precondition, Step, StepImage, Test, XrayField } from "../../../../src/core/types.ts";
 
-import { fake, fakeXray, gqlCalls } from "./fake-xray.ts";
+import { fake, fakeXray, folderChecks, gqlCalls, ok } from "./fake-xray.ts";
 
 fakeXray();
 
@@ -176,6 +176,7 @@ describe("planPush, existing test", () => {
   it("keeps the folder when the local one is empty", async () => {
     const plan = await planPush(localTest({ key: "P-1", folder: "" }), "t1", remote([], { folder: "/Other" }), deps);
     expect(plan.ops).toEqual([]);
+    expect(folderChecks()).toEqual([]);
   });
 
   it("passes on the warning Xray gives when attaching, and detaches one", async () => {
@@ -344,5 +345,71 @@ describe("planPush, labels are a set", () => {
     const t = localTest({ key: "P-1", labels: ["zz-sprint"] });
     const plan = await planPush(t, "t1", r, deps);
     expect(plan.ops).toEqual([]);
+  });
+});
+
+describe("planPush, a folder Xray does not have yet", () => {
+  const created = () => gqlCalls().filter((c) => c.body.query.includes("createFolder"));
+
+  it("moves into a folder that exists after one look-up, creating nothing", async () => {
+    const plan = await planPush(localTest({ key: "P-1", folder: "/A/B" }), "t1", remote([]), deps);
+    expect(plan.ops.map((o) => o.label)).toEqual(["Move to folder /A/B"]);
+    expect(folderChecks().map((c) => c.body.variables)).toEqual([{ projectId: "1", path: "/A/B" }]);
+  });
+
+  it("creates the missing level before the move, under the parent that exists", async () => {
+    fake.missingFolders = ["/A/B"];
+    const plan = await planPush(localTest({ key: "P-1", folder: "/A/B" }), "t1", remote([]), deps);
+    expect(plan.ops.map((o) => [o.label, o.kind])).toEqual([
+      ["Create folder /A/B", "folder"],
+      ["Move to folder /A/B", "folder"],
+    ]);
+    await runAll(plan.ops);
+    expect(gqlCalls().map((c) => c.body.variables)).toEqual([
+      { projectId: "1", path: "/A/B" },
+      { issueId: "100", folderPath: "/A/B" },
+    ]);
+    expect(gqlCalls()[0].body.query).toContain("createFolder");
+  });
+
+  it("creates every missing level top down before a new test, and passes on Xray's warnings", async () => {
+    fake.missingFolders = ["/Tests Simon", "/Tests Simon/Etats"];
+    fake.graph = (q) =>
+      q.includes("createFolder")
+        ? { createFolder: { folder: { path: "x" }, warnings: ["renamed"] } }
+        : q.includes("createTest")
+          ? { createTest: { test: { issueId: "9", jira: { key: "P-9" } } } }
+          : {};
+    const t = localTest({ folder: "/Tests Simon/Etats/" });
+    const plan = await planPush(t, "t1", null, deps);
+    expect(plan.ops.map((o) => o.label)).toEqual([
+      "Create folder /Tests Simon",
+      "Create folder /Tests Simon/Etats",
+      "Create test in Jira (t1)",
+    ]);
+    expect(folderChecks().map((c) => c.body.variables.path)).toEqual(["/Tests Simon/Etats", "/Tests Simon"]);
+    await runAll(plan.ops);
+    expect(created().map((c) => c.body.variables.path)).toEqual(["/Tests Simon", "/Tests Simon/Etats"]);
+    expect(plan.warnings).toEqual(["renamed", "renamed"]);
+  });
+
+  it("leaves alone a folder someone made between the plan and its run", async () => {
+    fake.missingFolders = ["/New"];
+    const plan = await planPush(localTest({ key: "P-1", folder: "/New" }), "t1", remote([]), deps);
+    fake.missingFolders = [];
+    await runAll(plan.ops);
+    expect(created()).toEqual([]);
+    expect(gqlCalls().map((c) => c.body.variables)).toEqual([{ issueId: "100", folderPath: "/New" }]);
+  });
+
+  it("stops the push on the error Xray gives when it cannot create the folder", async () => {
+    fake.missingFolders = ["/Locked"];
+    fake.graph = (q) => (q.includes("createFolder") ? null : {});
+    fake.route = (req, body) =>
+      req.url.endsWith("/graphql") && body.query.includes("createFolder")
+        ? ok({ errors: [{ message: "You do not have permission to create folders." }] })
+        : undefined;
+    const plan = await planPush(localTest({ key: "P-1", folder: "/Locked" }), "t1", remote([]), deps);
+    await expect(plan.ops[0].run()).rejects.toThrow("permission to create folders");
   });
 });

@@ -209,7 +209,11 @@ describe("mock graphql mutations", () => {
 
   it("removes all steps, moves the folder, attaches and detaches preconditions", async () => {
     await gqlBody("mutation{ removeAllTestSteps(issueId:$i) }", { issueId: "41401" });
-    await gqlBody("mutation{ updateTestFolder(issueId:$i,folderPath:$f) }", { issueId: "41401", folderPath: "/New" });
+    const move = () =>
+      gqlBody("mutation{ updateTestFolder(issueId:$i,folderPath:$f) }", { issueId: "41401", folderPath: "/New" });
+    expect(errorOf(await move())).toBe("Could not find Test Repository folder '/New'.");
+    await gqlBody("mutation{ createFolder(projectId:$p,path:$x){ folder { path } } }", { path: "/New" });
+    await move();
     await gqlBody("mutation{ addPreconditionsToTest(issueId:$i,preconditionIssueIds:$ids){ warning } }", {
       issueId: "41401",
       ids: ["30078", "30077"],
@@ -285,9 +289,9 @@ describe("mock graphql queries", () => {
     expect(
       (await gqlBody("query{ getFolder(projectId:$p,path:$x){ name } }", { path: "/Nope" })).data.getFolder,
     ).toBeNull();
-    await gqlBody("mutation{ updateTestFolder(issueId:$i,folderPath:$f) }", {
-      issueId: "41411",
-      folderPath: "/Only/Here",
+    await gqlBody("mutation{ createTest(jira:$j,folderPath:$f){ test { issueId } } }", {
+      jira: { project: { key: "LFRPS12" }, summary: "S" },
+      folder: "/Only/Here",
     });
     const f = (await gqlBody("query{ getFolder(projectId:$p,path:$x){ name } }", { path: "/Only/Here" })).data
       .getFolder;

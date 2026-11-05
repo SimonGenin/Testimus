@@ -65,6 +65,12 @@ const UPDATE_FOLDER = `mutation($issueId:String!,$folderPath:String!){
   updateTestFolder(issueId:$issueId,folderPath:$folderPath)
 }`;
 
+const HAS_FOLDER = `query($projectId:String!,$path:String!){ getFolder(projectId:$projectId,path:$path){ path } }`;
+
+const CREATE_FOLDER = `mutation($projectId:String!,$path:String!){
+  createFolder(projectId:$projectId,path:$path){ folder { path } warnings }
+}`;
+
 export function decideStepSync(localIds: Array<string | undefined>, remoteIds: string[]): StepSync {
   const withId = localIds.flatMap((id, i) => (id ? [{ id, i }] : []));
   const lastWithId = withId.length ? withId[withId.length - 1].i : -1;
@@ -193,6 +199,34 @@ export async function planPush(
     });
   };
 
+  const hasFolder = async (path: string) =>
+    !!(await gql<{ getFolder: unknown }>(HAS_FOLDER, { projectId: deps.project.id, path })).getFolder;
+
+  // ponytail: Xray files a test only in a folder that exists — the missing levels of its path are created first, top
+  // down; a level someone made between the plan and its run is left as it is
+  const folderOps = async (folder: string) => {
+    const parts = folder.split("/").filter(Boolean);
+    if (!parts.length || (await hasFolder(`/${parts.join("/")}`))) return;
+    let missing = false;
+    for (let i = 1; i <= parts.length; i++) {
+      const path = `/${parts.slice(0, i).join("/")}`;
+      missing ||= i === parts.length || !(await hasFolder(path));
+      if (!missing) continue;
+      ops.push({
+        label: `Create folder ${path}`,
+        kind: "folder",
+        run: async () => {
+          if (await hasFolder(path)) return;
+          const d = await gql<{ createFolder: { warnings?: string[] | null } }>(CREATE_FOLDER, {
+            projectId: deps.project.id,
+            path,
+          });
+          warnings.push(...(d.createFolder?.warnings ?? []));
+        },
+      });
+    }
+  };
+
   const linkOps = (existing: { covers: string[]; clonedFrom?: string }) => {
     if (local.clonedFrom && local.clonedFrom !== existing.clonedFrom)
       ops.push({
@@ -217,6 +251,7 @@ export async function planPush(
     const steps = await Promise.all(local.steps.map((s) => stepInput(s, deps.readImage, schema)));
     const pre = await resolve(local.preconditions);
     const preIds = pre.map((p) => p.issueId);
+    if (local.folder) await folderOps(local.folder);
     ops.push({
       label:
         `Create test in Jira (${testId})` +
@@ -278,12 +313,14 @@ export async function planPush(
         ),
     });
 
-  if (local.folder && local.folder !== r.folder)
+  if (local.folder && local.folder !== r.folder) {
+    await folderOps(local.folder);
     ops.push({
       label: `Move to folder ${local.folder}`,
       kind: "folder",
       run: async () => void (await gql(UPDATE_FOLDER, { issueId, folderPath: local.folder })),
     });
+  }
 
   linkOps({ covers: r.covers, clonedFrom: r.clonedFrom });
 
