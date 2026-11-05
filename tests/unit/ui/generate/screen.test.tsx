@@ -425,7 +425,7 @@ describe("Generate screen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Check again" }));
     await waitFor(() => expect(screen.queryByText("Claude is installed but not signed in")).toBeNull());
     expect(named("claude.status").at(-1)?.input).toEqual({ refresh: true, signIn: true });
-    fireEvent.click(screen.getByRole("button", { name: "What Claude did" }));
+    fireEvent.click(screen.getByRole("button", { name: "What Claude did before it stopped" }));
     const end = await screen.findByRole("heading", { name: "Stopped · 0 tests written" });
     expect(within(end.closest("li") as HTMLElement).getByRole("img", { name: "Failed" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: /^Done/ })).toBeNull();
@@ -434,7 +434,7 @@ describe("Generate screen", () => {
       "Run claude once in a terminal and sign in with your Claude account, then retry.",
     );
     expect(screen.getByRole("button", { name: /What Claude did/ }).parentElement).toHaveTextContent(
-      "What Claude didsonnet · medium",
+      "What Claude did before it stoppedsonnet · medium",
     );
   });
 
@@ -453,7 +453,7 @@ describe("Generate screen", () => {
     await waitFor(() => expect(go()).toBeEnabled());
     fireEvent.click(go());
     expect(await screen.findByRole("heading", { name: "Getting ready" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "What Claude did" }));
+    fireEvent.click(screen.getByRole("button", { name: "What Claude is doing" }));
     expect(screen.getByText("Claude is starting.")).toBeInTheDocument();
     expect(screen.getByLabelText("What should be tested?")).toHaveAttribute("readonly");
     const landing = screen.getByRole("region", { name: "Tests written" });

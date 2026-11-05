@@ -227,13 +227,12 @@ function PhaseBody({ phase: p, live, names }: { phase: Phase; live: boolean; nam
   );
 }
 
-// ponytail: « What Claude did » — a Claude run folded into phases (got ready, read, planned, wrote, checked), each
+// ponytail: « What Claude did » (« What Claude is doing » while it runs) — a Claude run folded into phases (got ready, read, planned, wrote, checked), each
 // with what it read and where, what it wrote and the check's verdicts; the raw output on demand
 export function ClaudeActivity({
   events,
   running,
   now,
-  label = "What Claude did",
   model,
   effort,
   open,
@@ -242,7 +241,6 @@ export function ClaudeActivity({
   events: JobEvent[];
   running: boolean;
   now: number;
-  label?: string;
   /** the run's model and effort, from the job's input: they open the head's line */
   model?: string;
   effort?: string;
@@ -263,6 +261,8 @@ export function ClaudeActivity({
   const names = new Map(phases.flatMap((p) => p.written.filter((w) => w.summary).map((w) => [w.id, w.summary])));
   // ponytail: a run whose Claude stopped on an error does not end on a green « Done »
   const stopped = !running && !!claudeSaid(events);
+  // ponytail: the head says where the run is — while Claude works it is not yet « what Claude did »
+  const label = running ? "What Claude is doing" : stopped ? "What Claude did before it stopped" : "What Claude did";
   const items: TimelineItem[] = phases.map((p, i) => {
     const live = running && i === phases.length - 1;
     const warned = p.acts.some((a) => a.level === "warn");
