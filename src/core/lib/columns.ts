@@ -42,8 +42,13 @@ export function writeColumns(project: string, entries: ColumnEntry[]): void {
 
 type Resolved = { col: StepColumn; entry?: ColumnEntry };
 
-// ponytail: the entries of columns.json in their order, each matched to its Xray field (by id, else by name for an
-// entry without id), then the Xray fields no entry names, in Xray's order
+// ponytail: an entry's Xray field — by id, else by name: an entry without id, or with an id Xray no longer has (the
+// placeholder ids a project starts with before Xray is read, a field the team re-created)
+const fieldFor = (fields: XrayField[], e: ColumnEntry): XrayField | undefined =>
+  (e.id ? fields.find((f) => f.id === e.id) : undefined) ?? fields.find((f) => same(f.name, e.name));
+
+// ponytail: the entries of columns.json in their order, each matched to its Xray field (fieldFor), then the Xray
+// fields no entry names, in Xray's order
 function resolve(x: XrayJson, entries: ColumnEntry[]): Resolved[] {
   const used = new Set<XrayField>();
   const out: Resolved[] = [];
@@ -73,7 +78,7 @@ function resolve(x: XrayJson, entries: ColumnEntry[]): Resolved[] {
     };
   };
   for (const e of entries) {
-    const field = e.id ? x.fields.find((f) => f.id === e.id) : x.fields.find((f) => same(f.name, e.name));
+    const field = fieldFor(x.fields, e);
     if (field && used.has(field)) continue;
     if (!field && out.some((r) => same(r.col.name, e.name))) continue;
     if (field) used.add(field);
@@ -200,10 +205,8 @@ export function setOrder(project: string, names: string[]): StepColumn[] {
 // then created in Xray becomes that field
 export function followXray(before: XrayJson, entries: ColumnEntry[], fields: XrayField[]): ColumnEntry[] {
   const next: ColumnEntry[] = entries.map((e) => {
-    const byId = e.id ? fields.find((f) => f.id === e.id) : undefined;
-    if (byId) return { ...e, name: byId.name };
-    const byName = !e.id ? fields.find((f) => same(f.name, e.name)) : undefined;
-    return byName ? { ...e, name: byName.name, id: byName.id } : e;
+    const field = fieldFor(fields, e);
+    return field ? { ...e, name: field.name, id: field.id } : e;
   });
   for (const f of before.fields)
     if (!f.builtin && !fields.some((n) => n.id === f.id) && !next.some((e) => e.id === f.id || same(e.name, f.name)))

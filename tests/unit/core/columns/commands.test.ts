@@ -16,6 +16,7 @@ import {
   setModes,
   setOrder,
   stepColumns,
+  storeXray,
   writeColumns,
 } from "../../../../src/core/lib/columns.ts";
 import { readXray, writeXray } from "../../../../src/core/lib/project.ts";
@@ -164,6 +165,37 @@ describe("smart columns", () => {
     expect(cols.find((c) => c.name === "Ancien")).toMatchObject({ origin: "local", status: "gone" });
     expect(cols.find((c) => c.name === "version")).toMatchObject({ origin: "xray", description: "La version" });
     expect(followXray(readXray(dir), [], now)).toEqual([]);
+  });
+
+  it("a column saved before Xray was read is that Xray field, never a second column of the same name", () => {
+    xray(
+      [],
+      [
+        { name: "Action", id: "action", referenceSource: true },
+        { name: "Expected Result", id: "result", referenceSource: true },
+        { name: "Exigences", description: "Les exigences" },
+      ],
+    );
+    const real: XrayField[] = [
+      { id: "x1", name: "Action", type: "text", builtin: true },
+      { id: "x2", name: "Data", type: "text", builtin: true, disabled: true },
+      { id: "x3", name: "Expected Result", type: "text", builtin: true },
+    ];
+    writeXray(dir, { fields: real });
+    expect(fieldOrder(dir)).toEqual(["Action", "Expected Result", "Exigences", "Data"]);
+    expect(stepColumns(dir).find((c) => c.name === "Expected Result")).toMatchObject({
+      id: "x3",
+      origin: "xray",
+      status: "ok",
+      referenceSource: true,
+    });
+    writeXray(dir, { fields: BUILTIN });
+    storeXray(dir, real, "2026-11-05T14:02:57.067Z");
+    expect(readColumns(dir)).toEqual([
+      { name: "Action", id: "x1", mode: "open", referenceSource: true },
+      { name: "Expected Result", id: "x3", mode: "open", referenceSource: true },
+      { name: "Exigences", description: "Les exigences", mode: "open" },
+    ]);
   });
 
   it("guides the generation: each described smart column with its description, empty ones left out", () => {
