@@ -10,6 +10,7 @@ export const KIND: Record<string, string> = {
   claude: "Claude request",
   "actions.triage": "Claude looks at the problems",
   chat: "Ask the documents",
+  "comment-draft": "Draft a Jira comment",
   pull: "Pull from Jira",
   push: "Push to Jira",
   status: "Check every test against Jira",

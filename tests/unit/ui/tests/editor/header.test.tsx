@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import type { ComponentProps } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Test } from "../../../../../src/core/types.ts";
+import { DetailsCard } from "../../../../../src/ui/screens/tests/editor/DetailsCard.tsx";
 import { EditorBar } from "../../../../../src/ui/screens/tests/editor/EditorBar.tsx";
 import { SummaryCard } from "../../../../../src/ui/screens/tests/editor/SummaryCard.tsx";
 import { TestDetails } from "../../../../../src/ui/screens/tests/editor/TestDetails.tsx";
@@ -13,8 +14,8 @@ import { iconOf } from "../../../helpers/icons.ts";
 afterEach(cleanup);
 
 // ponytail: the old TestHeader is three parts now — the bar (key, folder, save state, Ask Claude, Push, ⋯), the summary
-// card (summary, badges, details toggle) and the details (labels, covers, preconditions, contexts, description); each
-// case of its test is kept against the part that does it
+// card (summary, badges, the Jira controls) and the Details card (labels, covers, preconditions, contexts, description,
+// folded or not, with its earlier versions); each case of its test is kept against the part that does it
 
 const test0: Test = {
   key: "LFRPS12-7",
@@ -35,6 +36,7 @@ const test0: Test = {
 type Bar = ComponentProps<typeof EditorBar>;
 type Card = ComponentProps<typeof SummaryCard>;
 type Details = ComponentProps<typeof TestDetails>;
+type Held = ComponentProps<typeof DetailsCard>;
 
 const PRE = [
   { key: "LFRPS12-50", issueId: "1", summary: "Powered", definition: "" },
@@ -46,7 +48,14 @@ const CONTEXTS = [
 ];
 
 const header = (
-  o: { bar?: Partial<Bar>; card?: Partial<Card>; details?: Partial<Details>; open?: boolean; readOnly?: boolean } = {},
+  o: {
+    bar?: Partial<Bar>;
+    card?: Partial<Card>;
+    details?: Partial<Details>;
+    held?: Partial<Held>;
+    open?: boolean;
+    readOnly?: boolean;
+  } = {},
   test: Test = test0,
 ) => {
   let last: Test | null = null;
@@ -55,6 +64,7 @@ const header = (
   });
   const h = {
     onDetails: vi.fn(),
+    onRestore: vi.fn(),
     onPush: vi.fn(),
     onAsk: vi.fn(),
     onOpenKey: vi.fn(),
@@ -88,11 +98,19 @@ const header = (
         dirty={false}
         remote={null}
         readOnly={p.readOnly}
-        details={!!p.open}
-        onDetails={h.onDetails}
         onOpenKey={h.onOpenKey}
         update={update}
         {...p.card}
+      />
+      <DetailsCard
+        test={t}
+        remote={null}
+        before={null}
+        open={!!p.open}
+        readOnly={p.readOnly}
+        onOpen={h.onDetails}
+        onRestore={h.onRestore}
+        {...p.held}
       >
         <TestDetails
           test={t}
@@ -105,7 +123,7 @@ const header = (
           onManageContexts={h.onManageContexts}
           {...p.details}
         />
-      </SummaryCard>
+      </DetailsCard>
     </>
   );
   const r = render(view(o, test));
@@ -136,9 +154,10 @@ describe("the editor's head", () => {
     const { again } = header();
     expect(screen.getByTestId("test-key")).toHaveTextContent("LFRPS12-7");
     expect(folderButton()).toHaveTextContent("/Lot 1");
-    expect(screen.getByText("Ready")).toBeInTheDocument();
-    expect(screen.getByText("smoke")).toBeInTheDocument();
-    expect(screen.getByText("covers LFRPS12-1")).toBeInTheDocument();
+    expect(screen.queryByText("Ready")).toBeNull();
+    expect(screen.getByText("smoke · covers LFRPS12-1 · needs LFRPS12-50 · Checks it")).toBeInTheDocument();
+    again({ card: { jira: <span>Jira side</span> } });
+    expect(screen.getByText("Jira side")).toBeInTheDocument();
     expect(screen.getByText(/^cloned from/)).toHaveTextContent("cloned from LFRPS12-3");
     expect(screen.getByText("In sync")).toBeInTheDocument();
     again({ bar: { status: "saving" } });
@@ -279,12 +298,54 @@ describe("the editor's head", () => {
 
   it("toggles the details", () => {
     const { onDetails, again } = header();
-    fireEvent.click(screen.getByRole("button", { name: "Details" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show the details" }));
     expect(onDetails).toHaveBeenCalledWith(true);
     again({ open: true });
-    expect(screen.queryByText("covers LFRPS12-1")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Hide details" }));
+    expect(screen.queryByText(/smoke · covers/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Fold the details" }));
     expect(onDetails).toHaveBeenLastCalledWith(false);
+    again({}, { ...test0, labels: [], covers: [], preconditions: [], description: "" });
+    expect(screen.getByText("No labels, no description yet")).toBeInTheDocument();
+  });
+
+  it("shows the details as Jira has them, and keeps Jira's version of what differs", () => {
+    const remote = { ...test0, labels: [], description: "As in Jira" };
+    const { onRestore, onDetails, again } = header({ held: { remote } });
+    const details = () => screen.getByRole("region", { name: "Details" });
+    expect(within(details()).getByText("Modified")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Jira version" }));
+    expect(onDetails).toHaveBeenCalledWith(true);
+    again({ open: true, held: { remote } });
+    expect(screen.getByRole("button", { name: "Hide Jira version" })).toHaveAttribute("aria-pressed", "true");
+    const was = screen.getByRole("region", { name: "Details as Jira has it" });
+    expect(within(was).getByText("As in Jira")).toBeInTheDocument();
+    expect(within(was).getByText("None")).toBeInTheDocument();
+    expect(
+      within(was).getByText(/Same as here: Covers, Preconditions. Claude contexts stay in Testimus/),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Keep Jira's version" }));
+    expect(onRestore).toHaveBeenCalledWith("jira", remote, ["labels", "description"]);
+    expect(screen.queryByRole("region", { name: "Details as Jira has it" })).toBeNull();
+  });
+
+  it("shows the details before Claude's run, and puts them back", () => {
+    const before = { ...test0, covers: ["LFRPS12-9"], preconditions: [] };
+    const { onRestore } = header({ open: true, held: { before } });
+    expect(screen.getByText("Changed by Claude")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Before Claude" }));
+    const was = screen.getByRole("region", { name: "Details before Claude's run" });
+    expect(within(was).getByText("LFRPS12-9")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Hide before Claude" }));
+    expect(screen.queryByRole("region", { name: "Details before Claude's run" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Before Claude" }));
+    fireEvent.click(screen.getByRole("button", { name: "Put back as before Claude" }));
+    expect(onRestore).toHaveBeenCalledWith("claude", before, ["covers", "preconditions"]);
+  });
+
+  it("offers no way back while Claude works", () => {
+    header({ open: true, readOnly: true, held: { remote: { ...test0, labels: [] } } });
+    fireEvent.click(screen.getByRole("button", { name: "Jira version" }));
+    expect(screen.queryByRole("button", { name: "Keep Jira's version" })).toBeNull();
   });
 
   it("edits labels, covers in upper case, the description and preconditions in the details", () => {

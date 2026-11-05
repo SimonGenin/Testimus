@@ -28,19 +28,41 @@ const plain = (v: string) =>
 // ponytail: only the frontmatter lines change — the body keeps its bytes, so testHash and the
 // findings it stamps stay fresh after a review decision
 export function patchReview(md: string, p: ReviewPatch): string {
-  const want: [string, string | null | undefined][] = [
-    ["review", p.review],
-    ["review_note", p.note === undefined || p.note === null ? p.note : JSON.stringify(p.note)],
-    ["reviewed_by", p.by === undefined || p.by === null ? p.by : plain(p.by)],
-    ["reviewed_at", p.at === undefined || p.at === null ? p.at : plain(p.at)],
-  ];
+  return patchFrontmatter(
+    md,
+    [
+      ["review", p.review],
+      ["review_note", p.note === undefined || p.note === null ? p.note : JSON.stringify(p.note)],
+      ["reviewed_by", p.by === undefined || p.by === null ? p.by : plain(p.by)],
+      ["reviewed_at", p.at === undefined || p.at === null ? p.at : plain(p.at)],
+    ],
+    "the review decision was not written",
+    "decide again",
+  );
+}
+
+/** what Jira owns in test.md (status, assignee) written as Jira now has it — a value null removes its line */
+export const jiraOwned = (p: { status?: string | null; assignee?: string | null; assigneeId?: string | null }) =>
+  [
+    ["status", p.status === undefined || p.status === null ? p.status : plain(p.status)],
+    ["assignee", p.assignee === undefined || p.assignee === null ? p.assignee : plain(p.assignee)],
+    ["assignee_id", p.assigneeId === undefined || p.assigneeId === null ? p.assigneeId : plain(p.assigneeId)],
+  ] as [string, string | null | undefined][];
+
+// ponytail: frontmatter lines set (a value), removed (null) or left alone (undefined), the rest of the file untouched
+export function patchFrontmatter(
+  md: string,
+  want: [string, string | null | undefined][],
+  lost: string,
+  again: string,
+): string {
   const touched = want.filter(([, v]) => v !== undefined);
   const keys = new Set(touched.map(([k]) => k));
   const fm = frontmatterOf(md);
   if (!fm)
     throw new UserError(
-      "This test.md has no readable frontmatter (the --- lines around key, project, summary): the review decision was not written.",
-      "Fix the --- lines at the top of test.md (or open the test in the editor), then decide again.",
+      `This test.md has no readable frontmatter (the --- lines around key, project, summary): ${lost}.`,
+      `Fix the --- lines at the top of test.md (or open the test in the editor), then ${again}.`,
     );
   const fresh = touched.filter(([, v]) => v !== null).map(([k, v]) => `${k}: ${v}`);
   const kept: string[] = [];

@@ -84,7 +84,15 @@ export const TEST = z.object({
   summary: z.string().describe("Test summary"),
   folder: z.string().describe("Xray folder path"),
   labels: z.array(z.string()).default([]).describe("Jira labels"),
-  status: z.string().optional().describe("Jira status (informational, never pushed)"),
+  status: z
+    .string()
+    .optional()
+    .describe("Jira status — a copy of Jira's, never pushed: a save keeps the one on disk (issue.transition moves it)"),
+  assignee: z
+    .string()
+    .optional()
+    .describe("Display name of the Jira assignee — a copy, never pushed: a save keeps disk's (issue.assign)"),
+  assigneeId: z.string().optional().describe("Jira account id of the assignee — a copy, kept from disk on save"),
   description: z.string().default("").describe("Test description"),
   covers: z.array(z.string()).default([]).describe("Issue keys the test is linked to in Jira (« Test » links)"),
   clonedFrom: z.string().optional().describe("Key of the test this one was cloned from"),

@@ -1,8 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
 import type { SyncState, Test } from "../../../../core/types.ts";
-import { Badge, jiraStatus, SYNC } from "../../../components/ui/Badge.tsx";
-import { Button } from "../../../components/ui/Button.tsx";
+import { Badge, SYNC } from "../../../components/ui/Badge.tsx";
 import { Card } from "../../../components/ui/Card.tsx";
 import { Chip } from "../../../components/ui/Chip.tsx";
 import { type FieldAutosave, Text } from "../../../components/ui/Text.tsx";
@@ -22,9 +21,9 @@ const styles = stylex.create({
     paddingInline: space.s5,
     paddingBottom: space.s5,
   },
-  title: { marginInline: `calc(-1 * ${space.s3})` },
+  top: { display: "flex", alignItems: "flex-start", flexWrap: "wrap", gap: space.s4 },
+  title: { flex: 1, minWidth: 0, marginInline: `calc(-1 * ${space.s3})` },
   chips: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: space.s2 },
-  grow: { flex: 1 },
   cloned: {
     display: "inline-flex",
     alignItems: "center",
@@ -42,7 +41,8 @@ const syncWord = (sync: SyncState, dirty: boolean) =>
       ? SYNC.modified
       : SYNC["in-sync"];
 
-// the test's head: its summary, its states as badges, and its details folded under them
+// the test's head: its summary and its states as badges; at its right the Jira side of the test (status, assignee,
+// comments) — what it carries besides (labels, covers, description…) is the Details card under it
 export function SummaryCard({
   test,
   sync,
@@ -51,11 +51,9 @@ export function SummaryCard({
   remote,
   readOnly,
   saveState,
-  details,
-  onDetails,
+  jira,
   onOpenKey,
   update,
-  children,
 }: {
   test: Test;
   sync: SyncState;
@@ -64,12 +62,11 @@ export function SummaryCard({
   remote: RemoteCheck;
   readOnly?: boolean;
   saveState?: FieldAutosave;
-  details: boolean;
-  onDetails: (open: boolean) => void;
+  /** the Jira controls (status, assignee, comments), or what stands for them (a local test, Jira off) */
+  jira?: ReactNode;
   /** a Jira key of the head (cloned from): open it in Jira */
   onOpenKey: (key: string) => void;
   update: (fn: (t: Test) => Test) => void;
-  children?: ReactNode;
 }) {
   const word = syncWord(sync, dirty);
   const review = shownReview(test.review);
@@ -77,20 +74,23 @@ export function SummaryCard({
     <section aria-label="Test" {...stylex.props(styles.card)}>
       <Card padded={false}>
         <div {...stylex.props(cardFlush.child, styles.inside)}>
-          <div {...stylex.props(styles.title)}>
-            <Text
-              title
-              appearance="inline"
-              ariaLabel="Summary"
-              value={test.summary}
-              readOnly={readOnly}
-              autoFocus={!test.key && test.summary === "New test"}
-              autosave={saveState}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") e.preventDefault();
-              }}
-              onChange={(v) => update((t) => ({ ...t, summary: v.replace(/[\r\n]+/g, " ") }))}
-            />
+          <div {...stylex.props(styles.top)}>
+            <div {...stylex.props(styles.title)}>
+              <Text
+                title
+                appearance="inline"
+                ariaLabel="Summary"
+                value={test.summary}
+                readOnly={readOnly}
+                autoFocus={!test.key && test.summary === "New test"}
+                autosave={saveState}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") e.preventDefault();
+                }}
+                onChange={(v) => update((t) => ({ ...t, summary: v.replace(/[\r\n]+/g, " ") }))}
+              />
+            </div>
+            {jira}
           </div>
           <div {...stylex.props(styles.chips)}>
             {review && <Badge {...review} />}
@@ -114,7 +114,6 @@ export function SummaryCard({
                 }
               />
             )}
-            {test.status && <Badge {...jiraStatus(test.status)} tooltip="Jira status (informational, never pushed)" />}
             {test.clonedFrom && (
               <span {...stylex.props(type.small, styles.cloned)}>
                 cloned from{" "}
@@ -126,18 +125,7 @@ export function SummaryCard({
                 />
               </span>
             )}
-            {!details && test.labels.map((l) => <Chip key={l} label={l} />)}
-            {!details && test.covers.map((k) => <Chip key={k} label={`covers ${k}`} mono />)}
-            <span {...stylex.props(styles.grow)} />
-            <Button
-              variant="quiet"
-              size="sm"
-              label={details ? "Hide details" : "Details"}
-              expanded={details}
-              onClick={() => onDetails(!details)}
-            />
           </div>
-          {details && children}
         </div>
       </Card>
     </section>

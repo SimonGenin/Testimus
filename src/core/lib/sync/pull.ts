@@ -18,13 +18,15 @@ export type RemoteState = "unchanged" | "remote-changed" | "unverified";
 export const extOf = (filename: string) => (/\.([A-Za-z0-9]+)$/.exec(filename)?.[1] ?? "png").toLowerCase();
 
 // ponytail: the diff keeps only what a push can carry — attachment ids instead of our file names, no
-// `status`, no Sources and no review keys (local by design; the review travels as a label, compared with
+// `status` nor assignee (issue.* moves them), no Sources and no review keys (local by design; the review travels as a label, compared with
 // the labels), no step field switched off in Xray (`local`: it never goes up), and preconditions/covers as the sets
 // Xray and Jira treat them as
 export const forCompare = (t: Test, local: readonly string[] = []) =>
   serializeTest({
     ...t,
     status: undefined,
+    assignee: undefined,
+    assigneeId: undefined,
     review: "draft",
     reviewNote: undefined,
     reviewedBy: undefined,

@@ -357,7 +357,7 @@ describe("pullTest", () => {
     ]);
     expect(gql().body.query).toContain("customFields { id name value }");
     expect(restCalls()[0].url).toBe(
-      `${JIRA}/rest/api/3/issue/BHPTCC-2234?fields=summary,labels,status,description,issuelinks`,
+      `${JIRA}/rest/api/3/issue/BHPTCC-2234?fields=summary,labels,status,assignee,description,issuelinks`,
     );
   });
 

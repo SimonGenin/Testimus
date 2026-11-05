@@ -5,7 +5,7 @@ import { findingCounts, isGenerating, readCheck, readRemote, syncState, testsDir
 import { parseTest, sameTestMd } from "../lib/testfile.ts";
 import { awaitsReview, type FindingCounts, type SyncState, type Test } from "../types.ts";
 import { type Corpus, corpus, type Doc, type Field, field, imageless } from "./match.ts";
-import type { Filters } from "./query.ts";
+import { type Filters, plainName } from "./query.ts";
 
 export type TestDoc = Doc & {
   id: string;
@@ -101,8 +101,17 @@ const under = (folder: string, f: string) => {
   return a === f || a.startsWith(`${f.replace(/\/$/, "")}/`) || a.split("/").some((p) => p.startsWith(f.slice(1)));
 };
 
-export function keepTest(d: TestDoc, f: Filters): boolean {
+// ponytail: « me » is the account id given (null: not known yet — then nobody is « me »)
+const assignedTo = (t: Test, who: string, me: string | null) =>
+  who === "me"
+    ? !!me && t.assigneeId === me
+    : who === "none"
+      ? !t.assignee
+      : !!t.assignee && plainName(t.assignee).includes(who);
+
+export function keepTest(d: TestDoc, f: Filters, me: string | null = null): boolean {
   const t = d.test;
+  if (f.assignee?.length && !f.assignee.some((w) => assignedTo(t, w, me))) return false;
   const generated = !!t.generatedBy;
   if (f.review?.length && !f.review.includes(t.review)) return false;
   if (f.sync?.length && !f.sync.includes(d.sync)) return false;

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { draftComment } from "../claude/comment.ts";
 import { diagnose } from "../claude/diagnose.ts";
 import { buildPrompt, EDIT_MARKER, effectiveContexts, projectContexts, readContexts } from "../claude/prompt.ts";
 import { runClaude } from "../claude/run.ts";
@@ -12,6 +13,7 @@ import {
   RESULT,
   SCOPE,
   scopeLabel,
+  TOKENS,
 } from "../claude/schemas.ts";
 import { leftAsIs, readRun, revert, standingRun } from "../claude/snapshot.ts";
 import { CONNECT, checkSignedIn, claudeExe, claudeVersion } from "../claude/status.ts";
@@ -148,6 +150,45 @@ export const commands = [
           readXray(project).fields.map((f) => f.name),
         ).test,
       };
+    },
+  }),
+  command({
+    name: "claude.draftComment",
+    summary:
+      "Claude drafts a comment for a test's Jira issue (it reads the test, the thread and the documents) and gives it back as text — it posts nothing; the person sends it with issue.comment. Mentions are written @[Name](accountId).",
+    input: z.object({
+      key: z.string().describe("Issue key of the test, e.g. LFRPS12-1420"),
+      ask: z.string().default("").describe("What the comment should say (empty: answer the thread)"),
+      model: MODEL.optional().describe("Model alias or name (default: project.json claude.model)."),
+      effort: EFFORT.optional().describe("Effort level (default: project.json claude.effort)."),
+      contexts: CONTEXT_IDS.optional().describe("Saved context ids Claude reads first (default: none)."),
+    }),
+    output: z.object({
+      ok: z.boolean().describe("Whether Claude drafted something"),
+      text: z.string().describe("The draft, or why it failed"),
+      mentions: z
+        .array(z.object({ accountId: z.string().describe("Jira account id"), name: z.string().describe("Name") }))
+        .describe("The people the draft mentions"),
+      costUsd: z.number().optional().describe("What the run cost"),
+      tokens: TOKENS.optional(),
+      diagnosis: DIAGNOSIS.optional(),
+      raw: z.string().optional().describe("Claude's raw output (stdout and stderr), for « Show raw output »"),
+    }),
+    mutates: true,
+    job: "comment-draft",
+    positional: ["key"],
+    subject: (i) => i.key,
+    async run(ctx, input) {
+      return draftComment({
+        project: projectOf(ctx),
+        key: input.key.trim().toUpperCase(),
+        ask: input.ask,
+        model: input.model,
+        effort: input.effort,
+        contexts: input.contexts,
+        signal: ctx.signal,
+        onEvent: (e) => ctx.claude(e),
+      });
     },
   }),
   command({

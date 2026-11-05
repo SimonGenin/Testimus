@@ -5,6 +5,8 @@ summary: Sectionneur sans TK — menu contextuel et propriétés
 folder: /Traction/Sectionneurs
 labels: []
 status: To Do
+assignee: Mock Tester
+assignee_id: mock-account-1
 covers: [LFRPS12-880]
 preconditions: [LFRPS12-77]
 review: draft

@@ -38,6 +38,8 @@ export type Test = {
   folder: string;
   labels: string[];
   status?: string;
+  assignee?: string;
+  assigneeId?: string;
   description: string;
   covers: string[];
   clonedFrom?: string;
@@ -60,6 +62,9 @@ export type LocalTestRef = {
   key?: string;
   summary: string;
   folder: string;
+  status?: string;
+  assignee?: string;
+  assigneeId?: string;
   review: Review;
   generated: boolean;
   edited: boolean;

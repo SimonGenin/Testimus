@@ -47,6 +47,7 @@ Testimus starts you for one job, with only the tools that job needs. The prompt 
 | Run | Skill | May change |
 |---|---|---|
 | Ask the documents (chat) | `ask-docs` | nothing |
+| Draft a comment on a test's Jira issue | `draft-comment` | nothing; the person sends it |
 | Generate tests | `plan-tests` for a large scope, then `generate-tests` | new tests |
 | Check a test | `check-test` | nothing; findings go through `check_record` |
 | Fix a test (To fix note) | `fix-test` | that test |
@@ -81,9 +82,12 @@ in permission lists; `testimus help` lists them all). Prefer them to guessing:
   semantic check).
 - **Context**: `contexts_list`, `contexts_show`, `contexts_ofTest`; `actions_list`.
 - **Xray** (read): `xray_search`, `xray_status`, `xray_folders`, `xray_preconditions`, `xray_plan`.
+- **The test's Jira issue** (read): `issue_comments` (the thread; a mention reads `@[Name](accountId)`),
+  `issue_people` (who can be assigned, and their account id), `issue_transitions` (where its status can go).
 
 **Never call a tool that writes to Jira** (`xray_push`) unless the
-user asked for it in this conversation. To push: call `xray_plan` first, show the user the plan, then
+user asked for it in this conversation. Moving, assigning and commenting an issue (`issue_transition`,
+`issue_assign`, `issue_comment`…) are the person's own: no run may call them. To push: call `xray_plan` first, show the user the plan, then
 call `xray_push` with the `planHash` that `xray_plan` returned (a push without it, or after the test or
 Jira changed, is refused — plan again). Pass `overwriteRemote: true` for a test changed in Jira only
 when the user asked to replace that Jira change with the local version.
@@ -149,7 +153,7 @@ REQ-EXP-012
 
 - Frontmatter: `summary`, `folder` (an Xray repository folder: `xray_folders`), `labels` (the team's
   own; the review label is never written here — the app adds it on push from `review`); once in
-  Jira also `key`, `project`, `status`. `covers` and `preconditions` list Jira issue keys — only keys
+  Jira also `key`, `project`, `status`, `assignee`, `assignee_id` (copies of Jira's, never edited). `covers` and `preconditions` list Jira issue keys — only keys
   that exist (`xray_preconditions` lists the project's preconditions).
 - `review`, `review_note`, `reviewed_by`, `reviewed_at`, `generated_by` belong to the app and the
   reviewers: never change them. A test is validated by a person, never by a run.

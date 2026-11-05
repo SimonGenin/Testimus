@@ -5,6 +5,8 @@ summary: Disjoncteur — ouverture à distance
 folder: /Traction/Disjoncteurs
 labels: []
 status: To Do
+assignee: Camille Martin
+assignee_id: mock-account-2
 review: validated
 reviewed_by: tester
 reviewed_at: 2026-10-28T11:00:00.000Z

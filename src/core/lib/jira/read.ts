@@ -240,7 +240,7 @@ export async function pullTest(key: string): Promise<PulledTest> {
     }>(GET_TEST_STEPS, { jql: `key = ${key}` }),
     jiraFetch(
       "GET",
-      `/rest/api/3/issue/${encodeURIComponent(key)}?fields=summary,labels,status,description,issuelinks`,
+      `/rest/api/3/issue/${encodeURIComponent(key)}?fields=summary,labels,status,assignee,description,issuelinks`,
       undefined,
       `issue ${key}`,
     ),
@@ -279,6 +279,9 @@ export async function pullTest(key: string): Promise<PulledTest> {
       folder: raw.folder?.path ?? "",
       labels: f.labels ?? [],
       status: f.status?.name,
+      ...(f.assignee?.accountId
+        ? { assignee: String(f.assignee.displayName ?? f.assignee.accountId), assigneeId: String(f.assignee.accountId) }
+        : {}),
       description: adfToText(f.description),
       covers,
       clonedFrom,

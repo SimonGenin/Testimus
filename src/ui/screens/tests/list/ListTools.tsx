@@ -1,10 +1,49 @@
 import * as stylex from "@stylexjs/stylex";
 import { Button } from "../../../components/ui/Button.tsx";
+import { Menu, type MenuEntry } from "../../../components/ui/Menu.tsx";
 import { Segmented, type SegmentedOption } from "../../../components/ui/Segmented.tsx";
 import { Text } from "../../../components/ui/Text.tsx";
 import { Tooltip } from "../../../components/ui/Tooltip.tsx";
 import { border, color, space } from "../../../styles/tokens.stylex.ts";
+import { type Assignees, assigneesIn, toggleAssignee } from "./assignee.ts";
 import type { PanesLayout } from "./FolderPanes.tsx";
+
+// ponytail: who the local tests are assigned to, as a menu of ticks that write assignee: words in the filter box
+function AssigneeFilter({ filter, who, onFilter }: { filter: string; who: Assignees; onFilter: (v: string) => void }) {
+  const on = assigneesIn(filter).map((x) => x.toLowerCase());
+  const tick = (value: string, label: string, hint?: string) => ({
+    label,
+    hint,
+    checked: on.includes(value.toLowerCase()),
+    keepOpen: true,
+    onSelect: () => onFilter(toggleAssignee(filter, value)),
+  });
+  const entries: MenuEntry[] = [
+    tick("me", "Me"),
+    tick("none", "Unassigned", String(who.unassigned)),
+    ...(who.people.length
+      ? [{ group: "People" }, ...who.people.map((p) => tick(p.name, p.name, String(p.count)))]
+      : []),
+    "separator",
+    { note: "Same as typing assignee:me, assignee:none or assignee:<name> in the filter." },
+  ];
+  return (
+    <Menu
+      label="Filter by assignee"
+      trigger={
+        <Button
+          size="sm"
+          variant={on.length ? "secondary" : "quiet"}
+          iconAfter="chevron-down"
+          label={on.length ? `Assignee: ${assigneesIn(filter).join(", ")}` : "Assignee"}
+          pressed={on.length > 0}
+          data-testid="assignee-filter"
+        />
+      }
+      entries={entries}
+    />
+  );
+}
 
 export type ListLayout = PanesLayout | "tree";
 
@@ -49,6 +88,7 @@ export function ListTools({
   onLayout,
   noProject = false,
   jiraOff = false,
+  assignees,
   onSearch,
   onFilter,
   onFilterEnter,
@@ -80,6 +120,8 @@ export function ListTools({
   noProject?: boolean;
   /** the Jira tab of a project not connected to Jira: its search and Pull wait for the connection */
   jiraOff?: boolean;
+  /** the local tests' assignees: an « Assignee » filter beside the box (absent: none) */
+  assignees?: Assignees;
   onSearch: (v: string) => void;
   onFilter: (v: string) => void;
   onFilterEnter: () => void;
@@ -144,6 +186,7 @@ export function ListTools({
             onClick={onPull}
           />
         )}
+        {local && assignees && !noProject && <AssigneeFilter filter={filter} who={assignees} onFilter={onFilter} />}
         <span {...stylex.props(styles.grow)} />
         {layout && onLayout && (
           <Segmented<ListLayout>

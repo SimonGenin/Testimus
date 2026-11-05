@@ -33,6 +33,8 @@ export type Filters = {
   doc?: string[];
   has?: Has[];
   is?: Is[];
+  /** me, none, or part of a name (accents and case ignored) */
+  assignee?: string[];
 };
 
 export type FilterKey = keyof Filters;
@@ -62,6 +64,9 @@ const KEYS: Record<string, FilterKey> = {
   folder: "folder",
   dir: "folder",
   doc: "doc",
+  assignee: "assignee",
+  assigned: "assignee",
+  who: "assignee",
 };
 
 export const keyOf = (word: string): FilterKey | undefined => KEYS[word.toLowerCase()];
@@ -89,8 +94,12 @@ export function filterValue(key: FilterKey, value: string): string | undefined {
   if (key === "has") return HAS.find((x) => x === v || `${x}s` === v || x === `${v}s`);
   if (key === "is") return IS.find((x) => x === v);
   if (key === "folder") return v.startsWith("/") ? v : `/${v}`;
+  if (key === "assignee") return v === "nobody" || v === "unassigned" ? "none" : plainName(v);
   return v;
 }
+
+/** a name as the assignee filter compares it: lower case, accents off */
+export const plainName = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 
 /** what each key takes when it is a fixed list (the others take any label, folder or document id) */
 export const CHOICES: Partial<Record<FilterKey, readonly string[]>> = {
@@ -154,4 +163,12 @@ export const wants = (q: Query, kind: SearchKind) => !q.filters.in?.length || q.
 
 // ponytail: a filter only tests can answer (review:, label:, has:…) keeps the search on tests
 export const testsOnly = (f: Filters) =>
-  !!(f.review?.length || f.sync?.length || f.label?.length || f.folder?.length || f.has?.length || f.is?.length);
+  !!(
+    f.review?.length ||
+    f.sync?.length ||
+    f.label?.length ||
+    f.folder?.length ||
+    f.has?.length ||
+    f.is?.length ||
+    f.assignee?.length
+  );

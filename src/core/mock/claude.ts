@@ -102,6 +102,25 @@ registerMockScript(
     }),
 );
 
+const DRAFT = [
+  "@[Camille Martin](mock-account-2) d'accord : l'étape 3 attend maintenant l'item « Propriétés » grisé sans TK, ",
+  "comme le menu contextuel décrit au §5.6.6.",
+];
+
+registerMockScript(
+  (prompt) => prompt.includes("draft-comment skill"),
+  (spawn) =>
+    mockStream(spawn, {
+      tools: [
+        { name: "mcp__testimus__issue_comments", input: { key: "LFRPS12-1420" } },
+        { name: "mcp__testimus__issue_people", input: { key: "LFRPS12-1420", query: "Camille" } },
+      ],
+      texts: DRAFT,
+      result: DRAFT.join(""),
+      delayMs: 400,
+    }),
+);
+
 const PROBLEM_ANSWER = [
   "The check failed before reaching the service: the connection was refused or its certificate was not trusted. ",
   "On a company network this is usually a proxy that re-signs HTTPS traffic with its own certificate.\n\n",

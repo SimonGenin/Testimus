@@ -21,6 +21,8 @@ const KNOWN = [
   "folder",
   "labels",
   "status",
+  "assignee",
+  "assignee_id",
   "covers",
   "cloned_from",
   "preconditions",
@@ -81,6 +83,7 @@ export const isReserved = (k: string) => k.startsWith("#");
 const LISTS = ["labels", "covers", "preconditions"];
 const PROP: Record<string, keyof Test> = {
   cloned_from: "clonedFrom",
+  assignee_id: "assigneeId",
   review_note: "reviewNote",
   reviewed_by: "reviewedBy",
   reviewed_at: "reviewedAt",
@@ -391,6 +394,8 @@ export function parseTest(md: string, fieldNames: readonly string[] = []): { tes
     folder: get("folder"),
     labels: list("labels"),
     status: get("status") || undefined,
+    assignee: get("assignee") || undefined,
+    assigneeId: get("assignee_id") || undefined,
     description: unescText(desc),
     covers: list("covers"),
     clonedFrom: get("cloned_from") || undefined,
@@ -460,6 +465,8 @@ export function serializeTest(test: Test, fieldOrder: readonly string[] = []): s
   put("folder", fmLine("folder", test.folder));
   put("labels", "labels: [" + test.labels.join(", ") + "]");
   put("status", test.status ? fmLine("status", test.status) : null);
+  put("assignee", test.assignee ? fmLine("assignee", test.assignee) : null);
+  put("assignee_id", test.assigneeId ? fmLine("assignee_id", test.assigneeId) : null);
   put("covers", test.covers.length ? "covers: [" + test.covers.join(", ") + "]" : null);
   put("cloned_from", test.clonedFrom ? fmLine("cloned_from", test.clonedFrom) : null);
   put("preconditions", test.preconditions.length ? "preconditions: [" + test.preconditions.join(", ") + "]" : null);

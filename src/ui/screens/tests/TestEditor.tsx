@@ -20,12 +20,15 @@ import { takeJump } from "../../lib/search.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 import { type DeleteTarget, DeleteTest } from "./DeleteTest.tsx";
+import { CommentsCard } from "./editor/CommentsCard.tsx";
 import { RestoreConfirm, UndoConfirm } from "./editor/Confirms.tsx";
+import { DetailsCard, restoreDetails } from "./editor/DetailsCard.tsx";
 import { EditorBanners } from "./editor/EditorBanners.tsx";
 import { EditorBar } from "./editor/EditorBar.tsx";
 import { EditorColumn } from "./editor/EditorColumn.tsx";
 import { EditorLoading } from "./editor/EditorLoading.tsx";
 import { JiraChanged } from "./editor/JiraChanged.tsx";
+import { JiraControls, JiraOff } from "./editor/JiraControls.tsx";
 import { PreconditionList } from "./editor/PreconditionList.tsx";
 import { StepList } from "./editor/StepList.tsx";
 import { type RemoteCheck, SummaryCard } from "./editor/SummaryCard.tsx";
@@ -182,6 +185,7 @@ export function TestEditor({
   const foldersQ = useRead("xray.folders", {}, { enabled: foldersAsked && !!jiraKey });
   const statusQ = useRead("xray.status", { id: testId }, { enabled: !!test?.key && !!remote && !checkOverride });
   const claudeQ = useRead("claude.before", { testId });
+  const commentsQ = useRead("issue.comments", { key: test?.key ?? "" }, { enabled: !!test?.key && !!jiraKey });
 
   useEffect(() => {
     if (preQ.error) errorToast(preQ.error, "Could not load the preconditions from Jira");
@@ -418,10 +422,45 @@ export function TestEditor({
           remote={check}
           readOnly={busy}
           saveState={lastEdited === "head" ? fieldSave : undefined}
-          details={details}
-          onDetails={setDetails}
+          jira={
+            test.key && jiraKey ? (
+              <JiraControls
+                testKey={test.key}
+                status={test.status}
+                assignee={test.assignee}
+                assigneeId={test.assigneeId}
+                readOnly={locked}
+                comments={commentsQ.data ? commentsQ.data.comments.length : null}
+                onComments={() =>
+                  document.getElementById("jira-comments")?.scrollIntoView?.({ behavior: "smooth", block: "start" })
+                }
+              />
+            ) : (
+              <JiraOff local={!test.key} status={test.status} assignee={test.assignee} assigneeId={test.assigneeId} />
+            )
+          }
           onOpenKey={(k) => void actions.openInJira(k)}
           update={update}
+        />
+        <DetailsCard
+          test={test}
+          remote={remote}
+          before={claudeRun?.test ?? null}
+          open={details}
+          readOnly={busy}
+          onOpen={setDetails}
+          onRestore={(from, was, fields) => {
+            if (refuseWhileClaude()) return;
+            update((t) => restoreDetails(t, was, fields));
+            toast({
+              tone: "success",
+              title: from === "claude" ? "Details put back as before Claude" : "Details back to Jira's version",
+              detail:
+                from === "claude"
+                  ? "As the test was before Claude's run."
+                  : "From the last sync — nothing was downloaded.",
+            });
+          }}
         >
           <TestDetails
             test={test}
@@ -434,7 +473,7 @@ export function TestEditor({
             onContexts={(ids) => void actions.setTestContexts(ids)}
             onManageContexts={() => setDialog({ kind: "contexts" })}
           />
-        </SummaryCard>
+        </DetailsCard>
         {test.preconditions.length > 0 && (
           <PreconditionList
             keys={test.preconditions}
@@ -520,6 +559,13 @@ export function TestEditor({
           onOpenSource={app.openSource}
           onImageGone={actions.imageGone}
         />
+        {test.key && jiraKey && (
+          <CommentsCard
+            testKey={test.key}
+            readOnly={busy}
+            onOpenInJira={() => void actions.openInJira(test.key as string)}
+          />
+        )}
       </EditorColumn>
       {pushing && (
         <PushDialog

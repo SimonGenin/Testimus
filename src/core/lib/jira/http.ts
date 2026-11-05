@@ -1,8 +1,10 @@
 import { AsyncLocalStorage } from "node:async_hooks";
+import { join } from "node:path";
 import { scope, semaphore, sleep } from "../../../shared/run/work.ts";
 import { env, type HttpReq, type HttpRes } from "../../env.ts";
 import { jobNotice, jobSignal, notice } from "../../jobs.ts";
 import { type JiraCreds, jiraCreds, xrayCreds } from "../creds.ts";
+import { readJson, writeJson } from "../project.ts";
 
 export type Myself = { accountId: string; displayName: string; emailAddress?: string };
 
@@ -80,6 +82,18 @@ export async function send(req: HttpReq): Promise<HttpRes> {
 export const RATE_LIMITED =
   "Xray/Jira rate limit reached and still refusing after three waits. Everything already applied stays — try again in a minute.";
 
+/** Jira said no and said why (a permission of this issue: Add Comments, Assign…) — the message is the user's */
+export class JiraRefused extends Error {}
+
+function jiraMessages(text: string | undefined): string {
+  try {
+    const b = JSON.parse(text ?? "");
+    return [...(b.errorMessages ?? []), ...Object.values(b.errors ?? {})].map(String).join(" ");
+  } catch {
+    return "";
+  }
+}
+
 export async function jiraFetch(method: string, path: string, body?: unknown, what = path): Promise<any> {
   const c = jiraCreds();
   const res = await send({
@@ -93,6 +107,11 @@ export async function jiraFetch(method: string, path: string, body?: unknown, wh
     body: body === undefined ? undefined : JSON.stringify(body),
     timeoutMs: 60000,
   });
+  if (res.status === 403) {
+    // ponytail: a 403 that says why is a permission of this issue (Add Comments, Assign…), not the credentials
+    const why = jiraMessages(res.text);
+    if (why) throw new JiraRefused(`Jira refused ${what}: ${why}`);
+  }
   if (res.status === 401 || res.status === 403)
     throw new Error(`Jira ${res.status} — check ~/.atlassian/credentials.json`);
   if (res.status === 404) throw new Error(`Jira 404 — ${what} not found`);
@@ -149,5 +168,26 @@ export async function getMyself(): Promise<Myself> {
   const m = await jiraFetch("GET", "/rest/api/3/myself", undefined, "your Jira account");
   myselfFor = who;
   myselfCache = { accountId: m.accountId, displayName: m.displayName, emailAddress: m.emailAddress };
+  try {
+    writeJson(meFile(), { email: who, ...myselfCache });
+  } catch {}
   return myselfCache;
+}
+
+const meFile = () => join(env.dataDir(), "jira-me.json");
+
+// ponytail: who « me » is without asking Jira — the account last read for these credentials, kept on disk so the
+// assignee:me filter works offline; null when it was never read
+export function knownMyself(): Myself | null {
+  let who = "";
+  try {
+    who = jiraCreds().email;
+  } catch {
+    return null;
+  }
+  if (myselfCache && myselfFor === who) return myselfCache;
+  const kept = readJson<(Myself & { email?: string }) | null>(meFile(), null);
+  return kept?.accountId && kept.email === who
+    ? { accountId: kept.accountId, displayName: kept.displayName, emailAddress: kept.emailAddress }
+    : null;
 }

@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { docIds, readDoc } from "../lib/docs.ts";
+import { knownMyself } from "../lib/jira/http.ts";
 import { indexFile } from "../rag/db.ts";
 import { search as passages } from "../rag/search/hybrid.ts";
 import { foldKeep } from "../rag/stem-fr.ts";
@@ -127,7 +128,8 @@ type Found = { hits: SearchMatch[]; total: number; unembedded: number; note?: st
 
 async function findTests(project: string, q: Query, c: Compiled | null, k: number, meaning: boolean): Promise<Found> {
   const all = testsCorpus(project);
-  const docs = all.docs.filter((d) => keepTest(d, q.filters));
+  const me = q.filters.assignee?.includes("me") ? (knownMyself()?.accountId ?? null) : null;
+  const docs = all.docs.filter((d) => keepTest(d, q.filters, me));
   if (!c) {
     const hits = [...docs].sort((a, b) => b.mtime - a.mtime).map((d) => testHit(d, null, 0, "filter"));
     return { hits: hits.slice(0, k), total: hits.length, unembedded: 0 };
@@ -273,7 +275,7 @@ function orderOf(q: Query, found: Partial<Record<SearchKind, Found>>): SearchKin
 }
 
 const SUGGEST_MAX = 8;
-const TEST_KEYS: FilterKey[] = ["review", "sync", "has", "is", "label", "folder"];
+const TEST_KEYS: FilterKey[] = ["review", "sync", "has", "is", "label", "folder", "assignee"];
 
 const ancestors = (folder: string) =>
   folder
@@ -285,20 +287,23 @@ const ancestors = (folder: string) =>
 // documents — those that hold what is typed so far, each with how many tests it keeps
 function suggestFor(project: string, t: NonNullable<ReturnType<typeof typing>>): SearchSuggest {
   const tests = TEST_KEYS.includes(t.key) ? testsCorpus(project).docs : [];
+  const me = t.key === "assignee" ? (knownMyself()?.accountId ?? null) : null;
   const values =
     CHOICES[t.key] ??
     (t.key === "label"
       ? tests.flatMap((d) => d.test.labels)
-      : t.key === "folder"
-        ? tests.flatMap((d) => ancestors(d.test.folder || "/"))
-        : docIds(project));
+      : t.key === "assignee"
+        ? ["me", "none", ...tests.flatMap((d) => (d.test.assignee ? [d.test.assignee] : []))]
+        : t.key === "folder"
+          ? tests.flatMap((d) => ancestors(d.test.folder || "/"))
+          : docIds(project));
   const typed = foldKeep(t.value).replace(/^\//, "");
   const counted = [...new Set(values)]
     .filter((v) => foldKeep(v).includes(typed))
     .map((value) => {
       const kept = filterValue(t.key, value);
       return TEST_KEYS.includes(t.key) && kept
-        ? { value, count: tests.filter((d) => keepTest(d, { [t.key]: [kept] })).length }
+        ? { value, count: tests.filter((d) => keepTest(d, { [t.key]: [kept] }, me)).length }
         : { value };
     });
   if (TEST_KEYS.includes(t.key))

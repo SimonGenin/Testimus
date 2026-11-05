@@ -484,10 +484,10 @@ describe("TestEditor › saving", () => {
     fireEvent.click(await screen.findByRole("radio", { name: "Action | Expected" }));
     expect(localStorage.getItem("testimus.stepLayout")).toBe("split");
     expect(document.querySelector('[data-testid="step-fields"][data-layout="split"]')).not.toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Hide details" }));
+    fireEvent.click(screen.getByRole("button", { name: "Fold the details" }));
     expect(localStorage.getItem("testimus.showDetails")).toBe("0");
     expect(screen.queryByLabelText("Description")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Details" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show the details" }));
     expect(localStorage.getItem("testimus.showDetails")).toBeNull();
     expect(screen.getByLabelText("Description")).toBeInTheDocument();
   });
@@ -1782,7 +1782,7 @@ describe("TestEditor › parity", () => {
     editor();
     await ready();
     expect(screen.queryByLabelText("Description")).toBeNull();
-    expect(screen.getByRole("button", { name: "Details" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show the details" })).toBeInTheDocument();
   });
 
   it("opens in the remembered split layout and counts the steps", async () => {

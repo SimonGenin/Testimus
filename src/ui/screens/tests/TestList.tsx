@@ -20,6 +20,7 @@ import { color, space } from "../../styles/tokens.stylex.ts";
 import { type DeleteTarget, DeleteTest, deleteTarget, deleteTest, needsAsking } from "./DeleteTest.tsx";
 import { JiraConnect, useDisconnect } from "./JiraConnect.tsx";
 import { type JiraLayout, JiraTab } from "./JiraTab.tsx";
+import { assigneesOf } from "./list/assignee.ts";
 import { FoundList } from "./list/FoundList.tsx";
 import { type ListLayout, ListTools } from "./list/ListTools.tsx";
 import { LocalPanes } from "./list/LocalPanes.tsx";
@@ -123,6 +124,7 @@ export function TestList({
 
   const listed = useMemo(() => refs.filter((r) => !(r as Listed).awaiting), [refs]);
   const waiting = refs.length - listed.length;
+  const assignees = useMemo(() => assigneesOf(listed), [listed]);
   // ponytail: the local tests in two panes as Jira's are, once there are some and no filter is typed (what a filter
   // finds is one list, across the folders)
   const localPanes = v.tab === "local" && localKept !== "tree" && !!project() && listed.length > 0 && !needle;
@@ -344,6 +346,7 @@ export function TestList({
         <ListTools
           jira={jiraOn || v.tab === "jira"}
           jiraOff={!jiraOn}
+          assignees={jiraOn || listed.some((r) => r.assignee) ? assignees : undefined}
           local={v.tab === "local"}
           search={v.search}
           filter={v.filter}

@@ -173,6 +173,23 @@ The code rewritten clean, behavior kept (PARITY.md, each row with the test that 
 - [ ] Live read-only Jira check (`xray.pull` of an LFRPS12 test) on the Windows PC — this Mac has no Atlassian
       credentials
 
+## Jira in the editor — GOAL-JIRA.md (built 2026-11-05)
+
+Design: the canvas « Testimus — test head & Jira » (link in GOAL-JIRA.md).
+
+- [x] J1 The assignee in test.md (`assignee`, `assignee_id`, a copy of Jira's like `status`: written by the pull and
+      by `issue.*`, kept from disk by a save, never pushed nor compared); the --mock Jira has a workflow, people and
+      comments (`TESTIMUS_MOCK_JIRA_NO_COMMENT=1` refuses comments)
+- [x] J2 The `issue` group: `transitions`, `transition`, `people`, `assign`, `comments`, `comment`, `editComment`,
+      `deleteComment` — every write goes to Jira at once with a `dryRun`, out of every Claude run's reach; mentions
+      `@[Name](accountId)` ↔ ADF `mention`; `claude.draftComment` (skill `draft-comment`) drafts, the person sends
+- [x] J3 `assignee:me|none|<name>` in the filters (search.all, the list's Assignee menu); « me » kept on disk for offline
+- [x] J4 The head (summary, badges, status menu, assignee picker, comment count), the Details card (folded line,
+      Jira version, before Claude), the comments card (mentions, Claude draft, edit, delete), the list's Assignee
+      filter and avatar; the kit's Avatar
+- [x] J5 Unit tests over the fake Jira, `tests/e2e/jira-side.spec.ts`
+- [ ] Live read-only check of the three reads (transitions, assignable search, comments) on a real project
+
 ## Later
 
 - Execution support: test sheets for testers, screenshots from R4 runs, NOK → bug draft

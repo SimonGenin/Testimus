@@ -12,6 +12,7 @@ import { commands as contexts } from "./contexts.ts";
 import { commands as docs } from "./docs.ts";
 import { commands as gen } from "./gen.ts";
 import { commands as images } from "./images.ts";
+import { commands as issue } from "./issue.ts";
 import { commands as jobs } from "./jobs.ts";
 import { commands as models } from "./models.ts";
 import { commands as project } from "./project.ts";
@@ -45,6 +46,7 @@ type Defined =
   | (typeof check)[number]
   | (typeof review)[number]
   | (typeof xray)[number]
+  | (typeof issue)[number]
   | (typeof jobs)[number]
   | (typeof system)[number];
 
@@ -77,6 +79,7 @@ export const registry: Command[] = [
   ...check,
   ...review,
   ...xray,
+  ...issue,
   ...jobs,
   ...system,
 ].sort((a, b) => a.name.localeCompare(b.name));

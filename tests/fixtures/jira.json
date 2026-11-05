@@ -94,6 +94,21 @@
             "cf-exigence": "EXI_MOP_SPF_511_A_1660"
           }
         }
+      ],
+      "assignee": "mock-account-1",
+      "comments": [
+        {
+          "id": "10101",
+          "author": "mock-account-2",
+          "body": "Le menu contextuel a changé en J5 : l’item « Propriétés » est grisé sans TK.",
+          "created": "2026-11-03T14:02:00.000Z"
+        },
+        {
+          "id": "10102",
+          "author": "mock-account-1",
+          "body": "@[Camille Martin](mock-account-2) vu, je mets l’étape 3 à jour.",
+          "created": "2026-11-04T09:15:00.000Z"
+        }
       ]
     },
     {
@@ -111,7 +126,8 @@
           "action": "Clic droit sur le disjoncteur D 4 de la vue de traction.",
           "result": "Le menu propose Ouvrir, Fermer et Propriétés."
         }
-      ]
+      ],
+      "assignee": "mock-account-2"
     },
     {
       "issueId": "41401",
@@ -139,7 +155,8 @@
             "cf-exigence": "EXI_MOP_SPF_511_A_1710"
           }
         }
-      ]
+      ],
+      "assignee": "mock-account-1"
     },
     {
       "issueId": "41405",
@@ -183,7 +200,8 @@
             "cf-exigence": "EXI_MOP_SPF_520_A_10"
           }
         }
-      ]
+      ],
+      "assignee": "mock-account-3"
     },
     {
       "issueId": "41411",
@@ -224,5 +242,19 @@
   ],
   "files": {
     "9001": "project/tests/LFRPS12-1420/images/fig-40.png"
-  }
+  },
+  "people": [
+    {
+      "accountId": "mock-account-2",
+      "displayName": "Camille Martin"
+    },
+    {
+      "accountId": "mock-account-3",
+      "displayName": "Léa Bernard"
+    },
+    {
+      "accountId": "mock-account-4",
+      "displayName": "Hugo Petit"
+    }
+  ]
 }

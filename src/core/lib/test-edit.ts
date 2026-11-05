@@ -33,6 +33,9 @@ export function keepReview(onDisk: Test, saved: Test): Test {
   for (const [k, v] of Object.entries(onDisk.extra)) if (isReserved(k)) extra[k] = v;
   return {
     ...saved,
+    status: onDisk.status,
+    assignee: onDisk.assignee,
+    assigneeId: onDisk.assigneeId,
     review: onDisk.review,
     reviewNote: onDisk.reviewNote,
     reviewedBy: onDisk.reviewedBy,
