@@ -81,6 +81,11 @@ describe("xray authentication", () => {
     await expect(getFolderTree("1")).rejects.toThrow("Xray authentication failed (500) — down");
   });
 
+  it("a 429 that does not go away fails with the rate limit message, not as a failed authentication", async () => {
+    fake.route = (req) => (req.url.includes("/api/v2/authenticate") ? status(429) : undefined);
+    await expect(getFolderTree("1")).rejects.toThrow(/rate limit/);
+  });
+
   it("an empty token is refused", async () => {
     fake.authText = '""';
     await expect(getFolderTree("1")).rejects.toThrow("empty token");

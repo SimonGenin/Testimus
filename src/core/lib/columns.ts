@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { UserError } from "../command.ts";
 import type { ColumnEntry, ColumnModes, ColumnShow, StepColumn, XrayField, XrayJson } from "../types.ts";
 import { readJson, readXray, writeJson, writeXray } from "./project.ts";
+import { fieldName } from "./testfile.ts";
 
 export const DEFAULT_DESCRIPTIONS: Record<string, string> = {
   Action: "One user action per step, in the imperative, on an object named as the product names it.",
@@ -121,7 +122,7 @@ function checkName(columns: StepColumn[], name: string): void {
   if (!name) throw new UserError("A column needs a name.", "E.g. « Remarque testeur ».");
   if (/[\r\n#]/.test(name) || name.length > 60)
     throw new UserError(`« ${name} » cannot be a column name.`, "One line, at most 60 characters, no #.");
-  if (RESERVED.test(name))
+  if (RESERVED.test(name) || fieldName(name) !== name)
     throw new UserError(`« ${name} » is a section of test.md, not a column.`, "Choose another name.");
   if (columns.some((c) => same(c.name, name)))
     throw new UserError(`The column « ${name} » already exists.`, "columns.list shows them.");

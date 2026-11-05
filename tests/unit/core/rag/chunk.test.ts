@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { approxTokens, chunkDoc, MAX_TOKENS } from "../../../../src/core/rag/chunk.ts";
+import { approxTokens, chunkDoc, MAX_TOKENS, stripComments } from "../../../../src/core/rag/chunk.ts";
 import type { DocJson } from "../../../../src/core/types.ts";
 
 const doc = { id: "D", code: "D", title: "Doc" } as DocJson;
@@ -18,5 +18,12 @@ describe("chunking a huge table", () => {
       expect(c.text).toContain("| Id | Texte |");
     }
     expect(chunks.map((c) => c.text).join("\n")).toContain("EXI_MOP_SPF_600_A_599");
+  });
+});
+
+describe("stripComments", () => {
+  it("drops a line made of comments only, never the text between two comments", () => {
+    expect(stripComments("<!-- page 3 -->\n\n<!-- a --> <!-- b -->")).toBe("");
+    expect(stripComments("<!-- page 3 --> Le train part. <!-- fig 2 -->")).toBe("Le train part.");
   });
 });

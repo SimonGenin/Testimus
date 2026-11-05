@@ -1,7 +1,7 @@
 // ponytail: a port of the Snowball French stemmer (snowballstem.org/algorithms/french, BSD) — french.sbl, master of
 // 2026-11; checked word for word against snowball-data/french in tests/unit/core/rag/stem-fr.test.ts. One file on purpose:
 // it is mostly the algorithm's suffix tables, read top to bottom against french.sbl; split, it would no longer compare.
-export const STEM_VERSION = 1;
+export const STEM_VERSION = 2;
 
 const VOWELS = "aeiouyâàëéêèïîôûù";
 const v = (c: string | undefined): boolean => c !== undefined && c.length === 1 && VOWELS.includes(c);
@@ -391,6 +391,7 @@ const ELIDED: Record<string, string> = {
 
 export function frenchTokens(text: string): string[] {
   return text
+    .normalize("NFC")
     .toLowerCase()
     .replace(/(?<![\p{L}\p{N}])(qu|[cdjlmnst])['’](?=\p{L})/gu, (_, e: string) => `${ELIDED[e]} `)
     .split(/[^\p{L}\p{N}]+/u)

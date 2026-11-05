@@ -139,7 +139,8 @@ function lines(onLine: (line: string) => void): { push(d: string): void; flush()
 
 export function start(spec: RunSpec): Proc {
   const exe = resolveExe(spec.exe);
-  const viaShim = WIN && /\.(cmd|bat)$/i.test(exe);
+  const bare = exe.replace(/^"(.*)"$/, "$1");
+  const viaShim = WIN && /\.(cmd|bat)$/i.test(bare);
   const unsafe = viaShim ? unsafeShimArgument(exe, spec.args) : null;
   const refused = (error: string, cancelled = false): Proc => ({
     pid: undefined,
@@ -166,7 +167,7 @@ export function start(spec: RunSpec): Proc {
     stdio: ["pipe", "pipe", "pipe"] as ["pipe", "pipe", "pipe"],
   };
   const child = viaShim
-    ? spawn([exe, ...spec.args].join(" "), { ...options, shell: true })
+    ? spawn([/\s/.test(bare) ? `"${bare}"` : bare, ...spec.args].join(" "), { ...options, shell: true })
     : spawn(exe, spec.args, options);
   const pid = child.pid;
   if (pid) {

@@ -50,9 +50,11 @@ export function isComplete(dir: string, dtype?: string): boolean {
   if (!existsSync(join(dir, "config.json")) || !existsSync(join(dir, "tokenizer.json"))) return false;
   const onnx = join(dir, "onnx");
   if (!existsSync(onnx)) return false;
+  const files = readdirSync(onnx);
+  if (files.some((f) => f.endsWith(".part"))) return false;
   const want = onnxFile(dtype);
   if (want) return existsSync(join(onnx, want));
-  return readdirSync(onnx).some((f) => f.endsWith(".onnx"));
+  return files.some((f) => f.endsWith(".onnx"));
 }
 
 export function findModel(hfId: string, dtype?: string): ModelHit | null {

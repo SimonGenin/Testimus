@@ -377,4 +377,14 @@ describe("every", () => {
     expect(m).toBe(2);
     expect(vi.getTimerCount()).toBe(0);
   });
+
+  it("never ticks when its signal is already aborted", async () => {
+    const ctl = new AbortController();
+    ctl.abort();
+    let n = 0;
+    every(100, () => n++, ctl.signal);
+    await vi.advanceTimersByTimeAsync(350);
+    expect(n).toBe(0);
+    expect(vi.getTimerCount()).toBe(0);
+  });
 });

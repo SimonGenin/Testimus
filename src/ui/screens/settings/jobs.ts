@@ -7,6 +7,8 @@ import { errorToast } from "../../lib/toast.ts";
 
 export type Live = { message: string; pct: number | null };
 
+const STARTING: Live = { message: "Starting", pct: null };
+
 export const pctOf = (done?: number, total?: number) => (total ? Math.round(((done ?? 0) / total) * 100) : null);
 
 // ponytail: a job this screen started or found running — its last progress as the events come, its end once
@@ -16,9 +18,10 @@ export function useJob(
   onEnd?: (job: Job) => void,
   onEvent?: (e: JobEvent) => void,
 ): { job: Job | undefined; live: Live } {
-  const [live, setLive] = useState<Live>({ message: "Starting", pct: null });
+  const [heardOf, setHeard] = useState<{ id: string | null | undefined; live: Live }>({ id: jobId, live: STARTING });
+  const live = heardOf.id === jobId ? heardOf.live : STARTING;
   useJobEvents(jobId, (e) => {
-    if (e.type === "progress") setLive({ message: e.message, pct: pctOf(e.done, e.total) });
+    if (e.type === "progress") setHeard({ id: jobId, live: { message: e.message, pct: pctOf(e.done, e.total) } });
     onEvent?.(e);
   });
   const shown = useRead("jobs.show", { id: jobId ?? "" }, { enabled: !!jobId });

@@ -171,8 +171,12 @@ describe("command palette", () => {
     expect(onClose).not.toHaveBeenCalled();
     fireEvent.mouseDown(screen.getByRole("dialog"));
     expect(onClose).not.toHaveBeenCalled();
+    fireEvent.change(input, { target: { value: "x" } });
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    fireEvent.keyDown(input, { key: "ArrowDown" });
     fireEvent.click(screen.getByRole("button", { name: "Clear" }));
     expect(input).toHaveValue("");
+    expect(input.getAttribute("aria-activedescendant")).toBe(screen.getAllByRole("option")[0].id);
     fireEvent.mouseDown(screen.getByRole("dialog").parentElement as HTMLElement);
     expect(onClose).toHaveBeenCalledTimes(1);
   });

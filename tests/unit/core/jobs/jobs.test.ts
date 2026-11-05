@@ -126,6 +126,14 @@ describe("live jobs", () => {
     expect(showJob(null, job.id)?.events.map((e) => e.type)).toEqual(["status", "log", "claude", "status"]);
   });
 
+  it("starts cancelled when its caller's signal was aborted before it began", async () => {
+    const outer = new AbortController();
+    outer.abort();
+    const { job, done } = startJob("late", "s", null, async (ctx) => ctx.signal.aborted, outer.signal);
+    expect(await done).toBe(true);
+    expect(job.status).toBe("cancelled");
+  });
+
   it("trusts a result that says whether it was cancelled", async () => {
     const a = startJob("said", "s", null, async () => ({ cancelled: true }));
     await a.done;

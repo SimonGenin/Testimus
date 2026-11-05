@@ -97,6 +97,14 @@ describe("matching", () => {
     expect(ids('menu -"du sectionneur"', ...texts)).toEqual([1]);
   });
 
+  it("matches a phrase across any run of spaces or a line break, and marks it where it is", () => {
+    const texts = ["Ouvrir le menu  \ncontextuel du poste", "autre chose"];
+    expect(ids('"menu contextuel"', ...texts)).toEqual([0]);
+    expect(ids('menu -"menu contextuel"', ...texts)).toEqual([]);
+    const marks = marksIn(texts[0], parseQuery('"menu contextuel"'));
+    expect(marks.map(([a, b]) => texts[0].slice(a, b))).toEqual(["menu  \ncontextuel"]);
+  });
+
   it("cuts a snippet around the first mark and moves the marks into it", () => {
     const text = `${"a ".repeat(100)}cible${" b".repeat(100)}`;
     const s = snippet(text, [[200, 205]], 60);

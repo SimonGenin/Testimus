@@ -80,9 +80,15 @@ export function bm25(db: DatabaseSync, query: string, opts: SearchOpts): number[
   const q = ftsQuery(query, project ? glossaryOf(project) : []);
   if (!q) return [];
   const candidates = opts.retrieval?.candidates ?? CANDIDATES;
+  const docs = opts.docIds ?? [];
+  const inDocs = docs.length
+    ? ` and rowid in (select rowid from chunks where doc_id in (${docs.map(() => "?").join(",")}))`
+    : "";
   const rows = db
-    .prepare("select rowid from chunks_fts where chunks_fts match ? order by bm25(chunks_fts, ?, ?, ?, ?) limit ?")
-    .all(q, ...bm25Weights(opts.retrieval?.bm25Weights), candidates * 4) as { rowid: number }[];
+    .prepare(
+      `select rowid from chunks_fts where chunks_fts match ?${inDocs} order by bm25(chunks_fts, ?, ?, ?, ?) limit ?`,
+    )
+    .all(q, ...docs, ...bm25Weights(opts.retrieval?.bm25Weights), candidates * 4) as { rowid: number }[];
   const ids = rows.map((r) => Number(r.rowid));
   const byId = chunksByRowid(db, ids);
   return ids.filter((id) => keep(byId.get(id), opts)).slice(0, candidates);

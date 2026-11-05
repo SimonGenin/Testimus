@@ -26,11 +26,42 @@ function baseType(t: z.ZodType): z.ZodType {
 function coerce(t: z.ZodType | undefined, values: string[]): unknown {
   const b = t ? baseType(t) : undefined;
   const one = values[values.length - 1];
-  if (b instanceof z.ZodArray) return values.flatMap((v) => (v.startsWith("[") ? JSON.parse(v) : v.split(",")));
+  if (b instanceof z.ZodArray) {
+    const item = baseType(b.element as z.ZodType);
+    const typed = item instanceof z.ZodNumber || item instanceof z.ZodBoolean;
+    return values.flatMap((v) =>
+      v.startsWith("[") ? JSON.parse(v) : v.split(",").map((x) => (typed ? coerce(item, [x]) : x)),
+    );
+  }
   if (b instanceof z.ZodNumber) return Number(one);
   if (b instanceof z.ZodBoolean) return one !== "false" && one !== "0";
   if (b instanceof z.ZodObject || b instanceof z.ZodRecord) return JSON.parse(one);
   if (b instanceof z.ZodString || b instanceof z.ZodEnum) return one;
+  try {
+    return JSON.parse(one);
+  } catch {
+    return one;
+  }
+}
+
+function leafType(t: z.ZodType | undefined, path: string[]): z.ZodType | undefined {
+  let cur = t;
+  for (const part of path) {
+    const b = cur ? baseType(cur) : undefined;
+    cur =
+      b instanceof z.ZodObject
+        ? (b.shape as Shape)[part]
+        : b instanceof z.ZodRecord
+          ? (b.valueType as z.ZodType)
+          : undefined;
+  }
+  return cur;
+}
+
+// ponytail: a string key keeps its text as typed (a version 1.10, a code 007); any other key reads JSON when it is
+function dotted(leaf: z.ZodType | undefined, one: string): unknown {
+  if (leaf && baseType(leaf) instanceof z.ZodString && !(one === "null" && leaf.safeParse(null).success)) return one;
+  if (!/^(true|false|null|-?\d+(\.\d+)?|\[.*\]|\{.*\})$/s.test(one)) return one;
   try {
     return JSON.parse(one);
   } catch {
@@ -93,10 +124,7 @@ function inputFrom(
         if (typeof node[part] !== "object" || node[part] === null) node[part] = {};
         node = node[part] as Record<string, unknown>;
       }
-      const one = vs[vs.length - 1];
-      node[rest[rest.length - 1]] = /^(true|false|null|-?\d+(\.\d+)?|\[.*\]|\{.*\})$/s.test(one)
-        ? JSON.parse(one)
-        : one;
+      node[rest[rest.length - 1]] = dotted(leafType(shape[head], rest), vs[vs.length - 1]);
       continue;
     }
     input[k] = coerce(shape[k], vs);

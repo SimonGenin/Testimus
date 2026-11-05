@@ -94,6 +94,7 @@ const KINDS: Rule[] = [
   [/^search-index$/, () => [["search.all"]]],
   [/^docs\.(add|addFiles|convert)$|^docs-|^describe-figures$/, () => [["docs.list"], ["docs.show"], ["rag.status"]]],
   [/^generate$/, () => [["review.evidence"], ["review.queue"], ["gen.preview"]]],
+  [/^chat$/, () => [["chat.list"], ["chat.show"]]],
   [
     /^models-/,
     () => [
@@ -193,8 +194,8 @@ export function apply(client: QueryClient, e: JobEvent, p: string | null = proje
   }
 }
 
-// ponytail: the stream is opened once for the whole page; a reopen re-reads every active query (events missed while it
-// was down), a drop says the server is unreachable until something answers again
+// ponytail: the stream is opened once for the whole page; a reopen marks every read stale (events missed while it was
+// down) and reads again the ones shown, a drop says the server is unreachable until something answers again
 export function connectEvents(client: QueryClient): () => void {
   let dropped = false;
   const offStream = onStream((up) => {
@@ -202,7 +203,7 @@ export function connectEvents(client: QueryClient): () => void {
     if (!up) dropped = true;
     else if (dropped) {
       dropped = false;
-      void client.invalidateQueries({ type: "active" });
+      void client.invalidateQueries();
     }
   });
   const offEvents = events((e) => apply(client, e));

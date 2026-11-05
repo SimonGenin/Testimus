@@ -118,7 +118,7 @@ export async function executePlan(
     if (signal?.aborted)
       return { ok: false, id, failedAt: i, error: cancelledAt(i, total), cancelled: !ranAfterCancel };
     const op = push.plan.ops[i];
-    if (op.kind === "create" && !push.local.key) {
+    if (op.kind === "create") {
       const now = (() => {
         try {
           return readTest(project, id).test;

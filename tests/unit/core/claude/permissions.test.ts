@@ -46,6 +46,14 @@ describe("each run kind gets its own MCP allow-list", () => {
     }
   });
 
+  it("an action cannot run a past job again (a push, a Claude run) nor delete a project folder", async () => {
+    const a = await mcpAccess("action");
+    for (const n of ["jobs_rerun", "project_delete"]) {
+      expect(a.allow, n).not.toContain(`mcp__testimus__${n}`);
+      expect(a.deny, n).toContain(`mcp__testimus__${n}`);
+    }
+  });
+
   it("chat.ask, claude.run, review.fix, check.run, gen.tests and describeFigures pass their list, never mcp__testimus__*", async () => {
     fake((s) => ({ lines: () => (isCheck(s) ? [recordLine(idIn(s)), result("0")] : [result("ok")]) }));
     await invoke("chat.ask", { question: "Quel menu ?" }, { project: dir });

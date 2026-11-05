@@ -11,7 +11,8 @@ export function decodeEntities(s: string): string {
     if (k === "quot") return '"';
     if (k === "apos") return "'";
     if (k === "nbsp") return " ";
-    return String.fromCodePoint(k.startsWith("#x") ? Number.parseInt(k.slice(2), 16) : Number(k.slice(1)));
+    const code = k.startsWith("#x") ? Number.parseInt(k.slice(2), 16) : Number(k.slice(1));
+    return code <= 0x10ffff ? String.fromCodePoint(code) : "\uFFFD";
   });
 }
 

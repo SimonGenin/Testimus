@@ -33,7 +33,12 @@ function inline(n: AdfNode): string {
 function lines(n: AdfNode, prefix = ""): string[] {
   if (n.type === "bulletList") return (n.content ?? []).flatMap((li) => lines(li, "- "));
   if (n.type === "orderedList") return (n.content ?? []).flatMap((li, i) => lines(li, `${i + 1}. `));
-  if (n.type === "listItem") return (n.content ?? []).flatMap((c, i) => lines(c, i === 0 ? prefix : "  "));
+  if (n.type === "listItem")
+    return (n.content ?? []).flatMap((c, i) => (i === 0 ? lines(c, prefix) : lines(c).map((l) => `  ${l}`)));
+  if (n.type === "tableRow") return [prefix + (n.content ?? []).map((c) => lines(c).join(" ")).join(" | ")];
+  // ponytail: a panel, a quote, a table, an expand hold blocks — each is a line of its own, never glued to the next
+  if (n.content?.some((c) => Array.isArray(c.content) || c.type === "paragraph"))
+    return n.content.flatMap((c, i) => lines(c, i === 0 ? prefix : ""));
   return inline(n)
     .split("\n")
     .map((l, i) => (i === 0 ? prefix + l : l));

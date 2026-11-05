@@ -78,11 +78,11 @@ async function send(e: Entry, force = false): Promise<void> {
         e.dirty = false;
         e.value = undefined;
         e.status = "saved";
-      } else e.status = "pending";
+      } else e.status = e.dirty ? "pending" : "saved";
     } catch (err) {
       const conflict = err instanceof ApiError && err.code === "conflict";
-      e.status = conflict ? "conflict" : "error";
-      e.error = err instanceof Error ? err.message : String(err);
+      e.status = !e.dirty ? "saved" : conflict ? "conflict" : "error";
+      e.error = e.dirty ? (err instanceof Error ? err.message : String(err)) : undefined;
     } finally {
       e.flight = null;
       notify(e);

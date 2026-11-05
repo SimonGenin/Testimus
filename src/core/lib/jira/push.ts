@@ -248,7 +248,7 @@ export async function planPush(
     fields.summary = local.summary;
     changed.push("summary");
   }
-  const labelsChanged = !same(labels, r.labels);
+  const labelsChanged = !same([...new Set(labels)].sort(), [...new Set(r.labels)].sort());
   if (labelsChanged) {
     fields.labels = labels;
     changed.push("labels");

@@ -123,6 +123,14 @@ describe("lexical search", () => {
       add(chunk("1", "Un incident ligne est signalé."));
       expect(bm25(db, "il", {})).toEqual([]);
     });
+
+    it("filters by document before the cut, so a small document is not crowded out by a large one", () => {
+      for (let i = 0; i < 30; i++) add(chunk(`${i}`, "Le disjoncteur disjoncteur disjoncteur s'ouvre."));
+      const other = add(
+        chunk("1", "Le disjoncteur et bien d'autres mots encore dans ce texte.", { id: "E#§1", docId: "E" }),
+      );
+      expect(bm25(db, "disjoncteur", { docIds: ["E"], retrieval: { candidates: 5 } })).toEqual([other]);
+    });
   });
 });
 

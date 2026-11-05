@@ -124,6 +124,7 @@ describe("ClaudeBlock", () => {
     expect(screen.getByText("to send")).toBeInTheDocument();
     const box = screen.getByRole("textbox", { name: "Track" });
     fireEvent.keyDown(box, { key: "Enter", shiftKey: true });
+    fireEvent.keyDown(box, { key: "Enter", isComposing: true });
     expect(onSubmit).not.toHaveBeenCalled();
     fireEvent.keyDown(box, { key: "Enter" });
     expect(onSubmit).toHaveBeenCalledWith("", { model: undefined, effort: undefined, contexts: [] });

@@ -48,7 +48,7 @@ export function sectionPath(key: string): string {
 export function stripComments(text: string): string {
   return text
     .split("\n")
-    .filter((l) => !/^\s*<!--[\s\S]*?-->\s*$/.test(l))
+    .filter((l) => !/^\s*(?:<!--(?:(?!-->)[\s\S])*-->\s*)+$/.test(l))
     .map((l) => l.replace(/\s*<!--[\s\S]*?-->/g, ""))
     .join("\n")
     .replace(/\n{3,}/g, "\n\n")

@@ -337,3 +337,12 @@ describe("planPush, remaining corners", () => {
     expect(gqlCalls()[0].body.variables.steps[0].attachments[0].filename).toBe("images/");
   });
 });
+
+describe("planPush, labels are a set", () => {
+  it("plans nothing when Jira holds the same labels in another order (Jira sorts them)", async () => {
+    const r = remote([], { labels: ["testimus-validated", "zz-sprint"] });
+    const t = localTest({ key: "P-1", labels: ["zz-sprint"] });
+    const plan = await planPush(t, "t1", r, deps);
+    expect(plan.ops).toEqual([]);
+  });
+});

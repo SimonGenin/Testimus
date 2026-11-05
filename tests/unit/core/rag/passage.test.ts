@@ -93,6 +93,13 @@ describe("passages", () => {
       expect(c).toMatchObject({ truncated: true, a: 1, b: 4 });
       expect(c.text).toBe(`${"b".repeat(10)}\n${"c".repeat(10)}\n${"d".repeat(10)}`);
     });
+
+    it("capLines never repeats a table's separator row the window already holds", () => {
+      const ls = ["| Id | Texte |", "| --- | --- |", ...Array.from({ length: 10 }, (_, i) => `| R${i} | ligne ${i} |`)];
+      const c = capLines(ls, 0, ls.length, 65, 3);
+      expect(c).toMatchObject({ truncated: true, a: 1 });
+      expect(c.text.split("\n").slice(0, 3)).toEqual(["| Id | Texte |", "| --- | --- |", "| R0 | ligne 0 |"]);
+    });
   });
 
   describe("a quote past the cap of a long section (review #16)", () => {

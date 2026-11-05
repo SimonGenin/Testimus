@@ -140,7 +140,8 @@ export function startJob(
 ): { job: Job; done: Promise<unknown> } {
   const id = `${kind.replace(/\W+/g, "-")}-${randomBytes(4).toString("hex")}`;
   const ctrl = new AbortController();
-  outer?.addEventListener("abort", () => ctrl.abort(), { once: true });
+  if (outer?.aborted) ctrl.abort();
+  else outer?.addEventListener("abort", () => ctrl.abort(), { once: true });
   const parent = current.getStore();
   const job: Job = {
     id,

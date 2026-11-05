@@ -39,7 +39,8 @@ export const loadDeps: LoadDeps = {
   everyMs: 3000,
 };
 
-export const clampAgents = (n: number) => Math.min(AGENTS_CAP, Math.max(1, Math.round(n)));
+export const clampAgents = (n: number) =>
+  Number.isFinite(Number(n)) ? Math.min(AGENTS_CAP, Math.max(1, Math.round(n))) : AGENTS_DEFAULT;
 
 export function agentsSetting(): AgentsSetting {
   const a = readSettings().agents;

@@ -104,6 +104,25 @@ describe("one push of a test at a time", () => {
     expect(again.ok).toBe(true);
   });
 
+  it("never runs the create op again when a stopped push is resumed from before it", async () => {
+    const { test } = readTest(project, "local-3f9a12c0");
+    writeTest(project, "local-3f9a12c0", { ...test, covers: ["LFRPS12-1"] });
+    const { planHash, ops } = await run("xray.plan", { id: "local-3f9a12c0" });
+    expect(ops.map((o: any) => o.kind)).toEqual(["create", "link"]);
+    env.http = (req) => {
+      sent.push(req);
+      return req.url.includes("/issueLink")
+        ? Promise.resolve({ status: 500, headers: {}, text: "down" })
+        : mockHttp(req);
+    };
+    const stopped = await run("xray.push", { id: "local-3f9a12c0", planHash });
+    expect(stopped).toMatchObject({ ok: false, failedAt: 1 });
+    const again = await run("xray.push", { id: "local-3f9a12c0", planHash, from: 0 });
+    expect(again.ok).toBe(false);
+    expect(again.error).toMatch(/already created in Jira as LFRPS12-\d+/);
+    expect(writes().filter((r) => (r.body ?? "").includes("createTest"))).toHaveLength(1);
+  });
+
   it("re-reads the local test before the create op and refuses when another push already created it", async () => {
     const stale = await pushTest(project, "local-3f9a12c0");
     const { test } = readTest(project, "local-3f9a12c0");

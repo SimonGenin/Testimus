@@ -168,7 +168,8 @@ export function every(ms: number, tick: () => unknown, signal?: AbortSignal): ()
   }, ms);
   timer.unref?.();
   const stop = () => clearInterval(timer);
-  signal?.addEventListener("abort", stop, { once: true });
+  if (signal?.aborted) stop();
+  else signal?.addEventListener("abort", stop, { once: true });
   return stop;
 }
 

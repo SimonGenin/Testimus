@@ -70,6 +70,10 @@ describe("HTML reader", () => {
     expect(decodeEntities("&amp;&lt;&gt;&quot;&apos;&nbsp;&#65;&#x42;&unknown;")).toBe("&<>\"' AB&unknown;");
   });
 
+  it("reads a numeric entity past the last code point as the replacement character, never throws", () => {
+    expect(decodeEntities("a &#x110000; b &#99999999999;")).toBe("a \uFFFD b \uFFFD");
+  });
+
   it("reads attributes quoted, single-quoted, bare and empty", () => {
     const root = parseHtml(`<img src='a.png' alt=bare data-x title="t &amp; u"/><p>x</P></div>`);
     expect(root.children[0].attrs).toEqual({ src: "a.png", alt: "bare", "data-x": "", title: "t & u" });

@@ -44,6 +44,11 @@ async function fakeRegistry() {
       result: z.unknown().optional().describe("What to return"),
       fail: z.string().optional().describe("Throw this"),
       deep: z.unknown().optional().describe("Nested"),
+      nums: z.array(z.number()).optional().describe("Numbers"),
+      cfg: z
+        .object({ tag: z.string().optional(), on: z.boolean().optional(), names: z.record(z.string(), z.string()) })
+        .optional()
+        .describe("Typed nested"),
     }),
     output: z.unknown(),
     mutates: true,
@@ -272,6 +277,24 @@ describe("CLI face", () => {
     const res = JSON.parse(r.out) as { input: Record<string, unknown> };
     expect(res.input.name).toEqual({ x: 1 });
     expect(res.input.deep).toEqual({ x: { y: "hello", z: [1, 2] }, on: true, off: null, o: { k: 2 }, neg: -1.5 });
+  });
+
+  it("reads the numbers of a number list, and a dotted value by its own type", async () => {
+    const r = await run(["fake.run", "--json", "--nums", "0,0.5", "--nums", "1"]);
+    expect((JSON.parse(r.out) as { input: Record<string, unknown> }).input.nums).toEqual([0, 0.5, 1]);
+    const d = await run([
+      "fake.run",
+      "--json",
+      "--cfg.tag=1.10",
+      "--cfg.on=false",
+      "--cfg.names.RTU=[remote unit]",
+      "--cfg.names.ID=007",
+      "--deep.v=007",
+    ]);
+    expect(d.err).toBe("");
+    const res = JSON.parse(d.out) as { input: Record<string, unknown> };
+    expect(res.input.cfg).toEqual({ tag: "1.10", on: false, names: { RTU: "[remote unit]", ID: "007" } });
+    expect(res.input.deep).toEqual({ v: "007" });
   });
 
   it("fills positionals, appending the extra ones to the last array", async () => {

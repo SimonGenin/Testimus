@@ -189,7 +189,7 @@ export function ClaudeBlock(props: ClaudeBlockProps) {
     setPressed(null);
   };
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    if (autosave || e.key !== "Enter") return;
+    if (autosave || e.key !== "Enter" || e.nativeEvent.isComposing) return;
     if (submit === "enter" ? !e.shiftKey : e.ctrlKey || e.metaKey) {
       e.preventDefault();
       send();

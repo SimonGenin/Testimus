@@ -240,6 +240,14 @@ describe("rag.mentions — less common inputs", () => {
       const r = mentions(dir, { term: "disjoncteur", stem: false });
       expect(r.total).toBeGreaterThanOrEqual(1);
     });
+
+    it("a section split in several chunks counts its title once", () => {
+      const para = "Le train roule à vitesse constante sur la voie principale. ".repeat(30);
+      addDoc("SPLIT", `## 1 Disjoncteur général <!-- § 1 -->\n\n${[para, para, para].join("\n\n")}\n`);
+      const r = mentions(dir, { term: "disjoncteur", stem: false, docIds: ["SPLIT"] });
+      expect(r.docs[0]?.sections.map((s) => [s.ref, s.count])).toEqual([["SPLIT#§1", 1]]);
+      expect(r.total).toBe(1);
+    });
   });
 
   describe("chunkTitle", () => {

@@ -55,7 +55,11 @@ describe("which reads a finished job refreshes", () => {
     expect(keysOfKind("search-index")).toEqual([["search.all"]]);
     expect(keysOfKind("push")).toEqual([["xray.status"], ["xray.folders"], ["xray.search"]]);
     expect(keysOfKind("pull")).toEqual([["xray.search"]]);
-    expect(keysOfKind("chat")).toEqual([]);
+  });
+
+  it("a conversation with the documents refreshes the earlier conversations and the one it continued", () => {
+    expect(keysOfKind("chat")).toEqual([["chat.list"], ["chat.show"]]);
+    expect(keysOfKind("chats")).toEqual([]);
   });
 });
 

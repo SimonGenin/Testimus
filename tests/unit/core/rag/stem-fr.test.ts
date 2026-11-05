@@ -62,5 +62,11 @@ describe("stem-fr — less common words", () => {
       for (let i = 0; i < 50_002; i++) stemWord(`mot${i}`);
       expect(stemWord("sectionneurs")).toBe(stemWord("sectionneur"));
     });
+
+    it("reads a word written with combining accents (NFD) as the same word", () => {
+      const nfd = "Le d\u00e9part a \u00e9t\u00e9 refus\u00e9".normalize("NFD");
+      expect(frenchTokens(nfd)).toEqual(["le", "départ", "a", "été", "refusé"]);
+      expect(stemText(nfd)).toBe(stemText("Le départ a été refusé"));
+    });
   });
 });

@@ -113,6 +113,7 @@ export async function xrayJwt(force = false): Promise<string> {
     timeoutMs: 60000,
   });
   if (res.status === 401) throw new Error("Xray 401 — check ~/.atlassian/xray_credentials.json (client id / secret)");
+  if (res.status === 429) throw new Error(RATE_LIMITED);
   if (res.status >= 400)
     throw new Error(`Xray authentication failed (${res.status}) — ${(res.text ?? "").slice(0, 200)}`);
   jwt = (res.text ?? "").trim().replace(/^"|"$/g, "");

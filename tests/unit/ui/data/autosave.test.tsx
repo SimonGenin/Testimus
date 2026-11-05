@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   type AutosaveOptions,
   clearDrafts,
+  discardAutosave,
   flushAutosaves,
   pendingAutosaves,
   useAutosave,
@@ -94,6 +95,31 @@ describe("autosave", () => {
     expect(save.mock.calls[1]).toEqual(["two", "2"]);
     await act(async () => release("3"));
     expect(result.current.status).toBe("saved");
+  });
+
+  it("an edit dropped while a save is in the air (an undo, a download) leaves the field saved, not waiting", async () => {
+    let release: (v: string) => void = () => {};
+    const save = vi.fn(() => new Promise<string>((r) => (release = r)));
+    const { result, k } = setup({ save });
+    act(() => result.current.set("one"));
+    await act(() => vi.advanceTimersByTimeAsync(400));
+    act(() => result.current.set("two"));
+    act(() => discardAutosave(k));
+    await act(async () => release("2"));
+    await act(() => vi.advanceTimersByTimeAsync(1000));
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(result.current.value).toBe("disk");
+    expect(result.current.status).toBe("saved");
+
+    let refuse: (e: Error) => void = () => {};
+    const failing = vi.fn(() => new Promise<string>((_, no) => (refuse = no)));
+    const b = setup({ save: failing });
+    act(() => b.result.current.set("one"));
+    await act(() => vi.advanceTimersByTimeAsync(400));
+    act(() => discardAutosave(b.k));
+    await act(async () => refuse(new ApiError("gone")));
+    expect(b.result.current.status).toBe("saved");
+    expect(b.result.current.error).toBeUndefined();
   });
 
   it("never drops what was typed when a save fails: the error is shown and retry sends it again", async () => {

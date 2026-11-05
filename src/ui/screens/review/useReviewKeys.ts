@@ -21,8 +21,8 @@ export function useReviewKeys(keys: ReviewKeys): void {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const k = ref.current;
-      if (e.ctrlKey || e.altKey || e.metaKey || typing(e.target) || k.off) return;
-      if (document.querySelector('[aria-modal="true"], [role="menu"]')) return;
+      if (e.ctrlKey || e.altKey || e.metaKey || e.defaultPrevented || typing(e.target) || k.off) return;
+      if (document.querySelector('[aria-modal="true"], [role="menu"], [aria-haspopup][aria-expanded="true"]')) return;
       const key = e.key.toLowerCase();
       if (key === "j") k.next();
       else if (key === "k") k.previous();

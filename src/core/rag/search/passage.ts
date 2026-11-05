@@ -100,7 +100,7 @@ export function capLines(
     }
   }
   const start = tableStart(ls, at);
-  const head = start >= 0 && start < at && a > start ? ls.slice(start, start + 2) : [];
+  const head = start >= 0 && start < at && a > start ? ls.slice(start, Math.min(start + 2, a)) : [];
   return { text: stripComments([...head, ...ls.slice(a, b)].join("\n")), truncated: true, a, b };
 }
 

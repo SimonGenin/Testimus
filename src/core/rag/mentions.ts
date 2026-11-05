@@ -199,7 +199,7 @@ function spansIn(text: string, matchers: Matcher[]): Span[] {
 
 const searchable = (d: CorpusDoc, c: Chunk) => {
   const text = c.text.replace(/\*+/g, "");
-  const first = c.kind === "section" && !/~(?!1$)\d+$/.test(c.anchor);
+  const first = c.kind === "section" && !/~(?!1$)\d+$/.test(c.id);
   const title = first ? (d.titles.get(baseAnchor(c.anchor)) ?? "").replace(/\*+/g, "") : "";
   return title ? `${title}\n${text}` : text;
 };

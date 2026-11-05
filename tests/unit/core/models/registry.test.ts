@@ -74,6 +74,16 @@ describe("models-store", () => {
     expect(isComplete(m, "odd")).toBe(true);
   });
 
+  it("isComplete is false while a download of the model's onnx data is cut halfway (a .part left)", () => {
+    const m = model(join(dir, "m"), ["config.json", "tokenizer.json", "onnx/model_fp16.onnx"]);
+    model(m, ["onnx/model_fp16.onnx_data.part"]);
+    expect(isComplete(m, "fp16")).toBe(false);
+    expect(isComplete(m)).toBe(false);
+    model(m, ["onnx/model_fp16.onnx_data"]);
+    rmSync(join(m, "onnx", "model_fp16.onnx_data.part"));
+    expect(isComplete(m, "fp16")).toBe(true);
+  });
+
   it("finds a model under TESTIMUS_MODELS", () => {
     model(join(dir, "acme", "found"), ["config.json", "tokenizer.json", "onnx/model.onnx"]);
     vi.stubEnv("TESTIMUS_MODELS", dir);

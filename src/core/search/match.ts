@@ -104,9 +104,18 @@ function substrings(text: string, needle: string): Mark[] {
   return out;
 }
 
+const reEscape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+function phrases(text: string, needle: string): Mark[] {
+  const words = needle.split(/\s+/).filter(Boolean);
+  if (!words.length) return [];
+  const re = new RegExp(words.map(reEscape).join(String.raw`\s+`), "g");
+  return [...text.matchAll(re)].map((m): Mark => [m.index, m.index + m[0].length]);
+}
+
 export function termIn(t: Term, f: Field): { level: number; marks: Mark[] } {
   if (t.kind !== "word") {
-    const marks = substrings(t.kind === "phrase" ? f.folded.replace(/\s/g, " ") : f.folded, t.needle);
+    const marks = t.kind === "phrase" ? phrases(f.folded, t.needle) : substrings(f.folded, t.needle);
     return { level: marks.length ? EXACT : 0, marks };
   }
   let level = 0;

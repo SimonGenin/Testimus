@@ -98,6 +98,24 @@ describe("the event bridge", () => {
     stop();
   });
 
+  it("a read not shown while the stream was down is read again when a screen shows it after the reopen", async () => {
+    const client = createQueryClient();
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+    const stop = connectEvents(client);
+    const first = FakeSource.last as FakeSource;
+    client.setQueryData(["/p", "docs.list"], ["before the drop"]);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    act(() => first.onerror?.());
+    await act(() => vi.advanceTimersByTimeAsync(2000));
+    vi.useRealTimers();
+    act(() => (FakeSource.last as FakeSource).onopen?.());
+    const r = renderHook(() => useRead("docs.list"), { wrapper });
+    await waitFor(() => expect(r.result.current.data).toEqual({ reads: 1 }));
+    stop();
+  });
+
   it("drops the reads of a project the window leaves, so coming back reads it again (SPEC: a switch drops the caches)", async () => {
     const client = createQueryClient();
     const wrapper = ({ children }: { children: ReactNode }) => (

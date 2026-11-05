@@ -253,7 +253,17 @@ export function Palette({
             searching && q && s.loading ? (
               <Spinner size="sm" label="Searching" />
             ) : query ? (
-              <Button variant="quiet" size="xs" iconOnly icon="close" label="Clear" onClick={() => setQuery("")} />
+              <Button
+                variant="quiet"
+                size="xs"
+                iconOnly
+                icon="close"
+                label="Clear"
+                onClick={() => {
+                  setQuery("");
+                  setAt(0);
+                }}
+              />
             ) : (
               <Kbd>Ctrl K</Kbd>
             )
