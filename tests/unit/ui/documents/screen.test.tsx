@@ -7,6 +7,7 @@ import { docLink } from "../../../../src/ui/components/sources/PassageView.tsx";
 import { setProject } from "../../../../src/ui/lib/data/client.ts";
 import { reindexAll } from "../../../../src/ui/lib/uploads.ts";
 import { DocumentsScreen } from "../../../../src/ui/screens/documents/DocumentsScreen.tsx";
+import { scrolling } from "../../helpers/scrolling.ts";
 import { api, FakeEventSource, fakeDesktop, fakeFetch, named, noDesktop } from "../../helpers/ui-desktop.tsx";
 import { clearToasts } from "../../helpers/ui-screens.tsx";
 import { at, boxes, doc, emit, mountDocs, refuse } from "./helpers.tsx";
@@ -127,6 +128,7 @@ describe("Documents screen", () => {
       '[data-testid="doc-toc"]': { top: 0, bottom: 100, height: 100 },
       '[aria-selected="true"]': { top: 150, bottom: 170, height: 20 },
     });
+    scrolling('[data-testid="doc-part"]');
     const watch = { cb: () => {}, observe: vi.fn(), disconnect: vi.fn() };
     vi.stubGlobal(
       "ResizeObserver",

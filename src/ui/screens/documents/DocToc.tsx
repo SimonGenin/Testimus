@@ -3,8 +3,8 @@ import { useLayoutEffect, useRef } from "react";
 import { List } from "../../components/ui/List.tsx";
 import { type } from "../../components/ui/type.ts";
 import { plural } from "../../lib/format.ts";
+import { into } from "../../lib/scroll.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
-import { into } from "./scroll.ts";
 
 const styles = stylex.create({
   pane: { display: "flex", flexDirection: "column", minHeight: 0, flex: 1, minWidth: 0 },

@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
-import type { ReactNode } from "react";
+import { type ReactNode, useRef } from "react";
 import { fileUrl } from "../../lib/data/client.ts";
+import { useShowMark } from "../../lib/scroll.ts";
 import { border, color, radius, size, space } from "../../styles/tokens.stylex.ts";
 import { Button } from "../ui/Button.tsx";
 import { Marked } from "../ui/Marked.tsx";
@@ -206,7 +207,8 @@ function marked(text: string, quote: string | undefined): ReactNode[] | null {
 
 // ponytail: a part of doc.md as React elements (never raw HTML), in the reading font — headings, paragraphs, tables and
 // pictures where the document has them; the reader puts its anchors in a gutter, a passage (a source opened beside a
-// test) has no room for one and writes a heading's number before it
+// test) has no room for one and writes a heading's number before it; whatever reader holds it, the quote or the anchor
+// a link points at is scrolled to
 export function DocText({
   docId,
   md,
@@ -225,6 +227,8 @@ export function DocText({
   /** with it, a figure's caption offers « Show in Figures » */
   onFigure?: (anchor: string) => void;
 }) {
+  const root = useRef<HTMLDivElement>(null);
+  useShowMark(root, [focus, target, md].join("\n"));
   const row = gutter ? styles.row : styles.bare;
   const side = (mark: ReactNode, on = false, hidden = false) =>
     gutter && (
@@ -258,7 +262,7 @@ export function DocText({
     </figure>
   );
   return (
-    <div data-testid="doc-text" {...stylex.props(type.reading, styles.text)}>
+    <div ref={root} data-testid="doc-text" {...stylex.props(type.reading, styles.text)}>
       {raws.map((raw, i) => {
         const b = clean(raw);
         const hot = hotKey === `${i}`;

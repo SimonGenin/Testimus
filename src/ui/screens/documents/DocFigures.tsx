@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FigureEntry } from "../../../core/types.ts";
 import { noteRun } from "../../components/claude/useClaudeStatus.ts";
 import { Button } from "../../components/ui/Button.tsx";
@@ -11,6 +11,7 @@ import { type } from "../../components/ui/type.ts";
 import { useApp } from "../../lib/app.ts";
 import { useCommand } from "../../lib/data/query.ts";
 import { useProjectJobs } from "../../lib/projectJobs.ts";
+import { useShowMark } from "../../lib/scroll.ts";
 import { errorToast, jobToast } from "../../lib/toast.ts";
 import { importClaude } from "../../lib/uploads.ts";
 import { color, container, size, space } from "../../styles/tokens.stylex.ts";
@@ -74,7 +75,7 @@ const EMPTY: Record<Which, { title: string; text: string }> = {
 };
 
 // ponytail: every figure in reading order — a tile picks it, the detail beside says what Claude read in it and opens it
-// in the text; « Describe » has Claude read the pictures not described yet (docs.describeFigures, a job)
+// in the text; the figure a link picked (« Show in Figures ») is scrolled to; « Describe » has Claude read the pictures not described yet (docs.describeFigures, a job)
 export function DocFigures({
   docId,
   figures,
@@ -113,6 +114,8 @@ export function DocFigures({
   const undescribed = figures.filter((f) => isPicture(f) && !isDescribed(f));
   const shown = which === "all" ? figures : which === "described" ? described : undescribed;
   const current = shown.find((f) => f.anchor === picked) ?? shown[0];
+  const grid = useRef<HTMLUListElement>(null);
+  useShowMark(grid, focus && current?.anchor === focus ? focus : "", "[data-picked]");
 
   const ask = (anchors?: string[]) =>
     describe.mutate(
@@ -134,7 +137,7 @@ export function DocFigures({
   const busy = running || describe.isPending;
 
   return (
-    <div {...stylex.props(styles.box)}>
+    <div data-testid="doc-figures" {...stylex.props(styles.box)}>
       <div {...stylex.props(styles.inner)}>
         <div {...stylex.props(type.small, styles.bar)}>
           <Segmented
@@ -166,7 +169,7 @@ export function DocFigures({
         </div>
         {current ? (
           <div {...stylex.props(styles.body)}>
-            <ul aria-label="Figures" {...stylex.props(styles.grid)}>
+            <ul ref={grid} aria-label="Figures" {...stylex.props(styles.grid)}>
               {shown.map((f) => {
                 const on = f.anchor === current.anchor;
                 return (

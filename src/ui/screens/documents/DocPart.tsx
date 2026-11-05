@@ -7,7 +7,6 @@ import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { type } from "../../components/ui/type.ts";
 import { color, size, space } from "../../styles/tokens.stylex.ts";
 import type { TocEntry } from "./DocToc.tsx";
-import { into } from "./scroll.ts";
 
 const styles = stylex.create({
   box: { flex: 1, minHeight: 0, overflowY: "auto", backgroundColor: color.surface },
@@ -74,10 +73,8 @@ function QuoteBar({
   );
 }
 
-const ACTS = ["wheel", "pointerdown", "keydown", "touchstart"] as const;
-
-// ponytail: one section (with its subsections) at a time — ‹ › step through the contents; the line a link points at is
-// centred, and followed while figures and fonts arrive, until the reader acts
+// ponytail: one section (with its subsections) at a time — ‹ › step through the contents; a new section opens at its
+// top, unless a link points at a line of it (DocText centres that one)
 export function DocPart({
   docId,
   sections,
@@ -111,22 +108,7 @@ export function DocPart({
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new part or focus moves the marked line in the DOM
   useLayoutEffect(() => {
     const b = box.current;
-    if (!b || loading) return;
-    const hot = b.querySelector<HTMLElement>("[data-focus], [data-target]");
-    const go = () => {
-      b.scrollTop = hot ? b.scrollTop + into(b, hot, true) : 0;
-    };
-    go();
-    const text = b.querySelector('[data-testid="doc-text"]');
-    if (!hot || !text || typeof ResizeObserver === "undefined") return;
-    const watch = new ResizeObserver(go);
-    watch.observe(text);
-    const stop = () => {
-      watch.disconnect();
-      for (const k of ACTS) window.removeEventListener(k, stop, true);
-    };
-    for (const k of ACTS) window.addEventListener(k, stop, true);
-    return stop;
+    if (b && !loading && !b.querySelector("[data-focus], [data-target]")) b.scrollTop = 0;
   }, [md, focus, target, current, loading]);
 
   return (

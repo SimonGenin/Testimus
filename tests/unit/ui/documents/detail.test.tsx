@@ -5,9 +5,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DocRef } from "../../../../src/core/types.ts";
 import { setProject } from "../../../../src/ui/lib/data/client.ts";
 import { DocDetail } from "../../../../src/ui/screens/documents/DocDetail.tsx";
+import { scrolling } from "../../helpers/scrolling.ts";
 import { api, FakeEventSource, fakeDesktop, fakeFetch, named, noDesktop } from "../../helpers/ui-desktop.tsx";
 import { clearToasts } from "../../helpers/ui-screens.tsx";
-import { at, doc, emit, mountDocs, refuse } from "./helpers.tsx";
+import { at, boxes, doc, emit, mountDocs, refuse } from "./helpers.tsx";
 
 beforeEach(() => {
   fakeFetch();
@@ -269,12 +270,18 @@ describe("DocDetail", () => {
                 { file: "figures/b.png", anchor: "fig:b", caption: "Coupe", description: "" },
               ],
             });
+    const { tops } = boxes({
+      '[data-testid="doc-figures"]': { top: 100, bottom: 300, height: 200 },
+      "[data-picked]": { top: 900, bottom: 1000, height: 100 },
+    });
+    scrolling('[data-testid="doc-figures"]');
     mountDocs(<DocDetail id="D1" anchor="" onAnchor={vi.fn()} onRemoved={vi.fn()} />);
     fireEvent.click(await screen.findByRole("button", { name: "Show Coupe in Figures" }));
     expect(screen.getByRole("tab", { name: /^Figures/ })).toHaveAttribute("aria-selected", "true");
     const grid = screen.getByRole("list", { name: "Figures" });
     expect(within(grid).getByRole("button", { name: "Coupe" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("complementary", { name: "Coupe" })).toBeInTheDocument();
+    expect(tops.get(screen.getByTestId("doc-figures"))).toBe(750);
   });
 
   it("the Figures view says what each filter leaves out; a tile is named by its caption, then its anchor", async () => {
