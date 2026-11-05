@@ -66,6 +66,7 @@ const styles = stylex.create({
   clickable: { cursor: "pointer" },
   rowSelected: { backgroundColor: { default: color.surfaceSelected, ":hover": color.surfaceSelected } },
   rowHover: { backgroundColor: color.surfaceHover },
+  rowLit: { backgroundColor: { default: color.highlight, ":hover": color.highlight }, color: color.highlightText },
   sort: {
     display: "inline-flex",
     alignItems: "center",
@@ -127,6 +128,8 @@ export type TableProps<R> = {
   middle?: boolean;
   /** the open row */
   selected?: string | null;
+  /** the row a quote lands in: lit, and marked data-focus for the reader that scrolls to it */
+  lit?: string | null;
   /** the rows open something: the first cell is a button (keyboard), the whole row takes the click */
   onRowSelect?: (key: string) => void;
   /** the column sorted and its direction */
@@ -156,6 +159,7 @@ export function Table<R>({
   grid = false,
   middle = false,
   selected,
+  lit,
   onRowSelect,
   sort,
   onSort,
@@ -193,12 +197,14 @@ export function Table<R>({
           <tr
             key={key}
             aria-current={on ? "true" : undefined}
+            data-focus={key === lit ? "" : undefined}
             onClick={onRowSelect ? () => onRowSelect(key) : undefined}
             {...stylex.props(
               styles.row,
               onRowSelect && styles.clickable,
               debugHover === key && styles.rowHover,
               on && styles.rowSelected,
+              key === lit && styles.rowLit,
             )}
           >
             {columns.map((c, i) => (

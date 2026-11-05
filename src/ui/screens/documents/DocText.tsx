@@ -5,6 +5,7 @@ import { Marked } from "../../components/ui/Marked.tsx";
 import { type } from "../../components/ui/type.ts";
 import { fileUrl } from "../../lib/data/client.ts";
 import { border, color, radius, size, space } from "../../styles/tokens.stylex.ts";
+import { FigureTable } from "./FigureTable.tsx";
 
 const styles = stylex.create({
   text: {
@@ -49,8 +50,6 @@ const styles = stylex.create({
     backgroundColor: color.surfaceSunken,
   },
   caption: { display: "flex", alignItems: "center", gap: space.s2, color: color.textMuted },
-  table: { margin: 0, overflowX: "auto", color: color.text },
-  tableRow: { display: "block", whiteSpace: "pre" },
   empty: { margin: 0, color: color.textMuted },
 });
 
@@ -58,6 +57,13 @@ const clean = (s: string) => s.replace(/<!--[\s\S]*?-->/g, "").trim();
 const squeeze = (s: string) => s.replace(/\*/g, "").replace(/\s+/g, " ").trim().toLowerCase();
 
 const isTable = (b: string) => /^\|/.test(b);
+// ponytail: a body row of a table (not its head, not the rule under it) — FigureTable keys its rows by this line
+const isRow = (lines: string[], j: number) => j > 0 && !/^\|?[\s:|-]+$/.test(lines[j]?.trim() ?? "");
+// ponytail: a table's name is the caption the converter writes right after it (« Figure 25 – Bouton AA »)
+const captionOf = (next?: string) => {
+  const c = next && clean(next);
+  return c && /^(figure|tableau|table)\b/i.test(c) && !c.includes("\n") ? c.replace(/\*/g, "") : undefined;
+};
 
 // ponytail: the converter escapes [ and ] in captions and may leave a picture inside a paragraph (a Word image anchored
 // in the text), so the picture is found anywhere in the block, with the fig marker that follows it
@@ -227,22 +233,18 @@ export function DocText({
             </h4>
           );
         }
-        if (isTable(b))
+        if (isTable(b)) {
+          const lit = hotKey?.startsWith(`${i}:`) ? Number(hotKey.slice(`${i}:`.length)) : null;
+          const inHead = lit !== null && !isRow(b.split("\n"), lit);
           return (
             <div key={i} {...stylex.props(styles.row)}>
               <span {...stylex.props(type.code, styles.gutter)} />
-              <pre {...stylex.props(type.code, styles.table)}>
-                {b.split("\n").map((line, j) => {
-                  const on = hotKey === `${i}:${j}`;
-                  return (
-                    <span key={j} {...focusMark(on)} {...stylex.props(styles.tableRow, on && styles.focus)}>
-                      {line}
-                    </span>
-                  );
-                })}
-              </pre>
+              <div {...focusMark(inHead)} {...stylex.props(styles.block, inHead && styles.focus)}>
+                <FigureTable table={b} label={captionOf(raws[i + 1]) ?? "Table"} lit={inHead ? null : lit} />
+              </div>
             </div>
           );
+        }
         const parts = pieces(raw);
         const only = parts.length === 1 ? parts[0] : null;
         if (only && "src" in only) {

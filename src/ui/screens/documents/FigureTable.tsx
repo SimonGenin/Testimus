@@ -13,14 +13,16 @@ const cellsOf = (line: string) =>
 
 const rule = (line: string) => /^\|?[\s:|-]+$/.test(line.trim());
 
-// ponytail: a figure that is a table of the text (its caption sits right by it), drawn from its doc.md rows — the
-// first row heads the columns, a <br> in a cell breaks its line
-export function FigureTable({ table, label }: { table: string; label: string }) {
-  const [head = [], ...body] = table
+// ponytail: a table of doc.md drawn as a table — a figure of the text (its caption sits right by it) or a table in the
+// reading — the first row heads the columns, a <br> in a cell breaks its line; a row is keyed by its line in the
+// table, so `lit` (the line a quote lands in) lights it
+export function FigureTable({ table, label, lit }: { table: string; label: string; lit?: number | null }) {
+  const [head, ...body] = table
     .split("\n")
-    .filter((l) => !rule(l))
-    .map(cellsOf);
-  const columns: TableColumn<Row>[] = head.map((h, i) => ({
+    .map((line, j) => ({ key: `${j}`, line }))
+    .filter((l) => !rule(l.line))
+    .map((l) => ({ key: l.key, cells: cellsOf(l.line) }));
+  const columns: TableColumn<Row>[] = (head?.cells ?? []).map((h, i) => ({
     key: `${i}`,
     label: h,
     render: (r) =>
@@ -31,6 +33,15 @@ export function FigureTable({ table, label }: { table: string; label: string }) 
         </Fragment>
       )),
   }));
-  const rows = body.map((cells, i) => ({ key: `${i}`, cells }));
-  return <Table label={label} columns={columns} rows={rows} getKey={(r) => r.key} dense grid />;
+  return (
+    <Table
+      label={label}
+      columns={columns}
+      rows={body}
+      getKey={(r) => r.key}
+      lit={lit == null ? null : `${lit}`}
+      dense
+      grid
+    />
+  );
 }

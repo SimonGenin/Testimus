@@ -38,7 +38,9 @@ describe("DocText", () => {
     fireEvent.click(screen.getByRole("button", { name: "Show Vue de traction in Figures" }));
     expect(onFigure).toHaveBeenCalledWith("fig:fig-1");
     expect(screen.getByText("Plain", { selector: "figcaption span" })).toBeInTheDocument();
-    expect(container.querySelector("pre")).toHaveTextContent("| a | b |");
+    expect(screen.getByRole("table", { name: "Table" })).toBeInTheDocument();
+    expect(screen.getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["a", "b"]);
+    expect(container.querySelector("pre")).toBeNull();
     expect(screen.getByText("sectionneur", { selector: "strong" })).toBeInTheDocument();
     expect(screen.getByText("ouvert", { selector: "em" })).toBeInTheDocument();
     expect(marked(container)).toHaveLength(1);
@@ -71,12 +73,27 @@ describe("DocText", () => {
       unmount();
       return on;
     };
-    expect(hot("Appel de la fonction serveur.")).toEqual(["SPAN|| Valider | Appel de la fonction serveur. |"]);
+    expect(hot("Appel de la fonction serveur.")).toEqual(["TR|ValiderAppel de la fonction serveur."]);
+    expect(hot("| Bouton | Action |")[0]).toMatch(/^DIV\|BoutonAction/);
     expect(hot("coupée ici et continuée là")).toEqual(["MARK|coupée\nici et"]);
     expect(hot("phrase coupée")).toEqual(["MARK|phrase coupée"]);
     expect(hot("Boutons")).toEqual(["H4|§ 8.1 Boutons"]);
     expect(hot("Figure 2 – Vue")[0]).toMatch(/^FIGURE\|/);
     expect(hot(`${"x".repeat(60)} absent`)).toEqual([]);
+  });
+
+  it("draws a table of the text as a table, named by the caption that follows it", () => {
+    const md = [
+      "| **État** | **Bouton** |\n| --- | --- |\n| Sélectionné | Enfoncé<br>rouge |",
+      "Figure 25 – Bouton AA",
+      "| x |\n| - |\n| y |",
+      "Texte suivant\nsur deux lignes",
+    ].join("\n\n");
+    render(<DocText docId="D" md={md} onFigure={vi.fn()} />);
+    const t = screen.getByRole("table", { name: "Figure 25 – Bouton AA" });
+    expect([...t.querySelectorAll("th")].map((h) => h.textContent)).toEqual(["État", "Bouton"]);
+    expect(t.querySelector("td br")).not.toBeNull();
+    expect(screen.getByRole("table", { name: "Table" })).toHaveTextContent("y");
   });
 
   it("marks only the quoted words, across bold, and nothing in italic", () => {
