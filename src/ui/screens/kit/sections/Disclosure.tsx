@@ -20,6 +20,11 @@ export const section: KitSection = {
           <span>SOSIE_211_D401-1_4#5.6.2 « Le sectionneur s'ouvre… »</span>
         </Disclosure>
       </Cell>
+      <Cell label="count" column>
+        <Disclosure summary="Not covered" count={2} countTone="warning">
+          …
+        </Disclosure>
+      </Cell>
       <Cell label="quiet" column>
         <Disclosure summary="Raw output" quiet>
           …

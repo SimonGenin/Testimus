@@ -85,6 +85,19 @@ describe("gen-report parsing, the edges", () => {
     expect(parseGenReport('```gen-report\n"text"\n```').found).toBe(false);
     expect(parseGenReport('```gen-report\n{"skipped": "no"}\n```').skipped).toEqual([]);
   });
+
+  it("keeps the sources of a skipped item written docId#anchor, and drops the rest", () => {
+    const report = {
+      skipped: [
+        { item: "A", why: "w", sources: ['D1#§2 "le texte"', "D1", 3, "  "] },
+        { item: "B", why: "w", sources: ["nothing"] },
+      ],
+    };
+    expect(parseGenReport(`\`\`\`gen-report\n${JSON.stringify(report)}\n\`\`\``).skipped).toEqual([
+      { item: "A", why: "w", sources: ['D1#§2 "le texte"'] },
+      { item: "B", why: "w" },
+    ]);
+  });
 });
 
 describe("stampTest", () => {

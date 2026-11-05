@@ -1,8 +1,9 @@
+import { parseSource } from "../lib/testfile.ts";
 import { isSection, PLAN_TAG, REPORT_TAG } from "./gen-prompt.ts";
 
 // ponytail: what a generation run answers — the report block of the generate-tests skill, or the plan of plan-tests
 
-export type Skipped = { item: string; why: string };
+export type Skipped = { item: string; why: string; sources?: string[] };
 export type GenReport = {
   found: boolean;
   tests: string[];
@@ -25,7 +26,9 @@ function asSkipped(v: unknown): Skipped[] {
     else if (u && typeof u === "object") {
       const o = u as Record<string, unknown>;
       const item = typeof o.item === "string" ? o.item.trim() : "";
-      if (item) out.push({ item, why: typeof o.why === "string" ? o.why.trim() : "" });
+      const sources = asStrings(o.sources).filter((s) => parseSource(s));
+      if (item)
+        out.push({ item, why: typeof o.why === "string" ? o.why.trim() : "", ...(sources.length > 0 && { sources }) });
     }
   }
   return out;

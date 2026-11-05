@@ -35,11 +35,12 @@ Reply in a few lines, in the project language: how many tests, and what is left 
 the reply with this block, valid JSON, nothing after it:
 
 ```test-plan
-{"tests": [{"summary": "Report export — PDF of the selected period", "technique": "equivalence classes", "sections": ["SPEC_REPORTS#§4.2"]}], "skipped": [{"item": "Report cache refreshed by the server", "why": "not observable by a manual tester: the server function has no effect on the screen"}]}
+{"tests": [{"summary": "Report export — PDF of the selected period", "technique": "equivalence classes", "sections": ["SPEC_REPORTS#§4.2"]}], "skipped": [{"item": "Report cache refreshed by the server", "why": "not observable by a manual tester: the server function has no effect on the screen", "sources": ["SPEC_REPORTS#§4.5 \"Le serveur rafraîchit le cache des rapports\""]}]}
 ```
 
 - `summary`: the test's summary, in the project language, as it will appear in Xray.
 - `technique`: the test technique, in a few words.
 - `sections`: the `docId#§x.y` the test is written from — the sections that hold its behaviors, its
   figures and its exceptions.
-- `skipped`: every behavior of the scope that no planned test verifies, with `why` in one sentence.
+- `skipped`: every behavior of the scope that no planned test verifies, with `why` in one sentence and
+  `sources`, the passages that ask for it (`docId#anchor "quote"`, as a step source).

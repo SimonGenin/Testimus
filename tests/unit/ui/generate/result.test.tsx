@@ -3,6 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CheckFile, Job, JobEvent, LocalTestRef } from "../../../../src/core/types.ts";
+import { AppContext } from "../../../../src/ui/lib/app.ts";
 import { GenCard } from "../../../../src/ui/screens/generate/GenCard.tsx";
 import {
   checkLine,
@@ -12,6 +13,7 @@ import {
   passagesRead,
   RunHead,
 } from "../../../../src/ui/screens/generate/GenResult.tsx";
+import { app } from "../../helpers/ui-desktop.tsx";
 import { at, job, output, ref, test } from "./fixtures.ts";
 
 afterEach(() => {
@@ -290,7 +292,7 @@ describe("Generate › result helpers", () => {
     );
     expect(screen.getByText(/checked line/)).toBeInTheDocument();
     expect(screen.getByText(/Claude did not say what it could not write a test for/)).toBeInTheDocument();
-    const notCovered = screen.getByRole("region", { name: "Not covered · 1 — and why" });
+    const notCovered = screen.getByRole("region", { name: "Not covered" });
     expect(within(notCovered).getByText("R2 alarm")).toBeInTheDocument();
     expect(within(notCovered).getByText("no passage")).toBeInTheDocument();
     expect(screen.getByText(/Claude also changed 2 existing tests: T9, T8/)).toBeInTheDocument();
@@ -304,10 +306,32 @@ describe("Generate › result helpers", () => {
     const skipped = Array.from({ length: 2 }, (_, i) => ({ item: `Item ${i}`, why: "no passage" }));
     const onOpenChange = vi.fn();
     render(<GenSummary result={output({ skipped })} checked="" open={false} onOpenChange={onOpenChange} />);
-    const fold = screen.getByRole("button", { name: "Not covered · 2 — and why" });
+    const fold = screen.getByRole("button", { name: "Not covered · 2" });
     expect(fold).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByText("Item 0")).toBeNull();
     fireEvent.click(fold);
     expect(onOpenChange).toHaveBeenLastCalledWith(true);
+  });
+
+  it("GenSummary: an item not covered shows the passages that ask for it, and a chip opens its passage", () => {
+    const openSource = vi.fn();
+    const skipped = [
+      { item: "Menu B", why: "no source", sources: ['D1#§2 "le menu B s\'ouvre"', "not a source", "D1#fig:4"] },
+      { item: "Menu C", why: "" },
+    ];
+    const { rerender } = render(<GenSummary result={output({ skipped })} checked="" open />);
+    const list = screen.getByRole("region", { name: "Not covered" });
+    expect(within(list).getByText("D1 §2")).toBeInTheDocument();
+    expect(within(list).getAllByText("D1 Figure 4").length).toBeGreaterThan(0);
+    expect(within(list).queryByText("not a source")).toBeNull();
+    expect(within(list).queryByRole("button", { name: /menu B/ })).toBeNull();
+    expect(within(list).getAllByRole("listitem")[1].textContent).toBe("Menu C");
+    rerender(
+      <AppContext.Provider value={app({ openSource })}>
+        <GenSummary result={output({ skipped })} checked="" open />
+      </AppContext.Provider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /le menu B/ }));
+    expect(openSource).toHaveBeenCalledWith({ docId: "D1", anchor: "§2", quote: "le menu B s'ouvre" });
   });
 });

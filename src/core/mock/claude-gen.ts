@@ -130,6 +130,7 @@ const SKIPPED = [
   {
     item: "Manœuvre à distance d'un sectionneur avec TK",
     why: "context.md : les sectionneurs avec TK ne sont pas encore câblés dans le simulateur ; aucune source ne décrit le résultat attendu.",
+    sources: ['SOSIE_211_D401-1_3#§5.6.6 "un sectionneur avec TK manœuvré régulièrement ne propose que Propriétés"'],
   },
 ];
 

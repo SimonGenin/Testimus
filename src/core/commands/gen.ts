@@ -74,7 +74,16 @@ export const commands = [
       changed: z.array(z.string()).describe("Existing tests the run changed although it should not have"),
       discarded: z.array(z.string()).describe("Tests deleted before the run (discard: true)"),
       skipped: z
-        .array(z.object({ item: z.string().describe("What was asked"), why: z.string().describe("Why no test") }))
+        .array(
+          z.object({
+            item: z.string().describe("What was asked"),
+            why: z.string().describe("Why no test"),
+            sources: z
+              .array(z.string())
+              .optional()
+              .describe('The passages that ask for it, docId#anchor "quote" as a step source'),
+          }),
+        )
         .describe("What the request asked for that no test could be written for, and why"),
       reportFound: z.boolean().describe("Whether Claude's reply carried the gen-report block"),
       consulted: z

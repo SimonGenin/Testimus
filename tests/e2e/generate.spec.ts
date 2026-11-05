@@ -43,7 +43,7 @@ test("a request runs live, the tests land, and « Review these tests » opens th
 
   await expect(result.getByRole("heading", { name: "2 tests written", exact: true })).toBeVisible({ timeout: 20_000 });
   await expect(result.getByRole("button", { name: "What Claude did" })).toHaveAttribute("aria-expanded", "false");
-  await result.getByRole("button", { name: /^Not covered · \d+ — and why$/ }).click();
+  await result.getByRole("button", { name: /^Not covered · \d+$/ }).click();
   await expect(result.getByText(/sectionneur avec TK/).first()).toBeVisible();
   const landed = result.getByRole("button", { name: /^Sectionneur (sans|avec) TK/ });
   await expect(landed).toHaveCount(2);

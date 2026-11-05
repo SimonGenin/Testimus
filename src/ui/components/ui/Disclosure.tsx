@@ -12,6 +12,7 @@ import {
   radius,
   space,
 } from "../../styles/tokens.stylex.ts";
+import { Badge, type BadgeTone } from "./Badge.tsx";
 import { Icon, type IconName } from "./Icon.tsx";
 
 const styles = stylex.create({
@@ -76,6 +77,10 @@ export type DisclosureProps = {
   defaultOpen?: boolean;
   /** on the right of the summary: a count, a time */
   meta?: ReactNode;
+  /** right after the summary, how many things it folds (« Not covered 2 »): a number pill */
+  count?: number;
+  /** the count's meaning: warning when what it counts needs a look */
+  countTone?: BadgeTone;
   /** a secondary fold (raw output, details under a banner): the summary in the muted tone */
   quiet?: boolean;
   /** before the summary, what the fold is about (« What Claude did »: claude, in Claude's colour) */
@@ -94,6 +99,8 @@ export function Disclosure({
   onOpenChange,
   defaultOpen = false,
   meta,
+  count,
+  countTone = "neutral",
   quiet = false,
   icon,
   children,
@@ -108,6 +115,7 @@ export function Disclosure({
         <button
           type="button"
           aria-expanded={shown}
+          aria-label={count === undefined ? undefined : `${summary} · ${count}`}
           aria-controls={shown ? id : undefined}
           onClick={() => {
             setOwn(!shown);
@@ -129,6 +137,7 @@ export function Disclosure({
             </span>
           )}
           {summary}
+          {count !== undefined && <Badge label={String(count)} tone={countTone} size="sm" count />}
         </button>
         {meta && <span {...stylex.props(styles.meta)}>{meta}</span>}
       </div>

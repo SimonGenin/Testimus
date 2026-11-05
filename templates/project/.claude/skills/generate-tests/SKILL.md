@@ -191,13 +191,15 @@ that step:
    you could not test and why. **End the reply with this block**, valid JSON, nothing after it:
 
 ```gen-report
-{"tests": ["local-1a2b3c4d"], "skipped": [{"item": "Export settings window", "why": "no passage says what the window shows"}], "consulted": ["SPEC_REPORTS#§4.2", "SPEC_REPORTS#fig:7"]}
+{"tests": ["local-1a2b3c4d"], "skipped": [{"item": "Export settings window", "why": "no passage says what the window shows", "sources": ["SPEC_REPORTS#§4.3 \"Les paramètres d’export sont définis dans la fenêtre dédiée\""]}], "consulted": ["SPEC_REPORTS#§4.2", "SPEC_REPORTS#fig:7"]}
 ```
 
 - `tests`: the folders (`local-…`) of the tests you wrote.
 - `skipped`: every behavior of the request you wrote no step for, with `why` in one sentence (no
   source, documents disagree, not implemented, already tested by an existing test…). An empty list
-  when nothing was left out.
+  when nothing was left out. `item` names the behavior in a few words; `sources` are the passages that
+  ask for it, written as a step source (`docId#anchor "quote"`, the quote verbatim), so the reviewer
+  opens them — requirement codes and document names belong in the quote, not in `item`.
 - `consulted`: the `docId#anchor` of every section and figure you read. Testimus keeps its own
   record of what you opened (from your tool calls); this list is compared with it.
 
