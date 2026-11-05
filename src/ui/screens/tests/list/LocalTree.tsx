@@ -2,6 +2,7 @@ import type { LocalTestRef } from "../../../../core/types.ts";
 import { Button } from "../../../components/ui/Button.tsx";
 import { Icon } from "../../../components/ui/Icon.tsx";
 import { List } from "../../../components/ui/List.tsx";
+import type { ListItemProps } from "../../../components/ui/ListItem.tsx";
 import { TestMeta } from "./rows.tsx";
 import type { Node } from "./tree.ts";
 
@@ -59,24 +60,30 @@ export function LocalTree({
               lead: <Icon name={forceOpen || !shut.has(r.node.path) ? "folder-open" : "folder"} size="sm" />,
               trail: String(r.node.total),
             }
-          : {
-              title: r.ref.summary || "Untitled",
-              tooltip: r.ref.summary || "Untitled",
-              meta: <TestMeta r={r.ref} />,
-              depth: r.depth,
-              actions: (
-                <Button
-                  variant="quiet"
-                  size="xs"
-                  iconOnly
-                  icon="trash"
-                  label={`Delete the local copy of ${r.ref.key ?? (r.ref.summary || r.ref.id)}`}
-                  disabled={locked?.(r.ref.id) ?? false}
-                  onClick={() => onDelete(r.ref)}
-                />
-              ),
-            }
+          : { ...testItem(r.ref, locked, onDelete), depth: r.depth }
       }
     />
   );
 }
+
+// a local test's row, in the tree or in the tests pane: its summary, its key and states, its trash
+export const testItem = (
+  r: LocalTestRef,
+  locked: ((id: string) => false | string) | undefined,
+  onDelete: (r: LocalTestRef) => void,
+): ListItemProps => ({
+  title: r.summary || "Untitled",
+  tooltip: r.summary || "Untitled",
+  meta: <TestMeta r={r} />,
+  actions: (
+    <Button
+      variant="quiet"
+      size="xs"
+      iconOnly
+      icon="trash"
+      label={`Delete the local copy of ${r.key ?? (r.summary || r.id)}`}
+      disabled={locked?.(r.id) ?? false}
+      onClick={() => onDelete(r)}
+    />
+  ),
+});

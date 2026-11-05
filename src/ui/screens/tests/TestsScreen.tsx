@@ -26,7 +26,7 @@ import { TestList } from "./TestList.tsx";
 
 export const NARROW = 900;
 const SIDEBAR = { min: 260, max: 480, initial: 320 };
-// ponytail: Jira's folders and tests side by side need about two lists' width
+// ponytail: folders and tests side by side (Jira's, or the local ones) need about two lists' width
 const SIDEBAR_WIDE = { min: 480, max: 1200, initial: 640 };
 
 const styles = stylex.create({
@@ -83,7 +83,11 @@ export function TestsScreen() {
   const tab = useListView().tab;
   const [jiraLayout] = usePref("jiraLayout");
   const jiraOn = !!app.info?.project?.jiraProject && !app.info.project.jiraOffline;
-  const wide = !narrow && tab === "jira" && jiraOn && jiraLayout === "columns";
+  const [localLayout] = usePref("localLayout");
+  const wide =
+    !narrow &&
+    ((tab === "jira" && jiraOn && jiraLayout === "columns") ||
+      (tab === "local" && localLayout === "columns" && refs.length > 0));
   const slim = usePaneWidth("sidebarWidth", SIDEBAR);
   const broad = usePaneWidth("sidebarWideWidth", SIDEBAR_WIDE);
   const side = wide ? broad : slim;

@@ -12,12 +12,13 @@ function useSet(name: string, initial: string[]): [Set<string>, (fn: (s: Set<str
 }
 
 // ponytail: what the test list looks like is kept for the page's life, per project — the tab, the two boxes, the
-// folded and unfolded folders, the Jira folder picked — so coming back to Tests finds it as it was
+// folded and unfolded folders, the Jira folder and the local folder picked — so coming back to Tests finds it as it was
 export function useListView() {
   const [tab, setTab] = useDraft(view("tab"), "local");
   const [filter, setFilter] = useDraft(view("filter"), "");
   const [search, setSearch] = useDraft(view("search"), "");
   const [folder, setFolder] = useDraft(view("folder"), "/");
+  const [localFolder, setLocalFolder] = useDraft(view("localFolder"), "/");
   const [jira, setJira] = useDraft(view("jira"), "");
   const [shut, setShut] = useSet("shut", []);
   const [expanded, setExpanded] = useSet("expanded", ["/"]);
@@ -30,6 +31,8 @@ export function useListView() {
     setSearch,
     folder,
     setFolder,
+    localFolder,
+    setLocalFolder,
     jira,
     setJira,
     shut,

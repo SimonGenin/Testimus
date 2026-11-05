@@ -778,6 +778,59 @@ describe("Tests screen › layout", () => {
     expect(screen.getByRole("separator", { name: "Resize the folders and the tests" })).toBeInTheDocument();
   });
 
+  it("shows the local tests in two panes too — side by side or one above the other — or as one tree, and remembers it", async () => {
+    routes["tests.list"] = () => [
+      local1398,
+      ref({ id: "root-1", summary: "À la racine" }),
+      ref({ id: "urg-1", summary: "Freinage d'urgence", folder: "/Freinage/Urgence" }),
+    ];
+    render(<Harness />);
+    expect(await screen.findByRole("radio", { name: "One tree" })).toBeChecked();
+    expect(listSide().style.width).toBe("320px");
+    fireEvent.click(screen.getByRole("radio", { name: "Side by side" }));
+    expect(localStorage.getItem("testimus.localLayout")).toBe("columns");
+    expect(listSide().style.width).toBe("640px");
+    expect(screen.getByRole("separator", { name: "Resize the folders" })).toHaveAttribute(
+      "aria-orientation",
+      "vertical",
+    );
+    const folders = screen.getByRole("tree", { name: "Local folders" });
+    const tests = (where: string) => screen.getByRole("listbox", { name: `Local tests in ${where}` });
+    expect(within(tests("Test Repository")).getByRole("option", { name: /À la racine/ })).toBeInTheDocument();
+    expect(within(tests("Test Repository")).queryByRole("option", { name: /Disjoncteur/ })).toBeNull();
+    fireEvent.click(within(folders).getByRole("treeitem", { name: /^Traction/ }));
+    expect(within(tests("/Traction")).getByRole("option", { name: /Disjoncteur ouvert/ })).toBeInTheDocument();
+    expect(screen.getByTestId("local-range")).toHaveTextContent("1");
+    fireEvent.click(within(folders).getByRole("treeitem", { name: /^Freinage/ }));
+    expect(screen.getByText("No test directly in this folder")).toBeInTheDocument();
+    expect(screen.getByText("1 test in its sub-folders.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: "One above the other" }));
+    expect(listSide().style.width).toBe("320px");
+    expect(screen.getByRole("separator", { name: "Resize the folders and the tests" })).toBeInTheDocument();
+    search("Disjoncteur");
+    expect(screen.queryByRole("tree", { name: "Local folders" })).toBeNull();
+    search("");
+    fireEvent.click(screen.getByRole("radio", { name: "One tree" }));
+    expect(localStorage.getItem("testimus.localLayout")).toBeNull();
+    expect(screen.queryByRole("tree", { name: "Local folders" })).toBeNull();
+    expect(screen.getByRole("tree", { name: "Local tests" })).toBeInTheDocument();
+  });
+
+  it("picks the open test's folder in the local panes, and puts New test in the folder picked", async () => {
+    localStorage.setItem("testimus.localLayout", "columns");
+    const urgent = ref({ id: "urg-1", summary: "Freinage d'urgence", folder: "/Freinage/Urgence" });
+    routes["tests.create"] = () => ({ id: "new-1" });
+    list({ refs: [local1398, urgent], activeId: "urg-1" });
+    const tests = screen.getByRole("listbox", { name: "Local tests in /Freinage/Urgence" });
+    expect(within(tests).getByRole("option", { name: /Freinage d'urgence/ })).toHaveAttribute("aria-selected", "true");
+    fireEvent.click(
+      within(screen.getByRole("tree", { name: "Local folders" })).getByRole("treeitem", { name: /^Traction/ }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "New test" }));
+    await waitFor(() => expect(named("tests.create")).toHaveLength(1));
+    expect(named("tests.create")[0].input).toMatchObject({ folder: "/Traction" });
+  });
+
   it("the empty pane is the Jira/Xray connection form while access is incomplete (Xray Editor's connect screen)", async () => {
     const creds = (complete: boolean) => ({
       status: {

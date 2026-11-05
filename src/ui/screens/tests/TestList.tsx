@@ -21,7 +21,8 @@ import { type DeleteTarget, DeleteTest, deleteTarget, deleteTest, needsAsking } 
 import { JiraConnect, useDisconnect } from "./JiraConnect.tsx";
 import { type JiraLayout, JiraTab } from "./JiraTab.tsx";
 import { FoundList } from "./list/FoundList.tsx";
-import { ListTools } from "./list/ListTools.tsx";
+import { type ListLayout, ListTools } from "./list/ListTools.tsx";
+import { LocalPanes } from "./list/LocalPanes.tsx";
 import { LocalTree } from "./list/LocalTree.tsx";
 import { useNewTest } from "./list/newTest.ts";
 import { ancestors, isKeyQuery, type Listed, localTree, matches } from "./list/tree.ts";
@@ -110,6 +111,8 @@ export function TestList({
   // ponytail: Jira's folders and tests scroll in their own panes, so the list's body does not scroll around them
   const jiraPanes = v.tab === "jira" && jiraOn && !treeError;
   const jiraLayout: JiraLayout = narrow ? "rows" : layout;
+  const [localPref, setLocalLayout] = usePref("localLayout");
+  const localKept = localPref as ListLayout;
   const [busy, setBusy] = useState<string[]>([]);
   const [doomed, setDoomed] = useState<DeleteTarget | null>(null);
   const replacing = useReplaceWithJira({ onReplaced: () => void onReload() });
@@ -120,6 +123,9 @@ export function TestList({
 
   const listed = useMemo(() => refs.filter((r) => !(r as Listed).awaiting), [refs]);
   const waiting = refs.length - listed.length;
+  // ponytail: the local tests in two panes as Jira's are, once there are some and no filter is typed (what a filter
+  // finds is one list, across the folders)
+  const localPanes = v.tab === "local" && localKept !== "tree" && !!project() && listed.length > 0 && !needle;
   const shown = useMemo(() => localTree(listed.filter((r) => matches(r, v.filter))), [listed, v.filter]);
   // ponytail: the local filter is search.all on the tests — steps, sources, filters (review:…) and meaning; the plain
   // text match above shows until it answers, or when it cannot
@@ -146,6 +152,19 @@ export function TestList({
   useEffect(() => {
     if (query) v.setTab("jira");
   }, [query]);
+
+  // ponytail: a test opened from elsewhere (Ctrl K, Review) shows in the local panes — its folder picked, unfolded
+  // biome-ignore lint/correctness/useExhaustiveDependencies: follows the open test, not every pick of a folder
+  useEffect(() => {
+    if (!active) return;
+    const f = active.folder || "/";
+    if (f === v.localFolder) return;
+    v.setLocalFolder(f);
+    v.setShut((s) => {
+      for (const a of ancestors(f)) s.delete(a);
+      return s;
+    });
+  }, [activeId, active?.folder]);
 
   // ponytail: a pull from the list is a job like any other — said once it starts (« Open in Jobs » follows it, and cancels
   // it there), its outcome said when it ends
@@ -274,6 +293,28 @@ export function TestList({
         none
       );
     if (!shown.total) return none;
+    const toggle = (path: string) =>
+      v.setShut((s) => {
+        if (s.has(path)) s.delete(path);
+        else s.add(path);
+        return s;
+      });
+    if (localPanes)
+      return (
+        <LocalPanes
+          layout={narrow ? "rows" : (localKept as JiraLayout)}
+          root={shown}
+          folder={v.localFolder}
+          shut={v.shut}
+          activeId={activeId}
+          onPickFolder={v.setLocalFolder}
+          onToggle={toggle}
+          onOpen={onOpen}
+          locked={lockOf}
+          onDelete={(r) => void askDelete(r)}
+          onNew={() => void create()}
+        />
+      );
     return (
       <LocalTree
         root={shown}
@@ -281,13 +322,7 @@ export function TestList({
         forceOpen={!!v.filter}
         activeId={activeId}
         onOpen={onOpen}
-        onToggle={(path) =>
-          v.setShut((s) => {
-            if (s.has(path)) s.delete(path);
-            else s.add(path);
-            return s;
-          })
-        }
+        onToggle={toggle}
         locked={lockOf}
         onDelete={(r) => void askDelete(r)}
       />
@@ -318,8 +353,19 @@ export function TestList({
           pullLock={activeLock}
           canReveal={!!activeId && !!project()}
           reveal={!!desktop()}
-          layout={jiraPanes && !narrow ? layout : undefined}
-          onLayout={setLayout}
+          layout={
+            narrow
+              ? undefined
+              : v.tab === "local"
+                ? project() && listed.length
+                  ? localKept
+                  : undefined
+                : jiraPanes
+                  ? layout
+                  : undefined
+          }
+          withTree={v.tab === "local"}
+          onLayout={(l) => (v.tab === "local" ? setLocalLayout(l) : l !== "tree" && setLayout(l))}
           noProject={!project()}
           onSearch={v.setSearch}
           onFilter={v.setFilter}
@@ -333,7 +379,7 @@ export function TestList({
           }}
         />
       }
-      <div {...stylex.props(styles.body, jiraPanes && styles.panes)}>
+      <div {...stylex.props(styles.body, (jiraPanes || localPanes) && styles.panes)}>
         {v.tab === "local" ? (
           <>
             {waiting > 0 && listed.length > 0 && (
