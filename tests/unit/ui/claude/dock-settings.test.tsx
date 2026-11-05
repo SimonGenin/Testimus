@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ClaudeDock, metaLine } from "../../../../src/ui/components/claude/ClaudeDock.tsx";
 import { ContextsDialog, contextLine } from "../../../../src/ui/components/claude/ContextsDialog.tsx";
+import { TopBar, useTopBarSlots } from "../../../../src/ui/components/shell/TopBar.tsx";
 import { AppContext, type AppState, type Focus } from "../../../../src/ui/lib/app.ts";
 import { setProject } from "../../../../src/ui/lib/data/client.ts";
 import { restoreAlwaysOnTop } from "../../../../src/ui/lib/desktop.ts";
@@ -582,8 +583,12 @@ describe("contexts dialog", () => {
   });
 });
 
+function Bar() {
+  return <TopBar title="Tests" onPalette={() => {}} slots={useTopBarSlots()} />;
+}
+
 describe("always on top", () => {
-  it("always on top: hidden in the browser, a switch and a pin in the open dock of the desktop app, remembered", async () => {
+  it("always on top: hidden in the browser, a switch and a pin beside « Search everything » in the desktop app, remembered", async () => {
     routes["system.settings"] = () => ({ claude: { exe: "" }, models: { allowRemote: true } });
     const r = render(wrap(app(), <AppearanceSection />));
     expect(screen.queryByRole("switch", { name: /Always on top/ })).toBeNull();
@@ -594,12 +599,14 @@ describe("always on top", () => {
         app(),
         <>
           <AppearanceSection />
+          <Bar />
           <ClaudeDock folded={false} onFold={() => {}} />
         </>,
       ),
     );
     const sw = screen.getByRole("switch", { name: /Always on top/ });
     const pin = screen.getByRole("button", { name: "Always on top" });
+    expect(screen.getByRole("button", { name: /Search everything/ }).parentElement?.nextElementSibling).toContainElement(pin);
     expect(sw).toHaveAttribute("aria-checked", "false");
     expect(pin).toHaveAttribute("aria-pressed", "false");
     fireEvent.click(sw);

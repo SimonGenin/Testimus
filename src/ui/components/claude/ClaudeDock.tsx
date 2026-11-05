@@ -16,7 +16,6 @@ import { DockComposer, runIds } from "./DockComposer.tsx";
 import { DockFolded } from "./DockFolded.tsx";
 import { DockLog } from "./DockLog.tsx";
 import { DockScope } from "./DockScope.tsx";
-import { OnTopToggle } from "./OnTopToggle.tsx";
 import { type Again, docOfRoute } from "./turns.ts";
 import { useClaudeStatus } from "./useClaudeStatus.ts";
 import { type DockJob, useDockRuns } from "./useDockRuns.ts";
@@ -246,7 +245,6 @@ export function ClaudeDock({
           Claude
         </h2>
         <span {...stylex.props(styles.grow)} />
-        <OnTopToggle />
         <Button variant="quiet" size="sm" icon="panel-right" iconOnly label="Fold the dock (Ctrl+J)" onClick={onFold} />
       </div>
       <DockScope

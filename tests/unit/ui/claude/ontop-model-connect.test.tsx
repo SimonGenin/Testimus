@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setProject } from "../../../../src/ui/api.ts";
 import { ConnectClaude } from "../../../../src/ui/components/claude/ConnectClaude.tsx";
 import { cap, ModelPicker } from "../../../../src/ui/components/claude/ModelPicker.tsx";
-import { OnTopToggle } from "../../../../src/ui/components/claude/OnTopToggle.tsx";
+import { OnTopToggle } from "../../../../src/ui/components/shell/OnTopToggle.tsx";
 import { Toaster } from "../../../../src/ui/components/ui/Toast.tsx";
 import { readAlwaysOnTop, restoreAlwaysOnTop, setAlwaysOnTop } from "../../../../src/ui/lib/desktop.ts";
 import { closeToast, useToasts } from "../../../../src/ui/lib/toast.ts";

@@ -4,6 +4,7 @@ import { border, breakpoint, color, size, space } from "../../styles/tokens.styl
 import { Button } from "../ui/Button.tsx";
 import { type } from "../ui/type.ts";
 import { Activity } from "./Activity.tsx";
+import { OnTopToggle } from "./OnTopToggle.tsx";
 
 const styles = stylex.create({
   bar: {
@@ -61,7 +62,8 @@ export function useTopBarSlots() {
 }
 
 // ponytail: the bar on top of every screen — its title (a screen may put its own, with a badge and a short line,
-// through ScreenHeader), the screen's actions, the running work and the palette; the slots are filled by portals
+// through ScreenHeader), the screen's actions, the running work, the palette and the pin (desktop); the slots are
+// filled by portals
 export function TopBar({
   title,
   onPalette,
@@ -83,6 +85,7 @@ export function TopBar({
       <span {...stylex.props(styles.palette)}>
         <Button variant="field" icon="search" label="Search everything" shortcut="Ctrl K" block onClick={onPalette} />
       </span>
+      <OnTopToggle />
     </header>
   );
 }
