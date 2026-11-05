@@ -124,6 +124,16 @@ describe("the local tests a filter finds", () => {
     expect(within(close).getByText("no key")).toBeInTheDocument();
   });
 
+  it("shows a row's review state unless it is Validated", async () => {
+    show();
+    filter("sectionneur");
+    const found = await screen.findByRole("listbox", { name: "Tests found" }, { timeout: 3000 });
+    const tk = await within(found).findByRole("option", { name: /Commande TK/ }, { timeout: 3000 });
+    expect(within(tk).getByText("Generated")).toBeInTheDocument();
+    expect(within(tk).queryByText("Validated")).toBeNull();
+    expect(within(within(found).getByRole("option", { name: /Ouvrir/ })).getByText("Draft")).toBeInTheDocument();
+  });
+
   it("opens the test a row names", async () => {
     const onOpen = show();
     filter("sectionneur");

@@ -122,6 +122,16 @@ const folderButton = () => screen.getByTestId("folder");
 const folderBox = () => screen.getByRole("textbox", { name: "Folder" });
 
 describe("the editor's head", () => {
+  it("shows Draft and To fix, never Validated (every generated test in Tests is validated)", () => {
+    const { again } = header();
+    expect(screen.getByText("Draft")).toBeInTheDocument();
+    again({}, { ...test0, review: "to-fix" });
+    expect(screen.getByText("To fix")).toBeInTheDocument();
+    again({}, { ...test0, review: "validated" });
+    expect(screen.queryByText("Validated")).toBeNull();
+    expect(screen.queryByText("Draft")).toBeNull();
+  });
+
   it("shows the key, folder, status, chips and save state", () => {
     const { again } = header();
     expect(screen.getByTestId("test-key")).toHaveTextContent("LFRPS12-7");

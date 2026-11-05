@@ -24,8 +24,14 @@ export const SYNC_TIP: Record<SyncState, string> = {
   "remote-changed": "Changed in Jira since your pull",
 };
 
-// the second line of a test row: its key, how it was made, its review state and its sync with Jira
+// ponytail: Tests shows a generated test only once validated, so « Validated » would be on nearly every row and says
+// nothing; Draft and To fix still show (a test made by hand or pulled from Jira can be either)
+export const shownReview = (review: string | undefined) =>
+  review && review !== "validated" && review in REVIEW ? REVIEW[review as keyof typeof REVIEW] : undefined;
+
+// the second line of a test row: its key, how it was made, its review state (unless validated) and its sync with Jira
 export function TestMeta({ r }: { r: LocalTestRef }) {
+  const review = shownReview(r.review);
   return (
     <span {...stylex.props(styles.meta)}>
       <span {...stylex.props(type.code, styles.key)}>{r.key ?? "no key"}</span>
@@ -37,7 +43,7 @@ export function TestMeta({ r }: { r: LocalTestRef }) {
           size="sm"
         />
       )}
-      {r.review in REVIEW && <Badge {...REVIEW[r.review as keyof typeof REVIEW]} size="sm" />}
+      {review && <Badge {...review} size="sm" />}
       <Badge {...(SYNC_OF[r.sync] ?? SYNC.local)} tooltip={SYNC_TIP[r.sync]} size="sm" />
     </span>
   );
