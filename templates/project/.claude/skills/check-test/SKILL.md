@@ -1,12 +1,44 @@
 ---
 name: check-test
-description: Check one Xray test against the project's documents, step by step, and report anomalies — expected results the cited passage does not support, smart columns not filled as their description says, wrong object tested, missing negative path, claims of "not implemented" without a source, contradictions between documents. Use when asked to check, verify or review a test, or when Testimus runs its semantic check.
+description: Check one Xray test against the project's documents, step by step, and report the real anomalies — expected results the cited passage does not support, smart columns not filled as their description says, wrong object tested, a case the documents require of this test left out, claims of "not implemented" without a source, contradictions between documents. Use when asked to check, verify or review a test, or when Testimus runs its semantic check.
 ---
 
 # Check a test
 
 You are the second pair of eyes. You do not rewrite the test and you do not edit any file — not the
 test, not `check.json`. You report what is wrong, precisely enough that a reviewer decides in seconds.
+
+**A test with no finding is a normal result, not a failed check.** Most generated tests were written
+from the same passages you will read; many are right. Your job is to catch what would mislead a
+tester, not to show that you looked: every finding costs the reviewer time, and a list padded with
+remarks hides the one error that matters.
+
+## The bar
+
+Record a finding only when all three hold:
+
+1. **Proven** — you read the passage (or the image) and can cite what proves it. A suspicion you could
+   not settle by reading is not a finding.
+2. **It matters to the test** — a tester following it would pass a wrong behavior, fail a right one,
+   be unable to run or decide a step, or the test leaves out something the documents require of
+   **this** test's object (its summary and description say what that is).
+3. **The reviewer would act on it** — change the test, or take a question to the team.
+
+Not findings — leave them out:
+
+- wording, style, phrasing, step order, a step that could say more than the documents say;
+- a faithful paraphrase of the passage, or a reformulation in what the tester sees (« the button is
+  greyed out » for « the command is unavailable ») — the passage supports it;
+- a source that supports the claim but another passage would support it « better »;
+- a behavior the documents do not specify: not specified is not missing (a step that **asserts** it
+  is `unsupported`);
+- cases outside the test's scope, or tested by another test;
+- what the mechanical pass covers (sources, quotes, empty or duplicated steps, a cited figure not
+  embedded);
+- suggestions, improvements, « could also check » — none of these is an anomaly.
+
+One problem, one finding: the same gap across several steps is one finding about the test, not one
+per step.
 
 ## Procedure
 
@@ -16,7 +48,9 @@ test, not `check.json`. You report what is wrong, precisely enough that a review
 2. For each step, for each claim of its Expected Result:
    - open the cited passage (`rag_passage <docId#anchor>`) and read it in `docs/<docId>/doc.md` with its
      surroundings;
-   - does it **say** what the step claims? Not "is compatible with" — says;
+   - does it support the claim? It does when it states it, in its own words or in others. It does not
+     when the step adds a value, a state, a timing, a condition or a consequence the passage does not
+     state, or claims more than it (every type when the passage names one) — that is `unsupported`;
    - a `fig:<n>` source: `rag_figure <docId> <n>`, then **`Read` the image** at the path it gives
      (file names under `figures/` are not `fig-<n>.png`) before accepting the claim — the caption
      alone proves only that the figure exists. Never accept a `fig:` claim you have not looked at.
@@ -24,19 +58,25 @@ test, not `check.json`. You report what is wrong, precisely enough that a review
    holds what its description asks for, and nothing a column's description leaves empty is written.
    A column read like any other text: a claim it makes needs the same support as the Expected
    Result. A source line ending `@<column> "<item>"` backs that item of the column: its passage must
-   state the item (the requirement, the value) — one that does not is `unsupported`.
-4. For the test as a whole: behaviors the documents describe for this object that are missing
-   (other types, other states, the negative path); and the pictures — a step about a screen, a menu,
-   a symbol or a colour whose document section has a figure with a picture (`rag_passage` lists
-   them) that the test does not embed (`figure-not-embedded`). No picture in the document is not a
-   finding. A test is often one of a series: before you report a missing case or negative path,
-   `Grep` its object in `tests/*/test.md` — what another test tests is not missing.
+   state the item (the requirement, the value) — one that does not is `unsupported`. A cell that does
+   what its description asks, in other words than you would have used, is fine.
+4. For the test as a whole, a missing case or negative path is a finding only when a passage
+   **states** it for the very object and situation the test is about — a refusal, an error message,
+   a type listed beside the one tested — and the test's scope includes it. A test is a scenario, often
+   one of a series, not the whole specification of its object: before you report a missing case,
+   `Grep` its object in `tests/*/test.md` — what another test tests is not missing. Pictures: a step
+   that acts on or checks a screen, a menu, a symbol or a colour that a document picture shows
+   (`rag_passage` lists the section's figures), where the tester needs that picture to find where to
+   act or to decide, and the test does not embed it (`figure-not-embedded`). No picture in the
+   document, or a picture of something the step does not look at, is not a finding.
 5. Look for contradicting passages with `rag_mentions` on each object and screen of the test, once
    per term (every page), in the **other** documents and in the documents that **amend** the cited one
    (`rag_related <docId#anchor>` lists them, kind `amends`) — not with one top-10 search. Read each
-   hit's section before concluding. When a passage disagrees, apply the precedence of the project
-   `CLAUDE.md` and of `doc.json` (`status`; an amendment wins over what it amends): say
-   which one wins, or that none does.
+   hit's section before concluding. A contradiction is a passage that says otherwise about the same
+   object in the same situation; a passage that is more general, adds a detail, or describes another
+   mode, type or state is not one. When a passage disagrees, apply the precedence of the project
+   `CLAUDE.md` and of `doc.json` (`status`; an amendment wins over what it amends): say which one
+   wins, or that none does. Searching widely is how you are sure; it is no reason to report more.
 
 ## Finding kinds
 
@@ -45,18 +85,19 @@ Use exactly these `kind` values:
 | kind | when |
 |---|---|
 | `unsupported` | the cited passage does not say what the expected result (or a smart column) claims |
-| `contradicted` | a passage says otherwise |
+| `contradicted` | a passage says otherwise about the same object in the same situation |
 | `wrong-object` | the step tests another object or screen than its sources describe |
-| `negative-missing` | the negative path (refusal, other type, error) is not tested |
-| `case-missing` | a type or state the documents describe is not tested |
+| `negative-missing` | a refusal or error a passage states for the test's object is not tested, here or elsewhere |
+| `case-missing` | a type or state a passage lists with the tested one is not tested, here or elsewhere, and belongs to the test's scope |
 | `not-simulated-unsourced` | "not implemented", "not simulated" (or equivalent) written without a source saying so |
-| `vague-result` | an expected result a tester cannot observe or decide |
+| `vague-result` | a tester cannot decide pass or fail from the expected result — not one that could merely be worded more precisely |
 | `documents-conflict` | two documents disagree and precedence does not settle it |
-| `figure-not-embedded` | a step acts on or looks at a screen, menu, symbol or colour that a document picture shows, and that picture is not embedded in the test (`sources`: the `fig:` anchor) |
-| `other` | anything else worth the reviewer's eye — a smart column not filled as its description says |
+| `figure-not-embedded` | a step acts on or looks at a screen, menu, symbol or colour that a document picture shows, the tester needs it, and it is not embedded in the test (`sources`: the `fig:` anchor) |
+| `other` | a smart column not filled as its description says, or a defect that would mislead a tester and fits no other kind |
 
 `severity`: `error` when a tester following the test would pass a wrong behavior or fail a right one;
-`warning` for gaps and vague results; `info` otherwise.
+`warning` for a gap or a vague result the reviewer should decide on. Do not use `info`: a remark not
+worth a warning is not worth recording.
 
 ## Output
 

@@ -146,6 +146,8 @@ describe("rag.related", () => {
       }
       expect(skill("generate-tests")).toMatch(/"consulted": \[/);
       expect(skill("check-test")).toMatch(/`Read` the image/);
+      expect(skill("check-test")).toMatch(/A test with no finding is a normal result/);
+      expect(skill("check-test")).toMatch(/## The bar/);
       expect(skill("ask-docs")).toMatch(/only after `rag_mentions` and `rag_related` found nothing/);
     });
   });

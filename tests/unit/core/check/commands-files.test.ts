@@ -111,6 +111,7 @@ describe("check commands", () => {
     const args = seen[0].args;
     expect(args[args.indexOf("--tools") + 1]).toBe("Read,Glob,Grep,Skill");
     expect(seen[0].stdin).toContain("Use the check-test skill on the test");
+    expect(seen[0].stdin).toContain("a clean test is a normal result");
     expect(seen.find((s) => testIdOf(s) === "LFRPS12-1420")?.stdin).toContain("step 5 — source-missing (warning)");
     expect(out.totals).toEqual({ errors: 1, warnings: 1, infos: 0 });
     expect(out.failed).toEqual([]);

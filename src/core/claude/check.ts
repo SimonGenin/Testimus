@@ -74,6 +74,7 @@ export function checkPrompt(id: string, mechanical: Finding[], language: string,
       : "The mechanical check found nothing.",
     ...mechanical.map(findingLine),
     "",
+    "Report only what the passages prove and a reviewer would act on (the skill's bar): no wording, style or suggestion; a clean test is a normal result.",
     `Record your findings with check_record exactly once: { id: "${id}", findings: [...] } — findings: [] when there is none.`,
     `Write each message in the project language (${language}).`,
     ...(runId

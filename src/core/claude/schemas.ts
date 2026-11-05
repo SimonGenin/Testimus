@@ -116,7 +116,9 @@ export const FINDING_KINDS: [FindingKind, ...FindingKind[]] = [
 
 export const SEVERITY = z
   .enum(["error", "warning", "info"])
-  .describe("error = a tester would pass a wrong behavior or fail a right one; warning = gap or vague; info otherwise");
+  .describe(
+    "error = a tester would pass a wrong behavior or fail a right one; warning = a gap or a vague result the reviewer decides on; info = never for a remark or a suggestion (those are not recorded)",
+  );
 
 const FINDING = z.object({
   step: z.number().int().min(1).optional().describe("Step number (1-based); absent for the whole test"),
