@@ -1,10 +1,10 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { describeFigures } from "../claude/figures.ts";
+import { describeFigures, shouldDescribeFigures } from "../claude/figures.ts";
 import { docContexts, writeDocContexts } from "../claude/prompt.ts";
 import { CONTEXT_IDS, EFFORT, MODEL, NOTE } from "../claude/schemas.ts";
-import { command, projectOf, UserError } from "../command.ts";
+import { type Ctx, command, projectOf, UserError } from "../command.ts";
 import { writeAtomic } from "../lib/atomic.ts";
 import { recheckMechanical, testsCiting } from "../lib/check.ts";
 import {
@@ -36,12 +36,16 @@ import {
   runOf,
   withUploads,
 } from "../lib/docs-pipeline.ts";
+import { findLot, updateLot, writePart } from "../lib/media.ts";
+import { prepareLot, readLot, writeAnnex } from "../lib/media-pipeline.ts";
+import { readProject } from "../lib/project.ts";
 import { docFigures } from "../rag/chunk.ts";
 import { chunksOf, withIndex } from "../rag/db.ts";
 import { unindexDoc } from "../rag/indexer.ts";
 import { renderPage } from "../rag/pdf.ts";
 import { REVIEW } from "../schemas.ts";
 import type { DocJson } from "../types.ts";
+import { addLot, MEDIA_FILES } from "./media.ts";
 
 const kind = z.enum(["spec", "minutes", "other"]);
 const status = z.enum(["draft", "submitted", "validated"]);
@@ -288,6 +292,54 @@ const mtime = z
   .nullable()
   .describe("Modification time of context.md in ms (null: no context.md yet), to notice a change made on disk");
 
+const MEDIA_STEP = { id: "media", label: "Prepare and read the batches' photos" };
+
+// ponytail: the batches in the document after its conversion — photos not prepared yet are, those not read are read by
+// Claude when the figures are (describeFigures), each annex is written again and doc.md assembled
+async function withBatches(
+  ctx: Ctx,
+  project: string,
+  docId: string,
+  claude: ReturnType<typeof runOf>,
+  read: boolean,
+): Promise<void> {
+  const lots = (readDoc(project, docId).media ?? []).filter((l) => l.included);
+  if (!lots.length) return;
+  ctx.step?.("media");
+  const language = readProject(project).language;
+  for (const l of lots) {
+    if (ctx.signal.aborted) break;
+    if (l.items.some((i) => i.state === "new")) await prepareLot(ctx, project, docId, l.id);
+    if (read && findLot(readDoc(project, docId), l.id).items.some((i) => i.state === "ready"))
+      await readLot(ctx, project, docId, l.id, claude);
+    writePart(project, docId, l.id, language);
+  }
+  await writeAnnex(project, docId);
+}
+
+const batchInput = z
+  .array(
+    z.object({
+      files: MEDIA_FILES,
+      title: z.string().optional().describe("The batch's title (e.g. Recette TCO 12/10)"),
+      context: z.string().optional().describe("What the team says about the batch"),
+      reference: z
+        .boolean()
+        .optional()
+        .describe("The batch shows the reference behaviour (an expected result sourced from it alone is not flagged)"),
+    }),
+  )
+  .optional()
+  .describe(
+    "Batches of photos to attach to the new document (media.add): created after the copy, read by Claude after the conversion, annexes of doc.md",
+  );
+const mediaPick = z
+  .array(z.string())
+  .optional()
+  .describe(
+    "The batches in the document for this conversion (media.list ids): each one listed becomes an annex of doc.md, the others are left out; absent: as they are",
+  );
+
 export const commands = [
   command({
     name: "docs.add",
@@ -320,6 +372,7 @@ export const commands = [
       contexts,
       ...after,
       conversion: conversion.optional(),
+      media: batchInput,
     }),
     output: converted,
     mutates: true,
@@ -330,12 +383,14 @@ export const commands = [
       withUploads(projectOf(ctx), async (save) => {
         const project = projectOf(ctx);
         const studied = input.convert && (input.study || !!input.conversion);
+        const batches = input.media ?? [];
         ctx.steps?.(
           input.convert
             ? convertSteps(
                 [
                   ...(studied ? [{ id: "copy", label: "Copy the original" }] : []),
                   { id: "convert", label: studied ? "Study and convert" : "Copy and convert" },
+                  ...(batches.length ? [MEDIA_STEP] : []),
                 ],
                 input,
               )
@@ -343,7 +398,11 @@ export const commands = [
         );
         ctx.step?.(studied || !input.convert ? "copy" : "convert");
         let doc = await copyIn(ctx, project, save, input, input.convert && !studied);
-        if (!input.convert) return { ...doc, citedBy: [] };
+        for (const b of batches) await addLot(ctx, project, doc.id, b);
+        if (!input.convert) {
+          for (const l of readDoc(project, doc.id).media ?? []) await prepareLot(ctx, project, doc.id, l.id);
+          return { ...readDoc(project, doc.id), citedBy: [] };
+        }
         if (studied)
           try {
             ctx.step?.("convert");
@@ -352,6 +411,9 @@ export const commands = [
             rmSync(docDir(project, doc.id), { recursive: true, force: true });
             throw e;
           }
+        const read = input.describeFigures ?? shouldDescribeFigures(project);
+        await withBatches(ctx, project, doc.id, runOf(input), read);
+        doc = readDoc(project, doc.id);
         return { ...doc, ...(await afterConversion(ctx, project, doc, runOf(input), input)) };
       }),
   }),
@@ -442,6 +504,7 @@ export const commands = [
         .describe(
           "Convert with these options, kept in doc.json for every later reconversion: they replace the current ones (docs.show gives them), {} clears them",
         ),
+      media: mediaPick,
     }),
     output: converted,
     mutates: true,
@@ -452,11 +515,32 @@ export const commands = [
       const project = projectOf(ctx);
       if (input.pdf) attachPdf(project, input.id, input.pdf);
       if (input.docx) attachDocx(project, input.id, input.docx);
+      const pick = input.media;
+      if (pick) {
+        const known = readDoc(project, input.id).media ?? [];
+        for (const id of pick)
+          if (!known.some((l) => l.id === id))
+            throw new UserError(`${input.id} has no batch ${id}.`, `testimus media list --doc ${input.id}`);
+        for (const l of known)
+          updateLot(project, input.id, l.id, (x) => {
+            x.included = pick.includes(l.id);
+          });
+      }
+      const batches = (readDoc(project, input.id).media ?? []).some((l) => l.included);
       ctx.steps?.(
-        convertSteps([{ id: "convert", label: input.study ? "Study and convert" : "Convert to text" }], input),
+        convertSteps(
+          [
+            { id: "convert", label: input.study ? "Study and convert" : "Convert to text" },
+            ...(batches ? [MEDIA_STEP] : []),
+          ],
+          input,
+        ),
       );
       ctx.step?.("convert");
-      const doc = await convertWith(ctx, project, input.id, input, runOf(input));
+      await convertWith(ctx, project, input.id, input, runOf(input));
+      const read = input.describeFigures ?? shouldDescribeFigures(project);
+      await withBatches(ctx, project, input.id, runOf(input), read);
+      const doc = readDoc(project, input.id);
       return { ...doc, ...(await afterConversion(ctx, project, doc, runOf(input), input)) };
     },
   }),

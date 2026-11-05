@@ -13,6 +13,7 @@ import { baseName } from "../../lib/desktop.ts";
 import { plural } from "../../lib/format.ts";
 import { border, color, space } from "../../styles/tokens.stylex.ts";
 import { indexWord } from "./badges.tsx";
+import { DocBatches } from "./DocBatches.tsx";
 import { DocContext } from "./DocContext.tsx";
 
 const styles = stylex.create({
@@ -58,10 +59,14 @@ export function DocSide({
   shown,
   running,
   onStatus,
+  onOpenBatch,
+  onAddBatch,
 }: {
   shown: CommandOutput<"docs.show">;
   running: boolean;
   onStatus: (s: DocJson["status"]) => void;
+  onOpenBatch: (lot: string) => void;
+  onAddBatch: () => void;
 }) {
   const d = shown.doc;
   const ref = useRead("docs.list", {}).data?.find?.((x) => x.id === d.id);
@@ -92,6 +97,9 @@ export function DocSide({
       </Section>
       <Section title="Claude context">
         <DocContext id={d.id} shown={shown} disabled={running} />
+      </Section>
+      <Section title="Photos & videos">
+        <DocBatches docId={d.id} disabled={running} onOpen={onOpenBatch} onAdd={onAddBatch} />
       </Section>
       {d.converted?.at && (
         <Section

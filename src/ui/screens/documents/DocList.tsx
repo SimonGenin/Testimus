@@ -5,7 +5,9 @@ import { Icon } from "../../components/ui/Icon.tsx";
 import { List } from "../../components/ui/List.tsx";
 import type { ListItemProps } from "../../components/ui/ListItem.tsx";
 import { type } from "../../components/ui/type.ts";
+import { useRead } from "../../lib/data/query.ts";
 import { baseName } from "../../lib/desktop.ts";
+import { type Batch, batchLine } from "../../lib/media.ts";
 import { owns, settled, type Upload } from "../../lib/uploads.ts";
 import { border, color, size, space } from "../../styles/tokens.stylex.ts";
 import { useCancel } from "../settings/jobs.ts";
@@ -32,11 +34,33 @@ const styles = stylex.create({
   lines: { display: "flex", flexDirection: "column", gap: space.s1, minWidth: 0 },
   mono: { overflow: "hidden", textOverflow: "ellipsis" },
   badges: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s2 },
+  batches: { display: "flex", flexDirection: "column", gap: space.s1, margin: 0, padding: 0, listStyle: "none" },
+  batch: { display: "flex", alignItems: "center", gap: space.s2, minWidth: 0, color: color.textMuted },
+  batchName: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  out: { color: color.textSubtle },
 });
+
+// ponytail: a document's batches under its row — what each holds, and whether it is in the document
+function BatchLines({ batches }: { batches: Batch[] }) {
+  if (!batches.length) return null;
+  return (
+    <ul aria-label="Photos and videos" {...stylex.props(styles.batches)}>
+      {batches.map((b) => (
+        <li key={b.id} {...stylex.props(type.small, styles.batch, !b.included && styles.out)}>
+          <Icon name="image" size="sm" />
+          <span {...stylex.props(styles.batchName)}>
+            {b.title} — {batchLine(b)}
+            {b.included ? "" : " · not in the document"}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 type Item = { key: string; doc?: DocRef; upload?: Upload };
 
-function docItem(d: DocRef): ListItemProps {
+function docItem(d: DocRef, batches: Batch[]): ListItemProps {
   return {
     title: d.title,
     tooltip: `${d.code} · ${d.version} — ${d.title}`,
@@ -49,6 +73,7 @@ function docItem(d: DocRef): ListItemProps {
         <span {...stylex.props(styles.badges)}>
           <DocBadges doc={d} />
         </span>
+        <BatchLines batches={batches} />
       </span>
     ),
   };
@@ -70,6 +95,8 @@ export function DocList({
   onOpen: (id: string) => void;
 }) {
   const cancel = useCancel();
+  const media = useRead("media.list", {}).data;
+  const batchesOf = (id: string) => (Array.isArray(media) ? media.filter((b) => b.doc === id) : []);
   const uploads = all.map((u) => {
     const d = u.job === "convert" ? docs?.find((x) => x.id === u.docId) : undefined;
     return d ? { ...u, name: baseName(d.source.name || d.source.file) || d.id } : u;
@@ -101,7 +128,9 @@ export function DocList({
           items={items}
           getKey={(i) => i.key}
           renderItem={(i) =>
-            i.upload && (!i.doc || !settled(i.upload)) ? uploadItem(i.upload, cancel) : docItem(i.doc as DocRef)
+            i.upload && (!i.doc || !settled(i.upload))
+              ? uploadItem(i.upload, cancel)
+              : docItem(i.doc as DocRef, batchesOf((i.doc as DocRef).id))
           }
           selected={activeId || null}
           onSelect={pick}

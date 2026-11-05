@@ -13,13 +13,16 @@ import { useApp } from "../../lib/app.ts";
 import { invalidate, useRead } from "../../lib/data/query.ts";
 import { desktop, pickFiles } from "../../lib/desktop.ts";
 import { message } from "../../lib/format.ts";
+import { isPhoto } from "../../lib/media.ts";
 import { addDocFiles, addDocPath, addDocPaths, forgetSettled, settled, useUploads } from "../../lib/uploads.ts";
 import { border, color, radius, space, z } from "../../styles/tokens.stylex.ts";
 import { AddPath } from "./AddPath.tsx";
+import { type PickedFile, pickedOf } from "./BatchFiles.tsx";
 import { DocDetail } from "./DocDetail.tsx";
 import { DocList } from "./DocList.tsx";
 import { DocLoading } from "./DocLoading.tsx";
 import { useDocsLayout } from "./layout.ts";
+import { NewBatch } from "./NewBatch.tsx";
 
 const styles = stylex.create({
   screen: {
@@ -128,7 +131,8 @@ export function DocumentsScreen() {
   const [width, setWidth] = useState(Number.POSITIVE_INFINITY);
   const { fold, panes } = useDocsLayout(width);
   const [listOpen, setListOpen] = useState(false);
-  const [drag, setDrag] = useState(false);
+  const [drag, setDrag] = useState<"docs" | "photos" | false>(false);
+  const [dropped, setDropped] = useState<PickedFile[] | null>(null);
   const [askPath, setAskPath] = useState(false);
 
   const docs = list.data ? (Array.isArray(list.data) ? list.data : []) : list.isError ? [] : undefined;
@@ -191,7 +195,9 @@ export function DocumentsScreen() {
   const onDragOver = (e: DragEvent) => {
     if (!e.dataTransfer.types.includes("Files")) return;
     e.preventDefault();
-    setDrag(true);
+    // ponytail: photos dropped while a document is open become a batch of it; the browser names their type while dragging
+    const items = Array.from(e.dataTransfer.items ?? []);
+    setDrag(active && items.length > 0 && items.every((i) => i.type.startsWith("image/")) ? "photos" : "docs");
   };
 
   return (
@@ -206,7 +212,11 @@ export function DocumentsScreen() {
         if (!e.dataTransfer.files.length) return;
         e.preventDefault();
         setDrag(false);
-        addFiles(Array.from(e.dataTransfer.files));
+        const all = Array.from(e.dataTransfer.files);
+        const photos = active ? all.filter((f) => isPhoto(f.name)) : [];
+        if (photos.length) setDropped(pickedOf(photos));
+        const rest = all.filter((f) => !photos.includes(f));
+        if (rest.length) addFiles(rest);
       }}
     >
       <ScreenHeader
@@ -347,13 +357,26 @@ export function DocumentsScreen() {
           <span {...stylex.props(styles.veilMark)}>
             <Icon name="upload" size="lg" />
           </span>
-          <span {...stylex.props(type.title, styles.veilTitle)}>Drop Word or PDF files to add them</span>
-          <span {...stylex.props(type.compact, styles.veilText)}>
-            .docx is preferred — structure and pictures stay intact; .pdf is the fallback. Each file is copied into the
-            project, ready to convert.
-          </span>
+          {drag === "photos" && active ? (
+            <>
+              <span {...stylex.props(type.title, styles.veilTitle)}>Drop photos to add them to {active.code}</span>
+              <span {...stylex.props(type.compact, styles.veilText)}>
+                They become a batch of the document: Claude reads them with the context you give, and the batch is an
+                annex at the end of the document.
+              </span>
+            </>
+          ) : (
+            <>
+              <span {...stylex.props(type.title, styles.veilTitle)}>Drop Word or PDF files to add them</span>
+              <span {...stylex.props(type.compact, styles.veilText)}>
+                .docx is preferred — structure and pictures stay intact; .pdf is the fallback. Each file is copied into
+                the project, ready to convert. Photos dropped on an open document become a batch of it.
+              </span>
+            </>
+          )}
         </div>
       )}
+      {dropped && active && <NewBatch doc={active} files={dropped} onClose={() => setDropped(null)} />}
       {askPath && (
         <AddPath
           onAdd={(p, pdf) => void (pdf ? addDocPaths([p, pdf], added) : addDocPath(p, added))}

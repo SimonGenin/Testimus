@@ -5,6 +5,7 @@ import { Card } from "../../components/ui/Card.tsx";
 import { SourceChip } from "../../components/ui/SourceChip.tsx";
 import { type } from "../../components/ui/type.ts";
 import { parseSourceRef, sourcePlace } from "../../lib/fields.ts";
+import { isObserved } from "../../lib/media.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 import { findingMark, kindLabel, refKey } from "./sources.ts";
 
@@ -39,6 +40,7 @@ export function FindingSources({
           reference={`${s.docId} ${sourcePlace(s.anchor)}`}
           quote={s.quote || undefined}
           figure={s.anchor.startsWith("fig:")}
+          observed={isObserved(s.anchor)}
           pressed={selected === findingMark(index, s)}
           onOpen={() => onSelect(s)}
         />

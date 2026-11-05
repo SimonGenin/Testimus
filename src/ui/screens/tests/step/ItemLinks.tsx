@@ -3,6 +3,7 @@ import type { Source } from "../../../../core/types.ts";
 import { SourceChip } from "../../../components/ui/SourceChip.tsx";
 import { type } from "../../../components/ui/type.ts";
 import { type ItemLink, sourceLabel } from "../../../lib/fields.ts";
+import { isObserved } from "../../../lib/media.ts";
 import { color, space } from "../../../styles/tokens.stylex.ts";
 import { StepSource } from "./StepSource.tsx";
 
@@ -37,6 +38,7 @@ export function ItemLinks({
               reference={`${l.item} · ${sourceLabel(s)}`}
               quote={s.quote || undefined}
               figure={s.anchor.startsWith("fig:")}
+              observed={isObserved(s.anchor)}
               onOpen={onOpen && (() => onOpen(s))}
             />
           );

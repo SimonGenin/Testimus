@@ -59,6 +59,8 @@ const styles = stylex.create({
   notFoundText: { color: color.danger },
   notAtAnchor: { backgroundColor: color.warningSubtle, borderColor: color.warningBorder },
   notAtAnchorText: { color: color.warning },
+  observedIcon: { color: color.info },
+  observedWord: { flexShrink: 0, color: color.info },
   forceHover: { backgroundColor: color.surfaceHover },
   forceFocus: { outline: `${border.widthStrong} solid ${color.focusRing}` },
 });
@@ -92,6 +94,9 @@ export type SourceChipProps = {
   pressed?: boolean;
   /** a figure: the image icon instead of the quote mark */
   figure?: boolean;
+  /** from an annex of photos of the real system: says how to do a step, never what is expected — the eye and the
+   * word « Observed » */
+  observed?: boolean;
   /** inside a line of text: the reference alone */
   compact?: boolean;
   /** the catalogue only */
@@ -107,6 +112,7 @@ export function SourceChip({
   state = "ok",
   pressed,
   figure = false,
+  observed = false,
   compact = false,
   debugState,
 }: SourceChipProps) {
@@ -126,9 +132,18 @@ export function SourceChip({
   const tone = state === "not-found" ? styles.notFoundText : state === "not-at-anchor" ? styles.notAtAnchorText : null;
   const inner = (
     <>
-      <span {...stylex.props(styles.icon, tone)}>
-        <Icon name={bad ? bad.icon : figure ? "image" : "quote"} size="sm" label={bad?.word} />
+      <span {...stylex.props(styles.icon, observed && !bad && styles.observedIcon, tone)}>
+        <Icon
+          name={bad ? bad.icon : observed ? "eye" : figure ? "image" : "quote"}
+          size="sm"
+          label={bad?.word ?? (observed ? "Observed" : undefined)}
+        />
       </span>{" "}
+      {observed && !compact && (
+        <>
+          <span {...stylex.props(styles.observedWord)}>Observed</span>{" "}
+        </>
+      )}
       <span {...stylex.props(styles.ref, tone)}>{reference}</span>
       {shownQuote && (
         <>
@@ -138,7 +153,13 @@ export function SourceChip({
       )}
     </>
   );
-  const tip = [words ? `${reference} — “${words}”` : reference, bad?.says].filter(Boolean).join(" ");
+  const tip = [
+    words ? `${reference} — “${words}”` : reference,
+    bad?.says,
+    observed ? "Observed on the real system: it says how to do the step, not what is expected." : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
   const chip = onOpen ? (
     <button type="button" aria-pressed={pressed} onClick={onOpen} {...look}>
       {inner}

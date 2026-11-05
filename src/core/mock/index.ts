@@ -12,6 +12,7 @@ import "./claude-actions.ts";
 import "./claude-check.ts";
 import "./claude-columns.ts";
 import "./claude-gen.ts";
+import "./claude-media.ts";
 import "./claude-study.ts";
 import { mockHttp } from "./jira.ts";
 import { mockModelsOptions, seedChoice, setupModelsMock } from "./models.ts";

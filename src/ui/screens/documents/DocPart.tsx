@@ -5,6 +5,7 @@ import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { type } from "../../components/ui/type.ts";
+import { isObserved } from "../../lib/media.ts";
 import { color, size, space } from "../../styles/tokens.stylex.ts";
 import type { TocEntry } from "./DocToc.tsx";
 
@@ -115,6 +116,12 @@ export function DocPart({
     <div ref={box} data-testid="doc-part" {...stylex.props(styles.box)}>
       <div {...stylex.props(styles.inner)}>
         {(focus || quote?.from) && quote && <QuoteBar under={current} quoted={!!focus} {...quote} />}
+        {isObserved(current) && (
+          <Banner tone="info" icon="eye" compact title="Observed on the real system">
+            An annex of photos: it shows how the system behaves and how to do a step, not what it must do. A test cites
+            it for how, never alone for an expected result.
+          </Banner>
+        )}
         <div {...stylex.props(type.small, styles.nav)}>
           <span {...stylex.props(styles.where)}>
             {chapter ? `${chapter.title} · ` : ""}

@@ -24,7 +24,11 @@ project is in **Team notes** at the end.
   version, `kind`, `status` draft · submitted · validated, `amends`: the documents it amends, the
   `contexts` read with it; `converted`: what the last conversion found, its `warnings` included),
   `context.md` when the team wrote one — what it says about the document; read it before using the
-  document (`docs_show` returns it as `context`).
+  document (`docs_show` returns it as `context`). `media/<batch>/` holds a batch of photos taken on
+  the real system (their copies, the team's `context.md`, `part.md`); an included batch is an
+  **annex** at the end of `doc.md` (`# Annexe — … <!-- § lot-<batch> -->`, one section per photo):
+  it says how the system behaves and how to do a step, never what is required (`media_list`,
+  `media_show`). `body.md` is the converted text without the annexes — derived, like `doc.md`.
 - `tests/<id>/test.md` — one test (format below); `images/` its pictures; `check.json` its last
   check's findings; `local.json` the test's own settings (its contexts, how its columns fold), never
   part of the test. `<id>` is the Jira key once pushed (`PROJ-123`), `local-<hex>` before.
@@ -181,6 +185,9 @@ One line per claim: `- <docId>#<anchor> "<short quote copied exactly from doc.md
   inventing behavior. A behavior the product does not implement (« not simulated », « out of scope »)
   is written only when a document says so.
 - What only a figure shows is cited as `fig:<n>` after reading the image (`rag_figure` or `Read`).
+- An annex anchor (`§lot-…`, `fig:lot-…`: photos of the real system) backs how a step is done,
+  never an expected result on its own: the check reports `observed-only` unless the batch is marked
+  as a reference.
 
 ### Pictures
 

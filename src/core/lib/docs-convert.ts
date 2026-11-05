@@ -10,6 +10,7 @@ import type { DocConversion, DocJson, DocKind, DocStats, FigureEntry } from "../
 import { writeAtomic } from "./atomic.ts";
 import { docDir, isConverted, readDoc, writeDoc } from "./docs.ts";
 import { sha256 } from "./hash.ts";
+import { assembleDir, BODY } from "./media.ts";
 import { readJson, writeJson } from "./project.ts";
 
 type Progress = (message: string) => void;
@@ -49,8 +50,12 @@ export function writeConverted(dir: string, c: Converted): { figures: FigureEntr
       ...(p?.kind ? { kind: p.kind } : {}),
     };
   });
-  writeAtomic(join(dir, "doc.md"), c.md);
-  writeJson(join(dir, "figures.json"), figures);
+  // ponytail: the converted text is body.md; doc.md is assembled from it and the annexes of the included batches,
+  // whose figure entries stay as they were
+  const annexes = readJson<FigureEntry[]>(join(dir, "figures.json"), []).filter((f) => f.anchor.startsWith("fig:lot-"));
+  writeAtomic(join(dir, BODY), c.md);
+  assembleDir(dir);
+  writeJson(join(dir, "figures.json"), [...figures, ...annexes]);
   const a = anchorsOf(c.md);
   return { figures, stats: { sections: a.sections.length, figures: figures.length, chars: c.md.length } };
 }

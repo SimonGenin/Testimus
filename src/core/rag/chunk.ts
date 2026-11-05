@@ -117,6 +117,8 @@ export function docFigures(md: string, entries: FigureEntry[]): DocFigure[] {
   for (const e of entries) {
     const n = e.anchor.replace(/^fig:/, "");
     const known = out.get(n);
+    // ponytail: the photos of a batch left out of the document are not its figures (they stay in figures.json)
+    if (!known && n.startsWith("lot-")) continue;
     const file = e.file || known?.file || "";
     out.set(n, {
       n,

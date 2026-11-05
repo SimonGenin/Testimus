@@ -1,8 +1,10 @@
 import * as stylex from "@stylexjs/stylex";
 import { useLayoutEffect, useRef } from "react";
+import { Icon } from "../../components/ui/Icon.tsx";
 import { List } from "../../components/ui/List.tsx";
 import { type } from "../../components/ui/type.ts";
 import { plural } from "../../lib/format.ts";
+import { isObserved } from "../../lib/media.ts";
 import { into } from "../../lib/scroll.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 
@@ -29,6 +31,9 @@ export function DocToc({
   onGo: (anchor: string) => void;
 }) {
   const box = useRef<HTMLDivElement>(null);
+  // ponytail: the annexes (photos of the real system) after the body, under a head of their own
+  const body = sections.filter((t) => !isObserved(t.anchor));
+  const annexes = sections.filter((t) => isObserved(t.anchor));
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new current section moves the picked row in the DOM
   useLayoutEffect(() => {
     const b = box.current;
@@ -45,15 +50,30 @@ export function DocToc({
           selected={sections.some((t) => t.anchor === current) ? current : null}
           onSelect={onGo}
           groups={
-            head
-              ? [{ label: "Contents", meta: plural(sections.length, "section"), keys: sections.map((t) => t.anchor) }]
+            head || annexes.length
+              ? [
+                  { label: "Contents", meta: plural(body.length, "section"), keys: body.map((t) => t.anchor) },
+                  ...(annexes.length
+                    ? [
+                        {
+                          label: "Annexes · observed",
+                          meta: ((n) => `${n} ${n === 1 ? "batch" : "batches"}`)(
+                            annexes.filter((t) => t.level === 0).length,
+                          ),
+                          keys: annexes.map((t) => t.anchor),
+                        },
+                      ]
+                    : []),
+                ]
               : undefined
           }
           renderItem={(t) => ({
             title: t.title,
-            depth: Math.max(0, t.level - 1),
+            depth: isObserved(t.anchor) ? t.level : Math.max(0, t.level - 1),
             lead: NUMBERED.test(t.anchor) ? (
               <span {...stylex.props(type.code, styles.number)}>{t.anchor.slice(1)}</span>
+            ) : isObserved(t.anchor) && t.level === 0 ? (
+              <Icon name="image" size="sm" />
             ) : undefined,
           })}
         />

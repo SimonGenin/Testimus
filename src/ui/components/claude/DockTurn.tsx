@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import type { Source } from "../../../core/types.ts";
 import { sourceLabel } from "../../lib/fields.ts";
+import { isObserved } from "../../lib/media.ts";
 import { color, size, space } from "../../styles/tokens.stylex.ts";
 import { Answer } from "../ui/Answer.tsx";
 import { Ask } from "../ui/Ask.tsx";
@@ -150,6 +151,7 @@ export function AnswerTurn({ turn: t, actions: a }: { turn: Turn; actions: TurnA
                   reference={sourceLabel(s)}
                   quote={s.quote}
                   figure={s.anchor.startsWith("fig:")}
+                  observed={isObserved(s.anchor)}
                   onOpen={() => a.onOpenSource(s)}
                 />
               ))}

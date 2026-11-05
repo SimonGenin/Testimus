@@ -12,6 +12,7 @@ import { plural } from "../../lib/format.ts";
 import { type DocScope, type DocWork, type Unready, unready } from "../../lib/scope.ts";
 import { border, color, space } from "../../styles/tokens.stylex.ts";
 import { indexWord } from "../documents/badges.tsx";
+import { AnnexScope } from "./AnnexScope.tsx";
 import { SectionTree } from "./SectionTree.tsx";
 
 const styles = stylex.create({
@@ -185,6 +186,7 @@ export function DocScopePicker({
                 </span>
               </div>
               {some && <SectionTree docId={d.id} picked={s} onChange={(a) => set(d.id, a)} />}
+              {s === "all" && <AnnexScope docId={d.id} scope={s} onChange={(next) => set(d.id, next)} />}
             </li>
           );
         })}

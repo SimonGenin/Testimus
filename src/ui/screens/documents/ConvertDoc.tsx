@@ -11,11 +11,13 @@ import { GroupSelect } from "../../components/ui/GroupSelect.tsx";
 import { Modal } from "../../components/ui/Modal.tsx";
 import { type } from "../../components/ui/type.ts";
 import { useApp } from "../../lib/app.ts";
-import { invalidate } from "../../lib/data/query.ts";
+import { invalidate, useRead } from "../../lib/data/query.ts";
 import { baseName } from "../../lib/desktop.ts";
+import { type Batch, batchLine } from "../../lib/media.ts";
 import { jobToast } from "../../lib/toast.ts";
 import { convertDoc, importClaude, setImportClaude } from "../../lib/uploads.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
+import { NewBatch } from "./NewBatch.tsx";
 
 const styles = stylex.create({
   wrap: { padding: space.s5, overflowY: "auto", flex: 1, minHeight: 0 },
@@ -74,6 +76,46 @@ export function ClaudeChoice() {
         ]}
       />
       <CustomModel choice={choice} />
+    </div>
+  );
+}
+
+// ponytail: the batches of the document for this conversion — ticked, each becomes an annex of the converted text;
+// « Add photos & videos… » makes a new one first (it comes ticked)
+function Batches({
+  doc,
+  picked,
+  onPick,
+}: {
+  doc: DocJson;
+  picked: (b: Batch) => boolean;
+  onPick: (b: Batch, on: boolean) => void;
+}) {
+  const [adding, setAdding] = useState(false);
+  const list = useRead("media.list", { doc: doc.id }).data;
+  const batches = Array.isArray(list) ? list : [];
+  return (
+    <div {...stylex.props(styles.group)}>
+      <h3 {...stylex.props(type.small, type.strong, styles.caption)}>Photos & videos</h3>
+      {batches.length === 0 && (
+        <p {...stylex.props(type.small, styles.text)}>
+          Photos of the real system become an annex of the document, read by Claude: they say how to do a step, never
+          what is expected.
+        </p>
+      )}
+      {batches.map((b) => (
+        <Checkbox
+          key={b.id}
+          checked={picked(b)}
+          onChange={(on) => onPick(b, on)}
+          label={b.title}
+          hint={`${batchLine(b)} · an annex of the document when ticked`}
+        />
+      ))}
+      <span>
+        <Button size="sm" icon="image" label="Add photos & videos…" onClick={() => setAdding(true)} />
+      </span>
+      {adding && <NewBatch doc={doc} onClose={() => setAdding(false)} />}
     </div>
   );
 }
@@ -138,13 +180,21 @@ export function ConvertDoc({
   const client = useQueryClient();
   const [figures, setFigures] = useState(app.info?.project?.rag.describeFigures !== false);
   const [study, setStudy] = useState(false);
+  const [pick, setPick] = useState<Record<string, boolean>>({});
+  const listed = useRead("media.list", { doc: doc.id }).data;
+  const batches = Array.isArray(listed) ? listed : [];
+  const picked = (b: Batch) => pick[b.id] ?? b.included;
   const offline = useClaudeOffline();
   const settled = doc.conversion ? optionsOf(doc.conversion) : "";
   const go = () => {
     void convertDoc(
       doc.id,
       baseName(doc.source.name || doc.source.file),
-      { describeFigures: figures && !offline, study: study && !offline },
+      {
+        describeFigures: figures && !offline,
+        study: study && !offline,
+        ...(batches.length ? { media: batches.filter(picked).map((b) => b.id) } : {}),
+      },
       () => {
         void invalidate(client, [["docs.list"], ["docs.show", { id: doc.id }], ["rag.status"]]);
         app.refreshInfo();
@@ -154,15 +204,18 @@ export function ConvertDoc({
     onClose?.();
   };
   const options = (
-    <Options
-      doc={doc}
-      again={again}
-      figures={figures}
-      study={study}
-      offline={offline}
-      onFigures={setFigures}
-      onStudy={setStudy}
-    />
+    <>
+      <Batches doc={doc} picked={picked} onPick={(b, on) => setPick((p) => ({ ...p, [b.id]: on }))} />
+      <Options
+        doc={doc}
+        again={again}
+        figures={figures}
+        study={study}
+        offline={offline}
+        onFigures={setFigures}
+        onStudy={setStudy}
+      />
+    </>
   );
   if (again) {
     const stats = doc.converted?.stats;

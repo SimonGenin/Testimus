@@ -66,7 +66,8 @@ src/core/shell.ts    which shell runs the core (TESTIMUS_SHELL), loopback NO_PRO
 src/core/lib/        testfile, test-blocks, test-edit, table, adf, store, check, review, columns, contexts, actions,
                      agents, atomic, changed, creds, project (+ project-info, project-init), doctor (+ doctor-row,
                      doctor-models), hash, zip; docs (+ docs-convert, docs-index: one index run at a time, after the
-                     conversions; docs-pipeline: add → convert → index); jira/ (http, read, steps, labels, push) and
+                     conversions; docs-pipeline: add → convert → index); media (+ media-pipeline: batches of photos,
+                     body.md + part.md → doc.md, the annex anchors lot-…); jira/ (http, read, steps, labels, push) and
                      sync/ (connect, pull, push), ported from Xray Editor; models-* (catalog, packs, download,
                      install*, registry, resolve, perf, advice, quality, store, dir, use);
                      machine/ what this PC has, knowing no model: probes (the seam: nvidia-smi, WMI, registry,
@@ -85,8 +86,8 @@ src/core/search/     search.all (Ctrl K, the tests list): query (filters), match
                      stems, prefixes, typos, codes), tests corpus, vectors (index/tests-vectors.json), all
 src/core/claude/     run (claude -p), access (per-kind tool access), stream, snapshot/revert, diagnose, status,
                      chat, generate (+ gen-prompt, gen-reply), check, fix, review, columns, actions, figures, headers,
-                     prompt, limits, ledger (evidence ledger), schemas (model, effort, note), study (a document
-                     studied before its conversion, checked against its pages after)
+                     prompt, limits, ledger (evidence ledger), schemas (model, effort, note), media (a batch's photos,
+                     20 a run), study (a document studied before its conversion, checked against its pages after)
 src/core/mock/       --mock: fixture Jira (jira.ts, jira/), scripted Claude (claude*.ts), fake machine and
                      models, sandbox setup
 src/shared/          Node only, used by the core and the desktop shell: run/work.ts (sleep, timeout, retry,

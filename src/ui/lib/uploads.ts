@@ -199,7 +199,7 @@ export type JobContext = { note?: string; contexts?: string[] };
 export async function convertDoc(
   id: string,
   name: string,
-  job: JobContext & { describeFigures?: boolean; study?: boolean },
+  job: JobContext & { describeFigures?: boolean; study?: boolean; media?: string[] },
   onDone: () => void,
   onStarted?: (jobId: string) => void,
 ): Promise<void> {
@@ -211,6 +211,7 @@ export async function convertDoc(
     ...extra,
     ...(job.describeFigures !== undefined && { describeFigures: job.describeFigures }),
     ...(job.study ? { study: true } : { triage: true }),
+    ...(job.media ? { media: job.media } : {}),
     index: true,
   };
   await tracked({ name, job: "convert", docId: id, phase: "converting", message: "Converting" }, (onStart) =>

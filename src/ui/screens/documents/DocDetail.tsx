@@ -8,9 +8,11 @@ import { Modal } from "../../components/ui/Modal.tsx";
 import { ResizeHandle } from "../../components/ui/ResizeHandle.tsx";
 import { key, useCommand, useRead } from "../../lib/data/query.ts";
 import { message } from "../../lib/format.ts";
+import { isObserved } from "../../lib/media.ts";
 import { errorToast } from "../../lib/toast.ts";
 import { settled, useUploads } from "../../lib/uploads.ts";
 import { border, color, duration, easing, space } from "../../styles/tokens.stylex.ts";
+import { BatchDetail } from "./BatchDetail.tsx";
 import { ConvertDoc } from "./ConvertDoc.tsx";
 import { DocFigures } from "./DocFigures.tsx";
 import { DocHead, type View } from "./DocHead.tsx";
@@ -21,6 +23,7 @@ import { DocSide } from "./DocSide.tsx";
 import { DocToc } from "./DocToc.tsx";
 import { DocUnreadable } from "./DocUnreadable.tsx";
 import { COLS, type Fold, type Pane } from "./layout.ts";
+import { NewBatch } from "./NewBatch.tsx";
 import { RemoveDoc } from "./RemoveDoc.tsx";
 
 const fadeIn = stylex.keyframes({ from: { opacity: 0 }, to: { opacity: 1 } });
@@ -97,6 +100,7 @@ export function DocDetail({
   const [ask, setAsk] = useState(false);
   const [again, setAgain] = useState(false);
   const [figure, setFigure] = useState<string>();
+  const [batch, setBatch] = useState<string | "new" | null>(null);
   const [opened, setOpened] = useState(false);
   const wasRunning = useRef(false);
   const sideFolded = fold === "small" || fold === "tiny";
@@ -193,7 +197,15 @@ export function DocDetail({
       },
     );
   const toc = (head: boolean) => <DocToc sections={sections} current={current} head={head} onGo={go} />;
-  const side = <DocSide shown={shown} running={!!running} onStatus={setStatus} />;
+  const side = (
+    <DocSide
+      shown={shown}
+      running={!!running}
+      onStatus={setStatus}
+      onOpenBatch={(lot) => setBatch(lot)}
+      onAddBatch={() => setBatch("new")}
+    />
+  );
 
   return (
     <section
@@ -274,11 +286,15 @@ export function DocDetail({
         <ConvertDoc
           doc={d}
           again
-          described={shown.figures.filter((f) => f.description.trim()).length}
+          described={shown.figures.filter((f) => f.description.trim() && !isObserved(f.anchor)).length}
           onClose={() => setAgain(false)}
         />
       )}
       {ask && <RemoveDoc doc={d} onClose={() => setAsk(false)} onRemoved={onRemoved} />}
+      {batch === "new" && <NewBatch doc={d} onClose={() => setBatch(null)} />}
+      {batch && batch !== "new" && (
+        <BatchDetail doc={d} lot={batch} onClose={() => setBatch(null)} onOpenAnchor={converted ? go : undefined} />
+      )}
     </section>
   );
 }

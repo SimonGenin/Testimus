@@ -180,6 +180,7 @@ export type FindingKind =
   | "figure-not-embedded"
   | "column-unsourced"
   | "item-not-found"
+  | "observed-only"
   | "other";
 export type Finding = {
   step?: number;
@@ -214,6 +215,36 @@ export type DocJson = {
   twin?: { file: string; sha256: string };
   converted?: { with: string; at: string; warnings: string[]; stats?: DocStats };
   conversion?: DocConversion;
+  // the batches of photos (and later videos) attached to the document: each included one is an annex of doc.md
+  media?: MediaLot[];
+};
+// ponytail: one file of a batch — its copy under media/<lot>/files/, the picture made from it under figures/, and
+// what Claude read in it (description, labels and kind live in figures.json under fig:lot-<lot>.<item>)
+export type MediaItem = {
+  id: string;
+  name: string;
+  file: string;
+  kind: "photo";
+  sha256: string;
+  figure?: string;
+  takenAt?: string;
+  width?: number;
+  height?: number;
+  illustrates?: string[];
+  state: "new" | "ready" | "analysed" | "failed";
+  error?: string;
+};
+export type MediaLot = {
+  id: string;
+  title: string;
+  included: boolean;
+  // the team says the batch shows the reference behaviour: an expected result sourced from it alone is not flagged
+  reference?: boolean;
+  added: string;
+  items: MediaItem[];
+  analysed?: { at: string; model?: string; effort?: string };
+  // what Claude chose in a video (chapters, key frames), kept so another analysis gives the same anchors (M5)
+  plan?: Record<string, unknown>;
 };
 // ponytail: how a document is converted, chosen when Claude studied it (or by the team) and kept so that every
 // reconversion gives the same result

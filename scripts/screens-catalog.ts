@@ -188,6 +188,65 @@ function shellShots(): Shot[] {
   ];
 }
 
+function mediaShots(): Shot[] {
+  const LOT = "recette-tco-12-10";
+  return [
+    {
+      id: "media-documents",
+      note: "Documents, a batch under its document and in its side panel",
+      hash: `#/documents/${DOC}`,
+    },
+    {
+      id: "media-annex-photo",
+      note: "Reading an annex photo (observed)",
+      hash: `#/documents/${DOC}%23§lot-${LOT}.img-0042`,
+      scroll: false,
+    },
+    {
+      id: "media-batch-new",
+      note: "Add photos & videos (the batch dialog)",
+      hash: `#/documents/${DOC}`,
+      prep: async (p) => {
+        await tap(p, "Add photos & videos…");
+        await dialog(p, "Add photos & videos");
+      },
+    },
+    {
+      id: "media-batch-detail",
+      note: "A batch: its context and its photos as Claude read them",
+      hash: `#/documents/${DOC}`,
+      prep: async (p) => {
+        await tap(p, "Open Recette TCO 12/10");
+        await dialog(p, "Recette TCO 12/10");
+      },
+    },
+    {
+      id: "media-drop-veil",
+      note: "Photos dragged over an open document",
+      hash: `#/documents/${DOC}`,
+      prep: async (p) => {
+        await p.evaluate(() => {
+          const dt = new DataTransfer();
+          dt.items.add(new File(["x"], "IMG_0050.jpg", { type: "image/jpeg" }));
+          document
+            .querySelector('[data-testid="documents-screen"]')
+            ?.dispatchEvent(new DragEvent("dragover", { dataTransfer: dt, bubbles: true }));
+        });
+      },
+    },
+    {
+      id: "media-convert-again",
+      note: "Convert again, with the batches to put in the document",
+      hash: `#/documents/${DOC}`,
+      prep: async (p) => {
+        await tap(p, "More actions for this document");
+        await tap(p, /^Convert again/);
+      },
+    },
+    { id: "media-scope", note: "Generate: the annexes under their document", hash: "#/generate" },
+  ];
+}
+
 const DOC = "SOSIE_211_D401-1_3";
 const DOC2 = "SOSIE_211_D401-1_4";
 const T1420 = "LFRPS12-1420";
@@ -1293,6 +1352,20 @@ export function SCENARIOS(essai: string): Scenario[] {
       note: "Models advice: partly on the processor",
       env: { TESTIMUS_MOCK_SEED: "fixture", TESTIMUS_MOCK_ADVICE: "offload" },
       shots: [modelsShots()[0]],
+    },
+    {
+      id: "media",
+      note: "Photos as annexes: the fixture's batch in the document (GOAL-MEDIA M1)",
+      env: { TESTIMUS_MOCK_SEED: "fixture" },
+      before: async (s) => {
+        const { jobId } = await s.api<{ jobId: string }>("media.include", {
+          doc: DOC,
+          lot: "recette-tco-12-10",
+          included: true,
+        });
+        await s.waitJob(jobId);
+      },
+      shots: mediaShots(),
     },
     {
       id: "essai",

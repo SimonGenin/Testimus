@@ -619,7 +619,7 @@ describe("rag.eval on the fixture project gives the numbers it gave before the r
           },
         ],
         "chunker": "3d49c9729806d737",
-        "corpus": "d5b8509deafc876e",
+        "corpus": "dd283020389bf770",
         "policies": [
           {
             "available": true,
@@ -1348,7 +1348,7 @@ describe("rag.eval on the fixture project gives the numbers it gave before the r
           },
         ],
         "chunker": "3d49c9729806d737",
-        "corpus": "d5b8509deafc876e",
+        "corpus": "dd283020389bf770",
         "policies": [
           {
             "available": true,

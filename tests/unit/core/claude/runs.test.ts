@@ -278,7 +278,7 @@ describe("figures edges", () => {
     expect(r.described).toBe(1);
     expect(seen[0].stdin).toContain(`for the document ${D3}.`);
     const next = readJson<FigureEntry[]>(file, []);
-    expect(next.map((e) => [e.anchor, e.description])).toEqual([
+    expect(next.filter((e) => !e.anchor.startsWith("fig:lot-")).map((e) => [e.anchor, e.description])).toEqual([
       ["fig:40", "Neuf."],
       ["fig:99", "Gone"],
     ]);

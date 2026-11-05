@@ -18,11 +18,13 @@ export type RunKind =
   | "triage"
   | "action"
   | "columns"
-  | "study";
+  | "study"
+  | "media";
 
 export const TOOLS: Record<RunKind, string[]> = {
   chat: READ_TOOLS,
   figures: ["Read"],
+  media: READ_TOOLS,
   headers: ["Read"],
   check: READ_TOOLS,
   generate: EDIT_TOOLS,
@@ -39,6 +41,7 @@ const TEST_WRITES = ["tests.edit", "tests.save", "tests.addImage"];
 const EXTRA: Record<RunKind, string[]> = {
   chat: [],
   figures: [],
+  media: [],
   headers: [],
   check: ["check.record", "actions.propose"],
   generate: ["tests.create", ...TEST_WRITES, "check.run", "actions.propose"],

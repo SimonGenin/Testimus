@@ -16,7 +16,10 @@ export function findingSummary(fs: Finding[]): { tone: "error" | "warning" | "in
   return { tone: "ok", text: "No findings" };
 }
 
-const LABELS: Record<string, string> = { "column-unsourced": "Items without a source" };
+const LABELS: Record<string, string> = {
+  "column-unsourced": "Items without a source",
+  "observed-only": "Observed only",
+};
 
 export const kindLabel = (k: string) => {
   if (LABELS[k]) return LABELS[k];

@@ -17,6 +17,7 @@ import { AppContext } from "../../lib/app.ts";
 import { parseSourceRef, sourceLabel } from "../../lib/fields.ts";
 import { plural } from "../../lib/format.ts";
 import { duration } from "../../lib/jobs.ts";
+import { isObserved } from "../../lib/media.ts";
 import { border, color, size, space } from "../../styles/tokens.stylex.ts";
 
 export type GenCheck = { id: string; ok: boolean; review: string; errors: number; warnings: number };
@@ -340,6 +341,7 @@ export function GenSummary({
                           reference={sourceLabel(s)}
                           quote={s.quote || undefined}
                           figure={s.anchor.startsWith("fig:")}
+                          observed={isObserved(s.anchor)}
                           onOpen={openSource && (() => openSource(s))}
                         />
                       ))}

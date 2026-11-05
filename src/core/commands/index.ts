@@ -14,6 +14,7 @@ import { commands as gen } from "./gen.ts";
 import { commands as images } from "./images.ts";
 import { commands as issue } from "./issue.ts";
 import { commands as jobs } from "./jobs.ts";
+import { commands as media } from "./media.ts";
 import { commands as models } from "./models.ts";
 import { commands as project } from "./project.ts";
 import { commands as rag } from "./rag.ts";
@@ -29,6 +30,7 @@ import { commands as xray } from "./xray.ts";
 type Defined =
   | (typeof project)[number]
   | (typeof docs)[number]
+  | (typeof media)[number]
   | (typeof columns)[number]
   | (typeof rag)[number]
   | (typeof search)[number]
@@ -62,6 +64,7 @@ export type CallResult<N extends CommandName> = N extends JobCommand ? JobStart 
 export const registry: Command[] = [
   ...project,
   ...docs,
+  ...media,
   ...columns,
   ...rag,
   ...search,

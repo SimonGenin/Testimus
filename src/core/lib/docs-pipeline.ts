@@ -81,7 +81,7 @@ async function withTriage(ctx: Ctx, project: string, doc: DocJson, claude: JobRu
 
 // ponytail: the index run that follows a conversion is a job of its own under the conversion's step; it waits for
 // the other conversions, and a failed run never undoes the conversion
-async function withIndex(ctx: Ctx, project: string, claude: JobRun): Promise<IndexOutcome> {
+export async function withIndex(ctx: Ctx, project: string, claude: JobRun): Promise<IndexOutcome> {
   ctx.step?.("index");
   const run = () => {
     throwIfAborted(ctx.signal);

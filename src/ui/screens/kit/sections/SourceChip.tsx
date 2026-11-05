@@ -45,6 +45,15 @@ export const section: KitSection = {
           onOpen={noop}
         />
       </Cell>
+      <Cell label="observed (an annex of photos: how, never what is expected) · compact" column>
+        <SourceChip
+          reference="§lot-recette-tco-12-10.img-0043"
+          quote="elle indique un sectionneur sans télécommande (TK)"
+          observed
+          onOpen={noop}
+        />
+        <SourceChip reference="§lot-recette-tco-12-10.img-0042" observed compact onOpen={noop} />
+      </Cell>
       <Cell label="compact (in a line) · read only" column>
         <SourceChip reference="§5.6.6" quote="Selon le type de sectionneur" compact onOpen={noop} />
         <SourceChip reference="§4.1" quote="La fenêtre affiche l'état" />

@@ -2,6 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
 import type { Source } from "../../../core/types.ts";
 import { sourceLabel } from "../../lib/fields.ts";
+import { isObserved } from "../../lib/media.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 import { SourceChip } from "../ui/SourceChip.tsx";
 import { type } from "../ui/type.ts";
@@ -80,6 +81,7 @@ export function AnswerText({
               quote={x.quote}
               compact
               figure={x.anchor.startsWith("fig:")}
+              observed={isObserved(x.anchor)}
               onOpen={() => onOpenSource(x)}
             />
           ),

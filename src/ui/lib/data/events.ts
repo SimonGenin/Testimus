@@ -58,6 +58,8 @@ const PATHS: Rule[] = [
       ["project.info"],
       ["rag.passage"],
       ["gen.preview"],
+      ["media.list"],
+      ["media.show", { doc: m[1] }],
     ],
   ],
   [
@@ -65,6 +67,7 @@ const PATHS: Rule[] = [
     (m) => [["docs.show", { id: m[1] }], ["rag.passage"], ["rag.figure"], ["docs.page"], ["docs.list"]],
   ],
   [/^docs\/([^/]+)\/context\.md$/, (m) => [["docs.show", { id: m[1] }]]],
+  [/^docs\/([^/]+)\/media\//, (m) => [["media.list"], ["media.show", { doc: m[1] }]]],
   [/^docs\/([^/]+)(\/|$)/, () => [["docs.list"], ["rag.status"], ["project.info"], ["gen.preview"]]],
   [
     /^project\.json$/,
@@ -101,6 +104,7 @@ const KINDS: Rule[] = [
   [/^search-index$/, () => [["search.all"]]],
   [/^update$/, () => [["system.updates"]]],
   [/^docs\.(add|addFiles|convert)$|^docs-|^describe-figures$/, () => [["docs.list"], ["docs.show"], ["rag.status"]]],
+  [/^media$/, () => [["media.list"], ["media.show"], ["docs.list"], ["docs.show"], ["rag.status"], ["gen.preview"]]],
   [/^generate$/, () => [["review.evidence"], ["review.queue"], ["gen.preview"]]],
   [/^chat$/, () => [["chat.list"], ["chat.show"]]],
   [

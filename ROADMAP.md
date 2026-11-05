@@ -190,6 +190,23 @@ Design: the canvas « Testimus — test head & Jira » (link in GOAL-JIRA.md).
 - [x] J5 Unit tests over the fake Jira, `tests/e2e/jira-side.spec.ts`
 - [ ] Live read-only check of the three reads (transitions, assignable search, comments) on a real project
 
+## Photos and videos as annexes — GOAL-MEDIA.md
+
+Design: the canvas « Testimus — photos & videos » (link in GOAL-MEDIA.md).
+
+- [x] M1 Batches of photos (2026-11-05): `doc.json.media`, `body.md` + `doc.md` assembled from it and each included
+      `media/<lot>/part.md`; the `media` group (`add`, `addFiles`, `removeFile`, `include`, `analyse`, `context`,
+      `remove`, `list`, `show`, one job kind `media`); jpg/png/webp → jpg ≤ 2000 px with EXIF orientation and date
+      (sharp, already shipped with transformers.js); Claude reads 20 photos a run (`claude/media.ts`, run kind
+      `media`) with the batch's context and the document's outline; `docs.add {media}`, `docs.convert {media}`;
+      `observed-only` in the mechanical check (unless the batch is a reference) and the rule in generate-tests,
+      check-test, fix-test; the batches in Documents (list, side panel, dialog, drop on an open document, Convert),
+      the annex in the contents and its « Observed » banner, « Observed » sources, annexes in the generation scope;
+      the fixture's batch (2 photos, not in the document), scripted Claude; `tests/unit/core/media/`,
+      `tests/e2e/media.spec.ts`, the `media` scenario of the screens catalogue
+- [ ] The `observed` token (teal) proposed by the canvas: M1 uses the `info` tokens until design/ has it
+- [ ] M2 — the conversion leans on the ticked photos; M3–M6 — videos, sound, the player
+
 ## Later
 
 - Execution support: test sheets for testers, screenshots from R4 runs, NOK → bug draft

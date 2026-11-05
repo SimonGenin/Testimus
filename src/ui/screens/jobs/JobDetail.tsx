@@ -68,6 +68,7 @@ const CLI: Record<string, string> = {
   claude: "testimus claude run",
   chat: "testimus chat ask",
   "describe-figures": "testimus docs describe-figures",
+  media: "testimus media",
   "actions.triage": "testimus actions triage",
 };
 
@@ -92,6 +93,12 @@ const RESULTS: Record<string, { screen: Screen; one: string; many: string; of: (
     of: (r) => [...one(r.id), ...ids(r.added, "id")],
   },
   "docs.convert": { screen: "documents", one: "Open the document", many: "Open the documents", of: (r) => one(r.id) },
+  media: {
+    screen: "documents",
+    one: "Open the document",
+    many: "Open the documents",
+    of: (_r, j) => one(j.subject.split(" · ")[0]),
+  },
   "describe-figures": {
     screen: "documents",
     one: "Open the document",

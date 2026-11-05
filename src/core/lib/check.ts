@@ -8,6 +8,7 @@ import { refInfo } from "../rag/related.ts";
 import type { CheckFile, CitingTest, DocJson, Finding, Step, Test } from "../types.ts";
 import { stepColumns } from "./columns.ts";
 import { findDoc } from "./docs.ts";
+import { lotOfAnchor } from "./media.ts";
 import { writeJson } from "./project.ts";
 import { readCheck, readTest, testDir, testExists, testsDir } from "./store.ts";
 import { hasRawEmbed } from "./test-blocks.ts";
@@ -290,6 +291,23 @@ export function mechanicalFindings(test: Test, corpus: Corpus, linked: readonly 
           sources: [ref],
         });
     }
+    // ponytail: an annex says how to do a step (where to click, the exact labels), never what is expected — an expected
+    // result whose every source is an observation is told, unless the team said its batch is a reference
+    const backing = s.sources.filter((x) => !x.column && x.anchor);
+    const observed = backing.filter((x) => {
+      const lot = lotOfAnchor(normalizeAnchor(x.anchor));
+      return lot && !corpus.docs.get(x.docId)?.doc.media?.find((l) => l.id === lot)?.reference;
+    });
+    if (expected.trim() && backing.length && observed.length === backing.length) {
+      const refs = [...new Set(observed.map((x) => `${x.docId}#${normalizeAnchor(x.anchor)}`))];
+      add({
+        step,
+        kind: "observed-only",
+        severity: "warning",
+        message: `Step ${step}: its expected result rests only on ${andList(refs)}, photos of the real system — they show what it does, not what it must do. Cite the passage of the document that specifies the result (keep the annex for how to do the step), or mark the batch as a reference in Documents when the team says it is one.`,
+        sources: refs,
+      });
+    }
     const bare = linked.filter(
       (name) => cellOf(s, name).trim() && !s.sources.some((x) => x.column && sameName(x.column, name)),
     );
@@ -386,7 +404,11 @@ export function runMechanical(project: string, id: string, corpus?: Corpus): Che
 }
 
 // ponytail: a source names a document by its id or by its code — loadCorpus answers both, so both count
-export function testsCiting(project: string, doc: { id: string; code?: string }): CitingTest[] {
+export function testsCiting(
+  project: string,
+  doc: { id: string; code?: string },
+  only: (anchor: string) => boolean = () => true,
+): CitingTest[] {
   const names = new Set([doc.id, doc.code].filter(Boolean));
   const dir = testsDir(project);
   const out: CitingTest[] = [];
@@ -398,7 +420,7 @@ export function testsCiting(project: string, doc: { id: string; code?: string })
     } catch {
       continue;
     }
-    const steps = test.steps.filter((s) => s.sources.some((x) => names.has(x.docId))).length;
+    const steps = test.steps.filter((s) => s.sources.some((x) => names.has(x.docId) && only(x.anchor ?? ""))).length;
     if (steps) out.push({ id: e.name, key: test.key, summary: test.summary, review: test.review, steps });
   }
   return out.sort((a, b) => a.id.localeCompare(b.id, "en", { numeric: true }));

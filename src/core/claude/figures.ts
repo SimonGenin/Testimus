@@ -72,7 +72,7 @@ export function figuresPrompt(
 
 const figKey = (k: string) => `fig:${k.trim().replace(/^fig[:\s]*/i, "")}`;
 
-function described(v: unknown): Described | null {
+export function described(v: unknown): Described | null {
   if (!v || typeof v !== "object") return null;
   const o = v as Record<string, unknown>;
   if (typeof o.description !== "string" || !o.description.trim()) return null;
@@ -89,25 +89,34 @@ function described(v: unknown): Described | null {
 
 // ponytail: a reply maps each anchor to { description, labels, kind }, as an object or a list of entries with their anchor
 export function parseFigures(text: string): Record<string, Described> {
+  return parseEntries(text, FIGURES_TAG, figKey, described);
+}
+
+// ponytail: the JSON of a reply keyed by anchor — the tagged block first, then any other block, then a bare object;
+// an entry is an object's value or a list item carrying its anchor
+export function parseEntries<T>(
+  text: string,
+  tag: string,
+  keyOf: (k: string) => string,
+  read: (v: unknown) => T | null,
+): Record<string, T> {
   const blocks = [...text.matchAll(/```[ \t]*([\w-]*)[^\n]*\n([\s\S]*?)```/g)];
-  const ordered = [...blocks.filter((b) => b[1] === FIGURES_TAG), ...blocks.filter((b) => b[1] !== FIGURES_TAG)].map(
-    (b) => b[2],
-  );
+  const ordered = [...blocks.filter((b) => b[1] === tag), ...blocks.filter((b) => b[1] !== tag)].map((b) => b[2]);
   const bare = text.match(/\{[\s\S]*\}/)?.[0];
   if (bare) ordered.push(bare);
   for (const body of ordered) {
     try {
       const o = JSON.parse(body) as unknown;
-      const out: Record<string, Described> = {};
+      const out: Record<string, T> = {};
       if (Array.isArray(o)) {
         for (const e of o as Record<string, unknown>[]) {
-          const d = e && typeof e.anchor === "string" ? described(e) : null;
-          if (d) out[figKey(e.anchor as string)] = d;
+          const d = e && typeof e.anchor === "string" ? read(e) : null;
+          if (d) out[keyOf(e.anchor as string)] = d;
         }
       } else if (o && typeof o === "object")
         for (const [k, v] of Object.entries(o as Record<string, unknown>)) {
-          const d = described(v);
-          if (d) out[figKey(k)] = d;
+          const d = read(v);
+          if (d) out[keyOf(k)] = d;
         }
       if (Object.keys(out).length) return out;
     } catch {}
@@ -129,7 +138,9 @@ export async function describeFigures(
   const entries = readFigures(project, docId);
   const sections = parseSections(md);
   const all = docFigures(md, entries);
+  // ponytail: the photos of a batch are read by the batch's own analysis (claude/media.ts), with its context
   const todo: FigureTodo[] = all
+    .filter((f) => !f.anchor.startsWith("fig:lot-"))
     .filter((f) => f.file && (opts.anchors ? opts.anchors.includes(f.anchor) : opts.force || !f.description.trim()))
     .map((f) => ({
       anchor: f.anchor,
