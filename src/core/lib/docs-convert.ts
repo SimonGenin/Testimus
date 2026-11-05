@@ -2,7 +2,14 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from "node:f
 import { basename, dirname, extname, join, resolve, sep } from "node:path";
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
-import { anchorsOf, type Converted, type ConvertOpts, type Figure, guessFromName } from "../rag/convert.ts";
+import {
+  anchorsOf,
+  type Converted,
+  type ConvertOpts,
+  type Figure,
+  guessFromName,
+  wholeSection,
+} from "../rag/convert.ts";
 import { convertDocx } from "../rag/convert-docx.ts";
 import { convertPdf, pdfFigures } from "../rag/convert-pdf.ts";
 import { renderPage } from "../rag/pdf.ts";
@@ -18,6 +25,8 @@ type Progress = (message: string) => void;
 const stemOf = (doc: Pick<DocJson, "source">) => basename(doc.source.name, extname(doc.source.name));
 
 const copyOf = (dir: string, file: string) => ({ file, sha256: sha256(readFileSync(join(dir, file))) });
+
+const fromOf = (file: string) => (extname(file).toLowerCase() === ".docx" ? "docx" : "pdf");
 
 export async function convertSource(file: string, opts: ConvertOpts & { pdf?: string }): Promise<Converted> {
   const ext = extname(file).toLowerCase();
@@ -118,18 +127,20 @@ export async function addDoc(
       return doc;
     }
     progress(`Converting ${ext.slice(1)}`);
-    const c = await convertSource(target, {
+    const converted = await convertSource(target, {
       code: guess.code,
       pdf: existsSync(pdfTarget) && ext === ".docx" ? pdfTarget : undefined,
       signal,
     });
     if (signal?.aborted) throw new Error("Cancelled.");
+    const title = converted.meta.title || guess.code;
+    const c = wholeSection(converted, title || id, fromOf(target));
     progress("Writing doc.md and figures");
     const { stats } = writeConverted(dir, c);
     const doc: DocJson = {
       id,
       code: guess.code,
-      title: c.meta.title || guess.code,
+      title,
       version: guess.version,
       date: c.meta.date,
       kind: input.kind ?? "spec",
@@ -248,7 +259,7 @@ export async function reconvertDoc(
   const file = convertedCopy(project, doc);
   progress(`Converting ${basename(file)}`);
   const { crops, warnings } = await cropsOf(pdf, o.figures);
-  const c = await convertSource(file, {
+  const converted = await convertSource(file, {
     code: doc.code,
     pdf: extname(file).toLowerCase() === ".docx" && existsSync(pdf) ? pdf : undefined,
     reader: o.reader,
@@ -257,19 +268,21 @@ export async function reconvertDoc(
     signal,
   });
   if (signal?.aborted) throw new Error("Cancelled.");
-  const used = new Set(c.figures.map((f) => f.data));
+  const used = new Set(converted.figures.map((f) => f.data));
   for (const [key, crop] of crops)
     if (!used.has(crop.data))
       warnings.push(`Figure ${key}: drawn from the PDF page, but no caption of that number lacks a picture — unused`);
-  c.warnings.push(...warnings);
-  progress("Writing doc.md and figures");
-  const { stats } = writeConverted(dir, c);
+  converted.warnings.push(...warnings);
   // ponytail: a document added without conversion carries its file name as title until its first conversion
   // reads the real one; a title the team typed is kept
   const named = !isConverted(doc) && doc.title === stemOf(doc);
+  const title = named && converted.meta.title ? converted.meta.title : doc.title;
+  const c = wholeSection(converted, title || id, fromOf(file));
+  progress("Writing doc.md and figures");
+  const { stats } = writeConverted(dir, c);
   const next: DocJson = {
     ...doc,
-    ...(named && c.meta.title ? { title: c.meta.title } : {}),
+    title,
     date: doc.date || c.meta.date,
     source: { ...doc.source, sha256: sha256(readFileSync(source)) },
     ...(doc.twin && existsSync(join(dir, doc.twin.file)) ? { twin: copyOf(dir, doc.twin.file) } : {}),

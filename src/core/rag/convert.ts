@@ -104,6 +104,36 @@ export function anchorsOf(md: string): Anchors {
   return a;
 }
 
+const IMAGE_LINE = /^!\[[^\]]*\]\([^)]*\)(?: <!--[^>]*-->)?$/;
+const MARKER_LINE = /^(?:<!--(?:(?!-->)[\s\S])*-->\s*)+$/;
+
+// ponytail: a body in which the conversion recognised no heading becomes one section under the document's title — its
+// head line takes the anchor, a slug like any unnumbered heading (never lot-…, the annexes' prefix) — so its text is
+// shown, indexed and quotable; a body with no text (a scan) stays as it is. The next conversion with headings drops it
+export function wholeSection(c: Converted, title: string, from: "docx" | "pdf"): Converted {
+  const [head, ...rest] = c.md.split("\n");
+  if (!head.startsWith("# ") || anchorsOf(c.md).sections.length) return c;
+  const text = rest.some((l) => l.trim() && !IMAGE_LINE.test(l.trim()) && !MARKER_LINE.test(l.trim()));
+  if (!text) return c;
+  const base = slug(title);
+  const anchor = base.startsWith("lot-") ? `doc-${base}` : base;
+  const [why, fix] =
+    from === "docx"
+      ? [
+          " (no paragraph in a heading style)",
+          "Apply Word's heading styles (Heading 1, Titre 1…) and convert again to get sections.",
+        ]
+      : ["", "Add its .docx, or a PDF whose headings are numbered or tagged, and convert again to get sections."];
+  return {
+    ...c,
+    md: [`# ${title} <!-- § ${anchor} -->`, ...rest].join("\n"),
+    warnings: [
+      ...c.warnings,
+      `No heading recognised in the document${why}: all its text is one section « ${title} » (§${anchor}). ${fix}`,
+    ],
+  };
+}
+
 export function assemble(head: string, blocks: Block[]): string {
   return `${[head, ...blocks.map((b) => b.md)].join("\n\n")}\n`;
 }

@@ -331,6 +331,13 @@ docs/<docId>/
   - Markdown depth = number depth + 1 (`# <code> — <title>`, `## 1`, `#### 5.6.6`); anchors never depend
     on depth. A number written in the heading wins, else Word numbering is recomputed from levels; an
     unnumbered heading gets the slug of its title (`§annexe`), duplicates `-2`.
+  - A body in which the conversion recognises no heading (a Word file with no heading style, a PDF whose
+    headings are neither numbered nor tagged) is one section under the document's title: the head line becomes
+    `# <title> <!-- § <slug of the title> -->` (`doc-` in front when the slug would start with `lot-`, the
+    annexes' prefix), so the text is shown, indexed and quotable; `stats.sections` is 1 and a warning says to
+    apply heading styles and convert again. A body with no text (a scan) stays without a section. The next
+    conversion with headings drops that anchor, and a source citing it is `source-missing`. Text before the
+    first heading of a document that has headings is still in no section (title, version, date, history).
   - Figure keys: the caption number (`fig 40`), `-2` when a number repeats, `f<order>` without caption.
     A caption with no picture (RATP pasted Figures 22–42 of D401-1_3 as flat text) gets its anchor on
     the caption paragraph and a warning. `docs.add --pdf <file>` keeps the PDF rendering to recover
