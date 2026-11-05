@@ -237,7 +237,7 @@ export const SEVERITY: Record<Severity, Word> = {
 };
 
 export const SYNC = {
-  checking: { label: "Checking…", tone: "info", icon: "refresh" },
+  checking: { label: "Checking…", tone: "info", icon: "verify" },
   "in-sync": { label: "In sync", tone: "success", icon: "sync" },
   modified: { label: "Modified", tone: "warning", icon: "circle-dot", ink: "diffModified" },
   "changed-in-jira": { label: "Changed in Jira", tone: "warning", icon: "cloud" },

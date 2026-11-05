@@ -76,7 +76,7 @@ export function DoctorScreen() {
       >
         <Button
           variant="primary"
-          icon="refresh"
+          icon="verify"
           label={d.checking ? "Checking…" : "Check again"}
           loading={d.checking}
           onClick={d.again}

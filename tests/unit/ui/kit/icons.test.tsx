@@ -59,7 +59,7 @@ describe("the design's icons in the kit", () => {
     expect(screen.getByRole("status", { name: "Running" })).toBeInTheDocument();
   });
 
-  it("sync badges as the screens draw them: Checking… refresh, In sync sync, Modified circle-dot, Local only drive", () => {
+  it("sync badges as the screens draw them: Checking… verify, In sync sync, Modified circle-dot, Local only drive", () => {
     render(
       <>
         <Badge {...SYNC.checking} />
@@ -69,7 +69,7 @@ describe("the design's icons in the kit", () => {
         <Badge {...DIFF.modified} label="Step modified" />
       </>,
     );
-    expect(iconOf(screen.getByText("Checking…"))).toBe("refresh");
+    expect(iconOf(screen.getByText("Checking…"))).toBe("verify");
     expect(iconOf(screen.getByText("In sync"))).toBe("sync");
     expect(iconOf(screen.getByText("Modified"))).toBe("circle-dot");
     expect(iconOf(screen.getByText("Local only"))).toBe("drive");

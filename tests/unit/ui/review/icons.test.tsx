@@ -92,9 +92,9 @@ describe("Review › the design's icons", () => {
     expect(onShow).toHaveBeenLastCalledWith(false);
   });
 
-  it("« Check again » of a test changed since its check is refresh (n° 76)", () => {
+  it("« Check again » of a test changed since its check is verify (n° 76)", () => {
     render(<ReviewBanners {...banners({ checked: true, stale: true, onCheck: vi.fn() })} />);
-    expect(iconOf(screen.getByRole("button", { name: "Check again" }))).toBe("refresh");
+    expect(iconOf(screen.getByRole("button", { name: "Check again" }))).toBe("verify");
   });
 
   it("Claude fixing the test: a lock, and « Cancel the run » stops it (n° 81)", async () => {

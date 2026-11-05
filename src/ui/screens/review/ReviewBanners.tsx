@@ -103,7 +103,7 @@ export function ReviewBanners(p: BannersProps) {
           actions={
             <Button
               size="sm"
-              icon={p.checked ? "refresh" : "review"}
+              icon="verify"
               label={p.checked ? "Check again" : "Check"}
               loading={p.checking}
               onClick={p.onCheck}

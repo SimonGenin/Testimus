@@ -107,7 +107,7 @@ export function ClaudeProgram() {
         }
       />
       <div {...stylex.props(styles.row)}>
-        <Button size="sm" icon="refresh" label="Check" loading={checking} onClick={() => void check()} />
+        <Button size="sm" icon="verify" label="Check" loading={checking} onClick={() => void check()} />
         {checking ? (
           <span role="status" {...stylex.props(type.code, styles.line)}>
             Running claude --version…

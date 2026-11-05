@@ -178,7 +178,7 @@ export function ConnectClaude({
         <Button
           variant={look === "card" ? "secondary" : "primary"}
           size="sm"
-          icon="refresh"
+          icon="verify"
           label={checking ? "Checking…" : "Check again"}
           disabled={checking}
           onClick={onCheck}
