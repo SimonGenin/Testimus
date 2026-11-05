@@ -29,6 +29,7 @@ const h = vi.hoisted(() => {
     lock: true,
     dark: false,
     loadFileFails: false,
+    shortcut: null as { target: string; appUserModelId?: string } | null,
   };
   class FakeWindow extends Em {
     static all: FakeWindow[] = [];
@@ -123,7 +124,16 @@ const h = vi.hoisted(() => {
           on: vi.fn(),
         },
       },
-      shell: { openPath: vi.fn(async () => ""), openExternal: vi.fn(async () => {}), showItemInFolder: vi.fn() },
+      shell: {
+        openPath: vi.fn(async () => ""),
+        openExternal: vi.fn(async () => {}),
+        showItemInFolder: vi.fn(),
+        readShortcutLink: vi.fn((_p: string) => {
+          if (!cfg.shortcut) throw new Error("no shortcut");
+          return cfg.shortcut;
+        }),
+        writeShortcutLink: vi.fn((..._a: unknown[]) => true),
+      },
       Menu: { buildFromTemplate: (t: unknown) => ({ template: t }), setApplicationMenu: vi.fn() },
       ipcMain: {
         handle: (n: string, f: Fn) => {
@@ -289,7 +299,11 @@ const flush = async () => {
 };
 
 const boot = async (argv: string[] = [], over: Partial<typeof h.cfg> = {}) => {
-  Object.assign(h.cfg, { packaged: false, switches: [], lock: true, dark: false, loadFileFails: false }, over);
+  Object.assign(
+    h.cfg,
+    { packaged: false, switches: [], lock: true, dark: false, loadFileFails: false, shortcut: null },
+    over,
+  );
   h.e = h.build();
   h.FakeWindow.all = [];
   process.argv = [process.execPath, "main.mjs", ...argv];
@@ -391,11 +405,12 @@ describe("start", () => {
     });
     expect(w.opts.webPreferences.preload).toBe(join(DESKTOP, "preload.cjs"));
     expect(w.setMenuBarVisibility).toHaveBeenCalledWith(false);
-    expect(e.app.setAppUserModelId).toHaveBeenCalledWith("Testimus");
+    expect(e.app.setAppUserModelId).toHaveBeenCalledWith("Transurb.Testimus.Dev");
+    expect(e.shell.readShortcutLink).not.toHaveBeenCalled();
     expect(w.opts.icon).toBe(join(DESKTOP, "pages", "logo.png"));
     if (process.platform === "win32")
       expect(w.setAppDetails).toHaveBeenCalledWith({
-        appId: "Testimus",
+        appId: "Transurb.Testimus.Dev",
         appIconPath: join(DESKTOP, "pages", "testimus.ico"),
         relaunchCommand: `"${process.execPath}" "${join(DESKTOP, "main.mjs")}"`,
         relaunchDisplayName: "Testimus",
@@ -440,7 +455,7 @@ describe("start", () => {
     expect(win().opts.backgroundColor).toBe("#0e0e10");
     if (process.platform === "win32")
       expect(win().setAppDetails).toHaveBeenCalledWith({
-        appId: "Testimus",
+        appId: "Transurb.Testimus",
         appIconPath: process.execPath,
         relaunchCommand: `"${process.execPath}"`,
         relaunchDisplayName: "Testimus",
@@ -452,6 +467,21 @@ describe("start", () => {
     await flush();
     expect(logged()).toContain("core ready on http://127.0.0.1:5000/ (pid 4242, version ?)");
     expect(win().maximize).not.toHaveBeenCalled();
+  });
+
+  it("gives the installed Start-menu shortcut to this exe the app id, and leaves any other alone", async () => {
+    if (process.platform !== "win32") return;
+    const lnk = join(process.env.APPDATA ?? "", "Microsoft", "Windows", "Start Menu", "Programs", "Testimus.lnk");
+    const stamped = async (target: string, appUserModelId?: string) =>
+      (await boot([], { packaged: true, shortcut: { target, appUserModelId } })).shell.writeShortcutLink.mock.calls;
+    expect(await stamped(process.execPath.toUpperCase())).toEqual([
+      [lnk, "update", { target: process.execPath.toUpperCase(), appUserModelId: "Transurb.Testimus" }],
+    ]);
+    expect(h.e.app.setAppUserModelId).toHaveBeenCalledWith("Transurb.Testimus");
+    expect(await stamped(process.execPath, "Transurb.Testimus")).toEqual([]);
+    expect(await stamped("C:\\Other\\Testimus.exe")).toEqual([]);
+    await boot([], { packaged: true });
+    expect(logged()).toContain(`no Start-menu shortcut to stamp at ${lnk}`);
   });
 
   it("goes on when the splash or the error page fails to load", async () => {

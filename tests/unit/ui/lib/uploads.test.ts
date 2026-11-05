@@ -30,7 +30,6 @@ vi.mock("../../../../src/ui/lib/toast.ts", async (importOriginal) => {
 
 const {
   addDocFiles,
-  addDocPath,
   addDocPaths,
   convertDoc,
   dismissUpload,
@@ -284,7 +283,7 @@ describe("what the page starts", () => {
         release = r;
       });
     const h = current();
-    const pending = addDocPath("C:\\d\\G.docx", () => {});
+    const pending = addDocPaths(["C:\\d\\G.docx"], () => {});
     await waitFor(() => expect(h.result.current).toMatchObject([{ name: "G.docx", phase: "adding", job: "add" }]));
     jobs = [job({ id: "add-1", kind: "docs.add", subject: "G.docx", message: "Copying" })];
     const reads = callsOf("jobs.list").length;
@@ -376,7 +375,7 @@ describe("what the page starts", () => {
     };
     const h = current();
     const onDone = vi.fn();
-    await act(() => addDocPath("Plain.docx", onDone));
+    await act(() => addDocPaths(["Plain.docx"], onDone));
     expect(h.result.current.find((u) => u.name === "Plain.docx")).toMatchObject({
       phase: "failed",
       message: "not found",
@@ -437,7 +436,7 @@ describe("what the page starts", () => {
     let release: (v: unknown) => void = () => {};
     handlers["docs.addFiles"] = () => new Promise((r) => (release = r));
     const onDone = vi.fn();
-    const pending = addDocPath("C:\\d\\A.docx", onDone);
+    const pending = addDocPaths(["C:\\d\\A.docx"], onDone);
     await waitFor(() => expect(runs).toHaveLength(1));
     setProject("C:\\other");
     await act(async () => {
@@ -454,8 +453,8 @@ describe("what the page starts", () => {
       throw new Error("x");
     };
     const h = current();
-    await act(() => addDocPath("C:\\d\\one.docx", () => {}));
-    await act(() => addDocPath("C:\\d\\two.docx", () => {}));
+    await act(() => addDocPaths(["C:\\d\\one.docx"], () => {}));
+    await act(() => addDocPaths(["C:\\d\\two.docx"], () => {}));
     expect(h.result.current.map((u) => u.name)).toEqual(["one.docx", "two.docx"]);
     act(() => dismissUpload(h.result.current[0].key));
     expect(h.result.current.map((u) => u.name)).toEqual(["two.docx"]);

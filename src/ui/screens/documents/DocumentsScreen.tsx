@@ -14,9 +14,8 @@ import { invalidate, useRead } from "../../lib/data/query.ts";
 import { desktop, pickFiles } from "../../lib/desktop.ts";
 import { message } from "../../lib/format.ts";
 import { isPhoto } from "../../lib/media.ts";
-import { addDocFiles, addDocPath, addDocPaths, forgetSettled, settled, useUploads } from "../../lib/uploads.ts";
+import { addDocFiles, addDocPaths, forgetSettled, settled, useUploads } from "../../lib/uploads.ts";
 import { border, color, radius, space, z } from "../../styles/tokens.stylex.ts";
-import { AddPath } from "./AddPath.tsx";
 import { type PickedFile, pickedOf } from "./BatchFiles.tsx";
 import { DocDetail } from "./DocDetail.tsx";
 import { DocList } from "./DocList.tsx";
@@ -133,7 +132,6 @@ export function DocumentsScreen() {
   const [listOpen, setListOpen] = useState(false);
   const [drag, setDrag] = useState<"docs" | "photos" | false>(false);
   const [dropped, setDropped] = useState<PickedFile[] | null>(null);
-  const [askPath, setAskPath] = useState(false);
 
   const docs = list.data ? (Array.isArray(list.data) ? list.data : []) : list.isError ? [] : undefined;
   const wordsOnly = rag.data?.exists && rag.data.degraded ? wordsOnlyWhy(rag.data) : null;
@@ -224,7 +222,6 @@ export function DocumentsScreen() {
         crumbs={active ? [`${active.id} · ${active.title || active.id}`] : []}
         meta={busy ? `${busy} in progress` : undefined}
       >
-        <Button icon="folder-open" label="Add from a path…" onClick={() => setAskPath(true)} />
         {addButton()}
       </ScreenHeader>
       {list.isError && (
@@ -256,13 +253,8 @@ export function DocumentsScreen() {
           <EmptyState
             icon="documents"
             title="No document yet"
-            text="Add the specifications your tests come from: .docx (preferred) or .pdf. Drop files anywhere on this screen, pick them, or give a path on this PC or a synced share."
-            actions={
-              <>
-                {addButton(true)}
-                <Button size="lg" icon="folder-open" label="Add from a path…" onClick={() => setAskPath(true)} />
-              </>
-            }
+            text="Add the specifications your tests come from: .docx (preferred) or .pdf. Drop files anywhere on this screen or pick them."
+            actions={addButton(true)}
           />
         </div>
       ) : (
@@ -377,12 +369,6 @@ export function DocumentsScreen() {
         </div>
       )}
       {dropped && active && <NewBatch doc={active} files={dropped} onClose={() => setDropped(null)} />}
-      {askPath && (
-        <AddPath
-          onAdd={(p, pdf) => void (pdf ? addDocPaths([p, pdf], added) : addDocPath(p, added))}
-          onClose={() => setAskPath(false)}
-        />
-      )}
     </div>
   );
 }

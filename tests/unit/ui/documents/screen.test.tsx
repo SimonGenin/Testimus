@@ -40,8 +40,12 @@ const rows = () => within(listOf()).getAllByRole("option");
 const row = (text: string) => within(listOf()).getAllByText(text)[0].closest('[role="option"]') as HTMLElement;
 const zone = (c: HTMLElement) => c.querySelector('[data-testid="documents-screen"]') as HTMLElement;
 const veil = (c: HTMLElement) => c.querySelector('[data-testid="drop-veil"]');
-const pathDialog = () => screen.getByRole("dialog", { name: "Add a document from a path" });
-const addFromPath = () => fireEvent.click(screen.getByRole("button", { name: "Add from a path…" }));
+// ponytail: a file dropped in the desktop shell, so it goes by its path
+const dropFile = (c: HTMLElement, name: string) => {
+  window.testimusDesktop = { pathOf: (f: File) => `C:\\d\\${f.name}` } as never;
+  fireEvent.drop(zone(c), { dataTransfer: { files: [new File(["x"], name)] } });
+  delete window.testimusDesktop;
+};
 
 describe("Documents screen", () => {
   it("lists documents with fallbacks, selects from the route and navigates", async () => {
@@ -315,14 +319,13 @@ describe("Documents screen", () => {
     expect(await why({ embedding: "none", space: null })).toBe("This PC has no search pack yet");
   });
 
-  it("an empty project offers to add documents or a path", async () => {
+  it("an empty project offers to add documents, and no path to type", async () => {
     api.routes["docs.list"] = () => [];
     mountDocs(<DocumentsScreen />);
     await screen.findByText("No document yet");
     expect(screen.getByText(/\.docx \(preferred\) or \.pdf/)).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Add documents" })).toHaveLength(2);
-    fireEvent.click(screen.getAllByRole("button", { name: "Add from a path…" })[1]);
-    expect(pathDialog()).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /from a path/ })).toBeNull();
   });
 
   it("reloads when the index job ends, not for others", async () => {
@@ -402,9 +405,7 @@ describe("Documents screen", () => {
     setProject("C:\\A");
     const first = mountDocs(<DocumentsScreen />);
     await screen.findByText("Title D1");
-    addFromPath();
-    fireEvent.change(screen.getByLabelText("Path of the file"), { target: { value: "C:\\d\\spec.docx" } });
-    fireEvent.click(within(pathDialog()).getByRole("button", { name: "Add" }));
+    dropFile(first.container, "spec.docx");
     expect((await within(listOf()).findAllByText("spec.docx")).length).toBeGreaterThan(0);
     expect(screen.getByText(/1 in progress/)).toBeInTheDocument();
     first.unmount();
@@ -435,51 +436,14 @@ describe("Documents screen", () => {
     expect(await screen.findByText(/Adding a.txt stopped/)).toBeInTheDocument();
   });
 
-  it("adds from a path: cancel, Escape, then a quoted path", async () => {
-    api.routes["docs.list"] = () => [doc("D1")];
-    detail();
-    mountDocs(<DocumentsScreen />);
-    await screen.findByText("Title D1");
-    addFromPath();
-    fireEvent.click(within(pathDialog()).getByRole("button", { name: "Cancel" }));
-    expect(screen.queryByRole("dialog")).toBeNull();
-    addFromPath();
-    await waitFor(() => expect(screen.getByLabelText("Path of the file")).toHaveFocus());
-    fireEvent.keyDown(screen.getByLabelText("Path of the file"), { key: "Escape" });
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    addFromPath();
-    const add = within(pathDialog()).getByRole("button", { name: "Add" });
-    expect(add).toBeDisabled();
-    fireEvent.change(screen.getByLabelText("Path of the file"), { target: { value: ' "C:\\d\\spec.docx" ' } });
-    fireEvent.click(add);
-    await waitFor(() => expect(named("docs.addFiles")[0]?.input).toEqual({ files: [{ path: "C:\\d\\spec.docx" }] }));
-    expect(await screen.findByText(/Adding spec.docx stopped/)).toBeInTheDocument();
-    const r = row("spec.docx");
-    expect(within(r).getByText("Not added")).toBeInTheDocument();
-    expect(within(r).queryByRole("progressbar")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Dismiss spec.docx" }));
-    expect(within(listOf()).queryAllByText("spec.docx")).toHaveLength(0);
-    addFromPath();
-    fireEvent.change(screen.getByLabelText("Path of the file"), { target: { value: "C:\\d\\spec.docx" } });
-    fireEvent.change(screen.getByLabelText("Its PDF rendering (optional)"), { target: { value: "C:\\p\\spec.pdf" } });
-    fireEvent.click(within(pathDialog()).getByRole("button", { name: "Add" }));
-    await waitFor(() =>
-      expect(named("docs.addFiles")[1]?.input).toEqual({
-        files: [{ path: "C:\\d\\spec.docx" }, { path: "C:\\p\\spec.pdf" }],
-      }),
-    );
-  });
-
   it("adding a document only copies it, then opens it: no conversion, no index", async () => {
     api.routes["docs.list"] = () => [doc("D1")];
     detail();
     api.routes["docs.addFiles"] = () => ({ jobId: "add-1" });
     api.routes["jobs.show"] = (i) => ({ job: { id: i.id, kind: "x", subject: "", status: "running", startedAt: at } });
-    const { app: a } = mountDocs(<DocumentsScreen />);
+    const { app: a, container } = mountDocs(<DocumentsScreen />);
     await screen.findByText("Title D1");
-    addFromPath();
-    fireEvent.change(screen.getByLabelText("Path of the file"), { target: { value: "C:/n/new.pdf" } });
-    fireEvent.click(within(pathDialog()).getByRole("button", { name: "Add" }));
+    dropFile(container, "new.pdf");
     expect(await screen.findByRole("progressbar", { name: "Adding" })).toBeInTheDocument();
     expect(screen.getByText(/1 in progress/)).toBeInTheDocument();
     const r = row("new.pdf");
@@ -519,13 +483,9 @@ describe("Documents screen", () => {
       added = true;
       return { added: [{ id: d.id }], rejected: [] };
     };
-    const { app: a, unmount } = mountDocs(<DocumentsScreen />, { route: { screen: "documents" } });
+    const { app: a, unmount, container } = mountDocs(<DocumentsScreen />, { route: { screen: "documents" } });
     await screen.findByText("No document yet");
-    fireEvent.click(screen.getAllByRole("button", { name: "Add from a path…" })[1]);
-    fireEvent.change(screen.getByLabelText("Path of the file"), {
-      target: { value: "C:/docs/SOSIE_211_D401-1_5.docx" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+    dropFile(container, "SOSIE_211_D401-1_5.docx");
     await waitFor(() => expect(within(listOf()).getByText("Not converted")).toBeVisible());
     expect(a.navigate).toHaveBeenCalledWith("documents", d.id);
     expect(within(listOf()).queryByText(/stopped/)).not.toBeInTheDocument();
@@ -553,11 +513,9 @@ describe("Documents screen", () => {
     detail();
     api.routes["docs.addFiles"] = () => ({ jobId: "add-3" });
     api.routes["jobs.show"] = (i) => ({ job: { id: i.id, kind: "x", subject: "", status: "running", startedAt: at } });
-    const { app: a } = mountDocs(<DocumentsScreen />);
+    const { app: a, container } = mountDocs(<DocumentsScreen />);
     await screen.findByText("Older copy");
-    addFromPath();
-    fireEvent.change(screen.getByLabelText("Path of the file"), { target: { value: "C:\\n\\early.docx" } });
-    fireEvent.click(within(pathDialog()).getByRole("button", { name: "Add" }));
+    dropFile(container, "early.docx");
     await within(listOf()).findAllByText("early.docx");
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
     listed = true;

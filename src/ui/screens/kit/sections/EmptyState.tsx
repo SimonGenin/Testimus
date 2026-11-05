@@ -17,12 +17,7 @@ export const section: KitSection = {
           icon="documents"
           title="No document yet"
           text="Add the specifications your tests come from: .docx or .pdf."
-          actions={
-            <>
-              <Button variant="primary" icon="plus" label="Add documents" />
-              <Button label="Add from a path…" />
-            </>
-          }
+          actions={<Button variant="primary" icon="plus" label="Add documents" />}
         />
       </Cell>
       <Cell label="text only" column>

@@ -330,15 +330,6 @@ function fixtureShots(): Shot[] {
       },
     },
     {
-      id: "documents-add-path",
-      note: "Add a document from a path",
-      hash: "#/documents",
-      prep: async (p) => {
-        await tap(p, "Add from a path");
-        await dialog(p);
-      },
-    },
-    {
       id: "documents-drop-veil",
       note: "Files dragged over the documents",
       hash: "#/documents",

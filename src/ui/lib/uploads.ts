@@ -237,9 +237,6 @@ export const addDocPaths = (paths: string[], onDone: (docId?: string) => void) =
     onDone,
   );
 
-export const addDocPath = (path: string, onDone: (docId?: string) => void): Promise<void> =>
-  addDocs([{ name: path.split(/[\\/]/).pop() || path, path }], onDone);
-
 async function sourceOf(p: Picked): Promise<{ path: string } | { name: string; dataBase64: string }> {
   if (p.path) return { path: p.path };
   if (!p.file) throw new Error(`${p.name} could not be read.`);

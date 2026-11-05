@@ -41,9 +41,11 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const PAGES = join(HERE, "pages");
 const ERROR_PAGE = join(PAGES, "error.html");
 const LOGO = join(PAGES, "logo.png");
-const APP_ID = "Testimus";
 const SHELL_VERSION = __VERSION__;
 const packaged = app.isPackaged;
+// ponytail: an id of its own for the unpackaged shell — Windows remembers an id's taskbar icon, and electron.exe's
+// would otherwise come back on the installed app of a PC that also develops it
+const APP_ID = packaged ? "Transurb.Testimus" : "Transurb.Testimus.Dev";
 const exeDir = dirname(process.execPath);
 const repo = resolve(HERE, "..", "..");
 const isDir = (p: string) => {
@@ -299,8 +301,24 @@ function knownRoots(): Promise<string[]> {
     .catch(() => roots);
 }
 
+// ponytail: Windows draws the taskbar button, the pin and the toasts of an app id from the Start-menu shortcut that
+// carries it; install.ps1's shortcut to this exe gets the id here (WScript.Shell cannot write it)
+function stampShortcut(): void {
+  if (!packaged || process.platform !== "win32" || !process.env.APPDATA) return;
+  const lnk = join(process.env.APPDATA, "Microsoft", "Windows", "Start Menu", "Programs", "Testimus.lnk");
+  try {
+    const now = shell.readShortcutLink(lnk);
+    if (now.appUserModelId === APP_ID || resolve(now.target).toLowerCase() !== process.execPath.toLowerCase()) return;
+    if (!shell.writeShortcutLink(lnk, "update", { target: now.target, appUserModelId: APP_ID }))
+      log("shell", `could not stamp ${lnk}`);
+  } catch {
+    log("shell", `no Start-menu shortcut to stamp at ${lnk}`);
+  }
+}
+
 async function start(): Promise<void> {
   pruneLogs();
+  stampShortcut();
   log(
     "shell",
     `Testimus desktop ${SHELL_VERSION} (Electron ${process.versions.electron}) starting${args.mock ? " --mock" : ""}`,

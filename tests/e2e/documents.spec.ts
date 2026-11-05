@@ -64,16 +64,14 @@ test("a document's status change is saved", async ({ page }) => {
     .toContain('"status":"validated"');
 });
 
-test("a .docx added from a path is listed unconverted, then converted and indexed on demand", async ({ page }) => {
+test("a .docx added is listed unconverted, then converted and indexed on demand", async ({ page }) => {
   const dir = mkdtempSync(join(tmpdir(), "testimus-e2e-"));
   const file = join(dir, "SOSIE_211_D401-1_9.docx");
   writeFileSync(file, sampleDocx());
   await boot(page, "#/documents");
-  await page.getByRole("button", { name: "Add from a path" }).click();
-  const dialog = page.getByRole("dialog", { name: "Add a document from a path" });
-  await dialog.getByRole("textbox", { name: "Path of the file" }).fill(file);
-  await dialog.getByRole("button", { name: "Add" }).click();
-  await expect(dialog).toBeHidden();
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "Add documents" }).first().click();
+  await (await chooser).setFiles(file);
   const rows = page.getByRole("region", { name: "Document list" }).getByRole("option", { name: /SOSIE_/ });
   await expect(rows).toHaveCount(3, { timeout: 30_000 });
   const listed = JSON.stringify(await api(url, "docs.list"));
