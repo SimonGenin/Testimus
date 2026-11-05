@@ -19,6 +19,14 @@ export type DoctorOpts = {
 };
 
 const SETUP: DoctorAction = { label: "Connect Atlassian", command: "system.setCredentials" };
+// ponytail: Node's certificate codes (UNABLE_TO_VERIFY_LEAF_SIGNATURE, SELF_SIGNED_CERT_IN_CHAIN, CERT_HAS_EXPIRED…)
+// mean the service answered but its certificate is not trusted: a proxy that inspects HTTPS, not the network
+export function unreachableFix(m: string): string {
+  return /CERT|UNABLE_TO_(VERIFY|GET_ISSUER)/.test(m)
+    ? "The connection's certificate is not trusted: a company proxy that inspects HTTPS re-signs it. Testimus trusts the Windows certificates: ask IT to install the proxy's root certificate there, or set NODE_EXTRA_CA_CERTS to its .pem file, then restart Testimus."
+    : "Check the network or the proxy (HTTPS_PROXY).";
+}
+
 const SIGN_IN: DoctorAction = { label: "Check Claude sign-in", command: "system.doctor", input: { claude: true } };
 export function nodeCheck(version = process.version): DoctorCheck {
   const major = Number(version.replace(/^v/, "").split(".")[0]);
@@ -142,13 +150,7 @@ export async function jiraCheck(): Promise<DoctorCheck> {
         "Check the site in ~/.atlassian/credentials.json.",
         SETUP,
       );
-    return row(
-      "jira",
-      label,
-      "fail",
-      `${host} unreachable: ${message(e)}`,
-      "Check the network or the proxy (HTTPS_PROXY).",
-    );
+    return row("jira", label, "fail", `${host} unreachable: ${message(e)}`, unreachableFix(message(e)));
   }
 }
 
@@ -180,7 +182,7 @@ export async function xrayCheck(): Promise<DoctorCheck> {
         SETUP,
       );
     if (status) return row("xray", label, "fail", `Xray authentication failed (${status}) on ${host}`, "Retry later.");
-    return row("xray", label, "fail", `${host} unreachable: ${m}`, "Check the network or the proxy (HTTPS_PROXY).");
+    return row("xray", label, "fail", `${host} unreachable: ${m}`, unreachableFix(m));
   }
 }
 

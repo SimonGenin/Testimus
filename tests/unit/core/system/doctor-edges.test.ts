@@ -22,6 +22,7 @@ import {
   jiraCheck,
   onnxCheck,
   sqliteCheck,
+  unreachableFix,
   xrayCheck,
 } from "../../../../src/core/lib/doctor.ts";
 import { type ModelDeps, modelDeps, modelRows } from "../../../../src/core/lib/doctor-models.ts";
@@ -197,6 +198,22 @@ describe("jira and xray checks", () => {
       throw new Error("ETIMEDOUT");
     };
     expect((await xrayCheck()).detail).toBe("xray.cloud.getxray.app unreachable: ETIMEDOUT");
+    expect((await xrayCheck()).fix).toBe("Check the network or the proxy (HTTPS_PROXY).");
+    env.http = async () => {
+      throw new Error("fetch failed (UNABLE_TO_VERIFY_LEAF_SIGNATURE)");
+    };
+    expect((await xrayCheck()).fix).toMatch(/certificate is not trusted.*Windows certificates.*NODE_EXTRA_CA_CERTS/);
+  });
+
+  it("names a certificate the proxy re-signed, not the network", () => {
+    for (const code of [
+      "UNABLE_TO_VERIFY_LEAF_SIGNATURE",
+      "SELF_SIGNED_CERT_IN_CHAIN",
+      "UNABLE_TO_GET_ISSUER_CERT_LOCALLY",
+      "CERT_HAS_EXPIRED",
+    ])
+      expect(unreachableFix(`fetch failed (${code})`)).toMatch(/certificate is not trusted/);
+    expect(unreachableFix("fetch failed (ECONNREFUSED)")).toMatch(/HTTPS_PROXY/);
   });
 });
 

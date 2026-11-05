@@ -5,7 +5,7 @@ import { type Command, UserError } from "../core/command.ts";
 import { describe as describeCommand, find, invoke, registry } from "../core/commands/index.ts";
 import { listJobs, subscribe, waitJob } from "../core/jobs.ts";
 import { resolveProjectDir } from "../core/lib/project.ts";
-import { onStopSignals } from "../core/shell.ts";
+import { onStopSignals, trustSystemCertificates } from "../core/shell.ts";
 
 type Shape = Record<string, z.ZodType>;
 
@@ -268,6 +268,7 @@ function report(e: unknown): void {
   process.stderr.write(`${e instanceof Error ? e.message : String(e)}${fix}\n`);
 }
 
+trustSystemCertificates();
 main(process.argv.slice(2)).then(
   (code) => {
     if (code >= 0) process.exitCode = code;

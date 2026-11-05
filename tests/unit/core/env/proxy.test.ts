@@ -4,8 +4,9 @@ import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import tls from "node:tls";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { loopbackProxyGap } from "../../../../src/core/shell.ts";
+import { loopbackProxyGap, trustSystemCertificates } from "../../../../src/core/shell.ts";
 import { coreEnv } from "../../../../src/desktop/core.ts";
 import { withLoopback } from "../../../../src/shared/loopback.ts";
 
@@ -134,5 +135,35 @@ describe("NO_PROXY helpers", () => {
       /localhost, ::1/,
     );
     expect(loopbackProxyGap({ NODE_USE_ENV_PROXY: "1", HTTP_PROXY: "http://p:1", no_proxy: "*" })).toBeNull();
+  });
+});
+
+describe("certificates of a proxy that inspects HTTPS", () => {
+  it("adds the system's roots to Node's, once each, and leaves them alone when the system has none", () => {
+    let set: string[] | null = null;
+    const fake = (system: string[]) => ({
+      getCACertificates: (type?: string) => (type === "system" ? system : ["node", "corp"]),
+      setDefaultCACertificates: (certs: ReadonlyArray<string | NodeJS.ArrayBufferView>) => {
+        set = certs as string[];
+      },
+    });
+    expect(trustSystemCertificates(fake(["corp", "fortigate"]))).toBe(2);
+    expect(set).toEqual(["node", "corp", "fortigate"]);
+    set = null;
+    expect(trustSystemCertificates(fake([]))).toBe(0);
+    expect(set).toBeNull();
+  });
+
+  it("makes the real default store hold the Windows roots", () => {
+    const system = tls.getCACertificates("system");
+    trustSystemCertificates();
+    const all = new Set(tls.getCACertificates("default"));
+    expect(system.every((c) => all.has(c))).toBe(true);
+  });
+
+  it("starts the CLI with them", () => {
+    expect(readFileSync(join(import.meta.dirname, "../../../../src/faces/cli.ts"), "utf8")).toMatch(
+      /\ntrustSystemCertificates\(\);\nmain\(/,
+    );
   });
 });

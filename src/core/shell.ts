@@ -1,3 +1,4 @@
+import tls from "node:tls";
 import { LOOPBACK } from "../shared/loopback.ts";
 import { killChildren } from "../shared/run/process.ts";
 import { scope, sleep, timeout } from "../shared/run/work.ts";
@@ -32,6 +33,15 @@ export function loopbackProxyGap(vars: NodeJS.ProcessEnv = process.env): string 
   return missing.length
     ? `NO_PROXY does not list ${missing.join(", ")}: calls to the local model servers go to the proxy`
     : null;
+}
+
+// ponytail: a company proxy that inspects HTTPS re-signs the connection with a root IT put in the Windows store (a
+// FortiGate on xray.cloud.getxray.app at Transurb); Node trusts only its own roots unless told, so the core adds the
+// system's at start-up, whatever launched it (shortcut, testimus.cmd, npm, claude -p for mcp)
+export function trustSystemCertificates(t: Pick<typeof tls, "getCACertificates" | "setDefaultCACertificates"> = tls) {
+  const system = t.getCACertificates("system");
+  if (system.length) t.setDefaultCACertificates([...new Set([...t.getCACertificates("default"), ...system])]);
+  return system.length;
 }
 
 export type StopOpts = {
