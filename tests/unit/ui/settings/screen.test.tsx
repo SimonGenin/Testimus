@@ -46,7 +46,7 @@ describe("Settings screen", () => {
     expect(screen.queryByText("Models stub")).not.toBeInTheDocument();
   });
 
-  it("shows one section per page, Claude's cards listed under it while it is open", () => {
+  it("shows one section per page", () => {
     mountSettings(<SettingsScreen />, { route: { screen: "settings", arg: "models" } });
     expect(screen.getByText("Models stub")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { level: 2 })).toBeNull();
@@ -104,39 +104,28 @@ describe("Settings screen", () => {
   });
 });
 
-describe("Settings › Models' own sub-menu", () => {
-  it("lists This machine, Models folder, Packs and Model catalog under Models while it is open", () => {
-    const { app: state } = mountSettings(<SettingsScreen />, { route: { screen: "settings", arg: "models" } });
-    expect(option("This machine")).toHaveAttribute("aria-selected", "true");
-    for (const entry of ["Models folder", "Packs", "Model catalog"]) expect(option(entry)).toBeInTheDocument();
-    expect(within(nav()).queryByRole("option", { name: "Connection" })).toBeNull();
-    fireEvent.click(option("Model catalog"));
-    expect(state.navigate).toHaveBeenLastCalledWith("settings", "models-catalog");
-    fireEvent.click(option("This machine"));
-    expect(state.navigate).toHaveBeenLastCalledWith("settings", "models");
-  });
-
-  it("#/settings/models-packs marks Packs; without a project Packs says it needs one", () => {
+describe("Settings › the list names the sections only", () => {
+  it("lists no card under an open section: Models stays the one marked", () => {
     mountSettings(<SettingsScreen />, { route: { screen: "settings", arg: "models-packs" } });
-    expect(option("Packs")).toHaveAttribute("aria-selected", "true");
-    reset();
-    fakeNet();
-    mountSettings(<SettingsScreen />, { info: null, route: { screen: "settings", arg: "models" } });
-    expect(option("Packs needs a project")).toBeInTheDocument();
-    expect(option("This machine")).toHaveAttribute("aria-selected", "true");
+    expect(option("Models")).toHaveAttribute("aria-selected", "true");
+    for (const card of ["This machine", "Models folder", "Packs", "Model catalog"])
+      expect(within(nav()).queryByRole("option", { name: card })).toBeNull();
+    expect(within(nav()).getAllByRole("option")).toHaveLength(7);
   });
 
-  it("Claude's sub-menu is not listed under another section", () => {
+  it("lists no card under Claude either", () => {
     mountSettings(<SettingsScreen />, { route: { screen: "settings", arg: "claude" } });
-    expect(within(nav()).queryByRole("option", { name: "This machine" })).toBeNull();
+    expect(option("Claude")).toHaveAttribute("aria-selected", "true");
+    for (const card of ["Connection", "Claude dock", "Quick asks", "Contexts"])
+      expect(within(nav()).queryByRole("option", { name: card })).toBeNull();
   });
 });
 
 describe("Settings › anchors: #/settings/claude-dock, -quickasks, -contexts, a field (audit M-C3)", () => {
   for (const [arg, card, entry] of [
-    ["claude-dock", "Claude dock", "Claude dock"],
-    ["claude-quickasks", "Quick asks", "Quick asks"],
-    ["claude-contexts", "Contexts", "Contexts"],
+    ["claude-dock", "Claude dock", "Claude"],
+    ["claude-quickasks", "Quick asks", "Claude"],
+    ["claude-contexts", "Contexts", "Claude"],
   ] as const)
     it(`#/settings/${arg} opens the Claude section, marks « ${entry} » and scrolls to the « ${card} » card`, async () => {
       mountSettings(<SettingsScreen />, { route: { screen: "settings", arg } });
@@ -145,22 +134,18 @@ describe("Settings › anchors: #/settings/claude-dock, -quickasks, -contexts, a
       await waitFor(() => expect(scrolled.some((el) => el.contains(region))).toBe(true));
     });
 
-  it("#/settings/claude scrolls to the Connection to Claude card and marks Connection", () => {
+  it("#/settings/claude scrolls to the Connection to Claude card and marks Claude", () => {
     mountSettings(<SettingsScreen />, { route: { screen: "settings", arg: "claude" } });
-    expect(option("Connection")).toHaveAttribute("aria-selected", "true");
+    expect(option("Claude")).toHaveAttribute("aria-selected", "true");
     expect(scrolled[0]).toContainElement(screen.getByRole("region", { name: "Connection to Claude" }));
-    fireEvent.click(option("Connection"));
   });
 
-  it("without a project, Claude's project cards are listed as needing one, and the section says so", () => {
+  it("without a project, Claude works and its section says its project cards need one", () => {
     const { app: state } = mountSettings(<SettingsScreen />, {
       info: null,
       route: { screen: "settings", arg: "claude" },
     });
-    expect(option("Connection")).toBeInTheDocument();
-    expect(option("Claude dock needs a project")).toBeInTheDocument();
-    expect(option("Quick asks needs a project")).toBeInTheDocument();
-    expect(option("Contexts needs a project")).toBeInTheDocument();
+    expect(option("Claude")).toHaveAttribute("aria-selected", "true");
     expect(screen.getByText(/open one to set them/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Open a project…" }));
     expect(state.navigate).toHaveBeenCalledWith("setup", "project");
@@ -176,7 +161,7 @@ describe("Settings › anchors: #/settings/claude-dock, -quickasks, -contexts, a
     const at = vi.fn();
     Element.prototype.scrollIntoView = at;
     mountSettings(<SettingsScreen />, { info: null, route: { screen: "settings", arg: "claude-exe" } });
-    expect(option("Connection")).toHaveAttribute("aria-selected", "true");
+    expect(option("Claude")).toHaveAttribute("aria-selected", "true");
     expect(at).toHaveBeenCalledWith({ block: "center" });
     expect(screen.getByLabelText(/^Claude program/)).toHaveFocus();
   });
