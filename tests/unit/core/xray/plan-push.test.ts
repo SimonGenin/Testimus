@@ -412,4 +412,14 @@ describe("planPush, a folder Xray does not have yet", () => {
     const plan = await planPush(localTest({ key: "P-1", folder: "/Locked" }), "t1", remote([]), deps);
     await expect(plan.ops[0].run()).rejects.toThrow("permission to create folders");
   });
+
+  it("fails the plan on any other error Xray gives when it looks the folder up", async () => {
+    fake.route = (req, body) =>
+      req.url.endsWith("/graphql") && body.query.includes("getFolder")
+        ? ok({ errors: [{ message: "Project 10000 not found for this app." }] })
+        : undefined;
+    await expect(planPush(localTest({ key: "P-1", folder: "/X" }), "t1", remote([]), deps)).rejects.toThrow(
+      "Project 10000 not found",
+    );
+  });
 });

@@ -245,7 +245,8 @@ export function graphql(query: string, v: Record<string, any>): HttpRes {
     if (has("getFolder")) {
       const path = String(v.path || "/");
       const exists = path === "/" || folderNodeExists(path);
-      return json({ data: { getFolder: exists ? folderNode(path) : null } });
+      if (!exists) return gqlError(`Error getting folder: folder with path ${path} doesn't exist.`);
+      return json({ data: { getFolder: folderNode(path) } });
     }
     if (has("getTests")) {
       let list = [...s.tests.values()];

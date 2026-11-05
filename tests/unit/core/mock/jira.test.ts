@@ -284,11 +284,11 @@ describe("mock graphql queries", () => {
     expect(errorOf(await gqlBody("query{ nothing }"))).toBe("mock: unsupported GraphQL query");
   });
 
-  it("serves the root folder, an unknown one as null, and a folder known only through a test", async () => {
+  it("serves the root folder, refuses an unknown one as Xray does, and a folder known only through a test", async () => {
     expect((await gqlBody("query{ getFolder(projectId:$p,path:$x){ name } }")).data.getFolder.name).toBe("/");
-    expect(
-      (await gqlBody("query{ getFolder(projectId:$p,path:$x){ name } }", { path: "/Nope" })).data.getFolder,
-    ).toBeNull();
+    expect(errorOf(await gqlBody("query{ getFolder(projectId:$p,path:$x){ name } }", { path: "/Nope" }))).toBe(
+      "Error getting folder: folder with path /Nope doesn't exist.",
+    );
     await gqlBody("mutation{ createTest(jira:$j,folderPath:$f){ test { issueId } } }", {
       jira: { project: { key: "LFRPS12" }, summary: "S" },
       folder: "/Only/Here",

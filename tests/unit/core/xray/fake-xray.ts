@@ -60,7 +60,9 @@ export function fakeXray(): void {
         const data = (fake.graph(body.query, body.variables) ?? {}) as Record<string, unknown>;
         if (folderCheck({ body } as Call) && !("getFolder" in data)) {
           const path = body.variables.path;
-          data.getFolder = fake.missingFolders.includes(path) ? null : { path };
+          if (fake.missingFolders.includes(path))
+            return ok({ errors: [{ message: `Error getting folder: folder with path ${path} doesn't exist.` }] });
+          data.getFolder = { path };
         }
         return ok({ data });
       }

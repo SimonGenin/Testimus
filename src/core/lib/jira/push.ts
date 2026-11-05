@@ -199,8 +199,15 @@ export async function planPush(
     });
   };
 
-  const hasFolder = async (path: string) =>
-    !!(await gql<{ getFolder: unknown }>(HAS_FOLDER, { projectId: deps.project.id, path })).getFolder;
+  // ponytail: Xray answers a missing folder with an error (« folder with path /X doesn't exist »), not with null
+  const hasFolder = async (path: string) => {
+    try {
+      return !!(await gql<{ getFolder: unknown }>(HAS_FOLDER, { projectId: deps.project.id, path })).getFolder;
+    } catch (e) {
+      if (/does(n't| not) exist/i.test(String((e as Error).message))) return false;
+      throw e;
+    }
+  };
 
   // ponytail: Xray files a test only in a folder that exists — the missing levels of its path are created first, top
   // down; a level someone made between the plan and its run is left as it is

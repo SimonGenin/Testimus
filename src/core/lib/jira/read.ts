@@ -103,8 +103,11 @@ const toFolder = (f: RawFolder): Folder => {
 };
 
 export async function getFolderTree(projectId: string, path = "/"): Promise<Folder> {
-  const d = await gql<{ getFolder: RawFolder | null }>(GET_FOLDER, { projectId, path });
-  if (!d.getFolder) throw new Error(`Xray folder ${path} does not exist in this project.`);
+  const missing = new Error(`Xray folder ${path} does not exist in this project.`);
+  const d = await gql<{ getFolder: RawFolder | null }>(GET_FOLDER, { projectId, path }).catch((e: Error) => {
+    throw /does(n't| not) exist/i.test(e.message) ? missing : e;
+  });
+  if (!d.getFolder) throw missing;
   return toFolder(d.getFolder);
 }
 
