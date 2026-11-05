@@ -25,25 +25,50 @@ export function size(mb: number): string {
 
 const SYSTEM: Record<string, string> = { win32: "Windows", darwin: "macOS", linux: "Linux" };
 
-// ponytail: models.hardware lists the GPUs in the order models are placed on them, so the first is the core's mainGpu
+type Gpu = Hardware["gpus"][number];
+
+function gpuMemory(g: Gpu): string {
+  if (g.integrated) return ", integrated (uses the PC's memory)";
+  if (!g.vramTotalMB) return "";
+  return `, ${size(g.vramTotalMB)}${g.vramUsedMB !== null ? ` (${size(g.vramTotalMB - g.vramUsedMB)} free)` : ""}`;
+}
+
+// ponytail: models.hardware lists the GPUs in the order models are placed on them, so the first usable one is the
+// core's mainGpu
+export function mainGpuOf(hw: Hardware): Gpu | undefined {
+  return hw.gpus.find((g) => g.usable !== false);
+}
+
 export function machineSummary(hw: Hardware): string[] {
   const platform = hw.system?.platform ?? "win32";
-  const gpu = hw.gpus[0];
-  const vram = gpu?.integrated
-    ? ", integrated (uses the PC's memory)"
-    : gpu?.vramTotalMB
-      ? `, ${size(gpu.vramTotalMB)}${gpu.vramUsedMB !== null ? ` (${size(gpu.vramTotalMB - gpu.vramUsedMB)} free)` : ""}`
-      : "";
+  const gpu = mainGpuOf(hw);
   return [
     `${SYSTEM[platform] ?? platform}${hw.system ? ` · ${hw.system.arch}` : ""}`,
     `${hw.cpu.model}, ${hw.cpu.threads} threads`,
     `${size(hw.ramTotalMB)} of memory, ${size(hw.ramFreeMB)} free`,
     gpu
-      ? `${gpu.name}${vram}`
-      : platform === "win32"
+      ? `${gpu.name}${gpuMemory(gpu)}`
+      : platform === "win32" && !hw.gpus.length
         ? "No GPU found: search runs on the processor"
         : "No GPU Testimus can use here: search runs on the processor",
   ];
+}
+
+// Every graphics adapter with what Testimus does with it: the one the models run on, the others and why they are not
+export function gpuFacts(hw: Hardware): { label: string; value: string }[] {
+  const main = mainGpuOf(hw);
+  if (!hw.gpus.length) return [{ label: "GPU", value: machineSummary(hw)[3] }];
+  const rows = hw.gpus.map((g) => ({
+    label: g === main ? "GPU" : "Other GPU",
+    value: `${g.name}${gpuMemory(g)} — ${
+      g === main
+        ? "the models run on it"
+        : g.usable === false
+          ? "not used: slower than the processor for models"
+          : "not used while the GPU above is there"
+    }`,
+  }));
+  return main ? rows : [{ label: "GPU", value: machineSummary(hw)[3] }, ...rows];
 }
 
 export const FIT: Record<FitVerdict, { tone: BadgeTone; icon: IconName; word: string }> = {

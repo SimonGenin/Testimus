@@ -146,8 +146,12 @@ function base(b: Base = {}) {
   net.routes["rag.status"] = () => b.status ?? { embedding: "emb-s", reranker: null, activation: "light" };
   net.routes["models.dirs"] = () => ({ dir, runtimesDir: null });
   net.routes["models.hardware"] = () => ({
+    at: "2026-11-05T10:00:00.000Z",
     ramTotalMB: 16000,
+    ramFreeMB: 9000,
+    cpu: { model: "Intel(R) Core(TM) i5-1145G7", threads: 8 },
     gpus: [],
+    loaded: [],
     drives: [
       { root: "C:\\", freeMB: 5000, totalMB: 100000 },
       { root: "D:\\", freeMB: 655360, totalMB: 1900000 },

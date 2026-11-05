@@ -59,19 +59,29 @@ const SECTIONS: Page[] = [
   { id: "appearance", label: "Appearance", icon: "sun", page: AppearanceSection, needsProject: false },
 ];
 
-const CLAUDE_CARDS = [
-  { id: "claude-connection", label: "Connection", needsProject: false },
-  { id: "claude-dock", label: "Claude dock", needsProject: true },
-  { id: "claude-quickasks", label: "Quick asks", needsProject: true },
-  { id: "claude-contexts", label: "Contexts", needsProject: true },
-];
+// ponytail: the cards a section lists under itself while it is open; the first one is the section's top
+const CARDS: Record<string, { id: string; label: string; needsProject: boolean }[]> = {
+  claude: [
+    { id: "claude-connection", label: "Connection", needsProject: false },
+    { id: "claude-dock", label: "Claude dock", needsProject: true },
+    { id: "claude-quickasks", label: "Quick asks", needsProject: true },
+    { id: "claude-contexts", label: "Contexts", needsProject: true },
+  ],
+  models: [
+    { id: "models-machine", label: "This machine", needsProject: false },
+    { id: "models-folder", label: "Models folder", needsProject: false },
+    { id: "models-packs", label: "Packs", needsProject: true },
+    { id: "models-catalog", label: "Model catalog", needsProject: false },
+  ],
+};
+const FIRST_CARDS = new Set(Object.values(CARDS).map((c) => c[0].id));
 
 type Entry = { id: string; label: string; icon?: IconName; depth: number; waits?: boolean };
 
 const NAV = { min: 160, max: 360, initial: 240 };
 
 // ponytail: one page per section; #/settings/<section>[-<card>] opens the section and scrolls to the card (a field id
-// is focused); Claude's cards are listed under it while it is open
+// is focused); a section's CARDS are listed under it while it is open
 export function SettingsScreen() {
   const app = useApp();
   const nav = usePaneWidth("settingsNavWidth", NAV);
@@ -101,15 +111,15 @@ export function SettingsScreen() {
   }, [arg]);
 
   const entries: Entry[] = SECTIONS.flatMap((s) =>
-    s.id === "claude" && section.id === "claude"
+    CARDS[s.id] && section.id === s.id
       ? [
           { ...s, depth: 0 },
-          ...CLAUDE_CARDS.map((c) => ({ ...c, depth: 1, icon: undefined, waits: !hasProject && c.needsProject })),
+          ...CARDS[s.id].map((c) => ({ ...c, depth: 1, icon: undefined, waits: !hasProject && c.needsProject })),
         ]
       : [{ ...s, depth: 0, waits: !hasProject && s.needsProject }],
   );
-  const current =
-    section.id !== "claude" ? section.id : (CLAUDE_CARDS.find((c) => c.id === arg)?.id ?? "claude-connection");
+  const cards = CARDS[section.id];
+  const current = cards ? (cards.find((c) => c.id === arg)?.id ?? cards[0].id) : section.id;
   return (
     <div {...stylex.props(styles.screen)}>
       <ScreenHeader
@@ -133,7 +143,7 @@ export function SettingsScreen() {
             items={entries}
             getKey={(e) => e.id}
             selected={current}
-            onSelect={(id) => app.navigate("settings", id === "claude-connection" ? "claude" : id)}
+            onSelect={(id) => app.navigate("settings", FIRST_CARDS.has(id) ? id.split("-")[0] : id)}
             renderItem={(e) => ({
               title: e.waits ? <span {...stylex.props(styles.waits)}>{e.label}</span> : e.label,
               depth: e.depth,

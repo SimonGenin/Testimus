@@ -104,6 +104,34 @@ describe("Settings screen", () => {
   });
 });
 
+describe("Settings › Models' own sub-menu", () => {
+  it("lists This machine, Models folder, Packs and Model catalog under Models while it is open", () => {
+    const { app: state } = mountSettings(<SettingsScreen />, { route: { screen: "settings", arg: "models" } });
+    expect(option("This machine")).toHaveAttribute("aria-selected", "true");
+    for (const entry of ["Models folder", "Packs", "Model catalog"]) expect(option(entry)).toBeInTheDocument();
+    expect(within(nav()).queryByRole("option", { name: "Connection" })).toBeNull();
+    fireEvent.click(option("Model catalog"));
+    expect(state.navigate).toHaveBeenLastCalledWith("settings", "models-catalog");
+    fireEvent.click(option("This machine"));
+    expect(state.navigate).toHaveBeenLastCalledWith("settings", "models");
+  });
+
+  it("#/settings/models-packs marks Packs; without a project Packs says it needs one", () => {
+    mountSettings(<SettingsScreen />, { route: { screen: "settings", arg: "models-packs" } });
+    expect(option("Packs")).toHaveAttribute("aria-selected", "true");
+    reset();
+    fakeNet();
+    mountSettings(<SettingsScreen />, { info: null, route: { screen: "settings", arg: "models" } });
+    expect(option("Packs needs a project")).toBeInTheDocument();
+    expect(option("This machine")).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("Claude's sub-menu is not listed under another section", () => {
+    mountSettings(<SettingsScreen />, { route: { screen: "settings", arg: "claude" } });
+    expect(within(nav()).queryByRole("option", { name: "This machine" })).toBeNull();
+  });
+});
+
 describe("Settings › anchors: #/settings/claude-dock, -quickasks, -contexts, a field (audit M-C3)", () => {
   for (const [arg, card, entry] of [
     ["claude-dock", "Claude dock", "Claude dock"],

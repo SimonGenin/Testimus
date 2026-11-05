@@ -278,7 +278,11 @@ describe("catalog, hardware, fit, pullRuntime", () => {
   });
 
   it("hardware returns the profile; fit takes one model or a pair", async () => {
-    expect(await invoke("models.hardware", {}, { project: null })).toEqual(devPc);
+    // the profile, each GPU saying whether it is integrated and whether models can run on it
+    expect(await invoke("models.hardware", {}, { project: null })).toEqual({
+      ...devPc,
+      gpus: devPc.gpus.map((g) => ({ ...g, integrated: false, usable: true })),
+    });
     const f = (await invoke(
       "models.fit",
       { embedding: "qwen3-embedding-8b-q8", reranker: "qwen3-reranker-4b-q8" },

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { command, UserError } from "../command.ts";
 import { fitOf } from "../lib/fit/verdict.ts";
-import { rankGpus } from "../lib/machine/gpus.ts";
+import { integrated, rankGpus, usable } from "../lib/machine/gpus.ts";
 import { machineProfile } from "../lib/machine/profile.ts";
 import { perfStats, readPerf } from "../lib/models-perf.ts";
 import { budgets } from "../lib/models-registry.ts";
@@ -51,6 +51,12 @@ export const commands = [
                 .boolean()
                 .optional()
                 .describe("An integrated GPU: it has no memory of its own and uses the PC's"),
+              usable: z
+                .boolean()
+                .optional()
+                .describe(
+                  "Models can run on it (false: a virtual adapter, or an Intel HD / UHD slower than the processor)",
+                ),
             })
             .describe("One graphics adapter"),
         )
@@ -81,7 +87,7 @@ export const commands = [
     global: true,
     run: async (_ctx, input) => {
       const p = await machineProfile({ refresh: input.refresh });
-      return { ...p, gpus: rankGpus(p.gpus) };
+      return { ...p, gpus: rankGpus(p.gpus).map((g) => ({ ...g, integrated: integrated(g), usable: usable(g) })) };
     },
   }),
   command({

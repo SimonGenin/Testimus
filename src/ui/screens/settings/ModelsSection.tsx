@@ -20,12 +20,13 @@ import { CustomCard } from "./models/CustomCard.tsx";
 import { onDrive, size } from "./models/data.ts";
 import { FitConfirm } from "./models/FitConfirm.tsx";
 import { FolderDialog } from "./models/FolderDialog.tsx";
+import { MachineCard } from "./models/MachineCard.tsx";
 import { ModelsTable } from "./models/ModelsTable.tsx";
 import { OpLine } from "./models/OpLine.tsx";
 import { MEASURE, type Op, packLabel, useOps } from "./models/ops.tsx";
 import { PackCard } from "./models/PackCard.tsx";
 import { PackPlanDialog } from "./models/PackPlanDialog.tsx";
-import { Hint, Section, Stack } from "./Section.tsx";
+import { Anchor, Hint, Section, Stack } from "./Section.tsx";
 
 const styles = stylex.create({
   plain: { margin: 0 },
@@ -111,141 +112,152 @@ export function ModelsSection() {
       intro="Search models run on this PC; documents never leave it. A pack picks the best models this PC can run; your colleagues choose their own."
     >
       {watchers}
-      <Card
-        title="Models folder"
-        actions={
-          <Button
-            size="sm"
-            label={dir === null ? "Choose…" : "Change…"}
-            disabled={busy || dir === undefined}
-            onClick={() => a.setFolder({ needMB: 0 })}
-          />
-        }
-      >
-        <Stack>
-          <span {...stylex.props(styles.folder)}>
-            <Icon name="folder" />
-            {dir === undefined ? (
-              <Skeleton width="40%" />
-            ) : dir ? (
-              <>
-                <span title={dir} {...stylex.props(type.code, styles.path)}>
-                  {dir}
-                </span>
-                {drive && (
-                  <span {...stylex.props(type.small, styles.muted)}>
-                    · {size(drive.freeMB)} free on {drive.root.replace(/[\\/]+$/, "") || drive.root}
-                  </span>
-                )}
-              </>
-            ) : (
-              <span {...stylex.props(type.small, styles.muted)}>
-                Not chosen yet — Testimus asks on the first download.
-              </span>
-            )}
-          </span>
-          {ops
-            .filter((o) => GLOBAL.includes(o.key))
-            .map((o) => (
-              <OpLine key={o.jobId} op={o} />
-            ))}
-        </Stack>
-      </Card>
-      {failed ? (
-        <Banner
-          tone="danger"
-          title="The models could not be read"
-          actions={<Button size="sm" icon="refresh" label="Try again" onClick={retry} />}
-        >
-          <span>{failed.message}</span>
-        </Banner>
-      ) : (
-        <>
-          {top && (
-            <AdviceBanner
-              advice={top}
-              label={label}
-              busy={packBusy}
-              onApply={() => a.applyAdvice(top)}
-              onDismiss={() => a.dismiss(top)}
+      <Anchor id="models-machine">
+        <MachineCard />
+      </Anchor>
+      <Anchor id="models-folder">
+        <Card
+          title="Models folder"
+          actions={
+            <Button
+              size="sm"
+              label={dir === null ? "Choose…" : "Change…"}
+              disabled={busy || dir === undefined}
+              onClick={() => a.setFolder({ needMB: 0 })}
             />
-          )}
-          {!hasProject ? (
-            <Hint>Open a project to choose its search pack. The models below are shared by every project.</Hint>
-          ) : !packs.data ? (
-            <div role="status" aria-busy="true" aria-label="Loading the packs" {...stylex.props(styles.packs)}>
-              {[0, 1, 2, 3, 4].map((i) => (
-                <Skeleton key={i} kind="block" />
+          }
+        >
+          <Stack>
+            <span {...stylex.props(styles.folder)}>
+              <Icon name="folder" />
+              {dir === undefined ? (
+                <Skeleton width="40%" />
+              ) : dir ? (
+                <>
+                  <span title={dir} {...stylex.props(type.code, styles.path)}>
+                    {dir}
+                  </span>
+                  {drive && (
+                    <span {...stylex.props(type.small, styles.muted)}>
+                      · {size(drive.freeMB)} free on {drive.root.replace(/[\\/]+$/, "") || drive.root}
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span {...stylex.props(type.small, styles.muted)}>
+                  Not chosen yet — Testimus asks on the first download.
+                </span>
+              )}
+            </span>
+            {ops
+              .filter((o) => GLOBAL.includes(o.key))
+              .map((o) => (
+                <OpLine key={o.jobId} op={o} />
               ))}
-            </div>
-          ) : (
-            <div {...stylex.props(styles.packs)}>
-              {packs.data.map((p) => (
-                <PackCard
-                  key={p.id}
-                  pack={p}
+          </Stack>
+        </Card>
+      </Anchor>
+      <Anchor id="models-packs">
+        {failed ? (
+          <Banner
+            tone="danger"
+            title="The models could not be read"
+            actions={<Button size="sm" icon="refresh" label="Try again" onClick={retry} />}
+          >
+            <span>{failed.message}</span>
+          </Banner>
+        ) : (
+          <>
+            {top && (
+              <AdviceBanner
+                advice={top}
+                label={label}
+                busy={packBusy}
+                onApply={() => a.applyAdvice(top)}
+                onDismiss={() => a.dismiss(top)}
+              />
+            )}
+            {!hasProject ? (
+              <Hint>Open a project to choose its search pack. The models below are shared by every project.</Hint>
+            ) : !packs.data ? (
+              <div role="status" aria-busy="true" aria-label="Loading the packs" {...stylex.props(styles.packs)}>
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <Skeleton key={i} kind="block" />
+                ))}
+              </div>
+            ) : (
+              <div {...stylex.props(styles.packs)}>
+                {packs.data.map((p) => (
+                  <PackCard
+                    key={p.id}
+                    pack={p}
+                    label={label}
+                    op={ops.find((o) => o.key === p.id) ?? null}
+                    measure={measuring(p.id)}
+                    busy={packBusy}
+                    onUse={() => a.choosePack(p)}
+                    onMeasure={() => {
+                      showBench(p.id);
+                      if (!measuring(p.id)) void a.measure(p);
+                    }}
+                  />
+                ))}
+                <CustomCard
+                  active={customActive}
+                  embedding={st && st.embedding !== "none" ? st.embedding : null}
+                  reranker={st?.reranker ?? null}
                   label={label}
-                  op={ops.find((o) => o.key === p.id) ?? null}
-                  measure={measuring(p.id)}
-                  busy={packBusy}
-                  onUse={() => a.choosePack(p)}
-                  onMeasure={() => {
-                    showBench(p.id);
-                    if (!measuring(p.id)) void a.measure(p);
+                  onChoose={() => {
+                    setOpen(true);
+                    requestAnimationFrame(() =>
+                      table.current?.scrollIntoView?.({ block: "start", behavior: "smooth" }),
+                    );
                   }}
                 />
-              ))}
-              <CustomCard
-                active={customActive}
-                embedding={st && st.embedding !== "none" ? st.embedding : null}
-                reranker={st?.reranker ?? null}
-                label={label}
-                onChoose={() => {
-                  setOpen(true);
-                  requestAnimationFrame(() => table.current?.scrollIntoView?.({ block: "start", behavior: "smooth" }));
-                }}
-              />
-            </div>
-          )}
-        </>
-      )}
-      <div ref={table}>
-        <Card footer={open && <AddFolder />}>
-          <Disclosure
-            summary="Model catalog"
-            open={open}
-            onOpenChange={setOpen}
-            meta={
-              catalog.data
-                ? `${catalog.data.length} in the catalog · ${installed.data?.length ?? 0} on this PC`
-                : catalog.isError
-                  ? "Could not be read"
-                  : "Loading the catalog"
-            }
-          >
-            {!catalog.data ? (
-              catalog.isError ? (
-                <Hint>The catalog could not be read: Try again above.</Hint>
-              ) : (
-                <Skeleton kind="block" />
-              )
-            ) : (
-              <ModelsTable
-                rows={catalog.data}
-                installed={installed.data ?? []}
-                inUse={inUse}
-                ops={ops}
-                busy={busy}
-                hasProject={hasProject}
-                onInstall={(r) => a.install(r)}
-                onUse={(r) => void a.chooseModel(r)}
-                onVerify={(r) => void a.verify(r)}
-                onRemove={(row, inst) => a.setRemoving({ row, inst })}
-              />
+              </div>
             )}
-          </Disclosure>
-        </Card>
-      </div>
+          </>
+        )}
+      </Anchor>
+      <Anchor id="models-catalog">
+        <div ref={table}>
+          <Card footer={open && <AddFolder />}>
+            <Disclosure
+              summary="Model catalog"
+              open={open}
+              onOpenChange={setOpen}
+              meta={
+                catalog.data
+                  ? `${catalog.data.length} in the catalog · ${installed.data?.length ?? 0} on this PC`
+                  : catalog.isError
+                    ? "Could not be read"
+                    : "Loading the catalog"
+              }
+            >
+              {!catalog.data ? (
+                catalog.isError ? (
+                  <Hint>The catalog could not be read: Try again above.</Hint>
+                ) : (
+                  <Skeleton kind="block" />
+                )
+              ) : (
+                <ModelsTable
+                  rows={catalog.data}
+                  installed={installed.data ?? []}
+                  inUse={inUse}
+                  ops={ops}
+                  busy={busy}
+                  hasProject={hasProject}
+                  onInstall={(r) => a.install(r)}
+                  onUse={(r) => void a.chooseModel(r)}
+                  onVerify={(r) => void a.verify(r)}
+                  onRemove={(row, inst) => a.setRemoving({ row, inst })}
+                />
+              )}
+            </Disclosure>
+          </Card>
+        </div>
+      </Anchor>
       {a.fitAsk && (
         <FitConfirm
           name={a.fitAsk.name}
