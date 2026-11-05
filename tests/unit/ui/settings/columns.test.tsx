@@ -133,15 +133,16 @@ describe("Settings › Smart columns", () => {
     mountSettings(<ColumnsSection />);
     const rows = within(await screen.findByRole("list", { name: "Smart columns" })).getAllByRole("listitem");
     expect(rows[0]).toHaveTextContent("Xray · standard");
-    expect(rows[2]).toHaveTextContent("New in Xray");
+    expect(rows[2]).toHaveTextContent("Xray · to describe");
     expect(rows[4]).toHaveTextContent("No longer in Xray");
-    expect(iconsIn(within(rows[2]).getByText("New in Xray")), "audit icons 104").toEqual(["alert-triangle"]);
+    expect(iconsIn(within(rows[2]).getByText("Xray · to describe")), "audit icons 104").toEqual(["alert-triangle"]);
     expect(iconsIn(within(rows[4]).getByText("No longer in Xray"))).toEqual(["alert-triangle"]);
     const fresh = within(rows[2])
-      .getByText(/^New in Xray: describe it/)
-      .closest('[role="alert"]');
-    expect(iconsIn(fresh), "audit icons 105: a compact warning banner").toEqual(["alert-triangle"]);
-    expect(screen.getByText("New in Xray, not described yet: Exigence")).toBeInTheDocument();
+      .getByText(/^Xray has this step field\. Write above what Claude puts in it/)
+      .closest('[role="alert"]') as HTMLElement;
+    expect(fresh).toHaveTextContent("Found in Xray, not described yet");
+    expect(iconsIn(fresh).slice(0, 1), "audit icons 105: a compact warning banner").toEqual(["alert-triangle"]);
+    expect(screen.getByText("Found in Xray, not described yet: Exigence")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Describe it" }));
     expect(screen.getByRole("textbox", { name: /^What Claude writes in Exigence/ })).toHaveFocus();
     expect(screen.getByText(/No longer in Xray, kept as local columns: Remarque\./)).toBeInTheDocument();
@@ -169,6 +170,26 @@ describe("Settings › Smart columns", () => {
         names: ["Action", "Expected Result", "Exigence", "Note", "Remarque"],
       }),
     );
+  });
+
+  it("leaves a column found in Xray empty: saved with no description, nothing left to describe", async () => {
+    project = info({}, { columns, fields });
+    net.routes["columns.save"] = () => {
+      project = {
+        ...project,
+        columns: project.columns.map((c) =>
+          (c as { name: string }).name === "Exigence" ? { ...(c as object), status: "ok" } : c,
+        ),
+      };
+      return [];
+    };
+    mountSettings(<ColumnsSection />);
+    await screen.findByRole("list", { name: "Smart columns" });
+    fireEvent.click(within(card("Exigence")).getByRole("button", { name: "Leave it empty" }));
+    await waitFor(() => expect(inputs("columns.save")[0]).toEqual({ name: "Exigence", description: "" }));
+    await waitFor(() => expect(card("Exigence")).not.toHaveTextContent("to describe"));
+    expect(screen.queryByText(/^Found in Xray, not described yet/)).toBeNull();
+    expect(card("Exigence")).toHaveTextContent("Xray");
   });
 
   it("moves a column down and puts the order back when it is refused", async () => {

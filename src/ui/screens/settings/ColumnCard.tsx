@@ -48,6 +48,8 @@ export type ColumnCardProps = {
   onReferenceSource: (on: boolean) => void;
   onMove: (by: number) => void;
   onRemove?: () => void;
+  /** a column found in Xray: saved with no description, so Claude never fills it and it is no longer to describe */
+  onLeaveEmpty?: () => void;
 };
 
 // ponytail: where the column comes from, in the kit's column vocabulary — a warning for what Xray changed, the drive
@@ -86,6 +88,7 @@ export function ColumnCard({
   onReferenceSource,
   onMove,
   onRemove,
+  onLeaveEmpty,
 }: ColumnCardProps) {
   const tag = kindBadge(c);
   const always = c.name === "Action" || c.name === "Expected Result";
@@ -98,7 +101,7 @@ export function ColumnCard({
             <Icon name="grip" />
           </span>
           {c.name}
-          <Badge label={tag.label} tone={tag.tone} icon={tag.icon} size="sm" />
+          <Badge label={tag.label} tone={tag.tone} icon={tag.icon} tooltip={tag.tooltip} size="sm" />
           {field?.required && (
             <Badge
               label="Required"
@@ -170,8 +173,13 @@ export function ColumnCard({
           {...description}
         />
         {c.status === "new" && (
-          <Banner tone="warning" compact>
-            New in Xray: describe it, or leave it empty and Claude never fills it.
+          <Banner
+            tone="warning"
+            compact
+            title="Found in Xray, not described yet"
+            actions={onLeaveEmpty && <Button size="sm" variant="quiet" label="Leave it empty" onClick={onLeaveEmpty} />}
+          >
+            Xray has this step field. Write above what Claude puts in it — or leave it empty: Claude never fills it.
           </Banner>
         )}
         {field?.disabled && <Note>Switched off in Xray: it stays folded unless a step holds something.</Note>}

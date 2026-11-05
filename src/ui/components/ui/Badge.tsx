@@ -214,7 +214,7 @@ export function Badge({
   return tooltip ? <Tooltip label={tooltip}>{badge}</Tooltip> : badge;
 }
 
-export type Word = { label: string; tone: BadgeTone; icon?: IconName; ink?: Ink };
+export type Word = { label: string; tone: BadgeTone; icon?: IconName; ink?: Ink; tooltip?: string };
 
 export type ReviewState = "draft" | "to-fix" | "validated";
 export type Severity = "error" | "warning" | "info";
@@ -253,7 +253,12 @@ export const COLUMN = {
   xray: { label: "Xray", tone: "neutral" },
   standard: { label: "Xray · standard", tone: "neutral" },
   local: SYNC.local,
-  "new-in-xray": { label: "New in Xray", tone: "warning", icon: "alert-triangle" },
+  "new-in-xray": {
+    label: "Xray · to describe",
+    tone: "warning",
+    icon: "alert-triangle",
+    tooltip: "A step field Testimus found in Xray. Claude fills it only once it is described.",
+  },
   gone: { label: "No longer in Xray", tone: "warning", icon: "alert-triangle" },
   "new-local": { label: "New local column", tone: "success", icon: "plus" },
 } as const satisfies Record<string, Word>;

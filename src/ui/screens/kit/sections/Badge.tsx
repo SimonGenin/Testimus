@@ -52,7 +52,7 @@ export const section: KitSection = {
     {
       head: "Vocabularies of the app",
       items: [
-        "`COLUMN` a step column's origin: Xray · Xray · standard · Local only (the sync word) · New in Xray · No longer in Xray · New local column.",
+        "`COLUMN` a step column's origin: Xray · Xray · standard · Local only (the sync word) · Xray · to describe (a field found in Xray, not described yet) · No longer in Xray · New local column.",
         "`DOC_STATUS` a document's status: Draft · Submitted · Validated.",
         "`HEALTH` a check of the System check: Failed · To do · OK · Not checked · Info.",
         "`jiraStatus(name)` a Jira status keeps Jira's word; done words are success, under-way words warning, the rest neutral, each with its icon.",

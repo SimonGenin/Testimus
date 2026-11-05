@@ -37,7 +37,7 @@ export function columnTag(c: StepColumn): Word {
 }
 
 export function ColumnsView({ columns, onEdit }: { columns: StepColumn[]; onEdit: () => void }) {
-  const fresh = columns.filter((c) => c.status === "new").length;
+  const fresh = columns.filter((c) => c.status === "new").map((c) => c.name);
   const filled = columns.filter((c) => c.description).length;
   return (
     <section aria-labelledby="gen-columns" {...stylex.props(styles.block)}>
@@ -51,10 +51,10 @@ export function ColumnsView({ columns, onEdit }: { columns: StepColumn[]; onEdit
         <span {...stylex.props(styles.grow)} />
         <Button size="sm" variant="quiet" icon="settings" label="Define the columns" onClick={onEdit} />
       </div>
-      {fresh > 0 && (
+      {fresh.length > 0 && (
         <Banner tone="warning" compact>
-          {fresh === 1 ? "A column" : `${fresh} columns`} came from Xray without a description — Claude leaves{" "}
-          {fresh === 1 ? "it" : "them"} empty until described.
+          Found in Xray, not described yet: {fresh.join(", ")} — Claude leaves {fresh.length === 1 ? "it" : "them"}{" "}
+          empty until described in « Define the columns ».
         </Banner>
       )}
       <Card padded={false}>

@@ -191,17 +191,19 @@ describe("Generate › smart columns", () => {
       />,
     );
     expect(screen.getByText("Xray · standard")).toBeInTheDocument();
-    expect(screen.getByText("New in Xray")).toBeInTheDocument();
+    expect(screen.getByText("Xray · to describe")).toBeInTheDocument();
     expect(screen.getByText("Local only")).toBeInTheDocument();
     expect(screen.getByText("No longer in Xray")).toBeInTheDocument();
     expect(
-      screen.getByText("New in Xray").closest("span")?.querySelector('[data-icon="alert-triangle"]'),
+      screen.getByText("Xray · to describe").closest("span")?.querySelector('[data-icon="alert-triangle"]'),
     ).not.toBeNull();
     expect(screen.getByText("Local only").closest("span")?.querySelector('[data-icon="drive"]')).not.toBeNull();
     expect(screen.getByText("What the step checks")).toBeInTheDocument();
     expect(screen.getByText("5 · 3 filled by Claude")).toBeInTheDocument();
     expect(screen.getAllByText("No description — Claude leaves it empty.")).toHaveLength(2);
-    expect(screen.getByRole("alert")).toHaveTextContent(/A column came from Xray without a description/);
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      /Found in Xray, not described yet: Version — Claude leaves it empty/,
+    );
     fireEvent.click(screen.getByRole("button", { name: "Define the columns" }));
     expect(onEdit).toHaveBeenCalled();
     cleanup();
@@ -214,7 +216,7 @@ describe("Generate › smart columns", () => {
         onEdit={onEdit}
       />,
     );
-    expect(screen.getByText(/2 columns came from Xray without a description — Claude leaves them/)).toBeInTheDocument();
+    expect(screen.getByText(/Found in Xray, not described yet: A, B — Claude leaves them/)).toBeInTheDocument();
     cleanup();
     render(<ColumnsView columns={[]} onEdit={onEdit} />);
     expect(

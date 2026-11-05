@@ -97,6 +97,19 @@ export function ColumnsSection() {
     });
   };
 
+  const leaveEmpty = (column: string) =>
+    void execute(
+      client,
+      "columns.save",
+      { name: column, description: "" },
+      {
+        invalidates: READS,
+        optimistic: patchColumns((cols) =>
+          cols.map((c) => (c.name === column ? { ...c, status: "ok", description: "" } : c)),
+        ),
+      },
+    ).catch((e) => errorToast(e, "Could not save the column"));
+
   const descriptionOf = (c: StepColumn) => {
     const saveKey: Key = [project(), "project.info", { column: c.name }];
     return {
@@ -172,14 +185,15 @@ export function ColumnsSection() {
       {(fresh.length > 0 || gone.length > 0) && (
         <Banner
           tone="warning"
-          title={fresh.length ? `New in Xray, not described yet: ${fresh.join(", ")}` : undefined}
+          title={fresh.length ? `Found in Xray, not described yet: ${fresh.join(", ")}` : undefined}
           actions={
             fresh.length > 0 ? (
               <Button size="sm" label="Describe it" onClick={() => focusColumn(fresh[0])} />
             ) : undefined
           }
         >
-          {fresh.length > 0 && "Claude never fills a column without a description. "}
+          {fresh.length > 0 &&
+            `Xray has ${fresh.length === 1 ? "this step field" : "these step fields"}: describe what Claude writes in ${fresh.length === 1 ? "it" : "each"}, or leave it empty and Claude never fills it. `}
           {gone.length > 0 && `No longer in Xray, kept as local columns: ${gone.join(", ")}.`}
         </Banner>
       )}
@@ -223,6 +237,7 @@ export function ColumnsSection() {
                   onReferenceSource={(on) => saveReference(c.name, on)}
                   onMove={(by) => move(c.name, i + by)}
                   onRemove={c.origin === "local" ? () => setRemoving(c) : undefined}
+                  onLeaveEmpty={() => leaveEmpty(c.name)}
                 />
               </li>
             );
