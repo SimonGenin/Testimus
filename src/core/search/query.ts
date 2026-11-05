@@ -35,14 +35,36 @@ export type Filters = {
   is?: Is[];
 };
 
+export type FilterKey = keyof Filters;
+
+/** a key:value of the query read as a filter — `known` false when its key is a filter's and its value is not one */
+export type Used = { token: string; key: FilterKey; value: string; known: boolean };
+
 export type Query = {
   raw: string;
   terms: string[];
   phrases: string[];
   exclude: string[];
   filters: Filters;
+  used: Used[];
   text: string;
 };
+
+const KEYS: Record<string, FilterKey> = {
+  in: "in",
+  kind: "in",
+  review: "review",
+  sync: "sync",
+  has: "has",
+  is: "is",
+  label: "label",
+  tag: "label",
+  folder: "folder",
+  dir: "folder",
+  doc: "doc",
+};
+
+export const keyOf = (word: string): FilterKey | undefined => KEYS[word.toLowerCase()];
 
 const REVIEW_WORDS: Record<string, Review> = {
   fix: "to-fix",
@@ -57,66 +79,75 @@ function add<K extends keyof Filters>(f: Filters, key: K, value: NonNullable<Fil
   if (!list.includes(value)) f[key] = [...list, value] as Filters[K];
 }
 
-function filter(f: Filters, key: string, value: string): boolean {
+/** the value a filter keeps for what was typed, or undefined when the key does not take it */
+export function filterValue(key: FilterKey, value: string): string | undefined {
   const v = value.toLowerCase();
-  if (!v) return false;
-  if (key === "in" || key === "kind") {
-    const kind = KIND_WORDS[v];
-    if (!kind) return false;
-    add(f, "in", kind);
-  } else if (key === "review") {
-    const r = REVIEW_WORDS[v] ?? REVIEWS.find((x) => x === v);
-    if (!r) return false;
-    add(f, "review", r);
-  } else if (key === "sync") {
-    const s = SYNCS.find((x) => x === v || x.startsWith(v));
-    if (!s) return false;
-    add(f, "sync", s);
-  } else if (key === "has") {
-    const h = HAS.find((x) => x === v || `${x}s` === v || x === `${v}s`);
-    if (!h) return false;
-    add(f, "has", h);
-  } else if (key === "is") {
-    const i = IS.find((x) => x === v);
-    if (!i) return false;
-    add(f, "is", i);
-  } else if (key === "label" || key === "tag") add(f, "label", v);
-  else if (key === "folder" || key === "dir") add(f, "folder", v.startsWith("/") ? v : `/${v}`);
-  else if (key === "doc") add(f, "doc", v);
-  else return false;
-  return true;
+  if (!v) return undefined;
+  if (key === "in") return KIND_WORDS[v];
+  if (key === "review") return REVIEW_WORDS[v] ?? REVIEWS.find((x) => x === v);
+  if (key === "sync") return SYNCS.find((x) => x === v || x.startsWith(v));
+  if (key === "has") return HAS.find((x) => x === v || `${x}s` === v || x === `${v}s`);
+  if (key === "is") return IS.find((x) => x === v);
+  if (key === "folder") return v.startsWith("/") ? v : `/${v}`;
+  return v;
 }
 
+/** what each key takes when it is a fixed list (the others take any label, folder or document id) */
+export const CHOICES: Partial<Record<FilterKey, readonly string[]>> = {
+  in: ["tests", "docs", "passages"],
+  review: REVIEWS,
+  sync: SYNCS,
+  has: HAS,
+  is: IS,
+};
+
 // ponytail: Google-like — words, "exact phrases", -excluded words and key:value filters; an unknown key:value
-// (an url, a code with a colon) stays text
+// (an url, a code with a colon) stays text, a filter's key with a value it does not take is reported (`known`
+// false) and left out, and a filter's key with no value yet (« label: ») is nothing
 export function parseQuery(raw: string): Query {
   const terms: string[] = [];
   const phrases: string[] = [];
   const exclude: string[] = [];
   const filters: Filters = {};
+  const used: Used[] = [];
   const text: string[] = [];
   for (const m of raw.matchAll(/(-?)(?:([\p{L}]+):)?(?:"([^"]*)"?|(\S+))/gu)) {
-    const [, neg, key, quoted, bare] = m;
+    const [token, neg, rawKey, quoted, bare] = m;
+    if (!rawKey && bare && /^\p{L}+:$/u.test(bare) && keyOf(bare.slice(0, -1))) continue;
+    const key = rawKey ? keyOf(rawKey) : undefined;
+    const typed = (quoted ?? bare).trim();
+    if (key && typed) {
+      const value = filterValue(key, typed);
+      if (value) add(filters, key, value as never);
+      const shown =
+        !value || CHOICES[key] ? (value ?? typed) : key === "folder" ? `/${typed.replace(/^\//, "")}` : typed;
+      used.push({ token, key, value: shown, known: !!value });
+      continue;
+    }
     if (quoted !== undefined) {
-      const p = quoted.trim();
-      if (!p) continue;
-      if (key && filter(filters, key, p)) continue;
-      if (neg) exclude.push(p);
+      if (!typed) continue;
+      if (neg) exclude.push(typed);
       else {
-        phrases.push(p);
-        text.push(p);
+        phrases.push(typed);
+        text.push(typed);
       }
       continue;
     }
-    if (key && filter(filters, key, bare)) continue;
-    const word = key ? `${key}:${bare}` : bare;
+    const word = rawKey ? `${rawKey}:${bare}` : bare;
     if (neg && word.length > 1) exclude.push(word);
     else if (!neg) {
       terms.push(word);
       text.push(word);
     }
   }
-  return { raw, terms, phrases, exclude, filters, text: text.join(" ") };
+  return { raw, terms, phrases, exclude, filters, used, text: text.join(" ") };
+}
+
+/** the filter being typed at the end of the query (« label:tra », « review: »), before its space */
+export function typing(raw: string): { token: string; key: FilterKey; value: string } | null {
+  const m = /(?:^|\s)(-?(\p{L}+):"?([^\s"]*))$/u.exec(raw);
+  const key = m && keyOf(m[2]);
+  return m && key ? { token: m[1], key, value: m[3] } : null;
 }
 
 export const wants = (q: Query, kind: SearchKind) => !q.filters.in?.length || q.filters.in.includes(kind);

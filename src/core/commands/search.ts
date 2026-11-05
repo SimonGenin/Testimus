@@ -67,6 +67,32 @@ export const commands = [
         .number()
         .describe("Tests without a vector yet, left out of the search by meaning: run search.index"),
       notes: z.array(z.string()).describe("What fell back and why"),
+      filters: z
+        .array(
+          z.object({
+            token: z.string().describe("The key:value as it is written in the query"),
+            key: z.string().describe("The filter: in, review, sync, has, is, label, folder or doc"),
+            value: z.string().describe("The value it keeps (to-fix, /Traction…), or as typed when not known"),
+            known: z.boolean().describe("false: the key is a filter's but the value is not one it takes (left out)"),
+          }),
+        )
+        .describe("The key:value filters read in the query"),
+      words: z.string().describe("The query without its filters: what was searched as words"),
+      suggest: z
+        .object({
+          token: z.string().describe("The key:value being typed at the end of the query"),
+          key: z.string().describe("Its filter"),
+          values: z
+            .array(
+              z.object({
+                value: z.string().describe("A value this filter takes that holds what is typed so far"),
+                count: z.number().optional().describe("How many tests it keeps (filters on tests)"),
+              }),
+            )
+            .describe("At most 8, the ones that keep the most tests first"),
+        })
+        .optional()
+        .describe("When the query ends with a filter being typed (« label: », « review:to »): what it can be"),
     }),
     mutates: false,
     positional: ["query"],

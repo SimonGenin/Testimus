@@ -40,6 +40,8 @@ const result = (hits: SearchMatch[], extra: Partial<SearchResult> = {}): SearchR
   meaning: "on",
   unembedded: 0,
   notes: [],
+  filters: [],
+  words: "",
   ...extra,
 });
 

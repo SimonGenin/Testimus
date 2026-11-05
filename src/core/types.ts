@@ -284,7 +284,16 @@ export type SearchResult = {
   meaning: "on" | "off" | "unavailable";
   unembedded: number;
   notes: string[];
+  /** the key:value filters the query holds, as typed (`known` false: a filter's key with a value it does not take) */
+  filters: SearchFilter[];
+  /** the query without its filters: what is left to read as words */
+  words: string;
+  /** the filter being typed at the end of the query, and the values it can take */
+  suggest?: SearchSuggest;
 };
+
+export type SearchFilter = { token: string; key: string; value: string; known: boolean };
+export type SearchSuggest = { token: string; key: string; values: { value: string; count?: number }[] };
 
 export type PassageOutlineItem = {
   anchor: string;

@@ -2,15 +2,38 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { parseQuery } from "../../../../src/core/search/query.ts";
+import { parseQuery, typing } from "../../../../src/core/search/query.ts";
 import { keepTest, type TestDoc, testsCorpus } from "../../../../src/core/search/tests.ts";
 import type { Step, Test } from "../../../../src/core/types.ts";
 
-describe("a filter with a value it does not know stays text", () => {
-  it("an unknown kind, sync, has or is, and an empty value, are searched as words", () => {
-    const q = parseQuery("in:nothing sync:zz has:colour is:odd review:");
+describe("a filter with a value it does not know is reported, not searched", () => {
+  it("an unknown kind, sync, has or is is left out and reported; a key with no value yet is nothing", () => {
+    const q = parseQuery("in:nothing sync:zz has:colour is:odd review: label: http:x");
     expect(q.filters).toEqual({});
-    expect(q.terms).toEqual(["in:nothing", "sync:zz", "has:colour", "is:odd", "review:"]);
+    expect(q.terms).toEqual(["http:x"]);
+    expect(q.used.map((u) => [u.token, u.known])).toEqual([
+      ["in:nothing", false],
+      ["sync:zz", false],
+      ["has:colour", false],
+      ["is:odd", false],
+    ]);
+  });
+
+  it("each filter read keeps its token as typed and the value it keeps", () => {
+    expect(parseQuery('Review:Fix -folder:"Mes tests" tag:x').used).toEqual([
+      { token: "Review:Fix", key: "review", value: "to-fix", known: true },
+      { token: '-folder:"Mes tests"', key: "folder", value: "/Mes tests", known: true },
+      { token: "tag:x", key: "label", value: "x", known: true },
+    ]);
+  });
+
+  it("typing: the filter at the end of the query, before its space", () => {
+    expect(typing("menu label:")).toEqual({ token: "label:", key: "label", value: "" });
+    expect(typing("review:to")).toEqual({ token: "review:to", key: "review", value: "to" });
+    expect(typing('dir:"Trac')).toEqual({ token: 'dir:"Trac', key: "folder", value: "Trac" });
+    expect(typing("label:x ")).toBeNull();
+    expect(typing("http:x")).toBeNull();
+    expect(typing("menu")).toBeNull();
   });
 
   it("an empty phrase is dropped, a quoted filter value is a filter, an excluded phrase is excluded", () => {

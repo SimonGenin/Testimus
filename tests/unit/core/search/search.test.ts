@@ -45,7 +45,7 @@ describe("parseQuery", () => {
     expect(q.text).toBe("menu fenêtre Propriétés ref:ABC_1");
   });
 
-  it("reads the other filters and their aliases, and keeps a filter with a bad value as text", () => {
+  it("reads the other filters and their aliases, and leaves out a filter with a bad value", () => {
     const q = parseQuery("in:passages in:docs sync:mod folder:Traction doc:sosie is:awaiting review:nope");
     expect(q.filters).toEqual({
       in: ["passage", "document"],
@@ -54,7 +54,8 @@ describe("parseQuery", () => {
       doc: ["sosie"],
       is: ["awaiting"],
     });
-    expect(q.terms).toEqual(["review:nope"]);
+    expect(q.terms).toEqual([]);
+    expect(q.used.at(-1)).toMatchObject({ token: "review:nope", key: "review", known: false });
   });
 });
 
@@ -161,6 +162,42 @@ describe("searchAll", () => {
     expect(r.order[0]).toBe("test");
     const none = await searchAll(dir, { query: "folder:/Signalisation has:key" });
     expect(none.hits).toEqual([]);
+  });
+
+  it("says which filters it read and what is left as words", async () => {
+    const r = await searchAll(dir, { query: "review:fix review:nope sectionneur", meaning: false });
+    expect(r.filters).toEqual([
+      { token: "review:fix", key: "review", value: "to-fix", known: true },
+      { token: "review:nope", key: "review", value: "nope", known: false },
+    ]);
+    expect(r.words).toBe("sectionneur");
+    expect(r.hits.map((h) => h.id)).toEqual(["local-3f9a12c0"]);
+    expect(r.suggest).toBeUndefined();
+  });
+
+  it("offers the values of the filter being typed, those that keep the most tests first", async () => {
+    const review = await searchAll(dir, { query: "review:", meaning: false });
+    expect(review.hits).toEqual([]);
+    expect(review.suggest).toEqual({
+      token: "review:",
+      key: "review",
+      values: [
+        { value: "draft", count: 1 },
+        { value: "to-fix", count: 1 },
+        { value: "validated", count: 1 },
+      ],
+    });
+    const folder = await searchAll(dir, { query: "menu dir:sect", meaning: false });
+    expect(folder.suggest).toEqual({
+      token: "dir:sect",
+      key: "folder",
+      values: [{ value: "/Traction/Sectionneurs", count: 2 }],
+    });
+    expect(folder.words).toBe("menu");
+    const docs = await searchAll(dir, { query: "doc:_4", meaning: false });
+    expect(docs.suggest?.values).toEqual([{ value: "SOSIE_211_D401-1_4" }]);
+    const labels = await searchAll(dir, { query: "label:", meaning: false });
+    expect(labels.suggest?.values).toEqual([]);
   });
 
   it("finds documents by code and passages by words once the index exists", async () => {

@@ -4,11 +4,13 @@ import type { SearchMatch } from "../../../core/types.ts";
 import { AppContext } from "../../lib/app.ts";
 import type { CommandInfo } from "../../lib/data/client.ts";
 import { useRead } from "../../lib/data/query.ts";
+import { plural } from "../../lib/format.ts";
 import { useSearch } from "../../lib/search.ts";
 import { border, color, space } from "../../styles/tokens.stylex.ts";
 import { Badge } from "../ui/Badge.tsx";
 import { Banner } from "../ui/Banner.tsx";
 import { Button } from "../ui/Button.tsx";
+import { Chip } from "../ui/Chip.tsx";
 import { EmptyState } from "../ui/EmptyState.tsx";
 import { Icon } from "../ui/Icon.tsx";
 import { Kbd } from "../ui/Kbd.tsx";
@@ -18,6 +20,7 @@ import { Skeleton } from "../ui/Skeleton.tsx";
 import { Spinner } from "../ui/Spinner.tsx";
 import { type Tab, Tabs } from "../ui/Tabs.tsx";
 import { Text } from "../ui/Text.tsx";
+import { type } from "../ui/type.ts";
 import { PaletteFoot } from "./PaletteFoot.tsx";
 import { entriesOf, filterEntries, type PaletteAction } from "./paletteEntries.tsx";
 import { type Group, paletteGroups, type Row, SCOPE_K, type Scope } from "./paletteGroups.tsx";
@@ -50,7 +53,18 @@ const styles = stylex.create({
   centred: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center" },
   loading: { display: "flex", flexDirection: "column", gap: space.s3, padding: space.s4 },
   enter: { display: "inline-flex", alignItems: "center", gap: space.s2 },
+  filters: {
+    display: "flex",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: space.s2,
+    paddingTop: space.s3,
+    color: color.textMuted,
+  },
 });
+
+const quote = (v: string) => (/\s/.test(v) ? `"${v}"` : v);
+const tidy = (s: string) => s.replace(/\s{2,}/g, " ").trimStart();
 
 const SCOPES: { id: Scope; label: string }[] = [
   { id: "all", label: "All" },
@@ -99,6 +113,17 @@ export function Palette({
     setScope(next);
     setAt(0);
   };
+  const inputId = `${id}-query`;
+  const write = (next: string) => {
+    setQuery(next);
+    setAt(0);
+    document.getElementById(inputId)?.focus();
+  };
+  const narrow = (key: string) => write(`${query && !/\s$/.test(query) ? `${query} ` : query}${key}`);
+  const suggest = searching && result?.suggest && query.endsWith(result.suggest.token) ? result.suggest : null;
+  const filters = (result?.filters ?? []).filter(
+    (f) => query.includes(f.token) && !(!f.known && f.token === suggest?.token),
+  );
 
   const groups: Group[] = paletteGroups({ q, scope, entries, commands, result, docs, searching, noProject, onHit }).map(
     (g) =>
@@ -117,8 +142,39 @@ export function Palette({
           }
         : g,
   );
+  if (suggest) {
+    const sg = suggest;
+    const head = query.slice(0, query.length - sg.token.length);
+    groups.unshift({
+      id: "filter",
+      title: `Filter by ${sg.key}`,
+      rows: sg.values.length
+        ? sg.values.map((v) => ({
+            id: `filter:${v.value}`,
+            stay: true,
+            run: () => write(`${head}${sg.key}:${quote(v.value)} `),
+            props: {
+              lead: <Icon name="filter" />,
+              title: `${sg.key}:${v.value}`,
+              trail: v.count === undefined ? undefined : plural(v.count, "test"),
+            },
+          }))
+        : [
+            {
+              id: "filter:none",
+              run: () => {},
+              off: true,
+              props: { lead: <Icon name="filter" />, title: `No ${sg.key} matches “${sg.token}”`, disabled: true },
+            },
+          ],
+    });
+  }
   const nothing = !!q && groups.length === 0;
-  const ask = q && onAsk ? q : "";
+  const words = [...filters.map((f) => f.token), ...(suggest ? [suggest.token] : [])]
+    .reduce((rest, token) => rest.replace(token, " "), q)
+    .replace(/\s+/g, " ")
+    .trim();
+  const ask = words && onAsk ? words : "";
   if (ask)
     groups.push({
       id: "ask",
@@ -239,6 +295,7 @@ export function Palette({
             setAt(0);
           }}
           ariaLabel="Search"
+          id={inputId}
           icon="search"
           placeholder={noProject ? "Run a command" : "Search tests, documents, passages — or run a command"}
           autoFocus
@@ -269,6 +326,21 @@ export function Palette({
             )
           }
         />
+        {filters.length > 0 && (
+          <div {...stylex.props(type.small, styles.filters)}>
+            Only
+            {filters.map((f) => (
+              <Chip
+                key={f.token}
+                label={f.known ? `${f.key}: ${f.value}` : `${f.key}: ${f.value} — not a ${f.key} value, left out`}
+                tone={f.known ? "neutral" : "warning"}
+                mono
+                onRemove={() => write(tidy(query.replace(f.token, "")))}
+                removeLabel={`Remove the filter ${f.token}`}
+              />
+            ))}
+          </div>
+        )}
       </div>
       {!noProject && (
         <div {...stylex.props(styles.kinds)}>
@@ -362,6 +434,7 @@ export function Palette({
         mode={noProject ? "none" : scope === "commands" ? "commands" : "search"}
         result={q ? result : null}
         searchingDeep={s.loading && !!result}
+        onNarrow={narrow}
       />
     </Modal>
   );

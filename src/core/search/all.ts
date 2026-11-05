@@ -11,6 +11,7 @@ import {
   type SearchMark,
   type SearchMatch,
   type SearchResult,
+  type SearchSuggest,
 } from "../types.ts";
 import {
   type Compiled,
@@ -27,7 +28,17 @@ import {
   snippet,
   termIn,
 } from "./match.ts";
-import { KINDS, parseQuery, type Query, testsOnly, wants } from "./query.ts";
+import {
+  CHOICES,
+  type FilterKey,
+  filterValue,
+  KINDS,
+  parseQuery,
+  type Query,
+  testsOnly,
+  typing,
+  wants,
+} from "./query.ts";
 import { keepTest, type TestDoc, testsCorpus } from "./tests.ts";
 import { nearestTests } from "./vectors.ts";
 
@@ -261,8 +272,47 @@ function orderOf(q: Query, found: Partial<Record<SearchKind, Found>>): SearchKin
   return first ? [first, ...KINDS.filter((x) => x !== first)] : [...KINDS];
 }
 
+const SUGGEST_MAX = 8;
+const TEST_KEYS: FilterKey[] = ["review", "sync", "has", "is", "label", "folder"];
+
+const ancestors = (folder: string) =>
+  folder
+    .split("/")
+    .filter(Boolean)
+    .map((_, i, parts) => `/${parts.slice(0, i + 1).join("/")}`);
+
+// ponytail: the values the filter being typed can take — a fixed list, or the project's own labels, folders and
+// documents — those that hold what is typed so far, each with how many tests it keeps
+function suggestFor(project: string, t: NonNullable<ReturnType<typeof typing>>): SearchSuggest {
+  const tests = TEST_KEYS.includes(t.key) ? testsCorpus(project).docs : [];
+  const values =
+    CHOICES[t.key] ??
+    (t.key === "label"
+      ? tests.flatMap((d) => d.test.labels)
+      : t.key === "folder"
+        ? tests.flatMap((d) => ancestors(d.test.folder || "/"))
+        : docIds(project));
+  const typed = foldKeep(t.value).replace(/^\//, "");
+  const counted = [...new Set(values)]
+    .filter((v) => foldKeep(v).includes(typed))
+    .map((value) => {
+      const kept = filterValue(t.key, value);
+      return TEST_KEYS.includes(t.key) && kept
+        ? { value, count: tests.filter((d) => keepTest(d, { [t.key]: [kept] })).length }
+        : { value };
+    });
+  if (TEST_KEYS.includes(t.key))
+    counted.sort((a, b) => (b.count ?? 0) - (a.count ?? 0) || a.value.localeCompare(b.value));
+  return { token: t.token, key: t.key, values: counted.slice(0, SUGGEST_MAX) };
+}
+
 export async function searchAll(project: string, input: SearchAllInput): Promise<SearchResult> {
   const q = parseQuery(input.query);
+  const typed = typing(input.query);
+  const words = [...q.used.map((u) => u.token), ...(typed ? [typed.token] : [])]
+    .reduce((s, token) => s.replace(token, " "), input.query)
+    .replace(/\s+/g, " ")
+    .trim();
   if (input.in?.length) q.filters.in = [...new Set([...(q.filters.in ?? []), ...input.in])];
   if (!q.filters.in?.length && testsOnly(q.filters)) q.filters.in = ["test"];
   const k = input.k ?? 8;
@@ -296,5 +346,8 @@ export async function searchAll(project: string, input: SearchAllInput): Promise
     meaning: !meaning ? "off" : found.test?.meaning === false && found.test.note ? "unavailable" : "on",
     unembedded: found.test?.unembedded ?? 0,
     notes,
+    filters: q.used.map(({ token, key, value, known }) => ({ token, key, value, known })),
+    words,
+    ...(typed ? { suggest: suggestFor(project, typed) } : {}),
   };
 }

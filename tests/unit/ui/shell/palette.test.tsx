@@ -61,6 +61,8 @@ const result = (hits: SearchMatch[], extra: Partial<SearchResult> = {}): SearchR
   meaning: "on",
   unembedded: 0,
   notes: [],
+  filters: [],
+  words: "",
   ...extra,
 });
 
@@ -351,6 +353,56 @@ describe("search palette", () => {
     expect(screen.getByRole("option", { name: /Traction/ })).toHaveTextContent(
       "version 01.01 · Validated · 6 sections · 1 figure",
     );
+  });
+
+  it("writes a filter from the foot, offers its values, shows the filters read and removes one", async () => {
+    net.routes["search.all"] = (i) => {
+      const q = String(i.query);
+      if (q.endsWith("review:"))
+        return result([], {
+          suggest: {
+            token: "review:",
+            key: "review",
+            values: [
+              { value: "to-fix", count: 1 },
+              { value: "draft", count: 0 },
+            ],
+          },
+        });
+      const filters = [
+        ...(q.includes("review:to-fix")
+          ? [{ token: "review:to-fix", key: "review", value: "to-fix", known: true }]
+          : []),
+        ...(q.includes("review:nope") ? [{ token: "review:nope", key: "review", value: "nope", known: false }] : []),
+      ];
+      return result([hit({})], { filters });
+    };
+    const onClose = vi.fn();
+    withData(
+      <Palette commands={[]} actions={[]} onCommand={() => {}} onHit={() => {}} onAsk={() => {}} onClose={onClose} />,
+    );
+    const box = screen.getByRole("combobox");
+    fireEvent.click(screen.getByRole("button", { name: "review:" }));
+    expect(box).toHaveValue("review:");
+    expect(box).toHaveFocus();
+    const group = await screen.findByRole("group", { name: "Filter by review" });
+    expect(
+      within(group)
+        .getAllByRole("option")
+        .map((o) => o.textContent),
+    ).toEqual([expect.stringContaining("review:to-fix1 test"), expect.stringContaining("review:draft0 tests")]);
+    expect(screen.queryByRole("option", { name: /Ask Claude/ })).toBeNull();
+    fireEvent.click(within(group).getAllByRole("option")[0]);
+    expect(box).toHaveValue("review:to-fix ");
+    expect(onClose).not.toHaveBeenCalled();
+    expect(await screen.findByText("review: to-fix")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Remove the filter review:to-fix" }));
+    expect(box).toHaveValue("");
+    fireEvent.change(box, { target: { value: "review:nope frein" } });
+    expect(await screen.findByText("review: nope — not a review value, left out")).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /Ask Claude/ })).toHaveTextContent("Ask Claude: “frein”");
+    fireEvent.click(screen.getByRole("button", { name: "label:" }));
+    expect(box).toHaveValue("review:nope frein label:");
   });
 
   it("hands a step to the editor once, for that test only", () => {
