@@ -570,7 +570,12 @@ export type Settings = {
   models: { allowRemote: boolean };
   agents?: { max?: number; adaptive?: boolean; measured?: AgentsMeasure };
   ui?: Record<string, string>;
-  rag?: { byProject?: Record<string, ActiveChoice>; budgets?: Partial<Budgets>; dismissed?: Record<string, string> };
+  rag?: {
+    byProject?: Record<string, ActiveChoice>;
+    budgets?: Partial<Budgets>;
+    dismissed?: Record<string, string>;
+    fitAccepted?: Record<string, FitVerdict>;
+  };
 };
 
 // Claude runs (SPEC §11)
@@ -739,6 +744,8 @@ export type DoctorCheck = {
   detail: string;
   fix?: string;
   action?: DoctorAction;
+  also?: DoctorAction;
+  caution?: string;
 };
 export type CredsStatus = {
   jira: {

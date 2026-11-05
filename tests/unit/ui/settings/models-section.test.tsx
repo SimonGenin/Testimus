@@ -502,6 +502,8 @@ describe("Settings › Models", () => {
     fireEvent.click(within(ask).getByRole("button", { name: "Use anyway" }));
     expect(await screen.findByRole("dialog", { name: "Use the Light pack" })).toBeInTheDocument();
     expect(calls("models.usePack").filter((c) => c.input.pack === "balanced")).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: "Use Light" }));
+    await waitFor(() => expect(inputs("models.usePack").at(-1)).toMatchObject({ pack: "light", accept: true }));
   });
 
   it("a pack made for a GPU that runs on the processor here asks first, though it fits", async () => {
@@ -712,7 +714,7 @@ describe("Settings › Models › the catalog", () => {
     const plan = await screen.findByRole("alertdialog", { name: "Use M tiny-bad for this project?" });
     fireEvent.click(within(plan).getByRole("button", { name: "Use M tiny-bad" }));
     expect(await screen.findByText("M tiny-bad in use for this project")).toBeInTheDocument();
-    expect(inputs("models.use").filter((c) => !c.dryRun)).toEqual([{ embedding: "tiny-bad" }]);
+    expect(inputs("models.use").filter((c) => !c.dryRun)).toEqual([{ embedding: "tiny-bad", accept: true }]);
   });
 
   it("verifies a model in a job: works, fails its check, cannot be verified", async () => {

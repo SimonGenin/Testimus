@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { command, projectOf, UserError } from "../command.ts";
+import { acceptable, modelsFit, rememberFit } from "../lib/doctor-models.ts";
 import { machineProfile } from "../lib/machine/profile.ts";
 import { packRows, suggestPack } from "../lib/models-packs.ts";
 import { readPerf } from "../lib/models-perf.ts";
@@ -24,6 +25,10 @@ export const commands = [
         .describe("Catalog id of the reranker, or null for none (default: the one in use)"),
       reference: z.boolean().default(false).describe("Also make it the team reference in project.json"),
       dryRun: z.boolean().default(false).describe("Only say whether it fits this PC and what would change"),
+      accept: z
+        .boolean()
+        .default(false)
+        .describe("« Use anyway » was chosen for a fit that is not « fits »: the system check counts it as accepted"),
     }),
     output: z.object({
       choice: z
@@ -122,6 +127,10 @@ export const commands = [
     input: z.object({
       pack: z.string().describe("light, performance, balanced, quality"),
       reference: z.boolean().default(false).describe("Also make it the team reference in project.json"),
+      accept: z
+        .boolean()
+        .default(false)
+        .describe("« Use anyway » was chosen for a fit that is not « fits »: the system check counts it as accepted"),
       downloadOnly: z
         .boolean()
         .default(false)
@@ -197,6 +206,34 @@ export const commands = [
     mutates: false,
     async run(ctx) {
       return (await adviceList(projectOf(ctx))).map(({ metric: _m, ...a }) => a);
+    },
+  }),
+  command({
+    name: "models.acceptFit",
+    summary:
+      "Run with the models in use although they do not fit comfortably here (tight, GPU too small, untested): the system check shows « Models fit this PC » as OK, marked « Used anyway », until the verdict gets worse or other models are used. RAM too small and not supported here cannot be accepted.",
+    input: z.object({
+      undo: z.boolean().default(false).describe("Take the acceptance back: the system check warns again"),
+    }),
+    output: z.object({
+      models: z.array(modelId).describe("The models accepted (or no longer accepted, with undo)"),
+      verdict: z.string().describe("Their fit on this PC, as the system check judges it"),
+      accepted: z.boolean().describe("The system check now shows them as OK, marked « Used anyway »"),
+    }),
+    mutates: true,
+    global: true,
+    async run(ctx, input) {
+      const now = await modelsFit(ctx.project).catch(() => null);
+      if (!now) throw new UserError("No model in use to accept.", "testimus models packs lists the packs.");
+      if (!input.undo && now.fit.verdict === "fits")
+        throw new UserError("These models fit this PC: there is nothing to accept.");
+      if (!input.undo && !acceptable(now.fit.verdict))
+        throw new UserError(
+          `They cannot run on this PC: ${now.fit.message}`,
+          "Choose a lighter pack: testimus models packs.",
+        );
+      rememberFit(now.entries, input.undo ? null : now.fit.verdict);
+      return { models: now.entries.map((e) => e.id), verdict: now.fit.verdict, accepted: !input.undo };
     },
   }),
   command({

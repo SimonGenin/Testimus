@@ -3,7 +3,7 @@ import type { DoctorAction, DoctorCheck } from "../../../core/types.ts";
 import { AskAbout } from "../../components/claude/AskAbout.tsx";
 import { Badge, HEALTH } from "../../components/ui/Badge.tsx";
 import { Button } from "../../components/ui/Button.tsx";
-import type { IconName } from "../../components/ui/Icon.tsx";
+import { Icon, type IconName } from "../../components/ui/Icon.tsx";
 import { Table } from "../../components/ui/Table.tsx";
 import { type } from "../../components/ui/type.ts";
 import { color, size, space } from "../../styles/tokens.stylex.ts";
@@ -17,6 +17,7 @@ const styles = stylex.create({
   open: { color: color.text },
   todo: { color: color.text },
   fix: { display: "flex", alignItems: "center", justifyContent: "flex-end", gap: space.s2, whiteSpace: "nowrap" },
+  caution: { display: "inline-flex", alignItems: "center", gap: space.s1, color: color.warning },
 });
 
 // ponytail: a fix's button says what it does by its command — a download, a folder to choose, an index to run again
@@ -44,6 +45,12 @@ function Result({ check }: { check: DoctorCheck }) {
   const words = check.fix && (!check.action || recheck);
   return (
     <div {...stylex.props(styles.result)}>
+      {check.caution && (
+        <span {...stylex.props(type.small, styles.caution)}>
+          <Icon name="alert-triangle" size="sm" />
+          {check.caution}
+        </span>
+      )}
       <span {...stylex.props(open && styles.open)}>
         {pathPieces(check.detail).map((p, i) =>
           p.path ? (
@@ -77,7 +84,8 @@ export function CheckTable({
   checks: DoctorCheck[];
   /** the check runs: the section and its columns, skeleton rows in them */
   loading?: boolean;
-  busy: (c: DoctorCheck) => boolean;
+  /** the row's fix `a` runs */
+  busy: (c: DoctorCheck, a: DoctorAction) => boolean;
   /** why a row's fix waits (another fix runs), or false */
   blocked?: (c: DoctorCheck) => string | false;
   onAct: (c: DoctorCheck, a: DoctorAction) => void;
@@ -110,7 +118,7 @@ export function CheckTable({
             label: "Fix",
             width: "1%",
             render: (c) =>
-              (c.action || askable(c)) && (
+              (c.action || c.also || askable(c)) && (
                 <span {...stylex.props(styles.fix)}>
                   {askable(c) && <AskAbout problem={problemOf(c)} label={c.label} />}
                   {c.action && (
@@ -118,9 +126,18 @@ export function CheckTable({
                       size="sm"
                       icon={FIX_ICON[c.action.command]}
                       label={c.action.label}
-                      loading={busy(c)}
-                      disabled={!busy(c) && blocked(c)}
+                      loading={busy(c, c.action)}
+                      disabled={!busy(c, c.action) && blocked(c)}
                       onClick={() => c.action && onAct(c, c.action)}
+                    />
+                  )}
+                  {c.also && (
+                    <Button
+                      size="sm"
+                      label={c.also.label}
+                      loading={busy(c, c.also)}
+                      disabled={!busy(c, c.also) && blocked(c)}
+                      onClick={() => c.also && onAct(c, c.also)}
                     />
                   )}
                 </span>

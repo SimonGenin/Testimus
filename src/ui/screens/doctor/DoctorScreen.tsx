@@ -64,9 +64,9 @@ export function DoctorScreen() {
     await d.run(c, a, a.input ?? {});
   };
 
-  const busy = (c: DoctorCheck) => d.busyId === c.id || (c.action?.command === "system.doctor" && d.signingIn);
-  const blocked = (c: DoctorCheck) =>
-    !!d.fixing && d.fixing.check.id !== c.id && `Wait for « ${d.fixing.action.label} » to finish`;
+  const busy = (c: DoctorCheck, a: DoctorAction) =>
+    (d.busyId === c.id && d.fixing?.action.command === a.command) || (a.command === "system.doctor" && d.signingIn);
+  const blocked = () => !!d.fixing && `Wait for « ${d.fixing.action.label} » to finish`;
 
   return (
     <div {...stylex.props(styles.screen)}>

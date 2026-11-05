@@ -346,4 +346,37 @@ describe("System check screen", () => {
       "Open a project to ask Claude",
     );
   });
+
+  it("a tight fit offers Use anyway beside the lighter pack; accepted, the row is OK with a small Used anyway mark", async () => {
+    let accepted = false;
+    net.routes["models.acceptFit"] = () => {
+      accepted = true;
+      return { models: ["a", "b"], verdict: "tight", accepted: true };
+    };
+    const tight = "Tight: A + B need about 11.7 GB";
+    net.routes["system.doctor"] = () =>
+      answer([
+        accepted
+          ? c({ id: "model.fit", label: "Models fit this PC", detail: tight, caution: "Used anyway" })
+          : c({
+              id: "model.fit",
+              label: "Models fit this PC",
+              state: "warn",
+              detail: tight,
+              fix: "Choose a lighter pack.",
+              action: { label: "Choose a lighter pack", command: "models.usePack" },
+              also: { label: "Use anyway", command: "models.acceptFit" },
+            }),
+      ]);
+    withApp(<DoctorScreen />);
+    expect(await screen.findByRole("button", { name: "Choose a lighter pack" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Use anyway" }));
+    await waitFor(() => expect(callsOf("models.acceptFit")).toHaveLength(1));
+    await waitFor(() => expect(within(row("Models fit this PC")).getByText("Used anyway")).toBeInTheDocument());
+    const r = row("Models fit this PC");
+    expect(within(r).getByText("OK")).toBeInTheDocument();
+    expect(within(r).queryByRole("button")).toBeNull();
+    expect(iconsIn(within(r).getByText("Used anyway"))).toEqual(["alert-triangle"]);
+    expect(screen.getByText("1 OK")).toBeInTheDocument();
+  });
 });

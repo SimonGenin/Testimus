@@ -28,9 +28,10 @@ export type ModelAsk = {
   icon: "download" | "check";
   go: () => Promise<void>;
 };
-export type Plan = { row: PackRow; out: UsePackOut };
+/** accept: « Use anyway » was chosen on the way, so the system check counts this fit as accepted */
+export type Plan = { row: PackRow; out: UsePackOut; accept?: boolean };
 
-type Pick = { embedding?: string; reranker?: string | null };
+type Pick = { embedding?: string; reranker?: string | null; accept?: boolean };
 
 type Start = (jobId: string, key: string, kind: string, label: string, then?: (result: unknown) => void) => void;
 
@@ -66,17 +67,20 @@ export function useModelActions(o: {
   const [benches, setBenches] = useState<Record<string, Bench>>({});
   const fx = { invalidates: MODEL_READS };
 
-  const planPack = async (row: PackRow) => {
+  const planPack = async (row: PackRow, accept = false) => {
     setPlanning(true);
     try {
       // ponytail: a plan is asked afresh each time (the folder or the models may have changed since)
       client.removeQueries({ queryKey: key("models.planPack", { pack: row.id }) as unknown as readonly unknown[] });
       const out = await read(client, "models.planPack", { pack: row.id });
       if (out.plan.download.length && !out.plan.dir) {
-        setFolder({ needMB: out.plan.download.reduce((a, d) => a + d.sizeMB, 0), next: () => void planPack(row) });
+        setFolder({
+          needMB: out.plan.download.reduce((a, d) => a + d.sizeMB, 0),
+          next: () => void planPack(row, accept),
+        });
         return;
       }
-      setPlan({ row, out });
+      setPlan({ row, out, accept });
     } catch (e) {
       errorToast(e, `Could not plan the ${row.label} pack`);
     } finally {
@@ -93,7 +97,7 @@ export function useModelActions(o: {
         fit: row.fit,
         processorOnly: row.processorOnly,
         lighter: lighter ? `the ${lighter.label} pack` : null,
-        go: () => void planPack(row),
+        go: () => void planPack(row, true),
         lighterGo: () => lighter && choosePack(lighter),
       });
     } else void planPack(row);
@@ -105,7 +109,12 @@ export function useModelActions(o: {
     const downloadOnly = !o.thenUse && plan.out.plan.download.length > 0;
     setPlanning(true);
     try {
-      const { jobId } = await execute(client, "models.usePack", { pack: row.id, downloadOnly }, fx);
+      const { jobId } = await execute(
+        client,
+        "models.usePack",
+        { pack: row.id, downloadOnly, ...(plan.accept ? { accept: true } : {}) },
+        fx,
+      );
       setPlan(null);
       if (o.onPackStarted) {
         o.onPackStarted(row, jobId, plan.out);
@@ -122,7 +131,10 @@ export function useModelActions(o: {
     } catch (e) {
       if (e instanceof ApiError && e.code === "models-dir-unset") {
         setPlan(null);
-        setFolder({ needMB: plan.out.plan.download.reduce((a, d) => a + d.sizeMB, 0), next: () => void planPack(row) });
+        setFolder({
+          needMB: plan.out.plan.download.reduce((a, d) => a + d.sizeMB, 0),
+          next: () => void planPack(row, plan.accept),
+        });
       } else errorToast(e, `Could not ${downloadOnly ? "download" : "use"} the ${row.label} pack`);
     } finally {
       setPlanning(false);
@@ -215,7 +227,7 @@ export function useModelActions(o: {
         fit: dry.fit,
         processorOnly: false,
         lighter: lighter?.label ?? null,
-        go: () => askUse(name, pick, dry.reindex),
+        go: () => askUse(name, { ...pick, accept: true }, dry.reindex),
         lighterGo: () => lighter?.go(),
       });
     } catch (e) {

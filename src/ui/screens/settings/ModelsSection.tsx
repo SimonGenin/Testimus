@@ -286,8 +286,9 @@ export function ModelsSection() {
           onConfirm={() => void a.confirmPack()}
           onChangeFolder={() => {
             const row = a.plan?.row;
+            const accept = a.plan?.accept;
             a.setPlan(null);
-            if (row) a.setFolder({ needMB: 0, next: () => void a.planPack(row) });
+            if (row) a.setFolder({ needMB: 0, next: () => void a.planPack(row, accept) });
           }}
         />
       )}

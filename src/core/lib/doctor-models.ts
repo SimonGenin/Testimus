@@ -1,14 +1,23 @@
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { parse } from "node:path";
-import type { CatalogEntry, DoctorAction, DoctorCheck, MachineProfile, ResolvedModel } from "../types.ts";
+import type {
+  CatalogEntry,
+  DoctorAction,
+  DoctorCheck,
+  Fit,
+  FitVerdict,
+  MachineProfile,
+  ResolvedModel,
+} from "../types.ts";
 import { diskCheck, row } from "./doctor-row.ts";
-import { fitOf } from "./fit/verdict.ts";
+import { fitOf, worst } from "./fit/verdict.ts";
 import { machineProfile } from "./machine/profile.ts";
 import { catalogEntry, pack } from "./models-catalog.ts";
 import { perfStats, readPerf } from "./models-perf.ts";
 import { budgets, downloadsAllowed, readRegistry } from "./models-registry.ts";
 import { resolveInstalled } from "./models-resolve.ts";
+import { readSettings, writeSettings } from "./project.ts";
 
 // ponytail: the doctor's rows about models — installed, verified, fitting this PC, room on disk, vectors complete
 
@@ -80,6 +89,69 @@ function installRow(kind: "embedding" | "reranker", m: ResolvedModel | null, wan
   });
 }
 
+// ponytail: a verdict the user may run with anyway — RAM too small and not supported here cannot run at all
+export const acceptable = (v: FitVerdict) => v !== "fits" && v !== "ram-too-small" && v !== "unsupported";
+
+/** the key of a set of models in settings.rag.fitAccepted: their ids, sorted */
+export const fitKey = (entries: CatalogEntry[]) =>
+  entries
+    .map((e) => e.id)
+    .sort()
+    .join("+");
+
+// ponytail: « Use anyway » holds while the verdict is no worse than the one accepted for these models; a worse one
+// (tight → GPU too small) asks again
+export function acceptedFit(entries: CatalogEntry[], verdict: FitVerdict): boolean {
+  const took = readSettings().rag?.fitAccepted?.[fitKey(entries)];
+  return !!took && acceptable(verdict) && worst(verdict, took) === took;
+}
+
+/** keep (or, with `verdict` null, drop) « Use anyway » for these models on this PC */
+export function rememberFit(entries: CatalogEntry[], verdict: FitVerdict | null): void {
+  const s = readSettings();
+  const took = { ...s.rag?.fitAccepted };
+  if (verdict) took[fitKey(entries)] = verdict;
+  else delete took[fitKey(entries)];
+  writeSettings({ ...s, rag: { ...s.rag, fitAccepted: took } });
+}
+
+// ponytail: the models a set in use stands for — the one resolved here, else the one wanted, of each kind
+function entriesOf(active: Awaited<ReturnType<ModelDeps["active"]>>): CatalogEntry[] {
+  const of = (kind: CatalogEntry["kind"], m: ResolvedModel | null) =>
+    m?.entry ?? active.wanted.map((id) => catalogEntry(id)).find((e) => e?.kind === kind);
+  return [of("embedding", active.embedding), of("reranker", active.reranker)].filter((e): e is CatalogEntry => !!e);
+}
+
+function fitRow(entries: CatalogEntry[], f: Fit): DoctorCheck {
+  const label = "Models fit this PC";
+  if (f.verdict === "fits") return row("model.fit", label, "ok", f.message);
+  if (acceptedFit(entries, f.verdict)) return { ...row("model.fit", label, "ok", f.message), caution: "Used anyway" };
+  const fix = "Choose a lighter pack: testimus models packs.";
+  if (!acceptable(f.verdict)) return row("model.fit", label, "fail", f.message, fix, LIGHTER);
+  return {
+    ...row(
+      "model.fit",
+      label,
+      "warn",
+      f.message,
+      `${fix} Or run with them as they are: testimus models acceptFit.`,
+      LIGHTER,
+    ),
+    also: { label: "Use anyway", command: "models.acceptFit" },
+  };
+}
+
+/** the models in use and their fit on this PC — what model.fit judges and models.acceptFit accepts */
+export async function modelsFit(
+  project: string | null,
+  deps: ModelDeps = modelDeps,
+): Promise<{ entries: CatalogEntry[]; fit: Fit } | null> {
+  const entries = entriesOf(await deps.active(project));
+  const machine = await deps.machine();
+  if (!entries.length) return null;
+  return { entries, fit: fitOf(entries, machine, { headroom: budgets().headroom, lines: readPerf() }) };
+}
+
 function systemRoot(): string {
   return parse(process.env.SystemDrive ? `${process.env.SystemDrive}\\` : tmpdir()).root.toLowerCase();
 }
@@ -129,30 +201,13 @@ export async function modelRows(project: string | null, deps: ModelDeps = modelD
   const wantE = active.wanted.find((m) => catalogEntry(m)?.kind === "embedding");
   const wantR = active.wanted.find((m) => catalogEntry(m)?.kind === "reranker");
   rows.push(installRow("embedding", active.embedding, wantE), installRow("reranker", active.reranker, wantR));
-  const entries = [
-    active.embedding?.entry ?? (wantE ? catalogEntry(wantE) : undefined),
-    active.reranker?.entry ?? (wantR ? catalogEntry(wantR) : undefined),
-  ].filter((e): e is CatalogEntry => !!e);
+  const entries = entriesOf(active);
   const machine = await deps.machine().catch(() => null);
   if (!entries.length || !machine)
     rows.push(
       row("model.fit", "Models fit this PC", "skip", machine ? "no model in use" : "machine profile unavailable"),
     );
-  else {
-    const f = fitOf(entries, machine, { headroom: budgets().headroom, lines: readPerf() });
-    const state =
-      f.verdict === "fits" ? "ok" : f.verdict === "ram-too-small" || f.verdict === "unsupported" ? "fail" : "warn";
-    rows.push(
-      row(
-        "model.fit",
-        "Models fit this PC",
-        state,
-        f.message,
-        "Choose a lighter pack: testimus models packs.",
-        LIGHTER,
-      ),
-    );
-  }
+  else rows.push(fitRow(entries, fitOf(entries, machine, { headroom: budgets().headroom, lines: readPerf() })));
   const ours = entries.map((e) => e.id);
   const partly = perfStats({ last: 50 })
     .filter((s) => s.partialOffload && ours.includes(s.model))

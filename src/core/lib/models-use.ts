@@ -1,5 +1,6 @@
 import { type Ctx, UserError } from "../command.ts";
 import type { ActiveChoice, CatalogEntry, Fit, MachineProfile, PackVariant, RagChoice } from "../types.ts";
+import { acceptable, rememberFit } from "./doctor-models.ts";
 import { fitOf } from "./fit/verdict.ts";
 import { machineProfile } from "./machine/profile.ts";
 import { advise, PACK_ORDER } from "./models-advice.ts";
@@ -140,7 +141,13 @@ export function lighterPack(
   return (below.find((r) => r.fit?.verdict === "fits" && !r.processorOnly) ?? below[0])?.id ?? null;
 }
 
-export type UseInput = { embedding?: string; reranker?: string | null; reference: boolean; dryRun: boolean };
+export type UseInput = {
+  embedding?: string;
+  reranker?: string | null;
+  reference: boolean;
+  dryRun: boolean;
+  accept?: boolean;
+};
 export type UseResult = {
   choice: { embedding: string; reranker: string | null };
   fit: Fit;
@@ -179,6 +186,7 @@ export async function useModels(project: string, input: UseInput): Promise<UseRe
       `Download first: ${r.missing.map((m) => `testimus models pull ${m}`).join(" ; ")}`,
     );
   await modelsDeps.setActiveChoice(project, choice);
+  if (input.accept && acceptable(fit.verdict)) rememberFit(entries, fit.verdict);
   if (input.reference) setReference(project, choice);
   const indexJob = reindex ? await modelsDeps.startIndex(project) : null;
   return { ...out, indexJob, dryRun: false };
@@ -210,7 +218,7 @@ export async function planPack(project: string, id: string): Promise<PackPlan & 
   };
 }
 
-export type PackInput = { pack: string; reference: boolean; downloadOnly: boolean };
+export type PackInput = { pack: string; reference: boolean; downloadOnly: boolean; accept?: boolean };
 
 // ponytail: one job with its steps — download what the variant needs (and llama.cpp), try each download, activate,
 // start the index (a child job, carried by the activate step)
@@ -220,6 +228,11 @@ export async function usePack(
   input: PackInput,
 ): Promise<PackPlan & { indexJob: string | null }> {
   const { llama, ...p } = await planPack(project, input.pack);
+  // ponytail: « Use anyway » accepts the verdict the user saw, judged before the downloads change anything
+  const entries = entriesOf([p.embedding, p.reranker]);
+  const seen = input.accept
+    ? fitOf(entries, await machineProfile(), { headroom: budgets().headroom, lines: readPerf() }).verdict
+    : null;
   const downloads = p.plan.download;
   if ((downloads.length || llama) && !p.plan.dir)
     throw new UserError(NO_DIR, "Then choose the pack again.", NO_DIR_CODE);
@@ -261,6 +274,7 @@ export async function usePack(
   ctx.step?.("activate");
   const variant = { embedding: p.embedding, reranker: p.reranker };
   await modelsDeps.setActiveChoice(project, { pack: input.pack, variant });
+  if (seen && acceptable(seen)) rememberFit(entries, seen);
   if (input.reference) setReference(project, { pack: input.pack });
   return { ...p, indexJob: p.plan.reindex ? await modelsDeps.startIndex(project) : null };
 }

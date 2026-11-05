@@ -32,6 +32,14 @@ const check = z.object({
     })
     .optional()
     .describe("The command that fixes this row, shown as a button by the UI"),
+  also: z
+    .object({
+      label: z.string().describe("Button text in the UI"),
+      command: z.string().describe("The command, e.g. models.acceptFit"),
+    })
+    .optional()
+    .describe("A second way out, beside the fix (e.g. Use anyway)"),
+  caution: z.string().optional().describe("On an ok row: what still deserves a look (e.g. Used anyway)"),
 });
 
 const file = {
