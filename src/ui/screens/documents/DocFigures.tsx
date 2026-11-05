@@ -75,7 +75,8 @@ const EMPTY: Record<Which, { title: string; text: string }> = {
 };
 
 // ponytail: every figure in reading order — a tile picks it, the detail beside says what Claude read in it and opens it
-// in the text; the figure a link picked (« Show in Figures ») is scrolled to; « Describe » has Claude read the pictures not described yet (docs.describeFigures, a job)
+// in the text; the figure a link picked (« Show in Figures ») is scrolled to; « Describe » has Claude read the pictures
+// not described yet (docs.describeFigures, a job)
 export function DocFigures({
   docId,
   figures,
