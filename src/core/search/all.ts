@@ -200,8 +200,9 @@ async function findPassages(project: string, q: Query, k: number, meaning: boole
   const docIds = docIdsOf(project, q);
   if (docIds && !docIds.length) return { hits: [], total: 0, unembedded: 0 };
   let note: string | undefined;
+  // ponytail: a long section is several chunks of one anchor — ask for more, keep the best of each section
   const found = await passages(project, q.text, {
-    k,
+    k: k * 3,
     mode: meaning ? "hybrid" : "bm25",
     expand: "none",
     ...(meaning ? {} : { reranker: null }),
@@ -215,8 +216,16 @@ async function findPassages(project: string, q: Query, k: number, meaning: boole
     const f = field("text", text, 1);
     return compile(q, corpus([{ fields: [f] }]).vocab).exclude.some((t) => termIn(t, f).level);
   };
+  const seen = new Set<string>();
   const hits = found
     .filter((h) => !excluded(h.text))
+    .filter((h) => {
+      const id = `${h.docId}#${h.anchor}`;
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    })
+    .slice(0, k)
     .map((h): SearchMatch => {
       const text = imageless(h.text);
       const cut = snippet(text, marksIn(text, q), 200);

@@ -175,6 +175,19 @@ describe("searchAll", () => {
     expect(d.hits.map((h) => h.id)).toEqual(["SOSIE_211_D401-1_4"]);
   }, 30000);
 
+  it("gives a long section once, though the index cut it into several chunks", async () => {
+    const md = join(dir, "docs", "SOSIE_211_D401-1_4", "doc.md");
+    const para = (i: number) =>
+      `Paragraphe ${i} : les habilitations du personnel sont lues dans le fichier des demandeurs, ${"puis vérifiées par le poste de contrôle avant toute consignation de la voie, ".repeat(6)}`;
+    const long = Array.from({ length: 24 }, (_, i) => para(i)).join("\n\n");
+    writeFileSync(md, `${readFileSync(md, "utf8")}\n### 4.3 Habilitations <!-- § 4.3 -->\n\n${long}\n`);
+    await indexProject(dir, quietCtx(dir), {});
+    const r = await searchAll(dir, { query: "habilitations personnel", in: ["passage"], meaning: false });
+    const ids = r.hits.map((h) => h.id);
+    expect(ids).toContain("SOSIE_211_D401-1_4#§4.3");
+    expect(new Set(ids).size).toBe(ids.length);
+  }, 30000);
+
   it("adds tests found by their meaning once they are embedded, and keeps the exclusions", async () => {
     const r = await searchAll(dir, { query: "disjoncteur", in: ["test"] });
     expect(r.meaning).toBe("on");
