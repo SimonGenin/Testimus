@@ -41,7 +41,6 @@ const styles = stylex.create({
   steps: { margin: 0, paddingInlineStart: space.s5, display: "flex", flexDirection: "column", gap: space.s1 },
   at: { color: color.textSubtle, marginInlineEnd: space.s2 },
   muted: { margin: 0, color: color.textSubtle },
-  meta: { display: "inline-flex", alignItems: "center", gap: space.s3 },
 });
 
 const mss = (ms: number) => {
@@ -228,7 +227,7 @@ function PhaseBody({ phase: p, live, names }: { phase: Phase; live: boolean; nam
 }
 
 // ponytail: « What Claude did » (« What Claude is doing » while it runs) — a Claude run folded into phases (got ready, read, planned, wrote, checked), each
-// with what it read and where, what it wrote and the check's verdicts; the raw output on demand
+// with what it read and where, what it wrote and the check's verdicts; the raw output on demand, at its foot
 export function ClaudeActivity({
   events,
   running,
@@ -283,31 +282,9 @@ export function ClaudeActivity({
     };
   });
   const line = [head, !shown && phases.length > 0 ? plural(phases.length, "phase") : ""].filter(Boolean).join(" · ");
-  const rawOpen = shown && raw;
   return (
     <Card density="compact">
-      <Disclosure
-        icon="claude"
-        summary={label}
-        open={shown}
-        onOpenChange={setShown}
-        meta={
-          <span {...stylex.props(styles.meta)}>
-            {line}
-            <Button
-              variant="quiet"
-              size="sm"
-              icon="terminal"
-              label={rawOpen ? "Hide raw output" : "Show raw output"}
-              expanded={rawOpen}
-              onClick={() => {
-                setShown(true);
-                setRaw(!rawOpen);
-              }}
-            />
-          </span>
-        }
-      >
+      <Disclosure icon="claude" summary={label} open={shown} onOpenChange={setShown} meta={line}>
         {!phases.length && (
           <p {...stylex.props(type.compact, styles.muted)}>
             {running ? "Claude is starting." : "Nothing was recorded for this run."}

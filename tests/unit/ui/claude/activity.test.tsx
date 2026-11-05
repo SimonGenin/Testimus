@@ -258,16 +258,17 @@ describe("GenActivity", () => {
     expect(screen.queryByText(/Planned “Alarmes”/)).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "What Claude did" }));
     expect(screen.queryByRole("heading", { name: "Got ready" })).toBeNull();
-    expect(screen.queryByRole("button", { name: /^Show raw output \(/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /raw output/ })).toBeNull();
     const fold = screen.getByRole("button", { name: "What Claude did" });
     expect(fold).toHaveAttribute("aria-expanded", "false");
     expect(fold.querySelector('[data-icon="claude"]')).not.toBeNull();
     expect(screen.getByText("6 phases")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Show raw output" }));
+    fireEvent.click(fold);
     expect(fold).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("heading", { name: "Got ready" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^Show raw output \(/ }));
     expect(screen.getByRole("log", { name: "Raw output" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Hide raw output" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Hide raw output \(/ }));
     expect(screen.queryByRole("log")).toBeNull();
   });
 
