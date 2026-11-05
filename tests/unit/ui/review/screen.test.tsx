@@ -279,7 +279,7 @@ describe("Review screen", () => {
   });
 
   it("sends the queue filters, folder and findings switch", async () => {
-    reviewRoutes();
+    reviewRoutes({ queue: [item("K-1"), item("K-2", { folder: "/G" }), item("L-3", { folder: "" })] });
     show();
     await screen.findByRole("heading", { name: "Summary K-1" });
     const states = screen.getByRole("radiogroup", { name: "Filter by review state" });

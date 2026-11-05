@@ -341,12 +341,6 @@ function fixtureShots(): Shot[] {
       prep: (p) => p.getByRole("combobox", { name: "Sort the queue" }).click({ timeout: T }),
     },
     {
-      id: "review-folder-menu",
-      note: "Filter by folder menu",
-      hash: "#/review",
-      prep: (p) => p.getByRole("combobox", { name: "Filter by folder" }).click({ timeout: T }),
-    },
-    {
       id: "review-to-fix-dialog",
       note: "Mark as To fix dialog",
       hash: `#/review/${T1420}`,

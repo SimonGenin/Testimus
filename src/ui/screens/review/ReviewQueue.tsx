@@ -197,17 +197,19 @@ export function ReviewQueue(p: ReviewQueueProps) {
                 onChange={p.onSort}
               />
             </div>
-            <div {...stylex.props(styles.half)}>
-              <Select
-                label="Filter by folder"
-                appearance="quiet"
-                size="sm"
-                icon="folder"
-                value={p.folder}
-                options={[{ value: "", label: "All folders" }, ...p.folders.map((f) => ({ value: f, label: f }))]}
-                onChange={p.onFolder}
-              />
-            </div>
+            {(p.folders.length > 1 || !!p.folder) && (
+              <div {...stylex.props(styles.half)}>
+                <Select
+                  label="Filter by folder"
+                  appearance="quiet"
+                  size="sm"
+                  icon="folder"
+                  value={p.folder}
+                  options={[{ value: "", label: "All folders" }, ...p.folders.map((f) => ({ value: f, label: f }))]}
+                  onChange={p.onFolder}
+                />
+              </div>
+            )}
           </div>
           <Checkbox label="Only with findings" checked={p.withFindings} onChange={p.onWithFindings} />
         </div>

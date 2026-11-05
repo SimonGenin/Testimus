@@ -187,6 +187,16 @@ describe("ReviewQueue", () => {
     expect(p.onFolder).toHaveBeenCalledWith("");
   });
 
+  it("shows the folder filter only when the queue spans several folders, or one is chosen", () => {
+    const { rerender } = render(<ReviewQueue {...props({ folders: ["/A"] })} />);
+    expect(screen.queryByRole("combobox", { name: "Filter by folder" })).toBeNull();
+    expect(screen.getByRole("combobox", { name: "Sort the queue" })).toBeInTheDocument();
+    rerender(<ReviewQueue {...props({ folders: [] })} />);
+    expect(screen.queryByRole("combobox", { name: "Filter by folder" })).toBeNull();
+    rerender(<ReviewQueue {...props({ folders: ["/A"], folder: "/A" })} />);
+    expect(screen.getByRole("combobox", { name: "Filter by folder" })).toBeInTheDocument();
+  });
+
   it("loading, empty and filtered-empty states", () => {
     const { rerender } = render(<ReviewQueue {...props({ items: null })} />);
     expect(screen.getByRole("listbox", { name: "Tests to review" })).toHaveAttribute("aria-busy", "true");
