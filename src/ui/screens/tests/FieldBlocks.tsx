@@ -67,8 +67,6 @@ export function FieldBlocks({
   stepNumber,
   readOnly,
   lockedBy,
-  nested,
-  size,
   saveState,
   onText,
   onAddFiles,
@@ -88,14 +86,12 @@ export function FieldBlocks({
   readOnly?: boolean;
   /** read-only because a Claude run holds the test: the text shows Claude's lock */
   lockedBy?: "claude";
-  nested?: boolean;
-  /** the text blocks' size: sm inside a table's cells */
-  size?: "sm";
   /** the save state of the test, shown on the text block last edited here */
   saveState?: FieldAutosave;
   onText: (at: number, end: number, value: string) => void;
   onAddFiles: (at: number, files: File[]) => void;
-  onFieldText: (next: string) => void;
+  /** the whole field rewritten (a table's row or column); with undo, a toast says what went and can take it back */
+  onFieldText: (next: string, undo?: string) => void;
   onDropBlock: (at: number, moved: Moved) => void;
   onRemove: (block: Block) => void;
   onOpen: (file: string) => void;
@@ -109,6 +105,8 @@ export function FieldBlocks({
   const [draft, setDraft] = useState<{ at: number; text: string } | null>(null);
   const [edited, setEdited] = useState(-1);
   const focusDraft = useRef(false);
+  // ponytail: a table just added takes the focus in its first head — it is the table that starts where the insert put it
+  const newTable = useRef<number | null>(null);
 
   const items: Item[] = blocksOf(text, images);
   if (!readOnly && draft && draft.text === text) {
@@ -119,6 +117,8 @@ export function FieldBlocks({
   const id = (i: number) => `${idBase}-${i}`;
 
   useLayoutEffect(() => {
+    if (newTable.current !== null && items.some((b) => b.kind === "table" && b.at === newTable.current))
+      newTable.current = null;
     if (!focusDraft.current) return;
     focusDraft.current = false;
     const i = items.findIndex((b) => b.draft);
@@ -130,13 +130,16 @@ export function FieldBlocks({
       <BlockInsert
         empty={empty}
         edge={edge}
-        table={!nested}
         onText={() => {
           focusDraft.current = true;
           setDraft({ at, text });
         }}
         onImage={(files) => onAddFiles(at, files)}
-        onTable={() => onText(at, at, NEW_TABLE)}
+        onTable={() => {
+          const left = text.slice(0, at).replace(/\s+$/, "");
+          newTable.current = left ? left.length + 2 : 0;
+          onText(at, at, NEW_TABLE);
+        }}
         onDrop={(d) => ("moved" in d ? onDropBlock(at, d.moved) : onAddFiles(at, d.files))}
       />
     );
@@ -197,7 +200,6 @@ export function FieldBlocks({
                     id={id(i)}
                     multiline
                     appearance="inline"
-                    size={size}
                     ariaLabel={where}
                     value={b.text}
                     readOnly={readOnly && !lockedBy}
@@ -250,12 +252,12 @@ export function FieldBlocks({
                   images={images}
                   url={url}
                   idBase={idBase}
-                  name={name}
                   label={label}
                   stepNumber={stepNumber}
                   readOnly={readOnly}
                   lockedBy={lockedBy}
                   grip={readOnly ? undefined : <Grip />}
+                  autoFocus={newTable.current === b.at}
                   onText={onText}
                   onAddFiles={onAddFiles}
                   onFieldText={onFieldText}

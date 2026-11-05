@@ -40,7 +40,7 @@ test("the insert bands of a field fade in only when hovered, and then take a cli
   await expect(field.getByRole("textbox")).toHaveCount(2);
 });
 
-test("in a table, an empty cell always shows its insert strip, a filled one only while its strip is hovered (PARITY #42)", async ({
+test("a new table: blank heads, the focus in the first, its tools always in view and the handles on the cell being written (PARITY #44)", async ({
   page,
 }) => {
   await openTest(page, "LFRPS12-1420");
@@ -48,25 +48,35 @@ test("in a table, an empty cell always shows its insert strip, a filled one only
   const addTable = field.getByRole("button", { name: "Table", exact: true }).last();
   await pointAt(page, addTable);
   await addTable.click();
-  const table = field.getByRole("table");
+  const table = field.getByRole("table", { name: "Table in Action of step 1" });
   await expect(table).toBeVisible();
-  const heads = table.getByRole("columnheader").filter({ hasText: "Heading" });
-  const empty = table.getByRole("cell").filter({ hasText: "Empty — type, paste an image or add a table" });
-  await expect(heads).toHaveCount(2);
-  await expect(empty).toHaveCount(2);
-  const bandOf = (cell: Locator) => cell.getByRole("button", { name: "Text", exact: true }).first();
-  const stripOf = (cell: Locator) => cell.getByRole("group", { name: "Insert a block" }).first();
-  const hintOf = (cell: Locator) =>
-    cell.getByText("Empty — type, paste an image or add a table").evaluate((el) => getComputedStyle(el).opacity);
+  const head = table.getByRole("textbox", { name: "Action of step 1, header row, column 1" });
+  await expect(head).toBeFocused();
+  await expect(head).toHaveAttribute("placeholder", "Column name");
+  await expect(table.getByRole("cell").filter({ hasText: "Empty —" })).toHaveCount(0);
+  await expect(table.getByRole("button", { name: /Delete/ })).toHaveCount(0);
 
   await away(page);
-  for (const c of await empty.all()) await expect.poll(() => hintOf(c)).toBe("1");
-  for (const c of await heads.all()) await expect.poll(() => shown(bandOf(c))).toBe("0");
+  await expect(field.getByRole("button", { name: "Table options" })).toBeVisible();
+  await expect(table.getByRole("button", { name: "Add row" })).toBeVisible();
+  await expect(table.getByRole("button", { name: "Add column" })).toBeVisible();
+  await expect(table.getByRole("button", { name: /Options for/ })).toHaveCount(0);
 
-  await pointAt(page, stripOf(heads.nth(0)));
-  await expect.poll(() => shown(bandOf(heads.nth(0)))).toBe("1");
-  await expect.poll(() => shown(bandOf(heads.nth(1)))).toBe("0");
-  await pointAt(page, stripOf(heads.nth(1)));
-  await expect.poll(() => shown(bandOf(heads.nth(1)))).toBe("1");
-  await expect.poll(() => shown(bandOf(heads.nth(0)))).toBe("0");
+  await head.click();
+  await page.keyboard.type("Champ");
+  await page.keyboard.press("Tab");
+  await page.keyboard.type("Valeur");
+  await page.keyboard.press("Tab");
+  await page.keyboard.type("Position");
+  await expect(table.getByRole("button", { name: "Options for row « Position »" })).toBeVisible();
+  await expect(table.getByRole("button", { name: "Options for column « Champ »" })).toBeVisible();
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Tab");
+  await expect(table.getByRole("row")).toHaveCount(4);
+  await expect(table.getByRole("textbox", { name: "Action of step 1, row 2, column « Champ »" })).toBeFocused();
+
+  await table.getByRole("button", { name: "Options for column « Champ »" }).click();
+  await page.getByRole("menuitem", { name: "Delete column" }).click();
+  await expect(page.getByText("Column « Champ » deleted")).toBeVisible();
+  await expect(table.getByRole("columnheader")).toHaveCount(1);
 });

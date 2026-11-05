@@ -19,9 +19,9 @@ const LIMITS: Record<GuardName, number> = {
   "G8 vocabulary colour aliases of tokens.css never read in src/ui": 0,
   "G1 font size, weight, line height, letter spacing or face picked outside the kit": 0,
   "G2 the browser's own select, option or datalist list in src/ui": 0,
-  // ponytail: picture frames (DocText, DocReading, ImageBlock's figure and picture, StepOrphans, TableBlock), the dock, the
-  // drop veil, and three panels still to move to the kit (ConnectClaude, PackStep's machine, WasView): never more
-  "G2 framed boxes (edge and rounded corners) drawn outside the kit": 11,
+  // ponytail: picture frames (DocText, DocReading, ImageBlock's figure and picture, StepOrphans), the dock, the drop veil,
+  // and three panels still to move to the kit (ConnectClaude, PackStep's machine, WasView): never more
+  "G2 framed boxes (edge and rounded corners) drawn outside the kit": 10,
 };
 
 describe("architecture guards (GOAL-V3 N1, N2, N4, N7; design-system audit G1, G8)", () => {

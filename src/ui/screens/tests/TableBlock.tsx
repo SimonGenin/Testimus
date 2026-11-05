@@ -1,100 +1,38 @@
-import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
 import type { Block, Source, StepImage, Table } from "../../../core/types.ts";
-import { Button } from "../../components/ui/Button.tsx";
-import { type } from "../../components/ui/type.ts";
-import { addCol, addRow, dropCol, dropRow, width } from "../../lib/table.ts";
-import { border, color, radius, shadow, size, space } from "../../styles/tokens.stylex.ts";
-import { FieldBlocks } from "./FieldBlocks.tsx";
-import { tableMarker } from "./markers.stylex.ts";
+import { TableGrid } from "../../components/ui/TableGrid.tsx";
+import { dropCol, dropRow, hasHead, insertCol, insertRow, moveCol, moveRow, setHead, width } from "../../lib/table.ts";
 import type { Moved } from "./step/moved.ts";
+import { TableCell } from "./step/TableCell.tsx";
 
-const styles = stylex.create({
-  block: { position: "relative", display: "flex", flexDirection: "column", marginBlock: space.s1, minWidth: 0 },
-  wrap: {
-    boxSizing: "border-box",
-    borderStyle: "solid",
-    borderWidth: border.width,
-    borderColor: color.borderStrong,
-    borderRadius: radius.r2,
-    overflow: "hidden",
-    backgroundColor: color.surface,
-  },
-  table: { width: "100%", borderCollapse: "collapse", tableLayout: "fixed" },
-  cell: {
-    boxSizing: "border-box",
-    position: "relative",
-    verticalAlign: "top",
-    paddingBlock: space.s1,
-    paddingInline: space.s3,
-    borderWidth: 0,
-    borderStyle: "solid",
-    borderColor: color.border,
-    textAlign: "start",
-  },
-  below: { borderBottomWidth: border.width },
-  after: { borderInlineStartWidth: border.width },
-  room1: { paddingInlineEnd: `calc(${space.s3} + ${size.controlXs})` },
-  room2: { paddingInlineEnd: `calc(${space.s3} + ${space.s1} + 2 * ${size.controlXs})` },
-  cellX: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    insetInlineEnd: space.s1,
-    display: "flex",
-    alignItems: "center",
-    gap: space.s1,
-    opacity: {
-      default: 0,
-      [stylex.when.ancestor(":hover", tableMarker)]: 1,
-      [stylex.when.ancestor(":focus-within", tableMarker)]: 1,
-    },
-    pointerEvents: {
-      default: "none",
-      [stylex.when.ancestor(":hover", tableMarker)]: "auto",
-      [stylex.when.ancestor(":focus-within", tableMarker)]: "auto",
-    },
-  },
-  tools: {
-    position: "absolute",
-    top: "100%",
-    insetInlineStart: 0,
-    zIndex: 1,
-    display: "flex",
-    alignItems: "center",
-    gap: space.s1,
-    marginTop: space.s1,
-    paddingInline: space.s2,
-    borderRadius: radius.r2,
-    backgroundColor: color.surfaceRaised,
-    boxShadow: shadow.s2,
-    opacity: {
-      default: 0,
-      [stylex.when.ancestor(":hover", tableMarker)]: 1,
-      [stylex.when.ancestor(":focus-within", tableMarker)]: 1,
-    },
-    pointerEvents: {
-      default: "none",
-      [stylex.when.ancestor(":hover", tableMarker)]: "auto",
-      [stylex.when.ancestor(":focus-within", tableMarker)]: "auto",
-    },
-  },
-});
+const SHORT = 24;
+const lower = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
 
-// ponytail: no model behind the table — the cells are slices of the field string, so every edit here,
-// a typed character and a dropped column alike, is one replacement of that string
+// ponytail: a row or a column is named by what it says — its first cell, its head — so a menu and an Undo say
+// « Row « PK voie 1 » », not a number the reader has to count; a picture or a blank gives the number back
+const named = (text: string | undefined) => {
+  const t =
+    (text ?? "")
+      .replace(/!\[\]\([^)]*\)|![^!\n]*!/g, "")
+      .trim()
+      .split("\n")[0] ?? "";
+  return t.length > SHORT ? `${t.slice(0, SHORT - 1)}…` : t;
+};
+
+// ponytail: no model behind the table — the cells are slices of the field string, so every edit here, a typed
+// character and a dropped column alike, is one replacement of that string; the grid (the kit's TableGrid) draws it
 export function TableBlock({
   table,
   text,
   images,
   url,
   idBase,
-  name,
   label,
   stepNumber,
   readOnly,
   lockedBy,
   grip,
+  autoFocus,
   onText,
   onAddFiles,
   onFieldText,
@@ -108,113 +46,71 @@ export function TableBlock({
   images: StepImage[];
   url: (file: string) => string;
   idBase: string;
-  name: string;
   label: string;
   stepNumber: number;
   readOnly?: boolean;
   lockedBy?: "claude";
   grip?: ReactNode;
+  autoFocus?: boolean;
   onText: (at: number, end: number, value: string) => void;
   onAddFiles: (at: number, files: File[]) => void;
-  onFieldText: (next: string) => void;
+  /** the whole field rewritten; with undo, the change says so in a toast that can take it back */
+  onFieldText: (next: string, undo?: string) => void;
   onDropBlock: (at: number, moved: Moved) => void;
   onRemove: (block: Block) => void;
   onOpen: (file: string) => void;
   onOpenSource?: (s: Source) => void;
 }) {
   const cols = width(table);
-  const last = table.rows.length - 1;
-  const x = (title: string, run: () => void) => (
-    <Button variant="quiet" size="xs" iconOnly icon="close" label={title} onClick={run} />
-  );
+  const head = hasHead(table);
+  const rowName = (r: number) => {
+    if (head && r === 0) return "Header row";
+    const n = named(table.rows[r]?.cells[0]?.text);
+    return n ? `Row « ${n} »` : `Row ${r + 1 - (head ? 1 : 0)}`;
+  };
+  const colName = (c: number) => {
+    const n = head ? named(table.rows[0].cells[c]?.text) : "";
+    return n ? `Column « ${n} »` : `Column ${c + 1}`;
+  };
+  const where = `${label} of step ${stepNumber}`;
   return (
-    <div {...stylex.props(styles.block, tableMarker)}>
-      <div {...stylex.props(styles.wrap)}>
-        <table {...stylex.props(styles.table)}>
-          <tbody>
-            {table.rows.map((r, ri) => (
-              <tr key={ri}>
-                {Array.from({ length: cols }, (_, ci) => {
-                  const c = r.cells[ci];
-                  const Cell = r.head ? "th" : "td";
-                  const lastCol = ci === cols - 1;
-                  const room = readOnly ? 0 : Number(ri === 0) + Number(lastCol);
-                  return (
-                    <Cell
-                      key={ci}
-                      scope={r.head ? "col" : undefined}
-                      {...stylex.props(
-                        type.regular,
-                        styles.cell,
-                        ri < last && styles.below,
-                        ci > 0 && styles.after,
-                        room === 1 && styles.room1,
-                        room === 2 && styles.room2,
-                        r.head && type.caption,
-                      )}
-                    >
-                      {c && (
-                        <FieldBlocks
-                          nested
-                          size="sm"
-                          idBase={`${idBase}-r${ri}c${ci}`}
-                          name={name}
-                          label={`${label}, row ${ri + 1} column ${ci + 1}`}
-                          text={c.text}
-                          images={images}
-                          url={url}
-                          stepNumber={stepNumber}
-                          readOnly={readOnly}
-                          lockedBy={lockedBy}
-                          onText={(at, end, v) => onText(c.at + at, c.at + end, v)}
-                          onAddFiles={(at, files) => onAddFiles(c.at + at, files)}
-                          onFieldText={(next) => onFieldText(text.slice(0, c.at) + next + text.slice(c.end))}
-                          onDropBlock={(at, moved) => onDropBlock(c.at + at, moved)}
-                          onRemove={(b) => onRemove({ ...b, at: c.at + b.at, end: c.at + b.end })}
-                          onOpen={onOpen}
-                          onOpenSource={onOpenSource}
-                        />
-                      )}
-                      {room > 0 && (
-                        <span {...stylex.props(styles.cellX)}>
-                          {ri === 0 && x(`Delete column ${ci + 1}`, () => onFieldText(dropCol(text, table, ci)))}
-                          {lastCol && x(`Delete row ${ri + 1}`, () => onFieldText(dropRow(text, table, ri)))}
-                        </span>
-                      )}
-                    </Cell>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {!readOnly && (
-        <div {...stylex.props(styles.tools)}>
-          {grip}
-          <Button
-            variant="quiet"
-            size="sm"
-            icon="plus"
-            label="Add row"
-            onClick={() => onFieldText(addRow(text, table))}
-          />
-          <Button
-            variant="quiet"
-            size="sm"
-            icon="plus"
-            label="Add column"
-            onClick={() => onFieldText(addCol(text, table))}
-          />
-          <Button
-            variant="quiet"
-            size="sm"
-            icon="trash"
-            label="Remove the table"
-            onClick={() => onRemove({ ...table, kind: "table" } as Block)}
-          />
-        </div>
+    <TableGrid
+      label={`Table in ${where}`}
+      rows={table.rows.length}
+      cols={cols}
+      head={head}
+      readOnly={readOnly}
+      grip={grip}
+      autoFocus={autoFocus}
+      rowName={rowName}
+      colName={colName}
+      cell={(r, c, focused) => (
+        <TableCell
+          cell={table.rows[r].cells[c]}
+          head={table.rows[r].head}
+          focused={focused}
+          id={`${idBase}-r${r}c${c}`}
+          label={`${where}, ${lower(rowName(r))}, ${lower(colName(c))}`}
+          images={images}
+          url={url}
+          readOnly={readOnly}
+          lockedBy={lockedBy}
+          onText={onText}
+          onAddFiles={onAddFiles}
+          onDropBlock={onDropBlock}
+          onRemove={onRemove}
+          onOpen={onOpen}
+          onOpenSource={onOpenSource}
+        />
       )}
-    </div>
+      onInsertRow={(at) => onFieldText(insertRow(text, table, at))}
+      onDeleteRow={(r) => onFieldText(dropRow(text, table, r), `${rowName(r)} deleted`)}
+      onMoveRow={(r, to) => onFieldText(moveRow(text, table, r, to))}
+      onInsertCol={(at) => onFieldText(insertCol(text, table, at))}
+      onDeleteCol={(c) => onFieldText(dropCol(text, table, c), `${colName(c)} deleted`)}
+      onMoveCol={(c, to) => onFieldText(moveCol(text, table, c, to))}
+      onHead={(on) => onFieldText(setHead(text, table, on))}
+      onDelete={() => onRemove({ ...table, kind: "table" } as Block)}
+    />
   );
 }

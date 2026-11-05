@@ -81,6 +81,14 @@ const styles = stylex.create({
   },
   bareMulti: { minHeight: `calc(${lineHeight.body} * 2 + ${space.s5})` },
   bareStill: { backgroundColor: "transparent", borderWidth: 0 },
+  cell: {
+    minHeight: size.controlSm,
+    paddingBlock: space.s2,
+    paddingInline: space.s3,
+    borderWidth: 0,
+    borderRadius: 0,
+    backgroundColor: "transparent",
+  },
   wraps: {
     flexWrap: "wrap",
     alignItems: "center",
@@ -166,8 +174,8 @@ export type TextProps = {
   /** the lines a multiline field shows at least (it grows with its text beyond them) */
   rows?: number;
   /** boxed (forms, dialogs, settings) · inline (the step editor: no edge until hovered or focused) · bare (inside a
-   * frame that draws the edge: the Claude block) */
-  appearance?: "boxed" | "inline" | "bare";
+   * frame that draws the edge: the Claude block) · cell (a table's cell: no edge and no halo, the grid draws its focus) */
+  appearance?: "boxed" | "inline" | "bare" | "cell";
   size?: "sm" | "md";
   /** the test summary: 16 px semibold, single line */
   title?: boolean;
@@ -267,7 +275,8 @@ function TextField(p: TextProps) {
   const multiline = p.multiline === true && !p.title;
   const claude = p.lockedBy === "claude";
   const locked = claude || p.readOnly === true;
-  const inline = p.appearance === "inline";
+  const cell = p.appearance === "cell";
+  const inline = p.appearance === "inline" || cell;
   const a = p.autosave;
 
   const value = p.value;
@@ -364,7 +373,7 @@ function TextField(p: TextProps) {
       <div
         {...stylex.props(
           styles.box,
-          halo.within,
+          !cell && halo.within,
           multiline && styles.multi,
           p.size === "sm" && styles.sm,
           inline && styles.inline,
@@ -381,6 +390,7 @@ function TextField(p: TextProps) {
           p.disabled && styles.disabled,
           p.appearance === "bare" && (locked || p.disabled) && styles.bareStill,
           p.leading !== undefined && styles.wraps,
+          cell && styles.cell,
         )}
       >
         {p.icon && (

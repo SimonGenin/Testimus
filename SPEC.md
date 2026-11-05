@@ -1180,10 +1180,24 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
     else), the requirement field is chips, and a field the project lacks says « not in Xray ». Split layout puts
     every open field in one grid row (a field 1fr, Expected 1.25fr beside Action alone, a line field .6fr, a text
     field .8fr) and stacks below 760 px of card. An empty field is its insert strip alone (16 px gutter costing 8 px,
-    buttons fade in under the pointer, a table cell's strips show on cell hover). Paste of a screenshot outside a
-    text block appends it to the field. A block's ✕ (text, table, image) offers Undo of that field only; a removed
+    buttons fade in under the pointer). Paste of a screenshot outside a
+    text block appends it to the field. A block's ✕ (text, image) and Delete table offer Undo of that field only; a removed
     screenshot no step embeds any more, and a detached « not embedded » attachment (its own ✕), is deleted from
     `images/` when the Undo expires (`tests.removeImage`, which refuses a file test.md still lists).
+  - **Tests — table block** (a wiki table in a field, kit `TableGrid`): nothing in it shows only under the pointer.
+    Above the table a bar: its grip, « Table », « N rows · M columns » and its menu (Add row, Add column, Header row,
+    Delete table). « Add row » under the last row and « + » after the last column are always there. A cell is a
+    text field (Text, appearance cell) and the pictures pasted or dropped in it — no grip, ✕ or insert strip inside;
+    the field shows the text between Xray's padding spaces (« | Fermé | ») and a cell's edit is a plain splice of
+    the field (never a blank line, never a line starting with | — that would end the table or start a row). The cell
+    being written is outlined, and its row and its column get a handle on their edge whose menu inserts above/below
+    (left/right), moves (Alt Shift ↑↓←→) and deletes; the first row's menu has Header row (`||` separators on or
+    off). A right click or Shift F10 on a cell opens both groups at once. Tab / Shift Tab go cell to cell, Tab in the
+    last cell adds a row, Escape leaves the table. A row is named by its first cell (« Row « PK voie 1 » »), a
+    column by its head (« Column « Unité » »), a number only when blank. Deleting a row, a column or the table is
+    immediate with an Undo of that field. A new table has blank heads (« Column name » as a placeholder) and the
+    focus in its first head. Columns are 160 px at least (a large thumbnail); a wider table scrolls in its frame.
+    Read-only (Review, an earlier version, a test Claude holds): the grid alone.
   - **Review** — three columns: queue (review.queue; filter All/Checked/To fix, sort Most issues/State/Folder/
     Recent, Only with findings, folder; when it holds tests of more than one generation, the latest generation's
     tests come first under « Generated <when> », the others under « Earlier », and J/K follow that order), the test read-only (findings placed on their step, test-level ones on top, stale
@@ -1347,9 +1361,9 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
   sits on a light tile at the top of the rail and on the first-launch screen.
 - Built on one kit (GOAL-V3, 2026-11-04): every control is a component of `src/ui/components/ui/` (Button, Text,
   ClaudeBlock, Chip, SourceChip, ChipField, Select, Checkbox, RadioGroup, Switch, Segmented, Menu, Popover, Modal,
-  Toast, Tooltip, Banner, Badge, List, ListItem, Tabs, Skeleton, ResizeHandle, Table, EmptyState, Progress, Card,
+  Toast, Tooltip, Banner, Badge, List, ListItem, Tabs, Skeleton, ResizeHandle, Table, TableGrid, EmptyState, Progress, Card,
   Disclosure, Timeline, RailItem, Marked, Icon, Spinner, Kbd); a screen assembles them. `Text` is every field (boxed,
-  inline in a step, bare), with its save state, Claude's lock and its autosave; `ClaudeBlock` is every place Claude is
+  inline in a step, bare, a table's cell), with its save state, Claude's lock and its autosave; `ClaudeBlock` is every place Claude is
   asked (contexts, quick asks, model and effort, scope, the run and its cancel) and is built on `Text`. The pieces of
   the design that are not controls are in the kit too (2026-11-04, design-system pass): `type.ts` (the text styles,
   caption … display, with the titles' letter spacing, and the face alone — a screen composes them and never sets a

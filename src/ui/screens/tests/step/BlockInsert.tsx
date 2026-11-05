@@ -97,7 +97,6 @@ const takes = (e: React.DragEvent) => ["Files", MOVE].some((t) => e.dataTransfer
 export function BlockInsert({
   empty,
   edge,
-  table,
   onText,
   onImage,
   onTable,
@@ -106,7 +105,6 @@ export function BlockInsert({
   empty?: boolean;
   /** the strip before a field's first block or after its last one */
   edge?: "first" | "last";
-  table: boolean;
   onText: () => void;
   onImage: (files: File[]) => void;
   onTable: () => void;
@@ -158,7 +156,7 @@ export function BlockInsert({
             label="Image"
             pick={{ accept: "image/*", multiple: true, onFiles: onImage }}
           />
-          {table && <Button variant="quiet" size="sm" icon="table" label="Table" onClick={onTable} />}
+          <Button variant="quiet" size="sm" icon="table" label="Table" onClick={onTable} />
         </span>
       </div>
     </fieldset>

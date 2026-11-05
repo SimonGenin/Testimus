@@ -18,7 +18,7 @@ const leave = (el: HTMLElement, related: Node | null) => {
   fireEvent(el, ev);
 };
 
-const fb = (text: string, over: { readOnly?: boolean; nested?: boolean } = {}) => {
+const fb = (text: string, over: { readOnly?: boolean } = {}) => {
   const h = {
     onText: vi.fn(),
     onAddFiles: vi.fn(),
@@ -64,10 +64,6 @@ describe("FieldBlocks", () => {
     expect(screen.queryByRole("button", { name: /Delete this text/ })).toBeNull();
     fireEvent.change(box, { target: { value: "typed" } });
     expect(onText).toHaveBeenCalledWith(0, 0, "typed");
-    cleanup();
-    const nested = fb("", { nested: true });
-    expect(nested.container.querySelector('[data-testid="blocks"][data-empty]')).not.toBeNull();
-    expect(screen.queryByRole("button", { name: "Table" })).toBeNull();
     cleanup();
     const ro = fb("", { readOnly: true });
     expect(ro.container.querySelector('[data-testid="blocks"][data-empty]')).not.toBeNull();
@@ -265,59 +261,162 @@ describe("FieldBlocks", () => {
 
 describe("TableBlock", () => {
   const TABLE = "Intro\n\n||H1||H2||\n|a|b|\n|c|";
+  const B = "Action of step 1, row « a », column « H2 »";
 
-  it("edits a cell and forwards every cell action at field offsets", () => {
-    const { onText, onAddFiles, onDropBlock, onRemove, onFieldText } = fb(TABLE);
-    const cell = screen.getByLabelText("Action, row 2 column 2 of step 1");
+  const focus = (label: string) => {
+    const box = screen.getByLabelText(label);
+    fireEvent.focus(box);
+    return box as HTMLTextAreaElement;
+  };
+  const pick = (handle: string, item: string) => {
+    fireEvent.click(screen.getByRole("button", { name: handle }));
+    fireEvent.click(screen.getByRole("menuitem", { name: new RegExp(`^${item}`) }));
+  };
+
+  it("edits a cell between Xray's padding spaces, at field offsets, with no tools inside the cell", () => {
+    const { onText, onAddFiles, onDropBlock, onFieldText } = fb(TABLE);
+    const cell = screen.getByLabelText(B);
     expect(cell).toHaveValue("b");
     fireEvent.change(cell, { target: { value: "B!" } });
     const at = TABLE.indexOf("|b|") + 1;
     expect(onText).toHaveBeenCalledWith(at, at + 1, "B!");
-    fireEvent.click(screen.getByRole("button", { name: "Delete this text of Action, row 2 column 2 of step 1" }));
-    expect(onRemove).toHaveBeenCalledWith(expect.objectContaining({ at, end: at + 1 }));
-    const zone = cell.closest('[data-testid="blocks"]')?.querySelector('[data-testid="block-insert"]') as HTMLElement;
+    const grid = within(screen.getByRole("table", { name: "Table in Action of step 1" }));
+    expect(grid.queryByRole("button", { name: /Delete/ })).toBeNull();
+    expect(grid.queryByRole("button", { name: "Text" })).toBeNull();
     const shot = new File(["x"], "s.png", { type: "image/png" });
-    fireEvent.drop(zone, dt({ types: ["Files"], files: [shot] }));
-    expect(onAddFiles).toHaveBeenCalledWith(at, [shot]);
-    fireEvent.drop(zone, dt({ types: [MOVE], move: JSON.stringify({ step: 1, file: "f" }) }));
-    expect(onDropBlock).toHaveBeenCalledWith(at, { step: 1, file: "f" });
+    (cell as HTMLTextAreaElement).setSelectionRange(1, 1);
+    fireEvent.paste(cell, { clipboardData: { files: [shot] } });
+    expect(onAddFiles).toHaveBeenLastCalledWith(at + 1, [shot]);
+    const td = cell.closest("td") as HTMLElement;
+    fireEvent.drop(td.firstElementChild as HTMLElement, dt({ types: ["Files"], files: [shot] }));
+    expect(onAddFiles).toHaveBeenLastCalledWith(at + 1, [shot]);
+    fireEvent.drop(
+      td.firstElementChild as HTMLElement,
+      dt({ types: [MOVE], move: JSON.stringify({ step: 1, file: "f" }) }),
+    );
+    expect(onDropBlock).toHaveBeenCalledWith(at + 1, { step: 1, file: "f" });
     expect(screen.getByRole("columnheader", { name: /H1/ })).toHaveAttribute("scope", "col");
-    expect(screen.getAllByRole("textbox", { name: /row 3 column \d of step 1/ })).toHaveLength(1);
+    expect(screen.getAllByRole("textbox", { name: /row « c »/ })).toHaveLength(1);
     expect(onFieldText).not.toHaveBeenCalled();
+    cleanup();
+    const padded = fb("| Fermé | |");
+    const f = screen.getByLabelText("Action of step 1, row « Fermé », column 1");
+    expect(f).toHaveValue("Fermé");
+    fireEvent.change(f, { target: { value: "Fermé " } });
+    expect(padded.onText).toHaveBeenLastCalledWith(2, 7, "Fermé ");
+    const blank = screen.getByLabelText("Action of step 1, row « Fermé », column 2");
+    expect(blank).toHaveValue("");
+    fireEvent.change(blank, { target: { value: "x" } });
+    expect(padded.onText).toHaveBeenLastCalledWith(9, 10, " x ");
   });
 
-  it("adds and deletes rows and columns, and deletes the table", () => {
+  it("names a new table's heads by a placeholder, and shows the cell hint only where the focus is", () => {
+    fb("|| || ||\n| | |");
+    const head = screen.getByLabelText("Action of step 1, header row, column 1");
+    expect(head).toHaveAttribute("placeholder", "Column name");
+    const body = screen.getByLabelText("Action of step 1, row 1, column 1");
+    expect(body).not.toHaveAttribute("placeholder");
+    fireEvent.focus(body);
+    expect(screen.getByLabelText("Action of step 1, row 1, column 1")).toHaveAttribute(
+      "placeholder",
+      "Type, or paste an image",
+    );
+  });
+
+  it("acts on the row and the column of the cell being written, from their handles, with Undo for what goes", () => {
     const { onFieldText, onRemove } = fb(TABLE);
-    fireEvent.click(screen.getByRole("button", { name: "Delete column 2" }));
-    expect(onFieldText).toHaveBeenLastCalledWith("Intro\n\n||H1||\n|a|\n|c|");
-    fireEvent.click(screen.getByRole("button", { name: "Delete row 3" }));
-    expect(onFieldText).toHaveBeenLastCalledWith("Intro\n\n||H1||H2||\n|a|b|");
+    expect(screen.queryByRole("button", { name: /Options for/ })).toBeNull();
+    focus(B);
+    pick("Options for column « H2 »", "Delete column");
+    expect(onFieldText).toHaveBeenLastCalledWith("Intro\n\n||H1||\n|a|\n|c|", "Column « H2 » deleted");
+    focus(B);
+    pick("Options for row « a »", "Delete row");
+    expect(onFieldText).toHaveBeenLastCalledWith("Intro\n\n||H1||H2||\n|c|", "Row « a » deleted");
+    focus(B);
+    pick("Options for row « a »", "Insert row below");
+    expect(onFieldText).toHaveBeenLastCalledWith("Intro\n\n||H1||H2||\n|a|b|\n| | |\n|c|");
+    focus(B);
+    pick("Options for row « a »", "Move down");
+    expect(onFieldText).toHaveBeenLastCalledWith("Intro\n\n||H1||H2||\n|c|\n|a|b|");
+    focus(B);
+    pick("Options for column « H2 »", "Move left");
+    expect(onFieldText).toHaveBeenLastCalledWith("Intro\n\n||H2||H1||\n|b|a|\n|c|");
+    focus("Action of step 1, header row, column « H1 »");
+    fireEvent.click(screen.getByRole("button", { name: "Options for header row" }));
+    expect(screen.getByRole("menuitem", { name: "Insert row above" })).toHaveAttribute("aria-disabled", "true");
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Header row" }));
+    expect(onFieldText).toHaveBeenLastCalledWith("Intro\n\n|H1|H2|\n|a|b|\n|c|");
     fireEvent.click(screen.getByRole("button", { name: "Add row" }));
     expect(onFieldText).toHaveBeenLastCalledWith(`${TABLE}\n| | |`);
     fireEvent.click(screen.getByRole("button", { name: "Add column" }));
     expect(onFieldText).toHaveBeenLastCalledWith("Intro\n\n||H1||H2|| ||\n|a|b| |\n|c| |");
-    fireEvent.click(screen.getByRole("button", { name: "Remove the table" }));
+    fireEvent.click(screen.getByRole("button", { name: "Table options" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete table" }));
     expect(onRemove).toHaveBeenLastCalledWith(expect.objectContaining({ kind: "table" }));
   });
 
-  it("is read-only without grips or operations", () => {
-    fb(TABLE, { readOnly: true });
-    expect(screen.queryByRole("button", { name: /Delete column/ })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Add row" })).toBeNull();
-    expect(screen.getByLabelText("Action, row 1 column 1 of step 1")).toHaveAttribute("readonly");
+  it("opens the cell's actions on a right click or Shift F10, and moves with the keyboard", () => {
+    const { onFieldText } = fb("||H||I||\n|a|b|");
+    const a = focus("Action of step 1, row « a », column « H »");
+    fireEvent.contextMenu(a.closest("td") as HTMLElement);
+    const menu = screen.getByRole("menu");
+    expect(within(menu).getByRole("group", { name: "Row « a »" })).toBeInTheDocument();
+    expect(within(menu).getByRole("group", { name: "Column « H »" })).toBeInTheDocument();
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "Delete column" }));
+    expect(onFieldText).toHaveBeenLastCalledWith("||I||\n|b|", "Column « H » deleted");
+    fireEvent.keyDown(a, { key: "ArrowRight", altKey: true, shiftKey: true });
+    expect(onFieldText).toHaveBeenLastCalledWith("||I||H||\n|b|a|");
+    fireEvent.keyDown(a, { key: "F10", shiftKey: true });
+    expect(screen.getByRole("menu")).toBeInTheDocument();
   });
 
-  it("passes a nested table rewrite through at the cell offsets, with no table button in a cell", () => {
-    const h = fb("||a|||b||");
-    const cell = screen.getByLabelText("Action, row 1 column 1 of step 1");
-    expect(
-      within(cell.closest('[data-testid="blocks"]') as HTMLElement).queryByRole("button", { name: "Table" }),
-    ).toBeNull();
-    const rows = screen.getAllByRole("button", { name: "Delete row 1" });
-    expect(rows).toHaveLength(2);
-    const inner = rows.find((b) => b.closest("table")?.parentElement?.closest("table"));
-    fireEvent.click(inner as HTMLElement);
-    expect(h.onFieldText).toHaveBeenLastCalledWith("||a||||");
+  it("goes from cell to cell with Tab, and Tab in the last cell adds a row", () => {
+    const { onFieldText } = fb("||H||I||\n|a|b|");
+    const a = focus("Action of step 1, row « a », column « H »");
+    fireEvent.keyDown(a, { key: "Tab" });
+    expect(document.activeElement).toBe(screen.getByLabelText("Action of step 1, row « a », column « I »"));
+    const b = focus("Action of step 1, row « a », column « I »");
+    fireEvent.keyDown(b, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(a);
+    fireEvent.keyDown(focus("Action of step 1, row « a », column « I »"), { key: "Tab" });
+    expect(onFieldText).toHaveBeenLastCalledWith("||H||I||\n|a|b|\n| | |");
+    cleanup();
+    const { rerender, onFieldText: grow } = fb("||H||I||\n|a|b|");
+    fireEvent.keyDown(focus("Action of step 1, row « a », column « I »"), { key: "Tab" });
+    rerender(
+      <FieldBlocks
+        idBase="s0-Action"
+        name="Action"
+        label="Action"
+        text={grow.mock.lastCall?.[0] as string}
+        images={images}
+        url={(f) => `/u/${f}`}
+        stepNumber={1}
+        onText={vi.fn()}
+        onAddFiles={vi.fn()}
+        onFieldText={grow}
+        onDropBlock={vi.fn()}
+        onRemove={vi.fn()}
+        onOpen={vi.fn()}
+      />,
+    );
+    expect(document.activeElement).toBe(screen.getByLabelText("Action of step 1, row 2, column « H »"));
+  });
+
+  it("is read-only without its bar, handles or ways to grow", () => {
+    fb(TABLE, { readOnly: true });
+    expect(screen.queryByRole("button", { name: "Table options" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Add row" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Add column" })).toBeNull();
+    fireEvent.focus(screen.getByLabelText(B));
+    expect(screen.queryByRole("button", { name: /Options for/ })).toBeNull();
+    expect(screen.getByLabelText(B)).toHaveAttribute("readonly");
+  });
+
+  it("shows a cell's markup it cannot read as raw text", () => {
+    fb("||a|||b||");
+    expect(screen.getByText("Xray markup this editor cannot read")).toBeInTheDocument();
+    expect(screen.queryByRole("table", { name: /Table in/ })?.querySelector("table")).toBeNull();
   });
 });
 

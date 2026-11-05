@@ -1,7 +1,21 @@
 import { describe, expect, it } from "vitest";
 import type { Step } from "../../../../src/core/types.ts";
 import { blankStep, blocksOf, hasRawEmbed, imageRef, leafBlocks } from "../../../../src/ui/lib/blocks.ts";
-import { addCol, addRow, dropCol, dropRow, NEW_TABLE, tablesIn, width } from "../../../../src/ui/lib/table.ts";
+import {
+  addCol,
+  addRow,
+  dropCol,
+  dropRow,
+  hasHead,
+  insertCol,
+  insertRow,
+  moveCol,
+  moveRow,
+  NEW_TABLE,
+  setHead,
+  tablesIn,
+  width,
+} from "../../../../src/ui/lib/table.ts";
 
 const cellsOf = (text: string) => tablesIn(text).map((t) => t.rows.map((r) => r.cells.map((c) => c.text)));
 
@@ -66,10 +80,37 @@ describe("ui table", () => {
   it("offers a two-column starter table", () => {
     expect(cellsOf(NEW_TABLE)).toEqual([
       [
-        ["Heading", "Heading"],
+        [" ", " "],
         [" ", " "],
       ],
     ]);
+    expect(tablesIn(NEW_TABLE)[0].rows.map((r) => r.head)).toEqual([true, false]);
+  });
+
+  it("inserts a row or a column where asked, the header's separators kept", () => {
+    const text = "||H1||H2||\n|a|b|";
+    const t = tablesIn(text)[0];
+    expect(insertRow(text, t, 1)).toBe("||H1||H2||\n| | |\n|a|b|");
+    expect(insertRow(text, t, 2)).toBe("||H1||H2||\n|a|b|\n| | |");
+    expect(insertCol(text, t, 0)).toBe("|| ||H1||H2||\n| |a|b|");
+    expect(insertCol(text, t, 1)).toBe("||H1|| ||H2||\n|a| |b|");
+    expect(insertCol(text, t, 2)).toBe("||H1||H2|| ||\n|a|b| |");
+    const ragged = "||H1||H2||\n|a|";
+    expect(insertCol(ragged, tablesIn(ragged)[0], 1)).toBe("||H1|| ||H2||\n|a| |");
+  });
+
+  it("moves rows and columns by swapping their text, and turns the header row on and off", () => {
+    const text = "x\n\n||H1||H2||\n|a|b|\n|c|d|\n\ny";
+    const t = tablesIn(text)[0];
+    expect(moveRow(text, t, 1, 2)).toBe("x\n\n||H1||H2||\n|c|d|\n|a|b|\n\ny");
+    expect(moveRow(text, t, 2, 1)).toBe("x\n\n||H1||H2||\n|c|d|\n|a|b|\n\ny");
+    expect(moveCol(text, t, 0, 1)).toBe("x\n\n||H2||H1||\n|b|a|\n|d|c|\n\ny");
+    expect(moveRow(text, t, 1, 1)).toBe(text);
+    expect(hasHead(t)).toBe(true);
+    const off = setHead(text, t, false);
+    expect(off).toBe("x\n\n|H1|H2|\n|a|b|\n|c|d|\n\ny");
+    expect(setHead(off, tablesIn(off)[0], true)).toBe(text);
+    expect(setHead(text, t, true)).toBe(text);
   });
 });
 

@@ -2,7 +2,7 @@ import type { Block, Step, StepImage } from "../../../../core/types.ts";
 import { imageRef } from "../../../lib/blocks.ts";
 import { errorToast, toast } from "../../../lib/toast.ts";
 import type { Moved } from "./moved.ts";
-import { cut, embeds, fileName, gap, put, setField } from "./stepText.ts";
+import { cut, embeds, fileName, gap, inTable, put, setField } from "./stepText.ts";
 
 export type StepEditsInput = {
   step: Step;
@@ -21,8 +21,10 @@ export function useStepEdits({ step, n, onChange, addImage, onImageGone, alive }
   const setText = (name: string, at: number, end: number, value: string) =>
     onChange((s) => {
       const cur = s.fields[name] ?? "";
-      const next =
-        at === end
+      // ponytail: a table cell's text is written as typed — its spaces and its line breaks are the cell's own
+      const next = inTable(cur, at)
+        ? cur.slice(0, at) + value + cur.slice(end)
+        : at === end
           ? value.trim()
             ? put(cur, at, value)
             : cur
@@ -32,7 +34,11 @@ export function useStepEdits({ step, n, onChange, addImage, onImageGone, alive }
       return setField(s, name, next);
     });
 
-  const setWhole = (name: string, value: string) => onChange((s) => setField(s, name, value));
+  const setWhole = (name: string, value: string, undo?: string) => {
+    const before = step.fields[name] ?? "";
+    onChange((s) => setField(s, name, value));
+    if (undo) undoable(undo, name, before);
+  };
 
   const addFiles = async (name: string, at: number, files: File[]) => {
     const images = files.filter((f) => f.type.startsWith("image/"));

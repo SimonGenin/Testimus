@@ -194,6 +194,9 @@ export type MenuProps = {
   block?: boolean;
   /** a long list: a field above the items filters them by what is typed (its placeholder) */
   search?: string;
+  /** opened by the program too (a right click elsewhere, Shift F10): the open state and its changes */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 
 type Section = { group?: string; entries: (MenuItem | "separator" | { note: string })[] };
@@ -231,9 +234,17 @@ export function Menu({
   listbox = false,
   block = false,
   search,
+  open: openProp,
+  onOpenChange,
 }: MenuProps) {
   const id = useId();
-  const [open, setOpen] = useState(false);
+  const [own, setOwn] = useState(false);
+  const open = openProp ?? own;
+  const setOpen = (next: boolean | ((was: boolean) => boolean)) => {
+    const v = typeof next === "function" ? next(open) : next;
+    if (openProp === undefined) setOwn(v);
+    onOpenChange?.(v);
+  };
   const [query, setQuery] = useState("");
   const field = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
   const shown = open || debugState === "open";

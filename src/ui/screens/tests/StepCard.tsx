@@ -178,7 +178,7 @@ export function StepCard({
           edits.setText(c.name, at, end, v);
         }}
         onAddFiles={(at, files) => void edits.addFiles(c.name, at, files)}
-        onFieldText={(next) => edits.setWhole(c.name, next)}
+        onFieldText={(next, undo) => edits.setWhole(c.name, next, undo)}
         onDropBlock={(at, moved) => edits.dropBlock(c.name, at, moved)}
         onRemove={(b) => edits.removeBlock(c.name, b)}
         onOpen={(file) => onOpenImage?.(file, step.images, c.name)}

@@ -86,7 +86,10 @@ describe("put and cut", () => {
   it("join with a blank line, or a single line break inside a table", () => {
     expect(put("ab", 1, "X")).toBe("a\n\nX\n\nb");
     expect(put("", 0, "X")).toBe("X");
-    expect(put("|a|b|", 3, "X")).toBe("|a|\nX\nb|");
+    expect(put("|a|b|", 3, "X")).toBe("|a| X\nb|");
+    expect(put("| a |", 4, "![](x)")).toBe("| a\n![](x) |");
+    expect(put("| |", 1, "X")).toBe("| X |");
+    expect(cut("| a\n![](x) |", 4, 10)).toBe("| a |");
     expect(cut("a  X  b", 3, 4)).toBe("a\n\nb");
     expect(cut("X", 0, 1)).toBe("");
   });
@@ -129,7 +132,8 @@ describe("StepCard editing", () => {
   it("removes a table with its own toast title, and undoes without a token", () => {
     const step = { ...base, fields: { Action: "|a|" } };
     const { apply } = card(step);
-    fireEvent.click(screen.getByRole("button", { name: "Remove the table" }));
+    fireEvent.click(screen.getByRole("button", { name: "Table options" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete table" }));
     expect(toasts[0].title).toBe("Table removed");
     toasts[0].action?.run();
     expect(apply({ ...base, fields: {} }).fields.Action).toBe("|a|");
@@ -172,8 +176,13 @@ describe("StepCard editing", () => {
     const { apply } = card({ ...base, fields: { Action: "|a|b|" } });
     fireEvent.click(screen.getByRole("button", { name: "Add row" }));
     expect(apply().fields.Action).toBe("|a|b|\n| | |");
-    fireEvent.click(screen.getByRole("button", { name: "Delete row 1" }));
-    expect(apply().fields.Action).toBeUndefined();
+    fireEvent.focus(screen.getByLabelText("Action of step 2, row « a », column 2"));
+    fireEvent.click(screen.getByRole("button", { name: "Options for column 2" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete column" }));
+    expect(apply().fields.Action).toBe("|a|");
+    expect(toasts.at(-1)).toMatchObject({ title: "Column 2 deleted", detail: "Action of step 2" });
+    toasts.at(-1)?.action?.run();
+    expect(apply({ ...base, fields: { Action: "|a|" } }).fields.Action).toBe("|a|b|");
   });
 
   it("edits smart columns as text, and notes columns not in Xray", () => {

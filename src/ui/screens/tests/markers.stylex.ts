@@ -6,6 +6,5 @@ import * as stylex from "@stylexjs/stylex";
 export const stepMarker = stylex.defineMarker();
 export const stripMarker = stylex.defineMarker();
 export const blockMarker = stylex.defineMarker();
-export const tableMarker = stylex.defineMarker();
 export const hintMarker = stylex.defineMarker();
 export const fieldMarker = stylex.defineMarker();
