@@ -52,30 +52,6 @@ export function flip(toc: TocEntry[], up: number[], picked: string[], i: number)
   return [...picked.filter((p) => p !== toc[path[top]].anchor), ...keep];
 }
 
-// the text a heading carries before its first sub-heading, as plain paragraphs (markers dropped, a figure
-// becomes its caption)
-export function ownText(md: string): string[] {
-  const lines = md.split(/\r?\n/);
-  const body: string[] = [];
-  for (const [k, line] of lines.entries()) {
-    if (k > 0 && /^#{1,6}\s/.test(line)) break;
-    if (k === 0 && /^#{1,6}\s/.test(line)) continue;
-    body.push(line);
-  }
-  return body
-    .join("\n")
-    .split(/\n\s*\n/)
-    .map((p) =>
-      p
-        .replace(/<!--[\s\S]*?-->/g, "")
-        .replace(/!\[([^\]]*)\]\([^)]*\)/g, "[$1]")
-        .replace(/\*\*?/g, "")
-        .replace(/\s+/g, " ")
-        .trim(),
-    )
-    .filter(Boolean);
-}
-
 export function scopeOf(scopes: Record<string, DocScope>, ids: string[]): { docs: string[]; sections: string[] } {
   const docs: string[] = [];
   const sections: string[] = [];
