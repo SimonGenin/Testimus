@@ -13,8 +13,6 @@ import { activityOf, DOING } from "../../lib/activity.ts";
 import { useApp } from "../../lib/app.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { color, container, size, space } from "../../styles/tokens.stylex.ts";
-import { openInEditor } from "../review/useReview.ts";
-import type { Listed } from "../tests/list/tree.ts";
 import { LandedCard } from "./GenCard.tsx";
 import { checkLine, failedRun, GenSummary, RunHead } from "./GenResult.tsx";
 import type { Generation } from "./useGeneration.ts";
@@ -45,8 +43,8 @@ const styles = stylex.create({
   grow: { flex: 1 },
 });
 
-// ponytail: « Fold all » folds everything the pane folds — the tests (the ones still to come too), what Claude did and
-// what was not covered; all starts folded; flip holds what was toggled by hand since
+// ponytail: « Fold all » folds everything the pane folds — what Claude did and what was not covered; all starts folded;
+// flip holds what was toggled by hand since
 type Fold = { all: boolean; flip: Set<string> };
 const ACTIVITY = "activity";
 const SKIPPED = "skipped";
@@ -152,7 +150,7 @@ export function ResultPane({
           onOpenJob={job ? () => app.navigate("jobs", job.id) : undefined}
           onResume={() => stopped?.generation && onResume(stopped.generation)}
           onRetry={onRetry}
-          allFolded={[...ids, ACTIVITY, ...(result?.skipped?.length ? [SKIPPED] : [])].every((id) => !isOpen(id))}
+          allFolded={[ACTIVITY, ...(result?.skipped?.length ? [SKIPPED] : [])].every((id) => !isOpen(id))}
           onFoldAll={(all) => setFold({ all, flip: new Set() })}
         />
         {result && (
@@ -180,14 +178,7 @@ export function ResultPane({
       check={checkOf(id)}
       writing={running && i === ids.length - 1}
       checking={running && i < ids.length - 1}
-      xray={app.xray}
-      open={isOpen(id)}
-      onToggle={() => toggle(id)}
       onOpen={() => app.navigate("review", id)}
-      onEdit={() =>
-        openInEditor(app.navigate, id, (refs.data as Listed[] | undefined)?.find((r) => r.id === id)?.awaiting ?? true)
-      }
-      onSource={app.openSource}
     />
   ));
   const asked = askedOf(job, app.info?.project.claude);

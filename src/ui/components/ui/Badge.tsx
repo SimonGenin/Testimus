@@ -283,8 +283,10 @@ export function jiraStatus(status: string): Word {
   return { label: status, tone: "neutral", icon: "circle-dashed" };
 }
 
+// ponytail: a state the page does not know (an older run's `checked`, a result with none) reads as draft, never as an
+// empty badge
 export function ReviewBadge({ state, size: s }: { state: ReviewState; size?: "sm" | "md" }) {
-  return <Badge {...REVIEW[state]} size={s} />;
+  return <Badge {...(REVIEW[state] ?? REVIEW.draft)} size={s} />;
 }
 
 export function SeverityBadge({ severity, size: s }: { severity: Severity; size?: "sm" | "md" }) {

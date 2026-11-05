@@ -69,7 +69,7 @@ test("a landed test opens for review with its findings", async ({ page }) => {
   await result
     .getByRole("region", { name: /^Sectionneur avec TK/ })
     .first()
-    .getByRole("button", { name: "Open in Review" })
+    .getByRole("button", { name: "Review", exact: true })
     .click();
   await expect(page).toHaveURL(/#\/(tests|review)\/local-[0-9a-f]{8}$/);
   const under = page.getByRole("region", { name: "Test under review" });

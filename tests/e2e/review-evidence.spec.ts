@@ -13,7 +13,7 @@ test("a generated test shows the sources it read; a misplaced quote is not highl
   await result
     .getByRole("region", { name: /^Sectionneur avec TK/ })
     .first()
-    .getByRole("button", { name: "Open in Review" })
+    .getByRole("button", { name: "Review", exact: true })
     .click();
   await expect(page).toHaveURL(/#\/(tests|review)\/local-[0-9a-f]{8}$/);
   const under = page.getByRole("region", { name: "Test under review" });
