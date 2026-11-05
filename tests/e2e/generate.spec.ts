@@ -38,8 +38,8 @@ test("a request runs live, the tests land, and « Review these tests » opens th
     .getByRole("textbox", { name: "What should be tested?" })
     .fill("Le menu contextuel du sectionneur sur la vue de traction");
   await request.getByRole("button", { name: "Generate" }).click();
-  const replace = page.getByRole("alertdialog", { name: "Replace the tests not validated yet?" });
-  await expect(replace).toContainText("deletes the 1 test Claude wrote that is not validated yet");
+  const replace = page.getByRole("alertdialog", { name: "Delete 1 test before generating?" });
+  await expect(replace.getByRole("listbox", { name: "Tests to delete" }).getByRole("option")).toHaveCount(1);
   await shoot(page, "generate-replace");
   await replace.getByRole("button", { name: "Delete and generate" }).click();
   await expect(result.getByText("Claude is writing")).toBeVisible();

@@ -366,22 +366,42 @@ describe("Generate screen", () => {
       job: job({ id: "j2", status: "done", endedAt: at, result: output({ discarded: ["local-aaaaaaaa"] }) }),
       events: [],
     });
-    api.routes["gen.preview"] = () => ({ replaces: ["local-aaaaaaaa"], searched: ["D1"], unindexed: [], stale: [] });
+    api.routes["gen.preview"] = () => ({
+      replaces: ["local-aaaaaaaa", "local-bbbbbbbb"],
+      searched: ["D1"],
+      unindexed: [],
+      stale: [],
+    });
+    api.routes["tests.list"] = () => [
+      ref("local-aaaaaaaa", { summary: "Ouverture du sectionneur", stepCount: 4, edited: true }),
+      ref("local-bbbbbbbb", { summary: "Fermeture du sectionneur", review: "to-fix" }),
+      ref("LFRPS12-1", { summary: "Kept, in Jira", key: "LFRPS12-1" }),
+    ];
     const { app: a } = mountData(<GenerateScreen />);
     await screen.findByText("Traction");
     await waitFor(() => expect(go()).toBeEnabled());
     fireEvent.click(go());
-    const dialog = await screen.findByRole("alertdialog", { name: "Replace the tests not validated yet?" });
-    expect(dialog).toHaveTextContent("deletes the 1 test Claude wrote that is not validated yet");
-    expect(dialog).toHaveTextContent("test deleted for good with its screenshots");
-    expect(dialog).toHaveTextContent("local-aaaaaaaa");
+    const dialog = await screen.findByRole("alertdialog", { name: "Delete 2 tests before generating?" });
+    const rows = within(dialog).getByRole("listbox", { name: "Tests to delete" });
+    await waitFor(() => expect(within(rows).getAllByRole("option")).toHaveLength(2));
+    const [first, second] = within(rows).getAllByRole("option");
+    expect(first).toHaveTextContent("Ouverture du sectionneur");
+    expect(first).toHaveTextContent("local-aaaaaaaa · 4 steps");
+    expect(first).toHaveTextContent("Edited by you");
+    expect(first).toHaveTextContent("Draft");
+    expect(second).toHaveTextContent("Fermeture du sectionneur");
+    expect(second).toHaveTextContent("To fix");
+    expect(second).not.toHaveTextContent("Edited by you");
+    expect(dialog).not.toHaveTextContent("Kept, in Jira");
+    expect(dialog).toHaveTextContent("You edited 1 of them since Claude wrote them: those changes are lost too.");
+    expect(dialog).toHaveTextContent("Kept: validated tests and every test already in Jira.");
     fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
     expect(named("gen.tests")).toHaveLength(0);
     expect(named("gen.preview")[0].input).toEqual({ docs: ["D1"], sections: [] });
     fireEvent.click(go());
-    fireEvent.click(await screen.findByRole("button", { name: "validate it in Review first" }));
-    expect(a.navigate).toHaveBeenCalledWith("review", "local-aaaaaaaa");
+    fireEvent.click(await screen.findByRole("option", { name: /Fermeture du sectionneur/ }));
+    expect(a.navigate).toHaveBeenCalledWith("review", "local-bbbbbbbb");
     fireEvent.click(go());
     fireEvent.click(await screen.findByRole("button", { name: "Delete and generate" }));
     await waitFor(() => expect(named("gen.tests")).toHaveLength(1));

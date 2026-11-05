@@ -744,7 +744,7 @@ function fixtureShots(): Shot[] {
     // Last, because they change the project: generation, then the jobs it leaves
     {
       id: "generate-replace-dialog",
-      note: "Replace the tests not validated yet? (before generating)",
+      note: "Delete the tests not validated yet? (before generating)",
       hash: "#/generate",
       prep: async (p) => {
         await p.getByRole("textbox", { name: "What should be tested?" }).fill("Manœuvre des sectionneurs");

@@ -218,9 +218,9 @@ export function GenerateScreen() {
       {replacing && (
         <ReplaceTests
           ids={replacing}
-          onReview={() => {
+          onReview={(id) => {
             setReplacing(null);
-            app.navigate("review", replacing[0]);
+            app.navigate("review", id);
           }}
           onConfirm={() => {
             setReplacing(null);
