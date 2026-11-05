@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -57,6 +57,25 @@ describe("the project watcher", () => {
     expect(paths.has("CLAUDE.md")).toBe(true);
     expect([...paths].some((x) => x.startsWith(".testimus/jobs") || x.startsWith("index"))).toBe(false);
     expect(changed.every((e) => e.project === p && e.jobId === "")).toBe(true);
+  });
+
+  it("lets go of a project folder that is deleted, and watches it again once it is back", async () => {
+    const p = realpathSync(mkdtempSync(join(tmpdir(), "testimus-watch-")));
+    mkdirSync(join(p, "tests", "T1"), { recursive: true });
+    watchProject(p, 100);
+    await new Promise((r) => setTimeout(r, 150));
+    rmSync(p, { recursive: true, force: true });
+    await new Promise((r) => setTimeout(r, 300));
+    mkdirSync(join(p, "tests", "T1"), { recursive: true });
+    const l = listen();
+    watchProject(p, 100);
+    await new Promise((r) => setTimeout(r, 150));
+    writeFileSync(join(p, "tests", "T1", "test.md"), "back");
+    await vi.waitFor(
+      () => expect(l.events.some((e) => e.type === "changed" && e.paths.includes("tests/T1/test.md"))).toBe(true),
+      { timeout: 3000 },
+    );
+    l.stop();
   });
 });
 
